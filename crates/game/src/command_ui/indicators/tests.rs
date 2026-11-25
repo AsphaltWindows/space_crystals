@@ -12,6 +12,7 @@ fn indicator_colours_follow_the_colour_language() {
         Some(MOVE_COLOR)
     );
     assert_eq!(order_color(OrderKind::Attack(ObjectId(3))), Some(ATTACK_COLOR));
+    assert_eq!(order_color(OrderKind::AttackGround(p)), Some(ATTACK_COLOR));
     assert_eq!(order_color(OrderKind::AttackMove(p)), Some(AGGRESSIVE_COLOR));
     assert_eq!(order_color(OrderKind::Patrol(p)), Some(AGGRESSIVE_COLOR));
     assert_eq!(order_color(OrderKind::Hold), None);

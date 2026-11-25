@@ -22,6 +22,16 @@ pub fn atan2(y: f32, x: f32) -> f32 {
     libm::atan2f(y, x)
 }
 
+/// The arcsine of `x`, radians, `[-PI/2, PI/2]`; NaN outside `[-1, 1]`.
+pub fn asin(x: f32) -> f32 {
+    libm::asinf(x)
+}
+
+/// The square root of `x`, through `libm` like the rest of this module (IEEE-exact everywhere, as `f32::sqrt` is).
+pub fn sqrt(x: f32) -> f32 {
+    libm::sqrtf(x)
+}
+
 pub fn degrees_to_radians(deg: f32) -> f32 {
     deg * (PI / 180.0)
 }

@@ -7,6 +7,7 @@ use std::collections::BTreeMap;
 use serde::{Deserialize, Serializer};
 
 use super::{Sim, SimConfig};
+use crate::combat::Projectile;
 use crate::economy::Outcome;
 use crate::events::SimEvent;
 use crate::ids::{ObjectId, PlayerId};
@@ -45,6 +46,9 @@ pub(super) struct SimState {
     /// Optional, so that states saved before units could leave the map still load, and those without one since.
     #[serde(default)]
     held: Vec<Held>,
+    /// Optional, so that states saved before projectiles existed still load, and those without one in flight.
+    #[serde(default)]
+    projectiles: Vec<Projectile>,
     next_id: u32,
     rng: Rng,
     config: SimConfig,
@@ -67,6 +71,7 @@ impl TryFrom<SimState> for Sim {
             outcome,
             objects: list,
             held: held_list,
+            projectiles,
             next_id,
             rng,
             config,
@@ -102,6 +107,22 @@ impl TryFrom<SimState> for Sim {
                 return Err(format!("held unit id {} appears more than once", id.0));
             }
         }
+        // A projectile's objects have ids, which it may outlive (`combat::projectiles`); between ticks it is in flight.
+        for p in &projectiles {
+            if let Some(id) = [Some(p.shooter), p.target]
+                .into_iter()
+                .flatten()
+                .find(|id| id.0 >= next_id)
+            {
+                return Err(format!("projectile object id {} is not below next_id {next_id}", id.0));
+            }
+            if p.lands_at <= tick {
+                return Err(format!(
+                    "projectile due in tick {} of a state at tick {tick}",
+                    p.lands_at
+                ));
+            }
+        }
         // The Visible tiles follow from the objects, which is how phase 5f left them.
         let ids: Vec<PlayerId> = players.iter().map(|p| p.id).collect();
         if let Some(winner) = outcome.iter().flat_map(|o| &o.winners).find(|w| !ids.contains(w)) {
@@ -119,6 +140,7 @@ impl TryFrom<SimState> for Sim {
             outcome,
             objects,
             held,
+            projectiles,
             next_id,
             rng,
             config,

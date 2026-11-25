@@ -12,6 +12,7 @@ use glam::Vec2;
 
 use crate::combat::{inside_min_range, max_range, reaches};
 use crate::defs::AttackAttrs;
+use crate::elevation::Elevation;
 use crate::ids::ObjectId;
 use crate::math;
 use crate::mover::{MoveGoal, MoveStatus};
@@ -205,23 +206,31 @@ fn too_close(unit: &mut Unit, attrs: &AttackAttrs, state: &mut AttackOrder, targ
         }
     }
     if unit.may_move() {
-        let spot = back_off_spot(unit, attrs, target, world);
+        let gap = unit.shape().gap(&target.shape);
+        let spot = back_off_spot(unit, attrs, target.pos, gap, target.elevation, world);
         unit.mover.go_to(MoveGoal::Point(spot), None, world.tick);
         state.backing_off = Some(target.pos);
     }
     false
 }
 
-/// Where a unit backs off to from `target`, inside its MinRange ([`too_close`]): straight away from it (straight back
-/// from one right on top of it), as far as to bring the gap between them to the middle of the band from MinRange to
-/// Range, so that whatever the shapes make of the distance walked the unit passes through the band, where [`close_in`]
-/// stops it. Within the map; the path ends as near as the unit gets (`> MovingToLocation > Unreachable target
-/// location`).
-fn back_off_spot(unit: &Unit, attrs: &AttackAttrs, target: &View, world: &World) -> Vec2 {
-    let gap = unit.shape().gap(&target.shape);
+/// Where a unit backs off to from a target at `from` inside its MinRange, `gap` space units from it ([`too_close`];
+/// a location's too, `orders::attack_ground`): straight away from it (straight back from one right on top of it), as
+/// far as to bring the gap between them to the middle of the band from MinRange to Range (against a target at
+/// `elevation`), so that whatever the shapes make of the distance walked the unit passes through the band, where
+/// [`close_in`] stops it. Within the map; the path ends as near as the unit gets (`> MovingToLocation > Unreachable
+/// target location`).
+pub(super) fn back_off_spot(
+    unit: &Unit,
+    attrs: &AttackAttrs,
+    from: Vec2,
+    gap: f32,
+    elevation: Elevation,
+    world: &World,
+) -> Vec2 {
     let near = gu(attrs.min_range);
-    let far = max_range(attrs, world.elevation(unit), target.elevation).max(near);
-    let away = (unit.pos - target.pos)
+    let far = max_range(attrs, world.elevation(unit), elevation).max(near);
+    let away = (unit.pos - from)
         .try_normalize()
         .unwrap_or_else(|| -math::facing_vector(unit.facing));
     let size = Vec2::new(world.map.width() as f32, world.map.height() as f32) * SU_PER_GU;

@@ -269,6 +269,7 @@ pub fn every_command() -> Vec<Command> {
             origin: crate::units::TilePos::new(7, 3),
         },
         OrderKind::Enter(ObjectId(6)),
+        OrderKind::AttackGround(point),
     ];
     let mut commands: Vec<Command> = kinds
         .into_iter()
@@ -403,7 +404,8 @@ pub fn every_command() -> Vec<Command> {
                 | OrderKind::Gather(_)
                 | OrderKind::DropOff(_)
                 | OrderKind::Deploy { .. }
-                | OrderKind::Enter(_) => {}
+                | OrderKind::Enter(_)
+                | OrderKind::AttackGround(_) => {}
             },
             Command::Ability {
                 ability: Ability::RiotShield { .. } | Ability::SetDropOff(_) | Ability::Convert,

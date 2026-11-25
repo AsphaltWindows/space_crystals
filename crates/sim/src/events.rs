@@ -10,7 +10,7 @@ use crate::ids::{ObjectId, PlayerId};
 use crate::placement::PlacementCheck;
 use crate::production::Refusal;
 use crate::scenario::BuildingOrientation;
-use crate::units::TilePos;
+use crate::units::{Tick, TilePos};
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub enum SimEvent {
@@ -37,7 +37,9 @@ pub enum SimEvent {
         unit: ObjectId,
     },
     /// An attack took effect: `attacker`'s Firing phase ended on `target` (`systems/combat.md > Firing`). The
-    /// positions of both, space units, for drawing the shot. Its damage follows as a [`SimEvent::Hit`].
+    /// positions of both, space units, for drawing the shot. Its damage follows as a [`SimEvent::Hit`]. A single-target
+    /// attack's only: a projectile's launch and its blast have events of their own ([`SimEvent::ProjectileLaunched`],
+    /// [`SimEvent::Blast`]).
     Attacked {
         attacker: ObjectId,
         target: ObjectId,
@@ -230,5 +232,25 @@ pub enum SimEvent {
     TargetTooClose {
         unit: ObjectId,
         target: ObjectId,
+    },
+    /// `shooter`'s disjointed attack launched a projectile from `from` (its centre) to `to`, the location locked at the
+    /// end of its Aiming phase, where it lands in phase 5e of tick `lands_at` (`systems/combat.md > DoublyDisjointed`,
+    /// `crate::combat::projectiles`, plan decision T48). `target`: the object it was aimed at, none for a shot at the
+    /// ground (Attack Ground). For drawing it in flight, which the client clips to what each player sees (plan decision
+    /// T52): the event says nothing about who stands where it lands.
+    ProjectileLaunched {
+        shooter: ObjectId,
+        target: Option<ObjectId>,
+        from: Vec2,
+        to: Vec2,
+        lands_at: Tick,
+    },
+    /// An area attack took effect: a circle of `radius` space units around `at` (`systems/combat.md > AoEDamage`,
+    /// `crate::combat::area`), a projectile's that landed. Its damage follows as a [`SimEvent::Hit`] on each object in
+    /// it, those hidden from some players included (`crate::vision::hidden`): the client shows a player only what they
+    /// see (plan decision T52).
+    Blast {
+        at: Vec2,
+        radius: f32,
     },
 }

@@ -260,6 +260,14 @@ pub struct Enter {
     pub walked: bool,
 }
 
+/// (M4-O) The state of an Attack Ground order (`orders::attack_ground`).
+#[derive(Copy, Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub struct AttackGround {
+    /// The unit's current move is this order's: its walk into range, or away from a location inside its MinRange
+    /// (design change 0182). While it is, the mover's status is the move's outcome.
+    pub moving: bool,
+}
+
 /// The state of the current order's behaviour.
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
 pub enum Behaviour {
@@ -280,6 +288,8 @@ pub enum Behaviour {
     Deploy(Deploy),
     /// A unit on its way into a Tunnel (`systems/controls/commands.md > Enter`).
     Enter(Enter),
+    /// (M4-O) A unit attacking a location (`systems/controls/behaviors.md > AttackingLocation`).
+    AttackGround(AttackGround),
 }
 
 impl Leg {
@@ -316,7 +326,7 @@ impl Behaviour {
             Behaviour::Patrol(patrol) => patrol.leg.targets().collect(),
             Behaviour::Hold { target } => target.iter().copied().collect(),
             Behaviour::Gather(gather) => gather.node.iter().copied().collect(),
-            Behaviour::Deploy(_) | Behaviour::Enter(_) => Vec::new(),
+            Behaviour::Deploy(_) | Behaviour::Enter(_) | Behaviour::AttackGround(_) => Vec::new(),
         }
     }
 
@@ -325,7 +335,7 @@ impl Behaviour {
     pub(crate) fn forget(&mut self, is_gone: &impl Fn(ObjectId) -> bool) {
         match self {
             Behaviour::Plain | Behaviour::Attack(_) | Behaviour::Approach(_) | Behaviour::Deploy(_) => {}
-            Behaviour::Enter(_) => {}
+            Behaviour::Enter(_) | Behaviour::AttackGround(_) => {}
             Behaviour::AttackMove(leg) => leg.forget(is_gone),
             Behaviour::Patrol(patrol) => patrol.leg.forget(is_gone),
             Behaviour::Hold { target } => {

@@ -102,8 +102,8 @@ fn planned_end(orders: &Orders) -> Option<Vec2> {
             OrderKind::Move(Target::Object(_)) | OrderKind::Attack(_) | OrderKind::Patrol(_) => return None,
             // A worker's job ends wherever its drop-off is by then; a Deploy leaves no unit to go on.
             OrderKind::Gather(_) | OrderKind::DropOff(_) | OrderKind::Deploy { .. } => return None,
-            // An Enter leaves no unit on the map to go on.
-            OrderKind::Enter(_) => return None,
+            // An Enter leaves no unit on the map to go on; an Attack Ground ends wherever the unit got in range.
+            OrderKind::Enter(_) | OrderKind::AttackGround(_) => return None,
         }
     }
     None

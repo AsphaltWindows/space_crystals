@@ -5,12 +5,13 @@
 
 mod gathering;
 mod planning;
+mod projectiles;
 
 use std::collections::BTreeMap;
 
 use glam::Vec2;
 
-use crate::combat::{self, AttackState, domain_allows, inside_min_range, object_domain, within_range};
+use crate::combat::{self, AttackState, Projectile, domain_allows, inside_min_range, object_domain, within_range};
 use crate::defs::{AttackAttrs, Domain, ObjectKind, TargetDomain, UnitDef};
 use crate::economy::Worker;
 use crate::elevation::{self, Elevation};
@@ -123,6 +124,13 @@ impl Unit<'_> {
         }
     }
 
+    /// (M4-O) Its behaviour engages the ground location `at` (`AttackState::engage_ground`).
+    pub fn engage_ground(&mut self, at: Vec2) {
+        if let Some(attack) = &mut self.attack {
+            attack.engage_ground(at);
+        }
+    }
+
     /// The mover stops if it has a goal; a unit standing anyway is left alone (it may be stepping aside for
     /// another, `docs/movement.md > 6.6`).
     pub fn halt(&mut self) {
@@ -192,6 +200,8 @@ pub(crate) struct World<'a> {
     nav_version: u32,
     /// Side A's paths of every Tunnel, in id order (`crate::network::Paths`): where an Enter order walks to.
     tunnels: Vec<(ObjectId, Paths)>,
+    /// (M4-O) The projectiles in flight, in launch order ([`projectiles`]).
+    projectiles: &'a [Projectile],
 }
 
 impl<'a> World<'a> {
@@ -243,6 +253,7 @@ impl<'a> World<'a> {
             tunnels: (objects.values())
                 .filter_map(|o| Some((o.id, Paths::of_object(o)?)))
                 .collect(),
+            projectiles: &[],
         };
         // A counting sort by cell keeps the id order within each cell.
         let is_candidate = |v: &View| v.destructible && v.owner.is_some();

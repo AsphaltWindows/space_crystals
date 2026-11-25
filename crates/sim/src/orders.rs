@@ -14,13 +14,15 @@
 //! - Move to a point, and Stop, need only the mover's status;
 //! - [`gather`]: a worker's job, the Gather and Drop Off orders of `factions/colonists/units/drone.md`;
 //! - [`deploy`]: a Drone's walk to the site of the Beacon it deploys into (`crate::deploy`);
-//! - [`enter`]: a unit's walk into a Tunnel's entry path (`crate::network`).
+//! - [`enter`]: a unit's walk into a Tunnel's entry path (`crate::network`);
+//! - [`attack_ground`]: AttackingLocation, an Attack Ground's walk into range and its one shot (slice M4-O).
 //!
 //! What a unit does by default against a target, a right-click's and a rally point's order, is [`resolution`]'s.
 //!
 //! Their working state ([`state`], the design's BaseBehaviorState) is part of the order, or of the unit while it
 //! has none ([`Orders::auto`]).
 
+mod attack_ground;
 mod deploy;
 pub(crate) mod destinations;
 mod engage;
@@ -97,6 +99,10 @@ pub enum OrderKind {
     /// (`factions/syndicate/tunnels.md > Tunnel Network > Walking in`; [`enter`], `crate::network`): this Tunnel of its
     /// owner's, through its entry path.
     Enter(ObjectId),
+    /// (M4-O) `systems/controls/commands.md > AttackGround`: "Attack a specific ground location", the point clicked,
+    /// space units, with no snapping (plan decision T47). Only units whose attack can target the ground take it
+    /// (`combat::can_target_ground`, the gate); [`attack_ground`] runs it.
+    AttackGround(Vec2),
 }
 
 impl OrderKind {
@@ -110,6 +116,7 @@ impl OrderKind {
             | OrderKind::Enter(id) => Some(id),
             OrderKind::Move(Target::Point(_)) | OrderKind::AttackMove(_) | OrderKind::Patrol(_) => None,
             OrderKind::Hold | OrderKind::Stop | OrderKind::Deploy { .. } => None,
+            OrderKind::AttackGround(_) => None,
         }
     }
 }
@@ -134,7 +141,8 @@ impl Order {
             }
             OrderKind::Move(Target::Object(_)) | OrderKind::Attack(_) | OrderKind::Hold | OrderKind::Stop => None,
             OrderKind::Gather(_) | OrderKind::DropOff(_) | OrderKind::Deploy { .. } => None,
-            OrderKind::Enter(_) => None,
+            // The unit goes only as near the location as its attack needs (`attack_ground`).
+            OrderKind::Enter(_) | OrderKind::AttackGround(_) => None,
         }
     }
 

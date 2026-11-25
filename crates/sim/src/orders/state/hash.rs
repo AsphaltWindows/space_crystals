@@ -253,6 +253,10 @@ impl StateHash for Behaviour {
                 h.tag(8);
                 walked.hash(h);
             }
+            Behaviour::AttackGround(AttackGround { moving }) => {
+                h.tag(9);
+                moving.hash(h);
+            }
         }
     }
 }

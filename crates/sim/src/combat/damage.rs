@@ -22,20 +22,50 @@ use crate::tuning::combat::{
 use crate::units::TilePos;
 
 /// One attack's effect on its target, waiting on the tick's list until every unit has acted: the attack's Damage, and
-/// the target's modifiers as the shot found them (`systems/combat.md > DamageModifierOrder`), for [`resolve`].
+/// the target's modifiers as the shot found them (`systems/combat.md > DamageModifierOrder`), for [`resolve`]. A
+/// single-target hit ([`Hit::single`]), or one object's share of an area attack (`super::area::strike`).
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub struct Hit {
     pub attacker: ObjectId,
     pub target: ObjectId,
-    /// The attack's Damage, before any modifier: what the target's Shields take, "at full value".
+    /// The attack's Damage, before any modifier: what the target's Shields take, "at full value"; of an area attack,
+    /// the target's damage share (`systems/combat.md > AoEDamage`: "For AoE, the full value is the unit's damage
+    /// share").
     pub damage: f32,
     /// The product of the pre-armor multipliers on hits against the target (step 1, [`pre_armor_multiplier`]).
     pub pre_armor: f32,
-    /// The target's PointArmor (step 2).
-    pub point_armor: f32,
-    /// The DirectionalArmor multiplier, from where the attacker stands (step 3, [`directional_multiplier`]); 1 for a
-    /// target without directional armour.
+    /// The armour step 2 subtracts: the target's PointArmor, or its effective FullArmor for an area attack's share
+    /// (`systems/combat.md > AoEDamage`).
+    pub armor: f32,
+    /// The DirectionalArmor multiplier, from where the attacker stands, or from an area attack's centre (step 3,
+    /// [`directional_multiplier`]); 1 for a target without directional armour.
     pub directional: f32,
+    /// Step 4's floor: MinimumDamage, or MinimumDamage × the overlap fraction for an area attack's share
+    /// (`systems/combat.md > MinimumDamage > AoE`).
+    pub minimum: f32,
+}
+
+impl Hit {
+    /// A single-target hit (`systems/combat.md > SingleTargetDamage`): the whole Damage, against the target's
+    /// PointArmor, with the MinimumDamage.
+    pub fn single(
+        attacker: ObjectId,
+        target: ObjectId,
+        damage: f32,
+        pre_armor: f32,
+        point_armor: f32,
+        directional: f32,
+    ) -> Self {
+        Self {
+            attacker,
+            target,
+            damage,
+            pre_armor,
+            armor: point_armor,
+            directional,
+            minimum: MINIMUM_DAMAGE,
+        }
+    }
 }
 
 /// What a hit takes from its target ([`resolve`]).
@@ -54,9 +84,9 @@ pub fn hit_damage(damage: f32, pre_armor: f32, point_armor: f32, directional: f3
     hp_damage(damage, pre_armor, point_armor, directional, MINIMUM_DAMAGE)
 }
 
-/// Steps 1 to 4 of `> DamageModifierOrder` on `damage`, with `minimum` as step 4's floor.
-fn hp_damage(damage: f32, pre_armor: f32, point_armor: f32, directional: f32, minimum: f32) -> f32 {
-    ((damage * pre_armor - point_armor) * directional).max(minimum)
+/// Steps 1 to 4 of `> DamageModifierOrder` on `damage`, with `armor` as step 2's and `minimum` as step 4's floor.
+fn hp_damage(damage: f32, pre_armor: f32, armor: f32, directional: f32, minimum: f32) -> f32 {
+    ((damage * pre_armor - armor) * directional).max(minimum)
 }
 
 /// What `hit` takes from a target with `shields` (its current Shields; `None` for an object without them, which takes
@@ -69,18 +99,22 @@ fn hp_damage(damage: f32, pre_armor: f32, point_armor: f32, directional: f32, mi
 /// with the minimum `min(MinimumDamage, overflow)` (`> MinimumDamage > Shield overflow`: "HP damage = max(overflow -
 /// armor, min(minimum, overflow))"). The pre-armor multipliers and the directional one touch the overflow only, never
 /// the Shields (`> DamageModifierOrder`: "no modifier of any step touches Shields", design change 0147).
+///
+/// An area attack's share goes the same way, its share in place of the Damage, its effective FullArmor in place of
+/// the PointArmor and its own minimum (`systems/combat.md > AoEDamage`, `super::area`): "the remaining (overflow)
+/// damage is applied to HP using the normal SingleTargetDamage / AoEDamage armor calculations above".
 pub fn resolve(hit: &Hit, shields: Option<f32>) -> Taken {
     let Some(shields) = shields else {
         return Taken {
             shields: 0.0,
-            hp: hit_damage(hit.damage, hit.pre_armor, hit.point_armor, hit.directional),
+            hp: hp_damage(hit.damage, hit.pre_armor, hit.armor, hit.directional, hit.minimum),
         };
     };
     let absorbed = hit.damage.min(shields).max(0.0);
     let overflow = hit.damage - absorbed;
     let hp = if overflow > 0.0 {
-        let minimum = MINIMUM_DAMAGE.min(overflow);
-        hp_damage(overflow, hit.pre_armor, hit.point_armor, hit.directional, minimum)
+        let minimum = hit.minimum.min(overflow);
+        hp_damage(overflow, hit.pre_armor, hit.armor, hit.directional, minimum)
     } else {
         0.0
     };
@@ -215,14 +249,7 @@ mod tests {
 
     /// A hit of `damage` against PointArmor `point_armor`, from no particular direction.
     fn hit(damage: f32, point_armor: f32) -> Hit {
-        Hit {
-            attacker: ObjectId(1),
-            target: ObjectId(2),
-            damage,
-            pre_armor: 1.0,
-            point_armor,
-            directional: 1.0,
-        }
+        Hit::single(ObjectId(1), ObjectId(2), damage, 1.0, point_armor, 1.0)
     }
 
     fn taken(shields: f32, hp: f32) -> Taken {
@@ -331,77 +358,5 @@ mod tests {
         assert_eq!(apply(&mut objects, &[hit(10.0, 0.0)], &mut events), [ObjectId(2)]);
         assert_eq!(took(&events), [(0.0, 10.0)]);
         assert!(matches!(events[1], SimEvent::Died { id: ObjectId(2), .. }));
-    }
-
-    /// `systems/combat.md > AoEDamage` (design change 0262, keeping 0218): "Syndicate expansions ... take their share
-    /// of any blast over them, even unseen". A hit lands whoever sees its target, so damage never asks the hidden rule
-    /// (plan decision T32, `vision::hidden`). No area attack is
-    /// resolved yet (`systems/combat.md > AoEDamage`; `combat`'s module docs), so a test weapon stands in: the
-    /// Guard's, given an AoERadius of 1 grid unit, strikes player 1's Peacekeeper standing on player 1's Hideout,
-    /// which player 2, the Guard's owner, can't see; the test lists the blast's hits itself, one on each object whose
-    /// box its circle touches, as area attacks will. The Hideout takes its hit as the Peacekeeper does, and dies of
-    /// enough of them.
-    #[test]
-    fn a_hidden_underground_structure_in_an_area_takes_its_damage() {
-        use crate::defs::test_defs::TestDef;
-        use crate::defs::{ObjectKind, TargetType};
-        use crate::ids::PlayerId;
-        use crate::object::Placement;
-        let _blast = TestDef::unit(ObjectKind::Guard, |unit| {
-            unit.attack.as_mut().unwrap().target_type = TargetType::AoE { radius: 1.0 };
-        });
-        let attack = ObjectKind::Guard.def().unit.as_ref().unwrap().attack.unwrap();
-        let TargetType::AoE { radius } = attack.target_type else {
-            panic!("an area attack");
-        };
-        let placement = Placement::new(TilePos::new(4, 4), ObjectKind::Hideout.def().footprint);
-        let at = placement.center();
-        let owned = |id, kind| Object {
-            id: ObjectId(id),
-            owner: Some(PlayerId(1)),
-            pos: at,
-            prev_pos: at,
-            shields: None,
-            placement: (kind == ObjectKind::Hideout).then_some(placement),
-            ..target(kind, 0.0)
-        };
-        let (hideout, peacekeeper) = (owned(2, ObjectKind::Hideout), owned(3, ObjectKind::Peacekeeper));
-        assert!(crate::vision::hidden_from(&hideout, PlayerId(2)));
-        assert!(!crate::vision::hidden_from(&peacekeeper, PlayerId(2)));
-        let mut objects = BTreeMap::from([(hideout.id, hideout), (peacekeeper.id, peacekeeper)]);
-        let blast = |objects: &BTreeMap<ObjectId, Object>| -> Vec<Hit> {
-            let inside = objects.values().filter(|o| {
-                let (lo, hi) = crate::combat::object_box(o);
-                at.clamp(lo, hi).distance(at) <= crate::units::gu(radius)
-            });
-            inside
-                .map(|o| Hit {
-                    attacker: ObjectId(1),
-                    target: o.id,
-                    damage: attack.damage,
-                    pre_armor: 1.0,
-                    point_armor: o.def().armor.point,
-                    directional: 1.0,
-                })
-                .collect()
-        };
-        let hits = blast(&objects);
-        assert_eq!(
-            hits.iter().map(|hit| hit.target).collect::<Vec<_>>(),
-            [ObjectId(2), ObjectId(3)]
-        );
-        let mut events = Vec::new();
-        assert_eq!(apply(&mut objects, &hits, &mut events), []);
-        // 18 less the PointArmor of each: the Hideout's 6 (an expansion's, design change 0264), the Peacekeeper's 1.
-        assert_eq!(objects[&ObjectId(2)].hp, Some(400.0 - 12.0));
-        assert_eq!(objects[&ObjectId(3)].hp, Some(50.0 - 17.0));
-        objects.get_mut(&ObjectId(2)).unwrap().hp = Some(10.0);
-        let hits = blast(&objects);
-        assert_eq!(apply(&mut objects, &hits, &mut events), [ObjectId(2)]);
-        assert!(
-            events
-                .iter()
-                .any(|e| matches!(e, SimEvent::Died { id: ObjectId(2), .. }))
-        );
     }
 }

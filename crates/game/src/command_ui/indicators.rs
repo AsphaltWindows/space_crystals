@@ -2,9 +2,10 @@
 //! (Q0001):
 //!
 //! - **Markers** at the targets of the current orders of the local player's selected units (`> Indicator
-//!   assignments`): a ring with a dot on the ground for a Location indicator (Move, AttackMove, Patrol; a Move to an
-//!   object marks where the object is), a ring around the target for an Object indicator (Attack). They go when the
-//!   unit is deselected or the order completes. Patrol's origin isn't marked: the sim keeps no origin yet.
+//!   assignments`): a ring with a dot on the ground for a Location indicator (Move, AttackMove, Patrol, AttackGround;
+//!   a Move to an object marks where the object is), a ring around the target for an Object indicator (Attack). They
+//!   go when the unit is deselected or the order completes (an Attack Ground's at its blast, slice M4-O). Patrol's
+//!   origin isn't marked: the sim keeps no origin yet.
 //! - **Gathering markers** ([`gathering`], design change 0201): a Gather's on its source, a Drop Off's on its
 //!   drop-off, and the Set Drop-off marker on each selected worker's AssignedDropOff, each with a look of its own.
 //! - **Flashes** where an order was just given ([`OrderIssued`]): a ring closing in on the target while it fades,
@@ -15,7 +16,8 @@
 //! - **Rally points** ([`rally`], design change 0087): each selected producer's rally point, a marker with a line
 //!   from the building to it; none while it has no rally point.
 //!
-//! Colours follow `> Color language`: green for Move, red for Attack, orange for AttackMove and Patrol; the gathering
+//! Colours follow `> Color language`: green for Move, red for Attack and AttackGround, orange for AttackMove and
+//! Patrol; the gathering
 //! markers have colours of their own (`gathering::GATHER_COLOR`, the pointers'). A target
 //! object is marked, and ends a route leg, where the local player knows it ([`targets`], design change 0139): where
 //! it is drawn while the player sees it, where its record is drawn while the player remembers it (a structure or a
@@ -150,14 +152,15 @@ pub fn order_color(kind: OrderKind) -> Option<Color> {
         // Design change 0201: the gathering markers' own colours.
         OrderKind::Gather(_) => Some(GATHER_COLOR),
         OrderKind::DropOff(_) => Some(RETURN_COLOR),
-        OrderKind::Attack(_) => Some(ATTACK_COLOR),
+        // `> Indicator assignments`: "AttackGround | Location | Red" (slice M4-O).
+        OrderKind::Attack(_) | OrderKind::AttackGround(_) => Some(ATTACK_COLOR),
         OrderKind::AttackMove(_) | OrderKind::Patrol(_) => Some(AGGRESSIVE_COLOR),
         OrderKind::Hold | OrderKind::Stop => None,
     }
 }
 
-/// The indicator of an order (`> Indicator assignments`): a Location for Move, AttackMove and Patrol (a Move to an
-/// object at the object as the player knows it, [`targets`]), an Object for Attack, around the object as the player
+/// The indicator of an order (`> Indicator assignments`): a Location for Move, AttackMove, Patrol and AttackGround (a
+/// Move to an object at the object as the player knows it, [`targets`]), an Object for Attack, around the object as the player
 /// knows it, and the Gather marker and the Return Resources marker for Gather and Drop Off, around theirs (design
 /// change 0201: "replacing the Move marker"); none for orders without a target, or whose target the player knows
 /// nothing of.
@@ -165,9 +168,10 @@ pub fn indicator(sim: &Sim, sight: &Sight, kind: OrderKind) -> Option<Indicator>
     let color = order_color(kind)?;
     let known = |id| sight.target_view(sim, id).is_known();
     match kind {
-        OrderKind::Move(Target::Point(at)) | OrderKind::AttackMove(at) | OrderKind::Patrol(at) => {
-            Some(Indicator::Location { at, color })
-        }
+        OrderKind::Move(Target::Point(at))
+        | OrderKind::AttackMove(at)
+        | OrderKind::Patrol(at)
+        | OrderKind::AttackGround(at) => Some(Indicator::Location { at, color }),
         OrderKind::Move(Target::Object(id)) => {
             let at = targets::shown_at(sim, sight, id)?;
             Some(Indicator::Location { at, color })
@@ -225,10 +229,13 @@ fn own_selected<'a>(
 }
 
 /// Where the leg of a route that carries out `order` ends, ground space: the target object as the player knows it
-/// ([`targets`]; a Gather's source and a Drop Off's drop-off too, which their markers surround), else the unit's own
-/// destination (its place in the group's shape, `Order::destination`); none for Hold and Stop, and for a target the
-/// player knows nothing of.
+/// ([`targets`]; a Gather's source and a Drop Off's drop-off too, which their markers surround), an Attack Ground's
+/// location, as an Attack's leg ends at its target, else the unit's own destination (its place in the group's shape,
+/// `Order::destination`); none for Hold and Stop, and for a target the player knows nothing of.
 fn waypoint(sim: &Sim, sight: &Sight, order: &Order) -> Option<Vec2> {
+    if let OrderKind::AttackGround(at) = order.kind {
+        return Some(at);
+    }
     match order.target() {
         Some(id) => targets::shown_at(sim, sight, id),
         None => order.destination(),

@@ -7,9 +7,9 @@ use std::collections::BTreeMap;
 use glam::Vec2;
 
 use super::reach::Reach;
-use super::state::{Approach, AttackOrder, Auto, Behaviour, Leg, Patrol};
+use super::state::{Approach, AttackGround, AttackOrder, Auto, Behaviour, Leg, Patrol};
 use super::world::{Unit, World};
-use super::{ActiveOrder, Order, OrderKind, Orders, Target, deploy, engage, enter, gather, travel};
+use super::{ActiveOrder, Order, OrderKind, Orders, Target, attack_ground, deploy, engage, enter, gather, travel};
 use crate::ids::ObjectId;
 use crate::mover::{MoveGoal, MoveStatus};
 use crate::nav::PathGroup;
@@ -97,10 +97,12 @@ pub(super) fn start(order: &Order, unit: &mut Unit, world: &World) -> Behaviour 
     // `systems/controls/behaviors.md > AttackingObject`: the attack engages the order's target; every other order
     // disengages it (interrupting an attack being aimed, `systems/combat.md > Aiming`) and whatever the unit had
     // acquired by itself.
-    unit.engage(match order.kind {
-        OrderKind::Attack(id) => Some(id),
-        _ => None,
-    });
+    // (M4-O) An Attack Ground engages its location instead (`systems/controls/behaviors.md > AttackingLocation`).
+    match order.kind {
+        OrderKind::AttackGround(at) => unit.engage_ground(at),
+        OrderKind::Attack(id) => unit.engage(Some(id)),
+        _ => unit.engage(None),
+    }
     match order.kind {
         // `systems/controls/behaviors.md > MovingToLocation`: the unit goes to its own destination (the magic box); the
         // group's path field is anchored on the clicked point.
@@ -116,6 +118,7 @@ pub(super) fn start(order: &Order, unit: &mut Unit, world: &World) -> Behaviour 
         OrderKind::Attack(_) | OrderKind::Move(Target::Object(_)) | OrderKind::AttackMove(_) | OrderKind::Patrol(_) => {
         }
         OrderKind::Gather(_) | OrderKind::DropOff(_) | OrderKind::Deploy { .. } | OrderKind::Enter(_) => {}
+        OrderKind::AttackGround(_) => {}
     }
     unit.mover.stop();
     match order.kind {
@@ -143,6 +146,8 @@ pub(super) fn start(order: &Order, unit: &mut Unit, world: &World) -> Behaviour 
         OrderKind::Deploy { origin } => Behaviour::Deploy(deploy::begin(origin, unit, tick)),
         // `systems/controls/commands.md > Enter`: to the Tunnel's entry path.
         OrderKind::Enter(tunnel) => Behaviour::Enter(enter::begin(tunnel, unit, world)),
+        // `systems/controls/behaviors.md > AttackingLocation`: from a standstill, as an Attack.
+        OrderKind::AttackGround(_) => Behaviour::AttackGround(AttackGround::default()),
     }
 }
 
@@ -188,9 +193,11 @@ fn run(
         // The walk into the entry path; the step right after this phase takes the unit into the network or ends the
         // order (`Sim::step_entries`).
         (OrderKind::Enter(_), Behaviour::Enter(state)) => enter::run(state, unit),
+        // (M4-O) The walk into range and the one shot, until its blast.
+        (OrderKind::AttackGround(at), Behaviour::AttackGround(state)) => attack_ground::run(unit, at, state, world),
         // A state that isn't its order's (a save edited by hand): the order ends.
         (OrderKind::Hold | OrderKind::Attack(_) | OrderKind::AttackMove(_) | OrderKind::Patrol(_), _)
         | (OrderKind::Move(Target::Object(_)) | OrderKind::Gather(_) | OrderKind::DropOff(_), _)
-        | (OrderKind::Deploy { .. } | OrderKind::Enter(_), _) => true,
+        | (OrderKind::Deploy { .. } | OrderKind::Enter(_) | OrderKind::AttackGround(_), _) => true,
     }
 }

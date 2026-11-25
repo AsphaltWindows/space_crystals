@@ -75,7 +75,8 @@ A task is done when all of the following hold:
 every run and every machine. Replays, reproducible bugs and a possible lockstep multiplayer mode depend on this.
 `crates/sim/clippy.toml` enforces the mechanical rules below as disallowed methods and types. Never `#[allow]` them.
 There is one exception: an `#[ignore]` perf test under `crates/sim/tests/` may read the clock in a single timing helper marked
-`#[expect(clippy::disallowed_methods)]`, as `nav_perf/` does. Its timings are printed and never asserted.
+`#[expect(clippy::disallowed_methods)]`, as `nav_perf/` does, and so may one that needs the sim's test defs and so is a
+unit test (`combat/projectiles/perf.rs`, slice M4-O). Its timings are printed and never asserted.
 
 - **Order**: iterate objects in `ObjectId` order. `Sim` keeps them in a `BTreeMap<ObjectId, Object>`, and ids are
   allocated in increasing order and never reused. Break ties between candidates by `ObjectId` (`Iterator::min_by`
@@ -466,7 +467,8 @@ Layout validation can't disagree. **Never test a placement rule anywhere else: a
    - 5d `movement::step`: steering and hard collision, the only code that writes a unit's `pos` besides a teleport
      (see Movement and collision). Units move one after another in id order and never come to overlap, gathering
      Drones apart (design change 0106).
-   - 5e `combat::step`: attack phases, the tick's list of hits applied together, deaths (see *Combat*). The dead
+   - 5e `combat::step`: attack phases and launches, the projectiles due landing in launch order, the tick's list of
+     hits applied together (the blasts' first), deaths (see *Combat*). The dead
      leave through `Sim::remove_objects`, then `paths::sync` runs again in case a footprint went with them.
    - Shields, `shields::step` (slice M3-B, see *Combat > Shields*): every object's Shields regenerate
      `SHIELD_REGEN_PER_TICK`, up to its MaxShields now (`Object::max_shields`). Right after 5e's removals, so that the
@@ -689,7 +691,38 @@ ticks spent in it. Hashed and serialized like all state.
   (design change 0023). The placeholders are listed in the module docs. The toggle doesn't use the conversion's
   machinery (`conversion.rs`), whose change runs to its end once begun and holds the unit still; they share the
   type-and-form model, `Sim::change_kind` at the press, the wait for a shot and the Modes step.
-- **Not yet**: turrets, projectiles, AttackGround and the other location-targeted attacks, AoE.
+- **Projectiles** (`combat/projectiles.rs`, slice M4-O, plan decisions T45 and T48; `systems/combat.md >
+  DoublyDisjointed`): a DoublyDisjointed attack (`Shooter::locks`) locks its target's position at the end of Aiming
+  (`AttackPhase::FiringAt { at, target }`) and at the end of Firing launches a `Projectile` into `Sim::projectiles`, in
+  launch order: its shooter and the shooter's owner, the object it was locked on (cleared when that object leaves:
+  `projectiles::forget`; a slot for the HeadDisjointed and TailDisjointed attacks to come), its start, the locked
+  point, its arrival tick (`flight_ticks`: the distance over the attack's ProjectileSpeed, rounded up: 32 ticks for 4
+  GU at 8 su per tick), and the attack's Damage, AoE radius and TargetDomain, copied at launch. The unit goes on into
+  Cooldown and Reloading, its base free from the launch (`base_is_free`). In 5e, after every attacker has acted, the
+  due projectiles land in launch order (`projectiles::land`), whether their shooter lives or not: each a
+  `SimEvent::Blast` and its area's hits, put on the tick's list before the single-target hits. The store is serialized
+  and hashed only while it holds a projectile, and `AttackState::location` only while set, so a game without them
+  hashes as before (the goldens unchanged). Its golden, a fight of test throwers (`combat::testing`), is a unit test
+  (`combat/projectiles/golden.rs`, see *Replays and golden hashes*), and so is the ignored `projectiles_perf` (200 in
+  flight).
+- **Area damage** (`combat/area.rs`, plan decision T46; `systems/combat.md > AoEDamage`): the one path of every area
+  attack, a blast's hits. A blast takes every object whose domain its TargetDomain hits (`hits_domain`: Ground hits
+  ground and underground objects, Air the air, Universal all; design change 0262: underground and hidden ones too),
+  whoever owns it, its attacker and the attacker's own objects included (Placeholder: Q0083 point 1, the literal
+  rule), by the exact overlap of its circle with the object's shape (`area::overlap`, a closed form through
+  `math::asin` and `math::sqrt`, whose bits a test pins): a share of the Damage of overlap / circle, the FullArmor
+  times overlap / shape, the directional zone from the blast's centre, a minimum of 0.5 × the overlap fraction
+  (`Hit::minimum`), the Shields first at full value (`damage::resolve`). Nothing in it asks `hidden_from`. The reveal
+  after the hits (see Vision) shows the attacker, if it still exists, to each damaged object's owner (Placeholder:
+  Q0083 point 2).
+- **Attack Ground** (`orders/attack_ground.rs`, plan decision T47; `systems/controls/behaviors.md > AttackingLocation`):
+  `OrderKind::AttackGround(point)` sets `AttackState::location`; 5e aims at a point in reach (`reaches_point`, from
+  the unit's shape) and fires once. The behaviour walks the unit into range, backs it off a point inside its
+  MinRange, and completes the order in the 5a after its projectile landed (`World::in_flight`; Placeholder: Q0083
+  point 3). The gate takes it only for units whose weapon can target the ground (`combat::can_target_ground`,
+  `Reject::CannotTargetGround`).
+- **Not yet**: turrets; the HeadDisjointed and TailDisjointed attacks, which hit as a FullyConnected one does and
+  drop a location (TODOs in `combat/phases.rs`).
 
 ## Vision
 
@@ -1287,7 +1320,8 @@ and the code is `crates/sim/src/movement.rs` and `movement/`, with the unit's st
   unit braking off the momentum it had (it must be `Stopping`, its velocity its momentum, and slower than a tick
   before; no other model may ever have momentum), and an idle unit that overlapped another a tick earlier, moving
   off it (design change 0126). K1 (`paths`): each player's known grids are those a fresh build
-  from the state gives. A `TestSim` checks them after every tick and panics with a picture of the map (`TestSim::ascii`: units as
+  from the state gives. P1 (`projectiles`, slice M4-O, plan decision T42): every projectile in flight lands after the
+  tick just played, between finite points. A `TestSim` checks them after every tick and panics with a picture of the map (`TestSim::ascii`: units as
   letters, with a legend). The check is on by default; `check_invariants(false)` turns it off for timing runs. A
   test that steps a bare `Sim` keeps its own `Invariants` and calls `check` after each step.
 
@@ -1648,7 +1682,8 @@ their energy doorway, slice M3-D2: design change 0145, `factions/colonists/struc
   outside the state hash) says why (`Sim::report_refusal`). Add another such event only when the UI needs it.
 - **`Command::Order { units, kind, queue }`** (`systems/controls/commands.md > Unit Command`, `docs/movement.md > 3`):
   `OrderKind` is `Move(Target)` (a point or an object), `Attack(id)`, `AttackMove(point)`, `Patrol(point)`, `Hold`,
-  `Stop`, and for workers `Gather(patch)` and `DropOff(node)` (`factions/colonists/units/drone.md > Unit
+  `Stop`, `AttackGround(point)` (slice M4-O, for the units that can target the ground: `CannotTargetGround` if none
+  can; see *Combat > Attack Ground*), and for workers `Gather(patch)` and `DropOff(node)` (`factions/colonists/units/drone.md > Unit
   Commands`). The gate takes an order whole or not at all, but tolerates stale selections: at most `MAX_ORDER_UNITS`
   ids (`TooManyUnits`), repeated ids count once, ids of objects that are gone and objects that take no orders are
   dropped, and nothing left is `NoUnits`; any id of another player's object rejects it (`NotOwned`). Points must be
@@ -1767,7 +1802,10 @@ their energy doorway, slice M3-D2: design change 0145, `factions/colonists/struc
   `PatchDepleted`, `ProductionQueued`, `ProductionRefused`, `ProductionCancelled`, `ProductionWaiting`, `UnitProduced`,
   `ConstructionCompleted`, `ConstructionCancelled`, `StructurePlaced`, `PlacementRefused`, `PlayerDefeated`,
   `GameOver`, `KindChanged`, `TransformCompleted`, `TransformCancelled`, `ResourcesDelivered`, `DeployFailed`,
-  `TargetTooClose`, `SupplyStationEmpty`, …) are output only, for effects, sounds and UI. The sim never reads them. `DeployFailed { drone,
+  `TargetTooClose`, `SupplyStationEmpty`, `ProjectileLaunched`, `Blast`, …) are output only, for effects, sounds and
+  UI. The sim never reads them. `ProjectileLaunched { shooter, target, from, to, lands_at }` and `Blast { at, radius }`
+  (slice M4-O) are a projectile leaving and landing; a blast's damage follows as a `Hit` for each object it took,
+  which the client draws nothing of, and `Died` (see *Client architecture > Visuals*, Combat effects). `DeployFailed { drone,
   origin, problems }` (slice M3-F) is a Deploy that failed on arrival; the client's feedback line says why
   (`command_ui/feedback.rs`). `TargetTooClose { unit, target }` (slice M3-L2, design change 0182) is an Attack order
   that failed because its target is inside the MinRange of a unit that can't move; the feedback line says "Target
@@ -2670,7 +2708,9 @@ Drones, through one command flow (plan decision T10, slices M2-H1, M2-H2 and M3-
   one mesh in the overlays layer, rebuilt every frame while anything shows: markers at the targets of the selected
   own units' current orders (and queued ones while Shift is held), a flash where an order was just given
   (`FLASH_TICKS`), and while Shift is held each unit's route through its waypoints as dashed lines; colours follow
-  `systems/controls/selection_and_hud.md > Color language`. **A marker or a route leg that names an object goes by what
+  `systems/controls/selection_and_hud.md > Color language` (an Attack Ground's marker, slice M4-O, is a Location in
+  red, `systems/controls/selection_and_hud.md > Indicator assignments`, and its route leg ends at its point; the D
+  slot's AwaitingTarget gives the order on the ground only, `command_ui/resolution.rs`). **A marker or a route leg that names an object goes by what
   the local player knows of it, never by the live object** (`indicators/targets.rs`, `Sight::target_view`: the sim's
   `TargetView` through the client's `Sight`; design change 0139, slice M3-K2a): where the object is drawn while the
   player sees it, around its record (last-known position and footprint) while the player remembers it, wherever the
@@ -2864,7 +2904,10 @@ unchecked.
   fastest clean Barracks and rallies ten Peacekeepers to player 2's crystal field, where they destroy four plates,
   while player 2 plates its field and builds Generators), and the Colonists' `colonists_opening` and
   `colonists_vs_gdo` (slice M3-K1, below), are blessed as replays with a checkpoint every 32 ticks and
-  at the end, in `crates/sim/tests/golden/<name>.json`. The test plays each game from its definition, checks that the
+  at the end, in `crates/sim/tests/golden/<name>.json`. A tenth, `area_attacks` (slice M4-O), is a unit test
+  (`combat/projectiles/golden.rs`), as it plays test throwers (`combat::testing`): grenades in flight, blasts over a
+  hidden Hideout and a group, an Attack Ground. Its file is `tests/golden/test_defs/area_attacks.json`, out of the
+  client's playback of `tests/golden/*.json`, which knows only the game's types. The test plays each game from its definition, checks that the
   definition still is the blessed one, and compares the checkpoints; a mismatch fails with the first diverging tick
   and the last one that matched. Each game also asserts what it is about, at its end (`expect`: one side of the duel
   is gone, the group passed the choke, …) and along the way (`during`: the shielded Peacekeepers held their fire), so

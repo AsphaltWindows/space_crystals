@@ -45,6 +45,18 @@ pub fn domain_allows(attack: TargetDomain, target: Domain) -> bool {
     }
 }
 
+/// `systems/combat.md > AttackType > CanTargetGround`, "derived directly from the AttackType": true for TailDisjointed
+/// and DoublyDisjointed attacks, which may target a location (`systems/combat.md > AttackTarget`,
+/// `systems/combat.md > LocationTarget`). Only units whose
+/// attack can are given an Attack Ground (`systems/controls/commands.md > AttackGround`; the gate, and the client's
+/// panel).
+pub fn can_target_ground(attack_type: AttackType) -> bool {
+    match attack_type {
+        AttackType::TailDisjointed | AttackType::DoublyDisjointed => true,
+        AttackType::FullyConnected(_) | AttackType::HeadDisjointed => false,
+    }
+}
+
 /// The farthest an attack reaches, space units: its Range with the ElevationModifier from `source` against
 /// `target` (`core/vision.md > ElevationModifier`), which melee attacks don't take (`systems/combat.md >
 /// FullyConnected > Melee`).
@@ -88,8 +100,9 @@ pub fn reaches(
 }
 
 /// `systems/combat.md > Range Measurement`, ground-location targets: whether the attack reaches from the shape
-/// `attacker` to `point`, measured from the attacker's edge. For the location-targeted attacks (Attack Ground,
-/// TailDisjointed artillery), which no unit has yet.
+/// `attacker` to `point`, measured from the attacker's edge ("Ground-location targets (Attack Ground, TailDisjointed
+/// artillery): measured from the attacker's shape to the target point"), with the ElevationModifier between `source`
+/// and the ground there.
 pub fn reaches_point(attrs: &AttackAttrs, attacker: &Shape, source: Elevation, point: Vec2, ground: Elevation) -> bool {
     within_range(attrs, attacker.distance_to(point), source, ground)
 }
@@ -133,6 +146,8 @@ pub(super) struct TargetView {
     pub pre_armor: f32,
     /// `systems/units.md > Unit > PointArmor`, and a structure's own PointArmor (`ObjectDef::armor`).
     pub point_armor: f32,
+    /// Its FullArmor (`ObjectDef::armor`), which area damage meets (`systems/combat.md > AoEDamage`, `super::area`).
+    pub full_armor: f32,
     /// `systems/units.md > UnitBase > DirectionalArmor`.
     pub directional_armor: bool,
     /// Whom it is hidden from (`vision::hidden`, plan decision T32): no attacker whose owner it is hidden from sees
@@ -161,6 +176,7 @@ impl Targets {
                     elevation: Elevation::of_object(map, o),
                     pre_armor: pre_armor_multiplier(map, o),
                     point_armor: o.def().armor.point,
+                    full_armor: o.def().armor.full,
                     directional_armor: unit.is_some_and(|u| u.base_def().directional_armor),
                     hiding: Hiding::of(o),
                 }
@@ -172,6 +188,11 @@ impl Targets {
     pub(super) fn get(&self, id: ObjectId) -> Option<&TargetView> {
         let i = self.0.binary_search_by_key(&id, |t| t.id).ok()?;
         self.0.get(i)
+    }
+
+    /// Every destructible object, in id order: what an area attack may hit (`super::area`).
+    pub(super) fn all(&self) -> &[TargetView] {
+        &self.0
     }
 }
 
@@ -209,6 +230,21 @@ mod tests {
         ranged.min_range = 1.0;
         assert!(!reaches(&ranged, &pk, level, &guard(gu(1.0) - 1.0), level));
         assert!(reaches(&ranged, &pk, level, &guard(gu(1.0)), level));
+    }
+
+    /// `systems/combat.md > AttackType`: "CanTargetGround - derived (false for FullyConnected/HeadDisjointed, true
+    /// for TailDisjointed/DoublyDisjointed)".
+    #[test]
+    fn only_the_attacks_that_can_miss_can_target_the_ground() {
+        assert!(!can_target_ground(AttackType::FullyConnected(
+            FullyConnectedSubtype::Ranged
+        )));
+        assert!(!can_target_ground(AttackType::FullyConnected(
+            FullyConnectedSubtype::Melee
+        )));
+        assert!(!can_target_ground(AttackType::HeadDisjointed));
+        assert!(can_target_ground(AttackType::TailDisjointed));
+        assert!(can_target_ground(AttackType::DoublyDisjointed));
     }
 
     #[test]

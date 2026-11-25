@@ -78,6 +78,7 @@ fn hit_ticks(attrs: &AttackAttrs, bearing: f32, turn_rate: f32, ticks: u32) -> (
     let mut shooter = Shooter::new(
         &map,
         ME,
+        Some(MINE),
         ObjectKind::Peacekeeper,
         Vec2::ZERO,
         0.0,
@@ -92,9 +93,16 @@ fn hit_ticks(attrs: &AttackAttrs, bearing: f32, turn_rate: f32, ticks: u32) -> (
     let mut facing = 0.0;
     let mut landed = Vec::new();
     for tick in 1..=ticks {
-        let mut hits = Vec::new();
-        run(&mut state, &mut facing, &shooter, &targets, &mut hits, &mut Vec::new());
-        if !hits.is_empty() {
+        let mut volley = Volley::new(tick);
+        run(
+            &mut state,
+            &mut facing,
+            &shooter,
+            &targets,
+            &mut volley,
+            &mut Vec::new(),
+        );
+        if !volley.hits.is_empty() {
             landed.push(tick);
         }
     }
@@ -146,6 +154,7 @@ fn aiming_turns_only_by_what_the_move_left_of_the_turn_rate() {
         let mut shooter = Shooter::new(
             &map,
             ME,
+            Some(MINE),
             ObjectKind::Peacekeeper,
             Vec2::ZERO,
             0.0,
@@ -159,10 +168,17 @@ fn aiming_turns_only_by_what_the_move_left_of_the_turn_rate() {
         let (mut facing, mut facings, mut landed) = (0.0, Vec::new(), None);
         for tick in 1..=8 {
             shooter.turn_left = if tick == 1 { 0.5 - spent_by_the_move } else { 0.5 };
-            let mut hits = Vec::new();
-            run(&mut state, &mut facing, &shooter, &targets, &mut hits, &mut Vec::new());
+            let mut volley = Volley::new(tick);
+            run(
+                &mut state,
+                &mut facing,
+                &shooter,
+                &targets,
+                &mut volley,
+                &mut Vec::new(),
+            );
             facings.push(facing);
-            if !hits.is_empty() {
+            if !volley.hits.is_empty() {
                 landed.get_or_insert(tick);
             }
         }
@@ -186,6 +202,7 @@ fn only_targets_the_owner_sees_are_attacked() {
     let sees = Shooter::new(
         &map,
         ME,
+        Some(MINE),
         ObjectKind::Peacekeeper,
         at,
         0.0,
@@ -197,6 +214,7 @@ fn only_targets_the_owner_sees_are_attacked() {
     let doesnt = Shooter::new(
         &map,
         ME,
+        Some(MINE),
         ObjectKind::Peacekeeper,
         at,
         0.0,
@@ -205,19 +223,30 @@ fn only_targets_the_owner_sees_are_attacked() {
         blind.player(MINE),
         0.0,
     );
-    let ownerless = Shooter::new(&map, ME, ObjectKind::Peacekeeper, at, 0.0, &unit, &attrs, None, 0.0);
+    let ownerless = Shooter::new(
+        &map,
+        ME,
+        None,
+        ObjectKind::Peacekeeper,
+        at,
+        0.0,
+        &unit,
+        &attrs,
+        None,
+        0.0,
+    );
     let mut state = AttackState::default();
     state.engage(Some(FOE));
-    let (mut facing, mut hits) = (0.0, Vec::new());
+    let (mut facing, mut volley) = (0.0, Volley::new(0));
     for shooter in [&doesnt, &ownerless, &doesnt] {
-        run(&mut state, &mut facing, shooter, &targets, &mut hits, &mut Vec::new());
+        run(&mut state, &mut facing, shooter, &targets, &mut volley, &mut Vec::new());
         assert_eq!(state.phase, None, "no sequence starts");
     }
     assert_eq!(state.target, Some(FOE), "still engaged");
-    run(&mut state, &mut facing, &sees, &targets, &mut hits, &mut Vec::new());
+    run(&mut state, &mut facing, &sees, &targets, &mut volley, &mut Vec::new());
     assert_eq!(state.phase, Some(AttackPhase::Aiming { target: FOE }));
-    run(&mut state, &mut facing, &doesnt, &targets, &mut hits, &mut Vec::new());
+    run(&mut state, &mut facing, &doesnt, &targets, &mut volley, &mut Vec::new());
     assert_eq!(state.phase, None, "the aim is cancelled");
     assert_eq!(state.target, Some(FOE));
-    assert!(hits.is_empty());
+    assert!(volley.hits.is_empty());
 }

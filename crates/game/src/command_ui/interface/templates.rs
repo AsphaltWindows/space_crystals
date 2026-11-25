@@ -19,7 +19,6 @@ pub mod syndicate;
 
 use sc_sim::ObjectKind;
 use sc_sim::conversion;
-use sc_sim::defs::AttackType;
 
 pub use colonists::TRANSFORMING_GRID;
 pub use offers::{commands, offers};
@@ -178,10 +177,9 @@ impl InterfaceTemplate {
     }
 }
 
-/// `systems/combat.md > AttackType > CanTargetGround`, derived from the AttackType.
-pub fn can_target_ground(attack_type: AttackType) -> bool {
-    matches!(attack_type, AttackType::TailDisjointed | AttackType::DoublyDisjointed)
-}
+/// `systems/combat.md > AttackType > CanTargetGround`, derived from the AttackType: the sim's rule, which its gate
+/// takes an Attack Ground by (slice M4-O).
+pub use sc_sim::combat::can_target_ground;
 
 /// `kind`'s DefaultState commands, slot by slot (`CommandSlot::all` order): its template's grid, plus its own
 /// commands in slots the template leaves free: a unit that carries a Riot Shield the command that turns it, in R

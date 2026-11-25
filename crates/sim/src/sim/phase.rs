@@ -110,7 +110,8 @@ impl Sim {
             self.tick,
             self.auto_targeting,
         )
-        .with_knowledge(&self.path_knowledge, self.nav_version);
+        .with_knowledge(&self.path_knowledge, self.nav_version)
+        .with_projectiles(&self.projectiles);
         orders::update(&mut self.objects, first_new, &world, &mut reach);
         self.nav.put_reach(reach);
         // The Drones that got to their sites in 5a deploy, or their orders fail; before 5b claims the footprints.
@@ -148,8 +149,9 @@ impl Sim {
             self.tick,
             &mut self.events,
         );
-        // 5e: shoots from the positions movement committed. The dead leave through the removal path; a footprint
-        // they leave behind no longer blocks, so the grids follow as in 5b.
+        // 5e: shoots from the positions movement committed, and the projectiles due land (`combat::projectiles`). The
+        // dead leave through the removal path; a footprint they leave behind no longer blocks, so the grids follow as
+        // in 5b.
         // It reads the vision of the end of the last tick (5f below), as the design's ValidTarget asks, and its hits
         // reveal the attackers their victims' owners don't see (design change 0177, `vision::reveal`).
         // A unit turns at most its TurnRate per tick in all: the aim has what 5d's turn left (`movement::Turns`).
@@ -159,6 +161,7 @@ impl Sim {
             &mut self.objects,
             &self.map,
             &mut self.vision,
+            &mut self.projectiles,
             turns,
             first_new,
             self.tick,

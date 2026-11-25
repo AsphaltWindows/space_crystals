@@ -61,6 +61,10 @@ impl StateHash for OrderKind {
                 h.tag(9);
                 id.hash(h);
             }
+            OrderKind::AttackGround(at) => {
+                h.tag(10);
+                at.hash(h);
+            }
         }
     }
 }

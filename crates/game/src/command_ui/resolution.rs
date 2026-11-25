@@ -292,8 +292,10 @@ pub fn group_orders(orders: impl IntoIterator<Item = (ObjectId, OrderKind)>) -> 
 /// `systems/controls/selection_and_hud.md > BasicCombatUnitInterfaceState > AwaitingTarget[..] resolution`: the order a
 /// left-click on `target` gives while `pending` awaits it, if the target is valid. Attack takes any destructible
 /// object, an own or a neutral one too (force-attack, `systems/controls/commands.md > Attack`, design changes 0059 and
-/// 0064), one the player remembers too (design change 0139), and the ground, for an AttackMove. Reverse and
-/// AttackGround have no order in the sim yet.
+/// 0064), one the player remembers too (design change 0139), and the ground, for an AttackMove. AttackGround takes the
+/// ground only (`systems/controls/selection_and_hud.md > AwaitingTarget[AttackGround] resolution`: "Left-click Ground:
+/// issues AttackGround command to that location"; slice M4-O), wherever the click falls on it, over an object the
+/// player doesn't see too. Reverse has no order in the sim yet.
 pub fn target_order(pending: PanelCommand, target: &MapTarget) -> Option<OrderKind> {
     use CursorTarget::{EnemyObject, FriendlyObject, Ground, NeutralObject};
     match (pending, target.target) {
@@ -306,6 +308,7 @@ pub fn target_order(pending: PanelCommand, target: &MapTarget) -> Option<OrderKi
             Some(OrderKind::Move(Target::Object(id)))
         }
         (PanelCommand::Patrol, Ground(point)) => Some(OrderKind::Patrol(point)),
+        (PanelCommand::AttackGround, Ground(point)) => Some(OrderKind::AttackGround(point)),
         _ => None,
     }
 }
@@ -366,6 +369,7 @@ impl PointerDisplay {
             OrderKind::DropOff(_) => PointerDisplay::ReturnResources,
             OrderKind::Attack(_) | OrderKind::AttackMove(_) => PointerDisplay::Attack,
             OrderKind::Patrol(_) => PointerDisplay::Patrol,
+            OrderKind::AttackGround(_) => PointerDisplay::AttackGround,
             OrderKind::Hold | OrderKind::Stop => PointerDisplay::Inactive,
         }
     }
@@ -423,11 +427,9 @@ pub fn right_click_display(units: &[UnitCapabilities], target: &MapTarget) -> Po
 }
 
 /// `systems/controls/selection_and_hud.md > Resolution Rules > AwaitingTarget[CommandType]`: the pending command's look
-/// over a target it can use, else Inactive. AttackGround and Reverse, which have no order yet, by the design's rows for
-/// the ground.
+/// over a target it can use, else Inactive. Reverse, which has no order yet, by the design's row for the ground.
 fn awaiting_display(pending: PanelCommand, target: &MapTarget) -> PointerDisplay {
     match (pending, target.target) {
-        (PanelCommand::AttackGround, CursorTarget::Ground(_)) => PointerDisplay::AttackGround,
         (PanelCommand::Reverse, CursorTarget::Ground(_)) => PointerDisplay::Move,
         _ => target_resolution(pending, target).map_or(PointerDisplay::Inactive, PointerDisplay::of),
     }

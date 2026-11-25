@@ -8,7 +8,7 @@ use crate::ids::{ObjectId, PlayerId};
 use crate::object::Object;
 use crate::orders::{OrderKind, Target};
 use crate::sim::{Reject, Sim};
-use crate::{conversion, riot_shield};
+use crate::{combat, conversion, riot_shield};
 
 impl Sim {
     /// `docs/movement.md > 3`, with the approved gate change: ids that no longer exist are dropped.
@@ -69,6 +69,20 @@ impl Sim {
             // `systems/controls/commands.md > Enter` (`sim/network.rs`): the units the Tunnel's tier lets in take
             // it, the others ignore it.
             OrderKind::Enter(tunnel) => ordered = self.check_enter(player, ordered, tunnel)?,
+            // (M4-O) `systems/controls/commands.md > AttackGround`: "Only available to units whose AttackType has
+            // CanTargetGround" (plan decision T47): those units take it, the others ignore it. The point is the one
+            // clicked, on the map; no one needs to see it.
+            OrderKind::AttackGround(p) => {
+                if !self.map.contains_point(p) {
+                    return Err(Reject::OffMap);
+                }
+                let can =
+                    |o: &Object| combat::weapon(o).is_some_and(|attrs| combat::can_target_ground(attrs.attack_type));
+                ordered.retain(|id| self.objects.get(id).is_some_and(can));
+                if ordered.is_empty() {
+                    return Err(Reject::CannotTargetGround);
+                }
+            }
         }
         Ok(Checked::Order {
             units: ordered,
