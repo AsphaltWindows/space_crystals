@@ -3,12 +3,13 @@
 //! Shift-queued one, leaves a ghost of the building on its site until construction actually starts", "Visible to its
 //! owner. Enemies never see it". The local player's pending worker builds (`Sim::pending_builds`), each the footprint
 //! of what it builds on its site, in the game modes: a Drone's Beacon, an Agent's Tunnel (slice M4-E), the Tunnel's
-//! with its Tier 1 Tunnel Area (slice M4-J1), which it reserves too (`sc_sim::WholeProblem::TunnelAreaOverlap`:
-//! Q0079 point 2). A ghost goes with its order: when the deployment or the site starts, or the order is cancelled,
-//! replaced by a new one, or fails. They block no one (the sim's rule: `crates/sim/tests/deploy_gate/`,
-//! `pending_sites_block_no_one`) and reserve their sites against the player's further placements, which the placement
-//! ghost shows red there (`super::ghost`). They are the local player's own: another player's never show
-//! (`sim_driver::LocalPlayer`, the view the client draws).
+//! with its Tier 1 Tunnel Area (slice M4-J1), which it reserves too (`sc_sim::WholeProblem::TunnelAreaOverlap`; design
+//! change 0289, `factions/syndicate/tunnels.md > Tunnel Area Non-Overlap Rule`: "reserves its whole Tier 1 Tunnel Area
+//! against its owner's further Tunnel placements"). A ghost goes with its order: when the deployment or the site
+//! starts, or the order is cancelled, replaced by a new one, or fails. They block no one (the sim's rule:
+//! `crates/sim/tests/deploy_gate/`, `pending_sites_block_no_one`) and reserve their sites against the player's further
+//! placements, which the placement ghost shows red there (`super::ghost`). They are the local player's own: another
+//! player's never show (`sim_driver::LocalPlayer`, the view the client draws).
 //!
 //! One mesh, under one handle, rebuilt in place only when the sites or the map change. The look, placeholders until
 //! the art (Q0001): each footprint tile tinted pale blue on the terrain's surface, as the terrain mesh draws it, and

@@ -246,8 +246,10 @@ fn a_build_the_bank_cant_pay_says_so_and_sends_nothing() {
 /// `systems/controls/selection_and_hud.md > AwaitingTarget > Shift while placing`: "each Agent takes exactly one
 /// placement", and placement ends at a Shift-click as at a plain one; to place with the next Agent, the player presses
 /// Tab, then A. Two Shift-clicks with two Agents leave two lingering ghosts with their Tier 1 areas, each paid as it
-/// was given (1, then 2: the first ghost counts, design change 0233); a third with the first Agent again, on a valid
-/// site, is refused by the gate's one placement per Agent and sends nothing.
+/// was given (1, then 2: the first ghost counts, design change 0233). The second Agent's ghost is red where its area
+/// would overlap the first ghost's (design change 0289: "Shift-queue two Tunnels whose areas overlap: the second ghost
+/// is red"). A third Shift-click with the first Agent again, on a valid site, is refused by the gate's one placement
+/// per Agent and sends nothing.
 #[test]
 fn shift_places_several_ghosts_one_agent_each() {
     let mut app = agent_game();
@@ -255,6 +257,13 @@ fn shift_places_several_ghosts_one_agent_each() {
     for (agent, site) in AGENTS.into_iter().zip(SITES) {
         tap(&mut app, &[], KeyA);
         assert!(matches!(interface(&app), InterfaceState::AwaitingPlacement(_)));
+        if agent == AGENTS[1] {
+            let overlapping = TilePos::new(SITES[0].x + 4, SITES[0].y);
+            pointer_over(&mut app, centre(overlapping));
+            let ghost = app.world().resource::<PlacementGhost>().shown.clone().expect("a ghost");
+            assert_eq!(ghost.origin, overlapping);
+            assert_eq!(ghost.check.whole, [sc_sim::WholeProblem::TunnelAreaOverlap]);
+        }
         click(&mut app, centre(site), &[ShiftLeft]);
         assert_eq!(builds(&app).last(), Some(&given(&[agent], build_at(site), true)));
         assert_eq!(interface(&app), InterfaceState::DefaultState, "placement ends");
