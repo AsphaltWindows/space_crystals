@@ -1395,10 +1395,23 @@ The user keeps feeding unit and other designs to the Designer, so expect increme
     - The rest are queued in the waves above.
   - **Technical follow-ups** (the Director's):
     - **One per-player event filter in the client.** M4-O found that each event consumer filters for the viewer on its own, and fixed one leak (a hidden Hideout's death marker). Put the filter in one place before more hidden objects arrive (S2's pop-up turret, N4–N7). **Done: M4-V, `dbefb552`.**
-    - **"Target too close" for a location** (`systems/controls/behaviors.md > Target inside MinRange`): an Attack Ground that can't back off gives up without the feedback (a TODO in `orders/attack_ground.rs`). No M4 kind can target the ground with a MinRange, so the first that can (the Gunner in M5, or the Artillery Rig) adds it.
+    - **"Target too close" for a location** (`systems/controls/behaviors.md > Target inside MinRange`): an Attack Ground that can't back off gives up without the feedback (a TODO in `orders/attack_ground.rs`). No M4 kind can target the ground with a MinRange, so the first that can (the Gunner in M5, or the Artillery Rig) adds it. **Now M5-O3** (0304: the Gunner is TailDisjointed, with MinRange 2).
   - **Earlier scope note:** tunnels, Hideout, Agent, Guard economy, 0186's Optics Lab gate and Agent pistol, the Grenadier (0187) and the Assault Bike (0188), once their numbers exist. Underground expansions are exempt from the flatness rule (0005).
 - **M5 Cults**: Recruitment Hall, Storage, Recruit, Armory, Militant (renamed from Soldier, 0302), Gunner.
-  - **Planning spike M5-P is running** (Opus, read-only; brief `scratchpad/briefs/m5-planning.md`; draft `scratchpad/m5/m5-plan-draft.md`). M5 ends at the user's first playtest, with all four factions, so it also plans playtest readiness and the "data files at playtest" step. The plan is adopted with the user before M5 starts.
+  - **The plan: `artifacts/director/m5-plan.md`,** adopted from planning spike M5-P's draft, with the Director's decisions at its top.
+    - **The slices:** 15, including O3 for 0304, plus answer sweeps S1 and S2, in 8 waves; D runs on Fable.
+      1. A (Cults foundation) ∥ R (playtest pairings);
+      2. C (Recruitment Halls) ∥ D (Recruit gathering) ∥ F1 (buildings that hold units);
+      3. B (Cults start) ∥ E (group construction) ∥ F2 (Armory training);
+      4. J1 (Recruit UI) ∥ L (oracle and goldens) ∥ O3 (TailDisjointed, 0304). **This is the first playable.**
+      5. G (the Gunworks, if Q0092 and Q0093 say so) ∥ S1 ∥ a gated slice whose numbers have arrived;
+      6. X1 (the sim's ruleset), alone;
+      7. X2 (data files and live reload) ∥ S2;
+      8. M (QA), then the user's playtest.
+    - **Data files (T66):** JSON merge patches over the built-in Rust rules, swapped in at a tick boundary through a recorded command, and reloaded live in dev builds.
+    - **Questions:** Q0092–Q0108 are filed; none blocks.
+    - **Pending with the user:** the playtest's opponent (hot-seat or an AI), and a start screen.
+    - **M5 starts** after M4-M lands and the user agrees.
   - Recruits are Groupable: every selected Recruit builds (0072).
   - Shift-placement queues build orders while Shift is held, with the cost paid per order (0071).
 
@@ -1513,6 +1526,23 @@ The user keeps feeding unit and other designs to the Designer, so expect increme
 | Q0089 | Three Agents at 3 GU measure 10.67 SC/s against the table's 12.5 (−14.7%, inside ±15%): is the opening target the third Agent at work by 0:40, or the Tunnel at 12.5? | no (answered) | answered by 0303: (a) as built; the third Agent at work by 0:40, and the table is an ideal ("It's better with some variation") |
 | Q0090 | What a player perceives of events they don't see: an unseen shooter's colour, another player's defeat, marks seen late (M4-V's open doubts) | no | open; as built, option (a) for each point, marked `Placeholder (M4-V)` in `viewer_events.rs` |
 | Q0091 | Pop-up turret details: its Tunnel dying with a unit on top, a target while it retracts, a Tunnel-built turret's ground and tier, when a site takes Tunnel Space (M4-S2's readings) | no | open; as built, option (a) for each point |
+| Q0092 | Which TBD Cults buildings get placeholder numbers for the first playtest (decides whether M5-G runs) (M5) | no | open; M5 builds the proposal as a placeholder |
+| Q0093 | Placeholder stats for the Gunworks (M5) | no | open; M5 builds the proposal as a placeholder |
+| Q0094 | The Storage's armour: 1/6, or the rule's 1/4 (M5) | no | open; M5 builds the proposal as a placeholder |
+| Q0095 | The Recruit's panel letters, and its pointer over a building under construction (M5) | no | open; M5 builds the proposal as a placeholder |
+| Q0096 | The Recruit's Construct menu: 13 buildings, 11 slots (M5) | no | open; M5 builds the proposal as a placeholder |
+| Q0097 | Group construction: where Recruits build, when the site starts, who counts (M5) | no | open; M5 builds the proposal as a placeholder |
+| Q0098 | Group construction: payment and refunds (M5) | no | open; M5 builds the proposal as a placeholder |
+| Q0099 | Recruitment Area: off-map tiles, rounding, priority, Halls under construction (M5) | no | open; M5 builds the proposal as a placeholder |
+| Q0100 | Hall production: the exit side, X, counting the Recruit in production (M5) | no | open; M5 builds the proposal as a placeholder |
+| Q0101 | Cults Unit Control: the global rule, and Recruits no Hall produced (M5) | no | open; M5 builds the proposal as a placeholder |
+| Q0102 | Which Storage a Recruit drops off at (M5) | no | open; M5 builds the proposal as a placeholder |
+| Q0103 | The Cults economy check: geometry, tolerance, targets, build line (M5) | no | open; M5 builds the proposal as a placeholder |
+| Q0104 | Entering the Armory: the spot, a full pool, loads, capacity (M5) | no | open; M5 builds the proposal as a placeholder |
+| Q0105 | Armory training: which Recruit, its HP, ejected Recruits, the doorway (M5) | no | open; M5 builds the proposal as a placeholder |
+| Q0106 | Evacuation: where and in what order units come out (M5) | no | open; M5 builds the proposal as a placeholder |
+| Q0107 | Showing the Recruitment Area (M5) | no | open; M5 builds the proposal as a placeholder |
+| Q0108 | Stale lines in the Cults docs and the Enter command (M5) | no | open; M5 builds the proposal as a placeholder |
 
 ## Design change entries
 Last triaged: 0282.
@@ -1583,8 +1613,8 @@ Last triaged: 0282.
 | 0068 Targeting clicks count at the press point | done (M1-H2, `2417f70`) | |
 | 0069 Selection changes while targeting: player changes cancel, deaths don't | done (M1-H2, `2417f70`) | Q0016 point 3 complete |
 | 0070 Shift keeps targeting active while held | done (M1-H3, `80b3d88`) | Q0016 complete; Shift released before any click: targeting continues (proposed default) |
-| 0071 No smart-casting; Shift while placing | done (audit M1-H3 `80b3d88`; placement M2-H2 `2d507b4`); the Recruit Shift-queue in M5 | |
-| 0072 Recruits are Groupable | queued (M5 Cults) | |
+| 0071 No smart-casting; Shift while placing | done (audit M1-H3 `80b3d88`; placement M2-H2 `2d507b4`); the Recruit Shift-queue queued (M5-E) | |
+| 0072 Recruits are Groupable | queued (M5-E: every selected Recruit builds; M5-J1) | |
 | 0073 Targeting click allowance (16 px) | done (M1-H3, `80b3d88`) | answers Q0021 point 1 |
 | 0074 Shielded Peacekeepers follow on right-click | done (M1-H3, `80b3d88`) | answers Q0020 point 1; replaces the Move-to-location default |
 | 0075 Shielded Peacekeepers are left out of explicit Attack | done (M1-H3, `80b3d88`) | answers Q0021 point 2; differs from right-click on purpose |
@@ -1795,6 +1825,7 @@ Last triaged: 0282.
 | 0299 Every Syndicate unit type keeps its EjectMenu tile (0, greyed); selecting an own Tunnel shows its area; placing a Tunnel previews its Tier 1–3 areas with blocking cells red; enemy areas never shown; recalling an all-inside group does nothing | done (points 2 and 5 as built, M4-J2 `c5910e4d`; point 4, M4-J3 `5e2e9419`) | answers Q0086 points 2, 4, 5 |
 | 0300 The EjectMenu stays open after a click; the preview also marks cells overlapping own other Tunnels' areas; the area shows while placing an expansion | done (points 1 and 3 as built, M4-J2 and M4-F; point 2, M4-J3 `5e2e9419`) | answers Q0086 point 3 (Q0086 complete) |
 | 0301 No transit delay for the Agent that finishes a Tunnel, nor for produced units rallied inside | done (as built, M4-E `4933e094`; M4-J3 `5e2e9419`: the verification as a test, and the marks) | answers Q0087 |
-| 0302 The Cults' Soldier is renamed Militant (`factions/cults/units/militant.md`); the Armory's Q reads "Train Militant" | queued (M5: no code mentions the Soldier yet) | — |
+| 0302 The Cults' Soldier is renamed Militant (`factions/cults/units/militant.md`); the Armory's Q reads "Train Militant" | queued (M5-A: no code mentions the Soldier yet) | — |
 | 0303 The Syndicate's opening target means the third Agent at work by about 0:40; the Agent table is an ideal, and real income varies a little below it | done (as built, M4-L `6d05e084`; no change) | answers Q0089 |
+| 0304 The Cults' Gunner can miss: a TailDisjointed attack (the position locks at the end of Aiming; the shot lands there at the end of Firing and hits whatever unit is at the spot), and Attack Ground | queued (M5-O3: TailDisjointed attacks, which aren't built yet; the Gunner's Attack Ground; "Target too close" for a location, since the Gunner has MinRange 2. The Gunner's kind is in M5-A) | — |
 | 0014 GDO Airfield and aircraft | queued (Later: air) | |
