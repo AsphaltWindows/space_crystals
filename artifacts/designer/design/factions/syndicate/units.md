@@ -433,3 +433,28 @@ TBD: all numbers (HP, armor, sight, speed and handling, TunnelSpaceCost, damage,
 
 TBD: re-arming time and the Vault's throughput limit; the lift-off/landing transition; all numbers.
 
+## Satellite (name TBD)
+(user, 2026-11-25) An unmanned Syndicate orbital unit whose function, **for now, is only laser relay**: it redirects Syndicate lasers (see Laser Battery > Refract; relay rules to be designed).
+
+### Entity Type - Unit
+### Faction - TheSyndicate
+### UnitBase - HoverCraft (Air domain; factions/syndicate/structures.md > Aerospace Assembly)
+### Produced at - Aerospace Assembly
+### TechPrerequisite - player owns at least one **Orbital Command** (user, 2026-11-25)
+### Manned - no (no Null Chamber buff)
+
+### Launch
+It leaves the network through a Tier 3 Tunnel's **air exit**, **launched like a rocket straight up**, and **transforms in the air into its orbital form** (user, 2026-11-25).
+
+### One way only
+It is the **only unit that can't get back into the Tunnel Network** (user, 2026-11-25). Nothing recharges it inside, Vault or otherwise.
+
+### Movement
+- **Very slow** by default.
+- **Directional thrust**: a few **charges**, each giving a quick burst of displacement in a chosen direction (user, 2026-11-25).
+
+### Sight
+It sees through Shadebringer smoke (Shadebringer > Cover).
+
+TBD: name; the relay rules; launch and transform timing (and whether it can be hit meanwhile); thrust charge count, distance and recharge; all numbers.
+

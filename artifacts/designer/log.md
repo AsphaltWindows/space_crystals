@@ -2237,3 +2237,4 @@ Specter default return-to-rearm. Entry 0271.
 Specter attack orders / ammo / queue. Entry 0272.
 Specter: no T3 -> ignores attack. Entry 0273.
 Satellites require Orbital Command. Entry 0274.
+Satellite concept. Entry 0275.
