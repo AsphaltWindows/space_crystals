@@ -1147,7 +1147,7 @@ The user keeps feeding unit and other designs to the Designer, so expect increme
     - N7: the Specter.
   - **Questions:**
     - Q0059–Q0071 are all answered, by 0229–0267.
-    - Q0078 and Q0085 are answered (0283, 0284), and Q0086 point 1 (0285). Q0076, Q0077, Q0079–Q0084, Q0086 points 2–5 and Q0087 are open. Q0076, the Agents' jam near the hatch, partly blocks L's oracle; the others don't block, and their slices build the proposals.
+    - Answered since revision 2: Q0077 (0288), Q0078 (0283), Q0079 (0289), Q0080 (0290), Q0081 (0291), Q0082 (0292), Q0085 (0284) and Q0086 point 1 (0285). Open: Q0076 (0286, 0287: the cost estimates first), Q0083, Q0084, Q0086 points 2–5 and Q0087. Q0076, the Agents' jam near the hatch, partly blocks L's oracle; the others don't block, and their slices build the proposals.
   - **Slice status:**
     - A: done (`fcd06dc`).
     - C: done (`f67df212`; Q0077).
@@ -1160,7 +1160,8 @@ The user keeps feeding unit and other designs to the Designer, so expect increme
     - O: done (`356d1a96`; Q0083's placeholders).
     - E: done (`4933e094`; Q0079's placeholders; Q0087).
     - H: done (`f456b0ca`).
-    - J1 and F: running (wave 5, Opus; briefs `scratchpad/briefs/m4j1-agent-ui.md` and `m4f-expansions.md`). F adds H's `Builder::Tunnel` arm, the Tier Requirements and the comments for 0283–0285.
+    - J1 and F: running (wave 5, Opus; briefs `scratchpad/briefs/m4j1-agent-ui.md` and `m4f-expansions.md`). F adds H's `Builder::Tunnel` arm, the Tier Requirements and the comments for 0283–0285, and was re-briefed for 0290 and 0291. J1 adds 0289's red second ghost.
+    - I2 (new, small; brief `scratchpad/briefs/m4i2-answers-sweep.md`): 0292 point 2, the verifications of 0288, 0289 and 0292, and the marks of Q0077, Q0079 and Q0082. It launches when J1 lands.
     - The rest are queued in the waves above.
   - **Technical follow-ups** (the Director's):
     - **One per-player event filter in the client.** M4-O found that each event consumer filters for the viewer on its own, and fixed one leak (a hidden Hideout's death marker). Put the filter in one place before more hidden objects arrive (S2's pop-up turret, N4–N7). Candidate: a small slice beside L, or in M.
@@ -1266,12 +1267,12 @@ The user keeps feeding unit and other designs to the Designer, so expect increme
 | Q0074 | AttackMove: should the unit's own movement re-check an enemy it rejected? As built, a unit that rejected a standing enemy across a wall doesn't take it after rounding the wall, unless it comes within weapon range | no | answered by 0243 (B, to try; M3-L5 measures the cost) |
 | Q0075 | A revealed attacker shooting at a target the player can't see: draw the shot whole (literal 0206) or clip it? | no | answered by 0244 (stricter than B; M3-L5) |
 | Q0076 | Agents jam head-on between a near patch (0–1 GU) and the hatch: 3+ Agents halve the income (5.33 against 12.5 SC/s). Pass through like Drones, move patches to 3 GU or more, or a right-of-way rule? | partly (M4-L's oracle; the first playable) | open; as built, Agents collide. 0286: the user asks for cost estimates of six fixes (a Fable investigation is running) |
-| Q0077 | Eject while every unit of the type is in transit: refused or queued? And where an ejected unit with no rally waits: 1 GU out, as built, or farther? | no | open; as built in M4-C |
+| Q0077 | Eject while every unit of the type is in transit: refused or queued? And where an ejected unit with no rally waits: 1 GU out, as built, or farther? | no | answered by 0288 (as built); M4-I2 updates the marks |
 | Q0078 | Tunnel near the map edge: 0242's Verification (2 tiles from the edge is red) is one tile off its own rule | no | answered by 0283 (as built); F updates the placeholder comments |
-| Q0079 | Agent build orders: a refund if the Agent is killed before the start; does a pending ghost or a site reserve its whole area? | no | open; M4-E built the proposals (`4933e094`) |
-| Q0080 | Expansion placement: do ground units and lingering ghosts block it; is a Warp In over a hidden expansion red at once? | no | open; M4-F builds the proposals |
-| Q0081 | ExpandMenu slots: do expansions not yet in the game keep their greyed slots, so the turret's letter never moves? | no | open; M4-J2 and M4-F build the proposal |
-| Q0082 | Supplies gathering: pick-up and drop-off reaches; nearest Tunnel measured to the Supplies hatch; the old load lost at the end of the new pick-up | no | open; M4-I (`9aca8972`) built A for all three points, marked `Placeholder: Q0082 point N` |
+| Q0079 | Agent build orders: a refund if the Agent is killed before the start; does a pending ghost or a site reserve its whole area? | no | answered by 0289 (as built); M4-J1 tests the red ghost, M4-I2 updates the marks |
+| Q0080 | Expansion placement: do ground units and lingering ghosts block it; is a Warp In over a hidden expansion red at once? | no | answered by 0290: units and ghosts don't block, and a Warp In is judged like direct placement; M4-F re-briefed |
+| Q0081 | ExpandMenu slots: do expansions not yet in the game keep their greyed slots, so the turret's letter never moves? | no | answered by 0291 (as proposed); M4-F builds it |
+| Q0082 | Supplies gathering: pick-up and drop-off reaches; nearest Tunnel measured to the Supplies hatch; the old load lost at the end of the new pick-up | no | answered by 0292: points 1 and 3 as built; point 2 measures to the crystal hatch (M4-I2) |
 | Q0083 | Area damage: friendly fire, the reveal, Attack Ground's end, how grenades are drawn | no | open; M4-O built points 1–4 as placeholders (`356d1a96`); M4-U follows |
 | Q0084 | Laser Turret: hidden when, sight, blocking, payment, refunds, sites, the Agent's exit, targeting | no | open; M4-S1 and M4-S2 build the proposals |
 | Q0085 | Stale doc lines that later answers contradict (seven lines) | no | answered by 0284 (the docs corrected; as built); F updates the comments |
@@ -1545,4 +1546,9 @@ Last triaged: 0282.
 | 0285 EjectMenu order: Agent, Guard, Grenadier, …; `units/README.md > Files` reordered | done (as built, M4-J2 `c5910e4d`; F updates the comment) | answers Q0086 point 1 |
 | 0286 The user asks for cost estimates of six fixes for the Agents' jam; no design change | in progress (a Fable investigation; the reply goes as a question following Q0076) | about Q0076 |
 | 0287 The user's leanings for the jam estimates: the 2-square hatch keeps one drop-off at a time but is less wanted (looks); the moving unit's sidestep is wanted for all units, in general | in progress (passed to the investigation, which now estimates the general sidestep first) | about Q0076 |
+| 0288 An Eject during the transit delay is refused (its tile greyed); an ejected unit with no rally stops 1 GU out | done (as built, M4-C `f67df212` and M4-J2 `c5910e4d`); M4-I2 checks the verifications and updates the marks | answers Q0077 |
+| 0289 A killed Agent's Tunnel order refunds the top price; a pending ghost reserves its Tier 1 area against its owner's ghosts; a site's area counts for everyone | done in the sim (as built, M4-E `4933e094`); in progress (M4-J1: the red second ghost); M4-I2 updates the marks | answers Q0079 |
+| 0290 Expansion placement: ground units don't block it; no ghost check is needed; a Colonists Warp In over a hidden enemy expansion is red at once, like direct placement | in progress (M4-F, re-briefed: it had built the old placeholders) | answers Q0080 |
+| 0291 The ExpandMenu's nine expansions hold fixed slots in table order, greyed while unavailable; the Laser Turret is always tenth | in progress (M4-F, as proposed) | answers Q0081 |
+| 0292 Supplies gathering: 8 su reaches; the nearest Tunnel measured to the crystal hatch; the old load lost when the new pick-up or mining ends | partly done (points 1 and 3 as built, M4-I `9aca8972`); queued (M4-I2: point 2, the crystal-hatch measure) | answers Q0082 |
 | 0014 GDO Airfield and aircraft | queued (Later: air) | |
