@@ -1481,3 +1481,14 @@ Quote these in the slice briefs.
   - Units leave the map once they have walked into the Tunnel, so throughput follows unit speed and spacing.
   - Exits wait on Q0064.
 - **0247** (Q0063 point 2, for C): entering uses the normal Failure rule, with no special waiting rule.
+- **0248** (Q0063 point 2's "which half of Side A"; corrects 0224): the sides, clockwise from the top in the default orientation, are:
+  - **A:** entrance and exit;
+  - **B:** crystal hatch;
+  - **C:** back wall, with no function;
+  - **D:** Supplies hatch.
+
+  The hatches sit next to the entrance. Side A's exit path is the half nearer B, and its entry path the half nearer D; both turn and flip with the Tunnel. This affects:
+  - **A** (folded in): the hatch marks are on B and D;
+  - **C:** the entry and exit spots;
+  - **I:** Supplies are delivered at Side D, not C;
+  - **D:** crystals at Side B, unchanged.

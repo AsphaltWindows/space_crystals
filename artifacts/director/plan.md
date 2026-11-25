@@ -722,10 +722,16 @@ Approach: thin vertical slices the user can run and see, each verified by tests 
     - a Move marker on a structure covers its label;
     - a soft tint fringe, about half a tile wide, next to unexplored ground.
 
+- **M3-K4 economy table** (merged in `f47fb26`; 1389 tests; tests and docs only, so game numbers and goldens are unchanged):
+  - **0236's table** is `economy_oracle/main.rs::TABLE`, and each figure is checked within ±15%. All are within 0.5%.
+  - **Target 1, as restated, holds:** the Colonists lead from 0:00 to 1:40 by 0.26–1.43 SC/s.
+  - **Saturation:** 24 Drones, 3 per patch, mine 32.00 SC/s.
+  - **The GDO column** in the design table is the GDO line measured on the Colonists' 21 s window. M2's own 9 s check is kept as `gdo::model`.
+  - **The docs** of `gathering_soak.rs` and `ARCHITECTURE.md` cite 0236.
+
 ## In progress
 - **M3 waves 2 and 3** (common brief `scratchpad/briefs/m3-common.md`; status `m3-w2-status.md`):
   - **M4-A Syndicate foundation** (Opus; brief `scratchpad/briefs/m4a-syndicate-foundation.md`, common `m4-common.md`): the Agent, Tunnel and Hideout kinds, tier state, the underground layer (`Sim::hidden_from`), the pistol, placeholder looks, red lasers.
-  - **M3-K4 economy table** (Opus; brief `scratchpad/briefs/m3k4-economy-table.md`): 0236, the measured Colonists economy is the design. The oracle's table and target 1 change; no game number does.
   - **M3-L5 own-movement re-check and own-target shots** (Opus; brief `scratchpad/briefs/m3l5-own-movement-and-own-target-shots.md`): 0243, with a perf A/B that includes standing targets, and 0244 in the client.
 - **Next**:
   - **Playtest:** the user plays once all four factions are built (2026-11-24), using `docs/playtest/m2.md`, `m3.md` and later notes. This replaces separate M1–M3 playtests.
@@ -877,7 +883,7 @@ The user keeps feeding unit and other designs to the Designer, so expect increme
     | G2 | done (`d98ae13`; Q0057) |
     | K3 | done (`c4807b8`; Q0072) |
     | L4 | done (`b261863`; Q0074) |
-    | K4 (0236: the measured Colonists economy is the design; the oracle's table and target 1; brief `scratchpad/briefs/m3k4-economy-table.md`) | running (wave 10) |
+    | K4 | done (`f47fb26`) |
     | L5 (0243 own-movement re-check, with the cost measured; 0244 shots drawn whole only at your own objects; brief `scratchpad/briefs/m3l5-own-movement-and-own-target-shots.md`) | running (wave 10) |
     | J3 | done (`827dfeb`; Q0075) |
     | G3 | done (`8480ee0`) |
@@ -972,7 +978,7 @@ The user keeps feeding unit and other designs to the Designer, so expect increme
 | Q0060 | Tunnel upgrade: duration, HP and payment | yes | answered by 0229, 0231 and 0232 (unblocks M4-G) |
 | Q0061 | Agent-built Tunnels: payment, ownership and the site | no | answered: points 1–2 by 0233, points 3–5 and 7–9 by 0234; point 6 moot |
 | Q0062 | Tunnel Areas and the two layers | no | answered by 0237–0242 |
-| Q0063 | The Tunnel Network: transit, entering single file, and units inside | no | points 1, 2 and 7 answered by 0245–0247; the rest open |
+| Q0063 | The Tunnel Network: transit, entering single file, and units inside | no | points 1, 2 and 7 answered by 0245–0248; the rest open |
 | Q0064 | Ejection and production out of the network | no | open; M4 builds the proposals |
 | Q0065 | Expansions under construction | no | open; M4 builds the proposals |
 | Q0066 | Agent gathering: the Drone's rules, the Tunnel it uses, and the line at Side B | no | open; M4 builds the proposals |
@@ -987,7 +993,7 @@ The user keeps feeding unit and other designs to the Designer, so expect increme
 | Q0075 | A revealed attacker shooting at a target the player can't see: draw the shot whole (literal 0206) or clip it? | no | answered by 0244 (stricter than B; M3-L5) |
 
 ## Design change entries
-Last triaged: 0247.
+Last triaged: 0248.
 
 | Entry | Status | Notes |
 |---|---|---|
@@ -1201,7 +1207,7 @@ Last triaged: 0247.
 | 0233 Agent-built Tunnels pay when the ghost is placed; ghosts and sites count toward the price; an order that can't be paid is refused with feedback; refunds at the current top price | queued (M4-E) | answers Q0061 points 1–2 |
 | 0234 A Tunnel under construction: Cancel only, ConstructionHP is the maximum and damage stays, the Agent comes out at the centre, the site counts for defeat, the Agent keeps its load, enemies see the site and not the Agent | queued (M4-E) | answers Q0061 points 3–5 and 7–9, as proposed |
 | 0235 A chase given up by the Failure rule during an AttackMove counts as "can't reach": rejected until 0230's triggers fire | done (M3-L4, `b261863`) | answers Q0073 (A) |
-| 0236 The measured Colonists economy is the design: the table is K3's figures, target 1 is "the Colonists lead from the start to about 1:40", saturation is about 24 Drones | queued (M3-K4) | answers Q0055 and Q0072; no game number changes |
+| 0236 The measured Colonists economy is the design: the table is K3's figures, target 1 is "the Colonists lead from the start to about 1:40", saturation is about 24 Drones | done (M3-K4, `f47fb26`) | answers Q0055 and Q0072; no game number changes |
 | 0237 Tunnel Areas may not overlap any player's Tunnels: crowding and blocking an enemy's Tunnels is allowed. The ghost judges known enemy Tunnels at their remembered position and tier; the check on arrival and upgrade checks use the truth | queued (M4-E, M4-G) | answers Q0062 point 1; replaces the own-Tunnels-only proposal |
 | 0238 A Tunnel Area's cells past the map edge count for Tunnel Space; expansions are placed on map cells only | superseded by 0242 | answers Q0062 point 2 |
 | 0239 Every tile under an expansion must be Drillable (Plane, Rugged and Cliff; not Mountain or Water); own and neutral underground structures and the Tunnel's footprint block it | queued (M4-F) | answers Q0062 points 3a, 3b and 3e, as proposed |
@@ -1213,4 +1219,5 @@ Last triaged: 0247.
 | 0245 Tunnel Network: a flat transit delay of 32 frames (placeholder) after entering before a unit can exit; produced units have none | queued (M4-C) | answers Q0063 point 1 |
 | 0246 Units walk into a Tunnel single file at normal speed with normal spacing, no fixed hold per unit ("one unit wide"); produced units exit without delay | queued (M4-C) | answers Q0063 point 7 and part of 2; replaces the 8-frame hold proposal |
 | 0247 Entering a Tunnel uses the normal Failure rule; no special waiting rule | queued (M4-C) | answers Q0063 point 2, as proposed |
+| 0248 Tunnel sides corrected: A entrance and exit, B crystal hatch, C back wall (no function), D Supplies hatch. Side A's exit path is the half nearer B, the entry path the half nearer D | in progress (M4-A, folded in: the hatch marks on B and D); queued (M4-C: Side A's halves; M4-I: Supplies delivered at Side D) | answers Q0063 point 2 (which half of Side A); corrects 0224's B and C hatches |
 | 0014 GDO Airfield and aircraft | queued (Later: air) | |
