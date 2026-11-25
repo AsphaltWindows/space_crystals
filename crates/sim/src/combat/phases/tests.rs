@@ -62,6 +62,7 @@ fn world(bearing: f32) -> (Map, Targets, Vision) {
                 conversion: None,
                 tunnel: None,
                 construction: None,
+                decay: None,
             },
         );
     }

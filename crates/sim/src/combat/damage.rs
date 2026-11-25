@@ -328,6 +328,7 @@ mod tests {
             conversion: None,
             tunnel: crate::tunnel::fresh(kind),
             construction: None,
+            decay: None,
         }
     }
 

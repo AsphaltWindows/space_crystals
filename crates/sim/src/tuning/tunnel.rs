@@ -1,6 +1,7 @@
 //! The Tunnel Network's ways in and out (`factions/syndicate/tunnels.md > Tunnel Network`, `> EjectMenu`;
 //! `crate::network`): where Side A's paths lie, how near a unit goes in, how far it walks out, and the air doors. The
-//! transit delay and the regeneration inside are the Tunnel's def's (`defs::TunnelDef`).
+//! transit delay and the regeneration inside are the Tunnel's def's (`defs::TunnelDef`). And the decay of the
+//! expansions a lost Tunnel leaves neutral (`factions/syndicate/tunnels.md > Losing Tunnels`, `sim/tunnels.rs`).
 
 use crate::units::SU_PER_GU;
 
@@ -29,3 +30,9 @@ pub const WALK_OUT_SU: f32 = SU_PER_GU;
 /// the Tunnel's roof: the entry door over the entry path's half of the Tunnel, the exit door over the exit path's
 /// half". They never use Side A's paths, and never wait for the exit spot.
 pub const AIR_DOORS: bool = false;
+
+/// `factions/syndicate/tunnels.md > Losing Tunnels` (design change 0258 point 1, answering Q0069): a neutral expansion
+/// "slowly loses HP until destroyed. Decay is a percentage of MaxHP per second ...: 1% per second, placeholder (a
+/// Hideout lasts 100 s); the number is to be tuned". Whole percents of its MaxHP per second (`sim/tunnels.rs`, which
+/// counts it out exactly per tick). **Placeholder** (design change 0258: "1% per second is a placeholder").
+pub const DECAY_PERCENT_PER_SECOND: u32 = 1;
