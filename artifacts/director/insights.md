@@ -62,6 +62,10 @@
   - Never push agent worktree branches.
   - Never push the Designer's uncommitted work. A push only sends commits, and the Designer commits its own.
 - **Code organization** (user, through 0282, 2026-11-25), quoted: "keep the code **organized and modular** ... Once testing starts we want to experiment and make changes rapidly and accurately ... per-unit and per-structure definitions living in their own modules, data and tunables kept apart from logic, and shared mechanics (deploy model, toggles, AoE) implemented once and reused." New kinds go in their own modules. Design citations use the per-object doc paths (`factions/<f>/units/<unit>.md`).
+- **Tuning data** (user decision, 2026-11-25: "Modules now, data files at playtest").
+  - **M4-R, now:** one Rust module per unit and per structure, with tunables in their own modules.
+  - **At playtest,** after the four factions, hot-reloadable data files come in so numbers can be tuned live.
+  - Keep defs as plain, serde-ready data structs, so that step stays cheap.
 
 ## Lessons learned (process)
 - **Never `cd` in a Bash command in this session.** It moves the session's cwd (it happened three times). Use absolute paths, `git -C`, or a subshell `( cd X && ... )`.
