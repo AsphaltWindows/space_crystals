@@ -1,6 +1,7 @@
 mod colonists;
 mod construction;
 mod gathering;
+mod syndicate;
 
 use sc_sim::defs::AttackType;
 use sc_sim::{Ability, ObjectId, ObjectKind, OrderKind, ProductionCommand, Reject, ShieldMode};

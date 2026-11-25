@@ -67,6 +67,12 @@
 //! 0185, `crate::selection::GroupType`). Warp In applies to the Beacon Tabbed to (Beacons are Ungroupable, design
 //! change 0122).
 //!
+//! The Syndicate's Tunnel (`factions/syndicate/tunnels.md > Tunnel ObjectInterfaceState`, design change 0257; slice
+//! M4-J2) opens its EjectMenu (E): a tile per unit type of the player's Tunnel Network, with its count, in the sim's
+//! order, each ejecting the unit of its type inside the longest, at once, the menu staying open; Z goes back. Its Q
+//! Upgrade, W Expand and X Cancel, and the Hideout's Guard and Grenadier, hold their slots, greyed with why, until the
+//! slices that bring them ([`Planned`]).
+//!
 //! A greyed-out button, or its hotkey, can still be pressed: nothing is issued, and the player is told why
 //! ([`PanelSlot::why`], design change 0162).
 //!
@@ -131,6 +137,11 @@ pub enum InterfaceState {
     /// cursor, and a left-click on a valid spot places it (`crate::placement`); the same for a Drone's Beacon, and a
     /// Beacon's Warp In, whose ghost stands on the Beacon ([`Builder`]).
     AwaitingPlacement(Placing),
+    /// `factions/syndicate/tunnels.md > EjectMenu`: the Tunnel's EjectMenu is open (E, design change 0257): a tile per
+    /// unit type of the player's Tunnel Network, which ejects one from this Tunnel and leaves the menu open
+    /// (`PanelCommand::Eject`); "**Z**: returns to DefaultState (StateOnlyTransition)". Like a build menu, it leaves
+    /// the map's clicks to the selection (slice M4-J2).
+    EjectMenu,
 }
 
 impl InterfaceState {
@@ -143,7 +154,10 @@ impl InterfaceState {
     pub fn pending(self) -> Option<PanelCommand> {
         match self {
             InterfaceState::AwaitingTarget { pending, .. } => Some(pending),
-            InterfaceState::DefaultState | InterfaceState::BuildMenu(_) | InterfaceState::AwaitingPlacement(_) => None,
+            InterfaceState::DefaultState
+            | InterfaceState::BuildMenu(_)
+            | InterfaceState::AwaitingPlacement(_)
+            | InterfaceState::EjectMenu => None,
         }
     }
 
@@ -175,7 +189,8 @@ impl InterfaceState {
     /// chosen in (the menus are "like the Deployment Center's two build menus": `factions/colonists/economy.md >
     /// Beacon > Beacon ObjectInterfaceState`); from anything else DefaultState: the Extraction Facility's
     /// AwaitingPlacement ("Escape/right-click: returns to DefaultState"), the Drones' (A is pressed in their
-    /// DefaultState), a build menu ("Escape/right-click: returns to DefaultState"), AwaitingTarget.
+    /// DefaultState), a build menu ("Escape/right-click: returns to DefaultState"), AwaitingTarget, and the Tunnel's
+    /// EjectMenu (`factions/syndicate/tunnels.md > EjectMenu`: "**Z**: returns to DefaultState").
     pub fn back(self, selection: &Selection) -> InterfaceState {
         match self {
             InterfaceState::AwaitingPlacement(placing) => selection
@@ -196,7 +211,9 @@ impl InterfaceState {
 ///   open while its state changes (a construction that completes shows its building ready in the menu);
 /// - AwaitingPlacement while the ActiveGroup is the constructor, which still holds the building ready
 ///   (`conditions`: its state); while it is Drones; while it is the Beacon, which isn't being deployed (the bank is
-///   the click's to check: `crate::command_ui::feedback` says why it is refused).
+///   the click's to check: `crate::command_ui::feedback` says why it is refused);
+/// - the EjectMenu while the ActiveGroup is a Tunnel: the menu stays open while the network's contents change, its
+///   tiles greyed while they can't eject.
 ///
 /// A selected object that transforms has the panel of its new type's unfinished group, only its Cancel (design
 /// changes 0116 and 0185): what its old type was doing ends (`crate::selection::ControlState::set_type`), and so does
@@ -237,6 +254,12 @@ pub fn still_valid(
                                 .is_some_and(|active| offers(active.group_type(), PanelCommand::WarpIn(placing.kind)))
                     }
                 }
+        }
+        InterfaceState::EjectMenu => {
+            commandable
+                && selection
+                    .active()
+                    .is_some_and(|active| offers(active.group_type(), PanelCommand::EjectMenu))
         }
     }
 }

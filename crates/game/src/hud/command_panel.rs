@@ -2,9 +2,10 @@
 //! 4 × 3 grid (`crate::command_ui::interface::panel`), shown while everything selected is the local player's.
 //!
 //! Placeholder buttons until the art exists (Q0001): a short label in the middle and the slot's hotkey, from the
-//! bindings, in the top-left corner. Every label keeps the label size at 720p (slice M3-K2a: six characters at most,
-//! `crate::command_ui::PanelCommand::label`); a label never wraps, and one too long for its button at the label size
-//! (on a surface too small for it) is drawn smaller, to fit on one line ([`label_px`]). Each look has its colours:
+//! bindings, in the top-left corner; an EjectMenu tile's count in the bottom-right one (slice M4-J2). Every label
+//! keeps the label size at 720p (slice M3-K2a: six characters at most, `crate::command_ui::PanelCommand::label`); a
+//! label never wraps, and one too long for its button at the label size (on a surface too small for it) is drawn
+//! smaller, to fit on one line ([`label_px`]). Each look has its colours:
 //! common commands blue, group commands violet (the design wants the two "visually distinguished"), the
 //! PendingCommand lit up in yellow, disabled commands grey and dim (a Train or a Cancel Production the command gate
 //! would refuse too: `crate::command_ui::Conditions`), unavailable ones near-black with a dark red border, Back
@@ -28,6 +29,8 @@ use crate::sim_driver::{LocalPlayer, SimRes};
 /// Sizes of a button's label and hotkey (placeholders).
 const LABEL_VH: f32 = 1.5;
 const HOTKEY_VH: f32 = 1.2;
+/// The size of an EjectMenu tile's count (placeholder).
+const COUNT_VH: f32 = 1.3;
 /// The room a label leaves on each side, inside the button's border (placeholder).
 const LABEL_MARGIN_VH: f32 = 0.2;
 /// The advance of every glyph of the HUD's font, in ems: Bevy's default font, Fira Mono, is monospaced, 600 units to
@@ -221,10 +224,24 @@ fn label_px(label: &str, side: f32, surface: Vec2) -> f32 {
     (LABEL_VH * vh).min(room / ems).max(0.0)
 }
 
-/// A button's label in the middle, of `label_size` logical pixels ([`label_px`]), and its hotkey in the top-left
-/// corner. Neither wraps.
+/// A button's label in the middle, of `label_size` logical pixels ([`label_px`]), its hotkey in the top-left corner,
+/// and its count, if it has one, in the bottom-right one. None of them wraps.
 fn spawn_button_content(commands: &mut Commands, button: Entity, shown: PanelSlot, label_size: f32, hotkey: String) {
     let (_, _, color) = colors(shown.look);
+    if let Some(count) = shown.count {
+        commands.spawn((
+            Name::new("Command button count"),
+            Node {
+                position_type: PositionType::Absolute,
+                right: vh(0.4),
+                bottom: vh(0.2),
+                ..default()
+            },
+            text(count.to_string(), COUNT_VH, color),
+            TextLayout::no_wrap(),
+            ChildOf(button),
+        ));
+    }
     commands.spawn((
         Text::new(shown.label()),
         TextFont::from_font_size(FontSize::Px(label_size)),
@@ -265,6 +282,7 @@ mod tests {
                 button,
                 look,
                 why: None,
+                count: None,
             }
             .label()
         };

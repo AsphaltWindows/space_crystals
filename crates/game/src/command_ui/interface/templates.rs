@@ -1,25 +1,29 @@
 //! The ObjectInterfaceState templates (`systems/controls/selection_and_hud.md > ObjectInterfaceState[ObjectEnum]`):
 //! which commands a type offers, in which slots of the 4 × 3 grid (`systems/controls/selection_and_hud.md >
 //! CommandPanel > Grid Layout`), and how its clicks resolve (`super::super::resolution`). Each type's template is in
-//! its module (`crate::kinds`, [`PanelTemplate`]); a panel of its own, by faction and object: [`gdo`], [`colonists`]. A
-//! constructor's panel also follows its state and the menu that is open ([`state_grid`]): the Deployment Center's build
-//! menus ([`BuildMenu`], design change 0104) and the Extraction Facility's plate (`factions/gdo/economy.md >
-//! ExtractionFacility > ObjectInterfaceState[ExtractionFacility]`). The Colonists' Beacon has two Warp In menus built
-//! the same way, the Drone its Deploy and its Set Drop-off, the Egress Node its F, and an object that transforms shows
-//! only its Cancel ([`colonists`], slices M3-J1 and M3-J2).
+//! its module (`crate::kinds`, [`PanelTemplate`]); a panel of its own, by faction and object: [`gdo`], [`colonists`],
+//! [`syndicate`]. A constructor's panel also follows its state and the menu that is open ([`state_grid`]): the
+//! Deployment Center's build menus ([`BuildMenu`], design change 0104) and the Extraction Facility's plate
+//! (`factions/gdo/economy.md > ExtractionFacility > ObjectInterfaceState[ExtractionFacility]`). The Colonists' Beacon
+//! has two Warp In menus built the same way, the Drone its Deploy and its Set Drop-off, the Egress Node its F, and an
+//! object that transforms shows only its Cancel ([`colonists`], slices M3-J1 and M3-J2). The Syndicate's Tunnel opens
+//! its EjectMenu ([`syndicate`], slice M4-J2). An entry not in the game yet holds its slot, unavailable ([`Planned`]).
 
 pub mod colonists;
 pub mod gdo;
 mod offers;
+mod planned;
 mod production;
 mod state;
+pub mod syndicate;
 
 use sc_sim::ObjectKind;
 use sc_sim::conversion;
 use sc_sim::defs::AttackType;
 
-pub use colonists::{Planned, TRANSFORMING_GRID};
+pub use colonists::TRANSFORMING_GRID;
 pub use offers::{commands, offers};
+pub use planned::Planned;
 pub use state::{menu_grid, menu_of, state_grid};
 
 use production::production_grid;
@@ -60,6 +64,10 @@ pub enum InterfaceTemplate {
     /// `factions/colonists/economy.md > Egress Node > Egress Node ObjectInterfaceState`: "F: Select Returning Drones"
     /// (slice M3-J2). No right-click.
     EgressNode,
+    /// `factions/syndicate/tunnels.md > Tunnel ObjectInterfaceState` (design change 0257, slice M4-J2): Q Upgrade, W
+    /// Expand, E Eject, which opens the EjectMenu, and X Cancel ([`syndicate::tunnel`]). No right-click: the Tunnel
+    /// produces no units.
+    Tunnel,
 }
 
 /// The Deployment Center's build menus (`factions/gdo/structures/deployment_center.md >
@@ -165,6 +173,7 @@ impl InterfaceTemplate {
             InterfaceTemplate::Beacon => colonists::beacon::GRID,
             InterfaceTemplate::Drone => colonists::drone::GRID,
             InterfaceTemplate::EgressNode => colonists::egress_node::GRID,
+            InterfaceTemplate::Tunnel => syndicate::tunnel::GRID,
         }
     }
 }

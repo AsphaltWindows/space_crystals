@@ -96,6 +96,7 @@ mod tests {
         let commands = grid(ty.kind).into_iter().flatten();
         let mut states = vec![InterfaceState::DefaultState];
         states.extend(BuildMenu::ALL.map(InterfaceState::BuildMenu));
+        states.push(InterfaceState::EjectMenu);
         states.extend(commands.filter(|c| c.needs_target()).map(InterfaceState::awaiting));
         let panels = conditions
             .iter()
@@ -124,7 +125,7 @@ mod tests {
     fn the_hint_names_every_button_in_full() {
         let bindings = Bindings::default();
         let hotkeys: Vec<String> = CommandSlot::all().map(|slot| hotkey_label(&bindings, slot)).collect();
-        let whole = ["Move", "Attack", "Patrol", "Stop", "Deploy", "Back"];
+        let whole = ["Move", "Attack", "Patrol", "Stop", "Deploy", "Eject", "Back"];
         let mut types: Vec<GroupType> = ObjectKind::ALL.iter().map(|&kind| GroupType::finished(kind)).collect();
         let warped_in = transform::warp_in_recipes(ObjectKind::Beacon).iter().map(|r| r.kind);
         types.extend(warped_in.chain([ObjectKind::Beacon]).map(GroupType::unfinished));
@@ -153,7 +154,8 @@ mod tests {
                         | PanelCommand::Construct(kind)
                         | PanelCommand::PlaceReady(kind)
                         | PanelCommand::WarpIn(kind)
-                        | PanelCommand::Convert(kind) => assert!(name.ends_with(kind.def().name), "{name}"),
+                        | PanelCommand::Convert(kind)
+                        | PanelCommand::Eject(kind) => assert!(name.ends_with(kind.def().name), "{name}"),
                         PanelCommand::Planned(planned) => assert!(name.ends_with(planned.name()), "{name}"),
                         _ => {}
                     }

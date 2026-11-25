@@ -36,7 +36,7 @@ pub use structures::{
     TierDef, Transit, TunnelDef,
 };
 pub use syndicate::structures::tunnel::TRANSIT_DELAY_TICKS;
-pub use syndicate::{CELLS_PER_TUNNEL_SPACE, TUNNEL_SPACE_CAP};
+pub use syndicate::{CELLS_PER_TUNNEL_SPACE, EJECT_MENU_ORDER, TUNNEL_SPACE_CAP};
 pub use units::{
     AttackAttrs, AttackType, ConversionDef, Domain, FullyConnectedSubtype, LoadDef, MELEE_CONTACT_GU, MovementAttrs,
     MovementModel, Resource, RiotShieldDef, TargetDomain, TargetType, TurretAttrs, UnitBase, UnitBaseDef, UnitDef,

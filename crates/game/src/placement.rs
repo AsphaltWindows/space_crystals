@@ -13,7 +13,9 @@
 //!   the area only (design change 0093), redrawn only when the area or the map changes; while a GDO constructor
 //!   places its building;
 //! - [`lingering`]: the lingering build ghosts, the sites of the player's pending Deploys (`core/entities.md >
-//!   Placement Validation > Lingering build ghosts`, design change 0125), whatever the player does.
+//!   Placement Validation > Lingering build ghosts`, design change 0125), whatever the player does;
+//! - [`tunnel_areas`]: the Tunnel Areas the player knows of, their own and the others' (slice M4-J2), while a Tunnel
+//!   of theirs is the ActiveGroup ([`tunnel_areas::shows`]).
 //!
 //! The ghost and the overlay show only while the local player places a building ([`placing_now`]): in a game mode,
 //! in AwaitingPlacement, with a selection they may command (never once the game is over or they are defeated:
@@ -22,6 +24,7 @@
 pub mod ghost;
 pub mod lingering;
 pub mod overlay;
+pub mod tunnel_areas;
 
 use bevy::prelude::*;
 use sc_sim::{PlayerId, Sim};
@@ -29,6 +32,7 @@ use sc_sim::{PlayerId, Sim};
 pub use ghost::{Ghost, PlacementGhost};
 pub use lingering::LingeringGhosts;
 pub use overlay::BuildAreaOverlay;
+pub use tunnel_areas::TunnelAreaOverlay;
 
 use crate::command_ui::Placing;
 use crate::command_ui::interface::commandable;
@@ -50,9 +54,15 @@ impl Plugin for PlacementPlugin {
         app.init_resource::<PlacementGhost>()
             .init_resource::<BuildAreaOverlay>()
             .init_resource::<LingeringGhosts>()
+            .init_resource::<TunnelAreaOverlay>()
             .add_systems(
                 Startup,
-                (ghost::spawn_ghost, overlay::spawn_overlay, lingering::spawn_lingering),
+                (
+                    ghost::spawn_ghost,
+                    overlay::spawn_overlay,
+                    lingering::spawn_lingering,
+                    tunnel_areas::spawn_overlay,
+                ),
             )
             .add_systems(
                 Update,
@@ -60,6 +70,7 @@ impl Plugin for PlacementPlugin {
                     (ghost::update_ghost, ghost::draw_ghost).chain(),
                     overlay::draw_overlay,
                     lingering::draw_lingering,
+                    tunnel_areas::draw_overlay,
                 )
                     .in_set(ClientSystems::Present),
             );

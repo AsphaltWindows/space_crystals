@@ -203,12 +203,13 @@ pub enum Resolved {
 pub fn object_right_click(object: UnitCapabilities, target: &MapTarget) -> Option<Resolved> {
     match object.template {
         Some(InterfaceTemplate::Production) => Some(Resolved::Rally(rally_target(target))),
-        // A constructor produces no units, and the Beacon and the Egress Node have no right-click.
+        // A constructor produces no units, and the Beacon, the Egress Node and the Tunnel have no right-click.
         Some(
             InterfaceTemplate::DeploymentCenter
             | InterfaceTemplate::ExtractionFacility
             | InterfaceTemplate::Beacon
-            | InterfaceTemplate::EgressNode,
+            | InterfaceTemplate::EgressNode
+            | InterfaceTemplate::Tunnel,
         ) => None,
         // A unit's default command, by the sim's one rule: the BasicCombatUnit's table and the Drone's own
         // (`factions/colonists/units/drone.md > Right-Click Resolution`; slices M3-R and M3-J2). Without a
@@ -396,7 +397,9 @@ pub fn pointer_display(interface: InterfaceState, units: &[UnitCapabilities], ta
     match interface {
         InterfaceState::DefaultState => right_click_display(units, target),
         InterfaceState::AwaitingTarget { pending, .. } => awaiting_display(pending, target),
-        InterfaceState::BuildMenu(_) | InterfaceState::AwaitingPlacement(_) => PointerDisplay::Inactive,
+        InterfaceState::BuildMenu(_) | InterfaceState::EjectMenu | InterfaceState::AwaitingPlacement(_) => {
+            PointerDisplay::Inactive
+        }
     }
 }
 
