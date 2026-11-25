@@ -284,6 +284,30 @@ pub enum SimEvent {
         worker: ObjectId,
         site: ObjectId,
     },
+    /// Tunnel `tunnel` started building the expansion `site`, which came into the game under construction in its
+    /// Tunnel Area as the Tunnel's operation, paid for (`factions/syndicate/tunnels.md > Expansions under
+    /// construction`, design change 0254: "Paid when the ghost is placed ... Today placing the ghost starts
+    /// construction at once"; `sim/expansions.rs`, slice M4-F). A `Spawned` comes with the site. Hidden from the other
+    /// players as the expansion is (`vision::hidden_from`): the client shows it to the owner alone.
+    ExpansionStarted {
+        tunnel: ObjectId,
+        site: ObjectId,
+    },
+    /// Expansion `site` is complete, a structure in operation from now on, and Tunnel `tunnel`'s operation is over
+    /// (slice M4-F).
+    ExpansionCompleted {
+        tunnel: ObjectId,
+        site: ObjectId,
+    },
+    /// Expansion `site`, a `kind` that Tunnel `tunnel` was building, was cancelled (the Tunnel's X or the site's own
+    /// Cancel Construction), and its owner got `refund` Space Crystals back (design change 0254: "refunding **75%**
+    /// of its cost (rounded down)"; slice M4-F). It left the game (`Removed`), and the Tunnel's operation with it.
+    ExpansionCancelled {
+        tunnel: ObjectId,
+        site: ObjectId,
+        kind: ObjectKind,
+        refund: u32,
+    },
     /// `shooter`'s disjointed attack launched a projectile from `from` (its centre) to `to`, the location locked at the
     /// end of its Aiming phase, where it lands in phase 5e of tick `lands_at` (`systems/combat.md > DoublyDisjointed`,
     /// `crate::combat::projectiles`, plan decision T48). `target`: the object it was aimed at, none for a shot at the

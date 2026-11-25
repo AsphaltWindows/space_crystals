@@ -1,14 +1,16 @@
 //! On-site construction (plan decision T31, slice M4-E): a structure that a worker builds where it stands, from its
 //! first frame the object it will be — the Tunnel an Agent builds (`factions/syndicate/units/agent.md > Building >
-//! Tunnel Construction Flow`: "the partially-built Tunnel appears at the location with the Agent inside it").
+//! Tunnel Construction Flow`: "the partially-built Tunnel appears at the location with the Agent inside it"). A Tunnel
+//! builds its expansions so too (slice M4-F, `sim/expansions.rs`): the Hideout it places in its Tunnel Area.
 //!
 //! - **The state** ([`Construction`], `Object::construction`): its progress, the shared [`Progress`] over its def's
-//!   frames (`SiteDef::frames`), and its [`Builder`], the unit held inside it (`network::Place::Site`). Hashed only
-//!   while set, and left out of files while `None`, so that the states of games without a site are as they were.
-//! - **HP** (`core/entities.md > ConstructionHP Rule`, design change 0234): the rule gives the **maximum**,
-//!   [`Construction::max_hp`]: "MaxHP x (10% + 90% x construction_progress)", the share it starts at being its def's
-//!   (`SiteDef::start_hp`). The current HP follows the maximum as it rises, so the damage taken stays
-//!   (`transform::follow_max`, the Warp In's rule).
+//!   frames (`SiteDef::frames`, a Tunnel's expansion `ExpansionDef::frames`), and its [`Builder`]: the unit held
+//!   inside it (`network::Place::Site`), or the Tunnel whose operation it is (`tunnel::Operation::Building`). Hashed
+//!   only while set, and left out of files while `None`, so that the states of games without a site are as they were.
+//! - **HP** (`core/entities.md > ConstructionHP Rule`, design changes 0234 and 0254): the rule gives the **maximum**,
+//!   [`Construction::max_hp`]: "MaxHP x (10% + 90% x construction_progress)", the share it starts at being its
+//!   builder's def's (`SiteDef::start_hp`, `ExpansionDef::start_hp`: [`Construction::max_hp_of`]). The current HP
+//!   follows the maximum as it rises, so the damage taken stays (`transform::follow_max`, the Warp In's rule).
 //! - **Operational** ([`Object::is_operational`]): a site does nothing but cancel (design change 0234: "no Tunnel
 //!   Space, no drop-offs, no Enter, no Expand, no Eject"), and neither does a building still transforming. One
 //!   predicate, for every function that waits for completion: the exits and the Enter target (`network::is_exit`),
@@ -17,7 +19,7 @@
 
 use serde::{Deserialize, Serialize};
 
-use crate::defs::{ObjectKind, SiteDef};
+use crate::defs::{ExpansionDef, ObjectKind, SiteDef};
 use crate::hash::{StateHash, StateHasher};
 use crate::ids::ObjectId;
 use crate::object::Object;
@@ -40,13 +42,26 @@ pub enum Builder {
     /// (`factions/syndicate/units/agent.md > Building > Tunnel Construction Flow`: "The Agent is untargetable for the
     /// duration of construction").
     Held(ObjectId),
+    /// The Tunnel building the site, an expansion in its Tunnel Area, as its one operation (slice M4-F,
+    /// `tunnel::Operation::Building`; `factions/syndicate/tunnels.md > Expansions under construction`). It stays on the
+    /// map, and its Eject still works ("it isn't an operation").
+    Tunnel(ObjectId),
 }
 
 impl Builder {
-    /// The unit that builds.
-    pub fn unit(self) -> ObjectId {
+    /// The unit that builds, held inside the site; `None` for a Tunnel's expansion.
+    pub fn unit(self) -> Option<ObjectId> {
         match self {
-            Builder::Held(unit) => unit,
+            Builder::Held(unit) => Some(unit),
+            Builder::Tunnel(_) => None,
+        }
+    }
+
+    /// The Tunnel that builds, for its expansion; `None` for a worker's site.
+    pub fn tunnel(self) -> Option<ObjectId> {
+        match self {
+            Builder::Held(_) => None,
+            Builder::Tunnel(tunnel) => Some(tunnel),
         }
     }
 }
@@ -60,17 +75,47 @@ impl Construction {
         }
     }
 
+    /// An expansion of `def`'s that Tunnel `tunnel` builds (slice M4-F), with no frame done.
+    pub fn expansion(def: &ExpansionDef, tunnel: ObjectId) -> Self {
+        Self {
+            progress: Progress::new(def.frames),
+            builder: Builder::Tunnel(tunnel),
+        }
+    }
+
     /// `core/entities.md > ConstructionHP Rule`: the maximum HP of a site of `def`'s whose structure has `full` MaxHP
     /// once built: "MaxHP x (10% + 90% x construction_progress)", the progress in whole frames done
     /// ([`Progress::ratio`]).
     pub fn max_hp(&self, def: &SiteDef, full: f32) -> f32 {
-        full * (def.start_hp + (1.0 - def.start_hp) * self.progress.ratio())
+        self.max_hp_from(def.start_hp, full)
+    }
+
+    /// The same for a site of `kind`'s, by its builder's def: a worker's [`SiteDef`], a Tunnel's [`ExpansionDef`]
+    /// (design change 0254: "the ConstructionHP Rule applies to every expansion (starts at 10%, grows with
+    /// progress)"). `None` for a kind its builder doesn't build.
+    pub fn max_hp_of(&self, kind: ObjectKind, full: f32) -> Option<f32> {
+        let start_hp = match self.builder {
+            Builder::Held(_) => site_def(kind)?.start_hp,
+            Builder::Tunnel(_) => expansion_def(kind)?.start_hp,
+        };
+        Some(self.max_hp_from(start_hp, full))
+    }
+
+    /// The rule, from the share `start_hp` of `full`.
+    fn max_hp_from(&self, start_hp: f32, full: f32) -> f32 {
+        full * (start_hp + (1.0 - start_hp) * self.progress.ratio())
     }
 }
 
 /// How a worker builds a structure of `kind` (`StructureDef::site`): `None` for a kind no worker builds.
 pub fn site_def(kind: ObjectKind) -> Option<&'static SiteDef> {
     kind.def().structure.as_ref()?.site.as_ref()
+}
+
+/// How a Tunnel builds an expansion of `kind` (`StructureDef::expansion`, slice M4-F): its Tier Requirement, cost and
+/// build time. `None` for a kind no Tunnel builds.
+pub fn expansion_def(kind: ObjectKind) -> Option<&'static ExpansionDef> {
+    kind.def().structure.as_ref()?.expansion.as_ref()
 }
 
 /// Whether a unit of `builder` builds a structure of `kind` on its site: its worker lists it (`WorkerDef::builds`),
@@ -107,6 +152,10 @@ impl StateHash for Builder {
                 h.tag(0);
                 unit.hash(h);
             }
+            Builder::Tunnel(tunnel) => {
+                h.tag(1);
+                tunnel.hash(h);
+            }
         }
     }
 }
@@ -135,6 +184,40 @@ mod tests {
         assert!((site.max_hp(def, 600.0) - 330.0).abs() < 1e-3);
         assert!(site.progress.step(240 * RATIO_ONE));
         assert_eq!(site.max_hp(def, 600.0), 600.0);
+    }
+
+    /// `factions/syndicate/structures/hideout.md` ("HP - 400", "Build Time - 400 frames") and design change 0254: a
+    /// Hideout a Tunnel builds has a maximum of 40 as it starts, 220 halfway and 400 once its 400 frames are done.
+    /// The builder picks the def: as a worker's site the Hideout has none.
+    #[test]
+    fn an_expansion_grows_from_a_tenth_too() {
+        let def = expansion_def(ObjectKind::Hideout).unwrap();
+        let mut site = Construction::expansion(def, ObjectId(3));
+        assert_eq!(site.builder, Builder::Tunnel(ObjectId(3)));
+        assert_eq!(site.max_hp_of(ObjectKind::Hideout, 400.0), Some(40.0));
+        assert!(!site.progress.step(200 * RATIO_ONE));
+        assert!((site.max_hp_of(ObjectKind::Hideout, 400.0).unwrap() - 220.0).abs() < 1e-3);
+        assert!(site.progress.step(200 * RATIO_ONE));
+        assert_eq!(site.max_hp_of(ObjectKind::Hideout, 400.0), Some(400.0));
+        let held = Construction {
+            builder: Builder::Held(ObjectId(4)),
+            ..site
+        };
+        assert_eq!(held.max_hp_of(ObjectKind::Hideout, 400.0), None);
+        assert_eq!(expansion_def(ObjectKind::Tunnel), None);
+        assert_eq!((held.builder.unit(), held.builder.tunnel()), (Some(ObjectId(4)), None));
+        assert_eq!((site.builder.unit(), site.builder.tunnel()), (None, Some(ObjectId(3))));
+    }
+
+    /// The two builders hash apart, by their tags.
+    #[test]
+    fn the_builders_hash_apart() {
+        let hash = |builder: Builder| {
+            let mut h = StateHasher::new();
+            builder.hash(&mut h);
+            h.finish()
+        };
+        assert_ne!(hash(Builder::Held(ObjectId(5))), hash(Builder::Tunnel(ObjectId(5))));
     }
 
     /// The Agent builds the Tunnel; nothing else builds anything (the Drone deploys).

@@ -1,0 +1,245 @@
+//! A Tunnel's expansions in a game (slice M4-F; `factions/syndicate/tunnels.md > Tunnel ObjectInterfaceState >
+//! ExpandMenu`, `factions/syndicate/tunnels.md > AwaitingPlacement (Expansion)`, `factions/syndicate/tunnels.md >
+//! Expansions under construction`): a Tunnel builds an underground expansion in its Tunnel Area as its one operation
+//! (`tunnel::Operation`), on a site that is the expansion from its first frame (plan decision T31,
+//! `construction::site`).
+//!
+//! - **The gate** ([`Sim::check_expand`], `TunnelCommand::Expand`): the Tunnel is its player's and in operation
+//!   (`Sim::check_tunnel`), performs no operation ("A Tunnel can only perform one operation at a time",
+//!   `factions/syndicate/tunnels.md > Construction and Upgrade Rules`), and builds the kind (`StructureDef::expansion`)
+//!   at its tier ("its Tier Requirement is at or below **this** Tunnel's tier", `> ExpandMenu`); its prerequisites
+//!   hold ([`Sim::check_tech_prerequisites`], slice M4-K's), and the bank pays its cost. These are
+//!   [`Sim::can_expand`], which the ExpandMenu greys its entries by. Then the placement, by the truth
+//!   (`Sim::expansion_truth`, design change 0240: "judged by the truth; the placement is refused"), reported to the
+//!   player as a Place's is (`SimEvent::PlacementRefused`, plan decision T4), the Tunnel its constructor.
+//! - **The start** ([`Sim::start_expansion`]): "**Paid when the ghost is placed** ... **Tunnel Space is used once
+//!   construction has started.** Today placing the ghost starts construction at once" (design change 0254): the site
+//!   comes into the game as the command applies, its owner's, which Tunnel Space counts from then on
+//!   (`economy::army`, an underground structure in the Tunnel Area), at 10% of its MaxHP ("the ConstructionHP Rule
+//!   applies to every expansion (starts at 10%, grows with progress)"), its functions held back as a transforming
+//!   building's are (`sim/transform.rs`: a Hideout trains nothing yet). Hidden from the other players as any owned
+//!   underground structure (`vision::hidden_from`).
+//! - **The frames**: the sites' step (`sim/sites.rs`): one a tick from the next tick on, the HP following the maximum
+//!   ("damage taken stays").
+//! - **Completion** ([`Sim::complete_expansion`]): its functions start, as a new object of its kind has them (a Hideout
+//!   trains Agents into the Tunnel Network), and the Tunnel's operation is over.
+//! - **Cancel** ([`Sim::cancel_expansion`]): "while building, the expansion offers only **X Cancel Construction**,
+//!   refunding **75%** of its cost (rounded down). The Tunnel's X cancels whatever operation it is running"
+//!   (`TunnelCommand::Cancel`, [`Sim::cancel_operation`]; `economy::Refund::Expansion`).
+//! - **Its site gone** any other way (destroyed, a debug removal): the Tunnel's operation ends with it (the removal
+//!   path's reference cleanup, `sim/removal.rs`), with no refund. Its Tunnel destroyed mid-build is slice M4-H's rule
+//!   ("the unfinished expansion is destroyed, no refund").
+//! - **Eject** goes on meanwhile: "Eject still works (it isn't an operation)".
+
+use super::Sim;
+use super::gate::{Checked, Reject};
+use super::transform::hold_back;
+use crate::command::TunnelCommand;
+use crate::construction::site::{Construction, expansion_def};
+use crate::defs::ObjectKind;
+use crate::economy::Refund;
+use crate::events::SimEvent;
+use crate::ids::{ObjectId, PlayerId};
+use crate::network;
+use crate::object::{Object, Placement};
+use crate::orders::build::footprint;
+use crate::scenario::BuildingOrientation;
+use crate::tunnel::Operation;
+use crate::units::TilePos;
+
+impl Sim {
+    /// `factions/syndicate/tunnels.md > ExpandMenu`: whether `player`'s Tunnel `tunnel` may build an expansion of
+    /// `kind` now, wherever it goes: the gate's answer to an Expand short of its placement (module docs), by which the
+    /// ExpandMenu greys an entry ("unavailable entries are greyed", design change 0257) and says why. The Tunnel is the
+    /// player's ([`Reject::NotOwned`]) and in operation ([`Reject::NotATunnel`]), as for every Tunnel command.
+    pub fn can_expand(&self, player: PlayerId, tunnel: ObjectId, kind: ObjectKind) -> Result<(), Reject> {
+        let target = self.referenced(tunnel, Some(player))?;
+        if !network::is_exit(target) {
+            return Err(Reject::NotATunnel(tunnel));
+        }
+        self.expansion_available(player, target, kind)
+    }
+
+    /// Tunnel `tunnel`'s operation, if it performs one, with how far it is, from 0 to 1: an expansion's its site's
+    /// progress (`Construction::progress`). For the Tunnel's panel: "**The Tunnel meanwhile** shows the progress"
+    /// (`factions/syndicate/tunnels.md > Expansions under construction`).
+    pub fn operation_progress(&self, tunnel: ObjectId) -> Option<(Operation, f32)> {
+        let operation = self.object(tunnel)?.tunnel.as_ref()?.operation?;
+        let ratio = match operation {
+            Operation::Building(site) => self.object(site)?.construction?.progress.ratio(),
+        };
+        Some((operation, ratio))
+    }
+
+    /// The gate for `TunnelCommand::Expand` on `tunnel`, the player's Tunnel in operation (`Sim::check_tunnel`): the
+    /// Tunnel may build the `kind` now ([`Sim::can_expand`]), an id is left for it, and the footprint at `origin`,
+    /// turned by `orientation`, is valid by the truth ([`Reject::Unplaceable`], the check's first problem).
+    pub(super) fn check_expand(
+        &self,
+        player: PlayerId,
+        tunnel: &Object,
+        kind: ObjectKind,
+        origin: TilePos,
+        orientation: BuildingOrientation,
+    ) -> Result<Checked, Reject> {
+        self.expansion_available(player, tunnel, kind)?;
+        if self.next_id == u32::MAX {
+            return Err(Reject::OutOfIds);
+        }
+        let check = (self.expansion_truth(tunnel, kind, origin, orientation)).ok_or(Reject::NotATunnel(tunnel.id))?;
+        if let Some(problem) = check.first_problem() {
+            return Err(Reject::Unplaceable(problem));
+        }
+        let placement = footprint(kind, origin, orientation).ok_or(Reject::CannotConstruct(kind))?;
+        Ok(Checked::Expand {
+            tunnel: tunnel.id,
+            kind,
+            placement,
+        })
+    }
+
+    /// The gate for `TunnelCommand::Cancel` on `tunnel`, the player's Tunnel in operation: it performs an operation
+    /// ([`Reject::NoOperation`]).
+    pub(super) fn check_cancel_operation(&self, tunnel: &Object) -> Result<Checked, Reject> {
+        match tunnel.tunnel.as_ref().and_then(|state| state.operation) {
+            Some(_) => Ok(Checked::CancelOperation { tunnel: tunnel.id }),
+            None => Err(Reject::NoOperation(tunnel.id)),
+        }
+    }
+
+    /// [`Sim::can_expand`] once the Tunnel is known to be `player`'s in operation: no operation under way, a kind it
+    /// builds at its tier, the prerequisites, and the Space Crystals.
+    fn expansion_available(&self, player: PlayerId, tunnel: &Object, kind: ObjectKind) -> Result<(), Reject> {
+        let state = tunnel.tunnel.as_ref().ok_or(Reject::NotATunnel(tunnel.id))?;
+        if state.operation.is_some() {
+            return Err(Reject::OperationUnderWay(tunnel.id));
+        }
+        let def = expansion_def(kind).ok_or(Reject::CannotConstruct(kind))?;
+        if state.tier < def.tier {
+            return Err(Reject::TierRequirement { kind, tier: def.tier });
+        }
+        self.check_tech_prerequisites(player, kind)?;
+        if self.player(player).map_or(0, |p| p.crystals) < def.cost {
+            return Err(Reject::InsufficientCrystals);
+        }
+        Ok(())
+    }
+
+    /// `factions/syndicate/structures/README.md > Tunnel Expansions > Expansion Requirements`: an expansion's
+    /// TechPrerequisite, "satisfied by a fully constructed structure anywhere in the Tunnel Network". A stub that
+    /// passes every kind: slice M4-K brings the prerequisites and their one check (plan decision T37), which takes its
+    /// place here.
+    fn check_tech_prerequisites(&self, _player: PlayerId, _kind: ObjectKind) -> Result<(), Reject> {
+        Ok(())
+    }
+
+    /// Tunnel `tunnel` starts building `player`'s expansion of `kind` on `placement`, as the gate resolved it (module
+    /// docs): the bank pays, the site comes into the game with its HP at the ConstructionHP maximum and its functions
+    /// held back, and it is the Tunnel's operation; a `SimEvent::ExpansionStarted`.
+    pub(super) fn start_expansion(
+        &mut self,
+        player: PlayerId,
+        tunnel: ObjectId,
+        kind: ObjectKind,
+        placement: Placement,
+    ) {
+        let Some(def) = expansion_def(kind) else {
+            return;
+        };
+        // The gate made sure that the bank pays.
+        let bank = self.players.iter_mut().find(|p| p.id == player);
+        if !bank.is_some_and(|bank| bank.spend_crystals(def.cost)) {
+            return;
+        }
+        let site = self.insert_object(kind, Some(player), placement.center(), Some(placement), None);
+        if let Some(o) = self.objects.get_mut(&site) {
+            o.construction = Some(Construction::expansion(def, tunnel));
+            o.hp = o.max_hp();
+            hold_back(o);
+        }
+        if let Some(state) = self.objects.get_mut(&tunnel).and_then(|o| o.tunnel.as_mut()) {
+            state.operation = Some(Operation::Building(site));
+        }
+        self.events.push(SimEvent::ExpansionStarted { tunnel, site });
+    }
+
+    /// Expansion `site`, which Tunnel `tunnel` built, is complete (`Sim::complete_site` took its construction off):
+    /// its functions start as a new object of its kind has them (the transformations' rule, `Sim::start_functions`),
+    /// and the Tunnel's operation is over; a `SimEvent::ExpansionCompleted`.
+    pub(super) fn complete_expansion(&mut self, site: ObjectId, tunnel: ObjectId) {
+        self.start_functions(site);
+        if let Some(state) = self.objects.get_mut(&tunnel).and_then(|o| o.tunnel.as_mut())
+            && state.operation == Some(Operation::Building(site))
+        {
+            state.operation = None;
+        }
+        self.events.push(SimEvent::ExpansionCompleted { tunnel, site });
+    }
+
+    /// `TunnelCommand::Cancel` on `tunnel` (`factions/syndicate/tunnels.md > Tunnel ObjectInterfaceState`: "**X**
+    /// Cancel (upgrade, construction or the current operation)"): its operation is cancelled, an expansion as by its
+    /// own Cancel Construction ([`Sim::cancel_expansion`]). Slice M4-G adds the upgrade.
+    pub(super) fn cancel_operation(&mut self, tunnel: ObjectId) {
+        let operation = (self.objects.get(&tunnel)).and_then(|o| o.tunnel.as_ref()?.operation);
+        match operation {
+            Some(Operation::Building(site)) => self.cancel_expansion(site),
+            None => {}
+        }
+    }
+
+    /// Cancel Construction on the expansion `site` (`ConstructionCommand::CancelConstruction` on it, through
+    /// `Sim::cancel_site`, or its Tunnel's X): it leaves the game, which ends its Tunnel's operation (the removal path,
+    /// `sim/removal.rs`), and its owner gets back "**75%** of its cost (rounded down)" (design change 0254,
+    /// `economy::Refund::Expansion`); a `SimEvent::ExpansionCancelled`. Nothing for an object that isn't a Tunnel's
+    /// site.
+    pub(super) fn cancel_expansion(&mut self, site: ObjectId) {
+        let Some((owner, kind, tunnel)) =
+            (self.objects.get(&site)).and_then(|o| Some((o.owner?, o.kind, o.construction?.builder.tunnel()?)))
+        else {
+            return;
+        };
+        self.remove_objects(&[site]);
+        let refund = expansion_def(kind).map_or(0, |def| Refund::Expansion.of(def.cost));
+        if let Some(bank) = self.players.iter_mut().find(|p| p.id == owner) {
+            bank.credit_crystals(refund);
+        }
+        self.events.push(SimEvent::ExpansionCancelled {
+            tunnel,
+            site,
+            kind,
+            refund,
+        });
+    }
+
+    /// Plan decision T4 for an Expand (`Sim::report_refusal`): one that the truth refuses as it applies changes
+    /// nothing, and the sim reports it with every problem the check finds there (`SimEvent::PlacementRefused`, the
+    /// Tunnel as its constructor), so that the client can tell the player: "judged by the truth; the placement is
+    /// refused" (design change 0240), where the ghost judged by what the player knows. Every other refusal of a Tunnel
+    /// command is silent.
+    pub(super) fn report_tunnel_refusal(&mut self, tunnel: ObjectId, command: TunnelCommand, reject: Reject) {
+        let (
+            Reject::Unplaceable(_),
+            TunnelCommand::Expand {
+                kind,
+                origin,
+                orientation,
+            },
+        ) = (reject, command)
+        else {
+            return;
+        };
+        let problems = (self.objects.get(&tunnel)).and_then(|o| self.expansion_truth(o, kind, origin, orientation));
+        if let Some(problems) = problems {
+            self.events.push(SimEvent::PlacementRefused {
+                constructor: tunnel,
+                kind,
+                origin,
+                orientation,
+                problems,
+            });
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests;

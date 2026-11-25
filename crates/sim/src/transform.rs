@@ -170,11 +170,14 @@ impl Object {
     /// while it transforms the one interpolated from the kind it was (`factions/colonists/economy.md > HP/Shields
     /// Interpolation`: a Robo Portal warped in halfway from a Beacon has 120 + (600 - 120) × 0.5 = 360), or while it
     /// is a site the ConstructionHP Rule's (`construction::site`, slice M4-E: a Tunnel site halfway has 600 × (10% + 90%
-    /// × 0.5) = 330). `None` for an indestructible object.
+    /// × 0.5) = 330; slice M4-F: a Hideout a Tunnel builds the same, from 40 of 400). `None` for an indestructible
+    /// object.
     pub fn max_hp(&self) -> Option<f32> {
         let to = crate::tunnel::tier_def(self).map_or(self.def().max_hp, |tier| Some(tier.max_hp));
-        if let (Some(site), Some(def)) = (&self.construction, crate::construction::site::site_def(self.kind)) {
-            return to.map(|full| site.max_hp(def, full));
+        if let (Some(site), Some(full)) = (&self.construction, to)
+            && let Some(max) = site.max_hp_of(self.kind, full)
+        {
+            return Some(max);
         }
         match &self.transform {
             Some(t) => t.maximum(t.from.def().max_hp, to),

@@ -14,6 +14,7 @@ use crate::ids::{ObjectId, PlayerId};
 use crate::orders::OrderKind;
 use crate::production::ProductionCommand;
 use crate::scenario::{BuildingOrientation, SpawnAt};
+use crate::units::TilePos;
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub enum Command {
@@ -58,8 +59,7 @@ pub enum Command {
     Debug(DebugCommand),
 }
 
-/// A command to a Tunnel ([`Command::Tunnel`], plan decision T36). Expand, Upgrade and the cancels join it with
-/// slices M4-E to M4-G.
+/// A command to a Tunnel ([`Command::Tunnel`], plan decision T36). Upgrade joins it with slice M4-G.
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum TunnelCommand {
     /// `factions/syndicate/tunnels.md > EjectMenu`: "ejects one unit of that type from this Tunnel's Side A", the one
@@ -67,6 +67,19 @@ pub enum TunnelCommand {
     /// 0251). The click reserves that unit on the Tunnel's eject queue, and it comes out of the exit path once the
     /// units queued before it are out and the exit spot is clear (0250).
     Eject { kind: ObjectKind },
+    /// `factions/syndicate/tunnels.md > AwaitingPlacement (Expansion)` (slice M4-F): "Left-click valid location:
+    /// places expansion, begins construction": the Tunnel builds an expansion of `kind` with the top-left tile of its
+    /// footprint at `origin`, turned by `orientation`, in its Tunnel Area, as its one operation, paid at once (design
+    /// change 0254: "Paid when the ghost is placed"; `sim/expansions.rs`).
+    Expand {
+        kind: ObjectKind,
+        origin: TilePos,
+        orientation: BuildingOrientation,
+    },
+    /// `factions/syndicate/tunnels.md > Tunnel ObjectInterfaceState`: "**X** Cancel (upgrade, construction or the
+    /// current operation)" (design change 0254: "The Tunnel's X cancels whatever operation it is running"): an
+    /// expansion under construction is cancelled as by its own Cancel Construction (slice M4-F).
+    Cancel,
 }
 
 /// An ability a unit uses at once ([`Command::Ability`]).

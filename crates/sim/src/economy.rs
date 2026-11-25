@@ -83,6 +83,10 @@ pub enum Refund {
     /// A building cancelled once it is ready to place: "75% refund of Space Crystals cost (rounded down)" (the same
     /// two Cancellation sections).
     Ready,
+    /// A Tunnel's expansion cancelled while it is built (slice M4-F, `sim/expansions.rs`): its share,
+    /// [`EXPANSION_CANCEL_REFUND`](crate::tuning::construction::EXPANSION_CANCEL_REFUND), rounded down
+    /// (`factions/syndicate/tunnels.md > Expansions under construction`, design change 0254).
+    Expansion,
 }
 
 impl Refund {
@@ -92,6 +96,10 @@ impl Refund {
             Refund::Full => cost,
             // In 64 bits: no overflow for any cost.
             Refund::Ready => (u64::from(cost) * 3 / 4) as u32,
+            Refund::Expansion => {
+                let share = u64::from(crate::tuning::construction::EXPANSION_CANCEL_REFUND);
+                (u64::from(cost) * share / 100) as u32
+            }
         }
     }
 }
@@ -106,6 +114,10 @@ mod tests {
     fn refunds_follow_the_cancellation_rules() {
         assert_eq!([75, 100, 200].map(|cost| Refund::Ready.of(cost)), [56, 75, 150]);
         assert_eq!([75, 100, 200].map(|cost| Refund::Full.of(cost)), [75, 100, 200]);
+        // Design change 0254 (slice M4-F): "Place a Hideout (200 SC), then cancel: 150 SC come back"; a kind costing
+        // 150 gives back 112.
+        assert_eq!([200, 150, 1].map(|cost| Refund::Expansion.of(cost)), [150, 112, 0]);
+        assert_eq!(Refund::Expansion.of(u32::MAX), 3_221_225_471);
         assert_eq!(Refund::Ready.of(u32::MAX), 3_221_225_471);
         assert_eq!((Refund::Ready.of(0), Refund::Ready.of(1)), (0, 0));
     }

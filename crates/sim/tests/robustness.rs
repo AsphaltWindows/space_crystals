@@ -306,7 +306,10 @@ fn fuzz_run(seed: u64) -> Run {
                 | SimEvent::SiteStarted { .. }
                 | SimEvent::SiteCompleted { .. }
                 | SimEvent::SiteCancelled { .. }
-                | SimEvent::LeftSite { .. } => {}
+                | SimEvent::LeftSite { .. }
+                | SimEvent::ExpansionStarted { .. }
+                | SimEvent::ExpansionCompleted { .. }
+                | SimEvent::ExpansionCancelled { .. } => {}
             }
         }
         unit_steps += sim

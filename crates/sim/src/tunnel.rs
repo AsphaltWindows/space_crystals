@@ -15,6 +15,9 @@
 //! The Tunnel Area's radius and the transit by tier are in the table for the slices that use them (M4-B, M4-C, M4-F).
 
 pub mod area;
+mod operation;
+
+pub use operation::Operation;
 
 use serde::{Deserialize, Serialize};
 
@@ -30,8 +33,8 @@ use crate::transform::follow_max;
 /// The tier a Tunnel starts at: Tier 1, the base (`factions/syndicate/tunnels.md > Tunnel > Tiers`).
 pub const BASE_TIER: u8 = 1;
 
-/// A Tunnel's state (plan decision T39): its tier, from 1 to the number of its table's tiers (3), and its eject queue
-/// (slice M4-C). The upgrade under way joins it in slice M4-G.
+/// A Tunnel's state (plan decision T39): its tier, from 1 to the number of its table's tiers (3), its eject queue
+/// (slice M4-C) and its one operation (slice M4-F).
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct TunnelState {
     pub tier: u8,
@@ -42,14 +45,20 @@ pub struct TunnelState {
     /// hash while empty, so that the states without a queue are as they were.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub eject: Vec<Eject>,
+    /// The operation the Tunnel performs, if any ([`Operation`], slice M4-F): "A Tunnel can only perform one operation
+    /// at a time" (`factions/syndicate/tunnels.md > Construction and Upgrade Rules`). Left out of files and of the
+    /// hash while `None`, so that the states without one are as they were.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub operation: Option<Operation>,
 }
 
 impl TunnelState {
-    /// A Tunnel at `tier` with nothing queued to come out.
+    /// A Tunnel at `tier` with nothing queued to come out and no operation.
     pub fn at(tier: u8) -> Self {
         Self {
             tier,
             eject: Vec::new(),
+            operation: None,
         }
     }
 }
@@ -91,12 +100,17 @@ pub(crate) fn set_tier(o: &mut Object, tier: u8) -> bool {
 
 impl StateHash for TunnelState {
     fn hash(&self, h: &mut StateHasher) {
-        let TunnelState { tier, eject } = self;
+        let TunnelState { tier, eject, operation } = self;
         tier.hash(h);
         // Only while something is queued, so that a Tunnel without a queue hashes as before the queue existed.
         if !eject.is_empty() {
             h.tag(1);
             eject.hash(h);
+        }
+        // The same for the operation (slice M4-F).
+        if let Some(operation) = operation {
+            h.tag(2);
+            operation.hash(h);
         }
     }
 }
@@ -211,6 +225,30 @@ mod tests {
             }],
             ..TunnelState::at(1)
         };
-        assert_ne!(hash(queued), hash(TunnelState::at(1)));
+        assert_ne!(hash(queued.clone()), hash(TunnelState::at(1)));
+        // And the operation while there is one (slice M4-F), apart from the queue.
+        let building = |site| TunnelState {
+            operation: Some(Operation::Building(ObjectId(site))),
+            ..TunnelState::at(1)
+        };
+        assert_ne!(hash(building(7)), hash(TunnelState::at(1)));
+        assert_ne!(hash(building(7)), hash(building(8)));
+        assert_ne!(hash(building(7)), hash(queued));
+    }
+
+    /// Saves: a Tunnel's operation is in its file while it has one, and a file without one loads with none (slice
+    /// M4-F), as the earlier test's file shows.
+    #[test]
+    fn a_tunnels_operation_is_saved() {
+        let mut t = tunnel(600.0);
+        if let Some(state) = &mut t.tunnel {
+            state.operation = Some(Operation::Building(ObjectId(9)));
+        }
+        let json = serde_json::to_value(&t).unwrap();
+        assert_eq!(
+            json["tunnel"],
+            serde_json::json!({ "tier": 1, "operation": { "Building": 9 } })
+        );
+        assert_eq!(serde_json::from_value::<Object>(json).unwrap(), t);
     }
 }

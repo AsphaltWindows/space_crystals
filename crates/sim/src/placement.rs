@@ -245,10 +245,10 @@ impl Sim {
     /// `orientation`, as far as its owner knows: the ghost's check ([`check_reserving`] by [`Method::Expansion`] in the
     /// Tunnel's current area, in [`Mode::Known`]: "The ghost judges by what the player knows", design change 0120), on
     /// the objects its owner knows of (`Sim::known_occupants`), the sites of its owner's pending worker builds reserved
-    /// (Placeholder: Q0080 point 2). The command places it by the truth: a building the owner doesn't know of leaves
-    /// the ghost green and refuses the placement (design change 0240). Whether the Tunnel may build a `kind` now at all
-    /// (its operation, the tier, the bank) is the gate's (`sim/expansions.rs`). `None` if `tunnel` is no placed Tunnel
-    /// of a player's.
+    /// (Placeholder: Q0080 point 2). The command places it by the truth ([`Sim::expansion_truth`]): a building the
+    /// owner doesn't know of leaves the ghost green and refuses the placement (design change 0240). Whether the Tunnel
+    /// may build a `kind` now at all (its operation, the tier, the bank) is the gate's (`Sim::can_expand`). `None` if
+    /// `tunnel` is no placed Tunnel of a player's.
     pub fn expansion_check(
         &self,
         tunnel: ObjectId,
@@ -257,6 +257,18 @@ impl Sim {
         orientation: BuildingOrientation,
     ) -> Option<PlacementCheck> {
         self.expansion_site_check(self.object(tunnel)?, kind, origin, orientation, true)
+    }
+
+    /// [`Sim::expansion_check`] by the truth, the command's (design change 0240: "judged by the truth; the placement is
+    /// refused"): every object as it is now, in [`Mode::Command`], whose sight rule the expansion method doesn't have.
+    pub(crate) fn expansion_truth(
+        &self,
+        tunnel: &Object,
+        kind: ObjectKind,
+        origin: TilePos,
+        orientation: BuildingOrientation,
+    ) -> Option<PlacementCheck> {
+        self.expansion_site_check(tunnel, kind, origin, orientation, false)
     }
 
     /// The expansion's check, as far as the Tunnel's owner knows (`known`) or by the truth.

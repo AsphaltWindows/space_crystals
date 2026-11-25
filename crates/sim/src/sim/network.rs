@@ -138,7 +138,7 @@ impl Sim {
     /// operation ([`Reject::NotATunnel`]). An **Eject** (`factions/syndicate/tunnels.md > EjectMenu`): its tier lets
     /// units of the kind out ("Unit types whose base category exceeds this Tunnel's tier are [...] disabled":
     /// [`Reject::NoTransit`]), and a unit of the kind is free to leave ([`Sim::next_out`]), which the command
-    /// reserves.
+    /// reserves. An **Expand** and a **Cancel** are the Tunnel's operation's (`sim/expansions.rs`, slice M4-F).
     pub(super) fn check_tunnel(
         &self,
         player: PlayerId,
@@ -158,6 +158,12 @@ impl Sim {
                 let unit = self.next_out(player, kind)?;
                 Ok(Checked::Eject { tunnel, unit })
             }
+            TunnelCommand::Expand {
+                kind,
+                origin,
+                orientation,
+            } => self.check_expand(player, target, kind, origin, orientation),
+            TunnelCommand::Cancel => self.check_cancel_operation(target),
         }
     }
 

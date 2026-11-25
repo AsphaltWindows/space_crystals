@@ -186,6 +186,11 @@ fn forget(o: &mut Object, gone: &[ObjectId], remembered: impl Fn(ObjectId) -> bo
                 entry.order = None;
             }
         }
+        // The expansion it was building is gone, cancelled or destroyed: its operation ends (slice M4-F,
+        // `sim/expansions.rs`).
+        if (tunnel.operation).is_some_and(|operation| operation.site().is_some_and(is_gone)) {
+            tunnel.operation = None;
+        }
     }
     // The building whose doorway a unit stood in: nothing is left to overlap, nor to leave along (design change
     // 0145).
