@@ -586,10 +586,19 @@ Approach: thin vertical slices the user can run and see, each verified by tests 
   - **Goldens.** duel_3v3, riot_shield, patrol, attack_move_battle and gdo_opening were re-blessed, each change traced to its entry.
   - **Soak.** Seed 1 is back in `behaviours_soak`, and an ignored `soak_sweep` covers seeds 1–40. Only seed 5 fails, on the settle bound with units still walking, not looping (master failed 5, 8, 11 and 34). Perf: same per-tick cost, longer battles.
 
+- **M3-K1 Colonists economy oracle and goldens** (merged in `f73262a`; 1318 tests):
+  - **Code.** `testing::colonists`: a build line with a Drone every 10 s and a deploy whenever Beacon room falls to 1 (Drones 5, 11, 17, 23), and `reference_field()` (0107). The oracle is in `tests/economy_oracle/`; `docs/economy_oracle.md` has both factions' tables.
+  - **Measured.** 6.17 / 10.29 / 12.57 / 14.86 / 17.52 / 20.57 / 22.10 / 23.62 / 24.38 SC/s at 0:00–4:00.
+    - 1:00 (−16.2%), 3:00 (−15.3%) and 4:00 (−23.6%) are outside ±15%.
+    - Targets 1 and 4 fail; full saturation needs 27 Drones.
+    - Pinned as measured, with no game number changed (0108): Q0055.
+  - **Goldens.** `colonists_opening` (to 1:50) and `colonists_vs_gdo` (to 3:00, re-blessed after M3-L2 for 0179). There are 9 goldens now, in `tests/golden/`.
+  - **Soak game.** `testing::colonists::skirmish` is the 10-minute game for K2.
+
 ## In progress
 - **M3 waves 2 and 3** (common brief `scratchpad/briefs/m3-common.md`; status `m3-w2-status.md`):
   - **M3-K2a fixes** (Opus; brief `scratchpad/briefs/m3k2a-fixes.md`): the 0139 marker leak, event-driven drop-off reassignment (0170), a half-out unit attacking, readable labels at 720p, the `fog_memory.rs` split, `is_going_up`.
-  - **M3-K1 Colonists economy oracle** (Opus; brief `scratchpad/briefs/m3k1-colonists-oracle.md`): targets 1–4 and the income table within ±15% (0107, 0108), the saturation curve, goldens `colonists_opening` and `colonists_vs_gdo`.
+  - **M3-K2 final QA** (Opus; brief `scratchpad/briefs/m3k2-qa.md`): `drones_perf`, the 10-minute skirmish soak, soak seed 5, all ignored tests, a scripted walkthrough, the playtest notes (m3.md, m2.md refreshed), the ARCHITECTURE review, long test files.
 - **Next**:
   - **M1 playtest**: M1 is complete at `80b3d88`. The user has been asked to play `cargo run` (dev_skirmish).
   - **M2 playtest** with the user, using `docs/playtest/m2.md`.
@@ -727,8 +736,8 @@ First playable after M2-H2.
     | K2a (fixes: 0139 marker leak, 0170 by event, half-out attack, labels, `fog_memory.rs` split) | running (wave 5) |
     | L1 | done (`aeb54ae`) |
     | L2 | done (`f039e5c`) |
-    | K1 (0107, 0108, saturation curve, two goldens) | running (wave 5) |
-    | K2 (final QA: soak seed 5's settle bound (`soak_sweep`); ignored perf tests, playtest notes for M3, QA screenshots of each feature, `docs/playtest/m2.md` refresh; after K1 and K2a) | queued |
+    | K1 | done (`f73262a`; Q0055) |
+    | K2 (final QA; brief `scratchpad/briefs/m3k2-qa.md`) | running (wave 6) |
 - **M4 Syndicate**: tunnels, Hideout, Agent, Guard economy, 0186's Optics Lab gate and Agent pistol, the Grenadier (0187) and the Assault Bike (0188), once their numbers exist. Underground expansions are exempt from the flatness rule (0005).
 - **M5 Cults**: Recruitment Hall, Storage, Recruit, Armory, Soldier, Gunner.
   - Recruits are Groupable: every selected Recruit builds (0072).
