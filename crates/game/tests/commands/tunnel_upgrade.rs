@@ -85,11 +85,13 @@ fn tier(app: &App) -> u8 {
     tunnel.expect("a Tunnel").tier
 }
 
-/// The HUD's button in `slot`: its command, look and price.
+/// The HUD's button in `slot`: its command, look and price (in Supplies, an Upgrade's).
 fn button(app: &mut App, slot: CommandSlot) -> Option<(PanelButton, ButtonLook, Option<u32>)> {
     let mut query = app.world_mut().query::<&CommandButton>();
     let mut shown = query.iter(app.world()).filter(|b| b.slot == slot);
-    shown.next().map(|b| (b.shown.button, b.shown.look, b.shown.price))
+    shown
+        .next()
+        .map(|b| (b.shown.button, b.shown.look, b.shown.price.map(|price| price.amount)))
 }
 
 /// The feedback message that shows.

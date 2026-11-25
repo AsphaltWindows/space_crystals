@@ -83,9 +83,9 @@ pub enum ShotStyle {
 }
 
 impl ShotStyle {
-    /// The style of a shot fired in the form `weapon`, its kind's: the Guard's laser rifle is a red laser (the Laser
-    /// Battery and the Laser Turret will be when they exist); every other weapon, the Agent's pistol included, a
-    /// tracer, as is a shot whose shooter the client no longer knows.
+    /// The style of a shot fired in the form `weapon`, its kind's: the Guard's laser rifle and the Laser Turret's laser
+    /// (slice M4-S1) are red lasers (the Laser Battery's will be when it exists); every other weapon, the Agent's
+    /// pistol included, a tracer, as is a shot whose shooter the client no longer knows.
     pub fn of(weapon: Option<ObjectKind>) -> Self {
         weapon
             .and_then(|kind| crate::kinds::of(kind).shot)

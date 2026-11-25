@@ -11,6 +11,9 @@ pub enum Look {
     Unit { shape: UnitShape, tagged: bool },
     /// A structure: its footprint as placed, in its owner's colour, with its label (`super::structures`).
     Structure,
+    /// A structure that attacks (plan decision T49: the Laser Turret, slice M4-S1): a structure's look, with a barrel
+    /// that turns to face what it fires at (`super::turret`).
+    Turret,
     /// A Space Crystals Patch's shards (`super::resources`).
     CrystalPatch,
     /// A Supply Delivery Station's shape (`super::resources`).
@@ -37,7 +40,7 @@ impl Look {
     pub fn unit_shape(self) -> Option<UnitShape> {
         match self {
             Look::Unit { shape, .. } => Some(shape),
-            Look::Structure | Look::CrystalPatch | Look::SupplyDeliveryStation => None,
+            Look::Structure | Look::Turret | Look::CrystalPatch | Look::SupplyDeliveryStation => None,
         }
     }
 

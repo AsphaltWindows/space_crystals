@@ -5,10 +5,12 @@
 //! ActiveGroup's type where the design does so, "Q: Warp In (Basic)" on a Beacon's). The client has no tooltips; the
 //! design names no place for a command's name (placeholder until the HUD pass). An Agent's Build names its price too,
 //! "A: Build Tunnel (2 Supplies)" (slice M4-J1; design change 0233: "the price shown on the Build button is the next
-//! Tunnel's"; `crate::command_ui::PanelSlot::price`), the placeholder for its tooltip, and so does a Tunnel's Upgrade,
-//! "Q: Upgrade Tunnel (2 Supplies)" (slice M4-G).
+//! Tunnel's"; `crate::command_ui::PanelSlot::price`), the placeholder for its tooltip, "D: Build Laser Turret (100
+//! Space Crystals)" (slice M4-S1), and so does a Tunnel's Upgrade, "Q: Upgrade Tunnel (2 Supplies)" (slice M4-G).
 
 use bevy::prelude::*;
+use sc_sim::construction::site::BuildPrice;
+use sc_sim::defs::Resource;
 
 use super::super::command_panel::CommandPanelView;
 use super::super::layout::CommandGrid;
@@ -41,7 +43,7 @@ pub(in crate::hud) fn spawn(panel: &mut ChildSpawnerCommands) {
 pub fn hint(panel: &Panel, hotkeys: &[String], slot: CommandSlot) -> Option<String> {
     let name = panel.name(slot)?;
     let name = match panel.get(slot).and_then(|shown| shown.price) {
-        Some(price) => format!("{name} ({})", supplies(price)),
+        Some(price) => format!("{name} ({})", price_text(price)),
         None => name,
     };
     Some(match hotkeys.get(slot_index(slot)).filter(|key| !key.is_empty()) {
@@ -50,11 +52,13 @@ pub fn hint(panel: &Panel, hotkeys: &[String], slot: CommandSlot) -> Option<Stri
     })
 }
 
-/// A price in Supplies, as the design counts them ("1 Supply per trip").
-fn supplies(price: u32) -> String {
-    match price {
-        1 => "1 Supply".into(),
-        _ => format!("{price} Supplies"),
+/// A price in its resource, as the design counts them: Supplies ("1 Supply per trip"), Space Crystals ("Cost: 100
+/// Space Crystals").
+fn price_text(price: BuildPrice) -> String {
+    match (price.resource, price.amount) {
+        (Resource::Supplies, 1) => "1 Supply".into(),
+        (Resource::Supplies, amount) => format!("{amount} Supplies"),
+        (Resource::Crystals, amount) => format!("{amount} Space Crystals"),
     }
 }
 
@@ -199,10 +203,11 @@ mod tests {
     }
 
     /// Slice M4-J1: the Agent's buttons by name (`factions/syndicate/units/agent.md > Agent ObjectInterfaceState`), its
-    /// Build with the price the sim would charge (design change 0233: "the price shown on the Build button is the next
-    /// Tunnel's", the hint standing in for its tooltip), greyed or not; and a site's one button.
+    /// Builds with the prices the sim would charge (design change 0233: "the price shown on the Build button is the
+    /// next Tunnel's", the hint standing in for its tooltip), greyed or not, each in its resource (slice M4-S1: the
+    /// Laser Turret's "Cost: 100 Space Crystals"); and a site's one button.
     #[test]
-    fn the_hint_names_the_agents_buttons_and_the_tunnels_price() {
+    fn the_hint_names_the_agents_buttons_and_their_prices() {
         let hotkeys: Vec<String> = CommandSlot::all()
             .map(|s| hotkey_label(&Bindings::default(), s))
             .collect();
@@ -213,7 +218,9 @@ mod tests {
             let shown = panel(&agent, InterfaceState::DefaultState, &conditions);
             hint(&shown, &hotkeys, at).expect("a button")
         };
-        let priced = |price| Conditions::default().pricing(build, price);
+        let turret = PanelCommand::Build(ObjectKind::LaserTurret);
+        let priced = |price| Conditions::default().pricing(build, BuildPrice::supplies(price));
+        let both = priced(2).pricing(turret, BuildPrice::crystals(100));
         let short = priced(3).refusing(build, sc_sim::Reject::InsufficientSupplies);
         let cases = [
             (said(priced(0), slot(1, 0)), "A: Build Tunnel (0 Supplies)"),
@@ -222,6 +229,7 @@ mod tests {
             (said(priced(2), slot(0, 0)), "Q: Move"),
             (said(priced(2), slot(1, 1)), "S: Drop Off Resources"),
             (said(priced(2), slot(1, 2)), "D: Build Laser Turret"),
+            (said(both, slot(1, 2)), "D: Build Laser Turret (100 Space Crystals)"),
             (said(priced(2), slot(2, 1)), "X: Stop"),
         ];
         for (said, expected) in cases {
@@ -249,12 +257,12 @@ mod tests {
             let shown = panel(&tunnel, InterfaceState::DefaultState, &conditions);
             hint(&shown, &hotkeys, q).expect("a button")
         };
-        let busy = (Conditions::default().pricing(upgrade, 4))
+        let busy = (Conditions::default().pricing(upgrade, BuildPrice::supplies(4)))
             .refusing(upgrade, sc_sim::Reject::OperationUnderWay(ObjectId(1)));
         let top = Conditions::default().refusing(upgrade, sc_sim::Reject::TopTier(ObjectId(1)));
         let cases = [
             (
-                said(Conditions::default().pricing(upgrade, 2)),
+                said(Conditions::default().pricing(upgrade, BuildPrice::supplies(2))),
                 "Q: Upgrade Tunnel (2 Supplies)",
             ),
             (said(busy), "Q: Upgrade Tunnel (4 Supplies)"),

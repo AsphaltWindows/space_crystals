@@ -29,7 +29,9 @@
 //! a damaged object). An object transforming into its kind (`Object::transform`: a building being warped in) is tinted
 //! towards a pale cyan until it is complete ([`transforming_color`]); a site under construction (`Object::is_site`) is
 //! tinted towards a pale sand, braced by a scaffold, and shows its progress ([`site`], slice M4-J1), and so does its
-//! record, at the progress last seen (slice M4-I2). The map resources have shapes of their own ([`resources`]).
+//! record, at the progress last seen (slice M4-I2). A structure that attacks (the Laser Turret, slice M4-S1) has a head
+//! on its roof and a barrel that turns to face what it fires at ([`turret`]). The map resources have shapes of their
+//! own ([`resources`]).
 //!
 //! The fog of war hides the visuals of the objects the local player doesn't see (`crate::fog`); Explored tiles show
 //! the records of what it remembers instead, as visuals of their own ([`remembered`]).
@@ -42,6 +44,7 @@ mod site;
 mod structures;
 mod systems;
 mod tunnel;
+mod turret;
 mod units;
 
 use std::collections::BTreeMap;
@@ -76,6 +79,7 @@ pub use look::{Look, UnitShape};
 pub use remembered::{RememberedVisual, RememberedVisuals};
 pub use site::SiteProgress;
 pub use structures::{StructureTag, underground};
+pub use turret::TurretBarrel;
 pub use units::UnitTag;
 
 /// What the mesh of an object's visual depends on ([`MeshKey::of`]).
@@ -154,6 +158,8 @@ pub struct ObjectVisualAssets {
     loads: BTreeMap<(ObjectKind, sc_sim::defs::Resource), Handle<Mesh>>,
     /// The fill of a site's progress bar ([`site`]).
     site_fill: Option<Handle<Mesh>>,
+    /// A turret's barrel ([`turret`]).
+    barrel: Option<Handle<Mesh>>,
 }
 
 /// The visual entity of each object.
@@ -181,6 +187,7 @@ impl Plugin for ObjectRenderPlugin {
                     place_riot_shields,
                     load::place_load_markers,
                     site::place_site_progress,
+                    turret::place_barrels,
                     remembered::sync_remembered_visuals,
                 )
                     .in_set(ClientSystems::Present),
@@ -231,6 +238,12 @@ pub fn object_mesh(kind: ObjectKind, owner: Option<PlayerId>) -> Mesh {
             let (w, h) = kind.def().tile_size().unwrap_or((1, 1));
             structures::structure_mesh(w, h, player_color(owner))
         }
+        Look::Turret => {
+            let (w, h) = kind.def().tile_size().unwrap_or((1, 1));
+            let mut mesh = structures::structure_shape(w, h, player_color(owner));
+            turret::draw_fixed(&mut mesh, player_color(owner));
+            mesh.into_mesh()
+        }
     }
 }
 
@@ -257,9 +270,10 @@ fn has_tick(kind: ObjectKind) -> bool {
 }
 
 /// The mesh of an object's visual: its placeholder shape, a unit's without the tick if its body doesn't turn, a
-/// structure in its size as placed, a Tunnel with its look by tier, an underground structure as its outline; tinted
-/// while it transforms; a site, on the surface or underground (an expansion, slice M4-F), tinted and braced by its
-/// scaffold, with its progress bar's track ([`site`]).
+/// structure in its size as placed, a Tunnel with its look by tier, a turret with its head (its barrel is an entity of
+/// its own, [`TurretBarrel`]), an underground structure as its outline; tinted while it transforms; a site, on the
+/// surface or underground (an expansion, slice M4-F), tinted and braced by its scaffold, with its progress bar's track
+/// ([`site`]).
 fn visual_mesh(key: MeshKey) -> Mesh {
     let MeshKey {
         kind,
@@ -285,6 +299,8 @@ fn visual_mesh(key: MeshKey) -> Mesh {
                 site::draw(&mut mesh, structures::inner_half(w, h));
             } else if let Some(look) = tunnel {
                 tunnel::draw(&mut mesh, look, structures::inner_half(w, h));
+            } else if Look::of(kind) == Look::Turret {
+                turret::draw_head(&mut mesh, color);
             }
             mesh.into_mesh()
         }

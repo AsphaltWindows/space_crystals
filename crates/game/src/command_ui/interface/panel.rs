@@ -1,6 +1,7 @@
 //! The command panel a selection gets (`systems/controls/selection_and_hud.md > CommandPanel`): what each slot shows
 //! ([`panel`](fn@panel)), what pressing it does ([`press`]) and who receives its command ([`recipients`]).
 
+use sc_sim::construction::site::BuildPrice;
 use sc_sim::{
     Ability, ConstructionCommand, ObjectId, ObjectKind, OrderKind, PlayerId, ProductionCommand, Sim, TunnelCommand,
 };
@@ -64,10 +65,11 @@ pub struct PanelSlot {
     /// a count of how many of that type are in the network"): those not reserved on an eject queue
     /// ([`Conditions::network_count`]); none on the other buttons.
     pub count: Option<u32>,
-    /// What a Build costs now, in Supplies ([`Conditions::price`], design change 0233: "the price shown on the Build
-    /// button is the next Tunnel's"), and a Tunnel's Upgrade (slice M4-G), which the InfoPanel's hint for the button
-    /// shows (`crate::hud::info_panel::hint`); none on the other buttons.
-    pub price: Option<u32>,
+    /// What a Build costs now, in its resource ([`Conditions::price`], design change 0233: "the price shown on the
+    /// Build button is the next Tunnel's"; a Laser Turret's 100 Space Crystals, slice M4-S1), and a Tunnel's Upgrade,
+    /// in Supplies (slice M4-G), which the InfoPanel's hint for the button shows (`crate::hud::info_panel::hint`); none
+    /// on the other buttons.
+    pub price: Option<BuildPrice>,
 }
 
 impl PanelSlot {

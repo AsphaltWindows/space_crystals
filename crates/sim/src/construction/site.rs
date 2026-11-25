@@ -33,10 +33,10 @@ use crate::object::Object;
 use crate::player::Player;
 use crate::progress::Progress;
 
-/// What a worker's Build of a type costs now (`SiteDef::price`, `Sim::build_price`): an amount of one resource, Supplies
-/// for a Tunnel (`factions/syndicate/tunnels.md > Cost Scaling > Construction Cost`), Space Crystals for a Laser Turret
-/// (`factions/syndicate/structures/laser_turret.md`: "Cost: 100 Space Crystals (no Supplies)"). Paid as the order is
-/// given, and given back in the same resource.
+/// What a worker's Build of a type costs now (`SiteDef::price`, `Sim::build_price`): an amount of one resource,
+/// Supplies for a Tunnel (`factions/syndicate/tunnels.md > Cost Scaling > Construction Cost`), Space Crystals for a
+/// Laser Turret (`factions/syndicate/structures/laser_turret.md`: "Cost: 100 Space Crystals (no Supplies)"). Paid as
+/// the order is given, and given back in the same resource.
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub struct BuildPrice {
     pub resource: Resource,
@@ -44,18 +44,28 @@ pub struct BuildPrice {
 }
 
 impl BuildPrice {
+    /// `amount` Supplies.
+    pub const fn supplies(amount: u32) -> Self {
+        Self {
+            resource: Resource::Supplies,
+            amount,
+        }
+    }
+
+    /// `amount` Space Crystals.
+    pub const fn crystals(amount: u32) -> Self {
+        Self {
+            resource: Resource::Crystals,
+            amount,
+        }
+    }
+
     /// The price by the rule `price`, `owned` being how many structures of the type the player has for it
     /// (`factions/syndicate/tunnels.md > Cost Scaling > Construction Cost`: "Cost = current Tunnels owned").
     pub fn of(price: SitePrice, owned: u32) -> Self {
         match price {
-            SitePrice::SuppliesPerOwned => Self {
-                resource: Resource::Supplies,
-                amount: owned,
-            },
-            SitePrice::Crystals(amount) => Self {
-                resource: Resource::Crystals,
-                amount,
-            },
+            SitePrice::SuppliesPerOwned => Self::supplies(owned),
+            SitePrice::Crystals(amount) => Self::crystals(amount),
         }
     }
 
@@ -368,14 +378,7 @@ mod tests {
     /// changes 0233 and 0284), a Laser Turret's 75%, rounded down, like an expansion's (design change 0297 point 5).
     #[test]
     fn a_cancelled_turret_site_gives_back_three_quarters() {
-        let supplies = |amount| BuildPrice {
-            resource: Resource::Supplies,
-            amount,
-        };
-        let crystals = |amount| BuildPrice {
-            resource: Resource::Crystals,
-            amount,
-        };
+        let (supplies, crystals) = (BuildPrice::supplies, BuildPrice::crystals);
         let (tunnel, turret) = (SitePrice::SuppliesPerOwned, SitePrice::Crystals(100));
         assert_eq!(
             (BuildPrice::of(tunnel, 3), BuildPrice::of(turret, 3)),

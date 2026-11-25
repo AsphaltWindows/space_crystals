@@ -1,8 +1,8 @@
 //! The Agent's UI in the client (slice M4-J1; design changes 0233, 0234, 0237, 0257 and 0260): its panel's letters, D
-//! greyed with its reason; Build Tunnel's price and its refusal while the bank can't pay; Shift placing one ghost per
-//! Agent; a site's X Cancel Construction alone; the lingering Tunnel ghosts, which only their owner sees; the Enter and
-//! Drop Off pointers; and the Supply an Agent carries. The Tunnel ghost's verdicts are [`ghost`]'s (design change
-//! 0242).
+//! greyed with its reason; Build Tunnel's price and its refusal while the bank can't pay; D placing a Laser Turret
+//! once the player owns an Optics Lab (slice M4-S1); Shift placing one ghost per Agent; a site's X Cancel Construction
+//! alone; the lingering Tunnel ghosts, which only their owner sees; the Enter and Drop Off pointers; and the Supply an
+//! Agent carries. The Tunnel ghost's verdicts are [`ghost`]'s (design change 0242).
 
 mod ghost;
 
@@ -13,7 +13,7 @@ use sc_sim::{BuildingOrientation, ConstructionCommand, Faction, PlayerCommand as
 use space_crystals::command_ui::feedback::{
     BUSY_TEXT, NO_SUPPLIES_TEXT, NOTHING_CARRIED_TEXT, TargetFeedback, placement_text, requires_text,
 };
-use space_crystals::command_ui::{ButtonLook, PanelButton, PanelCommand, Planned};
+use space_crystals::command_ui::{ButtonLook, PanelButton, PanelCommand};
 use space_crystals::hud::command_panel::CommandButton;
 use space_crystals::hud::info_panel::hint::CommandHint;
 use space_crystals::object_render::{LoadMarker, SiteProgress};
@@ -28,6 +28,8 @@ const P2: PlayerId = PlayerId(2);
 const AGENT: ObjectKind = ObjectKind::Agent;
 const TUNNEL_KIND: ObjectKind = ObjectKind::Tunnel;
 const BUILD: PanelCommand = PanelCommand::Build(TUNNEL_KIND);
+const TURRET_KIND: ObjectKind = ObjectKind::LaserTurret;
+const BUILD_TURRET: PanelCommand = PanelCommand::Build(TURRET_KIND);
 
 /// The objects of [`agent_game`], by id, and where they are (the map is flat: where they are drawn).
 const TUNNEL: u32 = 1;
@@ -80,11 +82,16 @@ fn look_at(app: &mut App, view: Vec2) {
     app.update();
 }
 
-/// Sets player 1's Supplies (a debug command, applied at the next frame's tick).
+/// Sets player 1's Supplies, and no Space Crystals (a debug command, applied at the next frame's tick).
 fn set_supplies(app: &mut App, supplies: u32) {
+    set_bank(app, 0, supplies);
+}
+
+/// Sets player 1's Space Crystals and Supplies (a debug command, applied at the next frame's tick).
+fn set_bank(app: &mut App, crystals: u32, supplies: u32) {
     let set = DebugCommand::SetResources {
         player: P1,
-        crystals: 0,
+        crystals,
         supplies,
         alloys: 0,
         essence: 0,
@@ -98,6 +105,12 @@ fn set_supplies(app: &mut App, supplies: u32) {
 fn supplies(app: &App) -> u32 {
     let sim = app.world().resource::<SimRes>();
     sim.player(P1).expect("in the game").supplies
+}
+
+/// Player 1's Space Crystals.
+fn crystals(app: &App) -> u32 {
+    let sim = app.world().resource::<SimRes>();
+    sim.player(P1).expect("in the game").crystals
 }
 
 /// The buttons the HUD shows: slot, button and look.
@@ -182,11 +195,12 @@ fn click_on(app: &mut App, id: u32) {
 
 /// Design change 0257 (`factions/syndicate/units/agent.md > Agent ObjectInterfaceState`): Q Move, A Build Tunnel, S
 /// Drop Off Resources, D Build Laser Turret "(greyed until available)", X Stop, and no Attack, Hold, Patrol or
-/// AttackMove. D and S, greyed, say why when pressed (design change 0162) and do nothing; A's hint names the Tunnel's
-/// price as the sim would charge it (design change 0233: 1 Supply with one Tunnel owned).
+/// AttackMove. D and S, greyed, say why when pressed (design change 0162) and do nothing: D, the Laser Turret's Build
+/// (slice M4-S1), that the player owns no Optics Lab. A's hint names the Tunnel's price as the sim would charge it
+/// (design change 0233: 1 Supply with one Tunnel owned), D's the Laser Turret's.
 #[test]
 fn the_agents_panel_has_its_letters_d_greyed_with_its_reason() {
-    use ButtonLook::{Common, Disabled, Unavailable};
+    use ButtonLook::{Common, Disabled};
     let mut app = agent_game();
     click_on(&mut app, AGENTS[0]);
     let c = PanelButton::Command;
@@ -196,7 +210,7 @@ fn the_agents_panel_has_its_letters_d_greyed_with_its_reason() {
             (q(), c(PanelCommand::Move), Common),
             (a(), c(BUILD), Common),
             (s(), c(PanelCommand::DropOff), Disabled),
-            (d(), c(PanelCommand::Planned(Planned::LaserTurret)), Unavailable),
+            (d(), c(BUILD_TURRET), Disabled),
             (x(), c(PanelCommand::Stop), Common),
         ]
     );
@@ -207,8 +221,77 @@ fn the_agents_panel_has_its_letters_d_greyed_with_its_reason() {
     assert_eq!(said(&app), Some(NOTHING_CARRIED_TEXT));
     assert_eq!(interface(&app), InterfaceState::DefaultState);
     assert_eq!(hint_over(&mut app, a()).as_deref(), Some("A: Build Tunnel (1 Supply)"));
-    assert_eq!(hint_over(&mut app, d()).as_deref(), Some("D: Build Laser Turret"));
+    assert_eq!(
+        hint_over(&mut app, d()).as_deref(),
+        Some("D: Build Laser Turret (100 Space Crystals)")
+    );
     assert_eq!(orders(&app), []);
+}
+
+/// Where the Agent of [`with_an_optics_lab_d_places_a_laser_turret`] builds its Laser Turret (1 × 1), north of the
+/// Tunnel's area, and the ghost's centre there.
+const TURRET_SITE: TilePos = TilePos::new(16, 11);
+const TURRET_SITE_AT: Vec2 = Vec2::new(16.5 * SU_PER_GU, 11.5 * SU_PER_GU);
+/// Where its Optics Lab (2 × 2) is spawned, in the Tunnel's area by the Tunnel.
+const LAB_AT: TilePos = TilePos::new(14, 13);
+
+/// Slice M4-S1 (`factions/syndicate/structures/laser_turret.md > Construction`; design change 0297 point 4: paid at the
+/// order): once player 1 owns an Optics Lab and the bank holds the Laser Turret's 100 Space Crystals, D is lit and its
+/// hint names that price. D enters the placement of a 1 × 1 ghost; a click on a clear tile sends the Agent its Build
+/// and ends placement, the order pays the 100 Space Crystals, and the lingering ghost is the turret's footprint with no
+/// Tunnel Area (it has none).
+#[test]
+fn with_an_optics_lab_d_places_a_laser_turret() {
+    let mut app = agent_game();
+    let lab = DebugCommand::Spawn {
+        kind: ObjectKind::OpticsLab,
+        owner: Some(P1),
+        at: SpawnAt::Tile(LAB_AT),
+        orientation: Default::default(),
+    };
+    submit(&mut app, P1, Command::Debug(lab));
+    set_bank(&mut app, 100, 10);
+    let sim = app.world().resource::<SimRes>();
+    let lab = sim
+        .objects()
+        .find(|o| o.kind == ObjectKind::OpticsLab)
+        .map(|o| (o.owner, o.placement));
+    assert_eq!(
+        lab.map(|(owner, at)| (owner, at.map(|at| at.origin))),
+        Some((Some(P1), Some(LAB_AT)))
+    );
+    click_on(&mut app, AGENTS[0]);
+    let lit = buttons(&mut app).into_iter().find(|(slot, ..)| *slot == d());
+    let build = PanelButton::Command(BUILD_TURRET);
+    assert_eq!(lit, Some((d(), build, ButtonLook::Common)));
+    assert_eq!(
+        hint_over(&mut app, d()).as_deref(),
+        Some("D: Build Laser Turret (100 Space Crystals)")
+    );
+    tap(&mut app, &[], KeyD);
+    assert!(matches!(interface(&app), InterfaceState::AwaitingPlacement(_)));
+    pointer_over(&mut app, TURRET_SITE_AT);
+    let ghost = app.world().resource::<PlacementGhost>().shown.clone().expect("a ghost");
+    assert_eq!(
+        (ghost.kind, ghost.origin, ghost.size),
+        (TURRET_KIND, TURRET_SITE, (1, 1))
+    );
+    assert!(ghost.is_valid(), "{:?}", ghost.check);
+
+    click(&mut app, TURRET_SITE_AT, &[]);
+    let order = OrderKind::Build {
+        kind: TURRET_KIND,
+        origin: TURRET_SITE,
+        orientation: BuildingOrientation::default(),
+    };
+    assert_eq!(builds(&app), [given(&[AGENTS[0]], order, false)]);
+    assert_eq!(interface(&app), InterfaceState::DefaultState);
+    updates(&mut app, 2);
+    assert_eq!((crystals(&app), supplies(&app)), (0, 10));
+    let shown = app.world().resource::<LingeringGhosts>();
+    let footprints: Vec<_> = (shown.shown.iter()).map(|site| (site.origin, site.w, site.h)).collect();
+    assert_eq!(footprints, [(TURRET_SITE, 1, 1)]);
+    assert_eq!(shown.areas, []);
 }
 
 /// Design change 0233: "a Build order that can't be paid is refused" (0162: with the unavailable-command feedback).

@@ -2,10 +2,11 @@
 //! it is pressed (design change 0162; `super::super::Conditions::planned`). The Colonists' buildings and units whose
 //! numbers are TBD (design change 0124: "Buildings and units whose costs are TBD show in their slot, unavailable";
 //! slices M3-J1 and M3-J2), and the Syndicate's units and expansions that later slices bring (design change 0257:
-//! "unavailable entries are greyed"; slices M4-J2, M4-J1 and M4-F): the Hideout's Grenadier, the Laser Turret, the
-//! Agent's and the ExpandMenu's, and the ExpandMenu's expansions not in the game yet. The slice that brings one
-//! replaces its entry with the real command, as slice M4-K did the Hideout's Guard and the ExpandMenu's Optics Lab and
-//! Chemical Plant, and slice M4-G the Tunnel's Upgrade (`super::super::PanelCommand::UpgradeTunnel`).
+//! "unavailable entries are greyed"; slices M4-J2, M4-J1 and M4-F): the Hideout's Grenadier, and the ExpandMenu's
+//! Laser Turret and its expansions not in the game yet. The slice that brings one replaces its entry with the real
+//! command, as slice M4-K did the Hideout's Guard and the ExpandMenu's Optics Lab and Chemical Plant, slice M4-G the
+//! Tunnel's Upgrade (`super::super::PanelCommand::UpgradeTunnel`), and slice M4-S1 the Agent's Laser Turret
+//! (`super::super::PanelCommand::Build`).
 
 use sc_sim::ObjectKind;
 
@@ -13,9 +14,8 @@ use sc_sim::ObjectKind;
 /// or a unit of a portal's panel: a building's cost and WarpInTime are TBD (`factions/colonists/economy.md > Warp In >
 /// Constructs List`), and so is the rest of it (Q0043); a unit's stats, cost and time are TBD
 /// (`factions/colonists/units/scout.md`, `factions/colonists/units/lancer.md`; the psionic unit has no section yet).
-/// The Syndicate's are the Hideout's Grenadier of slice M4-U, the Agent's Laser Turret of slice M4-S1, and the
-/// ExpandMenu's entries that aren't in the game yet (slice M4-F: `sc_sim::defs::ExpandEntry::Planned`, by name): its
-/// expansions, and its Laser Turret of slice M4-S2.
+/// The Syndicate's are the Hideout's Grenadier of slice M4-U and the ExpandMenu's entries that aren't in the game yet
+/// (slice M4-F: `sc_sim::defs::ExpandEntry::Planned`, by name): its expansions, and its Laser Turret of slice M4-S2.
 #[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum Planned {
     AlloyFurnace,
@@ -39,12 +39,9 @@ pub enum Planned {
     /// The Hideout's E, "Build Grenadier" (design change 0260): "Only available if the player owns at least one
     /// Chemical Plant". Slice M4-U brings the Grenadier and its recipe, which take the slot.
     Grenadier,
-    /// The Agent's D, "Build Laser Turret" (`factions/syndicate/units/agent.md > Agent ObjectInterfaceState > Panel
-    /// letters`, design change 0257: "**D** Build Laser Turret (greyed until available)";
-    /// `factions/syndicate/units/agent.md > DefaultState commands`: "Visible but greyed out until the player owns an
-    /// Optics Lab"). Slice M4-S1 brings the Laser Turret, whose Build then takes the slot. The ExpandMenu's tenth slot
-    /// too (`factions/syndicate/tunnels.md > ExpandMenu`, design change 0291: "The **Laser Turret is always the tenth
-    /// slot**"), until slice M4-S2.
+    /// The ExpandMenu's tenth slot (`factions/syndicate/tunnels.md > ExpandMenu`, design change 0291: "The **Laser
+    /// Turret is always the tenth slot**"), until slice M4-S2 brings a Tunnel's turret. The Agent's D, which it held
+    /// before, is the Laser Turret's Build since slice M4-S1 (`PanelCommand::Build`).
     LaserTurret,
     /// The ExpandMenu's expansions not in the game yet (`factions/syndicate/structures/README.md > Tech Tree
     /// Overview`; design change 0291: "**all nine expansions** are always listed, in the Tech Tree table's order, each
