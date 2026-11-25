@@ -34,6 +34,7 @@ pub const DEFAULT_PATCH_AMOUNT: u32 = 1500;
 |---|---|
 | `cargo run [-- <flags>]` | Runs the game, the only binary. Flags are listed under *QA mode*. |
 | `cargo test --workspace` | Runs all tests. `cargo test -p sc_sim` tests the sim alone, which is fast and skips Bevy. |
+| `cargo test --release --workspace -- --ignored --test-threads=1` | Runs the ignored tests: the perf tests, soaks, sweeps and measurements (14 at M3's end, all in the sim, about 50 s on a quiet machine). Run them at a milestone's end, since nothing else does. |
 | `cargo clippy --workspace --all-targets -- -D warnings` | Runs the lints and turns every warning into an error. |
 | `cargo fmt --all` | Formats the code; add `--check` to verify only. `rustfmt.toml` sets max width 120. |
 
@@ -413,6 +414,12 @@ Layout validation can't disagree. **Never test a placement rule anywhere else: a
   the four players' 20 group orders at once, which takes 7.8 ms, nearly all path serving (each group order is pathed
   in its tick, `docs/movement.md > 5.8`). At worst the grid syncs (5b, 5e's, path knowledge) take 0.13 ms with up to
   3 sets rebuilt in a tick, vision 0.17 ms, the economy 0.11 ms and the defeat check's two walks 0.005 ms.
+  Measured with Drones (`tests/drones_perf.rs`, ignored, release; slice M3-K2: two Colonists sides of 40 Drones
+  gathering on two rows of 8 patches each, and 10 Legionnaires a side fighting between them, on 128 × 48 for 3
+  minutes; three runs at load 1.1 to 1.2): a whole tick takes 0.10 ms on average, 0.12 to 0.21 ms at the 99th
+  percentile and at most 0.21 ms after tick 1, whose 32 Gathers and two group orders take 0.5 to 0.9 ms; movement
+  0.053 ms, vision 0.025 ms, the behaviours 0.013 ms. The waiting Drones' re-check ticks (every 16th) cost 0.003 ms
+  more than the others. There is no M2 baseline to compare with, since M2 had no Drones.
 - Insert a new phase at a deliberate position, with a comment in `step` saying why there, give it its `Phase`, and
   update this list.
 - Commands always run before movement. There is exactly **one** movement pipeline, and all movement goes through it.
@@ -1114,7 +1121,7 @@ section of its own.
   that reaches its drop-off in tick `t` is paid at the end of `t + 1` (`SimEvent::ResourcesDelivered`). A patch
   emptied this way leaves the map in the same tick, unless a plate stands on it; workers never gather a plated
   patch. `Sim::returning_drones(node)` is the Egress Node's F.
-  **Measured with DragMovement and the rules of slice M3-H3** (`tests/gathering.rs`, `tests/gathering_soak.rs`;
+  **Measured with DragMovement and the rules of slice M3-H3** (`tests/gathering/`, `tests/gathering_soak.rs`;
   nothing is tuned to the design's table): one Drone with its patch 2 GU from the node, edge to edge, delivers
   every 81 ticks, 1.58 Space Crystals per second (60 ticks on the stand-in mover it had before). On the reference
   field (8 patches in a row, the node 2 GU south of the middle), with gathering Drones passing through each other
@@ -1622,7 +1629,10 @@ M3-D2: design change 0145, `> Portals > Portal Exits (energy doorway)`).
   record), `behaviours_soak.rs` (120 units fighting under random orders of every kind, then without orders until
   those end; its checks are invariants that survive tuning: no dangling ids, no idle unit in reach of a visible
   enemy (but one whose scan held an enemy that died in that tick), every order but Hold, Patrol and Follow ends, and
-  bounded shares of refused orders, failed moves and path searches) and the ignored `behaviours_perf.rs`.
+  bounded shares of refused orders, failed moves and path searches; the ignored `soak_sweep` runs seeds 1 to 40 and
+  fails if any does. An order ends within the slowest unit's walk round the map's four sides for each order a unit
+  still has at the last order, its current one and its queue: slice M3-K2 found seed 5's Peacekeepers with three,
+  each across both walls, settling 2765 ticks after it at full speed) and the ignored `behaviours_perf.rs`.
   `riot_shield/` has the Riot Shield's: toggle timing, each raised-shield effect, the gate, a save in the middle
   of a toggle and its replay, and the orders kept through a toggle (`orders_kept.rs`, design changes 0150, 0151).
   Slice M3-R's:
@@ -1705,13 +1715,14 @@ M3-D2: design change 0145, `> Portals > Portal Exits (energy doorway)`).
   ability waiting for the Cooldown's end in `sim/modes/tests.rs` (0153). In the
   client: `tests/combat.rs` (the shield bar), `tests/commands/convert.rs` (R) and the InfoPanel's Shields line in
   `hud/info_panel`.
-- **Gathering tests** are `crates/sim/tests/gathering.rs` (slices M3-H and M3-H3: one Drone's trip, pinned at 81
+- **Gathering tests** are `crates/sim/tests/gathering/` (slices M3-H and M3-H3, one binary in modules by topic,
+  split by slice M3-K2: one Drone's trip, pinned at 81
   ticks; two Drones arriving together; waiting, the lowest id mining next; an enemy Drone on the patch; Set
   Drop-off Location in the middle of mining and of a return; depletion and the Drones going on at another patch,
   or delivering and idling when no patch is left; the Drop Off order and the idling at the node; a lost Egress
   Node; interrupted mining; every invalid worker command refused and changing nothing; a Drone rallied on a patch;
   a game replayed and saved in its middle), `gathering_rules/` (slice M3-H3, one binary: a test per Verification
-  point of design changes 0123 and 0127 to 0141 that `gathering.rs` doesn't cover, in modules by topic: `ends`,
+  point of design changes 0123 and 0127 to 0141 that `gathering/` doesn't cover, in modules by topic: `ends`,
   `loads`, `waiting`, `reach`, `knowledge`, `drop_offs`, and slice M3-R's `remembered`: a Gather on a patch out of
   sight, scouted or known from the start, one gone unseen, one placed later and unknown) and
   `gathering_soak.rs` (the four starting Drones for 5 minutes; 24 Drones for 5 minutes, every one delivering at
@@ -1848,8 +1859,9 @@ out by the same rules.
 - **Combat effects** (`combat_effects.rs`, placeholders until Q0001): a tracer for each `SimEvent::Attacked`
   (`TRACER_TICKS`), drawn only along the parts of its path over the local player's Visible tiles (`visible_spans`,
   which cuts it at every tile edge it crosses; design change 0177: a shot from the fog shows from the fog edge, one
-  all in the fog not at all; its attacker is revealed by the sim), HP bars over damaged and selected units, with
-  a shield bar right above for an object that has Shields (`systems/combat.md > Shields > Display`, design change
+  all in the fog not at all; its attacker is revealed by the sim), HP bars over damaged and selected objects (a
+  unit's clear of its silhouette's corners, a structure's along the top edge of its footprint and as wide as it),
+  with a shield bar right above for an object that has Shields (`systems/combat.md > Shields > Display`, design change
   0148; `SHIELD_FILL`, a placeholder colour), shown too while only its Shields are down, and a fading marker for
   each `SimEvent::Died` (`DEATH_MARKER_TICKS`).
   One alpha-blended mesh in the overlays layer, rebuilt every frame while anything shows; effects age by the sim's
@@ -2441,7 +2453,13 @@ unchecked.
   converts each to a Rifle Legionnaire to wait east of the Bio Portal, while player 2 plays `gdo_opening`'s Barracks
   line and sends its ten Peacekeepers to player 1's field in two waves of AttackMove: the Colonists' Shields take
   hits and units die on both sides. Both players' books balance every step, the Drones' deliveries included, and
-  every command the scripts give is one the gate takes. Any change to the sim's rules or state changes the hashes:
+  every command the scripts give is one the gate takes. The ignored `tests/skirmish_soak.rs` (slice M3-K2) plays the
+  same two players for 10 minutes, twice, until player 1's field runs out: the movement invariants and the books
+  every tick, no dangling id, no order stuck in one step beyond a bound (a waiting Drone re-checks within 16 ticks
+  once its patch is free), the field's 12000 crystals all delivered, no game end, and the hash every 64 ticks equal
+  over both runs and the replay (`cargo test -p sc_sim --release --test skirmish_soak -- --ignored --nocapture`
+  prints what it saw: the longest step of each order, each Drone's longest gap between deliveries, the losses).
+  Any change to the sim's rules or state changes the hashes:
   when the change is intended, re-bless and commit the files with it:
 
   ```sh
@@ -2605,7 +2623,8 @@ cargo run -- --editor maps/dev_skirmish.json --editor-script /path/to/edits.json
 ## Adding a faction
 
 What a faction needs before players can start with it, in the order M3 (the Colonists) built it. Started by slice
-M3-C; the M3 slices after it add their steps (plan `artifacts/director/m3-plan.md`).
+M3-C and finished by M3-K2 from what the M3 slices needed (plan `artifacts/director/m3-plan.md`, the Built entries of
+`artifacts/director/plan.md`).
 
 1. **Defs** (`defs/<faction>.rs`, see Object model; slice M3-A): its kinds at the end of `ObjectKind` (the state
    hash numbers kinds in declaration order), one `static ObjectDef` each with `faction: Some(..)`, each unit's
@@ -2643,8 +2662,45 @@ M3-C; the M3 slices after it add their steps (plan `artifacts/director/m3-plan.m
    the letters given (the unit appears at the centre and walks out through them; its arc comes from the sides, so
    a new portal needs no code; see *Production*). `defs_are_consistent` checks that the letters name the type's
    sides.
-8. **Tests and QA**: `ScenarioBuilder::faction` sets a test player's faction (plan decision T27), and
-   `cargo run -- --factions <f1,f2>` starts a game with it, which its replay records.
+   A doorway with a rally point gives the new unit its own right-click order at release (`orders::resolution`).
+
+The faction's own mechanics come next, each only if it has them (M3's in brackets):
+
+9. **Kinds that change** (slices M3-A, M3-E, M3-F; plan decision T15): every change of kind goes through
+   `Sim::change_kind` (see *Object model > Changing kind*: same id and owner, capabilities rebuilt, orders, move and
+   target kept, a `SimEvent::KindChanged`). A building that comes out of another object is an `Object::transform`
+   (`transform.rs`, `Sim::step_transforms`: a Warp In, a Drone deploying as a Beacon), placed by its own `Method`
+   in the one placement check, and the client rebuilds the visual on a `MeshKey` change and moves the object into
+   its new group (`ControlState::set_type`; an unfinished building's group is its own, `GroupKey`).
+10. **Abilities and modes** (M3-B Weapon Conversion, M3-S the Riot Shield): an `Ability` (tagged in
+    `command.rs`'s hash), its rule in the gate (`sim/gate/orders.rs::check_ability`), its use in `sim/modes.rs`
+    (at once, or waiting in `AttackState::pending` through an attack phase that can't be interrupted,
+    `combat::mid_attack`) and its frames in the Modes step; the client's `PanelCommand`, its template slot and a
+    label of six characters at most with its full name in the hover hint.
+11. **Shields** (M3-B): `max_shields` in the def; `Object::shields` absorbs in `combat/damage.rs::resolve` and
+    regenerates in `Phase::Shields`; the client draws the bar and the InfoPanel line.
+12. **Workers** (M3-H, M3-H2, M3-H3, M3-K2a): a `WorkerDef` (its carry capacity, mining and drop-off times and
+    reaches, search radius and `pass_through`), the Gather and Drop Off orders (`orders/gather.rs`, the gate in
+    `sim/workers.rs`), the timed work and the bank credit (`economy/gathering.rs`, `SimEvent::ResourcesDelivered`),
+    `StructureDef::drop_off` for the buildings that take loads, and a new drop-off for the workers of one that goes
+    (`Sim::reassign_drop_offs`, on the removal path). Units that may overlap go in `invariants::may_overlap`. In
+    the client: the pointers, the load marker, the InfoPanel lines and a select-the-workers command.
+13. **A movement model** (M3-G, plan decision T25): a `MovementAttrs` variant with its mover in `movement/`
+    (`drag.rs` beside `follow.rs`), the movement invariants amended in writing, and `movement_perf` run A/B.
+14. **Orders of its own** (M3-F Deploy): an `OrderKind` with its behaviour in `orders/`, its gate check and its
+    events (`SimEvent::DeployFailed`), reservations that others' placements respect (`Sim::pending_deploys`), and the
+    client's ghost (a `Builder` in `command_ui/interface/placing.rs`).
+15. **Tests and QA** (plan decision T27; slices M3-K1 and M3-K2): `ScenarioBuilder::faction` sets a test player's
+    faction, and `cargo run -- --factions <f1,f2>` starts a game with it, which its replay records. Then:
+    - a build line through the gate beside `testing::build_order` (`testing::colonists`: Train, Gather, Deploy and
+      Warp In), whose `Books` count what the faction's income adds;
+    - goldens of its opening and of a game against another faction, both players scripted (`tests/golden/colonists.rs`,
+      `testing::colonists::skirmish`);
+    - its economy oracle against the design's targets (`tests/economy_oracle/`, `docs/economy_oracle.md`);
+    - a perf test of its crowds (`tests/drones_perf.rs`) and an ignored 10-minute soak of the golden game
+      (`tests/skirmish_soak.rs`: invariants, books, no stuck order, the hash stable over two runs);
+    - a scripted walkthrough of the first playable (`--factions` with `--input-script`, see *QA mode*), and its
+      playtest notes in `docs/playtest/`.
 
 ## Code conventions
 
