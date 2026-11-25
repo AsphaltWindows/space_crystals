@@ -996,9 +996,9 @@ The user keeps feeding unit and other designs to the Designer, so expect increme
     1. A
     2. B, C, D, then I
     3. R1, R2
-    4. E, J2
+    4. E, J2, O (O moved up from wave 6 by the Director, to de-risk the combat spike; its only conflict with E is one `OrderKind` line)
     5. J1, H, F (the first playable)
-    6. K, G, O
+    6. K, G
     7. L, S1
     8. U, S2
     9. M
@@ -1022,7 +1022,7 @@ The user keeps feeding unit and other designs to the Designer, so expect increme
     - R1 (sim): running (wave 3, Opus), alone.
     - R2 (client, docs, citation test): its part before R1 is done (7 commits; 1532 tests; QA screenshots byte-identical), and it is now splitting `fog.rs` and `editor/objects.rs`. It waits for R1 to land, then merges, drops the citation test's temporary allowance for the sim, and updates ARCHITECTURE.md's sim sections.
     - B: done (`35e19634`).
-    - The rest are queued in the waves above. E and J2 come next, after R1 and R2.
+    - The rest are queued in the waves above. E, J2 and O come next, after R1 and R2. Their briefs are ready: `scratchpad/briefs/m4e-agent-built-tunnels.md`, `m4j2-tunnel-hideout-ui.md` and `m4o-combat-spike.md`.
   - **Earlier scope note:** tunnels, Hideout, Agent, Guard economy, 0186's Optics Lab gate and Agent pistol, the Grenadier (0187) and the Assault Bike (0188), once their numbers exist. Underground expansions are exempt from the flatness rule (0005).
 - **M5 Cults**: Recruitment Hall, Storage, Recruit, Armory, Soldier, Gunner.
   - Recruits are Groupable: every selected Recruit builds (0072).
