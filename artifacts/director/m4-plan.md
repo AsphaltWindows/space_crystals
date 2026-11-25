@@ -2222,6 +2222,9 @@ in their own modules (T54), and builds on the shared mechanics: O's area damage,
 T29–T44 are the adopted decisions, updated where answers changed them (**Changed (NNNN)**). T45–T54 are new: each has a
 recommendation and its alternatives.
 
+**Accepted by the Director (2026-11-25):** T44's change and T45–T54, each as recommended. Their open points stay
+placeholders under Q0083 (area damage) and Q0084 (the Laser Turret) until the answers arrive.
+
 ### T29. Syndicate kinds in the M2 and M3 model (A; done)
 - **Done in A** as recommended: one static per kind, `ObjectKind` appended, `StructureDef::underground`,
   `StructureDef::tunnel`, the Hideout AAAA, the Agent's worker (D), `UnitDef::tunnel_space_cost`.
