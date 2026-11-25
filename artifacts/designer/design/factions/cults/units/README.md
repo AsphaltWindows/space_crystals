@@ -7,4 +7,4 @@
 - `gunner.md` — **Gunner**: Heavier-hitting infantry
 - `recruit.md` — **Recruit**: Worker: gathering, building, Armory entry
 - `jackal.md` — **Jackal**: Light wheeled vehicle, 360° machine-gun turret (Chop Shop)
-- `light_glider.md` — **Light glider (name TBD)**: Small glider, machine gun, air+ground (Airstrip)
+- `sparrow.md` — **Sparrow**: Small glider, machine gun, air+ground (Airstrip)
