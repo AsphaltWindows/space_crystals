@@ -1098,6 +1098,7 @@ Approach: thin vertical slices the user can run and see, each verified by tests 
     Training through the gate is in `tests/prerequisites/`, replacing K's stand-in. `defs_are_consistent` checks that only Disjointed attacks have a ProjectileSpeed.
 
 ## In progress
+  - **M4-V One per-viewer event filter** (Opus; brief `scratchpad/briefs/m4v-viewer-event-filter.md`): the technical follow-up. Every client consumer of `SimEvent` goes through one filter for what the local player may perceive, before S2's hidden pop-up arrives. A table test covers every variant, and any leaks found are fixed.
   - **M4-J3 Tunnel Area display** (Opus; brief `scratchpad/briefs/m4j3-area-display.md`): the selected own Tunnel's area; the Tier 1–3 preview while placing a Tunnel, with blocking cells red; no enemy areas (0299, 0300); and the marks of Q0086 and Q0087.
   - **M4-S1 Laser Turret, upright and Agent-built** (Opus; brief `scratchpad/briefs/m4s1-laser-turret.md`): the turret's def (requires an Optics Lab), structures that attack (T49), the Build order's turret arm with Q0084's answers (0296–0298: a 75% cancel refund, folded in mid-run), defeat, and the client's D entry, ghost and turret look.
 - **Next**:
@@ -1300,7 +1301,7 @@ The user keeps feeding unit and other designs to the Designer, so expect increme
     - L: done (`6d05e084`).
     - The rest are queued in the waves above.
   - **Technical follow-ups** (the Director's):
-    - **One per-player event filter in the client.** M4-O found that each event consumer filters for the viewer on its own, and fixed one leak (a hidden Hideout's death marker). Put the filter in one place before more hidden objects arrive (S2's pop-up turret, N4–N7). Candidate: a small slice beside L, or in M.
+    - **One per-player event filter in the client.** M4-O found that each event consumer filters for the viewer on its own, and fixed one leak (a hidden Hideout's death marker). Put the filter in one place before more hidden objects arrive (S2's pop-up turret, N4–N7). **Running as M4-V.**
     - **"Target too close" for a location** (`systems/controls/behaviors.md > Target inside MinRange`): an Attack Ground that can't back off gives up without the feedback (a TODO in `orders/attack_ground.rs`). No M4 kind can target the ground with a MinRange, so the first that can (the Gunner in M5, or the Artillery Rig) adds it.
   - **Earlier scope note:** tunnels, Hideout, Agent, Guard economy, 0186's Optics Lab gate and Agent pistol, the Grenadier (0187) and the Assault Bike (0188), once their numbers exist. Underground expansions are exempt from the flatness rule (0005).
 - **M5 Cults**: Recruitment Hall, Storage, Recruit, Armory, Soldier, Gunner.
