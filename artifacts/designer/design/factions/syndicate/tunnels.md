@@ -118,6 +118,10 @@ Tunnel Areas cannot overlap with each other. The non-overlap check uses the **cu
 
 This means players can place Tier 1 Tunnels closer together for early aggression, but sacrifice the ability to upgrade them later. Spacing Tunnels further apart preserves upgrade potential for the late game.
 
+**Every player's Tunnels count** (user, 2026-11-25; Q0062): the rule applies between **all** Tunnels, not just a player's own. In Syndicate-vs-Syndicate games a player can **crowd or block** an enemy's Tunnels: a Tunnel placed near an enemy one stops the enemy from building where the areas would overlap, and can stop the enemy Tunnel's upgrade.
+- **The ghost** judges enemy Tunnels by what the player knows: their remembered position and their tier as last seen (core/entities.md > Worker-Built Structures > The ghost judges by what the player knows). The real check on arrival uses the truth, so a build can fail on arrival because an enemy Tunnel was upgraded unseen.
+- **Upgrades** are blocked by any Tunnel's area, own or enemy (the upgrade check uses the truth; the upgrading Tunnel's owner learns that something blocks it).
+
 **Crystal intake and stacked Tunnels.** A Tunnel's crystal side accepts one drop-off at a time (4 seconds per 50 Space Crystals), so one Tunnel takes in at most 12.5 Space Crystals per second however many patches surround it — reached with only 2–3 Agents (see Agent > Gathering). This is intended: the Syndicate has the lowest one-base saturation income of any faction, reaches it fastest, and grows by adding Tunnels (paid in Supplies) rather than by saturating one field. Two Tier 1 Tunnels may share a rich crystal field (doubling its intake), and this is allowed: such Tunnels can never be upgraded, and clustering puts a lot of Supplies' worth of Tunnels in one place where a single attack can take them all. The Syndicate is meant to benefit from spreading its Tunnels across the map.
 
 ### Tunnel Space
