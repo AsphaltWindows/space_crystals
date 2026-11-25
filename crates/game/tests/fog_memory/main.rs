@@ -1,9 +1,10 @@
 //! What the client shows of the structures and resources the local player remembers (`core/vision.md > Explored`):
 //! Explored tiles show their records, as last seen, never the live objects there; only a GDO player may select a
 //! remembered SupplyDeliveryStation (`> Explored Selectability`), whose InfoPanel shows it as last seen but with the
-//! station's real delivery timer (design change 0057); and a shot from the fog shows from the fog edge, but whole
-//! from a shooter it revealed, at the player's own objects (design changes 0177, 0206 and 0244); and the markers on
-//! a remembered target stay on its record (design change 0139). Headless, one tick per update, as in `fog.rs`.
+//! station's real delivery timer (design change 0057); and a shot from the fog shows from the fog edge, a shooter's it
+//! revealed too (design changes 0177 and 0293; 0293 replaced 0206 and 0244, which drew those at the player's own
+//! objects whole); and the markers on a remembered target stay on its record (design change 0139). Headless, one tick
+//! per update, as in `fog.rs`.
 //!
 //! One test binary: `records` (the records drawn on Explored tiles, an enemy structure's as placed, a Tunnel's at the
 //! tier last seen), `station` (the remembered SupplyDeliveryStation: who may select it, its frame and its InfoPanel),

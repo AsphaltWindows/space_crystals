@@ -12,23 +12,21 @@
 //! them alike. HP bars follow the units' interpolated positions.
 //!
 //! The fog of war hides what the local player doesn't see (`crate::fog`):
-//! - **A shot** shows only along the parts of its path over tiles Visible to the player ([`visible_spans`];
-//!   `core/vision.md > Attacks from outside vision`, design change 0177: "a shot fired from the fog at your unit is
-//!   seen coming out of the fog edge, which shows its direction"). The attacker itself is the sim's to reveal
-//!   (`sc_sim::vision::reveal`): revealed, it shows like any object the player sees, and its own shots at the
-//!   player's objects are drawn whole, from it to their target (design change 0206, answering Q0056: "while an
-//!   attacker in the fog is revealed to a player, that attacker's own shots are drawn from the attacker to the
-//!   target, with no gap at the fog edge"; design change 0244, answering Q0075, narrows it to the shots at the
-//!   player's own objects: "a fully drawn shot reveals nothing only when **you** are the one attacked";
-//!   [`shot_spans`]). "Other shots from the fog are still clipped to Visible tiles", a revealed attacker's at
-//!   anything else too.
+//! - **A shot** shows only along the parts of its path over tiles Visible to the player ([`visible_spans`],
+//!   [`shot_spans`]; `core/vision.md > Attacks from outside vision`, design change 0177: "a shot fired from the fog at
+//!   your unit is seen coming out of the fog edge, which shows its direction"), **with no exception** (design change
+//!   0293, answering Q0083 point 4): "every shot, tracer or projectile, whoever fires it and at whatever, is drawn
+//!   **only over your Visible tiles**". The attacker itself is the sim's to reveal (`sc_sim::vision::reveal`):
+//!   revealed, it shows like any object the player sees, and its shots still come out of the fog edge. 0293 replaced
+//!   the exception of design changes 0206 and 0244 (Q0056, Q0075), which drew a revealed attacker's shots at the
+//!   player's own objects whole, from the attacker to the target.
 //! - **A death marker** only on a Visible tile or for one of the player's own objects, and **an HP bar** only over an
 //!   object the player sees (`Sight::sees`): placeholder rules, the design is silent. Neither ever shows for an object
 //!   hidden from the player (`sc_sim::vision::Hiding`: a Hideout under a blast, plan decision T52: "nothing is drawn
 //!   for a hidden victim"), and no hit is drawn for any victim.
-//! - **A projectile** only while its point on the ground is over a Visible tile, or whole from a revealed shooter at
-//!   the player's own object ([`shows_flight`]); **a blast** only while the tile under its centre is Visible
-//!   ([`shows_blast`]).
+//! - **A projectile** only while its point on the ground is over a Visible tile, whoever threw it ([`shows_flight`],
+//!   design change 0293: "you see only the visible part of its projectiles"); **a blast** only while the tile under
+//!   its centre is Visible ([`shows_blast`]).
 
 pub mod blasts;
 mod draw;
@@ -60,7 +58,8 @@ const BAR_MIN_WIDTH: f32 = 24.0;
 #[derive(Clone, Debug, PartialEq)]
 pub struct Tracer {
     pub tick: Tick,
-    /// The attacker: while it is revealed to the player, its shot is drawn whole ([`shot_spans`]).
+    /// The attacker: revealed to the player or not, its shot shows only over the player's Visible tiles
+    /// ([`shot_spans`]).
     pub attacker: ObjectId,
     /// The form the attacker fired in (`sc_sim::conversion::form`; its type if it died by the time the client saw the
     /// shot), whose weapon the shot is drawn as ([`ShotStyle::of`]).
@@ -68,9 +67,6 @@ pub struct Tracer {
     pub owner: Option<PlayerId>,
     /// The object hit.
     pub target: ObjectId,
-    /// Its owner as the shot took effect (design change 0244: a revealed attacker's shot is drawn whole only at the
-    /// player's own objects, [`shot_spans`]); `None` for a neutral object, or one the client no longer knows.
-    pub target_owner: Option<PlayerId>,
     pub from: Vec2,
     pub to: Vec2,
 }
@@ -206,22 +202,13 @@ pub fn visible_spans(sight: &Sight, from: Vec2, to: Vec2) -> Vec<(f32, f32)> {
     spans
 }
 
-/// How `sight` shows the shot of `tracer` now, for [`TRACER_TICKS`], none once it has faded: whole if its target is
-/// one of the player's objects and its attacker is revealed to the player ([`Sight::reveals`]; design change 0206:
-/// "from the attacker to the target, with no gap at the fog edge"; "No ground around the attacker is revealed"),
-/// else the [`visible_spans`] of its path (design change 0177). Design change 0244, answering Q0075: "draw the whole
-/// path only if the attacker is revealed to the viewer **and** the shot's target is owned by the viewer", as then
-/// both ends show already; drawn whole, a shot at a neutral's or a third player's object would show where it stands.
-///
-/// A literal reading, the viewer being [`Sight::player`]: a defeated player watching an ally's vision (design change
-/// 0102) sees the shots at the ally's objects clipped too. Moot until the sim has teams: a defeated player has no
-/// allies yet.
+/// How `sight` shows the shot of `tracer` now: the [`visible_spans`] of its path for [`TRACER_TICKS`] (design change
+/// 0177), none once it has faded. The same for every shot, a revealed attacker's at the player's own objects included
+/// (design change 0293, answering Q0083 point 4: "No exceptions ... every shot, tracer or projectile, whoever fires it
+/// and at whatever, is drawn only over your Visible tiles"; it replaced design change 0244's whole path for those).
 pub fn shot_spans(sim: &Sim, sight: &Sight, tracer: &Tracer) -> Vec<(f32, f32)> {
     if !shows(sim, tracer.tick, TRACER_TICKS) {
         return Vec::new();
-    }
-    if sight.reveals(tracer.attacker) && tracer.target_owner == Some(sight.player()) {
-        return vec![(0.0, 1.0)];
     }
     visible_spans(sight, tracer.from, tracer.to)
 }
@@ -273,9 +260,7 @@ fn collect_effects(sim: Res<SimRes>, mut messages: MessageReader<SimEventMessage
         effects.generation = Some(sim.generation());
     }
     let messages: Vec<&SimEventMessage> = messages.read().collect();
-    // An attacker gone by now died in one of these ticks: its type and owner are its death's. So did a target gone by
-    // now, which a shot of these ticks killed: its owner is its death's too (design change 0244,
-    // `Tracer::target_owner`).
+    // An attacker gone by now died in one of these ticks: its type and owner are its death's.
     let fallen = |id: ObjectId| {
         messages.iter().find_map(|m| match m.event {
             SimEvent::Died {
@@ -306,7 +291,6 @@ fn collect_effects(sim: Res<SimRes>, mut messages: MessageReader<SimEventMessage
                     weapon: shooter.map(|(form, _)| form),
                     owner: shooter.and_then(|(_, owner)| owner),
                     target,
-                    target_owner: owner(target),
                     from,
                     to,
                 });
@@ -322,7 +306,6 @@ fn collect_effects(sim: Res<SimRes>, mut messages: MessageReader<SimEventMessage
                 shooter,
                 owner: owner(shooter),
                 target,
-                target_owner: target.and_then(owner),
                 from,
                 to,
                 lands_at,

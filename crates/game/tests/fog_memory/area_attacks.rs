@@ -1,9 +1,9 @@
 //! (M4-O) Area attacks in the fog (plan decision T52; `core/vision.md > Attacks from outside vision`): a projectile
-//! shows only over the player's Visible tiles, but whole from a shooter revealed to the player at one of the player's
-//! own objects (Placeholder: Q0083 point 4); a blast only where the player sees its centre; and a victim hidden from
-//! the player, a Hideout under a blast, shows nothing: no HP bar, no death marker, no hit. No type of the game throws
-//! grenades before slice U, so the projectiles' and the blasts' events are handed to the client as the sim driver
-//! would hand them; the reveal and the damage are the sim's own.
+//! shows only over the player's Visible tiles, a revealed shooter's at the player's own objects too (design change
+//! 0293, answering Q0083 point 4: "No exceptions"); a blast only where the player sees its centre; and a victim hidden
+//! from the player, a Hideout under a blast, shows nothing: no HP bar, no death marker, no hit. No type of the game
+//! throws grenades before slice U, so the projectiles' and the blasts' events are handed to the client as the sim
+//! driver would hand them; the reveal and the damage are the sim's own.
 
 use sc_sim::testing::ScenarioBuilder;
 use sc_sim::{OrderKind, SimEvent, VisibilityState};
@@ -53,14 +53,16 @@ fn order(app: &mut App, player: PlayerId, unit: ObjectId, kind: OrderKind) {
     );
 }
 
-/// Placeholder: Q0083 point 4, beside `core/vision.md > Attacks from outside vision` ("a shot, tracer or projectile
-/// is visible to a player only along the part of its path that crosses tiles Visible to that player"). Player 2's
-/// Peacekeeper on the high ground (14, 2) shoots player 1's on (9, 2) from beyond player 1's sight, and is revealed to
-/// player 1 (`shots.rs`). Then two projectiles leave it for player 1's unit: one locked on the unit, which player 1
-/// sees whole, from the shooter on; one at the ground there, which shows only over player 1's Visible tiles, as one
-/// from a shooter not revealed would. Player 2 sees both whole, and neither shows once it has landed.
+/// `core/vision.md > Attacks from outside vision`: "a shot, tracer or projectile is visible to a player only along the
+/// part of its path that crosses tiles Visible to that player", and design change 0293's verification, "A revealed
+/// attacker's shots appear only from the edge of your vision" (answering Q0083 point 4, which M4-O built as drawing
+/// these whole). Player 2's Peacekeeper on the high ground (14, 2) shoots player 1's on (9, 2) from beyond player 1's
+/// sight, and is revealed to player 1 (`shots.rs`). Then two projectiles leave it for player 1's unit: one locked on
+/// the unit, one at the ground there. Player 1 sees each only over its Visible tiles, from the fog edge on, as one from
+/// a shooter not revealed: not a twentieth of the way, over tile (13, 2), which it doesn't see; nineteen twentieths of
+/// the way, over (9, 2), which it does. Player 2 sees both whole, and neither shows once it has landed.
 #[test]
-fn a_projectile_shows_over_visible_tiles_or_whole_from_a_revealed_shooter_at_your_object() {
+fn a_revealed_shooters_projectile_at_your_object_shows_only_over_your_visible_tiles() {
     let mut app = headless(AppConfig::new(ScenarioBuilder::new(STEP).build()));
     debug(&mut app, DebugCommand::SetAutoTargeting { on: false });
     spawn_unit(&mut app, P1, 9, 2);
@@ -98,14 +100,18 @@ fn a_projectile_shows_over_visible_tiles_or_whole_from_a_revealed_shooter_at_you
         assert_eq!(flights.len(), 2);
         let (at_unit, at_ground) = (&flights[0], &flights[1]);
         assert_eq!((at_unit.tick, at_unit.owner), (launched, Some(P2)));
-        assert_eq!((at_unit.target_owner, at_ground.target_owner), (Some(P1), None));
+        assert_eq!((at_unit.target, at_ground.target), (Some(own), None));
         assert_eq!(at_unit.progress(sim, 1.0), 0.0, "where it left, in its own tick");
         let p1 = Sight::new(sim, P1, true);
         assert!(p1.reveals(shooter));
         // A twentieth of the way: over tile (13, 2), which player 1 doesn't see; 19 in 20: over (9, 2), which it does.
         let shows = |sight: &Sight, flight, progress| shows_flight(sim, sight, flight, progress);
-        assert!(shows(&p1, at_unit, 0.05) && shows(&p1, at_unit, 0.95), "whole");
-        assert!(!shows(&p1, at_ground, 0.05) && shows(&p1, at_ground, 0.95), "clipped");
+        for flight in [at_unit, at_ground] {
+            assert!(
+                !shows(&p1, flight, 0.05) && shows(&p1, flight, 0.95),
+                "clipped: {flight:?}"
+            );
+        }
         let p2 = Sight::new(sim, P2, true);
         assert!(
             shows(&p2, at_unit, 0.05) && shows(&p2, at_ground, 0.05),

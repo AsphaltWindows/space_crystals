@@ -4,8 +4,8 @@
 //! - **Markers** at the targets of the current orders of the local player's selected units (`> Indicator
 //!   assignments`): a ring with a dot on the ground for a Location indicator (Move, AttackMove, Patrol, AttackGround;
 //!   a Move to an object marks where the object is), a ring around the target for an Object indicator (Attack). They
-//!   go when the unit is deselected or the order completes (an Attack Ground's at its blast, slice M4-O). Patrol's
-//!   origin isn't marked: the sim keeps no origin yet.
+//!   go when the unit is deselected or the order completes (an Attack Ground's when another order replaces it: it
+//!   keeps firing until then, design change 0293). Patrol's origin isn't marked: the sim keeps no origin yet.
 //! - **Gathering markers** ([`gathering`], design change 0201): a Gather's on its source, a Drop Off's on its
 //!   drop-off, and the Set Drop-off marker on each selected worker's AssignedDropOff, each with a look of its own.
 //! - **Flashes** where an order was just given ([`OrderIssued`]): a ring closing in on the target while it fades,
