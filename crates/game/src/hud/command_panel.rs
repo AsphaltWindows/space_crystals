@@ -2,9 +2,10 @@
 //! 4 × 3 grid (`crate::command_ui::interface::panel`), shown while everything selected is the local player's.
 //!
 //! Placeholder buttons until the art exists (Q0001): a short label in the middle and the slot's hotkey, from the
-//! bindings, in the top-left corner; an EjectMenu tile's count in the bottom-right one (slice M4-J2). Every label keeps the label size at 720p (slice M3-K2a: six characters at most,
-//! `crate::command_ui::PanelCommand::label`); a label never wraps, and one too long for its button at the label size
-//! (on a surface too small for it) is drawn smaller, to fit on one line ([`label_px`]). Each look has its colours:
+//! bindings, in the top-left corner; an EjectMenu tile's count in the bottom-right one (slice M4-J2). Every label
+//! keeps the label size at 720p (slice M3-K2a: six characters at most, `crate::command_ui::PanelCommand::label`); a
+//! label never wraps, and one too long for its button at the label size (on a surface too small for it) is drawn
+//! smaller, to fit on one line ([`label_px`]). Each look has its colours:
 //! common commands blue, group commands violet (the design wants the two "visually distinguished"), the
 //! PendingCommand lit up in yellow, disabled commands grey and dim (a Train or a Cancel Production the command gate
 //! would refuse too: `crate::command_ui::Conditions`), unavailable ones near-black with a dark red border, Back

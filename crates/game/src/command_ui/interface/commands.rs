@@ -104,10 +104,12 @@ pub enum PanelCommand {
     /// Network, to eject from this Tunnel (slice M4-J2).
     EjectMenu,
     /// An EjectMenu tile (`factions/syndicate/tunnels.md > EjectMenu`): "Click an enabled unit type tile: ejects one
-    /// unit of that type from this Tunnel's Side A (CommandIssuingTransition)", at once (`sc_sim::TunnelCommand::Eject`):
-    /// of the type, the one inside the network longest, which the click reserves ("the tile's count drops at the
-    /// click"). The menu stays open for the next click (a reading: the design returns to DefaultState on Z only, where
-    /// a build menu's entry says "returns to DefaultState").
+    /// unit of that type from this Tunnel's Side A (CommandIssuingTransition)", at once
+    /// (`sc_sim::TunnelCommand::Eject`): of the type, the one inside the network longest, which the click reserves
+    /// ("the tile's count drops at the click"). The menu stays open for the next click: a reading, as the design
+    /// names no state after the click (a rally's says "CommandIssuingTransition, returns to DefaultState") and goes
+    /// back on Z, like the Cults' AugmentMenu, which "stays in this menu so further clicks queue more"
+    /// (`factions/cults/augmentation.md`).
     Eject(ObjectKind),
 }
 

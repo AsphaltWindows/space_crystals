@@ -62,9 +62,9 @@ pub(in crate::command_ui) fn cancel_on_escape(actions: Res<ActionState>, mut con
 /// (`factions/colonists/economy.md > Egress Node > Egress Node ObjectInterfaceState`, slice M3-J2), and the X of
 /// whatever transforms cancels it (design change 0116). A Tunnel's E opens its EjectMenu, whose tiles each send the
 /// Tunnel an Eject, the menu staying open (`factions/syndicate/tunnels.md > EjectMenu`, slice M4-J2). Back (Z)
-/// returns to the previous state. While a target is awaited or a building placed the other commands are unavailable (design change
-/// 0066), and so is a production or construction command the gate would refuse (design change 0081; never for the
-/// army cap, 0143): [`press`] finds nothing to do for them, and a greyed-out button says why it is
+/// returns to the previous state. While a target is awaited or a building placed the other commands are unavailable
+/// (design change 0066), and so is a production or construction command the gate would refuse (design change 0081;
+/// never for the army cap, 0143): [`press`] finds nothing to do for them, and a greyed-out button says why it is
 /// ([`CommandRefused`], design change 0162: "nothing is issued, and the player gets the same feedback as when an
 /// order is refused, naming the reason"). Nothing while the selection isn't commandable (a defeated player's, or
 /// anyone's once the game is over).
