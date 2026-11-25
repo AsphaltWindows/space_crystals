@@ -4,7 +4,7 @@
 //! little inside the footprint, so that a selection frame (`selection::markers`, just inside the footprint) shows
 //! around it, and over a map resource's whole placeholder, as a plate covers the patch it is placed onto. A Tunnel's
 //! sides show their functions by its tier (`super::tunnel`). An underground structure (plan decision T32: the
-//! Hideout) is a translucent outline instead ([`underground_mesh`]), drawn in a blending material
+//! Hideout) is a translucent outline instead ([`underground_shape`]), drawn in a blending material
 //! ([`underground_material`]): its owner sees the ground and the units over it, which walk across it; nobody else
 //! sees it while it has an owner (`sc_sim::vision::hidden`). A neutral one (slice M4-H: its Tunnel lost) is the same
 //! outline in the neutral colour, which everyone who sees its tiles sees.
@@ -70,8 +70,8 @@ pub(super) fn structure_mesh(w: u32, h: u32, color: Color) -> Mesh {
 }
 
 /// An underground structure `w` × `h` tiles as placed, in `color`: its rim, nearly opaque, around a faint fill, for a
-/// blending material ([`underground_material`]).
-pub(super) fn underground_mesh(w: u32, h: u32, color: Color) -> Mesh {
+/// blending material ([`underground_material`]), for more to be drawn on (an expansion's site, `super::site`).
+pub(super) fn underground_shape(w: u32, h: u32, color: Color) -> ColorMesh {
     let (half, inner) = (drawn_half(w, h), inner_half(w, h));
     let rim = color.to_srgba().with_alpha(UNDERGROUND_RIM_ALPHA);
     let mut mesh = ColorMesh::triangles();
@@ -92,7 +92,7 @@ pub(super) fn underground_mesh(w: u32, h: u32, color: Color) -> Mesh {
     );
     let fill = darken(color.to_srgba(), 0.8).with_alpha(UNDERGROUND_FILL_ALPHA);
     mesh.rect(-inner, inner, BASE_Z, fill.into());
-    mesh.into_mesh()
+    mesh
 }
 
 /// The material of an underground structure's visual: the vertex colours, alpha included, blended over what lies
