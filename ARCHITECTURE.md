@@ -767,19 +767,20 @@ ticks spent in it. Hashed and serialized like all state.
 - **Area damage** (`combat/area.rs`, plan decision T46; `systems/combat.md > AoEDamage`): the one path of every area
   attack, a blast's hits. A blast takes every object whose domain its TargetDomain hits (`hits_domain`: Ground hits
   ground and underground objects, Air the air, Universal all; design change 0262: underground and hidden ones too),
-  whoever owns it, its attacker and the attacker's own objects included (Placeholder: Q0083 point 1, the literal
-  rule), by the exact overlap of its circle with the object's shape (`area::overlap`, a closed form through
-  `math::asin` and `math::sqrt`, whose bits a test pins): a share of the Damage of overlap / circle, the FullArmor
-  times overlap / shape, the directional zone from the blast's centre, a minimum of 0.5 × the overlap fraction
-  (`Hit::minimum`), the Shields first at full value (`damage::resolve`). Nothing in it asks `hidden_from`. The reveal
-  after the hits (see Vision) shows the attacker, if it still exists, to each damaged object's owner (Placeholder:
-  Q0083 point 2).
+  whoever owns it, its attacker and the attacker's own objects included (design change 0293, answering Q0083 point
+  1: friendly fire), by the exact overlap of its circle with the object's shape (`area::overlap`, a closed form
+  through `math::asin` and `math::sqrt`, whose bits a test pins): a share of the Damage of overlap / circle, the
+  FullArmor times overlap / shape, the directional zone from the blast's centre, a minimum of 0.5 × the overlap
+  fraction (`Hit::minimum`), the Shields first at full value (`damage::resolve`). Nothing in it asks `hidden_from`.
+  The reveal after the hits (see Vision) shows the attacker, if it still exists, to each damaged object's owner, when
+  the damage lands: a dodged grenade reveals nothing (design change 0293, point 2).
 - **Attack Ground** (`orders/attack_ground.rs`, plan decision T47; `systems/controls/behaviors.md > AttackingLocation`):
   `OrderKind::AttackGround(point)` sets `AttackState::location`; 5e aims at a point in reach (`reaches_point`, from
-  the unit's shape) and fires once. The behaviour walks the unit into range, backs it off a point inside its
-  MinRange, and completes the order in the 5a after its projectile landed (`World::in_flight`; Placeholder: Q0083
-  point 3). The gate takes it only for units whose weapon can target the ground (`combat::can_target_ground`,
-  `Reject::CannotTargetGround`).
+  the unit's shape) and fires. The behaviour walks the unit into range and backs it off a point inside its MinRange.
+  **It keeps firing** (design change 0293, answering Q0083 point 3): the location stays engaged after each launch, so
+  the attack cycles at it until another order or a Stop, and the orders queued behind it never start on their own;
+  only the Failure rule, or a weapon that can no longer attack the location, ends it. The gate takes it only for units
+  whose weapon can target the ground (`combat::can_target_ground`, `Reject::CannotTargetGround`).
 - **Not yet**: turrets; the HeadDisjointed and TailDisjointed attacks, which hit as a FullyConnected one does and
   drop a location (TODOs in `combat/phases.rs`).
 
@@ -2381,13 +2382,11 @@ these.
   up, red failed, blue arrived; placeholder colours). Its one mesh is rebuilt every frame while it is shown.
 - **Combat effects** (`combat_effects.rs`, its mesh in `combat_effects/draw.rs`; placeholders until Q0001): a tracer for
   each `SimEvent::Attacked` (`TRACER_TICKS`), drawn only along the parts of its path over the local player's Visible
-  tiles (`visible_spans`, which cuts it at every tile edge it crosses; design change 0177: a shot from the fog shows
-  from the fog edge, one all in the fog not at all; its attacker is revealed by the sim), but whole, from the attacker
-  to the target, if it hits one of the local player's own objects while its attacker is revealed to them (`shot_spans`,
-  `Sight::reveals`, `Tracer::target_owner`: the owner as the shot took effect, a death's for a killing shot; design
-  change 0244, answering Q0075: drawn whole, a shot at a neutral's or a third player's object would show where that
-  object stands; design change 0206, answering Q0056: so the shot that reveals an attacker, and every later one while
-  the reveal lasts, comes from the unit the player sees; a shot at a neutral object reveals nobody and stays clipped); a
+  tiles (`shot_spans`, through `visible_spans`, which cuts it at every tile edge it crosses; design change 0177: a shot
+  from the fog shows from the fog edge, one all in the fog not at all; its attacker is revealed by the sim), **with no
+  exception** (design change 0293, answering Q0083 point 4: every shot, tracer or projectile, whoever fires it and at
+  whatever, a revealed attacker's at the player's own objects too; it replaced design changes 0206 and 0244, Q0056 and
+  Q0075, which drew those whole, from the attacker to the target); a
   tracer's look is its weapon's (`ShotStyle::of` on the form that fired, its kind's `ClientKind::shot`; design change
   0207: the Syndicate's lasers, the Guard's so far, red), HP bars over damaged and selected objects (a unit's clear of
   its silhouette's corners, a structure's along the top edge of its footprint and as wide as it), with a shield bar
@@ -2398,8 +2397,8 @@ these.
   Hideout under a blast; no hit is drawn for any victim). Slice M4-O adds the projectiles in flight
   (`combat_effects/projectiles.rs`, `Flight`, from `SimEvent::ProjectileLaunched`): each along the straight path to
   its locked point at the pace of the ticks, lifted by a cosmetic arc (`ARC`) over its shadow, shown while its point
-  on the ground is over a Visible tile (`core/vision.md > Attacks from outside vision`), or whole from a shooter
-  revealed to the player at one of the player's own objects (`shows_flight`; Placeholder: Q0083 point 4); and the
+  on the ground is over a Visible tile (`shows_flight`; `core/vision.md > Attacks from outside vision`), whoever
+  threw it (design change 0293); and the
   blasts (`combat_effects/blasts.rs`, from `SimEvent::Blast`, `BLAST_TICKS`): a ring the size of the area, shown
   while the tile under its centre is Visible (`shows_blast`). One alpha-blended mesh in the overlays layer, rebuilt every frame while
   anything shows; effects age by the sim's tick and the render alpha, so screenshots stay deterministic.
