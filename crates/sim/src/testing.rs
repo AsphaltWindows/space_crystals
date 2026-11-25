@@ -34,7 +34,7 @@ use std::collections::BTreeMap;
 
 use glam::Vec2;
 
-use crate::command::{Ability, Command, DebugCommand, PlayerCommand, TickInputs, TunnelCommand};
+use crate::command::{Ability, Command, DebugCommand, HoldCommand, PlayerCommand, TickInputs, TunnelCommand};
 use crate::construction::ConstructionCommand;
 use crate::defs::ObjectKind;
 use crate::events::SimEvent;
@@ -421,6 +421,10 @@ pub fn every_command() -> Vec<Command> {
             command,
         }),
     );
+    commands.push(Command::Holding {
+        objects: units.clone(),
+        command: HoldCommand::EjectAll,
+    });
     for command in &commands {
         match command {
             Command::Order { kind, .. } => match kind {
@@ -460,6 +464,10 @@ pub fn every_command() -> Vec<Command> {
                     | TunnelCommand::Expand { .. }
                     | TunnelCommand::Upgrade
                     | TunnelCommand::Cancel,
+                ..
+            } => {}
+            Command::Holding {
+                command: HoldCommand::EjectAll,
                 ..
             } => {}
             Command::Debug(

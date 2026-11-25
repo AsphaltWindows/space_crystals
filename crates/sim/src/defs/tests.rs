@@ -274,10 +274,13 @@ fn structure_is_consistent(def: &ObjectDef, structure: &StructureDef) {
     if let Some(holds) = &structure.holds {
         let letters = structure.symmetry.letters();
         let count = |letter| letters.iter().filter(|&&l| l == letter).count();
-        for letter in [holds.entrance, holds.exit] {
+        let ExitRule::Side(exit) = holds.exit else {
+            panic!("{name}: only an exit side is built for a building that holds units");
+        };
+        for letter in [holds.entrance, exit] {
             assert_eq!(count(letter), 1, "{name}: side {letter:?} of its holds");
         }
-        assert_ne!(holds.entrance, holds.exit, "{name}: in and out at one side");
+        assert_ne!(holds.entrance, exit, "{name}: in and out at one side");
         assert!(holds.capacity > 0, "{name}: holds none");
         assert!(!holds.accepts.is_empty(), "{name}: takes no unit in");
         for (i, &kind) in holds.accepts.iter().enumerate() {
@@ -289,7 +292,7 @@ fn structure_is_consistent(def: &ObjectDef, structure: &StructureDef) {
             assert!(!holds.accepts[..i].contains(&kind), "{name} lists {kind:?} twice");
         }
         if let Some(production) = &structure.production {
-            assert_eq!(production.exits, ExitRule::Side(holds.exit), "{name}: one exit doorway");
+            assert_eq!(production.exits, holds.exit, "{name}: one exit doorway");
         }
     }
 }

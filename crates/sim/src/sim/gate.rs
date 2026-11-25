@@ -4,7 +4,8 @@
 //! This file holds what every command shares: the reasons for a rejection ([`Reject`]), what a passed command
 //! resolved ([`Checked`]), the dispatch by command ([`Sim::check`]) and the lookups of the objects a command names.
 //! Each family of commands has its own checks (plan decision T28): orders and abilities in `gate/orders.rs`, debug
-//! commands in `gate/debug.rs`, production in `sim/producers.rs`, construction in `sim/construction.rs`.
+//! commands in `gate/debug.rs`, production in `sim/producers.rs`, construction in `sim/construction.rs`, the Tunnels'
+//! in `sim/network.rs` and the buildings that hold units' (slice M5-F1) in `sim/holding.rs`.
 
 mod debug;
 mod orders;
@@ -17,7 +18,7 @@ use glam::Vec2;
 use super::Sim;
 use super::construction::Resolved;
 use super::producers::ProductionPlan;
-use crate::command::{Ability, Command, PlayerCommand};
+use crate::command::{Ability, Command, HoldCommand, PlayerCommand};
 use crate::defs::ObjectKind;
 use crate::ids::{ObjectId, PlayerId};
 use crate::object::{Object, Placement};
@@ -174,6 +175,18 @@ pub enum Reject {
     /// (`factions/syndicate/tunnels.md > Tunnel Area Non-Overlap Rule`). It never says what: "the upgrade check uses
     /// the truth; the upgrading Tunnel's owner learns that something blocks it".
     UpgradeBlocked(ObjectId),
+    /// (M5-F1) The target of an Enter is a building that holds units, under construction (Placeholder (Q0104 point 4):
+    /// an Armory under construction can't be entered; "A right-click on one Assists").
+    UnderConstruction(ObjectId),
+    /// (M5-F1) The building takes none of the units an Enter names (`systems/controls/commands.md > Enter`: "Cults —
+    /// Armory, Cathedral: Recruits only"; `HoldsDef::accepts`).
+    NotAccepted(ObjectId),
+    /// (M5-F1) None of the objects a holding command names holds units (or exists any more): `crate::holding`.
+    NoHolders,
+    /// (M5-F1) An Eject All to buildings none of which has a unit in its pool
+    /// (`factions/cults/structures/armory.md > ObjectInterfaceState[Armory]`: "Only available if StoredRecruits is not
+    /// empty").
+    NothingInside,
 }
 
 impl fmt::Display for Reject {
@@ -234,6 +247,10 @@ impl fmt::Display for Reject {
             Reject::Requires(kind) => write!(f, "it requires a complete {} of the player's", kind.def().name),
             Reject::TopTier(id) => write!(f, "Tunnel {} is at its top tier", id.0),
             Reject::UpgradeBlocked(id) => write!(f, "something blocks Tunnel {}'s upgrade", id.0),
+            Reject::UnderConstruction(id) => write!(f, "building {} is under construction", id.0),
+            Reject::NotAccepted(id) => write!(f, "building {} takes none of the units in", id.0),
+            Reject::NoHolders => write!(f, "none of the objects holds units"),
+            Reject::NothingInside => write!(f, "nothing is inside"),
         }
     }
 }
@@ -306,6 +323,12 @@ pub(super) enum Checked {
         player: PlayerId,
         resolved: Resolved,
     },
+    /// `buildings`: the player's buildings that hold units and can carry `command` out, in id order
+    /// (`sim/holding.rs`).
+    Holding {
+        buildings: Vec<ObjectId>,
+        command: HoldCommand,
+    },
 }
 
 impl Sim {
@@ -351,6 +374,7 @@ impl Sim {
             Command::Production { objects, command } => self.check_production(cmd.player, objects, *command),
             Command::Construction { objects, command } => self.check_construction(cmd.player, objects, *command),
             Command::Tunnel { tunnel, command } => self.check_tunnel(cmd.player, *tunnel, *command),
+            Command::Holding { objects, command } => self.check_holding(cmd.player, objects, *command),
             Command::Debug(debug) => {
                 if !self.config.debug {
                     return Err(Reject::DebugDisabled);

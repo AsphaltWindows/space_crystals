@@ -1,6 +1,6 @@
 //! The Armory — `factions/cults/structures/armory.md`.
 
-use crate::defs::structures::{HoldsDef, StructureDef, SymmetryType};
+use crate::defs::structures::{ExitRule, HoldsDef, StructureDef, SymmetryType};
 use crate::defs::{Armor, Category, Footprint, ObjectDef, ObjectKind};
 use crate::player::Faction;
 use crate::sides::SideLetter;
@@ -54,7 +54,7 @@ pub(crate) static ARMORY: ObjectDef = ObjectDef {
         // 10`, and `systems/controls/commands.md > Enter`: "Cults — Armory, Cathedral: Recruits only (to be trained)".
         holds: Some(HoldsDef {
             entrance: SideLetter::B,
-            exit: SideLetter::C,
+            exit: ExitRule::Side(SideLetter::C),
             capacity: 10,
             accepts: &[ObjectKind::Recruit],
         }),
@@ -89,7 +89,10 @@ mod tests {
             "slices M5-F2 and M5-E"
         );
         let holds = structure.holds.expect("the Armory holds Recruits");
-        assert_eq!((holds.entrance, holds.exit), (SideLetter::B, SideLetter::C));
+        assert_eq!(
+            (holds.entrance, holds.exit),
+            (SideLetter::B, ExitRule::Side(SideLetter::C))
+        );
         assert_eq!((holds.capacity, holds.accepts), (10, &[ObjectKind::Recruit][..]));
     }
 }

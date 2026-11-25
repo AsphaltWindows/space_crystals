@@ -31,7 +31,8 @@ use crate::tunnel;
 
 impl Sim {
     /// Every unit held off the map (plan decision T30, `crate::network`), in id order: those inside the Tunnel
-    /// Networks. None of them is among [`Sim::objects`].
+    /// Networks, the Agents building sites, and (slice M5-F1) those inside the buildings that hold units
+    /// (`network::Place`). None of them is among [`Sim::objects`].
     pub fn held(&self) -> impl Iterator<Item = &Held> + '_ {
         self.held.values()
     }
@@ -46,13 +47,13 @@ impl Sim {
     pub fn network(&self, player: PlayerId) -> impl Iterator<Item = &Held> + '_ {
         self.held.values().filter(move |held| match held.place {
             Place::Network => held.object.owner == Some(player),
-            Place::Site(_) => false,
+            Place::Site(_) | Place::Building(_) => false,
         })
     }
 
-    /// The units reserved on a Tunnel's eject queue (`> EjectMenu`: "each click reserves a specific unit (the tile's
-    /// count drops at the click)"; design change 0253: auto-ejected units "don't appear in the EjectMenu" while they
-    /// wait), sorted by id.
+    /// The units reserved on a Tunnel's eject queue (`factions/syndicate/tunnels.md > EjectMenu`: "each click reserves
+    /// a specific unit (the tile's count drops at the click)"; design change 0253: auto-ejected units "don't appear in
+    /// the EjectMenu" while they wait), sorted by id.
     pub fn reserved(&self) -> Vec<ObjectId> {
         let queues = self.objects.values().filter_map(|o| o.tunnel.as_ref());
         let mut reserved: Vec<ObjectId> = queues.flat_map(|t| t.eject.iter().map(|entry| entry.unit)).collect();
@@ -60,9 +61,9 @@ impl Sim {
         reserved
     }
 
-    /// What the EjectMenu shows for `player` (`> EjectMenu`: "a grid of unit type tiles representing all units
-    /// currently in the Tunnel Network. Each tile shows the unit type icon and a count"): how many units of each
-    /// kind are in the network and not reserved on an eject queue, by kind in `ObjectKind`'s order.
+    /// What the EjectMenu shows for `player` (`factions/syndicate/tunnels.md > EjectMenu`: "a grid of unit type tiles
+    /// representing all units currently in the Tunnel Network. Each tile shows the unit type icon and a count"): how
+    /// many units of each kind are in the network and not reserved on an eject queue, by kind in `ObjectKind`'s order.
     pub fn network_counts(&self, player: PlayerId) -> BTreeMap<ObjectKind, u32> {
         let reserved = self.reserved();
         let mut counts = BTreeMap::new();
@@ -74,11 +75,11 @@ impl Sim {
         counts
     }
 
-    /// The unit an Eject of `kind` would bring out for `player` now (`> EjectMenu`, design change 0251: "of the
-    /// chosen type, the one that has been inside the network longest"), among those free to leave: in the network,
-    /// not reserved, and past the transit delay (design change 0245; a unit produced inside has none, 0246). Ties
-    /// by id. Else why not: [`Reject::NotInNetwork`] with no free unit of the kind at all, [`Reject::InTransit`]
-    /// while all of them only just walked in.
+    /// The unit an Eject of `kind` would bring out for `player` now (`factions/syndicate/tunnels.md > EjectMenu`,
+    /// design change 0251: "of the chosen type, the one that has been inside the network longest"), among those free
+    /// to leave: in the network, not reserved, and past the transit delay (design change 0245; a unit produced inside
+    /// has none, 0246). Ties by id. Else why not: [`Reject::NotInNetwork`] with no free unit of the kind at all,
+    /// [`Reject::InTransit`] while all of them only just walked in.
     pub fn next_out(&self, player: PlayerId, kind: ObjectKind) -> Result<ObjectId, Reject> {
         let reserved = self.reserved();
         let free = || {
@@ -140,6 +141,7 @@ impl Sim {
                 place,
                 since,
                 entered,
+                ejected: false,
             },
         );
         self.forget_references(&[id]);
@@ -147,8 +149,8 @@ impl Sim {
     }
 
     /// Plan decision T30: held unit `id` comes back onto the map at `pos`, facing along `facing`, the object it was
-    /// (its id, HP, load and modes), without an order. The caller found the spot clear (`Sim::check_unit_fits`).
-    /// Returns whether there was such a held unit.
+    /// (its id, HP, load and modes), without an order. The caller found the spot clear (`Sim::check_unit_fits`; out
+    /// of an exit doorway, `Sim::doorway_spot`, slice M5-F1). Returns whether there was such a held unit.
     pub(super) fn put_on_map(&mut self, id: ObjectId, pos: Vec2, facing: Vec2) -> bool {
         let Some(Held { mut object, .. }) = self.held.remove(&id) else {
             return false;

@@ -30,6 +30,8 @@
 //!   inside its MinRange (`SimEvent::TargetTooClose`; `systems/controls/behaviors.md > AttackingObject > Target
 //!   inside MinRange`, design change 0182: "the order fails with feedback ("Target too close"; same channel as other
 //!   refusals)"): [`TARGET_TOO_CLOSE_TEXT`];
+//! - an Enter whose unit got to a building's entrance with its pool full (`SimEvent::EnterFailed` with `full`; slice
+//!   M5-F1, Placeholder (Q0104 point 2)): [`BUILDING_FULL_TEXT`];
 //! - a greyed-out button pressed, or its hotkey (`systems/controls/selection_and_hud.md > CommandPanel > Pressing an
 //!   unavailable command`, design change 0162: "nothing is issued, and the player gets the same feedback as when an
 //!   order is refused, naming the reason (e.g. "Not enough Space Crystals", "Queue is full")"), and a Warp In whose
@@ -40,9 +42,10 @@
 //! owner of its producer, constructor or unit alone.
 //!
 //! The message ([`INVALID_TARGET_TEXT`], [`NO_CRYSTALS_TEXT`], an [`army_cap_text`], a [`placement_text`], an
-//! [`unavailable_text`] or [`TARGET_TOO_CLOSE_TEXT`]) shows over the world view, centred just above the HUD Bar, on a
-//! dark band, for [`FEEDBACK_TICKS`] after the latest cause; a new one replaces it. It ages by the sim's ticks, so a
-//! QA screenshot of a tick always shows it alike. It never takes the pointer: clicks pass through it to the map.
+//! [`unavailable_text`], [`TARGET_TOO_CLOSE_TEXT`] or [`BUILDING_FULL_TEXT`]) shows over the world view, centred just
+//! above the HUD Bar, on a dark band, for [`FEEDBACK_TICKS`] after the latest cause; a new one replaces it. It ages by
+//! the sim's ticks, so a QA screenshot of a tick always shows it alike. It never takes the pointer: clicks pass
+//! through it to the map.
 
 use std::sync::LazyLock;
 
@@ -121,6 +124,10 @@ pub const OPERATION_UNDER_WAY_TEXT: &str = "This Tunnel is busy";
 /// The message of an Attack its unit can't carry out, the target inside its MinRange and the unit unable to move
 /// (`SimEvent::TargetTooClose`). The design's wording (design change 0182).
 pub const TARGET_TOO_CLOSE_TEXT: &str = "Target too close";
+/// The message of an Enter that ended at a building's entrance with no room in its pool (`SimEvent::EnterFailed` with
+/// `full`; slice M5-F1, Placeholder (Q0104 point 2): "The Enter ends and it idles beside the Armory"). Placeholder
+/// wording.
+pub const BUILDING_FULL_TEXT: &str = "No room inside";
 /// The message of a Drop Off pressed while none of its workers carries a load (`Reject::NothingToDeliver`;
 /// `factions/syndicate/units/agent.md > Agent ObjectInterfaceState`: "greyed out when Agent is not carrying
 /// resources"). Placeholder wording.
@@ -367,6 +374,7 @@ fn show_feedback(
             Some((tick, deploy_failed_text(problems)))
         }
         SimEvent::TargetTooClose { .. } => Some((tick, TARGET_TOO_CLOSE_TEXT)),
+        SimEvent::EnterFailed { full: true, .. } => Some((tick, BUILDING_FULL_TEXT)),
         _ => None,
     });
     let latest = clicks

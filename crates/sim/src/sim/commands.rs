@@ -55,6 +55,7 @@ impl Sim {
             Checked::Upgrade { tunnel, to, price } => self.start_upgrade(cmd.player, tunnel, to, price),
             Checked::Production { player, plan } => self.apply_production(player, plan),
             Checked::Construction { player, resolved } => self.apply_construction(player, resolved),
+            Checked::Holding { buildings, command } => self.apply_holding(&buildings, command),
         }
     }
 

@@ -53,6 +53,7 @@ impl Sim {
                 place: Place::Network,
                 since,
                 entered: false,
+                ejected: false,
             },
         );
         self.events.push(SimEvent::UnitProduced { producer, unit: id });

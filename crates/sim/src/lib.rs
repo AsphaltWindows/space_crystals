@@ -21,6 +21,7 @@ pub mod economy;
 pub mod elevation;
 pub mod events;
 pub(crate) mod hash;
+pub mod holding;
 pub mod ids;
 pub mod map;
 pub mod math;
@@ -57,7 +58,7 @@ pub mod units;
 pub mod vision;
 
 pub use combat::{AttackPhase, AttackState};
-pub use command::{Ability, Command, DebugCommand, PlayerCommand, TickInputs, TunnelCommand};
+pub use command::{Ability, Command, DebugCommand, HoldCommand, PlayerCommand, TickInputs, TunnelCommand};
 pub use construction::{ConstructionCommand, Constructor};
 pub use defs::{
     Armor, BEACON_CAPACITY_CAP, BEACON_CAPACITY_PER_BUILDING, Category, ExitRule, Footprint, MiningDef, ObjectDef,

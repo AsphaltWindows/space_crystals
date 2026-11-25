@@ -397,6 +397,7 @@ fn orders(app: &App) -> Vec<Given> {
             | Command::Production { .. }
             | Command::Construction { .. }
             | Command::Tunnel { .. }
+            | Command::Holding { .. }
             | Command::Debug(_) => None,
         })
         .collect()
@@ -414,6 +415,7 @@ fn abilities(app: &App) -> Vec<(PlayerId, Vec<u32>, sc_sim::Ability)> {
             | Command::Production { .. }
             | Command::Construction { .. }
             | Command::Tunnel { .. }
+            | Command::Holding { .. }
             | Command::Debug(_) => None,
         })
         .collect()

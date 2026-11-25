@@ -133,7 +133,7 @@ impl Sim {
                 Place::Site(site) => (self.objects.get(&site))
                     .is_some_and(|o| !o.is_site())
                     .then_some((worker, site)),
-                Place::Network => None,
+                Place::Network | Place::Building(_) => None,
             })
             .collect();
         for (worker, structure) in waiting {

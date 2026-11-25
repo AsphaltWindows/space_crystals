@@ -276,9 +276,41 @@ pub(super) fn table(sim: &Sim) -> Vec<(SimEvent, [Seen; 4])> {
         (
             SimEvent::EnterFailed {
                 unit: UNIT,
-                tunnel: TUNNEL,
+                target: TUNNEL,
+                full: false,
             },
             [W, N, N, N],
+        ),
+        // (M5-F1) A building that holds units, as the Tunnel stands for one here: its pool full, the unit going in,
+        // coming out of its doorway, and evacuated as it goes.
+        (
+            SimEvent::EnterFailed {
+                unit: UNIT,
+                target: TUNNEL,
+                full: true,
+            },
+            [W, N, N, N],
+        ),
+        (
+            SimEvent::EnteredBuilding {
+                unit: HELD,
+                building: TUNNEL,
+            },
+            [W, W, N, W],
+        ),
+        (
+            SimEvent::LeftBuilding {
+                unit: UNIT,
+                building: TUNNEL,
+            },
+            [W, W, N, W],
+        ),
+        (
+            SimEvent::Evacuated {
+                unit: UNIT,
+                building: GONE,
+            },
+            [W, W, N, W],
         ),
         (
             SimEvent::TargetTooClose {

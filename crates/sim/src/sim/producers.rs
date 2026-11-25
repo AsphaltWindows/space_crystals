@@ -383,7 +383,7 @@ impl Sim {
     /// doorway (fully inside, against the exit side, at most: see `production::exit` for this reading of the
     /// design). Its box overlaps no unit of its layer and no blocked tile but the building's own. `None` if there
     /// is no such spot.
-    fn doorway_spot(&self, door: &Door, unit: &UnitDef, half: Vec2) -> Option<Vec2> {
+    pub(super) fn doorway_spot(&self, door: &Door, unit: &UnitDef, half: Vec2) -> Option<Vec2> {
         let base = unit.base_def();
         let grid = base
             .nav_class()

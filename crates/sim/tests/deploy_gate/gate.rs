@@ -148,6 +148,10 @@ fn a_beacon_under_deployment_takes_only_cancel() {
                 command,
             },
             Command::Tunnel { command, .. } => Command::Tunnel { tunnel: id(2), command },
+            Command::Holding { command, .. } => Command::Holding {
+                objects: to_it.clone(),
+                command,
+            },
             Command::Debug(_) => continue,
         };
         if gate(&t, P1, command.clone()).is_ok() {

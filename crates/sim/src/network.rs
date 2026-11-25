@@ -67,6 +67,13 @@ pub enum Place {
     /// it"): not in the network, so no Eject brings it out and it doesn't regenerate. It comes out at the site's
     /// centre if the site goes, into the network once it completes (`sim/sites.rs`).
     Site(ObjectId),
+    /// Inside this building that holds units (slice M5-F1, `crate::holding`; `systems/controls/commands.md > Enter`:
+    /// "The unit walks to the structure's entrance side and goes inside"): an Armory's internal pool
+    /// (`factions/cults/structures/armory.md > InternalRecruitCapacity`). It comes out through the building's exit
+    /// doorway (Eject All), or around its footprint, alive, when the building is destroyed
+    /// (`factions/cults/economy.md > Cults Building Mechanics > Evacuation on Destruction`; `sim/holding.rs`). Not in
+    /// any network: it doesn't regenerate.
+    Building(ObjectId),
 }
 
 /// A unit off the map (plan decision T30, module docs): the object, with its id, where it is and since when.
@@ -77,7 +84,8 @@ pub struct Held {
     pub object: Object,
     pub place: Place,
     /// The tick it came to its place: `factions/syndicate/tunnels.md > EjectMenu`'s "the one that has been inside the
-    /// network longest" comes out first (design change 0251).
+    /// network longest" comes out first (design change 0251); in a building, the pool's order
+    /// (`Sim::held_in`).
     pub since: Tick,
     /// Whether it walked in (design change 0245: "Each unit inside stores when it entered"), so that the transit
     /// delay applies from `since`; `false` for a unit produced inside ("no delay", 0246), rallied into the network
@@ -85,6 +93,17 @@ pub struct Held {
     /// completes a Tunnel can be ejected at once [...] produced units rallied into the network have no delay
     /// either").
     pub entered: bool,
+    /// (M5-F1) Ejected from the building it is in (`factions/cults/structures/armory.md > Eject All`: "ejects all
+    /// stored Recruits from the exit side in a rapid stream, one after another"): it comes out through the building's
+    /// exit doorway once the doorway is free, after the units ejected before it (`Sim::step_holding`). Inside until
+    /// then. Saved and hashed only while set, so the states of games that never eject hash as they did before the
+    /// field existed.
+    #[serde(default, skip_serializing_if = "is_false")]
+    pub ejected: bool,
+}
+
+fn is_false(b: &bool) -> bool {
+    !*b
 }
 
 impl Held {
@@ -100,7 +119,7 @@ impl Held {
     pub(crate) fn regenerate(&mut self) {
         match self.place {
             Place::Network => {}
-            Place::Site(_) => return,
+            Place::Site(_) | Place::Building(_) => return,
         }
         let (Some(hp), Some(max)) = (self.object.hp, self.object.max_hp()) else {
             return;
@@ -150,28 +169,32 @@ impl Paths {
         Paths::of(tunnel.kind, tunnel.placement.as_ref()?)
     }
 
-    /// Where a unit with half extents `half` stands on `spot` (a path's): "just outside Side A", its box against
-    /// the wall.
-    fn stand(&self, spot: Vec2, half: Vec2) -> Vec2 {
-        spot + self.outward * (self.outward.abs().dot(half) + WALL_CLEARANCE)
+    /// The entry path, as every way in is ([`EntryPath`]).
+    pub fn entry_path(&self) -> EntryPath {
+        EntryPath {
+            outward: self.outward,
+            spot: self.entry,
+        }
     }
 
     /// Where an entering unit with half extents `half` walks to: on the entry path's spot, against the wall.
     pub fn entry_stand(&self, half: Vec2) -> Vec2 {
-        self.stand(self.entry, half)
+        self.entry_path().stand(half)
     }
 
     /// Where an ejected unit with half extents `half` appears (design change 0250: "Each unit appears at the exit
     /// path's spot just outside Side A"): on the exit path's spot, against the wall.
     pub fn exit_stand(&self, half: Vec2) -> Vec2 {
-        self.stand(self.exit, half)
+        let exit = EntryPath {
+            spot: self.exit,
+            ..self.entry_path()
+        };
+        exit.stand(half)
     }
 
-    /// Whether a unit with half extents `half` at `pos` has walked into the entry path: its box is within
-    /// [`ENTRY_REACH_SU`] of the entry spot.
+    /// Whether a unit with half extents `half` at `pos` has walked into the entry path ([`EntryPath::reached`]).
     pub fn reached_entry(&self, pos: Vec2, half: Vec2) -> bool {
-        let apart = (pos - self.entry).abs() - half;
-        apart.max(Vec2::ZERO).length() <= ENTRY_REACH_SU
+        self.entry_path().reached(pos, half)
     }
 
     /// Where a unit that appeared at `stand` with no order walks to: [`WALK_OUT_SU`] "straight out of Side A".
@@ -180,10 +203,49 @@ impl Paths {
     }
 }
 
-/// Why a Tunnel doesn't let a unit in or out ([`admits`]).
+/// The way into a structure that units Enter (`systems/controls/commands.md > Enter`: "The unit walks to the
+/// structure's entrance side and goes inside"), M4-C's entry path generalized (slice M5-F1): a spot on the line of the
+/// side units go in by, and the direction out of that side. A Tunnel's is its entry path on Side A
+/// ([`Paths::entry_path`]); a building that holds units has one in the middle of its entrance side
+/// (`holding::entry_path`). The Enter order walks to it (`orders::enter`) and the step right after 5a takes in the
+/// units that reached it (`Sim::step_entries`), one rule for both.
+#[derive(Copy, Clone, Debug, PartialEq)]
+pub struct EntryPath {
+    /// The unit vector out of the side.
+    pub outward: Vec2,
+    /// The spot, on the side's line.
+    pub spot: Vec2,
+}
+
+impl EntryPath {
+    /// The entry path of `target`: a placed Tunnel's ([`Paths::of_object`]), or a placed building's that holds units
+    /// (`holding::entry_path`); `None` for anything else.
+    pub fn of_object(target: &Object) -> Option<EntryPath> {
+        match Paths::of_object(target) {
+            Some(paths) => Some(paths.entry_path()),
+            None => crate::holding::entry_path(target),
+        }
+    }
+
+    /// Where an entering unit with half extents `half` walks to: on the spot, "just outside" the side, its box against
+    /// the wall.
+    pub fn stand(&self, half: Vec2) -> Vec2 {
+        self.spot + self.outward * (self.outward.abs().dot(half) + WALL_CLEARANCE)
+    }
+
+    /// Whether a unit with half extents `half` at `pos` has walked into the path: its box is within [`ENTRY_REACH_SU`]
+    /// of the spot.
+    pub fn reached(&self, pos: Vec2, half: Vec2) -> bool {
+        let apart = (pos - self.spot).abs() - half;
+        apart.max(Vec2::ZERO).length() <= ENTRY_REACH_SU
+    }
+}
+
+/// Why a structure doesn't let a unit in, or a Tunnel doesn't let one out ([`admits`]).
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub enum NoTransit {
-    /// The object isn't a Tunnel, or isn't one that works yet.
+    /// The object takes no units in: it is neither a Tunnel nor a building that holds units, or isn't one that works
+    /// yet (under construction).
     NotATunnel,
     /// The kind isn't a unit.
     NotAUnit,
@@ -191,15 +253,23 @@ pub enum NoTransit {
     Tier,
     /// An air unit: no air doors in M4 ([`AIR_DOORS`]).
     Air,
+    /// (M5-F1) A building that holds units, whose type doesn't take units of the kind in (`HoldsDef::accepts`;
+    /// `systems/controls/commands.md > Enter`: "Cults — Armory, Cathedral: Recruits only").
+    NotAccepted,
 }
 
-/// `factions/syndicate/tunnels.md > Tunnel Network > Transit Tier Requirements`: whether `tunnel` lets a unit of
-/// `kind` into or out of the network. It is a Tunnel in operation ([`is_exit`]) whose tier's Transit lists the unit's
-/// base: "Tier 1+: Infantry", "Tier 2+: Vehicles", "Tier 3+: Air units", the last not in M4 ([`AIR_DOORS`]). The tier
-/// is the one the Tunnel has (`TunnelState::tier`), which an upgrade under way leaves alone until it completes (design
-/// change 0249: "until the upgrade has fully finished, a Tunnel only accepts, and only lets out, units supported by
-/// the tier it had before the upgrade began").
-pub fn admits(tunnel: &Object, kind: ObjectKind) -> Result<(), NoTransit> {
+/// Whether `target` lets a unit of `kind` in: a building that holds units by its own rule (`holding::admits`, slice
+/// M5-F1), and a Tunnel into or out of the network by
+/// `factions/syndicate/tunnels.md > Tunnel Network > Transit Tier Requirements`: it is a Tunnel in operation
+/// ([`is_exit`]) whose tier's Transit lists the unit's base: "Tier 1+: Infantry", "Tier 2+: Vehicles", "Tier 3+: Air
+/// units", the last not in M4 ([`AIR_DOORS`]). The tier is the one the Tunnel has (`TunnelState::tier`), which an
+/// upgrade under way leaves alone until it completes (design change 0249: "until the upgrade has fully finished, a
+/// Tunnel only accepts, and only lets out, units supported by the tier it had before the upgrade began").
+pub fn admits(target: &Object, kind: ObjectKind) -> Result<(), NoTransit> {
+    if crate::holding::holds(target).is_some() {
+        return crate::holding::admits(target, kind);
+    }
+    let tunnel = target;
     if !is_exit(tunnel) {
         return Err(NoTransit::NotATunnel);
     }
@@ -250,6 +320,11 @@ impl StateHash for Place {
                 h.tag(1);
                 site.hash(h);
             }
+            // (M5-F1) A tag of its own: a state with no unit in a building hashes as it did before.
+            Place::Building(building) => {
+                h.tag(2);
+                building.hash(h);
+            }
         }
     }
 }
@@ -261,11 +336,16 @@ impl StateHash for Held {
             place,
             since,
             entered,
+            ejected,
         } = self;
         object.hash(h);
         place.hash(h);
         since.hash(h);
         entered.hash(h);
+        // (M5-F1) Only while set, under a tag of its own: the goldens stand.
+        if *ejected {
+            h.tag(1);
+        }
     }
 }
 
@@ -369,6 +449,7 @@ mod tests {
             place: Place::Network,
             since: 10,
             entered,
+            ejected: false,
         };
         assert!(!held(true).may_exit(10) && !held(true).may_exit(41) && held(true).may_exit(42));
         assert!(held(false).may_exit(10));
@@ -382,6 +463,7 @@ mod tests {
             place: Place::Network,
             since: 0,
             entered: true,
+            ejected: false,
         };
         held.object.hp = Some(40.0);
         for _ in 0..160 {

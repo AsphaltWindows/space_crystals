@@ -59,6 +59,10 @@ impl Sim {
     /// Tunnel can let out (`factions/syndicate/tunnels.md > Losing Tunnels`, slice M4-H: `sim/tunnels.rs`), once it
     /// and everything else of `ids` has gone.
     ///
+    /// Everyone inside a building that holds units comes out alive around its footprint, once it and everything else
+    /// of `ids` has gone, in the same call, so always before the defeat check (`factions/cults/economy.md > Cults
+    /// Building Mechanics > Evacuation on Destruction`; slice M5-F1, `sim/holding/evacuation.rs`).
+    ///
     /// The grids aren't touched: phase 5b catches up with a footprint that went away, and a removal after it must
     /// sync them (`paths::sync`).
     pub(super) fn remove_objects(&mut self, ids: &[ObjectId]) {
@@ -69,6 +73,9 @@ impl Sim {
         );
         gone.sort_unstable();
         gone.dedup();
+        // The units inside the buildings that go, in the order they come out (`sim/holding/evacuation.rs`): first,
+        // while the queues still say which units their orders reserved (slice M5-F2), before the refunds below.
+        let evacuations = self.evacuations(&gone);
         // The workers gathering at a patch that goes, while it is still there to say where it was
         // (`Sim::keep_gatherers_on_spots`), and those on their way back to a drop-off that goes
         // (`Sim::reassign_drop_offs`).
@@ -92,6 +99,8 @@ impl Sim {
         }
         self.events.extend(gone.iter().map(|&id| SimEvent::Removed(id)));
         self.forget_references(&gone);
+        // Everyone inside comes out alive around the footprints, now clear of them (slice M5-F1).
+        self.evacuate(&evacuations);
         // What the Tunnels leave behind (`factions/syndicate/tunnels.md > Losing Tunnels`, `sim/tunnels.rs`): their
         // expansions neutral, their unfinished ones destroyed, and the network units stranded.
         self.lose_tunnels(&tunnels);
