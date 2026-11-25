@@ -121,6 +121,8 @@ kind_registry! {
     OpticsLab => syndicate::structures::optics_lab::OPTICS_LAB,
     /// `factions/syndicate/structures/chemical_plant.md` (design change 0260)
     ChemicalPlant => syndicate::structures::chemical_plant::CHEMICAL_PLANT,
+    /// `factions/syndicate/units/grenadier.md` (design change 0260)
+    Grenadier => syndicate::units::grenadier::GRENADIER,
     /// `factions/syndicate/structures/laser_turret.md` (design change 0260)
     LaserTurret => syndicate::structures::laser_turret::LASER_TURRET,
 }

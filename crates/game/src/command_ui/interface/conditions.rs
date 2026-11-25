@@ -167,7 +167,7 @@ pub enum WhyUnavailable {
     /// whose buildings is, an order the sim has none of (Reverse).
     NotYet,
     /// A placeholder entry's own reason, the message the gate's refusal will give once its command is in the game
-    /// ([`Conditions::planned`], slice M4-J2): the Hideout's Grenadier "Requires a Chemical Plant".
+    /// ([`Conditions::planned`], slice M4-J2): the Agent's Laser Turret "Requires an Optics Lab".
     Placeholder(&'static str),
 }
 
@@ -361,9 +361,8 @@ impl Conditions {
 
     /// Why placeholder entry `planned` is greyed (design change 0162): the reason its command's gate will give, where
     /// it is known and true now (slice M4-J2's rule), so that the button says the same before and after the slice that
-    /// brings it: its prerequisite while the player owns none ([`Planned::requires`]: the Grenadier's "Requires a
-    /// Chemical Plant", the Laser Turret's "Requires an Optics Lab", as the gate words `Reject::Requires`, slice
-    /// M4-K), else that it isn't in the game yet.
+    /// brings it: its prerequisite while the player owns none ([`Planned::requires`]: the Laser Turret's "Requires an
+    /// Optics Lab", as the gate words `Reject::Requires`, slice M4-K), else that it isn't in the game yet.
     pub fn planned(&self, planned: Planned) -> WhyUnavailable {
         match planned.requires() {
             Some(kind) if !self.owned.contains(&kind) => WhyUnavailable::Placeholder(requires_text(kind)),

@@ -1,7 +1,8 @@
 //! The Syndicate's panels in the client (slice M4-J2): the Tunnel's letters and its EjectMenu, with the network's
 //! counts (design change 0257, `factions/syndicate/tunnels.md > EjectMenu`); the Hideout's letters (design change
-//! 0260) and its rallies on a Hideout and on a Tunnel (design change 0252); a control group whose units are all in
-//! the network; and the Tunnel Area overlay while a Tunnel is selected.
+//! 0260), its E training Grenadiers behind a Chemical Plant (slice M4-U), and its rallies on a Hideout and on a Tunnel
+//! (design change 0252); a control group whose units are all in the network; and the Tunnel Area overlay while a
+//! Tunnel is selected.
 
 use bevy::prelude::*;
 use sc_sim::defs::TRANSIT_DELAY_TICKS;
@@ -11,7 +12,7 @@ use sc_sim::{Command, Faction, ObjectId, ObjectKind, OrderKind, PlayerId, Rally,
 use space_crystals::camera::CameraView;
 use space_crystals::command_ui::feedback::TargetFeedback;
 use space_crystals::command_ui::indicators::{Indicator, MOVE_COLOR, RallyIndicator, rally_indicators};
-use space_crystals::command_ui::{ButtonLook, InterfaceState, PanelButton, PanelCommand, Planned, PointerDisplay};
+use space_crystals::command_ui::{ButtonLook, InterfaceState, PanelButton, PanelCommand, PointerDisplay};
 use space_crystals::fog::Sight;
 use space_crystals::hud::command_panel::CommandButton;
 use space_crystals::input::ControlGroup;
@@ -23,6 +24,7 @@ use KeyCode::{ControlLeft, Digit1, Escape, KeyE, KeyQ, KeyW, KeyX, KeyZ};
 const P1: PlayerId = PlayerId(1);
 const AGENT: ObjectKind = ObjectKind::Agent;
 const GUARD: ObjectKind = ObjectKind::Guard;
+const GRENADIER: ObjectKind = ObjectKind::Grenadier;
 
 /// The objects of [`syndicate_game`], by id, and where they are drawn (the map is flat).
 const TUNNEL: u32 = 1;
@@ -179,12 +181,17 @@ fn the_tunnel_has_its_letters_and_e_opens_the_eject_menu() {
         [
             (slot(0, 0), c(Eject(AGENT)), Disabled, Some(0)),
             (slot(0, 1), c(Eject(GUARD)), Disabled, Some(0)),
+            (slot(0, 2), c(Eject(GRENADIER)), Disabled, Some(0)),
             (CommandSlot::BACK, PanelButton::Back, Back, None),
         ]
     );
     assert_eq!(
         counts_drawn(&mut app),
-        [(slot(0, 0), "0".into()), (slot(0, 1), "0".into())]
+        [
+            (slot(0, 0), "0".into()),
+            (slot(0, 1), "0".into()),
+            (slot(0, 2), "0".into())
+        ]
     );
     tap(&mut app, &[], KeyQ);
     assert_eq!(feedback(&app), Some("None in the Tunnel Network"));
@@ -206,7 +213,7 @@ fn the_tunnel_has_its_letters_and_e_opens_the_eject_menu() {
 }
 
 /// `factions/syndicate/tunnels.md > EjectMenu`: each tile counts the units of its type in the network, the Agents in
-/// Q and the Guards in W (design change 0257); a type whose every unit only just walked in is greyed for the transit
+/// Q, the Guards in W and the Grenadiers in E (design change 0257); a type whose every unit only just walked in is greyed for the transit
 /// delay, and its press refused (design change 0288's Verification: "Eject a Guard right after it entered: its tile is
 /// grey for 2 s"; point 1: "its tile is greyed and the click is refused; nothing is queued"); Q ejects the Agent inside
 /// the longest, the count dropping at the press, and the menu stays open (plan M4-J2: "Q ejects the oldest Agent").
@@ -227,6 +234,7 @@ fn the_eject_menu_counts_the_network_and_q_ejects_the_oldest_agent() {
         [
             (slot(0, 0), c(Eject(AGENT)), Common, Some(1)),
             (slot(0, 1), c(Eject(GUARD)), Disabled, Some(0)),
+            (slot(0, 2), c(Eject(GRENADIER)), Disabled, Some(0)),
             (CommandSlot::BACK, PanelButton::Back, Back, None),
         ]
     );
@@ -265,7 +273,11 @@ fn the_eject_menu_counts_the_network_and_q_ejects_the_oldest_agent() {
     assert_eq!(buttons(&mut app)[0].3, Some(1), "the count drops at the press");
     assert_eq!(
         counts_drawn(&mut app),
-        [(slot(0, 0), "1".into()), (slot(0, 1), "1".into())]
+        [
+            (slot(0, 0), "1".into()),
+            (slot(0, 1), "1".into()),
+            (slot(0, 2), "0".into())
+        ]
     );
     until(&mut app, 100, |app| on_map(app, oldest));
     assert_eq!(inside(&app), [GUARDS[0], newer]);
@@ -275,13 +287,13 @@ fn the_eject_menu_counts_the_network_and_q_ejects_the_oldest_agent() {
 
 /// `factions/syndicate/structures/hideout.md > ObjectInterfaceState[Hideout]`: Q Build Agent, W Build Guard (greyed
 /// "Requires an Optics Lab" by the gate while the player owns none, slice M4-K), E Build Grenadier (greyed "Requires a
-/// Chemical Plant", design change 0260), X Cancel Production and C Set Rally Point. Design change 0252's verification: "Rally a Hideout on another Hideout. The
+/// Chemical Plant" by the gate while the player owns none, slice M4-U), X Cancel Production and C Set Rally Point. Design change 0252's verification: "Rally a Hideout on another Hideout. The
 /// produced Guard comes out of the parent Tunnel and stands over the other Hideout" (an Agent here: the Guard needs an
 /// Optics Lab), the rally marker over the other Hideout; "Rally on a Tunnel: the Guard stays inside".
 #[test]
 fn the_hideout_has_its_letters_and_rallies_on_a_hideout_or_a_tunnel() {
-    use ButtonLook::{Common, Disabled, Unavailable};
-    use PanelCommand::{CancelProduction, Planned as P, SetRallyPoint, Train};
+    use ButtonLook::{Common, Disabled};
+    use PanelCommand::{CancelProduction, SetRallyPoint, Train};
     let mut app = syndicate_game();
     click(&mut app, HIDEOUT_AT, &[]);
     assert_eq!(selected(&app), [HIDEOUT]);
@@ -291,7 +303,7 @@ fn the_hideout_has_its_letters_and_rallies_on_a_hideout_or_a_tunnel() {
         [
             (slot(0, 0), c(Train(AGENT)), Common, None),
             (slot(0, 1), c(Train(GUARD)), Disabled, None),
-            (slot(0, 2), c(P(Planned::Grenadier)), Unavailable, None),
+            (slot(0, 2), c(Train(GRENADIER)), Disabled, None),
             (CommandSlot::CANCEL_PRODUCTION, c(CancelProduction), Disabled, None),
             (CommandSlot::RALLY_POINT, c(SetRallyPoint), Common, None),
         ]

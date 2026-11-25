@@ -219,8 +219,9 @@ Units, structures and resources are all `Object`s (`object.rs`, `core/entities.m
   It crosses Rugged tiles with double drag (`HOVER_VEHICLE.rugged_terrain`, design change 0039), on the light
   infantry's `(GroundRugged, 1)` grid.
 - **The Syndicate** (`defs/syndicate/`; `factions/syndicate/`, slice M4-A): the Guard (M3), then the Agent, the
-  Tunnel and the Hideout, after the Colonists' kinds, and the Optics Lab and the Chemical Plant last (slice M4-K,
-  *Tech prerequisites* below). The Agent has its pistol; units enter and leave the Tunnel
+  Tunnel and the Hideout, after the Colonists' kinds, the Optics Lab and the Chemical Plant (slice M4-K, *Tech
+  prerequisites* below), and the Grenadier (slice M4-U), which throws grenades (*Projectiles*), trained at the Hideout
+  behind a Chemical Plant. The Agent has its pistol; units enter and leave the Tunnel
   Network at a Tunnel's Side A and the Hideout produces into it (slice M4-C, *Units off the map* below); the rest is
   inert so far but for blocking, sight and being targets. **The Tunnel is one kind with a tier** (plan decision
   T39): `StructureDef::tunnel` holds
@@ -305,11 +306,12 @@ Units, structures and resources are all `Object`s (`object.rs`, `core/entities.m
   the bank, so a greyed entry says "Requires ..." rather than the price. Nothing checks again:
   work queued or started goes on when the last one is lost
   (`core/tech_and_research.md > Tech Prerequisites > Losing a Prerequisite`). Today the Hideout's Guard and the Laser
-  Turret (slice M4-S1) require the Optics Lab; the Optics Lab and the Chemical Plant are placeholder expansions (2 × 2,
-  150 Space Crystals, 400 frames, HP 400, 6 / 24) that only count. `sim/tech/tests.rs`
-  tests the rule with test defs (a GDO unit and building, a Colonists Warp In, a worker's Build, an expansion, the
-  Grenadier's stand-in), `tests/prerequisites/` with the design's own types. The client shows `Reject::Requires` as
-  "Requires a/an <name>" (`feedback::requires_text`), every faction's entries alike (*The Syndicate's panels*).
+  Turret (slice M4-S1) require the Optics Lab, and the Hideout's Grenadier the Chemical Plant (slice M4-U); the Optics
+  Lab and the Chemical Plant are placeholder expansions (2 × 2, 150 Space Crystals, 400 frames, HP 400, 6 / 24) that
+  only count. `sim/tech/tests.rs` tests the rule with test defs (a GDO unit and building, a Colonists Warp In, a
+  worker's Build, an expansion), `tests/prerequisites/` with the design's own types. The client shows
+  `Reject::Requires` as "Requires a/an <name>" (`feedback::requires_text`), every faction's entries alike (*The
+  Syndicate's panels*).
 - **Losing Tunnels** (`sim/tunnels.rs`; slice M4-H; `factions/syndicate/tunnels.md > Losing Tunnels`, design changes
   0254 and 0258): what a Tunnel leaves when it leaves the game, on the removal path (*Removal path*): its unfinished
   expansions (`built_by`: the sites it builds, `Builder::Tunnel`, slice M4-F) are destroyed with no refund; its
@@ -845,7 +847,8 @@ ticks spent in it. Hashed and serialized like all state.
   and hashed only while it holds a projectile, and `AttackState::location` only while set, so a game without them
   hashes as before (the goldens unchanged). Its golden, a fight of test throwers (`combat::testing`), is a unit test
   (`combat/projectiles/golden.rs`, see *Replays and golden hashes*), and so is the ignored `projectiles_perf` (200 in
-  flight).
+  flight). The game's thrower is the Grenadier (slice M4-U, `defs/syndicate/units/grenadier.rs`), played with its
+  own numbers in `tests/grenadier.rs`; the mechanics' tests keep their test throwers, whose numbers stay put.
 - **Area damage** (`combat/area.rs`, plan decision T46; `systems/combat.md > AoEDamage`): the one path of every area
   attack, a blast's hits. A blast takes every object whose domain its TargetDomain hits (`hits_domain`: Ground hits
   ground and underground objects, Air the air, Universal all; design change 0262: underground and hidden ones too),
@@ -2493,9 +2496,10 @@ these.
   facing. Only a round body turns with the interpolated facing (`body_turns`). A square or an octagon stays
   axis-aligned like its collision box, and only its tick turns (a `FacingTick` child, `has_tick`). Structures and map
   resources never turn, whatever their facing (a structure keeps a unit's facing through `Sim::change_kind`). The
-  Colonists' units, the Peacekeeper's two types and the Agent carry a `UnitTag` child, a `Text2d` of the type's
-  short label (DR, SL, RL, PK, PS, AG), because the Legionnaire's two forms share a silhouette, the Peacekeeper's two
-  types a body (slice M3-J3), and the Agent the Guard's square (slice M4-A). A tag's local z lifts it into the
+  Colonists' units, the Peacekeeper's two types, the Agent and the Grenadier carry a `UnitTag` child, a `Text2d` of
+  the type's short label (DR, SL, RL, PK, PS, AG, GR), because the Legionnaire's two forms share a silhouette, the
+  Peacekeeper's two types a body (slice M3-J3), and the Agent and the Grenadier the Guard's square (slices M4-A and
+  M4-U). A tag's local z lifts it into the
   overlays band (`units::tag_z`, see Draw order), and it stays
   upright on a body that turns: `units::upright_tags`, chained after `place_object_visuals`, gives it the inverse of
   its visual's rotation. Every type's short label (`kinds::short_label`) is its own, and none is a
@@ -2561,7 +2565,9 @@ these.
   (`combat_effects/projectiles.rs`, `Flight`, from `SimEvent::ProjectileLaunched`): each along the straight path to
   its locked point at the pace of the ticks, lifted by a cosmetic arc (`ARC`) over its shadow, shown while its point
   on the ground is over a Visible tile (`shows_flight`; `core/vision.md > Attacks from outside vision`), whoever
-  threw it (design change 0293); and the
+  threw it (design change 0293), in its thrower's style as a tracer is in its shooter's (`Flight::weapon`,
+  `ShotStyle::of`; plan decision T52: the Grenadier's `ShotStyle::Grenade`, a grenade with its fuse lit, slice M4-U);
+  and the
   blasts (`combat_effects/blasts.rs`, from `SimEvent::Blast`, `BLAST_TICKS`): a ring the size of the area, shown
   while the tile under its centre is Visible (`shows_blast`). One alpha-blended mesh in the overlays layer, rebuilt every frame while
   anything shows; effects age by the sim's tick and the render alpha, so screenshots stay deterministic.
@@ -2967,9 +2973,10 @@ Drones, through one command flow (plan decision T10, slices M2-H1, M2-H2 and M3-
   `PanelCommand::CancelOperation`; Q `PanelCommand::UpgradeTunnel`, slice M4-G: greyed by `Sim::can_upgrade` with the
   gate's reason, "Something blocks the upgrade" never saying what, its price in the hint, "Q: Upgrade Tunnel (2
   Supplies)", `Conditions::price`), `hideout.rs` (the Production grid: W
-  trains the Guard, greyed "Requires an Optics Lab" by the gate until the player owns one, slice M4-K; E Grenadier
-  held greyed), `eject_menu.rs` and `expand_menu.rs`. **A placeholder entry** (`templates/planned.rs`, `Planned`)
-  holds its slot greyed with its reason (`Conditions::planned`): "Requires a Chemical Plant" while the player owns no
+  trains the Guard, greyed "Requires an Optics Lab" by the gate until the player owns one, slice M4-K; E the
+  Grenadier, greyed "Requires a Chemical Plant" alike, slice M4-U), `eject_menu.rs` and `expand_menu.rs`. **A
+  placeholder entry** (`templates/planned.rs`, `Planned`) holds its slot greyed with its reason
+  (`Conditions::planned`): "Requires an Optics Lab" while the player owns no
   structure of the type its unit or building will require (`Planned::requires`; `Conditions::of` keeps the types
   owned), "Not available yet" otherwise, until the slice that brings its command replaces it. An entry in the game
   asks the gate, and **a prerequisite is the gate's** (`Reject::Requires`, *Tech prerequisites*): no template names

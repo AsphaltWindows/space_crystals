@@ -232,8 +232,8 @@ pub fn panel(selection: &Selection, interface: InterfaceState, conditions: &Cond
 
 /// Why a command the ActiveGroup's type doesn't offer is unavailable ([`offers`]): Reverse and AttackGround are the
 /// type's conditional commands; anything else isn't in the game yet (a building of the Beacon's menus, a build menu
-/// with none of its buildings), and a placeholder entry says why it is greyed ([`Conditions::planned`]: the Hideout's
-/// Grenadier "Requires a Chemical Plant" while the player owns none).
+/// with none of its buildings), and a placeholder entry says why it is greyed ([`Conditions::planned`]: the Laser
+/// Turret "Requires an Optics Lab" while the player owns none).
 fn not_offered(command: PanelCommand, conditions: &Conditions) -> WhyUnavailable {
     match command {
         PanelCommand::Reverse | PanelCommand::AttackGround => WhyUnavailable::NotForThisType,

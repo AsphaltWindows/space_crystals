@@ -3,7 +3,9 @@
 //! (`systems/combat.md > DoublyDisjointed`: it "travels to the location the target was at at the end of the Aiming
 //! phase"), at the place the ticks gone of its flight put it, lifted off the ground by a cosmetic arc with its shadow
 //! under it. Placeholders until the art direction (Q0001): a lob as a grenade's, for every projectile so far, the
-//! only ones being DoublyDisjointed (HeadDisjointed and TailDisjointed, which may fly flat, aren't built).
+//! only ones being DoublyDisjointed (HeadDisjointed and TailDisjointed, which may fly flat, aren't built); each in its
+//! thrower's style ([`ShotStyle::of`], from its kind's client module, plan decision T52): the Grenadier's a grenade
+//! with its fuse lit (slice M4-U), any other a plain ball.
 //!
 //! The fog: `core/vision.md > Attacks from outside vision`: "a shot, tracer or projectile is visible to a player only
 //! along the part of its path that crosses tiles **Visible** to that player": a projectile shows while its point on
@@ -12,8 +14,9 @@
 //! objects too, "you see only the visible part of its projectiles".
 
 use bevy::prelude::*;
-use sc_sim::{Map, ObjectId, PlayerId, Sim, Tick, VisibilityState};
+use sc_sim::{Map, ObjectId, ObjectKind, PlayerId, Sim, Tick, VisibilityState};
 
+use super::ShotStyle;
 use super::draw::MUZZLE_LIFT;
 use crate::coords::{drawn_at_height, view_to_world};
 use crate::fog::Sight;
@@ -26,6 +29,9 @@ pub const ARC: f32 = 0.25;
 /// The projectile's radius and its shadow's, su (placeholders, Q0001).
 const RADIUS: f32 = 4.0;
 const SHADOW: Vec2 = Vec2::new(5.0, 3.0);
+/// A grenade's lit fuse: a spark on its top, its radius su (placeholders, Q0001).
+const FUSE: Color = Color::srgb(1.0, 0.85, 0.35);
+const FUSE_RADIUS: f32 = 2.0;
 
 /// A projectile in flight, as its launch said (`SimEvent::ProjectileLaunched`).
 #[derive(Clone, Debug, PartialEq)]
@@ -33,6 +39,9 @@ pub struct Flight {
     /// The tick it was launched in.
     pub tick: Tick,
     pub shooter: ObjectId,
+    /// The form its shooter launched it in (`sc_sim::conversion::form`; its type if it died by the time the client saw
+    /// the launch), whose style it is drawn in ([`ShotStyle::of`]), as a shot is (`super::Tracer::weapon`).
+    pub weapon: Option<ObjectKind>,
     /// The shooter's owner as it launched, whose colour it is drawn in.
     pub owner: Option<PlayerId>,
     /// The object whose place it was locked on, if it was fired at one (none at a location: an Attack Ground).
@@ -79,7 +88,8 @@ pub fn shows_flight(sim: &Sim, sight: &Sight, flight: &Flight, progress: f32) ->
     flight.flying(sim) && sight.at(flight.ground(progress)) == VisibilityState::Visible
 }
 
-/// The projectile at `progress` of its way, in its shooter's colour, above its shadow on the ground.
+/// The projectile at `progress` of its way, in its shooter's colour, above its shadow on the ground; a grenade
+/// ([`ShotStyle::Grenade`]) with its fuse lit on its top.
 pub(super) fn projectile_shape(mesh: &mut ColorMesh, map: &Map, flight: &Flight, progress: f32, z: f32) {
     let ground = flight.ground(progress);
     let drawn = drawn_at_height(ground, map.height_at(ground));
@@ -94,6 +104,10 @@ pub(super) fn projectile_shape(mesh: &mut ColorMesh, map: &Map, flight: &Flight,
     );
     let body = lighten(player_color(flight.owner).to_srgba(), 0.35);
     oval(mesh, center, Vec2::splat(RADIUS - 0.5), z, body.into());
+    if ShotStyle::of(flight.weapon) == ShotStyle::Grenade {
+        let fuse = center + Vec2::new(RADIUS * 0.5, RADIUS);
+        oval(mesh, fuse, Vec2::splat(FUSE_RADIUS), z, FUSE);
+    }
 }
 
 /// A filled oval around `center` (Bevy world space), `radii` su across and up.
@@ -119,6 +133,7 @@ mod tests {
         Flight {
             tick,
             shooter: ObjectId(1),
+            weapon: None,
             owner: None,
             target: None,
             from: Vec2::ZERO,

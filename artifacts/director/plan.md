@@ -1082,9 +1082,24 @@ Approach: thin vertical slices the user can run and see, each verified by tests 
   - **`testing::syndicate`** has a build line through the gate (Train, Eject, Gather, Gather Supplies, Build Tunnel, Expand, Upgrade). `tests/syndicate_line.rs` upgrades a Tunnel with gathered Supplies.
   - **Perf:** the `economy_oracle` binary went from 2.85 s to about 4.9 s in debug; the goldens add 0.1 s.
 
+- **M4-U Grenadier** (Opus; merged in `f34e4e6e`; 1752 tests; the 11 goldens unchanged):
+  - **The kind** (`defs/syndicate/units/grenadier.rs`; `ObjectKind::Grenadier` last), every number cited from 0260. Its grenade is a DoublyDisjointed Ground AoE: radius 0.625 GU, 8 su per tick, and a 6/2/4/28-tick cycle.
+  - **Training:** the Hideout's E, for 150 SC over 160 frames, requiring a Chemical Plant (K's `requires`). It is third in the EjectMenu (0257, 0285).
+  - **The client:**
+    - its module (GR; the BasicCombatUnit grid with Attack Ground);
+    - `ShotStyle::Grenade`: a projectile takes its thrower's style through the new `Flight::weapon`, drawn with a lit fuse (placeholder; small at the default zoom);
+    - the Hideout's panel is now the generic Production template.
+  - **Tests** (`tests/grenadier.rs`):
+    - 0260's verification: 32 ticks over 4 GU, and a walker escapes;
+    - one grenade per 40 ticks;
+    - 0264's verification: about 93 over a hidden Hideout, and its owner learns nothing;
+    - a Tier 1 Tunnel's entry and eject.
+
+    Training through the gate is in `tests/prerequisites/`, replacing K's stand-in. `defs_are_consistent` checks that only Disjointed attacks have a ProjectileSpeed.
+
 ## In progress
+  - **M4-V One per-viewer event filter** (Opus; brief `scratchpad/briefs/m4v-viewer-event-filter.md`): the technical follow-up. Every client consumer of `SimEvent` goes through one filter for what the local player may perceive, before S2's hidden pop-up arrives. A table test covers every variant, and any leaks found are fixed.
   - **M4-J3 Tunnel Area display** (Opus; brief `scratchpad/briefs/m4j3-area-display.md`): the selected own Tunnel's area; the Tier 1–3 preview while placing a Tunnel, with blocking cells red; no enemy areas (0299, 0300); and the marks of Q0086 and Q0087.
-  - **M4-U Grenadier** (Opus; brief `scratchpad/briefs/m4u-grenadier.md`): the kind and its recipe (requires a Chemical Plant), the Hideout's E, the EjectMenu's third tile, and 0260's and 0264's verifications with the real kind.
   - **M4-S1 Laser Turret, upright and Agent-built** (Opus; brief `scratchpad/briefs/m4s1-laser-turret.md`): the turret's def (requires an Optics Lab), structures that attack (T49), the Build order's turret arm with Q0084's answers (0296–0298: a 75% cancel refund, folded in mid-run), defeat, and the client's D entry, ghost and turret look.
 - **Next**:
   - **M4 wave 8:** S2 (the pop-up, Tunnel-built turret) launches when S1 lands. Its brief is `scratchpad/briefs/m4s2-popup-turret.md`. **It runs on Fable:** 0296 made raised pop-ups block movement, with a footprint-clear rise and an idle push, which is m4-plan's stated trigger for Fable. U is running; J3 is queued. Then M (QA).
@@ -1279,14 +1294,14 @@ The user keeps feeding unit and other designs to the Designer, so expect increme
     - K: done (`bbdbea73`).
     - S1: running (wave 7, Opus; brief `scratchpad/briefs/m4s1-laser-turret.md`).
     - G: done (`a737a69a`). **Wave 6 is complete.**
-    - U: running (wave 8, started early in G's slot; Opus; brief `scratchpad/briefs/m4u-grenadier.md`).
+    - U: done (`f34e4e6e`).
     - J3: running (new, small, client, Opus; brief `scratchpad/briefs/m4j3-area-display.md`): the Tunnel Area display (0299, 0300) and the marks of Q0086 and Q0087.
     - I2: done (`4f31587f`).
     - O2: done (`2e0f31f4`).
     - L: done (`6d05e084`).
     - The rest are queued in the waves above.
   - **Technical follow-ups** (the Director's):
-    - **One per-player event filter in the client.** M4-O found that each event consumer filters for the viewer on its own, and fixed one leak (a hidden Hideout's death marker). Put the filter in one place before more hidden objects arrive (S2's pop-up turret, N4–N7). Candidate: a small slice beside L, or in M.
+    - **One per-player event filter in the client.** M4-O found that each event consumer filters for the viewer on its own, and fixed one leak (a hidden Hideout's death marker). Put the filter in one place before more hidden objects arrive (S2's pop-up turret, N4–N7). **Running as M4-V.**
     - **"Target too close" for a location** (`systems/controls/behaviors.md > Target inside MinRange`): an Attack Ground that can't back off gives up without the feedback (a TODO in `orders/attack_ground.rs`). No M4 kind can target the ground with a MinRange, so the first that can (the Gunner in M5, or the Artillery Rig) adds it.
   - **Earlier scope note:** tunnels, Hideout, Agent, Guard economy, 0186's Optics Lab gate and Agent pistol, the Grenadier (0187) and the Assault Bike (0188), once their numbers exist. Underground expansions are exempt from the flatness rule (0005).
 - **M5 Cults**: Recruitment Hall, Storage, Recruit, Armory, Soldier, Gunner.
@@ -1642,7 +1657,7 @@ Last triaged: 0282.
 | 0257 Syndicate panel letters on the 4x3 grid | done (M4-J2, `c5910e4d`: the Tunnel's and the Hideout's panels and the EjectMenu; M4-J1, `dd14dc38`: the Agent; M4-F, `2cbb777e`: the ExpandMenu; M4-G, `a737a69a`: Q) | answers Q0068, as proposed |
 | 0258 Losing Tunnels: decay %, attacking neutral expansions, reclaiming, blocked cells (counted as occupied), defeat, and the enemy sees the tier | done (M4-A, `fcd06dc`: the tier seen and remembered; M4-H, `f456b0ca`: neutral expansions, decay, explicit Attack only, reclaiming, stranded units, defeat; M4-F, `2cbb777e`: neutral expansions block expansion placement; M4-G, `a737a69a`: reclaiming at an upgrade's completion) | answers Q0069 |
 | 0259 The Syndicate economy check: measured to the hatch square; the stacked layout puts the Tunnels on opposite sides | done (M4-L, `6d05e084`; the 1 GU opening layout replaced by 0294's 3 GU) | answers Q0070 |
-| 0260 Placeholders for the Laser Turret, the Grenadier and the Chemical Plant, so they can be planned into M4; the Grenadier needs a projectile, AoE and Attack Ground combat spike | partly done (M4-O, `356d1a96`: the combat spike; M4-K, `bbdbea73`: the Chemical Plant); in progress (M4-S1: the Laser Turret, upright); queued (U the Grenadier, S2 the pop-up) | answers Q0071 (scope B) |
+| 0260 Placeholders for the Laser Turret, the Grenadier and the Chemical Plant, so they can be planned into M4; the Grenadier needs a projectile, AoE and Attack Ground combat spike | partly done (M4-O, `356d1a96`: the combat spike; M4-K, `bbdbea73`: the Chemical Plant; M4-U, `f34e4e6e`: the Grenadier); in progress (M4-S1: the Laser Turret, upright); queued (S2: the pop-up) | answers Q0071 (scope B) |
 | 0261 Area damage never hits underground objects unless targeted | void (replaced by 0262) | — |
 | 0262 Area damage does hit underground objects; expansions and the pop-up turret have high armor | partly done (M4-A, `fcd06dc`: damage never asks the hidden predicate; M4-O, `356d1a96`: area damage hits underground objects, even unseen); queued (S2: the pop-up turret's armour, per 0264) | answers Q0071's AoE-underground gap |
 | 0263 Confirmed: undeploy, held orders, the Transport's base, the Phantom's attack | queued (T44, the deploy model; gated N3 and N6) | answers Q0071's items to confirm |

@@ -112,7 +112,8 @@ fn tracer_line(mesh: &mut ColorMesh, map: &Map, tracer: &Tracer, span: (f32, f32
     let (muzzle_from, muzzle_to) = (muzzle(map, tracer.from), muzzle(map, tracer.to));
     let (from, to) = (muzzle_from.lerp(muzzle_to, span.0), muzzle_from.lerp(muzzle_to, span.1));
     let (glow, core) = match ShotStyle::of(tracer.weapon) {
-        ShotStyle::Tracer => (
+        // A grenade takes effect by its blast, never as a shot: drawn as a tracer, were it one.
+        ShotStyle::Tracer | ShotStyle::Grenade => (
             lighten(player_color(tracer.owner).to_srgba(), 0.3),
             Srgba::rgb(1.0, 0.96, 0.7),
         ),
