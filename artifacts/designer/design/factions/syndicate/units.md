@@ -313,8 +313,17 @@ All numbers (HP, armor, sight, speed, TunnelSpaceCost, battery, damage, range, t
 ### Burrow (ability)
 Makes it **go underground**. Underground it can travel **under buildings and obstacles such as cliffs**: across **all drillable terrain**.
 
-### Surface (ability)
-Brings it back to its above-ground mode. Only possible where it is **on a tile it could reach as a tracked vehicle** (designer's reading: a tile a tracked vehicle could drive to over ground, so it can't surface on top of a building or on ground that tracked vehicles can't reach). Once surfaced it can unload and load again.
+### Underground: hidden unless detected
+(user, 2026-11-25; the rule for every DrillUnit, systems/units.md > DrillUnit) While underground it is **hidden** from other players (its owner sees it). It becomes visible, and **targetable**, only while **revealed by a detector**. Undetected, it can't be **targeted**, but **area (AoE) damage still affects it** (user, 2026-11-25): a blast landing over it damages it like any unit in the area, e.g. a Grenadier's Attack Ground on a spot where it is suspected. Detection itself is not designed yet (detectors: which units/structures, range; to be designed, likely together with stealth such as the Colonists Scout's).
 
-TBD: capacity (and whether it counts each infantry unit's TunnelSpaceCost); burrow/surface time and whether they follow the deploy model (not cancellable, factions/gdo/units.md > Artillery Rig > Modes) or the mode toggle model; who can see and attack it underground (the DrillUnit base says it is visible while subterranean); what happens to passengers if it is destroyed; whether it can enter the Tunnel Network carrying passengers; load/unload commands and the panel; all numbers.
+### Surface (ability)
+Brings it back to its above-ground mode. **It can't surface on top of a building, or on ground that tracked vehicles can't traverse** (user, 2026-11-25). The check is the tile itself (it must be passable for a tracked vehicle and free of buildings), **not** whether a tracked vehicle could drive there: so it **can** surface on a plateau or behind cliffs that ground vehicles can't reach. Once surfaced it can unload and load again.
+
+### Burrowing and surfacing work like vehicle deploy
+(user, 2026-11-25) Burrow and Surface follow the **vehicle deploy model** (factions/gdo/units.md > Artillery Rig > Modes): each takes time, is a **queueable order**, **can't be cancelled** once started, and the unit changes mode only when the process completes. The **last order given meanwhile is held** and tried first once it's done; orders the unit can't carry out in its new mode are dropped.
+
+### Destroyed with passengers
+(user, 2026-11-25) If it is destroyed, **all infantry inside die** with it (above ground or underground).
+
+TBD: capacity (and whether it counts each infantry unit's TunnelSpaceCost); burrow/surface time; whether it can enter the Tunnel Network carrying passengers; load/unload commands and the panel; all numbers.
 
