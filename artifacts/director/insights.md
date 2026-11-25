@@ -69,7 +69,7 @@
   - Keep defs as plain, serde-ready data structs, so that step stays cheap.
 
 ## Lessons learned (process)
-- **Never start a Bash command with a bare `cd`** into another directory, whether a worktree or a docs folder (`cd dir && grep …`). The session's cwd persists, and it slipped six times. Use a subshell `( cd $WT && … )`, `git -C`, `--manifest-path`, or absolute paths. `cd /home/iv/dev/space_crystals && …` is fine. If it slips, run `cd /home/iv/dev/space_crystals` at once.
+- **Never start a Bash command with a bare `cd`** into another directory, whether a worktree or a docs folder (`cd dir && grep …`). The session's cwd persists, and it slipped seven times (the seventh a design-path check, 2026-11-25: check paths with `[ -f artifacts/designer/design/$f ]`, never by cd-ing there). Use a subshell `( cd $WT && … )`, `git -C`, `--manifest-path`, or absolute paths. `cd /home/iv/dev/space_crystals && …` is fine. If it slips, run `cd /home/iv/dev/space_crystals` at once.
 - **Folding design changes into a running agent with SendMessage works.** M0-D absorbed 0012/0013 and four review findings mid-task. Give exact file:line references and the fix direction.
 - **Parallel agents**: give each the other's areas as a "don't touch" list, and carry cross-cutting state (e.g. the debug switch) through a separate type, so the integration merge stays small.
 - **Typical cost**: an editor-sized task takes about 1 hour and 150–250k agent tokens; a read-only review takes about 25 minutes and 170k.
@@ -105,6 +105,7 @@
   - `defs/<faction>/{units,structures}/<object>.rs` and `defs/map/`. Each faction's own rules (caps, divisor) go in `defs/<faction>.rs`.
   - One `kind_registry!` line per kind, and new kinds go last.
   - Behaviour numbers go in `tuning/<system>.rs`, cited or marked "Placeholder (not in the design)".
+  - **The placeholder mark form (M5 standard):** `Placeholder (Q0097 point 2)` for an open question's point, and `Placeholder (not in the design: why)` for a missing number. The colon form `Placeholder: Q00NN` is legacy (one left, cleared by M4-Z). Once the answer arrives, the mark becomes a citation of its change entry.
   - Timers use `progress.rs`; toggles use `toggle.rs`.
 - **Serde-ready defs.** Names and lists are `&'static`, and `defs/leak.rs` leaks them once on load. Accepted for the playtest loader.
 - **Timers not on `Progress` yet,** because their hashed bytes would change: production, construction, the Extraction Facility cycle, Weapon Conversion, the Riot Shield, mining and unloading, and the network's held units. Each moves at the next re-bless that touches it.
