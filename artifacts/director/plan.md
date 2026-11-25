@@ -788,6 +788,7 @@ Approach: thin vertical slices the user can run and see, each verified by tests 
 - **M3 waves 2 and 3** (common brief `scratchpad/briefs/m3-common.md`; status `m3-w2-status.md`):
   - **M4-C Tunnel Network** (Fable; brief `scratchpad/briefs/m4c-tunnel-network.md`): Enter, the held store, transit, Eject, production into the network and rallies, with 0245–0253. No air doors yet.
   - **M4-B Syndicate start** (Opus; brief `scratchpad/briefs/m4b-syndicate-start.md`, spec `scratchpad/m4/rev/B.md`): the Starting Conditions, the `dev_skirmish` layouts, Tunnel Space, 0242's area rule in placement and layouts, and the 0264 armor test across all factions.
+  - **M4-I Supplies** (Opus; brief `scratchpad/briefs/m4i-supplies.md`): 0256 (any number of Agents pick up at once; a station that empties means a notification placeholder and Agents waiting for ever; switching resources loses the load) and 0248 (the Supplies hatch on D).
 - **Next**:
   - **Playtest:** the user plays once all four factions are built (2026-11-24), using `docs/playtest/m2.md`, `m3.md` and later notes. This replaces separate M1–M3 playtests.
   - **M4 Syndicate:** the plan is adopted (`artifacts/director/m4-plan.md`). M4-A is running, and every later slice waits for it.
@@ -950,6 +951,8 @@ The user keeps feeding unit and other designs to the Designer, so expect increme
     - A: done (`fcd06dc`).
     - C: running (wave 2, Fable).
     - D: done (`edc30e11`; Q0076).
+    - I: running (wave 3, started early since it needs only D; Opus; brief `scratchpad/briefs/m4i-supplies.md`).
+    - R (code organization: citations, defs per object, tuning modules): after B, C and I land, before E and J2.
     - B: running (wave 2; Opus; the revised spec `scratchpad/m4/rev/B.md`).
     - The rest are queued. A planning pass is folding 0229–0271 into slices B and E–M, and planning 0260's new content: a combat spike, the Grenadier, the Laser Turret and the Chemical Plant.
   - **All M4 questions are answered** (Q0059–Q0071), by 0229–0267.
