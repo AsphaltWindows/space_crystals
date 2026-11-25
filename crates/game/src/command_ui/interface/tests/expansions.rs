@@ -195,7 +195,8 @@ fn an_expansion_is_placed_from_the_menu_and_z_goes_back_to_it() {
     let shown_panel = panel(&tunnel, placing_state, &conditions);
     let look = |slot| shown_panel.get(slot).map(|s| s.look);
     assert_eq!(look(slot(0, 0)), Some(ButtonLook::Pending));
-    assert_eq!(look(slot(0, 1)), Some(ButtonLook::Unavailable));
+    assert_eq!(look(slot(0, 1)), Some(ButtonLook::Disabled), "the Optics Lab waits");
+    assert_eq!(look(slot(0, 3)), Some(ButtonLook::Unavailable), "not in the game yet");
     assert_eq!(look(CommandSlot::BACK), Some(ButtonLook::Back));
 }
 
