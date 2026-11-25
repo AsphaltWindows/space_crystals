@@ -91,7 +91,10 @@ impl SpawnSettings {
             | ObjectKind::BioPortal
             | ObjectKind::SabreLegionnaire
             | ObjectKind::RifleLegionnaire
-            | ObjectKind::PeacekeeperShielded => None,
+            | ObjectKind::PeacekeeperShielded
+            | ObjectKind::Agent
+            | ObjectKind::Tunnel
+            | ObjectKind::Hideout => None,
         }
     }
 

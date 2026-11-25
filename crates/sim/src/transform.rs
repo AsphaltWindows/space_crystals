@@ -172,11 +172,11 @@ impl Object {
         self.transform.is_some()
     }
 
-    /// Its MaxHP now: its kind's, or while it transforms the one interpolated from the kind it was (`> HP/Shields
-    /// Interpolation`: a Robo Portal warped in halfway from a Beacon has 120 + (600 - 120) × 0.5 = 360). `None` for
-    /// an indestructible object.
+    /// Its MaxHP now: its kind's, a Tunnel's its tier's (`crate::tunnel`, plan decision T39: 600, 800 or 1000), or
+    /// while it transforms the one interpolated from the kind it was (`> HP/Shields Interpolation`: a Robo Portal
+    /// warped in halfway from a Beacon has 120 + (600 - 120) × 0.5 = 360). `None` for an indestructible object.
     pub fn max_hp(&self) -> Option<f32> {
-        let to = self.def().max_hp;
+        let to = crate::tunnel::tier_def(self).map_or(self.def().max_hp, |tier| Some(tier.max_hp));
         match &self.transform {
             Some(t) => t.maximum(t.from.def().max_hp, to),
             None => to,

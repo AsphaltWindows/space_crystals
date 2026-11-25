@@ -78,7 +78,8 @@ pub enum Ability {
 pub enum DebugCommand {
     /// Spawn an object for any owner, bypassing costs and placement rules. A unit's box must be clear of blocked
     /// tiles and of the other units of its layer; a blocking footprint must not cover a unit; a footprint must not
-    /// overlap another, except a plate's its patch's (`ObjectKind::may_overlap`); a structure needs flat ground.
+    /// overlap another, except a plate's its patch's (`ObjectKind::may_overlap`); a structure needs flat ground,
+    /// but for an underground expansion (`ObjectDef::needs_flat_ground`, design change 0005).
     Spawn {
         kind: ObjectKind,
         owner: Option<PlayerId>,
@@ -115,6 +116,11 @@ pub enum DebugCommand {
         #[serde(default)]
         flux: u32,
     },
+    /// Set the tier of `id`, a Tunnel (`factions/syndicate/tunnels.md > Tunnel > Tiers`, `crate::tunnel::set_tier`):
+    /// its MaxHP becomes the tier's, and its HP follows, the damage it has taken staying (design change 0231). For
+    /// tests and QA runs of the tiers, which nothing else changes until the upgrades (slice M4-G). Rejected for an
+    /// object that isn't a Tunnel, or a tier its table hasn't.
+    SetTier { id: ObjectId, tier: u8 },
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]

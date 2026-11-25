@@ -447,6 +447,7 @@ impl Sim {
             }
             Checked::AutoTargeting(on) => self.auto_targeting = on,
             Checked::SetResources { player, banks } => self.set_resources(player, banks),
+            Checked::SetTier { id, tier } => self.set_tier(id, tier),
             Checked::Production { player, plan } => self.apply_production(player, plan),
             Checked::Construction { player, resolved } => self.apply_construction(player, resolved),
         }
@@ -507,6 +508,7 @@ impl Sim {
             production,
             constructor,
             worker,
+            tunnel,
         } = kinds::Capabilities::fresh(&self.objects, kind, placement.as_ref());
         let object = Object {
             id,
@@ -531,6 +533,7 @@ impl Sim {
             worker,
             transform: None,
             conversion: None,
+            tunnel,
         };
         self.objects.insert(id, object);
         if is_patch {

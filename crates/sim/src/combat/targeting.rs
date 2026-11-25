@@ -15,7 +15,7 @@ use crate::object::Object;
 use crate::riot_shield;
 use crate::shape::Shape;
 use crate::units::gu;
-use crate::vision::Vision;
+use crate::vision::{Hiding, Vision};
 
 /// The corners of the box around `o`'s shape ([`Shape::of`]): the tiles it covers are those vision looks at.
 pub fn object_box(o: &Object) -> (Vec2, Vec2) {
@@ -135,6 +135,10 @@ pub(super) struct TargetView {
     pub point_armor: f32,
     /// `systems/units.md > UnitBase > DirectionalArmor`.
     pub directional_armor: bool,
+    /// Whom it is hidden from (`vision::hidden`, plan decision T32): no attacker whose owner it is hidden from sees
+    /// it, so none targets it (`systems/combat.md > ValidTarget` 2). The hits on the list land all the same
+    /// (`damage::apply` doesn't ask: design change 0218).
+    pub hiding: Hiding,
 }
 
 /// Every destructible object, in id order: phase 5e's snapshot, taken before any unit acts, so that every attacker
@@ -158,6 +162,7 @@ impl Targets {
                     pre_armor: pre_armor_multiplier(map, o),
                     point_armor: o.def().armor.point,
                     directional_armor: unit.is_some_and(|u| u.base_def().directional_armor),
+                    hiding: Hiding::of(o),
                 }
             })
             .collect();

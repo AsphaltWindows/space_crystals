@@ -1,6 +1,6 @@
 //! The gate's checks of debug commands (`Command::Debug`, accepted while `SimConfig::debug` is on): a spawn's owner
-//! and placement, a teleport onto the map, and a unit's box clear of blocked ground and of the units of its layer
-//! (`docs/movement.md > 3`).
+//! and placement, a teleport onto the map, a unit's box clear of blocked ground and of the units of its layer
+//! (`docs/movement.md > 3`), and a tier the Tunnel's table has.
 
 use glam::Vec2;
 
@@ -14,6 +14,7 @@ use crate::paths::{blocking_footprint, box_overlaps_rect, boxes_overlap};
 use crate::player::Banks;
 use crate::scenario::place_spawn;
 use crate::sim::{Reject, Sim};
+use crate::tunnel;
 
 impl Sim {
     pub(super) fn check_debug(&self, command: &DebugCommand) -> Result<Checked, Reject> {
@@ -89,6 +90,13 @@ impl Sim {
                     flux,
                 };
                 Ok(Checked::SetResources { player, banks })
+            }
+            DebugCommand::SetTier { id, tier } => {
+                let object = self.referenced(id, anyone)?;
+                if tunnel::def_of(object.kind).and_then(|def| def.tier(tier)).is_none() {
+                    return Err(Reject::NoSuchTier { id, tier });
+                }
+                Ok(Checked::SetTier { id, tier })
             }
         }
     }

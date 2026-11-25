@@ -9,6 +9,7 @@ use crate::mover::Mover;
 use crate::paths::NavState;
 use crate::vision::Vision;
 
+mod air;
 mod leash;
 mod min_range;
 mod priority;

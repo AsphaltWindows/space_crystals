@@ -29,7 +29,7 @@ fn mode(app: &App) -> ClientMode {
 }
 
 /// Both Peacekeeper types (design change 0173), like the Legionnaires' two forms: a map may place a Peacekeeper
-/// (Shielded), its shield up from the start.
+/// (Shielded), its shield up from the start. The Syndicate's Agent follows its Guard (slice M4-A).
 #[test]
 fn the_palette_lists_the_units_of_each_faction() {
     let units: Vec<(String, Vec<ObjectKind>)> = palette_groups()
@@ -41,7 +41,7 @@ fn the_palette_lists_the_units_of_each_faction() {
         units,
         [
             ("GDO units".to_string(), vec![PK, ObjectKind::PeacekeeperShielded]),
-            ("Syndicate units".to_string(), vec![GUARD]),
+            ("Syndicate units".to_string(), vec![GUARD, ObjectKind::Agent]),
             (
                 "Colonists units".to_string(),
                 vec![

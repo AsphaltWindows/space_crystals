@@ -28,6 +28,7 @@ fn unit(id: u32, kind: ObjectKind, owner: Option<PlayerId>, pos: Vec2) -> Object
         worker: None,
         transform: None,
         conversion: None,
+        tunnel: crate::tunnel::fresh(kind),
     }
 }
 

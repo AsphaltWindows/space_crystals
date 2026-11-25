@@ -384,9 +384,16 @@ fn walkers(objects: &BTreeMap<ObjectId, Object>) -> Vec<PlayerId> {
 }
 
 /// The footprint of an object of `kind` placed at `placement`, if it blocks surface units
-/// (`docs/movement.md > 5.2`; design change 0038: map resources block).
+/// (`docs/movement.md > 5.2`; design change 0038: map resources block). An underground structure's never does
+/// (`BlockerKind::UndergroundExpansion`, plan decision T32): the one test, so that the true grids, what each player
+/// knows of the obstacles (`knowledge`), the unit-start rule (`misplaced`) and the debug spawns all let units walk
+/// over it.
 pub(crate) fn blocking_footprint(kind: ObjectKind, placement: &Placement, rules: NavRules) -> Option<TileRect> {
-    let blocker = match kind.def().category {
+    let def = kind.def();
+    let blocker = match def.category {
+        Category::Structure if def.structure.as_ref().is_some_and(|s| s.underground) => {
+            BlockerKind::UndergroundExpansion
+        }
         Category::Structure => BlockerKind::Structure,
         Category::Resource => BlockerKind::Resource,
         Category::Unit => return None,

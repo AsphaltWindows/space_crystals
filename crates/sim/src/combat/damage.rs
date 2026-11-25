@@ -308,6 +308,7 @@ mod tests {
             worker: None,
             transform: None,
             conversion: None,
+            tunnel: crate::tunnel::fresh(kind),
         }
     }
 
@@ -339,5 +340,76 @@ mod tests {
         assert_eq!(apply(&mut objects, &[hit(10.0, 0.0)], &mut events), [ObjectId(2)]);
         assert_eq!(took(&events), [(0.0, 10.0)]);
         assert!(matches!(events[1], SimEvent::Died { id: ObjectId(2), .. }));
+    }
+
+    /// Design change 0218 ("AoE resolution includes hidden underground units in the area"): a hit lands whoever sees
+    /// its target, so damage never asks the hidden rule (plan decision T32, `vision::hidden`). No area attack is
+    /// resolved yet (`systems/combat.md > AoEDamage`; `combat`'s module docs), so a test weapon stands in: the
+    /// Guard's, given an AoERadius of 1 grid unit, strikes player 1's Peacekeeper standing on player 1's Hideout,
+    /// which player 2, the Guard's owner, can't see; the test lists the blast's hits itself, one on each object whose
+    /// box its circle touches, as area attacks will. The Hideout takes its hit as the Peacekeeper does, and dies of
+    /// enough of them.
+    #[test]
+    fn a_hidden_underground_structure_in_an_area_takes_its_damage() {
+        use crate::defs::test_defs::TestDef;
+        use crate::defs::{ObjectKind, TargetType};
+        use crate::ids::PlayerId;
+        use crate::object::Placement;
+        let _blast = TestDef::unit(ObjectKind::Guard, |unit| {
+            unit.attack.as_mut().unwrap().target_type = TargetType::AoE { radius: 1.0 };
+        });
+        let attack = ObjectKind::Guard.def().unit.as_ref().unwrap().attack.unwrap();
+        let TargetType::AoE { radius } = attack.target_type else {
+            panic!("an area attack");
+        };
+        let placement = Placement::new(TilePos::new(4, 4), ObjectKind::Hideout.def().footprint);
+        let at = placement.center();
+        let owned = |id, kind| Object {
+            id: ObjectId(id),
+            owner: Some(PlayerId(1)),
+            pos: at,
+            prev_pos: at,
+            shields: None,
+            placement: (kind == ObjectKind::Hideout).then_some(placement),
+            ..target(kind, 0.0)
+        };
+        let (hideout, peacekeeper) = (owned(2, ObjectKind::Hideout), owned(3, ObjectKind::Peacekeeper));
+        assert!(crate::vision::hidden_from(&hideout, PlayerId(2)));
+        assert!(!crate::vision::hidden_from(&peacekeeper, PlayerId(2)));
+        let mut objects = BTreeMap::from([(hideout.id, hideout), (peacekeeper.id, peacekeeper)]);
+        let blast = |objects: &BTreeMap<ObjectId, Object>| -> Vec<Hit> {
+            let inside = objects.values().filter(|o| {
+                let (lo, hi) = crate::combat::object_box(o);
+                at.clamp(lo, hi).distance(at) <= crate::units::gu(radius)
+            });
+            inside
+                .map(|o| Hit {
+                    attacker: ObjectId(1),
+                    target: o.id,
+                    damage: attack.damage,
+                    pre_armor: 1.0,
+                    point_armor: o.def().armor.point,
+                    directional: 1.0,
+                })
+                .collect()
+        };
+        let hits = blast(&objects);
+        assert_eq!(
+            hits.iter().map(|hit| hit.target).collect::<Vec<_>>(),
+            [ObjectId(2), ObjectId(3)]
+        );
+        let mut events = Vec::new();
+        assert_eq!(apply(&mut objects, &hits, &mut events), []);
+        // 18 less the PointArmor 1 of each.
+        assert_eq!(objects[&ObjectId(2)].hp, Some(400.0 - 17.0));
+        assert_eq!(objects[&ObjectId(3)].hp, Some(50.0 - 17.0));
+        objects.get_mut(&ObjectId(2)).unwrap().hp = Some(10.0);
+        let hits = blast(&objects);
+        assert_eq!(apply(&mut objects, &hits, &mut events), [ObjectId(2)]);
+        assert!(
+            events
+                .iter()
+                .any(|e| matches!(e, SimEvent::Died { id: ObjectId(2), .. }))
+        );
     }
 }

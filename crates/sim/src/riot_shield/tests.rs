@@ -38,6 +38,7 @@ fn unit(kind: ObjectKind, up: u32) -> Object {
         worker: None,
         transform: None,
         conversion: None,
+        tunnel: None,
     }
 }
 

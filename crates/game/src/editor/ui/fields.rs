@@ -84,7 +84,10 @@ impl SpawnValue {
             | ObjectKind::BioPortal
             | ObjectKind::SabreLegionnaire
             | ObjectKind::RifleLegionnaire
-            | ObjectKind::PeacekeeperShielded => &[],
+            | ObjectKind::PeacekeeperShielded
+            | ObjectKind::Agent
+            | ObjectKind::Tunnel
+            | ObjectKind::Hideout => &[],
         }
     }
 
