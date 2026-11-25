@@ -19,10 +19,13 @@
 //! - **Overlay editing** (`> Overlay editing`, 0008): while the Layout tool is on, the editor's preview gives every
 //!   slot a player of the edited faction ([`preview_scenario`]), so the sim shows that faction's layouts; the other
 //!   factions' layouts of the edited slot are drawn dimmed over them (`super::overlay`).
-//! - **Factions not implemented yet** (plan decision T11): the GDO and the Colonists (slice M3-C) have Starting
-//!   Conditions so far, the Colonists' palette offering their Egress Node, Robo Portal and four Drones, placed as
-//!   units at the point clicked; the Syndicate's and the Cults' layouts can be picked but take no objects ("not
-//!   implemented yet").
+//! - **Factions not implemented yet** (plan decision T11): the GDO, the Colonists (slice M3-C) and the Syndicate
+//!   (slice M4-B) have Starting Conditions so far, the Colonists' palette offering their Egress Node, Robo Portal and
+//!   four Drones, placed as units at the point clicked, and the Syndicate's their Tunnel, Hideout and Agent
+//!   (`factions/syndicate/tunnels.md > Tunnel > Starting Conditions`). A Syndicate layout's Tunnel goes only where its
+//!   whole Tier 1 Tunnel Area is on the map and Drillable (design change 0242), and its Hideout only wholly inside that
+//!   area: [`check`] refuses the rest with the rule's text. The Cults' layouts can be picked but take no objects
+//!   ("not implemented yet").
 
 pub mod check;
 pub mod problems;

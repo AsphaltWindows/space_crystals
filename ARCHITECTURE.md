@@ -241,8 +241,9 @@ Units, structures and resources are all `Object`s (`object.rs`, `core/entities.m
   (`sides`). A unit stands on one with its box against the wall (`entry_stand`, `exit_stand`). `network::admits(tunnel,
   kind)` is the one tier rule (`> Transit Tier Requirements`; the tier a Tunnel has, which an upgrade leaves until it
   completes, 0249); **air units pass nowhere in M4** (`network::AIR_DOORS`, whose doc holds the rule to come with the
-  first Syndicate air unit, design changes 0250 and 0251). `network::parent` derives an expansion's parent Tunnel
-  (plan decision T32: the owner's Tunnel whose Tunnel Area, `network::area`, fully contains it).
+  first Syndicate air unit, design changes 0250 and 0251). `tunnel::area::parent` derives an expansion's parent Tunnel
+  (plan decision T32: the owner's Tunnel whose Tunnel Area, `tunnel::area::of`, fully contains it;
+  `Sim::parent_tunnel`).
 - **Changing kind** (`sim/kinds.rs`, plan decision T15): an object that transforms (a Drone deploying into a Beacon,
   a Beacon warping in a building, a Legionnaire converting its weapon, a Peacekeeper raising or lowering its Riot
   Shield) stays the same object, its id included.
@@ -330,7 +331,8 @@ Layout validation can't disagree. **Never test a placement rule anywhere else: a
   orientation)`, a layout object `placement::check_layout(map, others, layout, index)`.
 - **Out**: a `PlacementCheck`: the `TileProblem`s of each footprint tile (off the map, not Buildable, sloped, not
   Visible, under a structure, under a resource, under a ground unit, reserved), row by row and in that order, and the
-  `WholeProblem`s (not a structure, outside the build area, a plate not on a patch). Valid means both are empty: the
+  `WholeProblem`s (not a structure, outside the build area, a plate not on a patch, a Tunnel Area off the map or on
+  undrillable ground, a layout's expansion outside its Tunnel's area). Valid means both are empty: the
   ghost shows the tiles' problems tile by tile, and the gate refuses a placement with any problem. The check reads
   the true state, but a tile the player doesn't see has `NotVisible` as its only problem, so it tells nothing the fog
   hides.
@@ -339,6 +341,19 @@ Layout validation can't disagree. **Never test a placement rule anywhere else: a
   aside (design change 0094); air and underground units never block. A plate goes exactly onto a patch
   (`placement::Onto`), the one rule of the check that map validation applies to pre-placed objects too
   (`SpawnProblem::NotOnPatch`, slice M2-J2).
+- **The Tunnel Area rules** (slice M4-B, `placement/tunnel_area.rs`): a kind with a tier table, the Tunnel, has its
+  whole Tier 1 Tunnel Area (`tunnel::area`) on the map and Drillable (design change 0242:
+  `WholeProblem::TunnelAreaOffMap`, `TunnelAreaNotDrillable`; Drillable is the preset's flag, never its look), in
+  every mode and method; `Mode::Known` counts only the undrillable ground the player has explored, the map's edge
+  always. Read as written, a Tunnel 2 tiles from the edge is valid (Placeholder: Q0078). `check_layout` adds the
+  layout rule for expansions: an underground structure lies wholly inside the Tier 1 area of a Tunnel of its own
+  layout (`OutsideTunnelArea`), as a layout's plates lie in its own Deployment Center's area. Map and debug spawns
+  don't take the check: a spawned Tunnel by Water or the edge stays valid. Until slice M4-F's expansion method, a
+  Hideout's tiles follow `Method::Direct`'s rules (Buildable, stricter than design change 0239's Drillable).
+- **The files** (`placement/`): `site.rs` (`Site`, `Mode`, `Method`, `Occupant`), `problems.rs` (the problems,
+  `PlacementCheck`, their texts), `check.rs` (the check), `footprint.rs` (its tiles), `tunnel_area.rs`,
+  `build_area.rs` and `onto.rs`. The geometry of Tunnel Areas, their regions and an expansion's parent Tunnel is
+  `tunnel/area.rs`, the one place that works them out (Tunnel Space, these rules, `Sim::parent_tunnel`).
 - **Methods** (plan decision T16): the `Site` also names how the structure comes to stand (`Method`), and the one
   check applies that method's rules. `Method::Direct` is the GDO's Direct Placement, with its build area.
   `Method::WarpIn { beacon }` (slice M3-E; `core/entities.md > Placement Validation > Warp In`) has the same tile
@@ -1237,7 +1252,8 @@ section of its own.
   banks `Player::alloys`, `essence` and `flux` (slice M3-C, plan decision T21; nothing earns or costs them yet). All
   are `u32`, hashed, and `#[serde(default)]` so that older states load. A game starts them at the player's faction's
   Starting Conditions (`Player::starting`, `StartingConditions`, slice M2-F1; see *Sim scenarios and tests*): a GDO or
-  Colonists player's at 100 Space Crystals and the rest at 0, those of a faction not implemented yet at 0.
+  Colonists player's at 100 Space Crystals and the rest at 0, a Syndicate player's at 100 Space Crystals and 1 Supply
+  (slice M4-B), those of a faction not implemented yet at 0.
   `DebugCommand::SetResources` sets all five (`Player::set_banks`; the refined ones `serde(default)` in command files
   too), and `Player::banks` reads them as one `Banks`. Pay with
   `Player::spend_crystals`, which refuses when the bank is short and leaves it as it was; credit with
@@ -1247,10 +1263,16 @@ section of its own.
 - **Power and the army caps are derived** from the objects whenever they are asked for, never stored, so they can't
   drift (plan decision T7). `Sim::power(player)` is a `PowerSummary`: `generated` and `consumed`, the HUD's
   used / available (design change 0090). `Sim::army_cap(player)` is an `ArmyCap { resource, used, available }` for
-  the player's faction (`economy/army.rs`, plan decision T20; `None` for the Syndicate and the Cults until their
-  milestones): the GDO's Unit Control, out of `UNIT_CONTROL_CAP`, and the Colonists' Beacon Capacity, out of
+  the player's faction (`economy/army.rs`, plan decision T20; `None` for the Cults until their milestone): the GDO's
+  Unit Control, out of `UNIT_CONTROL_CAP`; the Colonists' Beacon Capacity, out of
   min(`BEACON_CAPACITY_CAP`, `BEACON_CAPACITY_PER_BUILDING` × their Colonists structures, a Beacon under deployment
-  left out until it completes: design change 0112, *Beacon Deployment*). Used is the
+  left out until it completes: design change 0112, *Beacon Deployment*); and the Syndicate's **Tunnel Space** (slice
+  M4-B, `economy/army/tunnel_space.rs`; `factions/syndicate/tunnels.md > Tunnel Space`, design changes 0242, 0258
+  and 0265), out of min(`TUNNEL_SPACE_CAP` 200, ⌊the unused tunnel-region cells of the player's Tunnels /
+  `CELLS_PER_TUNNEL_SPACE` 4⌋): each Tunnel's region is its Tunnel Area at its current tier less its own footprint
+  (`tunnel::area::region`: 48, 84 and 128 cells), every cell counted, on the map or off it, Drillable or not (0242);
+  a cell is used when an underground structure of the player's or a neutral one stands on it, cell by cell (0258
+  point 4), never another player's. The regions are summed Tunnel by Tunnel, as the formula reads. Used is the
   `ArmyResource::cost_of` of the player's units plus their producers' units in production (design change 0143, for
   every faction: `Production::in_production`, the unit at the front once its progress has begun, a finished one
   waiting inside included; a unit only queued, or waiting at 0% for room, takes nothing). The cap is checked when a
@@ -1480,7 +1502,7 @@ M3-D2: design change 0145, `> Portals > Portal Exits (energy doorway)`).
     `Sim::release_into_network`): the finished unit comes into the game held in its owner's network
     (`SimEvent::UnitProduced` without a `Spawned`), with no transit delay, and nothing ever holds the release up.
     With no rally point, or one on a Tunnel of its owner's, it stays inside. Any other rally is on the surface: the
-    unit joins the end of its **parent Tunnel's** eject queue (`network::parent`, derived) with its default command
+    unit joins the end of its **parent Tunnel's** eject queue (`tunnel::area::parent`, derived) with its default command
     on the rally target, resolved at production (`Sim::rally_order_of`); a rally on an own underground structure is a
     Move to the point above it, not an object target (0252). Without a parent Tunnel, or one whose tier lets the unit
     out, it stays inside. An entry's order whose target leaves the game meanwhile is dropped (`forget`), and the unit
@@ -1738,9 +1760,11 @@ M3-D2: design change 0145, `> Portals > Portal Exits (energy doorway)`).
   layouts of the players of one game in each other's way, once the map has no problems of its own.
 - **Starting Conditions** (`scenario/starting.rs`, slice M2-F1, plan decision T11): `StartingConditions::of(faction)`
   is a faction's table (`factions/gdo/economy.md > Starting Conditions`; the Colonists' since slice M3-C,
-  `factions/colonists/economy.md > Starting Conditions`: an Egress Node, a Robo Portal and four Drones): its starting
-  objects with their counts, its starting banks, and its primary structure, which the camera starts on. A faction
-  without one (the Syndicate and the Cults) is "not implemented yet". A game starts each player's banks from it
+  `factions/colonists/economy.md > Starting Conditions`: an Egress Node, a Robo Portal and four Drones; the
+  Syndicate's since slice M4-B, `factions/syndicate/tunnels.md > Tunnel > Starting Conditions`: a Tier 1 Tunnel, a
+  Hideout inside its Tunnel Area and an Agent, 100 Space Crystals and 1 Supply, the camera on the Tunnel): its
+  starting objects with their counts, its starting banks, and its primary structure, which the camera starts on. A
+  faction without one (the Cults) is "not implemented yet". A game starts each player's banks from it
   (`Player::starting`). On a Skirmish Default map
   (`> Skirmish Default restriction`, design changes 0009 and 0012) a layout holds only its faction's Starting
   Conditions objects, no more of a kind than they do (`LayoutExtra`; for a faction not implemented yet, nothing), and
@@ -1775,7 +1799,10 @@ M3-D2: design change 0145, `> Portals > Portal Exits (energy doorway)`).
   Skirmish Default development map (Q0003) with 180° symmetry: starts in opposite corners, each with a GDO Starting
   Layout whose Deployment Center sees and reaches its 8-patch field (design change 0095) and two plates on it, and a
   Colonists one (slice M3-C, plan decision T24: the Egress Node on tile (4, 4) within the field's arc, the Robo
-  Portal on (6, 6), the Drones at points clear of the node's sides and the portal's), gentle hills of slopes only,
+  Portal on (6, 6), the Drones at points clear of the node's sides and the portal's), and a Syndicate one (slice
+  M4-B: the Tunnel on (4, 4) turned 180°, Side A south to the open map, Side D east to the middle, its crystal hatch
+  (4, 5) 1 grid unit from the patch (2, 5), design changes 0248, 0255 and 0259, Q0076; the Hideout on (8, 8) in its
+  Tier 1 area; the Agent at (6, 9.5) grid units), gentle hills of slopes only,
   and a central plateau ringed by cliffs with a ramp up through a gap in the west and in the east
   (`maps/dev_skirmish.json` is the same map, which a test checks);
   `dev_structures`, a flat 30×12 Custom QA map with one of each GDO structure for each of two players (a plate on a
@@ -1918,7 +1945,17 @@ M3-D2: design change 0145, `> Portals > Portal Exits (energy doorway)`).
   M3-C) has the Colonists' start on `dev_skirmish` in either slot, its Drones clear of the node and the portal, the
   validation of every faction combination and of an incomplete layout, and Beacon Capacity (design change 0143):
   seven Drones queued and the seventh waiting for room, group production past the capacity, a fall in capacity, and
-  the refined banks.
+  the refined banks. `syndicate_start.rs` (slice M4-B) has the Syndicate's start in either slot (the objects, 100
+  Space Crystals and 1 Supply, Tunnel Space 1/11, the camera on the Tunnel), the crystal hatch 1 grid unit from a
+  patch (`tunnel::hatch_square`), the nine faction combinations, an incomplete layout, a layout Tunnel by the lake
+  or the edge refused (0242), and an expansion over full Tunnel Space removing nothing. The Tunnel Area's rules are
+  unit-tested in `placement/tests/tunnel_area.rs`, Tunnel Space in `economy/army/tunnel_space.rs`, the geometry in
+  `tunnel/area.rs`; a unit inside the network keeping its Tunnel Space in `tests/tunnel_network/enter.rs`.
+- **The building armor rule** (design change 0264, `core/entities.md > Structure Type > Building armor rule`):
+  `crates/sim/tests/building_armor.rs` holds every faction's buildings, from the defs alone, to "PointArmor n,
+  FullArmor n × size", with an `EXCEPTIONS` list (empty; a stale entry fails), and every underground expansion to
+  PointArmor 6 (`structures/README.md > Tunnel Expansions > High armor underground`). A new building passes it as
+  it is added, or is listed with its reason.
 - **Structure tests** are `crates/sim/tests/structures.rs` (each type's stat block, the Barracks in all 16 ways to
   rotate and flip it and its sides, ground units walking around a footprint, PointArmor on hits, a destroyed
   Generator freeing its tiles, debug spawns kept apart but for a plate on its patch, flat ground, the optional
@@ -2216,8 +2253,10 @@ the GDO Space Crystals and Supplies (the banks), Power as consumed / generated (
 exceeds generation (0090), and Unit Control as used / `UNIT_CONTROL_CAP`, read through `Sim::unit_control` alone, so
 that the units in production (design change 0143) count as the sim counts them; for the Colonists (slice M3-C,
 `factions/colonists/overview.md > DisplayHud`) Space Crystals, Alloys, Essence and Flux, and Beacon Capacity as used
-/ available (`Sim::army_cap`; red over capacity, 0112), with no Power; the other factions Space Crystals only, until
-their own resources exist. At the end of the game a banner across the world view (`hud/outcome.rs`,
+/ available (`Sim::army_cap`; red over capacity, 0112), with no Power; for the Syndicate (slice M4-B,
+`factions/syndicate/overview.md > DisplayHud`) Space Crystals, Supplies and Tunnel Space as used / available
+(`Sim::army_cap`; red over capacity, as `tunnels.md > Tunnel Space` has it, "12/10"); the Cults Space Crystals
+only, until their own resources exist. At the end of the game a banner across the world view (`hud/outcome.rs`,
 placeholder look and wording) shows the local player's `Banner`: VICTORY for the winners, DEFEAT for everyone else,
 DRAW for everyone when nobody won (design change 0163), and DEFEATED with a spectating line while a defeated player
 watches the game go on beside an ally (0102; never yet: the sim has no teams). A player defeated while the game goes
@@ -2565,9 +2604,10 @@ their producing structures and their constructors, and the Colonists' Beacons an
   band gives the insufficient-resources feedback (0083): `NO_CRYSTALS_TEXT` after the sim's `ProductionRefused` for
   a local player's producer that a Train didn't reach for want of crystals (a full queue gives none); the
   placeholder of design change 0143's notification, the army cap's name (`army_cap_text`: `UNIT_CONTROL_TEXT`,
-  `BEACON_CAPACITY_TEXT`), after the sim's `ProductionWaiting` for a local player's producer whose unit begins to
-  wait for room (its InfoPanel shows "Waiting for Unit Control" or "Waiting for Beacon Capacity" while it does,
-  `hud/info_panel/activity.rs`); a placement's (`placement_text`, the check's first problem): an
+  `BEACON_CAPACITY_TEXT`, `TUNNEL_SPACE_TEXT`), after the sim's `ProductionWaiting` for a local player's producer
+  whose unit begins to wait for room (its InfoPanel shows "Waiting for Unit Control", "Waiting for Beacon Capacity"
+  or "Waiting for Tunnel Space" while it does, `hud/info_panel/activity.rs`); a placement's (`placement_text`, the
+  check's first problem, the Tunnel Area's three rules included): an
   `InvalidPlacement` or the sim's `PlacementRefused`; and `TARGET_TOO_CLOSE_TEXT` after the sim's `TargetTooClose`
   for a local player's unit (design change 0182).
 - **Placement visuals** (`placement.rs`, `placement/`): while the local player places a building (`placing_now`: a
@@ -2800,7 +2840,7 @@ unchecked.
   a 90°-rotated map can only be resized to another square.
 - **Map types** (`core/map_editor.md > Map Types`): on a Skirmish Default map, objects outside the Starting Layouts
   are neutral, so the editor offers no owner and refuses owned ones (`PlaceProblem::OwnedOnSkirmishMap`). Custom maps
-  have no restrictions. A new Skirmish Default map lists its empty GDO and Colonists layouts as problems
+  have no restrictions. A new Skirmish Default map lists its empty GDO, Syndicate and Colonists layouts as problems
   (`LayoutMissing`), so it can't be play-tested until they are placed with the Layout tool (see Starting Layouts
   below).
 - **Starting Layouts** (`editor/layouts.rs` and `layouts/`, slice M2-I; `core/map_editor.md > Starting Layouts`,
@@ -2814,7 +2854,9 @@ unchecked.
     the layout may still take (a placed kind moves the tool on to the next one missing); on a Custom map every kind a
     player may own; for a faction without Starting Conditions nothing ("not implemented yet", plan decision T11).
     Structures snap to tiles and units, such as the Colonists' Drones, go at the point clicked (`objects::snap_spawn`;
-    `tests/editor/colonists.rs`).
+    `tests/editor/colonists.rs`). The Syndicate's palette is its Tunnel, Hideout and Agent (slice M4-B); a Tunnel
+    whose Tier 1 Tunnel Area reaches off the map or onto undrillable ground, or a Hideout outside that area, shows a
+    red ghost and is refused with the rule's text (`rule_text`; `tests/editor/syndicate.rs`).
   - **Checks** (`layouts/check.rs::check_object`): the editor's own rules first (the Starting Conditions' kinds and
     counts on a Skirmish Default map, the editable part, no overlap with the object's own image), then the sim's:
     `MapDef::validate` of the map with the object in place, keeping only that object's problems. The sim is the
@@ -2929,9 +2971,12 @@ M3-C and finished by M3-K2 from what the M3 slices needed (plan `artifacts/direc
    T11, T24): `scenarios::dev_skirmish_map` (slot 1's; `MapDef::regenerate` makes the images), every Skirmish
    Default file in `maps/` (place them with the editor's Layout tool and save;
    `the_maps_in_the_repository_are_playable` says which), and the tests that build a Skirmish Default map and expect
-   it playable (the editor's use `tests/editor/colonists.rs::with_colonists`). Check each layout with
-   `MapDef::validate` (its structures by `placement::check_layout`, its units by the unit-start rule), and keep the
-   starting units clear of the structures' sides and exits.
+   it playable (the editor's use `tests/editor/colonists.rs::with_colonists` and
+   `tests/editor/syndicate.rs::with_syndicate`). Check each layout with `MapDef::validate` (its structures by
+   `placement::check_layout`, its units by the unit-start rule), and keep the starting units clear of the structures'
+   sides and exits. The tests that used the faction as the one not implemented yet move to another (slice M4-B moved
+   the Syndicate's to the Cults). A faction's own layout rule goes into `check_layout` (the Syndicate's expansions
+   inside their Tunnel's area), and its text into the editor's `rule_text` and the client's `placement_text`.
 5. **Army cap** (`economy/army.rs`): the faction's `ArmyResource` (`ArmyResource::of`, `name`, `cost_of`, and what
    is available in `cap`), or none. The start check at production start is the one for every faction (design change
    0143, `sim/producers/step.rs`), and so is its `SimEvent::ProductionWaiting`; the client's `army_cap_text` and the

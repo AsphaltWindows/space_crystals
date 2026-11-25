@@ -61,11 +61,11 @@ fn each_layout_follows_its_factions_placement_rules_without_sight() {
     assert_eq!(s.map.validate(), [blocked]);
     gdo(&mut s).pop();
     // Another faction's layout over the GDO's.
-    *s.map.slots[0].layouts.get_mut(Faction::Syndicate) = vec![laid(DC, 2, 2)];
+    *s.map.slots[0].layouts.get_mut(Faction::Cults) = vec![laid(DC, 2, 2)];
     assert_eq!(s.validate(), []);
 
     // Only the area of the layout's own Deployment Center counts.
-    s.map.slots[0].layouts.get_mut(Faction::Syndicate).clear();
+    s.map.slots[0].layouts.get_mut(Faction::Cults).clear();
     s.map.spawns.push(Spawn::new(DC, Some(SlotId(1)), tile(1, 1)));
     *gdo(&mut s) = vec![laid(PLATE, 13, 1)];
     assert_eq!(

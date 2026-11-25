@@ -14,6 +14,8 @@
 //!
 //! The Tunnel Area's radius and the transit by tier are in the table for the slices that use them (M4-B, M4-C, M4-F).
 
+pub mod area;
+
 use serde::{Deserialize, Serialize};
 
 use crate::defs::{ObjectKind, TierDef, TunnelDef};

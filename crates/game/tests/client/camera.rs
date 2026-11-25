@@ -57,7 +57,7 @@ fn the_camera_starts_on_the_players_deployment_center() {
         TilePos::new(40, 30).center()
     );
     assert_eq!(start_center(&scenario, PlayerId(2), &map), on_dc);
-    scenario.setup.players[1].faction = Faction::Syndicate;
+    scenario.setup.players[1].faction = Faction::Cults;
     assert_eq!(
         start_center(&scenario, PlayerId(2), &map),
         TilePos::new(47, 35).center()

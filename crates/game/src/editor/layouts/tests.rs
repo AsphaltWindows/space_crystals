@@ -60,7 +60,7 @@ fn the_palette_offers_what_the_layout_may_take() {
         ),
         "Extraction Facility, Extraction Plate"
     );
-    assert!(palette(&map, slot, Faction::Syndicate).is_empty());
+    assert!(palette(&map, slot, Faction::Cults).is_empty());
     map.map_type = MapType::Custom;
     let custom = palette(&map, slot, Faction::Gdo);
     assert!(
@@ -69,6 +69,29 @@ fn the_palette_offers_what_the_layout_may_take() {
             .any(|e| e.kind == ObjectKind::Barracks && e.left.is_none())
     );
     assert!(custom.iter().all(|e| e.kind.def().category != Category::Resource));
+}
+
+/// Slice M4-B: the Syndicate's palette on a Skirmish Default map holds its three kinds, one each
+/// (`factions/syndicate/tunnels.md > Tunnel > Starting Conditions`: one Tier 1 Tunnel, one Hideout, one Agent), and
+/// its missing list names them.
+#[test]
+fn the_syndicate_palette_holds_its_three_kinds() {
+    let mut map = skirmish();
+    let slot = SlotId(1);
+    let labels = |map: &MapDef| -> Vec<String> {
+        palette(map, slot, Faction::Syndicate)
+            .iter()
+            .map(PaletteEntry::label)
+            .collect()
+    };
+    assert_eq!(labels(&map), ["Tunnel: 1 left", "Hideout: 1 left", "Agent: 1 left"]);
+    let syndicate = StartingConditions::of(Faction::Syndicate).unwrap();
+    assert_eq!(missing_text(&syndicate.missing(&[])), "Tunnel, Hideout, Agent");
+    let layouts = &mut map.slot_mut(slot).unwrap().layouts;
+    layouts
+        .get_mut(Faction::Syndicate)
+        .push(object(ObjectKind::Tunnel, 4, 4));
+    assert_eq!(labels(&map), ["Tunnel: done", "Hideout: 1 left", "Agent: 1 left"]);
 }
 
 #[test]
@@ -111,8 +134,8 @@ fn layouts_unlike_the_starting_conditions_are_flagged() {
 fn the_preview_plays_the_edited_faction() {
     let map = skirmish();
     assert_eq!(preview_scenario(&map, None), Scenario::new(map.clone()));
-    let syndicate = preview_scenario(&map, Some(Faction::Syndicate));
-    assert!(syndicate.setup.players.iter().all(|p| p.faction == Faction::Syndicate));
-    assert_eq!(syndicate.setup.players.len(), 2);
-    assert_eq!(syndicate.setup.seed, Scenario::new(map).setup.seed);
+    let cults = preview_scenario(&map, Some(Faction::Cults));
+    assert!(cults.setup.players.iter().all(|p| p.faction == Faction::Cults));
+    assert_eq!(cults.setup.players.len(), 2);
+    assert_eq!(cults.setup.seed, Scenario::new(map).setup.seed);
 }

@@ -25,7 +25,9 @@ impl MapDef {
     ///   of location, flat ground under a structure, not a resource, which a layout's owner would own), and if it
     ///   does, for a structure, the placement rules in Layout mode (`placement::check_layout`, design change 0097;
     ///   [`ScenarioProblem::LayoutPlacement`]): among the map's pre-placed objects and the rest of its layout, and
-    ///   within the build area of the layout's own Deployment Center;
+    ///   within the build area of the layout's own Deployment Center; a Tunnel's whole Tier 1 Tunnel Area on the map
+    ///   and Drillable (design change 0242: "Starting Layouts must respect this"), and an underground structure
+    ///   wholly inside the area of a Tunnel of its layout (slice M4-B);
     /// - for a unit, the unit-start rule (`paths::misplaced`, `docs/movement.md > 3`; design change 0097: "starting
     ///   units can't stand on structures or impassable tiles"), against the map's pre-placed objects and the layout's
     ///   units before it ([`ScenarioProblem::InvalidLayoutObject`]). A structure of the layout over a unit is the

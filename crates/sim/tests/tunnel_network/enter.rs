@@ -2,7 +2,7 @@
 //! `factions/syndicate/tunnels.md > Tunnel Network`, design changes 0245 to 0249).
 
 use sc_sim::network::{Place, TRANSIT_DELAY_TICKS};
-use sc_sim::{MoveStatus, PlayerCommand, Reject, Target};
+use sc_sim::{ArmyResource, MoveStatus, PlayerCommand, Reject, Target};
 
 use super::*;
 
@@ -335,6 +335,39 @@ fn a_unit_inside_the_network_still_takes_its_army_cost() {
     assert_eq!(used(&t), before);
 }
 
+/// Slice M4-B: the Syndicate's own army cap, Tunnel Space, counts a unit inside the network as one on the map
+/// (`factions/syndicate/tunnels.md > Tunnel Space`: the units "currently-committed", design change 0265; plan decision
+/// T30: "for as long as the unit lives"), through `Sim::army_cap`'s held units. Player 1's Tier 1 Tunnel gives 12
+/// (48 tunnel-region cells over 4); each Guard takes its TunnelSpaceCost of 1. The Guard that goes in keeps its 1
+/// inside and out again, and gives it back when it dies.
+#[test]
+fn a_guard_inside_the_network_keeps_its_tunnel_space_until_it_dies() {
+    let mut t = base().start();
+    t.without_auto_targeting()
+        .spawn_unit_at(1, GUARD, P1, Vec2::new(866.0, 560.0)) // 2: goes in
+        .spawn_unit_at(1, GUARD, P1, Vec2::new(600.0, 300.0)) // 3: stays out
+        .at(2, P1, enter(&[id(2)], T1));
+    let tunnel_space = |t: &TestSim| {
+        let cap = t.sim().army_cap(P1).expect("a Syndicate player");
+        assert_eq!(cap.resource, ArmyResource::TunnelSpace);
+        (cap.used, cap.available)
+    };
+    run_checked(&mut t, 1);
+    assert_eq!(tunnel_space(&t), (2, 12));
+    run_checked(&mut t, 40);
+    assert_eq!(inside(&t), [id(2)]);
+    assert_eq!(tunnel_space(&t), (2, 12), "inside, it counts as before");
+    let entered = entries(&t)[0].0;
+    t.at(entered + TRANSIT_DELAY_TICKS, P1, eject(T1, GUARD));
+    run_checked(&mut t, entered + TRANSIT_DELAY_TICKS);
+    assert!(inside(&t).is_empty() && t.sim().object(id(2)).is_some());
+    assert_eq!(tunnel_space(&t), (2, 12), "out again");
+    let tick = t.sim().tick();
+    t.debug_at(tick + 1, DebugCommand::Remove { id: id(2) });
+    run_checked(&mut t, tick + 1);
+    assert_eq!(tunnel_space(&t), (1, 12), "dead, it takes none");
+}
+
 /// Design change 0249: "An Agent keeps its load." An Agent carrying crystals gets Drop Off by default on its own
 /// Tunnel (`units/agent.md > Right-Click Resolution`: "Own Tunnel (carrying resources) → Drop off resources"), and
 /// Enter without a load; ordered to Enter with its load, it has it inside the network and when it comes out.
@@ -346,6 +379,9 @@ fn an_agent_keeps_its_load_through_the_network() {
         .spawn_unit_at(1, AGENT, P1, Vec2::new(1180.0, 620.0)) // 3
         .order_at(2, P1, &[id(3)], OrderKind::Gather(id(2)), false);
     run_checked(&mut t, 1);
+    // The Syndicate's starting banks (`factions/syndicate/tunnels.md > Tunnel > Starting Conditions`; slice M4-B).
+    let crystals = |t: &TestSim| t.sim().player(P1).unwrap().crystals;
+    let banked = crystals(&t);
     let default = |t: &TestSim| t.sim().default_order(id(3), Target::Object(T1));
     assert_eq!(default(&t), Some(OrderKind::Enter(T1)), "empty");
     let load = |t: &TestSim| t.sim().object(id(3)).unwrap().worker.unwrap().load;
@@ -364,7 +400,7 @@ fn an_agent_keeps_its_load_through_the_network() {
     }
     let held = t.sim().held_unit(id(3)).unwrap();
     assert_eq!(held.object.worker.unwrap().load, carried, "inside");
-    assert_eq!(t.sim().player(P1).unwrap().crystals, 0, "nothing was delivered");
+    assert_eq!(crystals(&t), banked, "nothing was delivered");
     let entered = t.sim().tick();
     t.at(entered + TRANSIT_DELAY_TICKS, P1, eject(T1, AGENT));
     run_checked(&mut t, entered + TRANSIT_DELAY_TICKS + 5);

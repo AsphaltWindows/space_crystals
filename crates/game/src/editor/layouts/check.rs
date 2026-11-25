@@ -115,6 +115,10 @@ pub fn rule_text(problem: &ScenarioProblem) -> String {
                     WholeProblem::OutsideBuildArea => {
                         "no tile is in the build area of the layout's Deployment Center".to_string()
                     }
+                    // A layout's expansion is in its own Tunnel's area (slice M4-B, `sc_sim::check_layout`).
+                    WholeProblem::OutsideTunnelArea => {
+                        "not wholly inside the Tier 1 Tunnel Area of a Tunnel of the layout".to_string()
+                    }
                     w => w.to_string(),
                 })
                 .collect();

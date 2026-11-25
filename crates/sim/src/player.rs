@@ -73,8 +73,9 @@ pub struct Banks {
 impl Player {
     /// A player of `faction` as a game starts them: in the game, their Space Crystals and Supplies at the faction's
     /// Starting Conditions (`factions/gdo/economy.md > Starting Conditions`, `factions/colonists/economy.md >
-    /// Starting Conditions`: 100 Space Crystals each), 0 for a faction not implemented yet (plan decision T11), and
-    /// the refined resources at 0 (T21).
+    /// Starting Conditions`: 100 Space Crystals each; `factions/syndicate/tunnels.md > Tunnel > Starting Conditions`:
+    /// 100 and 1 Supply, slice M4-B), 0 for a faction not implemented yet (plan decision T11), and the refined
+    /// resources at 0 (T21).
     pub fn starting(id: PlayerId, name: String, faction: Faction) -> Self {
         let start = StartingConditions::of(faction);
         Self {
@@ -184,7 +185,8 @@ mod tests {
     }
 
     /// A game starts each player at their faction's Starting Conditions, the refined resources at 0 (plan decision
-    /// T21); a faction not implemented yet starts with nothing (T11). `set_banks` sets all five.
+    /// T21): the Syndicate with 100 Space Crystals and 1 Supply (slice M4-B); a faction not implemented yet starts
+    /// with nothing (T11). `set_banks` sets all five.
     #[test]
     fn players_start_with_their_factions_banks() {
         let start = |faction| Player::starting(PlayerId(1), "P".into(), faction).banks();
@@ -194,7 +196,8 @@ mod tests {
         };
         assert_eq!(start(Faction::Gdo), hundred);
         assert_eq!(start(Faction::Colonists), hundred);
-        assert_eq!(start(Faction::Syndicate), Banks::default());
+        assert_eq!(start(Faction::Syndicate), Banks { supplies: 1, ..hundred });
+        assert_eq!(start(Faction::Cults), Banks::default());
         let mut p = player(5);
         let set = Banks {
             crystals: 1,

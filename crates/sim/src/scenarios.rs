@@ -117,9 +117,10 @@ pub fn dev_skirmish() -> Scenario {
 /// generated from it ([`MapDef::regenerate`]), so it is symmetric by construction. The two slots start in the
 /// top-left and bottom-right corners, each with an 8-patch crystal field (`factions/gdo/economy.md > Reference
 /// starting base`) between the start and the map edge, a GDO Starting Layout (Deployment Center, Extraction
-/// Facility and two plates) whose Deployment Center sees and reaches the whole field, and a Colonists one (Egress
-/// Node, Robo Portal and four Drones) whose Egress Node stands within the field's arc. Terrain (`core/map.md >
-/// Elevation`): a lake and a mountain
+/// Facility and two plates) whose Deployment Center sees and reaches the whole field, a Colonists one (Egress
+/// Node, Robo Portal and four Drones) whose Egress Node stands within the field's arc, and a Syndicate one (Tunnel,
+/// Hideout and Agent) whose Tunnel's crystal hatch faces the field. Terrain (`core/map.md > Elevation`): a lake and a
+/// mountain
 /// massif on each side, rugged ground on the flanks, a gentle hill of slopes only on each side, and a central
 /// plateau 3 levels up ringed by cliffs, reached only by a slope through a 2-tile gap in the west and in the east
 /// (the chokepoints). A Supply Delivery Station stands on the plateau, in the middle of the map.
@@ -217,6 +218,34 @@ pub fn dev_skirmish_map() -> MapDef {
         drone(4.5, 9.0),
         drone(3.5, 10.0),
         drone(4.5, 10.0),
+    ];
+    // The first slot's Syndicate Starting Layout (`factions/syndicate/tunnels.md > Tunnel > Starting Conditions`;
+    // slice M4-B, the second slot's is its image). The Tunnel on (4, 4) to (7, 7), turned 180° so that its sides
+    // (design change 0248: "A: entrance/exit; B: crystal hatch; C: back wall (no function); D: Supplies hatch") face A
+    // south, toward the open map, B west, C north and D east, toward the middle of the map and its station. The crystal
+    // hatch, (4, 5) (`tunnel::hatch_square`, slice M4-D: Side B's middle square farther from Side A; design change 0255
+    // point 6: "The hatch is 1 grid square, near the middle of the side"), faces the patch (2, 5) across the empty
+    // column x = 3, 1 grid unit edge to edge (0259: the patch "1 GU from the hatch"). That close, 3 or more Agents jam
+    // at the hatch (question Q0076): the layout keeps 0259's 1 GU until the design decides. Its Tier 1 Tunnel Area,
+    // (2, 2) to (9, 9), is all on the map and flat Plane (design change 0242: on the map and Drillable). The Hideout
+    // on (8, 8) to (9, 9), in that area, off the Tunnel and the patches; the Agent 1.5 grid units south of Side A's
+    // middle, at (6, 9.5) grid units, clear of the doorway the Tunnel's units use (slice M4-C). No camera start: the
+    // camera starts on the Tunnel (`core/camera.md > Starting Position`: "Syndicate: starting Tunnel").
+    let turned = BuildingOrientation {
+        rotation: Rotation::R180,
+        ..BuildingOrientation::default()
+    };
+    *slot.layouts.get_mut(Faction::Syndicate) = vec![
+        LayoutObject {
+            orientation: turned,
+            ..laid(ObjectKind::Tunnel, 4, 4)
+        },
+        laid(ObjectKind::Hideout, 8, 8),
+        LayoutObject {
+            kind: ObjectKind::Agent,
+            at: SpawnAt::Point(glam::Vec2::new(6.0, 9.5) * SU_PER_GU),
+            orientation: BuildingOrientation::default(),
+        },
     ];
 
     let mut dev = MapDef {

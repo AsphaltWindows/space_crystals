@@ -1,7 +1,7 @@
 //! The rule of what a structure goes onto (`factions/gdo/economy.md > ExtractionPlate`: "Placed onto a Space Crystal
 //! Patch"), which the placement check (`super::check`) and map validation share.
 
-use super::check::Occupant;
+use super::site::Occupant;
 use crate::defs::ObjectKind;
 use crate::nav::TileRect;
 

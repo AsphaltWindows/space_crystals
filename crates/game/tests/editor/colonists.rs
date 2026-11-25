@@ -15,6 +15,7 @@ use space_crystals::editor::ui::lists::ProblemList;
 use space_crystals::editor::ui::starting::LayoutPanel;
 
 use super::layouts::{click, laid, skirmish, spot, texts_under, with_patches};
+use super::syndicate::with_syndicate;
 use super::{act, doc, editor, sim, temp_maps, tools};
 
 const S1: SlotId = SlotId(1);
@@ -65,14 +66,18 @@ fn colonists(app: &App, slot: SlotId) -> Vec<LayoutObject> {
 }
 
 /// The plan's slice M3-C: "The Colonists layout palette comes from the table, and Drones are placed as units." On a
-/// new Skirmish Default map (here with the GDO's layout done) the Problems list says what the Colonists' layout lacks;
-/// the palette offers the Egress Node, the Robo Portal and four Drones, and moves on to the next kind as each is
-/// done; a Drone goes exactly where it is clicked, a point, not a tile. Slot 2's layout is the image, and with the
-/// layout complete the map plays: slot 2's Colonists player starts with it, at Beacon Capacity 4/10.
+/// new Skirmish Default map (here with the GDO's and the Syndicate's layouts done) the Problems list says what the
+/// Colonists' layout lacks; the palette offers the Egress Node, the Robo Portal and four Drones, and moves on to the
+/// next kind as each is done; a Drone goes exactly where it is clicked, a point, not a tile. Slot 2's layout is the
+/// image, and with the layout complete the map plays: slot 2's Colonists player starts with it, at Beacon Capacity
+/// 4/10.
 #[test]
 fn the_colonists_layout_is_placed_from_their_starting_conditions() {
     let dir = temp_maps("colonists_layout");
-    let mut map = with_patches(skirmish(32, 24, 2, Symmetry::Rotate180), &[(3, 3), (4, 3)]);
+    let mut map = with_syndicate(with_patches(
+        skirmish(32, 24, 2, Symmetry::Rotate180),
+        &[(3, 3), (4, 3)],
+    ));
     let gdo = [
         laid(ObjectKind::DeploymentCenter, 2, 6, UNTURNED),
         laid(ObjectKind::ExtractionFacility, 7, 6, UNTURNED),

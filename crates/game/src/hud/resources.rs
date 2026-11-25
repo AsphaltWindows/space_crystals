@@ -17,15 +17,22 @@
 //!   - Beacon Capacity as used / available (`Sim::army_cap`, plan decision T20): the units and the units in
 //!     production (design change 0143) over 5 per Colonists building, at most 200; in red while more is used than
 //!     available (`> Beacon Capacity > Over capacity`, design change 0112). No Power: the Colonists have none (T21).
-//! - **The other factions** show Space Crystals only, until their own resources (the Syndicate's Tunnel Space and
-//!   Supplies, the Cults' Unit Control) exist in the sim (the M2 plan, slice G).
+//! - **Syndicate** (`factions/syndicate/overview.md > DisplayHud`; slice M4-B), left to right:
+//!   - Space Crystals and Supplies, the banks (`Player::crystals`, `Player::supplies`: 100 and 1 at the start,
+//!     `factions/syndicate/tunnels.md > Tunnel > Starting Conditions`);
+//!   - Tunnel Space as used / available (`Sim::army_cap`): the units and the units in production (design change
+//!     0143) over min(200, ⌊the unused tunnel-region cells of the player's Tunnels / 4⌋); in red while more is used
+//!     than available (`tunnels.md > Tunnel Space`: "usage is simply displayed over capacity (e.g. 12/10)"), as
+//!     Beacon Capacity is.
+//! - **The Cults** show Space Crystals only, until their own resources (their Unit Control) exist in the sim (the
+//!   M2 plan, slice G).
 //! - A local player who isn't in the game shows no resources.
 //!
 //! Placeholder look, the design giving none: one ASCII text per figure (the UI font has no other glyphs), with the
 //! value after the name, side by side.
 
 use bevy::prelude::*;
-use sc_sim::{Faction, PlayerId, Sim, UNIT_CONTROL_CAP};
+use sc_sim::{ArmyResource, Faction, PlayerId, Sim, UNIT_CONTROL_CAP};
 
 use super::{TEXT_COLOR, set_text, show_node, text};
 use crate::sim_driver::{LocalPlayer, SimRes};
@@ -34,8 +41,8 @@ use crate::sim_driver::{LocalPlayer, SimRes};
 const FIGURE_VH: f32 = 2.0;
 /// The space between two figures (placeholder).
 const FIGURE_GAP_VH: f32 = 3.0;
-/// A figure that warns: power in the red (design change 0090), Beacon Capacity over capacity (0112); the shade is a
-/// placeholder.
+/// A figure that warns: power in the red (design change 0090), Beacon Capacity or Tunnel Space over capacity (0112,
+/// `factions/syndicate/tunnels.md > Tunnel Space`); the shade is a placeholder.
 pub const ALERT_COLOR: Color = Color::srgb(1.0, 0.35, 0.3);
 
 /// One figure of a DisplayHud: a resource and how it reads. Declared in the order the bar shows them, every faction's
@@ -58,6 +65,8 @@ pub enum ResourceFigure {
     Flux,
     /// `> Beacon Capacity: current used / current available (max 200)` (Colonists).
     BeaconCapacity,
+    /// `> Tunnel Space: current used / current available (max 200)` (Syndicate).
+    TunnelSpace,
 }
 
 /// `factions/gdo/overview.md > DisplayHud`.
@@ -77,9 +86,16 @@ const COLONISTS: [ResourceFigure; 5] = [
     ResourceFigure::BeaconCapacity,
 ];
 
+/// `factions/syndicate/overview.md > DisplayHud`.
+const SYNDICATE: [ResourceFigure; 3] = [
+    ResourceFigure::SpaceCrystals,
+    ResourceFigure::Supplies,
+    ResourceFigure::TunnelSpace,
+];
+
 impl ResourceFigure {
     /// Every figure, in the order the bar shows them.
-    pub const ALL: [ResourceFigure; 8] = [
+    pub const ALL: [ResourceFigure; 9] = [
         ResourceFigure::SpaceCrystals,
         ResourceFigure::Supplies,
         ResourceFigure::Power,
@@ -88,15 +104,17 @@ impl ResourceFigure {
         ResourceFigure::Essence,
         ResourceFigure::Flux,
         ResourceFigure::BeaconCapacity,
+        ResourceFigure::TunnelSpace,
     ];
 
-    /// The figures `faction`'s DisplayHud shows, left to right (module docs: the Syndicate's and the Cults' own
-    /// resources don't exist yet).
+    /// The figures `faction`'s DisplayHud shows, left to right (module docs: the Cults' own resources don't exist
+    /// yet).
     pub fn of(faction: Faction) -> &'static [ResourceFigure] {
         match faction {
             Faction::Gdo => &GDO,
             Faction::Colonists => &COLONISTS,
-            Faction::Syndicate | Faction::Cults => &[ResourceFigure::SpaceCrystals],
+            Faction::Syndicate => &SYNDICATE,
+            Faction::Cults => &[ResourceFigure::SpaceCrystals],
         }
     }
 }
@@ -105,8 +123,8 @@ impl ResourceFigure {
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Reading {
     pub text: String,
-    /// Shown as a warning, in [`ALERT_COLOR`]: power in the red (design change 0090), Beacon Capacity over capacity
-    /// (0112).
+    /// Shown as a warning, in [`ALERT_COLOR`]: power in the red (design change 0090), Beacon Capacity or Tunnel Space
+    /// over capacity (0112, `factions/syndicate/tunnels.md > Tunnel Space`).
     pub alert: bool,
 }
 
@@ -138,10 +156,14 @@ pub fn resource_bar(sim: &Sim, player: PlayerId) -> Vec<(ResourceFigure, Reading
         ResourceFigure::Alloys => Reading::plain(format!("Alloys {}", p.alloys)),
         ResourceFigure::Essence => Reading::plain(format!("Essence {}", p.essence)),
         ResourceFigure::Flux => Reading::plain(format!("Flux {}", p.flux)),
-        ResourceFigure::BeaconCapacity => {
+        ResourceFigure::BeaconCapacity | ResourceFigure::TunnelSpace => {
             let (used, available) = sim.army_cap(player).map_or((0, 0), |cap| (cap.used, cap.available));
+            let resource = match figure {
+                ResourceFigure::TunnelSpace => ArmyResource::TunnelSpace,
+                _ => ArmyResource::BeaconCapacity,
+            };
             Reading {
-                text: format!("Beacon Capacity {used}/{available}"),
+                text: format!("{} {used}/{available}", resource.name()),
                 alert: used > available,
             }
         }
@@ -364,19 +386,43 @@ mod tests {
         assert_eq!(texts(t.sim(), P1)[4], "Beacon Capacity 7/5!");
     }
 
-    /// The other factions show only what exists of their DisplayHud: Space Crystals. A player not in the game shows
-    /// nothing.
+    /// `factions/syndicate/overview.md > DisplayHud` on the Syndicate's starting objects (slice M4-B,
+    /// `factions/syndicate/tunnels.md > Tunnel > Starting Conditions`): Space Crystals 100, Supplies 1, and Tunnel
+    /// Space 1/11, the Tunnel's 48 tunnel-region cells less the Hideout's 4 over 4, of which the Agent uses 1. Over
+    /// capacity (`tunnels.md > Tunnel Space`: "usage is simply displayed over capacity (e.g. 12/10)"): with a second
+    /// Hideout and 11 more Agents, 12/10, in red.
     #[test]
-    fn other_factions_show_space_crystals_only() {
-        for faction in [Faction::Syndicate, Faction::Cults] {
-            assert_eq!(
-                ResourceFigure::of(faction),
-                [ResourceFigure::SpaceCrystals],
-                "{faction:?}"
-            );
+    fn the_syndicate_bar_reads_their_banks_and_tunnel_space() {
+        use ResourceFigure::{SpaceCrystals, Supplies, TunnelSpace};
+        let agent = |x: i32| SpawnAt::Point(TilePos::new(x, 12).center());
+        let base = || {
+            ScenarioBuilder::new(&vec![".".repeat(16); 14].join("\n"))
+                .faction(P1, Faction::Syndicate)
+                .spawn(ObjectKind::Tunnel, Some(P1), tile(4, 4))
+                .spawn(ObjectKind::Hideout, Some(P1), tile(8, 8))
+                .spawn(ObjectKind::Agent, Some(P1), agent(1))
+        };
+        let sim = Sim::new(&base().build());
+        let figures: Vec<ResourceFigure> = resource_bar(&sim, P1).into_iter().map(|(f, _)| f).collect();
+        assert_eq!(figures, [SpaceCrystals, Supplies, TunnelSpace]);
+        assert_eq!(
+            texts(&sim, P1),
+            ["Space Crystals 100", "Supplies 1", "Tunnel Space 1/11"]
+        );
+        let mut full = base().spawn(ObjectKind::Hideout, Some(P1), tile(2, 2));
+        for x in 2..13 {
+            full = full.spawn(ObjectKind::Agent, Some(P1), agent(x));
         }
+        let sim = Sim::new(&full.build());
+        assert_eq!(texts(&sim, P1)[2], "Tunnel Space 12/10!");
+    }
+
+    /// The Cults show only what exists of their DisplayHud: Space Crystals. A player not in the game shows nothing.
+    #[test]
+    fn the_cults_show_space_crystals_only() {
+        assert_eq!(ResourceFigure::of(Faction::Cults), [ResourceFigure::SpaceCrystals]);
         let mut scenario = ScenarioBuilder::new(&vec![".".repeat(8); 8].join("\n")).build();
-        scenario.setup.players[1].faction = Faction::Syndicate;
+        scenario.setup.players[1].faction = Faction::Cults;
         let sim = Sim::new(&scenario);
         assert_eq!(texts(&sim, PlayerId(2)), ["Space Crystals 0"]);
         assert!(texts(&sim, PlayerId(3)).is_empty());

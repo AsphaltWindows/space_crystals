@@ -36,6 +36,7 @@ use crate::object::Object;
 use crate::orders::state::Behaviour;
 use crate::orders::{OrderKind, Orders, Target};
 use crate::production::Rally;
+use crate::tunnel;
 
 impl Sim {
     /// Every unit held off the map (plan decision T30, `crate::network`), in id order: those inside the Tunnel
@@ -102,11 +103,11 @@ impl Sim {
             .ok_or(Reject::InTransit(kind))
     }
 
-    /// The parent Tunnel of `expansion` (plan decision T32, [`network::parent`]): its owner's Tunnel in operation
+    /// The parent Tunnel of `expansion` (plan decision T32, [`tunnel::area::parent`]): its owner's Tunnel in operation
     /// whose Tunnel Area fully contains it.
     pub fn parent_tunnel(&self, expansion: ObjectId) -> Option<ObjectId> {
         let expansion = self.objects.get(&expansion)?;
-        network::parent(expansion, self.objects.values().filter(|o| o.tunnel.is_some()))
+        tunnel::area::parent(expansion, self.objects.values().filter(|o| o.tunnel.is_some()))
     }
 
     /// The gate for `OrderKind::Enter(tunnel)` (`systems/controls/commands.md > Enter`: "any Syndicate unit, when the

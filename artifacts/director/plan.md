@@ -801,9 +801,24 @@ Approach: thin vertical slices the user can run and see, each verified by tests 
     - R splits `sim.rs` (648 lines);
     - M judges the units that idle 1 GU out (Q0077).
 
+- **M4-B Syndicate start** (Opus; merged in `35e19634`; 1506 tests):
+  - **The Starting Conditions:** a Tier 1 Tunnel, the Hideout, an Agent, 100 SC and 1 Supply, with the camera on the Tunnel.
+  - **`dev_skirmish` Syndicate layouts** in both slots. The crystal hatch faces the field, 1 GU from the patches (Q0076 is noted in the layout comment).
+  - **Tunnel Space** is a derived army cap (`economy/army/tunnel_space.rs`), and counts units in the network.
+    - The HUD shows it, in red when over capacity, with "Tunnel Space limit reached" feedback.
+    - Own areas that overlap (only spawns can make them) count their shared cells twice, as the formula reads.
+  - **0242's area rule** in `placement::check` and `check_layout` (`TunnelAreaOffMap`, `TunnelAreaNotDrillable`), and the layout rule for expansions (`OutsideTunnelArea`). The editor has the Syndicate palette and the rule texts. A Tunnel 2 tiles from the edge is valid (Q0078).
+  - **One area function.** C's `network::area` and `parent` are folded into `tunnel::area::parent`.
+  - **The building-armor test** (0264): all 11 buildings follow PointArmor n / FullArmor n × size, with no exceptions.
+  - **The Hideout** is judged as a Direct (Buildable) placement until M4-F (Q0080 may change it).
+  - **Tests that used the Syndicate** as the unimplemented faction now use the Cults.
+  - **Goldens re-blessed:**
+    - attack_move_battle, duel_3v3, fog_chase, patrol and riot_shield: their P2 is the Syndicate, which now starts with 100 SC and 1 Supply. With those banks zeroed, all five match their old hashes.
+    - gdo_opening, colonists_opening and colonists_vs_gdo: only the embedded map's slots changed. Every checkpoint hash is identical.
+  - **Perf:** placement_check, structures_perf and drones_perf are unchanged in interleaved A/B runs.
+
 ## In progress
 - **M3 waves 2 and 3** (common brief `scratchpad/briefs/m3-common.md`; status `m3-w2-status.md`):
-  - **M4-B Syndicate start** (Opus; brief `scratchpad/briefs/m4b-syndicate-start.md`, spec `scratchpad/m4/rev/B.md`): the Starting Conditions, the `dev_skirmish` layouts, Tunnel Space, 0242's area rule in placement and layouts, and the 0264 armor test across all factions.
   - **M4-I Supplies** (Opus; brief `scratchpad/briefs/m4i-supplies.md`): 0256 (any number of Agents pick up at once; a station that empties means a notification placeholder and Agents waiting for ever; switching resources loses the load) and 0248 (the Supplies hatch on D).
 - **Next**:
   - **Playtest:** the user plays once all four factions are built (2026-11-24), using `docs/playtest/m2.md`, `m3.md` and later notes. This replaces separate M1–M3 playtests.
@@ -960,7 +975,18 @@ The user keeps feeding unit and other designs to the Designer, so expect increme
     | J3 | done (`827dfeb`; Q0075) |
     | G3 | done (`8480ee0`) |
 - **M4 Syndicate** (**planned**; spec: `artifacts/director/m4-plan.md`, from the design at `36a8cd8` plus 0210–0228).
-  - **Slices:** 14, in 6 waves: A; B, C (Fable), D (Fable); E, I, J2; F, H, J1 (the first playable); G, K, L; M (QA).
+  - **Slices** (revised plan, adopted 2026-11-25, which folds in 0229–0282): A–M plus R1 and R2 (code organization), O (combat spike), U (Grenadier), and S1 and S2 (Laser Turrets). The waves:
+    1. A
+    2. B, C, D, then I
+    3. R1, R2
+    4. E, J2
+    5. J1, H, F (the first playable)
+    6. K, G, O
+    7. L, S1
+    8. U, S2
+    9. M
+
+    The critical path is A → C → R1 → E → F → K → S1 → S2 → M.
   - **Deferred until numbers exist:** the gated N1–N6, i.e. the Grenadier, Laser Turret, vehicles, Shadebringer, other expansions and the Phantom.
   - **Questions:** Q0059–Q0071. Q0059 (Optics Lab stats) blocks K, and Q0060 (the upgrade's duration) blocks G. Both were answered by 0229.
   - **Slice status:**
@@ -968,8 +994,8 @@ The user keeps feeding unit and other designs to the Designer, so expect increme
     - C: done (`f67df212`; Q0077).
     - D: done (`edc30e11`; Q0076).
     - I: running (wave 3, started early since it needs only D; Opus; brief `scratchpad/briefs/m4i-supplies.md`).
-    - R (code organization: citations, defs per object, tuning modules): after B, C and I land, before E and J2.
-    - B: running (wave 2; Opus; the revised spec `scratchpad/m4/rev/B.md`).
+    - R1 (sim) and R2 (client, docs, citation test): briefs ready (`scratchpad/briefs/m4r1-sim-organization.md`, `m4r2-client-docs-organization.md`). They launch together once B and I land, with nothing else running; R2 merges after R1.
+    - B: done (`35e19634`).
     - The rest are queued. A planning pass is folding 0229–0271 into slices B and E–M, and planning 0260's new content: a combat spike, the Grenadier, the Laser Turret and the Chemical Plant.
   - **All M4 questions are answered** (Q0059–Q0071), by 0229–0267.
   - **Earlier scope note:** tunnels, Hideout, Agent, Guard economy, 0186's Optics Lab gate and Agent pistol, the Grenadier (0187) and the Assault Bike (0188), once their numbers exist. Underground expansions are exempt from the flatness rule (0005).
@@ -1073,6 +1099,14 @@ The user keeps feeding unit and other designs to the Designer, so expect increme
 | Q0075 | A revealed attacker shooting at a target the player can't see: draw the shot whole (literal 0206) or clip it? | no | answered by 0244 (stricter than B; M3-L5) |
 | Q0076 | Agents jam head-on between a near patch (0–1 GU) and the hatch: 3+ Agents halve the income (5.33 against 12.5 SC/s). Pass through like Drones, move patches to 3 GU or more, or a right-of-way rule? | partly (M4-L's oracle; the first playable) | open; as built, Agents collide |
 | Q0077 | Eject while every unit of the type is in transit: refused or queued? And where an ejected unit with no rally waits: 1 GU out, as built, or farther? | no | open; as built in M4-C |
+| Q0078 | Tunnel near the map edge: 0242's Verification (2 tiles from the edge is red) is one tile off its own rule | no | open; M4-B (`35e19634`) built the rule as written, marked `Placeholder: Q0078` |
+| Q0079 | Agent build orders: a refund if the Agent is killed before the start; does a pending ghost or a site reserve its whole area? | no | open; M4-E builds the proposals |
+| Q0080 | Expansion placement: do ground units and lingering ghosts block it; is a Warp In over a hidden expansion red at once? | no | open; M4-F builds the proposals |
+| Q0081 | ExpandMenu slots: do expansions not yet in the game keep their greyed slots, so the turret's letter never moves? | no | open; M4-J2 and M4-F build the proposal |
+| Q0082 | Supplies gathering: pick-up and drop-off reaches; nearest Tunnel measured to the Supplies hatch; the old load lost at the end of the new pick-up | no | open; M4-I builds A |
+| Q0083 | Area damage: friendly fire, the reveal, Attack Ground's end, how grenades are drawn | no | open; M4-O and M4-U build the proposals |
+| Q0084 | Laser Turret: hidden when, sight, blocking, payment, refunds, sites, the Agent's exit, targeting | no | open; M4-S1 and M4-S2 build the proposals |
+| Q0085 | Stale doc lines that later answers contradict (seven lines) | no | open; the newer answer wins |
 
 ## Design change entries
 Last triaged: 0282.
@@ -1295,7 +1329,7 @@ Last triaged: 0282.
 | 0239 Every tile under an expansion must be Drillable (Plane, Rugged and Cliff; not Mountain or Water); own and neutral underground structures and the Tunnel's footprint block it | queued (M4-F) | answers Q0062 points 3a, 3b and 3e, as proposed |
 | 0240 Surface buildings and underground expansions never share a tile, whatever the owner (neutral included). A direct placement (GDO) over a hidden expansion is red at once, an accepted leak. A worker-built ghost judges by what the player knows and fails on the worker's arrival. Units still walk over expansions | queued (M4-E for surface placement: direct placement and the check on arrival read the underground truth; M4-F for expansions: none under a surface building) | answers Q0062 points 3c and 4; replaces T32's "the surface methods ignore them" |
 | 0241 No expansions under resources (patches, Supply Delivery Stations); non-Drillable cells give no Tunnel Space | queued (M4-F: no expansions under resources); the Tunnel Space part is superseded by 0242 | answers Q0062 points 3d and 5 |
-| 0242 A Tunnel's whole area must be on the map and Drillable, for placement and upgrades; every tunnel-region cell is usable; starting layouts must respect it | queued (M4-B: layout validation and a simple Tunnel Space; M4-E: placement, the ghost by knowledge and the check on arrival; M4-G: the upgrade check) | completes Q0062; replaces 0238 and 0241's Tunnel Space part |
+| 0242 A Tunnel's whole area must be on the map and Drillable, for placement and upgrades; every tunnel-region cell is usable; starting layouts must respect it | partly done (M4-B, `35e19634`: layout and editor validation, `TunnelAreaOffMap` and `TunnelAreaNotDrillable`, Tunnel Space; 2 tiles from the edge valid, Q0078); queued (M4-E: placement, the ghost by knowledge and the check on arrival; M4-G: the upgrade check) | completes Q0062; replaces 0238 and 0241's Tunnel Space part |
 | 0243 AttackMove: a reach-rule rejection is also re-checked once the unit has moved about 1 GU from where it judged; Failure-rule and fog rejections keep 0230's triggers; measure the cost | done (M3-L5, `a777ae3`); the 1 GU step is kept: at most 1.45× master's mean tick, about +0.05 ms for 100 Guards | answers Q0074 (B, "to try") |
 | 0244 A revealed attacker's shot is drawn whole only when its target is the viewer's own object; everything else is clipped to Visible tiles | done (M3-L5, `a777ae3`) | answers Q0075; narrows 0206 |
 | 0245 Tunnel Network: a flat transit delay of 32 frames (placeholder) after entering before a unit can exit; produced units have none | done (M4-C, `f67df212`) | answers Q0063 point 1 |
@@ -1313,14 +1347,14 @@ Last triaged: 0282.
 | 0257 Syndicate panel letters on the 4x3 grid | queued (M4-J1, M4-J2) | answers Q0068, as proposed |
 | 0258 Losing Tunnels: decay %, attacking neutral expansions, reclaiming, blocked cells (counted as occupied), defeat, and the enemy sees the tier | partly done (M4-A, `fcd06dc`: the tier seen and remembered); queued (M4-H) | answers Q0069 |
 | 0259 The Syndicate economy check: measured to the hatch square; the stacked layout puts the Tunnels on opposite sides | queued (M4-L); the stacked layout is in M4-D's soak | answers Q0070 |
-| 0260 Placeholders for the Laser Turret, the Grenadier and the Chemical Plant, so they can be planned into M4; the Grenadier needs a projectile, AoE and Attack Ground combat spike | queued (new M4 slices, being planned) | answers Q0071 (scope B) |
+| 0260 Placeholders for the Laser Turret, the Grenadier and the Chemical Plant, so they can be planned into M4; the Grenadier needs a projectile, AoE and Attack Ground combat spike | queued (planned in M4 revision 2: O the combat spike, U the Grenadier, S1 and S2 the Laser Turret, K the Chemical Plant) | answers Q0071 (scope B) |
 | 0261 Area damage never hits underground objects unless targeted | void (replaced by 0262) | — |
 | 0262 Area damage does hit underground objects; expansions and the pop-up turret have high armor | done (M4-A, `fcd06dc`: damage never asks the hidden predicate); armor per 0264 | answers Q0071's AoE-underground gap |
 | 0263 Confirmed: undeploy, held orders, the Transport's base, the Phantom's attack | queued (gated N3 and N6) | answers Q0071's items to confirm |
-| 0264 Building armor rule: PointArmor n, FullArmor n × size in grid squares; underground expansions 6/24 for 2x2; the Laser Turret 1/1 raised, 6/6 underground | partly done (M4-A, `fcd06dc`: the Hideout 6/24); queued (M4-B: a defs test of the rule across factions; the Laser Turret's slice) | — |
+| 0264 Building armor rule: PointArmor n, FullArmor n × size in grid squares; underground expansions 6/24 for 2x2; the Laser Turret 1/1 raised, 6/6 underground | partly done (M4-A, `fcd06dc`: the Hideout 6/24; M4-B, `35e19634`: the defs test across factions, all 11 buildings pass, no exceptions); queued (S1, S2: the Laser Turret) | — |
 | 0265 Transport passengers always count against Tunnel Space | queued (gated N3) | answers Q0071's Tunnel Space gap |
 | 0266 A burrowed Transport passes through underground structures; surfacing rules | queued (gated N3) | answers Q0071's underground and surfacing gaps |
-| 0267 A Tunnel-built Laser Turret uses the operation slot; detection comes after the faction rosters | queued (the Laser Turret's slice) | Q0071 complete (0260–0267) |
+| 0267 A Tunnel-built Laser Turret uses the operation slot; detection comes after the faction rosters | queued (M4-S2) | Q0071 complete (0260–0267) |
 | 0268 New Syndicate unit, a single-payload Bomber (concept only) | gated (concept only) | — |
 | 0269 The Bomber needs a Vault and a Chemical Plant, attacks ground only, re-arms in the network; the Vault works network-wide | gated (concept only) | — |
 | 0270 The Syndicate bomber is named Specter | gated (concept only) | — |
@@ -1335,5 +1369,5 @@ Last triaged: 0282.
 | 0279 Relay: every selected Battery must reach a Satellite; the armed Satellite takes Attack orders | gated (concept only) | — |
 | 0280 Satellite thrust charges never recharge; the armed Satellite fires at anything the player sees | gated (concept only) | — |
 | 0281 The satellite is named Prism; it can be shot down while launching | gated (concept only) | — |
-| 0282 The design docs are reorganized into one file per unit and per structure (`factions/<f>/units/*.md`, `structures/*.md`, shared sections in each folder's README); no design content changed. From the user: keep the code organized and modular too: per-object definitions, data and tunables apart from logic, shared mechanics written once | queued (M4-R, a code-organization slice after wave 2: the ~320 stale citations, a citation-check test, defs per object, tuning modules; being planned). Running slices cite the new paths | — |
+| 0282 The design docs are reorganized into one file per unit and per structure (`factions/<f>/units/*.md`, `structures/*.md`, shared sections in each folder's README); no design content changed. From the user: keep the code organized and modular too: per-object definitions, data and tunables apart from logic, shared mechanics written once | queued (M4-R1 and M4-R2, after I lands; briefs ready). Slices since then cite the per-object paths | — |
 | 0014 GDO Airfield and aircraft | queued (Later: air) | |

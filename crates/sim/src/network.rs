@@ -232,40 +232,6 @@ pub fn passes(transit: &[Transit], class: Transit) -> bool {
     transit.contains(&class) && (class != Transit::Air || AIR_DOORS)
 }
 
-/// A Tunnel's Tunnel Area (`factions/syndicate/tunnels.md > Tunnel Area`): "a square underground build zone centered
-/// on the Tunnel. The radius extends outward from the Tunnel's 4x4 footprint in each direction", at its tier's Tunnel
-/// Area Radius. As a footprint, which may reach off the map. `None` for anything but a placed Tunnel.
-pub fn area(tunnel: &Object) -> Option<Placement> {
-    let radius = tunnel::tier_def(tunnel)?.area_radius;
-    let placement = tunnel.placement.as_ref()?;
-    let reach = i32::try_from(radius).ok()?;
-    Some(Placement {
-        origin: crate::units::TilePos::new(placement.origin.x - reach, placement.origin.y - reach),
-        w: placement.w + 2 * radius,
-        h: placement.h + 2 * radius,
-        ..*placement
-    })
-}
-
-/// The parent Tunnel of `expansion`, an underground structure (plan decision T32: derived, never stored): "the
-/// owner's Tunnel whose current area fully contains it", the first by id of `tunnels` (an owner's Tunnel Areas never
-/// overlap, so there is at most one). `None` for an expansion without an owner or outside every area of its owner's
-/// Tunnels in operation.
-pub fn parent<'a>(expansion: &Object, tunnels: impl IntoIterator<Item = &'a Object>) -> Option<ObjectId> {
-    let owner = expansion.owner?;
-    let inside = expansion.placement.as_ref()?;
-    let contains = |area: &Placement| {
-        let (x0, y0) = (i64::from(area.origin.x), i64::from(area.origin.y));
-        let (x1, y1) = (x0 + i64::from(area.w), y0 + i64::from(area.h));
-        let (ix, iy) = (i64::from(inside.origin.x), i64::from(inside.origin.y));
-        x0 <= ix && y0 <= iy && ix + i64::from(inside.w) <= x1 && iy + i64::from(inside.h) <= y1
-    };
-    tunnels
-        .into_iter()
-        .find(|t| t.owner == Some(owner) && is_exit(t) && area(t).is_some_and(|area| contains(&area)))
-        .map(|t| t.id)
-}
-
 /// Whether `tunnel` is a way into and out of the network: a Tunnel with an owner. (`> Losing Tunnels`: "A Tunnel that
 /// is still under construction does not count as an exit": slice M4-E's sites answer `false` here.)
 pub fn is_exit(tunnel: &Object) -> bool {

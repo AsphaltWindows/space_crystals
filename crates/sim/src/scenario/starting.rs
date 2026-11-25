@@ -1,9 +1,10 @@
 //! Starting Conditions (slice M2-F1, plan decision T11): what each faction starts a game with
-//! (`factions/gdo/economy.md > Starting Conditions`, `factions/colonists/economy.md > Starting Conditions`), and what
-//! that means for a map's Starting Layouts (`core/map_editor.md > Starting Layouts`).
+//! (`factions/gdo/economy.md > Starting Conditions`, `factions/colonists/economy.md > Starting Conditions`,
+//! `factions/syndicate/tunnels.md > Tunnel > Starting Conditions`), and what that means for a map's Starting Layouts
+//! (`core/map_editor.md > Starting Layouts`).
 //!
-//! - **The table** ([`StartingConditions::of`]) lives in the sim. The GDO's and the Colonists' (slice M3-C) are
-//!   implemented. The Syndicate's and the Cults' come with their milestones (M4, M5), and until then a faction
+//! - **The table** ([`StartingConditions::of`]) lives in the sim. The GDO's, the Colonists' (slice M3-C) and the
+//!   Syndicate's (slice M4-B) are implemented. The Cults' come with their milestone (M5), and until then a faction
 //!   without a table counts as "not implemented yet" (T11).
 //! - **Game start**: a player's banks start at their faction's Starting Conditions (`crate::Sim::try_new`), and their
 //!   objects are those of their faction's Starting Layout at their slot (`Scenario::start_objects`).
@@ -78,15 +79,33 @@ static COLONISTS: StartingConditions = StartingConditions {
     primary: ObjectKind::RoboPortal,
 };
 
+/// `factions/syndicate/tunnels.md > Tunnel > Starting Conditions` (slice M4-B): "One pre-built **Tier 1 Tunnel**
+/// containing one pre-built **Hideout**", "One **Agent**", "**1 Supply** (enough for the 2nd Tunnel, which costs 1
+/// Supply)", "Starting Space Crystals: **100** (same as GDO and the Colonists)". The Tunnel is at Tier 1 as every new
+/// one is (`crate::tunnel::BASE_TIER`); the layout puts the Hideout inside its Tunnel Area (`crate::placement::
+/// check_layout`). Tunnel Space follows from the objects (`crate::economy::army`): 48 tunnel-region cells less the
+/// Hideout's 4, so 11, of which the Agent uses 1.
+static SYNDICATE: StartingConditions = StartingConditions {
+    objects: &[
+        (ObjectKind::Tunnel, 1),
+        (ObjectKind::Hideout, 1),
+        (ObjectKind::Agent, 1),
+    ],
+    crystals: 100,
+    supplies: 1,
+    // `core/camera.md > Starting Position`: "Syndicate: starting Tunnel".
+    primary: ObjectKind::Tunnel,
+};
+
 impl StartingConditions {
     /// `faction`'s Starting Conditions, or `None` while the faction isn't implemented yet (plan decision T11): the
-    /// Syndicate's and the Cults' starting objects (Tunnel and Agents, Recruitment Hall and Recruits) don't exist in
-    /// the sim before their milestones.
+    /// Cults' starting objects (Recruitment Hall and Recruits) don't exist in the sim before their milestone.
     pub fn of(faction: Faction) -> Option<&'static StartingConditions> {
         match faction {
             Faction::Gdo => Some(&GDO),
             Faction::Colonists => Some(&COLONISTS),
-            Faction::Syndicate | Faction::Cults => None,
+            Faction::Syndicate => Some(&SYNDICATE),
+            Faction::Cults => None,
         }
     }
 
@@ -235,10 +254,12 @@ mod tests {
 
     /// `factions/gdo/economy.md > Starting Conditions`: a Deployment Center, an Extraction Facility, two plates and
     /// 100 Space Crystals (Supplies 0, design change 0077); `factions/colonists/economy.md > Starting Conditions`: an
-    /// Egress Node, a Robo Portal, four Drones and 100 Space Crystals, the camera on the Robo Portal (`core/camera.md
-    /// > Starting Position`). The Syndicate and the Cults aren't implemented yet (T11).
+    /// Egress Node, a Robo Portal, four Drones and 100 Space Crystals, the camera on the Robo Portal
+    /// (`core/camera.md > Starting Position`); `factions/syndicate/tunnels.md > Tunnel > Starting Conditions`: a
+    /// Tunnel, a Hideout, an Agent, 100 Space Crystals and 1 Supply, the camera on the Tunnel. The Cults aren't
+    /// implemented yet (T11).
     #[test]
-    fn the_gdo_and_the_colonists_have_starting_conditions() {
+    fn the_implemented_factions_have_starting_conditions() {
         use ObjectKind::{DeploymentCenter, Drone, EgressNode, ExtractionFacility, ExtractionPlate, RoboPortal};
         let gdo = StartingConditions::of(Faction::Gdo).unwrap();
         assert_eq!(
@@ -257,9 +278,14 @@ mod tests {
             (100, 0, RoboPortal)
         );
         assert_eq!([Drone, ObjectKind::Beacon].map(|k| colonists.count(k)), [4, 0]);
-        for faction in [Faction::Syndicate, Faction::Cults] {
-            assert_eq!(StartingConditions::of(faction), None, "{faction:?}");
-        }
+        use ObjectKind::{Agent, Hideout, Tunnel};
+        let syndicate = StartingConditions::of(Faction::Syndicate).unwrap();
+        assert_eq!(syndicate.objects, [(Tunnel, 1), (Hideout, 1), (Agent, 1)]);
+        assert_eq!(
+            (syndicate.crystals, syndicate.supplies, syndicate.primary),
+            (100, 1, Tunnel)
+        );
+        assert_eq!(StartingConditions::of(Faction::Cults), None);
     }
 
     /// The missing kinds, in the table's order, and the extra objects, the later ones of a kind.

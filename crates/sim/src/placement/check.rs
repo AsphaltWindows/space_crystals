@@ -1,218 +1,22 @@
 //! The placement check (`core/entities.md > Placement Validation`): every rule a footprint breaks, tile by tile and
 //! as a whole. The rules are listed in the `placement` module docs.
 
-use std::fmt;
-
 use glam::Vec2;
-use serde::{Deserialize, Serialize};
 
 use super::build_area::{BuildArea, needs_build_area, overlap};
+use super::footprint::Footprint;
 use super::onto::Onto;
+use super::problems::{PlacementCheck, TileProblem, WholeProblem};
+use super::site::{Method, Mode, Occupant, Site};
+use super::tunnel_area::{area_rule, outside_tunnel_area};
 use crate::defs::{Category, Domain, ObjectKind};
-use crate::ids::PlayerId;
 use crate::map::Map;
 use crate::nav::TileRect;
-use crate::object::{Object, Placement};
+use crate::object::Placement;
 use crate::paths::box_overlaps_rect;
 use crate::scenario::BuildingOrientation;
 use crate::units::TilePos;
-use crate::vision::{VisibilityState, Vision};
-
-/// Something on the map that a footprint must keep clear of, or is placed onto: an object of a game, or one of a map
-/// or a Starting Layout that hasn't started.
-#[derive(Copy, Clone, Debug, PartialEq)]
-pub struct Occupant {
-    pub kind: ObjectKind,
-    /// Its centre, space units; a unit's box is around it.
-    pub pos: Vec2,
-    /// A tile-based object's footprint.
-    pub placement: Option<Placement>,
-}
-
-impl Occupant {
-    /// What object `o` is to a placement: its kind, centre and footprint.
-    pub fn of(o: &Object) -> Self {
-        Self {
-            kind: o.kind,
-            pos: o.pos,
-            placement: o.placement,
-        }
-    }
-}
-
-/// How a placement is checked: in a game, or for a Starting Layout.
-#[derive(Copy, Clone, Debug)]
-pub enum Mode<'a> {
-    /// A player's placement in a game (`core/entities.md > Placement Validation > Direct Placement`, `> Warp In`):
-    /// every footprint tile must be Visible to `player` in `vision`, as the latest tick left it; an Extraction
-    /// Plate's too (design change 0095), and a Warp In's (design change 0119).
-    Command { vision: &'a Vision, player: PlayerId },
-    /// A worker-built structure's order, its gate and its ghost (plan decision T16; `core/entities.md > Placement
-    /// Validation > Worker-Built Structures`, design change 0120: "The ghost judges by what the player knows"; slice
-    /// M3-F, `crate::Sim::deploy_check`). The caller gives the occupants `player` knows of: its own objects, the others
-    /// it sees now, and its records of the structures and resources out of its sight, as they were when last seen
-    /// ("units hidden in fog are ignored"). On a tile `player` has never explored in `vision`, what stands there and
-    /// the ground are unknown, and the tile "passes": only the player's own reservations
-    /// ([`TileProblem::Reserved`]) count there. The map's edge is known: a tile off the map never passes.
-    Known { vision: &'a Vision, player: PlayerId },
-    /// A worker's check of its site on arrival (`> Worker-Built Structures`: "validates on arrival"; `> Lingering build
-    /// ghosts`: "No visibility requirement on arrival (the worker is physically present)"): the truth, with no sight
-    /// rule.
-    Arrival,
-    /// An object of a Starting Layout (`core/map_editor.md > Starting Layouts > Layout validation`, design change
-    /// 0097): the faction's "normal in-game placement rules, minus visibility", as nothing is "visible" in the editor.
-    /// The build area to reach is the layout's own ([`BuildArea::of_layout`]).
-    Layout,
-}
-
-/// How the structure comes to stand (plan decision T16: one check, whose rules follow the method;
-/// `core/entities.md > Placement Validation`).
-#[derive(Copy, Clone, Debug, PartialEq, Eq)]
-pub enum Method {
-    /// `> Direct Placement`, the GDO's: placed at once from a menu, onto tiles the player sees (in a game), within
-    /// the build area for a GDO building.
-    Direct,
-    /// `> Warp In` (`factions/colonists/economy.md > Warp In`): the Beacon standing at `beacon` transforms in place
-    /// into the structure, on the footprint `crate::transform::warp_in_footprint` derives from it (design change
-    /// 0121), which the caller checks. Every footprint tile must be Buildable, flat and unoccupied "except for the
-    /// Beacon's own footprint, which will be consumed by the transformation": the tiles under `beacon` break no rule
-    /// but sight. A ground unit of any player occupies its tiles, air and underground units never do (design change
-    /// 0118), as for a Direct Placement. Every tile must be Visible, as for a Direct Placement (design change 0119:
-    /// "a tile that isn't is red on the ghost", whatever stands there), the Beacon's own included (its owner's
-    /// Beacon always sees them). There is no build area.
-    WarpIn { beacon: Placement },
-    /// `> Worker-Built Structures` (slice M3-F, a Drone deploying a Beacon, `crate::deploy`): built by a worker on a
-    /// site it walks to. The tile rules of a Direct Placement, sight aside (the [`Mode`] decides what is seen), and no
-    /// build area ("no range limit from other Colonists buildings",
-    /// `factions/colonists/economy.md > Beacon Deployment > Placement`). "The building worker itself (e.g. the
-    /// deploying Drone) doesn't count" (design change 0118): the caller leaves it out of the occupants, as a Warp In's
-    /// caller leaves out its Beacon.
-    WorkerBuilt,
-}
-
-/// What a placement is checked against besides the objects on the map: the ground, the build area the footprint
-/// must reach, the mode and the method.
-#[derive(Copy, Clone, Debug)]
-pub struct Site<'a> {
-    pub map: &'a Map,
-    /// In a game the placing player's build area ([`crate::Sim::build_area`]), for a Starting Layout the layout's.
-    pub area: &'a BuildArea,
-    pub mode: Mode<'a>,
-    pub method: Method,
-}
-
-/// A rule one footprint tile breaks (`core/entities.md > Placement Validation > Direct Placement`), in the order they
-/// are checked. The placement ghost shows them tile by tile (design change 0093).
-#[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
-pub enum TileProblem {
-    /// The tile lies off the map; nothing else is checked on it.
-    OffMap,
-    /// The tile's preset isn't Buildable (`core/map.md > TilePreset`; of the defaults only Plane is,
-    /// `> DefaultTilePresets`).
-    NotBuildable,
-    /// The tile is sloped (`core/map.md > Elevation > Structures only on flat terrain`).
-    NotFlat,
-    /// The tile isn't Visible to the placing player (in a game: a Direct Placement or a Warp In, design change
-    /// 0119). It is then the tile's only problem: what stands on a tile the player doesn't see, and the terrain of one
-    /// they never saw, is hidden from them (`core/vision.md > VisibilityStateEnum`), and the tile is invalid anyway.
-    NotVisible,
-    /// Another structure's footprint covers the tile ("no existing structure overlap"), whoever owns it: a plate on
-    /// the patch, for another plate.
-    Structure,
-    /// A map resource covers the tile, and the footprint isn't a plate going onto a patch (`core/entities.md >
-    /// Placement Validation > All placement methods: no buildings on resources`, design change 0096).
-    Resource,
-    /// A ground unit's box overlaps the tile, whoever owns it: units are never pushed aside, and air and underground
-    /// units don't count (design change 0094).
-    Unit,
-    /// One of the placing player's pending worker builds covers the tile (`core/entities.md > Placement Validation >
-    /// Lingering build ghosts`: it "reserves the site against the owner's further placements: a new ghost overlapping
-    /// it is invalid", design change 0125; slice M3-F: a Deploy, current or queued, `crate::Sim::pending_deploys`).
-    /// The tile's only problem on ground the player never explored ([`Mode::Known`]).
-    Reserved,
-}
-
-impl TileProblem {
-    /// Every problem, in the order they are listed.
-    pub const ALL: [TileProblem; 8] = [
-        TileProblem::OffMap,
-        TileProblem::NotBuildable,
-        TileProblem::NotFlat,
-        TileProblem::NotVisible,
-        TileProblem::Structure,
-        TileProblem::Resource,
-        TileProblem::Unit,
-        TileProblem::Reserved,
-    ];
-
-    /// Its bit in a tile's set of problems.
-    const fn bit(self) -> u8 {
-        1 << self as u8
-    }
-}
-
-/// A rule the footprint breaks as a whole, in the order they are checked.
-#[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
-pub enum WholeProblem {
-    /// Only structures are placed this way, not units or map resources; nothing else is checked.
-    NotAStructure,
-    /// No tile of the GDO building is in the build area (`factions/gdo/structures.md > GDOBuildArea`: "at least 1
-    /// grid cell of the new building must be within the current build area"). A Deployment Center seeds the area
-    /// and needs none ([`super::seeds_build_area`]).
-    OutsideBuildArea,
-    /// The Extraction Plate isn't exactly on a Space Crystals Patch (`factions/gdo/economy.md > ExtractionFacility >
-    /// AwaitingPlacement`: "Left-click Space Crystal Patch within GDO build area that does not already have a plate").
-    /// A patch that has a plate is the [`TileProblem::Structure`] of that plate.
-    NotOnPatch,
-}
-
-/// Everything that keeps a placement from being valid ([`check`]): nothing, if it is.
-#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
-pub struct PlacementCheck {
-    /// Each rule each footprint tile breaks: the tiles row by row from the north-west, each one's problems in the
-    /// order of [`TileProblem`]. A tile without a problem isn't listed.
-    pub tiles: Vec<(TilePos, TileProblem)>,
-    /// The rules the footprint breaks as a whole, in the order of [`WholeProblem`].
-    pub whole: Vec<WholeProblem>,
-}
-
-impl PlacementCheck {
-    /// Whether the placement breaks no rule: the ghost is green, and the building may be placed.
-    pub fn is_valid(&self) -> bool {
-        self.tiles.is_empty() && self.whole.is_empty()
-    }
-
-    /// The rules `tile` breaks, in order.
-    pub fn problems_at(&self, tile: TilePos) -> impl Iterator<Item = TileProblem> + '_ {
-        self.tiles.iter().filter(move |(t, _)| *t == tile).map(|&(_, p)| p)
-    }
-
-    /// Whether `tile` breaks no rule of its own (the footprint as a whole still may).
-    pub fn tile_is_valid(&self, tile: TilePos) -> bool {
-        self.problems_at(tile).next().is_none()
-    }
-
-    /// The first rule the placement breaks, for a short answer such as the command gate's
-    /// (`crate::Reject::Unplaceable`): the footprint's first as a whole, else its first tile's, in the order they are
-    /// listed. `None` if it is valid.
-    pub fn first_problem(&self) -> Option<PlacementProblem> {
-        let whole = self.whole.first().map(|&problem| PlacementProblem::Whole(problem));
-        whole.or_else(|| {
-            self.tiles
-                .first()
-                .map(|&(tile, problem)| PlacementProblem::Tile(tile, problem))
-        })
-    }
-}
-
-/// One rule a placement breaks ([`PlacementCheck::first_problem`]).
-#[derive(Copy, Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub enum PlacementProblem {
-    /// A rule the footprint breaks as a whole.
-    Whole(WholeProblem),
-    /// A rule this footprint tile breaks.
-    Tile(TilePos, TileProblem),
-}
+use crate::vision::VisibilityState;
 
 /// The size `(w, h)` in tiles of `kind`'s footprint turned by `orientation`: its size in the default orientation,
 /// with `w` and `h` swapped by a quarter turn (`core/entities.md > Structure Type`). `None` for units.
@@ -345,15 +149,18 @@ pub fn check_reserving(
     if !onto.is_kept() {
         whole.push(WholeProblem::NotOnPatch);
     }
+    // Design change 0242: a Tunnel's whole Tier 1 area on the map and Drillable (`super::tunnel_area`).
+    whole.extend(area_rule(site, kind, footprint.rect()));
     PlacementCheck { tiles, whole }
 }
 
 /// [`Mode::Layout`] for object `index` of a Starting Layout (`core/map_editor.md > Starting Layouts > Layout
 /// validation`, design change 0097). `layout` is the layout's objects where they stand, `others` the map's
 /// pre-placed objects. The object is checked, turned as its placement is, against the map, `others` and the rest of
-/// `layout`, with the area of the layout's own Deployment Center ([`BuildArea::of_layout`]). `None` for an object
-/// without a footprint, a unit (the starting units' rule is the unit-start one, `paths::misplaced`), and for an
-/// index past the end.
+/// `layout`, with the area of the layout's own Deployment Center ([`BuildArea::of_layout`]); an underground
+/// structure must also lie wholly inside the Tier 1 Tunnel Area of a Tunnel of `layout` ([`WholeProblem::
+/// OutsideTunnelArea`], slice M4-B: `super::tunnel_area`). `None` for an object without a footprint, a unit (the
+/// starting units' rule is the unit-start one, `paths::misplaced`), and for an index past the end.
 pub fn check_layout(
     map: &Map,
     others: impl IntoIterator<Item = Occupant>,
@@ -370,13 +177,17 @@ pub fn check_layout(
         method: Method::Direct,
     };
     let rest = layout.iter().enumerate().filter(|&(i, _)| i != index).map(|(_, o)| *o);
-    Some(check(
+    let mut check = check(
         &site,
         others.into_iter().chain(rest),
         object.kind,
         placement.origin,
         placement.orientation(),
-    ))
+    );
+    if outside_tunnel_area(object, layout) {
+        check.whole.push(WholeProblem::OutsideTunnelArea);
+    }
+    Some(check)
 }
 
 /// The half extents of the box of a ground unit of `kind` (`docs/movement.md > 3`); `None` for anything else, air
@@ -387,88 +198,4 @@ fn ground_half_extents(kind: ObjectKind) -> Option<Vec2> {
     (unit.base_def().domain == Domain::Ground)
         .then(|| def.half_extents())
         .flatten()
-}
-
-/// The tiles a footprint covers, which may lie anywhere: off the map, even past the last tile coordinate.
-#[derive(Copy, Clone)]
-struct Footprint {
-    origin: TilePos,
-    w: u32,
-    h: u32,
-}
-
-impl Footprint {
-    /// How many tiles it covers (at most 16 × 16: `defs::tests::defs_are_consistent`).
-    fn len(self) -> usize {
-        self.w as usize * self.h as usize
-    }
-
-    fn rect(self) -> TileRect {
-        TileRect::new(self.origin, self.w, self.h)
-    }
-
-    /// Its tiles row by row from the north-west, each with its index. Those whose coordinates would overflow are
-    /// left out: the origin tile is then far off the map, so the check fails on it anyway.
-    fn tiles(self) -> impl Iterator<Item = (usize, TilePos)> {
-        (0..self.h)
-            .flat_map(move |dy| (0..self.w).map(move |dx| (dx, dy)))
-            .enumerate()
-            .filter_map(move |(i, (dx, dy))| {
-                let x = self.origin.x.checked_add_unsigned(dx)?;
-                let y = self.origin.y.checked_add_unsigned(dy)?;
-                Some((i, TilePos::new(x, y)))
-            })
-    }
-
-    /// Adds `problem` to the tiles that `covered` picks.
-    fn mark(self, found: &mut [u8], problem: TileProblem, covered: impl Fn(TilePos) -> bool) {
-        for (i, tile) in self.tiles() {
-            if covered(tile) {
-                found[i] |= problem.bit();
-            }
-        }
-    }
-
-    /// Takes every problem but those of the bits `kept` off the tiles that `exempt` picks.
-    fn keep_only(self, found: &mut [u8], kept: u8, exempt: impl Fn(TilePos) -> bool) {
-        for (i, tile) in self.tiles() {
-            if exempt(tile) {
-                found[i] &= kept;
-            }
-        }
-    }
-}
-
-impl fmt::Display for TileProblem {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.write_str(match self {
-            TileProblem::OffMap => "off the map",
-            TileProblem::NotBuildable => "not buildable ground",
-            TileProblem::NotFlat => "sloped",
-            TileProblem::NotVisible => "not in sight",
-            TileProblem::Structure => "under a structure",
-            TileProblem::Resource => "under a resource",
-            TileProblem::Unit => "under a ground unit",
-            TileProblem::Reserved => "under a building already ordered",
-        })
-    }
-}
-
-impl fmt::Display for WholeProblem {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.write_str(match self {
-            WholeProblem::NotAStructure => "only structures are placed",
-            WholeProblem::OutsideBuildArea => "no tile is in the build area",
-            WholeProblem::NotOnPatch => "an Extraction Plate goes onto a Space Crystals patch",
-        })
-    }
-}
-
-impl fmt::Display for PlacementProblem {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            PlacementProblem::Whole(problem) => write!(f, "{problem}"),
-            PlacementProblem::Tile(tile, problem) => write!(f, "tile ({}, {}) is {problem}", tile.x, tile.y),
-        }
-    }
 }

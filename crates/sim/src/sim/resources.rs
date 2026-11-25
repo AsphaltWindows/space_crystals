@@ -17,10 +17,12 @@ impl Sim {
 
     /// `player`'s army cap at the end of the latest tick (plan decision T20, `economy::army`): what their units and
     /// their producers' units in production take up of their faction's cap (design change 0143), and what is
-    /// available (the GDO's Unit Control, the Colonists' Beacon Capacity). The HUD's figure, and what a unit at the
-    /// front of a queue is checked against when its production would start (`sim/producers/step.rs`). `None` for a
-    /// faction without one yet, or a player who isn't in the game. The units inside the Tunnel Network take up theirs
-    /// as those on the map do (`crate::network`).
+    /// available (the GDO's Unit Control, the Colonists' Beacon Capacity, the Syndicate's Tunnel Space). The HUD's
+    /// figure, and what a unit at the front of a queue is checked against when its production would start
+    /// (`sim/producers/step.rs`). `None` for a faction without one yet, or a player who isn't in the game. The units
+    /// inside the Tunnel Network take up theirs as those on the map do (`crate::network`): they are alive, and use
+    /// Tunnel Space (`factions/syndicate/tunnels.md > Tunnel Space`, design change 0265). Tunnel Space's providers and
+    /// the cells it loses are structures, all on the map.
     pub fn army_cap(&self, player: PlayerId) -> Option<ArmyCap> {
         let faction = self.player(player)?.faction;
         // The units held off the map count as those on it (plan decision T30: a unit takes its cost "for as long as

@@ -41,7 +41,15 @@
 //!   ([`seeds_build_area`]); for an Extraction Plate, exactly onto a Space Crystals Patch
 //!   (`factions/gdo/economy.md > ExtractionFacility > AwaitingPlacement`), which must have no plate yet: a covered
 //!   patch is a tile under a structure. That rule is [`Onto`], which map validation also applies to the map's
-//!   pre-placed objects, the one placement rule they follow besides the shared tiles.
+//!   pre-placed objects, the one placement rule they follow besides the shared tiles; for a Tunnel (any kind with a
+//!   tier table), its whole Tier 1 Tunnel Area on the map and Drillable (slice M4-B; `factions/syndicate/tunnels.md >
+//!   Tunnel Area Non-Overlap Rule > Drillable area`, design change 0242: [`WholeProblem::TunnelAreaOffMap`],
+//!   [`WholeProblem::TunnelAreaNotDrillable`]), in every mode, [`Mode::Known`] counting only the undrillable ground
+//!   the player explored (`placement/tunnel_area.rs`). Map and debug spawns don't take the check, so they are exempt.
+//!
+//! **The files**: [`Site`], [`Mode`], [`Method`] and [`Occupant`] in `site.rs`; the problems in `problems.rs`; the
+//! check in `check.rs`, its footprint's tiles in `footprint.rs`; the Tunnel Area's rules in `tunnel_area.rs`, on the
+//! geometry of `crate::tunnel::area`; the build area in `build_area.rs` and [`Onto`] in `onto.rs`.
 //!
 //! **The build area** ([`BuildArea`], [`Sim::build_area`]): the union of the parts each of the player's GDO
 //! buildings adds, its footprint grown by its BuildRadiusExtension, square (design change 0091). It is derived from
@@ -51,23 +59,28 @@
 //!
 //! **Starting Layouts** (`core/map_editor.md > Starting Layouts > Layout validation`, design change 0097) follow the
 //! same rules in [`Mode::Layout`]: no visibility, and the area of the layout's own Deployment Center. A layout object
-//! is checked against the map's objects and the rest of its layout. The rule for starting units ("can't stand on
+//! is checked against the map's objects and the rest of its layout. A layout's underground structure, the
+//! Syndicate's Hideout, also lies wholly inside the Tier 1 Tunnel Area of a Tunnel of its layout (slice M4-B,
+//! [`WholeProblem::OutsideTunnelArea`], [`check_layout`]). The rule for starting units ("can't stand on
 //! structures or impassable tiles") is not a placement rule: it is the unit-start rule of `paths::misplaced`, which
 //! scenario validation applies to the units a game starts with; the mirror rule, no footprint over a ground unit, is
 //! the check's [`TileProblem::Unit`] in both modes.
 
 mod build_area;
 mod check;
+mod footprint;
 mod onto;
+mod problems;
+mod site;
 #[cfg(test)]
 mod tests;
+mod tunnel_area;
 
 pub use build_area::{BuildArea, seeds_build_area};
-pub use check::{
-    Method, Mode, Occupant, PlacementCheck, PlacementProblem, Site, TileProblem, WholeProblem, check, check_layout,
-    check_reserving, footprint_size,
-};
+pub use check::{check, check_layout, check_reserving, footprint_size};
 pub use onto::Onto;
+pub use problems::{PlacementCheck, PlacementProblem, TileProblem, WholeProblem};
+pub use site::{Method, Mode, Occupant, Site};
 
 use crate::defs::ObjectKind;
 use crate::deploy;

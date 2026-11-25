@@ -278,8 +278,8 @@ fn units_start_on_open_ground_and_apart() {
         layout(pk, 384.0, 128.0),    // in the water
         layout(pk, 64.0, 320.0),     // on the station
     ];
-    // Nobody plays the Syndicate in slot 1. Its layout may overlap the GDO's (`> Overlay editing`).
-    *s.map.slots[0].layouts.get_mut(Faction::Syndicate) = vec![
+    // Nobody plays the Cults in slot 1. Their layout may overlap the GDO's (`> Overlay editing`).
+    *s.map.slots[0].layouts.get_mut(Faction::Cults) = vec![
         layout(guard, 384.0, 128.0), // in the water
         layout(guard, 300.0, 300.0), // on the GDO layout's object 0
     ];
@@ -295,7 +295,7 @@ fn units_start_on_open_ground_and_apart() {
         invalid(Faction::Gdo, 2, guard, SpawnProblem::OverlapsUnit),
         invalid(Faction::Gdo, 3, pk, SpawnProblem::Blocked),
         invalid(Faction::Gdo, 4, pk, SpawnProblem::Blocked),
-        invalid(Faction::Syndicate, 0, guard, SpawnProblem::Blocked),
+        invalid(Faction::Cults, 0, guard, SpawnProblem::Blocked),
     ];
     assert_eq!(s.map.validate(), expected);
     assert_eq!(s.validate(), expected);
@@ -303,7 +303,7 @@ fn units_start_on_open_ground_and_apart() {
 
     // The layouts of the players of one game, each valid on its own, in each other's way: the game's problem.
     *s.map.slots[0].layouts.get_mut(Faction::Gdo) = vec![layout(pk, 300.0, 300.0)];
-    s.map.slots[0].layouts.get_mut(Faction::Syndicate).clear();
+    s.map.slots[0].layouts.get_mut(Faction::Cults).clear();
     *s.map.slots[1].layouts.get_mut(Faction::Gdo) = vec![layout(guard, 320.0, 300.0)];
     assert_eq!(s.map.validate(), []);
     let expected = vec![ScenarioProblem::InvalidLayoutObject {

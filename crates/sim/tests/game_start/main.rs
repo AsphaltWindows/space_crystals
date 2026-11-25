@@ -3,8 +3,9 @@
 //! the map puts them (design change 0008). The rules of the layouts (`core/map_editor.md > Starting Layouts`): each
 //! one valid on its own with its faction's placement rules minus sight (0097); on a Skirmish Default map exactly the
 //! Starting Conditions, complete at every start (0009, 0012), for the factions implemented so far (plan decision
-//! T11); derived "outdated" flags. And `dev_skirmish`'s GDO bases (0095; plan risk R13). The Starting Conditions
-//! table is unit-tested in `scenario/starting.rs`, the camera's start in the client.
+//! T11; the Cults stand for a faction not implemented yet since slice M4-B implemented the Syndicate's); derived
+//! "outdated" flags. And `dev_skirmish`'s GDO bases (0095; plan risk R13). The Starting Conditions table is
+//! unit-tested in `scenario/starting.rs`, the camera's start in the client.
 //!
 //! One test binary:
 //! - `start`: each player's Starting Conditions at the start of a game (0008), and `dev_skirmish`'s GDO bases;
@@ -90,4 +91,15 @@ fn west_colonists() -> Vec<LayoutObject> {
         base.push(unit_at(ObjectKind::Drone, point(x, y)));
     }
     base
+}
+
+/// A Syndicate base in the north-west of a map (`factions/syndicate/tunnels.md > Tunnel > Starting Conditions`, slice
+/// M4-B): the Tunnel from (3, 3) to (6, 6), whose Tier 1 Tunnel Area, (1, 1) to (8, 8), lies on the map; the Hideout
+/// from (7, 3) to (8, 4), inside it; and the Agent at (5.5, 9.5) grid units.
+fn west_syndicate() -> Vec<LayoutObject> {
+    vec![
+        laid(ObjectKind::Tunnel, 3, 3),
+        laid(ObjectKind::Hideout, 7, 3),
+        unit_at(ObjectKind::Agent, point(5.5, 9.5)),
+    ]
 }
