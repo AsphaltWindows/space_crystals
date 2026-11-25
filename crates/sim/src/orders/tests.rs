@@ -1,11 +1,17 @@
 //! Unit tests of `orders`: the queue, and the behaviours of a lone unit in an empty world.
 
+use std::collections::BTreeMap;
+
+use super::reach::Reach;
+use super::run::{start, update_unit};
+use super::state::AttackOrder;
+use super::world::{Unit, World};
 use super::*;
 use crate::combat::AttackState;
 use crate::defs::ObjectKind;
 use crate::ids::PlayerId;
 use crate::map::Map;
-use crate::mover::Mover;
+use crate::mover::{MoveGoal, MoveStatus, Mover};
 use crate::paths::NavState;
 use crate::vision::Vision;
 

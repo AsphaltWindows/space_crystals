@@ -1,0 +1,85 @@
+//! The commands phase (`ARCHITECTURE.md > Commands, events and replays`): each player command, once the gate has
+//! checked it ([`Sim::validate`]), applied; an order only fills the units' queues (`systems/controls/commands.md >
+//! Unit Command`), which phase 5a then starts.
+
+use super::Sim;
+use super::gate::Checked;
+use crate::command::PlayerCommand;
+use crate::ids::ObjectId;
+use crate::orders::{Order, OrderGroup, OrderKind, Target, destinations};
+
+impl Sim {
+    /// `ARCHITECTURE.md > Commands, events and replays`: every command passes the gate ([`Sim::validate`]) first.
+    /// A rejected one changes nothing; player input never panics the sim. The one rejection the sim reports is a
+    /// Place the placement check refuses (plan decision T4, `Sim::report_refusal`).
+    pub(super) fn apply_command(&mut self, cmd: &PlayerCommand) {
+        let checked = match self.check(cmd) {
+            Ok(checked) => checked,
+            Err(reject) => return self.report_refusal(cmd, reject),
+        };
+        match checked {
+            Checked::Order { units, kind, queue } => self.give_order(&units, kind, queue),
+            Checked::Ability { units, ability } => self.use_ability(&units, ability),
+            Checked::Spawn {
+                kind,
+                owner,
+                pos,
+                placement,
+            } => {
+                self.insert_object(kind, owner, pos, placement, None);
+            }
+            Checked::Remove(id) => self.remove_objects(&[id]),
+            Checked::Teleport { id, pos } => {
+                if let Some(o) = self.objects.get_mut(&id) {
+                    // No interpolation from the old position.
+                    o.pos = pos;
+                    o.prev_pos = pos;
+                    // A path from the old position leads nowhere now.
+                    if let Some(mover) = &mut o.mover {
+                        mover.repath(self.tick);
+                        // Nor does it arrive with the speed it had (`Mover::momentum`, slice M3-G).
+                        mover.momentum = glam::Vec2::ZERO;
+                    }
+                }
+            }
+            Checked::AutoTargeting(on) => self.auto_targeting = on,
+            Checked::SetResources { player, banks } => self.set_resources(player, banks),
+            Checked::SetTier { id, tier } => self.set_tier(id, tier),
+            Checked::Eject { tunnel, unit } => self.queue_eject(tunnel, unit, None),
+            Checked::Production { player, plan } => self.apply_production(player, plan),
+            Checked::Construction { player, resolved } => self.apply_construction(player, resolved),
+        }
+    }
+
+    /// `systems/controls/commands.md > Unit Command`: one order for each of `units` (checked: unique existing
+    /// units), sharing a new order group. A location order (Move to a point, AttackMove, Patrol) gives each unit of a
+    /// group its own destination by the magic box (`> Group Destinations (Magic Box)`, `docs/movement.md > 6.4`),
+    /// resolved here, at the click, and kept in the unit's order (design change 0030); a Shift-queued one builds the
+    /// box where the units' earlier orders leave them (design change 0029). Orders only fill queues here; phase 5a
+    /// starts them.
+    pub(super) fn give_order(&mut self, units: &[ObjectId], kind: OrderKind, queue: bool) {
+        let group = OrderGroup(self.next_group);
+        self.next_group = self.next_group.wrapping_add(1);
+        let slots = match kind {
+            OrderKind::Move(Target::Point(click)) | OrderKind::AttackMove(click) | OrderKind::Patrol(click) => {
+                // One player's units (the gate), sent by what that player knows of the ground.
+                let owner = units.first().and_then(|id| self.objects.get(id)).and_then(|o| o.owner);
+                if let Some(player) = owner {
+                    self.nav.ensure_known(player);
+                }
+                destinations::assign(self.nav.planning(owner), &self.map, &self.objects, units, click, queue)
+            }
+            OrderKind::Move(Target::Object(_)) | OrderKind::Attack(_) | OrderKind::Hold | OrderKind::Stop => {
+                vec![None; units.len()]
+            }
+            OrderKind::Gather(_) | OrderKind::DropOff(_) | OrderKind::Deploy { .. } => vec![None; units.len()],
+            OrderKind::Enter(_) => vec![None; units.len()],
+        };
+        for (id, slot) in units.iter().zip(slots) {
+            if let Some(orders) = self.objects.get_mut(id).and_then(|o| o.orders.as_mut()) {
+                // A full queue drops the order for this unit only.
+                orders.give(Order { kind, group, slot }, queue);
+            }
+        }
+    }
+}
