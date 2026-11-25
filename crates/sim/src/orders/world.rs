@@ -400,6 +400,10 @@ impl<'a> World<'a> {
     /// `facing_only`: a non-turret unit that can't turn in place engages only what it already faces
     /// (`systems/controls/behaviors.md > HoldingPosition` 4, within `tuning::combat::FACING_TOLERANCE`, the exact
     /// angle).
+    // Inlined into each caller, whose `admit` it specializes on: the behaviours' hottest scan. Without the hint, how
+    // the release build splits the crate into codegen units can leave a call to it out of line (slice M4-S1: the one
+    // in `travel::march`, 3% of `behaviours_perf`'s battle, though nothing on the path had changed).
+    #[inline]
     pub(crate) fn pick(
         &self,
         unit: &Unit,
