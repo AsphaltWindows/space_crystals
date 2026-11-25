@@ -22,6 +22,8 @@ Complete list of Syndicate structures. "Tier" is the Tier Requirement checked ag
 
 Underground buildings constructed within a Tunnel's Tunnel Area. Expansions are invisible to enemies without detection and can be walked over by surface units.
 
+**High armor underground** (user, 2026-11-25; Q0071): expansions are hit by area damage over them (systems/combat.md > AoEDamage) but have **high armor**. **Placeholder for every expansion: n = 6, i.e. PointArmor 6, FullArmor 6 x size in grid squares** (a 2x2 expansion: 6 / 24), following the building armor rule (core/entities.md > Structure Type > Building armor rule); this replaces the 1/4 listed in individual stat blocks. Numbers to be tuned.
+
 **No buildings on top of expansions, and no expansions under buildings** (user, 2026-11-25; Q0062): a surface structure and an underground expansion (any player's, including neutral ones) can never share a tile.
 - **Surface buildings over a hidden expansion**: an enemy's placement is refused. A **direct placement** (e.g. a GDO building) shows its ghost **red at once**, which reveals that something is underground there; this is accepted, since GDO is limited by its build area. A **worker-built** building's ghost judges by what the player knows (so it stays green), and the order **fails when the worker arrives** (core/entities.md > Placement Validation > Worker-Built Structures).
 - **Expansions under a surface building**: refused (see factions/syndicate/tunnels.md > AwaitingPlacement (Expansion)).
@@ -244,7 +246,7 @@ The form updates automatically whenever Tunnel Areas change:
 **Placeholder stats** (designer, 2026-11-25, Q0071; tune later):
 - Cost: 100 Space Crystals (no Supplies). Build time: 320 frames (20 s).
 - HP: 300. SightRange: 6 grid units.
-- Armor raised: PointArmor 1, FullArmor 6. Armor while underground (pop-up): PointArmor 6, FullArmor 30.
+- Armor (building armor rule, 1x1): raised PointArmor 1, FullArmor 1; underground (pop-up) PointArmor 6, FullArmor 6.
 - AttackAttributes: FullyConnected red laser (instant, cannot miss); TargetDomain Universal; SingleTarget; Damage 24; Range 5 grid units; MinRange 0; Aim 4, Firing 1, Cooldown 3, Reload 16 frames (one shot per 24 frames, 16 damage per second).
 - Pop-up: rises in 8 frames (already facing its target); retracts after 32 frames with no target, taking 8 frames. It can't fire while rising or retracting.
 - Hotkey: Agent **D** (Q0068); in the Tunnel's ExpandMenu it takes the next slot after the expansions.
