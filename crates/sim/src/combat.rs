@@ -47,11 +47,12 @@
 //!   the end of Firing ([`projectiles`]), and goes on into Cooldown and Reloading, its base free ("The unit is free
 //!   after the projectile spawns"). The projectile lands after its flight, in this phase, ahead of the tick's new hits.
 //!   The attack may target a location as well as an object ([`AttackState::location`]: an Attack Ground's, plan
-//!   decision T47): aimed at, locked and fired at the same way.
+//!   decision T47): aimed at, locked and fired at the same way, again and again while the location stays engaged.
 //! - **Area damage** (`systems/combat.md > AoEDamage`, plan decision T46): a landing projectile's blast hits whatever
-//!   stands in its circle, by the exact overlap of each object's shape ([`area`]), the one path of every area attack.
-//!   Each object hit takes its share as a [`Hit`] on the tick's list; each one damaged reveals the shooter, if it is
-//!   still alive, to its owner (`// Placeholder: Q0083 point 2`: at the blast, to the owners of the objects damaged).
+//!   stands in its circle, whoever owns it, by the exact overlap of each object's shape ([`area`]), the one path of
+//!   every area attack. Each object hit takes its share as a [`Hit`] on the tick's list; each one damaged reveals the
+//!   shooter, if it is still alive, to its owner: when the damage lands, not at the throw, so a dodged projectile
+//!   reveals nothing (design change 0293, answering Q0083 point 2; `core/vision.md > Attacks from outside vision`).
 //!
 //! Not built yet: turrets, and the HeadDisjointed and TailDisjointed attacks.
 
@@ -163,9 +164,10 @@ pub struct AttackState {
     /// Ticks spent in `phase` so far.
     pub elapsed: u32,
     /// (M4-O) The ground location the unit's behaviour engages (`systems/combat.md > AttackTarget > LocationTarget`,
-    /// plan decision T47): an Attack Ground's (`orders::attack_ground`), until its one shot launches (`// Placeholder:
-    /// Q0083 point 3`: Attack Ground fires once). At most one of it and [`AttackState::target`] is set. Left out of
-    /// files while unset, and out of the hash, so that the states saved before it existed load and hash as they did.
+    /// plan decision T47): an Attack Ground's (`orders::attack_ground`), for as long as the order runs: it keeps
+    /// firing at the location until another order (design change 0293, answering Q0083 point 3). At most one of it and
+    /// [`AttackState::target`] is set. Left out of files while unset, and out of the hash, so that the states saved
+    /// before it existed load and hash as they did.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub location: Option<Vec2>,
 }
@@ -278,7 +280,7 @@ pub(crate) fn base_is_free(kind: ObjectKind, state: Option<&AttackState>) -> boo
 /// join `projectiles`, the store (`Sim::projectiles`); then the projectiles due land, in launch order (slice M4-O,
 /// plan decision T45), their blasts' hits ahead of the tick's new hits on the list; then the tick's hits are applied
 /// together, and each reveals its attacker to the owner of the object hit if that player didn't see it
-/// (`vision::reveal`; a blast's attacker only if it is still alive, `// Placeholder: Q0083 point 2`). Returns the
+/// (`vision::reveal`; a blast's attacker as its damage lands, if it is still alive: design change 0293). Returns the
 /// objects destroyed, in id order, for the removal path (`Sim::remove_objects`). A death that removes a blocking
 /// footprint must re-sync the grids (`paths::sync`), as phase 5b does. `vision` is the last tick's: what each owner
 /// sees, all through the phase (the reveals don't change what it sees of tiles). `turns` holds the angle phase 5d of
@@ -339,8 +341,11 @@ pub(crate) fn step(
     projectiles::land(projectiles, tick, &targets, &mut hits, events);
     hits.append(&mut volley.hits);
     let dead = damage::apply(objects, &hits, events);
-    // Placeholder: Q0083 point 2. A blast's hits reveal its attacker, if it still exists, to each damaged object's
-    // owner, as a shot's do.
+    // Design change 0293 (answering Q0083 point 2; `core/vision.md > Attacks from outside vision`): a blast reveals its
+    // attacker as a shot does, here, when its damage lands, not at the throw; only to the owners of the objects it
+    // damaged (every hit takes something, its minimum at least, so a blast that hits nothing, a dodged grenade,
+    // reveals nobody); and only if the attacker is still alive: one that died during the flight is out of the game
+    // (plan decision T45). One killed in this tick, by its own blast too, leaves with the tick's dead, unseen.
     for hit in &hits {
         let victim = objects.get(&hit.target).and_then(|o| o.owner);
         if let (Some(victim), Some(attacker)) = (victim, objects.get(&hit.attacker)) {

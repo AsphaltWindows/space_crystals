@@ -1,5 +1,7 @@
-//! Plan §3.3 O's acceptance, Attack Ground: "The order walks into range, fires once, and completes at the blast", and
-//! "it is refused for a FullyConnected unit"; with the test grenade (`combat::testing`).
+//! Plan §3.3 O's acceptance, Attack Ground: "The order walks into range", and "it is refused for a FullyConnected
+//! unit"; and design change 0293's verification (answering Q0083 point 3, which replaced the acceptance's "fires once,
+//! and completes at the blast"): "An Attack Ground keeps shelling until Stop". With the test grenade
+//! (`combat::testing`).
 
 use glam::Vec2;
 
@@ -8,6 +10,7 @@ use crate::command::{Command, PlayerCommand};
 use crate::defs::{AttackAttrs, ObjectKind};
 use crate::events::SimEvent;
 use crate::ids::{ObjectId, PlayerId};
+use crate::mover::MoveStatus;
 use crate::orders::{OrderKind, Target};
 use crate::shape::Shape;
 use crate::sim::Reject;
@@ -32,9 +35,22 @@ fn launches(t: &TestSim) -> Vec<(Tick, Vec2, Vec2)> {
         .collect()
 }
 
+/// The blasts so far: their ticks.
+fn blasts(t: &TestSim) -> Vec<Tick> {
+    (t.events().iter())
+        .filter(|(_, e)| matches!(e, SimEvent::Blast { .. }))
+        .map(|(tick, _)| *tick)
+        .collect()
+}
+
 fn current(t: &TestSim, id: ObjectId) -> Option<OrderKind> {
     let orders = t.sim().object(id).unwrap().orders.as_ref().unwrap();
     orders.current.as_ref().map(|active| active.order.kind)
+}
+
+fn queued(t: &TestSim, id: ObjectId) -> Vec<OrderKind> {
+    let orders = t.sim().object(id).unwrap().orders.as_ref().unwrap();
+    orders.queue.iter().map(|order| order.kind).collect()
 }
 
 /// The gap from the thrower's shape to `at`: what its Range is measured against.
@@ -43,51 +59,59 @@ fn reach(t: &TestSim, at: Vec2) -> f32 {
 }
 
 /// A thrower 600 su from the point clicked walks towards it (MovingToLocation), stops in range (4 grid units from its
-/// edge), fires once at the point itself, and its order completes in the tick after the blast; the Move queued behind
-/// it follows. The attack lets go of the location as the grenade leaves (`// Placeholder: Q0083 point 3`).
+/// edge) and fires at the point itself. Design change 0293's verification, "An Attack Ground keeps shelling until
+/// Stop" (`systems/controls/behaviors.md > AttackingLocation`: "the behavior repeats its attack cycle at the location
+/// until the player gives another order (or Stop)"): it throws again every cycle (Aim 6, Firing 2, Cooldown 4 and
+/// Reload 28 ticks) at the same point, long after its first blast, its order current all along and the Move
+/// Shift-queued behind it still waiting ("Queued orders after an Attack Ground therefore never start on their own").
+/// The Stop ends it: no grenade leaves after it, the one in the air lands, and the queued Move never starts.
 #[test]
-fn it_walks_into_range_fires_once_and_completes_at_the_blast() {
+fn it_walks_into_range_and_keeps_shelling_until_stop() {
     let _grenadier = grenadier(GRENADE);
     let start = Vec2::new(100.0, 320.0);
     let at = Vec2::new(700.0, 333.5);
-    let then = Vec2::new(100.0, 500.0);
+    let then = OrderKind::Move(Target::Point(Vec2::new(100.0, 500.0)));
     let mut t = ScenarioBuilder::new(&open()).start();
     t.spawn_unit_at(1, ObjectKind::Guard, P1, start)
         .order_at(2, P1, &[THROWER], OrderKind::AttackGround(at), false)
-        .order_at(2, P1, &[THROWER], OrderKind::Move(Target::Point(then)), true);
+        .order_at(2, P1, &[THROWER], then, true);
     t.run_until(3);
-    assert!(t.status(1) == crate::mover::MoveStatus::Moving, "it walks");
+    assert!(t.status(1) == MoveStatus::Moving, "it walks");
     while launches(&t).is_empty() {
         assert!(t.sim().tick() < 300, "it never fired\n{}", t.ascii(None));
         t.step();
         assert_eq!(current(&t, THROWER), Some(OrderKind::AttackGround(at)));
     }
-    let [(launched, from, to)] = launches(&t)[..] else {
+    let [(first, from, _)] = launches(&t)[..] else {
         panic!("one launch");
     };
-    assert_eq!(to, at, "the point clicked, no snapping");
     assert!(reach(&t, at) <= gu(GRENADE.range), "in range: {}", reach(&t, at));
     assert!(
         from.x < at.x - gu(GRENADE.range),
         "it stopped well short of the point: {from}"
     );
+    let cycle = GRENADE.aim_ticks + GRENADE.firing_ticks + GRENADE.cooldown_ticks + GRENADE.reload_ticks;
+    t.run_until(first + 4 * cycle);
+    let thrown: Vec<(Tick, Vec2, Vec2)> = (0..5).map(|i| (first + i * cycle, from, at)).collect();
+    assert_eq!(
+        launches(&t),
+        thrown,
+        "one grenade a cycle, from where it stands, at the point clicked"
+    );
+    assert_eq!(blasts(&t).len(), 4, "the first four have landed");
+    assert_eq!(current(&t, THROWER), Some(OrderKind::AttackGround(at)), "it goes on");
+    assert_eq!(queued(&t, THROWER), [then], "the queued Move waits");
     let attack = t.sim().object(THROWER).unwrap().attack.clone().unwrap();
-    assert_eq!(attack.location, None, "let go of as the grenade left");
-    let lands_at = t.sim().projectiles()[0].lands_at;
-    t.run_until(lands_at);
-    assert_eq!(
-        current(&t, THROWER),
-        Some(OrderKind::AttackGround(at)),
-        "waits for the blast"
-    );
-    t.step();
-    assert_eq!(
-        current(&t, THROWER),
-        Some(OrderKind::Move(Target::Point(then))),
-        "complete"
-    );
-    t.run(80);
-    assert_eq!(launches(&t).len(), 1, "once, at tick {launched}");
+    assert_eq!(attack.location, Some(at), "the location stays engaged");
+
+    let stopped = t.sim().tick() + 1;
+    t.order_at(stopped, P1, &[THROWER], OrderKind::Stop, false)
+        .run(3 * cycle);
+    assert_eq!(launches(&t).len(), 5, "none after the Stop");
+    assert_eq!(blasts(&t).len(), 5, "the last one landed");
+    assert_eq!(current(&t, THROWER), None, "stopped");
+    assert_eq!(queued(&t, THROWER), [], "the queued Move never started");
+    assert_eq!(t.pos(1), from, "where it stood");
 }
 
 /// `systems/controls/commands.md > AttackGround`: "Only available to units whose AttackType has CanTargetGround". The

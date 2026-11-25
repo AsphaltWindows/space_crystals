@@ -5,13 +5,12 @@
 
 mod gathering;
 mod planning;
-mod projectiles;
 
 use std::collections::BTreeMap;
 
 use glam::Vec2;
 
-use crate::combat::{self, AttackState, Projectile, domain_allows, inside_min_range, object_domain, within_range};
+use crate::combat::{self, AttackState, domain_allows, inside_min_range, object_domain, within_range};
 use crate::defs::{AttackAttrs, Domain, ObjectKind, TargetDomain, UnitDef};
 use crate::economy::Worker;
 use crate::elevation::{self, Elevation};
@@ -200,8 +199,6 @@ pub(crate) struct World<'a> {
     nav_version: u32,
     /// Side A's paths of every Tunnel, in id order (`crate::network::Paths`): where an Enter order walks to.
     tunnels: Vec<(ObjectId, Paths)>,
-    /// (M4-O) The projectiles in flight, in launch order ([`projectiles`]).
-    projectiles: &'a [Projectile],
 }
 
 impl<'a> World<'a> {
@@ -253,7 +250,6 @@ impl<'a> World<'a> {
             tunnels: (objects.values())
                 .filter_map(|o| Some((o.id, Paths::of_object(o)?)))
                 .collect(),
-            projectiles: &[],
         };
         // A counting sort by cell keeps the id order within each cell.
         let is_candidate = |v: &View| v.destructible && v.owner.is_some();
