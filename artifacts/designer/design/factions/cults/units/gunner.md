@@ -1,6 +1,6 @@
 # Gunner
 
-The Gunner is the Cults' heavier-hitting combat infantry, trained from a Recruit at the Armory (requires owning a Gunworks). Shares the Militant's physical profile but trades air targeting and attack speed for a longer-range, harder-hitting ground attack.
+The Gunner is the Cults' heavier-hitting combat infantry, trained from a Recruit at the Armory (requires owning a Gunworks). Shares the Militant's physical profile but trades air targeting and attack speed for a longer-range, harder-hitting ground attack that **can miss** (user, 2026-11-26).
 
 ## Entity Type - Unit
 ## Faction - TheCults
@@ -24,7 +24,8 @@ The Gunner is the Cults' heavier-hitting combat infantry, trained from a Recruit
 ## TurretAttributes - None
 
 ## AttackAttributes:
-- AttackType: FullyConnected
+- AttackType: **TailDisjointed** (user, 2026-11-26; was FullyConnected): the target's position is locked at the end of Aiming and the shot lands there at the end of Firing, so a target that moves during the Firing phase is missed, and whatever unit stands at the spot then is hit instead (any owner). Visually still an instant gunshot.
+- CanTargetGround: true (derived): the Gunner can **Attack Ground**, like every attack that can miss.
 - TargetDomain: Ground
 - TargetType: SingleTarget
 - Damage: 16
