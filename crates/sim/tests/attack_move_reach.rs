@@ -3,10 +3,11 @@
 //! losing sight of it." An enemy within weapon range is always taken; one out of range only if the path to a firing
 //! position stays within the leash of the PathReference and keeps the target within the unit's SightRange. There is
 //! no memory of the enemies passed over: a rejection only saves judging again while nothing it depends on has
-//! changed (`orders::reach`). The leash itself is `attack_move_leash.rs`'s.
+//! changed (`orders::reach`), the unit's own movement included (design change 0243: its tests are
+//! `attack_move_own_movement.rs`'s). The leash itself is `attack_move_leash.rs`'s.
 
 use sc_sim::orders::state::{Judged, Leg};
-use sc_sim::orders::{Behaviour, JUDGE_PATHS_PER_TICK, REJUDGE_MOVE_SU};
+use sc_sim::orders::{Behaviour, JUDGE_PATHS_PER_TICK, REJUDGE_MOVE_SU, REJUDGE_SELF_SU};
 use sc_sim::testing::{ScenarioBuilder, TestSim};
 use sc_sim::{DebugCommand, ObjectId, ObjectKind, OrderKind, PlayerId, Shape, SimEvent, SpawnAt, Tick, TilePos, Vec2};
 
@@ -85,6 +86,9 @@ struct Walk {
     /// Paths planned to judge enemies, in all, and the most in one tick.
     paths: u32,
     most_paths: u32,
+    /// Rejections judged again for the unit's own movement (design change 0243): replaced by one of the same enemy,
+    /// standing where it stood, judged a grid unit or more from where the unit judged the one before.
+    again: u32,
     /// It never stepped back west.
     never_back: bool,
 }
@@ -110,7 +114,15 @@ fn walk(t: &mut TestSim, limit: Tick, done: impl Fn(&TestSim) -> bool) -> Walk {
             t.ascii(None)
         );
         let before = pos(t, 1).x;
+        let rejected = leg(t, 1).map_or_else(Vec::new, |leg| leg.rejected.clone());
         t.step();
+        let again = |now: &Judged| {
+            (rejected.iter()).any(|was| {
+                (was.target, was.at) == (now.target, now.at)
+                    && (was.from.zip(now.from)).is_some_and(|(was, now)| was.distance(now) >= REJUDGE_SELF_SU)
+            })
+        };
+        seen.again += leg(t, 1).map_or(0, |leg| leg.rejected.iter().filter(|now| again(now)).count() as u32);
         let counters = t.sim().reach_counters();
         assert!(
             counters.most_per_unit <= JUDGE_PATHS_PER_TICK,
@@ -163,7 +175,8 @@ fn past_the_drone() -> (TestSim, Vec2) {
 /// a wall. If the only way to the Drone leaves the leash or loses sight of it, the Guard walks on without turning
 /// back, and arrives." The way to the Drone leads back west round the wall, out of the Guard's sight of it at once.
 /// Taken whenever seen (question Q0058: 78 times in 1500 ticks), the Guard would never arrive. It never takes it,
-/// judges it once, by one path, and walks on.
+/// judges it by one path, again by one for each grid unit it walks with the Drone in its sight (design change 0243),
+/// and walks on.
 #[test]
 fn a_guard_walks_on_past_a_drone_it_would_lose_sight_of_on_the_way() {
     let (mut t, to) = past_the_drone();
@@ -179,8 +192,9 @@ fn a_guard_walks_on_past_a_drone_it_would_lose_sight_of_on_the_way() {
     assert_eq!(pos(&t, 1), to, "arrived");
     assert_eq!((seen.times_taken(2), rest.times_taken(2)), (0, 0), "never taken");
     assert!(seen.never_back && rest.never_back, "without turning back");
-    // "Otherwise a rejected enemy costs nothing more": while nothing changed, no path was planned for it again.
-    assert_eq!(rest.paths, 0);
+    // "Otherwise a rejected enemy costs nothing more": while the Drone stood still and the obstacles stayed the same,
+    // paths were planned for it only for the Guard's own movement.
+    assert!(rest.again > 0 && rest.paths == rest.again, "{rest:?}");
     assert!(pos(&t, 2) == centre(15, 5) && attack_ticks(&t, 1).is_empty());
 }
 
@@ -200,9 +214,10 @@ const WALLS: &str = "
 
 /// The take-and-drop loop with two targets (the soak's seed 29): a Guard attack-moves east along row 4, between two
 /// walls, and two unarmed enemy Drones stand across them, one north and one south, as far off. The way to either
-/// leads back west, out of sight of both. The Guard takes neither, judges each once and walks on.
+/// leads back west, out of sight of both. The Guard takes neither, judges each by one path, and again only for its
+/// own movement, and walks on.
 #[test]
-fn two_drones_across_two_walls_are_each_judged_once_and_passed() {
+fn two_drones_across_two_walls_are_judged_and_passed() {
     let mut t = ScenarioBuilder::new(WALLS)
         .spawn(GUARD, Some(P1), SpawnAt::Point(centre(4, 4))) // 1
         .spawn(DRONE, Some(P2), SpawnAt::Point(centre(15, 0))) // 2
@@ -214,7 +229,11 @@ fn two_drones_across_two_walls_are_each_judged_once_and_passed() {
     let seen = walk(&mut t, 1500, |t| is_idle(t, 1));
     assert_eq!(pos(&t, 1), to, "arrived");
     assert!(seen.taken.is_empty(), "{seen:?}");
-    assert_eq!(seen.paths, 2, "one path each");
+    assert_eq!(
+        seen.paths - seen.again,
+        2,
+        "one path each, and again only for its own movement: {seen:?}"
+    );
     assert!(seen.never_back && attack_ticks(&t, 1).is_empty());
 }
 
@@ -363,7 +382,8 @@ fn an_enemy_is_judged_again_when_the_known_obstacles_change() {
 
 /// The cost bound: "plan at most a fixed number of judgement paths per unit per tick; judge later candidates on later
 /// ticks". Twelve Drones across the wall, all in the Guard's sight as its AttackMove begins: it judges
-/// [`JUDGE_PATHS_PER_TICK`] of them per tick ([`walk`] checks every tick), each once, takes none and walks on.
+/// [`JUDGE_PATHS_PER_TICK`] of them per tick ([`walk`] checks every tick), each once, takes none and walks on,
+/// judging them again only for its own movement, within the bound still.
 #[test]
 fn a_unit_judges_a_bounded_number_of_enemies_per_tick() {
     let mut builder = ScenarioBuilder::new(WALL).spawn(GUARD, Some(P1), SpawnAt::Point(centre(15, 1))); // 1
@@ -390,7 +410,7 @@ fn a_unit_judges_a_bounded_number_of_enemies_per_tick() {
     let rest = walk(&mut t, 1000, |t| is_idle(t, 1));
     assert_eq!(pos(&t, 1), to, "arrived");
     assert!(judging.taken.is_empty() && rest.taken.is_empty());
-    assert_eq!(rest.paths, 0);
+    assert!(rest.again > 0 && rest.paths == rest.again, "{rest:?}");
 }
 
 /// A corridor one tile wide leads east from player 1's Deployment Center (tiles (0, 1) to (3, 4)): tile row 3, y
