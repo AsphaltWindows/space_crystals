@@ -72,6 +72,8 @@ fn projectiles_perf_200_grenades_in_flight() {
     let mut t = battlefield();
     let (mut flying, mut flying_ticks, mut worst_flying) = (Duration::ZERO, 0_u32, Duration::ZERO);
     let (mut landing, mut landing_ticks, mut worst_landing) = (Duration::ZERO, 0_u32, Duration::ZERO);
+    // Every tick with a grenade in flight or landing, for the 99th percentile (slice M4-M).
+    let mut samples = Vec::new();
     let mut most = 0;
     for _ in 0..VOLLEYS {
         let tick = t.sim().tick() + 1;
@@ -98,10 +100,12 @@ fn projectiles_perf_200_grenades_in_flight() {
                 landing += took;
                 landing_ticks += 1;
                 worst_landing = worst_landing.max(took);
+                samples.push(took);
             } else if after > 0 {
                 flying += took;
                 flying_ticks += 1;
                 worst_flying = worst_flying.max(took);
+                samples.push(took);
             }
             if launched && after == 0 {
                 break;
@@ -110,13 +114,18 @@ fn projectiles_perf_200_grenades_in_flight() {
         }
     }
     let ms = |d: Duration, n: u32| d.as_secs_f64() * 1e3 / f64::from(n.max(1));
+    samples.sort_unstable();
+    let p99 = samples[samples.len() * 99 / 100];
     println!(
         "projectiles_perf: {VOLLEYS} volleys of {THROWERS}, at most {most} in flight; in flight: mean {:.3} ms, worst \
          {:.3} ms per whole sim tick ({flying_ticks} ticks); landing: mean {:.3} ms, worst {:.3} ms ({landing_ticks} \
-         ticks)",
+         ticks); all {} of them: mean {:.3} ms, p99 {:.3} ms",
         ms(flying, flying_ticks),
         ms(worst_flying, 1),
         ms(landing, landing_ticks),
         ms(worst_landing, 1),
+        samples.len(),
+        ms(flying + landing, flying_ticks + landing_ticks),
+        ms(p99, 1),
     );
 }
