@@ -250,6 +250,7 @@ mod tests {
             kind: ObjectKind::Peacekeeper,
             cost: 50,
             frames: 80,
+            requires: &[],
         }],
     };
 

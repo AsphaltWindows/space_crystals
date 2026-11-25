@@ -38,6 +38,8 @@ pub(crate) static EGRESS_NODE: ObjectDef = ObjectDef {
         tunnel: None,
         site: None,
         expansion: None,
+        // `factions/colonists/structures/README.md > Tech Model`: "Colonists buildings have no TechPrerequisites"
+        requires: &[],
     }),
     default_settings: None,
 };

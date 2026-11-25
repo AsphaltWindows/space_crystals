@@ -36,6 +36,7 @@ pub(crate) static BARRACKS: ObjectDef = ObjectDef {
                 kind: ObjectKind::Peacekeeper, // Produces: "Peacekeeper: 50 Space Crystals, 80 frames (5 seconds)"
                 cost: 50,
                 frames: 80,
+                requires: &[],
             }],
         }),
         mining: None,
@@ -47,6 +48,8 @@ pub(crate) static BARRACKS: ObjectDef = ObjectDef {
         tunnel: None,
         site: None,
         expansion: None,
+        // No TechPrerequisite (`factions/gdo/structures/deployment_center.md > Constructs`: no "Requires")
+        requires: &[],
     }),
     default_settings: None,
 };

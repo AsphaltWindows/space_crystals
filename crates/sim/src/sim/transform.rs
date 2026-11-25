@@ -11,6 +11,7 @@ use crate::events::SimEvent;
 use crate::ids::{ObjectId, PlayerId};
 use crate::object::{Object, Placement};
 use crate::scenario::BuildingOrientation;
+use crate::tech;
 use crate::transform::{self, Transform, follow_max, keep_fraction};
 use crate::tuning::construction::MIN_HP_AFTER_CANCEL;
 
@@ -30,12 +31,13 @@ impl Sim {
 
     /// `ConstructionCommand::WarpIn` (`factions/colonists/economy.md > Warp In > Warp In Command`), in this order:
     /// one Beacon of the player's ([`Sim::warper`]), complete, not transforming ([`Reject::ConstructorBusy`]: a
-    /// Beacon still being deployed, slice M3-F); `kind` on its Constructs List ([`Reject::CannotConstruct`]); a bank
-    /// that covers the cost as the command applies, after the earlier commands of the tick
-    /// ([`Reject::InsufficientCrystals`]); and the footprint, derived from the Beacon
-    /// ([`transform::warp_in_footprint`], design change 0121), allowed for a Warp In by the placement check
-    /// ([`Sim::warp_in_check`]: else [`Reject::Unplaceable`] with its first problem, a tile out of the player's sight
-    /// included, design change 0119).
+    /// Beacon still being deployed, slice M3-F); `kind` on its Constructs List ([`Reject::CannotConstruct`]); what its
+    /// entry and the building require owned ([`Reject::Requires`], slice M4-K, `crate::tech`: "Warp In begun",
+    /// `core/tech_and_research.md > Tech Prerequisites > Check Timing`); a bank that covers the cost as the command
+    /// applies, after the earlier commands of the tick ([`Reject::InsufficientCrystals`]); and the footprint, derived
+    /// from the Beacon ([`transform::warp_in_footprint`], design change 0121), allowed for a Warp In by the placement
+    /// check ([`Sim::warp_in_check`]: else [`Reject::Unplaceable`] with its first problem, a tile out of the player's
+    /// sight included, design change 0119).
     pub(super) fn check_warp_in(
         &self,
         player: PlayerId,
@@ -49,6 +51,7 @@ impl Sim {
             return Err(Reject::ConstructorBusy(beacon));
         }
         let recipe = transform::warp_in_recipe(o.kind, kind).ok_or(Reject::CannotConstruct(kind))?;
+        self.check_requires(player, tech::recipe_requires(recipe))?;
         if self.player(player).is_none_or(|p| p.crystals < recipe.cost) {
             return Err(Reject::InsufficientCrystals);
         }

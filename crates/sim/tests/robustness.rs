@@ -448,7 +448,9 @@ fn any_spawn_settings_are_handled() {
                 | ObjectKind::PeacekeeperShielded
                 | ObjectKind::Agent
                 | ObjectKind::Tunnel
-                | ObjectKind::Hideout => None,
+                | ObjectKind::Hideout
+                | ObjectKind::OpticsLab
+                | ObjectKind::ChemicalPlant => None,
             });
             let mut spawn = Spawn::new(kind, None, SpawnAt::Tile(TilePos::new(i * 6, 0)));
             spawn.settings = settings;

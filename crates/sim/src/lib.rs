@@ -46,6 +46,7 @@ pub mod sides;
 pub mod sim;
 pub mod symmetry;
 pub mod targets;
+pub mod tech;
 pub mod testing;
 pub mod toggle;
 pub mod transform;

@@ -38,6 +38,8 @@ pub(crate) static GENERATOR: ObjectDef = ObjectDef {
         tunnel: None,
         site: None,
         expansion: None,
+        // No TechPrerequisite (`factions/gdo/structures/deployment_center.md > Constructs`: no "Requires")
+        requires: &[],
     }),
     default_settings: None,
 };

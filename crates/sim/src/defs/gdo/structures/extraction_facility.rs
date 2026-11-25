@@ -36,6 +36,7 @@ pub(crate) static EXTRACTION_FACILITY: ObjectDef = ObjectDef {
             kind: ObjectKind::ExtractionPlate,
             cost: 75,    // Extraction Plate: 75 Space Crystals,
             frames: 400, // 400 frames (25 seconds)
+            requires: &[],
         }],
         warp_in: &[],
         drop_off: None,
@@ -43,6 +44,8 @@ pub(crate) static EXTRACTION_FACILITY: ObjectDef = ObjectDef {
         tunnel: None,
         site: None,
         expansion: None,
+        // No TechPrerequisite (`factions/gdo/structures/deployment_center.md > Constructs`: no "Requires")
+        requires: &[],
     }),
     default_settings: None,
 };
@@ -69,6 +72,7 @@ mod tests {
             kind: ObjectKind::ExtractionPlate,
             cost: 75,
             frames: 400,
+            requires: &[],
         };
         assert_eq!(structure.constructs, [plate]);
     }

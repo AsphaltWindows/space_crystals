@@ -67,10 +67,13 @@ impl Sim {
     /// units, as an order's units are found ([`Sim::own_units`]: stale and repeated ids dropped, `NotOwned` for
     /// someone else's); none is [`Reject::NoProducers`]. Then:
     /// - **Train**: at least one producer queues the unit, else why not: [`Reject::CannotProduce`] (no producer
-    ///   has the recipe), [`Reject::InsufficientCrystals`] or [`Reject::QueueFull`]. Queuing "needs only its Space
-    ///   Crystals (paid when queued) and a free queue slot; it does **not** check or reserve Unit Control" (design
-    ///   change 0143, `factions/gdo/overview.md > GDOResources > Unit Control > Reserved when production starts`;
-    ///   the Colonists' Beacon Capacity alike): the army cap is checked when production starts (`producers/step.rs`).
+    ///   has the recipe), [`Reject::Requires`] (the player owns none of a type its entry requires, slice M4-K:
+    ///   `core/tech_and_research.md > Tech Prerequisites > Unit Prerequisites`, `crate::tech`; a unit already queued
+    ///   goes on whatever is lost later), [`Reject::InsufficientCrystals`] or [`Reject::QueueFull`]. Queuing "needs
+    ///   only its Space Crystals (paid when queued) and a free queue slot; it does **not** check or reserve Unit
+    ///   Control" (design change 0143, `factions/gdo/overview.md > GDOResources > Unit Control > Reserved when
+    ///   production starts`; the Colonists' Beacon Capacity alike): the army cap is checked when production starts
+    ///   (`producers/step.rs`).
     ///   Design change 0083: the producers are served by the work they have queued, least first, ties by id, each
     ///   check counting what the ones before it in this command took, **until the crystal check fails** (0143: 0083
     ///   no longer considers the army cap); a full queue is passed over.
@@ -135,17 +138,24 @@ impl Sim {
         producers: &[ObjectId],
         kind: ObjectKind,
     ) -> Result<ProductionPlan, Reject> {
-        // (work queued, id, the unit's cost, whether the queue is full), least work first, ties by id.
+        // (work queued, id, the unit's cost, whether the queue is full), least work first, ties by id. A producer whose
+        // entry requires a type the player doesn't own queues nothing (`core/tech_and_research.md > Tech Prerequisites
+        // > Unit Prerequisites`: "checked only when the unit is queued"; slice M4-K, `crate::tech`).
+        let mut unmet = None;
         let mut able: Vec<(u64, ObjectId, u32, bool)> = producers
             .iter()
             .filter_map(|&id| {
                 let (production, def) = producer(&self.objects[&id])?;
                 let recipe = def.recipe(kind)?;
+                if let Some(missing) = self.unmet_requirement(player, recipe.requires.iter().copied()) {
+                    unmet.get_or_insert(missing);
+                    return None;
+                }
                 Some((production.remaining_work(def), id, recipe.cost, production.is_full()))
             })
             .collect();
         if able.is_empty() {
-            return Err(Reject::CannotProduce(kind));
+            return Err(unmet.map_or(Reject::CannotProduce(kind), Reject::Requires));
         }
         able.sort_unstable_by_key(|&(work, id, ..)| (work, id));
         let mut crystals = self.player(player).map_or(0, |p| p.crystals);

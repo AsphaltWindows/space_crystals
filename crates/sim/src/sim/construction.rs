@@ -15,8 +15,8 @@ use crate::ids::{ObjectId, PlayerId};
 use crate::object::{Object, Placement};
 use crate::placement::footprint_size;
 use crate::scenario::BuildingOrientation;
-use crate::transform;
 use crate::units::TilePos;
+use crate::{tech, transform};
 
 /// A construction command that passed the gate, with what its checks resolved.
 pub(super) enum Resolved {
@@ -54,9 +54,12 @@ impl Sim {
     /// constructors among `objects`, unique and in id order (ids that no longer exist are dropped, as are the player's
     /// objects that construct nothing; anyone else's object rejects it, [`Reject::NotOwned`]; none left is
     /// [`Reject::NoConstructor`]), then the command's own:
-    /// - **Construct**: each constructor, in id order, that has the building on its list, is idle and can pay for it
-    ///   from what the bank holds once the constructors before it paid; if none can, the first one's reason
-    ///   ([`Reject::CannotConstruct`], [`Reject::ConstructorBusy`], [`Reject::InsufficientCrystals`]);
+    /// - **Construct**: each constructor, in id order, that has the building on its list, whose player owns what its
+    ///   entry and the building require (slice M4-K, `crate::tech`: `core/tech_and_research.md > Tech Prerequisites >
+    ///   Check Timing`, "checked only at the moment construction is started"), is idle and can pay for it from what
+    ///   the bank holds once the constructors before it paid; if none can, the first one's reason
+    ///   ([`Reject::CannotConstruct`], [`Reject::Requires`], [`Reject::ConstructorBusy`],
+    ///   [`Reject::InsufficientCrystals`]);
     /// - **Cancel Construction**: each one constructing, and each of the player's sites among `objects` (`sim/sites.rs`,
     ///   slice M4-E; design change 0234: a site's "only command is X Cancel Construction"); with no site, as without
     ///   them: [`Reject::NotConstructing`] if no constructor is constructing;
@@ -147,7 +150,12 @@ impl Sim {
             let Some(o) = self.objects.get(&id) else {
                 continue;
             };
-            match construction::can_start(o, kind, left) {
+            // What its entry and the building require (slice M4-K, `crate::tech`), after whether it builds it at all.
+            let requires = construction::recipe(o.kind, kind)
+                .into_iter()
+                .flat_map(tech::recipe_requires);
+            let started = self.check_requires(player, requires);
+            match started.and_then(|()| construction::can_start(o, kind, left)) {
                 Ok(recipe) => {
                     left -= recipe.cost;
                     constructors.push(id);

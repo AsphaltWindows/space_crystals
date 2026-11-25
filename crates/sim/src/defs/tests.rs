@@ -52,6 +52,8 @@ fn every_kind_keeps_its_place_and_name() {
         "Agent",
         "Tunnel",
         "Hideout",
+        "OpticsLab",
+        "ChemicalPlant",
     ];
     assert_eq!(names[..expected.len()], expected.map(|name| format!("\"{name}\"")));
     for (index, &kind) in ObjectKind::ALL.iter().enumerate() {
