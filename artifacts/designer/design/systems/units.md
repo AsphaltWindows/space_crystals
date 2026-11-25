@@ -193,7 +193,7 @@ Ground vehicle on treads. Can rotate in place by spinning treads in opposite dir
 ### MovementModel - SpeedTurnRadiusMovement
 
 ## DrillUnit
-Underground variant of a tracked vehicle. Operates underground. **While underground it is hidden** from other players unless **revealed by a detector**, and can only be targeted while revealed; **area (AoE) damage still affects it** (user, 2026-11-25; replaces "visible while subterranean"; detection TBD). Can travel across all drillable tiles while underground. Cannot fire while underground. Has an above-ground mode in which it is stationary or behaves as tracked. Has directional armor with frontal damage reduction and rear damage increase. Typically has wide to full turret turn angles.
+Underground variant of a tracked vehicle. Operates underground. **While underground it is hidden** from other players unless **revealed by a detector**, and can only be targeted while revealed (user, 2026-11-25; replaces "visible while subterranean"; detection TBD). **Area damage doesn't touch it underground unless it is the attack's direct target** (user, 2026-11-25, Q0071; replaces the earlier "AoE still affects it"): see systems/combat.md > AoEDamage. Can travel across all drillable tiles while underground. Cannot fire while underground. Has an above-ground mode in which it is stationary or behaves as tracked. Has directional armor with frontal damage reduction and rear damage increase. Typically has wide to full turret turn angles.
 
 ### Domain - Underground
 ### CanHaveTurret - true
