@@ -9,7 +9,7 @@ The Tunnel Network is the collective of all Tunnels owned by a Syndicate player.
 **Transit delay** (user, 2026-11-25; Q0063): after a unit **enters** the network, there is a **small delay before it can exit**: **2 seconds (32 frames), placeholder**. After that it can exit from **any** Tunnel whose tier suits it, however far away: the delay is flat, not by distance. Units **produced** inside the network (by expansions) have **no delay**: they can exit as soon as they are produced (user, 2026-11-25).
 
 **Walking in** (user, 2026-11-25; Q0063): units enter through the entry path by **walking into it at their normal speed, one behind another with normal spacing**, like walking through any one-unit-wide passage; there is no fixed hold time per unit. A unit leaves the map once it has walked into the Tunnel. So an army files in about as fast as it can walk in single file, without big traffic jams.
-- **On entering** (user, 2026-11-25; Q0063): the unit's orders are **cleared**, queued ones included; it is idle inside. It **stays in its control groups** (a recall selects only the members on the map). An Agent **keeps its load**.
+- **On entering** (user, 2026-11-25; Q0063): the unit's orders are **cleared**, queued ones included; it is idle inside. It **stays in its control groups** (a recall selects only the members on the map; recalling a group whose members are **all** inside does **nothing**: selection, panel and camera unchanged, like recalling an empty group; user, 2026-11-26; Q0086). An Agent **keeps its load**.
 - **Upgrading Tunnels** (user, 2026-11-25; Q0063): until the upgrade has fully finished, a Tunnel only accepts, and only lets out, units supported by the tier it had **before** the upgrade began.
 - **Target Tunnel gone or unsuitable**: if the Tunnel a unit is heading for is destroyed, or its tier doesn't suit the unit, the Enter order ends and the unit idles (Q0063, as proposed).
 - **No special waiting rule** (user, 2026-11-25; Q0063): a unit heading for the entry path moves like any unit. In a moving line it keeps making progress; if the way is genuinely blocked, the normal Failure rule applies (systems/controls/behaviors.md > MovingToLocation > Failure): it gives up after about 7 s and idles. An occasional idle unit is acceptable.
@@ -107,6 +107,7 @@ Tunnels have 3 upgrade tiers. Each tier increases HP, Tunnel Area radius, and un
 Displays a grid of unit type tiles representing all units currently in the Tunnel Network. Each tile shows the unit type icon and a count of how many of that type are in the network. Unit types whose base category exceeds this Tunnel's tier are visible but greyed out (disabled).
 
 - Click an enabled unit type tile: ejects one unit of that type from this Tunnel's Side A (CommandIssuingTransition). Ejected units are queued. **Ground units walk out of the exit path single file, at their normal speed and spacing** (user, 2026-11-25; Q0064, mirroring Walking in; replaces the earlier "every 8 frames minimum"): the exit rate is set by unit speed and size. Each unit appears at the exit path's spot just outside Side A. **If that spot is blocked** (by any unit or structure), the next unit waits until it clears; no other spot is tried. With no rally point, a unit walks about 1 grid unit straight out of Side A and idles (a blocked walk follows the normal Failure rule). **Which unit comes out** (user, 2026-11-25; Q0064): of the chosen type, the one that has been **inside the network longest**. (Not "the healthiest": other per-unit factors such as re-arming at a Vault or the Null Chamber's re-buff may matter too.) **The eject queue**: each click reserves a specific unit (the tile's count drops at the click); the queue can't be cancelled; if the Tunnel is destroyed with a queue, the queued units stay in the network (stranded-unit rule applies). **Air units** leave through the Tier 3 **air exit door**, in parallel with ground units; since aircraft don't collide, the door has its own **exit rate: one aircraft per 8 frames (0.5 s), placeholder** (the same rate for the air entry door). The **air doors are on the Tunnel's roof**: the entry door over the entry path's half of the Tunnel, the exit door over the exit path's half (Q0064).
+- **Every Syndicate unit type keeps its tile** (user, 2026-11-26; Q0086), in panel order (factions/syndicate/units/README.md > Files): a type with no units in the network shows a count of 0, greyed. Letters never move.
 - **Units still in the transit delay** (user, 2026-11-26; Q0077): if every unit of a type is still within its 2-second transit delay, that type's tile is **greyed** and a click is **refused**; nothing is queued. It enables once one of them clears the delay.
 - **Ejected units with no rally point** (user, 2026-11-26; Q0077): walk **1 grid unit straight out** of the exit path and go idle there. Following units nudge them aside under the idle-unit rules; to keep the exit clear, set a rally point.
 - **Z**: returns to DefaultState (StateOnlyTransition)
@@ -144,6 +145,13 @@ Underground expansions are placed spatially within the Tunnel Area on the grid, 
 - A physical limit on the number of expansions per Tunnel
 - Meaningful scouting with detection (enemies can see what was built and where)
 - Consistent placement mechanics with GDO's surface building system
+
+### Tunnel Area display
+(user, 2026-11-26; Q0086)
+- **Selecting one of your Tunnels** shows its Tunnel Area on the map.
+- **Placing a Tunnel** shows the ghost's Tier 1 area **and the would-be Tier 2 and Tier 3 areas**. Cells that would stop a later upgrade are highlighted **red**: non-Drillable cells, and (designer's reading) off-map cells, since both block upgrades (Non-Overlap Rule > Drillable area). Players can see before placing whether the Tunnel can be fully upgraded there.
+- **Enemy Tunnel Areas are never shown.**
+- View modes with toggles (e.g. show all own areas): maybe later.
 
 ### Tunnel Area Non-Overlap Rule
 
