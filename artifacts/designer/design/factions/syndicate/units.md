@@ -371,14 +371,16 @@ Converts the **entire remaining battery** into the **next surge**. A single big 
   - **Relay**, which picks another target Satellite;
   - **Amplify**: available while relaying **if the target Satellite has an active target**. Every selected Battery spends its **entire battery** on the next surge (Amplify).
 
+**Every selected Battery must reach the chain** (user, 2026-11-25): the selected deployed Batteries act as one group, so **each** of them must have at least one Satellite in its own range. If any doesn't, **no relay targets are highlighted**. Highlighted targets are the Satellites reachable from **every** selected Battery (designer's reading).
+
+**Directing the armed Satellite** (user, 2026-11-25): besides auto-targeting, the player can **select the armed Satellite and give it a specific target** (Attack).
+
 **Several Batteries add up** (user, 2026-11-25): each surge of the armed Satellite deals the **sum** of each relaying Battery's own surge damage (each computed from its own charge by the ^(2/3) rule). Four Batteries deal four times one Battery's damage.
 
 **Chain breaks** (user, 2026-11-25): if the chain breaks (a Satellite on it is destroyed or a link goes out of range), the Batteries **stop relaying automatically** and go back to ordinary deployed behavior.
 
 TBD:
 - link range between Satellites, and Battery-to-Satellite range;
-- a selected Battery with no Satellite in its own range;
-- whether the player can direct the armed Satellite's target;
 - sight needed to target through the relay.
 
 All numbers (HP, armor, sight, speed, TunnelSpaceCost, battery, damage, range, timings, cost, build time): TBD.
