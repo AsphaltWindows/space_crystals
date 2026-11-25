@@ -27,10 +27,17 @@
 
 ## Open Director Questions
 
-**None open.** All answered through Q0075 (2026-11-25; entries 0197–0267). Pending follow-ups the Director owes: re-measure cost of AttackMove own-movement re-check (0243).
-
-  - All questions answered through Q0048 (2026-11-24/25).
-- Yielding (0023): only no-command units yield; Hold Position/busy don't; modes (Riot Shield) irrelevant; deployed Artillery Rig = fixed obstacle. TBD sidestep distance, allies. Watch: mining workers don't yield → possible clots at patches (worker collision while gathering never designed).
+Arrived 2026-11-25 night (Q0076–Q0087). Answered from docs: Q0078 (0283), Q0085 (0284), Q0086 pt 1 (0285). Open, need the user:
+- **Q0076 (partly BLOCKING)** Agents jam head-on near the hatch: pass-through like Drones / move patch / right-of-way; + hatch square, search radius 6.
+- Q0077 Eject during transit delay (refuse/queue); ejected unit with no rally (1 GU / farther).
+- Q0079 Agent killed before build: refund?; pending ghost reserves Tier 1 area?; site counts for non-overlap?
+- Q0080 Expansion placement: ground units block?; lingering ghosts reserve?; Warp In over hidden expansion.
+- Q0081 ExpandMenu: all nine expansions hold slots (turret always 10th)?
+- Q0082 Supplies: reaches 8 su; nearest Tunnel measured to Side D; old load lost at end of pick-up.
+- Q0083 AoE: friendly fire; reveal timing; Attack Ground one shot or continuous; drawing.
+- Q0084 Laser Turret: 9 points (hidden states, sight, blocking, paying, refunds, sites, Agent exit, targeting, slot for Agent-built).
+- Q0086 pts 2–5: empty types greyed; panel stays in EjectMenu; when Tunnel Areas are drawn; recall of all-held group.
+- Q0087 Builder Agent transit delay.
 
 ## Loose Ends
 - **Syndicate identity check (raised 2026-11-25, unanswered)**: (1) no healing outside Tunnels (only 1%/s inside) — intended loop? (2) before the Optics Lab: only Agents, no turret — early vulnerability intended? (3) anti-armor: deferred to the numbers pass (user); (4) no durable frontline/tank beyond the Guard — the Syndicate fights by hiding, mobility, smoke? Then the other factions' rosters (GDO placeholder numbers only if the Director needs them).
