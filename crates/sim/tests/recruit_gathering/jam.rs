@@ -22,6 +22,27 @@
 //! return heads for one point; here the Storage takes loads anywhere, so it needs more Recruits than lanes. **No
 //! existing rule resolves it**, and a new one (who makes way for whom) is design: Q0109. Slice M5-D measured and
 //! stopped here.
+//!
+//! **Measured as built** (5 minutes, from the 10th second: Space Crystals per second / the longest any Recruit went
+//! without a delivery, ticks; a gap of 1 tile):
+//!
+//! | Recruits | 2 | 3 | 4 | 5 | 6 | 7 | 8 |
+//! |---|---|---|---|---|---|---|---|
+//! | One patch facing the Storage | 2.65 / 32 | 3.77 / 110 | 2.30 / 2023 | 1.46 / 3086 | 1.60 / 3287 | 0.42 / 4597 | 0.41 / 4585 |
+//! | Two patches, the whole face | 2.66 / 24 | 3.99 / 40 | 5.32 / 40 | 6.10 / 132 | 3.94 / 881 | 3.00 / 1193 | 2.19 / 2489 |
+//!
+//! The 8-patch field with three Storages, 10 / 12 / 14 / 16 / 20 Recruits: 12.9 / 107, 14.7 / 172, 15.7 / 471,
+//! 15.8 / 965, 13.6 / 2618. At a gap of 2 tiles the lanes are long enough to pass in, and crowds only slow down:
+//! the face with two patches gives 2.74 / 79 with 5 Recruits and 3.23 / 208 with 8, the field 8.9 / 266 with 20.
+//!
+//! **Design change 0315's rule for Agents, prototyped for Recruits and not adopted** (the Director's note on 0315: the
+//! design doesn't extend it to Recruits). With a return leg that never counts as arrived short of the Storage, and
+//! begins again at once when it fails, the same cases still jam: one patch with 4 / 5 / 6 Recruits 2.33 / 1513,
+//! 1.29 / 2248, 1.61 / 4122; two patches with 6 / 7 / 8 4.52 / 594, 2.66 / 2375, 2.18 / 4229; the field with 20
+//! 12.8 / 2624. With the patch leg exempt too: 2.05 / 1986, 1.42 / 1601, 1.01 / 4640; 5.63 / 320, 3.26 / 1503,
+//! 2.06 / 3357; 13.8 / 2864. Of 99 cases, 44 have a Recruit 10 seconds without a delivery as built, 41 and 37 with
+//! the prototypes: the Recruits' jam isn't a leg that arrives short, it is two Recruits head-on in a lane with no
+//! room to pass, and "keep moving" doesn't make either give way.
 
 use super::*;
 

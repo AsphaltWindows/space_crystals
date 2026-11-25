@@ -1163,6 +1163,10 @@ writes the mover's goal and the target the attack engages, and reads `Mover::sta
     lost on the way is replaced by the removal path as any worker's is. Within what the design says a face holds
     (4 to 5 Recruits a 2-tile face) nothing jams; with more Recruits than lanes they stand head-on and starve one
     another, which no existing rule resolves (question Q0109: `tests/recruit_gathering/jam.rs`, ignored).
+    **Measured** (`tests/recruit_gathering/`): one Recruit at gaps of 1, 2 and 3 tiles makes a trip in 24, 56 and 88
+    ticks (1.33, 0.57 and 0.36 Space Crystals per second; the design's formula gives 1.45, 0.59 and 0.37); 10 on an
+    8-patch field with three Storages, 12.9. `tests/recruits_perf.rs` (ignored, release): 60 Recruits on 22 patches
+    with four Storages, a mean of 0.062 ms and a p99 of 0.089 ms a whole sim tick (load average 2.7).
   - **Supplies** (M4-I; `factions/syndicate/units/agent.md > Gathering > Supplies`, design change 0256): a Gather on a
     Supply Delivery Station (`Site::Station`, the station as the owner knows it) runs the same phases, for a worker type
     with `WorkerDef::supplies` (the Agent; the gate's `Sim::gatherers_among`, `resolve`'s station rule). `Mining` at a
