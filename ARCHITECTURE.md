@@ -258,7 +258,10 @@ Units, structures and resources are all `Object`s (`object.rs`, `core/entities.m
   skip_serializing_if)]`, a tag in `Sim::state_hash`), as a Tunnel's eject queue is (`TunnelState::eject`), so the
   states without a held unit, the goldens among them, are as they were. Inside, a unit regenerates 1% of its MaxHP
   a second (`TunnelDef::regen_per_second`, placeholder, 0249) and may leave `TRANSIT_DELAY_TICKS` (32, placeholder,
-  0245) after it walked in, a unit produced inside at once (0246; `Held::may_exit`).
+  0245) after it walked in, a unit produced inside at once (0246; `Held::may_exit`). **Measured**
+  (`tests/agents_perf.rs`, ignored, release; slice M4-M): 4 Tunnels with 4 Agents each on two shared fields and 60
+  Guards cycling through Enter and Eject, a mean of 0.043 ms and a p99 of 0.067 ms a whole sim tick; then 40
+  Grenadiers shelling a Tunnel field, 0.070 and 0.090 ms (load average 0.3 to 0.6).
 - **Sites** (`construction/site.rs`, `sim/sites.rs`; slice M4-E, plan decision T31; `factions/syndicate/units/agent.md
   > Building > Tunnel Construction Flow`, design change 0234): a structure a worker builds where it stands is, from its
   first frame, the object it will be, with `Object::construction: Option<Construction { progress, builder }>` while it
@@ -3571,7 +3574,15 @@ One kind (plan decision T54, slices M4-R1 and M4-R2): its own files, and one lin
    the `ObjectKind` variant, its place in `ObjectKind::ALL` and its arm of `ObjectKind::def`; the state hash numbers
    kinds in that order, and maps and replays name them by their serialized names, which must not change. A rule of
    its faction rather than of the type goes in `defs/<faction>.rs`. Then *Object model > Adding an object type* for
-   its capabilities, and *Adding a capability* for anything new it does.
+   its capabilities, and *Adding a capability* for anything new it does. What M4's kinds put in their defs, as
+   examples: how a structure is built, `StructureDef::site` (a `SiteDef`: a worker builds it, the Tunnel and the
+   Laser Turret) or `StructureDef::expansion` (an `ExpansionDef`: a Tunnel builds it in its area, the Hideout, the
+   Optics Lab, the Chemical Plant and the turret again), with `StructureDef::underground` for an expansion; what must
+   stand first, `StructureDef::requires` for a structure and `Recipe::requires` in its producer's `ProductionDef` for
+   a unit (the Guard and the Grenadier, slice M4-K); a structure's weapon, `StructureDef::attack`, and its pop-up
+   form, `StructureDef::popup` (the Laser Turret, slices M4-S1 and M4-S2). A new expansion also turns its
+   `ExpandEntry::Planned` into its `Kind` in `defs::syndicate::EXPAND_MENU`, and a new Syndicate unit joins
+   `EJECT_MENU_ORDER` there.
 2. **Its client module**, `crates/game/src/kinds/<faction>/<object>.rs` (*Client architecture > Kinds*): its
    `ClientKind`, with
    - its label, two letters of its own (`kinds::tests::every_label_is_its_own` checks them against every other
@@ -3591,8 +3602,12 @@ One kind (plan decision T54, slices M4-R1 and M4-R2): its own files, and one lin
    right-click (`command_ui/resolution.rs`). A unit or building of its panel that isn't in the game yet holds its slot
    (`PanelTemplate::planned`, `PanelCommand::Planned`, with the type it will require in `Planned::requires`), and a
    command the design names after the object has its name there (`PanelTemplate::names`). A menu whose entries
-   follow a design list in grid order takes the list from the sim's data (`sc_sim::defs::EJECT_MENU_ORDER`), so a
-   new unit or expansion joins it there. A builder also needs its `Builder` (*Adding a faction*, step 7).
+   follow a design list in grid order takes the list from the sim's data (`sc_sim::defs::EJECT_MENU_ORDER`, and the
+   ExpandMenu's `EXPAND_MENU`), so a new unit or expansion joins it there. A builder also needs its `Builder`
+   (*Adding a faction*, step 7). Of M4's eight kinds, three have a module here: the Tunnel, the Agent, and the
+   Hideout (the Production template with the design's letters); the Guard and the Grenadier take the BasicCombatUnit
+   template, and the Optics Lab, the Chemical Plant and the Laser Turret have no commands (`PanelTemplate::NONE`; a
+   site shows its Cancel, `SITE_GRID`).
 4. **Where numbers go**:
    - the object's own numbers in its def, as fields, not in logic files;
    - a number a system uses for every kind in that system's tuning module (*Tunables*);
@@ -3607,7 +3622,8 @@ One kind (plan decision T54, slices M4-R1 and M4-R2): its own files, and one lin
 
 What a faction needs before players can start with it, in the order M3 (the Colonists) built it. Started by slice
 M3-C and finished by M3-K2 from what the M3 slices needed (plan `artifacts/director/m3-plan.md`, the Built entries of
-`artifacts/director/plan.md`).
+`artifacts/director/plan.md`); reviewed against M4 (the Syndicate) by slice M4-M, which added items 15 to 18 and M4's
+examples.
 
 1. **Defs** (slice M3-A, laid out by M4-R1): the faction's root module, `defs/<faction>.rs`, with its own rules (its
    caps and divisors), and a def module per kind under `defs/<faction>/`, each with its line at the end of the kind
@@ -3617,7 +3633,8 @@ M3-C and finished by M3-K2 from what the M3 slices needed (plan `artifacts/direc
    by itself.
 2. **Banks**: a resource the faction stores is a `Player` field (`u32`, hashed in `hash.rs`, `#[serde(default)]`),
    in `Banks` and `DebugCommand::SetResources` (`serde(default)` there too, so older command files load). Re-bless
-   the goldens (see *Replays and golden hashes*).
+   the goldens (see *Replays and golden hashes*). The Syndicate's Supplies (slice M4-I) took no new field: the bank
+   was there, and what was new was gathering it (item 12's workers, from a neutral station).
 3. **Starting Conditions** (`scenario/starting.rs`): a `static StartingConditions` table and its arm in
    `StartingConditions::of`. A game then starts the player's banks from it (`Player::starting`), and the camera on
    its primary structure (`Scenario::primary_structure`).
@@ -3632,7 +3649,9 @@ M3-C and finished by M3-K2 from what the M3 slices needed (plan `artifacts/direc
    the Syndicate's to the Cults). A faction's own layout rule goes into `check_layout` (the Syndicate's expansions
    inside their Tunnel's area), and its text into the editor's `rule_text` and the client's `placement_text`.
 5. **Army cap** (`economy/army.rs`): the faction's `ArmyResource` (`ArmyResource::of`, `name`, `cost_of`, and what
-   is available in `cap`), or none. The start check at production start is the one for every faction (design change
+   is available in `cap`), or none. A cap may be derived rather than built (the Syndicate's Tunnel Space, plan
+   decision T33: its Tunnels' areas less their expansions' cells), and then counts the units off the map too
+   (item 15). The start check at production start is the one for every faction (design change
    0143, `sim/producers/step.rs`), and so is its `SimEvent::ProductionWaiting`; the client's `army_cap_text` and the
    InfoPanel's waiting line name the faction's resource.
 6. **HUD figures** (`hud/resources.rs`): the faction's `ResourceFigure`s in its DisplayHud order (`ResourceFigure::of`)
@@ -3650,8 +3669,10 @@ M3-C and finished by M3-K2 from what the M3 slices needed (plan `artifacts/direc
    a new portal needs no code; see *Production*). `defs_are_consistent` checks that the letters name the type's
    sides.
    A doorway with a rally point gives the new unit its own right-click order at release (`orders::resolution`).
+   `ExitRule::Network` is a producer with no doorway (the Hideout, slice M4-C): its units go into the held store
+   (item 15), and a rally point brings them out of a Tunnel.
 
-The faction's own mechanics come next, each only if it has them (M3's in brackets):
+The faction's own mechanics come next, each only if it has them (M3's and M4's in brackets):
 
 9. **Kinds that change** (slices M3-A, M3-E, M3-F; plan decision T15): every change of kind goes through
    `Sim::change_kind` (see *Object model > Changing kind*: same id and owner, capabilities rebuilt, orders, move and
@@ -3682,15 +3703,43 @@ The faction's own mechanics come next, each only if it has them (M3's in bracket
     order of its own: its def's `StructureDef::site` (`SiteDef`: the price, the frames, the share of its MaxHP it
     starts at, where the builder goes) and its builder's `WorkerDef::builds`, and the Build order, the price and the
     site take it (*Economy > Agent-built Tunnels*).
-15. **Tests and QA** (plan decision T27; slices M3-K1 and M3-K2): `ScenarioBuilder::faction` sets a test player's
-    faction, and `cargo run -- --factions <f1,f2>` starts a game with it, which its replay records. Then:
+15. **Units off the map** (M4-C, plan decision T30): a unit inside something, the Syndicate's Tunnel Network, is not
+    an object but a `Held` in `Sim::held` (*Object model > Units off the map: the held store*). Its ways in and out
+    are `Sim::take_off_map` and `Sim::put_on_map` only (the Enter order and the Tunnel's eject queue,
+    `sim/network.rs`), and whatever must count it says so: the army cap, the removal path's references
+    (`Sim::forget_references`), a defeated player's units, the state hash and saves, `testing::dangling_references`,
+    the client's control groups. A new kind of holder (a transport) gives `Place` a variant and matches it
+    everywhere `Place` is matched. The client reads the store for its menus (`Sim::network_counts`, `next_out`).
+16. **Sites** (M4-E, M4-F, M4-S1, M4-S2, plan decision T31): a structure built where it stands is the object from its
+    first frame, with `Object::construction` while it is a site (*Object model > Sites*): a worker's
+    (`StructureDef::site`, the builder held at `Place::Site`) or a Tunnel's expansion (`StructureDef::expansion`,
+    `Builder::Tunnel`, the Tunnel's one operation, *Expansions and a Tunnel's operation*). Its maximum HP follows the
+    ConstructionHP rule, every system asks `Object::is_operational` before treating it as working, and its cancel and
+    refunds are the site's (`SimEvent::SiteCancelled`, `BuildRefunded` for an order that never became a site). A
+    builder that isn't a worker or a Tunnel adds a `Builder` variant.
+17. **The underground layer** (M4-A, M4-F, M4-H, plan decision T32): `StructureDef::underground` puts a structure in
+    a layer of its own: hidden from every player but its owner while owned (*Vision > Hidden objects*), walked over
+    (`BlockerKind::UndergroundExpansion`; surface and underground footprints never share a tile, `may_overlap`),
+    hit by blasts over it (*Combat*), placed by the expansion method inside its Tunnel's area (*Placement and the
+    build area*), and, when its Tunnel goes, neutral and decaying (*Object model > Losing Tunnels*). A form between
+    the layers is a pop-up (`StructureDef::popup`, *Object model > The pop-up form*): one function decides each
+    reader's answer. The client draws what only its owner sees as an outline.
+18. **Prerequisites** (M4-K, plan decision T37): `StructureDef::requires` and `Recipe::requires` name the kinds that
+    must stand; one rule for every faction counts them (`tech::counts`, *Object model > Tech prerequisites*), and the
+    gate checks them only as the work starts (`Reject::Requires`). The client greys the entry with "Requires a/an
+    <name>", so a faction's prerequisites need data only.
+19. **Tests and QA** (plan decision T27; slices M3-K1 and M3-K2, M4-L and M4-M): `ScenarioBuilder::faction` sets a
+    test player's faction, and `cargo run -- --factions <f1,f2>` starts a game with it, which its replay records. Then:
     - a build line through the gate beside `testing::build_order` (`testing::colonists`: Train, Gather, Deploy and
-      Warp In), whose `Books` count what the faction's income adds;
+      Warp In; `testing::syndicate`: Gather, Job, Expand, Upgrade and After, with `SupplyBooks` for the Supplies),
+      whose `Books` count what the faction's income adds;
     - goldens of its opening and of a game against another faction, both players scripted (`tests/golden/colonists.rs`,
-      `testing::colonists::skirmish`);
+      `testing::colonists::skirmish`; `tests/golden/syndicate.rs`, `testing::syndicate::skirmish`);
     - its economy oracle against the design's targets (`tests/economy_oracle/`, `docs/economy_oracle.md`);
-    - a perf test of its crowds (`tests/drones_perf.rs`) and an ignored 10-minute soak of the golden game
-      (`tests/skirmish_soak.rs`: invariants, books, no stuck order, the hash stable over two runs);
+    - a perf test of its crowds (`tests/drones_perf.rs`, `tests/agents_perf.rs`) and an ignored 10-minute soak of the
+      golden game (`tests/skirmish_soak.rs`, `tests/syndicate_soak.rs`: invariants, books, no stuck order, the hash
+      stable over two runs; the Syndicate's adds the network's invariants, `check_network`, and plays on past the
+      golden's end with more on both sides);
     - a scripted walkthrough of the first playable (`--factions` with `--input-script`, see *QA mode*), and its
       playtest notes in `docs/playtest/`.
 
