@@ -56,6 +56,7 @@ fn object(id: u32, kind: ObjectKind, owner: Option<PlayerId>, pos: Vec2) -> Obje
         tunnel: crate::tunnel::fresh(kind),
         construction: None,
         decay: None,
+        popup: None,
     }
 }
 
@@ -316,6 +317,52 @@ fn the_minimum_is_half_the_overlap_fraction() {
     assert_eq!(hit.minimum, MINIMUM_DAMAGE * fraction);
     assert!(hit.damage - hit.armor < hit.minimum, "the armour outweighs the share");
     assert_eq!(resolve(&hit, None).hp, hit.minimum);
+}
+
+/// Plan §3.3 S2's acceptance: "A test AoE over a lowered pop-up deals the share less 6 × the overlap fraction. Raised,
+/// less 1 × it" (`factions/syndicate/structures/laser_turret.md`: "raised PointArmor 1, FullArmor 1; underground
+/// (pop-up) PointArmor 6, FullArmor 6"; `Object::armor`). The grenade's circle (radius 40) around the middle of the
+/// turret's one tile covers it but for its corners: the same share of the blast either way, less the FullArmor of
+/// its form times the overlap fraction. A lowered turret, hidden, takes it all the same (design change 0267: hidden things "can only be hurt by
+/// area damage over them"); rising and retracting it has its raised armour (design change 0296 point 1).
+#[test]
+fn a_blast_over_a_popup_turret_meets_the_armour_of_its_form() {
+    use crate::popup::PopUp;
+    use crate::progress::Progress;
+    let blast_on = |state: Option<PopUp>| {
+        let mut turret = object(2, ObjectKind::LaserTurret, Some(PlayerId(1)), Vec2::new(256.0, 256.0));
+        turret.popup = state;
+        assert_eq!(
+            crate::vision::hidden_from(&turret, PlayerId(2)),
+            state == Some(PopUp::LOWERED)
+        );
+        let blast = grenade(turret.pos, TargetDomain::Ground);
+        let hits = strike_on(&objects([turret]), &blast);
+        assert_eq!(hits.len(), 1);
+        hits[0]
+    };
+    let lowered = blast_on(Some(PopUp::LOWERED));
+    // The overlap fraction: the share of the turret's tile under the circle, all of it but the corners.
+    let fraction = lowered.armor / 6.0;
+    assert!((0.95..1.0).contains(&fraction), "{fraction}");
+    // The share of the blast: the same area, of the circle's.
+    let share = 100.0 * fraction * 4096.0 / (PI * 1600.0);
+    assert!((lowered.damage - share).abs() < 1e-3, "{}", lowered.damage);
+    let taken = resolve(&lowered, None).hp;
+    assert_eq!(taken, lowered.damage - 6.0 * fraction);
+    let raised = [
+        None,
+        Some(PopUp::Rising(Progress::new(8))),
+        Some(PopUp::Raised {
+            idle: Progress::new(32),
+        }),
+        Some(PopUp::Retracting(Progress::new(8))),
+    ];
+    for state in raised {
+        let hit = blast_on(state);
+        assert_eq!((hit.damage, hit.armor), (lowered.damage, 1.0 * fraction), "{state:?}");
+        assert_eq!(resolve(&hit, None).hp, lowered.damage - 1.0 * fraction);
+    }
 }
 
 /// Plan §3.3 O's acceptance, domains: a Ground blast hits a hidden expansion and a surfaced test DrillUnit, and not an

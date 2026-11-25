@@ -53,6 +53,7 @@ pub(crate) static ROBO_PORTAL: ObjectDef = ObjectDef {
         // `factions/colonists/structures/README.md > Tech Model`: "Colonists buildings have no TechPrerequisites"
         requires: &[],
         attack: None,
+        popup: None,
     }),
     default_settings: None,
 };

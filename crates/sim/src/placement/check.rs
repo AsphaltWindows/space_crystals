@@ -14,6 +14,7 @@ use crate::defs::{Category, Domain, ObjectKind};
 use crate::map::Map;
 use crate::nav::TileRect;
 use crate::paths::box_overlaps_rect;
+use crate::popup;
 use crate::scenario::BuildingOrientation;
 use crate::tunnel;
 use crate::units::TilePos;
@@ -68,6 +69,8 @@ pub fn check_reserving(
     // An underground expansion's ground (`super::Method::Expansion`, slice M4-F): Drillable in place of Buildable
     // (design change 0239), and neither flatness nor sight.
     let expansion = matches!(site.method, Method::Expansion { .. });
+    // A structure a Tunnel builds that comes up to the surface: one with a pop-up form, the Laser Turret (slice M4-S2).
+    let surfaces = popup::def_of(kind).is_some();
     // `> Direct Placement`: "all footprint tiles must be in the Visible state"; `> Warp In` too (design change 0119).
     for (i, tile) in footprint.tiles() {
         if !map.in_bounds(tile) {
@@ -78,6 +81,20 @@ pub fn check_reserving(
         if expansion {
             if !preset.is_some_and(|preset| preset.drillable) {
                 found[i] |= TileProblem::NotDrillable.bit();
+            }
+            // (M4-S2) A Tunnel's Laser Turret is "placed within that Tunnel's Tunnel Area like an expansion"
+            // (`factions/syndicate/structures/laser_turret.md > Construction`), and is a surface structure once it
+            // rises: **a reading**, it also needs the ground its type needs wherever it is built, Buildable and flat
+            // (`core/map.md > Elevation > Structures only on flat terrain`), so that a Tunnel builds one only where
+            // an Agent could. Still no sight, and units over it don't block it: it starts lowered.
+            if !surfaces {
+                continue;
+            }
+            if !preset.is_some_and(|preset| preset.buildable) {
+                found[i] |= TileProblem::NotBuildable.bit();
+            }
+            if def.needs_flat_ground && !map.is_flat(tile) {
+                found[i] |= TileProblem::NotFlat.bit();
             }
             continue;
         }

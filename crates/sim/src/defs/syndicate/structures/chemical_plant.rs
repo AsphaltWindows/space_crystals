@@ -53,6 +53,7 @@ pub(crate) static CHEMICAL_PLANT: ObjectDef = ObjectDef {
         expansion: Some(CHEMICAL_PLANT_EXPANSION),
         requires: &[], // TechPrerequisite - None
         attack: None,
+        popup: None,
     }),
     default_settings: None,
 };

@@ -51,6 +51,7 @@ pub(crate) static BARRACKS: ObjectDef = ObjectDef {
         // No TechPrerequisite (`factions/gdo/structures/deployment_center.md > Constructs`: no "Requires")
         requires: &[],
         attack: None,
+        popup: None,
     }),
     default_settings: None,
 };

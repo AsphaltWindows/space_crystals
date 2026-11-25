@@ -37,7 +37,7 @@ use std::collections::BTreeMap;
 
 use serde::{Deserialize, Serialize};
 
-use super::blocking_footprint;
+use super::{blocking, blocking_footprint};
 use crate::hash::{StateHash, StateHasher};
 use crate::ids::{ObjectId, PlayerId};
 use crate::map::Map;
@@ -195,7 +195,7 @@ fn sees_rect(sight: &PlayerVision, rect: TileRect) -> bool {
 pub(super) fn own_blockers(objects: &BTreeMap<ObjectId, Object>, rules: NavRules) -> Vec<(PlayerId, TileRect)> {
     let mut own: Vec<(PlayerId, TileRect)> = objects
         .values()
-        .filter_map(|o| Some((o.owner?, blocking_footprint(o.kind, o.placement.as_ref()?, rules)?)))
+        .filter_map(|o| Some((o.owner?, blocking(o, rules)?)))
         .collect();
     // Stable: within an owner the id order stays.
     own.sort_by_key(|&(owner, _)| owner);

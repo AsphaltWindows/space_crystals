@@ -16,6 +16,7 @@ use crate::economy::{Extractor, Worker};
 use crate::ids::{ObjectId, PlayerId};
 use crate::mover::Mover;
 use crate::orders::Orders;
+use crate::popup::PopUp;
 use crate::production::Production;
 use crate::progress::Progress;
 use crate::riot_shield::RiotShield;
@@ -109,6 +110,13 @@ pub struct Object {
     /// as they were.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub decay: Option<Progress>,
+    /// A turret with a pop-up form: where it is between underground and the surface
+    /// (`factions/syndicate/structures/laser_turret.md > Upright vs Pop-up`, plan decision T50, slice M4-S2;
+    /// `popup`). `None` for everything else, and for a turret standing upright: its form is derived from the Tunnel
+    /// Areas, never stored. Optional in files, and left out of them while `None`, so that states saved before it existed
+    /// still load and those without a pop-up are as they were.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub popup: Option<PopUp>,
 }
 
 impl Object {

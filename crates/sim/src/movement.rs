@@ -47,7 +47,7 @@ use glam::Vec2;
 use crate::combat;
 use crate::defs::{Domain, MovementAttrs, UnitDef};
 use crate::events::SimEvent;
-use crate::ids::ObjectId;
+use crate::ids::{ObjectId, PlayerId};
 use crate::map::Map;
 #[cfg(test)]
 use crate::math;
@@ -55,9 +55,10 @@ use crate::mover::{Locomotion, MoveGoal, MoveStatus, Mover, Orientation, PathSta
 use crate::nav::{self, Nav};
 use crate::object::Object;
 use crate::orders::gather;
+use crate::popup;
 use crate::production::ExitDoor;
 use crate::shape::Shape;
-use crate::units::Tick;
+use crate::units::{SU_PER_GU, Tick};
 
 use crate::units::TilePos;
 use collide::World;
@@ -151,6 +152,10 @@ pub(crate) struct Scratch {
     lanes: Vec<collide::Lane>,
     /// The sidesteps asked of idle units this tick (`yielding`), applied when every unit has moved.
     requests: Vec<yielding::Request>,
+    /// (M4-S2) The footprints of the lowered pop-up turrets that want to rise and have a unit over them
+    /// (`popup::is_blocked`), each with its owner: their owners' idle units there are asked to step off
+    /// (`yielding::make_way`).
+    rising: Vec<(Option<PlayerId>, Vec2, Vec2)>,
     /// The angle each unit turned in this tick's phase 5d, for 5e.
     turns: Turns,
     counters: MoveCounters,
@@ -208,7 +213,8 @@ fn unit_of(o: &Object) -> Option<(&'static UnitDef, Vec2)> {
 /// grid at each commit. A unit whose attack holds its base (`combat::may_move`, `combat::may_turn`) stands and
 /// keeps its goal. An idle unit asked to make way takes its sidestep in its turn, like any move
 /// (`yielding::sidestep`); the sidesteps asked for in this tick are noted when every unit has moved
-/// (`yielding::apply`) and begin in the next. The angle each unit turned goes to [`Turns`], for phase 5e.
+/// (`yielding::apply`) and begin in the next. (M4-S2) A lowered pop-up turret that wants to rise asks its owner's idle
+/// units over its footprint the same way (`yielding::make_way`). The angle each unit turned goes to [`Turns`], for phase 5e.
 pub(crate) fn step(
     objects: &mut BTreeMap<ObjectId, Object>,
     first_new: ObjectId,
@@ -224,12 +230,20 @@ pub(crate) fn step(
     scratch.engaged.clear();
     scratch.doors.clear();
     scratch.requests.clear();
+    scratch.rising.clear();
     scratch.turns.0.clear();
     for layer in &mut scratch.layers {
         layer.reset(map.width(), map.height());
     }
     for o in objects.values() {
         let Some((unit, half)) = unit_of(o) else {
+            // (M4-S2) A pop-up turret that a unit keeps from rising (`popup`).
+            if popup::is_blocked(o)
+                && let Some(placement) = &o.placement
+            {
+                let half = Vec2::new(placement.w as f32, placement.h as f32) * (SU_PER_GU / 2.0);
+                scratch.rising.push((o.owner, o.pos, half));
+            }
             continue;
         };
         let mover = o.mover.as_ref().expect("units have movers");
@@ -403,6 +417,11 @@ pub(crate) fn step(
                 scratch.layers[l].mark(o.pos, half, kinds);
             }
         }
+    }
+    // (M4-S2) After the movers' own requests, which come first for a unit asked twice.
+    for &(owner, centre, half) in &scratch.rising {
+        let ground = &scratch.layers[0];
+        yielding::make_way(owner, centre, half, ground, &scratch.bodies, &mut scratch.requests);
     }
     yielding::apply(objects, &scratch.bodies, &mut scratch.requests);
 }

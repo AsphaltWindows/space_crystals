@@ -47,6 +47,7 @@ pub(crate) static EXTRACTION_FACILITY: ObjectDef = ObjectDef {
         // No TechPrerequisite (`factions/gdo/structures/deployment_center.md > Constructs`: no "Requires")
         requires: &[],
         attack: None,
+        popup: None,
     }),
     default_settings: None,
 };

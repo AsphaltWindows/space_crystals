@@ -33,6 +33,7 @@ pub mod orders;
 mod paths;
 pub mod placement;
 pub mod player;
+pub mod popup;
 pub mod production;
 pub mod progress;
 pub mod replay;

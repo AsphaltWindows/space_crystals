@@ -75,7 +75,7 @@ pub const EXPAND_MENU: &[ExpandEntry] = &[
     ExpandEntry::Planned("Null Chamber"),
     ExpandEntry::Planned("Aerospace Assembly"),
     ExpandEntry::Planned("Orbital Command"),
-    ExpandEntry::Planned("Laser Turret"),
+    ExpandEntry::Kind(ObjectKind::LaserTurret),
 ];
 
 #[cfg(test)]

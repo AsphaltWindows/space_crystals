@@ -41,6 +41,7 @@ fn unit(kind: ObjectKind, up: u32) -> Object {
         tunnel: None,
         construction: None,
         decay: None,
+        popup: None,
     }
 }
 

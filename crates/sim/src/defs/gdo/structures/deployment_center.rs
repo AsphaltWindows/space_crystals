@@ -63,6 +63,7 @@ pub(crate) static DEPLOYMENT_CENTER: ObjectDef = ObjectDef {
         expansion: None,
         requires: &[], // No TechPrerequisite: none declared
         attack: None,
+        popup: None,
     }),
     default_settings: None,
 };

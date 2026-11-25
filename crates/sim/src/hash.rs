@@ -311,6 +311,7 @@ impl StateHash for Object {
             tunnel,
             construction,
             decay,
+            popup,
         } = self;
         id.hash(h);
         kind.hash(h);
@@ -351,6 +352,11 @@ impl StateHash for Object {
         if let Some(decay) = decay {
             h.tag(3);
             decay.hash(h);
+        }
+        // (M4-S2) The same for a turret's pop-up state (`popup.rs`), under a tag of its own: only a pop-up has one.
+        if let Some(popup) = popup {
+            h.tag(4);
+            popup.hash(h);
         }
     }
 }

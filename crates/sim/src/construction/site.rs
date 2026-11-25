@@ -193,8 +193,9 @@ impl Construction {
 
 /// The ConstructionHP Rule's maximum for a site of `kind`'s seen at `progress`, whose structure has `full` MaxHP once
 /// built: what a player who saw it remembers (`vision::LastKnown::max_hp`), not knowing who builds it. Its kind tells
-/// the share it starts at: a worker's site's ([`site_def`]) or a Tunnel's expansion's ([`expansion_def`]), as no kind
-/// is built both ways. `None` for a kind no one builds on a site.
+/// the share it starts at: a worker's site's ([`site_def`]) or a Tunnel's expansion's ([`expansion_def`]); a kind built
+/// both ways, the Laser Turret (slice M4-S2), starts at the same share either way (a test holds every kind to it).
+/// `None` for a kind no one builds on a site.
 pub fn max_hp_seen(kind: ObjectKind, progress: &Progress, full: f32) -> Option<f32> {
     let start_hp = match (site_def(kind), expansion_def(kind)) {
         (Some(def), _) => def.start_hp,
@@ -324,7 +325,8 @@ mod tests {
 
     /// A record of a site keeps its progress, not who builds it (slice M4-I2): its maximum takes the share it started
     /// at by its kind, as its builder's def gave it, a Tunnel site's halfway 330 of 600 and a Hideout's 220 of 400.
-    /// For every kind built on a site, one way only, the same as the site's own; none for a kind never built so.
+    /// For every kind built on a site the same as the site's own, whichever way it is built; none for a kind never
+    /// built so.
     #[test]
     fn a_record_takes_the_rule_by_its_kind() {
         let halfway = |frames: u32| Progress {
@@ -351,10 +353,11 @@ mod tests {
         }
         for &kind in ObjectKind::ALL {
             let built = site_def(kind).is_some() || expansion_def(kind).is_some();
-            assert!(
-                site_def(kind).is_none() || expansion_def(kind).is_none(),
-                "{kind:?}: built both ways"
-            );
+            // A kind built both ways starts at one share, so its record needn't know its builder: the Laser Turret.
+            if let (Some(site), Some(expansion)) = (site_def(kind), expansion_def(kind)) {
+                assert_eq!(site.start_hp, expansion.start_hp, "{kind:?}: built both ways");
+                assert_eq!(kind, ObjectKind::LaserTurret);
+            }
             assert_eq!(max_hp_seen(kind, &halfway(100), 100.0).is_some(), built, "{kind:?}");
         }
     }

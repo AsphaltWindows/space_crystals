@@ -370,6 +370,7 @@ impl Sim {
             tunnel,
             construction: None,
             decay: None,
+            popup: None,
         }
     }
 
@@ -424,6 +425,7 @@ mod modes;
 mod navigation;
 mod network;
 mod phase;
+mod popups;
 mod preview;
 mod producers;
 mod removal;

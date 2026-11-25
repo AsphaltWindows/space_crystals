@@ -329,6 +329,7 @@ mod tests {
             tunnel: crate::tunnel::fresh(kind),
             construction: None,
             decay: None,
+            popup: None,
         }
     }
 

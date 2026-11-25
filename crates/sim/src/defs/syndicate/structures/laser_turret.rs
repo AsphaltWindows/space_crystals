@@ -2,10 +2,11 @@
 //! slice M4-S1): a structure that attacks (plan decision T49), which an Agent builds by the Tunnel's flow (plan
 //! decision T51).
 //!
-//! Slice M4-S1 builds the **upright** turret, the Agent's. Its pop-up form inside an own Tunnel Area and the Tunnel's
-//! ExpandMenu entry are slice M4-S2's: until then a turret inside an own Tunnel Area stands upright too.
+//! Slice M4-S1 built the **upright** turret, the Agent's; slice M4-S2 its **pop-up** form inside an own Tunnel Area
+//! (plan decision T50, `crate::popup`: the form is derived from the areas, never stored) and the Tunnel's own build of
+//! it, from the ExpandMenu's tenth slot (`StructureDef::expansion`).
 
-use crate::defs::structures::{BuilderGoes, SiteDef, SitePrice, StructureDef, SymmetryType};
+use crate::defs::structures::{BuilderGoes, ExpansionDef, PopUpDef, SiteDef, SitePrice, StructureDef, SymmetryType};
 use crate::defs::units::{AttackAttrs, AttackType, FullyConnectedSubtype, TargetDomain, TargetType};
 use crate::defs::{Armor, Category, Footprint, ObjectDef, ObjectKind};
 use crate::player::Faction;
@@ -31,7 +32,7 @@ pub(crate) static LASER_TURRET: ObjectDef = ObjectDef {
     max_hp: Some(300.0), // HP: 300
     max_shields: None,
     // "Armor (building armor rule, 1x1): raised PointArmor 1, FullArmor 1" (`factions/syndicate/structures/README.md`'s
-    // n = 1 for a 1x1 structure). The underground armour is the pop-up's, slice M4-S2's.
+    // n = 1 for a 1x1 structure). The underground armour is the pop-up's (`LASER_TURRET_POPUP`).
     armor: Armor { point: 1.0, full: 1.0 },
     // A surface structure (`core/map.md > Elevation > Structures only on flat terrain`): only the expansions may stand
     // on slopes (design change 0005).
@@ -50,15 +51,16 @@ pub(crate) static LASER_TURRET: ObjectDef = ObjectDef {
         warp_in: &[],
         drop_off: None,
         // Upright: a surface structure, which "blocks movement like any building" on its footprint (design change 0296
-        // point 3). The pop-up form, underground while it has no target, is slice M4-S2's.
+        // point 3). No underground structure by its type: its pop-up form is, while lowered (`crate::popup`).
         underground: false,
         tunnel: None,
         site: Some(LASER_TURRET_SITE), // Constructed by - Agent (anywhere)
-        // Constructed by - "Tunnel (within its own Tunnel Area, via the ExpandMenu)": slice M4-S2.
-        expansion: None,
+        // Constructed by - "Tunnel (within its own Tunnel Area, via the ExpandMenu)".
+        expansion: Some(LASER_TURRET_EXPANSION),
         // TechPrerequisite - "player owns at least one Optics Lab (anywhere in the Tunnel Network)".
         requires: &[ObjectKind::OpticsLab],
         attack: Some(LASER_TURRET_ATTACK),
+        popup: Some(LASER_TURRET_POPUP),
     }),
     default_settings: None,
 };
@@ -98,6 +100,32 @@ pub(crate) const LASER_TURRET_SITE: SiteDef = SiteDef {
     builder_goes: BuilderGoes::Beside,
 };
 
+/// The Laser Turret's construction by a Tunnel (`StructureDef::expansion`, slice M4-S2;
+/// `factions/syndicate/structures/laser_turret.md > Construction`: "**By a Tunnel**: from the Tunnel's ExpandMenu,
+/// placed within that Tunnel's Tunnel Area like an expansion. It **uses the Tunnel's single operation slot**"; "A
+/// Tunnel's turret is paid when placed, like an expansion"; "Cancelling a site: **75% refund**").
+pub(crate) const LASER_TURRET_EXPANSION: ExpansionDef = ExpansionDef {
+    // Not given: the ExpandMenu offers it "once the player owns an Optics Lab" and names no tier, so every Tunnel
+    // builds it (the Optics Lab's own Tier Requirement is 1).
+    tier: 1,
+    cost: 100,   // "Cost: 100 Space Crystals (no Supplies)"
+    frames: 320, // "Build time: 320 frames (20 s)"
+    // `factions/syndicate/tunnels.md > Expansions under construction` (design change 0254): "the ConstructionHP Rule
+    // applies to every expansion (starts at 10%, grows with progress)"; the same share as an Agent's site.
+    start_hp: 0.1,
+};
+
+/// The Laser Turret's pop-up form (`StructureDef::popup`, slice M4-S2;
+/// `factions/syndicate/structures/laser_turret.md`'s placeholder stats): "Pop-up: rises in 8 frames (already facing its
+/// target); retracts after 32 frames with no target, taking 8 frames"; "underground (pop-up) PointArmor 6, FullArmor
+/// 6" (the expansions' n = 6 on its one square).
+pub(crate) const LASER_TURRET_POPUP: PopUpDef = PopUpDef {
+    rise_frames: 8,
+    idle_frames: 32,
+    retract_frames: 8,
+    lowered_armor: Armor { point: 6.0, full: 6.0 },
+};
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -105,7 +133,9 @@ mod tests {
     /// The placeholder stats (design change 0260): a 1x1 surface structure of 300 HP that sees 6 grid units, at the
     /// building armour rule's 1 / 1, requiring an Optics Lab; its red laser hits ground and air for 24 at 5 grid units,
     /// one shot in 24 frames. An Agent builds it in 320 frames for 100 Space Crystals, from 10% of its HP, and comes
-    /// out beside it. Not given, so placeholders: Groupable, SymmetryType AAAA (plan decision T29).
+    /// out beside it; a Tunnel builds it for the same price and time, at any tier (slice M4-S2). As a pop-up it rises
+    /// in 8 frames, retracts after 32 with no target, in 8, and has 6 / 6 underground. Not given, so placeholders:
+    /// Groupable, SymmetryType AAAA (plan decision T29), Tier Requirement 1.
     #[test]
     fn the_laser_turret_follows_the_design() {
         let def = ObjectKind::LaserTurret.def();
@@ -130,14 +160,23 @@ mod tests {
             (true, true, true, true)
         );
         assert_eq!(
-            (
-                structure.underground,
-                structure.production,
-                structure.expansion,
-                structure.requires
-            ),
-            (false, None, None, &[ObjectKind::OpticsLab][..])
+            (structure.underground, structure.production, structure.requires),
+            (false, None, &[ObjectKind::OpticsLab][..])
         );
+        let by_a_tunnel = ExpansionDef {
+            tier: 1,
+            cost: 100,
+            frames: 320,
+            start_hp: 0.1,
+        };
+        assert_eq!(structure.expansion, Some(by_a_tunnel));
+        let popup = PopUpDef {
+            rise_frames: 8,
+            idle_frames: 32,
+            retract_frames: 8,
+            lowered_armor: Armor { point: 6.0, full: 6.0 },
+        };
+        assert_eq!(structure.popup, Some(popup));
         let attack = structure.attack.unwrap();
         assert_eq!(
             (attack.attack_type, attack.target_domain, attack.target_type),

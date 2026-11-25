@@ -79,6 +79,7 @@ pub(crate) static HIDEOUT: ObjectDef = ObjectDef {
         expansion: Some(HIDEOUT_EXPANSION),
         requires: &[], // TechPrerequisite - None
         attack: None,
+        popup: None,
     }),
     default_settings: None,
 };

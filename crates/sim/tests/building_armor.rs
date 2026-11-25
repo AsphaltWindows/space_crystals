@@ -88,6 +88,25 @@ fn every_building_has_full_armor_n_times_its_size() {
     assert_eq!(kinds, expected, "the 14 buildings of today");
 }
 
+/// Plan §3.3 S2's acceptance, "B's armour test gains the turret's two forms": a structure with a pop-up form has two
+/// armours, and each follows the rule on its size (`factions/syndicate/structures/laser_turret.md`: "Armor (building
+/// armor rule, 1x1): raised PointArmor 1, FullArmor 1; underground (pop-up) PointArmor 6, FullArmor 6"), the
+/// underground one at the expansions' n. Today the Laser Turret alone.
+#[test]
+fn a_popup_follows_the_rule_in_both_forms() {
+    let popups: Vec<(ObjectKind, u32, sc_sim::defs::Armor)> = (buildings().into_iter())
+        .filter_map(|(kind, squares, _)| Some((kind, squares, sc_sim::popup::def_of(kind)?.lowered_armor)))
+        .collect();
+    for &(kind, squares, lowered) in &popups {
+        assert!(follows_the_rule(kind, squares), "{kind:?} raised");
+        assert_eq!(lowered.full, lowered.point * squares as f32, "{kind:?} underground");
+        assert_eq!(lowered.point, EXPANSION_POINT_ARMOR, "{kind:?} underground");
+    }
+    let kinds: Vec<ObjectKind> = popups.iter().map(|p| p.0).collect();
+    assert_eq!(kinds, [ObjectKind::LaserTurret]);
+    assert_eq!(ObjectKind::LaserTurret.def().armor.point, 1.0);
+}
+
 /// `factions/syndicate/structures/README.md > High armor underground`: every underground expansion has the
 /// placeholder's PointArmor 6 (and so, by the rule, FullArmor 6 × its size): today the Hideout, the Optics Lab and
 /// the Chemical Plant (slice M4-K), each 6 / 24 on its 2 × 2.

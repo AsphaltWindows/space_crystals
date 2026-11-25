@@ -83,6 +83,7 @@ use crate::ids::ObjectId;
 use crate::map::Map;
 use crate::movement;
 use crate::object::Object;
+use crate::popup;
 use crate::riot_shield;
 use crate::units::Tick;
 use crate::vision::Vision;
@@ -355,6 +356,9 @@ pub(crate) fn step(
         if structure && !o.is_operational() {
             continue;
         }
+        // (M4-S2) A pop-up turret fires only while raised (`popup::may_fire`: "It can't fire while rising or
+        // retracting"; lowered, it is underground).
+        let may_fire = popup::may_fire(o);
         let sight = o.owner.and_then(|owner| vision.player(owner));
         let shooter = phases::Shooter::new(map, o, attrs, sight, turns.angle(o.id));
         let Some(state) = &mut o.attack else {
@@ -366,6 +370,19 @@ pub(crate) fn step(
         if structure {
             structures::pick(state, &shooter, &targets, auto_targeting);
             structures::face(state, &mut o.facing, &shooter, &targets);
+        }
+        if !may_fire {
+            // It keeps the target it picked, which it rises for and faces from its first rising frame, and starts no
+            // sequence: an aim is cancelled, and a shot or a reload under way runs on to its end.
+            if matches!(
+                state.phase,
+                Some(AttackPhase::Aiming { .. } | AttackPhase::AimingAt { .. })
+            ) {
+                state.cancel();
+            }
+            if state.phase.is_none() {
+                continue;
+            }
         }
         phases::run(state, &mut o.facing, &shooter, &targets, &mut volley, events);
     }

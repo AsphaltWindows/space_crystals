@@ -8,6 +8,11 @@
 //!   hidden** (visible to everyone, no detection needed)"). It is a rule over objects, not over structure types: the
 //!   DrillUnits underground (design change 0219: "hidden from other players unless revealed by a detector") will add an
 //!   arm for units, and detection a "revealed" term, here.
+//! - **A lowered pop-up turret** (slice M4-S2, `crate::popup`; `factions/syndicate/structures/laser_turret.md > Pop-up
+//!   rules`, design change 0296 point 1: "**Hidden only while fully lowered**: that is when it is invisible to enemies
+//!   without detection"): hidden the same way while it is fully lowered, and seen like any structure while it rises,
+//!   stands raised or retracts. [`Hiding::of`] reads its state; [`Hiding::of_kind`], which has only a kind, never
+//!   hides a turret.
 //! - **Who asks it**: whether a player sees an object ([`PlayerVision::object_box_state`]: never Visible while hidden
 //!   from the player), which every question of the kind comes to: the targets of the behaviours
 //!   (`orders::world::World::sees`), of combat (`combat::phases`: `systems/combat.md > ValidTarget` 2) and of the
@@ -23,6 +28,7 @@
 use crate::defs::ObjectKind;
 use crate::ids::PlayerId;
 use crate::object::Object;
+use crate::popup;
 use crate::sim::Sim;
 
 /// Whom an object is hidden from, by the rule of [`hidden_from`]: every player but its owner, or nobody. Taken from the
@@ -37,7 +43,12 @@ pub struct Hiding {
 impl Hiding {
     /// Whom `object` is hidden from now.
     pub fn of(object: &Object) -> Self {
-        Self::of_kind(object.kind, object.owner)
+        // (M4-S2) A pop-up turret while it is fully lowered, as an expansion (design change 0296 point 1: "Hidden only
+        // while fully lowered"; `popup::is_lowered`): by its state, which its kind doesn't tell.
+        match popup::is_lowered(object) {
+            true => Self { owner: object.owner },
+            false => Self::of_kind(object.kind, object.owner),
+        }
     }
 
     /// (M4-O) Whom an object of `kind` that `owner` owns is hidden from, by the same rule: for what outlives the

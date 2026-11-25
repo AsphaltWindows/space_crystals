@@ -166,6 +166,7 @@ mod tests {
             tunnel: fresh(kind),
             construction: None,
             decay: None,
+            popup: None,
         }
     }
 

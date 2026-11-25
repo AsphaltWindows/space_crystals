@@ -10,7 +10,7 @@ use crate::defs::{Domain, ObjectKind};
 use crate::ids::ObjectId;
 use crate::nav;
 use crate::object::{Object, Placement};
-use crate::paths::{blocking_footprint, box_overlaps_rect, boxes_overlap};
+use crate::paths::{blocking, blocking_footprint, box_overlaps_rect, boxes_overlap};
 use crate::player::Banks;
 use crate::scenario::place_spawn;
 use crate::sim::{Reject, Sim};
@@ -125,12 +125,10 @@ impl Sim {
         // The grids catch up with this tick's spawns and removals only in phase 5b: footprints are checked
         // directly too, so a unit can't be put on a station spawned earlier in the tick.
         if base.domain == Domain::Ground
-            && self.objects.values().any(|o| {
-                o.placement
-                    .as_ref()
-                    .and_then(|p| blocking_footprint(o.kind, p, self.nav.nav().rules()))
-                    .is_some_and(|rect| box_overlaps_rect(pos, half, rect))
-            })
+            && self
+                .objects
+                .values()
+                .any(|o| blocking(o, self.nav.nav().rules()).is_some_and(|rect| box_overlaps_rect(pos, half, rect)))
         {
             return Err(Reject::Blocked);
         }

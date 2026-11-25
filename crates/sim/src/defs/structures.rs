@@ -3,7 +3,7 @@
 
 use serde::{Deserialize, Serialize};
 
-use crate::defs::{AttackAttrs, ObjectKind, Resource, UnitBase};
+use crate::defs::{Armor, AttackAttrs, ObjectKind, Resource, UnitBase};
 use crate::sides::SideLetter;
 use crate::units::Tick;
 
@@ -85,6 +85,28 @@ pub struct StructureDef {
     /// files.
     #[serde(default)]
     pub attack: Option<AttackAttrs>,
+    /// The type's pop-up form (plan decision T50, slice M4-S2; `factions/syndicate/structures/laser_turret.md >
+    /// Upright vs Pop-up`): how long it takes to rise and to retract, how long it stays up with no target, and its
+    /// armour while underground. An object of a type with one is a pop-up while it stands inside an own Tunnel Area
+    /// (`crate::popup`). `None` for every other structure. Optional in files.
+    #[serde(default)]
+    pub popup: Option<PopUpDef>,
+}
+
+/// A structure type's pop-up form (`StructureDef::popup`, slice M4-S2; `crate::popup`): the Laser Turret's
+/// (`factions/syndicate/structures/laser_turret.md`: "Pop-up: rises in 8 frames (already facing its target); retracts
+/// after 32 frames with no target, taking 8 frames").
+#[derive(Copy, Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct PopUpDef {
+    /// How long it takes to rise, ticks.
+    pub rise_frames: u32,
+    /// How long it stays raised with no target before it retracts, ticks.
+    pub idle_frames: u32,
+    /// How long it takes to retract, ticks.
+    pub retract_frames: u32,
+    /// Its armour while fully lowered, underground; rising, raised and retracting it has its type's
+    /// (`ObjectDef::armor`).
+    pub lowered_armor: Armor,
 }
 
 /// A Tunnel expansion's construction (`StructureDef::expansion`, slice M4-F): a Tunnel builds it in its Tunnel Area,

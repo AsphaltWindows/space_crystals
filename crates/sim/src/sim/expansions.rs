@@ -44,6 +44,7 @@ use crate::ids::{ObjectId, PlayerId};
 use crate::network;
 use crate::object::{Object, Placement};
 use crate::orders::build::footprint;
+use crate::popup::{self, PopUp};
 use crate::progress::Progress;
 use crate::scenario::BuildingOrientation;
 use crate::tech;
@@ -154,6 +155,11 @@ impl Sim {
             o.construction = Some(Construction::expansion(def, tunnel));
             o.hp = o.max_hp();
             hold_back(o);
+            // (M4-S2) A Tunnel's turret is underground from its first frame (design change 0297 point 6: "A Tunnel's
+            // site is hidden like an expansion under construction"), and so completes lowered (`popup`).
+            if popup::def_of(kind).is_some() {
+                o.popup = Some(PopUp::LOWERED);
+            }
         }
         if let Some(state) = self.objects.get_mut(&tunnel).and_then(|o| o.tunnel.as_mut()) {
             state.operation = Some(Operation::Building(site));

@@ -49,6 +49,7 @@ fn object(kind: ObjectKind, transform: Option<Transform>) -> Object {
         tunnel: None,
         construction: None,
         decay: None,
+        popup: None,
     }
 }
 

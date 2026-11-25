@@ -32,6 +32,7 @@ fn object(id: u32, kind: ObjectKind, owner: Option<PlayerId>, pos: Vec2) -> Obje
         tunnel: crate::tunnel::fresh(kind),
         construction: None,
         decay: None,
+        popup: None,
     }
 }
 

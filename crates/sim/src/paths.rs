@@ -41,6 +41,7 @@ use crate::movement;
 use crate::nav::{self, BlockerKind, Nav, NavClass, NavCounters, NavGrid, NavRules, Search, TileRect};
 use crate::object::{Object, Placement};
 use crate::orders::reach::Reach;
+use crate::popup;
 use crate::units::SU_PER_GU;
 use crate::vision::Vision;
 
@@ -405,9 +406,16 @@ pub(crate) fn blocking_footprint(kind: ObjectKind, placement: &Placement, rules:
 
 /// The footprints that block surface units, in object id order.
 fn blockers(objects: &BTreeMap<ObjectId, Object>, rules: NavRules) -> impl Iterator<Item = TileRect> + '_ {
-    objects
-        .values()
-        .filter_map(move |o| blocking_footprint(o.kind, o.placement.as_ref()?, rules))
+    objects.values().filter_map(move |o| blocking(o, rules))
+}
+
+/// The footprint of the object `o` if it blocks surface units now: [`blocking_footprint`] by its kind, but for a
+/// pop-up turret while it is fully lowered (slice M4-S2, `popup::blocks`; design change 0296 point 3: "A lowered pop-up
+/// never blocks (units walk over it like an expansion)"). The one test of a live object's footprint: the true grids,
+/// what its owner knows to block (`knowledge::own_blockers`) and the gate's spawn and teleport checks ask it. A record
+/// of a turret is of one seen, so not lowered, and blocks by its kind.
+pub(crate) fn blocking(o: &Object, rules: NavRules) -> Option<TileRect> {
+    blocking_footprint(o.kind, o.placement.as_ref()?, rules).filter(|_| popup::blocks(o))
 }
 
 /// Whether a box centred on `pos` with half extents `half` overlaps the tiles of `rect`. Touching is free.

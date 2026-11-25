@@ -186,6 +186,8 @@ impl Sim {
             tunnel: tunnel_state,
             construction: _,
             decay: _,
+            // No type of the design becomes a turret or stops being one.
+            popup: _,
         } = o;
         *object_kind = kind;
         if let Some(placement) = &placement {

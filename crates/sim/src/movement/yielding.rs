@@ -12,6 +12,8 @@
 //! - **(G) Walking through a group**: a mover aims between the units of an idle group in its way (`World::lane`),
 //!   and those it is about to walk into are asked a moment before, both sides at once, to step straight across
 //!   its way ([`ask_ahead`]). The group parts instead of being shoved along.
+//! - **(M4-S2) A pop-up turret that wants to rise** asks its owner's idle units over its footprint the same way
+//!   ([`make_way`], design change 0296 point 3).
 //! - **Dense idle groups**: a sidestep that another idle unit of the owner blocks passes the request on, the same
 //!   way, at most `YIELD_CHAIN_DEPTH` units deep. A unit that can't get out of the way stands, and the mover treats
 //!   it as an ordinary blocker (`docs/movement.md > 6.5`).
@@ -21,7 +23,7 @@ use std::collections::BTreeMap;
 use glam::Vec2;
 
 use super::collide::{Moved, World};
-use super::space::Body;
+use super::space::{Body, Layer};
 use crate::combat::AttackPhase;
 use crate::defs::UnitDef;
 use crate::ids::{ObjectId, PlayerId};
@@ -182,6 +184,50 @@ pub(super) fn ask_ahead(world: &World, d: Vec2, shift: f32, mover: &Mover, reque
             for_group: mover.group,
         });
     }
+}
+
+/// (M4-S2) `factions/syndicate/structures/laser_turret.md > Pop-up rules` (design change 0296 point 3): "Rising needs a
+/// clear footprint: it can't rise while any unit stands over it. The **owner's own idle units** over it are pushed off
+/// by the idle push ... Any other unit over it (an enemy, or an own unit with an order) keeps it **underground** until
+/// the spot is clear". A lowered pop-up turret of `owner` that wants to rise, its footprint the box `half` around
+/// `centre`, asks each unit of `ground` (the ground layer) over it that yields to its owner's units ([`can_yield`]:
+/// the idle ones, "the same units that yield") for a sidestep, as a blocked mover asks the idle unit in its way: the
+/// same one short sidestep through the same predicates, passed on through a dense idle group the same way. Nobody
+/// else is asked: an enemy never yields, and a unit with a command isn't idle.
+/// - **Direction**: off the footprint along the axis on which the unit is out soonest, away from the footprint's
+///   centre, as an idle unit moves off one it overlaps (`super::separate`; x on a tie, and east or south where the
+///   centres coincide).
+/// - **Distance**: to where its box touches the footprint's edge, which is clear: touching is free.
+///
+/// The turret asks again every tick it is still kept down, so a unit that a sidestep didn't take clear takes another.
+pub(super) fn make_way(
+    owner: Option<PlayerId>,
+    centre: Vec2,
+    half: Vec2,
+    ground: &Layer,
+    bodies: &[Body],
+    requests: &mut Vec<Request>,
+) {
+    // A unit listed in several of the footprint's cells is asked more than once: the first request wins ([`apply`]).
+    ground.near(centre - half, centre + half, |index| {
+        let other = &bodies[index as usize];
+        let (offset, reach) = (other.pos - centre, other.half + half);
+        let overlap = reach - offset.abs();
+        // Strictly over it, as the turret's own test (`paths::box_overlaps_rect`): touching is clear.
+        if overlap.x <= 0.0 || overlap.y <= 0.0 || !yields_to(other, owner, None) {
+            return;
+        }
+        let axis = usize::from(overlap.y < overlap.x);
+        let mut dir = Vec2::ZERO;
+        dir[axis] = if offset[axis] < 0.0 { -1.0 } else { 1.0 };
+        requests.push(Request {
+            yielder: index as usize,
+            dir,
+            dist: overlap[axis].max(YIELD_MIN_SIDESTEP_SU),
+            depth: 0,
+            for_group: None,
+        });
+    });
 }
 
 /// One tick of a yielding unit's sidestep (`systems/units.md > Friendly yielding`): up to its speed along the

@@ -12,6 +12,7 @@ use crate::elevation::{self, Elevation};
 use crate::ids::{ObjectId, PlayerId};
 use crate::map::Map;
 use crate::object::Object;
+use crate::popup;
 use crate::riot_shield;
 use crate::shape::Shape;
 use crate::units::gu;
@@ -121,6 +122,7 @@ pub fn can_attack_now(map: &Map, vision: &Vision, attacker: &Object, target: &Ob
     };
     riot_shield::allows_attack(attacker)
         && attacker.is_operational()
+        && popup::may_fire(attacker)
         && target.id != attacker.id
         && target.hp.is_some()
         && attacker.owner.is_some_and(|owner| vision.sees(owner, target))
@@ -183,8 +185,9 @@ impl Targets {
                     domain: object_domain(o),
                     elevation: Elevation::of_object(map, o),
                     pre_armor: pre_armor_multiplier(map, o),
-                    point_armor: o.def().armor.point,
-                    full_armor: o.def().armor.full,
+                    // Its armour now: a lowered pop-up turret's is its underground one (`Object::armor`, slice M4-S2).
+                    point_armor: o.armor().point,
+                    full_armor: o.armor().full,
                     directional_armor: unit.is_some_and(|u| u.base_def().directional_armor),
                     hiding: Hiding::of(o),
                 }

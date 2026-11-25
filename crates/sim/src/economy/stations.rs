@@ -114,6 +114,7 @@ mod tests {
             tunnel: None,
             construction: None,
             decay: None,
+            popup: None,
         }
     }
 

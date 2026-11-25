@@ -31,6 +31,8 @@ pub enum Phase {
     Combat,
     /// The dead leave the game and the true grids follow their footprints (5e).
     Deaths,
+    /// The pop-up turrets rise and retract, and the true grids follow their footprints (slice M4-S2, `sim/popups.rs`).
+    PopUps,
     /// The Shields regenerate (`shields`, slice M3-B).
     Shields,
     /// The economy: construction, mining, the workers, the transformations, then the producers (plan decision T5).
@@ -47,7 +49,7 @@ pub enum Phase {
 
 impl Phase {
     /// Every phase, in order, [`Phase::End`] last.
-    pub const ALL: [Phase; 15] = [
+    pub const ALL: [Phase; 16] = [
         Phase::Start,
         Phase::DefeatOwners,
         Phase::Commands,
@@ -57,6 +59,7 @@ impl Phase {
         Phase::Movement,
         Phase::Combat,
         Phase::Deaths,
+        Phase::PopUps,
         Phase::Shields,
         Phase::Economy,
         Phase::Defeat,
@@ -173,6 +176,11 @@ impl Sim {
             self.remove_objects(&dead);
             paths::sync(&mut self.nav, &self.objects, &mut self.nav_version);
         }
+        // The pop-up turrets (slice M4-S2, `sim/popups.rs`): after 5e, where each picked its target, and its removals,
+        // so that a Tunnel lost in this tick converts its turrets in it; after 5d, so that the footprint-clear test
+        // reads where the units stand as the tick ends; before 5f, which sees a turret from the tick it starts to rise.
+        observe(Phase::PopUps);
+        self.step_popups(first_new);
         // The Shields regenerate (plan decision T18): after 5e's hits and the removal of the dead, so that the dead
         // never do; before the economy, whose transformations then raise them with their maxima.
         observe(Phase::Shields);
