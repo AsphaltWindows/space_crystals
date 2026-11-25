@@ -2171,3 +2171,4 @@ Q0054: A for all (dropped target ignored rest of leg; back off mid-band; cornere
 Drone acceleration/drag x1.5 (top speed 8); re-measure requested for Q0055. Entry 0205.
 Q0056: revealed attacker's shots drawn along whole path (B). Entry 0206.
 Syndicate: Laser Battery added; Syndicate lasers red. Entry 0207.
+Laser Battery: always charging; empty → same rhythm, ~63% surges. Entry 0208.

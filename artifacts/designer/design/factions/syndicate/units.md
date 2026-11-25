@@ -254,9 +254,11 @@ Move-type commands like a combat unit without an attack, plus the two toggles (h
 ### Groupable - true (assumed)
 
 ### Battery
-- The Laser Battery has a **battery charge**. The battery **gradually charges up while the unit is not attacking**.
-- **Attacking normally drains it at roughly double the rate it charges.** So it can fire in bursts, then must rest to recharge.
-- TBD: battery size, charge rate; what it does when the battery runs empty mid-attack; whether it charges while moving, deploying or deployed.
+- The Laser Battery has a **battery charge** that is **always charging** at its charge rate, attacking or not (user, 2026-11-25).
+- **A normal surge draws twice what charges in one surge interval**, so while attacking with charge left the battery drains at a net **1× the charge rate**. Resting refills it.
+- **Empty battery** (user, 2026-11-25): it keeps firing **just as often**, but each surge uses only what charged since the last one (half a normal surge's charge), so by the ^(2/3) rule it deals about **63%** ((½)^(2/3)) of a normal surge's damage. An exhausted Laser Battery still fights at about two-thirds strength.
+- More generally, a surge uses the normal surge charge if the battery holds it, otherwise whatever is left; its damage follows the ^(2/3) rule.
+- TBD: battery size, charge rate (numbers); whether it charges while switching modes (assumed yes: always charging).
 
 ### Attack: constant beam with surges
 - **Animation**: while attacking, a **constant thin red laser** connects the Laser Battery to its target. Periodic **surges** along the beam are what **actually do the damage**.
