@@ -190,6 +190,10 @@ impl StateHash for GatherPhase {
                 done.hash(h);
             }
             GatherPhase::Delivered => h.tag(5),
+            GatherPhase::AtHatch { since } => {
+                h.tag(6);
+                since.hash(h);
+            }
         }
     }
 }

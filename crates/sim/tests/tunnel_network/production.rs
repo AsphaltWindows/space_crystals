@@ -211,3 +211,36 @@ fn a_hideout_without_a_parent_tunnel_releases_into_the_network() {
     run_checked(&mut t, DONE + 1);
     assert_eq!(t.sim().parent_tunnel(H1), Some(T1));
 }
+
+/// `structures/README.md > Rally Point Behavior` (design change 0252, Q0064 point 7): "the unit's default right-click
+/// action at the rally target, e.g. an Agent rallied on a crystal patch gathers." The Agent comes out of the parent
+/// Tunnel with a Gather on the patch, mines it and delivers at the Tunnel's crystal hatch.
+#[test]
+fn an_agent_rallied_on_a_patch_comes_out_and_gathers() {
+    // A patch (3) on tile (19, 11), east of the Tunnel's Side B.
+    let mut t = training(hideout_base().spawn(ObjectKind::CrystalPatch, None, tile(19, 11)));
+    let patch = id(3);
+    t.at(
+        2,
+        P1,
+        production(H1, ProductionCommand::SetRally(Target::Object(patch))),
+    );
+    run_checked(&mut t, DONE);
+    let agent = id(4);
+    assert_eq!(exits(&t, T1), [(DONE, agent)]);
+    assert_eq!(t.pos(4), EXIT);
+    run_checked(&mut t, DONE + 1);
+    let order = t.sim().object(agent).unwrap().orders.clone().unwrap().current.unwrap();
+    assert_eq!(order.order.kind, OrderKind::Gather(patch));
+    let delivered = |t: &TestSim| {
+        let events = t.events().iter();
+        events
+            .filter(|(_, e)| matches!(e, SimEvent::ResourcesDelivered { worker, drop_off, .. } if *worker == agent && *drop_off == T1))
+            .count()
+    };
+    while delivered(&t) == 0 {
+        assert!(t.sim().tick() < DONE + 600, "it gathers and delivers");
+        step_checked(&mut t);
+    }
+    assert_eq!(t.sim().player(P1).unwrap().crystals, 900 + 50);
+}

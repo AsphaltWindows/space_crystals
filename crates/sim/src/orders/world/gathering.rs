@@ -7,15 +7,17 @@ use std::collections::BTreeMap;
 
 use glam::Vec2;
 
-use crate::economy::gathering::{is_drop_off, worker_def};
+use crate::economy::drop_off::{DropPoint, crystal_point_of};
+use crate::economy::gathering::worker_def;
 use crate::ids::{ObjectId, PlayerId};
 use crate::nav;
 use crate::object::{Object, ResourceState};
 use crate::orders::OrderKind;
 use crate::orders::state::{Behaviour, GatherPhase};
 use crate::shape::Shape;
+use crate::sides::SideLetter;
 use crate::targets;
-use crate::units::{SU_PER_GU, TilePos};
+use crate::units::{SU_PER_GU, Tick, TilePos};
 use crate::vision::LastKnown;
 
 use super::{Known, Unit, View, World};
@@ -39,10 +41,18 @@ pub(crate) struct KnownPatch {
 /// The gathering part of the snapshot, taken with the rest of it (`World::new`).
 #[derive(Debug, Default)]
 pub(super) struct Gathering {
-    /// Indices into the snapshot's views of the drop-offs, in id order: what a worker's scan for one looks at, on a
-    /// return without a drop-off. (The patches it looks round among are its owner's records,
-    /// [`World::known_patches_near`].)
-    drop_offs: Vec<u32>,
+    /// Indices into the snapshot's views of the drop-offs, in id order, each with where it takes Space Crystals
+    /// (`economy::drop_off`): what a worker's scan for one looks at, on a return without a drop-off. (The patches it
+    /// looks round among are its owner's records, [`World::known_patches_near`].)
+    drop_offs: Vec<(u32, DropPoint)>,
+    /// The hatches a worker was unloading at as the phase began, as `(drop-off, side)`, sorted: "Only one Agent may
+    /// drop off resources at a side at a time" (`factions/syndicate/tunnels.md > Tunnel > SymmetryType - ABCD`).
+    /// Derived from the workers' orders, as a patch's occupancy is, so that it can't outlive the order that holds it
+    /// (plan decision T34).
+    unloading: Vec<(ObjectId, SideLetter)>,
+    /// The workers waiting at a hatch within their DropOffReach of it, as `(drop-off, side, since, worker)`, sorted:
+    /// the line, in the order they arrived, ties by id (design change 0255: "the first to arrive delivers next").
+    in_line: Vec<(ObjectId, SideLetter, Tick, ObjectId)>,
     /// `> Patch Occupancy`: the patches a worker was mining as the phase began, sorted.
     mined: Vec<ObjectId>,
     /// The patches under a mining structure (a GDO plate, design change 0137), each with the structure's owner,
@@ -59,8 +69,10 @@ impl Gathering {
         for (index, o) in objects.values().enumerate() {
             // An Egress Node being warped in takes nothing until it is complete (design change 0116,
             // `crate::transform`).
-            if is_drop_off(o.kind) && !o.is_transforming() {
-                gathering.drop_offs.push(index as u32);
+            if !o.is_transforming()
+                && let Some(point) = crystal_point_of(o)
+            {
+                gathering.drop_offs.push((index as u32, point));
             }
             gathering
                 .covered
@@ -72,18 +84,58 @@ impl Gathering {
                 }
                 _ => {}
             }
+            gathering.note_hatch(objects, o);
         }
         gathering.mined.sort_unstable();
         gathering.covered.sort_unstable();
         gathering.waiting.sort_unstable();
+        gathering.unloading.sort_unstable();
+        gathering.in_line.sort_unstable();
         gathering
+    }
+
+    /// Worker `o` unloads or waits at a hatch (`unloading`, `in_line`), on a Gather or a Drop Off order.
+    fn note_hatch(&mut self, objects: &BTreeMap<ObjectId, Object>, o: &Object) {
+        let state = o
+            .worker
+            .as_ref()
+            .and(o.orders.as_ref())
+            .and_then(|orders| orders.current.as_ref());
+        let Some(Behaviour::Gather(gather)) = state.map(|active| &active.state) else {
+            return;
+        };
+        let since = match gather.phase {
+            GatherPhase::AtHatch { since } => Some(since),
+            GatherPhase::DroppingOff { .. } => None,
+            _ => return,
+        };
+        let point = gather
+            .node
+            .and_then(|node| Some((node, crystal_point_of(objects.get(&node)?)?)));
+        let Some((node, point, side)) = point.and_then(|(node, point)| Some((node, point, point.side?))) else {
+            return;
+        };
+        match since {
+            None => self.unloading.push((node, side)),
+            Some(since) => {
+                let reach = worker_def(o.kind).map_or(0.0, |def| def.crystals.drop_off_reach);
+                if Shape::of(o).gap(&point.shape) <= reach {
+                    self.in_line.push((node, side, since, o.id));
+                }
+            }
+        }
     }
 }
 
-/// The patch and the phase of the Gather that `o` carries out, if it is a worker with one.
+/// The patch and the phase of the Gather that `o` carries out, if it is a worker with one whose type takes part in
+/// the patches' occupancy: not one that shares patches (`WorkerDef::shares_patches`, the Agent: "no occupancy
+/// rule", design change 0255), which neither occupies a patch nor holds one by waiting at it.
 fn job(o: &Object) -> Option<(ObjectId, GatherPhase)> {
     o.worker.as_ref()?;
     let active = o.orders.as_ref()?.current.as_ref()?;
+    if worker_def(o.kind).is_some_and(|def| def.shares_patches) {
+        return None;
+    }
     match (active.order.kind, &active.state) {
         (OrderKind::Gather(patch), Behaviour::Gather(gather)) => Some((patch, gather.phase)),
         _ => None,
@@ -95,13 +147,36 @@ fn within_reach(objects: &BTreeMap<ObjectId, Object>, o: &Object, patch: ObjectI
     let (Some(def), Some(patch)) = (worker_def(o.kind), objects.get(&patch)) else {
         return false;
     };
-    Shape::of(o).gap(&Shape::of(patch)) <= def.mining_reach
+    Shape::of(o).gap(&Shape::of(patch)) <= def.crystals.pick_up_reach
 }
 
 impl World<'_> {
-    /// The structures that take workers' loads, in id order.
-    pub(crate) fn drop_offs(&self) -> impl Iterator<Item = &View> + '_ {
-        (self.gathering.drop_offs.iter()).map(|&index| &self.views[index as usize])
+    /// The structures that take workers' loads, in id order, each with where it takes Space Crystals.
+    pub(crate) fn drop_offs(&self) -> impl Iterator<Item = (&View, &DropPoint)> + '_ {
+        (self.gathering.drop_offs.iter()).map(|(index, point)| (&self.views[*index as usize], point))
+    }
+
+    /// Where drop-off `node` takes Space Crystals, if it takes loads now.
+    pub(crate) fn drop_point(&self, node: ObjectId) -> Option<&DropPoint> {
+        let drop_offs = &self.gathering.drop_offs;
+        let found = drop_offs.binary_search_by_key(&node, |(index, _)| self.views[*index as usize].id);
+        found.ok().map(|i| &drop_offs[i].1)
+    }
+
+    /// `factions/syndicate/tunnels.md > Tunnel > SymmetryType - ABCD`: whether a worker was unloading at the hatch on
+    /// `side` of `node` as the phase began.
+    pub(crate) fn hatch_busy(&self, node: ObjectId, side: SideLetter) -> bool {
+        self.gathering.unloading.binary_search(&(node, side)).is_ok()
+    }
+
+    /// Design change 0255 (`factions/syndicate/units/agent.md > Gathering rules > Waiting at the hatch`): the
+    /// worker that unloads next at the hatch on `side` of `node`, of those that waited within reach of it as the
+    /// phase began: the first to arrive, the lowest id of those that arrived in one tick.
+    pub(crate) fn first_in_line(&self, node: ObjectId, side: SideLetter) -> Option<ObjectId> {
+        let line = &self.gathering.in_line;
+        let first = line.partition_point(|&(n, s, ..)| (n, s) < (node, side));
+        let &(n, s, _, worker) = line.get(first)?;
+        ((n, s) == (node, side)).then_some(worker)
     }
 
     /// `> Patch Occupancy (one Drone per patch)`: whether a worker, of any player, was mining `patch` as the

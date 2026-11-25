@@ -334,3 +334,39 @@ fn a_unit_inside_the_network_still_takes_its_army_cost() {
     assert!(inside(&t).is_empty());
     assert_eq!(used(&t), before);
 }
+
+/// Design change 0249: "An Agent keeps its load." An Agent carrying crystals gets Drop Off by default on its own
+/// Tunnel (`units/agent.md > Right-Click Resolution`: "Own Tunnel (carrying resources) → Drop off resources"), and
+/// Enter without a load; ordered to Enter with its load, it has it inside the network and when it comes out.
+#[test]
+fn an_agent_keeps_its_load_through_the_network() {
+    // A patch (2) on tile (19, 11), east of the Tunnel's Side B.
+    let mut t = base().spawn(ObjectKind::CrystalPatch, None, tile(19, 11)).start();
+    t.without_auto_targeting()
+        .spawn_unit_at(1, AGENT, P1, Vec2::new(1180.0, 620.0)) // 3
+        .order_at(2, P1, &[id(3)], OrderKind::Gather(id(2)), false);
+    run_checked(&mut t, 1);
+    let default = |t: &TestSim| t.sim().default_order(id(3), Target::Object(T1));
+    assert_eq!(default(&t), Some(OrderKind::Enter(T1)), "empty");
+    let load = |t: &TestSim| t.sim().object(id(3)).unwrap().worker.unwrap().load;
+    while load(&t) == 0 {
+        assert!(t.sim().tick() < 300, "it mines");
+        step_checked(&mut t);
+    }
+    let carried = load(&t);
+    assert_eq!(carried, 50);
+    assert_eq!(default(&t), Some(OrderKind::DropOff(T1)), "carrying");
+    let tick = t.sim().tick();
+    t.at(tick + 1, P1, enter(&[id(3)], T1));
+    while inside(&t).is_empty() {
+        assert!(t.sim().tick() < tick + 200, "it walks in");
+        step_checked(&mut t);
+    }
+    let held = t.sim().held_unit(id(3)).unwrap();
+    assert_eq!(held.object.worker.unwrap().load, carried, "inside");
+    assert_eq!(t.sim().player(P1).unwrap().crystals, 0, "nothing was delivered");
+    let entered = t.sim().tick();
+    t.at(entered + TRANSIT_DELAY_TICKS, P1, eject(T1, AGENT));
+    run_checked(&mut t, entered + TRANSIT_DELAY_TICKS + 5);
+    assert_eq!(load(&t), carried, "out again");
+}

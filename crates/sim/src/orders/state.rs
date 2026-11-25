@@ -184,6 +184,11 @@ pub enum GatherPhase {
     Mining { done: u32 },
     /// Carrying its load to the drop-off.
     ToDropOff,
+    /// Within DropOffReach of the hatch of [`Gather::node`] since tick `since`, waiting for its turn there
+    /// (`factions/syndicate/units/agent.md > Gathering rules > Waiting at the hatch`, design change 0255: "the
+    /// first to arrive delivers next. It waits as long as it takes; it never gives up"). Only at a drop-off with
+    /// hatches (`defs::DropOff::Hatches`), which takes one worker at a time.
+    AtHatch { since: Tick },
     /// Unloading at [`Gather::node`]: `done` of DropOffDuration frames (`economy::gathering::step` counts them and
     /// credits the bank).
     DroppingOff { done: u32 },

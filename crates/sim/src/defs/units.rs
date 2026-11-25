@@ -202,19 +202,47 @@ pub struct RiotShieldDef {
     pub toggle_ticks: u32,
 }
 
-/// `factions/colonists/units.md > Drone > Gathering`: what makes a unit type a worker (`crate::economy::gathering`).
+/// What a worker does with one resource (`factions/colonists/units/drone.md > Gathering`,
+/// `factions/syndicate/units/agent.md > Gathering > Space Crystals` and `> Supplies`): one load of it, from picking
+/// it up to unloading it.
 #[derive(Copy, Clone, Debug, PartialEq)]
-pub struct WorkerDef {
-    /// CarryCapacity: the most it carries of a resource in one load.
+pub struct LoadDef {
+    /// CarryCapacity: the most it carries of the resource in one load.
     pub carry_capacity: u32,
-    /// MiningDuration, ticks.
-    pub mining_ticks: u32,
+    /// MiningDuration (PickUpDuration for Supplies), ticks.
+    pub pick_up_ticks: u32,
     /// DropOffDuration, ticks.
     pub drop_off_ticks: u32,
-    /// MiningReach, space units: it can mine once its Silhouette is within this of the patch's edge.
-    pub mining_reach: f32,
-    /// DropOffReach, space units: within this of the drop-off point's edge.
+    /// MiningReach, space units: it can pick up once its Silhouette is within this of the pick-up point's edge.
+    pub pick_up_reach: f32,
+    /// DropOffReach, space units: within this of the drop-off point's edge (`StructureDef::drop_off`: the whole
+    /// structure, or the resource's hatch).
     pub drop_off_reach: f32,
+}
+
+/// `factions/colonists/units/drone.md > Gathering`, `factions/syndicate/units/agent.md > Gathering`: what makes a
+/// unit type a worker (`crate::economy::gathering`). One Gather job runs every worker (plan decision T34); these are
+/// the differences between the types.
+#[derive(Copy, Clone, Debug, PartialEq)]
+pub struct WorkerDef {
+    /// Its loads of Space Crystals.
+    pub crystals: LoadDef,
+    /// Its loads of Supplies (`factions/syndicate/units/agent.md > Gathering > Supplies`), for a type that gathers
+    /// them: none yet. Slice M4-I fills the Agent's and adds the job at a Supply Delivery Station (design change
+    /// 0256: stations are shared as the Agents' patches are; an Agent at an empty one waits beside it and keeps its
+    /// job; the load of one resource is lost at the pick-up of the other).
+    pub supplies: Option<LoadDef>,
+    /// `factions/syndicate/units/agent.md > Gathering > Space Crystals > Patch sharing`: "any number of Agents may
+    /// mine the same Space Crystals patch at the same time (unlike Drones)"; `> Gathering rules`: "Agents share
+    /// patches (no occupancy rule)". Workers of such a type neither occupy a patch nor take one for occupied
+    /// (`orders::gather`).
+    pub shares_patches: bool,
+    /// `factions/colonists/units/drone.md > Assigned Drop-off`: the type has an AssignedDropOff that lasts from
+    /// Gather to Gather, and a Set Drop-off Location command. Without it (`factions/syndicate/units/agent.md >
+    /// Gathering rules`: "there is no Set Drop-off command"; "chosen when the Gather's first return starts and kept
+    /// for that Gather (a new Gather picks again)") each Gather takes the nearest drop-off as its first return
+    /// starts.
+    pub keeps_drop_off: bool,
     /// `> Patch Occupancy (one Drone per patch) > Search radius` (design change 0123; the design hasn't named the
     /// stat yet), grid units: a worker looks for another patch only within this distance of itself, centre to
     /// centre (`orders::gather`).
