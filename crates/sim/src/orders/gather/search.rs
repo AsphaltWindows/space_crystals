@@ -39,9 +39,9 @@ pub(super) fn search(world: &World, claims: &Claims, unit: &Unit, def: &WorkerDe
         // In id order, so the first of equals stays.
         let reachable = world.reachable(unit, &patch.shape);
         let taken = if patch.seen {
-            taken(world, claims, patch.id, unit.id, false)
+            taken(world, claims, def, patch.id, unit.id, false)
         } else {
-            claims.by_other_of(patch.id, unit.id, unit.owner)
+            !def.shares_patches && claims.by_other_of(patch.id, unit.id, unit.owner)
         };
         if reachable && !taken && free.is_none_or(|(best, _)| far.total_cmp(&best).is_lt()) {
             free = Some((far, patch.id));
@@ -63,6 +63,25 @@ pub(super) fn search(world: &World, claims: &Claims, unit: &Unit, def: &WorkerDe
 /// `orders::gather`): a worker of any player mines it, or another one claimed it in this tick, or, unless `me`
 /// is `waiting` at it itself, another one waits at it within reach and gets it as soon as it frees (design change
 /// 0133). Among the workers waiting there, the claims alone decide: the lowest id claims first.
-pub(super) fn taken(world: &World, claims: &Claims, patch: ObjectId, me: ObjectId, waiting: bool) -> bool {
-    world.patch_mined(patch) || claims.by_other(patch, me) || (!waiting && world.waited_at(patch, me))
+///
+/// Never for a worker of a type that shares patches (`WorkerDef::shares_patches`: `factions/syndicate/units.md >
+/// Agent > Gathering rules`, "Agents share patches (no occupancy rule)"). Such workers aren't among those that mine,
+/// wait or claim here either (`World::patch_mined`, [`claim`]): the occupancy is the other workers' alone.
+pub(super) fn taken(
+    world: &World,
+    claims: &Claims,
+    def: &WorkerDef,
+    patch: ObjectId,
+    me: ObjectId,
+    waiting: bool,
+) -> bool {
+    !def.shares_patches
+        && (world.patch_mined(patch) || claims.by_other(patch, me) || (!waiting && world.waited_at(patch, me)))
+}
+
+/// `unit` claims `patch` for this tick ([`Claims`]), unless its type shares patches ([`taken`]).
+pub(super) fn claim(claims: &mut Claims, def: &WorkerDef, patch: ObjectId, unit: &Unit) {
+    if !def.shares_patches {
+        claims.claim(patch, unit.id, unit.owner);
+    }
 }

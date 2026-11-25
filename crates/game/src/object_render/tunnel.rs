@@ -6,9 +6,11 @@
 //! - **Side A**, "two paths: one for entering, one for exiting": two strips from the edge in, "narrow and
 //!   shaggy-looking" at Tier 1 (ragged dirt), "wider and well paved" at Tiers 2 and 3. They lie on the half nearer B,
 //!   the exit, and the half nearer D, the entry (0248), drawn alike: slice M4-C gives them their roles.
-//! - **Sides B and D**, each "a hatch": a framed square at the middle of the edge, B's in the crystals' cyan, D's in
-//!   the Supplies' amber (the map resources' colours, `super::resources`). Side C, the back wall, has no mark. (Design
-//!   change 0255 point 6 makes a hatch "1 grid square, near the middle of the side": slice M4-D picks the square.)
+//! - **Sides B and D**, each "a hatch": a framed square at the edge, B's in the crystals' cyan, D's in the Supplies'
+//!   amber (the map resources' colours, `super::resources`). Side C, the back wall, has no mark. Each is drawn on its
+//!   hatch square, "1 grid square, near the middle of the side" (design change 0255 point 6): the sim's
+//!   (`sc_sim::economy::drop_off::hatch_offset`, slice M4-D), the middle square farther from Side A, where the Agents
+//!   deliver.
 //! - **Tier 3**, "two horizontal circular sliding doors, one for flying units entering and one for flying units
 //!   exiting": two split discs on the roof "over the matching path halves" (design change 0251 point 11), the exit's
 //!   on the half nearer B and the entry's on the half nearer D, set back towards the back wall so that they cover
@@ -17,28 +19,32 @@
 //! The tag in the middle names the tier (`crate::hud::selection_panel::object_label`); nothing here covers it.
 
 use bevy::prelude::*;
+use sc_sim::economy::drop_off::hatch_offset;
 use sc_sim::tunnel::TunnelState;
-use sc_sim::{ObjectKind, Placement, SideLetter};
+use sc_sim::{ObjectKind, Placement, SU_PER_GU, SideLetter};
 
 use super::structures::LOOK_Z;
 use crate::shapes::ColorMesh;
 
-/// What a Tunnel's look depends on: its tier, and the letters of its sides facing north, east, south and west as
-/// placed (`sc_sim::sides`).
+/// What a Tunnel's look depends on: its tier, the letters of its sides facing north, east, south and west as
+/// placed (`sc_sim::sides`), and its footprint's size as placed, tiles.
 #[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub(super) struct TunnelLook {
     tier: u8,
     sides: [SideLetter; 4],
+    size: (u32, u32),
 }
 
 impl TunnelLook {
     /// The look of a `kind` object with tier state `tunnel` placed at `placement`, a live one's or a record's: `None`
     /// but for a Tunnel.
     pub(super) fn of(kind: ObjectKind, tunnel: Option<TunnelState>, placement: Option<&Placement>) -> Option<Self> {
-        let sides = sc_sim::sides(kind, placement?.orientation())?;
+        let placement = placement?;
+        let sides = sc_sim::sides(kind, placement.orientation())?;
         Some(Self {
             tier: tunnel?.tier,
             sides,
+            size: (placement.w, placement.h),
         })
     }
 }
@@ -77,7 +83,7 @@ pub(super) fn draw(mesh: &mut ColorMesh, look: TunnelLook, half: Vec2) {
     }
     for (letter, color) in [(SideLetter::B, CRYSTAL_HATCH), (SideLetter::D, SUPPLY_HATCH)] {
         if let Some(n) = facing(letter) {
-            hatch(mesh, n * (reach(n) - HATCH_SU / 2.0), n, color);
+            hatch(mesh, n * (reach(n) - HATCH_SU / 2.0) + along(look, letter, n), n, color);
         }
     }
     if look.tier >= 3
@@ -88,6 +94,18 @@ pub(super) fn draw(mesh: &mut ColorMesh, look: TunnelLook, half: Vec2) {
             air_door(mesh, n * reach(n) * 0.5 + towards * DOOR_SPACING_SU / 2.0, n);
         }
     }
+}
+
+/// How far along its side, which faces `n`, the hatch square of the side lettered `letter` lies from the side's
+/// middle, in the view's axes: the sim's square (`sc_sim::economy::drop_off`, design change 0255 point 6).
+fn along(look: TunnelLook, letter: SideLetter, n: Vec2) -> Vec2 {
+    let (w, h) = look.size;
+    let Some((dx, dy)) = hatch_offset(look.sides, letter, w, h) else {
+        return Vec2::ZERO;
+    };
+    // The square's centre from the footprint's, the sim's +y south turned to the view's +y north.
+    let centre = Vec2::new(dx as f32 + 0.5 - w as f32 / 2.0, h as f32 / 2.0 - dy as f32 - 0.5) * SU_PER_GU;
+    centre - n * centre.dot(n)
 }
 
 /// Side A's two paths, from its edge (`reach` from the centre along `n`, its outward direction) inwards, on its halves
@@ -189,8 +207,14 @@ mod tests {
         for tier in [1, 3] {
             let points = drawn(tier);
             let any = |test: &dyn Fn(Vec2) -> bool| points.iter().any(|&p| test(p));
-            assert!(any(&|p| p.x > 80.0 && p.y.abs() < 20.0), "B's hatch, Tier {tier}");
-            assert!(any(&|p| p.x < -80.0 && p.y.abs() < 20.0), "D's hatch, Tier {tier}");
+            // Each on its hatch square, the middle one farther from Side A: half a tile south of the middle.
+            let on_square = |p: Vec2| (p.y + 32.0).abs() < 20.0;
+            assert!(any(&|p| p.x > 80.0 && on_square(p)), "B's hatch, Tier {tier}");
+            assert!(any(&|p| p.x < -80.0 && on_square(p)), "D's hatch, Tier {tier}");
+            assert!(
+                !any(&|p| p.x.abs() > 80.0 && p.y > -10.0),
+                "no hatch on the half nearer A, Tier {tier}"
+            );
             assert!(!any(&|p| p.y < -80.0), "nothing on C, Tier {tier}");
             assert!(
                 any(&|p| p.y > 100.0 && p.x > 0.0) && any(&|p| p.y > 100.0 && p.x < 0.0),
@@ -198,13 +222,15 @@ mod tests {
             );
             assert!(!any(&|p| p.y > 100.0 && p.x.abs() > 60.0), "A's paths only");
         }
-        let doors = |points: &[Vec2]| points.iter().filter(|p| p.y < -30.0).count();
+        // Towards C, between the hatches.
+        let door = |p: &Vec2| p.y < -30.0 && p.x.abs() < 60.0;
+        let doors = |points: &[Vec2]| points.iter().filter(|p| door(p)).count();
         assert_eq!(
             (doors(&drawn(1)), doors(&drawn(3)) > 0),
             (0, true),
             "the air doors at Tier 3"
         );
-        let door_on = |points: &[Vec2], east: bool| points.iter().any(|p| p.y < -30.0 && (p.x > 10.0) == east);
+        let door_on = |points: &[Vec2], east: bool| points.iter().any(|p| door(p) && (p.x > 10.0) == east);
         let t3 = drawn(3);
         assert!(door_on(&t3, true) && door_on(&t3, false), "one door over each half");
     }

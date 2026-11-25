@@ -95,12 +95,10 @@ pub fn worker_def(kind: ObjectKind) -> Option<WorkerDef> {
     kind.def().unit.as_ref()?.worker
 }
 
-/// Whether workers deliver to a structure of `kind` (`StructureDef::drop_off`: the Egress Node).
+/// Whether workers deliver to a structure of `kind` (`StructureDef::drop_off`: the Egress Node, and the Tunnel at its
+/// hatches, `super::drop_off`).
 pub fn is_drop_off(kind: ObjectKind) -> bool {
-    kind.def()
-        .structure
-        .as_ref()
-        .is_some_and(|structure| structure.drop_off)
+    super::drop_off::rule(kind).is_some()
 }
 
 /// Whether `id` is a Space Crystals patch that workers can gather: one with no mining structure on it (question
@@ -150,9 +148,9 @@ pub(super) fn step(
             // `> Gathering`: MiningDuration.
             GatherPhase::Mining { done } => {
                 *done = done.saturating_add(1);
-                if *done >= def.mining_ticks {
+                if *done >= def.crystals.pick_up_ticks {
                     if let OrderKind::Gather(patch) = kind {
-                        mined.push((o.id, patch, def.carry_capacity));
+                        mined.push((o.id, patch, def.crystals.carry_capacity));
                     }
                     gather.enter(GatherPhase::ToDropOff);
                 }
@@ -163,7 +161,7 @@ pub(super) fn step(
                 None => gather.enter(GatherPhase::ToDropOff),
                 Some(node) => {
                     *done = done.saturating_add(1);
-                    if *done >= def.drop_off_ticks {
+                    if *done >= def.crystals.drop_off_ticks {
                         // `factions/colonists/economy.md > Egress Node > Drop Off`: the load enters the pool.
                         let amount = std::mem::take(&mut worker.load);
                         if let Some(player) = players.iter_mut().find(|p| Some(p.id) == o.owner) {
@@ -178,7 +176,11 @@ pub(super) fn step(
                     }
                 }
             },
-            GatherPhase::ToPatch | GatherPhase::Waiting { .. } | GatherPhase::ToDropOff | GatherPhase::Delivered => {}
+            GatherPhase::ToPatch
+            | GatherPhase::Waiting { .. }
+            | GatherPhase::ToDropOff
+            | GatherPhase::AtHatch { .. }
+            | GatherPhase::Delivered => {}
         }
     }
     let mut depleted = Vec::new();
@@ -257,20 +259,42 @@ mod tests {
         assert_eq!(saved, emptied);
     }
 
-    /// `factions/colonists/units.md > Drone > Gathering`: the Drone is the one worker, and the Egress Node the one
-    /// drop-off.
+    /// `factions/colonists/units/drone.md > Gathering`, `factions/syndicate/units/agent.md > Gathering`: the Drone
+    /// and the Agent are the workers, the Egress Node and the Tunnel the drop-offs.
     #[test]
-    fn the_drone_is_the_worker_and_the_egress_node_the_drop_off() {
+    fn the_drone_and_the_agent_are_the_workers() {
+        use crate::defs::LoadDef;
         for kind in ObjectKind::ALL.iter().copied() {
-            assert_eq!(worker_def(kind).is_some(), kind == ObjectKind::Drone, "{kind:?}");
-            assert_eq!(is_drop_off(kind), kind == ObjectKind::EgressNode, "{kind:?}");
+            let worker = matches!(kind, ObjectKind::Drone | ObjectKind::Agent);
+            assert_eq!(worker_def(kind).is_some(), worker, "{kind:?}");
+            let drop_off = matches!(kind, ObjectKind::EgressNode | ObjectKind::Tunnel);
+            assert_eq!(is_drop_off(kind), drop_off, "{kind:?}");
         }
         let def = worker_def(ObjectKind::Drone).expect("a worker");
-        assert_eq!((def.carry_capacity, def.mining_ticks, def.drop_off_ticks), (8, 32, 2));
-        assert_eq!((def.mining_reach, def.drop_off_reach), (8.0, 8.0));
+        let crystals = LoadDef {
+            carry_capacity: 8,
+            pick_up_ticks: 32,
+            drop_off_ticks: 2,
+            pick_up_reach: 8.0,
+            drop_off_reach: 8.0,
+        };
+        assert_eq!((def.crystals, def.supplies), (crystals, None));
         assert_eq!(
             def.search_radius, 6.0,
             "> Patch Occupancy > Search radius (design change 0123)"
         );
+        assert!(def.pass_through && def.keeps_drop_off && !def.shares_patches);
+        // `> Agent > Gathering > Space Crystals`: 50 a load, 80 frames of mining, 64 of unloading, reaches of 8 su;
+        // design change 0255: shared patches, no Set Drop-off; 0106: "Drones only" pass through each other.
+        let def = worker_def(ObjectKind::Agent).expect("a worker");
+        let crystals = LoadDef {
+            carry_capacity: 50,
+            pick_up_ticks: 80,
+            drop_off_ticks: 64,
+            pick_up_reach: 8.0,
+            drop_off_reach: 8.0,
+        };
+        assert_eq!((def.crystals, def.supplies), (crystals, None));
+        assert!(def.shares_patches && !def.keeps_drop_off && !def.pass_through);
     }
 }

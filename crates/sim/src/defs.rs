@@ -20,10 +20,10 @@ use crate::player::Faction;
 
 pub use gdo::RIOT_SHIELD_TOGGLE_TICKS;
 pub use structures::{
-    ExitRule, MiningDef, ProductionDef, Recipe, StructureDef, SymmetryType, TierDef, Transit, TunnelDef,
+    DropOff, ExitRule, MiningDef, ProductionDef, Recipe, StructureDef, SymmetryType, TierDef, Transit, TunnelDef,
 };
 pub use units::{
-    AttackAttrs, AttackType, Domain, FullyConnectedSubtype, MELEE_CONTACT_GU, MovementAttrs, MovementModel,
+    AttackAttrs, AttackType, Domain, FullyConnectedSubtype, LoadDef, MELEE_CONTACT_GU, MovementAttrs, MovementModel,
     RiotShieldDef, TargetDomain, TargetType, TurretAttrs, UnitBase, UnitBaseDef, UnitDef, WorkerDef,
 };
 

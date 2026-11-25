@@ -19,6 +19,9 @@ pub mod area;
 use serde::{Deserialize, Serialize};
 
 use crate::defs::{ObjectKind, TierDef, TunnelDef};
+/// A Tunnel's hatch squares, read off its sides as placed (slice M4-D, `economy::drop_off`): Space Crystals at Side B,
+/// Supplies at Side D (design changes 0248 and 0255 point 6).
+pub use crate::economy::drop_off::{Resource, hatch_square};
 use crate::hash::{StateHash, StateHasher};
 use crate::object::Object;
 use crate::transform::follow_max;

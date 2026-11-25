@@ -161,7 +161,7 @@ Units, structures and resources are all `Object`s (`object.rs`, `core/entities.m
   that produces units, `production` (`Production`, `production.rs`: its queue, the progress of the unit in
   production and its rally point, see *Production*); for a structure that constructs buildings, `constructor`
   (`Constructor`, `construction.rs`: idle, constructing or holding a building ready to place, see *Economy*); for
-  a worker, the Drone, `worker` (`Worker`, `economy/gathering.rs`: its load and its AssignedDropOff,
+  a worker, the Drone or the Agent, `worker` (`Worker`, `economy/gathering.rs`: its load and its AssignedDropOff,
   see *Economy > Gathering*); for an object transforming into its kind (a Beacon warping in a building, a
   Beacon deploying from a Drone), `transform` (`Transform`, `transform.rs`: what it was and where it stood, how far it
   has come, what it paid and the load a deploying Drone carried, see *Economy > Warp In* and *> Beacon Deployment*);
@@ -772,11 +772,36 @@ the target the attack engages, and reads `Mover::status` and the snapshot.
 - **Patrol** (`travel::patrol`): legs to and fro between the position where the Patrol started executing (design
   change 0036) and the destination. A failed leg counts as arrived; `PATROL_FAILED_LEGS` (2) in a row end it (design
   change 0037).
-- **Gathering** (`orders/gather.rs` with `gather/search.rs`, `gather/legs.rs` and `gather/site.rs` (the patch as
-  the owner knows it, design change 0139), `orders/world/gathering.rs`;
-  slices M3-H and M3-H3, plan decision T17; `factions/colonists/units.md > Drone`, whose rules design changes 0123
-  and 0127 to 0141 settled, answering question Q0037): one behaviour for the Gather and the Drop Off order, in the
-  phases of `GatherPhase`: ToPatch, Waiting, Mining, ToDropOff, DroppingOff, Delivered.
+- **Gathering** (`orders/gather.rs` with `gather/patch.rs` (the job at its patch), `gather/deliver.rs` (the way
+  back and the line at a hatch), `gather/claims.rs`, `gather/search.rs`, `gather/legs.rs` and `gather/site.rs` (the
+  patch as the owner knows it, design change 0139), `orders/world/gathering.rs`;
+  slices M3-H, M3-H3 and M4-D, plan decisions T17 and T34; `factions/colonists/units/drone.md`, whose rules design
+  changes 0123 and 0127 to 0141 settled, answering question Q0037; `factions/syndicate/units/agent.md >
+  Gathering`, design change 0255): one behaviour for the Gather and the Drop Off order of **every worker type**, in
+  the phases of `GatherPhase`: ToPatch, Waiting, Mining, ToDropOff, AtHatch, DroppingOff, Delivered. What differs
+  between the Drone and the Agent is data: the worker's `WorkerDef` and the drop-off's `StructureDef::drop_off`.
+  - **Agents** (M4-D): `WorkerDef::shares_patches` takes a type out of the occupancy below altogether (it neither
+    occupies, waits for nor claims a patch, and isn't in `World::patch_mined` or `waited_at`, so a Drone and an Agent
+    mine one patch together); without `keeps_drop_off` a Gather begins with no AssignedDropOff and takes the nearest
+    drop-off as its first return starts, keeping it for that Gather (there is no Set Drop-off for the type: the gate's
+    `Sim::sets_drop_off`). "Nearest" is by the drop point's centre (`economy::drop_off::DropPoint`): a Tunnel's
+    crystal hatch, an Egress Node's own centre.
+  - **A hatch takes one worker at a time** (`defs::DropOff::Hatches`, the Tunnel; `deliver::at_hatch`). DropOffReach
+    is measured to the hatch square. A worker within reach is `AtHatch { since }`: it unloads if nobody did as phase
+    5a began (`World::hatch_busy`) or has begun since (`Claims::take_hatch`), and it is the first of the line
+    (`World::first_in_line`: those within reach as the phase began, by arrival tick, then id). The line and the busy
+    hatch are **derived from the workers' orders in the snapshot**, like a patch's occupancy, so they can't outlive
+    an order. A hatch that frees at the end of tick `t` is taken in `t + 1`: a saturated Tunnel takes a load every 64
+    ticks exactly, 12.5 Space Crystals per second. The leg back heads for the nearest point against the hatch's
+    wall within reach of the square (`legs::approach_point` with `beside`), so waiting workers stand side by side
+    (three or four fit). One that can't get within reach stops as near as it gets and sets off again every
+    `LEG_RETRY_TICKS` (32), for ever (0255: "it never gives up"; the same rule as the Drone's). A worker pushed out
+    of reach loses its place.
+  - **Hard collision at the hatch** (Agents don't pass through each other, 0106: "Drones only"): from 2 GU between
+    hatch and patch on, Agents walk round each other and every one delivers (`tests/agent_gathering/`). At 0 and 1
+    GU the strip is narrower than two Agents, each works in a lane of its own, and an Agent behind another in its
+    lane blocks it head-on for good. Measured there with three and four Agents: one Agent's income. Open with the
+    Designer (see the slice's report).
   - **Occupancy is derived, never stored on the patch** (design change 0133 and the Director's choice): a patch is
     taken while a worker of any player mines it (the snapshot's `World::patch_mined`), once a worker with a lower id
     claimed it in this tick (`gather::Claims`, the one thing of 5a that isn't the snapshot, kept for the tick only),
@@ -1211,7 +1236,7 @@ section of its own.
   decision T17; `factions/colonists/units.md > Drone > Gathering`, `factions/colonists/economy.md > Egress Node >
   Drop Off`): a unit type with a `WorkerDef` (`UnitDef::worker`: the Drone's CarryCapacity 8, MiningDuration 32,
   DropOffDuration 2, the two reaches of 8 su and its search radius) is a worker, and a structure type with
-  `StructureDef::drop_off` (the Egress Node) takes its loads. `Object::worker` (`Worker`) holds only what outlives
+  `StructureDef::drop_off` (the Egress Node, the Tunnel) takes its loads. `Object::worker` (`Worker`) holds only what outlives
   an order: the load and the AssignedDropOff (the patch a Gather goes back to is the one its order names, design
   change 0132). The job is an order and its behaviour (see *Behaviours > Gathering*), and
   **the timed work is part of the order's state** (`GatherPhase::Mining { done }`, `DroppingOff { done }`), so an
@@ -1221,6 +1246,16 @@ section of its own.
   that reaches its drop-off in tick `t` is paid at the end of `t + 1` (`SimEvent::ResourcesDelivered`). A patch
   emptied this way leaves the map in the same tick, unless a plate stands on it; workers never gather a plated
   patch. `Sim::returning_drones(node)` is the Egress Node's F.
+  **Worker types and drop-offs are data** (slice M4-D, plan decision T34): a `WorkerDef` has a `LoadDef` per
+  resource (`crystals`; `supplies` is `None` until slice M4-I), `shares_patches`, `keeps_drop_off`, `search_radius`
+  and `pass_through`; `StructureDef::drop_off` is `None`, `DropOff::Anywhere` (the Egress Node) or
+  `DropOff::Hatches { crystals, supplies }` (the Tunnel: Sides B and D, design change 0248).
+  `economy/drop_off.rs` turns that into a `DropPoint` (shape, centre, side) and has **the hatch square**
+  (`hatch_offset`, `hatch_tile`, `hatch_square(tunnel, Resource)`, also `tunnel::hatch_square`): the middle tile of
+  the side, of two middle tiles the one farther from Side A, read off `sides()` so that it turns and flips with the
+  structure; the client draws the hatches there. The Agent: 50 a load, 80 frames of mining, 64 of unloading, reaches
+  of 8 su; alone it delivers every 144, 150, 172, 192, 214, 236 and 256 ticks at 0 to 6 GU from hatch to patch, edge
+  to edge (the design's table: 9.0 to 17.0 s; all within 15%).
   **Measured with DragMovement, the rules of slice M3-H3 and the Drone's numbers of design change 0205**
   (`tests/gathering/`, `tests/gathering_soak.rs`; nothing is tuned to the design's table): one Drone with its
   patch 2 GU from the node, edge to edge, delivers every 73 ticks, 1.75 Space Crystals per second (81 ticks and

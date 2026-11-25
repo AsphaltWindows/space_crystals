@@ -78,8 +78,9 @@ fn the_agent_follows_the_design() {
     };
     assert_eq!(unit.movement, movement);
     assert_eq!(
-        (unit.turret.is_none(), unit.tunnel_space_cost, unit.worker.is_none()),
-        (true, Some(1), true)
+        (unit.turret.is_none(), unit.tunnel_space_cost, unit.worker.is_some()),
+        (true, Some(1), true),
+        "its gathering: `economy::gathering`'s tests have the numbers"
     );
     let attack = unit.attack.unwrap();
     assert_eq!(
@@ -137,7 +138,8 @@ fn the_tunnel_follows_the_design() {
             (1000.0, 4, &[Infantry, Vehicles, Air][..]),
         ]
     );
-    let inert = StructureDef {
+    // Design change 0248: crystals at the hatch on Side B, Supplies at the one on Side D.
+    let expected = StructureDef {
         symmetry: SymmetryType::ABCD,
         build_radius_extension: 0,
         power: 0,
@@ -145,11 +147,14 @@ fn the_tunnel_follows_the_design() {
         mining: None,
         constructs: &[],
         warp_in: &[],
-        drop_off: false,
+        drop_off: Some(DropOff::Hatches {
+            crystals: SideLetter::B,
+            supplies: SideLetter::D,
+        }),
         underground: false,
         tunnel: structure.tunnel,
     };
-    assert_eq!(structure, &inert);
+    assert_eq!(structure, &expected);
 }
 
 /// `factions/syndicate/tunnels.md > Tunnel Network > Transit Tier Requirements`: "Tier 1+: Infantry (Light
@@ -211,7 +216,7 @@ fn the_hideout_follows_the_design() {
             structure.underground,
             structure.tunnel,
             structure.production,
-            structure.drop_off
+            structure.drop_off.is_some()
         ),
         (true, None, None, false)
     );
