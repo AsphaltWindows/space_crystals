@@ -120,6 +120,8 @@ Displays available underground expansion types for this Tunnel's current tier. A
 
 #### AwaitingPlacement (Expansion):
 - A ghost preview of the expansion follows the cursor within the Tunnel Area, snapped to the grid. Tinted green when valid, red when invalid. The expansion must fit entirely within the Tunnel Area. **Every tile under it must be Drillable** (user, 2026-11-25; Q0062: Plane, Rugged and Cliff yes; Mountain and Water no; core/map.md > DefaultTilePresets). Own and neutral underground structures block it; so does the Tunnel's own footprint. **Surface structures block it too** (user, 2026-11-25; Q0062): no expansion can be placed under any surface building, any player's (judged by the truth; the placement is refused).
+- **Ground units don't block it** (user, 2026-11-26; Q0080): units standing on the tiles don't matter, since the expansion is underground (core/entities.md > Direct Placement).
+- **Lingering Tunnel ghosts can't be in the way** (user, 2026-11-26; Q0080): a Tunnel ghost can never be placed inside another Tunnel's area (Tunnel Area Non-Overlap Rule; pending ghosts reserve their area), and expansions are placed only inside their own Tunnel's area, so the two never meet.
 - R rotates the ghost 90 degrees clockwise, Shift+R counter-clockwise. F flips horizontally, Shift+F flips vertically.
 - Left-click valid location: places expansion, begins construction (CommandIssuingTransition, returns to DefaultState)
 
