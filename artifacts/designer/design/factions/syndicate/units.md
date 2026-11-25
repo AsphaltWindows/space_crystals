@@ -421,6 +421,7 @@ TBD: all numbers (HP, armor, sight, speed and handling, TunnelSpaceCost, damage,
 - **AoE damage**.
 - On a **turret with very low range**: it must be nearly over its target.
 - **Can miss**: the bomb falls to a locked location, so targets can dodge (DoublyDisjointed, assumed). The **projectile travel time is relatively high**, almost all of it the **vertical fall**.
+- **Out of ammo** (user, 2026-11-25): once its bomb is dropped, its default behavior is to **fly back to the nearest own Tier 3 Tunnel**, land through its air door and re-arm inside, **even if the player owns no Vault** (it then waits inside, unarmed, until a Vault exists). If there is **no Tier 3 Tunnel**, it **circles** where it is (the Glider idle behavior).
 - Like every attack that can miss, it can **Attack Ground** (systems/combat.md > AttackType > CanTargetGround).
 - TargetDomain: **Ground only** (user, 2026-11-25).
 
