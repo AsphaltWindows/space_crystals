@@ -52,11 +52,15 @@ impl TileProblem {
         TileProblem::Reserved,
     ];
 
-    /// Its bit in a tile's set of problems.
-    pub(super) const fn bit(self) -> u8 {
-        1 << self as u8
+    /// Its bit in a tile's set of problems: a u16, room for 16 (plan decision T53, widened from a u8 that the first
+    /// eight filled).
+    pub(super) const fn bit(self) -> u16 {
+        1 << self as u16
     }
 }
+
+// Every problem has a bit of its own in the set.
+const _: () = assert!(TileProblem::ALL.len() <= u16::BITS as usize);
 
 /// A rule the footprint breaks as a whole, in the order they are checked.
 #[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]

@@ -62,7 +62,7 @@ pub fn check_reserving(
     let footprint = Footprint { origin, w, h };
     let mut onto = Onto::new(kind, footprint.rect());
     // Each footprint tile's problems, as bits, row by row.
-    let mut found = vec![0u8; footprint.len()];
+    let mut found = vec![0u16; footprint.len()];
     let map = site.map;
     // `> Direct Placement`: "all footprint tiles must be in the Visible state"; `> Warp In` too (design change 0119).
     for (i, tile) in footprint.tiles() {
