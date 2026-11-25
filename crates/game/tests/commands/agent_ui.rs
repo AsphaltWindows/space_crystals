@@ -11,7 +11,7 @@ use sc_sim::nav::TileRect;
 use sc_sim::testing::ScenarioBuilder;
 use sc_sim::{BuildingOrientation, ConstructionCommand, Faction, PlayerCommand as Sent, SU_PER_GU, SpawnSettings};
 use space_crystals::command_ui::feedback::{
-    BUSY_TEXT, NO_SUPPLIES_TEXT, NOTHING_CARRIED_TEXT, REQUIRES_OPTICS_LAB_TEXT, TargetFeedback,
+    BUSY_TEXT, NO_SUPPLIES_TEXT, NOTHING_CARRIED_TEXT, REQUIRES_OPTICS_LAB_TEXT, TargetFeedback, placement_text,
 };
 use space_crystals::command_ui::{ButtonLook, PanelButton, PanelCommand, Planned};
 use space_crystals::hud::command_panel::CommandButton;
@@ -247,11 +247,12 @@ fn a_build_the_bank_cant_pay_says_so_and_sends_nothing() {
 /// placement", and placement ends at a Shift-click as at a plain one; to place with the next Agent, the player presses
 /// Tab, then A. Two Shift-clicks with two Agents leave two lingering ghosts with their Tier 1 areas, each paid as it
 /// was given (1, then 2: the first ghost counts, design change 0233). The second Agent's ghost is red where its area
-/// would overlap the first ghost's (design change 0289: "Shift-queue two Tunnels whose areas overlap: the second ghost
-/// is red"). A third Shift-click with the first Agent again, on a valid site, is refused by the gate's one placement
-/// per Agent and sends nothing.
+/// would overlap the first ghost's, and a Shift-click there says why and sends nothing, placement going on (design
+/// change 0289: "Shift-queue two Tunnels whose areas overlap: the second ghost is red"). A third Shift-click with the
+/// first Agent again, on a valid site, is refused by the gate's one placement per Agent and sends nothing.
 #[test]
 fn shift_places_several_ghosts_one_agent_each() {
+    use sc_sim::{PlacementProblem, WholeProblem::TunnelAreaOverlap};
     let mut app = agent_game();
     select_units(&mut app, &AGENTS);
     for (agent, site) in AGENTS.into_iter().zip(SITES) {
@@ -262,7 +263,14 @@ fn shift_places_several_ghosts_one_agent_each() {
             pointer_over(&mut app, centre(overlapping));
             let ghost = app.world().resource::<PlacementGhost>().shown.clone().expect("a ghost");
             assert_eq!(ghost.origin, overlapping);
-            assert_eq!(ghost.check.whole, [sc_sim::WholeProblem::TunnelAreaOverlap]);
+            assert_eq!(ghost.check.whole, [TunnelAreaOverlap]);
+            click(&mut app, centre(overlapping), &[ShiftLeft]);
+            assert_eq!(
+                said(&app),
+                Some(placement_text(Some(PlacementProblem::Whole(TunnelAreaOverlap))))
+            );
+            assert_eq!(builds(&app).len(), 1);
+            assert!(matches!(interface(&app), InterfaceState::AwaitingPlacement(_)));
         }
         click(&mut app, centre(site), &[ShiftLeft]);
         assert_eq!(builds(&app).last(), Some(&given(&[agent], build_at(site), true)));
