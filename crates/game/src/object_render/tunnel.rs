@@ -6,10 +6,13 @@
 //! - **Side A**, "two paths: one for entering, one for exiting": two strips from the edge in, "narrow and
 //!   shaggy-looking" at Tier 1 (ragged dirt), "wider and well paved" at Tiers 2 and 3. They lie on the half nearer B,
 //!   the exit, and the half nearer D, the entry (0248), drawn alike: slice M4-C gives them their roles.
-//! - **Sides B and D**, each "a hatch": a framed square at the edge, B's in the crystals' cyan, D's in the Supplies'
-//!   amber (the map resources' colours, `super::resources`). Side C, the back wall, has no mark.
+//! - **Sides B and D**, each "a hatch": a framed square at the middle of the edge, B's in the crystals' cyan, D's in
+//!   the Supplies' amber (the map resources' colours, `super::resources`). Side C, the back wall, has no mark. (Design
+//!   change 0255 point 6 makes a hatch "1 grid square, near the middle of the side": slice M4-D picks the square.)
 //! - **Tier 3**, "two horizontal circular sliding doors, one for flying units entering and one for flying units
-//!   exiting": two split discs on the roof, towards the back wall. They have no function in M4.
+//!   exiting": two split discs on the roof "over the matching path halves" (design change 0251 point 11), the exit's
+//!   on the half nearer B and the entry's on the half nearer D, set back towards the back wall so that they cover
+//!   neither the paths nor the tag. Slice M4-C gives them their roles.
 //!
 //! The tag in the middle names the tier (`crate::hud::selection_panel::object_label`); nothing here covers it.
 
@@ -78,10 +81,11 @@ pub(super) fn draw(mesh: &mut ColorMesh, look: TunnelLook, half: Vec2) {
         }
     }
     if look.tier >= 3
-        && let Some(n) = facing(SideLetter::C)
+        && let (Some(n), Some(exit), Some(entry)) =
+            (facing(SideLetter::C), facing(SideLetter::B), facing(SideLetter::D))
     {
-        for side in [-0.5, 0.5] {
-            air_door(mesh, n * reach(n) * 0.5 + n.perp() * side * DOOR_SPACING_SU, n);
+        for towards in [exit, entry] {
+            air_door(mesh, n * reach(n) * 0.5 + towards * DOOR_SPACING_SU / 2.0, n);
         }
     }
 }
@@ -167,8 +171,8 @@ mod tests {
     }
 
     /// Design change 0248: unturned, with A on top, the hatches are on Sides B (east) and D (west), and Side C, the
-    /// back wall at the bottom, has no mark; Side A's paths lie on its halves towards B and D, the air doors
-    /// towards C.
+    /// back wall at the bottom, has no mark; Side A's paths lie on its halves towards B and D, and the air doors over
+    /// the same halves (0251 point 11), towards C.
     #[test]
     fn the_hatches_are_on_sides_b_and_d() {
         let half = Vec2::splat(115.0);
@@ -200,5 +204,8 @@ mod tests {
             (0, true),
             "the air doors at Tier 3"
         );
+        let door_on = |points: &[Vec2], east: bool| points.iter().any(|p| p.y < -30.0 && (p.x > 10.0) == east);
+        let t3 = drawn(3);
+        assert!(door_on(&t3, true) && door_on(&t3, false), "one door over each half");
     }
 }

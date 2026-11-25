@@ -178,8 +178,9 @@ pub(super) static TUNNEL: ObjectDef = ObjectDef {
         mining: None,
         constructs: &[],
         warp_in: &[],
-        // Agents deliver to its hatches, crystals at Side B and Supplies at Side D (design change 0248), from slices
-        // M4-D and M4-I on (plan decision T34, with the side rule in its def).
+        // Agents deliver to its hatches, crystals at Side B and Supplies at Side D (design change 0248), each "1 grid
+        // square, near the middle of the side" (0255 point 6), from slices M4-D and M4-I on (plan decision T34, with
+        // the side rule in its def).
         drop_off: false,
         underground: false,
         tunnel: Some(&TUNNEL_TIERS),
@@ -198,8 +199,10 @@ pub(super) static HIDEOUT: ObjectDef = ObjectDef {
     selectable: true,                           // `core/entities.md > Object Type > Selectable - true`
     // Not listed for the Hideout; a type with MaxHP is destructible (`core/entities.md > Object Instance > HP`).
     destructible: true,
-    groupable: true,     // Placeholder: Q0065 point 6, not given ("true, like the Barracks")
-    sight_range: 0.0,    // Placeholder: Q0065 point 5, not given ("none, since they are underground")
+    // `tunnels.md > Tunnel ObjectInterfaceState > Expansions under construction` (design change 0254, answering
+    // Q0065 points 5 and 6): "Sight: none (underground). Groupable: true."
+    groupable: true,
+    sight_range: 0.0,
     max_hp: Some(400.0), // HP - 400
     max_shields: None,
     armor: Armor {
