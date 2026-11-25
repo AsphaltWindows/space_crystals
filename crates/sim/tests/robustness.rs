@@ -331,9 +331,16 @@ fn fuzz_run(seed: u64) -> Run {
     }
 }
 
+/// The stream's seed. A Grenadier (slice M4-U) can destroy a base (four grenades of 98.8 against the Generator's 350
+/// HP): a stream that has one beside a base ends the game, and refuses every command after that. About one in sixteen
+/// streams does (master's seed 6, at tick 896). Each kind added reshuffles the streams, and the Laser Turret
+/// (slice M4-S1) made 0x5eed's one of them (its base fell at tick 1366): this is the first seed after it whose stream
+/// keeps both bases.
+const SEED: u64 = 0x5eee;
+
 #[test]
 fn random_debug_commands_never_panic_and_stay_deterministic() {
-    let first = fuzz_run(0x5eed);
+    let first = fuzz_run(SEED);
     // The stream exercises the valid paths too, not only rejections.
     assert!(
         first.spawned > 80 && first.removed > 50,
@@ -351,7 +358,7 @@ fn random_debug_commands_never_panic_and_stay_deterministic() {
     let commands: usize = first.replay.inputs.iter().map(|i| i.commands.len()).sum();
     assert!(commands > 4000, "{commands} commands");
 
-    let second = fuzz_run(0x5eed);
+    let second = fuzz_run(SEED);
     assert_eq!(first.hashes, second.hashes);
     assert_eq!(first.final_state, second.final_state);
 
