@@ -21,6 +21,7 @@
 
   The user wrote "then M4 Cults", read as M5. The user keeps feeding designs to the Designer, so expect incremental change entries mid-milestone.
 - **One playtest, when all four factions are done:** GDO, Colonists, Syndicate and Cults. Until then QA is by the agents: walkthroughs, goldens, soaks and screenshots.
+- **The playtest's form (user, 2026-11-25):** hot-seat (one person plays both sides, switching with F2), started from the command line. No AI opponent and no start screen for it; either would be a later decision.
 - **The art pipeline waits** until the gameplay design is mostly final.
 
 - **Design principle (user, 0223): default behaviour is predictable, not optimal.**

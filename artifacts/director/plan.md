@@ -1410,8 +1410,8 @@ The user keeps feeding unit and other designs to the Designer, so expect increme
       8. M (QA), then the user's playtest.
     - **Data files (T66):** JSON merge patches over the built-in Rust rules, swapped in at a tick boundary through a recorded command, and reloaded live in dev builds.
     - **Questions:** Q0092–Q0108 are filed; none blocks.
-    - **Pending with the user:** the playtest's opponent (hot-seat or an AI), and a start screen.
-    - **M5 starts** after M4-M lands and the user agrees.
+    - **The user decided (2026-11-25):** the playtest is **hot-seat** (both sides, switching with F2), and it starts from the **command line**. No AI and no start screen in M5.
+    - **M5 starts** after M4-M lands.
   - Recruits are Groupable: every selected Recruit builds (0072).
   - Shift-placement queues build orders while Shift is held, with the cost paid per order (0071).
 
@@ -1828,4 +1828,6 @@ Last triaged: 0282.
 | 0302 The Cults' Soldier is renamed Militant (`factions/cults/units/militant.md`); the Armory's Q reads "Train Militant" | queued (M5-A: no code mentions the Soldier yet) | — |
 | 0303 The Syndicate's opening target means the third Agent at work by about 0:40; the Agent table is an ideal, and real income varies a little below it | done (as built, M4-L `6d05e084`; no change) | answers Q0089 |
 | 0304 The Cults' Gunner can miss: a TailDisjointed attack (the position locks at the end of Aiming; the shot lands there at the end of Firing and hits whatever unit is at the spot), and Attack Ground | queued (M5-O3: TailDisjointed attacks, which aren't built yet; the Gunner's Attack Ground; "Target too close" for a location, since the Gunner has MinRange 2. The Gunner's kind is in M5-A) | — |
+| 0305 The Cults' Acolyte is renamed Disciple (`factions/cults/units/disciple.md`) | queued (M5-N4, gated: no code mentions the Acolyte) | — |
+| 0306–0308 The Disciple's channeled cloud spell (concept): damage on ground objects under connected clouds goes into a shared buffer, released as AoE every 0.5 s; attacks from under the same cloud do full damage | queued (M5-N4, gated: "Concept only, not for the current playtest"; size, drain, end, buffer splits, name and hotkey TBD) | — |
 | 0014 GDO Airfield and aircraft | queued (Later: air) | |
