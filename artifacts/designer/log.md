@@ -2222,3 +2222,4 @@ Q0067 Supplies gathering. Entry 0256.
 Q0068 panel letters. Entry 0257.
 Q0069 losing tunnels edges. Entry 0258.
 Q0070 Syndicate economy check. Entry 0259.
+Q0071 B: placeholders Laser Turret, Grenadier, Chemical Plant. Entry 0260.
