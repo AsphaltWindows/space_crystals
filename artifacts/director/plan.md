@@ -668,11 +668,16 @@ Approach: thin vertical slices the user can run and see, each verified by tests 
     - A save from before 0198 loses a pending press.
   - **Perf.** `behaviours_perf` A/B shows no regression.
 
+- **M3-K3 Drone acceleration** (merged in `c4807b8`; 1372 tests):
+  - **0205.** The Drone's constants are 0.9 / 0.3 / 0.15. It reaches 67.9% of top speed after 7 ticks and 96.1% after 20. A Stop drifts 25.5 su, where it drifted 41.5 before.
+  - **The oracle, re-measured:** every figure is within ±15% (6.93 / 11.43 / 13.33 / 16.00 / 18.67 / 22.86 / 25.14 / 26.29 / 27.81). Targets 2–4 hold, and target 1 fails at 2:20 only. 24 Drones saturate the row. The figures went to the Designer as Q0072.
+  - **Goldens.** `colonists_opening` and `colonists_vs_gdo` were re-blessed. The soaks are re-pinned, and `docs/economy_oracle.md` keeps the tables from before 0205.
+
 ## In progress
 - **M3 waves 2 and 3** (common brief `scratchpad/briefs/m3-common.md`; status `m3-w2-status.md`):
   - **M3-J3 markers and polish** (Opus; brief `scratchpad/briefs/m3j3-markers-and-polish.md`): the 0201 markers, 0206, M3-K2's client polish and the playtest notes.
   - **M3-G3 no indefinite wait** (Opus; brief `scratchpad/briefs/m3g3-no-indefinite-wait.md`): 0223; a unit with no way round follows the Failure rule.
-  - **M3-K3 Drone acceleration** (Opus; brief `scratchpad/briefs/m3k3-drone-acceleration.md`): 0205's constants; the Colonists oracle re-measured for Q0055; goldens re-blessed.
+  - **M3-L4 AttackMove reach rule** (Fable; brief `scratchpad/briefs/m3l4-attackmove-reach-rule.md`): 0230, a transparent rejection cache, a bound on judgement paths per tick, and a large-army perf test.
 - **Next**:
   - **Playtest:** the user plays once all four factions are built (2026-11-24), using `docs/playtest/m2.md`, `m3.md` and later notes. This replaces separate M1–M3 playtests.
   - **M4 Syndicate:** the plan is adopted (`artifacts/director/m4-plan.md`). M4-A starts when M3's last slices free a slot.
@@ -821,7 +826,8 @@ The user keeps feeding unit and other designs to the Designer, so expect increme
     | K2 | done (`3559b40`) |
     | L3 | done (`33b3e3f`; Q0058) |
     | G2 | done (`d98ae13`; Q0057) |
-    | K3 (0205 Drone acceleration; the Colonists oracle re-measured for Q0055; brief `scratchpad/briefs/m3k3-drone-acceleration.md`) | running (wave 7) |
+    | K3 | done (`c4807b8`; Q0072) |
+    | L4 (Fable: 0230 AttackMove reach rule; brief `scratchpad/briefs/m3l4-attackmove-reach-rule.md`) | running (wave 9) |
     | J3 (0201 markers for Gather, Drop Off and Set Drop-off; 0206 a revealed attacker's shots drawn from it; K2's client polish: label under a marker, build tint over unexplored ground, F2 camera per player, Peacekeeper label, "SC" clash) | running (wave 8) |
     | G3 (0223: no indefinite wait behind blockers; the Failure rule applies; brief `scratchpad/briefs/m3g3-no-indefinite-wait.md`) | running (wave 8) |
 - **M4 Syndicate** (**planned**; spec: `artifacts/director/m4-plan.md`, from the design at `36a8cd8` plus 0210–0228).
@@ -906,13 +912,13 @@ The user keeps feeding unit and other designs to the Designer, so expect increme
 | Q0052 | Gathering UI: a Drone's right-click on enemies, the Set Drop-off pointer, who sees a Drone's load, Gather indicators | no | answered by 0201 (points 1–3 as built; markers M3-J3) |
 | Q0053 | Riot Shield toggle edge cases: orders while lowering, Lower during a waiting raise, the ActiveGroup during a deferred raise | no | answered: points 2–3 by 0198, point 1 by 0202 (done, M3-T `bcd66ab`) |
 | Q0054 | AttackMove: a dropped target not chased again on that leg; the MinRange back-off spot; a cornered unit | no | answered by 0204 (as built M3-L2) |
-| Q0055 | The Colonists' measured economy misses the table: 1:00, 3:00 and 4:00 outside ±15%; targets 1 and 4 fail (full saturation needs 27 Drones) | no | open; M3-K1 pins the measured figures; no game number changed (0108) |
+| Q0055 | The Colonists' measured economy misses the table: 1:00, 3:00 and 4:00 outside ±15%; targets 1 and 4 fail (full saturation needs 27 Drones) | no | open; re-measured after 0205 as Q0072 |
 | Q0056 | Should a revealed attacker's shots be drawn from the attacker, or only over Visible tiles (a gap of about 140 px, M3-K2)? | no | answered by 0206 (B; M3-J3) |
 | Q0057 | An attacker blocked by its own side near its target: melee units within 3 GU give the target up (2–3 of 8 Sabres never strike); should a unit wait without limit; three attempts at a way round | no | answered by 0223 (points 1 A, 2 B, 3 A; M3-G3) |
-| Q0058 | AttackMove: is a target lost to the fog left alone for the rest of the leg, like one dropped at the leash? (taking it again loops near walls: soak seeds 8 and 29) | no | open; as M3-L2 built it (A) |
-| Q0059 | Optics Lab: placeholder stats | yes | open; blocks M4-K |
-| Q0060 | Tunnel upgrade: duration, HP and payment | yes | open; blocks M4-G |
-| Q0061 | Agent-built Tunnels: payment, ownership and the site | no | open; M4 builds the proposals |
+| Q0058 | AttackMove: is a target lost to the fog left alone for the rest of the leg, like one dropped at the leash? (taking it again loops near walls: soak seeds 8 and 29) | no | answered by 0230 (M3-L4) |
+| Q0059 | Optics Lab: placeholder stats | yes | answered by 0229 (placeholders; unblocks M4-K) |
+| Q0060 | Tunnel upgrade: duration, HP and payment | yes | answered by 0229, 0231 and 0232 (unblocks M4-G) |
+| Q0061 | Agent-built Tunnels: payment, ownership and the site | no | points 1–2 answered by 0233; the rest open |
 | Q0062 | Tunnel Areas and the two layers | no | open; M4 builds the proposals |
 | Q0063 | The Tunnel Network: transit, entering single file, and units inside | no | open; M4 builds the proposals |
 | Q0064 | Ejection and production out of the network | no | open; M4 builds the proposals |
@@ -923,9 +929,10 @@ The user keeps feeding unit and other designs to the Designer, so expect increme
 | Q0069 | Losing Tunnels: the open cases | no | open; M4 builds the proposals |
 | Q0070 | The Syndicate economy check | no | open; M4 builds the proposals |
 | Q0071 | Deferred Syndicate content: which items will get their numbers or design in time for M4? | no | open; M4 builds the proposals |
+| Q0072 | Q0055 re-measured after 0205: every figure is within ±15%; target 1 fails at 2:20 only (the start is 6.93 against the GDO's 6.67); saturation at 24, not 18–22 | no | open; the oracle pins the new figures |
 
 ## Design change entries
-Last triaged: 0228.
+Last triaged: 0233.
 
 | Entry | Status | Notes |
 |---|---|---|
@@ -1119,8 +1126,8 @@ Last triaged: 0228.
 | 0201 Gathering UI: a Drone's right-click on enemies, the Set Drop-off pointer and who sees the load confirmed; Gather, Drop Off and Set Drop-off get their own markers | points 1–3 done (as built M3-J2); point 4 in progress (M3-J3) | answers Q0052 |
 | 0202 Orders during the Riot Shield toggle follow the new type from the press; an Attack given while lowering is held until the shield is down | done (M3-T, `bcd66ab`) | answers Q0053 point 1 |
 | 0203 The Rocketman's normal attack has a MinRange (value TBD) | queued (waiting for the value; the MinRange rules are built, M3-L2) | context for Q0054 |
-| 0204 AttackMove's dropped target, the MinRange back-off spot and a cornered unit stay as M3-L2 built them; a locked Rocketman's fire ignores MinRange | done (as built M3-L2); the locked-fire part is queued with Target Lock | answers Q0054 |
-| 0205 The Drone accelerates faster (ForwardAcceleration 0.9, OmniDirectionalAcceleration 0.3, DragRatio 0.15; were 0.6 / 0.2 / 0.1); re-run the Colonists oracle and report the table for Q0055 | queued (M3-K3, next free slot) | a step toward Q0055, which stays open; the table and targets stay unchanged |
+| 0204 AttackMove's dropped target, the MinRange back-off spot and a cornered unit stay as M3-L2 built them; a locked Rocketman's fire ignores MinRange | done (as built M3-L2), except point 1, superseded by 0230 (M3-L4); the locked-fire part is queued with Target Lock | answers Q0054 |
+| 0205 The Drone accelerates faster (ForwardAcceleration 0.9, OmniDirectionalAcceleration 0.3, DragRatio 0.15; were 0.6 / 0.2 / 0.1); re-run the Colonists oracle and report the table for Q0055 | done (M3-K3, `c4807b8`); figures re-reported as Q0072 | a step toward Q0055, which stays open; the table and targets stay unchanged |
 | 0206 While an attacker in the fog is revealed, its own shots are drawn from it to the target; other shots stay clipped to Visible tiles | in progress (M3-J3) | answers Q0056; client only |
 | 0207–0209 Laser Battery, a new Syndicate vehicle: always charging, weaker surges on an empty battery, Amplify, a narrow turret arc; Syndicate lasers are red | queued (M4: red lasers in M4-A; the Laser Battery is gated on numbers, N3) | concept; no numbers yet |
 | 0210 The Laser Battery needs an Optics Lab; the Laser Battery and the Artillery Rig have mobile and deployed as two unit types | queued (M4 N3; the Artillery Rig part with the Artillery Rig, not yet built) | deploy times TBD |
@@ -1133,4 +1140,8 @@ Last triaged: 0228.
 | 0225 Each Side A path takes one unit at a time at a fixed position; entering and exiting don't block each other | queued (M4-C) | how long a unit holds a path is TBD (an M4 question) |
 | 0226–0227 The Phantom, a Syndicate hovering aircraft from the Aerospace Assembly: requires an Optics Lab, rises from a T3 Tunnel's air door, red laser against air and ground, a 60–90° turret arc, Guard-like but squishier and faster | queued (M4, deferred: numbers TBD) | concept |
 | 0228 The Phantom's 60–90° is the total turret cone; the rally line no longer cites chasing into the fog (no rule change) | queued (M4, with the Phantom); the doc fix needs no code | follows Q0058's context note |
+| 0229 Placeholders: Optics Lab (2x2, 150 SC, 400 frames, HP 400, armour 1/4, Groupable, no commands); Tunnel upgrade takes 480 frames per tier, with Supplies paid when ordered | queued (M4-K, M4-G) | answers Q0059 and Q0060 points 1–2; unblocks K and G |
+| 0230 AttackMove takes only targets it can reach within the leash and sight; no dropped-target memory; a rejected enemy is re-judged only when it moves or PathKnowledge changes; performance a priority | in progress (M3-L4, Fable) | answers Q0058; replaces 0204 point 1 and M3-L3's placeholder |
+| 0231–0232 Tunnel upgrades: an upgrade in progress counts toward the next one's cost; Cancel refunds the current top price, not counting itself (0232 corrects 0231); HP rises with max HP; Supplies are lost if the Tunnel is destroyed mid-upgrade; the larger area is reserved from the start | queued (M4-G) | answers Q0060 points 3–6 |
+| 0233 Agent-built Tunnels pay when the ghost is placed; ghosts and sites count toward the price; an order that can't be paid is refused with feedback; refunds at the current top price | queued (M4-E) | answers Q0061 points 1–2 |
 | 0014 GDO Airfield and aircraft | queued (Later: air) | |
