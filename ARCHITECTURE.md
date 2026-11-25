@@ -8,8 +8,15 @@ the code or the design, stop and tell the Director. Don't pick one of them on yo
 - The design docs in `artifacts/designer/design/` are the spec (index: its `README.md`). Implement what they say.
 - Never edit anything under `artifacts/`, because the Designer and the Director own it.
 - Cite the design in doc comments as `path/file.md > Section`, with paths relative to `artifacts/designer/design/`.
+  A citation `` `> Section` `` names a section of the file cited just before it, often in the module's doc.
+- `crates/sim/tests/design_citations.rs` checks the citations: every backticked design path in `crates/**/*.rs`,
+  `docs/**/*.md` and this file must exist under `artifacts/designer/design/` (a `docs/` path under the repository's
+  `docs/`), or the test fails, naming file and line. Its ignored test reports the cited sections that aren't headings
+  of their file (a report, not a gate: the design names many sections by bold paragraphs):
+  `cargo test -p sc_sim --test design_citations -- --ignored --nocapture`.
 - A number the design doesn't give becomes a **named const**. Its comment names the open Director question
-  (`artifacts/director/questions/QNNNN-*.md`), so that the answer later changes one line.
+  (`artifacts/director/questions/QNNNN-*.md`), so that the answer later changes one line. A tunable goes in a tuning
+  module (see *Tunables*).
 - Never invent design silently. Report any gap that no open question covers, and any unclear or contradictory rule
   (see *Working as an implementing agent*).
 
@@ -300,10 +307,9 @@ Units, structures and resources are all `Object`s (`object.rs`, `core/entities.m
 2. Add its `static ObjectDef`, with a citation for every value, and its arm in `ObjectKind::def()`. Missing numbers
    become named consts tagged with the question id.
 3. Set up its capability state in `kinds::Capabilities::fresh` (`sim/kinds.rs`; units get idle `orders` and
-   `mover`), and give it a placeholder shape (`object_render::object_mesh`, whose `match` is exhaustive). The other
-   exhaustive matches on kinds name the rest: its short label (`hud::selection_panel::short_label`), its per-object
-   values (`SpawnSettings::defaults`, the editor's `fields.rs`) and its interface
-   (`command_ui/interface/templates.rs`).
+   `mover`), and give it its client module, with its line in the client's kind registry (*Adding a unit or
+   structure*). Its per-object values, if it has any, are `SpawnSettings::defaults`' (the editor's fields follow
+   them).
 4. Test it. Spawn it in a small inline scenario, then check its initial state and its behaviour.
 
 **Adding a capability**
@@ -2087,6 +2093,16 @@ M0 builds this skeleton, so follow it. The art direction is 2.5D pixel-art sprit
 Age of Empires 2, with the details still open in Q0001. Until that art exists, everything is a placeholder shape laid
 out by the same rules.
 
+**Kinds** (`kinds.rs`, slice M4-R2): what the client knows of each object kind beside its def, one module per kind
+(`kinds/<faction>/<object>.rs`, named as the design's file of the object is: `kinds/gdo/peacekeeper.rs` holds both
+the Peacekeeper's types, `kinds/map/` the map's objects), behind one registry, `kinds::of`, an exhaustive `match`
+with one line per kind. A `ClientKind` holds the kind's label (`kinds::short_label`; a Tunnel's names its tier,
+`kinds::object_label`), its look (`object_render::Look`: a unit's body shape and whether it carries its label, a
+structure, or a map resource's own shape), its shots' style (`combat_effects::ShotStyle`, for a kind with a weapon)
+and its panel template (`command_ui::interface::templates::PanelTemplate`). Its name and numbers are the def's. The
+drawing code stays in `object_render/` and `combat_effects/`, and nothing else in the client matches on kinds for
+these.
+
 **Sim driver**
 - The `Sim` lives in a Bevy `Resource`. That is a client newtype, because `sc_sim` can't derive Bevy traits. The sim
   is stepped only in `FixedUpdate`, whose timestep comes from `sc_sim::TICKS_PER_SECOND` (`Time::<Fixed>::from_hz`).
@@ -2142,8 +2158,9 @@ out by the same rules.
   cliff face: rock-coloured, with a stratum line at every level. Every vertex's z grows with its ground y, so with the
   depth test southern terrain overdraws the terrain behind it. The grid (G) follows the surface in the terrain's z
   band, slightly in front, so terrain in front hides it too. Both meshes are rebuilt when the sim's map changes.
-- **Units** (`object_render.rs`, `object_render/units.rs`) are placeholder shapes until the art (Q0001): a shape per
-  kind (the Peacekeeper round, the Guard and the Legionnaires square, the Drone an octagon) of the silhouette's size,
+- **Units** (`object_render.rs`, `object_render/units.rs`; the systems in `object_render/systems.rs`) are placeholder
+  shapes until the art (Q0001): a shape per kind, its look's (*Kinds*: the Peacekeeper round, the Guard and the
+  Legionnaires square, the Drone an octagon), of the silhouette's size,
   in the owner's colour (`player_color`, the editor's slot colours), with a dark rim and a light tick along the
   facing. Only a round body turns with the interpolated facing (`body_turns`). A square or an octagon stays
   axis-aligned like its collision box, and only its tick turns (a `FacingTick` child, `has_tick`). Structures and map
@@ -2153,7 +2170,7 @@ out by the same rules.
   types a body (slice M3-J3), and the Agent the Guard's square (slice M4-A). A tag's local z lifts it into the
   overlays band (`units::tag_z`, see Draw order), and it stays
   upright on a body that turns: `units::upright_tags`, chained after `place_object_visuals`, gives it the inverse of
-  its visual's rotation. Every type's short label (`hud::selection_panel::short_label`) is its own, and none is a
+  its visual's rotation. Every type's short label (`kinds::short_label`) is its own, and none is a
   planned unit's or building's button label (`Planned::label`: the Scout's is "ST", the patch's "SC"); a unit test
   checks it. One mesh per `MeshKey` (kind, owner, a structure's size as placed, and
   whether it is transforming) is shared, and one tick mesh per kind. A visual whose object is drawn otherwise now
@@ -2171,7 +2188,7 @@ out by the same rules.
 - **Structures** (`object_render/structures.rs`) are placeholders too: the footprint as placed, in the owner's colour
   inside a dark rim, drawn `INSET_SU` (8) inside its edge so that a selection frame shows around it, and over a map
   resource's placeholder (a plate covers its patch). A `StructureTag` child, a `Text2d` of the type's short label
-  (`hud::selection_panel::short_label`), names it; the fog hides it with its structure. A remembered structure
+  (`kinds::short_label`), names it; the fog hides it with its structure. A remembered structure
   (`remembered.rs`) looks the same, in its owner's colour, dimmed, its tag too. **Underground structures** (slice
   M4-A, the Hideout; `structures::underground`) are translucent outlines, a rim and a faint fill in the alpha-blended
   `underground` material, under the units (`artifacts/director/m4-plan.md` §3.3); the sim hides them from other
@@ -2179,29 +2196,27 @@ out by the same rules.
   (`object_render/tunnel.rs`, design changes 0224, 0248 and 0251) follows its tier and its sides as placed
   (`TunnelLook`, part of the `MeshKey`): Side A's two paths, ragged at Tier 1 and paved from Tier 2, a hatch on Sides
   B (crystals' cyan) and D (Supplies' amber), none on C, and the Tier 3 air doors over the paths' halves; its tag
-  names its tier (T1 to T3, `object_label`), to enemies too (design change 0258), a record's the tier last seen.
+  names its tier (T1 to T3, `kinds::object_label`), to enemies too (design change 0258), a record's the tier last seen.
 - **Path overlay** (`path_overlay.rs`, P or `--show-paths`): each unit's remaining path (`Mover::remaining_path`) as
   a thin line from where the unit is drawn, cut into short pieces lifted by the terrain's height, in the overlays
   layer, and a frame around each unit in the colour of its move's status (`status_color`: green moving, amber held
   up, red failed, blue arrived; placeholder colours). Its one mesh is rebuilt every frame while it is shown.
-- **Combat effects** (`combat_effects.rs`, placeholders until Q0001): a tracer for each `SimEvent::Attacked`
-  (`TRACER_TICKS`), drawn only along the parts of its path over the local player's Visible tiles (`visible_spans`,
-  which cuts it at every tile edge it crosses; design change 0177: a shot from the fog shows from the fog edge, one
-  all in the fog not at all; its attacker is revealed by the sim), but whole, from the attacker to the target, if
-  it hits one of the local player's own objects while its attacker is revealed to them (`shot_spans`,
+- **Combat effects** (`combat_effects.rs`, its mesh in `combat_effects/draw.rs`; placeholders until Q0001): a tracer for
+  each `SimEvent::Attacked` (`TRACER_TICKS`), drawn only along the parts of its path over the local player's Visible
+  tiles (`visible_spans`, which cuts it at every tile edge it crosses; design change 0177: a shot from the fog shows
+  from the fog edge, one all in the fog not at all; its attacker is revealed by the sim), but whole, from the attacker
+  to the target, if it hits one of the local player's own objects while its attacker is revealed to them (`shot_spans`,
   `Sight::reveals`, `Tracer::target_owner`: the owner as the shot took effect, a death's for a killing shot; design
   change 0244, answering Q0075: drawn whole, a shot at a neutral's or a third player's object would show where that
-  object stands; design change 0206, answering Q0056:
-  so the shot that reveals an attacker, and every later one while the reveal lasts, comes from the unit the player
-  sees; a shot at a neutral object reveals nobody and stays clipped); a tracer's look is its weapon's (`ShotStyle::of`
-  on the form that fired, design change 0207: the Syndicate's lasers, the Guard's so far, red), HP bars over damaged
-  and selected objects (a
-  unit's clear of its silhouette's corners, a structure's along the top edge of its footprint and as wide as it),
-  with a shield bar right above for an object that has Shields (`systems/combat.md > Shields > Display`, design change
-  0148; `SHIELD_FILL`, a placeholder colour), shown too while only its Shields are down, and a fading marker for
-  each `SimEvent::Died` (`DEATH_MARKER_TICKS`).
-  One alpha-blended mesh in the overlays layer, rebuilt every frame while anything shows; effects age by the sim's
-  tick and the render alpha, so screenshots stay deterministic.
+  object stands; design change 0206, answering Q0056: so the shot that reveals an attacker, and every later one while
+  the reveal lasts, comes from the unit the player sees; a shot at a neutral object reveals nobody and stays clipped); a
+  tracer's look is its weapon's (`ShotStyle::of` on the form that fired, its kind's `ClientKind::shot`; design change
+  0207: the Syndicate's lasers, the Guard's so far, red), HP bars over damaged and selected objects (a unit's clear of
+  its silhouette's corners, a structure's along the top edge of its footprint and as wide as it), with a shield bar
+  right above for an object that has Shields (`systems/combat.md > Shields > Display`, design change 0148;
+  `SHIELD_FILL`, a placeholder colour), shown too while only its Shields are down, and a fading marker for each
+  `SimEvent::Died` (`DEATH_MARKER_TICKS`). One alpha-blended mesh in the overlays layer, rebuilt every frame while
+  anything shows; effects age by the sim's tick and the render alpha, so screenshots stay deterministic.
 - **Fog of war** (`fog.rs`, `core/vision.md`): `Sight` says what the local player is shown: its own objects, and
   everything on its Visible tiles (`Sight::sees`); on Explored tiles the terrain and the player's records of the
   structures and resources it saw there, in their last-known state, never the live objects (`Sight::remembered`,
@@ -2362,9 +2377,10 @@ elsewhere.
   text and fire no binding, from the real keyboard or the injected one. So the Esc that gives a field up doesn't also
   cancel. A field's own keys (Enter commits, Esc reverts) are Bevy's keyboard input, read by the field
   (`editor/ui/fields.rs`), not bindings.
-- Double taps and double-clicks are timed on `Time<Real>`. Placeholders until the design gives values:
-  `DRAG_THRESHOLD_PX`, `DOUBLE_TAP_SECONDS`, `DOUBLE_CLICK_SECONDS`, `DOUBLE_CLICK_DISTANCE_PX`, `EDGE_PAN_MARGIN_PX`,
-  `PIXELS_PER_LINE` (wheels that report pixels).
+- Double taps and double-clicks are timed on `Time<Real>`. Placeholders until the design gives values, in
+  `tuning/input.rs` and `tuning/camera.rs` (*Tunables*): `DRAG_THRESHOLD_PX`, `DOUBLE_TAP_SECONDS`,
+  `DOUBLE_CLICK_SECONDS`, `DOUBLE_CLICK_DISTANCE_PX`, `EDGE_PAN_MARGIN_PX`, `PIXELS_PER_LINE` (wheels that report
+  pixels).
 - **Injection**: tests and QA scripts drive the layer through `InjectedInput`, a virtual keyboard and mouse, without
   winit. Press and release its `keys` and `mouse` (`ButtonInput`s) like Bevy's; the layer clears their press marks
   after reading them. `wheel` turns the wheel by that many lines before the next frame, `cursor` stands in for the
@@ -2445,7 +2461,8 @@ ObjectInterfaceState (see Commands UI); the input changes and the HUD shows the 
 to `> CommandIndicators`, `systems/controls/commands.md > Unit Command`): how the local player orders their units,
 their producing structures and their constructors, and the Colonists' Beacons and Drones, through one command flow
 (plan decision T10, slices M2-H1, M2-H2 and M3-J1).
-- **Rules** (pure and unit tested): `command_ui/interface.rs` and its children (`commands.rs`, `templates.rs`,
+- **Rules** (pure and unit tested): `command_ui/interface.rs` and its children (`commands.rs`, `templates.rs` with
+  its `production.rs`, `state.rs` and `offers.rs` and an object's own panel in `templates/<faction>/<object>.rs`,
   `conditions.rs`, `panel.rs`) have the `PanelCommand`s (the units' and the producers' commands), the `InterfaceState`
   (DefaultState, or AwaitingTarget of a command, `queued` once a Shift-click has queued it: design change 0070) in
   each `ControlState`, the ActiveGroup's `InterfaceTemplate` (the Peacekeeper's and the Guard's BasicCombatUnit grid;
@@ -2549,7 +2566,8 @@ their producing structures and their constructors, and the Colonists' Beacons an
   constructor isn't active or holds the building no more, and both when the selection isn't commandable.
 - **Warp In and Deploy** (slice M3-J1; `factions/colonists/economy.md > Beacon > Beacon ObjectInterfaceState`,
   `factions/colonists/units/drone.md > Drone ObjectInterfaceState`; design changes 0116, 0119 to 0122, 0124, 0125):
-  `command_ui/interface/templates/colonists.rs` has the Colonists' grids. The Beacon's (`InterfaceTemplate::Beacon`)
+  `command_ui/interface/templates/colonists/` has the Colonists' panels, one file per object (the portals' have
+  their planned units, `PanelTemplate::planned`). The Beacon's (`InterfaceTemplate::Beacon`)
   opens Warp In (Basic) in Q and Warp In (Advanced) in W, `BuildMenu`s whose entries are its own (`menu_grid`): a
   `WarpIn(kind)` for each building of its Constructs List (`transform::warp_in_recipes`), and a `Planned(..)` for
   each building not in the game yet, which holds its slot unavailable. A `WarpIn` enters `AwaitingPlacement` with
@@ -2606,7 +2624,7 @@ their producing structures and their constructors, and the Colonists' Beacons an
   (`TextLayout::no_wrap`): one too long for its button at `LABEL_VH` (on a surface too small for it) is drawn smaller
   to fit on one line inside a lit button's thicker border (`label_px`, from the default font's fixed advance, 0.6 em,
   which a unit test checks against the font), so a label keeps its size when its button lights up. The indicators
-  (`command_ui/indicators.rs`) are
+  (`command_ui/indicators.rs`, the mesh in `indicators/draw.rs`) are
   one mesh in the overlays layer, rebuilt every frame while anything shows: markers at the targets of the selected
   own units' current orders (and queued ones while Shift is held), a flash where an order was just given
   (`FLASH_TICKS`), and while Shift is held each unit's route through its waypoints as dashed lines; colours follow
@@ -2983,6 +3001,45 @@ cargo run -- --editor maps/dev_skirmish.json --editor-script /path/to/edits.json
   player slot colours, the overlay, locked-part, slope tint, dimmed-layout and build-area colours, the scrollbar's,
   UI sizes, `NEW_MAP_SIZE`, `MAX_DESCRIPTION_CHARS` and the sim's creation limits are placeholders.
 
+## Adding a unit or structure
+
+One kind (plan decision T54, slices M4-R1 and M4-R2): its own files, and one line in each registry.
+
+1. **Its def module**, `crates/sim/src/defs/<faction>/{units,structures}/<object>.rs`, named as the design's file of
+   the object (`factions/<faction>/{units,structures}/<object>.md`; an economy building's is
+   `factions/<faction>/economy.md`, and `defs/map/` holds the map's objects). Its doc comment cites that file. It
+   holds the kind's `ObjectDef`, with every number the design gives the object, each cited, and the object's tests.
+   Then its line in the sim's kind registry (`defs.rs`), **at the end**: the state hash numbers kinds in that order,
+   and maps and replays name them by their serialized names, which must not change. Then *Object model > Adding an
+   object type* for its capabilities, and *Adding a capability* for anything new it does.
+2. **Its client module**, `crates/game/src/kinds/<faction>/<object>.rs` (*Client architecture > Kinds*): its
+   `ClientKind`, with
+   - its label, two letters of its own (`kinds::tests::every_label_is_its_own` checks them against every other
+     label, the planned buttons' too);
+   - its look (`object_render::Look`): a unit's body shape and whether it carries its label, or a structure. A new
+     shape adds a `Look` or `UnitShape` variant and its drawing, in `object_render/`;
+   - its shots' style (`combat_effects::ShotStyle`) if it has a weapon, none if not
+     (`kinds::tests::every_kind_module_fits_its_def` checks both against its def);
+   - its panel template. A shared one: `PanelTemplate::of(InterfaceTemplate::BasicCombatUnit)`, or `Production` for a
+     producer, whose grid comes from its `ProductionDef`. `PanelTemplate::NONE` until its slice builds its panel.
+
+   Then its line in the client's registry, `kinds::of`: the `match` is exhaustive, so the compiler names a kind
+   without one.
+3. **A panel of its own**, `crates/game/src/command_ui/interface/templates/<faction>/<object>.rs`: its `TEMPLATE`, its
+   grid and menus, and its `InterfaceTemplate` variant, with its arms in `InterfaceTemplate::grid` and in the
+   right-click (`command_ui/resolution.rs`). A unit or building of its panel that isn't in the game yet holds its slot
+   (`PanelTemplate::planned`, `PanelCommand::Planned`), and a command the design names after the object has its name
+   there (`PanelTemplate::names`). A builder also needs its `Builder` (*Adding a faction*, step 7).
+4. **Where numbers go**:
+   - the object's own numbers in its def, as fields, not in logic files;
+   - a number a system uses for every kind in that system's tuning module (*Tunables*);
+   - the client's feel numbers in `crates/game/src/tuning/`;
+   - colours and drawing sizes with the drawing code (`object_render/`, `combat_effects/`, `command_ui/indicators/`).
+
+   Each has a design citation, or "Placeholder (not in the design)".
+5. **Tests**: its def's in its module; a scenario test of what it does in `crates/sim/tests/`; the client's, if it
+   has a panel, beside the other panels' (`crates/game/tests/commands/`).
+
 ## Adding a faction
 
 What a faction needs before players can start with it, in the order M3 (the Colonists) built it. Started by slice
@@ -2991,9 +3048,9 @@ M3-C and finished by M3-K2 from what the M3 slices needed (plan `artifacts/direc
 
 1. **Defs** (`defs/<faction>.rs`, see Object model; slice M3-A): its kinds at the end of `ObjectKind` (the state
    hash numbers kinds in declaration order), one `static ObjectDef` each with `faction: Some(..)`, each unit's
-   army-cap cost in its `UnitDef`, and every exhaustive match over `ObjectKind` (sim and client) decided. The
-   client draws each kind (`object_render.rs`, `object_render/units.rs`), and the editor's unit palette lists the
-   faction's units by itself.
+   army-cap cost in its `UnitDef`, and every exhaustive match over `ObjectKind` (sim and client) decided. Each kind
+   has its client module (*Adding a unit or structure*), and the editor's unit palette lists the faction's units by
+   itself.
 2. **Banks**: a resource the faction stores is a `Player` field (`u32`, hashed in `hash.rs`, `#[serde(default)]`),
    in `Banks` and `DebugCommand::SetResources` (`serde(default)` there too, so older command files load). Re-bless
    the goldens (`> Replays and golden hashes`).
@@ -3016,13 +3073,13 @@ M3-C and finished by M3-K2 from what the M3 slices needed (plan `artifacts/direc
    InfoPanel's waiting line name the faction's resource.
 6. **HUD figures** (`hud/resources.rs`): the faction's `ResourceFigure`s in its DisplayHud order (`ResourceFigure::of`)
    and each new figure's reading in `resource_bar`, in ASCII.
-7. **Templates** (`command_ui/interface/templates.rs`, a faction's own grids in `templates/<faction>.rs`):
-   `InterfaceTemplate::of(kind)` for each kind with a command panel, `None` until its slice builds one. A producer
-   takes `InterfaceTemplate::Production`, whose grid comes from its `ProductionDef` (give a new unit to train its
-   `PanelCommand::label`). A builder needs its `Builder` (`command_ui/interface/placing.rs`: where the ghost stands,
+7. **Templates** (`command_ui/interface/templates.rs`, an object's own panel in `templates/<faction>/<object>.rs`): each
+   kind's panel template, in its client module (*Adding a unit or structure*), `PanelTemplate::NONE` until its slice
+   builds one. A producer takes `InterfaceTemplate::Production`, whose grid comes from its `ProductionDef` (a new unit
+   to train shows its label). A builder needs its `Builder` (`command_ui/interface/placing.rs`: where the ghost stands,
    which check colours it, what a click sends; slice M3-J1 has a constructor's, the Drones' and the Beacon's), and a
-   building not in the game yet holds its menu slot as a `PanelCommand::Planned`. A type that transforms shows only
-   its Cancel while it does (`TRANSFORMING_GRID`; `colonists::becomes` lists the types that may).
+   building not in the game yet holds its menu slot as a `PanelCommand::Planned`. A type that transforms shows only its
+   Cancel while it does (`TRANSFORMING_GRID`; `colonists::becomes` lists the types that may).
 8. **Producers' exits** (`ProductionDef::exits`, slices M3-D and M3-D2): `ExitRule::Side` for a side doorway
    (the unit appears half inside that side), `ExitRule::Centre` for an energy doorway open through the sides with
    the letters given (the unit appears at the centre and walks out through them; its arc comes from the sides, so
@@ -3069,6 +3126,26 @@ The faction's own mechanics come next, each only if it has them (M3's in bracket
       (`tests/skirmish_soak.rs`: invariants, books, no stuck order, the hash stable over two runs);
     - a scripted walkthrough of the first playable (`--factions` with `--input-script`, see *QA mode*), and its
       playtest notes in `docs/playtest/`.
+
+## Tunables
+
+The numbers a playtest tunes live apart from the logic that uses them, in tuning modules grouped by system, so that
+each module can later become one loaded struct (the data files come at playtest, plan decision T54). A number that
+belongs to one object goes in its def instead (*Adding a unit or structure*).
+
+- **The sim's** (`crates/sim/src/tuning/<system>.rs`, slice M4-R1): one module per system, `movement`, `paths`,
+  `orders`, `gathering`, `construction`, `combat`, `production`, `vision`, `shields` and `tunnel`.
+- **The client's feel** (`crates/game/src/tuning/`, slice M4-R2): `camera.rs` (the view's width, the pan speed, the
+  edge-pan margin, the editor's zoom), `input.rs` (the drag threshold, double-click and double-tap times, the
+  targeting click allowance, the pick slop, the wheel's pixels per line, the editor's marker grab radius) and
+  `feedback.rs` (how long an order's flash, a refused command's message, a tracer, a death marker and a HUD notice
+  show). Each kept its name, and the module it came from re-exports it (`pub use crate::tuning::...`) or imports it,
+  so the code that uses it still names it there.
+- Each constant has a doc comment: a design citation, or "Placeholder (not in the design)" and, where there is one,
+  why it has its value.
+- Colours and drawing sizes stay with the drawing code; technical constants (z offsets, frame budgets, capture
+  timeouts) stay where they are used.
+- A slice adds its constants at the end of its system's module.
 
 ## Code conventions
 
