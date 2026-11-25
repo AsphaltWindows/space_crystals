@@ -19,12 +19,14 @@
 //! is a pale arc in front of it ([`RiotShieldVisual`]), growing out of its body as the shield goes up and shrinking
 //! back as it comes down: the Peacekeeper (Shielded) is the Peacekeeper's round body with its shield up or on its way
 //! up (design change 0173), which becomes the Peacekeeper's again, the shield on its way down, when the shield is
-//! lowered. A worker that carries a load shows a crystal shard on its body ([`LoadMarker`], slice M3-J2). A structure
-//! is its footprint as placed, in its owner's colour, with a tag naming its type ([`structures`]); a Tunnel's names its
-//! tier, and its sides show their functions by tier ([`tunnel`], design change 0224); an underground structure (the
-//! Hideout) is a translucent outline under the units that walk over it (plan decision T32), which only its owner sees
-//! while it has one. An object transforming into its kind (`Object::transform`: a building being warped in) is tinted
-//! towards a pale cyan until it is complete ([`transforming_color`]). The map resources have shapes of their own
+//! lowered. A worker that carries a load shows a crystal shard on its body, an Agent that carries a Supply a supply
+//! crate ([`LoadMarker`], slices M3-J2 and M4-J1). A structure is its footprint as placed, in its owner's colour, with
+//! a tag naming its type ([`structures`]); a Tunnel's names its tier, and its sides show their functions by tier
+//! ([`tunnel`], design change 0224); an underground structure (the Hideout) is a translucent outline under the units
+//! that walk over it (plan decision T32), which only its owner sees while it has one. An object transforming into its
+//! kind (`Object::transform`: a building being warped in) is tinted towards a pale cyan until it is complete
+//! ([`transforming_color`]); a site under construction (`Object::is_site`) is tinted towards a pale sand, braced by a
+//! scaffold, and shows its progress ([`site`], slice M4-J1). The map resources have shapes of their own
 //! ([`resources`]).
 //!
 //! The fog of war hides the visuals of the objects the local player doesn't see (`crate::fog`); Explored tiles show
@@ -34,6 +36,7 @@ mod load;
 mod look;
 mod remembered;
 mod resources;
+mod site;
 mod structures;
 mod systems;
 mod tunnel;
@@ -68,6 +71,7 @@ pub struct RiotShieldVisual(pub ObjectId);
 pub use load::{LoadMarker, carries};
 pub use look::{Look, UnitShape};
 pub use remembered::{RememberedVisual, RememberedVisuals};
+pub use site::SiteProgress;
 pub use structures::{StructureTag, underground};
 pub use units::UnitTag;
 
@@ -81,6 +85,8 @@ struct MeshKey {
     size: Option<(u32, u32)>,
     /// Whether the object is transforming into its kind (`Object::transform`), which tints it.
     transforming: bool,
+    /// Whether the object is a site under construction (`Object::is_site`), drawn as one ([`site`]).
+    site: bool,
     /// A Tunnel's look: its tier and where its sides face ([`tunnel`]).
     tunnel: Option<TunnelLook>,
 }
@@ -100,6 +106,7 @@ impl MeshKey {
             owner: owner.filter(|_| def.category != Category::Resource),
             size: placement.filter(|_| def.structure.is_some()).map(|p| (p.w, p.h)),
             transforming: false,
+            site: false,
             tunnel: TunnelLook::of(kind, tunnel, placement),
         }
     }
@@ -109,6 +116,7 @@ impl MeshKey {
         let placement = object.placement.as_ref();
         Self {
             transforming: object.is_transforming(),
+            site: object.is_site(),
             ..Self::of(drawn_kind(object), object.owner, placement, object.tunnel.clone())
         }
     }
@@ -127,7 +135,9 @@ pub struct ObjectVisualAssets {
     meshes: BTreeMap<MeshKey, Handle<Mesh>>,
     ticks: BTreeMap<ObjectKind, Handle<Mesh>>,
     shields: BTreeMap<ObjectKind, Handle<Mesh>>,
-    loads: BTreeMap<ObjectKind, Handle<Mesh>>,
+    loads: BTreeMap<(ObjectKind, sc_sim::defs::Resource), Handle<Mesh>>,
+    /// The fill of a site's progress bar ([`site`]).
+    site_fill: Option<Handle<Mesh>>,
 }
 
 /// The visual entity of each object.
@@ -154,6 +164,7 @@ impl Plugin for ObjectRenderPlugin {
                     (place_object_visuals, units::upright_tags).chain(),
                     place_riot_shields,
                     load::place_load_markers,
+                    site::place_site_progress,
                     remembered::sync_remembered_visuals,
                 )
                     .in_set(ClientSystems::Present),
@@ -231,24 +242,28 @@ fn has_tick(kind: ObjectKind) -> bool {
 
 /// The mesh of an object's visual: its placeholder shape, a unit's without the tick if its body doesn't turn, a
 /// structure in its size as placed, a Tunnel with its look by tier, an underground structure as its outline; tinted
-/// while it transforms.
+/// while it transforms; a site tinted and braced by its scaffold, with its progress bar's track ([`site`]).
 fn visual_mesh(key: MeshKey) -> Mesh {
     let MeshKey {
         kind,
         owner,
         size,
         transforming,
+        site,
         tunnel,
     } = key;
-    let color = match transforming {
-        true => transforming_color(player_color(owner)),
-        false => player_color(owner),
+    let color = match (transforming, site) {
+        (true, _) => transforming_color(player_color(owner)),
+        (false, true) => site::site_color(player_color(owner)),
+        (false, false) => player_color(owner),
     };
     match size {
         Some((w, h)) if underground(kind) => structures::underground_mesh(w, h, color),
         Some((w, h)) => {
             let mut mesh = structures::structure_shape(w, h, color);
-            if let Some(look) = tunnel {
+            if site {
+                site::draw(&mut mesh, structures::inner_half(w, h));
+            } else if let Some(look) = tunnel {
                 tunnel::draw(&mut mesh, look, structures::inner_half(w, h));
             }
             mesh.into_mesh()
