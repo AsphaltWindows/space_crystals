@@ -713,19 +713,32 @@ the target the attack engages, and reads `Mover::status` and the snapshot.
   order ends at once, as if arrived; a Shift-queued one completes in the tick it starts; the other units of the
   order follow it as usual (a right-click on one of the selected units).
 - **AttackMove** (`travel::march`): one `Leg` to the unit's own destination (the magic box). While moving it scans
-  its SightRange and engages with `close_in`. **The leash limits chasing only** (design change 0180): a target in
-  weapon range is always fought, wherever the unit stands (`travel::pursue`); one out of range the unit acquires or
-  goes on chasing only while it and the spot it would shoot from are within `ATTACK_MOVE_LEASH_GU` (6) of its
-  **PathReference** (`travel::leashed`), and drops otherwise. The PathReference (`Leg::reference`,
-  `Leg::follow_path`) is the first path the leg's move gets; it is kept after fights (the move's path then, the
-  walking path, is `Leg::walking`) and replaced by a new path the unit gets while it walks its leg: a re-route round
-  a blockage. The unit lets go, and resumes the move with a new walking path, when the target is destroyed, dropped
-  or no longer valid (out of sight: its attack completes, design change 0200). **A target let go of while it
-  lives** (dropped at the leash, design change 0204; or lost from sight on the way, a placeholder that slice M3-L3
-  put to the Designer) is left alone for the rest of the leg (`Leg::dropped`, the last `MAX_DROPPED` (16)), fought
-  only within weapon range: without it, a unit whose way to an enemy at the edge of its sight leads out of that
-  sight takes and drops it every other tick, for good (`behaviours_soak`'s seeds 1 and 8), and two such enemies in
-  turn if it may take one again once it is out of its sight (seed 29).
+  its SightRange and engages with `close_in`, by **the reach rule** (design changes 0230 and 0235, `orders/reach.rs`,
+  `travel::acquire`): an enemy within weapon range is always taken; one out of range only if the path to a firing
+  position (the path phase 5c would serve the chase, `World::chase_path`, walked in quarter-tile steps,
+  `reach::judge`) stays within `ATTACK_MOVE_LEASH_GU` (6) of its **PathReference** and keeps the target within the
+  unit's SightRange, measured as the scan measures it. **The leash limits chasing only** (design change 0180): a
+  target in weapon range is always fought, wherever the unit stands (`travel::pursue`); a chase goes on while the
+  unit stands within the leash and its judgement stands (`Leg::chase`), and is judged again otherwise. The
+  PathReference (`Leg::reference`, `Leg::follow_path`) is the first path the leg's move gets; it is kept after fights
+  (the move's path then, the walking path, is `Leg::walking`) and replaced by a new path the unit gets while it walks
+  its leg: a re-route round a blockage. The unit lets go, and resumes the move with a new walking path, when the
+  target is destroyed, rejected or no longer valid (out of sight: its attack completes, design change 0200).
+  - **No memory of targets let go** (0230). A rejection (`Leg::rejected`, `state::Judged`) only saves judging an
+    enemy again, and stands only while nothing the judgement depends on has changed: the enemy within
+    `REJUDGE_MOVE_SU` (1 GU, a placeholder) of where it was judged, the owner's `PlayerKnowledge::version` the same,
+    the PathReference the same (`Leg::set_reference` clears them). The unit's own position is left out, as the
+    design leaves it out. A chase that ends without the target reached is a rejection too: given up by the Failure
+    rule or as near as the unit gets (0235), beyond the leash, or out of the owner's sight (then where the target
+    was judged, never where it went). Any state that makes a unit pass over an enemy must follow this pattern: a
+    cache of a judgement with its inputs, never a list of ids.
+  - **The cost bound**: a unit plans at most `JUDGE_PATHS_PER_TICK` (2) judgement paths per tick, its candidates in
+    target-priority order, the rest in later ticks (an enemy within weapon range is still taken at once); an enemy
+    farther from the PathReference than any firing position could be costs none (`reach::near_route`); and a
+    judgement's search gives up beyond `JUDGE_PATH_SIGHTS` (2) SightRanges of path (`nav::find_path_within`), so it
+    never floods the map round a long wall. The searches run in phase 5a on their own scratch (`reach::Reach`, kept
+    in `NavState`), outside `PATH_BUDGET`; `Sim::reach_counters` reports them. The rejections and the chase's
+    judgement are hashed and serialized only while set.
 - **Patrol** (`travel::patrol`): legs to and fro between the position where the Patrol started executing (design
   change 0036) and the destination. A failed leg counts as arrived; `PATROL_FAILED_LEGS` (2) in a row end it (design
   change 0037).
@@ -786,11 +799,11 @@ the target the attack engages, and reads `Mover::status` and the snapshot.
     collision > Collision exceptions*): a worker of a type with `WorkerDef::pass_through` (the Drone) whose current
     order is a Gather or a Drop Off. They collide with everything else and, having an order, never yield.
 - **Not active during Move**: a Move never engages, and neither does the walk back to an IdleOrigin.
-- **Unreachable auto-targets** (design change 0181, "for now"): a unit doesn't re-acquire a target it couldn't get
-  to for `GIVE_UP_RETRY_TICKS` (32).
+- **Unreachable auto-targets** (design change 0181, "for now"): an idle unit doesn't re-acquire a target it couldn't
+  get to for `GIVE_UP_RETRY_TICKS` (32). On an AttackMove or a Patrol such a target is rejected by the reach rule
+  instead (0235).
 - **Placeholders** (the design is silent; each is a comment or a named const in `orders/`): "within SightRange" for
-  a scan is measured edge to edge like Range; a 45° step reaches up to its upper bound; an AttackMove leaves a
-  target it lost from sight alone for the rest of the leg, as one dropped at the leash (0204); a unit backing off
+  a scan is measured edge to edge like Range; a 45° step reaches up to its upper bound; a unit backing off
   from a target inside its MinRange goes to the middle of the band from MinRange to Range, and gives the order up
   when a back-off ends with the target inside and where it was; a queued Attack or Follow whose target, a unit, is
   out of its owner's sight when its turn comes completes at once, as one lost from vision (0200).
@@ -1674,8 +1687,10 @@ M3-D2: design change 0145, `> Portals > Portal Exits (energy doorway)`).
   Follow, a queue, AttackMove and idle units as the target leaves vision), `behaviours_idle.rs` (acquiring by priority,
   the leash and the return, Hold, Move doesn't engage, the auto-targeting switch), `behaviours_travel.rs` (Follow,
   static objects, AttackMove groups and the leash, a fight replayed and saved in its middle), `attack_move_leash.rs`
-  (design change 0180: a target let go of for the rest of the leg, alone and with another, the leash measured from
-  the route planned at the start after a fight, a detour round a blocked route as the new PathReference), `target_priority.rs` (0179:
+  (design change 0180: the leash measured from the route planned at the start after a fight, a bait at the leash
+  taken once, a detour round a blocked route as the new PathReference), `attack_move_reach.rs` (0230: enemies across
+  walls passed without a chase, a rejected enemy taken within weapon range, an identical enemy swapped in, judging
+  again when the enemy moves a grid unit or the known obstacles change, the paths per unit and tick), `target_priority.rs` (0179:
   the 45° steps of rotation, the step's bound, ties by id), the unit tests in `orders/tests/` (with test-only defs:
   a unit fighting back beyond its leash, artillery out-ranging it left alone, MinRange: the back-off, the immobile
   unit's failed order, the scans skipping enemies inside it; the steps themselves),
@@ -1686,7 +1701,7 @@ M3-D2: design change 0145, `> Portals > Portal Exits (energy doorway)`).
   bounded shares of refused orders, failed moves and path searches; the ignored `soak_sweep` runs seeds 1 to 40 and
   fails if any does. An order ends within the slowest unit's walk round the map's four sides for each order a unit
   still has at the last order, its current one and its queue: slice M3-K2 found seed 5's Peacekeepers with three,
-  each across both walls, settling 2765 ticks after it at full speed) and the ignored `behaviours_perf.rs`.
+  each across both walls, settling 2765 ticks after it at full speed) and the ignored `behaviours_perf.rs` and `attack_move_perf.rs` (the reach rule: 100 Guards past 100 Drones across a river).
   `riot_shield/` has the Riot Shield's: toggle timing, each raised-shield effect, the gate, a save in the middle
   of a toggle and its replay, the orders kept through a toggle (`orders_kept.rs`, design changes 0150, 0151), and
   the target state (`target.rs`, design changes 0198 and 0202: a second press before a deferred raise begins, fast

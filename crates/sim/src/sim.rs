@@ -293,6 +293,7 @@ impl Sim {
         // Phases 5a–5f, `docs/movement.md > 4`.
         // 5a: after the commands, so an order acts in its own tick; before movement, so goals have one writer.
         // The behaviours read the positions and the vision the last tick left (5f).
+        let mut reach = self.nav.take_reach();
         let world = orders::world::World::new(
             &self.map,
             &self.vision,
@@ -300,8 +301,10 @@ impl Sim {
             &self.objects,
             self.tick,
             self.auto_targeting,
-        );
-        orders::update(&mut self.objects, first_new, &world);
+        )
+        .with_knowledge(&self.path_knowledge, self.nav_version);
+        orders::update(&mut self.objects, first_new, &world, &mut reach);
+        self.nav.put_reach(reach);
         // The Drones that got to their sites in 5a deploy, or their orders fail; before 5b claims the footprints.
         self.step_deployments(first_new);
         // The Attacks 5a found a unit can't carry out, its target too close (design change 0182), fail.

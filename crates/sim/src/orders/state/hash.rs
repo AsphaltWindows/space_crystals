@@ -99,17 +99,19 @@ impl StateHash for Leg {
             planned,
             marching,
             engaged,
-            ignored,
             walking,
             resumed,
-            dropped,
+            rejected,
+            chase,
         } = self;
         to.hash(h);
         reference.hash(h);
         planned.hash(h);
         marching.hash(h);
         engaged.hash(h);
-        hash_ignored(ignored, h);
+        // (M3-L4) In the place of the target the leg gave up on for a while, which design change 0230's reach rule
+        // replaced: a leg that never rejected an enemy hashes as it did.
+        h.tag(0);
         // (M3-L2) Only while set, as `AttackOrder`'s.
         if !walking.is_empty() {
             h.tag(1);
@@ -118,13 +120,27 @@ impl StateHash for Leg {
         if *resumed {
             h.tag(2);
         }
-        if !dropped.is_empty() {
+        // (M3-L4) Design change 0230, the same way.
+        if !rejected.is_empty() {
             h.tag(3);
-            h.len(dropped.len());
-            for target in dropped {
-                target.hash(h);
+            h.len(rejected.len());
+            for judged in rejected {
+                judged.hash(h);
             }
         }
+        if let Some(judged) = chase {
+            h.tag(4);
+            judged.hash(h);
+        }
+    }
+}
+
+impl StateHash for Judged {
+    fn hash(&self, h: &mut StateHasher) {
+        let Judged { target, at, knowledge } = self;
+        target.hash(h);
+        at.hash(h);
+        knowledge.hash(h);
     }
 }
 

@@ -3,7 +3,7 @@
 //! Patrols are in `behaviours_patrol.rs`.
 
 use sc_sim::mover::{MAX_REPATHS, OCCUPIED_ARRIVAL_GU};
-use sc_sim::orders::{ATTACK_MOVE_LEASH_GU, Behaviour, PROXIMITY_SU};
+use sc_sim::orders::{ATTACK_MOVE_LEASH_GU, Behaviour, PROXIMITY_SU, REJUDGE_MOVE_SU};
 use sc_sim::testing::{ScenarioBuilder, TestSim};
 use sc_sim::{
     DebugCommand, MoveStatus, ObjectId, ObjectKind, OrderKind, PlayerId, Shape, Sim, SimEvent, SpawnAt, Target, Tick,
@@ -391,8 +391,10 @@ fn an_attack_move_group_engages_on_the_way_and_resumes() {
 /// beyond AttackMoveLeashDistance (perpendicular distance from PathReference). If the target is out of weapon range
 /// and can only be reached by going beyond the leash: disengage … resume MovingToLocation". A Guard attack-moves
 /// east; a Peacekeeper it acquires on the way runs south, a little slower than the Guard follows. The Guard goes
-/// after it up to its leash, 6 grid units off its route (a step past it at most: it closes in step by step), lets
-/// go there and walks on to its destination. (`tests/attack_move_leash.rs` has the rest of 0180.)
+/// after it up to its leash, 6 grid units off its route (a step past it at most; and, since design change 0230, up
+/// to a grid unit short of it: it lets go once the way to a firing position on the Peacekeeper leaves the leash,
+/// which it judges again for every grid unit the Peacekeeper runs), lets go there and walks on to its destination.
+/// (`tests/attack_move_leash.rs` has the rest of 0180, `tests/attack_move_reach.rs` 0230.)
 #[test]
 fn an_attack_move_breaks_off_at_its_leash_and_goes_on() {
     let mut t = ScenarioBuilder::new(&open()).start();
@@ -413,7 +415,7 @@ fn an_attack_move_breaks_off_at_its_leash_and_goes_on() {
     assert!(chased, "it went for the Peacekeeper");
     let leash = gu(ATTACK_MOVE_LEASH_GU);
     assert!(
-        farthest > leash - 5.0 && farthest <= leash + 5.0,
+        farthest > leash - REJUDGE_MOVE_SU - 5.0 && farthest <= leash + 5.0,
         "it left its route by {farthest} su, within a step of the leash of {leash}"
     );
     assert_eq!(pos(&t, 1), to, "and went on to its destination");
