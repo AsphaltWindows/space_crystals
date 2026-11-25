@@ -18,12 +18,14 @@ const P2: PlayerId = PlayerId(2);
 const P3: PlayerId = PlayerId(3);
 
 /// The objects of [`world`], by id: player 1's unit, its Tunnel and its Hideout (hidden from the others), player 2's
-/// unit, which sees all three where they are, and player 3's, far off in the east, which sees none of it.
+/// unit, which sees them where they are, player 3's, far off in the east, which sees none of them, and player 1's
+/// Laser Turret, a structure that shoots (slice M4-S1), which player 2 sees too.
 const UNIT: ObjectId = ObjectId(1);
 const TUNNEL: ObjectId = ObjectId(2);
 const HIDEOUT: ObjectId = ObjectId(3);
 const WATCHER: ObjectId = ObjectId(4);
 const FAR: ObjectId = ObjectId(5);
+const TURRET: ObjectId = ObjectId(6);
 /// Player 1's objects that the sim no longer has: one that died in the frame, where player 2 sees (its `Died` is among
 /// the frame's events); a site gone without a death (cancelled), as the filter last saw it, where player 2 sees; a unit
 /// off the map, inside player 1's network; and a Hideout that died, hidden from the others.
@@ -40,8 +42,9 @@ fn centre(x: i32, y: i32) -> Vec2 {
 }
 
 /// A flat 40 × 10 map with three players, player 1 the Syndicate, auto-targeting off, the objects of [`UNIT`] to
-/// [`FAR`] spawned in the first tick: player 1's Peacekeeper on (4, 5), its Tunnel on (6, 1)–(9, 4) and its Hideout on
-/// (6, 6)–(7, 7); player 2's Peacekeeper on (8, 5), whose SightRange of 5 takes in all three; player 3's on (35, 5).
+/// [`TURRET`] spawned in the first tick: player 1's Peacekeeper on (4, 5), its Tunnel on (6, 1)–(9, 4) and its Hideout
+/// on (6, 6)–(7, 7); player 2's Peacekeeper on (8, 5), whose SightRange of 5 takes in all three; player 3's on
+/// (35, 5); player 1's Laser Turret on (4, 3), in player 2's sight too.
 fn world() -> Sim {
     let mut scenario = scenarios::empty(40, 10);
     scenario.map.slots.push(Slot::new(TilePos::new(35, 5)));
@@ -61,6 +64,7 @@ fn world() -> Sim {
         .debug_at(1, spawn(ObjectKind::Hideout, P1, tile(6, 6)))
         .spawn_unit_at(1, ObjectKind::Peacekeeper, P2, centre(8, 5))
         .spawn_unit_at(1, ObjectKind::Peacekeeper, P3, centre(35, 5))
+        .debug_at(1, spawn(ObjectKind::LaserTurret, P1, tile(4, 3)))
         .run_until(2);
     t.sim().clone()
 }
@@ -91,7 +95,7 @@ impl Seen {
 /// the fog; and player 3 with the fog off.
 fn table(sim: &Sim) -> Vec<(SimEvent, [Seen; 4])> {
     let at = |id| sim.object(id).unwrap().pos;
-    let (unit, watcher, hideout) = (at(UNIT), at(WATCHER), at(HIDEOUT));
+    let (unit, watcher, hideout, turret) = (at(UNIT), at(WATCHER), at(HIDEOUT), at(TURRET));
     let hidden = Hiding::of(sim.object(HIDEOUT).unwrap());
     let origin = TilePos::new(12, 2);
     let orientation = BuildingOrientation::default();
@@ -124,6 +128,16 @@ fn table(sim: &Sim) -> Vec<(SimEvent, [Seen; 4])> {
                 attacker: UNIT,
                 target: WATCHER,
                 from: unit,
+                to: watcher,
+            },
+            [P, P, P, W],
+        ),
+        // A structure's shot, as any other.
+        (
+            SimEvent::Attacked {
+                attacker: TURRET,
+                target: WATCHER,
+                from: turret,
                 to: watcher,
             },
             [P, P, P, W],
@@ -461,6 +475,7 @@ fn every_kind_of_event_reaches_whom_the_table_says() {
         (HIDEOUT, ObjectKind::Hideout, P1),
         (WATCHER, ObjectKind::Peacekeeper, P2),
         (FAR, ObjectKind::Peacekeeper, P3),
+        (TURRET, ObjectKind::LaserTurret, P1),
     ] {
         let o = sim.object(id).unwrap_or_else(|| panic!("no object {id:?}"));
         assert_eq!((o.kind, o.owner), (kind, Some(owner)), "{id:?}");
@@ -469,7 +484,7 @@ fn every_kind_of_event_reaches_whom_the_table_says() {
     let (p2, p3) = (sight(P2, true), sight(P3, true));
     let object = |id| sim.object(id).unwrap();
     assert!(
-        p2.sees(object(UNIT)) && p2.sees(object(TUNNEL)),
+        p2.sees(object(UNIT)) && p2.sees(object(TUNNEL)) && p2.sees(object(TURRET)),
         "player 2 sees player 1's objects"
     );
     assert!(!p2.sees(object(HIDEOUT)), "but not the Hideout, hidden from it");
@@ -479,7 +494,7 @@ fn every_kind_of_event_reaches_whom_the_table_says() {
         "though it sees its tiles"
     );
     assert!(
-        !p3.sees(object(UNIT)) && !p3.sees(object(TUNNEL)),
+        !p3.sees(object(UNIT)) && !p3.sees(object(TUNNEL)) && !p3.sees(object(TURRET)),
         "player 3 sees none of it"
     );
     assert_eq!(p3.at(centre(5, 5)), VisibilityState::Unexplored);
