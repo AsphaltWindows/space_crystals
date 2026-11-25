@@ -49,7 +49,7 @@ Recruits gather Space Crystals and deliver them to Storage.
 - Patch sharing: any number of Recruits may mine the same Space Crystals patch at the same time (unlike Drones, see Colonists > Drone > Patch Occupancy).
 
 ## Repair
-(user, 2026-11-26) Recruits can **repair** own **buildings and vehicles**. Details (cost, rate, scaling with several Recruits, panel letter): being settled.
+(user, 2026-11-26) Recruits can **repair** own **buildings and vehicles**. Repair **costs Space Crystals**. Rate, cost formula, scaling with several Recruits and panel letter: being settled.
 
 ## Building
 

@@ -97,6 +97,9 @@ Rationale (user, 2026-11-26; replaces the 5 s mining rationale): the drop-off ti
 - **An empty station**: the owner gets a **notification** (notifications not designed yet), and every Agent picking up there **stands next to it indefinitely**, keeping its job, waiting for the next supply delivery.
 - **Switching resources**: an Agent carrying Space Crystals that is ordered to gather Supplies goes **straight to the station**; its crystals are **lost when it picks up the Supply**: at the **end** of the pick-up, when the new load arrives. An Agent interrupted mid-pick-up keeps its crystals. The same holds the other way: a carried Supply is lost when the Agent **finishes** mining a crystal load (user, 2026-11-26; Q0082).
 
+## Repair
+(user, 2026-11-26) Agents can **repair** own **Tunnels** and **Laser Turrets**. Cost, rate and scaling: being settled.
+
 ## Agent ObjectInterfaceState
 
 **Panel letters (4x3 grid)** (user, 2026-11-25; Q0068, "fine for now"): **Q** Move, **A** Build Tunnel, **S** Drop Off Resources, **D** Build Laser Turret (greyed until available), **X** Stop. No Attack, Hold Position, Patrol or AttackMove buttons; the Agent attacks by right-click. These letters replace the older ones listed below where they differ.
