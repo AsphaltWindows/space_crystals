@@ -31,14 +31,15 @@
 //!   they were (`Sim::keep_gatherers_on_spots`, design change 0134). A patch under a GDO plate stays
 //!   (`factions/gdo/economy.md > ExtractionPlate`); for workers it is gone already (design change 0137).
 //!
-//! **Trip times with DragMovement** (slice M3-G, plan decision T25; pinned by `tests/gathering.rs`): with the patch
-//! 2 grid units from the Egress Node, edge to edge (design change 0107), one Drone alone delivers a load every
-//! **81 ticks** (5.06 s): 31 of mining after the tick it begins, 2 of unloading and two legs of 24 ticks each. A
-//! leg is about 85 su and not the 128 of the 2 grid units: the Drone's own 36 su come off, and it begins its work
-//! when it comes within reach, 8 su short, while it brakes off the last of its speed. It never reaches its top
-//! speed on a leg (it peaks near 6 su a tick). That is 1.58 Space Crystals per second for one Drone; the design's
-//! table has 1.5 for each of the four starting Drones (6.1 in all). On the stand-in mover the Drone had before
-//! (top speed at once) a trip took 60 ticks.
+//! **Trip times with DragMovement** (slice M3-G, plan decision T25; pinned by `tests/gathering/`): with the patch 2
+//! grid units from the Egress Node, edge to edge (design change 0107), one Drone alone delivers a load every
+//! **73 ticks** (4.56 s) with its numbers of design change 0205 (slice M3-K3): 31 of mining after the tick it
+//! begins, 2 of unloading and two legs of 20 ticks each. A leg is about 85 su and not the 128 of the 2 grid units:
+//! the Drone's own 36 su come off, and it begins its work when it comes within reach, 8 su short, while it brakes
+//! off the last of its speed. It never reaches its top speed on a leg (it peaks near 7 su a tick). That is 1.75
+//! Space Crystals per second for one Drone; the design's table has 1.5 for each of the four starting Drones (6.1 in
+//! all). Before 0205 a trip took 81 ticks (legs of 24, peaking near 6 su a tick: 1.58 per second), and on the
+//! stand-in mover the Drone had before (top speed at once) 60 ticks.
 //!
 //! **Crowds**: `tests/gathering_soak.rs`, and the note on collision in `orders::gather`.
 

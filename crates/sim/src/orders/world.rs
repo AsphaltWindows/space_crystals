@@ -73,6 +73,9 @@ pub(crate) struct Unit<'a> {
     pub facing: f32,
     pub mover: &'a mut Mover,
     pub attack: Option<&'a mut AttackState>,
+    /// The weapon in hand (`combat::weapon`): its form's, which a Legionnaire whose conversion waits still fights
+    /// with (design change 0198).
+    pub weapon: Option<&'static AttackAttrs>,
     /// Whether its mode lets it attack now: not while its Riot Shield is up (`riot_shield::allows_attack`).
     pub may_attack: bool,
     /// Whether it converts its weapon (`conversion::is_converting`): it holds still meanwhile.
@@ -86,14 +89,12 @@ impl Unit<'_> {
         self.kind.def().unit.as_ref()
     }
 
-    /// Its attack, if it has one (`systems/combat.md > AttackAttributes`) and may use it now. A unit whose Riot
-    /// Shield is up has none (`factions/gdo/units.md > Peacekeeper > Riot Shield`: it "cannot attack" and "does not
-    /// auto-target enemies"): its behaviours pick no target and let go of the one they engaged.
+    /// Its attack, if it has one (`systems/combat.md > AttackAttributes`) and may use it now: the weapon in hand
+    /// ([`Unit::weapon`]). A unit whose Riot Shield is up has none (`factions/gdo/units.md > Peacekeeper > Riot
+    /// Shield`: it "cannot attack" and "does not auto-target enemies"): its behaviours pick no target and let go of
+    /// the one they engaged.
     pub fn attrs(&self) -> Option<&'static AttackAttrs> {
-        self.unit_def()?
-            .attack
-            .as_ref()
-            .filter(|_| self.attack.is_some() && self.may_attack)
+        self.weapon.filter(|_| self.attack.is_some() && self.may_attack)
     }
 
     pub fn shape(&self) -> Shape {
@@ -207,11 +208,8 @@ impl<'a> World<'a> {
                 destructible: o.hp.is_some(),
                 is_unit: o.mover.is_some(),
                 is_patch: matches!(o.resource, Some(ResourceState::CrystalPatch { .. })),
-                threat: o
-                    .def()
-                    .unit
-                    .as_ref()
-                    .and_then(|unit| unit.attack.as_ref())
+                // The weapon in hand (`combat::weapon`: a Legionnaire's form's, design change 0198).
+                threat: combat::weapon(o)
                     .filter(|_| o.attack.is_some())
                     .map(|attrs| attrs.target_domain),
             })

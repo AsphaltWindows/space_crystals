@@ -665,8 +665,9 @@ Drone. It replaces only the "desired direction → velocity and facing" step of 
      OmniDirectionalAcceleration, plus between nothing and ForwardAcceleration along its facing; `a` is the one
      that brings `v` nearest to the velocity it wants. Steps 2 and 3 are `v ← v + a − DragRatio × v`: drag is
      taken on the velocity the tick began with, so thrust and drag balance at `(Omni + Forward) / DragRatio`, the
-     design's MaxSpeed: 8 su a tick for the Drone, 4 on Rugged. From rest the speed is `8 × (1 − 0.9ⁿ)` after `n`
-     ticks: 0.8, 1.52, 2.17, …, within 1 % of 8 after 44.
+     design's MaxSpeed: 8 su a tick for the Drone, 4 on Rugged. From rest the speed is `8 × (1 − 0.85ⁿ)` after
+     `n` ticks with the Drone's numbers of design change 0205: 1.2, 2.22, 3.09, …, 68 % of 8 after 7 ticks, 96 %
+     after 20 and within 1 % after 29 (before 0205, `8 × (1 − 0.9ⁿ)`: 52 %, 88 %, and within 1 % after 44).
   4. **Position**: `pos ← pos + v`, as far as tiles and units allow: the whole move if it is free, else its two
      axis components one after the other (`World::shuffle`). **If the move runs into an obstacle, the blocked
      part is dropped and the velocity is set to 0** (`systems/units.md > UnitCollision > Collision Response
@@ -674,7 +675,7 @@ Drone. It replaces only the "desired direction → velocity and facing" step of 
      the momentum kept is the displacement made.
      - **The creep**: where 6.3's step is a slide along tiles (rule 2, `Moved::slid`), the unit thrusts towards
        the step it asked for, into the tile, and meets it: "running into the wall every frame". It restarts from
-       0 every tick and creeps along the wall at single-tick acceleration (0.8 su for the Drone, where it flies
+       0 every tick and creeps along the wall at single-tick acceleration (1.2 su for the Drone, where it flies
        at 8) while it turns, until its way is free; then it accelerates normally.
      - **Progress**: the creep shortens the remaining path, which is what 6.5 measures, so a unit scraping free
        is never stuck and never gives up (0035's Implementation impact; `movement/follow/tests.rs`: 400 ticks
@@ -693,8 +694,9 @@ Drone. It replaces only the "desired direction → velocity and facing" step of 
   reaches the remaining path, and within `brake / keep` of the goal the speed is the distance itself: the unit
   lands exactly on the goal at a speed one tick of braking takes away, and is at rest. The plan uses 15/16 of the
   thrust (`PLANNED_BRAKE`): the reserve absorbs the rounding of positions, which would otherwise push the unit
-  past its goal by a rounding error. **Bounds for the Drone** from top speed: it begins to brake 51 su before
-  its goal (one more step, then 43 su in 16 ticks); stopped without a goal it stands within 42 su and 16 ticks.
+  past its goal by a rounding error. **Bounds for the Drone** from top speed, with its numbers of design change
+  0205: it begins to brake 35 su before its goal (one more step, then 27 su in 10 ticks); stopped without a goal
+  it stands within 26 su and 9 ticks. Before 0205: 51 su (43 su in 16 ticks), and 42 su and 16 ticks.
 - **Without a goal** (a Stop, an arrival within reach of an object, a failed move, a held base) a unit with
   momentum brakes the same way and moves meanwhile: `Locomotion::Stopping`, slower every tick. `Mover::stop` and
   `finish` leave the momentum to the movement step.
@@ -738,7 +740,8 @@ apart within `18 × (n − 1)` ticks for Drones, 12 each for Peacekeepers.
 - This design removes the usual float hazards: no epsilons in overlap tests (strict comparisons, assigned contact
   positions), no trig in collision, integer A\* costs and keys, `total_cmp` plus id for every ordering.
 - Fixed point would mean replacing `glam::Vec2` across the sim, the client and the file formats, and writing our own
-  `sqrt`/`atan2`, for a guarantee we already have. The design's fractional values (0.9 su/tick², 0.1 drag) fit both.
+  `sqrt`/`atan2`, for a guarantee we already have. The design's fractional values (0.9 and 0.3 su/tick², 0.15 drag)
+  fit both.
 - Lockstep needs the same binary-level determinism replays need, nothing more. Insurance: golden hashes committed in
   tests (section 8) and, once a second architecture is available, running that one test there. Excluded: 32-bit x86
   without SSE2 (x87).

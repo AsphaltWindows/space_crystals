@@ -29,7 +29,6 @@ fn make_busy(sim: &mut Sim, id: u32) {
         target: Some(ObjectId(2)),
         phase: Some(AttackPhase::Aiming { target: ObjectId(2) }),
         elapsed: 1,
-        pending: None,
     });
     obj(sim, id).riot_shield = Some(RiotShield { up: 4 });
 }
@@ -66,10 +65,12 @@ fn state_hash_covers_every_field() {
     obj(&mut base, plate.0).constructor = Some(Constructor::Ready {
         kind: ObjectKind::Generator,
     });
-    // Shields, a conversion under way and an ability waiting for the attack (any unit may hold them here).
+    // Shields and a conversion under way (any unit may hold them here).
     obj(&mut base, 3).shields = Some(7.5);
-    obj(&mut base, 3).conversion = Some(Conversion { left: 2 });
-    attack(&mut base, 3).pending = Some(Ability::RiotShield { raise: false });
+    obj(&mut base, 3).conversion = Some(Conversion {
+        form: ObjectKind::SabreLegionnaire,
+        left: Some(2),
+    });
     let mutations: Vec<Mutation> = vec![
         ("tick", |s| s.tick += 1),
         ("map", |s| {
@@ -194,13 +195,6 @@ fn state_hash_covers_every_field() {
         ("cooldown", |s| attack(s, 3).phase = Some(AttackPhase::Cooldown)),
         ("reloading", |s| attack(s, 3).phase = Some(AttackPhase::Reloading)),
         ("attack elapsed", |s| attack(s, 3).elapsed += 1),
-        ("attack pending none", |s| attack(s, 3).pending = None),
-        ("attack pending ability", |s| {
-            attack(s, 3).pending = Some(Ability::Convert)
-        }),
-        ("attack pending raise", |s| {
-            attack(s, 3).pending = Some(Ability::RiotShield { raise: true })
-        }),
         ("riot_shield none", |s| obj(s, 3).riot_shield = None),
         ("riot_shield down", |s| {
             obj(s, 3).riot_shield = Some(RiotShield { up: 0 });
@@ -213,7 +207,13 @@ fn state_hash_covers_every_field() {
         }),
         ("conversion none", |s| obj(s, 3).conversion = None),
         ("conversion left", |s| {
-            obj(s, 3).conversion = Some(Conversion { left: 1 })
+            obj(s, 3).conversion.as_mut().unwrap().left = Some(1);
+        }),
+        ("conversion waiting", |s| {
+            obj(s, 3).conversion.as_mut().unwrap().left = None;
+        }),
+        ("conversion form", |s| {
+            obj(s, 3).conversion.as_mut().unwrap().form = ObjectKind::RifleLegionnaire;
         }),
         ("extractor none", |s| obj(s, 4).extractor = None),
         ("extractor patch", |s| {

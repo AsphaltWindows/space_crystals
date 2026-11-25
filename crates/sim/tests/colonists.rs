@@ -294,9 +294,9 @@ fn a_rifle_legionnaire_fires_at_four_grid_units_with_the_elevation_modifier() {
 }
 
 /// `factions/colonists/units.md > Drone`: it moves by DragMovement (slice M3-G; `tests/movement_drag/` has the
-/// model's own tests). From rest it gains 0.8 space units/frame in its first frame and approaches the equilibrium
-/// `(ForwardAcceleration + OmniDirectionalAcceleration) / DragRatio` = (0.6 + 0.2) / 0.1 = 8 space units/frame
-/// without ever passing it; a Peacekeeper moves 4 from its first frame.
+/// model's own tests). From rest it gains 1.2 space units/frame in its first frame and approaches the equilibrium
+/// `(ForwardAcceleration + OmniDirectionalAcceleration) / DragRatio` = (0.9 + 0.3) / 0.15 = 8 space units/frame
+/// (design change 0205) without ever passing it; a Peacekeeper moves 4 from its first frame.
 #[test]
 fn a_drone_accelerates_to_eight_space_units_a_frame() {
     let mut t = ScenarioBuilder::new(&flat(24, 5))
@@ -315,7 +315,7 @@ fn a_drone_accelerates_to_eight_space_units_a_frame() {
     assert_eq!(t.status(1), MoveStatus::Arrived);
     assert_eq!(t.pos(1), goal);
     assert!(
-        (steps[0] - 0.8).abs() < 1e-3 && (steps[1] - 1.52).abs() < 1e-3,
+        (steps[0] - 1.2).abs() < 1e-3 && (steps[1] - 2.22).abs() < 1e-3,
         "{steps:?}"
     );
     let fastest = steps.iter().copied().fold(0.0, f32::max);

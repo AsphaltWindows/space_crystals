@@ -13,23 +13,26 @@
 //! (`TestSim`, every tick: I1 lets only gathering Drones overlap).
 //!
 //! `saturation_curve` prints the measurements. **With DragMovement** (slice M3-G, plan decision T25; nothing here
-//! is tuned to the design's table, `factions/gdo/economy.md > Economy Targets (GDO vs Colonists)`) and the
-//! gathering rules of slice M3-H3 the reference field gives, dealt out, per second: 6.3 with 4 Drones (the table:
-//! 6.1), 11.7 with 8, 17.2 with 12, 23.1 with 16 (the table: 23 at 2 Drones per patch), 24.5 with 20 and 26.2 with
-//! 24 (the table: 32 for about 24 working Drones). On the stand-in mover slice M3-H2 measured 8.3, 15.1, 22.0,
-//! 26.8, 32.0 and 32.0: about 30 % high below saturation, as T25 estimated. Three findings at the crowded end, for
-//! the oracle of slice K1:
-//! - **24 Drones don't saturate 8 patches**: rows of up to 5 patches with three Drones each are mined without a
-//!   break (4 per second and patch), 6 give about 23.5 of 24, 7 about 23 of 28 and 8 give 26.2 of 32. The outer
-//!   patches' trips are longer than three Drones cover.
+//! is tuned to the design's table, `factions/gdo/economy.md > Economy Targets (GDO vs Colonists)`), the gathering
+//! rules of slice M3-H3 and the Drone's numbers of design change 0205 (slice M3-K3: thrust and drag ×1.5, a trip of
+//! 73 ticks where it took 81) the reference field gives, dealt out, per second: 6.9 with 4 Drones (the table:
+//! 6.1), 12.7 with 8, 18.8 with 12, 25.3 with 16 (the table: 23 at 2 Drones per patch), 26.1 with 20 and 31.4 with
+//! 24 (the table: 32 for about 24 working Drones); sent by one right-click, 6.9, 12.7, 19.0, 25.4, 25.7 and 27.4.
+//! Before 0205 they were 6.3, 11.7, 17.2, 23.1, 24.5 and 26.2 dealt out; on the stand-in mover slice M3-H2
+//! measured 8.3, 15.1, 22.0, 26.8, 32.0 and 32.0, about 30 % high below saturation, as T25 estimated. Three
+//! findings at the crowded end, for the economy oracle (slices K1 and K3):
+//! - **24 Drones nearly saturate 8 patches**: rows of up to 5 patches with three Drones each are mined without a
+//!   break (4 per second and patch), 6 give 23.7 of 24, 7 give 25.3 of 28 and 8 give 31.4 of 32. Three Drones'
+//!   mining, 96 ticks, now covers the end patches' trips of 95; before 0205 those took 104, more than three Drones
+//!   covered, and 8 patches gave 26.2.
 //! - **Drones sent on from patch to patch** (`factions/colonists/units.md > Patch Occupancy`: "When a Drone arrives
 //!   at an occupied patch, it goes to the nearest unoccupied patch to itself instead"; "If that patch is occupied
 //!   again by the time it arrives, it starts over"): a patch whose own Drones are on their way back to it counts as
 //!   unoccupied ("Drones travelling to it do not count"), so the patch a Drone is sent to is often taken by the time
-//!   it gets there, and it is sent on again. In the dealt-out field of 24 the longest a Drone went between two
-//!   deliveries is 428 ticks (27 s), within the plan's 30 s; it was 357 before slice M3-H3, and 578 in an earlier
-//!   build of M3-H2: the figure swings with any change to the movement or the rules. It is no jam: every Drone
-//!   moves, and the income is steady.
+//!   it gets there, and it is sent on again. In the field of 24 the longest a Drone went between two deliveries is
+//!   393 ticks dealt out and 459 sent by one right-click, within the plan's 30 s (480); dealt out it was 428 before
+//!   0205, 357 before slice M3-H3 and 578 in an earlier build of M3-H2: the figure swings with any change to the
+//!   movement or the rules. It is no jam: every Drone moves, and the income is steady.
 //! - **The waiting Drones' re-check costs income** (design change 0132, `> Waiting and re-checking`: every 16 frames,
 //!   `orders::gather::RECHECK_TICKS`, a waiting Drone goes to a patch that has freed up nearby): the patch it leaves
 //!   for is usually one whose own Drones are on their way back to it, so it chases a patch it often loses, and
@@ -58,7 +61,7 @@ const SOAK_TICKS: Tick = 4800;
 /// Income is measured once the field has settled: after the first 50 seconds.
 const SETTLED: Tick = 800;
 /// The plan's bound for the soak: "every Drone delivers at least once every 30 s" (module docs, the second finding:
-/// 428 ticks measured for 24 Drones dealt out).
+/// 393 ticks measured for 24 Drones dealt out, 459 sent by one right-click).
 const DELIVERY_GAP: Tick = 480;
 
 /// A field: `patches` patches in a row at tiles (8 - patches / 2 .., 3), the Egress Node at tiles (7..9, 6..8), 2
@@ -210,9 +213,9 @@ fn soak(patches: u32, drones: u32, spread: bool) -> Soak {
 
 /// The Colonists' four starting Drones (`factions/colonists/economy.md > Starting Conditions`) on the reference
 /// field, for 5 minutes: nobody is in anybody's way for long. Every Drone delivers at least once every 30 s, and
-/// the income is that of four Drones each on a patch of its own: 1.6 Space Crystals per second and Drone with
-/// DragMovement (a trip of 81 ticks), a little less for the patches farther from the node. The design's table has
-/// 6.1 for the four.
+/// the income is that of four Drones each on a patch of its own: 1.75 Space Crystals per second and Drone with
+/// DragMovement and the numbers of design change 0205 (a trip of 73 ticks), a little less for the patches farther
+/// from the node. Measured: 6.91 either way (6.3 before 0205). The design's table has 6.1 for the four.
 #[test]
 fn four_drones_gather_for_five_minutes_without_a_hitch() {
     for spread in [false, true] {
@@ -221,7 +224,7 @@ fn four_drones_gather_for_five_minutes_without_a_hitch() {
         field.t.run_until(SOAK_TICKS);
         let soak = field.measure(SETTLED);
         assert!(soak.worst_gap <= DELIVERY_GAP, "spread {spread}: {soak:?}");
-        assert!((5.8..=6.8).contains(&soak.per_second), "spread {spread}: {soak:?}");
+        assert!((6.6..=7.2).contains(&soak.per_second), "spread {spread}: {soak:?}");
         assert_eq!((soak.idle, field.crystals()), (0, before), "spread {spread}: {soak:?}");
     }
 }
@@ -230,9 +233,9 @@ fn four_drones_gather_for_five_minutes_without_a_hitch() {
 /// the Egress Node, no jams; income approaches the Economy Targets table", and the plan's acceptance for the soak
 /// (§3.3 H): "24 Drones on 8 patches for 5 minutes. No deadlock: every Drone delivers at least once every 30 s."
 /// Sent by one right-click and dealt out over the patches alike.
-/// - The income is 26 Space Crystals per second, 18 % short of the table's "fully saturated ≈ 32 per second (~24
-///   working Drones)" (module docs: with DragMovement 24 Drones don't keep 8 patches mined without a break, and the
-///   re-check of design change 0132 costs some).
+/// - The income is 27.4 Space Crystals per second sent by one right-click and 31.4 dealt out, against the table's
+///   "fully saturated ≈ 32 per second (~24 working Drones)" (module docs: with the numbers of design change 0205 24
+///   Drones dealt out nearly keep 8 patches mined without a break; before 0205 both gave 26).
 /// - Every Drone delivers at least once every 30 s, dealt out as well (module docs, the second finding).
 /// - No Space Crystal is lost or made, every Drone still has its job, no state names an object that is gone, and
 ///   the invariants hold in the crowd (`TestSim`, every tick).
@@ -248,14 +251,15 @@ fn the_soak_of_24_drones_keeps_every_drone_delivering() {
         }
         let soak = field.measure(SETTLED);
         assert!(soak.worst_gap <= DELIVERY_GAP, "spread {spread}: {soak:?}");
-        assert!((26.0..=32.1).contains(&soak.per_second), "spread {spread}: {soak:?}");
+        let least = if spread { 31.0 } else { 27.0 };
+        assert!((least..=32.1).contains(&soak.per_second), "spread {spread}: {soak:?}");
         assert_eq!(soak.idle, 0, "a Gather never ends on its own: {soak:?}");
     }
 }
 
 /// The saturation curve of the reference field: each Drone adds income, and nowhere does a crowd give less than a
 /// smaller one did (under hard collision the income fell from 10 Drones on, and to nothing with 24). 2 Drones a
-/// patch give at least the table's 23 per second, and 24 Drones 26 (module docs).
+/// patch give at least the table's 23 per second (25.3 measured), and 24 Drones 31 (31.4; module docs).
 #[test]
 fn the_income_of_the_reference_field_grows_with_its_drones_up_to_saturation() {
     let mut last = 0.0;
@@ -268,7 +272,7 @@ fn the_income_of_the_reference_field_grows_with_its_drones_up_to_saturation() {
         }
         last = soak.per_second;
     }
-    assert!(last >= 26.0, "24 Drones: {last} per second");
+    assert!(last >= 31.0, "24 Drones: {last} per second");
 }
 
 /// The field that was the smallest gridlock under hard collision (slice M3-H pinned it): 3 adjacent patches with the

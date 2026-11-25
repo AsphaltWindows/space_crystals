@@ -3,7 +3,7 @@ use std::collections::BTreeSet;
 use glam::Vec2;
 
 use super::*;
-use crate::combat::AttackState;
+use crate::combat::{AttackPhase, AttackState};
 use crate::defs::RIOT_SHIELD_TOGGLE_TICKS;
 use crate::ids::PlayerId;
 use crate::mover::Mover;
@@ -58,7 +58,8 @@ fn both_types_carry_the_one_shield() {
 
 /// The state is how far up the shield is; the type says which way it goes (design change 0171: "Shield state =
 /// progress 0..1 with direction"). A save edited by hand past the toggle time reads as all the way up, or as just
-/// starting down.
+/// starting down. A raise that hasn't begun while the unit is Firing or in Cooldown is deferred (design changes 0172
+/// and 0198), its shield down.
 #[test]
 fn the_mode_is_the_type_and_how_far_up_the_shield_is() {
     let modes = |kind| [0, 1, T - 1, T, T + 5].map(|up| mode(&unit(kind, up)).unwrap());
@@ -82,6 +83,20 @@ fn the_mode_is_the_type_and_how_far_up_the_shield_is() {
             ShieldMode::Lowering { left: T },
         ]
     );
+    for phase in [AttackPhase::Firing { target: None }, AttackPhase::Cooldown] {
+        let mid_shot = |kind, up| {
+            let mut o = unit(kind, up);
+            o.attack.as_mut().unwrap().phase = Some(phase);
+            mode(&o).unwrap()
+        };
+        let modes = [mid_shot(SHIELDED, 0), mid_shot(SHIELDED, 1), mid_shot(PK, 0)];
+        let expected = [
+            ShieldMode::Deferred,
+            ShieldMode::Raising { left: T - 1 },
+            ShieldMode::Lowered,
+        ];
+        assert_eq!(modes, expected, "{phase:?}");
+    }
     let mut guard = unit(ObjectKind::Guard, 0);
     guard.riot_shield = None;
     assert_eq!(mode(&guard), None);
@@ -89,25 +104,31 @@ fn the_mode_is_the_type_and_how_far_up_the_shield_is() {
     assert_eq!((damage_factor(&guard), speed_factor(&guard)), (1.0, 1.0));
     let progress = [
         ShieldMode::Lowered,
+        ShieldMode::Deferred,
         ShieldMode::Raising { left: 4 },
         ShieldMode::Lowering { left: 3 },
         ShieldMode::Raised,
     ]
     .map(|mode| mode.progress(6));
-    assert_eq!(progress, [0.0, 2.0 / 6.0, 0.5, 1.0]);
+    assert_eq!(progress, [0.0, 0.0, 2.0 / 6.0, 0.5, 1.0]);
     assert_eq!(ShieldMode::Raised.progress(0), 1.0);
 }
 
 /// `> Riot Shield` and design change 0171 (`> During the toggle`): half speed and no attacking from the start of a
 /// raise to the end of a lowering, the damage reduction only all the way up. The Shielded type moves at its own
 /// MaxSpeed, the Peacekeeper's halved; a Peacekeeper on its way down at the same speed, by its speed factor. Which way
-/// the shield goes is the unit's type (design change 0173: "The type switches **when the toggle starts**"): up, or on
-/// its way up, on the Peacekeeper (Shielded) alone ([`mode`]).
+/// the shield goes is the unit's type (design change 0198: "The type, and so the SelectionGroup, switches **at the
+/// press**"): up, or on its way up, on the Peacekeeper (Shielded) alone ([`mode`]). A Peacekeeper (Shielded) whose
+/// raise waits for its shot has its shield down: no damage reduction, the Peacekeeper's speed (its attack holds it
+/// still), and no new attack, the one under way landing (`combat::step`).
 #[test]
 fn the_effects_follow_the_mode() {
-    let cases = [(PK, 0), (SHIELDED, 1), (SHIELDED, T), (PK, 1), (PK, T)];
+    let cases = [(PK, 0), (SHIELDED, 1), (SHIELDED, T), (PK, 1), (PK, T), (SHIELDED, 0)];
     let effects = cases.map(|(kind, up)| {
-        let o = unit(kind, up);
+        let mut o = unit(kind, up);
+        if (kind, up) == (SHIELDED, 0) {
+            o.attack.as_mut().unwrap().phase = Some(AttackPhase::Cooldown);
+        }
         let max_speed = kind.def().unit.as_ref().unwrap().movement.max_speed();
         (
             mode(&o).unwrap(),
@@ -124,6 +145,7 @@ fn the_effects_follow_the_mode() {
             (ShieldMode::Raised, false, 2.0, 0.5),
             (ShieldMode::Lowering { left: 1 }, false, 2.0, 1.0),
             (ShieldMode::Lowering { left: T }, false, 2.0, 1.0),
+            (ShieldMode::Deferred, false, 4.0, 1.0),
         ]
     );
     let going_up = cases.map(|(kind, up)| {
@@ -148,7 +170,11 @@ fn a_shield_goes_the_way_its_type_takes_it() {
             .map(|o| (o.riot_shield.unwrap().up, o.mover.as_ref().unwrap().speed_factor))
             .collect::<Vec<_>>()
     };
-    assert_eq!(course(&objects), [(0, 1.0), (2, 0.5)]);
+    assert_eq!(
+        course(&objects),
+        [(0, 2.0), (2, 0.5)],
+        "a raise not begun: the shield down, its speed"
+    );
     step(&mut objects, ObjectId(2));
     assert_eq!(course(&objects), [(1, 1.0), (2, 0.5)], "unit 2 is new");
     let mut seen = Vec::new();
@@ -162,17 +188,49 @@ fn a_shield_goes_the_way_its_type_takes_it() {
     assert_eq!(seen[T as usize], [(T, 1.0), (0, 1.0)], "they stay there");
 }
 
-/// A toggle switches the unit to the type it asks for, and a toggle the way the shield already goes asks for none.
+/// Design changes 0172 and 0198: a raise waits while the unit is Firing or in Cooldown, its shield down and its type
+/// switched, and starts in the first Modes step after; the speed follows the shield, the Peacekeeper's while it is
+/// down and the Shielded type's once it is off the ground.
+#[test]
+fn a_deferred_raise_waits_for_the_shot() {
+    let mut o = unit(SHIELDED, 0);
+    o.attack.as_mut().unwrap().phase = Some(AttackPhase::Firing { target: None });
+    settle(&mut o);
+    let mut objects = BTreeMap::from([(ObjectId(1), o)]);
+    let state = |objects: &BTreeMap<ObjectId, Object>| {
+        let o = &objects[&ObjectId(1)];
+        (mode(o).unwrap(), o.mover.as_ref().unwrap().speed_factor)
+    };
+    assert_eq!(
+        state(&objects),
+        (ShieldMode::Deferred, 2.0),
+        "the Peacekeeper's MaxSpeed"
+    );
+    for phase in [AttackPhase::Firing { target: None }, AttackPhase::Cooldown] {
+        objects.get_mut(&ObjectId(1)).unwrap().attack.as_mut().unwrap().phase = Some(phase);
+        step(&mut objects, ObjectId(2));
+        assert_eq!(state(&objects), (ShieldMode::Deferred, 2.0), "{phase:?}");
+    }
+    objects.get_mut(&ObjectId(1)).unwrap().attack.as_mut().unwrap().phase = Some(AttackPhase::Reloading);
+    assert_eq!(
+        state(&objects).0,
+        ShieldMode::Raising { left: T },
+        "it begins in the next step"
+    );
+    step(&mut objects, ObjectId(2));
+    assert_eq!(state(&objects), (ShieldMode::Raising { left: T - 1 }, 1.0));
+}
+
+/// A toggle switches the unit to the type it asks for, and a toggle the way the shield already goes asks for none;
+/// the type alone says (design change 0198: the type is the target). A type without a shield asks for none.
 #[test]
 fn a_toggle_asks_for_the_other_type_or_none() {
-    assert_eq!(toggled_kind(&unit(PK, 0), true), Some(SHIELDED));
-    assert_eq!(toggled_kind(&unit(PK, 3), true), Some(SHIELDED), "lowering: back up");
-    assert_eq!(toggled_kind(&unit(PK, 3), false), None);
-    assert_eq!(toggled_kind(&unit(SHIELDED, 3), false), Some(PK));
-    assert_eq!(toggled_kind(&unit(SHIELDED, T), true), None);
-    let mut guard = unit(ObjectKind::Guard, 0);
-    guard.riot_shield = None;
-    assert_eq!(toggled_kind(&guard, true), None);
+    assert_eq!(toggled_kind(PK, true), Some(SHIELDED));
+    assert_eq!(toggled_kind(PK, false), None);
+    assert_eq!(toggled_kind(SHIELDED, false), Some(PK));
+    assert_eq!(toggled_kind(SHIELDED, true), None);
+    assert_eq!(toggled_kind(ObjectKind::Guard, true), None);
+    assert_eq!(toggled_kind(ObjectKind::SabreLegionnaire, false), None);
 }
 
 /// A shield all the way down hashes as one tag, as it did before the two types; one up any way hashes its height.

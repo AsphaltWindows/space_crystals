@@ -44,6 +44,13 @@ fn a_drone_crosses_rugged_terrain_at_half_speed() {
     // And back up to speed beyond it.
     assert!(fastest(&after) > 7.9, "{}", fastest(&after));
     assert!(after[..20].windows(2).all(|pair| pair[1] > pair[0]), "{after:?}");
+    // Design change 0205 changed the numbers, not the rule: "Rugged terrain still doubles drag". In its first tick
+    // with its centre on the strip the drag takes 2 × 0.15 of its 8 su, and its omni-directional thrust brakes 0.3
+    // more, as it wants no more than the strip's 4: 5.3, then 4. Off it, the drag is 0.15 again: from 4, 4.6.
+    let doubled = TOP * (1.0 - 2.0 * (1.0 - KEEP)) - 0.3;
+    assert!((inside[1] - doubled).abs() < 1e-3, "{inside:?}");
+    assert!((inside[2] - 4.0).abs() < 1e-3, "{inside:?}");
+    assert!((after[1] - (4.0 * KEEP + THRUST)).abs() < 1e-3, "{after:?}");
 }
 
 /// Acceptance, **Collision** (design change 0035: "If the movement hits an obstacle, drop the blocked portion (no
@@ -80,7 +87,7 @@ fn a_drone_that_meets_a_wall_at_speed_loses_all_its_velocity() {
             // The tick it met the wall: it went as far as the wall, and has no velocity left.
             came_at = before;
             assert!(
-                d.x > 0.0 && d.x < before.x * 0.9,
+                d.x > 0.0 && d.x < before.x * KEEP,
                 "the blocked part is dropped: {d} of {before}"
             );
             assert_eq!(t.mover(1).momentum, Vec2::ZERO, "tick {}", t.sim().tick());
@@ -89,12 +96,14 @@ fn a_drone_that_meets_a_wall_at_speed_loses_all_its_velocity() {
         }
         assert!(t.sim().tick() < 400, "{}", t.ascii(None));
     }
+    // Measured: 4.8 su a tick east and 2.7 north (over 6 east before design change 0205: the Drone brakes and turns
+    // harder now).
     assert!(
-        came_at.x > 6.0 && came_at.y < 0.0,
+        came_at.x > 4.0 && came_at.y < 0.0,
         "it came at speed, turning north: {came_at}"
     );
-    // From rest: 0.8 su in the first tick, however fast it was going north already, and faster every tick.
-    assert!(after[0].length() <= 0.8 + 1e-3, "{:?}", &after[..4]);
+    // From rest: 1.2 su in the first tick, however fast it was going north already, and faster every tick.
+    assert!(after[0].length() <= THRUST + 1e-3, "{:?}", &after[..4]);
     assert!(
         after[..20].windows(2).all(|pair| pair[1].y < pair[0].y),
         "{:?}",
@@ -122,7 +131,7 @@ fn a_drone_pressed_against_a_wall_creeps_away_along_it() {
         let d = step(&mut t);
         assert_eq!(d.y, 0.0, "along the wall");
         assert!(
-            d.x <= last * 0.9 + 0.8 + 1e-3,
+            d.x <= last * KEEP + THRUST + 1e-3,
             "tick {}: {d} after {last}",
             t.sim().tick()
         );

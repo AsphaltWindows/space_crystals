@@ -20,8 +20,10 @@
 //!   a unit and moves to anything else: an own or neutral object (design change 0059: "Right-click never" attacks
 //!   them), and an enemy the unit can't attack (design change 0062: "Units that can't carry out the resolved command
 //!   [...] **move to or follow the target instead**"), an unarmed Drone's included ("Enemy or other object → Move
-//!   to it: **Follow** if it is a unit, Move to its location otherwise", design change 0136), or one it may not
-//!   attack now, its Riot Shield up (design change 0074).
+//!   to it: **Follow** if it is a unit, Move to its location otherwise", design change 0136), or one its type takes
+//!   no Attack order against, a Peacekeeper (Shielded) (design change 0074; design change 0202: "While raising
+//!   (already Shielded): no Attack; a right-click follows"). A Peacekeeper whose shield is on its way down attacks
+//!   ("accepted and held, and the attack starts once the shield is fully down").
 //!
 //! The Peacekeeper, the Guard, the Sabre and the Rifle Legionnaire resolve by the BasicCombatUnit table, the Drone by
 //! its own; both are this one rule (`tests/default_order.rs` has the table of unit kinds against targets).
@@ -40,8 +42,9 @@ use crate::riot_shield;
 pub struct Abilities {
     /// The TargetDomain of its attack (`systems/combat.md > AttackAttributes`); `None` for a unit without one.
     pub attack: Option<TargetDomain>,
-    /// Its mode lets it attack now: its Riot Shield isn't up, nor on its way up or down
-    /// (`riot_shield::allows_attack`).
+    /// Its type takes Attack orders: not a Peacekeeper (Shielded), whose shield is up or on its way up
+    /// (`riot_shield::takes_attack_orders`; design change 0202: "which orders the unit accepts follows its new type
+    /// from the press"). A Peacekeeper whose shield is on its way down takes them, and attacks once it is down.
     pub may_attack: bool,
     /// It gathers (`UnitDef::worker`): the Drone.
     pub worker: bool,
@@ -60,7 +63,7 @@ impl Abilities {
                 .as_ref()
                 .and_then(|unit| unit.attack.as_ref())
                 .map(|attack| attack.target_domain),
-            may_attack: riot_shield::allows_attack(o),
+            may_attack: riot_shield::takes_attack_orders(o.kind),
             worker: o.worker.is_some(),
             carrying: o.worker.is_some_and(|worker| worker.load > 0),
         })

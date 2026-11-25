@@ -1,8 +1,8 @@
 //! The Riot Shield's two unit types in a selection (`factions/gdo/units.md > Peacekeeper > Riot Shield > Two unit
 //! types`, design change 0173): the Peacekeepers and the Peacekeepers (Shielded) form separate SelectionGroups, the
-//! shield command goes to the ActiveGroup, and the units it turns change group as their toggle starts, or, pressed
-//! mid-shot, once their shot is done (design change 0172). The ActiveGroup they leave empty gives way to the group
-//! they join (`ControlState::set_type`, Q0050).
+//! shield command goes to the ActiveGroup, and the units it turns change group at the press, also those whose raise
+//! waits for their shot (design change 0198: "The type, and so the SelectionGroup, switches at the press"). The group
+//! they join becomes the ActiveGroup (`ControlState::toggle`, design changes 0198 and 0199).
 
 use sc_sim::combat::AttackPhase;
 use sc_sim::{Command, Spawn};
@@ -27,8 +27,9 @@ fn portraits(app: &App) -> Vec<(ObjectKind, bool)> {
 /// SelectionPanel shows two groups. Tab to the 4 and press R: all 10 are shielded, in one group. The Peacekeeper
 /// panel shows Raise Shield (R); the Shielded panel shows Lower Shield (R) and no Attack." With the ten selected, the
 /// four Peacekeepers' group comes first in the panel's order, active; Tab goes to the six, whose panel is the
-/// Shielded one, and on to the four again. Their R goes to them alone, a group command; they switch type as their
-/// toggle starts, joining the six, and the one group left is active (its old group emptied, Q0050).
+/// Shielded one, and on to the four again. Their R goes to them alone, a group command; they switch type at the
+/// press, joining the six, and the one group left is active (design change 0198: "that merged group becomes the
+/// ActiveGroup").
 #[test]
 fn six_shielded_of_ten_are_a_group_of_their_own_until_the_other_four_raise_theirs() {
     const SIX: [u32; 6] = [1, 2, 3, 4, 5, 6];
@@ -87,8 +88,9 @@ fn six_shielded_of_ten_are_a_group_of_their_own_until_the_other_four_raise_their
 
 /// `> CommandPanel`: in a mixed selection R is a group command, for the ActiveGroup alone ("the shield command goes
 /// to the ActiveGroup", design change 0173), and with the Guards active R is empty. The Peacekeepers raising their
-/// shields leave their group, which goes; the group they join becomes the ActiveGroup, in its DefaultState
-/// (`ControlState::set_type`: the rule M3-U set for a group that empties as its objects change type, Q0050).
+/// shields leave their group, which goes; the group they join becomes the ActiveGroup, in its DefaultState (design
+/// change 0199: "Its members changed type and joined another group [...] the group they joined becomes active. The
+/// command panel resets to that group's default state").
 #[test]
 fn in_a_mixed_selection_r_goes_to_the_active_group() {
     let mut app = game();
@@ -120,11 +122,13 @@ fn in_a_mixed_selection_r_goes_to_the_active_group() {
 
 /// The 0172 Verification (`> Riot Shield > During the toggle`): "Peacekeepers fighting, press the shield key: every
 /// one raises its shield, some a few frames after the others." Four Peacekeepers attack an enemy Peacekeeper
-/// (Shielded), which never fires back, each a tick after the one before; R is pressed as the first fires. It and the
-/// others in Firing or Cooldown finish their shot first ("the raise is deferred: the shot finishes, then the shield
-/// starts rising immediately"), staying Peacekeepers meanwhile, in their group, which stays the ActiveGroup while it
-/// has them (`ControlState::set_type`); the last of them leaving it, the group of the shielded ones takes over.
-/// Nobody fires once shielded.
+/// (Shielded), which never fires back, each a tick after the one before; R is pressed as the first fires. All four are
+/// Peacekeepers (Shielded) at the press, before the sim's tick, one group, the ActiveGroup, whose panel shows Lower
+/// Shield (design change 0198: "The type, and so the SelectionGroup, switches at the press, including when the raise
+/// is deferred behind a shot"; its Verification: "Peacekeepers mid-shot: press R. The panel shows Lower Shield at
+/// once"). Those in Firing or Cooldown finish their shot first ("the raise is deferred: the shot finishes, then the
+/// shield starts rising immediately"), their shields still down and drawn so meanwhile. Nobody fires once its shield
+/// is on its way up.
 #[test]
 fn fighting_peacekeepers_all_raise_some_a_few_frames_later() {
     const FOUR: [u32; 4] = [1, 2, 3, 4];
@@ -163,27 +167,45 @@ fn fighting_peacekeepers_all_raise_some_a_few_frames_later() {
     }
     assert!(matches!(phase(&app, 1), Some(AttackPhase::Firing { .. })), "fighting");
 
+    let mut seen_groups = vec![groups(&app)];
     input(&mut app).tap_key(KeyR);
+    app.update();
+    assert_eq!(groups(&app), [(SHIELDED, FOUR.to_vec(), true)], "at the press");
+    assert_eq!(
+        command(&mut app, r()),
+        Some((PanelCommand::LowerShield, ButtonLook::Common))
+    );
+    assert_eq!(state(&app, 1).0, PEACEKEEPER, "the sim's tick is still to come");
     let start = app.world().resource::<SimRes>().tick();
-    let mut switched = [None; 4];
-    let mut seen_groups = Vec::new();
-    let mut shot_shielded: Vec<u32> = Vec::new();
+    let mut raised = [None; 4];
+    let mut deferred = Vec::new();
+    let mut shot_raising: Vec<u32> = Vec::new();
     for _ in 0..12 {
         app.update();
         let sim = app.world().resource::<SimRes>();
         let tick = sim.tick() - start;
         for event in sim.events() {
             if let sc_sim::SimEvent::Attacked { attacker, .. } = event
-                && sim.object(*attacker).is_some_and(|o| o.kind == SHIELDED)
-                && switched[attacker.0 as usize - 1].is_some()
+                && raised[attacker.0 as usize - 1].is_some()
             {
-                shot_shielded.push(attacker.0);
+                shot_raising.push(attacker.0);
             }
         }
+        let mut waiting = Vec::new();
         for n in FOUR {
-            if switched[n as usize - 1].is_none() && state(&app, n).0 == SHIELDED {
-                switched[n as usize - 1] = Some(tick);
+            let unit = sim.object(ObjectId(n)).unwrap();
+            assert_eq!(unit.kind, SHIELDED, "#{n} from the press");
+            if unit.riot_shield.unwrap().up > 0 && raised[n as usize - 1].is_none() {
+                raised[n as usize - 1] = Some(tick);
             }
+            if shield(&app, n) == ShieldMode::Deferred {
+                waiting.push(n);
+            }
+        }
+        for n in waiting {
+            let drawn = shield_visual(&mut app, n).map(|(visibility, ..)| visibility);
+            assert_eq!(drawn, Some(Visibility::Hidden), "#{n}'s shield is still down");
+            deferred.push(n);
         }
         let now = groups(&app);
         if seen_groups.last() != Some(&now) {
@@ -191,10 +213,7 @@ fn fighting_peacekeepers_all_raise_some_a_few_frames_later() {
         }
     }
     assert_eq!(abilities(&app), [used(&FOUR, RAISE)]);
-    let ticks: Vec<_> = switched
-        .iter()
-        .map(|t| t.expect("every one raises its shield"))
-        .collect();
+    let ticks: Vec<_> = raised.iter().map(|t| t.expect("every one raises its shield")).collect();
     // A raise waits at most its unit's Firing and Cooldown frames (1 and 2).
     let weapon = PEACEKEEPER.def().unit.as_ref().and_then(|unit| unit.attack).unwrap();
     let spread = ticks.iter().max().unwrap() - ticks.iter().min().unwrap();
@@ -202,17 +221,15 @@ fn fighting_peacekeepers_all_raise_some_a_few_frames_later() {
         (1..=weapon.firing_ticks + weapon.cooldown_ticks).contains(&spread),
         "some a few frames after the others: {ticks:?}"
     );
+    assert!(!deferred.is_empty(), "some wait for their shot");
     assert!(
-        shot_shielded.is_empty(),
-        "nobody fires once shielded: {shot_shielded:?}"
+        shot_raising.is_empty(),
+        "nobody fires once its shield is on its way up: {shot_raising:?}"
     );
-    // Units 3 and 4, aiming, raise at once; 1, firing, and 2, which fires next, once their Cooldown is over.
     assert_eq!(
         seen_groups,
         [
             vec![(PEACEKEEPER, FOUR.to_vec(), true)],
-            vec![(PEACEKEEPER, vec![1, 2], true), (SHIELDED, vec![3, 4], false)],
-            vec![(PEACEKEEPER, vec![2], true), (SHIELDED, vec![1, 3, 4], false)],
             vec![(SHIELDED, FOUR.to_vec(), true)],
         ]
     );

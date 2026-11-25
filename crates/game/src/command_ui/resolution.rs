@@ -7,8 +7,9 @@
 //!   on what is under the cursor ([`unit_right_click`]): the sim's one rule, `sc_sim::orders::resolution::resolve`,
 //!   the rally point's too (design change 0136), on what the unit can do and what the player knows of the target
 //!   (`Sim::aimed`: an object it sees, or one it remembers, design change 0139). A unit that can't carry out the
-//!   command moves to the location or to the object instead, following a unit; so does a unit whose Riot Shield
-//!   keeps it from attacking (design change 0074); a Drone gathers a patch, delivers its load to its own Egress Node,
+//!   command moves to the location or to the object instead, following a unit; so does a Peacekeeper (Shielded),
+//!   whose type takes no Attack (design changes 0074 and 0202); a Drone gathers a patch, delivers its load to its own
+//!   Egress Node,
 //!   and moves to anything else, following a unit (`factions/colonists/units.md > Drone > Right-Click Resolution`;
 //!   an empty Drone moves to the node, design change 0140). The orders go out grouped, one per distinct order
 //!   ([`group_orders`]). A producing
@@ -19,7 +20,8 @@
 //! - **Left-click while a target is awaited** ([`target_resolution`]): the PendingCommand's order for the target
 //!   ([`target_order`]); Attack takes any destructible object, own and neutral ones too (design changes 0059 and
 //!   0064). It goes to every unit of the command's recipients, except that an explicit Attack leaves out the units
-//!   whose Riot Shield keeps them from attacking ([`unit_target_order`], design change 0075); an AttackMove goes to
+//!   whose type takes none, the Peacekeepers (Shielded) ([`unit_target_order`], design changes 0075 and 0202: a
+//!   Peacekeeper whose shield is on its way down takes it, and attacks once the shield is down); an AttackMove goes to
 //!   all of them (design change 0076). Set Rally Point takes the ground or any object, as the right-click does; the
 //!   Drones' Set Drop-off an own Egress Node, which becomes the AssignedDropOff of every one of them (an ability,
 //!   `sc_sim::Ability::SetDropOff`; slice M3-J2).
@@ -157,7 +159,7 @@ impl UnitCapabilities {
         }
     }
 
-    /// Its mode lets it attack now: not while its Riot Shield is up or on its way ([`Modes::can_attack`]).
+    /// Its type takes an Attack: not a Peacekeeper (Shielded) ([`Modes::can_attack`], design change 0202).
     pub fn may_attack(&self) -> bool {
         self.abilities.is_none_or(|abilities| abilities.may_attack)
     }
@@ -223,10 +225,12 @@ pub fn rally_target(target: &MapTarget) -> Target {
 /// `> RightClickResolution` for one selected unit (design changes 0062, 0063 and 0136): the order `unit` gets for a
 /// right-click on `target`, its default command there: the sim's rule (`sc_sim::orders::resolution::resolve`, which
 /// a rally point's new unit goes by too), on what the unit can do and the target as the player knows it
-/// ([`MapTarget::aimed`]). A unit that can't carry out the command it would get moves to the target instead, a unit
-/// whose Riot Shield is up too (design change 0074: it follows an enemy unit, and moves to an enemy structure, so that
-/// in a mixed group the shield wall stays with the units that attack; an explicit Attack leaves it out instead,
-/// [`unit_target_order`], design change 0075). Over an object the player knows nothing of, a Move to it
+/// ([`MapTarget::aimed`]). A unit that can't carry out the command it would get moves to the target instead, a
+/// Peacekeeper (Shielded) too, its shield up or on its way up (design change 0074: it follows an enemy unit, and moves
+/// to an enemy structure, so that in a mixed group the shield wall stays with the units that attack; an explicit
+/// Attack leaves it out instead, [`unit_target_order`], design change 0075). A Peacekeeper whose shield is on its way
+/// down attacks (design change 0202: "a right-click on an enemy is accepted and held"). Over an object the player
+/// knows nothing of, a Move to it
 /// ([`move_to`]), which the sim refuses. Nothing for an object that isn't a unit.
 pub fn unit_right_click(unit: UnitCapabilities, target: &MapTarget) -> Option<OrderKind> {
     let abilities = unit.abilities?;
@@ -248,9 +252,10 @@ pub fn move_to(target: &MapTarget) -> OrderKind {
 }
 
 /// The order one of a targeting click's recipients takes, when the click gives `kind` ([`target_order`]): design
-/// change 0075 (`factions/gdo/units.md > Peacekeeper > Riot Shield > Explicit Attack`): a unit whose mode keeps it
-/// from attacking (its Riot Shield up or on its way) is left out of an explicit Attack, on any object, and keeps its
-/// orders; the units that can attack carry it out. Every other order goes to every recipient, an AttackMove too
+/// change 0075 (`factions/gdo/units.md > Peacekeeper > Riot Shield > Explicit Attack`): a unit whose type takes no
+/// Attack (a Peacekeeper (Shielded), design change 0202) is left out of an explicit Attack, on any object, and keeps
+/// its orders; the units that take it carry it out, a Peacekeeper whose shield is on its way down once it is down.
+/// Every other order goes to every recipient, an AttackMove too
 /// (design change 0076, `systems/controls/commands.md > AttackMove > Units that can't attack`: it plays out as a
 /// move for a unit that can't attack). Unlike the right-click ([`unit_right_click`]), on purpose.
 pub fn unit_target_order(unit: UnitCapabilities, kind: OrderKind) -> Option<OrderKind> {

@@ -238,7 +238,6 @@ mod tests {
             target: Some(b),
             phase: Some(AttackPhase::Aiming { target: b }),
             elapsed: 1,
-            pending: None,
         });
         // Unit c holds its position and engaged b by itself; the idle unit d went for b on its own.
         let d = sim.insert_object(

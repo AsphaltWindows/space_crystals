@@ -144,7 +144,7 @@ fn a_teleported_drone_starts_again_from_rest() {
     );
     t.step();
     let step = t.pos(1) - to;
-    assert!(step.length() <= 0.8 + 1e-3, "from rest: {step}");
+    assert!(step.length() <= THRUST + 1e-3, "from rest: {step}");
     assert_eq!(t.mover(1).momentum, step);
     for _ in 0..300 {
         t.step();

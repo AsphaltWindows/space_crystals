@@ -2,13 +2,15 @@
 //! ability)`): shield down and shield up are two unit types, the Peacekeeper and the Peacekeeper (Shielded) (design
 //! change 0173), which form separate SelectionGroups. The Peacekeeper's button in R raises the shields, the Peacekeeper
 //! (Shielded)'s lowers them (design change 0174: R, a placeholder), each going to the ActiveGroup; the units switch
-//! type as the toggle starts, and their group with it. The Peacekeeper (Shielded)'s panel shows no Attack; a
-//! right-click on an enemy has the shielded units follow it (design change 0074) and an Attack leaves them out (0075),
-//! while the other units of the selection attack it. A shield that isn't down is drawn in front of its unit. The
-//! buttons' labels are short; the InfoPanel names the command under the pointer in full. The two types in a
-//! selection, and the groups the units change as their toggle starts: `groups`.
+//! type at the press, and their group with it (design change 0198). The Peacekeeper (Shielded)'s panel shows no
+//! Attack; a right-click on an enemy has the shielded units follow it (design change 0074) and an Attack leaves them
+//! out (0075), while the other units of the selection attack it. A shield that isn't down is drawn in front of its
+//! unit. The buttons' labels are short; the InfoPanel names the command under the pointer in full. The two types in a
+//! selection, and the groups the units change at the press: `groups`; a press as a target state, and the orders a
+//! unit takes while its shield turns (design change 0202): `target`.
 
 mod groups;
+mod target;
 
 use bevy::prelude::*;
 use sc_sim::defs::RIOT_SHIELD_TOGGLE_TICKS;
@@ -107,7 +109,8 @@ fn toggle_time(app: &mut App) {
 
 /// Taps R, then runs tick by tick until the toggle it starts is over, and returns what each tick of the toggle leaves:
 /// unit `id`'s type and shield, and the ActiveGroup's type. The toggle's first tick is the first in which `id`'s
-/// type is no longer what it was.
+/// type, as the sim has it, is no longer what it was: the tick that applies the press (design change 0198), the
+/// toggle of a unit that isn't mid-shot starting at once.
 fn toggle_with_r(app: &mut App, id: u32) -> Vec<(ObjectKind, ShieldMode, Option<ObjectKind>)> {
     let (before, _) = state(app, id);
     input(app).tap_key(KeyR);
@@ -138,8 +141,9 @@ fn shield_visual(app: &mut App, id: u32) -> Option<(Visibility, f32, Entity)> {
 
 /// The 0174 Verification (`> Riot Shield > Hotkey`): "R on Peacekeepers raises shields in 6 ticks. R on Peacekeeper
 /// (Shielded) lowers them." The Peacekeepers' R is Raise Shield, labelled "Raise", next to their Attack; it turns
-/// them into Peacekeepers (Shielded) in the toggle's first tick, their group with them (design change 0173: "The
-/// type switches when the toggle starts"), and the shield is all the way up in its sixth (0171). Their panel has
+/// them into Peacekeepers (Shielded) at the press, their group with them (design change 0198: "The type, and so the
+/// SelectionGroup, switches at the press"), the sim in the toggle's first tick, and the shield is all the way up in
+/// its sixth (0171). Their panel has
 /// Lower Shield, "Lower", in R and no Attack, and its R turns them back the same way. By hotkey or by button: an
 /// ability, not an order, so no order is given and Shift queues nothing (design change 0151).
 #[test]

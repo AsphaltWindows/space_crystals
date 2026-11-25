@@ -4,9 +4,9 @@
 use super::*;
 
 /// Acceptance, **Speed** and **Stopping and arrival**: from rest and facing its way, the Drone's speed follows the
-/// scheme `v ← v + 0.8 − 0.1 v` (0.8, 1.52, 2.168, …, `8 × (1 − 0.9ⁿ)`), comes within 1 % of 8 space units per tick
-/// and never passes it. It begins to brake when its stopping distance reaches the path that is left, loses speed in
-/// every tick from there, and lands exactly on its goal: no overshoot, no step back.
+/// scheme `v ← v + 1.2 − 0.15 v` (1.2, 2.22, 3.087, …, `8 × (1 − 0.85ⁿ)`, design change 0205), comes within 1 % of
+/// 8 space units per tick and never passes it. It begins to brake when its stopping distance reaches the path that
+/// is left, loses speed in every tick from there, and lands exactly on its goal: no overshoot, no step back.
 #[test]
 fn a_drone_accelerates_to_eight_brakes_and_lands_on_its_goal() {
     let mut t = flat(24, 5).spawn(DRONE, Some(P1), SpawnAt::Point(centre(1, 2))).start();
@@ -30,7 +30,7 @@ fn a_drone_accelerates_to_eight_brakes_and_lands_on_its_goal() {
     // The scheme, to the precision of positions around x = 100.
     let mut power = 1.0;
     for (n, &speed) in speeds.iter().take(60).enumerate() {
-        power *= 0.9;
+        power *= KEEP;
         assert!((speed - TOP * (1.0 - power)).abs() < 2e-3, "tick {}: {speed}", n + 1);
     }
     let fastest = speeds.iter().copied().fold(0.0, f32::max);
@@ -48,8 +48,31 @@ fn a_drone_accelerates_to_eight_brakes_and_lands_on_its_goal() {
     for _ in 0..20 {
         assert_eq!(step(&mut t), Vec2::ZERO);
     }
-    // Slower than the stand-in was: 152 ticks at a constant 8.
-    assert!((165..=175).contains(&speeds.len()), "{} ticks", speeds.len());
+    // Slower than the stand-in was, 152 ticks at a constant 8. Measured: 164 ticks (between 165 and 175 before design
+    // change 0205).
+    assert!((160..=168).contains(&speeds.len()), "{} ticks", speeds.len());
+}
+
+/// Design change 0205's Verification, "A Drone starting from rest visibly reaches full speed in about 1.25 s", and
+/// its numbers: "The Drone gets to about 65% of it after ~7 frames instead of 10, and close to full speed after ~20
+/// frames instead of ~30." In a game, from rest and facing its way, measured: 67.9 % of its top speed after 7 ticks
+/// (52.2 % before 0205), 96.1 % after 20, 1.25 s (87.8 % before), and within 1 % of it from the 29th (the 44th
+/// before; `movement/drag/tests.rs` works out both curves).
+#[test]
+fn a_drone_gets_close_to_its_top_speed_in_a_second_and_a_quarter() {
+    let mut t = flat(24, 5).spawn(DRONE, Some(P1), SpawnAt::Point(centre(1, 2))).start();
+    move_to(&mut t, 1, centre(20, 2));
+    let speeds: Vec<f32> = (0..30).map(|_| step(&mut t).x).collect();
+    let share = |tick: usize| speeds[tick - 1] / TOP;
+    assert!(
+        (0.65..=0.70).contains(&share(7)),
+        "about 65 % after 7 ticks: {speeds:?}"
+    );
+    assert!(share(20) >= 0.96, "close to its top speed after 20 ticks: {speeds:?}");
+    assert!(
+        share(28) < 0.99 && share(29) >= 0.99,
+        "within 1 % from the 29th: {speeds:?}"
+    );
 }
 
 /// A Drone doesn't stand to turn (`systems/combat.md > LocomotionOrientationConstraints[DragMovement]`: it turns at
@@ -83,6 +106,9 @@ fn a_drone_turns_as_it_moves() {
 
 /// Invariants I5 and I7, amended: a Drone stopped in full flight has no goal and brakes to a stop, within the
 /// documented bound. It is `Stopping` and slower every tick, then `Stationary` for good.
+///
+/// Design change 0205's Verification, "It stops with less drift than before": measured, it comes to rest 25.5 su
+/// on, after 9 ticks of braking, where it took 41.5 su and 15 ticks before 0205.
 #[test]
 fn a_drone_stopped_in_full_flight_brakes_to_a_stop() {
     let mut t = flat(24, 5).spawn(DRONE, Some(P1), SpawnAt::Point(centre(1, 2))).start();
@@ -112,8 +138,13 @@ fn a_drone_stopped_in_full_flight_brakes_to_a_stop() {
     }
     let stopped_in = t.pos(1).x - from.x;
     assert!(
-        (40.0..=STOPS_WITHIN).contains(&stopped_in) && ticks <= STOPS_IN,
+        (25.0..=STOPS_WITHIN).contains(&stopped_in) && ticks <= STOPS_IN,
         "{stopped_in} su in {ticks} ticks"
+    );
+    let (drifted, took) = STOPPED_BEFORE_0205;
+    assert!(
+        stopped_in < drifted * 0.65 && ticks < took,
+        "less drift than before 0205: {stopped_in} su in {ticks} ticks"
     );
     assert_eq!(t.mover(1).locomotion, Locomotion::Stationary);
     assert_eq!((t.mover(1).velocity, t.mover(1).momentum), (Vec2::ZERO, Vec2::ZERO));

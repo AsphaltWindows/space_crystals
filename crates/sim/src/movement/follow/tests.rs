@@ -8,11 +8,12 @@ use crate::movement::space::Body;
 use crate::mover::MAX_REPATHS;
 use crate::nav::{Nav, NavClass, NavRules};
 
-/// `factions/colonists/units.md > Drone > UnitBaseAttributes[HoverVehicle]`.
+/// `factions/colonists/units.md > Drone > UnitBaseAttributes[HoverVehicle]`, since design change 0205
+/// (`movement/drag/tests.rs` checks them against the Drone's def).
 const DRONE: MovementAttrs = MovementAttrs::Drag {
-    forward_acceleration: 0.6,
-    omni_directional_acceleration: 0.2,
-    drag_ratio: 0.1,
+    forward_acceleration: 0.9,
+    omni_directional_acceleration: 0.3,
+    drag_ratio: 0.15,
     turn_rate: core::f32::consts::FRAC_PI_4,
 };
 
@@ -21,9 +22,9 @@ const DRONE: MovementAttrs = MovementAttrs::Drag {
 ///
 /// A Drone rests against a wall to its south, and its steering target lies far east and a little south, behind
 /// the wall's line: every tick its move runs into the wall, the blocked part is dropped and its velocity is 0, so
-/// it creeps east at single-tick acceleration, 0.8 su a tick, where a free Drone would be at 8. For 400 ticks,
-/// four times the give-up time, it is never stuck, asks for no other route and doesn't fail: it is getting
-/// closer all the while.
+/// it creeps east at single-tick acceleration, 1.2 su a tick (0.8 before design change 0205), where a free Drone
+/// would be at 8. For 400 ticks, four times the give-up time, it is never stuck, asks for no other route and
+/// doesn't fail: it is getting closer all the while.
 #[test]
 fn a_drone_creeping_along_a_wall_makes_progress_and_never_gives_up() {
     let rows = [".".repeat(48), ".".repeat(48), "M".repeat(48), "M".repeat(48)];
@@ -83,7 +84,7 @@ fn a_drone_creeping_along_a_wall_makes_progress_and_never_gives_up() {
         assert!(!failed && mover.status == MoveStatus::Moving, "tick {tick}: {mover:?}");
         assert_eq!(pos.y, start.y, "tick {tick}: along the wall, never into it");
         assert!(
-            step.x > 0.7 && step.x <= 0.8 + 1e-4,
+            step.x > 1.05 && step.x <= 1.2 + 1e-4,
             "tick {tick}: single-tick acceleration: {step}"
         );
         assert_eq!(mover.momentum, Vec2::ZERO, "tick {tick}: it met the wall");

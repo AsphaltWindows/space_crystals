@@ -82,6 +82,7 @@ fn with_no_patch_left_a_job_ends_or_delivers_its_load_first() {
             facing: 0.0,
             mover: &mut mover,
             attack: None,
+            weapon: None,
             may_attack: true,
             converting: false,
             worker: Some(&mut worker),

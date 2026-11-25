@@ -34,9 +34,10 @@
 //! doesn't say it would). The approach speed is the highest speed from which that braking still stops it
 //! within the path that remains, so **braking begins when the stopping distance reaches the remaining path**, and
 //! the last step lands exactly on the goal at a speed one tick of braking takes away: no overshoot, no
-//! oscillation. It plans with 15/16 of that thrust ([`PLANNED_BRAKE`]). From top speed the Drone begins to
-//! brake 51 su before its goal (one more step, then 43 su and 16 ticks of braking), and stops within 42 su and
-//! 16 ticks when it is stopped ([`tests`]).
+//! oscillation. It plans with 15/16 of that thrust ([`PLANNED_BRAKE`]). From top speed the Drone, with its numbers
+//! of design change 0205, begins to brake 35 su before its goal (one more step, then 27 su and 10 ticks of
+//! braking), and stops within 26 su and 9 ticks when it is stopped ([`tests`]). Before 0205 it was 51 su (43 su
+//! and 16 ticks), and 42 su and 16 ticks.
 //!
 //! **Without a goal** ([`Drag::coast`]) a unit that still has momentum brakes to a stop the same way, moving
 //! meanwhile (`Locomotion::Stopping`): a Stop order, an arrival within reach of an object, a failed move. It is

@@ -154,6 +154,8 @@ Tunnel construction and upgrades cost Supplies. Costs scale based on existing in
 
 #### Construction Cost
 Cost = current Tunnels owned (all tiers count), in Supplies.
+
+**Paid when the ghost is placed** (user, 2026-11-25; Q0061): an Agent's build order pays the Supplies **when it is given**, i.e. when the Tunnel's ghost is placed (core/entities.md > Placement Validation > Lingering build ghosts), not on arrival. **Lingering Tunnel ghosts count as Tunnels owned** for the price of further orders, so two orders given in a row cost 1 and 2 (likewise a Tunnel under construction counts). The order is refused, with feedback, if the player can't pay. If the order is cancelled, replaced, or fails before construction starts, it is refunded at the current top price (as for cancelling, Upgrade Costs below).
 - 1st Tunnel: 0 Supplies (player starts with this Tunnel)
 - 2nd Tunnel: 1 Supply
 - 3rd Tunnel: 2 Supplies
@@ -162,6 +164,10 @@ Cost = current Tunnels owned (all tiers count), in Supplies.
 
 #### Upgrade Costs
 Higher-tier Tunnels count toward lower-tier cost calculations (a T3 Tunnel counts for both T2 and T1 cost scaling).
+
+**Upgrade duration** (placeholder, designer, 2026-11-25, Q0060): **480 frames (30 seconds)** to Tier 2 and to Tier 3, the same as construction.
+
+**Paid when the upgrade is ordered** (Q0060; follows from the full refund on Cancel Upgrade).
 
 **Upgrade to Tier 2**: 2 + 2 x (number of T2+ Tunnels owned), in Supplies.
 - 1st T2: 2 Supplies
@@ -172,6 +178,16 @@ Higher-tier Tunnels count toward lower-tier cost calculations (a T3 Tunnel count
 - 1st T3: 3 Supplies
 - 2nd T3: 6 Supplies
 - 3rd T3: 9 Supplies
+
+**Upgrades in progress count** (user, 2026-11-25; Q0060): a Tunnel upgrading to Tier 2 already counts as a T2+ Tunnel (and one upgrading to Tier 3 as a T3 Tunnel) for the cost of further upgrades. Two upgrades started together cost 2 and 4, not 2 each.
+
+**Refunds are the current top price** (user, 2026-11-25): Cancel Upgrade refunds **the price that upgrade would cost if ordered right now** (not counting itself), whichever Tunnel is cancelled: 2 + 2 x (other T2+ Tunnels owned) for Tier 2, 3 + 3 x (other T3 Tunnels owned) for Tier 3. Example: A and B upgrade to Tier 2 together (paying 2 and 4). Cancelling either one first refunds **4**; cancelling the other afterwards refunds **2**. The Supplies paid for what the player still has always equal the formula's total, so the order of starting and cancelling can't gain or lose Supplies. **Tunnel construction refunds the same way** (user, 2026-11-25): the current construction price, not counting itself.
+
+**HP on completion** (user, 2026-11-25; Q0060): max HP rises (600 → 800 → 1000) and current HP rises by the same amount, so damage taken stays (like the Colonists' Warp In).
+
+**Destroyed mid-upgrade** (user, 2026-11-25; Q0060): the Supplies paid for the upgrade are lost.
+
+**The future area is reserved** (user, 2026-11-25; Q0060): from the start of the upgrade, the larger Tunnel Area of the target tier counts against other placements (Tunnel Area Non-Overlap Rule), so nothing placed during the upgrade can make the finished area overlap.
 
 #### Construction Time
 480 frames (30 seconds). Agent must be present for the duration.

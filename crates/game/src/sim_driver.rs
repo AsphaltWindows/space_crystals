@@ -10,7 +10,9 @@ use std::ops::Deref;
 use std::time::{Duration, Instant};
 
 use bevy::prelude::*;
-use sc_sim::{PlayerCommand, PlayerId, Scenario, Sim, SimEvent, TICKS_PER_SECOND, Tick, TickInputs};
+use sc_sim::{
+    Command, ObjectId, ObjectKind, PlayerCommand, PlayerId, Scenario, Sim, SimEvent, TICKS_PER_SECOND, Tick, TickInputs,
+};
 
 use crate::ClientSystems;
 
@@ -63,6 +65,29 @@ pub struct LocalPlayer(pub PlayerId);
 /// Commands waiting for the next tick, in submission order.
 #[derive(Resource, Default, Debug)]
 pub struct PendingCommands(pub Vec<PlayerCommand>);
+
+impl PendingCommands {
+    /// The type object `id` has once these commands are applied, as the selection groups it from the press
+    /// (`ARCHITECTURE.md > Object model > Type and form`; design change 0198: a mode toggle switches the type "at the
+    /// press"): its type in `sim`, switched by each of `player`'s mode toggles among them that names it, in order, as
+    /// the sim applies them (`sc_sim::Ability::switched_kind`). `None` when `sim` has no such object.
+    pub fn kind_of(&self, sim: &Sim, player: PlayerId, id: ObjectId) -> Option<ObjectKind> {
+        let object = sim.object(id)?;
+        let mut kind = object.kind;
+        if object.owner != Some(player) {
+            return Some(kind);
+        }
+        for command in self.0.iter().filter(|c| c.player == player) {
+            if let Command::Ability { units, ability } = &command.command
+                && units.contains(&id)
+                && let Some(switched) = ability.switched_kind(kind)
+            {
+                kind = switched;
+            }
+        }
+        Some(kind)
+    }
+}
 
 /// The `TickInputs` of every tick so far, empty ticks included: with [`LoadedScenario`], a complete replay.
 #[derive(Resource, Default, Debug)]

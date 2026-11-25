@@ -231,7 +231,8 @@ pub fn can_target_ground(attack_type: AttackType) -> bool {
 /// commands in slots the template leaves free: a unit that carries a Riot Shield the command that turns it, in R
 /// (`factions/gdo/units.md > Peacekeeper > Riot Shield > Two unit types`, design change 0173: "The Peacekeeper's
 /// panel shows **Raise Shield**; Peacekeeper (Shielded)'s shows **Lower Shield**": [`PanelCommand::RaiseShield`] or
-/// [`PanelCommand::LowerShield`]); a unit with another form, a Legionnaire, [`PanelCommand::Convert`] in R. These
+/// [`PanelCommand::LowerShield`]); a unit with another form, a Legionnaire, the Convert to that form in R
+/// ([`PanelCommand::Convert`]: "R: Convert to Rifle Legionnaire" on the Sabre's panel). These
 /// are the commands the type offers ([`offers`]); its panel may show fewer (the Peacekeeper (Shielded)'s no Attack:
 /// [`hides_attack`]), and a constructor's follows its state ([`state_grid`]).
 pub fn grid(kind: ObjectKind) -> [Option<PanelCommand>; 12] {
@@ -245,8 +246,8 @@ pub fn grid(kind: ObjectKind) -> [Option<PanelCommand>; 12] {
             false => PanelCommand::RaiseShield,
         });
     }
-    if conversion::converts_to(kind).is_some() {
-        grid[CONVERT_SLOT] = Some(PanelCommand::Convert);
+    if let Some(other) = conversion::converts_to(kind) {
+        grid[CONVERT_SLOT] = Some(PanelCommand::Convert(other));
     }
     grid
 }

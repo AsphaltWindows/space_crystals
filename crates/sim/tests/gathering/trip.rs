@@ -1,11 +1,12 @@
-//! One Drone's loop (`factions/colonists/units.md > Drone > Gathering`): its trip, pinned at 81 ticks (`TRIP`), and
+//! One Drone's loop (`factions/colonists/units.md > Drone > Gathering`): its trip, pinned at 73 ticks (`TRIP`), and
 //! mining interrupted by another order (design change 0130, `> Interrupted mining`).
 
 use super::*;
 
 /// Slice H's first acceptance point: one Drone, the patch 2 grid units from the node. It mines for 32 frames, the
 /// patch loses 8 as the mining ends, it unloads for 2 frames, and the bank rises by 8 at the end of each drop-off.
-/// The trip time with DragMovement (slice M3-G) is pinned here and recorded in `economy/gathering.rs`: 81 ticks.
+/// The trip time with DragMovement (slice M3-G) is pinned here and recorded in `economy/gathering.rs`: 73 ticks
+/// with the Drone's numbers of design change 0205 (81 before them).
 #[test]
 fn one_drone_carries_loads_of_eight_from_the_patch_to_the_node() {
     let mut t = one_patch(1500).start();
@@ -13,7 +14,7 @@ fn one_drone_carries_loads_of_eight_from_the_patch_to_the_node() {
     gather(&mut t, 1, P1, &[3], 1);
     // The first leg: from rest to within reach of the patch, 73 su, turning north as it sets off.
     let began = mines_from(&mut t, 3);
-    assert_eq!(began, 20);
+    assert_eq!(began, 17);
     assert_eq!(drop_off(&t, 3), Some(id(2)), "auto-assigned: the nearest Egress Node");
     assert_eq!(order(&t, 3), Some(OrderKind::Gather(id(1))));
     // `> Gathering`: MiningDuration. The load is taken as the mining ends, in the economy phase.
@@ -30,17 +31,17 @@ fn one_drone_carries_loads_of_eight_from_the_patch_to_the_node() {
     });
     assert_eq!(
         unloading,
-        began + MINING - 1 + 24,
-        "24 ticks from the patch to within reach of the node: thrust, top speed never reached, braking"
+        began + MINING - 1 + 20,
+        "20 ticks from the patch to within reach of the node: thrust, top speed never reached, braking"
     );
     assert_eq!((load(&t, 3), bank(&t, P1)), (LOAD, start));
     t.run(DROP_OFF - 1);
     assert_eq!((load(&t, 3), bank(&t, P1)), (0, start + LOAD));
     assert_eq!(deliveries(&t), [(unloading + 1, 3, 2, LOAD)]);
-    // And again, for good: a delivery every 81 ticks.
+    // And again, for good: a delivery every 73 ticks.
     t.run_until(unloading + 1 + 5 * TRIP);
     let ticks: Vec<Tick> = deliveries(&t).iter().map(|d| d.0).collect();
-    assert_eq!(ticks, [76, 157, 238, 319, 400, 481]);
+    assert_eq!(ticks, [69, 142, 215, 288, 361, 434]);
     assert_eq!(bank(&t, P1), start + 6 * LOAD);
     assert_eq!(
         remaining(&t, 1) + load(&t, 3) + 6 * LOAD,

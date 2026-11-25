@@ -20,36 +20,44 @@
 //! own, from each one's first delivery over its next [`TRIPS`] trips: their walk out and first load are a start-up,
 //! not their rate.
 //!
-//! **Measured** (`--nocapture` prints the table), Colonists against the design, with the line's working Drones and
-//! Beacons, and the GDO:
+//! **Measured** (`--nocapture` prints the table), with the Drone's numbers of design change 0205 (slice M3-K3:
+//! thrust and drag ×1.5, the same top speed reached sooner), Colonists against the design, with the line's working
+//! Drones and Beacons, and the GDO:
 //!
 //! | Time | Colonists | Design | Delta | Drones | Beacons | GDO | Design |
 //! |---|---|---|---|---|---|---|---|
-//! | 0:00 | 6.17 | 6.1 | +1.1% | 4 | 0 | 6.67 | 6.7 |
-//! | 0:40 | 10.29 | 12.1 | −15.0% (just in) | 8 | 0 | 10.00 | 10.0 |
-//! | 1:00 | 12.57 | 15.0 | **−16.2%** | 9 | 1 | 12.86 | 13.3 |
-//! | 1:20 | 14.86 | 16.5 | −10.0% | 11 | 1 | 15.24 | 16.7 |
-//! | 1:40 | 17.52 | 19.2 | −8.7% | 13 | 1 | 17.62 | 20.0 |
-//! | 2:20 | 20.57 | 23.1 | −10.9% | 16 | 2 | 23.33 | 23.3 |
-//! | 2:40 | 22.10 | 25.7 | −14.0% | 18 | 2 | 26.19 | 26.7 |
-//! | 3:00 | 23.62 | 27.9 | **−15.3%** | 19 | 3 | 26.67 | 26.7 |
-//! | 4:00 | 24.38 | 31.9 | **−23.6%** | 24 | 4 | 26.67 | 26.7 |
+//! | 0:00 | 6.93 | 6.1 | +13.5% | 4 | 0 | 6.67 | 6.7 |
+//! | 0:40 | 11.43 | 12.1 | −5.5% | 8 | 0 | 10.00 | 10.0 |
+//! | 1:00 | 13.33 | 15.0 | −11.1% | 9 | 1 | 12.86 | 13.3 |
+//! | 1:20 | 16.00 | 16.5 | −3.0% | 11 | 1 | 15.24 | 16.7 |
+//! | 1:40 | 18.67 | 19.2 | −2.8% | 13 | 1 | 17.62 | 20.0 |
+//! | 2:20 | 22.86 | 23.1 | −1.1% | 16 | 2 | 23.33 | 23.3 |
+//! | 2:40 | 25.14 | 25.7 | −2.2% | 18 | 2 | 26.19 | 26.7 |
+//! | 3:00 | 26.29 | 27.9 | −5.8% | 19 | 3 | 26.67 | 26.7 |
+//! | 4:00 | 27.81 | 31.9 | −12.8% | 24 | 4 | 26.67 | 26.7 |
 //!
-//! The counts are the design's ("Colonists at 2 Drones per patch ≈ 23 Space Crystals per second for 18 Drones [...]
-//! including 2 Beacons"; "~24 working Drones" at full saturation). **Targets** (each checked below as it reads):
-//! 2 and 3 hold; **1 fails**: the Colonists are barely ahead at 0:40 (+0.3), behind at 1:00, and grow less than the
-//! GDO by 2 Drones per patch (+14.4 against +16.7); **4 fails at the design's ~24 working Drones** (24.4 at 4:00, and
-//! 26.2 for 24 Drones dealt out in `curve.rs`, under the GDO's 26.7), and holds at full saturation, which takes 27
-//! Drones (`curve.rs`: 32 per second). The line passes the GDO's ceiling at about 4:40, with 28 working Drones.
+//! Every figure is within ±15%. The counts are the design's ("Colonists at 2 Drones per patch ≈ 23 Space Crystals
+//! per second for 18 Drones [...] including 2 Beacons"; "~24 working Drones" at full saturation). **Targets** (each
+//! checked below as it reads): 2, 3 and 4 hold; **1 fails**, at 2 Drones per patch only: the Colonists are ahead at
+//! 0:40 (+1.4) and 1:00 (+0.5) and grow faster than the GDO to 1:40, but by 2:20 they have grown less (+15.9
+//! against +16.7), as they start higher (6.93, above the GDO's 6.67 and the table's 6.1). Target 4 holds at the
+//! design's ~24 working Drones (27.8 at 4:00, and 32.0 for 24 Drones dealt out in `curve.rs`, against the GDO's
+//! 26.7). The line passes the GDO's ceiling between 3:40 and 4:00, with 23 to 24 working Drones.
 //!
-//! **Why** (the question draft for the Director): a new Drone delivers first about 150 ticks (9.4 s) after it comes
-//! out (its walk from the portal and its first load), against 81 a trip once under way, so with a Drone every 10
-//! seconds one is always on its first trip, about 1.5 per second the table seems to count; the end patches' trips
-//! are longer (82, 92 and 104 ticks from the middle out: 1.58 to 1.23 per second and Drone); and 8 patches need 27
-//! Drones, not 24, to be mined without a break. Dealing every Drone to the patch with the fewest instead
-//! ([`Colonists::deal`], printed by the ignored `measure_the_colonists_lines`) gives less early (11.05 at 1:00: the
-//! end patches' Drones earn less than a second Drone on a middle patch) and a little more from 2:20 (21.33; 24.76
-//! at 4:00).
+//! **Why** (the figures for Q0055, which stays open): a Drone's trip is 73 ticks at the middle patches and 75, 83 and
+//! 95 from there out (1.75 down to 1.35 per second and Drone), so three Drones' mining, 96 ticks, covers even an end
+//! patch's trip and 8 patches are mined without a break with 24 Drones. A new Drone delivers first 139 to 154 ticks
+//! (about 9 s) after it comes out, a few more where it is sent on from patch to patch: its walk from the portal is
+//! long, at top speed either way, and only its starts and stops are shorter. So, with a Drone every 10 seconds, one
+//! is always on its first trip, about 1.5 per second the table seems to count. Dealing every Drone to the patch with
+//! the fewest instead ([`Colonists::deal`], printed by the ignored `measure_the_colonists_lines`) gives a little more
+//! at 1:00 (13.71) and a little less from 2:40 (24.76; 27.43 at 4:00).
+//!
+//! **Before design change 0205** (slice M3-K1, the question Q0055): 1:00, 3:00 and 4:00 were outside ±15% (12.57,
+//! 23.62 and 24.38) and 0:40 just in (10.29); targets 1 and 4 failed, the line passing the GDO's ceiling at about
+//! 4:40, with 28 working Drones. The trips were 81 ticks at the middle patches and 82, 92 and 104 from there out
+//! (1.58 to 1.23 per second and Drone), and 8 patches needed 27 Drones; a new Drone delivered first about 150 ticks
+//! after it came out (`docs/economy_oracle.md` has both tables).
 
 use sc_sim::testing::TestSim;
 use sc_sim::testing::build_order::{Books, BuildOrder, Entry, Order};
@@ -80,9 +88,9 @@ const TWO_PER_PATCH: Tick = at(2, 20);
 const LAST: Tick = at(4, 0);
 /// Design change 0108: each income figure "within ±15% of the table".
 const TOLERANCE: f64 = 0.15;
-/// The figures measured outside [`TOLERANCE`] (module docs; the question draft of slice M3-K1, until the Designer
-/// answers): pinned, so that a change that brings one in, or takes another out, is noticed and reported.
-const OUT_OF_TOLERANCE: [Tick; 3] = [at(1, 0), at(3, 0), at(4, 0)];
+/// The figures measured outside [`TOLERANCE`] (module docs): pinned, so that a change that brings one in, or takes
+/// another out, is noticed and reported. None since design change 0205; before it, 1:00, 3:00 and 4:00 (Q0055).
+const OUT_OF_TOLERANCE: [Tick; 0] = [];
 /// The line's working Drones and Beacons at the table's times: the design's counts where it gives them, 16 and 2 at
 /// 2 Drones per patch and 24 working at 4:00.
 const COUNTS: [(u32, u32); 9] = [
@@ -96,10 +104,10 @@ const COUNTS: [(u32, u32); 9] = [
     (19, 3),
     (24, 4),
 ];
-/// Target 1 fails as measured, and target 4 at the design's ~24 working Drones (module docs): pinned, as
-/// [`OUT_OF_TOLERANCE`] is.
+/// Target 1 fails as measured, and target 4 holds at the design's ~24 working Drones (module docs): pinned, as
+/// [`OUT_OF_TOLERANCE`] is. Before design change 0205 target 4 failed there too (Q0055).
 const TARGET_1_HOLDS: bool = false;
-const TARGET_4_HOLDS_AT_24_DRONES: bool = false;
+const TARGET_4_HOLDS_AT_24_DRONES: bool = true;
 /// The income window: the 21 seconds centred on the time measured.
 const WINDOW: Tick = 336;
 /// The lines are played to the end of the last window.
