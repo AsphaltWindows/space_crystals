@@ -847,8 +847,9 @@ or `Visible` for each player, and each player remembers the structures and resou
   (24, a placeholder); each such shot renews it. `PlayerVision::reveals` maps each attacker revealed to its end,
   and 5f drops those that end. Every attacker, whatever its range; a neutral victim reveals nothing.
 - **Memory** (`vision/memory.rs`, `core/vision.md > Explored`): a `LastKnown` record per tile-based object (a
-  structure or a resource) the player has seen and doesn't own: kind, owner, footprint, HP, resource state and the
-  tick it was last seen. An object is in a player's sight while a tile under its footprint is Visible; its record
+  structure or a resource) the player has seen and doesn't own: kind, owner, footprint, HP, resource state, a Tunnel's
+  tier, a site's progress (`LastKnown::site`, slice M4-I2: the `Progress`, not who builds it; hashed only while set)
+  and the tick it was last seen. An object is in a player's sight while a tile under its footprint is Visible; its record
   is rewritten at the end of every such tick (`Vision::remember`, the last phase) and stays as it was out of sight.
   A record whose object is gone, or has moved, is dropped once a tile under the record is Visible: an object
   destroyed in the fog is remembered until its place is seen. An object placed on Explored tiles gets no record, so
@@ -2416,8 +2417,10 @@ these.
   its kind (`MeshKey::site`), on the surface or underground (an expansion's outline, slice M4-F): its footprint tinted
   half way to a pale sand and braced at its corners by a scaffold (clear of its tag) instead of its finished look,
   with a progress bar near its south edge, a dark track in its mesh and a `SiteProgress` child stretched to its share
-  done (`place_site_progress`, `Progress::ratio`), to everyone who sees it. A record of one looks finished:
-  `LastKnown` keeps no construction.
+  done (`place_site_progress`, `Progress::ratio`), to everyone who sees it. A record of one is drawn as a site too
+  (`MeshKey::of_record`, slice M4-I2), dimmed, its bar fixed at the progress last seen (`LastKnown::site`,
+  `SiteProgress::remembered`, which `place_site_progress` leaves alone): the site may have grown or been finished
+  since.
 - **Path overlay** (`path_overlay.rs`, P or `--show-paths`): each unit's remaining path (`Mover::remaining_path`) as
   a thin line from where the unit is drawn, cut into short pieces lifted by the terrain's height, in the overlays
   layer, and a frame around each unit in the colour of its move's status (`status_color`: green moving, amber held

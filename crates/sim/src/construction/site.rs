@@ -11,10 +11,11 @@
 //!   [`Construction::max_hp`]: "MaxHP x (10% + 90% x construction_progress)", the share it starts at being its
 //!   builder's def's (`SiteDef::start_hp`, `ExpansionDef::start_hp`: [`Construction::max_hp_of`]). The current HP
 //!   follows the maximum as it rises, so the damage taken stays (`transform::follow_max`, the Warp In's rule).
-//! - **Seen** by another player as any structure it may see (`factions/syndicate/units/agent.md > While the Tunnel is
-//!   under construction`: "What enemies see: the site, like any surface structure, but not the Agent inside it"), and
-//!   remembered in the fog as last seen (`core/vision.md > Explored`): a site at the progress it had then, without who
-//!   builds it (`vision::LastKnown::site`, [`max_hp_seen`]).
+//! - **Seen** by the other players as the structure it will be (an owned underground expansion not at all,
+//!   `vision::hidden`; `factions/syndicate/units/agent.md > While the Tunnel is under construction`: "What enemies see:
+//!   the site, like any surface structure, but not the Agent inside it"), and remembered in the fog as last seen
+//!   (`core/vision.md > Explored`): a site at the progress it had then, without who builds it
+//!   (`vision::LastKnown::site`, [`max_hp_seen`]).
 //! - **Operational** ([`Object::is_operational`]): a site does nothing but cancel (design change 0234: "no Tunnel
 //!   Space, no drop-offs, no Enter, no Expand, no Eject"), and neither does a building still transforming. One
 //!   predicate, for every function that waits for completion: the exits and the Enter target (`network::is_exit`),
@@ -240,6 +241,43 @@ mod tests {
             h.finish()
         };
         assert_ne!(hash(Builder::Held(ObjectId(5))), hash(Builder::Tunnel(ObjectId(5))));
+    }
+
+    /// A record of a site keeps its progress, not who builds it (slice M4-I2): its maximum takes the share it started
+    /// at by its kind, as its builder's def gave it, a Tunnel site's halfway 330 of 600 and a Hideout's 220 of 400.
+    /// For every kind built on a site, one way only, the same as the site's own; none for a kind never built so.
+    #[test]
+    fn a_record_takes_the_rule_by_its_kind() {
+        let halfway = |frames: u32| Progress {
+            elapsed: frames / 2 * RATIO_ONE,
+            total: frames,
+        };
+        let tunnel = Construction::new(site_def(ObjectKind::Tunnel).unwrap(), Builder::Held(ObjectId(4)));
+        let tunnel = Construction {
+            progress: halfway(tunnel.progress.total),
+            ..tunnel
+        };
+        let hideout = Construction::expansion(expansion_def(ObjectKind::Hideout).unwrap(), ObjectId(3));
+        let hideout = Construction {
+            progress: halfway(hideout.progress.total),
+            ..hideout
+        };
+        for (kind, site, full, max) in [
+            (ObjectKind::Tunnel, tunnel, 600.0, 330.0),
+            (ObjectKind::Hideout, hideout, 400.0, 220.0),
+        ] {
+            let seen = max_hp_seen(kind, &site.progress, full).unwrap();
+            assert!((seen - max).abs() < 1e-3, "{kind:?}: {seen}");
+            assert_eq!(Some(seen), site.max_hp_of(kind, full), "{kind:?}");
+        }
+        for &kind in ObjectKind::ALL {
+            let built = site_def(kind).is_some() || expansion_def(kind).is_some();
+            assert!(
+                site_def(kind).is_none() || expansion_def(kind).is_none(),
+                "{kind:?}: built both ways"
+            );
+            assert_eq!(max_hp_seen(kind, &halfway(100), 100.0).is_some(), built, "{kind:?}");
+        }
     }
 
     /// The Agent builds the Tunnel; nothing else builds anything (the Drone deploys).

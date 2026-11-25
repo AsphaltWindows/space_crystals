@@ -244,7 +244,7 @@ fn a_remembered_site_shows_as_a_site_at_the_progress_last_seen() {
             .filter(|fill| fill.id == site)
             .map(|fill| (fill.remembered, fill.shown))
             .collect();
-        bars.sort_by(|a, b| a.0.cmp(&b.0));
+        bars.sort_by_key(|bar| bar.0);
         bars
     };
 
