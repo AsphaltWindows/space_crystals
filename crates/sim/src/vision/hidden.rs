@@ -14,9 +14,9 @@
 //!   command gate; the records (`super::memory`: none is taken of a hidden object); and the client's `Sight`. The
 //!   snapshots that look at objects without holding them, combat's targets and the behaviours' views, take each
 //!   object's [`Hiding`] with them. `Sim::hidden_from` asks it for tools and tests.
-//! - **Who doesn't**: damage resolution (`combat::damage`). Area damage still hits hidden objects (design change 0218:
-//!   "AoE resolution includes hidden underground units in the area"); a hit on the tick's list lands whatever its
-//!   target's owner sees.
+//! - **Who doesn't**: damage resolution (`combat::damage`). Area damage still hits hidden objects
+//!   (`systems/combat.md > AoEDamage`, design change 0262, keeping 0218: "Syndicate expansions ... take their share
+//!   of any blast over them, even unseen"); a hit on the tick's list lands whatever its target's owner sees.
 //!
 //! [`PlayerVision::object_box_state`]: super::PlayerVision::object_box_state
 
@@ -57,7 +57,7 @@ pub fn hidden_from(object: &Object, player: PlayerId) -> bool {
 impl Sim {
     /// Plan decision T32: whether `object` is hidden from `player` ([`hidden_from`]: an owned underground structure,
     /// from every player but its owner), the one rule that vision, the records, targeting and the client follow, and
-    /// damage doesn't (design change 0218).
+    /// damage doesn't (design changes 0218 and 0262).
     pub fn hidden_from(&self, object: &Object, player: PlayerId) -> bool {
         hidden_from(object, player)
     }

@@ -205,10 +205,10 @@ pub(super) static HIDEOUT: ObjectDef = ObjectDef {
     sight_range: 0.0,
     max_hp: Some(400.0), // HP - 400
     max_shields: None,
-    armor: Armor {
-        point: 1.0, // PointArmor - 1
-        full: 4.0,  // FullArmor - 4
-    },
+    // `structures.md > Tunnel Expansions > High armor underground` (design changes 0262 and 0264), replacing the stat
+    // block's 1 / 4: "Placeholder for every expansion: n = 6, i.e. PointArmor 6, FullArmor 6 x size in grid squares
+    // (a 2x2 expansion: 6 / 24)".
+    armor: Armor { point: 6.0, full: 24.0 },
     // `core/map.md > Elevation` (design change 0005): "Syndicate underground expansions (inside a Tunnel Area) may be
     // placed on sloped tiles; the flatness rule doesn't apply to them".
     needs_flat_ground: false,

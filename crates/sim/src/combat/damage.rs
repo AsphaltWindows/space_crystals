@@ -342,8 +342,9 @@ mod tests {
         assert!(matches!(events[1], SimEvent::Died { id: ObjectId(2), .. }));
     }
 
-    /// Design change 0218 ("AoE resolution includes hidden underground units in the area"): a hit lands whoever sees
-    /// its target, so damage never asks the hidden rule (plan decision T32, `vision::hidden`). No area attack is
+    /// `systems/combat.md > AoEDamage` (design change 0262, keeping 0218): "Syndicate expansions ... take their share
+    /// of any blast over them, even unseen". A hit lands whoever sees its target, so damage never asks the hidden rule
+    /// (plan decision T32, `vision::hidden`). No area attack is
     /// resolved yet (`systems/combat.md > AoEDamage`; `combat`'s module docs), so a test weapon stands in: the
     /// Guard's, given an AoERadius of 1 grid unit, strikes player 1's Peacekeeper standing on player 1's Hideout,
     /// which player 2, the Guard's owner, can't see; the test lists the blast's hits itself, one on each object whose
@@ -400,8 +401,8 @@ mod tests {
         );
         let mut events = Vec::new();
         assert_eq!(apply(&mut objects, &hits, &mut events), []);
-        // 18 less the PointArmor 1 of each.
-        assert_eq!(objects[&ObjectId(2)].hp, Some(400.0 - 17.0));
+        // 18 less the PointArmor of each: the Hideout's 6 (an expansion's, design change 0264), the Peacekeeper's 1.
+        assert_eq!(objects[&ObjectId(2)].hp, Some(400.0 - 12.0));
         assert_eq!(objects[&ObjectId(3)].hp, Some(50.0 - 17.0));
         objects.get_mut(&ObjectId(2)).unwrap().hp = Some(10.0);
         let hits = blast(&objects);

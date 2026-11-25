@@ -180,9 +180,10 @@ fn each_tier_admits_its_unit_bases() {
 }
 
 /// `factions/syndicate/structures.md > Hideout`: an underground structure ("Structure Type (Underground)"), 2×2, HP
-/// 400, PointArmor 1, FullArmor 4, which may stand on slopes (design change 0005) and has no tiers; no sight and
-/// Groupable (`tunnels.md > Expansions under construction`, design change 0254 answering Q0065 points 5 and 6). Not
-/// given, so a placeholder: SymmetryType AAAA (plan decision T29). Its BuildQueue comes with slice M4-C.
+/// 400, which may stand on slopes (design change 0005) and has no tiers; an expansion's high armor, PointArmor 6 and
+/// FullArmor 24 (`> Tunnel Expansions > High armor underground`, placeholders of design changes 0262 and 0264); no
+/// sight and Groupable (`tunnels.md > Expansions under construction`, design change 0254 answering Q0065 points 5
+/// and 6). Not given, so a placeholder: SymmetryType AAAA (plan decision T29). Its BuildQueue comes with slice M4-C.
 #[test]
 fn the_hideout_follows_the_design() {
     let def = ObjectKind::Hideout.def();
@@ -196,7 +197,7 @@ fn the_hideout_follows_the_design() {
             SymmetryType::AAAA
         )
     );
-    let armor = Armor { point: 1.0, full: 4.0 };
+    let armor = Armor { point: 6.0, full: 24.0 };
     assert_eq!(
         (def.max_hp, def.max_shields, def.armor, def.sight_range),
         (Some(400.0), None, armor, 0.0)

@@ -137,7 +137,7 @@ pub(super) struct TargetView {
     pub directional_armor: bool,
     /// Whom it is hidden from (`vision::hidden`, plan decision T32): no attacker whose owner it is hidden from sees
     /// it, so none targets it (`systems/combat.md > ValidTarget` 2). The hits on the list land all the same
-    /// (`damage::apply` doesn't ask: design change 0218).
+    /// (`damage::apply` doesn't ask: design changes 0218 and 0262).
     pub hiding: Hiding,
 }
 

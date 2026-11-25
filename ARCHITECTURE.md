@@ -673,9 +673,10 @@ or `Visible` for each player, and each player remembers the structures and resou
   client), through `Hiding::of(object)`, which the snapshots carry (combat's `TargetView::hiding`, `World`'s views)
   and `object_box_state` takes: a hidden object's state is capped at Explored, however Visible its tiles are and
   whatever is revealed, so targeting, `World::sees`, the gate and the client's `Sight` never see it. The memory never
-  records it (`remember` drops it, `Vision::seed` skips it). **Damage never asks** (design change 0218: "AoE
-  resolution includes hidden underground units in the area"): a hit on the tick's list lands whoever sees its
-  target (`combat/damage.rs`). Hidden units come with the Tunnel network (design change 0219).
+  records it (`remember` drops it, `Vision::seed` skips it). **Damage never asks** (`systems/combat.md >
+  AoEDamage`, design change 0262, keeping 0218: underground objects "take their share of any blast over them, even
+  unseen"): a hit on the tick's list lands whoever sees its target (`combat/damage.rs`). Hidden units come with the
+  Tunnel network (design change 0219).
 - **Paths** are planned from what each player knows (design changes 0040 and 0042; *Navigation > Path knowledge*):
   the records' footprints are the other players' structures and the resources it knows of, the map's from the start
   (0159); its own come from the live objects, as they are never recorded.
