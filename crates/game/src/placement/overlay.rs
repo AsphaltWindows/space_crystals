@@ -144,21 +144,36 @@ pub(super) fn draw_overlay(
     }
 }
 
-/// The overlay's mesh: each tile of `area` that is `drawn` tinted on `map`'s surface (a quad if it is flat, else four
-/// triangles around its centre), and a line along each of their edges where the area ends. Bevy world coordinates in
-/// the terrain's z band, relative to the overlay's entity.
+/// The overlay's mesh: each tile of `area` that is `drawn` tinted on `map`'s surface, and a line along each of their
+/// edges where the area ends ([`tint_area`]). Bevy world coordinates in the terrain's z band, relative to the
+/// overlay's entity.
 pub fn area_mesh(map: &Map, area: &BuildArea, drawn: impl Fn(TilePos) -> bool) -> ColorMesh {
     let mut mesh = ColorMesh::triangles();
-    let inside: HashSet<TilePos> = area.tiles().collect();
-    let tiles: Vec<TilePos> = area.tiles().filter(|&t| drawn(t)).collect();
+    tint_area(&mut mesh, map, area.tiles(), drawn, (AREA_FILL, AREA_EDGE));
+    mesh
+}
+
+/// Adds the area of the tiles `area` to `mesh`, as [`area_mesh`] draws one: each of its tiles that is `drawn` tinted
+/// `fill` on `map`'s surface (a quad if it is flat, else four triangles around its centre), and a line of `edge_color`
+/// along each of their edges where the area ends. Shared with the Tunnel Area overlay (`super::tunnel_areas`).
+pub fn tint_area(
+    mesh: &mut ColorMesh,
+    map: &Map,
+    area: impl IntoIterator<Item = TilePos>,
+    drawn: impl Fn(TilePos) -> bool,
+    (fill, edge_color): (Color, Color),
+) {
+    let area: Vec<TilePos> = area.into_iter().collect();
+    let inside: HashSet<TilePos> = area.iter().copied().collect();
+    let tiles: Vec<TilePos> = area.into_iter().filter(|&t| drawn(t)).collect();
     for &t in &tiles {
         let surface = tile_surface(map, t);
         let [nw, ne, se, sw, center] = surface.map(|(ground, height)| surface_vertex(ground, height, SURFACE_LIFT_Z));
         if surface[..4].iter().all(|&(_, height)| height == surface[0].1) {
-            mesh.quad([nw, ne, se, sw], AREA_FILL);
+            mesh.quad([nw, ne, se, sw], fill);
         } else {
             for (a, b) in [(nw, ne), (ne, se), (se, sw), (sw, nw)] {
-                mesh.triangle([a, b, center], AREA_FILL);
+                mesh.triangle([a, b, center], fill);
             }
         }
     }
@@ -173,19 +188,18 @@ pub fn area_mesh(map: &Map, area: &BuildArea, drawn: impl Fn(TilePos) -> bool) -
         ];
         for (neighbour, a, b) in sides {
             if !inside.contains(&neighbour) {
-                edge(&mut mesh, a, b);
+                edge(mesh, a, b, edge_color);
             }
         }
     }
-    mesh
 }
 
-/// A line from `a` to `b` [`EDGE_SU`] wide, each end at its own z (the terrain's depth grows southwards).
-fn edge(mesh: &mut ColorMesh, a: Vec3, b: Vec3) {
+/// A line from `a` to `b` [`EDGE_SU`] wide in `color`, each end at its own z (the terrain's depth grows southwards).
+fn edge(mesh: &mut ColorMesh, a: Vec3, b: Vec3, color: Color) {
     let along = (b - a).truncate();
     let side = along.normalize_or_zero().perp() * (EDGE_SU / 2.0);
     let side = side.extend(0.0);
-    mesh.quad([a - side, b - side, b + side, a + side], AREA_EDGE);
+    mesh.quad([a - side, b - side, b + side, a + side], color);
 }
 
 #[cfg(test)]
