@@ -72,9 +72,11 @@ fn an_order_the_player_cannot_pay_for_is_refused() {
 
 /// Design change 0233: "If the order is cancelled, replaced, or fails before construction starts, it is refunded at the
 /// current top price": replaced by a Move (a Move Shift-queued after it leaves it be); gone with its Agent's orders as
-/// the Agent walks into Tunnel 1 (an Enter before it); and its Agent killed before the start (Placeholder: Q0079 point
-/// 1, "as a failed order"; removed here, the removal path every death takes). Each gives back 1, the price of a Tunnel
-/// for the player who has Tunnel 1 only. Failing on arrival is `rules`'.
+/// the Agent walks into Tunnel 1 (an Enter before it); and its Agent gone before the start (design change 0289 point
+/// 1: "If an Agent is killed before construction starts, its order is refunded at the current top price"; removed here,
+/// the removal path every death takes, and killed in
+/// [`an_agent_killed_walking_to_build_gets_its_supplies_back`]). Each gives back 1, the price of a Tunnel for the player
+/// who has Tunnel 1 only. Failing on arrival is `rules`'.
 #[test]
 fn orders_gone_before_their_site_starts_refund_the_top_price() {
     let mut t = base()
@@ -105,6 +107,32 @@ fn orders_gone_before_their_site_starts_refund_the_top_price() {
     assert_eq!(supplies(&t, P1), 9);
     next_debug(&mut t, DebugCommand::Remove { id: id(4) });
     assert_eq!((supplies(&t, P1), refunds(&t).last()), (10, Some(&(id(4), 1))));
+    assert_eq!((ghosts(&t, P1), price(&t, P1)), (vec![], 1));
+}
+
+/// Design change 0289's Verification: "Kill an Agent walking to build: the Supplies come back" (point 1: "If an Agent
+/// is killed before construction starts, its order is refunded at the current top price"). Agent 2 walks to [`SITE`],
+/// north-east; six of player 2's Guards, on its way, are ordered to attack it and shoot it dead long before it gets
+/// there. Its order gives back 1, the price of a Tunnel for the player who has Tunnel 1 only, and its ghost goes.
+#[test]
+fn an_agent_killed_walking_to_build_gets_its_supplies_back() {
+    let mut builder = base().spawn(AGENT, Some(P1), point(10, 16)); // 2
+    for (x, y) in [(12, 12), (13, 12), (14, 12), (12, 11), (13, 11), (14, 11)] {
+        builder = builder.spawn(GUARD, Some(P2), point(x, y)); // 3 to 8
+    }
+    let mut t = builder.start();
+    t.without_auto_targeting().debug_at(1, supplies_of(P1, 5));
+    step(&mut t);
+    next(&mut t, P1, build(&[2], SITE, false));
+    assert_eq!((supplies(&t, P1), ghosts(&t, P1)), (4, vec![(id(2), SITE)]));
+    next(&mut t, P2, order(&[3, 4, 5, 6, 7, 8], OrderKind::Attack(id(2)), false));
+    step_until(&mut t, WALK, "the Guards kill Agent 2", |t| {
+        t.sim().object(id(2)).is_none()
+    });
+    let killed = (t.events().iter()).any(|(_, e)| matches!(*e, SimEvent::Died { id: dead, .. } if dead == id(2)));
+    assert!(killed, "killed, not removed");
+    assert_eq!(starts(&t), [], "before its construction started");
+    assert_eq!((supplies(&t, P1), refunds(&t)), (5, vec![(id(2), 1)]));
     assert_eq!((ghosts(&t, P1), price(&t, P1)), (vec![], 1));
 }
 

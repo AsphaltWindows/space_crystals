@@ -6,7 +6,7 @@
 //!   the defeat);
 //! - `price`: the price and its refunds (0233), and the books, a property test over random orders;
 //! - `rules`: where a Tunnel may stand: the overlap rule (0237), the Drillable area (0242), the hidden expansions
-//!   (0240), a unit on the site, and the lingering ghosts' reservations (Placeholder: Q0079 point 2).
+//!   (0240), a unit on the site, and the lingering ghosts' reservations (design change 0289 point 2).
 //!
 //! Every test runs under the invariants of `TestSim`, and the sites' ([`check_sites`]) after each tick it steps.
 

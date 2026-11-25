@@ -406,7 +406,7 @@ Layout validation can't disagree. **Never test a placement rule anywhere else: a
   Hideout's tiles follow `Method::Direct`'s rules (Buildable, stricter than design change 0239's Drillable).
 - **The overlap rule** (slice M4-E, `placement/tunnel_overlap.rs`; design change 0237, `factions/syndicate/tunnels.md >
   Tunnel Area Non-Overlap Rule`): a kind with a tier table has its Tier 1 area overlap no area of a Tunnel among the
-  occupants, any player's, sites included (Placeholder: Q0079 point 3), each at its tier as the check knows it
+  occupants, any player's, sites included (design change 0289 point 3), each at its tier as the check knows it
   (`Occupant::tier`: an object's tier now, a record's as last seen); touching is allowed. It is
   `WholeProblem::TunnelAreaOverlap`, in every mode: `Mode::Known` judges by what the player knows ("their remembered
   position and their tier as last seen"), `Mode::Arrival` by the truth, so a Tunnel upgraded unseen fails a build on
@@ -436,7 +436,7 @@ Layout validation can't disagree. **Never test a placement rule anywhere else: a
   yet started (a Deploy, a Build), current or Shift-queued, reserves its site against its owner's further placements,
   a worker build's and a Warp In's (`TileProblem::Reserved`, through `placement::check_reserving`, which takes them as
   `Occupant`s; an order without Shift replaces its worker's orders, so that worker's own sites don't count). A pending
-  Tunnel's whole Tier 1 area is reserved too, by the overlap rule (Placeholder: Q0079 point 2). They are derived from
+  Tunnel's whole Tier 1 area is reserved too, by the overlap rule (design change 0289 point 2). They are derived from
   the order queues (`Sim::pending_builds(player)`: `PendingBuild { worker, kind, site }`, the lingering ghosts), never
   stored; another player's never count, and they block no unit.
 - **The build area** (`BuildArea`, `Sim::build_area(player)`; `factions/gdo/structures/README.md > GDOBuildArea`) is the
@@ -1571,7 +1571,7 @@ section of its own.
   (`Sim::give_order`, `pay_build`); the gate refuses what the bank can't pay (`Reject::InsufficientSupplies`), counting
   what the orders it replaces give back. **Refunds** are the price once the order has gone, "the current top price",
   "not counting itself" (Q0085: not the docs' "100%"): for an order replaced (`Sim::drop_orders`), gone with its worker
-  off the map (`take_off_map`) or out of the game (`remove_objects`; Placeholder: Q0079 point 1), or failed on
+  off the map (`take_off_map`) or out of the game (`remove_objects`; design change 0289 point 1), or failed on
   arrival (`SimEvent::BuildRefunded`), and for a site cancelled (`Sim::cancel_site`, `SimEvent::SiteCancelled`); a
   destroyed site gives nothing back, nor do a defeated player's orders. So **the books** hold: the Supplies spent less
   those refunded equal the formula's total for what the player has, whatever the order of starts and cancels. A site

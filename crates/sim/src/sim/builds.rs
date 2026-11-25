@@ -17,9 +17,9 @@
 //!   can't gain or lose Supplies" (the same).
 //! - **When an order goes** before its site starts, it is refunded: a new order replaces it ([`Sim::drop_orders`],
 //!   from `Sim::give_order`), its worker leaves the map with its queue (`Sim::take_off_map`, the same), it fails on
-//!   arrival ([`Sim::step_deployments`]), or its worker leaves the game (`Sim::remove_objects`; Placeholder: Q0079
-//!   point 1, "An Agent killed before construction starts refunds the top price, as a failed order"). A defeated
-//!   player's orders go unrefunded: their bank counts for nothing any more (`economy::defeat`).
+//!   arrival ([`Sim::step_deployments`]), or its worker leaves the game (`Sim::remove_objects`; design change 0289
+//!   point 1: "If an Agent is killed before construction starts, its order is refunded at the current top price"). A
+//!   defeated player's orders go unrefunded: their bank counts for nothing any more (`economy::defeat`).
 //! - **The arrivals** ([`Sim::step_deployments`]): right after phase 5a, each worker whose walk to its site is over
 //!   (`orders::build`) starts building there, or its order fails.
 
@@ -95,7 +95,7 @@ impl Sim {
     /// its queue's in order. Derived from the orders, so a ghost goes with its order (module docs). The client draws
     /// them for their owner; they reserve their sites against the owner's further placements ([`Sim::deploy_check`],
     /// [`Sim::build_check`], [`Sim::warp_in_check`]), a Tunnel's its whole Tier 1 area against further Tunnels too
-    /// (Placeholder: Q0079 point 2), and block no one.
+    /// (design change 0289 point 2), and block no one.
     pub fn pending_builds(&self, player: PlayerId) -> Vec<PendingBuild> {
         self.objects
             .values()

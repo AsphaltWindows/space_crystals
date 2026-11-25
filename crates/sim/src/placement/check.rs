@@ -43,7 +43,7 @@ pub fn check(
 /// [`check`], with the sites the placing player has `reserved` for its pending worker builds, each the structure it
 /// will be where it will stand: their footprints' tiles ([`TileProblem::Reserved`], design change 0125), against a
 /// Deploy, a Warp In (slice M3-F) and a Build (slice M4-E), and a Tunnel's Tier 1 area against a Tunnel's
-/// ([`WholeProblem::TunnelAreaOverlap`], Placeholder: Q0079 point 2; `placement/tunnel_overlap.rs`).
+/// ([`WholeProblem::TunnelAreaOverlap`], design change 0289 point 2; `placement/tunnel_overlap.rs`).
 pub fn check_reserving(
     site: &Site<'_>,
     occupants: impl IntoIterator<Item = Occupant>,
