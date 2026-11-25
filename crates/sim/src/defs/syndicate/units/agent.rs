@@ -1,8 +1,8 @@
 //! The Agent — `factions/syndicate/units/agent.md`.
 
 use crate::defs::units::{
-    AttackAttrs, AttackType, FullyConnectedSubtype, LoadDef, MovementAttrs, TargetDomain, TargetType, UnitBase,
-    UnitDef, WorkerDef,
+    AttackAttrs, AttackType, DropOffChoice, FullyConnectedSubtype, LoadDef, MovementAttrs, TargetDomain, TargetType,
+    UnitBase, UnitDef, WorkerDef,
 };
 use crate::defs::{Armor, Category, Footprint, ObjectDef, ObjectKind};
 use crate::math::PI;
@@ -82,8 +82,9 @@ pub(crate) static AGENT: ObjectDef = ObjectDef {
                 pick_up_reach: 8.0, // PickUpReach: 8 space units from the station's edge (placeholder)
                 drop_off_reach: 8.0, // DropOffReach: 8 space units from the Supplies hatch on Side D (placeholder)
             }),
-            shares_patches: true,  // Patch sharing: any number of Agents may mine the same patch
-            keeps_drop_off: false, // `> Gathering rules`: the nearest Tunnel, picked again by each Gather
+            shares_patches: true, // Patch sharing: any number of Agents may mine the same patch
+            // `> Gathering rules`: the nearest Tunnel, picked again by each Gather
+            drop_off: DropOffChoice::FirstReturn,
             // `> Gathering rules > Search radius` (design change 0295): "within 6 grid units of itself, the Drone's
             // value (placeholder)".
             search_radius: 6.0,

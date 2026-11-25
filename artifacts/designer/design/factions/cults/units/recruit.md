@@ -55,16 +55,16 @@ Recruits construct Cults buildings from outside the site and can assist in-progr
 - RecruitmentHall: 300 Space Crystals, 1440 frames (90 seconds) BaseConstructionTime (with 1 Recruit)
 - Storage: 100 Space Crystals, 320 frames (20 seconds) BaseConstructionTime (with 1 Recruit)
 - Armory: 200 Space Crystals, 480 frames (30 seconds) BaseConstructionTime (with 1 Recruit). Requires: Storage.
-- Altar: TBD Space Crystals, TBD BaseConstructionTime. Requires: Storage.
-- Temple: TBD Space Crystals, TBD BaseConstructionTime. Requires: Altar.
-- Cathedral: TBD Space Crystals, TBD BaseConstructionTime. Requires: Temple.
-- Shrine: TBD Space Crystals, TBD BaseConstructionTime. Requires: Temple.
-- Garrison: TBD Space Crystals, TBD BaseConstructionTime. Requires: Armory.
-- Gunworks: TBD Space Crystals, TBD BaseConstructionTime. Requires: Armory.
-- Chop Shop: TBD Space Crystals, TBD BaseConstructionTime. Requires: Armory.
-- Machine Shop: TBD Space Crystals, TBD BaseConstructionTime. Requires: Chop Shop.
-- Airstrip: TBD Space Crystals, TBD BaseConstructionTime. Requires: Chop Shop.
-- Scrap Hangar: TBD Space Crystals, TBD BaseConstructionTime. Requires: Airstrip.
+- Altar: 150 Space Crystals, 480 frames (30 seconds) BaseConstructionTime (placeholder). Requires: Storage.
+- Temple: 200 Space Crystals, 640 frames (40 seconds) BaseConstructionTime (placeholder). Requires: Altar.
+- Cathedral: 250 Space Crystals, 640 frames (40 seconds) BaseConstructionTime (placeholder). Requires: Temple.
+- Shrine: 200 Space Crystals, 480 frames (30 seconds) BaseConstructionTime (placeholder). Requires: Temple.
+- Garrison: 150 Space Crystals, 400 frames (25 seconds) BaseConstructionTime (placeholder). Requires: Armory.
+- Gunworks: 150 Space Crystals, 480 frames (30 seconds) BaseConstructionTime (placeholder). Requires: Armory.
+- Chop Shop: 200 Space Crystals, 640 frames (40 seconds) BaseConstructionTime (placeholder). Requires: Armory.
+- Machine Shop: 150 Space Crystals, 480 frames (30 seconds) BaseConstructionTime (placeholder). Requires: Chop Shop.
+- Airstrip: 250 Space Crystals, 640 frames (40 seconds) BaseConstructionTime (placeholder). Requires: Chop Shop.
+- Scrap Hangar: 200 Space Crystals, 640 frames (40 seconds) BaseConstructionTime (placeholder). Requires: Airstrip.
 
 ## Armory Entry
 

@@ -192,12 +192,12 @@ mod tests {
     }
 
     /// Plan decision T34: an Egress Node takes loads anywhere, a Tunnel at its crystal hatch on Side B and its
-    /// Supplies hatch on Side D, and nothing else takes any.
+    /// Supplies hatch on Side D, a Storage anywhere (slice M5-D), and nothing else takes any.
     #[test]
-    fn only_the_egress_node_and_the_tunnel_take_loads() {
+    fn only_the_egress_node_the_tunnel_and_the_storage_take_loads() {
         for &kind in ObjectKind::ALL {
             let expected = match kind {
-                ObjectKind::EgressNode => Some(DropOff::Anywhere),
+                ObjectKind::EgressNode | ObjectKind::Storage => Some(DropOff::Anywhere),
                 ObjectKind::Tunnel => Some(DropOff::Hatches {
                     crystals: B,
                     supplies: D,

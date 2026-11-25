@@ -3,10 +3,11 @@
 
 use glam::Vec2;
 
-use crate::defs::WorkerDef;
+use crate::defs::{DropOffChoice, WorkerDef};
 use crate::economy::drop_off::{self, DropPoint};
 use crate::economy::gathering::is_drop_off;
 use crate::ids::{ObjectId, PlayerId};
+use crate::shape::Shape;
 use crate::sides::SideLetter;
 use crate::units::Tick;
 
@@ -29,6 +30,19 @@ pub(super) fn nearest_drop_off<'a>(world: &'a World, pos: Vec2, owner: Option<Pl
     drop_off::nearest(pos, own.map(|(node, crystals)| (node, *crystals)))
 }
 
+/// **Placeholder (Q0102 point 1)**, for a worker that chooses at each return (`DropOffChoice::EachReturn`: the
+/// Recruit): the drop-off of `owner` nearest to `from`, the patch the load comes from, **edge to edge** (the gap
+/// between the patch and where the drop-off takes Space Crystals), the lowest id among equals. Only those that take
+/// loads now are looked at (`World::drop_offs`: a completed Storage).
+fn nearest_to_patch<'a>(world: &'a World, from: &Shape, owner: Option<PlayerId>) -> Option<&'a View> {
+    owner?;
+    (world.drop_offs())
+        .filter(|(node, _)| node.owner == owner)
+        .map(|(node, crystals)| (node, crystals.shape.gap(from)))
+        .min_by(|a, b| a.1.total_cmp(&b.1))
+        .map(|(node, _)| node)
+}
+
 /// The way back, and the wait at a hatch: `since` is the tick the worker came within reach of the hatch it waits
 /// at (`GatherPhase::AtHatch`), `None` while it is on its way (`GatherPhase::ToDropOff`).
 pub(super) fn to_drop_off(
@@ -48,6 +62,18 @@ pub(super) fn to_drop_off(
     {
         return find_another(kind, state, unit, def, world, claims);
     }
+    // Placeholder (Q0102 point 1): the Recruit's return starts (it has read no drop-off yet), and takes the Storage
+    // nearest to its patch, or to where the patch was, whichever it used before. One lost on the way was replaced by
+    // the removal path, as any worker's is (design change 0170).
+    let starts = def.drop_off == DropOffChoice::EachReturn && state.node.is_none();
+    let chosen = (starts && matches!(*kind, OrderKind::Gather(_))).then(|| {
+        let from = match site(*kind, state, unit, world) {
+            Site::Patch(patch) => patch.shape,
+            Site::Gone(spot) => spot,
+            Site::Station(_) | Site::Nowhere => unit.shape(),
+        };
+        nearest_to_patch(world, &from, unit.owner).map(|node| node.id)
+    });
     let (pos, owner) = (unit.pos, unit.owner);
     let Some(worker) = unit.worker.as_deref_mut() else {
         return Flow::Done;
@@ -74,6 +100,9 @@ pub(super) fn to_drop_off(
         // nearest Tunnel here, as its first return starts, and keeps it (design change 0255).
         _ => {
             let nearest = || nearest_drop_off(world, pos, owner).map(|node| node.id);
+            if let Some(chosen) = chosen {
+                worker.drop_off = chosen;
+            }
             worker.drop_off = worker.drop_off.or_else(nearest);
             worker.drop_off.and_then(own_drop_off)
         }

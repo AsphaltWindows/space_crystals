@@ -110,7 +110,7 @@ Each faction's unit and building docs define the right-click resolution and capa
 ### Sets BaseCommandState:
 - CommandType = Enter
 - TargetLocation = None
-- TargetObject = Tunnel (ObjectInstance)
+- TargetObject = the structure being entered (ObjectInstance): a Tunnel, Armory, Altar, Garrison, Bunker, or any other structure that holds units (Q0108)
 
 ## BaseCommandState[UnitBase]
 The parameters set by the currently executing command that define the unit's objective. Set when a command is dequeued and executed. Read by the base behavior to determine what the unit should be doing. Parameterized by UnitBase as different bases may require different command parameters.

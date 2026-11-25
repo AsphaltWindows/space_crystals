@@ -1,6 +1,6 @@
 //! The Drone — `factions/colonists/units/drone.md`.
 
-use crate::defs::units::{LoadDef, MovementAttrs, UnitBase, UnitDef, WorkerDef};
+use crate::defs::units::{DropOffChoice, LoadDef, MovementAttrs, UnitBase, UnitDef, WorkerDef};
 use crate::defs::{Armor, Category, Footprint, ObjectDef, ObjectKind, Recipe};
 use crate::math::PI;
 use crate::player::Faction;
@@ -67,10 +67,10 @@ pub(crate) static DRONE: ObjectDef = ObjectDef {
                 drop_off_reach: 8.0, // DropOffReach: 8 space units (the design's placeholder)
             },
             supplies: None,
-            shares_patches: false, // > Patch Occupancy (one Drone per patch)
-            keeps_drop_off: true,  // > Assigned Drop-off
-            search_radius: 6.0,    // > Patch Occupancy > Search radius: 6 grid units (placeholder, design change 0123)
-            pass_through: true,    // > Gathering Drones pass through each other (design change 0106)
+            shares_patches: false,             // > Patch Occupancy (one Drone per patch)
+            drop_off: DropOffChoice::Assigned, // > Assigned Drop-off
+            search_radius: 6.0, // > Patch Occupancy > Search radius: 6 grid units (placeholder, design change 0123)
+            pass_through: true, // > Gathering Drones pass through each other (design change 0106)
             // It deploys instead (`deploy`, plan decision T51).
             builds: &[],
         }),

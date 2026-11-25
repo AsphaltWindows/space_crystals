@@ -1,12 +1,11 @@
 //! The Storage — `factions/cults/economy.md > Storage`.
 
-use crate::defs::structures::{StructureDef, SymmetryType};
+use crate::defs::structures::{DropOff, StructureDef, SymmetryType};
 use crate::defs::{Armor, Category, Footprint, ObjectDef, ObjectKind};
 use crate::player::Faction;
 
 /// `factions/cults/economy.md > Storage`: "Drop-off point for Space Crystals collected by Recruits", and the Armory's
-/// TechPrerequisite (`factions/cults/structures/armory.md`). Its drop-off comes with slice M5-D, its construction by
-/// Recruits with slice M5-E, and the starting one with slice M5-B. "ObjectInterfaceState: None (info display only)".
+/// TechPrerequisite (`factions/cults/structures/armory.md`). Its construction by Recruits comes with slice M5-E, and the starting one with slice M5-B. "ObjectInterfaceState: None (info display only)".
 pub(crate) static STORAGE: ObjectDef = ObjectDef {
     kind: ObjectKind::Storage,
     name: "Storage",
@@ -37,7 +36,9 @@ pub(crate) static STORAGE: ObjectDef = ObjectDef {
         onto: None,
         constructs: &[],
         warp_in: &[],
-        drop_off: None, // the Recruits' drop-off: slice M5-D
+        // "Multiple Recruits can drop off Space Crystals simultaneously"; `factions/cults/units/recruit.md >
+        // Gathering`: DropOffReach is measured to "the Storage's edge" (slice M5-D).
+        drop_off: Some(DropOff::Anywhere),
         underground: false,
         tunnel: None,
         site: None, // built by Recruits: slice M5-E
@@ -56,7 +57,8 @@ mod tests {
     use crate::defs::cults::tests::assert_structure;
 
     /// 2×2, AAAA, MaxHP 250, PointArmor 1, FullArmor 6 (Placeholder (Q0094): the rule's would be 4), SightRange 3,
-    /// Groupable, no TechPrerequisite. Its drop-off comes with slice M5-D, its site with slice M5-E.
+    /// Groupable, no TechPrerequisite; Recruits drop off anywhere at it, any number at once. Its site comes with
+    /// slice M5-E.
     #[test]
     fn the_storage_follows_the_design() {
         let structure = assert_structure(
@@ -72,8 +74,8 @@ mod tests {
         assert_eq!(structure.requires, &[][..]);
         assert_eq!(
             (structure.production, structure.drop_off, structure.site),
-            (None, None, None),
-            "slices M5-D and M5-E"
+            (None, Some(DropOff::Anywhere), None),
+            "its site: slice M5-E"
         );
     }
 }

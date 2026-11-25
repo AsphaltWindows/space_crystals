@@ -6,7 +6,14 @@ Tier 2 major building of the Tech/Weaponry branch. A scavenger's garage where Re
 ## Constructed by - Recruit
 ## TechPrerequisite - player owns at least one Armory
 
-Size, SymmetryType, MaxHP, armor, SightRange, Groupable, and ObjectInterfaceState: TBD. Space Crystals cost and construction time are listed under the Recruit's Constructs list (see Recruit > Building).
+Size, armor and other stats: see Placeholder stats below. Space Crystals cost and construction time are listed under the Recruit's Constructs list (see Recruit > Building).
 
 ## Production
 Produces Cults vehicles: the **Jackal** ( light vehicle, factions/cults/units/jackal.md). Each vehicle consumes multiple Recruits (number set per vehicle type), and its Unit Control cost equals the number of Recruits consumed. **Production works like the Armory** (user, 2026-11-26; factions/cults/structures/armory.md > Training): Recruits enter and join an internal pool; orders are queueable and serial; queuing an order deducts its Space Crystals cost and **reserves the vehicle's number of Recruits** from the pool (an order can only be queued if enough unreserved Recruits are inside); when it finishes, they are consumed and the vehicle exits to the RallyPoint. Eject All and Cancel work as at the Armory (cancel returns the reserved Recruits to the pool). Internal capacity, queue size, sides: TBD.
+
+**Placeholder stats** (designer, 2026-11-26, at the user's request: provisional numbers so the Director can implement; tune in the numbers pass):
+- Size 3x3; SymmetryType ABAC; EntranceSide B, ExitSide C (like the Armory); MaxHP 450; PointArmor 1, FullArmor 9; SightRange 4 grid units; Groupable true.
+- Cost and time: Recruit > Constructs (200 SC, 640 frames).
+- InternalRecruitCapacity 10; production queue 10 orders.
+- **Jackal**: 2 Recruits, 75 Space Crystals, 320 frames (20 seconds).
+- Panel like the Armory's: **Q: Build Jackal**, **A: Eject All**, **C: Set Rally Point**, **X: Cancel Production** (refunds the crystals and returns the reserved Recruits).

@@ -1141,7 +1141,7 @@ writes the mover's goal and the target the attack engages, and reads `Mover::sta
   `gather/station/spot.rs` (the job at a Supply Delivery Station), `gather/deliver.rs` (the way back and the line at
   a hatch), `gather/claims.rs`, `gather/search.rs`, `gather/legs.rs` and `gather/site.rs` (the patch or the station as
   the owner knows it, design change 0139), `orders/world/gathering.rs`;
-  slices M3-H, M3-H3, M4-D and M4-I, plan decisions T17 and T34; `factions/colonists/units/drone.md`, whose rules
+  slices M3-H, M3-H3, M4-D, M4-I and M5-D, plan decisions T17, T34 and T58; `factions/colonists/units/drone.md`, whose rules
   design changes 0123 and 0127 to 0141 settled, answering question Q0037; `factions/syndicate/units/agent.md >
   Gathering`, design changes 0255 and 0256): one behaviour for the Gather and the Drop Off order of **every worker
   type** and both resources, in
@@ -1149,11 +1149,24 @@ writes the mover's goal and the target the attack engages, and reads `Mover::sta
   between the Drone and the Agent is data: the worker's `WorkerDef` and the drop-off's `StructureDef::drop_off`.
   - **Agents** (M4-D): `WorkerDef::shares_patches` takes a type out of the occupancy below altogether (it neither
     occupies, waits for nor claims a patch, and isn't in `World::patch_mined` or `waited_at`, so a Drone and an Agent
-    mine one patch together); without `keeps_drop_off` a Gather begins with no AssignedDropOff and takes the nearest
+    mine one patch together); with `WorkerDef::drop_off` (`DropOffChoice`) `FirstReturn` and not `Assigned` (the
+    Drone's) a Gather begins with no AssignedDropOff and takes the nearest
     drop-off as its first return starts, keeping it for that Gather (there is no Set Drop-off for the type: the gate's
     `Sim::sets_drop_off`). "Nearest" is by the centre of the crystal point, whatever the load
     (`economy::drop_off::nearest`, the one rule of the return leg and of the removal path): a Tunnel's crystal hatch
     (design change 0292 point 2: "the same measure as for crystals"), an Egress Node's own centre.
+  - **Recruits** (M5-D, plan decision T58; `factions/cults/units/recruit.md > Gathering`, `factions/cults/economy.md >
+    Storage`): data again. `shares_patches`, no `pass_through` (design change 0106: Recruits collide while they
+    gather), the Storage's `DropOff::Anywhere`, and `DropOffChoice::EachReturn`: **Placeholder (Q0102 point 1)**, as
+    each return starts (`state::Gather::node` is `None`) the Recruit takes the own completed Storage nearest to its
+    patch, **edge to edge** (`deliver::nearest_to_patch`), and with none it idles holding its load (point 2). One
+    lost on the way is replaced by the removal path as any worker's is. Within what the design says a face holds
+    (4 to 5 Recruits a 2-tile face) nothing jams; with more Recruits than lanes they stand head-on and starve one
+    another, which no existing rule resolves (question Q0109: `tests/recruit_gathering/jam.rs`, ignored).
+    **Measured** (`tests/recruit_gathering/`): one Recruit at gaps of 1, 2 and 3 tiles makes a trip in 24, 56 and 88
+    ticks (1.33, 0.57 and 0.36 Space Crystals per second; the design's formula gives 1.45, 0.59 and 0.37); 10 on an
+    8-patch field with three Storages, 12.9. `tests/recruits_perf.rs` (ignored, release): 60 Recruits on 22 patches
+    with four Storages, a mean of 0.062 ms and a p99 of 0.089 ms a whole sim tick (load average 2.7).
   - **Supplies** (M4-I; `factions/syndicate/units/agent.md > Gathering > Supplies`, design change 0256): a Gather on a
     Supply Delivery Station (`Site::Station`, the station as the owner knows it) runs the same phases, for a worker type
     with `WorkerDef::supplies` (the Agent; the gate's `Sim::gatherers_among`, `resolve`'s station rule). `Mining` at a
@@ -1657,8 +1670,9 @@ section of its own.
   patch. `Sim::returning_drones(node)` is the Egress Node's F.
   **Worker types and drop-offs are data** (slice M4-D, plan decision T34): a `WorkerDef` has a `LoadDef` per
   resource (`crystals`, and `supplies`, the Agent's since slice M4-I: 1 a trip, 48 frames to pick up and 48 to unload,
-  reaches of 8 su, `WorkerDef::load(Resource)`), `shares_patches`, `keeps_drop_off`, `search_radius`
-  and `pass_through`; `StructureDef::drop_off` is `None`, `DropOff::Anywhere` (the Egress Node) or
+  reaches of 8 su, `WorkerDef::load(Resource)`), `shares_patches`, `drop_off` (`DropOffChoice`: `Assigned`, the
+  Drone; `FirstReturn`, the Agent; `EachReturn`, the Recruit, slice M5-D), `search_radius`
+  and `pass_through`; `StructureDef::drop_off` is `None`, `DropOff::Anywhere` (the Egress Node, the Storage) or
   `DropOff::Hatches { crystals, supplies }` (the Tunnel: Sides B and D, design change 0248; `DropOff::hatch`).
   `Worker::resource` (`defs::Resource`, Crystals by default) is what the load is, kept in saves and hashed only while
   it is Supplies; a delivery credits the bank of its resource, and `SimEvent::ResourcesDelivered` says which.
@@ -3764,7 +3778,7 @@ The faction's own mechanics come next, each only if it has them (M3's and M4's i
     - goldens of its opening and of a game against another faction, both players scripted (`tests/golden/colonists.rs`,
       `testing::colonists::skirmish`; `tests/golden/syndicate.rs`, `testing::syndicate::skirmish`);
     - its economy oracle against the design's targets (`tests/economy_oracle/`, `docs/economy_oracle.md`);
-    - a perf test of its crowds (`tests/drones_perf.rs`, `tests/agents_perf.rs`) and an ignored 10-minute soak of the
+    - a perf test of its crowds (`tests/drones_perf.rs`, `tests/agents_perf.rs`, `tests/recruits_perf.rs`) and an ignored 10-minute soak of the
       golden game (`tests/skirmish_soak.rs`, `tests/syndicate_soak.rs`: invariants, books, no stuck order, the hash
       stable over two runs; the Syndicate's adds the network's invariants, `check_network`, and plays on past the
       golden's end with more on both sides);
