@@ -1020,7 +1020,7 @@ Approach: thin vertical slices the user can run and see, each verified by tests 
   - **Left as built:** an attacker killed in the tick its blast lands still gets a reveal entry. It has no visible effect, since the attacker is removed that tick.
 
 ## In progress
-  - **M4-L Syndicate oracle and goldens** (Opus; brief `scratchpad/briefs/m4l-syndicate-oracle.md`): `testing::syndicate`, the oracle by 0259's method (the opening and the 0–2 GU rows reported as blocked by Q0076/Q0088), and `syndicate_opening` and `syndicate_vs_gdo` with the patch 3 GU from the hatch. `syndicate_vs_gdo` is blessed after K lands, since the Guard needs an Optics Lab.
+  - **M4-L Syndicate oracle and goldens** (Opus; brief `scratchpad/briefs/m4l-syndicate-oracle.md`): `testing::syndicate`, the oracle by 0259's method (the opening and the 0–2 GU rows reported as blocked by Q0076/Q0088), and `syndicate_opening` and `syndicate_vs_gdo` with the patch 3 GU from the hatch. `syndicate_vs_gdo` is blessed after K lands, since the Guard needs an Optics Lab. Re-briefed for 0294: L makes the 64-frame MiningDuration and moves `dev_skirmish`'s Syndicate layout to 3 GU; the oracle checks rows from 3 GU, and rows 0–2 are recorded only.
   - **M4-G Tunnel upgrades** (Opus; brief `scratchpad/briefs/m4g-tunnel-upgrades.md`): Q upgrades to Tier 2 and Tier 3 for Supplies paid when ordered; one price rule for orders and refunds; the reserved area; checks by the truth; 480 frames; then `set_tier` and `reclaim`. It folds in 0283 (3 and 4 tiles to the edge). It reads own pending ghosts as not blocking an upgrade (the doc reserves them against Tunnel placements only).
   - **M4-K Prerequisites, the Optics Lab and the Chemical Plant** (Opus; brief `scratchpad/briefs/m4k-prerequisites.md`): generic Tech and Unit Prerequisites (T37), the two new expansions on placeholders (0229, 0260), and the Guard gated on an Optics Lab.
 - **Next**:
@@ -1198,7 +1198,7 @@ The user keeps feeding unit and other designs to the Designer, so expect increme
     - N7: the Specter.
   - **Questions:**
     - Q0059–Q0071 are all answered, by 0229–0267.
-    - Answered since revision 2: Q0077 (0288), Q0083 (0293), Q0078 (0283), Q0079 (0289), Q0080 (0290), Q0081 (0291), Q0082 (0292), Q0085 (0284) and Q0086 point 1 (0285). Open: Q0076 (with Q0088, the cost estimates 0286 asked for), Q0084, Q0086 points 2–5, Q0087 and Q0088. Q0076, the Agents' jam near the hatch, partly blocks L's oracle; the others don't block, and their slices build the proposals.
+    - Answered since revision 2: Q0076 and Q0088 (0294; Q0076's two "also to confirm" points are still with the user), Q0077 (0288), Q0083 (0293), Q0078 (0283), Q0079 (0289), Q0080 (0290), Q0081 (0291), Q0082 (0292), Q0085 (0284) and Q0086 point 1 (0285). Open: Q0076's two "also to confirm" points (the hatch square, the 6 GU search radius), Q0084, Q0086 points 2–5 and Q0087. None blocks; their slices build the proposals.
   - **Slice status:**
     - A: done (`fcd06dc`).
     - C: done (`f67df212`; Q0077).
@@ -1322,7 +1322,7 @@ The user keeps feeding unit and other designs to the Designer, so expect increme
 | Q0073 | AttackMove: does a chase given up by the Failure rule count as "can't reach" until 0230's triggers fire? (corridor cycle found by M3-G3) | no | answered by 0235 (A; M3-L4) |
 | Q0074 | AttackMove: should the unit's own movement re-check an enemy it rejected? As built, a unit that rejected a standing enemy across a wall doesn't take it after rounding the wall, unless it comes within weapon range | no | answered by 0243 (B, to try; M3-L5 measures the cost) |
 | Q0075 | A revealed attacker shooting at a target the player can't see: draw the shot whole (literal 0206) or clip it? | no | answered by 0244 (stricter than B; M3-L5) |
-| Q0076 | Agents jam head-on between a near patch (0–1 GU) and the hatch: 3+ Agents halve the income (5.33 against 12.5 SC/s). Pass through like Drones, move patches to 3 GU or more, or a right-of-way rule? | partly (M4-L's oracle; the first playable) | open; as built, Agents collide. The costs 0286 asked for went as Q0088 |
+| Q0076 | Agents jam head-on between a near patch (0–1 GU) and the hatch: 3+ Agents halve the income (5.33 against 12.5 SC/s). Pass through like Drones, move patches to 3 GU or more, or a right-of-way rule? | no (answered) | answered by 0294: Agents keep collision, mining 4 s, reference distance 3 GU (M4-L, re-briefed). The two "also to confirm" points (the hatch square, the search radius) are still with the user |
 | Q0077 | Eject while every unit of the type is in transit: refused or queued? And where an ejected unit with no rally waits: 1 GU out, as built, or farther? | no | answered by 0288 (as built; M4-I2 `4f31587f`: the marks and the verifications) |
 | Q0078 | Tunnel near the map edge: 0242's Verification (2 tiles from the edge is red) is one tile off its own rule | no | answered by 0283 (as built); F updates the placeholder comments |
 | Q0079 | Agent build orders: a refund if the Agent is killed before the start; does a pending ghost or a site reserve its whole area? | no | answered by 0289 (as built; M4-J1 `dd14dc38`: the red ghost; M4-I2 `4f31587f`: the marks and the refund test) |
@@ -1334,7 +1334,7 @@ The user keeps feeding unit and other designs to the Designer, so expect increme
 | Q0085 | Stale doc lines that later answers contradict (seven lines) | no | answered by 0284 (the docs corrected; as built); F updates the comments |
 | Q0086 | The EjectMenu's order, zero-count tiles and state after a click; when Tunnel Areas are drawn; recalling an all-held group | no | point 1 answered by 0285 (as built); points 2–5 open, with the user |
 | Q0087 | Does the Agent that finishes a Tunnel wait out the transit delay before it can leave? | no | open; as built in M4-E (no delay) |
-| Q0088 | The Agents' jam: what each fix costs (the reply to 0286 and 0287). It isn't head-on; the infantry sidestep exists in the code; only pass-through reaches 12.5 at 0–2 GU | partly, as Q0076 | open; prototypes saved in `scratchpad/q0076-costs/` |
+| Q0088 | The Agents' jam: what each fix costs (the reply to 0286 and 0287). It isn't head-on; the infantry sidestep exists in the code; only pass-through reaches 12.5 at 0–2 GU | no (answered) | answered by 0294: option (c) with a 4 s mining time; stage 0 documented; 1a not adopted |
 
 ## Design change entries
 Last triaged: 0282.
@@ -1574,7 +1574,7 @@ Last triaged: 0282.
 | 0256 Supplies gathering: shared stations, waiting at an empty station, switching resources loses the load; the notification waits for a notification system | done (M4-I, `9aca8972`); Q0082's three proposals as placeholders | answers Q0067 |
 | 0257 Syndicate panel letters on the 4x3 grid | partly done (M4-J2, `c5910e4d`: the Tunnel's and the Hideout's panels and the EjectMenu; M4-J1, `dd14dc38`: the Agent; M4-F, `2cbb777e`: the ExpandMenu); queued (M4-G: the upgrade's Q) | answers Q0068, as proposed |
 | 0258 Losing Tunnels: decay %, attacking neutral expansions, reclaiming, blocked cells (counted as occupied), defeat, and the enemy sees the tier | partly done (M4-A, `fcd06dc`: the tier seen and remembered; M4-H, `f456b0ca`: neutral expansions, decay, explicit Attack only, reclaiming, stranded units, defeat; M4-F, `2cbb777e`: neutral expansions block expansion placement); queued (M4-G: reclaiming at an upgrade's completion) | answers Q0069 |
-| 0259 The Syndicate economy check: measured to the hatch square; the stacked layout puts the Tunnels on opposite sides | queued (M4-L); the stacked layout is in M4-D's soak | answers Q0070 |
+| 0259 The Syndicate economy check: measured to the hatch square; the stacked layout puts the Tunnels on opposite sides | queued (M4-L, running); the stacked layout is in M4-D's soak. The 1 GU opening layout is replaced by 0294's 3 GU | answers Q0070 |
 | 0260 Placeholders for the Laser Turret, the Grenadier and the Chemical Plant, so they can be planned into M4; the Grenadier needs a projectile, AoE and Attack Ground combat spike | partly done (M4-O, `356d1a96`: the combat spike); queued (U the Grenadier, S1 and S2 the Laser Turret, K the Chemical Plant) | answers Q0071 (scope B) |
 | 0261 Area damage never hits underground objects unless targeted | void (replaced by 0262) | — |
 | 0262 Area damage does hit underground objects; expansions and the pop-up turret have high armor | partly done (M4-A, `fcd06dc`: damage never asks the hidden predicate; M4-O, `356d1a96`: area damage hits underground objects, even unseen); queued (S2: the pop-up turret's armour, per 0264) | answers Q0071's AoE-underground gap |
@@ -1609,4 +1609,5 @@ Last triaged: 0282.
 | 0291 The ExpandMenu's nine expansions hold fixed slots in table order, greyed while unavailable; the Laser Turret is always tenth | done (M4-F, `2cbb777e`; the turret's tenth slot is a `Planned` entry until S2) | answers Q0081 |
 | 0292 Supplies gathering: 8 su reaches; the nearest Tunnel measured to the crystal hatch; the old load lost when the new pick-up or mining ends | done (points 1 and 3 as built, M4-I `9aca8972`; point 2, M4-I2 `4f31587f`) | answers Q0082 |
 | 0293 Area damage: friendly fire; the reveal when damage lands, to the damaged objects' owners; Attack Ground keeps firing until another order; every shot and projectile drawn only over Visible tiles (replaces 0244) | done (M4-O2, `2e0f31f4`; points 1 and 2 as built by M4-O `356d1a96`) | answers Q0083 |
+| 0294 Agent MiningDuration 80 → 64 frames (4 s); Agents keep collision; the opening and the table checked from 3 GU (rows 0–2 theoretical); `dev_skirmish` and the reference layouts put the patch 3 GU from the hatch; the moving-unit sidestep is documented (stage 0) | in progress (M4-L, re-briefed: the constant, the tests it moves, `dev_skirmish`'s Syndicate layout, and the oracle from 3 GU) | answers Q0076 (except its two "also to confirm" points) and Q0088 |
 | 0014 GDO Airfield and aircraft | queued (Later: air) | |
