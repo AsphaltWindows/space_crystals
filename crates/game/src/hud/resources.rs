@@ -25,8 +25,14 @@
 //!     0143) over min(200, ⌊the unused tunnel-region cells of the player's Tunnels / 4⌋); in red while more is used
 //!     than available (`factions/syndicate/tunnels.md > Tunnel Space`: "usage is simply displayed over capacity (e.g.
 //!     12/10)"), as Beacon Capacity is.
-//! - **The Cults** show Space Crystals only, until their own resources (their Unit Control) exist in the sim (the
-//!   M2 plan, slice G).
+//! - **The Cults** (`factions/cults/overview.md > DisplayHud`; slice M5-C), left to right:
+//!   - Space Crystals, the bank;
+//!   - Unit Control as used / available (`Sim::army_cap`, plan decision T56): the usage of their Recruitment Halls
+//!     and their orphaned units over the sum of their Halls' capacities, rounded down (`factions/cults/economy.md >
+//!     RecruitmentHall > Cults Unit Control HUD Display`; **Placeholder (Q0099 point 2)**). A Recruit counts once it
+//!     exists, not while in production (**Placeholder (Q0100 point 3)**). Over capacity, after a Hall is lost, it
+//!     reads so, as Beacon Capacity does, but not in red: the design gives the Cults' figure no warning ("for display
+//!     purposes only").
 //! - A local player who isn't in the game shows no resources.
 //!
 //! Placeholder look, the design giving none: one ASCII text per figure (the UI font has no other glyphs), with the
@@ -69,6 +75,8 @@ pub enum ResourceFigure {
     BeaconCapacity,
     /// `factions/syndicate/overview.md > Tunnel Space: current used / current available (max 200)` (Syndicate).
     TunnelSpace,
+    /// `factions/cults/overview.md > Unit Control: current used / current available` (the Cults).
+    CultsUnitControl,
 }
 
 /// `factions/gdo/overview.md > DisplayHud`.
@@ -95,9 +103,12 @@ const SYNDICATE: [ResourceFigure; 3] = [
     ResourceFigure::TunnelSpace,
 ];
 
+/// `factions/cults/overview.md > DisplayHud`.
+const CULTS: [ResourceFigure; 2] = [ResourceFigure::SpaceCrystals, ResourceFigure::CultsUnitControl];
+
 impl ResourceFigure {
     /// Every figure, in the order the bar shows them.
-    pub const ALL: [ResourceFigure; 9] = [
+    pub const ALL: [ResourceFigure; 10] = [
         ResourceFigure::SpaceCrystals,
         ResourceFigure::Supplies,
         ResourceFigure::Power,
@@ -107,16 +118,16 @@ impl ResourceFigure {
         ResourceFigure::Flux,
         ResourceFigure::BeaconCapacity,
         ResourceFigure::TunnelSpace,
+        ResourceFigure::CultsUnitControl,
     ];
 
-    /// The figures `faction`'s DisplayHud shows, left to right (module docs: the Cults' own resources don't exist
-    /// yet).
+    /// The figures `faction`'s DisplayHud shows, left to right.
     pub fn of(faction: Faction) -> &'static [ResourceFigure] {
         match faction {
             Faction::Gdo => &GDO,
             Faction::Colonists => &COLONISTS,
             Faction::Syndicate => &SYNDICATE,
-            Faction::Cults => &[ResourceFigure::SpaceCrystals],
+            Faction::Cults => &CULTS,
         }
     }
 }
@@ -168,6 +179,10 @@ pub fn resource_bar(sim: &Sim, player: PlayerId) -> Vec<(ResourceFigure, Reading
                 text: format!("{} {used}/{available}", resource.name()),
                 alert: used > available,
             }
+        }
+        ResourceFigure::CultsUnitControl => {
+            let (used, available) = sim.army_cap(player).map_or((0, 0), |cap| (cap.used, cap.available));
+            Reading::plain(format!("{} {used}/{available}", ArmyResource::CultsUnitControl.name()))
         }
     };
     ResourceFigure::of(p.faction)

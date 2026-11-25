@@ -194,13 +194,42 @@ fn the_syndicate_bar_reads_their_banks_and_tunnel_space() {
     assert_eq!(texts(&sim, P1)[2], "Tunnel Space 12/10!");
 }
 
-/// The Cults show only what exists of their DisplayHud: Space Crystals. A player not in the game shows nothing.
+/// `factions/cults/overview.md > DisplayHud` (slice M5-C): Space Crystals, and Unit Control as used / available
+/// (`factions/cults/economy.md > RecruitmentHall > Cults Unit Control HUD Display`). A Recruitment Hall on open Plane
+/// provides 20; two map Recruits, no Hall's, are orphaned points (**Placeholder (Q0101 point 2)**), and the Hall's first
+/// Recruit counts once it is out (**Placeholder (Q0100 point 3)**). The Hall lost (a Storage keeps the player in the
+/// game), its capacity goes and its Recruit stays, over capacity and not in red. A player not in the game shows
+/// nothing.
 #[test]
-fn the_cults_show_space_crystals_only() {
-    assert_eq!(ResourceFigure::of(Faction::Cults), [ResourceFigure::SpaceCrystals]);
-    let mut scenario = ScenarioBuilder::new(&vec![".".repeat(8); 8].join("\n")).build();
-    scenario.setup.players[1].faction = Faction::Cults;
-    let sim = Sim::new(&scenario);
-    assert_eq!(texts(&sim, PlayerId(2)), ["Space Crystals 0"]);
-    assert!(texts(&sim, PlayerId(3)).is_empty());
+fn the_cults_bar_reads_their_bank_and_unit_control() {
+    use ResourceFigure::{CultsUnitControl, SpaceCrystals};
+    let recruit = |x: i32| SpawnAt::Point(TilePos::new(x, 20).center());
+    let mut t = ScenarioBuilder::new(&vec![".".repeat(24); 24].join("\n"))
+        .faction(PlayerId(2), Faction::Cults)
+        .spawn(ObjectKind::RecruitmentHall, Some(PlayerId(2)), tile(10, 8))
+        .spawn(ObjectKind::Recruit, Some(PlayerId(2)), recruit(2))
+        .spawn(ObjectKind::Recruit, Some(PlayerId(2)), recruit(4))
+        // A structure left when the Hall is lost: the player stays in the game.
+        .spawn(ObjectKind::Storage, Some(PlayerId(2)), tile(1, 1))
+        .start();
+    let figures: Vec<ResourceFigure> = resource_bar(t.sim(), PlayerId(2)).into_iter().map(|(f, _)| f).collect();
+    assert_eq!(figures, [SpaceCrystals, CultsUnitControl]);
+    assert_eq!(texts(t.sim(), PlayerId(2)), ["Space Crystals 0", "Unit Control 2/20"]);
+    t.run_until(191);
+    assert_eq!(
+        texts(t.sim(), PlayerId(2))[1],
+        "Unit Control 2/20",
+        "the Recruit in production isn't counted"
+    );
+    t.run(1);
+    assert_eq!(texts(t.sim(), PlayerId(2))[1], "Unit Control 3/20");
+    t.debug_at(
+        193,
+        sc_sim::DebugCommand::Remove {
+            id: sc_sim::ObjectId(1),
+        },
+    );
+    t.run(1);
+    assert_eq!(texts(t.sim(), PlayerId(2))[1], "Unit Control 3/0");
+    assert!(texts(t.sim(), PlayerId(3)).is_empty());
 }
