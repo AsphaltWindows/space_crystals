@@ -2169,3 +2169,4 @@ Q0053 pt1: orders accepted per new type at press, executed after toggle (B). Ent
 Rocketman MinRange (TBD). Entry 0203.
 Q0054: A for all (dropped target ignored rest of leg; back off mid-band; cornered gives up); locked Rocketman no MinRange. Entry 0204.
 Drone acceleration/drag x1.5 (top speed 8); re-measure requested for Q0055. Entry 0205.
+Q0056: revealed attacker's shots drawn along whole path (B). Entry 0206.
