@@ -96,7 +96,7 @@
 - `artifacts/director/m4-plan.md` is the planner's revision 2, which folds in 0229–0282. It adds R1 and R2 (code organization), O (combat spike), U (Grenadier), and S1 and S2 (Laser Turrets). The waves and the critical path are in `plan.md`'s M4 entry.
 - The common brief, `scratchpad/briefs/m4-common.md`, now binds T29–T54, cites the per-object design paths (0282) and the code-organization rules (T54). Update it whenever the plan's structure changes.
 - M4-R runs alone: no other slice beside R1 and R2, since the refactor touches nearly every file. Briefs written after it lands must use its new module layout.
-- The next question number is **Q0089**.
+- The next question number is **Q0090**.
 
 ## Code layout after M4-R (R1 `8eab2290`, R2 `c60b8d0f`)
 `ARCHITECTURE.md > Adding a unit or structure` is the guide. Point every brief at it.
