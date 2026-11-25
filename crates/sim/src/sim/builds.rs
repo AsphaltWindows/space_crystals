@@ -16,10 +16,12 @@
 //!   paid for what the player still has always equal the formula's total, so the order of starting and cancelling
 //!   can't gain or lose Supplies" (the same).
 //! - **The Laser Turret's price** (slice M4-S1, `SitePrice::Crystals`): "Cost: 100 Space Crystals (no Supplies)"
-//!   (`factions/syndicate/structures/laser_turret.md`), by the Tunnel's rules, with no scaling: paid as the order is
-//!   given, and refunded in full, its "current top price" being its price (question Q0084 points 4 and 5,
-//!   placeholders). Every price is in its def's resource ([`BuildPrice`]), and so is every refund of it; an order that
-//!   replaces Builds counts only the refunds in its own resource toward its price.
+//!   (`factions/syndicate/structures/laser_turret.md`), by the Tunnel's rules, with no scaling: "an Agent's turret is
+//!   paid **when the order is given** (ghost placed), like an Agent's Tunnel ..., with the same refunds if the order is
+//!   cancelled, replaced, fails, or the Agent is killed before construction starts" (design change 0297 point 4,
+//!   `factions/syndicate/structures/laser_turret.md > Construction`), in full, its "current top price" being its price.
+//!   Every price is in its def's resource ([`BuildPrice`]), and so is every refund of it; an order that replaces Builds
+//!   counts only the refunds in its own resource toward its price. Its cancelled site's 75% is `sim/sites.rs`'s.
 //! - **When an order goes** before its site starts, it is refunded: a new order replaces it ([`Sim::drop_orders`],
 //!   from `Sim::give_order`), its worker leaves the map with its queue (`Sim::take_off_map`, the same), it fails on
 //!   arrival ([`Sim::step_deployments`]), or its worker leaves the game (`Sim::remove_objects`; design change 0289
@@ -236,10 +238,9 @@ impl Sim {
     }
 
     /// `player` pays `price` for a Build order it has just given (design change 0233: "an Agent's build order pays the
-    /// Supplies when it is given"; a Laser Turret's Space Crystals alike). The gate made sure the bank holds them
-    /// ([`Sim::check_build`]).
+    /// Supplies when it is given"; a Laser Turret's Space Crystals alike, design change 0297 point 4: "paid **when the
+    /// order is given**"). The gate made sure the bank holds them ([`Sim::check_build`]).
     pub(super) fn pay_build(&mut self, player: PlayerId, price: BuildPrice) {
-        // Placeholder: Q0084 point 4 (a Laser Turret is paid as the order is given, as a Tunnel is).
         if let Some(bank) = self.players.iter_mut().find(|p| p.id == player) {
             let paid = price.pay(bank);
             debug_assert!(paid, "the gate checks the price of a Build (`Sim::check_build`)");
@@ -264,13 +265,13 @@ impl Sim {
     /// Design change 0233: the Build orders `dropped`, which have just gone before their sites started, in order, are
     /// "refunded at the current top price", each the price once it has gone ([`Sim::build_price`]), with a
     /// `SimEvent::BuildRefunded`. They went one at a time in order, so each of those after one still counted when it
-    /// went. A Laser Turret's is its whole price, which has no scaling.
+    /// went. A Laser Turret's is its whole price, which has no scaling (design change 0297 point 4: "with the same
+    /// refunds" as an Agent's Tunnel).
     pub(super) fn refund_builds(&mut self, dropped: &[Dropped]) {
         for (i, d) in dropped.iter().enumerate() {
             let owned = self
                 .owned_for_price(d.owner, d.kind)
                 .saturating_add(later_alike(dropped, i));
-            // Placeholder: Q0084 point 5 (a Laser Turret's order refunded in full).
             let Some(refund) = price_at(d.kind, owned) else {
                 continue;
             };

@@ -1,7 +1,8 @@
 //! Slice M4-S1's acceptance for the turret's fire, through the whole sim: 0260's "a turret kills a Guard in 4 shots",
 //! its rate (one shot per 24 ticks, 16 damage a second against armour 0) and its Universal domain against a test air
-//! unit (`defs::test_defs`); and its own pick (question Q0084 point 8, a placeholder): threatening targets first, the
-//! one it engages kept, ties by id, nothing of its own side, neutral or while auto-targeting is off; and its barrel.
+//! unit (`defs::test_defs`); and its own pick (design change 0298 point 8, `factions/syndicate/structures/laser_turret.md
+//! > Targeting`): threatening targets first, the one it engages kept, ties by id, nothing of its own side, neutral or
+//! while auto-targeting is off; and its barrel.
 
 use glam::Vec2;
 
@@ -162,9 +163,9 @@ fn its_universal_laser_hits_an_air_unit() {
     assert!(hits_on(&t, flyer).iter().any(|&(_, damage)| damage > 0.0));
 }
 
-/// Question Q0084 point 8 (a placeholder), BaseAutoTargeting's priority: "threatening targets first", then the closest.
-/// A Drone, which can't attack, stands nearer than a Guard: the turret shoots the Guard, which can, until it dies, and
-/// then the Drone.
+/// Design change 0298 point 8: "BaseAutoTargeting within Range, then the closest", BaseAutoTargeting's priority being
+/// "threatening targets first". A Drone, which can't attack, stands nearer than a Guard: the turret shoots the Guard,
+/// which can, until it dies, and then the Drone.
 #[test]
 fn it_shoots_what_threatens_it_first() {
     let (drone, guard) = (ObjectId(2), ObjectId(3));
@@ -177,8 +178,8 @@ fn it_shoots_what_threatens_it_first() {
     assert_eq!(targets[..5], [guard, guard, guard, guard, drone]);
 }
 
-/// Q0084 point 8: "it keeps its target while the target is valid and in range", whatever comes nearer meanwhile; of two
-/// alike at the same gap, the lower id first. Guards 2 and 3 stand 4 grid units east and south; Guard 4, spawned later
+/// Design change 0298 point 8: "It keeps its target while that target stays valid and in range", whatever comes nearer
+/// meanwhile; of two alike at the same gap, the lower id first ("ties broken deterministically"). Guards 2 and 3 stand 4 grid units east and south; Guard 4, spawned later
 /// half a grid unit north of the turret (where it shoots back), waits its turn, and then goes before Guard 3.
 #[test]
 fn it_keeps_its_target_and_breaks_ties_by_id() {

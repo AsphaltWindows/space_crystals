@@ -23,21 +23,21 @@ fn enemy(shooter: &Shooter, t: &TargetView) -> bool {
     t.owner.is_some() && shooter.owner().is_some() && t.owner != shooter.owner()
 }
 
-/// The target a structure engages this tick (`state.target`), as a unit holding position picks its own (question Q0084
-/// point 8, a placeholder: "BaseAutoTargeting within Range, then the closest, ties by id; it keeps its target while the
-/// target is valid and in range"):
+/// The target a structure engages this tick (`state.target`), as a unit holding position picks its own (design change
+/// 0298 point 8, `factions/syndicate/structures/laser_turret.md > Targeting`: "the turret has no commands and targets
+/// like a unit holding position: BaseAutoTargeting within Range (systems/controls/behaviors.md), then the closest, ties
+/// broken deterministically. It **keeps its target** while the target stays valid and in range"):
 /// - **It keeps** the one it engages while that is still an enemy's ValidTarget (`systems/combat.md > ValidTarget`:
 ///   destructible, in a domain its attack allows, seen by its owner) within Range and beyond MinRange.
 /// - **Else it picks** the best such target (`systems/controls/behaviors.md > BaseAutoTargeting > Target Selection
 ///   Priority`): **threatening** targets first, those whose own attack can target it (a structure stands on the
-///   ground: `super::object_domain`), then the **closest**, by the gap between the shapes, then the lowest id. The
-///   design's second criterion, the least rotation, counts for nothing: a structure fires in any direction (plan
-///   decision T49). None in range: it engages nothing.
+///   ground: `super::object_domain`), then the **closest**, by the gap between the shapes, then the lowest id (the
+///   deterministic tie-break). BaseAutoTargeting's second criterion, the least rotation, counts for nothing: a
+///   structure fires in any direction (plan decision T49). None in range: it engages nothing.
 ///
 /// Nothing while auto-targeting is off (`DebugCommand::SetAutoTargeting`), every target of a structure's being one it
 /// picked itself. A target it leaves is dropped as a unit's is (`AttackState::engage`): an aim at it is cancelled, a
 /// shot at it under way lands.
-// Placeholder: Q0084 point 8.
 pub(super) fn pick(state: &mut AttackState, shooter: &Shooter, targets: &Targets, auto_targeting: bool) {
     if !auto_targeting {
         state.engage(None);

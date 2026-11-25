@@ -248,8 +248,9 @@ pub enum SimEvent {
     /// A Build order of `worker`'s for a `kind` went before its site started, and its owner got `refund` back in the
     /// resource of its price (`construction::site::BuildPrice`): a Tunnel's in Supplies, the current top price
     /// (`factions/syndicate/tunnels.md > Cost Scaling > Construction Cost`, design change 0233), a Laser Turret's in
-    /// Space Crystals, all of it (slice M4-S1, question Q0084 point 5, a placeholder; `sim/builds.rs`): replaced by a
-    /// new order, failed on arrival, or gone with its worker (which may have left the game).
+    /// Space Crystals, all of it, its price having no scaling (slice M4-S1; design change 0297 point 4: "with the same
+    /// refunds" as an Agent's Tunnel; `sim/builds.rs`): replaced by a new order, failed on arrival, or gone with its
+    /// worker (which may have left the game).
     BuildRefunded {
         worker: ObjectId,
         kind: ObjectKind,
@@ -273,8 +274,9 @@ pub enum SimEvent {
     },
     /// `site`, a `kind` under construction, was cancelled (`ConstructionCommand::CancelConstruction`), and its owner
     /// got `refund` back in the resource of its price: a Tunnel's Supplies, the current top price (design change 0233),
-    /// a Laser Turret's Space Crystals, all of them (slice M4-S1, question Q0084 point 5, a placeholder). It left the
-    /// game (`Removed`), and its worker came out ([`SimEvent::LeftSite`]).
+    /// a Laser Turret's Space Crystals, 75% of them rounded down, like an expansion's (slice M4-S1; design change 0297
+    /// point 5: "75% refund for both, Agent-built or Tunnel-built"). It left the game (`Removed`), and its worker came
+    /// out ([`SimEvent::LeftSite`]).
     SiteCancelled {
         site: ObjectId,
         kind: ObjectKind,

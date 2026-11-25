@@ -26,6 +26,7 @@
 use serde::{Deserialize, Serialize};
 
 use crate::defs::{ExpansionDef, ObjectKind, Resource, SiteDef, SitePrice};
+use crate::economy::Refund;
 use crate::hash::{StateHash, StateHasher};
 use crate::ids::ObjectId;
 use crate::object::Object;
@@ -82,6 +83,19 @@ impl BuildPrice {
             Resource::Crystals => player.credit_crystals(self.amount),
             Resource::Supplies => player.credit_supplies(self.amount),
         }
+    }
+
+    /// What cancelling a site gives back, `self` being the price of the next one once the site has gone
+    /// (`Sim::build_price`) and `rule` its type's (`SiteDef::price`): a Tunnel's all of it, "the current top price"
+    /// (design changes 0233 and 0284); a Laser Turret's 75%, rounded down, "like an expansion" (design change 0297
+    /// point 5, `factions/syndicate/structures/laser_turret.md > Construction`: "Cancelling a site: 75% refund for
+    /// both, Agent-built or Tunnel-built"; `Refund::Expansion`).
+    pub fn cancelled(self, rule: SitePrice) -> Self {
+        let amount = match rule {
+            SitePrice::SuppliesPerOwned => self.amount,
+            SitePrice::Crystals(_) => Refund::Expansion.of(self.amount),
+        };
+        Self { amount, ..self }
     }
 }
 
@@ -347,5 +361,28 @@ mod tests {
             }
             assert_eq!(builds_any(builder), builder == ObjectKind::Agent, "{builder:?}");
         }
+    }
+
+    /// A price in its def's resource (`SiteDef::price`): a Tunnel's one Supply for each owned, a Laser Turret's 100
+    /// Space Crystals however many stand. A cancelled site gives back a Tunnel's whole "current top price" (design
+    /// changes 0233 and 0284), a Laser Turret's 75%, rounded down, like an expansion's (design change 0297 point 5).
+    #[test]
+    fn a_cancelled_turret_site_gives_back_three_quarters() {
+        let supplies = |amount| BuildPrice {
+            resource: Resource::Supplies,
+            amount,
+        };
+        let crystals = |amount| BuildPrice {
+            resource: Resource::Crystals,
+            amount,
+        };
+        let (tunnel, turret) = (SitePrice::SuppliesPerOwned, SitePrice::Crystals(100));
+        assert_eq!(
+            (BuildPrice::of(tunnel, 3), BuildPrice::of(turret, 3)),
+            (supplies(3), crystals(100))
+        );
+        assert_eq!(supplies(3).cancelled(tunnel), supplies(3));
+        assert_eq!(crystals(100).cancelled(turret), crystals(75));
+        assert_eq!(crystals(1).cancelled(turret), crystals(0));
     }
 }

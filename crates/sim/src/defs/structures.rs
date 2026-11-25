@@ -129,9 +129,11 @@ pub enum SitePrice {
     /// counting itself", `factions/syndicate/tunnels.md > Upgrade Costs`).
     SuppliesPerOwned,
     /// A fixed price in Space Crystals: the Laser Turret's 100 (`factions/syndicate/structures/laser_turret.md`:
-    /// "Cost: 100 Space Crystals (no Supplies)"). Paid as the order is given, like the Tunnel's (design change 0233),
-    /// and refunded in full by an order that goes before its site starts and by a cancelled site, the price having no
-    /// scaling (question Q0084 points 4 and 5, placeholders; slice M4-S1).
+    /// "Cost: 100 Space Crystals (no Supplies)"; slice M4-S1). Paid as the order is given, "with the same refunds" as
+    /// an Agent's Tunnel (design change 0297 point 4, `factions/syndicate/structures/laser_turret.md > Construction`):
+    /// an order that goes before its site starts gives back the current top price, all of it, the price having no
+    /// scaling. A cancelled site gives back "75%" of it, rounded down, "like an expansion" (0297 point 5;
+    /// `construction::site::BuildPrice::cancelled`).
     Crystals(u32),
 }
 
@@ -143,8 +145,9 @@ pub enum BuilderGoes {
     Network,
     /// Out onto the surface, beside the finished structure: the Laser Turret's Agent
     /// (`factions/syndicate/structures/laser_turret.md > Construction`: "the Agent emerges on the surface adjacent to
-    /// the finished structure (unlike Tunnels, where the Agent ends up inside the Tunnel Network)"). Where exactly is
-    /// `sim/sites.rs`'s (question Q0084 point 7, a placeholder).
+    /// the finished structure (unlike Tunnels, where the Agent ends up inside the Tunnel Network)"): "at the **first
+    /// clear spot next to the turret**, searched in a fixed order starting from the side it came from; if none is clear,
+    /// it waits inside until one is" (design change 0298 point 7; `sim/sites.rs`).
     Beside,
 }
 

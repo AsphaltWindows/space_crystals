@@ -1,8 +1,8 @@
 //! The Laser Turret an Agent builds (slice M4-S1; `factions/syndicate/structures/laser_turret.md > Construction`: "built
 //! using the same flow as Tunnel construction"): its TechPrerequisite, its price of 100 Space Crystals paid with the
-//! order and refunded in full, its site with the Agent inside, its 320 frames, and its Agent coming out beside it, or
-//! waiting inside while every spot beside it is taken; the site holds its fire until complete. The placeholders are
-//! question Q0084's (points 4 to 7).
+//! order and refunded in full by an order that goes (design change 0297 point 4), 75% of it by a cancelled site (0297
+//! point 5), its site with the Agent inside, its 320 frames, and its Agent coming out beside it, or waiting inside
+//! while every spot beside it is taken (design change 0298 point 7); the site holds its fire until complete.
 
 use super::*;
 use sc_sim::construction::site::BuildPrice;
@@ -130,12 +130,13 @@ fn the_turret_needs_an_optics_lab_and_100_space_crystals() {
     );
 }
 
-/// The Tunnel's flow with the turret's numbers: the order pays 100 Space Crystals at once, and no Supplies (question
-/// Q0084 point 4, a placeholder). On arrival the site appears with the Agent inside, off the map and so untargetable,
+/// The Tunnel's flow with the turret's numbers: the order pays 100 Space Crystals at once, and no Supplies (design
+/// change 0297 point 4: "paid **when the order is given**"). On arrival the site appears with the Agent inside, off
+/// the map and so untargetable,
 /// at 30 HP, 10% of 300 (`core/entities.md > ConstructionHP Rule`); it holds its fire at player 2's Guard in its range
 /// (design change 0234: a site "does nothing but Cancel"), and goes on though the Optics Lab is lost ("Constructions
 /// already started ... continue"). 320 ticks later it is a turret in operation, and the Agent stands beside it, at the
-/// corner it came from, south-west (Q0084 point 7, a placeholder), idle and facing away; the turret then fires.
+/// corner it came from, south-west (design change 0298 point 7), idle and facing away; the turret then fires.
 #[test]
 fn the_order_pays_100_and_the_site_grows_into_a_turret_with_the_agent_beside_it() {
     let mut t = field(true, true);
@@ -187,11 +188,11 @@ fn the_order_pays_100_and_the_site_grows_into_a_turret_with_the_agent_beside_it(
     assert_eq!(shots(&t, site)[0].1, guard);
 }
 
-/// Cancel Construction gives back the whole 100 Space Crystals (question Q0084 point 5, a placeholder: the price has no
-/// scaling, so the "current top price" is the price), and the Agent comes out at the centre of the footprint
-/// (`factions/syndicate/units/agent.md > While the Tunnel is under construction`).
+/// Cancel Construction gives back 75 of the 100 Space Crystals (design change 0297 point 5: "Cancelling a site: 75%
+/// refund for both, Agent-built or Tunnel-built (like an expansion)"), and the Agent comes out at the centre of the
+/// footprint (`factions/syndicate/units/agent.md > While the Tunnel is under construction`).
 #[test]
-fn a_cancelled_site_refunds_100_and_lets_the_agent_out_at_its_centre() {
+fn a_cancelled_site_refunds_75_and_lets_the_agent_out_at_its_centre() {
     let mut t = field(true, false);
     next(&mut t, P1, build_turret(&[2], TURRET_SITE));
     let (_, site) = until_started(&mut t, 2);
@@ -201,11 +202,11 @@ fn a_cancelled_site_refunds_100_and_lets_the_agent_out_at_its_centre() {
     let cancelled = SimEvent::SiteCancelled {
         site,
         kind: TURRET,
-        refund: 100,
+        refund: 75,
     };
     assert!(t.events().contains(&(tick, cancelled)));
     assert!(t.events().contains(&(tick, SimEvent::LeftSite { worker: id(2), site })));
-    assert_eq!((crystals(&t, P1), supplies(&t, P1), sites(&t)), (150, 5, vec![]));
+    assert_eq!((crystals(&t, P1), supplies(&t, P1), sites(&t)), (125, 5, vec![]));
     assert_eq!(t.pos(2), TURRET_CENTRE);
     assert!(idle(&t, 2));
 }
@@ -246,10 +247,11 @@ fn a_destroyed_site_loses_its_crystals_and_lets_the_agent_out() {
     assert_eq!((crystals(&t, P1), refunds(&t)), (50, vec![]));
 }
 
-/// An order that goes before its site starts is refunded in full (question Q0084 point 5), in its own resource: the
-/// refund of a turret's Build pays toward the turret's Build that replaces it (design change 0233's rule for the
-/// Tunnel's), and a Stop gives the 100 Space Crystals back; a turret's Build that replaces a Tunnel's gives the
-/// Tunnel's Supply back and takes the 100 Space Crystals, the Supply paying none of them.
+/// An order that goes before its site starts is refunded in full (design change 0297 point 4: "with the same refunds"
+/// as an Agent's Tunnel, whose price here has no scaling), in its own resource: the refund of a turret's Build pays
+/// toward the turret's Build that replaces it (design change 0233's rule for the Tunnel's), and a Stop gives the 100
+/// Space Crystals back; a turret's Build that replaces a Tunnel's gives the Tunnel's Supply back and takes the 100
+/// Space Crystals, the Supply paying none of them.
 #[test]
 fn an_order_that_goes_refunds_its_own_resource() {
     let mut t = field(true, false);
@@ -286,6 +288,32 @@ fn an_order_that_goes_refunds_its_own_resource() {
     );
 }
 
+/// Design change 0297 point 4: "the same refunds if the order is cancelled, replaced, fails, or the Agent is killed
+/// before construction starts", the whole price: the turret's Build fails on arrival, a turret of player 1's standing
+/// on its tile by then (`core/entities.md > Placement Validation > Worker-Built Structures`: "validates on arrival"),
+/// and the 100 Space Crystals come back; a second Build's come back as its Agent leaves the game on its way.
+#[test]
+fn an_order_that_fails_or_loses_its_agent_refunds_100() {
+    let mut t = field(true, false);
+    next(&mut t, P1, build_turret(&[2], TURRET_SITE));
+    assert_eq!(crystals(&t, P1), 50);
+    let blocker = DebugCommand::Spawn {
+        kind: TURRET,
+        owner: Some(P1),
+        at: SpawnAt::Tile(TURRET_SITE),
+        orientation: Default::default(),
+    };
+    next_debug(&mut t, blocker);
+    until_failed(&mut t, 2);
+    assert_eq!((crystals(&t, P1), refunds(&t)), (150, vec![(id(2), 100)]));
+    assert!(idle(&t, 2));
+
+    next(&mut t, P1, build_turret(&[2], at(16, 12)));
+    assert_eq!(crystals(&t, P1), 50);
+    next_debug(&mut t, DebugCommand::Remove { id: id(2) });
+    assert_eq!((crystals(&t, P1), refunds(&t)), (150, vec![(id(2), 100), (id(2), 100)]));
+}
+
 /// [`field`] with Agent 2's turret site, and player 1's eight debug-spawned turrets on the tiles around it, taking every
 /// spot beside it, until it is complete: the site and the turrets, in order from the north-west, row by row.
 fn surrounded() -> (TestSim, ObjectId, Vec<ObjectId>) {
@@ -316,8 +344,8 @@ fn surrounded() -> (TestSim, ObjectId, Vec<ObjectId>) {
     (t, site, turrets)
 }
 
-/// Question Q0084 point 7 (a placeholder): "if none is clear, it waits inside until one is". With every spot beside it
-/// taken, the Agent stays in the finished turret; once the turret north of it goes, it comes out there, in that tick.
+/// Design change 0298 point 7: "if none is clear, it waits inside until one is". With every spot beside it taken, the
+/// Agent stays in the finished turret; once the turret north of it goes, it comes out there, in that tick.
 #[test]
 fn with_no_spot_beside_it_clear_the_agent_waits_inside() {
     let (mut t, site, turrets) = surrounded();

@@ -21,12 +21,14 @@
 //!   network, free to leave at once (it walked into no Tunnel: no transit delay, `Held::entered`). A Laser Turret's
 //!   Agent comes out beside it instead (`BuilderGoes::Beside`; `factions/syndicate/structures/laser_turret.md >
 //!   Construction`: "On successful completion, the Agent emerges on the surface adjacent to the finished structure"):
-//!   at the first clear spot next to its footprint, searched from the side it came from ([`Sim::spot_beside`]), or,
-//!   with none clear, it waits inside until one is ([`Sim::step_beside`]; question Q0084 point 7, a placeholder).
+//!   "at the **first clear spot next to the turret**, searched in a fixed order starting from the side it came from;
+//!   if none is clear, it waits inside until one is" (design change 0298 point 7; [`Sim::spot_beside`],
+//!   [`Sim::step_beside`]).
 //! - **Cancel** ([`Sim::cancel_site`], `ConstructionCommand::CancelConstruction` on the site: "It does nothing but
 //!   Cancel"): the site goes, refunded at the current top price (design changes 0233 and 0284: "construction and
-//!   upgrade cancels refund the current top price"), a Laser Turret's in full (its price has no scaling: question
-//!   Q0084 point 5, a placeholder), and the Agent comes out.
+//!   upgrade cancels refund the current top price"), a Laser Turret's at 75% of its price, rounded down, like an
+//!   expansion's (design change 0297 point 5: "Cancelling a site: 75% refund for both, Agent-built or Tunnel-built";
+//!   `construction::site::BuildPrice::cancelled`), and the Agent comes out.
 //! - **Destruction** (`Sim::remove_objects`): "The Agent survives and emerges at the location. The Tunnel is lost and
 //!   any Supplies spent are lost."
 //!
@@ -35,10 +37,11 @@
 //! ([`Sim::site_builders`], [`Sim::release_builders`]); so does an Agent still waiting inside its finished Laser
 //! Turret.
 //!
-//! The Laser Turret's site is a Tunnel site in all that the design says of the flow: seen by the enemies, the Agent
-//! inside not (question Q0084 point 6, a placeholder: `vision::hidden` hides no surface site), and, built inside one of
-//! its owner's Tunnel Areas, no operation of that Tunnel's (Q0084 point 9, a placeholder: `tunnel::Operation` is a
-//! Tunnel's own). Until slice M4-S2 a turret finished inside an own Tunnel Area stands upright, as outside.
+//! The Laser Turret's site is a Tunnel site in all that the design says of the flow: "An **Agent's site is visible**
+//! on the surface like a Tunnel site (the Agent inside is not)" (design change 0297 point 6: `vision::hidden` hides no
+//! surface site), and "An **Agent's turret doesn't use a Tunnel's operation slot** ..., even inside that Tunnel's area:
+//! the Agent builds it, not the Tunnel" (design change 0298 point 9: `tunnel::Operation` is a Tunnel's own). Until
+//! slice M4-S2 a turret finished inside an own Tunnel Area stands upright, as outside.
 
 use glam::Vec2;
 
@@ -97,15 +100,15 @@ impl Sim {
         if let Some(orders) = self.objects.get_mut(&worker).and_then(|o| o.orders.as_mut()) {
             orders.current = None;
         }
-        // A surface site, which every player may see, its worker inside off the map and so seen by none (module docs).
-        // Placeholder: Q0084 point 6.
+        // A surface site, which every player may see, its worker inside off the map and so seen by none (design change
+        // 0297 point 6: "An Agent's site is visible ... (the Agent inside is not)").
         let id = self.insert_object(kind, Some(owner), site.center(), Some(site), None);
         if let Some(o) = self.objects.get_mut(&id) {
             o.construction = Some(Construction::new(def, Builder::Held(worker)));
             o.hp = o.max_hp();
         }
-        // The worker builds it, not a Tunnel whose area it may stand in: no Tunnel's operation slot is taken.
-        // Placeholder: Q0084 point 9.
+        // The worker builds it, not a Tunnel whose area it may stand in: no Tunnel's operation slot is taken (design
+        // change 0298 point 9).
         self.take_off_map(worker, Place::Site(id), false);
         self.events.push(SimEvent::SiteStarted { worker, site: id });
     }
@@ -142,8 +145,8 @@ impl Sim {
     /// The workers held in the structures they finished, waiting to come out beside them (`BuilderGoes::Beside`: a
     /// Laser Turret's Agent), in id order: each comes out at the first clear spot next to its structure's footprint
     /// ([`Sim::spot_beside`]), facing away from it, idle, with what it carries, with a `SimEvent::LeftSite`; with no
-    /// spot clear, it waits inside until a later tick (question Q0084 point 7, a placeholder). In the economy phase, as
-    /// an ejected unit: it never moves in the tick it appears, and phase 5f sees it.
+    /// spot clear, "it waits inside until one is" (design change 0298 point 7), a later tick. In the economy phase, as an
+    /// ejected unit: it never moves in the tick it appears, and phase 5f sees it.
     fn step_beside(&mut self) {
         if self.held.is_empty() {
             return;
@@ -181,9 +184,8 @@ impl Sim {
     /// it, and the direction out to there (`factions/syndicate/structures/laser_turret.md > Construction`: "the Agent
     /// emerges on the surface adjacent to the finished structure"): of the eight spots next to the footprint, its box
     /// against a side or a corner ([`BESIDE`]), the first clear one (`Sim::check_unit_fits`, the rule of every unit put
-    /// on the map), "searched in a fixed order starting from the side the Agent came from" ([`beside_order`]). `None`
-    /// if none is.
-    // Placeholder: Q0084 point 7 (the side it came from first, then by direction index; it waits if none is clear).
+    /// on the map), "searched in a fixed order starting from the side it came from" (design change 0298 point 7;
+    /// [`beside_order`]: its side first, then round both ways, ties by direction index). `None` if none is.
     fn spot_beside(&self, kind: ObjectKind, placement: &Placement, came_from: Vec2) -> Option<(Vec2, Vec2)> {
         let half = kind.def().half_extents()?;
         let footprint = Vec2::new(placement.w as f32, placement.h as f32) * (SU_PER_GU / 2.0);
@@ -233,8 +235,9 @@ impl Sim {
 
     /// Cancel Construction on site `site` (module docs): it leaves the game, its worker comes out at the centre of its
     /// footprint ([`Sim::release_builders`]), and its owner gets the current top price back (design change 0233, "the
-    /// current construction price, not counting itself": [`Sim::build_price`] once it has gone), in its resource, with
-    /// a `SimEvent::SiteCancelled`. A player whose only structure it was is defeated in the tick
+    /// current construction price, not counting itself": [`Sim::build_price`] once it has gone), in its resource, a
+    /// Laser Turret's 75% of it (design change 0297 point 5; `construction::site::BuildPrice::cancelled`), with a
+    /// `SimEvent::SiteCancelled`. A player whose only structure it was is defeated in the tick
     /// (`economy::defeat`: the defeat check counts the structures at the end of the economy phase).
     pub(super) fn cancel_site(&mut self, site: ObjectId) {
         // A Tunnel's expansion has its own refund (slice M4-F, design change 0254).
@@ -248,8 +251,8 @@ impl Sim {
             return;
         };
         self.remove_objects(&[site]);
-        // Placeholder: Q0084 point 5 (a Laser Turret's site refunded in full: its price has no scaling).
-        let refund = self.build_price(owner, kind);
+        // The price once it has gone, all of it for a Tunnel, 75% for a Laser Turret (design change 0297 point 5).
+        let refund = (site_def(kind)).and_then(|def| Some(self.build_price(owner, kind)?.cancelled(def.price)));
         if let (Some(refund), Some(bank)) = (refund, self.players.iter_mut().find(|p| p.id == owner)) {
             refund.refund(bank);
         }
@@ -258,8 +261,9 @@ impl Sim {
     }
 
     /// The workers held in the sites among `gone`, which are about to leave the game (sorted by id), each with its
-    /// site and the centre of its footprint, where it will come out ([`Sim::release_builders`]); then those still
-    /// waiting inside a finished structure among them, to come out beside it ([`Sim::step_beside`]), in id order.
+    /// site and the centre of its footprint, where it will come out ([`Sim::release_builders`]); then, in id order, the
+    /// workers still waiting inside a finished structure among them for a spot beside it ([`Sim::step_beside`]), who
+    /// come out at the centre of its footprint too.
     pub(super) fn site_builders(&self, gone: &[ObjectId]) -> Vec<(ObjectId, ObjectId, Vec2)> {
         let mut builders: Vec<(ObjectId, ObjectId, Vec2)> = (gone.iter())
             .filter_map(|id| {
@@ -306,9 +310,9 @@ impl Sim {
 mod tests {
     use super::*;
 
-    /// Question Q0084 point 7 (a placeholder): the spots beside a footprint are tried from the side the worker came
-    /// from, then further and further round, of two equally far the lower index first, and the opposite side last; a
-    /// direction between two goes to the nearer. Each order tries all eight.
+    /// Design change 0298 point 7: the spots beside a footprint are tried "in a fixed order starting from the side it
+    /// came from", then further and further round, of two equally far the lower index first, and the opposite side
+    /// last; a direction between two goes to the nearer. Each order tries all eight.
     #[test]
     fn the_spots_beside_are_tried_from_the_side_it_came_from() {
         assert_eq!(beside_order(Vec2::new(1.0, 0.0)), [0, 1, 7, 2, 6, 3, 5, 4]);

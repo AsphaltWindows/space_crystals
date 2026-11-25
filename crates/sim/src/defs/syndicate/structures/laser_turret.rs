@@ -12,8 +12,9 @@ use crate::player::Faction;
 
 /// `factions/syndicate/structures/laser_turret.md`: "Syndicate defensive structure capable of attacking both ground and
 /// air units". Upright (`> Upright vs Pop-up`): "a normal surface structure, always visible. Costs no Tunnel Space"; it
-/// blocks movement like any building (question Q0084 point 3, a placeholder). It has no commands: it picks its own
-/// targets (`combat::structures`).
+/// "blocks movement like any building" (design change 0296 point 3, `factions/syndicate/structures/laser_turret.md >
+/// Pop-up rules`). "The turret has no commands" (design change 0298 point 8): it picks its own targets
+/// (`combat::structures`).
 pub(crate) static LASER_TURRET: ObjectDef = ObjectDef {
     kind: ObjectKind::LaserTurret,
     name: "Laser Turret",
@@ -48,9 +49,8 @@ pub(crate) static LASER_TURRET: ObjectDef = ObjectDef {
         constructs: &[],
         warp_in: &[],
         drop_off: None,
-        // Upright: a surface structure, which blocks movement on its footprint like any building. The pop-up form,
-        // underground while it has no target, is slice M4-S2's.
-        // Placeholder: Q0084 point 3.
+        // Upright: a surface structure, which "blocks movement like any building" on its footprint (design change 0296
+        // point 3). The pop-up form, underground while it has no target, is slice M4-S2's.
         underground: false,
         tunnel: None,
         site: Some(LASER_TURRET_SITE), // Constructed by - Agent (anywhere)
@@ -85,8 +85,8 @@ pub(crate) const LASER_TURRET_ATTACK: AttackAttrs = AttackAttrs {
 /// The Laser Turret's construction by an Agent (`StructureDef::site`; `factions/syndicate/structures/laser_turret.md >
 /// Construction`: "**By an Agent**: built using the same flow as Tunnel construction").
 pub(crate) const LASER_TURRET_SITE: SiteDef = SiteDef {
-    // "Cost: 100 Space Crystals (no Supplies)", paid as the order is given and refunded in full (question Q0084 points 4
-    // and 5, placeholders: `SitePrice::Crystals`).
+    // "Cost: 100 Space Crystals (no Supplies)", paid as the order is given, refunded in full by an order that goes
+    // before its site starts, and at 75% by a cancelled site (design change 0297 points 4 and 5: `SitePrice::Crystals`).
     price: SitePrice::Crystals(100),
     frames: 320, // "Build time: 320 frames (20 s)"
     // The Tunnel's flow (`factions/syndicate/units/agent.md > Building > Tunnel Construction Flow`): it "starts at 10% HP
