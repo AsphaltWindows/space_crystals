@@ -13,12 +13,16 @@
 //!   (`orders::world::World::sees`), of combat (`combat::phases`: `systems/combat.md > ValidTarget` 2) and of the
 //!   command gate; the records (`super::memory`: none is taken of a hidden object); and the client's `Sight`. The
 //!   snapshots that look at objects without holding them, combat's targets and the behaviours' views, take each
-//!   object's [`Hiding`] with them. `Sim::hidden_from` asks it for tools and tests.
+//!   object's [`Hiding`] with them, and so does an object's death (`SimEvent::Died::hiding`, [`Hiding::of`] as it
+//!   died), for the client's filter of events (`space_crystals::viewer_events`), which shows no death to a player
+//!   it was hidden from. `Sim::hidden_from` asks it for tools and tests.
 //! - **Who doesn't**: damage resolution (`combat::damage`). Area damage still hits hidden objects
 //!   (`systems/combat.md > AoEDamage`, design change 0262, keeping 0218: "Syndicate expansions ... take their share
 //!   of any blast over them, even unseen"); a hit on the tick's list lands whatever its target's owner sees.
 //!
 //! [`PlayerVision::object_box_state`]: super::PlayerVision::object_box_state
+
+use serde::{Deserialize, Serialize};
 
 use crate::defs::ObjectKind;
 use crate::ids::PlayerId;
@@ -27,22 +31,27 @@ use crate::sim::Sim;
 
 /// Whom an object is hidden from, by the rule of [`hidden_from`]: every player but its owner, or nobody. Taken from the
 /// object ([`Hiding::of`]) by the snapshots that look at objects without holding them, so that they ask what the
-/// objects themselves would.
-#[derive(Copy, Clone, Debug, Default, PartialEq, Eq)]
+/// objects themselves would. Serialized with the death that carries it (`SimEvent::Died::hiding`).
+#[derive(Copy, Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Hiding {
     /// The owner of a hidden object, the one player it isn't hidden from; `None` while it is hidden from nobody.
     owner: Option<PlayerId>,
 }
 
 impl Hiding {
-    /// Whom `object` is hidden from now.
+    /// Whom `object` is hidden from now. **The hook of the rule** (slice M4-V): a new arm of it goes here alone, as the
+    /// pop-up turret's, hidden while fully lowered (slice M4-S2), and every reader of the rule follows: vision,
+    /// targeting, the records, the command gate, the deaths (`SimEvent::Died::hiding`) and the client (its `Sight`,
+    /// and its filter of the sim's events, which takes each object's `Hiding::of` for its removal).
     pub fn of(object: &Object) -> Self {
         Self::of_kind(object.kind, object.owner)
     }
 
-    /// (M4-O) Whom an object of `kind` that `owner` owns is hidden from, by the same rule: for what outlives the
-    /// object, as the client's marker of its death (`SimEvent::Died` names its kind and owner), which no player it was
-    /// hidden from may see (plan decision T52: nothing is drawn for a hidden victim).
+    /// (M4-O) Whom an object of `kind` that `owner` owns is hidden from, by the same rule, the one [`Hiding::of`]
+    /// applies to a type and an owner. What outlives the object takes [`Hiding::of`] with it instead, as its death does
+    /// (`SimEvent::Died::hiding`, slice M4-V), so that an arm of the rule that asks more of the object than its type,
+    /// as a pop-up turret's while fully lowered will
+    /// (`factions/syndicate/structures/laser_turret.md > Upright vs Pop-up (by location)`), holds there too.
     pub fn of_kind(kind: ObjectKind, owner: Option<PlayerId>) -> Self {
         let underground = (kind.def().structure.as_ref()).is_some_and(|structure| structure.underground);
         Self {

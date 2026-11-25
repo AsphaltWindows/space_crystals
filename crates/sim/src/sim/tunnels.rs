@@ -74,6 +74,7 @@ use crate::progress::Progress;
 use crate::tuning::tunnel::DECAY_PERCENT_PER_SECOND;
 use crate::tunnel::{BASE_TIER, area};
 use crate::units::TICKS_PER_SECOND;
+use crate::vision::Hiding;
 
 /// The length of the decay at 1% of the MaxHP a second, in ticks: the whole MaxHP in 100 seconds. A tick of decay
 /// counts [`DECAY_PERCENT_PER_SECOND`] of them (module docs).
@@ -279,6 +280,7 @@ impl Sim {
                 kind: o.kind,
                 owner: o.owner,
                 pos: o.pos,
+                hiding: Hiding::of(o),
             });
         }
         if dead.is_empty() {
