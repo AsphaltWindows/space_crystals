@@ -1,5 +1,7 @@
 # Syndicate: Units
 
+**Syndicate lasers are red** (user, 2026-11-25): every Syndicate laser-shooting unit and structure (Guard, Laser Battery, Laser Turret) fires a **red** laser.
+
 ## Guard
 
 The Guard is the Syndicate's basic combat infantry. A heavy infantry unit armed with a **laser rifle** that hits **ground and air** and **cannot miss** (instant hit), firing at a measured pace rather than rapidly (user, 2026-11-24). Tougher than the GDO Peacekeeper but with shorter range.
@@ -240,4 +242,57 @@ All numbers (HP, armor, sight, speed, turn radius, TunnelSpaceCost, X, Y, Z, smo
 
 ### ObjectInterfaceState
 Move-type commands like a combat unit without an attack, plus the two toggles (hotkeys TBD). Whether toggles are queueable and whether they keep orders: TBD (the Riot Shield/Convert rule, mode switches keep orders and are not queueable, is the likely model).
+
+## Laser Battery
+(user, 2026-11-25) Syndicate laser vehicle running on a **battery**. Treaded. Fires a **red laser** (FullyConnected: instant, cannot miss) at **fairly long range**, **ground only** while mobile. Its turret has **relatively little mobility**. It can **deploy**, becoming an immobile **anti-air** emplacement with a full-rotation turret.
+
+### Entity Type - Unit
+### Faction - TheSyndicate
+### UnitBase - TrackedVehicle (exits only through Tier 2+ Tunnels)
+### Produced at - Vehicle Assembly
+### TechPrerequisite - player owns at least one **Optics Lab** (user, 2026-11-25)
+### Groupable - true (assumed)
+
+### Battery
+- The Laser Battery has a **battery charge** that is **always charging** at its charge rate, attacking or not (user, 2026-11-25).
+- **A normal surge draws twice what charges in one surge interval**, so while attacking with charge left the battery drains at a net **1× the charge rate**. Resting refills it.
+- **Empty battery** (user, 2026-11-25): it keeps firing **just as often**, but each surge uses only what charged since the last one (half a normal surge's charge), so by the ^(2/3) rule it deals about **63%** ((½)^(2/3)) of a normal surge's damage. An exhausted Laser Battery still fights at about two-thirds strength.
+- More generally, a surge uses the normal surge charge if the battery holds it, otherwise whatever is left; its damage follows the ^(2/3) rule.
+- TBD: battery size, charge rate (numbers); whether it charges while switching modes (assumed yes: always charging).
+
+### Attack: constant beam with surges
+- **Animation**: while attacking, a **constant thin red laser** connects the Laser Battery to its target. Periodic **surges** along the beam are what **actually do the damage**.
+- **Damage per surge** is proportional to the **charge used^(2/3)** (the square of the cube root of the charge spent on that surge). Spending charge in many small surges deals more total damage than spending the same charge in one big surge, so big surges trade efficiency for burst.
+- AttackType: FullyConnected (cannot miss)
+- TargetDomain: Ground (mobile); Air (deployed, below)
+- TargetType: SingleTarget (assumed)
+- Range: fairly long
+- TBD: surge interval, charge used per normal surge, damage constant, range, aiming time.
+
+### Amplify (ability)
+Converts the **entire remaining battery** into the **next surge**. A single big hit for burst damage, at the cost of efficiency (per the ^(2/3) rule) and of an empty battery afterwards.
+
+**The trade is a tuning dial** (user, 2026-11-25: a reasonable trade; its size depends on the numbers). If a full battery holds N normal surges, an Amplified full battery deals N^(2/3) normal surges' worth of damage instead of N, i.e. N^(−1/3) of the total: N = 4 → ~63%, N = 8 → 50%, N = 27 → ~33%. So the share of the battery a normal surge uses sets how costly Amplify is; choose it in the numbers pass.
+- TBD: hotkey; whether it can be used while deployed; whether it is queueable or a mode-like toggle.
+
+### TurretAttributes (mobile):
+- TurnAngle: **narrow arc** (user, 2026-11-25): it can only aim within a cone ahead of the hull, so the tank must roughly face its target (like the Assault Bike). Value TBD.
+
+### Deploy (ability)
+- **Deployed**: **cannot move**. The turret gets **360° rotation**. It can **only target air units** (no ground targets while deployed).
+- **Refract** (ability, deployed only): to be designed together with satellites (user, 2026-11-25).
+- **Switching modes works like the GDO Artillery Rig** (user, 2026-11-25; factions/gdo/units.md > Artillery Rig > Modes): deploying and undeploying take time, during which it can **neither move nor attack**.
+- **Two unit types**: **Laser Battery** and **Laser Battery (Deployed)**, with separate SelectionGroups.
+- **Deploy is an order, not a mode switch** (user, 2026-11-25; unlike Convert and the Riot Shield, which follow the toggle rule):
+  - **The difference** (user, 2026-11-25): with a mode switch the unit's type changes **instantly** and the unit catches up in its own time. With deployment, **the deploying process is what actually changes the unit**: it stays the mobile type until the process completes.
+  - **Queueable**: Shift-Deploy waits until the earlier orders are done (e.g. move here, then deploy). Without Shift it replaces the current orders and starts at once.
+  - **No reversing mid-way**: **Undeploy is only available once deployment is complete**. The unit becomes Laser Battery (Deployed) (type and SelectionGroup) when deploying finishes; until then it is still a Laser Battery. (Undeploying is assumed symmetric: Deploy becomes available again only once undeploying is complete.)
+  - **Not cancellable** (user, 2026-11-25; replaces the earlier wind-back on Stop): once deploying has started it always runs to completion; Stop doesn't interrupt it. (Assumed symmetric: undeploying also always completes.)
+  - **Orders given while deploying** (user, 2026-11-25): the **last order given** (without Shift; each new one replaces the previous) is **held**, and it is the first thing the unit tries once deployment finishes. Shift-queued orders line up behind it as usual. At that point each order is checked against the deployed unit: one it can't carry out (e.g. **Move**, since a deployed unit can't move) is **dropped** (with the usual unavailable-command feedback, assumed), and the next one is tried.
+  - **Not the same as the Colonists Drone's Deploy** (user, 2026-11-25): a Drone becomes a Beacon **immediately** and the transformation **can be cancelled** (factions/colonists/economy.md > Beacon Deployment).
+  - When the switch makes a group disappear, the group the units joined becomes active (systems/controls/selection_and_hud.md > ActiveGroup > When the ActiveGroup disappears).
+- The battery keeps charging in every mode (Battery: always charging).
+- TBD: deploy/undeploy time.
+
+All numbers (HP, armor, sight, speed, TunnelSpaceCost, battery, damage, range, timings, cost, build time): TBD.
 
