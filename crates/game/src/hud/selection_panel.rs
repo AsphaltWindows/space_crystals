@@ -146,7 +146,8 @@ pub fn tier_label(tier: u8) -> &'static str {
 }
 
 /// The label an object shows, on the map (a record's too) and on its portrait: its type's short label
-/// ([`short_label`]), a Tunnel's its tier's ([`tier_label`], from `Object::tunnel` or the record's).
+/// ([`short_label`]), a Tunnel's its tier's ([`tier_label`], from `Object::tunnel` or the record's), to every player
+/// who sees it (design change 0258: "Enemies see a Tunnel's tier").
 pub fn object_label(kind: ObjectKind, tunnel: Option<TunnelState>) -> &'static str {
     match tunnel {
         Some(state) => tier_label(state.tier),

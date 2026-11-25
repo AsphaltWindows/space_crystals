@@ -81,9 +81,9 @@ pub struct LastKnown {
     pub resource: Option<ResourceState>,
     /// The tick at whose end the player last saw it.
     pub seen: Tick,
-    /// A Tunnel's tier when last seen (`Object::tunnel`, plan decision T39), which its look, its MaxHP and, from slice
-    /// M4-E on, the area a ghost judges by follow (design change 0237: "at their remembered position and last-seen
-    /// tier"). `None` for every other type. Optional in files and left out of them while `None`, so that the records
+    /// A Tunnel's tier when last seen (`Object::tunnel`, plan decision T39; design change 0258: "Enemies see a
+    /// Tunnel's tier"), which its look, its MaxHP and, from slice M4-E on, the area a ghost judges by follow (design
+    /// change 0237: "at their remembered position and last-seen tier"). `None` for every other type. Optional in files and left out of them while `None`, so that the records
     /// saved before it existed still load.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub tunnel: Option<TunnelState>,
