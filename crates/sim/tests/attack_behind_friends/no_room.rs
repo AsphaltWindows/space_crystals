@@ -233,8 +233,10 @@ fn four_peacekeepers_attack_down_a_corridor_and_the_ones_behind_give_up() {
 /// takes the place of 0204's "left alone for the rest of the leg"): AttackMove's target taking leaves the building
 /// alone for `GIVE_UP_RETRY_TICKS` (`orders::travel::pursue`, design change 0181), the unit walks on meanwhile, and
 /// takes it up again, so that while the first unit stands the ones behind give up every 116 ticks or so, and their
-/// AttackMove never ends. Under 0230 a chase given up by the Failure rule will count as a rejection, re-judged only
-/// when something relevant changes: whichever of M3-G3 and M3-L4 lands second updates this test.
+/// AttackMove never ends. Under design change 0235 (answering question Q0073) a chase given up by the Failure rule
+/// puts the enemy in 0230's rejected set, judged again only on 0230's change triggers, and its Verification is this
+/// scene: "The rear ones give up once (about 7 s), walk on, and don't turn back while the front one still fires."
+/// Whichever of M3-G3 and M3-L4 lands second updates this test.
 ///
 /// And as in M3-G2's test they stay calm: once they have closed up (by tick 200), they don't step to and fro along
 /// the corridor, only sideways across it, and they plan few paths: 15 and 24 in 400 ticks (about two to a lap, the

@@ -567,8 +567,9 @@ remaining path length, measured afresh from when it came to rest. A unit is **st
      behaviour then gives the target up (`> AttackingObject > Failure`): an Attack completes, and the unit, idle,
      takes targets again by itself (`> BaseAutoTargeting > Unreachable auto-targets`). An AttackMove leaves the
      target alone for 32 ticks and walks on, then takes it again (`orders::travel::pursue`, as built), so in a
-     corridor it gives up every 116 ticks and its leg never ends while the row stands. That is slice M3-L4's, under
-     design change 0230. Until 0223 the unit waited and stood (M3-G2's `stuck::waits_in_queue` and `World::hold`,
+     corridor it gives up every 116 ticks and its leg never ends while the row stands. Slice M3-L4 ends that cycle
+     (design changes 0230 and 0235: the failed chase counts as can't reach, and the unit walks on without turning
+     back). Until 0223 the unit waited and stood (M3-G2's `stuck::waits_in_queue` and `World::hold`,
      its step only when the way straight ahead was free, no step aside) for as long as the target lived.
 3. **Repath**, for a unit that doesn't queue, if `repaths_left > 0`, when its wait is over (5.6). **(D)** The tile of the stationary unit in the way is added to `avoid_tiles`:
    at once if that unit has no goal; if it is on its way itself (only jammed for now), from the second repath on,
