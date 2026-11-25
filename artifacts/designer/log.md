@@ -2232,3 +2232,4 @@ Q0071 gaps: transport passes underground structures; surfacing rules. Entry 0266
 Q0071 done: turret uses slot; detection after faction units. Entry 0267.
 Syndicate: Bomber (name TBD) added. Entry 0268.
 Bomber prereqs, ground only, re-arm; Vault network-wide. Entry 0269.
+Bomber named Specter. Entry 0270.

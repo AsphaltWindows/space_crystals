@@ -129,7 +129,7 @@ Syndicate tech building enabling the Syndicate's explosives and propulsion techn
 
 Syndicate equipment storage warehouse for re-arming Syndicate forces.
 
-Prerequisite for the **Shadebringer** and (with a Chemical Plant) the **Bomber** (2026-11-25).
+Prerequisite for the **Shadebringer** and (with a Chemical Plant) the **Specter** (2026-11-25).
 
 **Network-wide** (user, 2026-11-25): a Vault re-arms and recharges units **anywhere in the Tunnel Network**, not only units that entered through the Tunnel whose area it sits in. While the player owns a Vault, Shadebringers inside the Tunnel Network recharge their Sludge and Cover charges (factions/syndicate/units.md > Shadebringer > Charges and recharging).
 
@@ -199,7 +199,7 @@ Syndicate production building that assembles Syndicate aviation and orbital forc
 #### Tier Requirement - 3
 #### TechPrerequisite - player owns at least one Forge (anywhere in the Tunnel Network)
 
-Produces (2026-11-25): **Phantom** (requires an Optics Lab), **Bomber** (name TBD) (factions/syndicate/units.md).
+Produces (2026-11-25): **Phantom** (requires an Optics Lab), **Specter** (bomber) (factions/syndicate/units.md).
 
 (Full stats TBD)
 
