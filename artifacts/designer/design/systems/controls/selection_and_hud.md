@@ -13,7 +13,7 @@ The set of ObjectInstances currently selected by the player, grouped by object t
 ### ActiveGroup - SelectionGroup | None (None when selection is empty). Usually identified by its object type; for Ungroupable objects each instance is its own SelectionGroup, so ActiveGroup points at one specific group, and GroupCycling (Tab) steps through them one by one.
 
 **When the ActiveGroup disappears** (user, 2026-11-25; Q0050):
-- **Its members changed type and joined another group** (an unfinished building completes and joins its finished group, 0185; units pressed with a mode toggle, factions/colonists/units.md > Weapon Conversion > A toggle sets a target form): **the group they joined becomes active**. The command panel resets to that group's default state, which ends any targeting in progress.
+- **Its members changed type and joined another group** (an unfinished building completes and joins its finished group, 0185; units pressed with a mode toggle, factions/colonists/units/weapon_conversion.md > A toggle sets a target form): **the group they joined becomes active**. The command panel resets to that group's default state, which ends any targeting in progress.
 - **Its last member died** (or otherwise left the selection, e.g. by entering a building, transport or tunnel): **the next group in Tab order becomes active** (the group after it in the SelectionPanel, wrapping around to the first). If no group is left, the selection is empty.
 - Any other group change, e.g. a completion in a group that isn't active, **never changes the ActiveGroup**.
 
@@ -243,7 +243,7 @@ An ObjectInterfaceState entered after the player selects a command that requires
 **Shift while targeting** (user, 2026-11-23): a Shift-click on a valid target **queues** the command (systems/controls/commands.md > Unit Command) and targeting **stays active while Shift is held**, so the player can place several targets or waypoints in a row with one command keypress (e.g. A, then Shift-click, Shift-click, Shift-click). Each Shift-click queues one more command. Targeting ends (back to DefaultState) when Shift is **released** after at least one queued click. A click without Shift issues the command and ends targeting as usual. TBD: releasing Shift before any target was clicked (presumably targeting simply continues, since nothing was issued).
 
 **Shift while placing** (AwaitingPlacement; user, 2026-11-23): the same rule applies. A Shift-click on a valid spot queues the build order and placement **stays active while Shift is held**, so one builder can be given several buildings in a row; releasing Shift ends placement. This only applies when the builder **can carry out more queued buildings**: e.g. Cults Recruits (the whole selected group) build one and walk together to the next (each order's cost is paid when it is given: factions/cults/economy.md > Build Command). When the builder **can't**, a Shift-click sends it and ends placement like a plain click:
-- an Agent goes inside the structure it builds (factions/syndicate/units.md > Tunnel Construction Flow), so each Agent takes exactly one placement;
+- an Agent goes inside the structure it builds (factions/syndicate/units/agent.md > Building > Tunnel Construction Flow), so each Agent takes exactly one placement;
 - a GDO Deployment Center or Extraction Facility only ever has one building ready to place.
 
 Placement **never moves on to another selected worker** automatically (No smart-casting, above): to place with the next Agent, the player presses Tab and issues the next order.

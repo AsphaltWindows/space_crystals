@@ -1,122 +1,29 @@
-# Cults: Units
-
-## Acolyte
-
-The Cults' spell caster, trained from a single Recruit at the Cathedral. Ties into the Cults lore of figures who rise by consuming Space Crystals. Infantry — can be augmented at the Altar.
-
-### Entity Type - Unit
-### Faction - TheCults
-### Trained at - Cathedral (consumes 1 Recruit; Unit Control cost 1)
-
-### Energy
-The Acolyte has its own energy pool, which it spends on its spells. It regenerates naturally over time (MaxEnergy and regeneration rate TBD). The Shrine's energy regeneration ability temporarily increases this rate.
-
-UnitBase, Silhouette, MaxHP, armor, SightRange, Groupable, movement attributes, AttackAttributes (if any), spells/abilities, and ObjectInterfaceState: TBD. Whether the Acolyte counts as an "unarmed" unit for Augmentation increments is TBD.
-
-## Soldier
-
-The Soldier is the Cults' basic combat infantry, trained from a Recruit at the Armory. A light infantry unit with a fully connected attack effective against both ground and air targets.
-
-### Entity Type - Unit
-### Faction - TheCults
-### UnitBase - LightInfantry
-
-### Silhouette - 24x24 space units (square)
-### MaxHP - 40
-### PointArmor - 0
-### FullArmor - 0
-### SightRange - 5 grid units
-### Destructible - true
-### Groupable - true
-
-### UnitBaseAttributes[LightInfantry]:
-- TurnRate: 180 degrees/frame
-- Acceleration: infinite
-- Deceleration: infinite
-- MaxSpeed: 4 space units/frame
-- RuggedTerrainDefenseBonus: 50%
-
-### TurretAttributes - None
-
-### AttackAttributes:
-- AttackType: FullyConnected
-- TargetDomain: Universal
-- TargetType: SingleTarget
-- Damage: 4
-- Range: 4 grid units
-- MinRange: 0
-- AimDuration: 2 frames
-- FiringDuration: 2 frames
-- CooldownDuration: 1 frame
-- ReloadDuration: 3 frames
-
-### ObjectInterfaceState: BasicCombatUnitInterfaceState
-
-## Gunner
-
-The Gunner is the Cults' heavier-hitting combat infantry, trained from a Recruit at the Armory (requires owning a Gunworks). Shares the Soldier's physical profile but trades air targeting and attack speed for a longer-range, harder-hitting ground attack.
-
-### Entity Type - Unit
-### Faction - TheCults
-### UnitBase - LightInfantry
-
-### Silhouette - 24x24 space units (square)
-### MaxHP - 40
-### PointArmor - 0
-### FullArmor - 0
-### SightRange - 5 grid units
-### Destructible - true
-### Groupable - true
-
-### UnitBaseAttributes[LightInfantry]:
-- TurnRate: 180 degrees/frame
-- Acceleration: infinite
-- Deceleration: infinite
-- MaxSpeed: 4 space units/frame
-- RuggedTerrainDefenseBonus: 50%
-
-### TurretAttributes - None
-
-### AttackAttributes:
-- AttackType: FullyConnected
-- TargetDomain: Ground
-- TargetType: SingleTarget
-- Damage: 16
-- Range: 5 grid units
-- MinRange: 2
-- AimDuration: 4 frames
-- FiringDuration: 2 frames
-- CooldownDuration: 8 frames
-- ReloadDuration: 8 frames
-
-### ObjectInterfaceState: BasicCombatUnitInterfaceState
-
-## Recruit
+# Recruit
 
 The Recruit is the Cults' basic worker unit, automatically produced by Recruitment Halls from the surrounding Recruitable population. Recruits gather Space Crystals, construct buildings from outside the site, assist in-progress construction, can enter an Armory to be trained into Soldiers or Gunners, can enter an Altar to be augmented, can enter a Cathedral to be trained into Acolytes, staff research buildings such as the Temple, Gunworks, and Machine Shop (only Recruits can staff research), and power the Shrine by joining its ritual. Recruits have a melee attack for basic self-defense.
 
-### Entity Type - Unit
-### Faction - TheCults
-### UnitBase - LightInfantry
+## Entity Type - Unit
+## Faction - TheCults
+## UnitBase - LightInfantry
 
-### Silhouette - 24x24 space units (square)
-### MaxHP - 40
-### PointArmor - 0
-### FullArmor - 0
-### SightRange - 5 grid units
-### Destructible - true
-### Groupable - true (user, 2026-11-24: Recruits share a build, so Construct and Assist from the panel go to every selected Recruit; see systems/controls/selection_and_hud.md > SelectionGroup > No smart-casting)
+## Silhouette - 24x24 space units (square)
+## MaxHP - 40
+## PointArmor - 0
+## FullArmor - 0
+## SightRange - 5 grid units
+## Destructible - true
+## Groupable - true (user, 2026-11-24: Recruits share a build, so Construct and Assist from the panel go to every selected Recruit; see systems/controls/selection_and_hud.md > SelectionGroup > No smart-casting)
 
-### UnitBaseAttributes[LightInfantry]:
+## UnitBaseAttributes[LightInfantry]:
 - TurnRate: 180 degrees/frame
 - Acceleration: infinite
 - Deceleration: infinite
 - MaxSpeed: 4 space units/frame
 - RuggedTerrainDefenseBonus: 50%
 
-### TurretAttributes - None
+## TurretAttributes - None
 
-### AttackAttributes:
+## AttackAttributes:
 - AttackType: FullyConnected (Melee)
 - TargetDomain: Ground
 - TargetType: SingleTarget
@@ -127,7 +34,7 @@ The Recruit is the Cults' basic worker unit, automatically produced by Recruitme
 - CooldownDuration: 1 frame
 - ReloadDuration: 1 frame
 
-### Gathering
+## Gathering
 
 Recruits gather Space Crystals and deliver them to Storage.
 
@@ -140,11 +47,11 @@ Recruits gather Space Crystals and deliver them to Storage.
 - Expected throughput: buildings snap to whole tiles, so a patch can't touch a Storage with room for Recruits to work; the best layout leaves a 1-tile (64 su) gap. With a 24 su Silhouette and 8 su reach on each side, a Recruit walks 24 su (6 frames) each way, so a round trip is 22 frames (6 + 8 mining + 6 + 2 drop-off) ≈ 1.45 SC/s per Recruit. A 64 su gap fits two Recruits side by side (one lane in, one lane out).
 - Patch sharing: any number of Recruits may mine the same Space Crystals patch at the same time (unlike Drones, see Colonists > Drone > Patch Occupancy).
 
-### Building
+## Building
 
 Recruits construct Cults buildings from outside the site and can assist in-progress construction (see Cults Building Mechanics). Recruits are not consumed by construction.
 
-### Constructs:
+## Constructs:
 - RecruitmentHall: 300 Space Crystals, 1440 frames (90 seconds) BaseConstructionTime (with 1 Recruit)
 - Storage: 100 Space Crystals, 320 frames (20 seconds) BaseConstructionTime (with 1 Recruit)
 - Armory: 200 Space Crystals, 480 frames (30 seconds) BaseConstructionTime (with 1 Recruit). Requires: Storage.
@@ -159,17 +66,17 @@ Recruits construct Cults buildings from outside the site and can assist in-progr
 - Airstrip: TBD Space Crystals, TBD BaseConstructionTime. Requires: Chop Shop.
 - Scrap Hangar: TBD Space Crystals, TBD BaseConstructionTime. Requires: Airstrip.
 
-### Armory Entry
+## Armory Entry
 
 Recruits can enter an Armory to join its internal StoredRecruits pool (up to InternalRecruitCapacity), making them available for training into Soldiers or Gunners.
 
-### Recruit ObjectInterfaceState
+## Recruit ObjectInterfaceState
 
-#### DefaultState commands:
+### DefaultState commands:
 - **A: Construct** — enters BuildMenu (StateOnlyTransition). Multi-stage: select a building type, then place it on the ground (ghost preview, same placement flow as the Build Command).
 - **B: Assist Construction** — targeted command (StateOnlyTransition). Left-click an in-progress own building to join construction.
 
-#### Unit Commands:
+### Unit Commands:
 - **Move** — right-click ground
 - **Stop** — panel button
 - **Attack** — right-click enemy unit/building (melee)
@@ -184,7 +91,7 @@ Recruits can enter an Armory to join its internal StoredRecruits pool (up to Int
 - **Construct** — via panel button A
 - **Assist Construction** — via panel button B
 
-#### Right-Click Resolution:
+### Right-Click Resolution:
 - Space Crystal patch → Gather
 - Own Storage (carrying Space Crystals) → Drop off resources
 - Own Armory → Enter Armory

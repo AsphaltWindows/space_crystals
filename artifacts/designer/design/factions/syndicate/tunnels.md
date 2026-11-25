@@ -95,7 +95,7 @@ Tunnels have 3 upgrade tiers. Each tier increases HP, Tunnel Area radius, and un
 
 ### Tunnel ObjectInterfaceState
 
-**Panel letters (4x3 grid)** (user, 2026-11-25; Q0068, "fine for now"): **Q** Upgrade Tunnel, **W** Expand Tunnel, **E** Eject, **X** Cancel (upgrade, construction or the current operation). In the **ExpandMenu** and **EjectMenu**, entries take the grid slots in order (Q, W, E, R, A, S, …): expansions in the Tech Tree table's order (Hideout, Optics Lab, Chemical Plant, Vault, …), unit types in `units.md`'s order (Agent, Guard, Grenadier, …); **Z** goes back; unavailable entries are greyed. These letters replace the older ones listed below where they differ.
+**Panel letters (4x3 grid)** (user, 2026-11-25; Q0068, "fine for now"): **Q** Upgrade Tunnel, **W** Expand Tunnel, **E** Eject, **X** Cancel (upgrade, construction or the current operation). In the **ExpandMenu** and **EjectMenu**, entries take the grid slots in order (Q, W, E, R, A, S, …): expansions in the Tech Tree table's order (Hideout, Optics Lab, Chemical Plant, Vault, …), unit types in the order of `units/README.md` (Agent, Guard, Grenadier, …); **Z** goes back; unavailable entries are greyed. These letters replace the older ones listed below where they differ.
 
 #### DefaultState commands:
 - **A: Upgrade Tunnel** — upgrades to next tier (CommandIssuingTransition). Costs Supplies per upgrade cost formula. Unavailable if already Tier 3 or if currently performing an operation.
