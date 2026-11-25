@@ -177,5 +177,15 @@ Higher-tier Tunnels count toward lower-tier cost calculations (a T3 Tunnel count
 - 2nd T3: 6 Supplies
 - 3rd T3: 9 Supplies
 
+**Upgrades in progress count** (user, 2026-11-25; Q0060): a Tunnel upgrading to Tier 2 already counts as a T2+ Tunnel (and one upgrading to Tier 3 as a T3 Tunnel) for the cost of further upgrades. Two upgrades started together cost 2 and 4, not 2 each.
+
+**Refunds are what was paid** (user, 2026-11-25): Cancel Upgrade refunds exactly the Supplies **that upgrade cost when it was ordered**, never a recalculated price. Prices already paid are never adjusted. So cancelling the first of two upgrades started together refunds 2, not 4, and the order of starting and cancelling can't be used to gain Supplies. (Same for Tunnel construction.)
+
+**HP on completion** (user, 2026-11-25; Q0060): max HP rises (600 → 800 → 1000) and current HP rises by the same amount, so damage taken stays (like the Colonists' Warp In).
+
+**Destroyed mid-upgrade** (user, 2026-11-25; Q0060): the Supplies paid for the upgrade are lost.
+
+**The future area is reserved** (user, 2026-11-25; Q0060): from the start of the upgrade, the larger Tunnel Area of the target tier counts against other placements (Tunnel Area Non-Overlap Rule), so nothing placed during the upgrade can make the finished area overlap.
+
 #### Construction Time
 480 frames (30 seconds). Agent must be present for the duration.
