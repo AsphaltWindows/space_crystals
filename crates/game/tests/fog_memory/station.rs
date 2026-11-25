@@ -236,3 +236,23 @@ fn other_factions_cannot_select_a_remembered_station() {
     assert_eq!(selected(&app), [0_u32; 0]);
     assert_eq!(info(&mut app), None);
 }
+
+/// `core/vision.md > Explored`: the removal of a station that a GDO player remembers out of sight tells them nothing
+/// (the filter of events gives no player the removal of what they remember out of sight, slice M4-V): it stays
+/// selected, by its record, which still shows where it was. Back in sight, the record goes, and the selection with it.
+#[test]
+fn a_remembered_station_removed_out_of_sight_stays_selected_until_its_tiles_are_seen() {
+    let mut app = world(Faction::Gdo);
+    select(&mut app, STATION);
+    scout_to(&mut app, 20, 7);
+    assert_eq!(selected(&app), [STATION]);
+    debug(&mut app, DebugCommand::Remove { id: ObjectId(STATION) });
+    app.update();
+    let removed = app.world().resource::<SimRes>().object(ObjectId(STATION)).is_none();
+    assert!(removed, "the station has left the game");
+    assert_eq!(remembered(&app), [PATCH, STATION], "unseen");
+    assert_eq!(selected(&app), [STATION], "the player didn't learn of it");
+    scout_to(&mut app, 5, 7);
+    assert_eq!(remembered(&app), [0_u32; 0]);
+    assert_eq!(selected(&app), [0_u32; 0], "seen gone");
+}
