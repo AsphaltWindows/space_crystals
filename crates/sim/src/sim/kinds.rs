@@ -54,10 +54,9 @@ impl Capabilities {
         Self {
             orders: is_unit.then(Orders::default),
             mover: is_unit.then(Mover::default),
-            // `systems/combat.md > AttackAttributes`: units that can attack; their weapon starts ready.
-            attack: unit
-                .and_then(|unit| unit.attack.as_ref())
-                .map(|_| AttackState::default()),
+            // `systems/combat.md > AttackAttributes`: units that can attack, and structures that do (plan decision T49,
+            // slice M4-S1: the Laser Turret's `StructureDef::attack`); their weapon starts ready.
+            attack: combat::weapon_of(kind).map(|_| AttackState::default()),
             // `factions/gdo/units/peacekeeper.md > Riot Shield`: units that carry one; it starts down on the
             // Peacekeeper, up on the Peacekeeper (Shielded) (design change 0173).
             riot_shield: unit

@@ -62,6 +62,7 @@ pub(crate) static BEACON: ObjectDef = ObjectDef {
         expansion: None,
         // `factions/colonists/structures/README.md > Tech Model`: "Colonists buildings have no TechPrerequisites"
         requires: &[],
+        attack: None,
     }),
     default_settings: None,
 };

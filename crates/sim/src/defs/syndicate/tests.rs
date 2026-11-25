@@ -65,10 +65,15 @@ fn the_expand_menu_follows_the_tech_tree() {
     assert_eq!(names[..9], table);
     assert_eq!(names[9..], ["Laser Turret"], "the tenth slot");
     assert_eq!(EXPAND_MENU[0], ExpandEntry::Kind(ObjectKind::Hideout));
+    // A type a Tunnel builds is listed by its kind. The Laser Turret is in the game from slice M4-S1, an Agent's; its
+    // slot waits for the Tunnel's build, slice M4-S2's.
     for entry in EXPAND_MENU {
         if let ExpandEntry::Planned(name) = entry {
-            let in_game = ObjectKind::ALL.iter().find(|kind| kind.def().name == *name);
-            assert_eq!(in_game, None, "{name} is in the game: list it by its kind");
+            let built = (ObjectKind::ALL.iter()).find(|kind| {
+                let structure = kind.def().structure.as_ref();
+                kind.def().name == *name && structure.is_some_and(|structure| structure.expansion.is_some())
+            });
+            assert_eq!(built, None, "a Tunnel builds the {name}: list it by its kind");
         }
     }
 }

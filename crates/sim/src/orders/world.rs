@@ -223,10 +223,9 @@ impl<'a> World<'a> {
                 destructible: o.hp.is_some(),
                 is_unit: o.mover.is_some(),
                 is_patch: matches!(o.resource, Some(ResourceState::CrystalPatch { .. })),
-                // The weapon in hand (`combat::weapon`: a Legionnaire's form's, design change 0198).
-                threat: combat::weapon(o)
-                    .filter(|_| o.attack.is_some())
-                    .map(|attrs| attrs.target_domain),
+                // The weapon in hand (`combat::weapon`: a Legionnaire's form's, design change 0198), a structure's
+                // once it is complete (slice M4-S1).
+                threat: combat::threat(o),
                 hiding: Hiding::of(o),
             })
             .collect();

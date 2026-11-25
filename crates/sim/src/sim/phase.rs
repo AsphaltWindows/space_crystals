@@ -165,6 +165,7 @@ impl Sim {
             turns,
             first_new,
             self.tick,
+            self.auto_targeting,
             &mut self.events,
         );
         observe(Phase::Deaths);

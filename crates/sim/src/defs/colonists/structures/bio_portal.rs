@@ -54,6 +54,7 @@ pub(crate) static BIO_PORTAL: ObjectDef = ObjectDef {
         expansion: None,
         // `factions/colonists/structures/README.md > Tech Model`: "Colonists buildings have no TechPrerequisites"
         requires: &[],
+        attack: None,
     }),
     default_settings: None,
 };

@@ -1,7 +1,7 @@
 use std::collections::BTreeMap;
 
 use super::*;
-use crate::defs::{AttackType, FullyConnectedSubtype, TargetDomain, TargetType};
+use crate::defs::{AttackType, FullyConnectedSubtype, ObjectKind, TargetDomain, TargetType};
 use crate::ids::PlayerId;
 use crate::math::PI;
 use crate::object::Object;
@@ -27,44 +27,48 @@ fn attrs(aim: u32, firing: u32, cooldown: u32, reload: u32) -> AttackAttrs {
     }
 }
 
-/// A Peacekeeper (`ME`, of player `MINE`) at the origin facing east, and a neutral Guard (`FOE`) 100 su away in
-/// direction `bearing`, which `ME` sees.
+/// A unit `id` of `kind`, `owner`'s, at `pos` facing east, with full HP.
+fn object(id: ObjectId, kind: ObjectKind, owner: Option<PlayerId>, pos: Vec2) -> Object {
+    Object {
+        id,
+        kind,
+        owner,
+        pos,
+        prev_pos: pos,
+        facing: 0.0,
+        prev_facing: 0.0,
+        hp: kind.def().max_hp,
+        shields: kind.def().max_shields,
+        placement: None,
+        resource: None,
+        orders: None,
+        mover: None,
+        attack: None,
+        riot_shield: None,
+        extractor: None,
+        production: None,
+        constructor: None,
+        worker: None,
+        transform: None,
+        conversion: None,
+        tunnel: None,
+        construction: None,
+        decay: None,
+    }
+}
+
+/// The shooter's object: a Peacekeeper (`ME`) at the origin facing east, `owner`'s.
+fn me(owner: Option<PlayerId>) -> Object {
+    object(ME, ObjectKind::Peacekeeper, owner, Vec2::ZERO)
+}
+
+/// [`me`], of player `MINE`, and a neutral Guard (`FOE`) 100 su away in direction `bearing`, which `ME` sees.
 fn world(bearing: f32) -> (Map, Targets, Vision) {
     let map = Map::new(4, 4);
     let mut objects = BTreeMap::new();
-    for (id, kind, owner, pos) in [
-        (ME, ObjectKind::Peacekeeper, Some(MINE), Vec2::ZERO),
-        (FOE, ObjectKind::Guard, None, math::facing_vector(bearing) * 100.0),
-    ] {
-        objects.insert(
-            id,
-            Object {
-                id,
-                kind,
-                owner,
-                pos,
-                prev_pos: pos,
-                facing: 0.0,
-                prev_facing: 0.0,
-                hp: kind.def().max_hp,
-                shields: kind.def().max_shields,
-                placement: None,
-                resource: None,
-                orders: None,
-                mover: None,
-                attack: None,
-                riot_shield: None,
-                extractor: None,
-                production: None,
-                constructor: None,
-                worker: None,
-                transform: None,
-                conversion: None,
-                tunnel: None,
-                construction: None,
-                decay: None,
-            },
-        );
+    let foe = object(FOE, ObjectKind::Guard, None, math::facing_vector(bearing) * 100.0);
+    for o in [me(Some(MINE)), foe] {
+        objects.insert(o.id, o);
     }
     let targets = Targets::snapshot(&map, &objects);
     let mut vision = Vision::new(&map, [MINE]);
@@ -75,20 +79,8 @@ fn world(bearing: f32) -> (Map, Targets, Vision) {
 /// Runs `ticks` ticks of a sequence engaging `FOE`; the ticks (from 1) whose hits landed, and the final facing.
 fn hit_ticks(attrs: &AttackAttrs, bearing: f32, turn_rate: f32, ticks: u32) -> (Vec<u32>, f32) {
     let (map, targets, vision) = world(bearing);
-    let unit = ObjectKind::Peacekeeper.def().unit.clone().unwrap();
     let sight = vision.player(MINE);
-    let mut shooter = Shooter::new(
-        &map,
-        ME,
-        Some(MINE),
-        ObjectKind::Peacekeeper,
-        Vec2::ZERO,
-        0.0,
-        &unit,
-        attrs,
-        sight,
-        0.0,
-    );
+    let mut shooter = Shooter::new(&map, &me(Some(MINE)), attrs, sight, 0.0);
     shooter.turn_left = turn_rate;
     let mut state = AttackState::default();
     state.engage(Some(FOE));
@@ -148,23 +140,11 @@ fn aiming_lasts_until_the_unit_faces_its_target() {
 #[test]
 fn aiming_turns_only_by_what_the_move_left_of_the_turn_rate() {
     let (map, targets, vision) = world(PI / 2.0);
-    let unit = ObjectKind::Peacekeeper.def().unit.clone().unwrap();
     let attrs = attrs(2, 1, 0, 30);
     // The facings after each of the first ticks, and the tick the hit landed in.
     let aim = |spent_by_the_move: f32| {
         let sight = vision.player(MINE);
-        let mut shooter = Shooter::new(
-            &map,
-            ME,
-            Some(MINE),
-            ObjectKind::Peacekeeper,
-            Vec2::ZERO,
-            0.0,
-            &unit,
-            &attrs,
-            sight,
-            0.0,
-        );
+        let mut shooter = Shooter::new(&map, &me(Some(MINE)), &attrs, sight, 0.0);
         let mut state = AttackState::default();
         state.engage(Some(FOE));
         let (mut facing, mut facings, mut landed) = (0.0, Vec::new(), None);
@@ -198,45 +178,10 @@ fn aiming_turns_only_by_what_the_move_left_of_the_turn_rate() {
 fn only_targets_the_owner_sees_are_attacked() {
     let (map, targets, seen) = world(0.0);
     let blind = Vision::new(&map, [MINE]);
-    let unit = ObjectKind::Peacekeeper.def().unit.clone().unwrap();
     let attrs = attrs(2, 1, 0, 30);
-    let at = Vec2::ZERO;
-    let sees = Shooter::new(
-        &map,
-        ME,
-        Some(MINE),
-        ObjectKind::Peacekeeper,
-        at,
-        0.0,
-        &unit,
-        &attrs,
-        seen.player(MINE),
-        0.0,
-    );
-    let doesnt = Shooter::new(
-        &map,
-        ME,
-        Some(MINE),
-        ObjectKind::Peacekeeper,
-        at,
-        0.0,
-        &unit,
-        &attrs,
-        blind.player(MINE),
-        0.0,
-    );
-    let ownerless = Shooter::new(
-        &map,
-        ME,
-        None,
-        ObjectKind::Peacekeeper,
-        at,
-        0.0,
-        &unit,
-        &attrs,
-        None,
-        0.0,
-    );
+    let sees = Shooter::new(&map, &me(Some(MINE)), &attrs, seen.player(MINE), 0.0);
+    let doesnt = Shooter::new(&map, &me(Some(MINE)), &attrs, blind.player(MINE), 0.0);
+    let ownerless = Shooter::new(&map, &me(None), &attrs, None, 0.0);
     let mut state = AttackState::default();
     state.engage(Some(FOE));
     let (mut facing, mut volley) = (0.0, Volley::new(0));

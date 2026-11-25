@@ -51,18 +51,23 @@ fn the_last_tier_2_tunnel_lost_strands_the_vehicles_and_not_the_infantry() {
     assert_eq!(owner(&t, H1), None);
 }
 
-/// [`base`] with player 1's Agent 3 far south-east and its Guard 4 at [`T1`]'s entry path, and a Barracks of player
-/// 1's (debug-spawned, as H's Acceptance asks), far east: a structure that keeps player 1 in the game when its last
-/// Tunnel falls.
-fn with_barracks() -> TestSim {
+/// [`base`] with player 1's Agent 3 far south-east and its Guard 4 at [`T1`]'s entry path, and a `kind` of player 1's
+/// (debug-spawned, as H's Acceptance asks), far east: a structure that keeps player 1 in the game when its last Tunnel
+/// falls.
+fn with_structure(kind: ObjectKind) -> TestSim {
     let mut t = base()
         .spawn(AGENT, Some(P1), point(20, 20)) // 3
         .spawn(GUARD, Some(P1), point(5, 6)) // 4
         .start();
     t.without_auto_targeting();
-    next(&mut t, P1, spawn(ObjectKind::Barracks, P1, tile(40, 16))); // 5
-    assert_eq!(object(&t, id(5)).kind, ObjectKind::Barracks);
+    next(&mut t, P1, spawn(kind, P1, tile(40, 16))); // 5
+    assert_eq!(object(&t, id(5)).kind, kind);
     t
+}
+
+/// [`with_structure`] with a Barracks.
+fn with_barracks() -> TestSim {
+    with_structure(ObjectKind::Barracks)
 }
 
 /// "If the last Tunnel of all is destroyed and the player is not defeated (they still own Laser Turrets, or a custom
@@ -88,19 +93,24 @@ fn the_last_tunnel_lost_strands_every_unit_in_the_network_though_a_site_stands()
 }
 
 /// The free rebuild ("with no Tunnels owned, a new Tunnel costs 0 Supplies", `factions/syndicate/tunnels.md > Cost
-/// Scaling > Construction Cost`): player 1, alive by its Barracks, loses its only Tunnel with no Supplies in the bank.
-/// Its next Tunnel costs nothing: its surviving Agent's Build is taken, and its site starts.
+/// Scaling > Construction Cost`): player 1, alive by its Barracks, or by an upright Laser Turret ("Losing the last
+/// Tunnel therefore defeats the Syndicate only if they own no Laser Turrets", `factions/syndicate/tunnels.md > Losing
+/// Tunnels > Defeat`; slice M4-S1), loses its only Tunnel with no Supplies in the bank. The structure stays its own, and
+/// its next Tunnel costs nothing: its surviving Agent's Build is taken, and its site starts.
 #[test]
 fn with_no_tunnel_left_the_next_tunnel_costs_nothing() {
-    let mut t = with_barracks();
-    next(&mut t, P1, bank(P1, 0, 0));
-    assert_eq!(t.sim().build_price(P1, TUNNEL), Some(1));
-    next(&mut t, P1, remove(T1));
-    assert!(!t.sim().player(P1).expect("in the game").is_defeated());
-    assert_eq!(t.sim().build_price(P1, TUNNEL), Some(0));
-    assert_eq!(gate(&t, P1, build(&[3], at(20, 8))), Ok(()));
-    next(&mut t, P1, build(&[3], at(20, 8)));
-    let (_, site) = until_started(&mut t, 3);
-    assert_eq!(object(&t, site).kind, TUNNEL);
-    assert_eq!(t.sim().player(P1).expect("in the game").supplies, 0);
+    for survivor in [ObjectKind::Barracks, ObjectKind::LaserTurret] {
+        let mut t = with_structure(survivor);
+        next(&mut t, P1, bank(P1, 0, 0));
+        assert_eq!(t.sim().build_price(P1, TUNNEL).map(|price| price.amount), Some(1));
+        next(&mut t, P1, remove(T1));
+        assert!(!t.sim().player(P1).expect("in the game").is_defeated(), "{survivor:?}");
+        assert_eq!(owner(&t, id(5)), Some(P1), "{survivor:?}");
+        assert_eq!(t.sim().build_price(P1, TUNNEL).map(|price| price.amount), Some(0));
+        assert_eq!(gate(&t, P1, build(&[3], at(20, 8))), Ok(()));
+        next(&mut t, P1, build(&[3], at(20, 8)));
+        let (_, site) = until_started(&mut t, 3);
+        assert_eq!(object(&t, site).kind, TUNNEL);
+        assert_eq!(t.sim().player(P1).expect("in the game").supplies, 0);
+    }
 }

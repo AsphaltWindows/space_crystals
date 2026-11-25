@@ -53,7 +53,7 @@ pub fn rules() -> &'static TunnelDef {
 
 /// How far from the Tunnel's wall a unit stands on a path's spot, space units, so that no rounding makes its box
 /// overlap the footprint (a technical margin: a sixty-fourth of a space unit, as a doorway's).
-const WALL_CLEARANCE: f32 = 1.0 / 64.0;
+pub(crate) const WALL_CLEARANCE: f32 = 1.0 / 64.0;
 
 /// Where a held unit is (plan decision T30). Match it exhaustively, and never assume a held unit's place is on the
 /// map: a transport's passengers (design changes 0221 and 0222, deferred) will be held at their carrier, which may
