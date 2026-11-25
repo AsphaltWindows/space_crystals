@@ -47,7 +47,7 @@ pub(super) fn to_patch(
     // Design change 0128: loaded, it turns round without mining, and claims nothing. (A leg that ended short of
     // the patch is an arrival too: the patch it can't reach is like an occupied one, 0141, and an occupied one
     // doesn't keep it.) A worker that carries a Supply mines as any other, and loses it as the mining ends (design
-    // change 0256 point 4: "the same the other way"; Placeholder: Q0082 point 3, `economy::gathering`).
+    // change 0256 point 4: "the same the other way"; design change 0292 point 3, `economy::gathering`).
     if carrying(unit, Resource::Crystals) {
         state.enter(GatherPhase::ToDropOff);
         return Flow::Next;

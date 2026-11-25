@@ -1,9 +1,10 @@
 //! Switching resources (design change 0256 point 4, `factions/syndicate/units/agent.md > Gathering > Supplies`: "an
 //! Agent carrying Space Crystals that is ordered to gather Supplies goes straight to the station; its crystals are
 //! lost when it picks up the Supply. (Assumed the same the other way: a carried Supply is lost when it mines
-//! crystals.)"). When the old load goes is Q0082 point 3's proposal (Placeholder: Q0082 point 3): as the new pick-up
-//! or mining ends, with the new load; an Agent stopped before then keeps it. And design change 0128 (the Drone's rule,
-//! design change 0255): an Agent that carries a Supply turns round at the station and delivers it first.
+//! crystals.)"). When the old load goes is design change 0292 point 3's: "the old load is lost when the new pick-up or
+//! mining ends, both ways", with the new load; an Agent stopped before then keeps it. And design change 0128 (the
+//! Drone's rule, design change 0255): an Agent that carries a Supply turns round at the station and delivers it
+//! first.
 
 use super::*;
 
@@ -88,9 +89,10 @@ fn a_supply_is_lost_as_mining_ends() {
     assert_eq!(banks(&t, P1), (before.0 + CRYSTALS, before.1), "the Supply is lost");
 }
 
-/// Q0082 point 3: an Agent stopped in the middle of a pick-up keeps the crystals it carries (and takes no Supply,
-/// design change 0130). A Gather on the patch then turns it round there with its crystals, as any load (0128), and
-/// they are delivered.
+/// Design change 0292's Verification: "An Agent ordered off a station mid-pick-up still carries its crystals" (point 3:
+/// the old load goes as the new pick-up ends). Moved away in the middle of its pick-up, it keeps them (and takes no
+/// Supply, design change 0130). A Gather on the patch then turns it round there with its crystals, as any load (0128),
+/// and they are delivered.
 #[test]
 fn an_interrupted_pick_up_keeps_the_old_load() {
     let mut t = both();
@@ -99,8 +101,12 @@ fn an_interrupted_pick_up_keeps_the_old_load() {
     let next = t.sim().tick() + 1;
     gather(&mut t, next, &[A], STATION);
     let began = run_to(&mut t, &[A], &[STATION], 400, "the pick-up", |t| is_picking_up(t, A));
-    t.order_at(began + 20, P1, &[id(A)], OrderKind::Stop, false);
-    run_to(&mut t, &[A], &[STATION], 30, "stopped", |t| phase(t, A).is_none());
+    let away = OrderKind::Move(sc_sim::Target::Point(TilePos::new(8, 13).center()));
+    t.order_at(began + 20, P1, &[id(A)], away, false);
+    run_to(&mut t, &[A], &[STATION], 30, "off the job", |t| phase(t, A).is_none());
+    run_to(&mut t, &[A], &[STATION], 120, "off the station", |t| {
+        gap(t, A, STATION) > 2.0 * REACH
+    });
     t.run(PICK_UP);
     assert_eq!(load(&t, A), (CRYSTALS, Resource::Crystals), "it keeps its crystals");
     assert_eq!(supplies(&t, STATION), 100);

@@ -222,10 +222,10 @@ fn within_reach(objects: &BTreeMap<ObjectId, Object>, o: &Object, patch: ObjectI
 }
 
 impl World<'_> {
-    /// The structures that take workers' loads, in id order, each with where it takes `resource`.
-    pub(crate) fn drop_offs(&self, resource: Resource) -> impl Iterator<Item = (&View, &DropPoint)> + '_ {
-        (self.gathering.drop_offs.iter())
-            .map(move |(index, points)| (&self.views[*index as usize], points.of(resource)))
+    /// The structures that take workers' loads, in id order, each with where it takes Space Crystals: what the nearest
+    /// is measured to, whatever the load (`economy::drop_off::nearest`).
+    pub(crate) fn drop_offs(&self) -> impl Iterator<Item = (&View, &DropPoint)> + '_ {
+        (self.gathering.drop_offs.iter()).map(|(index, points)| (&self.views[*index as usize], &points.crystals))
     }
 
     /// Where drop-off `node` takes `resource`, if it takes loads now.

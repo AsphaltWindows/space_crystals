@@ -971,8 +971,9 @@ writes the mover's goal and the target the attack engages, and reads `Mover::sta
     occupies, waits for nor claims a patch, and isn't in `World::patch_mined` or `waited_at`, so a Drone and an Agent
     mine one patch together); without `keeps_drop_off` a Gather begins with no AssignedDropOff and takes the nearest
     drop-off as its first return starts, keeping it for that Gather (there is no Set Drop-off for the type: the gate's
-    `Sim::sets_drop_off`). "Nearest" is by the drop point's centre (`economy::drop_off::DropPoint`): a Tunnel's
-    hatch for the load's resource, an Egress Node's own centre.
+    `Sim::sets_drop_off`). "Nearest" is by the centre of the crystal point, whatever the load
+    (`economy::drop_off::nearest`, the one rule of the return leg and of the removal path): a Tunnel's crystal hatch
+    (design change 0292 point 2: "the same measure as for crystals"), an Egress Node's own centre.
   - **Supplies** (M4-I; `factions/syndicate/units/agent.md > Gathering > Supplies`, design change 0256): a Gather on a
     Supply Delivery Station (`Site::Station`, the station as the owner knows it) runs the same phases, for a worker type
     with `WorkerDef::supplies` (the Agent; the gate's `Sim::gatherers_among`, `resolve`'s station rule). `Mining` at a
@@ -987,13 +988,14 @@ writes the mover's goal and the target the attack engages, and reads `Mover::sta
     (`Waiting`), keeping its Gather, for ever, and picks up as soon as a Supply is free; one that can't get within
     reach sets off again every `RECHECK_TICKS`, for a spot free by then (0141's rule). The pick-up that takes the last
     Supply emits `SimEvent::SupplyStationEmpty { station, owner }` once for each player whose workers' Gather names
-    the station (the notification, a placeholder reading of "the owner"). **Switching resources** (point 4; Q0082
-    point 3, a placeholder): `Worker::resource` says what the load is; a worker with crystals sent to a station (or
+    the station (the notification, a placeholder reading of "the owner"). **Switching resources** (point 4; design
+    change 0292 point 3): `Worker::resource` says what the load is; a worker with crystals sent to a station (or
     with a Supply to a patch) goes straight there, and loses its load as the new pick-up or mining ends, with the new
     load in hand; one stopped before then keeps it. A worker with a Supply sent to a station turns round there and
     delivers it (0128). **The return** goes to the hatch of the load's resource: Side D for Supplies (design change
     0248), with its own one-at-a-time line, so a Tunnel takes a crystal and a Supply delivery in the same ticks; the
-    nearest Tunnel is measured to that hatch and both reaches are 8 su (Placeholders: Q0082 points 1 and 2).
+    nearest Tunnel is measured to its crystal hatch all the same, and both reaches are 8 su (design change 0292
+    points 2 and 1).
   - **A hatch takes one worker at a time** (`defs::DropOff::Hatches`, the Tunnel; `deliver::at_hatch`). DropOffReach
     is measured to the hatch square. A worker within reach is `AtHatch { since }`: it unloads if nobody did as phase
     5a began (`World::hatch_busy`) or has begun since (`Claims::take_hatch`), and it is the first of the line

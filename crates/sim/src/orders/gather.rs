@@ -18,7 +18,7 @@
 //! - **which Tunnel**: "the nearest own operational Tunnel (straight line to its crystal hatch) [...] chosen when
 //!   the Gather's first return starts and kept for that Gather (a new Gather picks again; a lost Tunnel means
 //!   picking the nearest again)": a Gather begins without an AssignedDropOff ([`begin`]) and the return takes the
-//!   nearest (`deliver`);
+//!   nearest (`deliver`), by its crystal hatch whatever the load (design change 0292 point 2);
 //! - **the hatch** (`deliver::at_hatch`, phase **AtHatch**): DropOffReach is measured to the 1-square hatch, which
 //!   takes one Agent at a time; those within reach wait in the order they came, and one that can't get within reach
 //!   tries again every [`LEG_RETRY_TICKS`], for ever ("It waits as long as it takes; it never gives up").
@@ -143,7 +143,7 @@ pub(super) fn begin(kind: OrderKind, unit: &mut Unit, world: &World) -> Gather {
             if !keeps {
                 worker.drop_off = None;
             } else if worker.drop_off.is_none() {
-                worker.drop_off = nearest_drop_off(world, pos, owner, worker.resource).map(|node| node.id);
+                worker.drop_off = nearest_drop_off(world, pos, owner).map(|node| node.id);
             }
             Gather::new(GatherPhase::ToPatch)
         }

@@ -11,11 +11,15 @@
 //! client draws the hatches on the same squares (`object_render/tunnel.rs`).
 //!
 //! DropOffReach is measured to that square (`factions/syndicate/units/agent.md > Gathering > Space Crystals`:
-//! "within 8 su of the crystal hatch on Side B"), and so is the distance that picks the nearest Tunnel
-//! (`factions/syndicate/units/agent.md > Gathering rules`: "straight line to its crystal hatch"). Each resource has its
-//! point ([`drop_point`]): a load of Supplies is taken at the Supplies hatch on Side D (design change 0248; slice
-//! M4-I), and the nearest Tunnel for it is the one whose Supplies hatch is nearest, "since that is where the trip ends"
-//! (Placeholder: Q0082 point 2).
+//! "within 8 su of the crystal hatch on Side B"). Each resource has its point ([`drop_point`]): a load of Supplies is
+//! taken at the Supplies hatch on Side D (design change 0248; slice M4-I).
+//!
+//! **Which drop-off** ([`nearest`]): the nearest is measured to its crystal point, whatever the load: a Tunnel's
+//! crystal hatch (`factions/syndicate/units/agent.md > Gathering rules`: "straight line to its crystal hatch"), an
+//! Egress Node's centre. A worker carrying Supplies picks its Tunnel by the same measure, and delivers at the Supplies
+//! hatch all the same (design change 0292 point 2: "'nearest Tunnel' for Supplies is measured to the crystal hatch,
+//! the same measure as for crystals"; `factions/syndicate/units/agent.md > Gathering > Supplies`: "even though Supplies
+//! are delivered at Side D").
 
 use glam::Vec2;
 
@@ -30,7 +34,8 @@ use crate::units::{SU_PER_GU, TilePos};
 pub struct DropPoint {
     /// What DropOffReach is measured to: the structure, or the hatch square.
     pub shape: Shape,
-    /// The middle of [`DropPoint::shape`]: what the nearest drop-off is nearest by.
+    /// The middle of [`DropPoint::shape`]. A crystal point's is what the nearest drop-off is nearest by, whatever the
+    /// load ([`nearest`]).
     pub centre: Vec2,
     /// The side of the hatch, for a drop-off with hatches: one worker unloads there at a time. `None` for one that
     /// takes loads anywhere, from any number of workers.
@@ -117,6 +122,17 @@ pub fn crystal_point(kind: ObjectKind, pos: Vec2, whole: Shape, placement: Optio
 /// [`crystal_point`] of object `o`.
 pub fn crystal_point_of(o: &Object) -> Option<DropPoint> {
     drop_point_of(o, Resource::Crystals)
+}
+
+/// The nearest to `pos` of `drop_offs`, each given with its [`crystal_point`], for a load of either resource (module
+/// docs, design change 0292 point 2): by the straight line to that point's centre, the first among equals, so the
+/// lowest id of drop-offs given in id order. The one rule of the return leg's choice (`orders::gather`) and of the
+/// removal path's (`Sim::reassign_drop_offs`).
+pub fn nearest<T>(pos: Vec2, drop_offs: impl IntoIterator<Item = (T, DropPoint)>) -> Option<T> {
+    (drop_offs.into_iter())
+        .map(|(drop_off, crystals)| (drop_off, crystals.centre.distance_squared(pos)))
+        .min_by(|a, b| a.1.total_cmp(&b.1))
+        .map(|(drop_off, _)| drop_off)
 }
 
 #[cfg(test)]
@@ -217,5 +233,23 @@ mod tests {
             let point = drop_point(ObjectKind::EgressNode, node.center(), whole, Some(&node), resource).unwrap();
             assert_eq!((point.side, point.centre, point.shape), (None, node.center(), whole));
         }
+    }
+
+    /// [`nearest`]: by the straight line to each crystal point's centre, the first of equals (the lowest id, in id
+    /// order), none of none.
+    #[test]
+    fn the_nearest_drop_off_is_by_its_crystal_points_centre_the_first_of_equals() {
+        let point = |x: f32| {
+            let centre = Vec2::new(x, 0.0);
+            DropPoint {
+                shape: Shape::rect(centre, Vec2::splat(32.0)),
+                centre,
+                side: Some(B),
+            }
+        };
+        let near = |drop_offs: &[(u32, f32)]| nearest(Vec2::ZERO, drop_offs.iter().map(|&(id, x)| (id, point(x))));
+        assert_eq!(near(&[(1, 100.0), (2, -50.0), (3, 60.0)]), Some(2));
+        assert_eq!(near(&[(3, 50.0), (4, -50.0)]), Some(3), "the first of equals");
+        assert_eq!(near(&[]), None);
     }
 }

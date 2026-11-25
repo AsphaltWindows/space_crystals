@@ -3,8 +3,8 @@
 
 use glam::Vec2;
 
-use crate::defs::{Resource, WorkerDef};
-use crate::economy::drop_off::DropPoint;
+use crate::defs::WorkerDef;
+use crate::economy::drop_off::{self, DropPoint};
 use crate::economy::gathering::is_drop_off;
 use crate::ids::{ObjectId, PlayerId};
 use crate::sides::SideLetter;
@@ -18,23 +18,15 @@ use super::patch::find_another;
 use super::site::{Site, site};
 use super::{Claims, Flow};
 
-/// The drop-off of `owner` nearest to `pos` for a load of `resource`: by its centre, or by the centre of the hatch
-/// that takes `resource` for one with hatches (`factions/syndicate/units/agent.md > Gathering rules`: "the nearest own
-/// operational Tunnel (straight line to its crystal hatch), regardless of how many other Agents already use it"; for
-/// Supplies its Supplies hatch, "since that is where the trip ends": Placeholder: Q0082 point 2); the lowest id among
-/// equals (`Sim::nearest_drop_off`).
-pub(super) fn nearest_drop_off<'a>(
-    world: &'a World,
-    pos: Vec2,
-    owner: Option<PlayerId>,
-    resource: Resource,
-) -> Option<&'a View> {
+/// The drop-off of `owner` nearest to `pos`, for a load of either resource: by its centre, or by the centre of its
+/// crystal hatch for one with hatches (`factions/syndicate/units/agent.md > Gathering rules`: "the nearest own
+/// operational Tunnel (straight line to its crystal hatch), regardless of how many other Agents already use it";
+/// design change 0292 point 2: "'nearest Tunnel' for Supplies is measured to the crystal hatch, the same measure as for
+/// crystals"); the lowest id among equals (`economy::drop_off::nearest`, as `Sim::nearest_drop_off`).
+pub(super) fn nearest_drop_off<'a>(world: &'a World, pos: Vec2, owner: Option<PlayerId>) -> Option<&'a View> {
     owner?;
-    world
-        .drop_offs(resource)
-        .filter(|(node, _)| node.owner == owner)
-        .min_by(|(_, a), (_, b)| (a.centre.distance_squared(pos)).total_cmp(&b.centre.distance_squared(pos)))
-        .map(|(node, _)| node)
+    let own = (world.drop_offs()).filter(|(node, _)| node.owner == owner);
+    drop_off::nearest(pos, own.map(|(node, crystals)| (node, *crystals)))
 }
 
 /// The way back, and the wait at a hatch: `since` is the tick the worker came within reach of the hatch it waits
@@ -64,7 +56,8 @@ pub(super) fn to_drop_off(
         state.enter(GatherPhase::Delivered);
         return Flow::Next;
     }
-    // The hatch, the reach and the nearest drop-off are those of what it carries (slice M4-I).
+    // The hatch and the reach are those of what it carries (slice M4-I); the nearest drop-off is by its crystal hatch,
+    // whatever it carries (design change 0292 point 2, [`nearest_drop_off`]).
     let resource = worker.resource;
     let own_drop_off = |id: ObjectId| {
         world
@@ -80,7 +73,7 @@ pub(super) fn to_drop_off(
         // the leg takes the one it reads. An Agent's Gather begins without one (`super::begin`), so it takes the
         // nearest Tunnel here, as its first return starts, and keeps it (design change 0255).
         _ => {
-            let nearest = || nearest_drop_off(world, pos, owner, resource).map(|node| node.id);
+            let nearest = || nearest_drop_off(world, pos, owner).map(|node| node.id);
             worker.drop_off = worker.drop_off.or_else(nearest);
             worker.drop_off.and_then(own_drop_off)
         }
@@ -102,7 +95,7 @@ pub(super) fn to_drop_off(
     };
     let point = world.drop_point(node.id, resource).unwrap_or(&anywhere);
     // `factions/syndicate/units/agent.md > Gathering`: DropOffReach; `factions/syndicate/units/agent.md > Supplies`:
-    // the same 8 su (Placeholder: Q0082 point 1).
+    // the same 8 su, "from the Supplies hatch on Side D" (design change 0292 point 1).
     let reach = def.load(resource).unwrap_or(def.crystals).drop_off_reach;
     let in_reach = unit.shape().gap(&point.shape) <= reach;
     let Some(side) = point.side else {

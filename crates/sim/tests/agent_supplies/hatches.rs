@@ -1,8 +1,9 @@
 //! The Supplies hatch (`factions/syndicate/tunnels.md > Tunnel > SymmetryType - ABCD`, design change 0248: Side D;
 //! `factions/syndicate/units/agent.md > Gathering > Supplies`: "Drop-off side: Tunnel Side D"): a delivery there
-//! and one at the crystal hatch on Side B in the same ticks, each within reach of its own hatch's square (Placeholder:
-//! Q0082 point 1, 8 su); the nearest Tunnel for Supplies, by its Supplies hatch (Placeholder: Q0082 point 2); and a
-//! Drop Off order with a Supply.
+//! and one at the crystal hatch on Side B in the same ticks, each within reach of its own hatch's square (design
+//! change 0292 point 1: "8 su reaches for pick-up at a station and for drop-off at the Supplies hatch"); the nearest
+//! Tunnel for Supplies, by its crystal hatch, and the delivery at its Supplies hatch (0292 point 2); and a Drop Off
+//! order with a Supply.
 
 use super::*;
 
@@ -63,14 +64,14 @@ fn a_crystal_delivery_at_b_and_a_supply_delivery_at_d_in_the_same_ticks() {
     );
 }
 
-/// Q0082 point 2: the nearest Tunnel for a Supply is the one whose Supplies hatch is nearest, as the crystal hatch
-/// decides for crystals (`factions/syndicate/units/agent.md > Gathering rules`: "the nearest own operational Tunnel
-/// (straight line to its crystal hatch)"). The west Tunnel (1) stands 1 grid unit from the station (2), its crystal
-/// hatch facing it and its Supplies hatch on its far side; the east one (3) stands 4 grid units off, its Supplies hatch
-/// facing the station. The Agent delivers at the east one, though the west one is nearer by its centre and by its
-/// crystal hatch.
+/// Design change 0292 point 2 (`factions/syndicate/units/agent.md > Gathering > Supplies`): "'nearest Tunnel' for
+/// Supplies is measured to the crystal hatch, the same measure as for crystals", "even though Supplies are delivered at
+/// Side D". The two measures pick different Tunnels here: the west Tunnel (1) stands 1 grid unit from the station (2),
+/// its crystal hatch facing it and its Supplies hatch on its far side; the east one (3) stands 4 grid units off, its
+/// Supplies hatch facing the station. The Agent takes the west one, nearer by its crystal hatch though the east one's
+/// Supplies hatch is nearer, keeps it for the Gather, and walks round it to unload at its Supplies hatch.
 #[test]
-fn the_nearest_tunnel_for_supplies_is_the_one_with_the_nearest_supplies_hatch() {
+fn the_nearest_tunnel_for_supplies_is_the_one_with_the_nearest_crystal_hatch() {
     let (west, east) = (1, 3);
     let mut t = flat(30, 20)
         .spawn(TUNNEL, Some(P1), tile(2, 6))
@@ -85,15 +86,75 @@ fn the_nearest_tunnel_for_supplies_is_the_one_with_the_nearest_supplies_hatch() 
         let point = drop_point_of(object(&t, n), resource).expect("a drop-off");
         point.centre.distance(at)
     };
-    let centre_distance = |n: u32| object(&t, n).pos.distance(at);
-    assert!(centre_distance(west) < centre_distance(east));
     assert!(distance(west, Resource::Crystals) < distance(east, Resource::Crystals));
     assert!(distance(east, Resource::Supplies) < distance(west, Resource::Supplies));
-    let delivered = run_to(&mut t, &[4], &[STATION], 400, "the delivery", |t| {
+    step(&mut t, &[4], &[STATION]);
+    assert_eq!(node(&t, 4), Some(west), "chosen as its first return starts");
+    let square = hatch(&t, west, Resource::Supplies);
+    let delivered = run_to(&mut t, &[4], &[STATION], 600, "the delivery", |t| {
+        if is_unloading(t, 4) {
+            assert!(Shape::of(object(t, 4)).gap(&square) <= REACH, "at its Supplies hatch");
+        }
         !deliveries(t).is_empty()
     });
-    assert_eq!(deliveries(&t), [(delivered, 4, east, CARRY, Resource::Supplies)]);
-    assert_eq!(node(&t, 4), Some(east), "kept for the Gather");
+    assert_eq!(deliveries(&t), [(delivered, 4, west, CARRY, Resource::Supplies)]);
+    assert_eq!(
+        object(&t, 4).worker.unwrap().drop_off,
+        Some(id(west)),
+        "kept for the Gather"
+    );
+}
+
+/// Design change 0292 point 2 on the removal path: "a lost Tunnel means picking the nearest again"
+/// (`factions/syndicate/units/agent.md > Gathering rules`), by the crystal hatch too. The layout of
+/// [`the_nearest_tunnel_for_supplies_is_the_one_with_the_nearest_crystal_hatch`], with a third Tunnel (4) south of the
+/// station, turned a quarter back so that its crystal hatch faces the station and its Supplies hatch looks away. The
+/// Agent (5) carries a Supply back to the west Tunnel, which is removed: it takes the south one at once, nearer than
+/// the east one by its crystal hatch though the east one's Supplies hatch is nearer, and unloads at its Supplies hatch.
+#[test]
+fn a_supply_carrier_that_loses_its_tunnel_takes_the_nearest_crystal_hatch() {
+    use sc_sim::testing::TestSim;
+    use sc_sim::{BuildingOrientation, DebugCommand, Rotation};
+    let (west, east, south, agent) = (1, 3, 4, 5);
+    let mut scenario = flat(30, 20)
+        .spawn(TUNNEL, Some(P1), tile(2, 6))
+        .spawn_with(station_of(100), tile(7, 7))
+        .spawn(TUNNEL, Some(P1), tile(13, 6))
+        .spawn(TUNNEL, Some(P1), tile(6, 12))
+        .spawn(AGENT, Some(P1), centre(10, 3))
+        .build();
+    // Turned 270°: Side B to the north, on tile (8, 12); Side D to the south, on tile (8, 15).
+    scenario.map.spawns[3].orientation = BuildingOrientation {
+        rotation: Rotation::R270,
+        ..BuildingOrientation::default()
+    };
+    let mut t = TestSim::new(scenario);
+    gather(&mut t, 1, &[agent], STATION);
+    run_to(&mut t, &[agent], &[STATION], 200, "a Supply", |t| load(t, agent).0 > 0);
+    step(&mut t, &[agent], &[STATION]);
+    assert_eq!(node(&t, agent), Some(west), "the nearest crystal hatch of the three");
+    let at = t.pos(agent);
+    let distance = |n: u32, resource: Resource| {
+        let point = drop_point_of(object(&t, n), resource).expect("a drop-off");
+        point.centre.distance(at)
+    };
+    assert!(distance(south, Resource::Crystals) < distance(east, Resource::Crystals));
+    assert!(distance(east, Resource::Supplies) < distance(south, Resource::Supplies));
+    let now = t.sim().tick();
+    t.debug_at(now + 1, DebugCommand::Remove { id: id(west) });
+    step(&mut t, &[agent], &[STATION]);
+    assert_eq!(object(&t, agent).worker.unwrap().drop_off, Some(id(south)), "at once");
+    let square = hatch(&t, south, Resource::Supplies);
+    let delivered = run_to(&mut t, &[agent], &[STATION], 600, "the delivery", |t| {
+        if is_unloading(t, agent) {
+            assert!(
+                Shape::of(object(t, agent)).gap(&square) <= REACH,
+                "at its Supplies hatch"
+            );
+        }
+        !deliveries(t).is_empty()
+    });
+    assert_eq!(deliveries(&t), [(delivered, agent, south, CARRY, Resource::Supplies)]);
 }
 
 /// `factions/syndicate/units/agent.md > Gathering rules` (design change 0255, one of the Drone's job rules): "Other
