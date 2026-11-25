@@ -14,28 +14,28 @@
 //!   from the building to it; none while it has no rally point.
 //!
 //! Colours follow `> Color language`: green for Move, red for Attack, orange for AttackMove and Patrol. A target
-//! object marks nothing, and ends no route leg, while the fog of war hides it from the local player
-//! (`crate::fog::Sight::sees`): the indicators would give away where it is. A Move to a structure or resource on
-//! Explored tiles marks where the player remembers it (`crate::fog::Sight::remembered`). Everything is one
-//! alpha-blended mesh in the overlays layer, between the path overlay and the combat effects, rebuilt every frame
-//! while anything shows. Flashes age by the sim's ticks and the render alpha, so a QA screenshot of a tick (alpha 1)
-//! always shows them alike.
+//! object is marked, and ends a route leg, where the local player knows it ([`targets`], design change 0139): where
+//! it is drawn while the player sees it, where its record is drawn while the player remembers it (a structure or a
+//! resource on Explored tiles), wherever the object really is; and not at all while the fog of war hides it otherwise
+//! (a unit out of sight): the indicators would give away where it is. Everything is one alpha-blended mesh in the
+//! overlays layer, between the path overlay and the combat effects, rebuilt every frame while anything shows.
+//! Flashes age by the sim's ticks and the render alpha, so a QA screenshot of a tick (alpha 1) always shows them
+//! alike.
 
 pub mod rally;
+mod targets;
 
 use std::collections::BTreeSet;
 use std::f32::consts::TAU;
 
 use bevy::prelude::*;
 use sc_sim::orders::Order;
-use sc_sim::vision::LastKnown;
-use sc_sim::{Map, Object, ObjectId, OrderKind, SU_PER_GU, Sim, Target, Tick};
+use sc_sim::{Map, Object, ObjectId, OrderKind, Sim, Target, Tick};
 
 use super::OrderIssued;
 use crate::coords::{DrawLayer, drawn_at_height, drawn_position, view_to_world};
 use crate::fog::{LocalSight, Sight};
 use crate::input::{ActionState, InputAction};
-use crate::object_render::object_height;
 use crate::selection::ControlStates;
 use crate::shapes::ColorMesh;
 use crate::sim_driver::{RenderAlpha, SimRes};
@@ -90,8 +90,30 @@ pub struct CommandIndicators {
 pub enum Indicator {
     /// `> Location Indicator`: a marker on the ground at a point (ground space).
     Location { at: Vec2, color: Color },
-    /// `> Object Indicator`: a marker around an object's perimeter.
+    /// `> Object Indicator`: a marker around an object's perimeter, as the local player knows the object
+    /// ([`targets`]).
     Object { id: ObjectId, color: Color },
+}
+
+impl Indicator {
+    /// Its colour (`> Color language`).
+    pub fn color(self) -> Color {
+        match self {
+            Indicator::Location { color, .. } | Indicator::Object { color, .. } => color,
+        }
+    }
+}
+
+/// Where an indicator's marker is drawn at rest ([`marker_ring`]).
+#[derive(Copy, Clone, Debug, PartialEq)]
+pub struct MarkerRing {
+    /// Its centre on the ground, space units.
+    pub center: Vec2,
+    /// The height it is drawn at, levels: the ground's under a Location marker, the object's under an Object
+    /// marker (`object_render::object_height`).
+    pub height: f32,
+    /// Its ring's radius, su.
+    pub radius: f32,
 }
 
 /// The entity holding the indicators' mesh.
@@ -129,8 +151,8 @@ pub fn order_color(kind: OrderKind) -> Option<Color> {
 }
 
 /// The indicator of an order (`> Indicator assignments`): a Location for Move, AttackMove and Patrol (a Move to an
-/// object at the object, wherever it is now, or where the player remembers it), an Object for Attack; none for
-/// orders without a target, or whose target is gone or hidden from `sight`.
+/// object at the object as the player knows it, [`targets`]), an Object for Attack, around the object as the player
+/// knows it; none for orders without a target, or whose target the player knows nothing of.
 pub fn indicator(sim: &Sim, sight: &Sight, kind: OrderKind) -> Option<Indicator> {
     let color = order_color(kind)?;
     match kind {
@@ -138,29 +160,18 @@ pub fn indicator(sim: &Sim, sight: &Sight, kind: OrderKind) -> Option<Indicator>
             Some(Indicator::Location { at, color })
         }
         OrderKind::Move(Target::Object(id)) | OrderKind::Gather(id) | OrderKind::DropOff(id) => {
-            let at = shown_at(sim, sight, id)?;
+            let at = targets::shown_at(sim, sight, id)?;
             Some(Indicator::Location { at, color })
         }
-        OrderKind::Attack(id) => seen(sim, sight, id).map(|_| Indicator::Object { id, color }),
+        OrderKind::Attack(id) => sight
+            .target_view(sim, id)
+            .is_known()
+            .then_some(Indicator::Object { id, color }),
         OrderKind::Deploy { origin } => Some(Indicator::Location {
             at: sc_sim::deploy::site(origin).center(),
             color,
         }),
         OrderKind::Hold | OrderKind::Stop => None,
-    }
-}
-
-/// Object `id`, if it exists and `sight` sees it.
-fn seen<'a>(sim: &'a Sim, sight: &Sight, id: ObjectId) -> Option<&'a Object> {
-    sim.object(id).filter(|o| sight.sees(o))
-}
-
-/// Where `sight` shows object `id` (ground space): where it is if the player sees it, else where the record shown
-/// in its place has it.
-fn shown_at(sim: &Sim, sight: &Sight, id: ObjectId) -> Option<Vec2> {
-    match seen(sim, sight, id) {
-        Some(o) => Some(o.pos),
-        None => sight.remembered_record(id).map(LastKnown::pos),
     }
 }
 
@@ -203,13 +214,12 @@ fn own_selected<'a>(
         .filter(move |o| o.owner == Some(player))
 }
 
-/// Where the leg of a route that carries out `order` ends, ground space: the target object where it is shown, else
-/// the unit's own destination (its place in the group's shape, `Order::destination`); none for Hold and Stop, and
-/// for a target hidden from `sight`.
+/// Where the leg of a route that carries out `order` ends, ground space: the target object as the player knows it
+/// ([`targets`]), else the unit's own destination (its place in the group's shape, `Order::destination`); none for
+/// Hold and Stop, and for a target the player knows nothing of.
 fn waypoint(sim: &Sim, sight: &Sight, order: &Order) -> Option<Vec2> {
     match order.kind {
-        OrderKind::Move(Target::Object(id)) => shown_at(sim, sight, id),
-        OrderKind::Attack(id) => seen(sim, sight, id).map(|o| o.pos),
+        OrderKind::Move(Target::Object(id)) | OrderKind::Attack(id) => targets::shown_at(sim, sight, id),
         _ => order.destination(),
     }
 }
@@ -291,17 +301,22 @@ fn draw_indicators(
         }
         let rallies = rally_indicators(sim, &sight, &states);
         for rally in &rallies {
-            rally::draw_line(&mut mesh, sim, rally, alpha.0, z);
+            rally::draw_line(&mut mesh, sim, &sight, rally, alpha.0, z);
         }
+        let at = |indicator| marker_ring(sim, &sight, indicator, alpha.0);
         let markers = selection_indicators(sim, &sight, &states, queued);
         for indicator in markers.into_iter().chain(rallies.iter().map(|rally| rally.marker)) {
-            marker(&mut mesh, sim, indicator, alpha.0, 0.0, 1.0, z);
+            if let Some(at) = at(indicator) {
+                marker(&mut mesh, indicator, at, 0.0, 1.0, z);
+            }
         }
         for flash in &indicators.flashes {
             let progress = flash_progress(sim, alpha.0, flash.tick);
-            if let Some(indicator) = indicator(sim, &sight, flash.kind) {
+            if let Some(indicator) = indicator(sim, &sight, flash.kind)
+                && let Some(at) = at(indicator)
+            {
                 let fade = 1.0 - progress;
-                marker(&mut mesh, sim, indicator, alpha.0, FLASH_REACH * fade, fade, z);
+                marker(&mut mesh, indicator, at, FLASH_REACH * fade, fade, z);
             }
         }
     }
@@ -340,59 +355,36 @@ fn dashed_on_terrain(mesh: &mut ColorMesh, map: &Map, a: Vec2, b: Vec2, z: f32, 
     }
 }
 
-/// Draws an indicator: its ring `grow` su wider than at rest, at `opacity`. A Location also gets its dot while at
-/// rest or nearly.
-fn marker(mesh: &mut ColorMesh, sim: &Sim, indicator: Indicator, alpha: f32, grow: f32, opacity: f32, z: f32) {
+/// Draws `indicator`'s marker `at` its place ([`marker_ring`]): its ring `grow` su wider than at rest, at `opacity`.
+/// A Location also gets its dot while at rest or nearly.
+fn marker(mesh: &mut ColorMesh, indicator: Indicator, at: MarkerRing, grow: f32, opacity: f32, z: f32) {
     let width = if grow > 0.0 { FLASH_WIDTH } else { MARKER_WIDTH };
-    match indicator {
-        Indicator::Location { at, color } => {
-            let center = view_to_world(drawn_position(sim.map(), at));
-            let color = color.with_alpha(opacity);
-            ring(mesh, center, LOCATION_RADIUS + grow, width, z, color);
-            if grow < FLASH_REACH / 2.0 {
-                disc(mesh, center, DOT_RADIUS, z, color);
-            }
-        }
-        Indicator::Object { id, color } => {
-            let Some(o) = sim.object(id) else {
-                return;
-            };
-            let pos = o.prev_pos.lerp(o.pos, alpha);
-            let height = object_height(sim.map(), pos, o.placement.as_ref());
-            let (center, half) = object_box(o, alpha);
-            let center = view_to_world(drawn_at_height(center, height));
-            ring(
-                mesh,
-                center,
-                half.length() + OBJECT_GAP + grow,
-                width,
-                z,
-                color.with_alpha(opacity),
-            );
-        }
+    let center = view_to_world(drawn_at_height(at.center, at.height));
+    let color = indicator.color().with_alpha(opacity);
+    ring(mesh, center, at.radius + grow, width, z, color);
+    if matches!(indicator, Indicator::Location { .. }) && grow < FLASH_REACH / 2.0 {
+        disc(mesh, center, DOT_RADIUS, z, color);
     }
 }
 
-/// The box an Object marker surrounds: its centre (ground space, where the object is drawn at the render `alpha`)
-/// and its half extents, su. A structure's footprint, else the type's box.
-fn object_box(o: &Object, alpha: f32) -> (Vec2, Vec2) {
-    match &o.placement {
-        Some(p) => (p.center(), Vec2::new(p.w as f32, p.h as f32) * SU_PER_GU / 2.0),
-        None => (
-            o.prev_pos.lerp(o.pos, alpha),
-            o.def().half_extents().unwrap_or(Vec2::splat(SU_PER_GU / 4.0)),
-        ),
-    }
-}
-
-/// Where `indicator`'s marker is, ground space, and its ring's radius at rest, su, as [`marker`] draws it at the
-/// render `alpha`; none for an Object marker whose object is gone.
-fn marker_ring(sim: &Sim, indicator: Indicator, alpha: f32) -> Option<(Vec2, f32)> {
+/// Where `indicator`'s marker is drawn at rest, at the render `alpha`, as the player whose `sight` this is knows its
+/// target: a Location at its point on the ground; an Object around the object's box, where the object is drawn while
+/// the player sees it, around its record's footprint while the player remembers it, wherever the object really is
+/// ([`targets`], design change 0139); none while the player knows of nothing there.
+pub fn marker_ring(sim: &Sim, sight: &Sight, indicator: Indicator, alpha: f32) -> Option<MarkerRing> {
     match indicator {
-        Indicator::Location { at, .. } => Some((at, LOCATION_RADIUS)),
+        Indicator::Location { at, .. } => Some(MarkerRing {
+            center: at,
+            height: sim.map().height_at(at),
+            radius: LOCATION_RADIUS,
+        }),
         Indicator::Object { id, .. } => {
-            let (center, half) = object_box(sim.object(id)?, alpha);
-            Some((center, half.length() + OBJECT_GAP))
+            let (center, height, half) = targets::object_box(sim, sight, id, alpha)?;
+            Some(MarkerRing {
+                center,
+                height,
+                radius: half.length() + OBJECT_GAP,
+            })
         }
     }
 }

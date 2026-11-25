@@ -2,12 +2,14 @@
 //! Explored tiles show their records, as last seen, never the live objects there; only a GDO player may select a
 //! remembered SupplyDeliveryStation (`> Explored Selectability`), whose InfoPanel shows it as last seen but with the
 //! station's real delivery timer (design change 0057); and a shot from the fog shows from the fog edge, its shooter
-//! revealed for a while (design change 0177). Headless, one tick per update, as in `fog.rs`.
+//! revealed for a while (design change 0177); and the markers on a remembered target stay on its record (design
+//! change 0139). Headless, one tick per update, as in `fog.rs`.
 //!
 //! One test binary: `records` (the records drawn on Explored tiles, an enemy structure's as placed), `station` (the
-//! remembered SupplyDeliveryStation: who may select it, its frame and its InfoPanel) and `shots` (a shot from the
-//! fog).
+//! remembered SupplyDeliveryStation: who may select it, its frame and its InfoPanel), `shots` (a shot from the fog)
+//! and `markers` (the markers on a remembered target).
 
+mod markers;
 mod records;
 mod shots;
 mod station;

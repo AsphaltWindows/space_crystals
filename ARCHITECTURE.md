@@ -2179,12 +2179,18 @@ their producing structures and their constructors, and the Colonists' Beacons an
   one mesh in the overlays layer, rebuilt every frame while anything shows: markers at the targets of the selected
   own units' current orders (and queued ones while Shift is held), a flash where an order was just given
   (`FLASH_TICKS`), and while Shift is held each unit's route through its waypoints as dashed lines; colours follow
-  `> Color language`; a target object the fog hides gets no marker and ends no leg (`Sight::sees`), but a Move to
-  a remembered one is marked at its record. The selected own producers' rally points (`indicators/rally.rs`, design
+  `> Color language`. **A marker or a route leg that names an object goes by what the local player knows of it,
+  never by the live object** (`indicators/targets.rs`, `Sight::target_view`: the sim's `TargetView` through the
+  client's `Sight`; design change 0139, slice M3-K2a): where the object is drawn while the player sees it, around
+  its record (last-known position and footprint) while the player remembers it, wherever the object really is (a
+  Beacon whose deployment was cancelled walks away as a Drone) and whether it still exists, and nothing while the
+  player knows nothing of it (a unit out of sight). `marker_ring` is where a marker is drawn; the rally lines end
+  at it. The selected own producers' rally points (`indicators/rally.rs`, design
   changes 0087, 0088) show a marker, green on the ground and around an own or neutral object, red around an enemy
   (the sim turns an enemy rally point it loses sight of into a ground one, so the marker turns green there), and a
   solid line from the footprint's edge to it; nothing while the producer isn't selected or has none; a portal rallied
-  on a patch rings the patch in green (slice M3-J2). A Gather or a Drop Off is marked as a Move to its object, a green
+  on a patch rings the patch in green (slice M3-J2). The InfoPanel's rally line names the target as the player knows
+  it too (`activity::rally_line`). A Gather or a Drop Off is marked as a Move to its object, a green
   Location marker (placeholders: the design gives them no indicator). The pointer
   (`command_ui/cursor.rs`) shows the `PointerLook`: images drawn in code and cached per look, set as the window's
   `CursorIcon`, and drawn as a UI node at the injected cursor in QA runs, which render no system cursor; Mixed is

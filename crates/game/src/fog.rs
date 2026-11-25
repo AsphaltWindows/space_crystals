@@ -27,6 +27,8 @@
 //!
 //! Placeholders, the design being silent on how fog looks: the Explored dimming and the soft edges.
 
+mod targets;
+
 use bevy::asset::RenderAssetUsages;
 use bevy::ecs::system::SystemParam;
 use bevy::image::ImageSampler;
