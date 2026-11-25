@@ -288,6 +288,7 @@ Converts the **entire remaining battery** into the **next surge**. A single big 
   - **Queueable**: Shift-Deploy waits until the earlier orders are done (e.g. move here, then deploy). Without Shift it replaces the current orders and starts at once.
   - **No reversing mid-way**: **Undeploy is only available once deployment is complete**. The unit becomes Laser Battery (Deployed) (type and SelectionGroup) when deploying finishes; until then it is still a Laser Battery. (Undeploying is assumed symmetric: Deploy becomes available again only once undeploying is complete.)
   - **Not cancellable** (user, 2026-11-25; replaces the earlier wind-back on Stop): once deploying has started it always runs to completion; Stop doesn't interrupt it. (Assumed symmetric: undeploying also always completes.)
+  - **Not the same as the Colonists Drone's Deploy** (user, 2026-11-25): a Drone becomes a Beacon **immediately** and the transformation **can be cancelled** (factions/colonists/economy.md > Beacon Deployment).
   - When the switch makes a group disappear, the group the units joined becomes active (systems/controls/selection_and_hud.md > ActiveGroup > When the ActiveGroup disappears).
 - The battery keeps charging in every mode (Battery: always charging).
 - TBD: deploy/undeploy time.
