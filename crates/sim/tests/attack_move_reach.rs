@@ -392,3 +392,82 @@ fn a_unit_judges_a_bounded_number_of_enemies_per_tick() {
     assert!(judging.taken.is_empty() && rest.taken.is_empty());
     assert_eq!(rest.paths, 0);
 }
+
+/// A corridor one tile wide leads east from player 1's Deployment Center (tiles (0, 1) to (3, 4)): tile row 3, y
+/// from 192 to 256, x from 256 on, between water.
+const CORRIDOR: &str = "
+    ~~~~~~~~~~~~~~~~~~~~~~~~
+    ....~~~~~~~~~~~~~~~~~~~~
+    ....~~~~~~~~~~~~~~~~~~~~
+    ........................
+    ....~~~~~~~~~~~~~~~~~~~~
+    ~~~~~~~~~~~~~~~~~~~~~~~~
+    ........................
+    ........................
+";
+
+/// Design change 0235's Verification (answering question Q0073): "Four Peacekeepers attack-move through a 1-tile
+/// corridor at a building. The rear ones give up once (about 7 s), walk on, and don't turn back while the front one
+/// still fires." The first stops in range of the Deployment Center and fires; the three behind can't get past it,
+/// and their chases fail by the Failure rule (design change 0223). "A chase given up by the Failure rule puts the
+/// enemy in the reach rule's rejected set": each of them takes the building once, keeps a rejection of it from
+/// then on, and never takes it again while the first stands (with the 32-tick retry of old, each went round a lap
+/// of 116 ticks for good). Their AttackMoves end. When the first unit leaves, the next one walks up and fires:
+/// "Within weapon range it is always fought."
+#[test]
+fn in_a_corridor_the_units_behind_give_up_their_chase_once() {
+    let mut builder = ScenarioBuilder::new(CORRIDOR)
+        .spawn(
+            ObjectKind::DeploymentCenter,
+            Some(P1),
+            SpawnAt::Tile(TilePos::new(0, 1)),
+        ) // 1
+        .spawn(ObjectKind::Generator, Some(P1), SpawnAt::Tile(TilePos::new(1, 6))); // 2
+    for i in 0..4 {
+        let at = v(540.0 + 40.0 * i as f32, 224.0);
+        builder = builder.spawn(ObjectKind::Peacekeeper, Some(P2), SpawnAt::Point(at)); // 3 to 6
+    }
+    let mut t = builder.start();
+    let units = [id(3), id(4), id(5), id(6)];
+    t.order_at(2, P2, &units, OrderKind::AttackMove(v(280.0, 224.0)), false)
+        .run_until(2);
+    let engaged_with = |t: &TestSim, n: u32| leg(t, n).and_then(|leg| leg.engaged).map(|pursuit| pursuit.target);
+    let mut taken = [0_u32; 4];
+    let mut was = [None; 4];
+    let mut gave_up = [None; 4];
+    while t.sim().tick() < 900 {
+        t.step();
+        for (i, unit) in (3..=6).enumerate() {
+            let now = engaged_with(&t, unit);
+            taken[i] += u32::from(now == Some(id(1)) && was[i] != now);
+            if was[i] == Some(id(1)) && now.is_none() && gave_up[i].is_none() {
+                gave_up[i] = Some(t.sim().tick());
+                assert!(
+                    is_idle(&t, unit) || rejection(&t, unit, 1).is_some(),
+                    "#{unit} keeps a rejection of the building"
+                );
+            }
+            was[i] = now;
+        }
+    }
+    assert!(attack_ticks(&t, 3).len() > 10, "the first fires all along");
+    assert_eq!((taken[0], gave_up[0]), (1, None), "and never lets go");
+    for (i, unit) in (4..=6).enumerate() {
+        assert!(attack_ticks(&t, unit).is_empty(), "#{unit} can't get into range");
+        assert_eq!(taken[i + 1], 1, "#{unit} takes the building once: {gave_up:?}");
+        assert!(
+            gave_up[i + 1].is_some_and(|tick| tick < 300),
+            "#{unit} gives up its chase: {gave_up:?}\n{}",
+            t.ascii(None)
+        );
+        assert!(is_idle(&t, unit), "#{unit}'s AttackMove ends\n{}", t.ascii(None));
+    }
+    // The first leaves: the next is in range once it has walked up, and fights.
+    let gone = t.sim().tick() + 1;
+    t.debug_at(gone, DebugCommand::Remove { id: id(3) });
+    t.run_until(gone + 100);
+    assert!(
+        attack_ticks(&t, 4).first().is_some_and(|&tick| tick > gone),
+        "the next one walks up and fires"
+    );
+}
