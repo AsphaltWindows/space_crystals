@@ -4,8 +4,9 @@
 //! ObjectInterfaceState > A: Deploy`, `factions/colonists/economy.md > Warp In > Warp In Command`): which one is
 //! placed and who builds it ([`Placing`], [`Builder`]; plan decision T23), where its ghost stands
 //! ([`Placing::origin`]), and how the placement keys turn it ([`Placing::turned`]). A Deploy given to a group of
-//! Drones goes to one of them ([`deploy_recipient`], design change 0125). The ghost and the build area overlay that
-//! show it are `crate::placement`'s.
+//! Drones goes to one of them ([`deploy_recipient`], design change 0125). An Agent's Build Tunnel places the Tunnel
+//! its Agent walks to and builds (`factions/syndicate/units/agent.md > Agent ObjectInterfaceState > A: Build Tunnel`,
+//! slice M4-J1). The ghost and the build area overlay that show it are `crate::placement`'s.
 //!
 //! The placement keys are the ones the map editor turns its structures with, one definition for both: the shared
 //! placement actions of the input layer (`crate::input::InputAction::is_placement`, which take R, Shift+R, F and
@@ -48,6 +49,13 @@ pub enum Builder {
     /// footprint derived from the Beacon and the orientation (`sc_sim::transform::warp_in_footprint`, design change
     /// 0121: "No cursor snapping"), wherever the cursor is; `Sim::warp_in_check`, `ConstructionCommand::WarpIn`.
     Beacon(ObjectId),
+    /// The Syndicate's Agent of the ActiveGroup (Ungroupable: the one Tabbed to), which walks to the site and builds
+    /// the building there (`factions/syndicate/units/agent.md > Agent ObjectInterfaceState > A: Build Tunnel`, slice
+    /// M4-J1; `core/entities.md > Worker-Built Structures`): the ghost under the cursor, `Sim::build_check`,
+    /// `OrderKind::Build`. "Each Agent takes exactly one placement": a click, Shift held or not, sends the Build and
+    /// ends placement, which never moves on to another Agent (`systems/controls/selection_and_hud.md > AwaitingTarget
+    /// > Shift while placing`: "to place with the next Agent, the player presses Tab").
+    Agent(ObjectId),
 }
 
 /// `systems/controls/selection_and_hud.md > AwaitingPlacement`: the building that the local player is placing, and who
@@ -93,13 +101,24 @@ impl Placing {
         }
     }
 
+    /// The placement of the `kind` that Agent `agent` builds (`factions/syndicate/units/agent.md > Agent
+    /// ObjectInterfaceState > A: Build Tunnel`), unturned.
+    pub fn build(agent: ObjectId, kind: ObjectKind) -> Self {
+        Self {
+            builder: Builder::Agent(agent),
+            kind,
+            orientation: BuildingOrientation::default(),
+        }
+    }
+
     /// The panel command whose slot the placement belongs to, which the panel marks while it lasts: the ready
-    /// building's, the Deploy, the menu entry of the building warped in.
+    /// building's, the Deploy, the menu entry of the building warped in, the Agent's Build.
     pub fn command(self) -> PanelCommand {
         match self.builder {
             Builder::Constructor(_) => PanelCommand::PlaceReady(self.kind),
             Builder::Drones { .. } => PanelCommand::Deploy,
             Builder::Beacon(_) => PanelCommand::WarpIn(self.kind),
+            Builder::Agent(_) => PanelCommand::Build(self.kind),
         }
     }
 
@@ -139,7 +158,7 @@ impl Placing {
                 let placement = sim.object(beacon)?.placement?;
                 transform::warp_in_footprint(&placement, self.kind, self.orientation).map(|p| p.origin)
             }
-            Builder::Constructor(_) | Builder::Drones { .. } => self.origin_under(ground?),
+            Builder::Constructor(_) | Builder::Drones { .. } | Builder::Agent(_) => self.origin_under(ground?),
         }
     }
 

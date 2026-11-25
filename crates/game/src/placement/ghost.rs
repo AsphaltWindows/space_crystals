@@ -268,7 +268,12 @@ pub(super) fn update_ghost(
 /// - the Drones' Beacon: `Sim::deploy_check`, as far as the player knows (design change 0120), for the Drone the
 ///   click would go to (`deploy_recipient`, Shift as `queue` says; the first one when none of them could take a
 ///   Shift-click's), whose sites a plain click's order replaces; the lingering ghosts' sites (the player's pending
-///   Deploys, those sent for the next tick among `unsent` included) are reserved (design change 0125).
+///   Deploys, those sent for the next tick among `unsent` included) are reserved (design change 0125);
+/// - an Agent's building: `Sim::build_check`, as far as the player knows (slice M4-J1; design change 0242: a Tunnel's
+///   whole Tier 1 Tunnel Area must be on the map, Drillable as far as the player knows, and clear of every Tunnel Area
+///   it knows of, a remembered enemy Tunnel's at its last-seen tier), whose own pending Build a plain click's order
+///   replaces, the player's other sites and lingering ghosts reserved (a Tunnel ghost its whole Tier 1 area). Its
+///   problem kinds are the ghost's red tiles and the message of an invalid click (`crate::command_ui::feedback`).
 ///
 /// `None` when the builder is gone, or the ActiveGroup no longer has a Drone.
 pub fn check_now(
@@ -289,6 +294,7 @@ pub fn check_now(
                 .or_else(|| deploy_recipient(selection, false, &deploying))?;
             sim.deploy_check(drone, origin, queue)
         }
+        Builder::Agent(agent) => sim.build_check(agent, placing.kind, origin, placing.orientation, queue),
     }
 }
 

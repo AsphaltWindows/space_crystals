@@ -89,7 +89,7 @@ impl Selectable {
         let relation = Relation::of(player, object.owner);
         if let Some(p) = &object.placement {
             return Self {
-                unfinished: object.is_transforming(),
+                unfinished: !object.is_operational(),
                 ..Self::placed(object.id, object.kind, relation, p, map)
             };
         }
@@ -98,7 +98,7 @@ impl Selectable {
         Self {
             id: object.id,
             kind: object.kind,
-            unfinished: object.is_transforming(),
+            unfinished: !object.is_operational(),
             relation,
             drawn,
             rect: Rect::from_center_half_size(drawn, half),

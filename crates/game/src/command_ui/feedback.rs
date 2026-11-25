@@ -113,6 +113,10 @@ pub const TIER_TOO_LOW_TEXT: &str = "This Tunnel's tier is too low";
 /// The message of an Attack its unit can't carry out, the target inside its MinRange and the unit unable to move
 /// (`SimEvent::TargetTooClose`). The design's wording (design change 0182).
 pub const TARGET_TOO_CLOSE_TEXT: &str = "Target too close";
+/// The message of a Drop Off pressed while none of its workers carries a load (`Reject::NothingToDeliver`;
+/// `factions/syndicate/units/agent.md > Agent ObjectInterfaceState`: "greyed out when Agent is not carrying
+/// resources"). Placeholder wording.
+pub const NOTHING_CARRIED_TEXT: &str = "Not carrying resources";
 /// Placeholder look: amber text on a dark band, this far above the HUD Bar (percent of the surface height).
 const TEXT_COLOR: Color = Color::srgb(1.0, 0.80, 0.30);
 const BAND_COLOR: Color = Color::srgba(0.0, 0.0, 0.0, 0.55);
@@ -269,6 +273,7 @@ pub fn reject_text(reject: Reject) -> &'static str {
         Reject::NotInNetwork(_) => NONE_INSIDE_TEXT,
         Reject::InTransit(_) => IN_TRANSIT_TEXT,
         Reject::NoTransit { .. } => TIER_TOO_LOW_TEXT,
+        Reject::NothingToDeliver => NOTHING_CARRIED_TEXT,
         _ => CANNOT_DO_TEXT,
     }
 }

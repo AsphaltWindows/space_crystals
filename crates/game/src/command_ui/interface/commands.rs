@@ -16,7 +16,8 @@ use crate::kinds::{self, short_label};
 /// `factions/colonists/units/drone.md > Drone ObjectInterfaceState`, `factions/colonists/economy.md > Egress Node >
 /// Egress Node ObjectInterfaceState`, `factions/colonists/economy.md > Beacon Deployment > While transforming: only
 /// Cancel`; slices M3-J1 and M3-J2, design change 0124), and the Syndicate's Tunnel (`factions/syndicate/tunnels.md >
-/// Tunnel ObjectInterfaceState`, slice M4-J2).
+/// Tunnel ObjectInterfaceState`, slice M4-J2) and Agent (`factions/syndicate/units/agent.md > Agent
+/// ObjectInterfaceState`, slice M4-J1).
 #[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum PanelCommand {
     Move,
@@ -111,14 +112,27 @@ pub enum PanelCommand {
     /// back on Z, like the Cults' AugmentMenu, which "stays in this menu so further clicks queue more"
     /// (`factions/cults/augmentation.md`).
     Eject(ObjectKind),
+    /// A worker's build of a structure on its site (`factions/syndicate/units/agent.md > Agent ObjectInterfaceState >
+    /// DefaultState commands`: "**A: Build Tunnel** — enters AwaitingPlacement for a Tunnel (StateOnlyTransition)";
+    /// slice M4-J1), where a left-click on a valid location "confirms placement and dispatches the Agent
+    /// (CommandIssuingTransition, returns to DefaultState)": a Build order (`sc_sim::OrderKind::Build`, plan decision
+    /// T31) to the one Agent of the ActiveGroup, paid as it is given (design change 0233).
+    Build(ObjectKind),
+    /// `factions/syndicate/units/agent.md > Agent ObjectInterfaceState > DefaultState commands`: "Drop Off Resources —
+    /// targeted command (CommandIssuingTransition). Requires clicking an own Tunnel. Agent walks to the appropriate
+    /// side automatically (Side B for crystals, Side D for supplies)", in S (design change 0257): awaits its drop-off,
+    /// where a left-click gives the recipients a Drop Off order (`sc_sim::OrderKind::DropOff`; the gate leaves out
+    /// those that carry nothing). "Always visible, greyed out when Agent is not carrying resources"
+    /// (`super::Conditions::unavailable`).
+    DropOff,
 }
 
 impl PanelCommand {
     /// Whether the command awaits a target (a StateOnlyTransition to AwaitingTarget): the target commands of
-    /// `> BasicCombatUnitInterfaceState > DefaultState commands`, Set Rally Point and the Drone's Set Drop-off. The
-    /// others are issued at once: HoldPosition and Stop, Raise and Lower Shield, Convert, a producer's Train and Cancel
-    /// Production, a constructor's Construct and Cancels; or they enter a state of their own: a build menu,
-    /// AwaitingPlacement; or they change the selection (the Egress Node's F).
+    /// `> BasicCombatUnitInterfaceState > DefaultState commands`, Set Rally Point, the Drone's Set Drop-off and the
+    /// Agent's Drop Off. The others are issued at once: HoldPosition and Stop, Raise and Lower Shield, Convert, a
+    /// producer's Train and Cancel Production, a constructor's Construct and Cancels; or they enter a state of their
+    /// own: a build menu, AwaitingPlacement (an Agent's Build too); or they change the selection (the Egress Node's F).
     pub fn needs_target(self) -> bool {
         match self {
             PanelCommand::Move
@@ -127,7 +141,8 @@ impl PanelCommand {
             | PanelCommand::Patrol
             | PanelCommand::AttackGround
             | PanelCommand::SetRallyPoint
-            | PanelCommand::SetDropOff => true,
+            | PanelCommand::SetDropOff
+            | PanelCommand::DropOff => true,
             PanelCommand::HoldPosition
             | PanelCommand::Stop
             | PanelCommand::RaiseShield
@@ -146,7 +161,8 @@ impl PanelCommand {
             | PanelCommand::CancelTransform
             | PanelCommand::SelectReturningDrones
             | PanelCommand::EjectMenu
-            | PanelCommand::Eject(_) => false,
+            | PanelCommand::Eject(_)
+            | PanelCommand::Build(_) => false,
         }
     }
 
@@ -227,7 +243,9 @@ impl PanelCommand {
     /// takes (design change 0125), the Cancel of the objects that transform, whose panel shows it, and the Egress
     /// Node's F, which selects the Drones of "this Egress Node" (Ungroupable: the one Tabbed to). So do a Tunnel's
     /// EjectMenu and its tiles, which eject "from this Tunnel's Side A" (`factions/syndicate/tunnels.md > EjectMenu`;
-    /// Ungroupable too: the one Tabbed to).
+    /// Ungroupable too: the one Tabbed to). So does an Agent's Build: "each Agent takes exactly one placement", and
+    /// "Placement never moves on to another selected worker" (`systems/controls/selection_and_hud.md > AwaitingTarget >
+    /// Shift while placing`: "to place with the next Agent, the player presses Tab").
     pub fn instance_only(self) -> bool {
         matches!(
             self,
@@ -243,6 +261,7 @@ impl PanelCommand {
                 | PanelCommand::SelectReturningDrones
                 | PanelCommand::EjectMenu
                 | PanelCommand::Eject(_)
+                | PanelCommand::Build(_)
         )
     }
 
@@ -258,7 +277,8 @@ impl PanelCommand {
     /// it and ends placement like a plain click"). A Deploy is a unit's order too, which Shift queues as it is placed
     /// (`> Shift while placing > Exception, Drones`, design change 0125). Set Drop-off is an ability, which "only
     /// updates AssignedDropOff": a Shift-click sets it and ends the targeting like a plain click, as a rally point's
-    /// (the same placeholder reading).
+    /// (the same placeholder reading). The Agent's Drop Off is a unit's order (`factions/syndicate/units/agent.md >
+    /// Unit Commands`), and so is its Build, which Shift queues as it is placed (`> Shift while placing`).
     pub fn queues(self) -> bool {
         match self {
             PanelCommand::Move
@@ -268,7 +288,9 @@ impl PanelCommand {
             | PanelCommand::Patrol
             | PanelCommand::AttackGround
             | PanelCommand::Stop
-            | PanelCommand::Deploy => true,
+            | PanelCommand::Deploy
+            | PanelCommand::Build(_)
+            | PanelCommand::DropOff => true,
             PanelCommand::RaiseShield
             | PanelCommand::LowerShield
             | PanelCommand::Convert(_)
@@ -293,10 +315,11 @@ impl PanelCommand {
     /// The button's label: a placeholder for its icon (Q0001), short enough to keep the label size on its button
     /// at 720p (slice M3-K2a: six characters at most, `crate::hud::command_panel`), its full name being
     /// [`Self::name_on`]'s, in the InfoPanel's hint for the button under the pointer (`crate::hud::info_panel::hint`).
-    /// What a button makes, a unit to train or a building to construct or warp in (one that isn't in the game yet
-    /// too), it shows as an icon would: by its type's tag, as the map and the portraits show it ([`short_label`]).
-    /// A ready building's slot is "Place", and every Cancel "Cancel". The others are the command's name or its first
-    /// word ("Hold", "Rally", "Raise", "Lower", "Drop" for Set Drop-off Location, "Drones" for Select Returning
+    /// What a button makes, a unit to train or a building to construct, warp in or build on its site (one that isn't
+    /// in the game yet too), it shows as an icon would: by its type's tag, as the map and the portraits show it
+    /// ([`short_label`]: an Agent's Build Tunnel "T1", the tier a Tunnel starts at). A ready building's slot is
+    /// "Place", and every Cancel "Cancel". The others are the command's name or its first word ("Hold", "Rally",
+    /// "Raise", "Lower", "Drop" for Set Drop-off Location and for the Agent's Drop Off, "Drones" for Select Returning
     /// Drones), or a shortening of it ("Rev.", "AtkGnd", "Conv.", "Adv."). An EjectMenu tile shows its unit type's
     /// tag, as a unit trained does, and its count (`super::PanelSlot::count`).
     pub fn label(self) -> &'static str {
@@ -314,7 +337,8 @@ impl PanelCommand {
             PanelCommand::Train(kind)
             | PanelCommand::Construct(kind)
             | PanelCommand::WarpIn(kind)
-            | PanelCommand::Eject(kind) => short_label(kind),
+            | PanelCommand::Eject(kind)
+            | PanelCommand::Build(kind) => short_label(kind),
             PanelCommand::Planned(planned) => planned.label(),
             PanelCommand::CancelProduction
             | PanelCommand::CancelConstruction
@@ -325,7 +349,7 @@ impl PanelCommand {
             PanelCommand::BuildMenu(BuildMenu::Advanced) => "Adv.",
             PanelCommand::PlaceReady(_) => "Place",
             PanelCommand::Deploy => "Deploy",
-            PanelCommand::SetDropOff => "Drop",
+            PanelCommand::SetDropOff | PanelCommand::DropOff => "Drop",
             PanelCommand::SelectReturningDrones => "Drones",
             PanelCommand::EjectMenu => "Eject",
         }
@@ -358,6 +382,8 @@ impl PanelCommand {
             PanelCommand::SetDropOff => "Set Drop-off Location".into(),
             PanelCommand::SelectReturningDrones => "Select Returning Drones".into(),
             PanelCommand::Eject(kind) => named("Eject", kind),
+            PanelCommand::Build(kind) => named("Build", kind),
+            PanelCommand::DropOff => "Drop Off Resources".into(),
             PanelCommand::Move
             | PanelCommand::Attack
             | PanelCommand::Patrol

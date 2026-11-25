@@ -270,11 +270,11 @@ mod tests {
 
     use super::*;
     use crate::command_ui::PanelButton;
-    use crate::command_ui::interface::{BuildMenu, TRANSFORMING_GRID, commands, grid, menu_grid};
+    use crate::command_ui::interface::{BuildMenu, SITE_GRID, TRANSFORMING_GRID, commands, grid, menu_grid};
 
     /// Every label a command button can show: of each command of each type's panels in any state (its DefaultState
     /// grid, its build or Warp In menus, what it constructs, places or warps in and the Cancels: [`commands`]; an
-    /// unfinished building's Cancel), and Back.
+    /// unfinished building's and a site's Cancel), and Back.
     fn every_label() -> BTreeSet<&'static str> {
         let label = |button| {
             let look = ButtonLook::Common;
@@ -283,13 +283,14 @@ mod tests {
                 look,
                 why: None,
                 count: None,
+                price: None,
             }
             .label()
         };
         let mut labels = BTreeSet::from([label(PanelButton::Back)]);
         for &kind in ObjectKind::ALL {
             let menus = BuildMenu::ALL.map(|menu| menu_grid(kind, menu));
-            let grids = [grid(kind), TRANSFORMING_GRID].into_iter().chain(menus);
+            let grids = [grid(kind), TRANSFORMING_GRID, SITE_GRID].into_iter().chain(menus);
             for command in grids.flatten().flatten().chain(commands(kind)) {
                 labels.insert(label(PanelButton::Command(command)));
             }

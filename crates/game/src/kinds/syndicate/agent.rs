@@ -1,9 +1,9 @@
 //! The Agent (`factions/syndicate/units/agent.md`): a HeavyInfantry's square with its label (slice M4-A); its
-//! pistol's shots are tracers. Its panel comes with slice M4-J1 (`factions/syndicate/units/agent.md > Agent
-//! ObjectInterfaceState`): none yet.
+//! pistol's shots are tracers. Its panel is its own (`factions/syndicate/units/agent.md > Agent ObjectInterfaceState`,
+//! slice M4-J1: `crate::command_ui::interface::templates::syndicate::agent`).
 
 use crate::combat_effects::ShotStyle;
-use crate::command_ui::interface::templates::PanelTemplate;
+use crate::command_ui::interface::templates::syndicate;
 use crate::kinds::ClientKind;
 use crate::object_render::{Look, UnitShape};
 
@@ -14,5 +14,5 @@ pub const KIND: ClientKind = ClientKind {
         tagged: true,
     },
     shot: Some(ShotStyle::Tracer),
-    template: PanelTemplate::NONE,
+    template: syndicate::agent::TEMPLATE,
 };

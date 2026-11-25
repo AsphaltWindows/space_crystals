@@ -7,13 +7,15 @@
 //! (`factions/gdo/economy.md > ExtractionFacility > ObjectInterfaceState[ExtractionFacility]`). The Colonists' Beacon
 //! has two Warp In menus built the same way, the Drone its Deploy and its Set Drop-off, the Egress Node its F, and an
 //! object that transforms shows only its Cancel ([`colonists`], slices M3-J1 and M3-J2). The Syndicate's Tunnel opens
-//! its EjectMenu ([`syndicate`], slice M4-J2). An entry not in the game yet holds its slot, unavailable ([`Planned`]).
+//! its EjectMenu ([`syndicate`], slice M4-J2), and its Agent builds Tunnels (slice M4-J1). An entry not in the game yet
+//! holds its slot, unavailable ([`Planned`]).
 
 pub mod colonists;
 pub mod gdo;
 mod offers;
 mod planned;
 mod production;
+mod site;
 mod state;
 pub mod syndicate;
 
@@ -23,6 +25,7 @@ use sc_sim::conversion;
 pub use colonists::TRANSFORMING_GRID;
 pub use offers::{commands, offers};
 pub use planned::Planned;
+pub use site::SITE_GRID;
 pub use state::{menu_grid, menu_of, state_grid};
 
 use production::production_grid;
@@ -67,6 +70,10 @@ pub enum InterfaceTemplate {
     /// Expand, E Eject, which opens the EjectMenu, and X Cancel ([`syndicate::tunnel`]). No right-click: the Tunnel
     /// produces no units.
     Tunnel,
+    /// `factions/syndicate/units/agent.md > Agent ObjectInterfaceState` (design change 0257, slice M4-J1): Q Move, A
+    /// Build Tunnel, S Drop Off, D Build Laser Turret, X Stop ([`syndicate::agent`]). Its right-click (`> Right-Click
+    /// Resolution`: Gather, Drop Off, Enter, Attack, Move) is the sim's one rule, as every unit's.
+    Agent,
 }
 
 /// The Deployment Center's build menus (`factions/gdo/structures/deployment_center.md >
@@ -173,6 +180,7 @@ impl InterfaceTemplate {
             InterfaceTemplate::Drone => colonists::drone::GRID,
             InterfaceTemplate::EgressNode => colonists::egress_node::GRID,
             InterfaceTemplate::Tunnel => syndicate::tunnel::GRID,
+            InterfaceTemplate::Agent => syndicate::agent::GRID,
         }
     }
 }

@@ -22,8 +22,9 @@ pub const MAX_SELECTED: usize = sc_sim::orders::MAX_ORDER_UNITS;
 #[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct GroupType {
     pub kind: ObjectKind,
-    /// Under construction or transformation: a Beacon a Drone deploys into, a building warped in from a Beacon
-    /// (`sc_sim::Object::is_transforming`, the one way a building is unfinished in the game yet).
+    /// Under construction or transformation, not in operation yet (`sc_sim::Object::is_operational`): a Beacon a Drone
+    /// deploys into, a building warped in from a Beacon, a site an Agent or a Tunnel builds (`sc_sim::Object::is_site`,
+    /// slice M4-J1; design change 0237: "as for a Colonists building being transformed").
     pub unfinished: bool,
 }
 
@@ -45,7 +46,7 @@ impl GroupType {
     pub fn of(object: &Object) -> Self {
         Self {
             kind: object.kind,
-            unfinished: object.is_transforming(),
+            unfinished: !object.is_operational(),
         }
     }
 }

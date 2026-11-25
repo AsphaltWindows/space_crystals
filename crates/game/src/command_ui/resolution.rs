@@ -28,12 +28,13 @@
 //!   Peacekeeper whose shield is on its way down takes it, and attacks once the shield is down); an AttackMove goes to
 //!   all of them (design change 0076). Set Rally Point takes the ground or any object, as the right-click does; the
 //!   Drones' Set Drop-off an own Egress Node, which becomes the AssignedDropOff of every one of them (an ability,
-//!   `sc_sim::Ability::SetDropOff`; slice M3-J2).
+//!   `sc_sim::Ability::SetDropOff`; slice M3-J2); the Agents' Drop Off an own Tunnel in operation, a Drop Off order
+//!   (slice M4-J1).
 //! - **The pointer** ([`pointer_display`]): in DefaultState the one thing the selected objects would all do on a
 //!   right-click, or Mixed when they would do different things (a rally point shows Move:
 //!   `systems/controls/selection_and_hud.md > Resolution Rules > DefaultState`, "Selection is a production building:
-//!   Move (rally point)"; a Gather GatherResources, a Drop Off ReturnResources); while a target is awaited, the pending
-//!   command's look over a valid target, else Inactive.
+//!   Move (rally point)"; a Gather GatherResources, a Drop Off ReturnResources, an Enter Enter); while a target is
+//!   awaited, the pending command's look over a valid target, else Inactive.
 
 use std::collections::BTreeSet;
 
@@ -211,10 +212,11 @@ pub fn object_right_click(object: UnitCapabilities, target: &MapTarget) -> Optio
             | InterfaceTemplate::EgressNode
             | InterfaceTemplate::Tunnel,
         ) => None,
-        // A unit's default command, by the sim's one rule: the BasicCombatUnit's table and the Drone's own
-        // (`factions/colonists/units/drone.md > Right-Click Resolution`; slices M3-R and M3-J2). Without a
-        // template, an object that transforms, which resolves nothing (`unit_right_click`: it has no abilities then).
-        Some(InterfaceTemplate::BasicCombatUnit | InterfaceTemplate::Drone) | None => {
+        // A unit's default command, by the sim's one rule: the BasicCombatUnit's table, the Drone's own
+        // (`factions/colonists/units/drone.md > Right-Click Resolution`; slices M3-R and M3-J2) and the Agent's
+        // (`factions/syndicate/units/agent.md > Right-Click Resolution`, slice M4-J1). Without a template, an object
+        // that transforms, which resolves nothing (`unit_right_click`: it has no abilities then).
+        Some(InterfaceTemplate::BasicCombatUnit | InterfaceTemplate::Drone | InterfaceTemplate::Agent) | None => {
             unit_right_click(object, target).map(Resolved::Order)
         }
     }
@@ -295,7 +297,9 @@ pub fn group_orders(orders: impl IntoIterator<Item = (ObjectId, OrderKind)>) -> 
 /// 0064), one the player remembers too (design change 0139), and the ground, for an AttackMove. AttackGround takes the
 /// ground only (`systems/controls/selection_and_hud.md > AwaitingTarget[AttackGround] resolution`: "Left-click Ground:
 /// issues AttackGround command to that location"; slice M4-O), wherever the click falls on it, over an object the
-/// player doesn't see too. Reverse has no order in the sim yet.
+/// player doesn't see too. The Agent's Drop Off takes an own drop-off in operation (`factions/syndicate/units/agent.md
+/// > Agent ObjectInterfaceState`: "Requires clicking an own Tunnel"; [`drop_off_target`], slice M4-J1). Reverse has no
+/// order in the sim yet.
 pub fn target_order(pending: PanelCommand, target: &MapTarget) -> Option<OrderKind> {
     use CursorTarget::{EnemyObject, FriendlyObject, Ground, NeutralObject};
     match (pending, target.target) {
@@ -309,6 +313,7 @@ pub fn target_order(pending: PanelCommand, target: &MapTarget) -> Option<OrderKi
         }
         (PanelCommand::Patrol, Ground(point)) => Some(OrderKind::Patrol(point)),
         (PanelCommand::AttackGround, Ground(point)) => Some(OrderKind::AttackGround(point)),
+        (PanelCommand::DropOff, _) => drop_off_target(target).map(OrderKind::DropOff),
         _ => None,
     }
 }
@@ -329,13 +334,14 @@ pub fn target_resolution(pending: PanelCommand, target: &MapTarget) -> Option<Re
 /// `factions/colonists/units/drone.md > Drone ObjectInterfaceState > S: Set Drop-off Location`: "Left-click an Egress
 /// Node or own refinery" (no refinery is in the game yet): the drop-off under a click while Set Drop-off awaits its
 /// target, if it is one of the player's own that takes loads now (`sc_sim::orders::resolution::Aimed::drop_off`, the
-/// gate's own check: not while it is warped in). Anything else is an invalid target (design change 0065).
+/// gate's own check: not while it is warped in, nor while it is a site). The same for the Agent's Drop Off, whose
+/// drop-off is an own Tunnel (`factions/syndicate/units/agent.md > Agent ObjectInterfaceState`: "Requires clicking an
+/// own Tunnel"). Anything else is an invalid target (design change 0065).
 pub fn drop_off_target(target: &MapTarget) -> Option<ObjectId> {
     target.aimed.filter(|aimed| aimed.drop_off).map(|aimed| aimed.id)
 }
 
-/// `systems/controls/selection_and_hud.md > PointerDisplayType > Types` that the game can show so far. Enter waits for
-/// enterable objects.
+/// `systems/controls/selection_and_hud.md > PointerDisplayType > Types` that the game can show so far.
 #[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum PointerDisplay {
     /// Nothing will happen on a click.
@@ -348,6 +354,10 @@ pub enum PointerDisplay {
     GatherResources,
     /// "Unit will return carried resources to this drop-off point" (slice M3-J2).
     ReturnResources,
+    /// "Unit will enter this object" (slice M4-J1): "Cursor over own Tunnel (Syndicate unit, tier sufficient)", the
+    /// sim's Enter (`sc_sim::OrderKind::Enter`): an Agent that carries nothing, or any unit the Tunnel's tier lets
+    /// into the network, over an own Tunnel in operation; never over a site, which takes no Enter (design change 0237).
+    Enter,
     /// `systems/controls/selection_and_hud.md > Mixed Right-Click Preview` (design change 0063): the selected units
     /// would do different things on a right-click.
     Mixed,
@@ -357,14 +367,13 @@ impl PointerDisplay {
     /// The PointerDisplayType of an order a click gives: Attack for an AttackMove too
     /// (`systems/controls/selection_and_hud.md > Resolution Rules > AwaitingTarget[CommandType]`: Attack over ground
     /// "will issue AttackMove"); GatherResources for a Gather ("Cursor over resource (resource gatherer selected)"),
-    /// ReturnResources for a Drop Off ("Cursor over drop-off point (resource gatherer carrying resources)"). No click
-    /// gives Hold or Stop.
+    /// ReturnResources for a Drop Off ("Cursor over drop-off point (resource gatherer carrying resources)"), Enter for
+    /// an Enter ("Cursor over own Tunnel (Syndicate unit, tier sufficient)"). No click gives Hold or Stop.
     pub fn of_order(kind: OrderKind) -> Self {
         match kind {
             // No click gives a Deploy (slice M3-J1 places it), nor a Build.
             OrderKind::Move(_) | OrderKind::Deploy { .. } | OrderKind::Build { .. } => PointerDisplay::Move,
-            // **Placeholder**: the Enter pointer ("Unit will enter this object") comes with slice M4-J1.
-            OrderKind::Enter(_) => PointerDisplay::Move,
+            OrderKind::Enter(_) => PointerDisplay::Enter,
             OrderKind::Gather(_) => PointerDisplay::GatherResources,
             OrderKind::DropOff(_) => PointerDisplay::ReturnResources,
             OrderKind::Attack(_) | OrderKind::AttackMove(_) => PointerDisplay::Attack,

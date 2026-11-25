@@ -6,8 +6,8 @@ use sc_sim::{
 };
 
 use super::{
-    BuildMenu, Conditions, InterfaceState, PanelCommand, TRANSFORMING_GRID, WhyUnavailable, offers, slot_index,
-    state_grid,
+    BuildMenu, Conditions, InterfaceState, PanelCommand, SITE_GRID, TRANSFORMING_GRID, WhyUnavailable, offers,
+    slot_index, state_grid,
 };
 use crate::input::CommandSlot;
 use crate::selection::{GroupType, Selection};
@@ -64,6 +64,10 @@ pub struct PanelSlot {
     /// a count of how many of that type are in the network"): those not reserved on an eject queue
     /// ([`Conditions::network_count`]); none on the other buttons.
     pub count: Option<u32>,
+    /// What a Build costs now, in Supplies ([`Conditions::price`], design change 0233: "the price shown on the Build
+    /// button is the next Tunnel's"), which the InfoPanel's hint for the button shows
+    /// (`crate::hud::info_panel::hint`); none on the other buttons.
+    pub price: Option<u32>,
 }
 
 impl PanelSlot {
@@ -146,14 +150,18 @@ pub fn commandable(sim: &Sim, player: PlayerId, selection: &Selection) -> bool {
 /// (Attack while none of them may attack, a Train, a Cancel Production, a constructor's command, a Warp In or a
 /// Convert the gate would refuse). Each greyed-out button says why ([`PanelSlot::why`]). The
 /// Egress Node's F shows only while it has Drones to select ([`Conditions::shows`]). The Tunnel's EjectMenu works as a
-/// build menu does, its tiles greyed while the gate would refuse their Eject, each with its count.
+/// build menu does, its tiles greyed while the gate would refuse their Eject, each with its count. A site under
+/// construction shows X Cancel Construction alone ([`SITE_GRID`], design change 0237), whatever its type, and an
+/// Agent's Build its price ([`PanelSlot::price`]).
 pub fn panel(selection: &Selection, interface: InterfaceState, conditions: &Conditions) -> Panel {
     let mut panel = Panel::default();
     let Some(active) = selection.active() else {
         return panel;
     };
     panel.active = Some(active.group_type());
-    let grid = if active.unfinished {
+    let grid = if active.unfinished && conditions.site {
+        SITE_GRID
+    } else if active.unfinished {
         TRANSFORMING_GRID
     } else {
         state_grid(active.kind, interface, conditions.constructor)
@@ -199,6 +207,7 @@ pub fn panel(selection: &Selection, interface: InterfaceState, conditions: &Cond
                 look,
                 why,
                 count,
+                price: conditions.price(command),
             },
         );
     }
@@ -208,6 +217,7 @@ pub fn panel(selection: &Selection, interface: InterfaceState, conditions: &Cond
             look: ButtonLook::Back,
             why: None,
             count: None,
+            price: None,
         };
         panel.set(CommandSlot::BACK, back);
     }
@@ -248,6 +258,10 @@ pub enum SlotPress {
     AwaitWarpIn(ObjectKind),
     /// A StateOnlyTransition to AwaitingPlacement of the Beacon one of the active Drones deploys into.
     AwaitDeploy,
+    /// A StateOnlyTransition to AwaitingPlacement of a `kind` that the active Agent builds
+    /// (`factions/syndicate/units/agent.md > Agent ObjectInterfaceState`: "A: Build Tunnel — enters AwaitingPlacement
+    /// for a Tunnel (StateOnlyTransition)").
+    AwaitBuild(ObjectKind),
     /// A StateOnlyTransition to the Tunnel's EjectMenu (`InterfaceState::EjectMenu`).
     OpenEjectMenu,
     /// A CommandIssuingTransition: the command's Tunnel command, at once (`sc_sim::Command::Tunnel`): an EjectMenu
@@ -296,6 +310,8 @@ pub fn press(panel: &Panel, slot: CommandSlot) -> SlotPress {
                 SlotPress::AwaitWarpIn(kind)
             } else if command == PanelCommand::Deploy {
                 SlotPress::AwaitDeploy
+            } else if let PanelCommand::Build(kind) = command {
+                SlotPress::AwaitBuild(kind)
             } else if command == PanelCommand::SelectReturningDrones {
                 SlotPress::SelectReturningDrones
             } else {
