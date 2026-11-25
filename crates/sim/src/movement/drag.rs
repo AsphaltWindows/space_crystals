@@ -1,8 +1,8 @@
-//! DragMovement — `systems/units.md > DragMovement`, `> HoverVehicle` (slice M3-G, plan decision T25): the model of
-//! the units that keep their velocity from tick to tick ([`Mover::momentum`]). It replaces only the "desired
-//! direction → velocity and facing" part of a unit's tick (`docs/movement.md > 6.3`, `> 6.7`): path following, lane
-//! seeking, the rules after the sweep, yielding and stuck detection are shared with every other model
-//! (`super::follow`).
+//! DragMovement — `systems/units.md > DragMovement`, `systems/units.md > HoverVehicle` (slice M3-G, plan decision T25):
+//! the model of the units that keep their velocity from tick to tick ([`Mover::momentum`]). It replaces only the
+//! "desired direction → velocity and facing" part of a unit's tick (`docs/movement.md > 6.3`, `docs/movement.md >
+//! 6.7`): path following, lane seeking, the rules after the sweep, yielding and stuck detection are shared with every
+//! other model (`super::follow`).
 //!
 //! **The integration scheme**, fixed (T25), once per tick, in this order:
 //! 1. **Turn** towards the step the unit wants to make (below), at most TurnRate (`systems/combat.md >
@@ -10,7 +10,7 @@
 //!    to turn). The forward thrust is three quarters of the Drone's, so it faces the way it pushes: along its
 //!    path in the open, along a blocker's face while it goes round it.
 //! 2. **Drag**: `v ← v × (1 − DragRatio)`, DragRatio doubled while the tile under the unit's centre is Rugged
-//!    (`systems/units.md > HoverVehicle > RuggedTerrain`, `> Which tile counts`; design change 0039).
+//!    (`systems/units.md > HoverVehicle > RuggedTerrain`, `systems/units.md > Which tile counts`; design change 0039).
 //! 3. **Thrust**: `v ← v + a`, where `a` is the thrust that brings `v` nearest to the velocity the unit wants
 //!    ([`Drag::thrust`]): OmniDirectionalAcceleration any way, plus up to ForwardAcceleration along the facing
 //!    only. Steps 2 and 3 together are `v ← v + a − DragRatio × v`: the drag is taken on the velocity the tick

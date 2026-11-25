@@ -101,8 +101,8 @@ fn a_portal_surrounded_by_units_holds_its_next_unit_until_the_first_is_out() {
     );
     assert_eq!(exit_of(t.sim(), first), None, "the first is out");
     assert!(t.pos(first.0).x >= 1042.0, "{}", t.pos(first.0));
-    // The second goes the same way, the first making way for it (an idle unit of its owner, `> Exit Doorway` point
-    // 4), out through the gap and on to the rally point.
+    // The second goes the same way, the first making way for it (an idle unit of its owner, `core/entities.md > Exit
+    // Doorway` point 4), out through the gap and on to the rally point.
     assert_eq!(after[0].heading, exits[0].heading);
     t.run_until(700);
     assert_eq!(exit_of(t.sim(), second), None);

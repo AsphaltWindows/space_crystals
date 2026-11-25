@@ -1,6 +1,6 @@
-//! Steering and hard collision (`docs/movement.md > 6`, `> 8`; `systems/units.md > UnitCollision > Ground
-//! Collision`): units pass, follow, go around and give up, and never overlap. Every `TestSim` checks the invariants
-//! I1–I7 after each tick and fails with a picture of the map.
+//! Steering and hard collision (`docs/movement.md > 6`, `docs/movement.md > 8`; `systems/units.md > UnitCollision >
+//! Ground Collision`): units pass, follow, go around and give up, and never overlap. Every `TestSim` checks the
+//! invariants I1–I7 after each tick and fails with a picture of the map.
 //!
 //! The give-up numbers are the defaults of question Q0008, and what two units blocking each other for good do is
 //! the default of question Q0007.

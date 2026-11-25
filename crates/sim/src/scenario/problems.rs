@@ -75,10 +75,10 @@ pub enum ScenarioProblem {
         kind: ObjectKind,
         check: PlacementCheck,
     },
-    /// `> Skirmish Default restriction` (design changes 0009, 0012): on a Skirmish Default map, object `index` of a
-    /// slot's layout for `faction` is beyond the faction's Starting Conditions, which hold `allowed` objects of its
-    /// kind: 0 for a kind they don't hold, and for a faction whose Starting Conditions aren't implemented yet (plan
-    /// decision T11). Of more objects of a kind than allowed, the later ones are reported.
+    /// `core/map_editor.md > Skirmish Default restriction` (design changes 0009, 0012): on a Skirmish Default map,
+    /// object `index` of a slot's layout for `faction` is beyond the faction's Starting Conditions, which hold
+    /// `allowed` objects of its kind: 0 for a kind they don't hold, and for a faction whose Starting Conditions aren't
+    /// implemented yet (plan decision T11). Of more objects of a kind than allowed, the later ones are reported.
     LayoutExtra {
         slot: SlotId,
         faction: Faction,
@@ -86,9 +86,9 @@ pub enum ScenarioProblem {
         kind: ObjectKind,
         allowed: u32,
     },
-    /// `> Skirmish Default restriction`: on a Skirmish Default map, a slot's layout for `faction` lacks `missing`
-    /// objects of `kind` of the faction's Starting Conditions, and the map can't be played until it is complete.
-    /// Only implemented factions' layouts are checked (plan decision T11).
+    /// `core/map_editor.md > Skirmish Default restriction`: on a Skirmish Default map, a slot's layout for `faction`
+    /// lacks `missing` objects of `kind` of the faction's Starting Conditions, and the map can't be played until it is
+    /// complete. Only implemented factions' layouts are checked (plan decision T11).
     LayoutMissing {
         slot: SlotId,
         faction: Faction,
@@ -120,8 +120,8 @@ pub enum SpawnProblem {
     FootprintOffMap,
     /// The point is not finite or lies off the map.
     PointOffMap,
-    /// `core/map.md > Elevation > Structures only on flat terrain`, `> Map resources only on flat terrain`: this
-    /// footprint tile is sloped.
+    /// `core/map.md > Elevation > Structures only on flat terrain`, `core/map.md > Map resources only on flat terrain`:
+    /// this footprint tile is sloped.
     NotFlat(TilePos),
     /// `factions/gdo/economy.md > ExtractionPlate`, "Placed onto a Space Crystal Patch": the pre-placed Extraction
     /// Plate isn't exactly on one, by the placement check's rule ([`crate::placement::Onto`]).

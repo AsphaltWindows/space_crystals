@@ -1,6 +1,8 @@
 //! Design citations (`ARCHITECTURE.md > The design is the spec`; slice M4-R2, design change 0282, which split each
 //! faction's units and structures into a file per object): every design path the code and the docs cite exists, so a
-//! design file that is renamed, split or removed fails here, naming each file and line that still cite it.
+//! design file that is renamed, split or removed fails here, naming each file and line that still cite it; and every
+//! citation names its file, as the rule asks ([`rule`]: a relative ``> Section`` only in a module whose doc names
+//! exactly one file, no bare file name).
 //!
 //! - **Scanned**: `crates/**/*.rs`, `docs/**/*.md` and `ARCHITECTURE.md`, from the repository's root.
 //! - **A citation** is a path that begins with an entry of the design folder's top level (`core/`, `systems/`,
@@ -21,6 +23,8 @@
 use std::collections::BTreeMap;
 use std::fs;
 use std::path::{Path, PathBuf};
+
+mod rule;
 
 /// The design folder, from the repository's root.
 const DESIGN: &str = "artifacts/designer/design";
@@ -157,7 +161,7 @@ fn citations<'p>(text: &str, prefixes: &'p Prefixes) -> Vec<Cited<'p>> {
     found
 }
 
-/// The sections a citation names after its path (`> A > B`, across line breaks in a comment), up to the backtick that
+/// The sections a citation names after its path (``> A > B``, across line breaks in a comment), up to the backtick that
 /// closes the code span the path opens; none for a path that opens no code span, or whose span doesn't soon close.
 fn sections(text: &str, cited: &Cited) -> Vec<String> {
     let bytes = text.as_bytes();

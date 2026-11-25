@@ -2,8 +2,9 @@
 //! Hideout spawn for either owner; the Tunnel blocks the ground, sees 5 grid units and has its tier's MaxHP (plan
 //! decision T39), which a debug tier changes as an upgrade will, keeping the damage (design change 0231 point 4);
 //! the Hideout, an underground expansion (plan decision T32), is walked over, may stand on a slope, and is hidden from
-//! every player but its owner, unless it is neutral (`tunnels.md > Losing Tunnels`); the Agent's pistol shoots every
-//! 20 frames at up to 2 grid units. `TestSim` checks the invariants after every tick, the vision's V1 included.
+//! every player but its owner, unless it is neutral (`factions/syndicate/tunnels.md > Losing Tunnels`); the Agent's
+//! pistol shoots every 20 frames at up to 2 grid units. `TestSim` checks the invariants after every tick, the vision's
+//! V1 included.
 
 use sc_sim::elevation::Elevation;
 use sc_sim::nav::NavClass;
@@ -356,10 +357,10 @@ fn an_agent_shoots_an_enemy_peacekeeper_every_20_ticks_up_to_2_gu() {
     assert_eq!(attacks(&run(gu(2.0) + 1.0), 1), [] as [Tick; 0]);
 }
 
-/// Plan decision T39 (`tunnels.md > Tiers`): a Tunnel has its tier's MaxHP, 600 at Tier 1; set to Tier 2 (by the
-/// debug command here; upgrades come with slice M4-H) it has 800, and keeps its damage (design change 0231 point
-/// 4). There is no tier 4, and nothing but a Tunnel has a tier. A player who sees the Tunnel records the tier it sees
-/// (design change 0237), and keeps it once out of sight.
+/// Plan decision T39 (`factions/syndicate/tunnels.md > Tiers`): a Tunnel has its tier's MaxHP, 600 at Tier 1; set to
+/// Tier 2 (by the debug command here; upgrades come with slice M4-H) it has 800, and keeps its damage (design change
+/// 0231 point 4). There is no tier 4, and nothing but a Tunnel has a tier. A player who sees the Tunnel records the
+/// tier it sees (design change 0237), and keeps it once out of sight.
 #[test]
 fn a_tunnels_tier_sets_its_max_hp() {
     let mut t = syndicate(&flat(28, 10))

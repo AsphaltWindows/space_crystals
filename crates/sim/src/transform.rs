@@ -1,27 +1,27 @@
 //! Transformations (plan decision T15, slice M3-E): an object that turns into another kind over time, in place, and
 //! stays the same object. A Beacon warping in a building is one (`factions/colonists/economy.md > Warp In`: "The
-//! Beacon transforms in place into the target structure"); a Drone deploying into a Beacon (`> Beacon Deployment`,
-//! slice M3-F) is the other.
+//! Beacon transforms in place into the target structure"); a Drone deploying into a Beacon
+//! (`factions/colonists/economy.md > Beacon Deployment`, slice M3-F) is the other.
 //!
 //! - **The state** ([`Transform`], `Object::transform`): what the object was and where it stood, which a cancel
 //!   restores; how far it has come, of how many frames; and what it paid, which a cancel partly refunds. The object
 //!   is the target kind from the first frame (`Sim::change_kind`; design change 0109: "the object is the target
 //!   building under Warp In from the first frame, with its full footprint claimed at once"), so no unit can walk onto
 //!   a building in the making, and it counts as a structure for defeat (`core/game_rules.md > Defeat Condition`,
-//!   design change 0113), auto-targeting (design change 0103), Beacon Capacity (`> Beacon Capacity Retention`: "A
-//!   building being warped in keeps providing 5", design change 0112; `economy::army`) and the fog's records. Its
-//!   functions wait for completion (design change 0116: "Production, drop-off, research and abilities start at
-//!   completion"): it holds back what it would produce, construct or mine (`Sim::step_transforms`), and what a kind
-//!   does by itself checks [`Object::is_transforming`] (a drop-off at an Egress Node, `sim/workers.rs`; a building
-//!   counts for tech only once complete, `core/tech_and_research.md`). Its only command is the cancel (0116: "only
-//!   Cancel").
-//! - **The maxima** ([`Object::max_hp`], [`Object::max_shields`]): `> Warp In > HP/Shields Interpolation`: "HP =
-//!   Beacon MaxHP + (Building MaxHP - Beacon MaxHP) x progress", and the same for Shields, "where progress is frames
-//!   elapsed / WarpInTime" ([`Transform::interpolate`]). The formulas set the maxima, and each frame the current HP
-//!   rises by what its maximum rises ([`follow_max`], design change 0110: "damage is carried through unchanged (not
-//!   scaled)", the damage taken before the transformation started included). The current Shields (`crate::shields`,
-//!   slice M3-B) follow their maximum the same way, and regenerate up to it ("Shields regenerate normally up to the
-//!   current maximum").
+//!   design change 0113), auto-targeting (design change 0103), Beacon Capacity (`factions/colonists/economy.md > Beacon
+//!   Capacity Retention`: "A building being warped in keeps providing 5", design change 0112; `economy::army`) and the
+//!   fog's records. Its functions wait for completion (design change 0116: "Production, drop-off, research and
+//!   abilities start at completion"): it holds back what it would produce, construct or mine (`Sim::step_transforms`),
+//!   and what a kind does by itself checks [`Object::is_transforming`] (a drop-off at an Egress Node, `sim/workers.rs`;
+//!   a building counts for tech only once complete, `core/tech_and_research.md`). Its only command is the cancel (0116:
+//!   "only Cancel").
+//! - **The maxima** ([`Object::max_hp`], [`Object::max_shields`]): `factions/colonists/economy.md > Warp In >
+//!   HP/Shields Interpolation`: "HP = Beacon MaxHP + (Building MaxHP - Beacon MaxHP) x progress", and the same for
+//!   Shields, "where progress is frames elapsed / WarpInTime" ([`Transform::interpolate`]). The formulas set the
+//!   maxima, and each frame the current HP rises by what its maximum rises ([`follow_max`], design change 0110: "damage
+//!   is carried through unchanged (not scaled)", the damage taken before the transformation started included). The
+//!   current Shields (`crate::shields`, slice M3-B) follow their maximum the same way, and regenerate up to it
+//!   ("Shields regenerate normally up to the current maximum").
 //! - **The step** (`Sim::step_transforms`, in the economy phase after construction, plan decision T5's position;
 //!   `ARCHITECTURE.md > Tick pipeline`): each transformation advances one frame a tick ([`Transform::advance`] by
 //!   `RATIO_ONE`: the Colonists have no power, plan decision T21), its first in the tick of its command, as a
@@ -31,18 +31,19 @@
 //! - **The commands** (plan decision T22): `ConstructionCommand::WarpIn` names one Beacon, a building and its
 //!   orientation, no position: the footprint is derived from the Beacon ([`warp_in_footprint`], design change 0121:
 //!   centred on it, an odd-sized building's extras at the bottom-right, turned and flipped about its centre). The
-//!   Beacon pays the building's cost at once (`> Constructs List`) and becomes the building on that footprint, where
-//!   the placement check allows the Warp In method (`crate::placement::Method::WarpIn`, plan decision T16: every tile
-//!   Visible, design change 0119; the Beacon's own tiles consumed, the others clear of ground units of any player,
-//!   0118); `ConstructionCommand::CancelTransform` goes to every transforming object it names (`> Cancel Warp In`):
-//!   "refunds 75% of the building's resource cost (rounded down), and the structure reverts to being a normal,
-//!   fully-functional Beacon" on its old tiles (design change 0109), keeping the fraction of its HP it had, at least
-//!   1 ([`keep_fraction`], design change 0111), with a `SimEvent::TransformCancelled`. Both apply in the commands
-//!   phase, before phase 5b brings the grids up to date with the footprint.
-//! - **Destroyed** (`> Vulnerability`: "If destroyed mid-Warp-In, the Beacon is destroyed along with it"): the normal
-//!   removal path, with no refund (design change 0115: "Beacon and cost are both lost"). Nothing it holds back is
-//!   paid for, so the refunds of a destroyed producer or constructor (design changes 0084, 0085) find nothing to
-//!   give back, a portal's included.
+//!   Beacon pays the building's cost at once (`factions/colonists/economy.md > Constructs List`) and becomes the
+//!   building on that footprint, where the placement check allows the Warp In method
+//!   (`crate::placement::Method::WarpIn`, plan decision T16: every tile Visible, design change 0119; the Beacon's own
+//!   tiles consumed, the others clear of ground units of any player, 0118); `ConstructionCommand::CancelTransform` goes
+//!   to every transforming object it names (`factions/colonists/economy.md > Cancel Warp In`): "refunds 75% of the
+//!   building's resource cost (rounded down), and the structure reverts to being a normal, fully-functional Beacon" on
+//!   its old tiles (design change 0109), keeping the fraction of its HP it had, at least 1 ([`keep_fraction`], design
+//!   change 0111), with a `SimEvent::TransformCancelled`. Both apply in the commands phase, before phase 5b brings the
+//!   grids up to date with the footprint.
+//! - **Destroyed** (`factions/colonists/economy.md > Vulnerability`: "If destroyed mid-Warp-In, the Beacon is destroyed
+//!   along with it"): the normal removal path, with no refund (design change 0115: "Beacon and cost are both lost").
+//!   Nothing it holds back is paid for, so the refunds of a destroyed producer or constructor (design changes
+//!   0084, 0085) find nothing to give back, a portal's included.
 //!
 //! **Beacon Deployment** (slice M3-F, `crate::deploy`) uses the same state: the Drone is `from`, with no
 //! `from_placement`, and its load is kept in [`Transform::load`] for a cancel.
@@ -65,22 +66,25 @@ pub struct Transform {
     /// Where it stood as `from`, and stands again after a cancel: the Beacon's footprint (`None` for a unit, the
     /// Drone of a deployment).
     pub from_placement: Option<Placement>,
-    /// How far it has come, of how many frames: the building's WarpInTime (`> Constructs List`). In files its two
-    /// numbers stand among the others, `progress` and `total`, as before it was a [`Progress`].
+    /// How far it has come, of how many frames: the building's WarpInTime (`factions/colonists/economy.md > Constructs
+    /// List`). In files its two numbers stand among the others, `progress` and `total`, as before it was a
+    /// [`Progress`].
     #[serde(flatten)]
     pub progress: Progress,
-    /// The Space Crystals it paid when it started, of which a cancel refunds 75% (`> Cancel Warp In`).
+    /// The Space Crystals it paid when it started, of which a cancel refunds 75% (`factions/colonists/economy.md >
+    /// Cancel Warp In`).
     pub paid: u32,
-    /// The load the Drone of a deployment carried as it began (`> Beacon Deployment > Deploying with a load`, design
-    /// change 0114: "The load stays with the deploying object and is lost when deployment completes; on cancel the
-    /// Drone returns still carrying it"; slice M3-F, `crate::deploy`); 0 for a Warp In. Optional in files.
+    /// The load the Drone of a deployment carried as it began (`factions/colonists/economy.md > Beacon Deployment >
+    /// Deploying with a load`, design change 0114: "The load stays with the deploying object and is lost when
+    /// deployment completes; on cancel the Drone returns still carrying it"; slice M3-F, `crate::deploy`); 0 for a Warp
+    /// In. Optional in files.
     #[serde(default)]
     pub load: u32,
 }
 
 impl Transform {
-    /// A transformation from a `from` that stood at `from_placement`, following `recipe` (`> Constructs List`: the
-    /// cost, paid, and the frames): no frame done yet.
+    /// A transformation from a `from` that stood at `from_placement`, following `recipe`
+    /// (`factions/colonists/economy.md > Constructs List`: the cost, paid, and the frames): no frame done yet.
     pub fn new(from: ObjectKind, from_placement: Option<Placement>, recipe: &Recipe) -> Self {
         Self {
             from,
@@ -111,11 +115,12 @@ impl Transform {
         self.progress.percent()
     }
 
-    /// `> HP/Shields Interpolation`: a value going from `from` (the old kind's) to `to` (the new kind's) as the
-    /// transformation progresses, "Beacon MaxHP + (Building MaxHP - Beacon MaxHP) x progress", with progress "frames
-    /// elapsed / WarpInTime". Multiplied before it is divided: exactly `from` at 0 and `to` at the end, and, for the
-    /// design's whole-number maxima, exact whenever the step per frame is (a Robo Portal's 0.75 HP, an Egress Node's
-    /// 0.25), so that a damaged object's HP stays a whole number short of its maximum ([`follow_max`]).
+    /// `factions/colonists/economy.md > HP/Shields Interpolation`: a value going from `from` (the old kind's) to `to`
+    /// (the new kind's) as the transformation progresses, "Beacon MaxHP + (Building MaxHP - Beacon MaxHP) x progress",
+    /// with progress "frames elapsed / WarpInTime". Multiplied before it is divided: exactly `from` at 0 and `to` at
+    /// the end, and, for the design's whole-number maxima, exact whenever the step per frame is (a Robo Portal's 0.75
+    /// HP, an Egress Node's 0.25), so that a damaged object's HP stays a whole number short of its maximum
+    /// ([`follow_max`]).
     pub fn interpolate(&self, from: f32, to: f32) -> f32 {
         match self.progress.total {
             0 => to,
@@ -162,8 +167,9 @@ impl Object {
     }
 
     /// Its MaxHP now: its kind's, a Tunnel's its tier's (`crate::tunnel`, plan decision T39: 600, 800 or 1000), or
-    /// while it transforms the one interpolated from the kind it was (`> HP/Shields Interpolation`: a Robo Portal
-    /// warped in halfway from a Beacon has 120 + (600 - 120) × 0.5 = 360). `None` for an indestructible object.
+    /// while it transforms the one interpolated from the kind it was (`factions/colonists/economy.md > HP/Shields
+    /// Interpolation`: a Robo Portal warped in halfway from a Beacon has 120 + (600 - 120) × 0.5 = 360). `None` for an
+    /// indestructible object.
     pub fn max_hp(&self) -> Option<f32> {
         let to = crate::tunnel::tier_def(self).map_or(self.def().max_hp, |tier| Some(tier.max_hp));
         match &self.transform {
@@ -206,8 +212,9 @@ pub fn keep_fraction(current: f32, max: f32, restored: f32) -> f32 {
     }
 }
 
-/// The Beacon's `Constructs List` (`> Warp In > Constructs List`, `StructureDef::warp_in`): what an object of `kind`
-/// warps in, with costs and WarpInTimes; empty for every kind but the Beacon.
+/// The Beacon's `Constructs List` (`factions/colonists/economy.md > Warp In > Constructs List`,
+/// `StructureDef::warp_in`): what an object of `kind` warps in, with costs and WarpInTimes; empty for every kind but
+/// the Beacon.
 pub fn warp_in_recipes(kind: ObjectKind) -> &'static [Recipe] {
     kind.def().structure.as_ref().map_or(&[], |s| s.warp_in)
 }

@@ -64,9 +64,9 @@ fn queued() -> Placing {
     }
 }
 
-/// `> Drone ObjectInterfaceState > DefaultState commands`: Q Move, A Deploy, S Set Drop-off (slice M3-J2's
-/// `gathering`), X Stop. A enters AwaitingPlacement for a Beacon, the placement keys on and no pointer over the map:
-/// the ghost,
+/// `factions/colonists/units/drone.md > Drone ObjectInterfaceState > DefaultState commands`: Q Move, A Deploy, S Set
+/// Drop-off (slice M3-J2's `gathering`), X Stop. A enters AwaitingPlacement for a Beacon, the placement keys on and no
+/// pointer over the map: the ghost,
 /// 2 × 2, follows the cursor snapped to the grid, the footprint whose centre is nearest it, and shows nothing over the
 /// HUD. A click sends the Drone a Deploy there ("Left-click on a valid location issues the Deploy order"), and back to
 /// DefaultState; its site lingers as a ghost.
@@ -125,8 +125,8 @@ fn a_drone_deploys_where_its_ghost_snaps_under_the_cursor() {
     assert!(!placement_keys(&app));
 }
 
-/// `> AwaitingTarget`: "Escape or right-click cancels"; and Back (Z): the Drones' placement goes back to their
-/// DefaultState (A is pressed there), and nothing is ordered.
+/// `systems/controls/selection_and_hud.md > AwaitingTarget`: "Escape or right-click cancels"; and Back (Z): the Drones'
+/// placement goes back to their DefaultState (A is pressed there), and nothing is ordered.
 #[test]
 fn esc_a_right_click_and_back_end_the_placement() {
     let mut app = drone_game();
@@ -202,9 +202,10 @@ fn the_deploy_ghost_is_red_where_the_player_knows_of_a_blocker() {
     assert_eq!(placing(&app), Some(Placing::deploy()), "placement goes on");
 }
 
-/// Design change 0125 (`> AwaitingTarget > Shift while placing > Exception, Drones`): "4 Drones selected, hold Shift,
-/// click 4 sites → 4 lingering ghosts, one Drone each. Once every Drone in the group has a Deploy, placement ends":
-/// each Shift-click queues a Deploy to the next Drone in portrait order (id order) that has none yet.
+/// Design change 0125 (`systems/controls/selection_and_hud.md > AwaitingTarget > Shift while placing > Exception,
+/// Drones`): "4 Drones selected, hold Shift, click 4 sites → 4 lingering ghosts, one Drone each. Once every Drone in
+/// the group has a Deploy, placement ends": each Shift-click queues a Deploy to the next Drone in portrait order (id
+/// order) that has none yet.
 #[test]
 fn shift_placement_chains_through_the_group_until_every_drone_has_a_deploy() {
     let mut app = drone_game();
@@ -229,8 +230,8 @@ fn shift_placement_chains_through_the_group_until_every_drone_has_a_deploy() {
     assert_eq!(selected(&app), [3, 4, 5, 6]);
 }
 
-/// `> Shift while placing`: "releasing Shift ends placement", after a Shift-click has sent a Deploy; and "With a
-/// single Drone, a Shift-click sends it and ends placement as before".
+/// `systems/controls/selection_and_hud.md > Shift while placing`: "releasing Shift ends placement", after a Shift-click
+/// has sent a Deploy; and "With a single Drone, a Shift-click sends it and ends placement as before".
 #[test]
 fn letting_go_of_shift_or_a_single_drone_ends_the_placement() {
     let mut app = drone_game();
@@ -344,8 +345,8 @@ fn a_lingering_ghost_is_its_owners_until_the_deployment_starts() {
     assert_eq!(lingering(&mut app), [], "the Beacon replaces it");
 }
 
-/// `> Lingering build ghosts`: a ghost "Disappears [...] when the order is cancelled, replaced by a new order, or
-/// fails": Stop (X) replaces Drone 3's Deploy; a unit standing on Drone 5's site when it arrives fails it
+/// `core/entities.md > Lingering build ghosts`: a ghost "Disappears [...] when the order is cancelled, replaced by a
+/// new order, or fails": Stop (X) replaces Drone 3's Deploy; a unit standing on Drone 5's site when it arrives fails it
 /// (`core/entities.md > Placement Validation > Worker-Built Structures`).
 #[test]
 fn a_lingering_ghost_goes_with_a_cancelled_or_failed_deploy() {
@@ -431,8 +432,9 @@ fn a_drone_that_deploys_stays_selected_as_its_beacon() {
     assert_eq!(orders(&app).len(), 1, "nothing else was ordered");
 }
 
-/// `> ObjectInterfaceState`: a placement goes back to DefaultState once it no longer holds: the one Drone placing
-/// becomes a Beacon, which is then the ActiveGroup (`ControlState::set_type`), and its panel is X Cancel.
+/// `systems/controls/selection_and_hud.md > ObjectInterfaceState`: a placement goes back to DefaultState once it no
+/// longer holds: the one Drone placing becomes a Beacon, which is then the ActiveGroup (`ControlState::set_type`), and
+/// its panel is X Cancel.
 #[test]
 fn the_placement_ends_when_its_last_drone_becomes_a_beacon() {
     let mut app = drone_game();

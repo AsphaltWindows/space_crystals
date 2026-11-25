@@ -1,8 +1,11 @@
-//! A worker's job — `factions/colonists/units/drone.md > Gathering`, `> Patch Occupancy (one Drone per patch)`,
-//! `> Last load of a patch`, `> Interrupted mining`, `> Other orders keep the load`, `> Gather while carrying a
-//! load`, `> Drop Off order`, `> When a Gather ends` and `> Assigned Drop-off` (slices M3-H and M3-H3, plan decision
-//! T17; design changes 0123 and 0127 to 0141 answered question Q0037). `systems/controls/commands.md` and
-//! `behaviors.md` define no Gather or Drop Off, so the Drone's own sections are the spec.
+//! A worker's job — `factions/colonists/units/drone.md > Gathering`, `factions/colonists/units/drone.md > Patch
+//! Occupancy (one Drone per patch)`, `factions/colonists/units/drone.md > Last load of a patch`,
+//! `factions/colonists/units/drone.md > Interrupted mining`, `factions/colonists/units/drone.md > Other orders keep the
+//! load`, `factions/colonists/units/drone.md > Gather while carrying a load`, `factions/colonists/units/drone.md > Drop
+//! Off order`, `factions/colonists/units/drone.md > When a Gather ends` and `factions/colonists/units/drone.md >
+//! Assigned Drop-off` (slices M3-H and M3-H3, plan decision T17; design changes 0123 and 0127 to 0141 answered question
+//! Q0037). `systems/controls/commands.md` and `systems/controls/behaviors.md` define no Gather or Drop Off, so the
+//! Drone's own sections are the spec.
 //!
 //! **One job for every worker type** (slice M4-D, plan decision T34; `factions/syndicate/units/agent.md >
 //! Gathering > Gathering rules`, design change 0255: "The Drone's job rules apply to Agents [...] with two exceptions:
@@ -35,19 +38,20 @@
 //!   Mining that stops before its 32 frames are done, whatever stops it, collects nothing, and the patch frees at
 //!   once (design change 0130): the frames are the order's state, and go with it.
 //! - **ToDropOff**: a leg to its AssignedDropOff, read again every tick, so that Set Drop-off Location redirects
-//!   "a trip already in progress" (`> Assigned Drop-off`); for a Drop Off order, to the order's own drop-off.
-//!   Without a drop-off as the return starts, the worker assigns the nearest of its owner's, and with none it idles
-//!   holding its load (design change 0135). The removal path replaces one lost on the way (0170).
+//!   "a trip already in progress" (`factions/colonists/units/drone.md > Assigned Drop-off`); for a Drop Off order, to
+//!   the order's own drop-off. Without a drop-off as the return starts, the worker assigns the nearest of its owner's,
+//!   and with none it idles holding its load (design change 0135). The removal path replaces one lost on the way
+//!   (0170).
 //! - **Delivered**: the load is in the bank. A Gather goes back to its patch, the one where it last mined (design
 //!   change 0132, item 4: the order follows the worker from patch to patch). A Drop Off order is complete: "an
 //!   explicit Drop Off is only a delivery" (0127); the gate never gives one to a worker without a load (0140).
 //!
-//! **Occupancy** (`> Patch Occupancy`; design change 0133 and the Director's choice of rule): a patch is taken
-//! while a worker of any player mines it (as phase 5a began, `World::patch_mined`), once a worker with a lower id
-//! has claimed it in this tick ([`Claims`]), and, for every other worker, while a worker waits at it within
-//! MiningReach (`World::waited_at`), which mines it as soon as it frees. Of several workers waiting at a patch the
-//! lowest id gets it: the behaviours run in id order, and the first to see the patch free claims it. A worker on
-//! its way doesn't occupy anything, but one that sets off for a free patch it found claims it for that tick, so
+//! **Occupancy** (`factions/colonists/units/drone.md > Patch Occupancy`; design change 0133 and the Director's choice
+//! of rule): a patch is taken while a worker of any player mines it (as phase 5a began, `World::patch_mined`), once a
+//! worker with a lower id has claimed it in this tick ([`Claims`]), and, for every other worker, while a worker waits
+//! at it within MiningReach (`World::waited_at`), which mines it as soon as it frees. Of several workers waiting at a
+//! patch the lowest id gets it: the behaviours run in id order, and the first to see the patch free claims it. A worker
+//! on its way doesn't occupy anything, but one that sets off for a free patch it found claims it for that tick, so
 //! that no other worker's look in the same tick sends it there too.
 //!
 //! **Looking round** (`search::search`, design changes 0123, 0131 and 0141): within the worker's search radius
@@ -82,7 +86,8 @@
 //! exception itself is `movement::space::blocks`). They collide with everything else, and having an order they
 //! never yield (`systems/units.md > UnitCollision > Ground Collision > Who yields`). So Drones wait, mine and
 //! deliver inside each other, and the patch's occupancy is the only limit. A Drone whose job ends while it is
-//! inside another follows `> Units that already overlap`: the two ignore each other until they are apart.
+//! inside another follows `systems/units.md > Units that already overlap`: the two ignore each other until they are
+//! apart.
 
 mod claims;
 mod deliver;
@@ -118,11 +123,11 @@ pub(crate) fn on_gather_job(o: &Object) -> bool {
 }
 
 /// The state a Gather or a Drop Off order starts with, for `unit`, a worker (`orders::start`).
-/// - `> Assigned Drop-off > Auto-assignment`: "When a Drone with no AssignedDropOff is ordered to Gather, it
-///   automatically assigns the nearest Egress Node".
-/// - `> Gather while carrying a load` (design change 0128): a worker that carries a load "goes straight to the new
-///   pick-up point" all the same.
-/// - `> Drop Off order` (design change 0127): straight to the order's drop-off.
+/// - `factions/colonists/units/drone.md > Assigned Drop-off > Auto-assignment`: "When a Drone with no AssignedDropOff
+///   is ordered to Gather, it automatically assigns the nearest Egress Node".
+/// - `factions/colonists/units/drone.md > Gather while carrying a load` (design change 0128): a worker that carries a
+///   load "goes straight to the new pick-up point" all the same.
+/// - `factions/colonists/units/drone.md > Drop Off order` (design change 0127): straight to the order's drop-off.
 /// - `factions/syndicate/units/agent.md > Gathering rules` (design change 0255), for a worker without a lasting
 ///   AssignedDropOff (`WorkerDef::keeps_drop_off`): the Tunnel "is chosen when the Gather's first return starts and
 ///   kept for that Gather (a new Gather picks again)". The Gather begins without one, and its first return takes the

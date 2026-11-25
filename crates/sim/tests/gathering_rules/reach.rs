@@ -1,5 +1,5 @@
-//! A patch the Drone can't get to (design change 0141, `> Patch Occupancy > A patch it can't reach`): walled off by
-//! units, or by terrain.
+//! A patch the Drone can't get to (design change 0141, `factions/colonists/units/drone.md > Patch Occupancy > A patch
+//! it can't reach`): walled off by units, or by terrain.
 
 use super::*;
 

@@ -100,8 +100,8 @@ pub enum Reject {
     /// (`factions/colonists/economy.md > Warp In > Constructs List`).
     CannotConstruct(ObjectKind),
     /// The constructor is constructing, or holds a building ready to place: "Other build options unavailable"
-    /// (`> ObjectInterfaceState[DeploymentCenter]`); the Beacon of a Warp In is transforming itself (a Beacon still
-    /// being deployed, slice M3-F).
+    /// (`factions/gdo/structures/deployment_center.md > ObjectInterfaceState[DeploymentCenter]`); the Beacon of a Warp
+    /// In is transforming itself (a Beacon still being deployed, slice M3-F).
     ConstructorBusy(ObjectId),
     /// A Cancel Construction to a constructor that isn't constructing.
     NotConstructing,
@@ -138,10 +138,11 @@ pub enum Reject {
     /// passes yet (`tuning::tunnel::AIR_DOORS`).
     NoTransit { tunnel: ObjectId, kind: Option<ObjectKind> },
     /// An Eject for a kind of which the player has no unit in the Tunnel Network that isn't queued to come out
-    /// already (`> EjectMenu`: "each click reserves a specific unit").
+    /// already (`factions/syndicate/tunnels.md > EjectMenu`: "each click reserves a specific unit").
     NotInNetwork(ObjectKind),
-    /// An Eject for a kind whose units in the network all walked in less than the transit delay ago (`> Tunnel
-    /// Network > Transit delay`, design change 0245: "For 2 s it can't be ejected anywhere").
+    /// An Eject for a kind whose units in the network all walked in less than the transit delay ago
+    /// (`factions/syndicate/tunnels.md > Tunnel Network > Transit delay`, design change 0245: "For 2 s it can't be
+    /// ejected anywhere").
     InTransit(ObjectKind),
 }
 
@@ -280,7 +281,7 @@ impl Sim {
         let Some(player) = self.player(cmd.player) else {
             return Err(Reject::UnknownPlayer(cmd.player));
         };
-        // `core/game_rules.md > End of Game`, `> On Defeat` (design change 0101).
+        // `core/game_rules.md > End of Game`, `core/game_rules.md > On Defeat` (design change 0101).
         if self.outcome.is_some() {
             return Err(Reject::GameOver);
         }

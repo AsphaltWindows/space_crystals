@@ -3,17 +3,17 @@
 //! selected object's name as the title, and under it what the panel shows of it ([`InfoContent`]):
 //! - **a unit**: its owner and HP; one of the local player's own workers also what it carries and where it delivers
 //!   it ([`worker_lines`], slice M3-J2);
-//! - **a structure** (`> Default InfoPanel for structures`, design change 0105): one of the local player's own shows
-//!   its HP and, in the activity area under it, what it is doing ([`activity`]); another player's, or a neutral one,
-//!   shows its owner ("Neutral") and HP only, never what it is doing. An object that has Shields (the Colonists',
-//!   `systems/combat.md > Shields > Display`, slice M3-B, design change 0148: "Shields current/max" next to the HP
-//!   line) shows them on the line after its HP, "Shields a / b". A type's own section adds to that: the Extraction
-//!   Plate shows its owner the remaining Space Crystals of the patch under it (`factions/gdo/economy.md >
+//! - **a structure** (`core/entities.md > Default InfoPanel for structures`, design change 0105): one of the local
+//!   player's own shows its HP and, in the activity area under it, what it is doing ([`activity`]); another player's,
+//!   or a neutral one, shows its owner ("Neutral") and HP only, never what it is doing. An object that has Shields (the
+//!   Colonists', `systems/combat.md > Shields > Display`, slice M3-B, design change 0148: "Shields current/max" next to
+//!   the HP line) shows them on the line after its HP, "Shields a / b". A type's own section adds to that: the
+//!   Extraction Plate shows its owner the remaining Space Crystals of the patch under it (`factions/gdo/economy.md >
 //!   ExtractionPlate > InfoPanel`, design change 0099), with the line the patch's own panel has, since a covered patch
-//!   can't be selected on its own (`> Selecting a covered patch`). Only its owner (design change 0155, slice M3-J2):
-//!   anyone else gets the reduced panel, name, owner and HP, as for any other player's structure; an uncovered patch
-//!   still shows its count to everyone (`core/map.md > SpaceCrystalsPatch > InfoPanel`);
-//! - **a map resource**: "Neutral" and its state (`core/map.md > SpaceCrystalsPatch > InfoPanel`, `>
+//!   can't be selected on its own (`factions/gdo/economy.md > Selecting a covered patch`). Only its owner (design
+//!   change 0155, slice M3-J2): anyone else gets the reduced panel, name, owner and HP, as for any other player's
+//!   structure; an uncovered patch still shows its count to everyone (`core/map.md > SpaceCrystalsPatch > InfoPanel`);
+//! - **a map resource**: "Neutral" and its state (`core/map.md > SpaceCrystalsPatch > InfoPanel`, `core/map.md >
 //!   SupplyDeliveryStation > InfoPanel`).
 //!
 //! An object the local player selected through its record (`core/vision.md > Explored Selectability`: a GDO player's
@@ -177,11 +177,11 @@ impl<'a> Shown<'a> {
 /// (module docs). From a
 /// `record` (an Explored area: `core/map.md > SupplyDeliveryStation > InfoPanel > Explored`), the state last seen
 /// without CurrentSupplies, and how long ago that was (placeholder note). A station that isn't empty runs no
-/// countdown: no delivery is scheduled (`> SupplyDeliveryStation`, the doc's wording).
+/// countdown: no delivery is scheduled (`core/map.md > SupplyDeliveryStation`, the doc's wording).
 fn object_info(sim: &Sim, sight: &Sight, shown: Shown, record: Option<&LastKnown>) -> InfoContent {
     let viewer = sight.player();
     let def = shown.kind.def();
-    // `> Default InfoPanel for structures` (design change 0105): an own structure shows no owner.
+    // `core/entities.md > Default InfoPanel for structures` (design change 0105): an own structure shows no owner.
     let own_structure = def.structure.is_some() && shown.owner == Some(viewer);
     let mut body = Vec::new();
     if !own_structure {

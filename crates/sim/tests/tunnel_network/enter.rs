@@ -11,9 +11,9 @@ fn validate(t: &TestSim, player: PlayerId, command: Command) -> Result<(), Rejec
     t.sim().validate(&PlayerCommand { player, command })
 }
 
-/// The plan's acceptance for Enter, and `> Walking in`: "A unit leaves the map once it has walked into the Tunnel."
-/// A Guard ordered to Enter walks to the entry path, the half of Side A nearer Side D (design change 0248), and
-/// leaves the map into its owner's network, with its id.
+/// The plan's acceptance for Enter, and `factions/syndicate/tunnels.md > Walking in`: "A unit leaves the map once it
+/// has walked into the Tunnel." A Guard ordered to Enter walks to the entry path, the half of Side A nearer Side D
+/// (design change 0248), and leaves the map into its owner's network, with its id.
 #[test]
 fn a_guard_walks_into_the_entry_path_and_leaves_the_map() {
     let mut t = base().start();
@@ -109,10 +109,10 @@ fn entering_clears_the_orders_queued_ones_included() {
     assert!(t.sim().object(id(2)).unwrap().orders.as_ref().unwrap().is_idle());
 }
 
-/// The gate (`> Enter`: "any Syndicate unit, when the target Tunnel's tier is sufficient for the unit's base
-/// category"), the plan's tiers ("A test unit with a vehicle base (a Drone owned by the Syndicate test player) is
-/// refused Enter [...] at a Tier 1 Tunnel, and allowed at Tier 2"), and the default command, which is Enter exactly
-/// where the gate takes it.
+/// The gate (`systems/controls/commands.md > Enter`: "any Syndicate unit, when the target Tunnel's tier is sufficient
+/// for the unit's base category"), the plan's tiers ("A test unit with a vehicle base (a Drone owned by the Syndicate
+/// test player) is refused Enter [...] at a Tier 1 Tunnel, and allowed at Tier 2"), and the default command, which is
+/// Enter exactly where the gate takes it.
 #[test]
 fn the_gate_takes_an_enter_by_the_tunnels_owner_and_tier() {
     let mut t = base().spawn(HIDEOUT, Some(P1), tile(16, 11)).start(); // 2
@@ -142,7 +142,8 @@ fn the_gate_takes_an_enter_by_the_tunnels_owner_and_tier() {
         Err(Reject::UnknownObject(id(99)))
     );
     assert_eq!(validate(&t, P2, enter(&[id(6)], tunnel)), Err(Reject::NotOwned(tunnel)));
-    // The default command (`> Right-Click Resolution`: "Own Tunnel (not carrying resources) → Enter").
+    // The default command (`factions/syndicate/units/agent.md > Right-Click Resolution`: "Own Tunnel (not carrying
+    // resources) → Enter").
     let default = |t: &TestSim, unit, target| t.sim().default_order(unit, Target::Object(target));
     assert_eq!(default(&t, guard, tunnel), Some(OrderKind::Enter(tunnel)));
     assert_eq!(default(&t, agent, tunnel), Some(OrderKind::Enter(tunnel)));
@@ -177,8 +178,8 @@ fn the_gate_takes_an_enter_by_the_tunnels_owner_and_tier() {
     assert_eq!(inside(&t), [guard, drone]);
 }
 
-/// `> Walking in > Target Tunnel gone or unsuitable`: "if the Tunnel a unit is heading for is destroyed, or its tier
-/// doesn't suit the unit, the Enter order ends and the unit idles".
+/// `factions/syndicate/tunnels.md > Walking in > Target Tunnel gone or unsuitable`: "if the Tunnel a unit is heading
+/// for is destroyed, or its tier doesn't suit the unit, the Enter order ends and the unit idles".
 #[test]
 fn a_tunnel_gone_or_unsuitable_ends_the_order() {
     let mut t = base().spawn(TUNNEL, Some(P1), tile(22, 2)).start(); // 2, to keep player 1 in the game

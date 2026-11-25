@@ -57,10 +57,11 @@ fn an_egress_node_being_warped_in_takes_no_drop_off() {
     assert!(delivered, "delivered at the complete Egress Node");
 }
 
-/// Design change 0112's Verification: "Warp In a building: available capacity doesn't dip during the Warp In" (`>
-/// Beacon Capacity Retention`: "A building being warped in keeps providing 5"; `Sim::army_cap`). Player 1's two
-/// Beacons provide 10, all the way through a Robo Portal's Warp In on Beacon 1 and after it. And the plan's
-/// acceptance, "Destroyed mid-Warp-In": a Bio Portal being warped in on Beacon 1 that is removed takes its 5 with it.
+/// Design change 0112's Verification: "Warp In a building: available capacity doesn't dip during the Warp In"
+/// (`factions/colonists/economy.md > Beacon Capacity Retention`: "A building being warped in keeps providing 5";
+/// `Sim::army_cap`). Player 1's two Beacons provide 10, all the way through a Robo Portal's Warp In on Beacon 1 and
+/// after it. And the plan's acceptance, "Destroyed mid-Warp-In": a Bio Portal being warped in on Beacon 1 that is
+/// removed takes its 5 with it.
 #[test]
 fn a_building_being_warped_in_keeps_providing_beacon_capacity() {
     let available = |t: &TestSim| t.sim().army_cap(P1).map(|cap| cap.available);
@@ -141,11 +142,11 @@ fn a_portal_destroyed_mid_warp_in_refunds_nothing() {
     }
 }
 
-/// The plan's acceptance, "Destroyed mid-Warp-In" (`> Vulnerability`: "If destroyed mid-Warp-In, the Beacon is
-/// destroyed along with it"): the object is removed through the normal path with no refund (design change 0115),
-/// and its owner, for whom it was the last structure, stays in the game until then and is defeated in the same tick
-/// (`core/game_rules.md > Defeat Condition`, design change 0113): player 2's Peacekeepers destroy player 1's only
-/// structure, a Beacon warping in an Egress Node.
+/// The plan's acceptance, "Destroyed mid-Warp-In" (`factions/colonists/economy.md > Vulnerability`: "If destroyed
+/// mid-Warp-In, the Beacon is destroyed along with it"): the object is removed through the normal path with no refund
+/// (design change 0115), and its owner, for whom it was the last structure, stays in the game until then and is
+/// defeated in the same tick (`core/game_rules.md > Defeat Condition`, design change 0113): player 2's Peacekeepers
+/// destroy player 1's only structure, a Beacon warping in an Egress Node.
 #[test]
 fn a_destroyed_warp_in_is_lost_and_its_last_structure_defeats_its_owner() {
     let mut builder = colonists(ScenarioBuilder::new(&flat(24, 16)))

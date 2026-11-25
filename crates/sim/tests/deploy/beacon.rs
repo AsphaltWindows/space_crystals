@@ -1,14 +1,14 @@
-//! A Beacon under deployment, a structure from the first frame (design change 0109, `> A Beacon from the first
-//! frame`): it keeps its owner in the game (0113), claims its footprint, is taken for a structure by enemy
-//! auto-targeting, keeps the damage it takes (0110), and destroyed midway loses the one object
-//! (`> Vulnerability`).
+//! A Beacon under deployment, a structure from the first frame (design change 0109, `factions/colonists/economy.md > A
+//! Beacon from the first frame`): it keeps its owner in the game (0113), claims its footprint, is taken for a structure
+//! by enemy auto-targeting, keeps the damage it takes (0110), and destroyed midway loses the one object
+//! (`factions/colonists/economy.md > Vulnerability`).
 
 use super::*;
 
-/// Design change 0113's Verification (`core/game_rules.md > Defeat Condition`; `> A Beacon from the first frame`: "It
-/// is a structure"): player 1 loses Egress Node 1, its only other building, while Drone 2 deploys, and stays in the
-/// game; cancelling the deployment then leaves player 1 no structure, and it is defeated in the cancel's tick: the
-/// Drone it got back becomes neutral.
+/// Design change 0113's Verification (`core/game_rules.md > Defeat Condition`; `factions/colonists/economy.md > A
+/// Beacon from the first frame`: "It is a structure"): player 1 loses Egress Node 1, its only other building, while
+/// Drone 2 deploys, and stays in the game; cancelling the deployment then leaves player 1 no structure, and it is
+/// defeated in the cancel's tick: the Drone it got back becomes neutral.
 #[test]
 fn a_beacon_under_deployment_keeps_its_owner_in_the_game_until_cancelled() {
     let mut t = base().start();
@@ -33,11 +33,11 @@ fn a_beacon_under_deployment_keeps_its_owner_in_the_game_until_cancelled() {
     assert_eq!(object(&t, 2).owner, None, "its units become neutral (`> On Defeat`)");
 }
 
-/// The plan's acceptance, "Destroyed mid-deploy" (`> Vulnerability`: "The transforming unit is vulnerable to attack
-/// for the entire deployment duration. If destroyed mid-deployment, both the Drone and the in-progress Beacon are
-/// lost"): player 2's four Peacekeepers 14 to 17 attack Beacon 2 from the tick after it began, at 10/10, and destroy
-/// it before it is complete: one object dies and is removed, nothing else, and the capacity stays as the start left
-/// it, 9/10 (the Drone's 1 freed, the Beacon's 5 never provided). Nothing refers to it any more.
+/// The plan's acceptance, "Destroyed mid-deploy" (`factions/colonists/economy.md > Vulnerability`: "The transforming
+/// unit is vulnerable to attack for the entire deployment duration. If destroyed mid-deployment, both the Drone and the
+/// in-progress Beacon are lost"): player 2's four Peacekeepers 14 to 17 attack Beacon 2 from the tick after it began,
+/// at 10/10, and destroy it before it is complete: one object dies and is removed, nothing else, and the capacity stays
+/// as the start left it, 9/10 (the Drone's 1 freed, the Beacon's 5 never provided). Nothing refers to it any more.
 #[test]
 fn a_deployment_destroyed_midway_loses_the_one_object() {
     let mut builder = at_capacity();
@@ -78,11 +78,11 @@ fn a_deployment_destroyed_midway_loses_the_one_object() {
     assert_eq!(dangling_references(t.sim()), []);
 }
 
-/// Design change 0109 (`> A Beacon from the first frame`: "the footprint is claimed immediately, units can't walk onto
-/// it") and the plan's acceptance, "Footprint claimed": from the tick it began no unit can be put on any tile of the
-/// footprint, and player 1's Peacekeeper 4, sent in the next tick from the west of it to the east across it, walks
-/// around it, its box never on it (`TestSim` also checks that no ground box overlaps a blocked tile after every
-/// tick, invariant I2).
+/// Design change 0109 (`factions/colonists/economy.md > A Beacon from the first frame`: "the footprint is claimed
+/// immediately, units can't walk onto it") and the plan's acceptance, "Footprint claimed": from the tick it began no
+/// unit can be put on any tile of the footprint, and player 1's Peacekeeper 4, sent in the next tick from the west of
+/// it to the east across it, walks around it, its box never on it (`TestSim` also checks that no ground box overlaps a
+/// blocked tile after every tick, invariant I2).
 #[test]
 fn the_footprint_is_claimed_from_the_first_frame() {
     let mut t = base().spawn(Peacekeeper, Some(P1), point(5, 9)).start();
@@ -132,10 +132,11 @@ fn run_frames(sim: &mut Sim, n: u32, frames: u32) {
     assert_eq!(done(sim), frames);
 }
 
-/// Design change 0110's Verification (`> HP/Shields Interpolation`; "current += newMax − oldMax each frame"):
-/// "Drone at 10/20 HP deploys undisturbed: completes at 110/120"; "Hit a deploying Beacon for 30 at 50%: shows 40/70,
-/// completes at 90/120". The damage is set by editing saves, as no command deals an exact amount: Drone 2 at 10 HP
-/// when ordered, and Beacon 2 at 40 of its 70 after 24 frames. Each stays as short of its maximum all the way.
+/// Design change 0110's Verification (`factions/colonists/economy.md > HP/Shields Interpolation`; "current += newMax −
+/// oldMax each frame"): "Drone at 10/20 HP deploys undisturbed: completes at 110/120"; "Hit a deploying Beacon for 30
+/// at 50%: shows 40/70, completes at 90/120". The damage is set by editing saves, as no command deals an exact amount:
+/// Drone 2 at 10 HP when ordered, and Beacon 2 at 40 of its 70 after 24 frames. Each stays as short of its maximum all
+/// the way.
 #[test]
 fn damage_taken_before_or_while_deploying_stays_taken() {
     let close = |hp: Option<f32>, expected: f32| hp.is_some_and(|hp| (hp - expected).abs() < 1e-3);

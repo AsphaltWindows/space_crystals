@@ -275,8 +275,9 @@ fn a_barracks_rallied_on_an_enemy_sends_its_peacekeepers_to_attack_it() {
 
 /// The acceptance of slice M3-R for 0139: "scout a field and leave, then right-click a greyed patch with Drones: they
 /// walk there and mine". Both get a Gather on the patch, which the pointer previews as GatherResources (slice M3-J2,
-/// `> PointerDisplayType > Resolution Rules`: "Cursor over resource (resource gatherer selected)"); the first there
-/// mines it, the other finds it taken and goes on to the next patch of the field (design change 0132).
+/// `systems/controls/selection_and_hud.md > PointerDisplayType > Resolution Rules`: "Cursor over resource (resource
+/// gatherer selected)"); the first there mines it, the other finds it taken and goes on to the next patch of the field
+/// (design change 0132).
 #[test]
 fn drones_right_clicked_on_a_greyed_patch_walk_there_and_mine() {
     let mut app = colonists_field();

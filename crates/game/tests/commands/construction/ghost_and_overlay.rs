@@ -67,12 +67,12 @@ fn the_ghost_is_green_or_red_tile_by_tile_by_the_placement_rules() {
     assert_eq!(selected(&app), [DC], "the click on the Peacekeeper selected nothing");
 }
 
-/// `> AwaitingPlacement`: "R rotates the ghost 90 degrees clockwise, Shift+R rotates 90 degrees counter-clockwise.
-/// Non-square buildings swap footprint dimensions when rotated to 90 or 270. F flips the ghost horizontally, Shift+F
-/// flips vertically. Side labels (A/B/C/D per SymmetryType) are displayed on the ghost and update with
-/// rotation/flipping" (design change 0079): the Barracks, ABAC (top A, right B, bottom A, left C). R and F are the
-/// placement keys here, not command slots, and Shift with them turns the other way: it doesn't queue anything (risk
-/// R11). The Barracks goes on the map as the ghost was turned.
+/// `factions/gdo/structures/deployment_center.md > AwaitingPlacement`: "R rotates the ghost 90 degrees clockwise,
+/// Shift+R rotates 90 degrees counter-clockwise. Non-square buildings swap footprint dimensions when rotated to 90
+/// or 270. F flips the ghost horizontally, Shift+F flips vertically. Side labels (A/B/C/D per SymmetryType) are
+/// displayed on the ghost and update with rotation/flipping" (design change 0079): the Barracks, ABAC (top A, right B,
+/// bottom A, left C). R and F are the placement keys here, not command slots, and Shift with them turns the other way:
+/// it doesn't queue anything (risk R11). The Barracks goes on the map as the ghost was turned.
 #[test]
 fn r_and_f_turn_the_barracks_ghost_and_its_side_letters() {
     use SideLetter::{A, B, C};

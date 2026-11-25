@@ -12,7 +12,8 @@ use sc_sim::{Category, Footprint, ObjectKind};
 /// today; a building listed here that follows the rule fails the test, so that the list never goes stale.
 const EXCEPTIONS: &[(ObjectKind, &str)] = &[];
 
-/// The PointArmor n that expansions have, the placeholder of `> High armor underground`.
+/// The PointArmor n that expansions have, the placeholder of `factions/syndicate/structures/README.md > High armor
+/// underground`.
 const EXPANSION_POINT_ARMOR: f32 = 6.0;
 
 /// Every building: its kind, its size in grid squares, and whether it is an underground expansion.
@@ -82,8 +83,8 @@ fn every_building_has_full_armor_n_times_its_size() {
     assert_eq!(kinds, expected, "the 11 buildings of today");
 }
 
-/// `> High armor underground`: every underground expansion has the placeholder's PointArmor 6 (and so, by the rule,
-/// FullArmor 6 × its size): today the Hideout, 6 / 24 on its 2 × 2.
+/// `factions/syndicate/structures/README.md > High armor underground`: every underground expansion has the
+/// placeholder's PointArmor 6 (and so, by the rule, FullArmor 6 × its size): today the Hideout, 6 / 24 on its 2 × 2.
 #[test]
 fn every_expansion_has_point_armor_six() {
     let expansions: Vec<(ObjectKind, f32, f32)> = (buildings().into_iter())

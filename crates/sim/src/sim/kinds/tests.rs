@@ -1,7 +1,7 @@
 //! `Sim::change_kind` (plan decision T15): the object keeps its id, its capabilities are rebuilt from the new kind,
 //! the state hash changes and a `SimEvent::KindChanged` says so. The changes the design names: a Legionnaire's weapon
-//! (`factions/colonists/units/weapon_conversion.md`), a Drone into a Beacon and back (`economy.md > Beacon
-//! Deployment`), a Beacon into a building and back (`> Warp In`).
+//! (`factions/colonists/units/weapon_conversion.md`), a Drone into a Beacon and back (`factions/colonists/economy.md >
+//! Beacon Deployment`), a Beacon into a building and back (`factions/colonists/economy.md > Warp In`).
 
 use glam::Vec2;
 
@@ -213,10 +213,11 @@ fn a_legionnaire_whose_conversion_holds_its_form_keeps_its_weapon() {
     );
 }
 
-/// `economy.md > Beacon Deployment`: a Drone that becomes a Beacon stands on its footprint, at its centre, and keeps
-/// its HP (the deployment makes it follow the interpolated maximum, design change 0110); its unit capabilities go. The
-/// footprint blocks the ground from the next phase 5b on. `> Cancel Deployment`: back to a Drone, where the Beacon
-/// stood, with a unit's capabilities, idle, its HP at most the Drone's MaxHP.
+/// `factions/colonists/economy.md > Beacon Deployment`: a Drone that becomes a Beacon stands on its footprint, at its
+/// centre, and keeps its HP (the deployment makes it follow the interpolated maximum, design change 0110); its unit
+/// capabilities go. The footprint blocks the ground from the next phase 5b on. `factions/colonists/economy.md > Cancel
+/// Deployment`: back to a Drone, where the Beacon stood, with a unit's capabilities, idle, its HP at most the Drone's
+/// MaxHP.
 #[test]
 fn a_drone_becomes_a_beacon_in_place_and_back() {
     let mut sim = sim(&[(ObjectKind::Drone, P1, SpawnAt::Point(Vec2::new(300.0, 300.0)))]);
@@ -282,10 +283,11 @@ fn a_drone_becomes_a_beacon_in_place_and_back() {
     assert!(footprint.tiles().all(|tile| !grid.is_blocked(tile)));
 }
 
-/// `economy.md > Warp In`: a Beacon that becomes a Robo Portal has the portal's footprint, centred where it is now,
-/// and an empty BuildQueue. `> Cancel Warp In` back to a Beacon: what was paid for is never lost silently. A queue
-/// the Beacon has no place for is refunded as if cancelled, before the change, and its HP is at most the Beacon's.
-/// A construction (a GDO constructor's; no transformation changes one) is refunded the same way.
+/// `factions/colonists/economy.md > Warp In`: a Beacon that becomes a Robo Portal has the portal's footprint, centred
+/// where it is now, and an empty BuildQueue. `factions/colonists/economy.md > Cancel Warp In` back to a Beacon: what
+/// was paid for is never lost silently. A queue the Beacon has no place for is refunded as if cancelled, before the
+/// change, and its HP is at most the Beacon's. A construction (a GDO constructor's; no transformation changes one) is
+/// refunded the same way.
 #[test]
 fn paid_state_the_new_kind_has_no_place_for_is_refunded() {
     let mut sim = sim(&[

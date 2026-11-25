@@ -58,11 +58,11 @@ fn cycling_wraps_around_both_ways() {
     assert!(!Selection::EMPTY.clone().cycle(false));
 }
 
-/// `> Selection > ActiveGroup > When the ActiveGroup disappears` (design change 0199): the ActiveGroup stays while it
-/// has members, whatever the other groups do ("Any other group change [...] never changes the ActiveGroup"); when its
-/// last member leaves the selection, "the next group in Tab order becomes active (the group after it in the
-/// SelectionPanel, wrapping around to the first). If no group is left, the selection is empty." The groups in their
-/// order: the patch, the Peacekeepers, the Guards and the Peacekeepers (Shielded).
+/// `systems/controls/selection_and_hud.md > Selection > ActiveGroup > When the ActiveGroup disappears` (design change
+/// 0199): the ActiveGroup stays while it has members, whatever the other groups do ("Any other group change [...] never
+/// changes the ActiveGroup"); when its last member leaves the selection, "the next group in Tab order becomes active
+/// (the group after it in the SelectionPanel, wrapping around to the first). If no group is left, the selection is
+/// empty." The groups in their order: the patch, the Peacekeepers, the Guards and the Peacekeepers (Shielded).
 #[test]
 fn the_active_group_stays_while_it_has_members() {
     let shielded = ObjectKind::PeacekeeperShielded;
@@ -125,9 +125,10 @@ fn a_control_state_drops_objects_from_both() {
     assert!(!state.retain(|_| true));
 }
 
-/// `> ControlState`: a removal resets the ObjectInterfaceState only when it takes away the ActiveGroup (`>
-/// AwaitingTarget > Selection changes while targeting`: "Targeting is only cancelled if the whole ActiveGroup is
-/// gone"), whose next group in Tab order becomes active (design change 0199).
+/// `systems/controls/selection_and_hud.md > ControlState`: a removal resets the ObjectInterfaceState only when it takes
+/// away the ActiveGroup (`systems/controls/selection_and_hud.md > AwaitingTarget > Selection changes while targeting`:
+/// "Targeting is only cancelled if the whole ActiveGroup is gone"), whose next group in Tab order becomes active
+/// (design change 0199).
 #[test]
 fn a_removal_resets_the_interface_state_only_with_the_active_group() {
     let awaiting = InterfaceState::awaiting(crate::command_ui::PanelCommand::Attack);
@@ -176,10 +177,10 @@ fn a_kind_change_keeps_the_object_selected_in_its_new_group() {
     assert_eq!(state.selection.ids().collect::<Vec<_>>(), [id(1), id(2)]);
 }
 
-/// Design change 0185 (`> SelectionGroup > Unfinished buildings form their own group`): a building under construction
-/// or transformation groups apart from the finished ones of its type, "as if it were another type", in a group after
-/// theirs; Ungroupable types still split by instance. 2 finished Bio Portals and 1 warping in: two groups, Tab between
-/// them.
+/// Design change 0185 (`systems/controls/selection_and_hud.md > SelectionGroup > Unfinished buildings form their own
+/// group`): a building under construction or transformation groups apart from the finished ones of its type, "as if it
+/// were another type", in a group after theirs; Ungroupable types still split by instance. 2 finished Bio Portals and 1
+/// warping in: two groups, Tab between them.
 #[test]
 fn unfinished_buildings_form_a_group_apart_from_the_finished_ones() {
     use ObjectKind::{Beacon, BioPortal};
@@ -230,9 +231,10 @@ fn unfinished_buildings_form_a_group_apart_from_the_finished_ones() {
 }
 
 /// Design change 0185: "When it completes, it joins the finished group." The ActiveGroup is kept while it still
-/// exists (`> ObjectInterfaceState`: a change the player didn't make keeps the state "unless the ActiveGroup becomes
-/// empty"), with its ObjectInterfaceState; an unfinished group that its last building leaves gives way to the group
-/// that building joins, and its state resets. Bio Portals 1 and 2 finished, 3 and 4 warping in.
+/// exists (`systems/controls/selection_and_hud.md > ObjectInterfaceState`: a change the player didn't make keeps the
+/// state "unless the ActiveGroup becomes empty"), with its ObjectInterfaceState; an unfinished group that its last
+/// building leaves gives way to the group that building joins, and its state resets. Bio Portals 1 and 2 finished, 3
+/// and 4 warping in.
 #[test]
 fn a_completed_building_joins_the_finished_group() {
     use ObjectKind::{Beacon, BioPortal};

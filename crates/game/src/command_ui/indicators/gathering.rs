@@ -5,10 +5,11 @@
 //! a colour of its own ([`GatheringMarker`]), around the target as the player knows it (`super::targets`, slice
 //! M3-K2a: a patch remembered in the fog keeps its marker on its record).
 //!
-//! - The **Gather marker** (`> Indicator assignments`: "Gather (sets the source: crystal patch, refinery's output) |
-//!   Object | Gather marker"): four corner brackets round the source, in the GatherResources pointer's cyan, on a
-//!   worker's current Gather, and on its queued ones while Shift is held. The order follows the worker from patch to
-//!   patch (design change 0132), and the marker with it. No refinery is in the game yet.
+//! - The **Gather marker** (`systems/controls/selection_and_hud.md > Indicator assignments`: "Gather (sets the source:
+//!   crystal patch, refinery's output) | Object | Gather marker"): four corner brackets round the source, in the
+//!   GatherResources pointer's cyan, on a worker's current Gather, and on its queued ones while Shift is held. The
+//!   order follows the worker from patch to patch (design change 0132), and the marker with it. No refinery is in the
+//!   game yet.
 //! - The **Return Resources marker** ("Drop Off (return resources to an Egress Node or refinery) | Object | Return
 //!   Resources marker"): a ring with four arrowheads pointing in, in the ReturnResources pointer's gold, on a Drop
 //!   Off's drop-off.
@@ -38,7 +39,8 @@ use crate::shapes::ColorMesh;
 pub const GATHER_COLOR: Color = Color::srgb(0.36, 0.90, 0.98);
 /// The Return Resources marker's gold: the ReturnResources pointer's, the bank's.
 pub const RETURN_COLOR: Color = Color::srgb(1.0, 0.84, 0.30);
-/// The Set Drop-off marker's violet: none of the colour language's (`> Color language`) nor of a pointer's.
+/// The Set Drop-off marker's violet: none of the colour language's (`systems/controls/selection_and_hud.md > Color
+/// language`) nor of a pointer's.
 pub const SET_DROP_OFF_COLOR: Color = Color::srgb(0.78, 0.58, 1.0);
 /// A Gather marker's brackets: each arm is this share of its side of the box.
 const BRACKET_ARM: f32 = 0.3;

@@ -14,7 +14,7 @@ pub enum TileProblem {
     /// The tile lies off the map; nothing else is checked on it.
     OffMap,
     /// The tile's preset isn't Buildable (`core/map.md > TilePreset`; of the defaults only Plane is,
-    /// `> DefaultTilePresets`).
+    /// `core/map.md > DefaultTilePresets`).
     NotBuildable,
     /// The tile is sloped (`core/map.md > Elevation > Structures only on flat terrain`).
     NotFlat,

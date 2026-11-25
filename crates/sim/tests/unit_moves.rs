@@ -349,10 +349,10 @@ fn an_unreachable_goal_is_retargeted() {
     assert_eq!(end, TilePos::containing(end).center());
 }
 
-/// `docs/movement.md > 5.7`, `> 5.6`, `systems/controls/behaviors.md > PathKnowledge`: a station spawned across the
-/// route rebuilds the true grids at once (a new `nav_version`), but the unit's owner knows nothing of it until the
-/// unit sees it. Then its knowledge has a new version, and on its next staggered check the unit finds its path cut,
-/// replans and goes around it.
+/// `docs/movement.md > 5.7`, `docs/movement.md > 5.6`, `systems/controls/behaviors.md > PathKnowledge`: a station
+/// spawned across the route rebuilds the true grids at once (a new `nav_version`), but the unit's owner knows nothing
+/// of it until the unit sees it. Then its knowledge has a new version, and on its next staggered check the unit finds
+/// its path cut, replans and goes around it.
 #[test]
 fn a_new_footprint_on_the_route_makes_the_unit_replan() {
     let mut t = ScenarioBuilder::new(OPEN).start();

@@ -43,8 +43,8 @@ fn unit(kind: ObjectKind, up: u32) -> Object {
 }
 
 /// Design change 0173: the two types share one shield, which names them; the Peacekeeper starts with it down, the
-/// Peacekeeper (Shielded) with it up. `> Toggle time`: 6 frames, a placeholder (design change 0174) that "should stay
-/// under half a second".
+/// Peacekeeper (Shielded) with it up. `factions/gdo/units/peacekeeper.md > Toggle time`: 6 frames, a placeholder
+/// (design change 0174) that "should stay under half a second".
 #[test]
 fn both_types_carry_the_one_shield() {
     let def = |kind: ObjectKind| *kind.def().unit.as_ref().unwrap().riot_shield.as_ref().unwrap();
@@ -115,13 +115,14 @@ fn the_mode_is_the_type_and_how_far_up_the_shield_is() {
     assert_eq!(ShieldMode::Raised.progress(0), 1.0);
 }
 
-/// `> Riot Shield` and design change 0171 (`> During the toggle`): half speed and no attacking from the start of a
-/// raise to the end of a lowering, the damage reduction only all the way up. The Shielded type moves at its own
-/// MaxSpeed, the Peacekeeper's halved; a Peacekeeper on its way down at the same speed, by its speed factor. Which way
-/// the shield goes is the unit's type (design change 0198: "The type, and so the SelectionGroup, switches **at the
-/// press**"): up, or on its way up, on the Peacekeeper (Shielded) alone ([`mode`]). A Peacekeeper (Shielded) whose
-/// raise waits for its shot has its shield down: no damage reduction, the Peacekeeper's speed (its attack holds it
-/// still), and no new attack, the one under way landing (`combat::step`).
+/// `factions/gdo/units/peacekeeper.md > Riot Shield` and design change 0171 (`factions/gdo/units/peacekeeper.md >
+/// During the toggle`): half speed and no attacking from the start of a raise to the end of a lowering, the damage
+/// reduction only all the way up. The Shielded type moves at its own MaxSpeed, the Peacekeeper's halved; a Peacekeeper
+/// on its way down at the same speed, by its speed factor. Which way the shield goes is the unit's type (design change
+/// 0198: "The type, and so the SelectionGroup, switches **at the press**"): up, or on its way up, on the Peacekeeper
+/// (Shielded) alone ([`mode`]). A Peacekeeper (Shielded) whose raise waits for its shot has its shield down: no damage
+/// reduction, the Peacekeeper's speed (its attack holds it still), and no new attack, the one under way landing
+/// (`combat::step`).
 #[test]
 fn the_effects_follow_the_mode() {
     let cases = [(PK, 0), (SHIELDED, 1), (SHIELDED, T), (PK, 1), (PK, T), (SHIELDED, 0)];

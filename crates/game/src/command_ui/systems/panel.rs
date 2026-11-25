@@ -14,13 +14,13 @@ use crate::input::{ActionState, CommandSlot, InputAction};
 use crate::platform::SurfaceSize;
 use crate::selection::LocalControl;
 
-/// `> ObjectInterfaceState`: "Each tick, the ObjectInterfaceState is validated against the active SelectionGroup's
-/// game state": an AwaitingTarget whose command the ActiveGroup no longer offers, a build menu whose ActiveGroup is
-/// no Deployment Center or Beacon, an AwaitingPlacement whose constructor no longer holds the building ready, whose
-/// ActiveGroup is no longer Drones or the Beacon, or one under deployment (design change 0116), or any of them whose
-/// selection is no longer commandable (no longer all the player's, or the game is over: design change 0101), goes
-/// back to DefaultState. A selected unit that died has already left the selection (`crate::selection`), and with
-/// the ActiveGroup left the target is still awaited (design change 0069).
+/// `systems/controls/selection_and_hud.md > ObjectInterfaceState`: "Each tick, the ObjectInterfaceState is validated
+/// against the active SelectionGroup's game state": an AwaitingTarget whose command the ActiveGroup no longer offers, a
+/// build menu whose ActiveGroup is no Deployment Center or Beacon, an AwaitingPlacement whose constructor no longer
+/// holds the building ready, whose ActiveGroup is no longer Drones or the Beacon, or one under deployment (design
+/// change 0116), or any of them whose selection is no longer commandable (no longer all the player's, or the game is
+/// over: design change 0101), goes back to DefaultState. A selected unit that died has already left the selection
+/// (`crate::selection`), and with the ActiveGroup left the target is still awaited (design change 0069).
 pub(in crate::command_ui) fn validate_interface(mut control: LocalControl) {
     let state = control.state();
     if state.interface == InterfaceState::DefaultState {
@@ -33,11 +33,11 @@ pub(in crate::command_ui) fn validate_interface(mut control: LocalControl) {
     }
 }
 
-/// `> AwaitingTarget`: "Escape or right-click cancels via a StateOnlyTransition back to DefaultState"; in the other
-/// multi-stage states Esc goes back one state (`InterfaceState::back`): from AwaitingPlacement to the Deployment
-/// Center's build menu, the Beacon's Warp In menu, or the Extraction Facility's or the Drones' DefaultState, from a
-/// build menu to DefaultState. Esc is the Cancel action; right-click is [`super::right_click_orders`], Back (Z)
-/// [`press_command_slots`].
+/// `systems/controls/selection_and_hud.md > AwaitingTarget`: "Escape or right-click cancels via a StateOnlyTransition
+/// back to DefaultState"; in the other multi-stage states Esc goes back one state (`InterfaceState::back`): from
+/// AwaitingPlacement to the Deployment Center's build menu, the Beacon's Warp In menu, or the Extraction Facility's or
+/// the Drones' DefaultState, from a build menu to DefaultState. Esc is the Cancel action; right-click is
+/// [`super::right_click_orders`], Back (Z) [`press_command_slots`].
 pub(in crate::command_ui) fn cancel_on_escape(actions: Res<ActionState>, mut control: LocalControl) {
     let state = control.state();
     if actions.just_pressed(InputAction::Cancel) && state.interface != InterfaceState::DefaultState {
@@ -46,21 +46,21 @@ pub(in crate::command_ui) fn cancel_on_escape(actions: Res<ActionState>, mut con
     }
 }
 
-/// `> DefaultState`: a command hotkey (`InputAction::CommandSlot`) or a click on a panel button (a press of the
-/// Select action over the button, found by the panel's geometry like the SelectionPanel's portraits) enters
-/// AwaitingTarget for a command that needs a target, or issues an immediate one: a common command to the whole
-/// selection, a group command to the ActiveGroup (`> CommandPanel`), a Train or a Cancel Production to every
-/// producer among them as one command. A mode toggle (Raise and Lower Shield, Convert) switches the type of the
-/// units it goes to at the press, and their merged group becomes the ActiveGroup (design change 0198,
-/// `crate::selection::ControlState::toggle`), so that the next press, the next frame or even before the sim's next
-/// tick, reaches them all. A constructor's enter its build menu (`InterfaceState::BuildMenu`) or the
-/// placement of its building ready to place (`InterfaceState::AwaitingPlacement`), or give its one constructor a
-/// construction command and return to DefaultState ("CommandIssuingTransition, returns to DefaultState"). A
-/// Beacon's enter its Warp In menus and a Warp In's placement on it (`factions/colonists/economy.md > Beacon > Beacon
-/// ObjectInterfaceState`, design change 0122: the Beacon Tabbed to), the Drones' A the placement of a Beacon
-/// (design change 0125), an Egress Node's F selects its returning Drones instead (`factions/colonists/economy.md >
-/// Egress Node > Egress Node ObjectInterfaceState`, slice M3-J2), and the X of whatever transforms cancels it
-/// (design change 0116). Back (Z) returns to the
+/// `systems/controls/selection_and_hud.md > DefaultState`: a command hotkey (`InputAction::CommandSlot`) or a click on
+/// a panel button (a press of the Select action over the button, found by the panel's geometry like the
+/// SelectionPanel's portraits) enters AwaitingTarget for a command that needs a target, or issues an immediate one: a
+/// common command to the whole selection, a group command to the ActiveGroup (`systems/controls/selection_and_hud.md >
+/// CommandPanel`), a Train or a Cancel Production to every producer among them as one command. A mode toggle (Raise and
+/// Lower Shield, Convert) switches the type of the units it goes to at the press, and their merged group becomes the
+/// ActiveGroup (design change 0198, `crate::selection::ControlState::toggle`), so that the next press, the next frame
+/// or even before the sim's next tick, reaches them all. A constructor's enter its build menu
+/// (`InterfaceState::BuildMenu`) or the placement of its building ready to place (`InterfaceState::AwaitingPlacement`),
+/// or give its one constructor a construction command and return to DefaultState ("CommandIssuingTransition, returns to
+/// DefaultState"). A Beacon's enter its Warp In menus and a Warp In's placement on it (`factions/colonists/economy.md >
+/// Beacon > Beacon ObjectInterfaceState`, design change 0122: the Beacon Tabbed to), the Drones' A the placement of a
+/// Beacon (design change 0125), an Egress Node's F selects its returning Drones instead
+/// (`factions/colonists/economy.md > Egress Node > Egress Node ObjectInterfaceState`, slice M3-J2), and the X of
+/// whatever transforms cancels it (design change 0116). Back (Z) returns to the
 /// previous state. While a target is awaited or a building placed the other commands are unavailable (design change
 /// 0066), and so is a production or construction command the gate would refuse (design change 0081; never for the
 /// army cap, 0143): [`press`] finds nothing to do for them, and a greyed-out button says why it is

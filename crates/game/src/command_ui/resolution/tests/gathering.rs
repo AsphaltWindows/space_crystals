@@ -31,11 +31,11 @@ fn a_gatherer_previews_gathering_and_returning() {
     assert_eq!(PointerDisplay::of_order(OrderKind::DropOff(id(3))), D::ReturnResources);
 }
 
-/// `> S: Set Drop-off Location`: "Left-click an Egress Node or own refinery sets it as the selected Drone(s)'
-/// AssignedDropOff": a click on the player's own node gives the ability, anything else nothing (an invalid target,
-/// design change 0065). The pointer shows ReturnResources over the node (placeholder: no rule for
-/// AwaitingTarget\[SetDropOffLocation\]), Inactive elsewhere. A node under Warp In is no drop-off yet (`Aimed::drop_off`
-/// is false, as the gate has it).
+/// `factions/colonists/units/drone.md > S: Set Drop-off Location`: "Left-click an Egress Node or own refinery sets it
+/// as the selected Drone(s)' AssignedDropOff": a click on the player's own node gives the ability, anything else
+/// nothing (an invalid target, design change 0065). The pointer shows ReturnResources over the node (placeholder: no
+/// rule for AwaitingTarget\[SetDropOffLocation\]), Inactive elsewhere. A node under Warp In is no drop-off yet
+/// (`Aimed::drop_off` is false, as the gate has it).
 #[test]
 fn set_drop_off_takes_an_own_node() {
     use PointerDisplay as D;

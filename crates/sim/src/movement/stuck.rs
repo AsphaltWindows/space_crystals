@@ -1,9 +1,11 @@
-//! Progress, stuck detection and recovery — `docs/movement.md > 6.5`, with the repath schedule of `> 5.6`.
+//! Progress, stuck detection and recovery — `docs/movement.md > 6.5`, with the repath schedule of `docs/movement.md >
+//! 5.6`.
 //!
-//! The rules are `systems/controls/behaviors.md > MovingToLocation`: `> Failure` (design change 0024: stuck after
-//! `tuning::movement::STUCK_TICKS`, `MAX_REPATHS` attempts at another route after `REPATH_WAITS`, then give up) and `>
-//! Occupied target location` (design change 0026, `tuning::movement::OCCUPIED_ARRIVAL_GU`). Two moving units that block
-//! each other for good both end `Failed` (design change 0022: moving units never yield or swap).
+//! The rules are `systems/controls/behaviors.md > MovingToLocation`: `systems/controls/behaviors.md > Failure` (design
+//! change 0024: stuck after `tuning::movement::STUCK_TICKS`, `MAX_REPATHS` attempts at another route after
+//! `REPATH_WAITS`, then give up) and `systems/controls/behaviors.md > Occupied target location` (design change 0026,
+//! `tuning::movement::OCCUPIED_ARRIVAL_GU`). Two moving units that block each other for good both end `Failed` (design
+//! change 0022: moving units never yield or swap).
 
 use glam::Vec2;
 
@@ -73,7 +75,8 @@ fn shared_progress(blocker: &Body) -> Option<Tick> {
 ///   the normal Failure rule applies ... it does not wait behind the blockers indefinitely"): an attempt that
 ///   finds no way round counts all the same, and once none is left the unit gives up as any stuck unit does, still
 ///   stuck `STUCK_TICKS` after its last attempt ([`after_move`], rule 5). The behaviour then gives the target up
-///   (`> AttackingObject > Failure`). Until 0223 such a unit stood behind the row for as long as the target lived.
+///   (`systems/controls/behaviors.md > AttackingObject > Failure`). Until 0223 such a unit stood behind the row for as
+///   long as the target lived.
 fn queues_behind(chased: Option<&Chased>, engaged: &[Option<ObjectId>], world: &World, blocker: Option<usize>) -> bool {
     let (Some(chased), Some(blocker)) = (chased, blocker) else {
         return false;
@@ -126,9 +129,10 @@ fn avoid_group(pos: Vec2, mover: &mut Mover, bodies: &[Body], group: u32) {
 /// `systems/controls/behaviors.md > MovingToLocation > Occupied target location` (design changes 0026 and 0169):
 /// whether the unit at `pos`, blocked by `blocker` this tick, counts as arrived. It is within `OCCUPIED_ARRIVAL_GU`
 /// (3 grid units) of its destination, and the unit in its way isn't moving and won't move for it.
-/// - **An object goal** (`> MovingToObject > Completion`, "Blocked near the target"; design changes 0032, 0033 and
-///   0169): the same rule and radius, measured as the gap between the unit's shape and the object's (`chased`).
-///   What reaching it means is the behaviour's: a followed unit is waited for, a static target completes the order.
+/// - **An object goal** (`systems/controls/behaviors.md > MovingToObject > Completion`, "Blocked near the target";
+///   design changes 0032, 0033 and 0169): the same rule and radius, measured as the gap between the unit's shape and
+///   the object's (`chased`). What reaching it means is the behaviour's: a followed unit is waited for, a static target
+///   completes the order.
 /// - **Yielding comes first** (design changes 0022, 0023): a blocker that yields to this unit has been asked to step
 ///   aside, and a unit whose blocker steps aside isn't stuck. So the rule is for blockers that stay: units that
 ///   arrived with its own group order (0027), units on Hold, busy units, enemies, units that can't move, and a
@@ -191,8 +195,9 @@ fn target_is_occupied(
 ///    If the search finds no way around the avoid tiles, phase 5c drops them and plans again: tiles are too coarse
 ///    next to units to conclude that there is no way.
 /// 5. No attempt left, and still stuck `STUCK_TICKS` after the last one: `Failed`. The behaviour stops and
-///    completes (`> Failure`). A unit that never gets on looks for another route 32, 48 and 80 ticks after its
-///    last progress and fails at 104 (`tuning::movement::GIVE_UP_TICKS`, 6.5 s: 0024's "about 7 s").
+///    completes (`systems/controls/behaviors.md > Failure`). A unit that never gets on looks for another route 32, 48
+///    and 80 ticks after its last progress and fails at 104 (`tuning::movement::GIVE_UP_TICKS`, 6.5 s: 0024's "about 7
+///    s").
 ///
 /// A unit due for 4 or 5 that touches no unit in this tick (it stepped around one) waits up to `STUCK_GRACE_TICKS`
 /// to meet its blocker again, so that rules 1 and 4 can see it.

@@ -97,9 +97,9 @@ fn progress_counts_whole_frames_up_to_the_warp_in_time() {
     assert!(t.advance(RATIO_ONE) && t.progress.elapsed == u32::MAX && t.frames_done() == 320);
 }
 
-/// `> HP/Shields Interpolation`: "HP = Beacon MaxHP + (Building MaxHP - Beacon MaxHP) x progress", the same for
-/// Shields, at 0, 25, 50 and 100% of each WarpInTime: a Robo Portal at 50% has 360 HP and 15 Shields (the plan's
-/// example). Once complete, the maxima are the building's own.
+/// `factions/colonists/economy.md > HP/Shields Interpolation`: "HP = Beacon MaxHP + (Building MaxHP - Beacon MaxHP) x
+/// progress", the same for Shields, at 0, 25, 50 and 100% of each WarpInTime: a Robo Portal at 50% has 360 HP and 15
+/// Shields (the plan's example). Once complete, the maxima are the building's own.
 #[test]
 fn the_maxima_interpolate_by_the_formulas() {
     let cases = [
@@ -158,9 +158,9 @@ fn follow(t: &mut Transform, (from, to): (f32, f32), mut hp: f32, frames: u32) -
 }
 
 /// Design change 0110's Verification, to the HP: "Drone at 10/20 HP deploys undisturbed: completes at 110/120"; "Hit
-/// a deploying Beacon for 30 at 50%: shows 40/70, completes at 90/120" (a deployment of 48 frames, `> Beacon
-/// Deployment`: 3 seconds); "Same arithmetic for a Warp In (Beacon 120 → target MaxHP)": a Beacon 40 short of its
-/// 120 is 40 short of each building's MaxHP once warped in, exactly.
+/// a deploying Beacon for 30 at 50%: shows 40/70, completes at 90/120" (a deployment of 48 frames,
+/// `factions/colonists/economy.md > Beacon Deployment`: 3 seconds); "Same arithmetic for a Warp In (Beacon 120 → target
+/// MaxHP)": a Beacon 40 short of its 120 is 40 short of each building's MaxHP once warped in, exactly.
 #[test]
 fn damage_is_carried_through_unchanged() {
     let deploying = || Transform {

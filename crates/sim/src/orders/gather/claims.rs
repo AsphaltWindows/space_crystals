@@ -1,14 +1,14 @@
-//! The claims of one phase 5a on the patches (`> Patch Occupancy (one Drone per patch)`; the module docs of
-//! `orders::gather`), the hatches and the Supplies of the stations.
+//! The claims of one phase 5a on the patches (`factions/colonists/units/drone.md > Patch Occupancy (one Drone per
+//! patch)`; the module docs of `orders::gather`), the hatches and the Supplies of the stations.
 
 use crate::ids::{ObjectId, PlayerId};
 use crate::shape::Shape;
 use crate::sides::SideLetter;
 
-/// `> Patch Occupancy (one Drone per patch)`: the patches claimed so far in this tick's phase 5a, each with the
-/// worker that claimed it and its owner: one that starts mining it, or one that sets off for it, a free patch it found
-/// (design change 0133: "the lowest-id Drone whose check sees the patch free claims it"). Scratch of one phase, never
-/// state.
+/// `factions/colonists/units/drone.md > Patch Occupancy (one Drone per patch)`: the patches claimed so far in this
+/// tick's phase 5a, each with the worker that claimed it and its owner: one that starts mining it, or one that sets off
+/// for it, a free patch it found (design change 0133: "the lowest-id Drone whose check sees the patch free claims it").
+/// Scratch of one phase, never state.
 ///
 /// And the hatches a worker began to unload at in this tick (`factions/syndicate/tunnels.md > Tunnel > SymmetryType -
 /// ABCD`: "Only one Agent may drop off resources at a side at a time"), as `(drop-off, side)`: of two workers that

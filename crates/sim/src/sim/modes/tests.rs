@@ -55,13 +55,14 @@ fn weapon_of_kind(kind: ObjectKind) -> Option<&'static crate::defs::AttackAttrs>
 
 /// Design change 0198: "The unit's type, and so its SelectionGroup, switches at the press to the target form" (and
 /// the Riot Shield's: "including when the raise is deferred behind a shot"), with a `SimEvent::KindChanged`; the
-/// unit's attack goes on as it was, the shot under way with the weapon in hand. Design change 0153 (`> Eligibility`:
-/// "the unit finishes Firing and Cooldown, then converts immediately (instead of starting its Reloading phase)") and
-/// design change 0172 (`> During the toggle`: "the shot finishes, then the shield starts rising immediately"): the
-/// conversion and the raise wait through the Modes steps of the Firing and the Cooldown, the Legionnaire fighting with
-/// its old weapon and the Peacekeeper's shield down; in the first one after (its combat phase has put it into a
-/// Reloading that hasn't run a tick), the conversion takes its first frame, and the shield its first tick up, as for a
-/// press then. The conversion ends the reload; the shield doesn't, the weapon being the same.
+/// unit's attack goes on as it was, the shot under way with the weapon in hand. Design change 0153
+/// (`factions/colonists/units/weapon_conversion.md > Eligibility`: "the unit finishes Firing and Cooldown, then
+/// converts immediately (instead of starting its Reloading phase)") and design change 0172
+/// (`factions/gdo/units/peacekeeper.md > During the toggle`: "the shot finishes, then the shield starts rising
+/// immediately"): the conversion and the raise wait through the Modes steps of the Firing and the Cooldown, the
+/// Legionnaire fighting with its old weapon and the Peacekeeper's shield down; in the first one after (its combat phase
+/// has put it into a Reloading that hasn't run a tick), the conversion takes its first frame, and the shield its first
+/// tick up, as for a press then. The conversion ends the reload; the shield doesn't, the weapon being the same.
 #[test]
 fn a_toggle_mid_attack_switches_the_type_at_once_and_waits_for_the_cooldown() {
     let firing = AttackPhase::Firing {

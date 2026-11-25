@@ -33,7 +33,7 @@ pub(crate) static EGRESS_NODE: ObjectDef = ObjectDef {
         onto: None,
         constructs: &[],
         warp_in: &[],
-        drop_off: Some(DropOff::Anywhere), // `economy.md > Egress Node > Drop Off`
+        drop_off: Some(DropOff::Anywhere), // `factions/colonists/economy.md > Egress Node > Drop Off`
         underground: false,
         tunnel: None,
     }),

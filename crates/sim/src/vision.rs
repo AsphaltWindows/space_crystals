@@ -1,16 +1,16 @@
 //! Vision — `core/vision.md`. Phase 5f (`docs/movement.md > 4`): what each player sees, from the tick's final
 //! positions; at the very end of the tick, what it remembers of the structures and resources it has seen.
 //!
-//! - **States** (`> VisibilityState`): every tile is [`VisibilityState::Unexplored`], `Explored` or `Visible` for
-//!   each player. Explored is history: one bit per tile and player, set the first time the tile is Visible and never
-//!   cleared, so it is hashed and serialized with the rest of the state. A tile is Visible while at least one of the
-//!   player's sight sources sees it, which is a count per tile, kept up to date incrementally, never hashed and
-//!   rebuilt from the objects when a save is loaded; and for the fog delay after the last one stops seeing it
-//!   ([`linger`], `> Visible > Fog delay`, design change 0178), which is history again. Each player's are a
-//!   [`PlayerVision`] (`player`).
-//! - **Reveals** ([`reveal`], `> Attacks from outside vision`, design change 0177): an attacker that shoots one of a
-//!   player's objects from outside the player's vision is Visible to that player for a while, it alone, not its
-//!   tiles. History, like the delay.
+//! - **States** (`core/vision.md > VisibilityState`): every tile is [`VisibilityState::Unexplored`], `Explored` or
+//!   `Visible` for each player. Explored is history: one bit per tile and player, set the first time the tile is
+//!   Visible and never cleared, so it is hashed and serialized with the rest of the state. A tile is Visible while at
+//!   least one of the player's sight sources sees it, which is a count per tile, kept up to date incrementally, never
+//!   hashed and rebuilt from the objects when a save is loaded; and for the fog delay after the last one stops seeing
+//!   it ([`linger`], `core/vision.md > Visible > Fog delay`, design change 0178), which is history again. Each player's
+//!   are a [`PlayerVision`] (`player`).
+//! - **Reveals** ([`reveal`], `core/vision.md > Attacks from outside vision`, design change 0177): an attacker that
+//!   shoots one of a player's objects from outside the player's vision is Visible to that player for a while, it alone,
+//!   not its tiles. History, like the delay.
 //! - **Sources** (`core/entities.md > Object Type > SightRange`: vision goes to the owner): every owned object whose
 //!   type has a SightRange above 0. Neutral objects and resources (`core/map.md > Resource`: no vision) see nothing.
 //! - **Sight** ([`sight`]): a disc around the object's centre. A tile is seen when its centre lies within the
@@ -34,10 +34,10 @@
 //!   footprint (a structure or resource) overlaps. Every question whether a player sees an object comes there.
 //!   An object hidden from the player ([`hidden`], plan decision T32: an owned underground structure, for every
 //!   player but its owner) is never seen, whatever its tiles.
-//! - **Memory** ([`memory`], `> Explored`: structures and resources show in their last-known state): each player's
-//!   records of the structures and resources it has seen ([`LastKnown`], [`PlayerVision::records`]), history like
-//!   the Explored tiles. Phase 5f follows which of them the player sees from the tiles that change state, and
-//!   [`Vision::remember`], the last thing a tick does, refreshes the records of those in sight. No record is ever
+//! - **Memory** ([`memory`], `core/vision.md > Explored`: structures and resources show in their last-known state):
+//!   each player's records of the structures and resources it has seen ([`LastKnown`], [`PlayerVision::records`]),
+//!   history like the Explored tiles. Phase 5f follows which of them the player sees from the tiles that change state,
+//!   and [`Vision::remember`], the last thing a tick does, refreshes the records of those in sight. No record is ever
 //!   taken of an object hidden from the player.
 //!
 //! The map never changes during a game; a sim whose map changed would have to build its vision again
@@ -80,13 +80,14 @@ use sight::stamp;
 /// best state of a few tiles is their `max`.
 #[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 pub enum VisibilityState {
-    /// `> Unexplored`: never within the SightRange of the player's units or structures. Fully black: terrain,
-    /// structures and units are hidden.
+    /// `core/vision.md > Unexplored`: never within the SightRange of the player's units or structures. Fully black:
+    /// terrain, structures and units are hidden.
     Unexplored,
-    /// `> Explored`: seen before, not now. Terrain shows, structures and resources in their last-known state, enemy
-    /// units not at all.
+    /// `core/vision.md > Explored`: seen before, not now. Terrain shows, structures and resources in their last-known
+    /// state, enemy units not at all.
     Explored,
-    /// `> Visible`: within the SightRange of one of the player's units or structures now. Everything shows.
+    /// `core/vision.md > Visible`: within the SightRange of one of the player's units or structures now. Everything
+    /// shows.
     Visible,
 }
 

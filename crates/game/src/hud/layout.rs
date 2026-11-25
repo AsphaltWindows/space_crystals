@@ -50,8 +50,8 @@ pub fn section_rect(section: HudSection, surface: Vec2) -> Rect {
     unreachable!("every section is in HudSection::ALL")
 }
 
-/// The grid of portraits inside the SelectionPanel (`> SelectionPanel`): square cells, row by row from the top left
-/// of the section's content box.
+/// The grid of portraits inside the SelectionPanel (`systems/controls/selection_and_hud.md > SelectionPanel`): square
+/// cells, row by row from the top left of the section's content box.
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub struct PortraitGrid {
     /// The first cell's top-left corner on the surface.
@@ -100,8 +100,8 @@ impl PortraitGrid {
     }
 }
 
-/// The CommandPanel's 4 × 3 grid of buttons (`> CommandPanel > Grid Layout`): square cells as large as the
-/// section's content box allows, centred in it, row by row from the top left.
+/// The CommandPanel's 4 × 3 grid of buttons (`systems/controls/selection_and_hud.md > CommandPanel > Grid Layout`):
+/// square cells as large as the section's content box allows, centred in it, row by row from the top left.
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub struct CommandGrid {
     /// The top-left button's top-left corner on the surface.

@@ -9,17 +9,20 @@
 //!   may put a plate anywhere) has no extractor and mines nothing, not even the residual rate, and so does a plate
 //!   whose patch a debug command removed (the removal path drops the link, `Sim::remove_objects`) and a plate
 //!   without an owner, which has no bank to pay.
-//! - **Cycles** (design change 0098, `> Paid in lumps`): a plate pays its whole load at once at the end of each
-//!   48-frame cycle. The cycle advances by the owner's power ratio each tick (`> PowerPenalty`; the ratio in
-//!   [`crate::economy::RATIO_ONE`]s, plan decision T6), the remainder carried over into the next cycle, so the lumps
-//!   come less often at negative power and stay the same size. "A new plate's first payment comes 48 frames after it
-//!   is placed": like every system, mining starts in the tick after the one that made the pair
-//!   (`ARCHITECTURE.md > Tick pipeline > Spawn tick`), so a plate placed in tick `t` first pays in tick `t + 48`.
-//! - **Loads** (design change 0099): 10 while the patch holds 10, then what is left (`> Last partial load`: 5 of a
-//!   1505 patch), then the residual 1 forever: the patch stays under its plate with 0 left (`> Depleted patch under a
-//!   plate`, GDO's exception to `core/map.md > SpaceCrystalsPatch`), which `SimEvent::PatchDepleted` announces.
-//! - **On destruction** (`> On destruction`): the patch of a plate that leaves the game is uncovered, and a depleted
-//!   one leaves with it ([`depleted_patch`], used by the removal path), which opens its tile (design change 0038).
+//! - **Cycles** (design change 0098, `factions/gdo/economy.md > Paid in lumps`): a plate pays its whole load at once at
+//!   the end of each 48-frame cycle. The cycle advances by the owner's power ratio each tick
+//!   (`factions/gdo/economy.md > PowerPenalty`; the ratio in [`crate::economy::RATIO_ONE`]s, plan decision T6), the
+//!   remainder carried over into the next cycle, so the lumps come less often at negative power and stay the same size.
+//!   "A new plate's first payment comes 48 frames after it is placed": like every system, mining starts in the tick
+//!   after the one that made the pair (`ARCHITECTURE.md > Tick pipeline > Spawn tick`), so a plate placed in tick `t`
+//!   first pays in tick `t + 48`.
+//! - **Loads** (design change 0099): 10 while the patch holds 10, then what is left (`factions/gdo/economy.md > Last
+//!   partial load`: 5 of a 1505 patch), then the residual 1 forever: the patch stays under its plate with 0 left
+//!   (`factions/gdo/economy.md > Depleted patch under a plate`, GDO's exception to `core/map.md > SpaceCrystalsPatch`),
+//!   which `SimEvent::PatchDepleted` announces.
+//! - **On destruction** (`factions/gdo/economy.md > On destruction`): the patch of a plate that leaves the game is
+//!   uncovered, and a depleted one leaves with it ([`depleted_patch`], used by the removal path), which opens its tile
+//!   (design change 0038).
 
 use std::collections::BTreeMap;
 
@@ -109,9 +112,9 @@ pub(crate) fn link_patch(objects: &mut BTreeMap<ObjectId, Object>, patch: Object
     }
 }
 
-/// The patch that leaves the game with `plate` (`> On destruction`: "If the underlying Space Crystal Patch is
-/// depleted: the patch is removed from the map"): its patch if that has nothing left, else `None` ("the patch
-/// becomes uncovered and accessible"), as for an object that mines nothing.
+/// The patch that leaves the game with `plate` (`factions/gdo/economy.md > On destruction`: "If the underlying Space
+/// Crystal Patch is depleted: the patch is removed from the map"): its patch if that has nothing left, else `None`
+/// ("the patch becomes uncovered and accessible"), as for an object that mines nothing.
 pub(crate) fn depleted_patch(objects: &BTreeMap<ObjectId, Object>, plate: ObjectId) -> Option<ObjectId> {
     let patch = objects.get(&plate)?.extractor?.patch;
     let depleted = matches!(
@@ -143,7 +146,7 @@ pub(super) fn step(
         let Some(mining) = mining_of(o.kind) else {
             continue;
         };
-        // `> PowerPenalty`: "the same ratio as the global power penalty for buildings".
+        // `factions/gdo/economy.md > PowerPenalty`: "the same ratio as the global power penalty for buildings".
         let speed = power.get(&owner).copied().unwrap_or_default().ratio();
         if extractor.advance(speed, &mining) {
             ended.push((o.id, extractor.patch, owner, mining));

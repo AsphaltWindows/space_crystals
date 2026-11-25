@@ -1,6 +1,6 @@
 //! The resource bar in the top bar (`core/camera.md > HUD Layout`: "Top: Resource bar"): the local player's
-//! resources, as their faction's DisplayHud lists them (`core/entities.md > Player > DisplayHudInfo[Faction]`, `>
-//! Faction > DisplayHud`), read from the sim at the end of the latest tick.
+//! resources, as their faction's DisplayHud lists them (`core/entities.md > Player > DisplayHudInfo[Faction]`,
+//! `core/entities.md > Faction > DisplayHud`), read from the sim at the end of the latest tick.
 //!
 //! - **GDO** (`factions/gdo/overview.md > DisplayHud`), left to right:
 //!   - Space Crystals and Supplies, the banks (`Player::crystals`, `Player::supplies`); Supplies stay 0 for now, as
@@ -16,7 +16,8 @@
 //!     the refined ones stay 0 until refining exists (question Q0043 point 1);
 //!   - Beacon Capacity as used / available (`Sim::army_cap`, plan decision T20): the units and the units in
 //!     production (design change 0143) over 5 per Colonists building, at most 200; in red while more is used than
-//!     available (`> Beacon Capacity > Over capacity`, design change 0112). No Power: the Colonists have none (T21).
+//!     available (`factions/colonists/overview.md > Beacon Capacity > Over capacity`, design change 0112). No Power:
+//!     the Colonists have none (T21).
 //! - **Syndicate** (`factions/syndicate/overview.md > DisplayHud`; slice M4-B), left to right:
 //!   - Space Crystals and Supplies, the banks (`Player::crystals`, `Player::supplies`: 100 and 1 at the start,
 //!     `factions/syndicate/tunnels.md > Tunnel > Starting Conditions`);
@@ -49,23 +50,24 @@ pub const ALERT_COLOR: Color = Color::srgb(1.0, 0.35, 0.3);
 /// figures being in that order.
 #[derive(Component, Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub enum ResourceFigure {
-    /// `> Space Crystals: current amount`.
+    /// `factions/gdo/overview.md > Space Crystals: current amount` (every faction's).
     SpaceCrystals,
-    /// `> Supplies: current amount` (GDO).
+    /// `factions/gdo/overview.md > Supplies: current amount` (GDO) and
+    /// `factions/syndicate/overview.md > Supplies: current amount` (Syndicate).
     Supplies,
-    /// `> Power: used / available` (GDO; design change 0090).
+    /// `factions/gdo/overview.md > Power: used / available` (GDO; design change 0090).
     Power,
-    /// `> Unit Control: current used / 200` (GDO).
+    /// `factions/gdo/overview.md > Unit Control: current used / 200` (GDO).
     UnitControl,
-    /// `> Alloys: current amount` (Colonists).
+    /// `factions/colonists/overview.md > Alloys: current amount` (Colonists).
     Alloys,
-    /// `> Essence: current amount` (Colonists).
+    /// `factions/colonists/overview.md > Essence: current amount` (Colonists).
     Essence,
-    /// `> Flux: current amount` (Colonists).
+    /// `factions/colonists/overview.md > Flux: current amount` (Colonists).
     Flux,
-    /// `> Beacon Capacity: current used / current available (max 200)` (Colonists).
+    /// `factions/colonists/overview.md > Beacon Capacity: current used / current available (max 200)` (Colonists).
     BeaconCapacity,
-    /// `> Tunnel Space: current used / current available (max 200)` (Syndicate).
+    /// `factions/syndicate/overview.md > Tunnel Space: current used / current available (max 200)` (Syndicate).
     TunnelSpace,
 }
 

@@ -270,7 +270,7 @@ pub(super) fn hold(unit: &mut Unit, target: &mut Option<ObjectId>, world: &World
 ///   (or is no longer a ValidTarget, or comes inside the unit's MinRange: design change 0182, `Scan::Sight`), the
 ///   unit is idle again where it stands, with a new IdleOrigin next time. A target it can't get to is left alone for
 ///   [`GIVE_UP_RETRY_TICKS`] (design change 0181), so the unit doesn't set off for it tick after tick.
-/// - **Returning**: no scanning (`> Not active during: Move`); idle again once the move ends.
+/// - **Returning**: no scanning (`> Not active during`: Move); idle again once the move ends.
 pub(super) fn idle(unit: &mut Unit, auto: &mut Auto, world: &World) {
     // Returning → Watching → Engaging at most: each pass moves on by one.
     for _ in 0..3 {

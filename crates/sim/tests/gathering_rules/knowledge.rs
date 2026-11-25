@@ -55,10 +55,11 @@ fn field(known: Known) -> TestSim {
     t
 }
 
-/// Design change 0131 (`> Patch Occupancy > Search radius`; its Verification: "A patch within 6 GU that the player
-/// has never seen is never chosen; a remembered one is. A plated patch is never a redirect target"), with design
-/// change 0159 (the map's patches are known from the start, so a patch "never seen" is one placed later): the Drone
-/// mines A out and looks round where it stands; with no patch it may go on to, its Gather ends (0123).
+/// Design change 0131 (`factions/colonists/units/drone.md > Patch Occupancy > Search radius`; its Verification: "A
+/// patch within 6 GU that the player has never seen is never chosen; a remembered one is. A plated patch is never a
+/// redirect target"), with design change 0159 (the map's patches are known from the start, so a patch "never seen" is
+/// one placed later): the Drone mines A out and looks round where it stands; with no patch it may go on to, its Gather
+/// ends (0123).
 #[test]
 fn only_a_known_uncovered_patch_is_one_to_go_on_to() {
     for known in [Known::Never, Known::FromTheStart, Known::Remembered, Known::Plated] {
@@ -94,10 +95,10 @@ fn only_a_known_uncovered_patch_is_one_to_go_on_to() {
     }
 }
 
-/// Design change 0137 (`> Patch Occupancy > Patches under a GDO Extraction Plate`; its Verification: "Plate a patch
-/// a Colonists Drone is mining: the plate goes down, the Drone stops mid-cycle with no load and moves to another
-/// patch"): the Drone beside the patch doesn't stop the placement, and from then on the patch counts as gone for
-/// it, as one that ran out (0134); the mining is interrupted and collects nothing (0130).
+/// Design change 0137 (`factions/colonists/units/drone.md > Patch Occupancy > Patches under a GDO Extraction Plate`;
+/// its Verification: "Plate a patch a Colonists Drone is mining: the plate goes down, the Drone stops mid-cycle with no
+/// load and moves to another patch"): the Drone beside the patch doesn't stop the placement, and from then on the patch
+/// counts as gone for it, as one that ran out (0134); the mining is interrupted and collects nothing (0130).
 #[test]
 fn a_plate_placed_on_a_patch_a_drone_mines_goes_down_and_the_drone_moves_on() {
     // Player 1: patch A (1), patch B (2) two tiles west of it, node 3, Drone 4. Player 2: a Deployment Center, 5,

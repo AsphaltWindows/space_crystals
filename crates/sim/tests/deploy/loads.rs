@@ -1,5 +1,5 @@
-//! A Drone that deploys with a load (design change 0114, `> Deploying with a load`): the load is lost at
-//! completion, and comes back with the Drone on a cancel.
+//! A Drone that deploys with a load (design change 0114, `factions/colonists/economy.md > Deploying with a load`): the
+//! load is lost at completion, and comes back with the Drone on a cancel.
 
 use super::*;
 
@@ -10,7 +10,8 @@ fn bank(t: &TestSim, player: PlayerId) -> u32 {
 /// [`base`] with a Space Crystals patch 4 at (6, 13), which Drone 2 is sent to gather in tick 1, run until it holds
 /// its first load, 8 (`factions/colonists/units/drone.md > Gathering`: CarryCapacity 8), on its way to the Egress
 /// Node. Then it is ordered in the next tick to deploy at [`SITE`], replacing its Gather: "A Drone carrying a load
-/// deploys without delivering it first" (`> Deploying with a load`). Run until it began; returns that tick.
+/// deploys without delivering it first" (`factions/colonists/economy.md > Deploying with a load`). Run until it began;
+/// returns that tick.
 fn deployed_with_a_load(t: &mut TestSim) -> Tick {
     t.order_at(1, P1, &[id(2)], OrderKind::Gather(id(4)), false);
     while object(t, 2).worker.is_some_and(|worker| worker.load == 0) {

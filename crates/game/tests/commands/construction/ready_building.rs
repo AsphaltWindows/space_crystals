@@ -1,14 +1,16 @@
-//! A ready building (`> BuildMenu (building ready)`, `> AwaitingPlacement`): placed with a left-click where the
-//! ghost is green, once with Shift (design change 0071), refused by the sim when the game no longer allows it
-//! (plan decision T4), and placement left with Esc, a right-click or Back.
+//! A ready building (`factions/gdo/structures/deployment_center.md > BuildMenu (building ready)`,
+//! `factions/gdo/structures/deployment_center.md > AwaitingPlacement`): placed with a left-click where the ghost is
+//! green, once with Shift (design change 0071), refused by the sim when the game no longer allows it (plan decision
+//! T4), and placement left with Esc, a right-click or Back.
 
 use super::*;
 
-/// `> BuildMenu (building ready)`: once the Generator is ready its slot becomes "Select completed building", and X
-/// Cancel Ready Building. It enters AwaitingPlacement: the ghost follows the cursor in place of the pointer, green
-/// where it may go, the build area overlay shows the area, and R and F become the placement keys. A left-click there
-/// places it at the ghost's tiles and orientation (one Place to the Deployment Center) and returns to DefaultState;
-/// the Generator stands there from the next tick, and the ghost and the overlay are gone.
+/// `factions/gdo/structures/deployment_center.md > BuildMenu (building ready)`: once the Generator is ready its slot
+/// becomes "Select completed building", and X Cancel Ready Building. It enters AwaitingPlacement: the ghost follows the
+/// cursor in place of the pointer, green where it may go, the build area overlay shows the area, and R and F become the
+/// placement keys. A left-click there places it at the ghost's tiles and orientation (one Place to the Deployment
+/// Center) and returns to DefaultState; the Generator stands there from the next tick, and the ghost and the overlay
+/// are gone.
 #[test]
 fn a_ready_generator_is_placed_where_the_ghost_is_green() {
     use ButtonLook::{Back, Common, Disabled, Pending};
@@ -61,10 +63,11 @@ fn a_ready_generator_is_placed_where_the_ghost_is_green() {
     assert_eq!(activity(&mut app), None);
 }
 
-/// `> AwaitingPlacement`: "Escape/right-click: returns to BuildMenu (StateOnlyTransition), building remains ready to
-/// place", and so does Back (Z); the ghost, the overlay and the placement keys go with the placement. From the build
-/// menu, X Cancel Ready Building refunds 75% of the cost, rounded down (`> BuildMenu (building ready)`), and returns
-/// to DefaultState. Then R is a command slot again: the Peacekeeper's Riot Shield.
+/// `factions/gdo/structures/deployment_center.md > AwaitingPlacement`: "Escape/right-click: returns to BuildMenu
+/// (StateOnlyTransition), building remains ready to place", and so does Back (Z); the ghost, the overlay and the
+/// placement keys go with the placement. From the build menu, X Cancel Ready Building refunds 75% of the cost, rounded
+/// down (`factions/gdo/structures/deployment_center.md > BuildMenu (building ready)`), and returns to DefaultState.
+/// Then R is a command slot again: the Peacekeeper's Riot Shield.
 #[test]
 fn escape_right_click_and_back_leave_placement_for_the_build_menu() {
     let mut app = construction_game(1000);
@@ -102,8 +105,9 @@ fn escape_right_click_and_back_leave_placement_for_the_build_menu() {
     );
 }
 
-/// `> AwaitingTarget > Shift while placing` (design change 0071): a GDO constructor has one building ready at most,
-/// so a Shift-click places it once and ends placement like a plain click; the next Shift-click places nothing.
+/// `systems/controls/selection_and_hud.md > AwaitingTarget > Shift while placing` (design change 0071): a GDO
+/// constructor has one building ready at most, so a Shift-click places it once and ends placement like a plain click;
+/// the next Shift-click places nothing.
 #[test]
 fn a_shift_click_places_once_and_ends_placement() {
     let mut app = construction_game(1000);
@@ -123,7 +127,8 @@ fn a_shift_click_places_once_and_ends_placement() {
 /// Plan decision T4: the sim checks a Place again as it applies it. When the game changed after the click (here a
 /// unit arrives on the footprint in the same tick, before the Place), the sim refuses it, the Generator stays ready,
 /// and the player hears why (`SimEvent::PlacementRefused`); they are in DefaultState, where the valid click left
-/// them (`> AwaitingPlacement`), and the ready building's slot starts placement again.
+/// them (`factions/gdo/structures/deployment_center.md > AwaitingPlacement`), and the ready building's slot starts
+/// placement again.
 #[test]
 fn a_place_the_game_no_longer_allows_leaves_the_building_ready() {
     let mut app = construction_game(1000);

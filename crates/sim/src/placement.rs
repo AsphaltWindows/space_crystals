@@ -16,26 +16,26 @@
 //! sight included (design change 0119), none but sight on the tiles of the Beacon it consumes, and no build area;
 //! its footprint is derived from the Beacon (`crate::transform::warp_in_footprint`, design change 0121), and a game
 //! asks [`Sim::warp_in_check`]. A worker-built structure ([`Method::WorkerBuilt`], slice M3-F: a Drone deploying a
-//! Beacon, `crate::deploy`; `> Worker-Built Structures`) has the same tile rules and no build area; its order and its
-//! ghost are checked on what the player knows ([`Mode::Known`], design change 0120: never-explored tiles pass, units
-//! hidden in the fog don't count), a game asking [`Sim::deploy_check`], and the worker checks its site again on
-//! arrival, on the truth ([`Mode::Arrival`]).
+//! Beacon, `crate::deploy`; `core/entities.md > Worker-Built Structures`) has the same tile rules and no build area;
+//! its order and its ghost are checked on what the player knows ([`Mode::Known`], design change 0120: never-explored
+//! tiles pass, units hidden in the fog don't count), a game asking [`Sim::deploy_check`], and the worker checks its
+//! site again on arrival, on the truth ([`Mode::Arrival`]).
 //!
-//! **Reservations** (`> Lingering build ghosts`, design change 0125): a player's pending worker builds reserve their
-//! sites against that player's further placements, a Deploy's and a Warp In's ([`check_reserving`],
+//! **Reservations** (`core/entities.md > Lingering build ghosts`, design change 0125): a player's pending worker builds
+//! reserve their sites against that player's further placements, a Deploy's and a Warp In's ([`check_reserving`],
 //! [`TileProblem::Reserved`]). Another player's never matter, and units walk over them.
 //!
 //! **The rules**, in the order the problems are listed:
 //! - each footprint tile: on the map; Buildable (`core/map.md > TilePreset`); flat (`core/map.md > Elevation >
 //!   Structures only on flat terrain`, for the kinds with `ObjectDef::needs_flat_ground`, every structure so far);
-//!   Visible to the placing player, in a game only (`> Direct Placement`; Extraction Plates too, design change
-//!   0095; a Warp In's too, 0119), and if it isn't, that is the tile's only problem, so the check tells nothing the
-//!   fog hides; covered by
-//!   no other footprint, a structure's (`> Direct Placement`: "no existing structure overlap") or a map resource's
-//!   (`> All placement methods: no buildings on resources`, design change 0096), but for a plate on a patch:
-//!   [`ObjectKind::may_overlap`], the one rule of shared tiles, which map validation and debug spawns apply too;
-//!   overlapped by no ground unit's box, whoever owns it (design change 0094: units are never pushed aside, and air
-//!   and underground units don't count);
+//!   Visible to the placing player, in a game only (`core/entities.md > Direct Placement`; Extraction Plates too,
+//!   design change 0095; a Warp In's too, 0119), and if it isn't, that is the tile's only problem, so the check tells
+//!   nothing the fog hides; covered by
+//!   no other footprint, a structure's (`core/entities.md > Direct Placement`: "no existing structure overlap") or a
+//!   map resource's (`core/entities.md > All placement methods: no buildings on resources`, design change 0096), but
+//!   for a plate on a patch: [`ObjectKind::may_overlap`], the one rule of shared tiles, which map validation and debug
+//!   spawns apply too; overlapped by no ground unit's box, whoever owns it (design change 0094: units are never pushed
+//!   aside, and air and underground units don't count);
 //! - the footprint: a structure's; for a GDO building, at least one tile in the build area
 //!   (`factions/gdo/structures/README.md > GDOBuildArea`), except for the Deployment Center, which seeds the area
 //!   ([`seeds_build_area`]); for an Extraction Plate, exactly onto a Space Crystals Patch

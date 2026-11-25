@@ -60,15 +60,15 @@ impl Shape {
         (self.centre - self.half, self.centre + self.half)
     }
 
-    /// `> Range Measurement`: the shortest distance between this shape and `other`, the gap between their edges.
-    /// 0 when they touch or overlap.
+    /// `systems/combat.md > Range Measurement`: the shortest distance between this shape and `other`, the gap between
+    /// their edges. 0 when they touch or overlap.
     pub fn gap(&self, other: &Shape) -> f32 {
         let apart = (self.centre - other.centre).abs() - (self.half + other.half);
         apart.max(Vec2::ZERO).length()
     }
 
-    /// `> Range Measurement` (ground-location targets): the shortest distance from this shape to `point`; 0 inside
-    /// it.
+    /// `systems/combat.md > Range Measurement` (ground-location targets): the shortest distance from this shape to
+    /// `point`; 0 inside it.
     pub fn distance_to(&self, point: Vec2) -> f32 {
         let apart = (self.centre - point).abs() - self.half;
         apart.max(Vec2::ZERO).length()

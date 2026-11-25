@@ -86,14 +86,15 @@ impl HudSection {
     }
 
     /// The slot's width: a fixed size (vh) or a share of the width left over. Both depend only on the surface
-    /// size, never on what the panels show, so the slots never shift (`> HUD Bar > Layout Rules`).
+    /// size, never on what the panels show, so the slots never shift (`systems/controls/selection_and_hud.md > HUD
+    /// Bar > Layout Rules`).
     fn width(self) -> SlotWidth {
         match self {
             HudSection::Minimap => SlotWidth::Fixed(SECTION_HEIGHT_VH),
             HudSection::Portrait => SlotWidth::Fixed(SECTION_HEIGHT_VH * 0.8),
             HudSection::InfoPanel => SlotWidth::Share(1.0),
             HudSection::SelectionPanel => SlotWidth::Share(1.0),
-            // `> CommandPanel > Grid Layout`: 4 × 3 square slots.
+            // `systems/controls/selection_and_hud.md > CommandPanel > Grid Layout`: 4 × 3 square slots.
             HudSection::CommandPanel => SlotWidth::Fixed(SECTION_HEIGHT_VH * 4.0 / 3.0),
         }
     }
@@ -148,7 +149,8 @@ impl Plugin for HudPlugin {
             .add_systems(Update, (update_top_bar, update_replay_note, show_hud_in_game_modes))
             // After the frame's input, which may switch the local player.
             .add_systems(Update, resources::update_resource_bar.in_set(ClientSystems::Present))
-            // `> SelectionPanel > Interactions`: after the map's clicks and the keys of the same frame.
+            // `systems/controls/selection_and_hud.md > SelectionPanel > Interactions`: after the map's clicks and the
+            // keys of the same frame.
             .add_systems(
                 Update,
                 selection_panel::click_portraits

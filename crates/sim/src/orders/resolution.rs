@@ -1,15 +1,16 @@
 //! A unit's default command against a target — `systems/controls/selection_and_hud.md > RightClickResolution` (design
 //! changes 0062, 0063 and 0074), the one rule behind both the right-click and the rally point (design change 0136:
-//! `> What a rally point makes a new unit do`: "A unit that spawns with a rally point set **always** gets its **own
-//! default right-click command** resolved against the rally target [...]. No per-building lists override this").
+//! `systems/controls/selection_and_hud.md > What a rally point makes a new unit do`: "A unit that spawns with a rally
+//! point set **always** gets its **own default right-click command** resolved against the rally target [...]. No
+//! per-building lists override this").
 //!
 //! [`resolve`] is the rule, on what the unit can do ([`Abilities`]) and what its owner knows of the target ([`Aim`]):
 //! the sim builds both from the game (`Sim::default_order`, by the owner's [`crate::targets::TargetView`]: a target it
 //! sees or remembers, design change 0139), the client from what it shows (`command_ui::resolution`), so the click,
 //! its pointer and a rally point all come out of the same function.
 //!
-//! - **The ground**: Move there (`> BasicCombatUnitInterfaceState > RightClickResolution`,
-//!   `factions/colonists/units/drone.md > Right-Click Resolution`: "Ground → Move").
+//! - **The ground**: Move there (`systems/controls/selection_and_hud.md > BasicCombatUnitInterfaceState >
+//!   RightClickResolution`, `factions/colonists/units/drone.md > Right-Click Resolution`: "Ground → Move").
 //! - **A worker** (the Drone, `factions/colonists/units/drone.md > Right-Click Resolution`): a Space Crystals patch it
 //!   can gather gives Gather ("Space Crystal patch → Gather"; a patch under a mining structure is no patch to it,
 //!   question Q0037 point 11); its owner's drop-off that takes loads gives Drop Off while it carries a load ("Own
@@ -121,8 +122,8 @@ pub enum Aim {
     Object(Aimed),
 }
 
-/// `> RightClickResolution` for one unit (module docs): the order a unit that can do `unit` gets against `aim`. Every
-/// unit can move, so there is always one.
+/// `systems/controls/selection_and_hud.md > RightClickResolution` for one unit (module docs): the order a unit that can
+/// do `unit` gets against `aim`. Every unit can move, so there is always one.
 pub fn resolve(unit: Abilities, aim: Aim) -> OrderKind {
     let target = match aim {
         Aim::Ground(point) => return OrderKind::Move(Target::Point(point)),

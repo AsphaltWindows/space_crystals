@@ -3,8 +3,9 @@
 
 use super::*;
 
-/// Design change 0132 (`> Patch Occupancy > Waiting and re-checking`; its Verification: "Overcrowd one patch: extra
-/// Drones wait beside it; when a neighbouring patch frees, a waiting Drone moves over within ~1 s").
+/// Design change 0132 (`factions/colonists/units/drone.md > Patch Occupancy > Waiting and re-checking`; its
+/// Verification: "Overcrowd one patch: extra Drones wait beside it; when a neighbouring patch frees, a waiting Drone
+/// moves over within ~1 s").
 #[test]
 fn extra_drones_wait_beside_a_crowded_patch_and_one_moves_over_when_a_neighbour_frees() {
     // Patch 1; patch 2 two tiles east of it, mined by player 2's Drone 3, whose node 4 is far to the north-east;
@@ -49,8 +50,9 @@ fn extra_drones_wait_beside_a_crowded_patch_and_one_moves_over_when_a_neighbour_
     run_to(&mut t, 60, "it mines patch 2", |t| mines(t, mover, 2));
 }
 
-/// Design change 0132 (`> Returning to the last mined patch`; its Verification: "A Drone redirected from patch A
-/// to patch B mines B, delivers, and then returns to B, not A"): the Gather follows the patch the Drone mines.
+/// Design change 0132 (`factions/colonists/units/drone.md > Returning to the last mined patch`; its Verification: "A
+/// Drone redirected from patch A to patch B mines B, delivers, and then returns to B, not A"): the Gather follows the
+/// patch the Drone mines.
 #[test]
 fn a_drone_redirected_from_a_to_b_returns_to_b() {
     // Patch A (1) and patch B (2) two tiles east of it, node 3; Drone 4 north of A takes it first, Drone 5 comes

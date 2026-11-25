@@ -1,12 +1,12 @@
-//! The Extraction Facility's plate (`> ObjectInterfaceState[ExtractionFacility]`): built, cancelled, and placed
-//! on a free patch in the build area.
+//! The Extraction Facility's plate (`factions/gdo/economy.md > ObjectInterfaceState[ExtractionFacility]`): built,
+//! cancelled, and placed on a free patch in the build area.
 
 use super::*;
 
-/// `> ObjectInterfaceState[ExtractionFacility]`: Q builds the plate (75 Space Crystals); while it is built only X
-/// (Cancel Construction) shows; once it is ready Q places it and X cancels it. Its ghost is green only on a patch in
-/// the build area without a plate; Esc and a right-click return to DefaultState, the plate still ready; a click on the
-/// free patch places it there.
+/// `factions/gdo/economy.md > ObjectInterfaceState[ExtractionFacility]`: Q builds the plate (75 Space Crystals); while
+/// it is built only X (Cancel Construction) shows; once it is ready Q places it and X cancels it. Its ghost is green
+/// only on a patch in the build area without a plate; Esc and a right-click return to DefaultState, the plate still
+/// ready; a click on the free patch places it there.
 #[test]
 fn the_extraction_facility_places_its_plate_on_a_free_patch() {
     use ButtonLook::Common;

@@ -1,4 +1,5 @@
-//! Command indicators (`> CommandIndicators`) and the pointer (`> PointerDisplayType`).
+//! Command indicators (`systems/controls/selection_and_hud.md > CommandIndicators`) and the pointer
+//! (`systems/controls/selection_and_hud.md > PointerDisplayType`).
 
 use bevy::prelude::*;
 use sc_sim::{ObjectId, OrderKind};
@@ -98,9 +99,10 @@ fn an_attack_marks_its_target() {
     );
 }
 
-/// `> PointerDisplayType > Resolution Rules`: the pointer previews the right-click from DefaultState, and the
-/// pending command's resolution while a target is awaited; over an object it also shows the object's relation.
-/// Attack takes an own destructible unit (force-attack, design change 0064), never the indestructible patch.
+/// `systems/controls/selection_and_hud.md > PointerDisplayType > Resolution Rules`: the pointer previews the
+/// right-click from DefaultState, and the pending command's resolution while a target is awaited; over an object it
+/// also shows the object's relation. Attack takes an own destructible unit (force-attack, design change 0064), never
+/// the indestructible patch.
 #[test]
 fn the_pointer_previews_what_a_click_would_do() {
     let mut app = game();

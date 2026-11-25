@@ -64,10 +64,11 @@ fn a_crystal_delivery_at_b_and_a_supply_delivery_at_d_in_the_same_ticks() {
 }
 
 /// Q0082 point 2: the nearest Tunnel for a Supply is the one whose Supplies hatch is nearest, as the crystal hatch
-/// decides for crystals (`> Gathering rules`: "the nearest own operational Tunnel (straight line to its crystal
-/// hatch)"). The west Tunnel (1) stands 1 grid unit from the station (2), its crystal hatch facing it and its Supplies
-/// hatch on its far side; the east one (3) stands 4 grid units off, its Supplies hatch facing the station. The Agent
-/// delivers at the east one, though the west one is nearer by its centre and by its crystal hatch.
+/// decides for crystals (`factions/syndicate/units/agent.md > Gathering rules`: "the nearest own operational Tunnel
+/// (straight line to its crystal hatch)"). The west Tunnel (1) stands 1 grid unit from the station (2), its crystal
+/// hatch facing it and its Supplies hatch on its far side; the east one (3) stands 4 grid units off, its Supplies hatch
+/// facing the station. The Agent delivers at the east one, though the west one is nearer by its centre and by its
+/// crystal hatch.
 #[test]
 fn the_nearest_tunnel_for_supplies_is_the_one_with_the_nearest_supplies_hatch() {
     let (west, east) = (1, 3);
@@ -95,9 +96,9 @@ fn the_nearest_tunnel_for_supplies_is_the_one_with_the_nearest_supplies_hatch() 
     assert_eq!(node(&t, 4), Some(east), "kept for the Gather");
 }
 
-/// `> Gathering rules` (design change 0255, one of the Drone's job rules): "Other orders keep the load", and a Drop
-/// Off order "delivers to the Tunnel clicked, once": an Agent stopped with a Supply keeps it, and a Drop Off on its
-/// Tunnel delivers it at the Supplies hatch.
+/// `factions/syndicate/units/agent.md > Gathering rules` (design change 0255, one of the Drone's job rules): "Other
+/// orders keep the load", and a Drop Off order "delivers to the Tunnel clicked, once": an Agent stopped with a Supply
+/// keeps it, and a Drop Off on its Tunnel delivers it at the Supplies hatch.
 #[test]
 fn a_drop_off_order_delivers_a_supply_at_the_supplies_hatch() {
     let mut t = field(1, 3, station_of(10)).start();

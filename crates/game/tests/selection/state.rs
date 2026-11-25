@@ -15,9 +15,9 @@ fn remove(app: &mut App, id: u32) {
     });
 }
 
-/// `> ControlState` (validated every tick) and `> ControlGroups > Operations > Recall` (destroyed objects leave):
-/// a removed object (`SimEvent::Removed`, as for a death) leaves the selection and every group in the frame of
-/// its tick.
+/// `systems/controls/selection_and_hud.md > ControlState` (validated every tick) and
+/// `systems/controls/selection_and_hud.md > ControlGroups > Operations > Recall` (destroyed objects leave): a removed
+/// object (`SimEvent::Removed`, as for a death) leaves the selection and every group in the frame of its tick.
 #[test]
 fn removed_objects_leave_the_selection_and_the_groups_at_once() {
     let mut app = game();
@@ -87,14 +87,15 @@ fn a_replaced_sim_starts_the_selections_over() {
     assert!(selected(&app).is_empty() && control_group(&app, 1).is_empty());
 }
 
-/// Design change 0199's Verification (`> Selection > ActiveGroup > When the ActiveGroup disappears`): "Select
-/// Peacekeepers (active) and Rocketmen, then have all the Peacekeepers die. The Rocketmen group becomes active." The
-/// Rocketman isn't in the game yet: player 1's Guards stand in for it. Peacekeepers 1 and 2 and Guards 3 and 4
-/// selected, the Peacekeepers' group, the first, active and awaiting an Attack's target: a Guard dying ("Completions or
-/// deaths in a group that isn't active never change the ActiveGroup") and one Peacekeeper dying (`> AwaitingTarget >
-/// Selection changes while targeting`: automatic removals "do not cancel targeting") change neither; the last
-/// Peacekeeper gone (removed as a death removes it, `SimEvent::Removed`), "the next group in Tab order becomes active",
-/// the Guards', and the targeting is over.
+/// Design change 0199's Verification (`systems/controls/selection_and_hud.md > Selection > ActiveGroup > When the
+/// ActiveGroup disappears`): "Select Peacekeepers (active) and Rocketmen, then have all the Peacekeepers die. The
+/// Rocketmen group becomes active." The Rocketman isn't in the game yet: player 1's Guards stand in for it.
+/// Peacekeepers 1 and 2 and Guards 3 and 4 selected, the Peacekeepers' group, the first, active and awaiting an
+/// Attack's target: a Guard dying ("Completions or deaths in a group that isn't active never change the ActiveGroup")
+/// and one Peacekeeper dying (`systems/controls/selection_and_hud.md > AwaitingTarget > Selection changes while
+/// targeting`: automatic removals "do not cancel targeting") change neither; the last Peacekeeper gone (removed as a
+/// death removes it, `SimEvent::Removed`), "the next group in Tab order becomes active", the Guards', and the targeting
+/// is over.
 #[test]
 fn when_the_active_groups_last_member_dies_the_next_group_in_tab_order_is_active() {
     use space_crystals::command_ui::{InterfaceState, PanelCommand};

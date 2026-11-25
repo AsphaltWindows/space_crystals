@@ -10,7 +10,7 @@
 //!   player knows: its own objects, the others it sees, and its records of the structures and resources out of its
 //!   sight. Units hidden in the fog don't count, and never-explored tiles pass: "The order can be given even where the
 //!   area isn't visible; the real check happens on arrival." The player's pending Deploys reserve their sites against
-//!   its further placements, Deploy and Warp In alike (`> Lingering build ghosts`, design change 0125;
+//!   its further placements, Deploy and Warp In alike (`core/entities.md > Lingering build ghosts`, design change 0125;
 //!   `TileProblem::Reserved`). They are derived from the order queues (`Sim::pending_deploys`), never stored, so a
 //!   site is free again once its order is gone, whatever ended it: the deployment started, a cancel, a new order in
 //!   its place, a failure.
@@ -30,16 +30,17 @@
 //!   (`ARCHITECTURE.md > Economy > Recipe timing`). Otherwise the order fails: the Drone stands, its next queued order
 //!   starts in the next tick, if it has one, and `SimEvent::DeployFailed` says why.
 //! - **The transformation** is the Warp In's (`crate::transform`): its HP interpolates from the Drone's 20 to the
-//!   Beacon's 120, damage staying taken (design change 0110), and it completes one way (`> Completion`). Its only
-//!   command is Cancel Deployment, `ConstructionCommand::CancelTransform` (design change 0116), which turns it back
-//!   into the Drone at the footprint's centre (0109), idle, with the fraction of its HP it had, at least 1 (0111).
+//!   Beacon's 120, damage staying taken (design change 0110), and it completes one way
+//!   (`factions/colonists/economy.md > Completion`). Its only command is Cancel Deployment,
+//!   `ConstructionCommand::CancelTransform` (design change 0116), which turns it back into the Drone at the footprint's
+//!   centre (0109), idle, with the fraction of its HP it had, at least 1 (0111).
 //! - **Beacon Capacity** (design change 0112): the Drone's 1 is freed as it starts, a Beacon costing none, and the
 //!   Beacon's 5 comes only with completion: a Beacon under deployment provides none ([`Object::is_deploying`],
 //!   `economy::army`). A cancel takes the 1 back, even over capacity, and is never refused.
 //! - **Defeat** (design change 0113): a Beacon under deployment is a structure, so it keeps its owner in the game; a
 //!   cancel that leaves the player no structure defeats them in that tick (`economy::defeat`).
-//! - **The load** (design change 0114, `> Deploying with a load`): kept by the transformation (`Transform::load`), lost
-//!   at completion, carried again by the Drone after a cancel.
+//! - **The load** (design change 0114, `factions/colonists/economy.md > Deploying with a load`): kept by the
+//!   transformation (`Transform::load`), lost at completion, carried again by the Drone after a cancel.
 
 use glam::Vec2;
 
@@ -68,8 +69,9 @@ pub fn deploys(kind: ObjectKind) -> bool {
     deployment(kind).is_some()
 }
 
-/// The footprint of the Beacon that a Deploy with the top-left tile `origin` puts down (`> Placement`: "the Beacon's
-/// 2x2 footprint"), unturned. The ghost, the gate, the walk and the arrival all take it from here.
+/// The footprint of the Beacon that a Deploy with the top-left tile `origin` puts down
+/// (`factions/colonists/economy.md > Placement`: "the Beacon's 2x2 footprint"), unturned. The ghost, the gate, the walk
+/// and the arrival all take it from here.
 pub fn site(origin: TilePos) -> Placement {
     Placement::new(origin, BEACON_DEPLOYMENT.kind.def().footprint)
 }
@@ -84,8 +86,8 @@ pub fn on_site(kind: ObjectKind, pos: Vec2, site: &Placement) -> bool {
 }
 
 impl Object {
-    /// Whether it is a Beacon under deployment (`> A Beacon from the first frame`): a structure transforming from a
-    /// unit, the Drone it was. A building being warped in transforms from a Beacon.
+    /// Whether it is a Beacon under deployment (`factions/colonists/economy.md > A Beacon from the first frame`): a
+    /// structure transforming from a unit, the Drone it was. A building being warped in transforms from a Beacon.
     pub fn is_deploying(&self) -> bool {
         self.transform
             .as_ref()
@@ -98,8 +100,8 @@ mod tests {
     use super::*;
     use crate::units::SU_PER_GU;
 
-    /// `> Deployment Duration` and `factions/colonists/economy.md > Beacon > Size - 2x2 grid units`: the recipe and
-    /// the site; only the Drone deploys.
+    /// `factions/colonists/economy.md > Deployment Duration` and `factions/colonists/economy.md > Beacon > Size - 2x2
+    /// grid units`: the recipe and the site; only the Drone deploys.
     #[test]
     fn a_drone_deploys_into_a_two_by_two_beacon_in_48_frames() {
         assert_eq!(

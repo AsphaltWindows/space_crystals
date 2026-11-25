@@ -74,10 +74,10 @@ impl Sim {
     }
 
     /// The gate for `OrderKind::DropOff(node)` and `Ability::SetDropOff(node)` (`factions/colonists/units/drone.md >
-    /// Unit Commands`: "own Egress Node"; `> Drone ObjectInterfaceState`: "an Egress Node or own refinery"): the target
-    /// exists and is a drop-off of `player`'s, complete: an Egress Node being warped in takes nothing yet (design
-    /// change 0116: "A Drone can't deliver to an Egress Node under Warp In", `crate::transform`)
-    /// ([`Reject::NotDropOff`]). A player always sees its own structures.
+    /// Unit Commands`: "own Egress Node"; `factions/colonists/units/drone.md > Drone ObjectInterfaceState`: "an Egress
+    /// Node or own refinery"): the target exists and is a drop-off of `player`'s, complete: an Egress Node being warped
+    /// in takes nothing yet (design change 0116: "A Drone can't deliver to an Egress Node under Warp In",
+    /// `crate::transform`) ([`Reject::NotDropOff`]). A player always sees its own structures.
     pub(super) fn check_drop_off(&self, player: PlayerId, node: ObjectId) -> Result<(), Reject> {
         let target = self.referenced(node, None)?;
         if target.owner != Some(player) || !is_drop_off(target.kind) || target.is_transforming() {
@@ -103,11 +103,11 @@ impl Sim {
         Ok(units)
     }
 
-    /// The workers among `workers` that carry something, which take a Drop Off order (design change 0140, `>
-    /// Drop Off order > Empty Drones`: "Drop Off is only resolved for a Drone that is carrying something"; there is
-    /// no empty Drop Off order). The Director's choice for the gate: the empty ones are left out, and the command
-    /// is rejected if none is left ([`Reject::NothingToDeliver`]). The client gives an empty Drone a Move to the
-    /// node instead (slice M3-J2).
+    /// The workers among `workers` that carry something, which take a Drop Off order (design change 0140,
+    /// `factions/colonists/units/drone.md > Drop Off order > Empty Drones`: "Drop Off is only resolved for a Drone that
+    /// is carrying something"; there is no empty Drop Off order). The Director's choice for the gate: the empty ones
+    /// are left out, and the command is rejected if none is left ([`Reject::NothingToDeliver`]). The client gives an
+    /// empty Drone a Move to the node instead (slice M3-J2).
     pub(super) fn carrying_among(&self, mut workers: Vec<ObjectId>) -> Result<Vec<ObjectId>, Reject> {
         workers.retain(|id| {
             let worker = self.objects.get(id).and_then(|o| o.worker);
@@ -170,9 +170,10 @@ impl Sim {
     /// holding its load if there is none)". "How the loss is detected ... is the Director's choice; the user's goal is
     /// to avoid performance cost": the destruction reassigns, once, and the return leg never checks that its drop-off
     /// still stands. Each worker on its way back to a drop-off among `gone` ([`returning_to`]) takes its owner's
-    /// nearest to where it is, by the rule of a return trip that starts without one (design change 0135, `> Drop-off
-    /// gone`; [`Sim::nearest_drop_off`]), or none if none is left: its return leg then goes on as one that starts
-    /// without one, and with none to take the worker idles holding its load (`orders::gather`).
+    /// nearest to where it is, by the rule of a return trip that starts without one (design change 0135,
+    /// `factions/colonists/units/drone.md > Drop-off gone`; [`Sim::nearest_drop_off`]), or none if none is left: its
+    /// return leg then goes on as one that starts without one, and with none to take the worker idles holding its load
+    /// (`orders::gather`).
     ///
     /// The worker turns when it did while the leg checked every tick: in the first phase 5a after the loss, in the
     /// tick of a removal by a command and in the next one for a death in phase 5e. Only the assignment shows sooner

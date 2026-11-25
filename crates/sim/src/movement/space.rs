@@ -58,8 +58,8 @@ pub(crate) struct Body {
 ///
 /// 1. **Gathering Drones** (`systems/units.md > UnitCollision > Ground Collision > Exception, gathering Drones`,
 ///    design change 0106): two Drones on a Gather job ([`Body::gathers`]) pass through each other, of any player.
-/// 2. **Units that already overlap** (`> Units that already overlap`, design change 0106): two units whose boxes
-///    overlap as the mover's turn begins "ignore each other until they have separated; from then on, normal
+/// 2. **Units that already overlap** (`systems/units.md > Units that already overlap`, design change 0106): two units
+///    whose boxes overlap as the mover's turn begins "ignore each other until they have separated; from then on, normal
 ///    collision applies between them. Nothing is pushed apart." It is read off the two boxes each tick and no pair
 ///    is remembered: [`overlaps`] is the predicate of invariant I1, so a pair is ignored exactly while I1 would
 ///    name it. Only rule 1 ever lets two boxes come to overlap, so the pairs this rule covers are those rule 1 left

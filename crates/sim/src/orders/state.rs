@@ -175,9 +175,10 @@ pub enum GatherPhase {
     /// On its way to the order's patch, or to its spot ([`Gather::spot`]).
     ToPatch,
     /// At an occupied patch with no other patch free, or as close as it got to a patch it can't reach, since tick
-    /// `since` (`> Patch Occupancy (one Drone per patch)`: it "waits right at the patch it tried to mine, within
-    /// MiningReach, and mines it as soon as it frees up", design change 0132; "it waits as close as it can get",
-    /// 0141). It looks again every `tuning::gathering::RECHECK_TICKS`, in the ticks that are multiples of it.
+    /// `since` (`factions/colonists/units/drone.md > Patch Occupancy (one Drone per patch)`: it "waits right at the
+    /// patch it tried to mine, within MiningReach, and mines it as soon as it frees up", design change 0132; "it waits
+    /// as close as it can get", 0141). It looks again every `tuning::gathering::RECHECK_TICKS`, in the ticks that are
+    /// multiples of it.
     Waiting { since: Tick },
     /// Mining the order's patch, which it occupies: `done` of MiningDuration frames
     /// (`economy::gathering::step` counts them and takes the load).
@@ -201,7 +202,7 @@ pub enum GatherPhase {
 pub struct Gather {
     pub phase: GatherPhase,
     /// The drop-off the worker is returning to, or unloading at: its AssignedDropOff as the return leg read it
-    /// (`> Assigned Drop-off`), or a Drop Off order's own.
+    /// (`factions/colonists/units/drone.md > Assigned Drop-off`), or a Drop Off order's own.
     pub node: Option<ObjectId>,
     /// The unit's current move is this phase's leg, so the mover's status is the leg's outcome.
     pub moving: bool,
@@ -216,8 +217,8 @@ pub struct Gather {
     /// sees the patch. Optional in files.
     #[serde(default)]
     pub spot: Option<Vec2>,
-    /// Design change 0123 (`> When a Gather ends`): the worker found no patch left within its search radius. It
-    /// delivers the load it carries, and then the order is complete. Optional in files.
+    /// Design change 0123 (`factions/colonists/units/drone.md > When a Gather ends`): the worker found no patch left
+    /// within its search radius. It delivers the load it carries, and then the order is complete. Optional in files.
     #[serde(default)]
     pub ending: bool,
 }

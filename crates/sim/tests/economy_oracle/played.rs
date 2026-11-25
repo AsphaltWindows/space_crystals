@@ -18,12 +18,12 @@ use ObjectKind::{
 pub(crate) const CYCLE: Tick = 48;
 /// The income window: three cycles, 9 seconds.
 pub(crate) const WINDOW: Tick = 3 * CYCLE;
-/// What a plate pays per cycle (`> MiningRate`).
+/// What a plate pays per cycle (`factions/gdo/economy.md > MiningRate`).
 pub(crate) const LUMP: u32 = 10;
 /// A plate's income at full power, Space Crystals per second.
 pub(crate) const PLATE_RATE: f64 = LUMP as f64 * TICKS_PER_SECOND as f64 / CYCLE as f64;
-/// The design's costs: `> ExtractionFacility > Constructs`, `factions/gdo/structures/deployment_center.md >
-/// Constructs` and `factions/gdo/structures/barracks.md > Produces`.
+/// The design's costs: `factions/gdo/economy.md > ExtractionFacility > Constructs`,
+/// `factions/gdo/structures/deployment_center.md > Constructs` and `factions/gdo/structures/barracks.md > Produces`.
 pub(crate) const COSTS: [(ObjectKind, u32); 4] = [(Plate, 75), (Generator, 100), (Barracks, 200), (PK, 50)];
 /// The design's build times, frames: the same sections.
 pub(crate) const FRAMES: [(ObjectKind, u32); 4] = [(Plate, 400), (Generator, 240), (Barracks, 160), (PK, 80)];
@@ -32,8 +32,8 @@ pub(crate) fn design(table: &[(ObjectKind, u32)], kind: ObjectKind) -> u32 {
     table.iter().find(|(k, _)| *k == kind).unwrap().1
 }
 
-/// The power ratio by the design's formula, available / used, at most 1 (`> ExtractionPlate > PowerPenalty`, design
-/// change 0089): independent of the sim's fixed point.
+/// The power ratio by the design's formula, available / used, at most 1 (`factions/gdo/economy.md > ExtractionPlate >
+/// PowerPenalty`, design change 0089): independent of the sim's fixed point.
 pub(crate) fn ratio(power: PowerSummary) -> f64 {
     if power.consumed == 0 {
         return 1.0;
@@ -215,7 +215,8 @@ impl Played {
     /// saw the bank pay it), and, where the power ratio stayed the same throughout, each recipe and each plate's
     /// cycle took its frames at that ratio, to the whole frame: `frames / ratio` ticks, the last frame's tick
     /// counting whole. The Deployment Center is never slowed (0089); the Extraction Facility's plates, the Barracks'
-    /// units and the plates' cycles are (`> ExtractionPlate > PowerPenalty`, 0098). Every lump is 10.
+    /// units and the plates' cycles are (`factions/gdo/economy.md > ExtractionPlate > PowerPenalty`, 0098). Every lump
+    /// is 10.
     pub(crate) fn check_design_numbers(&self) {
         for r in self.runs() {
             assert_eq!(
@@ -291,9 +292,10 @@ impl Played {
     }
 }
 
-/// `> How the opening plays out`: "Plates first is best: a plate at frame 0, the first Generator once 100 Space
-/// Crystals are banked", the Extraction Facility plating the field and the Deployment Center building Generators
-/// (the "Generators-only Deployment Center"). The plates get the money first when both builders are free.
+/// `factions/gdo/economy.md > How the opening plays out`: "Plates first is best: a plate at frame 0, the first
+/// Generator once 100 Space Crystals are banked", the Extraction Facility plating the field and the Deployment Center
+/// building Generators (the "Generators-only Deployment Center"). The plates get the money first when both builders are
+/// free.
 pub(crate) fn plates_first(until: Tick) -> Played {
     let line = BuildOrder::new(P1)
         .track(vec![Order::new(EF, Plate); 6])

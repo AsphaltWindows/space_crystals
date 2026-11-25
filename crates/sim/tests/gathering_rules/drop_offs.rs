@@ -1,5 +1,6 @@
-//! A lost drop-off (design change 0135, `> Assigned Drop-off > Drop-off gone`), and one lost while the Drones are on
-//! their way back to it (design change 0170, `> Destroyed mid-trip`).
+//! A lost drop-off (design change 0135, `factions/colonists/units/drone.md > Assigned Drop-off > Drop-off gone`), and
+//! one lost while the Drones are on their way back to it (design change 0170, `factions/colonists/units/drone.md >
+//! Destroyed mid-trip`).
 
 use sc_sim::{Ability, BuildingOrientation, ConstructionCommand, DebugCommand, Faction, MoveGoal};
 
@@ -13,10 +14,10 @@ fn goal(t: &TestSim, n: u32) -> Vec2 {
     }
 }
 
-/// Design change 0170 (`> Assigned Drop-off > Destroyed mid-trip`; its Verification: "Destroy the node while Drones
-/// are returning: they turn toward the nearest other node immediately"): in the tick their node goes, the Drones on
-/// their way back to it take the nearest of the nodes left, from where each is, and head there. A Drone mining
-/// meanwhile has none until its trip back starts, and then takes the nearest from there (0135).
+/// Design change 0170 (`factions/colonists/units/drone.md > Assigned Drop-off > Destroyed mid-trip`; its Verification:
+/// "Destroy the node while Drones are returning: they turn toward the nearest other node immediately"): in the tick
+/// their node goes, the Drones on their way back to it take the nearest of the nodes left, from where each is, and head
+/// there. A Drone mining meanwhile has none until its trip back starts, and then takes the nearest from there (0135).
 #[test]
 fn drones_on_their_way_back_to_a_node_that_goes_turn_to_the_nearest_other_at_once() {
     // Patches 1 (west) and 2 (east), node 3 south of them, nodes 4 (far west) and 5 (far east); Drones 6 and 7

@@ -313,7 +313,7 @@ fn random_order(t: &TestSim, rng: &mut Rng) -> Option<(PlayerId, Command)> {
 /// An idle unit scans its SightRange, which takes in its Range, so in the next tick each of them engages an enemy,
 /// unless an order comes first. Not yet in this one: phase 5a decides from where the units stood when the tick
 /// began, so an enemy that walked into range in 5d, or a unit whose order ended in this tick, waits for the next.
-/// Returning units don't scan (`> Not active during: Move`), and engaging ones are busy.
+/// Returning units don't scan (`systems/controls/behaviors.md > Not active during`: Move), and engaging ones are busy.
 fn idle_in_reach(sim: &Sim) -> Vec<(ObjectId, Vec<ObjectId>)> {
     let next = sim.tick() + 1;
     sim.objects()

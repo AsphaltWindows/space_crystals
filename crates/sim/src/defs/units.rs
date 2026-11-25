@@ -111,22 +111,22 @@ impl MovementAttrs {
 /// and a unit of such a base may still have none (design change 0154).
 #[derive(Copy, Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct TurretAttrs {
-    /// `> TurnAngle`: the full arc, radians, at most a full turn.
+    /// `systems/units.md > TurnAngle`: the full arc, radians, at most a full turn.
     pub turn_angle: f32,
-    /// `> TurnRate`, radians per tick.
+    /// `systems/units.md > TurnRate`, radians per tick.
     pub turn_rate: f32,
 }
 
 /// `systems/combat.md > AttackType`.
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum AttackType {
-    /// `> FullyConnected`, with its subtype.
+    /// `systems/combat.md > FullyConnected`, with its subtype.
     FullyConnected(FullyConnectedSubtype),
-    /// `> HeadDisjointed`.
+    /// `systems/combat.md > HeadDisjointed`.
     HeadDisjointed,
-    /// `> TailDisjointed`.
+    /// `systems/combat.md > TailDisjointed`.
     TailDisjointed,
-    /// `> DoublyDisjointed`.
+    /// `systems/combat.md > DoublyDisjointed`.
     DoublyDisjointed,
 }
 
@@ -134,17 +134,17 @@ pub enum AttackType {
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum FullyConnectedSubtype {
     Ranged,
-    /// `> Melee`: "Fixed short range (adjacent contact)": its Range is always [`MELEE_CONTACT_GU`], and the
-    /// ElevationModifier never adds to it (`combat::max_range`).
+    /// `systems/combat.md > Melee`: "Fixed short range (adjacent contact)": its Range is always [`MELEE_CONTACT_GU`],
+    /// and the ElevationModifier never adds to it (`combat::max_range`).
     Melee,
 }
 
 /// The Range of every melee attack, grid units: `systems/combat.md > FullyConnected > Melee` ("Short reach: 8 space
-/// units for all melee attacks for now") and `> Range Measurement`, as the Sabre Legionnaire's "Range: melee
-/// (adjacent contact)". **Placeholder** (design change 0149: "may become a per-attack value later"): a gap of 8 space
-/// units, the one that counts as Proximity (`tuning::orders::PROXIMITY_SU`, design change 0032). Exactly 0 would be
-/// fragile ("an exact 0 would fail on tiny collision gaps"): two boxes the movement step brings together may end a
-/// rounding error apart. A test keeps every melee attack at this Range, with no MinRange (`defs_are_consistent`).
+/// units for all melee attacks for now") and `systems/combat.md > Range Measurement`, as the Sabre Legionnaire's
+/// "Range: melee (adjacent contact)". **Placeholder** (design change 0149: "may become a per-attack value later"): a
+/// gap of 8 space units, the one that counts as Proximity (`tuning::orders::PROXIMITY_SU`, design change 0032). Exactly
+/// 0 would be fragile ("an exact 0 would fail on tiny collision gaps"): two boxes the movement step brings together may
+/// end a rounding error apart. A test keeps every melee attack at this Range, with no MinRange (`defs_are_consistent`).
 pub const MELEE_CONTACT_GU: f32 = 8.0 / SU_PER_GU;
 
 /// `systems/combat.md > AttackAttributes > TargetDomain`.
@@ -200,7 +200,7 @@ pub struct RiotShieldDef {
     /// Incoming damage is multiplied by this once the shield is all the way up, before armour
     /// (`systems/combat.md > DamageModifierOrder`, step 1; design change 0171: "only once the shield is fully up").
     pub damage_factor: f32,
-    /// How long raising or lowering the shield takes, ticks (`> Toggle time`).
+    /// How long raising or lowering the shield takes, ticks (`factions/gdo/units/peacekeeper.md > Toggle time`).
     pub toggle_ticks: u32,
 }
 
@@ -210,8 +210,8 @@ pub struct RiotShieldDef {
 pub struct ConversionDef {
     /// The unit's two forms, a type each: the Sabre and the Rifle Legionnaire.
     pub forms: [ObjectKind; 2],
-    /// How long a conversion takes, either way, ticks (`> Convert Command`: "The unit converts in place over 4
-    /// frames").
+    /// How long a conversion takes, either way, ticks (`factions/colonists/units/weapon_conversion.md > Convert
+    /// Command`: "The unit converts in place over 4 frames").
     pub ticks: u32,
 }
 
@@ -228,8 +228,8 @@ pub enum Resource {
 }
 
 /// What a worker does with one resource (`factions/colonists/units/drone.md > Gathering`,
-/// `factions/syndicate/units/agent.md > Gathering > Space Crystals` and `> Supplies`): one load of it, from picking
-/// it up to unloading it.
+/// `factions/syndicate/units/agent.md > Gathering > Space Crystals` and `factions/syndicate/units/agent.md >
+/// Supplies`): one load of it, from picking it up to unloading it.
 #[derive(Copy, Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct LoadDef {
     /// CarryCapacity: the most it carries of the resource in one load.
@@ -256,9 +256,9 @@ pub struct WorkerDef {
     /// them: the Agent (slice M4-I). Such a worker takes a Gather on a Supply Delivery Station (`orders::gather`).
     pub supplies: Option<LoadDef>,
     /// `factions/syndicate/units/agent.md > Gathering > Space Crystals > Patch sharing`: "any number of Agents may
-    /// mine the same Space Crystals patch at the same time (unlike Drones)"; `> Gathering rules`: "Agents share
-    /// patches (no occupancy rule)". Workers of such a type neither occupy a patch nor take one for occupied
-    /// (`orders::gather`).
+    /// mine the same Space Crystals patch at the same time (unlike Drones)"; `factions/syndicate/units/agent.md >
+    /// Gathering rules`: "Agents share patches (no occupancy rule)". Workers of such a type neither occupy a patch nor
+    /// take one for occupied (`orders::gather`).
     pub shares_patches: bool,
     /// `factions/colonists/units/drone.md > Assigned Drop-off`: the type has an AssignedDropOff that lasts from
     /// Gather to Gather, and a Set Drop-off Location command. Without it (`factions/syndicate/units/agent.md >
@@ -266,9 +266,9 @@ pub struct WorkerDef {
     /// for that Gather (a new Gather picks again)") each Gather takes the nearest drop-off as its first return
     /// starts.
     pub keeps_drop_off: bool,
-    /// `> Patch Occupancy (one Drone per patch) > Search radius` (design change 0123; the design hasn't named the
-    /// stat yet), grid units: a worker looks for another patch only within this distance of itself, centre to
-    /// centre (`orders::gather`).
+    /// `factions/colonists/units/drone.md > Patch Occupancy (one Drone per patch) > Search radius` (design change 0123;
+    /// the design hasn't named the stat yet), grid units: a worker looks for another patch only within this distance of
+    /// itself, centre to centre (`orders::gather`).
     pub search_radius: f32,
     /// `factions/colonists/units/drone.md > Gathering Drones pass through each other` (design change 0106):
     /// workers of this type that are on a Gather job don't collide with each other, whoever owns them
@@ -291,16 +291,16 @@ impl WorkerDef {
 /// `ObjectDef`.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct UnitDef {
-    /// `> UnitBase`.
+    /// `systems/units.md > UnitBase`.
     pub base: UnitBase,
-    /// `> UnitBaseAttributes[UnitBase]`: the attributes of the base's movement model.
+    /// `systems/units.md > UnitBaseAttributes[UnitBase]`: the attributes of the base's movement model.
     pub movement: MovementAttrs,
     /// `systems/units.md > LightInfantry > RuggedTerrainDefenseBonus`: the fraction of damage taken off on Rugged
     /// tiles. Light infantry only.
     pub rugged_terrain_defense_bonus: Option<f32>,
-    /// `> TurretAttributes[UnitBase]`: `None` without a turret.
+    /// `systems/units.md > TurretAttributes[UnitBase]`: `None` without a turret.
     pub turret: Option<TurretAttrs>,
-    /// `> AttackAttributes`: `None` for units that can't attack.
+    /// `systems/units.md > AttackAttributes`: `None` for units that can't attack.
     pub attack: Option<AttackAttrs>,
     /// `factions/gdo/overview.md > Unit Control`, a unit's `UnitControlCost`: GDO units only.
     pub unit_control_cost: Option<u32>,

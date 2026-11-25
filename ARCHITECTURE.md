@@ -9,13 +9,14 @@ the code or the design, stop and tell the Director. Don't pick one of them on yo
 - Never edit anything under `artifacts/`, because the Designer and the Director own it.
 - **Cite a design section with its full path**, `path/file.md > Section`, relative to `artifacts/designer/design/`,
   in doc comments, in this file and in `docs/`. A relative `` `> Section` `` is allowed only inside a module whose doc
-  names its design file, and is a section of that file. Older code still has relative citations of other files'
-  sections, and bare file names: write them out in full where you edit.
-- `crates/sim/tests/design_citations.rs` checks the citations: every backticked design path in `crates/**/*.rs`,
-  `docs/**/*.md` and this file must exist under `artifacts/designer/design/` (a `docs/` path under the repository's
-  `docs/`), or the test fails, naming file and line. Its ignored test reports the cited sections that aren't headings
-  of their file (a report, not a gate: the design names many sections by bold paragraphs):
-  `cargo test -p sc_sim --test design_citations -- --ignored --nocapture`.
+  names exactly one file (a design file, or a `docs/` one), and is a section of that file. A bare file name
+  (`` `economy.md > Section` ``) is never allowed.
+- `crates/sim/tests/design_citations/` checks the citations in `crates/**/*.rs`, `docs/**/*.md` and this file, and
+  fails naming file and line: every backticked design path must exist under `artifacts/designer/design/` (a `docs/`
+  path under the repository's `docs/`); a relative `` `> Section` `` may stand only in a module whose doc (its leading
+  `//!` lines) cites exactly one `.md` file; no code span may begin with a design file's bare name. Its ignored test
+  reports the cited sections that aren't headings of their file (a report, not a gate: the design names many sections
+  by bold paragraphs): `cargo test -p sc_sim --test design_citations -- --ignored --nocapture`.
 - A number the design doesn't give becomes a **named const**. Its comment names the open Director question
   (`artifacts/director/questions/QNNNN-*.md`), so that the answer later changes one line. A tunable goes in a tuning
   module (see *Tunables*).

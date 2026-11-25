@@ -68,8 +68,9 @@ fn tiles_under_ground_units() {
     );
 }
 
-/// Design change 0125 (`> Lingering build ghosts`): the tiles of the sites the placing player has reserved are
-/// `Reserved`, in their place among the other problems; a site only touching the footprint reserves none of it.
+/// Design change 0125 (`core/entities.md > Lingering build ghosts`): the tiles of the sites the placing player has
+/// reserved are `Reserved`, in their place among the other problems; a site only touching the footprint reserves none
+/// of it.
 #[test]
 fn tiles_under_reserved_sites() {
     let (map, area) = open(16, 16);

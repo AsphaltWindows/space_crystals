@@ -83,8 +83,8 @@ use ObjectKind::{Beacon, Drone, RoboPortal};
 const EARLY: Tick = at(1, 40);
 /// The table's row "2 Drones per patch".
 const TWO_PER_PATCH: Tick = at(2, 20);
-/// The table's last row, 24 working Drones (`> Reference check`: "Colonists fully saturated = 32 per second (24
-/// working Drones)").
+/// The table's last row, 24 working Drones (`factions/gdo/economy.md > Reference check`: "Colonists fully saturated =
+/// 32 per second (24 working Drones)").
 const LAST: Tick = at(4, 0);
 /// The line's working Drones and Beacons at the table's times: the design's counts where it gives them, 16 and 2 at
 /// 2 Drones per patch and 24 working at 4:00.
@@ -287,8 +287,8 @@ fn delta(measured: f64, design: f64) -> f64 {
     measured / design - 1.0
 }
 
-/// The reference line and the GDO's against `> Economy Targets (GDO vs Colonists)`, with targets 1 to 4 (module
-/// docs):
+/// The reference line and the GDO's against `factions/gdo/economy.md > Economy Targets (GDO vs Colonists)`, with
+/// targets 1 to 4 (module docs):
 /// - **the line as the design has it**: a Drone every 10 seconds, the portal never waiting for money or Beacon
 ///   Capacity; the 5th, 11th, 17th and 23rd Drones made deploy, and every deployment completes; the working Drones
 ///   and Beacons at the table's times are the design's where it gives them;

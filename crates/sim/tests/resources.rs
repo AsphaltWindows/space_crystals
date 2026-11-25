@@ -1,5 +1,5 @@
-//! Map resources: `core/map.md > SpaceCrystalsPatch` and `> SupplyDeliveryStation`, with the per-object values a
-//! map sets on them (`core/map_editor.md > Per-object Resource Values`).
+//! Map resources: `core/map.md > SpaceCrystalsPatch` and `core/map.md > SupplyDeliveryStation`, with the per-object
+//! values a map sets on them (`core/map_editor.md > Per-object Resource Values`).
 
 use sc_sim::scenario::{DEFAULT_DELIVERY_INTERVAL, DEFAULT_DELIVERY_SIZE, DEFAULT_STARTING_AMOUNT};
 use sc_sim::testing::{ScenarioBuilder, TestSim};

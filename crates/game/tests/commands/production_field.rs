@@ -68,7 +68,8 @@ pub(crate) fn bank(app: &App) -> u32 {
 }
 
 /// Selects player 1's Barracks `ids`: a click on the first, and a Shift + box around each of the others, which adds
-/// it (`> BoxSelection > Shift + box (add)`; a box selects one structure at a time).
+/// it (`systems/controls/selection_and_hud.md > BoxSelection > Shift + box (add)`; a box selects one structure at a
+/// time).
 pub(crate) fn select_barracks(app: &mut App, ids: &[u32]) {
     click(app, barracks_at(ids[0]), &[]);
     for &id in &ids[1..] {

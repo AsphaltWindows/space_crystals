@@ -20,8 +20,9 @@ fn two_tunnels(first: u32) -> TestSim {
 }
 
 /// Slice D's acceptance: "Each Agent keeps its Tunnel for the whole Gather, even when it ends up nearer the other
-/// one". The Agent's first load empties patch 2, by Tunnel 1; the Gather goes on at patch 3 (the Drone's rule, `>
-/// A patch that runs out`), by Tunnel 4, and still delivers to Tunnel 1. A new Gather picks again: Tunnel 4.
+/// one". The Agent's first load empties patch 2, by Tunnel 1; the Gather goes on at patch 3 (the Drone's rule,
+/// `factions/colonists/units/drone.md > A patch that runs out`), by Tunnel 4, and still delivers to Tunnel 1. A new
+/// Gather picks again: Tunnel 4.
 #[test]
 fn an_agent_keeps_its_tunnel_for_the_gather_and_a_new_gather_picks_again() {
     let mut t = two_tunnels(LOAD);

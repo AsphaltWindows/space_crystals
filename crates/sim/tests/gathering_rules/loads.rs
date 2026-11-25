@@ -5,10 +5,10 @@ use sc_sim::Reject;
 
 use super::*;
 
-/// Design change 0128 (`> Gather while carrying a load`; its Verification: "Right-click a far patch with a loaded
-/// Drone: it drives to the patch, turns around without mining, delivers, then mines that patch on the next trip. A
-/// Drone mining that patch is not displaced"): the loaded Drone takes no occupancy, and its Gather is the new patch
-/// from then on.
+/// Design change 0128 (`factions/colonists/units/drone.md > Gather while carrying a load`; its Verification:
+/// "Right-click a far patch with a loaded Drone: it drives to the patch, turns around without mining, delivers, then
+/// mines that patch on the next trip. A Drone mining that patch is not displaced"): the loaded Drone takes no
+/// occupancy, and its Gather is the new patch from then on.
 #[test]
 fn a_loaded_drone_sent_to_a_far_patch_turns_round_there_without_mining() {
     // Patch 1, node 2, Drone 3; patch 4, five tiles east of patch 1, and Drone 5 north of it.
@@ -63,9 +63,9 @@ fn a_loaded_drone_sent_to_a_far_patch_turns_round_there_without_mining() {
     assert_eq!(remaining(&t, 4), before - LOAD, "Drone 5 mined its whole load");
 }
 
-/// Design change 0129 (`> Other orders keep the load`; its Verification: "Move a loaded Drone away, then right-click
-/// a patch: it skips mining there and delivers the old load (0128)"): an order clears no load; only a delivery
-/// does.
+/// Design change 0129 (`factions/colonists/units/drone.md > Other orders keep the load`; its Verification: "Move a
+/// loaded Drone away, then right-click a patch: it skips mining there and delivers the old load (0128)"): an order
+/// clears no load; only a delivery does.
 #[test]
 fn a_load_survives_stop_hold_and_move_and_the_next_gather_delivers_it() {
     // Patch 1, node 2, Drone 3.
@@ -100,10 +100,11 @@ fn a_load_survives_stop_hold_and_move_and_the_next_gather_delivers_it() {
     run_to(&mut t, 100, "then it mines", |t| mines(t, 3, 1));
 }
 
-/// Design change 0140 (`> Drop Off order > Empty Drones`; its Verification: "Mixed group (some loaded, some empty)
-/// right-clicks the node: loaded ones deliver and idle; empty ones walk to the node and stop"): the gate gives a
-/// Drop Off to the loaded Drones only, and rejects it for empty ones alone (`Reject::NothingToDeliver`). The client's
-/// right-click gives the empty ones a Move to the node instead (slice M3-J2), as here.
+/// Design change 0140 (`factions/colonists/units/drone.md > Drop Off order > Empty Drones`; its Verification: "Mixed
+/// group (some loaded, some empty) right-clicks the node: loaded ones deliver and idle; empty ones walk to the node and
+/// stop"): the gate gives a Drop Off to the loaded Drones only, and rejects it for empty ones alone
+/// (`Reject::NothingToDeliver`). The client's right-click gives the empty ones a Move to the node instead (slice
+/// M3-J2), as here.
 #[test]
 fn a_mixed_group_s_drop_off_goes_to_its_loaded_drones_only() {
     // Patch 1, node 2, Drone 3 gathers; Drone 4 stands idle and empty, west of the node.
@@ -153,9 +154,9 @@ fn a_mixed_group_s_drop_off_goes_to_its_loaded_drones_only() {
     }
 }
 
-/// Design change 0138 (`> Last load of a patch`; its Verification: "A patch with 3 left: the Drone mines 2 s,
-/// carries 3, the patch disappears"), and `> When a Gather ends` (0123): with no patch left the Gather ends once
-/// the 3 are delivered.
+/// Design change 0138 (`factions/colonists/units/drone.md > Last load of a patch`; its Verification: "A patch with 3
+/// left: the Drone mines 2 s, carries 3, the patch disappears"), and `factions/colonists/units/drone.md > When a Gather
+/// ends` (0123): with no patch left the Gather ends once the 3 are delivered.
 #[test]
 fn a_patch_with_3_left_gives_a_load_of_3_after_the_full_mining() {
     // Patch 1 holds 3, node 2, Drone 3.

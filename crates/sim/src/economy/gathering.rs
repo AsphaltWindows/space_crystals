@@ -1,6 +1,6 @@
-//! Gathering — `factions/colonists/units/drone.md > Gathering`, `> Patch Occupancy (one Drone per patch)`, `>
-//! Assigned Drop-off`; `factions/colonists/economy.md > Egress Node > Drop Off` (slices M3-H and M3-H3, plan
-//! decision T17).
+//! Gathering — `factions/colonists/units/drone.md > Gathering`, `factions/colonists/units/drone.md > Patch Occupancy
+//! (one Drone per patch)`, `factions/colonists/units/drone.md > Assigned Drop-off`; `factions/colonists/economy.md >
+//! Egress Node > Drop Off` (slices M3-H and M3-H3, plan decision T17).
 //!
 //! "Every Drone job is pick up at X, deliver to Y": a worker walks to a Space Crystals patch, mines it for
 //! MiningDuration, carries up to CarryCapacity to its AssignedDropOff, unloads for DropOffDuration, and goes again.
@@ -12,15 +12,16 @@
 //!   (`orders::gather`, phase 5a) owns the legs, the claims and every decision; its state
 //!   (`orders::state::Gather`) holds the phase and the frames of timed work done. **Deviation from the plan's
 //!   sketch**, which put the timed work into the `Worker`: it is part of the order's state, so that an order that
-//!   ends for any reason takes its unfinished work with it (design change 0130, `> Interrupted mining`: "collects
-//!   nothing, and the patch is freed immediately") and occupancy can't outlive the order that holds it.
+//!   ends for any reason takes its unfinished work with it (design change 0130, `factions/colonists/units/drone.md >
+//!   Interrupted mining`: "collects nothing, and the patch is freed immediately") and occupancy can't outlive the order
+//!   that holds it.
 //! - **The load** leaves the worker only at a drop-off, here, or with the worker itself when it deploys (design
-//!   change 0129, `> Other orders keep the load`; 0114): no order clears it.
+//!   change 0129, `factions/colonists/units/drone.md > Other orders keep the load`; 0114): no order clears it.
 //! - **The timed work** runs here, in the economy phase ([`step`], after the plates' mining, plan decision T5): a
 //!   Mining phase counts its frames and, at MiningDuration, takes `min(CarryCapacity, remaining)` from the patch
-//!   (design change 0138, `> Last load of a patch`: the full 32 frames, and then "what is left"); a DroppingOff
-//!   phase counts its frames and, at DropOffDuration, credits the owner's bank (`SimEvent::ResourcesDelivered`).
-//!   All bank changes stay in the economy phase.
+//!   (design change 0138, `factions/colonists/units/drone.md > Last load of a patch`: the full 32 frames, and then
+//!   "what is left"); a DroppingOff phase counts its frames and, at DropOffDuration, credits the owner's bank
+//!   (`SimEvent::ResourcesDelivered`). All bank changes stay in the economy phase.
 //! - **Timing**, by the Director's convention for recipes (`ARCHITECTURE.md > Economy > Recipe timing`): the frame
 //!   in which the behaviour starts the work counts. A worker that reaches its patch in phase 5a of tick `t` holds
 //!   its load at the end of tick `t + 31` and sets off in `t + 32`, when the patch is free again; one that reaches
@@ -78,9 +79,10 @@ pub struct Worker {
     /// The Space Crystals it carries, at most its CarryCapacity. It keeps them through other orders and delivers
     /// them at its next drop-off (design change 0129).
     pub load: u32,
-    /// `> Assigned Drop-off`: "the Egress Node or refinery it delivers its current and future loads to". `None`
-    /// until its first Gather assigns one, and again when that one is gone, but for a worker on its way back to it,
-    /// which takes the nearest other at once (design change 0170, `Sim::reassign_drop_offs`).
+    /// `factions/colonists/units/drone.md > Assigned Drop-off`: "the Egress Node or refinery it delivers its current
+    /// and future loads to". `None` until its first Gather assigns one, and again when that one is gone, but for a
+    /// worker on its way back to it, which takes the nearest other at once (design change 0170,
+    /// `Sim::reassign_drop_offs`).
     pub drop_off: Option<ObjectId>,
     /// What its load is of (slice M4-I): Space Crystals, or Supplies for a worker of a type that gathers them
     /// (module docs). Space Crystals while it carries nothing. Optional in files and left out of them while Space
@@ -191,8 +193,8 @@ pub(super) fn step(
             continue;
         };
         match &mut gather.phase {
-            // `> Gathering`: MiningDuration; `factions/syndicate/units/agent.md > Gathering > Supplies`:
-            // PickUpDuration at a station.
+            // `factions/colonists/units/drone.md > Gathering`: MiningDuration; `factions/syndicate/units/agent.md >
+            // Gathering > Supplies`: PickUpDuration at a station.
             GatherPhase::Mining { done } => {
                 let source = match kind {
                     OrderKind::Gather(source) => Some(source),
@@ -210,8 +212,8 @@ pub(super) fn step(
                     gather.enter(GatherPhase::ToDropOff);
                 }
             }
-            // `> Gathering`: DropOffDuration, of the resource it carries. A drop-off that went away in the middle
-            // takes nothing: the worker looks for another (`orders::gather`).
+            // `factions/colonists/units/drone.md > Gathering`: DropOffDuration, of the resource it carries. A drop-off
+            // that went away in the middle takes nothing: the worker looks for another (`orders::gather`).
             GatherPhase::DroppingOff { done } => match gather.node {
                 None => gather.enter(GatherPhase::ToDropOff),
                 Some(node) => {
@@ -422,8 +424,9 @@ mod tests {
         );
         assert!(def.pass_through && def.keeps_drop_off && !def.shares_patches);
         // `factions/syndicate/units/agent.md > Gathering > Space Crystals`: 50 a load, 80 frames of mining, 64 of
-        // unloading, reaches of 8 su; `> Supplies`: 1 a trip, 48 frames each way, the same reaches (Placeholder: Q0082
-        // point 1); design change 0255: shared patches, no Set Drop-off; 0106: "Drones only" pass through each other.
+        // unloading, reaches of 8 su; `factions/syndicate/units/agent.md > Supplies`: 1 a trip, 48 frames each way, the
+        // same reaches (Placeholder: Q0082 point 1); design change 0255: shared patches, no Set Drop-off; 0106: "Drones
+        // only" pass through each other.
         let def = worker_def(ObjectKind::Agent).expect("a worker");
         let crystals = LoadDef {
             carry_capacity: 50,

@@ -1,5 +1,5 @@
-//! The sim's navigation state and path requests — `docs/movement.md > 4` (phases 5b and 5c), `> 5.5`, `> 5.7`, and
-//! `systems/controls/behaviors.md > PathKnowledge`.
+//! The sim's navigation state and path requests — `docs/movement.md > 4` (phases 5b and 5c), `docs/movement.md > 5.5`,
+//! `docs/movement.md > 5.7`, and `systems/controls/behaviors.md > PathKnowledge`.
 //!
 //! [`NavState`] holds two kinds of `nav` grids, both derived data: never hashed, serialized or compared, rebuilt
 //! when a `Sim` is created or loaded.
@@ -422,8 +422,8 @@ pub(crate) fn boxes_overlap(a: Vec2, a_half: Vec2, b: Vec2, b_half: Vec2) -> boo
     (a.x - b.x).abs() < a_half.x + b_half.x && (a.y - b.y).abs() < a_half.y + b_half.y
 }
 
-/// Phase 5b (`docs/movement.md > 4`, `> 5.7`): if a blocking footprint appeared, moved or went away, rebuild the
-/// true grids and bump `nav_version`. The players' grids follow at the end of the tick ([`sync_known`]).
+/// Phase 5b (`docs/movement.md > 4`, `docs/movement.md > 5.7`): if a blocking footprint appeared, moved or went away,
+/// rebuild the true grids and bump `nav_version`. The players' grids follow at the end of the tick ([`sync_known`]).
 pub(crate) fn sync(state: &mut NavState, objects: &BTreeMap<ObjectId, Object>, nav_version: &mut u32) {
     if state.matches(objects) {
         return;

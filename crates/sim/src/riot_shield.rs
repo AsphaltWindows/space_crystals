@@ -1,31 +1,32 @@
 //! The Peacekeeper's Riot Shield — `factions/gdo/units/peacekeeper.md > Riot Shield (toggled ability)`.
 //!
-//! **Two unit types** (design change 0173, `> Two unit types`): "shield down and shield up are **two unit types**,
-//! **Peacekeeper** and **Peacekeeper (Shielded)**, like the Sabre and Rifle Legionnaire [...]. They share everything
-//! except what the shield changes. Raising or lowering the shield switches the unit's type." Both carry the same
-//! [`RiotShieldDef`], which names them (`RiotShieldDef::lowered`, `::raised`). So the client groups the two apart (`>
-//! In a selection, the two types form separate SelectionGroups`) and gives each its own command: Raise Shield on the
-//! Peacekeeper, Lower Shield on the Peacekeeper (Shielded), whose panel has no Attack.
+//! **Two unit types** (design change 0173, `factions/gdo/units/peacekeeper.md > Two unit types`): "shield down and
+//! shield up are **two unit types**, **Peacekeeper** and **Peacekeeper (Shielded)**, like the Sabre and Rifle
+//! Legionnaire [...]. They share everything except what the shield changes. Raising or lowering the shield switches the
+//! unit's type." Both carry the same [`RiotShieldDef`], which names them (`RiotShieldDef::lowered`, `::raised`). So the
+//! client groups the two apart (`factions/gdo/units/peacekeeper.md > In a selection, the two types form separate
+//! SelectionGroups`) and gives each its own command: Raise Shield on the Peacekeeper, Lower Shield on the Peacekeeper
+//! (Shielded), whose panel has no Attack.
 //!
-//! **A toggle sets a target state** (design change 0198, `> Two unit types`: "pressing R flips the Peacekeeper's target
-//! (shield up or down), and the unit works to reach it. The type, and so the SelectionGroup, switches **at the press**,
-//! including when the raise is deferred behind a shot"), the rule of `crate::toggle`. As a Legionnaire's
-//! (`crate::conversion`), a Peacekeeper's type is the state it works toward, and its shield the state it is in
-//! (`ARCHITECTURE.md > Object model > Type and form`): its type is the way the shield goes, and what commands the unit
-//! reads; its shield is how far up it is ([`RiotShield`]), and what it does in the world, the speed, the attack and the
-//! damage taken, reads the two together ([`mode`]).
+//! **A toggle sets a target state** (design change 0198, `factions/gdo/units/peacekeeper.md > Two unit types`:
+//! "pressing R flips the Peacekeeper's target (shield up or down), and the unit works to reach it. The type, and so the
+//! SelectionGroup, switches **at the press**, including when the raise is deferred behind a shot"), the rule of
+//! `crate::toggle`. As a Legionnaire's (`crate::conversion`), a Peacekeeper's type is the state it works toward, and
+//! its shield the state it is in (`ARCHITECTURE.md > Object model > Type and form`): its type is the way the shield
+//! goes, and what commands the unit reads; its shield is how far up it is ([`RiotShield`]), and what it does in the
+//! world, the speed, the attack and the damage taken, reads the two together ([`mode`]).
 //!
 //! A **mode**, not an order. The player raises and lowers it with an ability command (`Command::Ability`), which
 //! applies at once and leaves the unit's orders alone (`Sim::use_ability`), so the shield goes up while the unit walks,
 //! holds or stands idle. A mode isn't a task (design change 0023, `systems/units.md > UnitCollision > Ground Collision
 //! > Friendly yielding`): an idle unit with its shield up still yields, at its shielded speed.
 //!
-//! **Orders are kept** (design change 0150, `> Riot Shield > Orders are kept`): toggling never clears the command
-//! queue, and an order the unit can't carry out while shielded is on hold, not dropped. An explicit Attack follows
-//! its target while the shield is up and attacks it again once it is down (`orders::engage::attack`); an AttackMove
-//! or a Patrol only moves meanwhile, and engages along the way again once it is down (`orders::travel::march`: the
-//! scans find nothing while the unit may not attack). **Not queueable** (design change 0151): the toggle always
-//! applies at once; the command has no queue flag.
+//! **Orders are kept** (design change 0150, `factions/gdo/units/peacekeeper.md > Riot Shield > Orders are kept`):
+//! toggling never clears the command queue, and an order the unit can't carry out while shielded is on hold, not
+//! dropped. An explicit Attack follows its target while the shield is up and attacks it again once it is down
+//! (`orders::engage::attack`); an AttackMove or a Patrol only moves meanwhile, and engages along the way again once it
+//! is down (`orders::travel::march`: the scans find nothing while the unit may not attack). **Not queueable** (design
+//! change 0151): the toggle always applies at once; the command has no queue flag.
 //!
 //! - **State**: a unit whose type has a [`RiotShieldDef`] has a [`RiotShield`] (`Object::riot_shield`): how far up
 //!   the shield is, in ticks of the toggle time (design change 0171: "Shield state = progress 0..1 with direction"),
@@ -40,16 +41,18 @@
 //!   does lowering one that is down or on its way down. The Modes step takes the shield one tick on ([`step`]), after
 //!   the commands and before phase 5a, so a toggle in tick `t` from all the way down (or up) has the shield all the
 //!   way up (or down) at the end of tick `t + toggle_ticks − 1`, and every phase of that tick already sees it so.
-//! - **Pressed mid-attack** (design change 0172, `> During the toggle`): "pressed during the Firing or Cooldown phase
-//!   (not interruptible), the raise is **deferred**: the shot finishes, then the shield starts rising immediately.
-//!   Same as the Legionnaires' Convert". The unit is a Peacekeeper (Shielded) from the press on (design change 0198),
-//!   its shield down ([`ShieldMode::Deferred`]) while it is Firing or in Cooldown (`combat::mid_attack`): its shot
-//!   lands, and the first Modes step after its Cooldown's last tick starts the shield up. The raise leaves the weapon
-//!   alone: the Reloading that the Cooldown's end began goes on behind the shield. "**Lower pressed while a raise is
-//!   still deferred**" (design change 0198, answering Q0053 point 2): "the target flips back to shield down, so the
-//!   waiting raise is dropped; the shield never starts rising": the unit is a Peacekeeper again, its shield down, its
-//!   shot going on. A lowering never waits: a shield off the ground has no shot to wait for (its unit doesn't attack).
-//! - **Effects** (`> Riot Shield`: "While the shield is up"; `> During the toggle`), from the shield's state:
+//! - **Pressed mid-attack** (design change 0172, `factions/gdo/units/peacekeeper.md > During the toggle`): "pressed
+//!   during the Firing or Cooldown phase (not interruptible), the raise is **deferred**: the shot finishes, then the
+//!   shield starts rising immediately. Same as the Legionnaires' Convert". The unit is a Peacekeeper (Shielded) from
+//!   the press on (design change 0198), its shield down ([`ShieldMode::Deferred`]) while it is Firing or in Cooldown
+//!   (`combat::mid_attack`): its shot lands, and the first Modes step after its Cooldown's last tick starts the shield
+//!   up. The raise leaves the weapon alone: the Reloading that the Cooldown's end began goes on behind the shield.
+//!   "**Lower pressed while a raise is still deferred**" (design change 0198, answering Q0053 point 2): "the target
+//!   flips back to shield down, so the waiting raise is dropped; the shield never starts rising": the unit is a
+//!   Peacekeeper again, its shield down, its shot going on. A lowering never waits: a shield off the ground has no shot
+//!   to wait for (its unit doesn't attack).
+//! - **Effects** (`factions/gdo/units/peacekeeper.md > Riot Shield`: "While the shield is up";
+//!   `factions/gdo/units/peacekeeper.md > During the toggle`), from the shield's state:
 //!   - **Half speed** from the start of a raise to the end of a lowering: the unit moves at the Peacekeeper
 //!     (Shielded)'s MaxSpeed while its shield is off the ground, the Peacekeeper's halved ("MaxSpeed is halved (4 → 2
 //!     space units/frame)"; "While raising **or** lowering, the Peacekeeper moves at half speed (as with the shield
@@ -65,13 +68,14 @@
 //!   - Incoming damage × `RiotShieldDef::damage_factor` (halved), a pre-armor multiplier from every direction
 //!     (`combat::pre_armor_multiplier`, `systems/combat.md > DamageModifierOrder` step 1; [`damage_factor`]), "**only
 //!     once the shield is fully up**; a half-raised shield gives none" (design change 0171).
-//! - **Orders given during the toggle** (design change 0202, answering Q0053 point 1, `> During the toggle`): "which
-//!   orders the unit accepts follows its new type from the press; carrying them out waits for the toggle to finish"
-//!   ([`takes_attack_orders`]). A Peacekeeper (Shielded), its shield up or on its way up, takes no Attack order (the
-//!   gate, `Sim::validate`, `Reject::CannotAttack`: "Attack orders are not possible"; design change 0075), and a
-//!   right-click on an enemy makes it follow (design change 0074, `orders::resolution::Abilities`). A Peacekeeper
-//!   whose shield is on its way down takes both, "**accepted and held**, and the attack starts as soon as the shield
-//!   is fully down": its Attack follows the target until then (`orders::engage::attack`, as behind a raised shield).
+//! - **Orders given during the toggle** (design change 0202, answering Q0053 point 1,
+//!   `factions/gdo/units/peacekeeper.md > During the toggle`): "which orders the unit accepts follows its new type from
+//!   the press; carrying them out waits for the toggle to finish" ([`takes_attack_orders`]). A Peacekeeper (Shielded),
+//!   its shield up or on its way up, takes no Attack order (the gate, `Sim::validate`, `Reject::CannotAttack`: "Attack
+//!   orders are not possible"; design change 0075), and a right-click on an enemy makes it follow (design change 0074,
+//!   `orders::resolution::Abilities`). A Peacekeeper whose shield is on its way down takes both, "**accepted and
+//!   held**, and the attack starts as soon as the shield is fully down": its Attack follows the target until then
+//!   (`orders::engage::attack`, as behind a raised shield).
 
 use std::collections::BTreeMap;
 
@@ -104,7 +108,8 @@ impl RiotShield {
 /// raise that hasn't begun, the unit's attack.
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub enum ShieldMode {
-    /// All the way down, on a Peacekeeper: it "behaves normally" (`> Riot Shield`: "While the shield is down").
+    /// All the way down, on a Peacekeeper: it "behaves normally" (`factions/gdo/units/peacekeeper.md > Riot Shield`:
+    /// "While the shield is down").
     Lowered,
     /// All the way down, on a Peacekeeper (Shielded) Firing or in Cooldown (`combat::mid_attack`): the raise is
     /// deferred until its shot is over (design change 0172), the type switched already (design change 0198).

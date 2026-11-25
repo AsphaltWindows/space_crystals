@@ -363,7 +363,7 @@ fn place_object(
 ) -> Result<SpawnSpot, SpawnProblem> {
     let def = kind.def();
     let spot = locate_oriented(map, def.footprint, at, orientation)?;
-    // `core/map.md > Elevation > Structures only on flat terrain`, `> Map resources only on flat terrain`.
+    // `core/map.md > Elevation > Structures only on flat terrain`, `core/map.md > Map resources only on flat terrain`.
     if def.needs_flat_ground
         && let (_, Some(placement)) = &spot
         && let Some(sloped) = placement.tiles().find(|t| !map.is_flat(*t))

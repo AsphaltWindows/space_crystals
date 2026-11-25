@@ -50,7 +50,8 @@ pub(crate) struct View {
     pub is_unit: bool,
     /// Whether it is a Space Crystals patch (`core/map.md > SpaceCrystalsPatch`), which workers gather.
     pub is_patch: bool,
-    /// The TargetDomain of its attack, if it has one: whom it threatens (`> TurretAutonomousScanning`, priority 1).
+    /// The TargetDomain of its attack, if it has one: whom it threatens (`systems/controls/behaviors.md >
+    /// TurretAutonomousScanning`, priority 1).
     threat: Option<TargetDomain>,
     /// Whom it is hidden from (`vision::hidden`, plan decision T32), which [`World::sees`] asks.
     hiding: Hiding,
@@ -131,15 +132,15 @@ impl Unit<'_> {
     }
 }
 
-/// Which enemies a scan takes. Never one inside the unit's MinRange (`> BaseAutoTargeting > Targets inside
-/// MinRange`, design change 0182: auto-targeting "skips enemies inside the weapon's MinRange and picks one it can
-/// hit").
+/// Which enemies a scan takes. Never one inside the unit's MinRange (`systems/controls/behaviors.md >
+/// BaseAutoTargeting > Targets inside MinRange`, design change 0182: auto-targeting "skips enemies inside the weapon's
+/// MinRange and picks one it can hit").
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub(crate) enum Scan {
-    /// `systems/controls/behaviors.md > BaseAutoTargeting > Active during Idle`, `> AttackMovingToLocation` 2:
-    /// ValidTargets within the unit's SightRange, beyond its MinRange.
+    /// `systems/controls/behaviors.md > BaseAutoTargeting > Active during Idle`, `systems/controls/behaviors.md >
+    /// AttackMovingToLocation` 2: ValidTargets within the unit's SightRange, beyond its MinRange.
     Sight,
-    /// `> HoldingPosition` 3: ValidTargets within weapon range (Range, beyond MinRange).
+    /// `systems/controls/behaviors.md > HoldingPosition` 3: ValidTargets within weapon range (Range, beyond MinRange).
     Weapon,
 }
 
@@ -374,8 +375,9 @@ impl<'a> World<'a> {
         math::wrap_angle(math::vector_angle(to) - unit.facing).abs()
     }
 
-    /// `systems/controls/behaviors.md > BaseAutoTargeting > Target Selection Priority` (`> TurretAutonomousScanning`):
-    /// the best ValidTarget within the reach of `scan`, if any, among those `admit` lets through:
+    /// `systems/controls/behaviors.md > BaseAutoTargeting > Target Selection Priority`
+    /// (`systems/controls/behaviors.md > TurretAutonomousScanning`): the best ValidTarget within the reach of `scan`,
+    /// if any, among those `admit` lets through:
     /// 1. **threatening** targets first, those whose own attack can target this unit's domain;
     /// 2. then the **least rotation** from the unit's facing (the turret's, once turrets have state), in 45° steps
     ///    (design change 0179, [`rotation_step`]): targets in one step count as needing equal rotation;
@@ -390,7 +392,8 @@ impl<'a> World<'a> {
     /// Nothing while auto-targeting is off (`DebugCommand::SetAutoTargeting`).
     ///
     /// `facing_only`: a non-turret unit that can't turn in place engages only what it already faces
-    /// (`> HoldingPosition` 4, within `tuning::combat::FACING_TOLERANCE`, the exact angle).
+    /// (`systems/controls/behaviors.md > HoldingPosition` 4, within `tuning::combat::FACING_TOLERANCE`, the exact
+    /// angle).
     pub(crate) fn pick(
         &self,
         unit: &Unit,

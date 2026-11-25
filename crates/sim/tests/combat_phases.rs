@@ -4,7 +4,8 @@
 //! The target holds its position (`systems/controls/behaviors.md > HoldingPosition`), so it never moves; it may fire
 //! back, which changes nothing here as long as the attacker lives (a test that runs longer than a Guard target takes
 //! to kill the attacker keeps it beyond the Guard's Range). A unit left without an order looks for a target by itself
-//! (`> BaseAutoTargeting`), so the tests that need the attacker to stay disengaged send it away with a Move.
+//! (`systems/controls/behaviors.md > BaseAutoTargeting`), so the tests that need the attacker to stay disengaged send
+//! it away with a Move.
 
 use sc_sim::combat::{self, AttackPhase};
 use sc_sim::testing::{ScenarioBuilder, TestSim};
@@ -143,7 +144,7 @@ fn the_unit_turns_to_face_its_target_while_aiming() {
 
 /// `systems/combat.md > Aiming > Interruptible - true`: another command cancels the attack before anything is
 /// fired. A Move takes the unit away without a shot (`systems/controls/behaviors.md > BaseAutoTargeting > Not active
-/// during: Move`). After a Stop the unit has no order, acquires the enemy in sight by itself in the same tick, and
+/// during`: Move). After a Stop the unit has no order, acquires the enemy in sight by itself in the same tick, and
 /// aims afresh: its shot lands a tick later than the one the Stop interrupted.
 #[test]
 fn a_new_order_interrupts_aiming() {
@@ -169,10 +170,10 @@ fn a_new_order_interrupts_aiming() {
     assert_eq!(attack_ticks(&t, ATTACKER), [5]);
 }
 
-/// `systems/combat.md > Firing`, `> Cooldown`: neither can be interrupted. A Stop given in the tick the unit fires
-/// doesn't stop the shot, nor the cooldown after it; the unit can't move until it reloads (`> UnitBaseSource`): the
-/// movement step holds it with its goal. But the attack is disengaged: no further sequence follows while the unit
-/// walks away.
+/// `systems/combat.md > Firing`, `systems/combat.md > Cooldown`: neither can be interrupted. A Stop given in the tick
+/// the unit fires doesn't stop the shot, nor the cooldown after it; the unit can't move until it reloads
+/// (`systems/combat.md > UnitBaseSource`): the movement step holds it with its goal. But the attack is disengaged: no
+/// further sequence follows while the unit walks away.
 #[test]
 fn firing_and_cooldown_run_on_through_a_new_order() {
     let mut t = engage(ObjectKind::Peacekeeper, ObjectKind::Guard, Vec2::new(350.0, 250.0));
@@ -257,8 +258,8 @@ fn a_target_leaving_range_cancels_the_aim_and_the_unit_goes_after_it() {
     assert_eq!(attack_ticks(&t, ATTACKER), [11, 28]);
 }
 
-/// Out of range from the start (`> AttackingObject` 1): the unit approaches until the target is in range, then
-/// attacks; in range from the start, it attacks from where it stands.
+/// Out of range from the start (`systems/controls/behaviors.md > AttackingObject` 1): the unit approaches until the
+/// target is in range, then attacks; in range from the start, it attacks from where it stands.
 #[test]
 fn out_of_range_the_unit_closes_in_and_in_range_it_attacks() {
     let mut far = engage(

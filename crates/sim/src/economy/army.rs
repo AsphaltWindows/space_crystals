@@ -8,8 +8,9 @@
 //!   Beacon provides a certain amount of Beacon Capacity. Total Beacon Capacity caps at 200. Each Colonist unit has
 //!   a Beacon Capacity cost." Every Colonists building provides 5 (`factions/colonists/economy.md > Warp In > Beacon
 //!   Capacity Retention`), so what is available is min(200, 5 × the player's Colonists structures), a Beacon under
-//!   deployment left out: its 5 comes with completion (`> Beacon Deployment > Beacon Capacity during deployment`,
-//!   design change 0112), while the Drone it was costs nothing from the deployment's first frame on, being a Beacon.
+//!   deployment left out: its 5 comes with completion (`factions/colonists/economy.md > Beacon Deployment > Beacon
+//!   Capacity during deployment`, design change 0112), while the Drone it was costs nothing from the deployment's first
+//!   frame on, being a Beacon.
 //! - **Syndicate: Tunnel Space** (slice M4-B; `factions/syndicate/overview.md > SyndicateResources > Tunnel Space`,
 //!   `factions/syndicate/tunnels.md > Tunnel > Tunnel Space`): "Each Syndicate unit has a Tunnel Space cost", and what
 //!   is available is min(200, ⌊the unused tunnel-region cells of the player's Tunnels / 4⌋), derived from the Tunnels
@@ -189,8 +190,8 @@ pub(crate) fn unit_control_used<'a>(objects: impl IntoIterator<Item = &'a Object
 /// Whether `o` provides Beacon Capacity to its owner: a Colonists structure (`factions/colonists/economy.md > Warp In >
 /// Beacon Capacity Retention`), complete or warping in ("throughout a Warp In", design change 0112; plan decision
 /// T20), but for a Beacon under deployment ([`Object::is_deploying`], slice M3-F): a Beacon from its first frame (plan
-/// decision T15, design change 0109), whose 5 arrives only on completion (`> Beacon Deployment > Beacon Capacity
-/// during deployment`, 0112: "The Beacon's 5 is provided only on completion").
+/// decision T15, design change 0109), whose 5 arrives only on completion (`factions/colonists/economy.md > Beacon
+/// Deployment > Beacon Capacity during deployment`, 0112: "The Beacon's 5 is provided only on completion").
 fn provides_capacity(o: &Object) -> bool {
     let def = o.kind.def();
     def.category == Category::Structure && def.faction == Some(Faction::Colonists) && !o.is_deploying()
@@ -203,7 +204,8 @@ mod tests {
     #[test]
     fn the_caps_and_the_costs_follow_the_design() {
         assert_eq!(UNIT_CONTROL_CAP, 200);
-        // `factions/colonists/overview.md > ColonistResources > Beacon Capacity`: "caps at 200"; `economy.md > Beacon
+        // `factions/colonists/overview.md > ColonistResources > Beacon Capacity`: "caps at 200";
+        // `factions/colonists/economy.md > Beacon
         // > BeaconCapacity provided - 5`.
         assert_eq!((BEACON_CAPACITY_CAP, BEACON_CAPACITY_PER_BUILDING), (200, 5));
         // `factions/gdo/units/peacekeeper.md > UnitControlCost - 1`; the Syndicate's Guard has none.
@@ -230,7 +232,7 @@ mod tests {
         };
         assert_eq!(costs(uc), [1, 0, 0, 0, 0]);
         assert_eq!(costs(bc), [0, 1, 2, 0, 0]);
-        // `factions/syndicate/units/guard.md` and `agent.md > TunnelSpaceCost - 1`.
+        // `factions/syndicate/units/guard.md` and `factions/syndicate/units/agent.md > TunnelSpaceCost - 1`.
         assert_eq!(costs(ts), [0, 0, 0, 1, 1]);
         assert_eq!(bc.cost_of(ObjectKind::RoboPortal), 0, "a structure costs nothing");
         assert_eq!(ts.cost_of(ObjectKind::Hideout), 0);

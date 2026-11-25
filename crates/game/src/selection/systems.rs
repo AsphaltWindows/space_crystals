@@ -19,21 +19,21 @@ use crate::platform::SurfaceSize;
 use crate::replay::Playback;
 use crate::sim_driver::{LocalPlayer, PendingCommands, SimEventMessage, SimRes};
 
-/// `> ControlState`: validated against the game state every tick. Removed objects (`SimEvent::Removed`, which
-/// combat's deaths send too) leave every player's selection and control groups in the frame of their tick; so does
-/// anything else that no longer exists, and anything that player may no longer select (`pick::selectable_id`):
-/// an enemy that walks out of sight is deselected at once (a placeholder rule: the design doesn't say). A record
-/// the player may select (a GDO player's remembered SupplyDeliveryStation) stays selected even if its object is
-/// removed out of sight: the player doesn't learn of it. A unit that walked into a Tunnel leaves the selection and
-/// stays in its control groups, whose recall selects the members on the map (design change 0249). An object the player sees that changed its kind in place
-/// (`SimEvent::KindChanged`, plan decision T15), or that started or stopped being unfinished (design change 0185: a
-/// building whose Warp In completes or is cancelled), stays selected as the type it groups as now
-/// (`ControlState::set_type`), so the panels show its new group: the group its members joined becomes the
-/// ActiveGroup if theirs is gone (design change 0199); and the ActiveGroup whose last member left gives way to the
-/// next group in Tab order. The type a mode toggle pressed for the next tick switches it to counts as its type from
-/// the press (design change 0198: `PendingCommands::kind_of`, which `ControlState::toggle` took at the press), so that
-/// the selection keeps it until the sim has it too. A replaced sim (`SimRes::generation`) starts every ControlState
-/// over, because its ids name other objects.
+/// `systems/controls/selection_and_hud.md > ControlState`: validated against the game state every tick. Removed objects
+/// (`SimEvent::Removed`, which combat's deaths send too) leave every player's selection and control groups in the frame
+/// of their tick; so does anything else that no longer exists, and anything that player may no longer select
+/// (`pick::selectable_id`): an enemy that walks out of sight is deselected at once (a placeholder rule: the design
+/// doesn't say). A record the player may select (a GDO player's remembered SupplyDeliveryStation) stays selected even
+/// if its object is removed out of sight: the player doesn't learn of it. A unit that walked into a Tunnel leaves the
+/// selection and stays in its control groups, whose recall selects the members on the map (design change 0249). An
+/// object the player sees that changed its kind in place (`SimEvent::KindChanged`, plan decision T15), or that started
+/// or stopped being unfinished (design change 0185: a building whose Warp In completes or is cancelled), stays selected
+/// as the type it groups as now (`ControlState::set_type`), so the panels show its new group: the group its members
+/// joined becomes the ActiveGroup if theirs is gone (design change 0199); and the ActiveGroup whose last member left
+/// gives way to the next group in Tab order. The type a mode toggle pressed for the next tick switches it to counts as
+/// its type from the press (design change 0198: `PendingCommands::kind_of`, which `ControlState::toggle` took at the
+/// press), so that the selection keeps it until the sim has it too. A replaced sim (`SimRes::generation`) starts every
+/// ControlState over, because its ids name other objects.
 pub(super) fn sync_control_states(
     sim: Res<SimRes>,
     fog: Res<FogOfWar>,
@@ -108,12 +108,13 @@ impl WorldView<'_> {
     }
 }
 
-/// `> MapClickSelection` and `> BoxSelection`: the `Select` action's clicks and boxes on the map, each with the roles
-/// of the modifiers it was sent with. While a target is awaited (`> AwaitingTarget`) or a building is placed (`>
-/// AwaitingPlacement`), a left-click on the map is the target or the placement (`crate::command_ui`,
-/// `InterfaceState::takes_map_clicks`) and selects nothing, and a drag does nothing: no box, no selection (`>
-/// AwaitingTarget > Dragging while targeting`, design change 0067). In a build menu the map's clicks select as in
-/// DefaultState.
+/// `systems/controls/selection_and_hud.md > MapClickSelection` and `systems/controls/selection_and_hud.md >
+/// BoxSelection`: the `Select` action's clicks and boxes on the map, each with the roles of the modifiers it was sent
+/// with. While a target is awaited (`systems/controls/selection_and_hud.md > AwaitingTarget`) or a building is placed
+/// (`systems/controls/selection_and_hud.md > AwaitingPlacement`), a left-click on the map is the target or the
+/// placement (`crate::command_ui`, `InterfaceState::takes_map_clicks`) and selects nothing, and a drag does nothing: no
+/// box, no selection (`systems/controls/selection_and_hud.md > AwaitingTarget > Dragging while targeting`, design
+/// change 0067). In a build menu the map's clicks select as in DefaultState.
 pub(super) fn select_on_map(
     mut clicks: MessageReader<MapClick>,
     mut boxes: MessageReader<SelectionBox>,
@@ -143,9 +144,10 @@ pub(super) fn select_on_map(
     });
 }
 
-/// `> ControlGroups > Operations` and `> GroupCycling`: the control group keys and Tab / Shift-Tab. Recall and
-/// Center snaps the camera to the centroid of where the recalled objects are drawn (`core/camera.md > Panning >
-/// Centering`); the camera then keeps the view on the map.
+/// `systems/controls/selection_and_hud.md > ControlGroups > Operations` and `systems/controls/selection_and_hud.md >
+/// GroupCycling`: the control group keys and Tab / Shift-Tab. Recall and Center snaps the camera to the centroid of
+/// where the recalled objects are drawn (`core/camera.md > Panning > Centering`); the camera then keeps the view on the
+/// map.
 pub(super) fn control_group_keys(actions: Res<ActionState>, mut control: LocalControl, mut camera: ResMut<CameraView>) {
     use InputAction as A;
     let pressed: Vec<InputAction> = actions

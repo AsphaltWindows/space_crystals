@@ -1,5 +1,6 @@
-//! Selecting on the map: `> MapClickSelection` (design changes 0011, 0048 and 0052), `> BoxSelection` (0049, 0051)
-//! and `> Selection > Constraints` (0053).
+//! Selecting on the map: `systems/controls/selection_and_hud.md > MapClickSelection` (design changes 0011, 0048 and
+//! 0052), `systems/controls/selection_and_hud.md > BoxSelection` (0049, 0051) and
+//! `systems/controls/selection_and_hud.md > Selection > Constraints` (0053).
 
 use std::collections::BTreeMap;
 
@@ -61,8 +62,8 @@ fn ctrl_and_double_clicks_select_the_own_units_of_that_type_on_screen() {
     assert_eq!(selected(&app), ids([1, 2, 5, FAR_PK]));
 }
 
-/// `> MapClickSelection > Ctrl+Shift-click own unit` (design change 0052): all own units of that type on screen join
-/// the selection, which loses nothing.
+/// `systems/controls/selection_and_hud.md > MapClickSelection > Ctrl+Shift-click own unit` (design change 0052): all
+/// own units of that type on screen join the selection, which loses nothing.
 #[test]
 fn ctrl_shift_click_adds_the_own_units_of_that_type_on_screen() {
     let mut app = game();
@@ -84,8 +85,8 @@ fn ctrl_shift_click_adds_the_own_units_of_that_type_on_screen() {
     assert_eq!(selected(&app), [ENEMY_PK]);
 }
 
-/// `> Selection > Constraints`: another player's object or a map resource is only ever selected alone, whatever the
-/// click's modifiers (design change 0048).
+/// `systems/controls/selection_and_hud.md > Selection > Constraints`: another player's object or a map resource is only
+/// ever selected alone, whatever the click's modifiers (design change 0048).
 #[test]
 fn other_players_objects_and_resources_are_selected_alone() {
     let mut app = game();
@@ -110,9 +111,9 @@ fn other_players_objects_and_resources_are_selected_alone() {
     assert_eq!(selected(&app), [STATION]);
 }
 
-/// `> BoxSelection > Shift + box (add) > Adding to a non-owned selection` (design change 0053): while an enemy or a
-/// neutral object is selected, Shift + box, Shift-click and Ctrl+Shift-click on own units do nothing. A plain box or
-/// click replaces it as usual.
+/// `systems/controls/selection_and_hud.md > BoxSelection > Shift + box (add) > Adding to a non-owned selection` (design
+/// change 0053): while an enemy or a neutral object is selected, Shift + box, Shift-click and Ctrl+Shift-click on own
+/// units do nothing. A plain box or click replaces it as usual.
 #[test]
 fn add_inputs_do_nothing_while_another_players_or_a_neutral_object_is_selected() {
     let mut app = game();
@@ -130,8 +131,8 @@ fn add_inputs_do_nothing_while_another_players_or_a_neutral_object_is_selected()
     assert_eq!(selected(&app), ids([1, 2, 3, 4, 5]));
 }
 
-/// `> BoxSelection > Empty clicks and boxes` (design changes 0051 and 0052): a plain click on empty ground clears the
-/// selection; a Shift-, Ctrl- or Ctrl+Shift-click there changes nothing.
+/// `systems/controls/selection_and_hud.md > BoxSelection > Empty clicks and boxes` (design changes 0051 and 0052): a
+/// plain click on empty ground clears the selection; a Shift-, Ctrl- or Ctrl+Shift-click there changes nothing.
 #[test]
 fn a_click_on_empty_ground_clears_the_selection_unless_modified() {
     let mut app = game();
@@ -144,8 +145,9 @@ fn a_click_on_empty_ground_clears_the_selection_unless_modified() {
     assert!(selected(&app).is_empty());
 }
 
-/// `> BoxSelection > Priority tiers`: own units, all of them; else the one object of the best tier nearest the
-/// box's center (no own or enemy buildings exist yet: the tiers are unit tested in `selection::pick`).
+/// `systems/controls/selection_and_hud.md > BoxSelection > Priority tiers`: own units, all of them; else the one object
+/// of the best tier nearest the box's center (no own or enemy buildings exist yet: the tiers are unit tested in
+/// `selection::pick`).
 #[test]
 fn a_box_selects_its_highest_tier() {
     let mut app = game();
@@ -169,8 +171,8 @@ fn a_box_selects_its_highest_tier() {
     assert!(selected(&app).is_empty());
 }
 
-/// `> BoxSelection > Shift + box (add)` (design change 0049): what the box selects joins the selection, which loses
-/// nothing; what can't join it under the Constraints isn't added.
+/// `systems/controls/selection_and_hud.md > BoxSelection > Shift + box (add)` (design change 0049): what the box
+/// selects joins the selection, which loses nothing; what can't join it under the Constraints isn't added.
 #[test]
 fn a_shift_box_adds_to_the_selection() {
     let mut app = game();

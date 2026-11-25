@@ -13,11 +13,11 @@ use crate::input::{self, ActionState, Bindings, InputAction, MapClick};
 use crate::selection::{ControlStates, LocalControl};
 use crate::sim_driver::LocalPlayer;
 
-/// `> AwaitingPlacement`: "R rotates the ghost 90 degrees clockwise, Shift+R rotates 90 degrees counter-clockwise.
-/// [...] F flips the ghost horizontally, Shift+F flips vertically": the placement keys, which the input layer fires
-/// in place of the command slots R and F while a building is placed ([`report_placing`]), the editor's own
-/// (`InputAction::is_placement`, `Turn::of_action`). A Warp In's ghost turns about its Beacon's centre (design change
-/// 0121); a Deploy's Beacon doesn't turn (`Placing::turned`).
+/// `factions/gdo/structures/deployment_center.md > AwaitingPlacement`: "R rotates the ghost 90 degrees clockwise,
+/// Shift+R rotates 90 degrees counter-clockwise. [...] F flips the ghost horizontally, Shift+F flips vertically": the
+/// placement keys, which the input layer fires in place of the command slots R and F while a building is placed
+/// ([`report_placing`]), the editor's own (`InputAction::is_placement`, `Turn::of_action`). A Warp In's ghost turns
+/// about its Beacon's centre (design change 0121); a Deploy's Beacon doesn't turn (`Placing::turned`).
 pub(in crate::command_ui) fn turn_ghost(actions: Res<ActionState>, mut control: LocalControl) {
     let Some(placing) = control.state().interface.placing() else {
         return;
@@ -31,12 +31,13 @@ pub(in crate::command_ui) fn turn_ghost(actions: Res<ActionState>, mut control: 
     }
 }
 
-/// `> AwaitingTarget > Shift while placing` (`> Exception, Drones`, design change 0125): once a Shift-click has sent a
-/// Drone of the group to deploy and placement stayed for the next one (`Builder::Drones::queued`), letting go of
-/// Shift, the Queue modifier, ends placement: back to DefaultState ("releasing Shift ends placement"). Before the
-/// first Shift-click, letting go of it changes nothing, as for a target (`super::end_queued_targeting`, the
-/// design's proposed default). It runs before the other input systems, as that one does, so that a command key
-/// pressed as Shift is let go starts anew.
+/// `systems/controls/selection_and_hud.md > AwaitingTarget > Shift while placing`
+/// (`systems/controls/selection_and_hud.md > Exception, Drones`, design change 0125): once a Shift-click has sent a
+/// Drone of the group to deploy and placement stayed for the next one (`Builder::Drones::queued`), letting go of Shift,
+/// the Queue modifier, ends placement: back to DefaultState ("releasing Shift ends placement"). Before the first
+/// Shift-click, letting go of it changes nothing, as for a target (`super::end_queued_targeting`, the design's proposed
+/// default). It runs before the other input systems, as that one does, so that a command key pressed as Shift is let go
+/// starts anew.
 pub(in crate::command_ui) fn end_queued_placement(actions: Res<ActionState>, mut control: LocalControl) {
     let queued = control
         .state()
@@ -48,18 +49,18 @@ pub(in crate::command_ui) fn end_queued_placement(actions: Res<ActionState>, mut
     }
 }
 
-/// `> AwaitingPlacement`: a left-click on the map (the Select action's click, at the point where it went down)
-/// confirms the ghost, where its builder puts it ([`Builder`]), if the check the ghost shows allows it now; the sim
-/// checks it again as it applies.
+/// `systems/controls/selection_and_hud.md > AwaitingPlacement`: a left-click on the map (the Select action's click, at
+/// the point where it went down) confirms the ghost, where its builder puts it ([`Builder`]), if the check the ghost
+/// shows allows it now; the sim checks it again as it applies.
 ///
 /// - **A constructor's building** (`factions/gdo/structures/deployment_center.md >
 ///   ObjectInterfaceState[DeploymentCenter] > AwaitingPlacement`: "Left-click valid location within build radius:
 ///   places building at the ghost's position and rotation, clears ReadyToPlace (CommandIssuingTransition, returns to
 ///   DefaultState)"): the ghost under the click ([`Placing::origin_under`]), if `Sim::placement_check` allows it: one
 ///   `ConstructionCommand::Place` to the one constructor, and back to DefaultState (`SimEvent::PlacementRefused`
-///   when the sim refuses it as it applies, `super::feedback`). Shift (`> AwaitingTarget > Shift while placing`): a
-///   GDO constructor "only ever has one building ready to place", so a Shift-click places it and ends placement like
-///   a plain click.
+///   when the sim refuses it as it applies, `super::feedback`). Shift (`systems/controls/selection_and_hud.md >
+///   AwaitingTarget > Shift while placing`): a GDO constructor "only ever has one building ready to place", so a
+///   Shift-click places it and ends placement like a plain click.
 /// - **A Beacon's Warp In** (`factions/colonists/economy.md > Warp In > Warp In Command`: "Left-click confirms the
 ///   footprint and begins the transformation"): wherever the click is, the ghost standing on the Beacon (design
 ///   change 0121), if `Sim::warp_in_check` allows it: one `ConstructionCommand::WarpIn` to the Beacon, and back to
@@ -69,15 +70,16 @@ pub(in crate::command_ui) fn end_queued_placement(actions: Res<ActionState>, mut
 ///   change 0125, `systems/controls/selection_and_hud.md > SelectionGroup > Groupable workers used up by a build`): the
 ///   ghost under the click, if `Sim::deploy_check` allows it for the Drone the click goes to ([`deploy_recipient`]): a
 ///   plain click to the first Drone of the group, replacing its orders, and back to DefaultState; a Shift-click to the
-///   first one with no Deploy yet, queued, and placement stays while another Drone of the group has none (`>
-///   AwaitingTarget > Shift while placing > Exception, Drones`), until Shift is let go ([`end_queued_placement`]).
-///   **Reading**: a Shift-click while every Drone of the group has a Deploy already sends nothing and ends placement
-///   ("Once every Drone in the group has a Deploy, placement ends").
+///   first one with no Deploy yet, queued, and placement stays while another Drone of the group has none
+///   (`systems/controls/selection_and_hud.md > AwaitingTarget > Shift while placing > Exception, Drones`), until Shift
+///   is let go ([`end_queued_placement`]). **Reading**: a Shift-click while every Drone of the group has a Deploy
+///   already sends nothing and ends placement ("Once every Drone in the group has a Deploy, placement ends").
 ///
 /// An invalid click sends nothing and placement goes on (M2 plan, H2: "cannot be confirmed"), with a short message
-/// ([`InvalidPlacement`]; placeholder: the design gives feedback for invalid target clicks, `> AwaitingTarget >
-/// Invalid target clicks`, and is silent for placement). Nothing while the selection isn't commandable (a defeated
-/// player's, or anyone's once the game is over), and placement then ends ([`super::validate_interface`]).
+/// ([`InvalidPlacement`]; placeholder: the design gives feedback for invalid target clicks,
+/// `systems/controls/selection_and_hud.md > AwaitingTarget > Invalid target clicks`, and is silent for placement).
+/// Nothing while the selection isn't commandable (a defeated player's, or anyone's once the game is over), and
+/// placement then ends ([`super::validate_interface`]).
 pub(in crate::command_ui) fn place_on_click(
     mut clicks: MessageReader<MapClick>,
     bindings: Res<Bindings>,

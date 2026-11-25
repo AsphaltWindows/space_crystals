@@ -4,9 +4,9 @@
 //! (`StructureDef::tunnel`, a `TunnelDef`).
 //!
 //! - **State**: every object of a type with a tier table has a [`TunnelState`], and no other object; a new one is at
-//!   Tier 1 ([`fresh`]: `tunnels.md > Starting Conditions`, "One pre-built **Tier 1 Tunnel**", and a Tunnel an Agent
-//!   builds starts at the base tier too). Hashed only while set, so that the states of games without a Tunnel hash as
-//!   they did before the field existed, and serialized.
+//!   Tier 1 ([`fresh`]: `factions/syndicate/tunnels.md > Starting Conditions`, "One pre-built **Tier 1 Tunnel**", and a
+//!   Tunnel an Agent builds starts at the base tier too). Hashed only while set, so that the states of games without a
+//!   Tunnel hash as they did before the field existed, and serialized.
 //! - **MaxHP** is the tier's (`Object::max_hp`, [`tier_def`]): 600, 800 and 1000.
 //! - **A change of tier** ([`set_tier`]) is the one place a tier changes: so far only the debug command
 //!   (`DebugCommand::SetTier`); the upgrades of slice M4-G will end there too. The HP follows the MaxHP (design change
@@ -152,8 +152,8 @@ mod tests {
         );
     }
 
-    /// `tunnels.md > Tiers` (HP 600 / 800 / 1000) and design change 0231 point 4: "A Tunnel at 500/600 HP upgraded
-    /// to Tier 2 ends at 700/800".
+    /// `factions/syndicate/tunnels.md > Tiers` (HP 600 / 800 / 1000) and design change 0231 point 4: "A Tunnel at
+    /// 500/600 HP upgraded to Tier 2 ends at 700/800".
     #[test]
     fn a_change_of_tier_keeps_the_damage() {
         let mut t = tunnel(500.0);

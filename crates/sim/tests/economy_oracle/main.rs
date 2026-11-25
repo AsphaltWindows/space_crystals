@@ -1,10 +1,11 @@
 //! The economy oracle: openings played from a real start, the way a player would, and checked against the design's
 //! numbers. One binary, in modules:
 //! - **The GDO** (slice M2-J1; `played.rs`, `gdo.rs`): `factions/gdo/economy.md > Opening Economy Baseline`, with
-//!   the reference line's income at the times of `> Economy Targets (GDO vs Colonists)`'s [`TABLE`].
+//!   the reference line's income at the times of `factions/gdo/economy.md > Economy Targets (GDO vs Colonists)`'s
+//!   [`TABLE`].
 //! - **The Colonists** (slices M3-K1 and M3-K4; `colonists.rs`, `curve.rs`): [`TABLE`], both its columns, and the
-//!   targets 1 to 4 of `> Economy Targets (GDO vs Colonists)`, on the reference field, against the GDO's line, and
-//!   the saturation curve of `factions/colonists/units/drone.md > Patch Occupancy`.
+//!   targets 1 to 4 of `factions/gdo/economy.md > Economy Targets (GDO vs Colonists)`, on the reference field, against
+//!   the GDO's line, and the saturation curve of `factions/colonists/units/drone.md > Patch Occupancy`.
 //!
 //! **The GDO's lines** check design changes 0098 (plates pay lumps of 10; the cycle timer advances by the power ratio)
 //! and 0089 (the power penalty; the Deployment Center is never slowed). Each line is player 1's on
@@ -57,9 +58,9 @@ const TABLE: [(Tick, f64, f64); 9] = [
     (at(3, 0), 26.3, 26.7),
     (at(4, 0), 27.8, 26.7),
 ];
-/// Design change 0108 (`> Economy Targets (GDO vs Colonists) > Matching the table in a simulated check`): "each
-/// income figure must be within ±15% of the table. A larger gap is brought back to the designer with the measured
-/// table; game numbers are not adjusted to force a match."
+/// Design change 0108 (`factions/gdo/economy.md > Economy Targets (GDO vs Colonists) > Matching the table in a
+/// simulated check`): "each income figure must be within ±15% of the table. A larger gap is brought back to the
+/// designer with the measured table; game numbers are not adjusted to force a match."
 const TOLERANCE: f64 = 0.15;
 
 /// The tick at `m` minutes and `s` seconds of the game.

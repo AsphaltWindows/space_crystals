@@ -1,8 +1,8 @@
 //! Orders on a station (`factions/syndicate/units/agent.md > Unit Commands`: "Gather — right-click Space Crystals
-//! patch or Supply Delivery Station"; `> Right-Click Resolution`: "Supply Delivery Station → Gather supplies"): the
-//! gate, the default order, a Hideout's rally on a station (`factions/syndicate/structures/README.md > Rally Point
-//! Behavior`: "the unit's default right-click action at the rally target"), and a Supply carried through the Tunnel
-//! Network (design change 0249: "An Agent keeps its load").
+//! patch or Supply Delivery Station"; `factions/syndicate/units/agent.md > Right-Click Resolution`: "Supply Delivery
+//! Station → Gather supplies"): the gate, the default order, a Hideout's rally on a station
+//! (`factions/syndicate/structures/README.md > Rally Point Behavior`: "the unit's default right-click action at the
+//! rally target"), and a Supply carried through the Tunnel Network (design change 0249: "An Agent keeps its load").
 
 use sc_sim::defs::TRANSIT_DELAY_TICKS;
 use sc_sim::{Command, DebugCommand, PlayerCommand, ProductionCommand, Reject, Target, TunnelCommand};

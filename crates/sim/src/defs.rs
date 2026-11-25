@@ -3,9 +3,10 @@
 //! One `ObjectKind` per object type in the design; its numbers live in a `static` [`ObjectDef`] whose comments cite
 //! the design section they come from, in a module of its own named like the type's design file: `defs/<faction>/
 //! {units,structures}/<object>.rs` (`factions/<faction>/{units,structures}/<object>.md`; the economy buildings cite
-//! their faction's `economy.md`, the Tunnel `factions/syndicate/tunnels.md`) and `defs/map/<object>.rs` for the map's
-//! (`core/map.md`). A faction's root module, `defs/<faction>.rs`, holds the faction's own rules. Unit bases and the
-//! attributes of unit types are in `defs/units.rs`, those of structure types in `defs/structures.rs`.
+//! their faction's `factions/<faction>/economy.md`, the Tunnel `factions/syndicate/tunnels.md`) and
+//! `defs/map/<object>.rs` for the map's (`core/map.md`). A faction's root module, `defs/<faction>.rs`, holds the
+//! faction's own rules. Unit bases and the attributes of unit types are in `defs/units.rs`, those of structure types in
+//! `defs/structures.rs`.
 
 mod colonists;
 mod gdo;
@@ -160,8 +161,8 @@ pub struct ObjectDef {
     pub max_shields: Option<f32>,
     /// PointArmor and FullArmor, which units and structures have alike; none for map resources.
     pub armor: Armor,
-    /// Every footprint tile must be flat (`core/map.md > Elevation > Structures only on flat terrain`, `> Map
-    /// resources only on flat terrain`).
+    /// Every footprint tile must be flat (`core/map.md > Elevation > Structures only on flat terrain`, `core/map.md >
+    /// Map resources only on flat terrain`).
     pub needs_flat_ground: bool,
     /// Units only: their base, movement, attack and abilities (`systems/units.md > Unit`).
     pub unit: Option<UnitDef>,
@@ -173,8 +174,8 @@ pub struct ObjectDef {
     pub default_settings: Option<SpawnSettings>,
 }
 
-/// An object type's armour: `systems/units.md > Unit > PointArmor`, `> FullArmor` for units, and the same two
-/// attributes in each structure type's stat block.
+/// An object type's armour: `systems/units.md > Unit > PointArmor`, `systems/units.md > FullArmor` for units, and the
+/// same two attributes in each structure type's stat block.
 #[derive(Copy, Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
 pub struct Armor {
     /// Taken off each single-target hit (`systems/combat.md > SingleTargetDamage`).
@@ -218,11 +219,11 @@ impl ObjectKind {
     /// Whether the footprints of objects of `self` and `other` may cover the same tiles. Only an Extraction Plate
     /// and the Space Crystals Patch it stands on may (`factions/gdo/economy.md > ExtractionPlate`: "placed onto a
     /// Space Crystal Patch"); every other pair of tile-based objects is kept apart (`core/entities.md > Placement
-    /// Validation > Direct Placement`: no structure overlap), structures and map resources included (`> All
-    /// placement methods: no buildings on resources`, design change 0096), and an underground structure and a surface
-    /// one too (design change 0240: "a surface structure and an underground expansion (any player's, including
-    /// neutral ones) can never share a tile"; the placement methods of slices M4-E and M4-F follow it in both layers,
-    /// the expansions' own in theirs). As two plates may not overlap, nor two
+    /// Validation > Direct Placement`: no structure overlap), structures and map resources included
+    /// (`core/entities.md > All placement methods: no buildings on resources`, design change 0096), and an underground
+    /// structure and a surface one too (design change 0240: "a surface structure and an underground expansion (any
+    /// player's, including neutral ones) can never share a tile"; the placement methods of slices M4-E and M4-F follow
+    /// it in both layers, the expansions' own in theirs). As two plates may not overlap, nor two
     /// patches, a patch holds one plate at most: a plate goes only onto an uncovered patch. Units have no
     /// footprint: this is about tile-based objects only. The pairs are those of `StructureDef::onto`, either way.
     pub fn may_overlap(self, other: ObjectKind) -> bool {

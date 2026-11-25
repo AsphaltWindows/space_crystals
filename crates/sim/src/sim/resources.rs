@@ -8,9 +8,9 @@ use crate::ids::PlayerId;
 use crate::player::Banks;
 
 impl Sim {
-    /// `player`'s power at the end of the latest tick (`> Power`): what their structures generate and consume, and
-    /// the speed ratio of their consumers. Nothing generated and nothing consumed for a player who owns no
-    /// structure, or isn't in the game.
+    /// `player`'s power at the end of the latest tick (`factions/gdo/overview.md > Power`): what their structures
+    /// generate and consume, and the speed ratio of their consumers. Nothing generated and nothing consumed for a
+    /// player who owns no structure, or isn't in the game.
     pub fn power(&self, player: PlayerId) -> PowerSummary {
         economy::power::summary(self.objects.values(), player)
     }
@@ -31,10 +31,10 @@ impl Sim {
         economy::army::cap(self.objects.values().chain(held), player, faction)
     }
 
-    /// The Unit Control `player` uses at the end of the latest tick (`> Unit Control`): the UnitControlCost of their
-    /// units and of their producers' units in production (design change 0143: the HUD's "used" count "includes
-    /// in-production units, not merely queued ones"), out of [`crate::UNIT_CONTROL_CAP`]. A GDO player's
-    /// [`Sim::army_cap`] `used`.
+    /// The Unit Control `player` uses at the end of the latest tick (`factions/gdo/overview.md > Unit Control`): the
+    /// UnitControlCost of their units and of their producers' units in production (design change 0143: the HUD's "used"
+    /// count "includes in-production units, not merely queued ones"), out of [`crate::UNIT_CONTROL_CAP`]. A GDO
+    /// player's [`Sim::army_cap`] `used`.
     pub fn unit_control(&self, player: PlayerId) -> u32 {
         let held = self.held.values().map(|held| &held.object);
         economy::army::unit_control_used(self.objects.values().chain(held), player)

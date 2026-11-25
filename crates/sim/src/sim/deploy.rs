@@ -93,13 +93,13 @@ impl Sim {
         }
     }
 
-    /// Drone `drone` is at the end of its walk to the site at `origin` (`> Deploy Command`, design change 0117). If it
-    /// overlaps the footprint ([`on_site`]) and the site is valid on the truth ([`Sim::arrival_check`]), it deploys
-    /// there ([`Sim::start_deployment`]). Otherwise "the order is cancelled and the Drone stops and idles" (`>
-    /// Placement`): its current order ends, and its queued ones go on (the next one starts in the next tick, as
-    /// after an order that completed: `systems/controls/commands.md > Unit Command`), with a
-    /// `SimEvent::DeployFailed` whose problems are the arrival check's, none if the Drone stopped short of the
-    /// footprint.
+    /// Drone `drone` is at the end of its walk to the site at `origin` (`factions/colonists/economy.md > Deploy
+    /// Command`, design change 0117). If it overlaps the footprint ([`on_site`]) and the site is valid on the truth
+    /// ([`Sim::arrival_check`]), it deploys there ([`Sim::start_deployment`]). Otherwise "the order is cancelled and
+    /// the Drone stops and idles" (`factions/colonists/economy.md > Placement`): its current order ends, and its queued
+    /// ones go on (the next one starts in the next tick, as after an order that completed:
+    /// `systems/controls/commands.md > Unit Command`), with a `SimEvent::DeployFailed` whose problems are the arrival
+    /// check's, none if the Drone stopped short of the footprint.
     fn arrive(&mut self, drone: ObjectId, origin: TilePos) {
         let Some(o) = self.objects.get(&drone) else {
             return;
@@ -154,12 +154,12 @@ impl Sim {
         )
     }
 
-    /// Drone `drone` begins deploying on `site` (`> A Beacon from the first frame`, design change 0109: "The moment
-    /// deployment begins, the Drone becomes a Beacon under deployment"): it becomes the Beacon there and stays the same
-    /// object ([`Sim::change_kind`]: its orders, its move and its worker go, it stands at the footprint's centre, and
-    /// phase 5b claims the footprint), with its HP and Shields as they were (no frame done, their maxima are still the
-    /// Drone's: `> HP/Shields Interpolation`; `crate::shields`) and what a Beacon does held back until completion
-    /// ([`hold_back`], design change 0116).
+    /// Drone `drone` begins deploying on `site` (`factions/colonists/economy.md > A Beacon from the first frame`,
+    /// design change 0109: "The moment deployment begins, the Drone becomes a Beacon under deployment"): it becomes the
+    /// Beacon there and stays the same object ([`Sim::change_kind`]: its orders, its move and its worker go, it stands
+    /// at the footprint's centre, and phase 5b claims the footprint), with its HP and Shields as they were (no frame
+    /// done, their maxima are still the Drone's: `factions/colonists/economy.md > HP/Shields Interpolation`;
+    /// `crate::shields`) and what a Beacon does held back until completion ([`hold_back`], design change 0116).
     /// It transforms from the Drone by its def's deployment ([`deploy::deployment`], [`BEACON_DEPLOYMENT`]), keeping
     /// the load the Drone carried (design change 0114). Its first frame is this tick's (`Sim::step_transforms`).
     fn start_deployment(&mut self, drone: ObjectId, site: Placement) {

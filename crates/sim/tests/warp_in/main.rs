@@ -207,8 +207,8 @@ fn base() -> ScenarioBuilder {
 #[derive(Copy, Clone)]
 struct Building {
     kind: ObjectKind,
-    /// The top-left tile of its footprint on Beacon 1, unturned (`> Warp In Command`: "centered on the Beacon's
-    /// location"; an odd-sized one with its extras at the bottom-right, design change 0121).
+    /// The top-left tile of its footprint on Beacon 1, unturned (`factions/colonists/economy.md > Warp In Command`:
+    /// "centered on the Beacon's location"; an odd-sized one with its extras at the bottom-right, design change 0121).
     origin: (i32, i32),
     cost: u32,
     /// Its WarpInTime.

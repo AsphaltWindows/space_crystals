@@ -2,26 +2,29 @@
 //! building at a time and hold it ready until the player places it — `factions/gdo/structures/deployment_center.md`,
 //! `factions/gdo/economy.md > ExtractionFacility`.
 //!
-//! - **The capability** ([`Constructor`], `Object::constructor`): the design's instance state (`>
-//!   DeploymentCenterInstanceState`, `> ExtractionFacilityInstanceState`: CurrentConstruction, ConstructionProgress,
-//!   ReadyToPlace) as one of three states: idle, constructing, or holding a building ready to place. The design's
-//!   menus allow no other ("Other build options unavailable" while it constructs or holds a ready building), so a
-//!   constructor never does both, and holds one ready building at most (design change 0071: "GDO builders have only
-//!   one ready building at a time"). A structure type with a `Constructs` list (`StructureDef::constructs`, its
-//!   [`Recipe`]s) is a constructor.
+//! - **The capability** ([`Constructor`], `Object::constructor`): the design's instance state
+//!   (`factions/gdo/structures/deployment_center.md > DeploymentCenterInstanceState`, `factions/gdo/economy.md >
+//!   ExtractionFacilityInstanceState`: CurrentConstruction, ConstructionProgress, ReadyToPlace) as one of three states:
+//!   idle, constructing, or holding a building ready to place. The design's menus allow no other ("Other build options
+//!   unavailable" while it constructs or holds a ready building), so a constructor never does both, and holds one ready
+//!   building at most (design change 0071: "GDO builders have only one ready building at a time"). A structure type
+//!   with a `Constructs` list (`StructureDef::constructs`, its [`Recipe`]s) is a constructor.
 //! - **Commands** ([`ConstructionCommand`], in `Command::Construction`): Construct, Cancel Construction, Cancel
-//!   Ready Building and Place (`> ObjectInterfaceState[DeploymentCenter]`, `> ObjectInterfaceState
-//!   [ExtractionFacility]`), for the player's own constructors. The command gate (`Sim::validate`) checks them, and
-//!   applying them goes through the same check (`sim/construction.rs`). A command goes to every constructor it names
-//!   that can carry it out, in id order (no smart-casting, design change 0071), except Place: one building is placed
-//!   by one constructor. The Colonists' Warp In and its cancel are construction commands too (plan decision T22),
-//!   for their Beacons and the buildings being warped in: `crate::transform`.
+//!   Ready Building and Place (`factions/gdo/structures/deployment_center.md > ObjectInterfaceState[DeploymentCenter]`,
+//!   `factions/gdo/economy.md > ObjectInterfaceState[ExtractionFacility]`), for the player's own constructors. The
+//!   command gate (`Sim::validate`) checks them, and applying them goes through the same check (`sim/construction.rs`).
+//!   A command goes to every constructor it names that can carry it out, in id order (no smart-casting, design change
+//!   0071), except Place: one building is placed by one constructor. The Colonists' Warp In and its cancel are
+//!   construction commands too (plan decision T22), for their Beacons and the buildings being warped in:
+//!   `crate::transform`.
 //! - **Costs and refunds** (plan decision T7): Construct pays the building's cost when it applies, from the bank as
 //!   the earlier commands of the tick and the earlier constructors of the command left it, and is refused when the
 //!   bank is short ("Only available if player has sufficient Space Crystals"). Cancelling refunds through
-//!   [`Refund`]: in full while constructing, 75% rounded down once ready (`> Cancellation`). A constructor that leaves
-//!   the game refunds the same way, as if cancelled (design change 0084), through the removal path
-//!   (`Sim::remove_objects`). Each refund says what went back (`SimEvent::ConstructionCancelled`).
+//!   [`Refund`]: in full while constructing, 75% rounded down once ready
+//!   (`factions/gdo/structures/deployment_center.md > Cancellation`, `factions/gdo/economy.md > ExtractionFacility >
+//!   Cancellation`). A constructor that leaves the game refunds the same way, as if cancelled (design change 0084),
+//!   through the removal path (`Sim::remove_objects`). Each refund says what went back
+//!   (`SimEvent::ConstructionCancelled`).
 //! - **Progress** ([`step`], in the economy phase; plan decisions T5 and T6): a construction advances each tick by
 //!   its constructor's speed (`PowerSummary::speed`), in [`RATIO_ONE`]s of a frame at full speed, and is ready once
 //!   it reaches its recipe's frames. The Deployment Center, a power producer, builds at full speed whatever the
@@ -30,7 +33,8 @@
 //!   The first frame is the tick of the command that starts the construction, which applies before the economy
 //!   phase (`ARCHITECTURE.md > Economy > Recipe timing`): ordered in tick `t`, a Generator (240 frames) is ready at
 //!   the end of tick `t + 239`, and a Place can put it on the map from tick `t + 240`.
-//! - **Placing** (`> AwaitingPlacement`): Place puts the ready building on the map in its own tick, where the
+//! - **Placing** (`factions/gdo/structures/deployment_center.md > AwaitingPlacement`, `factions/gdo/economy.md >
+//!   ExtractionFacility > AwaitingPlacement`): Place puts the ready building on the map in its own tick, where the
 //!   placement check in Command mode (`crate::placement`) allows it when the command applies (plan decision T4): the
 //!   footprint's tiles flat, Buildable, Visible and free, at least one in the build area, a plate onto an uncovered
 //!   patch. A Place the check refuses at that moment leaves the building ready, and the sim reports why
@@ -116,9 +120,10 @@ impl StateHash for Constructor {
     }
 }
 
-/// What a player's constructors are told to do (`Command::Construction`): the commands of `>
-/// ObjectInterfaceState[DeploymentCenter]` and `> ObjectInterfaceState[ExtractionFacility]` that reach the game. The
-/// menus themselves (BuildMenu, AwaitingPlacement) are the client's.
+/// What a player's constructors are told to do (`Command::Construction`): the commands of
+/// `factions/gdo/structures/deployment_center.md > ObjectInterfaceState[DeploymentCenter]` and
+/// `factions/gdo/economy.md > ObjectInterfaceState[ExtractionFacility]` that reach the game. The menus themselves
+/// (BuildMenu, AwaitingPlacement) are the client's.
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum ConstructionCommand {
     /// A BuildMenu entry of an idle constructor (the Extraction Facility's `Q: Build Extraction Plate`): "deducts"
@@ -151,9 +156,9 @@ pub enum ConstructionCommand {
         #[serde(default, skip_serializing_if = "BuildingOrientation::is_default")]
         orientation: BuildingOrientation,
     },
-    /// `> Warp In > Cancel Warp In` (and slice M3-F's Cancel Deployment, both on X; plan decision T22): every
-    /// transforming object named turns back into what it was, and its owner gets back 75% of what it paid, rounded
-    /// down.
+    /// `factions/colonists/economy.md > Warp In > Cancel Warp In` (and slice M3-F's Cancel Deployment, both on X; plan
+    /// decision T22): every transforming object named turns back into what it was, and its owner gets back 75% of what
+    /// it paid, rounded down.
     CancelTransform,
 }
 
@@ -187,9 +192,10 @@ pub(crate) fn can_start(o: &Object, kind: ObjectKind, crystals: u32) -> Result<&
     Ok(recipe)
 }
 
-/// What cancelling `o`'s construction or its ready building gives back (`> Cancellation`): the full cost while
-/// constructing, 75% rounded down once ready ([`Refund`]); nothing for an idle constructor, or for a building that
-/// isn't on its list (only a save edited by hand holds one).
+/// What cancelling `o`'s construction or its ready building gives back (`factions/gdo/structures/deployment_center.md >
+/// Cancellation`, `factions/gdo/economy.md > ExtractionFacility > Cancellation`): the full cost while constructing, 75%
+/// rounded down once ready ([`Refund`]); nothing for an idle constructor, or for a building that isn't on its list
+/// (only a save edited by hand holds one).
 pub(crate) fn refund(o: &Object) -> u32 {
     let (kind, refund) = match o.constructor {
         Some(Constructor::Constructing { kind, .. }) => (kind, Refund::Full),

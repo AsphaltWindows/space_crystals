@@ -1,11 +1,12 @@
-//! Friendly yielding, occupied targets and the give-up schedule (`docs/movement.md > 5.6`, `> 6.5`, `> 6.6`), by
-//! the Verification lists of the design changes:
+//! Friendly yielding, occupied targets and the give-up schedule (`docs/movement.md > 5.6`, `docs/movement.md > 6.5`,
+//! `docs/movement.md > 6.6`), by the Verification lists of the design changes:
 //! - 0022, 0023 and 0027 (`systems/units.md > UnitCollision > Ground Collision > Friendly yielding`): an idle unit
 //!   takes one short sidestep for a blocked unit of its owner; enemies, units on Hold, busy units and units that
 //!   can't move never do; a unit that arrived doesn't yield to the rest of its own group order.
-//! - 0024 and 0026 (`systems/controls/behaviors.md > MovingToLocation > Failure`, `> Occupied target location`):
-//!   stuck after 24 ticks, three re-route attempts after waits of 8, 16 and 32 ticks, then give up; arrived when
-//!   stuck within 3 grid units of the destination behind units that aren't moving (2 until design change 0169).
+//! - 0024 and 0026 (`systems/controls/behaviors.md > MovingToLocation > Failure`, `systems/controls/behaviors.md >
+//!   Occupied target location`): stuck after 24 ticks, three re-route attempts after waits of 8, 16 and 32 ticks, then
+//!   give up; arrived when stuck within 3 grid units of the destination behind units that aren't moving (2 until design
+//!   change 0169).
 //!
 //! Every `TestSim` checks the invariants I1–I7 after each tick (`docs/movement.md > 8`): collision stays hard while
 //! units sidestep.

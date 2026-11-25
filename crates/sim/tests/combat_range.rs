@@ -1,6 +1,7 @@
-//! What an attack reaches (`systems/combat.md > AttackAttributes`, `> ValidTarget`): Range measured edge to edge,
-//! the gap between the attacker's shape and the target's (`> Range Measurement`, design change 0031), MinRange,
-//! TargetDomain, and the ElevationModifier (`core/vision.md > ElevationModifier`) at the exact edge of a level.
+//! What an attack reaches (`systems/combat.md > AttackAttributes`, `systems/combat.md > ValidTarget`): Range measured
+//! edge to edge, the gap between the attacker's shape and the target's (`systems/combat.md > Range Measurement`, design
+//! change 0031), MinRange, TargetDomain, and the ElevationModifier (`core/vision.md > ElevationModifier`) at the exact
+//! edge of a level.
 //!
 //! Both units stand on Hold Position, so neither moves: the attacker engages what its weapon reaches from where it
 //! stands (`systems/controls/behaviors.md > HoldingPosition`), which is the range check alone.

@@ -19,16 +19,16 @@ use crate::tuning::vision::ELEVATION_MODIFIER;
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub enum Elevation {
     /// A ground or underground object, unit or structure, at this elevation level. Underground units use the
-    /// terrain above them (`> Underground units`), which is the terrain at their position.
+    /// terrain above them (`core/vision.md > Underground units`), which is the terrain at their position.
     Level(u8),
-    /// An air unit (`> Air exempt`): it neither gains nor suffers the modifier, as source or as target.
+    /// An air unit (`core/vision.md > Air exempt`): it neither gains nor suffers the modifier, as source or as target.
     Exempt,
 }
 
 impl Elevation {
     /// An object of `kind` at `pos`: exempt if it is an air unit, else at the elevation level there. For a surface
-    /// structure that is the level of its flat footprint (`> Elevation used`); for an underground one, which may
-    /// stand on slopes (design change 0005), the terrain under its centre (plan decision T32).
+    /// structure that is the level of its flat footprint (`core/vision.md > Elevation used`); for an underground one,
+    /// which may stand on slopes (design change 0005), the terrain under its centre (plan decision T32).
     pub fn of(map: &Map, kind: ObjectKind, pos: Vec2) -> Elevation {
         let air = kind
             .def()
@@ -54,8 +54,8 @@ impl Elevation {
 }
 
 /// `core/vision.md > ElevationModifier`: the grid units added to a range from `source` against `target`: +1 from
-/// higher ground, −1 from lower ground, 0 at equal elevation or when either is exempt. `> Binary`: any difference
-/// in level counts the same, whatever its size.
+/// higher ground, −1 from lower ground, 0 at equal elevation or when either is exempt. `core/vision.md > Binary`: any
+/// difference in level counts the same, whatever its size.
 pub fn modifier(source: Elevation, target: Elevation) -> f32 {
     match (source, target) {
         (Elevation::Level(s), Elevation::Level(t)) => match s.cmp(&t) {

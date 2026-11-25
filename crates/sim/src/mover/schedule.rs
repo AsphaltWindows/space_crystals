@@ -1,5 +1,6 @@
 //! When a unit on its way counts as stuck, when it looks for another route and when it gives up — design change
-//! 0024 (`systems/controls/behaviors.md > MovingToLocation > Failure`), `docs/movement.md > 5.6`, `> 6.5`.
+//! 0024 (`systems/controls/behaviors.md > MovingToLocation > Failure`), `docs/movement.md > 5.6`, `docs/movement.md >
+//! 6.5`.
 
 use glam::Vec2;
 

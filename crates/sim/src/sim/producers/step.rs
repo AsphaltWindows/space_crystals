@@ -7,7 +7,8 @@
 //!
 //! - **Which units**: a unit at 0% at the front of its queue, whether it has just reached the front or waits there.
 //!   A unit in production (`Production::in_production`) is never checked again: it "always finishes" (Q0041 point
-//!   2), however far the cap falls below what is used (design change 0112, `> Over capacity`).
+//!   2), however far the cap falls below what is used (design change 0112, `factions/colonists/overview.md > Over
+//!   capacity`).
 //! - **The figures** are those of [`crate::Sim::army_cap`]: `cost == 0 || available − used ≥ cost`
 //!   ([`ArmyCap::fits`]), with `used` the player's units and their producers' units in production: a unit whose
 //!   cost is 0 always passes, even over the cap (design change 0176 point 3: "Zero-cost units always pass"). They are
@@ -24,8 +25,8 @@
 //! - **At a power ratio of 0** (a GDO consumer with nothing generated, design change 0089) the check passes or fails
 //!   all the same, but a unit that passes makes no progress, and so doesn't start or take anything: it is checked
 //!   again in the next step, as one that waits, and another producer may take the room (design change 0176 point 2,
-//!   `> Unit Control`: "No power, no start [...] a building that can't make progress [...] doesn't take the room;
-//!   another building may use it").
+//!   `factions/gdo/overview.md > Unit Control`: "No power, no start [...] a building that can't make progress [...]
+//!   doesn't take the room; another building may use it").
 
 use std::collections::BTreeMap;
 

@@ -5,12 +5,12 @@
 //! What the stat blocks name and later slices read: MaxShields (slice M3-B, `crate::shields`), BeaconCapacityCost
 //! (M3-C), the Beacon's Warp In list (M3-E). The HoverVehicle's DragMovement attributes are the Drone's movement
 //! (`movement::drag`, slice M3-G). "BeaconCapacity provided - 5" is no field: every Colonists
-//! building provides it (`economy.md > Warp In > Beacon Capacity Retention`), a faction rule M3-C derives (plan
-//! decision T14): [`BEACON_CAPACITY_PER_BUILDING`].
+//! building provides it (`factions/colonists/economy.md > Warp In > Beacon Capacity Retention`), a faction rule M3-C
+//! derives (plan decision T14): [`BEACON_CAPACITY_PER_BUILDING`].
 //!
 //! The Colonists have neither Power nor a build area: their stat blocks list no Power nor BuildRadiusExtension, so
 //! both are 0 (plan decision T21), and a Beacon may be deployed with "no range limit from other Colonists buildings"
-//! (`economy.md > Beacon Deployment > Placement`).
+//! (`factions/colonists/economy.md > Beacon Deployment > Placement`).
 
 pub(crate) mod structures;
 pub(crate) mod units;

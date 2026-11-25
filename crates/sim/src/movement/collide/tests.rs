@@ -19,7 +19,7 @@ fn right_is_clockwise_on_screen() {
 /// `docs/movement.md > 6.3`, rule 4: a unit going round a blocker on the side it leans to keeps that side when
 /// its own step along the face turns the contact head-on, so it never steps back. Pressed against an idle Guard,
 /// a unit whose lean was about [`LEAN`] stepped north as leaning, then south as head-on with `avoid_side` Left,
-/// for good (two groups crossing in the lanes of the magic box found it, `> 6.4`).
+/// for good (two groups crossing in the lanes of the magic box found it, `docs/movement.md > 6.4`).
 #[test]
 fn a_unit_going_round_on_its_lean_side_never_steps_back() {
     let body = |id: u32, pos: Vec2, half: f32| Body {

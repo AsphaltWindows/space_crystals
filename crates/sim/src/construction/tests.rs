@@ -54,8 +54,8 @@ fn completed(constructor: u32, kind: ObjectKind) -> SimEvent {
     }
 }
 
-/// `> DeploymentCenterInstanceState`: a constructor starts with nothing under construction and nothing ready; only the
-/// types with a `Constructs` list are constructors.
+/// `factions/gdo/structures/deployment_center.md > DeploymentCenterInstanceState`: a constructor starts with nothing
+/// under construction and nothing ready; only the types with a `Constructs` list are constructors.
 #[test]
 fn constructors_start_idle() {
     for &kind in ObjectKind::ALL {
@@ -91,8 +91,8 @@ fn the_state_tells_what_is_built_and_what_is_ready() {
     assert_eq!(Constructor::default(), idle);
 }
 
-/// `> ObjectInterfaceState[DeploymentCenter] > BuildMenu`: a building on the list, by an idle constructor, if the bank
-/// covers its cost; the first reason otherwise.
+/// `factions/gdo/structures/deployment_center.md > ObjectInterfaceState[DeploymentCenter] > BuildMenu`: a building on
+/// the list, by an idle constructor, if the bank covers its cost; the first reason otherwise.
 #[test]
 fn a_construction_starts_on_the_list_when_idle_and_paid_for() {
     let mut objects = objects();
@@ -131,7 +131,8 @@ fn a_construction_starts_on_the_list_when_idle_and_paid_for() {
     }
 }
 
-/// `> Cancellation`: the full cost while constructing, 75% rounded down once ready, nothing when idle.
+/// `factions/gdo/structures/deployment_center.md > Cancellation`, `factions/gdo/economy.md > ExtractionFacility >
+/// Cancellation`: the full cost while constructing, 75% rounded down once ready, nothing when idle.
 #[test]
 fn a_refund_follows_the_state() {
     let objects = objects();
@@ -157,9 +158,9 @@ fn a_refund_follows_the_state() {
     );
 }
 
-/// `> Generator`: 240 frames. Ordered in tick 10, a construction does its first frame in tick 10 (the command applies
-/// before the economy phase; `ARCHITECTURE.md > Economy > Recipe timing`) and is ready at the end of tick 249, with
-/// one event.
+/// `factions/gdo/economy.md > Generator`: 240 frames. Ordered in tick 10, a construction does its first frame in tick
+/// 10 (the command applies before the economy phase; `ARCHITECTURE.md > Economy > Recipe timing`) and is ready at the
+/// end of tick 249, with one event.
 #[test]
 fn a_construction_is_ready_after_its_frames() {
     let mut objects = objects();

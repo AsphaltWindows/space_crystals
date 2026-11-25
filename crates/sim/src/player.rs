@@ -32,24 +32,26 @@ pub struct Player {
     pub id: PlayerId,
     pub name: String,
     pub faction: Faction,
-    /// `> Space Crystals`: the bank. A game starts it at the player's faction's Starting Conditions (slice M2-F1;
-    /// `factions/gdo/economy.md > Starting Conditions`: 100, `crate::StartingConditions`);
-    /// `DebugCommand::SetResources` sets it. Optional in files, so that states saved before it existed still load.
+    /// `factions/gdo/overview.md > Space Crystals` (every faction's): the bank. A game starts it at the player's
+    /// faction's Starting Conditions (slice M2-F1; `factions/gdo/economy.md > Starting Conditions`: 100,
+    /// `crate::StartingConditions`); `DebugCommand::SetResources` sets it. Optional in files, so that states saved
+    /// before it existed still load.
     #[serde(default)]
     pub crystals: u32,
-    /// `> Supplies`: the bank. A game starts it at the player's faction's Starting Conditions
-    /// (`crate::StartingConditions`: the Syndicate's 1 Supply, `factions/syndicate/tunnels.md > Tunnel > Starting
-    /// Conditions`, slice M4-B; 0 for the GDO, whose supply loop is deferred, design change 0077, and for the
-    /// Colonists); each Supplies delivery of an Agent adds to it (`economy::gathering`, slice M4-I), and
-    /// `DebugCommand::SetResources` sets it. Nothing spends it yet. Optional in files, so that states saved before it
-    /// existed still load.
+    /// `factions/gdo/overview.md > Supplies`, `factions/syndicate/overview.md > Supplies`: the bank. A game starts it
+    /// at the player's faction's Starting Conditions (`crate::StartingConditions`: the Syndicate's 1 Supply,
+    /// `factions/syndicate/tunnels.md > Tunnel > Starting Conditions`, slice M4-B; 0 for the GDO, whose supply loop is
+    /// deferred, design change 0077, and for the Colonists); each Supplies delivery of an Agent adds to it
+    /// (`economy::gathering`, slice M4-I), and `DebugCommand::SetResources` sets it. Nothing spends it yet. Optional in
+    /// files, so that states saved before it existed still load.
     #[serde(default)]
     pub supplies: u32,
-    /// The Colonists' refined resources (`factions/colonists/overview.md > ColonistResources > Alloys`, `> Essence`,
-    /// `> Flux`; plan decision T21): counters only, at 0 from the start (`factions/colonists/economy.md > Starting
-    /// Conditions`: "Starting Alloys, Essence and Flux: 0"), until refining exists (question Q0043 point 1); only
-    /// `DebugCommand::SetResources` changes them. Every player has them, as every player has Supplies. Optional in
-    /// files, so that states saved before they existed still load.
+    /// The Colonists' refined resources (`factions/colonists/overview.md > ColonistResources > Alloys`,
+    /// `factions/colonists/overview.md > Essence`, `factions/colonists/overview.md > Flux`; plan decision T21):
+    /// counters only, at 0 from the start (`factions/colonists/economy.md > Starting Conditions`: "Starting Alloys,
+    /// Essence and Flux: 0"), until refining exists (question Q0043 point 1); only `DebugCommand::SetResources` changes
+    /// them. Every player has them, as every player has Supplies. Optional in files, so that states saved before they
+    /// existed still load.
     #[serde(default)]
     pub alloys: u32,
     #[serde(default)]
@@ -58,8 +60,8 @@ pub struct Player {
     pub flux: u32,
     /// The tick in which the player was defeated (`core/game_rules.md > Defeat Condition`, plan decision T8:
     /// their owned-structure count dropped to 0, `economy::defeat`); `None` while they are in the game. Final: a
-    /// defeated player stays defeated (`> On Defeat`). Optional in files, so that states saved before it existed
-    /// still load.
+    /// defeated player stays defeated (`core/game_rules.md > On Defeat`). Optional in files, so that states saved
+    /// before it existed still load.
     #[serde(default)]
     pub defeated_at: Option<Tick>,
 }

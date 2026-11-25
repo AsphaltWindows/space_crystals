@@ -35,9 +35,9 @@ impl Occupant {
 /// How a placement is checked: in a game, or for a Starting Layout.
 #[derive(Copy, Clone, Debug)]
 pub enum Mode<'a> {
-    /// A player's placement in a game (`core/entities.md > Placement Validation > Direct Placement`, `> Warp In`):
-    /// every footprint tile must be Visible to `player` in `vision`, as the latest tick left it; an Extraction
-    /// Plate's too (design change 0095), and a Warp In's (design change 0119).
+    /// A player's placement in a game (`core/entities.md > Placement Validation > Direct Placement`,
+    /// `core/entities.md > Warp In`): every footprint tile must be Visible to `player` in `vision`, as the latest tick
+    /// left it; an Extraction Plate's too (design change 0095), and a Warp In's (design change 0119).
     Command { vision: &'a Vision, player: PlayerId },
     /// A worker-built structure's order, its gate and its ghost (plan decision T16; `core/entities.md > Placement
     /// Validation > Worker-Built Structures`, design change 0120: "The ghost judges by what the player knows"; slice
@@ -48,9 +48,9 @@ pub enum Mode<'a> {
     /// ([`TileProblem::Reserved`](super::TileProblem::Reserved)) count there. The map's edge is known: a tile off the
     /// map never passes.
     Known { vision: &'a Vision, player: PlayerId },
-    /// A worker's check of its site on arrival (`> Worker-Built Structures`: "validates on arrival"; `> Lingering build
-    /// ghosts`: "No visibility requirement on arrival (the worker is physically present)"): the truth, with no sight
-    /// rule.
+    /// A worker's check of its site on arrival (`core/entities.md > Worker-Built Structures`: "validates on arrival";
+    /// `core/entities.md > Lingering build ghosts`: "No visibility requirement on arrival (the worker is physically
+    /// present)"): the truth, with no sight rule.
     Arrival,
     /// An object of a Starting Layout (`core/map_editor.md > Starting Layouts > Layout validation`, design change
     /// 0097): the faction's "normal in-game placement rules, minus visibility", as nothing is "visible" in the editor.
@@ -62,21 +62,21 @@ pub enum Mode<'a> {
 /// `core/entities.md > Placement Validation`).
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub enum Method {
-    /// `> Direct Placement`, the GDO's: placed at once from a menu, onto tiles the player sees (in a game), within
-    /// the build area for a GDO building.
+    /// `core/entities.md > Direct Placement`, the GDO's: placed at once from a menu, onto tiles the player sees (in a
+    /// game), within the build area for a GDO building.
     Direct,
-    /// `> Warp In` (`factions/colonists/economy.md > Warp In`): the Beacon standing at `beacon` transforms in place
-    /// into the structure, on the footprint `crate::transform::warp_in_footprint` derives from it (design change
-    /// 0121), which the caller checks. Every footprint tile must be Buildable, flat and unoccupied "except for the
-    /// Beacon's own footprint, which will be consumed by the transformation": the tiles under `beacon` break no rule
-    /// but sight. A ground unit of any player occupies its tiles, air and underground units never do (design change
-    /// 0118), as for a Direct Placement. Every tile must be Visible, as for a Direct Placement (design change 0119:
-    /// "a tile that isn't is red on the ghost", whatever stands there), the Beacon's own included (its owner's
-    /// Beacon always sees them). There is no build area.
+    /// `core/entities.md > Warp In` (`factions/colonists/economy.md > Warp In`): the Beacon standing at `beacon`
+    /// transforms in place into the structure, on the footprint `crate::transform::warp_in_footprint` derives from it
+    /// (design change 0121), which the caller checks. Every footprint tile must be Buildable, flat and unoccupied
+    /// "except for the Beacon's own footprint, which will be consumed by the transformation": the tiles under `beacon`
+    /// break no rule but sight. A ground unit of any player occupies its tiles, air and underground units never do
+    /// (design change 0118), as for a Direct Placement. Every tile must be Visible, as for a Direct Placement (design
+    /// change 0119: "a tile that isn't is red on the ghost", whatever stands there), the Beacon's own included (its
+    /// owner's Beacon always sees them). There is no build area.
     WarpIn { beacon: Placement },
-    /// `> Worker-Built Structures` (slice M3-F, a Drone deploying a Beacon, `crate::deploy`): built by a worker on a
-    /// site it walks to. The tile rules of a Direct Placement, sight aside (the [`Mode`] decides what is seen), and no
-    /// build area ("no range limit from other Colonists buildings",
+    /// `core/entities.md > Worker-Built Structures` (slice M3-F, a Drone deploying a Beacon, `crate::deploy`): built by
+    /// a worker on a site it walks to. The tile rules of a Direct Placement, sight aside (the [`Mode`] decides what is
+    /// seen), and no build area ("no range limit from other Colonists buildings",
     /// `factions/colonists/economy.md > Beacon Deployment > Placement`). "The building worker itself (e.g. the
     /// deploying Drone) doesn't count" (design change 0118): the caller leaves it out of the occupants, as a Warp In's
     /// caller leaves out its Beacon.

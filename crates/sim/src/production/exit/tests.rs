@@ -38,7 +38,8 @@ pub(super) fn orientations() -> impl Iterator<Item = (Rotation, bool)> {
         .flat_map(|flip_h| [Rotation::R0, Rotation::R90, Rotation::R180, Rotation::R270].map(|r| (r, flip_h)))
 }
 
-/// Design change 0079 and `> Exit Doorway`: the doorway is in the middle of side B, wherever that side faces.
+/// Design change 0079 and `core/entities.md > Exit Doorway`: the doorway is in the middle of side B, wherever that side
+/// faces.
 #[test]
 fn the_doorway_is_the_middle_of_side_b_in_all_eight_orientations() {
     // Unturned: 3 wide and 2 tall at tile (2, 1), so x 128..320 and y 64..192; B faces east.

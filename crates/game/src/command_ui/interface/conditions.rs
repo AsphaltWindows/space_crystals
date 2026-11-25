@@ -118,11 +118,11 @@ pub enum WhyUnavailable {
     /// Every recipient is a Peacekeeper (Shielded), which takes no Attack (`factions/gdo/units/peacekeeper.md > Riot
     /// Shield`: "the player must lower the shield before ordering an attack"; design change 0202).
     ShieldsUp,
-    /// Another command awaits its target, or a building is placed (`> AwaitingTarget > Other commands while
-    /// targeting`, design change 0066: "unavailable until the player cancels").
+    /// Another command awaits its target, or a building is placed (`systems/controls/selection_and_hud.md >
+    /// AwaitingTarget > Other commands while targeting`, design change 0066: "unavailable until the player cancels").
     Waiting,
-    /// The type can't carry it out (`> BasicCombatUnitInterfaceState`: Reverse without CanReverse, AttackGround
-    /// without CanTargetGround).
+    /// The type can't carry it out (`systems/controls/selection_and_hud.md > BasicCombatUnitInterfaceState`: Reverse
+    /// without CanReverse, AttackGround without CanTargetGround).
     NotForThisType,
     /// It isn't in the game yet: a building or a unit whose costs are TBD (design change 0124), a build menu none of
     /// whose buildings is, an order the sim has none of (Reverse, AttackGround).

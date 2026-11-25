@@ -51,8 +51,8 @@ fn in_attack_sequence(o: &Object) -> bool {
     )
 }
 
-/// `> Friendly yielding > Who yields` (design changes 0022 and 0023): whether `o` is a unit that steps aside for a
-/// blocked unit of its owner.
+/// `systems/units.md > Friendly yielding > Who yields` (design changes 0022 and 0023): whether `o` is a unit that steps
+/// aside for a blocked unit of its owner.
 /// - It has an owner: nobody's units never yield.
 /// - It has **no active command**: no current order and none queued. Hold Position is a command, so units on Hold
 ///   never yield (deliberate walls stay possible), and neither does a unit that is moving.
@@ -74,9 +74,10 @@ pub(super) fn can_yield(o: &Object, mover: &Mover, unit: &UnitDef) -> bool {
 }
 
 /// Whether `other` yields to a moving unit of `owner` that moves under the order group `group`.
-/// - `> Friendly yielding`: only to its own owner's units (no teams yet, so no allies; TBD in the design).
-/// - `> No yielding within the same group order` (design change 0027): a unit that arrived under a group order
-///   doesn't yield to members of the same order that are still arriving; a later order clears this
+/// - `systems/units.md > Friendly yielding`: only to its own owner's units (no teams yet, so no allies; TBD in the
+///   design).
+/// - `systems/units.md > No yielding within the same group order` (design change 0027): a unit that arrived under a
+///   group order doesn't yield to members of the same order that are still arriving; a later order clears this
 ///   (`Body::arrived_with`).
 pub(super) fn yields_to(other: &Body, owner: Option<PlayerId>, group: Option<u32>) -> bool {
     other.yields && owner.is_some() && other.owner == owner && !(group.is_some() && other.arrived_with == group)
@@ -87,8 +88,8 @@ fn longest(half: Vec2) -> f32 {
     (half.max_element() * 2.0 * YIELD_SIDESTEP_WIDTHS).max(YIELD_MIN_SIDESTEP_SU)
 }
 
-/// `> Friendly yielding` (design change 0022): the unit of `world` wanted to move `d` from `pos`, and `moved` is
-/// what became of it. If a unit that yields to it was in its way, that unit is asked for a sidestep:
+/// `systems/units.md > Friendly yielding` (design change 0022): the unit of `world` wanted to move `d` from `pos`, and
+/// `moved` is what became of it. If a unit that yields to it was in its way, that unit is asked for a sidestep:
 /// - **Direction**: half across the mover's way and half along it, so the unit gets out of the lane and away from
 ///   the mover at once. A sidestep straight across the way left a line of movers facing a group as wide as itself
 ///   with nowhere to send it: each unit stepped into its neighbour's lane. Across the way it goes to the side of
@@ -154,10 +155,10 @@ pub(super) fn ask(
     });
 }
 
-/// (G) `> Friendly yielding`, for a mover walking between the units of an idle group (`World::lane`, whose lanes
-/// `world` still holds; `shift` is the line the mover is taking, to the Right of its way `d`): the idle units of
-/// its owner that it is about to be blocked by, within two steps, are asked now, both sides of its gap at once,
-/// instead of one after the other as each stops it. Each steps **straight across** its way, away from the mover's
+/// (G) `systems/units.md > Friendly yielding`, for a mover walking between the units of an idle group (`World::lane`,
+/// whose lanes `world` still holds; `shift` is the line the mover is taking, to the Right of its way `d`): the idle
+/// units of its owner that it is about to be blocked by, within two steps, are asked now, both sides of its gap at
+/// once, instead of one after the other as each stops it. Each steps **straight across** its way, away from the mover's
 /// line, as far as its box reaches into the mover's lane. So the group parts, and nobody is shoved along. A unit
 /// exactly on the line is left to [`ask`], which knows the side the mover goes round on.
 pub(super) fn ask_ahead(world: &World, d: Vec2, shift: f32, mover: &Mover, requests: &mut Vec<Request>) {
@@ -183,11 +184,11 @@ pub(super) fn ask_ahead(world: &World, d: Vec2, shift: f32, mover: &Mover, reque
     }
 }
 
-/// One tick of a yielding unit's sidestep (`> Friendly yielding`): up to its speed along the sidestep's direction,
-/// the whole step if it is free, else each axis as far as tiles and units allow. Its facing stays (every M1 unit
-/// turns in place; TODO(movement models): bases that can't step sideways). An idle unit of its owner in its way is
-/// asked on, the same way ([`YIELD_CHAIN_DEPTH`]). The sidestep ends when its distance is done or its time is up;
-/// the unit stays where it got to, with no way back (design change 0022: one short sidestep).
+/// One tick of a yielding unit's sidestep (`systems/units.md > Friendly yielding`): up to its speed along the
+/// sidestep's direction, the whole step if it is free, else each axis as far as tiles and units allow. Its facing stays
+/// (every M1 unit turns in place; TODO(movement models): bases that can't step sideways). An idle unit of its owner in
+/// its way is asked on, the same way ([`YIELD_CHAIN_DEPTH`]). The sidestep ends when its distance is done or its time
+/// is up; the unit stays where it got to, with no way back (design change 0022: one short sidestep).
 pub(super) fn sidestep(
     pos: &mut Vec2,
     mover: &mut Mover,

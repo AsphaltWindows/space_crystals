@@ -81,11 +81,11 @@ pub(crate) fn assign(
         .collect()
 }
 
-/// Design change 0029 (`> Group Destinations (Magic Box)`, queued orders): where an order appended to `orders`
-/// finds its unit, if that is known: the destination of the unit's last order that moves it, the current one
-/// included, when that order ends at a known location (a Move to a point or an AttackMove: the unit's own spot, or
-/// the click it converges on). Stop and Hold move nobody, so the order before them decides. `None`, for which the
-/// unit's current position stands in (0029's fallback), when no order moves the unit, or when the last one ends
+/// Design change 0029 (`systems/controls/commands.md > Group Destinations (Magic Box)`, queued orders): where an order
+/// appended to `orders` finds its unit, if that is known: the destination of the unit's last order that moves it, the
+/// current one included, when that order ends at a known location (a Move to a point or an AttackMove: the unit's own
+/// spot, or the click it converges on). Stop and Hold move nobody, so the order before them decides. `None`, for which
+/// the unit's current position stands in (0029's fallback), when no order moves the unit, or when the last one ends
 /// somewhere unknown: it targets an object (Attack, Move to an object), or it is a Patrol, which never completes.
 ///
 /// It assumes the unit reaches each spot: one that falls short still heads for its own spot on the next leg.
@@ -207,7 +207,8 @@ mod tests {
         ........
     ";
 
-    /// `> Group Destinations (Magic Box)`: outside the box, each unit's offset from the box's centre is kept.
+    /// `systems/controls/commands.md > Group Destinations (Magic Box)`: outside the box, each unit's offset from the
+    /// box's centre is kept.
     #[test]
     fn outside_the_box_the_group_moves_by_one_vector() {
         // 0028: the box bounds the silhouettes: x 88..198 (the Guard reaches 18 su east), y 82..132, its centre
@@ -220,8 +221,8 @@ mod tests {
         );
     }
 
-    /// `> Group Destinations (Magic Box)`: inside the box, its edges included, everyone goes to the click. The box
-    /// bounds the units' silhouettes (design change 0028).
+    /// `systems/controls/commands.md > Group Destinations (Magic Box)`: inside the box, its edges included, everyone
+    /// goes to the click. The box bounds the units' silhouettes (design change 0028).
     #[test]
     fn inside_the_box_everyone_goes_to_the_click() {
         // The box is x 88..192, y 88..172.

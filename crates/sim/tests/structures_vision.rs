@@ -1,8 +1,8 @@
 //! The GDO structures in sight and in mind (slice M2-A): they are sight sources with the ElevationModifier
-//! (`core/vision.md`), enemies remember them in the fog (`> Explored`), a plate shares its tile with the patch it is
-//! placed onto (`factions/gdo/economy.md > ExtractionPlate`) and nothing else overlaps (design change 0096), and
-//! units attack enemy structures on their own, after the targets that shoot back (design change 0103). `TestSim`
-//! checks the invariants after every tick, the vision invariant V1 included.
+//! (`core/vision.md`), enemies remember them in the fog (`core/vision.md > Explored`), a plate shares its tile with the
+//! patch it is placed onto (`factions/gdo/economy.md > ExtractionPlate`) and nothing else overlaps (design change
+//! 0096), and units attack enemy structures on their own, after the targets that shoot back (design change 0103).
+//! `TestSim` checks the invariants after every tick, the vision invariant V1 included.
 
 use sc_sim::testing::{ScenarioBuilder, TestSim};
 use sc_sim::tuning::vision::FOG_DELAY_TICKS;

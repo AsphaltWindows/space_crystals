@@ -278,7 +278,7 @@ fn units_start_on_open_ground_and_apart() {
         layout(pk, 384.0, 128.0),    // in the water
         layout(pk, 64.0, 320.0),     // on the station
     ];
-    // Nobody plays the Cults in slot 1. Their layout may overlap the GDO's (`> Overlay editing`).
+    // Nobody plays the Cults in slot 1. Their layout may overlap the GDO's (`core/map_editor.md > Overlay editing`).
     *s.map.slots[0].layouts.get_mut(Faction::Cults) = vec![
         layout(guard, 384.0, 128.0), // in the water
         layout(guard, 300.0, 300.0), // on the GDO layout's object 0

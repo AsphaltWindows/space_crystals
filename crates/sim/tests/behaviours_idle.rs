@@ -227,9 +227,9 @@ fn an_idle_unit_picks_by_rotation_then_by_distance() {
     assert_eq!((target(&t, 1), pos(&t, 1)), (None, at));
 }
 
-/// `> ValidTarget`, question Q0014 point 1: automatic target picking never chooses the unit's own side or nobody's
-/// objects, and a Move is pure movement (`> Not active during: Move`): the unit passes an enemy without a shot and
-/// engages it once it has arrived and is idle.
+/// `systems/combat.md > ValidTarget`, question Q0014 point 1: automatic target picking never chooses the unit's own
+/// side or nobody's objects, and a Move is pure movement (`> Not active during`: Move): the unit passes an enemy
+/// without a shot and engages it once it has arrived and is idle.
 #[test]
 fn own_and_neutral_units_are_never_picked_and_a_move_doesnt_engage() {
     let mut t = ScenarioBuilder::new(OPEN).start();

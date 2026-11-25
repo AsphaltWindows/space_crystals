@@ -32,25 +32,26 @@ pub enum Builder {
     /// A GDO constructor holding the building ready: the ActiveGroup's one Deployment Center or Extraction Facility
     /// (`core/entities.md > Placement Validation > Direct Placement`: the ghost under the cursor,
     /// `Sim::placement_check`, `ConstructionCommand::Place`). Placement never moves on to another one
-    /// (`> SelectionGroup > No smart-casting`, design change 0071).
+    /// (`systems/controls/selection_and_hud.md > SelectionGroup > No smart-casting`, design change 0071).
     Constructor(ObjectId),
-    /// The Colonists' Drones of the ActiveGroup, one of which each click sends to deploy into a Beacon (`> Worker-Built
-    /// Structures`: the ghost under the cursor, `Sim::deploy_check`, `OrderKind::Deploy`; [`deploy_recipient`]).
+    /// The Colonists' Drones of the ActiveGroup, one of which each click sends to deploy into a Beacon
+    /// (`core/entities.md > Worker-Built Structures`: the ghost under the cursor, `Sim::deploy_check`,
+    /// `OrderKind::Deploy`; [`deploy_recipient`]).
     Drones {
         /// A Shift-click has sent a Deploy and a Drone of the group has none yet (`systems/controls/selection_and_hud.md
         /// > AwaitingTarget > Shift while placing > Exception, Drones`, design change 0125): "Shift-placement stays
         /// active and each Shift-click goes to the next Drone", while Shift is held; letting go of it ends placement
-        /// (`> Shift while placing`: "releasing Shift ends placement").
+        /// (`systems/controls/selection_and_hud.md > Shift while placing`: "releasing Shift ends placement").
         queued: bool,
     },
-    /// A Beacon warping the building in on itself (`> Warp In`): the ghost is the footprint derived from the Beacon
-    /// and the orientation (`sc_sim::transform::warp_in_footprint`, design change 0121: "No cursor snapping"),
-    /// wherever the cursor is; `Sim::warp_in_check`, `ConstructionCommand::WarpIn`.
+    /// A Beacon warping the building in on itself (`factions/colonists/economy.md > Warp In`): the ghost is the
+    /// footprint derived from the Beacon and the orientation (`sc_sim::transform::warp_in_footprint`, design change
+    /// 0121: "No cursor snapping"), wherever the cursor is; `Sim::warp_in_check`, `ConstructionCommand::WarpIn`.
     Beacon(ObjectId),
 }
 
-/// `> AwaitingPlacement`: the building that the local player is placing, and who builds it (plan decisions T10,
-/// T23).
+/// `systems/controls/selection_and_hud.md > AwaitingPlacement`: the building that the local player is placing, and who
+/// builds it (plan decisions T10, T23).
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub struct Placing {
     pub builder: Builder,
@@ -83,7 +84,7 @@ impl Placing {
     }
 
     /// The placement of the `kind` that Beacon `beacon` warps in, unturned: centred on the Beacon, an odd size's
-    /// extras at the bottom-right (`> Warp In Command`, design change 0121).
+    /// extras at the bottom-right (`factions/colonists/economy.md > Warp In Command`, design change 0121).
     pub fn warp_in(beacon: ObjectId, kind: ObjectKind) -> Self {
         Self {
             builder: Builder::Beacon(beacon),

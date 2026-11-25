@@ -38,8 +38,8 @@ const P1: PlayerId = PlayerId(1);
 const P2: PlayerId = PlayerId(2);
 const AGENT: ObjectKind = ObjectKind::Agent;
 const TUNNEL: ObjectKind = ObjectKind::Tunnel;
-/// `> Gathering > Supplies`: CarryCapacity, PickUpDuration, DropOffDuration, and the reaches (Placeholder: Q0082 point
-/// 1).
+/// `factions/syndicate/units/agent.md > Gathering > Supplies`: CarryCapacity, PickUpDuration, DropOffDuration, and the
+/// reaches (Placeholder: Q0082 point 1).
 const CARRY: u32 = 1;
 const PICK_UP: Tick = 48;
 const DROP_OFF: Tick = 48;

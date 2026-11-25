@@ -14,9 +14,9 @@
 //!   ([`ScenarioProblem::LayoutExtra`]), and every implemented faction's layout is complete at every start
 //!   ([`ScenarioProblem::LayoutMissing`]). A faction not implemented yet has no Starting Conditions objects, so its
 //!   layouts stay empty there (T11: staging, not a design change).
-//! - **Outdated layouts** (`> Outdated layouts`) are derived, never stored, so the map format stays at version 3
-//!   (T11): a layout is outdated when it holds objects but not exactly its faction's current Starting Conditions
-//!   ([`StartingConditions::is_outdated`], [`MapDef::outdated_layouts`]).
+//! - **Outdated layouts** (`core/map_editor.md > Outdated layouts`) are derived, never stored, so the map format stays
+//!   at version 3 (T11): a layout is outdated when it holds objects but not exactly its faction's current Starting
+//!   Conditions ([`StartingConditions::is_outdated`], [`MapDef::outdated_layouts`]).
 //! - **The camera's start** (`core/camera.md > Starting Position`): the faction's primary starting structure
 //!   ([`StartingConditions::primary`]), where the player's layout puts it ([`Scenario::primary_structure`]).
 

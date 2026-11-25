@@ -26,8 +26,8 @@
 //!   (`orders::engage`: it closes in, or its Attack completes and it stops where it is, design change 0200).
 //! - **Attacks from outside vision** (`core/vision.md`, design change 0177): each hit reveals its attacker to the
 //!   owner of the object hit, if that player didn't see it (`vision::reveal`), once the tick's hits are applied.
-//! - **Range** (`> Range Measurement`, design change 0031): edge to edge, the gap between the attacker's shape and
-//!   the target's (`shape`); [`reaches`] is the one check.
+//! - **Range** (`systems/combat.md > Range Measurement`, design change 0031): edge to edge, the gap between the
+//!   attacker's shape and the target's (`shape`); [`reaches`] is the one check.
 //!
 //! - **Riot Shield** (`factions/gdo/units/peacekeeper.md > Riot Shield`, `riot_shield`): only a Peacekeeper whose
 //!   shield is all the way down attacks (`riot_shield::allows_attack`): one whose shield is up or on its way (design
@@ -74,18 +74,18 @@ pub use targeting::{
 /// BaseAttackChannel`). The phases run in this order; after Reloading the sequence is over.
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum AttackPhase {
-    /// `> Aiming` (`> BaseAiming`): the unit turns to face `target`, at most its TurnRate per tick. Interruptible:
-    /// a different command, or a target that is no longer valid (gone, or out of range), cancels the sequence before
-    /// anything is fired.
+    /// `systems/combat.md > Aiming` (`systems/controls/behaviors.md > BaseAiming`): the unit turns to face `target`, at
+    /// most its TurnRate per tick. Interruptible: a different command, or a target that is no longer valid (gone, or
+    /// out of range), cancels the sequence before anything is fired.
     Aiming { target: ObjectId },
-    /// `> Firing` (`> BaseFiring`): not interruptible. The attack's effect lands on `target` at the end of the phase.
-    /// `None`: the target was destroyed meanwhile, and the attack hits nothing (a placeholder reading: the design
-    /// doesn't say).
+    /// `systems/combat.md > Firing` (`systems/controls/behaviors.md > BaseFiring`): not interruptible. The attack's
+    /// effect lands on `target` at the end of the phase. `None`: the target was destroyed meanwhile, and the attack
+    /// hits nothing (a placeholder reading: the design doesn't say).
     Firing { target: Option<ObjectId> },
-    /// `> Cooldown`: not interruptible; the unit is still unresponsive.
+    /// `systems/combat.md > Cooldown`: not interruptible; the unit is still unresponsive.
     Cooldown,
-    /// `> Reloading`: interruptible: the unit is free to do other things, but its next attack waits for the reload
-    /// to end, which keeps counting (a placeholder reading: interrupting it doesn't reset it).
+    /// `systems/combat.md > Reloading`: interruptible: the unit is free to do other things, but its next attack waits
+    /// for the reload to end, which keeps counting (a placeholder reading: interrupting it doesn't reset it).
     Reloading,
 }
 
@@ -137,8 +137,9 @@ pub struct AttackState {
 
 impl AttackState {
     /// The unit's behaviour engages `target`, or nothing. `systems/combat.md > Aiming`: a different command
-    /// interrupts an attack being aimed at another target; once Firing has begun, the sequence runs on (`> Firing`,
-    /// `> Cooldown`), and a reload keeps counting (`> Reloading`).
+    /// interrupts an attack being aimed at another target; once Firing has begun, the sequence runs on
+    /// (`systems/combat.md > Firing`, `systems/combat.md > Cooldown`), and a reload keeps counting
+    /// (`systems/combat.md > Reloading`).
     pub fn engage(&mut self, target: Option<ObjectId>) {
         if let Some(AttackPhase::Aiming { target: aimed }) = self.phase
             && Some(aimed) != target
@@ -171,13 +172,13 @@ impl AttackState {
     }
 }
 
-/// `systems/combat.md > AttackPhase`, `> UnitBaseSource`: whether `o`'s attack sequence lets its base move this
-/// tick. A unit that attacks from its base can't move while Aiming, Firing or in Cooldown; it may while Reloading
-/// and when no sequence runs. A turret unit's base always may (`> TurretSource`, `TurretSourceBaseActions`), and so
-/// may every object without an attack. The movement step (5d) holds a unit that may not, keeping its goal; the
-/// behaviours (5a) don't start a chase then. Before 5e it reads the phase the last tick left, which is the one
-/// this tick runs in; a Stop or a new target in 5a has already cancelled an aim. A unit that converts its weapon
-/// holds still whatever its attack (`conversion`: "The unit converts in place").
+/// `systems/combat.md > AttackPhase`, `systems/combat.md > UnitBaseSource`: whether `o`'s attack sequence lets its base
+/// move this tick. A unit that attacks from its base can't move while Aiming, Firing or in Cooldown; it may while
+/// Reloading and when no sequence runs. A turret unit's base always may (`systems/combat.md > TurretSource`,
+/// `TurretSourceBaseActions`), and so may every object without an attack. The movement step (5d) holds a unit that may
+/// not, keeping its goal; the behaviours (5a) don't start a chase then. Before 5e it reads the phase the last tick
+/// left, which is the one this tick runs in; a Stop or a new target in 5a has already cancelled an aim. A unit that
+/// converts its weapon holds still whatever its attack (`conversion`: "The unit converts in place").
 pub fn may_move(o: &Object) -> bool {
     base_is_free(o.kind, o.attack.as_ref()) && !conversion::is_converting(o)
 }
@@ -185,8 +186,8 @@ pub fn may_move(o: &Object) -> bool {
 /// `systems/combat.md > AttackPhase > UnitBaseSourceActions`: whether anything but the attack may turn `o`'s base
 /// this tick. Not while Aiming, when the attack turns the base to face its target (`systems/controls/behaviors.md >
 /// BaseAiming`: the orientation is overridden), nor in Firing and Cooldown, when the orientation is locked
-/// (`> BaseFiring`, `> BaseCooldown`). Turret units' bases are always free (`> TurretSource`). Nor while it converts
-/// its weapon (`conversion`).
+/// (`systems/controls/behaviors.md > BaseFiring`, `systems/controls/behaviors.md > BaseCooldown`). Turret units' bases
+/// are always free (`systems/combat.md > TurretSource`). Nor while it converts its weapon (`conversion`).
 pub fn may_turn(o: &Object) -> bool {
     base_is_free(o.kind, o.attack.as_ref()) && !conversion::is_converting(o)
 }

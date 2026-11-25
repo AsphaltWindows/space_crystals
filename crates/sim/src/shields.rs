@@ -10,21 +10,21 @@
 //!   change 0110: "current += (newMax − oldMax) each frame", `transform::follow_max`), and a cancel leaves them the
 //!   fraction of the maximum they had (design change 0111: "Shields by the same fraction (no minimum needed)",
 //!   `transform::keep_fraction`; `sim/transform.rs`). Hashed and saved like all state.
-//! - **Damage** (`> Shield Damage Resolution`; `combat::damage`): a hit takes the Shields first, at full value, and
-//!   only the overflow goes on to the HP through the usual modifiers, its minimum capped at the overflow. Hits are
-//!   resolved as the tick's list is applied (plan decision T18), so the second hit of a tick meets the Shields the
-//!   first one left.
-//! - **Regeneration** ([`step`]): `> ShieldRegenRate`, 0.25 per frame ([`SHIELD_REGEN_PER_TICK`]), "continuously (not
-//!   gated by a delay after taking damage)", up to the maximum now ([`Object::max_shields`]): while the object
-//!   transforms, the interpolated one (design changes 0110: "Shields regenerate normally up to the current maximum",
-//!   and 0146). It runs right after phase 5e's dead have left the game and before the economy (`ARCHITECTURE.md > Tick
-//!   pipeline`), so the dead never regenerate and a unit hit in a tick already regenerates in it. Whoever owns the
-//!   object: a defeated player's objects, which have become neutral (`core/game_rules.md > On Defeat`), regenerate as
-//!   well (`> ShieldRegenRate`: "Regeneration applies to every object with Shields, including neutral ones", design
-//!   change 0146).
+//! - **Damage** (`systems/combat.md > Shield Damage Resolution`; `combat::damage`): a hit takes the Shields first, at
+//!   full value, and only the overflow goes on to the HP through the usual modifiers, its minimum capped at the
+//!   overflow. Hits are resolved as the tick's list is applied (plan decision T18), so the second hit of a tick meets
+//!   the Shields the first one left.
+//! - **Regeneration** ([`step`]): `systems/combat.md > ShieldRegenRate`, 0.25 per frame ([`SHIELD_REGEN_PER_TICK`]),
+//!   "continuously (not gated by a delay after taking damage)", up to the maximum now ([`Object::max_shields`]): while
+//!   the object transforms, the interpolated one (design changes 0110: "Shields regenerate normally up to the current
+//!   maximum", and 0146). It runs right after phase 5e's dead have left the game and before the economy
+//!   (`ARCHITECTURE.md > Tick pipeline`), so the dead never regenerate and a unit hit in a tick already regenerates in
+//!   it. Whoever owns the object: a defeated player's objects, which have become neutral (`core/game_rules.md > On
+//!   Defeat`), regenerate as well (`systems/combat.md > ShieldRegenRate`: "Regeneration applies to every object with
+//!   Shields, including neutral ones", design change 0146).
 //!
-//! TODO(Fusion Core): the Fusion Core's shield upgrades raise the rate (`> ShieldRegenRate`: "each level increasing
-//! the rate; per-level values TBD", `factions/colonists/structures/fusion_core.md > Research`).
+//! TODO(Fusion Core): the Fusion Core's shield upgrades raise the rate (`systems/combat.md > ShieldRegenRate`: "each
+//! level increasing the rate; per-level values TBD", `factions/colonists/structures/fusion_core.md > Research`).
 
 use std::collections::BTreeMap;
 
@@ -56,7 +56,7 @@ pub(crate) fn step(objects: &mut BTreeMap<ObjectId, Object>, first_new: ObjectId
 mod tests {
     use super::*;
 
-    /// `> ShieldRegenRate`: 0.25 a tick, so 0 to 10 in 40 ticks, exactly, and never past the maximum.
+    /// `systems/combat.md > ShieldRegenRate`: 0.25 a tick, so 0 to 10 in 40 ticks, exactly, and never past the maximum.
     #[test]
     fn shields_regenerate_a_quarter_a_tick_up_to_the_maximum() {
         let mut shields = 0.0;

@@ -70,9 +70,9 @@ impl Sim {
         })
     }
 
-    /// `ConstructionCommand::CancelTransform` (`> Cancel Warp In`): the player's objects among `objects` that are
-    /// transforming, in id order (ids that no longer exist dropped, anyone else's object [`Reject::NotOwned`]); none
-    /// is [`Reject::NotTransforming`].
+    /// `ConstructionCommand::CancelTransform` (`factions/colonists/economy.md > Cancel Warp In`): the player's objects
+    /// among `objects` that are transforming, in id order (ids that no longer exist dropped, anyone else's object
+    /// [`Reject::NotOwned`]); none is [`Reject::NotTransforming`].
     pub(super) fn check_cancel_transform(&self, player: PlayerId, objects: &[ObjectId]) -> Result<Resolved, Reject> {
         let transforming = self.own_units(player, objects, Object::is_transforming)?;
         if transforming.is_empty() {
@@ -81,11 +81,12 @@ impl Sim {
         Ok(Resolved::CancelTransform { objects: transforming })
     }
 
-    /// Beacon `beacon` of `player`'s, checked by the gate, warps in `kind` at `placement` (`> Warp In Command`: "The
-    /// Beacon is consumed and begins transforming in place into the selected building"): the bank pays the cost (`>
-    /// Constructs List`), and the Beacon becomes the building from this frame on (plan decision T15,
-    /// [`Sim::change_kind`]), on its footprint, with its functions held back ([`hold_back`]) and its HP and Shields
-    /// as they were: at no frame done, their maxima are still the Beacon's (`> HP/Shields Interpolation`).
+    /// Beacon `beacon` of `player`'s, checked by the gate, warps in `kind` at `placement`
+    /// (`factions/colonists/economy.md > Warp In Command`: "The Beacon is consumed and begins transforming in place
+    /// into the selected building"): the bank pays the cost (`factions/colonists/economy.md > Constructs List`), and
+    /// the Beacon becomes the building from this frame on (plan decision T15, [`Sim::change_kind`]), on its footprint,
+    /// with its functions held back ([`hold_back`]) and its HP and Shields as they were: at no frame done, their maxima
+    /// are still the Beacon's (`factions/colonists/economy.md > HP/Shields Interpolation`).
     pub(super) fn start_warp_in(&mut self, player: PlayerId, beacon: ObjectId, kind: ObjectKind, placement: Placement) {
         let Some(o) = self.objects.get(&beacon) else {
             return;
@@ -111,9 +112,9 @@ impl Sim {
         o.transform = Some(Transform::new(from, from_placement, recipe));
     }
 
-    /// Object `id` gives up its transformation (`> Cancel Warp In`: "Cancelling refunds 75% of the building's
-    /// resource cost (rounded down), and the structure reverts to being a normal, fully-functional Beacon (no
-    /// HP/Shields loss)"): its owner gets back [`Refund::Ready`] of what it paid, with a
+    /// Object `id` gives up its transformation (`factions/colonists/economy.md > Cancel Warp In`: "Cancelling refunds
+    /// 75% of the building's resource cost (rounded down), and the structure reverts to being a normal,
+    /// fully-functional Beacon (no HP/Shields loss)"): its owner gets back [`Refund::Ready`] of what it paid, with a
     /// `SimEvent::TransformCancelled`; it turns back into what it was where it stood ([`Sim::change_kind`]: its old
     /// footprint, design change 0109, or for a unit where it is), its capabilities as that kind's; and it keeps the
     /// fraction of its HP it had, at least 1 ([`keep_fraction`], [`MIN_HP_AFTER_CANCEL`], design change 0111), and
@@ -185,10 +186,10 @@ impl Sim {
         }
     }
 
-    /// Object `id`'s transformation is complete (`> Warp In`; `factions/colonists/economy.md > Beacon Deployment >
-    /// Completion`: "the transformation is final and one-way"): it no longer transforms, and its functions start,
-    /// as a new object of its kind has them ([`Capabilities::fresh`]): a portal accepts Train from the next tick.
-    /// With a `SimEvent::TransformCompleted`.
+    /// Object `id`'s transformation is complete (`factions/colonists/economy.md > Warp In`;
+    /// `factions/colonists/economy.md > Beacon Deployment > Completion`: "the transformation is final and one-way"): it
+    /// no longer transforms, and its functions start, as a new object of its kind has them ([`Capabilities::fresh`]): a
+    /// portal accepts Train from the next tick. With a `SimEvent::TransformCompleted`.
     fn complete_transform(&mut self, id: ObjectId) {
         let Some(o) = self.objects.get(&id) else {
             return;

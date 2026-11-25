@@ -84,10 +84,11 @@ fn the_deployment_center_opens_its_build_menus() {
     assert_eq!(shown_mixed.get(q).map(|s| s.look), Some(Group));
 }
 
-/// `> BuildMenu (instance constructing)`: X cancels with a full refund and the other options are unavailable;
-/// `> BuildMenu (building ready)`: the ready building's slot becomes "Select completed building" (design change
-/// 0104), which enters AwaitingPlacement, and X cancels the ready building; the DefaultState shows X too.
-/// AwaitingPlacement marks the building, the rest waits, and Back returns to the build menu.
+/// `factions/gdo/structures/deployment_center.md > BuildMenu (instance constructing)`: X cancels with a full refund and
+/// the other options are unavailable; `factions/gdo/structures/deployment_center.md > BuildMenu (building ready)`: the
+/// ready building's slot becomes "Select completed building" (design change 0104), which enters AwaitingPlacement, and
+/// X cancels the ready building; the DefaultState shows X too. AwaitingPlacement marks the building, the rest waits,
+/// and Back returns to the build menu.
 #[test]
 fn a_constructing_or_ready_deployment_center_cancels_in_x_and_places_its_building() {
     use ButtonLook::{Back, Common, Disabled, Group, Pending};
@@ -213,9 +214,9 @@ fn the_extraction_facility_builds_then_places_its_plate() {
     assert_eq!(awaiting.get(CommandSlot::BACK).map(|s| s.look), Some(ButtonLook::Back));
 }
 
-/// No smart-casting (`> SelectionGroup > No smart-casting`, design change 0071): Deployment Centers and Extraction
-/// Facilities are Ungroupable, each its own SelectionGroup, and a constructor's command goes to the one whose state
-/// the panel shows, never to the other selected ones.
+/// No smart-casting (`systems/controls/selection_and_hud.md > SelectionGroup > No smart-casting`, design change 0071):
+/// Deployment Centers and Extraction Facilities are Ungroupable, each its own SelectionGroup, and a constructor's
+/// command goes to the one whose state the panel shows, never to the other selected ones.
 #[test]
 fn a_constructors_commands_go_to_the_active_instance_only() {
     use PanelCommand::{CancelConstruction, Construct, PlaceReady};
@@ -236,8 +237,9 @@ fn a_constructors_commands_go_to_the_active_instance_only() {
     assert_eq!(menu_of(EF, PLATE), None);
 }
 
-/// `> AwaitingPlacement`: the ghost is snapped under the cursor, centred on it; R turns it a quarter turn clockwise
-/// and Shift + R back, so a Barracks (3 × 2) becomes 2 × 3; F and Shift + F mirror it as seen, each undoing itself.
+/// `factions/gdo/structures/deployment_center.md > AwaitingPlacement`: the ghost is snapped under the cursor, centred
+/// on it; R turns it a quarter turn clockwise and Shift + R back, so a Barracks (3 × 2) becomes 2 × 3; F and Shift + F
+/// mirror it as seen, each undoing itself.
 #[test]
 fn the_ghost_snaps_under_the_cursor_and_turns() {
     use bevy::math::Vec2;

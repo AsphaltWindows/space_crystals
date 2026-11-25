@@ -23,8 +23,8 @@ fn object(kind: ObjectKind, x: i32, y: i32) -> LayoutObject {
     }
 }
 
-/// `> Skirmish Default restriction`: the GDO's Starting Conditions with their counts left; on a Custom map every
-/// type a player may own; nothing for a faction not implemented yet (T11).
+/// `core/map_editor.md > Skirmish Default restriction`: the GDO's Starting Conditions with their counts left; on a
+/// Custom map every type a player may own; nothing for a faction not implemented yet (T11).
 #[test]
 fn the_palette_offers_what_the_layout_may_take() {
     let mut map = skirmish();
@@ -104,8 +104,8 @@ fn missing_lists_read_like_the_design() {
     assert_eq!(layout_name(SlotId(3), Faction::Gdo), "S3 GDO layout");
 }
 
-/// `> Outdated layouts`, derived (T11): any layout that isn't the current Starting Conditions is flagged; on a
-/// Custom map, which takes anything, the line only says that it differs.
+/// `core/map_editor.md > Outdated layouts`, derived (T11): any layout that isn't the current Starting Conditions is
+/// flagged; on a Custom map, which takes anything, the line only says that it differs.
 #[test]
 fn layouts_unlike_the_starting_conditions_are_flagged() {
     let mut map = skirmish();

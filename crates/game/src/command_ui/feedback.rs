@@ -3,12 +3,12 @@
 //!   target clicks`, design change 0065): the click is ignored, the target is still awaited, and the player gets
 //!   "short feedback (an 'invalid target' message and/or sound; exact form TBD, ties into the future notification
 //!   system)";
-//! - a Train that some of its producers didn't queue for want of Space Crystals (`> SelectionGroup > No
-//!   smart-casting > Group production with limited resources`, design change 0083): "The others don't queue, and the
-//!   player gets insufficient-resources feedback". The sim tells which (`SimEvent::ProductionRefused`); a full queue
-//!   is no resource, and gives none. A Train that no producer would queue is never sent: its button is disabled
-//!   (`super::interface::Conditions`). The army cap is checked when production starts, not when a unit is queued
-//!   (design change 0143), so it refuses nothing;
+//! - a Train that some of its producers didn't queue for want of Space Crystals
+//!   (`systems/controls/selection_and_hud.md > SelectionGroup > No smart-casting > Group production with limited
+//!   resources`, design change 0083): "The others don't queue, and the player gets insufficient-resources feedback".
+//!   The sim tells which (`SimEvent::ProductionRefused`); a full queue is no resource, and gives none. A Train that no
+//!   producer would queue is never sent: its button is disabled (`super::interface::Conditions`). The army cap is
+//!   checked when production starts, not when a unit is queued (design change 0143), so it refuses nothing;
 //! - a producer whose unit at the front waits at 0% for room under the army cap (`SimEvent::ProductionWaiting`,
 //!   design change 0143: "A blocked queue raises a notification (not yet designed)"): placeholder for that
 //!   notification, the cap's name ([`army_cap_text`]: Unit Control, or the Colonists' Beacon Capacity, plan decision
@@ -18,10 +18,10 @@
 //!   ObjectInterfaceState[DeploymentCenter] > AwaitingPlacement`): a left-click where the ghost is invalid sends
 //!   nothing and placement goes on (`super::InvalidPlacement`), and a Place that the sim refused as it applied it,
 //!   the game having changed since the click (`SimEvent::PlacementRefused`, e.g. a unit walked onto the footprint),
-//!   leaves the building ready to place and the player in DefaultState, where the valid click left them (`>
-//!   AwaitingPlacement`: it "returns to DefaultState"); the ready building's slot enters placement again. Both say
-//!   why: the placement check's first problem ([`placement_text`]). Placeholders: the design gives no message for
-//!   either;
+//!   leaves the building ready to place and the player in DefaultState, where the valid click left them
+//!   (`factions/gdo/structures/deployment_center.md > AwaitingPlacement`: it "returns to DefaultState"); the ready
+//!   building's slot enters placement again. Both say why: the placement check's first problem ([`placement_text`]).
+//!   Placeholders: the design gives no message for either;
 //! - a Deploy that failed at the end of the Drone's walk (`SimEvent::DeployFailed`, slice M3-F; `factions/colonists/
 //!   economy.md > Beacon Deployment > Placement`): what the check found on arrival, as for a building, or that the
 //!   Drone didn't get to its site ([`deploy_failed_text`]). Placeholders too;

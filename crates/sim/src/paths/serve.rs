@@ -1,5 +1,6 @@
-//! Phase 5c (`docs/movement.md > 4`, `> 5.5`): the staggered path checks, then the tick's path requests. Every
-//! unit plans on what its owner knows (`systems/controls/behaviors.md > PathKnowledge`, [`super::knowledge`]).
+//! Phase 5c (`docs/movement.md > 4`, `docs/movement.md > 5.5`): the staggered path checks, then the tick's path
+//! requests. Every unit plans on what its owner knows (`systems/controls/behaviors.md > PathKnowledge`,
+//! [`super::knowledge`]).
 
 use std::collections::BTreeMap;
 
@@ -66,9 +67,10 @@ enum Direct {
     Straight { path: Vec<Vec2>, goal: Vec2 },
 }
 
-/// Phase 5c (`docs/movement.md > 4`, `> 5.5`): run the staggered path checks ([`staggered_check`]), then serve the
-/// units' path requests in `(since, id)` order within `tuning::paths::PATH_BUDGET`, units of one order group sharing a
-/// field. Units before `first_new` only. A unit that can't get a path fails its move (`SimEvent::MoveFailed`).
+/// Phase 5c (`docs/movement.md > 4`, `docs/movement.md > 5.5`): run the staggered path checks ([`staggered_check`]),
+/// then serve the units' path requests in `(since, id)` order within `tuning::paths::PATH_BUDGET`, units of one order
+/// group sharing a field. Units before `first_new` only. A unit that can't get a path fails its move
+/// (`SimEvent::MoveFailed`).
 ///
 /// **Whose grids** (`systems/controls/behaviors.md > PathKnowledge`): each unit's checks and plans run on its
 /// owner's known grids (`NavState::plan_grid`), and its path notes the version of that knowledge

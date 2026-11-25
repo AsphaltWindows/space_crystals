@@ -81,7 +81,7 @@ pub enum Refund {
     /// (`factions/gdo/structures/barracks.md`: "X: Cancel Production ... refunds full cost").
     Full,
     /// A building cancelled once it is ready to place: "75% refund of Space Crystals cost (rounded down)" (the same
-    /// two `> Cancellation` sections).
+    /// two Cancellation sections).
     Ready,
 }
 

@@ -71,8 +71,9 @@ pub struct Object {
     #[serde(default)]
     pub constructor: Option<Constructor>,
     /// A worker, the Drone: the load it carries, its AssignedDropOff and the patch it gathers
-    /// (`factions/colonists/units/drone.md > Gathering`, `> Assigned Drop-off`; `economy::gathering`). `None` for
-    /// everything else. Optional in files, so that states saved before it existed still load.
+    /// (`factions/colonists/units/drone.md > Gathering`, `factions/colonists/units/drone.md > Assigned Drop-off`;
+    /// `economy::gathering`). `None` for everything else. Optional in files, so that states saved before it existed
+    /// still load.
     #[serde(default)]
     pub worker: Option<Worker>,
     /// An object transforming into its kind, a building being warped in from a Beacon: what it was, its progress

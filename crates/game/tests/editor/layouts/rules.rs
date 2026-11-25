@@ -109,9 +109,9 @@ fn the_place_tool_puts_plates_onto_uncovered_patches() {
 
 /// Slice M2-J2 (M2-I's finding): the layouts of two slots in each other's way are listed under Problems as soon as
 /// they are, like every other problem, not only when F5 is refused: the list says what keeps the play-test's game
-/// from starting (`Scenario::validate`, with the play-test's setup). Each layout is valid on its own (`> Overlay
-/// editing`), so the Layout tool takes the object. With slot 2 playing a faction whose layout there is empty,
-/// nothing is in the way any more.
+/// from starting (`Scenario::validate`, with the play-test's setup). Each layout is valid on its own
+/// (`core/map_editor.md > Overlay editing`), so the Layout tool takes the object. With slot 2 playing a faction whose
+/// layout there is empty, nothing is in the way any more.
 #[test]
 fn layouts_in_each_others_way_are_listed_at_once() {
     let mut app = editor(scenarios::empty_map(32, 24), &temp_maps("layout_overlap"));

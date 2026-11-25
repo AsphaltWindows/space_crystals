@@ -1,9 +1,9 @@
 //! Gathering Drones pass through each other (slice M3-H2; design change 0106, `factions/colonists/units/drone.md >
 //! Gathering Drones pass through each other`, `systems/units.md > UnitCollision > Ground Collision > Exception,
-//! gathering Drones` and `> Units that already overlap`): 0106's Verification, point by point. What becomes of a
-//! Drone stopped inside another (design change 0126: idle, it moves off) is `movement_separate.rs`. The saturated row is
-//! `gathering_soak.rs`. "Recruits mining a patch still bump into each other" has no test: the Cults aren't built,
-//! and the Drone is the only worker (`WorkerDef::pass_through` is the switch a Recruit won't have).
+//! gathering Drones` and `systems/units.md > Units that already overlap`): 0106's Verification, point by point. What
+//! becomes of a Drone stopped inside another (design change 0126: idle, it moves off) is `movement_separate.rs`. The
+//! saturated row is `gathering_soak.rs`. "Recruits mining a patch still bump into each other" has no test: the Cults
+//! aren't built, and the Drone is the only worker (`WorkerDef::pass_through` is the switch a Recruit won't have).
 //!
 //! `TestSim` checks invariant I1 after every tick: only two gathering Drones, or two units that already overlapped a
 //! tick earlier, may overlap. So every test here also shows that nothing else ever does.

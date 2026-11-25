@@ -1,5 +1,6 @@
 //! The `Orders` capability: a unit's command queue and the behaviour of its current order —
-//! `systems/controls/commands.md > Unit Command`, `systems/controls/behaviors.md`, `docs/movement.md > 3`, `> 4`.
+//! `systems/controls/commands.md > Unit Command`, `systems/controls/behaviors.md`, `docs/movement.md > 3`,
+//! `docs/movement.md > 4`.
 //!
 //! A player's `Command::Order` (phase 4) only writes queues ([`Orders::give`]) and decides where each unit of a
 //! group goes ([`destinations`], the magic box); it never moves anything. Phase 5a ([`update`]) completes orders,
@@ -68,17 +69,17 @@ pub enum Target {
 /// The orders of `systems/controls/commands.md` that units have so far (`docs/movement.md > 3`).
 #[derive(Copy, Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub enum OrderKind {
-    /// `> Move`.
+    /// `systems/controls/commands.md > Move`.
     Move(Target),
-    /// `> Attack`: a destructible object.
+    /// `systems/controls/commands.md > Attack`: a destructible object.
     Attack(ObjectId),
-    /// `> AttackMove`: a point.
+    /// `systems/controls/commands.md > AttackMove`: a point.
     AttackMove(Vec2),
-    /// `> Patrol`: the far end of the patrol, a point.
+    /// `systems/controls/commands.md > Patrol`: the far end of the patrol, a point.
     Patrol(Vec2),
-    /// `> HoldPosition`.
+    /// `systems/controls/commands.md > HoldPosition`.
     Hold,
-    /// `> Stop`.
+    /// `systems/controls/commands.md > Stop`.
     Stop,
     /// `factions/colonists/units/drone.md > Unit Commands > Gather`: a worker gathers from a Space Crystals patch
     /// and delivers to its AssignedDropOff, again and again ([`gather`]). The patch is the one the worker heads for
@@ -86,14 +87,15 @@ pub enum OrderKind {
     /// "its gather target follows where it actually mined"). A patch that is gone stays named while the worker
     /// heads for where it was (design change 0134, `state::Gather::spot`).
     Gather(ObjectId),
-    /// `> Unit Commands > Drop Off Resources`: a worker delivers the load it carries to this drop-off of its
-    /// owner's, an Egress Node ([`gather`]).
+    /// `factions/colonists/units/drone.md > Unit Commands > Drop Off Resources`: a worker delivers the load it carries
+    /// to this drop-off of its owner's, an Egress Node ([`gather`]).
     DropOff(ObjectId),
     /// `factions/colonists/economy.md > Beacon Deployment > Deploy Command`: a Drone walks to the site of a Beacon
     /// whose footprint's top-left tile is `origin` and deploys into it there (`crate::deploy`, [`deploy`]).
     Deploy { origin: TilePos },
-    /// `> Enter`: "The unit walks to Side A and enters the Tunnel Network" (`factions/syndicate/tunnels.md > Tunnel
-    /// Network > Walking in`; [`enter`], `crate::network`): this Tunnel of its owner's, through its entry path.
+    /// `systems/controls/commands.md > Enter`: "The unit walks to Side A and enters the Tunnel Network"
+    /// (`factions/syndicate/tunnels.md > Tunnel Network > Walking in`; [`enter`], `crate::network`): this Tunnel of its
+    /// owner's, through its entry path.
     Enter(ObjectId),
 }
 

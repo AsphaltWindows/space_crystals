@@ -32,7 +32,8 @@ pub(super) fn to_patch(
         Site::Station(station) => return to_station(state, unit, def, station, world, claims),
         Site::Nowhere => return end(state, unit),
     };
-    // `> Gathering`: MiningReach. A leg that ended short of the patch counts as arriving, out of reach (0141).
+    // `factions/colonists/units/drone.md > Gathering`: MiningReach. A leg that ended short of the patch counts as
+    // arriving, out of reach (0141).
     let in_reach = unit.shape().gap(&target) <= def.crystals.pick_up_reach;
     let ended = state.moving && unit.mover.status != MoveStatus::Moving;
     if !in_reach && !ended {
@@ -62,9 +63,9 @@ pub(super) fn to_patch(
         state.enter(GatherPhase::Mining { done: 0 });
         return Flow::Stay;
     }
-    // `> Patch Occupancy`: "When a Drone arrives at an occupied patch, it goes to the nearest unoccupied patch to
-    // itself instead" (0132, item 1; and item 3: one sent on that finds that patch taken too "starts over from
-    // there"), and so it does at a patch it can't reach (0141). With none, it waits.
+    // `factions/colonists/units/drone.md > Patch Occupancy`: "When a Drone arrives at an occupied patch, it goes to the
+    // nearest unoccupied patch to itself instead" (0132, item 1; and item 3: one sent on that finds that patch taken
+    // too "starts over from there"), and so it does at a patch it can't reach (0141). With none, it waits.
     if let Some(other) = search(world, claims, unit, def, Some(patch.id)).free {
         go_on(kind, state, (unit.id, unit.owner), other, !def.shares_patches, claims);
         return Flow::Next;
@@ -182,8 +183,8 @@ pub(super) fn go_on(
     }
 }
 
-/// Design change 0123 (`> When a Gather ends`): no patch is left within the worker's search radius. "It first
-/// delivers any load it carries, then becomes idle (or starts its next queued order)."
+/// Design change 0123 (`factions/colonists/units/drone.md > When a Gather ends`): no patch is left within the worker's
+/// search radius. "It first delivers any load it carries, then becomes idle (or starts its next queued order)."
 pub(super) fn end(state: &mut Gather, unit: &Unit) -> Flow {
     if !loaded(unit) {
         return Flow::Done;

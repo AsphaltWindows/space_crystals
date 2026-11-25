@@ -24,11 +24,12 @@ pub(in crate::command_ui) struct OrderOutbox<'w> {
 }
 
 impl OrderOutbox<'_> {
-    /// Gives `kind` to `player`'s units among `units` (`> CommandPanel`: "Commands can only be issued to objects
-    /// owned by the player"; only units take orders). Nothing when none of them is left, or when the sim would
-    /// reject the order (`Sim::validate`: e.g. a point off the map, or an indestructible target to attack). An Attack
-    /// that the gate refuses only because none of the units takes one yet goes all the same when a Lower Shield sent
-    /// for the same tick makes one of them a Peacekeeper first ([`Self::attack_once_toggled`]).
+    /// Gives `kind` to `player`'s units among `units` (`systems/controls/selection_and_hud.md > CommandPanel`:
+    /// "Commands can only be issued to objects owned by the player"; only units take orders). Nothing when none of them
+    /// is left, or when the sim would reject the order (`Sim::validate`: e.g. a point off the map, or an indestructible
+    /// target to attack). An Attack that the gate refuses only because none of the units takes one yet goes all the
+    /// same when a Lower Shield sent for the same tick makes one of them a Peacekeeper first
+    /// ([`Self::attack_once_toggled`]).
     pub(super) fn give(&mut self, player: PlayerId, units: Vec<ObjectId>, kind: OrderKind, queue: bool) -> bool {
         let units = self.own_units(player, units);
         // `ARCHITECTURE.md > Commands, events and replays`: never a non-finite number, which a replay can't store.

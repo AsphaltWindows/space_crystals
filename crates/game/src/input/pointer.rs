@@ -92,12 +92,14 @@ pub struct MapClick {
     /// The modifiers held when the click was sent. What they mean comes from the bindings
     /// (`Bindings::holds(InputAction::Queue, modifiers)`), as in that frame's [`ActionState`].
     pub modifiers: Modifiers,
-    /// The second click of a double-click (`> MapClickSelection`): the same action, within
-    /// [`DOUBLE_CLICK_SECONDS`] and [`DOUBLE_CLICK_DISTANCE_PX`] of the previous click. A third click starts over.
+    /// The second click of a double-click (`systems/controls/selection_and_hud.md > MapClickSelection`): the same
+    /// action, within [`DOUBLE_CLICK_SECONDS`] and [`DOUBLE_CLICK_DISTANCE_PX`] of the previous click. A third click
+    /// starts over.
     pub double: bool,
 }
 
-/// A box dragged with [`InputAction::Select`], sent when released (`> BoxSelection`).
+/// A box dragged with [`InputAction::Select`], sent when released (`systems/controls/selection_and_hud.md >
+/// BoxSelection`).
 #[derive(Message, Copy, Clone, Debug, PartialEq)]
 pub struct SelectionBox {
     /// In view space, from where the drag went down to where it was released, kept inside the world view. Objects

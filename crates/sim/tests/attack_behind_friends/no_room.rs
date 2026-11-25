@@ -1,17 +1,18 @@
 //! **No way round** (slice M3-G3; design change 0223, answering question Q0057; `systems/controls/behaviors.md >
 //! AttackingObject > Blocked by its own side`; `docs/movement.md > 6.5`, rule 2). An attacker whose way to its
 //! target is blocked by its own side, with no way round (a corridor, a passage the front rank fills):
-//! - **farther than 3 grid units from the target**, follows the Failure rule (`> MovingToLocation > Failure`): its
-//!   attempts at a way round are the leg's three, and it gives up when it is still stuck `STUCK_TICKS` after the
-//!   last, about 7 s after its last progress, as any stuck unit does. Until 0223 it waited behind the blockers for
-//!   as long as the target stood. An Attack then completes, and the unit is idle;
+//! - **farther than 3 grid units from the target**, follows the Failure rule (`systems/controls/behaviors.md >
+//!   MovingToLocation > Failure`): its attempts at a way round are the leg's three, and it gives up when it is still
+//!   stuck `STUCK_TICKS` after the last, about 7 s after its last progress, as any stuck unit does. Until 0223 it
+//!   waited behind the blockers for as long as the target stood. An Attack then completes, and the unit is idle;
 //! - **within 3 grid units**, out of range (melee units behind the front rank), the approach counts as arrived, and
 //!   the unit gives the target up (0223 point 1, as built).
 //!
-//! An idle unit then takes the target again by itself after 32 ticks (`> BaseAutoTargeting > Unreachable
-//! auto-targets`, design change 0181), and fires once it is in range. An AttackMove treats the chase it gave up as
-//! one it can't finish (design change 0235, slice M3-L4): it walks on along its leg, and takes the target again only
-//! within weapon range, or once it has moved or the known obstacles have changed (`orders::reach`).
+//! An idle unit then takes the target again by itself after 32 ticks (`systems/controls/behaviors.md >
+//! BaseAutoTargeting > Unreachable auto-targets`, design change 0181), and fires once it is in range. An AttackMove
+//! treats the chase it gave up as one it can't finish (design change 0235, slice M3-L4): it walks on along its leg, and
+//! takes the target again only within weapon range, or once it has moved or the known obstacles have changed
+//! (`orders::reach`).
 //!
 //! The rewrites of slice M3-G2's tests of a unit with no room (`in_a_corridor_the_units_behind_wait_without_moving_
 //! or_planning` and `in_a_narrow_passage_the_second_row_waits`) are here, as the tests of the same scenes under

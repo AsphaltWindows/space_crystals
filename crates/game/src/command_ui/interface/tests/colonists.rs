@@ -81,8 +81,8 @@ fn the_beacon_opens_two_warp_in_menus() {
     assert_eq!(menu_of(BEACON, ObjectKind::Generator), None);
 }
 
-/// `> Warp In > Constructs List`: a Warp In the bank can't pay for is disabled, and says so (design change 0162);
-/// where the building would stand is the ghost's to show, not the button's.
+/// `factions/colonists/economy.md > Warp In > Constructs List`: a Warp In the bank can't pay for is disabled, and says
+/// so (design change 0162); where the building would stand is the ghost's to show, not the button's.
 #[test]
 fn a_warp_in_the_bank_cannot_pay_for_says_why() {
     let beacon = Selection::new([(id(1), BEACON)]);

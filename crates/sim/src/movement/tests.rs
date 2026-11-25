@@ -144,8 +144,8 @@ fn without_a_path_the_unit_waits_and_its_stuck_clock_stands() {
     assert_eq!(mover.last_progress, 99, "it moved on with the ticks");
 }
 
-/// `docs/movement.md > 6.5`, `> 5.6` (design change 0024): a unit that makes no progress is stuck after 24 ticks,
-/// repaths three times after waits of 8, 16 and 32 ticks, then fails.
+/// `docs/movement.md > 6.5`, `docs/movement.md > 5.6` (design change 0024): a unit that makes no progress is stuck
+/// after 24 ticks, repaths three times after waits of 8, 16 and 32 ticks, then fails.
 #[test]
 fn a_unit_without_progress_repaths_three_times_and_fails() {
     let frozen = MovementAttrs::TurnRate {

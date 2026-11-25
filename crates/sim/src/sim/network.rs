@@ -249,7 +249,7 @@ impl Sim {
     /// Condition`), so no Tunnel, and nothing inside their network could ever come out
     /// (`factions/syndicate/tunnels.md > Losing Tunnels > Stranded units`: with no Tunnel left, "every unit inside the
     /// network is destroyed"; the rule for a player who lives on is slice M4-H's). Their units on the map become
-    /// neutral instead (`> On Defeat`, `economy::defeat`).
+    /// neutral instead (`core/game_rules.md > On Defeat`, `economy::defeat`).
     pub(super) fn clear_defeated_networks(&mut self) {
         if self.held.is_empty() {
             return;
@@ -381,9 +381,9 @@ impl Sim {
     }
 
     /// The order a unit `unit` produced into the network leaves it with for `rally`, its producer's rally point, or
-    /// `None` if the rally keeps it inside (`> Rally Point Behavior`, [`Sim::release_into_network`]): a rally on a
-    /// Tunnel of its owner's keeps it inside; one on an underground structure of its owner's is the surface spot
-    /// above it; any other gives the unit's default command on the target.
+    /// `None` if the rally keeps it inside (`factions/syndicate/structures/README.md > Rally Point Behavior`,
+    /// [`Sim::release_into_network`]): a rally on a Tunnel of its owner's keeps it inside; one on an underground
+    /// structure of its owner's is the surface spot above it; any other gives the unit's default command on the target.
     fn surface_rally_order(&self, unit: &Object, rally: Rally) -> Option<OrderKind> {
         if let Rally::Object { id, .. } = rally
             && let Some(target) = self.objects.get(&id)

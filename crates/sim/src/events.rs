@@ -45,8 +45,8 @@ pub enum SimEvent {
         to: Vec2,
     },
     /// `target` lost `damage` HP and `shield_damage` Shields to `attacker`'s attack (`systems/combat.md >
-    /// SingleTargetDamage`, `> Shields > Shield Damage Resolution`; `combat::resolve`): Shields that take all of it
-    /// leave the HP untouched (`damage` 0).
+    /// SingleTargetDamage`, `systems/combat.md > Shields > Shield Damage Resolution`; `combat::resolve`): Shields that
+    /// take all of it leave the HP untouched (`damage` 0).
     Hit {
         attacker: ObjectId,
         target: ObjectId,
@@ -140,7 +140,8 @@ pub enum SimEvent {
         problems: PlacementCheck,
     },
     /// `player` was defeated in this tick: they own no structure any more (`core/game_rules.md > Defeat Condition`,
-    /// plan decision T8), and their remaining units became neutral (`> On Defeat`, design change 0101).
+    /// plan decision T8), and their remaining units became neutral (`core/game_rules.md > On Defeat`, design change
+    /// 0101).
     PlayerDefeated {
         player: PlayerId,
     },
@@ -170,15 +171,16 @@ pub enum SimEvent {
         to: ObjectKind,
     },
     /// Object `id` finished transforming into its kind `kind` (`crate::transform`): a building warped in from a
-    /// Beacon (`factions/colonists/economy.md > Warp In`) now works, a Beacon deployed from a Drone (`> Beacon
-    /// Deployment`, `crate::deploy`) is one for good.
+    /// Beacon (`factions/colonists/economy.md > Warp In`) now works, a Beacon deployed from a Drone
+    /// (`factions/colonists/economy.md > Beacon Deployment`, `crate::deploy`) is one for good.
     TransformCompleted {
         id: ObjectId,
         kind: ObjectKind,
     },
     /// Object `id` gave up transforming into a `kind` by a command, and `refund` Space Crystals went back to its
     /// owner (`factions/colonists/economy.md > Warp In > Cancel Warp In`: 75% of the cost, rounded down; nothing for
-    /// a deployment, which costs nothing, `> Cancel Deployment`). Its `KindChanged` back to what it was follows.
+    /// a deployment, which costs nothing, `factions/colonists/economy.md > Cancel Deployment`). Its `KindChanged` back
+    /// to what it was follows.
     TransformCancelled {
         id: ObjectId,
         kind: ObjectKind,
@@ -205,16 +207,18 @@ pub enum SimEvent {
         tunnel: ObjectId,
     },
     /// `unit` came out of the Tunnel Network on `tunnel`'s exit path, and is among the sim's objects again, with the
-    /// id it had (`> EjectMenu`; `Sim::step_ejections`): ejected by its player, or sent out by a surface rally point
-    /// (`factions/syndicate/structures/README.md > Rally Point Behavior`). No `Spawned` comes with it.
+    /// id it had (`factions/syndicate/tunnels.md > EjectMenu`; `Sim::step_ejections`): ejected by its player, or sent
+    /// out by a surface rally point (`factions/syndicate/structures/README.md > Rally Point Behavior`). No `Spawned`
+    /// comes with it.
     LeftNetwork {
         unit: ObjectId,
         tunnel: ObjectId,
     },
-    /// `unit`'s Enter order on `tunnel` ended without it going in (`> Tunnel Network > Walking in`: "if the Tunnel a
-    /// unit is heading for is destroyed, or its tier doesn't suit the unit, the Enter order ends and the unit idles";
-    /// "if the way is genuinely blocked, the normal Failure rule applies"): its walk ended short of the entry path, or
-    /// the Tunnel no longer suits it. For the feedback line, and for counting those that give up.
+    /// `unit`'s Enter order on `tunnel` ended without it going in (`factions/syndicate/tunnels.md > Tunnel Network >
+    /// Walking in`: "if the Tunnel a unit is heading for is destroyed, or its tier doesn't suit the unit, the Enter
+    /// order ends and the unit idles"; "if the way is genuinely blocked, the normal Failure rule applies"): its walk
+    /// ended short of the entry path, or the Tunnel no longer suits it. For the feedback line, and for counting those
+    /// that give up.
     EnterFailed {
         unit: ObjectId,
         tunnel: ObjectId,

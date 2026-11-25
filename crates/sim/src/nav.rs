@@ -74,7 +74,7 @@ impl TileRect {
 pub enum BlockerKind {
     /// A surface structure.
     Structure,
-    /// A map resource (`core/map.md > SpaceCrystalsPatch`, `> SupplyDeliveryStation`).
+    /// A map resource (`core/map.md > SpaceCrystalsPatch`, `core/map.md > SupplyDeliveryStation`).
     Resource,
     /// An underground expansion (`StructureDef::underground`, plan decision T32): surface units walk over it
     /// (`factions/syndicate/structures/README.md > Tunnel Expansions`: "can be walked over by surface units"; design

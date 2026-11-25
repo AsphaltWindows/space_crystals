@@ -1,7 +1,7 @@
-//! Shift while targeting (`> AwaitingTarget > Shift while targeting`, design change 0070): a Shift-click on a valid
-//! target queues the PendingCommand and the target is still awaited while Shift is held; letting go of Shift after a
-//! queued click ends targeting. A click without Shift issues and ends it at once. Shift is pressed and let go
-//! explicitly, apart from the clicks.
+//! Shift while targeting (`systems/controls/selection_and_hud.md > AwaitingTarget > Shift while targeting`, design
+//! change 0070): a Shift-click on a valid target queues the PendingCommand and the target is still awaited while Shift
+//! is held; letting go of Shift after a queued click ends targeting. A click without Shift issues and ends it at once.
+//! Shift is pressed and let go explicitly, apart from the clicks.
 
 use bevy::prelude::*;
 use sc_sim::{ObjectId, OrderKind, SimEvent};
@@ -229,8 +229,8 @@ fn shift_counts_as_the_button_goes_down() {
     );
 }
 
-/// The cancel rules are unchanged (`> AwaitingTarget`): Esc and a right-click cancel queued targeting while Shift
-/// is still held, and the right-click gives no order. What was queued stays queued.
+/// The cancel rules are unchanged (`systems/controls/selection_and_hud.md > AwaitingTarget`): Esc and a right-click
+/// cancel queued targeting while Shift is still held, and the right-click gives no order. What was queued stays queued.
 #[test]
 fn esc_and_right_click_cancel_queued_targeting() {
     let mut app = game();

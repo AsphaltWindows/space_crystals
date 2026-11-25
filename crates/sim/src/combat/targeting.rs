@@ -1,6 +1,6 @@
-//! What an attack can target, and from how far — `systems/combat.md > ValidTarget`, `> AttackAttributes` (Range,
-//! MinRange, TargetDomain; `> Range Measurement`: edge to edge, design change 0031, measured by `shape`) and
-//! `core/vision.md > ElevationModifier`.
+//! What an attack can target, and from how far — `systems/combat.md > ValidTarget`, `systems/combat.md >
+//! AttackAttributes` (Range, MinRange, TargetDomain; `systems/combat.md > Range Measurement`: edge to edge, design
+//! change 0031, measured by `shape`) and `core/vision.md > ElevationModifier`.
 
 use std::collections::BTreeMap;
 
@@ -31,8 +31,8 @@ pub fn object_domain(o: &Object) -> Domain {
         .map_or(Domain::Ground, |unit| unit.base_def().domain)
 }
 
-/// `systems/combat.md > ValidTarget` 3, `> SingleTargetDamage`: Ground attacks target Ground units and surfaced
-/// Underground ones, Air attacks Air units, and Universal attacks any unit.
+/// `systems/combat.md > ValidTarget` 3, `systems/combat.md > SingleTargetDamage`: Ground attacks target Ground units
+/// and surfaced Underground ones, Air attacks Air units, and Universal attacks any unit.
 pub fn domain_allows(attack: TargetDomain, target: Domain) -> bool {
     match (attack, target) {
         (TargetDomain::Universal, _) | (TargetDomain::Ground, Domain::Ground) | (TargetDomain::Air, Domain::Air) => {
@@ -87,9 +87,9 @@ pub fn reaches(
     within_range(attrs, attacker.gap(target), source, target_elevation)
 }
 
-/// `> Range Measurement`, ground-location targets: whether the attack reaches from the shape `attacker` to `point`,
-/// measured from the attacker's edge. For the location-targeted attacks (Attack Ground, TailDisjointed artillery),
-/// which no unit has yet.
+/// `systems/combat.md > Range Measurement`, ground-location targets: whether the attack reaches from the shape
+/// `attacker` to `point`, measured from the attacker's edge. For the location-targeted attacks (Attack Ground,
+/// TailDisjointed artillery), which no unit has yet.
 pub fn reaches_point(attrs: &AttackAttrs, attacker: &Shape, source: Elevation, point: Vec2, ground: Elevation) -> bool {
     within_range(attrs, attacker.distance_to(point), source, ground)
 }

@@ -1,6 +1,6 @@
-//! What a plan goes by (`> PathKnowledge`): a unit heads for a hidden wall, sees it and re-routes (design change
-//! 0040); its owner's own structures are known from the start; and it routes around a crystal field it has
-//! never seen (0042).
+//! What a plan goes by (`systems/controls/behaviors.md > PathKnowledge`): a unit heads for a hidden wall, sees it and
+//! re-routes (design change 0040); its owner's own structures are known from the start; and it routes around a crystal
+//! field it has never seen (0042).
 
 use super::*;
 
@@ -59,8 +59,8 @@ fn a_unit_heads_for_a_hidden_wall_sees_it_and_re_routes() {
     );
 }
 
-/// `> PathKnowledge`: "Own structures are always known." The same wall of the player's own: its unit goes around
-/// from the first step.
+/// `systems/controls/behaviors.md > PathKnowledge`: "Own structures are always known." The same wall of the player's
+/// own: its unit goes around from the first step.
 #[test]
 fn a_unit_plans_around_its_owners_own_structures_from_the_start() {
     let mut t = ScenarioBuilder::new(&map(true))

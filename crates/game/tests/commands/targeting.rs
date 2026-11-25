@@ -1,9 +1,9 @@
-//! Targeting (`> AwaitingTarget`, `> BasicCombatUnitInterfaceState > AwaitingTarget[..] resolution`): a target
-//! command's hotkey or button awaits a left-click on the map, which issues the command and returns to DefaultState;
-//! Esc, a right-click and Back (Z) cancel. The rules of design changes 0064 to 0069: force-attack on own and
-//! neutral destructible objects, invalid target clicks, no other commands and no box while targeting, the press
-//! point, and which selection changes cancel. Shift while targeting (0070) is `shift_targeting.rs`, the click
-//! allowance (0073) `click_allowance.rs`.
+//! Targeting (`systems/controls/selection_and_hud.md > AwaitingTarget`, `systems/controls/selection_and_hud.md >
+//! BasicCombatUnitInterfaceState > AwaitingTarget[..] resolution`): a target command's hotkey or button awaits a
+//! left-click on the map, which issues the command and returns to DefaultState; Esc, a right-click and Back (Z) cancel.
+//! The rules of design changes 0064 to 0069: force-attack on own and neutral destructible objects, invalid target
+//! clicks, no other commands and no box while targeting, the press point, and which selection changes cancel. Shift
+//! while targeting (0070) is `shift_targeting.rs`, the click allowance (0073) `click_allowance.rs`.
 
 use bevy::prelude::*;
 use sc_sim::{Command, ObjectId, OrderKind, Target};
@@ -321,9 +321,9 @@ fn move_takes_any_target_and_patrol_only_the_ground() {
     assert_eq!(interface(&app), InterfaceState::DefaultState);
 }
 
-/// `> AwaitingTarget`: Escape or right-click cancels (a StateOnlyTransition back to DefaultState); so does Back,
-/// by its hotkey (Z) or its button (`> Standard Slot Assignments`). None of them gives an order: the right-click
-/// that cancels moves nobody.
+/// `systems/controls/selection_and_hud.md > AwaitingTarget`: Escape or right-click cancels (a StateOnlyTransition back
+/// to DefaultState); so does Back, by its hotkey (Z) or its button (`systems/controls/selection_and_hud.md > Standard
+/// Slot Assignments`). None of them gives an order: the right-click that cancels moves nobody.
 #[test]
 fn esc_right_click_and_back_cancel_targeting() {
     let mut app = game();
@@ -377,10 +377,10 @@ fn a_shift_click_queues_the_targeted_order() {
     assert_eq!(selected(&app), [1], "Shift-clicks while targeting toggle no selection");
 }
 
-/// `> ObjectInterfaceState[ObjectEnum]`: the player's change of the Selection or of its ActiveGroup resets the
-/// state (design change 0069: Tab, a control group's recall), and so does every control group recall, also one
-/// that recalls exactly the current selection (0078; its Verification 1): the panel shows the default commands
-/// again. Tab, with nothing to cycle to, changes nothing and leaves the target awaited.
+/// `systems/controls/selection_and_hud.md > ObjectInterfaceState[ObjectEnum]`: the player's change of the Selection or
+/// of its ActiveGroup resets the state (design change 0069: Tab, a control group's recall), and so does every control
+/// group recall, also one that recalls exactly the current selection (0078; its Verification 1): the panel shows the
+/// default commands again. Tab, with nothing to cycle to, changes nothing and leaves the target awaited.
 #[test]
 fn a_new_selection_or_active_group_ends_targeting() {
     let mut app = game();

@@ -1,9 +1,9 @@
 //! A Syndicate player's start (slice M4-B; `factions/syndicate/tunnels.md > Tunnel > Starting Conditions`): the banks,
 //! the objects of the Starting Layout on `dev_skirmish` in either slot, and Tunnel Space
-//! (`factions/syndicate/overview.md > SyndicateResources > Tunnel Space`, `tunnels.md > Tunnel > Tunnel Space`),
-//! derived from the Tunnel and the Hideout; `dev_skirmish` with every faction in either slot; and the layout's
-//! Tunnel Area rules (design change 0242) as the map's validation applies them. The Starting Conditions table is
-//! unit-tested in `scenario/starting.rs`, the derivation of Tunnel Space in `economy/army/tunnel_space.rs`, the
+//! (`factions/syndicate/overview.md > SyndicateResources > Tunnel Space`, `factions/syndicate/tunnels.md > Tunnel >
+//! Tunnel Space`), derived from the Tunnel and the Hideout; `dev_skirmish` with every faction in either slot; and the
+//! layout's Tunnel Area rules (design change 0242) as the map's validation applies them. The Starting Conditions table
+//! is unit-tested in `scenario/starting.rs`, the derivation of Tunnel Space in `economy/army/tunnel_space.rs`, the
 //! placement rules in `placement/tests/tunnel_area.rs`, the bar and the camera in the client.
 
 use sc_sim::nav::TileRect;
@@ -62,8 +62,8 @@ fn tunnel_space(used: u32, available: u32) -> Option<ArmyCap> {
     })
 }
 
-/// The acceptance of slice M4-B, start (`tunnels.md > Tunnel > Starting Conditions`: "One pre-built **Tier 1
-/// Tunnel** containing one pre-built **Hideout**", "One **Agent**", "**1 Supply**", "Starting Space Crystals:
+/// The acceptance of slice M4-B, start (`factions/syndicate/tunnels.md > Tunnel > Starting Conditions`: "One pre-built
+/// **Tier 1 Tunnel** containing one pre-built **Hideout**", "One **Agent**", "**1 Supply**", "Starting Space Crystals:
 /// **100**"): in either slot of `dev_skirmish`, a Syndicate player starts with the Tier 1 Tunnel, the Hideout inside its
 /// Tunnel Area and the Agent where the layout puts them (slot 2's being slot 1's 180° image); 100 Space Crystals and
 /// 1 Supply; Tunnel Space 1/11 (48 tunnel-region cells less the Hideout's 4 is 44, over 4 is 11; the Agent's
@@ -219,10 +219,10 @@ fn a_layout_tunnel_by_the_lake_or_the_edge_is_refused() {
     assert_eq!(moved((10, 2), (14, 6)).validate(), []);
 }
 
-/// `tunnels.md > Tunnel Space`: "If placing a new expansion ... drops total Tunnel Space below the Syndicate player's
-/// currently-committed Tunnel Space usage, existing units are unaffected — usage is simply displayed over capacity
-/// (e.g. 12/10)". At 11/11 (the starting Agent and 10 more), a second Hideout spawned into the Tunnel Area takes 4
-/// cells: 11/10, and every Agent stays. Used counts the units on the map, whatever they do.
+/// `factions/syndicate/tunnels.md > Tunnel Space`: "If placing a new expansion ... drops total Tunnel Space below the
+/// Syndicate player's currently-committed Tunnel Space usage, existing units are unaffected — usage is simply displayed
+/// over capacity (e.g. 12/10)". At 11/11 (the starting Agent and 10 more), a second Hideout spawned into the Tunnel
+/// Area takes 4 cells: 11/10, and every Agent stays. Used counts the units on the map, whatever they do.
 #[test]
 fn an_expansion_over_full_tunnel_space_removes_nothing() {
     let mut t = TestSim::new(dev_skirmish_as([SYNDICATE, Faction::Gdo]));

@@ -178,10 +178,11 @@ fn to(id: u32) -> OrderKind {
     OrderKind::Move(Target::Object(ObjectId(id)))
 }
 
-/// `> Right-Click Resolution`, "issued to all selected Drones": a patch gives a Gather, under the GatherResources
-/// pointer (`> PointerDisplayType > Resolution Rules`: "Cursor over resource (resource gatherer selected)"); an own
-/// node to empty Drones (design change 0140: there is no empty Drop Off), an enemy structure and an enemy unit "Move
-/// to that object's location", the unit followed; the ground a Move. The last four under the Move pointer.
+/// `factions/colonists/units/drone.md > Right-Click Resolution`, "issued to all selected Drones": a patch gives a
+/// Gather, under the GatherResources pointer (`systems/controls/selection_and_hud.md > PointerDisplayType > Resolution
+/// Rules`: "Cursor over resource (resource gatherer selected)"); an own node to empty Drones (design change 0140: there
+/// is no empty Drop Off), an enemy structure and an enemy unit "Move to that object's location", the unit followed; the
+/// ground a Move. The last four under the Move pointer.
 #[test]
 fn drones_right_clicked_gather_move_or_follow() {
     use PointerDisplay::{GatherResources, Move};
@@ -211,11 +212,11 @@ fn drones_right_clicked_gather_move_or_follow() {
     );
 }
 
-/// Each selected unit resolves the right-click for itself (`> Right-Click Resolution`, design changes 0062 and 0063,
-/// as for the M2 units): with two Drones and a Sabre Legionnaire selected, on a patch the Drones gather and the Sabre
-/// moves there; on an enemy unit or structure the Sabre attacks it and the Drones follow the unit or go to the
-/// structure; on an own node (the Drones empty) and on the ground all three move. The pointer shows Mixed where they
-/// differ (`> Mixed Right-Click Preview`).
+/// Each selected unit resolves the right-click for itself (`factions/colonists/units/drone.md > Right-Click
+/// Resolution`, design changes 0062 and 0063, as for the M2 units): with two Drones and a Sabre Legionnaire selected,
+/// on a patch the Drones gather and the Sabre moves there; on an enemy unit or structure the Sabre attacks it and the
+/// Drones follow the unit or go to the structure; on an own node (the Drones empty) and on the ground all three move.
+/// The pointer shows Mixed where they differ (`systems/controls/selection_and_hud.md > Mixed Right-Click Preview`).
 #[test]
 fn drones_and_a_sabre_each_resolve_their_own_right_click() {
     use PointerDisplay::{Mixed, Move};
@@ -249,11 +250,11 @@ fn drones_and_a_sabre_each_resolve_their_own_right_click() {
     );
 }
 
-/// `> Right-Click Resolution`: "Own Egress Node while carrying → Drop Off", and an empty Drone "gets a Move there"
-/// (design change 0140). With a Drone carrying its load back and an empty one selected, the pointer over the node is
-/// Mixed (ReturnResources for the one, "Cursor over drop-off point (resource gatherer carrying resources)", Move for
-/// the other), and one right-click gives each its own. Once the load is in the bank, a right-click there moves both,
-/// under the Move pointer.
+/// `factions/colonists/units/drone.md > Right-Click Resolution`: "Own Egress Node while carrying → Drop Off", and an
+/// empty Drone "gets a Move there" (design change 0140). With a Drone carrying its load back and an empty one selected,
+/// the pointer over the node is Mixed (ReturnResources for the one, "Cursor over drop-off point (resource gatherer
+/// carrying resources)", Move for the other), and one right-click gives each its own. Once the load is in the bank, a
+/// right-click there moves both, under the Move pointer.
 #[test]
 fn a_right_click_on_an_own_node_drops_a_load_off_and_moves_an_empty_drone() {
     let mut app = gathering_game();
@@ -316,10 +317,10 @@ fn a_drone_shows_the_load_it_carries() {
     assert_eq!(info_lines(&mut app), Some(format!("{idle}\nDrop-off: Egress Node")));
 }
 
-/// `> CommandIndicators > Indicator assignments`: "Rally point (own or neutral object) | Object | Green". A Robo
-/// Portal right-clicked onto a patch rallies there, under the Move pointer ("Selection is a production building: Move
-/// (rally point)"), and while it is selected a green ring marks the patch, with its line from the portal. Its Drones
-/// gather there (design change 0136): `remembered`.
+/// `systems/controls/selection_and_hud.md > CommandIndicators > Indicator assignments`: "Rally point (own or neutral
+/// object) | Object | Green". A Robo Portal right-clicked onto a patch rallies there, under the Move pointer
+/// ("Selection is a production building: Move (rally point)"), and while it is selected a green ring marks the patch,
+/// with its line from the portal. Its Drones gather there (design change 0136): `remembered`.
 #[test]
 fn a_portal_rallied_on_a_patch_marks_the_patch() {
     let mut app = gathering_game();

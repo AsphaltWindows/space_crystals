@@ -98,7 +98,8 @@ pub(super) fn step_unit_on(
 ///   the steering target, at most TurnRate per tick, and moves only once it faces it. Every M1 unit turns 180°
 ///   per tick, so its turn always completes. The facing follows the path, not a sidestep. The angle turned goes to
 ///   `turned`: the aim in phase 5e has only the rest of the tick's TurnRate ([`super::Turns`]). A DragMovement
-///   unit (`> LocomotionOrientationConstraints[DragMovement]`) turns as it moves and never stands to turn.
+///   unit (`systems/combat.md > LocomotionOrientationConstraints[DragMovement]`) turns as it moves and never stands to
+///   turn.
 /// - **Arrival**: when the goal is within one step and the way is free, the unit stands exactly on it and stops
 ///   with `status = Arrived`. The arrival radius is one tick of travel, so it never overshoots. A DragMovement
 ///   unit's step is its approach speed ([`Drag::approach`]), which brings it onto the goal at a speed it stops

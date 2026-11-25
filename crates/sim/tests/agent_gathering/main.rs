@@ -30,7 +30,8 @@ use sc_sim::{
 const P1: PlayerId = PlayerId(1);
 const AGENT: ObjectKind = ObjectKind::Agent;
 const TUNNEL: ObjectKind = ObjectKind::Tunnel;
-/// `> Gathering > Space Crystals`: CarryCapacity, MiningDuration, DropOffDuration and the two reaches.
+/// `factions/syndicate/units/agent.md > Gathering > Space Crystals`: CarryCapacity, MiningDuration, DropOffDuration and
+/// the two reaches.
 const LOAD: u32 = 50;
 const MINING: Tick = 80;
 const DROP_OFF: Tick = 64;
@@ -187,7 +188,8 @@ struct Watched {
 }
 
 /// Runs `t` for `ticks` and checks the hatch rules after every tick, for the `agents` and the `tunnels`:
-/// - `tunnels.md > SymmetryType - ABCD`: "Only one Agent may drop off resources at a side at a time";
+/// - `factions/syndicate/tunnels.md > SymmetryType - ABCD`: "Only one Agent may drop off resources at a side at a
+///   time";
 /// - design change 0255: "the first to arrive delivers next": an Agent that begins to unload was the first of
 ///   those waiting within reach, by arrival tick, then id.
 fn watch(t: &mut TestSim, ticks: Tick, agents: &[u32], tunnels: &[u32]) -> Watched {

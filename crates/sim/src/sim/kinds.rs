@@ -1,6 +1,6 @@
 //! Objects that change their kind in place — plan decision T15: one object through every transformation. A Drone
 //! deploying into a Beacon (`factions/colonists/economy.md > Beacon Deployment`, slice M3-F), a Beacon warping in a
-//! building (`> Warp In`, M3-E), a Legionnaire pressed to convert its weapon
+//! building (`factions/colonists/economy.md > Warp In`, M3-E), a Legionnaire pressed to convert its weapon
 //! (`factions/colonists/units/weapon_conversion.md`, M3-B; its type switches at the press, design change 0198) and a
 //! Peacekeeper raising or lowering its Riot Shield (M3-S) each stay the same object, with the same `ObjectId`, so
 //! selections, control groups, rally points and the fog's records keep it ("the Drone unit itself transforms into the

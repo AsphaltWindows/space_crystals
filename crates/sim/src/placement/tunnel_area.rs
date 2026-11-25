@@ -13,8 +13,8 @@
 //!   from the edge breaks nothing, its Tier 1 area just reaching the edge, where 0242's Verification calls it red
 //!   (Placeholder: Q0078).
 //! - **The expansion rule of Starting Layouts** ([`outside_tunnel_area`]): a layout's underground structure lies
-//!   wholly inside the Tier 1 Tunnel Area of a Tunnel of the same layout (`tunnels.md > Tunnel > Starting
-//!   Conditions`: "One pre-built **Tier 1 Tunnel** containing one pre-built **Hideout**";
+//!   wholly inside the Tier 1 Tunnel Area of a Tunnel of the same layout (`factions/syndicate/tunnels.md > Tunnel >
+//!   Starting Conditions`: "One pre-built **Tier 1 Tunnel** containing one pre-built **Hideout**";
 //!   `factions/syndicate/structures/README.md > Tunnel Expansions`: "Underground buildings constructed within a
 //!   Tunnel's Tunnel Area"), the way a layout's Extraction Plates lie in the build area of its own Deployment Center.
 //!   Its tiles follow the rules of a Direct Placement meanwhile, Buildable ground included: stricter than the

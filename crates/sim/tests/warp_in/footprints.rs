@@ -114,10 +114,11 @@ fn a_robo_portal_needs_its_ring_of_twelve_tiles_clear() {
 /// each point of its Verification, with Warp Ins on Beacon 1 at (8, 6): the Bio Portal covers the Beacon plus one
 /// extra column right and one extra row below; a horizontal flip moves the column left, a vertical flip the row up;
 /// each quarter turn moves the extras to the next corner clockwise, "and exit sides rotate accordingly": its exit
-/// sides, the A sides (`> Exit Behavior`), are the top and the right unturned, and in every orientation one of them
-/// faces the extras and the other faces away from them along the other axis, as the right side and the top do
-/// unturned. The Egress Node and the Robo Portal are centred exactly in every orientation. The command names no
-/// position: the footprint is `transform::warp_in_footprint`'s, which the check and the ghost share.
+/// sides, the A sides (`factions/colonists/structures/bio_portal.md > Exit Behavior`), are the top and the right
+/// unturned, and in every orientation one of them faces the extras and the other faces away from them along the other
+/// axis, as the right side and the top do unturned. The Egress Node and the Robo Portal are centred exactly in every
+/// orientation. The command names no position: the footprint is `transform::warp_in_footprint`'s, which the check and
+/// the ghost share.
 #[test]
 fn a_warp_in_footprint_is_derived_from_its_beacon_and_its_orientation() {
     use Rotation::{R0, R90, R180, R270};

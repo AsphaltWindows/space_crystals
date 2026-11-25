@@ -182,9 +182,10 @@ pub fn dev_skirmish_map() -> MapDef {
     // economy.md > Starting Conditions`; the second slot's is its image): the Deployment Center on (5, 5) to (8, 8),
     // inside the field's arc, so that its sight of 6 grid units covers every patch of the field (design change 0095:
     // their centres lie 4.5 to 5.2 grid units from its centre, all at level 0) and its build area holds all eight
-    // (`> Opening Economy Baseline > Reference starting base`); the Extraction Facility on (9, 1) to (11, 3), past the
-    // east end of the field's northern row; the two plates on that row's eastern patches, (6, 2) and (7, 2). No
-    // camera start: the camera starts on the Deployment Center (`core/camera.md > Starting Position`).
+    // (`factions/gdo/economy.md > Opening Economy Baseline > Reference starting base`); the Extraction Facility on
+    // (9, 1) to (11, 3), past the east end of the field's northern row; the two plates on that row's eastern patches,
+    // (6, 2) and (7, 2). No camera start: the camera starts on the Deployment Center (`core/camera.md > Starting
+    // Position`).
     let start = TilePos::new(8, 8);
     let mut slot = Slot::new(start);
     let laid = |kind, x, y| LayoutObject {

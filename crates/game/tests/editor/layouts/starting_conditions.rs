@@ -1,6 +1,6 @@
 //! Layouts and their faction's Starting Conditions: on a Skirmish Default map (design changes 0009 and 0012)
 //! the palette offers only them and the map says what its layouts lack until it plays; and an outdated layout
-//! is flagged until fixed (`> Outdated layouts`).
+//! is flagged until fixed (`core/map_editor.md > Outdated layouts`).
 
 use super::*;
 
@@ -154,9 +154,9 @@ fn a_new_skirmish_map_lists_what_its_layouts_lack_until_it_plays() {
     std::fs::remove_dir_all(&dir).unwrap();
 }
 
-/// `> Outdated layouts`: a layout that doesn't hold the faction's current Starting Conditions is flagged until the
-/// map maker fixes it; nothing is fixed automatically. Here an older layout with a starting unit the GDO no longer
-/// has.
+/// `core/map_editor.md > Outdated layouts`: a layout that doesn't hold the faction's current Starting Conditions is
+/// flagged until the map maker fixes it; nothing is fixed automatically. Here an older layout with a starting unit the
+/// GDO no longer has.
 #[test]
 fn outdated_layouts_are_flagged_until_fixed() {
     let mut map = with_syndicate(with_colonists(with_patches(

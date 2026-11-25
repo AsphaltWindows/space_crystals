@@ -1,5 +1,6 @@
-//! The CommandPanel (`> CommandPanel`): its layout for the M1 units, its hotkeys and buttons, who receives its
-//! commands (no smart-casting: all of them, design change 0071), and that only the local player's units do.
+//! The CommandPanel (`systems/controls/selection_and_hud.md > CommandPanel`): its layout for the M1 units, its hotkeys
+//! and buttons, who receives its commands (no smart-casting: all of them, design change 0071), and that only the local
+//! player's units do.
 
 use bevy::prelude::*;
 use sc_sim::defs::RIOT_SHIELD_TOGGLE_TICKS;
@@ -35,12 +36,13 @@ fn texts(app: &mut App) -> Vec<String> {
     query.iter(app.world()).map(|t| t.0.clone()).collect()
 }
 
-/// `> BasicCombatUnitInterfaceState > DefaultState commands` and `> Standard Slot Assignments` (0002): a selection
-/// of Peacekeepers and Guards shows Move (Q), Hold (E), Attack (A), Patrol (S) and Stop (X), all common to both
-/// types; Reverse (W) and AttackGround (D) unavailable to both; Z, C and V empty. The Peacekeepers, the ActiveGroup,
-/// add their Raise Shield in R, a group command (`factions/gdo/units/peacekeeper.md > Riot Shield`), labelled
-/// "Raise" to fit its button at 720p. Each button is labelled with its command and its hotkey. While a target is
-/// awaited Z is Back, and disabled and unavailable buttons look apart.
+/// `systems/controls/selection_and_hud.md > BasicCombatUnitInterfaceState > DefaultState commands` and
+/// `systems/controls/selection_and_hud.md > Standard Slot Assignments` (0002): a selection of Peacekeepers and Guards
+/// shows Move (Q), Hold (E), Attack (A), Patrol (S) and Stop (X), all common to both types; Reverse (W) and
+/// AttackGround (D) unavailable to both; Z, C and V empty. The Peacekeepers, the ActiveGroup, add their Raise Shield in
+/// R, a group command (`factions/gdo/units/peacekeeper.md > Riot Shield`), labelled "Raise" to fit its button at 720p.
+/// Each button is labelled with its command and its hotkey. While a target is awaited Z is Back, and disabled and
+/// unavailable buttons look apart.
 #[test]
 fn a_mixed_selection_shows_the_basic_combat_unit_grid() {
     use ButtonLook::{Common, Group, Unavailable};
@@ -108,7 +110,8 @@ fn the_legionnaires_show_the_basic_combat_unit_grid() {
     assert_eq!(f.iter().flatten().count(), 1);
 }
 
-/// `> CommandPanel`: the panel shows only while every selected object is the local player's.
+/// `systems/controls/selection_and_hud.md > CommandPanel`: the panel shows only while every selected object is the
+/// local player's.
 #[test]
 fn enemy_and_neutral_selections_show_no_commands() {
     let mut app = game();
@@ -121,8 +124,9 @@ fn enemy_and_neutral_selections_show_no_commands() {
     assert!(name_shown(&mut app));
 }
 
-/// `> DefaultState`: HoldPosition (E) and Stop (X) are issued at once, by hotkey or by a click on their button, to
-/// the whole selection (common commands); Shift queues them (`systems/controls/commands.md > Unit Command`).
+/// `systems/controls/selection_and_hud.md > DefaultState`: HoldPosition (E) and Stop (X) are issued at once, by hotkey
+/// or by a click on their button, to the whole selection (common commands); Shift queues them
+/// (`systems/controls/commands.md > Unit Command`).
 #[test]
 fn hotkeys_and_buttons_issue_immediate_commands() {
     let mut app = game();
@@ -149,8 +153,8 @@ fn hotkeys_and_buttons_issue_immediate_commands() {
     assert_eq!(orders(&app).len(), 4);
 }
 
-/// `> CommandPanel`: a common command goes to the whole selection, whichever group is active. (A group command goes
-/// to the ActiveGroup alone: the Peacekeepers' Raise Shield, `riot_shield.rs`.)
+/// `systems/controls/selection_and_hud.md > CommandPanel`: a common command goes to the whole selection, whichever
+/// group is active. (A group command goes to the ActiveGroup alone: the Peacekeepers' Raise Shield, `riot_shield.rs`.)
 #[test]
 fn common_commands_go_to_the_whole_selection_from_any_active_group() {
     let mut app = game();
@@ -177,15 +181,15 @@ fn bare_ground(app: &App) -> Vec2 {
         .expect("bare ground")
 }
 
-/// `> SelectionGroup > No smart-casting` (design change 0071) with `> CommandPanel`: every command the panel shows,
-/// by its hotkey and by its button, reaches every unit it is issued to, never some of them: a common command the
-/// whole selection, a group command the whole ActiveGroup. For each ActiveGroup of a selection of three
-/// Peacekeepers and two Guards (Tab), each command shown is used: an immediate one is issued, one that awaits a
-/// target gets a click on the ground. The orders and abilities given must go to exactly those units, all at once.
-/// A shown command this does not know how to give, or that gives nothing, fails it. (The unavailable Reverse and
-/// AttackGround go to nobody: no M1 unit has them.) Raise Shield's hotkey turns the three Peacekeepers into
-/// Peacekeepers (Shielded), whose group becomes the ActiveGroup (design change 0173), so its button, in R, is then
-/// Lower Shield, which goes to the same three and turns them back.
+/// `systems/controls/selection_and_hud.md > SelectionGroup > No smart-casting` (design change 0071) with
+/// `systems/controls/selection_and_hud.md > CommandPanel`: every command the panel shows, by its hotkey and by its
+/// button, reaches every unit it is issued to, never some of them: a common command the whole selection, a group
+/// command the whole ActiveGroup. For each ActiveGroup of a selection of three Peacekeepers and two Guards (Tab), each
+/// command shown is used: an immediate one is issued, one that awaits a target gets a click on the ground. The orders
+/// and abilities given must go to exactly those units, all at once. A shown command this does not know how to give, or
+/// that gives nothing, fails it. (The unavailable Reverse and AttackGround go to nobody: no M1 unit has them.) Raise
+/// Shield's hotkey turns the three Peacekeepers into Peacekeepers (Shielded), whose group becomes the ActiveGroup
+/// (design change 0173), so its button, in R, is then Lower Shield, which goes to the same three and turns them back.
 #[test]
 fn every_panel_command_reaches_all_its_recipients() {
     use PanelCommand::*;
@@ -268,9 +272,9 @@ fn the_riot_shield_key_raises_every_selected_peacekeeper() {
     assert_eq!(shields, [shielded; 4]);
 }
 
-/// `> CommandPanel`: "Commands can only be issued to objects owned by the player." Another player's selected unit
-/// takes no command, by hotkey or right-click; after the debug switch (F2) the same unit is the local player's and
-/// does, in that player's name.
+/// `systems/controls/selection_and_hud.md > CommandPanel`: "Commands can only be issued to objects owned by the
+/// player." Another player's selected unit takes no command, by hotkey or right-click; after the debug switch (F2) the
+/// same unit is the local player's and does, in that player's name.
 #[test]
 fn only_the_local_players_units_take_commands() {
     let mut app = game();

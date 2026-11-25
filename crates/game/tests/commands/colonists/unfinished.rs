@@ -46,8 +46,9 @@ fn portals_game() -> App {
     })
 }
 
-/// Warps a Bio Portal in on Beacon `beacon`, drawn at `at`, through its panel (`> Beacon ObjectInterfaceState`): a
-/// click on it, Q (Warp In (Basic)), E (the Bio Portal) and a click anywhere, which places it.
+/// Warps a Bio Portal in on Beacon `beacon`, drawn at `at`, through its panel (`factions/colonists/economy.md > Beacon
+/// ObjectInterfaceState`): a click on it, Q (Warp In (Basic)), E (the Bio Portal) and a click anywhere, which places
+/// it.
 fn warp_in_bio_portal(app: &mut App, beacon: u32, at: Vec2) {
     click(app, at, &[]);
     tap(app, &[], KeyQ);
@@ -173,8 +174,9 @@ fn two_finished_bio_portals_and_one_warping_in_are_two_groups() {
 
 /// Design change 0185: "When it completes, it joins the finished group." The finished group is the ActiveGroup,
 /// awaiting the target of its rally point (C), when the Warp In completes: it stays active, now with the new portal,
-/// and so does its ObjectInterfaceState (`> ObjectInterfaceState`: a change the player didn't make keeps it "unless
-/// the ActiveGroup becomes empty"), so the rally point the click sets goes to all three.
+/// and so does its ObjectInterfaceState (`systems/controls/selection_and_hud.md > ObjectInterfaceState`: a change the
+/// player didn't make keeps it "unless the ActiveGroup becomes empty"), so the rally point the click sets goes to all
+/// three.
 #[test]
 fn a_portal_whose_warp_in_completes_joins_the_finished_group() {
     let mut app = portals_game();

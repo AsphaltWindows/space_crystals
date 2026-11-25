@@ -1,24 +1,24 @@
 //! Starting Layout editing (slice M2-I; `core/map_editor.md > Starting Layouts`, design changes 0008, 0009, 0012
 //! and 0097): the Layout tool (T) places, moves and deletes the objects of one layout, the one of the chosen faction
 //! ([`EditorTools::faction`]) at the chosen slot ([`EditorTools::slot`], an editable one: on a symmetric map the
-//! slots of the locked part are generated from it, building orientations turned to match, `> Symmetry > Editing a
-//! symmetric map`).
+//! slots of the locked part are generated from it, building orientations turned to match, `core/map_editor.md >
+//! Symmetry > Editing a symmetric map`).
 //!
 //! - **Placing from scratch**: layouts start empty (0009); a click places the chosen object type
 //!   ([`EditorTools::layout_kind`]), turned as R, Shift+R, F and Shift+F turned it ([`super::orientation`]); a click
 //!   on an object of the layout selects it and drags it; Delete removes it.
 //! - **Validation** ([`check`]): an object goes only where its layout stays valid by the sim's rules, "that faction's
-//!   normal in-game placement rules, minus visibility" (`> Layout validation`, 0097), so a refused spot shows red
-//!   under the cursor and says why. No visibility checks, no sight warnings.
-//! - **Skirmish Default restriction** (`> Skirmish Default restriction`, 0009, 0012): the palette offers only the
-//!   faction's Starting Conditions, each with how many the layout may still take ([`palette`]), and what the layout
-//!   still lacks is listed ([`StartingConditions::missing`]); the Problems list says what to add where
+//!   normal in-game placement rules, minus visibility" (`core/map_editor.md > Layout validation`, 0097), so a refused
+//!   spot shows red under the cursor and says why. No visibility checks, no sight warnings.
+//! - **Skirmish Default restriction** (`core/map_editor.md > Skirmish Default restriction`, 0009, 0012): the palette
+//!   offers only the faction's Starting Conditions, each with how many the layout may still take ([`palette`]), and
+//!   what the layout still lacks is listed ([`StartingConditions::missing`]); the Problems list says what to add where
 //!   ([`problems`]).
-//! - **Outdated layouts** (`> Outdated layouts`): flagged as the sim derives them ([`MapDef::outdated_layouts`], plan
-//!   decision T11), never fixed automatically.
-//! - **Overlay editing** (`> Overlay editing`, 0008): while the Layout tool is on, the editor's preview gives every
-//!   slot a player of the edited faction ([`preview_scenario`]), so the sim shows that faction's layouts; the other
-//!   factions' layouts of the edited slot are drawn dimmed over them (`super::overlay`).
+//! - **Outdated layouts** (`core/map_editor.md > Outdated layouts`): flagged as the sim derives them
+//!   ([`MapDef::outdated_layouts`], plan decision T11), never fixed automatically.
+//! - **Overlay editing** (`core/map_editor.md > Overlay editing`, 0008): while the Layout tool is on, the editor's
+//!   preview gives every slot a player of the edited faction ([`preview_scenario`]), so the sim shows that faction's
+//!   layouts; the other factions' layouts of the edited slot are drawn dimmed over them (`super::overlay`).
 //! - **Factions not implemented yet** (plan decision T11): the GDO, the Colonists (slice M3-C) and the Syndicate
 //!   (slice M4-B) have Starting Conditions so far, the Colonists' palette offering their Egress Node, Robo Portal and
 //!   four Drones, placed as units at the point clicked, and the Syndicate's their Tunnel, Hideout and Agent
@@ -91,10 +91,10 @@ impl PaletteEntry {
 }
 
 /// What the Layout tool offers for the layout of `faction` at `slot`. On a Skirmish Default map, only the faction's
-/// Starting Conditions (`> Skirmish Default restriction`: "may contain only the objects in that faction's standard
-/// Starting Conditions"), each with how many more the layout may take; on a Custom map, which has "no such
-/// restriction", every type a player may own (map resources never are, `core/map.md > Resource`). Nothing for a
-/// faction not implemented yet (plan decision T11).
+/// Starting Conditions (`core/map_editor.md > Skirmish Default restriction`: "may contain only the objects in that
+/// faction's standard Starting Conditions"), each with how many more the layout may take; on a Custom map, which has
+/// "no such restriction", every type a player may own (map resources never are, `core/map.md > Resource`). Nothing for
+/// a faction not implemented yet (plan decision T11).
 pub fn palette(map: &MapDef, slot: SlotId, faction: Faction) -> Vec<PaletteEntry> {
     let Some(start) = StartingConditions::of(faction) else {
         return Vec::new();
@@ -176,11 +176,11 @@ pub fn layout_state(
     (format!("{name}: missing {}{broken}", missing_text(&missing)), false)
 }
 
-/// The layouts flagged as outdated (`> Outdated layouts`, [`MapDef::outdated_layouts`]), for the Starting layouts
-/// section: "Outdated or unfinished: S1 GDO, S2 GDO (...)". The flag is derived (plan decision T11), so a layout
-/// still being placed is flagged too, and on a Custom map, whose layouts may hold anything (`> Skirmish Default
-/// restriction`: "Custom maps have no such restriction"), one made different on purpose: there the line only says
-/// so. Nothing is fixed automatically.
+/// The layouts flagged as outdated (`core/map_editor.md > Outdated layouts`, [`MapDef::outdated_layouts`]), for the
+/// Starting layouts section: "Outdated or unfinished: S1 GDO, S2 GDO (...)". The flag is derived (plan decision T11),
+/// so a layout still being placed is flagged too, and on a Custom map, whose layouts may hold anything
+/// (`core/map_editor.md > Skirmish Default restriction`: "Custom maps have no such restriction"), one made different on
+/// purpose: there the line only says so. Nothing is fixed automatically.
 pub fn outdated_text(map: &MapDef) -> Option<String> {
     let outdated = map.outdated_layouts();
     if outdated.is_empty() {
@@ -204,7 +204,7 @@ pub fn outdated_text(map: &MapDef) -> Option<String> {
 
 /// The scenario the editor's preview shows (`super::sync_preview`): the map with a player in every slot, all GDO
 /// (the default setup), or, while the Layout tool edits `faction`'s layouts, all of that faction, so that the sim
-/// shows the edited faction's layout at every start position (`> Overlay editing`).
+/// shows the edited faction's layout at every start position (`core/map_editor.md > Overlay editing`).
 pub fn preview_scenario(map: &MapDef, faction: Option<Faction>) -> Scenario {
     let mut scenario = Scenario::new(map.clone());
     if let Some(faction) = faction {

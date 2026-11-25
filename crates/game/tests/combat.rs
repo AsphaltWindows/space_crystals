@@ -181,8 +181,9 @@ fn shots_hits_and_deaths_show_for_their_ticks() {
 /// share of its MaxShields it has left, and shows them while its Shields alone are short; one without Shields has no
 /// shield bar. Player 2's Peacekeeper shoots player 1's Sabre Legionnaire, 160 su off: its 10 take the Sabre's 10
 /// Shields and no HP, so the Sabre's bars show with its HP full, and 0.25 of the Shields back by the end of the tick
-/// (`> ShieldRegenRate`). Once the Peacekeeper stops, the Shields regenerate to full and the bars go; player 2's
-/// Guard, which stands by, selected, shows its HP bar alone. (A Guard's 18, design change 0186, would take HP too.)
+/// (`systems/combat.md > ShieldRegenRate`). Once the Peacekeeper stops, the Shields regenerate to full and the bars go;
+/// player 2's Guard, which stands by, selected, shows its HP bar alone. (A Guard's 18, design change 0186, would take
+/// HP too.)
 #[test]
 fn an_object_with_shields_shows_a_shield_bar_above_its_hp_bar() {
     const SABRE: ObjectId = ObjectId(1);

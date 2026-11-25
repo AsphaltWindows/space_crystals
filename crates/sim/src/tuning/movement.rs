@@ -23,8 +23,9 @@ pub const AVOID_COMMIT_TICKS: Tick = 16;
 
 /// `systems/controls/behaviors.md > MovingToLocation > Occupied target location` (design changes 0026 and 0169; a
 /// placeholder to tune): a unit stuck within 3 grid units of its destination, blocked by units that aren't moving,
-/// counts as arrived (`docs/movement.md > 6.5`, rule 1). The one radius of both behaviours: `> MovingToObject`'s
-/// "Blocked near the target" is the same rule (design changes 0033 and 0169). It was 2 until design change 0169.
+/// counts as arrived (`docs/movement.md > 6.5`, rule 1). The one radius of both behaviours:
+/// `systems/controls/behaviors.md > MovingToObject`'s "Blocked near the target" is the same rule (design changes 0033
+/// and 0169). It was 2 until design change 0169.
 pub const OCCUPIED_ARRIVAL_GU: f32 = 3.0;
 
 /// `docs/movement.md > 6.3`, rule 4: from this share of its move along the blocker's face on, a unit goes around on

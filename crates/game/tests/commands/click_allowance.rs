@@ -1,7 +1,7 @@
-//! The targeting click allowance (`> AwaitingTarget > Dragging while targeting`, design change 0073): while a
-//! target is awaited, a press and release that moved at most `TARGETING_CLICK_ALLOWANCE_PX` is a targeting click,
-//! at the press point; one that moved further is a drag, which does nothing (0067). Elsewhere the normal drag
-//! threshold, `DRAG_THRESHOLD_PX`, is unchanged.
+//! The targeting click allowance (`systems/controls/selection_and_hud.md > AwaitingTarget > Dragging while targeting`,
+//! design change 0073): while a target is awaited, a press and release that moved at most
+//! `TARGETING_CLICK_ALLOWANCE_PX` is a targeting click, at the press point; one that moved further is a drag, which
+//! does nothing (0067). Elsewhere the normal drag threshold, `DRAG_THRESHOLD_PX`, is unchanged.
 
 use bevy::prelude::*;
 use sc_sim::{ObjectId, OrderKind};

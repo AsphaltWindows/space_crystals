@@ -1,6 +1,6 @@
-//! Damage and death (`systems/combat.md > SingleTargetDamage`, `> DamageModifierOrder`, `> MinimumDamage`,
-//! `ARCHITECTURE.md > Combat`): armor and the rugged-terrain bonus, the tick's hits applied together, death at 0 HP
-//! and the one removal path that leaves no reference to the dead behind.
+//! Damage and death (`systems/combat.md > SingleTargetDamage`, `systems/combat.md > DamageModifierOrder`,
+//! `systems/combat.md > MinimumDamage`, `ARCHITECTURE.md > Combat`): armor and the rugged-terrain bonus, the tick's
+//! hits applied together, death at 0 HP and the one removal path that leaves no reference to the dead behind.
 //!
 //! Idle units fight on their own (`systems/controls/behaviors.md > BaseAutoTargeting`), so a unit that must not
 //! shoot is put on Hold Position beyond its own Range, or spawned only when its turn comes.
@@ -69,12 +69,12 @@ fn died(t: &TestSim) -> Vec<(Tick, ObjectId)> {
         .collect()
 }
 
-/// `> SingleTargetDamage`: (Damage × pre-armor multipliers − PointArmor) × directional multiplier, at least 0.5.
-/// A Peacekeeper (Damage 10) takes 9 from a Guard's 80 HP (PointArmor 1); a Guard (Damage 18, design change 0186)
-/// takes 17 from a Peacekeeper's 50, and on Rugged ground the Peacekeeper's RuggedTerrainDefenseBonus halves the
-/// damage before the armor: 18 × 0.5 − 1 = 8. The Guard, heavy infantry, has no such bonus. (Guard 5, with no order,
-/// fights back at the Peacekeeper on the Rugged ground too. The Peacekeepers' hits land in tick 4, after their Aim
-/// of 2 ticks; the Guards' in tick 6, after their 4.)
+/// `systems/combat.md > SingleTargetDamage`: (Damage × pre-armor multipliers − PointArmor) × directional multiplier, at
+/// least 0.5. A Peacekeeper (Damage 10) takes 9 from a Guard's 80 HP (PointArmor 1); a Guard (Damage 18, design
+/// change 0186) takes 17 from a Peacekeeper's 50, and on Rugged ground the Peacekeeper's RuggedTerrainDefenseBonus
+/// halves the damage before the armor: 18 × 0.5 − 1 = 8. The Guard, heavy infantry, has no such bonus. (Guard 5, with
+/// no order, fights back at the Peacekeeper on the Rugged ground too. The Peacekeepers' hits land in tick 4, after
+/// their Aim of 2 ticks; the Guards' in tick 6, after their 4.)
 #[test]
 fn armor_and_the_rugged_terrain_bonus() {
     let mut t = spawned(&[
@@ -109,7 +109,8 @@ fn armor_and_the_rugged_terrain_bonus() {
     )));
 }
 
-/// `> MinimumDamage`, `> DirectionalArmor` (no M1 unit has directional armor or out-armors a hit).
+/// `systems/combat.md > MinimumDamage`, `systems/combat.md > DirectionalArmor` (no M1 unit has directional armor or
+/// out-armors a hit).
 #[test]
 fn minimum_damage_and_directional_armor() {
     assert_eq!(combat::hit_damage(3.0, 1.0, 5.0, 1.0), MINIMUM_DAMAGE);

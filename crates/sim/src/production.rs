@@ -207,8 +207,8 @@ impl Production {
         std::mem::take(&mut self.queue)
     }
 
-    /// Drops a rally point on an object that is gone (`> RallyPoint behavior`: "If the RallyPoint references an
-    /// ObjectInstance that no longer exists, the RallyPoint is reset to None").
+    /// Drops a rally point on an object that is gone (`factions/gdo/structures/barracks.md > RallyPoint behavior`: "If
+    /// the RallyPoint references an ObjectInstance that no longer exists, the RallyPoint is reset to None").
     pub(crate) fn forget(&mut self, is_gone: impl Fn(ObjectId) -> bool) {
         if let Some(Rally::Object { id, .. }) = self.rally
             && is_gone(id)
@@ -260,7 +260,8 @@ mod tests {
         }
     }
 
-    /// `> Produces`: 80 frames at full power; at the ratio of 30/51 exactly 136 ticks (plan decision T6).
+    /// `factions/gdo/structures/barracks.md > Produces`: 80 frames at full power; at the ratio of 30/51 exactly 136
+    /// ticks (plan decision T6).
     #[test]
     fn a_unit_takes_its_frames_at_full_power_and_longer_at_a_ratio() {
         let ticks = |speed: u32| {

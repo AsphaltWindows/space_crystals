@@ -558,9 +558,9 @@ remaining path length, measured afresh from when it came to rest. A unit is **st
      moved after this unit's last attempt (`Body::moved`), so it took the place the unit went for. Each lost
      race is a unit that found its place, so there are at most as many as units.
    - **(M3-G3) No way round** (a corridor, a passage the row fills), or no attempt left: the normal **Failure**
-     rule applies (design change 0223, answering Q0057; `behaviors.md > AttackingObject > Blocked by its own
-     side`: "it does not wait behind the blockers indefinitely"). An attempt that finds no way round counts all the
-     same. Once none is left the unit gives up, still stuck 24 ticks after its last attempt (rule 4): 84 ticks
+     rule applies (design change 0223, answering Q0057; `systems/controls/behaviors.md > AttackingObject > Blocked by
+     its own side`: "it does not wait behind the blockers indefinitely"). An attempt that finds no way round counts all
+     the same. Once none is left the unit gives up, still stuck 24 ticks after its last attempt (rule 4): 84 ticks
      after it was blocked behind a unit with no goal (attempts after 12, 28 and 60), 104 (6.5 s) after its last
      progress otherwise (5.6; the grace below adds up to 8). Meanwhile it steers as any blocked unit (6.3),
      sidesteps included. The
@@ -579,8 +579,8 @@ remaining path length, measured afresh from when it came to rest. A unit is **st
    of all the units that arrived with that order are added, the nearest first, up to the cap of 16
    (`stuck::avoid_group`): the new route goes round the group and comes at the unit's place from its open side,
    where a route round the one blocker led into the next.
-4. Otherwise, 24 ticks after the last repath → `Failed`; the behaviour stops and completes (`behaviors.md >
-   Failure`).
+4. Otherwise, 24 ticks after the last repath → `Failed`; the behaviour stops and completes
+   (`systems/controls/behaviors.md > Failure`).
 
 **(D)** Three refinements, each from a failing scenario:
 - **Waiting behind a unit that is getting on is progress.** A unit blocked by one that has a goal takes over that

@@ -127,7 +127,8 @@ fn object(n: u32) -> OrderKind {
     OrderKind::Move(Target::Object(id(n)))
 }
 
-/// `> BasicCombatUnitInterfaceState > RightClickResolution` and `> AwaitingTarget[..] resolution`.
+/// `systems/controls/selection_and_hud.md > BasicCombatUnitInterfaceState > RightClickResolution` and
+/// `systems/controls/selection_and_hud.md > AwaitingTarget[..] resolution`.
 #[test]
 fn clicks_resolve_by_what_is_under_the_cursor() {
     let right = |target: MapTarget| unit_right_click(ARMED, &target);
@@ -285,7 +286,7 @@ fn orders_go_out_grouped() {
     assert_eq!(group_orders([]), []);
 }
 
-/// `> PointerDisplayType > Resolution Rules`.
+/// `systems/controls/selection_and_hud.md > PointerDisplayType > Resolution Rules`.
 #[test]
 fn the_pointer_previews_what_a_click_would_do() {
     use PointerDisplay as D;
@@ -347,8 +348,8 @@ fn the_pointer_previews_what_a_click_would_do() {
     );
 }
 
-/// `> Mixed Right-Click Preview` (design change 0063): the pointer shows what the units would do, or Mixed when
-/// they would do different things. Moving to a spot and following are both Move.
+/// `systems/controls/selection_and_hud.md > Mixed Right-Click Preview` (design change 0063): the pointer shows what the
+/// units would do, or Mixed when they would do different things. Moving to a spot and following are both Move.
 #[test]
 fn units_that_would_do_different_things_show_the_mixed_pointer() {
     use PointerDisplay as D;
@@ -367,12 +368,12 @@ fn units_that_would_do_different_things_show_the_mixed_pointer() {
     assert_eq!(preview(&[], enemy()), D::Inactive);
 }
 
-/// `> Production Building Default Right-Click` (design change 0086) and `factions/gdo/structures/barracks.md >
-/// ObjectInterfaceState[Barracks]`: a producer's right-click, and a left-click while Set Rally Point awaits its
-/// target, set its rally point on what is under the cursor: the ground or any object (the producer itself too, which
-/// the sim takes as clearing it). It gives no order. The pointer shows Move (`> Resolution Rules`: "Selection is a
-/// production building: Move (rally point)"; "AwaitingTarget[SetRallyPoint] over ground or object: Move"), and
-/// Mixed beside units that would attack.
+/// `systems/controls/selection_and_hud.md > Production Building Default Right-Click` (design change 0086) and
+/// `factions/gdo/structures/barracks.md > ObjectInterfaceState[Barracks]`: a producer's right-click, and a left-click
+/// while Set Rally Point awaits its target, set its rally point on what is under the cursor: the ground or any object
+/// (the producer itself too, which the sim takes as clearing it). It gives no order. The pointer shows Move
+/// (`systems/controls/selection_and_hud.md > Resolution Rules`: "Selection is a production building: Move (rally
+/// point)"; "AwaitingTarget[SetRallyPoint] over ground or object: Move"), and Mixed beside units that would attack.
 #[test]
 fn a_producer_rallies_on_whatever_is_clicked() {
     use PointerDisplay as D;

@@ -1,7 +1,8 @@
-//! The Tunnel Network — `factions/syndicate/tunnels.md > Tunnel Network`, `> Tunnel > SymmetryType - ABCD` (Side A's
-//! paths), `> EjectMenu`; `systems/controls/commands.md > Enter`; slice M4-C. "The Tunnel Network is the collective of
-//! all Tunnels owned by a Syndicate player. Units inside the Tunnel Network can travel between Tunnels freely, but can
-//! only enter or exit the network through a Tunnel whose tier is sufficient for their unit base category."
+//! The Tunnel Network — `factions/syndicate/tunnels.md > Tunnel Network`, `factions/syndicate/tunnels.md > Tunnel >
+//! SymmetryType - ABCD` (Side A's paths), `factions/syndicate/tunnels.md > EjectMenu`; `systems/controls/commands.md >
+//! Enter`; slice M4-C. "The Tunnel Network is the collective of all Tunnels owned by a Syndicate player. Units inside
+//! the Tunnel Network can travel between Tunnels freely, but can only enter or exit the network through a Tunnel whose
+//! tier is sufficient for their unit base category."
 //!
 //! - **Units off the map** (plan decision T30): a unit inside the network is not among the sim's objects. It is
 //!   [`Held`] in one store beside them (`Sim::held`), with its id, at a [`Place`]. So every system that walks the
@@ -44,7 +45,8 @@ use crate::units::{SU_PER_GU, TICKS_PER_SECOND, Tick};
 pub use crate::tuning::tunnel::PATH_OFFSET_SU;
 
 /// The Tunnel Network's rules (module docs), the Tunnel type's def: its transit delay and its regeneration
-/// (`factions/syndicate/tunnels.md > Tunnel Network > Transit delay`, `> Regeneration inside`).
+/// (`factions/syndicate/tunnels.md > Tunnel Network > Transit delay`, `factions/syndicate/tunnels.md > Regeneration
+/// inside`).
 pub fn rules() -> &'static TunnelDef {
     tunnel::def_of(ObjectKind::Tunnel).expect("the Tunnel has a tier table")
 }
@@ -69,8 +71,8 @@ pub struct Held {
     /// and means nothing while it is held.
     pub object: Object,
     pub place: Place,
-    /// The tick it came to its place: `> EjectMenu`'s "the one that has been inside the network longest" comes out
-    /// first (design change 0251).
+    /// The tick it came to its place: `factions/syndicate/tunnels.md > EjectMenu`'s "the one that has been inside the
+    /// network longest" comes out first (design change 0251).
     pub since: Tick,
     /// Whether it walked in (design change 0245: "Each unit inside stores when it entered"), so that the transit
     /// delay applies from `since`; `false` for a unit produced inside ("no delay", 0246).
@@ -84,8 +86,9 @@ impl Held {
         !self.entered || tick >= self.since.saturating_add(rules().transit_delay)
     }
 
-    /// One tick of `> Regeneration inside` (design change 0249): the network's share of its MaxHP a second
-    /// ([`rules`]), up to its MaxHP. Only "inside the Tunnel Network": a unit held elsewhere regenerates nothing.
+    /// One tick of `factions/syndicate/tunnels.md > Regeneration inside` (design change 0249): the network's share of
+    /// its MaxHP a second ([`rules`]), up to its MaxHP. Only "inside the Tunnel Network": a unit held elsewhere
+    /// regenerates nothing.
     pub(crate) fn regenerate(&mut self) {
         match self.place {
             Place::Network => {}
@@ -175,7 +178,7 @@ pub enum NoTransit {
     NotATunnel,
     /// The kind isn't a unit.
     NotAUnit,
-    /// Its tier's Transit doesn't list the unit's base (`> Transit Tier Requirements`).
+    /// Its tier's Transit doesn't list the unit's base (`factions/syndicate/tunnels.md > Transit Tier Requirements`).
     Tier,
     /// An air unit: no air doors in M4 ([`AIR_DOORS`]).
     Air,
@@ -210,14 +213,15 @@ pub fn passes(transit: &[Transit], class: Transit) -> bool {
     transit.contains(&class) && (class != Transit::Air || AIR_DOORS)
 }
 
-/// Whether `tunnel` is a way into and out of the network: a Tunnel with an owner. (`> Losing Tunnels`: "A Tunnel that
-/// is still under construction does not count as an exit": slice M4-E's sites answer `false` here.)
+/// Whether `tunnel` is a way into and out of the network: a Tunnel with an owner. (`factions/syndicate/tunnels.md >
+/// Losing Tunnels`: "A Tunnel that is still under construction does not count as an exit": slice M4-E's sites answer
+/// `false` here.)
 pub fn is_exit(tunnel: &Object) -> bool {
     tunnel.tunnel.is_some() && tunnel.placement.is_some() && tunnel.owner.is_some()
 }
 
-/// One entry of a Tunnel's eject queue (`TunnelState::eject`; `> EjectMenu`, design change 0251: "each click reserves
-/// a specific unit [...]; the queue can't be cancelled").
+/// One entry of a Tunnel's eject queue (`TunnelState::eject`; `factions/syndicate/tunnels.md > EjectMenu`, design
+/// change 0251: "each click reserves a specific unit [...]; the queue can't be cancelled").
 #[derive(Copy, Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct Eject {
     /// The reserved unit, held in the Tunnel owner's network.

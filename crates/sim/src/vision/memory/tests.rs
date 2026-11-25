@@ -294,8 +294,8 @@ fn the_check_finds_wrong_records() {
 }
 
 /// Plan decision T32: an owned underground structure is hidden from every player but its owner, who never record it,
-/// even with a unit standing on it; a neutral one is recorded like any structure (`tunnels.md > Losing Tunnels`). A
-/// Tunnel's record keeps the tier it was last seen at (design change 0237), and its hash covers it.
+/// even with a unit standing on it; a neutral one is recorded like any structure (`factions/syndicate/tunnels.md >
+/// Losing Tunnels`). A Tunnel's record keeps the tier it was last seen at (design change 0237), and its hash covers it.
 #[test]
 fn hidden_structures_are_never_recorded_and_a_tunnels_record_keeps_its_tier() {
     let map = Map::new(40, 20);

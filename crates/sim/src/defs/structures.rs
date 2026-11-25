@@ -56,8 +56,8 @@ pub struct StructureDef {
     /// it is hidden from the other players (`vision::hidden_from`). The Syndicate's expansions: the Hideout so far.
     pub underground: bool,
     /// The Tunnel's tier table and its network's rules (plan decision T39, `factions/syndicate/tunnels.md > Tunnel >
-    /// Tiers`, `> Tunnel Network`): an object of a type with one carries its tier (`Object::tunnel`, `crate::tunnel`).
-    /// `None` for every other type.
+    /// Tiers`, `factions/syndicate/tunnels.md > Tunnel Network`): an object of a type with one carries its tier
+    /// (`Object::tunnel`, `crate::tunnel`). `None` for every other type.
     pub tunnel: Option<TunnelDef>,
 }
 
@@ -99,11 +99,12 @@ pub struct TunnelDef {
     /// Tier 1, the base, first: tier `n` is `tiers[n - 1]` ([`TunnelDef::tier`]).
     #[serde(deserialize_with = "super::leak::slice")]
     pub tiers: &'static [TierDef],
-    /// `> Tunnel Network > Transit delay` (design change 0245): how long after it walks into the network a unit can
-    /// first exit, ticks, from any Tunnel; none for a unit produced inside (0246; `network::Held::may_exit`).
+    /// `factions/syndicate/tunnels.md > Tunnel Network > Transit delay` (design change 0245): how long after it walks
+    /// into the network a unit can first exit, ticks, from any Tunnel; none for a unit produced inside (0246;
+    /// `network::Held::may_exit`).
     pub transit_delay: Tick,
-    /// `> Tunnel Network > Regeneration inside` (design change 0249): the fraction of its MaxHP that a unit inside the
-    /// network regenerates a second (`network::Held::regenerate`).
+    /// `factions/syndicate/tunnels.md > Tunnel Network > Regeneration inside` (design change 0249): the fraction of its
+    /// MaxHP that a unit inside the network regenerates a second (`network::Held::regenerate`).
     pub regen_per_second: f32,
 }
 
@@ -120,11 +121,12 @@ pub struct TierDef {
     /// `HP`: the Tunnel's MaxHP at this tier (`Object::max_hp`).
     pub max_hp: f32,
     /// `Tunnel Area Radius`, grid units: how far the Tunnel Area reaches out from the Tunnel's footprint on every side
-    /// (`> Tunnel Area`: "a square of (radius + 4 + radius) per side"). Data only until the Tunnel Area exists (slices
-    /// M4-B and M4-F).
+    /// (`factions/syndicate/tunnels.md > Tunnel Area`: "a square of (radius + 4 + radius) per side"). Data only until
+    /// the Tunnel Area exists (slices M4-B and M4-F).
     pub area_radius: u32,
     /// `Transit`: the classes of unit that may enter and leave the Tunnel Network through a Tunnel of this tier
-    /// (`> Tunnel Network > Transit Tier Requirements`). Data only until units enter the network (slice M4-C).
+    /// (`factions/syndicate/tunnels.md > Tunnel Network > Transit Tier Requirements`). Data only until units enter the
+    /// network (slice M4-C).
     #[serde(deserialize_with = "super::leak::slice")]
     pub transit: &'static [Transit],
 }

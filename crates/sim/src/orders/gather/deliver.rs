@@ -73,12 +73,12 @@ pub(super) fn to_drop_off(
     };
     let node = match *kind {
         OrderKind::DropOff(node) => own_drop_off(node),
-        // `> Assigned Drop-off`: "the return trip's destination is read from AssignedDropOff". Design change 0135
-        // (`> Drop-off gone`): without one as the trip starts, the nearest own Egress Node becomes it; with none, the
-        // worker idles holding its load. One destroyed on the way was replaced as it went, or left none (design
-        // change 0170, `Sim::reassign_drop_offs`): the leg takes the one it reads. An Agent's Gather begins without
-        // one (`super::begin`), so it takes the nearest Tunnel here, as its first return starts, and keeps it
-        // (design change 0255).
+        // `factions/colonists/units/drone.md > Assigned Drop-off`: "the return trip's destination is read from
+        // AssignedDropOff". Design change 0135 (`factions/colonists/units/drone.md > Drop-off gone`): without one as
+        // the trip starts, the nearest own Egress Node becomes it; with none, the worker idles holding its load. One
+        // destroyed on the way was replaced as it went, or left none (design change 0170, `Sim::reassign_drop_offs`):
+        // the leg takes the one it reads. An Agent's Gather begins without one (`super::begin`), so it takes the
+        // nearest Tunnel here, as its first return starts, and keeps it (design change 0255).
         _ => {
             let nearest = || nearest_drop_off(world, pos, owner, resource).map(|node| node.id);
             worker.drop_off = worker.drop_off.or_else(nearest);
@@ -101,7 +101,8 @@ pub(super) fn to_drop_off(
         side: None,
     };
     let point = world.drop_point(node.id, resource).unwrap_or(&anywhere);
-    // `> Gathering`: DropOffReach; `> Supplies`: the same 8 su (Placeholder: Q0082 point 1).
+    // `factions/syndicate/units/agent.md > Gathering`: DropOffReach; `factions/syndicate/units/agent.md > Supplies`:
+    // the same 8 su (Placeholder: Q0082 point 1).
     let reach = def.load(resource).unwrap_or(def.crystals).drop_off_reach;
     let in_reach = unit.shape().gap(&point.shape) <= reach;
     let Some(side) = point.side else {

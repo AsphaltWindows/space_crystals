@@ -130,8 +130,9 @@ fn layout_objects_are_placed_turned_moved_and_removed() {
     );
 }
 
-/// `> Symmetry > Editing a symmetric map`: "start positions with all their faction Starting Layouts" are mirrored,
-/// and "building orientations are rotated or flipped to match". The overlay's ghost shows where the images go.
+/// `core/map_editor.md > Symmetry > Editing a symmetric map`: "start positions with all their faction Starting Layouts"
+/// are mirrored, and "building orientations are rotated or flipped to match". The overlay's ghost shows where the
+/// images go.
 #[test]
 fn layout_images_follow_turned_and_flipped_to_match() {
     // 32 × 24 tiles mirrored across x = 16: slot 2 is slot 1's mirror image.

@@ -69,10 +69,10 @@ fn each_legionnaire_converts_to_its_other_form() {
     assert_eq!(others, 2);
 }
 
-/// Design change 0198 (`> A toggle sets a target form`): a press flips the type, and the unit keeps the form it has,
-/// and its weapon, until its conversion ends; pressed again before its conversion started, "it just takes the new
-/// target; if that is its current weapon again, it doesn't convert at all". The weapon is the form's (`combat::weapon`)
-/// whatever the type. A unit without another form holds none.
+/// Design change 0198 (`factions/colonists/units/weapon_conversion.md > A toggle sets a target form`): a press flips
+/// the type, and the unit keeps the form it has, and its weapon, until its conversion ends; pressed again before its
+/// conversion started, "it just takes the new target; if that is its current weapon again, it doesn't convert at all".
+/// The weapon is the form's (`combat::weapon`) whatever the type. A unit without another form holds none.
 #[test]
 fn a_press_flips_the_type_and_the_form_stays_until_the_conversion() {
     for kind in [SabreLegionnaire, RifleLegionnaire] {
@@ -97,9 +97,10 @@ fn a_press_flips_the_type_and_the_form_stays_until_the_conversion() {
     assert_eq!(pk.conversion, None, "no other form");
 }
 
-/// `> Eligibility`: "interrupting that phase immediately": the aim or the reload ends, the target stays engaged (`>
-/// Orders are kept`, design change 0150), the new weapon will start ready (design change 0152); and the unit can't move
-/// in its mode, so it makes way for no one. Its form is the old one until the conversion completes.
+/// `factions/colonists/units/weapon_conversion.md > Eligibility`: "interrupting that phase immediately": the aim or the
+/// reload ends, the target stays engaged (`factions/colonists/units/weapon_conversion.md > Orders are kept`, design
+/// change 0150), the new weapon will start ready (design change 0152); and the unit can't move in its mode, so it makes
+/// way for no one. Its form is the old one until the conversion completes.
 #[test]
 fn a_conversion_interrupts_an_aim_or_a_reload_and_holds_the_unit() {
     for phase in [AttackPhase::Aiming { target: ObjectId(9) }, AttackPhase::Reloading] {
@@ -131,9 +132,9 @@ fn a_conversion_interrupts_an_aim_or_a_reload_and_holds_the_unit() {
     }
 }
 
-/// `> Convert Command`: "The unit converts in place over 4 frames": the Modes step of the press's tick takes the
-/// first, that of the fourth tick the last, and the next one completes it: the unit has its type's form, and its
-/// conversion is over. Objects from `first_new` on wait.
+/// `factions/colonists/units/weapon_conversion.md > Convert Command`: "The unit converts in place over 4 frames": the
+/// Modes step of the press's tick takes the first, that of the fourth tick the last, and the next one completes it: the
+/// unit has its type's form, and its conversion is over. Objects from `first_new` on wait.
 #[test]
 fn a_conversion_takes_four_frames_then_completes() {
     let mut objects = BTreeMap::new();
@@ -164,10 +165,10 @@ fn a_conversion_takes_four_frames_then_completes() {
     assert_eq!(objects[&ObjectId(1)].mover, Some(Mover::default()), "at full speed");
 }
 
-/// `> Completion`: "Once the 4-frame conversion has actually started, it runs to completion and cannot be
-/// interrupted"; "If the target form changed meanwhile, the unit converts back right after" (design change 0198): the
-/// Modes step that completes it starts the conversion back, 8 frames in all, and the unit ends in the form it started
-/// in.
+/// `factions/colonists/units/weapon_conversion.md > Completion`: "Once the 4-frame conversion has actually started, it
+/// runs to completion and cannot be interrupted"; "If the target form changed meanwhile, the unit converts back right
+/// after" (design change 0198): the Modes step that completes it starts the conversion back, 8 frames in all, and the
+/// unit ends in the form it started in.
 #[test]
 fn a_conversion_whose_target_flipped_back_runs_on_then_converts_back() {
     let mut objects = BTreeMap::from([(ObjectId(1), unit(SabreLegionnaire, None))]);
@@ -203,9 +204,9 @@ fn a_conversion_whose_target_flipped_back_runs_on_then_converts_back() {
     assert_eq!((o(&objects).conversion, form(&o(&objects))), (None, SabreLegionnaire));
 }
 
-/// Design change 0153 (`> Eligibility`: "the unit finishes Firing and Cooldown, then converts immediately (instead of
-/// starting its Reloading phase)"): a unit Firing or in Cooldown waits, its attack untouched, and starts in the first
-/// Modes step after its Cooldown, the reload that followed ending.
+/// Design change 0153 (`factions/colonists/units/weapon_conversion.md > Eligibility`: "the unit finishes Firing and
+/// Cooldown, then converts immediately (instead of starting its Reloading phase)"): a unit Firing or in Cooldown waits,
+/// its attack untouched, and starts in the first Modes step after its Cooldown, the reload that followed ending.
 #[test]
 fn a_conversion_waits_for_the_firing_and_the_cooldown() {
     let mut objects = BTreeMap::new();

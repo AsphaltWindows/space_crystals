@@ -11,10 +11,11 @@
 //! client draws the hatches on the same squares (`object_render/tunnel.rs`).
 //!
 //! DropOffReach is measured to that square (`factions/syndicate/units/agent.md > Gathering > Space Crystals`:
-//! "within 8 su of the crystal hatch on Side B"), and so is the distance that picks the nearest Tunnel (`> Gathering
-//! rules`: "straight line to its crystal hatch"). Each resource has its point ([`drop_point`]): a load of Supplies is
-//! taken at the Supplies hatch on Side D (design change 0248; slice M4-I), and the nearest Tunnel for it is the one
-//! whose Supplies hatch is nearest, "since that is where the trip ends" (Placeholder: Q0082 point 2).
+//! "within 8 su of the crystal hatch on Side B"), and so is the distance that picks the nearest Tunnel
+//! (`factions/syndicate/units/agent.md > Gathering rules`: "straight line to its crystal hatch"). Each resource has its
+//! point ([`drop_point`]): a load of Supplies is taken at the Supplies hatch on Side D (design change 0248; slice
+//! M4-I), and the nearest Tunnel for it is the one whose Supplies hatch is nearest, "since that is where the trip ends"
+//! (Placeholder: Q0082 point 2).
 
 use glam::Vec2;
 

@@ -1,5 +1,6 @@
 //! Gathering (slice M3-H, brought in line with the design answers by slice M3-H3; `factions/colonists/units/drone.md >
-//! Gathering`, `> Patch Occupancy (one Drone per patch)`, `> When a Gather ends`, `> Assigned Drop-off`;
+//! Gathering`, `factions/colonists/units/drone.md > Patch Occupancy (one Drone per patch)`,
+//! `factions/colonists/units/drone.md > When a Gather ends`, `factions/colonists/units/drone.md > Assigned Drop-off`;
 //! `factions/colonists/economy.md > Egress Node > Drop Off`): the loop and its trip time, occupancy, waiting and
 //! redirects, Set Drop-off Location, depletion, the Drop Off order, a lost Egress Node, the gate, a rally on a patch,
 //! and a game replayed and saved. `TestSim` checks the invariants after every tick. The Verification points of the
@@ -34,7 +35,7 @@ const P2: PlayerId = PlayerId(2);
 const DRONE: ObjectKind = ObjectKind::Drone;
 const NODE: ObjectKind = ObjectKind::EgressNode;
 const PATCH: ObjectKind = ObjectKind::CrystalPatch;
-/// `> Gathering`: CarryCapacity, MiningDuration and DropOffDuration.
+/// `factions/colonists/units/drone.md > Gathering`: CarryCapacity, MiningDuration and DropOffDuration.
 const LOAD: u32 = 8;
 const MINING: Tick = 32;
 const DROP_OFF: Tick = 2;

@@ -165,11 +165,12 @@ fn until(app: &mut App, wanted: fn(Option<AttackPhase>) -> bool) {
 /// `factions/colonists/units/weapon_conversion.md > Convert Command`: R "goes only to the ActiveGroup" (design change
 /// 0198). Two Sabres and a Rifle selected, the Sabres active (their group comes first), R is the Sabres' "Convert to
 /// Rifle Legionnaire", a group command; its hotkey sends the two a Convert, an ability and no order. At the press,
-/// before the sim's tick, all three are one Rifle group, the ActiveGroup (`> A toggle sets a target form`: "The pressed
-/// units join the group of that form [...] and that merged group becomes the ActiveGroup"), whose R, "Convert to Sabre
-/// Legionnaire", is common to the three; the sim has the two as Rifles from its next tick. They are drawn as the Sabres
-/// they are until their 4-frame conversion is over, and as Rifles from then. The button converts all three to Sabres,
-/// each drawn anew, and Shift with R queues nothing (design change 0151).
+/// before the sim's tick, all three are one Rifle group, the ActiveGroup
+/// (`factions/colonists/units/weapon_conversion.md > A toggle sets a target form`: "The pressed units join the group of
+/// that form [...] and that merged group becomes the ActiveGroup"), whose R, "Convert to Sabre Legionnaire", is common
+/// to the three; the sim has the two as Rifles from its next tick. They are drawn as the Sabres they are until their
+/// 4-frame conversion is over, and as Rifles from then. The button converts all three to Sabres, each drawn anew, and
+/// Shift with R queues nothing (design change 0151).
 #[test]
 fn r_converts_the_active_group_and_the_other_forms_group_becomes_active() {
     let mut app = legion_game();
@@ -218,10 +219,10 @@ fn r_converts_the_active_group_and_the_other_forms_group_becomes_active() {
 
 /// 0198's Verification: "4 Sabres (active) and 6 Rifles: press R. Only the Sabres convert, and all 10 show as one
 /// active Rifle group. Press R again: all 10 become Sabres." The second R, a tick later, goes to all ten: the six
-/// Rifles convert, and the four, a frame into their conversion, finish it and convert back (`> A toggle sets a target
-/// form`: "mid-conversion: it finishes the 4 frames (Completion), then converts back"). Pressed twice before the
-/// sim's next tick (the sim held meanwhile), the second R reaches all ten as well, and the four never convert. One
-/// group throughout.
+/// Rifles convert, and the four, a frame into their conversion, finish it and convert back
+/// (`factions/colonists/units/weapon_conversion.md > A toggle sets a target form`: "mid-conversion: it finishes the 4
+/// frames (Completion), then converts back"). Pressed twice before the sim's next tick (the sim held meanwhile), the
+/// second R reaches all ten as well, and the four never convert. One group throughout.
 #[test]
 fn four_sabres_and_six_rifles_r_gives_ten_rifles_and_r_again_ten_sabres() {
     let all: Vec<u32> = (1..=10).collect();
@@ -265,11 +266,11 @@ fn four_sabres_and_six_rifles_r_gives_ten_rifles_and_r_again_ten_sabres() {
 /// same. Rifle 3, alone selected, shoots Generator 4: through a whole attack sequence (Aim 3, Firing 2, Cooldown 7,
 /// Reload 4 frames), R stays available. With Sabre 1 selected too, Tabbed to the Rifle, R pressed while the Rifle is
 /// Firing goes to it alone, and at once it is in the Sabres' group, the ActiveGroup, with the panel's R available,
-/// while it keeps its rifle and is drawn as a Rifle: its shot lands, a rifle's as before (`> Eligibility`: "The shot
-/// already under way still finishes"), and it waits for its Cooldown. R again before that goes to both: the Sabre
-/// converts, and the Rifle, its target its weapon again, doesn't convert at all ("it just takes the new target; if that
-/// is its current weapon again, it doesn't convert at all"); it fights on with its Attack (design change 0150). Both
-/// are Rifles, one group.
+/// while it keeps its rifle and is drawn as a Rifle: its shot lands, a rifle's as before
+/// (`factions/colonists/units/weapon_conversion.md > Eligibility`: "The shot already under way still finishes"), and it
+/// waits for its Cooldown. R again before that goes to both: the Sabre converts, and the Rifle, its target its weapon
+/// again, doesn't convert at all ("it just takes the new target; if that is its current weapon again, it doesn't
+/// convert at all"); it fights on with its Attack (design change 0150). Both are Rifles, one group.
 #[test]
 fn r_mid_attack_switches_the_group_at_once_and_r_again_drops_the_waiting_conversion() {
     let mut app = legion_game();

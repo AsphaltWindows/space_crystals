@@ -108,8 +108,9 @@ mod tests {
     }
 
     /// Design change 0079 for the Bio Portal (AABB, `factions/colonists/structures/bio_portal.md`): unturned, A on
-    /// top and on the right, B at the bottom and on the left. Its two A sides, its exits (`> Exit Behavior`), stay
-    /// side by side in every orientation, and a flip gives what a turn would.
+    /// top and on the right, B at the bottom and on the left. Its two A sides, its exits
+    /// (`factions/colonists/structures/bio_portal.md > Exit Behavior`), stay side by side in every orientation, and a
+    /// flip gives what a turn would.
     #[test]
     fn the_bio_portals_sides_in_all_eight_orientations() {
         let portal = |rotation, flip_h| sides(ObjectKind::BioPortal, oriented(rotation, flip_h, false)).unwrap();

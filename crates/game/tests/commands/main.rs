@@ -1,17 +1,19 @@
-//! Headless tests of the command flow (`systems/controls/selection_and_hud.md > CommandPanel`, `> DefaultState`,
-//! `> RightClickResolution`, `> AwaitingTarget`, `> PointerDisplayType`, `> CommandIndicators`;
-//! `systems/controls/commands.md > Unit Command`). Every input arrives through `InjectedInput`, the virtual keyboard
-//! and mouse, and goes through the input layer's bindings like a player's would; each `App::update` is one tick
-//! and 1/16 s of real time (`ARCHITECTURE.md > Client architecture > Client tests`). The orders given are read back
-//! from the recorded inputs, as the sim received them. The fog of war is off (`--no-fog`), so that everything is
-//! drawn and can be clicked; what the fog hides from the command flow is tested in `fog.rs`. The sim takes an order
-//! on an object only while the player sees it, so player 1 has scouts off screen, in sight of every target; and
+//! Headless tests of the command flow (`systems/controls/selection_and_hud.md > CommandPanel`,
+//! `systems/controls/selection_and_hud.md > DefaultState`, `systems/controls/selection_and_hud.md >
+//! RightClickResolution`, `systems/controls/selection_and_hud.md > AwaitingTarget`,
+//! `systems/controls/selection_and_hud.md > PointerDisplayType`, `systems/controls/selection_and_hud.md >
+//! CommandIndicators`; `systems/controls/commands.md > Unit Command`). Every input arrives through `InjectedInput`, the
+//! virtual keyboard and mouse, and goes through the input layer's bindings like a player's would; each `App::update` is
+//! one tick and 1/16 s of real time (`ARCHITECTURE.md > Client architecture > Client tests`). The orders given are read
+//! back from the recorded inputs, as the sim received them. The fog of war is off (`--no-fog`), so that everything is
+//! drawn and can be clicked; what the fog hides from the command flow is tested in `fog.rs`. The sim takes an order on
+//! an object only while the player sees it, so player 1 has scouts off screen, in sight of every target; and
 //! auto-targeting is off (a debug command), so that nobody fights while the orders are given.
 //!
 //! The production UI of slice M2-H1 (`factions/gdo/structures/barracks.md > ObjectInterfaceState[Barracks]`,
-//! `> Production Building Default Right-Click`) plays on the same field with player 1's Barracks added
-//! ([`production_scenario`]): `production` for Train and Cancel Production, `rally` for the rally points and their
-//! indicators.
+//! `systems/controls/selection_and_hud.md > Production Building Default Right-Click`) plays on the same field with
+//! player 1's Barracks added ([`production_scenario`]): `production` for Train and Cancel Production, `rally` for the
+//! rally points and their indicators.
 //!
 //! The Colonists' portals (slice M3-D) show the same production panel, built from their recipes: `portals`, on a
 //! Colonists field of their own. The Legionnaires' Weapon Conversion (slice M3-B), R: `convert`, on another.

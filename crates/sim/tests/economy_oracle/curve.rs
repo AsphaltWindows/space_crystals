@@ -24,9 +24,10 @@
 //! 4 holds at full saturation: 32 against the GDO's 26.67.
 //!
 //! **Before design change 0236** the design estimated 6.1 per second for the four starting Drones (the table's
-//! 0:00), "≈ 23" at 2 Drones per patch and "≈ 32 per second (~24 working Drones)" fully saturated (`> Reference
-//! check`), and "roughly 18–22 working Drones" to saturate the row (`> Patch Occupancy`): the curve above was within
-//! ±15% of the first three (+13.3%, +10.2% and +0.0%), and the 18–22 was low (Q0072).
+//! 0:00), "≈ 23" at 2 Drones per patch and "≈ 32 per second (~24 working Drones)" fully saturated
+//! (`factions/gdo/economy.md > Reference check`), and "roughly 18–22 working Drones" to saturate the row
+//! (`factions/colonists/units/drone.md > Patch Occupancy`): the curve above was within ±15% of the first three (+13.3%,
+//! +10.2% and +0.0%), and the 18–22 was low (Q0072).
 //!
 //! **Before design change 0205** (slice M3-K1, Q0055): 6.34 with 4 Drones, 11.65 with 8, 17.22 with 12, 23.10 with
 //! 16, 24.45 with 20, 26.24 with 24 (**−18.0%** on the 32), 26.91 with 25, 30.72 with 26, and 32.00 from 27 on: the
@@ -48,7 +49,7 @@ const SHORT: Tick = 1600;
 /// ExtractionPlate > MiningRate`).
 const GDO_FULL: f64 = 8.0 * 10.0 * 16.0 / 48.0;
 /// The row mined without a break: 8 patches, each yielding "at most 8 crystals per 32 frames (4 Space Crystals per
-/// second)" (`> Patch Occupancy`).
+/// second)" (`factions/colonists/units/drone.md > Patch Occupancy`).
 const ROW_FULL: f64 = 8.0 * 4.0;
 
 /// The income of the reference field with `drones` Drones, dealt out over its patches as `tests/gathering_soak.rs`
@@ -86,9 +87,10 @@ fn income(drones: u32, spread: bool, measured: Tick) -> f64 {
 }
 
 /// The design's incomes by Drones below saturation (module docs, design change 0236): the four starting Drones' at
-/// the table's 0:00, and `> Patch Occupancy`'s 16 Drones, 2 per patch ("the efficient point"), and 20, on the
-/// plateau. (`> Reference check`'s "Colonists at 2 Drones per patch ≈ 23 Space Crystals per second for 18 Drones" is
-/// the reference line's at 2:20, with Drones still on their first trip: `colonists.rs`.)
+/// the table's 0:00, and `factions/colonists/units/drone.md > Patch Occupancy`'s 16 Drones, 2 per patch ("the efficient
+/// point"), and 20, on the plateau. (`factions/gdo/economy.md > Reference check`'s "Colonists at 2 Drones per patch ≈
+/// 23 Space Crystals per second for 18 Drones" is the reference line's at 2:20, with Drones still on their first trip:
+/// `colonists.rs`.)
 const DESIGN: [(u32, f64); 3] = [(4, 6.9), (16, 25.0), (20, 26.0)];
 /// "about 24 working Drones (3 per patch, 32 Space Crystals per second)" saturate the row: [`ROW_FULL`], to less
 /// than a load (8 Space Crystals, 0.08 per second over 100 seconds) as the measure starts and ends mid-trip.

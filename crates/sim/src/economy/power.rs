@@ -59,7 +59,7 @@ impl PowerSummary {
     /// a consumer, a structure of negative Power (the Extraction Facility's plate construction, the Barracks'
     /// production), at the [`PowerSummary::ratio`]; any other at full speed, "power producers are never slowed"
     /// (the Deployment Center builds at full speed at negative power). The plates' mining follows its own rule
-    /// (`> ExtractionPlate > PowerPenalty`), which is the ratio as well.
+    /// (`factions/gdo/economy.md > ExtractionPlate > PowerPenalty`), which is the ratio as well.
     pub fn speed(&self, kind: ObjectKind) -> u32 {
         match kind.def().structure.as_ref() {
             Some(structure) if structure.power < 0 => self.ratio(),

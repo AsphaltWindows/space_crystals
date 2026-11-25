@@ -76,9 +76,9 @@ fn control_group_keys_resolve_by_their_modifiers_and_double_taps() {
     assert_eq!(tap(&mut app, &[ShiftLeft], Digit2), [InputAction::AddToGroup(group(2))]);
 }
 
-/// The command panel's hotkeys (`> CommandPanel > Grid Layout`, `> Standard Slot Assignments`), group cycling and
-/// cancel. Shift + a hotkey still presses the slot, with the queue modifier held
-/// (`systems/controls/commands.md > Unit Command`).
+/// The command panel's hotkeys (`systems/controls/selection_and_hud.md > CommandPanel > Grid Layout`,
+/// `systems/controls/selection_and_hud.md > Standard Slot Assignments`), group cycling and cancel. Shift + a hotkey
+/// still presses the slot, with the queue modifier held (`systems/controls/commands.md > Unit Command`).
 #[test]
 fn hotkeys_fire_their_actions_and_modifiers_hold_their_roles() {
     use KeyCode::*;
@@ -187,9 +187,9 @@ fn arrow_keys_and_the_middle_button_pan_through_their_bindings() {
     assert_eq!(app.world().resource::<GrabPan>().grabbed, None);
 }
 
-/// `> MapClickSelection`: a left click on the map is sent when released, with the view point and the ground drawn
-/// there (they differ on raised ground), the modifiers, and whether it completes a double-click. A right click (the
-/// context command) is sent when pressed.
+/// `systems/controls/selection_and_hud.md > MapClickSelection`: a left click on the map is sent when released, with the
+/// view point and the ground drawn there (they differ on raised ground), the modifiers, and whether it completes a
+/// double-click. A right click (the context command) is sent when pressed.
 #[test]
 fn clicks_on_the_map_carry_the_ground_point_the_modifiers_and_double_clicks() {
     let mut app = headless_app(plateau_scenario());
@@ -260,8 +260,8 @@ fn clicks_on_the_map_carry_the_ground_point_the_modifiers_and_double_clicks() {
     assert!(drain::<MapClick>(&mut app).is_empty());
 }
 
-/// `> BoxSelection`: a left press that moves further than the drag threshold is a box in view space, shown while
-/// dragging and sent when released, kept inside the world view.
+/// `systems/controls/selection_and_hud.md > BoxSelection`: a left press that moves further than the drag threshold is a
+/// box in view space, shown while dragging and sent when released, kept inside the world view.
 #[test]
 fn dragging_the_select_button_makes_a_box() {
     let mut app = headless_app(scenarios::empty(64, 48));

@@ -48,8 +48,8 @@ fn twenty_guards_file_in_without_pausing() {
 
 /// The plan's single file (design change 0225's Verification): 10 Guards go in one after another through the entry
 /// path while units ejected meanwhile "come out of the exit path, unhindered by those entering"; and the same units
-/// come out of a second Tunnel (`> Tunnel Network`: "Units inside the Tunnel Network can travel between Tunnels
-/// freely").
+/// come out of a second Tunnel (`factions/syndicate/tunnels.md > Tunnel Network`: "Units inside the Tunnel Network can
+/// travel between Tunnels freely").
 #[test]
 fn units_come_out_unhindered_while_others_go_in() {
     let mut t = base().spawn(TUNNEL, Some(P1), tile(22, 2)).start(); // 2

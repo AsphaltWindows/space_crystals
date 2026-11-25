@@ -286,9 +286,9 @@ fn a_cancelled_deployment_holds_the_portal_until_a_beacon_completes() {
 
 /// Slice M3-D's plan acceptance "over capacity", design change 0112 as 0143 amends it: the Egress Node removed (a
 /// debug removal for its destruction), the portal is over capacity, and finishes its Drone in production all the
-/// same (Q0041 point 2); the one queued behind it waits at 0% (`> Over capacity`: "no new unit starts production
-/// until there is room again"), and a Train is still taken. Once Drones are gone and there is room, the portal starts
-/// by itself, in that tick.
+/// same (Q0041 point 2); the one queued behind it waits at 0% (`factions/colonists/overview.md > Over capacity`: "no
+/// new unit starts production until there is room again"), and a Train is still taken. Once Drones are gone and there
+/// is room, the portal starts by itself, in that tick.
 #[test]
 fn an_over_capacity_portal_finishes_its_drone_and_waits_for_room() {
     let mut t = colonists(ObjectKind::EgressNode, 7);

@@ -1,12 +1,12 @@
 //! A Colonists player's start (slice M3-C; `factions/colonists/economy.md > Starting Conditions`): the banks, the
 //! objects of the Starting Layout on `dev_skirmish` in either slot (plan decision T24), and Beacon Capacity
-//! (`factions/colonists/overview.md > ColonistResources > Beacon Capacity`, `economy.md > Warp In > Beacon Capacity
-//! Retention`; plan decision T20): taken when a unit's production starts, not when it is queued, so that group
-//! production leaves it out (design change 0143, answering Q0041 points 1 and 2, slice M3-P; design change 0083), and
-//! kept by the units and the unit in production when the capacity falls (design change 0112). Also the refined banks
-//! that `SetResources` sets (T21). The Starting Conditions table is unit-tested in `scenario/starting.rs`, the caps in
-//! `economy/army.rs`, the bar and the camera in the client; the waits at production start in
-//! `tests/production/capacity.rs`.
+//! (`factions/colonists/overview.md > ColonistResources > Beacon Capacity`, `factions/colonists/economy.md > Warp In >
+//! Beacon Capacity Retention`; plan decision T20): taken when a unit's production starts, not when it is queued, so
+//! that group production leaves it out (design change 0143, answering Q0041 points 1 and 2, slice M3-P; design change
+//! 0083), and kept by the units and the unit in production when the capacity falls (design change 0112). Also the
+//! refined banks that `SetResources` sets (T21). The Starting Conditions table is unit-tested in
+//! `scenario/starting.rs`, the caps in `economy/army.rs`, the bar and the camera in the client; the waits at production
+//! start in `tests/production/capacity.rs`.
 
 use sc_sim::scenario::DEFAULT_SEED;
 use sc_sim::testing::{ScenarioBuilder, TestSim};

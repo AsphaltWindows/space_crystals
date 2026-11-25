@@ -193,7 +193,7 @@ impl Leg {
 }
 
 /// `> AttackMovingToLocation`: one tick of a leg. `group` is the order group of a leg ordered as one (for the
-/// shared path field and for yielding, `docs/movement.md > 5.5`, `> 6.6`).
+/// shared path field and for yielding, `docs/movement.md > 5.5`, `docs/movement.md > 6.6`).
 ///
 /// 1. MovingToLocation towards the leg's destination.
 /// 2. While moving, the unit scans for ValidTarget enemies within SightRange ([`World::pick`]) and switches to

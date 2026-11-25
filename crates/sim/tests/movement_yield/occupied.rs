@@ -116,10 +116,11 @@ fn a_unit_blocked_two_and_a_half_grid_units_short_by_idle_units_has_arrived() {
     }
 }
 
-/// Design change 0169 for `> MovingToObject`, whose "Blocked near the target" is the same rule with the same radius,
-/// measured edge to edge (design change 0033): the wall of [`idle_enemy_wall`], and player 1's Generator beyond it on
-/// tiles (10, 1) to (11, 2), its west edge at x 640. A Move to the Generator stops at the wall, the walker's edge
-/// 152 su (2.4 grid units) from the Generator's, and is complete there, without a re-route attempt or a failure.
+/// Design change 0169 for `systems/controls/behaviors.md > MovingToObject`, whose "Blocked near the target" is the same
+/// rule with the same radius, measured edge to edge (design change 0033): the wall of [`idle_enemy_wall`], and player
+/// 1's Generator beyond it on tiles (10, 1) to (11, 2), its west edge at x 640. A Move to the Generator stops at the
+/// wall, the walker's edge 152 su (2.4 grid units) from the Generator's, and is complete there, without a re-route
+/// attempt or a failure.
 #[test]
 fn a_move_to_a_structure_blocked_within_three_grid_units_of_it_is_complete() {
     let builder =

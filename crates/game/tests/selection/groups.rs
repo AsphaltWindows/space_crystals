@@ -1,4 +1,5 @@
-//! `> ControlGroups` (with their default keys) and `> GroupCycling`.
+//! `systems/controls/selection_and_hud.md > ControlGroups` (with their default keys) and
+//! `systems/controls/selection_and_hud.md > GroupCycling`.
 
 use bevy::prelude::*;
 
@@ -71,8 +72,9 @@ fn a_double_tap_recalls_the_group_and_centers_the_camera_on_it() {
     assert_eq!(selected(&app), [2]);
 }
 
-/// `> ControlGroups > Groups` (design change 0056): only own objects go into control groups. With an enemy or a
-/// neutral object selected, Assign and Add change nothing: a group keeps what it holds, an empty one stays empty.
+/// `systems/controls/selection_and_hud.md > ControlGroups > Groups` (design change 0056): only own objects go into
+/// control groups. With an enemy or a neutral object selected, Assign and Add change nothing: a group keeps what it
+/// holds, an empty one stays empty.
 #[test]
 fn only_own_objects_go_into_control_groups() {
     let mut app = game();

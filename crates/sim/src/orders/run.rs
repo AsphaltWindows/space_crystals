@@ -94,21 +94,23 @@ fn path_group(order: &Order, click: Vec2) -> PathGroup {
 /// A behaviour begins (`systems/controls/behaviors.md`): its state as it starts. [`run`] follows in the same tick.
 pub(super) fn start(order: &Order, unit: &mut Unit, world: &World) -> Behaviour {
     let tick: Tick = world.tick;
-    // `> AttackingObject`: the attack engages the order's target; every other order disengages it (interrupting an
-    // attack being aimed, `systems/combat.md > Aiming`) and whatever the unit had acquired by itself.
+    // `systems/controls/behaviors.md > AttackingObject`: the attack engages the order's target; every other order
+    // disengages it (interrupting an attack being aimed, `systems/combat.md > Aiming`) and whatever the unit had
+    // acquired by itself.
     unit.engage(match order.kind {
         OrderKind::Attack(id) => Some(id),
         _ => None,
     });
     match order.kind {
-        // `> MovingToLocation`: the unit goes to its own destination (the magic box); the group's path field is
-        // anchored on the clicked point.
+        // `systems/controls/behaviors.md > MovingToLocation`: the unit goes to its own destination (the magic box); the
+        // group's path field is anchored on the clicked point.
         OrderKind::Move(Target::Point(click)) => {
             let goal = MoveGoal::Point(order.slot.unwrap_or(click));
             unit.mover.go_to(goal, Some(path_group(order, click)), tick);
             return Behaviour::Plain;
         }
-        // `> StoppingBehavior`, `> HoldingPosition`: no goal. Infinite deceleration stops the unit at once.
+        // `systems/controls/behaviors.md > StoppingBehavior`, `systems/controls/behaviors.md > HoldingPosition`: no
+        // goal. Infinite deceleration stops the unit at once.
         OrderKind::Stop | OrderKind::Hold => {}
         // The others set off in their first tick ([`run`]), from a standstill.
         OrderKind::Attack(_) | OrderKind::Move(Target::Object(_)) | OrderKind::AttackMove(_) | OrderKind::Patrol(_) => {
@@ -121,10 +123,10 @@ pub(super) fn start(order: &Order, unit: &mut Unit, world: &World) -> Behaviour 
         OrderKind::Hold => Behaviour::Hold { target: None },
         OrderKind::Attack(_) => Behaviour::Attack(AttackOrder::default()),
         OrderKind::Move(Target::Object(_)) => Behaviour::Approach(Approach::default()),
-        // `> AttackMovingToLocation`: to this unit's own destination.
+        // `systems/controls/behaviors.md > AttackMovingToLocation`: to this unit's own destination.
         OrderKind::AttackMove(click) => Behaviour::AttackMove(Leg::new(unit.pos, order.slot.unwrap_or(click))),
-        // `> Patrolling` 1 (design change 0036): the origin is where the unit is now, as the Patrol starts
-        // executing; for a queued Patrol, where the order before it ended.
+        // `systems/controls/behaviors.md > Patrolling` 1 (design change 0036): the origin is where the unit is now, as
+        // the Patrol starts executing; for a queued Patrol, where the order before it ended.
         OrderKind::Patrol(click) => {
             let destination = order.slot.unwrap_or(click);
             Behaviour::Patrol(Patrol {
@@ -157,12 +159,13 @@ fn run(
 ) -> bool {
     let order = &mut active.order;
     match (order.kind, &mut active.state) {
-        // `> MovingToLocation`: complete when stopped at the target, or after failing to make progress
-        // (`> Failure`).
+        // `systems/controls/behaviors.md > MovingToLocation`: complete when stopped at the target, or after failing to
+        // make progress (`systems/controls/behaviors.md > Failure`).
         (OrderKind::Move(Target::Point(_)), _) => unit.mover.status != MoveStatus::Moving,
-        // `> StoppingBehavior`: complete when stopped, at once with infinite deceleration.
+        // `systems/controls/behaviors.md > StoppingBehavior`: complete when stopped, at once with infinite
+        // deceleration.
         (OrderKind::Stop, _) => true,
-        // `> HoldingPosition`: never completes; only a new command ends it.
+        // `systems/controls/behaviors.md > HoldingPosition`: never completes; only a new command ends it.
         (OrderKind::Hold, Behaviour::Hold { target }) => {
             engage::hold(unit, target, world);
             false
