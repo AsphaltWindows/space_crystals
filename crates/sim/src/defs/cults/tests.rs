@@ -88,7 +88,6 @@ pub(super) fn assert_infantry(kind: ObjectKind) -> AttackAttrs {
 /// Tunnel nor expansion, and neither attacks nor pops up (plan §3.3 A: "`attack` and `popup` ... are `None` on every
 /// Cults structure for good"). The fields that the Cults' systems fill (`production`, `drop_off`, `site`) are each
 /// kind's own test's.
-#[expect(clippy::too_many_arguments, reason = "one argument per line of the stat block")]
 pub(super) fn assert_structure(
     kind: ObjectKind,
     size: (u32, u32),
