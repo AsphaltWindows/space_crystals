@@ -46,9 +46,23 @@ fn only_an_explicit_attack_hits_a_neutral_hideout() {
     let engaged = object(&t, peacekeeper).attack.as_ref().and_then(|attack| attack.target);
     assert_eq!(engaged, None, "it engaged nothing");
 
-    // Its right-click moves to it.
+    // Its right-click is a Move to it, which the gate takes: the Peacekeeper walks up to it and leaves it alone.
     let right_click = t.sim().default_order(peacekeeper, Target::Object(H1));
     assert_eq!(right_click, Some(OrderKind::Move(Target::Object(H1))));
+    let right_click = order(&[4], OrderKind::Move(Target::Object(H1)), false);
+    assert_eq!(gate(&t, P2, right_click.clone()), Ok(()));
+    let distance = |t: &TestSim| object(t, peacekeeper).pos.distance(object(t, H1).pos);
+    let from = distance(&t);
+    next(&mut t, P2, right_click);
+    let idle = |t: &TestSim| (object(t, peacekeeper).orders.as_ref()).is_some_and(|orders| orders.is_idle());
+    step_until(&mut t, WALK, "the Peacekeeper's Move ends", idle);
+    // From 160 to the Hideout's side, its half-width (64) and a little from its centre.
+    assert!(
+        distance(&t) <= 96.0,
+        "it walked up to it: from {from} to {}",
+        distance(&t)
+    );
+    assert!(!hit(&t, H1));
 
     // An explicit Attack hits it.
     let attack = order(&[4], OrderKind::Attack(H1), false);
