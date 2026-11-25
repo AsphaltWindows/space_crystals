@@ -67,7 +67,8 @@ pub struct Worker {
     /// them at its next drop-off (design change 0129).
     pub load: u32,
     /// `> Assigned Drop-off`: "the Egress Node or refinery it delivers its current and future loads to". `None`
-    /// until its first Gather assigns one, and again when that one is gone.
+    /// until its first Gather assigns one, and again when that one is gone, but for a worker on its way back to it,
+    /// which takes the nearest other at once (design change 0170, `Sim::reassign_drop_offs`).
     pub drop_off: Option<ObjectId>,
 }
 

@@ -7,8 +7,8 @@ use glam::Vec2;
 use super::{Reject, Sim};
 use crate::economy::gathering::is_drop_off;
 use crate::ids::{ObjectId, PlayerId};
-use crate::object::ResourceState;
-use crate::orders::state::Behaviour;
+use crate::object::{Object, ResourceState};
+use crate::orders::state::{Behaviour, GatherPhase};
 use crate::orders::{OrderKind, Orders};
 
 /// The Gather order `orders` is carrying out, if it is one: its patch.
@@ -17,6 +17,25 @@ fn gathering(orders: &Orders) -> Option<ObjectId> {
         OrderKind::Gather(patch) => Some(patch),
         _ => None,
     }
+}
+
+/// The drop-off worker `o` is on its way back to with a load, in a Gather, if it is: its AssignedDropOff, which the
+/// return leg heads for (`orders::gather`, phase ToDropOff), or the one it is unloading at, DroppingOff. (A worker
+/// unloading somewhere else, its AssignedDropOff changed meanwhile, isn't on its way to that one; a Drop Off order
+/// heads for a drop-off of its own.)
+fn returning_to(o: &Object) -> Option<ObjectId> {
+    let worker = o.worker.filter(|worker| worker.load > 0)?;
+    let drop_off = worker.drop_off?;
+    let active = o.orders.as_ref()?.current.as_ref()?;
+    let (OrderKind::Gather(_), Behaviour::Gather(gather)) = (active.order.kind, &active.state) else {
+        return None;
+    };
+    let returning = match gather.phase {
+        GatherPhase::ToDropOff => true,
+        GatherPhase::DroppingOff { .. } => gather.node == Some(drop_off),
+        _ => false,
+    };
+    returning.then_some(drop_off)
 }
 
 impl Sim {
@@ -109,5 +128,56 @@ impl Sim {
                 state.spot = Some(spot);
             }
         }
+    }
+
+    /// The removal path, before the objects `gone` (sorted) leave: design change 0170, answering question Q0046
+    /// (`factions/colonists/units.md > Assigned Drop-off > Destroyed mid-trip`): "if its drop-off is destroyed while
+    /// the Drone is already on its way there, it switches at once to the nearest own Egress Node (or idles holding its
+    /// load if there is none)". "How the loss is detected ... is the Director's choice; the user's goal is to avoid
+    /// performance cost": the destruction reassigns, once, and the return leg never checks that its drop-off still
+    /// stands. Each worker on its way back to a drop-off among `gone` ([`returning_to`]) takes its owner's nearest
+    /// to where it is, by the rule of a return trip that starts without one (design change 0135, `> Drop-off gone`;
+    /// [`Sim::nearest_drop_off`]), or none if none is left: its return leg then goes on as one that starts without
+    /// one, and with none to take the worker idles holding its load (`orders::gather`).
+    ///
+    /// The worker turns when it did while the leg checked every tick: in the first phase 5a after the loss, in the
+    /// tick of a removal by a command and in the next one for a death in phase 5e. Only the assignment shows sooner
+    /// for a death, from the end of its tick. The drop-offs it chooses from are those at the destruction ("at
+    /// once"): an Egress Node whose Warp In completes later in that tick isn't one of them.
+    ///
+    /// Any other worker forgets a drop-off that goes (`Worker::forget`), and takes the nearest as its next return
+    /// trip starts (0135).
+    pub(super) fn reassign_drop_offs(&mut self, gone: &[ObjectId]) {
+        let is_gone = |id: ObjectId| gone.binary_search(&id).is_ok();
+        let lost = |id: &ObjectId| self.objects.get(id).is_some_and(|o| is_drop_off(o.kind));
+        if !gone.iter().any(lost) {
+            return;
+        }
+        let returning: Vec<(ObjectId, Vec2, Option<PlayerId>)> = (self.objects.values())
+            .filter(|o| !is_gone(o.id) && returning_to(o).is_some_and(is_gone))
+            .map(|o| (o.id, o.pos, o.owner))
+            .collect();
+        for (id, pos, owner) in returning {
+            let nearest = self.nearest_drop_off(pos, owner, is_gone);
+            if let Some(worker) = self.objects.get_mut(&id).and_then(|o| o.worker.as_mut()) {
+                worker.drop_off = nearest;
+            }
+        }
+    }
+
+    /// The drop-off of `owner`'s nearest to `pos`, centre to centre, the lowest id among equals, of those that take
+    /// loads (an Egress Node being warped in takes nothing, design change 0116) and aren't `gone`: the rule of the
+    /// return leg's `orders::gather::nearest_drop_off`, here on the game rather than on the behaviours' snapshot.
+    fn nearest_drop_off(
+        &self,
+        pos: Vec2,
+        owner: Option<PlayerId>,
+        is_gone: impl Fn(ObjectId) -> bool,
+    ) -> Option<ObjectId> {
+        owner?;
+        (self.objects.values())
+            .filter(|o| is_drop_off(o.kind) && !o.is_transforming() && o.owner == owner && !is_gone(o.id))
+            .min_by(|a, b| a.pos.distance_squared(pos).total_cmp(&b.pos.distance_squared(pos)))
+            .map(|o| o.id)
     }
 }

@@ -21,7 +21,7 @@
 //! - **ToDropOff**: a leg to its AssignedDropOff, read again every tick, so that Set Drop-off Location redirects
 //!   "a trip already in progress" (`> Assigned Drop-off`); for a Drop Off order, to the order's own drop-off.
 //!   Without a drop-off as the return starts, the worker assigns the nearest of its owner's, and with none it idles
-//!   holding its load (design change 0135).
+//!   holding its load (design change 0135). The removal path replaces one lost on the way (0170).
 //! - **Delivered**: the load is in the bank. A Gather goes back to its patch, the one where it last mined (design
 //!   change 0132, item 4: the order follows the worker from patch to patch). A Drop Off order is complete: "an
 //!   explicit Drop Off is only a delivery" (0127); the gate never gives one to a worker without a load (0140).
@@ -166,7 +166,7 @@ pub(super) fn begin(kind: OrderKind, unit: &mut Unit, world: &World) -> Gather {
     }
 }
 
-/// The drop-off of `owner` nearest to `pos`, centre to centre; the lowest id among equals.
+/// The drop-off of `owner` nearest to `pos`, centre to centre; the lowest id among equals (`Sim::nearest_drop_off`).
 fn nearest_drop_off<'a>(world: &'a World, pos: Vec2, owner: Option<PlayerId>) -> Option<&'a View> {
     owner?;
     world
@@ -385,13 +385,13 @@ fn to_drop_off(
         OrderKind::DropOff(node) => own_drop_off(node),
         // `> Assigned Drop-off`: "the return trip's destination is read from AssignedDropOff". Design change 0135
         // (`> Drop-off gone`): without one as the trip starts, the nearest own Egress Node becomes it; with none, the
-        // worker idles holding its load. (It is read every tick, so one lost on the way counts as a trip starting
-        // there.)
-        _ => worker.drop_off.and_then(own_drop_off).or_else(|| {
-            let nearest = nearest_drop_off(world, pos, owner);
-            worker.drop_off = nearest.map(|node| node.id);
-            nearest
-        }),
+        // worker idles holding its load. One destroyed on the way was replaced as it went, or left none (design
+        // change 0170, `Sim::reassign_drop_offs`): the leg takes the one it reads.
+        _ => {
+            let nearest = || nearest_drop_off(world, pos, owner).map(|node| node.id);
+            worker.drop_off = worker.drop_off.or_else(nearest);
+            worker.drop_off.and_then(own_drop_off)
+        }
     };
     let Some(node) = node else {
         return Flow::Done;

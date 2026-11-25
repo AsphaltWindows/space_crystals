@@ -37,7 +37,8 @@ impl Sim {
     /// `Sim::refund_constructors`).
     ///
     /// A worker gathering at a patch that goes keeps its Gather, and heads for where the patch was
-    /// (`Sim::keep_gatherers_on_spots`, design change 0134); a worker forgets a drop-off that is gone
+    /// (`Sim::keep_gatherers_on_spots`, design change 0134). A worker on its way back to a drop-off that goes takes
+    /// the nearest other at once (`Sim::reassign_drop_offs`, design change 0170); any other forgets it
     /// (`Worker::forget`).
     ///
     /// Design change 0139 (`core/vision.md > Explored > Targeting remembered objects`: "Nothing about the real state
@@ -60,8 +61,10 @@ impl Sim {
         gone.sort_unstable();
         gone.dedup();
         // The workers gathering at a patch that goes, while it is still there to say where it was
-        // (`Sim::keep_gatherers_on_spots`).
+        // (`Sim::keep_gatherers_on_spots`), and those on their way back to a drop-off that goes
+        // (`Sim::reassign_drop_offs`).
         self.keep_gatherers_on_spots(&gone);
+        self.reassign_drop_offs(&gone);
         for &id in &gone {
             self.refund_production(id);
         }

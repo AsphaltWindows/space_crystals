@@ -733,6 +733,12 @@ the target the attack engages, and reads `Mover::status` and the snapshot.
     (0128); other orders keep the load (0129).
   - **The return** reads the worker's AssignedDropOff every tick, so `Ability::SetDropOff` redirects it; without
     one as the return starts it takes the owner's nearest, and with none it idles holding its load (0135).
+  - **A drop-off lost on the way** (0170, "switches at once") is replaced by the removal path, not looked for by
+    the leg (`Sim::reassign_drop_offs`, like `keep_gatherers_on_spots`): a worker heading for it or unloading
+    there takes its owner's nearest at the destruction, by the leg's rule, or none; the others forget it and take
+    the nearest as their next return starts (0135). The loss is reacted to once, where it happens, and nothing
+    checks every tick that the drop-off still stands. The leg turns in the first 5a after the loss, as it did; for
+    a death in 5e the assignment shows from that tick's end.
   - **Legs are moves to a point** the behaviour picks, where the worker stands against the nearest open face of
     its target (`legs::approach_point`), and the behaviour measures MiningReach and DropOffReach itself. Not
     `MoveGoal::Object`: that is planned to the point nearest the object's centre, the north side of every patch
