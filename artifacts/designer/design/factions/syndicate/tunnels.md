@@ -115,6 +115,15 @@ Displays available underground expansion types for this Tunnel's current tier. A
 - A ghost preview of the expansion follows the cursor within the Tunnel Area, snapped to the grid. Tinted green when valid, red when invalid. The expansion must fit entirely within the Tunnel Area. **Every tile under it must be Drillable** (user, 2026-11-25; Q0062: Plane, Rugged and Cliff yes; Mountain and Water no; core/map.md > DefaultTilePresets). Own and neutral underground structures block it; so does the Tunnel's own footprint. **Surface structures block it too** (user, 2026-11-25; Q0062): no expansion can be placed under any surface building, any player's (judged by the truth; the placement is refused).
 - R rotates the ghost 90 degrees clockwise, Shift+R counter-clockwise. F flips horizontally, Shift+F flips vertically.
 - Left-click valid location: places expansion, begins construction (CommandIssuingTransition, returns to DefaultState)
+
+#### Expansions under construction
+(user, 2026-11-25; Q0065)
+- **Paid when the ghost is placed** (the left-click above). **Tunnel Space is used once construction has started.** Today placing the ghost starts construction at once (the Tunnel does one operation at a time, so there's no queue); if expansion queuing is ever added, payment stays at ghost placement and the Tunnel Space only goes when the building starts.
+- **HP**: the ConstructionHP Rule applies to every expansion (starts at 10%, grows with progress); damage taken stays (current HP rises by the same amount).
+- **Cancelling**: while building, the expansion offers only **X Cancel Construction**, refunding **75%** of its cost (rounded down). The Tunnel's X cancels whatever operation it is running (an upgrade or an expansion).
+- **Sight**: none (underground). **Groupable**: true.
+- **Its Tunnel destroyed mid-build**: the unfinished expansion is destroyed, no refund.
+- **The Tunnel meanwhile** shows the progress; Eject still works (it isn't an operation).
 - **Z**: returns to ExpandMenu (StateOnlyTransition)
 
 ### Tunnel Area
