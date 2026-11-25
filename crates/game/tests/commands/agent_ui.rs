@@ -11,7 +11,7 @@ use sc_sim::nav::TileRect;
 use sc_sim::testing::ScenarioBuilder;
 use sc_sim::{BuildingOrientation, ConstructionCommand, Faction, PlayerCommand as Sent, SU_PER_GU, SpawnSettings};
 use space_crystals::command_ui::feedback::{
-    BUSY_TEXT, NO_SUPPLIES_TEXT, NOTHING_CARRIED_TEXT, REQUIRES_OPTICS_LAB_TEXT, TargetFeedback, placement_text,
+    BUSY_TEXT, NO_SUPPLIES_TEXT, NOTHING_CARRIED_TEXT, TargetFeedback, placement_text, requires_text,
 };
 use space_crystals::command_ui::{ButtonLook, PanelButton, PanelCommand, Planned};
 use space_crystals::hud::command_panel::CommandButton;
@@ -201,7 +201,7 @@ fn the_agents_panel_has_its_letters_d_greyed_with_its_reason() {
         ]
     );
     tap(&mut app, &[], KeyD);
-    assert_eq!(said(&app), Some(REQUIRES_OPTICS_LAB_TEXT));
+    assert_eq!(said(&app), Some(requires_text(ObjectKind::OpticsLab)));
     assert_eq!(interface(&app), InterfaceState::DefaultState);
     tap(&mut app, &[], KeyS);
     assert_eq!(said(&app), Some(NOTHING_CARRIED_TEXT));

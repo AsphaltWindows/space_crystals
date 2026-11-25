@@ -29,6 +29,13 @@
 //! Tunnel's tier, a prerequisite missing, too few Space Crystals), where the expansion goes being the ghost's to show;
 //! its X while it performs no operation.
 //!
+//! **Prerequisites** (slice M4-K, `core/tech_and_research.md > Tech Prerequisites`: "Options whose TechPrerequisite is
+//! not met are unavailable in the build menu"): every entry the gate refuses for a type the player doesn't own
+//! (`Reject::Requires`, `sc_sim::tech`) is greyed with "Requires …" (`crate::command_ui::feedback::requires_text`),
+//! whatever its kind: the Hideout's Guard ("Requires an Optics Lab"), an ExpandMenu entry, a GDO building or unit,
+//! a Warp In. A placeholder entry whose prerequisite is in the game says it the same way while the player owns none,
+//! and that it isn't in the game yet once they own one ([`Conditions::planned`]).
+//!
 //! The Agent's A, Build Tunnel (`factions/syndicate/units/agent.md > Agent ObjectInterfaceState`, slice M4-J1), asks
 //! for its Build order where it would stand anywhere, and leaves out the placement's refusal as a Warp In does: it is
 //! greyed while the bank can't pay the Tunnel's price ([`Conditions::price`], `Sim::build_price`; design change 0233:
@@ -44,7 +51,8 @@ use sc_sim::{
     PlayerId, Reject, ShieldMode, Sim, TilePos, riot_shield,
 };
 
-use super::{PanelCommand, commands, recipients};
+use super::{PanelCommand, Planned, commands, recipients};
+use crate::command_ui::feedback::requires_text;
 use crate::selection::Selection;
 
 /// What the selected units' modes let them do now: which of them take no Attack (`factions/gdo/units/peacekeeper.md >
@@ -152,7 +160,7 @@ pub enum WhyUnavailable {
     /// whose buildings is, an order the sim has none of (Reverse).
     NotYet,
     /// A placeholder entry's own reason, the message the gate's refusal will give once its command is in the game
-    /// (`super::Planned::why`, slice M4-J2): the Hideout's Guard "Requires an Optics Lab".
+    /// ([`Conditions::planned`], slice M4-J2): the Hideout's Grenadier "Requires a Chemical Plant".
     Placeholder(&'static str),
 }
 
@@ -185,6 +193,9 @@ pub struct Conditions {
     /// site is a structure that does nothing but Cancel"), whose panel is its X Cancel Construction alone, whatever
     /// its type (`super::templates::SITE_GRID`).
     pub site: bool,
+    /// The placeholder entries' prerequisites that the player owns now (`super::Planned::requires`,
+    /// `Sim::requirement_met`): none in the unit tests' conditions but those they give ([`Conditions::owning`]).
+    owned: BTreeSet<ObjectKind>,
 }
 
 impl Conditions {
@@ -265,6 +276,10 @@ impl Conditions {
                 _ => None,
             })
             .collect();
+        let owned = (Planned::ALL.into_iter())
+            .filter_map(Planned::requires)
+            .filter(|&kind| sim.requirement_met(player, kind))
+            .collect();
         let group = selection.active_group();
         let first = group
             .as_ref()
@@ -278,6 +293,7 @@ impl Conditions {
             network,
             prices,
             site: first.is_some_and(|o| o.is_site()),
+            owned,
         }
     }
 
@@ -291,6 +307,7 @@ impl Conditions {
             network: BTreeMap::new(),
             prices: BTreeMap::new(),
             site: false,
+            owned: BTreeSet::new(),
         }
     }
 
@@ -321,6 +338,24 @@ impl Conditions {
     pub fn on_site(mut self) -> Self {
         self.site = true;
         self
+    }
+
+    /// The same, with the player owning a `kind` that counts as a prerequisite: for the unit tests.
+    pub fn owning(mut self, kind: ObjectKind) -> Self {
+        self.owned.insert(kind);
+        self
+    }
+
+    /// Why placeholder entry `planned` is greyed (design change 0162): the reason its command's gate will give, where
+    /// it is known and true now (slice M4-J2's rule), so that the button says the same before and after the slice that
+    /// brings it: its prerequisite while the player owns none ([`Planned::requires`]: the Grenadier's "Requires a
+    /// Chemical Plant", the Laser Turret's "Requires an Optics Lab", as the gate words `Reject::Requires`, slice
+    /// M4-K), else that it isn't in the game yet.
+    pub fn planned(&self, planned: Planned) -> WhyUnavailable {
+        match planned.requires() {
+            Some(kind) if !self.owned.contains(&kind) => WhyUnavailable::Placeholder(requires_text(kind)),
+            _ => WhyUnavailable::NotYet,
+        }
     }
 
     /// The same, with `command` priced at `price`: for the unit tests.

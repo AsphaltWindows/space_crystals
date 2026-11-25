@@ -256,8 +256,8 @@ fn the_eject_menu_counts_the_network_and_q_ejects_the_oldest_agent() {
 }
 
 /// `factions/syndicate/structures/hideout.md > ObjectInterfaceState[Hideout]`: Q Build Agent, W Build Guard (greyed
-/// "Requires an Optics Lab"), E Build Grenadier (greyed "Requires a Chemical Plant", design change 0260), X Cancel
-/// Production and C Set Rally Point. Design change 0252's verification: "Rally a Hideout on another Hideout. The
+/// "Requires an Optics Lab" by the gate while the player owns none, slice M4-K), E Build Grenadier (greyed "Requires a
+/// Chemical Plant", design change 0260), X Cancel Production and C Set Rally Point. Design change 0252's verification: "Rally a Hideout on another Hideout. The
 /// produced Guard comes out of the parent Tunnel and stands over the other Hideout" (an Agent here: the Guard needs an
 /// Optics Lab), the rally marker over the other Hideout; "Rally on a Tunnel: the Guard stays inside".
 #[test]
@@ -272,7 +272,7 @@ fn the_hideout_has_its_letters_and_rallies_on_a_hideout_or_a_tunnel() {
         buttons(&mut app),
         [
             (slot(0, 0), c(Train(AGENT)), Common, None),
-            (slot(0, 1), c(P(Planned::Guard)), Unavailable, None),
+            (slot(0, 1), c(Train(GUARD)), Disabled, None),
             (slot(0, 2), c(P(Planned::Grenadier)), Unavailable, None),
             (CommandSlot::CANCEL_PRODUCTION, c(CancelProduction), Disabled, None),
             (CommandSlot::RALLY_POINT, c(SetRallyPoint), Common, None),
