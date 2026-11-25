@@ -236,10 +236,12 @@ impl ControlState {
     /// the ObjectInterfaceState to DefaultState, also one that recalls exactly the current selection
     /// (`> ObjectInterfaceState`, design change 0078: a recall refreshes the selection). The units inside a Tunnel
     /// Network stay in their groups, and a recall selects "only the members on the map"
-    /// (`factions/syndicate/tunnels.md > Tunnel Network > Walking in`, design change 0249). Placeholder rule, the
-    /// design is silent: recalling an empty group changes nothing, the ObjectInterfaceState included, and nor does
-    /// recalling a group none of whose members is on the map, all inside the network (slice M4-J2), on a double tap
-    /// the camera included. Says whether the group had objects to recall.
+    /// (`factions/syndicate/tunnels.md > Tunnel Network > Walking in`, design change 0249). Recalling an empty group
+    /// changes nothing, the ObjectInterfaceState included (a placeholder rule: the design is silent), and nor does
+    /// recalling a group none of whose members is on the map, all inside the network, on a double tap the camera
+    /// included (slice M4-J2; `factions/syndicate/tunnels.md > Tunnel Network > On entering`, design change 0299,
+    /// answering Q0086 point 5: "recalling a group whose members are **all** inside does **nothing**: selection,
+    /// panel and camera unchanged, like recalling an empty group"). Says whether the group had objects to recall.
     pub fn recall_group(&mut self, group: ControlGroup, objects: &Selectables) -> bool {
         let ids: Vec<ObjectId> = self
             .groups

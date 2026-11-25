@@ -338,7 +338,8 @@ impl Sim {
 
     /// `factions/syndicate/structures/README.md > Rally Point Behavior` (plan decision T35): `producer`, an underground
     /// expansion (`ExitRule::Network`), finished its unit. The unit comes into the game inside its owner's Tunnel
-    /// Network, with no transit delay (design change 0246: "they can exit as soon as they are produced"), and:
+    /// Network, with no transit delay (design change 0246: "they can exit as soon as they are produced"; 0301,
+    /// answering Q0087: "produced units rallied into the network have no delay either"), and:
     /// - "**No rally point, or rally point set on the parent Tunnel**: Unit stays in the Tunnel Network"; "**Rally
     ///   point on any own Tunnel**: the unit stays inside the network" (design change 0252);
     /// - "**Rally point set on the surface**: Unit auto-ejects from the parent Tunnel (Side A) and moves to the rally

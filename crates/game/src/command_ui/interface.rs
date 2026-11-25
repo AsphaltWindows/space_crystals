@@ -69,7 +69,8 @@
 //!
 //! The Syndicate's Tunnel (`factions/syndicate/tunnels.md > Tunnel ObjectInterfaceState`, design change 0257; slice
 //! M4-J2) opens its EjectMenu (E): a tile per unit type of the player's Tunnel Network, with its count, in the sim's
-//! order, each ejecting the unit of its type inside the longest, at once, the menu staying open; Z goes back. Its W
+//! order, each ejecting the unit of its type inside the longest, at once, the menu staying open (design change 0300,
+//! answering Q0086 point 3: "The panel stays in the EjectMenu after a click"); Z goes back. Its W
 //! opens the ExpandMenu (slice M4-F): every expansion of the Tech Tree in its slot, in the sim's order
 //! (`sc_sim::defs::EXPAND_MENU`), greyed with why while this Tunnel can't build it (its operation, its tier, the bank,
 //! or not in the game yet); an entry enters the expansion's placement, its ghost held within the Tunnel Area, where a
@@ -151,7 +152,8 @@ pub enum InterfaceState {
     AwaitingPlacement(Placing),
     /// `factions/syndicate/tunnels.md > EjectMenu`: the Tunnel's EjectMenu is open (E, design change 0257): a tile per
     /// unit type of the player's Tunnel Network, which ejects one from this Tunnel and leaves the menu open
-    /// (`PanelCommand::Eject`); "**Z**: returns to DefaultState (StateOnlyTransition)". Like a build menu, it leaves
+    /// (`PanelCommand::Eject`; design change 0300: "**The panel stays in the EjectMenu after a click**", so repeated
+    /// clicks eject more); "**Z**: returns to DefaultState (StateOnlyTransition)". Like a build menu, it leaves
     /// the map's clicks to the selection (slice M4-J2).
     EjectMenu,
     /// `factions/syndicate/tunnels.md > ExpandMenu`: the Tunnel's ExpandMenu is open (W, design change 0257): the

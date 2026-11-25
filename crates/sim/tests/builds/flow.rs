@@ -42,7 +42,9 @@ fn load(t: &TestSim, n: u32) -> u32 {
 /// ConstructionHP Rule`), the ghost gone and nothing refunded. Its maximum grows a frame a tick while the damage it
 /// took stays taken, and 480 ticks later (`factions/syndicate/tunnels.md > Cost Scaling > Construction Time`) it is a
 /// Tunnel in operation at 600 less that damage: it gives Tunnel Space, and the Agent is in the network, free to leave
-/// at once, and is ejected.
+/// at once: design change 0301's Verification (answering Q0087), "Finish a Tunnel and eject its builder immediately:
+/// it walks out with no delay", ejected in the tick after the Tunnel's completion and out in that tick, where a unit
+/// that walked in would wait out its 2 s transit delay (`factions/syndicate/tunnels.md > Tunnel Network`).
 #[test]
 fn the_order_pays_at_once_and_the_site_grows_into_a_tunnel() {
     let mut t = field();
@@ -104,16 +106,22 @@ fn the_order_pays_at_once_and_the_site_grows_into_a_tunnel() {
     assert_eq!(tunnel_space(&t, P1), 24);
     assert_eq!((supplies(&t, P1), price(&t, P1)), (4, 2));
 
+    let held = t.sim().held_unit(id(2)).expect("inside");
+    assert_eq!(
+        (held.place, held.since, held.entered),
+        (Place::Network, started + 480, false)
+    );
     assert_eq!(gate(&t, P1, eject(site)), Ok(()));
     next(&mut t, P1, eject(site));
-    step_until(&mut t, 100, "the Agent comes out", |t| t.sim().object(id(2)).is_some());
-    let out = t.events().iter().any(|(_, e)| {
-        *e == SimEvent::LeftNetwork {
+    let left = t.events().iter().find_map(|(tick, e)| {
+        let out = SimEvent::LeftNetwork {
             unit: id(2),
             tunnel: site,
-        }
+        };
+        (*e == out).then_some(*tick)
     });
-    assert!(out);
+    assert_eq!(left, Some(started + 481), "out in the tick of the Eject");
+    assert!(t.sim().object(id(2)).is_some(), "on the map");
 }
 
 /// Design change 0234: a Tunnel under construction "does nothing but Cancel: no Tunnel Space, no drop-offs, no Enter,

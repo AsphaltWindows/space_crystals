@@ -2400,9 +2400,10 @@ their energy doorway, slice M3-D2: design change 0145, `factions/colonists/struc
   destroyed) and `completion` (480 frames, the HP, Tunnel Space, a reclaim, saves and the replay); 0231's 500/600 is
   `sim/upgrades.rs`'s unit test. In the client, `command_ui/interface/tests/syndicate.rs` (Q and its reasons),
   `hud/info_panel/hint.rs`'s (the price), `hud/info_panel/activity.rs`'s (the line),
-  `placement/tunnel_areas/tests.rs` (the reserved areas), `crates/game/tests/commands/tunnel_upgrade.rs` (Q, the
-  progress, X's refund, the larger area, what blocks it) and `crates/game/tests/commands/agent_ui/ghost.rs` (the
-  ghost red over the reserved area, the overlay while placing).
+  `placement/tunnel_areas/tests.rs` (the reserved area among the own areas the rings count),
+  `crates/game/tests/commands/tunnel_upgrade.rs` (Q, the progress, X's refund, the larger area, what blocks it) and
+  `crates/game/tests/commands/agent_ui/ghost.rs` (the ghost red over the reserved area, the rings red over it, the
+  current area while selected).
 - **Game end tests** are `crates/sim/tests/game_end/` (defeat by a removal and in combat, plates counting; no
   defeat without a structure ever owned; the units made neutral and idle; every command of a defeated player
   refused; a 1v1, three players defeated one after the other, and the draws of 0163: two players defeated in one
@@ -2987,12 +2988,14 @@ Drones, through one command flow (plan decision T10, slices M2-H1, M2-H2 and M3-
   per kind of that list, from Q on, every slot but Z; each is greyed by the gate's answer to its `Command::Tunnel`
   (`Reject::NotInNetwork`, `InTransit` for the transit delay, design change 0288 point 1, `NoTransit` for the tier,
   each with its message) and carries the network's count (`PanelSlot::count`, `Conditions::network_count` from
-  `Sim::network_counts`, so the count drops at the press). A tile sends `TunnelCommand::Eject` to the Tunnel Tabbed to (Tunnels are Ungroupable;
-  `SlotPress::Tunnel`, `OrderOutbox::tunnel`) and the menu stays open; Z, Escape and a right-click go back. Held units
-  leave the selection and stay in their control groups (`ControlState::retain_on_map`); a recall selects the members
-  on the map, and a group with none on the map recalls as an empty one does: nothing changes (placeholder,
-  `ControlState::recall_group`). A Hideout's rally pointer and marker on an own Tunnel or Hideout are every producer's
-  (Move, a green Object marker); the sim decides what the unit does (0252).
+  `Sim::network_counts`, so the count drops at the press); a kind with none inside keeps its tile, 0 and greyed (design
+  change 0299, answering Q0086 point 2; the order is 0285's, point 1). A tile sends `TunnelCommand::Eject` to the Tunnel
+  Tabbed to (Tunnels are Ungroupable; `SlotPress::Tunnel`, `OrderOutbox::tunnel`) and the menu stays open (0300, point
+  3); Z, Escape and a right-click go back. Held units leave the selection and stay in their control groups
+  (`ControlState::retain_on_map`); a recall selects the members on the map, and a group with none on the map recalls as
+  an empty one does: nothing changes (`ControlState::recall_group`; 0299, point 5). A Hideout's rally pointer and marker
+  on an own Tunnel or Hideout are every producer's (Move, a green Object marker); the sim decides what the unit does
+  (0252).
 - **The ExpandMenu and an expansion's placement** (slice M4-F; design changes 0257, 0290 and 0291): W enters
   `InterfaceState::ExpandMenu` (`SlotPress::OpenExpandMenu`), whose grid is `sc_sim::defs::EXPAND_MENU` in the
   EjectMenu's tile slots (`expand_menu::grid`): a `PanelCommand::Expand(kind)` per type in the game, greyed by
@@ -3003,14 +3006,14 @@ Drones, through one command flow (plan decision T10, slices M2-H1, M2-H2 and M3-
   (`SlotPress::AwaitExpansion`); Z goes back to the menu, where the panel stays meanwhile (`state_grid`). **The ghost
   is held within the Tunnel's area** (`Placing::origin`, `placing::within`: the cursor outside leaves it at the
   nearest spot inside; a reading of "follows the cursor within the Tunnel Area"), and judged by
-  `Sim::expansion_check`, what the owner knows, in `ghost::check_now` with every builder's; the Tunnel Area overlay
-  shows meanwhile, the Tunnel being the ActiveGroup. A click on a green ghost sends `TunnelCommand::Expand` through
-  `OrderOutbox::try_tunnel` and ends placement, Shift or not (one operation, no queue); the gate's refusal sends
-  `CommandRefused` (the bank) or `InvalidPlacement` (the truth) and placement goes on. X is `CancelOperation`
-  (`TunnelCommand::Cancel`), greyed while there is none (`Reject::NoOperation`, "Nothing to cancel"). The expansion's
-  site is any site: `SITE_GRID`, and the look and progress bar of `object_render/site.rs`. The Tunnel's InfoPanel shows
-  its operation, "Building Hideout: 25%" or "Upgrading to Tier 2: 25%" (slice M4-G, placeholder wording;
-  `activity::operation`), which its X cancels either way.
+  `Sim::expansion_check`, what the owner knows, in `ghost::check_now` with every builder's; the Tunnel's area shows
+  meanwhile, the Tunnel being selected (`TunnelAreaOverlay`; design change 0300: "as built"). A click on a green ghost
+  sends `TunnelCommand::Expand` through `OrderOutbox::try_tunnel` and ends placement, Shift or not (one operation, no
+  queue); the gate's refusal sends `CommandRefused` (the bank) or `InvalidPlacement` (the truth) and placement goes on.
+  X is `CancelOperation` (`TunnelCommand::Cancel`), greyed while there is none (`Reject::NoOperation`, "Nothing to
+  cancel"). The expansion's site is any site: `SITE_GRID`, and the look and progress bar of `object_render/site.rs`. The
+  Tunnel's InfoPanel shows its operation, "Building Hideout: 25%" or "Upgrading to Tier 2: 25%" (slice M4-G, placeholder
+  wording; `activity::operation`), which its X cancels either way.
 - **The Agent's panel** (slice M4-J1; `factions/syndicate/units/agent.md > Agent ObjectInterfaceState`; design changes
   0233, 0237 and 0257): `templates/syndicate/agent.rs` (`InterfaceTemplate::Agent`) is Q Move, A
   `PanelCommand::Build(Tunnel)`, S `PanelCommand::DropOff`, D `PanelCommand::Build(LaserTurret)` (slice M4-S1:
@@ -3111,16 +3114,26 @@ Drones, through one command flow (plan decision T10, slices M2-H1, M2-H2 and M3-
   tiles with its outline, then each site's footprint tinted on the terrain with an outline, one mesh rebuilt only when
   the sites, the areas' unexplored tiles or the map change, just in front of the build area overlay (`LINGERING_Z`).
   A ghost goes with its order, when
-  the deployment or the site starts or the order is cancelled, replaced or fails. `TunnelAreaOverlay`
-  (`placement/tunnel_areas.rs`, slice M4-J2) shows the Tunnel Areas the local player knows
-  of (`known_areas`: their own Tunnels' at their tier now; the others' they see at their tier now, and those they
-  remember at the record's place and the tier last seen, `LastKnown::tunnel`; never one they know nothing of), their
-  own in violet and the others' in red, with the build area overlay's look (`overlay::tint_area`) and z, but on
-  unexplored tiles and off the map; one mesh rebuilt only when the areas, their unexplored tiles or the map changed.
-  It shows while a Tunnel of theirs is the ActiveGroup, and while they place a Tunnel (`tunnel_areas::shows`, a
-  placeholder: Q0086 point 4); an expansion's placement is its Tunnel's, the ActiveGroup all along (slice M4-F). While
-  they place a Tunnel, their own upgrading Tunnels show the area they reserve, the target tier's
-  (`tunnel_areas::reserving`, slice M4-G, the same placeholder), which their ghost is red over.
+  the deployment or the site starts or the order is cancelled, replaced or fails. **The Tunnel Area display**
+  (`TunnelAreaOverlay`, `placement/tunnel_areas.rs`; slices M4-J2 and M4-J3, `factions/syndicate/tunnels.md > Tunnel
+  Area display`, design changes 0299 and 0300) shows, in the game modes, two things and never an enemy's area
+  (neither seen nor remembered; the ghost still judges by the known ones, red with its reason), in:
+  - **the selected areas** (`selected_areas`, a reading): the area of each own Tunnel in the selection, sites
+    included, at its tier now (`tunnel::area::of`: an upgrading Tunnel's current area, not the one it reserves), in
+    violet; it hides as the selection changes. An expansion's placement is its Tunnel's, selected all along (M4-F);
+  - **a Tunnel ghost's rings** (`ghost_rings`, `tunnel_areas/rings.rs`): for each tier of the kind's table above the
+    base, the cells its area adds to the tier below's (`Ring`: Tier 2's 36, Tier 3's 44), each ring in its tint.
+    Red (`Ring::blocked`) are the cells that would block the upgrade (0242): off the map, not Drillable as far as the
+    player knows (the sim's vision: an unexplored tile passes, as on the ghost, `Mode::Known`), or in an own area as
+    the ghost's check counts them (`rings::own_areas`, a reading: `tunnel::area::reserved` of every own Tunnel and
+    site, the upgrade's target tier's, and the Tier 1 areas of the own pending Tunnel ghosts but the placing Agent's
+    without Shift, as `Sim::build_check` leaves them). Off-map cells can't be seen (the camera keeps to the map), so a
+    red line along the map's edge marks where a ring runs off it (`rings::edge_marks`, a presentational reading).
+    The Tier 1 area is the ghost's own (`GhostArea`).
+  - **one mesh** under one handle, with the build area overlay's look (`overlay::tint_area`) and z, but on unexplored
+    tiles and off the map, rebuilt only when the areas, the rings (as the ghost moves to another tile: it runs after
+    `ghost::update_ghost`), their unexplored tiles or the map changed (`TunnelAreaOverlay::builds`); no view-mode
+    toggles.
 - The design leaves some things open (labels, colours, the flash, the cursor's shapes and the Mixed look, the
   invalid-target and insufficient-resources feedbacks' form and duration, the targeting click allowance's value, when
   Shift counts for a targeting click, Shift with a rally point; the ghost's and the overlay's looks, the placement

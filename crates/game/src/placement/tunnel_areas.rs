@@ -1,160 +1,130 @@
-//! The Tunnel Area overlay (slice M4-J2, plan decision T41): the Tunnel Areas the local player knows of
-//! (`factions/syndicate/tunnels.md > Tunnel Area`: "a square underground build zone centered on the Tunnel";
-//! [`known_areas`]). Their own Tunnels' at the tier they are at now; the others' as the player knows them: those they
-//! see at their tier now ("Enemies see a Tunnel's tier", `factions/syndicate/tunnels.md > Tunnel Area Non-Overlap
-//! Rule`), those they remember where the record stands, at the tier last seen (design change 0237: "their remembered
-//! position and their tier as last seen", `sc_sim::vision::LastKnown::tunnel`). A Tunnel they have never seen, or
-//! don't see now and don't remember, has none: the overlay never draws what the player doesn't know
-//! (`crate::fog::Sight`).
+//! The Tunnel Area display (slices M4-J2 and M4-J3; `factions/syndicate/tunnels.md > Tunnel Area display`, design
+//! changes 0299 and 0300, answering Q0086 point 4): when the local player is shown a Tunnel Area on the map
+//! (`factions/syndicate/tunnels.md > Tunnel Area`: "a square underground build zone centered on the Tunnel").
 //!
-//! **When it shows** ([`shows`]). Placeholder (not in the design; Q0086 point 4): while the local player's ActiveGroup
-//! is a Tunnel of theirs, in a game mode, while they may command it, and while they place a Tunnel (slice M4-J1: the
-//! Tier 1 area the ghost needs clear of every area they know of, design change 0242). The placement of an expansion
-//! (slice M4-F) is its Tunnel's, the ActiveGroup all along: the area its ghost is held within shows meanwhile.
+//! - **The selected Tunnels' areas** ([`selected_areas`]): "**Selecting one of your Tunnels** shows its Tunnel Area on
+//!   the map". A reading: the area of each own Tunnel in the selection, the ActiveGroup or not (a Tunnel is
+//!   Ungroupable, so two selected are two groups), a site's too (a Tunnel under construction, whose area counts from
+//!   the moment it appears: design change 0289 point 3). Each at its tier now (`sc_sim::tunnel::area::of`): an own
+//!   Tunnel that upgrades shows its current area, the one its expansions lie in; the target tier's area it reserves
+//!   meanwhile is a rule of the placements (slice M4-G), not of the display. It hides as the selection changes.
+//!   "**Placing an expansion** (from a selected Tunnel) shows that Tunnel's area too": that placement is its
+//!   Tunnel's, which stays selected all along (slice M4-F).
+//! - **The rings of a Tunnel ghost** ([`ghost_rings`], [`rings`]): "**Placing a Tunnel** shows the ghost's Tier 1 area
+//!   **and the would-be Tier 2 and Tier 3 areas**", their cells that would block a later upgrade red. The Tier 1 area
+//!   is the ghost's own (`super::ghost_area`); the rings around it follow the ghost (`super::ghost`) tile by tile.
+//! - **Never an enemy's area**: "**Enemy Tunnel Areas are never shown**", neither one the player sees nor one they
+//!   remember. The ghost still judges by them (design change 0237: "The ghost judges enemy Tunnels by what the player
+//!   knows"): red over a known enemy Tunnel's area, with the reason its click says (`crate::command_ui::feedback`).
+//! - No view modes with toggles ("maybe later").
 //!
-//! **The reserved areas** ([`reserving`], slice M4-G). Placeholder: Q0086 point 4. While the player places a Tunnel,
-//! each of their own Tunnels that upgrades shows the area it reserves, its target tier's (`factions/syndicate/tunnels.md
-//! > Cost Scaling > Upgrade Costs`: "from the start of the upgrade, the larger Tunnel Area of the target tier counts
-//! against other placements"), so that a ghost red over it shows why; its current area the rest of the time. An
-//! enemy's upgrade the player isn't shown (`sc_sim::placement::Occupant::as_seen`).
-//!
-//! **The look**, placeholders until the art (Q0001): the GDO build area's (`super::overlay`), each area's tiles tinted
-//! on the terrain's surface with a brighter line along its edge, the player's own in violet and the others' in red;
-//! not on the tiles they haven't explored, which stay black (`core/vision.md > Unexplored`), nor off the map. One mesh,
-//! under one handle, rebuilt in place only when the areas, the unexplored tiles among them or the map changed.
+//! It shows in the game modes only. **The look**, placeholders until the art (Q0001): the GDO build area's
+//! (`super::overlay`), each area's tiles tinted on the terrain's surface with a brighter line along its edge, a
+//! selected Tunnel's in violet, the rings in theirs ([`rings::RING_COLORS`]); not on the tiles the player hasn't
+//! explored, which stay black (`core/vision.md > Unexplored`), nor off the map. One mesh, under one handle, rebuilt in
+//! place only when what it shows, the unexplored tiles among it or the map changed: while a Tunnel is placed, when the
+//! ghost moves to another tile or a ring's red cells change, never every frame.
+
+pub mod rings;
 
 use std::collections::HashSet;
 
 use bevy::prelude::*;
 use bevy::sprite_render::AlphaMode2d;
 use sc_sim::nav::TileRect;
-use sc_sim::tunnel::{self, BASE_TIER};
-use sc_sim::{Map, ObjectId, PlayerId, Sim, TilePos, VisibilityState};
+use sc_sim::{Map, ObjectId, PlayerId, Sim, TilePos, VisibilityState, tunnel};
 
+use super::ghost::{Ghost, PlacementGhost};
 use super::overlay::{AREA_Z, tint_area};
+use super::placing_now;
 use crate::ClientMode;
-use crate::command_ui::interface::commandable;
+use crate::command_ui::Builder;
 use crate::coords::DrawLayer;
-use crate::fog::{LocalSight, Sight};
+use crate::fog::LocalSight;
+use crate::input::{ActionState, InputAction};
 use crate::map_render::MapView;
-use crate::selection::ControlStates;
+use crate::selection::{ControlStates, Selection};
 use crate::shapes::ColorMesh;
+pub use rings::Ring;
 
-/// The tint and the edge of the player's own areas, and of the others' (placeholder colours).
+/// The tint and the edge of a selected Tunnel's area (placeholder colours).
 pub const OWN_FILL: Color = Color::srgba(0.70, 0.45, 1.0, 0.16);
 pub const OWN_EDGE: Color = Color::srgba(0.80, 0.60, 1.0, 0.85);
-pub const FOREIGN_FILL: Color = Color::srgba(1.0, 0.35, 0.30, 0.16);
-pub const FOREIGN_EDGE: Color = Color::srgba(1.0, 0.45, 0.40, 0.85);
 
-/// A Tunnel Area the local player knows of ([`known_areas`]).
+/// The Tunnel Area of a Tunnel of the local player's in their selection ([`selected_areas`]).
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
-pub struct KnownArea {
+pub struct TunnelArea {
     /// The Tunnel whose area it is.
     pub tunnel: ObjectId,
-    /// Whether that Tunnel is the player's own.
-    pub own: bool,
-    /// Its tier as the player knows it: now for a Tunnel they see, as last seen for one they remember; the tier an own
-    /// Tunnel upgrades to while the player places a Tunnel ([`reserving`]).
+    /// Its tier now.
     pub tier: u8,
-    /// The area at that tier (`sc_sim::tunnel::area`), which may reach past the map's edge.
+    /// The area at that tier (`sc_sim::tunnel::area::of`), which may reach past the map's edge.
     pub area: TileRect,
 }
 
-/// The Tunnel Areas the player whose `sight` this is knows of, in Tunnel id order (module docs): of each Tunnel they
-/// see (their own always) at its tier now, of each Tunnel they remember ([`Sight::remembered`]) at its record, at the
-/// tier last seen; none of a Tunnel they neither see nor remember.
-pub fn known_areas(sim: &Sim, sight: &Sight) -> Vec<KnownArea> {
-    let player = sight.player();
-    let tunnels = sim.objects().filter(|o| tunnel::def_of(o.kind).is_some());
-    let seen = tunnels.filter(|o| sight.sees(o)).filter_map(|o| {
-        Some(KnownArea {
+/// The areas of `player`'s own Tunnels in `selection`, sites included, each at its tier now (module docs), in id
+/// order; none of another player's Tunnel.
+pub fn selected_areas(sim: &Sim, player: PlayerId, selection: &Selection) -> Vec<TunnelArea> {
+    let objects = selection.ids().filter_map(|id| sim.object(id));
+    let own = objects.filter(|o| o.owner == Some(player));
+    own.filter_map(|o| {
+        Some(TunnelArea {
             tunnel: o.id,
-            own: o.owner == Some(player),
             tier: o.tunnel.as_ref()?.tier,
             area: tunnel::area::of(o)?,
         })
-    });
-    let remembered = sight.remembered().filter_map(|record| {
-        // A record of a Tunnel keeps its tier (`LastKnown::tunnel`); one without, the base tier.
-        let tier = record.tunnel.as_ref().map_or(BASE_TIER, |state| state.tier);
-        let radius = tunnel::def_of(record.kind)?.tier(tier)?.area_radius;
-        let p = record.placement;
-        Some(KnownArea {
-            tunnel: record.id,
-            own: record.owner == Some(player),
-            tier,
-            area: tunnel::area::area(TileRect::new(p.origin, p.w, p.h), radius),
-        })
-    });
-    let mut areas: Vec<KnownArea> = seen.chain(remembered).collect();
-    // A Tunnel seen shows no record (`Sight::remembered_record`); were both there, the stable sort keeps the one seen.
-    areas.sort_by_key(|known| known.tunnel);
-    areas.dedup_by_key(|known| known.tunnel);
-    areas
+    })
+    .collect()
 }
 
-/// `areas` while the player places a Tunnel (module docs, slice M4-G): each of their own Tunnels that upgrades at the
-/// tier whose area it reserves, the target tier (`sc_sim::tunnel::TunnelState::reserved_tier`,
-/// `sc_sim::tunnel::area::reserved`), which their ghost must keep clear of; the others as they are.
-// Placeholder: Q0086 point 4.
-pub fn reserving(sim: &Sim, areas: Vec<KnownArea>) -> Vec<KnownArea> {
-    let reserved = |known: &KnownArea| {
-        let o = sim.object(known.tunnel).filter(|_| known.own)?;
-        Some((o.tunnel.as_ref()?.reserved_tier(), tunnel::area::reserved(o)?))
-    };
-    (areas.into_iter())
-        .map(|known| match reserved(&known) {
-            Some((tier, area)) => KnownArea { tier, area, ..known },
-            None => known,
-        })
-        .collect()
-}
-
-/// Whether `player` places a Tunnel now (an Agent's Build Tunnel, slice M4-J1).
-pub fn places_tunnel(player: PlayerId, states: &ControlStates) -> bool {
-    (states.of(player).interface.placing()).is_some_and(|placing| tunnel::def_of(placing.kind).is_some())
-}
-
-/// Whether the overlay shows for `player` now (module docs): in a game mode, while their selection is commandable
-/// (`crate::command_ui::interface::commandable`: never once the game is over or they are defeated) and its ActiveGroup
-/// is a Tunnel, or they place one ([`places_tunnel`]). Placeholder (not in the design).
-pub fn shows(mode: ClientMode, sim: &Sim, player: PlayerId, states: &ControlStates) -> bool {
-    let state = states.of(player);
-    mode.is_game()
-        && commandable(sim, player, &state.selection)
-        && (places_tunnel(player, states)
-            || (state.selection.active()).is_some_and(|active| tunnel::def_of(active.kind).is_some()))
-}
-
-/// The overlay's mesh: each of `areas` ([`tint_area`]) in its owner's colours, its tiles on `map` that are `drawn`,
-/// with no edge where it goes on past the map's edge or into a tile not drawn. Each area has its own edge, also where
-/// two touch (the Tunnel Areas never overlap: `factions/syndicate/tunnels.md > Tunnel Area Non-Overlap Rule`).
-pub fn areas_mesh(map: &Map, areas: &[KnownArea], drawn: impl Fn(TilePos) -> bool) -> ColorMesh {
-    let mut mesh = ColorMesh::triangles();
-    for known in areas {
-        let colors = if known.own {
-            (OWN_FILL, OWN_EDGE)
-        } else {
-            (FOREIGN_FILL, FOREIGN_EDGE)
-        };
-        let on_map = |t: TilePos| map.in_bounds(t) && drawn(t);
-        tint_area(&mut mesh, map, tunnel::area::cells(known.area), on_map, colors);
+/// The rings of `player`'s Tunnel ghost `ghost` ([`rings::rings`]), none for another kind's: red where they would block
+/// an upgrade as far as the player knows the ground (`sc_sim::Vision::state`, as `sc_sim::placement::Mode::Known` has
+/// it), and over the areas of their own other Tunnels as the ghost's check counts them ([`rings::own_areas`]): without
+/// `queue` (Shift), the click replaces the orders of `builder`, an Agent, whose pending ghosts then don't count.
+pub fn ghost_rings(sim: &Sim, player: PlayerId, ghost: &Ghost, builder: Option<Builder>, queue: bool) -> Vec<Ring> {
+    if tunnel::def_of(ghost.kind).is_none() {
+        return Vec::new();
     }
+    let replaced = match builder {
+        Some(Builder::Agent(agent)) if !queue => Some(agent),
+        _ => None,
+    };
+    let own = rings::own_areas(sim, player, replaced);
+    let known = |t: TilePos| sim.vision().state(player, t) != VisibilityState::Unexplored;
+    let (w, h) = ghost.size;
+    rings::rings(sim.map(), ghost.kind, TileRect::new(ghost.origin, w, h), known, &own)
+}
+
+/// The overlay's mesh: each of the `selected` areas in the own colours ([`tint_area`]), then the `rings`
+/// ([`rings::draw`]), on their tiles on `map` that are `drawn`, with no edge where an area goes on past the map's edge
+/// or into a tile not drawn. Each area has its own edge, also where two touch (the Tunnel Areas never overlap:
+/// `factions/syndicate/tunnels.md > Tunnel Area Non-Overlap Rule`).
+pub fn overlay_mesh(map: &Map, selected: &[TunnelArea], rings: &[Ring], drawn: impl Fn(TilePos) -> bool) -> ColorMesh {
+    let mut mesh = ColorMesh::triangles();
+    let on_map = |t: TilePos| map.in_bounds(t) && drawn(t);
+    for shown in selected {
+        let cells = tunnel::area::cells(shown.area);
+        tint_area(&mut mesh, map, cells, on_map, (OWN_FILL, OWN_EDGE));
+    }
+    rings::draw(&mut mesh, map, rings, drawn);
     mesh
 }
 
-/// What the Tunnel Area overlay shows.
+/// What the Tunnel Area display shows.
 #[derive(Resource, Debug, Default)]
 pub struct TunnelAreaOverlay {
-    /// The areas its mesh was last built from.
-    pub shown: Vec<KnownArea>,
-    /// The tiles of those areas it left out, in their order: those the local player hadn't explored.
+    /// The selected Tunnels' areas its mesh was last built from.
+    pub selected: Vec<TunnelArea>,
+    /// The Tunnel ghost's rings it was built from.
+    pub rings: Vec<Ring>,
+    /// The tiles of those areas and rings on the map it left out, in their order: those the local player hadn't
+    /// explored.
     pub unexplored: Vec<TilePos>,
     /// Whether that mesh has anything to show.
     drawn: bool,
     /// The map meshes' build count (`MapView::builds`) when it was: a new map redraws it.
     map_builds: u32,
-    /// Whether it shows now ([`shows`]), with something to show.
+    /// Whether it shows now: something to show, in part on explored tiles at least.
     pub visible: bool,
     /// How many times its mesh was built.
     pub builds: u32,
@@ -192,13 +162,16 @@ pub(super) fn spawn_overlay(
     commands.insert_resource(TunnelAreaAssets { mesh });
 }
 
-/// Shows the Tunnel Areas the local player knows of while it [`shows`], their own upgrades' reserved areas while they
-/// place a Tunnel ([`reserving`]), but on the tiles they haven't explored, redrawn when either changed.
+/// Shows the local player's selected Tunnels' areas and their Tunnel ghost's rings in the game modes (module docs), but
+/// on the tiles they haven't explored, redrawn when what it shows or those tiles changed. It runs after the ghost's
+/// update (`super::ghost::update_ghost`), with Shift as the ghost's check has it.
 #[expect(clippy::too_many_arguments, reason = "a system's parameters")]
 pub(super) fn draw_overlay(
     mode: Res<ClientMode>,
     local: LocalSight,
     states: Res<ControlStates>,
+    ghost: Res<PlacementGhost>,
+    actions: Res<ActionState>,
     view: Res<MapView>,
     assets: Res<TunnelAreaAssets>,
     mut meshes: ResMut<Assets<Mesh>>,
@@ -206,32 +179,40 @@ pub(super) fn draw_overlay(
     mut shown: Query<&mut Visibility, With<TunnelAreaMesh>>,
 ) {
     let (sim, sight) = (local.sim(), local.get());
-    let showing = shows(*mode, sim, sight.player(), &states);
-    if showing {
-        let areas = match places_tunnel(sight.player(), &states) {
-            true => reserving(sim, known_areas(sim, &sight)),
-            false => known_areas(sim, &sight),
-        };
-        let unexplored: Vec<TilePos> = (areas.iter())
-            .flat_map(|known| tunnel::area::cells(known.area))
-            .filter(|&t| sim.map().in_bounds(t) && sight.tile(t) == VisibilityState::Unexplored)
-            .collect();
-        if overlay.shown != areas || overlay.unexplored != unexplored || overlay.map_builds != view.builds {
+    let player = sight.player();
+    let (selected, rings) = if mode.is_game() {
+        let builder = placing_now(*mode, sim, player, &states).map(|placing| placing.builder);
+        let queue = actions.held(InputAction::Queue);
+        let rings = (ghost.shown.as_ref()).map_or_else(Vec::new, |g| ghost_rings(sim, player, g, builder, queue));
+        (selected_areas(sim, player, &states.of(player).selection), rings)
+    } else {
+        (Vec::new(), Vec::new())
+    };
+    let cells =
+        (selected.iter().flat_map(|shown| tunnel::area::cells(shown.area))).chain(rings.iter().flat_map(Ring::cells));
+    let unexplored: Vec<TilePos> = cells
+        .filter(|&t| sim.map().in_bounds(t) && sight.tile(t) == VisibilityState::Unexplored)
+        .collect();
+    let changed = overlay.selected != selected || overlay.rings != rings || overlay.unexplored != unexplored;
+    if changed || overlay.map_builds != view.builds {
+        overlay.drawn = false;
+        if !selected.is_empty() || !rings.is_empty() {
             let hidden: HashSet<TilePos> = unexplored.iter().copied().collect();
-            let mesh = areas_mesh(sim.map(), &areas, |t| !hidden.contains(&t));
+            let mesh = overlay_mesh(sim.map(), &selected, &rings, |t| !hidden.contains(&t));
             overlay.drawn = mesh.vertex_count() > 0;
             if overlay.drawn
                 && let Err(error) = meshes.insert(&assets.mesh, mesh.into_mesh())
             {
                 error!("Tunnel Area overlay mesh: {error}");
             }
-            overlay.shown = areas;
-            overlay.unexplored = unexplored;
-            overlay.map_builds = view.builds;
             overlay.builds += 1;
         }
+        overlay.selected = selected;
+        overlay.rings = rings;
+        overlay.unexplored = unexplored;
+        overlay.map_builds = view.builds;
     }
-    let visible = showing && overlay.drawn;
+    let visible = overlay.drawn;
     if overlay.visible != visible {
         overlay.visible = visible;
     }

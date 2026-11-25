@@ -137,9 +137,13 @@ fn rally_markers(app: &App) -> Vec<RallyIndicator> {
 
 /// `factions/syndicate/tunnels.md > Tunnel ObjectInterfaceState` (design change 0257): Q Upgrade Tunnel, greyed while
 /// the bank can't pay it (slice M4-G: `tunnel_upgrade`), W Expand Tunnel, which opens the ExpandMenu (slice M4-F:
-/// `expansions`), E Eject, X Cancel, greyed while there is no operation to cancel. A greyed button says why. E opens the EjectMenu, whose tiles
-/// are greyed while the network has none of their type, each saying so; Z goes back, as Escape and a right-click do.
-/// While the Tunnel is selected its area shows.
+/// `expansions`), E Eject, X Cancel, greyed while there is no operation to cancel. A greyed button says why. E opens
+/// the EjectMenu, the Agent's, the Guard's and the Grenadier's tiles in that order (design change 0285, answering
+/// Q0086 point 1: "0257's parenthetical (Agent, Guard, Grenadier, …) is the intended order"), each there with a count
+/// of 0 and greyed while the network has none of its type, saying so (design change 0299, answering Q0086 point 2:
+/// "every Syndicate unit type keeps its EjectMenu tile; types with none inside show 0, greyed"); Z goes back, as
+/// Escape and a right-click do. While the Tunnel is selected its area shows, and it hides with the selection (design
+/// change 0299: "selecting one of your Tunnels shows its area").
 #[test]
 fn the_tunnel_has_its_letters_and_e_opens_the_eject_menu() {
     use ButtonLook::{Back, Common, Disabled};
@@ -149,7 +153,7 @@ fn the_tunnel_has_its_letters_and_e_opens_the_eject_menu() {
         let overlay = app.world().resource::<TunnelAreaOverlay>();
         (
             overlay.visible,
-            overlay.shown.iter().map(|known| known.area).collect::<Vec<_>>(),
+            overlay.selected.iter().map(|shown| shown.area).collect::<Vec<_>>(),
         )
     };
     assert_eq!(overlay(&app), (false, vec![]));
@@ -213,10 +217,12 @@ fn the_tunnel_has_its_letters_and_e_opens_the_eject_menu() {
 }
 
 /// `factions/syndicate/tunnels.md > EjectMenu`: each tile counts the units of its type in the network, the Agents in
-/// Q, the Guards in W and the Grenadiers in E (design change 0257); a type whose every unit only just walked in is greyed for the transit
-/// delay, and its press refused (design change 0288's Verification: "Eject a Guard right after it entered: its tile is
-/// grey for 2 s"; point 1: "its tile is greyed and the click is refused; nothing is queued"); Q ejects the Agent inside
-/// the longest, the count dropping at the press, and the menu stays open (plan M4-J2: "Q ejects the oldest Agent").
+/// Q, the Guards in W and the Grenadiers in E (design change 0257); a type whose every unit only just walked in is
+/// greyed for the transit delay, and its press refused (design change 0288's Verification: "Eject a Guard right after
+/// it entered: its tile is grey for 2 s"; point 1: "its tile is greyed and the click is refused; nothing is queued");
+/// Q ejects the Agent inside the longest, the count dropping at the press, and the menu stays open (plan M4-J2: "Q
+/// ejects the oldest Agent"; design change 0300, answering Q0086 point 3: "After an eject click the panel **stays in
+/// the EjectMenu**", as built).
 #[test]
 fn the_eject_menu_counts_the_network_and_q_ejects_the_oldest_agent() {
     use ButtonLook::{Back, Common, Disabled};
@@ -349,9 +355,11 @@ fn the_hideout_has_its_letters_and_rallies_on_a_hideout_or_a_tunnel() {
 }
 
 /// Held units stay in their control groups (design change 0249: "a recall selects only the members on the map").
-/// A group whose every unit is inside recalls as an empty group does (`ControlState::recall_group`, placeholder rule):
-/// nothing changes, the selection, its ObjectInterfaceState and, on a double tap, the camera. Ejected, a unit is
-/// recalled again.
+/// A group whose every unit is inside recalls as an empty group does (`ControlState::recall_group`;
+/// `factions/syndicate/tunnels.md > Tunnel Network > On entering`, design change 0299, answering Q0086 point 5:
+/// "recalling a group whose members are **all** inside does **nothing**: selection, panel and camera unchanged, like
+/// recalling an empty group"): nothing changes, the selection, its ObjectInterfaceState and, on a double tap, the
+/// camera. Ejected, a unit is recalled again.
 #[test]
 fn a_group_all_inside_the_network_recalls_nothing() {
     let mut app = syndicate_game();

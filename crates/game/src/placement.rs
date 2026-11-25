@@ -13,12 +13,13 @@
 //!   the area only (design change 0093), redrawn only when the area or the map changes; while a GDO constructor
 //!   places its building;
 //! - [`ghost_area`]: the Tier 1 Tunnel Area of a Tunnel ghost, green or red as the check finds it (slice M4-J1,
-//!   design change 0242);
+//!   design change 0242), within the rings of its later tiers ([`tunnel_areas`]);
 //! - [`lingering`]: the lingering build ghosts, the sites of the player's pending Deploys and Builds, a Tunnel's with
 //!   its Tier 1 area (`core/entities.md > Placement Validation > Lingering build ghosts`, design change 0125),
 //!   whatever the player does;
-//! - [`tunnel_areas`]: the Tunnel Areas the player knows of, their own and the others' (slice M4-J2), while a Tunnel
-//!   of theirs is the ActiveGroup or they place one ([`tunnel_areas::shows`]).
+//! - [`tunnel_areas`]: the Tunnel Area display (slices M4-J2 and M4-J3; `factions/syndicate/tunnels.md > Tunnel Area
+//!   display`, design changes 0299 and 0300): the areas of the player's own Tunnels they select, and while they place
+//!   a Tunnel the Tier 2 and Tier 3 rings of its ghost, red where they would block an upgrade; never an enemy's area.
 //!
 //! The ghost and the overlay show only while the local player places a building ([`placing_now`]): in a game mode,
 //! in AwaitingPlacement, with a selection they may command (never once the game is over or they are defeated:
@@ -77,7 +78,7 @@ impl Plugin for PlacementPlugin {
                     (ghost::update_ghost, ghost::draw_ghost, ghost_area::draw_ghost_area).chain(),
                     overlay::draw_overlay,
                     lingering::draw_lingering,
-                    tunnel_areas::draw_overlay,
+                    tunnel_areas::draw_overlay.after(ghost::update_ghost),
                 )
                     .in_set(ClientSystems::Present),
             );

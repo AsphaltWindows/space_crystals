@@ -18,12 +18,13 @@
 //!   (0234, `transform::follow_max`).
 //! - **Completion**: "The Tunnel becomes operational and the Agent is inside the Tunnel Network, available for
 //!   redeployment from any Tunnel". Its functions wait for this (`Object::is_operational`); the Agent goes on to the
-//!   network, free to leave at once (it walked into no Tunnel: no transit delay, `Held::entered`). A Laser Turret's
-//!   Agent comes out beside it instead (`BuilderGoes::Beside`; `factions/syndicate/structures/laser_turret.md >
-//!   Construction`: "On successful completion, the Agent emerges on the surface adjacent to the finished structure"):
-//!   "at the **first clear spot next to the turret**, searched in a fixed order starting from the side it came from;
-//!   if none is clear, it waits inside until one is" (design change 0298 point 7; [`Sim::spot_beside`],
-//!   [`Sim::step_beside`]).
+//!   network, free to leave at once (it walked into no Tunnel: no transit delay, `Held::entered`; design change 0301,
+//!   answering Q0087: "The Agent that completes a Tunnel can be ejected at once", `factions/syndicate/tunnels.md >
+//!   Tunnel Network`). A Laser Turret's Agent comes out beside it instead (`BuilderGoes::Beside`;
+//!   `factions/syndicate/structures/laser_turret.md > Construction`: "On successful completion, the Agent emerges on
+//!   the surface adjacent to the finished structure"): "at the **first clear spot next to the turret**, searched in a
+//!   fixed order starting from the side it came from; if none is clear, it waits inside until one is" (design change
+//!   0298 point 7; [`Sim::spot_beside`], [`Sim::step_beside`]).
 //! - **Cancel** ([`Sim::cancel_site`], `ConstructionCommand::CancelConstruction` on the site: "It does nothing but
 //!   Cancel"): the site goes, refunded at the current top price (design changes 0233 and 0284: "construction and
 //!   upgrade cancels refund the current top price"), a Laser Turret's at 75% of its price, rounded down, like an

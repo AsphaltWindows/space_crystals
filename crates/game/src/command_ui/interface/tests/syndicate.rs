@@ -111,8 +111,11 @@ fn the_tunnels_upgrade_is_greyed_with_the_gates_reason() {
 }
 
 /// `factions/syndicate/tunnels.md > EjectMenu`: a tile per unit type of the sim's list, in grid order (design change
-/// 0257: Agent Q, Guard W, Grenadier E), each with its count, greyed while the gate refuses its Eject, with the gate's
-/// reason; a tile ejects at once and leaves the menu open; Z goes back to DefaultState.
+/// 0257: Agent Q, Guard W, Grenadier E; 0285, answering Q0086 point 1: "the intended order"), each with its count, one
+/// with none inside there all the same, 0 and greyed (0299, answering Q0086 point 2: "every Syndicate unit type keeps
+/// its EjectMenu tile; types with none inside show 0, greyed"), greyed while the gate refuses its Eject, with the
+/// gate's reason; a tile ejects at once and leaves the menu open (0300, answering Q0086 point 3: "the panel **stays in
+/// the EjectMenu**"); Z goes back to DefaultState.
 #[test]
 fn the_eject_menu_shows_the_network_in_grid_order_with_counts() {
     use ButtonLook::{Back, Common, Disabled};

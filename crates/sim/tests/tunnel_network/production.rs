@@ -84,6 +84,32 @@ fn a_trained_agent_appears_in_the_network_and_can_exit_at_once() {
     assert_eq!(t.pos(3), EXIT);
 }
 
+/// Design change 0301 (answering Q0087): "produced units rallied into the network have no delay either"
+/// (`factions/syndicate/tunnels.md > Tunnel Network`: "This includes produced units **rallied into the Tunnel
+/// Network** (rally point on a Tunnel, so they stay inside): they can be ejected at once"). Rallied on player 1's
+/// other Tunnel, the Agent stays inside, held as produced there, not as walked in, and an Eject in the next tick, at
+/// the parent Tunnel, takes it out in that tick: no transit delay.
+#[test]
+fn a_unit_rallied_into_the_network_can_be_ejected_at_once() {
+    let other = id(3);
+    let mut t = training(hideout_base().spawn(TUNNEL, Some(P1), tile(22, 2)));
+    t.at(
+        2,
+        P1,
+        production(H1, ProductionCommand::SetRally(Target::Object(other))),
+    )
+    .at(DONE + 1, P1, eject(T1, AGENT));
+    run_checked(&mut t, DONE);
+    let agent = id(4);
+    assert_eq!((produced(&t), inside(&t)), (vec![(DONE, agent)], vec![agent]));
+    let held = t.sim().held_unit(agent).expect("in the network");
+    assert_eq!((held.place, held.since, held.entered), (Place::Network, DONE, false));
+    assert!(held.may_exit(DONE + 1));
+    run_checked(&mut t, DONE + 1);
+    assert_eq!(exits(&t, T1), [(DONE + 1, agent)]);
+    assert_eq!(t.pos(4), EXIT);
+}
+
 /// `structures/README.md > Rally Point Behavior`: "Rally point set on the surface: Unit auto-ejects from the parent
 /// Tunnel (Side A) and moves to the rally point." It comes out of the exit path in the tick it is finished, and walks there.
 #[test]

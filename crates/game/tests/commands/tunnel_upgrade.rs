@@ -131,13 +131,13 @@ fn hint_over(app: &mut App, slot: CommandSlot) -> Option<String> {
     (node.display != Display::None).then(|| text.0.clone())
 }
 
-/// The Tunnel Areas the overlay shows: Tunnel, tier and area, while it shows.
+/// The areas of the selected Tunnels the Tunnel Area display shows: Tunnel, tier and area, while it shows.
 fn overlay(app: &App) -> Option<Vec<(u32, u8, TileRect)>> {
     let overlay = app.world().resource::<TunnelAreaOverlay>();
     let shown = overlay
-        .shown
+        .selected
         .iter()
-        .map(|known| (known.tunnel.0, known.tier, known.area));
+        .map(|shown| (shown.tunnel.0, shown.tier, shown.area));
     overlay.visible.then(|| shown.collect())
 }
 
