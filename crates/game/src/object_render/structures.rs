@@ -27,7 +27,7 @@ pub(super) const LOOK_Z: f32 = BASE_Z + 0.002;
 const TAG_Z: f32 = BASE_Z + 0.005;
 /// The tag's text height, space units, on a footprint at least 2 tiles across and on a narrower one.
 const TAG_SU: f32 = 22.0;
-const SMALL_TAG_SU: f32 = 15.0;
+pub(super) const SMALL_TAG_SU: f32 = 15.0;
 const TAG_COLOR: Color = Color::srgb(0.97, 0.97, 0.94);
 /// An underground structure's outline: how opaque its rim and its fill are (placeholders: the design says only that
 /// expansions are underground and walked over, `factions/syndicate/structures/README.md > Tunnel Expansions`).

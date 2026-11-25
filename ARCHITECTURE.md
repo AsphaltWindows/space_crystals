@@ -2530,14 +2530,15 @@ these.
   **A site** (`Object::is_site`, slice M4-J1; `object_render/site.rs`, a placeholder) is drawn by being one, whatever
   its kind (`MeshKey::site`), on the surface or underground (an expansion's outline, slice M4-F): its footprint tinted
   half way to a pale sand and braced at its corners by a scaffold (clear of its tag) instead of its finished look,
-  with a progress bar near its south edge, a dark track in its mesh and a `SiteProgress` child stretched to its share
-  done (`place_site_progress`, `Progress::ratio`), to everyone who sees it. A record of one is drawn as a site too
-  (`MeshKey::of_record`, slice M4-I2), dimmed, its bar fixed at the progress last seen (`LastKnown::site`,
-  `SiteProgress::remembered`, which `place_site_progress` leaves alone): the site may have grown or been finished
-  since. **A structure that attacks** (`Look::Turret`, `object_render/turret.rs`; the Laser Turret, slice M4-S1, a
-  placeholder) is a structure's footprint with a round head on its roof and, once finished, a `TurretBarrel` child
-  turned by the object's facing (`place_barrels`, interpolated as a unit's facing tick), which the sim snaps to what
-  it fires at; a record of one keeps the head and no barrel.
+  with a progress bar near its south edge (lower and thinner on a roof one tile high, a Laser Turret's, clear of its
+  tag), a dark track in its mesh and a `SiteProgress` child stretched to its share done (`place_site_progress`,
+  `Progress::ratio`), to everyone who sees it. A record of one is drawn as a site too (`MeshKey::of_record`, slice
+  M4-I2), dimmed, its bar fixed at the progress last seen (`LastKnown::site`, `SiteProgress::remembered`, which
+  `place_site_progress` leaves alone): the site may have grown or been finished since. **A structure that attacks**
+  (`Look::Turret`, `object_render/turret.rs`; the Laser Turret, slice M4-S1, a placeholder) is a structure's footprint
+  with a round head on its roof and, once finished, a `TurretBarrel` child turned by the object's facing
+  (`place_barrels`, interpolated as a unit's facing tick), which the sim snaps to what it fires at; a record of one
+  keeps the head and no barrel.
 - **Path overlay** (`path_overlay.rs`, P or `--show-paths`): each unit's remaining path (`Mover::remaining_path`) as
   a thin line from where the unit is drawn, cut into short pieces lifted by the terrain's height, in the overlays
   layer, and a frame around each unit in the colour of its move's status (`status_color`: green moving, amber held
