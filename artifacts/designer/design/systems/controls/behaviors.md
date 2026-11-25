@@ -131,7 +131,7 @@ Same as MovingToLocation, except:
 
 ### Completion:
 - **Static TargetObject** (structure, resource, Supply Delivery Station): behavior complete when the unit is within proximity of the TargetObject.
-- **Unit TargetObject: Follow** (user, 2026-11-23). The behavior does **not** complete on reaching the target. While within proximity, the unit stops and waits. When the target moves out of proximity, the unit follows again. Following continues until the player gives a new order, or the target dies or leaves the map (e.g. enters a transport, a building or the Tunnel Network); then the behavior completes.
+- **Unit TargetObject: Follow** (user, 2026-11-23). The behavior does **not** complete on reaching the target. While within proximity, the unit stops and waits. When the target moves out of proximity, the unit follows again. Following continues until the player gives a new order, or the target dies, leaves the map (e.g. enters a transport, a building or the Tunnel Network) or **goes out of the owner's vision** (user, 2026-11-25; Q0051, same as AttackingObject > Target lost from vision); then the behavior completes, and the unit stops where it is (or goes on to its next queued order).
 - **Blocked near the target**: if the unit is stuck within **3 grid units** (same radius as MovingToLocation; 2026-11-24) of its TargetObject, blocked by units that aren't moving, that counts as having reached it, like MovingToLocation > Occupied target location. For a static target the behavior completes. For a followed unit the unit waits there (no re-route attempts) and keeps following. (User, 2026-11-23.)
 
 ### Failure:
@@ -154,7 +154,7 @@ Base behavior for attacking a destructible object instance. The unit moves towar
    - Begin attack sequence on BaseAttackChannel (infantry) or set TurretCommandState.LockedTarget = TargetObject (turret units)
 4. If target moves out of range or arc: resume MovingToObject toward TargetObject
 5. If target is destroyed: behavior complete
-6. **Target lost from vision** (user, 2026-11-23): if TargetObject is no longer visible to the unit's owner (it went into the fog of war), the unit moves to the target's **last seen position** (MovingToLocation) and the behavior completes there. It does not track the target's real position through fog. Once stopped it is idle, and normal idle auto-targeting (Idle behavior, with IdleLeashDistance) applies if the enemy is visible again.
+6. **Target lost from vision** (user, 2026-11-25; Q0051, replaces the 2026-11-23 walk to the last seen position): if TargetObject is no longer visible to the unit's owner (it went into the fog of war), the **behavior completes at once**, exactly as when the target is destroyed. The unit **stops where it is** and is idle, or goes on to its next queued order if it has one. It does not walk to the last seen position or track the target through the fog; pursuing into the fog is the player's call. Once idle, normal idle auto-targeting (Idle behavior, with IdleLeashDistance) applies if the enemy is visible again. (The fog delay, core/vision.md > Visible > Fog delay, still keeps a target on tiles that just left sight visible for its 0.5 s.)
 
 ### GliderMovement exception:
 Gliders cannot stop. Instead of stopping when in range, the Glider performs strafing runs:
