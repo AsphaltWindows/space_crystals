@@ -979,7 +979,7 @@ The user keeps feeding unit and other designs to the Designer, so expect increme
     - C: done (`f67df212`; Q0077).
     - D: done (`edc30e11`; Q0076).
     - I: running (wave 3, started early since it needs only D; Opus; brief `scratchpad/briefs/m4i-supplies.md`).
-    - R (code organization: citations, defs per object, tuning modules): after B, C and I land, before E and J2.
+    - R1 (sim) and R2 (client, docs, citation test): briefs ready (`scratchpad/briefs/m4r1-sim-organization.md`, `m4r2-client-docs-organization.md`). They launch together once B and I land, with nothing else running; R2 merges after R1.
     - B: running (wave 2; Opus; the revised spec `scratchpad/m4/rev/B.md`).
     - The rest are queued. A planning pass is folding 0229–0271 into slices B and E–M, and planning 0260's new content: a combat spike, the Grenadier, the Laser Turret and the Chemical Plant.
   - **All M4 questions are answered** (Q0059–Q0071), by 0229–0267.
