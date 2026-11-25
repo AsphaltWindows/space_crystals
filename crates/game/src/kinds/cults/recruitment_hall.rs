@@ -1,8 +1,10 @@
 //! The Recruitment Hall (`factions/cults/economy.md > RecruitmentHall`): a structure, labelled with its initials, "RH".
-//! No panel yet: its Set Rally Point and its Cancel Production (`> RecruitmentHall >
-//! ObjectInterfaceState[RecruitmentHall]`) come with its production, slice M5-C.
+//! It has the Production template (slice M5-C; plan decision T23: "every type that produces units has the Production
+//! template"), which for a Hall that recruits by itself is X Cancel Production and C Set Rally Point alone, its
+//! right-click setting the rally point (`> RecruitmentHall > ObjectInterfaceState[RecruitmentHall]`;
+//! `crate::command_ui::interface::templates::production`).
 
-use crate::command_ui::interface::templates::PanelTemplate;
+use crate::command_ui::interface::templates::{InterfaceTemplate, PanelTemplate};
 use crate::kinds::ClientKind;
 use crate::object_render::Look;
 
@@ -10,5 +12,5 @@ pub const KIND: ClientKind = ClientKind {
     label: "RH",
     look: Look::Structure,
     shot: None,
-    template: PanelTemplate::NONE,
+    template: PanelTemplate::of(InterfaceTemplate::Production),
 };

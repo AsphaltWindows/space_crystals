@@ -36,6 +36,7 @@ pub mod player;
 pub mod popup;
 pub mod production;
 pub mod progress;
+pub mod recruitment;
 pub mod replay;
 pub mod riot_shield;
 pub mod rng;
@@ -61,8 +62,8 @@ pub use command::{Ability, Command, DebugCommand, PlayerCommand, TickInputs, Tun
 pub use construction::{ConstructionCommand, Constructor};
 pub use defs::{
     Armor, BEACON_CAPACITY_CAP, BEACON_CAPACITY_PER_BUILDING, Category, ExitRule, Footprint, MiningDef, ObjectDef,
-    ObjectKind, ProductionDef, Recipe, StructureDef, SymmetryType, TUNNEL_SPACE_CAP, TierDef, Transit, TunnelDef,
-    UNIT_CONTROL_CAP, UpgradeDef,
+    ObjectKind, ProductionDef, Recipe, RecruitmentDef, StructureDef, SymmetryType, TUNNEL_SPACE_CAP, TierDef, Transit,
+    TunnelDef, UNIT_CONTROL_CAP, UpgradeDef,
 };
 pub use economy::{ArmyCap, ArmyResource, Extractor, Outcome, PowerSummary};
 pub use events::SimEvent;
@@ -80,6 +81,7 @@ pub use production::{
     Door, Doorway, EnergyDoorway, ExitDoor, Production, ProductionCommand, ProductionStatus, Rally, Refusal,
 };
 pub use progress::Progress;
+pub use recruitment::{Capacity, Claims, HallState};
 pub use replay::{Checkpoint, Desync, Replay, ReplayError};
 pub use riot_shield::{RiotShield, ShieldMode};
 pub use rng::Rng;

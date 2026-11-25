@@ -343,7 +343,7 @@ impl Sim {
             constructor,
             worker,
             tunnel,
-        } = kinds::Capabilities::fresh(&self.objects, kind, placement.as_ref());
+        } = kinds::Capabilities::fresh(&self.objects, kind, placement.as_ref(), self.tick);
         Object {
             id,
             kind,
@@ -429,6 +429,7 @@ mod phase;
 mod popups;
 mod preview;
 mod producers;
+mod recruitment;
 mod removal;
 mod resources;
 mod sites;

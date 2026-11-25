@@ -29,6 +29,7 @@ use crate::orders::Orders;
 use crate::production::Production;
 use crate::riot_shield::RiotShield;
 use crate::tunnel::{self, TunnelState};
+use crate::units::Tick;
 
 /// The capabilities of an object (`Object`'s optional parts, but a map resource's state), as its kind's definition
 /// gives them.
@@ -45,8 +46,14 @@ pub(super) struct Capabilities {
 }
 
 impl Capabilities {
-    /// What an object of `kind` placed at `placement` starts with, among `objects`.
-    pub(super) fn fresh(objects: &BTreeMap<ObjectId, Object>, kind: ObjectKind, placement: Option<&Placement>) -> Self {
+    /// What an object of `kind` placed at `placement` starts with, among `objects`, its functions starting in tick
+    /// `tick`.
+    pub(super) fn fresh(
+        objects: &BTreeMap<ObjectId, Object>,
+        kind: ObjectKind,
+        placement: Option<&Placement>,
+        tick: Tick,
+    ) -> Self {
         let def = kind.def();
         let unit = def.unit.as_ref();
         // Units take orders and move (`systems/units.md > Unit`); they start idle.
@@ -64,12 +71,17 @@ impl Capabilities {
                 .map(|shield| RiotShield::fresh(kind, shield)),
             // `factions/gdo/economy.md > ExtractionPlate`: a plate mines the patch under it.
             extractor: economy::mining::extractor_for(objects, kind, placement),
-            // `factions/gdo/structures/barracks.md`: a structure that produces units starts with an empty queue.
+            // `factions/gdo/structures/barracks.md`: a structure that produces units starts with an empty queue; a
+            // Recruitment Hall with the tick it is complete in, which orders its claims (`Production::completed_at`,
+            // plan decision T57).
             production: def
                 .structure
                 .as_ref()
                 .and_then(|structure| structure.production.as_ref())
-                .map(|_| Production::default()),
+                .map(|production| Production {
+                    completed_at: if production.recruitment.is_some() { tick } else { 0 },
+                    ..Production::default()
+                }),
             // `factions/gdo/structures/deployment_center.md`, `factions/gdo/economy.md > ExtractionFacility`: a
             // constructor starts idle.
             constructor: construction::constructor_for(kind),
@@ -151,8 +163,8 @@ impl Sim {
         if !keeps_constructor {
             self.refund_constructors(&[id]);
         }
-        let fresh = Capabilities::fresh(&self.objects, kind, placement.as_ref());
         let tick = self.tick;
+        let fresh = Capabilities::fresh(&self.objects, kind, placement.as_ref(), tick);
         let Some(o) = self.objects.get_mut(&id) else {
             return false;
         };

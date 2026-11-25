@@ -175,3 +175,37 @@ fn only_what_stands_in_front_of_a_door_leaves_less_room() {
         "less deep"
     );
 }
+
+/// The Recruitment Hall's four exit sides (`ExitRule::Sides`, slice M5-C; `factions/cults/economy.md >
+/// RecruitmentHall > SymmetryType - AAAA`). At tile (2, 1) it covers x 128..384 and y 64..320, its centre (256, 192):
+/// a door in the middle of each side, tried in **Placeholder (Q0100 point 1)**'s order: the side facing the rally
+/// point, the bottom one without, then clockwise; of two sides facing a diagonal alike, the clockwise one.
+#[test]
+fn a_hall_has_four_doors_tried_from_the_one_facing_the_rally_point() {
+    let doorway = Doorway::of(&building(ObjectKind::RecruitmentHall, Rotation::R0, false)).unwrap();
+    let (n, e, s, w) = (-Vec2::Y, Vec2::X, Vec2::Y, -Vec2::X);
+    let outward: Vec<Vec2> = doorway.doors().map(|door| door.outward()).collect();
+    assert_eq!(outward, [n, e, s, w], "north, east, south, west");
+    let order = |toward: Option<Vec2>| doorway.order(toward).map(|door| door.outward()).collect::<Vec<_>>();
+    assert_eq!(order(None), [s, w, n, e], "the bottom without a rally point");
+    assert_eq!(order(Some(Vec2::ZERO)), [s, w, n, e], "a rally point at the centre");
+    assert_eq!(order(Some(Vec2::new(300.0, 20.0))), [e, s, w, n]);
+    assert_eq!(order(Some(Vec2::new(-10.0, -300.0))), [n, e, s, w]);
+    assert_eq!(order(Some(Vec2::new(-300.0, 299.0))), [w, n, e, s]);
+    assert_eq!(order(Some(Vec2::new(50.0, -50.0))), [e, s, w, n], "north-east: east, clockwise of it");
+    assert_eq!(order(Some(Vec2::new(-50.0, 50.0))), [w, n, e, s], "south-west: west");
+    let middles: Vec<Vec2> = doorway.doors().map(|door| door.middle()).collect();
+    let expected = [(256.0, 64.0), (384.0, 192.0), (256.0, 320.0), (128.0, 192.0)].map(Vec2::from);
+    assert_eq!(middles, expected);
+    // A unit is in the door of the side it is least inside of: half out, fully in against the side, or deeper.
+    for (door, middle) in doorway.doors().zip(expected) {
+        let inward = (Vec2::new(256.0, 192.0) - middle).normalize();
+        for depth in [0.0, 12.0, 40.0] {
+            assert_eq!(doorway.door_at(middle + inward * depth), door, "{middle} {depth}");
+        }
+    }
+    // The Barracks' one door, wherever the unit stands, and in every order.
+    let barracks = barracks(Rotation::R0, false);
+    assert_eq!(barracks.order(Some(-Vec2::X)).count(), 1);
+    assert_eq!(barracks.door_at(Vec2::new(130.0, 70.0)), side_b(Rotation::R0, false));
+}

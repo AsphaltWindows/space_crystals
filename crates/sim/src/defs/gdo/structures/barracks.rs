@@ -38,6 +38,7 @@ pub(crate) static BARRACKS: ObjectDef = ObjectDef {
                 frames: 80,
                 requires: &[],
             }],
+            recruitment: None,
         }),
         mining: None,
         onto: None,

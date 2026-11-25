@@ -401,7 +401,7 @@ fn a_changed_object_has_the_capabilities_of_a_new_one() {
     ] {
         assert!(sim.change_kind(pk, kind, placement));
         let o = object(&sim, 1);
-        let fresh = Capabilities::fresh(&BTreeMap::new(), kind, placement.as_ref());
+        let fresh = Capabilities::fresh(&BTreeMap::new(), kind, placement.as_ref(), 0);
         pos = placement.map_or(pos, |p| p.center());
         assert_eq!((o.kind, o.pos, o.placement), (kind, pos, placement));
         assert_eq!(

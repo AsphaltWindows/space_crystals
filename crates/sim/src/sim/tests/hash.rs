@@ -269,7 +269,9 @@ fn state_hash_covers_every_field() {
         ("tunnel tier", |s| obj(s, 4).tunnel.as_mut().unwrap().tier = 3),
         // (M5-A) A Cults unit's lineage (plan decision T56; any unit may hold one here), one entry per Recruit (M5-C).
         ("lineage", |s| obj(s, 3).lineage = vec![ObjectId(4)]),
-        ("lineage entries", |s| obj(s, 3).lineage = vec![ObjectId(4), ObjectId(4)]),
+        ("lineage entries", |s| {
+            obj(s, 3).lineage = vec![ObjectId(4), ObjectId(4)]
+        }),
     ];
     for (name, mutate) in mutations {
         let mut sim = base.clone();
