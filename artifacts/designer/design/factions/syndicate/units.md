@@ -407,8 +407,8 @@ TBD: capacity (and whether it counts each infantry unit's TunnelSpaceCost); burr
 
 TBD: all numbers (HP, armor, sight, speed and handling, TunnelSpaceCost, damage, range, timings, cost, build time); hotkeys.
 
-## Bomber (name TBD)
-(user, 2026-11-25) Syndicate **bomber** carrying a **single payload**. It flies as a **Glider** (must keep moving), but **lifts off and lands vertically** through a Tier 3 Tunnel's air doors (factions/syndicate/tunnels.md > Tunnel > Look by tier).
+## Specter
+(user, 2026-11-25; named by the user) Syndicate **bomber** carrying a **single payload**. It flies as a **Glider** (must keep moving), but **lifts off and lands vertically** through a Tier 3 Tunnel's air doors (factions/syndicate/tunnels.md > Tunnel > Look by tier).
 
 ### Entity Type - Unit
 ### Faction - TheSyndicate
@@ -424,5 +424,5 @@ TBD: all numbers (HP, armor, sight, speed and handling, TunnelSpaceCost, damage,
 - Like every attack that can miss, it can **Attack Ground** (systems/combat.md > AttackType > CanTargetGround).
 - TargetDomain: **Ground only** (user, 2026-11-25).
 
-TBD: name; re-arming time and the Vault's throughput limit; the lift-off/landing transition; all numbers.
+TBD: re-arming time and the Vault's throughput limit; the lift-off/landing transition; all numbers.
 
