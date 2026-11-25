@@ -2208,3 +2208,4 @@ Q0062 pts 3d/5: no expansions under resources; water/mountain no tunnel space. E
 Tunnel area fully drillable/on-map (0242); Q0074 own movement re-check B (0243).
 Q0075: only shots at own objects drawn whole. Entry 0244.
 Q0063 pt1: flat 2 s transit delay (placeholder). Entry 0245.
+Q0063 pt7: walk in at normal speed/spacing; produced units no delay. Entry 0246.

@@ -4,7 +4,9 @@
 
 The Tunnel Network is the collective of all Tunnels owned by a Syndicate player. Units inside the Tunnel Network can travel between Tunnels freely, but can only enter or exit the network through a Tunnel whose tier is sufficient for their unit base category.
 
-**Transit delay** (user, 2026-11-25; Q0063): after a unit **enters** the network, there is a **small delay before it can exit**: **2 seconds (32 frames), placeholder**. After that it can exit from **any** Tunnel whose tier suits it, however far away: the delay is flat, not by distance. Units produced inside the network (by expansions) aren't entering, so they have no delay (designer's reading).
+**Transit delay** (user, 2026-11-25; Q0063): after a unit **enters** the network, there is a **small delay before it can exit**: **2 seconds (32 frames), placeholder**. After that it can exit from **any** Tunnel whose tier suits it, however far away: the delay is flat, not by distance. Units **produced** inside the network (by expansions) have **no delay**: they can exit as soon as they are produced (user, 2026-11-25).
+
+**Walking in** (user, 2026-11-25; Q0063): units enter through the entry path by **walking into it at their normal speed, one behind another with normal spacing**, like walking through any one-unit-wide passage; there is no fixed hold time per unit. A unit leaves the map once it has walked into the Tunnel. So an army files in about as fast as it can walk in single file, without big traffic jams.
 
 ### Transit Tier Requirements
 - Tier 1+: Infantry (Light Infantry, Heavy Infantry)
@@ -47,7 +49,7 @@ Starting Space Crystals: **100** (same as GDO and the Colonists). With 100, the 
 ### SymmetryType - ABCD
 
 Each side of the Tunnel has a distinct function:
-- **Side A**: Unit entrance/exit (units enter and emerge from the Tunnel Network here). It has **two paths: one for entering, one for exiting** (user, 2026-11-25). **Each path takes one unit at a time** and fixes where units go in and come out: entering and exiting units never block each other, but an army enters or leaves single file. (Whether the Tier 3 air doors also take one aircraft at a time: TBD.)
+- **Side A**: Unit entrance/exit (units enter and emerge from the Tunnel Network here). It has **two paths: one for entering, one for exiting** (user, 2026-11-25). **Each path is one unit wide** and fixes where units go in and come out: entering and exiting units never block each other, and an army enters or leaves single file, each unit walking through at its normal speed with normal spacing (Tunnel Network > Walking in). (Whether the Tier 3 air doors also take one aircraft at a time: TBD.)
 - **Side B**: Crystal drop-off, a **hatch** for Space Crystals (Agents deliver Space Crystals here)
 - **Side C**: Supply drop-off, a **hatch** for Supplies (Agents deliver Supplies here)
 - **Side D**: Back wall (no gameplay function)
