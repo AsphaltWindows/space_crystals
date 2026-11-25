@@ -391,9 +391,9 @@ impl<'a> World<'a> {
     ///    ties.
     ///
     /// Enemy structures are ValidTargets too (`systems/combat.md > ValidTarget`, design change 0103), so units
-    /// attack enemy buildings on their own; those that can't attack (all of them, so far) are non-threatening, and
-    /// come after the targets that can shoot back. An enemy inside the unit's MinRange is never picked (design change
-    /// 0182, [`Scan`]).
+    /// attack enemy buildings on their own; those that can't attack (all but a complete Laser Turret, slice M4-S1:
+    /// `combat::threat`) are non-threatening, and come after the targets that can shoot back. An enemy inside the
+    /// unit's MinRange is never picked (design change 0182, [`Scan`]).
     ///
     /// Nothing while auto-targeting is off (`DebugCommand::SetAutoTargeting`).
     ///
