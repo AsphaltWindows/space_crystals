@@ -1037,7 +1037,7 @@ The user keeps feeding unit and other designs to the Designer, so expect increme
 | Q0075 | A revealed attacker shooting at a target the player can't see: draw the shot whole (literal 0206) or clip it? | no | answered by 0244 (stricter than B; M3-L5) |
 
 ## Design change entries
-Last triaged: 0278.
+Last triaged: 0281.
 
 | Entry | Status | Notes |
 |---|---|---|
@@ -1294,4 +1294,7 @@ Last triaged: 0278.
 | 0276 Refract: deployed Laser Batteries relay through Satellites, chains allowed | gated (concept only) | — |
 | 0277 Relay (renamed from Refract): how Laser Batteries relay through Satellites | gated (concept only) | — |
 | 0278 Relay: damage adds up, and chain breaks | gated (concept only) | — |
+| 0279 Relay: every selected Battery must reach a Satellite; the armed Satellite takes Attack orders | gated (concept only) | — |
+| 0280 Satellite thrust charges never recharge; the armed Satellite fires at anything the player sees | gated (concept only) | — |
+| 0281 The satellite is named Prism; it can be shot down while launching | gated (concept only) | — |
 | 0014 GDO Airfield and aircraft | queued (Later: air) | |
