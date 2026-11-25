@@ -58,16 +58,19 @@
 
 mod build_area;
 mod check;
+mod footprint;
 mod onto;
+mod problems;
+mod site;
 #[cfg(test)]
 mod tests;
+mod tunnel_area;
 
 pub use build_area::{BuildArea, seeds_build_area};
-pub use check::{
-    Method, Mode, Occupant, PlacementCheck, PlacementProblem, Site, TileProblem, WholeProblem, check, check_layout,
-    check_reserving, footprint_size,
-};
+pub use check::{check, check_layout, check_reserving, footprint_size};
 pub use onto::Onto;
+pub use problems::{PlacementCheck, PlacementProblem, TileProblem, WholeProblem};
+pub use site::{Method, Mode, Occupant, Site};
 
 use crate::defs::ObjectKind;
 use crate::deploy;

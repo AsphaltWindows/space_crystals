@@ -30,8 +30,8 @@ fn a_game_starts_with_each_players_starting_conditions() {
         laid(PLATE, 22, 2),               // 12
     ];
     // A Custom map's layouts may hold any objects (`core/map_editor.md > Map Types > Custom`); nobody plays the
-    // Syndicate.
-    *s.map.slots[0].layouts.get_mut(Faction::Syndicate) = vec![unit_at(PK, point(12.0, 6.0))];
+    // Cults.
+    *s.map.slots[0].layouts.get_mut(Faction::Cults) = vec![unit_at(PK, point(12.0, 6.0))];
     let sim = Sim::try_new(&s).unwrap();
     let owned: Vec<_> = sim
         .objects()
@@ -66,8 +66,8 @@ fn a_game_starts_with_each_players_starting_conditions() {
     t.run_until(48);
     assert_eq!(banks(t.sim()), [(120, 0), (120, 0)], "10 from each plate");
 
-    // Player 1 plays the Syndicate: its layout at slot 1, and no Starting Conditions yet.
-    s.setup.players[0].faction = Faction::Syndicate;
+    // Player 1 plays the Cults: its layout at slot 1, and no Starting Conditions yet.
+    s.setup.players[0].faction = Faction::Cults;
     let sim = Sim::try_new(&s).unwrap();
     let p1: Vec<_> = sim
         .objects()

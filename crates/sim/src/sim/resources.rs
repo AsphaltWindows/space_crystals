@@ -17,9 +17,12 @@ impl Sim {
 
     /// `player`'s army cap at the end of the latest tick (plan decision T20, `economy::army`): what their units and
     /// their producers' units in production take up of their faction's cap (design change 0143), and what is
-    /// available (the GDO's Unit Control, the Colonists' Beacon Capacity). The HUD's figure, and what a unit at the
-    /// front of a queue is checked against when its production would start (`sim/producers/step.rs`). `None` for a
-    /// faction without one yet, or a player who isn't in the game.
+    /// available (the GDO's Unit Control, the Colonists' Beacon Capacity, the Syndicate's Tunnel Space). The HUD's
+    /// figure, and what a unit at the front of a queue is checked against when its production would start
+    /// (`sim/producers/step.rs`). `None` for a faction without one yet, or a player who isn't in the game.
+    ///
+    /// It counts the objects on the map. Slice M4-C chains the units it holds out of the map into this iterator (the
+    /// Tunnel Network's, and an Agent inside its site): they are alive, and use Tunnel Space (design change 0265).
     pub fn army_cap(&self, player: PlayerId) -> Option<ArmyCap> {
         let faction = self.player(player)?.faction;
         economy::army::cap(self.objects.values(), player, faction)

@@ -59,7 +59,7 @@ pub use defs::{
 };
 pub use economy::{
     ArmyCap, ArmyResource, BEACON_CAPACITY_CAP, BEACON_CAPACITY_PER_BUILDING, Extractor, Outcome, PowerSummary,
-    UNIT_CONTROL_CAP,
+    TUNNEL_SPACE_CAP, UNIT_CONTROL_CAP,
 };
 pub use events::SimEvent;
 pub use glam::Vec2;

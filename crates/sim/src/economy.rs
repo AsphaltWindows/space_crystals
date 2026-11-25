@@ -8,8 +8,9 @@
 //!   [`Refund`] (plan decision T7). Supplies are a counter only (design change 0077), and so are the refined
 //!   resources until refining exists (question Q0043 point 1).
 //! - **Power** ([`PowerSummary`], `power.rs`) and the **army caps** ([`ArmyCap`], `army.rs`, plan decision T20: the
-//!   GDO's Unit Control, the Colonists' Beacon Capacity) are derived from the objects whenever they are needed, never
-//!   stored, so they can't drift from them (T7): `Sim::power`, `Sim::army_cap`.
+//!   GDO's Unit Control, the Colonists' Beacon Capacity, the Syndicate's Tunnel Space, slice M4-B) are derived from
+//!   the objects whenever they are needed, never stored, so they can't drift from them (T7): `Sim::power`,
+//!   `Sim::army_cap`.
 //! - **Mining** (`mining.rs`): a plate on a patch has an [`Extractor`] (`Object::extractor`), linked when the pair
 //!   comes into being; it pays its owner in lumps at the end of each cycle (design change 0098), and the removal
 //!   path takes a depleted patch away with its plate (`Sim::remove_objects`).
@@ -30,7 +31,10 @@ pub(crate) mod power;
 
 use std::collections::BTreeMap;
 
-pub use army::{ArmyCap, ArmyResource, BEACON_CAPACITY_CAP, BEACON_CAPACITY_PER_BUILDING, UNIT_CONTROL_CAP};
+pub use army::{
+    ArmyCap, ArmyResource, BEACON_CAPACITY_CAP, BEACON_CAPACITY_PER_BUILDING, CELLS_PER_TUNNEL_SPACE, TUNNEL_SPACE_CAP,
+    UNIT_CONTROL_CAP,
+};
 pub use defeat::Outcome;
 pub use gathering::Worker;
 pub use mining::Extractor;

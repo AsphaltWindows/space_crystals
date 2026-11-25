@@ -154,7 +154,40 @@
             }
           }
         ],
-        "Syndicate": [],
+        "Syndicate": [
+          {
+            "kind": "Tunnel",
+            "at": {
+              "Tile": {
+                "x": 4,
+                "y": 4
+              }
+            },
+            "orientation": {
+              "rotation": "R180",
+              "flip_h": false,
+              "flip_v": false
+            }
+          },
+          {
+            "kind": "Hideout",
+            "at": {
+              "Tile": {
+                "x": 8,
+                "y": 8
+              }
+            }
+          },
+          {
+            "kind": "Agent",
+            "at": {
+              "Point": [
+                384.0,
+                608.0
+              ]
+            }
+          }
+        ],
         "Cults": [],
         "Colonists": [
           {
@@ -279,7 +312,40 @@
             }
           }
         ],
-        "Syndicate": [],
+        "Syndicate": [
+          {
+            "kind": "Tunnel",
+            "at": {
+              "Tile": {
+                "x": 56,
+                "y": 40
+              }
+            }
+          },
+          {
+            "kind": "Hideout",
+            "at": {
+              "Tile": {
+                "x": 54,
+                "y": 38
+              }
+            },
+            "orientation": {
+              "rotation": "R180",
+              "flip_h": false,
+              "flip_v": false
+            }
+          },
+          {
+            "kind": "Agent",
+            "at": {
+              "Point": [
+                3712.0,
+                2464.0
+              ]
+            }
+          }
+        ],
         "Cults": [],
         "Colonists": [
           {

@@ -10,8 +10,12 @@
 //!   Capacity Retention`), so what is available is min(200, 5 × the player's Colonists structures), a Beacon under
 //!   deployment left out: its 5 comes with completion (`> Beacon Deployment > Beacon Capacity during deployment`,
 //!   design change 0112), while the Drone it was costs nothing from the deployment's first frame on, being a Beacon.
-//! - **The Syndicate and the Cults** have none yet: their Tunnel Space and Unit Control come with their milestones
-//!   ([`ArmyResource::of`]), and nothing caps their armies until then.
+//! - **Syndicate: Tunnel Space** (slice M4-B; `factions/syndicate/overview.md > SyndicateResources > Tunnel Space`,
+//!   `factions/syndicate/tunnels.md > Tunnel > Tunnel Space`): "Each Syndicate unit has a Tunnel Space cost", and what
+//!   is available is min(200, ⌊the unused tunnel-region cells of the player's Tunnels / 4⌋), derived from the Tunnels
+//!   and the expansions where they stand (`tunnel_space.rs`).
+//! - **The Cults** have none yet: their Unit Control comes with their milestone ([`ArmyResource::of`]), and nothing
+//!   caps their armies until then.
 //!
 //! **Used** is what the player's units cost, plus their producers' units in production (design change 0143, for
 //! every faction: `factions/gdo/overview.md > GDOResources > Unit Control`, "Reserved when production starts": the
@@ -31,10 +35,19 @@
 //! amends it): when a Colonists building is lost, or a Beacon's deployment is cancelled, more can be used than is
 //! available. That is allowed: nothing is killed or removed, a unit in production finishes (Q0041 point 2), and the
 //! units after it wait until there is room again. Being derived, the cap needs no rule of its own for it; the client
-//! shows it in red.
+//! shows it in red. Tunnel Space alike, when an expansion takes up tunnel-region (`factions/syndicate/tunnels.md >
+//! Tunnel Space`: "usage is simply displayed over capacity (e.g. 12/10)").
+//!
+//! **The objects** [`cap`] counts are those it is given: `Sim::army_cap` gives the map's. The units inside the Tunnel
+//! Network and an Agent inside its site are alive and use Tunnel Space (design change 0265: "units count from
+//! production for life"): slice M4-C chains its store of them into that iterator.
+
+mod tunnel_space;
 
 use serde::{Deserialize, Serialize};
 
+pub use self::tunnel_space::{CELLS_PER_TUNNEL_SPACE, TUNNEL_SPACE_CAP};
+use self::tunnel_space::TunnelSpace;
 use crate::defs::{Category, ObjectKind};
 use crate::ids::PlayerId;
 use crate::object::Object;
@@ -59,36 +72,41 @@ pub enum ArmyResource {
     UnitControl,
     /// The Colonists': `factions/colonists/overview.md > ColonistResources > Beacon Capacity`.
     BeaconCapacity,
+    /// The Syndicate's: `factions/syndicate/overview.md > SyndicateResources > Tunnel Space` (slice M4-B).
+    TunnelSpace,
 }
 
 impl ArmyResource {
-    /// `faction`'s, or `None` for a faction whose cap isn't implemented yet: the Syndicate's Tunnel Space and the
-    /// Cults' Unit Control come with their milestones.
+    /// `faction`'s, or `None` for a faction whose cap isn't implemented yet: the Cults' Unit Control comes with their
+    /// milestone.
     pub fn of(faction: Faction) -> Option<ArmyResource> {
         match faction {
             Faction::Gdo => Some(ArmyResource::UnitControl),
             Faction::Colonists => Some(ArmyResource::BeaconCapacity),
-            Faction::Syndicate | Faction::Cults => None,
+            Faction::Syndicate => Some(ArmyResource::TunnelSpace),
+            Faction::Cults => None,
         }
     }
 
     /// Its name, as the DisplayHuds give it (`factions/gdo/overview.md > DisplayHud`, `factions/colonists/
-    /// overview.md > DisplayHud`).
+    /// overview.md > DisplayHud`, `factions/syndicate/overview.md > DisplayHud`).
     pub fn name(self) -> &'static str {
         match self {
             ArmyResource::UnitControl => "Unit Control",
             ArmyResource::BeaconCapacity => "Beacon Capacity",
+            ArmyResource::TunnelSpace => "Tunnel Space",
         }
     }
 
     /// What a unit of `kind` takes of it: its UnitControlCost (`factions/gdo/units.md > Peacekeeper >
-    /// UnitControlCost`) or its BeaconCapacityCost (`factions/colonists/units.md > Drone > BeaconCapacityCost`); 0
-    /// for a kind without one.
+    /// UnitControlCost`), its BeaconCapacityCost (`factions/colonists/units.md > Drone > BeaconCapacityCost`) or its
+    /// TunnelSpaceCost (`factions/syndicate/units/agent.md > TunnelSpaceCost`); 0 for a kind without one.
     pub fn cost_of(self, kind: ObjectKind) -> u32 {
         let unit = kind.def().unit.as_ref();
         let cost = match self {
             ArmyResource::UnitControl => unit.and_then(|u| u.unit_control_cost),
             ArmyResource::BeaconCapacity => unit.and_then(|u| u.beacon_capacity_cost),
+            ArmyResource::TunnelSpace => unit.and_then(|u| u.tunnel_space_cost),
         };
         cost.unwrap_or(0)
     }
@@ -114,7 +132,8 @@ pub struct ArmyCap {
     /// (`factions/colonists/overview.md > Beacon Capacity > Over capacity`, design change 0112).
     pub used: u32,
     /// [`UNIT_CONTROL_CAP`] for Unit Control; min([`BEACON_CAPACITY_CAP`], [`BEACON_CAPACITY_PER_BUILDING`] × the
-    /// player's Colonists structures) for Beacon Capacity.
+    /// player's Colonists structures) for Beacon Capacity; min([`TUNNEL_SPACE_CAP`], ⌊the unused tunnel-region cells
+    /// of the player's Tunnels / [`CELLS_PER_TUNNEL_SPACE`]⌋) for Tunnel Space.
     pub available: u32,
 }
 
@@ -131,7 +150,9 @@ impl ArmyCap {
     }
 }
 
-/// The army cap of `player`, whose faction is `faction`, among `objects`; `None` for a faction without one yet.
+/// The army cap of `player`, whose faction is `faction`, among `objects` (module docs: the map's, and the units held
+/// out of it); `None` for a faction without one yet. Tunnel Space looks at every object, as a neutral expansion takes
+/// up tunnel-region (`tunnel_space.rs`); the other figures only at `player`'s.
 pub(crate) fn cap<'a>(
     objects: impl IntoIterator<Item = &'a Object>,
     player: PlayerId,
@@ -139,7 +160,14 @@ pub(crate) fn cap<'a>(
 ) -> Option<ArmyCap> {
     let resource = ArmyResource::of(faction)?;
     let (mut used, mut providers) = (0u32, 0u32);
-    for o in objects.into_iter().filter(|o| o.owner == Some(player)) {
+    let mut space = TunnelSpace::default();
+    for o in objects {
+        if resource == ArmyResource::TunnelSpace {
+            space.see(o, player);
+        }
+        if o.owner != Some(player) {
+            continue;
+        }
         used = used.saturating_add(resource.taken_by(o));
         providers = providers.saturating_add(u32::from(provides_capacity(o)));
     }
@@ -148,6 +176,7 @@ pub(crate) fn cap<'a>(
         ArmyResource::BeaconCapacity => providers
             .saturating_mul(BEACON_CAPACITY_PER_BUILDING)
             .min(BEACON_CAPACITY_CAP),
+        ArmyResource::TunnelSpace => space.available(),
     };
     Some(ArmyCap {
         resource,
@@ -193,29 +222,47 @@ mod tests {
             (Some(1), None)
         );
         // `factions/colonists/units.md`: the Drone's BeaconCapacityCost is 1, the Legionnaires' 2.
-        let (uc, bc) = (ArmyResource::UnitControl, ArmyResource::BeaconCapacity);
+        let (uc, bc, ts) = (
+            ArmyResource::UnitControl,
+            ArmyResource::BeaconCapacity,
+            ArmyResource::TunnelSpace,
+        );
         let costs = |resource: ArmyResource| {
             [
                 ObjectKind::Peacekeeper,
                 ObjectKind::Drone,
                 ObjectKind::SabreLegionnaire,
                 ObjectKind::Guard,
+                ObjectKind::Agent,
             ]
             .map(|kind| resource.cost_of(kind))
         };
-        assert_eq!(costs(uc), [1, 0, 0, 0]);
-        assert_eq!(costs(bc), [0, 1, 2, 0]);
+        assert_eq!(costs(uc), [1, 0, 0, 0, 0]);
+        assert_eq!(costs(bc), [0, 1, 2, 0, 0]);
+        // `factions/syndicate/units/guard.md` and `agent.md > TunnelSpaceCost - 1`.
+        assert_eq!(costs(ts), [0, 0, 0, 1, 1]);
         assert_eq!(bc.cost_of(ObjectKind::RoboPortal), 0, "a structure costs nothing");
+        assert_eq!(ts.cost_of(ObjectKind::Hideout), 0);
+        // `factions/syndicate/tunnels.md > Tunnel Space`: "floor((...) / 4) ... capped at a hard maximum of 200".
+        assert_eq!((TUNNEL_SPACE_CAP, CELLS_PER_TUNNEL_SPACE), (200, 4));
     }
 
-    /// Each implemented faction has its own cap, named as its DisplayHud names it; the others have none yet.
+    /// Each implemented faction has its own cap, named as its DisplayHud names it; the Cults have none yet.
     #[test]
     fn each_faction_has_its_own_cap() {
         let names: Vec<Option<&str>> = Faction::ALL
             .iter()
             .map(|&f| ArmyResource::of(f).map(ArmyResource::name))
             .collect();
-        assert_eq!(names, [Some("Unit Control"), None, None, Some("Beacon Capacity")]);
+        assert_eq!(
+            names,
+            [
+                Some("Unit Control"),
+                Some("Tunnel Space"),
+                None,
+                Some("Beacon Capacity")
+            ]
+        );
     }
 
     /// A unit fits while the used figure stays at most at the available one.
@@ -236,7 +283,11 @@ mod tests {
     /// faction's cap. At the cap and over it, a unit of cost 0 starts and one of cost 1 waits.
     #[test]
     fn a_unit_without_a_cost_fits_even_over_the_cap() {
-        for resource in [ArmyResource::UnitControl, ArmyResource::BeaconCapacity] {
+        for resource in [
+            ArmyResource::UnitControl,
+            ArmyResource::BeaconCapacity,
+            ArmyResource::TunnelSpace,
+        ] {
             for (used, available) in [(10, 10), (11, 10), (15, 0), (u32::MAX, 0), (0, 0)] {
                 let cap = ArmyCap {
                     resource,
