@@ -968,9 +968,18 @@ Approach: thin vertical slices the user can run and see, each verified by tests 
   - **The client** needed no change: neutral objects already draw in the neutral colour with their HP bar. A test was added (`fog_memory/neutral.rs`).
   - **Perf:** 18 interleaved A/B rounds. The whole tick is unchanged (0.340 vs 0.342 ms mean); the economy phase is +1 µs a tick, the decay walk.
 
+- **M4-J1 Agent UI** (Opus; merged in `dd14dc38`; 1635 tests; client only; goldens untouched). **With H, the Syndicate's first playable.**
+  - **The Agent's panel** (0257): Q Move, A Build Tunnel (its price in the hint), S Drop Off, D greyed with "Requires an Optics Lab", X Stop. An A, or a click, the player can't pay for gives the feedback and nothing else (0233).
+  - **The Tunnel ghost** is judged by E's check in knowledge mode, with red tiles and the reason line. It shows the Tunnel Areas while placing, and is green over unexplored Water (0242).
+    - Shift sends one Agent per placement, and the next needs Tab then A (`selection_and_hud.md > Shift while placing`).
+    - 0289's verification is a test: a Shift-queued second ghost over the first's area is red.
+  - **Sites** (`object_render/site.rs`): a braced look and a progress bar, for any site and anyone who sees it. The site's panel is X Cancel only (`SITE_GRID`), keyed on `Object::is_site`.
+  - **Lingering ghosts** and their areas show to their owner only. The Enter and Drop Off pointers follow the right-click rule. A carried Supplies load is an amber crate (placeholder).
+  - **Readings:** A is greyed by the gate's unqueued check; a refused click keeps placement going; unsent Builds don't count toward the price.
+  - **Open:** a remembered enemy site looks finished, because `LastKnown` keeps no construction state (M4-I2 fixes it).
+
 ## In progress
-  - **M4-J1 Agent UI** (Opus; brief `scratchpad/briefs/m4j1-agent-ui.md`): the Agent's panel (0257), the Tunnel ghost judged by E's check, the refusal and the price (0233), every site's look and panel (0234), the lingering ghosts, the Enter pointer and the carried Supplies.
-  - **Q0076 cost estimates** (Fable investigation, for 0286; brief `scratchpad/briefs/q0076-cost-estimates.md`): the effort, perf and determinism cost of each jam fix the user is weighing, with cheap measurements. The answer goes to the Designer as a question.
+  - **M4-I2 Answers sweep** (Opus; brief `scratchpad/briefs/m4i2-answers-sweep.md`): 0292 point 2 (Supplies' nearest Tunnel by the crystal hatch), the verifications of 0288, 0289 and 0292, the marks of Q0077, Q0079 and Q0082, and remembered sites drawn as sites.
   - **M4-F Expansions** (Opus; brief `m4f-expansions.md`): `Method::Expansion` (0239–0241), the operation slot, Expand and Cancel at 75% (0254), the ExpandMenu (0257), and the expansion's ghost and site.
 - **Next**:
   - **M4 wave 6:** K and G, after F (and G after H). The first playable comes after J1 and H.
@@ -1147,7 +1156,7 @@ The user keeps feeding unit and other designs to the Designer, so expect increme
     - N7: the Specter.
   - **Questions:**
     - Q0059–Q0071 are all answered, by 0229–0267.
-    - Answered since revision 2: Q0077 (0288), Q0078 (0283), Q0079 (0289), Q0080 (0290), Q0081 (0291), Q0082 (0292), Q0085 (0284) and Q0086 point 1 (0285). Open: Q0076 (0286, 0287: the cost estimates first), Q0083, Q0084, Q0086 points 2–5 and Q0087. Q0076, the Agents' jam near the hatch, partly blocks L's oracle; the others don't block, and their slices build the proposals.
+    - Answered since revision 2: Q0077 (0288), Q0078 (0283), Q0079 (0289), Q0080 (0290), Q0081 (0291), Q0082 (0292), Q0085 (0284) and Q0086 point 1 (0285). Open: Q0076 (with Q0088, the cost estimates 0286 asked for), Q0083, Q0084, Q0086 points 2–5, Q0087 and Q0088. Q0076, the Agents' jam near the hatch, partly blocks L's oracle; the others don't block, and their slices build the proposals.
   - **Slice status:**
     - A: done (`fcd06dc`).
     - C: done (`f67df212`; Q0077).
@@ -1160,8 +1169,9 @@ The user keeps feeding unit and other designs to the Designer, so expect increme
     - O: done (`356d1a96`; Q0083's placeholders).
     - E: done (`4933e094`; Q0079's placeholders; Q0087).
     - H: done (`f456b0ca`).
-    - J1 and F: running (wave 5, Opus; briefs `scratchpad/briefs/m4j1-agent-ui.md` and `m4f-expansions.md`). F adds H's `Builder::Tunnel` arm, the Tier Requirements and the comments for 0283–0285, and was re-briefed for 0290 and 0291. J1 adds 0289's red second ghost.
-    - I2 (new, small; brief `scratchpad/briefs/m4i2-answers-sweep.md`): 0292 point 2, the verifications of 0288, 0289 and 0292, and the marks of Q0077, Q0079 and Q0082. It launches when J1 lands.
+    - J1: done (`dd14dc38`). **With H, the first playable.**
+    - F: running (wave 5, Opus; brief `scratchpad/briefs/m4f-expansions.md`). It adds H's `Builder::Tunnel` arm, the Tier Requirements and the comments for 0283–0285, and was re-briefed for 0290 and 0291.
+    - I2: running (new, small, Opus; brief `scratchpad/briefs/m4i2-answers-sweep.md`).
     - The rest are queued in the waves above.
   - **Technical follow-ups** (the Director's):
     - **One per-player event filter in the client.** M4-O found that each event consumer filters for the viewer on its own, and fixed one leak (a hidden Hideout's death marker). Put the filter in one place before more hidden objects arrive (S2's pop-up turret, N4–N7). Candidate: a small slice beside L, or in M.
@@ -1266,7 +1276,7 @@ The user keeps feeding unit and other designs to the Designer, so expect increme
 | Q0073 | AttackMove: does a chase given up by the Failure rule count as "can't reach" until 0230's triggers fire? (corridor cycle found by M3-G3) | no | answered by 0235 (A; M3-L4) |
 | Q0074 | AttackMove: should the unit's own movement re-check an enemy it rejected? As built, a unit that rejected a standing enemy across a wall doesn't take it after rounding the wall, unless it comes within weapon range | no | answered by 0243 (B, to try; M3-L5 measures the cost) |
 | Q0075 | A revealed attacker shooting at a target the player can't see: draw the shot whole (literal 0206) or clip it? | no | answered by 0244 (stricter than B; M3-L5) |
-| Q0076 | Agents jam head-on between a near patch (0–1 GU) and the hatch: 3+ Agents halve the income (5.33 against 12.5 SC/s). Pass through like Drones, move patches to 3 GU or more, or a right-of-way rule? | partly (M4-L's oracle; the first playable) | open; as built, Agents collide. 0286: the user asks for cost estimates of six fixes (a Fable investigation is running) |
+| Q0076 | Agents jam head-on between a near patch (0–1 GU) and the hatch: 3+ Agents halve the income (5.33 against 12.5 SC/s). Pass through like Drones, move patches to 3 GU or more, or a right-of-way rule? | partly (M4-L's oracle; the first playable) | open; as built, Agents collide. The costs 0286 asked for went as Q0088 |
 | Q0077 | Eject while every unit of the type is in transit: refused or queued? And where an ejected unit with no rally waits: 1 GU out, as built, or farther? | no | answered by 0288 (as built); M4-I2 updates the marks |
 | Q0078 | Tunnel near the map edge: 0242's Verification (2 tiles from the edge is red) is one tile off its own rule | no | answered by 0283 (as built); F updates the placeholder comments |
 | Q0079 | Agent build orders: a refund if the Agent is killed before the start; does a pending ghost or a site reserve its whole area? | no | answered by 0289 (as built); M4-J1 tests the red ghost, M4-I2 updates the marks |
@@ -1278,6 +1288,7 @@ The user keeps feeding unit and other designs to the Designer, so expect increme
 | Q0085 | Stale doc lines that later answers contradict (seven lines) | no | answered by 0284 (the docs corrected; as built); F updates the comments |
 | Q0086 | The EjectMenu's order, zero-count tiles and state after a click; when Tunnel Areas are drawn; recalling an all-held group | no | point 1 answered by 0285 (as built); points 2–5 open, with the user |
 | Q0087 | Does the Agent that finishes a Tunnel wait out the transit delay before it can leave? | no | open; as built in M4-E (no delay) |
+| Q0088 | The Agents' jam: what each fix costs (the reply to 0286 and 0287). It isn't head-on; the infantry sidestep exists in the code; only pass-through reaches 12.5 at 0–2 GU | partly, as Q0076 | open; prototypes saved in `scratchpad/q0076-costs/` |
 
 ## Design change entries
 Last triaged: 0282.
@@ -1544,8 +1555,8 @@ Last triaged: 0282.
 | 0283 Tunnel near the map edge: the rule as written (0242's verification was a slip) | done (as built, M4-B `35e19634`; F updates the placeholder comments) | answers Q0078 |
 | 0284 Stale doc lines corrected to the newer rules (refunds, Agent letters, Laser Turret, armour, AoE) | done (as built; F updates the comments) | answers Q0085 |
 | 0285 EjectMenu order: Agent, Guard, Grenadier, …; `units/README.md > Files` reordered | done (as built, M4-J2 `c5910e4d`; F updates the comment) | answers Q0086 point 1 |
-| 0286 The user asks for cost estimates of six fixes for the Agents' jam; no design change | in progress (a Fable investigation; the reply goes as a question following Q0076) | about Q0076 |
-| 0287 The user's leanings for the jam estimates: the 2-square hatch keeps one drop-off at a time but is less wanted (looks); the moving unit's sidestep is wanted for all units, in general | in progress (passed to the investigation, which now estimates the general sidestep first) | about Q0076 |
+| 0286 The user asks for cost estimates of six fixes for the Agents' jam; no design change | done: the estimates went as Q0088 (a Fable investigation; prototypes and tables in `scratchpad/q0076-costs/`) | about Q0076 |
+| 0287 The user's leanings for the jam estimates: the 2-square hatch keeps one drop-off at a time but is less wanted (looks); the moving unit's sidestep is wanted for all units, in general | done: folded into Q0088 (the general sidestep estimated first; the hatch briefly) | about Q0076 |
 | 0288 An Eject during the transit delay is refused (its tile greyed); an ejected unit with no rally stops 1 GU out | done (as built, M4-C `f67df212` and M4-J2 `c5910e4d`); M4-I2 checks the verifications and updates the marks | answers Q0077 |
 | 0289 A killed Agent's Tunnel order refunds the top price; a pending ghost reserves its Tier 1 area against its owner's ghosts; a site's area counts for everyone | done in the sim (as built, M4-E `4933e094`); in progress (M4-J1: the red second ghost); M4-I2 updates the marks | answers Q0079 |
 | 0290 Expansion placement: ground units don't block it; no ghost check is needed; a Colonists Warp In over a hidden enemy expansion is red at once, like direct placement | in progress (M4-F, re-briefed: it had built the old placeholders) | answers Q0080 |
