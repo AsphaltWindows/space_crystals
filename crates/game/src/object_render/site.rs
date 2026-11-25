@@ -4,11 +4,11 @@
 //! drawn by being a site, whatever its kind, and shows how far its construction has come.
 //!
 //! **Placeholder look** until the art (Q0001; the design gives none): the structure's footprint in its owner's colour
-//! turned half way to a pale sand ([`site_color`]), braced by a scaffold's cross ([`draw`]), without what a finished
-//! structure shows on its roof (a Tunnel's sides); a progress bar inside the footprint near its south edge, clear of
-//! the health bar above it (`crate::combat_effects`): a dark track drawn with the body, and its fill a child of the
-//! visual ([`SiteProgress`]), as long as the construction's share done (`sc_sim::Progress::ratio`). The bar shows on
-//! every site the local player sees, anyone's (placeholder reading: the design says only that enemies see the site,
+//! turned half way to a pale sand ([`site_color`]), braced at its corners by a scaffold ([`draw`]), without what a
+//! finished structure shows on its roof (a Tunnel's sides); a progress bar inside the footprint near its south edge,
+//! clear of the health bar above it (`crate::combat_effects`): a dark track drawn with the body, and its fill a child
+//! of the visual ([`SiteProgress`]), as long as the construction's share done (`sc_sim::Progress::ratio`). The bar shows
+//! on every site the local player sees, anyone's (placeholder reading: the design says only that enemies see the site,
 //! `factions/syndicate/units/agent.md > While the Tunnel is under construction > What enemies see`).
 
 use bevy::prelude::*;
@@ -21,8 +21,9 @@ use crate::sim_driver::SimRes;
 /// The pale sand a site's colour turns towards, and the scaffold's colour.
 const SITE_TINT: Srgba = Srgba::rgb(0.86, 0.80, 0.58);
 const SCAFFOLD_COLOR: Color = Color::srgba(0.98, 0.92, 0.62, 0.85);
-/// The scaffold's beams' width, su.
+/// The scaffold's beams' width, su, and where each corner's brace stops: that share of the way from the centre.
 const BEAM_SU: f32 = 4.0;
+const BRACE_STOP: f32 = 0.4;
 /// The progress bar: its track's colour, its fill's, its height and how far inside the roof's edge it lies, su.
 const TRACK_COLOR: Color = Color::srgb(0.10, 0.10, 0.12);
 const FILL_COLOR: Color = Color::srgb(0.98, 0.84, 0.30);
@@ -61,13 +62,13 @@ fn bar(inner: Vec2) -> (Vec2, Vec2) {
     (a, Vec2::new(inner.x - BAR_INSET_SU, a.y + BAR_SU))
 }
 
-/// Draws a site's scaffold and its progress bar's track on its roof, whose fill reaches `inner` from its centre: the
-/// two diagonals and a cross beam, and the track along its south edge.
+/// Draws a site's scaffold and its progress bar's track on its roof, whose fill reaches `inner` from its centre: a
+/// brace from each corner along the diagonals, stopping short of the centre so that the structure's tag there stays
+/// legible, and the track along its south edge.
 pub(super) fn draw(mesh: &mut ColorMesh, inner: Vec2) {
-    let (sw, ne) = (-inner, inner);
-    let (nw, se) = (Vec2::new(-inner.x, inner.y), Vec2::new(inner.x, -inner.y));
-    for (a, b) in [(sw, ne), (nw, se), (Vec2::new(-inner.x, 0.0), Vec2::new(inner.x, 0.0))] {
-        mesh.segment(a, b, BEAM_SU, LOOK_Z, SCAFFOLD_COLOR);
+    for (x, y) in [(-1.0, -1.0), (-1.0, 1.0), (1.0, -1.0), (1.0, 1.0)] {
+        let from = Vec2::new(x, y) * inner;
+        mesh.segment(from, from * BRACE_STOP, BEAM_SU, LOOK_Z, SCAFFOLD_COLOR);
     }
     let (a, b) = bar(inner);
     mesh.rect(a - Vec2::splat(1.5), b + Vec2::splat(1.5), LOOK_Z + 0.0005, TRACK_COLOR);
