@@ -1341,6 +1341,7 @@ The user keeps feeding unit and other designs to the Designer, so expect increme
     - **"Target too close" for a location** (`systems/controls/behaviors.md > Target inside MinRange`): an Attack Ground that can't back off gives up without the feedback (a TODO in `orders/attack_ground.rs`). No M4 kind can target the ground with a MinRange, so the first that can (the Gunner in M5, or the Artillery Rig) adds it.
   - **Earlier scope note:** tunnels, Hideout, Agent, Guard economy, 0186's Optics Lab gate and Agent pistol, the Grenadier (0187) and the Assault Bike (0188), once their numbers exist. Underground expansions are exempt from the flatness rule (0005).
 - **M5 Cults**: Recruitment Hall, Storage, Recruit, Armory, Militant (renamed from Soldier, 0302), Gunner.
+  - **Planning spike M5-P is running** (Opus, read-only; brief `scratchpad/briefs/m5-planning.md`; draft `scratchpad/m5/m5-plan-draft.md`). M5 ends at the user's first playtest, with all four factions, so it also plans playtest readiness and the "data files at playtest" step. The plan is adopted with the user before M5 starts.
   - Recruits are Groupable: every selected Recruit builds (0072).
   - Shift-placement queues build orders while Shift is held, with the cost paid per order (0071).
 
