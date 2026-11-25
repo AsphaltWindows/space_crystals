@@ -56,6 +56,12 @@ fn every_kind_keeps_its_place_and_name() {
         "ChemicalPlant",
         "Grenadier",
         "LaserTurret",
+        "Recruit",
+        "Militant",
+        "Gunner",
+        "RecruitmentHall",
+        "Storage",
+        "Armory",
     ];
     assert_eq!(names[..expected.len()], expected.map(|name| format!("\"{name}\"")));
     for (index, &kind) in ObjectKind::ALL.iter().enumerate() {
@@ -361,11 +367,12 @@ fn unit_is_consistent(def: &ObjectDef, unit: &UnitDef) {
     );
     // Each faction's army cost belongs to its own units: the GDO's UnitControlCost (`factions/gdo/overview.md > Unit
     // Control`), the Syndicate's TunnelSpaceCost (`factions/syndicate/tunnels.md`), the Colonists' BeaconCapacityCost
-    // (`factions/colonists/overview.md > Beacon Capacity`).
+    // (`factions/colonists/overview.md > Beacon Capacity`). The Cults' Unit Control cost, the Recruits a unit takes,
+    // is kept in the GDO's field (plan decision T55; `factions/cults/overview.md > CultsResources > Unit Control`).
     let of = |faction| def.faction == Some(faction);
     assert_eq!(
         unit.unit_control_cost.is_some(),
-        of(Faction::Gdo),
+        of(Faction::Gdo) || of(Faction::Cults),
         "{name}: UnitControlCost"
     );
     assert_eq!(

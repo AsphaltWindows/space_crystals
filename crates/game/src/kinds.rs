@@ -6,6 +6,7 @@
 //! `crate::command_ui::interface::templates`, by faction and object too.
 
 mod colonists;
+mod cults;
 mod gdo;
 mod map;
 mod syndicate;
@@ -61,6 +62,12 @@ pub fn of(kind: ObjectKind) -> &'static ClientKind {
         ObjectKind::ChemicalPlant => &syndicate::chemical_plant::KIND,
         ObjectKind::Grenadier => &syndicate::grenadier::KIND,
         ObjectKind::LaserTurret => &syndicate::laser_turret::KIND,
+        ObjectKind::Recruit => &cults::recruit::KIND,
+        ObjectKind::Militant => &cults::militant::KIND,
+        ObjectKind::Gunner => &cults::gunner::KIND,
+        ObjectKind::RecruitmentHall => &cults::recruitment_hall::KIND,
+        ObjectKind::Storage => &cults::storage::KIND,
+        ObjectKind::Armory => &cults::armory::KIND,
     }
 }
 

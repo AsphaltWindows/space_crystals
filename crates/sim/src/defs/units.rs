@@ -308,7 +308,9 @@ pub struct UnitDef {
     pub turret: Option<TurretAttrs>,
     /// `systems/units.md > AttackAttributes`: `None` for units that can't attack.
     pub attack: Option<AttackAttrs>,
-    /// `factions/gdo/overview.md > Unit Control`, a unit's `UnitControlCost`: GDO units only.
+    /// `factions/gdo/overview.md > Unit Control`, a unit's `UnitControlCost`: GDO units, and the Cults' (plan decision
+    /// T55), whose Unit Control cost "equals the number of Recruits consumed to produce it"
+    /// (`factions/cults/economy.md > RecruitmentHall > Unit Control Tracking`): 1 for each infantry unit.
     pub unit_control_cost: Option<u32>,
     /// `factions/syndicate/tunnels.md`, a unit's `TunnelSpaceCost`: Syndicate units only.
     pub tunnel_space_cost: Option<u32>,

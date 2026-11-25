@@ -9,6 +9,7 @@
 //! `defs/structures.rs`.
 
 mod colonists;
+mod cults;
 mod gdo;
 mod leak;
 mod map;
@@ -125,6 +126,18 @@ kind_registry! {
     Grenadier => syndicate::units::grenadier::GRENADIER,
     /// `factions/syndicate/structures/laser_turret.md` (design change 0260)
     LaserTurret => syndicate::structures::laser_turret::LASER_TURRET,
+    /// `factions/cults/units/recruit.md`
+    Recruit => cults::units::recruit::RECRUIT,
+    /// `factions/cults/units/militant.md` (design change 0302)
+    Militant => cults::units::militant::MILITANT,
+    /// `factions/cults/units/gunner.md` (design change 0304)
+    Gunner => cults::units::gunner::GUNNER,
+    /// `factions/cults/economy.md > RecruitmentHall`
+    RecruitmentHall => cults::structures::recruitment_hall::RECRUITMENT_HALL,
+    /// `factions/cults/economy.md > Storage`
+    Storage => cults::structures::storage::STORAGE,
+    /// `factions/cults/structures/armory.md`
+    Armory => cults::structures::armory::ARMORY,
 }
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]

@@ -9,6 +9,8 @@ use crate::command_ui::interface::templates::Planned;
 /// tier, T1 to T3, T1 its type's. Slice M4-K: the Optics Lab's OL and the Chemical Plant's CP, their ExpandMenu
 /// placeholders' labels before them; slice M4-U the Grenadier's GR, its Hideout placeholder's. Slice M4-S1: the Laser
 /// Turret's LT, which its placeholder entry still in the ExpandMenu (until slice M4-S2) shares, being the same type's.
+/// Slice M5-A: the Cults' RT, MT, GU, RH, SE and AY, by `Planned::label`'s rules, but for the Gunner's GU (its first
+/// and last letters are the Grenadier's GR).
 #[test]
 fn every_label_is_its_own() {
     let in_game = |planned: &Planned| ObjectKind::ALL.iter().any(|kind| kind.def().name == planned.name());
@@ -39,6 +41,15 @@ fn every_label_is_its_own() {
         ObjectKind::LaserTurret,
     ];
     assert_eq!(syndicate.map(short_label), ["AG", "T1", "HI", "OL", "CP", "GR", "LT"]);
+    let cults = [
+        ObjectKind::Recruit,
+        ObjectKind::Militant,
+        ObjectKind::Gunner,
+        ObjectKind::RecruitmentHall,
+        ObjectKind::Storage,
+        ObjectKind::Armory,
+    ];
+    assert_eq!(cults.map(short_label), ["RT", "MT", "GU", "RH", "SE", "AY"]);
     assert_eq!([0, 1, 2, 3, 4].map(tier_label), ["T1", "T1", "T2", "T3", "T1"]);
     let tier = |tier| object_label(ObjectKind::Tunnel, Some(TunnelState::at(tier)));
     assert_eq!((tier(3), object_label(ObjectKind::Agent, None)), ("T3", "AG"));

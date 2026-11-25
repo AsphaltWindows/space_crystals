@@ -512,7 +512,13 @@ fn any_spawn_settings_are_handled() {
                 | ObjectKind::OpticsLab
                 | ObjectKind::ChemicalPlant
                 | ObjectKind::Grenadier
-                | ObjectKind::LaserTurret => None,
+                | ObjectKind::LaserTurret
+                | ObjectKind::Recruit
+                | ObjectKind::Militant
+                | ObjectKind::Gunner
+                | ObjectKind::RecruitmentHall
+                | ObjectKind::Storage
+                | ObjectKind::Armory => None,
             });
             let mut spawn = Spawn::new(kind, None, SpawnAt::Tile(TilePos::new(i * 6, 0)));
             spawn.settings = settings;
