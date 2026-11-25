@@ -55,7 +55,7 @@ Starting Space Crystals: **100** (same as GDO and the Colonists). With 100, the 
 ### SymmetryType - ABCD
 
 Each side of the Tunnel has a distinct function:
-- **Side A**: Unit entrance/exit (units enter and emerge from the Tunnel Network here). It has **two paths: one for entering, one for exiting** (user, 2026-11-25). **Each path is one unit wide** and fixes where units go in and come out: entering and exiting units never block each other, and an army enters or leaves single file, each unit walking through at its normal speed with normal spacing (Tunnel Network > Walking in). (Whether the Tier 3 air doors also take one aircraft at a time: TBD.)
+- **Side A**: Unit entrance/exit (units enter and emerge from the Tunnel Network here). It has **two paths: one for entering, one for exiting** (user, 2026-11-25). **Each path is one unit wide** and fixes where units go in and come out: entering and exiting units never block each other, and an army enters or leaves single file, each unit walking through at its normal speed with normal spacing (Tunnel Network > Walking in). (The Tier 3 air doors have their own rate: one aircraft per 8 frames, placeholder; EjectMenu.)
 - **Side B**: Crystal drop-off, a **hatch** for Space Crystals (Agents deliver Space Crystals here)
 - **Side C** (opposite Side A): Back wall (no gameplay function)
 - **Side D**: Supply drop-off, a **hatch** for Supplies (Agents deliver Supplies here)
@@ -101,7 +101,7 @@ Tunnels have 3 upgrade tiers. Each tier increases HP, Tunnel Area radius, and un
 #### EjectMenu:
 Displays a grid of unit type tiles representing all units currently in the Tunnel Network. Each tile shows the unit type icon and a count of how many of that type are in the network. Unit types whose base category exceeds this Tunnel's tier are visible but greyed out (disabled).
 
-- Click an enabled unit type tile: ejects one unit of that type from this Tunnel's Side A (CommandIssuingTransition). Ejected units are queued — a new unit begins ejecting every 8 frames minimum, but actual throughput is limited by unit speed and collision at Side A. Standard movement and collision mechanics apply as units emerge.
+- Click an enabled unit type tile: ejects one unit of that type from this Tunnel's Side A (CommandIssuingTransition). Ejected units are queued. **Ground units walk out of the exit path single file, at their normal speed and spacing** (user, 2026-11-25; Q0064, mirroring Walking in; replaces the earlier "every 8 frames minimum"): the exit rate is set by unit speed and size. Each unit appears at the exit path's spot just outside Side A. **If that spot is blocked** (by any unit or structure), the next unit waits until it clears; no other spot is tried. With no rally point, a unit walks about 1 grid unit straight out of Side A and idles (a blocked walk follows the normal Failure rule). **Air units** leave through the Tier 3 **air exit door**, in parallel with ground units; since aircraft don't collide, the door has its own **exit rate: one aircraft per 8 frames (0.5 s), placeholder** (the same rate for the air entry door).
 - **Z**: returns to DefaultState (StateOnlyTransition)
 
 #### ExpandMenu:

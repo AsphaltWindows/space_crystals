@@ -2212,3 +2212,4 @@ Q0063 pt7: walk in at normal speed/spacing; produced units no delay. Entry 0246.
 Q0063 pt2: normal Failure rule for entering. Entry 0247.
 Tunnel sides corrected (D Supplies, C back); exit nearer crystals. Entry 0248.
 Q0063 rest: inside rules, regen 1%/s placeholder, upgrade old tier. Entry 0249.
+Q0064: walk-out ejection; air door rate 8 frames placeholder. Entry 0250.
