@@ -1,6 +1,7 @@
 //! Design change 0182's Verification (`systems/controls/behaviors.md > BaseAutoTargeting > Targets inside MinRange`,
 //! `> AttackingObject > Target inside MinRange`), with a Peacekeeper given a MinRange of 2 grid units (Range 4), and
-//! for the deployed Artillery Rig, which doesn't exist yet, one that can't move either (`defs::test_defs`).
+//! for the deployed Artillery Rig, which doesn't exist yet, one that can't move either (`defs::test_defs`); and the
+//! Gunner, the first kind with a MinRange of its own (slice M5-A), as one that can't move.
 
 use glam::Vec2;
 
@@ -201,4 +202,47 @@ fn auto_targeting_skips_enemies_inside_the_min_range() {
         assert_eq!(attacks(&t, UNIT, NEAR), [] as [Tick; 0], "hold: {hold}");
         assert!(!attacks(&t, UNIT, FAR).is_empty(), "hold: {hold}");
     }
+}
+
+/// Slice M5-A: the Gunner (`factions/cults/units/gunner.md`: "Range: 5 grid units", "MinRange: 2"), the first kind of
+/// the design with a MinRange, its own def but for a MaxSpeed of 0: a Gunner that can't move, as a garrisoned one will
+/// be (`factions/cults/structures/garrison.md > Garrisoning`: "Militants and Gunners use their own AttackAttributes";
+/// none can be yet). Ordered to attack a Peacekeeper of player 2 that hugs it, it fails the order in its first tick
+/// with a `SimEvent::TargetTooClose`, and never fires at it. One that can move backs off instead
+/// (`crates/sim/tests/cults_combat.rs`).
+#[test]
+fn a_gunner_that_cant_move_fails_its_attack_on_a_target_too_close() {
+    let _rooted = TestDef::unit(ObjectKind::Gunner, |unit| {
+        if let MovementAttrs::TurnRate { max_speed, .. } = &mut unit.movement {
+            *max_speed = 0.0;
+        }
+    });
+    let attack = ObjectKind::Gunner.def().unit.as_ref().unwrap().attack.unwrap();
+    assert_eq!(
+        (attack.min_range, attack.range),
+        (MIN_RANGE_GU, 5.0),
+        "the Gunner's own"
+    );
+    let at = Vec2::new(400.0, 320.0);
+    let mut t = ScenarioBuilder::new(&open()).start();
+    t.without_auto_targeting()
+        .spawn_unit_at(1, ObjectKind::Gunner, P1, at)
+        .spawn_unit_at(1, ObjectKind::Peacekeeper, P2, at + Vec2::new(12.0 + 8.0 + 12.0, 0.0))
+        .order_at(2, P1, &[UNIT], OrderKind::Attack(NEAR), false)
+        .run_until(2);
+    assert!(gap(&t, UNIT, NEAR) < gu(MIN_RANGE_GU));
+    let failed: Vec<&(Tick, SimEvent)> = t
+        .events()
+        .iter()
+        .filter(|(_, e)| matches!(e, SimEvent::TargetTooClose { .. }))
+        .collect();
+    let too_close = SimEvent::TargetTooClose {
+        unit: UNIT,
+        target: NEAR,
+    };
+    assert_eq!(failed, [&(2, too_close)]);
+    assert_eq!(current(&t, UNIT), None, "the order ended");
+    t.run_until(40);
+    assert_eq!(attacks(&t, UNIT, NEAR), [] as [Tick; 0]);
+    assert_eq!(t.pos(1), at, "it never moved");
 }
