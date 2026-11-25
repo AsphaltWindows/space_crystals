@@ -3,8 +3,8 @@
 //! Shields of a building being warped in (design changes 0110 and 0111). The resolution itself, case by case, is
 //! `combat/damage.rs`'s unit tests. `TestSim` checks the movement invariants after every tick.
 
-use sc_sim::shields::SHIELD_REGEN_PER_TICK;
 use sc_sim::testing::{ScenarioBuilder, TestSim};
+use sc_sim::tuning::shields::SHIELD_REGEN_PER_TICK;
 use sc_sim::{
     BuildingOrientation, Command, ConstructionCommand, DebugCommand, Faction, Object, ObjectId, ObjectKind, OrderKind,
     PlayerCommand, PlayerId, Sim, SimEvent, SpawnAt, Tick, TickInputs, TilePos, Vec2,

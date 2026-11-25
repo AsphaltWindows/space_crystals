@@ -94,7 +94,6 @@ mod station;
 
 use crate::defs::Resource;
 use crate::object::Object;
-use crate::units::Tick;
 
 use super::OrderKind;
 use super::state::{Behaviour, Gather, GatherPhase};
@@ -103,23 +102,6 @@ pub(crate) use claims::Claims;
 use deliver::{delivered, nearest_drop_off, to_drop_off};
 use patch::{mine, to_patch, wait};
 use site::note_spot;
-
-/// `> Patch Occupancy > Waiting and re-checking`, item 2 (design change 0132): a waiting worker looks round again
-/// at this interval, in the ticks that are multiples of it. The design's placeholder: 16 frames, 1 second.
-///
-/// **One phase for every worker** (the design gives the interval, not its phase): all those waiting look round in
-/// the same tick, so a patch that freed up meanwhile goes to the lowest id of them (design change 0133 with the
-/// Director's choice, [`Claims`]), and the others wait on. Counted from each worker's own start, they looked round in
-/// different ticks, and every one of them that did before the first got there went for the same patch: measured on
-/// the reference field, that cost 0.5 Space Crystals per second with 20 and 24 Drones, and up to 100 ticks of the
-/// worst gap between deliveries (`tests/gathering_soak.rs`).
-pub const RECHECK_TICKS: Tick = 16;
-
-/// A worker whose leg back to its drop-off ended short of it stands for this many ticks before it tries again
-/// (module docs), and it never gives up: design change 0255 settles that for Agents ("Agents waiting at the hatch
-/// wait forever") and, by its implementation note, for Drones. The interval is a placeholder the design doesn't
-/// name: 2 seconds.
-pub const LEG_RETRY_TICKS: Tick = 32;
 
 /// `factions/colonists/units.md > Drone > Gathering Drones pass through each other` (design change 0106): whether
 /// `o` is a Drone **on a Gather job**: a worker of a type that passes through its like (`WorkerDef::pass_through`,

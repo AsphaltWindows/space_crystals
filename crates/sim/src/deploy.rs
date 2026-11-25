@@ -16,9 +16,9 @@
 //!   its place, a failure.
 //! - **The walk** (`orders::deploy`, phase 5a; design change 0117): the Drone heads for the footprint's centre and is
 //!   there once its move ends. "If it is stopped by a blocker on the way while already overlapping the footprint, it
-//!   starts deploying from where it stands" (stopped: it found no way forward for `mover::JAMMED_TICKS` in a row, the
-//!   movement's own notion of a unit at a standstill); "if it stops without overlapping the footprint, the order
-//!   fails".
+//!   starts deploying from where it stands" (stopped: it found no way forward for `tuning::movement::JAMMED_TICKS` in a
+//!   row, the movement's own notion of a unit at a standstill); "if it stops without overlapping the footprint, the
+//!   order fails".
 //! - **The arrival** (`Sim::step_deployments`, right after phase 5a, before 5b claims the footprint; in id order, so
 //!   that of two Drones arriving at overlapping sites in one tick the lower id deploys and the other finds its site
 //!   taken): the Drone is on its site ([`on_site`]), and the check passes again, on the truth (`Mode::Arrival`: "No

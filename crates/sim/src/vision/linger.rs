@@ -22,11 +22,8 @@ use std::collections::VecDeque;
 
 use super::player::TileBits;
 use crate::hash::{StateHash, StateHasher};
+use crate::tuning::vision::FOG_DELAY_TICKS;
 use crate::units::Tick;
-
-/// `core/vision.md > Visible > Fog delay` (design change 0178): how many ticks a tile that leaves all of a player's
-/// sight stays Visible before it turns Explored. "0.5 seconds (8 frames), placeholder".
-pub const FOG_DELAY_TICKS: Tick = 8;
 
 /// One player's tiles that linger: still Visible for the fog delay, though none of its sources sees them.
 #[derive(Clone, Debug)]

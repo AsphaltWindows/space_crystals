@@ -64,15 +64,14 @@ use crate::hash::{StateHash, StateHasher};
 use crate::ids::{ObjectId, PlayerId};
 use crate::map::Map;
 use crate::object::Object;
+use crate::tuning::vision::{FOG_DELAY_TICKS, REVEAL_TICKS};
 use crate::units::{Tick, TilePos};
 
 pub use hidden::{Hiding, hidden_from};
-pub use linger::FOG_DELAY_TICKS;
 use memory::Footprints;
 pub use memory::LastKnown;
 pub use player::PlayerVision;
 use player::TileBits;
-pub use reveal::REVEAL_TICKS;
 pub(crate) use save::{SavedVision, load};
 pub use sight::TILE_SIGHT_POINT;
 use sight::stamp;

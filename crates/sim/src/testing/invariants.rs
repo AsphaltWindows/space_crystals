@@ -17,13 +17,14 @@ use glam::Vec2;
 use crate::command::{Command, DebugCommand, TickInputs};
 use crate::defs::{Domain, MovementModel};
 use crate::ids::ObjectId;
-use crate::mover::{Locomotion, MAX_REPATHS, MoveGoal, MoveStatus, Mover, PathState};
+use crate::mover::{Locomotion, MoveGoal, MoveStatus, Mover, PathState};
 use crate::nav;
 use crate::object::Object;
 use crate::orders::{OrderKind, Target, gather};
 use crate::paths::boxes_overlap;
 use crate::production::ExitDoor;
 use crate::sim::Sim;
+use crate::tuning::movement::MAX_REPATHS;
 use crate::units::Tick;
 
 /// I6: a path request is served within this many ticks. Requests are served oldest first and at least one per

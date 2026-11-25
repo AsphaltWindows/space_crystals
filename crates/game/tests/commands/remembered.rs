@@ -12,7 +12,7 @@
 use bevy::prelude::*;
 use sc_sim::orders::state::{Behaviour, GatherPhase};
 use sc_sim::testing::ScenarioBuilder;
-use sc_sim::vision::FOG_DELAY_TICKS;
+use sc_sim::tuning::vision::FOG_DELAY_TICKS;
 use sc_sim::{
     Command, DebugCommand, Faction, MoveStatus, ObjectId, ObjectKind, OrderKind, PlayerId, ProductionCommand, Rally,
     Scenario, SpawnAt, Target, TargetView, TilePos,

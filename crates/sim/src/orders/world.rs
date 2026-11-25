@@ -24,6 +24,9 @@ use crate::paths::NavState;
 use crate::paths::knowledge::PathKnowledge;
 use crate::shape::Shape;
 use crate::targets::{self, Live, TargetView};
+use crate::tuning::combat::FACING_TOLERANCE;
+use crate::tuning::orders::ROTATION_STEP;
+use crate::tuning::vision::ELEVATION_MODIFIER;
 use crate::units::{SU_PER_GU, Tick, gu};
 use crate::vision::{Hiding, Vision};
 
@@ -147,10 +150,6 @@ pub(crate) struct Candidate<'v> {
     /// (`combat::within_range`).
     pub in_range: bool,
 }
-
-/// Design change 0179 (`systems/controls/behaviors.md > TurretAutonomousScanning > Target Selection Priority` 2):
-/// the rotation a target needs is compared in steps of 45° (a placeholder), radians.
-pub(crate) const ROTATION_STEP: f32 = math::PI / 4.0;
 
 /// The 45° step ([`ROTATION_STEP`]) of a rotation of `rotation` radians, 0 to π (either direction): 0 for 0° to 45°,
 /// 1 for over 45° to 90°, 2 for over 90° to 135°, 3 for over 135° to 180°. Targets in one step count as needing
@@ -391,7 +390,7 @@ impl<'a> World<'a> {
     /// Nothing while auto-targeting is off (`DebugCommand::SetAutoTargeting`).
     ///
     /// `facing_only`: a non-turret unit that can't turn in place engages only what it already faces
-    /// (`> HoldingPosition` 4, within `combat::FACING_TOLERANCE`, the exact angle).
+    /// (`> HoldingPosition` 4, within `tuning::combat::FACING_TOLERANCE`, the exact angle).
     pub(crate) fn pick(
         &self,
         unit: &Unit,
@@ -404,7 +403,7 @@ impl<'a> World<'a> {
         let my_domain = unit.unit_def()?.base_def().domain;
         // Everything a scan can reach lies within the unit's longest range, plus the modifier, of the unit's shape:
         // its centre lies within that and the two half shapes along each axis, in the cells this box touches.
-        let longest = unit.kind.def().sight_range.max(attrs.range) + elevation::ELEVATION_MODIFIER;
+        let longest = unit.kind.def().sight_range.max(attrs.range) + ELEVATION_MODIFIER;
         let own_half = unit.kind.def().half_extents().unwrap_or(Vec2::ZERO).max_element();
         let radius = gu(longest) + own_half + self.candidate_half;
         let (x0, x1) = (
@@ -434,7 +433,7 @@ impl<'a> World<'a> {
                         continue;
                     }
                     let rotation = Self::rotation(unit, view);
-                    if facing_only && rotation > combat::FACING_TOLERANCE {
+                    if facing_only && rotation > FACING_TOLERANCE {
                         continue;
                     }
                     let in_range = within_range(attrs, gap, source, view.elevation);

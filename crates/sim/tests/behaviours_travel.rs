@@ -2,9 +2,10 @@
 //! 0033) and `> AttackMovingToLocation`; and a fight under AttackMove replayed, and saved and loaded in its middle.
 //! Patrols are in `behaviours_patrol.rs`.
 
-use sc_sim::mover::{MAX_REPATHS, OCCUPIED_ARRIVAL_GU};
-use sc_sim::orders::{ATTACK_MOVE_LEASH_GU, Behaviour, PROXIMITY_SU, REJUDGE_MOVE_SU};
+use sc_sim::orders::Behaviour;
 use sc_sim::testing::{ScenarioBuilder, TestSim};
+use sc_sim::tuning::movement::{MAX_REPATHS, OCCUPIED_ARRIVAL_GU};
+use sc_sim::tuning::orders::{ATTACK_MOVE_LEASH_GU, PROXIMITY_SU, REJUDGE_MOVE_SU};
 use sc_sim::{
     DebugCommand, MoveStatus, ObjectId, ObjectKind, OrderKind, PlayerId, Shape, Sim, SimEvent, SpawnAt, Target, Tick,
     TickInputs, TilePos, Vec2, gu,

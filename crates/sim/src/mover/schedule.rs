@@ -4,33 +4,8 @@
 use glam::Vec2;
 
 use super::{MoveGoal, MoveStatus, Mover, PathState};
+use crate::tuning::movement::{HALF_STUCK_TICKS, MAX_REPATHS, REPATH_WAITS, STUCK_TICKS};
 use crate::units::Tick;
-
-/// `systems/controls/behaviors.md > MovingToLocation > Failure` (design change 0024; a placeholder to tune): a
-/// stuck unit looks for another route at most 3 times per order leg (`docs/movement.md > 5.6`).
-pub const MAX_REPATHS: u8 = 3;
-
-/// `systems/controls/behaviors.md > MovingToLocation > Failure` (design change 0024; a placeholder to tune): a unit
-/// is stuck after 1.5 s (24 frames) without getting any closer to its target (`docs/movement.md > 6.5`).
-pub const STUCK_TICKS: Tick = 24;
-
-/// `systems/controls/behaviors.md > MovingToLocation > Failure` (design change 0024; placeholders to tune): a stuck
-/// unit waits 0.5 s, 1 s and 2 s before its first, second and third attempt at another route
-/// (`docs/movement.md > 5.6`).
-pub const REPATH_WAITS: [Tick; MAX_REPATHS as usize] = [8, 16, 32];
-
-/// 0024's "about 7 s worst case": a unit that never gets on is stuck after [`STUCK_TICKS`], waits out the three
-/// [`REPATH_WAITS`], and gives up once it is still stuck a whole [`STUCK_TICKS`] after its third attempt: 104 ticks,
-/// 6.5 s, after its last progress (`docs/movement.md > 5.6`).
-pub const GIVE_UP_TICKS: Tick = STUCK_TICKS + REPATH_WAITS[0] + REPATH_WAITS[1] + REPATH_WAITS[2] + STUCK_TICKS;
-
-/// `docs/movement.md > 6.5`: a stuck unit that isn't in contact with a unit this very tick waits this many ticks
-/// more to meet its blocker again before it recovers without knowing it (tuning const).
-pub const STUCK_GRACE_TICKS: Tick = 8;
-
-/// From this many ticks without progress on, a unit on its way counts as held up (`Mover::is_held_up`, for
-/// overlays; tuning const).
-pub const HALF_STUCK_TICKS: Tick = STUCK_TICKS / 2;
 
 impl Mover {
     /// The wait before the leg's next counted repath (design change 0024: 0.5 s, 1 s, 2 s), [`REPATH_WAITS`].
@@ -103,7 +78,7 @@ impl Mover {
     /// Design change 0024, for a unit that stays stuck: the tick it next looks for another route, the wait of
     /// [`REPATH_WAITS`] after it became stuck or after its previous attempt, whichever is later; with no attempt
     /// left, the tick it gives up, [`STUCK_TICKS`] after the last one. Without any progress that is 32, 48 and 80
-    /// ticks after the last progress, and 104 ([`GIVE_UP_TICKS`]).
+    /// ticks after the last progress, and 104 (`tuning::movement::GIVE_UP_TICKS`).
     pub fn recovery_due(&self) -> Tick {
         let stuck_at = self.last_progress.saturating_add(STUCK_TICKS);
         if self.repaths_left == 0 {

@@ -1,7 +1,8 @@
 //! The navigation library: A\*, the field and retargeting — `docs/movement.md > 5.3`, `> 5.5`, tests of `> 8`
 //! (nav unit tests). Grids, line of sight and smoothing are in `nav_grid.rs`.
 
-use sc_sim::nav::{DIAGONAL_COST, NavClass, NavGrid, NavRules, PathFail, STEP_COST, Search, box_clear, find_path, los};
+use sc_sim::nav::{NavClass, NavGrid, NavRules, PathFail, Search, box_clear, find_path, los};
+use sc_sim::tuning::paths::{DIAGONAL_COST, STEP_COST};
 use sc_sim::{Map, Rng, Tile, TilePos, TilePresetId, Vec2};
 
 fn t(x: i32, y: i32) -> TilePos {

@@ -16,8 +16,9 @@ mod crowds;
 mod passing;
 mod paths;
 
-use sc_sim::mover::{GIVE_UP_TICKS, Locomotion, MAX_REPATHS};
+use sc_sim::mover::Locomotion;
 use sc_sim::testing::{ScenarioBuilder, TestSim};
+use sc_sim::tuning::movement::{GIVE_UP_TICKS, MAX_REPATHS};
 use sc_sim::{
     DebugCommand, MoveGoal, MoveStatus, ObjectId, ObjectKind, OrderKind, PlayerId, SimEvent, SpawnAt, Target, TilePos,
     Vec2,

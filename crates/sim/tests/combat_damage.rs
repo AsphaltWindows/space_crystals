@@ -7,6 +7,7 @@
 
 use sc_sim::combat::{self, AttackPhase};
 use sc_sim::testing::{self, ScenarioBuilder, TestSim};
+use sc_sim::tuning::combat::{DIRECTIONAL_FRONT, DIRECTIONAL_REAR, DIRECTIONAL_SIDE, MINIMUM_DAMAGE};
 use sc_sim::{DebugCommand, ObjectId, ObjectKind, OrderKind, PlayerId, Sim, SimEvent, Target, Tick, Vec2};
 
 const P1: PlayerId = PlayerId(1);
@@ -111,17 +112,17 @@ fn armor_and_the_rugged_terrain_bonus() {
 /// `> MinimumDamage`, `> DirectionalArmor` (no M1 unit has directional armor or out-armors a hit).
 #[test]
 fn minimum_damage_and_directional_armor() {
-    assert_eq!(combat::hit_damage(3.0, 1.0, 5.0, 1.0), combat::MINIMUM_DAMAGE);
-    assert_eq!(combat::hit_damage(3.0, 0.5, 1.0, combat::DIRECTIONAL_REAR), 0.625);
-    assert_eq!(combat::hit_damage(10.0, 1.0, 2.0, combat::DIRECTIONAL_FRONT), 6.0);
+    assert_eq!(combat::hit_damage(3.0, 1.0, 5.0, 1.0), MINIMUM_DAMAGE);
+    assert_eq!(combat::hit_damage(3.0, 0.5, 1.0, DIRECTIONAL_REAR), 0.625);
+    assert_eq!(combat::hit_damage(10.0, 1.0, 2.0, DIRECTIONAL_FRONT), 6.0);
     let facing_east = 0.0;
     assert_eq!(
         combat::directional_multiplier(facing_east, Vec2::new(-10.0, 1.0)),
-        combat::DIRECTIONAL_REAR
+        DIRECTIONAL_REAR
     );
     assert_eq!(
         combat::directional_multiplier(facing_east, Vec2::new(0.0, 10.0)),
-        combat::DIRECTIONAL_SIDE
+        DIRECTIONAL_SIDE
     );
 }
 

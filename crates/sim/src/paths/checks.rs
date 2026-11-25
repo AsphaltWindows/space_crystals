@@ -5,6 +5,7 @@ use glam::Vec2;
 
 use crate::mover::Mover;
 use crate::nav::{self, NavGrid};
+use crate::tuning::paths::{CHASE_REPLAN_GU, CHASE_REPLAN_SHARE};
 use crate::units::{Tick, gu};
 
 /// At most this many waypoints are passed in one staggered check (a technical bound on its line-of-sight tests).
@@ -56,17 +57,6 @@ pub(super) fn staggered_check(grid: &NavGrid, pos: Vec2, half: Vec2, mover: &mut
         mover.counted_repath(tick);
     }
 }
-
-/// `docs/movement.md > 5.6`, "Chase target moved": a path to an object is planned again once the object is farther
-/// than this from where it was when the path was planned, grid units (tuning const of the movement design) ...
-pub const CHASE_REPLAN_GU: f32 = 1.0;
-
-/// ... or than this share of the unit's distance to it, whichever is more (`docs/movement.md > 5.6`; tuning const).
-pub const CHASE_REPLAN_SHARE: f32 = 0.25;
-
-/// `docs/movement.md > 5.6`: a chase is planned again at most this often, ticks (a multiple of [`crate::mover::STAGGER`]; tuning
-/// const). It doesn't count against the repath cap.
-pub const CHASE_REPLAN_TICKS: Tick = 8;
 
 /// `docs/movement.md > 5.6`, "Chase target moved" — the staggered check of a unit heading for an object
 /// (`MoveGoal::Object`) that is now at `target`, run before [`staggered_check`]:

@@ -30,10 +30,7 @@ use glam::Vec2;
 use super::collide::World;
 use super::space::{overlaps, resting};
 use crate::mover::{Locomotion, Mover, Orientation};
-
-/// How fast an idle unit moves off a unit it overlaps, space units per tick (the design leaves it to the
-/// implementation: "minimal, just until clear"). **Placeholder**, unspecified in the design.
-pub const SEPARATE_SPEED_SU: f32 = 2.0;
+use crate::tuning::movement::SEPARATE_SPEED_SU;
 
 /// One tick of an idle unit at rest (module docs): if its box overlaps another unit's, it takes a step off it.
 /// Returns whether it overlapped one, moved or not. `speed` is its own, space units per tick.

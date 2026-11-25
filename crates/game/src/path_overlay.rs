@@ -151,7 +151,7 @@ fn segment_on_terrain(mesh: &mut ColorMesh, map: &Map, a: Vec2, b: Vec2, z: f32,
 
 #[cfg(test)]
 mod tests {
-    use sc_sim::mover::HALF_STUCK_TICKS;
+    use sc_sim::tuning::movement::HALF_STUCK_TICKS;
     use sc_sim::{MoveGoal, Vec2 as SimVec2};
 
     use super::*;

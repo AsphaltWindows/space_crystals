@@ -45,7 +45,7 @@ use crate::units::{Tick, TilePos};
 use crate::{combat, conversion, riot_shield};
 
 use reach::Reach;
-pub use reach::{JUDGE_PATHS_PER_TICK, MAX_REJECTED, REJUDGE_MOVE_SU, REJUDGE_SELF_SU, ReachCounters};
+pub use reach::{JUDGE_PATHS_PER_TICK, MAX_REJECTED, ReachCounters};
 use state::{Approach, AttackOrder, Leg, Patrol};
 pub use state::{Auto, Behaviour};
 use world::{Unit, World};
@@ -57,30 +57,6 @@ pub const MAX_QUEUED_ORDERS: usize = 32;
 /// Units one order command may name, duplicates included. Technical: selections have no size limit
 /// (`systems/controls/selection_and_hud.md`), so this only bounds the work of one command.
 pub const MAX_ORDER_UNITS: usize = 1024;
-
-/// `systems/controls/behaviors.md > BaseAutoTargeting > Global Constant: IdleLeashDistance`: 4 grid units. An idle
-/// unit farther than this from where it acquired its target disengages and returns.
-pub const IDLE_LEASH_GU: f32 = 4.0;
-
-/// `systems/controls/behaviors.md > AttackMovingToLocation > Global Constant: AttackMoveLeashDistance`: 6 grid
-/// units, measured from the leg's PathReference. It limits chasing only (design change 0180): a unit won't move
-/// farther than this from the PathReference to chase a target out of weapon range (`orders::travel::march`).
-pub const ATTACK_MOVE_LEASH_GU: f32 = 6.0;
-
-/// `systems/controls/behaviors.md > MovingToObject > Proximity` (design change 0032): "within proximity" is a gap
-/// of at most 8 space units between the unit's Silhouette and the object's shape, edge to edge.
-pub const PROXIMITY_SU: f32 = 8.0;
-
-/// `systems/controls/behaviors.md > Patrolling > Failed legs` (design change 0037): this many failed legs in a row
-/// end a Patrol.
-pub const PATROL_FAILED_LEGS: u8 = 2;
-
-/// An idle unit that acquired an enemy by itself and couldn't get to it doesn't acquire that same enemy again for this
-/// many ticks, so that it doesn't set off for it again every tick (on an AttackMove or a Patrol, a chase given up is a
-/// rejection by the reach rule instead: `reach`, design change 0230):
-/// `systems/controls/behaviors.md > BaseAutoTargeting > Unreachable auto-targets` (design change 0181, "for now":
-/// approach, give up, retry after 32 ticks). 2 s.
-pub const GIVE_UP_RETRY_TICKS: Tick = 32;
 
 /// The units of one order command share it (`docs/movement.md > 3`). Allocated from `Sim::next_group`.
 #[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]

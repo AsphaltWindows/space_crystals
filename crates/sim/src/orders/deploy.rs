@@ -6,7 +6,8 @@
 //! may not make.
 
 use crate::deploy::{self, on_site};
-use crate::mover::{JAMMED_TICKS, MoveGoal, MoveStatus};
+use crate::mover::{MoveGoal, MoveStatus};
+use crate::tuning::movement::JAMMED_TICKS;
 use crate::units::{Tick, TilePos};
 
 use super::state::Deploy;

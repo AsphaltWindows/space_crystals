@@ -16,16 +16,11 @@ use crate::elevation::Elevation;
 use crate::events::SimEvent;
 use crate::ids::ObjectId;
 use crate::map::Map;
-use crate::math::{self, PI};
+use crate::math;
 use crate::movement;
 use crate::shape::Shape;
+use crate::tuning::combat::FACING_TOLERANCE;
 use crate::vision::PlayerVision;
-
-/// `systems/controls/behaviors.md > AttackingObject` 2: a unit attacking from its base must face its target ("unit
-/// facing") before it fires. The largest angle, radians, between its facing and the direction to the target's centre
-/// that counts as facing it. Placeholder, unspecified: 1°. Aiming turns the unit onto the exact direction once it is
-/// within the TurnRate, so this only absorbs float rounding.
-pub const FACING_TOLERANCE: f32 = PI / 180.0;
 
 /// The attacking unit, as its sequence needs it.
 pub(super) struct Shooter<'a> {
@@ -259,6 +254,7 @@ mod tests {
     use super::*;
     use crate::defs::{AttackType, FullyConnectedSubtype, TargetDomain, TargetType};
     use crate::ids::PlayerId;
+    use crate::math::PI;
     use crate::object::Object;
     use crate::vision::Vision;
 

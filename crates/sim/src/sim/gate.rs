@@ -135,7 +135,7 @@ pub enum Reject {
     NotATunnel(ObjectId),
     /// The Tunnel's tier lets none of the units an Enter names into the network, or not a unit of the kind an Eject
     /// names out of it (`factions/syndicate/tunnels.md > Tunnel Network > Transit Tier Requirements`); no air unit
-    /// passes yet (`crate::network::AIR_DOORS`).
+    /// passes yet (`tuning::tunnel::AIR_DOORS`).
     NoTransit { tunnel: ObjectId, kind: Option<ObjectKind> },
     /// An Eject for a kind of which the player has no unit in the Tunnel Network that isn't queued to come out
     /// already (`> EjectMenu`: "each click reserves a specific unit").
@@ -264,8 +264,8 @@ impl Sim {
     ///    (`docs/movement.md > 3`);
     /// 4. the command's own rules hold: an order's size and target (which the player must see,
     ///    [`Reject::NotVisible`]), and for an Attack, units that can attack now ([`Reject::CannotAttack`]); the units
-    ///    of an ability that have it ([`Reject::LacksAbility`]); the producers of a production command and what they can queue
-    ///    (`sim/producers.rs`); the constructors of a construction command that can carry it out, the bank
+    ///    of an ability that have it ([`Reject::LacksAbility`]); the producers of a production command and what they
+    ///    can queue (`sim/producers.rs`); the constructors of a construction command that can carry it out, the bank
     ///    that pays and the placement check of a Place (`sim/construction.rs`), and the same of a Warp In's Beacon,
     ///    or the transforming objects a cancel goes to (`sim/transform.rs`); a spawn's owner and placement (a
     ///    footprint apart from the others but for a plate on its patch, [`Reject::Overlaps`]), a teleport to a unit

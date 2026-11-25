@@ -4,8 +4,9 @@
 //! for the rest of 0180's Verification; which enemies a unit takes at all is `attack_move_reach.rs`'s (design change
 //! 0230).
 
-use sc_sim::orders::{ATTACK_MOVE_LEASH_GU, Behaviour, REJUDGE_MOVE_SU};
+use sc_sim::orders::Behaviour;
 use sc_sim::testing::{ScenarioBuilder, TestSim};
+use sc_sim::tuning::orders::{ATTACK_MOVE_LEASH_GU, REJUDGE_MOVE_SU};
 use sc_sim::{ObjectId, ObjectKind, OrderKind, PlayerId, Shape, SimEvent, SpawnAt, Target, Tick, TilePos, Vec2, gu};
 
 const P1: PlayerId = PlayerId(1);

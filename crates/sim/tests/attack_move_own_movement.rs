@@ -2,13 +2,14 @@
 //! AttackMovingToLocation > Algorithm` 2, "Re-checking a rejected enemy"; design change 0243, answering question
 //! Q0074): a rejection by the reach rule is judged again once "the unit itself has moved a meaningful distance since
 //! it judged that enemy (placeholder 1 GU; Q0074, so the same situation always gets the same response)"
-//! (`orders::reach::REJUDGE_SELF_SU`). "Failure-rule and fog rejections keep 0230's triggers": the corridor tests of
+//! (`tuning::orders::REJUDGE_SELF_SU`). "Failure-rule and fog rejections keep 0230's triggers": the corridor tests of
 //! `attack_move_reach.rs` and `attack_behind_friends/no_room.rs` hold as they were. The rest of the reach rule is
 //! `attack_move_reach.rs`'s.
 
 use sc_sim::orders::state::{Judged, Leg};
-use sc_sim::orders::{Behaviour, JUDGE_PATHS_PER_TICK, REJUDGE_SELF_SU};
+use sc_sim::orders::{Behaviour, JUDGE_PATHS_PER_TICK};
 use sc_sim::testing::{ScenarioBuilder, TestSim};
+use sc_sim::tuning::orders::REJUDGE_SELF_SU;
 use sc_sim::{DebugCommand, ObjectId, ObjectKind, OrderKind, PlayerId, Shape, SimEvent, SpawnAt, Tick, TilePos, Vec2};
 
 const P1: PlayerId = PlayerId(1);

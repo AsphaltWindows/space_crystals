@@ -5,6 +5,7 @@ use glam::Vec2;
 
 use super::*;
 use crate::ids::ObjectId;
+use crate::tuning::construction::MIN_HP_AFTER_CANCEL;
 use crate::units::TilePos;
 
 use ObjectKind::{Beacon, BioPortal, EgressNode, RoboPortal};

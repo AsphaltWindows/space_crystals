@@ -82,7 +82,7 @@ fn an_agent_in_line_keeps_waiting_and_delivers_when_its_turn_comes() {
 
 /// The Director's acceptance for 0255: "an Agent that is blocked from the hatch retries on the Drone's rule and
 /// never gives up". Five Guards on Hold Position stand along the wall in front of the hatch. The Agent comes back
-/// with its load, stops as near as it gets, and sets off again every 32 ticks (`orders::gather::LEG_RETRY_TICKS`),
+/// with its load, stops as near as it gets, and sets off again every 32 ticks (`tuning::gathering::LEG_RETRY_TICKS`),
 /// keeping its order and its load; once the Guards are gone it delivers.
 #[test]
 fn an_agent_blocked_from_the_hatch_retries_and_never_gives_up() {

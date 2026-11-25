@@ -6,14 +6,16 @@ use std::collections::BTreeMap;
 use glam::Vec2;
 
 use super::NavState;
-use super::checks::{CHASE_REPLAN_TICKS, chase_check, staggered_check};
+use super::checks::{chase_check, staggered_check};
 use super::knowledge::PathKnowledge;
 use crate::events::SimEvent;
 use crate::ids::{ObjectId, PlayerId};
-use crate::mover::{MoveGoal, MoveStatus, PathState, STAGGER};
+use crate::mover::{MoveGoal, MoveStatus, PathState};
 use crate::nav::{self, PathFail, PathRequest};
 use crate::object::Object;
 use crate::production::ExitDoor;
+use crate::tuning::movement::STAGGER;
+use crate::tuning::paths::{CHASE_REPLAN_TICKS, PATH_BUDGET};
 use crate::units::Tick;
 
 /// Where the object a unit heads for was when its path was planned, else `goal`.
@@ -65,8 +67,8 @@ enum Direct {
 }
 
 /// Phase 5c (`docs/movement.md > 4`, `> 5.5`): run the staggered path checks ([`staggered_check`]), then serve the
-/// units' path requests in `(since, id)` order within `nav::PATH_BUDGET`, units of one order group sharing a field.
-/// Units before `first_new` only. A unit that can't get a path fails its move (`SimEvent::MoveFailed`).
+/// units' path requests in `(since, id)` order within `tuning::paths::PATH_BUDGET`, units of one order group sharing a
+/// field. Units before `first_new` only. A unit that can't get a path fails its move (`SimEvent::MoveFailed`).
 ///
 /// **Whose grids** (`systems/controls/behaviors.md > PathKnowledge`): each unit's checks and plans run on its
 /// owner's known grids (`NavState::plan_grid`), and its path notes the version of that knowledge
@@ -206,7 +208,7 @@ pub(crate) fn serve(
     }
 
     let navs = super::navs(&state.nav, &state.known);
-    let output = nav::serve_on(&navs, &on, &mut state.search, &requests, nav::PATH_BUDGET);
+    let output = nav::serve_on(&navs, &on, &mut state.search, &requests, PATH_BUDGET);
     state.counters = output.counters;
     // `requests` is in id order. A path to an object notes where the object was, not the point beside it.
     let planned_goal = |id: ObjectId| {

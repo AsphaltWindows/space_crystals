@@ -33,13 +33,10 @@ use crate::economy::{ArmyResource, RATIO_ONE};
 use crate::hash::{StateHash, StateHasher};
 use crate::ids::ObjectId;
 use crate::orders::Target;
+use crate::tuning::production::QUEUE_LIMIT;
 
 pub use exit::{Door, Doorway, EnergyDoorway, ExitDoor};
 pub use rally::Rally;
-
-/// `factions/gdo/structures.md > Barracks > BarracksInstanceState`: "BuildQueue: array of ObjectEnum (max 20,
-/// including the unit currently in production)" (design change 0081).
-pub const QUEUE_LIMIT: usize = 20;
 
 /// What the player tells producing structures (`factions/gdo/structures.md > Barracks >
 /// ObjectInterfaceState[Barracks]`), sent as `Command::Production` to every producer of the selection

@@ -2,8 +2,8 @@
 //! (measured edge to edge, design change 0031), the chase when it moves, the stop where the unit stands when the
 //! target goes into the fog (design change 0200; more in `target_lost.rs`), and giving up a target out of reach.
 
-use sc_sim::mover::{GIVE_UP_TICKS, REPATH_WAITS, STUCK_GRACE_TICKS};
 use sc_sim::testing::{ScenarioBuilder, TestSim};
+use sc_sim::tuning::movement::{GIVE_UP_TICKS, REPATH_WAITS, STUCK_GRACE_TICKS};
 use sc_sim::{MoveStatus, ObjectId, ObjectKind, OrderKind, PlayerId, Shape, SimEvent, Target, Tick, Vec2, gu};
 
 const P1: PlayerId = PlayerId(1);

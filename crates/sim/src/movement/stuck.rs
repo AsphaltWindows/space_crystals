@@ -1,9 +1,9 @@
 //! Progress, stuck detection and recovery — `docs/movement.md > 6.5`, with the repath schedule of `> 5.6`.
 //!
 //! The rules are `systems/controls/behaviors.md > MovingToLocation`: `> Failure` (design change 0024: stuck after
-//! `mover::STUCK_TICKS`, `MAX_REPATHS` attempts at another route after `REPATH_WAITS`, then give up) and `> Occupied
-//! target location` (design change 0026, `mover::OCCUPIED_ARRIVAL_GU`). Two moving units that block each other for
-//! good both end `Failed` (design change 0022: moving units never yield or swap).
+//! `tuning::movement::STUCK_TICKS`, `MAX_REPATHS` attempts at another route after `REPATH_WAITS`, then give up) and `>
+//! Occupied target location` (design change 0026, `tuning::movement::OCCUPIED_ARRIVAL_GU`). Two moving units that block
+//! each other for good both end `Failed` (design change 0022: moving units never yield or swap).
 
 use glam::Vec2;
 
@@ -13,10 +13,9 @@ use super::round;
 use super::space::Body;
 use super::yielding::yields_to;
 use crate::ids::{ObjectId, PlayerId};
-use crate::mover::{
-    JAMMED_TICKS, MAX_AVOID_TILES, MAX_REPATHS, MoveGoal, MoveStatus, Mover, OCCUPIED_ARRIVAL_GU, STUCK_GRACE_TICKS,
-};
+use crate::mover::{MAX_AVOID_TILES, MoveGoal, MoveStatus, Mover};
 use crate::shape::Shape;
+use crate::tuning::movement::{JAMMED_TICKS, MAX_REPATHS, OCCUPIED_ARRIVAL_GU, STUCK_GRACE_TICKS};
 use crate::units::{Tick, TilePos, gu};
 
 /// The length of the path still ahead of a unit at `pos` heading for waypoint `next`.
@@ -111,7 +110,8 @@ fn avoid_blocker(pos: Vec2, mover: &mut Mover, blocker: &Body) {
 /// round all of them, not round the one in its way into the next, and comes at its place from the open side. Two
 /// blocks that crossed head-on arrive out of order, and a Guard can't pass between Guards that stand 16 su apart:
 /// the late ones stopped behind the group farther than `OCCUPIED_ARRIVAL_GU` from their places and gave up
-/// ([`after_move`], rule 1). A place that the group closes in on every side stays out of reach, and the unit gives up as before.
+/// ([`after_move`], rule 1). A place that the group closes in on every side stays out of reach, and the unit gives up
+/// as before.
 fn avoid_group(pos: Vec2, mover: &mut Mover, bodies: &[Body], group: u32) {
     let mut arrived: Vec<&Body> = bodies.iter().filter(|b| b.arrived_with == Some(group)).collect();
     arrived.sort_by(|a, b| {
@@ -171,9 +171,10 @@ fn target_is_occupied(
 /// **Progress** to a point is the remaining path length: `last_progress` moves on when it beats `best_remaining` by
 /// half a step. A new path measures afresh but is no progress by itself. Following a slower unit is progress, and so is
 /// **waiting behind a unit that is getting on**: a unit blocked by one that is on its way and has got on since its
-/// leg began ([`leads`]) takes over that unit's `last_progress` if it is later. So a queue at a choke isn't stuck while its head moves, and units that block
-/// each other for good share a clock that stands still. (On one path `best_remaining` only falls, and repaths
-/// are capped, so the progress of a whole crowd is finite: nothing keeps a deadlock alive.)
+/// leg began ([`leads`]) takes over that unit's `last_progress` if it is later. So a queue at a choke isn't stuck while
+/// its head moves, and units that block each other for good share a clock that stands still. (On one path
+/// `best_remaining` only falls, and repaths are capped, so the progress of a whole crowd is finite: nothing keeps a
+/// deadlock alive.)
 ///
 /// In order:
 /// 1. **Occupied target** ([`target_is_occupied`], design change 0026): the unit has `Arrived`.
@@ -191,7 +192,7 @@ fn target_is_occupied(
 ///    next to units to conclude that there is no way.
 /// 5. No attempt left, and still stuck `STUCK_TICKS` after the last one: `Failed`. The behaviour stops and
 ///    completes (`> Failure`). A unit that never gets on looks for another route 32, 48 and 80 ticks after its
-///    last progress and fails at 104 (`mover::GIVE_UP_TICKS`, 6.5 s: 0024's "about 7 s").
+///    last progress and fails at 104 (`tuning::movement::GIVE_UP_TICKS`, 6.5 s: 0024's "about 7 s").
 ///
 /// A unit due for 4 or 5 that touches no unit in this tick (it stepped around one) waits up to `STUCK_GRACE_TICKS`
 /// to meet its blocker again, so that rules 1 and 4 can see it.

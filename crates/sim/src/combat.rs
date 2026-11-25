@@ -6,8 +6,9 @@
 //!   BaseAttackChannel, `systems/controls/behaviors.md`). It is hashed and serialized like all state.
 //! - **Phases** (`systems/combat.md > AttackPhase`; `phases`): Aiming, Firing, Cooldown and Reloading, each
 //!   lasting exactly its duration in ticks. A sequence starts when no sequence runs and the engaged target is valid
-//!   and in range (`targeting`); Aiming also lasts until the unit faces the target ([`FACING_TOLERANCE`]). It turns
-//!   the unit by what phase 5d left of its TurnRate: one turn budget per tick (`movement::Turns`).
+//!   and in range (`targeting`); Aiming also lasts until the unit faces the target
+//!   (`tuning::combat::FACING_TOLERANCE`). It turns the unit by what phase 5d left of its TurnRate: one turn budget per
+//!   tick (`movement::Turns`).
 //! - **Hits** (`damage`): an attack's effect lands at the end of its Firing phase, as a [`Hit`] on this tick's
 //!   list. The list is applied in one place once every unit has acted, so two hits in one tick both count, whatever
 //!   the order of their attackers (`ARCHITECTURE.md > Tick pipeline`).
@@ -63,11 +64,7 @@ use crate::riot_shield;
 use crate::units::Tick;
 use crate::vision::Vision;
 
-pub use damage::{
-    DIRECTIONAL_FRONT, DIRECTIONAL_HALF_ARC, DIRECTIONAL_REAR, DIRECTIONAL_SIDE, Hit, MINIMUM_DAMAGE, Taken,
-    directional_multiplier, hit_damage, pre_armor_multiplier, resolve,
-};
-pub use phases::FACING_TOLERANCE;
+pub use damage::{Hit, Taken, directional_multiplier, hit_damage, pre_armor_multiplier, resolve};
 pub use targeting::{
     can_attack_now, domain_allows, inside_min_range, max_range, object_box, object_domain, reaches, reaches_point,
     within_range,

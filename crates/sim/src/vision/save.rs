@@ -5,10 +5,11 @@ use std::collections::{BTreeMap, BTreeSet};
 
 use serde::{Deserialize, Serialize, Serializer};
 
-use super::{FOG_DELAY_TICKS, LastKnown, REVEAL_TICKS, TileBits, Vision};
+use super::{LastKnown, TileBits, Vision};
 use crate::ids::{ObjectId, PlayerId};
 use crate::map::Map;
 use crate::object::Object;
+use crate::tuning::vision::{FOG_DELAY_TICKS, REVEAL_TICKS};
 use crate::units::{Tick, TilePos};
 
 /// Tile symbols of the Explored rows in a save: Explored (Visible tiles are Explored too), and not.

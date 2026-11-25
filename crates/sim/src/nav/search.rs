@@ -7,7 +7,8 @@
 use std::cmp::Reverse;
 use std::collections::BinaryHeap;
 
-use super::{DIAGONAL_COST, NavCounters, NavGrid, STEP_COST};
+use super::{NavCounters, NavGrid};
+use crate::tuning::paths::{DIAGONAL_COST, STEP_COST};
 use crate::units::TilePos;
 
 /// Neighbour offsets in the fixed expansion order E, S, W, N, SE, SW, NW, NE (`docs/movement.md > 5.3`), with the

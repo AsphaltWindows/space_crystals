@@ -47,6 +47,7 @@ pub mod symmetry;
 pub mod targets;
 pub mod testing;
 pub mod transform;
+pub mod tuning;
 pub mod tunnel;
 pub mod units;
 pub mod vision;
@@ -71,8 +72,7 @@ pub use orders::{OrderKind, Orders, Target};
 pub use placement::{BuildArea, PlacementCheck, PlacementProblem, TileProblem, WholeProblem};
 pub use player::{Banks, Faction, Player};
 pub use production::{
-    Door, Doorway, EnergyDoorway, ExitDoor, Production, ProductionCommand, ProductionStatus, QUEUE_LIMIT, Rally,
-    Refusal,
+    Door, Doorway, EnergyDoorway, ExitDoor, Production, ProductionCommand, ProductionStatus, Rally, Refusal,
 };
 pub use replay::{Checkpoint, Desync, Replay, ReplayError};
 pub use riot_shield::{RiotShield, ShieldMode};
@@ -87,5 +87,6 @@ pub use sim::{Phase, Reject, Sim, SimConfig};
 pub use symmetry::{EditableRegion, MapTransform, Orientation, Symmetry};
 pub use targets::TargetView;
 pub use transform::Transform;
+pub use tuning::production::QUEUE_LIMIT;
 pub use units::{CornerPos, SU_PER_GU, TICKS_PER_SECOND, Tick, TilePos, gu, seconds};
 pub use vision::{VisibilityState, Vision};

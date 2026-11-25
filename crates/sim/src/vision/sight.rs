@@ -3,7 +3,8 @@
 use glam::Vec2;
 
 use super::Eye;
-use crate::elevation::{ELEVATION_MODIFIER, Elevation, sight_range};
+use crate::elevation::{Elevation, sight_range};
+use crate::tuning::vision::ELEVATION_MODIFIER;
 use crate::units::{SU_PER_GU, gu};
 
 /// The point of a tile that has to lie within a source's sight for the source to see the tile: its centre, as an

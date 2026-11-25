@@ -2,9 +2,9 @@
 //! TurnRate, with the defs of M1, whose units turn 180° per tick.
 
 use super::*;
-use crate::combat::FACING_TOLERANCE;
 use crate::math::{self, PI};
 use crate::mover::MoveGoal;
+use crate::tuning::combat::FACING_TOLERANCE;
 
 /// A Peacekeeper that walks off to the south-west turns 135° in phase 5d, and in 5e of the same tick begins to aim
 /// at an enemy to its north-west, about 90° further. The aim has only the 45° left of the tick's 180°: the unit ends

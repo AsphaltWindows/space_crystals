@@ -182,7 +182,7 @@ struct Watched {
     /// The longest an Agent waited within reach of a hatch that nobody unloaded at, ticks.
     longest_idle_wait: Tick,
     /// The longest an Agent stood with its load for a hatch that nobody unloaded at, ticks: within reach of it, or
-    /// short of it, its leg back ended (`orders::gather::LEG_RETRY_TICKS`).
+    /// short of it, its leg back ended (`tuning::gathering::LEG_RETRY_TICKS`).
     longest_idle_stand: Tick,
 }
 

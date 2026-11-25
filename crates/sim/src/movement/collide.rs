@@ -16,9 +16,10 @@ use glam::Vec2;
 
 use super::MoveCounters;
 use super::space::{Body, Contact, Layer, blocks, overlaps, resting, sweep};
-use crate::mover::{AVOID_COMMIT_TICKS, Mover, Side};
+use crate::mover::{Mover, Side};
 use crate::nav::{self, NavGrid};
 use crate::production::ExitDoor;
+use crate::tuning::movement::{AVOID_COMMIT_TICKS, LEAN};
 use crate::units::{SU_PER_GU, Tick};
 
 pub(crate) use lanes::Lane;
@@ -48,10 +49,6 @@ struct Hit {
     index: usize,
     contact: Contact,
 }
-
-/// `docs/movement.md > 6.3`, rule 4: from this share of its move along the blocker's face on, a unit goes around on
-/// the side it leans to; below it the contact is head-on and `Mover::avoid_side` decides (tuning const).
-const LEAN: f32 = 0.3;
 
 /// How one unit's tick went.
 #[derive(Copy, Clone, Debug, PartialEq)]

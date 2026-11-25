@@ -30,10 +30,7 @@ use std::collections::BTreeMap;
 
 use crate::ids::ObjectId;
 use crate::object::Object;
-
-/// `systems/combat.md > Shields > ShieldRegenRate`: "4 Shields per second (0.25 per frame). Constant base rate shared
-/// by all Colonists units and buildings". A power of two: Shields that start whole stay exact as they regenerate.
-pub const SHIELD_REGEN_PER_TICK: f32 = 0.25;
+use crate::tuning::shields::SHIELD_REGEN_PER_TICK;
 
 /// What Shields at `shields` come to after a tick's regeneration ([`SHIELD_REGEN_PER_TICK`]), with a maximum of `max`
 /// now: never above it, and Shields above it (a maximum that fell) come down to it.

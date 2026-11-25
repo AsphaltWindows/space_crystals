@@ -35,8 +35,13 @@ use crate::hash::{StateHash, StateHasher};
 use crate::ids::ObjectId;
 use crate::object::{Object, Placement};
 use crate::sides::{DIRECTIONS, SideLetter, sides};
+use crate::tuning::tunnel::{AIR_DOORS, ENTRY_REACH_SU, WALK_OUT_SU};
 use crate::tunnel;
 use crate::units::{SU_PER_GU, TICKS_PER_SECOND, Tick};
+
+/// A tunable of `tuning::tunnel`, re-exported here for the client, which draws the paths by it
+/// (`object_render::tunnel`).
+pub use crate::tuning::tunnel::PATH_OFFSET_SU;
 
 /// The Tunnel Network's rules (module docs), the Tunnel type's def: its transit delay and its regeneration
 /// (`factions/syndicate/tunnels.md > Tunnel Network > Transit delay`, `> Regeneration inside`).
@@ -44,35 +49,9 @@ pub fn rules() -> &'static TunnelDef {
     tunnel::def_of(ObjectKind::Tunnel).expect("the Tunnel has a tier table")
 }
 
-/// How far Side A's paths lie from the middle of the side, space units: the exit path towards Side B, the entry path
-/// towards Side D (design change 0248). The middles of the two paths the client draws (`object_render::tunnel`, which
-/// reads this), 60 su apart, so that a unit up to 60 su wide on one never touches one on the other ("entering and
-/// exiting units never block each other"). **Placeholder**: the design gives the halves, not where in them (question
-/// Q0063 point 2 proposed "centred on its half"; the drawing of slice M4-A came first).
-pub const PATH_OFFSET_SU: f32 = 30.0;
-
-/// Question Q0063 point 2, as proposed (design change 0247: "As proposed"): "A unit goes in when its silhouette is
-/// within 8 su of the entry spot (DropOffReach's value, as a placeholder)".
-pub const ENTRY_REACH_SU: f32 = 8.0;
-
-/// `> EjectMenu` (design change 0250): "With no rally point, a unit walks about 1 grid unit straight out of Side A and
-/// idles".
-pub const WALK_OUT_SU: f32 = SU_PER_GU;
-
 /// How far from the Tunnel's wall a unit stands on a path's spot, space units, so that no rounding makes its box
 /// overlap the footprint (a technical margin: a sixty-fourth of a space unit, as a doorway's).
 const WALL_CLEARANCE: f32 = 1.0 / 64.0;
-
-/// Whether air units pass through a Tunnel: **not in M4** (the Director's decision for slice M4-C). No Syndicate air
-/// unit exists yet (the Phantom is deferred, the Specter a concept), so Enter and Eject refuse every air unit at every
-/// tier, Tier 3 included.
-///
-/// **The rule to come with the first Syndicate air unit** (design changes 0250 and 0251): "Air units leave through
-/// the Tier 3 air exit door, in parallel with ground units; since aircraft don't collide, the door has its own exit
-/// rate: one aircraft per 8 frames (0.5 s), placeholder (the same rate for the air entry door)"; "the air doors are on
-/// the Tunnel's roof: the entry door over the entry path's half of the Tunnel, the exit door over the exit path's
-/// half". They never use Side A's paths, and never wait for the exit spot.
-pub const AIR_DOORS: bool = false;
 
 /// Where a held unit is (plan decision T30). Match it exhaustively, and never assume a held unit's place is on the
 /// map: slice M4-E adds the site an Agent builds from inside, and a transport's passengers (design changes 0221 and

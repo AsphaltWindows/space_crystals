@@ -8,8 +8,9 @@
 use sc_sim::elevation::Elevation;
 use sc_sim::nav::NavClass;
 use sc_sim::testing::{ScenarioBuilder, TestSim};
+use sc_sim::tuning::vision::FOG_DELAY_TICKS;
 use sc_sim::tunnel::TunnelState;
-use sc_sim::vision::{FOG_DELAY_TICKS, PlayerVision};
+use sc_sim::vision::PlayerVision;
 use sc_sim::{
     Command, DebugCommand, Faction, MoveStatus, ObjectId, ObjectKind, OrderKind, PlayerCommand, PlayerId, Reject,
     ScenarioProblem, SimEvent, SpawnAt, SpawnProblem, Target, TargetView, Tick, TilePos, Vec2, VisibilityState, gu,

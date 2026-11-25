@@ -25,11 +25,9 @@ use super::space::Body;
 use crate::combat::AttackPhase;
 use crate::defs::UnitDef;
 use crate::ids::{ObjectId, PlayerId};
-use crate::mover::{
-    Locomotion, MoveGoal, Mover, Orientation, Side, Sidestep, YIELD_CHAIN_DEPTH, YIELD_MIN_SIDESTEP_SU,
-    YIELD_SIDESTEP_WIDTHS,
-};
+use crate::mover::{Locomotion, MoveGoal, Mover, Orientation, Side, Sidestep};
 use crate::object::Object;
+use crate::tuning::movement::{YIELD_CENTRED_SU, YIELD_CHAIN_DEPTH, YIELD_MIN_SIDESTEP_SU, YIELD_SIDESTEP_WIDTHS};
 
 /// A sidestep asked of a unit this tick.
 #[derive(Copy, Clone, Debug, PartialEq)]
@@ -88,11 +86,6 @@ pub(super) fn yields_to(other: &Body, owner: Option<PlayerId>, group: Option<u32
 fn longest(half: Vec2) -> f32 {
     (half.max_element() * 2.0 * YIELD_SIDESTEP_WIDTHS).max(YIELD_MIN_SIDESTEP_SU)
 }
-
-/// Friendly yielding (0022): an idle unit whose centre is within this many space units of the line a mover walks
-/// along stands "in the middle" of its way, and steps to the side the mover isn't going round on; farther out it
-/// steps to the side it is already on (tuning const).
-const YIELD_CENTRED_SU: f32 = 4.0;
 
 /// `> Friendly yielding` (design change 0022): the unit of `world` wanted to move `d` from `pos`, and `moved` is
 /// what became of it. If a unit that yields to it was in its way, that unit is asked for a sidestep:

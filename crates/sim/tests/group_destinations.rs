@@ -6,8 +6,8 @@
 //! group has arrived within 3 grid units of it and gives up beyond (design changes 0169 and 0183). Every `TestSim`
 //! checks the invariants I1–I7 after each tick (`docs/movement.md > 8`), and the runs replay to the same state.
 
-use sc_sim::mover::OCCUPIED_ARRIVAL_GU;
 use sc_sim::testing::{ScenarioBuilder, TestSim};
+use sc_sim::tuning::movement::OCCUPIED_ARRIVAL_GU;
 use sc_sim::{MoveStatus, ObjectId, ObjectKind, OrderKind, PlayerId, SimEvent, Target, Vec2, gu};
 
 const P1: PlayerId = PlayerId(1);

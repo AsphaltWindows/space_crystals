@@ -8,8 +8,8 @@
 use sc_sim::combat;
 use sc_sim::conversion;
 use sc_sim::defs::CONVERT_TICKS;
-use sc_sim::shields::SHIELD_REGEN_PER_TICK;
 use sc_sim::testing::{ScenarioBuilder, TestSim};
+use sc_sim::tuning::shields::SHIELD_REGEN_PER_TICK;
 use sc_sim::{
     Ability, AttackPhase, Command, Faction, Object, ObjectId, ObjectKind, OrderKind, PlayerCommand, PlayerId, Reject,
     Replay, Sim, SimEvent, SpawnAt, Target, Tick, TickInputs, TilePos, Vec2,

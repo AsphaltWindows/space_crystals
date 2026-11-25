@@ -27,6 +27,7 @@ use glam::Vec2;
 use serde::{Deserialize, Serialize};
 
 use crate::map::Map;
+use crate::tuning::paths::{RESOURCES_BLOCK, RUGGED_IMPASSABLE};
 use crate::units::{SU_PER_GU, TilePos};
 
 pub use grid::NavGrid;
@@ -36,27 +37,6 @@ pub use search::{Search, TilePath};
 pub use serve::{
     Path, PathFail, PathGroup, PathRequest, ServeOutput, Served, find_path, find_path_within, serve, serve_on,
 };
-
-/// `docs/movement.md > 5.5`: node expansions per tick within which the path server starts jobs (tuning const).
-pub const PATH_BUDGET: u32 = 32_000;
-
-/// `docs/movement.md > 5.5`: from this many requests of one order group on whose goals the group's anchor sees, they
-/// share one Dijkstra field.
-pub const GROUP_FIELD_MIN: usize = 4;
-
-/// `docs/movement.md > 5.3`: cost of an orthogonal step.
-pub const STEP_COST: u32 = 10;
-
-/// `docs/movement.md > 5.3`: cost of a diagonal step.
-pub const DIAGONAL_COST: u32 = 14;
-
-/// Whether map resources (crystal patches, supply stations) block ground units. Default until question Q0011
-/// (gap G10) is answered: yes.
-pub const RESOURCES_BLOCK: bool = true;
-
-/// Whether a Rugged tile is impassable for a base with RuggedTerrain = false. Default until question Q0011
-/// (gap G11) is answered: yes.
-pub const RUGGED_IMPASSABLE: bool = true;
 
 /// Which tiles a unit may stand on (`docs/movement.md > 3`, `core/map.md > Tile`). Air units need no grid.
 #[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]

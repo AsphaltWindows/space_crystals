@@ -34,8 +34,8 @@
 //!   Beacon pays the building's cost at once (`> Constructs List`) and becomes the building on that footprint, where
 //!   the placement check allows the Warp In method (`crate::placement::Method::WarpIn`, plan decision T16: every tile
 //!   Visible, design change 0119; the Beacon's own tiles consumed, the others clear of ground units of any player,
-//!   0118); `ConstructionCommand::CancelTransform` goes to every transforming object it names (`> Cancel Warp In`): "refunds
-//!   75% of the building's resource cost (rounded down), and the structure reverts to being a normal,
+//!   0118); `ConstructionCommand::CancelTransform` goes to every transforming object it names (`> Cancel Warp In`):
+//!   "refunds 75% of the building's resource cost (rounded down), and the structure reverts to being a normal,
 //!   fully-functional Beacon" on its old tiles (design change 0109), keeping the fraction of its HP it had, at least
 //!   1 ([`keep_fraction`], design change 0111), with a `SimEvent::TransformCancelled`. Both apply in the commands
 //!   phase, before phase 5b brings the grids up to date with the footprint.
@@ -207,8 +207,8 @@ pub fn follow_max(current: f32, before: f32, after: f32) -> f32 {
 /// The current value that a cancel leaves of `current` out of `max`, on the restored maximum `restored` (design
 /// change 0111: "the same fraction of HP and Shields the transforming object had at cancel time", "original_max ×
 /// current_before ÷ max_before"), at most `restored`: an undamaged object is exactly at its old maximum again, a
-/// damaged one keeps the damage in proportion. HP keeps at least 1 more ([`MIN_HP_AFTER_CANCEL`]); the Shields take
-/// the fraction as it is ("no minimum needed", `crate::shields`).
+/// damaged one keeps the damage in proportion. HP keeps at least 1 more (`tuning::construction::MIN_HP_AFTER_CANCEL`);
+/// the Shields take the fraction as it is ("no minimum needed", `crate::shields`).
 pub fn keep_fraction(current: f32, max: f32, restored: f32) -> f32 {
     if max > 0.0 {
         (restored * current / max).min(restored)
@@ -216,10 +216,6 @@ pub fn keep_fraction(current: f32, max: f32, restored: f32) -> f32 {
         restored
     }
 }
-
-/// Design change 0111: after a cancel the HP is "max(1, original_max × current_before ÷ max_before)", so that "a
-/// nearly dead transforming object" survives.
-pub const MIN_HP_AFTER_CANCEL: f32 = 1.0;
 
 /// The Beacon's `Constructs List` (`> Warp In > Constructs List`, `StructureDef::warp_in`): what an object of `kind`
 /// warps in, with costs and WarpInTimes; empty for every kind but the Beacon.

@@ -16,19 +16,10 @@ use crate::map::Map;
 use crate::math::{self, PI};
 use crate::object::Object;
 use crate::riot_shield;
+use crate::tuning::combat::{
+    DIRECTIONAL_FRONT, DIRECTIONAL_HALF_ARC, DIRECTIONAL_REAR, DIRECTIONAL_SIDE, MINIMUM_DAMAGE,
+};
 use crate::units::TilePos;
-
-/// `systems/combat.md > MinimumDamage > MinimumDamage`: every single-target hit deals at least this much.
-pub const MINIMUM_DAMAGE: f32 = 0.5;
-
-/// `systems/combat.md > DirectionalArmor`: the half-width of the front and rear arcs, radians (±45°, 90° arcs).
-pub const DIRECTIONAL_HALF_ARC: f32 = PI / 4.0;
-/// `systems/combat.md > DirectionalArmor`: the multiplier of a hit from the front arc.
-pub const DIRECTIONAL_FRONT: f32 = 0.75;
-/// `systems/combat.md > DirectionalArmor`: from either side arc.
-pub const DIRECTIONAL_SIDE: f32 = 1.0;
-/// `systems/combat.md > DirectionalArmor`: from the rear arc.
-pub const DIRECTIONAL_REAR: f32 = 1.25;
 
 /// One attack's effect on its target, waiting on the tick's list until every unit has acted: the attack's Damage, and
 /// the target's modifiers as the shot found them (`systems/combat.md > DamageModifierOrder`), for [`resolve`].

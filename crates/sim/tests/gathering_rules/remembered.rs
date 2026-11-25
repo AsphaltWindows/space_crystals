@@ -4,7 +4,7 @@
 
 use sc_sim::orders::state::Behaviour;
 use sc_sim::testing::dangling_references;
-use sc_sim::vision::FOG_DELAY_TICKS;
+use sc_sim::tuning::vision::FOG_DELAY_TICKS;
 use sc_sim::{DebugCommand, MoveGoal, Reject, TargetView, VisibilityState};
 
 use super::*;

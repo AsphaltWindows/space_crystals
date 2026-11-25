@@ -8,9 +8,8 @@ use crate::defs::AttackAttrs;
 use crate::ids::ObjectId;
 use crate::mover::{MoveGoal, MoveStatus, Mover, PathState};
 use crate::nav::PathGroup;
+use crate::tuning::orders::{PATROL_FAILED_LEGS, PROXIMITY_SU};
 
-use super::PATROL_FAILED_LEGS;
-use super::PROXIMITY_SU;
 use super::engage::{Closing, close_in};
 use super::reach::{self, Reach, Verdict};
 use super::state::{Approach, Judged, Leg, Patrol, Pursuit};
