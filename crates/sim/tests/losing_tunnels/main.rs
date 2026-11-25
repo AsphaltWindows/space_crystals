@@ -6,13 +6,15 @@
 //!   rebuilds for nothing; an Agent's site isn't the lost Tunnel's;
 //! - `attack`: a neutral expansion is attacked only by an explicit Attack;
 //! - `reclaim`: a Tunnel that finishes over a neutral expansion takes it back, hidden again, and never while a site;
-//!   one that covers it partly leaves it neutral, blocking its cells and taking Tunnel Space.
+//!   one that covers it partly leaves it neutral, blocking its cells and taking Tunnel Space;
+//! - `saves`: a game with a decaying expansion saved, loaded and replayed, and the decay's hash.
 //!
 //! Every test runs under the invariants of `TestSim`, and this binary's ([`check`]) after each tick it steps.
 
 mod attack;
 mod neutral;
 mod reclaim;
+mod saves;
 mod stranded;
 
 use sc_sim::network::Place;
