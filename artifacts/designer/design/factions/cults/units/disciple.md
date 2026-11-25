@@ -13,8 +13,8 @@ The Disciple has its own energy pool, which it spends on its spells. It regenera
 
 ## Spells
 
-### Shared Burden
-(Named by the user, 2026-11-26.)
+### Shroud
+(Named by the user, 2026-11-26; briefly "Shared Burden".)
 (user, 2026-11-26) A **channeling** spell: while the Disciple channels it, its energy **drains gradually**, and it creates a **cloud**.
 - **Damage spreading**: every attack against a unit standing **under the cloud** has its damage **converted to area (AoE) damage**, spread across the **whole area of all clouds contiguously connected** to the cloud the attacked unit stands under. Each object under that combined cloud takes its share under the normal AoE rules (systems/combat.md > AoEDamage: share = damage × its overlap area / the area).
 - **The cloud is centered on the Disciple** (user, 2026-11-26). The Disciple **can't move while channeling**.
