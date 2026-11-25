@@ -2209,3 +2209,4 @@ Tunnel area fully drillable/on-map (0242); Q0074 own movement re-check B (0243).
 Q0075: only shots at own objects drawn whole. Entry 0244.
 Q0063 pt1: flat 2 s transit delay (placeholder). Entry 0245.
 Q0063 pt7: walk in at normal speed/spacing; produced units no delay. Entry 0246.
+Q0063 pt2: normal Failure rule for entering. Entry 0247.
