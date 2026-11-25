@@ -2203,3 +2203,4 @@ Q0055/Q0072: measured Colonists economy = design; table/targets/saturation updat
 Q0062 pt1: non-overlap across all players (B). Entry 0237.
 Q0062 pt2: off-map cells count (B). Entry 0238.
 Q0062 pt3a: expansions need Drillable. Entry 0239.
+Q0062 pt3c/4: no buildings over expansions and vice versa. Entry 0240.
