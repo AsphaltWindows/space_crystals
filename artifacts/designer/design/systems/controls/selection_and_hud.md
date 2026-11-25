@@ -12,6 +12,11 @@ The set of ObjectInstances currently selected by the player, grouped by object t
 ### Groups - array of SelectionGroup
 ### ActiveGroup - SelectionGroup | None (None when selection is empty). Usually identified by its object type; for Ungroupable objects each instance is its own SelectionGroup, so ActiveGroup points at one specific group, and GroupCycling (Tab) steps through them one by one.
 
+**When the ActiveGroup disappears** (user, 2026-11-25; Q0050):
+- **Its members changed type and joined another group** (an unfinished building completes and joins its finished group, 0185; units pressed with a mode toggle, factions/colonists/units.md > Weapon Conversion > A toggle sets a target form): **the group they joined becomes active**. The command panel resets to that group's default state, which ends any targeting in progress.
+- **Its last member died** (or otherwise left the selection, e.g. by entering a building, transport or tunnel): **the next group in Tab order becomes active** (the group after it in the SelectionPanel, wrapping around to the first). If no group is left, the selection is empty.
+- Any other group change, e.g. a completion in a group that isn't active, **never changes the ActiveGroup**.
+
 ### Constraints:
 - If any selected object is not owned by the player, the selection must contain exactly one object and one group
 - If all selected objects are owned by the player, no limit on count or mixing of types
@@ -292,6 +297,7 @@ The pointer previews the action that right-click would perform, resolved per uni
 - Cursor over own enterable Cults building that accepts the selected unit (see Enter): **Enter**
 - Cursor over resource (resource gatherer selected): **GatherResources**
 - Cursor over drop-off point (resource gatherer carrying resources): **ReturnResources**
+- While targeting **Set Drop-off** (AwaitingTarget[SetDropOffLocation]), cursor over a valid drop-off point: **ReturnResources** (user, 2026-11-25; Q0052)
 - Selection is a production building: **Move** (rally point)
 - No valid action for current cursor target: **Inactive**
 
@@ -388,11 +394,16 @@ A marker surrounding the target object's perimeter.
 | Patrol (destination) | Location | Orange |
 | Reverse | Location | Green |
 | Enter | Object | Green |
+| Gather (sets the source: crystal patch, refinery's output) | Object | Gather marker (distinct look, TBD) |
+| Drop Off (return resources to an Egress Node or refinery) | Object | Return Resources marker (distinct look, TBD) |
+| Set Drop-off | Object | Set Drop-off marker (distinct look, TBD) |
 | Rally point (ground) | Location | Green |
 | Rally point (own or neutral object) | Object | Green |
 | Rally point (enemy object) | Object | Red |
 
 **Rally points** (user, 2026-11-24): shown while the producing building is selected, with a **line** from the building to the rally point so distant or off-screen rally points are easy to follow. A cleared rally point (None) shows nothing.
+
+**Gathering markers** (user, 2026-11-25; Q0052): Gather, Drop Off and Set Drop-off each have their **own distinct marker** on the target object, not the Move marker. Gather targets are crystal patches and refineries (Alloy Furnace, Essence Refinery, Flux Reactor) as sources; Drop Off and Set Drop-off targets are Egress Nodes and refineries as drop-offs. Like all indicators, they are shown only to the owner while the unit is selected.
 
 ### Color language:
 - Green = peaceful movement

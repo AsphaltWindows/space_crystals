@@ -92,6 +92,9 @@ When a Drone arrives at an occupied patch, it goes to the **nearest unoccupied p
 #### Other orders keep the load
 (user, 2026-11-24) A carrying Drone given any other order (Move, Stop, …) **keeps its load**. It delivers it at its next drop-off: on its next Gather trip (Gather while carrying a load below) or with a Drop Off order. (Deploying with a load: factions/colonists/economy.md > Beacon Deployment > Deploying with a load.)
 
+#### Who sees the load
+(user, 2026-11-25; Q0052) A carrying Drone shows a **visual of what it is carrying** (e.g. a crystal load) on its model, seen by **anyone who can see the Drone**. Everything else is **owner-only**: **how much** it holds, **where it is taking it** (its drop-off) and **where it got it** (its source). Other players' InfoPanels for a Drone show none of this, and its command indicators are never shown to them.
+
 #### Gather while carrying a load
 (user, 2026-11-24) A Drone already carrying a load that is ordered to Gather goes **straight to the new pick-up point**. On arrival it sees it is already loaded, **skips mining** (it doesn't occupy the patch) and returns to deliver as if it had just mined the load there. From then on it follows the normal loop for its new patch.
 
