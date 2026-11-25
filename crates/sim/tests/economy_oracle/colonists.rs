@@ -1,8 +1,9 @@
-//! The Colonists' economy (slice M3-K1) against `factions/gdo/economy.md > Economy Targets (GDO vs Colonists)`: the
-//! Colonists' column of its table, within ±15% (design change 0108), and its targets 1 to 4, against the GDO's
-//! reference line (`played::plates_first`, slice M2-J1) measured the same way. Nothing here is tuned to the table:
-//! a figure out of the tolerance, or a target that fails, goes to the Designer as a question with the measured table
-//! (0108), and stays pinned here as measured until the answer comes.
+//! The Colonists' economy (slices M3-K1, M3-K3 and M3-K4) against `factions/gdo/economy.md > Economy Targets (GDO
+//! vs Colonists)`: each figure of its table ([`TABLE`]), the Colonists' and the GDO's, within ±15% (design change
+//! 0108), and its targets 1 to 4, against the GDO's reference line (`played::plates_first`, slice M2-J1) measured
+//! the same way. Since design change 0236 (answering Q0055 and Q0072) the table is this measurement, rounded.
+//! Nothing here is tuned to the table: a figure out of the tolerance, or a target that fails, goes to the Designer
+//! with the measured table (0108).
 //!
 //! **The line** (`sc_sim::testing::colonists`): player 1 on the reference field (`colonists::reference_field`, design
 //! change 0107) from the Colonists' Starting Conditions, one Robo Portal and four Drones with 100 Space Crystals. The
@@ -21,43 +22,52 @@
 //! not their rate.
 //!
 //! **Measured** (`--nocapture` prints the table), with the Drone's numbers of design change 0205 (slice M3-K3:
-//! thrust and drag ×1.5, the same top speed reached sooner), Colonists against the design, with the line's working
-//! Drones and Beacons, and the GDO:
+//! thrust and drag ×1.5, the same top speed reached sooner), against the table, with the line's working Drones and
+//! Beacons:
 //!
-//! | Time | Colonists | Design | Delta | Drones | Beacons | GDO | Design |
-//! |---|---|---|---|---|---|---|---|
-//! | 0:00 | 6.93 | 6.1 | +13.5% | 4 | 0 | 6.67 | 6.7 |
-//! | 0:40 | 11.43 | 12.1 | −5.5% | 8 | 0 | 10.00 | 10.0 |
-//! | 1:00 | 13.33 | 15.0 | −11.1% | 9 | 1 | 12.86 | 13.3 |
-//! | 1:20 | 16.00 | 16.5 | −3.0% | 11 | 1 | 15.24 | 16.7 |
-//! | 1:40 | 18.67 | 19.2 | −2.8% | 13 | 1 | 17.62 | 20.0 |
-//! | 2:20 | 22.86 | 23.1 | −1.1% | 16 | 2 | 23.33 | 23.3 |
-//! | 2:40 | 25.14 | 25.7 | −2.2% | 18 | 2 | 26.19 | 26.7 |
-//! | 3:00 | 26.29 | 27.9 | −5.8% | 19 | 3 | 26.67 | 26.7 |
-//! | 4:00 | 27.81 | 31.9 | −12.8% | 24 | 4 | 26.67 | 26.7 |
+//! | Time | Colonists | Table | Delta | Drones | Beacons | GDO | Table | Delta |
+//! |---|---|---|---|---|---|---|---|---|
+//! | 0:00 | 6.93 | 6.9 | +0.4% | 4 | 0 | 6.67 | 6.7 | −0.5% |
+//! | 0:40 | 11.43 | 11.4 | +0.3% | 8 | 0 | 10.00 | 10.0 | +0.0% |
+//! | 1:00 | 13.33 | 13.3 | +0.3% | 9 | 1 | 12.86 | 12.9 | −0.3% |
+//! | 1:20 | 16.00 | 16.0 | +0.0% | 11 | 1 | 15.24 | 15.2 | +0.3% |
+//! | 1:40 | 18.67 | 18.7 | −0.2% | 13 | 1 | 17.62 | 17.6 | +0.1% |
+//! | 2:20 | 22.86 | 22.9 | −0.2% | 16 | 2 | 23.33 | 23.3 | +0.1% |
+//! | 2:40 | 25.14 | 25.1 | +0.2% | 18 | 2 | 26.19 | 26.2 | −0.0% |
+//! | 3:00 | 26.29 | 26.3 | −0.1% | 19 | 3 | 26.67 | 26.7 | −0.1% |
+//! | 4:00 | 27.81 | 27.8 | +0.0% | 24 | 4 | 26.67 | 26.7 | −0.1% |
 //!
-//! Every figure is within ±15%. The counts are the design's ("Colonists at 2 Drones per patch ≈ 23 Space Crystals
-//! per second for 18 Drones [...] including 2 Beacons"; "~24 working Drones" at full saturation). **Targets** (each
-//! checked below as it reads): 2, 3 and 4 hold; **1 fails**, at 2 Drones per patch only: the Colonists are ahead at
-//! 0:40 (+1.4) and 1:00 (+0.5) and grow faster than the GDO to 1:40, but by 2:20 they have grown less (+15.9
-//! against +16.7), as they start higher (6.93, above the GDO's 6.67 and the table's 6.1). Target 4 holds at the
-//! design's ~24 working Drones (27.8 at 4:00, and 32.0 for 24 Drones dealt out in `curve.rs`, against the GDO's
-//! 26.7). The line passes the GDO's ceiling between 3:40 and 4:00, with 23 to 24 working Drones.
+//! The table rounds the measurement, so every figure is within 0.5% of it. The counts are the design's ("Colonists
+//! at 2 Drones per patch ≈ 23 Space Crystals per second for 18 Drones [...] including 2 Beacons"; "Colonists fully
+//! saturated = 32 per second (24 working Drones)"). **Targets** (each checked below as it reads): all four hold.
+//! Target 1, as 0236 restated it: the Colonists lead at 0:00 (by 0.26), 0:40 (1.43), 1:00 (0.48), 1:20 (0.76) and
+//! 1:40 (1.05). Target 2: each working Drone added brings 1.30 per second before 1:40 and 0.83 after, or 1.33 before
+//! 2 Drones per patch and 0.62 after. Target 4 holds at the design's 24 working Drones (27.8 at 4:00, and 32.0 for
+//! 24 Drones dealt out in `curve.rs`, against the GDO's 26.7). The line passes the GDO's ceiling between 3:40 and
+//! 4:00, with 23 to 24 working Drones, as the design has it.
 //!
-//! **Why** (the figures for Q0055, which stays open): a Drone's trip is 73 ticks at the middle patches and 75, 83 and
-//! 95 from there out (1.75 down to 1.35 per second and Drone), so three Drones' mining, 96 ticks, covers even an end
-//! patch's trip and 8 patches are mined without a break with 24 Drones. A new Drone delivers first 139 to 154 ticks
-//! (about 9 s) after it comes out, a few more where it is sent on from patch to patch: its walk from the portal is
-//! long, at top speed either way, and only its starts and stops are shorter. So, with a Drone every 10 seconds, one
-//! is always on its first trip, about 1.5 per second the table seems to count. Dealing every Drone to the patch with
-//! the fewest instead ([`Colonists::deal`], printed by the ignored `measure_the_colonists_lines`) gives a little more
-//! at 1:00 (13.71) and a little less from 2:40 (24.76; 27.43 at 4:00).
+//! **What shapes the line** (the figures that went to the Designer with Q0055 and Q0072): a Drone's trip is 73
+//! ticks at the middle patches and 75, 83 and 95 from there out (1.75 down to 1.35 per second and Drone), so three
+//! Drones' mining, 96 ticks, covers even an end patch's trip and 8 patches are mined without a break with 24
+//! Drones. A new Drone delivers first 139 to 154 ticks (about 9 s) after it comes out, a few more where it is sent
+//! on from patch to patch: its walk from the portal is long, at top speed either way, and only its starts and stops
+//! are shorter. So, with a Drone every 10 seconds, one is always on its first trip, about 1.5 per second that the
+//! table before 0236, an estimate, counted. Dealing every Drone to the patch with the fewest instead
+//! ([`Colonists::deal`], printed by the ignored `measure_the_colonists_lines`) gives a little more at 1:00 (13.71)
+//! and a little less from 2:40 (24.76; 27.43 at 4:00).
 //!
-//! **Before design change 0205** (slice M3-K1, the question Q0055): 1:00, 3:00 and 4:00 were outside ±15% (12.57,
-//! 23.62 and 24.38) and 0:40 just in (10.29); targets 1 and 4 failed, the line passing the GDO's ceiling at about
-//! 4:40, with 28 working Drones. The trips were 81 ticks at the middle patches and 82, 92 and 104 from there out
-//! (1.58 to 1.23 per second and Drone), and 8 patches needed 27 Drones; a new Drone delivered first about 150 ticks
-//! after it came out (`docs/economy_oracle.md` has both tables).
+//! **Before design change 0236** (slice M3-K3, the question Q0072) the table was the design's estimate: 6.1, 12.1,
+//! 15.0, 16.5, 19.2, 23.1, 25.7, 27.9 and 31.9 for the Colonists, and 6.7, 10.0, 13.3, 16.7, 20.0, 23.3, 26.7, 26.7
+//! and 26.7 for the GDO (its plates landing every 25 seconds, `gdo::model`). The line above was within ±15% of it,
+//! from +13.5% at 0:00 to −12.8% at 4:00. Target 1 then read "Early on, the Colonists' economy grows faster — until
+//! they reach about 2 Drones per patch", and failed at 2:20 only: by then the Colonists had grown by 15.9 from 0:00
+//! and the GDO by 16.7, as the Colonists start higher (6.93, above the GDO's 6.67 and that table's 6.1).
+//!
+//! **Before design change 0205** (slice M3-K1, the question Q0055): against that estimated table, 1:00, 3:00 and
+//! 4:00 were outside ±15% (12.57, 23.62 and 24.38) and 0:40 just in (10.29); targets 1 and 4 failed, the line
+//! passing the GDO's ceiling at about 4:40, with 28 working Drones. The trips were 81 ticks at the middle patches
+//! and 82, 92 and 104 from there out (1.58 to 1.23 per second and Drone), and 8 patches needed 27 Drones; a new
+//! Drone delivered first about 150 ticks after it came out (`docs/economy_oracle.md` has every table).
 
 use sc_sim::testing::TestSim;
 use sc_sim::testing::build_order::{Books, BuildOrder, Entry, Order};
@@ -65,32 +75,17 @@ use sc_sim::testing::colonists::{Colonists, FIELD_DEAL, FIELD_MIDDLE, FIELD_SITE
 use sc_sim::{ObjectId, ObjectKind, SimConfig, SimEvent, Target, Tick};
 
 use super::played::{Played, plates_first};
-use super::{P1, at, clock, seconds};
+use super::{P1, TABLE, TOLERANCE, at, clock, seconds};
 
 use ObjectKind::{Beacon, Drone, RoboPortal};
 
-/// `> Economy Targets (GDO vs Colonists)`'s table: the time, the Colonists' income and the GDO's.
-const TABLE: [(Tick, f64, f64); 9] = [
-    (at(0, 0), 6.1, 6.7),
-    (at(0, 40), 12.1, 10.0),
-    (at(1, 0), 15.0, 13.3),
-    (at(1, 20), 16.5, 16.7),
-    (at(1, 40), 19.2, 20.0),
-    (at(2, 20), 23.1, 23.3),
-    (at(2, 40), 25.7, 26.7),
-    (at(3, 0), 27.9, 26.7),
-    (at(4, 0), 31.9, 26.7),
-];
+/// Target 1's "from the start to about 1:40".
+const EARLY: Tick = at(1, 40);
 /// The table's row "2 Drones per patch".
 const TWO_PER_PATCH: Tick = at(2, 20);
-/// The table's last row, "~24 working Drones" (`> Reference check`: "Colonists fully saturated ≈ 32 per second (~24
+/// The table's last row, 24 working Drones (`> Reference check`: "Colonists fully saturated = 32 per second (24
 /// working Drones)").
 const LAST: Tick = at(4, 0);
-/// Design change 0108: each income figure "within ±15% of the table".
-const TOLERANCE: f64 = 0.15;
-/// The figures measured outside [`TOLERANCE`] (module docs): pinned, so that a change that brings one in, or takes
-/// another out, is noticed and reported. None since design change 0205; before it, 1:00, 3:00 and 4:00 (Q0055).
-const OUT_OF_TOLERANCE: [Tick; 0] = [];
 /// The line's working Drones and Beacons at the table's times: the design's counts where it gives them, 16 and 2 at
 /// 2 Drones per patch and 24 working at 4:00.
 const COUNTS: [(u32, u32); 9] = [
@@ -104,10 +99,6 @@ const COUNTS: [(u32, u32); 9] = [
     (19, 3),
     (24, 4),
 ];
-/// Target 1 fails as measured, and target 4 holds at the design's ~24 working Drones (module docs): pinned, as
-/// [`OUT_OF_TOLERANCE`] is. Before design change 0205 target 4 failed there too (Q0055).
-const TARGET_1_HOLDS: bool = false;
-const TARGET_4_HOLDS_AT_24_DRONES: bool = true;
 /// The income window: the 21 seconds centred on the time measured.
 const WINDOW: Tick = 336;
 /// The lines are played to the end of the last window.
@@ -266,7 +257,7 @@ impl Line {
             };
             println!("  Drone {:2} (#{}) at {}: {what}", i + 1, drone.0, clock(tick));
         }
-        println!("  time | Colonists design  delta | Drones Beacons | GDO   design  delta | bank");
+        println!("  time | Colonists table   delta | Drones Beacons | GDO   table   delta | bank");
         for (tick, colonists, gdo) in TABLE {
             let (c, gdo_measured) = (self.income(tick), gdo_income(g, tick));
             let counts = self.counts[tick as usize];
@@ -284,7 +275,8 @@ impl Line {
 }
 
 /// The GDO's income on its reference line (`played::plates_first`), measured as the Colonists' is: over the
-/// [`WINDOW`] centred on `tick`, at 0:00 over the first.
+/// [`WINDOW`] centred on `tick`, at 0:00 over the first. The GDO column of [`TABLE`] is this, rounded (design change
+/// 0236).
 fn gdo_income(g: &Played, tick: Tick) -> f64 {
     let from = tick.saturating_sub(WINDOW / 2);
     f64::from(g.mined(from, from + WINDOW)) / seconds(WINDOW)
@@ -295,13 +287,13 @@ fn delta(measured: f64, design: f64) -> f64 {
     measured / design - 1.0
 }
 
-/// The reference line against the Colonists' column of `> Economy Targets (GDO vs Colonists)` and the GDO's line,
-/// with targets 1 to 4 (module docs):
+/// The reference line and the GDO's against `> Economy Targets (GDO vs Colonists)`, with targets 1 to 4 (module
+/// docs):
 /// - **the line as the design has it**: a Drone every 10 seconds, the portal never waiting for money or Beacon
 ///   Capacity; the 5th, 11th, 17th and 23rd Drones made deploy, and every deployment completes; the working Drones
 ///   and Beacons at the table's times are the design's where it gives them;
-/// - **each figure** within ±15% of the table (design change 0108), but the ones measured outside it, pinned;
-/// - **the targets** as they read, each pinned as measured.
+/// - **each figure**, the Colonists' and the GDO's, within ±15% of the table (design change 0108);
+/// - **the targets** as they read, target 1 as design change 0236 restated it.
 #[test]
 fn the_colonists_reference_line_against_the_targets() {
     let line = Line::play(END, false);
@@ -333,62 +325,61 @@ fn the_colonists_reference_line_against_the_targets() {
         .collect();
     assert_eq!(counts, COUNTS, "working Drones and Beacons at the table's times");
 
-    // 0108: each figure within ±15%, but those measured outside (the question draft).
-    for (tick, design, _) in TABLE {
-        let income = line.income(tick);
-        let off = delta(income, design);
-        let known = OUT_OF_TOLERANCE.contains(&tick);
-        assert_eq!(
-            off.abs() > TOLERANCE,
-            known,
-            "{}: {income:.2} per second against the table's {design}, {:+.1}%: {}",
-            clock(tick),
-            100.0 * off,
-            if known {
-                "within ±15% now, where the Designer was told it isn't: update OUT_OF_TOLERANCE and the docs, and tell \
-                 the Director"
-            } else {
-                "outside ±15%: a question for the Designer (design change 0108); add it to OUT_OF_TOLERANCE"
-            }
-        );
+    // 0108: each figure, the Colonists' and the GDO's, within ±15% of the table.
+    for (tick, colonists, gdo) in TABLE {
+        for (who, income, design) in [
+            ("the Colonists", line.income(tick), colonists),
+            ("the GDO", gdo_income(&g, tick), gdo),
+        ] {
+            let off = delta(income, design);
+            assert!(
+                off.abs() <= TOLERANCE,
+                "{}: {who} {income:.2} per second against the table's {design}, {:+.1}%: a question for the Designer \
+                 with the measured table (design change 0108)",
+                clock(tick),
+                100.0 * off
+            );
+        }
     }
 
     let colonists = |tick: Tick| line.income(tick);
     let gdo = |tick: Tick| gdo_income(&g, tick);
     let working = |tick: Tick| line.counts[tick as usize].working();
-    let grown = |income: &dyn Fn(Tick) -> f64, tick| income(tick) - income(0);
 
-    // Target 1: "Early on, the Colonists' economy grows faster — until they reach about 2 Drones per patch"; the
-    // table: "The Colonists pull ahead in the first minute". From 0:00 to every time of the table until 2 Drones per
-    // patch the Colonists' income grows more than the GDO's, and in the first minute it is ahead.
-    let early = TABLE
+    // Target 1, as design change 0236 restated it: "Early on, the Colonists lead: from the start to about 1:40". At
+    // every time of the table from 0:00 to 1:40 the Colonists' income is above the GDO's.
+    let early: Vec<Tick> = TABLE.iter().map(|&(tick, ..)| tick).filter(|&t| t <= EARLY).collect();
+    let leads: Vec<String> = early
         .iter()
-        .map(|&(tick, ..)| tick)
-        .filter(|&t| t > 0 && t <= TWO_PER_PATCH);
-    let faster = early.clone().all(|t| grown(&colonists, t) > grown(&gdo, t));
-    let ahead = [at(0, 40), at(1, 0)].iter().all(|&t| colonists(t) > gdo(t));
-    println!(
-        "  target 1: grown by 0:40, 1:00, 1:20, 1:40, 2:20: Colonists {:?}, GDO {:?}; ahead at 0:40 and 1:00: {ahead}",
-        early
-            .clone()
-            .map(|t| format!("{:.2}", grown(&colonists, t)))
-            .collect::<Vec<_>>(),
-        early.map(|t| format!("{:.2}", grown(&gdo, t))).collect::<Vec<_>>(),
-    );
-    assert_eq!(faster && ahead, TARGET_1_HOLDS, "target 1 (TARGET_1_HOLDS)");
+        .map(|&t| format!("{} {:+.2}", &clock(t)[..4], colonists(t) - gdo(t)))
+        .collect();
+    println!("  target 1: the Colonists' lead over the GDO to 1:40: {leads:?}");
+    for &t in &early {
+        assert!(
+            colonists(t) > gdo(t),
+            "target 1: the Colonists lead at {}: {:.2} against the GDO's {:.2}",
+            clock(t),
+            colonists(t),
+            gdo(t)
+        );
+    }
 
     // Target 2: "After that, the Colonists grow more slowly (each extra Drone adds less, and every 6th Drone becomes
-    // a Beacon)": from 2 Drones per patch to 4:00 less per second and less per working Drone added than before it;
-    // every 6th Drone deploys (above).
+    // a Beacon)": to 4:00 less per second and less per working Drone added than before; every 6th Drone deploys
+    // (above). "After that" follows target 1, and so reads, since design change 0236, as after 1:40; it read as
+    // after 2 Drones per patch before 0236, which left targets 2 to 4 unchanged. Both readings are checked.
     let per_second = |from: Tick, to: Tick| (colonists(to) - colonists(from)) / (seconds(to) - seconds(from));
     let per_drone = |from: Tick, to: Tick| (colonists(to) - colonists(from)) / f64::from(working(to) - working(from));
-    let (before, after) = (per_drone(0, TWO_PER_PATCH), per_drone(TWO_PER_PATCH, LAST));
-    println!("  target 2: per working Drone added {before:.2} before 2:20, {after:.2} after");
-    assert!(after < before, "target 2: each extra Drone adds less");
-    assert!(
-        per_second(TWO_PER_PATCH, LAST) < per_second(0, TWO_PER_PATCH),
-        "target 2: growing more slowly"
-    );
+    for split in [EARLY, TWO_PER_PATCH] {
+        let (before, after) = (per_drone(0, split), per_drone(split, LAST));
+        let when = &clock(split)[..4];
+        println!("  target 2: per working Drone added {before:.2} before {when}, {after:.2} after");
+        assert!(after < before, "target 2 after {when}: each extra Drone adds less");
+        assert!(
+            per_second(split, LAST) < per_second(0, split),
+            "target 2 after {when}: growing more slowly"
+        );
+    }
 
     // Target 3: "GDO's full saturation yields more Space Crystals per second, and costs less, than the Colonists at 2
     // Drones per patch": the GDO's fully plated income above the Colonists' at 2:20, and its 8 plates cheaper than
@@ -407,18 +398,14 @@ fn the_colonists_reference_line_against_the_targets() {
     );
     assert_eq!(colonists_cost, 900, "the design's 18 Drones");
 
-    // Target 4: "The Colonists' full saturation yields more than GDO's full saturation", at the design's ~24 working
-    // Drones (4:00). At full saturation, which takes more Drones: `curve.rs`.
+    // Target 4: "The Colonists' full saturation yields more than GDO's full saturation", at the design's 24 working
+    // Drones (4:00); and with 24 Drones mining the row without a break: `curve.rs`.
     println!(
         "  target 4: Colonists at 4:00, 24 working Drones, {:.2}; GDO {:.2}",
         colonists(LAST),
         gdo(LAST)
     );
-    assert_eq!(
-        colonists(LAST) > gdo(LAST),
-        TARGET_4_HOLDS_AT_24_DRONES,
-        "target 4 at ~24 working Drones"
-    );
+    assert!(colonists(LAST) > gdo(LAST), "target 4 at 24 working Drones");
 }
 
 /// The measurements behind the module docs, printed: both lines' Drones and tables (the reference line, and each

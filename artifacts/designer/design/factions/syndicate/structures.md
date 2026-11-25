@@ -25,7 +25,8 @@ Underground buildings constructed within a Tunnel's Tunnel Area. Expansions are 
 **No buildings on top of expansions, and no expansions under buildings** (user, 2026-11-25; Q0062): a surface structure and an underground expansion (any player's, including neutral ones) can never share a tile.
 - **Surface buildings over a hidden expansion**: an enemy's placement is refused. A **direct placement** (e.g. a GDO building) shows its ghost **red at once**, which reveals that something is underground there; this is accepted, since GDO is limited by its build area. A **worker-built** building's ghost judges by what the player knows (so it stays green), and the order **fails when the worker arrives** (core/entities.md > Placement Validation > Worker-Built Structures).
 - **Expansions under a surface building**: refused (see factions/syndicate/tunnels.md > AwaitingPlacement (Expansion)).
-- Units still walk freely over expansions. All Syndicate units are produced by Tunnel expansions.
+- Units still walk freely over expansions.
+- **No expansions under resources** (user, 2026-11-25; Q0062): a Space Crystals patch or Supply Delivery Station above blocks an expansion (core/entities.md > Placement Validation > All placement methods: no buildings on resources). All Syndicate units are produced by Tunnel expansions.
 
 ### Expansion Requirements
 
@@ -42,6 +43,10 @@ Each production expansion can have a rally point set. This determines what happe
 
 - **Rally point set on the surface**: Unit auto-ejects from the parent Tunnel (Side A) and moves to the rally point.
 - **No rally point, or rally point set on the parent Tunnel**: Unit stays in the Tunnel Network, available for ejection from any sufficiently-tiered Tunnel.
+- **Rally point on any own Tunnel** (user, 2026-11-25; Q0064): the unit stays inside the network, like a rally on the parent Tunnel.
+- **Rally point on an expansion** (user, 2026-11-25; Q0064): treated as the **surface location** above it: the unit auto-ejects from the parent Tunnel and walks to stand on top of the expansion.
+- **Auto-ejected units** (those leaving by themselves because of a surface rally point; user, 2026-11-25; Q0064) join the parent Tunnel's **exit queue** in order with manual ejects, first come, first served. While waiting they don't appear in the EjectMenu.
+- **What "moves to the rally point" means** (user, 2026-11-25; Q0064): the unit's default right-click action at the rally target (systems/controls/selection_and_hud.md > What a rally point makes a new unit do), e.g. an Agent rallied on a crystal patch gathers.
 
 ### Hideout
 
@@ -117,6 +122,8 @@ Syndicate equipment storage warehouse for re-arming Syndicate forces.
 
 Prerequisite for the **Shadebringer** (2026-11-25). While the player owns a Vault, Shadebringers inside the Tunnel Network recharge their Sludge and Cover charges (factions/syndicate/units.md > Shadebringer > Charges and recharging).
 
+**Throughput limits** (user, 2026-11-25, to be designed): re-arming should probably be **limited**: only so many units re-armed at a time (per Vault), and each re-arming takes time. Numbers and exact rules TBD.
+
 #### Entity Type - Structure Type (Underground)
 #### Tier Requirement - 1
 #### TechPrerequisite - player owns at least one Hideout (anywhere in the Tunnel Network)
@@ -152,6 +159,8 @@ A shielded dome that works like a Faraday cage against imprinting, so crystal-ba
 Distinct from the Syndicate's physical augmentation: Syndicate infantry are Heavy Infantry because of mechanical exoskeleton-style assistance, which involves no crystals. The Null Chamber is about **consumption**: its effects are subtle and mental (heightened awareness), unlike the Cults' morphological Altar augmentation and unlike Colonists psionics.
 
 #### Null Chamber Exit Buff
+**Throughput limits** (user, 2026-11-25, to be designed): the re-buff should probably be **limited**: only so many units buffed at a time (per Null Chamber), and each buff takes time to apply. How that combines with "every unit that exits receives the buff" is TBD.
+
 While the player owns at least one Null Chamber anywhere in the Tunnel Network, every **manned** Syndicate unit that exits the Tunnel Network through any Tunnel receives a temporary buff that wears off over time.
 - **Manned units**: all Syndicate units except satellites (infantry, vehicles, and crewed aircraft).
 - **Effects**:

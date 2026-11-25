@@ -30,13 +30,15 @@
 
 
 
-- **Q0059–Q0071 (M4 Syndicate, arrived 2026-11-25)**: Q0059 DONE (0229 placeholders). Q0060 DONE (0229, 0231, 0232 refund = current top price). Q0061 DONE (0233, 0234). Q0062 pts 1–4 DONE (0237–0240); pts 3d (resources block expansions) and 5 (water/mountain cells count for Tunnel Space) pending. New: Q0074 (AttackMove re-judge on own movement), Q0075 (revealed attacker's fogged target). New: (Q0055/Q0072 DONE, 0236: measured economy = design, ×1.5 kept.) (Q0073 DONE, 0235.) Q0061–Q0071 non-blocking, Director proceeding on its proposals: Agent-built Tunnels, areas/layers, network transit, ejection, expansions under construction, Agent gathering, Supplies gathering, panel letters, losing Tunnels, Syndicate economy check, deferred content. Go through with the user one at a time (many may be answerable by proposals; check docs first).
+- **Q0059–Q0071 (M4 Syndicate, arrived 2026-11-25)**: Q0059 DONE (0229 placeholders). Q0060 DONE (0229, 0231, 0232 refund = current top price). Q0061 DONE (0233, 0234). Q0062 DONE (0237–0242; whole Tunnel area must be drillable + on map, 0242). Q0074 DONE (0243, B, measure cost). (Q0075 DONE, 0244.) Q0063 DONE (0245–0249; sides corrected 0248: D = Supplies, C = back). Q0064 DONE (0250–0253). Q0065 DONE (0254; 75% cancel refund). Q0066 DONE (0255). Q0067 DONE (0256). Q0068 DONE (0257). Open: Q0069–Q0071. New: (Q0055/Q0072 DONE, 0236: measured economy = design, ×1.5 kept.) (Q0073 DONE, 0235.) Q0061–Q0071 non-blocking, Director proceeding on its proposals: Agent-built Tunnels, areas/layers, network transit, ejection, expansions under construction, Agent gathering, Supplies gathering, panel letters, losing Tunnels, Syndicate economy check, deferred content. Go through with the user one at a time (many may be answerable by proposals; check docs first).
 
 All others through Q0058 answered (this session: 0197–0206, 0223, 0230).
   - All questions answered through Q0048 (2026-11-24/25).
 - Yielding (0023): only no-command units yield; Hold Position/busy don't; modes (Riot Shield) irrelevant; deployed Artillery Rig = fixed obstacle. TBD sidestep distance, allies. Watch: mining workers don't yield → possible clots at patches (worker collision while gathering never designed).
 
 ## Loose Ends
+- **Notifications system** not designed: needed for empty Supply station (0256), blocked production queue, etc.
+- **Vault re-arming / Null Chamber buff throughput limits** (user, 2026-11-25): units at a time + time per unit; design when those buildings get detailed.
 - **Drone 17–20 plateau** (0236): on the reference row, Drones 17–20 add almost nothing (third Drones wait their turn) — accepted for now; revisit if it feels bad (occupancy rule). Drone ×2 acceleration for feel: revisit after playtesting.
 
 
