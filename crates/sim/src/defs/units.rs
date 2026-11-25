@@ -12,6 +12,8 @@ mod bases;
 
 pub use bases::{Domain, MovementModel, UnitBase, UnitBaseDef};
 
+use serde::{Deserialize, Serialize};
+
 use super::ObjectKind;
 use crate::units::SU_PER_GU;
 
@@ -202,6 +204,18 @@ pub struct RiotShieldDef {
     pub toggle_ticks: u32,
 }
 
+/// What a worker carries and delivers (`factions/syndicate/units/agent.md > Gathering`: "Agents gather resources and
+/// deliver them to Tunnels"): each has its own [`LoadDef`] in a [`WorkerDef`] and its own hatch at a Tunnel
+/// (`DropOff::Hatches`).
+#[derive(Copy, Clone, Debug, Default, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
+pub enum Resource {
+    /// Space Crystals, mined at a Space Crystals patch (`core/map.md > SpaceCrystalsPatch`).
+    #[default]
+    Crystals,
+    /// Supplies, picked up at a Supply Delivery Station (`core/map.md > SupplyDeliveryStation`; slice M4-I).
+    Supplies,
+}
+
 /// What a worker does with one resource (`factions/colonists/units/drone.md > Gathering`,
 /// `factions/syndicate/units/agent.md > Gathering > Space Crystals` and `> Supplies`): one load of it, from picking
 /// it up to unloading it.
@@ -228,9 +242,7 @@ pub struct WorkerDef {
     /// Its loads of Space Crystals.
     pub crystals: LoadDef,
     /// Its loads of Supplies (`factions/syndicate/units/agent.md > Gathering > Supplies`), for a type that gathers
-    /// them: none yet. Slice M4-I fills the Agent's and adds the job at a Supply Delivery Station (design change
-    /// 0256: stations are shared as the Agents' patches are; an Agent at an empty one waits beside it and keeps its
-    /// job; the load of one resource is lost at the pick-up of the other).
+    /// them: the Agent (slice M4-I). Such a worker takes a Gather on a Supply Delivery Station (`orders::gather`).
     pub supplies: Option<LoadDef>,
     /// `factions/syndicate/units/agent.md > Gathering > Space Crystals > Patch sharing`: "any number of Agents may
     /// mine the same Space Crystals patch at the same time (unlike Drones)"; `> Gathering rules`: "Agents share
@@ -252,6 +264,16 @@ pub struct WorkerDef {
     /// (`orders::gather::on_gather_job`, `movement::space::blocks`). "Drones only": the workers of the other
     /// factions keep normal collision while they mine.
     pub pass_through: bool,
+}
+
+impl WorkerDef {
+    /// Its loads of `resource`, if it gathers that resource.
+    pub fn load(&self, resource: Resource) -> Option<LoadDef> {
+        match resource {
+            Resource::Crystals => Some(self.crystals),
+            Resource::Supplies => self.supplies,
+        }
+    }
 }
 
 /// A unit type's own attributes (`systems/units.md > Unit`); the attributes every object type has are on its

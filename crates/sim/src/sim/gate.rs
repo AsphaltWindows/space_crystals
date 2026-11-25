@@ -110,8 +110,8 @@ pub enum Reject {
     /// None of the units a Gather or a Drop Off order names is a worker (`factions/colonists/units.md > Drone`), or
     /// none of those a Deploy names deploys (`crate::deploy`).
     NoWorkers,
-    /// A Gather's target isn't a Space Crystals patch that workers can gather: another object, or a patch under a
-    /// mining structure (design change 0137).
+    /// A Gather's target isn't a Space Crystals patch that workers can gather, nor a Supply Delivery Station: another
+    /// object, or a patch under a mining structure (design change 0137).
     NotGatherable(ObjectId),
     /// The target of a Drop Off order or of Set Drop-off Location isn't a drop-off of the player's, an own Egress
     /// Node (`factions/colonists/units.md > Drone > Assigned Drop-off`).

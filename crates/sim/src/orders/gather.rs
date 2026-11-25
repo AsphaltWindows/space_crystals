@@ -90,7 +90,9 @@ mod legs;
 mod patch;
 mod search;
 mod site;
+mod station;
 
+use crate::defs::Resource;
 use crate::object::Object;
 use crate::units::Tick;
 
@@ -154,7 +156,7 @@ pub(super) fn begin(kind: OrderKind, unit: &mut Unit, world: &World) -> Gather {
             if !keeps {
                 worker.drop_off = None;
             } else if worker.drop_off.is_none() {
-                worker.drop_off = nearest_drop_off(world, pos, owner).map(|node| node.id);
+                worker.drop_off = nearest_drop_off(world, pos, owner, worker.resource).map(|node| node.id);
             }
             Gather::new(GatherPhase::ToPatch)
         }
@@ -216,6 +218,11 @@ pub(super) fn run(
 /// Whether the worker carries anything.
 fn loaded(unit: &Unit) -> bool {
     unit.worker.as_ref().is_some_and(|worker| worker.load > 0)
+}
+
+/// Whether the worker carries a load of `resource` (`economy::gathering::Worker::resource`).
+fn carrying(unit: &Unit, resource: Resource) -> bool {
+    unit.worker.as_ref().is_some_and(|worker| worker.load > 0 && worker.resource == resource)
 }
 
 /// Whether the job is on its way back: from the patch with its load, at the drop-off, or just done there.

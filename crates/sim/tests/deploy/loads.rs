@@ -69,7 +69,8 @@ fn a_load_comes_back_with_the_drone_and_can_be_delivered() {
         == SimEvent::ResourcesDelivered {
             worker: id(2),
             drop_off: id(1),
-            amount: 8
+            amount: 8,
+            resource: sc_sim::defs::Resource::Crystals,
         }));
     assert_eq!(object(&t, 2).worker.unwrap().load, 0);
 }

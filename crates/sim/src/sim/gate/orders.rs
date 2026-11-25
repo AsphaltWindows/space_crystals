@@ -54,10 +54,10 @@ impl Sim {
             }
             OrderKind::Hold | OrderKind::Stop => {}
             // `factions/colonists/units.md > Drone > Unit Commands` (`sim/workers.rs`): the workers among the
-            // units take it, the others ignore it.
-            OrderKind::Gather(patch) => {
-                self.check_gather(player, patch)?;
-                ordered = self.workers_among(ordered)?;
+            // units take it, the others ignore it; on a Supply Delivery Station, those that gather Supplies.
+            OrderKind::Gather(target) => {
+                self.check_gather(player, target)?;
+                ordered = self.gatherers_among(player, ordered, target)?;
             }
             // Design change 0140: and only those that carry something.
             OrderKind::DropOff(node) => {

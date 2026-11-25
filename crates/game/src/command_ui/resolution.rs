@@ -155,6 +155,7 @@ impl UnitCapabilities {
                     may_attack: modes.can_attack(id),
                     worker: unit.worker.is_some(),
                     carrying: modes.carries(id),
+                    gathers_supplies: unit.worker.is_some_and(|worker| worker.supplies.is_some()),
                     transit: Transit::of(unit.base),
                 }),
         }

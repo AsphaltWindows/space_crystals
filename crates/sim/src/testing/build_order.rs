@@ -24,15 +24,15 @@
 //! nothing else in the tick draws on, as mining and deliveries pay only after the commands.
 //!
 //! [`Books`] keep a player's accounts for a step: the bank's change must be what the plates mined (read off the
-//! patches under them, not off the bank) and what the workers delivered (the step's `SimEvent::ResourcesDelivered`,
-//! plan decision T27: "books that count drop-offs"), less what the step's orders paid, plus the refunds the step's
-//! events report.
+//! patches under them, not off the bank) and what the workers delivered (the step's `SimEvent::ResourcesDelivered` of
+//! Space Crystals, plan decision T27: "books that count drop-offs"; a delivery of Supplies goes to another bank), less
+//! what the step's orders paid, plus the refunds the step's events report.
 
 use std::collections::{BTreeMap, BTreeSet};
 
 use crate::command::{Command, PlayerCommand};
 use crate::construction::{self, ConstructionCommand, Constructor};
-use crate::defs::{ObjectKind, Recipe};
+use crate::defs::{ObjectKind, Recipe, Resource};
 use crate::events::SimEvent;
 use crate::ids::{ObjectId, PlayerId};
 use crate::nav::TileRect;
@@ -311,7 +311,7 @@ pub struct Entry {
     pub mined: u32,
     /// Each patch that lost crystals in the step, by id, and how many: its plate's lump.
     pub paid: Vec<(ObjectId, u32)>,
-    /// What the player's workers delivered: their `SimEvent::ResourcesDelivered` (slice M3-K1).
+    /// What the player's workers delivered: their `SimEvent::ResourcesDelivered` of Space Crystals (slice M3-K1).
     pub delivered: u32,
     /// Each delivery of the step: the worker, and what it delivered.
     pub deliveries: Vec<(ObjectId, u32)>,
@@ -394,9 +394,12 @@ impl Books {
             .events()
             .iter()
             .filter_map(|e| match *e {
-                SimEvent::ResourcesDelivered { worker, amount, .. } => {
-                    self.workers.contains(&worker).then_some((worker, amount))
-                }
+                SimEvent::ResourcesDelivered {
+                    worker,
+                    amount,
+                    resource: Resource::Crystals,
+                    ..
+                } => self.workers.contains(&worker).then_some((worker, amount)),
                 _ => None,
             })
             .collect();

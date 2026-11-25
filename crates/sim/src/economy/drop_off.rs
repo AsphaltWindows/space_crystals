@@ -12,7 +12,9 @@
 //!
 //! DropOffReach is measured to that square (`factions/syndicate/units/agent.md > Gathering > Space Crystals`:
 //! "within 8 su of the crystal hatch on Side B"), and so is the distance that picks the nearest Tunnel (`> Gathering
-//! rules`: "straight line to its crystal hatch").
+//! rules`: "straight line to its crystal hatch"). Each resource has its point ([`drop_point`]): a load of Supplies is
+//! taken at the Supplies hatch on Side D (design change 0248; slice M4-I), and the nearest Tunnel for it is the one
+//! whose Supplies hatch is nearest, "since that is where the trip ends" (Placeholder: Q0082 point 2).
 
 use glam::Vec2;
 
@@ -35,23 +37,13 @@ pub struct DropPoint {
 }
 
 /// What a worker delivers: each has a hatch of its own at a Tunnel (`defs::DropOff::Hatches`).
-#[derive(Copy, Clone, Debug, PartialEq, Eq)]
-pub enum Resource {
-    Crystals,
-    Supplies,
-}
+pub use crate::defs::Resource;
 
 /// The hatch square of `resource` at the drop-off `o`, a Tunnel as placed: the tile of the map it takes that resource
 /// at (module docs; `tunnel::hatch_square`). `None` for an object that has no hatches. What the economy check measures
 /// to (design change 0259: "from the patch's edge to the Tunnel's crystal hatch") and what the client draws.
 pub fn hatch_square(o: &Object, resource: Resource) -> Option<TilePos> {
-    let DropOff::Hatches { crystals, supplies } = rule(o.kind)? else {
-        return None;
-    };
-    let side = match resource {
-        Resource::Crystals => crystals,
-        Resource::Supplies => supplies,
-    };
+    let side = rule(o.kind)?.hatch(resource)?;
     hatch_tile(o.kind, o.placement.as_ref()?, side)
 }
 
@@ -85,31 +77,45 @@ pub fn hatch_tile(kind: ObjectKind, placement: &Placement, side: SideLetter) -> 
     Some(TilePos::new(placement.origin.x + dx, placement.origin.y + dy))
 }
 
-/// Where workers unload Space Crystals at a `kind` structure at `pos`, whose shape is `whole`, placed at
-/// `placement`; `None` for a type that takes no loads.
-pub fn crystal_point(kind: ObjectKind, pos: Vec2, whole: Shape, placement: Option<&Placement>) -> Option<DropPoint> {
+/// Where workers unload `resource` at a `kind` structure at `pos`, whose shape is `whole`, placed at `placement`:
+/// the whole structure, or the resource's hatch square (module docs); `None` for a type that takes no loads.
+pub fn drop_point(
+    kind: ObjectKind,
+    pos: Vec2,
+    whole: Shape,
+    placement: Option<&Placement>,
+    resource: Resource,
+) -> Option<DropPoint> {
     let anywhere = DropPoint {
         shape: whole,
         centre: pos,
         side: None,
     };
-    match rule(kind)? {
-        DropOff::Anywhere => Some(anywhere),
-        DropOff::Hatches { crystals, .. } => {
-            let hatch = placement.and_then(|placement| hatch_tile(kind, placement, crystals));
-            // A hatch structure without a footprint doesn't exist; it would take loads anywhere.
-            Some(hatch.map_or(anywhere, |tile| DropPoint {
-                shape: Shape::rect(tile.center(), Vec2::splat(SU_PER_GU / 2.0)),
-                centre: tile.center(),
-                side: Some(crystals),
-            }))
-        }
-    }
+    let Some(side) = rule(kind)?.hatch(resource) else {
+        return Some(anywhere);
+    };
+    let hatch = placement.and_then(|placement| hatch_tile(kind, placement, side));
+    // A hatch structure without a footprint doesn't exist; it would take loads anywhere.
+    Some(hatch.map_or(anywhere, |tile| DropPoint {
+        shape: Shape::rect(tile.center(), Vec2::splat(SU_PER_GU / 2.0)),
+        centre: tile.center(),
+        side: Some(side),
+    }))
+}
+
+/// [`drop_point`] of object `o`.
+pub fn drop_point_of(o: &Object, resource: Resource) -> Option<DropPoint> {
+    drop_point(o.kind, o.pos, Shape::of(o), o.placement.as_ref(), resource)
+}
+
+/// Where workers unload Space Crystals at a `kind` structure ([`drop_point`]).
+pub fn crystal_point(kind: ObjectKind, pos: Vec2, whole: Shape, placement: Option<&Placement>) -> Option<DropPoint> {
+    drop_point(kind, pos, whole, placement, Resource::Crystals)
 }
 
 /// [`crystal_point`] of object `o`.
 pub fn crystal_point_of(o: &Object) -> Option<DropPoint> {
-    crystal_point(o.kind, o.pos, Shape::of(o), o.placement.as_ref())
+    drop_point_of(o, Resource::Crystals)
 }
 
 #[cfg(test)]
@@ -168,8 +174,8 @@ mod tests {
         assert_eq!(hatch_offset([A, A, A, A], B, 4, 4), None);
     }
 
-    /// Plan decision T34: an Egress Node takes loads anywhere, a Tunnel at its crystal hatch on Side B, and nothing
-    /// else takes any.
+    /// Plan decision T34: an Egress Node takes loads anywhere, a Tunnel at its crystal hatch on Side B and its
+    /// Supplies hatch on Side D, and nothing else takes any.
     #[test]
     fn only_the_egress_node_and_the_tunnel_take_loads() {
         for &kind in ObjectKind::ALL {
@@ -191,9 +197,18 @@ mod tests {
             (point.side, point.centre, point.shape),
             (Some(B), tile.center(), Shape::rect(tile.center(), Vec2::splat(32.0)))
         );
+        // Slice M4-I: Supplies at the hatch on Side D, tile (10, 22).
+        let point = drop_point(ObjectKind::Tunnel, placement.center(), whole, Some(&placement), Resource::Supplies);
+        let tile = TilePos::new(10, 22);
+        assert_eq!(
+            point.map(|point| (point.side, point.centre, point.shape)),
+            Some((Some(D), tile.center(), Shape::rect(tile.center(), Vec2::splat(32.0))))
+        );
         let node = Placement::new(TilePos::new(4, 4), ObjectKind::EgressNode.def().footprint);
         let whole = Shape::footprint(&node);
-        let point = crystal_point(ObjectKind::EgressNode, node.center(), whole, Some(&node)).unwrap();
-        assert_eq!((point.side, point.centre, point.shape), (None, node.center(), whole));
+        for resource in [Resource::Crystals, Resource::Supplies] {
+            let point = drop_point(ObjectKind::EgressNode, node.center(), whole, Some(&node), resource).unwrap();
+            assert_eq!((point.side, point.centre, point.shape), (None, node.center(), whole));
+        }
     }
 }

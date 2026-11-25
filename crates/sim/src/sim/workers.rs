@@ -5,8 +5,10 @@
 use glam::Vec2;
 
 use super::{Reject, Sim};
-use crate::economy::drop_off::crystal_point_of;
+use crate::defs::Resource;
+use crate::economy::drop_off::drop_point_of;
 use crate::economy::gathering::{is_drop_off, worker_def};
+use crate::economy::stations::is_station;
 use crate::ids::{ObjectId, PlayerId};
 use crate::object::{Object, ResourceState};
 use crate::orders::state::{Behaviour, GatherPhase};
@@ -40,10 +42,35 @@ fn returning_to(o: &Object) -> Option<ObjectId> {
 }
 
 impl Sim {
-    /// The gate for `OrderKind::Gather(patch)`: a patch `player` sees or remembers, and takes to be gatherable, as
-    /// it knows it (design change 0139, `Sim::check_gather_target`).
-    pub(super) fn check_gather(&self, player: PlayerId, patch: ObjectId) -> Result<(), Reject> {
-        self.check_gather_target(player, patch)
+    /// The gate for `OrderKind::Gather(target)`: a patch `player` sees or remembers, and takes to be gatherable, as
+    /// it knows it (design change 0139, `Sim::check_gather_target`), or a Supply Delivery Station (slice M4-I).
+    pub(super) fn check_gather(&self, player: PlayerId, target: ObjectId) -> Result<(), Reject> {
+        self.check_gather_target(player, target)
+    }
+
+    /// The workers among `units` that take a Gather on `target`, which the gate let through
+    /// ([`Sim::check_gather`]): every worker for a patch; for a Supply Delivery Station, as `player` knows it, those of
+    /// a type that gathers Supplies (`WorkerDef::supplies`: the Agent; `factions/syndicate/units/agent.md > Unit
+    /// Commands`: "Gather — right-click Space Crystals patch or Supply Delivery Station"; slice M4-I). The others
+    /// ignore it ([`Reject::NoWorkers`] if none is left).
+    pub(super) fn gatherers_among(
+        &self,
+        player: PlayerId,
+        units: Vec<ObjectId>,
+        target: ObjectId,
+    ) -> Result<Vec<ObjectId>, Reject> {
+        let mut workers = self.workers_among(units)?;
+        if self.known_kind(player, target).is_ok_and(is_station) {
+            let gathers_supplies = |id: &ObjectId| {
+                let kind = self.objects.get(id).map(|o| o.kind);
+                kind.and_then(worker_def).is_some_and(|def| def.supplies.is_some())
+            };
+            workers.retain(gathers_supplies);
+            if workers.is_empty() {
+                return Err(Reject::NoWorkers);
+            }
+        }
+        Ok(workers)
     }
 
     /// The gate for `OrderKind::DropOff(node)` and `Ability::SetDropOff(node)` (`> Unit Commands`: "own Egress
@@ -161,32 +188,33 @@ impl Sim {
         if !gone.iter().any(lost) {
             return;
         }
-        let returning: Vec<(ObjectId, Vec2, Option<PlayerId>)> = (self.objects.values())
+        let returning: Vec<(ObjectId, Vec2, Option<PlayerId>, Resource)> = (self.objects.values())
             .filter(|o| !is_gone(o.id) && returning_to(o).is_some_and(is_gone))
-            .map(|o| (o.id, o.pos, o.owner))
+            .map(|o| (o.id, o.pos, o.owner, o.worker.map_or(Resource::Crystals, |w| w.resource)))
             .collect();
-        for (id, pos, owner) in returning {
-            let nearest = self.nearest_drop_off(pos, owner, is_gone);
+        for (id, pos, owner, resource) in returning {
+            let nearest = self.nearest_drop_off(pos, owner, resource, is_gone);
             if let Some(worker) = self.objects.get_mut(&id).and_then(|o| o.worker.as_mut()) {
                 worker.drop_off = nearest;
             }
         }
     }
 
-    /// The drop-off of `owner`'s nearest to `pos`, by its centre or its crystal hatch's
-    /// (`economy::drop_off::DropPoint::centre`), the lowest id among equals, of those that take
+    /// The drop-off of `owner`'s nearest to `pos` for a load of `resource`, by its centre or the centre of the hatch
+    /// that takes `resource` (`economy::drop_off::DropPoint::centre`), the lowest id among equals, of those that take
     /// loads (an Egress Node being warped in takes nothing, design change 0116) and aren't `gone`: the rule of the
     /// return leg's `orders::gather::nearest_drop_off`, here on the game rather than on the behaviours' snapshot.
     fn nearest_drop_off(
         &self,
         pos: Vec2,
         owner: Option<PlayerId>,
+        resource: Resource,
         is_gone: impl Fn(ObjectId) -> bool,
     ) -> Option<ObjectId> {
         owner?;
         (self.objects.values())
             .filter(|o| o.owner == owner && !o.is_transforming() && !is_gone(o.id))
-            .filter_map(|o| Some((o.id, crystal_point_of(o)?.centre.distance_squared(pos))))
+            .filter_map(|o| Some((o.id, drop_point_of(o, resource)?.centre.distance_squared(pos))))
             .min_by(|a, b| a.1.total_cmp(&b.1))
             .map(|(id, _)| id)
     }

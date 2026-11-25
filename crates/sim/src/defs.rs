@@ -24,7 +24,7 @@ pub use structures::{
 };
 pub use units::{
     AttackAttrs, AttackType, Domain, FullyConnectedSubtype, LoadDef, MELEE_CONTACT_GU, MovementAttrs, MovementModel,
-    RiotShieldDef, TargetDomain, TargetType, TurretAttrs, UnitBase, UnitBaseDef, UnitDef, WorkerDef,
+    Resource, RiotShieldDef, TargetDomain, TargetType, TurretAttrs, UnitBase, UnitBaseDef, UnitDef, WorkerDef,
 };
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]

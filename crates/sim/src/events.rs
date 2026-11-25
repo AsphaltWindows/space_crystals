@@ -4,7 +4,7 @@
 use glam::Vec2;
 use serde::{Deserialize, Serialize};
 
-use crate::defs::ObjectKind;
+use crate::defs::{ObjectKind, Resource};
 use crate::economy::ArmyResource;
 use crate::ids::{ObjectId, PlayerId};
 use crate::placement::PlacementCheck;
@@ -21,6 +21,15 @@ pub enum SimEvent {
     SuppliesDelivered {
         station: ObjectId,
         amount: u32,
+    },
+    /// A pick-up took the last Supply from `station` (`factions/syndicate/units/agent.md > Gathering > Supplies`,
+    /// design change 0256 point 3: "An empty station: the owner gets a notification (notifications not designed yet),
+    /// and every Agent picking up there stands next to it indefinitely, keeping its job, waiting for the next supply
+    /// delivery"): one event for each player whose workers gather there, `owner`, in id order. The client shows a
+    /// placeholder for the notification (slice M4-I, `crate::economy::stations`).
+    SupplyStationEmpty {
+        station: ObjectId,
+        owner: PlayerId,
     },
     /// A unit gave up a move: it found no path (`docs/movement.md > 4`,
     /// `systems/controls/behaviors.md > MovingToLocation > Failure`).
@@ -141,12 +150,15 @@ pub enum SimEvent {
     GameOver {
         winners: Vec<PlayerId>,
     },
-    /// `worker` finished unloading at `drop_off`, and `amount` Space Crystals entered its owner's bank
-    /// (`factions/colonists/economy.md > Egress Node > Drop Off`; `crate::economy::gathering`).
+    /// `worker` finished unloading at `drop_off`, and `amount` of `resource` entered its owner's bank
+    /// (`factions/colonists/economy.md > Egress Node > Drop Off`; `crate::economy::gathering`): Space Crystals, or
+    /// Supplies at a Tunnel's Supplies hatch (slice M4-I).
     ResourcesDelivered {
         worker: ObjectId,
         drop_off: ObjectId,
         amount: u32,
+        #[serde(default)]
+        resource: Resource,
     },
     /// Object `id` changed its kind in place, from `from` to `to`, and is still the same object (plan decision T15,
     /// `Sim::change_kind`): a Drone deploying into a Beacon, a Beacon warping in a building, a Legionnaire converting

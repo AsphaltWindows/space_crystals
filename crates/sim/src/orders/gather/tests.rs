@@ -78,6 +78,7 @@ fn with_no_patch_left_a_job_ends_or_delivers_its_load_first() {
         let mut worker = Worker {
             load,
             drop_off: Some(NODE),
+            ..Worker::default()
         };
         let unit = Unit {
             id: ME,

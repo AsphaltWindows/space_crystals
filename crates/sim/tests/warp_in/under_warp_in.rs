@@ -53,7 +53,7 @@ fn an_egress_node_being_warped_in_takes_no_drop_off() {
     let delivered = t
         .events()
         .iter()
-        .any(|(_, e)| matches!(e, SimEvent::ResourcesDelivered { worker, drop_off, amount: 8 } if *worker == id(6) && *drop_off == id(1)));
+        .any(|(_, e)| matches!(e, SimEvent::ResourcesDelivered { worker, drop_off, amount: 8, .. } if *worker == id(6) && *drop_off == id(1)));
     assert!(delivered, "delivered at the complete Egress Node");
 }
 

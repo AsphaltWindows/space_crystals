@@ -23,6 +23,7 @@ fn on(target: CursorTarget, destructible: bool, domain: Domain) -> MapTarget {
             destructible,
             domain,
             gatherable: false,
+            station: false,
             drop_off: false,
             transit: &[],
         }),
@@ -74,6 +75,7 @@ const fn combat_unit(attack: Option<TargetDomain>, may_attack: bool) -> UnitCapa
             may_attack,
             worker: false,
             carrying: false,
+            gathers_supplies: false,
             transit: Transit::Infantry,
         }),
     }
@@ -95,6 +97,7 @@ const DRONE: UnitCapabilities = UnitCapabilities {
         may_attack: true,
         worker: true,
         carrying: false,
+        gathers_supplies: false,
         transit: Transit::Vehicles,
     }),
 };
@@ -105,6 +108,7 @@ const LOADED_DRONE: UnitCapabilities = UnitCapabilities {
         may_attack: true,
         worker: true,
         carrying: true,
+        gathers_supplies: false,
         transit: Transit::Vehicles,
     }),
 };

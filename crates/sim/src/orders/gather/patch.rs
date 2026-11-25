@@ -1,7 +1,8 @@
 //! The job at its patch (the module docs of `orders::gather`): the way there, waiting, mining, looking round for
-//! another patch, and the Gather's end.
+//! another patch, and the Gather's end. A Gather on a Supply Delivery Station goes on at the station instead
+//! (`super::station`, slice M4-I).
 
-use crate::defs::WorkerDef;
+use crate::defs::{Resource, WorkerDef};
 use crate::ids::{ObjectId, PlayerId};
 use crate::mover::MoveStatus;
 use crate::units::Tick;
@@ -12,7 +13,8 @@ use super::super::world::{Unit, World};
 use super::legs::leg;
 use super::search::{claim, search, taken};
 use super::site::{Site, site};
-use super::{Claims, Flow, RECHECK_TICKS, loaded, returning};
+use super::station::{to_station, wait_at_station};
+use super::{Claims, Flow, RECHECK_TICKS, carrying, loaded, returning};
 
 pub(super) fn to_patch(
     kind: &mut OrderKind,
@@ -26,6 +28,7 @@ pub(super) fn to_patch(
     let target = match site {
         Site::Patch(patch) => patch.shape,
         Site::Gone(shape) => shape,
+        Site::Station(station) => return to_station(state, unit, def, station, world, claims),
         Site::Nowhere => return end(state, unit),
     };
     // `> Gathering`: MiningReach. A leg that ended short of the patch counts as arriving, out of reach (0141).
@@ -41,8 +44,9 @@ pub(super) fn to_patch(
     };
     // Design change 0128: loaded, it turns round without mining, and claims nothing. (A leg that ended short of
     // the patch is an arrival too: the patch it can't reach is like an occupied one, 0141, and an occupied one
-    // doesn't keep it.)
-    if loaded(unit) {
+    // doesn't keep it.) A worker that carries a Supply mines as any other, and loses it as the mining ends (design
+    // change 0256 point 4: "the same the other way"; Placeholder: Q0082 point 3, `economy::gathering`).
+    if carrying(unit, Resource::Crystals) {
         state.enter(GatherPhase::ToDropOff);
         return Flow::Next;
     }
@@ -82,6 +86,7 @@ pub(super) fn wait(
         Site::Patch(patch) => patch,
         // Design change 0134: "Drones already waiting at it look for another patch right away"; 0137, a plate.
         Site::Gone(_) => return find_another(kind, state, unit, def, world, claims),
+        Site::Station(station) => return wait_at_station(state, unit, def, since, station, world, claims),
         Site::Nowhere => return end(state, unit),
     };
     // 0132, item 1: it "mines it as soon as it frees up"; 0133: the lowest id of those waiting there. Not one out of
@@ -110,9 +115,9 @@ pub(super) fn wait(
     Flow::Stay
 }
 
-/// Mining, whose frames the economy phase counts. A patch that is gone for the workers stops it, and the worker
-/// looks round at once (design change 0137: "a Drone in the middle of mining it is interrupted and collects
-/// nothing").
+/// Mining, or a pick-up at a station, whose frames the economy phase counts. A patch that is gone for the workers
+/// stops it, and the worker looks round at once (design change 0137: "a Drone in the middle of mining it is
+/// interrupted and collects nothing"). Stations never go.
 pub(super) fn mine(
     kind: &mut OrderKind,
     state: &mut Gather,
@@ -122,7 +127,7 @@ pub(super) fn mine(
     claims: &mut Claims,
 ) -> Flow {
     match site(*kind, state, unit, world) {
-        Site::Patch(_) => Flow::Stay,
+        Site::Patch(_) | Site::Station(_) => Flow::Stay,
         Site::Gone(_) => find_another(kind, state, unit, def, world, claims),
         Site::Nowhere => end(state, unit),
     }

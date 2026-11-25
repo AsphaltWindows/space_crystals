@@ -28,7 +28,7 @@ use crate::units::{SU_PER_GU, Tick, gu};
 use crate::vision::{Hiding, Vision};
 
 use gathering::Gathering;
-pub(crate) use gathering::KnownPatch;
+pub(crate) use gathering::{KnownPatch, KnownStation};
 
 /// An object as the behaviours see it this tick.
 #[derive(Copy, Clone, Debug)]
@@ -319,6 +319,11 @@ impl<'a> World<'a> {
     /// The objects that stand where they are, structures and map resources, in id order.
     pub(crate) fn fixed(&self) -> impl Iterator<Item = &View> + '_ {
         self.views.iter().filter(|view| !view.is_unit)
+    }
+
+    /// The units, in id order.
+    pub(crate) fn units(&self) -> impl Iterator<Item = &View> + '_ {
+        self.views.iter().filter(|view| view.is_unit)
     }
 
     pub(crate) fn elevation(&self, unit: &Unit) -> Elevation {

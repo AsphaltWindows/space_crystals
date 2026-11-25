@@ -107,6 +107,14 @@ pub(super) fn leg(state: &mut Gather, unit: &mut Unit, target: &Shape, beside: O
             (reach + 2.0 * half.max_element() - 1.0).max(0.0)
         });
         let to = approach_point(unit, target, beside, world);
+        leg_to(state, unit, to, world);
+    }
+}
+
+/// The leg to the point `to`: it begins, unless one is under way. The station's legs head for a spot of their own
+/// (`station::spot`, slice M4-I).
+pub(super) fn leg_to(state: &mut Gather, unit: &mut Unit, to: Vec2, world: &World) {
+    if !state.moving {
         unit.mover.go_to(MoveGoal::Point(to), None, world.tick);
         state.moving = true;
     }

@@ -176,6 +176,7 @@ fn the_rule_on_abilities_and_targets() {
         may_attack: true,
         worker: false,
         carrying: false,
+        gathers_supplies: false,
         transit: Transit::Infantry,
     };
     let drone = |carrying| Abilities {
@@ -183,6 +184,7 @@ fn the_rule_on_abilities_and_targets() {
         may_attack: true,
         worker: true,
         carrying,
+        gathers_supplies: false,
         transit: Transit::Vehicles,
     };
     let object = |enemy, destructible, domain, gatherable, drop_off| Aimed {
@@ -191,6 +193,7 @@ fn the_rule_on_abilities_and_targets() {
         destructible,
         domain,
         gatherable,
+        station: false,
         drop_off,
         transit: &[],
     };
@@ -271,4 +274,21 @@ fn the_rule_on_abilities_and_targets() {
     assert_eq!(resolve(flyer, Aim::Object(tunnel(tier_3, false))), follow);
     let p = Vec2::new(1.0, 2.0);
     assert_eq!(resolve(drone(true), Aim::Ground(p)), OrderKind::Move(Target::Point(p)));
+    // A Supply Delivery Station (slice M4-I, `factions/syndicate/units/agent.md > Right-Click Resolution`: "Supply
+    // Delivery Station → Gather supplies"): Gather for a worker that gathers Supplies, loaded or not (design change
+    // 0256 point 4: it "goes straight to the station"); a Move to it for any other unit, a Drone too.
+    let station = Aimed {
+        station: true,
+        ..object(false, false, Domain::Ground, false, false)
+    };
+    for carrying in [false, true] {
+        let agent = Abilities {
+            gathers_supplies: true,
+            transit: Transit::Infantry,
+            ..drone(carrying)
+        };
+        assert_eq!(resolve(agent, Aim::Object(station)), OrderKind::Gather(ObjectId(5)));
+        assert_eq!(resolve(drone(carrying), Aim::Object(station)), follow);
+    }
+    assert_eq!(resolve(armed(TargetDomain::Ground), Aim::Object(station)), follow);
 }

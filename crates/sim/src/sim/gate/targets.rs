@@ -14,6 +14,7 @@
 use crate::combat::object_domain;
 use crate::defs::{Domain, ObjectKind};
 use crate::economy::gathering::{gatherable, is_drop_off};
+use crate::economy::stations::is_station;
 use crate::ids::{ObjectId, PlayerId};
 use crate::network;
 use crate::object::Object;
@@ -51,6 +52,7 @@ impl Sim {
                     destructible: o.def().destructible,
                     domain: object_domain(o),
                     gatherable: gatherable(&self.objects, id),
+                    station: is_station(o.kind),
                     drop_off: o.owner == Some(player) && is_drop_off(o.kind) && !o.is_transforming(),
                     // `systems/controls/commands.md > Enter`: an own Tunnel, by its tier (`crate::network`).
                     transit: crate::tunnel::tier_def(o)
@@ -67,6 +69,7 @@ impl Sim {
                     destructible: record.kind.def().destructible,
                     domain: Domain::Ground,
                     gatherable: targets::remembered_gatherable(sight, record, self.own_cover(player, id)),
+                    station: is_station(record.kind),
                     drop_off: false,
                     transit: &[],
                 })
@@ -84,10 +87,12 @@ impl Sim {
     /// Space Crystal patch"; design change 0139: a patch the player sees or remembers, "Gather" among the targeted
     /// commands): `player` knows of patch `id` ([`Sim::check_target_known`]), and takes it to be a Space Crystals
     /// patch with no mining structure on it (design change 0137: "Drones can't gather a patch covered by a plate"),
-    /// as it knows it: a remembered one by its record ([`Reject::NotGatherable`]).
+    /// as it knows it: a remembered one by its record ([`Reject::NotGatherable`]). Or a Supply Delivery Station
+    /// (`factions/syndicate/units/agent.md > Unit Commands`: "Gather — right-click Space Crystals patch or Supply
+    /// Delivery Station"; slice M4-I), which only the workers that gather Supplies take (`Sim::gatherers_among`).
     pub(in crate::sim) fn check_gather_target(&self, player: PlayerId, id: ObjectId) -> Result<(), Reject> {
         self.check_target_known(player, id)?;
-        if !self.aimed(player, id).is_some_and(|aimed| aimed.gatherable) {
+        if !self.aimed(player, id).is_some_and(|aimed| aimed.gatherable || aimed.station) {
             return Err(Reject::NotGatherable(id));
         }
         Ok(())

@@ -273,6 +273,7 @@ fn fuzz_run(seed: u64) -> Run {
                 SimEvent::Spawned(_) => spawned += 1,
                 SimEvent::Removed(_) => removed += 1,
                 SimEvent::SuppliesDelivered { .. }
+                | SimEvent::SupplyStationEmpty { .. }
                 | SimEvent::MoveFailed { .. }
                 | SimEvent::Attacked { .. }
                 | SimEvent::Hit { .. }

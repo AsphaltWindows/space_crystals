@@ -68,9 +68,14 @@ pub(super) static GUARD: ObjectDef = ObjectDef {
     structure: None,
 };
 
+/// The Agent's reaches for Supplies, space units: to a Supply Delivery Station's edge to pick one up, and to the
+/// Supplies hatch on Side D to unload it. `> Gathering > Supplies` gives none; the crystals' 8 su stand in for both
+/// (Placeholder: Q0082 point 1).
+const SUPPLIES_REACH: f32 = 8.0;
+
 /// `factions/syndicate/units/agent.md`: the Syndicate's worker, with its pistol (slice M4-A) and its gathering of
-/// Space Crystals (`> Gathering`: its `worker`, slice M4-D). Its Supplies and its construction come with slices M4-I
-/// and M4-E.
+/// Space Crystals and Supplies (`> Gathering`: its `worker`, slices M4-D and M4-I). Its construction comes with slice
+/// M4-E.
 pub(super) static AGENT: ObjectDef = ObjectDef {
     kind: ObjectKind::Agent,
     name: "Agent",
@@ -130,7 +135,14 @@ pub(super) static AGENT: ObjectDef = ObjectDef {
                 pick_up_reach: 8.0,  // MiningReach: 8 space units (placeholder)
                 drop_off_reach: 8.0, // DropOffReach: 8 space units, to the crystal hatch (placeholder)
             },
-            supplies: None,        // `> Gathering > Supplies`: slice M4-I
+            // `> Gathering > Supplies` (slice M4-I; design change 0256 for the rules at a station)
+            supplies: Some(LoadDef {
+                carry_capacity: 1,               // CarryCapacity: 1 Supply per trip
+                pick_up_ticks: 48,               // PickUpDuration: 48 frames (3 seconds)
+                drop_off_ticks: 48,              // DropOffDuration: 48 frames (3 seconds)
+                pick_up_reach: SUPPLIES_REACH,   // to the station's edge
+                drop_off_reach: SUPPLIES_REACH,  // to the Supplies hatch on Side D
+            }),
             shares_patches: true,  // Patch sharing: any number of Agents may mine the same patch
             keeps_drop_off: false, // `> Gathering rules`: the nearest Tunnel, picked again by each Gather
             // Placeholder: the Drone's 6 grid units. `> Gathering rules` gives the Agent the Drone's "When a Gather

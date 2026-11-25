@@ -42,12 +42,22 @@
 //! stand-in mover the Drone had before (top speed at once) 60 ticks.
 //!
 //! **Crowds**: `tests/gathering_soak.rs`, and the note on collision in `orders::gather`.
+//!
+//! **Supplies** (slice M4-I; `factions/syndicate/units/agent.md > Gathering > Supplies`, design change 0256): a
+//! worker whose type gathers them (`WorkerDef::supplies`: the Agent) picks one up at a Supply Delivery Station
+//! (`super::stations`): its timed work there is a pick-up, PickUpDuration, which takes the Supply from the station as
+//! it ends, and its delivery pays the Supplies bank, DropOffDuration after it began at the Tunnel's Supplies hatch.
+//! What a load is of is the worker's [`Worker::resource`]. **Switching resources** (0256 point 4): "an Agent carrying
+//! Space Crystals that is ordered to gather Supplies goes straight to the station; its crystals are lost when it picks
+//! up the Supply. (Assumed the same the other way: a carried Supply is lost when it mines crystals.)" The old load
+//! goes when the new pick-up or mining ends, with the new load: one interrupted before that keeps it (Placeholder:
+//! Q0082 point 3).
 
 use std::collections::BTreeMap;
 
 use serde::{Deserialize, Serialize};
 
-use crate::defs::{ObjectKind, WorkerDef};
+use crate::defs::{ObjectKind, Resource, WorkerDef};
 use crate::events::SimEvent;
 use crate::hash::{StateHash, StateHasher};
 use crate::ids::ObjectId;
@@ -71,6 +81,16 @@ pub struct Worker {
     /// until its first Gather assigns one, and again when that one is gone, but for a worker on its way back to it,
     /// which takes the nearest other at once (design change 0170, `Sim::reassign_drop_offs`).
     pub drop_off: Option<ObjectId>,
+    /// What its load is of (slice M4-I): Space Crystals, or Supplies for a worker of a type that gathers them
+    /// (module docs). Space Crystals while it carries nothing. Optional in files and left out of them while Space
+    /// Crystals, so that states saved before it existed load, and hashed only while Supplies.
+    #[serde(default, skip_serializing_if = "is_crystals")]
+    pub resource: Resource,
+}
+
+/// Whether `resource` is Space Crystals, which a worker's file leaves out ([`Worker::resource`]).
+fn is_crystals(resource: &Resource) -> bool {
+    *resource == Resource::Crystals
 }
 
 impl Worker {
@@ -84,9 +104,19 @@ impl Worker {
 
 impl StateHash for Worker {
     fn hash(&self, h: &mut StateHasher) {
-        let Worker { load, drop_off } = self;
+        let Worker {
+            load,
+            drop_off,
+            resource,
+        } = self;
         load.hash(h);
         drop_off.hash(h);
+        // (M4-I) Only while it carries Supplies, under a tag of its own: the states of games in which no worker
+        // carries any hash as they did before the field existed, so the goldens stand.
+        match resource {
+            Resource::Crystals => {}
+            Resource::Supplies => h.tag(1),
+        }
     }
 }
 
@@ -126,17 +156,29 @@ fn job(orders: &mut Orders) -> Option<(OrderKind, &mut crate::orders::state::Gat
     }
 }
 
+/// Pays `amount` of `resource` into `player`'s bank. Income saturates (`Player::credit_crystals`).
+fn credit(player: &mut Player, resource: Resource, amount: u32) {
+    match resource {
+        Resource::Crystals => player.credit_crystals(amount),
+        Resource::Supplies => player.supplies = player.supplies.saturating_add(amount),
+    }
+}
+
 /// The workers' timed work (module docs), for the workers from before this tick, in id order: the frames first,
-/// then the loads taken from the patches. Returns the patches that the loads emptied and that leave the map, in id
-/// order.
+/// then the loads taken from the patches and the stations. Returns the patches that the loads emptied and that leave
+/// the map, in id order.
 pub(super) fn step(
     objects: &mut BTreeMap<ObjectId, Object>,
     players: &mut [Player],
     first_new: ObjectId,
     events: &mut Vec<SimEvent>,
 ) -> Vec<ObjectId> {
-    // (worker, patch, CarryCapacity) of the mining that ended this tick.
+    // The Supply Delivery Stations: timed work at one is a pick-up of Supplies (slice M4-I).
+    let stations = super::stations::ids(objects);
+    // (worker, patch, CarryCapacity) of the mining that ended this tick, and (worker, station, CarryCapacity) of the
+    // pick-ups.
     let mut mined: Vec<(ObjectId, ObjectId, u32)> = Vec::new();
+    let mut picked: Vec<(ObjectId, ObjectId, u32)> = Vec::new();
     for o in objects.range_mut(..first_new).map(|(_, o)| o) {
         let (Some(worker), Some(orders)) = (&mut o.worker, &mut o.orders) else {
             continue;
@@ -145,32 +187,52 @@ pub(super) fn step(
             continue;
         };
         match &mut gather.phase {
-            // `> Gathering`: MiningDuration.
+            // `> Gathering`: MiningDuration; `factions/syndicate/units/agent.md > Gathering > Supplies`:
+            // PickUpDuration at a station.
             GatherPhase::Mining { done } => {
+                let source = match kind {
+                    OrderKind::Gather(source) => Some(source),
+                    _ => None,
+                };
+                let at_station = source.is_some_and(|source| stations.binary_search(&source).is_ok());
+                let resource = if at_station {
+                    Resource::Supplies
+                } else {
+                    Resource::Crystals
+                };
+                let load = def.load(resource).unwrap_or(def.crystals);
                 *done = done.saturating_add(1);
-                if *done >= def.crystals.pick_up_ticks {
-                    if let OrderKind::Gather(patch) = kind {
-                        mined.push((o.id, patch, def.crystals.carry_capacity));
+                if *done >= load.pick_up_ticks {
+                    if let Some(source) = source {
+                        let ended = (o.id, source, load.carry_capacity);
+                        if at_station {
+                            picked.push(ended);
+                        } else {
+                            mined.push(ended);
+                        }
                     }
                     gather.enter(GatherPhase::ToDropOff);
                 }
             }
-            // `> Gathering`: DropOffDuration. A drop-off that went away in the middle takes nothing: the worker
-            // looks for another (`orders::gather`).
+            // `> Gathering`: DropOffDuration, of the resource it carries. A drop-off that went away in the middle
+            // takes nothing: the worker looks for another (`orders::gather`).
             GatherPhase::DroppingOff { done } => match gather.node {
                 None => gather.enter(GatherPhase::ToDropOff),
                 Some(node) => {
+                    let resource = worker.resource;
                     *done = done.saturating_add(1);
-                    if *done >= def.crystals.drop_off_ticks {
+                    if *done >= def.load(resource).unwrap_or(def.crystals).drop_off_ticks {
                         // `factions/colonists/economy.md > Egress Node > Drop Off`: the load enters the pool.
                         let amount = std::mem::take(&mut worker.load);
+                        worker.resource = Resource::Crystals;
                         if let Some(player) = players.iter_mut().find(|p| Some(p.id) == o.owner) {
-                            player.credit_crystals(amount);
+                            credit(player, resource, amount);
                         }
                         events.push(SimEvent::ResourcesDelivered {
                             worker: o.id,
                             drop_off: node,
                             amount,
+                            resource,
                         });
                         gather.enter(GatherPhase::Delivered);
                     }
@@ -193,12 +255,31 @@ pub(super) fn step(
         let amount = (*remaining).min(capacity);
         *remaining -= amount;
         let emptied = *remaining == 0;
+        // A Supply it carried is lost as the mining ends (0256 point 4; Placeholder: Q0082 point 3).
         if let Some(worker) = objects.get_mut(&id).and_then(|o| o.worker.as_mut()) {
             worker.load = amount;
+            worker.resource = Resource::Crystals;
         }
         // `core/map.md > SpaceCrystalsPatch`: a depleted patch disappears, unless a GDO plate stands on it.
         if emptied && !covered(objects, patch) {
             depleted.push(patch);
+        }
+    }
+    // 0256 point 2: "A Supply leaves the station when the pick-up ends"; the Space Crystals the worker carried are
+    // lost as it takes the Supply (point 4; Placeholder: Q0082 point 3). Point 3: the pick-up that empties a station
+    // notifies the owners of the workers there.
+    for (id, station, capacity) in picked {
+        let Some((amount, emptied)) = super::stations::take(objects, station, capacity) else {
+            continue;
+        };
+        if amount > 0
+            && let Some(worker) = objects.get_mut(&id).and_then(|o| o.worker.as_mut())
+        {
+            worker.load = amount;
+            worker.resource = Resource::Supplies;
+        }
+        if emptied {
+            super::stations::notify_empty(objects, station, events);
         }
     }
     depleted.sort_unstable();
@@ -222,6 +303,7 @@ mod tests {
         let worker = Worker {
             load: 8,
             drop_off: Some(ObjectId(2)),
+            resource: Resource::Crystals,
         };
         let changed = [
             Worker { load: 7, ..worker },
@@ -233,10 +315,39 @@ mod tests {
                 drop_off: None,
                 ..worker
             },
+            Worker {
+                resource: Resource::Supplies,
+                ..worker
+            },
         ];
         for other in changed {
             assert_ne!(hash_of(&other), hash_of(&worker), "{other:?}");
         }
+    }
+
+    /// Slice M4-I: a worker's load of Space Crystals hashes, and is saved, as before the resource existed; one of
+    /// Supplies says so in its file.
+    #[test]
+    fn the_resource_shows_only_for_supplies() {
+        let worker = Worker {
+            load: 8,
+            drop_off: Some(ObjectId(2)),
+            resource: Resource::Crystals,
+        };
+        let mut h = StateHasher::new();
+        let (load, drop_off) = (worker.load, worker.drop_off);
+        load.hash(&mut h);
+        drop_off.hash(&mut h);
+        assert_eq!(hash_of(&worker), h.finish(), "as before the field existed");
+        let json = serde_json::to_string(&worker).unwrap();
+        assert!(!json.contains("resource"), "{json}");
+        let supply = Worker {
+            load: 1,
+            resource: Resource::Supplies,
+            ..worker
+        };
+        let json = serde_json::to_string(&supply).unwrap();
+        assert_eq!(serde_json::from_str::<Worker>(&json).unwrap(), supply, "{json}");
     }
 
     /// The removal path: a worker forgets the drop-off that is gone, and keeps its load. A worker saved with the
@@ -246,6 +357,7 @@ mod tests {
         let mut worker = Worker {
             load: 8,
             drop_off: Some(ObjectId(2)),
+            resource: Resource::Crystals,
         };
         worker.forget(&|id| id == ObjectId(9));
         assert_eq!(worker.drop_off, Some(ObjectId(2)));
@@ -285,7 +397,8 @@ mod tests {
         );
         assert!(def.pass_through && def.keeps_drop_off && !def.shares_patches);
         // `> Agent > Gathering > Space Crystals`: 50 a load, 80 frames of mining, 64 of unloading, reaches of 8 su;
-        // design change 0255: shared patches, no Set Drop-off; 0106: "Drones only" pass through each other.
+        // `> Supplies`: 1 a trip, 48 frames each way, the same reaches (Placeholder: Q0082 point 1); design change
+        // 0255: shared patches, no Set Drop-off; 0106: "Drones only" pass through each other.
         let def = worker_def(ObjectKind::Agent).expect("a worker");
         let crystals = LoadDef {
             carry_capacity: 50,
@@ -294,7 +407,18 @@ mod tests {
             pick_up_reach: 8.0,
             drop_off_reach: 8.0,
         };
-        assert_eq!((def.crystals, def.supplies), (crystals, None));
+        let supplies = LoadDef {
+            carry_capacity: 1,
+            pick_up_ticks: 48,
+            drop_off_ticks: 48,
+            pick_up_reach: 8.0,
+            drop_off_reach: 8.0,
+        };
+        assert_eq!((def.crystals, def.supplies), (crystals, Some(supplies)));
+        assert_eq!(
+            (def.load(Resource::Crystals), def.load(Resource::Supplies)),
+            (Some(crystals), Some(supplies))
+        );
         assert!(def.shares_patches && !def.keeps_drop_off && !def.pass_through);
     }
 }

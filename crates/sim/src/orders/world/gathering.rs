@@ -1,14 +1,18 @@
 //! What the workers' scans read of the snapshot (`orders::gather`; `factions/colonists/units.md > Drone > Patch
 //! Occupancy (one Drone per patch)`): the patches and the drop-offs, who mines and who waits where, whether a
 //! worker can reach a patch, and the patches and the fixed objects as a worker's owner knows them (design change
-//! 0139: [`World::known_patch`], [`World::known_fixed`]).
+//! 0139: [`World::known_patch`], [`World::known_fixed`]). And the Supply Delivery Stations (slice M4-I): the Supplies
+//! no pick-up has claimed ([`World::unclaimed_supplies`]), and a station as a worker's owner knows it
+//! ([`World::known_station`]).
 
 use std::collections::BTreeMap;
 
 use glam::Vec2;
 
-use crate::economy::drop_off::{DropPoint, crystal_point_of};
+use crate::defs::Resource;
+use crate::economy::drop_off::{DropPoint, drop_point_of};
 use crate::economy::gathering::worker_def;
+use crate::economy::stations::{is_station, supplies};
 use crate::ids::{ObjectId, PlayerId};
 use crate::nav;
 use crate::object::{Object, ResourceState};
@@ -38,13 +42,45 @@ pub(crate) struct KnownPatch {
     pub covered: bool,
 }
 
+/// A Supply Delivery Station as a worker's owner knows it (design change 0139, `crate::targets`; slice M4-I): where
+/// it stands while the owner sees it, and where the owner remembers it while it doesn't. What it holds counts only
+/// while the owner sees it ([`World::unclaimed_supplies`]): a worker picks up within reach of it, where it sees it.
+#[derive(Copy, Clone, Debug, PartialEq)]
+pub(crate) struct KnownStation {
+    pub id: ObjectId,
+    pub shape: Shape,
+    /// The owner sees it now.
+    pub seen: bool,
+}
+
+/// Where a drop-off takes each resource (`economy::drop_off::drop_point`).
+#[derive(Copy, Clone, Debug)]
+struct Points {
+    crystals: DropPoint,
+    supplies: DropPoint,
+}
+
+impl Points {
+    fn of(&self, resource: Resource) -> &DropPoint {
+        match resource {
+            Resource::Crystals => &self.crystals,
+            Resource::Supplies => &self.supplies,
+        }
+    }
+}
+
 /// The gathering part of the snapshot, taken with the rest of it (`World::new`).
 #[derive(Debug, Default)]
 pub(super) struct Gathering {
-    /// Indices into the snapshot's views of the drop-offs, in id order, each with where it takes Space Crystals
+    /// Indices into the snapshot's views of the drop-offs, in id order, each with where it takes each resource
     /// (`economy::drop_off`): what a worker's scan for one looks at, on a return without a drop-off. (The patches it
     /// looks round among are its owner's records, [`World::known_patches_near`].)
-    drop_offs: Vec<(u32, DropPoint)>,
+    drop_offs: Vec<(u32, Points)>,
+    /// The Supply Delivery Stations, in id order, each with the Supplies it holds that no pick-up under way has
+    /// claimed as the phase began (`factions/syndicate/units/agent.md > Gathering > Supplies`, design change 0256
+    /// point 2: "A pick-up starts only if a Supply remains that no running pick-up has claimed"). Derived from the
+    /// workers' orders, as a patch's occupancy is.
+    stations: Vec<(ObjectId, u32)>,
     /// The hatches a worker was unloading at as the phase began, as `(drop-off, side)`, sorted: "Only one Agent may
     /// drop off resources at a side at a time" (`factions/syndicate/tunnels.md > Tunnel > SymmetryType - ABCD`).
     /// Derived from the workers' orders, as a patch's occupancy is, so that it can't outlive the order that holds it
@@ -66,14 +102,21 @@ pub(super) struct Gathering {
 impl Gathering {
     pub(super) fn new(objects: &BTreeMap<ObjectId, Object>) -> Self {
         let mut gathering = Self::default();
+        // The station of each pick-up under way.
+        let mut picking: Vec<ObjectId> = Vec::new();
         for (index, o) in objects.values().enumerate() {
             // An Egress Node being warped in takes nothing until it is complete (design change 0116,
             // `crate::transform`).
             if !o.is_transforming()
-                && let Some(point) = crystal_point_of(o)
+                && let Some(crystals) = drop_point_of(o, Resource::Crystals)
+                && let Some(supplies) = drop_point_of(o, Resource::Supplies)
             {
-                gathering.drop_offs.push((index as u32, point));
+                gathering.drop_offs.push((index as u32, Points { crystals, supplies }));
             }
+            if let Some(held) = supplies(o) {
+                gathering.stations.push((o.id, held));
+            }
+            picking.extend(pick_up(objects, o));
             gathering
                 .covered
                 .extend(o.extractor.map(|extractor| (extractor.patch, o.owner)));
@@ -85,6 +128,11 @@ impl Gathering {
                 _ => {}
             }
             gathering.note_hatch(objects, o);
+        }
+        for station in picking {
+            if let Ok(i) = (gathering.stations).binary_search_by_key(&station, |&(id, _)| id) {
+                gathering.stations[i].1 = gathering.stations[i].1.saturating_sub(1);
+            }
         }
         gathering.mined.sort_unstable();
         gathering.covered.sort_unstable();
@@ -109,16 +157,19 @@ impl Gathering {
             GatherPhase::DroppingOff { .. } => None,
             _ => return,
         };
+        // The hatch of what it carries (slice M4-I).
+        let resource = o.worker.map_or(Resource::Crystals, |worker| worker.resource);
         let point = gather
             .node
-            .and_then(|node| Some((node, crystal_point_of(objects.get(&node)?)?)));
+            .and_then(|node| Some((node, drop_point_of(objects.get(&node)?, resource)?)));
         let Some((node, point, side)) = point.and_then(|(node, point)| Some((node, point, point.side?))) else {
             return;
         };
         match since {
             None => self.unloading.push((node, side)),
             Some(since) => {
-                let reach = worker_def(o.kind).map_or(0.0, |def| def.crystals.drop_off_reach);
+                let load = worker_def(o.kind).and_then(|def| def.load(resource));
+                let reach = load.map_or(0.0, |load| load.drop_off_reach);
                 if Shape::of(o).gap(&point.shape) <= reach {
                     self.in_line.push((node, side, since, o.id));
                 }
@@ -142,6 +193,23 @@ fn job(o: &Object) -> Option<(ObjectId, GatherPhase)> {
     }
 }
 
+/// The station at which `o` picks up a Supply, if it is a worker of a type that gathers them, picking one up there
+/// now (`GatherPhase::Mining` on a Gather at a station): its pick-up claims one of the station's Supplies until it
+/// ends (design change 0256 point 2). Only the types that gather Supplies are looked at.
+fn pick_up(objects: &BTreeMap<ObjectId, Object>, o: &Object) -> Option<ObjectId> {
+    o.worker.as_ref()?;
+    worker_def(o.kind)?.supplies?;
+    let active = o.orders.as_ref()?.current.as_ref()?;
+    match (active.order.kind, &active.state) {
+        (OrderKind::Gather(station), Behaviour::Gather(gather))
+            if matches!(gather.phase, GatherPhase::Mining { .. }) && is_station(objects.get(&station)?.kind) =>
+        {
+            Some(station)
+        }
+        _ => None,
+    }
+}
+
 /// Whether worker `o` is within its MiningReach of `patch` (`factions/colonists/units.md > Drone > Gathering`).
 fn within_reach(objects: &BTreeMap<ObjectId, Object>, o: &Object, patch: ObjectId) -> bool {
     let (Some(def), Some(patch)) = (worker_def(o.kind), objects.get(&patch)) else {
@@ -151,16 +219,47 @@ fn within_reach(objects: &BTreeMap<ObjectId, Object>, o: &Object, patch: ObjectI
 }
 
 impl World<'_> {
-    /// The structures that take workers' loads, in id order, each with where it takes Space Crystals.
-    pub(crate) fn drop_offs(&self) -> impl Iterator<Item = (&View, &DropPoint)> + '_ {
-        (self.gathering.drop_offs.iter()).map(|(index, point)| (&self.views[*index as usize], point))
+    /// The structures that take workers' loads, in id order, each with where it takes `resource`.
+    pub(crate) fn drop_offs(&self, resource: Resource) -> impl Iterator<Item = (&View, &DropPoint)> + '_ {
+        (self.gathering.drop_offs.iter()).map(move |(index, points)| (&self.views[*index as usize], points.of(resource)))
     }
 
-    /// Where drop-off `node` takes Space Crystals, if it takes loads now.
-    pub(crate) fn drop_point(&self, node: ObjectId) -> Option<&DropPoint> {
+    /// Where drop-off `node` takes `resource`, if it takes loads now.
+    pub(crate) fn drop_point(&self, node: ObjectId, resource: Resource) -> Option<&DropPoint> {
         let drop_offs = &self.gathering.drop_offs;
         let found = drop_offs.binary_search_by_key(&node, |(index, _)| self.views[*index as usize].id);
-        found.ok().map(|i| &drop_offs[i].1)
+        found.ok().map(|i| drop_offs[i].1.of(resource))
+    }
+
+    /// The Supplies station `station` holds that no pick-up under way claimed as the phase began (design change 0256
+    /// point 2): a pick-up may start there while this is more than the claims of the tick (`orders::gather`). 0 for
+    /// anything but a station.
+    pub(crate) fn unclaimed_supplies(&self, station: ObjectId) -> u32 {
+        let stations = &self.gathering.stations;
+        stations
+            .binary_search_by_key(&station, |&(id, _)| id)
+            .map_or(0, |i| stations[i].1)
+    }
+
+    /// Station `id` as `owner` knows it ([`KnownStation`], [`World::known`]): the station itself while the owner sees
+    /// it, the owner's record of it while it doesn't. `None` if the owner knows of no station by that id.
+    pub(crate) fn known_station(&self, owner: Option<PlayerId>, id: ObjectId) -> Option<KnownStation> {
+        match self.known(owner, id) {
+            Known::Seen(view) => is_station(view.kind).then_some(KnownStation {
+                id,
+                shape: view.shape,
+                seen: true,
+            }),
+            Known::Remembered { .. } => {
+                let record = self.vision.player(owner?)?.record(id)?;
+                is_station(record.kind).then(|| KnownStation {
+                    id,
+                    shape: Shape::footprint(&record.placement),
+                    seen: false,
+                })
+            }
+            Known::Gone => None,
+        }
     }
 
     /// `factions/syndicate/tunnels.md > Tunnel > SymmetryType - ABCD`: whether a worker was unloading at the hatch on

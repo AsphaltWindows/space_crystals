@@ -115,6 +115,7 @@ fn deliveries(t: &TestSim) -> Vec<(Tick, u32, u32, u32)> {
                 worker,
                 drop_off,
                 amount,
+                ..
             } => Some((*tick, worker.0, drop_off.0, *amount)),
             _ => None,
         })

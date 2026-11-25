@@ -13,7 +13,10 @@
 //! - **A worker** (the Drone, `> Drone > Right-Click Resolution`): a Space Crystals patch it can gather gives Gather
 //!   ("Space Crystal patch → Gather"; a patch under a mining structure is no patch to it, question Q0037 point 11); its
 //!   owner's drop-off that takes loads gives Drop Off while it carries a load ("Own Egress Node (carrying resources) →
-//!   Drop off resources"); without a load, a Move there (design change 0140).
+//!   Drop off resources"); without a load, a Move there (design change 0140). A worker that gathers Supplies (the
+//!   Agent, `factions/syndicate/units/agent.md > Right-Click Resolution`: "Supply Delivery Station → Gather supplies";
+//!   slice M4-I) gets Gather on a Supply Delivery Station too, whatever it carries (design change 0256 point 4: it
+//!   "goes straight to the station").
 //! - **An own Tunnel** whose tier lets the unit through gives Enter (`systems/controls/commands.md > Enter`: "any
 //!   Syndicate unit, when the target Tunnel's tier is sufficient for the unit's base category";
 //!   `factions/syndicate/units/agent.md > Right-Click Resolution`: "Own Tunnel (not carrying resources) → Enter";
@@ -37,6 +40,7 @@ use glam::Vec2;
 
 use crate::combat::domain_allows;
 use crate::defs::{Domain, TargetDomain, Transit};
+use crate::economy::gathering::worker_def;
 use crate::ids::ObjectId;
 use crate::network;
 use crate::object::Object;
@@ -56,6 +60,8 @@ pub struct Abilities {
     pub worker: bool,
     /// A worker that carries a load (`economy::gathering::Worker::load`).
     pub carrying: bool,
+    /// A worker of a type that gathers Supplies (`WorkerDef::supplies`: the Agent; slice M4-I).
+    pub gathers_supplies: bool,
     /// The class of its base for a Tunnel's transit (`factions/syndicate/tunnels.md > Tunnel Network > Transit Tier
     /// Requirements`, `Transit::of`).
     pub transit: Transit,
@@ -76,6 +82,7 @@ impl Abilities {
             may_attack: riot_shield::takes_attack_orders(o.kind),
             worker: o.worker.is_some(),
             carrying: o.worker.is_some_and(|worker| worker.load > 0),
+            gathers_supplies: o.worker.is_some() && worker_def(o.kind).is_some_and(|def| def.supplies.is_some()),
         })
     }
 }
@@ -95,6 +102,9 @@ pub struct Aimed {
     /// It is a Space Crystals patch a worker can gather: no mining structure on it, as far as the owner knows
     /// (question Q0037 point 11).
     pub gatherable: bool,
+    /// It is a Supply Delivery Station (`core/map.md > SupplyDeliveryStation`), where the workers that gather Supplies
+    /// pick them up (slice M4-I).
+    pub station: bool,
     /// It is a drop-off of the unit's owner's that takes loads now (`StructureDef::drop_off`: an Egress Node, warped
     /// in: design change 0116).
     pub drop_off: bool,
@@ -119,6 +129,9 @@ pub fn resolve(unit: Abilities, aim: Aim) -> OrderKind {
         Aim::Object(target) => target,
     };
     if unit.worker && target.gatherable {
+        return OrderKind::Gather(target.id);
+    }
+    if unit.gathers_supplies && target.station {
         return OrderKind::Gather(target.id);
     }
     if unit.worker && unit.carrying && target.drop_off {

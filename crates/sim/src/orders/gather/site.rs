@@ -2,7 +2,9 @@
 //! "Nothing about the real state leaks"): its patch as its owner knows it (`World::known_patch`, the target view of
 //! `crate::targets`), as every order on an object does. A patch the owner sees is the patch as it is. One out of its
 //! sight is where the owner remembers it, standing or not, mined by others or not, plated since or not; and so are
-//! the patches the worker looks round among and the objects it stands clear of on its way (`World::known_fixed`).
+//! the patches the worker looks round among and the objects it stands clear of on its way (`World::known_fixed`). A
+//! Gather on a Supply Delivery Station (slice M4-I) goes by the station as the owner knows it, the same way
+//! (`World::known_station`).
 //! The map's patches are known from the start (design change 0159). A Gather on a patch out of its owner's sight
 //! notes where the owner remembers it (`state::Gather::spot`), so that if the patch turns out gone once the worker
 //! sees its place, the order goes on as for a patch that ran out: there, it looks round (0139: "Gather: the redirect
@@ -10,7 +12,7 @@
 
 use crate::orders::OrderKind;
 use crate::orders::state::Gather;
-use crate::orders::world::{KnownPatch, Unit, World};
+use crate::orders::world::{KnownPatch, KnownStation, Unit, World};
 use crate::shape::Shape;
 
 use super::legs::spot_shape;
@@ -23,11 +25,15 @@ pub(super) enum Site {
     /// The shape of a patch that is gone for the workers: one under a plate (0137), or one gone to the owner, where
     /// it was (design change 0134, `state::Gather::spot`).
     Gone(Shape),
-    /// Nothing to head for: the order names no patch the owner knows of (a Drop Off, or a save edited by hand).
+    /// A Supply Delivery Station the owner knows of (slice M4-I, `super::station`). Stations never leave the game,
+    /// so a Gather on one is never on its way to where one was.
+    Station(KnownStation),
+    /// Nothing to head for: the order names no patch or station the owner knows of (a Drop Off, or a save edited by
+    /// hand).
     Nowhere,
 }
 
-/// The order's patch as the worker's owner knows it now ([`Site`]).
+/// The order's patch, or station, as the worker's owner knows it now ([`Site`]).
 pub(super) fn site(kind: OrderKind, state: &Gather, unit: &Unit, world: &World) -> Site {
     let OrderKind::Gather(patch) = kind else {
         return Site::Nowhere;
@@ -35,7 +41,10 @@ pub(super) fn site(kind: OrderKind, state: &Gather, unit: &Unit, world: &World) 
     match world.known_patch(unit.owner, patch) {
         Some(known) if !known.covered => Site::Patch(known),
         Some(known) => Site::Gone(known.shape),
-        None => state.spot.map_or(Site::Nowhere, |spot| Site::Gone(spot_shape(spot))),
+        None => match world.known_station(unit.owner, patch) {
+            Some(station) => Site::Station(station),
+            None => state.spot.map_or(Site::Nowhere, |spot| Site::Gone(spot_shape(spot))),
+        },
     }
 }
 

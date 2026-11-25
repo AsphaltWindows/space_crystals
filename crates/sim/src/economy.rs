@@ -5,8 +5,9 @@
 //! - **Banks** (`Player::crystals`, `Player::supplies`, and the Colonists' `Player::alloys`, `Player::essence` and
 //!   `Player::flux`, plan decision T21): stored, hashed and serialized. A spend is refused when the bank is short
 //!   (`Player::spend_crystals`), income saturates (`Player::credit_crystals`), and every refund goes through
-//!   [`Refund`] (plan decision T7). Supplies are a counter only (design change 0077), and so are the refined
-//!   resources until refining exists (question Q0043 point 1).
+//!   [`Refund`] (plan decision T7). Supplies come in by the Agents' deliveries (`gathering.rs`, slice M4-I) and
+//!   nothing spends them yet (design change 0077); the refined resources are counters only until refining exists
+//!   (question Q0043 point 1).
 //! - **Power** ([`PowerSummary`], `power.rs`) and the **army caps** ([`ArmyCap`], `army.rs`, plan decision T20: the
 //!   GDO's Unit Control, the Colonists' Beacon Capacity) are derived from the objects whenever they are needed, never
 //!   stored, so they can't drift from them (T7): `Sim::power`, `Sim::army_cap`.
@@ -14,7 +15,8 @@
 //!   comes into being; it pays its owner in lumps at the end of each cycle (design change 0098), and the removal
 //!   path takes a depleted patch away with its plate (`Sim::remove_objects`).
 //! - **Gathering** (`gathering.rs`, slice M3-H): the Colonists' workers carry what they mine to a drop-off, and
-//!   the bank is paid there.
+//!   the bank is paid there; the Syndicate's Agents carry Space Crystals and Supplies to their Tunnels' hatches
+//!   (`drop_off.rs`, slices M4-D and M4-I), the Supplies from the Supply Delivery Stations (`stations.rs`).
 //! - **Defeat** (`defeat.rs`, slice M2-F2): the last step of the phase. A player who loses their last structure is
 //!   defeated, their units become neutral, and the defeat that leaves one side standing ends the game.
 //! - **The phase** ([`step`]) runs after phase 5e and before 5f (plan decision T5, `ARCHITECTURE.md > Tick
@@ -28,6 +30,7 @@ pub mod drop_off;
 pub mod gathering;
 pub(crate) mod mining;
 pub(crate) mod power;
+pub mod stations;
 
 use std::collections::BTreeMap;
 
@@ -51,8 +54,8 @@ use crate::player::Player;
 ///    ([`PowerSummary::speed`]);
 /// 3. the plates mine (`mining::step`), the plates created this tick from the next one on;
 /// 4. the workers' timed work (`gathering::step`, slice M3-H, plan decision T17): mining takes its load from the
-///    patch and a drop-off pays the bank. After the plates, so that every bank change of the tick is made here, in
-///    one order;
+///    patch, a pick-up its Supply from the station (slice M4-I), and a drop-off pays the bank. After the plates, so
+///    that every bank change of the tick is made here, in one order;
 /// 5. the defeat check, after the producers (`defeat::step`, called by `Sim::step`, which keeps the game's outcome).
 ///
 /// Returns the Space Crystals patches that the workers emptied: they leave the map (`core/map.md >

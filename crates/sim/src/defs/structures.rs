@@ -1,7 +1,7 @@
 //! The attributes of structure types (`core/entities.md > Structure Type`). The faction modules (`defs/gdo.rs`, …)
 //! hold the structure types themselves.
 
-use crate::defs::{ObjectKind, UnitBase};
+use crate::defs::{ObjectKind, Resource, UnitBase};
 use crate::sides::SideLetter;
 
 /// A structure type's own attributes; the attributes every object type has, armour included, are on its
@@ -64,6 +64,17 @@ pub enum DropOff {
         /// The side of the Supplies' hatch (slice M4-I delivers there).
         supplies: SideLetter,
     },
+}
+
+impl DropOff {
+    /// The side of the hatch that takes `resource`; `None` for a drop-off that takes loads anywhere.
+    pub fn hatch(self, resource: Resource) -> Option<SideLetter> {
+        match (self, resource) {
+            (DropOff::Anywhere, _) => None,
+            (DropOff::Hatches { crystals, .. }, Resource::Crystals) => Some(crystals),
+            (DropOff::Hatches { supplies, .. }, Resource::Supplies) => Some(supplies),
+        }
+    }
 }
 
 /// `factions/syndicate/tunnels.md > Tunnel > Tiers`: "Tunnels have 3 upgrade tiers. Each tier increases HP, Tunnel
