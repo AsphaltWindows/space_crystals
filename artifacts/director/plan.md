@@ -1012,10 +1012,11 @@ Approach: thin vertical slices the user can run and see, each verified by tests 
   - **Remembered sites:** `LastKnown::site: Option<Progress>`, hashed only while set; the remembered MaxHP follows ConstructionHP at that progress. The client draws a dimmed site with its bar fixed at the last-seen progress (`MeshKey::of_record`), and the live bar never shows through the fog.
 
 ## In progress
+  - **M4-G Tunnel upgrades** (Opus; brief `scratchpad/briefs/m4g-tunnel-upgrades.md`): Q upgrades to Tier 2 and Tier 3 for Supplies paid when ordered; one price rule for orders and refunds; the reserved area; checks by the truth; 480 frames; then `set_tier` and `reclaim`. It folds in 0283 (3 and 4 tiles to the edge). It reads own pending ghosts as not blocking an upgrade (the doc reserves them against Tunnel placements only).
   - **M4-O2 Area damage answers** (Opus; brief `scratchpad/briefs/m4o2-area-damage-answers.md`): 0293. Attack Ground keeps firing until another order; every shot and projectile is drawn only over Visible tiles (replacing 0244); friendly fire and the reveal tested; the Q0083 marks.
   - **M4-K Prerequisites, the Optics Lab and the Chemical Plant** (Opus; brief `scratchpad/briefs/m4k-prerequisites.md`): generic Tech and Unit Prerequisites (T37), the two new expansions on placeholders (0229, 0260), and the Guard gated on an Optics Lab.
 - **Next**:
-  - **M4 wave 6:** G (Tunnel upgrades), when a build slot frees. Then wave 7: L and S1.
+  - **M4 wave 7:** L and S1, after K and G.
   - **Playtest:** the user plays once all four factions are built (2026-11-24), using `docs/playtest/m2.md`, `m3.md` and later notes. This replaces separate M1–M3 playtests.
 
 ## M1 plan (from the movement spike; the approved design is in `docs/movement.md`)
@@ -1205,7 +1206,7 @@ The user keeps feeding unit and other designs to the Designer, so expect increme
     - J1: done (`dd14dc38`). **With H, the first playable.**
     - F: done (`2cbb777e`). **Wave 5 is complete.**
     - K: running (wave 6, Opus; brief `scratchpad/briefs/m4k-prerequisites.md`).
-    - G: next, when I2 or O2 frees a build slot.
+    - G: running (wave 6, Opus; brief `scratchpad/briefs/m4g-tunnel-upgrades.md`).
     - I2: done (`4f31587f`).
     - O2: running (new, small, Opus; brief `scratchpad/briefs/m4o2-area-damage-answers.md`): 0293.
     - The rest are queued in the waves above.
