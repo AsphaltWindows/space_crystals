@@ -2,7 +2,7 @@
 //! that its Tunnels make up, and its construction by an Agent.
 
 use crate::defs::structures::{
-    BuilderGoes, DropOff, SiteDef, SitePrice, StructureDef, SymmetryType, TierDef, Transit, TunnelDef,
+    BuilderGoes, DropOff, SiteDef, SitePrice, StructureDef, SymmetryType, TierDef, Transit, TunnelDef, UpgradeDef,
 };
 use crate::defs::{Armor, Category, Footprint, ObjectDef, ObjectKind};
 use crate::player::Faction;
@@ -13,26 +13,45 @@ use crate::units::Tick;
 /// the tests that wait it out.
 pub const TRANSIT_DELAY_TICKS: Tick = TUNNEL_DEF.transit_delay;
 
-/// `factions/syndicate/tunnels.md > Tunnel > Tiers`, its table column by column, and `> Tunnel Network`'s numbers.
+/// `factions/syndicate/tunnels.md > Cost Scaling > Upgrade Costs` (slice M4-G): "**Upgrade duration** (placeholder
+/// ...): **480 frames (30 seconds)** to Tier 2 and to Tier 3, the same as construction".
+// Placeholder: Q0060 point 1 (design change 0229).
+const UPGRADE_FRAMES: u32 = 480;
+
+/// `factions/syndicate/tunnels.md > Tunnel > Tiers`, its table column by column, each tier with its upgrade
+/// (`factions/syndicate/tunnels.md > Cost Scaling > Upgrade Costs`), and `> Tunnel Network`'s numbers.
 pub(crate) const TUNNEL_DEF: TunnelDef = TunnelDef {
     tiers: &[
-        // Tier 1 (base): HP 600, Tunnel Area Radius 2 (8x8), Transit Infantry.
+        // Tier 1 (base): HP 600, Tunnel Area Radius 2 (8x8), Transit Infantry. No upgrade reaches it.
         TierDef {
             max_hp: 600.0,
             area_radius: 2,
             transit: &[Transit::Infantry],
+            upgrade: None,
         },
-        // Tier 2: HP 800, Tunnel Area Radius 3 (10x10), Transit Infantry + Vehicles.
+        // Tier 2: HP 800, Tunnel Area Radius 3 (10x10), Transit Infantry + Vehicles. "**Upgrade to Tier 2**: 2 + 2 x
+        // (number of T2+ Tunnels owned), in Supplies".
         TierDef {
             max_hp: 800.0,
             area_radius: 3,
             transit: &[Transit::Infantry, Transit::Vehicles],
+            upgrade: Some(UpgradeDef {
+                frames: UPGRADE_FRAMES,
+                base: 2,
+                per_tunnel: 2,
+            }),
         },
-        // Tier 3: HP 1000, Tunnel Area Radius 4 (12x12), Transit Infantry + Vehicles + Air.
+        // Tier 3: HP 1000, Tunnel Area Radius 4 (12x12), Transit Infantry + Vehicles + Air. "**Upgrade to Tier 3**: 3 +
+        // 3 x (number of T3 Tunnels owned), in Supplies".
         TierDef {
             max_hp: 1000.0,
             area_radius: 4,
             transit: &[Transit::Infantry, Transit::Vehicles, Transit::Air],
+            upgrade: Some(UpgradeDef {
+                frames: UPGRADE_FRAMES,
+                base: 3,
+                per_tunnel: 3,
+            }),
         },
     ],
     // `> Tunnel Network > Transit delay` (design change 0245): "after a unit **enters** the network, there is a
@@ -230,5 +249,16 @@ mod tests {
                 assert_eq!(row.admits(base), tier >= first, "{base:?} at Tier {tier}");
             }
         }
+    }
+
+    /// `factions/syndicate/tunnels.md > Cost Scaling > Upgrade Costs` (slice M4-G): "**Upgrade to Tier 2**: 2 + 2 x
+    /// (number of T2+ Tunnels owned)", "**Upgrade to Tier 3**: 3 + 3 x (number of T3 Tunnels owned)", each in "480
+    /// frames (30 seconds)" (design change 0229); no upgrade reaches the base tier.
+    #[test]
+    fn each_upgrade_takes_480_frames_and_its_price_rule() {
+        let upgrades: Vec<Option<(u32, u32, u32)>> = (TUNNEL_DEF.tiers.iter())
+            .map(|tier| tier.upgrade.map(|u| (u.frames, u.base, u.per_tunnel)))
+            .collect();
+        assert_eq!(upgrades, [None, Some((480, 2, 2)), Some((480, 3, 3))]);
     }
 }

@@ -1,10 +1,11 @@
 //! An Agent's Tunnel ghost (slice M4-J1): judged as the sim's placement check judges a Build, by what the player knows
 //! of the map (`sc_sim::Sim::build_check`, slice M4-E; `factions/syndicate/tunnels.md > Tunnel Area Non-Overlap
 //! Rule`, design changes 0237 and 0242), its Tier 1 Tunnel Area drawn around it, and the Tunnel Areas the player knows
-//! of shown while it is placed. Its problems are the sim's, and a click on a red ghost says the first of them.
+//! of shown while it is placed. Its problems are the sim's, and a click on a red ghost says the first of them. An own
+//! Tunnel's upgrade reserves its larger area against it (slice M4-G).
 
 use sc_sim::tuning::vision::FOG_DELAY_TICKS;
-use sc_sim::{PlacementCheck, PlacementProblem, TileProblem, WholeProblem};
+use sc_sim::{PlacementCheck, PlacementProblem, TileProblem, TunnelCommand, WholeProblem};
 use space_crystals::command_ui::feedback::placement_text;
 use space_crystals::placement::ghost_area::ShownArea;
 use space_crystals::placement::{GhostArea, TunnelAreaOverlay};
@@ -184,4 +185,43 @@ fn the_tunnel_ghost_is_judged_by_what_the_player_knows() {
     let build = given(&[AGENT_ID], build_at(on_unexplored_water), false);
     assert_eq!(builds(&app), [build]);
     assert_eq!(interface(&app), InterfaceState::DefaultState);
+}
+
+/// Slice M4-G, `factions/syndicate/tunnels.md > Cost Scaling > Upgrade Costs`: "from the start of the upgrade, the
+/// larger Tunnel Area of the target tier counts against other placements". While player 1's Tunnel upgrades to Tier
+/// 2, their ghost is red over the Tier 2 area it reserves, a column past its Tier 1 area, and green a tile further. The
+/// overlay shows the reserved area while the Agent places a Tunnel (Placeholder: Q0086 point 4), the Tunnel's current
+/// one while the Tunnel itself is selected.
+#[test]
+fn an_upgrading_tunnel_reserves_its_larger_area_against_the_ghost() {
+    use WholeProblem::TunnelAreaOverlap;
+    let mut app = fog_game();
+    let upgrade = Command::Tunnel {
+        tunnel: ObjectId(OWN_TUNNEL),
+        command: TunnelCommand::Upgrade,
+    };
+    submit(&mut app, P1, upgrade);
+    updates(&mut app, 2);
+    click_on(&mut app, AGENT_ID);
+    tap(&mut app, &[], KeyA);
+    let reserved = TileRect::new(TilePos::new(13, 12), 10, 10);
+    let remembered = TileRect::new(TilePos::new(37, 21), 10, 10);
+    let known = vec![(OWN_TUNNEL, 2, reserved), (ENEMY_TUNNEL, 2, remembered)];
+    assert_eq!(overlay(&app), Some(known));
+    let beside = TilePos::new(24, 17);
+    assert_eq!(
+        ghost_at(&mut app, beside),
+        (only(TunnelAreaOverlap), area_of(beside, false))
+    );
+    let further = TilePos::new(25, 17);
+    assert_eq!(
+        ghost_at(&mut app, further),
+        (PlacementCheck::default(), area_of(further, true))
+    );
+
+    tap(&mut app, &[], KeyCode::Escape);
+    click_on(&mut app, OWN_TUNNEL);
+    let current = TileRect::new(TilePos::new(14, 13), 8, 8);
+    let shown = overlay(&app).expect("the overlay shows");
+    assert_eq!(shown[0], (OWN_TUNNEL, 1, current));
 }

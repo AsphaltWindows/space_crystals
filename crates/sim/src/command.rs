@@ -59,7 +59,7 @@ pub enum Command {
     Debug(DebugCommand),
 }
 
-/// A command to a Tunnel ([`Command::Tunnel`], plan decision T36). Upgrade joins it with slice M4-G.
+/// A command to a Tunnel ([`Command::Tunnel`], plan decision T36).
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum TunnelCommand {
     /// `factions/syndicate/tunnels.md > EjectMenu`: "ejects one unit of that type from this Tunnel's Side A", the one
@@ -76,9 +76,17 @@ pub enum TunnelCommand {
         origin: TilePos,
         orientation: BuildingOrientation,
     },
+    /// `factions/syndicate/tunnels.md > Tunnel ObjectInterfaceState`: "**Q** Upgrade Tunnel" (slice M4-G), "upgrades to
+    /// next tier (CommandIssuingTransition). Costs Supplies per upgrade cost formula. Unavailable if already Tier 3 or
+    /// if currently performing an operation": the Tunnel upgrades to the tier above its own as its one operation, paid
+    /// at once (`factions/syndicate/tunnels.md > Cost Scaling > Upgrade Costs`: "**Paid when the upgrade is
+    /// ordered**"), if its larger area is clear by the truth (`sim/upgrades.rs`).
+    Upgrade,
     /// `factions/syndicate/tunnels.md > Tunnel ObjectInterfaceState`: "**X** Cancel (upgrade, construction or the
     /// current operation)" (design change 0254: "The Tunnel's X cancels whatever operation it is running"): an
-    /// expansion under construction is cancelled as by its own Cancel Construction (slice M4-F).
+    /// expansion under construction is cancelled as by its own Cancel Construction (slice M4-F), an upgrade refunded at
+    /// the current top price (slice M4-G, design changes 0232 and 0284: "Cancel Upgrade refunds the current top
+    /// price").
     Cancel,
 }
 
@@ -147,8 +155,9 @@ pub enum DebugCommand {
     },
     /// Set the tier of `id`, a Tunnel (`factions/syndicate/tunnels.md > Tunnel > Tiers`, `crate::tunnel::set_tier`):
     /// its MaxHP becomes the tier's, and its HP follows, the damage it has taken staying (design change 0231). For
-    /// tests and QA runs of the tiers, which nothing else changes until the upgrades (slice M4-G). Rejected for an
-    /// object that isn't a Tunnel, or a tier its table hasn't.
+    /// tests and QA runs of the tiers, without an upgrade's price or time (slice M4-G); an upgrade under way ends,
+    /// unrefunded, as the Tunnel is then at the tier asked for. Rejected for an object that isn't a Tunnel, or a tier
+    /// its table hasn't.
     SetTier { id: ObjectId, tier: u8 },
 }
 

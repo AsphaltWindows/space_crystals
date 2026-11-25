@@ -316,6 +316,27 @@ pub enum SimEvent {
         kind: ObjectKind,
         refund: u32,
     },
+    /// Tunnel `tunnel` started upgrading to tier `to` as its operation, and its owner paid `price` Supplies
+    /// (`factions/syndicate/tunnels.md > Cost Scaling > Upgrade Costs`: "**Paid when the upgrade is ordered**"; slice
+    /// M4-G, `sim/upgrades.rs`). The upgrade events are the owner's business: no other player is shown a Tunnel's
+    /// upgrade (`placement::Occupant::as_seen`).
+    UpgradeStarted {
+        tunnel: ObjectId,
+        to: u8,
+        price: u32,
+    },
+    /// Tunnel `tunnel`'s upgrade is complete: it is at `tier` from now on, and its operation is over (slice M4-G).
+    UpgradeCompleted {
+        tunnel: ObjectId,
+        tier: u8,
+    },
+    /// Tunnel `tunnel`'s upgrade to tier `to` was cancelled (its X), and its owner got `refund` Supplies back, the
+    /// current top price (design changes 0232 and 0284; slice M4-G).
+    UpgradeCancelled {
+        tunnel: ObjectId,
+        to: u8,
+        refund: u32,
+    },
     /// `shooter`'s disjointed attack launched a projectile from `from` (its centre) to `to`, the location locked at the
     /// end of its Aiming phase, where it lands in phase 5e of tick `lands_at` (`systems/combat.md > DoublyDisjointed`,
     /// `crate::combat::projectiles`, plan decision T48). `target`: the object it was aimed at, none for a shot at the

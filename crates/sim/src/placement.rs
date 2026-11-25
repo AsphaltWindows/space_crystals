@@ -311,15 +311,19 @@ impl Sim {
     }
 
     /// What `player` knows to stand on the map ([`Mode::Known`], design change 0120), each with the id of its object:
-    /// its own objects and the others it sees now (a tile they cover is Visible), as they are; and its records of the
-    /// structures and resources out of its sight, as it last saw them (`core/vision.md > Explored`). The units of
+    /// its own objects and the others it sees now (a tile they cover is Visible), as they are, its own Tunnels' upgrades
+    /// with the areas they reserve, the others' Tunnels at their tier (`Occupant::as_seen`, slice M4-G); and its records
+    /// of the structures and resources out of its sight, as it last saw them (`core/vision.md > Explored`). The units of
     /// others out of its sight are left out ("units hidden in fog are ignored").
     fn known_occupants(&self, player: PlayerId) -> impl Iterator<Item = (Option<ObjectId>, Occupant)> + '_ {
         let vision = self.vision();
         let seen = self
             .objects()
             .filter(move |o| o.owner == Some(player) || vision.sees(player, o))
-            .map(|o| (Some(o.id), Occupant::of(o)));
+            .map(move |o| match o.owner == Some(player) {
+                true => (Some(o.id), Occupant::of(o)),
+                false => (Some(o.id), Occupant::as_seen(o)),
+            });
         let remembered = vision
             .player(player)
             .into_iter()

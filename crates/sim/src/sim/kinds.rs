@@ -238,12 +238,19 @@ impl Sim {
     }
 
     /// Object `id`, a Tunnel, goes to tier `tier` in place (plan decision T39, `tunnel::set_tier`: its MaxHP becomes
-    /// the tier's and the damage it has taken stays, design change 0231 point 4). Only `DebugCommand::SetTier` so far,
-    /// whose gate checks the tier; the upgrades end here from slice M4-G on. Nothing for an object that isn't a
-    /// Tunnel, or a tier its table hasn't.
+    /// the tier's and the damage it has taken stays, design change 0231 point 4): an upgrade's completion (slice M4-G,
+    /// `sim/upgrades.rs`), and `DebugCommand::SetTier`, whose gate checks the tier. An upgrade under way ends with it,
+    /// unrefunded: the Tunnel is at the tier it goes to. Nothing for an object that isn't a Tunnel, or a tier its table
+    /// hasn't.
     pub(crate) fn set_tier(&mut self, id: ObjectId, tier: u8) {
-        if let Some(o) = self.objects.get_mut(&id) {
-            tunnel::set_tier(o, tier);
+        let Some(o) = self.objects.get_mut(&id) else {
+            return;
+        };
+        if tunnel::set_tier(o, tier)
+            && let Some(state) = &mut o.tunnel
+            && state.operation.and_then(tunnel::Operation::upgrade_to).is_some()
+        {
+            state.operation = None;
         }
     }
 }

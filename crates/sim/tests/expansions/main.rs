@@ -172,7 +172,7 @@ fn operation(t: &TestSim) -> Option<Operation> {
 fn building(t: &TestSim) -> ObjectId {
     match operation(t) {
         Some(Operation::Building(site)) => site,
-        None => panic!("Tunnel {T1:?} builds nothing"),
+        other => panic!("Tunnel {T1:?} builds nothing: {other:?}"),
     }
 }
 

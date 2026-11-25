@@ -42,10 +42,21 @@ pub fn area(footprint: TileRect, radius: u32) -> TileRect {
 }
 
 /// The Tunnel Area of `o` at its current tier ([`tier_def`]): `None` for an object that isn't a placed Tunnel. During
-/// an upgrade it is the current tier's, as the tier changes only when the upgrade completes (slice M4-G).
+/// an upgrade it is the current tier's, as the tier changes only when the upgrade completes (slice M4-G): the area its
+/// expansions lie in, its Tunnel Space and what it reclaims.
 pub fn of(o: &Object) -> Option<TileRect> {
     let placement = o.placement?;
     let radius = tier_def(o)?.area_radius;
+    Some(area(TileRect::new(placement.origin, placement.w, placement.h), radius))
+}
+
+/// The Tunnel Area `o` holds against the other Tunnels' (slice M4-G): its current one ([`of`]), but during an upgrade
+/// the target tier's (`super::TunnelState::reserved_tier`; `factions/syndicate/tunnels.md > Cost Scaling > Upgrade
+/// Costs`: "**The future area is reserved**"). `None` for an object that isn't a placed Tunnel.
+pub fn reserved(o: &Object) -> Option<TileRect> {
+    let placement = o.placement?;
+    let tier = o.tunnel.as_ref()?.reserved_tier();
+    let radius = def_of(o.kind)?.tier(tier)?.area_radius;
     Some(area(TileRect::new(placement.origin, placement.w, placement.h), radius))
 }
 

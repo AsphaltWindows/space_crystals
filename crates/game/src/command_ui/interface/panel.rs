@@ -65,8 +65,8 @@ pub struct PanelSlot {
     /// ([`Conditions::network_count`]); none on the other buttons.
     pub count: Option<u32>,
     /// What a Build costs now, in Supplies ([`Conditions::price`], design change 0233: "the price shown on the Build
-    /// button is the next Tunnel's"), which the InfoPanel's hint for the button shows
-    /// (`crate::hud::info_panel::hint`); none on the other buttons.
+    /// button is the next Tunnel's"), and a Tunnel's Upgrade (slice M4-G), which the InfoPanel's hint for the button
+    /// shows (`crate::hud::info_panel::hint`); none on the other buttons.
     pub price: Option<u32>,
 }
 

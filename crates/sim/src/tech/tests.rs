@@ -102,7 +102,7 @@ fn expand(tunnel: ObjectId, kind: ObjectKind, x: i32, y: i32) -> Command {
 fn site_of(t: &TestSim, tunnel: ObjectId) -> ObjectId {
     match t.sim().object(tunnel).and_then(|o| o.tunnel.as_ref()?.operation) {
         Some(crate::tunnel::Operation::Building(site)) => site,
-        None => panic!("Tunnel {tunnel:?} builds nothing"),
+        other => panic!("Tunnel {tunnel:?} builds nothing: {other:?}"),
     }
 }
 

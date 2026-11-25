@@ -145,7 +145,7 @@ fn bank(t: &TestSim) -> (u32, u32) {
 fn building(t: &TestSim) -> ObjectId {
     match t.sim().object(T1).and_then(|o| o.tunnel.as_ref()?.operation) {
         Some(Operation::Building(site)) => site,
-        None => panic!("Tunnel {T1:?} builds nothing"),
+        other => panic!("Tunnel {T1:?} builds nothing: {other:?}"),
     }
 }
 

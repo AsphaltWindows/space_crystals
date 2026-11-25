@@ -166,6 +166,14 @@ pub enum Reject {
     /// Unit Prerequisite as it is queued, a building's TechPrerequisite as its construction starts
     /// (`core/tech_and_research.md > Tech Prerequisites`; `crate::tech`, plan decision T37). The first one missing.
     Requires(ObjectKind),
+    /// (M4-G) An Upgrade to a Tunnel at its table's last tier (`factions/syndicate/tunnels.md > Tunnel
+    /// ObjectInterfaceState`: "Unavailable if already Tier 3").
+    TopTier(ObjectId),
+    /// (M4-G) Something blocks the Tunnel's upgrade, by the truth: its area at the target tier would overlap another
+    /// Tunnel's (any player's, as it reserves it), or reach a cell off the map or not Drillable
+    /// (`factions/syndicate/tunnels.md > Tunnel Area Non-Overlap Rule`). It never says what: "the upgrade check uses
+    /// the truth; the upgrading Tunnel's owner learns that something blocks it".
+    UpgradeBlocked(ObjectId),
 }
 
 impl fmt::Display for Reject {
@@ -224,6 +232,8 @@ impl fmt::Display for Reject {
             Reject::TierRequirement { kind, tier } => write!(f, "a {} needs a Tier {tier} Tunnel", kind.def().name),
             Reject::NoOperation(id) => write!(f, "Tunnel {} performs no operation", id.0),
             Reject::Requires(kind) => write!(f, "it requires a complete {} of the player's", kind.def().name),
+            Reject::TopTier(id) => write!(f, "Tunnel {} is at its top tier", id.0),
+            Reject::UpgradeBlocked(id) => write!(f, "something blocks Tunnel {}'s upgrade", id.0),
         }
     }
 }
@@ -278,6 +288,13 @@ pub(super) enum Checked {
     /// `tunnel`: the player's, in operation, with an operation to cancel (`sim/expansions.rs`).
     CancelOperation {
         tunnel: ObjectId,
+    },
+    /// `tunnel`: the player's, in operation and free, upgrading to tier `to` for `price` Supplies, which the bank pays,
+    /// its area at `to` clear by the truth (`sim/upgrades.rs`).
+    Upgrade {
+        tunnel: ObjectId,
+        to: u8,
+        price: u32,
     },
     /// `player`'s production command, with what its checks resolved (`sim/producers.rs`).
     Production {

@@ -9,6 +9,10 @@
 //!   player knows: their remembered position and their tier as last seen", and "The real check on arrival uses the
 //!   truth, so a build can fail on arrival because an enemy Tunnel was upgraded unseen". A Tunnel of a map or of a
 //!   Starting Layout counts at the base tier, where it starts.
+//! - **Upgrades** (slice M4-G): a Tunnel that upgrades holds the target tier's area from the upgrade's start
+//!   (`factions/syndicate/tunnels.md > Cost Scaling > Upgrade Costs`: "**The future area is reserved** ... counts
+//!   against other placements (Tunnel Area Non-Overlap Rule)"), in truth and for its owner, whose ghosts are red over
+//!   it; another player's ghost judges it at its tier (`Occupant::as_seen`), and the arrival by the truth.
 //! - **The placing player's lingering Tunnel ghosts** (design change 0289 point 2: "A pending ghost reserves its whole
 //!   Tier 1 area against its owner's further Tunnel ghosts, which show red. It is the owner's only, since other
 //!   players don't know about it"): each reserved site of a Tunnel reserves its Tier 1 area, as its footprint reserves
