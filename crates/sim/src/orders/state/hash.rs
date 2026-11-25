@@ -137,10 +137,21 @@ impl StateHash for Leg {
 
 impl StateHash for Judged {
     fn hash(&self, h: &mut StateHasher) {
-        let Judged { target, at, knowledge } = self;
+        let Judged {
+            target,
+            at,
+            knowledge,
+            from,
+        } = self;
         target.hash(h);
         at.hash(h);
         knowledge.hash(h);
+        // (M3-L5) Design change 0243, only while set, as `AttackOrder`'s: a judgement on 0230's triggers alone hashes
+        // as it did.
+        if let Some(from) = from {
+            h.tag(1);
+            from.hash(h);
+        }
     }
 }
 

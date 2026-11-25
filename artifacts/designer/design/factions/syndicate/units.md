@@ -331,7 +331,11 @@ Converts the **entire remaining battery** into the **next surge**. A single big 
 
 ### Deploy (ability)
 - **Deployed**: **cannot move**. The turret gets **360° rotation**. It can **only target air units** (no ground targets while deployed).
-- **Refract** (ability, deployed only): to be designed together with satellites (user, 2026-11-25).
+- **Refract** (ability, deployed only; user, 2026-11-25): the deployed Laser Battery **reflects its beam off one of the player's Satellites** to hit a target **farther away**, **ground or air** (so through Refract a deployed Battery can hit ground targets again).
+  - **Only a deployed Laser Battery** can use satellites; no other laser is relayed.
+  - **One or more** Laser Batteries can reflect off the **same** Satellite.
+  - **Chains**: a beam can pass through a **chain of Satellites**, reaching targets much farther away.
+  - TBD: how it is ordered (target the satellite, then the target? or the target directly through a path of satellites?); the range of each leg (battery to satellite, satellite to satellite, satellite to target); sight (whose sight is needed to target); whether relaying costs extra charge or damage.
 - **Switching modes works like the GDO Artillery Rig** (user, 2026-11-25; factions/gdo/units.md > Artillery Rig > Modes): deploying and undeploying take time, during which it can **neither move nor attack**.
 - **Two unit types**: **Laser Battery** and **Laser Battery (Deployed)**, with separate SelectionGroups.
 - **Deploy is an order, not a mode switch** (user, 2026-11-25; unlike Convert and the Riot Shield, which follow the toggle rule):
@@ -422,8 +426,39 @@ TBD: all numbers (HP, armor, sight, speed and handling, TunnelSpaceCost, damage,
 - On a **turret with very low range**: it must be nearly over its target.
 - **Can miss**: the bomb falls to a locked location, so targets can dodge (DoublyDisjointed, assumed). The **projectile travel time is relatively high**, almost all of it the **vertical fall**.
 - **Out of ammo** (user, 2026-11-25): once its bomb is dropped, its default behavior is to **fly back to the nearest own Tier 3 Tunnel**, land through its air door and re-arm inside, **even if the player owns no Vault** (it then waits inside, unarmed, until a Vault exists). If there is **no Tier 3 Tunnel**, it **circles** where it is (the Glider idle behavior).
+- **Attack orders and ammo** (user, 2026-11-25):
+  - **Ordered to attack while unarmed**: it can't bomb, so carrying out the Attack means re-arming first. It **flies to the nearest own Tier 3 Tunnel** to re-arm.
+  - **On entering the Tunnel its orders are wiped**: the Attack and anything queued after it are dropped, and it **stays inside**. Re-arming never resumes the attack on its own.
+  - **After it bombs**: if the target is **destroyed**, the Attack is done and it goes on to its next queued order. With nothing queued it is idle, and an unarmed idle Specter flies home (Out of ammo, above). If the target **survives**, the Attack order still stands. Since it is now unarmed, that means going to re-arm, so it **ignores the orders queued after the Attack** and flies home, where they are wiped.
+  - Example: Attack a target, then shift-queue a Move. If the bomb kills the target, it flies the Move (unarmed; confirmed by the user), then home. If the target survives, it never flies the Move: it goes home and stays inside.
+  - With **no Tier 3 Tunnel**, an unarmed Specter **ignores Attack orders** (user, 2026-11-25): it has no ammo and no way to re-arm, so the Attack is dropped and it goes on to its next queued order. With nothing queued it circles (Out of ammo, above).
 - Like every attack that can miss, it can **Attack Ground** (systems/combat.md > AttackType > CanTargetGround).
 - TargetDomain: **Ground only** (user, 2026-11-25).
 
 TBD: re-arming time and the Vault's throughput limit; the lift-off/landing transition; all numbers.
+
+## Satellite (name TBD)
+(user, 2026-11-25) An unmanned Syndicate orbital unit whose function, **for now, is only laser relay**: deployed Laser Batteries reflect their beams off it (one or more Batteries per Satellite; Satellites can be chained) to hit far-off ground or air targets (Laser Battery > Deploy > Refract).
+
+### Entity Type - Unit
+### Faction - TheSyndicate
+### UnitBase - HoverCraft (Air domain; factions/syndicate/structures.md > Aerospace Assembly)
+### Produced at - Aerospace Assembly
+### TechPrerequisite - player owns at least one **Orbital Command** (user, 2026-11-25)
+### Manned - no (no Null Chamber buff)
+
+### Launch
+It leaves the network through a Tier 3 Tunnel's **air exit**, **launched like a rocket straight up**, and **transforms in the air into its orbital form** (user, 2026-11-25).
+
+### One way only
+It is the **only unit that can't get back into the Tunnel Network** (user, 2026-11-25). Nothing recharges it inside, Vault or otherwise.
+
+### Movement
+- **Very slow** by default.
+- **Directional thrust**: a few **charges**, each giving a quick burst of displacement in a chosen direction (user, 2026-11-25).
+
+### Sight
+It sees through Shadebringer smoke (Shadebringer > Cover).
+
+TBD: name; the open relay rules (Laser Battery > Refract); launch and transform timing (and whether it can be hit meanwhile); thrust charge count, distance and recharge; all numbers.
 

@@ -34,7 +34,7 @@ pub const DEFAULT_PATCH_AMOUNT: u32 = 1500;
 |---|---|
 | `cargo run [-- <flags>]` | Runs the game, the only binary. Flags are listed under *QA mode*. |
 | `cargo test --workspace` | Runs all tests. `cargo test -p sc_sim` tests the sim alone, which is fast and skips Bevy. |
-| `cargo test --release --workspace -- --ignored --test-threads=1` | Runs the ignored tests: the perf tests, soaks, sweeps and measurements (14 at M3's end, all in the sim, about 50 s on a quiet machine). Run them at a milestone's end, since nothing else does. |
+| `cargo test --release --workspace -- --ignored --test-threads=1` | Runs the ignored tests: the perf tests, soaks, sweeps and measurements (16 at M3's end, all in the sim, about 50 s on a quiet machine). Run them at a milestone's end, since nothing else does. |
 | `cargo clippy --workspace --all-targets -- -D warnings` | Runs the lints and turns every warning into an error. |
 | `cargo fmt --all` | Formats the code; add `--check` to verify only. `rustfmt.toml` sets max width 120. |
 
@@ -750,18 +750,25 @@ the target the attack engages, and reads `Mover::status` and the snapshot.
   - **No memory of targets let go** (0230). A rejection (`Leg::rejected`, `state::Judged`) only saves judging an
     enemy again, and stands only while nothing the judgement depends on has changed: the enemy within
     `REJUDGE_MOVE_SU` (1 GU, a placeholder) of where it was judged, the owner's `PlayerKnowledge::version` the same,
-    the PathReference the same (`Leg::set_reference` clears them). The unit's own position is left out, as the
-    design leaves it out. A chase that ends without the target reached is a rejection too: given up by the Failure
-    rule or as near as the unit gets (0235), beyond the leash, or out of the owner's sight (then where the target
-    was judged, never where it went). Any state that makes a unit pass over an enemy must follow this pattern: a
-    cache of a judgement with its inputs, never a list of ids.
+    the PathReference the same (`Leg::set_reference` clears them). A rejection by the reach rule (a chase the unit
+    can't finish, or one that ended beyond the leash) also records where the unit stood (`Judged::from`), and stands
+    only while it stands within `REJUDGE_SELF_SU` (1 GU, the design's placeholder) of there: design change 0243,
+    answering Q0074, "so the same situation always gets the same response" (a unit that rounds a wall judges the
+    building it passed over again, as a fresh unit there would). A chase that ends without the target reached is a
+    rejection too: given up by the Failure rule or as near as the unit gets (0235), beyond the leash, or out of the
+    owner's sight (then where the target was judged, never where it went); the Failure rule's and the fog's keep
+    0230's triggers alone (`from` unset), so the units behind their own side in a corridor don't take the target up
+    again as they shuffle. Any state that makes a unit pass over an enemy must follow this pattern: a cache of a
+    judgement with its inputs, never a list of ids.
   - **The cost bound**: a unit plans at most `JUDGE_PATHS_PER_TICK` (2) judgement paths per tick, its candidates in
     target-priority order, the rest in later ticks (an enemy within weapon range is still taken at once); an enemy
     farther from the PathReference than any firing position could be costs none (`reach::near_route`); and a
     judgement's search gives up beyond `JUDGE_PATH_SIGHTS` (2) SightRanges of path (`nav::find_path_within`), so it
     never floods the map round a long wall. The searches run in phase 5a on their own scratch (`reach::Reach`, kept
     in `NavState`), outside `PATH_BUDGET`; `Sim::reach_counters` reports them. The rejections and the chase's
-    judgement are hashed and serialized only while set.
+    judgement are hashed and serialized only while set, and so is a judgement's `from`. The own-movement trigger
+    costs a path for each grid unit a unit walks with a rejected enemy in its sight, within the same bound
+    (`attack_move_perf.rs` measures it).
 - **Patrol** (`travel::patrol`): legs to and fro between the position where the Patrol started executing (design
   change 0036) and the destination. A failed leg counts as arrived; `PATROL_FAILED_LEGS` (2) in a row end it (design
   change 0037).
@@ -1725,7 +1732,10 @@ M3-D2: design change 0145, `> Portals > Portal Exits (energy doorway)`).
   (design change 0180: the leash measured from the route planned at the start after a fight, a bait at the leash
   taken once, a detour round a blocked route as the new PathReference), `attack_move_reach.rs` (0230: enemies across
   walls passed without a chase, a rejected enemy taken within weapon range, an identical enemy swapped in, judging
-  again when the enemy moves a grid unit or the known obstacles change, the paths per unit and tick), `target_priority.rs` (0179:
+  again when the enemy moves a grid unit or the known obstacles change, the paths per unit and tick),
+  `attack_move_own_movement.rs` (0243: judging again once the unit has walked a grid unit from where it judged,
+  tick by tick and within the bound, none while it stands, a chase that ended beyond the leash, and 0243's
+  Verification against a fresh Guard on the same spot), `target_priority.rs` (0179:
   the 45° steps of rotation, the step's bound, ties by id), the unit tests in `orders/tests/` (with test-only defs:
   a unit fighting back beyond its leash, artillery out-ranging it left alone, MinRange: the back-off, the immobile
   unit's failed order, the scans skipping enemies inside it; the steps themselves),
@@ -1736,7 +1746,7 @@ M3-D2: design change 0145, `> Portals > Portal Exits (energy doorway)`).
   bounded shares of refused orders, failed moves and path searches; the ignored `soak_sweep` runs seeds 1 to 40 and
   fails if any does. An order ends within the slowest unit's walk round the map's four sides for each order a unit
   still has at the last order, its current one and its queue: slice M3-K2 found seed 5's Peacekeepers with three,
-  each across both walls, settling 2765 ticks after it at full speed) and the ignored `behaviours_perf.rs` and `attack_move_perf.rs` (the reach rule: 100 Guards past 100 Drones across a river).
+  each across both walls, settling 2765 ticks after it at full speed) and the ignored `behaviours_perf.rs` and `attack_move_perf.rs` (the reach rule: 100 Guards past 100 Drones, and past 30 Generators, across a river).
   `riot_shield/` has the Riot Shield's: toggle timing, each raised-shield effect, the gate, a save in the middle
   of a toggle and its replay, the orders kept through a toggle (`orders_kept.rs`, design changes 0150, 0151), and
   the target state (`target.rs`, design changes 0198 and 0202: a second press before a deferred raise begins, fast
@@ -1986,8 +1996,11 @@ out by the same rules.
 - **Combat effects** (`combat_effects.rs`, placeholders until Q0001): a tracer for each `SimEvent::Attacked`
   (`TRACER_TICKS`), drawn only along the parts of its path over the local player's Visible tiles (`visible_spans`,
   which cuts it at every tile edge it crosses; design change 0177: a shot from the fog shows from the fog edge, one
-  all in the fog not at all; its attacker is revealed by the sim), but whole, from the attacker to the target, while
-  its attacker is revealed to the local player (`shot_spans`, `Sight::reveals`; design change 0206, answering Q0056:
+  all in the fog not at all; its attacker is revealed by the sim), but whole, from the attacker to the target, if
+  it hits one of the local player's own objects while its attacker is revealed to them (`shot_spans`,
+  `Sight::reveals`, `Tracer::target_owner`: the owner as the shot took effect, a death's for a killing shot; design
+  change 0244, answering Q0075: drawn whole, a shot at a neutral's or a third player's object would show where that
+  object stands; design change 0206, answering Q0056:
   so the shot that reveals an attacker, and every later one while the reveal lasts, comes from the unit the player
   sees; a shot at a neutral object reveals nobody and stays clipped); a tracer's look is its weapon's (`ShotStyle::of`
   on the form that fired, design change 0207: the Syndicate's lasers, the Guard's so far, red), HP bars over damaged

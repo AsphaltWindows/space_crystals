@@ -17,12 +17,17 @@
 //!   judgement depends on has changed (the Director's decision under 0230's "the exact triggers and caching are the
 //!   Director's call"): the enemy stands within [`REJUDGE_MOVE_SU`] of where it was judged, the unit's owner knows
 //!   the same obstacles (`PlayerKnowledge::version`), and the PathReference is the same route (`Leg::rejected` is
-//!   cleared when a detour replaces it, [`Leg::set_reference`]). Where the unit itself stands is left out, as the
-//!   design leaves it out ("only when something relevant changes, i.e. the enemy moves a meaningful distance, or the
-//!   obstacle knowledge the path used changes"): a unit that walked on past an enemy it couldn't reach doesn't turn
-//!   back for it.
+//!   cleared when a detour replaces it, [`Leg::set_reference`]).
+//! - **The unit's own movement** (design change 0243, answering question Q0074: "the unit itself has moved a
+//!   meaningful distance since it judged that enemy … so the same situation always gets the same response"): a
+//!   rejection by the reach rule stands only while the unit stands within [`REJUDGE_SELF_SU`] of where it judged
+//!   ([`Judged::from`]). That covers the chases that end beyond the leash, which is part of the rule. So a unit that
+//!   rounds a wall into the open judges the enemy it passed over again, as a fresh unit there would judge it.
 //! - **A chase that ends without the target reached is a rejection too** (design change 0235: "A chase given up by
-//!   the Failure rule puts the enemy in the reach rule's rejected set"; `travel::pursue`), on the same triggers.
+//!   the Failure rule puts the enemy in the reach rule's rejected set"; `travel::pursue`), on 0230's triggers only,
+//!   and so is a chase that lost its target to the fog: "Failure-rule and fog rejections keep 0230's triggers"
+//!   (design change 0243), so the units behind their own side in a corridor don't take the target again each time
+//!   they shuffle along.
 //! - **The cost bound**. A unit judges at most [`JUDGE_PATHS_PER_TICK`] paths per tick ([`Reach`]), its candidates
 //!   in target-priority order (`travel::march`); the rest wait for later ticks. An enemy the PathReference rules out
 //!   by itself ([`near_route`]) costs no path at all.
@@ -43,6 +48,12 @@ use super::world::{Unit, View, World};
 /// Design change 0230 ("the enemy moves a meaningful distance"): an enemy that has moved this far from where it was
 /// judged is judged again, space units. A placeholder (the Director's): 1 grid unit.
 pub const REJUDGE_MOVE_SU: f32 = SU_PER_GU;
+
+/// Design change 0243 (answering question Q0074: "once the unit has moved about 1 GU (placeholder) from where it
+/// judged that enemy"): a rejection by the reach rule is judged again once the unit stands this far from where it
+/// judged, space units. A placeholder of the design's, "to be revisited if too expensive"
+/// (`tests/attack_move_perf.rs` measures it): 1 grid unit.
+pub const REJUDGE_SELF_SU: f32 = SU_PER_GU;
 
 /// The most paths one unit plans in one tick to judge enemies by the reach rule (the Director's decision under design
 /// change 0230, "Performance is a priority here"). Technical: measured in `tests/attack_move_perf.rs`.
@@ -118,27 +129,43 @@ pub(super) enum Verdict {
 }
 
 impl Judged {
-    /// The judgement of `target` as the unit's owner knows the obstacles now (`version`).
+    /// The judgement of `target` as the unit's owner knows the obstacles now (`version`), on 0230's triggers alone:
+    /// the judgement a chase goes by (`Leg::chase`), and the rejection of a chase given up by the Failure rule or lost
+    /// to the fog, which keep those triggers (design change 0243).
     pub(super) fn of(target: &View, version: u32) -> Self {
         Self {
             target: target.id,
             at: target.pos,
             knowledge: version,
+            from: None,
         }
     }
 
-    /// Whether the judgement still stands for `target` (module docs).
-    pub(super) fn stands(&self, target: &View, version: u32) -> bool {
-        self.target == target.id && self.knowledge == version && self.at.distance(target.pos) < REJUDGE_MOVE_SU
+    /// A rejection of `target` by the reach rule, the leash included, by a unit standing at `from`: its own movement
+    /// re-checks it too (design change 0243, [`REJUDGE_SELF_SU`]).
+    pub(super) fn by_reach(target: &View, version: u32, from: Vec2) -> Self {
+        Self {
+            from: Some(from),
+            ..Self::of(target, version)
+        }
+    }
+
+    /// Whether the judgement still stands for `target`, for a unit standing at `unit` now (module docs).
+    pub(super) fn stands(&self, target: &View, version: u32, unit: Vec2) -> bool {
+        self.target == target.id
+            && self.knowledge == version
+            && self.at.distance(target.pos) < REJUDGE_MOVE_SU
+            && self.from.is_none_or(|from| from.distance(unit) < REJUDGE_SELF_SU)
     }
 }
 
 impl Leg {
-    /// Whether a rejection of `target` stands: it is left alone, out of weapon range, without judging it again.
-    pub(super) fn rejects(&self, target: &View, version: u32) -> bool {
+    /// Whether a rejection of `target` stands for a unit standing at `unit`: it is left alone, out of weapon range,
+    /// without judging it again.
+    pub(super) fn rejects(&self, target: &View, version: u32, unit: Vec2) -> bool {
         self.rejected
             .binary_search_by_key(&target.id, |judged| judged.target)
-            .is_ok_and(|i| self.rejected[i].stands(target, version))
+            .is_ok_and(|i| self.rejected[i].stands(target, version, unit))
     }
 
     /// The unit can't finish a chase of the enemy of `judged` (module docs). `in_sight` says whether an enemy is in

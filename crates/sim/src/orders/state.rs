@@ -124,7 +124,8 @@ pub struct Leg {
     pub resumed: bool,
     /// Design change 0230, the reach rule (`orders::reach`): the enemies judged out of the unit's reach on this leg,
     /// by ascending id, at most `orders::reach::MAX_REJECTED`. Not a memory of them: each stands only while nothing
-    /// its judgement depends on has changed, and saves judging the enemy again meanwhile.
+    /// its judgement depends on has changed (for a rejection by the reach rule, where the unit stands included:
+    /// design change 0243), and saves judging the enemy again meanwhile.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub rejected: Vec<Judged>,
     /// The judgement by which the unit goes after `engaged`, out of its weapon range: it is judged again once it
@@ -135,6 +136,8 @@ pub struct Leg {
 
 /// Design change 0230: what a judgement of an enemy by AttackMove's reach rule depended on, besides the leg's
 /// PathReference (`orders::reach`).
+///
+/// Its `from` (slice M3-L5) is left out of files while unset, and out of the hash, as [`AttackOrder`]'s fields.
 #[derive(Copy, Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct Judged {
     pub target: ObjectId,
@@ -143,6 +146,12 @@ pub struct Judged {
     /// The version of what the unit's owner knew of the obstacles (`PlayerKnowledge::version`; the sim's
     /// `nav_version` for a unit without an owner).
     pub knowledge: u32,
+    /// Design change 0243 (answering question Q0074): where the unit stood when it judged, for a rejection its own
+    /// movement re-checks: one by the reach rule, the leash included (`orders::reach::REJUDGE_SELF_SU`). `None` for
+    /// the judgement a chase goes by, and for the rejection of a chase given up by the Failure rule (design change
+    /// 0235) or lost to the fog, which "keep 0230's triggers".
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub from: Option<Vec2>,
 }
 
 /// `> Patrolling`.

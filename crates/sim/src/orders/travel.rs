@@ -276,7 +276,8 @@ pub(super) fn march(
 /// ([`World::pick`]): the best one that is within weapon range, or whose chase the unit can finish, is taken.
 /// - One whose rejection stands ([`Leg::rejects`]), or that the PathReference rules out by itself
 ///   ([`reach::near_route`], or the unit standing beyond the leash), is passed over at no cost.
-/// - Any other out of range is judged by a path ([`reach::judge`]), and rejected if the unit can't finish the chase.
+/// - Any other out of range is judged by a path ([`reach::judge`]), and rejected if the unit can't finish the chase:
+///   a rejection its own movement re-checks too, from where it stands (design change 0243, [`Judged::by_reach`]).
 /// - Once the unit's paths for the tick are spent ([`Verdict::Later`]), the candidates not yet judged wait for the
 ///   next tick, and the best within weapon range is taken now ("an enemy within weapon range is always taken").
 fn acquire<'w>(
@@ -291,7 +292,9 @@ fn acquire<'w>(
     loop {
         let admit = |c: &Candidate| {
             c.in_range
-                || (on_leash && !leg.rejects(c.view, version) && reach::near_route(unit, attrs, c.view, &leg.reference))
+                || (on_leash
+                    && !leg.rejects(c.view, version, unit.pos)
+                    && reach::near_route(unit, attrs, c.view, &leg.reference))
         };
         let view = world.get(world.pick(unit, Scan::Sight, false, admit)?)?;
         if in_range(unit, attrs, view, world) {
@@ -299,7 +302,7 @@ fn acquire<'w>(
         }
         match reach::judge(unit, attrs, &leg.reference, view, world, reach) {
             Verdict::Reachable => return Some((view, Some(Judged::of(view, version)))),
-            Verdict::Unreachable => reject(unit, attrs, leg, Judged::of(view, version), world),
+            Verdict::Unreachable => reject(unit, attrs, leg, Judged::by_reach(view, version, unit.pos), world),
             Verdict::Later => {
                 let id = world.pick(unit, Scan::Sight, false, |c| c.in_range)?;
                 return Some((world.get(id)?, None));
@@ -329,12 +332,16 @@ fn reject(unit: &Unit, attrs: &AttackAttrs, leg: &mut Leg, judged: Judged, world
 /// - Out of range, the unit goes after it while it stands within the leash itself and the chase is one it can
 ///   finish: by the judgement it took the target by ([`Leg::chase`]) while that stands, else by a new one (the
 ///   target moved on, the owner's knowledge of the obstacles changed, or the unit had only fought it within range).
-///   A chase it can't finish is a rejection, as in step 2, and so is one it gives up ([`march`]).
+///   A chase it can't finish is a rejection, as in step 2, and so is one that took the unit beyond the leash: both
+///   by the reach rule, so its own movement re-checks them (design change 0243). One it gives up ([`march`]) is a
+///   rejection on 0230's triggers alone (design change 0235; 0243: "Failure-rule and fog rejections keep 0230's
+///   triggers").
 /// - A target that is no longer a ValidTarget (out of the owner's sight, design change 0200) is let go. If the unit
 ///   was going after it, that chase was one it couldn't finish without losing sight of the target, whatever its
 ///   judgement had made of the path (the judgement measures sight as the scan does, edge to edge, which is a little
 ///   farther than the unit's eyes see tiles): the judgement becomes a rejection, where the target stood when it was
-///   judged (never where it is now, out of sight). Seen again, it is judged like any other enemy once it has moved.
+///   judged (never where it is now, out of sight), on 0230's triggers alone. Seen again, it is judged like any other
+///   enemy once it has moved.
 fn pursue(unit: &mut Unit, leg: &mut Leg, pursuit: &mut Pursuit, world: &World, reach: &mut Reach) -> bool {
     let id = pursuit.target;
     // Its Riot Shield is up (it can't attack now), or the target is destroyed.
@@ -353,11 +360,11 @@ fn pursue(unit: &mut Unit, leg: &mut Leg, pursuit: &mut Pursuit, world: &World, 
     }
     let version = world.knowledge_version(unit.owner);
     if !within_range(attrs, gap, world.elevation(unit), target.elevation) {
-        if !leg.chase.is_some_and(|judged| judged.stands(target, version)) {
+        if !leg.chase.is_some_and(|judged| judged.stands(target, version, unit.pos)) {
             match reach::judge(unit, attrs, &leg.reference, target, world, reach) {
                 Verdict::Reachable => leg.chase = Some(Judged::of(target, version)),
                 Verdict::Unreachable => {
-                    reject(unit, attrs, leg, Judged::of(target, version), world);
+                    reject(unit, attrs, leg, Judged::by_reach(target, version, unit.pos), world);
                     return false;
                 }
                 // No path to judge by this tick: the chase goes on as it was.
@@ -365,12 +372,13 @@ fn pursue(unit: &mut Unit, leg: &mut Leg, pursuit: &mut Pursuit, world: &World, 
             }
         } else if !reach::within_leash(unit.pos, &leg.reference) {
             // The chase took it beyond the leash after all (pushed aside, or after a target that crept on).
-            reject(unit, attrs, leg, Judged::of(target, version), world);
+            reject(unit, attrs, leg, Judged::by_reach(target, version, unit.pos), world);
             return false;
         }
     }
     match close_in(unit, &mut pursuit.chasing, target, world) {
         Closing::InRange | Closing::Approaching => true,
+        // The Failure rule, or as near as the unit gets (design change 0235): 0230's triggers alone.
         Closing::GaveUp => {
             reject(unit, attrs, leg, Judged::of(target, version), world);
             false
