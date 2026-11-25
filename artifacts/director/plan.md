@@ -1231,13 +1231,20 @@ Approach: thin vertical slices the user can run and see, each verified by tests 
   - **Docs:** `docs/playtest/m4.md`'s Known issue carries the diagnosis and the table.
   - **The fix** is a new who-gives-way rule, so it is design: **Q0109**, with options (a)–(e). It must land before the playtest.
 
+- **M4-Z The QA strays** (Opus; merged in `95b4bc6e`; comments and test helpers only; goldens unchanged; 1815 tests, 25 ignored).
+  - **Marks:**
+    - Q0060 point 1 now cites 0229 as the rule (the code matches it);
+    - Q0091's five as-built points are marked `Placeholder (Q0091 point N)` where the code decides each one: `popup::step`, `placement/check.rs`, `LASER_TURRET_EXPANSION.tier` and `tunnel_space::occupies_tunnel_region`.
+  - **`testing::syndicate::eject_builders`** acts only on a Tunnel's site (a turret's Agent leaves by itself, 0298 point 7), with a test in `syndicate_line.rs`.
+  - **The test books** count every refund in its own resource (`build_order::refund_in`), including a Laser Turret's SC refunds and `ExpansionCancelled`. The books property test (`builds/price.rs`) now plays turret Builds and Tunnel 1's expansions, and balances both banks every tick.
+  - **Left over:** `syndicate_soak.rs` keeps its own Eject workaround, which could now use the helper. It goes to the Q0109 fix, which reopens the soak.
+
 ## In progress
 - **Running:**
-  - **M4-Z The QA strays** (Opus; brief `scratchpad/briefs/m4z-qa-strays.md`): the Q0060 mark, Q0091's marks, `eject_builders` on turret sites, and the test books' turret and expansion refunds. No behaviour change.
   - **M5-R Playtest pairings** (Opus; brief `scratchpad/briefs/m5r-playtest-pairings.md`): every ordered faction pairing (9 now, 16 after B) starts, plays and ends on every map; a headless client test per pair; and `docs/playtest/README.md` (hot-seat, command line, how to report a finding).
   - **M5-A The Cults foundation** (Opus; brief `scratchpad/briefs/m5a-cults-foundation.md`; common rules `scratchpad/briefs/m5-common.md`): the six designed kinds, their client kinds and the lineage field. The Gunner is TailDisjointed as data (0304); O3 builds the attack.
 - **Next**:
-  - **M4 is complete** (M4-M, `4e3fdd4a`), apart from Z, and the hatch jam's fix. M4-W diagnosed the jam (`189d0162`), and the fix waits on **Q0109** (blocking, for the fix only). It must land before the playtest.
+  - **M4 is complete** (M4-M, `4e3fdd4a`; the strays, M4-Z, `95b4bc6e`), apart from the hatch jam's fix. M4-W diagnosed the jam (`189d0162`), and the fix waits on **Q0109** (blocking, for the fix only). It must land before the playtest.
   - **M5 wave 1:** A and R are running. Wave 2 (C, D on Fable, F1) follows A.
   - **Playtest:** the user plays once all four factions are built, in hot-seat from the command line (2026-11-25). The kit is `docs/playtest/` (m2–m4 and M5's README). This replaces separate M1–M4 playtests.
 

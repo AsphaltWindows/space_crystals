@@ -2438,9 +2438,12 @@ their energy doorway, slice M3-D2: design change 0145, `factions/colonists/struc
   in it and nowhere else) after every tick: `flow` (the order paid at once, the site's HP and completion, the network
   and an Eject, the site's one command, the load kept, what enemies see and target, a cancel, a destruction, the
   defeat), `price` (0233's verification, the refusal, every refund, a price of 0, and the books: a property test over
-  random orders, Shift-queues, cancels and replacements, with a fixed seed list) and `rules` (the overlap rule by
-  knowledge and by truth, the Drillable area, 0240's hidden expansions for the three factions, a unit on the site,
-  the lingering ghosts' reservations). Unit tests: `construction/site.rs`'s (the maximum, who builds what).
+  random orders, Shift-queues, cancels and replacements, with a fixed seed list; since slice M4-Z it also plays a Laser
+  Turret's Builds and Tunnel 1's expansions, and balances both banks every tick by `testing::build_order::Books` and
+  `testing::syndicate::SupplyBooks`, each refund counted in its own resource by `build_order::refund_in`) and `rules`
+  (the overlap rule by knowledge and by truth, the Drillable area, 0240's hidden expansions for the three factions, a
+  unit on the site, the lingering ghosts' reservations). Unit tests: `construction/site.rs`'s (the maximum, who builds
+  what).
 - **Losing Tunnel tests** (slice M4-H) are `crates/sim/tests/losing_tunnels/`, under `check` (no reference dangles,
   each site's worker is held in it, and only a neutral expansion decays) after every tick: `neutral` (the only Tunnel
   falling in combat: the Hideout neutral, seen and remembered by the enemy, the defeat, the Agents neutral, the network
