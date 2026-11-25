@@ -1,0 +1,165 @@
+//! A Tunnel destroyed leaves its expansions neutral (`factions/syndicate/tunnels.md > Losing Tunnels`): visible to
+//! everyone and remembered, decaying at 1% of their MaxHP a second (design change 0258 point 1), their work in progress
+//! lost and their queue refunded; the Syndicate is defeated with its last structure, and its network goes with it
+//! (design change 0258 point 5).
+
+use sc_sim::targets::TargetView;
+use sc_sim::{ProductionCommand, Target};
+
+use super::*;
+
+/// Player 2's Guards in [`last_stand`], south and east of the Tunnel, in range of its footprint.
+const ATTACKERS: [u32; 6] = [5, 6, 7, 8, 9, 10];
+
+/// [`base`], with player 1's Agent 3 on the map far south-east and its Guard 4 at the Tunnel's entry path, and
+/// player 2's six Guards around the Tunnel's south and east sides, one of them (10) beside the Hideout; auto-targeting
+/// off.
+fn last_stand() -> TestSim {
+    let mut t = base()
+        .spawn(AGENT, Some(P1), point(20, 20)) // 3
+        .spawn(GUARD, Some(P1), point(5, 6)) // 4
+        .spawn(GUARD, Some(P2), point(4, 13)) // 5
+        .spawn(GUARD, Some(P2), point(5, 13)) // 6
+        .spawn(GUARD, Some(P2), point(6, 13)) // 7
+        .spawn(GUARD, Some(P2), point(7, 13)) // 8
+        .spawn(GUARD, Some(P2), point(8, 12)) // 9
+        .spawn(GUARD, Some(P2), point(10, 11)) // 10
+        .start();
+    t.without_auto_targeting();
+    step(&mut t);
+    t
+}
+
+/// H's Acceptance, "The only Tunnel destroyed, with its Hideout": `factions/syndicate/tunnels.md > Losing Tunnels`
+/// ("every expansion in its Tunnel Area becomes neutral"; "no longer hidden (visible to everyone, no detection
+/// needed)"; "1% per second, placeholder (a Hideout lasts 100 s)") and `core/game_rules.md > On Defeat`. Player 2's
+/// Guards destroy player 1's only Tunnel in combat. In that tick the Hideout becomes neutral, seen and remembered by
+/// player 2, whose Guard stands beside it; player 1, with no structure left, is defeated: its Agent on the map turns
+/// neutral, and its Guard in the network is destroyed. The Hideout loses a quarter of an HP a tick, its first in that
+/// tick, 4 a second, and dies, its HP at 0, in its 1600th tick of decay: 100 s.
+#[test]
+fn the_only_tunnel_falls_its_hideout_turns_neutral_and_decays_and_the_syndicate_falls() {
+    let mut t = last_stand();
+    enter(&mut t, P1, &[4], T1);
+    assert!(t.sim().hidden_from(object(&t, H1), P2), "hidden while player 1 owns it");
+    assert_eq!(t.sim().target_view(P2, H1), TargetView::Gone);
+    next(&mut t, P2, order(&ATTACKERS, OrderKind::Attack(T1), false));
+    step_until(&mut t, 3000, "the Tunnel falls", |t| died(t, T1).is_some());
+    let (fell, by) = died(&t, T1).expect("fell");
+    assert_eq!((by, t.sim().tick()), (Some(P1), fell));
+
+    let h = object(&t, H1);
+    assert_eq!((h.owner, h.hp), (None, Some(400.0 - 0.25)), "neutral, a tick of decay");
+    assert!(
+        !t.sim().hidden_from(h, P2) && t.sim().is_visible(P2, h),
+        "player 2 sees it"
+    );
+    assert_eq!(t.sim().target_view(P2, H1), TargetView::Visible);
+    let record = t
+        .sim()
+        .vision()
+        .player(P2)
+        .and_then(|v| v.record(H1))
+        .expect("player 2 remembers it");
+    assert_eq!((record.kind, record.owner), (HIDEOUT, None));
+
+    assert!(t.sim().player(P1).expect("in the game").is_defeated());
+    assert!(events_of(&t, fell).contains(&SimEvent::PlayerDefeated { player: P1 }));
+    assert_eq!(owner(&t, id(3)), None, "its Agent on the map turns neutral");
+    assert_eq!(removed(&t, id(4)), Some(fell), "its Guard in the network is destroyed");
+    assert!(t.sim().held().next().is_none());
+    assert_eq!(t.sim().outcome().map(|o| o.winners.clone()), Some(vec![P2]));
+
+    // 4 HP a second, from the tick it fell.
+    run_until(&mut t, fell + 16);
+    assert_eq!(hp(&t, H1), 400.0 - 17.0 * 0.25);
+    run_until(&mut t, fell + 16 * 50);
+    assert_eq!(hp(&t, H1), 200.0 - 0.25, "half its MaxHP in 50 s");
+    run_until(&mut t, fell + DECAY_TICKS - 2);
+    assert_eq!(hp(&t, H1), 0.25, "a tick of it left");
+    step(&mut t);
+    assert_eq!(
+        (died(&t, H1), removed(&t, H1)),
+        (Some((fell + DECAY_TICKS - 1, None)), Some(fell + DECAY_TICKS - 1))
+    );
+}
+
+/// [`base`] with player 1's second Tunnel (3) far east, on tiles (30, 8) to (33, 11), and its Guard 4 at [`T1`]'s
+/// entry path; player 1 with 1000 Space Crystals.
+fn two_tunnels() -> TestSim {
+    let mut t = base()
+        .spawn(TUNNEL, Some(P1), tile(30, 8)) // 3
+        .spawn(GUARD, Some(P1), point(5, 6)) // 4
+        .start();
+    t.without_auto_targeting();
+    next(&mut t, P1, bank(P1, 1000, 0));
+    t
+}
+
+fn production(producer: ObjectId, command: ProductionCommand) -> Command {
+    Command::Production {
+        objects: vec![producer],
+        command,
+    }
+}
+
+/// H's Acceptance, "One of two Tunnels destroyed": its Hideout turns neutral, the infantry in the network survive,
+/// and "**In-progress work is destroyed**" (the Agent in production is lost, refunding nothing) and "**Queued work is
+/// refunded**" (the two Agents queued behind it, 100 Space Crystals each), with a `SimEvent::ProductionCancelled`
+/// each; the rally point is cleared and no unit ever comes of it. Its former owner, whose Tunnel's sight lingers over
+/// it in that tick, remembers it neutral.
+#[test]
+fn one_of_two_tunnels_falls_its_hideout_turns_neutral_its_work_lost_its_queue_refunded() {
+    let mut t = two_tunnels();
+    enter(&mut t, P1, &[4], T1);
+    next(
+        &mut t,
+        P1,
+        production(H1, ProductionCommand::SetRally(Target::Point(at(12, 4).center()))),
+    );
+    for _ in 0..3 {
+        next(&mut t, P1, production(H1, ProductionCommand::Train(AGENT)));
+    }
+    let queued = t.sim().tick();
+    run_until(&mut t, queued + 40);
+    let p = object(&t, H1).production.clone().expect("a producer");
+    assert!(p.in_production() == Some(AGENT) && p.queue.len() == 3 && p.rally.is_some());
+    assert_eq!(t.sim().player(P1).expect("in the game").crystals, 700);
+
+    next(&mut t, P1, remove(T1));
+    let fell = t.sim().tick();
+    let h = object(&t, H1);
+    assert_eq!(h.owner, None);
+    let p = h.production.clone().expect("still a producer");
+    assert!(p.queue.is_empty() && p.rally.is_none() && p.progress == 0);
+    let cancelled: Vec<(ObjectKind, u32)> = (events_of(&t, fell).into_iter())
+        .filter_map(|e| match e {
+            SimEvent::ProductionCancelled { producer, kind, refund } if producer == H1 => Some((kind, refund)),
+            _ => None,
+        })
+        .collect();
+    assert_eq!(cancelled, [(AGENT, 0), (AGENT, 100), (AGENT, 100)]);
+    assert_eq!(t.sim().player(P1).expect("in the game").crystals, 900);
+    assert!(
+        !t.sim().player(P1).expect("in the game").is_defeated(),
+        "its other Tunnel stands"
+    );
+    assert_eq!(inside(&t, P1), [id(4)], "the infantry in the network survive");
+    let record = t
+        .sim()
+        .vision()
+        .player(P1)
+        .and_then(|v| v.record(H1))
+        .expect("its former owner remembers it");
+    assert_eq!(record.owner, None);
+
+    // A neutral Hideout takes no command, and produces nothing.
+    assert!(gate(&t, P1, production(H1, ProductionCommand::Train(AGENT))).is_err());
+    run_until(&mut t, fell + 300);
+    let produced = t
+        .events()
+        .iter()
+        .any(|(_, e)| matches!(e, SimEvent::UnitProduced { producer, .. } if *producer == H1));
+    assert!(!produced);
+    assert_eq!(inside(&t, P1), [id(4)]);
+}
