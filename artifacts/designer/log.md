@@ -2263,3 +2263,4 @@ Answered Q0069–Q0071 (0258–0267): losing-Tunnel edges, Syndicate economy che
 2026-11-26 — Q0084 pts 7–9. Entry 0298.
 2026-11-26 — Q0086 pts 2,4,5. Entry 0299.
 2026-11-26 — Q0086 complete. Entry 0300.
+2026-11-26 — Q0087 (a). Entry 0301. All open Director questions answered.

@@ -27,9 +27,7 @@
 
 ## Open Director Questions
 
-Arrived 2026-11-25 night (Q0076–Q0087). Answered from docs: Q0078 (0283), Q0085 (0284), Q0086 pt 1 (0285). Q0077 DONE (0288). Q0079 DONE (0289). Q0080 DONE (0290). Q0081 DONE (0291). Q0082 DONE (0292). Q0083 DONE (0293). Q0076/Q0088 DONE (0294: mining 4 s, keep collision, ref distance 3 GU, map makers decide distance; sidestep documented; 0295 hatch square, search radius). Q0084 DONE (0296–0298). Q0086 DONE (0285, 0299, 0300). Open, need the user:
-- Q0087 Builder Agent transit delay.
-
+Arrived 2026-11-25 night (Q0076–Q0087). Answered from docs: Q0078 (0283), Q0085 (0284), Q0086 pt 1 (0285). Q0077 DONE (0288). Q0079 DONE (0289). Q0080 DONE (0290). Q0081 DONE (0291). Q0082 DONE (0292). Q0083 DONE (0293). Q0076/Q0088 DONE (0294: mining 4 s, keep collision, ref distance 3 GU, map makers decide distance; sidestep documented; 0295 hatch square, search radius). Q0084 DONE (0296–0298). Q0086 DONE (0285, 0299, 0300). Q0087 DONE (0301). ALL Q0076–Q0088 answered. 
 ## Loose Ends
 - **Syndicate identity check (raised 2026-11-25, unanswered)**: (1) no healing outside Tunnels (only 1%/s inside) — intended loop? (2) before the Optics Lab: only Agents, no turret — early vulnerability intended? (3) anti-armor: deferred to the numbers pass (user); (4) no durable frontline/tank beyond the Guard — the Syndicate fights by hiding, mobility, smoke? Then the other factions' rosters (GDO placeholder numbers only if the Director needs them).
 - **Notifications system** not designed: needed for empty Supply station (0256), blocked production queue, etc.
