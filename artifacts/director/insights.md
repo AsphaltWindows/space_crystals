@@ -23,6 +23,11 @@
 - **One playtest, when all four factions are done:** GDO, Colonists, Syndicate and Cults. Until then QA is by the agents: walkthroughs, goldens, soaks and screenshots.
 - **The art pipeline waits** until the gameplay design is mostly final.
 
+- **Design principle (user, 0223): default behaviour is predictable, not optimal.**
+  - No algorithm that optimises behaviour for the situation. Managing bottlenecks is the player's job.
+  - Briefs must not ask agents for clever crowd or flow logic. When a design leaves a case open, propose the simplest predictable rule.
+  - M3-G2's indefinite wait was removed for this reason.
+
 ## Codebase
 - Layout and rules: see `ARCHITECTURE.md` at the repo root (the brief every sub-agent reads first).
 - `cargo run` = game; `cargo test` = both crates (both are default-members).
