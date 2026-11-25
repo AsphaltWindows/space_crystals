@@ -45,10 +45,17 @@ Starting Space Crystals: **100** (same as GDO and the Colonists). With 100, the 
 ### SymmetryType - ABCD
 
 Each side of the Tunnel has a distinct function:
-- **Side A**: Unit entrance/exit (units enter and emerge from the Tunnel Network here)
-- **Side B**: Crystal drop-off (Agents deliver Space Crystals here)
-- **Side C**: Supply drop-off (Agents deliver Supplies here)
+- **Side A**: Unit entrance/exit (units enter and emerge from the Tunnel Network here). It has **two paths: one for entering, one for exiting** (user, 2026-11-25).
+- **Side B**: Crystal drop-off, a **hatch** for Space Crystals (Agents deliver Space Crystals here)
+- **Side C**: Supply drop-off, a **hatch** for Supplies (Agents deliver Supplies here)
 - **Side D**: Back wall (no gameplay function)
+
+Each resource must be delivered to **its own hatch**: crystals only at Side B, Supplies only at Side C (user, 2026-11-25; unchanged rule, now stated explicitly).
+
+**Look by tier** (user, 2026-11-25):
+- **Tier 1**: the Side A paths are **narrow and shaggy-looking**, supporting only infantry.
+- **Tier 2**: the paths get **wider and well paved**, supporting vehicles.
+- **Tier 3**: adds **two horizontal circular sliding doors**, **one for flying units entering and one for flying units exiting**. Aircraft use these doors, not the Side A paths.
 
 Only one Agent may drop off resources at a side at a time. Because crystal and supply drop-offs are on separate sides, one crystal delivery and one supply delivery can occur simultaneously.
 
