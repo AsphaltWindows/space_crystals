@@ -45,7 +45,11 @@ Recruits gather Space Crystals and deliver them to Storage.
 - DropOffReach: 8 space units — a Recruit can drop off once its Silhouette is within 8 su of the Storage's edge.
 (Reach is a per-unit stat; 8 su is a placeholder currently shared by all workers.)
 - Expected throughput: buildings snap to whole tiles, so a patch can't touch a Storage with room for Recruits to work; the best layout leaves a 1-tile (64 su) gap. With a 24 su Silhouette and 8 su reach on each side, a Recruit walks 24 su (6 frames) each way, so a round trip is 22 frames (6 + 8 mining + 6 + 2 drop-off) ≈ 1.45 SC/s per Recruit. A 64 su gap fits two Recruits side by side (one lane in, one lane out).
+- **Crowding** (user, 2026-11-26; Q0110): Recruits keep normal collision while gathering, and nobody gives way. If more Recruits work one face than it has lanes, they can block each other head-on for a long time. **The player's answer is more Storages** (and spreading Recruits over patches): add Storages when you want more Recruits mining at once. A Recruitment Hall's rally on a patch sends every new Recruit there, so it is the player's job to redistribute them.
 - Patch sharing: any number of Recruits may mine the same Space Crystals patch at the same time (unlike Drones, see Colonists > Drone > Patch Occupancy).
+
+## Repair
+(user, 2026-11-26) Recruits can **repair** own **buildings and vehicles**. Repair **costs Space Crystals**. Rate, cost formula, scaling with several Recruits and panel letter: being settled.
 
 ## Building
 
