@@ -1011,7 +1011,8 @@ The user keeps feeding unit and other designs to the Designer, so expect increme
     - C: done (`f67df212`; Q0077).
     - D: done (`edc30e11`; Q0076).
     - I: done (`9aca8972`).
-    - R1 (sim) and R2 (client, docs, citation test): running (wave 3, Opus), alone. R2 merges after R1.
+    - R1 (sim): running (wave 3, Opus), alone.
+    - R2 (client, docs, citation test): its part before R1 is done (7 commits; 1532 tests; QA screenshots byte-identical), and it is now splitting `fog.rs` and `editor/objects.rs`. It waits for R1 to land, then merges, drops the citation test's temporary allowance for the sim, and updates ARCHITECTURE.md's sim sections.
     - B: done (`35e19634`).
     - The rest are queued. A planning pass is folding 0229–0271 into slices B and E–M, and planning 0260's new content: a combat spike, the Grenadier, the Laser Turret and the Chemical Plant.
   - **All M4 questions are answered** (Q0059–Q0071), by 0229–0267.
