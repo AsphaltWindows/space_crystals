@@ -153,6 +153,12 @@ pub enum ExitRule {
     /// direction that passes out through a side lettered with one of these, the **open** sides. The portals' A sides;
     /// the Heavy and Star Portals' are TBD.
     Centre(&'static [SideLetter]),
+    /// Into its owner's Tunnel Network (`factions/syndicate/structures.md > Rally Point Behavior`, plan decision T35;
+    /// `crate::network`): the unit never appears at the building, which is underground and has no doorway
+    /// (`core/entities.md > Exit Doorway`: "units released underground (e.g. Syndicate Tunnels) are not covered by
+    /// this rule"). It stays in the network, or comes out of the parent Tunnel's exit path for a rally point on the
+    /// surface. The Hideout's.
+    Network,
 }
 
 /// One entry of a producer's `Produces` list: "Peacekeeper: 50 Space Crystals, 80 frames (5 seconds)"; of a

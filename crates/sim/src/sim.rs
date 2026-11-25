@@ -13,6 +13,7 @@ use crate::events::SimEvent;
 use crate::hash::{StateHash, StateHasher};
 use crate::ids::{ObjectId, PlayerId};
 use crate::map::Map;
+use crate::network::Held;
 use crate::object::{Object, Placement, ResourceState};
 use crate::orders::{Order, OrderGroup, OrderKind, Target, destinations};
 use crate::paths::knowledge::PathKnowledge;
@@ -26,7 +27,7 @@ use crate::{combat, economy, movement, orders, shields};
 
 use gate::Checked;
 pub use gate::Reject;
-use load::{SimState, serialize_objects};
+use load::{SimState, serialize_held, serialize_objects};
 pub use phase::Phase;
 
 /// Game options, chosen with the rest of the game setup ([`crate::GameSetup::config`]) and fixed when the game
@@ -59,6 +60,12 @@ pub struct Sim {
     /// list in that order.
     #[serde(serialize_with = "serialize_objects")]
     objects: BTreeMap<ObjectId, Object>,
+    /// The units off the map (plan decision T30, `crate::network`): those inside a Tunnel Network, each with its id,
+    /// which no object has. Not among `objects`, so nothing that walks the map sees, moves or hits them. Hashed and
+    /// serialized, as a list in id order; left out of the hash and of files while empty, so that the states without a
+    /// held unit are as they were before the store existed.
+    #[serde(serialize_with = "serialize_held", skip_serializing_if = "BTreeMap::is_empty")]
+    held: BTreeMap<ObjectId, Held>,
     next_id: u32,
     /// The only source of randomness (`ARCHITECTURE.md > Determinism`), seeded from
     /// `GameSetup::seed`.
@@ -127,6 +134,7 @@ impl Sim {
             players,
             outcome: None,
             objects: BTreeMap::new(),
+            held: BTreeMap::new(),
             next_id: 1,
             rng: Rng::from_seed(scenario.setup.seed),
             config: scenario.setup.config,
@@ -228,6 +236,7 @@ impl Sim {
             players,
             outcome,
             objects,
+            held,
             next_id,
             rng,
             config,
@@ -256,6 +265,15 @@ impl Sim {
         auto_targeting.hash(&mut h);
         vision.hash(&mut h);
         path_knowledge.hash(&mut h);
+        // (M4-C) The held units, last and only while there are any, under a tag of their own: the states of games in
+        // which no unit ever left the map hash as they did before the store existed, so the goldens stand.
+        if !held.is_empty() {
+            h.tag(1);
+            h.len(held.len());
+            for unit in held.values() {
+                unit.hash(&mut h);
+            }
+        }
         h.finish()
     }
 
@@ -307,6 +325,10 @@ impl Sim {
         self.nav.put_reach(reach);
         // The Drones that got to their sites in 5a deploy, or their orders fail; before 5b claims the footprints.
         self.step_deployments(first_new);
+        // The units that walked into a Tunnel's entry path in 5a leave the map for the network, and the Enter orders
+        // that can't go on end (`sim/network.rs`). Here, as the deployments: before 5b to 5f, so that no grid,
+        // collision, shot or sight of this tick includes a unit that has gone in.
+        self.step_entries(first_new);
         // The Attacks 5a found a unit can't carry out, its target too close (design change 0182), fail.
         self.step_too_close(first_new);
         // 5b: the movement below must collide with this tick's obstacles (the true grids).
@@ -377,6 +399,11 @@ impl Sim {
         // The producers (slice M2-D2), part of the economy phase: here, not inside `economy::step`, because a
         // finished unit is inserted into the game. Before 5f, so that it is seen in its own tick.
         self.step_production(first_new);
+        // The Tunnel Network (`sim/network.rs`), part of the economy phase: the units inside regenerate, then each
+        // Tunnel's eject queue lets its first unit out onto the exit path if that is clear. After the producers, so
+        // that a unit a Hideout finished in this tick with a surface rally comes out in it; after 5d, so that a unit
+        // never moves in the tick it appears; before 5f, so that it is seen in it.
+        self.step_network();
         // The defeat check ends the economy phase (plan decisions T5 and T8, slice M2-F2): after every way a
         // structure leaves the game; before 5f, so that the units a defeat makes neutral are no one's eyes in its
         // own tick.
@@ -389,6 +416,8 @@ impl Sim {
             self.tick,
             &mut self.events,
         );
+        // A defeated player's network goes with their last structure (`sim/network.rs`).
+        self.clear_defeated_networks();
         // 5f: sees the tick's final positions, this tick's new objects included; the fog delays and reveals that end
         // in this tick end (`vision::linger`, `vision::reveal`).
         observe(Phase::Vision);
@@ -448,6 +477,7 @@ impl Sim {
             Checked::AutoTargeting(on) => self.auto_targeting = on,
             Checked::SetResources { player, banks } => self.set_resources(player, banks),
             Checked::SetTier { id, tier } => self.set_tier(id, tier),
+            Checked::Eject { tunnel, unit } => self.queue_eject(tunnel, unit, None),
             Checked::Production { player, plan } => self.apply_production(player, plan),
             Checked::Construction { player, resolved } => self.apply_construction(player, resolved),
         }
@@ -475,6 +505,7 @@ impl Sim {
                 vec![None; units.len()]
             }
             OrderKind::Gather(_) | OrderKind::DropOff(_) | OrderKind::Deploy { .. } => vec![None; units.len()],
+            OrderKind::Enter(_) => vec![None; units.len()],
         };
         for (id, slot) in units.iter().zip(slots) {
             if let Some(orders) = self.objects.get_mut(id).and_then(|o| o.orders.as_mut()) {
@@ -496,8 +527,29 @@ impl Sim {
     ) -> ObjectId {
         let id = ObjectId(self.next_id);
         self.next_id += 1;
+        let object = self.new_object(id, kind, owner, pos, placement, settings);
+        let is_patch = matches!(object.resource, Some(ResourceState::CrystalPatch { .. }));
+        self.objects.insert(id, object);
+        if is_patch {
+            // A plate may be in the game before the patch under it (a map lists them in any order).
+            economy::mining::link_patch(&mut self.objects, id);
+        }
+        self.events.push(SimEvent::Spawned(id));
+        id
+    }
+
+    /// A new object `id` of `kind` with its type's initial state, not yet in the game: what [`Sim::insert_object`]
+    /// inserts, and what a producer releases into the Tunnel Network (`sim/network.rs`).
+    fn new_object(
+        &self,
+        id: ObjectId,
+        kind: ObjectKind,
+        owner: Option<PlayerId>,
+        pos: Vec2,
+        placement: Option<Placement>,
+        settings: Option<&SpawnSettings>,
+    ) -> Object {
         let resource = SpawnSettings::resolve(kind, settings).map(|s| s.starting_resource());
-        let is_patch = matches!(resource, Some(ResourceState::CrystalPatch { .. }));
         // Its capabilities, as a changed object gets them (`Sim::change_kind`).
         let kinds::Capabilities {
             orders,
@@ -510,7 +562,7 @@ impl Sim {
             worker,
             tunnel,
         } = kinds::Capabilities::fresh(&self.objects, kind, placement.as_ref());
-        let object = Object {
+        Object {
             id,
             kind,
             owner,
@@ -534,14 +586,7 @@ impl Sim {
             transform: None,
             conversion: None,
             tunnel,
-        };
-        self.objects.insert(id, object);
-        if is_patch {
-            // A plate may be in the game before the patch under it (a map lists them in any order).
-            economy::mining::link_patch(&mut self.objects, id);
         }
-        self.events.push(SimEvent::Spawned(id));
-        id
     }
 
     /// `core/map.md > SupplyDeliveryStation`: the countdown runs only while empty. Stations from `first_new` on
@@ -590,6 +635,7 @@ mod kinds;
 mod load;
 mod modes;
 mod navigation;
+mod network;
 mod phase;
 mod preview;
 mod producers;

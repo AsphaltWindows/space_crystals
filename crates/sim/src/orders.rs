@@ -12,7 +12,8 @@
 //! - [`travel`]: MovingToObject (Follow for a unit), AttackMovingToLocation and Patrolling;
 //! - Move to a point, and Stop, need only the mover's status;
 //! - [`gather`]: a worker's job, the Gather and Drop Off orders of `factions/colonists/units.md > Drone`;
-//! - [`deploy`]: a Drone's walk to the site of the Beacon it deploys into (`crate::deploy`).
+//! - [`deploy`]: a Drone's walk to the site of the Beacon it deploys into (`crate::deploy`);
+//! - [`enter`]: a unit's walk into a Tunnel's entry path (`crate::network`).
 //!
 //! What a unit does by default against a target, a right-click's and a rally point's order, is [`resolution`]'s.
 //!
@@ -22,6 +23,7 @@
 mod deploy;
 pub(crate) mod destinations;
 mod engage;
+mod enter;
 pub(crate) mod gather;
 pub(crate) mod reach;
 pub mod resolution;
@@ -119,6 +121,24 @@ pub enum OrderKind {
     /// `factions/colonists/economy.md > Beacon Deployment > Deploy Command`: a Drone walks to the site of a Beacon
     /// whose footprint's top-left tile is `origin` and deploys into it there (`crate::deploy`, [`deploy`]).
     Deploy { origin: TilePos },
+    /// `> Enter`: "The unit walks to Side A and enters the Tunnel Network" (`factions/syndicate/tunnels.md > Tunnel
+    /// Network > Walking in`; [`enter`], `crate::network`): this Tunnel of its owner's, through its entry path.
+    Enter(ObjectId),
+}
+
+impl OrderKind {
+    /// The object the order names, if any.
+    pub fn target(self) -> Option<ObjectId> {
+        match self {
+            OrderKind::Move(Target::Object(id))
+            | OrderKind::Attack(id)
+            | OrderKind::Gather(id)
+            | OrderKind::DropOff(id)
+            | OrderKind::Enter(id) => Some(id),
+            OrderKind::Move(Target::Point(_)) | OrderKind::AttackMove(_) | OrderKind::Patrol(_) => None,
+            OrderKind::Hold | OrderKind::Stop | OrderKind::Deploy { .. } => None,
+        }
+    }
 }
 
 /// One unit's order.
@@ -141,19 +161,13 @@ impl Order {
             }
             OrderKind::Move(Target::Object(_)) | OrderKind::Attack(_) | OrderKind::Hold | OrderKind::Stop => None,
             OrderKind::Gather(_) | OrderKind::DropOff(_) | OrderKind::Deploy { .. } => None,
+            OrderKind::Enter(_) => None,
         }
     }
 
     /// The object the order names, if any.
     pub fn target(&self) -> Option<ObjectId> {
-        match self.kind {
-            OrderKind::Move(Target::Object(id))
-            | OrderKind::Attack(id)
-            | OrderKind::Gather(id)
-            | OrderKind::DropOff(id) => Some(id),
-            OrderKind::Move(Target::Point(_)) | OrderKind::AttackMove(_) | OrderKind::Patrol(_) => None,
-            OrderKind::Hold | OrderKind::Stop | OrderKind::Deploy { .. } => None,
-        }
+        self.kind.target()
     }
 
     /// The one rule for an order that names an object no longer in the game (design changes 0134 and 0139): whether
@@ -332,7 +346,7 @@ fn start(order: &Order, unit: &mut Unit, world: &World) -> Behaviour {
         // The others set off in their first tick ([`run`]), from a standstill.
         OrderKind::Attack(_) | OrderKind::Move(Target::Object(_)) | OrderKind::AttackMove(_) | OrderKind::Patrol(_) => {
         }
-        OrderKind::Gather(_) | OrderKind::DropOff(_) | OrderKind::Deploy { .. } => {}
+        OrderKind::Gather(_) | OrderKind::DropOff(_) | OrderKind::Deploy { .. } | OrderKind::Enter(_) => {}
     }
     unit.mover.stop();
     match order.kind {
@@ -358,6 +372,8 @@ fn start(order: &Order, unit: &mut Unit, world: &World) -> Behaviour {
         OrderKind::Gather(_) | OrderKind::DropOff(_) => Behaviour::Gather(gather::begin(order.kind, unit, world)),
         // `factions/colonists/economy.md > Beacon Deployment > Deploy Command`: to the footprint's centre.
         OrderKind::Deploy { origin } => Behaviour::Deploy(deploy::begin(origin, unit, tick)),
+        // `systems/controls/commands.md > Enter`: to the Tunnel's entry path.
+        OrderKind::Enter(tunnel) => Behaviour::Enter(enter::begin(tunnel, unit, world)),
     }
 }
 
@@ -399,10 +415,13 @@ fn run(
         }
         // The walk to the site; the step right after this phase ends the order (`Sim::step_deployments`).
         (OrderKind::Deploy { origin }, Behaviour::Deploy(state)) => deploy::run(origin, state, unit),
+        // The walk into the entry path; the step right after this phase takes the unit into the network or ends the
+        // order (`Sim::step_entries`).
+        (OrderKind::Enter(_), Behaviour::Enter(state)) => enter::run(state, unit),
         // A state that isn't its order's (a save edited by hand): the order ends.
         (OrderKind::Hold | OrderKind::Attack(_) | OrderKind::AttackMove(_) | OrderKind::Patrol(_), _)
         | (OrderKind::Move(Target::Object(_)) | OrderKind::Gather(_) | OrderKind::DropOff(_), _)
-        | (OrderKind::Deploy { .. }, _) => true,
+        | (OrderKind::Deploy { .. } | OrderKind::Enter(_), _) => true,
     }
 }
 
@@ -459,6 +478,10 @@ impl StateHash for OrderKind {
             OrderKind::Deploy { origin } => {
                 h.tag(8);
                 origin.hash(h);
+            }
+            OrderKind::Enter(id) => {
+                h.tag(9);
+                id.hash(h);
             }
         }
     }

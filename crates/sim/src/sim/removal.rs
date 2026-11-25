@@ -74,11 +74,21 @@ impl Sim {
             return;
         }
         self.events.extend(gone.iter().map(|&id| SimEvent::Removed(id)));
+        self.forget_references(&gone);
+    }
+
+    /// The reference cleanup of a removal, without its effects of a death (plan decision T30): every object, and
+    /// every unit held off the map (`crate::network`), drops its references to the objects `gone` (sorted by id),
+    /// which have left the map: removed from the game ([`Sim::remove_objects`]) or taken into a Tunnel Network
+    /// (`Sim::take_off_map`, where "orders, attacks and follows on it end, and rallies on it reset", as for a
+    /// death). The orders that outlive their targets stay ([`forget`]).
+    pub(super) fn forget_references(&mut self, gone: &[ObjectId]) {
         let vision = &self.vision;
-        for o in self.objects.values_mut() {
+        let held = self.held.values_mut().map(|held| &mut held.object);
+        for o in self.objects.values_mut().chain(held) {
             let owner_vision = o.owner.and_then(|owner| vision.player(owner));
             let remembered = |id: ObjectId| owner_vision.is_some_and(|v| v.remembered_record(id).is_some());
-            forget(o, &gone, remembered);
+            forget(o, gone, remembered);
         }
     }
 
@@ -153,6 +163,16 @@ fn forget(o: &mut Object, gone: &[ObjectId], remembered: impl Fn(ObjectId) -> bo
     }
     if let Some(worker) = &mut o.worker {
         worker.forget(&is_gone);
+    }
+    // A Tunnel's eject queue (`crate::network`): a queued unit that is gone leaves it, and a rally order on an object
+    // that is gone goes, so that the unit walks straight out and idles.
+    if let Some(tunnel) = &mut o.tunnel {
+        tunnel.eject.retain(|entry| !is_gone(entry.unit));
+        for entry in &mut tunnel.eject {
+            if entry.order.and_then(|order| order.target()).is_some_and(is_gone) {
+                entry.order = None;
+            }
+        }
     }
     // The building whose doorway a unit stood in: nothing is left to overlap, nor to leave along (design change
     // 0145).

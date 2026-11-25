@@ -11,6 +11,7 @@ use crate::economy::Outcome;
 use crate::events::SimEvent;
 use crate::ids::{ObjectId, PlayerId};
 use crate::map::Map;
+use crate::network::Held;
 use crate::object::Object;
 use crate::paths::NavState;
 use crate::paths::knowledge::PathKnowledge;
@@ -26,6 +27,10 @@ pub(super) fn serialize_objects<S: Serializer>(
     serializer.collect_seq(objects.values())
 }
 
+pub(super) fn serialize_held<S: Serializer>(held: &BTreeMap<ObjectId, Held>, serializer: S) -> Result<S::Ok, S::Error> {
+    serializer.collect_seq(held.values())
+}
+
 /// The serialized form of [`Sim`], checked before it becomes one.
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -37,6 +42,9 @@ pub(super) struct SimState {
     #[serde(default)]
     outcome: Option<Outcome>,
     objects: Vec<Object>,
+    /// Optional, so that states saved before units could leave the map still load, and those without one since.
+    #[serde(default)]
+    held: Vec<Held>,
     next_id: u32,
     rng: Rng,
     config: SimConfig,
@@ -58,6 +66,7 @@ impl TryFrom<SimState> for Sim {
             players,
             outcome,
             objects: list,
+            held: held_list,
             next_id,
             rng,
             config,
@@ -81,6 +90,18 @@ impl TryFrom<SimState> for Sim {
                 return Err(format!("object id {} appears more than once", duplicate.id.0));
             }
         }
+        // The held units share the objects' ids (plan decision T30): each below the next id, none twice, none an
+        // object's.
+        let mut held = BTreeMap::new();
+        for unit in held_list {
+            let id = unit.object.id;
+            if id.0 >= next_id {
+                return Err(format!("held unit id {} is not below next_id {next_id}", id.0));
+            }
+            if objects.contains_key(&id) || held.insert(id, unit).is_some() {
+                return Err(format!("held unit id {} appears more than once", id.0));
+            }
+        }
         // The Visible tiles follow from the objects, which is how phase 5f left them.
         let ids: Vec<PlayerId> = players.iter().map(|p| p.id).collect();
         if let Some(winner) = outcome.iter().flat_map(|o| &o.winners).find(|w| !ids.contains(w)) {
@@ -97,6 +118,7 @@ impl TryFrom<SimState> for Sim {
             players,
             outcome,
             objects,
+            held,
             next_id,
             rng,
             config,

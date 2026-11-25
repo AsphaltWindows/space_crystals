@@ -1,6 +1,6 @@
 //! Syndicate object types — `factions/syndicate/`.
 
-use super::structures::{StructureDef, SymmetryType, TierDef, Transit, TunnelDef};
+use super::structures::{ExitRule, ProductionDef, Recipe, StructureDef, SymmetryType, TierDef, Transit, TunnelDef};
 use super::units::{
     AttackAttrs, AttackType, FullyConnectedSubtype, MovementAttrs, TargetDomain, TargetType, UnitBase, UnitDef,
 };
@@ -187,9 +187,9 @@ pub(super) static TUNNEL: ObjectDef = ObjectDef {
     }),
 };
 
-/// `factions/syndicate/structures.md > Hideout`: an underground expansion (plan decision T32). Inert so far (slice
-/// M4-A): hidden from the other players while owned, it is walked over, and can be destroyed. Its BuildQueue
-/// (`> Produces`) comes with slice M4-C, its construction with M4-F.
+/// `factions/syndicate/structures.md > Hideout`: an underground expansion (plan decision T32): hidden from the other
+/// players while owned, it is walked over, and can be destroyed. It produces into its owner's Tunnel Network (slice
+/// M4-C, `crate::network`); its construction comes with slice M4-F.
 pub(super) static HIDEOUT: ObjectDef = ObjectDef {
     kind: ObjectKind::Hideout,
     name: "Hideout",
@@ -218,7 +218,16 @@ pub(super) static HIDEOUT: ObjectDef = ObjectDef {
         symmetry: SymmetryType::AAAA,
         build_radius_extension: 0,
         power: 0,
-        production: None,
+        // `> Hideout > Produces`, into the Tunnel Network (`> Rally Point Behavior`). The Guard joins the Agent with
+        // its prerequisite, the Optics Lab (slice M4-K); the Grenadier with its numbers.
+        production: Some(ProductionDef {
+            exits: ExitRule::Network,
+            recipes: &[Recipe {
+                kind: ObjectKind::Agent,
+                cost: 100,   // "Agent: 100 Space Crystals"
+                frames: 240, // "240 frames (15 seconds)"
+            }],
+        }),
         mining: None,
         constructs: &[],
         warp_in: &[],

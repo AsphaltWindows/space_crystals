@@ -14,6 +14,11 @@
 //!   ("Space Crystal patch → Gather"; a patch under a mining structure is no patch to it, question Q0037 point 11); its
 //!   owner's drop-off that takes loads gives Drop Off while it carries a load ("Own Egress Node (carrying resources) →
 //!   Drop off resources"); without a load, a Move there (design change 0140).
+//! - **An own Tunnel** whose tier lets the unit through gives Enter (`systems/controls/commands.md > Enter`: "any
+//!   Syndicate unit, when the target Tunnel's tier is sufficient for the unit's base category";
+//!   `factions/syndicate/units.md > Agent > Right-Click Resolution`: "Own Tunnel (not carrying resources) → Enter";
+//!   slice M4-C, `crate::network`), after a worker's Drop Off there ("Own Tunnel (carrying resources) → Drop off
+//!   resources").
 //! - **An enemy** (another player's object) that the unit can attack gives Attack: it has an attack whose
 //!   TargetDomain allows the object's domain (`systems/combat.md > ValidTarget` 3), and the object is destructible.
 //! - **Everything else** gives a Move to the object (`systems/controls/behaviors.md > MovingToObject`), which follows
@@ -31,9 +36,10 @@
 use glam::Vec2;
 
 use crate::combat::domain_allows;
-use crate::defs::{Domain, TargetDomain};
+use crate::defs::{Domain, TargetDomain, Transit};
 use crate::ids::ObjectId;
 use crate::object::Object;
+use crate::network;
 use crate::orders::{OrderKind, Target};
 use crate::riot_shield;
 
@@ -50,6 +56,9 @@ pub struct Abilities {
     pub worker: bool,
     /// A worker that carries a load (`economy::gathering::Worker::load`).
     pub carrying: bool,
+    /// The class of its base for a Tunnel's transit (`factions/syndicate/tunnels.md > Tunnel Network > Transit Tier
+    /// Requirements`, `Transit::of`).
+    pub transit: Transit,
 }
 
 impl Abilities {
@@ -57,6 +66,7 @@ impl Abilities {
     pub fn of(o: &Object) -> Option<Self> {
         o.orders.as_ref()?;
         Some(Self {
+            transit: Transit::of(o.def().unit.as_ref()?.base),
             attack: o
                 .def()
                 .unit
@@ -88,6 +98,9 @@ pub struct Aimed {
     /// It is a drop-off of the unit's owner's that takes loads now (`StructureDef::drop_off`: an Egress Node, warped
     /// in: design change 0116).
     pub drop_off: bool,
+    /// The classes of unit it lets into the Tunnel Network: its tier's Transit if it is a Tunnel of the unit's owner's
+    /// in operation (`network::is_exit`), none for anything else.
+    pub transit: &'static [Transit],
 }
 
 /// What a unit's default command is resolved against.
@@ -110,6 +123,9 @@ pub fn resolve(unit: Abilities, aim: Aim) -> OrderKind {
     }
     if unit.worker && unit.carrying && target.drop_off {
         return OrderKind::DropOff(target.id);
+    }
+    if network::passes(target.transit, unit.transit) {
+        return OrderKind::Enter(target.id);
     }
     let can_attack = target.destructible && unit.attack.is_some_and(|domain| domain_allows(domain, target.domain));
     if target.enemy && can_attack && unit.may_attack {

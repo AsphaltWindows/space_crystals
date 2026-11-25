@@ -101,7 +101,8 @@ impl LastKnown {
             hp: object.hp,
             resource: object.resource.clone(),
             seen: tick,
-            tunnel: object.tunnel,
+            // The tier alone: a Tunnel's eject queue is its owner's business (`crate::network`).
+            tunnel: object.tunnel.as_ref().map(|tunnel| TunnelState::at(tunnel.tier)),
         })
     }
 
@@ -112,7 +113,7 @@ impl LastKnown {
     /// The MaxHP of the object as last seen: its type's, a Tunnel's its tier's (`Object::max_hp`). `None` for an
     /// indestructible type.
     pub fn max_hp(&self) -> Option<f32> {
-        let tier = (crate::tunnel::def_of(self.kind)).and_then(|def| def.tier(self.tunnel?.tier));
+        let tier = (crate::tunnel::def_of(self.kind)).and_then(|def| def.tier(self.tunnel.as_ref()?.tier));
         tier.map_or(self.def().max_hp, |tier| Some(tier.max_hp))
     }
 

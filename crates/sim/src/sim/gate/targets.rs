@@ -15,6 +15,8 @@ use crate::combat::object_domain;
 use crate::defs::{Domain, ObjectKind};
 use crate::economy::gathering::{gatherable, is_drop_off};
 use crate::ids::{ObjectId, PlayerId};
+use crate::network;
+use crate::object::Object;
 use crate::orders::resolution::{Abilities, Aim, Aimed, resolve};
 use crate::orders::{OrderKind, Target};
 use crate::production::Rally;
@@ -50,6 +52,10 @@ impl Sim {
                     domain: object_domain(o),
                     gatherable: gatherable(&self.objects, id),
                     drop_off: o.owner == Some(player) && is_drop_off(o.kind) && !o.is_transforming(),
+                    // `systems/controls/commands.md > Enter`: an own Tunnel, by its tier (`crate::network`).
+                    transit: crate::tunnel::tier_def(o)
+                        .filter(|_| o.owner == Some(player) && network::is_exit(o))
+                        .map_or(&[], |row| row.transit),
                 })
             }
             TargetView::Remembered { .. } => {
@@ -62,6 +68,7 @@ impl Sim {
                     domain: Domain::Ground,
                     gatherable: targets::remembered_gatherable(sight, record, self.own_cover(player, id)),
                     drop_off: false,
+                    transit: &[],
                 })
             }
             TargetView::Gone => None,
@@ -91,7 +98,12 @@ impl Sim {
     /// if `unit` is no unit that takes orders, or its owner knows nothing of the object. The client resolves a
     /// right-click with the same rule, on what it shows; a rally point with this (design change 0136).
     pub fn default_order(&self, unit: ObjectId, target: Target) -> Option<OrderKind> {
-        let o = self.objects.get(&unit)?;
+        self.default_order_of(self.objects.get(&unit)?, target)
+    }
+
+    /// [`Sim::default_order`] for the unit `o`, on the map or held off it (a unit produced into the Tunnel Network,
+    /// `sim/network.rs`).
+    pub(in crate::sim) fn default_order_of(&self, o: &Object, target: Target) -> Option<OrderKind> {
         let aim = match target {
             Target::Point(p) => Aim::Ground(p),
             Target::Object(id) => Aim::Object(self.aimed(o.owner?, id)?),
@@ -106,11 +118,16 @@ impl Sim {
     /// tick, before the rally turned into a ground rally, design change 0088) is one on the ground where the rally
     /// shows.
     pub(in crate::sim) fn rally_order(&self, unit: ObjectId, rally: Rally) -> Option<OrderKind> {
+        self.rally_order_of(self.objects.get(&unit)?, rally)
+    }
+
+    /// [`Sim::rally_order`] for the unit `o`, on the map or held off it.
+    pub(in crate::sim) fn rally_order_of(&self, o: &Object, rally: Rally) -> Option<OrderKind> {
         match rally {
-            Rally::Point(p) => self.default_order(unit, Target::Point(p)),
+            Rally::Point(p) => self.default_order_of(o, Target::Point(p)),
             Rally::Object { id, at } => self
-                .default_order(unit, Target::Object(id))
-                .or_else(|| self.default_order(unit, Target::Point(at))),
+                .default_order_of(o, Target::Object(id))
+                .or_else(|| self.default_order_of(o, Target::Point(at))),
         }
     }
 
