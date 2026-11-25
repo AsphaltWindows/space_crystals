@@ -453,7 +453,8 @@ fn any_spawn_settings_are_handled() {
                 | ObjectKind::Tunnel
                 | ObjectKind::Hideout
                 | ObjectKind::OpticsLab
-                | ObjectKind::ChemicalPlant => None,
+                | ObjectKind::ChemicalPlant
+                | ObjectKind::Grenadier => None,
             });
             let mut spawn = Spawn::new(kind, None, SpawnAt::Tile(TilePos::new(i * 6, 0)));
             spawn.settings = settings;

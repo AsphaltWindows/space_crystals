@@ -7,7 +7,7 @@ use crate::command_ui::interface::templates::Planned;
 /// building's button label ("SC" was both the crystal patch's and the Scout button's); the Peacekeeper's two
 /// types have two-letter labels of their own. Slice M4-A: the Agent's AG, the Hideout's HI, and a Tunnel's by
 /// tier, T1 to T3, T1 its type's. Slice M4-K: the Optics Lab's OL and the Chemical Plant's CP, their ExpandMenu
-/// placeholders' labels before them.
+/// placeholders' labels before them; slice M4-U the Grenadier's GR, its Hideout placeholder's.
 #[test]
 fn every_label_is_its_own() {
     let labels: Vec<&str> = (ObjectKind::ALL.iter().map(|&kind| short_label(kind)))
@@ -20,8 +20,9 @@ fn every_label_is_its_own() {
         ObjectKind::Hideout,
         ObjectKind::OpticsLab,
         ObjectKind::ChemicalPlant,
+        ObjectKind::Grenadier,
     ];
-    assert_eq!(syndicate.map(short_label), ["AG", "T1", "HI", "OL", "CP"]);
+    assert_eq!(syndicate.map(short_label), ["AG", "T1", "HI", "OL", "CP", "GR"]);
     assert_eq!([0, 1, 2, 3, 4].map(tier_label), ["T1", "T1", "T2", "T3", "T1"]);
     let tier = |tier| object_label(ObjectKind::Tunnel, Some(TunnelState::at(tier)));
     assert_eq!((tier(3), object_label(ObjectKind::Agent, None)), ("T3", "AG"));

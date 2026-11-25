@@ -3,19 +3,21 @@
 //! and the Chemical Plant built at a Tunnel (`factions/syndicate/structures/optics_lab.md`,
 //! `factions/syndicate/structures/chemical_plant.md`), the Hideout's Guard behind the Optics Lab
 //! (`factions/syndicate/structures/hideout.md > ObjectInterfaceState[Hideout]`: "W: Build Guard [...] Only available
-//! if the player owns at least one Optics Lab"), what losing it does, which labs count, and what the other player sees
-//! of either: nothing. The rule's cases that need a requirement no type of the design has yet (a GDO unit's and
-//! building's, a Colonists Warp In's, a worker's Build, an expansion's, and the Grenadier's stand-in behind the
-//! Chemical Plant) are the sim's own unit tests (`sc_sim::tech`'s), since only those can change a def.
+//! if the player owns at least one Optics Lab") and its Grenadier behind the Chemical Plant ("E: Build Grenadier [...]
+//! Only available if the player owns at least one Chemical Plant", slice M4-U), what losing either does, which labs
+//! count, and what the other player sees of either: nothing. The rule's cases that need a requirement no type of the
+//! design has yet (a GDO unit's and building's, a Colonists Warp In's, a worker's Build, an expansion's) are the sim's
+//! own unit tests (`sc_sim::tech`'s), since only those can change a def.
 //!
 //! Every test runs under the invariants of `TestSim`.
 
+use sc_sim::network::Place;
 use sc_sim::testing::{ScenarioBuilder, TestSim};
 use sc_sim::tunnel::Operation;
 use sc_sim::vision::VisibilityState;
 use sc_sim::{
     BuildingOrientation, Command, DebugCommand, Faction, Object, ObjectId, ObjectKind, OrderKind, PlayerCommand,
-    PlayerId, ProductionCommand, Reject, SimEvent, SpawnAt, Target, TilePos, TunnelCommand,
+    PlayerId, ProductionCommand, Reject, SimEvent, SpawnAt, Target, Tick, TilePos, TunnelCommand,
 };
 
 const P1: PlayerId = PlayerId(1);
@@ -26,6 +28,7 @@ const HIDEOUT: ObjectKind = ObjectKind::Hideout;
 const TUNNEL: ObjectKind = ObjectKind::Tunnel;
 const OPTICS_LAB: ObjectKind = ObjectKind::OpticsLab;
 const CHEMICAL_PLANT: ObjectKind = ObjectKind::ChemicalPlant;
+const GRENADIER: ObjectKind = ObjectKind::Grenadier;
 
 /// Player 1's Tunnel in [`base`], on tiles (4, 8) to (7, 11): its Tier 1 area is (2, 6) to (9, 13).
 const T1: ObjectId = ObjectId(1);
@@ -39,6 +42,10 @@ const SOUTH_WEST: TilePos = TilePos::new(2, 12);
 /// `factions/syndicate/structures/hideout.md > Produces`: "Guard: 125 Space Crystals, 120 frames (7.5 seconds)".
 const GUARD_COST: u32 = 125;
 const GUARD_TICKS: u32 = 120;
+/// `factions/syndicate/structures/hideout.md > Produces`: "Grenadier: 150 Space Crystals, 160 frames (10 seconds),
+/// placeholder" (design change 0260).
+const GRENADIER_COST: u32 = 150;
+const GRENADIER_TICKS: u32 = 160;
 
 fn flat(w: usize, h: usize) -> String {
     vec![".".repeat(w); h].join("\n")
@@ -126,6 +133,14 @@ fn train_guard(hideout: ObjectId) -> Command {
     }
 }
 
+/// A Train of a Grenadier at `hideout` (its E).
+fn train_grenadier(hideout: ObjectId) -> Command {
+    Command::Production {
+        objects: vec![hideout],
+        command: ProductionCommand::Train(GRENADIER),
+    }
+}
+
 /// A debug removal of `id`: the removal path, as a destruction (`DebugCommand::Remove`).
 fn remove(id: ObjectId) -> DebugCommand {
     DebugCommand::Remove { id }
@@ -164,6 +179,16 @@ fn tunnel_space(t: &TestSim) -> (u32, u32) {
 /// (`factions/syndicate/structures/README.md > Tunnel Expansions > Rally Point Behavior`).
 fn guards_inside(t: &TestSim) -> usize {
     t.sim().network(P1).filter(|held| held.object.kind == GUARD).count()
+}
+
+/// The units [`H1`] produced so far: (tick, unit).
+fn produced(t: &TestSim) -> Vec<(Tick, ObjectId)> {
+    let events = t.events().iter();
+    let produced = |(tick, e): &(Tick, SimEvent)| match *e {
+        SimEvent::UnitProduced { producer, unit } if producer == H1 => Some((*tick, unit)),
+        _ => None,
+    };
+    events.filter_map(produced).collect()
 }
 
 /// The sites [`T1`] completed so far, in order.
@@ -270,8 +295,8 @@ fn a_lab_left_neutral_by_its_fallen_tunnel_no_longer_counts() {
 /// Design change 0260 ("**Chemical Plant:** like the Optics Lab: 2x2, 150 SC, 400 frames, HP 400 [...] Groupable, no
 /// commands"; `factions/syndicate/structures/chemical_plant.md`), the ExpandMenu's E: it is built as the Optics Lab
 /// is, 150 Space Crystals and no Supply at the click, complete at the end of tick 402 at 400 HP, and from then on it
-/// counts (the Grenadier it enables isn't in the game yet: `sc_sim::tech`'s tests give a stand-in recipe at the Hideout
-/// that requires it). Each expansion takes a Tunnel Space for good (`factions/syndicate/tunnels.md > Tunnel Space`:
+/// counts (for the Grenadier it enables: [`the_hideout_trains_grenadiers_once_a_chemical_plant_stands`]). Each
+/// expansion takes a Tunnel Space for good (`factions/syndicate/tunnels.md > Tunnel Space`:
 /// "Tunnel Space = floor((sum of unused tunnel-region grid units across all owned Tunnels) / 4)"; "Building an
 /// expansion permanently converts part of a Tunnel's unused tunnel-region into occupied space"), from the click
 /// (design change 0254): from the start's 1/11, 1/10 with the Chemical Plant, and 1/9 with an Optics Lab beside it.
@@ -294,6 +319,72 @@ fn a_chemical_plant_is_built_alike_and_each_takes_a_tunnel_space() {
     assert_eq!(tunnel_space(&t), (1, 10));
     next(&mut t, P1, expand(OPTICS_LAB, SOUTH_WEST));
     assert_eq!((bank(&t), tunnel_space(&t)), ((700, 10), (1, 9)));
+}
+
+/// `factions/syndicate/structures/hideout.md > ObjectInterfaceState[Hideout]`: "E: Build Grenadier: deducts 150 Space
+/// Crystals (placeholder), adds Grenadier to BuildQueue. Only available if the player owns at least one Chemical
+/// Plant" (`factions/syndicate/structures/hideout.md > Produces`: "Grenadier: 150 Space Crystals, 160 frames (10
+/// seconds), placeholder"; design change 0260, slice M4-U). Without one the gate refuses the Grenadier for want of it (`Reject::Requires`, the client's "Requires a
+/// Chemical Plant"), and while it is a site too (`core/tech_and_research.md > Tech Prerequisites > Counting Rule`).
+/// Ordered at the Tunnel in tick 2, the plant is complete at the end of tick 402, and the Hideout takes the Grenadier:
+/// 150 Space Crystals at the click, and 160 ticks later the Grenadier is in the Tunnel Network, never on the map
+/// (`factions/syndicate/structures/README.md > Tunnel Expansions > Rally Point Behavior`), as a second one queued
+/// behind it is 160 ticks after that. The plant lost meanwhile, a third is refused, and the two queued are trained
+/// (`core/tech_and_research.md > Tech Prerequisites > Unit Prerequisites`: "units already queued or in production
+/// continue and complete normally; new ones cannot be queued"). Each takes its TunnelSpaceCost of 1.
+#[test]
+fn the_hideout_trains_grenadiers_once_a_chemical_plant_stands() {
+    let mut t = started(base(), 1000);
+    let refused = Err(Reject::Requires(CHEMICAL_PLANT));
+    assert_eq!(gate(&t, P1, train_grenadier(H1)), refused);
+    next(&mut t, P1, expand(CHEMICAL_PLANT, NORTH_WEST));
+    let plant = building(&t);
+    assert_eq!((t.sim().tick(), bank(&t)), (2, (850, 10)));
+    t.run_until(401);
+    assert!(object(&t, plant).is_site());
+    assert_eq!(gate(&t, P1, train_grenadier(H1)), refused, "a site doesn't count");
+    t.step();
+    assert!(!object(&t, plant).is_site() && t.sim().requirement_met(P1, CHEMICAL_PLANT));
+    assert_eq!(gate(&t, P1, train_grenadier(H1)), Ok(()));
+    next(&mut t, P1, train_grenadier(H1));
+    let queued = t.sim().tick();
+    assert_eq!(bank(&t), (850 - GRENADIER_COST, 10), "paid at the click");
+    next(&mut t, P1, train_grenadier(H1));
+    assert_eq!(bank(&t), (850 - 2 * GRENADIER_COST, 10));
+    next_debug(&mut t, remove(plant));
+    assert!(!t.sim().requirement_met(P1, CHEMICAL_PLANT));
+    assert_eq!(gate(&t, P1, train_grenadier(H1)), refused, "lost");
+
+    let first_done = queued + GRENADIER_TICKS - 1;
+    t.run_until(first_done - 1);
+    assert_eq!(produced(&t), []);
+    t.step();
+    let [(tick, first)] = produced(&t)[..] else {
+        panic!("one Grenadier: {:?}", produced(&t));
+    };
+    assert_eq!(tick, first_done, "160 ticks from tick {queued} on");
+    assert!(t.sim().object(first).is_none(), "not on the map");
+    let held = t.sim().held_unit(first).expect("in the Tunnel Network");
+    assert_eq!(
+        (held.place, held.object.kind, held.object.owner),
+        (Place::Network, GRENADIER, Some(P1))
+    );
+    assert_eq!(held.object.hp, Some(70.0), "MaxHP - 70");
+    t.run_until(first_done + GRENADIER_TICKS);
+    let ticks: Vec<Tick> = produced(&t).iter().map(|&(tick, _)| tick).collect();
+    assert_eq!(
+        ticks,
+        [first_done, first_done + GRENADIER_TICKS],
+        "the second 160 ticks later"
+    );
+    let inside = t.sim().network(P1).filter(|held| held.object.kind == GRENADIER);
+    assert_eq!(inside.count(), 2);
+    assert_eq!(
+        tunnel_space(&t).0,
+        3,
+        "used: the Agent's and two Grenadiers' TunnelSpaceCost - 1"
+    );
+    assert_eq!(bank(&t), (850 - 2 * GRENADIER_COST, 10));
 }
 
 /// The gate's reasons in its order (`Sim::validate`): the prerequisite before the bank, so that the Hideout's W says

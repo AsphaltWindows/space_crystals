@@ -20,9 +20,9 @@ pub const CELLS_PER_TUNNEL_SPACE: u32 = 4;
 /// A, S, …)", the unit types "(Agent, Guard, Grenadier, …)", that is Agent Q, Guard W, Grenadier E (Q0068). That is
 /// `factions/syndicate/units/README.md > Files` (design change 0285: "Listed in panel order: this is the order used by
 /// the Tunnel's EjectMenu"), which goes on after the Grenadier (Assault Bike, Shadebringer, …). Each Syndicate unit
-/// joins the list with its kind (the Grenadier with slice M4-U), so that the client's menu (slice M4-J2) needs no edit:
-/// a test checks that it lists every Syndicate unit once.
-pub const EJECT_MENU_ORDER: &[ObjectKind] = &[ObjectKind::Agent, ObjectKind::Guard];
+/// joins the list with its kind (the Grenadier third, with slice M4-U), so that the client's menu (slice M4-J2) needs
+/// no edit: a test checks that it lists every Syndicate unit once.
+pub const EJECT_MENU_ORDER: &[ObjectKind] = &[ObjectKind::Agent, ObjectKind::Guard, ObjectKind::Grenadier];
 
 /// An entry of the Tunnel's ExpandMenu ([`EXPAND_MENU`], slice M4-F): an expansion a Tunnel builds, or an entry not in
 /// the game yet, which holds its slot.

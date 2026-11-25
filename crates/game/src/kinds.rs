@@ -59,6 +59,7 @@ pub fn of(kind: ObjectKind) -> &'static ClientKind {
         ObjectKind::Hideout => &syndicate::hideout::KIND,
         ObjectKind::OpticsLab => &syndicate::optics_lab::KIND,
         ObjectKind::ChemicalPlant => &syndicate::chemical_plant::KIND,
+        ObjectKind::Grenadier => &syndicate::grenadier::KIND,
     }
 }
 

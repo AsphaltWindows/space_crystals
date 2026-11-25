@@ -8,10 +8,10 @@ use crate::player::Faction;
 /// `factions/syndicate/structures/chemical_plant.md`: "Syndicate tech building enabling the Syndicate's explosives and
 /// propulsion technologies", an underground expansion (plan decision T32) that is only a prerequisite ("Commands -
 /// none for now: it is only a prerequisite (explosives/propulsion research TBD)"): "Prerequisite for the Grenadier
-/// ... and the Vehicle Assembly", which come with their slices (M4-U, and the Vehicle Assembly after M4), each naming
-/// it in its `requires` (plan decision T37). Hidden from the other players while owned, walked over, and destroyed as
-/// any structure. A Tunnel builds it in its Tunnel Area ([`CHEMICAL_PLANT_EXPANSION`]); it counts as a prerequisite
-/// once complete (`crate::tech`).
+/// ... and the Vehicle Assembly", each naming it in its `requires` (plan decision T37): the Grenadier's recipe at the
+/// Hideout does (slice M4-U), and the Vehicle Assembly will after M4. Hidden from the other players while owned, walked
+/// over, and destroyed as any structure. A Tunnel builds it in its Tunnel Area ([`CHEMICAL_PLANT_EXPANSION`]); it
+/// counts as a prerequisite once complete (`crate::tech`).
 pub(crate) static CHEMICAL_PLANT: ObjectDef = ObjectDef {
     kind: ObjectKind::ChemicalPlant,
     name: "Chemical Plant",

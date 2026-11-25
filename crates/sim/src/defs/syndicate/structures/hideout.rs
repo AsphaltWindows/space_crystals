@@ -6,7 +6,8 @@ use crate::player::Faction;
 
 /// `factions/syndicate/structures/hideout.md`: an underground expansion (plan decision T32): hidden from the other
 /// players while owned, it is walked over, and can be destroyed. It produces into its owner's Tunnel Network (slice
-/// M4-C, `crate::network`). A Tunnel builds it in its Tunnel Area ([`HIDEOUT_EXPANSION`], slice M4-F).
+/// M4-C, `crate::network`): Agents, Guards and Grenadiers. A Tunnel builds it in its Tunnel Area
+/// ([`HIDEOUT_EXPANSION`], slice M4-F).
 pub(crate) static HIDEOUT: ObjectDef = ObjectDef {
     kind: ObjectKind::Hideout,
     name: "Hideout",
@@ -37,8 +38,9 @@ pub(crate) static HIDEOUT: ObjectDef = ObjectDef {
         power: 0,
         seeds_build_area: false,
         // `> Produces`, into the Tunnel Network (`factions/syndicate/structures/README.md > Tunnel Expansions > Rally
-        // Point Behavior`): the Agent, and the Guard behind its prerequisite, the Optics Lab (slice M4-K). The
-        // Grenadier joins them with its unit (slice M4-U), behind the Chemical Plant.
+        // Point Behavior`), in the order of `> ObjectInterfaceState[Hideout]`'s Q, W and E: the Agent, the Guard
+        // behind its prerequisite, the Optics Lab (slice M4-K), and the Grenadier behind the Chemical Plant (slice
+        // M4-U).
         production: Some(ProductionDef {
             exits: ExitRule::Network,
             recipes: &[
@@ -54,6 +56,15 @@ pub(crate) static HIDEOUT: ObjectDef = ObjectDef {
                     frames: 120, // "120 frames (7.5 seconds)"
                     // "Unit Prerequisite: player owns at least one Optics Lab"
                     requires: &[ObjectKind::OpticsLab],
+                },
+                Recipe {
+                    kind: ObjectKind::Grenadier,
+                    // "Grenadier: 150 Space Crystals, 160 frames (10 seconds), placeholder" (design change 0260;
+                    // `factions/syndicate/units/grenadier.md`: "Cost - 150 Space Crystals; Build Time - 160 frames")
+                    cost: 150,
+                    frames: 160,
+                    // "Unit Prerequisite: player owns at least one Chemical Plant"
+                    requires: &[ObjectKind::ChemicalPlant],
                 },
             ],
         }),
@@ -120,18 +131,22 @@ mod tests {
         );
         // `> Produces`, into the Tunnel Network (slice M4-C): "Agent: 100 Space Crystals, 240 frames (15 seconds)";
         // "Guard: 125 Space Crystals, 120 frames (7.5 seconds). Unit Prerequisite: player owns at least one Optics
-        // Lab" (slice M4-K). No TechPrerequisite of its own.
+        // Lab" (slice M4-K); "Grenadier: 150 Space Crystals, 160 frames (10 seconds), placeholder. Unit Prerequisite:
+        // player owns at least one Chemical Plant" (slice M4-U), in the panel's order, Q, W and E. No TechPrerequisite
+        // of its own.
         let production = structure.production.expect("the Hideout produces");
         assert_eq!(production.exits, ExitRule::Network);
         let recipes: Vec<(ObjectKind, u32, u32, &[ObjectKind])> = (production.recipes.iter())
             .map(|recipe| (recipe.kind, recipe.cost, recipe.frames, recipe.requires))
             .collect();
         let optics_lab: &[ObjectKind] = &[ObjectKind::OpticsLab];
+        let chemical_plant: &[ObjectKind] = &[ObjectKind::ChemicalPlant];
         assert_eq!(
             recipes,
             [
                 (ObjectKind::Agent, 100, 240, &[][..]),
-                (ObjectKind::Guard, 125, 120, optics_lab)
+                (ObjectKind::Guard, 125, 120, optics_lab),
+                (ObjectKind::Grenadier, 150, 160, chemical_plant),
             ]
         );
         assert_eq!(structure.requires, []);

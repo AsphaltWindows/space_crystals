@@ -54,6 +54,7 @@ fn every_kind_keeps_its_place_and_name() {
         "Hideout",
         "OpticsLab",
         "ChemicalPlant",
+        "Grenadier",
     ];
     assert_eq!(names[..expected.len()], expected.map(|name| format!("\"{name}\"")));
     for (index, &kind) in ObjectKind::ALL.iter().enumerate() {
@@ -362,6 +363,25 @@ fn unit_is_consistent(def: &ObjectDef, unit: &UnitDef) {
             (MELEE_CONTACT_GU, 0.0),
             "{name}: melee range"
         );
+    }
+    // `systems/combat.md > AttackType`: "ProjectileSpeed - number (HeadDisjointed / DoublyDisjointed only)", which
+    // both require (`systems/combat.md > HeadDisjointed`, `systems/combat.md > DoublyDisjointed`:
+    // "RequiresProjectileSpeed - true"); the Grenadier's grenade is the first (slice M4-U). An area attack's circle has
+    // a radius.
+    if let Some(attack) = &unit.attack {
+        let flies = matches!(
+            attack.attack_type,
+            AttackType::HeadDisjointed | AttackType::DoublyDisjointed
+        );
+        let speed = attack.projectile_speed;
+        assert_eq!(
+            speed.is_some_and(|speed| speed.is_finite() && speed > 0.0),
+            flies,
+            "{name}: ProjectileSpeed {speed:?}"
+        );
+        if let TargetType::AoE { radius } = attack.target_type {
+            assert!(radius.is_finite() && radius > 0.0, "{name}: AoE radius {radius}");
+        }
     }
     assert!(def.faction.is_some(), "{name}: units belong to a faction");
     assert!(def.half_extents().is_some(), "{name}: units have a collision box");

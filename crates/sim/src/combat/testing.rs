@@ -1,5 +1,6 @@
-//! (M4-O) The test shooter of plan §3.3 O's acceptance (`defs::test_defs`): no kind of the game throws grenades yet
-//! (the Grenadier, `factions/syndicate/units/grenadier.md`, is slice U's), so the sim's tests give the Guard one.
+//! (M4-O) The test shooter of plan §3.3 O's acceptance (`defs::test_defs`): the sim's tests give the Guard a grenade
+//! with fixed numbers, so that they test the mechanics apart from the Grenadier's tuning. The Grenadier itself
+//! (`factions/syndicate/units/grenadier.md`, slice M4-U) is played in `crates/sim/tests/grenadier.rs`.
 
 use crate::defs::test_defs::TestDef;
 use crate::defs::{AttackAttrs, AttackType, ObjectKind, TargetDomain, TargetType};

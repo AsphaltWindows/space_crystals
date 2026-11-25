@@ -13,6 +13,7 @@ use sc_sim::{
 };
 use space_crystals::combat_effects::{
     CombatEffects, CombatEffectsMesh, DEATH_MARKER_TICKS, DeathMarker, HpBar, ShotStyle, TRACER_TICKS, hp_bars,
+    shows_flight,
 };
 use space_crystals::command_ui::feedback::{FEEDBACK_TICKS, TARGET_TOO_CLOSE_TEXT, TargetFeedback};
 use space_crystals::coords::drawn_at_height;
@@ -311,6 +312,60 @@ fn a_guards_laser_is_drawn_red() {
     for kind in [ObjectKind::Peacekeeper, ObjectKind::SabreLegionnaire, ObjectKind::Agent] {
         assert_eq!(ShotStyle::of(Some(kind)), ShotStyle::Tracer, "{kind:?}");
     }
+}
+
+/// Slice M4-U: the Grenadier's grenade is no laser (design change 0207 makes the Syndicate's lasers red) and no shot:
+/// a projectile in its thrower's style ([`ShotStyle::Grenade`], plan decision T52: "The styles come from each kind's
+/// client module"), drawn from its launch to where it lands, and then a blast there. Player 1's Grenadier attacks
+/// player 2's Peacekeeper, 160 su east: its grenade leaves at the end of its Firing (Aim 6, Firing 2) and lands 20
+/// ticks later (160 su at 8 su per tick); it leaves no tracer, and the projectile shows to player 1, who sees it fly.
+/// Where it lands a blast shows, of the grenade's radius (`factions/syndicate/units/grenadier.md`: "AoE radius: 40
+/// space units"), and the Peacekeeper takes its hit.
+#[test]
+fn a_grenadiers_grenade_flies_as_a_grenade_and_blasts_where_it_lands() {
+    let (thrower, target) = (ObjectId(1), ObjectId(2));
+    let mut app = headless_app();
+    submit(
+        &mut app,
+        P1,
+        Command::Debug(DebugCommand::SetAutoTargeting { on: false }),
+    );
+    app.update();
+    let (from, at) = (Vec2::new(300.0, 300.0), Vec2::new(460.0, 300.0));
+    spawn(&mut app, ObjectKind::Grenadier, P1, from);
+    spawn(&mut app, ObjectKind::Peacekeeper, P2, at);
+    app.update();
+    attack(&mut app, P1, thrower, target);
+    let ordered = tick(&app);
+    while effects(&app).flights.is_empty() {
+        assert!(tick(&app) < ordered + 20, "no grenade was thrown");
+        app.update();
+    }
+    let flight = effects(&app).flights[0].clone();
+    assert_eq!(
+        (flight.shooter, flight.weapon, flight.owner, flight.target),
+        (thrower, Some(ObjectKind::Grenadier), Some(P1), Some(target))
+    );
+    assert_eq!((flight.from, flight.to, flight.lands_at), (from, at, flight.tick + 20));
+    assert_eq!(ShotStyle::of(flight.weapon), ShotStyle::Grenade);
+    run_until(&mut app, flight.tick + 10);
+    {
+        let world = app.world();
+        let sim = world.resource::<SimRes>();
+        let sight = Sight::new(sim, P1, world.resource::<FogOfWar>().enabled);
+        let progress = flight.progress(sim, 1.0);
+        assert_eq!(progress, 0.5);
+        assert!(shows_flight(sim, &sight, &flight, progress), "player 1 sees it fly");
+    }
+    assert!(effects_visible(&mut app), "the grenade in the air");
+    run_until(&mut app, flight.lands_at);
+    let effects = effects(&app);
+    assert!(effects.flights.is_empty(), "landed");
+    assert!(effects.tracers.is_empty(), "no shot");
+    let blast = effects.blasts.first().expect("the blast");
+    assert_eq!((blast.tick, blast.at, blast.radius), (flight.lands_at, at, 40.0));
+    let hp = app.world().resource::<SimRes>().object(target).and_then(|o| o.hp);
+    assert!(hp < ObjectKind::Peacekeeper.def().max_hp, "hit: {hp:?}");
 }
 
 /// The feedback message that shows, if any.

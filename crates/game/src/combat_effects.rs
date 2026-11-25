@@ -4,8 +4,8 @@
 //! shield bar above the HP bar of an object that has Shields (`systems/combat.md > Shields > Display`, slice M3-B,
 //! design change 0148: "a shield bar sits directly above the HP bar"; its styling waits for the HUD pass), and a
 //! fading marker where an object died (`SimEvent::Died`). Slice M4-O adds the projectiles in flight
-//! ([`projectiles`], from `SimEvent::ProjectileLaunched`, plan decision T52) and the blasts where they land
-//! ([`blasts`], `SimEvent::Blast`).
+//! ([`projectiles`], from `SimEvent::ProjectileLaunched`, plan decision T52), each in its thrower's style (the
+//! Grenadier's grenade, slice M4-U), and the blasts where they land ([`blasts`], `SimEvent::Blast`).
 //!
 //! Everything is one vertex-coloured, alpha-blended mesh in the overlays layer, rebuilt every frame while anything
 //! shows. Effects age by the sim's ticks plus the render alpha, so a QA screenshot of a tick (alpha 1) always shows
@@ -71,21 +71,25 @@ pub struct Tracer {
     pub to: Vec2,
 }
 
-/// How a shot is drawn, by the weapon that fired it: each shooting kind's style is in its module
-/// (`crate::kinds::ClientKind::shot`), which says which weapons are lasers of which colour.
+/// How a shot or a projectile is drawn, by the weapon that fired it: each shooting kind's style is in its module
+/// (`crate::kinds::ClientKind::shot`), which says which weapons are lasers of which colour, and which throw grenades.
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub enum ShotStyle {
-    /// A pale tracer inside a glow in the shooter's colour: every weapon but a Syndicate laser (placeholder, Q0001).
+    /// A pale tracer inside a glow in the shooter's colour: every shot but a Syndicate laser's (placeholder, Q0001).
     Tracer,
     /// A red laser: design change 0207 (`factions/syndicate/units/README.md`): "every Syndicate laser-shooting unit
     /// and structure (Guard, Laser Battery, Laser Turret) fires a **red** laser", whoever owns it.
     RedLaser,
+    /// A grenade (`factions/syndicate/units/grenadier.md`, slice M4-U): no laser, and no shot either: a projectile,
+    /// drawn in flight as a lobbed grenade, its fuse lit ([`projectiles`]), that takes effect by its blast, never as
+    /// a shot (`SimEvent::Attacked`). Placeholder look (Q0001).
+    Grenade,
 }
 
 impl ShotStyle {
-    /// The style of a shot fired in the form `weapon`, its kind's: the Guard's laser rifle is a red laser (the Laser
-    /// Battery and the Laser Turret will be when they exist); every other weapon, the Agent's pistol included, a
-    /// tracer, as is a shot whose shooter the client no longer knows.
+    /// The style of a shot or a projectile fired in the form `weapon`, its kind's: the Guard's laser rifle is a red
+    /// laser (the Laser Battery and the Laser Turret will be when they exist), the Grenadier's grenade a grenade; every
+    /// other weapon, the Agent's pistol included, a tracer, as is a shot whose shooter the client no longer knows.
     pub fn of(weapon: Option<ObjectKind>) -> Self {
         weapon
             .and_then(|kind| crate::kinds::of(kind).shot)
@@ -269,9 +273,10 @@ fn collect_effects(sim: Res<SimRes>, mut messages: MessageReader<SimEventMessage
             _ => None,
         })
     };
-    let owner = |id: ObjectId| match sim.object(id) {
-        Some(o) => o.owner,
-        None => fallen(id).and_then(|(_, owner)| owner),
+    // The form a shooter fired in (`sc_sim::conversion::form`), whose weapon it was, and its owner.
+    let shooter_of = |id: ObjectId| match sim.object(id) {
+        Some(o) => Some((sc_sim::conversion::form(o), o.owner)),
+        None => fallen(id),
     };
     for message in &messages {
         match message.event {
@@ -281,10 +286,7 @@ fn collect_effects(sim: Res<SimRes>, mut messages: MessageReader<SimEventMessage
                 from,
                 to,
             } => {
-                let shooter = match sim.object(attacker) {
-                    Some(o) => Some((sc_sim::conversion::form(o), o.owner)),
-                    None => fallen(attacker),
-                };
+                let shooter = shooter_of(attacker);
                 effects.tracers.push(Tracer {
                     tick: message.tick,
                     attacker,
@@ -301,15 +303,19 @@ fn collect_effects(sim: Res<SimRes>, mut messages: MessageReader<SimEventMessage
                 from,
                 to,
                 lands_at,
-            } => effects.flights.push(Flight {
-                tick: message.tick,
-                shooter,
-                owner: owner(shooter),
-                target,
-                from,
-                to,
-                lands_at,
-            }),
+            } => {
+                let thrower = shooter_of(shooter);
+                effects.flights.push(Flight {
+                    tick: message.tick,
+                    shooter,
+                    weapon: thrower.map(|(form, _)| form),
+                    owner: thrower.and_then(|(_, owner)| owner),
+                    target,
+                    from,
+                    to,
+                    lands_at,
+                });
+            }
             SimEvent::Blast { at, radius } => effects.blasts.push(Blast {
                 tick: message.tick,
                 at,

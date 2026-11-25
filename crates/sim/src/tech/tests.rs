@@ -1,9 +1,9 @@
 //! The prerequisites' one rule (`crate::tech`) through the gate, for every faction, where a test needs a requirement
 //! the design's types don't have yet (`defs::test_defs`): a GDO unit's (a "Requires" clause on the Barracks'
 //! Peacekeeper) and building's (a TechPrerequisite on the Barracks), a Colonists building's (on the Robo Portal), a
-//! Syndicate expansion's (the Vault's kind, on the Chemical Plant) and a worker-built one's (on the Tunnel), and the
-//! Grenadier's, which isn't in the game: a stand-in recipe at the Hideout behind the Chemical Plant. The Optics Lab
-//! and the Guard, the design's own, are played in `crates/sim/tests/prerequisites/`.
+//! Syndicate expansion's (the Vault's kind, on the Chemical Plant) and a worker-built one's (on the Tunnel). The
+//! design's own, the Optics Lab and the Guard, and the Chemical Plant and the Grenadier (slice M4-U, whose recipe
+//! replaced the stand-in this module had), are played in `crates/sim/tests/prerequisites/`.
 
 use crate::command::{Command, DebugCommand, PlayerCommand, TunnelCommand};
 use crate::construction::ConstructionCommand;
@@ -79,13 +79,6 @@ fn spawn(kind: ObjectKind, owner: Option<PlayerId>, x: i32, y: i32) -> DebugComm
         owner,
         at: tile(x, y),
         orientation: BuildingOrientation::default(),
-    }
-}
-
-fn train(producer: ObjectId, kind: ObjectKind) -> Command {
-    Command::Production {
-        objects: vec![producer],
-        command: ProductionCommand::Train(kind),
     }
 }
 
@@ -185,56 +178,6 @@ fn an_expansion_requires_one_anywhere_in_the_network() {
         t.sim().can_expand(P2, ObjectId(1), CHEMICAL_PLANT),
         Err(Reject::NotOwned(ObjectId(1)))
     );
-}
-
-/// `factions/syndicate/structures/hideout.md > Produces`: "Grenadier: 150 Space Crystals, 160 frames (10 seconds),
-/// placeholder. Unit Prerequisite: player owns at least one Chemical Plant". The Grenadier isn't in the game (slice
-/// M4-U), so a stand-in recipe at the Hideout with its numbers and its prerequisite, for a Guard: the M4 plan's "The
-/// Chemical Plant: same, for a Grenadier test recipe". Refused before the plant, and while it is a site; the plant
-/// ordered at the Tunnel is complete 400 ticks later (`factions/syndicate/structures/chemical_plant.md`: "Build Time -
-/// 400 frames (25 seconds)"), and the recipe is taken. Losing it: the two queued units are produced, and a new one is
-/// refused (`core/tech_and_research.md > Tech Prerequisites > Unit Prerequisites`: "units already queued or in
-/// production continue and complete normally; new ones cannot be queued").
-#[test]
-fn a_grenadier_recipe_waits_for_the_chemical_plant() {
-    let mut hideout = HIDEOUT.def().clone();
-    let production = hideout.structure.as_mut().and_then(|s| s.production.as_mut()).unwrap();
-    let grenadier = Recipe {
-        kind: ObjectKind::Guard,
-        cost: 150,
-        frames: 160,
-        requires: &[CHEMICAL_PLANT],
-    };
-    production.recipes = Box::leak(Box::new([production.recipes[0], grenadier]));
-    let _grenadier = TestDef::set(hideout);
-    let scenario = ScenarioBuilder::new(&flat(40, 20))
-        .faction(P1, Faction::Syndicate)
-        .faction(P2, Faction::Syndicate)
-        .spawn(ObjectKind::Tunnel, Some(P1), tile(4, 4)) // 1: area (2, 2) to (9, 9)
-        .spawn(HIDEOUT, Some(P1), tile(8, 8)); // 2
-    let mut t = started(scenario, 1000);
-    let hideout = ObjectId(2);
-    let refused = Err(Reject::Requires(CHEMICAL_PLANT));
-    assert_eq!(gate(&t, P1, train(hideout, ObjectKind::Guard)), refused);
-    assert_eq!(gate(&t, P1, train(hideout, ObjectKind::Agent)), Ok(()));
-    next(&mut t, P1, expand(ObjectId(1), CHEMICAL_PLANT, 2, 2));
-    let (ordered, plant) = (t.sim().tick(), site_of(&t, ObjectId(1)));
-    assert_eq!(t.sim().player(P1).map(|p| p.crystals), Some(850), "150 Space Crystals");
-    t.run_until(ordered + 399);
-    assert!(t.sim().object(plant).is_some_and(|o| o.is_site()));
-    assert_eq!(gate(&t, P1, train(hideout, ObjectKind::Guard)), refused, "a site");
-    t.step();
-    assert!(
-        t.sim().object(plant).is_some_and(|o| !o.is_site()),
-        "complete at the end of tick {ordered} + 400"
-    );
-    assert_eq!(gate(&t, P1, train(hideout, ObjectKind::Guard)), Ok(()));
-    next(&mut t, P1, train(hideout, ObjectKind::Guard));
-    next(&mut t, P1, train(hideout, ObjectKind::Guard));
-    next_debug(&mut t, remove(plant));
-    assert_eq!(gate(&t, P1, train(hideout, ObjectKind::Guard)), refused, "lost");
-    t.run(2 * 160 + 2);
-    assert_eq!(units(&t, ObjectKind::Guard), 2, "both queued ones");
 }
 
 /// The GDO's units (`core/tech_and_research.md > Tech Prerequisites > Unit Prerequisites`: "the structure(s) the player

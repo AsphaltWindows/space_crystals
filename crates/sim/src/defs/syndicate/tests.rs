@@ -19,8 +19,8 @@ pub(super) fn timings(attack: &AttackAttrs) -> ((u32, u32, u32, u32), u32) {
     (t, t.0 + t.1 + t.2 + t.3)
 }
 
-/// Design change 0257: the EjectMenu lists every Syndicate unit type, each once and nothing else, the Agent in Q and
-/// the Guard in W ("Agent, Guard, Grenadier, …").
+/// Design change 0257: the EjectMenu lists every Syndicate unit type, each once and nothing else, the Agent in Q, the
+/// Guard in W and the Grenadier in E ("Agent, Guard, Grenadier, …"; design change 0285).
 #[test]
 fn the_eject_menu_lists_every_syndicate_unit_once() {
     let units: BTreeSet<ObjectKind> = (ObjectKind::ALL.iter().copied())
@@ -29,7 +29,10 @@ fn the_eject_menu_lists_every_syndicate_unit_once() {
     let listed: BTreeSet<ObjectKind> = EJECT_MENU_ORDER.iter().copied().collect();
     assert_eq!(listed.len(), EJECT_MENU_ORDER.len(), "each once: {EJECT_MENU_ORDER:?}");
     assert_eq!(listed, units);
-    assert_eq!(EJECT_MENU_ORDER[..2], [ObjectKind::Agent, ObjectKind::Guard]);
+    assert_eq!(
+        EJECT_MENU_ORDER[..3],
+        [ObjectKind::Agent, ObjectKind::Guard, ObjectKind::Grenadier]
+    );
 }
 
 /// The Tech Tree's expansions, in its table's order: the rows of `factions/syndicate/structures/README.md > Tech Tree
