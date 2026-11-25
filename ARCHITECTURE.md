@@ -2410,10 +2410,11 @@ these.
   B (crystals' cyan) and D (Supplies' amber), none on C, and the Tier 3 air doors over the paths' halves; its tag
   names its tier (T1 to T3, `kinds::object_label`), to enemies too (design change 0258), a record's the tier last seen.
   **A site** (`Object::is_site`, slice M4-J1; `object_render/site.rs`, a placeholder) is drawn by being one, whatever
-  its kind (`MeshKey::site`): its footprint tinted half way to a pale sand and braced at its corners by a scaffold
-  (clear of its tag) instead of its finished look, with a progress bar near its south edge, a dark track in its mesh
-  and a `SiteProgress` child stretched to its share done (`place_site_progress`, `Progress::ratio`), to everyone who
-  sees it. A record of one looks finished: `LastKnown` keeps no construction.
+  its kind (`MeshKey::site`), on the surface or underground (an expansion's outline, slice M4-F): its footprint tinted
+  half way to a pale sand and braced at its corners by a scaffold (clear of its tag) instead of its finished look,
+  with a progress bar near its south edge, a dark track in its mesh and a `SiteProgress` child stretched to its share
+  done (`place_site_progress`, `Progress::ratio`), to everyone who sees it. A record of one looks finished:
+  `LastKnown` keeps no construction.
 - **Path overlay** (`path_overlay.rs`, P or `--show-paths`): each unit's remaining path (`Mover::remaining_path`) as
   a thin line from where the unit is drawn, cut into short pieces lifted by the terrain's height, in the overlays
   layer, and a frame around each unit in the colour of its move's status (`status_color`: green moving, amber held
