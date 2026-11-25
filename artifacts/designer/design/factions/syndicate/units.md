@@ -144,6 +144,12 @@ Rationale: the drop-off time (not carry or mining time) sets the ceiling, so len
 - DropOffDuration: 48 frames (3 seconds)
 - Drop-off side: Tunnel Side D
 
+(user, 2026-11-25; Q0067)
+- **Several Agents at one station**: any number pick up at once, as at patches.
+- **When a Supply leaves the station**: when the pick-up ends. A pick-up starts only if a Supply remains that no running pick-up has claimed.
+- **An empty station**: the owner gets a **notification** (notifications not designed yet), and every Agent picking up there **stands next to it indefinitely**, keeping its job, waiting for the next supply delivery.
+- **Switching resources**: an Agent carrying Space Crystals that is ordered to gather Supplies goes **straight to the station**; its crystals are **lost when it picks up the Supply**. (Assumed the same the other way: a carried Supply is lost when it mines crystals.)
+
 ### Agent ObjectInterfaceState
 
 #### DefaultState commands:
