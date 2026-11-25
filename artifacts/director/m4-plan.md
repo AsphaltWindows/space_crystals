@@ -1450,4 +1450,10 @@ Quote these in the slice briefs.
   - Lingering ghosts and sites count as owned Tunnels for the price.
   - An order that can't be paid for is refused, with feedback.
   - Cancelled, replaced or failed orders, and cancelled constructions, refund the current top price.
-
+- **0234** (Q0061 points 3–5 and 7–9, for E): accepted as proposed.
+  - An unfinished Tunnel offers only Cancel.
+  - The ConstructionHP formula gives the maximum, and damage stays.
+  - The Agent comes out at the footprint's centre and idles.
+  - The site counts for defeat.
+  - The Agent keeps its load.
+  - Enemies see the site, not the Agent.
