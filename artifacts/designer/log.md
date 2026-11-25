@@ -2258,3 +2258,4 @@ Answered Q0069–Q0071 (0258–0267): losing-Tunnel edges, Syndicate economy che
 2026-11-26 — Q0083: friendly fire, reveal on damage, Attack Ground continuous, all shots clipped to vision (replaces 0244). Entry 0293.
 2026-11-26 — Q0076/Q0088: Agent mining 4 s, keep collision, ref 3 GU, sidestep documented. Entry 0294.
 2026-11-26 — Q0076 sub-points confirmed. Entry 0295.
+2026-11-26 — Q0084 pts 1–3. Entry 0296.

@@ -16,6 +16,12 @@ Syndicate defensive structure capable of attacking both ground and air units. It
   - It notices enemies the same way an upright turret does. When an enemy comes into range it rises to the surface **already facing the target** and fires; it retracts once it has no target. Rise and retract timing: see placeholder stats below.
   - It **can be attacked while underground** (by enemies that can see it), but it has **much higher armor while underground** than when raised (values in the placeholder stats below).
 
+**Pop-up rules** (user, 2026-11-26; Q0084):
+- **Hidden only while fully lowered**: that is when it is invisible to enemies without detection and has its underground armor. While rising, raised and retracting it is visible and has its raised armor.
+- **Sight 6 grid units in both forms**: a lowered turret notices enemies by itself and rises.
+- **Blocking**: an **upright** turret blocks movement like any building, and so does a **raised** pop-up. A lowered pop-up never blocks (units walk over it like an expansion).
+- **Rising needs a clear footprint**: it can't rise while any unit stands over it. The **owner's own idle units** over it are pushed off by the idle push (systems/units.md > Ground Collision > Idle units push apart). Any other unit over it (an enemy, or an own unit with an order) keeps it **underground** until the spot is clear.
+
 ## Conversion
 The form updates automatically whenever Tunnel Areas change:
 - A new Tunnel, or a Tunnel upgrade, whose Tunnel Area now covers an upright turret converts it into a pop-up turret (it starts occupying that Tunnel's tunnel-region).
