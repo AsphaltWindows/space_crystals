@@ -13,7 +13,9 @@
 //! terrain) is treated like an occupied patch" (design change 0141). A leg back to the drop-off that ends short is
 //! begun again after [`LEG_RETRY_TICKS`], a back-off: what stopped it is a unit that won't move, and that is rarely
 //! gone a tick later. A worker that set off again at once would ask for a path every dozen ticks and jitter against
-//! its blocker; standing, it is a unit at rest, which the units behind it route around at once.
+//! its blocker; standing, it is a unit at rest, which the units behind it route around at once. **Not an Agent's leg
+//! back to a hatch** (design change 0315, [`return_leg`]): that one never ends short behind standing units, and
+//! begins again at once when the mover gives it up.
 
 use glam::Vec2;
 
@@ -127,15 +129,38 @@ pub(super) fn leg_to(state: &mut Gather, unit: &mut Unit, to: Vec2, world: &Worl
 ///
 /// To a hatch (`hatch_reach`: the worker's DropOffReach there, `None` for a drop-off that takes loads anywhere) it
 /// heads for the point nearest to it against the hatch's wall **within reach of the hatch**: in front of the square,
-/// or beside it by up to the reach (`factions/syndicate/units/agent.md > Gathering rules`: "an Agent waits within
-/// reach (or as close as it can get) while another drops off"), so that those waiting stand side by side along the
-/// wall and the next one is in reach when the hatch frees.
+/// or beside it by up to the reach, so that those waiting stand side by side along the wall and the next one is in
+/// reach when the hatch frees.
+///
+/// **The leg to a hatch presses on** (design change 0315, answering question Q0109 as a first step;
+/// `factions/syndicate/units/agent.md > Gathering > Gathering rules`, "Waiting at the hatch": "an Agent waits only
+/// once it is within reach of the hatch [...] Until it is within reach it is never 'arrived': it keeps actively
+/// moving toward the hatch, steering around whatever is in its way [...] and is exempt from MovingToLocation's
+/// 'blocked near the target by standing units counts as arrived' rule [...] It waits as long as it takes; it never
+/// gives up"):
+/// - the leg is exempt from the occupied-target rule (`Mover::press_on`, `movement::stuck`), so behind standing
+///   Agents it stays a unit on its way: it steers, and looks for other routes on the mover's schedule;
+/// - when the mover gives the leg up, stuck with no attempt left (`systems/controls/behaviors.md > MovingToLocation >
+///   Failure`), the next leg begins **at once**, for the point nearest to where the Agent is by then: out of reach it
+///   doesn't stand and wait;
+/// - [`LEG_RETRY_TICKS`] is left for the one end the rule doesn't speak of: a leg that got to the end of its path
+///   out of reach, or found no path at all (the hatch walled off). Nothing is in its way to steer round, and a leg
+///   begun in every tick would only be a path request in every tick.
+///
+/// Only the leg to a hatch: a Drone's and a Recruit's return (`hatch_reach` `None`) are as they were (0315 is the
+/// Agent's rule; the Recruits' jam is question Q0110).
 pub(super) fn return_leg(state: &mut Gather, unit: &mut Unit, target: &Shape, hatch_reach: Option<f32>, world: &World) {
+    let presses_on = hatch_reach.is_some();
     if state.moving && unit.mover.status != MoveStatus::Moving {
         state.moving = false;
-        state.retry_at = world.tick.saturating_add(LEG_RETRY_TICKS);
+        let gave_up = unit.mover.status == MoveStatus::Failed && unit.mover.repaths_left == 0;
+        let wait = if presses_on && gave_up { 0 } else { LEG_RETRY_TICKS };
+        state.retry_at = world.tick.saturating_add(wait);
     }
-    if world.tick >= state.retry_at {
+    if world.tick >= state.retry_at && !state.moving {
         leg(state, unit, target, hatch_reach, world);
+        if presses_on && state.moving {
+            unit.mover.press_on();
+        }
     }
 }

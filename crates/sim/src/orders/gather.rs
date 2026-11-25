@@ -20,8 +20,10 @@
 //!   picking the nearest again)": a Gather begins without an AssignedDropOff ([`begin`]) and the return takes the
 //!   nearest (`deliver`), by its crystal hatch whatever the load (design change 0292 point 2);
 //! - **the hatch** (`deliver::at_hatch`, phase **AtHatch**): DropOffReach is measured to the 1-square hatch, which
-//!   takes one Agent at a time; those within reach wait in the order they came, and one that can't get within reach
-//!   tries again every [`LEG_RETRY_TICKS`], for ever ("It waits as long as it takes; it never gives up").
+//!   takes one Agent at a time; those within reach wait in the order they came. One that isn't within reach doesn't
+//!   wait: its leg presses on, exempt from the occupied-target rule, and begins again at once when the mover gives
+//!   it up, for ever (design change 0315, `legs::return_leg`: "Until it is within reach it is never 'arrived' [...]
+//!   It waits as long as it takes; it never gives up").
 //!
 //! **Recruits** (slice M5-D, plan decision T58; `factions/cults/units/recruit.md > Gathering`,
 //! `factions/cults/economy.md > Storage`) are data on the same job: they share patches as Agents do ("any number of
@@ -87,7 +89,8 @@
 //!
 //! **Legs** (`legs`) are moves to a point, not to the object. One that ends short of its patch counts as arriving
 //! there, out of reach (design change 0141); one back to the drop-off that ends short is begun again after
-//! [`LEG_RETRY_TICKS`].
+//! `tuning::gathering::LEG_RETRY_TICKS`; an Agent's leg back to a hatch doesn't end short behind standing units
+//! (design change 0315, `legs::return_leg`).
 //!
 //! **Collision** (design change 0106, `factions/colonists/units/drone.md > Gathering Drones pass through each
 //! other`): Drones on a Gather job don't collide with each other, whoever owns them ([`on_gather_job`]; the

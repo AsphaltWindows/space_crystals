@@ -30,6 +30,34 @@ fn go_to_wants_a_path_and_stop_drops_it() {
     assert!(!mover.counted_repath(9));
 }
 
+/// Design change 0315 (`factions/syndicate/units/agent.md > Gathering > Gathering rules`, "Waiting at the hatch"):
+/// pressing on is a property of one leg, set after it begins and gone with the next one. It is hashed, and written to
+/// files, only while set: states without such a leg are as they were before the field existed.
+#[test]
+fn pressing_on_is_a_property_of_one_leg() {
+    use crate::hash::{StateHash, StateHasher};
+    let hash = |mover: &Mover| {
+        let mut h = StateHasher::new();
+        mover.hash(&mut h);
+        h.finish()
+    };
+    let goal = MoveGoal::Point(Vec2::new(5.0, 6.0));
+    let mut mover = Mover::default();
+    mover.go_to(goal, None, 7);
+    let (plain, file) = (hash(&mover), serde_json::to_string(&mover).unwrap());
+    assert!(!mover.presses_on && !file.contains("presses_on"));
+    mover.press_on();
+    assert!(mover.presses_on);
+    assert_ne!(hash(&mover), plain);
+    let saved = serde_json::to_string(&mover).unwrap();
+    assert_eq!(serde_json::from_str::<Mover>(&saved).unwrap(), mover);
+    assert!(!serde_json::from_str::<Mover>(&file).unwrap().presses_on);
+    // The next leg begins without it.
+    mover.go_to(goal, None, 7);
+    assert!(!mover.presses_on);
+    assert_eq!(hash(&mover), plain);
+}
+
 /// Design change 0024, `docs/movement.md > 5.6`: three repaths per leg, after waits of 8, 16 and 32 ticks.
 #[test]
 fn counted_repaths_are_capped_and_wait() {

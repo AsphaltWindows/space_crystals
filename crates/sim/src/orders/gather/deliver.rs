@@ -148,9 +148,10 @@ pub(super) fn to_drop_off(
 }
 
 /// `factions/syndicate/tunnels.md > Tunnel > SymmetryType - ABCD`: "Only one Agent may drop off resources at a side
-/// at a time"; `factions/syndicate/units/agent.md > Gathering rules > Waiting at the hatch` (design change 0255):
-/// "an Agent waits within reach (or as close as it can get) while another drops off, and the first to arrive
-/// delivers next. It waits as long as it takes; it never gives up".
+/// at a time"; `factions/syndicate/units/agent.md > Gathering > Gathering rules`, "Waiting at the hatch" (design
+/// changes 0255 and 0315): "an Agent waits only once it is within reach of the hatch, while another drops off; the
+/// first to arrive within reach delivers next. [...] It waits as long as it takes; it never gives up". (Out of reach
+/// it is on its leg, which presses on: `legs::return_leg`.)
 ///
 /// The worker is within reach of `hatch`, waiting there since `since`, or just arrived. It unloads if nobody does
 /// there (as phase 5a began, `World::hatch_busy`, or since, [`Claims`]) and it is the first in the line

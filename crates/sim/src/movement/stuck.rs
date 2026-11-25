@@ -141,6 +141,12 @@ fn avoid_group(pos: Vec2, mover: &mut Mover, bodies: &[Body], group: u32) {
 ///   when the unit is stuck (`Mover::is_stuck`, 24 ticks), which is 8 ticks before its first attempt at another
 ///   route; or already when it found no way forward for `JAMMED_TICKS` in a row behind a unit that has no goal of
 ///   its own, which will never move on. So it never re-routes here.
+/// - **Not on a leg that presses on** (`Mover::presses_on`; design change 0315,
+///   `factions/syndicate/units/agent.md > Gathering > Gathering rules`, "Waiting at the hatch": until an Agent is
+///   within reach of the hatch "it is never 'arrived' [...] and is exempt from MovingToLocation's 'blocked near the
+///   target by standing units counts as arrived' rule"). Such a unit goes on by rules 2 to 5: it steers, looks for
+///   other routes, and fails when none is left; its behaviour then begins the leg again
+///   (`orders::gather::legs::return_leg`).
 fn target_is_occupied(
     pos: Vec2,
     half: Vec2,
@@ -150,7 +156,7 @@ fn target_is_occupied(
     owner: Option<PlayerId>,
     tick: Tick,
 ) -> bool {
-    let Some(blocker) = blocker else {
+    let Some(blocker) = blocker.filter(|_| !mover.presses_on) else {
         return false;
     };
     let distance = match (mover.goal, chased) {
@@ -320,6 +326,40 @@ mod tests {
         assert!(mover.counted_repath(92));
         assert_eq!((mover.last_progress, mover.last_repath), (60, 92));
         assert!(leads(&mover));
+    }
+
+    /// `systems/controls/behaviors.md > MovingToLocation > Occupied target location`, and design change 0315's
+    /// exemption from it (`factions/syndicate/units/agent.md > Gathering > Gathering rules`, "Waiting at the hatch"):
+    /// stuck behind a standing unit within 3 grid units of its goal, a unit has arrived, unless its leg presses on.
+    #[test]
+    fn a_leg_that_presses_on_never_arrives_behind_a_standing_unit() {
+        let blocker = Body {
+            id: ObjectId(2),
+            owner: Some(PlayerId(1)),
+            pos: Vec2::new(140.0, 96.0),
+            half: Vec2::splat(18.0),
+            velocity: Vec2::ZERO,
+            heading: Vec2::ZERO,
+            stationary: true,
+            progress: None,
+            arrived_with: None,
+            yields: false,
+            gathers: false,
+            leads: false,
+            moved: 0,
+        };
+        let (pos, goal) = (Vec2::new(100.0, 96.0), Vec2::new(180.0, 96.0));
+        let mut mover = Mover::default();
+        mover.go_to(MoveGoal::Point(goal), None, 0);
+        mover.follow(vec![pos, goal], goal, 0);
+        mover.blocked_ticks = JAMMED_TICKS;
+        let arrived = |mover: &Mover| {
+            let (half, owner) = (Vec2::splat(18.0), Some(PlayerId(1)));
+            target_is_occupied(pos, half, mover, None, Some(&blocker), owner, 40)
+        };
+        assert!(arrived(&mover));
+        mover.press_on();
+        assert!(!arrived(&mover));
     }
 
     /// (G) A unit shut out by its own group avoids the tiles of all the units that arrived with that order, the
