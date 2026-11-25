@@ -57,6 +57,7 @@ use std::collections::BTreeMap;
 
 use serde::{Deserialize, Serialize};
 
+use super::stations::is_station;
 use crate::defs::{ObjectKind, Resource, WorkerDef};
 use crate::events::SimEvent;
 use crate::hash::{StateHash, StateHasher};
@@ -173,12 +174,15 @@ pub(super) fn step(
     first_new: ObjectId,
     events: &mut Vec<SimEvent>,
 ) -> Vec<ObjectId> {
-    // The Supply Delivery Stations: timed work at one is a pick-up of Supplies (slice M4-I).
-    let stations = super::stations::ids(objects);
     // (worker, patch, CarryCapacity) of the mining that ended this tick, and (worker, station, CarryCapacity) of the
     // pick-ups.
     let mut mined: Vec<(ObjectId, ObjectId, u32)> = Vec::new();
     let mut picked: Vec<(ObjectId, ObjectId, u32)> = Vec::new();
+    // The timed work of the workers of a type that gathers Supplies too, as (worker, patch or station, frames done):
+    // how long it lasts depends on where it is done, a station's being a pick-up of Supplies (slice M4-I), which the
+    // pass over the workers can't look up. It is told after the pass, from their targets alone, so that no tick looks
+    // for the stations among all the objects.
+    let mut either: Vec<(ObjectId, ObjectId, u32)> = Vec::new();
     for o in objects.range_mut(..first_new).map(|(_, o)| o) {
         let (Some(worker), Some(orders)) = (&mut o.worker, &mut o.orders) else {
             continue;
@@ -194,22 +198,14 @@ pub(super) fn step(
                     OrderKind::Gather(source) => Some(source),
                     _ => None,
                 };
-                let at_station = source.is_some_and(|source| stations.binary_search(&source).is_ok());
-                let resource = if at_station {
-                    Resource::Supplies
-                } else {
-                    Resource::Crystals
-                };
-                let load = def.load(resource).unwrap_or(def.crystals);
                 *done = done.saturating_add(1);
-                if *done >= load.pick_up_ticks {
+                if def.supplies.is_some()
+                    && let Some(source) = source
+                {
+                    either.push((o.id, source, *done));
+                } else if *done >= def.crystals.pick_up_ticks {
                     if let Some(source) = source {
-                        let ended = (o.id, source, load.carry_capacity);
-                        if at_station {
-                            picked.push(ended);
-                        } else {
-                            mined.push(ended);
-                        }
+                        mined.push((o.id, source, def.crystals.carry_capacity));
                     }
                     gather.enter(GatherPhase::ToDropOff);
                 }
@@ -245,6 +241,35 @@ pub(super) fn step(
             | GatherPhase::Delivered => {}
         }
     }
+    for (id, source, done) in either {
+        let at_station = objects.get(&source).is_some_and(|o| is_station(o.kind));
+        let Some(o) = objects.get_mut(&id) else {
+            continue;
+        };
+        let resource = if at_station {
+            Resource::Supplies
+        } else {
+            Resource::Crystals
+        };
+        let Some(load) = worker_def(o.kind).map(|def| def.load(resource).unwrap_or(def.crystals)) else {
+            continue;
+        };
+        if done < load.pick_up_ticks {
+            continue;
+        }
+        if let Some((_, gather)) = o.orders.as_mut().and_then(job) {
+            gather.enter(GatherPhase::ToDropOff);
+        }
+        let ended = (id, source, load.carry_capacity);
+        if at_station {
+            picked.push(ended);
+        } else {
+            mined.push(ended);
+        }
+    }
+    // In id order, as the pass found them: of two workers that take a patch's last Space Crystals in one tick, the
+    // lower id gets them (question Q0037 point 13).
+    mined.sort_unstable_by_key(|&(id, ..)| id);
     let mut depleted = Vec::new();
     for (id, patch, capacity) in mined {
         let Some(ResourceState::CrystalPatch { remaining }) = objects.get_mut(&patch).and_then(|o| o.resource.as_mut())

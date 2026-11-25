@@ -113,7 +113,9 @@ impl Gathering {
             {
                 gathering.drop_offs.push((index as u32, Points { crystals, supplies }));
             }
-            if let Some(held) = supplies(o) {
+            if is_station(o.kind)
+                && let Some(held) = supplies(o)
+            {
                 gathering.stations.push((o.id, held));
             }
             picking.extend(pick_up(objects, o));

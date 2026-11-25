@@ -38,15 +38,6 @@ pub fn supplies(o: &Object) -> Option<u32> {
     }
 }
 
-/// The stations among `objects`, in id order: a worker's timed work at one of them is a pick-up
-/// (`super::gathering::step`).
-pub(super) fn ids(objects: &BTreeMap<ObjectId, Object>) -> Vec<ObjectId> {
-    (objects.values())
-        .filter(|o| supplies(o).is_some())
-        .map(|o| o.id)
-        .collect()
-}
-
 /// A pick-up at `station` ended (0256 point 2: "A Supply leaves the station when the pick-up ends"): takes up to
 /// `capacity` Supplies from it. Returns how many it took, and whether that emptied the station; `None` if `station`
 /// is no station. A station that holds none gives none (a pick-up that claimed no Supply: a save edited by hand).
@@ -134,7 +125,6 @@ mod tests {
         assert_eq!(supplies(&objects[&ObjectId(1)]), Some(0));
         assert_eq!(take(&mut objects, ObjectId(1), 1), Some((0, false)), "none to take");
         assert_eq!(take(&mut objects, ObjectId(2), 1), None, "no station");
-        assert_eq!(ids(&objects), [ObjectId(1)]);
         assert!(is_station(ObjectKind::SupplyDeliveryStation) && !is_station(ObjectKind::CrystalPatch));
     }
 }
