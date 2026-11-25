@@ -1265,9 +1265,15 @@ writes the mover's goal and the target the attack engages, and reads `Mover::sta
     an order. A hatch that frees at the end of tick `t` is taken in `t + 1`: a saturated Tunnel takes a load every 64
     ticks exactly, 12.5 Space Crystals per second. The leg back heads for the nearest point against the hatch's
     wall within reach of the square (`legs::approach_point` with `beside`), so waiting workers stand side by side
-    (three or four fit). One that can't get within reach stops as near as it gets and sets off again every
-    `LEG_RETRY_TICKS` (32), for ever (0255: "it never gives up"; the same rule as the Drone's). A worker pushed out
-    of reach loses its place.
+    (three or four fit). **One that isn't within reach doesn't wait: its leg presses on** (slice M4-W2, design
+    change 0315: "Until it is within reach it is never 'arrived': it keeps actively moving toward the hatch"). The
+    leg is exempt from the occupied-target rule (`Mover::presses_on`, set by `legs::return_leg` on the leg to a
+    hatch only; `docs/movement.md > 6.5`, rule 1), so behind standing Agents it stays a unit on its way, and when
+    the mover gives it up (stuck with no attempt left, 104 ticks) the next leg begins in the next tick, for ever
+    ("It waits as long as it takes; it never gives up"). `LEG_RETRY_TICKS` (32) is left for a leg that ends out of
+    reach with nothing in its way (the end of its path, or no path), and for the Drones' and Recruits' legs back. A
+    worker pushed out of reach loses its place. **0315 doesn't end the jam of four or more Agents that come to the
+    hatch along the wall** (`docs/playtest/m4.md > Known issues`, `tests/agent_gathering/jam.rs`).
   - **Hard collision at the hatch** (Agents don't pass through each other, 0106: "Drones only"): from 2 GU between
     hatch and patch on, Agents walk round each other and every one delivers (`tests/agent_gathering/`). At 0 and 1
     GU the strip is narrower than two Agents, each works in a lane of its own, and an Agent behind another in its
@@ -1320,7 +1326,8 @@ writes the mover's goal and the target the attack engages, and reads `Mover::sta
     its target (`legs::approach_point`), and the behaviour measures MiningReach and DropOffReach itself. Not
     `MoveGoal::Object`: that is planned to the point nearest the object's centre, the north side of every patch
     and node. A leg to a patch that ends short counts as arriving there, out of reach (0141); a leg back to the
-    drop-off that ends short begins again after `LEG_RETRY_TICKS` (32, a placeholder) of standing, a back-off.
+    drop-off that ends short begins again after `LEG_RETRY_TICKS` (32, a placeholder) of standing, a back-off;
+    but an Agent's leg back to a hatch presses on instead (design change 0315, above).
   - **Gathering Drones pass through each other** (design change 0106; `gather::on_gather_job`, see *Movement and
     collision > Collision exceptions*): a worker of a type with `WorkerDef::pass_through` (the Drone) whose current
     order is a Gather or a Drop Off. They collide with everything else and, having an order, never yield.
@@ -3514,7 +3521,7 @@ unchecked.
   the Syndicate, by `testing::syndicate::skirmish`: in `syndicate_opening` (to 2:15) its Agents gather the patch 3 GU
   from the crystal hatch, the Hideout, rallied on it, trains four more, the third of them builds a second Tunnel
   with the starting Supply, is ejected by it and gathers Supplies, and the first Tunnel expands an Optics Lab; in
-  `syndicate_vs_gdo` (to 3:06.75, where it ends) six Guards follow behind the Optics Lab, the Hideout's rally point
+  `syndicate_vs_gdo` (to 3:07.38, where it ends) six Guards follow behind the Optics Lab, the Hideout's rally point
   cleared so that they stay in the Tunnel Network, four of them ejected by the second Tunnel to hold the top of the
   plateau's west ramp, while player 2 plays the same Barracks line with sixteen Peacekeepers, sent in waves of six to
   the Syndicate's Tunnel nearest them: Guards and Peacekeepers die, the second Tunnel falls, then the first, which

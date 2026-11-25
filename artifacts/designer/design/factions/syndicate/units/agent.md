@@ -97,6 +97,9 @@ Rationale (user, 2026-11-26; replaces the 5 s mining rationale): the drop-off ti
 - **An empty station**: the owner gets a **notification** (notifications not designed yet), and every Agent picking up there **stands next to it indefinitely**, keeping its job, waiting for the next supply delivery.
 - **Switching resources**: an Agent carrying Space Crystals that is ordered to gather Supplies goes **straight to the station**; its crystals are **lost when it picks up the Supply**: at the **end** of the pick-up, when the new load arrives. An Agent interrupted mid-pick-up keeps its crystals. The same holds the other way: a carried Supply is lost when the Agent **finishes** mining a crystal load (user, 2026-11-26; Q0082).
 
+## Repair
+(user, 2026-11-26) Agents can **repair** own **Tunnels** and **Laser Turrets**. **Laser Turrets cost Space Crystals to repair; Tunnels are repaired for free** (user, 2026-11-26). **Repair rules shared by every repairer** (user, 2026-11-26): several repairers on one target repair **faster, scaling linearly** (2 repairers = twice the rate), as construction does. **Placeholder rate and cost** (designer, 2026-11-26): repairing from 0 to full HP takes **half the target's build time** with one repairer, and costs **half its price** in the resource it was bought with, paid gradually as HP is restored (except Tunnels, which are free). How an Agent reaches a pop-up turret or a Tunnel (side, reach) follows the Recruit/Field Engineer repair flow; details: Director's discretion.
+
 ## Agent ObjectInterfaceState
 
 **Panel letters (4x3 grid)** (user, 2026-11-25; Q0068, "fine for now"): **Q** Move, **A** Build Tunnel, **S** Drop Off Resources, **D** Build Laser Turret (greyed until available), **X** Stop. No Attack, Hold Position, Patrol or AttackMove buttons; the Agent attacks by right-click. These letters replace the older ones listed below where they differ.

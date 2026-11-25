@@ -102,6 +102,7 @@ impl StateHash for Mover {
             momentum,
             exit_heading,
             detour_end,
+            presses_on,
         } = self;
         goal.hash(h);
         status.hash(h);
@@ -142,6 +143,11 @@ impl StateHash for Mover {
         if *detour_end != 0 {
             h.tag(3);
             detour_end.hash(h);
+        }
+        // (M4-W2, design change 0315) Likewise only on a leg that never counts as arrived short of its goal: an
+        // Agent's leg back to a hatch.
+        if *presses_on {
+            h.tag(4);
         }
     }
 }

@@ -16,3 +16,7 @@ The Recruit has no Set Drop-off. The Agent uses "the nearest own operational Tun
 - **(c)** As (a), but with none, the Recruit waits at its patch until a Storage completes.
 
 Proposed: (a). It is the same as (b) while the Storages don't change, and it follows a new Storage at once.
+
+## Addendum (2026-11-25, slice M5-D, built as (a))
+- **A Storage lost during a return.** The Recruit's replacement Storage is the nearest **to the Recruit**, by the drop-off rule all workers share (design change 0170), not the nearest to the patch as (a) says for a new return. The next return chooses from the patch again.
+- **Proposal:** keep 0170's shared rule for that one case.

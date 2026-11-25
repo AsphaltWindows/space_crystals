@@ -45,7 +45,11 @@ Recruits gather Space Crystals and deliver them to Storage.
 - DropOffReach: 8 space units — a Recruit can drop off once its Silhouette is within 8 su of the Storage's edge.
 (Reach is a per-unit stat; 8 su is a placeholder currently shared by all workers.)
 - Expected throughput: buildings snap to whole tiles, so a patch can't touch a Storage with room for Recruits to work; the best layout leaves a 1-tile (64 su) gap. With a 24 su Silhouette and 8 su reach on each side, a Recruit walks 24 su (6 frames) each way, so a round trip is 22 frames (6 + 8 mining + 6 + 2 drop-off) ≈ 1.45 SC/s per Recruit. A 64 su gap fits two Recruits side by side (one lane in, one lane out).
+- **Crowding** (user, 2026-11-26; Q0110): Recruits keep normal collision while gathering, and nobody gives way. If more Recruits work one face than it has lanes, they can block each other head-on for a long time. **The player's answer is more Storages** (and spreading Recruits over patches): add Storages when you want more Recruits mining at once. A Recruitment Hall's rally on a patch sends every new Recruit there, so it is the player's job to redistribute them.
 - Patch sharing: any number of Recruits may mine the same Space Crystals patch at the same time (unlike Drones, see Colonists > Drone > Patch Occupancy).
+
+## Repair
+(user, 2026-11-26) Recruits can **repair** own **buildings and vehicles**. Repair **costs Space Crystals**. **Repair rules shared by every repairer** (user, 2026-11-26): several repairers on one target repair **faster, scaling linearly** (2 repairers = twice the rate), as construction does. **Placeholder rate and cost** (designer, 2026-11-26): repairing from 0 to full HP takes **half the target's build time** with one repairer, and costs **half its price** in the resource it was bought with, paid gradually as HP is restored (exceptions below). Panel letter: **D** (Q0095).
 
 ## Building
 
@@ -73,12 +77,16 @@ Recruits can enter an Armory to join its internal StoredRecruits pool (up to Int
 ## Recruit ObjectInterfaceState
 
 ### DefaultState commands:
+(Letters: user, 2026-11-26; Q0095. Same layout as the Agent's panel.)
+- **Q: Move** — as in BasicCombatUnitInterfaceState.
 - **A: Construct** — enters BuildMenu (StateOnlyTransition). Multi-stage: select a building type, then place it on the ground (ghost preview, same placement flow as the Build Command).
-- **B: Assist Construction** — targeted command (StateOnlyTransition). Left-click an in-progress own building to join construction.
+- **S: Assist Construction** — targeted command (StateOnlyTransition). Left-click an in-progress own building to join construction.
+- **D: Repair** — targeted command (StateOnlyTransition). Left-click a damaged own building or vehicle to repair it (see Repair).
+- **X: Stop** — as in BasicCombatUnitInterfaceState.
 
 ### Unit Commands:
 - **Move** — right-click ground
-- **Stop** — panel button
+- **Stop** — panel button X
 - **Attack** — right-click enemy unit/building (melee)
 - **Enter Armory** — right-click own Armory
 - **Enter Altar** — right-click own Altar
@@ -89,7 +97,8 @@ Recruits can enter an Armory to join its internal StoredRecruits pool (up to Int
 - **Gather** — right-click Space Crystal patch
 - **Drop Off Resources** — right-click own Storage (when carrying Space Crystals)
 - **Construct** — via panel button A
-- **Assist Construction** — via panel button B
+- **Assist Construction** — via panel button S, or right-click
+- **Repair** — via panel button D, or right-click
 
 ### Right-Click Resolution:
 - Space Crystal patch → Gather
@@ -101,7 +110,8 @@ Recruits can enter an Armory to join its internal StoredRecruits pool (up to Int
 - Own Shrine → Enter Shrine (join the ritual)
 - Own Gunworks / Machine Shop → Enter (staff research)
 - In-progress own building → Assist Construction
+- Damaged own building or vehicle (completed) → Repair (for a damaged building that can also be entered, see the open question in Repair)
 - Enemy unit/building → Attack (melee)
 - Ground → Move
 
-Recruits are Groupable: all selected Recruits form one SelectionGroup, and both right-click and panel commands (Construct, Assist Construction) are issued to all of them. Construct sends every selected Recruit to build the **same** building together (factions/cults/economy.md > Build Command). To build with a single Recruit, select it alone first (e.g. click its portrait).
+Recruits are Groupable: all selected Recruits form one SelectionGroup, and both right-click and panel commands (Construct, Assist Construction, Repair) are issued to all of them. Construct sends every selected Recruit to build the **same** building together (factions/cults/economy.md > Build Command). To build with a single Recruit, select it alone first (e.g. click its portrait).

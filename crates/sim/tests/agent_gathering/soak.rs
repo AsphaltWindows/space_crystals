@@ -12,7 +12,8 @@ use super::*;
 
 const TICKS: Tick = 10 * 60 * 16;
 /// The longest an Agent may stand with its load, within reach of its hatch or short of it, while nobody unloads
-/// there: a retry of the leg back (`tuning::gathering::LEG_RETRY_TICKS`, 32) and the walk in. Measured: see the test.
+/// there: the walk in, and until design change 0315 a retry of the leg back (32 ticks; the leg to a hatch no longer
+/// ends short behind standing Agents, `orders::gather::legs::return_leg`). Measured: see the test.
 const FREE_HATCH_BOUND: Tick = 64;
 
 /// Tunnel 1 unturned at tiles (6, 6) to (9, 9), crystal hatch (9, 8) facing east; the field, six patches at tiles
