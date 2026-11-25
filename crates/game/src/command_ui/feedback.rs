@@ -89,6 +89,22 @@ pub const NOT_FOR_TYPE_TEXT: &str = "Not available for this unit";
 pub const NOT_YET_TEXT: &str = "Not available yet";
 /// The message of a refusal the others don't name. Placeholder wording.
 pub const CANNOT_DO_TEXT: &str = "Cannot do that now";
+/// The messages of a unit whose prerequisite the player doesn't own (`factions/syndicate/structures/hideout.md >
+/// ObjectInterfaceState[Hideout]`: "Only available if the player owns at least one Optics Lab", "... at least one
+/// Chemical Plant"): the Hideout's placeholder entries' until slice M4-K's prerequisites (`super::Planned::why`). The
+/// M4 plan's wording.
+pub const REQUIRES_OPTICS_LAB_TEXT: &str = "Requires an Optics Lab";
+pub const REQUIRES_CHEMICAL_PLANT_TEXT: &str = "Requires a Chemical Plant";
+/// The message of an Eject of a unit type none of which is in the Tunnel Network free to leave
+/// (`Reject::NotInNetwork`; `factions/syndicate/tunnels.md > EjectMenu`). Placeholder wording.
+pub const NONE_INSIDE_TEXT: &str = "None in the Tunnel Network";
+/// The message of an Eject while every unit of the type only just walked in (`Reject::InTransit`; Q0077 point 1:
+/// "the EjectMenu can grey the button for those 2 seconds"). Placeholder wording.
+pub const IN_TRANSIT_TEXT: &str = "Still in transit";
+/// The message of an Eject of a unit type this Tunnel's tier doesn't let out (`Reject::NoTransit`;
+/// `factions/syndicate/tunnels.md > EjectMenu`: "Unit types whose base category exceeds this Tunnel's tier are visible
+/// but greyed out (disabled)"). Placeholder wording.
+pub const TIER_TOO_LOW_TEXT: &str = "This Tunnel's tier is too low";
 /// The message of an Attack its unit can't carry out, the target inside its MinRange and the unit unable to move
 /// (`SimEvent::TargetTooClose`). The design's wording (design change 0182).
 pub const TARGET_TOO_CLOSE_TEXT: &str = "Target too close";
@@ -217,7 +233,8 @@ pub fn placement_text(problem: Option<PlacementProblem>) -> &'static str {
 }
 
 /// The message of a greyed-out button pressed (design change 0162), by why it is greyed out: the gate's refusal
-/// ([`reject_text`]), the Riot Shields, a command awaiting its target, the type, or that it isn't in the game yet.
+/// ([`reject_text`]), the Riot Shields, a command awaiting its target, the type, that it isn't in the game yet, or a
+/// placeholder entry's own reason.
 pub fn unavailable_text(why: WhyUnavailable) -> &'static str {
     match why {
         WhyUnavailable::Refused(reject) => reject_text(reject),
@@ -225,12 +242,13 @@ pub fn unavailable_text(why: WhyUnavailable) -> &'static str {
         WhyUnavailable::Waiting => CANCEL_FIRST_TEXT,
         WhyUnavailable::NotForThisType => NOT_FOR_TYPE_TEXT,
         WhyUnavailable::NotYet => NOT_YET_TEXT,
+        WhyUnavailable::Placeholder(text) => text,
     }
 }
 
 /// The message of a command the gate refuses (`sc_sim::Reject`), as a greyed-out button or a Warp In click says it:
 /// "Not enough Space Crystals", "Queue is full" (design change 0162), the placement's first problem
-/// ([`placement_text`]), and placeholders for the others.
+/// ([`placement_text`]), an EjectMenu tile's (slice M4-J2), and placeholders for the others.
 pub fn reject_text(reject: Reject) -> &'static str {
     match reject {
         Reject::InsufficientCrystals => NO_CRYSTALS_TEXT,
@@ -241,6 +259,9 @@ pub fn reject_text(reject: Reject) -> &'static str {
         Reject::ConstructorBusy(_) => BUSY_TEXT,
         Reject::CannotAttack => SHIELDS_UP_TEXT,
         Reject::Unplaceable(problem) => placement_text(Some(problem)),
+        Reject::NotInNetwork(_) => NONE_INSIDE_TEXT,
+        Reject::InTransit(_) => IN_TRANSIT_TEXT,
+        Reject::NoTransit { .. } => TIER_TOO_LOW_TEXT,
         _ => CANNOT_DO_TEXT,
     }
 }

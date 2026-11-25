@@ -3,13 +3,13 @@
 
 use sc_sim::{construction, transform};
 
-use super::{PanelCommand, can_target_ground, constructs, grid, menu_grid};
+use super::{PanelCommand, can_target_ground, constructs, grid, menu_grid, syndicate};
 use crate::selection::GroupType;
 
 /// Every command objects of type `ty` (a kind: a finished one) may show, in any state ([`state_grid`]): an
 /// unfinished building's Cancel alone ([`TRANSFORMING_GRID`], design change 0185); a finished type's DefaultState
 /// grid, and a constructor's buildings to construct and to place, and its two Cancels; a Beacon's buildings to warp
-/// in. In order, each once.
+/// in; a Tunnel's EjectMenu tiles. In order, each once.
 pub fn commands(ty: impl Into<GroupType>) -> Vec<PanelCommand> {
     let GroupType { kind, unfinished } = ty.into();
     if unfinished {
@@ -30,6 +30,13 @@ pub fn commands(ty: impl Into<GroupType>) -> Vec<PanelCommand> {
         }
         commands.extend([PanelCommand::CancelConstruction, PanelCommand::CancelReady]);
     }
+    if ejects(kind) {
+        commands.extend(
+            syndicate::eject_menu::kinds()
+                .iter()
+                .map(|&unit| PanelCommand::Eject(unit)),
+        );
+    }
     commands.sort_unstable();
     commands.dedup();
     commands
@@ -44,7 +51,8 @@ pub fn commands(ty: impl Into<GroupType>) -> Vec<PanelCommand> {
 /// building or a unit that isn't in the game is offered by no one (design change 0124: "shown but unavailable"). A
 /// build menu is offered while it shows something, so the Deployment Center's W, Advanced Construction, shows
 /// unavailable: none of its buildings exists yet, and they are hidden (design change 0104: "greyed placeholders"); the
-/// Beacon's Warp In (Advanced) opens, on its unavailable buildings.
+/// Beacon's Warp In (Advanced) opens, on its unavailable buildings. A type whose DefaultState opens the EjectMenu, the
+/// Tunnel, offers its tiles.
 pub fn offers(ty: impl Into<GroupType>, command: PanelCommand) -> bool {
     let GroupType { kind, unfinished } = ty.into();
     if unfinished {
@@ -59,6 +67,7 @@ pub fn offers(ty: impl Into<GroupType>, command: PanelCommand) -> bool {
             return grid(kind).contains(&Some(command)) && menu_grid(kind, menu).iter().any(Option::is_some);
         }
         PanelCommand::WarpIn(building) => return transform::warp_in_recipe(kind, building).is_some(),
+        PanelCommand::Eject(unit) => return ejects(kind) && syndicate::eject_menu::kinds().contains(&unit),
         PanelCommand::Planned(_) | PanelCommand::CancelTransform => return false,
         _ => {}
     }
@@ -73,4 +82,9 @@ pub fn offers(ty: impl Into<GroupType>, command: PanelCommand) -> bool {
             .is_some_and(|attack| can_target_ground(attack.attack_type)),
         _ => true,
     }
+}
+
+/// Whether objects of `kind` open the EjectMenu: the Tunnel (slice M4-J2).
+fn ejects(kind: sc_sim::ObjectKind) -> bool {
+    grid(kind).contains(&Some(PanelCommand::EjectMenu))
 }

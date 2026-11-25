@@ -1,7 +1,9 @@
 //! The command panel a selection gets (`systems/controls/selection_and_hud.md > CommandPanel`): what each slot shows
 //! ([`panel`](fn@panel)), what pressing it does ([`press`]) and who receives its command ([`recipients`]).
 
-use sc_sim::{Ability, ConstructionCommand, ObjectId, ObjectKind, OrderKind, PlayerId, ProductionCommand, Sim};
+use sc_sim::{
+    Ability, ConstructionCommand, ObjectId, ObjectKind, OrderKind, PlayerId, ProductionCommand, Sim, TunnelCommand,
+};
 
 use super::{
     BuildMenu, Conditions, InterfaceState, PanelCommand, TRANSFORMING_GRID, WhyUnavailable, offers, slot_index,
@@ -58,6 +60,10 @@ pub struct PanelSlot {
     /// Why a disabled or unavailable button is greyed out, which pressing it says (design change 0162); none for
     /// the others.
     pub why: Option<WhyUnavailable>,
+    /// An EjectMenu tile's count (`factions/syndicate/tunnels.md > EjectMenu`: "Each tile shows the unit type icon and
+    /// a count of how many of that type are in the network"): those not reserved on an eject queue
+    /// ([`Conditions::network_count`]); none on the other buttons.
+    pub count: Option<u32>,
 }
 
 impl PanelSlot {
@@ -139,7 +145,8 @@ pub fn commandable(sim: &Sim, player: PlayerId, selection: &Selection) -> bool {
 /// Assignments`). What the game allows now ([`Conditions`]) disables a command it doesn't let go to its recipients
 /// (Attack while none of them may attack, a Train, a Cancel Production, a constructor's command, a Warp In or a
 /// Convert the gate would refuse). Each greyed-out button says why ([`PanelSlot::why`]). The
-/// Egress Node's F shows only while it has Drones to select ([`Conditions::shows`]).
+/// Egress Node's F shows only while it has Drones to select ([`Conditions::shows`]). The Tunnel's EjectMenu works as a
+/// build menu does, its tiles greyed while the gate would refuse their Eject, each with its count.
 pub fn panel(selection: &Selection, interface: InterfaceState, conditions: &Conditions) -> Panel {
     let mut panel = Panel::default();
     let Some(active) = selection.active() else {
@@ -166,7 +173,7 @@ pub fn panel(selection: &Selection, interface: InterfaceState, conditions: &Cond
                 InterfaceState::AwaitingTarget { .. } | InterfaceState::AwaitingPlacement(_) => {
                     (ButtonLook::Disabled, Some(WhyUnavailable::Waiting))
                 }
-                InterfaceState::DefaultState | InterfaceState::BuildMenu(_) => {
+                InterfaceState::DefaultState | InterfaceState::BuildMenu(_) | InterfaceState::EjectMenu => {
                     let why = (!command.has_sim_command())
                         .then_some(WhyUnavailable::NotYet)
                         .or_else(|| conditions.unavailable(selection, command));
@@ -181,13 +188,26 @@ pub fn panel(selection: &Selection, interface: InterfaceState, conditions: &Cond
             }
         };
         let button = PanelButton::Command(command);
-        panel.set(slot, PanelSlot { button, look, why });
+        let count = match command {
+            PanelCommand::Eject(kind) => Some(conditions.network_count(kind)),
+            _ => None,
+        };
+        panel.set(
+            slot,
+            PanelSlot {
+                button,
+                look,
+                why,
+                count,
+            },
+        );
     }
     if interface != InterfaceState::DefaultState {
         let back = PanelSlot {
             button: PanelButton::Back,
             look: ButtonLook::Back,
             why: None,
+            count: None,
         };
         panel.set(CommandSlot::BACK, back);
     }
@@ -196,10 +216,12 @@ pub fn panel(selection: &Selection, interface: InterfaceState, conditions: &Cond
 
 /// Why a command the ActiveGroup's type doesn't offer is unavailable ([`offers`]): Reverse and AttackGround are the
 /// type's conditional commands; anything else isn't in the game yet (a building of the Beacon's menus, a build menu
-/// with none of its buildings).
+/// with none of its buildings), and a placeholder entry says why it is greyed ([`super::Planned::why`]: the Hideout's
+/// Guard "Requires an Optics Lab").
 fn not_offered(command: PanelCommand) -> WhyUnavailable {
     match command {
         PanelCommand::Reverse | PanelCommand::AttackGround => WhyUnavailable::NotForThisType,
+        PanelCommand::Planned(planned) => planned.why(),
         _ => WhyUnavailable::NotYet,
     }
 }
@@ -226,6 +248,11 @@ pub enum SlotPress {
     AwaitWarpIn(ObjectKind),
     /// A StateOnlyTransition to AwaitingPlacement of the Beacon one of the active Drones deploys into.
     AwaitDeploy,
+    /// A StateOnlyTransition to the Tunnel's EjectMenu (`InterfaceState::EjectMenu`).
+    OpenEjectMenu,
+    /// A CommandIssuingTransition: the command's Tunnel command, at once (`sc_sim::Command::Tunnel`): an EjectMenu
+    /// tile's Eject, the menu staying open.
+    Tunnel(PanelCommand, TunnelCommand),
     /// The Egress Node's F, a StateOnlyTransition: the selection becomes its returning Drones
     /// (`super::Conditions::returning`).
     SelectReturningDrones,
@@ -239,7 +266,7 @@ pub enum SlotPress {
 /// `> DefaultState`: "Command hotkeys or button clicks initiate transitions to AwaitingTarget or issue immediate
 /// commands"; a constructor's enter its build menus and AwaitingPlacement or issue construction commands, a
 /// Beacon's its Warp In menus and a Warp In's placement, a Drone's Deploy its placement, an Egress Node's F selects
-/// its Drones; `> Standard Slot Assignments > Z`: Back.
+/// its Drones, a Tunnel's E its EjectMenu, whose tiles eject; `> Standard Slot Assignments > Z`: Back.
 pub fn press(panel: &Panel, slot: CommandSlot) -> SlotPress {
     match panel.get(slot) {
         Some(PanelSlot {
@@ -257,6 +284,10 @@ pub fn press(panel: &Panel, slot: CommandSlot) -> SlotPress {
                 SlotPress::Produce(command, production)
             } else if let Some(construction) = command.construction() {
                 SlotPress::Construct(command, construction)
+            } else if let Some(tunnel) = command.tunnel() {
+                SlotPress::Tunnel(command, tunnel)
+            } else if command == PanelCommand::EjectMenu {
+                SlotPress::OpenEjectMenu
             } else if let PanelCommand::BuildMenu(menu) = command {
                 SlotPress::OpenMenu(menu)
             } else if let PanelCommand::PlaceReady(kind) = command {

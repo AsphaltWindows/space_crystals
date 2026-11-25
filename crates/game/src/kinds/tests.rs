@@ -6,13 +6,20 @@ use crate::command_ui::interface::templates::Planned;
 /// Slice M3-J3 (M3-K2's walkthrough): every type's short label is its own, and none is a planned unit's or
 /// building's button label ("SC" was both the crystal patch's and the Scout button's); the Peacekeeper's two
 /// types have two-letter labels of their own. Slice M4-A: the Agent's AG, the Hideout's HI, and a Tunnel's by
-/// tier, T1 to T3, T1 its type's.
+/// tier, T1 to T3, T1 its type's. Slice M4-J2: a planned entry of a type in the game, the Hideout's Guard, shows
+/// that type's own label.
 #[test]
 fn every_label_is_its_own() {
+    let planned = Planned::ALL.into_iter().filter(|planned| planned.kind().is_none());
     let labels: Vec<&str> = (ObjectKind::ALL.iter().map(|&kind| short_label(kind)))
         .chain([2, 3].map(tier_label))
-        .chain(Planned::ALL.map(Planned::label))
+        .chain(planned.map(Planned::label))
         .collect();
+    for planned in Planned::ALL {
+        if let Some(kind) = planned.kind() {
+            assert_eq!(planned.label(), short_label(kind), "{planned:?}");
+        }
+    }
     let syndicate = [ObjectKind::Agent, ObjectKind::Tunnel, ObjectKind::Hideout].map(short_label);
     assert_eq!(syndicate, ["AG", "T1", "HI"]);
     assert_eq!([0, 1, 2, 3, 4].map(tier_label), ["T1", "T1", "T2", "T3", "T1"]);

@@ -7,7 +7,7 @@ use bevy::ecs::system::SystemParam;
 use bevy::prelude::*;
 use sc_sim::{
     Ability, Command, ConstructionCommand, ObjectId, OrderKind, PlayerCommand, PlayerId, ProductionCommand, Reject,
-    Target,
+    Target, TunnelCommand,
 };
 
 use crate::command_ui::OrderIssued;
@@ -152,6 +152,27 @@ impl OrderOutbox<'_> {
         }
         self.pending.0.push(sent);
         Ok(())
+    }
+
+    /// `player`'s Tunnel among `tunnels` carries out `command` (`Command::Tunnel`), at once: the first of them that is
+    /// the player's, the one Tunnel of the ActiveGroup (Tunnels are Ungroupable). Nothing when none is, or when the
+    /// sim would reject it (`Sim::validate`, the predicates the panel greys its buttons out by: no unit of the type
+    /// free to leave, the Tunnel's tier).
+    pub(super) fn tunnel(&mut self, player: PlayerId, tunnels: Vec<ObjectId>, command: TunnelCommand) -> bool {
+        let own = |id: &ObjectId| self.sim.object(*id).is_some_and(|o| o.owner == Some(player));
+        let Some(tunnel) = tunnels.into_iter().find(own) else {
+            return false;
+        };
+        let sent = PlayerCommand {
+            player,
+            command: Command::Tunnel { tunnel, command },
+        };
+        if let Err(reject) = self.sim.validate(&sent) {
+            debug!("tunnel command {command:?} not given: {reject}");
+            return false;
+        }
+        self.pending.0.push(sent);
+        true
     }
 
     /// `player`'s Drones that have a Deploy, in the sim or sent for its next tick ([`deploying`]).

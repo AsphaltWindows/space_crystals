@@ -20,12 +20,17 @@
 //! Every greyed-out button has its reason ([`WhyUnavailable`], from the same check that greys it), which pressing it
 //! shows (design change 0162). The Egress Node's F shows only while the node has Drones to select
 //! (`factions/colonists/economy.md > Egress Node > Egress Node ObjectInterfaceState`, [`Conditions::shows`]).
+//!
+//! A Tunnel's EjectMenu tiles are its Ejects, which the gate answers too (`factions/syndicate/tunnels.md > EjectMenu`,
+//! slice M4-J2): a tile is greyed while no unit of its type is in the network free to leave, while every one of them
+//! only just walked in (Q0077 point 1), or while this Tunnel's tier doesn't let the type out; and its count is the
+//! network's ([`Conditions::network_count`]).
 
 use std::collections::{BTreeMap, BTreeSet};
 
 use sc_sim::{
-    BuildingOrientation, Command, ConstructionCommand, Constructor, Object, ObjectId, PlayerCommand, PlayerId, Reject,
-    ShieldMode, Sim, riot_shield,
+    BuildingOrientation, Command, ConstructionCommand, Constructor, Object, ObjectId, ObjectKind, PlayerCommand,
+    PlayerId, Reject, ShieldMode, Sim, riot_shield,
 };
 
 use super::{PanelCommand, commands, recipients};
@@ -127,6 +132,10 @@ pub enum WhyUnavailable {
     /// It isn't in the game yet: a building or a unit whose costs are TBD (design change 0124), a build menu none of
     /// whose buildings is, an order the sim has none of (Reverse, AttackGround).
     NotYet,
+    /// A placeholder entry's own reason, the message the gate's refusal will give once its command is in the game
+    /// (`super::Planned::why`, slice M4-J2): the Hideout's Guard "Requires an Optics Lab", the Tunnel's Cancel
+    /// "Nothing to cancel".
+    Placeholder(&'static str),
 }
 
 /// What the game allows a selection's commands now: its units' [`Modes`], the ActiveGroup's constructor state, and
@@ -147,6 +156,10 @@ pub struct Conditions {
     /// The Drones the active Egress Node's F selects (`sc_sim::Sim::returning_drones`), in id order: none while the
     /// ActiveGroup isn't a node that offers F.
     returning: Vec<ObjectId>,
+    /// The EjectMenu's counts: the units of each type in the player's Tunnel Network that aren't reserved on an eject
+    /// queue (`sc_sim::Sim::network_counts`; `factions/syndicate/tunnels.md > EjectMenu`: "the tile's count drops at
+    /// the click"); none while the ActiveGroup isn't a Tunnel.
+    network: BTreeMap<ObjectKind, u32>,
 }
 
 impl Conditions {
@@ -157,7 +170,8 @@ impl Conditions {
     /// the types the selection groups its objects as ([`Modes::of`]). A Warp In menu entry asks for its Warp In
     /// unturned, and leaves
     /// out the placement's refusal (`Reject::Unplaceable`, the gate's last check): the player turns the ghost before it
-    /// is placed, and the ghost shows each tile's problem.
+    /// is placed, and the ghost shows each tile's problem. A Tunnel's EjectMenu tile asks for its `Command::Tunnel`,
+    /// and the network's counts are the player's while the ActiveGroup opens the EjectMenu.
     pub fn of(sim: &Sim, player: PlayerId, selection: &Selection) -> Self {
         let commands = selection
             .active()
@@ -169,6 +183,11 @@ impl Conditions {
             .and_then(|nodes| nodes.first().copied())
             .map(|node| sim.returning_drones(node))
             .unwrap_or_default();
+        let network = if commands.contains(&PanelCommand::EjectMenu) {
+            sim.network_counts(player)
+        } else {
+            BTreeMap::new()
+        };
         let refused = commands
             .into_iter()
             .filter_map(|command| {
@@ -188,6 +207,11 @@ impl Conditions {
                     Command::Construction {
                         objects,
                         command: ConstructionCommand::WarpIn { kind, orientation },
+                    }
+                } else if let Some(tunnel) = command.tunnel() {
+                    Command::Tunnel {
+                        tunnel: *objects.first()?,
+                        command: tunnel,
                     }
                 } else {
                     Command::Ability {
@@ -211,6 +235,7 @@ impl Conditions {
             constructor,
             refused,
             returning,
+            network,
         }
     }
 
@@ -221,6 +246,7 @@ impl Conditions {
             constructor: None,
             refused: BTreeMap::new(),
             returning: Vec::new(),
+            network: BTreeMap::new(),
         }
     }
 
@@ -245,6 +271,18 @@ impl Conditions {
     /// The Drones the active Egress Node's F selects, in id order.
     pub fn returning(&self) -> &[ObjectId] {
         &self.returning
+    }
+
+    /// The same, with `counts` the network's: for the unit tests.
+    pub fn with_network(mut self, counts: impl IntoIterator<Item = (ObjectKind, u32)>) -> Self {
+        self.network = counts.into_iter().collect();
+        self
+    }
+
+    /// An EjectMenu tile's count: how many units of `kind` are in the player's Tunnel Network and not reserved on an
+    /// eject queue.
+    pub fn network_count(&self, kind: ObjectKind) -> u32 {
+        self.network.get(&kind).copied().unwrap_or(0)
     }
 
     /// Whether `command` shows in its slot now: the Egress Node's F only while there are Drones for it to select

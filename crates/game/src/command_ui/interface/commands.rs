@@ -2,7 +2,7 @@
 //! structures and constructors alike (plan decision T10: one command flow, not a structure UI beside the unit UI):
 //! [`PanelCommand`], and what pressing each one gives the sim.
 
-use sc_sim::{Ability, ConstructionCommand, ObjectKind, OrderKind, ProductionCommand};
+use sc_sim::{Ability, ConstructionCommand, ObjectKind, OrderKind, ProductionCommand, TunnelCommand};
 
 use super::{BuildMenu, Planned};
 use crate::kinds::{self, short_label};
@@ -15,7 +15,8 @@ use crate::kinds::{self, short_label};
 /// transforming objects (`factions/colonists/economy.md > Beacon > Beacon ObjectInterfaceState`,
 /// `factions/colonists/units/drone.md > Drone ObjectInterfaceState`, `factions/colonists/economy.md > Egress Node >
 /// Egress Node ObjectInterfaceState`, `factions/colonists/economy.md > Beacon Deployment > While transforming: only
-/// Cancel`; slices M3-J1 and M3-J2, design change 0124).
+/// Cancel`; slices M3-J1 and M3-J2, design change 0124), and the Syndicate's Tunnel (`factions/syndicate/tunnels.md >
+/// Tunnel ObjectInterfaceState`, slice M4-J2).
 #[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum PanelCommand {
     Move,
@@ -98,6 +99,16 @@ pub enum PanelCommand {
     /// slice M3-J2). "Only available if at least one such Drone exists": it shows only then
     /// (`super::Conditions::shows`).
     SelectReturningDrones,
+    /// `factions/syndicate/tunnels.md > Tunnel ObjectInterfaceState`: "**E** Eject" (design change 0257), which "enters
+    /// EjectMenu (StateOnlyTransition)" (`super::InterfaceState::EjectMenu`): the unit types of the player's Tunnel
+    /// Network, to eject from this Tunnel (slice M4-J2).
+    EjectMenu,
+    /// An EjectMenu tile (`factions/syndicate/tunnels.md > EjectMenu`): "Click an enabled unit type tile: ejects one
+    /// unit of that type from this Tunnel's Side A (CommandIssuingTransition)", at once (`sc_sim::TunnelCommand::Eject`):
+    /// of the type, the one inside the network longest, which the click reserves ("the tile's count drops at the
+    /// click"). The menu stays open for the next click (a reading: the design returns to DefaultState on Z only, where
+    /// a build menu's entry says "returns to DefaultState").
+    Eject(ObjectKind),
 }
 
 impl PanelCommand {
@@ -131,7 +142,9 @@ impl PanelCommand {
             | PanelCommand::Planned(_)
             | PanelCommand::Deploy
             | PanelCommand::CancelTransform
-            | PanelCommand::SelectReturningDrones => false,
+            | PanelCommand::SelectReturningDrones
+            | PanelCommand::EjectMenu
+            | PanelCommand::Eject(_) => false,
         }
     }
 
@@ -180,6 +193,14 @@ impl PanelCommand {
         }
     }
 
+    /// The Tunnel command of a Tunnel's command issued at once (`sc_sim::Command::Tunnel`): an EjectMenu tile's Eject.
+    pub fn tunnel(self) -> Option<TunnelCommand> {
+        match self {
+            PanelCommand::Eject(kind) => Some(TunnelCommand::Eject { kind }),
+            _ => None,
+        }
+    }
+
     /// Whether the sim has a command for it yet: Reverse and AttackGround have no order (`sc_sim::OrderKind`), and a
     /// building or a unit that isn't in the game has none at all. A StateOnlyTransition needs none (a build menu, the
     /// Egress Node's F).
@@ -205,7 +226,9 @@ impl PanelCommand {
     /// applies to the Beacon the player has Tabbed to"). Such a command goes to the ActiveGroup only, never to the
     /// other selected instances of its type (`super::recipients`). So do a Deploy, which one Drone of the ActiveGroup
     /// takes (design change 0125), the Cancel of the objects that transform, whose panel shows it, and the Egress
-    /// Node's F, which selects the Drones of "this Egress Node" (Ungroupable: the one Tabbed to).
+    /// Node's F, which selects the Drones of "this Egress Node" (Ungroupable: the one Tabbed to). So do a Tunnel's
+    /// EjectMenu and its tiles, which eject "from this Tunnel's Side A" (`factions/syndicate/tunnels.md > EjectMenu`;
+    /// Ungroupable too: the one Tabbed to).
     pub fn instance_only(self) -> bool {
         matches!(
             self,
@@ -219,6 +242,8 @@ impl PanelCommand {
                 | PanelCommand::Deploy
                 | PanelCommand::CancelTransform
                 | PanelCommand::SelectReturningDrones
+                | PanelCommand::EjectMenu
+                | PanelCommand::Eject(_)
         )
     }
 
@@ -260,7 +285,9 @@ impl PanelCommand {
             | PanelCommand::Planned(_)
             | PanelCommand::CancelTransform
             | PanelCommand::SetDropOff
-            | PanelCommand::SelectReturningDrones => false,
+            | PanelCommand::SelectReturningDrones
+            | PanelCommand::EjectMenu
+            | PanelCommand::Eject(_) => false,
         }
     }
 
@@ -271,7 +298,8 @@ impl PanelCommand {
     /// too), it shows as an icon would: by its type's tag, as the map and the portraits show it ([`short_label`]).
     /// A ready building's slot is "Place", and every Cancel "Cancel". The others are the command's name or its first
     /// word ("Hold", "Rally", "Raise", "Lower", "Drop" for Set Drop-off Location, "Drones" for Select Returning
-    /// Drones), or a shortening of it ("Rev.", "AtkGnd", "Conv.", "Adv.").
+    /// Drones), or a shortening of it ("Rev.", "AtkGnd", "Conv.", "Adv."). An EjectMenu tile shows its unit type's
+    /// tag, as a unit trained does, and its count (`super::PanelSlot::count`).
     pub fn label(self) -> &'static str {
         match self {
             PanelCommand::Move => "Move",
@@ -284,7 +312,10 @@ impl PanelCommand {
             PanelCommand::RaiseShield => "Raise",
             PanelCommand::LowerShield => "Lower",
             PanelCommand::Convert(_) => "Conv.",
-            PanelCommand::Train(kind) | PanelCommand::Construct(kind) | PanelCommand::WarpIn(kind) => short_label(kind),
+            PanelCommand::Train(kind)
+            | PanelCommand::Construct(kind)
+            | PanelCommand::WarpIn(kind)
+            | PanelCommand::Eject(kind) => short_label(kind),
             PanelCommand::Planned(planned) => planned.label(),
             PanelCommand::CancelProduction
             | PanelCommand::CancelConstruction
@@ -297,6 +328,7 @@ impl PanelCommand {
             PanelCommand::Deploy => "Deploy",
             PanelCommand::SetDropOff => "Drop",
             PanelCommand::SelectReturningDrones => "Drones",
+            PanelCommand::EjectMenu => "Eject",
         }
     }
 
@@ -326,11 +358,13 @@ impl PanelCommand {
             PanelCommand::CancelTransform => "Cancel".into(),
             PanelCommand::SetDropOff => "Set Drop-off Location".into(),
             PanelCommand::SelectReturningDrones => "Select Returning Drones".into(),
+            PanelCommand::Eject(kind) => named("Eject", kind),
             PanelCommand::Move
             | PanelCommand::Attack
             | PanelCommand::Patrol
             | PanelCommand::Stop
-            | PanelCommand::Deploy => self.label().into(),
+            | PanelCommand::Deploy
+            | PanelCommand::EjectMenu => self.label().into(),
         }
     }
 

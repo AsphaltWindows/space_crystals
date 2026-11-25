@@ -1,8 +1,8 @@
 //! The Tunnel (`factions/syndicate/tunnels.md > Tunnel`): a structure labelled by its tier ([`tier_label`]), its
-//! sides showing their functions (`crate::object_render`). Its panel comes with slice M4-J2
-//! (`factions/syndicate/tunnels.md > Tunnel ObjectInterfaceState`): none yet.
+//! sides showing their functions (`crate::object_render`). Its panel is its own, with the EjectMenu (slice M4-J2,
+//! `crate::command_ui::interface::templates::syndicate::tunnel`).
 
-use crate::command_ui::interface::templates::PanelTemplate;
+use crate::command_ui::interface::templates::syndicate;
 use crate::kinds::ClientKind;
 use crate::object_render::Look;
 
@@ -11,7 +11,7 @@ pub const KIND: ClientKind = ClientKind {
     label: TIER_LABELS[0],
     look: Look::Structure,
     shot: None,
-    template: PanelTemplate::NONE,
+    template: syndicate::tunnel::TEMPLATE,
 };
 
 /// A Tunnel's label by tier (slice M4-A, `factions/syndicate/tunnels.md > Tunnel > Tiers`): "T1" to "T3".
