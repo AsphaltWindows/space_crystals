@@ -73,9 +73,9 @@
 //! opens the ExpandMenu (slice M4-F): every expansion of the Tech Tree in its slot, in the sim's order
 //! (`sc_sim::defs::EXPAND_MENU`), greyed with why while this Tunnel can't build it (its operation, its tier, the bank,
 //! or not in the game yet); an entry enters the expansion's placement, its ghost held within the Tunnel Area, where a
-//! click builds it and returns to DefaultState, and Z goes back to the menu. Its X cancels its operation. Its Q
-//! Upgrade, and the Hideout's Guard and Grenadier, hold their slots, greyed with why, until the slices that bring them
-//! ([`Planned`]).
+//! click builds it and returns to DefaultState, and Z goes back to the menu. Its X cancels its operation, and its Q
+//! upgrades it (slice M4-G). The Hideout's Q, W and E train the Agent, the Guard and the Grenadier, each greyed with
+//! why while the gate refuses it (slices M4-K and M4-U).
 //!
 //! The Syndicate's Agent (`factions/syndicate/units/agent.md > Agent ObjectInterfaceState`, design change 0257; slice
 //! M4-J1) has Q Move, A Build Tunnel, S Drop Off, D Build Laser Turret (greyed with its reason until slice M4-S1) and
