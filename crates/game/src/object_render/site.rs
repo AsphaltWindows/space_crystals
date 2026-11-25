@@ -10,6 +10,10 @@
 //! of the visual ([`SiteProgress`]), as long as the construction's share done (`sc_sim::Progress::ratio`). The bar
 //! shows on every site the local player sees, anyone's (placeholder reading: the design says only that enemies see the
 //! site, `factions/syndicate/units/agent.md > While the Tunnel is under construction > What enemies see`).
+//!
+//! A site the local player remembers (`core/vision.md > Explored`: "shown in their last-known state", slice M4-I2) is
+//! drawn as a site too, dimmed as every record is (`super::remembered`), its bar at the progress last seen
+//! (`sc_sim::vision::LastKnown::site`), which no longer moves: the site may have grown or been finished since.
 
 use bevy::prelude::*;
 use sc_sim::ObjectId;
@@ -39,14 +43,34 @@ pub struct SiteProgress {
     pub id: ObjectId,
     /// The share of the construction done that the bar shows, 0 to 1.
     pub shown: f32,
+    /// Whether it is the fill of the site's record (`super::remembered`), which shows the progress last seen and
+    /// stays there, rather than of the live site, which [`place_site_progress`] keeps up with its construction.
+    pub remembered: bool,
     /// The site's footprint as placed, tiles.
     size: (u32, u32),
 }
 
 impl SiteProgress {
-    /// The fill of site `id`, `size` tiles as placed, with nothing shown yet.
+    /// The fill of live site `id`, `size` tiles as placed, with nothing shown yet.
     pub(super) fn new(id: ObjectId, size: (u32, u32)) -> Self {
-        Self { id, shown: 0.0, size }
+        Self {
+            id,
+            shown: 0.0,
+            remembered: false,
+            size,
+        }
+    }
+
+    /// The fill of the record of site `id`, `size` tiles as placed, which was `ratio` done when last seen, with its
+    /// transform ([`fill_transform`]).
+    pub(super) fn remembered(id: ObjectId, size: (u32, u32), ratio: f32) -> (Self, Transform) {
+        let fill = Self {
+            id,
+            shown: ratio,
+            remembered: true,
+            size,
+        };
+        (fill, fill_transform(size, ratio))
     }
 }
 
@@ -88,9 +112,12 @@ pub(super) fn fill_transform((w, h): (u32, u32), ratio: f32) -> Transform {
     Transform::from_translation(a.extend(FILL_Z)).with_scale(Vec3::new(length.max(0.001), b.y - a.y, 1.0))
 }
 
-/// Stretches each site's fill over the share of its construction done.
+/// Stretches each live site's fill over the share of its construction done; a record's stays as last seen.
 pub(super) fn place_site_progress(sim: Res<SimRes>, mut fills: Query<(&mut SiteProgress, &mut Transform)>) {
     for (mut fill, mut transform) in &mut fills {
+        if fill.remembered {
+            continue;
+        }
         let construction = sim.object(fill.id).and_then(|o| o.construction.as_ref());
         let Some(ratio) = construction.map(|c| c.progress.ratio()) else {
             continue;

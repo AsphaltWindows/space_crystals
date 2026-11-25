@@ -2,16 +2,17 @@
 //! "The non-overlap check uses the **current tier's area**", and "**Every player's Tunnels count**" (design change
 //! 0237). A Tunnel is placed at Tier 1, so its Tier 1 area must overlap no other Tunnel's area at that Tunnel's tier:
 //!
-//! - **Which Tunnels**: every Tunnel among the occupants, whoever owns it, a site included (question Q0079 point 3:
-//!   "It counts like any Tunnel's, for every player, from the moment the site appears"), at its tier as the check
+//! - **Which Tunnels**: every Tunnel among the occupants, whoever owns it, a site included (design change 0289 point
+//!   3: "A site counts with its whole area for every player from the moment it appears"), at its tier as the check
 //!   knows it (`Occupant::tier`): its tier in a game on the truth ([`super::Mode::Arrival`]); in
 //!   [`super::Mode::Known`] the caller gives what the player knows, so "**The ghost** judges enemy Tunnels by what the
 //!   player knows: their remembered position and their tier as last seen", and "The real check on arrival uses the
 //!   truth, so a build can fail on arrival because an enemy Tunnel was upgraded unseen". A Tunnel of a map or of a
 //!   Starting Layout counts at the base tier, where it starts.
-//! - **The placing player's lingering Tunnel ghosts** (Placeholder: Q0079 point 2, "The ghost reserves its whole
-//!   Tier 1 area against its owner's further Tunnel ghosts; the ghost shows red over it"): each reserved site of a
-//!   Tunnel reserves its Tier 1 area, as its footprint reserves its tiles (`TileProblem::Reserved`).
+//! - **The placing player's lingering Tunnel ghosts** (design change 0289 point 2: "A pending ghost reserves its whole
+//!   Tier 1 area against its owner's further Tunnel ghosts, which show red. It is the owner's only, since other
+//!   players don't know about it"): each reserved site of a Tunnel reserves its Tier 1 area, as its footprint reserves
+//!   its tiles (`TileProblem::Reserved`).
 //!
 //! It is checked for every kind with a tier table, in every mode, as the area rule of slice M4-B is
 //! (`placement/tunnel_area.rs`). It is a rule of the footprint as a whole ([`WholeProblem::TunnelAreaOverlap`]): the

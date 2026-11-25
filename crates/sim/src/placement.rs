@@ -33,7 +33,7 @@
 //! **Reservations** (`core/entities.md > Lingering build ghosts`, design change 0125): a player's pending worker builds
 //! ([`Sim::pending_builds`]) reserve their sites against that player's further placements, a Deploy's, a Build's and
 //! a Warp In's ([`check_reserving`], [`TileProblem::Reserved`]); a Tunnel's whole Tier 1 area too, against a further
-//! Tunnel's (Placeholder: Q0079 point 2, [`WholeProblem::TunnelAreaOverlap`]). Another player's never matter, and
+//! Tunnel's (design change 0289 point 2, [`WholeProblem::TunnelAreaOverlap`]). Another player's never matter, and
 //! units walk over them.
 //!
 //! **The rules**, in the order the problems are listed:
@@ -191,7 +191,7 @@ impl Sim {
     /// footprint at `origin`, turned by `orientation`, as far as its owner knows ([`Sim::worker_check`]): for a
     /// Tunnel, its Tier 1 area on the map and Drillable where the owner explored (design change 0242), clear of every
     /// Tunnel's area as the owner knows it, at its tier as last seen (0237: "The ghost judges enemy Tunnels by what the
-    /// player knows"), and clear of the areas of the owner's other lingering Tunnel ghosts (Placeholder: Q0079 point
+    /// player knows"), and clear of the areas of the owner's other lingering Tunnel ghosts (design change 0289 point
     /// 2). The command gate asks it when the order applies, and the ghost can ask it every frame. `None` if `worker` is
     /// no unit of a player's that builds `kind` ([`builds`]).
     pub fn build_check(

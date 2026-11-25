@@ -51,8 +51,8 @@
 //! What a load is of is the worker's [`Worker::resource`]. **Switching resources** (0256 point 4): "an Agent carrying
 //! Space Crystals that is ordered to gather Supplies goes straight to the station; its crystals are lost when it picks
 //! up the Supply. (Assumed the same the other way: a carried Supply is lost when it mines crystals.)" The old load
-//! goes when the new pick-up or mining ends, with the new load: one interrupted before that keeps it (Placeholder:
-//! Q0082 point 3).
+//! goes when the new pick-up or mining ends, with the new load: one interrupted before that keeps it (design change
+//! 0292 point 3: "the old load is lost when the new pick-up or mining ends, both ways").
 
 use std::collections::BTreeMap;
 
@@ -282,7 +282,7 @@ pub(super) fn step(
         let amount = (*remaining).min(capacity);
         *remaining -= amount;
         let emptied = *remaining == 0;
-        // A Supply it carried is lost as the mining ends (0256 point 4; Placeholder: Q0082 point 3).
+        // A Supply it carried is lost as the mining ends (0256 point 4; design change 0292 point 3).
         if let Some(worker) = objects.get_mut(&id).and_then(|o| o.worker.as_mut()) {
             worker.load = amount;
             worker.resource = Resource::Crystals;
@@ -293,7 +293,7 @@ pub(super) fn step(
         }
     }
     // 0256 point 2: "A Supply leaves the station when the pick-up ends"; the Space Crystals the worker carried are
-    // lost as it takes the Supply (point 4; Placeholder: Q0082 point 3). Point 3: the pick-up that empties a station
+    // lost as it takes the Supply (point 4; design change 0292 point 3). Point 3: the pick-up that empties a station
     // notifies the owners of the workers there.
     for (id, station, capacity) in picked {
         let Some((amount, emptied)) = super::stations::take(objects, station, capacity) else {
@@ -425,7 +425,7 @@ mod tests {
         assert!(def.pass_through && def.keeps_drop_off && !def.shares_patches);
         // `factions/syndicate/units/agent.md > Gathering > Space Crystals`: 50 a load, 80 frames of mining, 64 of
         // unloading, reaches of 8 su; `factions/syndicate/units/agent.md > Supplies`: 1 a trip, 48 frames each way, the
-        // same reaches (Placeholder: Q0082 point 1); design change 0255: shared patches, no Set Drop-off; 0106: "Drones
+        // same reaches (design change 0292 point 1); design change 0255: shared patches, no Set Drop-off; 0106: "Drones
         // only" pass through each other.
         let def = worker_def(ObjectKind::Agent).expect("a worker");
         let crystals = LoadDef {

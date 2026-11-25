@@ -77,11 +77,10 @@ pub(crate) static AGENT: ObjectDef = ObjectDef {
                 carry_capacity: 1,  // CarryCapacity: 1 Supply per trip
                 pick_up_ticks: 48,  // PickUpDuration: 48 frames (3 seconds)
                 drop_off_ticks: 48, // DropOffDuration: 48 frames (3 seconds)
-                // The reaches, space units: to a Supply Delivery Station's edge to pick one up, and to the Supplies
-                // hatch on Side D to unload it. `> Gathering > Supplies` gives none; the crystals' 8 su stand in for
-                // both (Placeholder: Q0082 point 1).
-                pick_up_reach: 8.0,
-                drop_off_reach: 8.0,
+                // The reaches (design change 0292 point 1: "8 su reaches for pick-up at a station and for drop-off at
+                // the Supplies hatch", placeholders as the crystals' are).
+                pick_up_reach: 8.0, // PickUpReach: 8 space units from the station's edge (placeholder)
+                drop_off_reach: 8.0, // DropOffReach: 8 space units from the Supplies hatch on Side D (placeholder)
             }),
             shares_patches: true,  // Patch sharing: any number of Agents may mine the same patch
             keeps_drop_off: false, // `> Gathering rules`: the nearest Tunnel, picked again by each Gather

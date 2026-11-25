@@ -1,9 +1,10 @@
 //! What Explored tiles show of the structures and resources the local player remembers (`core/vision.md >
 //! Explored`: "shown in their last-known state (may have been destroyed or changed since)"): one visual per record
 //! the local player's sight shows (`fog::Sight::remembered`), in its kind's placeholder shape (a structure's in its
-//! owner's colour, with its tag), where the record has its footprint, dimmed as the fog dims the terrain. The live
-//! objects there stay hidden (`fog`), so the view never shows what the player doesn't see. With the fog off there
-//! are none: every object shows as it is.
+//! owner's colour, with its tag), where the record has its footprint, dimmed as the fog dims the terrain; a site as a
+//! site, its progress bar at the progress last seen (`super::site`, `LastKnown::site`). The live objects there stay
+//! hidden (`fog`), so the view never shows what the player doesn't see. With the fog off there are none: every object
+//! shows as it is.
 //!
 //! Synced only when what it shows may change: the sim, the local player, the fog or the mode, and within a sim the
 //! tiles or records of the visions the local player watches (`Sight::revision`, `Sight::records_revision`).
@@ -13,9 +14,9 @@ use std::collections::BTreeMap;
 use bevy::prelude::*;
 use sc_sim::tunnel::TunnelState;
 use sc_sim::vision::LastKnown;
-use sc_sim::{ObjectId, ObjectKind, Placement, PlayerId};
+use sc_sim::{ObjectId, ObjectKind, Placement, PlayerId, Progress};
 
-use super::{MeshKey, ObjectVisualAssets, object_height, object_transform, structures, underground, visual_mesh};
+use super::{MeshKey, ObjectVisualAssets, object_height, object_transform, site, structures, underground, visual_mesh};
 use crate::fog::{EXPLORED_ALPHA, LocalSight, Revision};
 use crate::kinds::object_label;
 use crate::sim_driver::SimRes;
@@ -24,8 +25,14 @@ use crate::sim_driver::SimRes;
 #[derive(Component, Copy, Clone, Debug, PartialEq, Eq)]
 pub struct RememberedVisual(pub ObjectId);
 
-/// What a record's visual shows of it: its kind, owner, footprint and a Tunnel's tier.
-type Made = (ObjectKind, Option<PlayerId>, Placement, Option<TunnelState>);
+/// What a record's visual shows of it: its kind, owner, footprint, a Tunnel's tier and a site's progress.
+type Made = (
+    ObjectKind,
+    Option<PlayerId>,
+    Placement,
+    Option<TunnelState>,
+    Option<Progress>,
+);
 
 /// The visual entity of each record shown.
 #[derive(Resource, Default, Debug)]
@@ -39,7 +46,13 @@ pub struct RememberedVisuals {
 
 /// What the visual of `record` shows of it.
 fn made(record: &LastKnown) -> Made {
-    (record.kind, record.owner, record.placement, record.tunnel.clone())
+    (
+        record.kind,
+        record.owner,
+        record.placement,
+        record.tunnel.clone(),
+        record.site,
+    )
 }
 
 /// Everything the set of records shown depends on.
@@ -109,12 +122,7 @@ pub(super) fn sync_remembered_visuals(
         }
         .clone();
         // Records are of structures, in their owner's colour, and resources.
-        let key = MeshKey::of(
-            record.kind,
-            record.owner,
-            Some(&record.placement),
-            record.tunnel.clone(),
-        );
+        let key = MeshKey::of_record(record);
         let mesh = assets
             .meshes
             .entry(key)
@@ -137,6 +145,24 @@ pub(super) fn sync_remembered_visuals(
             let dim = KEPT.powf(1.0 / 2.2);
             let label = object_label(record.kind, record.tunnel.clone());
             commands.spawn((structures::tag(id, label, size, dim), ChildOf(entity)));
+            if let Some(progress) = record.site {
+                // Dimmed as the body, never blended: a live site's fill is drawn opaque too.
+                let dimmed = (assets.dimmed)
+                    .get_or_insert_with(|| materials.add(dimmed_material()))
+                    .clone();
+                let fill = (assets.site_fill)
+                    .get_or_insert_with(|| meshes.add(site::fill_mesh()))
+                    .clone();
+                let (progress, transform) = site::SiteProgress::remembered(id, size, progress.ratio());
+                commands.spawn((
+                    Name::new("Remembered site progress"),
+                    progress,
+                    Mesh2d(fill),
+                    MeshMaterial2d(dimmed),
+                    transform,
+                    ChildOf(entity),
+                ));
+            }
         }
         by_id.insert(id, entity);
         made.insert(id, self::made(record));

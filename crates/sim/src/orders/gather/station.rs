@@ -15,8 +15,8 @@
 //!   owner's grids show a way.
 //! - **Gather while carrying a load** (design change 0128, one of the Drone's rules): a worker that carries a Supply
 //!   goes to the station all the same, and on arrival turns round to deliver it, without picking up. One that carries
-//!   Space Crystals picks up as any other, and its crystals are lost when its pick-up ends (0256 point 4; Placeholder:
-//!   Q0082 point 3, `economy::gathering`).
+//!   Space Crystals picks up as any other, and its crystals are lost when its pick-up ends (0256 point 4; design change
+//!   0292 point 3, `economy::gathering`).
 //! - **The pick-up** (`GatherPhase::Mining` at a station) is timed work that the economy phase counts, PickUpDuration;
 //!   the Supply leaves the station as it ends (point 2, `economy::stations::take`). One that stops before then takes
 //!   nothing (design change 0130), and the Supply it claimed is free again in the next tick's snapshot.

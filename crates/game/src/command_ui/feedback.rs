@@ -100,8 +100,9 @@ pub const CANNOT_DO_TEXT: &str = "Cannot do that now";
 /// The message of an Eject of a unit type none of which is in the Tunnel Network free to leave
 /// (`Reject::NotInNetwork`; `factions/syndicate/tunnels.md > EjectMenu`). Placeholder wording.
 pub const NONE_INSIDE_TEXT: &str = "None in the Tunnel Network";
-/// The message of an Eject while every unit of the type only just walked in (`Reject::InTransit`; Q0077 point 1:
-/// "the EjectMenu can grey the button for those 2 seconds"). Placeholder wording.
+/// The message of an Eject while every unit of the type only just walked in (`Reject::InTransit`;
+/// `factions/syndicate/tunnels.md > EjectMenu`, design change 0288 point 1: "its tile is greyed and the click is
+/// refused; nothing is queued"). Placeholder wording.
 pub const IN_TRANSIT_TEXT: &str = "Still in transit";
 /// The message of an Eject of a unit type this Tunnel's tier doesn't let out (`Reject::NoTransit`;
 /// `factions/syndicate/tunnels.md > EjectMenu`: "Unit types whose base category exceeds this Tunnel's tier are visible

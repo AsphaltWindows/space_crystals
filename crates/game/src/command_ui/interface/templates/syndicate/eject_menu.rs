@@ -5,8 +5,8 @@
 //! W, Grenadier E" in Q0068's words; `sc_sim::defs::EJECT_MENU_ORDER`), every slot but Z's, which is Back. Each type
 //! holds its slot whether or not any of it is inside: one with none shows a count of 0, greyed ("unavailable entries
 //! are greyed"), and so does one this Tunnel's tier doesn't let out ("visible but greyed out (disabled)") and one
-//! whose every unit only just walked in (Q0077 point 1: the gate refuses an Eject for the transit delay, and "the
-//! EjectMenu can grey the button for those 2 seconds"), each with the gate's reason
+//! whose every unit only just walked in (design change 0288 point 1: "When every unit of a type is still in the 2 s
+//! transit delay, its tile is greyed and the click is refused; nothing is queued"), each with the gate's reason
 //! (`crate::command_ui::Conditions`).
 //!
 //! A unit of a type not in the list is never inside in a game: only a debug game puts another faction's units in the

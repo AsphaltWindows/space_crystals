@@ -10,9 +10,11 @@
 //! - `station`: 0256's Verification: several Agents picking up at once, a Supply leaving only as its pick-up ends, the
 //!   empty station's wait and its event, for every player gathering there;
 //! - `hatches`: a crystal delivery at B and a Supplies delivery at D in the same ticks, one Agent at a time at D, and
-//!   the nearest Tunnel by its Supplies hatch (Placeholder: Q0082 point 2);
-//! - `switching`: the load lost on switching resources, both ways, an interrupted pick-up that keeps it (Placeholder:
-//!   Q0082 point 3), and a Supply carried to a station;
+//!   the nearest Tunnel by its crystal hatch, chosen as the first return starts and again when it is lost (design
+//!   change 0292 point 2);
+//! - `switching`: the load lost on switching resources, both ways, as the new pick-up or mining ends, and an
+//!   interrupted pick-up that keeps it (design change 0292 point 3 and its Verification), and a Supply carried to a
+//!   station;
 //! - `orders`: the gate and the default order on a station, a rally on a station, a Supply carried through the Tunnel
 //!   Network and delivered by a Drop Off order.
 //!
@@ -39,7 +41,8 @@ const P2: PlayerId = PlayerId(2);
 const AGENT: ObjectKind = ObjectKind::Agent;
 const TUNNEL: ObjectKind = ObjectKind::Tunnel;
 /// `factions/syndicate/units/agent.md > Gathering > Supplies`: CarryCapacity, PickUpDuration, DropOffDuration, and the
-/// reaches (Placeholder: Q0082 point 1).
+/// reaches (design change 0292 point 1: "8 su reaches for pick-up at a station and for drop-off at the Supplies
+/// hatch").
 const CARRY: u32 = 1;
 const PICK_UP: Tick = 48;
 const DROP_OFF: Tick = 48;
