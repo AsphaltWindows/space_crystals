@@ -95,7 +95,8 @@ fn measure(label: &str, crossing: bool) {
         most_per_unit = most_per_unit.max(reach.most_per_unit);
         expansions += u64::from(reach.expansions);
         worst_expansions = worst_expansions.max(reach.expansions);
-        requests += u64::from(t.sim().nav_counters().searches);
+        let nav = t.sim().nav_counters();
+        requests += u64::from(nav.searches + nav.fields);
         ticks += 1;
     }
     let per_tick = |d: Duration| d.as_secs_f64() * 1e3 / f64::from(ticks);

@@ -801,7 +801,8 @@ the target the attack engages, and reads `Mover::status` and the snapshot.
 - **Not active during Move**: a Move never engages, and neither does the walk back to an IdleOrigin.
 - **Unreachable auto-targets** (design change 0181, "for now"): an idle unit doesn't re-acquire a target it couldn't
   get to for `GIVE_UP_RETRY_TICKS` (32). On an AttackMove or a Patrol such a target is rejected by the reach rule
-  instead (0235).
+  instead (0235). A target an explicit Attack gave up (`engage::attack`, the Failure rule) waits the same 32 ticks
+  before the idle unit takes it again: the Attack leaves it in `Orders::auto` as the target given up.
 - **Placeholders** (the design is silent; each is a comment or a named const in `orders/`): "within SightRange" for
   a scan is measured edge to edge like Range; a 45° step reaches up to its upper bound; a unit backing off
   from a target inside its MinRange goes to the middle of the band from MinRange to Range, and gives the order up
