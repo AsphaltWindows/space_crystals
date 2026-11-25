@@ -254,9 +254,10 @@ mod tests {
 
     /// `factions/gdo/economy.md > Starting Conditions`: a Deployment Center, an Extraction Facility, two plates and
     /// 100 Space Crystals (Supplies 0, design change 0077); `factions/colonists/economy.md > Starting Conditions`: an
-    /// Egress Node, a Robo Portal, four Drones and 100 Space Crystals, the camera on the Robo Portal (`core/camera.md
-    /// > Starting Position`); `factions/syndicate/tunnels.md > Tunnel > Starting Conditions`: a Tunnel, a Hideout, an
-    /// Agent, 100 Space Crystals and 1 Supply, the camera on the Tunnel. The Cults aren't implemented yet (T11).
+    /// Egress Node, a Robo Portal, four Drones and 100 Space Crystals, the camera on the Robo Portal
+    /// (`core/camera.md > Starting Position`); `factions/syndicate/tunnels.md > Tunnel > Starting Conditions`: a
+    /// Tunnel, a Hideout, an Agent, 100 Space Crystals and 1 Supply, the camera on the Tunnel. The Cults aren't
+    /// implemented yet (T11).
     #[test]
     fn the_implemented_factions_have_starting_conditions() {
         use ObjectKind::{DeploymentCenter, Drone, EgressNode, ExtractionFacility, ExtractionPlate, RoboPortal};
