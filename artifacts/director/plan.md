@@ -991,7 +991,7 @@ The user keeps feeding unit and other designs to the Designer, so expect increme
     | L5 | done (`a777ae3`) |
     | J3 | done (`827dfeb`; Q0075) |
     | G3 | done (`8480ee0`) |
-- **M4 Syndicate** (**planned**; spec: `artifacts/director/m4-plan.md`, from the design at `36a8cd8` plus 0210–0228).
+- **M4 Syndicate** (**in progress**; spec: `artifacts/director/m4-plan.md`, revision 2, from the design at `70d1bbc` (0282)).
   - **Slices** (revised plan, adopted 2026-11-25, which folds in 0229–0282): A–M plus R1 and R2 (code organization), O (combat spike), U (Grenadier), and S1 and S2 (Laser Turrets). The waves:
     1. A
     2. B, C, D, then I
@@ -1004,8 +1004,16 @@ The user keeps feeding unit and other designs to the Designer, so expect increme
     9. M
 
     The critical path is A → C → R1 → E → F → K → S1 → S2 → M.
-  - **Deferred until numbers exist:** the gated N1–N6, i.e. the Grenadier, Laser Turret, vehicles, Shadebringer, other expansions and the Phantom.
-  - **Questions:** Q0059–Q0071. Q0059 (Optics Lab stats) blocks K, and Q0060 (the upgrade's duration) blocks G. Both were answered by 0229.
+  - **Scheduled from the old gated list:** N1, the Grenadier, is now U; N2, the Laser Turret, is now S1 and S2.
+  - **Gated (not scheduled):**
+    - N3: the Vehicle Assembly, Assault Bike, Laser Battery and Subterranean Transport;
+    - N4: the Shadebringer;
+    - N5: the Null Chamber, Vault, Forge, Aerospace Assembly and Orbital Command;
+    - N6: the Phantom, with aircraft, the air doors and the Prism;
+    - N7: the Specter.
+  - **Questions:**
+    - Q0059–Q0071 are all answered, by 0229–0267.
+    - Q0076–Q0085 are open. Q0076, the Agents' jam near the hatch, partly blocks L's oracle; the others don't block, and their slices build the proposals.
   - **Slice status:**
     - A: done (`fcd06dc`).
     - C: done (`f67df212`; Q0077).
@@ -1014,8 +1022,7 @@ The user keeps feeding unit and other designs to the Designer, so expect increme
     - R1 (sim): running (wave 3, Opus), alone.
     - R2 (client, docs, citation test): its part before R1 is done (7 commits; 1532 tests; QA screenshots byte-identical), and it is now splitting `fog.rs` and `editor/objects.rs`. It waits for R1 to land, then merges, drops the citation test's temporary allowance for the sim, and updates ARCHITECTURE.md's sim sections.
     - B: done (`35e19634`).
-    - The rest are queued. A planning pass is folding 0229–0271 into slices B and E–M, and planning 0260's new content: a combat spike, the Grenadier, the Laser Turret and the Chemical Plant.
-  - **All M4 questions are answered** (Q0059–Q0071), by 0229–0267.
+    - The rest are queued in the waves above. E and J2 come next, after R1 and R2.
   - **Earlier scope note:** tunnels, Hideout, Agent, Guard economy, 0186's Optics Lab gate and Agent pistol, the Grenadier (0187) and the Assault Bike (0188), once their numbers exist. Underground expansions are exempt from the flatness rule (0005).
 - **M5 Cults**: Recruitment Hall, Storage, Recruit, Armory, Soldier, Gunner.
   - Recruits are Groupable: every selected Recruit builds (0072).
@@ -1028,6 +1035,7 @@ The user keeps feeding unit and other designs to the Designer, so expect increme
   - surfacing is refused onto occupied spots and reserves its spot;
   - air ignores terrain, and HoverCraft are clamped to the map;
   - Gliders may overshoot the map edge, staying visible and attackable at the nearest edge tile.
+- **Playtest prep** (after all four factions; the user's decision "Modules now, data files at playtest"): the defs and the `tuning/` modules load from data files, reloaded while the game runs. M4-R makes the defs serde-ready, so this is a loading layer, not a refactor.
 - **Key rebinding UI** (0011): the bindings table is built rebindable in M1-A.
 - **AI or online opponents**: decide with the user.
 - **Art pipeline** (0003):
@@ -1367,8 +1375,8 @@ Last triaged: 0282.
 | 0259 The Syndicate economy check: measured to the hatch square; the stacked layout puts the Tunnels on opposite sides | queued (M4-L); the stacked layout is in M4-D's soak | answers Q0070 |
 | 0260 Placeholders for the Laser Turret, the Grenadier and the Chemical Plant, so they can be planned into M4; the Grenadier needs a projectile, AoE and Attack Ground combat spike | queued (planned in M4 revision 2: O the combat spike, U the Grenadier, S1 and S2 the Laser Turret, K the Chemical Plant) | answers Q0071 (scope B) |
 | 0261 Area damage never hits underground objects unless targeted | void (replaced by 0262) | — |
-| 0262 Area damage does hit underground objects; expansions and the pop-up turret have high armor | done (M4-A, `fcd06dc`: damage never asks the hidden predicate); armor per 0264 | answers Q0071's AoE-underground gap |
-| 0263 Confirmed: undeploy, held orders, the Transport's base, the Phantom's attack | queued (gated N3 and N6) | answers Q0071's items to confirm |
+| 0262 Area damage does hit underground objects; expansions and the pop-up turret have high armor | partly done (M4-A, `fcd06dc`: damage never asks the hidden predicate); queued (M4-O: area damage hits underground objects); armor per 0264 | answers Q0071's AoE-underground gap |
+| 0263 Confirmed: undeploy, held orders, the Transport's base, the Phantom's attack | queued (T44, the deploy model; gated N3 and N6) | answers Q0071's items to confirm |
 | 0264 Building armor rule: PointArmor n, FullArmor n × size in grid squares; underground expansions 6/24 for 2x2; the Laser Turret 1/1 raised, 6/6 underground | partly done (M4-A, `fcd06dc`: the Hideout 6/24; M4-B, `35e19634`: the defs test across factions, all 11 buildings pass, no exceptions); queued (S1, S2: the Laser Turret) | — |
 | 0265 Transport passengers always count against Tunnel Space | queued (gated N3) | answers Q0071's Tunnel Space gap |
 | 0266 A burrowed Transport passes through underground structures; surfacing rules | queued (gated N3) | answers Q0071's underground and surfacing gaps |
