@@ -193,6 +193,9 @@ impl Sim {
         // The sites (`sim/sites.rs`), beside the transformations and for the same reason: a site completed in the tick
         // is a Tunnel in operation for what follows (its Agent in the network, for the network's step).
         self.step_sites(first_new);
+        // The neutral expansions decay (slice M4-H, `sim/tunnels.rs`): after the sites, so that one a Tunnel finished
+        // over in this tick is its owner's again first.
+        self.step_decay();
         // The producers (slice M2-D2), part of the economy phase: here, not inside `economy::step`, because a
         // finished unit is inserted into the game. Before 5f, so that it is seen in its own tick.
         self.step_production(first_new);

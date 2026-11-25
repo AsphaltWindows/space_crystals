@@ -286,6 +286,15 @@ impl Vision {
         }
     }
 
+    /// Object `id` became `player`'s (slice M4-H: a neutral expansion reclaimed, `sim/tunnels.rs`): the player drops
+    /// its record of it, if it has one, since a player never remembers its own objects (`vision::memory`: "Own
+    /// objects are never recorded"), whether or not it sees the object now.
+    pub(crate) fn forget_own(&mut self, player: PlayerId, id: ObjectId) {
+        if let Some(sight) = self.players.iter_mut().find(|p| p.id == player) {
+            sight.forget_own(id);
+        }
+    }
+
     fn stamp_into(&self, eye: &Eye, out: &mut Vec<u32>) {
         stamp(eye, self.width, self.height, &self.tile_levels, out);
     }
