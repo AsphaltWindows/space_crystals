@@ -173,6 +173,12 @@ Gliders cannot stop. Instead of stopping when in range, the Glider performs stra
 If the unit repeatedly fails to make progress toward the target, behavior complete.
 
 
+### Blocked by its own side
+(user, 2026-11-25; Q0057; applies the Core principle above) An attacker whose way to its target is blocked by other units, its own side's included:
+- **Within 3 grid units of the target** (MovingToObject > Blocked near the target): the approach counts as arrived. If it is **not in weapon range** there (typically melee units behind the front rank), it **gives up the target**: an explicit Attack completes and the unit is idle; an AttackMove drops the target for the rest of the leg (AttackMovingToLocation). An idle unit then re-acquires targets by itself (BaseAutoTargeting > Unreachable auto-targets).
+- **Farther out**: it pathfinds around the occupied space if there is a way round (systems/units.md > UnitCollision > Ground Collision). If there isn't, the normal **Failure** rule applies (re-route attempts, then give up after about 7 s); it does **not** wait behind the blockers indefinitely.
+- No special crowd logic (rings, queueing, re-checking for spots opening along a row): getting units into good positions is the player's job.
+
 ### Target inside MinRange
 (user, 2026-11-24) On an explicit Attack whose target is inside the weapon's MinRange, a unit that can move **backs off** until the target is outside MinRange, then attacks. A unit that can't move (e.g. a deployed Artillery Rig) can't carry it out: the order fails with feedback ("Target too close"; same channel as other refusals).
 - **How far it backs off** (user, 2026-11-25; Q0054): to the **middle of the band** between MinRange and Range, not just past MinRange, so a target that keeps stepping closer doesn't make it stop and start on every step.

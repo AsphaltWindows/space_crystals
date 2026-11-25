@@ -2186,3 +2186,4 @@ All DrillUnits hidden underground unless detected. Entry 0219.
 Transport burrow/surface = deploy model; passengers die. Entry 0220.
 Transport req Forge; enters tunnels loaded. Entry 0221.
 Transport passengers locked in inside network. Entry 0222.
+Core principle (predictable not optimal) recorded; Q0057 A/B/A. Entry 0223.
