@@ -22,6 +22,8 @@ Complete list of Syndicate structures. "Tier" is the Tier Requirement checked ag
 
 Underground buildings constructed within a Tunnel's Tunnel Area. Expansions are invisible to enemies without detection and can be walked over by surface units.
 
+**High armor underground** (user, 2026-11-25; Q0071): expansions are hit by area damage over them (systems/combat.md > AoEDamage) but have **high armor**. **Placeholder for every expansion: PointArmor 6, FullArmor 200** (replacing the 1/4 listed in individual stat blocks). With a Grenadier's blast (Damage 100, radius 40 su) a 2x2 expansion takes about 40 per grenade; numbers to be tuned.
+
 **No buildings on top of expansions, and no expansions under buildings** (user, 2026-11-25; Q0062): a surface structure and an underground expansion (any player's, including neutral ones) can never share a tile.
 - **Surface buildings over a hidden expansion**: an enemy's placement is refused. A **direct placement** (e.g. a GDO building) shows its ghost **red at once**, which reveals that something is underground there; this is accepted, since GDO is limited by its build area. A **worker-built** building's ghost judges by what the player knows (so it stays green), and the order **fails when the worker arrives** (core/entities.md > Placement Validation > Worker-Built Structures).
 - **Expansions under a surface building**: refused (see factions/syndicate/tunnels.md > AwaitingPlacement (Expansion)).
