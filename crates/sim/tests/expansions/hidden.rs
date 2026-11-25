@@ -1,6 +1,6 @@
 //! What the other player sees of an expansion (`factions/syndicate/structures/README.md > Tunnel Expansions`:
 //! "Expansions are invisible to enemies without detection"; plan decision T32, `vision::hidden_from`): nothing, from
-//! the click on.
+//! the click on; but a Warp In over it is red at once, as a direct placement is (design changes 0240 and 0290).
 
 use sc_sim::vision::VisibilityState;
 use sc_sim::{OrderKind, Target};
@@ -93,4 +93,35 @@ fn the_enemy_never_sees_it() {
             &SimEvent::ExpansionCompleted { tunnel: T1, site },
         ]
     );
+}
+
+/// Design change 0290's verification, "A Beacon's Warp In ghost over a hidden enemy expansion is red"
+/// (`factions/syndicate/structures/README.md > Tunnel Expansions`: "A Colonists **Warp In** is judged the same way: red
+/// at once", as a direct placement, 0240: "which reveals that something is underground there; this is accepted"):
+/// player 2's Beacon (10, 12) to (11, 13), by player 1's Hideout on (8, 12) to (9, 13), which player 2 doesn't see on
+/// tiles it sees, warps in a Robo Portal on (9, 11) to (12, 14). The ghost (`Sim::warp_in_check`) is red on the
+/// Hideout's two tiles under it, by the truth, and the gate refuses the Warp In.
+#[test]
+fn a_warp_in_over_it_is_red_at_once() {
+    let scenario = base()
+        .faction(P2, Faction::Colonists)
+        .spawn(ObjectKind::Beacon, Some(P2), tile(10, 12)); // 4
+    let mut t = started_peaceful(scenario, 1000);
+    next_debug(&mut t, set_crystals(P2, 1000));
+    let (hideout, beacon) = (ObjectId(2), ObjectId(4));
+    let o = object(&t, hideout);
+    assert!(t.sim().hidden_from(o, P2) && !t.sim().is_visible(P2, o));
+    assert_eq!(t.sim().visibility(P2, at(9, 12)), VisibilityState::Visible);
+    let orientation = BuildingOrientation::default();
+    let ghost = t.sim().warp_in_check(beacon, ObjectKind::RoboPortal, orientation);
+    let under = [(at(9, 12), TileProblem::Structure), (at(9, 13), TileProblem::Structure)];
+    assert_eq!(ghost.map(|check| check.tiles), Some(under.to_vec()));
+    let warp_in = Command::Construction {
+        objects: vec![beacon],
+        command: ConstructionCommand::WarpIn {
+            kind: ObjectKind::RoboPortal,
+            orientation,
+        },
+    };
+    assert_eq!(gate(&t, P2, warp_in), tile_problem(9, 12, TileProblem::Structure));
 }

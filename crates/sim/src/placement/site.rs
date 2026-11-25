@@ -104,8 +104,11 @@ pub enum Method {
     /// Buildable; no flatness (`core/map.md > Elevation`) and no sight ("Surface visibility is not relevant"), whatever
     /// the [`Mode`]. Every structure blocks it, whoever owns it and whichever its layer, the Tunnel's own footprint
     /// included (design change 0240: "no expansion can be placed under any surface building, any player's"); so do the
-    /// resources (0241), the ground units (Placeholder: Q0080 point 1, `core/entities.md > Direct Placement` read
-    /// literally) and the owner's lingering ghosts (Placeholder: Q0080 point 2), as for the other methods.
+    /// resources (0241). Ground units don't (design change 0290, `core/entities.md > Direct Placement`'s exception:
+    /// "ground units **don't** block a Syndicate expansion's placement, since it is underground and units walk over
+    /// expansions anyway"). No lingering ghost is in its way, so a game reserves none against it (0290: "a Tunnel ghost
+    /// can never be placed inside another Tunnel's area [...], and expansions are placed only inside their own Tunnel's
+    /// area, so the two never meet"; "No ghost check is needed").
     Expansion { area: TileRect },
 }
 

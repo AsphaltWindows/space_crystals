@@ -383,16 +383,18 @@ Layout validation can't disagree. **Never test a placement rule anywhere else: a
   player }` is a game: every tile must be Visible to the player as the latest tick left it. `Mode::Layout` is a
   Starting Layout: no sight (design change 0097). A game asks `Sim::placement_check(player, kind, origin,
   orientation)`, a layout object `placement::check_layout(map, others, layout, index)`.
-- **Out**: a `PlacementCheck`: the `TileProblem`s of each footprint tile (off the map, not Buildable, sloped, not
-  Visible, under a structure, under a resource, under a ground unit, reserved), row by row and in that order, and the
-  `WholeProblem`s (not a structure, outside the build area, a plate not on a patch, a Tunnel Area off the map, on
-  undrillable ground or over another Tunnel's, a layout's expansion outside its Tunnel's area). Valid means both are
+- **Out**: a `PlacementCheck`: the `TileProblem`s of each footprint tile (off the map, not Buildable, not Drillable,
+  sloped, not Visible, under a structure, under a resource, under a ground unit, reserved), row by row and in that
+  order, as bits of a u16 (plan decision T53), and the `WholeProblem`s (not a structure, outside the build area, a
+  plate not on a patch, a Tunnel Area off the map, on undrillable ground or over another Tunnel's, an expansion
+  outside its Tunnel's area). Valid means both are
   empty: the ghost shows the tiles' problems tile by tile, and the gate refuses a placement with any problem. The
   check reads the true state, but a tile the player doesn't see has `NotVisible` as its only problem, so it tells
   nothing the fog hides.
 - **The rules** are listed with their design sections in the module docs. Footprints share tiles only as
   `ObjectKind::may_overlap` allows. A ground unit of any player blocks the tiles its box overlaps, and is never pushed
-  aside (design change 0094); air and underground units never block. A plate goes exactly onto a patch
+  aside (design change 0094); air and underground units never block, and no unit blocks an underground expansion
+  (design change 0290). A plate goes exactly onto a patch
   (`placement::Onto`), the one rule of the check that map validation applies to pre-placed objects too
   (`SpawnProblem::NotOnPatch`, slice M2-J2).
 - **The Tunnel Area rules** (slice M4-B, `placement/tunnel_area.rs`): a kind with a tier table, the Tunnel, has its
@@ -400,10 +402,9 @@ Layout validation can't disagree. **Never test a placement rule anywhere else: a
   `WholeProblem::TunnelAreaOffMap`, `TunnelAreaNotDrillable`; Drillable is the preset's flag, never its look), in
   every mode and method; `Mode::Known` counts only the undrillable ground the player has explored, the map's edge
   always. A Tunnel 2 tiles from the edge is valid (design change 0283, as written). `check_layout` adds the
-  layout rule for expansions: an underground structure lies wholly inside the Tier 1 area of a Tunnel of its own
-  layout (`OutsideTunnelArea`), as a layout's plates lie in its own Deployment Center's area. Map and debug spawns
-  don't take the check: a spawned Tunnel by Water or the edge stays valid. Until slice M4-F's expansion method, a
-  Hideout's tiles follow `Method::Direct`'s rules (Buildable, stricter than design change 0239's Drillable).
+  layout rule for expansions: an underground structure is checked by the expansion method in the Tier 1 area of a
+  Tunnel of its own layout (`OutsideTunnelArea` outside every one), as a layout's plates lie in its own Deployment
+  Center's area. Map and debug spawns don't take the check: a spawned Tunnel by Water or the edge stays valid.
 - **The overlap rule** (slice M4-E, `placement/tunnel_overlap.rs`; design change 0237, `factions/syndicate/tunnels.md >
   Tunnel Area Non-Overlap Rule`): a kind with a tier table has its Tier 1 area overlap no area of a Tunnel among the
   occupants, any player's, sites included (Placeholder: Q0079 point 3), each at its tier as the check knows it
@@ -431,7 +432,18 @@ Layout validation can't disagree. **Never test a placement rule anywhere else: a
   (0120: what the player knows: its own objects, the others it sees, its records of structures and resources in the fog;
   a tile never explored passes, but for the reservations), its arrival in `Mode::Arrival` (the truth, no sight rule).
   `Sim::deploy_check(drone, origin, queued)` and `Sim::build_check(worker, kind, origin, orientation, queued)` are the
-  orders' checks, for the gate and the ghosts; `Sim::arrival_check` is the arrival's.
+  orders' checks, for the gate and the ghosts; `Sim::arrival_check` is the arrival's. `Method::Expansion { area }`
+  (slice M4-F, plan decisions T32 and T53; `factions/syndicate/tunnels.md > AwaitingPlacement (Expansion)`) is a
+  Tunnel's underground expansion: wholly inside `area`, the Tunnel's current area (`OutsideTunnelArea`), on Drillable
+  tiles in place of Buildable ones (`TileProblem::NotDrillable`, design change 0239), with no flatness and no sight
+  in any mode. Every structure blocks it, whichever its layer and whoever owns it, the Tunnel's own footprint
+  included (0240), and so do resources (0241); no unit does, and no reservation is checked against it, since no
+  lingering ghost can be in its way (0290). `Sim::expansion_check(tunnel, kind, origin, orientation)` is the ghost's,
+  in `Mode::Known` (what the owner knows); the gate checks the same by the truth (`Sim::expansion_truth`, in
+  `Mode::Command` without its sight rule), so a surface building the owner doesn't know of refuses the Expand
+  (0240). The other way round, a direct placement and a Warp In over a hidden expansion are red at once, since
+  `Mode::Command` reads every object (0240's accepted leak; 0290 for the Warp In), while a worker-built ghost judges
+  by what the player knows and fails on arrival.
 - **Reservations** (design change 0125, `core/entities.md > Lingering build ghosts`): each worker build ordered and not
   yet started (a Deploy, a Build), current or Shift-queued, reserves its site against its owner's further placements,
   a worker build's and a Warp In's (`TileProblem::Reserved`, through `placement::check_reserving`, which takes them as
@@ -453,7 +465,8 @@ Layout validation can't disagree. **Never test a placement rule anywhere else: a
   each kind's extension, the runs), `tests/placement.rs` (the verification points of design changes 0004 and 0091 to
   0097 in games and layouts, determinism, a save), `tests/warp_in/` (the Warp In method, see *Economy > Warp In*),
   `tests/deploy_gate/` (the worker-built method, its modes and the reservations), `tests/builds/` (the Build's: the
-  overlap rule by knowledge and by truth, the Drillable area, hidden expansions) and the ignored
+  overlap rule by knowledge and by truth, the Drillable area, hidden expansions), `tests/expansions/placing.rs` (the
+  expansion method in games, by knowledge and by truth; slice M4-F) and the ignored
   `tests/placement_perf.rs`. Measured (release, 769 objects, 101 buildings of the player's; slice M2-J2, on a quiet
   machine): 4 µs a check, 2 µs a build area. Slice M4-E's tiers and overlap rule, A/B against the master before it
   (four alternating runs at load 1.1): 4.5 µs a check before, 4.9 µs after; the rule gathers Tunnel Areas only for a

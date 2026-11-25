@@ -1,7 +1,9 @@
 //! The expansion method (slice M4-F, `Method::Expansion`; `factions/syndicate/tunnels.md > AwaitingPlacement
 //! (Expansion)`): wholly inside the Tunnel's area, on Drillable ground (design change 0239), with no flatness and no
-//! sight, and every structure (0240), resource (0241), ground unit and lingering ghost (Placeholder: Q0080) in its
-//! way. `crates/sim/tests/expansions/` checks it in games, the truth against what the owner knows included.
+//! sight, and every structure (0240) and resource (0241) in its way, but no ground unit (design change 0290). No
+//! lingering ghost can be in its way either (0290: "No ghost check is needed"), so a game reserves none against it
+//! (`Sim::expansion_check`). `crates/sim/tests/expansions/` checks it in games, the truth against what the owner
+//! knows included.
 
 use super::*;
 
@@ -13,12 +15,11 @@ fn area() -> TileRect {
     TileRect::new(t(2, 2), 8, 8)
 }
 
-/// [`check_reserving`] of a `kind` placed by the expansion method in [`area`] at `(x, y)`, unturned, in `mode`.
+/// [`check`] of a `kind` placed by the expansion method in [`area`] at `(x, y)`, unturned, in `mode`.
 fn expand_in(
     map: &Map,
     mode: Mode<'_>,
     occupants: &[Occupant],
-    reserved: &[Occupant],
     kind: ObjectKind,
     (x, y): (i32, i32),
 ) -> PlacementCheck {
@@ -30,20 +31,13 @@ fn expand_in(
         method: Method::Expansion { area: area() },
     };
     let occupants = occupants.iter().copied();
-    check_reserving(
-        &site,
-        occupants,
-        reserved,
-        kind,
-        t(x, y),
-        BuildingOrientation::default(),
-    )
+    check(&site, occupants, kind, t(x, y), BuildingOrientation::default())
 }
 
 /// A Hideout by the expansion method in Layout mode, among the Tunnel at (4, 4) and `others`.
 fn hideout(map: &Map, others: &[Occupant], x: i32, y: i32) -> PlacementCheck {
     let occupants: Vec<Occupant> = [on(Tunnel, 4, 4)].into_iter().chain(others.iter().copied()).collect();
-    expand_in(map, Mode::Layout, &occupants, &[], Hideout, (x, y))
+    expand_in(map, Mode::Layout, &occupants, Hideout, (x, y))
 }
 
 /// `> AwaitingPlacement (Expansion)`: "The expansion must fit entirely within the Tunnel Area": inside it, at its
@@ -134,22 +128,23 @@ fn an_expansion_needs_no_flat_ground_and_no_sight() {
     let map = sim.map();
     assert!(!map.is_flat(t(4, 3)), "a slope at x = 4");
     assert!(hideout(map, &[], 4, 2).is_valid(), "on the slope");
-    assert!(expand_in(map, Mode::Layout, &[], &[], Generator, (4, 2)).is_valid());
+    assert!(expand_in(map, Mode::Layout, &[], Generator, (4, 2)).is_valid());
     let unseen = Mode::Command {
         vision: sim.vision(),
         player: PlayerId(1),
     };
     assert_eq!(sim.visibility(PlayerId(1), t(6, 6)), VisibilityState::Unexplored);
-    assert!(expand_in(map, unseen, &[on(Tunnel, 4, 4)], &[], Hideout, (6, 2)).is_valid());
-    assert!(expand_in(map, unseen, &[], &[], Generator, (4, 2)).is_valid());
+    assert!(expand_in(map, unseen, &[on(Tunnel, 4, 4)], Hideout, (6, 2)).is_valid());
+    assert!(expand_in(map, unseen, &[], Generator, (4, 2)).is_valid());
 }
 
 /// Every structure blocks an expansion, whichever its layer and whoever owns it (design change 0240: "no expansion can
 /// be placed under any surface building, any player's"; "Own and neutral underground structures block it"), and so
-/// do the resources (0241: "a Space Crystals patch or Supply Delivery Station above blocks an expansion") and, by
-/// `core/entities.md > Direct Placement` read literally, a ground unit (Placeholder: Q0080 point 1).
+/// do the resources (0241: "a Space Crystals patch or Supply Delivery Station above blocks an expansion"); a ground
+/// unit doesn't (design change 0290, `core/entities.md > Direct Placement`'s exception: "ground units **don't** block
+/// a Syndicate expansion's placement").
 #[test]
-fn structures_resources_and_ground_units_block_an_expansion() {
+fn structures_and_resources_block_an_expansion_and_ground_units_dont() {
     let map = Map::new(16, 16);
     let others = [
         on(Hideout, 2, 2),
@@ -171,17 +166,6 @@ fn structures_resources_and_ground_units_block_an_expansion() {
     );
     assert_eq!(problems(2, 7), [(t(2, 8), Resource)], "a patch");
     assert_eq!(problems(8, 7), [(t(8, 8), Resource), (t(9, 8), Resource)], "a station");
-    assert_eq!(problems(5, 8), [(t(6, 8), Unit)], "a ground unit");
+    assert!(hideout(&map, &others, 5, 8).is_valid(), "a ground unit");
     assert!(hideout(&map, &others, 4, 8).is_valid());
-}
-
-/// `core/entities.md > Lingering build ghosts`: the owner's pending worker builds reserve their sites against an
-/// expansion too (Placeholder: Q0080 point 2).
-#[test]
-fn the_owners_lingering_ghosts_reserve_against_an_expansion() {
-    let map = Map::new(16, 16);
-    let ghost = [on(Tunnel, 8, 8)];
-    let check = expand_in(&map, Mode::Layout, &[on(Tunnel, 4, 4)], &ghost, Hideout, (8, 8));
-    let reserved = [t(8, 8), t(9, 8), t(8, 9), t(9, 9)].map(|tile| (tile, Reserved));
-    assert_eq!(check.tiles, reserved);
 }

@@ -2,15 +2,14 @@
 //! `factions/syndicate/tunnels.md > AwaitingPlacement (Expansion)`, `factions/syndicate/tunnels.md > Expansions under
 //! construction`; design changes 0239, 0240, 0241 and 0254), through the gate, one test binary:
 //! - `placing`: where an expansion may go: inside the Tunnel's area, on Drillable ground (0239), clear of every
-//!   structure (0240), resource (0241) and ground unit (Placeholder: Q0080 point 1), its ghost judging by what the
-//!   owner knows and the command by the truth. The owner's lingering ghosts (Q0080 point 2) are unit-tested
-//!   (`placement/tests/expansion.rs`): no game puts one in its owner's Tunnel Area, which a Tunnel's own area keeps
-//!   clear of (design change 0237);
+//!   structure (0240) and resource (0241), ground units standing on it or not (design change 0290), its ghost judging
+//!   by what the owner knows and the command by the truth. No lingering ghost can be in its way (0290: "No ghost check
+//!   is needed"), and none is checked;
 //! - `building`: the click pays and takes Tunnel Space, the frames and the HP, completion, the one operation, and Eject
 //!   meanwhile;
 //! - `cancelling`: the refunds (0254) by the Tunnel's X and by the site's own Cancel Construction, and the site gone
 //!   otherwise;
-//! - `hidden`: what the other player sees of it: nothing.
+//! - `hidden`: what the other player sees of it: nothing; and a Colonists Warp In over it, red at once (0290).
 //!
 //! Every test runs under the invariants of `TestSim`, the operation invariant O1 among them (a Tunnel's operation and
 //! its site name each other). The test kinds of another cost or Tier Requirement are the sim's own unit tests

@@ -115,7 +115,9 @@ pub fn check_reserving(
                 }
             }
             None => {
-                let Some(half) = ground_half_extents(o.kind) else {
+                // `core/entities.md > Direct Placement`'s exception (design change 0290): "ground units **don't** block
+                // a Syndicate expansion's placement, since it is underground and units walk over expansions anyway".
+                let Some(half) = ground_half_extents(o.kind).filter(|_| !expansion) else {
                     continue;
                 };
                 // Strictly, so a unit only touching the footprint's edge leaves it free (`docs/movement.md > 3`).

@@ -5,7 +5,7 @@ use sc_sim::WholeProblem;
 
 use super::*;
 
-use TileProblem::{NotDrillable, Resource, Structure, Unit};
+use TileProblem::{NotDrillable, Resource, Structure};
 
 /// "The expansion must fit entirely within the Tunnel Area": inside it, at its corners, the ghost is green and the
 /// command taken; half outside or outside, both refuse it as a whole. "Own and neutral underground structures block
@@ -44,21 +44,52 @@ fn inside_the_area_clear_of_every_structure() {
     assert!(t.sim().object(building(&t)).is_some_and(|o| o.kind == HIDEOUT));
 }
 
-/// Design change 0241: "a Space Crystals patch or Supply Delivery Station above blocks an expansion"; Placeholder:
-/// Q0080 point 1, `core/entities.md > Direct Placement` read literally: "a ground unit of any player ... standing on
-/// any footprint tile makes those tiles invalid".
+/// Design change 0241: "a Space Crystals patch or Supply Delivery Station above blocks an expansion".
 #[test]
-fn resources_and_ground_units_block_it() {
+fn resources_block_it() {
     let scenario = base()
         .spawn(ObjectKind::CrystalPatch, None, tile(2, 6)) // 4
-        .spawn(ObjectKind::SupplyDeliveryStation, None, tile(8, 6)) // 5
-        .spawn(ObjectKind::Peacekeeper, Some(P2), point(3, 12)); // 6
-    let t = started_peaceful(scenario, 1000);
+        .spawn(ObjectKind::SupplyDeliveryStation, None, tile(8, 6)); // 5
+    let t = started(scenario, 1000);
     assert_eq!(gate(&t, P1, expand(2, 6)), tile_problem(2, 6, Resource), "a patch");
+    assert_eq!(ghost(&t, 2, 6).tiles, [(at(2, 6), Resource)]);
     assert_eq!(gate(&t, P1, expand(8, 7)), tile_problem(8, 7, Resource), "a station");
-    assert_eq!(gate(&t, P1, expand(2, 12)), tile_problem(3, 12, Unit), "a ground unit");
-    assert_eq!(ghost(&t, 2, 12).tiles, [(at(3, 12), Unit)]);
     assert_eq!(gate(&t, P1, expand(6, 12)), Ok(()));
+}
+
+/// Design change 0290's verification, "Place a Hideout under a standing Guard: it is accepted" (`core/entities.md >
+/// Direct Placement`'s exception: "ground units **don't** block a Syndicate expansion's placement, since it is
+/// underground and units walk over expansions anyway"), and under another player's unit alike: the ghost is green,
+/// the click builds it, and the units stand where they stood.
+#[test]
+fn ground_units_dont_block_it() {
+    let scenario = base()
+        .spawn(ObjectKind::Guard, Some(P1), point(3, 7)) // 4
+        .spawn(ObjectKind::Peacekeeper, Some(P2), point(7, 13)); // 5
+    let mut t = started_peaceful(scenario, 1000);
+    let stand = |t: &mut TestSim, player: PlayerId, unit: u32| {
+        let hold = Command::Order {
+            units: vec![ObjectId(unit)],
+            kind: sc_sim::OrderKind::Hold,
+            queue: false,
+        };
+        next(t, player, hold);
+    };
+    stand(&mut t, P1, 4);
+    stand(&mut t, P2, 5);
+    let (guard, peacekeeper) = (object(&t, ObjectId(4)).pos, object(&t, ObjectId(5)).pos);
+    for (x, y) in [(2, 6), (6, 12)] {
+        assert!(ghost(&t, x, y).is_valid(), "({x}, {y})");
+        assert_eq!(gate(&t, P1, expand(x, y)), Ok(()), "({x}, {y})");
+    }
+    next(&mut t, P1, expand(2, 6));
+    let site = building(&t);
+    assert_eq!(object(&t, site).placement.map(|p| p.origin), Some(at(2, 6)));
+    t.run(10);
+    assert_eq!(
+        (object(&t, ObjectId(4)).pos, object(&t, ObjectId(5)).pos),
+        (guard, peacekeeper)
+    );
 }
 
 /// Design change 0239: "**Every tile under it must be Drillable** (... Plane, Rugged and Cliff yes; Mountain and Water
