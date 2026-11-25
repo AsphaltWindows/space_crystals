@@ -1,7 +1,8 @@
 //! The Agent's UI in the client (slice M4-J1; design changes 0233, 0234, 0237, 0257 and 0260): its panel's letters, D
 //! greyed with its reason; Build Tunnel's price and its refusal while the bank can't pay; Shift placing one ghost per
 //! Agent; a site's X Cancel Construction alone; the lingering Tunnel ghosts, which only their owner sees; the Enter and
-//! Drop Off pointers; and the Supply an Agent carries. The Tunnel ghost's verdicts are [`ghost`]'s (design change 0242).
+//! Drop Off pointers; and the Supply an Agent carries. The Tunnel ghost's verdicts are [`ghost`]'s (design change
+//! 0242).
 
 mod ghost;
 

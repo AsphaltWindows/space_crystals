@@ -76,8 +76,8 @@ pub(in crate::command_ui) fn end_queued_placement(actions: Res<ActionState>, mut
 ///   already sends nothing and ends placement ("Once every Drone in the group has a Deploy, placement ends").
 /// - **An Agent's building** (`factions/syndicate/units/agent.md > Agent ObjectInterfaceState > A: Build Tunnel`:
 ///   "Left-click valid location confirms placement and dispatches the Agent (CommandIssuingTransition, returns to
-///   DefaultState)"; slice M4-J1): the ghost under the click, if `Sim::build_check` allows it: one `OrderKind::Build` to
-///   the Agent placing, queued with Shift (`systems/controls/selection_and_hud.md > AwaitingTarget > Shift while
+///   DefaultState)"; slice M4-J1): the ghost under the click, if `Sim::build_check` allows it: one `OrderKind::Build`
+///   to the Agent placing, queued with Shift (`systems/controls/selection_and_hud.md > AwaitingTarget > Shift while
 ///   placing`: "each Agent takes exactly one placement", and placement ends like a plain click's; Tab and A again
 ///   place with the next Agent), and back to DefaultState. It is paid as it is given (design change 0233): a Build
 ///   the gate refuses (too few Supplies since A was pressed, the Agent building already) sends nothing, says why

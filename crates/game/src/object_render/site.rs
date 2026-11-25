@@ -7,9 +7,9 @@
 //! turned half way to a pale sand ([`site_color`]), braced at its corners by a scaffold ([`draw`]), without what a
 //! finished structure shows on its roof (a Tunnel's sides); a progress bar inside the footprint near its south edge,
 //! clear of the health bar above it (`crate::combat_effects`): a dark track drawn with the body, and its fill a child
-//! of the visual ([`SiteProgress`]), as long as the construction's share done (`sc_sim::Progress::ratio`). The bar shows
-//! on every site the local player sees, anyone's (placeholder reading: the design says only that enemies see the site,
-//! `factions/syndicate/units/agent.md > While the Tunnel is under construction > What enemies see`).
+//! of the visual ([`SiteProgress`]), as long as the construction's share done (`sc_sim::Progress::ratio`). The bar
+//! shows on every site the local player sees, anyone's (placeholder reading: the design says only that enemies see the
+//! site, `factions/syndicate/units/agent.md > While the Tunnel is under construction > What enemies see`).
 
 use bevy::prelude::*;
 use sc_sim::ObjectId;
