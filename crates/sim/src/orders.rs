@@ -281,7 +281,7 @@ fn update_unit(orders: &mut Orders, unit: &mut Unit, world: &World, claims: &mut
     // Each pass completes an order or starts one from the queue, which is bounded, so this ends.
     loop {
         if let Some(active) = &mut orders.current {
-            if !run(active, unit, world, claims, reach) {
+            if !run(active, &mut orders.auto, unit, world, claims, reach) {
                 return;
             }
             orders.current = None;
@@ -362,8 +362,11 @@ fn start(order: &Order, unit: &mut Unit, world: &World) -> Behaviour {
 }
 
 /// One tick of the current order's behaviour. Returns whether it is complete, so that the next order may start.
+/// `auto` is what the unit does on its own once it has no order: an order that ends may leave it something
+/// (`engage::attack`: the target it gave up).
 fn run(
     active: &mut ActiveOrder,
+    auto: &mut Auto,
     unit: &mut Unit,
     world: &World,
     claims: &mut gather::Claims,
@@ -381,7 +384,7 @@ fn run(
             engage::hold(unit, target, world);
             false
         }
-        (OrderKind::Attack(id), Behaviour::Attack(state)) => engage::attack(unit, id, state, world),
+        (OrderKind::Attack(id), Behaviour::Attack(state)) => engage::attack(unit, id, state, auto, world),
         (OrderKind::Move(Target::Object(id)), Behaviour::Approach(state)) => travel::approach(unit, id, state, world),
         (OrderKind::AttackMove(click), Behaviour::AttackMove(leg)) => {
             travel::march(unit, leg, Some(path_group(order, click)), world, reach) != travel::LegStatus::Running
