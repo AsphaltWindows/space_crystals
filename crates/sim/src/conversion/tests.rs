@@ -32,6 +32,7 @@ fn unit(kind: ObjectKind, phase: Option<AttackPhase>) -> Object {
         worker: None,
         transform: None,
         conversion: None,
+        tunnel: None,
     }
 }
 

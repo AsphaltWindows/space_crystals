@@ -19,7 +19,9 @@ use serde::{Deserialize, Serialize};
 use crate::player::Faction;
 
 pub use gdo::RIOT_SHIELD_TOGGLE_TICKS;
-pub use structures::{ExitRule, MiningDef, ProductionDef, Recipe, StructureDef, SymmetryType};
+pub use structures::{
+    ExitRule, MiningDef, ProductionDef, Recipe, StructureDef, SymmetryType, TierDef, Transit, TunnelDef,
+};
 pub use units::{
     AttackAttrs, AttackType, Domain, FullyConnectedSubtype, MELEE_CONTACT_GU, MovementAttrs, MovementModel,
     RiotShieldDef, TargetDomain, TargetType, TurretAttrs, UnitBase, UnitBaseDef, UnitDef, WorkerDef,
@@ -63,6 +65,12 @@ pub enum ObjectKind {
     /// `factions/gdo/units.md > Peacekeeper > Riot Shield > Two unit types` (design change 0173): the Peacekeeper
     /// with its shield up
     PeacekeeperShielded,
+    /// `factions/syndicate/units.md > Agent`
+    Agent,
+    /// `factions/syndicate/tunnels.md > Tunnel`, at any of its tiers (plan decision T39)
+    Tunnel,
+    /// `factions/syndicate/structures.md > Hideout`
+    Hideout,
 }
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
@@ -174,6 +182,9 @@ impl ObjectKind {
         ObjectKind::SabreLegionnaire,
         ObjectKind::RifleLegionnaire,
         ObjectKind::PeacekeeperShielded,
+        ObjectKind::Agent,
+        ObjectKind::Tunnel,
+        ObjectKind::Hideout,
     ];
 
     pub fn def(self) -> &'static ObjectDef {
@@ -200,6 +211,9 @@ impl ObjectKind {
             ObjectKind::SabreLegionnaire => &colonists::SABRE_LEGIONNAIRE,
             ObjectKind::RifleLegionnaire => &colonists::RIFLE_LEGIONNAIRE,
             ObjectKind::PeacekeeperShielded => &gdo::PEACEKEEPER_SHIELDED,
+            ObjectKind::Agent => &syndicate::AGENT,
+            ObjectKind::Tunnel => &syndicate::TUNNEL,
+            ObjectKind::Hideout => &syndicate::HIDEOUT,
         }
     }
 
@@ -207,7 +221,10 @@ impl ObjectKind {
     /// and the Space Crystals Patch it stands on may (`factions/gdo/economy.md > ExtractionPlate`: "placed onto a
     /// Space Crystal Patch"); every other pair of tile-based objects is kept apart (`core/entities.md > Placement
     /// Validation > Direct Placement`: no structure overlap), structures and map resources included (`> All
-    /// placement methods: no buildings on resources`, design change 0096). As two plates may not overlap, nor two
+    /// placement methods: no buildings on resources`, design change 0096), and an underground structure and a surface
+    /// one too (design change 0240: "a surface structure and an underground expansion (any player's, including
+    /// neutral ones) can never share a tile"; the placement methods of slices M4-E and M4-F follow it in both layers,
+    /// the expansions' own in theirs). As two plates may not overlap, nor two
     /// patches, a patch holds one plate at most: a plate goes only onto an uncovered patch. Units have no
     /// footprint: this is about tile-based objects only.
     pub fn may_overlap(self, other: ObjectKind) -> bool {

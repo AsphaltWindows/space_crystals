@@ -24,7 +24,7 @@ use crate::paths::knowledge::PathKnowledge;
 use crate::shape::Shape;
 use crate::targets::{self, Live, TargetView};
 use crate::units::{SU_PER_GU, Tick, gu};
-use crate::vision::Vision;
+use crate::vision::{Hiding, Vision};
 
 use gathering::Gathering;
 pub(crate) use gathering::KnownPatch;
@@ -48,6 +48,8 @@ pub(crate) struct View {
     pub is_patch: bool,
     /// The TargetDomain of its attack, if it has one: whom it threatens (`> TurretAutonomousScanning`, priority 1).
     threat: Option<TargetDomain>,
+    /// Whom it is hidden from (`vision::hidden`, plan decision T32), which [`World::sees`] asks.
+    hiding: Hiding,
 }
 
 /// What a unit's owner knows of the object its order names, this tick (`crate::targets::TargetView`, design change
@@ -215,6 +217,7 @@ impl<'a> World<'a> {
                 threat: combat::weapon(o)
                     .filter(|_| o.attack.is_some())
                     .map(|attrs| attrs.target_domain),
+                hiding: Hiding::of(o),
             })
             .collect();
         let cells_wide = map.width().div_ceil(CELL_TILES).max(1);
@@ -272,13 +275,14 @@ impl<'a> World<'a> {
     }
 
     /// `systems/combat.md > ValidTarget` 2: whether `owner` sees `view` now, by the vision the last tick left
-    /// (`PlayerVision::object_box_state`: a tile its shape covers is Visible, the fog delay included, or it is an
-    /// attacker revealed to the owner). A unit without an owner sees nothing.
+    /// (`PlayerVision::object_box_state`: it isn't hidden from the owner, plan decision T32, and a tile its shape
+    /// covers is Visible, the fog delay included, or it is an attacker revealed to the owner). A unit without an owner
+    /// sees nothing.
     pub(crate) fn sees(&self, owner: Option<PlayerId>, view: &View) -> bool {
         let (lo, hi) = view.shape.bounds();
         owner
             .and_then(|owner| self.vision.player(owner))
-            .is_some_and(|sight| sight.sees_object_box(view.id, lo, hi))
+            .is_some_and(|sight| sight.sees_object_box(view.id, lo, hi, view.hiding))
     }
 
     /// What `owner` knows of object `id` ([`Known`]), by the vision the last tick left: the one rule of

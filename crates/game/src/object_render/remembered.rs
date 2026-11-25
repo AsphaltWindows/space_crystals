@@ -11,25 +11,35 @@
 use std::collections::BTreeMap;
 
 use bevy::prelude::*;
+use sc_sim::tunnel::TunnelState;
 use sc_sim::vision::LastKnown;
 use sc_sim::{ObjectId, ObjectKind, Placement, PlayerId};
 
-use super::{MeshKey, ObjectVisualAssets, object_height, object_transform, structures, visual_mesh};
+use super::{MeshKey, ObjectVisualAssets, object_height, object_transform, structures, underground, visual_mesh};
 use crate::fog::{EXPLORED_ALPHA, LocalSight, Revision};
+use crate::hud::selection_panel::object_label;
 use crate::sim_driver::SimRes;
 
 /// Links a visual entity to the record it shows: the local player's record of object `0`.
 #[derive(Component, Copy, Clone, Debug, PartialEq, Eq)]
 pub struct RememberedVisual(pub ObjectId);
 
+/// What a record's visual shows of it: its kind, owner, footprint and a Tunnel's tier.
+type Made = (ObjectKind, Option<PlayerId>, Placement, Option<TunnelState>);
+
 /// The visual entity of each record shown.
 #[derive(Resource, Default, Debug)]
 pub struct RememberedVisuals {
     pub by_id: BTreeMap<ObjectId, Entity>,
     /// What each visual was made from.
-    made: BTreeMap<ObjectId, (ObjectKind, Option<PlayerId>, Placement)>,
+    made: BTreeMap<ObjectId, Made>,
     /// What the visuals show.
     shown: Option<Shown>,
+}
+
+/// What the visual of `record` shows of it.
+fn made(record: &LastKnown) -> Made {
+    (record.kind, record.owner, record.placement, record.tunnel)
 }
 
 /// Everything the set of records shown depends on.
@@ -78,9 +88,7 @@ pub(super) fn sync_remembered_visuals(
     let RememberedVisuals { by_id, made, .. } = &mut *visuals;
     let wanted: BTreeMap<ObjectId, &LastKnown> = seen.remembered().map(|r| (r.id, r)).collect();
     by_id.retain(|id, entity| {
-        let keep = wanted
-            .get(id)
-            .is_some_and(|r| made.get(id) == Some(&(r.kind, r.owner, r.placement)));
+        let keep = wanted.get(id).is_some_and(|r| made.get(id) == Some(&self::made(r)));
         if !keep {
             commands.entity(*entity).despawn();
             made.remove(id);
@@ -92,12 +100,16 @@ pub(super) fn sync_remembered_visuals(
         if by_id.contains_key(&id) {
             continue;
         }
-        let material = assets
-            .dimmed
-            .get_or_insert_with(|| materials.add(dimmed_material()))
-            .clone();
+        // An underground structure's record (a neutral one's: none is taken of a hidden one) blends, as it does live.
+        let material = match underground(record.kind) {
+            true => assets
+                .underground_dimmed
+                .get_or_insert_with(|| materials.add(structures::underground_material(KEPT))),
+            false => assets.dimmed.get_or_insert_with(|| materials.add(dimmed_material())),
+        }
+        .clone();
         // Records are of structures, in their owner's colour, and resources.
-        let key = MeshKey::of(record.kind, record.owner, Some(&record.placement));
+        let key = MeshKey::of(record.kind, record.owner, Some(&record.placement), record.tunnel);
         let mesh = assets
             .meshes
             .entry(key)
@@ -118,10 +130,11 @@ pub(super) fn sync_remembered_visuals(
         if let Some(size) = key.size {
             // The text's colour, in sRGB, darkened about as much as the material darkens the mesh.
             let dim = KEPT.powf(1.0 / 2.2);
-            commands.spawn((structures::tag(id, record.kind, size, dim), ChildOf(entity)));
+            let label = object_label(record.kind, record.tunnel);
+            commands.spawn((structures::tag(id, label, size, dim), ChildOf(entity)));
         }
         by_id.insert(id, entity);
-        made.insert(id, (record.kind, record.owner, record.placement));
+        made.insert(id, self::made(record));
     }
     visuals.shown = Some(shown);
 }

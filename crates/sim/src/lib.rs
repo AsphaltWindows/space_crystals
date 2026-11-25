@@ -46,6 +46,7 @@ pub mod symmetry;
 pub mod targets;
 pub mod testing;
 pub mod transform;
+pub mod tunnel;
 pub mod units;
 pub mod vision;
 
@@ -54,7 +55,7 @@ pub use command::{Ability, Command, DebugCommand, PlayerCommand, TickInputs};
 pub use construction::{ConstructionCommand, Constructor};
 pub use defs::{
     Armor, Category, ExitRule, Footprint, MiningDef, ObjectDef, ObjectKind, ProductionDef, Recipe, StructureDef,
-    SymmetryType,
+    SymmetryType, TierDef, Transit, TunnelDef,
 };
 pub use economy::{
     ArmyCap, ArmyResource, BEACON_CAPACITY_CAP, BEACON_CAPACITY_PER_BUILDING, Extractor, Outcome, PowerSummary,

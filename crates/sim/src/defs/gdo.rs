@@ -149,6 +149,8 @@ pub(super) static DEPLOYMENT_CENTER: ObjectDef = ObjectDef {
         ],
         warp_in: &[],
         drop_off: false,
+        underground: false,
+        tunnel: None,
     }),
 };
 
@@ -180,6 +182,8 @@ pub(super) static GENERATOR: ObjectDef = ObjectDef {
         constructs: &[],
         warp_in: &[],
         drop_off: false,
+        underground: false,
+        tunnel: None,
     }),
 };
 
@@ -219,6 +223,8 @@ pub(super) static BARRACKS: ObjectDef = ObjectDef {
         constructs: &[],
         warp_in: &[],
         drop_off: false,
+        underground: false,
+        tunnel: None,
     }),
 };
 
@@ -255,6 +261,8 @@ pub(super) static EXTRACTION_FACILITY: ObjectDef = ObjectDef {
         }],
         warp_in: &[],
         drop_off: false,
+        underground: false,
+        tunnel: None,
     }),
 };
 
@@ -291,5 +299,7 @@ pub(super) static EXTRACTION_PLATE: ObjectDef = ObjectDef {
         constructs: &[],
         warp_in: &[],
         drop_off: false,
+        underground: false,
+        tunnel: None,
     }),
 };

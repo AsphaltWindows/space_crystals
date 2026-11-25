@@ -29,7 +29,8 @@ pub enum Elevation {
 
 impl Elevation {
     /// An object of `kind` at `pos`: exempt if it is an air unit, else at the elevation level there. For a surface
-    /// structure that is the level of its flat footprint (`> Elevation used`).
+    /// structure that is the level of its flat footprint (`> Elevation used`); for an underground one, which may
+    /// stand on slopes (design change 0005), the terrain under its centre (plan decision T32).
     pub fn of(map: &Map, kind: ObjectKind, pos: Vec2) -> Elevation {
         let air = kind
             .def()

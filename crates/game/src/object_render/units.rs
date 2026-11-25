@@ -1,7 +1,7 @@
 //! Units' placeholder visuals (until the art direction, Q0001, settles them; `ARCHITECTURE.md > Client architecture >
 //! Visuals`): a shape of its own per kind, its silhouette's size, in its owner's colour, with a tick showing its
-//! facing. A body turns with its facing only if it is round ([`body_turns`]); the Colonists' units and the
-//! Peacekeepers carry a two-letter tag of their type ([`UnitTag`]), drawn above the command indicators and upright.
+//! facing. A body turns with its facing only if it is round ([`body_turns`]); the Colonists' units, the Peacekeepers
+//! and the Agent carry a two-letter tag of their type ([`UnitTag`]), drawn above the command indicators and upright.
 //! A Peacekeeper's raised Riot Shield is a pale arc in front of it ([`riot_shield_mesh`]), the Peacekeeper
 //! (Shielded)'s too: the two types share their body (design change 0173).
 
@@ -23,7 +23,7 @@ enum UnitShape {
 }
 
 /// The placeholder shape of a `kind` unit: round for the Peacekeeper, shielded or not, an octagon for the Drone (a
-/// HoverVehicle), and a square for the HeavyInfantry: the Guard and the Legionnaires.
+/// HoverVehicle), and a square for the HeavyInfantry: the Guard, the Agent and the Legionnaires.
 fn shape(kind: ObjectKind) -> UnitShape {
     match kind {
         ObjectKind::Peacekeeper | ObjectKind::PeacekeeperShielded => UnitShape::Round,
@@ -39,10 +39,11 @@ pub(super) fn body_turns(kind: ObjectKind) -> bool {
     shape(kind) == UnitShape::Round
 }
 
-/// Whether a `kind` unit carries its type's tag ([`UnitTag`]): the Colonists' units, and the Peacekeeper's two types
-/// (slice M3-J3: M3-K2's walkthrough found the Peacekeepers unlabelled on the map). The Legionnaire's two forms share
-/// one silhouette (`factions/colonists/units.md > Weapon Conversion`), as the Peacekeeper's two types share their
-/// body (design change 0173); a square is the Guard's too, which goes without.
+/// Whether a `kind` unit carries its type's tag ([`UnitTag`]): the Colonists' units, the Peacekeeper's two types
+/// (slice M3-J3: M3-K2's walkthrough found the Peacekeepers unlabelled on the map), and the Agent (slice M4-A). The
+/// Legionnaire's two forms share one silhouette (`factions/colonists/units.md > Weapon Conversion`), as the
+/// Peacekeeper's two types share their body (design change 0173); a square is the Guard's too, which goes without,
+/// and the Agent's, which its AG tells apart.
 pub(super) fn tagged(kind: ObjectKind) -> bool {
     matches!(
         kind,
@@ -51,6 +52,7 @@ pub(super) fn tagged(kind: ObjectKind) -> bool {
             | ObjectKind::RifleLegionnaire
             | ObjectKind::Peacekeeper
             | ObjectKind::PeacekeeperShielded
+            | ObjectKind::Agent
     )
 }
 

@@ -1,5 +1,6 @@
 //! Placeholder combat feedback (`systems/combat.md`; the art waits on Q0001): a short tracer from the attacker to its
-//! target for each attack that takes effect (`SimEvent::Attacked`), HP bars over damaged and selected objects, with a
+//! target for each attack that takes effect (`SimEvent::Attacked`), a Syndicate laser's red ([`ShotStyle`], design
+//! change 0207), HP bars over damaged and selected objects, with a
 //! shield bar above the HP bar of an object that has Shields (`systems/combat.md > Shields > Display`, slice M3-B,
 //! design change 0148: "a shield bar sits directly above the HP bar"; its styling waits for the HUD pass), and a
 //! fading marker where an object died (`SimEvent::Died`).
@@ -16,8 +17,9 @@
 //!   player's objects are drawn whole, from it to their target (design change 0206, answering Q0056: "while an
 //!   attacker in the fog is revealed to a player, that attacker's own shots are drawn from the attacker to the
 //!   target, with no gap at the fog edge"; design change 0244, answering Q0075, narrows it to the shots at the
-//!   player's own objects: "a fully drawn shot reveals nothing only when **you** are the one attacked"; [`shot_spans`]).
-//!   "Other shots from the fog are still clipped to Visible tiles", a revealed attacker's at anything else too.
+//!   player's own objects: "a fully drawn shot reveals nothing only when **you** are the one attacked";
+//!   [`shot_spans`]). "Other shots from the fog are still clipped to Visible tiles", a revealed attacker's at
+//!   anything else too.
 //! - **A death marker** only on a Visible tile or for one of the player's own objects, and **an HP bar** only over an
 //!   object the player sees (`Sight::sees`): placeholder rules, the design is silent.
 
@@ -55,6 +57,9 @@ pub struct Tracer {
     pub tick: Tick,
     /// The attacker: while it is revealed to the player, its shot is drawn whole ([`shot_spans`]).
     pub attacker: ObjectId,
+    /// The form the attacker fired in (`sc_sim::conversion::form`; its type if it died by the time the client saw the
+    /// shot), whose weapon the shot is drawn as ([`ShotStyle::of`]).
+    pub weapon: Option<ObjectKind>,
     pub owner: Option<PlayerId>,
     /// The object hit.
     pub target: ObjectId,
@@ -64,6 +69,32 @@ pub struct Tracer {
     pub from: Vec2,
     pub to: Vec2,
 }
+
+/// How a shot is drawn, by the weapon that fired it: the one place that says which weapons are lasers of which
+/// colour.
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+pub enum ShotStyle {
+    /// A pale tracer inside a glow in the shooter's colour: every weapon but a Syndicate laser (placeholder, Q0001).
+    Tracer,
+    /// A red laser: design change 0207 (`factions/syndicate/units.md`): "every Syndicate laser-shooting unit and
+    /// structure (Guard, Laser Battery, Laser Turret) fires a **red** laser", whoever owns it.
+    RedLaser,
+}
+
+impl ShotStyle {
+    /// The style of a shot fired in the form `weapon`: the Guard's laser rifle is a red laser (the Laser Battery
+    /// and the Laser Turret will be when they exist); every other weapon, the Agent's pistol included, a tracer.
+    pub fn of(weapon: Option<ObjectKind>) -> Self {
+        match weapon {
+            Some(ObjectKind::Guard) => ShotStyle::RedLaser,
+            _ => ShotStyle::Tracer,
+        }
+    }
+}
+
+/// A red laser's glow and core (placeholders: 0207 says only "red").
+const LASER_GLOW: Srgba = Srgba::rgb(1.0, 0.12, 0.10);
+const LASER_CORE: Srgba = Srgba::rgb(1.0, 0.62, 0.58);
 
 /// An object that died in `tick`, where it stood (`SimEvent::Died`).
 #[derive(Clone, Debug, PartialEq)]
@@ -248,6 +279,17 @@ fn collect_effects(sim: Res<SimRes>, mut messages: MessageReader<SimEventMessage
         effects.generation = Some(sim.generation());
     }
     let messages: Vec<&SimEventMessage> = messages.read().collect();
+    // An attacker gone by now died in one of these ticks: its type and owner are its death's. So did a target gone by
+    // now, which a shot of these ticks killed: its owner is its death's too (design change 0244,
+    // `Tracer::target_owner`).
+    let fallen = |id: ObjectId| {
+        messages.iter().find_map(|m| match m.event {
+            SimEvent::Died {
+                id: dead, kind, owner, ..
+            } if dead == id => Some((kind, owner)),
+            _ => None,
+        })
+    };
     for message in &messages {
         match message.event {
             SimEvent::Attacked {
@@ -256,13 +298,20 @@ fn collect_effects(sim: Res<SimRes>, mut messages: MessageReader<SimEventMessage
                 from,
                 to,
             } => {
-                let owner = sim.object(attacker).and_then(|o| o.owner);
+                let shooter = match sim.object(attacker) {
+                    Some(o) => Some((sc_sim::conversion::form(o), o.owner)),
+                    None => fallen(attacker),
+                };
                 effects.tracers.push(Tracer {
                     tick: message.tick,
                     attacker,
-                    owner,
+                    weapon: shooter.map(|(form, _)| form),
+                    owner: shooter.and_then(|(_, owner)| owner),
                     target,
-                    target_owner: target_owner(&sim, &messages, target),
+                    target_owner: match sim.object(target) {
+                        Some(o) => o.owner,
+                        None => fallen(target).and_then(|(_, owner)| owner),
+                    },
                     from,
                     to,
                 });
@@ -278,18 +327,6 @@ fn collect_effects(sim: Res<SimRes>, mut messages: MessageReader<SimEventMessage
     }
     effects.tracers.retain(|t| shows(&sim, t.tick, TRACER_TICKS));
     effects.deaths.retain(|d| shows(&sim, d.tick, DEATH_MARKER_TICKS));
-}
-
-/// The owner of `target`, an object a shot hit in one of the ticks of `messages`, as the shot took effect (design
-/// change 0244): its owner now, or its death's if it is gone (that shot, or another of these ticks, killed it).
-fn target_owner(sim: &Sim, messages: &[&SimEventMessage], target: ObjectId) -> Option<PlayerId> {
-    match sim.object(target) {
-        Some(o) => o.owner,
-        None => messages.iter().find_map(|m| match m.event {
-            SimEvent::Died { id, owner, .. } if id == target => Some(owner),
-            _ => None,
-        })?,
-    }
 }
 
 /// Rebuilds the effects mesh: death markers at the back, then tracers, then HP bars (alpha blending draws a mesh's
@@ -338,15 +375,22 @@ fn muzzle(map: &Map, ground: Vec2) -> Vec2 {
     view_to_world(drawn_at_height(ground, map.height_at(ground)) - Vec2::new(0.0, MUZZLE_LIFT))
 }
 
-/// A bright core inside a glow in the shooter's colour, both fading out: the part `span` of the line from the
-/// attacker's muzzle to the target's ([`visible_spans`]: fractions of the way).
+/// A bright core inside a glow, both fading out, in the shot's style ([`ShotStyle`]: the glow in the shooter's colour,
+/// or a red laser): the part `span` of the line from the attacker's muzzle to the target's ([`visible_spans`]:
+/// fractions of the way).
 fn tracer_line(mesh: &mut ColorMesh, map: &Map, tracer: &Tracer, span: (f32, f32), fade: f32, z: f32) {
     let fade = fade.clamp(0.0, 1.0);
     let (muzzle_from, muzzle_to) = (muzzle(map, tracer.from), muzzle(map, tracer.to));
     let (from, to) = (muzzle_from.lerp(muzzle_to, span.0), muzzle_from.lerp(muzzle_to, span.1));
-    let glow = lighten(player_color(tracer.owner).to_srgba(), 0.3).with_alpha(0.45 * fade);
-    mesh.segment(from, to, 5.0, z, glow.into());
-    mesh.segment(from, to, 2.0, z, Color::srgba(1.0, 0.96, 0.7, fade));
+    let (glow, core) = match ShotStyle::of(tracer.weapon) {
+        ShotStyle::Tracer => (
+            lighten(player_color(tracer.owner).to_srgba(), 0.3),
+            Srgba::rgb(1.0, 0.96, 0.7),
+        ),
+        ShotStyle::RedLaser => (LASER_GLOW, LASER_CORE),
+    };
+    mesh.segment(from, to, 5.0, z, glow.with_alpha(0.45 * fade).into());
+    mesh.segment(from, to, 2.0, z, core.with_alpha(fade).into());
 }
 
 /// A dark scorch with a cross in the dead object's colour, fading out.

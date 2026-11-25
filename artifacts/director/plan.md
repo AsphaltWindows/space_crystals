@@ -729,9 +729,32 @@ Approach: thin vertical slices the user can run and see, each verified by tests 
   - **The GDO column** in the design table is the GDO line measured on the Colonists' 21 s window. M2's own 9 s check is kept as `gdo::model`.
   - **The docs** of `gathering_soak.rs` and `ARCHITECTURE.md` cite 0236.
 
+- **M4-A Syndicate foundation** (merged in `fcd06dc`; 1412 tests; goldens unchanged):
+  - **Sim.**
+    - The Agent fights with its pistol.
+    - The Tunnel is one kind with a tier (T39). `Object::tunnel` is hashed only while it is set, and MaxHP follows the tier. `tunnel::set_tier` keeps the damage taken, and `DebugCommand::SetTier` lets QA set a tier.
+    - The Hideout is an underground expansion: no flat ground is needed (0005), and its `BlockerKind::UndergroundExpansion` blocks nothing.
+    - **One hidden predicate,** `vision::hidden_from` (`Sim::hidden_from`). Targeting, `World::sees`, the gate, the records and the client's `Sight` use it: a hidden object is capped at Explored and never recorded. Damage never asks it (0218, 0262).
+  - **Folded in:**
+    - 0248: hatches on B and D;
+    - 0254: the Hideout's sight 0, and Groupable;
+    - 0258: enemies see and remember the tier;
+    - 0262 and 0264: area damage hits underground objects, and the Hideout's armor is 6/24.
+  - **Client.**
+    - Labels AG, T1–T3 and HI.
+    - Own underground structures are drawn as translucent outlines.
+    - The Tunnel's look by tier and sides is in `object_render/tunnel.rs`: path strips on A, hatches on B and D, air-door circles at Tier 3.
+    - Syndicate lasers are red, through `ShotStyle::of`.
+  - **Perf.** Unchanged, except a +3% two-tick "group orders" sample whose cause is unconfirmed.
+  - **Deviations.**
+    - Maps have no per-object tier, so QA sets one with SetTier.
+    - `sim.rs` is at 602 lines and wasn't split.
+    - The no-fog debug views draw enemies' hidden Hideouts.
+
 ## In progress
 - **M3 waves 2 and 3** (common brief `scratchpad/briefs/m3-common.md`; status `m3-w2-status.md`):
-  - **M4-A Syndicate foundation** (Opus; brief `scratchpad/briefs/m4a-syndicate-foundation.md`, common `m4-common.md`): the Agent, Tunnel and Hideout kinds, tier state, the underground layer (`Sim::hidden_from`), the pistol, placeholder looks, red lasers.
+  - **M4-C Tunnel Network** (Fable; brief `scratchpad/briefs/m4c-tunnel-network.md`): Enter, the held store, transit, Eject, production into the network and rallies, with 0245–0253. No air doors yet.
+  - **M4-D Agent crystal gathering** (Fable; brief `scratchpad/briefs/m4d-agent-gathering.md`): 0255; Agents wait at the hatch for ever; the stacked-Tunnel soak checks liveness.
   - **M3-L5 own-movement re-check and own-target shots** (Opus; brief `scratchpad/briefs/m3l5-own-movement-and-own-target-shots.md`): 0243, with a perf A/B that includes standing targets, and 0244 in the client.
 - **Next**:
   - **Playtest:** the user plays once all four factions are built (2026-11-24), using `docs/playtest/m2.md`, `m3.md` and later notes. This replaces separate M1–M3 playtests.
@@ -891,7 +914,12 @@ The user keeps feeding unit and other designs to the Designer, so expect increme
   - **Slices:** 14, in 6 waves: A; B, C (Fable), D (Fable); E, I, J2; F, H, J1 (the first playable); G, K, L; M (QA).
   - **Deferred until numbers exist:** the gated N1–N6, i.e. the Grenadier, Laser Turret, vehicles, Shadebringer, other expansions and the Phantom.
   - **Questions:** Q0059–Q0071. Q0059 (Optics Lab stats) blocks K, and Q0060 (the upgrade's duration) blocks G. Both were answered by 0229.
-  - **Slice status:** A is running (wave 1). The rest are queued.
+  - **Slice status:**
+    - A: done (`fcd06dc`).
+    - C and D: running (wave 2, Fable).
+    - B: next free slot.
+    - The rest are queued. A planning pass is folding 0229–0271 into slices B and E–M, and planning 0260's new content: a combat spike, the Grenadier, the Laser Turret and the Chemical Plant.
+  - **All M4 questions are answered** (Q0059–Q0071), by 0229–0267.
   - **Earlier scope note:** tunnels, Hideout, Agent, Guard economy, 0186's Optics Lab gate and Agent pistol, the Grenadier (0187) and the Assault Bike (0188), once their numbers exist. Underground expansions are exempt from the flatness rule (0005).
 - **M5 Cults**: Recruitment Hall, Storage, Recruit, Armory, Soldier, Gunner.
   - Recruits are Groupable: every selected Recruit builds (0072).
@@ -978,22 +1006,22 @@ The user keeps feeding unit and other designs to the Designer, so expect increme
 | Q0060 | Tunnel upgrade: duration, HP and payment | yes | answered by 0229, 0231 and 0232 (unblocks M4-G) |
 | Q0061 | Agent-built Tunnels: payment, ownership and the site | no | answered: points 1–2 by 0233, points 3–5 and 7–9 by 0234; point 6 moot |
 | Q0062 | Tunnel Areas and the two layers | no | answered by 0237–0242 |
-| Q0063 | The Tunnel Network: transit, entering single file, and units inside | no | points 1, 2 and 7 answered by 0245–0248; the rest open |
-| Q0064 | Ejection and production out of the network | no | open; M4 builds the proposals |
-| Q0065 | Expansions under construction | no | open; M4 builds the proposals |
-| Q0066 | Agent gathering: the Drone's rules, the Tunnel it uses, and the line at Side B | no | open; M4 builds the proposals |
-| Q0067 | Supplies gathering | no | open; M4 builds the proposals |
-| Q0068 | Panel letters outside the 4x3 grid | no | open; M4 builds the proposals |
-| Q0069 | Losing Tunnels: the open cases | no | open; M4 builds the proposals |
-| Q0070 | The Syndicate economy check | no | open; M4 builds the proposals |
-| Q0071 | Deferred Syndicate content: which items will get their numbers or design in time for M4? | no | open; M4 builds the proposals |
+| Q0063 | The Tunnel Network: transit, entering single file, and units inside | no | answered by 0245–0249 |
+| Q0064 | Ejection and production out of the network | no | answered by 0250–0253 |
+| Q0065 | Expansions under construction | no | answered by 0254 |
+| Q0066 | Agent gathering: the Drone's rules, the Tunnel it uses, and the line at Side B | no | answered by 0255 |
+| Q0067 | Supplies gathering | no | answered by 0256 |
+| Q0068 | Panel letters outside the 4x3 grid | no | answered by 0257 |
+| Q0069 | Losing Tunnels: the open cases | no | answered by 0258 |
+| Q0070 | The Syndicate economy check | no | answered by 0259 |
+| Q0071 | Deferred Syndicate content: which items will get their numbers or design in time for M4? | no | answered by 0260–0267 |
 | Q0072 | Q0055 re-measured after 0205: every figure is within ±15%; target 1 fails at 2:20 only (the start is 6.93 against the GDO's 6.67); saturation at 24, not 18–22 | no | answered by 0236 (M3-K4) |
 | Q0073 | AttackMove: does a chase given up by the Failure rule count as "can't reach" until 0230's triggers fire? (corridor cycle found by M3-G3) | no | answered by 0235 (A; M3-L4) |
 | Q0074 | AttackMove: should the unit's own movement re-check an enemy it rejected? As built, a unit that rejected a standing enemy across a wall doesn't take it after rounding the wall, unless it comes within weapon range | no | answered by 0243 (B, to try; M3-L5 measures the cost) |
 | Q0075 | A revealed attacker shooting at a target the player can't see: draw the shot whole (literal 0206) or clip it? | no | answered by 0244 (stricter than B; M3-L5) |
 
 ## Design change entries
-Last triaged: 0248.
+Last triaged: 0271.
 
 | Entry | Status | Notes |
 |---|---|---|
@@ -1220,4 +1248,27 @@ Last triaged: 0248.
 | 0246 Units walk into a Tunnel single file at normal speed with normal spacing, no fixed hold per unit ("one unit wide"); produced units exit without delay | queued (M4-C) | answers Q0063 point 7 and part of 2; replaces the 8-frame hold proposal |
 | 0247 Entering a Tunnel uses the normal Failure rule; no special waiting rule | queued (M4-C) | answers Q0063 point 2, as proposed |
 | 0248 Tunnel sides corrected: A entrance and exit, B crystal hatch, C back wall (no function), D Supplies hatch. Side A's exit path is the half nearer B, the entry path the half nearer D | in progress (M4-A, folded in: the hatch marks on B and D); queued (M4-C: Side A's halves; M4-I: Supplies delivered at Side D) | answers Q0063 point 2 (which half of Side A); corrects 0224's B and C hatches |
+| 0249 Inside the network: orders cleared, control groups and loads kept, slow HP regeneration; a Tunnel being upgraded keeps its old tier for entry and exit until it completes | in progress (M4-C) | Q0063 complete (0245–0249) |
+| 0250 Ejection: ground units walk out single file, gated on the exit spot being clear; air doors have their own rate (8 frames) | in progress (M4-C); the air doors wait for the first Syndicate air unit | answers Q0064 points 1, 2, 4, 10 and 11 |
+| 0251 Ejection: the longest-inside unit goes first; queue rules; air doors on the roof over the matching path halves; Vault and Null Chamber limits noted | in progress (M4-C); the air doors wait for the first Syndicate air unit | answers Q0064 points 3, 4 and 11 |
+| 0252 Syndicate rallies: a rally on a Tunnel stays inside; one on an expansion means the surface spot above it | in progress (M4-C) | answers Q0064 points 5–7 |
+| 0253 Auto-ejected units share the exit queue | in progress (M4-C) | Q0064 complete (0250–0253) |
+| 0254 Expansions under construction, as proposed, except the 75% refund on cancel | partly done (M4-A, `fcd06dc`: the Hideout's sight 0 and Groupable); queued (M4-F) | answers Q0065 |
+| 0255 Agent gathering: the Drone's rules, the nearest Tunnel, the 1-square hatch as the drop-off target, and Agents wait at the hatch for ever. The Drones' placeholder (retry every 2 s, never give up) is the settled rule | in progress (M4-D) | answers Q0066; confirms Q0065 point 4 (an expansion's cells are reserved from construction start) |
+| 0256 Supplies gathering: shared stations, waiting at an empty station, switching resources loses the load; the notification waits for a notification system | queued (M4-I) | answers Q0067 |
+| 0257 Syndicate panel letters on the 4x3 grid | queued (M4-J1, M4-J2) | answers Q0068, as proposed |
+| 0258 Losing Tunnels: decay %, attacking neutral expansions, reclaiming, blocked cells (counted as occupied), defeat, and the enemy sees the tier | partly done (M4-A, `fcd06dc`: the tier seen and remembered); queued (M4-H) | answers Q0069 |
+| 0259 The Syndicate economy check: measured to the hatch square; the stacked layout puts the Tunnels on opposite sides | queued (M4-L); the stacked layout is in M4-D's soak | answers Q0070 |
+| 0260 Placeholders for the Laser Turret, the Grenadier and the Chemical Plant, so they can be planned into M4; the Grenadier needs a projectile, AoE and Attack Ground combat spike | queued (new M4 slices, being planned) | answers Q0071 (scope B) |
+| 0261 Area damage never hits underground objects unless targeted | void (replaced by 0262) | — |
+| 0262 Area damage does hit underground objects; expansions and the pop-up turret have high armor | done (M4-A, `fcd06dc`: damage never asks the hidden predicate); armor per 0264 | answers Q0071's AoE-underground gap |
+| 0263 Confirmed: undeploy, held orders, the Transport's base, the Phantom's attack | queued (gated N3 and N6) | answers Q0071's items to confirm |
+| 0264 Building armor rule: PointArmor n, FullArmor n × size in grid squares; underground expansions 6/24 for 2x2; the Laser Turret 1/1 raised, 6/6 underground | partly done (M4-A, `fcd06dc`: the Hideout 6/24); queued (M4-B: a defs test of the rule across factions; the Laser Turret's slice) | — |
+| 0265 Transport passengers always count against Tunnel Space | queued (gated N3) | answers Q0071's Tunnel Space gap |
+| 0266 A burrowed Transport passes through underground structures; surfacing rules | queued (gated N3) | answers Q0071's underground and surfacing gaps |
+| 0267 A Tunnel-built Laser Turret uses the operation slot; detection comes after the faction rosters | queued (the Laser Turret's slice) | Q0071 complete (0260–0267) |
+| 0268 New Syndicate unit, a single-payload Bomber (concept only) | gated (concept only) | — |
+| 0269 The Bomber needs a Vault and a Chemical Plant, attacks ground only, re-arms in the network; the Vault works network-wide | gated (concept only) | — |
+| 0270 The Syndicate bomber is named Specter | gated (concept only) | — |
+| 0271 The Specter returns home | gated (concept only) | — |
 | 0014 GDO Airfield and aircraft | queued (Later: air) | |

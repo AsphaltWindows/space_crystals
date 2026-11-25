@@ -7,6 +7,9 @@
 //!
 //! [`Sim::change_kind`] is the one place an object's kind changes. [`Capabilities::fresh`] is what an object of a
 //! kind starts with, for a new object (`Sim::insert_object`) and a changed one alike, so the two can't drift apart.
+//!
+//! A Tunnel's tier changes in place the same way (plan decision T39: one Tunnel type, whose objects carry their tier):
+//! [`Sim::set_tier`].
 
 use std::collections::BTreeMap;
 
@@ -24,6 +27,7 @@ use crate::object::{Object, Placement};
 use crate::orders::Orders;
 use crate::production::Production;
 use crate::riot_shield::RiotShield;
+use crate::tunnel::{self, TunnelState};
 
 /// The capabilities of an object (`Object`'s optional parts, but a map resource's state), as its kind's definition
 /// gives them.
@@ -36,6 +40,7 @@ pub(super) struct Capabilities {
     pub production: Option<Production>,
     pub constructor: Option<Constructor>,
     pub worker: Option<Worker>,
+    pub tunnel: Option<TunnelState>,
 }
 
 impl Capabilities {
@@ -70,6 +75,8 @@ impl Capabilities {
             constructor: construction::constructor_for(kind),
             // `factions/colonists/units.md > Drone > Gathering`: a worker starts empty, with no drop-off assigned.
             worker: unit.and_then(|unit| unit.worker).map(|_| Worker::default()),
+            // `factions/syndicate/tunnels.md > Tunnel > Tiers`: a Tunnel starts at Tier 1 (plan decision T39).
+            tunnel: tunnel::fresh(kind),
         }
     }
 }
@@ -176,6 +183,7 @@ impl Sim {
             worker,
             transform: _,
             conversion: _,
+            tunnel: tunnel_state,
         } = o;
         *object_kind = kind;
         if let Some(placement) = &placement {
@@ -216,8 +224,24 @@ impl Sim {
         // A worker that stays one keeps its load and its drop-off; a Drone that becomes a Beacon loses what it
         // carried with the capability.
         *worker = rebuilt(worker.take(), fresh.worker, true);
+        // A Tunnel keeps its tier if it stays a Tunnel (no type of the design becomes one or stops being one).
+        *tunnel_state = rebuilt(
+            tunnel_state.take(),
+            fresh.tunnel,
+            tunnel::def_of(from) == tunnel::def_of(kind),
+        );
         self.events.push(SimEvent::KindChanged { id, from, to: kind });
         true
+    }
+
+    /// Object `id`, a Tunnel, goes to tier `tier` in place (plan decision T39, `tunnel::set_tier`: its MaxHP becomes
+    /// the tier's and the damage it has taken stays, design change 0231 point 4). Only `DebugCommand::SetTier` so far,
+    /// whose gate checks the tier; the upgrades end here from slice M4-G on. Nothing for an object that isn't a
+    /// Tunnel, or a tier its table hasn't.
+    pub(crate) fn set_tier(&mut self, id: ObjectId, tier: u8) {
+        if let Some(o) = self.objects.get_mut(&id) {
+            tunnel::set_tier(o, tier);
+        }
     }
 }
 

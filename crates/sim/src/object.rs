@@ -19,6 +19,7 @@ use crate::production::Production;
 use crate::riot_shield::RiotShield;
 use crate::scenario::BuildingOrientation;
 use crate::transform::Transform;
+use crate::tunnel::TunnelState;
 use crate::units::{SU_PER_GU, TilePos};
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
@@ -86,6 +87,11 @@ pub struct Object {
     /// those saved before design change 0198 (`conversion::saved`).
     #[serde(default, deserialize_with = "crate::conversion::saved")]
     pub conversion: Option<Conversion>,
+    /// A Tunnel: its tier (`factions/syndicate/tunnels.md > Tunnel > Tiers`, plan decision T39; `tunnel`), which its
+    /// MaxHP follows (`Object::max_hp`). `None` for everything else. Optional in files, and left out of them while
+    /// `None`, so that states saved before it existed still load.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub tunnel: Option<TunnelState>,
 }
 
 impl Object {

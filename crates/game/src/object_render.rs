@@ -20,9 +20,11 @@
 //! Peacekeeper's round body with its shield up or on its way up (design change 0173), which becomes the Peacekeeper's
 //! again, the shield on its way down, when the shield is lowered. A worker that carries a load shows a crystal shard
 //! on its body ([`LoadMarker`], slice M3-J2). A structure is its footprint as placed, in its owner's colour, with a
-//! tag naming its type ([`structures`]). An object transforming into its kind (`Object::transform`: a building being
-//! warped in) is tinted towards a pale cyan until it is complete ([`transforming_color`]). The map resources have
-//! shapes of their own ([`resources`]).
+//! tag naming its type ([`structures`]); a Tunnel's names its tier, and its sides show their functions by tier
+//! ([`tunnel`], design change 0224); an underground structure (the Hideout) is a translucent outline under the units
+//! that walk over it (plan decision T32), which only its owner sees while it has one. An object transforming into
+//! its kind (`Object::transform`: a building being warped in) is tinted towards a pale cyan until it is complete
+//! ([`transforming_color`]). The map resources have shapes of their own ([`resources`]).
 //!
 //! The fog of war hides the visuals of the objects the local player doesn't see (`crate::fog`); Explored tiles show
 //! the records of what it remembers instead, as visuals of their own ([`remembered`]).
@@ -31,17 +33,21 @@ mod load;
 mod remembered;
 mod resources;
 mod structures;
+mod tunnel;
 mod units;
 
 use std::collections::BTreeMap;
 
 use bevy::prelude::*;
+use sc_sim::tunnel::TunnelState;
 use sc_sim::{Category, Map, Object, ObjectId, ObjectKind, Placement, PlayerId};
 
 use crate::ClientSystems;
 use crate::coords::{DrawLayer, facing_to_rotation, footprint_height, ground_translation, lerp_facing};
+use crate::hud::selection_panel::object_label;
 use crate::shapes::vertex_color_material;
 use crate::sim_driver::{RenderAlpha, SimRes};
+use tunnel::TunnelLook;
 
 /// Links a visual entity to the sim object it shows.
 #[derive(Component, Copy, Clone, Debug, PartialEq, Eq)]
@@ -60,7 +66,7 @@ pub struct RiotShieldVisual(pub ObjectId);
 
 pub use load::{LoadMarker, carries};
 pub use remembered::{RememberedVisual, RememberedVisuals};
-pub use structures::StructureTag;
+pub use structures::{StructureTag, underground};
 pub use units::UnitTag;
 
 /// What the mesh of an object's visual depends on ([`MeshKey::of`]).
@@ -73,25 +79,35 @@ struct MeshKey {
     size: Option<(u32, u32)>,
     /// Whether the object is transforming into its kind (`Object::transform`), which tints it.
     transforming: bool,
+    /// A Tunnel's look: its tier and where its sides face ([`tunnel`]).
+    tunnel: Option<TunnelLook>,
 }
 
 impl MeshKey {
-    /// An object of `kind` of `owner`'s, placed at `placement`, as a record shows it too (`remembered`).
-    fn of(kind: ObjectKind, owner: Option<PlayerId>, placement: Option<&Placement>) -> Self {
+    /// An object of `kind` of `owner`'s, placed at `placement`, with tier state `tunnel` (a Tunnel's), as a record
+    /// shows it too (`remembered`).
+    fn of(
+        kind: ObjectKind,
+        owner: Option<PlayerId>,
+        placement: Option<&Placement>,
+        tunnel: Option<TunnelState>,
+    ) -> Self {
         let def = kind.def();
         Self {
             kind,
             owner: owner.filter(|_| def.category != Category::Resource),
             size: placement.filter(|_| def.structure.is_some()).map(|p| (p.w, p.h)),
             transforming: false,
+            tunnel: TunnelLook::of(kind, tunnel, placement),
         }
     }
 
     /// The live `object`'s, in the form it is in ([`drawn_kind`]).
     fn of_object(object: &Object) -> Self {
+        let placement = object.placement.as_ref();
         Self {
             transforming: object.is_transforming(),
-            ..Self::of(drawn_kind(object), object.owner, object.placement.as_ref())
+            ..Self::of(drawn_kind(object), object.owner, placement, object.tunnel)
         }
     }
 }
@@ -103,6 +119,9 @@ pub struct ObjectVisualAssets {
     material: Option<Handle<ColorMaterial>>,
     /// The remembered objects' material ([`remembered`]).
     dimmed: Option<Handle<ColorMaterial>>,
+    /// The blending materials of underground structures, live and remembered (`structures::underground_material`).
+    underground: Option<Handle<ColorMaterial>>,
+    underground_dimmed: Option<Handle<ColorMaterial>>,
     meshes: BTreeMap<MeshKey, Handle<Mesh>>,
     ticks: BTreeMap<ObjectKind, Handle<Mesh>>,
     shields: BTreeMap<ObjectKind, Handle<Mesh>>,
@@ -183,7 +202,8 @@ pub fn object_mesh(kind: ObjectKind, owner: Option<PlayerId>) -> Mesh {
         | ObjectKind::Guard
         | ObjectKind::Drone
         | ObjectKind::SabreLegionnaire
-        | ObjectKind::RifleLegionnaire => units::unit_mesh(kind, player_color(owner), true),
+        | ObjectKind::RifleLegionnaire
+        | ObjectKind::Agent => units::unit_mesh(kind, player_color(owner), true),
         ObjectKind::DeploymentCenter
         | ObjectKind::Generator
         | ObjectKind::Barracks
@@ -192,7 +212,9 @@ pub fn object_mesh(kind: ObjectKind, owner: Option<PlayerId>) -> Mesh {
         | ObjectKind::Beacon
         | ObjectKind::EgressNode
         | ObjectKind::RoboPortal
-        | ObjectKind::BioPortal => {
+        | ObjectKind::BioPortal
+        | ObjectKind::Tunnel
+        | ObjectKind::Hideout => {
             let (w, h) = kind.def().tile_size().unwrap_or((1, 1));
             structures::structure_mesh(w, h, player_color(owner))
         }
@@ -222,20 +244,29 @@ fn has_tick(kind: ObjectKind) -> bool {
 }
 
 /// The mesh of an object's visual: its placeholder shape, a unit's without the tick if its body doesn't turn, a
-/// structure in its size as placed; tinted while it transforms.
+/// structure in its size as placed, a Tunnel with its look by tier, an underground structure as its outline; tinted
+/// while it transforms.
 fn visual_mesh(key: MeshKey) -> Mesh {
     let MeshKey {
         kind,
         owner,
         size,
         transforming,
+        tunnel,
     } = key;
     let color = match transforming {
         true => transforming_color(player_color(owner)),
         false => player_color(owner),
     };
     match size {
-        Some((w, h)) => structures::structure_mesh(w, h, color),
+        Some((w, h)) if underground(kind) => structures::underground_mesh(w, h, color),
+        Some((w, h)) => {
+            let mut mesh = structures::structure_shape(w, h, color);
+            if let Some(look) = tunnel {
+                tunnel::draw(&mut mesh, look, structures::inner_half(w, h));
+            }
+            mesh.into_mesh()
+        }
         None if kind.def().unit.is_some() => units::unit_mesh(kind, color, units::body_turns(kind)),
         None => object_mesh(kind, owner),
     }
@@ -314,6 +345,10 @@ fn sync_object_visuals(
         .material
         .get_or_insert_with(|| materials.add(vertex_color_material()))
         .clone();
+    let blended = assets
+        .underground
+        .get_or_insert_with(|| materials.add(structures::underground_material(1.0)))
+        .clone();
     for object in sim.objects() {
         if by_id.contains_key(&object.id) {
             continue;
@@ -327,17 +362,19 @@ fn sync_object_visuals(
             .clone();
         let height = object_height(sim.map(), object.pos, object.placement.as_ref());
         let facing = if body_turns(drawn) { object.facing } else { 0.0 };
+        let body = if underground(drawn) { &blended } else { &material };
         let entity = commands
             .spawn((
                 Name::new(format!("{:?} #{}", drawn, object.id.0)),
                 ObjectVisual(object.id),
                 Mesh2d(mesh),
-                MeshMaterial2d(material.clone()),
+                MeshMaterial2d(body.clone()),
                 object_transform(drawn, object.pos, height, facing),
             ))
             .id();
         if let Some(size) = key.size {
-            commands.spawn((structures::tag(object.id, drawn, size, 1.0), ChildOf(entity)));
+            let label = object_label(drawn, object.tunnel);
+            commands.spawn((structures::tag(object.id, label, size, 1.0), ChildOf(entity)));
         }
         if units::tagged(drawn) {
             commands.spawn((units::tag(object.id, drawn), ChildOf(entity)));

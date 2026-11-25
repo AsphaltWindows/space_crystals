@@ -6,12 +6,13 @@
 use bevy::prelude::*;
 use bevy::time::TimeUpdateStrategy;
 
+use bevy::mesh::VertexAttributeValues;
 use sc_sim::{
     Command, DebugCommand, ObjectId, ObjectKind, OrderKind, PlayerCommand, PlayerId, SU_PER_GU, SimEvent, SpawnAt,
     Tick, TilePos, scenarios,
 };
 use space_crystals::combat_effects::{
-    CombatEffects, CombatEffectsMesh, DEATH_MARKER_TICKS, DeathMarker, HpBar, TRACER_TICKS, hp_bars,
+    CombatEffects, CombatEffectsMesh, DEATH_MARKER_TICKS, DeathMarker, HpBar, ShotStyle, TRACER_TICKS, hp_bars,
 };
 use space_crystals::command_ui::feedback::{FEEDBACK_TICKS, TARGET_TOO_CLOSE_TEXT, TargetFeedback};
 use space_crystals::coords::drawn_at_height;
@@ -253,6 +254,62 @@ fn a_structure_shows_its_bar_along_the_top_of_its_footprint() {
         top,
         bar.center.y
     );
+}
+
+/// Design change 0207: every Syndicate laser is drawn red, whoever fires it, and other shots as tracers in their
+/// shooter's colour. Player 1 (blue) has a Guard and an Agent; both attack player 2's Peacekeeper. The Guard's laser
+/// rifle is a red laser, drawn red; the Agent's pistol, its first shot 4 ticks after the order (Aim 3, Fire 1), is a
+/// tracer like the Peacekeeper's.
+#[test]
+fn a_guards_laser_is_drawn_red() {
+    // In the order they are spawned.
+    let (shooter, target, agent) = (ObjectId(1), ObjectId(2), ObjectId(3));
+    let mut app = headless_app();
+    submit(
+        &mut app,
+        P1,
+        Command::Debug(DebugCommand::SetAutoTargeting { on: false }),
+    );
+    app.update();
+    spawn(&mut app, ObjectKind::Guard, P1, Vec2::new(300.0, 300.0));
+    spawn(&mut app, ObjectKind::Peacekeeper, P2, Vec2::new(460.0, 300.0));
+    spawn(&mut app, ObjectKind::Agent, P1, Vec2::new(460.0, 200.0));
+    app.update();
+    let spawned = tick(&app);
+    attack(&mut app, P1, agent, target);
+    run_until(&mut app, spawned + 4);
+    let red = |app: &mut App| {
+        let mut query = app.world_mut().query_filtered::<&Mesh2d, With<CombatEffectsMesh>>();
+        let mesh = query.single(app.world()).unwrap().0.clone();
+        let meshes = app.world().resource::<Assets<Mesh>>();
+        let Some(VertexAttributeValues::Float32x4(colors)) =
+            meshes.get(&mesh).unwrap().attribute(Mesh::ATTRIBUTE_COLOR)
+        else {
+            panic!("no colours");
+        };
+        colors.iter().any(|c| c[0] > 0.9 && c[1] < 0.1 && c[3] > 0.0)
+    };
+    let tracers = &effects(&app).tracers;
+    let [shot] = tracers.as_slice() else {
+        panic!("the Agent's shot: {tracers:?}");
+    };
+    assert_eq!((shot.attacker, shot.weapon), (agent, Some(ObjectKind::Agent)));
+    assert_eq!(ShotStyle::of(shot.weapon), ShotStyle::Tracer, "a pistol");
+    assert!(!red(&mut app), "player 1's blue");
+
+    attack(&mut app, P1, shooter, target);
+    run_until(&mut app, spawned + 4 + 5);
+    let tracers = &effects(&app).tracers;
+    let shot = tracers
+        .iter()
+        .find(|t| t.attacker == shooter)
+        .expect("the Guard's shot");
+    assert_eq!((shot.weapon, shot.owner), (Some(ObjectKind::Guard), Some(P1)));
+    assert_eq!(ShotStyle::of(shot.weapon), ShotStyle::RedLaser);
+    assert!(red(&mut app), "drawn red, not in player 1's blue");
+    for kind in [ObjectKind::Peacekeeper, ObjectKind::SabreLegionnaire, ObjectKind::Agent] {
+        assert_eq!(ShotStyle::of(Some(kind)), ShotStyle::Tracer, "{kind:?}");
+    }
 }
 
 /// The feedback message that shows, if any.

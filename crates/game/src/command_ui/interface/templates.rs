@@ -204,6 +204,9 @@ impl InterfaceTemplate {
             | ObjectKind::SupplyDeliveryStation
             | ObjectKind::Generator
             | ObjectKind::ExtractionPlate => None,
+            // The Syndicate's interfaces come with slices M4-J1 and M4-J2 (`factions/syndicate/units.md > Agent >
+            // ObjectInterfaceState`, `tunnels.md > Tunnel ObjectInterfaceState`, `structures.md > Hideout`).
+            ObjectKind::Agent | ObjectKind::Tunnel | ObjectKind::Hideout => None,
         }
     }
 

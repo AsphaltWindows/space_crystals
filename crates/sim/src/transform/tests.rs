@@ -43,6 +43,7 @@ fn object(kind: ObjectKind, transform: Option<Transform>) -> Object {
         worker: None,
         transform,
         conversion: None,
+        tunnel: None,
     }
 }
 

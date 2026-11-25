@@ -28,6 +28,7 @@ fn object(id: u32, kind: ObjectKind, owner: Option<PlayerId>, pos: Vec2) -> Obje
         worker: None,
         transform: None,
         conversion: None,
+        tunnel: crate::tunnel::fresh(kind),
     }
 }
 
@@ -289,4 +290,40 @@ fn the_check_finds_wrong_records() {
     own.players[0].store(record);
     let (_, message) = own.check(&map, [&eye, &crystals], 1).unwrap_err();
     assert!(message.contains("its own object"), "{message}");
+}
+
+/// Plan decision T32: an owned underground structure is hidden from every player but its owner, who never record it,
+/// even with a unit standing on it; a neutral one is recorded like any structure (`tunnels.md > Losing Tunnels`). A
+/// Tunnel's record keeps the tier it was last seen at (design change 0237), and its hash covers it.
+#[test]
+fn hidden_structures_are_never_recorded_and_a_tunnels_record_keeps_its_tier() {
+    let map = Map::new(40, 20);
+    let mut vision = Vision::new(&map, [P1, P2]);
+    let structure = |id, kind: ObjectKind, owner, x, y| {
+        let placement = Placement::new(TilePos::new(x, y), kind.def().footprint);
+        let mut o = object(id, kind, owner, placement.center());
+        o.placement = Some(placement);
+        o
+    };
+    let eye = scout(1, P1, 10, 10);
+    let hideout = structure(2, ObjectKind::Hideout, Some(P2), 10, 10); // under the scout
+    let neutral = structure(3, ObjectKind::Hideout, None, 12, 7);
+    let mut tunnel = structure(4, ObjectKind::Tunnel, Some(P2), 4, 10);
+    end_tick(&mut vision, &map, 1, &[&eye, &hideout, &neutral, &tunnel]);
+    let ids: Vec<u32> = p1(&vision).records().map(|r| r.id.0).collect();
+    assert_eq!(ids, [3, 4]);
+    assert_eq!(p1(&vision).object_state(&hideout), VisibilityState::Explored);
+    let tier = |vision: &Vision| p1(vision).record(ObjectId(4)).and_then(|r| r.tunnel);
+    let hash = |vision: &Vision| {
+        let mut h = crate::hash::StateHasher::new();
+        crate::hash::StateHash::hash(p1(vision).record(ObjectId(4)).unwrap(), &mut h);
+        h.finish()
+    };
+    assert_eq!(tier(&vision), Some(TunnelState { tier: 1 }));
+    let at_tier_1 = hash(&vision);
+    tunnel.tunnel = Some(TunnelState { tier: 3 });
+    end_tick(&mut vision, &map, 2, &[&eye, &hideout, &neutral, &tunnel]);
+    assert_eq!(tier(&vision), Some(TunnelState { tier: 3 }));
+    assert_ne!(hash(&vision), at_tier_1);
+    assert!(p1(&vision).record(ObjectId(3)).unwrap().tunnel.is_none());
 }

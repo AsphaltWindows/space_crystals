@@ -167,7 +167,8 @@ Units, structures and resources are all `Object`s (`object.rs`, `core/entities.m
   has come, what it paid and the load a deploying Drone carried, see *Economy > Warp In* and *> Beacon Deployment*);
   for a Legionnaire whose form isn't its type, `conversion` (`Conversion`, `conversion.rs`: the form it has, and the
   frames left of the conversion under way, none while it waits for its Cooldown; see *Type and form* below and
-  *Combat > Weapon Conversion*). The rest arrives as more optional fields, each with its own module. Never add them as separate
+  *Combat > Weapon Conversion*); for a Tunnel, `tunnel` (`TunnelState`, `tunnel.rs`: its tier, plan decision T39;
+  see *The Syndicate* below). The rest arrives as more optional fields, each with its own module. Never add them as separate
   stores keyed by id. A system walks the objects in id order and skips those without its capability
   (`let Some(..) = &mut o.resource else { continue };`).
 - **Per-type constants** sit in one `static ObjectDef` per type (`defs.rs`, `core/entities.md > Object Type`). Reach
@@ -198,6 +199,18 @@ Units, structures and resources are all `Object`s (`object.rs`, `core/entities.m
   is `(ForwardAcceleration + OmniDirectionalAcceleration) / DragRatio` = 8 su per tick (`MovementAttrs::max_speed`).
   It crosses Rugged tiles with double drag (`HOVER_VEHICLE.rugged_terrain`, design change 0039), on the light
   infantry's `(GroundRugged, 1)` grid.
+- **The Syndicate** (`defs/syndicate.rs`; `factions/syndicate/`, slice M4-A): the Guard (M3), then the Agent, the
+  Tunnel and the Hideout, after the Colonists' kinds. All inert so far but for blocking, sight and being targets;
+  the Agent has its pistol. **The Tunnel is one kind with a tier** (plan decision T39): `StructureDef::tunnel` holds
+  its `TunnelDef`, the rows of `tunnels.md > Tiers` (`TierDef`: MaxHP, Tunnel Area Radius, Transit), and the object
+  its `TunnelState` (`tunnel.rs`), from Tier 1. `Object::max_hp` reads its tier's row; `tunnel::set_tier` changes the
+  tier as an upgrade will, the damage kept (`transform::follow_max`, design change 0231 point 4), through
+  `DebugCommand::SetTier` until the upgrades (slice M4-H). Records carry the tier last seen (`LastKnown::tunnel`,
+  0237). **The Hideout is an underground expansion** (`StructureDef::underground`, plan decision T32): it needs no
+  flat ground (`ObjectDef::needs_flat_ground`, design change 0005), stands for the ElevationModifier at the level
+  under its centre, blocks no movement (*Navigation*) and is hidden from the other players (*Vision > Hidden
+  objects*). Surface and underground footprints never share a tile (design change 0240): `may_overlap` keeps them
+  apart as any two footprints; the placement rules across the layers come with slices M4-E and M4-F.
 - **Changing kind** (`sim/kinds.rs`, plan decision T15): an object that transforms (a Drone deploying into a Beacon,
   a Beacon warping in a building, a Legionnaire converting its weapon, a Peacekeeper raising or lowering its Riot
   Shield) stays the same object, its id included.
@@ -654,6 +667,16 @@ or `Visible` for each player, and each player remembers the structures and resou
   `remembered_record(id)` (those not in sight, which Explored tiles show), `record_tiles` and `is_record_tile` (the
   tiles under any record) and `records_revision` (changes when a record comes, goes or moves; not when only its
   state changes).
+- **Hidden objects** (`vision/hidden.rs`, plan decision T32, slice M4-A): an owned underground structure (a
+  Syndicate expansion, `StructureDef::underground`) is hidden from every player but its owner; a neutral one isn't
+  (`tunnels.md > Losing Tunnels`). One predicate, `vision::hidden_from(object, player)` (`Sim::hidden_from` for the
+  client), through `Hiding::of(object)`, which the snapshots carry (combat's `TargetView::hiding`, `World`'s views)
+  and `object_box_state` takes: a hidden object's state is capped at Explored, however Visible its tiles are and
+  whatever is revealed, so targeting, `World::sees`, the gate and the client's `Sight` never see it. The memory never
+  records it (`remember` drops it, `Vision::seed` skips it). **Damage never asks** (`systems/combat.md >
+  AoEDamage`, design change 0262, keeping 0218: underground objects "take their share of any blast over them, even
+  unseen"): a hit on the tick's list lands whoever sees its target (`combat/damage.rs`). Hidden units come with the
+  Tunnel network (design change 0219).
 - **Paths** are planned from what each player knows (design changes 0040 and 0042; *Navigation > Path knowledge*):
   the records' footprints are the other players' structures and the resources it knows of, the map's from the start
   (0159); its own come from the live objects, as they are never recorded.
@@ -852,7 +875,9 @@ The module is pure: it takes the `Map` and tile rectangles and knows nothing of 
   state (serde, `PartialEq`, `StateHash`); `NavCounters` are output only.
 - **Switches** of Q0011's answers: `RESOURCES_BLOCK` (design change 0038) and `RUGGED_IMPASSABLE` (0039).
 - **In the sim** (`paths.rs`, `paths/`): `NavState` holds the **true grids**, the `Nav` of every unit type's
-  `(class, size class)` under every blocking footprint (structures and map resources), and each player's **known
+  `(class, size class)` under every blocking footprint (structures and map resources; an underground expansion's,
+  `BlockerKind::UndergroundExpansion`, blocks none: units walk over it, plan decision T32 and design change 0240), and
+  each player's **known
   grids** (below). It is derived, like the `Nav`: not hashed, compared or serialized, built when a `Sim` is
   created or loaded. The true grids are rebuilt in phase 5b; `Sim::nav()` (the true grids), `nav_version()`,
   `nav_counters()` and `nav_rebuilds()` (sets of grids the latest step rebuilt) expose it to tests and overlays.
@@ -1535,8 +1560,10 @@ M3-D2: design change 0145, `> Portals > Portal Exits (energy doorway)`).
   (`AppConfig::new`; off with `--no-debug`), editor play-tests run with it on, and so does `TestSim::new`
   (`TestSim::with_config` or `ScenarioBuilder::config` for other options).
 - `Command::Debug(DebugCommand::…)` covers `Spawn`, `Remove`, `SetPosition`, `SetAutoTargeting` (see
-  *Behaviours*) and `SetResources` (any player's banks, see *Economy*; the gate checks that the player it names is in
-  the game, `UnknownPlayer`), for development and QA. `Spawn` places a tile-based object in an `orientation`
+  *Behaviours*), `SetResources` (any player's banks, see *Economy*; the gate checks that the player it names is in
+  the game, `UnknownPlayer`) and `SetTier` (a Tunnel's tier, `NoSuchTier` for a tier it has no row for or an object
+  without tiers; *Object model > The Syndicate*), for development and QA. `Spawn` places a tile-based object in an
+  `orientation`
   (`BuildingOrientation`), which files may leave out: unturned is the default and isn't written, so replays from
   before it load unchanged. It bypasses costs and rules, only works while `SimConfig::debug` is on, and
   is never offered in a real match. A teleport sets `prev_pos = pos`, so nothing interpolates across the map.
@@ -1930,9 +1957,10 @@ out by the same rules.
   facing. Only a round body turns with the interpolated facing (`body_turns`). A square or an octagon stays
   axis-aligned like its collision box, and only its tick turns (a `FacingTick` child, `has_tick`). Structures and map
   resources never turn, whatever their facing (a structure keeps a unit's facing through `Sim::change_kind`). The
-  Colonists' units and the Peacekeeper's two types carry a `UnitTag` child, a `Text2d` of the type's short label
-  (DR, SL, RL, PK, PS), because the Legionnaire's two forms share a silhouette and the Peacekeeper's two types a body
-  (slice M3-J3). A tag's local z lifts it into the overlays band (`units::tag_z`, see Draw order), and it stays
+  Colonists' units, the Peacekeeper's two types and the Agent carry a `UnitTag` child, a `Text2d` of the type's
+  short label (DR, SL, RL, PK, PS, AG), because the Legionnaire's two forms share a silhouette, the Peacekeeper's two
+  types a body (slice M3-J3), and the Agent the Guard's square (slice M4-A). A tag's local z lifts it into the
+  overlays band (`units::tag_z`, see Draw order), and it stays
   upright on a body that turns: `units::upright_tags`, chained after `place_object_visuals`, gives it the inverse of
   its visual's rotation. Every type's short label (`hud::selection_panel::short_label`) is its own, and none is a
   planned unit's or building's button label (`Planned::label`: the Scout's is "ST", the patch's "SC"); a unit test
@@ -1953,7 +1981,14 @@ out by the same rules.
   inside a dark rim, drawn `INSET_SU` (8) inside its edge so that a selection frame shows around it, and over a map
   resource's placeholder (a plate covers its patch). A `StructureTag` child, a `Text2d` of the type's short label
   (`hud::selection_panel::short_label`), names it; the fog hides it with its structure. A remembered structure
-  (`remembered.rs`) looks the same, in its owner's colour, dimmed, its tag too.
+  (`remembered.rs`) looks the same, in its owner's colour, dimmed, its tag too. **Underground structures** (slice
+  M4-A, the Hideout; `structures::underground`) are translucent outlines, a rim and a faint fill in the alpha-blended
+  `underground` material, under the units (`artifacts/director/m4-plan.md` §3.3); the sim hides them from other
+  players (*Vision > Hidden objects*), so only their owner and the fog-less views draw them. **The Tunnel's look**
+  (`object_render/tunnel.rs`, design changes 0224, 0248 and 0251) follows its tier and its sides as placed
+  (`TunnelLook`, part of the `MeshKey`): Side A's two paths, ragged at Tier 1 and paved from Tier 2, a hatch on Sides
+  B (crystals' cyan) and D (Supplies' amber), none on C, and the Tier 3 air doors over the paths' halves; its tag
+  names its tier (T1 to T3, `object_label`), to enemies too (design change 0258), a record's the tier last seen.
 - **Path overlay** (`path_overlay.rs`, P or `--show-paths`): each unit's remaining path (`Mover::remaining_path`) as
   a thin line from where the unit is drawn, cut into short pieces lifted by the terrain's height, in the overlays
   layer, and a frame around each unit in the colour of its move's status (`status_color`: green moving, amber held
@@ -1967,7 +2002,9 @@ out by the same rules.
   change 0244, answering Q0075: drawn whole, a shot at a neutral's or a third player's object would show where that
   object stands; design change 0206, answering Q0056:
   so the shot that reveals an attacker, and every later one while the reveal lasts, comes from the unit the player
-  sees; a shot at a neutral object reveals nobody and stays clipped), HP bars over damaged and selected objects (a
+  sees; a shot at a neutral object reveals nobody and stays clipped); a tracer's look is its weapon's (`ShotStyle::of`
+  on the form that fired, design change 0207: the Syndicate's lasers, the Guard's so far, red), HP bars over damaged
+  and selected objects (a
   unit's clear of its silhouette's corners, a structure's along the top edge of its footprint and as wide as it),
   with a shield bar right above for an object that has Shields (`systems/combat.md > Shields > Display`, design change
   0148; `SHIELD_FILL`, a placeholder colour), shown too while only its Shields are down, and a fading marker for

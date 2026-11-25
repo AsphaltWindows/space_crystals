@@ -65,6 +65,8 @@ fn state_hash_covers_every_field() {
     obj(&mut base, plate.0).constructor = Some(Constructor::Ready {
         kind: ObjectKind::Generator,
     });
+    // A tier (any object may hold one here, plan decision T39).
+    obj(&mut base, plate.0).tunnel = Some(crate::tunnel::TunnelState { tier: 2 });
     // Shields and a conversion under way (any unit may hold them here).
     obj(&mut base, 3).shields = Some(7.5);
     obj(&mut base, 3).conversion = Some(Conversion {
@@ -238,6 +240,11 @@ fn state_hash_covers_every_field() {
                 kind: ObjectKind::Barracks,
             });
         }),
+        ("tunnel none", |s| obj(s, 4).tunnel = None),
+        ("tunnel some", |s| {
+            obj(s, 3).tunnel = Some(crate::tunnel::TunnelState { tier: 2 });
+        }),
+        ("tunnel tier", |s| obj(s, 4).tunnel.as_mut().unwrap().tier = 3),
     ];
     for (name, mutate) in mutations {
         let mut sim = base.clone();

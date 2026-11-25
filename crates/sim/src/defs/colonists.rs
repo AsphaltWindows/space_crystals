@@ -230,6 +230,8 @@ pub(super) static BEACON: ObjectDef = ObjectDef {
             },
         ],
         drop_off: false,
+        underground: false,
+        tunnel: None,
     }),
 };
 
@@ -261,6 +263,8 @@ pub(super) static EGRESS_NODE: ObjectDef = ObjectDef {
         constructs: &[],
         warp_in: &[],
         drop_off: true, // `economy.md > Egress Node > Drop Off`
+        underground: false,
+        tunnel: None,
     }),
 };
 
@@ -302,6 +306,8 @@ pub(super) static ROBO_PORTAL: ObjectDef = ObjectDef {
         constructs: &[],
         warp_in: &[],
         drop_off: false,
+        underground: false,
+        tunnel: None,
     }),
 };
 
@@ -345,6 +351,8 @@ pub(super) static BIO_PORTAL: ObjectDef = ObjectDef {
         constructs: &[],
         warp_in: &[],
         drop_off: false,
+        underground: false,
+        tunnel: None,
     }),
 };
 

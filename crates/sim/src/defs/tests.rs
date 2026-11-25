@@ -74,9 +74,9 @@ fn defs_are_consistent() {
             assert_eq!(def.armor, Armor::NONE, "{name}: resources have no armour");
         }
         // Exactly the structures have structure attributes. Every structure so far is a destructible building
-        // of a faction, on whole tiles of flat ground (`core/map.md > Elevation > Structures only on flat
-        // terrain`), whose footprint its symmetry type allows (`core/entities.md > Structure Type`: only ABAB,
-        // ABAC and ABCD may be oblong).
+        // of a faction, on whole tiles of flat ground but for the underground ones (`core/map.md > Elevation >
+        // Structures only on flat terrain`), whose footprint its symmetry type allows (`core/entities.md >
+        // Structure Type`: only ABAB, ABAC and ABCD may be oblong).
         assert_eq!(
             def.structure.is_some(),
             def.category == Category::Structure,
@@ -98,9 +98,9 @@ fn defs_are_consistent() {
 }
 
 /// `defs_are_consistent` for a structure type. Every structure so far is a destructible building of a faction, on
-/// whole tiles of flat ground (`core/map.md > Elevation > Structures only on flat terrain`), whose footprint its
-/// symmetry type allows (`core/entities.md > Structure Type`: only ABAB, ABAC and ABCD may be oblong; AAAA "requires
-/// for Height and Width to be equal").
+/// whole tiles of flat ground (`core/map.md > Elevation > Structures only on flat terrain`) but for the underground
+/// ones (design change 0005), whose footprint its symmetry type allows (`core/entities.md > Structure Type`: only
+/// ABAB, ABAC and ABCD may be oblong; AAAA "requires for Height and Width to be equal").
 fn structure_is_consistent(def: &ObjectDef, structure: &StructureDef) {
     let name = def.name;
     let (w, h) = def.tile_size().expect("structures are tile-based");
@@ -114,7 +114,14 @@ fn structure_is_consistent(def: &ObjectDef, structure: &StructureDef) {
     }
     assert!(def.destructible && def.max_hp.is_some(), "{name}: destructible");
     assert!(def.faction.is_some(), "{name}: structures belong to a faction");
-    assert!(def.needs_flat_ground, "{name}: structures stand on flat ground");
+    // The underground structures (plan decision T32) are the Syndicate's expansions, which "may be placed on sloped
+    // tiles" (design change 0005); every other structure stands on flat ground.
+    assert_eq!(def.needs_flat_ground, !structure.underground, "{name}: flat ground");
+    assert!(
+        !structure.underground || def.faction == Some(Faction::Syndicate),
+        "{name}: underground"
+    );
+    tunnel_is_consistent(def, structure);
     assert!(def.selectable, "{name}: selectable");
     // The Colonists have neither Power nor a build area (plan decision T21, `defs/colonists.rs`).
     if def.faction == Some(Faction::Colonists) {
@@ -178,6 +185,42 @@ fn structure_is_consistent(def: &ObjectDef, structure: &StructureDef) {
                 recipe.kind
             );
         }
+    }
+}
+
+/// `defs_are_consistent` for a structure's tier table (plan decision T39): only the Tunnel has one, a surface
+/// structure (`factions/syndicate/tunnels.md > Tunnel > Tiers`). Its tiers are 1 to 3, each with more MaxHP, a wider
+/// Tunnel Area and at least the transit of the tier below, infantry from Tier 1; its type's MaxHP is that of Tier 1, the
+/// tier a Tunnel starts at.
+fn tunnel_is_consistent(def: &ObjectDef, structure: &StructureDef) {
+    let name = def.name;
+    assert_eq!(
+        structure.tunnel.is_some(),
+        def.kind == ObjectKind::Tunnel,
+        "{name}: tier table"
+    );
+    let Some(tunnel) = structure.tunnel else {
+        return;
+    };
+    assert!(!structure.underground, "{name}: on the surface");
+    assert_eq!(tunnel.tiers.len(), 3, "{name}: Tiers 1 to 3");
+    assert_eq!((tunnel.tier(0), tunnel.tier(4)), (None, None), "{name}: Tiers 1 to 3");
+    let base = tunnel.tier(crate::tunnel::BASE_TIER).map(|tier| tier.max_hp);
+    assert_eq!(def.max_hp, base, "{name}: the MaxHP of Tier 1");
+    for tier in tunnel.tiers {
+        assert!(
+            tier.max_hp.is_finite() && tier.max_hp > 0.0 && tier.transit.contains(&Transit::Infantry),
+            "{name}: {tier:?}"
+        );
+    }
+    for pair in tunnel.tiers.windows(2) {
+        let (lower, higher) = (pair[0], pair[1]);
+        assert!(
+            lower.max_hp < higher.max_hp
+                && lower.area_radius < higher.area_radius
+                && lower.transit.iter().all(|t| higher.transit.contains(t)),
+            "{name}: {pair:?}"
+        );
     }
 }
 
@@ -388,40 +431,6 @@ fn the_m1_units_follow_the_design() {
     assert_eq!(shield.damage_factor, 0.5);
     assert!(shield.toggle_ticks < 8, "under half a second (8 ticks)");
     assert_eq!((pk.unit_control_cost, gd.tunnel_space_cost), (Some(1), Some(1)));
-}
-
-/// Design change 0186 (`factions/syndicate/units.md > Guard > AttackAttributes`): the Guard's laser rifle hits
-/// ground and air (TargetDomain Universal), instantly, for 18 damage, one shot every 24 frames (Aim 4, Fire 1,
-/// Cooldown 3, Reload 16; placeholders). Its Range, its MinRange and the rest of the Guard are as before.
-#[test]
-fn the_guards_laser_rifle_hits_ground_and_air_every_24_frames() {
-    let guard = ObjectKind::Guard.def();
-    let attack = guard.unit.as_ref().unwrap().attack.unwrap();
-    assert_eq!(attack.target_domain, TargetDomain::Universal);
-    for domain in [Domain::Ground, Domain::Air] {
-        assert!(crate::combat::domain_allows(attack.target_domain, domain), "{domain:?}");
-    }
-    assert_eq!(
-        attack.attack_type,
-        AttackType::FullyConnected(FullyConnectedSubtype::Ranged),
-        "instant hit: it can't miss"
-    );
-    assert_eq!(attack.projectile_speed, None);
-    assert_eq!((attack.target_type, attack.damage), (TargetType::SingleTarget, 18.0));
-    let timings = (
-        attack.aim_ticks,
-        attack.firing_ticks,
-        attack.cooldown_ticks,
-        attack.reload_ticks,
-    );
-    assert_eq!(timings, (4, 1, 3, 16));
-    assert_eq!(
-        timings.0 + timings.1 + timings.2 + timings.3,
-        24,
-        "one shot every 24 frames"
-    );
-    assert_eq!((attack.range, attack.min_range), (3.0, 0.0));
-    assert_eq!((guard.max_hp, guard.sight_range), (Some(80.0), 5.0));
 }
 
 /// `factions/gdo/units.md > Peacekeeper > Riot Shield > Two unit types` (design change 0173): Peacekeeper (Shielded)

@@ -308,6 +308,7 @@ impl StateHash for Object {
             worker,
             transform,
             conversion,
+            tunnel,
         } = self;
         id.hash(h);
         kind.hash(h);
@@ -333,6 +334,12 @@ impl StateHash for Object {
         worker.hash(h);
         transform.hash(h);
         conversion.hash(h);
+        // (M4-A) Only while set (`tunnel.rs`), under a tag of its own: the states of games without a Tunnel hash as
+        // they did before the field existed, so the goldens stand.
+        if let Some(tunnel) = tunnel {
+            h.tag(1);
+            tunnel.hash(h);
+        }
     }
 }
 

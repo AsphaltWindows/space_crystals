@@ -4,8 +4,8 @@
 //!
 //! - **Records** ([`LastKnown`]): one per tile-based object (a structure or a resource: an object with a footprint,
 //!   `Object::placement`) the player has seen and doesn't own, with what the views need to draw it and fill its
-//!   InfoPanel: kind, owner, footprint, HP, resource state, and the last tick the player saw it. History: hashed and
-//!   serialized with the Explored tiles.
+//!   InfoPanel: kind, owner, footprint, HP, resource state, a Tunnel's tier, and the last tick the player saw it.
+//!   History: hashed and serialized with the Explored tiles.
 //! - **In sight**: such an object is in a player's sight while a tile it covers is Visible, the fog delay included,
 //!   as [`PlayerVision::box_state`] counts it (only units attack, so none is ever revealed: `super::reveal`). Its
 //!   record is written at the end of every tick it is in sight
@@ -23,6 +23,8 @@
 //!   has an owner, and nothing of it is known until seen ("it would otherwise reveal their start position and
 //!   faction"); a neutral object that comes into the game later isn't either.
 //! - **Own objects** are never recorded: a player always knows its own objects as they are.
+//! - **Hidden objects** are never recorded either (plan decision T32, `super::hidden`: an owned underground structure,
+//!   for every player but its owner): the player sees their tiles, not them, so it knows nothing of them there.
 //!
 //! **Update**, driven by vision changes, never a scan of the map or of every object for every player:
 //! - Phase 5f's walk over the objects ([`Vision::update`]) merges, in id order, the footprints of the tile-based
@@ -53,11 +55,13 @@ use std::collections::{BTreeMap, BTreeSet};
 use glam::Vec2;
 use serde::{Deserialize, Serialize};
 
+use super::hidden::hidden_from;
 use super::{PlayerVision, TileBits};
 use crate::defs::{ObjectDef, ObjectKind};
 use crate::hash::{StateHash, StateHasher};
 use crate::ids::{ObjectId, PlayerId};
 use crate::object::{Object, Placement, ResourceState};
+use crate::tunnel::TunnelState;
 use crate::units::{Tick, TilePos};
 
 pub(super) use footprints::{Changes, Footprints};
@@ -77,6 +81,12 @@ pub struct LastKnown {
     pub resource: Option<ResourceState>,
     /// The tick at whose end the player last saw it.
     pub seen: Tick,
+    /// A Tunnel's tier when last seen (`Object::tunnel`, plan decision T39; design change 0258: "Enemies see a
+    /// Tunnel's tier"), which its look, its MaxHP and, from slice M4-E on, the area a ghost judges by follow (design
+    /// change 0237: "at their remembered position and last-seen tier"). `None` for every other type. Optional in files and left out of them while `None`, so that the records
+    /// saved before it existed still load.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub tunnel: Option<TunnelState>,
 }
 
 impl LastKnown {
@@ -91,11 +101,19 @@ impl LastKnown {
             hp: object.hp,
             resource: object.resource.clone(),
             seen: tick,
+            tunnel: object.tunnel,
         })
     }
 
     pub fn def(&self) -> &'static ObjectDef {
         self.kind.def()
+    }
+
+    /// The MaxHP of the object as last seen: its type's, a Tunnel's its tier's (`Object::max_hp`). `None` for an
+    /// indestructible type.
+    pub fn max_hp(&self) -> Option<f32> {
+        let tier = (crate::tunnel::def_of(self.kind)).and_then(|def| def.tier(self.tunnel?.tier));
+        tier.map_or(self.def().max_hp, |tier| Some(tier.max_hp))
     }
 
     /// Where it stands: the centre of its footprint, which is its object's position (space units).
@@ -114,6 +132,7 @@ impl StateHash for LastKnown {
             hp,
             resource,
             seen,
+            tunnel,
         } = self;
         id.hash(h);
         kind.hash(h);
@@ -122,6 +141,11 @@ impl StateHash for LastKnown {
         hp.hash(h);
         resource.hash(h);
         seen.hash(h);
+        // (M4-A) Only while set, as `Object::tunnel`: the records of games without a Tunnel hash as before.
+        if let Some(tunnel) = tunnel {
+            h.tag(1);
+            tunnel.hash(h);
+        }
     }
 }
 
@@ -303,12 +327,13 @@ impl PlayerVision {
     }
 
     /// The end of the tick ([`super::Vision::remember`]): the records of the objects in the player's sight take
-    /// their state at the end of `tick`; an object the player owns has none. `object` finds an object by id.
+    /// their state at the end of `tick`; an object the player owns has none, and nor has one hidden from the player
+    /// (plan decision T32, `super::hidden`: the player sees its place, not it). `object` finds an object by id.
     pub(super) fn refresh<'a>(&mut self, tick: Tick, object: &impl Fn(ObjectId) -> Option<&'a Object>) {
         let in_sight = std::mem::take(&mut self.memory.in_sight);
         for &id in &in_sight {
             match object(id) {
-                Some(o) if o.owner == Some(self.id) => self.forget(id),
+                Some(o) if o.owner == Some(self.id) || hidden_from(o, self.id) => self.forget(id),
                 Some(o) => {
                     if let Some(record) = LastKnown::of(o, tick) {
                         self.store(record);

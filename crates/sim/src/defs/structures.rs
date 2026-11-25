@@ -1,7 +1,7 @@
 //! The attributes of structure types (`core/entities.md > Structure Type`). The faction modules (`defs/gdo.rs`, …)
 //! hold the structure types themselves.
 
-use crate::defs::ObjectKind;
+use crate::defs::{ObjectKind, UnitBase};
 use crate::sides::SideLetter;
 
 /// A structure type's own attributes; the attributes every object type has, armour included, are on its
@@ -35,6 +35,78 @@ pub struct StructureDef {
     /// Whether workers deliver their loads to the type (`factions/colonists/economy.md > Egress Node > Drop Off`:
     /// "the only way resources enter the player's resource pool"; `crate::economy::gathering`).
     pub drop_off: bool,
+    /// Whether the type is an underground structure (plan decision T32; `factions/syndicate/structures.md > Tunnel
+    /// Expansions`: "Expansions are invisible to enemies without detection and can be walked over by surface units"):
+    /// its footprint blocks no movement (`nav::BlockerKind::UndergroundExpansion`), and while it has an owner it is
+    /// hidden from the other players (`vision::hidden_from`). The Syndicate's expansions: the Hideout so far.
+    pub underground: bool,
+    /// The Tunnel's tier table (plan decision T39, `factions/syndicate/tunnels.md > Tunnel > Tiers`): an object of a
+    /// type with one carries its tier (`Object::tunnel`, `crate::tunnel`). `None` for every other type.
+    pub tunnel: Option<&'static TunnelDef>,
+}
+
+/// `factions/syndicate/tunnels.md > Tunnel > Tiers`: "Tunnels have 3 upgrade tiers. Each tier increases HP, Tunnel
+/// Area radius, and unlocks higher-tier buildings and unit transit." One Tunnel type with a tier (plan decision T39),
+/// not a type per tier. The tiers' PointArmor and FullArmor are the same (1 and 16): the type's (`ObjectDef::armor`).
+#[derive(Copy, Clone, Debug, PartialEq)]
+pub struct TunnelDef {
+    /// Tier 1, the base, first: tier `n` is `tiers[n - 1]` ([`TunnelDef::tier`]).
+    pub tiers: &'static [TierDef],
+}
+
+impl TunnelDef {
+    /// The row of tier `tier` (1 for the base), if the table has one.
+    pub fn tier(&self, tier: u8) -> Option<&'static TierDef> {
+        self.tiers.get(usize::from(tier).checked_sub(1)?)
+    }
+}
+
+/// One column of `factions/syndicate/tunnels.md > Tunnel > Tiers`.
+#[derive(Copy, Clone, Debug, PartialEq)]
+pub struct TierDef {
+    /// `HP`: the Tunnel's MaxHP at this tier (`Object::max_hp`).
+    pub max_hp: f32,
+    /// `Tunnel Area Radius`, grid units: how far the Tunnel Area reaches out from the Tunnel's footprint on every side
+    /// (`> Tunnel Area`: "a square of (radius + 4 + radius) per side"). Data only until the Tunnel Area exists (slices
+    /// M4-B and M4-F).
+    pub area_radius: u32,
+    /// `Transit`: the classes of unit that may enter and leave the Tunnel Network through a Tunnel of this tier
+    /// (`> Tunnel Network > Transit Tier Requirements`). Data only until units enter the network (slice M4-C).
+    pub transit: &'static [Transit],
+}
+
+impl TierDef {
+    /// Whether a unit of `base` may pass through a Tunnel of this tier ([`Transit::of`]).
+    pub fn admits(&self, base: UnitBase) -> bool {
+        self.transit.contains(&Transit::of(base))
+    }
+}
+
+/// `factions/syndicate/tunnels.md > Tunnel Network > Transit Tier Requirements`: the classes of unit base that a
+/// Tunnel's tier lets into and out of the network.
+#[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
+pub enum Transit {
+    /// "Tier 1+: Infantry (Light Infantry, Heavy Infantry)".
+    Infantry,
+    /// "Tier 2+: Vehicles (Wheeled, Tracked, Drill, Hover Vehicle, Mech)".
+    Vehicles,
+    /// "Tier 3+: Air units (Hover Craft, Glider)".
+    Air,
+}
+
+impl Transit {
+    /// The class of a unit of `base`, as the requirements list the bases.
+    pub fn of(base: UnitBase) -> Transit {
+        match base {
+            UnitBase::LightInfantry | UnitBase::HeavyInfantry => Transit::Infantry,
+            UnitBase::WheeledVehicle
+            | UnitBase::TrackedVehicle
+            | UnitBase::DrillUnit
+            | UnitBase::HoverVehicle
+            | UnitBase::Mech => Transit::Vehicles,
+            UnitBase::HoverCraft | UnitBase::Glider => Transit::Air,
+        }
+    }
 }
 
 /// A mining structure's rates (`factions/gdo/economy.md > ExtractionPlate`): it pays its owner a load at the end of

@@ -7,6 +7,7 @@ use std::collections::BTreeMap;
 use glam::Vec2;
 
 use super::VisibilityState;
+use super::hidden::Hiding;
 use super::linger::Linger;
 use super::memory::Memory;
 use crate::combat::object_box;
@@ -178,19 +179,24 @@ impl PlayerVision {
     }
 
     /// How the player sees `object` ([`PlayerVision::object_box_state`] of the box its silhouette (a unit) or its
-    /// footprint (a structure or resource) makes, `combat::object_box`).
+    /// footprint (a structure or resource) makes, `combat::object_box`, and of whom it is hidden from now).
     pub fn object_state(&self, object: &Object) -> VisibilityState {
         let (lo, hi) = object_box(object);
-        self.object_box_state(object.id, lo, hi)
+        self.object_box_state(object.id, lo, hi, Hiding::of(object))
     }
 
-    /// How the player sees the object `id` whose box is `lo..hi` (space units, `combat::object_box`): Visible
-    /// while it is revealed to the player (`core/vision.md > Attacks from outside vision`, [`super::reveal`]), else
-    /// the best state among the tiles the box overlaps ([`PlayerVision::box_state`]), the fog delay included. The
-    /// one question whether the player sees an object: the behaviours, combat, the command gate and the client's
-    /// sight all ask it, through [`PlayerVision::object_state`] or with the box they hold.
-    pub fn object_box_state(&self, id: ObjectId, lo: Vec2, hi: Vec2) -> VisibilityState {
-        if self.is_revealed(id) {
+    /// How the player sees the object `id` whose box is `lo..hi` (space units, `combat::object_box`), hidden from the
+    /// players `hiding` says (its [`Hiding`]). Never Visible while it is hidden from the player (plan decision T32,
+    /// [`super::hidden`]: an owned underground structure, for every player but its owner), whatever its tiles: at
+    /// most Explored then, the state of the place. Otherwise Visible while it is revealed to the player
+    /// (`core/vision.md > Attacks from outside vision`, [`super::reveal`]), else the best state among the tiles the box
+    /// overlaps ([`PlayerVision::box_state`]), the fog delay included. The one question whether the player sees an
+    /// object: the behaviours, combat, the command gate, the records and the client's sight all ask it, through
+    /// [`PlayerVision::object_state`] or with the box and the [`Hiding`] they hold.
+    pub fn object_box_state(&self, id: ObjectId, lo: Vec2, hi: Vec2, hiding: Hiding) -> VisibilityState {
+        if hiding.hides_from(self.id) {
+            self.box_state(lo, hi).min(VisibilityState::Explored)
+        } else if self.is_revealed(id) {
             VisibilityState::Visible
         } else {
             self.box_state(lo, hi)
@@ -202,9 +208,10 @@ impl PlayerVision {
         self.object_state(object) == VisibilityState::Visible
     }
 
-    /// Whether the player sees the object `id` whose box is `lo..hi` now ([`PlayerVision::object_box_state`]).
-    pub fn sees_object_box(&self, id: ObjectId, lo: Vec2, hi: Vec2) -> bool {
-        self.object_box_state(id, lo, hi) == VisibilityState::Visible
+    /// Whether the player sees the object `id` whose box is `lo..hi` and which `hiding` hides from some players, now
+    /// ([`PlayerVision::object_box_state`]).
+    pub fn sees_object_box(&self, id: ObjectId, lo: Vec2, hi: Vec2, hiding: Hiding) -> bool {
+        self.object_box_state(id, lo, hi, hiding) == VisibilityState::Visible
     }
 
     /// Whether a tile the box `lo..hi` overlaps is Visible now. Tiles only, for a place such as a remembered

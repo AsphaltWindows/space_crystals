@@ -365,6 +365,10 @@ pub fn every_command() -> Vec<Command> {
                 essence: 7,
                 flux: 8,
             },
+            DebugCommand::SetTier {
+                id: ObjectId(1),
+                tier: 2,
+            },
         ]
         .map(Command::Debug),
     );
@@ -418,7 +422,8 @@ pub fn every_command() -> Vec<Command> {
                 | DebugCommand::Remove { .. }
                 | DebugCommand::SetPosition { .. }
                 | DebugCommand::SetAutoTargeting { .. }
-                | DebugCommand::SetResources { .. },
+                | DebugCommand::SetResources { .. }
+                | DebugCommand::SetTier { .. },
             ) => {}
         }
     }

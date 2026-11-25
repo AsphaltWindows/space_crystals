@@ -126,6 +126,9 @@ pub enum Reject {
     /// A Drop Off order to workers none of which carries anything (design change 0140: "Drop Off is only resolved
     /// for a Drone that is carrying something"; the empty ones among loaded ones are left out).
     NothingToDeliver,
+    /// A debug SetTier to an object without that tier: it isn't a Tunnel, or its tier table hasn't the tier
+    /// (`factions/syndicate/tunnels.md > Tunnel > Tiers`: 1 to 3).
+    NoSuchTier { id: ObjectId, tier: u8 },
 }
 
 impl fmt::Display for Reject {
@@ -167,6 +170,7 @@ impl fmt::Display for Reject {
             Reject::Unplaceable(problem) => write!(f, "the building can't go there: {problem}"),
             Reject::NotTransforming => write!(f, "nothing is transforming"),
             Reject::NothingToDeliver => write!(f, "none of the workers carries anything"),
+            Reject::NoSuchTier { id, tier } => write!(f, "object {} has no tier {tier}", id.0),
         }
     }
 }
@@ -200,6 +204,11 @@ pub(super) enum Checked {
     SetResources {
         player: PlayerId,
         banks: Banks,
+    },
+    /// `id`: a Tunnel, whose table has `tier`.
+    SetTier {
+        id: ObjectId,
+        tier: u8,
     },
     /// `player`'s production command, with what its checks resolved (`sim/producers.rs`).
     Production {

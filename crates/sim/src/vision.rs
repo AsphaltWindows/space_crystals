@@ -32,14 +32,18 @@
 //! - **Objects** ([`PlayerVision::object_state`], [`PlayerVision::object_box_state`]): an object counts as seen while
 //!   it is revealed, or when any tile it covers is Visible; it covers the tiles its silhouette box (a unit) or
 //!   footprint (a structure or resource) overlaps. Every question whether a player sees an object comes there.
+//!   An object hidden from the player ([`hidden`], plan decision T32: an owned underground structure, for every
+//!   player but its owner) is never seen, whatever its tiles.
 //! - **Memory** ([`memory`], `> Explored`: structures and resources show in their last-known state): each player's
 //!   records of the structures and resources it has seen ([`LastKnown`], [`PlayerVision::records`]), history like
 //!   the Explored tiles. Phase 5f follows which of them the player sees from the tiles that change state, and
-//!   [`Vision::remember`], the last thing a tick does, refreshes the records of those in sight.
+//!   [`Vision::remember`], the last thing a tick does, refreshes the records of those in sight. No record is ever
+//!   taken of an object hidden from the player.
 //!
 //! The map never changes during a game; a sim whose map changed would have to build its vision again
 //! ([`Vision::new`]).
 
+pub mod hidden;
 pub mod linger;
 mod memory;
 mod player;
@@ -62,6 +66,7 @@ use crate::map::Map;
 use crate::object::Object;
 use crate::units::{Tick, TilePos};
 
+pub use hidden::{Hiding, hidden_from};
 pub use linger::FOG_DELAY_TICKS;
 use memory::Footprints;
 pub use memory::LastKnown;
@@ -264,7 +269,10 @@ impl Vision {
     /// among them, since they "are never pre-known" (`vision::memory`).
     pub(crate) fn seed<'a>(&mut self, objects: impl Iterator<Item = &'a Object> + Clone, tick: Tick) {
         for player in &mut self.players {
-            player.set_records(objects.clone().filter_map(|o| LastKnown::of(o, tick)));
+            // Neutral objects are hidden from nobody (`hidden`); the rule holds here too, whatever the caller passes.
+            let id = player.id;
+            let known = objects.clone().filter(|o| !hidden_from(o, id));
+            player.set_records(known.filter_map(|o| LastKnown::of(o, tick)));
         }
     }
 
