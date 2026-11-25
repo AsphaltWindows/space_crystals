@@ -319,5 +319,11 @@ Makes it **go underground**. Underground it can travel **under buildings and obs
 ### Surface (ability)
 Brings it back to its above-ground mode. **It can't surface on top of a building, or on ground that tracked vehicles can't traverse** (user, 2026-11-25). The check is the tile itself (it must be passable for a tracked vehicle and free of buildings), **not** whether a tracked vehicle could drive there: so it **can** surface on a plateau or behind cliffs that ground vehicles can't reach. Once surfaced it can unload and load again.
 
-TBD: capacity (and whether it counts each infantry unit's TunnelSpaceCost); burrow/surface time and whether they follow the deploy model (not cancellable, factions/gdo/units.md > Artillery Rig > Modes) or the mode toggle model; what happens to passengers if it is destroyed; whether it can enter the Tunnel Network carrying passengers; load/unload commands and the panel; all numbers.
+### Burrowing and surfacing work like vehicle deploy
+(user, 2026-11-25) Burrow and Surface follow the **vehicle deploy model** (factions/gdo/units.md > Artillery Rig > Modes): each takes time, is a **queueable order**, **can't be cancelled** once started, and the unit changes mode only when the process completes. The **last order given meanwhile is held** and tried first once it's done; orders the unit can't carry out in its new mode are dropped.
+
+### Destroyed with passengers
+(user, 2026-11-25) If it is destroyed, **all infantry inside die** with it (above ground or underground).
+
+TBD: capacity (and whether it counts each infantry unit's TunnelSpaceCost); burrow/surface time; whether it can enter the Tunnel Network carrying passengers; load/unload commands and the panel; all numbers.
 
