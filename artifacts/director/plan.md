@@ -880,7 +880,7 @@ The user keeps feeding unit and other designs to the Designer, so expect increme
 | Q0057 | An attacker blocked by its own side near its target: melee units within 3 GU give the target up (2–3 of 8 Sabres never strike); should a unit wait without limit; three attempts at a way round | no | answered by 0223 (points 1 A, 2 B, 3 A; M3-G3) |
 
 ## Design change entries
-Last triaged: 0223.
+Last triaged: 0225.
 
 | Entry | Status | Notes |
 |---|---|---|
@@ -1084,4 +1084,6 @@ Last triaged: 0223.
 | 0215–0220 Subterranean Transport, a new Syndicate infantry transport (Burrow and Surface on the deploy model, hidden underground unless detected, area damage still hits it, surfaces on tiles a tracked vehicle can cross that have no building, passengers die with it); every DrillUnit hidden underground unless detected | queued (M4 N3; hiding needs the detection system, TBD) | concept; capacity, timings and detection TBD |
 | 0221–0222 The Subterranean Transport requires a Forge and drives into Tunnels loaded; passengers stay aboard in the network, and only its own Tunnel space counts | queued (M4 N3) | concept |
 | 0223 Attackers blocked by their own side: no special crowd logic. Melee units within 3 GU give up (as built); farther out a unit goes round if it can, else the Failure rule applies (about 7 s), with no indefinite wait; a few attempts, no re-checking. New principle: default behaviour is predictable, not optimal | queued (M3-G3) | answers Q0057; removes M3-G2's and M1-E's indefinite wait |
+| 0224 The Tunnel: Side A has an entry path and an exit path; Sides B and C are hatches for crystals and Supplies; Side D has no function; the look changes by tier; T3 adds air doors | queued (M4: A, C, D and I; air doors deferred with air units) | art direction for three tiers |
+| 0225 Each Side A path takes one unit at a time at a fixed position; entering and exiting don't block each other | queued (M4-C) | how long a unit holds a path is TBD (an M4 question) |
 | 0014 GDO Airfield and aircraft | queued (Later: air) | |
