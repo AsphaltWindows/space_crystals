@@ -16,4 +16,10 @@
 - TargetType: SingleTarget
 - Low damage, high rate of fire
 
-TBD: all numbers (HP, armor, sight, speed, turn radius, turret turn rate, damage, range, timings, cost, build time); hotkey.
+**Placeholder stats** (designer, 2026-11-26, at the user's request: provisional numbers so the Director can implement; tune in the numbers pass):
+- Silhouette 56x40 space units (length x width); MaxHP 120; PointArmor 1, FullArmor 1; SightRange 6 grid units; Groupable true.
+- FixedTurnRadiusMovement: MinimumTurnRadius 64 su (1 grid unit); ForwardMaxSpeed 8 su/frame; ForwardAcceleration 1 su/frame²; ReverseMaxSpeed 3 su/frame; ReverseAcceleration 0.5 su/frame²; Deceleration 1 su/frame².
+- Turret: TurnAngle 360°, TurnRate 12°/frame.
+- Attack: Damage 3; Range 4 grid units; MinRange 0; Aim 1, Firing 1, Cooldown 1, Reload 1 frames (one shot every 4 frames: 12 damage per second before armor).
+- Cost: Chop Shop, 2 Recruits, 75 Space Crystals, 320 frames.
+- ObjectInterfaceState: BasicCombatUnitInterfaceState.
