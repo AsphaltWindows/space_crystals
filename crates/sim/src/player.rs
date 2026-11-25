@@ -196,13 +196,7 @@ mod tests {
         };
         assert_eq!(start(Faction::Gdo), hundred);
         assert_eq!(start(Faction::Colonists), hundred);
-        assert_eq!(
-            start(Faction::Syndicate),
-            Banks {
-                supplies: 1,
-                ..hundred
-            }
-        );
+        assert_eq!(start(Faction::Syndicate), Banks { supplies: 1, ..hundred });
         assert_eq!(start(Faction::Cults), Banks::default());
         let mut p = player(5);
         let set = Banks {

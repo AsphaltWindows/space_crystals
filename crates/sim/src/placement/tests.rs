@@ -6,11 +6,14 @@
 //! - `occupants`: the tile rules of what is on a tile: structures, resources, ground units (rules 5 to 7), the
 //!   player's reserved sites, and what a player who never explored a tile knows of it (`Mode::Known`);
 //! - `footprint`: the rules of the footprint as a whole (the build area, plates onto patches, structures only),
-//!   and the order the problems come in.
+//!   and the order the problems come in;
+//! - `tunnel_area`: the Tunnel Area's rules (slice M4-B): on the map and Drillable (design change 0242), and a
+//!   layout's expansions inside their Tunnel's area.
 
 mod footprint;
 mod ground;
 mod occupants;
+mod tunnel_area;
 
 use glam::Vec2;
 

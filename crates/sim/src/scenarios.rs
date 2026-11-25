@@ -222,14 +222,15 @@ pub fn dev_skirmish_map() -> MapDef {
     // The first slot's Syndicate Starting Layout (`factions/syndicate/tunnels.md > Tunnel > Starting Conditions`;
     // slice M4-B, the second slot's is its image). The Tunnel on (4, 4) to (7, 7), turned 180° so that its sides
     // (design change 0248: "A: entrance/exit; B: crystal hatch; C: back wall (no function); D: Supplies hatch") face A
-    // south, toward the open map, B west, C north and D east, toward the middle of the map and its station. Side B's
-    // middle squares, (4, 5) and (4, 6), face the patches (2, 5) and (2, 6) across the empty column x = 3: 1 grid unit
-    // edge to edge, whichever of them is the hatch (design change 0255 point 6: "The hatch is 1 grid square, near the
-    // middle of the side"; 0259: the patch "1 GU from the hatch"). Its Tier 1 Tunnel Area, (2, 2) to (9, 9), is all
-    // on the map and flat Plane (design change 0242: on the map and Drillable). The Hideout on (8, 8) to (9, 9), in
-    // that area, off the Tunnel and the patches; the Agent 1.5 grid units south of Side A's middle, at (6, 9.5) grid
-    // units, clear of the doorway the Tunnel's units will use (slice M4-C). No camera start: the camera starts on the
-    // Tunnel (`core/camera.md > Starting Position`: "Syndicate: starting Tunnel").
+    // south, toward the open map, B west, C north and D east, toward the middle of the map and its station. The crystal
+    // hatch, (4, 5) (`tunnel::hatch_square`, slice M4-D: Side B's middle square farther from Side A; design change 0255
+    // point 6: "The hatch is 1 grid square, near the middle of the side"), faces the patch (2, 5) across the empty
+    // column x = 3, 1 grid unit edge to edge (0259: the patch "1 GU from the hatch"). That close, 3 or more Agents jam
+    // at the hatch (question Q0076): the layout keeps 0259's 1 GU until the design decides. Its Tier 1 Tunnel Area,
+    // (2, 2) to (9, 9), is all on the map and flat Plane (design change 0242: on the map and Drillable). The Hideout
+    // on (8, 8) to (9, 9), in that area, off the Tunnel and the patches; the Agent 1.5 grid units south of Side A's
+    // middle, at (6, 9.5) grid units, clear of the doorway the Tunnel's units use (slice M4-C). No camera start: the
+    // camera starts on the Tunnel (`core/camera.md > Starting Position`: "Syndicate: starting Tunnel").
     let turned = BuildingOrientation {
         rotation: Rotation::R180,
         ..BuildingOrientation::default()

@@ -145,10 +145,7 @@ mod tests {
             })
             .collect();
         assert_eq!(sizes, [(8, 8, 48), (10, 10, 84), (12, 12, 128)]);
-        assert_eq!(
-            (base_radius(TUNNEL), base_radius(ObjectKind::Hideout)),
-            (Some(2), None)
-        );
+        assert_eq!((base_radius(TUNNEL), base_radius(ObjectKind::Hideout)), (Some(2), None));
         // Grown on every side, the footprint left out.
         assert_eq!(area(footprint(4, 4), 2), TileRect::new(TilePos::new(2, 2), 8, 8));
         assert!(region(footprint(4, 4), 2).all(|c| !contains(footprint(4, 4), c)));
@@ -228,7 +225,10 @@ mod tests {
         assert!(encloses(footprint(0, 0), TileRect::new(TilePos::new(3, 3), 1, 1)));
         assert!(!encloses(footprint(0, 0), TileRect::new(TilePos::new(3, 3), 2, 1)));
         assert!(!encloses(footprint(0, 0), TileRect::new(TilePos::new(-1, 0), 2, 1)));
-        assert!(encloses(footprint(0, 0), TileRect::new(TilePos::new(i32::MAX, 0), 0, 0)));
+        assert!(encloses(
+            footprint(0, 0),
+            TileRect::new(TilePos::new(i32::MAX, 0), 0, 0)
+        ));
         assert!(overlaps(footprint(0, 0), footprint(3, 3)) && !overlaps(footprint(0, 0), footprint(4, 0)));
         assert!(!overlaps(footprint(i32::MAX, 0), footprint(i32::MIN, 0)));
     }

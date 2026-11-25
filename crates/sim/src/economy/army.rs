@@ -46,8 +46,8 @@ mod tunnel_space;
 
 use serde::{Deserialize, Serialize};
 
-pub use self::tunnel_space::{CELLS_PER_TUNNEL_SPACE, TUNNEL_SPACE_CAP};
 use self::tunnel_space::TunnelSpace;
+pub use self::tunnel_space::{CELLS_PER_TUNNEL_SPACE, TUNNEL_SPACE_CAP};
 use crate::defs::{Category, ObjectKind};
 use crate::ids::PlayerId;
 use crate::object::Object;

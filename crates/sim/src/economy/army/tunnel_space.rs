@@ -161,7 +161,10 @@ mod tests {
         }
         assert_eq!(found, [(48, 12), (84, 21), (128, 32)]);
         let none = tunnel_space(&objects, P2);
-        assert_eq!((none.resource, none.used, none.available), (ArmyResource::TunnelSpace, 0, 0));
+        assert_eq!(
+            (none.resource, none.used, none.available),
+            (ArmyResource::TunnelSpace, 0, 0)
+        );
     }
 
     /// An own Hideout inside the area takes its 4 cells (`> Tunnel Space`: "Building an expansion permanently
@@ -220,7 +223,10 @@ mod tests {
         let sixteen = tunnels(16);
         assert_eq!((unused(&sixteen, P1), tunnel_space(&sixteen, P1).available), (768, 192));
         let seventeen = tunnels(17);
-        assert_eq!((unused(&seventeen, P1), tunnel_space(&seventeen, P1).available), (816, 200));
+        assert_eq!(
+            (unused(&seventeen, P1), tunnel_space(&seventeen, P1).available),
+            (816, 200)
+        );
     }
 
     /// Design change 0242: "So every tunnel-region cell is usable": a Tunnel that only a spawn can stand by the map's
@@ -247,8 +253,16 @@ mod tests {
                 .spawn(TUNNEL, Some(P1), tile(2, 2))
                 .spawn(ObjectKind::Barracks, Some(P1), tile(14, 2))
                 .spawn(AGENT, Some(P1), SpawnAt::Point(TilePos::new(12, 10).center()))
-                .spawn(ObjectKind::Guard, Some(P1), SpawnAt::Point(TilePos::new(14, 10).center()))
-                .spawn(ObjectKind::Peacekeeper, Some(P1), SpawnAt::Point(TilePos::new(16, 10).center()))
+                .spawn(
+                    ObjectKind::Guard,
+                    Some(P1),
+                    SpawnAt::Point(TilePos::new(14, 10).center()),
+                )
+                .spawn(
+                    ObjectKind::Peacekeeper,
+                    Some(P1),
+                    SpawnAt::Point(TilePos::new(16, 10).center()),
+                )
                 .spawn(AGENT, Some(P2), SpawnAt::Point(TilePos::new(18, 10).center())),
         );
         assert_eq!(tunnel_space(&objects, P1).used, 2);
