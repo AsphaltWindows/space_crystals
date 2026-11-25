@@ -115,6 +115,7 @@ Displays a grid of unit type tiles representing all units currently in the Tunne
 Displays available underground expansion types for this Tunnel's current tier. An expansion is available only if (1) its Tier Requirement is at or below **this** Tunnel's tier, and (2) its TechPrerequisite (if any) is satisfied anywhere in the Tunnel Network (see Tunnel Expansions > Expansion Requirements).
 
 - Click an expansion type: begins construction if the Tunnel is not already performing an operation (enters AwaitingPlacement for that expansion)
+- **Fixed slots** (user, 2026-11-26; Q0081): **all nine expansions** are always listed, in the Tech Tree table's order, each holding its slot; ones not available (tier, prerequisite, or not yet in the build) are greyed. The **Laser Turret is always the tenth slot**, so no hotkey ever moves.
 - The ExpandMenu also offers the **Laser Turret** (once the player owns an Optics Lab), placed within this Tunnel's Tunnel Area like an expansion; it becomes a pop-up turret (see Laser Turret).
 - **Z**: returns to DefaultState (StateOnlyTransition)
 

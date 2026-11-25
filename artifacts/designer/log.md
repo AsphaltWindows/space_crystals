@@ -2253,3 +2253,4 @@ Answered Q0069–Q0071 (0258–0267): losing-Tunnel edges, Syndicate economy che
 2026-11-26 — Q0077: eject refused during transit; no-rally 1 GU out. Entry 0288.
 2026-11-26 — Q0079 as proposed. Entry 0289.
 2026-11-26 — Q0080: units don't block expansions; ghosts moot; Warp In red at once. Entry 0290.
+2026-11-26 — Q0081 A. Entry 0291.
