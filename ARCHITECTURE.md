@@ -202,7 +202,8 @@ Units, structures and resources are all `Object`s (`object.rs`, `core/entities.m
 - **The Syndicate** (`defs/syndicate.rs`; `factions/syndicate/`, slice M4-A): the Guard (M3), then the Agent, the
   Tunnel and the Hideout, after the Colonists' kinds. The Agent has its pistol; units enter and leave the Tunnel
   Network at a Tunnel's Side A and the Hideout produces into it (slice M4-C, *Units off the map* below); the rest is
-  inert so far but for blocking, sight and being targets. **The Tunnel is one kind with a tier** (plan decision T39): `StructureDef::tunnel` holds
+  inert so far but for blocking, sight and being targets. **The Tunnel is one kind with a tier** (plan decision
+  T39): `StructureDef::tunnel` holds
   its `TunnelDef`, the rows of `tunnels.md > Tiers` (`TierDef`: MaxHP, Tunnel Area Radius, Transit), and the object
   its `TunnelState` (`tunnel.rs`), from Tier 1. `Object::max_hp` reads its tier's row; `tunnel::set_tier` changes the
   tier as an upgrade will, the damage kept (`transform::follow_max`, design change 0231 point 4), through
@@ -1440,7 +1441,7 @@ M3-D2: design change 0145, `> Portals > Portal Exits (energy doorway)`).
     (AABB) from its top-left corner's direction clockwise round to its bottom-right one unturned, turning and
     flipping with it. The Heavy and Star Portals' arcs will come from their sides the same way.
   - **No doorway: into the Tunnel Network** (slice M4-C, `ExitRule::Network`, the Hideout's;
-    `factions/syndicate/structures.md > Rally Point Behavior`, design changes 0252 and 0253;
+    `factions/syndicate/structures/README.md > Rally Point Behavior`, design changes 0252 and 0253;
     `Sim::release_into_network`): the finished unit comes into the game held in its owner's network
     (`SimEvent::UnitProduced` without a `Spawned`), with no transit delay, and nothing ever holds the release up.
     With no rally point, or one on a Tunnel of its owner's, it stays inside. Any other rally is on the surface: the
@@ -1547,7 +1548,8 @@ M3-D2: design change 0145, `> Portals > Portal Exits (energy doorway)`).
   (`Unplaceable(PlacementProblem)`, not reported: `Sim::deploy_check`). `Enter(tunnel)` (slice M4-C,
   `systems/controls/commands.md > Enter`, `Sim::check_enter`) names a Tunnel of the player's own in operation
   (`NotOwned`, `NotATunnel`), and goes to the units its tier lets in (`network::admits`; `NoTransit` if none: any
-  unit of the Tunnel's owner may enter, whatever its type's faction). Without `queue` the order replaces the unit's queue and current order; with it, the order is
+  unit of the Tunnel's owner may enter, whatever its type's faction). Without `queue` the order replaces the unit's
+  queue and current order; with it, the order is
   appended (a full queue drops it). Each order command is one group (`Sim::next_group`); a location order gives
   each unit of a group its own destination (the magic box, see *Navigation*). What each order does is in
   *Behaviours*.
@@ -1611,7 +1613,8 @@ M3-D2: design change 0145, `> Portals > Portal Exits (energy doorway)`).
   changes 0062, 0063, 0074 and 0136): `resolve(Abilities, Aim)` is the one rule for what a unit does against a target
   by default: the ground gives Move; a worker on a patch it can gather Gather, on its owner's drop-off Drop Off while
   it carries a load (else a Move there, 0140); an own Tunnel whose tier lets the unit through Enter (slice M4-C:
-  `Abilities::transit` against `Aimed::transit`, `network::passes`); an enemy it can attack (its attack's TargetDomain, the target
+  `Abilities::transit` against `Aimed::transit`, `network::passes`); an enemy it can attack (its attack's
+  TargetDomain, the target
   destructible, its mode letting it attack) Attack; anything else a Move to the object, which follows a unit (an
   unarmed Drone follows an enemy, a shielded Peacekeeper too). `Sim::aimed(player, id)` is the target as the player
   knows it (`Aimed`: enemy, destructible, domain, gatherable, drop-off; a remembered one by its record) and

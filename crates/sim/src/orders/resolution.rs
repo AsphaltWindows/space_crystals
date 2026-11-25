@@ -16,7 +16,7 @@
 //!   Drop off resources"); without a load, a Move there (design change 0140).
 //! - **An own Tunnel** whose tier lets the unit through gives Enter (`systems/controls/commands.md > Enter`: "any
 //!   Syndicate unit, when the target Tunnel's tier is sufficient for the unit's base category";
-//!   `factions/syndicate/units.md > Agent > Right-Click Resolution`: "Own Tunnel (not carrying resources) → Enter";
+//!   `factions/syndicate/units/agent.md > Right-Click Resolution`: "Own Tunnel (not carrying resources) → Enter";
 //!   slice M4-C, `crate::network`), after a worker's Drop Off there ("Own Tunnel (carrying resources) → Drop off
 //!   resources").
 //! - **An enemy** (another player's object) that the unit can attack gives Attack: it has an attack whose

@@ -194,7 +194,7 @@ pub enum SimEvent {
     },
     /// `unit` came out of the Tunnel Network on `tunnel`'s exit path, and is among the sim's objects again, with the
     /// id it had (`> EjectMenu`; `Sim::step_ejections`): ejected by its player, or sent out by a surface rally point
-    /// (`factions/syndicate/structures.md > Rally Point Behavior`). No `Spawned` comes with it.
+    /// (`factions/syndicate/structures/README.md > Rally Point Behavior`). No `Spawned` comes with it.
     LeftNetwork {
         unit: ObjectId,
         tunnel: ObjectId,

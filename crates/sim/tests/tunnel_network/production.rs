@@ -1,5 +1,5 @@
-//! The Hideout's production into the network and its rally points (`factions/syndicate/structures.md > Hideout >
-//! Produces`, `> Rally Point Behavior`; design changes 0246, 0252 and 0253).
+//! The Hideout's production into the network and its rally points (`factions/syndicate/structures/hideout.md >
+//! Produces`, `structures/README.md > Rally Point Behavior`; design changes 0246, 0252 and 0253).
 
 use sc_sim::network::Place;
 use sc_sim::{ProductionCommand, Target};
@@ -84,8 +84,8 @@ fn a_trained_agent_appears_in_the_network_and_can_exit_at_once() {
     assert_eq!(t.pos(3), EXIT);
 }
 
-/// `> Rally Point Behavior`: "Rally point set on the surface: Unit auto-ejects from the parent Tunnel (Side A) and
-/// moves to the rally point." It comes out of the exit path in the tick it is finished, and walks there.
+/// `structures/README.md > Rally Point Behavior`: "Rally point set on the surface: Unit auto-ejects from the parent
+/// Tunnel (Side A) and moves to the rally point." It comes out of the exit path in the tick it is finished, and walks there.
 #[test]
 fn a_surface_rally_sends_the_unit_out_of_the_parent_tunnel() {
     let rally = Vec2::new(500.0, 300.0);

@@ -324,7 +324,7 @@ impl Sim {
         self.events.push(SimEvent::EnterFailed { unit, tunnel });
     }
 
-    /// `factions/syndicate/structures.md > Rally Point Behavior` (plan decision T35): `producer`, an underground
+    /// `factions/syndicate/structures/README.md > Rally Point Behavior` (plan decision T35): `producer`, an underground
     /// expansion (`ExitRule::Network`), finished its unit. The unit comes into the game inside its owner's Tunnel
     /// Network, with no transit delay (design change 0246: "they can exit as soon as they are produced"), and:
     /// - "**No rally point, or rally point set on the parent Tunnel**: Unit stays in the Tunnel Network"; "**Rally

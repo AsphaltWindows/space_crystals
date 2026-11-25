@@ -210,8 +210,8 @@ fn the_hideout_follows_the_design() {
         (structure.underground, structure.tunnel, structure.drop_off),
         (true, None, false)
     );
-    // `> Hideout > Produces`: "Agent: 100 Space Crystals, 240 frames (15 seconds)", into the Tunnel Network (slice
-    // M4-C); the Guard comes with its prerequisite (slice M4-K).
+    // `structures/hideout.md > Produces`: "Agent: 100 Space Crystals, 240 frames (15 seconds)", into the Tunnel
+    // Network (slice M4-C); the Guard comes with its prerequisite (slice M4-K).
     let production = structure.production.expect("the Hideout produces");
     assert_eq!(production.exits, crate::defs::ExitRule::Network);
     let recipes: Vec<(ObjectKind, u32, u32)> = (production.recipes.iter())

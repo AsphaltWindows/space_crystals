@@ -10,7 +10,8 @@
 //!   Tunnel Space (`Sim::army_cap`), the invariants (`testing::invariants`), the hash and the saves, the client's
 //!   control groups.
 //! - **Inside** (design change 0249): the unit is inert. Its orders are cleared, "queued ones included", its move and
-//!   its attack end; an Agent "keeps its load". It regenerates [`REGEN_PER_SECOND`] of its MaxHP ([`Held::regenerate`]).
+//!   its attack end; an Agent "keeps its load". It regenerates [`REGEN_PER_SECOND`] of its MaxHP
+//!   ([`Held::regenerate`]).
 //! - **The transit delay** (design changes 0245 and 0246): a unit that walked in "can exit only once"
 //!   [`TRANSIT_DELAY_TICKS`] have passed, from any Tunnel; a unit produced inside has none ([`Held::may_exit`]).
 //! - **Side A's two paths** ([`Paths`], design changes 0225 and 0248): "the exit path is the half of Side A nearer the
@@ -278,8 +279,9 @@ pub struct Eject {
     /// The reserved unit, held in the Tunnel owner's network.
     pub unit: ObjectId,
     /// The order it gets as it comes out: a produced unit's default command on its producer's rally point (design
-    /// changes 0136 and 0253; `factions/syndicate/structures.md > Rally Point Behavior`). `None` for a player's Eject,
-    /// and for a rally order whose target left the game meanwhile: the unit then walks straight out and idles.
+    /// changes 0136 and 0253; `factions/syndicate/structures/README.md > Rally Point Behavior`). `None` for a
+    /// player's Eject, and for a rally order whose target left the game meanwhile: the unit then walks straight out
+    /// and idles.
     pub order: Option<crate::orders::OrderKind>,
 }
 

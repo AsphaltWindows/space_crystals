@@ -1,6 +1,6 @@
 //! The Tunnel Network (slice M4-C; `factions/syndicate/tunnels.md > Tunnel Network`, `> Tunnel > SymmetryType - ABCD`,
-//! `> EjectMenu`; `factions/syndicate/structures.md > Rally Point Behavior`; `systems/controls/commands.md > Enter`),
-//! through the gate, one test binary:
+//! `> EjectMenu`; `factions/syndicate/structures/README.md > Rally Point Behavior`; `systems/controls/commands.md >
+//! Enter`), through the gate, one test binary:
 //! - `enter`: the Enter order (the walk into the entry path, what leaving the map ends, the gate, the tiers, the
 //!   Failure rule) and the units inside (design changes 0245 to 0249);
 //! - `eject`: the Eject command and the exit path (design changes 0248, 0250 and 0251);

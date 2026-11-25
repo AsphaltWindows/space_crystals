@@ -187,7 +187,7 @@ pub(super) static TUNNEL: ObjectDef = ObjectDef {
     }),
 };
 
-/// `factions/syndicate/structures.md > Hideout`: an underground expansion (plan decision T32): hidden from the other
+/// `factions/syndicate/structures/hideout.md`: an underground expansion (plan decision T32): hidden from the other
 /// players while owned, it is walked over, and can be destroyed. It produces into its owner's Tunnel Network (slice
 /// M4-C, `crate::network`); its construction comes with slice M4-F.
 pub(super) static HIDEOUT: ObjectDef = ObjectDef {
@@ -218,8 +218,8 @@ pub(super) static HIDEOUT: ObjectDef = ObjectDef {
         symmetry: SymmetryType::AAAA,
         build_radius_extension: 0,
         power: 0,
-        // `> Hideout > Produces`, into the Tunnel Network (`> Rally Point Behavior`). The Guard joins the Agent with
-        // its prerequisite, the Optics Lab (slice M4-K); the Grenadier with its numbers.
+        // `> Produces`, into the Tunnel Network (`structures/README.md > Rally Point Behavior`). The Guard joins the
+        // Agent with its prerequisite, the Optics Lab (slice M4-K); the Grenadier with its numbers.
         production: Some(ProductionDef {
             exits: ExitRule::Network,
             recipes: &[Recipe {
