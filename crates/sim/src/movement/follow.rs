@@ -189,9 +189,7 @@ fn follow(
     touched.clear();
     // (G) First a step towards a lane clear of the units it has to pass, if there are some ahead; else the rules
     // after the sweep (`docs/movement.md > 6.3`). The idle units it is about to walk into are asked to part.
-    // (M3-G2) A unit that waits in its queue makes no step aside: no lane, no way round (`World::hold`).
-    let waits = stuck::waits_in_queue(mover, world.me, chased, engaged, tick);
-    let (shift, lane) = if arriving || waits {
+    let (shift, lane) = if arriving {
         (None, None)
     } else {
         // The end of its way, if it is steering at it.
@@ -207,9 +205,6 @@ fn follow(
     }
     let moved = lane.unwrap_or_else(|| {
         touched.clear();
-        if waits {
-            return world.hold(*pos, d, arriving.then_some(target), mover, tick, touched);
-        }
         // A unit with momentum goes round a standing unit on the near side (`World::around`).
         let near_side = model.is_some();
         world.resolve_for(*pos, d, arriving.then_some(target), mover, tick, touched, near_side)

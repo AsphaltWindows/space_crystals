@@ -2,6 +2,7 @@
 //! (measured edge to edge, design change 0031), the chase when it moves, the stop where the unit stands when the
 //! target goes into the fog (design change 0200; more in `target_lost.rs`), and giving up a target out of reach.
 
+use sc_sim::mover::{GIVE_UP_TICKS, REPATH_WAITS, STUCK_GRACE_TICKS};
 use sc_sim::testing::{ScenarioBuilder, TestSim};
 use sc_sim::{MoveStatus, ObjectId, ObjectKind, OrderKind, PlayerId, Shape, SimEvent, Target, Tick, Vec2, gu};
 
@@ -316,15 +317,20 @@ const CORRIDOR: &str = "
     ~~~~~~~~~~~~~~~~~~~~~~~~~~
 ";
 
-/// `docs/movement.md > 6.5`, rule 2 (queueing): a unit chasing the target of its attack, blocked by a unit of its
-/// owner that stands attacking the same target, keeps waiting: no path request, no failure, however long the fight
-/// lasts. (M3-G2: it looks for a way round the unit ahead, which a corridor doesn't have, and those attempts are
-/// the leg's three; `tests/attack_behind_friends.rs` has the cases with room.) Two Guards attack a Peacekeeper down a corridor; the second can't get into range past the first, which
-/// fights for longer than the 104 ticks after which a stuck move gives up (on Rugged ground the Peacekeeper takes 8 a
-/// hit, 18 × 0.5 − 1: seven hits, one every 24 ticks). When the target is destroyed, both orders complete.
-/// (Auto-targeting is off, so the target doesn't fight back and the scout that sees it doesn't join in.)
+/// `docs/movement.md > 6.5`, rule 2 (queueing; slice M3-G3, design change 0223): a unit chasing the target of its
+/// attack, blocked by a unit of its owner that stands attacking the same target, looks for a way round the unit
+/// ahead, and a corridor has none. Those attempts are the leg's three, and then it gives up as any stuck unit does
+/// (`systems/controls/behaviors.md > AttackingObject > Blocked by its own side`, `> MovingToLocation > Failure`): its
+/// move fails about 7 s after it was blocked, and its Attack completes. Until 0223 it waited for as long as the
+/// fight lasted. (`tests/attack_behind_friends` has the cases with room, and more without.)
+///
+/// Two Guards attack a Peacekeeper down a corridor; the second can't get into range past the first, which fights for
+/// longer than the 104 ticks after which a stuck move gives up (on Rugged ground the Peacekeeper takes 8 a hit, 18 ×
+/// 0.5 − 1: seven hits, one every 24 ticks). Auto-targeting is off, so the target doesn't fight back, the scout that
+/// sees it doesn't join in, and the second Guard, idle, doesn't take the target up again: it stays where it gave up.
+/// When the target is destroyed, the first Guard's order completes.
 #[test]
-fn an_attacker_queues_behind_its_owners_attackers_of_the_same_target() {
+fn an_attacker_blocked_behind_its_owners_attacker_of_the_same_target_gives_up() {
     let mut t = ScenarioBuilder::new(CORRIDOR).start();
     t.without_auto_targeting()
         .spawn_unit_at(1, GUARD, P1, v(300.0, 96.0))
@@ -334,41 +340,53 @@ fn an_attacker_queues_behind_its_owners_attackers_of_the_same_target() {
         .order_at(2, P1, &[id(1), id(2)], OrderKind::Attack(id(3)), false);
     t.run_until(2);
     assert_eq!(current(&t, 2), Some(OrderKind::Attack(id(3))));
-    let mut waited = 0;
+    let (mut blocked, mut failed, mut stood) = (None, None, None);
     loop {
         assert!(t.sim().tick() < 600, "the fight never ends\n{}", t.ascii(None));
         t.step();
-        // The order's own two paths are planned in tick 2, and none after it.
+        let tick = t.sim().tick();
+        // The order's own two paths are planned in tick 2, and none after it: the attempts at a way round ask for
+        // none, and the second Guard, idle, sets out for nothing.
         let planned = t.sim().nav_counters().searches + t.sim().nav_counters().fields;
-        assert!(t.sim().tick() <= 2 || planned == 0, "a path in tick {}", t.sim().tick());
+        assert!(tick <= 2 || planned == 0, "a path in tick {tick}");
         if t.sim().object(id(3)).is_none() {
             break;
         }
-        assert_eq!(
-            current(&t, 2),
-            Some(OrderKind::Attack(id(3))),
-            "tick {}",
-            t.sim().tick()
-        );
+        assert_eq!(current(&t, 1), Some(OrderKind::Attack(id(3))), "tick {tick}");
         // Behind the first Guard, touching it, and out of range.
-        if gap(&t, 1, 2) == 0.0 && gap(&t, 2, 3) > gu(3.0) {
-            waited += 1;
+        if blocked.is_none() && gap(&t, 1, 2) == 0.0 && gap(&t, 2, 3) > gu(3.0) {
+            blocked = Some(tick);
+        }
+        let events = t.sim().events();
+        if events
+            .iter()
+            .any(|e| matches!(e, SimEvent::MoveFailed { unit } if *unit == id(2)))
+        {
+            assert_eq!(failed, None, "it gives up once");
+            assert_eq!(
+                t.mover(2).repaths_left,
+                0,
+                "it looked for a way round, and there is none"
+            );
+            failed = Some(tick);
+        }
+        match (failed, stood) {
+            (Some(failed), None) if tick > failed => {
+                assert!(is_idle(&t, 2), "tick {tick}: its Attack completes once its move failed");
+                stood = Some(pos(&t, 2));
+            }
+            (_, Some(at)) => assert_eq!(pos(&t, 2), at, "tick {tick}: idle, it stays where it gave up"),
+            _ => assert_eq!(current(&t, 2), Some(OrderKind::Attack(id(3))), "tick {tick}"),
         }
     }
-    assert!(waited > 120, "it queued for {waited} ticks");
-    assert!(gap(&t, 1, 2) == 0.0, "still right behind it");
+    let (blocked, failed) = (blocked.expect("it was blocked"), failed.expect("it gives up"));
+    // No sooner than the waits before the leg's three attempts, and no later than the Failure rule allows. Measured:
+    // 84 ticks (blocked in tick 104; its attempts 12, 28 and 60 ticks after, as the unit ahead has no goal to get
+    // on to, and the give-up 24 after the last).
+    let after = failed - blocked;
+    let rule = REPATH_WAITS.iter().sum::<Tick>()..=GIVE_UP_TICKS + STUCK_GRACE_TICKS;
+    assert!(rule.contains(&after), "it gave up {after} ticks after it was blocked");
     assert_eq!(attack_ticks(&t, 2), [] as [Tick; 0], "it never got into range");
-    assert_eq!(
-        t.mover(2).repaths_left,
-        0,
-        "it looked for a way round, and there is none"
-    );
-    assert!(
-        t.events()
-            .iter()
-            .all(|(_, e)| !matches!(e, SimEvent::MoveFailed { .. })),
-        "and no failure"
-    );
     t.step();
     assert!(
         is_idle(&t, 1) && is_idle(&t, 2),

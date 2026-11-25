@@ -7,7 +7,6 @@
 //! those `space::blocks` lets through each other (design change 0106). When a candidate
 //! fails that test (a rounding corner case), the unit stays where it is, which is free by induction.
 
-mod hold;
 mod lanes;
 mod straight;
 

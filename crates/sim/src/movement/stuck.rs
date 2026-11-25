@@ -50,17 +50,17 @@ fn shared_progress(blocker: &Body) -> Option<Tick> {
 }
 
 /// `docs/movement.md > 6.5`, rule 2: a unit chasing the target of its attack (`chased`, which its attack engages),
-/// blocked by a stationary unit of its owner that attacks the same target, **queues**: it asks for no other route
-/// and never fails, until the unit ahead moves on or the target dies. `engaged` lists what each body's attack
+/// blocked by a stationary unit of its owner that attacks the same target, **queues**: its attempts at another
+/// route are detours round the units in its way, never a path request. `engaged` lists what each body's attack
 /// engages; the unit's own index and `blocker` index it. (The check is a few comparisons, so it runs in every tick
-/// the unit is stuck, where `docs/movement.md` first had it re-check every 16 ticks.)
+/// the unit is blocked.)
 ///
 /// **(M3-G2) A queueing unit goes round** (`systems/units.md > UnitCollision > Ground Collision`: "Moving units must
-/// pathfind around occupied space"). Until this rule it only waited, and a unit behind its owner's firing line
-/// stood out of range for as long as the target lived, with open ground on both sides (`docs/playtest/m3.md`:
-/// the last of four Peacekeepers on a building). The units ahead of it won't move on while the target stands, so
-/// there is nothing to wait for. It takes a detour round the row they stand in ([`round::detour`]; a path request
-/// would bring back the path it has, the row is in no grid):
+/// pathfind around occupied space"; `systems/controls/behaviors.md > AttackingObject > Blocked by its own side`,
+/// "Farther out"). A unit behind its owner's firing line stood out of range for as long as the target lived, with
+/// open ground on both sides (`docs/playtest/m3.md`: the last of four Peacekeepers on a building). The units ahead
+/// of it won't move on while the target stands, so there is nothing to wait for. It takes a detour round the row
+/// they stand in ([`round::detour`]; a path request would bring back the path it has, the row is in no grid):
 /// - **When**: on the schedule of the re-routes (stuck, and the wait of `Mover::recovery_due` over), or already
 ///   after `JAMMED_TICKS` without a way forward behind a unit that has no goal of its own (it stands in range and
 ///   will not move on), as the occupied-target rule has it.
@@ -69,8 +69,12 @@ fn shared_progress(blocker: &Body) -> Option<Tick> {
 /// - **A lost race is free**: if the unit now in its way moved after this unit's last attempt (`Body::moved`), it
 ///   took the place the unit went for. That says nothing about room, so the next attempt doesn't count, and goes
 ///   by the nearer end, round the newcomer. Each lost race is a unit that found its place, so they are at most as
-///   many as the units: eight in a column all get into range (`tests/attack_behind_friends.rs`).
-/// - With no attempt left it waits where it is, and stands ([`waits_in_queue`]).
+///   many as the units: eight in a column all get into range (`tests/attack_behind_friends/`).
+/// - **No way round, or no attempt left** (design change 0223, answering question Q0057 point 2: "If there isn't,
+///   the normal Failure rule applies ... it does not wait behind the blockers indefinitely"): an attempt that
+///   finds no way round counts all the same, and once none is left the unit gives up as any stuck unit does, still
+///   stuck `STUCK_TICKS` after its last attempt ([`after_move`], rule 5). The behaviour then gives the target up
+///   (`> AttackingObject > Failure`). Until 0223 such a unit stood behind the row for as long as the target lived.
 fn queues_behind(chased: Option<&Chased>, engaged: &[Option<ObjectId>], world: &World, blocker: Option<usize>) -> bool {
     let (Some(chased), Some(blocker)) = (chased, blocker) else {
         return false;
@@ -78,26 +82,6 @@ fn queues_behind(chased: Option<&Chased>, engaged: &[Option<ObjectId>], world: &
     let (me, other) = (world.body(), &world.bodies[blocker]);
     let attacks = |index: usize| engaged.get(index).copied().flatten() == Some(chased.id);
     attacks(world.me) && attacks(blocker) && me.owner.is_some() && other.owner == me.owner && other.stationary
-}
-
-/// (M3-G2) Whether a unit **waits in its queue**: it chases the target its attack engages (`chased`, `engaged`), is
-/// stuck, and has no attempt at a way round left (the tick it would give up has come, `Mover::recovery_due`). Such
-/// a unit stands (`World::hold`): it takes its step only when the way straight ahead is free, and makes no step
-/// aside meanwhile. Before this rule a queueing unit went on trying its sidesteps every tick, to and fro behind
-/// the row for as long as the fight lasted. It is asked before the move, so the unit in the way isn't known yet: a
-/// unit that turns out not to be queueing (an enemy is in its way, or a unit busy with something else) stands for
-/// this one tick and then gives up, as [`after_move`] has it.
-pub(super) fn waits_in_queue(
-    mover: &Mover,
-    me: usize,
-    chased: Option<&Chased>,
-    engaged: &[Option<ObjectId>],
-    tick: Tick,
-) -> bool {
-    mover.repaths_left == 0
-        && chased.is_some_and(|chased| engaged.get(me).copied().flatten() == Some(chased.id))
-        && mover.is_stuck(tick)
-        && tick >= mover.recovery_due()
 }
 
 /// Notes the tile of the stationary unit in the way as one to avoid (`docs/movement.md > 6.5`, rule 3). A tile is
@@ -194,9 +178,9 @@ fn target_is_occupied(
 /// In order:
 /// 1. **Occupied target** ([`target_is_occupied`], design change 0026): the unit has `Arrived`.
 /// 2. Not **stuck** (`Mover::is_stuck`, design change 0024: `STUCK_TICKS` without getting closer): carry on.
-/// 3. **Queueing** ([`queues_behind`]): a unit chasing its attack's target behind its owner's attackers never
-///    fails, and asks for no other route. **(M3-G2)** When the wait of rule 4 is over it goes round the row they
-///    stand in instead ([`round::detour`]), while an attempt is left; then it waits ([`waits_in_queue`]).
+/// 3. **Queueing** ([`queues_behind`]): a unit chasing its attack's target behind its owner's attackers asks for
+///    no other route. **(M3-G2)** When an attempt is due it goes round the row they stand in instead
+///    ([`round::detour`]). **(0223)** With no attempt left it gives up by rule 5, like any unit.
 /// 4. **Another route**, when its wait is over (`Mover::recovery_due`: 8, 16 and 32 ticks after the unit became
 ///    stuck or after the attempt before), if an attempt is left. The tile of a stationary unit in its way is added
 ///    to `avoid_tiles` first ([`avoid_blocker`]): at once if that unit has no goal of its own; if it is on its way
@@ -253,21 +237,22 @@ pub(super) fn after_move(
         mover.finish(MoveStatus::Arrived);
         return false;
     }
-    if let Some(ahead) = moved
+    let queueing = moved
         .blocker
-        .filter(|_| queues_behind(chased, engaged, world, moved.blocker))
-    {
-        // Rule 3: round the row while an attempt is left or a race was lost, then it waits (`waits_in_queue`).
-        let ahead = &world.bodies[ahead];
+        .filter(|_| queues_behind(chased, engaged, world, moved.blocker));
+    if let Some(index) = queueing {
+        // Rule 3: round the row while an attempt is left or a race was lost. Otherwise it carries on, and fails
+        // by rule 5 as any unit does (design change 0223).
+        let ahead = &world.bodies[index];
         let jammed = ahead.progress.is_none() && mover.blocked_ticks >= JAMMED_TICKS;
         let lost_race = ahead.moved > mover.last_repath;
         if (jammed || (mover.is_stuck(tick) && tick >= mover.recovery_due())) && mover.may_go_round(tick, lost_race) {
             let other_end = !lost_race && mover.repaths_left == MAX_REPATHS - 1;
             let target = chased.map_or(pos, |chased| chased.pos);
-            let detour = round::detour(world, moved.blocker.unwrap_or(world.me), pos, target, other_end);
+            let detour = round::detour(world, index, pos, target, other_end);
             mover.go_round(pos, &detour, tick, lost_race);
+            return false;
         }
-        return false;
     }
     if !mover.is_stuck(tick) {
         return false;
@@ -279,6 +264,11 @@ pub(super) fn after_move(
     if mover.repaths_left == 0 {
         mover.finish(MoveStatus::Failed);
         return true;
+    }
+    if queueing.is_some() {
+        // Never reached: with an attempt left and its wait over, rule 3 went round. A queueing unit is never
+        // given a path request for the row, which no grid shows (M3-G2).
+        return false;
     }
     let first_repath = mover.repaths_left == MAX_REPATHS;
     if let Some(blocker) = blocker.filter(|b| b.stationary && (b.progress.is_none() || !first_repath)) {

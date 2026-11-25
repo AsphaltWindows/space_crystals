@@ -27,17 +27,17 @@
 
 ## Open Director Questions
 
-- **Q0055** (not blocking): Colonists economy misses the table (1:00 −16%, 3:00 −15%, 4:00 −24%; target 1 fails, target 4 only from 27 Drones). Options A accept measured / B change numbers / C change benchmark line (e.g. 2nd Robo Portal; one-portal line banks 320 by 1:00) / D widen tolerance. Step taken: Drone thrust/drag ×1.5 (0205) with a re-measure request. **Wait for the Director's new table, then decide with the user.** Context: plate payback 22.5 s running / ~47 s from order; Drone ~36 s / ~46 s (middle patch); growth per producer ~equal (~8 SC/s per minute), hence target 1 fails.
 
 
 
-- **Q0059–Q0071 (M4 Syndicate, arrived 2026-11-25)**: Q0059 DONE (0229 placeholders). Q0060 DONE (0229, 0231, 0232 refund = current top price). Q0061 pts 1–2 DONE (0233: pay at ghost, ghosts count); pts 3–5, 7–9 proposals pending user OK. Q0061–Q0071 non-blocking, Director proceeding on its proposals: Agent-built Tunnels, areas/layers, network transit, ejection, expansions under construction, Agent gathering, Supplies gathering, panel letters, losing Tunnels, Syndicate economy check, deferred content. Go through with the user one at a time (many may be answerable by proposals; check docs first).
+- **Q0059–Q0071 (M4 Syndicate, arrived 2026-11-25)**: Q0059 DONE (0229 placeholders). Q0060 DONE (0229, 0231, 0232 refund = current top price). Q0061 DONE (0233, 0234). New: (Q0055/Q0072 DONE, 0236: measured economy = design, ×1.5 kept.) (Q0073 DONE, 0235.) Q0061–Q0071 non-blocking, Director proceeding on its proposals: Agent-built Tunnels, areas/layers, network transit, ejection, expansions under construction, Agent gathering, Supplies gathering, panel letters, losing Tunnels, Syndicate economy check, deferred content. Go through with the user one at a time (many may be answerable by proposals; check docs first).
 
 All others through Q0058 answered (this session: 0197–0206, 0223, 0230).
   - All questions answered through Q0048 (2026-11-24/25).
 - Yielding (0023): only no-command units yield; Hold Position/busy don't; modes (Riot Shield) irrelevant; deployed Artillery Rig = fixed obstacle. TBD sidestep distance, allies. Watch: mining workers don't yield → possible clots at patches (worker collision while gathering never designed).
 
 ## Loose Ends
+- **Drone 17–20 plateau** (0236): on the reference row, Drones 17–20 add almost nothing (third Drones wait their turn) — accepted for now; revisit if it feels bad (occupancy rule). Drone ×2 acceleration for feel: revisit after playtesting.
 
 
 - **Multi-waypoint rallies** (idea, 0160): Shift kept free for it; not designed.

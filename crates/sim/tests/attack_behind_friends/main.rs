@@ -1,12 +1,18 @@
-//! A unit behind its owner's units that stand firing gets into range (slice M3-G2; `docs/movement.md > 6.5`, rule
-//! 2, `movement::round`): `systems/units.md > UnitCollision > Ground Collision`, "Moving units must pathfind around
-//! occupied space", for a unit that approaches the target of its attack (`systems/controls/behaviors.md >
-//! AttackingObject`, `> AttackMovingToLocation`).
+//! Attackers blocked by their own side (`systems/controls/behaviors.md > AttackingObject > Blocked by its own side`,
+//! design change 0223; `docs/movement.md > 6.5`, rule 2). One test binary:
+//! - here, **the way round** (slice M3-G2, `movement::round`): a unit behind its owner's units that stand firing
+//!   gets into range, by `systems/units.md > UnitCollision > Ground Collision`, "Moving units must pathfind around
+//!   occupied space", for a unit that approaches the target of its attack (`> AttackingObject`, `>
+//!   AttackMovingToLocation`);
+//! - `no_room`, **no way round** (slice M3-G3, design change 0223, answering question Q0057): the Failure rule, with
+//!   no indefinite wait behind the blockers, and 0223's Verification.
 //!
 //! The bug (`docs/playtest/m3.md`): of four Peacekeepers that attack-moved in a column onto a building, the last
 //! could stay behind the other three and never fire. The three stopped side by side, each in the tick its attack
 //! reached the building, so a fraction of a step out of line; the fourth, queueing behind them, stepped to and fro
 //! in the pocket between two of them for as long as the building stood.
+
+mod no_room;
 
 use sc_sim::testing::{ScenarioBuilder, TestSim};
 use sc_sim::{DebugCommand, ObjectId, ObjectKind, OrderKind, PlayerId, SimEvent, SpawnAt, Tick, TilePos, Vec2};
@@ -203,127 +209,4 @@ fn a_column_on_a_unit_keeps_its_orders_until_the_target_falls() {
         }
         assert_eq!(move_failures(&t), 0);
     }
-}
-
-/// A corridor one tile wide leads east from player 1's Deployment Center (tiles (0, 1) to (3, 4)): tile row 3, x
-/// from 256 on, between water. A Guard fills it.
-const CORRIDOR: &str = "
-    ~~~~~~~~~~~~~~~~~~~~~~~~
-    ....~~~~~~~~~~~~~~~~~~~~
-    ....~~~~~~~~~~~~~~~~~~~~
-    ........................
-    ....~~~~~~~~~~~~~~~~~~~~
-    ~~~~~~~~~~~~~~~~~~~~~~~~
-    ........................
-    ........................
-";
-
-/// **No room**: three Guards attack-move onto the building down the corridor. The first stops in range and fires; the other
-/// two can't get past it, and there is no way round. They stay calm: once they have closed up they never move
-/// again (no stepping to and fro), no move fails, their orders stay, and they ask for no path. The building stands
-/// through all of it (a lone Guard takes 1000 HP off in well over 600 ticks).
-#[test]
-fn in_a_corridor_the_units_behind_wait_without_moving_or_planning() {
-    let mut t = ScenarioBuilder::new(CORRIDOR)
-        .spawn(DC, Some(P1), SpawnAt::Tile(TilePos::new(0, 1)))
-        .spawn(ObjectKind::Generator, Some(P1), SpawnAt::Tile(TilePos::new(1, 6)))
-        .spawn(GUARD, Some(P2), SpawnAt::Point(Vec2::new(560.0, 224.0)))
-        .spawn(GUARD, Some(P2), SpawnAt::Point(Vec2::new(620.0, 224.0)))
-        .spawn(GUARD, Some(P2), SpawnAt::Point(Vec2::new(680.0, 224.0)))
-        .start();
-    let units = [id(3), id(4), id(5)];
-    // An AttackMove to the building's east face: they engage it as they come to see it.
-    let order = OrderKind::AttackMove(Vec2::new(280.0, 224.0));
-    t.order_at(2, P2, &units, order, false);
-    // Closed up, and their attempts at a way round made: 12 ticks behind the first Guard, then the waits of the
-    // leg's three attempts (8, 16 and 32 ticks) and the 24 after the last one.
-    t.run_until(200);
-    let stood: Vec<Vec2> = (3..6).map(|unit| t.pos(unit)).collect();
-    assert!(first_shots(&t, 3)[0].is_some(), "the first Guard fires");
-    for _ in 200..600 {
-        t.step();
-        assert!(t.sim().object(id(1)).is_some(), "the building stands");
-        let now: Vec<Vec2> = (3..6).map(|unit| t.pos(unit)).collect();
-        assert_eq!(
-            now,
-            stood,
-            "tick {}: a waiting unit moved\n{}",
-            t.sim().tick(),
-            t.ascii(None)
-        );
-        let nav = t.sim().nav_counters();
-        assert_eq!(
-            (nav.searches, nav.fields),
-            (0, 0),
-            "tick {}: a path was planned",
-            t.sim().tick()
-        );
-    }
-    assert_eq!(
-        first_shots(&t, 3)[1..],
-        [None, None],
-        "the two behind never got into range"
-    );
-    assert_eq!(move_failures(&t), 0);
-    for unit in 3..6 {
-        let orders = t.sim().object(id(unit)).unwrap().orders.as_ref().unwrap();
-        let current = orders.current.as_ref().map(|active| active.order.kind);
-        assert_eq!(current, Some(order), "#{unit} keeps its order");
-    }
-    // They wait at rest, and cost what a unit standing behind another costs: its sweep ahead, each tick.
-    let counters = t.sim().move_counters();
-    assert!(counters.unit_sweeps <= 4, "{counters:?}");
-}
-
-/// **A narrow passage**: the corridor again, two tiles wide, and eight Peacekeepers (five abreast fill it). The
-/// first row stops in range; the rest have no room in range and no way round, and wait: no move fails, no order
-/// ends, and from tick 250 on nobody moves and nobody plans, until the building falls.
-#[test]
-fn in_a_narrow_passage_the_second_row_waits() {
-    const PASSAGE: &str = "
-        ~~~~~~~~~~~~~~~~~~~~~~~~
-        ....~~~~~~~~~~~~~~~~~~~~
-        ........................
-        ........................
-        ....~~~~~~~~~~~~~~~~~~~~
-        ~~~~~~~~~~~~~~~~~~~~~~~~
-        ........................
-        ........................
-    ";
-    let mut builder = ScenarioBuilder::new(PASSAGE)
-        .spawn(DC, Some(P1), SpawnAt::Tile(TilePos::new(0, 1)))
-        .spawn(ObjectKind::Generator, Some(P1), SpawnAt::Tile(TilePos::new(1, 6)));
-    for i in 0..8 {
-        builder = builder.spawn(PK, Some(P2), SpawnAt::Point(Vec2::new(620.0 + 40.0 * i as f32, 192.0)));
-    }
-    let mut t = builder.start();
-    let units: Vec<ObjectId> = (FIRST..FIRST + 8).map(id).collect();
-    t.order_at(2, P2, &units, OrderKind::AttackMove(Vec2::new(280.0, 192.0)), false);
-    t.run_until(250);
-    let fired = first_shots(&t, 8).iter().filter(|shot| shot.is_some()).count();
-    assert_eq!(fired, 5, "five abreast are in range\n{}", t.ascii(None));
-    let stood: Vec<Vec2> = (FIRST..FIRST + 8).map(|unit| t.pos(unit)).collect();
-    while t.sim().object(id(1)).is_some() {
-        assert!(t.sim().tick() < 900, "the building still stands");
-        t.step();
-        if t.sim().object(id(1)).is_none() {
-            break;
-        }
-        let now: Vec<Vec2> = (FIRST..FIRST + 8).map(|unit| t.pos(unit)).collect();
-        assert_eq!(
-            now,
-            stood,
-            "tick {}: a waiting unit moved\n{}",
-            t.sim().tick(),
-            t.ascii(None)
-        );
-        let nav = t.sim().nav_counters();
-        assert_eq!(
-            (nav.searches, nav.fields),
-            (0, 0),
-            "tick {}: a path was planned",
-            t.sim().tick()
-        );
-    }
-    assert_eq!(move_failures(&t), 0);
 }

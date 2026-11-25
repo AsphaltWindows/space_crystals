@@ -174,6 +174,15 @@ Agents construct Tunnels and surface defensive structures (see Surface Defensive
 4. **If the partially-built Tunnel is destroyed**: The Agent survives and emerges at the location. The Tunnel is lost and any Supplies spent are lost.
 5. **If construction is cancelled by the player**: The Agent survives and emerges at the location, same as destruction. A rubble animation plays (cosmetic only, no gameplay effect). 100% of the Supplies cost is refunded.
 
+#### While the Tunnel is under construction
+(user, 2026-11-25; Q0061, the Director's proposals)
+- **It does nothing but Cancel**: no Tunnel Space, no drop-offs, no Enter, no Expand, no Eject; the only command is X Cancel Construction (as for a Colonists building being transformed).
+- **HP**: the ConstructionHP formula gives the **maximum** HP; damage taken stays (current HP rises by the same amount each frame, like the Colonists' Warp In).
+- **Where the Agent comes out** on cancel or destruction: at the **centre of the footprint**, which is now free; it then idles.
+- **Defeat**: the site counts as a structure (core/game_rules.md > Defeat Condition). Cancelling it when it is the player's only structure defeats them in that tick.
+- **A carried load**: an Agent ordered to build while carrying crystals or Supplies **keeps its load**, in the site and in the network.
+- **What enemies see**: the site, like any surface structure, but not the Agent inside it.
+
 #### Cancel Construction
 While a Tunnel is under initial construction (Agent inside, not yet operational), the owning player may cancel it:
 - **X: Cancel Construction**: cancels the in-progress initial build (CommandIssuingTransition). The Agent survives and emerges at the location. Full refund of Supplies cost. Only available while the Tunnel is under initial construction — mutually exclusive with the post-operational **X: Cancel Upgrade** command, since a Tunnel is never in both states at once.
