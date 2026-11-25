@@ -106,8 +106,8 @@ fn measure(label: &str, crossing: bool, far: FarBank) {
     let (mut behaviours, mut worst_behaviours) = (Duration::ZERO, Duration::ZERO);
     let (mut paths, mut worst_paths, mut most_per_unit) = (0_u64, 0, 0);
     let (mut expansions, mut worst_expansions) = (0_u64, 0);
-    // The slowest tick's judgement paths and their expansions.
-    let mut slowest = (0, 0);
+    // The slowest tick, its judgement paths and their expansions.
+    let mut slowest = (0, 0, 0);
     let (mut requests, mut ticks) = (0_u64, 0_u32);
     let moving = |t: &TestSim| {
         (t.sim().objects()).any(|o| o.owner == Some(PlayerId(1)) && o.orders.as_ref().is_some_and(|o| !o.is_idle()))
@@ -123,7 +123,7 @@ fn measure(label: &str, crossing: bool, far: FarBank) {
         let tick = start.elapsed();
         let reach = t.sim().reach_counters();
         if tick > worst {
-            slowest = (reach.paths, reach.expansions);
+            slowest = (t.sim().tick(), reach.paths, reach.expansions);
         }
         total += tick;
         worst = worst.max(tick);
@@ -144,7 +144,7 @@ fn measure(label: &str, crossing: bool, far: FarBank) {
         "{label}: {ticks} ticks; whole tick mean {:.3} ms, worst {:.3} ms; behaviours (5a) mean {:.3} ms, worst {:.3} \
          ms; judgement paths {paths} ({:.2} per tick, worst tick {worst_paths}, most by one unit in a tick \
          {most_per_unit}), their expansions {expansions} (worst tick {worst_expansions}); path requests served in 5c \
-         {requests} ({:.2} per tick); the slowest tick: {} judgement paths, {} expansions",
+         {requests} ({:.2} per tick); the slowest tick: {}, with {} judgement paths, {} expansions",
         per_tick(total),
         ms(worst),
         per_tick(behaviours),
@@ -153,6 +153,7 @@ fn measure(label: &str, crossing: bool, far: FarBank) {
         requests as f64 / f64::from(ticks),
         slowest.0,
         slowest.1,
+        slowest.2,
     );
     let shots = t
         .events()
