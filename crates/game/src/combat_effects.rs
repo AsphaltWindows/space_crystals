@@ -12,10 +12,12 @@
 //! - **A shot** shows only along the parts of its path over tiles Visible to the player ([`visible_spans`];
 //!   `core/vision.md > Attacks from outside vision`, design change 0177: "a shot fired from the fog at your unit is
 //!   seen coming out of the fog edge, which shows its direction"). The attacker itself is the sim's to reveal
-//!   (`sc_sim::vision::reveal`): revealed, it shows like any object the player sees, and its own shots are drawn
-//!   whole, from it to their target (design change 0206, answering Q0056: "while an attacker in the fog is revealed
-//!   to a player, that attacker's own shots are drawn from the attacker to the target, with no gap at the fog edge";
-//!   [`shot_spans`]). "Other shots from the fog are still clipped to Visible tiles."
+//!   (`sc_sim::vision::reveal`): revealed, it shows like any object the player sees, and its own shots at the
+//!   player's objects are drawn whole, from it to their target (design change 0206, answering Q0056: "while an
+//!   attacker in the fog is revealed to a player, that attacker's own shots are drawn from the attacker to the
+//!   target, with no gap at the fog edge"; design change 0244, answering Q0075, narrows it to the shots at the
+//!   player's own objects: "a fully drawn shot reveals nothing only when **you** are the one attacked"; [`shot_spans`]).
+//!   "Other shots from the fog are still clipped to Visible tiles", a revealed attacker's at anything else too.
 //! - **A death marker** only on a Visible tile or for one of the player's own objects, and **an HP bar** only over an
 //!   object the player sees (`Sight::sees`): placeholder rules, the design is silent.
 
@@ -56,6 +58,9 @@ pub struct Tracer {
     pub owner: Option<PlayerId>,
     /// The object hit.
     pub target: ObjectId,
+    /// Its owner as the shot took effect (design change 0244: a revealed attacker's shot is drawn whole only at the
+    /// player's own objects, [`shot_spans`]); `None` for a neutral object, or one the client no longer knows.
+    pub target_owner: Option<PlayerId>,
     pub from: Vec2,
     pub to: Vec2,
 }
@@ -165,16 +170,21 @@ pub fn visible_spans(sight: &Sight, from: Vec2, to: Vec2) -> Vec<(f32, f32)> {
     spans
 }
 
-/// How `sight` shows the shot of `tracer` now, for [`TRACER_TICKS`], none once it has faded: whole while its attacker
-/// is revealed to the player ([`Sight::reveals`]; design change 0206: "from the attacker to the target, with no gap at
-/// the fog edge"; "No ground around the attacker is revealed"), else the [`visible_spans`] of its path (design change
-/// 0177). A literal reading: whatever the shot hits, so a revealed attacker's shot at something the player doesn't
-/// see (a neutral unit in the fog, or a third player's) shows its far end too.
+/// How `sight` shows the shot of `tracer` now, for [`TRACER_TICKS`], none once it has faded: whole if its target is
+/// one of the player's objects and its attacker is revealed to the player ([`Sight::reveals`]; design change 0206:
+/// "from the attacker to the target, with no gap at the fog edge"; "No ground around the attacker is revealed"),
+/// else the [`visible_spans`] of its path (design change 0177). Design change 0244, answering Q0075: "draw the whole
+/// path only if the attacker is revealed to the viewer **and** the shot's target is owned by the viewer", as then
+/// both ends show already; drawn whole, a shot at a neutral's or a third player's object would show where it stands.
+///
+/// A literal reading, the viewer being [`Sight::player`]: a defeated player watching an ally's vision (design change
+/// 0102) sees the shots at the ally's objects clipped too. Moot until the sim has teams: a defeated player has no
+/// allies yet.
 pub fn shot_spans(sim: &Sim, sight: &Sight, tracer: &Tracer) -> Vec<(f32, f32)> {
     if !shows(sim, tracer.tick, TRACER_TICKS) {
         return Vec::new();
     }
-    if sight.reveals(tracer.attacker) {
+    if sight.reveals(tracer.attacker) && tracer.target_owner == Some(sight.player()) {
         return vec![(0.0, 1.0)];
     }
     visible_spans(sight, tracer.from, tracer.to)
@@ -237,7 +247,8 @@ fn collect_effects(sim: Res<SimRes>, mut messages: MessageReader<SimEventMessage
         effects.deaths.clear();
         effects.generation = Some(sim.generation());
     }
-    for message in messages.read() {
+    let messages: Vec<&SimEventMessage> = messages.read().collect();
+    for message in &messages {
         match message.event {
             SimEvent::Attacked {
                 attacker,
@@ -251,6 +262,7 @@ fn collect_effects(sim: Res<SimRes>, mut messages: MessageReader<SimEventMessage
                     attacker,
                     owner,
                     target,
+                    target_owner: target_owner(&sim, &messages, target),
                     from,
                     to,
                 });
@@ -266,6 +278,18 @@ fn collect_effects(sim: Res<SimRes>, mut messages: MessageReader<SimEventMessage
     }
     effects.tracers.retain(|t| shows(&sim, t.tick, TRACER_TICKS));
     effects.deaths.retain(|d| shows(&sim, d.tick, DEATH_MARKER_TICKS));
+}
+
+/// The owner of `target`, an object a shot hit in one of the ticks of `messages`, as the shot took effect (design
+/// change 0244): its owner now, or its death's if it is gone (that shot, or another of these ticks, killed it).
+fn target_owner(sim: &Sim, messages: &[&SimEventMessage], target: ObjectId) -> Option<PlayerId> {
+    match sim.object(target) {
+        Some(o) => o.owner,
+        None => messages.iter().find_map(|m| match m.event {
+            SimEvent::Died { id, owner, .. } if id == target => Some(owner),
+            _ => None,
+        })?,
+    }
 }
 
 /// Rebuilds the effects mesh: death markers at the back, then tracers, then HP bars (alpha blending draws a mesh's

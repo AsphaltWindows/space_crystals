@@ -1961,8 +1961,11 @@ out by the same rules.
 - **Combat effects** (`combat_effects.rs`, placeholders until Q0001): a tracer for each `SimEvent::Attacked`
   (`TRACER_TICKS`), drawn only along the parts of its path over the local player's Visible tiles (`visible_spans`,
   which cuts it at every tile edge it crosses; design change 0177: a shot from the fog shows from the fog edge, one
-  all in the fog not at all; its attacker is revealed by the sim), but whole, from the attacker to the target, while
-  its attacker is revealed to the local player (`shot_spans`, `Sight::reveals`; design change 0206, answering Q0056:
+  all in the fog not at all; its attacker is revealed by the sim), but whole, from the attacker to the target, if
+  it hits one of the local player's own objects while its attacker is revealed to them (`shot_spans`,
+  `Sight::reveals`, `Tracer::target_owner`: the owner as the shot took effect, a death's for a killing shot; design
+  change 0244, answering Q0075: drawn whole, a shot at a neutral's or a third player's object would show where that
+  object stands; design change 0206, answering Q0056:
   so the shot that reveals an attacker, and every later one while the reveal lasts, comes from the unit the player
   sees; a shot at a neutral object reveals nobody and stays clipped), HP bars over damaged and selected objects (a
   unit's clear of its silhouette's corners, a structure's along the top edge of its footprint and as wide as it),
