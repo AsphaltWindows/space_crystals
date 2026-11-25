@@ -15,9 +15,9 @@
 //!
 //! Nothing here assumes the game goes as the goldens' do: the players stop once the game is over or they are
 //! defeated, a lost Bio Portal stops the Sabres, and a Sabre lost before it converts isn't converted. Played on to 10
-//! minutes (as of slice M3-K1), `versus_gdo` has its last Peacekeeper die at 3:22, after the Bio Portal; then player
-//! 1 gathers and deploys on, stopping at its 30th Drone and its eighth Beacon site, player 2 has nothing left to
-//! do, and neither is defeated.
+//! minutes (as of slice M3-K1, with M3-L2's target priority), `versus_gdo` has its last Peacekeeper die at 2:48,
+//! after two Rifle Legionnaires; then player 1 gathers and deploys on, stopping at its 30th Drone and its seventh
+//! Beacon site, player 2 has nothing left to do, and neither is defeated.
 
 use std::collections::BTreeSet;
 
