@@ -422,6 +422,12 @@ TBD: all numbers (HP, armor, sight, speed and handling, TunnelSpaceCost, damage,
 - On a **turret with very low range**: it must be nearly over its target.
 - **Can miss**: the bomb falls to a locked location, so targets can dodge (DoublyDisjointed, assumed). The **projectile travel time is relatively high**, almost all of it the **vertical fall**.
 - **Out of ammo** (user, 2026-11-25): once its bomb is dropped, its default behavior is to **fly back to the nearest own Tier 3 Tunnel**, land through its air door and re-arm inside, **even if the player owns no Vault** (it then waits inside, unarmed, until a Vault exists). If there is **no Tier 3 Tunnel**, it **circles** where it is (the Glider idle behavior).
+- **Attack orders and ammo** (user, 2026-11-25):
+  - **Ordered to attack while unarmed**: it can't bomb, so carrying out the Attack means re-arming first. It **flies to the nearest own Tier 3 Tunnel** to re-arm.
+  - **On entering the Tunnel its orders are wiped**: the Attack and anything queued after it are dropped, and it **stays inside**. Re-arming never resumes the attack on its own.
+  - **After it bombs**: if the target is **destroyed**, the Attack is done and it goes on to its next queued order. With nothing queued it is idle, and an unarmed idle Specter flies home (Out of ammo, above). If the target **survives**, the Attack order still stands. Since it is now unarmed, that means going to re-arm, so it **ignores the orders queued after the Attack** and flies home, where they are wiped.
+  - Example: Attack a target, then shift-queue a Move. If the bomb kills the target, it flies the Move (unarmed), then home. If the target survives, it never flies the Move: it goes home and stays inside.
+  - With **no Tier 3 Tunnel**, an unarmed Specter that still has an Attack order circles (it has nowhere to re-arm).
 - Like every attack that can miss, it can **Attack Ground** (systems/combat.md > AttackType > CanTargetGround).
 - TargetDomain: **Ground only** (user, 2026-11-25).
 
