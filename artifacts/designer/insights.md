@@ -32,6 +32,8 @@
 
 - **Q0058** (not blocking): AttackMove target lost to the fog — left alone for the rest of the leg like a leash-dropped target (A, as built) / until it moves a distance (B) / re-taken whenever seen (C, loops). Lean A per Core principle.
 
+- **Q0059–Q0071 (M4 Syndicate, arrived 2026-11-25)**: Q0059 DONE (0229 placeholders). Q0060 pts 1–2 DONE (0229); pts 3–6 open (in-progress upgrades count; HP at completion; destroyed mid-upgrade; reserve target area). Q0061–Q0071 non-blocking, Director proceeding on its proposals: Agent-built Tunnels, areas/layers, network transit, ejection, expansions under construction, Agent gathering, Supplies gathering, panel letters, losing Tunnels, Syndicate economy check, deferred content. Go through with the user one at a time (many may be answerable by proposals; check docs first).
+
 All others through Q0057 answered (this session: 0197–0206, 0223).
   - All questions answered through Q0048 (2026-11-24/25).
 - Yielding (0023): only no-command units yield; Hold Position/busy don't; modes (Riot Shield) irrelevant; deployed Artillery Rig = fixed obstacle. TBD sidestep distance, allies. Watch: mining workers don't yield → possible clots at patches (worker collision while gathering never designed).

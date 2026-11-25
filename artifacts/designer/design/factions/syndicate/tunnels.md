@@ -163,6 +163,10 @@ Cost = current Tunnels owned (all tiers count), in Supplies.
 #### Upgrade Costs
 Higher-tier Tunnels count toward lower-tier cost calculations (a T3 Tunnel counts for both T2 and T1 cost scaling).
 
+**Upgrade duration** (placeholder, designer, 2026-11-25, Q0060): **480 frames (30 seconds)** to Tier 2 and to Tier 3, the same as construction.
+
+**Paid when the upgrade is ordered** (Q0060; follows from the full refund on Cancel Upgrade).
+
 **Upgrade to Tier 2**: 2 + 2 x (number of T2+ Tunnels owned), in Supplies.
 - 1st T2: 2 Supplies
 - 2nd T2: 4 Supplies
