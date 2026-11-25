@@ -13,9 +13,9 @@ use crate::units::Tick;
 /// the tests that wait it out.
 pub const TRANSIT_DELAY_TICKS: Tick = TUNNEL_DEF.transit_delay;
 
-/// `factions/syndicate/tunnels.md > Cost Scaling > Upgrade Costs` (slice M4-G): "**Upgrade duration** (placeholder
-/// ...): **480 frames (30 seconds)** to Tier 2 and to Tier 3, the same as construction".
-// Placeholder: Q0060 point 1 (design change 0229).
+/// `factions/syndicate/tunnels.md > Cost Scaling > Upgrade Costs` (slice M4-G; design change 0229, answering Q0060
+/// point 1): "**Upgrade duration** (placeholder ...): **480 frames (30 seconds)** to Tier 2 and to Tier 3, the same as
+/// construction".
 const UPGRADE_FRAMES: u32 = 480;
 
 /// `factions/syndicate/tunnels.md > Tunnel > Tiers`, its table column by column, each tier with its upgrade

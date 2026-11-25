@@ -17,8 +17,9 @@
 //!   in 8 frames (already facing its target); retracts after 32 frames with no target, taking 8 frames. It can't fire
 //!   while rising or retracting"). A phase that starts in tick `t` does its first frame in `t + 1`, as a site does:
 //!   a turret that picks a target in tick `t` is raised at the end of `t + 8` and aims from `t + 9`. Each phase runs
-//!   its full length: a turret that gets a target while it retracts goes all the way down and rises again at once (the
-//!   simplest predictable rule, design change 0223; the design doesn't say).
+//!   its full length: a turret that gets a target while it retracts goes all the way down and rises again at once
+//!   (Placeholder (Q0091 point 2), in [`step`]: the simplest predictable rule, design change 0223; the design doesn't
+//!   say).
 //! - **Rising needs a clear footprint** (design change 0296 point 3, `> Pop-up rules`: "it can't rise while any unit
 //!   stands over it"): a lowered turret that wants up while a ground unit's box overlaps its footprint stays down,
 //!   keeping its target, and notes it ([`PopUp::Lowered::blocked`]); the movement step then asks its owner's idle
@@ -34,7 +35,7 @@
 //!   footprint during the rise, and the raised turret would stand under it.
 //! - **A turret that loses its Tunnel while it isn't up** is upright by its form, and comes up by the same rule: it
 //!   wants up whatever it sees, waits for a clear footprint as a pop-up does, hidden and armoured as lowered until it
-//!   rises, and its state goes once it stands.
+//!   rises (Placeholder (Q0091 point 1), in [`step`]), and its state goes once it stands.
 //! - **A Tunnel's turret site** is lowered from its first frame (`Sim::start_expansion`; design change 0297 point 6: "A
 //!   Tunnel's site is hidden like an expansion under construction"), and so is the turret as it completes; an Agent's
 //!   site stands on the surface, and its turret retracts once complete inside an area.
@@ -168,6 +169,8 @@ pub(crate) fn step(
         Some(state) => state,
     };
     match state {
+        // Placeholder (Q0091 point 1): one whose Tunnel is gone, upright by its form, waits for a clear footprint as a
+        // pop-up does, lowered: hidden, and at its underground armour.
         PopUp::Lowered { .. } if wants_up => Some(rise(clear())),
         PopUp::Lowered { .. } => Some(PopUp::LOWERED),
         PopUp::Rising(mut progress) => Some(match progress.step(RATIO_ONE) {
@@ -181,6 +184,7 @@ pub(crate) fn step(
             true => PopUp::Retracting(Progress::new(def.retract_frames)),
             false => PopUp::Raised { idle },
         }),
+        // Placeholder (Q0091 point 2): a target doesn't turn it back; it goes all the way down first.
         PopUp::Retracting(mut progress) => Some(match progress.step(RATIO_ONE) {
             // Down; one that wants up again rises at once: nothing came onto its footprint, which blocked until now.
             true if wants_up => rise(true),

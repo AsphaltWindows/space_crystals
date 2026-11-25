@@ -7,6 +7,7 @@ use crate::defs::Resource;
 use crate::events::SimEvent;
 use crate::ids::{ObjectId, PlayerId};
 use crate::sim::Sim;
+use crate::testing::build_order::{owned, refund_in};
 
 /// A Syndicate player's Supplies for one step (`testing::syndicate`'s module docs): opened before it, closed after it,
 /// as [`Books`](crate::testing::build_order::Books) keep their Space Crystals.
@@ -14,49 +15,39 @@ use crate::sim::Sim;
 pub struct SupplyBooks {
     player: PlayerId,
     supplies: u32,
-    /// The player's sites as the step starts: a cancelled one's refund is theirs.
-    sites: BTreeSet<ObjectId>,
+    /// The player's objects as the step starts, whose deliveries and refunds go to them (`build_order::owned`).
+    own: BTreeSet<ObjectId>,
 }
 
 impl SupplyBooks {
     pub fn open(sim: &Sim, player: PlayerId) -> Self {
-        let supplies = sim.player(player).map_or(0, |p| p.supplies);
-        let sites = (sim.objects())
-            .filter(|o| o.owner == Some(player) && o.is_site())
-            .map(|o| o.id)
-            .collect();
         Self {
             player,
-            supplies,
-            sites,
+            supplies: sim.player(player).map_or(0, |p| p.supplies),
+            own: owned(sim, player),
         }
     }
 
     /// Closes the books after the step in which the player's commands paid `spent` Supplies, and returns the bank.
     /// Panics unless it changed by what the player's Agents delivered (their `SimEvent::ResourcesDelivered` of
-    /// Supplies), less `spent`, plus the refunds: a Build's (`SimEvent::BuildRefunded` and `SimEvent::SiteCancelled`
-    /// of the player's workers and sites, design change 0233) and an upgrade's (`SimEvent::UpgradeCancelled` of the
-    /// player's Tunnels, design changes 0232 and 0284).
+    /// Supplies), less `spent`, plus the refunds in Supplies (`build_order::refund_in`): a Tunnel's Build and site
+    /// (`SimEvent::BuildRefunded` and `SimEvent::SiteCancelled`, design change 0233; a Laser Turret's are in Space
+    /// Crystals, slice M4-S1) and an upgrade's (`SimEvent::UpgradeCancelled`, design changes 0232 and 0284).
     pub fn close(self, sim: &Sim, spent: u32) -> u32 {
-        let mine = |id: ObjectId| {
-            let held = sim.held_unit(id).map(|held| &held.object);
-            sim.object(id).or(held).is_some_and(|o| o.owner == Some(self.player))
-        };
-        let (mut delivered, mut refunded) = (0, 0);
-        for e in sim.events() {
-            match *e {
+        let delivered: u32 = (sim.events().iter())
+            .filter_map(|e| match *e {
                 SimEvent::ResourcesDelivered {
                     worker,
                     amount,
                     resource: Resource::Supplies,
                     ..
-                } if mine(worker) => delivered += amount,
-                SimEvent::BuildRefunded { worker, refund, .. } if mine(worker) => refunded += refund,
-                SimEvent::SiteCancelled { site, refund, .. } if self.sites.contains(&site) => refunded += refund,
-                SimEvent::UpgradeCancelled { tunnel, refund, .. } if mine(tunnel) => refunded += refund,
-                _ => {}
-            }
-        }
+                } => self.own.contains(&worker).then_some(amount),
+                _ => None,
+            })
+            .sum();
+        let refunded: u32 = (sim.events().iter())
+            .filter_map(|e| refund_in(e, Resource::Supplies, &self.own))
+            .sum();
         let bank = sim.player(self.player).map_or(0, |p| p.supplies);
         assert_eq!(
             i64::from(bank),

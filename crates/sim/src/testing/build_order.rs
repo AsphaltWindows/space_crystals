@@ -26,11 +26,14 @@
 //! [`Books`] keep a player's accounts for a step: the bank's change must be what the plates mined (read off the
 //! patches under them, not off the bank) and what the workers delivered (the step's `SimEvent::ResourcesDelivered` of
 //! Space Crystals, plan decision T27: "books that count drop-offs"; a delivery of Supplies goes to another bank), less
-//! what the step's orders paid, plus the refunds the step's events report.
+//! what the step's orders paid, plus the refunds in Space Crystals the step's events report ([`refund_in`]: those of
+//! a Laser Turret's Build and site, slice M4-S1, and of an expansion, slice M4-F, among them; a Tunnel's are in
+//! Supplies, `syndicate::SupplyBooks`).
 
 use std::collections::{BTreeMap, BTreeSet};
 
 use crate::command::{Command, PlayerCommand};
+use crate::construction::site::{BuildPrice, site_def};
 use crate::construction::{self, ConstructionCommand, Constructor};
 use crate::defs::{ObjectKind, Recipe, Resource};
 use crate::events::SimEvent;
@@ -288,6 +291,51 @@ fn overlap(a: TileRect, b: TileRect) -> bool {
         && b.origin.y < a.origin.y + ah
 }
 
+/// `player`'s objects as a step starts, the units held off the map included (in their Tunnel Network or a site): what
+/// the step's events report for one of them, a delivery or a refund, is theirs ([`Books`],
+/// `syndicate::SupplyBooks`). An object that comes into the game in the step gets nothing in it: a unit can't deliver
+/// in its first tick, and a worker's site starts after the tick's commands, which cancel; an expansion, which its
+/// Expand starts as it applies, goes by its Tunnel ([`refund_in`]).
+pub(crate) fn owned(sim: &Sim, player: PlayerId) -> BTreeSet<ObjectId> {
+    let held = sim.held().map(|held| &held.object);
+    (sim.objects().chain(held))
+        .filter(|o| o.owner == Some(player))
+        .map(|o| o.id)
+        .collect()
+}
+
+/// What event `e` gives back in `resource` to the player who owned `own` as the step started ([`owned`]), if it
+/// reports a refund for one of them: a construction's, a production's or a Warp In's (`economy::Refund`), and an
+/// expansion's, by its Tunnel (design change 0254), in Space Crystals; a Build order's that went before its site
+/// started, and a cancelled site's, in the resource of its price (`construction::site::BuildPrice`: a Tunnel's
+/// Supplies, design change 0233; a Laser Turret's Space Crystals, slice M4-S1); an upgrade's, in Supplies (design
+/// change 0232).
+pub(crate) fn refund_in(e: &SimEvent, resource: Resource, own: &BTreeSet<ObjectId>) -> Option<u32> {
+    let (by, paid_in, refund) = match *e {
+        SimEvent::ConstructionCancelled {
+            constructor: by,
+            refund,
+            ..
+        }
+        | SimEvent::ProductionCancelled {
+            producer: by, refund, ..
+        }
+        | SimEvent::TransformCancelled { id: by, refund, .. }
+        | SimEvent::ExpansionCancelled { tunnel: by, refund, .. } => (by, Resource::Crystals, refund),
+        SimEvent::BuildRefunded {
+            worker: by,
+            kind,
+            refund,
+        }
+        | SimEvent::SiteCancelled { site: by, kind, refund } => {
+            (by, BuildPrice::of(site_def(kind)?.price, 0).resource, refund)
+        }
+        SimEvent::UpgradeCancelled { tunnel: by, refund, .. } => (by, Resource::Supplies, refund),
+        _ => return None,
+    };
+    (paid_in == resource && own.contains(&by)).then_some(refund)
+}
+
 /// A player's accounts for one step (module docs): opened before it, closed after it.
 #[derive(Clone, Debug)]
 pub struct Books {
@@ -295,11 +343,8 @@ pub struct Books {
     bank: u32,
     /// What each patch under one of the player's plates holds.
     reserves: BTreeMap<ObjectId, u32>,
-    /// The player's constructors, producers and transforming objects, whose refunds go to them.
-    builders: BTreeSet<ObjectId>,
-    /// The player's workers, whose deliveries go to them. A unit that comes into the game in a step can't deliver
-    /// in it.
-    workers: BTreeSet<ObjectId>,
+    /// The player's objects, whose deliveries and refunds go to them ([`owned`]).
+    own: BTreeSet<ObjectId>,
 }
 
 /// What one step did to a player's bank ([`Books::close`]).
@@ -317,8 +362,8 @@ pub struct Entry {
     pub deliveries: Vec<(ObjectId, u32)>,
     /// What the player's commands paid.
     pub spent: u32,
-    /// What came back: the `SimEvent::ConstructionCancelled`, `SimEvent::ProductionCancelled` and
-    /// `SimEvent::TransformCancelled` of their buildings.
+    /// What came back: the refunds in Space Crystals of the step's events for the player's objects ([`refund_in`]),
+    /// their buildings' cancels, a Laser Turret's Build and site, an expansion.
     pub refunded: u32,
 }
 
@@ -336,24 +381,11 @@ impl Books {
                 }
             })
             .collect();
-        let builders = sim
-            .objects()
-            .filter(|o| {
-                o.owner == Some(player) && (o.constructor.is_some() || o.production.is_some() || o.is_transforming())
-            })
-            .map(|o| o.id)
-            .collect();
-        let workers = sim
-            .objects()
-            .filter(|o| o.owner == Some(player) && o.worker.is_some())
-            .map(|o| o.id)
-            .collect();
         Self {
             player,
             bank: sim.player(player).map_or(0, |p| p.crystals),
             reserves,
-            builders,
-            workers,
+            own: owned(sim, player),
         }
     }
 
@@ -374,21 +406,8 @@ impl Books {
             })
             .collect();
         let mined = paid.iter().map(|&(_, amount)| amount).sum();
-        let refunded: u32 = sim
-            .events()
-            .iter()
-            .filter_map(|e| match *e {
-                SimEvent::ConstructionCancelled {
-                    constructor: by,
-                    refund,
-                    ..
-                }
-                | SimEvent::ProductionCancelled {
-                    producer: by, refund, ..
-                }
-                | SimEvent::TransformCancelled { id: by, refund, .. } => self.builders.contains(&by).then_some(refund),
-                _ => None,
-            })
+        let refunded: u32 = (sim.events().iter())
+            .filter_map(|e| refund_in(e, Resource::Crystals, &self.own))
             .sum();
         let deliveries: Vec<(ObjectId, u32)> = sim
             .events()
@@ -399,7 +418,7 @@ impl Books {
                     amount,
                     resource: Resource::Crystals,
                     ..
-                } => self.workers.contains(&worker).then_some((worker, amount)),
+                } => self.own.contains(&worker).then_some((worker, amount)),
                 _ => None,
             })
             .collect();
