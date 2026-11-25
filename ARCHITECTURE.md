@@ -399,7 +399,7 @@ Layout validation can't disagree. **Never test a placement rule anywhere else: a
   whole Tier 1 Tunnel Area (`tunnel::area`) on the map and Drillable (design change 0242:
   `WholeProblem::TunnelAreaOffMap`, `TunnelAreaNotDrillable`; Drillable is the preset's flag, never its look), in
   every mode and method; `Mode::Known` counts only the undrillable ground the player has explored, the map's edge
-  always. Read as written, a Tunnel 2 tiles from the edge is valid (Placeholder: Q0078). `check_layout` adds the
+  always. A Tunnel 2 tiles from the edge is valid (design change 0283, as written). `check_layout` adds the
   layout rule for expansions: an underground structure lies wholly inside the Tier 1 area of a Tunnel of its own
   layout (`OutsideTunnelArea`), as a layout's plates lie in its own Deployment Center's area. Map and debug spawns
   don't take the check: a spawned Tunnel by Water or the edge stays valid. Until slice M4-F's expansion method, a
@@ -1568,7 +1568,7 @@ section of its own.
   for each Build of the kind among their units' orders (the lingering ghosts). It is paid as the order is given
   (`Sim::give_order`, `pay_build`); the gate refuses what the bank can't pay (`Reject::InsufficientSupplies`), counting
   what the orders it replaces give back. **Refunds** are the price once the order has gone, "the current top price",
-  "not counting itself" (Q0085: not the docs' "100%"): for an order replaced (`Sim::drop_orders`), gone with its worker
+  "not counting itself" (design change 0284): for an order replaced (`Sim::drop_orders`), gone with its worker
   off the map (`take_off_map`) or out of the game (`remove_objects`; Placeholder: Q0079 point 1), or failed on
   arrival (`SimEvent::BuildRefunded`), and for a site cancelled (`Sim::cancel_site`, `SimEvent::SiteCancelled`); a
   destroyed site gives nothing back, nor do a defeated player's orders. So **the books** hold: the Supplies spent less

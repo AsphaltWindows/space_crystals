@@ -17,11 +17,11 @@ pub const CELLS_PER_TUNNEL_SPACE: u32 = 4;
 
 /// `factions/syndicate/tunnels.md > Tunnel ObjectInterfaceState` (design change 0257, answering Q0068 point 4): the
 /// EjectMenu's unit types, in the order they take the grid's slots: "entries take the grid slots in order (Q, W, E, R,
-/// A, S, …)", the unit types "(Agent, Guard, Grenadier, …)", that is Agent Q, Guard W, Grenadier E (Q0068). The
-/// section's own list is followed where `factions/syndicate/units/README.md > Files`, which it names as the order,
-/// lists the Guard and the Grenadier before the Agent; the README's order goes on after the Grenadier (Assault Bike,
-/// Shadebringer, …). Each Syndicate unit joins the list with its kind (the Grenadier with slice M4-U), so that the
-/// client's menu (slice M4-J2) needs no edit: a test checks that it lists every Syndicate unit once.
+/// A, S, …)", the unit types "(Agent, Guard, Grenadier, …)", that is Agent Q, Guard W, Grenadier E (Q0068). That is
+/// `factions/syndicate/units/README.md > Files` (design change 0285: "Listed in panel order: this is the order used by
+/// the Tunnel's EjectMenu"), which goes on after the Grenadier (Assault Bike, Shadebringer, …). Each Syndicate unit
+/// joins the list with its kind (the Grenadier with slice M4-U), so that the client's menu (slice M4-J2) needs no edit:
+/// a test checks that it lists every Syndicate unit once.
 pub const EJECT_MENU_ORDER: &[ObjectKind] = &[ObjectKind::Agent, ObjectKind::Guard];
 
 /// An entry of the Tunnel's ExpandMenu ([`EXPAND_MENU`], slice M4-F): an expansion a Tunnel builds, or one of the Tech

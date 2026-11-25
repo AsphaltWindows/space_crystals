@@ -9,9 +9,9 @@
 //!   undrillable cell only on a tile the player has explored ("terrain is always known to the player as far as
 //!   explored; never-explored tiles pass on the ghost, and the real check happens on arrival"), and a cell off the
 //!   map always, the map's edge being known. Map spawns and debug spawns don't take the placement check, so they stay
-//!   exempt, as from every placement rule but the shared tiles and [`super::Onto`]. Read as written, a Tunnel 2 tiles
-//!   from the edge breaks nothing, its Tier 1 area just reaching the edge, where 0242's Verification calls it red
-//!   (Placeholder: Q0078).
+//!   exempt, as from every placement rule but the shared tiles and [`super::Onto`]. A Tunnel 2 tiles from the edge
+//!   breaks nothing, its Tier 1 area just reaching the edge (design change 0283, the rule as written: "a footprint 2
+//!   tiles from the edge is valid, and 1 tile is red"; 0242's Verification calling it red "was a slip").
 //! - **The expansion rule of Starting Layouts** ([`layout_method`]): a layout's underground structure lies wholly
 //!   inside the Tier 1 Tunnel Area of a Tunnel of the same layout (`factions/syndicate/tunnels.md > Tunnel > Starting
 //!   Conditions`: "One pre-built **Tier 1 Tunnel** containing one pre-built **Hideout**";

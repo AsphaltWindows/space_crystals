@@ -182,7 +182,7 @@ fn dev_skirmish_validates_with_every_faction_in_either_slot() {
 /// Design change 0242 ("Starting Layouts must respect this"): `dev_skirmish`'s starting Tunnel moved to the lake's
 /// shore, (18, 6) to (21, 9), its area taking in the Water from x = 22, or to (12, 1), 1 tile from the north edge,
 /// is refused as a whole by the map's validation, in slot 1 and in its image, and no game starts. 2 tiles from the
-/// edge it is valid (Placeholder: Q0078), the Hideout following it into the area.
+/// edge it is valid (design change 0283), the Hideout following it into the area.
 #[test]
 fn a_layout_tunnel_by_the_lake_or_the_edge_is_refused() {
     let moved = |tunnel: (i32, i32), hideout: (i32, i32)| {

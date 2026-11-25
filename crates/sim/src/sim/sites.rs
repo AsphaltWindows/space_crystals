@@ -18,8 +18,8 @@
 //!   redeployment from any Tunnel". Its functions wait for this (`Object::is_operational`); the Agent goes on to the
 //!   network, free to leave at once (it walked into no Tunnel: no transit delay, `Held::entered`).
 //! - **Cancel** ([`Sim::cancel_site`], `ConstructionCommand::CancelConstruction` on the site: "It does nothing but
-//!   Cancel"): the site goes, refunded at the current top price (design change 0233, Q0085: not the doc's "Full
-//!   refund"), and the Agent comes out.
+//!   Cancel"): the site goes, refunded at the current top price (design changes 0233 and 0284: "construction and
+//!   upgrade cancels refund the current top price"), and the Agent comes out.
 //! - **Destruction** (`Sim::remove_objects`): "The Agent survives and emerges at the location. The Tunnel is lost and
 //!   any Supplies spent are lost."
 //!
