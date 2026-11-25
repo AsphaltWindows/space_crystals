@@ -191,26 +191,36 @@ impl Sim {
     /// no longer transforms, and its functions start, as a new object of its kind has them ([`Capabilities::fresh`]): a
     /// portal accepts Train from the next tick. With a `SimEvent::TransformCompleted`.
     fn complete_transform(&mut self, id: ObjectId) {
-        let Some(o) = self.objects.get(&id) else {
-            return;
-        };
-        let fresh = Capabilities::fresh(&self.objects, o.kind, o.placement.as_ref());
+        self.start_functions(id);
         let Some(o) = self.objects.get_mut(&id) else {
             return;
         };
         o.transform = None;
-        o.production = fresh.production;
-        o.constructor = fresh.constructor;
-        o.extractor = fresh.extractor;
         self.events.push(SimEvent::TransformCompleted { id, kind: o.kind });
+    }
+
+    /// What [`hold_back`] held back of object `id` starts: its production, its construction and its mining, as a new
+    /// object of its kind has them ([`Capabilities::fresh`]). A transformation's at its completion, and a Tunnel's
+    /// expansion's (slice M4-F, `sim/expansions.rs`).
+    pub(super) fn start_functions(&mut self, id: ObjectId) {
+        let Some(o) = self.objects.get(&id) else {
+            return;
+        };
+        let fresh = Capabilities::fresh(&self.objects, o.kind, o.placement.as_ref());
+        if let Some(o) = self.objects.get_mut(&id) {
+            o.production = fresh.production;
+            o.constructor = fresh.constructor;
+            o.extractor = fresh.extractor;
+        }
     }
 }
 
 /// What a transforming object holds back until it completes (design change 0116: "Production, drop-off, research
 /// and abilities start at completion"): the capabilities a structure works with, its production (so it takes no
 /// Train and no rally either: "no Set Rally Point"), its construction and its mining, which completion gives it as
-/// a new object of its kind has them ([`Sim::complete_transform`]). What its kind does by itself, such as an Egress
-/// Node taking drop-offs (`sim/workers.rs`), checks [`Object::is_transforming`].
+/// a new object of its kind has them ([`Sim::start_functions`]). What its kind does by itself, such as an Egress
+/// Node taking drop-offs (`sim/workers.rs`), checks [`Object::is_transforming`]. A Tunnel's expansion holds them
+/// back while it is built (slice M4-F).
 pub(super) fn hold_back(o: &mut Object) {
     o.production = None;
     o.constructor = None;

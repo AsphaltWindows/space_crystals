@@ -40,6 +40,14 @@ impl TestDef {
         change(def.unit.as_mut().expect("a unit type"));
         Self::set(def)
     }
+
+    /// Replaces the def of the structure type `kind` by its own with `change` applied to its structure attributes
+    /// (slice M4-F: an expansion of another cost or Tier Requirement).
+    pub(crate) fn structure(kind: ObjectKind, change: impl FnOnce(&mut super::StructureDef)) -> Self {
+        let mut def = kind.def().clone();
+        change(def.structure.as_mut().expect("a structure type"));
+        Self::set(def)
+    }
 }
 
 impl Drop for TestDef {

@@ -24,7 +24,10 @@
 //! A Tunnel's EjectMenu tiles are its Ejects, which the gate answers too (`factions/syndicate/tunnels.md > EjectMenu`,
 //! slice M4-J2): a tile is greyed while no unit of its type is in the network free to leave, while every one of them
 //! only just walked in (design change 0288 point 1), or while this Tunnel's tier doesn't let the type out; and its
-//! count is the network's ([`Conditions::network_count`]).
+//! count is the network's ([`Conditions::network_count`]). Its ExpandMenu's entries are greyed by the gate's answer to
+//! an Expand short of its placement (`Sim::can_expand`, slice M4-F: an operation under way, a Tier Requirement above
+//! this Tunnel's tier, a prerequisite missing, too few Space Crystals), where the expansion goes being the ghost's to
+//! show; its X while it performs no operation.
 //!
 //! The Agent's A, Build Tunnel (`factions/syndicate/units/agent.md > Agent ObjectInterfaceState`, slice M4-J1), asks
 //! for its Build order where it would stand anywhere, and leaves out the placement's refusal as a Warp In does: it is
@@ -32,7 +35,7 @@
 //! "a Build order that can't be paid is refused"). Its S, Drop Off, is greyed while none of its recipients carries a
 //! load (`factions/syndicate/units/agent.md > DefaultState commands`: "Always visible, greyed out when Agent is not
 //! carrying resources"), the gate's own test (`Reject::NothingToDeliver`). A site's panel is its Cancel alone
-//! ([`Conditions::site`], design change 0237).
+//! ([`Conditions::site`], design change 0237), an expansion's too.
 
 use std::collections::{BTreeMap, BTreeSet};
 
@@ -149,8 +152,7 @@ pub enum WhyUnavailable {
     /// whose buildings is, an order the sim has none of (Reverse).
     NotYet,
     /// A placeholder entry's own reason, the message the gate's refusal will give once its command is in the game
-    /// (`super::Planned::why`, slice M4-J2): the Hideout's Guard "Requires an Optics Lab", the Tunnel's Cancel
-    /// "Nothing to cancel".
+    /// (`super::Planned::why`, slice M4-J2): the Hideout's Guard "Requires an Optics Lab".
     Placeholder(&'static str),
 }
 
@@ -194,8 +196,9 @@ impl Conditions {
     /// unturned, and leaves
     /// out the placement's refusal (`Reject::Unplaceable`, the gate's last check): the player turns the ghost before it
     /// is placed, and the ghost shows each tile's problem. An Agent's Build asks for its Build order, unqueued, the
-    /// same way ([`build_probe`]). A Tunnel's EjectMenu tile asks for its `Command::Tunnel`, and the network's counts
-    /// are the player's while the ActiveGroup opens the EjectMenu.
+    /// same way ([`build_probe`]). A Tunnel's EjectMenu tile and its Cancel ask for their `Command::Tunnel`, and the
+    /// network's counts are the player's while the ActiveGroup opens the EjectMenu. An ExpandMenu entry asks
+    /// `Sim::can_expand`, the gate's Expand short of its placement, for the same reason as a Warp In's.
     pub fn of(sim: &Sim, player: PlayerId, selection: &Selection) -> Self {
         let commands = selection
             .active()
@@ -216,6 +219,10 @@ impl Conditions {
             .iter()
             .filter_map(|&command| {
                 let objects = recipients(selection, command);
+                if let PanelCommand::Expand(kind) = command {
+                    let reject = sim.can_expand(player, *objects.first()?, kind).err()?;
+                    return Some((command, reject));
+                }
                 let sent = if let Some(production) = command.production() {
                     Command::Production {
                         objects,

@@ -101,10 +101,10 @@ fn ghost_at(app: &mut App, pos: Vec2) -> (bool, String) {
 /// Slice M4-B's acceptance in the editor: "The editor's Syndicate palette offers the Tunnel, the Hideout and the
 /// Agent", and "A starting Tunnel whose area breaches shows a red ghost with that text". On a map with every other
 /// layout done, the Problems list says what the Syndicate's lacks; a Tunnel whose Tier 1 area takes in the lake, or
-/// lies 1 tile from the map's edge, shows a red ghost and is refused with the rule's text (0242); 2 tiles from the
-/// edge is fine (Placeholder: Q0078). A Hideout outside the Tunnel's area is refused too. Placed where they may go,
-/// the layout is complete, slot 2's is the image, and the map plays: slot 2's Syndicate player starts with it, at
-/// Tunnel Space 1/11.
+/// lies 1 tile from the map's edge, shows a red ghost and is refused with the rule's text (0242); 2 tiles from the edge
+/// is fine (design change 0283: "a footprint 2 tiles from the edge is valid, and 1 tile is red"). A Hideout outside the
+/// Tunnel's area is refused too. Placed where they may go, the layout is complete, slot 2's is the image, and the map
+/// plays: slot 2's Syndicate player starts with it, at Tunnel Space 1/11.
 #[test]
 fn the_syndicate_layout_is_placed_from_their_starting_conditions() {
     let dir = temp_maps("syndicate_layout");
@@ -139,7 +139,7 @@ fn the_syndicate_layout_is_placed_from_their_starting_conditions() {
     click(&mut app, spot(6, 19, 4, 4));
     assert_warned(&app, edge);
     assert_eq!(syndicate(&app, S1), []);
-    // 2 tiles from it, the area just reaches the edge (Placeholder: Q0078).
+    // 2 tiles from it, the area just reaches the edge: valid (design change 0283).
     assert_eq!(ghost_at(&mut app, spot(6, 18, 4, 4)), (false, String::new()));
 
     click(&mut app, spot(6, 14, 4, 4));

@@ -416,6 +416,7 @@ mod builds;
 mod commands;
 mod construction;
 mod deploy;
+mod expansions;
 mod gate;
 mod kinds;
 mod load;

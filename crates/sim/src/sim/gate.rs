@@ -152,6 +152,16 @@ pub enum Reject {
     /// (`systems/controls/commands.md > AttackGround`: "Only available to units whose AttackType has CanTargetGround";
     /// `combat::can_target_ground`).
     CannotTargetGround,
+    /// (M4-F) The Tunnel performs an operation already (`factions/syndicate/tunnels.md > Construction and Upgrade
+    /// Rules`: "A Tunnel can only perform one operation at a time"; `tunnel::Operation`).
+    OperationUnderWay(ObjectId),
+    /// (M4-F) The building Tunnel's tier is below the expansion's Tier Requirement, `tier`
+    /// (`factions/syndicate/tunnels.md > ExpandMenu`: "available only if (1) its Tier Requirement is at or below
+    /// **this** Tunnel's tier").
+    TierRequirement { kind: ObjectKind, tier: u8 },
+    /// (M4-F) A Tunnel's Cancel while it performs no operation ("**X** Cancel (upgrade, construction or the current
+    /// operation)", `factions/syndicate/tunnels.md > Tunnel ObjectInterfaceState`).
+    NoOperation(ObjectId),
 }
 
 impl fmt::Display for Reject {
@@ -206,6 +216,9 @@ impl fmt::Display for Reject {
             Reject::NotInNetwork(kind) => write!(f, "no {} in the Tunnel Network is free to leave", kind.def().name),
             Reject::InTransit(kind) => write!(f, "the {} only just entered the Tunnel Network", kind.def().name),
             Reject::CannotTargetGround => write!(f, "none of the units can attack the ground"),
+            Reject::OperationUnderWay(id) => write!(f, "Tunnel {} performs an operation already", id.0),
+            Reject::TierRequirement { kind, tier } => write!(f, "a {} needs a Tier {tier} Tunnel", kind.def().name),
+            Reject::NoOperation(id) => write!(f, "Tunnel {} performs no operation", id.0),
         }
     }
 }
@@ -249,6 +262,17 @@ pub(super) enum Checked {
     Eject {
         tunnel: ObjectId,
         unit: ObjectId,
+    },
+    /// `tunnel`: the player's, in operation and free, building a `kind` on `placement`, valid by the truth
+    /// (`sim/expansions.rs`).
+    Expand {
+        tunnel: ObjectId,
+        kind: ObjectKind,
+        placement: Placement,
+    },
+    /// `tunnel`: the player's, in operation, with an operation to cancel (`sim/expansions.rs`).
+    CancelOperation {
+        tunnel: ObjectId,
     },
     /// `player`'s production command, with what its checks resolved (`sim/producers.rs`).
     Production {

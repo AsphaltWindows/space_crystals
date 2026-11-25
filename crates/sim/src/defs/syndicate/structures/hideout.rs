@@ -1,12 +1,12 @@
 //! The Hideout — `factions/syndicate/structures/hideout.md`.
 
-use crate::defs::structures::{ExitRule, ProductionDef, Recipe, StructureDef, SymmetryType};
+use crate::defs::structures::{ExitRule, ExpansionDef, ProductionDef, Recipe, StructureDef, SymmetryType};
 use crate::defs::{Armor, Category, Footprint, ObjectDef, ObjectKind};
 use crate::player::Faction;
 
 /// `factions/syndicate/structures/hideout.md`: an underground expansion (plan decision T32): hidden from the other
 /// players while owned, it is walked over, and can be destroyed. It produces into its owner's Tunnel Network (slice
-/// M4-C, `crate::network`); its construction comes with slice M4-F.
+/// M4-C, `crate::network`). A Tunnel builds it in its Tunnel Area ([`HIDEOUT_EXPANSION`], slice M4-F).
 pub(crate) static HIDEOUT: ObjectDef = ObjectDef {
     kind: ObjectKind::Hideout,
     name: "Hideout",
@@ -23,8 +23,8 @@ pub(crate) static HIDEOUT: ObjectDef = ObjectDef {
     max_hp: Some(400.0), // HP - 400
     max_shields: None,
     // `factions/syndicate/structures/README.md > Tunnel Expansions > High armor underground` (design changes 0262 and
-    // 0264), replacing the stat block's 1 / 4: "Placeholder for every expansion: n = 6, i.e. PointArmor 6, FullArmor
-    // 6 x size in grid squares (a 2x2 expansion: 6 / 24)".
+    // 0264; the stat block's since design change 0284): "Placeholder for every expansion: n = 6, i.e. PointArmor 6,
+    // FullArmor 6 x size in grid squares (a 2x2 expansion: 6 / 24)".
     armor: Armor { point: 6.0, full: 24.0 },
     // `core/map.md > Elevation` (design change 0005): "Syndicate underground expansions (inside a Tunnel Area) may be
     // placed on sloped tiles; the flatness rule doesn't apply to them".
@@ -55,8 +55,20 @@ pub(crate) static HIDEOUT: ObjectDef = ObjectDef {
         underground: true, // Entity Type - Structure Type (Underground)
         tunnel: None,
         site: None,
+        expansion: Some(HIDEOUT_EXPANSION),
     }),
     default_settings: None,
+};
+
+/// The Hideout's construction by a Tunnel (`StructureDef::expansion`, slice M4-F): "Additional Hideouts can be
+/// constructed in any Tier 1+ Tunnel".
+pub(crate) const HIDEOUT_EXPANSION: ExpansionDef = ExpansionDef {
+    tier: 1,     // Tier Requirement - 1
+    cost: 200,   // Cost - 200 Space Crystals
+    frames: 400, // Build Time - 400 frames (25 seconds)
+    // `factions/syndicate/tunnels.md > Expansions under construction` (design change 0254): "the ConstructionHP Rule
+    // applies to every expansion (starts at 10%, grows with progress)".
+    start_hp: 0.1,
 };
 
 #[cfg(test)]
@@ -103,5 +115,19 @@ mod tests {
             .map(|recipe| (recipe.kind, recipe.cost, recipe.frames))
             .collect();
         assert_eq!(recipes, [(ObjectKind::Agent, 100, 240)]);
+    }
+
+    /// "Tier Requirement - 1", "Cost - 200 Space Crystals", "Build Time - 400 frames (25 seconds)", built by a Tunnel
+    /// from 10% of its HP (`factions/syndicate/tunnels.md > Expansions under construction`, design change 0254).
+    #[test]
+    fn a_tunnel_builds_it_for_200_crystals_in_400_frames() {
+        let structure = ObjectKind::Hideout.def().structure.as_ref().unwrap();
+        let expected = ExpansionDef {
+            tier: 1,
+            cost: 200,
+            frames: 400,
+            start_hp: 0.1,
+        };
+        assert_eq!((structure.expansion, structure.site), (Some(expected), None));
     }
 }

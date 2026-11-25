@@ -45,6 +45,8 @@ Order the unit to attack a specific destructible object instance (unit or struct
 ## AttackGround
 Order the unit to attack a specific ground location. Only available to units whose AttackType has CanTargetGround = true.
 
+**It keeps firing at the location until given another order** (user, 2026-11-26; Q0083; systems/controls/behaviors.md > AttackingLocation).
+
 ### Sets BaseCommandState:
 - CommandType = AttackGround
 - TargetLocation = location

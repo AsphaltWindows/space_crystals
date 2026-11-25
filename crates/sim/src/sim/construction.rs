@@ -270,6 +270,10 @@ impl Sim {
     /// is reported the same way, with its Beacon as the constructor ([`Sim::warp_in_check`]). Every other
     /// rejection is silent.
     pub(super) fn report_refusal(&mut self, cmd: &PlayerCommand, reject: Reject) {
+        // A Tunnel's Expand (slice M4-F, `sim/expansions.rs`).
+        if let Command::Tunnel { tunnel, command } = &cmd.command {
+            return self.report_tunnel_refusal(*tunnel, *command, reject);
+        }
         let (Reject::Unplaceable(_), Command::Construction { objects, command }) = (reject, &cmd.command) else {
             return;
         };

@@ -46,6 +46,7 @@ pub(crate) static BARRACKS: ObjectDef = ObjectDef {
         underground: false,
         tunnel: None,
         site: None,
+        expansion: None,
     }),
     default_settings: None,
 };

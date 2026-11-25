@@ -109,8 +109,9 @@ fn an_enemy_tunnel_counts_as_last_seen_and_as_it_is_on_arrival() {
 
 /// Design change 0242's verification (`factions/syndicate/tunnels.md > Tunnel Area Non-Overlap Rule > Drillable area`):
 /// "A Tunnel ghost whose 8x8 area touches Water is red"; a Tunnel 1 tile from the map's edge is red, 2 tiles away valid
-/// (Placeholder: Q0078); and "never-explored tiles pass on the ghost, and the real check happens on arrival". Water at
-/// (29, 9), in Agent 2's sight, and at (35, 16), out of it.
+/// (design change 0283: "a footprint 2 tiles from the edge is valid, and 1 tile is red"); and "never-explored tiles
+/// pass on the ghost, and the real check happens on arrival". Water at (29, 9), in Agent 2's sight, and at (35, 16),
+/// out of it.
 #[test]
 fn a_tunnels_area_lies_on_the_map_on_drillable_ground() {
     let mut rows: Vec<String> = (0..20).map(|_| ".".repeat(40)).collect();

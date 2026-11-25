@@ -209,10 +209,10 @@ fn starts(t: &TestSim) -> Vec<(Tick, ObjectId, ObjectId)> {
 fn check_sites(t: &TestSim) {
     let sim = t.sim();
     for o in sim.objects() {
-        let Some(site) = o.construction else {
+        // A Tunnel's expansion has no worker (slice M4-F).
+        let Some(worker) = o.construction.and_then(|site| site.builder.unit()) else {
             continue;
         };
-        let worker = site.builder.unit();
         let held =
             (sim.held_unit(worker)).unwrap_or_else(|| panic!("site {:?}: its builder {worker:?} isn't held", o.id));
         assert_eq!(held.place, Place::Site(o.id), "site {:?}'s builder", o.id);
@@ -224,7 +224,7 @@ fn check_sites(t: &TestSim) {
         if let Place::Site(site) = held.place {
             let builder = (sim.object(site))
                 .and_then(|o| o.construction)
-                .map(|c| c.builder.unit());
+                .and_then(|c| c.builder.unit());
             assert_eq!(
                 builder,
                 Some(unit),

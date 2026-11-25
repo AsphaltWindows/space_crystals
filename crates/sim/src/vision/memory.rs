@@ -57,7 +57,7 @@ use serde::{Deserialize, Serialize};
 
 use super::hidden::hidden_from;
 use super::{PlayerVision, TileBits};
-use crate::construction::site::{max_hp_at, site_def};
+use crate::construction::site::max_hp_seen;
 use crate::defs::{ObjectDef, ObjectKind};
 use crate::hash::{StateHash, StateHasher};
 use crate::ids::{ObjectId, PlayerId};
@@ -92,9 +92,10 @@ pub struct LastKnown {
     /// Whether it was a site, a structure under construction, when last seen, and how far its construction had come
     /// then (`Object::construction`'s progress, `crate::construction::site`): a site in the fog is remembered as one,
     /// as last seen, though it may have been finished since (`core/vision.md > Explored`), and its look and its MaxHP
-    /// follow (slice M4-I2). Not its builder, held inside it (`factions/syndicate/units/agent.md > While the Tunnel is
-    /// under construction`: enemies see "the site, like any surface structure, but not the Agent inside it"). `None`
-    /// for a finished structure and a resource. Optional in files and left out of them while `None`, as `tunnel`.
+    /// follow (slice M4-I2). Not who builds it (`Construction::builder`): an Agent inside is unseen
+    /// (`factions/syndicate/units/agent.md > While the Tunnel is under construction`: enemies see "the site, like any
+    /// surface structure, but not the Agent inside it"), and a Tunnel's operation is its owner's business. `None` for a
+    /// finished structure and a resource. Optional in files and left out of them while `None`, as `tunnel`.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub site: Option<Progress>,
 }
@@ -113,7 +114,7 @@ impl LastKnown {
             seen: tick,
             // The tier alone: a Tunnel's eject queue is its owner's business (`crate::network`).
             tunnel: object.tunnel.as_ref().map(|tunnel| TunnelState::at(tunnel.tier)),
-            // The progress alone: the builder is its owner's business.
+            // The progress alone: who builds it is its owner's business.
             site: object.construction.map(|site| site.progress),
         })
     }
@@ -127,10 +128,12 @@ impl LastKnown {
     pub fn max_hp(&self) -> Option<f32> {
         let tier = (crate::tunnel::def_of(self.kind)).and_then(|def| def.tier(self.tunnel.as_ref()?.tier));
         let full = tier.map_or(self.def().max_hp, |tier| Some(tier.max_hp));
-        match (&self.site, site_def(self.kind)) {
-            (Some(progress), Some(def)) => full.map(|full| max_hp_at(def, progress, full)),
-            _ => full,
+        if let (Some(progress), Some(full)) = (&self.site, full)
+            && let Some(max) = max_hp_seen(self.kind, progress, full)
+        {
+            return Some(max);
         }
+        full
     }
 
     /// Where it stands: the centre of its footprint, which is its object's position (space units).

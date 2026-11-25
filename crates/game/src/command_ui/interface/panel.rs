@@ -150,9 +150,10 @@ pub fn commandable(sim: &Sim, player: PlayerId, selection: &Selection) -> bool {
 /// (Attack while none of them may attack, a Train, a Cancel Production, a constructor's command, a Warp In or a
 /// Convert the gate would refuse). Each greyed-out button says why ([`PanelSlot::why`]). The
 /// Egress Node's F shows only while it has Drones to select ([`Conditions::shows`]). The Tunnel's EjectMenu works as a
-/// build menu does, its tiles greyed while the gate would refuse their Eject, each with its count. A site under
-/// construction shows X Cancel Construction alone ([`SITE_GRID`], design change 0237), whatever its type, and an
-/// Agent's Build its price ([`PanelSlot::price`]).
+/// build menu does, its tiles greyed while the gate would refuse their Eject, each with its count, and so does its
+/// ExpandMenu, its entries greyed while the gate would refuse their Expand (`sc_sim::Sim::can_expand`). A site under
+/// construction shows X Cancel Construction alone ([`SITE_GRID`], design change 0237), whatever its type (an
+/// expansion's too), and an Agent's Build its price ([`PanelSlot::price`]).
 pub fn panel(selection: &Selection, interface: InterfaceState, conditions: &Conditions) -> Panel {
     let mut panel = Panel::default();
     let Some(active) = selection.active() else {
@@ -181,7 +182,10 @@ pub fn panel(selection: &Selection, interface: InterfaceState, conditions: &Cond
                 InterfaceState::AwaitingTarget { .. } | InterfaceState::AwaitingPlacement(_) => {
                     (ButtonLook::Disabled, Some(WhyUnavailable::Waiting))
                 }
-                InterfaceState::DefaultState | InterfaceState::BuildMenu(_) | InterfaceState::EjectMenu => {
+                InterfaceState::DefaultState
+                | InterfaceState::BuildMenu(_)
+                | InterfaceState::EjectMenu
+                | InterfaceState::ExpandMenu => {
                     let why = (!command.has_sim_command())
                         .then_some(WhyUnavailable::NotYet)
                         .or_else(|| conditions.unavailable(selection, command));
@@ -264,8 +268,12 @@ pub enum SlotPress {
     AwaitBuild(ObjectKind),
     /// A StateOnlyTransition to the Tunnel's EjectMenu (`InterfaceState::EjectMenu`).
     OpenEjectMenu,
+    /// A StateOnlyTransition to the Tunnel's ExpandMenu (`InterfaceState::ExpandMenu`).
+    OpenExpandMenu,
+    /// A StateOnlyTransition to AwaitingPlacement of an expansion, a `kind`, that the active Tunnel builds.
+    AwaitExpansion(ObjectKind),
     /// A CommandIssuingTransition: the command's Tunnel command, at once (`sc_sim::Command::Tunnel`): an EjectMenu
-    /// tile's Eject, the menu staying open.
+    /// tile's Eject, the menu staying open; the Cancel of the Tunnel's operation.
     Tunnel(PanelCommand, TunnelCommand),
     /// The Egress Node's F, a StateOnlyTransition: the selection becomes its returning Drones
     /// (`super::Conditions::returning`).
@@ -280,7 +288,8 @@ pub enum SlotPress {
 /// `> DefaultState`: "Command hotkeys or button clicks initiate transitions to AwaitingTarget or issue immediate
 /// commands"; a constructor's enter its build menus and AwaitingPlacement or issue construction commands, a
 /// Beacon's its Warp In menus and a Warp In's placement, a Drone's Deploy its placement, an Egress Node's F selects
-/// its Drones, a Tunnel's E its EjectMenu, whose tiles eject; `> Standard Slot Assignments > Z`: Back.
+/// its Drones, a Tunnel's E its EjectMenu, whose tiles eject, its W its ExpandMenu, whose entries enter their
+/// placement, and its X cancels its operation; `> Standard Slot Assignments > Z`: Back.
 pub fn press(panel: &Panel, slot: CommandSlot) -> SlotPress {
     match panel.get(slot) {
         Some(PanelSlot {
@@ -302,6 +311,10 @@ pub fn press(panel: &Panel, slot: CommandSlot) -> SlotPress {
                 SlotPress::Tunnel(command, tunnel)
             } else if command == PanelCommand::EjectMenu {
                 SlotPress::OpenEjectMenu
+            } else if command == PanelCommand::ExpandMenu {
+                SlotPress::OpenExpandMenu
+            } else if let PanelCommand::Expand(kind) = command {
+                SlotPress::AwaitExpansion(kind)
             } else if let PanelCommand::BuildMenu(menu) = command {
                 SlotPress::OpenMenu(menu)
             } else if let PanelCommand::PlaceReady(kind) = command {

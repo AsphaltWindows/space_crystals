@@ -273,7 +273,11 @@ pub(super) fn update_ghost(
 ///   whole Tier 1 Tunnel Area must be on the map, Drillable as far as the player knows, and clear of every Tunnel Area
 ///   it knows of, a remembered enemy Tunnel's at its last-seen tier), whose own pending Build a plain click's order
 ///   replaces, the player's other sites and lingering ghosts reserved (a Tunnel ghost its whole Tier 1 area). Its
-///   problem kinds are the ghost's red tiles and the message of an invalid click (`crate::command_ui::feedback`).
+///   problem kinds are the ghost's red tiles and the message of an invalid click (`crate::command_ui::feedback`);
+/// - a Tunnel's expansion: `Sim::expansion_check`, as far as the player knows (slice M4-F, design change 0240): its
+///   footprint within the Tunnel's area as it is now, on tiles Drillable as far as the player knows, clear of the
+///   structures and resources the player knows of (ground units don't block it, design change 0290). The Tunnel's
+///   operation, tier and bank are its ExpandMenu entry's to grey and the click's to refuse.
 ///
 /// `None` when the builder is gone, or the ActiveGroup no longer has a Drone.
 pub fn check_now(
@@ -295,6 +299,7 @@ pub fn check_now(
             sim.deploy_check(drone, origin, queue)
         }
         Builder::Agent(agent) => sim.build_check(agent, placing.kind, origin, placing.orientation, queue),
+        Builder::Tunnel(tunnel) => sim.expansion_check(tunnel, placing.kind, origin, placing.orientation),
     }
 }
 

@@ -179,16 +179,28 @@ impl OrderOutbox<'_> {
         let Some(tunnel) = tunnels.into_iter().find(own) else {
             return false;
         };
+        self.try_tunnel(player, tunnel, command).is_ok()
+    }
+
+    /// `player`'s Tunnel `tunnel` carries out `command`, saying why nothing was sent: the gate's refusal (an
+    /// expansion placed, slice M4-F: its Tunnel busy with an operation, or too few Space Crystals since its entry was
+    /// pressed, design change 0162; a placement the truth refuses, `Reject::Unplaceable`).
+    pub(super) fn try_tunnel(
+        &mut self,
+        player: PlayerId,
+        tunnel: ObjectId,
+        command: TunnelCommand,
+    ) -> Result<(), Reject> {
         let sent = PlayerCommand {
             player,
             command: Command::Tunnel { tunnel, command },
         };
         if let Err(reject) = self.sim.validate(&sent) {
             debug!("tunnel command {command:?} not given: {reject}");
-            return false;
+            return Err(reject);
         }
         self.pending.0.push(sent);
-        true
+        Ok(())
     }
 
     /// `player`'s Drones that have a Deploy, in the sim or sent for its next tick ([`deploying`]).

@@ -231,7 +231,7 @@ Units, structures and resources are all `Object`s (`object.rs`, `core/entities.m
   flat ground (`ObjectDef::needs_flat_ground`, design change 0005), stands for the ElevationModifier at the level
   under its centre, blocks no movement (*Navigation*) and is hidden from the other players (*Vision > Hidden
   objects*). Surface and underground footprints never share a tile (design change 0240): `may_overlap` keeps them
-  apart as any two footprints; the placement rules across the layers come with slices M4-E and M4-F.
+  apart as any two footprints, and so do the placement methods of slices M4-E and M4-F (*Placement*).
 - **Units off the map: the held store** (`network.rs`, `sim/network.rs`; slice M4-C, plan decision T30;
   `factions/syndicate/tunnels.md > Tunnel Network`): a unit inside a Tunnel Network is **not among the objects**. It
   is a `Held { object, place, since, entered }` in `Sim::held`, a second map by id beside `Sim::objects`, with the
@@ -267,9 +267,27 @@ Units, structures and resources are all `Object`s (`object.rs`, `core/entities.m
   (`network::is_exit`), the drop-offs (the gate, `Sim::nearest_drop_off`, the resolution's facts) and Tunnel Space
   (`gives_tunnel_space`) all ask it, so that a site does nothing but Cancel. A site counts for defeat, blocks and is
   seen as any structure; the worker inside, held, is not.
+- **Expansions and a Tunnel's operation** (`sim/expansions.rs`, `tunnel/operation.rs`; slice M4-F;
+  `factions/syndicate/tunnels.md > ExpandMenu`, `factions/syndicate/tunnels.md > AwaitingPlacement (Expansion)`,
+  `factions/syndicate/tunnels.md > Expansions under construction`; design changes 0240, 0254, 0290, 0291): a Tunnel
+  builds an underground expansion in its area as **its one operation**, `TunnelState::operation: Option<Operation>`
+  (`Operation::Building(site)`; slice M4-G's upgrade joins the enum), hashed (a tag) and saved only while set. The
+  expansion is a site as above, `Builder::Tunnel(tunnel)`, no worker held.
+  `TunnelCommand::Expand { kind, origin, orientation }`'s gate (`Sim::check_expand`) is first **`Sim::can_expand`** (the
+  player's Tunnel in operation, no operation under way `Reject::OperationUnderWay`, the kind's Tier Requirement
+  `Reject::TierRequirement`, its prerequisites `check_tech_prerequisites`, a stub that slice M4-K's check replaces, then
+  the bank), which the ExpandMenu greys its entries by, then the placement by the truth (`Sim::expansion_truth`,
+  `Reject::Unplaceable`). Paid at the click, Tunnel Space used and the ConstructionHP rule from the start (0254);
+  completion (`Sim::complete_expansion`) ends the operation, and so does a cancel, the site's X or the Tunnel's
+  (`TunnelCommand::Cancel`, `Sim::cancel_operation`; 75% back, `Refund::Expansion`), or the site gone any other way
+  (`forget_references`, no refund). **The ExpandMenu's one table** is `defs::EXPAND_MENU` (`ExpandEntry::Kind(kind)` or
+  `ExpandEntry::Planned(name)`): the nine expansions of the Tech Tree table in its order and the Laser Turret tenth,
+  each holding its slot (0291); the slice that brings one turns its entry into its `Kind`, and tests check the list
+  against the design's table and against `StructureDef::expansion`. `Sim::operation_progress(tunnel)` gives the
+  operation and its `Progress` for the Tunnel's InfoPanel.
 - **Losing Tunnels** (`sim/tunnels.rs`; slice M4-H; `factions/syndicate/tunnels.md > Losing Tunnels`, design changes
   0254 and 0258): what a Tunnel leaves when it leaves the game, on the removal path (*Removal path*): its unfinished
-  expansions (`built_by`, the arm of `Builder::Tunnel` comes with slice M4-F) are destroyed with no refund; its
+  expansions (`built_by`: the sites it builds, `Builder::Tunnel`, slice M4-F) are destroyed with no refund; its
   completed ones, its owner's underground structures wholly inside its area (a Tunnel still a site has none), become
   **neutral**: their unit in production lost, the rest of the queue refunded (`SimEvent::ProductionCancelled`, the
   lost one's with 0), the rally cleared; then the units in the owner's network that no remaining Tunnel lets out
@@ -279,8 +297,8 @@ Units, structures and resources are all `Object`s (`object.rs`, `core/entities.m
   share of its MaxHP the decay has left (`decayed`, computed from the whole ticks in 64 bits, so that a full Hideout
   dies in its 1600th tick of decay, the first being its Tunnel's last). **Reclaiming** is `Sim::reclaim(tunnel)`,
   which a site's completion calls (`Sim::complete_site`) and an upgrade's will (slice M4-G): every neutral expansion
-  wholly inside the finished Tunnel's area, at or below its tier (the Tier Requirement, 1 for every expansion until
-  slice M4-F's defs), becomes the Tunnel owner's, stops decaying and is hidden again, with no event.
+  wholly inside the finished Tunnel's area, at or below its tier (the Tier Requirement, `ExpansionDef::tier`: 1 for
+  the Hideout), becomes the Tunnel owner's, stops decaying and is hidden again, with no event.
 - **Side A's paths** (`network::Paths`, design changes 0225 and 0248): the one geometry of a Tunnel's entry and
   exit, for the sim and the client's drawing (`object_render/tunnel.rs` reads `PATH_OFFSET_SU`): two spots on Side
   A's line, 30 su from its middle, the exit towards Side B and the entry towards Side D, wherever the sides face
@@ -383,27 +401,28 @@ Layout validation can't disagree. **Never test a placement rule anywhere else: a
   player }` is a game: every tile must be Visible to the player as the latest tick left it. `Mode::Layout` is a
   Starting Layout: no sight (design change 0097). A game asks `Sim::placement_check(player, kind, origin,
   orientation)`, a layout object `placement::check_layout(map, others, layout, index)`.
-- **Out**: a `PlacementCheck`: the `TileProblem`s of each footprint tile (off the map, not Buildable, sloped, not
-  Visible, under a structure, under a resource, under a ground unit, reserved), row by row and in that order, and the
-  `WholeProblem`s (not a structure, outside the build area, a plate not on a patch, a Tunnel Area off the map, on
-  undrillable ground or over another Tunnel's, a layout's expansion outside its Tunnel's area). Valid means both are
+- **Out**: a `PlacementCheck`: the `TileProblem`s of each footprint tile (off the map, not Buildable, not Drillable,
+  sloped, not Visible, under a structure, under a resource, under a ground unit, reserved), row by row and in that
+  order, as bits of a u16 (plan decision T53), and the `WholeProblem`s (not a structure, outside the build area, a
+  plate not on a patch, a Tunnel Area off the map, on undrillable ground or over another Tunnel's, an expansion
+  outside its Tunnel's area). Valid means both are
   empty: the ghost shows the tiles' problems tile by tile, and the gate refuses a placement with any problem. The
   check reads the true state, but a tile the player doesn't see has `NotVisible` as its only problem, so it tells
   nothing the fog hides.
 - **The rules** are listed with their design sections in the module docs. Footprints share tiles only as
   `ObjectKind::may_overlap` allows. A ground unit of any player blocks the tiles its box overlaps, and is never pushed
-  aside (design change 0094); air and underground units never block. A plate goes exactly onto a patch
+  aside (design change 0094); air and underground units never block, and no unit blocks an underground expansion
+  (design change 0290). A plate goes exactly onto a patch
   (`placement::Onto`), the one rule of the check that map validation applies to pre-placed objects too
   (`SpawnProblem::NotOnPatch`, slice M2-J2).
 - **The Tunnel Area rules** (slice M4-B, `placement/tunnel_area.rs`): a kind with a tier table, the Tunnel, has its
   whole Tier 1 Tunnel Area (`tunnel::area`) on the map and Drillable (design change 0242:
   `WholeProblem::TunnelAreaOffMap`, `TunnelAreaNotDrillable`; Drillable is the preset's flag, never its look), in
   every mode and method; `Mode::Known` counts only the undrillable ground the player has explored, the map's edge
-  always. Read as written, a Tunnel 2 tiles from the edge is valid (Placeholder: Q0078). `check_layout` adds the
-  layout rule for expansions: an underground structure lies wholly inside the Tier 1 area of a Tunnel of its own
-  layout (`OutsideTunnelArea`), as a layout's plates lie in its own Deployment Center's area. Map and debug spawns
-  don't take the check: a spawned Tunnel by Water or the edge stays valid. Until slice M4-F's expansion method, a
-  Hideout's tiles follow `Method::Direct`'s rules (Buildable, stricter than design change 0239's Drillable).
+  always. A Tunnel 2 tiles from the edge is valid (design change 0283, as written). `check_layout` adds the
+  layout rule for expansions: an underground structure is checked by the expansion method in the Tier 1 area of a
+  Tunnel of its own layout (`OutsideTunnelArea` outside every one), as a layout's plates lie in its own Deployment
+  Center's area. Map and debug spawns don't take the check: a spawned Tunnel by Water or the edge stays valid.
 - **The overlap rule** (slice M4-E, `placement/tunnel_overlap.rs`; design change 0237, `factions/syndicate/tunnels.md >
   Tunnel Area Non-Overlap Rule`): a kind with a tier table has its Tier 1 area overlap no area of a Tunnel among the
   occupants, any player's, sites included (design change 0289 point 3), each at its tier as the check knows it
@@ -431,7 +450,18 @@ Layout validation can't disagree. **Never test a placement rule anywhere else: a
   (0120: what the player knows: its own objects, the others it sees, its records of structures and resources in the fog;
   a tile never explored passes, but for the reservations), its arrival in `Mode::Arrival` (the truth, no sight rule).
   `Sim::deploy_check(drone, origin, queued)` and `Sim::build_check(worker, kind, origin, orientation, queued)` are the
-  orders' checks, for the gate and the ghosts; `Sim::arrival_check` is the arrival's.
+  orders' checks, for the gate and the ghosts; `Sim::arrival_check` is the arrival's. `Method::Expansion { area }`
+  (slice M4-F, plan decisions T32 and T53; `factions/syndicate/tunnels.md > AwaitingPlacement (Expansion)`) is a
+  Tunnel's underground expansion: wholly inside `area`, the Tunnel's current area (`OutsideTunnelArea`), on Drillable
+  tiles in place of Buildable ones (`TileProblem::NotDrillable`, design change 0239), with no flatness and no sight
+  in any mode. Every structure blocks it, whichever its layer and whoever owns it, the Tunnel's own footprint
+  included (0240), and so do resources (0241); no unit does, and no reservation is checked against it, since no
+  lingering ghost can be in its way (0290). `Sim::expansion_check(tunnel, kind, origin, orientation)` is the ghost's,
+  in `Mode::Known` (what the owner knows); the gate checks the same by the truth (`Sim::expansion_truth`, in
+  `Mode::Command` without its sight rule), so a surface building the owner doesn't know of refuses the Expand
+  (0240). The other way round, a direct placement and a Warp In over a hidden expansion are red at once, since
+  `Mode::Command` reads every object (0240's accepted leak; 0290 for the Warp In), while a worker-built ghost judges
+  by what the player knows and fails on arrival.
 - **Reservations** (design change 0125, `core/entities.md > Lingering build ghosts`): each worker build ordered and not
   yet started (a Deploy, a Build), current or Shift-queued, reserves its site against its owner's further placements,
   a worker build's and a Warp In's (`TileProblem::Reserved`, through `placement::check_reserving`, which takes them as
@@ -453,7 +483,8 @@ Layout validation can't disagree. **Never test a placement rule anywhere else: a
   each kind's extension, the runs), `tests/placement.rs` (the verification points of design changes 0004 and 0091 to
   0097 in games and layouts, determinism, a save), `tests/warp_in/` (the Warp In method, see *Economy > Warp In*),
   `tests/deploy_gate/` (the worker-built method, its modes and the reservations), `tests/builds/` (the Build's: the
-  overlap rule by knowledge and by truth, the Drillable area, hidden expansions) and the ignored
+  overlap rule by knowledge and by truth, the Drillable area, hidden expansions), `tests/expansions/placing.rs` (the
+  expansion method in games, by knowledge and by truth; slice M4-F) and the ignored
   `tests/placement_perf.rs`. Measured (release, 769 objects, 101 buildings of the player's; slice M2-J2, on a quiet
   machine): 4 µs a check, 2 µs a build area. Slice M4-E's tiers and overlap rule, A/B against the master before it
   (four alternating runs at load 1.1): 4.5 µs a check before, 4.9 µs after; the rule gathers Tunnel Areas only for a
@@ -1385,7 +1416,8 @@ and the code is `crates/sim/src/movement.rs` and `movement/`, with the unit's st
   before; no other model may ever have momentum), and an idle unit that overlapped another a tick earlier, moving
   off it (design change 0126). K1 (`paths`): each player's known grids are those a fresh build
   from the state gives. P1 (`projectiles`, slice M4-O, plan decision T42): every projectile in flight lands after the
-  tick just played, between finite points. A `TestSim` checks them after every tick and panics with a picture of the map (`TestSim::ascii`: units as
+  tick just played, between finite points. O1 (`operations`, slice M4-F): a Tunnel's operation and its site name each
+  other (`TunnelState::operation`, `Builder::Tunnel`). A `TestSim` checks them after every tick and panics with a picture of the map (`TestSim::ascii`: units as
   letters, with a legend). The check is on by default; `check_invariants(false)` turns it off for timing runs. A
   test that steps a bare `Sim` keeps its own `Invariants` and calls `check` after each step.
 
@@ -1570,7 +1602,7 @@ section of its own.
   for each Build of the kind among their units' orders (the lingering ghosts). It is paid as the order is given
   (`Sim::give_order`, `pay_build`); the gate refuses what the bank can't pay (`Reject::InsufficientSupplies`), counting
   what the orders it replaces give back. **Refunds** are the price once the order has gone, "the current top price",
-  "not counting itself" (Q0085: not the docs' "100%"): for an order replaced (`Sim::drop_orders`), gone with its worker
+  "not counting itself" (design change 0284): for an order replaced (`Sim::drop_orders`), gone with its worker
   off the map (`take_off_map`) or out of the game (`remove_objects`; design change 0289 point 1), or failed on
   arrival (`SimEvent::BuildRefunded`), and for a site cancelled (`Sim::cancel_site`, `SimEvent::SiteCancelled`); a
   destroyed site gives nothing back, nor do a defeated player's orders. So **the books** hold: the Supplies spent less
@@ -2245,6 +2277,14 @@ their energy doorway, slice M3-D2: design change 0145, `factions/colonists/struc
   stage, the replay, the decay hashed and saved only while set). Unit tests: `sim/tunnels.rs`'s
   (the decay's arithmetic). In the client, `crates/game/tests/fog_memory/neutral.rs` (the neutral colour, the falling
   HP bar, the record out of sight).
+- **Expansion tests** (slice M4-F) are `crates/sim/tests/expansions/`, under O1 after every tick: `placing` (the
+  expansion method by knowledge and by truth, 0290's units), `building` (paid at the click, Tunnel Space, 400 ticks
+  with the damage kept, the second Hideout training, one operation, Eject meanwhile), `cancelling` (150 of 200 by
+  either X, the site gone otherwise) and `hidden` (the enemy sees nothing; a Warp In over it red at once). The test
+  kinds of another cost or Tier Requirement are `sim/expansions/tests.rs` (only a unit test can change a def), the
+  ExpandMenu's list `defs/syndicate/tests.rs` (against the Tech Tree table, 0291). In the client,
+  `command_ui/interface/tests/expansions.rs` (the menu's letters and greying, the placement, the clamp) and
+  `crates/game/tests/commands/expansions.rs` (W, the ghost, the click, the bank, the operation and both X's).
 - **Game end tests** are `crates/sim/tests/game_end/` (defeat by a removal and in combat, plates counting; no
   defeat without a structure ever owned; the units made neutral and idle; every command of a defeated player
   refused; a 1v1, three players defeated one after the other, and the draws of 0163: two players defeated in one
@@ -2373,10 +2413,11 @@ these.
   B (crystals' cyan) and D (Supplies' amber), none on C, and the Tier 3 air doors over the paths' halves; its tag
   names its tier (T1 to T3, `kinds::object_label`), to enemies too (design change 0258), a record's the tier last seen.
   **A site** (`Object::is_site`, slice M4-J1; `object_render/site.rs`, a placeholder) is drawn by being one, whatever
-  its kind (`MeshKey::site`): its footprint tinted half way to a pale sand and braced at its corners by a scaffold
-  (clear of its tag) instead of its finished look, with a progress bar near its south edge, a dark track in its mesh
-  and a `SiteProgress` child stretched to its share done (`place_site_progress`, `Progress::ratio`), to everyone who
-  sees it. A record of one looks finished: `LastKnown` keeps no construction.
+  its kind (`MeshKey::site`), on the surface or underground (an expansion's outline, slice M4-F): its footprint tinted
+  half way to a pale sand and braced at its corners by a scaffold (clear of its tag) instead of its finished look,
+  with a progress bar near its south edge, a dark track in its mesh and a `SiteProgress` child stretched to its share
+  done (`place_site_progress`, `Progress::ratio`), to everyone who sees it. A record of one looks finished:
+  `LastKnown` keeps no construction.
 - **Path overlay** (`path_overlay.rs`, P or `--show-paths`): each unit's remaining path (`Mover::remaining_path`) as
   a thin line from where the unit is drawn, cut into short pieces lifted by the terrain's height, in the overlays
   layer, and a frame around each unit in the colour of its move's status (`status_color`: green moving, amber held
@@ -2803,12 +2844,13 @@ Drones, through one command flow (plan decision T10, slices M2-H1, M2-H2 and M3-
 - **The Syndicate's panels** (slice M4-J2; `factions/syndicate/tunnels.md > Tunnel ObjectInterfaceState`,
   `factions/syndicate/tunnels.md > EjectMenu`, `factions/syndicate/structures/hideout.md > ObjectInterfaceState[Hideout]`;
   design changes 0252, 0257, 0260): `command_ui/interface/templates/syndicate/` has `tunnel.rs`
-  (`InterfaceTemplate::Tunnel`, no right-click: E `PanelCommand::EjectMenu`; Q Upgrade, W Expand and X Cancel held
-  greyed until slices M4-G and M4-F), `hideout.rs` (the Production grid, W Guard and E Grenadier held greyed) and
-  `eject_menu.rs`. **A placeholder entry** (`templates/planned.rs`, `Planned`) holds its slot greyed with its own
-  reason (`Planned::why`: `WhyUnavailable::Placeholder`, such as "Requires an Optics Lab"), until the slice that brings
-  its command replaces it. **A menu's order is the sim's data** (`sc_sim::defs::EJECT_MENU_ORDER`, design change 0257's
-  "Agent, Guard, Grenadier, …"): a slice that adds a unit adds it there, not in the client. E enters
+  (`InterfaceTemplate::Tunnel`, no right-click: W `PanelCommand::ExpandMenu`, E `PanelCommand::EjectMenu`, X
+  `PanelCommand::CancelOperation`; Q Upgrade held greyed until slice M4-G), `hideout.rs` (the Production grid, W Guard
+  and E Grenadier held greyed), `eject_menu.rs` and `expand_menu.rs`. **A placeholder entry** (`templates/planned.rs`,
+  `Planned`) holds its slot greyed with its own reason (`Planned::why`: `WhyUnavailable::Placeholder`, such as
+  "Requires an Optics Lab"), until the slice that brings its command replaces it. **A menu's order is the sim's data**
+  (`sc_sim::defs::EJECT_MENU_ORDER`, design change 0257's "Agent, Guard, Grenadier, …"; `sc_sim::defs::EXPAND_MENU`):
+  a slice that adds a unit or an expansion adds it there, not in the client. E enters
   `InterfaceState::EjectMenu`, a StateOnlyTransition (`SlotPress::OpenEjectMenu`): a `PanelCommand::Eject(kind)` tile
   per kind of that list, from Q on, every slot but Z; each is greyed by the gate's answer to its `Command::Tunnel`
   (`Reject::NotInNetwork`, `InTransit` for the transit delay, design change 0288 point 1, `NoTransit` for the tier,
@@ -2819,6 +2861,23 @@ Drones, through one command flow (plan decision T10, slices M2-H1, M2-H2 and M3-
   on the map, and a group with none on the map recalls as an empty one does: nothing changes (placeholder,
   `ControlState::recall_group`). A Hideout's rally pointer and marker on an own Tunnel or Hideout are every producer's
   (Move, a green Object marker); the sim decides what the unit does (0252).
+- **The ExpandMenu and an expansion's placement** (slice M4-F; design changes 0257, 0290 and 0291): W enters
+  `InterfaceState::ExpandMenu` (`SlotPress::OpenExpandMenu`), whose grid is `sc_sim::defs::EXPAND_MENU` in the
+  EjectMenu's tile slots (`expand_menu::grid`): a `PanelCommand::Expand(kind)` per type in the game, greyed by
+  `Sim::can_expand` (`Conditions::of`, its reasons "This Tunnel is busy", "This Tunnel's tier is too low", "Not enough
+  Space Crystals"), and a `Planned` placeholder per entry not in the game yet, found by name
+  (`Planned::expansion`; the turret's is the Agent's `Planned::LaserTurret`), so a slice that brings an expansion
+  changes the sim's list only. An entry enters `AwaitingPlacement` with **`Builder::Tunnel`** for the Tunnel Tabbed to
+  (`SlotPress::AwaitExpansion`); Z goes back to the menu, where the panel stays meanwhile (`state_grid`). **The ghost
+  is held within the Tunnel's area** (`Placing::origin`, `placing::within`: the cursor outside leaves it at the
+  nearest spot inside; a reading of "follows the cursor within the Tunnel Area"), and judged by
+  `Sim::expansion_check`, what the owner knows, in `ghost::check_now` with every builder's; the Tunnel Area overlay
+  shows meanwhile, the Tunnel being the ActiveGroup. A click on a green ghost sends `TunnelCommand::Expand` through
+  `OrderOutbox::try_tunnel` and ends placement, Shift or not (one operation, no queue); the gate's refusal sends
+  `CommandRefused` (the bank) or `InvalidPlacement` (the truth) and placement goes on. X is `CancelOperation`
+  (`TunnelCommand::Cancel`), greyed while there is none (`Reject::NoOperation`, "Nothing to cancel"). The expansion's
+  site is any site: `SITE_GRID`, and the look and progress bar of `object_render/site.rs`. The Tunnel's InfoPanel shows
+  its operation, "Building Hideout: 25%" (`activity::operation`).
 - **The Agent's panel** (slice M4-J1; `factions/syndicate/units/agent.md > Agent ObjectInterfaceState`; design changes
   0233, 0237 and 0257): `templates/syndicate/agent.rs` (`InterfaceTemplate::Agent`) is Q Move, A
   `PanelCommand::Build(Tunnel)`, S `PanelCommand::DropOff`, D `Planned::LaserTurret` (greyed, "Requires an Optics
@@ -2924,7 +2983,7 @@ Drones, through one command flow (plan decision T10, slices M2-H1, M2-H2 and M3-
   own in violet and the others' in red, with the build area overlay's look (`overlay::tint_area`) and z, but on
   unexplored tiles and off the map; one mesh rebuilt only when the areas, their unexplored tiles or the map changed.
   It shows while a Tunnel of theirs is the ActiveGroup, and while they place a Tunnel (`tunnel_areas::shows`, a
-  placeholder: Q0086 point 4); slice M4-F's placement adds its own there.
+  placeholder: Q0086 point 4); an expansion's placement is its Tunnel's, the ActiveGroup all along (slice M4-F).
 - The design leaves some things open (labels, colours, the flash, the cursor's shapes and the Mixed look, the
   invalid-target and insufficient-resources feedbacks' form and duration, the targeting click allowance's value, when
   Shift counts for a targeting click, Shift with a rally point; the ghost's and the overlay's looks, the placement

@@ -2255,3 +2255,4 @@ Answered Q0069–Q0071 (0258–0267): losing-Tunnel edges, Syndicate economy che
 2026-11-26 — Q0080: units don't block expansions; ghosts moot; Warp In red at once. Entry 0290.
 2026-11-26 — Q0081 A. Entry 0291.
 2026-11-26 — Q0082 A/B/A. Entry 0292.
+2026-11-26 — Q0083: friendly fire, reveal on damage, Attack Ground continuous, all shots clipped to vision (replaces 0244). Entry 0293.

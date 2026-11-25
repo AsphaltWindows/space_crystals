@@ -401,6 +401,24 @@ pub fn every_command() -> Vec<Command> {
             kind: ObjectKind::Guard,
         },
     });
+    commands.extend(
+        [
+            TunnelCommand::Expand {
+                kind: ObjectKind::Hideout,
+                origin: crate::units::TilePos::new(5, 6),
+                orientation: crate::scenario::BuildingOrientation {
+                    rotation: crate::object::Rotation::R180,
+                    flip_h: true,
+                    flip_v: false,
+                },
+            },
+            TunnelCommand::Cancel,
+        ]
+        .map(|command| Command::Tunnel {
+            tunnel: ObjectId(6),
+            command,
+        }),
+    );
     for command in &commands {
         match command {
             Command::Order { kind, .. } => match kind {
@@ -435,7 +453,7 @@ pub fn every_command() -> Vec<Command> {
                 | ConstructionCommand::CancelTransform => {}
             },
             Command::Tunnel {
-                command: TunnelCommand::Eject { .. },
+                command: TunnelCommand::Eject { .. } | TunnelCommand::Expand { .. } | TunnelCommand::Cancel,
                 ..
             } => {}
             Command::Debug(

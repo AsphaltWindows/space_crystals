@@ -11,12 +11,14 @@
 //! - construction (the constructor capability of slice M2-D1, [`construction`]): the building under construction
 //!   and its progress, or the building ready to place;
 //! - production (the production capability of slice M2-D2, [`production`]): the unit in production and its
-//!   progress, the wait for room under the army cap (design change 0143), the queue length, and the rally point.
+//!   progress, the wait for room under the army cap (design change 0143), the queue length, and the rally point;
+//! - a Tunnel's operation (slice M4-F, [`operation`]): the expansion it builds and its progress.
 //!
 //! Lines read only the sim, the structure and what the player knows of the objects it names (its sight), so a test
 //! can check them without the UI. Their wording is a placeholder until the panel's layout exists (Q0001).
 
 use sc_sim::construction::recipe;
+use sc_sim::tunnel::Operation;
 use sc_sim::{Category, Constructor, Object, PlayerId, QUEUE_LIMIT, Rally, Sim, TargetView};
 
 use crate::fog::Sight;
@@ -28,6 +30,7 @@ pub fn lines(sim: &Sim, sight: &Sight, structure: &Object) -> Vec<String> {
     let mut lines = transformation(structure);
     lines.extend(construction(structure));
     lines.extend(production(sim, sight, structure));
+    lines.extend(operation(sim, structure));
     lines
 }
 
@@ -99,6 +102,20 @@ pub fn production(sim: &Sim, sight: &Sight, structure: &Object) -> Vec<String> {
     lines
 }
 
+/// A Tunnel's line while it performs an operation (`factions/syndicate/tunnels.md > Expansions under construction`:
+/// "**The Tunnel meanwhile** shows the progress"; `Sim::operation_progress`): the expansion it builds, its site's
+/// progress in whole percent rounded down, 100% only once complete. Nothing for a Tunnel that performs none, nor for
+/// another structure.
+pub fn operation(sim: &Sim, structure: &Object) -> Vec<String> {
+    let Some((Operation::Building(site), progress)) = sim.operation_progress(structure.id) else {
+        return Vec::new();
+    };
+    let Some(site) = sim.object(site) else {
+        return Vec::new();
+    };
+    vec![format!("Building {}: {}%", site.def().name, progress.percent())]
+}
+
 /// The RallyPoint of a producer of `owner`: the ground, or the object it is on by its type's name, marked when it is
 /// an enemy's (the colours of its indicator: `crate::command_ui::indicators::rally`), as the player whose `sight`
 /// this is knows the object (`Sight::target_view`): the object while the player sees it; out of sight, the record it
@@ -130,8 +147,8 @@ fn rally_line(sim: &Sim, sight: &Sight, owner: Option<PlayerId>, rally: Rally) -
 mod tests {
     use sc_sim::testing::ScenarioBuilder;
     use sc_sim::{
-        Command, ConstructionCommand, DebugCommand, ObjectId, ObjectKind, PlayerId, ProductionCommand, SpawnAt, Target,
-        TilePos, Vec2,
+        BuildingOrientation, Command, ConstructionCommand, DebugCommand, Faction, ObjectId, ObjectKind, PlayerId,
+        ProductionCommand, SpawnAt, Target, TilePos, TunnelCommand, Vec2,
     };
 
     use super::*;
@@ -346,5 +363,44 @@ mod tests {
         t.run_until(289);
         assert_eq!(t.sim().object(beacon).unwrap().kind, ObjectKind::Beacon);
         assert_eq!(shown(t.sim()), Vec::<String>::new(), "a Beacon again");
+    }
+
+    /// Slice M4-F, `factions/syndicate/tunnels.md > Expansions under construction`: "**The Tunnel meanwhile** shows
+    /// the progress". Player 1's Tunnel (1) builds a Hideout (400 frames) in its area from tick 1: its line names the
+    /// expansion and its site's progress, a quarter after 100 frames, until the Tunnel's X cancels it.
+    #[test]
+    fn a_tunnel_shows_the_expansion_it_builds_and_its_progress() {
+        let tunnel = ObjectId(1);
+        let mut t = ScenarioBuilder::new(&vec![".".repeat(24); 16].join("\n"))
+            .faction(P1, Faction::Syndicate)
+            .spawn(ObjectKind::Tunnel, Some(P1), tile(8, 6))
+            .start();
+        let shown = |sim: &Sim| lines_of(sim, tunnel);
+        assert_eq!(shown(t.sim()), Vec::<String>::new(), "no operation");
+        t.debug_at(
+            1,
+            DebugCommand::SetResources {
+                player: P1,
+                crystals: 1000,
+                supplies: 0,
+                alloys: 0,
+                essence: 0,
+                flux: 0,
+            },
+        );
+        let command = |command| Command::Tunnel { tunnel, command };
+        let expand = TunnelCommand::Expand {
+            kind: ObjectKind::Hideout,
+            origin: TilePos::new(6, 4),
+            orientation: BuildingOrientation::default(),
+        };
+        t.at(1, P1, command(expand));
+        t.run_until(1);
+        assert_eq!(shown(t.sim()), ["Building Hideout: 0%"]);
+        t.run_until(101);
+        assert_eq!(shown(t.sim()), ["Building Hideout: 25%"]);
+        t.at(102, P1, command(TunnelCommand::Cancel));
+        t.run_until(102);
+        assert_eq!(shown(t.sim()), Vec::<String>::new(), "cancelled");
     }
 }

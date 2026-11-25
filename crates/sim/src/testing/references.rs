@@ -10,7 +10,7 @@ use crate::sim::Sim;
 /// The objects `o` refers to, in no particular order: those its orders (current and queued) name, those its
 /// behaviours engaged by themselves, its move's goal object, its attack's target and the target of its attack
 /// phase, the patch a plate mines, the object a producer's rally point is on, the building whose exit doorway a
-/// unit is leaving, and a worker's drop-off.
+/// unit is leaving, a worker's drop-off, a Tunnel's operation's site and an expansion's building Tunnel (slice M4-F).
 pub fn referenced_ids(o: &Object) -> Vec<ObjectId> {
     let mut ids = Vec::new();
     if let Some(orders) = &o.orders {
@@ -35,6 +35,8 @@ pub fn referenced_ids(o: &Object) -> Vec<ObjectId> {
     if let Some(worker) = &o.worker {
         ids.extend(worker.drop_off);
     }
+    ids.extend((o.tunnel.as_ref()).and_then(|tunnel| tunnel.operation?.site()));
+    ids.extend(o.construction.and_then(|site| site.builder.tunnel()));
     ids
 }
 

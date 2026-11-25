@@ -199,7 +199,7 @@ Same as AttackingObject, except:
 - Uses MovingToLocation sub-behavior instead of MovingToObject
 - Range/arc check is against the target location
 - TurretCommandState.LockedTarget is not set (turret fires at location, not a unit)
-- Behavior complete after attack effect is applied
+- **It keeps firing at the location** (user, 2026-11-26; Q0083; replaces "complete after the attack effect is applied"): like an attack on a unit that never dies, the behavior repeats its attack cycle at the location until the player gives another order (or Stop). Queued orders after an Attack Ground therefore never start on their own. (A Specter's Attack Ground follows its own ammo rules: the location always "persists", so after its bomb it flies home to re-arm, factions/syndicate/units/specter.md.)
 
 ### GliderMovement exception:
 Same strafing run pattern as AttackingObject, targeting the ground location.
