@@ -6,6 +6,7 @@
 //! a Gather on its way to its patch's spot goes on there.
 
 use super::{Sim, builds};
+use crate::combat;
 use crate::economy;
 use crate::events::SimEvent;
 use crate::ids::ObjectId;
@@ -91,7 +92,8 @@ impl Sim {
     /// every unit held off the map (`crate::network`), drops its references to the objects `gone` (sorted by id),
     /// which have left the map: removed from the game ([`Sim::remove_objects`]) or taken into a Tunnel Network
     /// (`Sim::take_off_map`, where "orders, attacks and follows on it end, and rallies on it reset", as for a
-    /// death). The orders that outlive their targets stay ([`forget`]).
+    /// death). The orders that outlive their targets stay ([`forget`]). So do the projectiles aimed at them, which fly
+    /// on to where they were locked (`combat::projectiles::forget`).
     pub(super) fn forget_references(&mut self, gone: &[ObjectId]) {
         let vision = &self.vision;
         let held = self.held.values_mut().map(|held| &mut held.object);
@@ -100,6 +102,7 @@ impl Sim {
             let remembered = |id: ObjectId| owner_vision.is_some_and(|v| v.remembered_record(id).is_some());
             forget(o, gone, remembered);
         }
+        combat::projectiles::forget(&mut self.projectiles, gone);
     }
 
     /// The end of the tick, on the vision it leaves (`Sim::step`, after `Vision::remember`): the orders and rally
@@ -268,6 +271,7 @@ mod tests {
             target: Some(b),
             phase: Some(AttackPhase::Aiming { target: b }),
             elapsed: 1,
+            location: None,
         });
         // Unit c holds its position and engaged b by itself; the idle unit d went for b on its own.
         let d = sim.insert_object(

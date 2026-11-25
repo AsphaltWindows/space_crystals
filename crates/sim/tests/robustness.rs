@@ -299,6 +299,8 @@ fn fuzz_run(seed: u64) -> Run {
                 | SimEvent::EnteredNetwork { .. }
                 | SimEvent::LeftNetwork { .. }
                 | SimEvent::EnterFailed { .. }
+                | SimEvent::ProjectileLaunched { .. }
+                | SimEvent::Blast { .. }
                 | SimEvent::BuildFailed { .. }
                 | SimEvent::BuildRefunded { .. }
                 | SimEvent::SiteStarted { .. }

@@ -130,7 +130,7 @@ pub enum WhyUnavailable {
     /// without CanReverse, AttackGround without CanTargetGround).
     NotForThisType,
     /// It isn't in the game yet: a building or a unit whose costs are TBD (design change 0124), a build menu none of
-    /// whose buildings is, an order the sim has none of (Reverse, AttackGround).
+    /// whose buildings is, an order the sim has none of (Reverse).
     NotYet,
     /// A placeholder entry's own reason, the message the gate's refusal will give once its command is in the game
     /// (`super::Planned::why`, slice M4-J2): the Hideout's Guard "Requires an Optics Lab", the Tunnel's Cancel

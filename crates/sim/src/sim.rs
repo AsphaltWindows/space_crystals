@@ -5,6 +5,7 @@ use std::collections::BTreeMap;
 use glam::Vec2;
 use serde::{Deserialize, Serialize};
 
+use crate::combat::Projectile;
 use crate::defs::ObjectKind;
 use crate::economy;
 use crate::economy::Outcome;
@@ -63,6 +64,11 @@ pub struct Sim {
     /// held unit are as they were before the store existed.
     #[serde(serialize_with = "serialize_held", skip_serializing_if = "BTreeMap::is_empty")]
     held: BTreeMap<ObjectId, Held>,
+    /// (M4-O) The projectiles in flight, in launch order (plan decision T45, `combat::projectiles`): not objects.
+    /// Hashed and serialized; left out of the hash and of files while empty, so that the states without one are as
+    /// they were before the store existed.
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    projectiles: Vec<Projectile>,
     next_id: u32,
     /// The only source of randomness (`ARCHITECTURE.md > Determinism`), seeded from
     /// `GameSetup::seed`.
@@ -132,6 +138,7 @@ impl Sim {
             outcome: None,
             objects: BTreeMap::new(),
             held: BTreeMap::new(),
+            projectiles: Vec::new(),
             next_id: 1,
             rng: Rng::from_seed(scenario.setup.seed),
             config: scenario.setup.config,
@@ -197,6 +204,12 @@ impl Sim {
         &self.events
     }
 
+    /// (M4-O) The projectiles in flight, in launch order (`combat::projectiles`). Each lands in phase 5e of its
+    /// arrival tick, which is always after the latest tick.
+    pub fn projectiles(&self) -> &[Projectile] {
+        &self.projectiles
+    }
+
     /// Every player's vision at the end of the latest tick (`core/vision.md`): tile states, which objects each
     /// player sees, and a revision per player that changes with its tiles.
     pub fn vision(&self) -> &Vision {
@@ -222,7 +235,8 @@ impl Sim {
 
     /// FNV-1a 64 hash of the whole state: tick, map, players, the outcome, objects in id order, next id,
     /// PRNG state, config, next order group, nav version, each player's Explored tiles and records and its path
-    /// knowledge (`f32` by its bits; encoding in `hash.rs`). Events are output, and the grids and the Visible tiles
+    /// knowledge, the held units and the projectiles in flight while there are any (`f32` by its bits; encoding in
+    /// `hash.rs`). Events are output, and the grids and the Visible tiles
     /// derived data, so they are left out. Equal states give equal hashes on every machine, so
     /// comparing hashes checks determinism.
     pub fn state_hash(&self) -> u64 {
@@ -234,6 +248,7 @@ impl Sim {
             outcome,
             objects,
             held,
+            projectiles,
             next_id,
             rng,
             config,
@@ -269,6 +284,14 @@ impl Sim {
             h.len(held.len());
             for unit in held.values() {
                 unit.hash(&mut h);
+            }
+        }
+        // (M4-O) The projectiles in flight, the same way, under a tag of their own.
+        if !projectiles.is_empty() {
+            h.tag(2);
+            h.len(projectiles.len());
+            for p in projectiles {
+                p.hash(&mut h);
             }
         }
         h.finish()

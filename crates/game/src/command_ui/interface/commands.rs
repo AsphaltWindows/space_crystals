@@ -203,14 +203,11 @@ impl PanelCommand {
         }
     }
 
-    /// Whether the sim has a command for it yet: Reverse and AttackGround have no order (`sc_sim::OrderKind`), and a
-    /// building or a unit that isn't in the game has none at all. A StateOnlyTransition needs none (a build menu, the
-    /// Egress Node's F).
+    /// Whether the sim has a command for it yet: Reverse has no order (`sc_sim::OrderKind`; AttackGround has had one
+    /// since slice M4-O), and a building or a unit that isn't in the game has none at all. A StateOnlyTransition needs
+    /// none (a build menu, the Egress Node's F).
     pub fn has_sim_command(self) -> bool {
-        !matches!(
-            self,
-            PanelCommand::Reverse | PanelCommand::AttackGround | PanelCommand::Planned(_)
-        )
+        !matches!(self, PanelCommand::Reverse | PanelCommand::Planned(_))
     }
 
     /// The building it constructs, places or warps in: a build menu's entry, or a ready building's slot.

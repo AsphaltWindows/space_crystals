@@ -1,13 +1,15 @@
 //! The effects' mesh: one vertex-coloured, alpha-blended mesh in the overlays layer, rebuilt every frame while
-//! anything shows, with the death markers at the back, then the tracers, then the HP bars (placeholders until the art
-//! direction, Q0001).
+//! anything shows, with the death markers at the back, then the blasts on the ground, the tracers, the projectiles in
+//! the air, and the HP bars (placeholders until the art direction, Q0001).
 
 use bevy::prelude::*;
 use sc_sim::Map;
 
+use super::blasts::blast_shape;
+use super::projectiles::projectile_shape;
 use super::{
     BAR_HEIGHT, CombatEffects, CombatEffectsMesh, DEATH_MARKER_TICKS, DeathMarker, HpBar, ShotStyle, TRACER_TICKS,
-    Tracer, age, hp_bars, shot_spans, shows_death,
+    Tracer, age, hp_bars, shot_spans, shows_blast, shows_death, shows_flight,
 };
 use crate::coords::{DrawLayer, drawn_at_height, view_to_world};
 use crate::fog::LocalSight;
@@ -16,8 +18,9 @@ use crate::selection::ControlStates;
 use crate::shapes::{ColorMesh, darken, lighten};
 use crate::sim_driver::{RenderAlpha, SimRes};
 
-/// A shot leaves a unit this far up the screen from its ground point, su, as from its body rather than its feet.
-const MUZZLE_LIFT: f32 = 8.0;
+/// A shot leaves a unit this far up the screen from its ground point, su, as from its body rather than its feet; so
+/// does a projectile (`super::projectiles`).
+pub(super) const MUZZLE_LIFT: f32 = 8.0;
 /// A shield bar's fill (placeholder colour, until the art direction: Q0001).
 const SHIELD_FILL: Color = Color::srgb(0.35, 0.72, 1.0);
 /// Above the path overlay, in the overlays layer.
@@ -46,8 +49,8 @@ pub(super) fn spawn_effects_mesh(
     ));
 }
 
-/// Rebuilds the effects mesh: death markers at the back, then tracers, then HP bars (alpha blending draws a mesh's
-/// triangles in order), each only where the local player sees it. Hidden while nothing shows.
+/// Rebuilds the effects mesh: death markers at the back, then blasts, tracers, projectiles and HP bars (alpha blending
+/// draws a mesh's triangles in order), each only where the local player sees it. Hidden while nothing shows.
 pub(super) fn draw_effects(
     sim: Res<SimRes>,
     alpha: Res<RenderAlpha>,
@@ -67,10 +70,19 @@ pub(super) fn draw_effects(
         let fade = 1.0 - age(&sim, alpha.0, death.tick) / DEATH_MARKER_TICKS as f32;
         death_marker(&mut mesh, sim.map(), death, fade, z);
     }
+    for blast in effects.blasts.iter().filter(|b| shows_blast(&sim, &sight, b)) {
+        blast_shape(&mut mesh, sim.map(), blast, age(&sim, alpha.0, blast.tick), z);
+    }
     for tracer in &effects.tracers {
         let fade = 1.0 - age(&sim, alpha.0, tracer.tick) / TRACER_TICKS as f32;
         for span in shot_spans(&sim, &sight, tracer) {
             tracer_line(&mut mesh, sim.map(), tracer, span, fade, z);
+        }
+    }
+    for flight in &effects.flights {
+        let progress = flight.progress(&sim, alpha.0);
+        if shows_flight(&sim, &sight, flight, progress) {
+            projectile_shape(&mut mesh, sim.map(), flight, progress, z);
         }
     }
     let selection = states.selection(sight.player());

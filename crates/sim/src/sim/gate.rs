@@ -148,6 +148,10 @@ pub enum Reject {
     /// (`factions/syndicate/tunnels.md > Tunnel Network > Transit delay`, design change 0245: "For 2 s it can't be
     /// ejected anywhere").
     InTransit(ObjectKind),
+    /// (M4-O) None of the units an Attack Ground names has an attack that can target the ground
+    /// (`systems/controls/commands.md > AttackGround`: "Only available to units whose AttackType has CanTargetGround";
+    /// `combat::can_target_ground`).
+    CannotTargetGround,
 }
 
 impl fmt::Display for Reject {
@@ -201,6 +205,7 @@ impl fmt::Display for Reject {
             } => write!(f, "Tunnel {}'s tier lets no {} out", tunnel.0, kind.def().name),
             Reject::NotInNetwork(kind) => write!(f, "no {} in the Tunnel Network is free to leave", kind.def().name),
             Reject::InTransit(kind) => write!(f, "the {} only just entered the Tunnel Network", kind.def().name),
+            Reject::CannotTargetGround => write!(f, "none of the units can attack the ground"),
         }
     }
 }
@@ -269,7 +274,8 @@ impl Sim {
     ///    drop the ids of objects that no longer exist, and repeated ids; an order is rejected if no unit remains
     ///    (`docs/movement.md > 3`);
     /// 4. the command's own rules hold: an order's size and target (which the player must see,
-    ///    [`Reject::NotVisible`]), and for an Attack, units that can attack now ([`Reject::CannotAttack`]); the units
+    ///    [`Reject::NotVisible`]), and for an Attack, units that can attack now ([`Reject::CannotAttack`]), for an
+    ///    Attack Ground, a point on the map and units that can target the ground ([`Reject::CannotTargetGround`]); the units
     ///    of an ability that have it ([`Reject::LacksAbility`]); the producers of a production command and what they
     ///    can queue (`sim/producers.rs`); the constructors of a construction command that can carry it out, the bank
     ///    that pays and the placement check of a Place (`sim/construction.rs`), and the same of a Warp In's Beacon,

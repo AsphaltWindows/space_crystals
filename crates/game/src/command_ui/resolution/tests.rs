@@ -156,7 +156,14 @@ fn clicks_resolve_by_what_is_under_the_cursor() {
     assert_eq!(left(PanelCommand::Move, patch()), Some(object(8)));
     assert_eq!(left(PanelCommand::Patrol, ground), Some(OrderKind::Patrol(P)));
     assert_eq!(left(PanelCommand::Patrol, enemy()), None);
-    assert_eq!(left(PanelCommand::AttackGround, ground), None, "no sim order yet");
+    // Slice M4-O: the ground only, as `systems/controls/selection_and_hud.md > AwaitingTarget[AttackGround]
+    // resolution` has it.
+    assert_eq!(
+        left(PanelCommand::AttackGround, ground),
+        Some(OrderKind::AttackGround(P))
+    );
+    assert_eq!(left(PanelCommand::AttackGround, enemy()), None);
+    assert_eq!(left(PanelCommand::AttackGround, own()), None);
 }
 
 /// The Riot Shield's two rules. A right-click that would attack sends a shielded unit after the target instead

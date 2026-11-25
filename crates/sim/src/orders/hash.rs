@@ -62,12 +62,16 @@ impl StateHash for OrderKind {
                 h.tag(9);
                 id.hash(h);
             }
+            OrderKind::AttackGround(at) => {
+                h.tag(10);
+                at.hash(h);
+            }
             OrderKind::Build {
                 kind,
                 origin,
                 orientation,
             } => {
-                h.tag(10);
+                h.tag(11);
                 kind.hash(h);
                 origin.hash(h);
                 let BuildingOrientation {

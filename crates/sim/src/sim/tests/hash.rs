@@ -29,6 +29,7 @@ fn make_busy(sim: &mut Sim, id: u32) {
         target: Some(ObjectId(2)),
         phase: Some(AttackPhase::Aiming { target: ObjectId(2) }),
         elapsed: 1,
+        location: None,
     });
     obj(sim, id).riot_shield = Some(RiotShield { up: 4 });
 }
@@ -197,6 +198,27 @@ fn state_hash_covers_every_field() {
         ("cooldown", |s| attack(s, 3).phase = Some(AttackPhase::Cooldown)),
         ("reloading", |s| attack(s, 3).phase = Some(AttackPhase::Reloading)),
         ("attack elapsed", |s| attack(s, 3).elapsed += 1),
+        ("attack location", |s| {
+            attack(s, 3).location = Some(Vec2::new(70.0, 80.0))
+        }),
+        ("aiming at", |s| {
+            attack(s, 3).phase = Some(AttackPhase::AimingAt {
+                at: Vec2::new(70.0, 80.0),
+            });
+        }),
+        ("firing at", |s| {
+            attack(s, 3).phase = Some(AttackPhase::FiringAt {
+                at: Vec2::new(70.0, 80.0),
+                target: None,
+            });
+        }),
+        ("firing at a target", |s| {
+            attack(s, 3).phase = Some(AttackPhase::FiringAt {
+                at: Vec2::new(70.0, 80.0),
+                target: Some(ObjectId(2)),
+            });
+        }),
+        ("a projectile", |s| s.projectiles.push(projectile())),
         ("riot_shield none", |s| obj(s, 3).riot_shield = None),
         ("riot_shield down", |s| {
             obj(s, 3).riot_shield = Some(RiotShield { up: 0 });
@@ -252,6 +274,58 @@ fn state_hash_covers_every_field() {
         assert_ne!(sim, base, "{name}: the mutation changed nothing");
         assert_ne!(sim.state_hash(), base.state_hash(), "{name}");
     }
+}
+
+/// (M4-O) A projectile in flight with every field set (`combat::projectiles`).
+fn projectile() -> Projectile {
+    Projectile {
+        shooter: ObjectId(3),
+        owner: Some(PlayerId(1)),
+        target: Some(ObjectId(2)),
+        from: Vec2::new(100.0, 100.0),
+        to: Vec2::new(200.0, 120.0),
+        lands_at: 30,
+        damage: 100.0,
+        radius: 40.0,
+        domain: crate::defs::TargetDomain::Ground,
+    }
+}
+
+/// (M4-O) Every field of a projectile in flight changes the hash, and so does the order of the store; an empty store
+/// hashes as a sim without one (`state_hash_covers_every_field`, "a projectile").
+#[test]
+fn state_hash_covers_every_projectile_field() {
+    let mut base = small_sim();
+    base.projectiles = vec![
+        projectile(),
+        Projectile {
+            lands_at: 31,
+            ..projectile()
+        },
+    ];
+    let mutations: Vec<Mutation> = vec![
+        ("shooter", |s| s.projectiles[0].shooter = ObjectId(4)),
+        ("owner", |s| s.projectiles[0].owner = None),
+        ("target", |s| s.projectiles[0].target = None),
+        ("from", |s| s.projectiles[0].from.x += 1.0),
+        ("to", |s| s.projectiles[0].to.y += 1.0),
+        ("lands_at", |s| s.projectiles[0].lands_at += 1),
+        ("damage", |s| s.projectiles[0].damage += 1.0),
+        ("radius", |s| s.projectiles[0].radius += 1.0),
+        ("domain", |s| {
+            s.projectiles[0].domain = crate::defs::TargetDomain::Universal
+        }),
+        ("order", |s| s.projectiles.swap(0, 1)),
+        ("one fewer", |s| s.projectiles.truncate(1)),
+    ];
+    for (name, mutate) in mutations {
+        let mut sim = base.clone();
+        mutate(&mut sim);
+        assert_ne!(sim, base, "{name}: the mutation changed nothing");
+        assert_ne!(sim.state_hash(), base.state_hash(), "{name}");
+    }
+    base.projectiles.clear();
+    assert_eq!(base.state_hash(), small_sim().state_hash());
 }
 
 #[test]

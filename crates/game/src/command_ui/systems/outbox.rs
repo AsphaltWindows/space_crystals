@@ -208,7 +208,10 @@ impl OrderOutbox<'_> {
 /// Whether every number of the order is finite.
 fn finite(kind: OrderKind) -> bool {
     match kind {
-        OrderKind::Move(Target::Point(p)) | OrderKind::AttackMove(p) | OrderKind::Patrol(p) => p.is_finite(),
+        OrderKind::Move(Target::Point(p))
+        | OrderKind::AttackMove(p)
+        | OrderKind::Patrol(p)
+        | OrderKind::AttackGround(p) => p.is_finite(),
         OrderKind::Move(Target::Object(_)) | OrderKind::Attack(_) | OrderKind::Hold | OrderKind::Stop => true,
         OrderKind::Gather(_) | OrderKind::DropOff(_) | OrderKind::Deploy { .. } | OrderKind::Enter(_) => true,
         OrderKind::Build { .. } => true,

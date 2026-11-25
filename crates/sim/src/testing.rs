@@ -269,6 +269,7 @@ pub fn every_command() -> Vec<Command> {
             origin: crate::units::TilePos::new(7, 3),
         },
         OrderKind::Enter(ObjectId(6)),
+        OrderKind::AttackGround(point),
         OrderKind::Build {
             kind: ObjectKind::Tunnel,
             origin: crate::units::TilePos::new(9, 4),
@@ -413,6 +414,7 @@ pub fn every_command() -> Vec<Command> {
                 | OrderKind::DropOff(_)
                 | OrderKind::Deploy { .. }
                 | OrderKind::Enter(_)
+                | OrderKind::AttackGround(_)
                 | OrderKind::Build { .. } => {}
             },
             Command::Ability {

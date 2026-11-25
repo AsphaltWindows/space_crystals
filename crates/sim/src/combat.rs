@@ -42,18 +42,34 @@
 //!   moves nor turns ([`may_move`], [`may_turn`]) and attacks nothing: this phase skips it, and its attack sequence,
 //!   interrupted when the conversion started, begins again with the new weapon.
 //!
-//! Not built yet: turrets, projectiles and location targets (the disjointed attack types), and AoE damage.
+//! - **Projectiles and location targets** (slice M4-O; `systems/combat.md > DoublyDisjointed`, plan decisions T45 to
+//!   T48): a DoublyDisjointed attack locks where its target is at the end of Aiming, launches a projectile there at
+//!   the end of Firing ([`projectiles`]), and goes on into Cooldown and Reloading, its base free ("The unit is free
+//!   after the projectile spawns"). The projectile lands after its flight, in this phase, ahead of the tick's new hits.
+//!   The attack may target a location as well as an object ([`AttackState::location`]: an Attack Ground's, plan
+//!   decision T47): aimed at, locked and fired at the same way.
+//! - **Area damage** (`systems/combat.md > AoEDamage`, plan decision T46): a landing projectile's blast hits whatever
+//!   stands in its circle, by the exact overlap of each object's shape ([`area`]), the one path of every area attack.
+//!   Each object hit takes its share as a [`Hit`] on the tick's list; each one damaged reveals the shooter, if it is
+//!   still alive, to its owner (`// Placeholder: Q0083 point 2`: at the blast, to the owners of the objects damaged).
+//!
+//! Not built yet: turrets, and the HeadDisjointed and TailDisjointed attacks.
 
+mod area;
 mod damage;
 mod phases;
+pub mod projectiles;
 mod targeting;
+#[cfg(test)]
+pub(crate) mod testing;
 
 use std::collections::BTreeMap;
 
+use glam::Vec2;
 use serde::{Deserialize, Serialize};
 
 use crate::conversion;
-use crate::defs::{AttackAttrs, ObjectKind};
+use crate::defs::{AttackAttrs, AttackType, ObjectKind};
 use crate::events::SimEvent;
 use crate::hash::{StateHash, StateHasher};
 use crate::ids::ObjectId;
@@ -64,15 +80,19 @@ use crate::riot_shield;
 use crate::units::Tick;
 use crate::vision::Vision;
 
+pub use area::{hits_domain, overlap};
 pub use damage::{Hit, Taken, directional_multiplier, hit_damage, pre_armor_multiplier, resolve};
+pub use projectiles::{Projectile, flight_ticks};
 pub use targeting::{
-    can_attack_now, domain_allows, inside_min_range, max_range, object_box, object_domain, reaches, reaches_point,
-    within_range,
+    can_attack_now, can_target_ground, domain_allows, inside_min_range, max_range, object_box, object_domain, reaches,
+    reaches_point, within_range,
 };
 
 /// `systems/combat.md > AttackPhase`, one value of the design's BaseAttackChannel (`systems/controls/behaviors.md >
-/// BaseAttackChannel`). The phases run in this order; after Reloading the sequence is over.
-#[derive(Copy, Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+/// BaseAttackChannel`). The phases run in this order; after Reloading the sequence is over. A disjointed attack's
+/// Aiming at a location and its Firing at the location it locked have values of their own (slice M4-O), tagged after
+/// the others in the hash, so that the states of attacks without them hash as they did.
+#[derive(Copy, Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub enum AttackPhase {
     /// `systems/combat.md > Aiming` (`systems/controls/behaviors.md > BaseAiming`): the unit turns to face `target`, at
     /// most its TurnRate per tick. Interruptible: a different command, or a target that is no longer valid (gone, or
@@ -87,14 +107,23 @@ pub enum AttackPhase {
     /// `systems/combat.md > Reloading`: interruptible: the unit is free to do other things, but its next attack waits
     /// for the reload to end, which keeps counting (a placeholder reading: interrupting it doesn't reset it).
     Reloading,
+    /// `systems/combat.md > Aiming` at the ground location `at` (`systems/combat.md > LocationTarget`; an Attack Ground's,
+    /// [`AttackState::location`]): the unit turns to face it. Interruptible, as Aiming at an object: a different command
+    /// cancels it, and so does the location leaving the unit's range.
+    AimingAt { at: Vec2 },
+    /// `systems/combat.md > Firing` of a disjointed attack (`systems/combat.md > DoublyDisjointed`): not interruptible.
+    /// At its end the
+    /// projectile launches to `at`, the location locked at the end of Aiming: where the target was then, or the
+    /// location aimed at (`projectiles`). `target`: the object aimed at, while it is in the game; none for a location.
+    FiringAt { at: Vec2, target: Option<ObjectId> },
 }
 
 impl AttackPhase {
     /// `systems/combat.md > AttackPhase > Interruptible`.
     pub fn interruptible(self) -> bool {
         match self {
-            AttackPhase::Aiming { .. } | AttackPhase::Reloading => true,
-            AttackPhase::Firing { .. } | AttackPhase::Cooldown => false,
+            AttackPhase::Aiming { .. } | AttackPhase::AimingAt { .. } | AttackPhase::Reloading => true,
+            AttackPhase::Firing { .. } | AttackPhase::FiringAt { .. } | AttackPhase::Cooldown => false,
         }
     }
 }
@@ -133,20 +162,45 @@ pub struct AttackState {
     pub phase: Option<AttackPhase>,
     /// Ticks spent in `phase` so far.
     pub elapsed: u32,
+    /// (M4-O) The ground location the unit's behaviour engages (`systems/combat.md > AttackTarget > LocationTarget`,
+    /// plan decision T47): an Attack Ground's (`orders::attack_ground`), until its one shot launches (`// Placeholder:
+    /// Q0083 point 3`: Attack Ground fires once). At most one of it and [`AttackState::target`] is set. Left out of
+    /// files while unset, and out of the hash, so that the states saved before it existed load and hash as they did.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub location: Option<Vec2>,
 }
 
 impl AttackState {
-    /// The unit's behaviour engages `target`, or nothing. `systems/combat.md > Aiming`: a different command
-    /// interrupts an attack being aimed at another target; once Firing has begun, the sequence runs on
-    /// (`systems/combat.md > Firing`, `systems/combat.md > Cooldown`), and a reload keeps counting
+    /// The unit's behaviour engages `target`, or nothing, and no location. `systems/combat.md > Aiming`: a different
+    /// command interrupts an attack being aimed at another target, or at a location; once Firing has begun, the
+    /// sequence runs on (`systems/combat.md > Firing`, `systems/combat.md > Cooldown`), and a reload keeps counting
     /// (`systems/combat.md > Reloading`).
     pub fn engage(&mut self, target: Option<ObjectId>) {
-        if let Some(AttackPhase::Aiming { target: aimed }) = self.phase
-            && Some(aimed) != target
-        {
+        let interrupted = match self.phase {
+            Some(AttackPhase::Aiming { target: aimed }) => Some(aimed) != target,
+            Some(AttackPhase::AimingAt { .. }) => true,
+            _ => false,
+        };
+        if interrupted {
             self.cancel();
         }
         self.target = target;
+        self.location = None;
+    }
+
+    /// (M4-O) The unit's behaviour engages the ground location `at` (`systems/controls/behaviors.md >
+    /// AttackingLocation`), and no object: as [`AttackState::engage`], an aim at anything else is interrupted.
+    pub fn engage_ground(&mut self, at: Vec2) {
+        let interrupted = match self.phase {
+            Some(AttackPhase::AimingAt { at: aimed }) => aimed != at,
+            Some(AttackPhase::Aiming { .. }) => true,
+            _ => false,
+        };
+        if interrupted {
+            self.cancel();
+        }
+        self.target = None;
+        self.location = Some(at);
     }
 
     /// The removal path (`Sim::remove_objects`): the objects `gone` (sorted by id) left the game. The unit no longer
@@ -160,6 +214,13 @@ impl AttackState {
             Some(AttackPhase::Aiming { target }) if is_gone(target) => self.cancel(),
             Some(AttackPhase::Firing { target: Some(target) }) if is_gone(target) => {
                 self.phase = Some(AttackPhase::Firing { target: None });
+            }
+            // The projectile still launches to the location locked (`systems/combat.md > DoublyDisjointed`).
+            Some(AttackPhase::FiringAt {
+                at,
+                target: Some(target),
+            }) if is_gone(target) => {
+                self.phase = Some(AttackPhase::FiringAt { at, target: None });
             }
             _ => {}
         }
@@ -194,27 +255,43 @@ pub fn may_turn(o: &Object) -> bool {
 
 /// Both rules come to the same in the design's phase table: the base is either free or held by the attack. For a
 /// unit of `kind` whose attack is in `state` (the behaviours hold a unit's parts, not the object).
+///
+/// (M4-O) A DoublyDisjointed attack frees the base once its projectile is away: `systems/combat.md >
+/// DoublyDisjointed`, "The unit is free after the projectile spawns", which plan decision T48 reads as the unit going
+/// on into Cooldown and Reload free to move. Its Cooldown still can't be interrupted.
 pub(crate) fn base_is_free(kind: ObjectKind, state: Option<&AttackState>) -> bool {
     let Some(state) = state else {
         return true;
     };
+    let unit = kind.def().unit.as_ref();
     // Design change 0154: the attack source is the turret if the unit has one (its TurretAttributes), else the base.
-    let turret = kind.def().unit.as_ref().is_some_and(|unit| unit.has_turret());
-    turret || matches!(state.phase, None | Some(AttackPhase::Reloading))
+    let turret = unit.is_some_and(|unit| unit.has_turret());
+    let launched = state.phase == Some(AttackPhase::Cooldown)
+        && unit
+            .and_then(|unit| unit.attack.as_ref())
+            .is_some_and(|attack| matches!(attack.attack_type, AttackType::DoublyDisjointed));
+    turret || launched || matches!(state.phase, None | Some(AttackPhase::Reloading))
 }
 
 /// Phase 5e of `tick` (`docs/movement.md > 4`): every unit before `first_new`, in id order, runs one tick of its
-/// attack sequence against a snapshot of the targets taken before any of them acts; then the tick's hits are applied
+/// attack sequence against a snapshot of the targets taken before any of them acts, and the projectiles they launch
+/// join `projectiles`, the store (`Sim::projectiles`); then the projectiles due land, in launch order (slice M4-O,
+/// plan decision T45), their blasts' hits ahead of the tick's new hits on the list; then the tick's hits are applied
 /// together, and each reveals its attacker to the owner of the object hit if that player didn't see it
-/// (`vision::reveal`). Returns the objects destroyed, in id order, for the removal path (`Sim::remove_objects`). A
-/// death that removes a blocking footprint must re-sync the grids (`paths::sync`), as phase 5b does. `vision` is the
-/// last tick's: what each owner sees, all through the phase (the reveals don't change what it sees of tiles).
-/// `turns` holds the angle phase 5d of this tick turned each unit: the aim turns a unit only by what is left of its
-/// TurnRate (one budget per tick).
+/// (`vision::reveal`; a blast's attacker only if it is still alive, `// Placeholder: Q0083 point 2`). Returns the
+/// objects destroyed, in id order, for the removal path (`Sim::remove_objects`). A death that removes a blocking
+/// footprint must re-sync the grids (`paths::sync`), as phase 5b does. `vision` is the last tick's: what each owner
+/// sees, all through the phase (the reveals don't change what it sees of tiles). `turns` holds the angle phase 5d of
+/// this tick turned each unit: the aim turns a unit only by what is left of its TurnRate (one budget per tick).
+#[expect(
+    clippy::too_many_arguments,
+    reason = "phase 5e's state, in the parts of the sim it reads and writes"
+)]
 pub(crate) fn step(
     objects: &mut BTreeMap<ObjectId, Object>,
     map: &Map,
     vision: &mut Vision,
+    projectiles: &mut Vec<Projectile>,
     turns: &movement::Turns,
     first_new: ObjectId,
     tick: Tick,
@@ -223,13 +300,13 @@ pub(crate) fn step(
     let busy = |o: &Object| {
         o.attack
             .as_ref()
-            .is_some_and(|a| a.target.is_some() || a.phase.is_some())
+            .is_some_and(|a| a.target.is_some() || a.location.is_some() || a.phase.is_some())
     };
-    if !objects.range(..first_new).any(|(_, o)| busy(o)) {
+    if projectiles.is_empty() && !objects.range(..first_new).any(|(_, o)| busy(o)) {
         return Vec::new();
     }
     let targets = targeting::Targets::snapshot(map, objects);
-    let mut hits = Vec::new();
+    let mut volley = phases::Volley::new(tick);
     for o in objects.range_mut(..first_new).map(|(_, o)| o) {
         // `factions/colonists/units/weapon_conversion.md`: a unit converting its weapon attacks nothing; what it
         // engages waits for the new weapon (`conversion`).
@@ -253,10 +330,17 @@ pub(crate) fn step(
         }
         let sight = o.owner.and_then(|owner| vision.player(owner));
         let turned = turns.angle(o.id);
-        let shooter = phases::Shooter::new(map, o.id, o.kind, o.pos, o.facing, unit, attrs, sight, turned);
-        phases::run(state, &mut o.facing, &shooter, &targets, &mut hits, events);
+        let shooter = phases::Shooter::new(map, o.id, o.owner, o.kind, o.pos, o.facing, unit, attrs, sight, turned);
+        phases::run(state, &mut o.facing, &shooter, &targets, &mut volley, events);
     }
+    projectiles.append(&mut volley.launched);
+    // The blasts first: due projectiles land before this tick's new hits are applied (plan decision T45).
+    let mut hits = Vec::new();
+    projectiles::land(projectiles, tick, &targets, &mut hits, events);
+    hits.append(&mut volley.hits);
     let dead = damage::apply(objects, &hits, events);
+    // Placeholder: Q0083 point 2. A blast's hits reveal its attacker, if it still exists, to each damaged object's
+    // owner, as a shot's do.
     for hit in &hits {
         let victim = objects.get(&hit.target).and_then(|o| o.owner);
         if let (Some(victim), Some(attacker)) = (victim, objects.get(&hit.attacker)) {
@@ -279,84 +363,38 @@ impl StateHash for AttackPhase {
             }
             AttackPhase::Cooldown => h.tag(2),
             AttackPhase::Reloading => h.tag(3),
+            AttackPhase::AimingAt { at } => {
+                h.tag(4);
+                at.hash(h);
+            }
+            AttackPhase::FiringAt { at, target } => {
+                h.tag(5);
+                at.hash(h);
+                target.hash(h);
+            }
         }
     }
 }
 
 impl StateHash for AttackState {
     fn hash(&self, h: &mut StateHasher) {
-        let AttackState { target, phase, elapsed } = self;
+        let AttackState {
+            target,
+            phase,
+            elapsed,
+            location,
+        } = self;
         target.hash(h);
         phase.hash(h);
         elapsed.hash(h);
+        // (M4-O) Only while set, under a tag of its own, as `Mover::momentum` (`mover/hash.rs`): an attack that never
+        // engaged a location hashes as it did before the field existed, so the goldens stand.
+        if let Some(at) = location {
+            h.tag(1);
+            at.hash(h);
+        }
     }
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-
-    fn state(target: Option<u32>, phase: Option<AttackPhase>) -> AttackState {
-        AttackState {
-            target: target.map(ObjectId),
-            phase,
-            elapsed: 1,
-        }
-    }
-
-    #[test]
-    fn a_different_target_interrupts_aiming_only() {
-        let aiming = Some(AttackPhase::Aiming { target: ObjectId(5) });
-        let mut s = state(Some(5), aiming);
-        s.engage(Some(ObjectId(5)));
-        assert_eq!(s, state(Some(5), aiming), "the same target keeps the aim");
-        s.engage(Some(ObjectId(6)));
-        assert_eq!((s.target, s.phase, s.elapsed), (Some(ObjectId(6)), None, 0));
-        let mut s = state(Some(5), aiming);
-        s.engage(None);
-        assert_eq!((s.target, s.phase), (None, None), "any other command");
-        for phase in [
-            AttackPhase::Firing {
-                target: Some(ObjectId(5)),
-            },
-            AttackPhase::Cooldown,
-            AttackPhase::Reloading,
-        ] {
-            let mut s = state(Some(5), Some(phase));
-            s.engage(None);
-            assert_eq!(
-                (s.target, s.phase, s.elapsed),
-                (None, Some(phase), 1),
-                "{phase:?} runs on"
-            );
-        }
-    }
-
-    #[test]
-    fn forgetting_the_gone_clears_every_reference_to_them() {
-        let gone = [ObjectId(2), ObjectId(5)];
-        let mut aiming = state(Some(5), Some(AttackPhase::Aiming { target: ObjectId(5) }));
-        aiming.forget(&gone);
-        assert_eq!((aiming.target, aiming.phase, aiming.elapsed), (None, None, 0));
-        let mut firing = state(
-            Some(5),
-            Some(AttackPhase::Firing {
-                target: Some(ObjectId(5)),
-            }),
-        );
-        firing.forget(&gone);
-        assert_eq!(firing, state(None, Some(AttackPhase::Firing { target: None })));
-        // Others are untouched.
-        let mut other = state(Some(3), Some(AttackPhase::Aiming { target: ObjectId(3) }));
-        other.forget(&gone);
-        assert_eq!(other, state(Some(3), Some(AttackPhase::Aiming { target: ObjectId(3) })));
-    }
-
-    #[test]
-    fn aiming_and_reloading_are_interruptible() {
-        assert!(AttackPhase::Aiming { target: ObjectId(1) }.interruptible());
-        assert!(!AttackPhase::Firing { target: None }.interruptible());
-        assert!(!AttackPhase::Cooldown.interruptible());
-        assert!(AttackPhase::Reloading.interruptible());
-    }
-}
+mod tests;

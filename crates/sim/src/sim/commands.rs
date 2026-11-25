@@ -75,6 +75,8 @@ impl Sim {
             }
             OrderKind::Gather(_) | OrderKind::DropOff(_) | OrderKind::Deploy { .. } => vec![None; units.len()],
             OrderKind::Enter(_) | OrderKind::Build { .. } => vec![None; units.len()],
+            // Each unit fires at the point clicked (plan decision T47: no magic box).
+            OrderKind::AttackGround(_) => vec![None; units.len()],
         };
         for (id, slot) in units.iter().zip(slots) {
             if !queue {

@@ -2,7 +2,7 @@ mod hash;
 mod turns;
 
 use super::*;
-use crate::combat::{AttackPhase, AttackState};
+use crate::combat::{AttackPhase, AttackState, Projectile};
 use crate::command::{Command, DebugCommand, PlayerCommand, TickInputs};
 use crate::construction::Constructor;
 use crate::conversion::Conversion;

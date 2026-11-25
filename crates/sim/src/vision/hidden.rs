@@ -20,6 +20,7 @@
 //!
 //! [`PlayerVision::object_box_state`]: super::PlayerVision::object_box_state
 
+use crate::defs::ObjectKind;
 use crate::ids::PlayerId;
 use crate::object::Object;
 use crate::sim::Sim;
@@ -36,9 +37,16 @@ pub struct Hiding {
 impl Hiding {
     /// Whom `object` is hidden from now.
     pub fn of(object: &Object) -> Self {
-        let underground = (object.def().structure.as_ref()).is_some_and(|structure| structure.underground);
+        Self::of_kind(object.kind, object.owner)
+    }
+
+    /// (M4-O) Whom an object of `kind` that `owner` owns is hidden from, by the same rule: for what outlives the
+    /// object, as the client's marker of its death (`SimEvent::Died` names its kind and owner), which no player it was
+    /// hidden from may see (plan decision T52: nothing is drawn for a hidden victim).
+    pub fn of_kind(kind: ObjectKind, owner: Option<PlayerId>) -> Self {
+        let underground = (kind.def().structure.as_ref()).is_some_and(|structure| structure.underground);
         Self {
-            owner: object.owner.filter(|_| underground),
+            owner: owner.filter(|_| underground),
         }
     }
 

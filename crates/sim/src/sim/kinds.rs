@@ -214,6 +214,7 @@ impl Sim {
             (Some(old), Some(_)) if keeps_weapon => Some(old),
             (Some(old), Some(fresh)) => Some(AttackState {
                 target: old.target,
+                location: old.location,
                 ..fresh
             }),
             (_, fresh) => fresh,
