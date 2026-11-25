@@ -46,3 +46,24 @@
 - **Lessons:**
   - `cd` into a worktree without a subshell moves the session's cwd. It happened three times; use `( cd $WT && ... )` or `git -C`.
   - The plan helper `setcell` must restore the trailing ` |` when it replaces a row's last cell.
+
+## 2026-11-25 (continued): M4 complete; M5 planned and started
+- **Merged:**
+  - M4-J3, the Tunnel Area display (`5e2e9419`);
+  - M4-S1, the upright Laser Turret (`50f51141`);
+  - M4-V, one per-viewer event filter (`dbefb552`);
+  - M4-S2, the pop-up turret, on Fable (`0cee8bc4`);
+  - M4-M, QA (`4e3fdd4a`). **M4 (the Syndicate) is complete.**
+- **Follow-ups from M4's QA:**
+  - **M4-W:** four Agents at one crystal hatch gridlock for good. Fable is debugging it.
+  - **M4-Z:** strays in marks and test helpers.
+- **Questions:**
+  - 0303 answered Q0089 as built.
+  - Q0090 (perception of unseen events) and Q0091 (the pop-up turret's details) are filed as built.
+- **M5:**
+  - Planning spike M5-P drafted the plan, adopted as `artifacts/director/m5-plan.md`, and Q0092–Q0108 are filed from its drafts.
+  - **The user decided** that the first playtest is hot-seat, from the command line, with no AI and no start screen.
+  - Triaged:
+    - 0302 (Militant) and 0304 (the Gunner TailDisjointed: a new slice, O3);
+    - 0305–0308 (Disciple, and its cloud concept: gated N4).
+  - Wave 1: M5-A is running. R waits for Z, to keep three builds at most.

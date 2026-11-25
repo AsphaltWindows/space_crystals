@@ -2271,3 +2271,7 @@ Answered Q0069–Q0071 (0258–0267): losing-Tunnel edges, Syndicate economy che
 2026-11-26 — Disciple cloud spell concept. Entry 0306.
 2026-11-26 — Disciple cloud details. Entry 0307.
 2026-11-26 — Cloud: attackers under it do full damage. Entry 0308.
+2026-11-26 — Cloud modifiers/release/channel end. Entry 0309.
+2026-11-26 — Cloud: damage doesn't end channel. Entry 0310.
+2026-11-26 — Shared Burden named. Entry 0311.
+2026-11-26 — Spell renamed Shroud. Entry 0312.
