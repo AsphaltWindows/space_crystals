@@ -15,12 +15,12 @@ use crate::defs::AttackAttrs;
 use crate::ids::ObjectId;
 use crate::math;
 use crate::mover::{MoveGoal, MoveStatus};
+use crate::tuning::orders::{GIVE_UP_RETRY_TICKS, IDLE_LEASH_GU};
 use crate::units::{SU_PER_GU, gu};
 
 use super::state::{AttackOrder, Auto, Pursuit};
 use super::travel::{approach, walk_to_remembered};
 use super::world::{Known, Scan, Unit, View, World};
-use super::{GIVE_UP_RETRY_TICKS, IDLE_LEASH_GU};
 
 /// How an approach stands after [`close_in`].
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]

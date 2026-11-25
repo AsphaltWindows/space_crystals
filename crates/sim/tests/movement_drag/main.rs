@@ -29,7 +29,7 @@ const P1: PlayerId = PlayerId(1);
 const DRONE: ObjectKind = ObjectKind::Drone;
 /// Half the Drone's Silhouette.
 const HALF: f32 = 18.0;
-/// `factions/colonists/units.md > Drone`: the equilibrium of its thrust and drag, space units per tick.
+/// `factions/colonists/units/drone.md`: the equilibrium of its thrust and drag, space units per tick.
 const TOP: f32 = 8.0;
 /// Its scheme from rest (`movement::drag`), since design change 0205 (thrust and drag ×1.5, 0.9 / 0.3 / 0.15):
 /// what a tick's drag leaves of the velocity, `1 − DragRatio`, and its whole thrust along its facing,

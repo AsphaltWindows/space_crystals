@@ -3,7 +3,7 @@
 //! shows only over the player's Visible tiles, from the fog edge.
 
 use sc_sim::testing::ScenarioBuilder;
-use sc_sim::vision::REVEAL_TICKS;
+use sc_sim::tuning::vision::REVEAL_TICKS;
 use sc_sim::{GameSetup, OrderKind, Slot};
 use space_crystals::combat_effects::{CombatEffects, TRACER_TICKS, Tracer, shot_spans, visible_spans};
 

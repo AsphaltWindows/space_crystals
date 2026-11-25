@@ -14,13 +14,13 @@ pub use bases::{Domain, MovementModel, UnitBase, UnitBaseDef};
 
 use serde::{Deserialize, Serialize};
 
-use super::ObjectKind;
+use super::{ObjectKind, Recipe};
 use crate::units::SU_PER_GU;
 
 /// `systems/units.md > Unit > UnitBaseAttributes[UnitBase]`: a unit type's movement numbers, one variant per
 /// movement model. An acceleration or deceleration of `None` is infinite: the unit reaches its speed, or stops,
 /// within the tick.
-#[derive(Copy, Clone, Debug, PartialEq)]
+#[derive(Copy, Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub enum MovementAttrs {
     /// `systems/units.md > TurnRateMovement`.
     TurnRate {
@@ -109,7 +109,7 @@ impl MovementAttrs {
 
 /// `systems/units.md > TurretAttributes`: only on units whose base can carry a turret (`UnitBaseDef::can_have_turret`),
 /// and a unit of such a base may still have none (design change 0154).
-#[derive(Copy, Clone, Debug, PartialEq)]
+#[derive(Copy, Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct TurretAttrs {
     /// `> TurnAngle`: the full arc, radians, at most a full turn.
     pub turn_angle: f32,
@@ -118,7 +118,7 @@ pub struct TurretAttrs {
 }
 
 /// `systems/combat.md > AttackType`.
-#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum AttackType {
     /// `> FullyConnected`, with its subtype.
     FullyConnected(FullyConnectedSubtype),
@@ -131,7 +131,7 @@ pub enum AttackType {
 }
 
 /// `systems/combat.md > FullyConnected > Subtype`.
-#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum FullyConnectedSubtype {
     Ranged,
     /// `> Melee`: "Fixed short range (adjacent contact)": its Range is always [`MELEE_CONTACT_GU`], and the
@@ -142,13 +142,13 @@ pub enum FullyConnectedSubtype {
 /// The Range of every melee attack, grid units: `systems/combat.md > FullyConnected > Melee` ("Short reach: 8 space
 /// units for all melee attacks for now") and `> Range Measurement`, as the Sabre Legionnaire's "Range: melee
 /// (adjacent contact)". **Placeholder** (design change 0149: "may become a per-attack value later"): a gap of 8 space
-/// units, the one that counts as Proximity (`orders::PROXIMITY_SU`, design change 0032). Exactly 0 would be fragile
-/// ("an exact 0 would fail on tiny collision gaps"): two boxes the movement step brings together may end a rounding
-/// error apart. A test keeps every melee attack at this Range, with no MinRange (`defs_are_consistent`).
+/// units, the one that counts as Proximity (`tuning::orders::PROXIMITY_SU`, design change 0032). Exactly 0 would be
+/// fragile ("an exact 0 would fail on tiny collision gaps"): two boxes the movement step brings together may end a
+/// rounding error apart. A test keeps every melee attack at this Range, with no MinRange (`defs_are_consistent`).
 pub const MELEE_CONTACT_GU: f32 = 8.0 / SU_PER_GU;
 
 /// `systems/combat.md > AttackAttributes > TargetDomain`.
-#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum TargetDomain {
     Ground,
     Air,
@@ -156,7 +156,7 @@ pub enum TargetDomain {
 }
 
 /// `systems/combat.md > AttackAttributes > TargetType`.
-#[derive(Copy, Clone, Debug, PartialEq)]
+#[derive(Copy, Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub enum TargetType {
     SingleTarget,
     /// With its `AoERadius`, grid units.
@@ -166,7 +166,7 @@ pub enum TargetType {
 }
 
 /// `systems/combat.md > AttackAttributes`, read by the attack sequence (`combat`).
-#[derive(Copy, Clone, Debug, PartialEq)]
+#[derive(Copy, Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct AttackAttrs {
     pub attack_type: AttackType,
     pub target_domain: TargetDomain,
@@ -185,10 +185,10 @@ pub struct AttackAttrs {
     pub reload_ticks: u32,
 }
 
-/// `factions/gdo/units.md > Peacekeeper > Riot Shield (toggled ability)`: a Riot Shield, the same on both of the
+/// `factions/gdo/units/peacekeeper.md > Riot Shield (toggled ability)`: a Riot Shield, the same on both of the
 /// unit types it switches between (design change 0173: "shield down and shield up are two unit types [...] They share
 /// everything except what the shield changes"; `crate::riot_shield`).
-#[derive(Copy, Clone, Debug, PartialEq)]
+#[derive(Copy, Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct RiotShieldDef {
     /// The type of a unit whose shield is down or going down: the Peacekeeper.
     pub lowered: ObjectKind,
@@ -202,6 +202,17 @@ pub struct RiotShieldDef {
     pub damage_factor: f32,
     /// How long raising or lowering the shield takes, ticks (`> Toggle time`).
     pub toggle_ticks: u32,
+}
+
+/// `factions/colonists/units/weapon_conversion.md`: a unit with two forms, each of which converts into the other, the
+/// same on both of its types ("two forms of the same underlying unit"; `crate::conversion`).
+#[derive(Copy, Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct ConversionDef {
+    /// The unit's two forms, a type each: the Sabre and the Rifle Legionnaire.
+    pub forms: [ObjectKind; 2],
+    /// How long a conversion takes, either way, ticks (`> Convert Command`: "The unit converts in place over 4
+    /// frames").
+    pub ticks: u32,
 }
 
 /// What a worker carries and delivers (`factions/syndicate/units/agent.md > Gathering`: "Agents gather resources and
@@ -219,7 +230,7 @@ pub enum Resource {
 /// What a worker does with one resource (`factions/colonists/units/drone.md > Gathering`,
 /// `factions/syndicate/units/agent.md > Gathering > Space Crystals` and `> Supplies`): one load of it, from picking
 /// it up to unloading it.
-#[derive(Copy, Clone, Debug, PartialEq)]
+#[derive(Copy, Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct LoadDef {
     /// CarryCapacity: the most it carries of the resource in one load.
     pub carry_capacity: u32,
@@ -237,7 +248,7 @@ pub struct LoadDef {
 /// `factions/colonists/units/drone.md > Gathering`, `factions/syndicate/units/agent.md > Gathering`: what makes a
 /// unit type a worker (`crate::economy::gathering`). One Gather job runs every worker (plan decision T34); these are
 /// the differences between the types.
-#[derive(Copy, Clone, Debug, PartialEq)]
+#[derive(Copy, Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct WorkerDef {
     /// Its loads of Space Crystals.
     pub crystals: LoadDef,
@@ -259,7 +270,7 @@ pub struct WorkerDef {
     /// stat yet), grid units: a worker looks for another patch only within this distance of itself, centre to
     /// centre (`orders::gather`).
     pub search_radius: f32,
-    /// `factions/colonists/units.md > Drone > Gathering Drones pass through each other` (design change 0106):
+    /// `factions/colonists/units/drone.md > Gathering Drones pass through each other` (design change 0106):
     /// workers of this type that are on a Gather job don't collide with each other, whoever owns them
     /// (`orders::gather::on_gather_job`, `movement::space::blocks`). "Drones only": the workers of the other
     /// factions keep normal collision while they mine.
@@ -278,7 +289,7 @@ impl WorkerDef {
 
 /// A unit type's own attributes (`systems/units.md > Unit`); the attributes every object type has are on its
 /// `ObjectDef`.
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct UnitDef {
     /// `> UnitBase`.
     pub base: UnitBase,
@@ -291,16 +302,22 @@ pub struct UnitDef {
     pub turret: Option<TurretAttrs>,
     /// `> AttackAttributes`: `None` for units that can't attack.
     pub attack: Option<AttackAttrs>,
-    /// `factions/gdo/units.md > UnitControlCost`: GDO units only.
+    /// `factions/gdo/overview.md > Unit Control`, a unit's `UnitControlCost`: GDO units only.
     pub unit_control_cost: Option<u32>,
     /// `factions/syndicate/tunnels.md`, a unit's `TunnelSpaceCost`: Syndicate units only.
     pub tunnel_space_cost: Option<u32>,
-    /// `factions/colonists/units.md`, a unit's `BeaconCapacityCost` (`factions/colonists/overview.md > Beacon
+    /// `factions/colonists/units/README.md`, a unit's `BeaconCapacityCost` (`factions/colonists/overview.md > Beacon
     /// Capacity`): Colonists units only (plan decision T14). Data only until slice M3-C counts it.
     pub beacon_capacity_cost: Option<u32>,
-    /// `factions/gdo/units.md > Peacekeeper > Riot Shield`.
+    /// `factions/gdo/units/peacekeeper.md > Riot Shield`.
     pub riot_shield: Option<RiotShieldDef>,
-    /// `factions/colonists/units.md > Drone > Gathering`: `None` for units that gather nothing.
+    /// `factions/colonists/units/weapon_conversion.md`: the two forms it converts between, for a unit that has
+    /// another form (`crate::conversion`).
+    pub conversion: Option<ConversionDef>,
+    /// `factions/colonists/units/drone.md > Deploying`: what it deploys into, in place, for a unit that deploys
+    /// (`crate::deploy`): the structure, the frames it takes, and its cost.
+    pub deploy: Option<Recipe>,
+    /// `factions/colonists/units/drone.md > Gathering`: `None` for units that gather nothing.
     pub worker: Option<WorkerDef>,
 }
 

@@ -56,7 +56,7 @@ impl TunnelState {
 
 /// The tier table of objects of `kind`: the Tunnel's; `None` for every other type.
 pub fn def_of(kind: ObjectKind) -> Option<&'static TunnelDef> {
-    kind.def().structure.as_ref()?.tunnel
+    kind.def().structure.as_ref()?.tunnel.as_ref()
 }
 
 /// What a new object of `kind` starts with: a Tunnel at [`BASE_TIER`], every other type nothing.

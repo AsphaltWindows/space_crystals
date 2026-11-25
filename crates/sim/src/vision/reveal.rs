@@ -32,12 +32,8 @@ use super::Vision;
 use crate::combat::object_box;
 use crate::ids::PlayerId;
 use crate::object::Object;
+use crate::tuning::vision::REVEAL_TICKS;
 use crate::units::Tick;
-
-/// `core/vision.md > Attacks from outside vision` (design change 0177): how many ticks an attacker that shot from
-/// outside its victim's vision stays Visible to the victim's owner after each shot. "1.5 seconds (24 frames),
-/// placeholder".
-pub const REVEAL_TICKS: Tick = 24;
 
 impl Vision {
     /// Phase 5e of `tick`: `attacker`'s shot landed on an object of `player`. If none of the player's sources sees

@@ -166,7 +166,7 @@ fn body(id: u32, pos: Vec2, half: f32, gathers: bool) -> Body {
     }
 }
 
-/// Design change 0106, `factions/colonists/units.md > Drone > Gathering Drones pass through each other`: two Drones
+/// Design change 0106, `factions/colonists/units/drone.md > Gathering Drones pass through each other`: two Drones
 /// on a Gather job don't block each other; a Drone on one and a unit that isn't (an idle Drone, any other unit) do,
 /// both ways.
 #[test]

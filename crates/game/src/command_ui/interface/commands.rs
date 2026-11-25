@@ -14,8 +14,8 @@ use crate::kinds::{self, short_label};
 /// ExtractionFacility > ObjectInterfaceState[ExtractionFacility]`), and the Colonists' Beacon, Drone, Egress Node and
 /// transforming objects (`factions/colonists/economy.md > Beacon > Beacon ObjectInterfaceState`,
 /// `factions/colonists/units/drone.md > Drone ObjectInterfaceState`, `factions/colonists/economy.md > Egress Node >
-/// Egress Node ObjectInterfaceState`, `> Beacon Deployment > While transforming: only Cancel`; slices M3-J1 and M3-J2,
-/// design change 0124).
+/// Egress Node ObjectInterfaceState`, `factions/colonists/economy.md > Beacon Deployment > While transforming: only
+/// Cancel`; slices M3-J1 and M3-J2, design change 0124).
 #[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum PanelCommand {
     Move,
@@ -38,10 +38,11 @@ pub enum PanelCommand {
     /// converts to, so that in a selection of both it goes to the ActiveGroup alone
     /// (`factions/colonists/units/weapon_conversion.md > Convert Command`, design change 0198: "It goes only to the
     /// ActiveGroup"), as Raise and Lower Shield do. At once (`sc_sim::Ability::Convert`): it flips each unit's target
-    /// form, and so its type, at the press (`> A toggle sets a target form`).
+    /// form, and so its type, at the press (`factions/colonists/units/weapon_conversion.md > A toggle sets a target
+    /// form`).
     Convert(ObjectKind),
-    /// `> ObjectInterfaceState[Barracks]`: "Q: Build Peacekeeper": pays for a unit of this kind and adds it to the
-    /// BuildQueue, at once (`sc_sim::ProductionCommand::Train`).
+    /// `factions/gdo/structures/barracks.md > ObjectInterfaceState[Barracks]`: "Q: Build Peacekeeper": pays for a unit
+    /// of this kind and adds it to the BuildQueue, at once (`sc_sim::ProductionCommand::Train`).
     Train(ObjectKind),
     /// `> Standard Slot Assignments > X`, "X: Cancel Production": takes the last unit queued off the BuildQueue and
     /// refunds it, at once.
@@ -49,12 +50,14 @@ pub enum PanelCommand {
     /// `> Standard Slot Assignments > C`, "C: Set Rally Point": awaits the rally point's target
     /// (`> AwaitingTarget[SetRallyPoint]`).
     SetRallyPoint,
-    /// `> ObjectInterfaceState[DeploymentCenter] > DefaultState`: "Q: Basic Construction" and "W: Advanced
-    /// Construction" (design change 0104): open that build menu (a StateOnlyTransition).
+    /// `factions/gdo/structures/deployment_center.md > ObjectInterfaceState[DeploymentCenter] > DefaultState`: "Q:
+    /// Basic Construction" and "W: Advanced Construction" (design change 0104): open that build menu (a
+    /// StateOnlyTransition).
     BuildMenu(BuildMenu),
-    /// A build menu's entry of an idle constructor (`> BuildMenu[Basic]`: "Generator: deducts 100 Space Crystals,
-    /// sets CurrentConstruction = Generator"), or the Extraction Facility's "Q: Build Extraction Plate": pays for the
-    /// building and starts constructing it, at once (`sc_sim::ConstructionCommand::Construct`).
+    /// A build menu's entry of an idle constructor (`factions/gdo/structures/deployment_center.md > BuildMenu[Basic]`:
+    /// "Generator: deducts 100 Space Crystals, sets CurrentConstruction = Generator"), or the Extraction Facility's "Q:
+    /// Build Extraction Plate": pays for the building and starts constructing it, at once
+    /// (`sc_sim::ConstructionCommand::Construct`).
     Construct(ObjectKind),
     /// "X: Cancel Construction": "refunds full cost, clears CurrentConstruction", at once.
     CancelConstruction,
@@ -65,9 +68,9 @@ pub enum PanelCommand {
     /// "Q: Place Plate": enters AwaitingPlacement for it (a StateOnlyTransition), where a click places it.
     PlaceReady(ObjectKind),
     /// A Beacon's Warp In menu entry for a building of its Constructs List (`factions/colonists/economy.md > Beacon >
-    /// Beacon ObjectInterfaceState`: "Choosing a building enters placement"; `> Warp In > Warp In Command`): enters
-    /// AwaitingPlacement of the building on the Beacon (a StateOnlyTransition), where a click warps it in
-    /// (`sc_sim::ConstructionCommand::WarpIn`).
+    /// Beacon ObjectInterfaceState`: "Choosing a building enters placement"; `factions/colonists/economy.md > Warp In >
+    /// Warp In Command`): enters AwaitingPlacement of the building on the Beacon (a StateOnlyTransition), where a click
+    /// warps it in (`sc_sim::ConstructionCommand::WarpIn`).
     WarpIn(ObjectKind),
     /// A Warp In menu's building, or a portal's unit, that isn't in the game yet (design change 0124: "Buildings and
     /// units whose costs are TBD show in their slot, unavailable"): it holds its slot and does nothing.
@@ -76,16 +79,18 @@ pub enum PanelCommand {
     /// Beacon (StateOnlyTransition)", where a click sends one Drone of the group to deploy there (design change 0125,
     /// `sc_sim::OrderKind::Deploy`).
     Deploy,
-    /// `factions/colonists/economy.md > Beacon Deployment > While transforming: only Cancel`: "X" Cancel Deployment
-    /// and Cancel Warp In (design change 0116), the one command of an object that transforms, at once
-    /// (`sc_sim::ConstructionCommand::CancelTransform`; `> Cancel Deployment`, `> Warp In > Cancel Warp In`).
+    /// `factions/colonists/economy.md > Beacon Deployment > While transforming: only Cancel`: "X" Cancel Deployment and
+    /// Cancel Warp In (design change 0116), the one command of an object that transforms, at once
+    /// (`sc_sim::ConstructionCommand::CancelTransform`; `factions/colonists/economy.md > Beacon Deployment > Cancel
+    /// Deployment`, `factions/colonists/economy.md > Warp In > Cancel Warp In`).
     CancelTransform,
     /// `factions/colonists/units/drone.md > Drone ObjectInterfaceState > S: Set Drop-off Location`: "enters
-    /// AwaitingTarget\[SetDropOffLocation\] (StateOnlyTransition)", where a left-click on the player's own Egress
-    /// Node (or refinery, none in the game yet) "sets it as the selected Drone(s)' AssignedDropOff
+    /// AwaitingTarget\[SetDropOffLocation\] (StateOnlyTransition)", where a left-click on the player's own Egress Node
+    /// (or refinery, none in the game yet) "sets it as the selected Drone(s)' AssignedDropOff
     /// (CommandIssuingTransition, returns to DefaultState)" (`sc_sim::Ability::SetDropOff`, slice M3-J2): every
-    /// selected Drone's (`> Right-Click Resolution`: "Right-click commands and Set Drop-off go to every selected
-    /// Drone"; question Q0040 point 9). It "does not interrupt current mining/movement": their orders go on.
+    /// selected Drone's (`factions/colonists/units/drone.md > Right-Click Resolution`: "Right-click commands and Set
+    /// Drop-off go to every selected Drone"; question Q0040 point 9). It "does not interrupt current mining/movement":
+    /// their orders go on.
     SetDropOff,
     /// `factions/colonists/economy.md > Egress Node > Egress Node ObjectInterfaceState > F: Select Returning Drones`:
     /// "Immediate command (StateOnlyTransition). Replaces the current Selection with all Drones whose AssignedDropOff

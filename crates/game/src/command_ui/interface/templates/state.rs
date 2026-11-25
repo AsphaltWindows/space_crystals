@@ -40,21 +40,24 @@ pub fn menu_of(kind: ObjectKind, building: ObjectKind) -> Option<BuildMenu> {
 
 /// The commands a `kind` ActiveGroup shows in `interface`, slot by slot (`CommandSlot::all` order), while its
 /// constructor, if it is one, is `constructor` (the ActiveGroup is then a single instance: constructors are
-/// Ungroupable, `> SelectionGroup`, so the panel "can reliably read that instance's specific game state"):
+/// Ungroupable, `systems/controls/selection_and_hud.md > SelectionGroup`, so the panel "can reliably read that
+/// instance's specific game state"):
 /// - DefaultState and AwaitingTarget: its DefaultState grid ([`grid`]), but the Peacekeeper (Shielded)'s Attack
 ///   ([`hides_attack`]);
 /// - a build menu: the menu's entries ([`menu_grid`]); AwaitingPlacement: those of the state it goes back to
 ///   (`InterfaceState::back`): the Deployment Center's menu of the building, a Beacon's Warp In menu of it, the
 ///   Extraction Facility's and the Drone's DefaultState;
 /// - a constructor's building ready to place takes its entry's slot, as "Select completed building" (design change
-///   0104; the Extraction Facility's "Q: Place Plate"), and its X is Cancel Construction while it constructs and
-///   Cancel Ready Building while it holds a building ready, and empty while it is idle (`> DefaultState commands`:
-///   "Only visible when CurrentConstruction is set", "Only visible when ReadyToPlace is set");
-/// - a build menu shows its other entries while the constructor is busy, unavailable (`> BuildMenu (instance
-///   constructing)`: "Other build options unavailable": [`super::Conditions`] disables them), but the Extraction
-///   Facility's DefaultState lists only X while it constructs and only Q Place Plate and X while its plate is ready
-///   (`factions/gdo/economy.md > ExtractionFacility > ObjectInterfaceState[ExtractionFacility]`), so a building to
-///   construct in a DefaultState grid shows only while the constructor is idle.
+///   0104; the Extraction Facility's "Q: Place Plate"), and its X is Cancel Construction while it constructs and Cancel
+///   Ready Building while it holds a building ready, and empty while it is idle
+///   (`factions/gdo/structures/deployment_center.md > DefaultState commands`: "Only visible when CurrentConstruction is
+///   set", "Only visible when ReadyToPlace is set");
+/// - a build menu shows its other entries while the constructor is busy, unavailable
+///   (`factions/gdo/structures/deployment_center.md > BuildMenu (instance constructing)`: "Other build options
+///   unavailable": [`super::Conditions`] disables them), but the Extraction Facility's DefaultState lists only X while
+///   it constructs and only Q Place Plate and X while its plate is ready (`factions/gdo/economy.md >
+///   ExtractionFacility > ObjectInterfaceState[ExtractionFacility]`), so a building to construct in a DefaultState grid
+///   shows only while the constructor is idle.
 pub fn state_grid(
     kind: ObjectKind,
     interface: InterfaceState,

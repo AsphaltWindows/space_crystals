@@ -167,7 +167,7 @@ fn the_starting_drones_keep_clear_of_the_node_and_the_portal() {
             .collect();
         assert_eq!(buildings.len(), 2);
         for drone in owned().filter(|o| o.kind == DRONE) {
-            let half = Vec2::splat(18.0); // `factions/colonists/units.md > Drone > Silhouette - 36x36`
+            let half = Vec2::splat(18.0); // `factions/colonists/units/drone.md > Silhouette - 36x36`
             for &(min, max) in &buildings {
                 let gap = (min - (drone.pos + half)).max((drone.pos - half) - max).max(Vec2::ZERO);
                 assert!(
@@ -229,7 +229,7 @@ fn seven_drones_queue_at_the_robo_portal_and_the_seventh_waits_for_room() {
         t.at(2, P1, train(&[portal]));
     }
     t.run(2);
-    // `factions/colonists/structures.md > Robo Portal`: a Drone costs 50 Space Crystals.
+    // `factions/colonists/structures/robo_portal.md`: a Drone costs 50 Space Crystals.
     assert_eq!((queue(t.sim(), portal), t.sim().player(P1).unwrap().crystals), (7, 650));
     assert_eq!(t.sim().army_cap(P1), beacon_capacity(5, 10), "the first in production");
     assert_eq!(validate(t.sim(), P1, train(&[portal])), Ok(()));

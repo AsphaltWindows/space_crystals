@@ -35,7 +35,8 @@ pub enum Planned {
     Scout,
     /// The Bio Portal's W (`factions/colonists/structures/bio_portal.md > Bio Portal ObjectInterfaceState`).
     Lancer,
-    /// The Bio Portal's E, "Psionic unit (TBD)" (`> Bio Portal ObjectInterfaceState`).
+    /// The Bio Portal's E, "Psionic unit (TBD)" (`factions/colonists/structures/bio_portal.md > Bio Portal
+    /// ObjectInterfaceState`).
     PsionicUnit,
 }
 

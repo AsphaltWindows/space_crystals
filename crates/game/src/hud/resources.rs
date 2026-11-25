@@ -22,8 +22,8 @@
 //!     `factions/syndicate/tunnels.md > Tunnel > Starting Conditions`);
 //!   - Tunnel Space as used / available (`Sim::army_cap`): the units and the units in production (design change
 //!     0143) over min(200, ⌊the unused tunnel-region cells of the player's Tunnels / 4⌋); in red while more is used
-//!     than available (`tunnels.md > Tunnel Space`: "usage is simply displayed over capacity (e.g. 12/10)"), as
-//!     Beacon Capacity is.
+//!     than available (`factions/syndicate/tunnels.md > Tunnel Space`: "usage is simply displayed over capacity (e.g.
+//!     12/10)"), as Beacon Capacity is.
 //! - **The Cults** show Space Crystals only, until their own resources (their Unit Control) exist in the sim (the
 //!   M2 plan, slice G).
 //! - A local player who isn't in the game shows no resources.
@@ -361,8 +361,8 @@ mod tests {
             ]
         );
         // Design change 0143: the Drone in production counts, a second one only queued doesn't; with two more Drones,
-        // 7 of 10. Over capacity (`overview.md > Beacon Capacity > Over capacity`, design change 0112): the Egress
-        // Node lost leaves 7 used of 5, in red.
+        // 7 of 10. Over capacity (`factions/colonists/overview.md > Beacon Capacity > Over capacity`, design change
+        // 0112): the Egress Node lost leaves 7 used of 5, in red.
         t.at(
             3,
             P1,
@@ -389,8 +389,8 @@ mod tests {
     /// `factions/syndicate/overview.md > DisplayHud` on the Syndicate's starting objects (slice M4-B,
     /// `factions/syndicate/tunnels.md > Tunnel > Starting Conditions`): Space Crystals 100, Supplies 1, and Tunnel
     /// Space 1/11, the Tunnel's 48 tunnel-region cells less the Hideout's 4 over 4, of which the Agent uses 1. Over
-    /// capacity (`tunnels.md > Tunnel Space`: "usage is simply displayed over capacity (e.g. 12/10)"): with a second
-    /// Hideout and 11 more Agents, 12/10, in red.
+    /// capacity (`factions/syndicate/tunnels.md > Tunnel Space`: "usage is simply displayed over capacity (e.g.
+    /// 12/10)"): with a second Hideout and 11 more Agents, 12/10, in red.
     #[test]
     fn the_syndicate_bar_reads_their_banks_and_tunnel_space() {
         use ResourceFigure::{SpaceCrystals, Supplies, TunnelSpace};

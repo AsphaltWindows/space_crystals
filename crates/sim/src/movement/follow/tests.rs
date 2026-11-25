@@ -5,10 +5,10 @@ use super::*;
 use crate::map::Map;
 use crate::movement::MoveCounters;
 use crate::movement::space::Body;
-use crate::mover::MAX_REPATHS;
 use crate::nav::{Nav, NavClass, NavRules};
+use crate::tuning::movement::MAX_REPATHS;
 
-/// `factions/colonists/units.md > Drone > UnitBaseAttributes[HoverVehicle]`, since design change 0205
+/// `factions/colonists/units/drone.md > UnitBaseAttributes[HoverVehicle]`, since design change 0205
 /// (`movement/drag/tests.rs` checks them against the Drone's def).
 const DRONE: MovementAttrs = MovementAttrs::Drag {
     forward_acceleration: 0.9,

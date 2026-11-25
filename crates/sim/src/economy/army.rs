@@ -47,23 +47,14 @@ mod tunnel_space;
 use serde::{Deserialize, Serialize};
 
 use self::tunnel_space::TunnelSpace;
-pub use self::tunnel_space::{CELLS_PER_TUNNEL_SPACE, TUNNEL_SPACE_CAP};
-use crate::defs::{Category, ObjectKind};
+// The caps are the factions' own rules, with their defs (`defs/<faction>.rs`).
+use crate::defs::{BEACON_CAPACITY_CAP, BEACON_CAPACITY_PER_BUILDING, Category, ObjectKind, UNIT_CONTROL_CAP};
+#[cfg(test)]
+use crate::defs::{CELLS_PER_TUNNEL_SPACE, TUNNEL_SPACE_CAP};
 use crate::ids::PlayerId;
 use crate::object::Object;
 use crate::player::Faction;
 use crate::production::Production;
-
-/// `factions/gdo/overview.md > GDOResources > Unit Control`: "Hard cap of 200". A unit that would take the used Unit
-/// Control past it doesn't start production until there is room (design change 0143).
-pub const UNIT_CONTROL_CAP: u32 = 200;
-
-/// `factions/colonists/overview.md > ColonistResources > Beacon Capacity`: "Total Beacon Capacity caps at 200".
-pub const BEACON_CAPACITY_CAP: u32 = 200;
-
-/// `factions/colonists/economy.md > Beacon > BeaconCapacity provided - 5`, which every Colonists building provides
-/// (`> Warp In > Beacon Capacity Retention`: "Every Colonists building provides 5 BeaconCapacity").
-pub const BEACON_CAPACITY_PER_BUILDING: u32 = 5;
 
 /// The resource that caps a faction's army.
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -98,8 +89,8 @@ impl ArmyResource {
         }
     }
 
-    /// What a unit of `kind` takes of it: its UnitControlCost (`factions/gdo/units.md > Peacekeeper >
-    /// UnitControlCost`), its BeaconCapacityCost (`factions/colonists/units.md > Drone > BeaconCapacityCost`) or its
+    /// What a unit of `kind` takes of it: its UnitControlCost (`factions/gdo/units/peacekeeper.md >
+    /// UnitControlCost`), its BeaconCapacityCost (`factions/colonists/units/drone.md > BeaconCapacityCost`) or its
     /// TunnelSpaceCost (`factions/syndicate/units/agent.md > TunnelSpaceCost`); 0 for a kind without one.
     pub fn cost_of(self, kind: ObjectKind) -> u32 {
         let unit = kind.def().unit.as_ref();
@@ -132,8 +123,8 @@ pub struct ArmyCap {
     /// (`factions/colonists/overview.md > Beacon Capacity > Over capacity`, design change 0112).
     pub used: u32,
     /// [`UNIT_CONTROL_CAP`] for Unit Control; min([`BEACON_CAPACITY_CAP`], [`BEACON_CAPACITY_PER_BUILDING`] × the
-    /// player's Colonists structures) for Beacon Capacity; min([`TUNNEL_SPACE_CAP`], ⌊the unused tunnel-region cells
-    /// of the player's Tunnels / [`CELLS_PER_TUNNEL_SPACE`]⌋) for Tunnel Space.
+    /// player's Colonists structures) for Beacon Capacity; min([`crate::defs::TUNNEL_SPACE_CAP`], ⌊the unused
+    /// tunnel-region cells of the player's Tunnels / [`crate::defs::CELLS_PER_TUNNEL_SPACE`]⌋) for Tunnel Space.
     pub available: u32,
 }
 
@@ -215,13 +206,13 @@ mod tests {
         // `factions/colonists/overview.md > ColonistResources > Beacon Capacity`: "caps at 200"; `economy.md > Beacon
         // > BeaconCapacity provided - 5`.
         assert_eq!((BEACON_CAPACITY_CAP, BEACON_CAPACITY_PER_BUILDING), (200, 5));
-        // `factions/gdo/units.md > Peacekeeper > UnitControlCost - 1`; the Syndicate's Guard has none.
+        // `factions/gdo/units/peacekeeper.md > UnitControlCost - 1`; the Syndicate's Guard has none.
         let cost = |kind: ObjectKind| kind.def().unit.as_ref().and_then(|u| u.unit_control_cost);
         assert_eq!(
             (cost(ObjectKind::Peacekeeper), cost(ObjectKind::Guard)),
             (Some(1), None)
         );
-        // `factions/colonists/units.md`: the Drone's BeaconCapacityCost is 1, the Legionnaires' 2.
+        // `factions/colonists/units/README.md`: the Drone's BeaconCapacityCost is 1, the Legionnaires' 2.
         let (uc, bc, ts) = (
             ArmyResource::UnitControl,
             ArmyResource::BeaconCapacity,

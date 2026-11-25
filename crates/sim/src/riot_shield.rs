@@ -1,4 +1,4 @@
-//! The Peacekeeper's Riot Shield — `factions/gdo/units.md > Peacekeeper > Riot Shield (toggled ability)`.
+//! The Peacekeeper's Riot Shield — `factions/gdo/units/peacekeeper.md > Riot Shield (toggled ability)`.
 //!
 //! **Two unit types** (design change 0173, `> Two unit types`): "shield down and shield up are **two unit types**,
 //! **Peacekeeper** and **Peacekeeper (Shielded)**, like the Sabre and Rifle Legionnaire [...]. They share everything
@@ -7,13 +7,13 @@
 //! In a selection, the two types form separate SelectionGroups`) and gives each its own command: Raise Shield on the
 //! Peacekeeper, Lower Shield on the Peacekeeper (Shielded), whose panel has no Attack.
 //!
-//! **A toggle sets a target state** (design change 0198, `> Two unit types`: "pressing R flips the Peacekeeper's
-//! target (shield up or down), and the unit works to reach it. The type, and so the SelectionGroup, switches **at the
-//! press**, including when the raise is deferred behind a shot"). As a Legionnaire's (`crate::conversion`), a
-//! Peacekeeper's type is the state it works toward, and its shield the state it is in (`ARCHITECTURE.md > Object
-//! model > Type and form`): its type is the way the shield goes, and what commands the unit reads; its shield is how
-//! far up it is ([`RiotShield`]), and what it does in the world, the speed, the attack and the damage taken, reads
-//! the two together ([`mode`]).
+//! **A toggle sets a target state** (design change 0198, `> Two unit types`: "pressing R flips the Peacekeeper's target
+//! (shield up or down), and the unit works to reach it. The type, and so the SelectionGroup, switches **at the press**,
+//! including when the raise is deferred behind a shot"), the rule of `crate::toggle`. As a Legionnaire's
+//! (`crate::conversion`), a Peacekeeper's type is the state it works toward, and its shield the state it is in
+//! (`ARCHITECTURE.md > Object model > Type and form`): its type is the way the shield goes, and what commands the unit
+//! reads; its shield is how far up it is ([`RiotShield`]), and what it does in the world, the speed, the attack and the
+//! damage taken, reads the two together ([`mode`]).
 //!
 //! A **mode**, not an order. The player raises and lowers it with an ability command (`Command::Ability`), which
 //! applies at once and leaves the unit's orders alone (`Sim::use_ability`), so the shield goes up while the unit walks,
@@ -77,11 +77,11 @@ use std::collections::BTreeMap;
 
 use serde::{Deserialize, Serialize};
 
-use crate::combat;
 use crate::defs::{ObjectKind, RiotShieldDef};
 use crate::hash::{StateHash, StateHasher};
 use crate::ids::ObjectId;
 use crate::object::Object;
+use crate::toggle::{self, Press, Toward};
 
 /// A unit's Riot Shield (module docs): how far up it is. Which way it goes is the unit's type ([`mode`]).
 #[derive(Copy, Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
@@ -142,22 +142,24 @@ fn def_of_kind(kind: ObjectKind) -> Option<&'static RiotShieldDef> {
 }
 
 /// What `o`'s Riot Shield is doing (module docs), from its type and how far up it is, and whether its attack holds a
-/// raise back; `None` for an object without one.
+/// raise back (`toggle::toward`: a shield off the ground has begun, so a lowering never waits); `None` for an object
+/// without one.
 pub fn mode(o: &Object) -> Option<ShieldMode> {
     let shield = o.riot_shield?;
     let def = def_of(o)?;
     let ticks = def.toggle_ticks;
-    Some(if o.kind == def.raised {
-        match ticks.saturating_sub(shield.up) {
-            0 => ShieldMode::Raised,
-            _ if shield.up == 0 && combat::mid_attack(o) => ShieldMode::Deferred,
-            left => ShieldMode::Raising { left },
-        }
-    } else {
-        match shield.up.min(ticks) {
-            0 => ShieldMode::Lowered,
-            left => ShieldMode::Lowering { left },
-        }
+    let raising = o.kind == def.raised;
+    let there = if raising { shield.up >= ticks } else { shield.up == 0 };
+    Some(match (toggle::toward(o, there, shield.up > 0), raising) {
+        (Toward::There, true) => ShieldMode::Raised,
+        (Toward::There, false) => ShieldMode::Lowered,
+        (Toward::Waits, _) => ShieldMode::Deferred,
+        (Toward::Goes, true) => ShieldMode::Raising {
+            left: ticks.saturating_sub(shield.up),
+        },
+        (Toward::Goes, false) => ShieldMode::Lowering {
+            left: shield.up.min(ticks),
+        },
     })
 }
 
@@ -211,8 +213,8 @@ pub fn speed_factor(o: &Object) -> f32 {
 /// nothing.
 pub fn toggled_kind(kind: ObjectKind, raise: bool) -> Option<ObjectKind> {
     let def = def_of_kind(kind)?;
-    let toggled = if raise { def.raised } else { def.lowered };
-    (toggled != kind).then_some(toggled)
+    let asked = if raise { def.raised } else { def.lowered };
+    toggle::pressed([def.lowered, def.raised], kind, Press::To(asked))
 }
 
 /// `o`'s speed follows its type and its Riot Shield ([`speed_factor`]), after a toggle or a tick of the shield. The
@@ -239,12 +241,12 @@ pub(crate) fn step(objects: &mut BTreeMap<ObjectId, Object>, first_new: ObjectId
         let Some(def) = def_of(o) else {
             continue;
         };
-        let up = if o.kind != def.raised {
-            shield.up.min(def.toggle_ticks).saturating_sub(1)
-        } else if mode(o) == Some(ShieldMode::Deferred) {
-            continue;
-        } else {
-            shield.up.saturating_add(1).min(def.toggle_ticks)
+        let up = match mode(o) {
+            None | Some(ShieldMode::Deferred) => continue,
+            Some(ShieldMode::Raising { .. } | ShieldMode::Raised) => shield.up.saturating_add(1).min(def.toggle_ticks),
+            Some(ShieldMode::Lowering { .. } | ShieldMode::Lowered) => {
+                shield.up.min(def.toggle_ticks).saturating_sub(1)
+            }
         };
         if up != shield.up {
             o.riot_shield = Some(RiotShield { up });

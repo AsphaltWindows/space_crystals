@@ -1,7 +1,7 @@
 //! Saves, replays and the hash (`ARCHITECTURE.md > Replays and golden hashes`): the held store and the eject queues
 //! are part of the state, and of nothing while they are empty.
 
-use sc_sim::network::TRANSIT_DELAY_TICKS;
+use sc_sim::defs::TRANSIT_DELAY_TICKS;
 use sc_sim::{ProductionCommand, Replay, Sim, Target};
 
 use super::*;

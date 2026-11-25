@@ -91,10 +91,10 @@ fn a_drone_on_its_way_back_takes_its_load_to_the_new_drop_off() {
     assert_eq!(orders(&app).len(), 1, "no order but the Gather");
 }
 
-/// `> AwaitingTarget` with Set Drop-off pending, its S lit up: a click on anything but an own Egress Node (the patch,
-/// the ground, an own portal, an enemy structure), under the Inactive pointer, is ignored, the target still awaited,
-/// and the feedback line says so (design change 0065). Escape cancels, and so does a right-click, which orders
-/// nothing ("Escape or right-click cancels").
+/// `systems/controls/selection_and_hud.md > AwaitingTarget[CommandType]` with Set Drop-off pending, its S lit up: a
+/// click on anything but an own Egress Node (the patch, the ground, an own portal, an enemy structure), under the
+/// Inactive pointer, is ignored, the target still awaited, and the feedback line says so (design change 0065). Escape
+/// cancels, and so does a right-click, which orders nothing ("Escape or right-click cancels").
 #[test]
 fn set_drop_off_ignores_an_invalid_target_and_escape_or_a_right_click_cancels_it() {
     let mut app = gathering_game();

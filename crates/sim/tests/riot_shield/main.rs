@@ -1,4 +1,4 @@
-//! The Peacekeeper's Riot Shield (`factions/gdo/units.md > Peacekeeper > Riot Shield (toggled ability)`;
+//! The Peacekeeper's Riot Shield (`factions/gdo/units/peacekeeper.md > Riot Shield (toggled ability)`;
 //! `sc_sim::riot_shield`): an ability command raises and lowers it, each taking the toggle time, and while it is up
 //! the Peacekeeper moves at half speed, never attacks (no new Attack orders, no auto-targeting, on Hold Position
 //! neither) and takes half the damage before armor, from every side. The toggle keeps the unit's orders

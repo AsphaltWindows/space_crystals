@@ -6,9 +6,10 @@ use glam::Vec2;
 use serde::{Deserialize, Serialize};
 
 use super::los::clamp_to_clear;
-use super::{GROUP_FIELD_MIN, Nav, NavClass, NavCounters, NavGrid, Search, los, smooth_avoiding};
+use super::{Nav, NavClass, NavCounters, NavGrid, Search, los, smooth_avoiding};
 use crate::hash::{StateHash, StateHasher};
 use crate::ids::ObjectId;
+use crate::tuning::paths::GROUP_FIELD_MIN;
 use crate::units::{Tick, TilePos};
 
 /// A unit's wish for a path: what `PathState::Wanted { since }` on its `Mover` turns into in phase 5c
@@ -158,7 +159,7 @@ pub fn find_path_within(
 }
 
 /// `docs/movement.md > 5.5`: serves one tick's path requests in `(since, id)` order within `budget` node
-/// expansions (normally [`super::PATH_BUDGET`]).
+/// expansions (normally [`crate::tuning::paths::PATH_BUDGET`]).
 ///
 /// - A job starts while the expansions of this call are below the budget, and always finishes. So the oldest
 ///   request is served every tick, and every request within bounded ticks.

@@ -23,12 +23,13 @@
 
 use crate::defs::{Resource, WorkerDef};
 use crate::mover::MoveStatus;
+use crate::tuning::gathering::RECHECK_TICKS;
 use crate::units::Tick;
 
 use super::super::state::{Gather, GatherPhase};
 use super::super::world::{KnownStation, Unit, World};
 use super::patch::end;
-use super::{Claims, Flow, RECHECK_TICKS, carrying};
+use super::{Claims, Flow, carrying};
 
 mod spot;
 

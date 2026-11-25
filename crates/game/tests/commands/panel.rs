@@ -122,7 +122,7 @@ fn enemy_and_neutral_selections_show_no_commands() {
 }
 
 /// `> DefaultState`: HoldPosition (E) and Stop (X) are issued at once, by hotkey or by a click on their button, to
-/// the whole selection (common commands); Shift queues them (`commands.md > Unit Command`).
+/// the whole selection (common commands); Shift queues them (`systems/controls/commands.md > Unit Command`).
 #[test]
 fn hotkeys_and_buttons_issue_immediate_commands() {
     let mut app = game();

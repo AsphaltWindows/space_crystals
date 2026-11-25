@@ -7,7 +7,8 @@
 //! V1 after every tick, which compares the records with those a fresh build keeps.
 
 use sc_sim::testing::{ScenarioBuilder, TestSim};
-use sc_sim::vision::{FOG_DELAY_TICKS, LastKnown};
+use sc_sim::tuning::vision::FOG_DELAY_TICKS;
+use sc_sim::vision::LastKnown;
 use sc_sim::{
     DebugCommand, ObjectId, ObjectKind, PlayerId, ResourceState, Sim, SpawnAt, SpawnSettings, TilePos, Vec2,
     VisibilityState,

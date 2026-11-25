@@ -1,4 +1,4 @@
-//! `systems/combat.md > ValidTarget` 3 for the Agent's pistol (`factions/syndicate/units.md > Agent > Attack`:
+//! `systems/combat.md > ValidTarget` 3 for the Agent's pistol (`factions/syndicate/units/agent.md > Attack`:
 //! TargetDomain Ground): an Agent never shoots an air unit, even one in its reach. No air unit exists yet, so a
 //! Peacekeeper on a Hover Craft base stands in (`defs::test_defs`); a Guard's laser rifle (Universal, design change
 //! 0186) shoots it, which shows it is a target for a weapon that may hit air.

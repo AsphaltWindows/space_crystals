@@ -16,19 +16,10 @@ use crate::map::Map;
 use crate::math::{self, PI};
 use crate::object::Object;
 use crate::riot_shield;
+use crate::tuning::combat::{
+    DIRECTIONAL_FRONT, DIRECTIONAL_HALF_ARC, DIRECTIONAL_REAR, DIRECTIONAL_SIDE, MINIMUM_DAMAGE,
+};
 use crate::units::TilePos;
-
-/// `systems/combat.md > MinimumDamage > MinimumDamage`: every single-target hit deals at least this much.
-pub const MINIMUM_DAMAGE: f32 = 0.5;
-
-/// `systems/combat.md > DirectionalArmor`: the half-width of the front and rear arcs, radians (±45°, 90° arcs).
-pub const DIRECTIONAL_HALF_ARC: f32 = PI / 4.0;
-/// `systems/combat.md > DirectionalArmor`: the multiplier of a hit from the front arc.
-pub const DIRECTIONAL_FRONT: f32 = 0.75;
-/// `systems/combat.md > DirectionalArmor`: from either side arc.
-pub const DIRECTIONAL_SIDE: f32 = 1.0;
-/// `systems/combat.md > DirectionalArmor`: from the rear arc.
-pub const DIRECTIONAL_REAR: f32 = 1.25;
 
 /// One attack's effect on its target, waiting on the tick's list until every unit has acted: the attack's Damage, and
 /// the target's modifiers as the shot found them (`systems/combat.md > DamageModifierOrder`), for [`resolve`].
@@ -101,10 +92,10 @@ pub fn resolve(hit: &Hit, shields: Option<f32>) -> Taken {
 /// - the RuggedTerrainDefenseBonus (`systems/units.md > LightInfantry`): the bonus's fraction of the damage is taken
 ///   off while the unit's centre is on a Rugged tile (a placeholder reading: the design doesn't say which tile counts
 ///   for a unit standing on several);
-/// - the Peacekeeper's raised Riot Shield (`factions/gdo/units.md > Peacekeeper > Riot Shield`): "a 50% pre-armor
+/// - the Peacekeeper's raised Riot Shield (`factions/gdo/units/peacekeeper.md > Riot Shield`): "a 50% pre-armor
 ///   reduction ... multiplying with other pre-armor reductions" (`riot_shield::damage_factor`).
 ///
-/// TODO: the Null Chamber exit buff (`factions/syndicate/structures.md > Tunnel Expansions > Null Chamber`)
+/// TODO: the Null Chamber exit buff (`factions/syndicate/structures/null_chamber.md`)
 /// multiplies in here.
 pub fn pre_armor_multiplier(map: &Map, o: &Object) -> f32 {
     let bonus = o

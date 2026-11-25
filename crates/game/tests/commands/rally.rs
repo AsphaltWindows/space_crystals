@@ -1,9 +1,10 @@
 //! Rally points from the command flow (slice M2-H1): a right-click with a Barracks selected sets its rally point
-//! (`> Production Building Default Right-Click`), and so does C, Set Rally Point, then a left-click
-//! (`factions/gdo/structures/barracks.md > ObjectInterfaceState[Barracks]`); on the Barracks itself either clears it
-//! (design change 0086). In a mixed selection each object does its own (design changes 0062 and 0063). While the
-//! Barracks is selected its rally point shows: a marker and a line from the building (design change 0087), red on an
-//! enemy until the sim turns it into a ground rally point where the enemy was last seen (design change 0088).
+//! (`systems/controls/selection_and_hud.md > CommandPanel > Production Building Default Right-Click`), and so does C,
+//! Set Rally Point, then a left-click (`factions/gdo/structures/barracks.md > ObjectInterfaceState[Barracks]`); on the
+//! Barracks itself either clears it (design change 0086). In a mixed selection each object does its own (design changes
+//! 0062 and 0063). While the Barracks is selected its rally point shows: a marker and a line from the building (design
+//! change 0087), red on an enemy until the sim turns it into a ground rally point where the enemy was last seen (design
+//! change 0088).
 
 use bevy::prelude::*;
 use sc_sim::{Command, ObjectId, OrderKind, PlayerId, ProductionCommand, Rally, Target};
@@ -52,10 +53,11 @@ fn shown(app: &App) -> Vec<RallyIndicator> {
     rally_indicators(sim, &Sight::new(sim, local_player(app), false), states)
 }
 
-/// `> Production Building Default Right-Click` (design change 0086): with a Barracks selected, a right-click on the
-/// ground, on an own unit, on an enemy or on a neutral object sets its rally point there, and a right-click on the
-/// Barracks itself clears it. The pointer shows Move over all of them ("Selection is a production building: Move
-/// (rally point)"). A rally point is set at once, Shift or not, and no unit gets an order.
+/// `systems/controls/selection_and_hud.md > CommandPanel > Production Building Default Right-Click` (design change
+/// 0086): with a Barracks selected, a right-click on the ground, on an own unit, on an enemy or on a neutral object
+/// sets its rally point there, and a right-click on the Barracks itself clears it. The pointer shows Move over all of
+/// them ("Selection is a production building: Move (rally point)"). A rally point is set at once, Shift or not, and no
+/// unit gets an order.
 #[test]
 fn a_right_click_sets_the_rally_point_and_on_the_barracks_clears_it() {
     let mut app = production_game(0, 0);
@@ -86,11 +88,11 @@ fn a_right_click_sets_the_rally_point_and_on_the_barracks_clears_it() {
     assert_eq!(interface(&app), InterfaceState::DefaultState);
 }
 
-/// `> Standard Slot Assignments > C`: Set Rally Point awaits its target, which the panel marks; a left-click on the
-/// ground or on an object sets the rally point there and returns to DefaultState, and one on the Barracks itself
-/// clears it. The pointer shows Move ("AwaitingTarget[SetRallyPoint] over ground or object: Move"). A Shift-click
-/// sets it and ends the targeting too (a placeholder reading: a rally point isn't queued). Esc, a right-click and
-/// Back cancel, and set nothing.
+/// `systems/controls/selection_and_hud.md > CommandPanel > Standard Slot Assignments > C`: Set Rally Point awaits its
+/// target, which the panel marks; a left-click on the ground or on an object sets the rally point there and returns to
+/// DefaultState, and one on the Barracks itself clears it. The pointer shows Move ("AwaitingTarget[SetRallyPoint] over
+/// ground or object: Move"). A Shift-click sets it and ends the targeting too (a placeholder reading: a rally point
+/// isn't queued). Esc, a right-click and Back cancel, and set nothing.
 #[test]
 fn c_then_a_click_sets_the_rally_point() {
     let mut app = production_game(0, 0);

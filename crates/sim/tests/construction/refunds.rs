@@ -1,4 +1,4 @@
-//! Refunds (`factions/gdo/structures.md > DeploymentCenter > Cancellation`): a cancel while constructing and
+//! Refunds (`factions/gdo/structures/deployment_center.md > Cancellation`): a cancel while constructing and
 //! once ready, and a constructor destroyed, by a removal or in combat, refunding as if cancelled (design change
 //! 0084).
 

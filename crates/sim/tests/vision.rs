@@ -4,7 +4,7 @@
 
 use VisibilityState::{Explored, Unexplored, Visible};
 use sc_sim::testing::{ScenarioBuilder, TestSim};
-use sc_sim::vision::FOG_DELAY_TICKS;
+use sc_sim::tuning::vision::FOG_DELAY_TICKS;
 use sc_sim::{
     DebugCommand, MoveStatus, ObjectId, ObjectKind, OrderKind, PlayerId, Sim, SpawnAt, Target, TickInputs, TilePos,
     Vec2, VisibilityState,

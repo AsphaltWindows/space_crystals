@@ -1,6 +1,6 @@
 //! The saturation curve of the reference field (slices M3-K1 and M3-K4): its income with a number of Drones, against
 //! the design's. Since design change 0236 (answering Q0055 and Q0072) the design's curve is slice M3-K3's
-//! measurement: `factions/colonists/units.md > Drone > Patch Occupancy`, "8 patches in a row with the Egress Node 2
+//! measurement: `factions/colonists/units/drone.md > Patch Occupancy`, "8 patches in a row with the Egress Node 2
 //! grid units from the row [...] saturate at about 24 working Drones (3 per patch, 32 Space Crystals per second
 //! [...]). 2 per patch (16 Drones, ≈25 per second) is the efficient point. Measured quirk, accepted for now: Drones
 //! 17–20 add almost nothing (≈26 at 20), and 21–24 add the rest, because third Drones mostly wait their turn until

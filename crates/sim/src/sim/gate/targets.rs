@@ -83,7 +83,7 @@ impl Sim {
         (self.objects.values()).any(|o| o.owner == Some(player) && o.extractor.is_some_and(|e| e.patch == id))
     }
 
-    /// The gate's rule for a Gather's patch (`factions/colonists/units.md > Drone > Unit Commands`: "right-click
+    /// The gate's rule for a Gather's patch (`factions/colonists/units/drone.md > Unit Commands`: "right-click
     /// Space Crystal patch"; design change 0139: a patch the player sees or remembers, "Gather" among the targeted
     /// commands): `player` knows of patch `id` ([`Sim::check_target_known`]), and takes it to be a Space Crystals
     /// patch with no mining structure on it (design change 0137: "Drones can't gather a patch covered by a plate"),

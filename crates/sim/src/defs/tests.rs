@@ -1,7 +1,10 @@
 use super::*;
-use serde::Deserialize;
-use serde::de::IntoDeserializer;
-use serde::de::value::{Error as ValueError, U32Deserializer};
+use ::serde::Deserialize;
+use ::serde::de::IntoDeserializer;
+use ::serde::de::value::{Error as ValueError, U32Deserializer};
+
+/// The defs as plain data: every def through JSON and back (plan decision T54).
+mod serde;
 
 /// Every variant, found through serde's derived `Deserialize`, which accepts a unit
 /// variant by its declaration index and rejects the first index past the last variant.
@@ -18,6 +21,42 @@ fn declared_kinds() -> Vec<ObjectKind> {
 fn all_lists_every_kind_in_declaration_order() {
     assert!(!ObjectKind::ALL.is_empty());
     assert_eq!(ObjectKind::ALL, declared_kinds().as_slice());
+}
+
+/// The registry's order and names are stored: the order in the state hash (`hash.rs`), the names in saves, replays and
+/// maps. New kinds go last.
+#[test]
+fn every_kind_keeps_its_place_and_name() {
+    let names: Vec<String> = ObjectKind::ALL
+        .iter()
+        .map(|kind| serde_json::to_string(kind).unwrap())
+        .collect();
+    let expected = [
+        "CrystalPatch",
+        "SupplyDeliveryStation",
+        "Peacekeeper",
+        "Guard",
+        "DeploymentCenter",
+        "Generator",
+        "Barracks",
+        "ExtractionFacility",
+        "ExtractionPlate",
+        "Drone",
+        "Beacon",
+        "EgressNode",
+        "RoboPortal",
+        "BioPortal",
+        "SabreLegionnaire",
+        "RifleLegionnaire",
+        "PeacekeeperShielded",
+        "Agent",
+        "Tunnel",
+        "Hideout",
+    ];
+    assert_eq!(names[..expected.len()], expected.map(|name| format!("\"{name}\"")));
+    for (index, &kind) in ObjectKind::ALL.iter().enumerate() {
+        assert_eq!(kind as usize, index, "{kind:?}");
+    }
 }
 
 #[test]
@@ -73,6 +112,20 @@ fn defs_are_consistent() {
             assert_eq!(def.sight_range, 0.0, "{name}: resources provide no vision");
             assert_eq!(def.armor, Armor::NONE, "{name}: resources have no armour");
         }
+        // `core/map_editor.md > Per-object Resource Values`: the map resources have them, each its own kind's, and
+        // valid; no other type has any.
+        assert_eq!(
+            def.default_settings.is_some(),
+            def.category == Category::Resource,
+            "{name}: per-object values"
+        );
+        if let Some(settings) = def.default_settings {
+            assert_eq!(
+                (settings.kind(), settings.check()),
+                (kind, Ok(())),
+                "{name}: {settings:?}"
+            );
+        }
         // Exactly the structures have structure attributes. Every structure so far is a destructible building
         // of a faction, on whole tiles of flat ground but for the underground ones (`core/map.md > Elevation >
         // Structures only on flat terrain`), whose footprint its symmetry type allows (`core/entities.md >
@@ -123,6 +176,15 @@ fn structure_is_consistent(def: &ObjectDef, structure: &StructureDef) {
     );
     tunnel_is_consistent(def, structure);
     assert!(def.selectable, "{name}: selectable");
+    // What a structure goes onto is a map resource (the plate's patch), and seeding the build area is the GDO's
+    // (`factions/gdo/structures/README.md > GDOBuildArea`).
+    if let Some(onto) = structure.onto {
+        assert_eq!(onto.def().category, Category::Resource, "{name} goes onto {onto:?}");
+    }
+    assert!(
+        !structure.seeds_build_area || def.faction == Some(Faction::Gdo),
+        "{name}: seeds a build area"
+    );
     // The Colonists have neither Power nor a build area (plan decision T21, `defs/colonists.rs`).
     if def.faction == Some(Faction::Colonists) {
         assert_eq!(
@@ -190,10 +252,10 @@ fn structure_is_consistent(def: &ObjectDef, structure: &StructureDef) {
     }
 }
 
-/// `defs_are_consistent` for a structure's tier table (plan decision T39): only the Tunnel has one, a surface
-/// structure (`factions/syndicate/tunnels.md > Tunnel > Tiers`). Its tiers are 1 to 3, each with more MaxHP, a wider
-/// Tunnel Area and at least the transit of the tier below, infantry from Tier 1; its type's MaxHP is that of Tier 1, the
-/// tier a Tunnel starts at.
+/// `defs_are_consistent` for a structure's tier table (plan decision T39): only the Tunnel has one, a surface structure
+/// (`factions/syndicate/tunnels.md > Tunnel > Tiers`). Its tiers are 1 to 3, each with more MaxHP, a wider Tunnel Area
+/// and at least the transit of the tier below, infantry from Tier 1; its type's MaxHP is that of Tier 1, the tier a
+/// Tunnel starts at.
 fn tunnel_is_consistent(def: &ObjectDef, structure: &StructureDef) {
     let name = def.name;
     assert_eq!(
@@ -209,6 +271,8 @@ fn tunnel_is_consistent(def: &ObjectDef, structure: &StructureDef) {
     assert_eq!((tunnel.tier(0), tunnel.tier(4)), (None, None), "{name}: Tiers 1 to 3");
     let base = tunnel.tier(crate::tunnel::BASE_TIER).map(|tier| tier.max_hp);
     assert_eq!(def.max_hp, base, "{name}: the MaxHP of Tier 1");
+    let regen = tunnel.regen_per_second;
+    assert!(regen.is_finite() && regen >= 0.0, "{name}: regeneration {regen}");
     for tier in tunnel.tiers {
         assert!(
             tier.max_hp.is_finite() && tier.max_hp > 0.0 && tier.transit.contains(&Transit::Infantry),
@@ -246,8 +310,8 @@ fn unit_is_consistent(def: &ObjectDef, unit: &UnitDef) {
         unit.base == UnitBase::LightInfantry,
         "{name}: RuggedTerrainDefenseBonus belongs to LightInfantry"
     );
-    // Each faction's army cost belongs to its own units: `factions/gdo/units.md > UnitControlCost`, the Syndicate's
-    // TunnelSpaceCost (`factions/syndicate/tunnels.md`), the Colonists' BeaconCapacityCost
+    // Each faction's army cost belongs to its own units: the GDO's UnitControlCost (`factions/gdo/overview.md > Unit
+    // Control`), the Syndicate's TunnelSpaceCost (`factions/syndicate/tunnels.md`), the Colonists' BeaconCapacityCost
     // (`factions/colonists/overview.md > Beacon Capacity`).
     let of = |faction| def.faction == Some(faction);
     assert_eq!(
@@ -278,97 +342,32 @@ fn unit_is_consistent(def: &ObjectDef, unit: &UnitDef) {
     }
     assert!(def.faction.is_some(), "{name}: units belong to a faction");
     assert!(def.half_extents().is_some(), "{name}: units have a collision box");
-}
-
-/// The stat blocks of the GDO structures: `factions/gdo/structures.md > DeploymentCenter`, `> Barracks`, and
-/// `factions/gdo/economy.md > Generator`, `> ExtractionFacility`, `> ExtractionPlate`.
-#[test]
-fn the_gdo_structures_follow_the_design() {
-    use ObjectKind as K;
-    use SymmetryType as S;
-    // Kind, size (w × h in the default orientation), symmetry, MaxHP, PointArmor, FullArmor, SightRange,
-    // Groupable, BuildRadiusExtension, Power.
-    let expected = [
-        (
-            K::DeploymentCenter,
-            (4, 4),
-            S::AAAA,
-            1000.0,
-            1.0,
-            16.0,
-            6.0,
-            false,
-            12,
-            30,
-        ),
-        (K::Generator, (2, 2), S::AAAA, 350.0, 1.0, 4.0, 3.0, true, 1, 20),
-        // `> Barracks > Size - 2x3 grid units (2 tall, 3 wide in the default orientation)` (design change 0079).
-        (K::Barracks, (3, 2), S::ABAC, 300.0, 1.0, 6.0, 4.0, true, 2, -30),
-        (
-            K::ExtractionFacility,
-            (3, 3),
-            S::AAAA,
-            500.0,
-            1.0,
-            9.0,
-            3.0,
-            false,
-            2,
-            -15,
-        ),
-        (K::ExtractionPlate, (1, 1), S::AAAA, 85.0, 2.0, 2.0, 0.0, true, 0, -3),
-    ];
-    for (kind, size, symmetry, hp, point, full, sight, groupable, extension, power) in expected {
-        let def = kind.def();
-        let structure = def.structure.as_ref().unwrap();
-        assert_eq!(
-            (def.category, def.faction, def.tile_size(), structure.symmetry),
-            (Category::Structure, Some(Faction::Gdo), Some(size), symmetry),
-            "{kind:?}"
-        );
-        assert_eq!(
-            (def.max_hp, def.armor, def.sight_range),
-            (Some(hp), Armor { point, full }, sight),
-            "{kind:?}"
-        );
-        assert_eq!(
-            (def.destructible, def.groupable, def.selectable),
-            (true, groupable, true),
-            "{kind:?}"
-        );
-        assert_eq!(
-            (structure.build_radius_extension, structure.power),
-            (extension, power),
-            "{kind:?}"
-        );
-        assert!(def.unit.is_none() && def.needs_flat_ground, "{kind:?}");
+    // A unit with two forms is one of them, and its other form's def has the same conversion
+    // (`factions/colonists/units/weapon_conversion.md`); a conversion takes time.
+    if let Some(conversion) = unit.conversion {
+        let other =
+            crate::toggle::other(conversion.forms, def.kind).unwrap_or_else(|| panic!("{name}: not one of its forms"));
+        let back = other.def().unit.as_ref().and_then(|u| u.conversion);
+        assert_eq!(back, Some(conversion), "{name}: its other form's conversion");
+        assert!(conversion.ticks >= 1, "{name}: {conversion:?}");
     }
-    // `> ExtractionPlate > MiningRate - 10 Space Crystals per 48 frames`, `> ResidualMiningRate - 1 Space
-    // Crystal per 48 frames`: the plate is the one structure that mines.
-    for &kind in ObjectKind::ALL {
-        let mining = kind.def().structure.as_ref().and_then(|s| s.mining);
-        let expected = (kind == K::ExtractionPlate).then_some(MiningDef {
-            load: 10,
-            residual: 1,
-            cycle_ticks: 48,
-        });
-        assert_eq!(mining, expected, "{kind:?}");
+    // So does a unit with a Riot Shield, whose two forms are its lowered and its raised type (design change 0173,
+    // `crate::toggle`); raising or lowering it takes time.
+    if let Some(shield) = unit.riot_shield {
+        let other = crate::toggle::other([shield.lowered, shield.raised], def.kind)
+            .unwrap_or_else(|| panic!("{name}: not one of its shield's types"));
+        let back = other.def().unit.as_ref().and_then(|u| u.riot_shield);
+        assert_eq!(back, Some(shield), "{name}: its other type's shield");
+        assert!(shield.toggle_ticks >= 1, "{name}: {shield:?}");
     }
-    // `factions/gdo/structures.md > DeploymentCenter > Constructs` and `factions/gdo/economy.md >
-    // ExtractionFacility > Constructs`: the two constructors, with each building's cost and time.
-    let recipe = |kind, cost, frames| Recipe { kind, cost, frames };
-    for &kind in ObjectKind::ALL {
-        let constructs = kind.def().structure.as_ref().map_or(&[][..], |s| s.constructs);
-        let expected = match kind {
-            K::DeploymentCenter => vec![
-                recipe(K::Generator, 100, 240),
-                recipe(K::Barracks, 200, 160),
-                recipe(K::ExtractionFacility, 200, 320),
-            ],
-            K::ExtractionFacility => vec![recipe(K::ExtractionPlate, 75, 400)],
-            _ => vec![],
-        };
-        assert_eq!(constructs, expected.as_slice(), "{kind:?}");
+    // A unit deploys into a building of its own faction, which takes time (`factions/colonists/economy.md > Beacon
+    // Deployment`).
+    if let Some(deploy) = unit.deploy {
+        let into = deploy.kind.def();
+        assert!(
+            into.structure.is_some() && into.faction == def.faction && deploy.frames >= 1,
+            "{name} deploys into {deploy:?}"
+        );
     }
 }
 
@@ -383,96 +382,4 @@ fn only_a_plate_and_a_patch_may_overlap() {
             assert_eq!(a.may_overlap(b), plate_on_patch, "{a:?} and {b:?}");
         }
     }
-}
-
-/// `factions/gdo/units.md > Peacekeeper`, `factions/syndicate/units.md > Guard`: the M1 units.
-#[test]
-fn the_m1_units_follow_the_design() {
-    let peacekeeper = ObjectKind::Peacekeeper.def();
-    let guard = ObjectKind::Guard.def();
-    assert_eq!(peacekeeper.silhouette(), Some(Vec2::new(24.0, 24.0)));
-    assert_eq!(guard.half_extents(), Some(Vec2::new(18.0, 18.0)));
-    assert_eq!((peacekeeper.max_hp, guard.max_hp), (Some(50.0), Some(80.0)));
-    let one = Armor { point: 1.0, full: 1.0 };
-    assert_eq!(
-        (peacekeeper.armor, guard.armor),
-        (one, one),
-        "PointArmor - 1, FullArmor - 1"
-    );
-    assert_eq!(
-        (peacekeeper.faction, guard.faction),
-        (Some(Faction::Gdo), Some(Faction::Syndicate))
-    );
-    let (pk, gd) = (peacekeeper.unit.as_ref().unwrap(), guard.unit.as_ref().unwrap());
-    assert_eq!((pk.base, gd.base), (UnitBase::LightInfantry, UnitBase::HeavyInfantry));
-    // Only TurnRateMovement exists in M1: 180°/tick, so every turn completes within a tick.
-    for unit in [pk, gd] {
-        let MovementAttrs::TurnRate {
-            turn_rate,
-            acceleration,
-            deceleration,
-            ..
-        } = unit.movement
-        else {
-            panic!("{:?} is not TurnRateMovement", unit.base);
-        };
-        assert_eq!(turn_rate, crate::math::PI);
-        assert_eq!((acceleration, deceleration), (None, None), "infinite");
-    }
-    assert_eq!((pk.movement.max_speed(), gd.movement.max_speed()), (4.0, 5.0));
-    let (pk_attack, gd_attack) = (pk.attack.unwrap(), gd.attack.unwrap());
-    assert_eq!(
-        (pk_attack.damage, pk_attack.range, pk_attack.reload_ticks),
-        (10.0, 4.0, 12)
-    );
-    assert_eq!(
-        (gd_attack.damage, gd_attack.range, gd_attack.reload_ticks),
-        (18.0, 3.0, 16)
-    );
-    let shield = pk.riot_shield.unwrap();
-    assert_eq!(shield.damage_factor, 0.5);
-    assert!(shield.toggle_ticks < 8, "under half a second (8 ticks)");
-    assert_eq!((pk.unit_control_cost, gd.tunnel_space_cost), (Some(1), Some(1)));
-}
-
-/// `factions/gdo/units.md > Peacekeeper > Riot Shield > Two unit types` (design change 0173): Peacekeeper (Shielded)
-/// is the Peacekeeper but for its name and "what the shield changes": "MaxSpeed is halved (4 → 2 space
-/// units/frame)". Its weapon is the same, which its shield keeps it from using (`riot_shield::allows_attack`); its
-/// Unit Control is the same ("Cost and Unit Control are the same for both types"), and so is its shield, which names
-/// both types. The Barracks produces the Peacekeeper only.
-#[test]
-fn the_shielded_peacekeeper_is_the_peacekeeper_at_half_speed() {
-    use ObjectKind as K;
-    let (peacekeeper, shielded) = (K::Peacekeeper.def(), K::PeacekeeperShielded.def());
-    assert_eq!(
-        (shielded.kind, shielded.name),
-        (K::PeacekeeperShielded, "Peacekeeper (Shielded)")
-    );
-    let (pk, sh) = (peacekeeper.unit.as_ref().unwrap(), shielded.unit.as_ref().unwrap());
-    assert_eq!((pk.movement.max_speed(), sh.movement.max_speed()), (4.0, 2.0));
-    let unit = UnitDef {
-        movement: pk.movement,
-        ..sh.clone()
-    };
-    assert_eq!(&unit, pk, "the same unit but for its MaxSpeed");
-    let object = ObjectDef {
-        kind: K::Peacekeeper,
-        name: peacekeeper.name,
-        unit: Some(unit),
-        ..shielded.clone()
-    };
-    // `ObjectDef` has no `PartialEq`: its fields, all of them, as `Debug` shows them.
-    assert_eq!(
-        format!("{object:?}"),
-        format!("{peacekeeper:?}"),
-        "the same object but for its kind and name"
-    );
-    let shield = sh.riot_shield.unwrap();
-    assert_eq!(
-        (shield.lowered, shield.raised),
-        (K::Peacekeeper, K::PeacekeeperShielded)
-    );
-    let barracks = K::Barracks.def().structure.as_ref().unwrap().production.unwrap();
-    let trained: Vec<ObjectKind> = barracks.recipes.iter().map(|recipe| recipe.kind).collect();
-    assert_eq!(trained, [K::Peacekeeper]);
 }

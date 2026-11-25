@@ -1,4 +1,4 @@
-//! A Convert flips the unit's target form (design change 0198, `factions/colonists/units.md > Weapon Conversion > A
+//! A Convert flips the unit's target form (design change 0198, `factions/colonists/units/weapon_conversion.md > A
 //! toggle sets a target form`): "Pressing R **flips the unit's target form**; the unit then works to get itself into
 //! that form. So however fast R is pressed, every unit that received the presses ends up in the same form". Its type
 //! switches at the press, its weapon when its conversion ends (`ARCHITECTURE.md > Object model > Type and form`).

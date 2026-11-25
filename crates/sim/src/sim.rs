@@ -1,12 +1,12 @@
-//! The simulation: state plus the fixed-order tick pipeline.
+//! The simulation: its state, and the fixed-order tick pipeline that advances it ([`Sim::step`], `sim/phase.rs`).
 
 use std::collections::BTreeMap;
 
 use glam::Vec2;
 use serde::{Deserialize, Serialize};
 
-use crate::command::{PlayerCommand, TickInputs};
 use crate::defs::ObjectKind;
+use crate::economy;
 use crate::economy::Outcome;
 use crate::economy::defeat;
 use crate::events::SimEvent;
@@ -15,17 +15,14 @@ use crate::ids::{ObjectId, PlayerId};
 use crate::map::Map;
 use crate::network::Held;
 use crate::object::{Object, Placement, ResourceState};
-use crate::orders::{Order, OrderGroup, OrderKind, Target, destinations};
+use crate::paths::NavState;
 use crate::paths::knowledge::PathKnowledge;
-use crate::paths::{self, NavState};
 use crate::player::Player;
 use crate::rng::Rng;
 use crate::scenario::{Scenario, ScenarioProblem, SpawnSettings};
 use crate::units::{Tick, TilePos};
 use crate::vision::{VisibilityState, Vision};
-use crate::{combat, economy, movement, orders, shields};
 
-use gate::Checked;
 pub use gate::Reject;
 use load::{SimState, serialize_held, serialize_objects};
 pub use phase::Phase;
@@ -277,244 +274,6 @@ impl Sim {
         h.finish()
     }
 
-    /// Advance exactly one tick. Phase order is fixed and documented in ARCHITECTURE.md.
-    pub fn step(&mut self, inputs: &TickInputs) {
-        self.step_observed(inputs, |_| {});
-    }
-
-    /// [`Sim::step`], calling `observe` as each [`Phase`] of the tick starts and with [`Phase::End`] when it is done,
-    /// for a measurement to time them (`tests/structures_perf.rs`). The sim does the same work either way and never
-    /// reads anything back, so an observer can't change the game.
-    pub fn step_observed(&mut self, inputs: &TickInputs, mut observe: impl FnMut(Phase)) {
-        observe(Phase::Start);
-        self.events.clear();
-        self.nav.begin_tick();
-        self.tick += 1;
-        for o in self.objects.values_mut() {
-            o.prev_pos = o.pos;
-            o.prev_facing = o.facing;
-        }
-        // `ARCHITECTURE.md > Tick pipeline`: objects that commands create during this tick are first updated in
-        // the next one. Ids only grow, so they are exactly the ids from here on.
-        let first_new = ObjectId(self.next_id);
-        // The defeat check compares with the structures each player owns as the tick starts (`economy::defeat`).
-        observe(Phase::DefeatOwners);
-        let owned_before = defeat::structure_owners(&self.objects, &self.players, self.outcome.as_ref());
-        observe(Phase::Commands);
-        for cmd in &inputs.commands {
-            self.apply_command(cmd);
-        }
-        observe(Phase::Behaviours);
-        // Modes (`sim/modes.rs`): after the commands, so that a toggle counts from its own tick; before 5a, so that
-        // the behaviours, the movement and the combat of the tick all see the mode it leaves.
-        self.step_modes(first_new);
-        // Phases 5a–5f, `docs/movement.md > 4`.
-        // 5a: after the commands, so an order acts in its own tick; before movement, so goals have one writer.
-        // The behaviours read the positions and the vision the last tick left (5f).
-        let mut reach = self.nav.take_reach();
-        let world = orders::world::World::new(
-            &self.map,
-            &self.vision,
-            &self.nav,
-            &self.objects,
-            self.tick,
-            self.auto_targeting,
-        )
-        .with_knowledge(&self.path_knowledge, self.nav_version);
-        orders::update(&mut self.objects, first_new, &world, &mut reach);
-        self.nav.put_reach(reach);
-        // The Drones that got to their sites in 5a deploy, or their orders fail; before 5b claims the footprints.
-        self.step_deployments(first_new);
-        // The units that walked into a Tunnel's entry path in 5a leave the map for the network, and the Enter orders
-        // that can't go on end (`sim/network.rs`). Here, as the deployments: before 5b to 5f, so that no grid,
-        // collision, shot or sight of this tick includes a unit that has gone in.
-        self.step_entries(first_new);
-        // The Attacks 5a found a unit can't carry out, its target too close (design change 0182), fail.
-        self.step_too_close(first_new);
-        // 5b: the movement below must collide with this tick's obstacles (the true grids).
-        observe(Phase::NavSync);
-        paths::sync(&mut self.nav, &self.objects, &mut self.nav_version);
-        // 5c: after the goals, before the movement that follows the paths. Each unit plans on what its owner knew
-        // at the end of the last tick (`paths::knowledge`).
-        observe(Phase::PathServing);
-        paths::serve(
-            &mut self.nav,
-            &mut self.objects,
-            first_new,
-            &self.path_knowledge,
-            self.nav_version,
-            self.tick,
-            &mut self.events,
-        );
-        // 5d: the one movement pipeline, the single place that moves units.
-        observe(Phase::Movement);
-        let (nav, scratch) = self.nav.for_movement();
-        movement::step(
-            &mut self.objects,
-            first_new,
-            &self.map,
-            nav,
-            scratch,
-            self.tick,
-            &mut self.events,
-        );
-        // 5e: shoots from the positions movement committed. The dead leave through the removal path; a footprint
-        // they leave behind no longer blocks, so the grids follow as in 5b.
-        // It reads the vision of the end of the last tick (5f below), as the design's ValidTarget asks, and its hits
-        // reveal the attackers their victims' owners don't see (design change 0177, `vision::reveal`).
-        // A unit turns at most its TurnRate per tick in all: the aim has what 5d's turn left (`movement::Turns`).
-        observe(Phase::Combat);
-        let turns = self.nav.turns();
-        let dead = combat::step(
-            &mut self.objects,
-            &self.map,
-            &mut self.vision,
-            turns,
-            first_new,
-            self.tick,
-            &mut self.events,
-        );
-        observe(Phase::Deaths);
-        if !dead.is_empty() {
-            self.remove_objects(&dead);
-            paths::sync(&mut self.nav, &self.objects, &mut self.nav_version);
-        }
-        // The Shields regenerate (plan decision T18): after 5e's hits and the removal of the dead, so that the dead
-        // never do; before the economy, whose transformations then raise them with their maxima.
-        observe(Phase::Shields);
-        shields::step(&mut self.objects, first_new);
-        // The economy (plan decision T5): after 5e, so that the buildings destroyed this tick count for nothing in
-        // it; before 5f, so that what it brings into the game is seen in its own tick.
-        observe(Phase::Economy);
-        let depleted = economy::step(&mut self.objects, &mut self.players, first_new, &mut self.events);
-        // `core/map.md > SpaceCrystalsPatch`: the patches the workers emptied disappear, and their tiles open
-        // (design change 0038), so the grids follow as after 5e's deaths.
-        if !depleted.is_empty() {
-            self.remove_objects(&depleted);
-            paths::sync(&mut self.nav, &self.objects, &mut self.nav_version);
-        }
-        // The transformations (slice M3-E, `crate::transform`), part of the economy phase after construction (plan
-        // decision T5's position): here, because completing one turns its functions on from the sim's objects.
-        self.step_transforms(first_new);
-        // The producers (slice M2-D2), part of the economy phase: here, not inside `economy::step`, because a
-        // finished unit is inserted into the game. Before 5f, so that it is seen in its own tick.
-        self.step_production(first_new);
-        // The Tunnel Network (`sim/network.rs`), part of the economy phase: the units inside regenerate, then each
-        // Tunnel's eject queue lets its first unit out onto the exit path if that is clear. After the producers, so
-        // that a unit a Hideout finished in this tick with a surface rally comes out in it; after 5d, so that a unit
-        // never moves in the tick it appears; before 5f, so that it is seen in it.
-        self.step_network();
-        // The defeat check ends the economy phase (plan decisions T5 and T8, slice M2-F2): after every way a
-        // structure leaves the game; before 5f, so that the units a defeat makes neutral are no one's eyes in its
-        // own tick.
-        observe(Phase::Defeat);
-        defeat::step(
-            &mut self.objects,
-            &mut self.players,
-            &mut self.outcome,
-            &owned_before,
-            self.tick,
-            &mut self.events,
-        );
-        // A defeated player's network goes with their last structure (`sim/network.rs`).
-        self.clear_defeated_networks();
-        // 5f: sees the tick's final positions, this tick's new objects included; the fog delays and reveals that end
-        // in this tick end (`vision::linger`, `vision::reveal`).
-        observe(Phase::Vision);
-        self.vision.update(&self.map, self.objects.values(), self.tick);
-        self.update_supply_stations(first_new);
-        // Last: the records of what each player sees keep the tick's final state, the deliveries included.
-        self.vision.remember(self.tick, |id| self.objects.get(&id));
-        // Rally points on enemies follow them only while their owner sees them (design change 0088): on the
-        // vision this tick leaves.
-        self.follow_targets();
-        // Path knowledge, after everything it follows from (the objects, the vision and its records): what each
-        // player has seen by now of the map's resources, then its grids for the next tick's plans, rebuilt at most
-        // once per player and tick. Nothing after this may change the objects or the vision.
-        observe(Phase::PathKnowledge);
-        self.path_knowledge.observe(&self.vision);
-        paths::sync_known(&mut self.nav, &self.objects, &self.vision, &mut self.path_knowledge);
-        debug_assert!(
-            self.nav.matches(&self.objects),
-            "a blocking footprint changed after phase 5b: sync the grids again (`paths::sync`)"
-        );
-        observe(Phase::End);
-    }
-
-    /// `ARCHITECTURE.md > Commands, events and replays`: every command passes the gate ([`Sim::validate`]) first.
-    /// A rejected one changes nothing; player input never panics the sim. The one rejection the sim reports is a
-    /// Place the placement check refuses (plan decision T4, `Sim::report_refusal`).
-    fn apply_command(&mut self, cmd: &PlayerCommand) {
-        let checked = match self.check(cmd) {
-            Ok(checked) => checked,
-            Err(reject) => return self.report_refusal(cmd, reject),
-        };
-        match checked {
-            Checked::Order { units, kind, queue } => self.give_order(&units, kind, queue),
-            Checked::Ability { units, ability } => self.use_ability(&units, ability),
-            Checked::Spawn {
-                kind,
-                owner,
-                pos,
-                placement,
-            } => {
-                self.insert_object(kind, owner, pos, placement, None);
-            }
-            Checked::Remove(id) => self.remove_objects(&[id]),
-            Checked::Teleport { id, pos } => {
-                if let Some(o) = self.objects.get_mut(&id) {
-                    // No interpolation from the old position.
-                    o.pos = pos;
-                    o.prev_pos = pos;
-                    // A path from the old position leads nowhere now.
-                    if let Some(mover) = &mut o.mover {
-                        mover.repath(self.tick);
-                        // Nor does it arrive with the speed it had (`Mover::momentum`, slice M3-G).
-                        mover.momentum = glam::Vec2::ZERO;
-                    }
-                }
-            }
-            Checked::AutoTargeting(on) => self.auto_targeting = on,
-            Checked::SetResources { player, banks } => self.set_resources(player, banks),
-            Checked::SetTier { id, tier } => self.set_tier(id, tier),
-            Checked::Eject { tunnel, unit } => self.queue_eject(tunnel, unit, None),
-            Checked::Production { player, plan } => self.apply_production(player, plan),
-            Checked::Construction { player, resolved } => self.apply_construction(player, resolved),
-        }
-    }
-
-    /// `systems/controls/commands.md > Unit Command`: one order for each of `units` (checked: unique existing
-    /// units), sharing a new order group. A location order (Move to a point, AttackMove, Patrol) gives each unit of a
-    /// group its own destination by the magic box (`> Group Destinations (Magic Box)`, `docs/movement.md > 6.4`),
-    /// resolved here, at the click, and kept in the unit's order (design change 0030); a Shift-queued one builds the
-    /// box where the units' earlier orders leave them (design change 0029). Orders only fill queues here; phase 5a
-    /// starts them.
-    fn give_order(&mut self, units: &[ObjectId], kind: OrderKind, queue: bool) {
-        let group = OrderGroup(self.next_group);
-        self.next_group = self.next_group.wrapping_add(1);
-        let slots = match kind {
-            OrderKind::Move(Target::Point(click)) | OrderKind::AttackMove(click) | OrderKind::Patrol(click) => {
-                // One player's units (the gate), sent by what that player knows of the ground.
-                let owner = units.first().and_then(|id| self.objects.get(id)).and_then(|o| o.owner);
-                if let Some(player) = owner {
-                    self.nav.ensure_known(player);
-                }
-                destinations::assign(self.nav.planning(owner), &self.map, &self.objects, units, click, queue)
-            }
-            OrderKind::Move(Target::Object(_)) | OrderKind::Attack(_) | OrderKind::Hold | OrderKind::Stop => {
-                vec![None; units.len()]
-            }
-            OrderKind::Gather(_) | OrderKind::DropOff(_) | OrderKind::Deploy { .. } => vec![None; units.len()],
-            OrderKind::Enter(_) => vec![None; units.len()],
-        };
-        for (id, slot) in units.iter().zip(slots) {
-            if let Some(orders) = self.objects.get_mut(id).and_then(|o| o.orders.as_mut()) {
-                // A full queue drops the order for this unit only.
-                orders.give(Order { kind, group, slot }, queue);
-            }
-        }
-    }
-
     /// Insert an object at a checked spot, with its type's initial state. Its per-object values are `settings`,
     /// or the kind's defaults if those are missing or belong to another kind ([`SpawnSettings::resolve`]).
     fn insert_object(
@@ -628,6 +387,7 @@ impl Sim {
     }
 }
 
+mod commands;
 mod construction;
 mod deploy;
 mod gate;

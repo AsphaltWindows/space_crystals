@@ -14,8 +14,9 @@
 //!
 //! Every `TestSim` checks the invariants I1–I7 and V1 after each tick.
 
-use sc_sim::orders::{Auto, Behaviour, IDLE_LEASH_GU};
+use sc_sim::orders::{Auto, Behaviour};
 use sc_sim::testing::{ScenarioBuilder, TestSim};
+use sc_sim::tuning::orders::IDLE_LEASH_GU;
 use sc_sim::{
     Command, DebugCommand, MoveGoal, MoveStatus, ObjectId, ObjectKind, OrderKind, PlayerCommand, PlayerId, Shape,
     SimEvent, SpawnAt, Target, TargetView, Tick, TilePos, Vec2, gu,

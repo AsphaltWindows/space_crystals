@@ -13,7 +13,7 @@ The second command runs the ignored measurements: the Colonists' lines to 6:00, 
 
 ## The GDO (slice M2-J1)
 
-The GDO player starts on `maps/dev_skirmish.json` with the reference base (`> Opening Economy Baseline`).
+The GDO player starts on `maps/dev_skirmish.json` with the reference base (`factions/gdo/economy.md > Opening Economy Baseline`).
 
 | Check | Measured | Design |
 |---|---|---|
@@ -23,7 +23,7 @@ The GDO player starts on `maps/dev_skirmish.json` with the reference base (`> Op
 | Clean Barracks | starts at 48.1 s, ready at 58.0 s | about 48 / 58 with lumps |
 | All-in Barracks | starts at 15.1 s at power −21; production at 58.8% | about 15 s; about 59% |
 
-Lumps of 10 shift the design's continuous-income timings by about 2 s, which the design allows for. Costs, build frames, the power ratio, lumps, cycles and refunds are checked exactly. The reference line's income at the times of `> Economy Targets` is checked against its plates landing every 25 s, each mining 10/3 SC/s from then. That model was the table's GDO column until design change 0236; the column is now the line measured as the Colonists' oracle measures it (below).
+Lumps of 10 shift the design's continuous-income timings by about 2 s, which the design allows for. Costs, build frames, the power ratio, lumps, cycles and refunds are checked exactly. The reference line's income at the times of `factions/gdo/economy.md > Economy Targets` is checked against its plates landing every 25 s, each mining 10/3 SC/s from then. That model was the table's GDO column until design change 0236; the column is now the line measured as the Colonists' oracle measures it (below).
 
 ## The Colonists (slices M3-K1, M3-K3 and M3-K4)
 
@@ -37,7 +37,7 @@ Income at a time is the crystals delivered over the 21 s centred on that time. A
 
 ### The measured economy is the design (design change 0236, slice M3-K4)
 
-Design change 0236 answered Q0055 and Q0072: the measured economy is the design, and the Drone keeps the numbers of design change 0205. The table of `> Economy Targets` is now the measurement below, slice M3-K3's, rounded. Its Colonists column is the reference line, and its GDO column is M2's reference line measured over the same window. No game number changed.
+Design change 0236 answered Q0055 and Q0072: the measured economy is the design, and the Drone keeps the numbers of design change 0205. The table of `factions/gdo/economy.md > Economy Targets` is now the measurement below, slice M3-K3's, rounded. Its Colonists column is the reference line, and its GDO column is M2's reference line measured over the same window. No game number changed.
 
 The oracle checks every figure of both columns against the table, within the ±15% of design change 0108. The table only rounds the measurement, so every figure is within 0.5% of it.
 
@@ -108,7 +108,7 @@ The saturation curve against the design's estimates then:
 | 16 | 25.34 | 23 | +10.2% |
 | 24 | 32.00 | 32 | +0.0% |
 
-Full saturation took 24 Drones dealt out, as the design estimated (`> Reference check`: about 24), and 25 sent with one command. The design's other estimate, 18–22 (`factions/colonists/units/drone.md > Patch Occupancy`), was low.
+Full saturation took 24 Drones dealt out, as the design estimated (`factions/gdo/economy.md > Reference check`: about 24), and 25 sent with one command. The design's other estimate, 18–22 (`factions/colonists/units/drone.md > Patch Occupancy`), was low.
 
 **The targets then:**
 
@@ -156,7 +156,7 @@ Against the design's estimates then:
 | 16 | 23.10 | 23 | +0.4% |
 | 24 | 26.24 | 32 | **−18.0%** |
 
-Full saturation (8 patches at 4 SC/s) took 27 Drones. The design estimated about 24 (`> Reference check`) or 18–22 (`factions/colonists/units/drone.md > Patch Occupancy`).
+Full saturation (8 patches at 4 SC/s) took 27 Drones. The design estimated about 24 (`factions/gdo/economy.md > Reference check`) or 18–22 (`factions/colonists/units/drone.md > Patch Occupancy`).
 
 **The targets then:**
 

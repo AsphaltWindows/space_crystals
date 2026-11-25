@@ -36,7 +36,10 @@ fn warp_ins_take_their_warp_in_time_and_work_from_the_next_tick() {
             Some((at(x, y), kind.def().tile_size().unwrap().0))
         );
         let w = transform(&t, 1);
-        assert_eq!((w.from, w.paid, w.total, w.frames_done()), (Beacon, cost, frames, 1));
+        assert_eq!(
+            (w.from, w.paid, w.progress.total, w.frames_done()),
+            (Beacon, cost, frames, 1)
+        );
         assert_eq!(w.from_placement.map(|p| p.origin), Some(at(8, 6)));
         let trained = unit.map(|unit| PlayerCommand {
             player: P1,

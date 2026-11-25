@@ -1,4 +1,4 @@
-//! What the workers' scans read of the snapshot (`orders::gather`; `factions/colonists/units.md > Drone > Patch
+//! What the workers' scans read of the snapshot (`orders::gather`; `factions/colonists/units/drone.md > Patch
 //! Occupancy (one Drone per patch)`): the patches and the drop-offs, who mines and who waits where, whether a
 //! worker can reach a patch, and the patches and the fixed objects as a worker's owner knows them (design change
 //! 0139: [`World::known_patch`], [`World::known_fixed`]). And the Supply Delivery Stations (slice M4-I): the Supplies
@@ -212,7 +212,7 @@ fn pick_up(objects: &BTreeMap<ObjectId, Object>, o: &Object) -> Option<ObjectId>
     }
 }
 
-/// Whether worker `o` is within its MiningReach of `patch` (`factions/colonists/units.md > Drone > Gathering`).
+/// Whether worker `o` is within its MiningReach of `patch` (`factions/colonists/units/drone.md > Gathering`).
 fn within_reach(objects: &BTreeMap<ObjectId, Object>, o: &Object, patch: ObjectId) -> bool {
     let (Some(def), Some(patch)) = (worker_def(o.kind), objects.get(&patch)) else {
         return false;

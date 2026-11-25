@@ -1,4 +1,4 @@
-//! Construction (slice M2-D1; `factions/gdo/structures.md > DeploymentCenter`, `factions/gdo/economy.md >
+//! Construction (slice M2-D1; `factions/gdo/structures/deployment_center.md`, `factions/gdo/economy.md >
 //! ExtractionFacility`): the Deployment Center and the Extraction Facility build one building at a time and hold it
 //! ready to place. One test per acceptance point of the plan (`artifacts/director/m2-plan.md` §3.3 D1) and per
 //! verification point of design changes 0084 (a destroyed constructor refunds as if cancelled) and 0089 (the power

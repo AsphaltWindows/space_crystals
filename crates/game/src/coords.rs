@@ -1,5 +1,5 @@
 //! Sim ↔ Bevy coordinates, the terrain's height on screen, picking, and draw order (`ARCHITECTURE.md > Client
-//! architecture > Visuals`, `> Height and picking`).
+//! architecture > Visuals`: Coordinates, Picking and Draw order).
 //!
 //! 1 Bevy world unit = 1 space unit. Three spaces:
 //! - **ground**: the sim's positions (space units, +y south);

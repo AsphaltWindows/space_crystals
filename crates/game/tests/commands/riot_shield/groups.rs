@@ -86,11 +86,11 @@ fn six_shielded_of_ten_are_a_group_of_their_own_until_the_other_four_raise_their
     assert!(ten.iter().all(|&id| state(&app, id) == (SHIELDED, ShieldMode::Raised)));
 }
 
-/// `> CommandPanel`: in a mixed selection R is a group command, for the ActiveGroup alone ("the shield command goes
-/// to the ActiveGroup", design change 0173), and with the Guards active R is empty. The Peacekeepers raising their
-/// shields leave their group, which goes; the group they join becomes the ActiveGroup, in its DefaultState (design
-/// change 0199: "Its members changed type and joined another group [...] the group they joined becomes active. The
-/// command panel resets to that group's default state").
+/// `systems/controls/selection_and_hud.md > CommandPanel`: in a mixed selection R is a group command, for the
+/// ActiveGroup alone ("the shield command goes to the ActiveGroup", design change 0173), and with the Guards active R
+/// is empty. The Peacekeepers raising their shields leave their group, which goes; the group they join becomes the
+/// ActiveGroup, in its DefaultState (design change 0199: "Its members changed type and joined another group [...] the
+/// group they joined becomes active. The command panel resets to that group's default state").
 #[test]
 fn in_a_mixed_selection_r_goes_to_the_active_group() {
     let mut app = game();

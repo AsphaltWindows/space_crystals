@@ -1,4 +1,4 @@
-//! One Drone's loop (`factions/colonists/units.md > Drone > Gathering`): its trip, pinned at 73 ticks (`TRIP`), and
+//! One Drone's loop (`factions/colonists/units/drone.md > Gathering`): its trip, pinned at 73 ticks (`TRIP`), and
 //! mining interrupted by another order (design change 0130, `> Interrupted mining`).
 
 use super::*;

@@ -1,11 +1,11 @@
 //! Fog of war (`core/vision.md`): the local player's view of the map through its vision at the end of the latest
 //! tick (`Sim::vision`). Display only: the sim computes every player's vision whatever the client shows.
 //!
-//! - **What shows** ([`Sight`]): with the fog on, the local player sees its own objects and everything on its
-//!   Visible tiles in real time (`> Visible`); on Explored tiles the terrain, and the structures and resources it
-//!   remembers in their last-known state, never the live objects there (`> Explored`: the sim's records,
-//!   `PlayerVision::remembered`); on Unexplored tiles nothing (`> Unexplored`). The object visuals
-//!   ([`hide_unseen_objects`], `object_render::remembered`), the combat effects, the path overlay, the command
+//! - **What shows** ([`Sight`]): with the fog on, the local player sees its own objects and everything on its Visible
+//!   tiles in real time (`core/vision.md > Visible`); on Explored tiles the terrain, and the structures and resources
+//!   it remembers in their last-known state, never the live objects there (`core/vision.md > Explored`: the sim's
+//!   records, `PlayerVision::remembered`); on Unexplored tiles nothing (`core/vision.md > Unexplored`). The object
+//!   visuals ([`hide_unseen_objects`], `object_render::remembered`), the combat effects, the path overlay, the command
 //!   indicators, the InfoPanel and the selection (`selection::pick`) all ask it.
 //! - **Spectating** (`core/game_rules.md > End of Game`, "Defeated before the end", design change 0102): a defeated
 //!   player watches with their allies' vision, never a full map reveal. A sight looks through the union of the

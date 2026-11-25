@@ -1,6 +1,7 @@
 use super::*;
 use crate::map::Map;
-use crate::vision::{FOG_DELAY_TICKS, VisibilityState, Vision};
+use crate::tuning::vision::FOG_DELAY_TICKS;
+use crate::vision::{VisibilityState, Vision};
 
 const P1: PlayerId = PlayerId(1);
 const P2: PlayerId = PlayerId(2);

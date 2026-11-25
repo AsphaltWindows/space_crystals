@@ -54,7 +54,7 @@ fn a_unit_heads_for_a_hidden_wall_sees_it_and_re_routes() {
     assert_eq!(failed_moves(&t), 0);
     assert_eq!(
         t.mover(2).repaths_left,
-        sc_sim::mover::MAX_REPATHS,
+        sc_sim::tuning::movement::MAX_REPATHS,
         "the re-route isn't a counted repath"
     );
 }

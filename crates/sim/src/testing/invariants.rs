@@ -17,13 +17,14 @@ use glam::Vec2;
 use crate::command::{Command, DebugCommand, TickInputs};
 use crate::defs::{Domain, MovementModel};
 use crate::ids::ObjectId;
-use crate::mover::{Locomotion, MAX_REPATHS, MoveGoal, MoveStatus, Mover, PathState};
+use crate::mover::{Locomotion, MoveGoal, MoveStatus, Mover, PathState};
 use crate::nav;
 use crate::object::Object;
 use crate::orders::{OrderKind, Target, gather};
 use crate::paths::boxes_overlap;
 use crate::production::ExitDoor;
 use crate::sim::Sim;
+use crate::tuning::movement::MAX_REPATHS;
 use crate::units::Tick;
 
 /// I6: a path request is served within this many ticks. Requests are served oldest first and at least one per
@@ -327,7 +328,7 @@ fn path_knowledge(sim: &Sim) -> Result<(), Violation> {
 /// I1's two exceptions (design change 0106): whether the units `a` and `b` of one layer, whose boxes overlap as
 /// the tick ends, may. `before` is what the checker saw of the units a tick earlier.
 ///
-/// 1. **Gathering Drones** (`factions/colonists/units.md > Drone > Gathering Drones pass through each other`):
+/// 1. **Gathering Drones** (`factions/colonists/units/drone.md > Gathering Drones pass through each other`):
 ///    both are Drones on a Gather job. The movement step saw a unit so if it is on one now, or was a tick earlier
 ///    and has no order now: an order ends after the movement only by leaving the unit idle (a Drop Off whose
 ///    drop-off was destroyed in phase 5e), while an order given in this tick began before the movement and is the

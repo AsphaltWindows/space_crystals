@@ -347,10 +347,10 @@ fn esc_right_click_and_back_cancel_targeting() {
     assert_eq!(interface(&app), AWAIT_PATROL);
 }
 
-/// `commands.md > Unit Command`: Shift queues a targeted command too. A Shift-click keeps the target awaited while
-/// Shift is held (design change 0070, which replaced the return to DefaultState after every issuing click); the
-/// click helper lets go of Shift after the click, which ends targeting. Shift pressed for the hotkey and held
-/// through the click is the same.
+/// `systems/controls/commands.md > Unit Command`: Shift queues a targeted command too. A Shift-click keeps the target
+/// awaited while Shift is held (design change 0070, which replaced the return to DefaultState after every issuing
+/// click); the click helper lets go of Shift after the click, which ends targeting. Shift pressed for the hotkey and
+/// held through the click is the same.
 #[test]
 fn a_shift_click_queues_the_targeted_order() {
     let mut app = game();

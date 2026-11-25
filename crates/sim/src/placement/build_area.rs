@@ -1,4 +1,4 @@
-//! The GDO build area (`factions/gdo/structures.md > GDOBuildArea`): where a GDO player may place buildings.
+//! The GDO build area (`factions/gdo/structures/README.md > GDOBuildArea`): where a GDO player may place buildings.
 
 use std::ops::Range;
 
@@ -9,7 +9,7 @@ use crate::object::Placement;
 use crate::player::Faction;
 use crate::units::TilePos;
 
-/// `factions/gdo/structures.md > GDOBuildArea`: a player's buildable area. Each GDO building they own adds its
+/// `factions/gdo/structures/README.md > GDOBuildArea`: a player's buildable area. Each GDO building they own adds its
 /// footprint grown by its BuildRadiusExtension on every side, diagonals included, so a square building adds a square
 /// (design change 0091: the starting Deployment Center, 4 × 4 with 12, adds 28 × 28 tiles). The area is the union of
 /// what the buildings standing now add: it shrinks when one is destroyed, unless another covers the same tiles, and it
@@ -112,12 +112,12 @@ impl BuildArea {
     }
 }
 
-/// Whether buildings of `kind` seed the build area instead of having to reach it (`factions/gdo/structures.md >
-/// GDOBuildArea`: "Seeded by each Deployment Center's and each Outpost's BuildRadiusExtension"): the Deployment
-/// Center. The Outpost, which doesn't exist yet, will be the other: it "can be deployed outside the current build
-/// area".
+/// Whether buildings of `kind` seed the build area instead of having to reach it (`factions/gdo/structures/README.md >
+/// GDOBuildArea`: "Seeded by each Deployment Center's and each Outpost's BuildRadiusExtension"), as their def says
+/// (`StructureDef::seeds_build_area`): the Deployment Center. The Outpost, which doesn't exist yet, will be the other:
+/// it "can be deployed outside the current build area".
 pub fn seeds_build_area(kind: ObjectKind) -> bool {
-    kind == ObjectKind::DeploymentCenter
+    kind.def().structure.as_ref().is_some_and(|s| s.seeds_build_area)
 }
 
 /// Whether placing a building of `kind` needs a tile in its owner's build area: a GDO building that doesn't seed it

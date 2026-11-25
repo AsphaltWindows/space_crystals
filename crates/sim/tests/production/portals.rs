@@ -1,9 +1,9 @@
-//! The Colonists' portals (slice M3-D; slice M3-D2, design change 0145): `factions/colonists/structures.md > Portals
-//! > Portal Exits (energy doorway)`, `> Robo Portal`, `> Bio Portal > Exit Behavior`. A finished unit materializes at
-//! the portal's centre and walks straight out along its heading: towards the rally point if that direction is open,
-//! else the nearest open one whose way out is free; with no rally point, a random open free one, drawn from the
-//! sim's Rng. The Robo Portal is open all round, the Bio Portal through its two A sides. A portal whose way out is
-//! blocked: `portal_stalls`.
+//! The Colonists' portals (slice M3-D; slice M3-D2, design change 0145): `factions/colonists/structures/README.md >
+//! Portals > Portal Exits (energy doorway)`, `factions/colonists/structures/robo_portal.md`,
+//! `factions/colonists/structures/bio_portal.md > Exit Behavior`. A finished unit materializes at the portal's centre
+//! and walks straight out along its heading: towards the rally point if that direction is open, else the nearest open
+//! one whose way out is free; with no rally point, a random open free one, drawn from the sim's Rng. The Robo Portal is
+//! open all round, the Bio Portal through its two A sides. A portal whose way out is blocked: `portal_stalls`.
 
 use sc_sim::production::exit::HEADINGS;
 use sc_sim::testing::{ScenarioBuilder, TestSim, dangling_references};
@@ -154,8 +154,9 @@ pub(super) fn rng_of(t: &TestSim) -> serde_json::Value {
 }
 
 /// 0145's Verification: "Robo Portal rallied northeast: Drones emerge from the centre heading northeast"; and the
-/// plan's timing: "Drone 50 SC paid at queue; ordered tick t → appears at end of t+159, acts from t+160" (`> Robo
-/// Portal > Produces`: "Drone: 50 Space Crystals, 160 frames (10 seconds)"). With a rally point nothing is drawn.
+/// plan's timing: "Drone 50 SC paid at queue; ordered tick t → appears at end of t+159, acts from t+160"
+/// (`factions/colonists/structures/robo_portal.md > Produces`: "Drone: 50 Space Crystals, 160 frames (10 seconds)").
+/// With a rally point nothing is drawn.
 #[test]
 fn a_drone_takes_160_frames_and_emerges_from_the_centre_heading_for_its_rally_point() {
     let mut t = robo_portal().start();
@@ -257,11 +258,12 @@ fn nearer_end(d: Vec2, towards: Vec2) -> Vec2 {
     if key(ends[0]) >= key(ends[1]) { ends[0] } else { ends[1] }
 }
 
-/// The Bio Portal's arc in all 8 orientations (`> Bio Portal > Exit Behavior`: its two open sides are its A sides,
-/// top and right unturned, design change 0079, turning with it): towards a rally point in an open direction, else by
-/// the nearer end of the arc (the clockwise one of two as near); with none, an open direction. Each Sabre walks out
-/// through an open side (invariant I2 holds it to the arc every tick) at 5 su a tick, and is clear of the portal
-/// within 33 ticks: 114 su from its centre straight across, √2 times as far along a diagonal.
+/// The Bio Portal's arc in all 8 orientations (`factions/colonists/structures/bio_portal.md > Exit Behavior`: its two
+/// open sides are its A sides, top and right unturned, design change 0079, turning with it): towards a rally point in
+/// an open direction, else by the nearer end of the arc (the clockwise one of two as near); with none, an open
+/// direction. Each Sabre walks out through an open side (invariant I2 holds it to the arc every tick) at 5 su a tick,
+/// and is clear of the portal within 33 ticks: 114 su from its centre straight across, √2 times as far along a
+/// diagonal.
 #[test]
 fn the_bio_portal_releases_its_units_only_through_its_a_sides_in_all_eight_orientations() {
     let (n, e, s, w) = (Vec2::NEG_Y, Vec2::X, Vec2::Y, Vec2::NEG_X);
@@ -406,10 +408,10 @@ fn a_sabre_takes_160_frames_at_the_bio_portal_and_walks_straight_out() {
     assert_eq!((t.pos(unit.0), t.status(unit.0)), (point, MoveStatus::Arrived));
 }
 
-/// Design change 0136 (`systems/controls/selection_and_hud.md > What a rally point makes a new unit do`): each new
-/// unit gets its own default right-click command on the rally target: the Drone, unarmed, a Move to the enemy
-/// structure (`> Drone > Right-Click Resolution`), the Bio Portal's Sabre an Attack; both head for where the enemy
-/// was seen. The enemy is a GDO Generator east of the portal, which a Drone of player 1 keeps in sight.
+/// Design change 0136 (`systems/controls/selection_and_hud.md > What a rally point makes a new unit do`): each new unit
+/// gets its own default right-click command on the rally target: the Drone, unarmed, a Move to the enemy structure
+/// (`factions/colonists/units/drone.md > Right-Click Resolution`), the Bio Portal's Sabre an Attack; both head for
+/// where the enemy was seen. The enemy is a GDO Generator east of the portal, which a Drone of player 1 keeps in sight.
 #[test]
 fn a_drone_rallied_on_an_enemy_moves_to_it_and_a_sabre_attacks_it() {
     // The Generator on tiles (18, 7) to (19, 8): its centre (1216, 512). The Drone south of it.

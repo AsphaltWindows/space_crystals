@@ -12,6 +12,9 @@ use crate::ids::ObjectId;
 use crate::movement::space::{KIND_YIELDS, blocks, kinds_against};
 use crate::movement::yielding::yields_to;
 use crate::mover::{Mover, Side};
+use crate::tuning::movement::{
+    LANE_AROUND_IDLE, LANE_LOOK, LANE_MARGIN_SU, LANE_NEAR, LANE_ONCOMING_COS, LANE_REACH, LANE_TIE_SU,
+};
 
 /// (G) The lane of a unit ahead, as the unit being moved sees it ([`World::lane`]): the sideways shifts of its
 /// own centre, positive to its Right, at which the two would meet, widened by [`LANE_MARGIN_SU`].
@@ -34,39 +37,6 @@ impl Lane {
         ((self.lo + self.hi) * 0.5, (self.hi - self.lo) * 0.5 - LANE_MARGIN_SU)
     }
 }
-
-/// (G) Lane seeking (`docs/movement.md > 6.3`): how far ahead a unit looks for units to pass, in its own lengths
-/// (tuning const). 96 su for a Peacekeeper: at 4 su per tick each way, two of them have 12 ticks to step out of
-/// each other's way.
-const LANE_LOOK: f32 = 4.0;
-
-/// (G) Lane seeking: a unit steps towards a clear lane at most this far to either side, in its own widths, and
-/// looks no farther for units in its way; with none that near it settles for the best gap between them (tuning
-/// const). The distances are in the unit's own size because a Guard among Guards needs more room than a
-/// Peacekeeper among Peacekeepers.
-const LANE_REACH: f32 = 3.0;
-
-/// (G) Lane seeking: a unit walks around a group of idle units that would make way for it only if a clear lane
-/// is this near, in its own widths; else it walks through the group, between its units, and they step aside
-/// (tuning const).
-const LANE_AROUND_IDLE: f32 = 4.0 / 3.0;
-
-/// (G) Lane seeking: the clearance a unit keeps from the units it passes (tuning const). It is what
-/// spreads two dense groups that meet: a unit squeezed between two oncoming lanes takes the middle, and the
-/// units on the outside, which have room, move out until this much is free.
-const LANE_MARGIN_SU: f32 = 2.0;
-
-/// (G) Lane seeking: when the clear lanes to the left and to the right are this close to equally far, the unit
-/// takes its `Mover::avoid_side`: Right at first, so head-on units pass like traffic (tuning const).
-const LANE_TIE_SU: f32 = 4.0;
-
-/// (G) Lane seeking: of two gaps between lanes, the unit takes the farther one only if it is wider by this share
-/// of the extra way, so it doesn't hop from gap to gap as the units around it shift (tuning const).
-const LANE_NEAR: f32 = 0.5;
-
-/// (G) Lane seeking: a unit counts as oncoming when its heading is against the mover's by more than this cosine
-/// (within 60° of straight at it).
-const LANE_ONCOMING_COS: f32 = -0.5;
 
 impl World<'_> {
     /// (G) Lane seeking, `docs/movement.md > 6.3`: the sideways shift (positive to the Right of `ahead`, a unit

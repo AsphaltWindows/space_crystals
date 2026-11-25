@@ -7,8 +7,9 @@
 //! `attack_move_own_movement.rs`'s). The leash itself is `attack_move_leash.rs`'s.
 
 use sc_sim::orders::state::{Judged, Leg};
-use sc_sim::orders::{Behaviour, JUDGE_PATHS_PER_TICK, REJUDGE_MOVE_SU, REJUDGE_SELF_SU};
+use sc_sim::orders::{Behaviour, JUDGE_PATHS_PER_TICK};
 use sc_sim::testing::{ScenarioBuilder, TestSim};
+use sc_sim::tuning::orders::{REJUDGE_MOVE_SU, REJUDGE_SELF_SU};
 use sc_sim::{DebugCommand, ObjectId, ObjectKind, OrderKind, PlayerId, Shape, SimEvent, SpawnAt, Tick, TilePos, Vec2};
 
 const P1: PlayerId = PlayerId(1);

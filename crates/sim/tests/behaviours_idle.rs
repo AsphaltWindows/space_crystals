@@ -3,8 +3,9 @@
 //! returns to where it stood; a unit on Hold Position attacks what its weapon reaches and never moves; a unit on a
 //! Move doesn't engage; nobody picks its own side or nobody's units.
 
-use sc_sim::orders::{Auto, IDLE_LEASH_GU};
+use sc_sim::orders::Auto;
 use sc_sim::testing::{ScenarioBuilder, TestSim};
+use sc_sim::tuning::orders::IDLE_LEASH_GU;
 use sc_sim::{
     Command, DebugCommand, MoveStatus, ObjectId, ObjectKind, OrderKind, PlayerCommand, PlayerId, Reject, Shape,
     SimConfig, SimEvent, SpawnAt, Target, Tick, Vec2, gu,

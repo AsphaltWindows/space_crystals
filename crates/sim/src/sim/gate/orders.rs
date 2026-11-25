@@ -42,7 +42,7 @@ impl Sim {
                     return Err(Reject::NotAttackable(id));
                 }
                 self.check_target_known(player, id)?;
-                // `factions/gdo/units.md > Peacekeeper > Riot Shield`: "Attack orders are not possible" while the
+                // `factions/gdo/units/peacekeeper.md > Riot Shield`: "Attack orders are not possible" while the
                 // shield is up ("the player must lower the shield before ordering an attack"): those units ignore it.
                 // Which orders a unit takes follows its type from the press (design change 0202): a Peacekeeper
                 // (Shielded), its shield up or on its way up, takes none; a Peacekeeper whose shield is on its way
@@ -53,7 +53,7 @@ impl Sim {
                 }
             }
             OrderKind::Hold | OrderKind::Stop => {}
-            // `factions/colonists/units.md > Drone > Unit Commands` (`sim/workers.rs`): the workers among the
+            // `factions/colonists/units/drone.md > Unit Commands` (`sim/workers.rs`): the workers among the
             // units take it, the others ignore it; on a Supply Delivery Station, those that gather Supplies.
             OrderKind::Gather(target) => {
                 self.check_gather(player, target)?;
@@ -84,7 +84,7 @@ impl Sim {
     /// to every unit with another form (`conversion::converts_to`), a conversion waiting or under way included, and
     /// a Riot Shield's to every unit that carries one.
     ///
-    /// TODO(Bunker): units inside a Bunker can't use their abilities (`factions/gdo/structures.md > Bunker >
+    /// TODO(Bunker): units inside a Bunker can't use their abilities (`factions/gdo/structures/bunker.md >
     /// Garrison`: "a Peacekeeper cannot raise its Riot Shield"); drop them here once units can enter one.
     pub(super) fn check_ability(
         &self,

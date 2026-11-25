@@ -2,7 +2,7 @@
 //! `factions/gdo/economy.md > Economy Targets (GDO vs Colonists) > Reference geometry` (8 adjacent patches in a row,
 //! the Egress Node centred on the row's long side, 2 grid units from it edge to edge).
 //!
-//! Gathering Drones pass through each other (`factions/colonists/units.md > Drone > Gathering Drones pass through
+//! Gathering Drones pass through each other (`factions/colonists/units/drone.md > Gathering Drones pass through
 //! each other`, design change 0106), so a patch's occupancy is the only limit: nothing jams however crowded the
 //! field, and every Drone keeps delivering. Under hard collision, as slice M3-H first built it, the field
 //! gridlocked from 12 Drones on.
@@ -17,7 +17,7 @@
 //! rules of slice M3-H3 and the Drone's numbers of design change 0205 (slice M3-K3: thrust and drag ×1.5, a trip of
 //! 73 ticks where it took 81) the reference field gives, dealt out, per second: 6.9 with 4 Drones (the table's
 //! 0:00 since design change 0236: 6.9), 12.7 with 8, 18.8 with 12, 25.3 with 16, 26.1 with 20 and 31.4 with 24
-//! (0236, `factions/colonists/units.md > Drone > Patch Occupancy`: ≈25 with 16, 2 per patch, ≈26 with 20, and 32
+//! (0236, `factions/colonists/units/drone.md > Patch Occupancy`: ≈25 with 16, 2 per patch, ≈26 with 20, and 32
 //! with about 24 working Drones, 3 per patch); sent by one right-click, 6.9, 12.7, 19.0, 25.4, 25.7 and 27.4.
 //! Before 0205 they were 6.3, 11.7, 17.2, 23.1, 24.5 and 26.2 dealt out; on the stand-in mover slice M3-H2
 //! measured 8.3, 15.1, 22.0, 26.8, 32.0 and 32.0, about 30 % high below saturation, as T25 estimated. Three
@@ -26,16 +26,16 @@
 //!   break (4 per second and patch), 6 give 23.7 of 24, 7 give 25.3 of 28 and 8 give 31.4 of 32. Three Drones'
 //!   mining, 96 ticks, now covers the end patches' trips of 95; before 0205 those took 104, more than three Drones
 //!   covered, and 8 patches gave 26.2.
-//! - **Drones sent on from patch to patch** (`factions/colonists/units.md > Patch Occupancy`: "When a Drone arrives
-//!   at an occupied patch, it goes to the nearest unoccupied patch to itself instead"; "If that patch is occupied
-//!   again by the time it arrives, it starts over"): a patch whose own Drones are on their way back to it counts as
-//!   unoccupied ("Drones travelling to it do not count"), so the patch a Drone is sent to is often taken by the time
-//!   it gets there, and it is sent on again. In the field of 24 the longest a Drone went between two deliveries is
-//!   393 ticks dealt out and 459 sent by one right-click, within the plan's 30 s (480); dealt out it was 428 before
-//!   0205, 357 before slice M3-H3 and 578 in an earlier build of M3-H2: the figure swings with any change to the
-//!   movement or the rules. It is no jam: every Drone moves, and the income is steady.
+//! - **Drones sent on from patch to patch** (`factions/colonists/units/drone.md > Patch Occupancy`: "When a Drone
+//!   arrives at an occupied patch, it goes to the nearest unoccupied patch to itself instead"; "If that patch is
+//!   occupied again by the time it arrives, it starts over"): a patch whose own Drones are on their way back to it
+//!   counts as unoccupied ("Drones travelling to it do not count"), so the patch a Drone is sent to is often taken by
+//!   the time it gets there, and it is sent on again. In the field of 24 the longest a Drone went between two
+//!   deliveries is 393 ticks dealt out and 459 sent by one right-click, within the plan's 30 s (480); dealt out it was
+//!   428 before 0205, 357 before slice M3-H3 and 578 in an earlier build of M3-H2: the figure swings with any change to
+//!   the movement or the rules. It is no jam: every Drone moves, and the income is steady.
 //! - **The waiting Drones' re-check costs income** (design change 0132, `> Waiting and re-checking`: every 16 frames,
-//!   `orders::gather::RECHECK_TICKS`, a waiting Drone goes to a patch that has freed up nearby): the patch it leaves
+//!   `tuning::gathering::RECHECK_TICKS`, a waiting Drone goes to a patch that has freed up nearby): the patch it leaves
 //!   for is usually one whose own Drones are on their way back to it, so it chases a patch it often loses, and
 //!   leaves its own without a Drone waiting. Against the curve before slice M3-H3 (14.7, 17.9, 20.7, 25.6, 26.5 and
 //!   27.3 with 10, 12, 14, 20, 22 and 24 Drones; the worst gaps 130, 305, 348 and 357 with 12, 20, 22 and 24) that
@@ -43,7 +43,7 @@
 //!   110 ticks more of the worst gap. Slice M3-H3 measured it with the re-check switched off: the curve was the one
 //!   before within 0.3 per second, so the re-check alone takes it (return to the last mined patch and id order
 //!   don't). With each Drone re-checking on its own count rather than all in the same ticks it took another 0.5
-//!   with 20 and 24 Drones (`orders::gather::RECHECK_TICKS`).
+//!   with 20 and 24 Drones (`tuning::gathering::RECHECK_TICKS`).
 //!
 //! ```sh
 //! cargo test -p sc_sim --release --test gathering_soak -- --ignored --nocapture --test-threads=1 saturation_curve

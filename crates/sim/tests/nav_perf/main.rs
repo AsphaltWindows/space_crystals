@@ -17,9 +17,8 @@ mod library;
 
 use std::time::Duration;
 
-use sc_sim::nav::{
-    Nav, NavClass, NavGrid, NavRules, PATH_BUDGET, PathGroup, PathRequest, Search, TileRect, find_path, serve,
-};
+use sc_sim::nav::{Nav, NavClass, NavGrid, NavRules, PathGroup, PathRequest, Search, TileRect, find_path, serve};
+use sc_sim::tuning::paths::PATH_BUDGET;
 use sc_sim::{Map, ObjectId, Rng, Tile, TilePos, TilePresetId, Vec2};
 
 const SIDE: u32 = 256;

@@ -7,7 +7,7 @@
 use sc_sim::mover::MoveGoal;
 use sc_sim::orders::Behaviour;
 use sc_sim::testing::{ScenarioBuilder, TestSim};
-use sc_sim::vision::FOG_DELAY_TICKS;
+use sc_sim::tuning::vision::FOG_DELAY_TICKS;
 use sc_sim::{
     Command, MoveStatus, ObjectId, ObjectKind, OrderKind, PlayerCommand, PlayerId, Reject, Shape, Target, Tick,
     TilePos, Vec2, VisibilityState,

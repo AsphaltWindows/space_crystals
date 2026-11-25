@@ -1,12 +1,16 @@
 //! Static object type definitions (`core/entities.md > Object Type`).
 //!
-//! One `ObjectKind` per object type in the design; its numbers live in a `static`
-//! [`ObjectDef`] whose comments cite the design section they come from. Faction
-//! types get their own modules (`defs/gdo.rs`, `defs/syndicate.rs`, `defs/colonists.rs`, …); unit bases and the
+//! One `ObjectKind` per object type in the design; its numbers live in a `static` [`ObjectDef`] whose comments cite
+//! the design section they come from, in a module of its own named like the type's design file: `defs/<faction>/
+//! {units,structures}/<object>.rs` (`factions/<faction>/{units,structures}/<object>.md`; the economy buildings cite
+//! their faction's `economy.md`, the Tunnel `factions/syndicate/tunnels.md`) and `defs/map/<object>.rs` for the map's
+//! (`core/map.md`). A faction's root module, `defs/<faction>.rs`, holds the faction's own rules. Unit bases and the
 //! attributes of unit types are in `defs/units.rs`, those of structure types in `defs/structures.rs`.
 
 mod colonists;
 mod gdo;
+mod leak;
+mod map;
 mod structures;
 mod syndicate;
 #[cfg(test)]
@@ -17,63 +21,103 @@ use glam::Vec2;
 use serde::{Deserialize, Serialize};
 
 use crate::player::Faction;
+use crate::scenario::SpawnSettings;
 
-pub use gdo::RIOT_SHIELD_TOGGLE_TICKS;
+pub use colonists::units::drone::BEACON_DEPLOYMENT;
+pub use colonists::units::weapon_conversion::CONVERT_TICKS;
+pub use colonists::{BEACON_CAPACITY_CAP, BEACON_CAPACITY_PER_BUILDING};
+pub use gdo::UNIT_CONTROL_CAP;
+pub use gdo::units::peacekeeper::RIOT_SHIELD_TOGGLE_TICKS;
+pub use map::crystal_patch::DEFAULT_STARTING_AMOUNT;
+pub use map::supply_delivery_station::{DEFAULT_DELIVERY_INTERVAL, DEFAULT_DELIVERY_SIZE, DEFAULT_STARTING_SUPPLIES};
 pub use structures::{
     DropOff, ExitRule, MiningDef, ProductionDef, Recipe, StructureDef, SymmetryType, TierDef, Transit, TunnelDef,
 };
+pub use syndicate::structures::tunnel::TRANSIT_DELAY_TICKS;
+pub use syndicate::{CELLS_PER_TUNNEL_SPACE, TUNNEL_SPACE_CAP};
 pub use units::{
-    AttackAttrs, AttackType, Domain, FullyConnectedSubtype, LoadDef, MELEE_CONTACT_GU, MovementAttrs, MovementModel,
-    Resource, RiotShieldDef, TargetDomain, TargetType, TurretAttrs, UnitBase, UnitBaseDef, UnitDef, WorkerDef,
+    AttackAttrs, AttackType, ConversionDef, Domain, FullyConnectedSubtype, LoadDef, MELEE_CONTACT_GU, MovementAttrs,
+    MovementModel, Resource, RiotShieldDef, TargetDomain, TargetType, TurretAttrs, UnitBase, UnitBaseDef, UnitDef,
+    WorkerDef,
 };
 
-#[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
-pub enum ObjectKind {
-    /// `core/map.md > SpaceCrystalsPatch`
-    CrystalPatch,
-    /// `core/map.md > SupplyDeliveryStation`
-    SupplyDeliveryStation,
-    /// `factions/gdo/units.md > Peacekeeper`
-    Peacekeeper,
-    /// `factions/syndicate/units.md > Guard`
-    Guard,
-    // New kinds go last: a kind's place in this list is part of the state hash (`hash.rs`).
-    /// `factions/gdo/structures.md > DeploymentCenter`
-    DeploymentCenter,
-    /// `factions/gdo/economy.md > Generator`
-    Generator,
-    /// `factions/gdo/structures.md > Barracks`
-    Barracks,
-    /// `factions/gdo/economy.md > ExtractionFacility`
-    ExtractionFacility,
-    /// `factions/gdo/economy.md > ExtractionPlate`
-    ExtractionPlate,
-    /// `factions/colonists/units.md > Drone`
-    Drone,
-    /// `factions/colonists/economy.md > Beacon`
-    Beacon,
-    /// `factions/colonists/economy.md > Egress Node`
-    EgressNode,
-    /// `factions/colonists/structures.md > Robo Portal`
-    RoboPortal,
-    /// `factions/colonists/structures.md > Bio Portal`
-    BioPortal,
-    /// `factions/colonists/units.md > Sabre Legionnaire`
-    SabreLegionnaire,
-    /// `factions/colonists/units.md > Rifle Legionnaire`
-    RifleLegionnaire,
-    /// `factions/gdo/units.md > Peacekeeper > Riot Shield > Two unit types` (design change 0173): the Peacekeeper
-    /// with its shield up
-    PeacekeeperShielded,
-    /// `factions/syndicate/units.md > Agent`
-    Agent,
-    /// `factions/syndicate/tunnels.md > Tunnel`, at any of its tiers (plan decision T39)
-    Tunnel,
-    /// `factions/syndicate/structures.md > Hideout`
-    Hideout,
+/// The kind registry's macro: from the list of kinds below, each with its def, it makes [`ObjectKind`],
+/// [`ObjectKind::ALL`] and [`ObjectKind::def`], so that a new object type is one line in the list and a def module.
+macro_rules! kind_registry {
+    ($($(#[$doc:meta])* $kind:ident => $def:path,)+) => {
+        /// An object type (`core/entities.md > Object Type`), one per type in the design, in the registry's order.
+        #[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
+        pub enum ObjectKind {
+            $($(#[$doc])* $kind,)+
+        }
+
+        impl ObjectKind {
+            /// Every object type, in declaration order, so tools such as the map editor's palette
+            /// list new types automatically. A test checks that it stays complete.
+            pub const ALL: &'static [ObjectKind] = &[$(ObjectKind::$kind,)+];
+
+            /// The type's def: all its numbers, from its def module.
+            pub fn def(self) -> &'static ObjectDef {
+                // The sim's own unit tests may give a kind other numbers (`test_defs`).
+                #[cfg(test)]
+                if let Some(def) = test_defs::get(self) {
+                    return def;
+                }
+                match self {
+                    $(ObjectKind::$kind => &$def,)+
+                }
+            }
+        }
+    };
 }
 
-#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+// The kind registry: every object type, each with the def that holds its numbers. New kinds go last: a kind's place
+// in this list is part of the state hash (`hash.rs`), and its name is how saves, replays and maps store it.
+kind_registry! {
+    /// `core/map.md > SpaceCrystalsPatch`
+    CrystalPatch => map::crystal_patch::CRYSTAL_PATCH,
+    /// `core/map.md > SupplyDeliveryStation`
+    SupplyDeliveryStation => map::supply_delivery_station::SUPPLY_DELIVERY_STATION,
+    /// `factions/gdo/units/peacekeeper.md`
+    Peacekeeper => gdo::units::peacekeeper::PEACEKEEPER,
+    /// `factions/syndicate/units/guard.md`
+    Guard => syndicate::units::guard::GUARD,
+    /// `factions/gdo/structures/deployment_center.md`
+    DeploymentCenter => gdo::structures::deployment_center::DEPLOYMENT_CENTER,
+    /// `factions/gdo/economy.md > Generator`
+    Generator => gdo::structures::generator::GENERATOR,
+    /// `factions/gdo/structures/barracks.md`
+    Barracks => gdo::structures::barracks::BARRACKS,
+    /// `factions/gdo/economy.md > ExtractionFacility`
+    ExtractionFacility => gdo::structures::extraction_facility::EXTRACTION_FACILITY,
+    /// `factions/gdo/economy.md > ExtractionPlate`
+    ExtractionPlate => gdo::structures::extraction_plate::EXTRACTION_PLATE,
+    /// `factions/colonists/units/drone.md`
+    Drone => colonists::units::drone::DRONE,
+    /// `factions/colonists/economy.md > Beacon`
+    Beacon => colonists::structures::beacon::BEACON,
+    /// `factions/colonists/economy.md > Egress Node`
+    EgressNode => colonists::structures::egress_node::EGRESS_NODE,
+    /// `factions/colonists/structures/robo_portal.md`
+    RoboPortal => colonists::structures::robo_portal::ROBO_PORTAL,
+    /// `factions/colonists/structures/bio_portal.md`
+    BioPortal => colonists::structures::bio_portal::BIO_PORTAL,
+    /// `factions/colonists/units/sabre_legionnaire.md`
+    SabreLegionnaire => colonists::units::sabre_legionnaire::SABRE_LEGIONNAIRE,
+    /// `factions/colonists/units/rifle_legionnaire.md`
+    RifleLegionnaire => colonists::units::rifle_legionnaire::RIFLE_LEGIONNAIRE,
+    /// `factions/gdo/units/peacekeeper.md > Riot Shield > Two unit types` (design change 0173): the Peacekeeper
+    /// with its shield up
+    PeacekeeperShielded => gdo::units::peacekeeper::PEACEKEEPER_SHIELDED,
+    /// `factions/syndicate/units/agent.md`
+    Agent => syndicate::units::agent::AGENT,
+    /// `factions/syndicate/tunnels.md > Tunnel`, at any of its tiers (plan decision T39)
+    Tunnel => syndicate::structures::tunnel::TUNNEL,
+    /// `factions/syndicate/structures/hideout.md`
+    Hideout => syndicate::structures::hideout::HIDEOUT,
+}
+
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum Category {
     Unit,
     Structure,
@@ -81,7 +125,7 @@ pub enum Category {
     Resource,
 }
 
-#[derive(Copy, Clone, Debug, PartialEq)]
+#[derive(Copy, Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub enum Footprint {
     /// Structures and resources: whole tiles, `w` wide and `h` tall in the default orientation (`Size - Height x
     /// Width`, given for the default orientation: `core/entities.md > Structure Type > Side lettering convention`).
@@ -90,11 +134,16 @@ pub enum Footprint {
     Silhouette { w: f32, h: f32 },
 }
 
+/// A name in the defs, `&'static str`. Spelt so that serde's derive doesn't borrow it from the text a def is read from,
+/// as it does with every field it sees spelt `&str`: [`leak::str`] reads it instead.
+type StaticStr = &'static str;
+
 /// Attributes shared by every object type (`core/entities.md > Object Type`).
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct ObjectDef {
     pub kind: ObjectKind,
-    pub name: &'static str,
+    #[serde(deserialize_with = "leak::str")]
+    pub name: StaticStr,
     pub faction: Option<Faction>,
     pub category: Category,
     pub footprint: Footprint,
@@ -118,11 +167,15 @@ pub struct ObjectDef {
     pub unit: Option<UnitDef>,
     /// Structures only: their symmetry, BuildRadiusExtension and Power (`core/entities.md > Structure Type`).
     pub structure: Option<StructureDef>,
+    /// The per-object values newly placed objects of the type get (`core/map_editor.md > Per-object Resource
+    /// Values`; the map editor, debug spawns: `SpawnSettings::defaults`): the map resources'; `None` for the types
+    /// without such values.
+    pub default_settings: Option<SpawnSettings>,
 }
 
 /// An object type's armour: `systems/units.md > Unit > PointArmor`, `> FullArmor` for units, and the same two
 /// attributes in each structure type's stat block.
-#[derive(Copy, Clone, Debug, Default, PartialEq)]
+#[derive(Copy, Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
 pub struct Armor {
     /// Taken off each single-target hit (`systems/combat.md > SingleTargetDamage`).
     pub point: f32,
@@ -162,61 +215,6 @@ impl ObjectDef {
 }
 
 impl ObjectKind {
-    /// Every object type, in declaration order, so tools such as the map editor's palette
-    /// list new types automatically. A test checks that it stays complete.
-    pub const ALL: &'static [ObjectKind] = &[
-        ObjectKind::CrystalPatch,
-        ObjectKind::SupplyDeliveryStation,
-        ObjectKind::Peacekeeper,
-        ObjectKind::Guard,
-        ObjectKind::DeploymentCenter,
-        ObjectKind::Generator,
-        ObjectKind::Barracks,
-        ObjectKind::ExtractionFacility,
-        ObjectKind::ExtractionPlate,
-        ObjectKind::Drone,
-        ObjectKind::Beacon,
-        ObjectKind::EgressNode,
-        ObjectKind::RoboPortal,
-        ObjectKind::BioPortal,
-        ObjectKind::SabreLegionnaire,
-        ObjectKind::RifleLegionnaire,
-        ObjectKind::PeacekeeperShielded,
-        ObjectKind::Agent,
-        ObjectKind::Tunnel,
-        ObjectKind::Hideout,
-    ];
-
-    pub fn def(self) -> &'static ObjectDef {
-        // The sim's own unit tests may give a kind other numbers (`test_defs`).
-        #[cfg(test)]
-        if let Some(def) = test_defs::get(self) {
-            return def;
-        }
-        match self {
-            ObjectKind::CrystalPatch => &CRYSTAL_PATCH,
-            ObjectKind::SupplyDeliveryStation => &SUPPLY_DELIVERY_STATION,
-            ObjectKind::Peacekeeper => &gdo::PEACEKEEPER,
-            ObjectKind::Guard => &syndicate::GUARD,
-            ObjectKind::DeploymentCenter => &gdo::DEPLOYMENT_CENTER,
-            ObjectKind::Generator => &gdo::GENERATOR,
-            ObjectKind::Barracks => &gdo::BARRACKS,
-            ObjectKind::ExtractionFacility => &gdo::EXTRACTION_FACILITY,
-            ObjectKind::ExtractionPlate => &gdo::EXTRACTION_PLATE,
-            ObjectKind::Drone => &colonists::DRONE,
-            ObjectKind::Beacon => &colonists::BEACON,
-            ObjectKind::EgressNode => &colonists::EGRESS_NODE,
-            ObjectKind::RoboPortal => &colonists::ROBO_PORTAL,
-            ObjectKind::BioPortal => &colonists::BIO_PORTAL,
-            ObjectKind::SabreLegionnaire => &colonists::SABRE_LEGIONNAIRE,
-            ObjectKind::RifleLegionnaire => &colonists::RIFLE_LEGIONNAIRE,
-            ObjectKind::PeacekeeperShielded => &gdo::PEACEKEEPER_SHIELDED,
-            ObjectKind::Agent => &syndicate::AGENT,
-            ObjectKind::Tunnel => &syndicate::TUNNEL,
-            ObjectKind::Hideout => &syndicate::HIDEOUT,
-        }
-    }
-
     /// Whether the footprints of objects of `self` and `other` may cover the same tiles. Only an Extraction Plate
     /// and the Space Crystals Patch it stands on may (`factions/gdo/economy.md > ExtractionPlate`: "placed onto a
     /// Space Crystal Patch"); every other pair of tile-based objects is kept apart (`core/entities.md > Placement
@@ -226,53 +224,12 @@ impl ObjectKind {
     /// neutral ones) can never share a tile"; the placement methods of slices M4-E and M4-F follow it in both layers,
     /// the expansions' own in theirs). As two plates may not overlap, nor two
     /// patches, a patch holds one plate at most: a plate goes only onto an uncovered patch. Units have no
-    /// footprint: this is about tile-based objects only.
+    /// footprint: this is about tile-based objects only. The pairs are those of `StructureDef::onto`, either way.
     pub fn may_overlap(self, other: ObjectKind) -> bool {
-        use ObjectKind::{CrystalPatch, ExtractionPlate};
-        matches!(
-            (self, other),
-            (ExtractionPlate, CrystalPatch) | (CrystalPatch, ExtractionPlate)
-        )
+        let onto = |kind: ObjectKind| kind.def().structure.as_ref().and_then(|s| s.onto);
+        onto(self) == Some(other) || onto(other) == Some(self)
     }
 }
-
-/// `core/map.md > SpaceCrystalsPatch`, `> Resource`.
-static CRYSTAL_PATCH: ObjectDef = ObjectDef {
-    kind: ObjectKind::CrystalPatch,
-    name: "Space Crystals",
-    faction: None,
-    category: Category::Resource,
-    footprint: Footprint::Tiles { w: 1, h: 1 }, // Size - 1x1
-    selectable: true,
-    destructible: false,
-    groupable: false,
-    sight_range: 0.0,
-    max_hp: None,
-    max_shields: None,
-    armor: Armor::NONE,
-    needs_flat_ground: true, // `core/map.md > Elevation > Map resources only on flat terrain`
-    unit: None,
-    structure: None,
-};
-
-/// `core/map.md > SupplyDeliveryStation`, `> Resource`.
-static SUPPLY_DELIVERY_STATION: ObjectDef = ObjectDef {
-    kind: ObjectKind::SupplyDeliveryStation,
-    name: "Supply Delivery Station",
-    faction: None,
-    category: Category::Resource,
-    footprint: Footprint::Tiles { w: 2, h: 2 }, // Size - 2x2
-    selectable: true,
-    destructible: false,
-    groupable: false,
-    sight_range: 0.0,
-    max_hp: None,
-    max_shields: None,
-    armor: Armor::NONE,
-    needs_flat_ground: true, // `core/map.md > Elevation > Map resources only on flat terrain`
-    unit: None,
-    structure: None,
-};
 
 #[cfg(test)]
 mod tests;

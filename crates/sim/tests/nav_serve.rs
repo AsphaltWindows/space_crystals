@@ -1,9 +1,10 @@
 //! Serving path requests within the expansion budget, and group fields — `docs/movement.md > 5.5`.
 
 use sc_sim::nav::{
-    GROUP_FIELD_MIN, Nav, NavClass, NavGrid, NavRules, PATH_BUDGET, Path, PathFail, PathGroup, PathRequest, Search,
-    ServeOutput, box_clear, find_path, los, serve,
+    Nav, NavClass, NavGrid, NavRules, Path, PathFail, PathGroup, PathRequest, Search, ServeOutput, box_clear,
+    find_path, los, serve,
 };
+use sc_sim::tuning::paths::{GROUP_FIELD_MIN, PATH_BUDGET};
 use sc_sim::{Map, ObjectId, Rng, Tile, TilePos, TilePresetId, Vec2};
 
 const HALF: Vec2 = Vec2::splat(12.0);

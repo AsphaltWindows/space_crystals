@@ -4,18 +4,18 @@
 //! a Weapon Conversion (`conversion`, slice M3-B). A mode isn't an order (`ARCHITECTURE.md > Adding a new system`): an
 //! ability leaves the units' orders as they are.
 //!
-//! **A toggle sets a target state** (design change 0198, slice M3-T; `factions/colonists/units.md > Weapon Conversion >
-//! A toggle sets a target form`, `factions/gdo/units.md > Peacekeeper > Riot Shield > Two unit types`): the
-//! Legionnaires' Convert and the Peacekeeper's Riot Shield switch the unit's type at the press ("The unit's type, and
-//! so its SelectionGroup, switches at the press to the target form", "including when the raise is deferred behind a
-//! shot"), through [`Sim::change_kind`] ([`Ability::switched_kind`]), and leave what the unit has in the world, its
-//! weapon or its shield, to the mode's own state, which the Modes step then works toward the type (`ARCHITECTURE.md >
-//! Object model > Type and form`). So the type is what the player commands, and a press reaches the units as they are
-//! now: "however fast R is pressed, every unit that received the presses ends up in the same form". A unit Firing or in
-//! Cooldown (`combat::mid_attack`: the phases that can't be interrupted) finishes them first (design change 0153:
-//! "deferred, not rejected"; design change 0172: "the shot finishes, then the shield starts rising immediately"): the
-//! first Modes step after its Cooldown's last tick, before the Reloading that followed has run a tick, starts its
-//! conversion, or its shield up, as a press in that tick would.
+//! **A toggle sets a target state** (design change 0198, slice M3-T; `factions/colonists/units/weapon_conversion.md >
+//! A toggle sets a target form`, `factions/gdo/units/peacekeeper.md > Riot Shield > Two unit types`; the rule is
+//! `crate::toggle`'s): the Legionnaires' Convert and the Peacekeeper's Riot Shield switch the unit's type at the press
+//! ("The unit's type, and so its SelectionGroup, switches at the press to the target form", "including when the raise
+//! is deferred behind a shot"), through [`Sim::change_kind`] ([`Ability::switched_kind`]), and leave what the unit has
+//! in the world, its weapon or its shield, to the mode's own state, which the Modes step then works toward the type
+//! (`ARCHITECTURE.md > Object model > Type and form`). So the type is what the player commands, and a press reaches the
+//! units as they are now: "however fast R is pressed, every unit that received the presses ends up in the same form". A
+//! unit Firing or in Cooldown (`combat::mid_attack`: the phases that can't be interrupted) finishes them first (design
+//! change 0153: "deferred, not rejected"; design change 0172: "the shot finishes, then the shield starts rising
+//! immediately"): the first Modes step after its Cooldown's last tick, before the Reloading that followed has run a
+//! tick, starts its conversion, or its shield up, as a press in that tick would.
 
 use super::Sim;
 use crate::command::Ability;
@@ -51,7 +51,7 @@ impl Sim {
                 continue;
             };
             match ability {
-                // `factions/colonists/units.md > Drone > Assigned Drop-off`: it "only updates AssignedDropOff"; the
+                // `factions/colonists/units/drone.md > Assigned Drop-off`: it "only updates AssignedDropOff"; the
                 // worker's order goes on.
                 Ability::SetDropOff(node) => {
                     if let Some(worker) = &mut o.worker {

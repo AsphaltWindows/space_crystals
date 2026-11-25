@@ -9,9 +9,10 @@ use crate::defs::ObjectKind;
 use crate::defs::test_defs::TestDef;
 use crate::events::SimEvent;
 use crate::ids::{ObjectId, PlayerId};
+use crate::orders::OrderKind;
 use crate::orders::state::Behaviour;
-use crate::orders::{ATTACK_MOVE_LEASH_GU, OrderKind};
 use crate::testing::{ScenarioBuilder, TestSim};
+use crate::tuning::orders::ATTACK_MOVE_LEASH_GU;
 use crate::units::{SU_PER_GU, Tick, gu};
 
 const P1: PlayerId = PlayerId(1);

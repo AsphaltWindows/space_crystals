@@ -7,6 +7,7 @@ use glam::Vec2;
 use crate::ids::PlayerId;
 use crate::nav::{self, Search};
 use crate::paths::knowledge::PathKnowledge;
+use crate::tuning::paths::STEP_COST;
 
 use super::{Unit, View, World};
 
@@ -59,7 +60,7 @@ impl<'a> World<'a> {
             .component(grid.tile_of(unit.pos))
             .and_then(|component| nav::reachable_point(grid, component, half, target.pos))
             .unwrap_or(target.pos);
-        let max_cost = max_tiles.saturating_mul(nav::STEP_COST);
+        let max_cost = max_tiles.saturating_mul(STEP_COST);
         nav::find_path_within(grid, search, half, unit.pos, goal, max_cost)
             .map(|path| path.map(|path| path.waypoints))
             .map_err(|_| ())

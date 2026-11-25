@@ -37,8 +37,12 @@ pub struct Player {
     /// `DebugCommand::SetResources` sets it. Optional in files, so that states saved before it existed still load.
     #[serde(default)]
     pub crystals: u32,
-    /// `> Supplies`: a counter only. The GDO supply loop is deferred, Starting Supplies are 0 and nothing costs
-    /// Supplies yet (design change 0077), so only `DebugCommand::SetResources` changes it.
+    /// `> Supplies`: the bank. A game starts it at the player's faction's Starting Conditions
+    /// (`crate::StartingConditions`: the Syndicate's 1 Supply, `factions/syndicate/tunnels.md > Tunnel > Starting
+    /// Conditions`, slice M4-B; 0 for the GDO, whose supply loop is deferred, design change 0077, and for the
+    /// Colonists); each Supplies delivery of an Agent adds to it (`economy::gathering`, slice M4-I), and
+    /// `DebugCommand::SetResources` sets it. Nothing spends it yet. Optional in files, so that states saved before it
+    /// existed still load.
     #[serde(default)]
     pub supplies: u32,
     /// The Colonists' refined resources (`factions/colonists/overview.md > ColonistResources > Alloys`, `> Essence`,

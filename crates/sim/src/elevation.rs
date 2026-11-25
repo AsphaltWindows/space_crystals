@@ -13,9 +13,7 @@ use glam::Vec2;
 use crate::defs::{Domain, ObjectKind};
 use crate::map::Map;
 use crate::object::Object;
-
-/// `core/vision.md > ElevationModifier > Higher ground`, `> Lower ground`: one grid unit more, or less.
-pub const ELEVATION_MODIFIER: f32 = 1.0;
+use crate::tuning::vision::ELEVATION_MODIFIER;
 
 /// Where an object stands for the ElevationModifier.
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]

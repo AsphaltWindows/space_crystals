@@ -64,7 +64,7 @@
   Its changes are marked **(M3-G3)**. The code is `stuck.rs` (`after_move`); M3-G2's wait (`stuck::waits_in_queue`,
   `collide/hold.rs`) is gone.
 
-Design references are `file.md > Section`, relative to `artifacts/designer/design/`.
+Design references are `path/file.md > Section`, with paths relative to `artifacts/designer/design/`.
 Every number marked *(placeholder)* becomes a named const tagged with the question that covers it (section 2).
 
 ## 1. Requirements from the design
@@ -76,20 +76,20 @@ Every number marked *(placeholder)* becomes a named const tagged with the questi
 | Later range | Silhouettes 24–60 su so far (vehicles TBD, may exceed a tile); speeds 4–8 su/tick; five movement models (TurnRate, FixedTurnRadius, SpeedTurnRadius, Drag, Glider) | `systems/units.md > MovementModel` ff., faction unit files |
 | Domains | Ground, Air, Underground per UnitBase | `systems/units.md > UnitBase` |
 | Ground collision | Hard, never overlapping; shape is the Silhouette rectangle; **(Y) friendly yielding**: an idle unit takes one short sidestep for a blocked moving unit of its owner (not on Hold, not busy, not if it can't move, not for its own group order); enemies never yield, and moving units never yield or swap; moving units path around occupied space; ground units collide with ground units and structures | `systems/units.md > UnitCollision > Ground Collision` (0022, 0023, 0027) |
-| Air collision | None with ground or structures; soft separation among air units (SeparationRadius) | `> Air Collision` |
-| Crushing | Moving TrackedVehicle/Mech pass through and kill enemy LightInfantry; not friendly; stationary crushers are solid | `> Crushing` (not M1, but the collision filter must allow it) |
+| Air collision | None with ground or structures; soft separation among air units (SeparationRadius) | `systems/units.md > Air Collision` |
+| Crushing | Moving TrackedVehicle/Mech pass through and kill enemy LightInfantry; not friendly; stationary crushers are solid | `systems/units.md > Crushing` (not M1, but the collision filter must allow it) |
 | Sub-tile lanes | A 64 su gap fits two 24 su units side by side, one lane each way | `factions/cults/units/recruit.md` (throughput note) |
-| Terrain | Non-Traversible tiles block ground units. RuggedTerrain = true bases (infantry, Mech) cross Rugged tiles. Drill units travel on Drillable tiles | `core/map.md > Tile`, `systems/units.md > UnitBase`, `> DrillUnit` |
+| Terrain | Non-Traversible tiles block ground units. RuggedTerrain = true bases (infantry, Mech) cross Rugged tiles. Drill units travel on Drillable tiles | `core/map.md > Tile`, `systems/units.md > UnitBase`, `systems/units.md > DrillUnit` |
 | Elevation | Slopes change neither speed nor path cost; cliffs are non-Traversible tiles; corners are shared, so two adjacent Traversible tiles are always connected | `core/map.md > Elevation` |
 | Underground | Expansions are walked over by surface units | `factions/syndicate/structures/README.md > Tunnel Expansions` |
-| Move | To a location or an object; ends with Stopping, complete when stopped; completes "within proximity" of an object; on repeated failure to progress: stop, complete. **(Y)** Stuck after 24 ticks without getting closer, 3 re-route attempts after waits of 8, 16 and 32 ticks, then give up (0024); an unreachable target becomes the nearest reachable point (0025); stuck within 3 GU of the target behind units that aren't moving is arrived (0026; **(V)** 3 GU since 0169, 2 before) | `systems/controls/behaviors.md > MovingToLocation`, `> MovingToObject` |
-| Chase | AttackingObject approaches until the target is within Range, beyond MinRange and in facing; resumes when it leaves range. Infantry (UnitBaseSource) cannot move during Aiming, Firing, Cooldown | `> AttackingObject`, `systems/combat.md > AttackPhase` |
+| Move | To a location or an object; ends with Stopping, complete when stopped; completes "within proximity" of an object; on repeated failure to progress: stop, complete. **(Y)** Stuck after 24 ticks without getting closer, 3 re-route attempts after waits of 8, 16 and 32 ticks, then give up (0024); an unreachable target becomes the nearest reachable point (0025); stuck within 3 GU of the target behind units that aren't moving is arrived (0026; **(V)** 3 GU since 0169, 2 before) | `systems/controls/behaviors.md > MovingToLocation`, `systems/controls/behaviors.md > MovingToObject` |
+| Chase | AttackingObject approaches until the target is within Range, beyond MinRange and in facing; resumes when it leaves range. Infantry (UnitBaseSource) cannot move during Aiming, Firing, Cooldown | `systems/controls/behaviors.md > AttackingObject`, `systems/combat.md > AttackPhase` |
 | Range | ±1 GU by elevation level difference, ground and underground only | `core/vision.md > ElevationModifier` |
-| AttackMove, Patrol | Leash 6 GU perpendicular to the path, recompute the path on resuming; Patrol swaps legs forever | `> AttackMovingToLocation`, `> Patrolling` |
-| Idle | Auto-acquire in SightRange, leash 4 GU from IdleOrigin, return to it | `> BaseAutoTargeting` |
-| Hold, Stop | Hold: Locomotion Stationary always, never completes. Stop: Stopping, then no behaviour | `> HoldingPosition`, `> StoppingBehavior` |
+| AttackMove, Patrol | Leash 6 GU perpendicular to the path, recompute the path on resuming; Patrol swaps legs forever | `systems/controls/behaviors.md > AttackMovingToLocation`, `systems/controls/behaviors.md > Patrolling` |
+| Idle | Auto-acquire in SightRange, leash 4 GU from IdleOrigin, return to it | `systems/controls/behaviors.md > BaseAutoTargeting` |
+| Hold, Stop | Hold: Locomotion Stationary always, never completes. Stop: Stopping, then no behaviour | `systems/controls/behaviors.md > HoldingPosition`, `systems/controls/behaviors.md > StoppingBehavior` |
 | Queue | Shift appends, otherwise the command replaces the whole queue; next order starts when the current behaviour completes | `systems/controls/commands.md > Unit Command` |
-| Channels | Locomotion (Moving, Reversing, Stopping, Stationary) and Orientation (Turning, Maintaining) are named state; combat and crushing read them | `behaviors.md > BaseActionChannels`, `combat.md > LocomotionOrientationConstraints` |
+| Channels | Locomotion (Moving, Reversing, Stopping, Stationary) and Orientation (Turning, Maintaining) are named state; combat and crushing read them | `systems/controls/behaviors.md > BaseActionChannels`, `systems/combat.md > LocomotionOrientationConstraints` |
 | Group moves | **(M)** The magic box: a location order (Move, AttackMove, Patrol) to several units keeps their arrangement when the click is outside the bounding box of their silhouettes (**(Y)**, 0028; each goes to the click plus its offset from the group's centre) and converges on the click when it is inside. No formation movement. Selection has no size limit | `systems/controls/commands.md > Group Destinations (Magic Box)`, `systems/controls/selection_and_hud.md` |
 
 ## 2. Design gaps and contradictions
@@ -106,7 +106,7 @@ Top five first. Each default is what this design implements until answered.
 | G6 | Does the Silhouette rectangle rotate with facing? All specified ones are square. | **(E) Answered by 0033**: it rotates with the facing. Not built: it waits for the vehicles milestone, with oriented collision. Until then boxes are axis-aligned, and `shape.rs` is the one place that changes |
 | G7 | How are Range and "within proximity" measured for large targets? | **(E) Answered by 0031 and 0032**: edge to edge, the gap between the two shapes (`shape::Shape::gap`), for Range, MinRange and proximity; proximity is a gap of 8 su. The default here was centre to nearest point |
 | G8 | The attack target leaves the attacker's owner's vision during a chase. | **(E) Answered by 0034**, as proposed: go to its last seen position, then the order completes. A Follow of an enemy ends the same way. **(M3-L3) Replaced by 0200** (answering Q0051): the Attack or Follow completes at once, where the unit stands |
-| G9 | Patrol: is the origin the position at issue or when a Shift-queued Patrol starts (`commands.md > Patrol` vs `behaviors.md > Patrolling` step 1)? What if a leg fails? | **(E) Answered by 0036 and 0037**, as proposed: when it starts executing. A failed leg counts as arrived; two failed legs in a row end the Patrol |
+| G9 | Patrol: is the origin the position at issue or when a Shift-queued Patrol starts (`systems/controls/commands.md > Patrol` vs `systems/controls/behaviors.md > Patrolling` step 1)? What if a leg fails? | **(E) Answered by 0036 and 0037**, as proposed: when it starts executing. A failed leg counts as arrived; two failed legs in a row end the Patrol |
 | G10 | Do map resources (patch, station) block ground units? "Structures" doesn't name them. | Yes, their footprints block |
 | G11 | RuggedTerrain = false: is a Rugged tile impassable for that base? Implied, never stated. | Yes, impassable |
 | G12 | Do units path with knowledge of structures their owner has never seen? | **(K) Answered by 0040, 0041 and 0042**: no. Paths are planned from what the owner knows: terrain, its own structures, others' structures once seen (a wall at the last-known position until seen otherwise) and the map's resources from the start (5.2, 5.6, 5.7). The default here was the true map |
@@ -564,13 +564,13 @@ remaining path length, measured afresh from when it came to rest. A unit is **st
      after it was blocked behind a unit with no goal (attempts after 12, 28 and 60), 104 (6.5 s) after its last
      progress otherwise (5.6; the grace below adds up to 8). Meanwhile it steers as any blocked unit (6.3),
      sidesteps included. The
-     behaviour then gives the target up (`> AttackingObject > Failure`): an Attack completes, and the unit, idle,
-     takes targets again by itself (`> BaseAutoTargeting > Unreachable auto-targets`). An AttackMove leaves the
-     target alone for 32 ticks and walks on, then takes it again (`orders::travel::pursue`, as built), so in a
-     corridor it gives up every 116 ticks and its leg never ends while the row stands. Slice M3-L4 ends that cycle
-     (design changes 0230 and 0235: the failed chase counts as can't reach, and the unit walks on without turning
-     back). Until 0223 the unit waited and stood (M3-G2's `stuck::waits_in_queue` and `World::hold`,
-     its step only when the way straight ahead was free, no step aside) for as long as the target lived.
+     behaviour then gives the target up (`systems/controls/behaviors.md > AttackingObject > Failure`): an Attack
+     completes, and the unit, idle, takes targets again by itself (`systems/controls/behaviors.md > BaseAutoTargeting >
+     Unreachable auto-targets`). An AttackMove leaves the target alone for 32 ticks and walks on, then takes it again
+     (`orders::travel::pursue`, as built), so in a corridor it gives up every 116 ticks and its leg never ends while the
+     row stands. Slice M3-L4 ends that cycle (design changes 0230 and 0235: the failed chase counts as can't reach, and
+     the unit walks on without turning back). Until 0223 the unit waited and stood (M3-G2's `stuck::waits_in_queue` and
+     `World::hold`, its step only when the way straight ahead was free, no step aside) for as long as the target lived.
 3. **Repath**, for a unit that doesn't queue, if `repaths_left > 0`, when its wait is over (5.6). **(D)** The tile of the stationary unit in the way is added to `avoid_tiles`:
    at once if that unit has no goal; if it is on its way itself (only jammed for now), from the second repath on,
    the first being a plain retry. If the blocker stands in the unit's own tile (the start tile is never avoided),
@@ -652,16 +652,16 @@ own turn of phase 5d.
   side. An idle unit plugging a passage as narrow as itself has nowhere to step and stays an ordinary blocker.
   Swapping of two moving units is not built (0022 rules it out).
 
-**6.7 DragMovement. (M3-G)** `systems/units.md > DragMovement`, `> HoverVehicle`; plan decision T25; the code is
-`movement/drag.rs`. The model of the units that keep their velocity from tick to tick (`Mover::momentum`): the
-Drone. It replaces only the "desired direction → velocity and facing" step of 6.3.
+**6.7 DragMovement. (M3-G)** `systems/units.md > DragMovement`, `systems/units.md > HoverVehicle`; plan decision T25;
+the code is `movement/drag.rs`. The model of the units that keep their velocity from tick to tick (`Mover::momentum`):
+the Drone. It replaces only the "desired direction → velocity and facing" step of 6.3.
 - **The integration scheme**, fixed, once per tick and in this order:
   1. **Turn** towards the step the unit wants (below), at most TurnRate. It never stands to turn
      (`systems/combat.md > LocomotionOrientationConstraints[DragMovement]`). Three quarters of the Drone's thrust
      is forward thrust, so it faces the way it pushes: along its path in the open, along a blocker's face while
      it goes round it.
   2. **Drag**: `v ← v × (1 − DragRatio)`, the ratio doubled while the tile under the unit's centre is Rugged
-     (`> HoverVehicle > RuggedTerrain`, `> Which tile counts`; design change 0039).
+     (`systems/units.md > HoverVehicle > RuggedTerrain`, `systems/units.md > Which tile counts`; design change 0039).
   3. **Thrust**: `v ← v + a`. The thrusts a unit can make are every vector of at most
      OmniDirectionalAcceleration, plus between nothing and ForwardAcceleration along its facing; `a` is the one
      that brings `v` nearest to the velocity it wants. Steps 2 and 3 are `v ← v + a − DragRatio × v`: drag is

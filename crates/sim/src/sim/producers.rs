@@ -50,7 +50,7 @@ fn producer(o: &Object) -> Option<(&Production, &'static ProductionDef)> {
 }
 
 impl Sim {
-    /// What producer `id` is working on (`factions/gdo/structures.md > Barracks > BarracksInstanceState`:
+    /// What producer `id` is working on (`factions/gdo/structures/barracks.md > BarracksInstanceState`:
     /// CurrentBuild and CurrentBuildProgress), for the interface: `None` for an object that produces nothing or has
     /// an empty queue. `waiting` says the unit is finished and held inside because the exit doorway is occupied
     /// (design change 0085: shown at 100%); `blocked` names the army cap the unit waits for at 0% (design change
@@ -62,7 +62,7 @@ impl Sim {
         production.status(def, faction.and_then(ArmyResource::of))
     }
 
-    /// The gate's rules for `Command::Production` (`factions/gdo/structures.md > Barracks >
+    /// The gate's rules for `Command::Production` (`factions/gdo/structures/barracks.md >
     /// ObjectInterfaceState[Barracks]`). The producers are the player's objects among `objects` that produce
     /// units, as an order's units are found ([`Sim::own_units`]: stale and repeated ids dropped, `NotOwned` for
     /// someone else's); none is [`Reject::NoProducers`]. Then:
@@ -261,7 +261,7 @@ impl Sim {
         }
     }
 
-    /// `factions/gdo/structures.md > Barracks > Destroyed while producing` (design changes 0084 and 0085): object
+    /// `factions/gdo/structures/barracks.md > Destroyed while producing` (design changes 0084 and 0085): object
     /// `id` is about to leave the game. If it produces units, its whole BuildQueue is refunded to its owner "as if
     /// cancelled", the unit in production and a finished one still waiting inside included: the full Space
     /// Crystals cost of each. Of their army cost (design change 0143) only the unit in production's goes, being
@@ -289,14 +289,14 @@ impl Sim {
         }
     }
 
-    /// `core/entities.md > Structure Type > Exit Doorway` (design change 0080): `producer`'s finished unit comes
-    /// into the game in its exit doorway with the order its rally point gives (`> Barracks > RallyPoint
-    /// behavior`); or it stays inside, finished, while the doorway is occupied: "the next unit can only appear once
-    /// the doorway is free. While a unit still stands in it, the building pauses". The doorway is occupied while a
-    /// unit this building released (`Mover::exit`) is still in it. Out of a side doorway the unit appears half
-    /// inside the middle of the exit side, facing out ([`Sim::doorway_spot`]); out of a portal's energy doorway, at
-    /// the centre, facing the heading it leaves along (design change 0145: `production::EnergyDoorway::release`,
-    /// which draws from the sim's Rng only with no rally point and two or more ways out to choose from).
+    /// `core/entities.md > Structure Type > Exit Doorway` (design change 0080): `producer`'s finished unit comes into
+    /// the game in its exit doorway with the order its rally point gives (`factions/gdo/structures/barracks.md >
+    /// RallyPoint behavior`); or it stays inside, finished, while the doorway is occupied: "the next unit can only
+    /// appear once the doorway is free. While a unit still stands in it, the building pauses". The doorway is occupied
+    /// while a unit this building released (`Mover::exit`) is still in it. Out of a side doorway the unit appears half
+    /// inside the middle of the exit side, facing out ([`Sim::doorway_spot`]); out of a portal's energy doorway, at the
+    /// centre, facing the heading it leaves along (design change 0145: `production::EnergyDoorway::release`, which
+    /// draws from the sim's Rng only with no rally point and two or more ways out to choose from).
     fn release_unit(&mut self, producer: ObjectId) {
         let Some(building) = self.objects.get(&producer) else {
             return;

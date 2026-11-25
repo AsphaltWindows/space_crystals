@@ -9,9 +9,9 @@
 //! change 0107) from the Colonists' Starting Conditions, one Robo Portal and four Drones with 100 Space Crystals. The
 //! portal trains Drones without a break and is rallied on the middle patch; the four starting Drones are sent there
 //! with one command; the occupancy rule deals them all out over the row. A Drone deploys whenever the room left
-//! under Beacon Capacity falls to 1 as it comes out: the 5th, 11th, 17th and 23rd made, "every 6th" (`factions/
-//! colonists/units.md > Drone`), at sites beside the portal. Neither money nor Beacon Capacity ever holds the portal
-//! up: the k-th Drone comes out at 10·k seconds, exactly.
+//! under Beacon Capacity falls to 1 as it comes out: the 5th, 11th, 17th and 23rd made, "every 6th"
+//! (`factions/colonists/units/drone.md > BeaconCapacityCost`), at sites beside the portal. Neither money nor Beacon
+//! Capacity ever holds the portal up: the k-th Drone comes out at 10·k seconds, exactly.
 //!
 //! **Income** at a time is what the Drones delivered over the 21 seconds centred on it ([`WINDOW`], 7 of a plate's
 //! cycles and about 4 of a Drone's trips), the GDO's what its plates paid over the same window: an average that
@@ -107,7 +107,7 @@ const END: Tick = LAST + WINDOW / 2;
 const TRIPS: usize = 4;
 /// "every 6th Drone becomes a Beacon": the Drones made that deploy, by their number.
 const DEPLOYED: [usize; 4] = [5, 11, 17, 23];
-/// The design's costs: `factions/colonists/structures.md > Robo Portal > Produces` ("Drone: 50 Space Crystals") and
+/// The design's costs: `factions/colonists/structures/robo_portal.md > Produces` ("Drone: 50 Space Crystals") and
 /// `factions/gdo/economy.md > ExtractionFacility > Constructs` ("Extraction Plate: 75 Space Crystals").
 const DRONE_COST: u32 = 50;
 const PLATE_COST: u32 = 75;

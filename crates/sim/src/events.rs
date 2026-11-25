@@ -71,7 +71,7 @@ pub enum SimEvent {
         plate: ObjectId,
     },
     /// `producer` took a `Train` command: a unit of `kind` was paid for and joined its BuildQueue
-    /// (`factions/gdo/structures.md > Barracks`).
+    /// (`factions/gdo/structures/barracks.md`).
     ProductionQueued {
         producer: ObjectId,
         kind: ObjectKind,
@@ -105,13 +105,13 @@ pub enum SimEvent {
         unit: ObjectId,
     },
     /// `constructor` finished its CurrentConstruction, a `kind`: it now holds it ready to place (ReadyToPlace;
-    /// `factions/gdo/structures.md > DeploymentCenter`, `crate::construction`).
+    /// `factions/gdo/structures/deployment_center.md`, `crate::construction`).
     ConstructionCompleted {
         constructor: ObjectId,
         kind: ObjectKind,
     },
     /// `constructor` gave up its CurrentConstruction or its ReadyToPlace, a `kind`, and `refund` Space Crystals went
-    /// back to its owner (`factions/gdo/structures.md > DeploymentCenter > Cancellation`): cancelled by a command (in
+    /// back to its owner (`factions/gdo/structures/deployment_center.md > Cancellation`): cancelled by a command (in
     /// full while constructing, 75% rounded down once ready), or refunded as the constructor left the game (design
     /// change 0084; before its `Removed` event).
     ConstructionCancelled {

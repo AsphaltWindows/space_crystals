@@ -36,24 +36,15 @@ use glam::Vec2;
 
 use crate::combat::within_range;
 use crate::defs::AttackAttrs;
-use crate::elevation::{self, ELEVATION_MODIFIER, Elevation};
+use crate::elevation::{self, Elevation};
 use crate::nav::Search;
 use crate::shape::Shape;
+use crate::tuning::orders::{ATTACK_MOVE_LEASH_GU, REJUDGE_MOVE_SU, REJUDGE_SELF_SU};
+use crate::tuning::vision::ELEVATION_MODIFIER;
 use crate::units::{SU_PER_GU, gu};
 
-use super::ATTACK_MOVE_LEASH_GU;
 use super::state::{Judged, Leg};
 use super::world::{Unit, View, World};
-
-/// Design change 0230 ("the enemy moves a meaningful distance"): an enemy that has moved this far from where it was
-/// judged is judged again, space units. A placeholder (the Director's): 1 grid unit.
-pub const REJUDGE_MOVE_SU: f32 = SU_PER_GU;
-
-/// Design change 0243 (answering question Q0074: "once the unit has moved about 1 GU (placeholder) from where it
-/// judged that enemy"): a rejection by the reach rule is judged again once the unit stands this far from where it
-/// judged, space units. A placeholder of the design's, "to be revisited if too expensive"
-/// (`tests/attack_move_perf.rs` measures it): 1 grid unit.
-pub const REJUDGE_SELF_SU: f32 = SU_PER_GU;
 
 /// The most paths one unit plans in one tick to judge enemies by the reach rule (the Director's decision under design
 /// change 0230, "Performance is a priority here"). Technical: measured in `tests/attack_move_perf.rs`.
@@ -86,7 +77,7 @@ pub struct ReachCounters {
     pub paths: u32,
     /// The most one unit planned.
     pub most_per_unit: u32,
-    /// Nodes their searches expanded (apart from `nav::PATH_BUDGET`, which phase 5c's requests share).
+    /// Nodes their searches expanded (apart from `tuning::paths::PATH_BUDGET`, which phase 5c's requests share).
     pub expansions: u32,
 }
 

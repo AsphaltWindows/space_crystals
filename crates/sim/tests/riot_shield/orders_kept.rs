@@ -1,4 +1,4 @@
-//! The Riot Shield keeps the unit's orders (design changes 0150 and 0151, `factions/gdo/units.md > Peacekeeper >
+//! The Riot Shield keeps the unit's orders (design changes 0150 and 0151, `factions/gdo/units/peacekeeper.md >
 //! Riot Shield > Orders are kept`): an Attack follows its target behind the shield and resumes once it is down, an
 //! AttackMove only moves, and the queue stays as it was.
 

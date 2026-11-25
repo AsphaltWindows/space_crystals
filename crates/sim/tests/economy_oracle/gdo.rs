@@ -230,10 +230,10 @@ fn an_all_in_barracks_runs_plates_and_peacekeepers_at_59_percent() {
     assert!(!after.is_empty() && after.iter().all(|&t| t == CYCLE), "{after:?}");
 }
 
-/// Refunds (`factions/gdo/structures.md > DeploymentCenter > Cancellation`, `> Barracks`): a building cancelled
-/// while it is constructed refunds its full cost, one cancelled once ready 75% of it rounded down, and a unit taken
-/// off the BuildQueue its full cost. Commands by hand, through the gate; the books balance every tick, so the bank
-/// gets exactly what the events report.
+/// Refunds (`factions/gdo/structures/deployment_center.md > Cancellation`, `factions/gdo/structures/barracks.md`): a
+/// building cancelled while it is constructed refunds its full cost, one cancelled once ready 75% of it rounded down,
+/// and a unit taken off the BuildQueue its full cost. Commands by hand, through the gate; the books balance every tick,
+/// so the bank gets exactly what the events report.
 #[test]
 fn cancelled_orders_refund_what_the_design_says() {
     let mut t = TestSim::with_config(reference_base(), SimConfig::default());

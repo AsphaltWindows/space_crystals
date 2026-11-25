@@ -5,7 +5,7 @@
 //!   MaxShields, `None` for every other. An object enters the game with full Shields (`Sim::insert_object`, as with
 //!   its HP) and keeps them through a change of kind, at most the new maximum (`Sim::change_kind`): a Weapon
 //!   Conversion's two forms have equal maxima, so "current HP/Shields values carry over unchanged"
-//!   (`factions/colonists/units.md > Weapon Conversion > HP/Shields`). While an object transforms, its maximum is the
+//!   (`factions/colonists/units/weapon_conversion.md > HP/Shields`). While an object transforms, its maximum is the
 //!   interpolated one ([`Object::max_shields`]): each frame its Shields rise by what that maximum rises (design
 //!   change 0110: "current += (newMax − oldMax) each frame", `transform::follow_max`), and a cancel leaves them the
 //!   fraction of the maximum they had (design change 0111: "Shields by the same fraction (no minimum needed)",
@@ -24,16 +24,13 @@
 //!   change 0146).
 //!
 //! TODO(Fusion Core): the Fusion Core's shield upgrades raise the rate (`> ShieldRegenRate`: "each level increasing
-//! the rate; per-level values TBD", `factions/colonists/structures.md > Fusion Core > Research`).
+//! the rate; per-level values TBD", `factions/colonists/structures/fusion_core.md > Research`).
 
 use std::collections::BTreeMap;
 
 use crate::ids::ObjectId;
 use crate::object::Object;
-
-/// `systems/combat.md > Shields > ShieldRegenRate`: "4 Shields per second (0.25 per frame). Constant base rate shared
-/// by all Colonists units and buildings". A power of two: Shields that start whole stay exact as they regenerate.
-pub const SHIELD_REGEN_PER_TICK: f32 = 0.25;
+use crate::tuning::shields::SHIELD_REGEN_PER_TICK;
 
 /// What Shields at `shields` come to after a tick's regeneration ([`SHIELD_REGEN_PER_TICK`]), with a maximum of `max`
 /// now: never above it, and Shields above it (a maximum that fell) come down to it.

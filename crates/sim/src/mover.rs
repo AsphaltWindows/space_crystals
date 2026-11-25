@@ -27,29 +27,15 @@ use serde::{Deserialize, Serialize};
 
 use crate::ids::ObjectId;
 use crate::nav::PathGroup;
+use crate::tuning::movement::{JAMMED_TICKS, MAX_REPATHS};
 use crate::units::{Tick, TilePos};
 
-pub use schedule::{GIVE_UP_TICKS, HALF_STUCK_TICKS, MAX_REPATHS, REPATH_WAITS, STUCK_GRACE_TICKS, STUCK_TICKS};
-pub use sidestep::{Sidestep, YIELD_CHAIN_DEPTH, YIELD_MIN_SIDESTEP_SU, YIELD_SIDESTEP_WIDTHS, YIELD_WAIT_TICKS};
+/// A tunable of `tuning::movement`, re-exported here for the client, whose tests read it by this path.
+pub use crate::tuning::movement::OCCUPIED_ARRIVAL_GU;
+pub use sidestep::Sidestep;
 
 /// `docs/movement.md > 3`: at most this many `avoid_tiles` (a technical cap).
 pub const MAX_AVOID_TILES: usize = 16;
-
-/// `docs/movement.md > 5.6`: a unit runs its staggered checks in the ticks where `(tick + id) % STAGGER == 0`.
-pub const STAGGER: Tick = 4;
-
-/// `docs/movement.md > 6.3`: a unit that found no way forward for this many ticks in a row counts as stationary
-/// for the others (a tuning const of the movement design).
-pub const JAMMED_TICKS: u16 = 12;
-
-/// `docs/movement.md > 6.3`, rule 4: a switch of `avoid_side` commits for this many ticks (tuning const).
-pub const AVOID_COMMIT_TICKS: Tick = 16;
-
-/// `systems/controls/behaviors.md > MovingToLocation > Occupied target location` (design changes 0026 and 0169; a
-/// placeholder to tune): a unit stuck within 3 grid units of its destination, blocked by units that aren't moving,
-/// counts as arrived (`docs/movement.md > 6.5`, rule 1). The one radius of both behaviours: `> MovingToObject`'s
-/// "Blocked near the target" is the same rule (design changes 0033 and 0169). It was 2 until design change 0169.
-pub const OCCUPIED_ARRIVAL_GU: f32 = 3.0;
 
 /// What a unit is asked to reach (`docs/movement.md > 3`).
 #[derive(Copy, Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
@@ -152,7 +138,7 @@ pub struct Mover {
     /// This tick's displacement, space units per tick; zero when the unit stood still or arrived.
     pub velocity: Vec2,
     /// MaxSpeed is multiplied by this. The unit's modes set it when they change: 0.5 from the moment its Riot Shield
-    /// starts going up until it is all the way down again (`riot_shield`, `factions/gdo/units.md > Peacekeeper`).
+    /// starts going up until it is all the way down again (`riot_shield`, `factions/gdo/units/peacekeeper.md`).
     pub speed_factor: f32,
     /// The order group of the current goal, or of the last one: the units of one command share it
     /// (`orders::OrderGroup`). A unit that arrived doesn't yield to the members of its group that are still
@@ -304,8 +290,8 @@ impl Mover {
     }
 
     /// Phase 5c hands the unit its path: waypoints from the unit's position to the goal, planned to
-    /// `planned_target` on its owner's grids of knowledge version `nav_version`. Progress is measured afresh on the new path, but the stuck
-    /// clock (`last_progress`) runs on: a new path alone is no progress (`docs/movement.md > 6.5`).
+    /// `planned_target` on its owner's grids of knowledge version `nav_version`. Progress is measured afresh on the new
+    /// path, but the stuck clock (`last_progress`) runs on: a new path alone is no progress (`docs/movement.md > 6.5`).
     pub fn follow(&mut self, path: Vec<Vec2>, planned_target: Vec2, nav_version: u32) {
         // Head for the first waypoint after the start.
         self.next = u16::from(path.len() > 1);

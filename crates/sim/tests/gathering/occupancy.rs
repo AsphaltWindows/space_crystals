@@ -1,4 +1,4 @@
-//! One Drone per patch (`factions/colonists/units.md > Drone > Patch Occupancy (one Drone per patch)`): two
+//! One Drone per patch (`factions/colonists/units/drone.md > Patch Occupancy (one Drone per patch)`): two
 //! Drones arriving together, Drones waiting with no patch free, an enemy Drone on the patch.
 
 use super::*;

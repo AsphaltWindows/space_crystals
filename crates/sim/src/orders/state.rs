@@ -21,7 +21,7 @@ pub struct Pursuit {
 }
 
 /// A target a unit gave up on, and the tick until which it doesn't pick it again
-/// (`orders::GIVE_UP_RETRY_TICKS`).
+/// (`tuning::orders::GIVE_UP_RETRY_TICKS`).
 pub type Ignored = Option<(ObjectId, Tick)>;
 
 /// `> BaseAutoTargeting > Active during Idle`: what a unit without an order is doing.
@@ -147,7 +147,7 @@ pub struct Judged {
     /// `nav_version` for a unit without an owner).
     pub knowledge: u32,
     /// Design change 0243 (answering question Q0074): where the unit stood when it judged, for a rejection its own
-    /// movement re-checks: one by the reach rule, the leash included (`orders::reach::REJUDGE_SELF_SU`). `None` for
+    /// movement re-checks: one by the reach rule, the leash included (`tuning::orders::REJUDGE_SELF_SU`). `None` for
     /// the judgement a chase goes by, and for the rejection of a chase given up by the Failure rule (design change
     /// 0235) or lost to the fog, which "keep 0230's triggers".
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -168,7 +168,7 @@ pub struct Patrol {
     pub leg: Leg,
 }
 
-/// Where a worker is in its job (`factions/colonists/units.md > Drone > Gathering`: "pick up at X, deliver to Y";
+/// Where a worker is in its job (`factions/colonists/units/drone.md > Gathering`: "pick up at X, deliver to Y";
 /// `orders::gather`).
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum GatherPhase {
@@ -177,7 +177,7 @@ pub enum GatherPhase {
     /// At an occupied patch with no other patch free, or as close as it got to a patch it can't reach, since tick
     /// `since` (`> Patch Occupancy (one Drone per patch)`: it "waits right at the patch it tried to mine, within
     /// MiningReach, and mines it as soon as it frees up", design change 0132; "it waits as close as it can get",
-    /// 0141). It looks again every `orders::gather::RECHECK_TICKS`, in the ticks that are multiples of it.
+    /// 0141). It looks again every `tuning::gathering::RECHECK_TICKS`, in the ticks that are multiples of it.
     Waiting { since: Tick },
     /// Mining the order's patch, which it occupies: `done` of MiningDuration frames
     /// (`economy::gathering::step` counts them and takes the load).
@@ -206,11 +206,11 @@ pub struct Gather {
     /// The unit's current move is this phase's leg, so the mover's status is the leg's outcome.
     pub moving: bool,
     /// The leg to the drop-off ended short of it: the next one begins no sooner than this tick
-    /// (`orders::gather::LEG_RETRY_TICKS`). 0 while no leg has.
+    /// (`tuning::gathering::LEG_RETRY_TICKS`). 0 while no leg has.
     pub retry_at: Tick,
-    /// Where the order's patch is, its centre, while the worker can't go by the patch itself: out of its owner's
-    /// sight, where the owner remembers it (design change 0139), and once it has left the game, where it was (design
-    /// change 0134, `factions/colonists/units.md > Patch Occupancy > A patch that runs out`). Gone to the owner, the
+    /// Where the order's patch is, its centre, while the worker can't go by the patch itself: out of its owner's sight,
+    /// where the owner remembers it (design change 0139), and once it has left the game, where it was (design change
+    /// 0134, `factions/colonists/units/drone.md > Patch Occupancy > A patch that runs out`). Gone to the owner, the
     /// patch is "treated like an occupied one": the worker heads for its spot and looks for another patch there.
     /// Meanwhile the order may name a patch that is gone (`orders::Order::outlives_target`). `None` while the owner
     /// sees the patch. Optional in files.
@@ -273,7 +273,7 @@ pub enum Behaviour {
     Hold {
         target: Option<ObjectId>,
     },
-    /// A worker's job, for a Gather and a Drop Off order alike (`factions/colonists/units.md > Drone > Gathering`).
+    /// A worker's job, for a Gather and a Drop Off order alike (`factions/colonists/units/drone.md > Gathering`).
     Gather(Gather),
     /// A Drone on its way to deploy (`factions/colonists/economy.md > Beacon Deployment > Deploy Command`).
     Deploy(Deploy),

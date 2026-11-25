@@ -17,14 +17,11 @@ use glam::Vec2;
 use super::collide::World;
 use super::space::sweep;
 use crate::nav;
+use crate::tuning::movement::ROW_CLEARANCE_SU;
 
 /// A row is followed through at most this many units (a technical bound on [`detour`]'s walk; a larger crowd is
 /// gone round as far as it was followed).
 const ROW_MAX: usize = 32;
-
-/// The detour passes the row's box at this distance, space units, so that the leg after it clears the row's corner
-/// (tuning const).
-const ROW_CLEARANCE_SU: f32 = 2.0;
 
 /// The **row** of `blocker` (an index into `world.bodies`): it, and every unit that stands for good where it is
 /// (stationary, and with no goal of its own: in range of its target, arrived, idle) so close to one of the row that

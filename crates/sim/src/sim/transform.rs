@@ -11,7 +11,8 @@ use crate::events::SimEvent;
 use crate::ids::{ObjectId, PlayerId};
 use crate::object::{Object, Placement};
 use crate::scenario::BuildingOrientation;
-use crate::transform::{self, MIN_HP_AFTER_CANCEL, Transform, follow_max, keep_fraction};
+use crate::transform::{self, Transform, follow_max, keep_fraction};
+use crate::tuning::construction::MIN_HP_AFTER_CANCEL;
 
 impl Sim {
     /// The Beacon of a Warp In among `objects` (plan decision T22: "names one Beacon, as Place names one
@@ -31,9 +32,10 @@ impl Sim {
     /// one Beacon of the player's ([`Sim::warper`]), complete, not transforming ([`Reject::ConstructorBusy`]: a
     /// Beacon still being deployed, slice M3-F); `kind` on its Constructs List ([`Reject::CannotConstruct`]); a bank
     /// that covers the cost as the command applies, after the earlier commands of the tick
-    /// ([`Reject::InsufficientCrystals`]); and the footprint, derived from the Beacon ([`transform::warp_in_footprint`],
-    /// design change 0121), allowed for a Warp In by the placement check ([`Sim::warp_in_check`]: else
-    /// [`Reject::Unplaceable`] with its first problem, a tile out of the player's sight included, design change 0119).
+    /// ([`Reject::InsufficientCrystals`]); and the footprint, derived from the Beacon
+    /// ([`transform::warp_in_footprint`], design change 0121), allowed for a Warp In by the placement check
+    /// ([`Sim::warp_in_check`]: else [`Reject::Unplaceable`] with its first problem, a tile out of the player's sight
+    /// included, design change 0119).
     pub(super) fn check_warp_in(
         &self,
         player: PlayerId,

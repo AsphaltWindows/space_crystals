@@ -1,11 +1,11 @@
-//! Weapon Conversion — `factions/colonists/units.md > Weapon Conversion` (plan decision T26, slice M3-B; design change
+//! Weapon Conversion — `factions/colonists/units/weapon_conversion.md` (plan decision T26, slice M3-B; design change
 //! 0198, slice M3-T): "Sabre Legionnaire and Rifle Legionnaire are two forms of the same underlying unit [...]
 //! differing only in AttackAttributes. Either form may convert into the other at any time via the Convert command."
 //!
 //! **A toggle sets a target form** (design change 0198, `> A toggle sets a target form`): "Pressing R **flips the
 //! unit's target form**; the unit then works to get itself into that form. So however fast R is pressed, every unit
-//! that received the presses ends up in the same form". While a change is pending, a Legionnaire is two forms at once
-//! (`ARCHITECTURE.md > Object model > Type and form`):
+//! that received the presses ends up in the same form", the rule of `crate::toggle`. While a change is pending, a
+//! Legionnaire is two forms at once (`ARCHITECTURE.md > Object model > Type and form`):
 //! - its **type**, `Object::kind`, is the form it works toward: "The unit's type, and so its SelectionGroup, switches
 //!   at the press to the target form" (`Sim::change_kind`, the same object). Whatever commands the unit reads it: the
 //!   client's selection, groups and panel, the gate, the default command;
@@ -37,9 +37,9 @@
 //!     (both Interruptible = true), interrupting that phase immediately": an aim or a reload under way ends, and the
 //!     new weapon starts ready (design change 0152: "a reload in progress on the old weapon is not carried over").
 //!     The unit keeps what its order engages;
-//!   - **converting** ([`is_converting`]; `> Convert Command`: "The unit converts in place over 4 frames",
-//!     [`CONVERT_TICKS`]): it holds still. It neither moves nor turns (`combat::may_move`, `combat::may_turn`: phase
-//!     5d holds it and keeps its goal, and the behaviours start no chase), it makes way for no one (its
+//!   - **converting** ([`is_converting`]; `> Convert Command`: "The unit converts in place over 4 frames", its def's
+//!     `ConversionDef::ticks`): it holds still. It neither moves nor turns (`combat::may_move`, `combat::may_turn`:
+//!     phase 5d holds it and keeps its goal, and the behaviours start no chase), it makes way for no one (its
 //!     `Mover::speed_factor` is 0, so `Mover::can_move` says it can't move in its mode), and it attacks nothing
 //!     (phase 5e skips it). It stays "fully attackable throughout the 4-frame conversion — no invulnerability window"
 //!     (`> Vulnerability`). Its behaviours run as ever: a target they engage waits for the new weapon. "Once the
@@ -60,15 +60,12 @@ use std::collections::BTreeMap;
 
 use serde::{Deserialize, Deserializer, Serialize};
 
-use crate::combat;
-use crate::defs::ObjectKind;
+use crate::defs::{ConversionDef, ObjectKind};
 use crate::hash::{StateHash, StateHasher};
 use crate::ids::ObjectId;
 use crate::mover::Mover;
 use crate::object::Object;
-
-/// `> Convert Command`: "The unit converts in place over 4 frames".
-pub const CONVERT_TICKS: u32 = 4;
+use crate::toggle::{self, Press, Toward};
 
 /// A Legionnaire's change of form that is pending (module docs): `Object::conversion` from the press that makes its
 /// type another form than the one it has until it has its type's form again, `None` otherwise.
@@ -86,22 +83,31 @@ pub struct Conversion {
 }
 
 impl Conversion {
-    /// The frames of the conversion under way done, the one under way included: 1 in the tick it starts,
-    /// [`CONVERT_TICKS`] in its fourth; `None` while none is under way.
+    /// The frames of the conversion under way done, the one under way included: 1 in the tick it starts, all of its
+    /// form's (`ConversionDef::ticks`: 4) in its last; `None` while none is under way.
     pub fn frames_done(self) -> Option<u32> {
-        self.left.map(|left| CONVERT_TICKS.saturating_sub(left))
+        self.left.map(|left| ticks(self.form).saturating_sub(left))
     }
 }
 
-/// `> Weapon Conversion`: the other form of a `kind` unit, the one a Convert turns it into, if it has one: the Sabre
-/// Legionnaire's is the Rifle Legionnaire, and the other way round (`> Sabre Legionnaire > ObjectInterfaceState`: "R:
-/// Convert to Rifle Legionnaire"; `> Rifle Legionnaire > ObjectInterfaceState`: "R: Convert to Sabre Legionnaire").
+/// The conversion of a `kind` unit, its def's (`UnitDef::conversion`): the Legionnaire's two forms and the frames a
+/// conversion takes.
+fn def_of(kind: ObjectKind) -> Option<ConversionDef> {
+    kind.def().unit.as_ref()?.conversion
+}
+
+/// The frames a conversion from `form` takes (`> Convert Command`: "The unit converts in place over 4 frames").
+fn ticks(form: ObjectKind) -> u32 {
+    def_of(form).map_or(0, |conversion| conversion.ticks)
+}
+
+/// `factions/colonists/units/weapon_conversion.md`: the other form of a `kind` unit, the one a Convert turns it into,
+/// if it has one (`ConversionDef::forms`; a press flips the target form, `toggle::pressed`): the Sabre Legionnaire's is
+/// the Rifle Legionnaire, and the other way round (`factions/colonists/units/sabre_legionnaire.md >
+/// ObjectInterfaceState`: "R: Convert to Rifle Legionnaire"; `factions/colonists/units/rifle_legionnaire.md >
+/// ObjectInterfaceState`: "R: Convert to Sabre Legionnaire").
 pub fn converts_to(kind: ObjectKind) -> Option<ObjectKind> {
-    match kind {
-        ObjectKind::SabreLegionnaire => Some(ObjectKind::RifleLegionnaire),
-        ObjectKind::RifleLegionnaire => Some(ObjectKind::SabreLegionnaire),
-        _ => None,
-    }
+    toggle::pressed(def_of(kind)?.forms, kind, Press::Flip)
 }
 
 /// The form `o` has in the world now (module docs): the one its pending conversion holds, else its type. What the
@@ -151,8 +157,8 @@ pub(crate) fn retarget(o: &mut Object) {
 
 /// The conversions' part of the Modes step (module docs): each unit before `first_new` with a pending conversion, in
 /// id order, takes the next frame of the one under way, or, its frames done, has its other form; then one that isn't
-/// converting works toward its type: it has it, and its conversion is over; or it starts converting to it, unless
-/// it is Firing or in Cooldown, and waits.
+/// converting works toward its type (`toggle::toward`): it has it, and its conversion is over; or it starts converting
+/// to it, unless it is Firing or in Cooldown, and waits.
 pub(crate) fn step(objects: &mut BTreeMap<ObjectId, Object>, first_new: ObjectId) {
     for o in objects.range_mut(..first_new).map(|(_, o)| o) {
         let Some(conversion) = &mut o.conversion else {
@@ -160,7 +166,7 @@ pub(crate) fn step(objects: &mut BTreeMap<ObjectId, Object>, first_new: ObjectId
         };
         match conversion.left {
             Some(0) => {
-                // `> Completion`: its four frames are done.
+                // `factions/colonists/units/weapon_conversion.md > Completion`: its four frames are done.
                 conversion.form = converts_to(conversion.form).unwrap_or(conversion.form);
                 conversion.left = None;
             }
@@ -171,11 +177,13 @@ pub(crate) fn step(objects: &mut BTreeMap<ObjectId, Object>, first_new: ObjectId
             None => {}
         }
         let Conversion { form, .. } = *conversion;
-        // A type that is neither the form nor its other one (a hand-edited save) has nothing to convert to.
-        if form == o.kind || converts_to(form) != Some(o.kind) {
-            finish(o);
-        } else if !combat::mid_attack(o) {
-            start(o);
+        // A type that is neither the form nor its other one (a hand-edited save) has nothing to convert to: as good as
+        // there. A conversion that ends here hasn't begun: one under way went on above.
+        let there = form == o.kind || converts_to(form) != Some(o.kind);
+        match toggle::toward(o, there, false) {
+            Toward::There => finish(o),
+            Toward::Waits => {}
+            Toward::Goes => start(o),
         }
     }
 }
@@ -185,7 +193,7 @@ pub(crate) fn step(objects: &mut BTreeMap<ObjectId, Object>, first_new: ObjectId
 /// change 0152), and it can't move in this mode, so it makes way for no one (`Mover::can_move`).
 fn start(o: &mut Object) {
     if let Some(conversion) = &mut o.conversion {
-        conversion.left = Some(CONVERT_TICKS.saturating_sub(1));
+        conversion.left = Some(ticks(conversion.form).saturating_sub(1));
     }
     if let Some(attack) = &mut o.attack {
         attack.phase = None;

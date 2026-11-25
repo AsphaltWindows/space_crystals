@@ -5,6 +5,7 @@
 use crate::defs::{Resource, WorkerDef};
 use crate::ids::{ObjectId, PlayerId};
 use crate::mover::MoveStatus;
+use crate::tuning::gathering::RECHECK_TICKS;
 use crate::units::Tick;
 
 use super::super::OrderKind;
@@ -14,7 +15,7 @@ use super::legs::leg;
 use super::search::{claim, search, taken};
 use super::site::{Site, site};
 use super::station::{to_station, wait_at_station};
-use super::{Claims, Flow, RECHECK_TICKS, carrying, loaded, returning};
+use super::{Claims, Flow, carrying, loaded, returning};
 
 pub(super) fn to_patch(
     kind: &mut OrderKind,

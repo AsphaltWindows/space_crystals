@@ -19,9 +19,9 @@ mod group_order;
 mod occupied;
 mod yielding;
 
-use sc_sim::mover::{GIVE_UP_TICKS, MAX_REPATHS, OCCUPIED_ARRIVAL_GU, REPATH_WAITS, STUCK_TICKS};
 use sc_sim::testing::invariants::Invariants;
 use sc_sim::testing::{ScenarioBuilder, TestSim};
+use sc_sim::tuning::movement::{GIVE_UP_TICKS, MAX_REPATHS, OCCUPIED_ARRIVAL_GU, REPATH_WAITS, STUCK_TICKS};
 use sc_sim::{
     Ability, Command, DebugCommand, MoveStatus, ObjectId, ObjectKind, OrderKind, PlayerCommand, PlayerId, Shape, Sim,
     SimEvent, SpawnAt, Target, TickInputs, TilePos, Vec2, gu,

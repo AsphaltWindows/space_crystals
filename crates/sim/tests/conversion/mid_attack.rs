@@ -1,4 +1,4 @@
-//! A Convert pressed mid-attack (design change 0153, `factions/colonists/units.md > Weapon Conversion >
+//! A Convert pressed mid-attack (design change 0153, `factions/colonists/units/weapon_conversion.md >
 //! Eligibility`: "deferred, not rejected"): the gate takes it in every attack phase, and a unit Firing or in Cooldown
 //! converts once its Cooldown is over, alone or in a group in a fight.
 

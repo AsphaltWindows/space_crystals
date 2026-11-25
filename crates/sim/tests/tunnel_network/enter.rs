@@ -1,7 +1,8 @@
 //! The Enter order and the units inside the network (`systems/controls/commands.md > Enter`;
 //! `factions/syndicate/tunnels.md > Tunnel Network`, design changes 0245 to 0249).
 
-use sc_sim::network::{Place, TRANSIT_DELAY_TICKS};
+use sc_sim::defs::TRANSIT_DELAY_TICKS;
+use sc_sim::network::Place;
 use sc_sim::{ArmyResource, MoveStatus, PlayerCommand, Reject, Target};
 
 use super::*;

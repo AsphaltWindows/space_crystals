@@ -7,8 +7,10 @@ the code or the design, stop and tell the Director. Don't pick one of them on yo
 
 - The design docs in `artifacts/designer/design/` are the spec (index: its `README.md`). Implement what they say.
 - Never edit anything under `artifacts/`, because the Designer and the Director own it.
-- Cite the design in doc comments as `path/file.md > Section`, with paths relative to `artifacts/designer/design/`.
-  A citation `` `> Section` `` names a section of the file cited just before it, often in the module's doc.
+- **Cite a design section with its full path**, `path/file.md > Section`, relative to `artifacts/designer/design/`,
+  in doc comments, in this file and in `docs/`. A relative `` `> Section` `` is allowed only inside a module whose doc
+  names its design file, and is a section of that file. Older code still has relative citations of other files'
+  sections, and bare file names: write them out in full where you edit.
 - `crates/sim/tests/design_citations.rs` checks the citations: every backticked design path in `crates/**/*.rs`,
   `docs/**/*.md` and this file must exist under `artifacts/designer/design/` (a `docs/` path under the repository's
   `docs/`), or the test fails, naming file and line. Its ignored test reports the cited sections that aren't headings
@@ -135,8 +137,8 @@ The design is `core/map.md`, and the code is `crates/sim/src/map.rs` and `map/`.
   `too_steep_tiles` find violations, and `MapDef::validate` lists them (`ScenarioProblem::TooSteep`). Non-Traversible
   tiles (Cliff, Mountain, Water) may be as steep as they like.
 - **Map resources and structures need flat ground** (`core/map.md > Elevation > Map resources only on flat terrain`,
-  `> Structures only on flat terrain`): every footprint tile of a kind with `ObjectDef::needs_flat_ground` must be
-  flat. Validation flags it (`SpawnProblem::NotFlat`) and `Command::Debug(Spawn)` refuses it.
+  `core/map.md > Structures only on flat terrain`): every footprint tile of a kind with `ObjectDef::needs_flat_ground`
+  must be flat. Validation flags it (`SpawnProblem::NotFlat`) and `Command::Debug(Spawn)` refuses it.
 - **Height edits**: `Map::set_corner_heights(targets)` pins the target corners and moves every other corner as little
   as needed for the maximum slope (two corners are linked when they share a Traversible tile, so slopes cascade
   outwards, AoE2-style, and stop at non-Traversible tiles). It returns the corners it changed. On a map without
@@ -178,14 +180,22 @@ Units, structures and resources are all `Object`s (`object.rs`, `core/entities.m
   see *The Syndicate* below). The rest arrives as more optional fields, each with its own module. Never add them as separate
   stores keyed by id. A system walks the objects in id order and skips those without its capability
   (`let Some(..) = &mut o.resource else { continue };`).
-- **Per-type constants** sit in one `static ObjectDef` per type (`defs.rs`, `core/entities.md > Object Type`). Reach
-  them through `ObjectKind::def()` or `Object::def()`. Every value cites its design section. Faction types go in
-  per-faction modules (`defs/gdo.rs`, …). A unit type also has `ObjectDef::unit: Some(UnitDef)` (`defs/units.rs`,
-  `systems/units.md`): its `UnitBase`, whose `static UnitBaseDef` holds the base's domain, movement model and flags
-  (turret, crushable, …), the attributes of that movement model (`MovementAttrs`), and its turret, attack and costs.
-  Its box is its silhouette (`ObjectDef::half_extents`). Armour (`ObjectDef::armor`, an `Armor` of PointArmor and
-  FullArmor) is the same for units and structures; map resources have `Armor::NONE`.
-- **Structures** (`defs/structures.rs`, `defs/gdo.rs`; `factions/gdo/structures/`, `factions/gdo/economy.md`): the
+- **Per-type constants** sit in one `static ObjectDef` per type (`core/entities.md > Object Type`), in the type's own
+  def module, named as its design file: `defs/<faction>/{units,structures}/<object>.rs`, and `defs/map/<object>.rs`
+  for the map's objects (*Adding a unit or structure*). Reach them through `ObjectKind::def()` or `Object::def()`.
+  Every value cites its design section. A faction's own rules, which belong to no one type (its caps and divisors),
+  are in its root module, `defs/<faction>.rs`. What a type does differently is a field of its def where it can be:
+  slice M4-R1 turned three `match`es on `ObjectKind` into `StructureDef::onto` (the kind a structure is placed onto),
+  `StructureDef::seeds_build_area` and `UnitBaseDef::transit` (which `Transit::of` reads). **The defs are plain serde
+  data** (plan decision T54, for the data files of playtest; `defs/tests/serde.rs` takes every def through JSON and
+  back): their names and lists stay `&'static str` and `&'static [T]`, which the deserializer leaks once
+  (`defs/leak.rs`), so the defs stay `Copy` (the Director accepted this for the playtest loader). A unit type also
+  has `ObjectDef::unit: Some(UnitDef)` (`defs/units.rs`, `systems/units.md`): its `UnitBase`, whose `static UnitBaseDef`
+  holds the base's domain, movement model and flags (turret, crushable, …), the attributes of that movement model
+  (`MovementAttrs`), and its turret, attack and costs. Its box is its silhouette (`ObjectDef::half_extents`). Armour
+  (`ObjectDef::armor`, an `Armor` of PointArmor and FullArmor) is the same for units and structures; map resources have
+  `Armor::NONE`.
+- **Structures** (`defs/structures.rs`, `defs/gdo/`; `factions/gdo/structures/`, `factions/gdo/economy.md`): the
   GDO's Deployment Center, Generator, Barracks, Extraction Facility and Extraction Plate (slice M2-A; their
   `ObjectKind`s follow the M1 ones, because the state hash numbers kinds in declaration order). A structure type has
   `ObjectDef::structure: Some(StructureDef)` (its `SymmetryType`, BuildRadiusExtension and Power, the plate's
@@ -194,7 +204,7 @@ Units, structures and resources are all `Object`s (`object.rs`, `core/entities.m
   its `Placement` holds it as placed, `w` and `h` swapped by a quarter turn, with the orientation it was placed in
   (`Placement::orientation`). It has HP, armour and a SightRange, and no orders, mover or attack, so behaviours,
   movement and combat pass it by.
-- **The Colonists** (`defs/colonists.rs`; `factions/colonists/units/`, `factions/colonists/economy.md`, slice M3-A):
+- **The Colonists** (`defs/colonists/`; `factions/colonists/units/`, `factions/colonists/economy.md`, slice M3-A):
   the Drone, the Beacon, the Egress Node, the Robo Portal, the Bio Portal and the Sabre and Rifle Legionnaires, after
   the M2 kinds. Three def fields came before their slices: `ObjectDef::max_shields` (MaxShields, set for exactly
   the Colonists' kinds; their Shields came with M3-B, see *Combat > Shields*), `UnitDef::beacon_capacity_cost`
@@ -206,14 +216,14 @@ Units, structures and resources are all `Object`s (`object.rs`, `core/entities.m
   is `(ForwardAcceleration + OmniDirectionalAcceleration) / DragRatio` = 8 su per tick (`MovementAttrs::max_speed`).
   It crosses Rugged tiles with double drag (`HOVER_VEHICLE.rugged_terrain`, design change 0039), on the light
   infantry's `(GroundRugged, 1)` grid.
-- **The Syndicate** (`defs/syndicate.rs`; `factions/syndicate/`, slice M4-A): the Guard (M3), then the Agent, the
+- **The Syndicate** (`defs/syndicate/`; `factions/syndicate/`, slice M4-A): the Guard (M3), then the Agent, the
   Tunnel and the Hideout, after the Colonists' kinds. The Agent has its pistol; units enter and leave the Tunnel
   Network at a Tunnel's Side A and the Hideout produces into it (slice M4-C, *Units off the map* below); the rest is
   inert so far but for blocking, sight and being targets. **The Tunnel is one kind with a tier** (plan decision
   T39): `StructureDef::tunnel` holds
-  its `TunnelDef`, the rows of `tunnels.md > Tiers` (`TierDef`: MaxHP, Tunnel Area Radius, Transit), and the object
-  its `TunnelState` (`tunnel.rs`), from Tier 1. `Object::max_hp` reads its tier's row; `tunnel::set_tier` changes the
-  tier as an upgrade will, the damage kept (`transform::follow_max`, design change 0231 point 4), through
+  its `TunnelDef`, the rows of `factions/syndicate/tunnels.md > Tiers` (`TierDef`: MaxHP, Tunnel Area Radius, Transit),
+  and the object its `TunnelState` (`tunnel.rs`), from Tier 1. `Object::max_hp` reads its tier's row; `tunnel::set_tier`
+  changes the tier as an upgrade will, the damage kept (`transform::follow_max`, design change 0231 point 4), through
   `DebugCommand::SetTier` until the upgrades (slice M4-H). Records carry the tier last seen (`LastKnown::tunnel`,
   0237). **The Hideout is an underground expansion** (`StructureDef::underground`, plan decision T32): it needs no
   flat ground (`ObjectDef::needs_flat_ground`, design change 0005), stands for the ElevationModifier at the level
@@ -240,17 +250,17 @@ Units, structures and resources are all `Object`s (`object.rs`, `core/entities.m
   kind)` are what the interface reads. Hashed and saved **only while non-empty** (`#[serde(default,
   skip_serializing_if)]`, a tag in `Sim::state_hash`), as a Tunnel's eject queue is (`TunnelState::eject`), so the
   states without a held unit, the goldens among them, are as they were. Inside, a unit regenerates 1% of its MaxHP
-  a second (`REGEN_PER_SECOND`, placeholder, 0249) and may leave `TRANSIT_DELAY_TICKS` (32, placeholder, 0245)
-  after it walked in, a unit produced inside at once (0246; `Held::may_exit`).
+  a second (`TunnelDef::regen_per_second`, placeholder, 0249) and may leave `TRANSIT_DELAY_TICKS` (32, placeholder,
+  0245) after it walked in, a unit produced inside at once (0246; `Held::may_exit`).
 - **Side A's paths** (`network::Paths`, design changes 0225 and 0248): the one geometry of a Tunnel's entry and
   exit, for the sim and the client's drawing (`object_render/tunnel.rs` reads `PATH_OFFSET_SU`): two spots on Side
   A's line, 30 su from its middle, the exit towards Side B and the entry towards Side D, wherever the sides face
   (`sides`). A unit stands on one with its box against the wall (`entry_stand`, `exit_stand`). `network::admits(tunnel,
-  kind)` is the one tier rule (`> Transit Tier Requirements`; the tier a Tunnel has, which an upgrade leaves until it
-  completes, 0249); **air units pass nowhere in M4** (`network::AIR_DOORS`, whose doc holds the rule to come with the
-  first Syndicate air unit, design changes 0250 and 0251). `tunnel::area::parent` derives an expansion's parent Tunnel
-  (plan decision T32: the owner's Tunnel whose Tunnel Area, `tunnel::area::of`, fully contains it;
-  `Sim::parent_tunnel`).
+  kind)` is the one tier rule (`factions/syndicate/tunnels.md > Transit Tier Requirements`; the tier a Tunnel has, which
+  an upgrade leaves until it completes, 0249); **air units pass nowhere in M4** (`tuning::tunnel::AIR_DOORS`, whose doc
+  holds the rule to come with the first Syndicate air unit, design changes 0250 and 0251). `tunnel::area::parent`
+  derives an expansion's parent Tunnel (plan decision T32: the owner's Tunnel whose Tunnel Area, `tunnel::area::of`,
+  fully contains it; `Sim::parent_tunnel`).
 - **Changing kind** (`sim/kinds.rs`, plan decision T15): an object that transforms (a Drone deploying into a Beacon,
   a Beacon warping in a building, a Legionnaire converting its weapon, a Peacekeeper raising or lowering its Riot
   Shield) stays the same object, its id included.
@@ -290,6 +300,14 @@ Units, structures and resources are all `Object`s (`object.rs`, `core/entities.m
   takes follows its type from the press, carrying them out waits for its form (design change 0202:
   `riot_shield::takes_attack_orders(kind)` for the first, `allows_attack(o)` for the second). A Legionnaire's two
   forms share everything but the weapon, so its shape, sight and speed are its type's and its form's alike.
+- **Mechanics implemented once** (plan decision T54, slice M4-R1): `Progress` (`progress.rs`), ticks done of a total
+  in the fixed point of plan decision T6, so that a tick at part speed counts its share of a tick; a transformation
+  counts its frames with one (`Transform`). The toggle rule (`toggle.rs`, design change 0198, see *Type and form*):
+  `toggle::pressed` switches the type at the press and `toggle::toward` works the form toward it, for the Riot Shield
+  and the Weapon Conversion alike, each keeping its own state. The other timers don't use `Progress` yet, because
+  their hashed bytes would change: production, construction, the Extraction Facility's cycle, the Weapon Conversion,
+  the Riot Shield, a worker's mining and unloading, and the Tunnel Network's held units. Each moves at the next
+  re-bless of the goldens that touches it. **New timers use `Progress`.**
 - **Sides** (`sides.rs`, design change 0079): `sides(kind, orientation)` gives the letters of a structure's sides
   that face north, east, south and west (`[SideLetter; 4]`, `None` for other objects). Unturned, the letters of its
   `SymmetryType` (AAAA to ABCD) run clockwise from the top side; a flip mirrors them, then the rotation turns them
@@ -303,14 +321,15 @@ Units, structures and resources are all `Object`s (`object.rs`, `core/entities.m
   and map validation ask alike; only a debug spawn puts one on bare ground, where it mines nothing (see *Economy*).
 
 **Adding an object type**
-1. Add an `ObjectKind` variant whose doc comment cites the design section, and add it to `ObjectKind::ALL`.
-2. Add its `static ObjectDef`, with a citation for every value, and its arm in `ObjectKind::def()`. Missing numbers
-   become named consts tagged with the question id.
-3. Set up its capability state in `kinds::Capabilities::fresh` (`sim/kinds.rs`; units get idle `orders` and
+1. Add its def module with its `static ObjectDef`, a citation for every value (*Adding a unit or structure*), and its
+   line at the end of the kind registry (`kind_registry!` in `defs.rs`), whose doc comment cites the design section.
+   That one line makes the `ObjectKind` variant, its place in `ObjectKind::ALL` and its arm of `ObjectKind::def()`.
+   Missing numbers become named consts tagged with the question id.
+2. Set up its capability state in `kinds::Capabilities::fresh` (`sim/kinds.rs`; units get idle `orders` and
    `mover`), and give it its client module, with its line in the client's kind registry (*Adding a unit or
    structure*). Its per-object values, if it has any, are `SpawnSettings::defaults`' (the editor's fields follow
    them).
-4. Test it. Spawn it in a small inline scenario, then check its initial state and its behaviour.
+3. Test it. Spawn it in a small inline scenario, then check its initial state and its behaviour.
 
 **Adding a capability**
 1. Give it its own module with its state type (deriving `Clone, Debug, PartialEq, Serialize, Deserialize`) and logic.
@@ -369,13 +388,13 @@ Layout validation can't disagree. **Never test a placement rule anywhere else: a
   derives it (0121: centred on the Beacon; an odd-sized building's extra row and column at the bottom-right, turned
   and flipped about the Beacon's centre as the building's sides are), and `Sim::warp_in_check(beacon, kind,
   orientation)` checks it. The gate and the Warp In ghost (slice M3-J1) call those two. `Method::WorkerBuilt`
-  (slice M3-F; `> Worker-Built Structures`, a Drone's Deploy) has the tile rules without a build area; the caller
-  leaves the worker out of the occupants (0118). Its order is judged in `Mode::Known { vision, player }` (0120: what
-  the player knows: its own objects, the others it sees, its records of structures and resources in the fog; a tile
-  never explored passes, but for the reservations), its arrival in `Mode::Arrival` (the truth, no sight rule).
+  (slice M3-F; `core/entities.md > Worker-Built Structures`, a Drone's Deploy) has the tile rules without a build area;
+  the caller leaves the worker out of the occupants (0118). Its order is judged in `Mode::Known { vision, player }`
+  (0120: what the player knows: its own objects, the others it sees, its records of structures and resources in the fog;
+  a tile never explored passes, but for the reservations), its arrival in `Mode::Arrival` (the truth, no sight rule).
   `Sim::deploy_check(drone, origin, queued)` is the order's check, for the gate and the Deploy ghost (M3-J1).
-- **Reservations** (design change 0125, `> Lingering build ghosts`): each Deploy ordered and not yet started,
-  current or Shift-queued, reserves its site against its owner's further placements, a Deploy's and a Warp In's
+- **Reservations** (design change 0125, `core/entities.md > Lingering build ghosts`): each Deploy ordered and not yet
+  started, current or Shift-queued, reserves its site against its owner's further placements, a Deploy's and a Warp In's
   (`TileProblem::Reserved`, through `placement::check_reserving`; a Deploy without Shift replaces its Drone's orders,
   so that Drone's own sites don't count). They are derived from the order queues (`Sim::pending_deploys(player)`,
   for the ghosts of M3-J1), never stored; another player's never count, and they block no unit.
@@ -397,7 +416,7 @@ Layout validation can't disagree. **Never test a placement rule anywhere else: a
 
 ## Tick pipeline
 
-`Sim::step(&TickInputs)` advances exactly one tick. It runs fixed phases in this order (`sim.rs`):
+`Sim::step(&TickInputs)` advances exactly one tick. It runs fixed phases in this order (`sim/phase.rs`):
 
 1. **Clear events**, so that `Sim::events()` holds only this tick's events.
 2. **Advance the tick** (`tick += 1`).
@@ -531,8 +550,8 @@ Layout validation can't disagree. **Never test a placement rule anywhere else: a
   hit can overwrite, because the old prototype lost hits that way.
 - Lessons from the prototype, for M1 and on:
   - **Movement**: the arrival radius must be at least one tick of travel. Otherwise units overshoot and oscillate.
-  - **Pathfinding**: cap repath attempts (`mover::MAX_REPATHS`). A* needs a correct closed set, a best-cost map and
-    deterministic tie-breaking. Overwriting a parent at equal cost made zigzag paths.
+  - **Pathfinding**: cap repath attempts (`tuning::movement::MAX_REPATHS`). A* needs a correct closed set, a best-cost
+    map and deterministic tie-breaking. Overwriting a parent at equal cost made zigzag paths.
   - **Occupancy** is domain-aware. For example, underground expansions don't block surface units.
 
 ## Combat
@@ -541,17 +560,17 @@ Slice W (`combat.rs`, `combat/`, `elevation.rs`; `systems/combat.md`). A unit th
 the target its behaviour engages (`target`, set by its Attack order in 5a), the phase of the running sequence and the
 ticks spent in it. Hashed and serialized like all state.
 
-- **Phases** (`combat/phases.rs`): Aiming → Firing → Cooldown → Reloading, each lasting exactly its duration in
-  ticks (zero included). A sequence starts in 5e when none runs and the engaged target is valid and in range; the
-  next one at the earliest in the tick after Reloading ends, so a cycle takes Aim + Firing + Cooldown + Reload ticks
-  (Peacekeeper 17, Guard 24: its laser rifle, design change 0186). Ordered in tick `t`, the first hit lands at the
-  end of tick `t + Aim + Firing − 1`.
+- **Phases** (`combat/phases.rs`, its tests in `combat/phases/tests.rs`): Aiming → Firing → Cooldown → Reloading, each
+  lasting exactly its duration in ticks (zero included). A sequence starts in 5e when none runs and the engaged target
+  is valid and in range; the next one at the earliest in the tick after Reloading ends, so a cycle takes Aim + Firing +
+  Cooldown + Reload ticks (Peacekeeper 17, Guard 24: its laser rifle, design change 0186). Ordered in tick `t`, the
+  first hit lands at the end of tick `t + Aim + Firing − 1`.
   Aiming turns the base towards the target at TurnRate (the attack writes `facing`) and lasts until it faces it
   within `FACING_TOLERANCE`. Aiming and Reloading are interruptible: another order, or a target that is gone or out
   of range, cancels an aim; a reload keeps counting. Firing and Cooldown run on whatever happens.
 - **Queries**: `combat::may_move(&Object)` and `may_turn(&Object)`: whether the attack leaves the base free to move
-  or turn this tick (`> UnitBaseSource`: not while Aiming, Firing or in Cooldown; turret units always), and never
-  while the unit converts its weapon (see Weapon Conversion). Phase 5d
+  or turn this tick (`systems/combat.md > UnitBaseSource`: not while Aiming, Firing or in Cooldown; turret units
+  always), and never while the unit converts its weapon (see Weapon Conversion). Phase 5d
   holds a unit that may not: it stands, keeping its goal, path and stuck clock (`movement::wait`). The behaviours
   start a chase only when `may_move` holds.
 - **One turn budget per tick**: a unit turns at most its TurnRate per tick in all. Phase 5d turns it first and notes
@@ -577,30 +596,30 @@ ticks spent in it. Hashed and serialized like all state.
   `attack_range` and `sight_range` apply it; melee attacks don't take it.
 - **Melee** (`systems/combat.md > FullyConnected > Melee`: "Short reach: 8 space units"; the Sabre Legionnaire):
   every melee attack has the Range `defs::MELEE_CONTACT_GU`, a gap of 8 su, the one that counts as Proximity
-  (`orders::PROXIMITY_SU`), and no MinRange (`defs_are_consistent` checks both). It is a placeholder (design change
-  0149): exactly 0 would be fragile, since a unit closing in may stop a little short of touching. `max_range`
+  (`tuning::orders::PROXIMITY_SU`), and no MinRange (`defs_are_consistent` checks both). It is a placeholder (design
+  change 0149): exactly 0 would be fragile, since a unit closing in may stop a little short of touching. `max_range`
   gives melee no ElevationModifier.
 - **Hits** (`combat/damage.rs`): every attacker acts against one snapshot of the targets, and an attack's effect
   lands at the end of Firing as a `Hit` on the tick's list. The list is applied once all have acted, so every hit
   counts, including those on a unit another hit has killed and those of a unit that dies in the same tick.
-  `hit_damage` follows `> SingleTargetDamage` and `> DamageModifierOrder` (pre-armor multipliers, PointArmor,
-  directional multiplier, MinimumDamage); HP is fractional, nothing is rounded. PointArmor is the target's
-  `ObjectDef::armor`, a structure's too: a Peacekeeper's 10 damage takes 9 HP off a Generator and 8 off a plate. An
-  object at 0 HP or less dies; a structure that dies frees its tiles (the navigation grids are rebuilt).
+  `hit_damage` follows `systems/combat.md > SingleTargetDamage` and `systems/combat.md > DamageModifierOrder` (pre-armor
+  multipliers, PointArmor, directional multiplier, MinimumDamage); HP is fractional, nothing is rounded. PointArmor is
+  the target's `ObjectDef::armor`, a structure's too: a Peacekeeper's 10 damage takes 9 HP off a Generator and 8 off a
+  plate. An object at 0 HP or less dies; a structure that dies frees its tiles (the navigation grids are rebuilt).
 - **Shields** (`shields.rs`, `combat/damage.rs`; `systems/combat.md > Shields`, slice M3-B, plan decision T18): an
   object whose kind has MaxShields (the Colonists') has `Object::shields`, full when it is inserted (and when a save
   from before Shields loads). A `Hit` carries the raw damage and the target's modifiers as the shot saw them
   (pre-armor multiplier, PointArmor, directional multiplier), and `damage::resolve` settles it when the list is
   applied, hit by hit, so the second hit of a tick meets the Shields the first left. The Shields take the damage
-  first, at full value; an overflow goes through `hit_damage` with the MinimumDamage capped at it (`> MinimumDamage
-  > Shield overflow`: 10.25 on 10 Shields and PointArmor 1 takes 0.25 HP); a hit the Shields take whole costs no HP,
-  and no armour is consulted. No modifier touches the Shields: the pre-armor multipliers and the DirectionalArmor
-  touch the overflow only (design change 0147). `SimEvent::Hit` says what each hit took (`damage` of the HP,
-  `shield_damage`). The Shields regenerate 0.25 a tick (`SHIELD_REGEN_PER_TICK`; `> ShieldRegenRate`:
-  "continuously (not gated by a delay after taking damage)") up to the maximum now, a neutral object's too (design
-  change 0146), in their own step (see *Tick pipeline*). A transforming object's follow its interpolated maximum as
-  its HP do and regenerate up to it (design changes 0110 and 0146, `transform::follow_max`), and a cancel keeps
-  their fraction, with no minimum (0111, `transform::keep_fraction`). The vision's records keep no Shields.
+  first, at full value; an overflow goes through `hit_damage` with the MinimumDamage capped at it (`systems/combat.md >
+  MinimumDamage > Shield overflow`: 10.25 on 10 Shields and PointArmor 1 takes 0.25 HP); a hit the Shields take whole
+  costs no HP, and no armour is consulted. No modifier touches the Shields: the pre-armor multipliers and the
+  DirectionalArmor touch the overflow only (design change 0147). `SimEvent::Hit` says what each hit took (`damage` of
+  the HP, `shield_damage`). The Shields regenerate 0.25 a tick (`SHIELD_REGEN_PER_TICK`; `systems/combat.md >
+  ShieldRegenRate`: "continuously (not gated by a delay after taking damage)") up to the maximum now, a neutral object's
+  too (design change 0146), in their own step (see *Tick pipeline*). A transforming object's follow its interpolated
+  maximum as its HP do and regenerate up to it (design changes 0110 and 0146, `transform::follow_max`), and a cancel
+  keeps their fraction, with no minimum (0111, `transform::keep_fraction`). The vision's records keep no Shields.
 - **Weapon Conversion** (`conversion.rs`, `sim/modes.rs`; `factions/colonists/units/weapon_conversion.md`, plan
   decision T26, design change 0198): `Ability::Convert` flips the target form of each Legionnaire it goes to, a
   Sabre's to the Rifle Legionnaire and a Rifle's to the Sabre (`conversion::converts_to`): its type switches at the
@@ -611,17 +630,18 @@ ticks spent in it. Hashed and serialized like all state.
   "deferred, not rejected"), a unit Firing or in Cooldown fights on with its form's weapon
   (`conversion::waits_to_convert`, *Changes that wait for an attack* below), and its conversion begins in the first
   Modes step after its Cooldown's last tick; so one R converts a whole group in a fight, the mid-swing units 1 to 4
-  frames later (a Sabre's Firing and Cooldown). **Pressed again** (`> A toggle sets a target form`): a unit that
-  waits takes the new target, and doesn't convert at all if that is its form (`conversion::retarget`); one
-  converting finishes, then converts back (8 frames for the round trip); one converted converts back. A conversion
-  cancels an Aim or a Reload, keeping the target (design change 0152: the new weapon starts ready), and lasts
-  `CONVERT_TICKS`, 4 frames: the unit holds still and doesn't turn (`may_move`, `may_turn`; its behaviours see it
-  can't move; `Mover::speed_factor` 0, so it yields to nobody), its attack idles, and it can be attacked throughout
-  (`> Vulnerability`). Pressed in tick `t`, it is of its new type from `t` on, converts through tick `t + 3`, and the
-  Modes step of `t + 4` gives it its other form, HP and Shields unchanged (their maxima are equal), so it fights as
-  that from `t + 4`. Nothing cancels a conversion under way (`> Completion`), a Stop changes nothing. The orders
-  stay, and it carries on with the other weapon (`> Orders are kept`, design change 0150). Convert isn't queued
-  (design change 0151: "holding Shift changes nothing").
+  frames later (a Sabre's Firing and Cooldown). **Pressed again** (`factions/colonists/units/weapon_conversion.md > A
+  toggle sets a target form`): a unit that waits takes the new target, and doesn't convert at all if that is its form
+  (`conversion::retarget`); one converting finishes, then converts back (8 frames for the round trip); one converted
+  converts back. A conversion cancels an Aim or a Reload, keeping the target (design change 0152: the new weapon starts
+  ready), and lasts `CONVERT_TICKS`, 4 frames: the unit holds still and doesn't turn (`may_move`, `may_turn`; its
+  behaviours see it can't move; `Mover::speed_factor` 0, so it yields to nobody), its attack idles, and it can be
+  attacked throughout (`factions/colonists/units/weapon_conversion.md > Vulnerability`). Pressed in tick `t`, it is of
+  its new type from `t` on, converts through tick `t + 3`, and the Modes step of `t + 4` gives it its other form, HP and
+  Shields unchanged (their maxima are equal), so it fights as that from `t + 4`. Nothing cancels a conversion under way
+  (`factions/colonists/units/weapon_conversion.md > Completion`), a Stop changes nothing. The orders stay, and it
+  carries on with the other weapon (`factions/colonists/units/weapon_conversion.md > Orders are kept`, design change
+  0150). Convert isn't queued (design change 0151: "holding Shift changes nothing").
 - **Changes that wait for an attack** (`sim/modes.rs`, design changes 0153 and 0172): a conversion or a raise of the
   Riot Shield whose unit is Firing or in Cooldown (`combat::mid_attack`: the phases that can't be interrupted) when it
   would begin waits, the unit's type switched already: the first Modes step after the Cooldown's last tick begins
@@ -738,23 +758,23 @@ or `Visible` for each player, and each player remembers the structures and resou
   state changes).
 - **Hidden objects** (`vision/hidden.rs`, plan decision T32, slice M4-A): an owned underground structure (a
   Syndicate expansion, `StructureDef::underground`) is hidden from every player but its owner; a neutral one isn't
-  (`tunnels.md > Losing Tunnels`). One predicate, `vision::hidden_from(object, player)` (`Sim::hidden_from` for the
-  client), through `Hiding::of(object)`, which the snapshots carry (combat's `TargetView::hiding`, `World`'s views)
-  and `object_box_state` takes: a hidden object's state is capped at Explored, however Visible its tiles are and
-  whatever is revealed, so targeting, `World::sees`, the gate and the client's `Sight` never see it. The memory never
-  records it (`remember` drops it, `Vision::seed` skips it). **Damage never asks** (`systems/combat.md >
-  AoEDamage`, design change 0262, keeping 0218: underground objects "take their share of any blast over them, even
-  unseen"): a hit on the tick's list lands whoever sees its target (`combat/damage.rs`). Hidden units come with the
-  Tunnel network (design change 0219).
+  (`factions/syndicate/tunnels.md > Losing Tunnels`). One predicate, `vision::hidden_from(object, player)`
+  (`Sim::hidden_from` for the client), through `Hiding::of(object)`, which the snapshots carry (combat's
+  `TargetView::hiding`, `World`'s views) and `object_box_state` takes: a hidden object's state is capped at Explored,
+  however Visible its tiles are and whatever is revealed, so targeting, `World::sees`, the gate and the client's `Sight`
+  never see it. The memory never records it (`remember` drops it, `Vision::seed` skips it). **Damage never asks**
+  (`systems/combat.md > AoEDamage`, design change 0262, keeping 0218: underground objects "take their share of any blast
+  over them, even unseen"): a hit on the tick's list lands whoever sees its target (`combat/damage.rs`). Hidden units
+  come with the Tunnel network (design change 0219).
 - **Paths** are planned from what each player knows (design changes 0040 and 0042; *Navigation > Path knowledge*):
   the records' footprints are the other players' structures and the resources it knows of, the map's from the start
   (0159); its own come from the live objects, as they are never recorded.
 
 ## Behaviours
 
-Slice E (`orders.rs`, `orders/`; `systems/controls/behaviors.md`). Phase 5a runs one behaviour per unit and tick: its
-current order's, or the idle one. A behaviour never moves or shoots anything itself: it writes the mover's goal and
-the target the attack engages, and reads `Mover::status` and the snapshot.
+Slice E (`orders.rs`, `orders/`, phase 5a's loop in `orders/run.rs`; `systems/controls/behaviors.md`). Phase 5a runs one
+behaviour per unit and tick: its current order's, or the idle one. A behaviour never moves or shoots anything itself: it
+writes the mover's goal and the target the attack engages, and reads `Mover::status` and the snapshot.
 
 - **State** (`orders/state.rs`, the design's BaseBehaviorState): `ActiveOrder::state` (`Behaviour`: `Plain`,
   `Attack`, `Approach`, `AttackMove`, `Patrol`, `Hold`, `Gather`) and `Orders::auto` (`Auto`: what a unit without an order
@@ -762,17 +782,17 @@ the target the attack engages, and reads `Mover::status` and the snapshot.
   `auto`. A state names objects only by id, and the removal path clears them (`Orders::forget`).
 - **The snapshot** (`orders/world.rs`): `World` holds a `View` of every object (position, shape, owner, domain,
   elevation) as the last tick left it, the vision of its phase 5f, and a coarse grid of the objects a scan may
-  pick. Every unit decides on the same world, whatever its id. `World::pick` is the scan of `> BaseAutoTargeting >
-  Target Selection Priority`: among the ValidTargets in reach (enemies only: another player's destructible objects
-  that the unit's owner sees and its attack can target), threatening ones first, then the least rotation from the
-  unit's facing **in steps of 45°** (design change 0179, `world::rotation_step`, a placeholder step: each step
-  reaches up to its upper bound, so a target exactly 45° off is in the first), then the smallest gap, then the
-  lowest id. A scan of SightRange skips enemies inside the unit's MinRange (design change 0182) and picks one it can
-  hit; the caller may leave out more (`pick`'s `admit`: the AttackMove's leash). Enemy structures are ValidTargets
-  too (design change 0103), so units attack enemy bases on their own; the structures that can't attack come after
-  the targets that shoot back. The grid holds candidates by their centres, so a scan looks as far as the unit's longest range with
-  the modifier, plus its own half size and the largest candidate's (`World::candidate_half`): a footprint in reach
-  is found however far its centre lies.
+  pick. Every unit decides on the same world, whatever its id. `World::pick` is the scan of
+  `systems/controls/behaviors.md > BaseAutoTargeting > Target Selection Priority`: among the ValidTargets in reach
+  (enemies only: another player's destructible objects that the unit's owner sees and its attack can target),
+  threatening ones first, then the least rotation from the unit's facing **in steps of 45°** (design change 0179,
+  `world::rotation_step`, a placeholder step: each step reaches up to its upper bound, so a target exactly 45° off is in
+  the first), then the smallest gap, then the lowest id. A scan of SightRange skips enemies inside the unit's MinRange
+  (design change 0182) and picks one it can hit; the caller may leave out more (`pick`'s `admit`: the AttackMove's
+  leash). Enemy structures are ValidTargets too (design change 0103), so units attack enemy bases on their own; the
+  structures that can't attack come after the targets that shoot back. The grid holds candidates by their centres, so a
+  scan looks as far as the unit's longest range with the modifier, plus its own half size and the largest candidate's
+  (`World::candidate_half`): a footprint in reach is found however far its centre lies.
 - **AttackingObject** (`orders/engage.rs`): `close_in` is its core, shared by all fighting. In range (`combat::
   reaches`) the unit stops and phase 5e attacks; out of range it heads for the target with `MoveGoal::Object`,
   starting only while `combat::may_move` holds. An **Attack order** adds its ends: the target destroyed (the removal
@@ -857,9 +877,9 @@ the target the attack engages, and reads `Mover::status` and the snapshot.
     drop-off as its first return starts, keeping it for that Gather (there is no Set Drop-off for the type: the gate's
     `Sim::sets_drop_off`). "Nearest" is by the drop point's centre (`economy::drop_off::DropPoint`): a Tunnel's
     hatch for the load's resource, an Egress Node's own centre.
-  - **Supplies** (M4-I; `agent.md > Gathering > Supplies`, design change 0256): a Gather on a Supply Delivery
-    Station (`Site::Station`, the station as the owner knows it) runs the same phases, for a worker type with
-    `WorkerDef::supplies` (the Agent; the gate's `Sim::gatherers_among`, `resolve`'s station rule). `Mining` at a
+  - **Supplies** (M4-I; `factions/syndicate/units/agent.md > Gathering > Supplies`, design change 0256): a Gather on a
+    Supply Delivery Station (`Site::Station`, the station as the owner knows it) runs the same phases, for a worker type
+    with `WorkerDef::supplies` (the Agent; the gate's `Sim::gatherers_among`, `resolve`'s station rule). `Mining` at a
     station is the pick-up, PickUpDuration long; `economy::gathering::step` tells a station from a patch by the target
     (`economy::stations`). **No occupancy** (point 1): each worker heads for a free spot of its own round the station
     (`station::spot`: the nearest point against a face, or beside a face's end within reach, clear of known
@@ -959,8 +979,8 @@ the target the attack engages, and reads `Mover::status` and the snapshot.
   every scan off or on, for tests and QA runs about movement between hostile units; `TestSim::without_auto_
   targeting()` schedules it for tick 1. Attack orders work either way.
 - **Adding a behaviour**: give it its state in `orders/state.rs` (with its hash, and its ids in `targets` and
-  `forget`), start it in `orders::start`, run it in `orders::run`, and let it read only the `World` and its own
-  unit. A behaviour that sends the unit somewhere must remember that it did (`chasing`, `marching`, `moving`):
+  `forget`), start it in `run::start`, run it in `run::run` (`orders/run.rs`), and let it read only the `World` and its
+  own unit. A behaviour that sends the unit somewhere must remember that it did (`chasing`, `marching`, `moving`):
   `Mover::status` is the outcome of the unit's latest move, whoever asked for it. Never call `Mover::go_to` tick
   after tick: each call is a path request and a fresh set of repaths.
 
@@ -1112,9 +1132,9 @@ and the code is `crates/sim/src/movement.rs` and `movement/`, with the unit's st
     two bodies with `Body::gathers` (`orders::gather::on_gather_job`: a Drone whose current order is a Gather or a
     Drop Off, at every step of the job) don't block each other, whoever owns them. A gathering Drone and any other
     unit block each other as ever, an idle Drone included.
-  - **Units that already overlap** (`> Units that already overlap`): two bodies whose boxes overlap as the mover's
-    turn begins don't block each other. `space::overlaps` is I1's own predicate, so the pair is ignored exactly
-    while I1 would name it, and normal collision is back the moment the boxes are apart (touching is apart).
+  - **Units that already overlap** (`systems/units.md > Units that already overlap`): two bodies whose boxes overlap as
+    the mover's turn begins don't block each other. `space::overlaps` is I1's own predicate, so the pair is ignored
+    exactly while I1 would name it, and normal collision is back the moment the boxes are apart (touching is apart).
     Nothing pushes them apart, and either may move any way meanwhile; an idle one moves off by itself (design
     change 0126, below). Only the first exception ever brings two
     boxes to overlap, so in today's game such a pair is two Drones of which one left its job; the rule itself asks
@@ -1169,10 +1189,10 @@ and the code is `crates/sim/src/movement.rs` and `movement/`, with the unit's st
   behind it, and none of them ever looked for a way round (`tests/movement_stuck.rs`). It is read off the mover
   (`repaths_left < MAX_REPATHS || last_progress > last_repath`), with no field of its own. A behaviour may begin a
   leg again as often as it likes; it need not stand in between for the sake of the units behind.
-- **Object goals** (`MoveGoal::Object { id, reach }`, `docs/movement.md > 5.6`, `> 6.5`): the path is planned to
-  the point nearest the object's centre that the unit can stand on (right at a structure's wall), and kept aimed at
-  the object as it moves (`paths::chase_check`, on the stagger tick: straight at it while the unit's box has a
-  clear line, else a new plan once it moved 1 GU or 25 % of the distance, at most every 8 ticks, never counted
+- **Object goals** (`MoveGoal::Object { id, reach }`, `docs/movement.md > 5.6`, `docs/movement.md > 6.5`): the path is
+  planned to the point nearest the object's centre that the unit can stand on (right at a structure's wall), and kept
+  aimed at the object as it moves (`paths/checks.rs::chase_check`, on the stagger tick: straight at it while the unit's
+  box has a clear line, else a new plan once it moved 1 GU or 25 % of the distance, at most every 8 ticks, never counted
   against the repath cap). The unit has `Arrived` when the gap between the two shapes is within `reach`, at the end
   of its path if the object hasn't moved, or by the occupied-target rule (its 3 GU measured as that gap). Progress
   towards a moving object is moving forward at all; towards one at rest it is measured as to a point. A unit
@@ -1442,7 +1462,8 @@ section of its own.
   progress by `PowerSummary::speed` from the tick the command applies (*Recipe timing*), take costs with
   `spend_crystals` when the command applies, and give refunds through `Refund`; `construction.rs` is the pattern.
 - **Defeat and the end of the game** (`economy/defeat.rs`, slice M2-F2, plan decision T8; `core/game_rules.md >
-  Defeat Condition`, `> On Defeat`, `> End of Game`; design changes 0100 to 0102, and 0163 and 0164, slice M3-V):
+  Defeat Condition`, `core/game_rules.md > On Defeat`, `core/game_rules.md > End of Game`; design changes 0100 to 0102,
+  and 0163 and 0164, slice M3-V):
   - **Defeat**: a player is defeated in the tick their count of owned structures drops to 0 (every structure
     counts, plates included): `defeat::step` compares the owners of structures as the tick started with those as it
     ends, so a player who never owned a structure (a sandbox's) is never defeated, and nobody is once the game is
@@ -1598,7 +1619,7 @@ their energy doorway, slice M3-D2: design change 0145, `factions/colonists/struc
   portal ringed by units, its unit half out and the next held at 100% until the first is out, that unit's refund,
   and negative tests of I1 and I2 around the energy doorway) and `half_out.rs` (slice M3-K2a, 0145 point 4: a
   Sabre stuck half out is a normal unit, which auto-targets an enemy in reach, carries out an Attack and is
-  attacked; a click picks it: the client's `selection::draw_order`).
+  attacked; a click picks it: the client's `Selectables::at`).
 
 ## Commands, events and replays
 
@@ -1611,13 +1632,13 @@ their energy doorway, slice M3-D2: design change 0145, `factions/colonists/struc
 - **The command gate** (`sim/gate.rs`, with each command family's checks in its own file, plan decision T28: orders
   and abilities in `sim/gate/orders.rs`, debug commands in `sim/gate/debug.rs`, production in `sim/producers.rs`,
   construction in `sim/construction.rs`): `Sim::validate(&PlayerCommand) -> Result<(), Reject>` checks a command
-  against the current state without changing it, and `step` applies a command only through the same check
-  (`Sim::check`, which hands the application the objects and positions it resolved), so the two can't disagree. In
-  order: the player is in the game (`Reject::UnknownPlayer`), the game isn't over (`GameOver`) and the player isn't
-  defeated (`Defeated`, see *Economy > Defeat and the end of the game*), a debug command needs debug commands on
-  (`DebugDisabled`), then the command's own rules: every id it names exists (`UnknownObject`) and, for a player's
-  orders to objects, belongs to that player (`NotOwned`, through `Sim::referenced(id, Some(player))`; debug commands
-  and targets may name anyone's objects), positions are finite and on the map (`OffMap`), an order's target
+  against the current state without changing it, and `step` applies a command (`Sim::apply_command`, `sim/commands.rs`)
+  only through the same check (`Sim::check`, which hands the application the objects and positions it resolved), so the
+  two can't disagree. In order: the player is in the game (`Reject::UnknownPlayer`), the game isn't over (`GameOver`)
+  and the player isn't defeated (`Defeated`, see *Economy > Defeat and the end of the game*), a debug command needs
+  debug commands on (`DebugDisabled`), then the command's own rules: every id it names exists (`UnknownObject`) and, for
+  a player's orders to objects, belongs to that player (`NotOwned`, through `Sim::referenced(id, Some(player))`; debug
+  commands and targets may name anyone's objects), positions are finite and on the map (`OffMap`), an order's target
   object is one the issuing player sees or remembers (`NotVisible`, below), spawns fit (`Spawn(SpawnProblem)`) and keep apart
   from other footprints (`Overlaps(id)`, see Object model). A rejected command changes nothing, neither the state
   nor the events, and never panics.
@@ -1803,13 +1824,13 @@ their energy doorway, slice M3-D2: design change 0145, `factions/colonists/struc
   starting objects with their counts, its starting banks, and its primary structure, which the camera starts on. A
   faction without one (the Cults) is "not implemented yet". A game starts each player's banks from it
   (`Player::starting`). On a Skirmish Default map
-  (`> Skirmish Default restriction`, design changes 0009 and 0012) a layout holds only its faction's Starting
-  Conditions objects, no more of a kind than they do (`LayoutExtra`; for a faction not implemented yet, nothing), and
-  every implemented faction's layout is complete at every start (`LayoutMissing`), so a new Skirmish Default map isn't
-  playable until its layouts are placed. "Outdated" layouts (`MapDef::outdated_layouts`: holding objects, but not
-  exactly the current Starting Conditions) are derived, never stored, so the map format stays at 3. When a faction
-  gets its table, every Skirmish Default map in `maps/` needs its layouts (`the_maps_in_the_repository_are_playable`
-  says which).
+  (`core/map_editor.md > Skirmish Default restriction`, design changes 0009 and 0012) a layout holds only its faction's
+  Starting Conditions objects, no more of a kind than they do (`LayoutExtra`; for a faction not implemented yet,
+  nothing), and every implemented faction's layout is complete at every start (`LayoutMissing`), so a new Skirmish
+  Default map isn't playable until its layouts are placed. "Outdated" layouts (`MapDef::outdated_layouts`: holding
+  objects, but not exactly the current Starting Conditions) are derived, never stored, so the map format stays at 3.
+  When a faction gets its table, every Skirmish Default map in `maps/` needs its layouts
+  (`the_maps_in_the_repository_are_playable` says which).
 - **Map files** are a `MapDef`'s serde form, written with `serde_json::to_string_pretty`. A `version` field
   (`MAP_FORMAT_VERSION`, now 3) comes first; bump it on any incompatible change. The terrain is stored as rows of
   strings in the ASCII format below: `tiles` (H rows of W symbols) and `heights` (H + 1 rows of W + 1 corner digits),
@@ -1960,10 +1981,10 @@ their energy doorway, slice M3-D2: design change 0145, `factions/colonists/struc
   `docs/economy_oracle.md`. **The Colonists** (slices M3-K1 and M3-K4, `colonists.rs` and `curve.rs`): the
   reference line on `testing::colonists::reference_field` (one Robo Portal training Drones without a break, every
   6th deploying) and the GDO's reference line measured the same way (what each delivered or mined over the 21 s
-  centred on a time) against both columns of the table of `> Economy Targets (GDO vs Colonists)` (`main.rs`'s
-  `TABLE`) within ±15% (design change 0108) and its targets 1 to 4, and the saturation curve of the row by number of
-  Drones against `factions/colonists/units/drone.md > Patch Occupancy`. Since design change 0236 the table and the
-  curve are this measurement (slice M3-K3's), rounded; a figure out of the tolerance or a failing target is a
+  centred on a time) against both columns of the table of `factions/gdo/economy.md > Economy Targets (GDO vs Colonists)`
+  (`main.rs`'s `TABLE`) within ±15% (design change 0108) and its targets 1 to 4, and the saturation curve of the row by
+  number of Drones against `factions/colonists/units/drone.md > Patch Occupancy`. Since design change 0236 the table and
+  the curve are this measurement (slice M3-K3's), rounded; a figure out of the tolerance or a failing target is a
   question to the Designer, not tuned. **The GDO** (slice M2-J1, `played.rs` and `gdo.rs`): GDO openings on
   `maps/dev_skirmish.json` from its real start, played with `testing::build_order` (player 2 idle), against
   `factions/gdo/economy.md > Opening Economy Baseline`: plates first (the reference line: income at the table's
@@ -2301,8 +2322,8 @@ that the units in production (design change 0143) count as the sim counts them; 
 `factions/colonists/overview.md > DisplayHud`) Space Crystals, Alloys, Essence and Flux, and Beacon Capacity as used
 / available (`Sim::army_cap`; red over capacity, 0112), with no Power; for the Syndicate (slice M4-B,
 `factions/syndicate/overview.md > DisplayHud`) Space Crystals, Supplies and Tunnel Space as used / available
-(`Sim::army_cap`; red over capacity, as `tunnels.md > Tunnel Space` has it, "12/10"); the Cults Space Crystals
-only, until their own resources exist. Under the top bar, a placeholder notice (`hud/notices.rs`,
+(`Sim::army_cap`; red over capacity, as `factions/syndicate/tunnels.md > Tunnel Space` has it, "12/10"); the Cults Space
+Crystals only, until their own resources exist. Under the top bar, a placeholder notice (`hud/notices.rs`,
 `STATION_EMPTY_TEXT` for `NOTICE_TICKS` sim ticks) tells the local player that a Supply Delivery Station where their
 Agents gather is empty (`SimEvent::SupplyStationEmpty`, design change 0256 point 3: "the owner gets a notification",
 notifications not designed yet). At the end of the game a banner across the world view (`hud/outcome.rs`,
@@ -2435,12 +2456,12 @@ ObjectInterfaceState (see Commands UI); the input changes and the HUD shows the 
   still selects by its record stays), and those their player may no longer select (an enemy that walked into the fog;
   a placeholder, the design is silent). A selected object the player sees whose `GroupType` changed in place, a new
   kind (`SimEvent::KindChanged`) or a building that completes or starts transforming, stays selected as its new type
-  (`ControlState::set_type`). The ActiveGroup stays while it exists (`> ObjectInterfaceState`: a change the player
-  didn't make keeps the state unless the ActiveGroup becomes empty; design change 0199: changes in a group that isn't
-  active never change it); one whose members changed type gives way to the group they joined (0199), and the
-  ObjectInterfaceState resets with the ActiveGroup. A unit's type there is the sim's with the toggles already sent
-  for its next tick applied (`PendingCommands::kind_of`), so the group a press switched (`ControlState::toggle`,
-  below) stays switched in the frame before the sim's tick.
+  (`ControlState::set_type`). The ActiveGroup stays while it exists (`systems/controls/selection_and_hud.md >
+  ObjectInterfaceState`: a change the player didn't make keeps the state unless the ActiveGroup becomes empty; design
+  change 0199: changes in a group that isn't active never change it); one whose members changed type gives way to the
+  group they joined (0199), and the ObjectInterfaceState resets with the ActiveGroup. A unit's type there is the sim's
+  with the toggles already sent for its next tick applied (`PendingCommands::kind_of`), so the group a press switched
+  (`ControlState::toggle`, below) stays switched in the frame before the sim's tick.
   `Sync` also starts every state over when the sim is replaced (`SimRes::generation`). `Input` (in `Actions`) applies
   map clicks, boxes, the control group keys (Recall and Center snaps the camera to the drawn centroid), Tab, and the
   debug player switch (F2, only while `SimConfig::debug`: the client acts as the next player, so "own" and the state
@@ -2458,9 +2479,9 @@ ObjectInterfaceState (see Commands UI); the input changes and the HUD shows the 
   edges of one shared mesh in the overlay layer, shown while `Pointer::drag_box` is set.
 
 **Commands UI** (`command_ui.rs`, `command_ui/`; `systems/controls/selection_and_hud.md > ObjectInterfaceState`
-to `> CommandIndicators`, `systems/controls/commands.md > Unit Command`): how the local player orders their units,
-their producing structures and their constructors, and the Colonists' Beacons and Drones, through one command flow
-(plan decision T10, slices M2-H1, M2-H2 and M3-J1).
+to `systems/controls/selection_and_hud.md > CommandIndicators`, `systems/controls/commands.md > Unit Command`): how the
+local player orders their units, their producing structures and their constructors, and the Colonists' Beacons and
+Drones, through one command flow (plan decision T10, slices M2-H1, M2-H2 and M3-J1).
 - **Rules** (pure and unit tested): `command_ui/interface.rs` and its children (`commands.rs`, `templates.rs` with
   its `production.rs`, `state.rs` and `offers.rs` and an object's own panel in `templates/<faction>/<object>.rs`,
   `conditions.rs`, `panel.rs`) have the `PanelCommand`s (the units' and the producers' commands), the `InterfaceState`
@@ -2529,10 +2550,10 @@ their producing structures and their constructors, and the Colonists' Beacons an
   (`OrderOutbox::produce`: the player's own producers, validated the same way), never queued, no `OrderIssued`: no
   smart-casting, the sim decides which producers a Train reaches and pays for (0083); a Shift-click while Set Rally
   Point awaits its target sets the rally point and ends targeting like a plain click (a placeholder reading: a rally
-  point isn't queued). While a target is awaited (`> AwaitingTarget`, design changes 0065 to
-  0070 and 0073): the other commands do nothing (`press`; the panel shows them disabled); a click counts at the press
-  point, as the frame of the press drew the objects (`TargetPress`, recorded when the Select button goes down on the
-  map, used when it comes up, `Pointer::released`); the press is a click while the pointer stayed within
+  point isn't queued). While a target is awaited (`systems/controls/selection_and_hud.md > AwaitingTarget`, design
+  changes 0065 to 0070 and 0073): the other commands do nothing (`press`; the panel shows them disabled); a click counts
+  at the press point, as the frame of the press drew the objects (`TargetPress`, recorded when the Select button goes
+  down on the map, used when it comes up, `Pointer::released`); the press is a click while the pointer stayed within
   `TARGETING_CLICK_ALLOWANCE_PX` of where it went down (16, a placeholder: more than the normal `DRAG_THRESHOLD_PX`,
   which holds everywhere else), and beyond it a drag, which does nothing (the selection's input ignores it, no box is
   drawn, the target is still awaited); a click that gives nothing (an invalid target, or an order the sim rejects)
@@ -2594,22 +2615,22 @@ their producing structures and their constructors, and the Colonists' Beacons an
   `WhyUnavailable`: the gate's `Reject`, the shields, a command awaiting its target, the type, not in the game
   yet); pressing it, by hotkey or click, issues nothing and sends `CommandRefused`, whose message
   (`feedback::unavailable_text`) the feedback band shows.
-- **Gathering** (slice M3-J2; `factions/colonists/units/drone.md > Right-Click Resolution`, `> Set Drop-off
-  Location`, `factions/colonists/economy.md > Egress Node > Egress Node ObjectInterfaceState`; design changes 0124,
-  0136, 0139, 0140, 0155): a Drone's right-click is the sim's one rule, per unit like every unit's: a patch (seen or
-  remembered) gives Gather, an own drop-off a carrying Drone's `DropOff` and an empty one's Move to it (0140: no empty
-  Drop Off), anything else a Move to it, a unit followed; the pointer previews Gather as GatherResources and Drop Off
-  as ReturnResources ("Cursor over resource (resource gatherer selected)", "Cursor over drop-off point (resource
-  gatherer carrying resources)"), so Drones that would do both show Mixed. S, Set Drop-off (`PanelCommand::SetDropOff`,
-  a common command: every selected Drone's, Q0040 point 9), awaits a target: an own Egress Node that isn't
-  transforming (`drop_off_target`, the `Aimed::drop_off` the gate checks) resolves to `Resolved::Ability`, one
-  `Command::Ability` of `Ability::SetDropOff` that only updates the AssignedDropOff, the orders going on; anything
-  else is an invalid target, and the pointer over a node shows ReturnResources (a placeholder: the rules have no
-  AwaitingTarget\[SetDropOffLocation\] row). The Egress Node's grid (`InterfaceTemplate::EgressNode`) has F, Select
-  Returning Drones (`PanelCommand::SelectReturningDrones`), a StateOnlyTransition (`SlotPress::SelectReturningDrones`,
-  then `ControlState::replace_selection`) that replaces the selection with the node's `Sim::returning_drones`
-  (`Conditions::returning`, asked for the ActiveGroup's node: `instance_only`); the button shows only while there are
-  some (`Conditions::shows`). Its label, "Drones", keeps the full label size at 720p.
+- **Gathering** (slice M3-J2; `factions/colonists/units/drone.md > Right-Click Resolution`,
+  `factions/colonists/units/drone.md > Set Drop-off Location`, `factions/colonists/economy.md > Egress Node > Egress
+  Node ObjectInterfaceState`; design changes 0124, 0136, 0139, 0140, 0155): a Drone's right-click is the sim's one rule,
+  per unit like every unit's: a patch (seen or remembered) gives Gather, an own drop-off a carrying Drone's `DropOff`
+  and an empty one's Move to it (0140: no empty Drop Off), anything else a Move to it, a unit followed; the pointer
+  previews Gather as GatherResources and Drop Off as ReturnResources ("Cursor over resource (resource gatherer
+  selected)", "Cursor over drop-off point (resource gatherer carrying resources)"), so Drones that would do both show
+  Mixed. S, Set Drop-off (`PanelCommand::SetDropOff`, a common command: every selected Drone's, Q0040 point 9), awaits a
+  target: an own Egress Node that isn't transforming (`drop_off_target`, the `Aimed::drop_off` the gate checks) resolves
+  to `Resolved::Ability`, one `Command::Ability` of `Ability::SetDropOff` that only updates the AssignedDropOff, the
+  orders going on; anything else is an invalid target, and the pointer over a node shows ReturnResources (a placeholder:
+  the rules have no AwaitingTarget\[SetDropOffLocation\] row). The Egress Node's grid (`InterfaceTemplate::EgressNode`)
+  has F, Select Returning Drones (`PanelCommand::SelectReturningDrones`), a StateOnlyTransition
+  (`SlotPress::SelectReturningDrones`, then `ControlState::replace_selection`) that replaces the selection with the
+  node's `Sim::returning_drones` (`Conditions::returning`, asked for the ActiveGroup's node: `instance_only`); the
+  button shows only while there are some (`Conditions::shows`). Its label, "Drones", keeps the full label size at 720p.
 - **Visuals**: the panel's buttons (`hud/command_panel.rs`) are rebuilt when the panel, the bindings or the surface
   changes; each shows its command's label (`PanelSlot::label`) and its hotkey from the bindings. **Every label keeps
   the full label size at 720p: six characters at most** (slice M3-K2a; a unit test measures every label of every
@@ -2628,13 +2649,13 @@ their producing structures and their constructors, and the Colonists' Beacons an
   one mesh in the overlays layer, rebuilt every frame while anything shows: markers at the targets of the selected
   own units' current orders (and queued ones while Shift is held), a flash where an order was just given
   (`FLASH_TICKS`), and while Shift is held each unit's route through its waypoints as dashed lines; colours follow
-  `> Color language`. **A marker or a route leg that names an object goes by what the local player knows of it,
-  never by the live object** (`indicators/targets.rs`, `Sight::target_view`: the sim's `TargetView` through the
-  client's `Sight`; design change 0139, slice M3-K2a): where the object is drawn while the player sees it, around
-  its record (last-known position and footprint) while the player remembers it, wherever the object really is (a
-  Beacon whose deployment was cancelled walks away as a Drone) and whether it still exists, and nothing while the
-  player knows nothing of it (a unit out of sight). `marker_ring` is where a marker is drawn; the rally lines end
-  at it. The selected own producers' rally points (`indicators/rally.rs`, design
+  `systems/controls/selection_and_hud.md > Color language`. **A marker or a route leg that names an object goes by what
+  the local player knows of it, never by the live object** (`indicators/targets.rs`, `Sight::target_view`: the sim's
+  `TargetView` through the client's `Sight`; design change 0139, slice M3-K2a): where the object is drawn while the
+  player sees it, around its record (last-known position and footprint) while the player remembers it, wherever the
+  object really is (a Beacon whose deployment was cancelled walks away as a Drone) and whether it still exists, and
+  nothing while the player knows nothing of it (a unit out of sight). `marker_ring` is where a marker is drawn; the
+  rally lines end at it. The selected own producers' rally points (`indicators/rally.rs`, design
   changes 0087, 0088) show a marker, green on the ground and around an own or neutral object, red around an enemy
   (the sim turns an enemy rally point it loses sight of into a ground one, so the marker turns green there), and a
   solid line from the footprint's edge to it; nothing while the producer isn't selected or has none; a portal rallied
@@ -3009,9 +3030,12 @@ One kind (plan decision T54, slices M4-R1 and M4-R2): its own files, and one lin
    the object (`factions/<faction>/{units,structures}/<object>.md`; an economy building's is
    `factions/<faction>/economy.md`, and `defs/map/` holds the map's objects). Its doc comment cites that file. It
    holds the kind's `ObjectDef`, with every number the design gives the object, each cited, and the object's tests.
-   Then its line in the sim's kind registry (`defs.rs`), **at the end**: the state hash numbers kinds in that order,
-   and maps and replays name them by their serialized names, which must not change. Then *Object model > Adding an
-   object type* for its capabilities, and *Adding a capability* for anything new it does.
+   What the type does differently goes in a field of its def, which the logic reads, rather than in a `match` on its
+   kind. Then its line in the sim's kind registry (`kind_registry!` in `defs.rs`), **at the end**: that one line makes
+   the `ObjectKind` variant, its place in `ObjectKind::ALL` and its arm of `ObjectKind::def`; the state hash numbers
+   kinds in that order, and maps and replays name them by their serialized names, which must not change. A rule of
+   its faction rather than of the type goes in `defs/<faction>.rs`. Then *Object model > Adding an object type* for
+   its capabilities, and *Adding a capability* for anything new it does.
 2. **Its client module**, `crates/game/src/kinds/<faction>/<object>.rs` (*Client architecture > Kinds*): its
    `ClientKind`, with
    - its label, two letters of its own (`kinds::tests::every_label_is_its_own` checks them against every other
@@ -3046,14 +3070,15 @@ What a faction needs before players can start with it, in the order M3 (the Colo
 M3-C and finished by M3-K2 from what the M3 slices needed (plan `artifacts/director/m3-plan.md`, the Built entries of
 `artifacts/director/plan.md`).
 
-1. **Defs** (`defs/<faction>.rs`, see Object model; slice M3-A): its kinds at the end of `ObjectKind` (the state
-   hash numbers kinds in declaration order), one `static ObjectDef` each with `faction: Some(..)`, each unit's
-   army-cap cost in its `UnitDef`, and every exhaustive match over `ObjectKind` (sim and client) decided. Each kind
-   has its client module (*Adding a unit or structure*), and the editor's unit palette lists the faction's units by
-   itself.
+1. **Defs** (slice M3-A, laid out by M4-R1): the faction's root module, `defs/<faction>.rs`, with its own rules (its
+   caps and divisors), and a def module per kind under `defs/<faction>/`, each with its line at the end of the kind
+   registry (the state hash numbers kinds in that order), its `static ObjectDef` with `faction: Some(..)` and, for a
+   unit, its army-cap cost in its `UnitDef`; every exhaustive match over `ObjectKind` (sim and client) decided. Each
+   kind has its client module (*Adding a unit or structure*), and the editor's unit palette lists the faction's units
+   by itself.
 2. **Banks**: a resource the faction stores is a `Player` field (`u32`, hashed in `hash.rs`, `#[serde(default)]`),
    in `Banks` and `DebugCommand::SetResources` (`serde(default)` there too, so older command files load). Re-bless
-   the goldens (`> Replays and golden hashes`).
+   the goldens (see *Replays and golden hashes*).
 3. **Starting Conditions** (`scenario/starting.rs`): a `static StartingConditions` table and its arm in
    `StartingConditions::of`. A game then starts the player's banks from it (`Player::starting`), and the camera on
    its primary structure (`Scenario::primary_structure`).
@@ -3133,8 +3158,11 @@ The numbers a playtest tunes live apart from the logic that uses them, in tuning
 each module can later become one loaded struct (the data files come at playtest, plan decision T54). A number that
 belongs to one object goes in its def instead (*Adding a unit or structure*).
 
-- **The sim's** (`crates/sim/src/tuning/<system>.rs`, slice M4-R1): one module per system, `movement`, `paths`,
-  `orders`, `gathering`, `construction`, `combat`, `production`, `vision`, `shields` and `tunnel`.
+- **The sim's** (`crates/sim/src/tuning/`, slice M4-R1): one module per system, `combat.rs`, `construction.rs`,
+  `gathering.rs`, `movement.rs`, `orders.rs`, `paths.rs`, `production.rs`, `shields.rs`, `tunnel.rs` and `vision.rs`,
+  each mapping one to one onto the struct a data file will load at playtest prep. The code imports its constants from
+  there (`use crate::tuning::movement::{JAMMED_TICKS, MAX_REPATHS};`). A faction's own rule is in its
+  `defs/<faction>.rs`.
 - **The client's feel** (`crates/game/src/tuning/`, slice M4-R2): `camera.rs` (the view's width, the pan speed, the
   edge-pan margin, the editor's zoom), `input.rs` (the drag threshold, double-click and double-tap times, the
   targeting click allowance, the pick slop, the wheel's pixels per line, the editor's marker grab radius) and
@@ -3143,8 +3171,9 @@ belongs to one object goes in its def instead (*Adding a unit or structure*).
   so the code that uses it still names it there.
 - Each constant has a doc comment: a design citation, or "Placeholder (not in the design)" and, where there is one,
   why it has its value.
-- Colours and drawing sizes stay with the drawing code; technical constants (z offsets, frame budgets, capture
-  timeouts) stay where they are used.
+- Colours and drawing sizes stay with the drawing code. Technical constants stay where they are used: the sim's
+  units of measure, hashing, file formats, and the caps and margins that only bound a computation or absorb rounding;
+  the client's z offsets, frame budgets and capture timeouts.
 - A slice adds its constants at the end of its system's module.
 
 ## Code conventions

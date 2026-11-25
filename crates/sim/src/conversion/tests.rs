@@ -2,6 +2,7 @@ use glam::Vec2;
 
 use super::*;
 use crate::combat::{self, AttackPhase, AttackState};
+use crate::defs::CONVERT_TICKS;
 use crate::defs::ObjectKind::{RifleLegionnaire, SabreLegionnaire};
 
 /// A `kind` unit, as a new one starts (`Sim::insert_object`), with its attack in `phase`, engaging object 9.
@@ -49,8 +50,8 @@ fn weapon_of_kind(kind: ObjectKind) -> Option<&'static crate::defs::AttackAttrs>
     kind.def().unit.as_ref().unwrap().attack.as_ref()
 }
 
-/// `> Weapon Conversion > Convert Command`: "each converts to its respective other form". The Legionnaires are the
-/// only kinds with another form.
+/// `factions/colonists/units/weapon_conversion.md > Convert Command`: "each converts to its respective other form". The
+/// Legionnaires are the only kinds with another form.
 #[test]
 fn each_legionnaire_converts_to_its_other_form() {
     assert_eq!(converts_to(SabreLegionnaire), Some(RifleLegionnaire));

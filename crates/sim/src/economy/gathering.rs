@@ -1,4 +1,4 @@
-//! Gathering — `factions/colonists/units.md > Drone > Gathering`, `> Patch Occupancy (one Drone per patch)`, `>
+//! Gathering — `factions/colonists/units/drone.md > Gathering`, `> Patch Occupancy (one Drone per patch)`, `>
 //! Assigned Drop-off`; `factions/colonists/economy.md > Egress Node > Drop Off` (slices M3-H and M3-H3, plan
 //! decision T17).
 //!
@@ -421,9 +421,9 @@ mod tests {
             "> Patch Occupancy > Search radius (design change 0123)"
         );
         assert!(def.pass_through && def.keeps_drop_off && !def.shares_patches);
-        // `> Agent > Gathering > Space Crystals`: 50 a load, 80 frames of mining, 64 of unloading, reaches of 8 su;
-        // `> Supplies`: 1 a trip, 48 frames each way, the same reaches (Placeholder: Q0082 point 1); design change
-        // 0255: shared patches, no Set Drop-off; 0106: "Drones only" pass through each other.
+        // `factions/syndicate/units/agent.md > Gathering > Space Crystals`: 50 a load, 80 frames of mining, 64 of
+        // unloading, reaches of 8 su; `> Supplies`: 1 a trip, 48 frames each way, the same reaches (Placeholder: Q0082
+        // point 1); design change 0255: shared patches, no Set Drop-off; 0106: "Drones only" pass through each other.
         let def = worker_def(ObjectKind::Agent).expect("a worker");
         let crystals = LoadDef {
             carry_capacity: 50,

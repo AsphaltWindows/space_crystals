@@ -20,11 +20,11 @@ use glam::Vec2;
 use crate::defs::ObjectKind;
 use crate::mover::{MoveGoal, MoveStatus};
 use crate::shape::Shape;
+use crate::tuning::gathering::LEG_RETRY_TICKS;
 use crate::units::SU_PER_GU;
 
 use super::super::state::Gather;
 use super::super::world::{Unit, World};
-use super::LEG_RETRY_TICKS;
 
 /// The shape a Space Crystals patch centred on `spot` had: where a patch that is gone was (design change 0134,
 /// `state::Gather::spot`).

@@ -11,7 +11,7 @@
 //!   Hold Position;
 //! - [`travel`]: MovingToObject (Follow for a unit), AttackMovingToLocation and Patrolling;
 //! - Move to a point, and Stop, need only the mover's status;
-//! - [`gather`]: a worker's job, the Gather and Drop Off orders of `factions/colonists/units.md > Drone`;
+//! - [`gather`]: a worker's job, the Gather and Drop Off orders of `factions/colonists/units/drone.md`;
 //! - [`deploy`]: a Drone's walk to the site of the Beacon it deploys into (`crate::deploy`);
 //! - [`enter`]: a unit's walk into a Tunnel's entry path (`crate::network`).
 //!
@@ -28,27 +28,22 @@ pub(crate) mod gather;
 mod hash;
 pub(crate) mod reach;
 pub mod resolution;
+mod run;
 pub mod state;
 mod travel;
 pub(crate) mod world;
 
-use std::collections::{BTreeMap, VecDeque};
+use std::collections::VecDeque;
 
 use glam::Vec2;
 use serde::{Deserialize, Serialize};
 
 use crate::ids::ObjectId;
-use crate::mover::{MoveGoal, MoveStatus};
-use crate::nav::PathGroup;
-use crate::object::Object;
 use crate::units::{Tick, TilePos};
-use crate::{combat, conversion, riot_shield};
 
-use reach::Reach;
-pub use reach::{JUDGE_PATHS_PER_TICK, MAX_REJECTED, REJUDGE_MOVE_SU, REJUDGE_SELF_SU, ReachCounters};
-use state::{Approach, AttackOrder, Leg, Patrol};
+pub use reach::{JUDGE_PATHS_PER_TICK, MAX_REJECTED, ReachCounters};
+pub(crate) use run::update;
 pub use state::{Auto, Behaviour};
-use world::{Unit, World};
 
 /// `docs/movement.md > 2`, G13: orders waiting in one unit's queue, besides the current one. A technical cap: an
 /// order queued beyond it is dropped for that unit.
@@ -57,30 +52,6 @@ pub const MAX_QUEUED_ORDERS: usize = 32;
 /// Units one order command may name, duplicates included. Technical: selections have no size limit
 /// (`systems/controls/selection_and_hud.md`), so this only bounds the work of one command.
 pub const MAX_ORDER_UNITS: usize = 1024;
-
-/// `systems/controls/behaviors.md > BaseAutoTargeting > Global Constant: IdleLeashDistance`: 4 grid units. An idle
-/// unit farther than this from where it acquired its target disengages and returns.
-pub const IDLE_LEASH_GU: f32 = 4.0;
-
-/// `systems/controls/behaviors.md > AttackMovingToLocation > Global Constant: AttackMoveLeashDistance`: 6 grid
-/// units, measured from the leg's PathReference. It limits chasing only (design change 0180): a unit won't move
-/// farther than this from the PathReference to chase a target out of weapon range (`orders::travel::march`).
-pub const ATTACK_MOVE_LEASH_GU: f32 = 6.0;
-
-/// `systems/controls/behaviors.md > MovingToObject > Proximity` (design change 0032): "within proximity" is a gap
-/// of at most 8 space units between the unit's Silhouette and the object's shape, edge to edge.
-pub const PROXIMITY_SU: f32 = 8.0;
-
-/// `systems/controls/behaviors.md > Patrolling > Failed legs` (design change 0037): this many failed legs in a row
-/// end a Patrol.
-pub const PATROL_FAILED_LEGS: u8 = 2;
-
-/// An idle unit that acquired an enemy by itself and couldn't get to it doesn't acquire that same enemy again for this
-/// many ticks, so that it doesn't set off for it again every tick (on an AttackMove or a Patrol, a chase given up is a
-/// rejection by the reach rule instead: `reach`, design change 0230):
-/// `systems/controls/behaviors.md > BaseAutoTargeting > Unreachable auto-targets` (design change 0181, "for now":
-/// approach, give up, retry after 32 ticks). 2 s.
-pub const GIVE_UP_RETRY_TICKS: Tick = 32;
 
 /// The units of one order command share it (`docs/movement.md > 3`). Allocated from `Sim::next_group`.
 #[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
@@ -109,7 +80,7 @@ pub enum OrderKind {
     Hold,
     /// `> Stop`.
     Stop,
-    /// `factions/colonists/units.md > Drone > Unit Commands > Gather`: a worker gathers from a Space Crystals patch
+    /// `factions/colonists/units/drone.md > Unit Commands > Gather`: a worker gathers from a Space Crystals patch
     /// and delivers to its AssignedDropOff, again and again ([`gather`]). The patch is the one the worker heads for
     /// now: the order follows it to another when its patch is occupied, out of reach or gone (design change 0132:
     /// "its gather target follows where it actually mined"). A patch that is gone stays named while the worker
@@ -253,175 +224,6 @@ impl Orders {
         if let Some(active) = &mut self.current {
             active.state.forget(is_gone);
         }
-    }
-}
-
-/// Phase 5a (`docs/movement.md > 4`): for every unit before `first_new`, in id order, complete the current order
-/// if its behaviour is done, start queued orders until one is still running, and run that behaviour, or the idle
-/// one, for the tick. The behaviours write the unit's goal (`Mover::goal`) and the target its attack engages
-/// (`AttackState::target`), and read `Mover::status`, which phase 5d set last tick. Everything they read of other
-/// objects comes from one snapshot, `world`, taken from `objects` just before: the positions the last tick left and
-/// the vision of its phase 5f.
-pub(crate) fn update(objects: &mut BTreeMap<ObjectId, Object>, first_new: ObjectId, world: &World, reach: &mut Reach) {
-    reach.begin_tick();
-    // `factions/colonists/units.md > Drone > Patch Occupancy (one Drone per patch)`: in id order within the tick.
-    let mut claims = gather::Claims::default();
-    for o in objects.range_mut(..first_new).map(|(_, o)| o) {
-        let may_attack = riot_shield::allows_attack(o);
-        let weapon = combat::weapon(o);
-        let converting = conversion::is_converting(o);
-        let (Some(orders), Some(mover)) = (&mut o.orders, &mut o.mover) else {
-            continue;
-        };
-        let mut unit = Unit {
-            id: o.id,
-            owner: o.owner,
-            kind: o.kind,
-            pos: o.pos,
-            facing: o.facing,
-            mover,
-            weapon,
-            attack: o.attack.as_mut(),
-            may_attack,
-            converting,
-            worker: o.worker.as_mut(),
-        };
-        reach.begin_unit();
-        update_unit(orders, &mut unit, world, &mut claims, reach);
-    }
-}
-
-fn update_unit(orders: &mut Orders, unit: &mut Unit, world: &World, claims: &mut gather::Claims, reach: &mut Reach) {
-    // Each pass completes an order or starts one from the queue, which is bounded, so this ends.
-    loop {
-        if let Some(active) = &mut orders.current {
-            if !run(active, &mut orders.auto, unit, world, claims, reach) {
-                return;
-            }
-            orders.current = None;
-        }
-        let Some(order) = orders.queue.pop_front() else {
-            // No order left: the unit keeps its last move's outcome, and looks after itself.
-            engage::idle(unit, &mut orders.auto, world);
-            return;
-        };
-        orders.auto = Auto::default();
-        let state = start(&order, unit, world);
-        orders.current = Some(ActiveOrder {
-            order,
-            since: world.tick,
-            state,
-        });
-    }
-}
-
-/// The path group of `order`: its order group, anchored on the clicked point `click`, which the group's
-/// destinations surround (`docs/movement.md > 5.5`).
-fn path_group(order: &Order, click: Vec2) -> PathGroup {
-    PathGroup {
-        id: order.group.0,
-        anchor: click,
-    }
-}
-
-/// A behaviour begins (`systems/controls/behaviors.md`): its state as it starts. [`run`] follows in the same tick.
-fn start(order: &Order, unit: &mut Unit, world: &World) -> Behaviour {
-    let tick: Tick = world.tick;
-    // `> AttackingObject`: the attack engages the order's target; every other order disengages it (interrupting an
-    // attack being aimed, `systems/combat.md > Aiming`) and whatever the unit had acquired by itself.
-    unit.engage(match order.kind {
-        OrderKind::Attack(id) => Some(id),
-        _ => None,
-    });
-    match order.kind {
-        // `> MovingToLocation`: the unit goes to its own destination (the magic box); the group's path field is
-        // anchored on the clicked point.
-        OrderKind::Move(Target::Point(click)) => {
-            let goal = MoveGoal::Point(order.slot.unwrap_or(click));
-            unit.mover.go_to(goal, Some(path_group(order, click)), tick);
-            return Behaviour::Plain;
-        }
-        // `> StoppingBehavior`, `> HoldingPosition`: no goal. Infinite deceleration stops the unit at once.
-        OrderKind::Stop | OrderKind::Hold => {}
-        // The others set off in their first tick ([`run`]), from a standstill.
-        OrderKind::Attack(_) | OrderKind::Move(Target::Object(_)) | OrderKind::AttackMove(_) | OrderKind::Patrol(_) => {
-        }
-        OrderKind::Gather(_) | OrderKind::DropOff(_) | OrderKind::Deploy { .. } | OrderKind::Enter(_) => {}
-    }
-    unit.mover.stop();
-    match order.kind {
-        OrderKind::Move(Target::Point(_)) | OrderKind::Stop => Behaviour::Plain,
-        OrderKind::Hold => Behaviour::Hold { target: None },
-        OrderKind::Attack(_) => Behaviour::Attack(AttackOrder::default()),
-        OrderKind::Move(Target::Object(_)) => Behaviour::Approach(Approach::default()),
-        // `> AttackMovingToLocation`: to this unit's own destination.
-        OrderKind::AttackMove(click) => Behaviour::AttackMove(Leg::new(unit.pos, order.slot.unwrap_or(click))),
-        // `> Patrolling` 1 (design change 0036): the origin is where the unit is now, as the Patrol starts
-        // executing; for a queued Patrol, where the order before it ended.
-        OrderKind::Patrol(click) => {
-            let destination = order.slot.unwrap_or(click);
-            Behaviour::Patrol(Patrol {
-                origin: unit.pos,
-                destination,
-                outbound: true,
-                failed_legs: 0,
-                leg: Leg::new(unit.pos, destination),
-            })
-        }
-        // `factions/colonists/units.md > Drone > Gathering`: the worker's job.
-        OrderKind::Gather(_) | OrderKind::DropOff(_) => Behaviour::Gather(gather::begin(order.kind, unit, world)),
-        // `factions/colonists/economy.md > Beacon Deployment > Deploy Command`: to the footprint's centre.
-        OrderKind::Deploy { origin } => Behaviour::Deploy(deploy::begin(origin, unit, tick)),
-        // `systems/controls/commands.md > Enter`: to the Tunnel's entry path.
-        OrderKind::Enter(tunnel) => Behaviour::Enter(enter::begin(tunnel, unit, world)),
-    }
-}
-
-/// One tick of the current order's behaviour. Returns whether it is complete, so that the next order may start.
-/// `auto` is what the unit does on its own once it has no order: an order that ends may leave it something
-/// (`engage::attack`: the target it gave up).
-fn run(
-    active: &mut ActiveOrder,
-    auto: &mut Auto,
-    unit: &mut Unit,
-    world: &World,
-    claims: &mut gather::Claims,
-    reach: &mut Reach,
-) -> bool {
-    let order = &mut active.order;
-    match (order.kind, &mut active.state) {
-        // `> MovingToLocation`: complete when stopped at the target, or after failing to make progress
-        // (`> Failure`).
-        (OrderKind::Move(Target::Point(_)), _) => unit.mover.status != MoveStatus::Moving,
-        // `> StoppingBehavior`: complete when stopped, at once with infinite deceleration.
-        (OrderKind::Stop, _) => true,
-        // `> HoldingPosition`: never completes; only a new command ends it.
-        (OrderKind::Hold, Behaviour::Hold { target }) => {
-            engage::hold(unit, target, world);
-            false
-        }
-        (OrderKind::Attack(id), Behaviour::Attack(state)) => engage::attack(unit, id, state, auto, world),
-        (OrderKind::Move(Target::Object(id)), Behaviour::Approach(state)) => travel::approach(unit, id, state, world),
-        (OrderKind::AttackMove(click), Behaviour::AttackMove(leg)) => {
-            travel::march(unit, leg, Some(path_group(order, click)), world, reach) != travel::LegStatus::Running
-        }
-        (OrderKind::Patrol(click), Behaviour::Patrol(state)) => {
-            travel::patrol(unit, state, path_group(order, click), world, reach)
-        }
-        // A worker's job; the behaviour moves the order on to another patch as it must. Orders queued behind a
-        // Gather wait until it ends on its own (design change 0123, `gather`).
-        (OrderKind::Gather(_) | OrderKind::DropOff(_), Behaviour::Gather(state)) => {
-            gather::run(&mut order.kind, state, unit, world, claims)
-        }
-        // The walk to the site; the step right after this phase ends the order (`Sim::step_deployments`).
-        (OrderKind::Deploy { origin }, Behaviour::Deploy(state)) => deploy::run(origin, state, unit),
-        // The walk into the entry path; the step right after this phase takes the unit into the network or ends the
-        // order (`Sim::step_entries`).
-        (OrderKind::Enter(_), Behaviour::Enter(state)) => enter::run(state, unit),
-        // A state that isn't its order's (a save edited by hand): the order ends.
-        (OrderKind::Hold | OrderKind::Attack(_) | OrderKind::AttackMove(_) | OrderKind::Patrol(_), _)
-        | (OrderKind::Move(Target::Object(_)) | OrderKind::Gather(_) | OrderKind::DropOff(_), _)
-        | (OrderKind::Deploy { .. } | OrderKind::Enter(_), _) => true,
     }
 }
 

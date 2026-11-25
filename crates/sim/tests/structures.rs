@@ -1,4 +1,4 @@
-//! The GDO structures (slice M2-A; `factions/gdo/structures.md`, `factions/gdo/economy.md`): they come from
+//! The GDO structures (slice M2-A; `factions/gdo/structures/README.md`, `factions/gdo/economy.md`): they come from
 //! scenarios and debug spawns with their stat blocks, turned in any of the 8 orientations; they block ground units,
 //! take hits minus their PointArmor, and leave the map at 0 HP. Their sight, memory, the plate on a patch and
 //! targeting are in `structures_vision.rs`. `TestSim` checks the invariants after every tick.

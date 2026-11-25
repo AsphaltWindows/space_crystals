@@ -1,5 +1,5 @@
 //! The two unit types and the toggle's window (design changes 0171 to 0174, which answer question Q0020;
-//! `factions/gdo/units.md > Peacekeeper > Riot Shield > Two unit types`, `> During the toggle`, `> Toggle time`):
+//! `factions/gdo/units/peacekeeper.md > Riot Shield > Two unit types`, `> During the toggle`, `> Toggle time`):
 //! the type switches at the press (design change 0198); while the shield goes up or down the unit is slow and doesn't
 //! attack, and only a shield all the way up protects; a press mid-way turns back from there; a raise pressed
 //! mid-attack waits for the shot; the Barracks trains the Peacekeeper, and both types cost the same Unit Control.

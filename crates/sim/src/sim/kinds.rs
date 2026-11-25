@@ -1,9 +1,10 @@
 //! Objects that change their kind in place — plan decision T15: one object through every transformation. A Drone
 //! deploying into a Beacon (`factions/colonists/economy.md > Beacon Deployment`, slice M3-F), a Beacon warping in a
-//! building (`> Warp In`, M3-E), a Legionnaire pressed to convert its weapon (`factions/colonists/units.md > Weapon
-//! Conversion`, M3-B; its type switches at the press, design change 0198) and a Peacekeeper raising or lowering its
-//! Riot Shield (M3-S) each stay the same object, with the same `ObjectId`, so selections, control groups, rally
-//! points and the fog's records keep it ("the Drone unit itself transforms into the Beacon in place").
+//! building (`> Warp In`, M3-E), a Legionnaire pressed to convert its weapon
+//! (`factions/colonists/units/weapon_conversion.md`, M3-B; its type switches at the press, design change 0198) and a
+//! Peacekeeper raising or lowering its Riot Shield (M3-S) each stay the same object, with the same `ObjectId`, so
+//! selections, control groups, rally points and the fog's records keep it ("the Drone unit itself transforms into the
+//! Beacon in place").
 //!
 //! [`Sim::change_kind`] is the one place an object's kind changes. [`Capabilities::fresh`] is what an object of a
 //! kind starts with, for a new object (`Sim::insert_object`) and a changed one alike, so the two can't drift apart.
@@ -57,23 +58,23 @@ impl Capabilities {
             attack: unit
                 .and_then(|unit| unit.attack.as_ref())
                 .map(|_| AttackState::default()),
-            // `factions/gdo/units.md > Peacekeeper > Riot Shield`: units that carry one; it starts down on the
+            // `factions/gdo/units/peacekeeper.md > Riot Shield`: units that carry one; it starts down on the
             // Peacekeeper, up on the Peacekeeper (Shielded) (design change 0173).
             riot_shield: unit
                 .and_then(|unit| unit.riot_shield.as_ref())
                 .map(|shield| RiotShield::fresh(kind, shield)),
             // `factions/gdo/economy.md > ExtractionPlate`: a plate mines the patch under it.
             extractor: economy::mining::extractor_for(objects, kind, placement),
-            // `factions/gdo/structures.md > Barracks`: a structure that produces units starts with an empty queue.
+            // `factions/gdo/structures/barracks.md`: a structure that produces units starts with an empty queue.
             production: def
                 .structure
                 .as_ref()
                 .and_then(|structure| structure.production.as_ref())
                 .map(|_| Production::default()),
-            // `factions/gdo/structures.md > DeploymentCenter`, `factions/gdo/economy.md > ExtractionFacility`: a
+            // `factions/gdo/structures/deployment_center.md`, `factions/gdo/economy.md > ExtractionFacility`: a
             // constructor starts idle.
             constructor: construction::constructor_for(kind),
-            // `factions/colonists/units.md > Drone > Gathering`: a worker starts empty, with no drop-off assigned.
+            // `factions/colonists/units/drone.md > Gathering`: a worker starts empty, with no drop-off assigned.
             worker: unit.and_then(|unit| unit.worker).map(|_| Worker::default()),
             // `factions/syndicate/tunnels.md > Tunnel > Tiers`: a Tunnel starts at Tier 1 (plan decision T39).
             tunnel: tunnel::fresh(kind),

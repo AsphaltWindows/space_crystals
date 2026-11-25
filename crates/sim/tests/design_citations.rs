@@ -217,16 +217,6 @@ fn scanned_files(root: &Path) -> Vec<PathBuf> {
     files
 }
 
-/// Until slice M4-R1 has rewritten them: the citations of the faction files design change 0282 removed, each
-/// faction's `units.md` and `structures.md`, in the sim's files.
-fn tolerated(file: &Path, path: &str) -> bool {
-    let removed = path
-        .strip_prefix("factions/")
-        .and_then(|rest| rest.split_once('/'))
-        .is_some_and(|(_, name)| name == "units.md" || name == "structures.md");
-    removed && file.starts_with("crates/sim")
-}
-
 /// Each citation in the scanned files whose path doesn't exist, as `file:line: path`, and how many paths are cited.
 fn missing(root: &Path) -> (Vec<String>, usize) {
     let prefixes = Prefixes::of(root);
@@ -235,7 +225,7 @@ fn missing(root: &Path) -> (Vec<String>, usize) {
         let text = fs::read_to_string(root.join(&file)).unwrap_or_else(|e| panic!("{}: {e}", file.display()));
         for cited in citations(&text, &prefixes) {
             count += 1;
-            if !cited.exists() && !tolerated(&file, &cited.path) {
+            if !cited.exists() {
                 missing.push(format!("{}:{}: {}", file.display(), cited.line, cited.path));
             }
         }

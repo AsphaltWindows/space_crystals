@@ -1,4 +1,5 @@
 use super::*;
+use crate::tuning::movement::{GIVE_UP_TICKS, HALF_STUCK_TICKS, YIELD_WAIT_TICKS};
 
 #[test]
 fn go_to_wants_a_path_and_stop_drops_it() {

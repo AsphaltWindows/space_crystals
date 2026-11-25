@@ -4,7 +4,7 @@
 //! Behavior`: "the unit's default right-click action at the rally target"), and a Supply carried through the Tunnel
 //! Network (design change 0249: "An Agent keeps its load").
 
-use sc_sim::network::TRANSIT_DELAY_TICKS;
+use sc_sim::defs::TRANSIT_DELAY_TICKS;
 use sc_sim::{Command, DebugCommand, PlayerCommand, ProductionCommand, Reject, Target, TunnelCommand};
 
 use super::*;

@@ -1,4 +1,4 @@
-//! Where the loads go (`factions/colonists/units.md > Drone > Assigned Drop-off`, `> Drop Off order`): Set
+//! Where the loads go (`factions/colonists/units/drone.md > Assigned Drop-off`, `> Drop Off order`): Set
 //! Drop-off Location in the middle of mining and of a return, the Drop Off order, a lost Egress Node.
 
 use super::*;

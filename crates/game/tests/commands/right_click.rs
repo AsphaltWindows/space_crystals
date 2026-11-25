@@ -1,5 +1,6 @@
-//! Right-clicks (`> RightClickResolution`, `> BasicCombatUnitInterfaceState > RightClickResolution`) and the
-//! Shift-queue (`commands.md > Unit Command`).
+//! Right-clicks (`systems/controls/selection_and_hud.md > RightClickResolution`,
+//! `systems/controls/selection_and_hud.md > BasicCombatUnitInterfaceState > RightClickResolution`) and the
+//! Shift-queue (`systems/controls/commands.md > Unit Command`).
 
 use bevy::prelude::*;
 use sc_sim::defs::RIOT_SHIELD_TOGGLE_TICKS;
@@ -41,7 +42,8 @@ fn a_right_click_resolves_by_what_is_under_the_cursor() {
     assert_eq!(selected(&app), [1, 2], "a right-click selects nothing");
 }
 
-/// `> CommandPanel`: no right-click resolution without a selection, nor for another player's or a neutral one.
+/// `systems/controls/selection_and_hud.md > CommandPanel`: no right-click resolution without a selection, nor for
+/// another player's or a neutral one.
 #[test]
 fn a_right_click_orders_nothing_without_an_own_selection() {
     let mut app = game();
@@ -53,8 +55,8 @@ fn a_right_click_orders_nothing_without_an_own_selection() {
     assert_eq!(orders(&app), []);
 }
 
-/// `commands.md > Unit Command`: Shift appends an order to the units' queues; without Shift an order replaces the
-/// whole queue and the current order. The sim's queues show it.
+/// `systems/controls/commands.md > Unit Command`: Shift appends an order to the units' queues; without Shift an order
+/// replaces the whole queue and the current order. The sim's queues show it.
 #[test]
 fn shift_right_clicks_queue_and_plain_ones_replace() {
     let mut app = game();

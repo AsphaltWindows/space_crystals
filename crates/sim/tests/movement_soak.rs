@@ -2,8 +2,8 @@
 //! invariants I1–I7 hold after every tick (`TestSim` checks them), nothing panics, every move ends within a bounded
 //! time of its last progress, most moves arrive, and the run is deterministic.
 
-use sc_sim::mover::{GIVE_UP_TICKS, STUCK_GRACE_TICKS};
 use sc_sim::testing::{ScenarioBuilder, TestSim};
+use sc_sim::tuning::movement::{GIVE_UP_TICKS, STUCK_GRACE_TICKS};
 use sc_sim::{
     Command, DebugCommand, MoveStatus, ObjectId, ObjectKind, OrderKind, PlayerCommand, PlayerId, Rng, SU_PER_GU,
     SpawnAt, Target, TilePos, Vec2,

@@ -51,10 +51,11 @@ fn given_since(app: &App, from: usize) -> Vec<(PlayerId, Vec<u32>, ProductionCom
     productions(app)[from..].to_vec()
 }
 
-/// `> ObjectInterfaceState[Barracks]` and `> Standard Slot Assignments`: a selected Barracks shows Train
-/// Peacekeeper in Q, Cancel Production in X and Set Rally Point in C (W, the Rocketman's, stays empty until it is in
-/// the game). Q pays 50 Space Crystals and queues a Peacekeeper, by hotkey or by button; X takes the last one off
-/// the queue and refunds it; Shift queues neither. Cancel Production is disabled while nothing is queued.
+/// `> ObjectInterfaceState[Barracks]` and `systems/controls/selection_and_hud.md > CommandPanel > Standard Slot
+/// Assignments`: a selected Barracks shows Train Peacekeeper in Q, Cancel Production in X and Set Rally Point in C (W,
+/// the Rocketman's, stays empty until it is in the game). Q pays 50 Space Crystals and queues a Peacekeeper, by hotkey
+/// or by button; X takes the last one off the queue and refunds it; Shift queues neither. Cancel Production is disabled
+/// while nothing is queued.
 #[test]
 fn q_trains_and_x_cancels_by_hotkey_and_by_button() {
     use ButtonLook::{Common, Disabled};
