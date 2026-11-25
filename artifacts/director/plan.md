@@ -1265,15 +1265,53 @@ Approach: thin vertical slices the user can run and see, each verified by tests 
   - **`docs/playtest/README.md`:** the 9 commands, hot-seat with F2, F3, Tab, the debug keys, replays, links to m2–m4, and a template for reporting a finding (design to the Designer, bugs to the Director). It was checked against `cli/usage.rs`, the key bindings and screenshots.
   - **Left for B:** the `--factions` line in `crates/game/src/cli/usage.rs` is out of date. B owns that file.
 
+- **M5-D Recruit gathering** (**Fable**; merged in `36a06de4`; 1845 tests, 29 ignored; goldens unchanged; `movement/` untouched).
+  - **The data:**
+    - the Recruit's `WorkerDef`: 2 per load, 8 frames, 2 frames, 8 su, 8 su, `shares_patches`, no pass-through, no Supplies. `builds` stays empty for E;
+    - the Storage's `DropOff::Anywhere`;
+    - `economy/gathering.rs` is split into a directory.
+  - **The drop-off choice** (`WorkerDef::drop_off: DropOffChoice`, which replaces the `keeps_drop_off` bool): `Assigned` for the Drone, `FirstReturn` for the Agent, and `EachReturn` for the Recruit.
+    - **EachReturn** is `Placeholder (Q0102 point 1)`: the nearest Storage to the patch, edge to edge, chosen as each return starts. With none, the Recruit idles with its load.
+    - **A Storage lost mid-return** is replaced by the nearest to the Recruit, by 0170's shared rule. That case is added to Q0102.
+    - **The search radius** is 6 GU, a placeholder.
+  - **Single-Recruit rates** at gaps of 1, 2 and 3 tiles: 1.33, 0.57 and 0.36 SC/s, against the design's 1.45, 0.59 and 0.37 (−8%, −4%, −2%). A Recruit stops a few su inside each reach, so its trip is 24 frames, not 22. **L's oracle should expect 24.**
+  - **Crowds within the design's numbers don't jam:**
+    - 4 or 5 Recruits on a 2-tile face give 5.3 and 6.1 SC/s;
+    - 10 on an 8-patch field with 3 Storages give 12.9 SC/s;
+    - one tile closer gains 0.77 SC/s per Recruit (the design says about 0.86).
+  - **More Recruits than a face's lanes do jam,** head-on in a lane with nobody yielding: two ignored tests in `tests/recruit_gathering/jam.rs`, with the table. **Q0110** filed. 0315's rule, prototyped for Recruits and reverted, doesn't fix it.
+  - **Perf** (`recruits_perf`, 60 Recruits): mean 0.062 ms, p99 0.089 ms per tick. `drones_perf` and `agents_perf` hold by interleaved A/B.
+  - **Screenshot:** `scratchpad/m5d/recruits_field_400.png`.
+  - **Left for C:** the rally-gather test. C, landing second, writes it un-ignored.
+
+- **M4-W2 The hatch rule, 0315** (**Fable**; merged in `b81b2089`). **Built as designed, and it doesn't fix the jam:** Q0111 is filed.
+  - **The rule:** `Mover::presses_on`, set by `orders/gather/legs.rs::return_leg` on the leg to a hatch only, exempts that leg from the occupied-target rule (`movement/stuck.rs`). When the mover gives the leg up, the next leg begins on the next tick, so the Agent never gives up. The flag is hashed while set.
+  - **Measured** (10 minutes, north-west of the hatch, 4/5/6 Agents): better at 2 GU, much worse at 3 GU with 5–6 Agents (4.0/2.7 → 0.6/0.5 SC/s), and still nothing at 1 GU.
+    - Facing the hatch, income never stops for 60 s, but 1–2 GU fall (5 Agents at 1 GU: 11.9 → 5.9).
+    - Per Agent (0315's Verification), 20 of 30 layouts fail, against 19 before.
+    - The soak with 4 crystal Agents still stops for good, at 6:53. The table is in `docs/playtest/m4.md`.
+  - **The remaining mechanism:** the Agent that just unloaded is pocketed at the wall, the loaded Agents press toward points it covers, and nobody yields. W2 also found a technical cause: the Agents queued behind it are never judged stuck, because its shuffles count as their progress, so they never re-route. That is existing movement behaviour, left alone for now.
+  - **Tests:**
+    - `the_income_never_stops_where_it_holds` asserts the 21 layouts that hold;
+    - the 9 that still jam (`STILL_JAM`) and the per-Agent check stay ignored, citing 0315;
+    - new: `an_agent_blocked_from_the_hatch_presses_on_and_never_gives_up` and `only_the_leg_to_a_hatch_presses_on`;
+    - the Recruits' tests are unchanged.
+  - **The economy oracle** (3 Agents, 1–6 GU): 6.00/11.00/10.67/11.17/10.33/9.67 → 9.83/11.50/11.83/11.00/10.50/9.67, within ±15%. `docs/economy_oracle.md` is updated.
+  - **Goldens:** `syndicate_opening` and `syndicate_vs_gdo` are re-blessed, diverging at tick 160 (the first return leg). `syndicate_vs_gdo` now ends at tick 2998 (`VERSUS_END`).
+  - **Perf** holds by interleaved A/B (`agents_perf`, `nav_perf`, `movement_perf`).
+  - **Not done, since the jam remains:** the soak's fourth crystal Agent, and swapping in `eject_builders`.
+
 ## In progress
 - **Running:**
   - **M5-C Recruitment Halls** (Opus; brief `scratchpad/briefs/m5c-recruitment-halls.md`): tile claims by completion order, free Recruits up to the Hall's capacity, Unit Control by lineage (T56, T57), the HUD's Unit Control, and the Hall's panel. Q0099–Q0101 as placeholders. It also settles the cross-faction cost: a unit costs only in its own faction's resource.
   - **M5-F1 Buildings that hold units** (Opus; brief `scratchpad/briefs/m5f1-holding.md`): one capability for every holding Cults building, built for the Armory: Enter at the entrance side, a capacity, Eject All through the exit doorway, evacuation alive on destruction (T60), and T62's spots around a footprint. Q0104 and Q0106 as placeholders.
-  - **M5-D Recruit gathering** (**Fable**; brief `scratchpad/briefs/m5d-recruit-gathering.md`): the Recruit's crystals and the Storage's drop-off, measured against the design's 1.45 / 0.59 / 0.37 SC/s, plus crowd checks under hard collision. Q0102 as a placeholder. If Recruits jam for Q0109's reason, it reports measurements instead of a new rule.
+  - **M5-O3 TailDisjointed attacks** (Opus; brief `scratchpad/briefs/m5o3-tail-disjointed.md`; pulled forward from W4 into the free slot, since it needs only A): the Gunner's shot locks its target's position at the end of Aiming and hits whatever stands there at the end of Firing (0304); Attack Ground that keeps firing (Q0083); and "Target too close" for a location. Only the Gunner has the attack, so no golden may move.
+  - **M5-P2 Planning for 0319's content** (Opus, read only; brief `scratchpad/briefs/m5-planning-2.md`): slice specs for every Cults building and unit 0319 gave numbers to, new T-decisions (T69+), revised waves from W5, question drafts, M5's new size, and an option for an earlier playtest.
 - **Next**:
-  - **M4 is complete** (M4-M, `4e3fdd4a`; the strays, M4-Z, `95b4bc6e`), apart from the hatch jam's fix. M4-W diagnosed the jam (`189d0162`), and **0315** answered Q0109 with a first step. **M4-W2** (Fable; brief `scratchpad/briefs/m4w2-hatch-rule.md`) builds the rule and re-measures, launching at the next free slot after C. It must land before the playtest.
+  - **M4 is complete** (M4-M, `4e3fdd4a`; the strays, M4-Z, `95b4bc6e`), apart from the hatch jam's fix. M4-W diagnosed the jam (`189d0162`), and M4-W2 built 0315's first step (`b81b2089`), which doesn't fix it. **Q0111** asks the next step: (a) the backstop, (b) accept, (c) revert or (d) pass-through. The fix must land before the playtest.
   - **M5 wave 1 is done:** A (`ed23874e`) and R (`afd9c152`).
-  - **M5 wave 2:** F1, D and C are running. M4-W2 (the hatch rule, 0315) takes the next free slot. Wave 3 (B, E, F2) follows: B after C (it reads C's `economy/army.rs` and HUD), E after F1, and F2 after C and F1.
+  - **M5 wave 2:** D merged (`36a06de4`); F1 and C are running.
+  - **0319** put every designed Cults building and unit in M5, with placeholder numbers. The gated slices N1–N6 and G are now in scope, and M5-P2 drafts their slices and the waves from W5. Wave 3 (B, E, F2) follows: B after C (it reads C's `economy/army.rs` and HUD), E after F1, and F2 after C and F1.
   - **Playtest:** the user plays once all four factions are built, in hot-seat from the command line (2026-11-25). The kit is `docs/playtest/` (m2–m4 and M5's README). This replaces separate M1–M4 playtests.
 
 ## M1 plan (from the movement spike; the approved design is in `docs/movement.md`)
@@ -1607,24 +1645,26 @@ The user keeps feeding unit and other designs to the Designer, so expect increme
 | Q0089 | Three Agents at 3 GU measure 10.67 SC/s against the table's 12.5 (−14.7%, inside ±15%): is the opening target the third Agent at work by 0:40, or the Tunnel at 12.5? | no (answered) | answered by 0303: (a) as built; the third Agent at work by 0:40, and the table is an ideal ("It's better with some variation") |
 | Q0090 | What a player perceives of events they don't see: an unseen shooter's colour, another player's defeat, marks seen late (M4-V's open doubts) | no | open; as built, option (a) for each point, marked `Placeholder (M4-V)` in `viewer_events.rs` |
 | Q0091 | Pop-up turret details: its Tunnel dying with a unit on top, a target while it retracts, a Tunnel-built turret's ground and tier, when a site takes Tunnel Space (M4-S2's readings) | no | open; as built, option (a) for each point |
-| Q0092 | Which TBD Cults buildings get placeholder numbers for the first playtest (decides whether M5-G runs) (M5) | no | open; M5 builds the proposal as a placeholder |
-| Q0093 | Placeholder stats for the Gunworks (M5) | no | open; M5 builds the proposal as a placeholder |
-| Q0094 | The Storage's armour: 1/6, or the rule's 1/4 (M5) | no | open; M5 builds the proposal as a placeholder |
-| Q0095 | The Recruit's panel letters, and its pointer over a building under construction (M5) | no | open; M5 builds the proposal as a placeholder |
+| Q0092 | Which TBD Cults buildings get placeholder numbers for the first playtest (decides whether M5-G runs) (M5) | no | answered by 0319: every designed Cults building and unit gets placeholder numbers, so all are in M5, in an order of the Director's choosing |
+| Q0093 | Placeholder stats for the Gunworks (M5) | no | answered by 0319 (option a): the Gunworks at 150 SC / 480 f, 2x2, 300 HP, 1/4, with no commands and not enterable. These supersede the plan's interim numbers |
+| Q0094 | The Storage's armour: 1/6, or the rule's 1/4 (M5) | no | answered by 0319 (option a): the Storage's armour is 1/4, since 1/6 was left over from its old 3x2 size. A built 1/6 as a placeholder; S1 changes it and removes the armour test's exception |
+| Q0095 | The Recruit's panel letters, and its pointer over a building under construction (M5) | no | answered by 0322: Q Move, A Construct, S Assist, D Repair, X Stop, the same layout as the Agent's |
 | Q0096 | The Recruit's Construct menu: 13 buildings, 11 slots (M5) | no | open; M5 builds the proposal as a placeholder |
 | Q0097 | Group construction: where Recruits build, when the site starts, who counts (M5) | no | open; M5 builds the proposal as a placeholder |
 | Q0098 | Group construction: payment and refunds (M5) | no | open; M5 builds the proposal as a placeholder |
 | Q0099 | Recruitment Area: off-map tiles, rounding, priority, Halls under construction (M5) | no | open; M5 builds the proposal as a placeholder |
 | Q0100 | Hall production: the exit side, X, counting the Recruit in production (M5) | no | open; M5 builds the proposal as a placeholder |
 | Q0101 | Cults Unit Control: the global rule, and Recruits no Hall produced (M5) | no | open; M5 builds the proposal as a placeholder |
-| Q0102 | Which Storage a Recruit drops off at (M5) | no | open; M5 builds the proposal as a placeholder |
+| Q0102 | Which Storage a Recruit drops off at (M5) | no | open; built as (a) by M5-D. Addendum: a Storage lost mid-return is replaced by the nearest to the Recruit (0170's shared rule) |
 | Q0103 | The Cults economy check: geometry, tolerance, targets, build line (M5) | no | open; M5 builds the proposal as a placeholder |
 | Q0104 | Entering the Armory: the spot, a full pool, loads, capacity (M5) | no | open; M5 builds the proposal as a placeholder |
 | Q0105 | Armory training: which Recruit, its HP, ejected Recruits, the doorway (M5) | no | open; M5 builds the proposal as a placeholder |
 | Q0106 | Evacuation: where and in what order units come out (M5) | no | open; M5 builds the proposal as a placeholder |
 | Q0107 | Showing the Recruitment Area (M5) | no | open; M5 builds the proposal as a placeholder |
-| Q0108 | Stale lines in the Cults docs and the Enter command (M5) | no | open; M5 builds the proposal as a placeholder |
-| Q0109 | Agents at a hatch: who gives way? Four or more Agents whose patch lies to the side of the hatch gridlock for good (M4-W's diagnosis) | no (answered for now by 0315) | answered, first step, by 0315: an Agent waits only within reach of the hatch, and until then keeps steering toward it. M4-W2 builds it and re-measures; a follow-up question goes if any case still gridlocks, and the user then considers option (a) |
+| Q0108 | Stale lines in the Cults docs and the Enter command (M5) | no | answered: point 1 by 0319 (Enter's TargetObject), point 2 by 0322 (the Recruit's panel letters) |
+| Q0109 | Agents at a hatch: who gives way? Four or more Agents whose patch lies to the side of the hatch gridlock for good (M4-W's diagnosis) | no (answered for now by 0315) | first step 0315 built by M4-W2 (`b81b2089`), and it doesn't fix the jam. The follow-up is Q0111 |
+| Q0110 | Recruits head-on in a lane: who gives way? More Recruits than a Storage face's lanes starve each other for minutes (M5-D) | no (answered) | answered by 0320, option (d): crowding is the player's job, and Recruits keep their collision. Nothing to build; S1 changes the jam tests' citation |
+| Q0111 | 0315 measured: Agents at a hatch still gridlock (mixed results). Add the backstop (a), accept (b), revert 0315 (c), or pass-through (d)? (M4-W2) | yes, for the Agents' jam fix (before the playtest) | open |
 
 ## Design change entries
 Last triaged: 0282.
@@ -1909,13 +1949,17 @@ Last triaged: 0282.
 | 0301 No transit delay for the Agent that finishes a Tunnel, nor for produced units rallied inside | done (as built, M4-E `4933e094`; M4-J3 `5e2e9419`: the verification as a test, and the marks) | answers Q0087 |
 | 0302 The Cults' Soldier is renamed Militant (`factions/cults/units/militant.md`); the Armory's Q reads "Train Militant" | done (M5-A, `ed23874e`: the kind is `Militant`, labelled MT; no code says Soldier) | — |
 | 0303 The Syndicate's opening target means the third Agent at work by about 0:40; the Agent table is an ideal, and real income varies a little below it | done (as built, M4-L `6d05e084`; no change) | answers Q0089 |
-| 0304 The Cults' Gunner can miss: a TailDisjointed attack (the position locks at the end of Aiming; the shot lands there at the end of Firing and hits whatever unit is at the spot), and Attack Ground | queued (M5-O3: TailDisjointed attacks, which aren't built yet; the Gunner's Attack Ground; "Target too close" for a location, since the Gunner has MinRange 2. **The Gunner's def is TailDisjointed as data** (M5-A, `ed23874e`), and a cornered unit's "Target too close" for a unit target was fixed there) | — |
+| 0304 The Cults' Gunner can miss: a TailDisjointed attack (the position locks at the end of Aiming; the shot lands there at the end of Firing and hits whatever unit is at the spot), and Attack Ground | in progress (**M5-O3**, launched ahead of W4): TailDisjointed attacks, the Gunner's Attack Ground, and "Target too close" for a location. The Gunner's def is TailDisjointed as data (M5-A, `ed23874e`), where a cornered unit's "Target too close" for a unit target was also fixed | — |
 | 0305 The Cults' Acolyte is renamed Disciple (`factions/cults/units/disciple.md`) | queued (M5-N4, gated: no code mentions the Acolyte) | — |
 | 0306–0308 The Disciple's channeled cloud spell (concept): damage on ground objects under connected clouds goes into a shared buffer, released as AoE every 0.5 s; attacks from under the same cloud do full damage | queued (M5-N4, gated: "Concept only, not for the current playtest"; size, drain, end, buffer splits, name and hotkey TBD) | — |
 | 0309–0312 The Disciple's cloud spell, named **Shroud** (0312, after "Shared Burden" in 0311): a release's share is ordinary damage, with the receiver's modifiers, armor and minimum; the buffer is released at once when the channel ends or the cloud splits; the channel ends only on death, a cancel command, or running out of energy (0310 corrects 0309: taking damage doesn't end it) | queued (M5-N4, gated: concept only; size and drain TBD) | — |
 | 0313 The Cults' light vehicle, the Chop Shop's first: a wheeled buggy with a 360° machine-gun turret, FullyConnected, low damage at a high rate of fire | queued (N6, gated: concept only; name, Recruits consumed, target domain, numbers and the Chop Shop's flow TBD; vehicles aren't built) | — |
 | 0314 The light vehicle (0313) is the **Jackal**: it fires at ground and air (Universal) and consumes 2 Recruits (Unit Control 2). **The Chop Shop trains like the Armory:** a Recruit pool, serial queueable orders that reserve Recruits, Eject All and Cancel | queued (N6, gated: concept only; the Chop Shop's capacity, queue and sides, and the Jackal's numbers, TBD). It will reuse F1's holding capability and F2's training from a pool | — |
-| 0315 **Q0109, first step:** an Agent waits only once it is within reach of the hatch. Until then it is never "arrived": it keeps moving toward the hatch, steering round blockers, exempt from MovingToLocation's occupied-target arrival rule, and never gives up. Option (a) is not adopted for now; the user decides on it after the re-measurement | queued (**M4-W2**, Fable: build the rule, re-run M4-W's measurements, and file a follow-up if any case still gridlocks) | — |
+| 0315 **Q0109, first step:** an Agent waits only once it is within reach of the hatch. Until then it is never "arrived": it keeps moving toward the hatch, steering round blockers, exempt from MovingToLocation's occupied-target arrival rule, and never gives up. Option (a) is not adopted for now; the user decides on it after the re-measurement | done as designed (M4-W2, `b81b2089`), but it doesn't fix the jam: Q0111 | — |
 | 0316 A new Cults aircraft, the Airstrip's first: a small machine-gun glider hitting air and ground (name TBD) | queued (N6, gated: concept only; name, Recruits, whether it can miss, gun or turret, ammo, numbers and the Airstrip's flow TBD) | — |
 | 0317–0318 The glider (0316) is the **Sparrow**: a turret with a 45° cone in total that can't miss (FullyConnected, Universal), unlimited ammo (it never lands), 1 Recruit. **The Airstrip trains like the Armory**, and an aircraft takes off and never lands back | queued (N6, gated: concept only; its numbers TBD). It will reuse F1's holding and F2's training from a pool | — |
+| 0319 **Placeholder stats for every designed Cults building and unit** (answers Q0092, Q0093, Q0094 and Q0108 point 1): Gunworks, Machine Shop, Scrap Hangar, Garrison, Chop Shop (Jackal), Airstrip (Sparrow), Temple (research), Cathedral (Disciple, Shroud's numbers), Shrine (two abilities), Altar (augmentation, Metabolism). The Gunworks and Machine Shop have no commands and can't be entered. The Storage's armour goes from 1/6 to 1/4. Enter's TargetObject is "the structure being entered" | queued: **all of it is in M5 now**. M5-P2 drafts the slices; the Storage's armour goes to S1. Folded in already: C's lineage becomes one entry per Recruit (the Jackal takes 2; the T56 amendment), and F1 was told the holding variations | — |
+| 0320 **Q0110 answered (d):** Recruit crowding at a Storage face is the player's job. Recruits keep their collision, with no give-way rule, the Hall's rally on a patch included. The reference layouts and the Cults economy check stay within 4–5 Recruits per face | queued (S1: `tests/recruit_gathering/jam.rs` cites 0320, not Q0109, as accepted behaviour; L keeps its layouts at 4–5 per face). No movement change | — |
+| 0321 **Repair:** Recruits repair own buildings and vehicles (Space Crystals); Agents repair own Tunnels (free) and Laser Turrets (Space Crystals); the GDO Field Engineer's repair gets numbers; repairers stack linearly. Placeholders: 0 to full HP in half the build time with one repairer, at half the price, paid gradually | queued (M5-P2 plans one Repair slice for every repairer) | — |
+| 0322 **The Recruit's panel** (answers Q0095 and Q0108 point 2): Q Move, A Construct, S Assist, D Repair, X Stop. **Two new pointers**, Assist and Repair (also when awaiting a target). **Right-click** on a damaged, completed own building or vehicle resolves to Repair; a damaged building that can be entered keeps Enter for now (open with the user) | queued (J1: the panel and pointers; the Repair slice: D and its pointer; M5-P2 places them) | — |
 | 0014 GDO Airfield and aircraft | queued (Later: air) | |

@@ -205,6 +205,16 @@ pub struct Mover {
     /// the hash while 0 (`mover/hash.rs`), so that states without such a detour are as they were.
     #[serde(default, skip_serializing_if = "is_zero_index")]
     pub detour_end: u16,
+    /// Design change 0315 (`factions/syndicate/units/agent.md > Gathering > Gathering rules`, "Waiting at the hatch"):
+    /// this leg is "exempt from MovingToLocation's 'blocked near the target by standing units counts as arrived'
+    /// rule": blocked near its goal by units that won't move, the unit doesn't count as `Arrived`
+    /// (`movement::stuck`, rule 1); it "keeps actively moving toward the hatch, steering around whatever is in its
+    /// way", and looks for other routes as any stuck unit does. A property of one leg: the behaviour sets it after
+    /// [`Mover::go_to`] ([`Mover::press_on`]; only `orders::gather`'s leg back to a hatch does), and the next leg
+    /// begins without it. Left out of files and of the hash while unset (`mover/hash.rs`), so that states without
+    /// such a leg are as they were.
+    #[serde(default, skip_serializing_if = "is_false")]
+    pub presses_on: bool,
 }
 
 fn is_zero(v: &Vec2) -> bool {
@@ -213,6 +223,10 @@ fn is_zero(v: &Vec2) -> bool {
 
 fn is_zero_index(index: &u16) -> bool {
     *index == 0
+}
+
+fn is_false(flag: &bool) -> bool {
+    !*flag
 }
 
 impl Default for Mover {
@@ -245,6 +259,7 @@ impl Default for Mover {
             momentum: Vec2::ZERO,
             exit_heading: None,
             detour_end: 0,
+            presses_on: false,
         }
     }
 }
@@ -267,6 +282,13 @@ impl Mover {
         self.avoid_side = Side::Right;
         self.avoid_until = tick;
         self.sidestep = None;
+        self.presses_on = false;
+    }
+
+    /// Design change 0315: the leg that just began ([`Mover::go_to`]) never counts as arrived behind standing units
+    /// short of its goal ([`Mover::presses_on`]).
+    pub fn press_on(&mut self) {
+        self.presses_on = true;
     }
 
     /// No goal: the unit stops where it is (instantly, with infinite deceleration) and stands still. `status`

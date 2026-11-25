@@ -20,4 +20,9 @@ pub const RECHECK_TICKS: Tick = 16;
 /// (`orders::gather`'s module docs), and it never gives up: design change 0255 settles that for Agents ("Agents
 /// waiting at the hatch wait forever") and, by its implementation note, for Drones. The interval is a placeholder the
 /// design doesn't name: 2 seconds.
+///
+/// **Not the wait of an Agent short of its hatch** (design change 0315, `factions/syndicate/units/agent.md > Gathering
+/// > Gathering rules`, "Waiting at the hatch": out of reach it "keeps actively moving toward the hatch"): that leg
+/// doesn't end behind standing units, and begins again at once when the mover gives it up. For an Agent the interval
+/// is left only for a hatch it has no way to (`orders::gather::legs::return_leg`).
 pub const LEG_RETRY_TICKS: Tick = 32;

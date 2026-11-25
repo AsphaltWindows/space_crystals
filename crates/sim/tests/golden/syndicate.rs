@@ -32,11 +32,11 @@ use ObjectKind::{Agent, Guard, Hideout, OpticsLab, Peacekeeper, Tunnel};
 
 /// [`opening`]'s last tick, 2:15: the builder of the second Tunnel has delivered its second Supply.
 const OPENING_END: Tick = 2160;
-/// [`versus_gdo`]'s last tick, 3:06.75: the game's end, as player 1's last Tunnel falls and it is defeated. A replay
+/// [`versus_gdo`]'s last tick, 3:07.38: the game's end, as player 1's last Tunnel falls and it is defeated. A replay
 /// plays back in the client to where its game ended (`ARCHITECTURE.md > Replays and golden hashes`, "Playback"), so the
 /// golden game ends there too, with its last checkpoint. A change that moves the end fails [`versus_gdo`]'s `expect`:
 /// set this to the tick it names.
-const VERSUS_END: Tick = 2988;
+const VERSUS_END: Tick = 2998;
 /// [`opening`]'s camera starts over this tile: player 1's base and its second Tunnel.
 const OPENING_CAMERA: TilePos = TilePos::new(13, 11);
 /// [`versus_gdo`]'s: player 1's two Tunnels and the plateau's west ramp, where the Guards fight.

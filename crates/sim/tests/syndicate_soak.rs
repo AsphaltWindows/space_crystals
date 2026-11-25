@@ -110,11 +110,16 @@ const CHEMICAL_PLANT_SITE: TilePos = TilePos::new(4, 10);
 const UPRIGHT_SITE: TilePos = TilePos::new(20, 23);
 /// The Agent that builds it, by its place among the player's (`Syndicate::agents`): the first one trained. Once out it
 /// gathers Supplies, not crystals. Back on the patch it would make four Agents for one crystal hatch, one more than
-/// saturate it (design change 0294), and they gridlock on its side for good (slice M4-M, reported): the one that has
-/// delivered can't get out past the three coming to it, whose legs end short of the hatch and start again
-/// (`tuning::gathering::LEG_RETRY_TICKS`), and none of them makes way. In this game that happens at 6:54, once the
-/// patches west of the hatch are gone and the Agents come from (3, 3), north-west of it: an Agent's leg to the hatch
-/// never ends, and the income stops.
+/// saturate it (design change 0294), and they gridlock on its side for good (slice M4-M, reported; question Q0109):
+/// the one that has delivered can't get out past the three coming to it, and none of them makes way. In this game
+/// that happens at 6:53, once the patches west of the hatch are gone and the Agents come from (3, 3), north-west of
+/// it: an Agent's leg to the hatch never ends, and the income stops.
+///
+/// **Still so with design change 0315 built** (slice M4-W2: the Agents coming to the hatch press on where they stood
+/// and tried again, `orders::gather::legs::return_leg`). Measured with this Agent back on crystals, and with one and
+/// two more Agents trained: four stop for good at 6:53 (7:05 before 0315), five never stop for a minute but one
+/// goes 93 seconds without a load, six stop for good at 4:59 (`docs/playtest/m4.md > Known issues`). So the fourth
+/// Agent stays off the crystals until Q0109's follow-up is answered.
 const TURRET_BUILDER: usize = 1;
 /// Where the Guards stand: west of the ramp's foot (the golden game's hold its top, `skirmish::GUARD_POST`).
 const GUARD_POST: TilePos = TilePos::new(22, 22);

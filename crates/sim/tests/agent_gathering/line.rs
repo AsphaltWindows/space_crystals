@@ -1,11 +1,13 @@
-//! The line at the hatch (`factions/syndicate/units/agent.md > Gathering rules > Waiting at the hatch`, design
-//! change 0255: "an Agent waits within reach (or as close as it can get) while another drops off, and the first to
-//! arrive delivers next. It waits as long as it takes; it never gives up"), and where an Agent stands to deliver
-//! ("The hatch is 1 grid square long, near the middle of its side. An Agent must be within DropOffReach of the hatch
-//! to deliver").
+//! The line at the hatch (`factions/syndicate/units/agent.md > Gathering > Gathering rules`, "Waiting at the hatch",
+//! design changes 0255 and 0315: "an Agent waits only once it is within reach of the hatch, while another drops off;
+//! the first to arrive within reach delivers next. Until it is within reach it is never 'arrived' [...] It waits as
+//! long as it takes; it never gives up"), and where an Agent stands to deliver ("The hatch is 1 grid square long, near
+//! the middle of its side. An Agent must be within DropOffReach of the hatch to deliver").
 
 use super::*;
-use sc_sim::MoveStatus;
+use sc_sim::{MoveStatus, PlayerId};
+
+const P2: PlayerId = PlayerId(2);
 
 /// Design change 0255's Verification: "Six Agents on one Tunnel queue at the hatch and all eventually deliver; none
 /// idles with a load." With the patch 3 grid units from the hatch, for ten minutes: every Agent goes on delivering,
@@ -82,12 +84,17 @@ fn an_agent_in_line_keeps_waiting_and_delivers_when_its_turn_comes() {
     assert_eq!(workers, agents, "each delivered its load");
 }
 
-/// The Director's acceptance for 0255: "an Agent that is blocked from the hatch retries on the Drone's rule and
-/// never gives up". Five Guards on Hold Position stand along the wall in front of the hatch. The Agent comes back
-/// with its load, stops as near as it gets, and sets off again every 32 ticks (`tuning::gathering::LEG_RETRY_TICKS`),
-/// keeping its order and its load; once the Guards are gone it delivers.
+/// Design change 0315 (`factions/syndicate/units/agent.md > Gathering > Gathering rules`, "Waiting at the hatch"):
+/// "Until it is within reach it is never 'arrived': it keeps actively moving toward the hatch [...] and is exempt from
+/// MovingToLocation's 'blocked near the target by standing units counts as arrived' rule [...] It waits as long as it
+/// takes; it never gives up". Five Guards on Hold Position stand along the wall in front of the hatch. The Agent comes
+/// back with its load and stops against them, 3 grid units or less from where it is going. Its leg never ends as
+/// arrived: it presses on, looks for other routes, and when the mover gives it up (104 ticks,
+/// `tuning::movement::GIVE_UP_TICKS`) the next leg begins in the next tick, with no wait
+/// (`tuning::gathering::LEG_RETRY_TICKS` was the wait until 0315). It keeps its order and its load; once the Guards
+/// are gone it delivers.
 #[test]
-fn an_agent_blocked_from_the_hatch_retries_and_never_gives_up() {
+fn an_agent_blocked_from_the_hatch_presses_on_and_never_gives_up() {
     // The wall is at x = 640, the hatch square at y 512 to 576: no Agent fits between the Guards and the wall.
     let mut builder = field(1, 4);
     for i in 0..5 {
@@ -98,19 +105,35 @@ fn an_agent_blocked_from_the_hatch_retries_and_never_gives_up() {
     let guards: Vec<ObjectId> = (4..9).map(id).collect();
     t.order_at(1, P1, &guards, OrderKind::Hold, false);
     gather(&mut t, 1, &[3], 2);
-    let standing = |t: &TestSim| phase(t, 3) == Some(GatherPhase::ToDropOff) && t.status(3) != MoveStatus::Moving;
-    run_to(&mut t, 600, "it stops short of the hatch", standing);
+    // Jammed behind the Guards (`Mover::is_stationary`): until 0315 it had arrived there within a few ticks.
+    let blocked = |t: &TestSim| phase(t, 3) == Some(GatherPhase::ToDropOff) && t.mover(3).blocked_ticks >= 8;
+    run_to(&mut t, 600, "it is blocked short of the hatch", blocked);
     assert!(gap_to_hatch(&t, 3, 1) > REACH);
-    // A minute of it: it sets off again and again.
+    // A minute of it: it is on its way all along, but for the tick each leg fails in.
     let mut legs = 0;
     for _ in 0..60 * 16 {
         let was = t.status(3);
         t.step();
-        legs += u32::from(was != MoveStatus::Moving && t.status(3) == MoveStatus::Moving);
+        let now = t.status(3);
+        assert_ne!(
+            now,
+            MoveStatus::Arrived,
+            "tick {}: never arrived out of reach",
+            t.sim().tick()
+        );
+        if was != MoveStatus::Moving {
+            assert_eq!(
+                (was, now),
+                (MoveStatus::Failed, MoveStatus::Moving),
+                "the next leg begins at once"
+            );
+            legs += 1;
+        }
+        assert!(now != MoveStatus::Moving || t.mover(3).presses_on);
         assert_eq!((order(&t, 3), load(&t, 3)), (Some(OrderKind::Gather(id(2))), LOAD));
         assert_eq!(phase(&t, 3), Some(GatherPhase::ToDropOff), "never within reach");
     }
-    assert!((10..=30).contains(&legs), "{legs} legs in a minute");
+    assert!((8..=10).contains(&legs), "{legs} legs in a minute");
     assert_eq!(deliveries(&t), []);
     let now = t.sim().tick();
     for &guard in &guards {
@@ -119,6 +142,37 @@ fn an_agent_blocked_from_the_hatch_retries_and_never_gives_up() {
     let unloading = run_to(&mut t, 100, "it unloads", |t| is_unloading(t, 3));
     t.run(DROP_OFF);
     assert_eq!(deliveries(&t), [(unloading + DROP_OFF - 1, 3, 1, LOAD)]);
+}
+
+/// Design change 0315 is a property of one leg, the Agent's leg back to a hatch (`Mover::presses_on`): its leg to the
+/// patch doesn't press on (a patch it can't get to is waited at, design change 0141), and neither does a Drone's leg
+/// back to its Egress Node, which takes loads anywhere along its edge.
+#[test]
+fn only_the_leg_to_a_hatch_presses_on() {
+    // Tunnel 1, patch 2, Agent 3; player 2's Egress Node 4 and Drone 5, north of the patch.
+    let mut t = field(1, 3)
+        .faction(P2, Faction::Colonists)
+        .spawn(ObjectKind::EgressNode, Some(P2), tile(13, 3))
+        .spawn(ObjectKind::Drone, Some(P2), centre(13, 6))
+        .start();
+    gather(&mut t, 1, &[3], 2);
+    t.order_at(1, P2, &[id(5)], OrderKind::Gather(id(2)), false);
+    let mut seen = [0; 3];
+    for _ in 0..600 {
+        t.step();
+        for (n, hatch) in [(3, true), (5, false)] {
+            if t.status(n) != MoveStatus::Moving {
+                continue;
+            }
+            let back = phase(&t, n) == Some(GatherPhase::ToDropOff);
+            assert_eq!(t.mover(n).presses_on, back && hatch, "#{n}, on its way back: {back}");
+            seen[usize::from(back) + usize::from(back && hatch)] += 1;
+        }
+    }
+    assert!(
+        seen.iter().all(|&ticks| ticks > 20),
+        "legs to the patch, to the node and to the hatch: {seen:?}"
+    );
 }
 
 /// Design change 0255's Verification: "An Agent stands beside the hatch square, not at the side's far end", and

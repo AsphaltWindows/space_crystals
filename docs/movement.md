@@ -63,6 +63,10 @@
   2, where it waited without limit (since M1 slice E); now the Failure rule applies to it, as to any stuck unit.
   Its changes are marked **(M3-G3)**. The code is `stuck.rs` (`after_move`); M3-G2's wait (`stuck::waits_in_queue`,
   `collide/hold.rs`) is gone.
+- **A leg can be exempt from the occupied-target rule** (slice M4-W2; design change 0315, a first step for question
+  Q0109): 6.5's rule 1 doesn't apply to an Agent's leg back to its Tunnel's crystal hatch. Its changes are marked
+  **(M4-W2)**. The code is `Mover::presses_on`, `stuck.rs` (`target_is_occupied`) and
+  `crates/sim/src/orders/gather/legs.rs` (`return_leg`).
 
 Design references are `path/file.md > Section`, with paths relative to `artifacts/designer/design/`.
 Every number marked *(placeholder)* becomes a named const tagged with the question that covers it (section 2).
@@ -531,6 +535,31 @@ remaining path length, measured afresh from when it came to rest. A unit is **st
    same, the radius measured as the gap between the unit's shape and the object's (design changes 0032 and 0033,
    "Blocked near the target"; **(V)** the same 3 GU, 0169). What `Arrived` then means is the behaviour's: a static
    target completes the order, a followed unit is waited for where the follower stands, until it moves.
+   **(M4-W2) Not on a leg that presses on** (`Mover::presses_on`; design change 0315,
+   `factions/syndicate/units/agent.md > Gathering > Gathering rules`, "Waiting at the hatch": "an Agent waits only
+   once it is within reach of the hatch [...] Until it is within reach it is never 'arrived': it keeps actively
+   moving toward the hatch, steering around whatever is in its way [...] and is exempt from MovingToLocation's
+   'blocked near the target by standing units counts as arrived' rule [...] It waits as long as it takes; it never
+   gives up").
+   - **A property of one leg**: the behaviour sets it after `Mover::go_to` (`Mover::press_on`), and the next leg
+     begins without it. Only the Gather job's leg back to a hatch sets it (`orders::gather::legs::return_leg`): an
+     Agent's leg to its patch, a Drone's and a Recruit's legs, and every other order's moves are as they were. It is
+     hashed and saved only while set.
+   - **Such a unit goes on by the rules below**: it steers (6.3), looks for another route three times on the
+     schedule of rule 3, and fails by rule 4, 104 ticks after its last progress. The behaviour then begins the leg
+     again **in the next tick**, for the point nearest to where the Agent stands by then within reach of the hatch,
+     for ever. (Until 0315 the leg arrived behind the standing Agents and began again after
+     `tuning::gathering::LEG_RETRY_TICKS` = 32 of standing. That wait is left for a leg that reached the end of its
+     path out of reach or found no path, a hatch walled off, where a leg in every tick would be a path request in
+     every tick; and for the Drones' and the Recruits' legs back.)
+   - **To the others it is a unit on its way**, not one at rest: jammed for `JAMMED_TICKS` it counts as stationary
+     (6.3), but it has a goal, so a unit behind it re-routes plainly first and avoids its tile only from the second
+     attempt (rule 3), and it never yields (6.6).
+   - **It doesn't end the jam at the hatch** (`docs/playtest/m4.md > Known issues`; the trace is in
+     `crates/sim/tests/agent_gathering/jam.rs`): the Agent that has unloaded is still in a pocket between the wall
+     and the loaded Agents that press for its place, and pressing on isn't making way. Where that Agent's own legs
+     shuffle it a few space units every second, the Agents blocked by it take over its progress clock (the rule
+     above: waiting behind a unit that is getting on), are never stuck, and stand on one leg without limit.
 2. **Queueing (E)**: a unit chasing the target its attack engages, blocked by a stationary unit of its owner whose
    attack engages the same target → no path request (`movement::stuck::queues_behind`). The check is a few
    comparisons, so it runs every tick the unit is blocked instead of every 16. **(M3-G3)** It fails as any stuck

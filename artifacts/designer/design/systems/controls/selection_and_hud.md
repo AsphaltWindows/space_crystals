@@ -277,6 +277,8 @@ The visual appearance of the player's cursor, communicating what action will occ
 | GatherResources | — | Unit will gather from this resource. |
 | ReturnResources | — | Unit will return carried resources to this drop-off point. |
 | Enter | — | Unit will enter this object (e.g., Syndicate unit entering a Tunnel, Cults infantry entering an Altar). |
+| Assist | — | Unit will help construct this own building that is under construction (Cults Recruits; user, 2026-11-26; Q0095). Placeholder look. |
+| Repair | — | Unit will repair this damaged own building or vehicle (Recruits, Agents, Field Engineers; user, 2026-11-26). Placeholder look. |
 | Mixed | Generic hybrid | Selected units will do different things on right-click (e.g. some attack, some follow). Visual TBD. |
 
 ### Mixed Right-Click Preview
@@ -298,6 +300,8 @@ The pointer previews the action that right-click would perform, resolved per uni
 - Cursor over resource (resource gatherer selected): **GatherResources**
 - Cursor over drop-off point (resource gatherer carrying resources): **ReturnResources**
 - While targeting **Set Drop-off** (AwaitingTarget[SetDropOffLocation]), cursor over a valid drop-off point: **ReturnResources** (user, 2026-11-25; Q0052)
+- Cursor over own building under construction (selection can assist construction): **Assist**
+- Cursor over damaged own building or vehicle that the selection can repair: **Repair**
 - Selection is a production building: **Move** (rally point)
 - No valid action for current cursor target: **Inactive**
 
@@ -318,6 +322,8 @@ The pointer reflects the pending command and whether the current CursorTarget is
 - AwaitingTarget[ScheduleDeliveries] over valid target: **GatherResources**
 - AwaitingTarget[ScheduleDeliveries] over invalid target: **Inactive**
 - AwaitingTarget[SetRallyPoint] over ground or object: **Move**
+- AwaitingTarget[AssistConstruction] over own building under construction: **Assist**; elsewhere: **Inactive**
+- AwaitingTarget[Repair] over a damaged own building or vehicle the selection can repair: **Repair**; elsewhere: **Inactive**
 
 #### AwaitingPlacement:
 No pointer display type — the building ghost preview serves as the cursor.
