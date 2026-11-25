@@ -8,6 +8,7 @@
 use sc_sim::combat::{self, AttackPhase};
 use sc_sim::testing::{self, ScenarioBuilder, TestSim};
 use sc_sim::tuning::combat::{DIRECTIONAL_FRONT, DIRECTIONAL_REAR, DIRECTIONAL_SIDE, MINIMUM_DAMAGE};
+use sc_sim::vision::Hiding;
 use sc_sim::{DebugCommand, ObjectId, ObjectKind, OrderKind, PlayerId, Sim, SimEvent, Target, Tick, Vec2};
 
 const P1: PlayerId = PlayerId(1);
@@ -168,6 +169,7 @@ fn zero_hp_is_death() {
                 kind: ObjectKind::Guard,
                 owner: Some(P1),
                 pos: Vec2::new(550.0, 300.0),
+                hiding: Hiding::default(),
             },
             &SimEvent::Removed(ObjectId(3)),
         ],

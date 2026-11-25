@@ -8,9 +8,10 @@
 //! greyed, including ones not in the build yet"), so that no letter moves as they come: a type in the game is its
 //! [`PanelCommand::Expand`], greyed while this Tunnel can't build it now (its operation, its tier, the bank: the gate's
 //! reasons, `sc_sim::Sim::can_expand`), and one not in the game yet its [`Planned`] entry. The Laser Turret takes the
-//! slot after them, the tenth (0291: "The Laser Turret is always the tenth slot"): a placeholder too
-//! ([`Planned::LaserTurret`]), greyed with its prerequisite, until slice M4-S2 brings a Tunnel's turret to the
-//! ExpandMenu (an Agent builds one since slice M4-S1).
+//! slot after them, the tenth (0291: "The Laser Turret is always the tenth slot"): its Expand too, since slice M4-S2
+//! (`factions/syndicate/structures/laser_turret.md > Construction`: "**By a Tunnel**: from the Tunnel's ExpandMenu"),
+//! greyed by the same gate: "Requires an Optics Lab" until the player owns one, and the Tunnel's one operation slot,
+//! which its turret takes like an expansion (design change 0267).
 
 use sc_sim::defs::{EXPAND_MENU, ExpandEntry};
 

@@ -7,6 +7,7 @@ use bevy::prelude::*;
 use bevy::time::TimeUpdateStrategy;
 
 use bevy::mesh::VertexAttributeValues;
+use sc_sim::vision::Hiding;
 use sc_sim::{
     Command, DebugCommand, ObjectId, ObjectKind, OrderKind, PlayerCommand, PlayerId, SU_PER_GU, SimEvent, SpawnAt,
     Tick, TilePos, scenarios,
@@ -22,6 +23,7 @@ use space_crystals::object_render::object_height;
 use space_crystals::platform::DisplayMode;
 use space_crystals::selection::{ControlStates, Selection};
 use space_crystals::sim_driver::{LocalPlayer, PendingCommands, SimEventMessage, SimRes};
+use space_crystals::viewer_events::Sighting;
 use space_crystals::{AppConfig, build_app};
 
 const P1: PlayerId = PlayerId(1);
@@ -166,6 +168,7 @@ fn shots_hits_and_deaths_show_for_their_ticks() {
             kind: ObjectKind::Peacekeeper,
             owner: Some(P1),
             pos: Vec2::new(300.0, 300.0),
+            seen: Sighting::object_at(Some(P1), Hiding::default(), Vec2::new(300.0, 300.0)),
         }]
     );
     let guard_bars = bars(&app);

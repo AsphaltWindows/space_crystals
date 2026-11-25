@@ -34,6 +34,7 @@ pub use rules::ClickRoles;
 use crate::command_ui::InterfaceState;
 use crate::fog::{FogOfWar, Sight};
 use crate::sim_driver::{LocalPlayer, RenderAlpha, SimRes};
+use crate::viewer_events::FilterEvents;
 use crate::{ClientMode, ClientSystems};
 
 /// Every player's ControlState (`> ControlState`: per player). The local player's is the one the input changes
@@ -135,7 +136,12 @@ pub struct SelectionPlugin;
 impl Plugin for SelectionPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<ControlStates>()
-            .configure_sets(Update, SelectionSystems::Sync.in_set(ClientSystems::SyncSim))
+            .configure_sets(
+                Update,
+                SelectionSystems::Sync
+                    .in_set(ClientSystems::SyncSim)
+                    .after(FilterEvents),
+            )
             .configure_sets(Update, SelectionSystems::Input.in_set(ClientSystems::Actions))
             .add_systems(Update, systems::sync_control_states.in_set(SelectionSystems::Sync))
             .add_systems(

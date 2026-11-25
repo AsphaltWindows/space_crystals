@@ -13,6 +13,7 @@ const TUNNEL: ObjectKind = ObjectKind::Tunnel;
 const HIDEOUT: ObjectKind = ObjectKind::Hideout;
 const OPTICS_LAB: ObjectKind = ObjectKind::OpticsLab;
 const CHEMICAL_PLANT: ObjectKind = ObjectKind::ChemicalPlant;
+const TURRET: ObjectKind = ObjectKind::LaserTurret;
 
 /// What the panel's `slot` says when pressed greyed out, if it is.
 fn why_text(panel: &Panel, slot: CommandSlot) -> Option<&'static str> {
@@ -22,8 +23,8 @@ fn why_text(panel: &Panel, slot: CommandSlot) -> Option<&'static str> {
 /// Design change 0291's verification, "The ExpandMenu shows nine expansion slots and then the turret": the Tech Tree's
 /// expansions in its order take Q, W, E, R, A, S, D, F and X (design change 0257: "entries take the grid slots in order
 /// (Q, W, E, R, A, S, …)", Z being Back), the Hideout in Q, the Optics Lab in W and the Chemical Plant in E (slice
-/// M4-K), the six not in the game yet greyed, and the Laser Turret the tenth, C, greyed with its prerequisite while
-/// the player owns no Optics Lab, and as not in the game yet once they own one. Each says what it builds and, greyed,
+/// M4-K), the six not in the game yet greyed, and the Laser Turret the tenth, C (slice M4-S2), greyed by its gate
+/// with its prerequisite while the player owns no Optics Lab. Each says what it builds and, greyed,
 /// why; Q, W and E enter their placements, and Z goes back to DefaultState.
 #[test]
 fn the_expand_menu_shows_nine_expansion_slots_and_then_the_turret() {
@@ -46,7 +47,7 @@ fn the_expand_menu_shows_nine_expansion_slots_and_then_the_turret() {
             (slot(1, 3), c(P(AerospaceAssembly)), Unavailable),
             (CommandSlot::BACK, PanelButton::Back, Back),
             (slot(2, 1), c(P(OrbitalCommand)), Unavailable),
-            (slot(2, 2), c(P(LaserTurret)), Unavailable),
+            (slot(2, 2), c(Expand(TURRET)), Common),
         ]
     );
     let labels: Vec<&str> = menu.slots().filter_map(|(_, s)| s.map(|s| s.label())).collect();
@@ -73,18 +74,18 @@ fn the_expand_menu_shows_nine_expansion_slots_and_then_the_turret() {
     assert_eq!(why_text(&menu, slot(0, 1)), None);
     assert_eq!(why_text(&menu, slot(0, 3)), Some("Not available yet"));
     assert_eq!(why_text(&menu, slot(2, 1)), Some("Not available yet"));
-    assert_eq!(why_text(&menu, slot(2, 2)), Some("Requires an Optics Lab"));
+    assert_eq!(why_text(&menu, slot(2, 2)), None);
     assert_eq!(press(&menu, slot(0, 0)), SlotPress::AwaitExpansion(HIDEOUT));
     assert_eq!(press(&menu, slot(0, 1)), SlotPress::AwaitExpansion(OPTICS_LAB));
     assert_eq!(press(&menu, slot(0, 2)), SlotPress::AwaitExpansion(CHEMICAL_PLANT));
     assert_eq!(press(&menu, slot(0, 3)), SlotPress::Nothing);
-    assert_eq!(press(&menu, slot(2, 2)), SlotPress::Nothing);
-    let with_a_lab = panel(
-        &tunnel,
-        InterfaceState::ExpandMenu,
-        &Conditions::default().owning(OPTICS_LAB),
-    );
-    assert_eq!(why_text(&with_a_lab, slot(2, 2)), Some("Not available yet"));
+    assert_eq!(press(&menu, slot(2, 2)), SlotPress::AwaitExpansion(TURRET));
+    // The turret's own gate greys it (slice M4-S2): its Optics Lab, as the Agent's D says it.
+    let no_lab = Conditions::default().refusing(Expand(TURRET), Reject::Requires(OPTICS_LAB));
+    let without_a_lab = panel(&tunnel, InterfaceState::ExpandMenu, &no_lab);
+    assert_eq!(without_a_lab.get(slot(2, 2)).map(|s| s.look), Some(Unavailable));
+    assert_eq!(why_text(&without_a_lab, slot(2, 2)), Some("Requires an Optics Lab"));
+    assert_eq!(press(&without_a_lab, slot(2, 2)), SlotPress::Nothing);
     assert_eq!(press(&menu, CommandSlot::BACK), SlotPress::Back);
     assert_eq!(InterfaceState::ExpandMenu.back(&tunnel), InterfaceState::DefaultState);
     assert_eq!(InterfaceState::ExpandMenu.pending(), None);

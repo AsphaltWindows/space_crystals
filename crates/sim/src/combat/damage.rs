@@ -20,6 +20,7 @@ use crate::tuning::combat::{
     DIRECTIONAL_FRONT, DIRECTIONAL_HALF_ARC, DIRECTIONAL_REAR, DIRECTIONAL_SIDE, MINIMUM_DAMAGE,
 };
 use crate::units::TilePos;
+use crate::vision::Hiding;
 
 /// One attack's effect on its target, waiting on the tick's list until every unit has acted: the attack's Damage, and
 /// the target's modifiers as the shot found them (`systems/combat.md > DamageModifierOrder`), for [`resolve`]. A
@@ -202,6 +203,7 @@ pub(super) fn apply(
                 kind: o.kind,
                 owner: o.owner,
                 pos: o.pos,
+                hiding: Hiding::of(o),
             });
         }
     }

@@ -48,7 +48,7 @@ The Syndicate player starts with:
 - One **Agent**
 - **1 Supply** (enough for the 2nd Tunnel, which costs 1 Supply)
 
-Starting Space Crystals: **100** (same as GDO and the Colonists). With 100, the second Agent can start immediately and a starting Tunnel is saturated (3 Agents, 12.5 Space Crystals per second) around 0:40.
+Starting Space Crystals: **100** (same as GDO and the Colonists). With 100, the second Agent can start immediately and a starting Tunnel has its **third Agent at work** (Q0089: close to, not necessarily at, 12.5 Space Crystals per second; factions/syndicate/units/agent.md > The table is an ideal) around 0:40.
 
 ### Entity Type - Structure Type
 ### Constructed by - Agent

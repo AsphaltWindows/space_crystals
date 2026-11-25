@@ -97,6 +97,10 @@ struct MeshKey {
     site: bool,
     /// A Tunnel's look: its tier and where its sides face ([`tunnel`]).
     tunnel: Option<TunnelLook>,
+    /// Whether the object is a pop-up turret fully lowered (`sc_sim::popup::is_lowered`, slice M4-S2), drawn as an
+    /// underground structure's outline, as an expansion: its owner sees the ground and the units over it, and nobody
+    /// else sees it (`sc_sim::vision::hidden`). A record never is: only a turret seen, so not lowered, is remembered.
+    lowered: bool,
 }
 
 impl MeshKey {
@@ -115,7 +119,14 @@ impl MeshKey {
             transforming: false,
             site: false,
             tunnel: TunnelLook::of(kind, tunnel, placement),
+            lowered: false,
         }
+    }
+
+    /// Whether it is drawn as an underground structure's outline, in the blending material: an underground
+    /// structure, and a pop-up turret while lowered.
+    fn underground(self) -> bool {
+        underground(self.kind) || self.lowered
     }
 
     /// The live `object`'s, in the form it is in ([`drawn_kind`]).
@@ -124,6 +135,7 @@ impl MeshKey {
         Self {
             transforming: object.is_transforming(),
             site: object.is_site(),
+            lowered: sc_sim::popup::is_lowered(object),
             ..Self::of(drawn_kind(object), object.owner, placement, object.tunnel.clone())
         }
     }
@@ -271,7 +283,8 @@ fn has_tick(kind: ObjectKind) -> bool {
 
 /// The mesh of an object's visual: its placeholder shape, a unit's without the tick if its body doesn't turn, a
 /// structure in its size as placed, a Tunnel with its look by tier, a turret with its head (its barrel is an entity of
-/// its own, [`TurretBarrel`]), an underground structure as its outline; tinted while it transforms; a site, on the
+/// its own, [`TurretBarrel`]), an underground structure as its outline, and so a pop-up turret while it is lowered
+/// (slice M4-S2), with neither head nor barrel; tinted while it transforms; a site, on the
 /// surface or underground (an expansion, slice M4-F), tinted and braced by its scaffold, with its progress bar's track
 /// ([`site`]).
 fn visual_mesh(key: MeshKey) -> Mesh {
@@ -282,6 +295,7 @@ fn visual_mesh(key: MeshKey) -> Mesh {
         transforming,
         site,
         tunnel,
+        lowered,
     } = key;
     let color = match (transforming, site) {
         (true, _) => transforming_color(player_color(owner)),
@@ -290,7 +304,7 @@ fn visual_mesh(key: MeshKey) -> Mesh {
     };
     match size {
         Some((w, h)) => {
-            let mut mesh = if underground(kind) {
+            let mut mesh = if key.underground() {
                 structures::underground_shape(w, h, color)
             } else {
                 structures::structure_shape(w, h, color)
@@ -299,7 +313,7 @@ fn visual_mesh(key: MeshKey) -> Mesh {
                 site::draw(&mut mesh, structures::inner_half(w, h));
             } else if let Some(look) = tunnel {
                 tunnel::draw(&mut mesh, look, structures::inner_half(w, h));
-            } else if Look::of(kind) == Look::Turret {
+            } else if Look::of(kind) == Look::Turret && !lowered {
                 turret::draw_head(&mut mesh, color);
             }
             mesh.into_mesh()

@@ -68,7 +68,7 @@
   - Keep defs as plain, serde-ready data structs, so that step stays cheap.
 
 ## Lessons learned (process)
-- **Never `cd` in a Bash command in this session.** It moves the session's cwd (it happened three times). Use absolute paths, `git -C`, or a subshell `( cd X && ... )`.
+- **Never start a Bash command with a bare `cd`** into another directory, whether a worktree or a docs folder (`cd dir && grep …`). The session's cwd persists, and it slipped six times. Use a subshell `( cd $WT && … )`, `git -C`, `--manifest-path`, or absolute paths. `cd /home/iv/dev/space_crystals && …` is fine. If it slips, run `cd /home/iv/dev/space_crystals` at once.
 - **Folding design changes into a running agent with SendMessage works.** M0-D absorbed 0012/0013 and four review findings mid-task. Give exact file:line references and the fix direction.
 - **Parallel agents**: give each the other's areas as a "don't touch" list, and carry cross-cutting state (e.g. the debug switch) through a separate type, so the integration merge stays small.
 - **Typical cost**: an editor-sized task takes about 1 hour and 150–250k agent tokens; a read-only review takes about 25 minutes and 170k.
@@ -80,7 +80,6 @@
 - Agent worktrees (`isolation: "worktree"`) live in `.claude/worktrees/` (gitignored) and showed the last *pushed* commit at creation, then caught up to local master. Briefs tell agents to `git merge --ff-only master` first anyway. Check `git worktree list` after launching.
 - `git add -A <dir>` fails for an already-staged deleted directory; pass it only to `git commit -- <paths>`.
 - **Tests must not depend on machine speed.** With several agents building in parallel, the load average reaches about 22. Wall-clock assumptions then flake: "one update at Max pace reaches the end" failed under load. So did perf numbers: master's `movement_perf` measured from 0.57 to 3.7 ms mean. Judge a perf change only by interleaved A/B runs against master, and take absolute numbers on a quiet machine.
-- **Never start a Bash command with a bare `cd`**, whether into a worktree or a docs folder (`cd dir && grep …`). The session's cwd persists, and it slipped twice. Use a subshell `( cd $WT && … )`, `git -C`, `--manifest-path`, or absolute paths. If it slips, run `cd /home/iv/dev/space_crystals` at once.
 - **Every test gets its own temp directory.** The "flaky under load" replay test was really two tests sharing `sc_replay_test_<pid>`, so whichever finished first deleted the other's folder. Suspect shared state before blaming timing.
 - **Bevy 0.20 quirk:** a `Text2d` changed in a frame in which no camera saw any sprite or text is never laid out. Labels that must update anywhere use `NoFrustumCulling`, stay visible, and are emptied rather than hidden (M2-H2 ghost labels).
 - **Agents' "readings to confirm":** sort each into design (a question with the built behaviour as the current behaviour) or technical (decide, and note it in the plan). Don't let them pile up in reports.
@@ -96,7 +95,8 @@
 - `artifacts/director/m4-plan.md` is the planner's revision 2, which folds in 0229–0282. It adds R1 and R2 (code organization), O (combat spike), U (Grenadier), and S1 and S2 (Laser Turrets). The waves and the critical path are in `plan.md`'s M4 entry.
 - The common brief, `scratchpad/briefs/m4-common.md`, now binds T29–T54, cites the per-object design paths (0282) and the code-organization rules (T54). Update it whenever the plan's structure changes.
 - M4-R runs alone: no other slice beside R1 and R2, since the refactor touches nearly every file. Briefs written after it lands must use its new module layout.
-- The next question number is **Q0090**.
+- The next question number is **Q0091**.
+- **M5 planning started early (2026-11-26).** M5-P, a read-only planning spike on Opus (brief `scratchpad/briefs/m5-planning.md`), drafts `scratchpad/m5/m5-plan-draft.md` while M4's last slices run. M5 ends at the user's first playtest, so the draft also plans playtest readiness for all four factions, and the user's "data files at playtest" step. Adopt the draft with the user before M5 starts.
 
 ## Code layout after M4-R (R1 `8eab2290`, R2 `c60b8d0f`)
 `ARCHITECTURE.md > Adding a unit or structure` is the guide. Point every brief at it.

@@ -385,7 +385,8 @@ pub struct StateDump<'a> {
     pub scenario: &'a str,
     pub players: &'a [Player],
     pub objects: Vec<&'a Object>,
-    /// Events of the latest tick.
+    /// Events of the latest tick, as the sim has them, for every player: QA tooling, the one reader of the sim's events
+    /// in the client beside the filter that every view reads them through (`crate::viewer_events`).
     pub events: &'a [SimEvent],
     pub client: ClientDump,
     pub map: &'a Map,

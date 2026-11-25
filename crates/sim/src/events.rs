@@ -11,6 +11,7 @@ use crate::placement::PlacementCheck;
 use crate::production::Refusal;
 use crate::scenario::BuildingOrientation;
 use crate::units::{Tick, TilePos};
+use crate::vision::Hiding;
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub enum SimEvent {
@@ -64,6 +65,11 @@ pub enum SimEvent {
         kind: ObjectKind,
         owner: Option<PlayerId>,
         pos: Vec2,
+        /// Whom it was hidden from as it died (`Hiding::of`, plan decision T32), so that the client shows its death
+        /// to none of them (plan decision T52: "nothing is drawn for a hidden victim"; slice M4-V). Optional in files
+        /// (hidden from nobody), so that the states saved before it existed still load.
+        #[serde(default)]
+        hiding: Hiding,
     },
     /// `plate`'s last load emptied its Space Crystals patch: from now on it mines the residual rate, and the patch
     /// stays under it with 0 left until the plate is gone (`factions/gdo/economy.md > ExtractionPlate > Depleted

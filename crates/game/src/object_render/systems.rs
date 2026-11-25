@@ -6,7 +6,7 @@ use bevy::prelude::*;
 use super::{
     FacingTick, LoadMarker, Look, MeshKey, ObjectVisual, ObjectVisualAssets, ObjectVisuals, RiotShieldVisual,
     SiteProgress, TurretBarrel, body_turns, drawn_kind, has_tick, load, object_height, object_transform, site,
-    structures, turret, underground, units, visual_mesh,
+    structures, turret, units, visual_mesh,
 };
 use crate::coords::{facing_to_rotation, lerp_facing};
 use crate::kinds::object_label;
@@ -15,7 +15,7 @@ use crate::sim_driver::{RenderAlpha, SimRes};
 
 /// Spawns a visual for every object without one and despawns visuals whose object is gone, or is drawn otherwise
 /// now ([`MeshKey`]: its kind, owner, size or tint changed), which then get a new one, children included (tag, tick,
-/// Riot Shield, load marker, a finished turret's barrel). A replaced sim (new generation) starts from scratch, because
+/// Riot Shield, load marker, a finished turret's barrel; a pop-up turret's as it leaves the ground or is down again). A replaced sim (new generation) starts from scratch, because
 /// its ids may repeat the old ones.
 pub(super) fn sync_object_visuals(
     mut commands: Commands,
@@ -72,7 +72,7 @@ pub(super) fn sync_object_visuals(
             .clone();
         let height = object_height(sim.map(), object.pos, object.placement.as_ref());
         let facing = if body_turns(drawn) { object.facing } else { 0.0 };
-        let body = if underground(drawn) { &blended } else { &material };
+        let body = if key.underground() { &blended } else { &material };
         let entity = commands
             .spawn((
                 Name::new(format!("{:?} #{}", drawn, object.id.0)),
@@ -103,7 +103,7 @@ pub(super) fn sync_object_visuals(
         if units::tagged(drawn) {
             commands.spawn((units::tag(object.id, drawn), ChildOf(entity)));
         }
-        if Look::of(drawn) == Look::Turret && !key.site {
+        if Look::of(drawn) == Look::Turret && !key.site && !key.lowered {
             let barrel = assets
                 .barrel
                 .get_or_insert_with(|| meshes.add(turret::barrel_mesh()))

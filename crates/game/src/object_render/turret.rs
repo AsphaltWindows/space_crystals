@@ -5,6 +5,13 @@
 //! direction)"; `sc_sim::combat`), interpolated between ticks as a unit's facing tick is ([`place_barrels`]). A site
 //! has neither (`super::site`); a record of a turret has its head and no barrel (`super::remembered`: where the barrel
 //! pointed isn't remembered).
+//!
+//! **The pop-up form** (slice M4-S2, plan decision T50; `factions/syndicate/structures/laser_turret.md > Upright vs
+//! Pop-up`, `sc_sim::popup`): fully lowered, the turret is drawn as an underground structure's outline, as an expansion
+//! (`super::MeshKey::lowered`), with neither head nor barrel: its owner sees the ground and the units over it, and
+//! the fog's `Sight` shows it to nobody else (`sc_sim::vision::hidden`). From its first rising frame it is the upright
+//! turret's body, its barrel already facing its target and coming out as it rises, and going back in as it retracts
+//! ([`place_barrels`]). Placeholders all.
 
 use bevy::prelude::*;
 use sc_sim::ObjectId;
@@ -26,6 +33,9 @@ const HEAD_RIM_SU: f32 = 3.0;
 const BARREL_FROM_SU: f32 = 6.0;
 const BARREL_TO_SU: f32 = 36.0;
 const BARREL_WIDTH_SU: f32 = 8.0;
+/// How much of its length the barrel of a pop-up turret has as it starts to rise (a placeholder): it grows from there
+/// to its whole length over the rise, and back over the retraction ([`place_barrels`]).
+const RISING_FROM: f32 = 0.25;
 /// The barrel's dark casing and its light core (placeholder colours).
 const BARREL_CASING: Color = Color::srgb(0.10, 0.11, 0.14);
 const BARREL_CORE: Color = Color::srgb(0.78, 0.80, 0.84);
@@ -79,6 +89,10 @@ pub(super) fn place_barrels(
             continue;
         };
         let facing = lerp_facing(object.prev_facing, object.facing, alpha.0);
-        transform.set_if_neq(Transform::from_rotation(facing_to_rotation(facing)));
+        // A pop-up on its way up or down (slice M4-S2): the barrel as long as the turret is far up.
+        let out = object
+            .popup
+            .map_or(1.0, |popup| RISING_FROM + (1.0 - RISING_FROM) * popup.height());
+        transform.set_if_neq(Transform::from_rotation(facing_to_rotation(facing)).with_scale(Vec3::new(out, 1.0, 1.0)));
     }
 }

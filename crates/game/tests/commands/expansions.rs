@@ -23,6 +23,7 @@ const P1: PlayerId = PlayerId(1);
 const HIDEOUT: ObjectKind = ObjectKind::Hideout;
 const OPTICS_LAB: ObjectKind = ObjectKind::OpticsLab;
 const CHEMICAL_PLANT: ObjectKind = ObjectKind::ChemicalPlant;
+const TURRET: ObjectKind = ObjectKind::LaserTurret;
 
 /// The objects of [`expansion_game`], by id, and where they are (the map is flat: where they are drawn).
 const TUNNEL: u32 = 1;
@@ -153,8 +154,8 @@ fn placing_hideout() -> InterfaceState {
 
 /// Design change 0291's verification, "The ExpandMenu shows nine expansion slots and then the turret": W opens it
 /// (design change 0257), the Hideout in Q, the Optics Lab in W and the Chemical Plant in E (slice M4-K), the six
-/// expansions not in the game yet greyed in R to X, Z being Back, and the Laser Turret in C, greyed with its
-/// prerequisite. A greyed entry says why and leaves the menu open; Z goes back to DefaultState, and so do Escape and a
+/// expansions not in the game yet greyed in R to X, Z being Back, and the Laser Turret in C (slice M4-S2), greyed
+/// by its gate with its prerequisite: this player owns no Optics Lab. A greyed entry says why and leaves the menu open; Z goes back to DefaultState, and so do Escape and a
 /// right-click.
 #[test]
 fn w_opens_the_expand_menu_nine_expansions_then_the_turret() {
@@ -177,7 +178,7 @@ fn w_opens_the_expand_menu_nine_expansions_then_the_turret() {
             (slot(1, 3), c(P(AerospaceAssembly)), Unavailable),
             (CommandSlot::BACK, PanelButton::Back, Back),
             (slot(2, 1), c(P(OrbitalCommand)), Unavailable),
-            (slot(2, 2), c(P(LaserTurret)), Unavailable),
+            (slot(2, 2), c(Expand(TURRET)), Unavailable),
         ]
     );
     let optics_lab = requires_text(OPTICS_LAB);

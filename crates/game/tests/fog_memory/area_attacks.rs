@@ -6,6 +6,7 @@
 //! driver would hand them; the reveal and the damage are the sim's own.
 
 use sc_sim::testing::ScenarioBuilder;
+use sc_sim::vision::Hiding;
 use sc_sim::{OrderKind, SimEvent, VisibilityState};
 use space_crystals::combat_effects::{
     BLAST_TICKS, CombatEffects, Flight, hp_bars, shows_blast, shows_death, shows_flight,
@@ -163,7 +164,10 @@ fn a_hidden_hideout_under_a_blast_shows_nothing_to_the_other_players() {
         app.update();
     }
     order(&mut app, P2, own_shooter, OrderKind::Stop);
-    let at = app.world().resource::<SimRes>().object(hideout).unwrap().pos;
+    let (at, hiding) = {
+        let o = app.world().resource::<SimRes>().object(hideout).unwrap();
+        (o.pos, Hiding::of(o))
+    };
     let blasted = tick(&app) + 1;
     hand(&mut app, SimEvent::Blast { at, radius: 40.0 });
     hand(
@@ -190,6 +194,7 @@ fn a_hidden_hideout_under_a_blast_shows_nothing_to_the_other_players() {
             kind: ObjectKind::Hideout,
             owner: Some(P2),
             pos: at,
+            hiding,
         },
     );
     {

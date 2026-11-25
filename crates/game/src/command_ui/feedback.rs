@@ -35,6 +35,9 @@
 //!   click the sim refused (`super::CommandRefused`): the button's reason ([`unavailable_text`]), placeholder
 //!   wordings but the design's two.
 //!
+//! The sim's events among these come through the filter of events (`crate::viewer_events`), which gives each to the
+//! owner of its producer, constructor or unit alone.
+//!
 //! The message ([`INVALID_TARGET_TEXT`], [`NO_CRYSTALS_TEXT`], an [`army_cap_text`], a [`placement_text`], an
 //! [`unavailable_text`] or [`TARGET_TOO_CLOSE_TEXT`]) shows over the world view, centred just above the HUD Bar, on a
 //! dark band, for [`FEEDBACK_TICKS`] after the latest cause; a new one replaces it. It ages by the sim's ticks, so a
@@ -50,8 +53,10 @@ use sc_sim::{
 };
 
 use super::{CommandRefused, InvalidPlacement, InvalidTarget, WhyUnavailable};
+use crate::fog::LocalSight;
 use crate::hud::HUD_BAR_HEIGHT_VH;
-use crate::sim_driver::{LocalPlayer, SimEventMessage, SimRes};
+use crate::sim_driver::SimRes;
+use crate::viewer_events::ViewerEvents;
 use crate::{ClientMode, ClientSystems};
 
 pub use crate::tuning::feedback::FEEDBACK_TICKS;
@@ -255,8 +260,7 @@ pub fn placement_text(problem: Option<PlacementProblem>) -> &'static str {
 }
 
 /// The message of a greyed-out button pressed (design change 0162), by why it is greyed out: the gate's refusal
-/// ([`reject_text`]), the Riot Shields, a command awaiting its target, the type, that it isn't in the game yet, or a
-/// placeholder entry's own reason.
+/// ([`reject_text`]), the Riot Shields, a command awaiting its target, the type, or that it isn't in the game yet.
 pub fn unavailable_text(why: WhyUnavailable) -> &'static str {
     match why {
         WhyUnavailable::Refused(reject) => reject_text(reject),
@@ -264,7 +268,6 @@ pub fn unavailable_text(why: WhyUnavailable) -> &'static str {
         WhyUnavailable::Waiting => CANCEL_FIRST_TEXT,
         WhyUnavailable::NotForThisType => NOT_FOR_TYPE_TEXT,
         WhyUnavailable::NotYet => NOT_YET_TEXT,
-        WhyUnavailable::Placeholder(text) => text,
     }
 }
 
@@ -332,18 +335,18 @@ pub fn deploy_failed_text(problems: &PlacementCheck) -> &'static str {
     }
 }
 
-/// Takes the frame's invalid clicks (on a target, or a placement), its greyed-out buttons pressed, the local player's
-/// producers' and constructors' refusals and their producers' waits, and shows the latest one's message for
-/// [`FEEDBACK_TICKS`].
+/// Takes the frame's invalid clicks (on a target, or a placement), its greyed-out buttons pressed, the refusals and
+/// the waits of the producers, constructors and units that the local player perceives (their own:
+/// `crate::viewer_events`), and shows the latest one's message for [`FEEDBACK_TICKS`].
 #[expect(clippy::too_many_arguments, reason = "a system's parameters")]
 fn show_feedback(
     mode: Res<ClientMode>,
     sim: Res<SimRes>,
-    player: Res<LocalPlayer>,
+    sight: LocalSight,
     mut invalid: MessageReader<InvalidTarget>,
     mut unplaceable: MessageReader<InvalidPlacement>,
     mut unavailable: MessageReader<CommandRefused>,
-    mut events: MessageReader<SimEventMessage>,
+    events: Res<ViewerEvents>,
     mut feedback: ResMut<TargetFeedback>,
     mut views: Query<&mut Visibility, With<TargetFeedbackView>>,
     mut texts: Query<&mut Text, With<FeedbackText>>,
@@ -355,24 +358,14 @@ fn show_feedback(
     let presses = unavailable
         .read()
         .map(|press| (press.tick, unavailable_text(press.why)));
-    let own = |id| sim.object(id).is_some_and(|o| o.owner == Some(player.0));
-    let refusals = events.read().filter_map(|message| match &message.event {
-        SimEvent::ProductionRefused { producer, reason, .. } if own(*producer) => {
-            Some((message.tick, refusal_text(*reason)?))
+    let refusals = (events.perceived_by(sight.sim(), sight.get())).filter_map(|(tick, event, _)| match event {
+        SimEvent::ProductionRefused { reason, .. } => Some((tick, refusal_text(*reason)?)),
+        SimEvent::ProductionWaiting { reason, .. } => Some((tick, army_cap_text(*reason))),
+        SimEvent::PlacementRefused { problems, .. } => Some((tick, placement_text(problems.first_problem()))),
+        SimEvent::DeployFailed { problems, .. } | SimEvent::BuildFailed { problems, .. } => {
+            Some((tick, deploy_failed_text(problems)))
         }
-        SimEvent::ProductionWaiting { producer, reason } if own(*producer) => {
-            Some((message.tick, army_cap_text(*reason)))
-        }
-        SimEvent::PlacementRefused {
-            constructor, problems, ..
-        } if own(*constructor) => Some((message.tick, placement_text(problems.first_problem()))),
-        SimEvent::DeployFailed { drone, problems, .. } if own(*drone) => {
-            Some((message.tick, deploy_failed_text(problems)))
-        }
-        SimEvent::BuildFailed { worker, problems, .. } if own(*worker) => {
-            Some((message.tick, deploy_failed_text(problems)))
-        }
-        SimEvent::TargetTooClose { unit, .. } if own(*unit) => Some((message.tick, TARGET_TOO_CLOSE_TEXT)),
+        SimEvent::TargetTooClose { .. } => Some((tick, TARGET_TOO_CLOSE_TEXT)),
         _ => None,
     });
     let latest = clicks
