@@ -32,7 +32,7 @@
 //!   design change 0293: "you see only the visible part of its projectiles"); **a blast** only while the tile under
 //!   its centre is Visible ([`shows_blast`]).
 //!
-//! Placeholder (M4-V; the look waits on Q0001): a tracer's glow and a projectile's body are in the colour of their
+//! Placeholder (Q0090; the look waits on Q0001): a tracer's glow and a projectile's body are in the colour of their
 //! shooter's owner, whom the viewer may not see: the design is silent on what a shot shows of its shooter.
 
 pub mod blasts;
