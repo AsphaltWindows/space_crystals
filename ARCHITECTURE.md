@@ -44,7 +44,7 @@ pub const DEFAULT_PATCH_AMOUNT: u32 = 1500;
 |---|---|
 | `cargo run [-- <flags>]` | Runs the game, the only binary. Flags are listed under *QA mode*. |
 | `cargo test --workspace` | Runs all tests. `cargo test -p sc_sim` tests the sim alone, which is fast and skips Bevy. |
-| `cargo test --release --workspace -- --ignored --test-threads=1` | Runs the ignored tests: the perf tests, soaks, sweeps and measurements (16 at M3's end, all in the sim, about 50 s on a quiet machine). Run them at a milestone's end, since nothing else does. |
+| `cargo test --release --workspace -- --ignored --test-threads=1` | Runs the ignored tests: the perf tests, soaks, sweeps and measurements (23 at M4's end, all in the sim, about 1 minute on a quiet machine). Run them at a milestone's end, since nothing else does. |
 | `cargo clippy --workspace --all-targets -- -D warnings` | Runs the lints and turns every warning into an error. |
 | `cargo fmt --all` | Formats the code; add `--check` to verify only. `rustfmt.toml` sets max width 120. |
 
