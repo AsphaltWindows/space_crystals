@@ -152,6 +152,8 @@ Rationale: the drop-off time (not carry or mining time) sets the ceiling, so len
 
 ### Agent ObjectInterfaceState
 
+**Panel letters (4x3 grid)** (user, 2026-11-25; Q0068, "fine for now"): **Q** Move, **A** Build Tunnel, **S** Drop Off Resources, **D** Build Laser Turret (greyed until available), **X** Stop. No Attack, Hold Position, Patrol or AttackMove buttons; the Agent attacks by right-click. These letters replace the older ones listed below where they differ.
+
 #### DefaultState commands:
 - **A: Build Tunnel** — enters AwaitingPlacement for a Tunnel (StateOnlyTransition). Ghost preview follows cursor, snapped to grid. Tinted green when valid, red when invalid. R rotates 90° clockwise, Shift+R counter-clockwise. F flips horizontally, Shift+F flips vertically. Left-click valid location confirms placement and dispatches the Agent (CommandIssuingTransition, returns to DefaultState). Escape/right-click cancels back to DefaultState.
 - **B: Drop Off Resources** — targeted command (CommandIssuingTransition). Requires clicking an own Tunnel. Agent walks to the appropriate side automatically (Side B for crystals, Side D for supplies). Always visible, greyed out when Agent is not carrying resources.
