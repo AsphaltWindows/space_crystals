@@ -188,6 +188,9 @@ impl Sim {
             decay: _,
             // No type of the design becomes a turret or stops being one.
             popup: _,
+            // Kept (plan decision T56): "This lineage persists when a Recruit is trained into another unit"
+            // (`factions/cults/economy.md > RecruitmentHall > Unit Control Tracking`).
+            lineage: _,
         } = o;
         *object_kind = kind;
         if let Some(placement) = &placement {

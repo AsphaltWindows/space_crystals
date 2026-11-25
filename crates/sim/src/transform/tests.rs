@@ -50,6 +50,7 @@ fn object(kind: ObjectKind, transform: Option<Transform>) -> Object {
         construction: None,
         decay: None,
         popup: None,
+        lineage: None,
     }
 }
 

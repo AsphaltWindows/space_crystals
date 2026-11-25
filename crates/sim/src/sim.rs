@@ -371,6 +371,7 @@ impl Sim {
             construction: None,
             decay: None,
             popup: None,
+            lineage: None,
         }
     }
 

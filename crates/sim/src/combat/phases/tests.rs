@@ -55,6 +55,7 @@ fn object(id: ObjectId, kind: ObjectKind, owner: Option<PlayerId>, pos: Vec2) ->
         construction: None,
         decay: None,
         popup: None,
+        lineage: None,
     }
 }
 

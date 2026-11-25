@@ -38,6 +38,7 @@ fn unit(kind: ObjectKind, phase: Option<AttackPhase>) -> Object {
         construction: None,
         decay: None,
         popup: None,
+        lineage: None,
     }
 }
 

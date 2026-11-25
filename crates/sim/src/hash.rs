@@ -312,6 +312,7 @@ impl StateHash for Object {
             construction,
             decay,
             popup,
+            lineage,
         } = self;
         id.hash(h);
         kind.hash(h);
@@ -357,6 +358,12 @@ impl StateHash for Object {
         if let Some(popup) = popup {
             h.tag(4);
             popup.hash(h);
+        }
+        // (M5-A) The same for a Cults unit's lineage, the Hall that produced its Recruit (plan decision T56), under a
+        // tag of its own.
+        if let Some(lineage) = lineage {
+            h.tag(5);
+            lineage.hash(h);
         }
     }
 }

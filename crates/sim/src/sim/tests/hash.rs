@@ -267,12 +267,41 @@ fn state_hash_covers_every_field() {
             obj(s, 3).tunnel = Some(crate::tunnel::TunnelState::at(2));
         }),
         ("tunnel tier", |s| obj(s, 4).tunnel.as_mut().unwrap().tier = 3),
+        // (M5-A) A Cults unit's lineage (plan decision T56; any unit may hold one here).
+        ("lineage", |s| obj(s, 3).lineage = Some(ObjectId(4))),
     ];
     for (name, mutate) in mutations {
         let mut sim = base.clone();
         mutate(&mut sim);
         assert_ne!(sim, base, "{name}: the mutation changed nothing");
         assert_ne!(sim.state_hash(), base.state_hash(), "{name}");
+    }
+}
+
+/// (M5-A) A unit's lineage (`Object::lineage`, plan decision T56) is part of the state while it is set: hashed, by the
+/// Hall it names, and saved. While it isn't, nothing of it is hashed, and an object's file has no `lineage` key and
+/// loads with none, so that the states and the files without one are as they were before it existed (the goldens
+/// stand).
+#[test]
+fn a_lineage_is_hashed_and_saved_only_while_it_is_set() {
+    let mut base = small_sim();
+    insert_unit(&mut base, Vec2::new(100.0, 100.0)); // id 3
+    let with = |hall: Option<u32>| {
+        let mut sim = base.clone();
+        obj(&mut sim, 3).lineage = hall.map(ObjectId);
+        sim
+    };
+    assert_eq!(with(None).state_hash(), base.state_hash());
+    assert_ne!(with(Some(1)).state_hash(), base.state_hash());
+    assert_ne!(with(Some(1)).state_hash(), with(Some(2)).state_hash(), "by its Hall");
+    for hall in [None, Some(1)] {
+        let sim = with(hall);
+        let object = &sim.objects[&ObjectId(3)];
+        let json = serde_json::to_value(object).unwrap();
+        let key = hall.map(|id| serde_json::json!(id));
+        assert_eq!(json.get("lineage"), key.as_ref(), "{hall:?}");
+        let loaded: crate::object::Object = serde_json::from_value(json).unwrap();
+        assert_eq!(&loaded, object, "{hall:?}");
     }
 }
 
