@@ -55,13 +55,11 @@ pub use combat::{AttackPhase, AttackState};
 pub use command::{Ability, Command, DebugCommand, PlayerCommand, TickInputs, TunnelCommand};
 pub use construction::{ConstructionCommand, Constructor};
 pub use defs::{
-    Armor, Category, ExitRule, Footprint, MiningDef, ObjectDef, ObjectKind, ProductionDef, Recipe, StructureDef,
-    SymmetryType, TierDef, Transit, TunnelDef,
+    Armor, BEACON_CAPACITY_CAP, BEACON_CAPACITY_PER_BUILDING, Category, ExitRule, Footprint, MiningDef, ObjectDef,
+    ObjectKind, ProductionDef, Recipe, StructureDef, SymmetryType, TUNNEL_SPACE_CAP, TierDef, Transit, TunnelDef,
+    UNIT_CONTROL_CAP,
 };
-pub use economy::{
-    ArmyCap, ArmyResource, BEACON_CAPACITY_CAP, BEACON_CAPACITY_PER_BUILDING, Extractor, Outcome, PowerSummary,
-    TUNNEL_SPACE_CAP, UNIT_CONTROL_CAP,
-};
+pub use economy::{ArmyCap, ArmyResource, Extractor, Outcome, PowerSummary};
 pub use events::SimEvent;
 pub use glam::Vec2;
 pub use ids::{ObjectId, PlayerId, SlotId};

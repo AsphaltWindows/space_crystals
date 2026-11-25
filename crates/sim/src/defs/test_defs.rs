@@ -80,7 +80,7 @@ mod tests {
             );
             assert!(std::ptr::eq(
                 ObjectKind::Peacekeeper.def(),
-                &super::super::gdo::PEACEKEEPER
+                &super::super::gdo::units::peacekeeper::PEACEKEEPER
             ));
         }
         assert!(std::ptr::eq(ObjectKind::Guard.def(), guard));

@@ -33,7 +33,7 @@ impl Sim {
 
     /// The Unit Control `player` uses at the end of the latest tick (`> Unit Control`): the UnitControlCost of their
     /// units and of their producers' units in production (design change 0143: the HUD's "used" count "includes
-    /// in-production units, not merely queued ones"), out of [`economy::UNIT_CONTROL_CAP`]. A GDO player's
+    /// in-production units, not merely queued ones"), out of [`crate::UNIT_CONTROL_CAP`]. A GDO player's
     /// [`Sim::army_cap`] `used`.
     pub fn unit_control(&self, player: PlayerId) -> u32 {
         let held = self.held.values().map(|held| &held.object);

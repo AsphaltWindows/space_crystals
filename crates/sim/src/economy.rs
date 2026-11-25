@@ -35,10 +35,7 @@ pub mod stations;
 
 use std::collections::BTreeMap;
 
-pub use army::{
-    ArmyCap, ArmyResource, BEACON_CAPACITY_CAP, BEACON_CAPACITY_PER_BUILDING, CELLS_PER_TUNNEL_SPACE, TUNNEL_SPACE_CAP,
-    UNIT_CONTROL_CAP,
-};
+pub use army::{ArmyCap, ArmyResource};
 pub use defeat::Outcome;
 pub use gathering::Worker;
 pub use mining::Extractor;

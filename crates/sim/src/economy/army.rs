@@ -47,23 +47,14 @@ mod tunnel_space;
 use serde::{Deserialize, Serialize};
 
 use self::tunnel_space::TunnelSpace;
-pub use self::tunnel_space::{CELLS_PER_TUNNEL_SPACE, TUNNEL_SPACE_CAP};
-use crate::defs::{Category, ObjectKind};
+// The caps are the factions' own rules, with their defs (`defs/<faction>.rs`).
+use crate::defs::{BEACON_CAPACITY_CAP, BEACON_CAPACITY_PER_BUILDING, Category, ObjectKind, UNIT_CONTROL_CAP};
+#[cfg(test)]
+use crate::defs::{CELLS_PER_TUNNEL_SPACE, TUNNEL_SPACE_CAP};
 use crate::ids::PlayerId;
 use crate::object::Object;
 use crate::player::Faction;
 use crate::production::Production;
-
-/// `factions/gdo/overview.md > GDOResources > Unit Control`: "Hard cap of 200". A unit that would take the used Unit
-/// Control past it doesn't start production until there is room (design change 0143).
-pub const UNIT_CONTROL_CAP: u32 = 200;
-
-/// `factions/colonists/overview.md > ColonistResources > Beacon Capacity`: "Total Beacon Capacity caps at 200".
-pub const BEACON_CAPACITY_CAP: u32 = 200;
-
-/// `factions/colonists/economy.md > Beacon > BeaconCapacity provided - 5`, which every Colonists building provides
-/// (`> Warp In > Beacon Capacity Retention`: "Every Colonists building provides 5 BeaconCapacity").
-pub const BEACON_CAPACITY_PER_BUILDING: u32 = 5;
 
 /// The resource that caps a faction's army.
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -132,8 +123,8 @@ pub struct ArmyCap {
     /// (`factions/colonists/overview.md > Beacon Capacity > Over capacity`, design change 0112).
     pub used: u32,
     /// [`UNIT_CONTROL_CAP`] for Unit Control; min([`BEACON_CAPACITY_CAP`], [`BEACON_CAPACITY_PER_BUILDING`] × the
-    /// player's Colonists structures) for Beacon Capacity; min([`TUNNEL_SPACE_CAP`], ⌊the unused tunnel-region cells
-    /// of the player's Tunnels / [`CELLS_PER_TUNNEL_SPACE`]⌋) for Tunnel Space.
+    /// player's Colonists structures) for Beacon Capacity; min([`crate::defs::TUNNEL_SPACE_CAP`], ⌊the unused
+    /// tunnel-region cells of the player's Tunnels / [`crate::defs::CELLS_PER_TUNNEL_SPACE`]⌋) for Tunnel Space.
     pub available: u32,
 }
 

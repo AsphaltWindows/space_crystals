@@ -27,17 +27,11 @@
 //! The cells are counted per Tunnel and summed, as the formula reads: two Tunnels whose areas overlap, which only
 //! spawns can make (0237), would count their shared cells twice.
 
+use crate::defs::{CELLS_PER_TUNNEL_SPACE, TUNNEL_SPACE_CAP};
 use crate::ids::PlayerId;
 use crate::nav::TileRect;
 use crate::object::Object;
 use crate::tunnel;
-
-/// `factions/syndicate/tunnels.md > Tunnel Space`: "capped at a hard maximum of 200" (`overview.md > DisplayHud`:
-/// "Tunnel Space: current used / current available (max 200)").
-pub const TUNNEL_SPACE_CAP: u32 = 200;
-
-/// The unused tunnel-region cells that make one Tunnel Space ("... / 4) — rounded down to a whole number").
-pub const CELLS_PER_TUNNEL_SPACE: u32 = 4;
 
 /// Whether `o` gives its owner Tunnel Space: every Tunnel (module docs; slice M4-E adds its sites' exception).
 pub(crate) fn gives_tunnel_space(o: &Object) -> bool {

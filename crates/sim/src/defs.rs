@@ -1,12 +1,15 @@
 //! Static object type definitions (`core/entities.md > Object Type`).
 //!
-//! One `ObjectKind` per object type in the design; its numbers live in a `static`
-//! [`ObjectDef`] whose comments cite the design section they come from. Faction
-//! types get their own modules (`defs/gdo.rs`, `defs/syndicate.rs`, `defs/colonists.rs`, …); unit bases and the
+//! One `ObjectKind` per object type in the design; its numbers live in a `static` [`ObjectDef`] whose comments cite
+//! the design section they come from, in a module of its own named like the type's design file: `defs/<faction>/
+//! {units,structures}/<object>.rs` (`factions/<faction>/{units,structures}/<object>.md`; the economy buildings cite
+//! their faction's `economy.md`, the Tunnel `factions/syndicate/tunnels.md`) and `defs/map/<object>.rs` for the map's
+//! (`core/map.md`). A faction's root module, `defs/<faction>.rs`, holds the faction's own rules. Unit bases and the
 //! attributes of unit types are in `defs/units.rs`, those of structure types in `defs/structures.rs`.
 
 mod colonists;
 mod gdo;
+mod map;
 mod structures;
 mod syndicate;
 #[cfg(test)]
@@ -18,10 +21,13 @@ use serde::{Deserialize, Serialize};
 
 use crate::player::Faction;
 
-pub use gdo::RIOT_SHIELD_TOGGLE_TICKS;
+pub use colonists::{BEACON_CAPACITY_CAP, BEACON_CAPACITY_PER_BUILDING};
+pub use gdo::UNIT_CONTROL_CAP;
+pub use gdo::units::peacekeeper::RIOT_SHIELD_TOGGLE_TICKS;
 pub use structures::{
     DropOff, ExitRule, MiningDef, ProductionDef, Recipe, StructureDef, SymmetryType, TierDef, Transit, TunnelDef,
 };
+pub use syndicate::{CELLS_PER_TUNNEL_SPACE, TUNNEL_SPACE_CAP};
 pub use units::{
     AttackAttrs, AttackType, Domain, FullyConnectedSubtype, LoadDef, MELEE_CONTACT_GU, MovementAttrs, MovementModel,
     Resource, RiotShieldDef, TargetDomain, TargetType, TurretAttrs, UnitBase, UnitBaseDef, UnitDef, WorkerDef,
@@ -194,26 +200,26 @@ impl ObjectKind {
             return def;
         }
         match self {
-            ObjectKind::CrystalPatch => &CRYSTAL_PATCH,
-            ObjectKind::SupplyDeliveryStation => &SUPPLY_DELIVERY_STATION,
-            ObjectKind::Peacekeeper => &gdo::PEACEKEEPER,
-            ObjectKind::Guard => &syndicate::GUARD,
-            ObjectKind::DeploymentCenter => &gdo::DEPLOYMENT_CENTER,
-            ObjectKind::Generator => &gdo::GENERATOR,
-            ObjectKind::Barracks => &gdo::BARRACKS,
-            ObjectKind::ExtractionFacility => &gdo::EXTRACTION_FACILITY,
-            ObjectKind::ExtractionPlate => &gdo::EXTRACTION_PLATE,
-            ObjectKind::Drone => &colonists::DRONE,
-            ObjectKind::Beacon => &colonists::BEACON,
-            ObjectKind::EgressNode => &colonists::EGRESS_NODE,
-            ObjectKind::RoboPortal => &colonists::ROBO_PORTAL,
-            ObjectKind::BioPortal => &colonists::BIO_PORTAL,
-            ObjectKind::SabreLegionnaire => &colonists::SABRE_LEGIONNAIRE,
-            ObjectKind::RifleLegionnaire => &colonists::RIFLE_LEGIONNAIRE,
-            ObjectKind::PeacekeeperShielded => &gdo::PEACEKEEPER_SHIELDED,
-            ObjectKind::Agent => &syndicate::AGENT,
-            ObjectKind::Tunnel => &syndicate::TUNNEL,
-            ObjectKind::Hideout => &syndicate::HIDEOUT,
+            ObjectKind::CrystalPatch => &map::crystal_patch::CRYSTAL_PATCH,
+            ObjectKind::SupplyDeliveryStation => &map::supply_delivery_station::SUPPLY_DELIVERY_STATION,
+            ObjectKind::Peacekeeper => &gdo::units::peacekeeper::PEACEKEEPER,
+            ObjectKind::Guard => &syndicate::units::guard::GUARD,
+            ObjectKind::DeploymentCenter => &gdo::structures::deployment_center::DEPLOYMENT_CENTER,
+            ObjectKind::Generator => &gdo::structures::generator::GENERATOR,
+            ObjectKind::Barracks => &gdo::structures::barracks::BARRACKS,
+            ObjectKind::ExtractionFacility => &gdo::structures::extraction_facility::EXTRACTION_FACILITY,
+            ObjectKind::ExtractionPlate => &gdo::structures::extraction_plate::EXTRACTION_PLATE,
+            ObjectKind::Drone => &colonists::units::drone::DRONE,
+            ObjectKind::Beacon => &colonists::structures::beacon::BEACON,
+            ObjectKind::EgressNode => &colonists::structures::egress_node::EGRESS_NODE,
+            ObjectKind::RoboPortal => &colonists::structures::robo_portal::ROBO_PORTAL,
+            ObjectKind::BioPortal => &colonists::structures::bio_portal::BIO_PORTAL,
+            ObjectKind::SabreLegionnaire => &colonists::units::sabre_legionnaire::SABRE_LEGIONNAIRE,
+            ObjectKind::RifleLegionnaire => &colonists::units::rifle_legionnaire::RIFLE_LEGIONNAIRE,
+            ObjectKind::PeacekeeperShielded => &gdo::units::peacekeeper::PEACEKEEPER_SHIELDED,
+            ObjectKind::Agent => &syndicate::units::agent::AGENT,
+            ObjectKind::Tunnel => &syndicate::structures::tunnel::TUNNEL,
+            ObjectKind::Hideout => &syndicate::structures::hideout::HIDEOUT,
         }
     }
 
@@ -235,44 +241,6 @@ impl ObjectKind {
         )
     }
 }
-
-/// `core/map.md > SpaceCrystalsPatch`, `> Resource`.
-static CRYSTAL_PATCH: ObjectDef = ObjectDef {
-    kind: ObjectKind::CrystalPatch,
-    name: "Space Crystals",
-    faction: None,
-    category: Category::Resource,
-    footprint: Footprint::Tiles { w: 1, h: 1 }, // Size - 1x1
-    selectable: true,
-    destructible: false,
-    groupable: false,
-    sight_range: 0.0,
-    max_hp: None,
-    max_shields: None,
-    armor: Armor::NONE,
-    needs_flat_ground: true, // `core/map.md > Elevation > Map resources only on flat terrain`
-    unit: None,
-    structure: None,
-};
-
-/// `core/map.md > SupplyDeliveryStation`, `> Resource`.
-static SUPPLY_DELIVERY_STATION: ObjectDef = ObjectDef {
-    kind: ObjectKind::SupplyDeliveryStation,
-    name: "Supply Delivery Station",
-    faction: None,
-    category: Category::Resource,
-    footprint: Footprint::Tiles { w: 2, h: 2 }, // Size - 2x2
-    selectable: true,
-    destructible: false,
-    groupable: false,
-    sight_range: 0.0,
-    max_hp: None,
-    max_shields: None,
-    armor: Armor::NONE,
-    needs_flat_ground: true, // `core/map.md > Elevation > Map resources only on flat terrain`
-    unit: None,
-    structure: None,
-};
 
 #[cfg(test)]
 mod tests;
