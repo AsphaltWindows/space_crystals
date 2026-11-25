@@ -118,6 +118,8 @@ Syndicate equipment storage warehouse for re-arming Syndicate forces.
 
 Prerequisite for the **Shadebringer** (2026-11-25). While the player owns a Vault, Shadebringers inside the Tunnel Network recharge their Sludge and Cover charges (factions/syndicate/units.md > Shadebringer > Charges and recharging).
 
+**Throughput limits** (user, 2026-11-25, to be designed): re-arming should probably be **limited**: only so many units re-armed at a time (per Vault), and each re-arming takes time. Numbers and exact rules TBD.
+
 #### Entity Type - Structure Type (Underground)
 #### Tier Requirement - 1
 #### TechPrerequisite - player owns at least one Hideout (anywhere in the Tunnel Network)
@@ -153,6 +155,8 @@ A shielded dome that works like a Faraday cage against imprinting, so crystal-ba
 Distinct from the Syndicate's physical augmentation: Syndicate infantry are Heavy Infantry because of mechanical exoskeleton-style assistance, which involves no crystals. The Null Chamber is about **consumption**: its effects are subtle and mental (heightened awareness), unlike the Cults' morphological Altar augmentation and unlike Colonists psionics.
 
 #### Null Chamber Exit Buff
+**Throughput limits** (user, 2026-11-25, to be designed): the re-buff should probably be **limited**: only so many units buffed at a time (per Null Chamber), and each buff takes time to apply. How that combines with "every unit that exits receives the buff" is TBD.
+
 While the player owns at least one Null Chamber anywhere in the Tunnel Network, every **manned** Syndicate unit that exits the Tunnel Network through any Tunnel receives a temporary buff that wears off over time.
 - **Manned units**: all Syndicate units except satellites (infantry, vehicles, and crewed aircraft).
 - **Effects**:
