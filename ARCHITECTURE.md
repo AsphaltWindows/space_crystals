@@ -1554,7 +1554,8 @@ M3-D2: design change 0145, `> Portals > Portal Exits (energy doorway)`).
 - `Command::Debug(DebugCommand::…)` covers `Spawn`, `Remove`, `SetPosition`, `SetAutoTargeting` (see
   *Behaviours*), `SetResources` (any player's banks, see *Economy*; the gate checks that the player it names is in
   the game, `UnknownPlayer`) and `SetTier` (a Tunnel's tier, `NoSuchTier` for a tier it has no row for or an object
-  without tiers; *Object model > The Syndicate*), for development and QA. `Spawn` places a tile-based object in an `orientation`
+  without tiers; *Object model > The Syndicate*), for development and QA. `Spawn` places a tile-based object in an
+  `orientation`
   (`BuildingOrientation`), which files may leave out: unturned is the default and isn't written, so replays from
   before it load unchanged. It bypasses costs and rules, only works while `SimConfig::debug` is on, and
   is never offered in a real match. A teleport sets `prev_pos = pos`, so nothing interpolates across the map.
@@ -1947,7 +1948,8 @@ out by the same rules.
   resources never turn, whatever their facing (a structure keeps a unit's facing through `Sim::change_kind`). The
   Colonists' units, the Peacekeeper's two types and the Agent carry a `UnitTag` child, a `Text2d` of the type's
   short label (DR, SL, RL, PK, PS, AG), because the Legionnaire's two forms share a silhouette, the Peacekeeper's two
-  types a body (slice M3-J3), and the Agent the Guard's square (slice M4-A). A tag's local z lifts it into the overlays band (`units::tag_z`, see Draw order), and it stays
+  types a body (slice M3-J3), and the Agent the Guard's square (slice M4-A). A tag's local z lifts it into the
+  overlays band (`units::tag_z`, see Draw order), and it stays
   upright on a body that turns: `units::upright_tags`, chained after `place_object_visuals`, gives it the inverse of
   its visual's rotation. Every type's short label (`hud::selection_panel::short_label`) is its own, and none is a
   planned unit's or building's button label (`Planned::label`: the Scout's is "ST", the patch's "SC"); a unit test
@@ -1970,12 +1972,12 @@ out by the same rules.
   (`hud::selection_panel::short_label`), names it; the fog hides it with its structure. A remembered structure
   (`remembered.rs`) looks the same, in its owner's colour, dimmed, its tag too. **Underground structures** (slice
   M4-A, the Hideout; `structures::underground`) are translucent outlines, a rim and a faint fill in the alpha-blended
-  `underground` material, under the units (plan §3.3); the sim hides them from other players (*Vision > Hidden
-  objects*), so only their owner and the fog-less views draw them. **The Tunnel's look** (`object_render/tunnel.rs`,
-  design changes 0224 and 0248) follows its tier and its sides as placed (`TunnelLook`, part of the `MeshKey`): Side
-  A's two paths, ragged at Tier 1 and paved from Tier 2, a hatch on Sides B (crystals' cyan) and D (Supplies' amber),
-  none on C, and the Tier 3 air doors; its tag names its tier (T1 to T3, `object_label`), a record's the tier last
-  seen.
+  `underground` material, under the units (`artifacts/director/m4-plan.md` §3.3); the sim hides them from other
+  players (*Vision > Hidden objects*), so only their owner and the fog-less views draw them. **The Tunnel's look**
+  (`object_render/tunnel.rs`, design changes 0224, 0248 and 0251) follows its tier and its sides as placed
+  (`TunnelLook`, part of the `MeshKey`): Side A's two paths, ragged at Tier 1 and paved from Tier 2, a hatch on Sides
+  B (crystals' cyan) and D (Supplies' amber), none on C, and the Tier 3 air doors over the paths' halves; its tag
+  names its tier (T1 to T3, `object_label`), to enemies too (design change 0258), a record's the tier last seen.
 - **Path overlay** (`path_overlay.rs`, P or `--show-paths`): each unit's remaining path (`Mover::remaining_path`) as
   a thin line from where the unit is drawn, cut into short pieces lifted by the terrain's height, in the overlays
   layer, and a frame around each unit in the colour of its move's status (`status_color`: green moving, amber held
@@ -1987,7 +1989,8 @@ out by the same rules.
   its attacker is revealed to the local player (`shot_spans`, `Sight::reveals`; design change 0206, answering Q0056:
   so the shot that reveals an attacker, and every later one while the reveal lasts, comes from the unit the player
   sees; a shot at a neutral object reveals nobody and stays clipped); a tracer's look is its weapon's (`ShotStyle::of`
-  on the form that fired, design change 0207: the Syndicate's lasers, the Guard's so far, red), HP bars over damaged and selected objects (a
+  on the form that fired, design change 0207: the Syndicate's lasers, the Guard's so far, red), HP bars over damaged
+  and selected objects (a
   unit's clear of its silhouette's corners, a structure's along the top edge of its footprint and as wide as it),
   with a shield bar right above for an object that has Shields (`systems/combat.md > Shields > Display`, design change
   0148; `SHIELD_FILL`, a placeholder colour), shown too while only its Shields are down, and a fading marker for
