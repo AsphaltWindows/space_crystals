@@ -9,17 +9,19 @@ use crate::defs::{Armor, Category, Footprint, ObjectDef, ObjectKind};
 use crate::math::PI;
 use crate::player::Faction;
 
-/// `factions/gdo/units/peacekeeper.md > Riot Shield > Toggle time`: "raising and lowering the shield takes a short
-/// time, so it cannot be flicked on and off between enemy shots. **6 frames (0.375 s), placeholder**" (design change
-/// 0174; "should stay under half a second").
-pub const RIOT_SHIELD_TOGGLE_TICKS: u32 = 6;
+/// The Peacekeeper's toggle time, ticks, as its Riot Shield gives it (`RiotShieldDef::toggle_ticks`): its name for
+/// the tests that count the frames of a toggle.
+pub const RIOT_SHIELD_TOGGLE_TICKS: u32 = PEACEKEEPER_RIOT_SHIELD.toggle_ticks;
 
 /// `factions/gdo/units/peacekeeper.md > Riot Shield`: the Peacekeeper's, on both of its types (design change 0173).
 const PEACEKEEPER_RIOT_SHIELD: RiotShieldDef = RiotShieldDef {
     lowered: ObjectKind::Peacekeeper,
     raised: ObjectKind::PeacekeeperShielded,
     damage_factor: 0.5, // Incoming damage is halved, a 50% pre-armor reduction
-    toggle_ticks: RIOT_SHIELD_TOGGLE_TICKS,
+    // `> Toggle time`: "raising and lowering the shield takes a short time, so it cannot be flicked on and off
+    // between enemy shots. **6 frames (0.375 s), placeholder**" (design change 0174; "should stay under half a
+    // second").
+    toggle_ticks: 6,
 };
 
 /// `factions/gdo/units/peacekeeper.md`, shield down.
@@ -66,6 +68,7 @@ const PEACEKEEPER_DEF: ObjectDef = ObjectDef {
     needs_flat_ground: false,
     unit: Some(PEACEKEEPER_UNIT),
     structure: None,
+    default_settings: None,
 };
 
 /// `factions/gdo/units/peacekeeper.md`: its unit attributes, the Shielded type's but for its MaxSpeed.
@@ -99,6 +102,8 @@ const PEACEKEEPER_UNIT: UnitDef = UnitDef {
     tunnel_space_cost: None,
     beacon_capacity_cost: None,
     riot_shield: Some(PEACEKEEPER_RIOT_SHIELD),
+    conversion: None,
+    deploy: None,
     worker: None,
 };
 

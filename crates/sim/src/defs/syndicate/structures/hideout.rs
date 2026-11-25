@@ -35,6 +35,7 @@ pub(crate) static HIDEOUT: ObjectDef = ObjectDef {
         symmetry: SymmetryType::AAAA,
         build_radius_extension: 0,
         power: 0,
+        seeds_build_area: false,
         // `> Produces`, into the Tunnel Network (`factions/syndicate/structures/README.md > Tunnel Expansions > Rally
         // Point Behavior`). The Guard joins the Agent with its prerequisite, the Optics Lab (slice M4-K); the
         // Grenadier with its numbers.
@@ -47,12 +48,14 @@ pub(crate) static HIDEOUT: ObjectDef = ObjectDef {
             }],
         }),
         mining: None,
+        onto: None,
         constructs: &[],
         warp_in: &[],
         drop_off: None,
         underground: true, // Entity Type - Structure Type (Underground)
         tunnel: None,
     }),
+    default_settings: None,
 };
 
 #[cfg(test)]

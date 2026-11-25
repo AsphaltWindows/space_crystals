@@ -6,21 +6,13 @@ use std::fmt;
 use serde::{Deserialize, Serialize};
 
 use crate::defs::ObjectKind;
+/// The defaults of the per-object values, each with the def of the type it belongs to (`defs/map/`): a patch's
+/// StartingAmount, a station's StartingSupplies, DeliverySize and DeliveryInterval.
+pub use crate::defs::{
+    DEFAULT_DELIVERY_INTERVAL, DEFAULT_DELIVERY_SIZE, DEFAULT_STARTING_AMOUNT, DEFAULT_STARTING_SUPPLIES,
+};
 use crate::object::ResourceState;
-use crate::units::{TICKS_PER_SECOND, Tick};
-
-/// `core/map.md > SpaceCrystalsPatch > StartingAmount`: the default for newly placed patches (placeholder, user
-/// 2026-11-23).
-pub const DEFAULT_STARTING_AMOUNT: u32 = 1500;
-/// `core/map.md > SupplyDeliveryStation > StartingSupplies`: the default for newly placed stations (placeholder,
-/// user 2026-11-23).
-pub const DEFAULT_STARTING_SUPPLIES: u32 = 0;
-/// `core/map.md > SupplyDeliveryStation > DeliverySize`: the default for newly placed stations (placeholder, user
-/// 2026-11-23).
-pub const DEFAULT_DELIVERY_SIZE: u32 = 4;
-/// `core/map.md > SupplyDeliveryStation > DeliveryInterval`: the default for newly placed stations, 60 s
-/// (placeholder, user 2026-11-23).
-pub const DEFAULT_DELIVERY_INTERVAL: Tick = 60 * TICKS_PER_SECOND;
+use crate::units::Tick;
 
 /// The values a map sets on one object (`core/map_editor.md > Per-object Resource Values`). Each variant is named
 /// after the [`ObjectKind`] it belongs to. Map files store them explicitly on every spawn of such a kind.
@@ -65,37 +57,10 @@ impl fmt::Display for SettingsProblem {
 }
 
 impl SpawnSettings {
-    /// The values newly placed objects of `kind` get (the map editor, debug spawns), or `None` for kinds without
-    /// per-object values.
+    /// The values newly placed objects of `kind` get (the map editor, debug spawns), its def's
+    /// (`ObjectDef::default_settings`), or `None` for kinds without per-object values.
     pub fn defaults(kind: ObjectKind) -> Option<Self> {
-        match kind {
-            ObjectKind::CrystalPatch => Some(Self::CrystalPatch {
-                starting_amount: DEFAULT_STARTING_AMOUNT,
-            }),
-            ObjectKind::SupplyDeliveryStation => Some(Self::SupplyDeliveryStation {
-                starting_supplies: DEFAULT_STARTING_SUPPLIES,
-                delivery_size: DEFAULT_DELIVERY_SIZE,
-                delivery_interval: DEFAULT_DELIVERY_INTERVAL,
-            }),
-            ObjectKind::Peacekeeper
-            | ObjectKind::Guard
-            | ObjectKind::DeploymentCenter
-            | ObjectKind::Generator
-            | ObjectKind::Barracks
-            | ObjectKind::ExtractionFacility
-            | ObjectKind::ExtractionPlate
-            | ObjectKind::Drone
-            | ObjectKind::Beacon
-            | ObjectKind::EgressNode
-            | ObjectKind::RoboPortal
-            | ObjectKind::BioPortal
-            | ObjectKind::SabreLegionnaire
-            | ObjectKind::RifleLegionnaire
-            | ObjectKind::PeacekeeperShielded
-            | ObjectKind::Agent
-            | ObjectKind::Tunnel
-            | ObjectKind::Hideout => None,
-        }
+        kind.def().default_settings
     }
 
     /// The kind of object these values belong to.

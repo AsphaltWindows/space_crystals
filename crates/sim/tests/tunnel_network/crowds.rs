@@ -1,6 +1,6 @@
 //! Lines and crowds at Side A (design change 0246's Verification; the plan's single file and its 40 Guards).
 
-use sc_sim::network::TRANSIT_DELAY_TICKS;
+use sc_sim::defs::TRANSIT_DELAY_TICKS;
 
 use super::*;
 

@@ -4,3 +4,4 @@
 pub(crate) mod drone;
 pub(crate) mod rifle_legionnaire;
 pub(crate) mod sabre_legionnaire;
+pub(crate) mod weapon_conversion;

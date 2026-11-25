@@ -1,6 +1,7 @@
 //! The Sabre Legionnaire — `factions/colonists/units/sabre_legionnaire.md`: the melee form of the Legionnaire
 //! (`factions/colonists/units/weapon_conversion.md`).
 
+use super::weapon_conversion::LEGIONNAIRE_CONVERSION;
 use crate::defs::units::{
     AttackAttrs, AttackType, FullyConnectedSubtype, MELEE_CONTACT_GU, MovementAttrs, TargetDomain, TargetType,
     UnitBase, UnitDef,
@@ -59,9 +60,12 @@ pub(crate) static SABRE_LEGIONNAIRE: ObjectDef = ObjectDef {
         tunnel_space_cost: None,
         beacon_capacity_cost: Some(2), // BeaconCapacityCost - 2
         riot_shield: None,
+        conversion: Some(LEGIONNAIRE_CONVERSION), // `factions/colonists/units/weapon_conversion.md`
+        deploy: None,
         worker: None,
     }),
     structure: None,
+    default_settings: None,
 };
 
 #[cfg(test)]

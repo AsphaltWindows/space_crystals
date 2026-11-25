@@ -2,6 +2,7 @@ use glam::Vec2;
 
 use super::*;
 use crate::combat::{self, AttackPhase, AttackState};
+use crate::defs::CONVERT_TICKS;
 use crate::defs::ObjectKind::{RifleLegionnaire, SabreLegionnaire};
 
 /// A `kind` unit, as a new one starts (`Sim::insert_object`), with its attack in `phase`, engaging object 9.

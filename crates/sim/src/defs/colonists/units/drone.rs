@@ -1,9 +1,18 @@
 //! The Drone — `factions/colonists/units/drone.md`.
 
 use crate::defs::units::{LoadDef, MovementAttrs, UnitBase, UnitDef, WorkerDef};
-use crate::defs::{Armor, Category, Footprint, ObjectDef, ObjectKind};
+use crate::defs::{Armor, Category, Footprint, ObjectDef, ObjectKind, Recipe};
 use crate::math::PI;
 use crate::player::Faction;
+
+/// `factions/colonists/economy.md > Beacon Deployment` (`factions/colonists/units/drone.md > Deploying`): the Drone
+/// deploys into a Beacon, in place, as a transformation's recipe (`crate::deploy`, `crate::Transform::new`), for no
+/// Space Crystals (the design names no cost: the Drone itself is used up).
+pub const BEACON_DEPLOYMENT: Recipe = Recipe {
+    kind: ObjectKind::Beacon,
+    cost: 0,
+    frames: 48, // `> Deployment Duration`: "48 frames (3 seconds)"
+};
 
 /// `factions/colonists/units/drone.md`: the worker, unarmed. It moves by DragMovement (`movement::drag`, slice M3-G,
 /// plan decision T25): it thrusts up to the equilibrium of 8 space units/frame (`MovementAttrs::max_speed`), 4 on
@@ -45,6 +54,8 @@ pub(crate) static DRONE: ObjectDef = ObjectDef {
         tunnel_space_cost: None,
         beacon_capacity_cost: Some(1), // BeaconCapacityCost - 1
         riot_shield: None,
+        conversion: None,
+        deploy: Some(BEACON_DEPLOYMENT), // > Deploying
         // `> Gathering`
         worker: Some(WorkerDef {
             crystals: LoadDef {
@@ -62,6 +73,7 @@ pub(crate) static DRONE: ObjectDef = ObjectDef {
         }),
     }),
     structure: None,
+    default_settings: None,
 };
 
 #[cfg(test)]

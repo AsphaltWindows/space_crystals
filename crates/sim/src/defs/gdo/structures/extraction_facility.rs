@@ -27,8 +27,10 @@ pub(crate) static EXTRACTION_FACILITY: ObjectDef = ObjectDef {
         symmetry: SymmetryType::AAAA, // SymmetryType - AAAA
         build_radius_extension: 2,    // BuildRadiusExtension - 2 grid units
         power: -15,                   // Power - -15
+        seeds_build_area: false,
         production: None,
         mining: None,
+        onto: None,
         // Constructs
         constructs: &[Recipe {
             kind: ObjectKind::ExtractionPlate,
@@ -40,6 +42,7 @@ pub(crate) static EXTRACTION_FACILITY: ObjectDef = ObjectDef {
         underground: false,
         tunnel: None,
     }),
+    default_settings: None,
 };
 
 #[cfg(test)]

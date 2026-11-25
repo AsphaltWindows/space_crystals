@@ -58,9 +58,12 @@ pub(crate) static GUARD: ObjectDef = ObjectDef {
         tunnel_space_cost: Some(1), // TunnelSpaceCost - 1
         beacon_capacity_cost: None,
         riot_shield: None,
+        conversion: None,
+        deploy: None,
         worker: None,
     }),
     structure: None,
+    default_settings: None,
 };
 
 #[cfg(test)]

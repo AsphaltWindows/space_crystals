@@ -20,17 +20,24 @@ use glam::Vec2;
 use serde::{Deserialize, Serialize};
 
 use crate::player::Faction;
+use crate::scenario::SpawnSettings;
 
+pub use colonists::units::drone::BEACON_DEPLOYMENT;
+pub use colonists::units::weapon_conversion::CONVERT_TICKS;
 pub use colonists::{BEACON_CAPACITY_CAP, BEACON_CAPACITY_PER_BUILDING};
 pub use gdo::UNIT_CONTROL_CAP;
 pub use gdo::units::peacekeeper::RIOT_SHIELD_TOGGLE_TICKS;
+pub use map::crystal_patch::DEFAULT_STARTING_AMOUNT;
+pub use map::supply_delivery_station::{DEFAULT_DELIVERY_INTERVAL, DEFAULT_DELIVERY_SIZE, DEFAULT_STARTING_SUPPLIES};
 pub use structures::{
     DropOff, ExitRule, MiningDef, ProductionDef, Recipe, StructureDef, SymmetryType, TierDef, Transit, TunnelDef,
 };
+pub use syndicate::structures::tunnel::TRANSIT_DELAY_TICKS;
 pub use syndicate::{CELLS_PER_TUNNEL_SPACE, TUNNEL_SPACE_CAP};
 pub use units::{
-    AttackAttrs, AttackType, Domain, FullyConnectedSubtype, LoadDef, MELEE_CONTACT_GU, MovementAttrs, MovementModel,
-    Resource, RiotShieldDef, TargetDomain, TargetType, TurretAttrs, UnitBase, UnitBaseDef, UnitDef, WorkerDef,
+    AttackAttrs, AttackType, ConversionDef, Domain, FullyConnectedSubtype, LoadDef, MELEE_CONTACT_GU, MovementAttrs,
+    MovementModel, Resource, RiotShieldDef, TargetDomain, TargetType, TurretAttrs, UnitBase, UnitBaseDef, UnitDef,
+    WorkerDef,
 };
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
@@ -124,6 +131,10 @@ pub struct ObjectDef {
     pub unit: Option<UnitDef>,
     /// Structures only: their symmetry, BuildRadiusExtension and Power (`core/entities.md > Structure Type`).
     pub structure: Option<StructureDef>,
+    /// The per-object values newly placed objects of the type get (`core/map_editor.md > Per-object Resource
+    /// Values`; the map editor, debug spawns: `SpawnSettings::defaults`): the map resources'; `None` for the types
+    /// without such values.
+    pub default_settings: Option<SpawnSettings>,
 }
 
 /// An object type's armour: `systems/units.md > Unit > PointArmor`, `> FullArmor` for units, and the same two
@@ -232,13 +243,10 @@ impl ObjectKind {
     /// neutral ones) can never share a tile"; the placement methods of slices M4-E and M4-F follow it in both layers,
     /// the expansions' own in theirs). As two plates may not overlap, nor two
     /// patches, a patch holds one plate at most: a plate goes only onto an uncovered patch. Units have no
-    /// footprint: this is about tile-based objects only.
+    /// footprint: this is about tile-based objects only. The pairs are those of `StructureDef::onto`, either way.
     pub fn may_overlap(self, other: ObjectKind) -> bool {
-        use ObjectKind::{CrystalPatch, ExtractionPlate};
-        matches!(
-            (self, other),
-            (ExtractionPlate, CrystalPatch) | (CrystalPatch, ExtractionPlate)
-        )
+        let onto = |kind: ObjectKind| kind.def().structure.as_ref().and_then(|s| s.onto);
+        onto(self) == Some(other) || onto(other) == Some(self)
     }
 }
 

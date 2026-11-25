@@ -113,11 +113,11 @@ impl BuildArea {
 }
 
 /// Whether buildings of `kind` seed the build area instead of having to reach it (`factions/gdo/structures.md >
-/// GDOBuildArea`: "Seeded by each Deployment Center's and each Outpost's BuildRadiusExtension"): the Deployment
-/// Center. The Outpost, which doesn't exist yet, will be the other: it "can be deployed outside the current build
-/// area".
+/// GDOBuildArea`: "Seeded by each Deployment Center's and each Outpost's BuildRadiusExtension"), as their def says
+/// (`StructureDef::seeds_build_area`): the Deployment Center. The Outpost, which doesn't exist yet, will be the other:
+/// it "can be deployed outside the current build area".
 pub fn seeds_build_area(kind: ObjectKind) -> bool {
-    kind == ObjectKind::DeploymentCenter
+    kind.def().structure.as_ref().is_some_and(|s| s.seeds_build_area)
 }
 
 /// Whether placing a building of `kind` needs a tile in its owner's build area: a GDO building that doesn't seed it

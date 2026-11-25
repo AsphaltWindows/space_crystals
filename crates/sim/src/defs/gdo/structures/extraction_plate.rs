@@ -4,8 +4,8 @@ use crate::defs::structures::{MiningDef, StructureDef, SymmetryType};
 use crate::defs::{Armor, Category, Footprint, ObjectDef, ObjectKind};
 use crate::player::Faction;
 
-/// `factions/gdo/economy.md > ExtractionPlate`: placed onto a Space Crystals Patch, which it shares its tile with
-/// (`ObjectKind::may_overlap`).
+/// `factions/gdo/economy.md > ExtractionPlate`: placed onto a Space Crystals Patch (`StructureDef::onto`), which it
+/// shares its tile with (`ObjectKind::may_overlap`).
 pub(crate) static EXTRACTION_PLATE: ObjectDef = ObjectDef {
     kind: ObjectKind::ExtractionPlate,
     name: "Extraction Plate",
@@ -28,18 +28,22 @@ pub(crate) static EXTRACTION_PLATE: ObjectDef = ObjectDef {
         symmetry: SymmetryType::AAAA, // SymmetryType - AAAA
         build_radius_extension: 0,    // BuildRadiusExtension - 0
         power: -3,                    // Power - -3
+        seeds_build_area: false,
         production: None,
         mining: Some(MiningDef {
             load: 10,        // MiningRate - 10 Space Crystals per 48 frames (3 seconds)
             residual: 1,     // ResidualMiningRate - 1 Space Crystal per 48 frames (3 seconds)
             cycle_ticks: 48, // "per 48 frames"
         }),
+        // "Placed onto a Space Crystal Patch by an Extraction Facility", exactly over it (`placement::onto`).
+        onto: Some(ObjectKind::CrystalPatch),
         constructs: &[],
         warp_in: &[],
         drop_off: None,
         underground: false,
         tunnel: None,
     }),
+    default_settings: None,
 };
 
 #[cfg(test)]

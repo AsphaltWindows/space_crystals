@@ -73,6 +73,20 @@ fn defs_are_consistent() {
             assert_eq!(def.sight_range, 0.0, "{name}: resources provide no vision");
             assert_eq!(def.armor, Armor::NONE, "{name}: resources have no armour");
         }
+        // `core/map_editor.md > Per-object Resource Values`: the map resources have them, each its own kind's, and
+        // valid; no other type has any.
+        assert_eq!(
+            def.default_settings.is_some(),
+            def.category == Category::Resource,
+            "{name}: per-object values"
+        );
+        if let Some(settings) = def.default_settings {
+            assert_eq!(
+                (settings.kind(), settings.check()),
+                (kind, Ok(())),
+                "{name}: {settings:?}"
+            );
+        }
         // Exactly the structures have structure attributes. Every structure so far is a destructible building
         // of a faction, on whole tiles of flat ground but for the underground ones (`core/map.md > Elevation >
         // Structures only on flat terrain`), whose footprint its symmetry type allows (`core/entities.md >
@@ -123,6 +137,15 @@ fn structure_is_consistent(def: &ObjectDef, structure: &StructureDef) {
     );
     tunnel_is_consistent(def, structure);
     assert!(def.selectable, "{name}: selectable");
+    // What a structure goes onto is a map resource (the plate's patch), and seeding the build area is the GDO's
+    // (`factions/gdo/structures/README.md > GDOBuildArea`).
+    if let Some(onto) = structure.onto {
+        assert_eq!(onto.def().category, Category::Resource, "{name} goes onto {onto:?}");
+    }
+    assert!(
+        !structure.seeds_build_area || def.faction == Some(Faction::Gdo),
+        "{name}: seeds a build area"
+    );
     // The Colonists have neither Power nor a build area (plan decision T21, `defs/colonists.rs`).
     if def.faction == Some(Faction::Colonists) {
         assert_eq!(
@@ -209,6 +232,8 @@ fn tunnel_is_consistent(def: &ObjectDef, structure: &StructureDef) {
     assert_eq!((tunnel.tier(0), tunnel.tier(4)), (None, None), "{name}: Tiers 1 to 3");
     let base = tunnel.tier(crate::tunnel::BASE_TIER).map(|tier| tier.max_hp);
     assert_eq!(def.max_hp, base, "{name}: the MaxHP of Tier 1");
+    let regen = tunnel.regen_per_second;
+    assert!(regen.is_finite() && regen >= 0.0, "{name}: regeneration {regen}");
     for tier in tunnel.tiers {
         assert!(
             tier.max_hp.is_finite() && tier.max_hp > 0.0 && tier.transit.contains(&Transit::Infantry),
@@ -278,6 +303,25 @@ fn unit_is_consistent(def: &ObjectDef, unit: &UnitDef) {
     }
     assert!(def.faction.is_some(), "{name}: units belong to a faction");
     assert!(def.half_extents().is_some(), "{name}: units have a collision box");
+    // A unit with two forms is one of them, and its other form's def has the same conversion
+    // (`factions/colonists/units/weapon_conversion.md`); a conversion takes time.
+    if let Some(conversion) = unit.conversion {
+        let other = conversion
+            .other(def.kind)
+            .unwrap_or_else(|| panic!("{name}: not one of its forms"));
+        let back = other.def().unit.as_ref().and_then(|u| u.conversion);
+        assert_eq!(back, Some(conversion), "{name}: its other form's conversion");
+        assert!(conversion.ticks >= 1, "{name}: {conversion:?}");
+    }
+    // A unit deploys into a building of its own faction, which takes time (`factions/colonists/economy.md > Beacon
+    // Deployment`).
+    if let Some(deploy) = unit.deploy {
+        let into = deploy.kind.def();
+        assert!(
+            into.structure.is_some() && into.faction == def.faction && deploy.frames >= 1,
+            "{name} deploys into {deploy:?}"
+        );
+    }
 }
 
 /// Only a plate and a patch share tiles, in either order.

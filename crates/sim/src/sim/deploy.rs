@@ -160,15 +160,18 @@ impl Sim {
     /// phase 5b claims the footprint), with its HP and Shields as they were (no frame done, their maxima are still the
     /// Drone's: `> HP/Shields Interpolation`; `crate::shields`) and what a Beacon does held back until completion
     /// ([`hold_back`], design change 0116).
-    /// It transforms from the Drone ([`BEACON_DEPLOYMENT`]), keeping the load the Drone carried (design change 0114).
-    /// Its first frame is this tick's (`Sim::step_transforms`).
+    /// It transforms from the Drone by its def's deployment ([`deploy::deployment`], [`BEACON_DEPLOYMENT`]), keeping
+    /// the load the Drone carried (design change 0114). Its first frame is this tick's (`Sim::step_transforms`).
     fn start_deployment(&mut self, drone: ObjectId, site: Placement) {
         let Some(o) = self.objects.get(&drone) else {
             return;
         };
         let (from, hp, shields) = (o.kind, o.hp, o.shields);
+        let Some(recipe) = deploy::deployment(from) else {
+            return;
+        };
         let load = o.worker.map_or(0, |worker| worker.load);
-        self.change_kind(drone, BEACON_DEPLOYMENT.kind, Some(site));
+        self.change_kind(drone, recipe.kind, Some(site));
         let Some(o) = self.objects.get_mut(&drone) else {
             return;
         };
@@ -177,7 +180,7 @@ impl Sim {
         hold_back(o);
         o.transform = Some(Transform {
             load,
-            ..Transform::new(from, None, &BEACON_DEPLOYMENT)
+            ..Transform::new(from, None, recipe)
         });
     }
 }

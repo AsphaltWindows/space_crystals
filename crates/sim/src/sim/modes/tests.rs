@@ -5,7 +5,8 @@ use glam::Vec2;
 
 use super::*;
 use crate::combat::{self, AttackPhase};
-use crate::conversion::{CONVERT_TICKS, Conversion};
+use crate::conversion::Conversion;
+use crate::defs::CONVERT_TICKS;
 use crate::events::SimEvent;
 use crate::ids::PlayerId;
 use crate::object::Object;

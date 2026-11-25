@@ -29,6 +29,7 @@ pub(crate) static BARRACKS: ObjectDef = ObjectDef {
         symmetry: SymmetryType::ABAC, // SymmetryType - ABAC (top A, right B, bottom A, left C)
         build_radius_extension: 2,    // BuildRadiusExtension - 2 grid units
         power: -30,                   // Power - -30
+        seeds_build_area: false,
         production: Some(ProductionDef {
             exits: ExitRule::Side(SideLetter::B), // "Units exit from one of the short sides (B side ...)"
             recipes: &[Recipe {
@@ -38,12 +39,14 @@ pub(crate) static BARRACKS: ObjectDef = ObjectDef {
             }],
         }),
         mining: None,
+        onto: None,
         constructs: &[],
         warp_in: &[],
         drop_off: None,
         underground: false,
         tunnel: None,
     }),
+    default_settings: None,
 };
 
 #[cfg(test)]

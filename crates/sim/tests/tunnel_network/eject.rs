@@ -1,7 +1,8 @@
 //! The Eject command and the exit path (`factions/syndicate/tunnels.md > EjectMenu`, `> Tunnel > SymmetryType -
 //! ABCD`; design changes 0248, 0250 and 0251).
 
-use sc_sim::network::{PATH_OFFSET_SU, TRANSIT_DELAY_TICKS};
+use sc_sim::defs::TRANSIT_DELAY_TICKS;
+use sc_sim::network::PATH_OFFSET_SU;
 use sc_sim::scenario::BuildingOrientation;
 use sc_sim::{PlayerCommand, Reject, Rotation, SideLetter, Target, sides};
 

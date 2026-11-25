@@ -10,10 +10,12 @@
 //!   Tunnel Space (`Sim::army_cap`), the invariants (`testing::invariants`), the hash and the saves, the client's
 //!   control groups.
 //! - **Inside** (design change 0249): the unit is inert. Its orders are cleared, "queued ones included", its move and
-//!   its attack end; an Agent "keeps its load". It regenerates [`REGEN_PER_SECOND`] of its MaxHP
-//!   ([`Held::regenerate`]).
-//! - **The transit delay** (design changes 0245 and 0246): a unit that walked in "can exit only once"
-//!   [`TRANSIT_DELAY_TICKS`] have passed, from any Tunnel; a unit produced inside has none ([`Held::may_exit`]).
+//!   its attack end; an Agent "keeps its load". It regenerates a share of its MaxHP every second, the Tunnel's
+//!   `TunnelDef::regen_per_second` ([`Held::regenerate`]).
+//! - **The transit delay** (design changes 0245 and 0246): a unit that walked in "can exit only once" the Tunnel's
+//!   `TunnelDef::transit_delay` has passed, from any Tunnel; a unit produced inside has none ([`Held::may_exit`]).
+//!   These two numbers are the Tunnel Network's, so the Tunnel type's: every Tunnel is one, at any tier (plan decision
+//!   T39; [`rules`]).
 //! - **Side A's two paths** ([`Paths`], design changes 0225 and 0248): "the exit path is the half of Side A nearer the
 //!   crystal hatch (Side B), the entry path the half nearer the Supplies hatch (Side D). Both turn and flip with the
 //!   Tunnel." Each has one fixed spot on the side's line, [`PATH_OFFSET_SU`] from its middle, where the client draws
@@ -28,7 +30,7 @@
 use glam::Vec2;
 use serde::{Deserialize, Serialize};
 
-use crate::defs::{ObjectKind, Transit};
+use crate::defs::{ObjectKind, Transit, TunnelDef};
 use crate::hash::{StateHash, StateHasher};
 use crate::ids::ObjectId;
 use crate::object::{Object, Placement};
@@ -36,14 +38,11 @@ use crate::sides::{DIRECTIONS, SideLetter, sides};
 use crate::tunnel;
 use crate::units::{SU_PER_GU, TICKS_PER_SECOND, Tick};
 
-/// `factions/syndicate/tunnels.md > Tunnel Network > Transit delay` (design change 0245): "after a unit **enters** the
-/// network, there is a **small delay before it can exit**: **2 seconds (32 frames), placeholder**". Flat, "not by
-/// distance".
-pub const TRANSIT_DELAY_TICKS: Tick = 32;
-
-/// `> Tunnel Network > Regeneration inside` (design change 0249): "every unit inside the Tunnel Network slowly
-/// regenerates HP: **1% of its MaxHP per second, placeholder**".
-pub const REGEN_PER_SECOND: f32 = 0.01;
+/// The Tunnel Network's rules (module docs), the Tunnel type's def: its transit delay and its regeneration
+/// (`factions/syndicate/tunnels.md > Tunnel Network > Transit delay`, `> Regeneration inside`).
+pub fn rules() -> &'static TunnelDef {
+    tunnel::def_of(ObjectKind::Tunnel).expect("the Tunnel has a tier table")
+}
 
 /// How far Side A's paths lie from the middle of the side, space units: the exit path towards Side B, the entry path
 /// towards Side D (design change 0248). The middles of the two paths the client draws (`object_render::tunnel`, which
@@ -101,13 +100,13 @@ pub struct Held {
 
 impl Held {
     /// Whether the unit may leave the network in `tick` (design changes 0245 and 0246): at once if it was produced
-    /// inside, [`TRANSIT_DELAY_TICKS`] after it walked in otherwise.
+    /// inside, the transit delay ([`rules`]) after it walked in otherwise.
     pub fn may_exit(&self, tick: Tick) -> bool {
-        !self.entered || tick >= self.since.saturating_add(TRANSIT_DELAY_TICKS)
+        !self.entered || tick >= self.since.saturating_add(rules().transit_delay)
     }
 
-    /// One tick of `> Regeneration inside` (design change 0249): [`REGEN_PER_SECOND`] of its MaxHP a second, up to its
-    /// MaxHP. Only "inside the Tunnel Network": a unit held elsewhere regenerates nothing.
+    /// One tick of `> Regeneration inside` (design change 0249): the network's share of its MaxHP a second
+    /// ([`rules`]), up to its MaxHP. Only "inside the Tunnel Network": a unit held elsewhere regenerates nothing.
     pub(crate) fn regenerate(&mut self) {
         match self.place {
             Place::Network => {}
@@ -116,7 +115,7 @@ impl Held {
             return;
         };
         if hp < max {
-            let gain = max * (REGEN_PER_SECOND / TICKS_PER_SECOND as f32);
+            let gain = max * (rules().regen_per_second / TICKS_PER_SECOND as f32);
             self.object.hp = Some((hp + gain).min(max));
         }
     }

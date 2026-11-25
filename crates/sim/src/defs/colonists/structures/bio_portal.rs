@@ -31,6 +31,7 @@ pub(crate) static BIO_PORTAL: ObjectDef = ObjectDef {
         symmetry: SymmetryType::AABB,
         build_radius_extension: 0, // none (see `defs/colonists.rs`)
         power: 0,                  // none (plan decision T21)
+        seeds_build_area: false,
         production: Some(ProductionDef {
             // `> Exit Behavior`: "The Bio Portal's two open sides are its "A" sides ... Units leave in any direction
             // through them" (the energy doorway at the centre, design change 0145): a half-circle of directions.
@@ -42,12 +43,14 @@ pub(crate) static BIO_PORTAL: ObjectDef = ObjectDef {
             }],
         }),
         mining: None,
+        onto: None,
         constructs: &[],
         warp_in: &[],
         drop_off: None,
         underground: false,
         tunnel: None,
     }),
+    default_settings: None,
 };
 
 #[cfg(test)]

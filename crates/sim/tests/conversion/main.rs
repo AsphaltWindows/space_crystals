@@ -6,7 +6,8 @@
 //! are `conversion`'s unit tests. `TestSim` checks the movement invariants after every tick.
 
 use sc_sim::combat;
-use sc_sim::conversion::{self, CONVERT_TICKS};
+use sc_sim::conversion;
+use sc_sim::defs::CONVERT_TICKS;
 use sc_sim::shields::SHIELD_REGEN_PER_TICK;
 use sc_sim::testing::{ScenarioBuilder, TestSim};
 use sc_sim::{

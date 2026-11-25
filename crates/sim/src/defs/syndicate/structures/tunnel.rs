@@ -1,12 +1,18 @@
-//! The Tunnel — `factions/syndicate/tunnels.md > Tunnel` — with its tier table.
+//! The Tunnel — `factions/syndicate/tunnels.md > Tunnel` — with its tier table and the rules of the Tunnel Network
+//! that its Tunnels make up.
 
 use crate::defs::structures::{DropOff, StructureDef, SymmetryType, TierDef, Transit, TunnelDef};
 use crate::defs::{Armor, Category, Footprint, ObjectDef, ObjectKind};
 use crate::player::Faction;
 use crate::sides::SideLetter;
+use crate::units::Tick;
 
-/// `factions/syndicate/tunnels.md > Tunnel > Tiers`, its table column by column.
-pub(crate) static TUNNEL_TIERS: TunnelDef = TunnelDef {
+/// The Tunnel Network's transit delay, ticks, as the Tunnel's def gives it (`TunnelDef::transit_delay`): its name for
+/// the tests that wait it out.
+pub const TRANSIT_DELAY_TICKS: Tick = TUNNEL_DEF.transit_delay;
+
+/// `factions/syndicate/tunnels.md > Tunnel > Tiers`, its table column by column, and `> Tunnel Network`'s numbers.
+pub(crate) const TUNNEL_DEF: TunnelDef = TunnelDef {
     tiers: &[
         // Tier 1 (base): HP 600, Tunnel Area Radius 2 (8x8), Transit Infantry.
         TierDef {
@@ -27,6 +33,12 @@ pub(crate) static TUNNEL_TIERS: TunnelDef = TunnelDef {
             transit: &[Transit::Infantry, Transit::Vehicles, Transit::Air],
         },
     ],
+    // `> Tunnel Network > Transit delay` (design change 0245): "after a unit **enters** the network, there is a
+    // **small delay before it can exit**: **2 seconds (32 frames), placeholder**". Flat, "not by distance".
+    transit_delay: 32,
+    // `> Tunnel Network > Regeneration inside` (design change 0249): "every unit inside the Tunnel Network slowly
+    // regenerates HP: **1% of its MaxHP per second, placeholder**".
+    regen_per_second: 0.01,
 };
 
 /// `factions/syndicate/tunnels.md > Tunnel`: one type with a tier (plan decision T39; `crate::tunnel`). It blocks,
@@ -60,8 +72,10 @@ pub(crate) static TUNNEL: ObjectDef = ObjectDef {
         symmetry: SymmetryType::ABCD,
         build_radius_extension: 0,
         power: 0,
+        seeds_build_area: false,
         production: None,
         mining: None,
+        onto: None,
         constructs: &[],
         warp_in: &[],
         // Agents deliver to its hatches, crystals at Side B and Supplies at Side D (design change 0248), each "1 grid
@@ -72,8 +86,9 @@ pub(crate) static TUNNEL: ObjectDef = ObjectDef {
             supplies: SideLetter::D,
         }),
         underground: false,
-        tunnel: Some(&TUNNEL_TIERS),
+        tunnel: Some(&TUNNEL_DEF),
     }),
+    default_settings: None,
 };
 
 #[cfg(test)]
@@ -122,9 +137,11 @@ mod tests {
         let expected = StructureDef {
             symmetry: SymmetryType::ABCD,
             build_radius_extension: 0,
+            seeds_build_area: false,
             power: 0,
             production: None,
             mining: None,
+            onto: None,
             constructs: &[],
             warp_in: &[],
             drop_off: Some(DropOff::Hatches {
@@ -144,7 +161,7 @@ mod tests {
     fn each_tier_admits_its_unit_bases() {
         use Transit::{Air, Infantry, Vehicles};
         use UnitBase as B;
-        let tiers = TUNNEL_TIERS.tiers;
+        let tiers = TUNNEL_DEF.tiers;
         let first_tier = [
             (B::LightInfantry, Infantry, 1),
             (B::HeavyInfantry, Infantry, 1),

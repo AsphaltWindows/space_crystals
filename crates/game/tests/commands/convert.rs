@@ -6,7 +6,8 @@
 //! never disabled. A unit is drawn in the form it is in, the weapon it has, until its conversion is over.
 
 use bevy::prelude::*;
-use sc_sim::conversion::{self, CONVERT_TICKS};
+use sc_sim::conversion;
+use sc_sim::defs::CONVERT_TICKS;
 use sc_sim::testing::ScenarioBuilder;
 use sc_sim::{Ability, AttackPhase, Faction, ObjectId, ObjectKind, OrderKind, PlayerId, SimEvent, SpawnAt};
 use space_crystals::command_ui::{ButtonLook, PanelButton, PanelCommand, PanelSlot};

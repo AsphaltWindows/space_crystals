@@ -27,8 +27,12 @@ pub(crate) static DEPLOYMENT_CENTER: ObjectDef = ObjectDef {
         symmetry: SymmetryType::AAAA, // SymmetryType - AAAA
         build_radius_extension: 12,   // BuildRadiusExtension - 12 grid units
         power: 30,                    // Power - +30
+        // `factions/gdo/structures/README.md > GDOBuildArea`: "Seeded by each Deployment Center's and each Outpost's
+        // BuildRadiusExtension".
+        seeds_build_area: true,
         production: None,
         mining: None,
+        onto: None,
         // Constructs: the three buildings with a cost and a time. The design's others (Supply Tower, Arsenal, …) have
         // none yet (TBD); their Requires clauses (`core/tech_and_research.md > Tech Prerequisites`) come with them.
         constructs: &[
@@ -53,6 +57,7 @@ pub(crate) static DEPLOYMENT_CENTER: ObjectDef = ObjectDef {
         underground: false,
         tunnel: None,
     }),
+    default_settings: None,
 };
 
 #[cfg(test)]

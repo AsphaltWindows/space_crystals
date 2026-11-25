@@ -8,11 +8,6 @@ use crate::defs::{Armor, Category, Footprint, ObjectDef, ObjectKind};
 use crate::math::PI;
 use crate::player::Faction;
 
-/// The Agent's reaches for Supplies, space units: to a Supply Delivery Station's edge to pick one up, and to the
-/// Supplies hatch on Side D to unload it. `> Gathering > Supplies` gives none; the crystals' 8 su stand in for both
-/// (Placeholder: Q0082 point 1).
-const SUPPLIES_REACH: f32 = 8.0;
-
 /// `factions/syndicate/units/agent.md`: the Syndicate's worker, with its pistol (slice M4-A) and its gathering of
 /// Space Crystals and Supplies (`> Gathering`: its `worker`, slices M4-D and M4-I). Its construction comes with slice
 /// M4-E.
@@ -64,6 +59,8 @@ pub(crate) static AGENT: ObjectDef = ObjectDef {
         tunnel_space_cost: Some(1), // TunnelSpaceCost - 1
         beacon_capacity_cost: None,
         riot_shield: None,
+        conversion: None,
+        deploy: None,
         // `> Gathering` (design change 0255, answering Q0066): "The Drone's job rules apply to Agents [...] with two
         // exceptions: Agents share patches (no occupancy rule), and there is no Set Drop-off command."
         worker: Some(WorkerDef {
@@ -77,11 +74,14 @@ pub(crate) static AGENT: ObjectDef = ObjectDef {
             },
             // `> Gathering > Supplies` (slice M4-I; design change 0256 for the rules at a station)
             supplies: Some(LoadDef {
-                carry_capacity: 1,              // CarryCapacity: 1 Supply per trip
-                pick_up_ticks: 48,              // PickUpDuration: 48 frames (3 seconds)
-                drop_off_ticks: 48,             // DropOffDuration: 48 frames (3 seconds)
-                pick_up_reach: SUPPLIES_REACH,  // to the station's edge
-                drop_off_reach: SUPPLIES_REACH, // to the Supplies hatch on Side D
+                carry_capacity: 1,  // CarryCapacity: 1 Supply per trip
+                pick_up_ticks: 48,  // PickUpDuration: 48 frames (3 seconds)
+                drop_off_ticks: 48, // DropOffDuration: 48 frames (3 seconds)
+                // The reaches, space units: to a Supply Delivery Station's edge to pick one up, and to the Supplies
+                // hatch on Side D to unload it. `> Gathering > Supplies` gives none; the crystals' 8 su stand in for
+                // both (Placeholder: Q0082 point 1).
+                pick_up_reach: 8.0,
+                drop_off_reach: 8.0,
             }),
             shares_patches: true,  // Patch sharing: any number of Agents may mine the same patch
             keeps_drop_off: false, // `> Gathering rules`: the nearest Tunnel, picked again by each Gather
@@ -93,6 +93,7 @@ pub(crate) static AGENT: ObjectDef = ObjectDef {
         }),
     }),
     structure: None,
+    default_settings: None,
 };
 
 #[cfg(test)]

@@ -43,27 +43,29 @@
 
 use glam::Vec2;
 
+/// A Drone's deployment as a transformation's recipe (`crate::Transform::new`), its def's (`UnitDef::deploy`): into a
+/// Beacon, in [`DEPLOYMENT_FRAMES`], for no Space Crystals. A Deploy order is the Drone's, the one unit that deploys
+/// so far: its site is a Beacon's ([`site`]).
+pub use crate::defs::BEACON_DEPLOYMENT;
 use crate::defs::{Category, ObjectKind, Recipe};
 use crate::nav::TileRect;
 use crate::object::{Object, Placement};
 use crate::paths::box_overlaps_rect;
 use crate::units::TilePos;
 
-/// `factions/colonists/economy.md > Beacon Deployment > Deployment Duration`: "48 frames (3 seconds)".
-pub const DEPLOYMENT_FRAMES: u32 = 48;
+/// `factions/colonists/economy.md > Beacon Deployment > Deployment Duration`, as the Drone's def gives it ("48 frames
+/// (3 seconds)"): its name for the tests that count the frames of a deployment.
+pub const DEPLOYMENT_FRAMES: u32 = BEACON_DEPLOYMENT.frames;
 
-/// A Drone's deployment as a transformation's recipe (`crate::Transform::new`): into a Beacon, in
-/// [`DEPLOYMENT_FRAMES`], for no Space Crystals (the design names no cost: the Drone itself is used up).
-pub const BEACON_DEPLOYMENT: Recipe = Recipe {
-    kind: ObjectKind::Beacon,
-    cost: 0,
-    frames: DEPLOYMENT_FRAMES,
-};
+/// What a unit of `kind` deploys into, its def's (`UnitDef::deploy`): the Drone's Beacon
+/// (`factions/colonists/units/drone.md > Deploying`); `None` for a kind that doesn't deploy.
+pub fn deployment(kind: ObjectKind) -> Option<&'static Recipe> {
+    kind.def().unit.as_ref()?.deploy.as_ref()
+}
 
-/// Whether a unit of `kind` takes a Deploy order: the Drone (`factions/colonists/units.md > Drone > Deploying`), the
-/// one unit that deploys so far.
+/// Whether a unit of `kind` takes a Deploy order: one that deploys ([`deployment`]), the Drone so far.
 pub fn deploys(kind: ObjectKind) -> bool {
-    kind == ObjectKind::Drone
+    deployment(kind).is_some()
 }
 
 /// The footprint of the Beacon that a Deploy with the top-left tile `origin` puts down (`> Placement`: "the Beacon's

@@ -28,6 +28,7 @@ pub(crate) static ROBO_PORTAL: ObjectDef = ObjectDef {
         symmetry: SymmetryType::AAAA, // SymmetryType - AAAA
         build_radius_extension: 0,    // none (see `defs/colonists.rs`)
         power: 0,                     // none (plan decision T21)
+        seeds_build_area: false,
         production: Some(ProductionDef {
             // The energy doorway at the centre (design change 0145, `factions/colonists/structures/README.md > Portals
             // > Portal Exits (energy doorway)`): "Since the Robo Portal is fully symmetric (AAAA), units may leave in
@@ -40,12 +41,14 @@ pub(crate) static ROBO_PORTAL: ObjectDef = ObjectDef {
             }],
         }),
         mining: None,
+        onto: None,
         constructs: &[],
         warp_in: &[],
         drop_off: None,
         underground: false,
         tunnel: None,
     }),
+    default_settings: None,
 };
 
 #[cfg(test)]

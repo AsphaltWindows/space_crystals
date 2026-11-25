@@ -6,16 +6,18 @@ use crate::defs::ObjectKind;
 use crate::nav::TileRect;
 
 /// What a structure goes onto, the one statement of the rule (`factions/gdo/economy.md > ExtractionPlate`: "Placed
-/// onto a Space Crystal Patch"): an Extraction Plate goes exactly over a Space Crystals Patch, and nothing else goes
-/// onto anything. Shown everything else on the map, in any order ([`Onto::see`]), it says whether a footprint keeps
-/// the rule ([`Onto::is_kept`]). Every way a structure comes to stand asks it, so they can't drift apart:
+/// onto a Space Crystal Patch"): a structure whose def names a type to go onto (`StructureDef::onto`) goes exactly over
+/// an object of that type, an Extraction Plate over a Space Crystals Patch, and nothing else goes onto anything. Shown
+/// everything else on the map, in any order ([`Onto::see`]), it says whether a footprint keeps the rule
+/// ([`Onto::is_kept`]). Every way a structure comes to stand asks it, so they can't drift apart:
 /// [`check`](super::check()) for a game's placements and the Starting Layouts' ([`super::WholeProblem::NotOnPatch`]),
 /// and map validation for the map's pre-placed objects, which follow no other placement rule
 /// (`SpawnProblem::NotOnPatch`). Whether the patch has a plate already is the rule of shared tiles
 /// ([`ObjectKind::may_overlap`]).
 #[derive(Copy, Clone, Debug)]
 pub struct Onto {
-    kind: ObjectKind,
+    /// The type the structure goes onto, its def's: the patch for a plate, `None` for the others.
+    onto: Option<ObjectKind>,
     footprint: TileRect,
     kept: bool,
 }
@@ -23,16 +25,17 @@ pub struct Onto {
 impl Onto {
     /// The rule for a structure of `kind` covering `footprint`, before anything is seen: kept, but by a plate.
     pub fn new(kind: ObjectKind, footprint: TileRect) -> Self {
+        let onto = kind.def().structure.as_ref().and_then(|s| s.onto);
         Self {
-            kind,
+            onto,
             footprint,
-            kept: !goes_onto_patch(kind),
+            kept: onto.is_none(),
         }
     }
 
     /// Takes `other` into account: a patch exactly under the plate keeps the rule.
     pub fn see(&mut self, other: &Occupant) {
-        self.kept |= goes_onto(self.kind, other.kind)
+        self.kept |= self.onto == Some(other.kind)
             && other
                 .placement
                 .is_some_and(|p| TileRect::new(p.origin, p.w, p.h) == self.footprint);
@@ -42,15 +45,4 @@ impl Onto {
     pub fn is_kept(&self) -> bool {
         self.kept
     }
-}
-
-/// Whether `kind` goes onto a Space Crystals Patch, exactly over it: the Extraction Plate
-/// (`factions/gdo/economy.md > ExtractionPlate`: "Placed onto a Space Crystal Patch by an Extraction Facility").
-fn goes_onto_patch(kind: ObjectKind) -> bool {
-    kind == ObjectKind::ExtractionPlate
-}
-
-/// Whether a structure of `kind` goes onto an object of `other`'s kind: a plate onto a patch.
-fn goes_onto(kind: ObjectKind, other: ObjectKind) -> bool {
-    goes_onto_patch(kind) && other == ObjectKind::CrystalPatch
 }

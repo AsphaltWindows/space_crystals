@@ -27,14 +27,17 @@ pub(crate) static GENERATOR: ObjectDef = ObjectDef {
         symmetry: SymmetryType::AAAA, // SymmetryType - AAAA
         build_radius_extension: 1,    // BuildRadiusExtension - 1 grid unit
         power: 20,                    // Power - +20
+        seeds_build_area: false,
         production: None,
         mining: None,
+        onto: None,
         constructs: &[],
         warp_in: &[],
         drop_off: None,
         underground: false,
         tunnel: None,
     }),
+    default_settings: None,
 };
 
 #[cfg(test)]

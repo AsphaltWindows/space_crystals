@@ -28,8 +28,10 @@ pub(crate) static BEACON: ObjectDef = ObjectDef {
         symmetry: SymmetryType::AAAA, // SymmetryType - AAAA
         build_radius_extension: 0,    // none (see `defs/colonists.rs`)
         power: 0,                     // none (plan decision T21)
+        seeds_build_area: false,
         production: None,
         mining: None,
+        onto: None,
         constructs: &[],
         // `> Warp In > Constructs List`: the three buildings with a cost and a WarpInTime. The others (Alloy
         // Furnace, …, Structural Analyzer) are TBD, and deferred past M3 (question Q0043 point 1).
@@ -54,6 +56,7 @@ pub(crate) static BEACON: ObjectDef = ObjectDef {
         underground: false,
         tunnel: None,
     }),
+    default_settings: None,
 };
 
 #[cfg(test)]

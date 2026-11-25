@@ -14,7 +14,7 @@ pub use bases::{Domain, MovementModel, UnitBase, UnitBaseDef};
 
 use serde::{Deserialize, Serialize};
 
-use super::ObjectKind;
+use super::{ObjectKind, Recipe};
 use crate::units::SU_PER_GU;
 
 /// `systems/units.md > Unit > UnitBaseAttributes[UnitBase]`: a unit type's movement numbers, one variant per
@@ -204,6 +204,31 @@ pub struct RiotShieldDef {
     pub toggle_ticks: u32,
 }
 
+/// `factions/colonists/units/weapon_conversion.md`: a unit with two forms, each of which converts into the other, the
+/// same on both of its types ("two forms of the same underlying unit"; `crate::conversion`).
+#[derive(Copy, Clone, Debug, PartialEq)]
+pub struct ConversionDef {
+    /// The unit's two forms, a type each: the Sabre and the Rifle Legionnaire.
+    pub forms: [ObjectKind; 2],
+    /// How long a conversion takes, either way, ticks (`> Convert Command`: "The unit converts in place over 4
+    /// frames").
+    pub ticks: u32,
+}
+
+impl ConversionDef {
+    /// The form a `kind` unit converts into: the other one of the two; `None` if `kind` is neither.
+    pub fn other(&self, kind: ObjectKind) -> Option<ObjectKind> {
+        let [a, b] = self.forms;
+        if kind == a {
+            Some(b)
+        } else if kind == b {
+            Some(a)
+        } else {
+            None
+        }
+    }
+}
+
 /// What a worker carries and delivers (`factions/syndicate/units/agent.md > Gathering`: "Agents gather resources and
 /// deliver them to Tunnels"): each has its own [`LoadDef`] in a [`WorkerDef`] and its own hatch at a Tunnel
 /// (`DropOff::Hatches`).
@@ -300,6 +325,12 @@ pub struct UnitDef {
     pub beacon_capacity_cost: Option<u32>,
     /// `factions/gdo/units.md > Peacekeeper > Riot Shield`.
     pub riot_shield: Option<RiotShieldDef>,
+    /// `factions/colonists/units/weapon_conversion.md`: the two forms it converts between, for a unit that has
+    /// another form (`crate::conversion`).
+    pub conversion: Option<ConversionDef>,
+    /// `factions/colonists/units/drone.md > Deploying`: what it deploys into, in place, for a unit that deploys
+    /// (`crate::deploy`): the structure, the frames it takes, and its cost.
+    pub deploy: Option<Recipe>,
     /// `factions/colonists/units.md > Drone > Gathering`: `None` for units that gather nothing.
     pub worker: Option<WorkerDef>,
 }

@@ -3,6 +3,7 @@
 
 use crate::defs::{ObjectKind, Resource, UnitBase};
 use crate::sides::SideLetter;
+use crate::units::Tick;
 
 /// A structure type's own attributes; the attributes every object type has, armour included, are on its
 /// `ObjectDef`.
@@ -16,12 +17,20 @@ pub struct StructureDef {
     /// `Power`: what the type adds to its owner's power, positive for a generator, negative for a consumer
     /// (`factions/gdo/economy.md`).
     pub power: i32,
+    /// Whether the type seeds its owner's build area instead of having to reach it (`factions/gdo/structures.md >
+    /// GDOBuildArea`: "Seeded by each Deployment Center's and each Outpost's BuildRadiusExtension";
+    /// `placement::seeds_build_area`): the Deployment Center.
+    pub seeds_build_area: bool,
     /// What the type produces from its queue, and through which side (`crate::production`): the Barracks' units,
     /// `None` for a structure that produces nothing.
     pub production: Option<ProductionDef>,
     /// How the type mines the Space Crystals patch it stands on (`crate::economy::mining`): the Extraction Plate's
     /// rates, `None` for every other structure.
     pub mining: Option<MiningDef>,
+    /// The type of object a structure of the type is placed onto, exactly over it, sharing its tiles
+    /// (`placement::onto`, `ObjectKind::may_overlap`): the Space Crystals Patch for the Extraction Plate
+    /// (`factions/gdo/economy.md > ExtractionPlate`: "Placed onto a Space Crystal Patch"); `None` for the others.
+    pub onto: Option<ObjectKind>,
     /// `Constructs`: the buildings the type constructs, one at a time (`crate::construction`), with their costs and
     /// times (`factions/gdo/structures.md > DeploymentCenter > Constructs`, `factions/gdo/economy.md >
     /// ExtractionFacility > Constructs`). A type with any is a constructor (`Object::constructor`); empty for the
@@ -84,6 +93,12 @@ impl DropOff {
 pub struct TunnelDef {
     /// Tier 1, the base, first: tier `n` is `tiers[n - 1]` ([`TunnelDef::tier`]).
     pub tiers: &'static [TierDef],
+    /// `> Tunnel Network > Transit delay` (design change 0245): how long after it walks into the network a unit can
+    /// first exit, ticks, from any Tunnel; none for a unit produced inside (0246; `network::Held::may_exit`).
+    pub transit_delay: Tick,
+    /// `> Tunnel Network > Regeneration inside` (design change 0249): the fraction of its MaxHP that a unit inside the
+    /// network regenerates a second (`network::Held::regenerate`).
+    pub regen_per_second: f32,
 }
 
 impl TunnelDef {
