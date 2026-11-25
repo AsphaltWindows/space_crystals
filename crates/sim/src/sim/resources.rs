@@ -34,7 +34,8 @@ impl Sim {
     /// in-production units, not merely queued ones"), out of [`economy::UNIT_CONTROL_CAP`]. A GDO player's
     /// [`Sim::army_cap`] `used`.
     pub fn unit_control(&self, player: PlayerId) -> u32 {
-        economy::army::unit_control_used(self.objects.values(), player)
+        let held = self.held.values().map(|held| &held.object);
+        economy::army::unit_control_used(self.objects.values().chain(held), player)
     }
 
     /// `DebugCommand::SetResources`, checked: `player`'s banks become `banks`.

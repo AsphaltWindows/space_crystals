@@ -306,3 +306,31 @@ fn units_inside_regenerate_a_hundredth_of_their_max_hp_a_second() {
     assert!((gained - 8.05).abs() < 0.1, "about 10% of 80 in 10 s: {gained}");
     assert_eq!(t.sim().held_unit(id(3)).unwrap().object.hp, Some(80.0));
 }
+
+/// The plan's acceptance for Enter ("Tunnel Space is unchanged") and plan decision T30: a unit takes its army cost
+/// "for as long as the unit lives", inside the network as on the map. The Syndicate's Tunnel Space is slice M4-B's;
+/// the rule is the army cap's own, shown here on a GDO player's Unit Control, whose Peacekeeper walks into a Tunnel
+/// that player owns (any unit of the Tunnel's owner may enter).
+#[test]
+fn a_unit_inside_the_network_still_takes_its_army_cost() {
+    let mut t = ScenarioBuilder::new(&flat(30, 22))
+        .spawn(TUNNEL, Some(P1), tile(12, 10))
+        .start();
+    t.without_auto_targeting()
+        .spawn_unit_at(1, ObjectKind::Peacekeeper, P1, Vec2::new(866.0, 560.0)) // 2
+        .spawn_unit_at(1, ObjectKind::Peacekeeper, P1, Vec2::new(600.0, 300.0)) // 3
+        .at(2, P1, enter(&[id(2)], T1));
+    run_checked(&mut t, 1);
+    let used = |t: &TestSim| (t.sim().army_cap(P1).map(|cap| cap.used), t.sim().unit_control(P1));
+    let before = used(&t);
+    assert!(before.0.is_some_and(|cap| cap > 0) && before.1 > 0, "{before:?}");
+    run_checked(&mut t, 40);
+    assert_eq!(inside(&t), [id(2)]);
+    assert_eq!(used(&t), before, "inside, it counts as before");
+    // Out again, the same.
+    let entered = entries(&t)[0].0;
+    t.at(entered + TRANSIT_DELAY_TICKS, P1, eject(T1, ObjectKind::Peacekeeper));
+    run_checked(&mut t, entered + TRANSIT_DELAY_TICKS);
+    assert!(inside(&t).is_empty());
+    assert_eq!(used(&t), before);
+}
