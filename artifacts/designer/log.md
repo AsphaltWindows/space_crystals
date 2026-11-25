@@ -2240,3 +2240,4 @@ Satellites require Orbital Command. Entry 0274.
 Satellite concept. Entry 0275.
 Refract via satellites, chains. Entry 0276.
 Relay (renamed from Refract) specified. Entry 0277.
+Relay additive; chain break ends relay. Entry 0278.
