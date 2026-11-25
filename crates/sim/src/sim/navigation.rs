@@ -71,6 +71,12 @@ impl Sim {
         self.nav.counters()
     }
 
+    /// The work of AttackMove's reach rule in the most recent [`Sim::step`] (`orders::reach`, design change 0230): the
+    /// paths planned to judge enemies. Output for tests and timings, not state.
+    pub fn reach_counters(&self) -> crate::orders::ReachCounters {
+        self.nav.reach_counters()
+    }
+
     /// The collision work of the most recent [`Sim::step`]'s movement phase: output for tests and overlays, not
     /// state.
     pub fn move_counters(&self) -> MoveCounters {

@@ -80,7 +80,13 @@ fn tick(orders: &mut Orders, mover: &mut Mover, attack: Option<&mut AttackState>
         converting: false,
         worker: None,
     };
-    update_unit(orders, &mut unit, &world, &mut gather::Claims::default());
+    update_unit(
+        orders,
+        &mut unit,
+        &world,
+        &mut gather::Claims::default(),
+        &mut Reach::default(),
+    );
 }
 
 #[test]

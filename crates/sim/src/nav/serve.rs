@@ -137,6 +137,26 @@ pub fn find_path(
     })
 }
 
+/// [`find_path`] without avoid tiles that gives up once the cheapest tile path is known to cost more than `max_cost`
+/// ([`Search::astar_within`]): `Ok(None)` then, and otherwise the very path [`find_path`] returns. For a caller that
+/// has no use for a longer path (`orders::reach`), at a bounded cost.
+pub fn find_path_within(
+    grid: &NavGrid,
+    search: &mut Search,
+    half: Vec2,
+    start: Vec2,
+    goal: Vec2,
+    max_cost: u32,
+) -> Result<Option<Path>, PathFail> {
+    let component = start_component(grid, start).ok_or(PathFail::StartBlocked)?;
+    let (goal_tile, goal, retargeted) = resolve_goal(grid, component, half, goal);
+    let tiles = search.astar_within(grid, grid.tile_of(start), goal_tile, &[], max_cost);
+    Ok(tiles.map(|path| Path {
+        waypoints: smooth_avoiding(grid, half, start, &path.tiles, goal, &[]),
+        retargeted,
+    }))
+}
+
 /// `docs/movement.md > 5.5`: serves one tick's path requests in `(since, id)` order within `budget` node
 /// expansions (normally [`super::PATH_BUDGET`]).
 ///

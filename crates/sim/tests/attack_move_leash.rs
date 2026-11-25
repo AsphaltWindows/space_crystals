@@ -1,9 +1,10 @@
 //! AttackMove's leash and its PathReference (`systems/controls/behaviors.md > AttackMovingToLocation`, design change
-//! 0180), with today's units: the PathReference is the route planned at the start and stays that after fights, a
-//! detour around a blocked route takes its place, and a target the unit let go of isn't taken again on that leg.
-//! The unit tests in `orders::tests::leash` give units other Ranges for the rest of 0180's Verification.
+//! 0180), with today's units: the PathReference is the route planned at the start and stays that after fights, and a
+//! detour around a blocked route takes its place. The unit tests in `orders::tests::leash` give units other Ranges
+//! for the rest of 0180's Verification; which enemies a unit takes at all is `attack_move_reach.rs`'s (design change
+//! 0230).
 
-use sc_sim::orders::{ATTACK_MOVE_LEASH_GU, Behaviour};
+use sc_sim::orders::{ATTACK_MOVE_LEASH_GU, Behaviour, REJUDGE_MOVE_SU};
 use sc_sim::testing::{ScenarioBuilder, TestSim};
 use sc_sim::{ObjectId, ObjectKind, OrderKind, PlayerId, Shape, SimEvent, SpawnAt, Target, Tick, TilePos, Vec2, gu};
 
@@ -55,106 +56,15 @@ fn attack_ticks(t: &TestSim, attacker: u32) -> Vec<Tick> {
         .collect()
 }
 
-/// A wall (row 3, from column 3 to the east edge) between a route along row 1 and row 5; the way round it is at its
-/// west end.
-const WALL: &str = "
-    ..............................
-    ..............................
-    ..............................
-    ...~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    ..............................
-    ..............................
-    ..............................
-";
-
-/// The take-and-drop loop (the soak's seed 1): a Guard attack-moves east along row 1 and sees, across the wall, an
-/// unarmed enemy Drone 4 rows south, in its sight but out of its Range. The way to it leads back west round the
-/// wall, out of sight at once: once its owner has lost sight of it, the fog delay (8 ticks) over, the Guard lets
-/// it go and walks on east, where it sees the Drone again. Taken again as soon as it is seen, or after a fixed
-/// while (it sees it for 384 su of its walk, 77 ticks), it would be let go of again and again, for good. Left alone
-/// for the rest of the leg (`orders::travel::march`), it walks on to its destination.
-#[test]
-fn a_target_whose_approach_leads_out_of_sight_is_let_go_for_the_rest_of_the_leg() {
-    let mut t = ScenarioBuilder::new(WALL)
-        .spawn(GUARD, Some(P1), SpawnAt::Point(centre(4, 1))) // 1
-        .spawn(DRONE, Some(P2), SpawnAt::Point(centre(15, 5))) // 2
-        .start();
-    let to = centre(29, 1);
-    t.order_at(2, P1, &[id(1)], OrderKind::AttackMove(to), false)
-        .run_until(2);
-    let mut taken = 0;
-    let mut was_engaged = false;
-    while !is_idle(&t, 1) {
-        assert!(t.sim().tick() < 1000, "it never got past the Drone\n{}", t.ascii(None));
-        t.step();
-        let now = engaged(&t, 1) == Some(id(2));
-        taken += u32::from(now && !was_engaged);
-        was_engaged = now;
-    }
-    assert_eq!(pos(&t, 1), to, "arrived");
-    assert_eq!(taken, 1, "it went for the Drone once");
-    assert!(pos(&t, 2) == centre(15, 5) && attack_ticks(&t, 1).is_empty());
-}
-
-/// Two walls (rows 2 and 6, from column 3 to the east edge) on either side of a route along row 4; the ways round
-/// them are at their west ends.
-const WALLS: &str = "
-    ..............................
-    ..............................
-    ...~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    ..............................
-    ..............................
-    ..............................
-    ...~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    ..............................
-    ..............................
-";
-
-/// The take-and-drop loop with two targets (the soak's seed 29): a Guard attack-moves east along row 4, between two
-/// walls, and two unarmed enemy Drones stand across them, one north and one south, as far off: the Guard sees both
-/// from the same stretch of its route, out of its Range. It goes for one; the way there leads back west, out of
-/// sight of both, and it lets go of it; walking on, it sees both again and goes for the other, and lets go of that
-/// one too, out of sight of both. Let go of only until it had left the Guard's sight, the first would be taken again
-/// next, and so on in turn, for good: a target the unit let go of is left alone for the rest of the leg
-/// (`orders::travel::march`), so the Guard goes for each once and walks on to its destination.
-#[test]
-fn two_targets_let_go_of_are_not_taken_in_turn() {
-    let mut t = ScenarioBuilder::new(WALLS)
-        .spawn(GUARD, Some(P1), SpawnAt::Point(centre(4, 4))) // 1
-        .spawn(DRONE, Some(P2), SpawnAt::Point(centre(15, 0))) // 2
-        .spawn(DRONE, Some(P2), SpawnAt::Point(centre(15, 8))) // 3
-        .start();
-    let to = centre(29, 4);
-    t.order_at(2, P1, &[id(1)], OrderKind::AttackMove(to), false)
-        .run_until(2);
-    let mut taken = [0, 0];
-    let mut was = None;
-    while !is_idle(&t, 1) {
-        assert!(
-            t.sim().tick() < 1500,
-            "it never got past the Drones: {taken:?}\n{}",
-            t.ascii(None)
-        );
-        t.step();
-        let now = engaged(&t, 1);
-        if now != was
-            && let Some(target) = now
-        {
-            taken[target.0 as usize - 2] += 1;
-        }
-        was = now;
-    }
-    assert_eq!(pos(&t, 1), to, "arrived");
-    assert_eq!(taken, [1, 1], "it went for each once");
-    assert!(attack_ticks(&t, 1).is_empty());
-}
-
 /// Design change 0180, PathReference: "**not** replaced after fights (the walking path is re-planned, the leash line
 /// isn't), so fights can't drag the unit progressively off course". A Guard attack-moves east along y = 200 and goes
 /// after a Peacekeeper that runs south, until it would have to leave the leash, 6 grid units off the route, to
-/// keep after it: it lets go there and walks on from where it stands, by a new path back towards the route. An
-/// unarmed enemy Drone stands a little farther south, in the Guard's sight there but out of its Range, and it could
-/// get into range of it within 6 grid units of that new path, though not of the route: it leaves the Drone alone.
+/// keep after it: it lets go (design change 0230: once the way to a firing position on the Peacekeeper, judged
+/// again for every grid unit it runs, leaves the leash; so up to a grid unit short of the leash) and walks on from
+/// where it stands, by a new path back towards the route. An unarmed enemy Drone stands a little farther south, in
+/// the Guard's sight there but out of its Range, and it could get into range of it within 6 grid units of that new
+/// path, though not of the route: it leaves the Drone alone. The Peacekeeper, still in its sight as it walks back,
+/// isn't taken again: the bait at the leash is taken once.
 #[test]
 fn after_a_fight_the_leash_still_measures_from_the_route_planned_at_the_start() {
     let open = "................................\n".repeat(24);
@@ -174,6 +84,7 @@ fn after_a_fight_the_leash_still_measures_from_the_route_planned_at_the_start() 
     let leash = gu(ATTACK_MOVE_LEASH_GU);
     let mut chased = false;
     let mut let_go = None;
+    let (mut taken, mut was) = (0, false);
     t.run_until(2);
     while !is_idle(&t, 1) {
         assert!(t.sim().tick() < 900, "it never arrives\n{}", t.ascii(None));
@@ -184,7 +95,10 @@ fn after_a_fight_the_leash_still_measures_from_the_route_planned_at_the_start() 
             "tick {}: it went for the Drone",
             t.sim().tick()
         );
-        if engaged(&t, 1) == Some(id(2)) {
+        let now = engaged(&t, 1) == Some(id(2));
+        taken += u32::from(now && !was);
+        was = now;
+        if now {
             chased = true;
         } else if chased && let_go.is_none() {
             let_go = Some((pos(&t, 1), gap(&t, 1, 3)));
@@ -192,7 +106,11 @@ fn after_a_fight_the_leash_still_measures_from_the_route_planned_at_the_start() 
     }
     assert!(chased, "it went for the Peacekeeper");
     let (at, drone_gap) = let_go.expect("and let go of it");
-    assert!(at.y - from.y > leash - 5.0, "at the leash: {at}");
+    assert_eq!(taken, 1, "taken once, not again and again");
+    assert!(
+        at.y - from.y > leash - REJUDGE_MOVE_SU - 5.0 && at.y - from.y <= leash + 5.0,
+        "at the leash: {at}"
+    );
     assert!(
         drone_gap > gu(3.0) && drone_gap <= gu(5.0),
         "the Drone in sight and out of range there: {drone_gap}"

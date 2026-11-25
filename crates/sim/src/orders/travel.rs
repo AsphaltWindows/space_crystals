@@ -3,22 +3,18 @@
 
 use glam::Vec2;
 
-use crate::combat::{inside_min_range, max_range, within_range};
+use crate::combat::{inside_min_range, within_range};
 use crate::defs::AttackAttrs;
 use crate::ids::ObjectId;
 use crate::mover::{MoveGoal, MoveStatus, Mover, PathState};
 use crate::nav::PathGroup;
-use crate::units::gu;
 
+use super::PATROL_FAILED_LEGS;
+use super::PROXIMITY_SU;
 use super::engage::{Closing, close_in};
-use super::state::{Approach, Leg, Patrol, Pursuit};
+use super::reach::{self, Reach, Verdict};
+use super::state::{Approach, Judged, Leg, Patrol, Pursuit};
 use super::world::{Candidate, Known, Scan, Unit, View, World};
-use super::{ATTACK_MOVE_LEASH_GU, GIVE_UP_RETRY_TICKS, PATROL_FAILED_LEGS, PROXIMITY_SU};
-
-/// The most targets one leg leaves alone after letting go of them ([`Leg::dropped`]); beyond it, the oldest goes, and
-/// the unit may take it again. Technical: a unit would have to let go of more enemies than this in turn, on one leg,
-/// to take one of them again.
-pub(super) const MAX_DROPPED: usize = 16;
 
 /// Design change 0139 (`core/vision.md > Explored > Targeting remembered objects`: "The order goes to the object's
 /// **last-known position**"): one tick of a unit's walk to `spot`, the last-known position of an object its owner
@@ -157,28 +153,11 @@ impl Leg {
             planned: false,
             marching: false,
             engaged: None,
-            ignored: None,
             walking: Vec::new(),
             resumed: false,
-            dropped: Vec::new(),
+            rejected: Vec::new(),
+            chase: None,
         }
-    }
-
-    /// Whether the unit leaves `id` alone for now: it gave it up ([`Leg::ignored`]) or let go of it
-    /// ([`Leg::dropped`]).
-    fn leaves_alone(&self, id: ObjectId) -> bool {
-        self.ignored.is_some_and(|(ignored, _)| ignored == id) || self.dropped.contains(&id)
-    }
-
-    /// The unit lets go of `target`, which still lives ([`march`]), for the rest of the leg.
-    fn drop_target(&mut self, target: ObjectId) {
-        if self.dropped.contains(&target) {
-            return;
-        }
-        if self.dropped.len() >= MAX_DROPPED {
-            self.dropped.remove(0);
-        }
-        self.dropped.push(target);
     }
 
     /// Design change 0180, PathReference: what the path of the leg's own move, `mover`'s, makes of the reference
@@ -187,14 +166,15 @@ impl Leg {
     /// "the walking path is re-planned, the leash line isn't"; and a path that then takes the place of the walking
     /// path, while the move goes on, is a re-route: the move found its way blocked (stuck behind units, or an obstacle
     /// its owner didn't know of, `paths`), and the new path, the detour, is the reference from now on ("replaced on a
-    /// blockage re-route"). So is the path a debug teleport makes the unit plan again.
+    /// blockage re-route"). So is the path a debug teleport makes the unit plan again. A new reference undoes the
+    /// rejections judged by the old one ([`Leg::set_reference`], design change 0230).
     fn follow_path(&mut self, mover: &Mover) {
         if mover.path_state != PathState::Ready {
             return;
         }
         let path = &mover.path;
         if !self.planned {
-            self.reference.clone_from(path);
+            self.set_reference(path);
             self.planned = true;
         } else if self.resumed {
             self.walking.clone_from(path);
@@ -206,32 +186,10 @@ impl Leg {
                 &self.walking
             };
             if path != walking {
-                self.reference.clone_from(path);
+                self.set_reference(path);
                 self.walking.clear();
             }
         }
-    }
-}
-
-/// The distance from `p` to the nearest point of the route `route`, a chain of legs.
-fn distance_to_route(p: Vec2, route: &[Vec2]) -> f32 {
-    let to_leg = |a: Vec2, b: Vec2| {
-        let along = b - a;
-        let len2 = along.length_squared();
-        let t = if len2 > 0.0 {
-            ((p - a).dot(along) / len2).clamp(0.0, 1.0)
-        } else {
-            0.0
-        };
-        p.distance(a + along * t)
-    };
-    match route {
-        [] => 0.0,
-        [only] => p.distance(*only),
-        _ => route
-            .windows(2)
-            .map(|leg| to_leg(leg[0], leg[1]))
-            .fold(f32::MAX, f32::min),
     }
 }
 
@@ -240,39 +198,45 @@ fn distance_to_route(p: Vec2, route: &[Vec2]) -> f32 {
 ///
 /// 1. MovingToLocation towards the leg's destination.
 /// 2. While moving, the unit scans for ValidTarget enemies within SightRange ([`World::pick`]) and switches to
-///    AttackingObject on the one it acquires ([`close_in`]): one its weapon reaches from where it stands, wherever
-///    that is, or one it may go after within the leash ([`leashed`]).
+///    AttackingObject on the one it acquires ([`close_in`]), **but only if it is a chase the unit can finish**
+///    (design change 0230, the reach rule, [`acquire`]): an enemy within weapon range is always taken; one out of
+///    range only if the path to a firing position stays within the leash of the PathReference and keeps the target
+///    within the unit's SightRange ([`reach::judge`]). Otherwise the unit doesn't take it and walks on.
 /// 3. While engaged ([`pursue`]; design change 0180, "the leash limits chasing only"): a target within weapon range
 ///    is always fought. Out of range, the unit goes after it only within AttackMoveLeashDistance of the
 ///    PathReference ([`Leg::reference`], [`Leg::follow_path`]); a target it could only reach beyond the leash is
-///    dropped. Dropped, destroyed or no longer a ValidTarget (out of sight: its AttackingObject completes, design
+///    let go. Let go, destroyed or no longer a ValidTarget (out of sight: its AttackingObject completes, design
 ///    change 0200): the unit disengages and resumes MovingToLocation from where it is, with a new walking path; the
 ///    PathReference stays.
-///    **A dropped target is left alone for the rest of the leg** (design change 0204, answering question Q0054,
-///    "for now"): a target the unit let go of at the leash while it still lived is not taken again on this leg
-///    ([`Leg::dropped`]), "unless it comes within weapon range", where it is fought as always.
+///    **There is no memory of the targets it let go** (0230): each "is judged again like any other enemy by the
+///    reach rule in step 2, so it is not re-taken while the chase still can't be finished".
 /// 4. Arrived: the leg is over. `> Failure`: as MovingToLocation.
 ///
-/// Placeholder readings, where the design is silent:
-/// - **A target lost from sight on the way** counts as dropped too, left alone for the rest of the leg (an open
-///   question to the Designer, raised by slice M3-L3). Were it taken again whenever seen, as an enemy not yet
-///   fought, a unit whose way to an enemy at the edge of its sight leads out of that sight would let go, walk on, see
-///   it again, take it again and turn back, for good (the soak's seeds 1, 8 and 29). Taken again after a fixed
-///   while, it would be when the unit had walked on less than the stretch of its route from which it sees the enemy;
-///   and let go of only until it had left the unit's sight, two such enemies would be taken in turn, each chase
-///   taking the unit out of sight of the other (seed 29).
-/// - One the unit can't get to ([`Closing::GaveUp`]) is left alone for [`GIVE_UP_RETRY_TICKS`] ([`Leg::ignored`],
-///   design change 0181: "retries after 32 ticks").
-/// - **A target inside the unit's MinRange** is dropped at once, too close to hit (design change 0182): the scan
+/// Further:
+/// - **A chase the unit gives up** (design change 0235, answering question Q0073: "A chase given up by the Failure
+///   rule puts the enemy in the reach rule's rejected set"; [`Closing::GaveUp`]: its move failed by `>
+///   MovingToLocation > Failure`, "the way is blocked by own units, which the path check can't see", design change
+///   0223; or it stands as near as it gets). The enemy "is judged again only on 0230's change triggers"
+///   (`orders::reach`), and fought as always once within weapon range. It takes the place of the 32-tick retry an
+///   idle unit has (design change 0181), by which units behind their own side in a corridor took the target again
+///   and again and never finished their leg.
+/// - **A target inside the unit's MinRange** is let go at once, too close to hit (design change 0182): the scan
 ///   picks a hittable one instead.
-pub(super) fn march(unit: &mut Unit, leg: &mut Leg, group: Option<PathGroup>, world: &World) -> LegStatus {
+pub(super) fn march(
+    unit: &mut Unit,
+    leg: &mut Leg,
+    group: Option<PathGroup>,
+    world: &World,
+    reach: &mut Reach,
+) -> LegStatus {
     if let Some(mut pursuit) = leg.engaged {
-        if pursue(unit, leg, &mut pursuit, world) {
+        if pursue(unit, leg, &mut pursuit, world, reach) {
             leg.engaged = Some(pursuit);
             return LegStatus::Running;
         }
         unit.engage(None);
         leg.engaged = None;
+        leg.chase = None;
     }
     if !leg.marching {
         unit.mover.go_to(MoveGoal::Point(leg.to), group, world.tick);
@@ -287,27 +251,19 @@ pub(super) fn march(unit: &mut Unit, leg: &mut Leg, group: Option<PathGroup>, wo
         MoveStatus::Failed | MoveStatus::TargetLost | MoveStatus::Idle => return LegStatus::Failed,
     }
     leg.follow_path(unit.mover);
-    let tick = world.tick;
-    leg.ignored = leg.ignored.filter(|&(_, until)| tick < until);
     let Some(attrs) = unit.attrs() else {
         return LegStatus::Running;
     };
-    // Where the unit stands is the same for every candidate: a unit beyond the leash goes after none ([`leashed`]).
-    let on_leash = within_leash(unit.pos, leg);
-    let admit = |c: &Candidate| {
-        c.in_range
-            || (on_leash
-                && !leg.leaves_alone(c.view.id)
-                && within_leash(attack_spot(unit, attrs, c.view, c.gap, world), leg))
-    };
-    if let Some(target) = world.pick(unit, Scan::Sight, false, admit)
-        && let Some(view) = world.get(target)
-    {
-        unit.engage(Some(target));
-        let mut pursuit = Pursuit { target, chasing: false };
+    if let Some((view, chase)) = acquire(unit, attrs, leg, world, reach) {
+        unit.engage(Some(view.id));
+        let mut pursuit = Pursuit {
+            target: view.id,
+            chasing: false,
+        };
         // The leg's own move ends here: the unit stops in range or goes after the target.
         close_in(unit, &mut pursuit.chasing, view, world);
         leg.engaged = Some(pursuit);
+        leg.chase = chase;
         leg.marching = false;
         // An engagement before the path came keeps the straight line as the reference.
         leg.planned = true;
@@ -315,62 +271,111 @@ pub(super) fn march(unit: &mut Unit, leg: &mut Leg, group: Option<PathGroup>, wo
     LegStatus::Running
 }
 
-/// `> AttackMovingToLocation` 3 (design change 0180): one tick of the leg's fight with the target of `pursuit`.
-/// Returns whether the unit keeps it ([`march`]).
-fn pursue(unit: &mut Unit, leg: &mut Leg, pursuit: &mut Pursuit, world: &World) -> bool {
+/// `> AttackMovingToLocation` 2 (design change 0230): the enemy the unit takes this tick, if any, and the judgement
+/// it goes after it by (`None` for one within its weapon range). The candidates are judged in target-priority order
+/// ([`World::pick`]): the best one that is within weapon range, or whose chase the unit can finish, is taken.
+/// - One whose rejection stands ([`Leg::rejects`]), or that the PathReference rules out by itself
+///   ([`reach::near_route`], or the unit standing beyond the leash), is passed over at no cost.
+/// - Any other out of range is judged by a path ([`reach::judge`]), and rejected if the unit can't finish the chase.
+/// - Once the unit's paths for the tick are spent ([`Verdict::Later`]), the candidates not yet judged wait for the
+///   next tick, and the best within weapon range is taken now ("an enemy within weapon range is always taken").
+fn acquire<'w>(
+    unit: &Unit,
+    attrs: &AttackAttrs,
+    leg: &mut Leg,
+    world: &'w World,
+    reach: &mut Reach,
+) -> Option<(&'w View, Option<Judged>)> {
+    let version = world.knowledge_version(unit.owner);
+    let on_leash = reach::within_leash(unit.pos, &leg.reference);
+    loop {
+        let admit = |c: &Candidate| {
+            c.in_range
+                || (on_leash && !leg.rejects(c.view, version) && reach::near_route(unit, attrs, c.view, &leg.reference))
+        };
+        let view = world.get(world.pick(unit, Scan::Sight, false, admit)?)?;
+        if in_range(unit, attrs, view, world) {
+            return Some((view, None));
+        }
+        match reach::judge(unit, attrs, &leg.reference, view, world, reach) {
+            Verdict::Reachable => return Some((view, Some(Judged::of(view, version)))),
+            Verdict::Unreachable => reject(unit, attrs, leg, Judged::of(view, version), world),
+            Verdict::Later => {
+                let id = world.pick(unit, Scan::Sight, false, |c| c.in_range)?;
+                return Some((world.get(id)?, None));
+            }
+        }
+    }
+}
+
+/// Whether the unit's attack reaches `target` from where the unit stands (`combat::within_range`).
+fn in_range(unit: &Unit, attrs: &AttackAttrs, target: &View, world: &World) -> bool {
+    let gap = unit.shape().gap(&target.shape);
+    within_range(attrs, gap, world.elevation(unit), target.elevation)
+}
+
+/// The unit can't finish a chase of the enemy of `judged`: the rejection is kept ([`Leg::reject`]).
+fn reject(unit: &Unit, attrs: &AttackAttrs, leg: &mut Leg, judged: Judged, world: &World) {
+    leg.reject(judged, |judged| {
+        world
+            .get(judged.target)
+            .is_some_and(|t| world.valid_target(unit, attrs, t) && world.within(unit, attrs, Scan::Sight, t))
+    });
+}
+
+/// `> AttackMovingToLocation` 3 (design changes 0180 and 0230): one tick of the leg's fight with the target of
+/// `pursuit`. Returns whether the unit keeps it ([`march`]).
+/// - Within weapon range it is always fought.
+/// - Out of range, the unit goes after it while it stands within the leash itself and the chase is one it can
+///   finish: by the judgement it took the target by ([`Leg::chase`]) while that stands, else by a new one (the
+///   target moved on, the owner's knowledge of the obstacles changed, or the unit had only fought it within range).
+///   A chase it can't finish is a rejection, as in step 2, and so is one it gives up ([`march`]).
+/// - A target that is no longer a ValidTarget (out of the owner's sight, design change 0200) is let go. If the unit
+///   was going after it, that chase was one it couldn't finish without losing sight of the target, whatever its
+///   judgement had made of the path (the judgement measures sight as the scan does, edge to edge, which is a little
+///   farther than the unit's eyes see tiles): the judgement becomes a rejection, where the target stood when it was
+///   judged (never where it is now, out of sight). Seen again, it is judged like any other enemy once it has moved.
+fn pursue(unit: &mut Unit, leg: &mut Leg, pursuit: &mut Pursuit, world: &World, reach: &mut Reach) -> bool {
     let id = pursuit.target;
     // Its Riot Shield is up (it can't attack now), or the target is destroyed.
     let (Some(attrs), Some(target)) = (unit.attrs(), world.get(id)) else {
         return false;
     };
     if !world.valid_target(unit, attrs, target) {
-        // Out of sight, say: the attack completes (design change 0200), and the target counts as dropped (`march`).
-        leg.drop_target(id);
+        if let Some(judged) = leg.chase.filter(|judged| judged.target == id) {
+            reject(unit, attrs, leg, judged, world);
+        }
         return false;
     }
     let gap = unit.shape().gap(&target.shape);
     if inside_min_range(attrs, gap) {
         return false;
     }
+    let version = world.knowledge_version(unit.owner);
     if !within_range(attrs, gap, world.elevation(unit), target.elevation) {
-        // One the unit leaves alone is fought only while in range.
-        if leg.leaves_alone(id) {
-            return false;
-        }
-        if !leashed(unit, attrs, leg, target, gap, world) {
-            leg.drop_target(id);
+        if !leg.chase.is_some_and(|judged| judged.stands(target, version)) {
+            match reach::judge(unit, attrs, &leg.reference, target, world, reach) {
+                Verdict::Reachable => leg.chase = Some(Judged::of(target, version)),
+                Verdict::Unreachable => {
+                    reject(unit, attrs, leg, Judged::of(target, version), world);
+                    return false;
+                }
+                // No path to judge by this tick: the chase goes on as it was.
+                Verdict::Later => {}
+            }
+        } else if !reach::within_leash(unit.pos, &leg.reference) {
+            // The chase took it beyond the leash after all (pushed aside, or after a target that crept on).
+            reject(unit, attrs, leg, Judged::of(target, version), world);
             return false;
         }
     }
     match close_in(unit, &mut pursuit.chasing, target, world) {
         Closing::InRange | Closing::Approaching => true,
         Closing::GaveUp => {
-            leg.ignored = Some((id, world.tick.saturating_add(GIVE_UP_RETRY_TICKS)));
+            reject(unit, attrs, leg, Judged::of(target, version), world);
             false
         }
     }
-}
-
-/// Design change 0180 (`> AttackMovingToLocation` 3: "The unit does not move to chase a target if that would take it
-/// beyond AttackMoveLeashDistance (perpendicular distance from PathReference)"): whether the unit may go after
-/// `target`, `gap` away and out of its weapon range, within the leash: it stands within it, and so does the spot it
-/// would attack from. That spot is an estimate: `gap` less the Range (with the ElevationModifier) along the straight
-/// line to the target. The gap shrinks no faster than the unit walks and a path may bend, so the unit may have to go
-/// a little farther; once it stands beyond the leash, it lets go ([`pursue`]).
-fn leashed(unit: &Unit, attrs: &AttackAttrs, leg: &Leg, target: &View, gap: f32, world: &World) -> bool {
-    within_leash(unit.pos, leg) && within_leash(attack_spot(unit, attrs, target, gap, world), leg)
-}
-
-/// Where `unit` would attack `target` from, `gap` away, by the estimate of [`leashed`].
-fn attack_spot(unit: &Unit, attrs: &AttackAttrs, target: &View, gap: f32, world: &World) -> Vec2 {
-    let reach = max_range(attrs, world.elevation(unit), target.elevation);
-    let toward = (target.pos - unit.pos).normalize_or_zero();
-    unit.pos + toward * (gap - reach).max(0.0)
-}
-
-/// Whether `p` is within AttackMoveLeashDistance of the leg's PathReference.
-fn within_leash(p: Vec2, leg: &Leg) -> bool {
-    distance_to_route(p, &leg.reference) <= gu(ATTACK_MOVE_LEASH_GU)
 }
 
 /// `> Patrolling`: one tick. Returns whether the Patrol is over.
@@ -379,13 +384,15 @@ fn within_leash(p: Vec2, leg: &Leg) -> bool {
 /// executing (design change 0036), and the PatrolDestination, and never completes on its own, except by `> Failed
 /// legs` (design change 0037): a leg that fails counts as arrived and the unit turns around; after
 /// [`PATROL_FAILED_LEGS`] failed legs in a row the Patrol ends and the unit goes idle. Unreachable or crowded
-/// endpoints end a leg as arrived, and fighting on the way isn't a failure.
-pub(super) fn patrol(unit: &mut Unit, state: &mut Patrol, group: PathGroup, world: &World) -> bool {
+/// endpoints end a leg as arrived, and fighting on the way isn't a failure. Each leg takes its targets by
+/// AttackMove's reach rule (design change 0230: "and Patrol, which uses AttackMove's scanning"), and starts with no
+/// rejections of the leg before.
+pub(super) fn patrol(unit: &mut Unit, state: &mut Patrol, group: PathGroup, world: &World, reach: &mut Reach) -> bool {
     // A leg that ends starts the next one in the same tick.
     for _ in 0..2 {
         // The way back is each unit's own: the group's path field is anchored on the destination's click.
         let group = state.outbound.then_some(group);
-        match march(unit, &mut state.leg, group, world) {
+        match march(unit, &mut state.leg, group, world, reach) {
             LegStatus::Running => return false,
             LegStatus::Arrived => state.failed_legs = 0,
             LegStatus::Failed => {
@@ -404,25 +411,4 @@ pub(super) fn patrol(unit: &mut Unit, state: &mut Patrol, group: PathGroup, worl
         state.leg = Leg::new(unit.pos, to);
     }
     false
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn the_leash_is_measured_to_the_nearest_point_of_the_route() {
-        let route = [Vec2::ZERO, Vec2::new(100.0, 0.0), Vec2::new(100.0, 100.0)];
-        assert_eq!(distance_to_route(Vec2::new(50.0, 30.0), &route), 30.0);
-        assert_eq!(distance_to_route(Vec2::new(130.0, 50.0), &route), 30.0);
-        assert_eq!(
-            distance_to_route(Vec2::new(-30.0, -40.0), &route),
-            50.0,
-            "before its start"
-        );
-        assert_eq!(distance_to_route(Vec2::new(100.0, 110.0), &route), 10.0, "past its end");
-        assert_eq!(distance_to_route(Vec2::new(3.0, 4.0), &[Vec2::ZERO]), 5.0);
-        assert_eq!(distance_to_route(Vec2::new(3.0, 4.0), &[Vec2::ZERO, Vec2::ZERO]), 5.0);
-        assert_eq!(distance_to_route(Vec2::ONE, &[]), 0.0);
-    }
 }

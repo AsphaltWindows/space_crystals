@@ -40,6 +40,7 @@ use crate::map::Map;
 use crate::movement;
 use crate::nav::{self, BlockerKind, Nav, NavClass, NavCounters, NavGrid, NavRules, Search, TileRect};
 use crate::object::{Object, Placement};
+use crate::orders::reach::Reach;
 use crate::units::SU_PER_GU;
 use crate::vision::Vision;
 
@@ -76,6 +77,8 @@ pub(crate) struct NavState {
     rebuilds: u32,
     /// The scratch of phase 5d (`movement::step`): spatial grids, rebuilt every tick.
     moves: movement::Scratch,
+    /// The scratch and the counters of AttackMove's reach rule in phase 5a (`orders::reach`, design change 0230).
+    reach: Reach,
 }
 
 impl NavState {
@@ -90,6 +93,7 @@ impl NavState {
             counters: NavCounters::default(),
             rebuilds: 0,
             moves: movement::Scratch::default(),
+            reach: Reach::default(),
         }
     }
 
@@ -130,6 +134,7 @@ impl NavState {
             counters: NavCounters::default(),
             rebuilds: 0,
             moves: movement::Scratch::default(),
+            reach: Reach::default(),
         }
     }
 
@@ -162,7 +167,13 @@ impl NavState {
     /// The index into [`navs`] of the grids a unit of `owner` at `pos` plans on, and its grid there.
     /// A unit standing on a tile that its owner's knowledge blocks (possible only by a debug teleport onto a
     /// remembered footprint that is gone) plans on the true grid until it has seen where it stands.
-    fn plan_grid(&self, owner: Option<PlayerId>, class: NavClass, size: u8, pos: Vec2) -> Option<(usize, &NavGrid)> {
+    pub(crate) fn plan_grid(
+        &self,
+        owner: Option<PlayerId>,
+        class: NavClass,
+        size: u8,
+        pos: Vec2,
+    ) -> Option<(usize, &NavGrid)> {
         let truth = (0, self.nav.grid(class, size)?);
         let Some(player) = owner else {
             return Some(truth);
@@ -183,6 +194,21 @@ impl NavState {
             }
         }
         Some(truth)
+    }
+
+    /// The scratch of the reach rule, for phase 5a, which reads the grids meanwhile: [`NavState::put_reach`] brings
+    /// it back.
+    pub(crate) fn take_reach(&mut self) -> Reach {
+        std::mem::take(&mut self.reach)
+    }
+
+    pub(crate) fn put_reach(&mut self, reach: Reach) {
+        self.reach = reach;
+    }
+
+    /// The work of the reach rule in the latest phase 5a.
+    pub(crate) fn reach_counters(&self) -> crate::orders::ReachCounters {
+        self.reach.counters()
     }
 
     /// The true grids, and the scratch of the movement step that reads them.
@@ -277,6 +303,7 @@ impl Clone for NavState {
             counters: self.counters,
             rebuilds: self.rebuilds,
             moves: movement::Scratch::default(),
+            reach: Reach::default(),
         }
     }
 }

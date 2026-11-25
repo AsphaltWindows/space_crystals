@@ -8,8 +8,10 @@
 //! - **within 3 grid units**, out of range (melee units behind the front rank), the approach counts as arrived, and
 //!   the unit gives the target up (0223 point 1, as built).
 //!
-//! Either way, the unit then takes the target again by itself (`> BaseAutoTargeting > Unreachable auto-targets`,
-//! design change 0181), and fires once it is in range.
+//! An idle unit then takes the target again by itself after 32 ticks (`> BaseAutoTargeting > Unreachable
+//! auto-targets`, design change 0181), and fires once it is in range. An AttackMove treats the chase it gave up as
+//! one it can't finish (design change 0235, slice M3-L4): it walks on along its leg, and takes the target again only
+//! within weapon range, or once it has moved or the known obstacles have changed (`orders::reach`).
 //!
 //! The rewrites of slice M3-G2's tests of a unit with no room (`in_a_corridor_the_units_behind_wait_without_moving_
 //! or_planning` and `in_a_narrow_passage_the_second_row_waits`) are here, as the tests of the same scenes under
@@ -73,8 +75,7 @@ impl Story {
             .collect()
     }
 
-    /// The ticks it took the building up by itself after giving it up: with no order (an Attack's unit, idle, can
-    /// take it up in the very tick its order completes), or on its AttackMove.
+    /// The ticks it took the building up by itself after giving it up: with no order (idle), or on its AttackMove.
     fn took_it_again(&self) -> Vec<Tick> {
         let Some(&first) = self.gave_up().first() else {
             return Vec::new();
@@ -181,10 +182,10 @@ fn in_corridor(map: &str, kind: ObjectKind, n: u32, (x, y): (f32, f32), spacing:
 ///
 /// The first stops in range and fires; the three behind it can't get past it (`CORRIDOR`). Each of them gives up
 /// by the Failure rule, its Attack completing in the next tick, and is idle from then on: until 0223 it kept its
-/// order and waited behind the first for as long as the building stood. The first unit leaves (it is removed in
-/// tick 301): the idle three walk up and fire, with no order. Measured: the Attacks ended in ticks 102, 117 and
-/// 198 (the last of them got on a little while those ahead closed up, until tick 117), and the three fired 7 to
-/// 19 ticks after the first unit left.
+/// order and waited behind the first for as long as the building stood. Idle, it leaves the target it gave up alone
+/// for `GIVE_UP_RETRY_TICKS` (design change 0181; slice M3-L4: until then it took it up again in the very tick its
+/// Attack completed) and then goes for it again by itself, and gives it up again the same way. The first unit leaves
+/// (it is removed in tick 301): the idle three walk up and fire, with no order, each once its next try has come.
 #[test]
 fn four_peacekeepers_attack_down_a_corridor_and_the_ones_behind_give_up() {
     let mut t = in_corridor(CORRIDOR, PK, 4, (540.0, 224.0), 40.0, OrderKind::Attack(id(1)));
@@ -217,8 +218,14 @@ fn four_peacekeepers_attack_down_a_corridor_and_the_ones_behind_give_up() {
                 .all(|&(tick, ordered, _)| !ordered || tick < story.order_ended().unwrap()),
             "#{unit} stays idle: {story:?}"
         );
+        let ended = story.order_ended().unwrap();
+        assert_eq!(
+            story.took_it_again().first().copied(),
+            Some(ended + GIVE_UP_RETRY_TICKS),
+            "#{unit} takes it up again by itself 32 ticks after it gave it up: {story:?}"
+        );
         assert!(
-            matches!(story.shots.first(), Some(&(tick, false)) if tick < gone + 40),
+            matches!(story.shots.first(), Some(&(tick, false)) if tick > gone),
             "#{unit} fires by itself once there is room: {story:?}"
         );
     }
@@ -229,20 +236,17 @@ fn four_peacekeepers_attack_down_a_corridor_and_the_ones_behind_give_up() {
 /// past it. Each of them now gives up its chase by the Failure rule, the movement's part of 0223, which this test
 /// is about: no indefinite wait in the mover.
 ///
-/// **What an AttackMove then does is pinned as built, and is slice M3-L4's to change** (design change 0230, which
-/// takes the place of 0204's "left alone for the rest of the leg"): AttackMove's target taking leaves the building
-/// alone for `GIVE_UP_RETRY_TICKS` (`orders::travel::pursue`, design change 0181), the unit walks on meanwhile, and
-/// takes it up again, so that while the first unit stands the ones behind give up every 116 ticks or so, and their
-/// AttackMove never ends. Under design change 0235 (answering question Q0073) a chase given up by the Failure rule
-/// puts the enemy in 0230's rejected set, judged again only on 0230's change triggers, and its Verification is this
-/// scene: "The rear ones give up once (about 7 s), walk on, and don't turn back while the front one still fires."
-/// Whichever of M3-G3 and M3-L4 lands second updates this test.
+/// **What an AttackMove then does** (design change 0235, answering question Q0073; slice M3-L4, `orders::reach`):
+/// "A chase given up by the Failure rule puts the enemy in the reach rule's rejected set", and 0235's Verification
+/// is this scene: "The rear ones give up once (about 7 s), walk on, and don't turn back while the front one still
+/// fires." Each unit behind gives the building up once, on its AttackMove, and never takes it up again on it; it
+/// walks on along its leg, which is blocked by the first unit too, so that its AttackMove ends by the Failure rule
+/// in its turn. (Until 0235 it took the building up again after `GIVE_UP_RETRY_TICKS`, a lap of 116 ticks, and its
+/// AttackMove never ended.) Idle then, it tries for the building by itself every 32 ticks or so (design change 0181).
 ///
 /// And as in M3-G2's test they stay calm: once they have closed up (by tick 200), they don't step to and fro along
-/// the corridor, only sideways across it, and they plan few paths: 15 and 24 in 400 ticks (about two to a lap, the
-/// walk on and the chase taken up again; their attempts at a way round ask for none), where the bound is one a
-/// second for each of them. When the first unit leaves (removed in tick 601), the next walks up and fires, on its
-/// AttackMove (measured: in tick 613, and 608 for the Peacekeepers).
+/// the corridor, only sideways across it, and they plan few paths, where the bound is one a second for each of
+/// them. When the first unit leaves (removed in tick 601), the next walks up and fires.
 #[test]
 fn in_a_corridor_the_units_behind_give_up_the_chase() {
     let order = OrderKind::AttackMove(Vec2::new(280.0, 224.0));
@@ -256,7 +260,14 @@ fn in_a_corridor_the_units_behind_give_up_the_chase() {
             let next = t.sim().tick() + 1;
             planned += watch(&mut t, &mut stories, next);
             let now: Vec<f32> = (FIRST..FIRST + n).map(|unit| t.pos(unit).x).collect();
-            assert_eq!(now, closed_up, "{kind:?}: tick {}\n{}", t.sim().tick(), t.ascii(None));
+            // Within a Peacekeeper's width: once their AttackMoves have ended they are idle, and an idle unit steps
+            // aside for one that tries for the building (`docs/movement.md > 6.6`).
+            assert!(
+                now.iter().zip(&closed_up).all(|(now, then)| (now - then).abs() < 24.0),
+                "{kind:?}: tick {}: {now:?} {closed_up:?}\n{}",
+                t.sim().tick(),
+                t.ascii(None)
+            );
         }
         assert!(planned < 400 / 16 * (n - 1), "{kind:?}: {planned} paths in 400 ticks");
         let front = &stories[0];
@@ -274,23 +285,26 @@ fn in_a_corridor_the_units_behind_give_up_the_chase() {
             let gave_up = story.gave_up();
             let failed: Vec<Tick> = story.failed.iter().map(|&(tick, ..)| tick + 1).collect();
             assert!(
-                gave_up.first().is_some_and(|&first| first < 200) && gave_up == failed,
-                "{kind:?}: #{unit} gives up each chase as its move fails, the first by tick 200: {story:?}"
+                gave_up.len() == 1 && gave_up[0] < 200 && failed.first() == Some(&gave_up[0]),
+                "{kind:?}: #{unit} gives up its chase once, as its move fails, by tick 200: {story:?}"
             );
-            // As built (`GIVE_UP_RETRY_TICKS`), until slice M3-L4.
-            let again: Vec<Tick> = (gave_up.iter())
-                .map(|&tick| tick + GIVE_UP_RETRY_TICKS)
-                .filter(|&tick| tick <= 600)
-                .collect();
-            assert_eq!(story.took_it_again(), again, "{kind:?}: #{unit}: {story:?}");
-            assert_eq!(story.order_ended(), None, "{kind:?}: #{unit}: {story:?}");
+            // 0235: on its AttackMove it never takes the building up again; the AttackMove ends.
+            let on_its_order =
+                (story.flips.iter()).filter(|&&(tick, ordered, engaged)| ordered && engaged && tick >= gave_up[0]);
+            assert_eq!(on_its_order.count(), 0, "{kind:?}: #{unit}: {story:?}");
+            assert!(
+                story
+                    .order_ended()
+                    .is_some_and(|ended| ended > gave_up[0] && ended < 400),
+                "{kind:?}: #{unit}'s AttackMove ends: {story:?}"
+            );
         }
         t.debug_at(601, DebugCommand::Remove { id: id(FIRST) });
         watch(&mut t, &mut stories, 700);
         let next = &stories[1];
         assert!(
-            matches!(next.shots.first(), Some(&(tick, true)) if tick < 680),
-            "{kind:?}: the next one walks up and fires, on its AttackMove: {next:?}"
+            matches!(next.shots.first(), Some(&(tick, false)) if tick < 700),
+            "{kind:?}: the next one walks up and fires, by itself: {next:?}"
         );
     }
 }
@@ -351,9 +365,11 @@ fn sabres(formation: Formation, spacing: f32, y: f32, attack: bool) -> TestSim {
 /// **0223's Verification**: "Eight Sabre Legionnaires on a Deployment Center: the blocked ones give up, then
 /// re-acquire on their own." (0223 point 1, as built.) Under an Attack and an AttackMove, in three layouts. The
 /// front rank strikes; the Sabres behind it, within 3 grid units of the building and out of range, give it up (an
-/// Attack completes; an AttackMove walks on), and each of them takes it up again by itself before the building
-/// falls (in ticks 214 to 323). None of them waits behind the others ([`assert_failure_rule`]). Measured: two to
-/// four in each layout gave up, between ticks 54 and 241.
+/// Attack completes; an AttackMove walks on). Idle after an Attack, each of them takes it up again by itself
+/// before the building falls. On an AttackMove the chase given up is one the unit can't finish (design change 0235:
+/// "an AttackMove treats it as a failed chase"): it walks on along its leg, and engages the building again on its
+/// order only where it strikes it, within weapon range. None of them waits behind the others
+/// ([`assert_failure_rule`]).
 #[test]
 fn eight_sabres_on_a_deployment_center_give_up_and_take_it_up_again() {
     for attack in [true, false] {
@@ -378,10 +394,21 @@ fn eight_sabres_on_a_deployment_center_give_up_and_take_it_up_again() {
                     continue;
                 }
                 blocked += 1;
-                assert!(
-                    !story.took_it_again().is_empty(),
-                    "{layout}: #{unit} doesn't take it up again: {story:?}"
-                );
+                if attack {
+                    assert!(
+                        !story.took_it_again().is_empty(),
+                        "{layout}: #{unit} doesn't take it up again: {story:?}"
+                    );
+                } else {
+                    let gave_up = story.gave_up()[0];
+                    let on_its_order = (story.flips.iter())
+                        .filter(|&&(tick, ordered, engaged)| ordered && engaged && tick >= gave_up)
+                        .count();
+                    assert!(
+                        on_its_order == 0 || !story.shots.is_empty(),
+                        "{layout}: #{unit} takes it up again out of its reach: {story:?}"
+                    );
+                }
             }
             assert!(blocked >= 2, "{layout}: {blocked} gave up");
         }

@@ -4,6 +4,7 @@
 //! BaseAutoTargeting` and `systems/combat.md > ValidTarget`, and what the workers' scans read ([`gathering`]).
 
 mod gathering;
+mod planning;
 
 use std::collections::BTreeMap;
 
@@ -19,6 +20,7 @@ use crate::math;
 use crate::mover::Mover;
 use crate::object::{Object, ResourceState};
 use crate::paths::NavState;
+use crate::paths::knowledge::PathKnowledge;
 use crate::shape::Shape;
 use crate::targets::{self, Live, TargetView};
 use crate::units::{SU_PER_GU, Tick, gu};
@@ -138,8 +140,6 @@ pub(crate) enum Scan {
 /// A ValidTarget within the reach of a scan, as the scan's own filter sees it ([`World::pick`]).
 pub(crate) struct Candidate<'v> {
     pub view: &'v View,
-    /// The gap between the unit's shape and the target's, space units (`systems/combat.md > Range Measurement`).
-    pub gap: f32,
     /// The unit's attack reaches it from where the unit stands: within Range, beyond MinRange
     /// (`combat::within_range`).
     pub in_range: bool,
@@ -184,6 +184,9 @@ pub(crate) struct World<'a> {
     nav: &'a NavState,
     /// The patches, the drop-offs and who mines and waits where ([`gathering`]).
     gathering: Gathering,
+    /// What each player knows of the obstacles, for the versions ([`planning`]).
+    knowledge: Option<&'a PathKnowledge>,
+    nav_version: u32,
 }
 
 impl<'a> World<'a> {
@@ -229,6 +232,8 @@ impl<'a> World<'a> {
             cells_high,
             nav,
             gathering: Gathering::new(objects),
+            knowledge: None,
+            nav_version: 0,
         };
         // A counting sort by cell keeps the id order within each cell.
         let is_candidate = |v: &View| v.destructible && v.owner.is_some();
@@ -412,7 +417,7 @@ impl<'a> World<'a> {
                         continue;
                     }
                     let in_range = within_range(attrs, gap, source, view.elevation);
-                    if !admit(&Candidate { view, gap, in_range }) {
+                    if !admit(&Candidate { view, in_range }) {
                         continue;
                     }
                     let harmless = !view.threat.is_some_and(|threat| domain_allows(threat, my_domain));

@@ -111,7 +111,11 @@ impl Search {
     /// component is exhausted (Dijkstra); towards [`Aim::Targets`] the heuristic is the octile distance to the
     /// targets' rectangle, and it stops when every target is expanded. Each heuristic is consistent, so an
     /// expanded node has its final cost and parent. Returns whether it stopped at what it aimed for.
-    fn run(&mut self, grid: &NavGrid, start: u32, aim: Aim) -> bool {
+    ///
+    /// `limit`: the search gives up at the first node whose `f` is beyond it. Nodes come off the heap by ascending
+    /// `f`, and `f` never exceeds the cost of the cheapest path, so it gives up exactly when that path costs more
+    /// than `limit`, having expanded what the unlimited search expands up to there.
+    fn run(&mut self, grid: &NavGrid, start: u32, aim: Aim, limit: u32) -> bool {
         let (w, h) = (grid.width() as i32, grid.height() as i32);
         let generation = self.generation;
         let goal = match aim {
@@ -145,6 +149,9 @@ impl Search {
             // A stale entry: the node was expanded already, or was pushed again with a lower cost.
             if node.closed == generation || f - node_h != node.g {
                 continue;
+            }
+            if f > limit {
+                return false;
             }
             self.nodes[index as usize].closed = generation;
             self.counters.expansions += 1;
@@ -221,6 +228,20 @@ impl Search {
     /// component, or the goal is an avoid tile. Otherwise only avoid tiles can make it fail
     /// (`docs/movement.md > 5.3`); callers retarget an unreachable goal first ([`NavGrid::nearest_in_component`]).
     pub fn astar(&mut self, grid: &NavGrid, start: TilePos, goal: TilePos, avoid: &[TilePos]) -> Option<TilePath> {
+        self.astar_within(grid, start, goal, avoid, u32::MAX)
+    }
+
+    /// [`Search::astar`] that gives up, with `None`, once the cheapest path is known to cost more than `max_cost`
+    /// ([`STEP_COST`] per orthogonal step): the same search up to there, so a path it returns is the one
+    /// [`Search::astar`] returns. It expands only tiles through which a path of at most `max_cost` could lead.
+    pub fn astar_within(
+        &mut self,
+        grid: &NavGrid,
+        start: TilePos,
+        goal: TilePos,
+        avoid: &[TilePos],
+        max_cost: u32,
+    ) -> Option<TilePath> {
         let (start, goal) = (grid.index(start)?, grid.index(goal)?);
         if grid.blocked_at(start) || grid.component_at(start) != grid.component_at(goal) {
             return None;
@@ -233,7 +254,7 @@ impl Search {
         }
         self.counters.searches += 1;
         self.begin((grid.width() * grid.height()) as usize);
-        if !self.run(grid, start, Aim::Tile(goal)) {
+        if !self.run(grid, start, Aim::Tile(goal), max_cost) {
             return None;
         }
         let mut path = self.chain(grid, goal);
@@ -251,7 +272,7 @@ impl Search {
         self.avoid.clear();
         self.counters.fields += 1;
         self.begin((grid.width() * grid.height()) as usize);
-        self.run(grid, anchor, Aim::Everything);
+        self.run(grid, anchor, Aim::Everything, u32::MAX);
         self.field = Some((anchor, grid.width(), grid.height()));
         true
     }
@@ -293,7 +314,7 @@ impl Search {
         } else {
             Aim::Targets { x0, y0, x1, y1, left }
         };
-        self.run(grid, anchor, aim);
+        self.run(grid, anchor, aim, u32::MAX);
         self.field = Some((anchor, grid.width(), grid.height()));
         true
     }

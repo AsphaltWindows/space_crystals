@@ -382,8 +382,8 @@ fn units_fighting_under_random_orders_keep_the_invariants() {
     let (mut acquired, mut checked) = (0, 0);
     // Seed 1 ran into an AttackMove that never ended (after design change 0168): a unit acquired an enemy at the edge
     // of its owner's sight, its path to it led out of that sight, so it disengaged, walked back and acquired it again,
-    // every other tick. A target the unit let go of is now left alone for the rest of the leg (`orders::travel::march`;
-    // `tests/attack_move_leash.rs` has the loop on its own, and with two targets taken in turn, seed 29's).
+    // every other tick. Such an enemy is no longer taken at all (design change 0230, the reach rule, `orders::reach`;
+    // `tests/attack_move_reach.rs` has the scene on its own, and with two such targets, seed 29's).
     for seed in [1, 2, 3, 4] {
         let run = soak(seed);
         check(seed, &run);

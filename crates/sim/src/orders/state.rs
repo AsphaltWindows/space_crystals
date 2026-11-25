@@ -99,8 +99,8 @@ fn is_false(b: &bool) -> bool {
 /// `> AttackMovingToLocation`: one leg towards a point, engaging enemies on the way. An AttackMove order is one
 /// leg; a Patrol is one after another.
 ///
-/// The fields M3-L2 added (`walking`, `resumed`, `dropped`) are left out of files while they are unset, and out of
-/// the hash ([`hash`]), as [`AttackOrder`]'s.
+/// The fields M3-L2 and M3-L4 added (`walking`, `resumed`, `rejected`, `chase`) are left out of files while they are
+/// unset, and out of the hash ([`hash`]), as [`AttackOrder`]'s.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct Leg {
     /// TargetLocation: this unit's own destination.
@@ -115,8 +115,6 @@ pub struct Leg {
     pub marching: bool,
     /// CurrentTarget.
     pub engaged: Option<Pursuit>,
-    /// A target the unit gave up on (`> BaseAutoTargeting > Unreachable auto-targets`, design change 0181).
-    pub ignored: Ignored,
     /// Design change 0180: the path of the leg's own move while that isn't `reference`: the one planned after a fight,
     /// which doesn't replace the reference. Empty while the move's path is the reference, or has yet to come.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
@@ -124,11 +122,27 @@ pub struct Leg {
     /// The leg's own move was given again after a fight, and its path is yet to come: it will be `walking`.
     #[serde(default, skip_serializing_if = "is_false")]
     pub resumed: bool,
-    /// The targets the unit let go of while they still lived (out of reach within the leash, or lost from sight on
-    /// the way), oldest first, at most `orders::travel::MAX_DROPPED`. It leaves them alone for the rest of the leg,
-    /// but within weapon range (`orders::travel::march`).
+    /// Design change 0230, the reach rule (`orders::reach`): the enemies judged out of the unit's reach on this leg,
+    /// by ascending id, at most `orders::reach::MAX_REJECTED`. Not a memory of them: each stands only while nothing
+    /// its judgement depends on has changed, and saves judging the enemy again meanwhile.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub dropped: Vec<ObjectId>,
+    pub rejected: Vec<Judged>,
+    /// The judgement by which the unit goes after `engaged`, out of its weapon range: it is judged again once it
+    /// no longer stands (`orders::travel::march`). `None` while the unit has only fought it within range.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub chase: Option<Judged>,
+}
+
+/// Design change 0230: what a judgement of an enemy by AttackMove's reach rule depended on, besides the leg's
+/// PathReference (`orders::reach`).
+#[derive(Copy, Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct Judged {
+    pub target: ObjectId,
+    /// Where the enemy stood.
+    pub at: Vec2,
+    /// The version of what the unit's owner knew of the obstacles (`PlayerKnowledge::version`; the sim's
+    /// `nav_version` for a unit without an owner).
+    pub knowledge: u32,
 }
 
 /// `> Patrolling`.
@@ -246,17 +260,19 @@ pub enum Behaviour {
 impl Leg {
     /// The object ids the leg refers to.
     fn targets(&self) -> impl Iterator<Item = ObjectId> + '_ {
-        let ignored = self.ignored.iter().map(|&(id, _)| id);
-        let dropped = self.dropped.iter().copied();
-        (self.engaged.iter().map(|p| p.target)).chain(ignored).chain(dropped)
+        let rejected = self.rejected.iter().map(|judged| judged.target);
+        let chase = self.chase.iter().map(|judged| judged.target);
+        (self.engaged.iter().map(|p| p.target)).chain(rejected).chain(chase)
     }
 
     fn forget(&mut self, is_gone: &impl Fn(ObjectId) -> bool) {
         if self.engaged.is_some_and(|p| is_gone(p.target)) {
             self.engaged = None;
         }
-        forget_ignored(&mut self.ignored, is_gone);
-        self.dropped.retain(|&dropped| !is_gone(dropped));
+        self.rejected.retain(|judged| !is_gone(judged.target));
+        if self.chase.is_some_and(|judged| is_gone(judged.target)) {
+            self.chase = None;
+        }
     }
 }
 

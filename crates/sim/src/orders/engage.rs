@@ -110,8 +110,13 @@ pub(super) fn close_in(unit: &mut Unit, chasing: &mut bool, target: &View, world
 ///   as above.
 /// - **A target inside the unit's MinRange** (design change 0182): the unit backs off, or the order fails
 ///   ([`too_close`]).
-/// - `> Failure`: the approach gave up ([`Closing::GaveUp`]).
-pub(super) fn attack(unit: &mut Unit, id: ObjectId, state: &mut AttackOrder, world: &World) -> bool {
+/// - `> Failure`: the approach gave up ([`Closing::GaveUp`]), and the order completes (design change 0223). **The
+///   target it gave up waits for the idle unit too** (`auto`; design change 0181, `> BaseAutoTargeting > Unreachable
+///   auto-targets`: "gives up by the give-up rule, and retries after 32 ticks"; question Q0057: the idle unit "takes
+///   the target again by itself after 32 ticks"): idle from this tick on, the unit doesn't acquire that target for
+///   [`GIVE_UP_RETRY_TICKS`], as if its own auto-targeting had given it up, instead of setting off for it again in
+///   the tick its Attack ends. A queued order that starts instead resets it (`orders::update`).
+pub(super) fn attack(unit: &mut Unit, id: ObjectId, state: &mut AttackOrder, auto: &mut Auto, world: &World) -> bool {
     let target = match world.known(unit.owner, id) {
         Known::Seen(target) => target,
         Known::Remembered { position } if !state.seen => {
@@ -155,6 +160,9 @@ pub(super) fn attack(unit: &mut Unit, id: ObjectId, state: &mut AttackOrder, wor
         Closing::InRange | Closing::Approaching => false,
         Closing::GaveUp => {
             unit.engage(None);
+            *auto = Auto::Watching {
+                ignored: Some((id, world.tick.saturating_add(GIVE_UP_RETRY_TICKS))),
+            };
             true
         }
     }

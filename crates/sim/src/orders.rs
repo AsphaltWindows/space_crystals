@@ -23,6 +23,7 @@ mod deploy;
 pub(crate) mod destinations;
 mod engage;
 pub(crate) mod gather;
+pub(crate) mod reach;
 pub mod resolution;
 pub mod state;
 mod travel;
@@ -41,6 +42,8 @@ use crate::object::Object;
 use crate::units::{Tick, TilePos};
 use crate::{combat, conversion, riot_shield};
 
+use reach::Reach;
+pub use reach::{JUDGE_PATHS_PER_TICK, MAX_REJECTED, REJUDGE_MOVE_SU, ReachCounters};
 use state::{Approach, AttackOrder, Leg, Patrol};
 pub use state::{Auto, Behaviour};
 use world::{Unit, World};
@@ -70,8 +73,9 @@ pub const PROXIMITY_SU: f32 = 8.0;
 /// end a Patrol.
 pub const PATROL_FAILED_LEGS: u8 = 2;
 
-/// A unit that acquired an enemy by itself (idle, or on an AttackMove or Patrol) and couldn't get to it doesn't
-/// acquire that same enemy again for this many ticks, so that it doesn't set off for it again every tick:
+/// An idle unit that acquired an enemy by itself and couldn't get to it doesn't acquire that same enemy again for this
+/// many ticks, so that it doesn't set off for it again every tick (on an AttackMove or a Patrol, a chase given up is a
+/// rejection by the reach rule instead: `reach`, design change 0230):
 /// `systems/controls/behaviors.md > BaseAutoTargeting > Unreachable auto-targets` (design change 0181, "for now":
 /// approach, give up, retry after 32 ticks). 2 s.
 pub const GIVE_UP_RETRY_TICKS: Tick = 32;
@@ -244,7 +248,8 @@ impl Orders {
 /// (`AttackState::target`), and read `Mover::status`, which phase 5d set last tick. Everything they read of other
 /// objects comes from one snapshot, `world`, taken from `objects` just before: the positions the last tick left and
 /// the vision of its phase 5f.
-pub(crate) fn update(objects: &mut BTreeMap<ObjectId, Object>, first_new: ObjectId, world: &World) {
+pub(crate) fn update(objects: &mut BTreeMap<ObjectId, Object>, first_new: ObjectId, world: &World, reach: &mut Reach) {
+    reach.begin_tick();
     // `factions/colonists/units.md > Drone > Patch Occupancy (one Drone per patch)`: in id order within the tick.
     let mut claims = gather::Claims::default();
     for o in objects.range_mut(..first_new).map(|(_, o)| o) {
@@ -267,15 +272,16 @@ pub(crate) fn update(objects: &mut BTreeMap<ObjectId, Object>, first_new: Object
             converting,
             worker: o.worker.as_mut(),
         };
-        update_unit(orders, &mut unit, world, &mut claims);
+        reach.begin_unit();
+        update_unit(orders, &mut unit, world, &mut claims, reach);
     }
 }
 
-fn update_unit(orders: &mut Orders, unit: &mut Unit, world: &World, claims: &mut gather::Claims) {
+fn update_unit(orders: &mut Orders, unit: &mut Unit, world: &World, claims: &mut gather::Claims, reach: &mut Reach) {
     // Each pass completes an order or starts one from the queue, which is bounded, so this ends.
     loop {
         if let Some(active) = &mut orders.current {
-            if !run(active, unit, world, claims) {
+            if !run(active, &mut orders.auto, unit, world, claims, reach) {
                 return;
             }
             orders.current = None;
@@ -356,7 +362,16 @@ fn start(order: &Order, unit: &mut Unit, world: &World) -> Behaviour {
 }
 
 /// One tick of the current order's behaviour. Returns whether it is complete, so that the next order may start.
-fn run(active: &mut ActiveOrder, unit: &mut Unit, world: &World, claims: &mut gather::Claims) -> bool {
+/// `auto` is what the unit does on its own once it has no order: an order that ends may leave it something
+/// (`engage::attack`: the target it gave up).
+fn run(
+    active: &mut ActiveOrder,
+    auto: &mut Auto,
+    unit: &mut Unit,
+    world: &World,
+    claims: &mut gather::Claims,
+    reach: &mut Reach,
+) -> bool {
     let order = &mut active.order;
     match (order.kind, &mut active.state) {
         // `> MovingToLocation`: complete when stopped at the target, or after failing to make progress
@@ -369,13 +384,13 @@ fn run(active: &mut ActiveOrder, unit: &mut Unit, world: &World, claims: &mut ga
             engage::hold(unit, target, world);
             false
         }
-        (OrderKind::Attack(id), Behaviour::Attack(state)) => engage::attack(unit, id, state, world),
+        (OrderKind::Attack(id), Behaviour::Attack(state)) => engage::attack(unit, id, state, auto, world),
         (OrderKind::Move(Target::Object(id)), Behaviour::Approach(state)) => travel::approach(unit, id, state, world),
         (OrderKind::AttackMove(click), Behaviour::AttackMove(leg)) => {
-            travel::march(unit, leg, Some(path_group(order, click)), world) != travel::LegStatus::Running
+            travel::march(unit, leg, Some(path_group(order, click)), world, reach) != travel::LegStatus::Running
         }
         (OrderKind::Patrol(click), Behaviour::Patrol(state)) => {
-            travel::patrol(unit, state, path_group(order, click), world)
+            travel::patrol(unit, state, path_group(order, click), world, reach)
         }
         // A worker's job; the behaviour moves the order on to another patch as it must. Orders queued behind a
         // Gather wait until it ends on its own (design change 0123, `gather`).

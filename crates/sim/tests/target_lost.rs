@@ -220,8 +220,8 @@ fn an_attack_on_a_structure_the_fog_covers_ends_and_may_be_ordered_again() {
 /// A Peacekeeper attack-moves east and goes after an unarmed Drone ahead of it, in its sight but out of its Range;
 /// the Drone vanishes into the fog (set far off), and the Peacekeeper lets go of it at once and walks on along its
 /// leg. Set back on its way, within its Range, the Drone is taken again and fought; the Peacekeeper then goes on to
-/// its destination. (Out of its Range, a target lost from sight is left alone for the rest of the leg, as
-/// one dropped at the leash, design change 0204: a placeholder, `orders::travel::march`, `attack_move_leash.rs`.)
+/// its destination. (Out of its Range, it is judged like any other enemy by the reach rule once it has moved, design
+/// change 0230: `orders::reach`, `attack_move_reach.rs`.)
 #[test]
 fn an_attack_move_resumes_its_leg_and_takes_the_target_again_in_range() {
     let to = v(2400.0, 300.0);
