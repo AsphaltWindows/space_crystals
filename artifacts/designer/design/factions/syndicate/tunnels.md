@@ -4,6 +4,8 @@
 
 The Tunnel Network is the collective of all Tunnels owned by a Syndicate player. Units inside the Tunnel Network can travel between Tunnels freely, but can only enter or exit the network through a Tunnel whose tier is sufficient for their unit base category.
 
+**Transit delay** (user, 2026-11-25; Q0063): after a unit **enters** the network, there is a **small delay before it can exit**: **2 seconds (32 frames), placeholder**. After that it can exit from **any** Tunnel whose tier suits it, however far away: the delay is flat, not by distance. Units produced inside the network (by expansions) aren't entering, so they have no delay (designer's reading).
+
 ### Transit Tier Requirements
 - Tier 1+: Infantry (Light Infantry, Heavy Infantry)
 - Tier 2+: Vehicles (Wheeled, Tracked, Drill, Hover Vehicle, Mech)
