@@ -297,9 +297,9 @@ pub(crate) fn base_is_free(kind: ObjectKind, state: Option<&AttackState>) -> boo
 }
 
 /// Phase 5e of `tick` (`docs/movement.md > 4`): every unit before `first_new`, in id order, runs one tick of its
-/// attack sequence against a snapshot of the targets taken before any of them acts, and so does every complete structure
-/// that attacks, having picked its target first ([`structures`]; none while `auto_targeting` is off, as no unit
-/// auto-targets then: `DebugCommand::SetAutoTargeting`), and the projectiles they launch
+/// attack sequence against a snapshot of the targets taken before any of them acts, and so does every complete
+/// structure that attacks, having picked its target first ([`structures`]; none while `auto_targeting` is off, as no
+/// unit auto-targets then: `DebugCommand::SetAutoTargeting`), and the projectiles they launch
 /// join `projectiles`, the store (`Sim::projectiles`); then the projectiles due land, in launch order (slice M4-O,
 /// plan decision T45), their blasts' hits ahead of the tick's new hits on the list; then the tick's hits are applied
 /// together, and each reveals its attacker to the owner of the object hit if that player didn't see it

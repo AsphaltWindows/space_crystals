@@ -146,8 +146,8 @@ pub enum BuilderGoes {
     /// Out onto the surface, beside the finished structure: the Laser Turret's Agent
     /// (`factions/syndicate/structures/laser_turret.md > Construction`: "the Agent emerges on the surface adjacent to
     /// the finished structure (unlike Tunnels, where the Agent ends up inside the Tunnel Network)"): "at the **first
-    /// clear spot next to the turret**, searched in a fixed order starting from the side it came from; if none is clear,
-    /// it waits inside until one is" (design change 0298 point 7; `sim/sites.rs`).
+    /// clear spot next to the turret**, searched in a fixed order starting from the side it came from; if none is
+    /// clear, it waits inside until one is" (design change 0298 point 7; `sim/sites.rs`).
     Beside,
 }
 

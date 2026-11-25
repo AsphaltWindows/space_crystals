@@ -95,8 +95,8 @@ fn the_last_tunnel_lost_strands_every_unit_in_the_network_though_a_site_stands()
 /// The free rebuild ("with no Tunnels owned, a new Tunnel costs 0 Supplies", `factions/syndicate/tunnels.md > Cost
 /// Scaling > Construction Cost`): player 1, alive by its Barracks, or by an upright Laser Turret ("Losing the last
 /// Tunnel therefore defeats the Syndicate only if they own no Laser Turrets", `factions/syndicate/tunnels.md > Losing
-/// Tunnels > Defeat`; slice M4-S1), loses its only Tunnel with no Supplies in the bank. The structure stays its own, and
-/// its next Tunnel costs nothing: its surviving Agent's Build is taken, and its site starts.
+/// Tunnels > Defeat`; slice M4-S1), loses its only Tunnel with no Supplies in the bank. The structure stays its own,
+/// and its next Tunnel costs nothing: its surviving Agent's Build is taken, and its site starts.
 #[test]
 fn with_no_tunnel_left_the_next_tunnel_costs_nothing() {
     for survivor in [ObjectKind::Barracks, ObjectKind::LaserTurret] {

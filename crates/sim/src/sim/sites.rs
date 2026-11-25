@@ -145,8 +145,8 @@ impl Sim {
     /// The workers held in the structures they finished, waiting to come out beside them (`BuilderGoes::Beside`: a
     /// Laser Turret's Agent), in id order: each comes out at the first clear spot next to its structure's footprint
     /// ([`Sim::spot_beside`]), facing away from it, idle, with what it carries, with a `SimEvent::LeftSite`; with no
-    /// spot clear, "it waits inside until one is" (design change 0298 point 7), a later tick. In the economy phase, as an
-    /// ejected unit: it never moves in the tick it appears, and phase 5f sees it.
+    /// spot clear, "it waits inside until one is" (design change 0298 point 7), a later tick. In the economy phase, as
+    /// an ejected unit: it never moves in the tick it appears, and phase 5f sees it.
     fn step_beside(&mut self) {
         if self.held.is_empty() {
             return;

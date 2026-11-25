@@ -90,7 +90,8 @@ pub(crate) static AGENT: ObjectDef = ObjectDef {
             // `factions/colonists/units/drone.md > Gathering Drones pass through each other`: "Drones only".
             pass_through: false,
             // `> Building`: "Agents construct Tunnels and surface defensive structures" (slice M4-E), the Laser
-            // Turret (slice M4-S1, `factions/syndicate/structures/laser_turret.md > Constructed by - Agent (anywhere)`).
+            // Turret (slice M4-S1; `factions/syndicate/structures/laser_turret.md > Constructed by`: "Agent
+            // (anywhere)").
             builds: &[ObjectKind::Tunnel, ObjectKind::LaserTurret],
         }),
     }),

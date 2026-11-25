@@ -1,8 +1,8 @@
-//! The Laser Turret an Agent builds (slice M4-S1; `factions/syndicate/structures/laser_turret.md > Construction`: "built
-//! using the same flow as Tunnel construction"): its TechPrerequisite, its price of 100 Space Crystals paid with the
-//! order and refunded in full by an order that goes (design change 0297 point 4), 75% of it by a cancelled site (0297
-//! point 5), its site with the Agent inside, its 320 frames, and its Agent coming out beside it, or waiting inside
-//! while every spot beside it is taken (design change 0298 point 7); the site holds its fire until complete.
+//! The Laser Turret an Agent builds (slice M4-S1; `factions/syndicate/structures/laser_turret.md > Construction`:
+//! "built using the same flow as Tunnel construction"): its TechPrerequisite, its price of 100 Space Crystals paid with
+//! the order and refunded in full by an order that goes (design change 0297 point 4), 75% of it by a cancelled site
+//! (0297 point 5), its site with the Agent inside, its 320 frames, and its Agent coming out beside it, or waiting
+//! inside while every spot beside it is taken (design change 0298 point 7); the site holds its fire until complete.
 
 use super::*;
 use sc_sim::construction::site::BuildPrice;
@@ -131,12 +131,12 @@ fn the_turret_needs_an_optics_lab_and_100_space_crystals() {
 }
 
 /// The Tunnel's flow with the turret's numbers: the order pays 100 Space Crystals at once, and no Supplies (design
-/// change 0297 point 4: "paid **when the order is given**"). On arrival the site appears with the Agent inside, off
-/// the map and so untargetable,
-/// at 30 HP, 10% of 300 (`core/entities.md > ConstructionHP Rule`); it holds its fire at player 2's Guard in its range
-/// (design change 0234: a site "does nothing but Cancel"), and goes on though the Optics Lab is lost ("Constructions
-/// already started ... continue"). 320 ticks later it is a turret in operation, and the Agent stands beside it, at the
-/// corner it came from, south-west (design change 0298 point 7), idle and facing away; the turret then fires.
+/// change 0297 point 4: "paid **when the order is given**"). On arrival the site appears with the Agent inside, off the
+/// map and so untargetable, at 30 HP, 10% of 300 (`core/entities.md > ConstructionHP Rule`); it holds its fire at
+/// player 2's Guard in its range (design change 0234: a site "does nothing but Cancel"), and goes on though the Optics
+/// Lab is lost ("Constructions already started ... continue"). 320 ticks later it is a turret in operation, and the
+/// Agent stands beside it, at the corner it came from, south-west (design change 0298 point 7), idle and facing away;
+/// the turret then fires.
 #[test]
 fn the_order_pays_100_and_the_site_grows_into_a_turret_with_the_agent_beside_it() {
     let mut t = field(true, true);
@@ -314,8 +314,8 @@ fn an_order_that_fails_or_loses_its_agent_refunds_100() {
     assert_eq!((crystals(&t, P1), refunds(&t)), (150, vec![(id(2), 100), (id(2), 100)]));
 }
 
-/// [`field`] with Agent 2's turret site, and player 1's eight debug-spawned turrets on the tiles around it, taking every
-/// spot beside it, until it is complete: the site and the turrets, in order from the north-west, row by row.
+/// [`field`] with Agent 2's turret site, and player 1's eight debug-spawned turrets on the tiles around it, taking
+/// every spot beside it, until it is complete: the site and the turrets, in order from the north-west, row by row.
 fn surrounded() -> (TestSim, ObjectId, Vec<ObjectId>) {
     let mut t = field(true, false);
     next(&mut t, P1, build_turret(&[2], TURRET_SITE));

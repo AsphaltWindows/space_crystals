@@ -232,7 +232,8 @@ fn check_sites(t: &TestSim) {
             let o = sim
                 .object(site)
                 .unwrap_or_else(|| panic!("unit {unit:?} is held at {site:?}, gone"));
-            // A Laser Turret's Agent waits inside it once it is finished, until a spot beside it is clear (slice M4-S1).
+            // A Laser Turret's Agent waits inside it once it is finished, until a spot beside it is clear (slice
+            // M4-S1).
             if o.kind == TURRET && !o.is_site() {
                 continue;
             }

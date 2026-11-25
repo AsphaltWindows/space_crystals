@@ -164,8 +164,8 @@ impl Sim {
     ///   construction is **started** (queued at the constructor, ...)", the moment the order is paid, so the worker's
     ///   arrival doesn't check it again (`Sim::arrive_to_build`), and an Optics Lab lost on the way stops nothing.
     /// - **The price** (design change 0233): "The order is refused, with feedback, if the player can't pay"
-    ///   ([`Reject::InsufficientSupplies`], a Laser Turret's [`Reject::InsufficientCrystals`]): the price once the Build
-    ///   orders it replaces have gone ([`Sim::build_price`]), out of the bank and their refunds in its resource
+    ///   ([`Reject::InsufficientSupplies`], a Laser Turret's [`Reject::InsufficientCrystals`]): the price once the
+    ///   Build orders it replaces have gone ([`Sim::build_price`]), out of the bank and their refunds in its resource
     ///   ([`Sim::replacing`]).
     /// - **The site**: allowed as far as the player knows ([`Sim::build_check`]), else [`Reject::Unplaceable`] with
     ///   the first problem.

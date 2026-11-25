@@ -1,8 +1,8 @@
 //! Slice M4-S1's acceptance for the turret's fire, through the whole sim: 0260's "a turret kills a Guard in 4 shots",
 //! its rate (one shot per 24 ticks, 16 damage a second against armour 0) and its Universal domain against a test air
-//! unit (`defs::test_defs`); and its own pick (design change 0298 point 8, `factions/syndicate/structures/laser_turret.md
-//! > Targeting`): threatening targets first, the one it engages kept, ties by id, nothing of its own side, neutral or
-//! while auto-targeting is off; and its barrel.
+//! unit (`defs::test_defs`); and its own pick (design change 0298 point 8,
+//! `factions/syndicate/structures/laser_turret.md > Targeting`): threatening targets first, the one it engages kept,
+//! ties by id, nothing of its own side, neutral or while auto-targeting is off; and its barrel.
 
 use glam::Vec2;
 
@@ -43,8 +43,8 @@ fn south(kind: ObjectKind, gap: f32) -> Vec2 {
 }
 
 /// Player 1's Laser Turret (1) on [`TILE`], and `units`, ids 2 on, each of its owner's at its position, all spawned in
-/// tick 1; those of player 2 hold their positions from tick 2, so that none closes in or shoots back from beyond its own
-/// Range.
+/// tick 1; those of player 2 hold their positions from tick 2, so that none closes in or shoots back from beyond its
+/// own Range.
 fn field(units: &[(ObjectKind, Option<PlayerId>, Vec2)]) -> TestSim {
     let mut t = ScenarioBuilder::new(&open()).start();
     t.debug_at(
@@ -179,8 +179,9 @@ fn it_shoots_what_threatens_it_first() {
 }
 
 /// Design change 0298 point 8: "It keeps its target while that target stays valid and in range", whatever comes nearer
-/// meanwhile; of two alike at the same gap, the lower id first ("ties broken deterministically"). Guards 2 and 3 stand 4 grid units east and south; Guard 4, spawned later
-/// half a grid unit north of the turret (where it shoots back), waits its turn, and then goes before Guard 3.
+/// meanwhile; of two alike at the same gap, the lower id first ("ties broken deterministically"). Guards 2 and 3 stand
+/// 4 grid units east and south; Guard 4, spawned later half a grid unit north of the turret (where it shoots back),
+/// waits its turn, and then goes before Guard 3.
 #[test]
 fn it_keeps_its_target_and_breaks_ties_by_id() {
     let (east_guard, south_guard, late) = (ObjectId(2), ObjectId(3), ObjectId(4));

@@ -1,6 +1,6 @@
 //! The Laser Turret — `factions/syndicate/structures/laser_turret.md` (design change 0260, its placeholder stats;
-//! slice M4-S1): a structure that attacks (plan decision T49), which an Agent builds by the Tunnel's flow (plan decision
-//! T51).
+//! slice M4-S1): a structure that attacks (plan decision T49), which an Agent builds by the Tunnel's flow (plan
+//! decision T51).
 //!
 //! Slice M4-S1 builds the **upright** turret, the Agent's. Its pop-up form inside an own Tunnel Area and the Tunnel's
 //! ExpandMenu entry are slice M4-S2's: until then a turret inside an own Tunnel Area stands upright too.
@@ -33,8 +33,8 @@ pub(crate) static LASER_TURRET: ObjectDef = ObjectDef {
     // "Armor (building armor rule, 1x1): raised PointArmor 1, FullArmor 1" (`factions/syndicate/structures/README.md`'s
     // n = 1 for a 1x1 structure). The underground armour is the pop-up's, slice M4-S2's.
     armor: Armor { point: 1.0, full: 1.0 },
-    // A surface structure (`core/map.md > Elevation > Structures only on flat terrain`): only the expansions may stand on
-    // slopes (design change 0005).
+    // A surface structure (`core/map.md > Elevation > Structures only on flat terrain`): only the expansions may stand
+    // on slopes (design change 0005).
     needs_flat_ground: true,
     unit: None,
     structure: Some(StructureDef {
@@ -86,11 +86,12 @@ pub(crate) const LASER_TURRET_ATTACK: AttackAttrs = AttackAttrs {
 /// Construction`: "**By an Agent**: built using the same flow as Tunnel construction").
 pub(crate) const LASER_TURRET_SITE: SiteDef = SiteDef {
     // "Cost: 100 Space Crystals (no Supplies)", paid as the order is given, refunded in full by an order that goes
-    // before its site starts, and at 75% by a cancelled site (design change 0297 points 4 and 5: `SitePrice::Crystals`).
+    // before its site starts, and at 75% by a cancelled site (design change 0297 points 4 and 5:
+    // `SitePrice::Crystals`).
     price: SitePrice::Crystals(100),
     frames: 320, // "Build time: 320 frames (20 s)"
-    // The Tunnel's flow (`factions/syndicate/units/agent.md > Building > Tunnel Construction Flow`): it "starts at 10% HP
-    // (ConstructionHP Rule)".
+    // The Tunnel's flow (`factions/syndicate/units/agent.md > Building > Tunnel Construction Flow`): it "starts at 10%
+    // HP (ConstructionHP Rule)".
     start_hp: 0.1,
     // "On successful completion, the Agent emerges on the surface adjacent to the finished structure (unlike Tunnels,
     // where the Agent ends up inside the Tunnel Network)".
@@ -103,8 +104,8 @@ mod tests {
 
     /// The placeholder stats (design change 0260): a 1x1 surface structure of 300 HP that sees 6 grid units, at the
     /// building armour rule's 1 / 1, requiring an Optics Lab; its red laser hits ground and air for 24 at 5 grid units,
-    /// one shot in 24 frames. An Agent builds it in 320 frames for 100 Space Crystals, from 10% of its HP, and comes out
-    /// beside it. Not given, so placeholders: Groupable, SymmetryType AAAA (plan decision T29).
+    /// one shot in 24 frames. An Agent builds it in 320 frames for 100 Space Crystals, from 10% of its HP, and comes
+    /// out beside it. Not given, so placeholders: Groupable, SymmetryType AAAA (plan decision T29).
     #[test]
     fn the_laser_turret_follows_the_design() {
         let def = ObjectKind::LaserTurret.def();
