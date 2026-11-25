@@ -1037,7 +1037,7 @@ The user keeps feeding unit and other designs to the Designer, so expect increme
 | Q0075 | A revealed attacker shooting at a target the player can't see: draw the shot whole (literal 0206) or clip it? | no | answered by 0244 (stricter than B; M3-L5) |
 
 ## Design change entries
-Last triaged: 0281.
+Last triaged: 0282.
 
 | Entry | Status | Notes |
 |---|---|---|
@@ -1297,4 +1297,5 @@ Last triaged: 0281.
 | 0279 Relay: every selected Battery must reach a Satellite; the armed Satellite takes Attack orders | gated (concept only) | — |
 | 0280 Satellite thrust charges never recharge; the armed Satellite fires at anything the player sees | gated (concept only) | — |
 | 0281 The satellite is named Prism; it can be shot down while launching | gated (concept only) | — |
+| 0282 The design docs are reorganized into one file per unit and per structure (`factions/<f>/units/*.md`, `structures/*.md`, shared sections in each folder's README); no design content changed. From the user: keep the code organized and modular too: per-object definitions, data and tunables apart from logic, shared mechanics written once | queued (M4-R, a code-organization slice after wave 2: the ~320 stale citations, a citation-check test, defs per object, tuning modules; being planned). Running slices cite the new paths | — |
 | 0014 GDO Airfield and aircraft | queued (Later: air) | |
