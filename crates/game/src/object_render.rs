@@ -244,7 +244,8 @@ fn has_tick(kind: ObjectKind) -> bool {
 
 /// The mesh of an object's visual: its placeholder shape, a unit's without the tick if its body doesn't turn, a
 /// structure in its size as placed, a Tunnel with its look by tier, an underground structure as its outline; tinted
-/// while it transforms; a site tinted and braced by its scaffold, with its progress bar's track ([`site`]).
+/// while it transforms; a site, on the surface or underground (an expansion, slice M4-F), tinted and braced by its
+/// scaffold, with its progress bar's track ([`site`]).
 fn visual_mesh(key: MeshKey) -> Mesh {
     let MeshKey {
         kind,
@@ -260,9 +261,12 @@ fn visual_mesh(key: MeshKey) -> Mesh {
         (false, false) => player_color(owner),
     };
     match size {
-        Some((w, h)) if underground(kind) => structures::underground_mesh(w, h, color),
         Some((w, h)) => {
-            let mut mesh = structures::structure_shape(w, h, color);
+            let mut mesh = if underground(kind) {
+                structures::underground_shape(w, h, color)
+            } else {
+                structures::structure_shape(w, h, color)
+            };
             if site {
                 site::draw(&mut mesh, structures::inner_half(w, h));
             } else if let Some(look) = tunnel {

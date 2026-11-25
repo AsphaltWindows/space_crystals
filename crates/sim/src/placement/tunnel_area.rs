@@ -9,19 +9,19 @@
 //!   undrillable cell only on a tile the player has explored ("terrain is always known to the player as far as
 //!   explored; never-explored tiles pass on the ghost, and the real check happens on arrival"), and a cell off the
 //!   map always, the map's edge being known. Map spawns and debug spawns don't take the placement check, so they stay
-//!   exempt, as from every placement rule but the shared tiles and [`super::Onto`]. Read as written, a Tunnel 2 tiles
-//!   from the edge breaks nothing, its Tier 1 area just reaching the edge, where 0242's Verification calls it red
-//!   (Placeholder: Q0078).
-//! - **The expansion rule of Starting Layouts** ([`outside_tunnel_area`]): a layout's underground structure lies
-//!   wholly inside the Tier 1 Tunnel Area of a Tunnel of the same layout (`factions/syndicate/tunnels.md > Tunnel >
-//!   Starting Conditions`: "One pre-built **Tier 1 Tunnel** containing one pre-built **Hideout**";
+//!   exempt, as from every placement rule but the shared tiles and [`super::Onto`]. A Tunnel 2 tiles from the edge
+//!   breaks nothing, its Tier 1 area just reaching the edge (design change 0283, the rule as written: "a footprint 2
+//!   tiles from the edge is valid, and 1 tile is red"; 0242's Verification calling it red "was a slip").
+//! - **The expansion rule of Starting Layouts** ([`layout_method`]): a layout's underground structure lies wholly
+//!   inside the Tier 1 Tunnel Area of a Tunnel of the same layout (`factions/syndicate/tunnels.md > Tunnel > Starting
+//!   Conditions`: "One pre-built **Tier 1 Tunnel** containing one pre-built **Hideout**";
 //!   `factions/syndicate/structures/README.md > Tunnel Expansions`: "Underground buildings constructed within a
 //!   Tunnel's Tunnel Area"), the way a layout's Extraction Plates lie in the build area of its own Deployment Center.
-//!   Its tiles follow the rules of a Direct Placement meanwhile, Buildable ground included: stricter than the
-//!   Drillable ground of design change 0239, until slice M4-F's expansion method takes the Hideout over.
+//!   It follows the expansion method of a game ([`super::Method::Expansion`], slice M4-F) in that area: Drillable
+//!   ground (design change 0239), and every structure, resource and ground unit keeps clear of it.
 
 use super::problems::WholeProblem;
-use super::site::{Mode, Occupant, Site};
+use super::site::{Method, Mode, Occupant, Site};
 use crate::defs::ObjectKind;
 use crate::nav::TileRect;
 use crate::tunnel::{self, area::Breach};
@@ -62,19 +62,24 @@ fn known(mode: Mode<'_>, cell: TilePos) -> bool {
     }
 }
 
-/// The expansion rule of Starting Layouts (module docs): whether `object`, an underground structure of a layout,
-/// lies outside the Tier 1 Tunnel Area of every Tunnel among `layout`, that layout's objects. `false` for any other
-/// object.
-pub(super) fn outside_tunnel_area<'a>(object: &Occupant, layout: impl IntoIterator<Item = &'a Occupant>) -> bool {
+/// The expansion rule of Starting Layouts (module docs): how `object`, an object of a layout whose objects are
+/// `layout`, is placed. An underground structure by [`Method::Expansion`] in the Tier 1 Tunnel Area of the first Tunnel
+/// of `layout` that holds it wholly; if none does, in an empty area at its origin, which holds nothing, so that it is
+/// outside ([`WholeProblem::OutsideTunnelArea`](super::WholeProblem::OutsideTunnelArea)). Any other object by
+/// [`Method::Direct`].
+pub(super) fn layout_method(object: &Occupant, layout: &[Occupant]) -> Method {
     let underground = (object.kind.def().structure.as_ref()).is_some_and(|structure| structure.underground);
     let Some(placement) = object.placement.filter(|_| underground) else {
-        return false;
+        return Method::Direct;
     };
     let rect = TileRect::new(placement.origin, placement.w, placement.h);
-    !layout.into_iter().any(|o| {
+    let holding = layout.iter().find_map(|o| {
         let area = tunnel::area::base_radius(o.kind)
             .zip(o.placement)
-            .map(|(radius, p)| tunnel::area::area(TileRect::new(p.origin, p.w, p.h), radius));
-        area.is_some_and(|area| tunnel::area::encloses(area, rect))
-    })
+            .map(|(radius, p)| tunnel::area::area(TileRect::new(p.origin, p.w, p.h), radius))?;
+        tunnel::area::encloses(area, rect).then_some(area)
+    });
+    Method::Expansion {
+        area: holding.unwrap_or(TileRect::new(placement.origin, 0, 0)),
+    }
 }

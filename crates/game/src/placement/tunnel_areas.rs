@@ -10,7 +10,7 @@
 //! **When it shows** ([`shows`]). Placeholder (not in the design; Q0086 point 4): while the local player's ActiveGroup
 //! is a Tunnel of theirs, in a game mode, while they may command it, and while they place a Tunnel (slice M4-J1: the
 //! Tier 1 area the ghost needs clear of every area they know of, design change 0242). The placement of an expansion
-//! (slice M4-F) adds its own.
+//! (slice M4-F) is its Tunnel's, the ActiveGroup all along: the area its ghost is held within shows meanwhile.
 //!
 //! **The look**, placeholders until the art (Q0001): the GDO build area's (`super::overlay`), each area's tiles tinted
 //! on the terrain's surface with a brighter line along its edge, the player's own in violet and the others' in red;

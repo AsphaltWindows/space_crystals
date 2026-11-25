@@ -16,7 +16,7 @@ use crate::kinds::{self, short_label};
 /// `factions/colonists/units/drone.md > Drone ObjectInterfaceState`, `factions/colonists/economy.md > Egress Node >
 /// Egress Node ObjectInterfaceState`, `factions/colonists/economy.md > Beacon Deployment > While transforming: only
 /// Cancel`; slices M3-J1 and M3-J2, design change 0124), and the Syndicate's Tunnel (`factions/syndicate/tunnels.md >
-/// Tunnel ObjectInterfaceState`, slice M4-J2) and Agent (`factions/syndicate/units/agent.md > Agent
+/// Tunnel ObjectInterfaceState`, slices M4-J2 and M4-F) and Agent (`factions/syndicate/units/agent.md > Agent
 /// ObjectInterfaceState`, slice M4-J1).
 #[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum PanelCommand {
@@ -125,14 +125,29 @@ pub enum PanelCommand {
     /// those that carry nothing). "Always visible, greyed out when Agent is not carrying resources"
     /// (`super::Conditions::unavailable`).
     DropOff,
+    /// `factions/syndicate/tunnels.md > Tunnel ObjectInterfaceState`: "**W** Expand Tunnel" (design change 0257), which
+    /// "enters ExpandMenu (StateOnlyTransition)" (`super::InterfaceState::ExpandMenu`): the expansions this Tunnel
+    /// builds (slice M4-F).
+    ExpandMenu,
+    /// An ExpandMenu entry (`factions/syndicate/tunnels.md > ExpandMenu`): "Click an expansion type: begins
+    /// construction if the Tunnel is not already performing an operation (enters AwaitingPlacement for that
+    /// expansion)", a StateOnlyTransition to its placement in this Tunnel's Tunnel Area, where a click builds it
+    /// (`sc_sim::TunnelCommand::Expand`).
+    Expand(ObjectKind),
+    /// The Tunnel's X, "Cancel (upgrade, construction or the current operation)" (design change 0257): `> Expansions
+    /// under construction` (design change 0254): "The Tunnel's X cancels whatever operation it is running (an upgrade
+    /// or an expansion)", at once (`sc_sim::TunnelCommand::Cancel`). Not an eject queue, which isn't an operation:
+    /// "the queue can't be cancelled" (`factions/syndicate/tunnels.md > EjectMenu`).
+    CancelOperation,
 }
 
 impl PanelCommand {
     /// Whether the command awaits a target (a StateOnlyTransition to AwaitingTarget): the target commands of
     /// `> BasicCombatUnitInterfaceState > DefaultState commands`, Set Rally Point, the Drone's Set Drop-off and the
     /// Agent's Drop Off. The others are issued at once: HoldPosition and Stop, Raise and Lower Shield, Convert, a
-    /// producer's Train and Cancel Production, a constructor's Construct and Cancels; or they enter a state of their
-    /// own: a build menu, AwaitingPlacement (an Agent's Build too); or they change the selection (the Egress Node's F).
+    /// producer's Train and Cancel Production, a constructor's Construct and Cancels, a Tunnel's Eject and Cancel; or
+    /// they enter a state of their own: a build menu, the EjectMenu, the ExpandMenu, AwaitingPlacement (an Agent's
+    /// Build and a Tunnel's expansion too); or they change the selection (the Egress Node's F).
     pub fn needs_target(self) -> bool {
         match self {
             PanelCommand::Move
@@ -162,7 +177,10 @@ impl PanelCommand {
             | PanelCommand::SelectReturningDrones
             | PanelCommand::EjectMenu
             | PanelCommand::Eject(_)
-            | PanelCommand::Build(_) => false,
+            | PanelCommand::Build(_)
+            | PanelCommand::ExpandMenu
+            | PanelCommand::Expand(_)
+            | PanelCommand::CancelOperation => false,
         }
     }
 
@@ -211,10 +229,13 @@ impl PanelCommand {
         }
     }
 
-    /// The Tunnel command of a Tunnel's command issued at once (`sc_sim::Command::Tunnel`): an EjectMenu tile's Eject.
+    /// The Tunnel command of a Tunnel's command issued at once (`sc_sim::Command::Tunnel`): an EjectMenu tile's Eject,
+    /// and X's Cancel of the Tunnel's operation. An ExpandMenu entry's Expand waits for its click in AwaitingPlacement
+    /// (`crate::placement`).
     pub fn tunnel(self) -> Option<TunnelCommand> {
         match self {
             PanelCommand::Eject(kind) => Some(TunnelCommand::Eject { kind }),
+            PanelCommand::CancelOperation => Some(TunnelCommand::Cancel),
             _ => None,
         }
     }
@@ -226,10 +247,14 @@ impl PanelCommand {
         !matches!(self, PanelCommand::Reverse | PanelCommand::Planned(_))
     }
 
-    /// The building it constructs, places or warps in: a build menu's entry, or a ready building's slot.
+    /// The building it constructs, places, warps in or builds: a build menu's entry, a ready building's slot, an
+    /// ExpandMenu entry.
     pub fn building(self) -> Option<ObjectKind> {
         match self {
-            PanelCommand::Construct(kind) | PanelCommand::PlaceReady(kind) | PanelCommand::WarpIn(kind) => Some(kind),
+            PanelCommand::Construct(kind)
+            | PanelCommand::PlaceReady(kind)
+            | PanelCommand::WarpIn(kind)
+            | PanelCommand::Expand(kind) => Some(kind),
             _ => None,
         }
     }
@@ -243,9 +268,11 @@ impl PanelCommand {
     /// takes (design change 0125), the Cancel of the objects that transform, whose panel shows it, and the Egress
     /// Node's F, which selects the Drones of "this Egress Node" (Ungroupable: the one Tabbed to). So do a Tunnel's
     /// EjectMenu and its tiles, which eject "from this Tunnel's Side A" (`factions/syndicate/tunnels.md > EjectMenu`;
-    /// Ungroupable too: the one Tabbed to). So does an Agent's Build: "each Agent takes exactly one placement", and
-    /// "Placement never moves on to another selected worker" (`systems/controls/selection_and_hud.md > AwaitingTarget >
-    /// Shift while placing`: "to place with the next Agent, the player presses Tab").
+    /// Ungroupable too: the one Tabbed to), and its ExpandMenu, its entries and its Cancel, which read and change this
+    /// Tunnel's one operation (`factions/syndicate/tunnels.md > ExpandMenu`: "**this** Tunnel's tier"). So does an
+    /// Agent's Build: "each Agent takes exactly one placement", and "Placement never moves on to another selected
+    /// worker" (`systems/controls/selection_and_hud.md > AwaitingTarget > Shift while placing`: "to place with the next
+    /// Agent, the player presses Tab").
     pub fn instance_only(self) -> bool {
         matches!(
             self,
@@ -262,6 +289,9 @@ impl PanelCommand {
                 | PanelCommand::EjectMenu
                 | PanelCommand::Eject(_)
                 | PanelCommand::Build(_)
+                | PanelCommand::ExpandMenu
+                | PanelCommand::Expand(_)
+                | PanelCommand::CancelOperation
         )
     }
 
@@ -308,7 +338,10 @@ impl PanelCommand {
             | PanelCommand::SetDropOff
             | PanelCommand::SelectReturningDrones
             | PanelCommand::EjectMenu
-            | PanelCommand::Eject(_) => false,
+            | PanelCommand::Eject(_)
+            | PanelCommand::ExpandMenu
+            | PanelCommand::Expand(_)
+            | PanelCommand::CancelOperation => false,
         }
     }
 
@@ -321,7 +354,8 @@ impl PanelCommand {
     /// "Place", and every Cancel "Cancel". The others are the command's name or its first word ("Hold", "Rally",
     /// "Raise", "Lower", "Drop" for Set Drop-off Location and for the Agent's Drop Off, "Drones" for Select Returning
     /// Drones), or a shortening of it ("Rev.", "AtkGnd", "Conv.", "Adv."). An EjectMenu tile shows its unit type's
-    /// tag, as a unit trained does, and its count (`super::PanelSlot::count`).
+    /// tag, as a unit trained does, and its count (`super::PanelSlot::count`); an ExpandMenu entry its expansion's, as
+    /// a building constructed does.
     pub fn label(self) -> &'static str {
         match self {
             PanelCommand::Move => "Move",
@@ -338,12 +372,14 @@ impl PanelCommand {
             | PanelCommand::Construct(kind)
             | PanelCommand::WarpIn(kind)
             | PanelCommand::Eject(kind)
-            | PanelCommand::Build(kind) => short_label(kind),
+            | PanelCommand::Build(kind)
+            | PanelCommand::Expand(kind) => short_label(kind),
             PanelCommand::Planned(planned) => planned.label(),
             PanelCommand::CancelProduction
             | PanelCommand::CancelConstruction
             | PanelCommand::CancelReady
-            | PanelCommand::CancelTransform => "Cancel",
+            | PanelCommand::CancelTransform
+            | PanelCommand::CancelOperation => "Cancel",
             PanelCommand::SetRallyPoint => "Rally",
             PanelCommand::BuildMenu(BuildMenu::Basic) => "Basic",
             PanelCommand::BuildMenu(BuildMenu::Advanced) => "Adv.",
@@ -352,6 +388,7 @@ impl PanelCommand {
             PanelCommand::SetDropOff | PanelCommand::DropOff => "Drop",
             PanelCommand::SelectReturningDrones => "Drones",
             PanelCommand::EjectMenu => "Eject",
+            PanelCommand::ExpandMenu => "Expand",
         }
     }
 
@@ -384,6 +421,9 @@ impl PanelCommand {
             PanelCommand::Eject(kind) => named("Eject", kind),
             PanelCommand::Build(kind) => named("Build", kind),
             PanelCommand::DropOff => "Drop Off Resources".into(),
+            PanelCommand::ExpandMenu => "Expand Tunnel".into(),
+            PanelCommand::Expand(kind) => named("Build", kind),
+            PanelCommand::CancelOperation => "Cancel Operation".into(),
             PanelCommand::Move
             | PanelCommand::Attack
             | PanelCommand::Patrol

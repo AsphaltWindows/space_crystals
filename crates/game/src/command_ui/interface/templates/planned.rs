@@ -1,22 +1,24 @@
 //! The panel entries that aren't in the game yet ([`Planned`]): each holds its slot, unavailable, and says why when
 //! it is pressed (design change 0162). The Colonists' buildings and units whose numbers are TBD (design change 0124:
 //! "Buildings and units whose costs are TBD show in their slot, unavailable"; slices M3-J1 and M3-J2), and the
-//! Syndicate's commands and units that later slices bring (design change 0257: "unavailable entries are greyed"; slice
-//! M4-J2): the Tunnel's Upgrade, Expand and Cancel, the Hideout's Guard and Grenadier, and the Agent's Laser Turret
-//! (slice M4-J1). The slice that brings one replaces its entry with the real command.
+//! Syndicate's commands, units and expansions that later slices bring (design change 0257: "unavailable entries are
+//! greyed"; slices M4-J2, M4-J1 and M4-F): the Tunnel's Upgrade, the Hideout's Guard and Grenadier, the Laser Turret,
+//! the Agent's and the ExpandMenu's, and the ExpandMenu's expansions not in the game yet. The slice that brings one
+//! replaces its entry with the real command.
 
 use sc_sim::ObjectKind;
 
 use super::super::WhyUnavailable;
-use crate::command_ui::feedback::{NOTHING_TO_CANCEL_TEXT, REQUIRES_CHEMICAL_PLANT_TEXT, REQUIRES_OPTICS_LAB_TEXT};
+use crate::command_ui::feedback::{REQUIRES_CHEMICAL_PLANT_TEXT, REQUIRES_OPTICS_LAB_TEXT};
 use crate::kinds::short_label;
 
 /// A panel entry that isn't in the game yet (module docs). The Colonists' are a building of the Beacon's Warp In menus
 /// or a unit of a portal's panel: a building's cost and WarpInTime are TBD (`factions/colonists/economy.md > Warp In >
 /// Constructs List`), and so is the rest of it (Q0043); a unit's stats, cost and time are TBD
 /// (`factions/colonists/units/scout.md`, `factions/colonists/units/lancer.md`; the psionic unit has no section yet).
-/// The Syndicate's are the Tunnel's commands of slices M4-F and M4-G, the Hideout's units of slices M4-K and M4-U, and
-/// the Agent's Laser Turret of slice M4-S1.
+/// The Syndicate's are the Tunnel's Upgrade of slice M4-G, the Hideout's units of slices M4-K and M4-U, the Agent's
+/// Laser Turret of slice M4-S1, and the ExpandMenu's entries that aren't in the game yet (slice M4-F:
+/// `sc_sim::defs::ExpandEntry::Planned`, by name): its expansions, and its Laser Turret of slice M4-S2.
 #[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum Planned {
     AlloyFurnace,
@@ -40,12 +42,6 @@ pub enum Planned {
     /// The Tunnel's Q, "Upgrade Tunnel" (`factions/syndicate/tunnels.md > Tunnel ObjectInterfaceState`, design change
     /// 0257), which slice M4-G brings.
     UpgradeTunnel,
-    /// The Tunnel's W, "Expand Tunnel", which opens the ExpandMenu: slice M4-F's.
-    ExpandTunnel,
-    /// The Tunnel's X, "Cancel (upgrade, construction or the current operation)": a Tunnel has no operation before
-    /// slices M4-F and M4-G, so there is nothing to cancel ([`Planned::why`]). An eject queue is none: "the queue
-    /// can't be cancelled" (`factions/syndicate/tunnels.md > EjectMenu`).
-    CancelOperation,
     /// The Hideout's W, "Build Guard" (`factions/syndicate/structures/hideout.md > ObjectInterfaceState[Hideout]`):
     /// "Only available if the player owns at least one Optics Lab", which slice M4-K brings with the Hideout's Guard
     /// recipe; the recipe then takes the slot (`super::production_grid`).
@@ -56,13 +52,27 @@ pub enum Planned {
     /// The Agent's D, "Build Laser Turret" (`factions/syndicate/units/agent.md > Agent ObjectInterfaceState > Panel
     /// letters`, design change 0257: "**D** Build Laser Turret (greyed until available)";
     /// `factions/syndicate/units/agent.md > DefaultState commands`: "Visible but greyed out until the player owns an
-    /// Optics Lab"). Slice M4-S1 brings the Laser Turret, whose Build then takes the slot.
+    /// Optics Lab"). Slice M4-S1 brings the Laser Turret, whose Build then takes the slot. The ExpandMenu's tenth slot
+    /// too (`factions/syndicate/tunnels.md > ExpandMenu`, design change 0291: "The **Laser Turret is always the tenth
+    /// slot**"), until slice M4-S2.
     LaserTurret,
+    /// The ExpandMenu's expansions not in the game yet (`factions/syndicate/structures/README.md > Tech Tree
+    /// Overview`; design change 0291: "**all nine expansions** are always listed, in the Tech Tree table's order, each
+    /// holding its slot"), in the table's order: the sim's `sc_sim::defs::EXPAND_MENU` names them
+    /// ([`Planned::expansion`]).
+    OpticsLab,
+    ChemicalPlant,
+    Vault,
+    VehicleAssembly,
+    Forge,
+    NullChamber,
+    AerospaceAssembly,
+    OrbitalCommand,
 }
 
 impl Planned {
     /// Every one, in declaration order.
-    pub const ALL: [Planned; 20] = [
+    pub const ALL: [Planned; 26] = [
         Planned::AlloyFurnace,
         Planned::EssenceRefinery,
         Planned::FluxReactor,
@@ -78,12 +88,26 @@ impl Planned {
         Planned::Lancer,
         Planned::PsionicUnit,
         Planned::UpgradeTunnel,
-        Planned::ExpandTunnel,
-        Planned::CancelOperation,
         Planned::Guard,
         Planned::Grenadier,
         Planned::LaserTurret,
+        Planned::OpticsLab,
+        Planned::ChemicalPlant,
+        Planned::Vault,
+        Planned::VehicleAssembly,
+        Planned::Forge,
+        Planned::NullChamber,
+        Planned::AerospaceAssembly,
+        Planned::OrbitalCommand,
     ];
+
+    /// The ExpandMenu's entry not in the game yet that the sim names `name` (`sc_sim::defs::ExpandEntry::Planned`): an
+    /// expansion of the Tech Tree, or the Laser Turret; `None` for any other name.
+    pub fn expansion(name: &str) -> Option<Planned> {
+        Planned::ALL
+            .into_iter()
+            .find(|&planned| (planned.is_expansion() || planned == Planned::LaserTurret) && planned.name() == name)
+    }
 
     /// Its name, the design's.
     pub fn name(self) -> &'static str {
@@ -103,11 +127,17 @@ impl Planned {
             Planned::Lancer => "Lancer",
             Planned::PsionicUnit => "Psionic unit",
             Planned::UpgradeTunnel => "Upgrade Tunnel",
-            Planned::ExpandTunnel => "Expand Tunnel",
-            Planned::CancelOperation => "Cancel Operation",
             Planned::Guard => ObjectKind::Guard.def().name,
             Planned::Grenadier => "Grenadier",
             Planned::LaserTurret => "Laser Turret",
+            Planned::OpticsLab => "Optics Lab",
+            Planned::ChemicalPlant => "Chemical Plant",
+            Planned::Vault => "Vault",
+            Planned::VehicleAssembly => "Vehicle Assembly",
+            Planned::Forge => "Forge",
+            Planned::NullChamber => "Null Chamber",
+            Planned::AerospaceAssembly => "Aerospace Assembly",
+            Planned::OrbitalCommand => "Orbital Command",
         }
     }
 
@@ -125,9 +155,9 @@ impl Planned {
     /// "ST", as the Guard's and the Beacon's are, since "SC" is the crystal patch's (slice M3-J3: every label its own,
     /// `crate::kinds::short_label`). A type in the game shows its own tag ([`Planned::kind`]: the Guard's "GD"), so
     /// that its button looks the same once its recipe replaces the entry; the Grenadier's is its first and second
-    /// letters, as the Guard's. The Tunnel's commands are named as the other commands' labels are: "Upgr." shortens
-    /// Upgrade as "Adv." does Advanced, Expand is short enough, and every Cancel is "Cancel". The Laser Turret's is its
-    /// initials, "LT", as a building's.
+    /// letters, as the Guard's. The Tunnel's Upgrade is named as the other commands' labels are: "Upgr." shortens
+    /// Upgrade as "Adv." does Advanced. The Laser Turret's is its initials, "LT", as a building's, and so is an
+    /// expansion's, a one-word name's its first and last letters, as the Scout's ("VT" Vault, "FE" Forge).
     pub fn label(self) -> &'static str {
         match self {
             Planned::AlloyFurnace => "AF",
@@ -145,11 +175,17 @@ impl Planned {
             Planned::Lancer => "LA",
             Planned::PsionicUnit => "PU",
             Planned::UpgradeTunnel => "Upgr.",
-            Planned::ExpandTunnel => "Expand",
-            Planned::CancelOperation => "Cancel",
             Planned::Guard => short_label(ObjectKind::Guard),
             Planned::Grenadier => "GR",
             Planned::LaserTurret => "LT",
+            Planned::OpticsLab => "OL",
+            Planned::ChemicalPlant => "CP",
+            Planned::Vault => "VT",
+            Planned::VehicleAssembly => "VA",
+            Planned::Forge => "FE",
+            Planned::NullChamber => "NC",
+            Planned::AerospaceAssembly => "AA",
+            Planned::OrbitalCommand => "OC",
         }
     }
 
@@ -163,21 +199,34 @@ impl Planned {
 
     /// Whether it is a command of the Tunnel's panel, named as it is.
     fn is_command(self) -> bool {
+        self == Planned::UpgradeTunnel
+    }
+
+    /// Whether it is an expansion of the Tunnel's ExpandMenu.
+    pub fn is_expansion(self) -> bool {
         matches!(
             self,
-            Planned::UpgradeTunnel | Planned::ExpandTunnel | Planned::CancelOperation
+            Planned::OpticsLab
+                | Planned::ChemicalPlant
+                | Planned::Vault
+                | Planned::VehicleAssembly
+                | Planned::Forge
+                | Planned::NullChamber
+                | Planned::AerospaceAssembly
+                | Planned::OrbitalCommand
         )
     }
 
-    /// The full name of its button (`PanelCommand::name`): the command it will be, "Train Scout" or "Warp In Alloy
-    /// Furnace", as a unit in the game is trained and a building warped in, the Agent's "Build Laser Turret", as it
-    /// builds a Tunnel (`PanelCommand::Build`), or the Tunnel's command by its name ("Upgrade Tunnel").
+    /// The full name of its button (`PanelCommand::name`): the command it will be, "Train Scout", "Warp In Alloy
+    /// Furnace" or "Build Optics Lab", as a unit in the game is trained, a building warped in and an expansion built
+    /// (`PanelCommand::Expand`), "Build Laser Turret" for the Agent's and the ExpandMenu's alike, as an Agent builds a
+    /// Tunnel (`PanelCommand::Build`), or the Tunnel's command by its name ("Upgrade Tunnel").
     pub fn command_name(self) -> String {
         if self.is_command() {
             self.name().into()
         } else if self.is_unit() {
             format!("Train {}", self.name())
-        } else if self == Planned::LaserTurret {
+        } else if self.is_expansion() || self == Planned::LaserTurret {
             format!("Build {}", self.name())
         } else {
             format!("Warp In {}", self.name())
@@ -187,14 +236,13 @@ impl Planned {
     /// Why its button is greyed out (design change 0162): it isn't in the game yet, but where the reason the command
     /// gate will give is known and true now, that one (slice M4-J2), so that the button says the same before and after
     /// its slice: the Hideout's units their prerequisites, which no player can own yet ("Requires an Optics Lab",
-    /// "Requires a Chemical Plant", as slice M4-K will grey them), the Agent's Laser Turret its own (design change
-    /// 0260: "greyed until available"; `factions/syndicate/units/agent.md > DefaultState commands`: "until the player
-    /// owns an Optics Lab"), and the Tunnel's Cancel that there is nothing to cancel.
+    /// "Requires a Chemical Plant", as slice M4-K will grey them), and the Laser Turret its own (design change 0260:
+    /// "greyed until available"; `factions/syndicate/units/agent.md > DefaultState commands`: "until the player owns an
+    /// Optics Lab"; `factions/syndicate/tunnels.md > ExpandMenu`: "once the player owns an Optics Lab").
     pub fn why(self) -> WhyUnavailable {
         match self {
             Planned::Guard | Planned::LaserTurret => WhyUnavailable::Placeholder(REQUIRES_OPTICS_LAB_TEXT),
             Planned::Grenadier => WhyUnavailable::Placeholder(REQUIRES_CHEMICAL_PLANT_TEXT),
-            Planned::CancelOperation => WhyUnavailable::Placeholder(NOTHING_TO_CANCEL_TEXT),
             _ => WhyUnavailable::NotYet,
         }
     }

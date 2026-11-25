@@ -14,7 +14,7 @@ const UNFINISHED: [PanelCommand; 2] = [PanelCommand::CancelConstruction, PanelCo
 /// unfinished building's Cancel alone, the Cancel of a transformation ([`TRANSFORMING_GRID`], design change 0185) or
 /// of a site's construction ([`SITE_GRID`], design change 0237), whichever it is; a finished type's DefaultState
 /// grid, and a constructor's buildings to construct and to place, and its two Cancels; a Beacon's buildings to warp
-/// in; a Tunnel's EjectMenu tiles. In order, each once.
+/// in; a Tunnel's EjectMenu tiles and the expansions of its ExpandMenu. In order, each once.
 pub fn commands(ty: impl Into<GroupType>) -> Vec<PanelCommand> {
     let GroupType { kind, unfinished } = ty.into();
     if unfinished {
@@ -42,6 +42,9 @@ pub fn commands(ty: impl Into<GroupType>) -> Vec<PanelCommand> {
                 .map(|&unit| PanelCommand::Eject(unit)),
         );
     }
+    if expands(kind) {
+        commands.extend(syndicate::expand_menu::kinds().map(PanelCommand::Expand));
+    }
     commands.sort_unstable();
     commands.dedup();
     commands
@@ -59,7 +62,8 @@ pub fn commands(ty: impl Into<GroupType>) -> Vec<PanelCommand> {
 /// build menu is offered while it shows something, so the Deployment Center's W, Advanced Construction, shows
 /// unavailable: none of its buildings exists yet, and they are hidden (design change 0104: "greyed placeholders"); the
 /// Beacon's Warp In (Advanced) opens, on its unavailable buildings. A type whose DefaultState opens the EjectMenu, the
-/// Tunnel, offers its tiles.
+/// Tunnel, offers its tiles, and one that opens the ExpandMenu, the Tunnel, the expansions in the game
+/// (`sc_sim::defs::EXPAND_MENU`), each a type a Tunnel builds (`StructureDef::expansion`).
 pub fn offers(ty: impl Into<GroupType>, command: PanelCommand) -> bool {
     let GroupType { kind, unfinished } = ty.into();
     if unfinished {
@@ -75,6 +79,9 @@ pub fn offers(ty: impl Into<GroupType>, command: PanelCommand) -> bool {
         }
         PanelCommand::WarpIn(building) => return transform::warp_in_recipe(kind, building).is_some(),
         PanelCommand::Eject(unit) => return ejects(kind) && syndicate::eject_menu::kinds().contains(&unit),
+        PanelCommand::Expand(building) => {
+            return expands(kind) && syndicate::expand_menu::kinds().any(|kind| kind == building);
+        }
         PanelCommand::Planned(_) | PanelCommand::CancelTransform => return false,
         _ => {}
     }
@@ -94,4 +101,9 @@ pub fn offers(ty: impl Into<GroupType>, command: PanelCommand) -> bool {
 /// Whether objects of `kind` open the EjectMenu: the Tunnel (slice M4-J2).
 fn ejects(kind: sc_sim::ObjectKind) -> bool {
     grid(kind).contains(&Some(PanelCommand::EjectMenu))
+}
+
+/// Whether objects of `kind` open the ExpandMenu: the Tunnel (slice M4-F).
+fn expands(kind: sc_sim::ObjectKind) -> bool {
+    grid(kind).contains(&Some(PanelCommand::ExpandMenu))
 }

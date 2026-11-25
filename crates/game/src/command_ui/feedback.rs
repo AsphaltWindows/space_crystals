@@ -110,6 +110,10 @@ pub const IN_TRANSIT_TEXT: &str = "Still in transit";
 /// `factions/syndicate/tunnels.md > EjectMenu`: "Unit types whose base category exceeds this Tunnel's tier are visible
 /// but greyed out (disabled)"). Placeholder wording.
 pub const TIER_TOO_LOW_TEXT: &str = "This Tunnel's tier is too low";
+/// The message of an expansion pressed or placed while its Tunnel performs an operation (`Reject::OperationUnderWay`;
+/// `factions/syndicate/tunnels.md > ExpandMenu`: "begins construction if the Tunnel is not already performing an
+/// operation"). Placeholder wording.
+pub const OPERATION_UNDER_WAY_TEXT: &str = "This Tunnel is busy";
 /// The message of an Attack its unit can't carry out, the target inside its MinRange and the unit unable to move
 /// (`SimEvent::TargetTooClose`). The design's wording (design change 0182).
 pub const TARGET_TOO_CLOSE_TEXT: &str = "Target too close";
@@ -231,6 +235,7 @@ pub fn placement_text(problem: Option<PlacementProblem>) -> &'static str {
         Some(PlacementProblem::Tile(_, problem)) => match problem {
             TileProblem::OffMap => "Outside the map",
             TileProblem::NotBuildable => "Cannot build on this ground",
+            TileProblem::NotDrillable => "Cannot drill this ground",
             TileProblem::NotFlat => "Ground is not flat",
             TileProblem::NotVisible => "Cannot build where you cannot see",
             TileProblem::Structure => "Blocked by a structure",
@@ -258,21 +263,26 @@ pub fn unavailable_text(why: WhyUnavailable) -> &'static str {
 
 /// The message of a command the gate refuses (`sc_sim::Reject`), as a greyed-out button or a Warp In click says it:
 /// "Not enough Space Crystals", "Queue is full" (design change 0162), the placement's first problem
-/// ([`placement_text`]), an EjectMenu tile's (slice M4-J2), and placeholders for the others.
+/// ([`placement_text`]), an EjectMenu tile's (slice M4-J2), an ExpandMenu entry's and the Tunnel's Cancel's (slice
+/// M4-F: its operation, an expansion's Tier Requirement above its tier, nothing to cancel), and placeholders for the
+/// others.
 pub fn reject_text(reject: Reject) -> &'static str {
     match reject {
         Reject::InsufficientCrystals => NO_CRYSTALS_TEXT,
         Reject::InsufficientSupplies => NO_SUPPLIES_TEXT,
         Reject::QueueFull => QUEUE_FULL_TEXT,
-        Reject::NothingQueued | Reject::NotConstructing | Reject::NothingReady | Reject::NotTransforming => {
-            NOTHING_TO_CANCEL_TEXT
-        }
+        Reject::NothingQueued
+        | Reject::NotConstructing
+        | Reject::NothingReady
+        | Reject::NotTransforming
+        | Reject::NoOperation(_) => NOTHING_TO_CANCEL_TEXT,
         Reject::ConstructorBusy(_) => BUSY_TEXT,
         Reject::CannotAttack => SHIELDS_UP_TEXT,
         Reject::Unplaceable(problem) => placement_text(Some(problem)),
         Reject::NotInNetwork(_) => NONE_INSIDE_TEXT,
         Reject::InTransit(_) => IN_TRANSIT_TEXT,
-        Reject::NoTransit { .. } => TIER_TOO_LOW_TEXT,
+        Reject::NoTransit { .. } | Reject::TierRequirement { .. } => TIER_TOO_LOW_TEXT,
+        Reject::OperationUnderWay(_) => OPERATION_UNDER_WAY_TEXT,
         Reject::NothingToDeliver => NOTHING_CARRIED_TEXT,
         _ => CANNOT_DO_TEXT,
     }

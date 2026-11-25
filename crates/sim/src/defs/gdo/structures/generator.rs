@@ -37,6 +37,7 @@ pub(crate) static GENERATOR: ObjectDef = ObjectDef {
         underground: false,
         tunnel: None,
         site: None,
+        expansion: None,
     }),
     default_settings: None,
 };

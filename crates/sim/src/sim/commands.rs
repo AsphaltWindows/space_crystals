@@ -46,6 +46,12 @@ impl Sim {
             Checked::SetResources { player, banks } => self.set_resources(player, banks),
             Checked::SetTier { id, tier } => self.set_tier(id, tier),
             Checked::Eject { tunnel, unit } => self.queue_eject(tunnel, unit, None),
+            Checked::Expand {
+                tunnel,
+                kind,
+                placement,
+            } => self.start_expansion(cmd.player, tunnel, kind, placement),
+            Checked::CancelOperation { tunnel } => self.cancel_operation(tunnel),
             Checked::Production { player, plan } => self.apply_production(player, plan),
             Checked::Construction { player, resolved } => self.apply_construction(player, resolved),
         }

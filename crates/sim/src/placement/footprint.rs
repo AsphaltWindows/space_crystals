@@ -36,7 +36,7 @@ impl Footprint {
     }
 
     /// Adds `problem` to the tiles that `covered` picks.
-    pub(super) fn mark(self, found: &mut [u8], problem: TileProblem, covered: impl Fn(TilePos) -> bool) {
+    pub(super) fn mark(self, found: &mut [u16], problem: TileProblem, covered: impl Fn(TilePos) -> bool) {
         for (i, tile) in self.tiles() {
             if covered(tile) {
                 found[i] |= problem.bit();
@@ -45,7 +45,7 @@ impl Footprint {
     }
 
     /// Takes every problem but those of the bits `kept` off the tiles that `exempt` picks.
-    pub(super) fn keep_only(self, found: &mut [u8], kept: u8, exempt: impl Fn(TilePos) -> bool) {
+    pub(super) fn keep_only(self, found: &mut [u16], kept: u16, exempt: impl Fn(TilePos) -> bool) {
         for (i, tile) in self.tiles() {
             if exempt(tile) {
                 found[i] &= kept;

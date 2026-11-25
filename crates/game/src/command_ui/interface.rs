@@ -12,8 +12,8 @@
 //!   with why a button is greyed out ([`WhyUnavailable`]);
 //! - [`panel`](mod@panel): the panel a selection gets, what pressing a slot does, and who receives a command;
 //! - [`placing`]: AwaitingPlacement's building and who builds it ([`Placing`], [`Builder`]: a constructor, the
-//!   Drones, a Beacon), where its ghost stands and how the placement keys turn it, and which Drone a Deploy goes
-//!   to ([`deploy_recipient`]);
+//!   Drones, a Beacon, a Tunnel), where its ghost stands and how the placement keys turn it, and which Drone a Deploy
+//!   goes to ([`deploy_recipient`]);
 //! - here: the ObjectInterfaceState itself ([`InterfaceState`]), and whether it still holds ([`still_valid`]).
 //!
 //! The Peacekeeper's Riot Shield (`factions/gdo/units/peacekeeper.md > Riot Shield (toggled ability)`): shield
@@ -69,9 +69,13 @@
 //!
 //! The Syndicate's Tunnel (`factions/syndicate/tunnels.md > Tunnel ObjectInterfaceState`, design change 0257; slice
 //! M4-J2) opens its EjectMenu (E): a tile per unit type of the player's Tunnel Network, with its count, in the sim's
-//! order, each ejecting the unit of its type inside the longest, at once, the menu staying open; Z goes back. Its Q
-//! Upgrade, W Expand and X Cancel, and the Hideout's Guard and Grenadier, hold their slots, greyed with why, until the
-//! slices that bring them ([`Planned`]).
+//! order, each ejecting the unit of its type inside the longest, at once, the menu staying open; Z goes back. Its W
+//! opens the ExpandMenu (slice M4-F): every expansion of the Tech Tree in its slot, in the sim's order
+//! (`sc_sim::defs::EXPAND_MENU`), greyed with why while this Tunnel can't build it (its operation, its tier, the bank,
+//! or not in the game yet); an entry enters the expansion's placement, its ghost held within the Tunnel Area, where a
+//! click builds it and returns to DefaultState, and Z goes back to the menu. Its X cancels its operation. Its Q
+//! Upgrade, and the Hideout's Guard and Grenadier, hold their slots, greyed with why, until the slices that bring them
+//! ([`Planned`]).
 //!
 //! The Syndicate's Agent (`factions/syndicate/units/agent.md > Agent ObjectInterfaceState`, design change 0257; slice
 //! M4-J1) has Q Move, A Build Tunnel, S Drop Off, D Build Laser Turret (greyed with its reason until slice M4-S1) and
@@ -150,6 +154,11 @@ pub enum InterfaceState {
     /// (`PanelCommand::Eject`); "**Z**: returns to DefaultState (StateOnlyTransition)". Like a build menu, it leaves
     /// the map's clicks to the selection (slice M4-J2).
     EjectMenu,
+    /// `factions/syndicate/tunnels.md > ExpandMenu`: the Tunnel's ExpandMenu is open (W, design change 0257): the
+    /// expansions it may build, each entering its placement in the Tunnel Area (`PanelCommand::Expand`); "**Z**:
+    /// returns to DefaultState (StateOnlyTransition)". Like a build menu, it leaves the map's clicks to the selection
+    /// (slice M4-F).
+    ExpandMenu,
 }
 
 impl InterfaceState {
@@ -165,7 +174,8 @@ impl InterfaceState {
             InterfaceState::DefaultState
             | InterfaceState::BuildMenu(_)
             | InterfaceState::AwaitingPlacement(_)
-            | InterfaceState::EjectMenu => None,
+            | InterfaceState::EjectMenu
+            | InterfaceState::ExpandMenu => None,
         }
     }
 
@@ -195,12 +205,18 @@ impl InterfaceState {
     /// Center's building, its build menu (`factions/gdo/structures/deployment_center.md > AwaitingPlacement`:
     /// "Escape/right-click: returns to BuildMenu"), and from a Beacon's Warp In the Warp In menu its building was
     /// chosen in (the menus are "like the Deployment Center's two build menus": `factions/colonists/economy.md >
-    /// Beacon > Beacon ObjectInterfaceState`); from anything else DefaultState: the Extraction Facility's
-    /// AwaitingPlacement ("Escape/right-click: returns to DefaultState"), the Drones' (A is pressed in their
-    /// DefaultState), a build menu ("Escape/right-click: returns to DefaultState"), AwaitingTarget, and the Tunnel's
-    /// EjectMenu (`factions/syndicate/tunnels.md > EjectMenu`: "**Z**: returns to DefaultState").
+    /// Beacon > Beacon ObjectInterfaceState`), and from an expansion's the Tunnel's ExpandMenu
+    /// (`factions/syndicate/tunnels.md > Expansions under construction`: "**Z**: returns to ExpandMenu"); from anything
+    /// else DefaultState: the Extraction Facility's AwaitingPlacement ("Escape/right-click: returns to DefaultState"),
+    /// the Drones' (A is pressed in their DefaultState), a build menu ("Escape/right-click: returns to DefaultState"),
+    /// AwaitingTarget, and the Tunnel's EjectMenu and ExpandMenu (`factions/syndicate/tunnels.md > EjectMenu`,
+    /// `factions/syndicate/tunnels.md > ExpandMenu`: "**Z**: returns to DefaultState").
     pub fn back(self, selection: &Selection) -> InterfaceState {
         match self {
+            InterfaceState::AwaitingPlacement(Placing {
+                builder: Builder::Tunnel(_),
+                ..
+            }) => InterfaceState::ExpandMenu,
             InterfaceState::AwaitingPlacement(placing) => selection
                 .active()
                 .and_then(|active| menu_of(active.kind, placing.kind))
@@ -220,9 +236,10 @@ impl InterfaceState {
 /// - AwaitingPlacement while the ActiveGroup is the constructor, which still holds the building ready
 ///   (`conditions`: its state); while it is Drones; while it is the Beacon, which isn't being deployed (the bank is
 ///   the click's to check: `crate::command_ui::feedback` says why it is refused); while it is the Agent placing, the
-///   bank the click's to check as well (slice M4-J1);
-/// - the EjectMenu while the ActiveGroup is a Tunnel: the menu stays open while the network's contents change, its
-///   tiles greyed while they can't eject.
+///   bank the click's to check as well (slice M4-J1); while it is the Tunnel, whose type builds the expansion (its
+///   operation, its tier and the bank are the click's to check, as a Warp In's bank; slice M4-F);
+/// - the EjectMenu and the ExpandMenu while the ActiveGroup is a Tunnel: the menu stays open while the network's
+///   contents or the Tunnel's operation change, its entries greyed while they can't be used.
 ///
 /// A selected object that transforms has the panel of its new type's unfinished group, only its Cancel (design
 /// changes 0116 and 0185): what its old type was doing ends (`crate::selection::ControlState::set_type`), and so does
@@ -268,13 +285,23 @@ pub fn still_valid(
                                 .active()
                                 .is_some_and(|active| offers(active.group_type(), PanelCommand::Build(placing.kind)))
                     }
+                    Builder::Tunnel(tunnel) => {
+                        selection.in_active_group(tunnel)
+                            && selection
+                                .active()
+                                .is_some_and(|active| offers(active.group_type(), PanelCommand::Expand(placing.kind)))
+                    }
                 }
         }
-        InterfaceState::EjectMenu => {
+        InterfaceState::EjectMenu | InterfaceState::ExpandMenu => {
+            let menu = match interface {
+                InterfaceState::EjectMenu => PanelCommand::EjectMenu,
+                _ => PanelCommand::ExpandMenu,
+            };
             commandable
                 && selection
                     .active()
-                    .is_some_and(|active| offers(active.group_type(), PanelCommand::EjectMenu))
+                    .is_some_and(|active| offers(active.group_type(), menu))
         }
     }
 }

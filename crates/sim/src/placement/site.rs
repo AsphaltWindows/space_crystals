@@ -7,6 +7,7 @@ use super::build_area::BuildArea;
 use crate::defs::ObjectKind;
 use crate::ids::PlayerId;
 use crate::map::Map;
+use crate::nav::TileRect;
 use crate::object::{Object, Placement};
 use crate::vision::Vision;
 
@@ -94,6 +95,21 @@ pub enum Method {
     /// deploying Drone) doesn't count" (design change 0118): the caller leaves it out of the occupants, as a Warp In's
     /// caller leaves out its Beacon.
     WorkerBuilt,
+    /// `factions/syndicate/tunnels.md > AwaitingPlacement (Expansion)` (slice M4-F, plan decisions T32 and T53;
+    /// `core/entities.md > Direct Placement`, "Tunnel underground expansions"): an underground expansion a Tunnel
+    /// builds in its Tunnel Area, `area` (the Tunnel's at its current tier, `crate::tunnel::area::of`; a Starting
+    /// Layout's Tunnel's at Tier 1). "The expansion must fit entirely within the Tunnel Area"
+    /// ([`WholeProblem::OutsideTunnelArea`](super::WholeProblem::OutsideTunnelArea)); "Every tile under it must be
+    /// Drillable" (design change 0239: [`TileProblem::NotDrillable`](super::TileProblem::NotDrillable)), in place of
+    /// Buildable; no flatness (`core/map.md > Elevation`) and no sight ("Surface visibility is not relevant"), whatever
+    /// the [`Mode`]. Every structure blocks it, whoever owns it and whichever its layer, the Tunnel's own footprint
+    /// included (design change 0240: "no expansion can be placed under any surface building, any player's"); so do the
+    /// resources (0241). Ground units don't (design change 0290, `core/entities.md > Direct Placement`'s exception:
+    /// "ground units **don't** block a Syndicate expansion's placement, since it is underground and units walk over
+    /// expansions anyway"). No lingering ghost is in its way, so a game reserves none against it (0290: "a Tunnel ghost
+    /// can never be placed inside another Tunnel's area [...], and expansions are placed only inside their own Tunnel's
+    /// area, so the two never meet"; "No ghost check is needed").
+    Expansion { area: TileRect },
 }
 
 /// What a placement is checked against besides the objects on the map: the ground, the build area the footprint

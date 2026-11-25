@@ -20,8 +20,10 @@ use super::super::{PanelCommand, slot_index};
 use crate::input::CommandSlot;
 
 /// The slots the tiles take, in order: Q, W, E, R, A, S, D, F, X, C, V, every slot of the grid but Back's, Z
-/// (`systems/controls/selection_and_hud.md > Standard Slot Assignments > Z`).
-fn tile_slots() -> impl Iterator<Item = usize> {
+/// (`systems/controls/selection_and_hud.md > Standard Slot Assignments > Z`). The ExpandMenu's entries take them alike
+/// (`super::expand_menu`, design change 0257: "In the **ExpandMenu** and **EjectMenu**, entries take the grid slots in
+/// order").
+pub(super) fn tile_slots() -> impl Iterator<Item = usize> {
     CommandSlot::all()
         .filter(|&slot| slot != CommandSlot::BACK)
         .map(slot_index)

@@ -1,6 +1,7 @@
 mod agent;
 mod colonists;
 mod construction;
+mod expansions;
 mod gathering;
 mod syndicate;
 

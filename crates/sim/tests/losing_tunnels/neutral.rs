@@ -1,10 +1,11 @@
 //! A Tunnel destroyed leaves its expansions neutral (`factions/syndicate/tunnels.md > Losing Tunnels`): visible to
 //! everyone and remembered, decaying at 1% of their MaxHP a second (design change 0258 point 1), their work in progress
 //! lost and their queue refunded; the Syndicate is defeated with its last structure, and its network goes with it
-//! (design change 0258 point 5).
+//! (design change 0258 point 5). An expansion it was building is destroyed with it, unrefunded (design change 0254).
 
 use sc_sim::targets::TargetView;
-use sc_sim::{ProductionCommand, Target};
+use sc_sim::tunnel::Operation;
+use sc_sim::{ProductionCommand, Target, TunnelCommand};
 
 use super::*;
 
@@ -162,4 +163,44 @@ fn one_of_two_tunnels_falls_its_hideout_turns_neutral_its_work_lost_its_queue_re
         .any(|(_, e)| matches!(e, SimEvent::UnitProduced { producer, .. } if *producer == H1));
     assert!(!produced);
     assert_eq!(inside(&t, P1), [id(4)]);
+}
+
+/// Design change 0254 (`factions/syndicate/tunnels.md > Expansions under construction`): "**Its Tunnel destroyed
+/// mid-build**: the unfinished expansion is destroyed, no refund" (slice M4-F's site, `Builder::Tunnel`). In
+/// [`two_tunnels`], [`T1`] builds a second Hideout in its area, paying 200 of player 1's 1000 Space Crystals, and falls
+/// halfway: the site leaves the game in that tick with it, as a removal and not a cancel (no
+/// `SimEvent::ExpansionCancelled`), refunding nothing, while the finished Hideout [`H1`] turns neutral.
+#[test]
+fn a_hideout_under_construction_falls_with_its_tunnel_with_no_refund() {
+    let mut t = two_tunnels();
+    let expand = TunnelCommand::Expand {
+        kind: HIDEOUT,
+        origin: at(2, 6),
+        orientation: BuildingOrientation::default(),
+    };
+    next(
+        &mut t,
+        P1,
+        Command::Tunnel {
+            tunnel: T1,
+            command: expand,
+        },
+    );
+    let operation = object(&t, T1).tunnel.as_ref().and_then(|state| state.operation);
+    let Some(Operation::Building(site)) = operation else {
+        panic!("Tunnel {T1:?} builds a Hideout: {operation:?}");
+    };
+    let crystals = |t: &TestSim| t.sim().player(P1).expect("in the game").crystals;
+    assert_eq!(crystals(&t), 800);
+    let started = t.sim().tick();
+    run_until(&mut t, started + 200);
+    assert!(object(&t, site).is_site(), "halfway");
+    next(&mut t, P1, remove(T1));
+    let fell = t.sim().tick();
+    assert_eq!(removed(&t, site), Some(fell));
+    assert!(t.sim().object(site).is_none());
+    assert_eq!(crystals(&t), 800, "no refund");
+    let cancelled = (t.events().iter()).any(|(_, e)| matches!(e, SimEvent::ExpansionCancelled { .. }));
+    assert!(!cancelled);
+    assert_eq!(owner(&t, H1), None, "the finished Hideout turns neutral");
 }

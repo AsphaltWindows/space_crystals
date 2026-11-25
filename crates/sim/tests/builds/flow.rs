@@ -191,8 +191,8 @@ fn the_agent_inside_keeps_its_load_and_is_out_of_reach() {
     assert_eq!(load(&t, 2), carried);
 }
 
-/// Design changes 0233 and 0234 and Q0085: Cancel Construction refunds "the current construction price, not counting
-/// itself", 1 Supply for Tunnel 1 (not the doc's stale "Full refund"), and the Agent "comes out at the centre of the
+/// Design changes 0233, 0234 and 0284: Cancel Construction refunds "the current construction price, not counting
+/// itself" ("the current top price"), 1 Supply for Tunnel 1, and the Agent "comes out at the centre of the
 /// footprint, which is now free; it then idles".
 #[test]
 fn a_cancelled_site_refunds_the_top_price_and_lets_the_agent_out() {

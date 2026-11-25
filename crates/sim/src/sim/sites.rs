@@ -18,8 +18,8 @@
 //!   redeployment from any Tunnel". Its functions wait for this (`Object::is_operational`); the Agent goes on to the
 //!   network, free to leave at once (it walked into no Tunnel: no transit delay, `Held::entered`).
 //! - **Cancel** ([`Sim::cancel_site`], `ConstructionCommand::CancelConstruction` on the site: "It does nothing but
-//!   Cancel"): the site goes, refunded at the current top price (design change 0233, Q0085: not the doc's "Full
-//!   refund"), and the Agent comes out.
+//!   Cancel"): the site goes, refunded at the current top price (design changes 0233 and 0284: "construction and
+//!   upgrade cancels refund the current top price"), and the Agent comes out.
 //! - **Destruction** (`Sim::remove_objects`): "The Agent survives and emerges at the location. The Tunnel is lost and
 //!   any Supplies spent are lost."
 //!
@@ -99,7 +99,11 @@ impl Sim {
         let (Some(site), kind) = (o.construction.take(), o.kind) else {
             return;
         };
-        let worker = site.builder.unit();
+        let worker = match site.builder {
+            Builder::Held(worker) => worker,
+            // A Tunnel's expansion (slice M4-F).
+            Builder::Tunnel(tunnel) => return self.complete_expansion(id, tunnel),
+        };
         let tick = self.tick;
         let goes = site_def(kind).map_or(BuilderGoes::Network, |def| def.builder_goes);
         if let Some(held) = self.held.get_mut(&worker).filter(|held| held.place == Place::Site(id)) {
@@ -122,6 +126,10 @@ impl Sim {
     /// `SimEvent::SiteCancelled`. A player whose only structure it was is defeated in the tick
     /// (`economy::defeat`: the defeat check counts the structures at the end of the economy phase).
     pub(super) fn cancel_site(&mut self, site: ObjectId) {
+        // A Tunnel's expansion has its own refund (slice M4-F, design change 0254).
+        if (self.objects.get(&site)).is_some_and(|o| o.construction.is_some_and(|c| c.builder.tunnel().is_some())) {
+            return self.cancel_expansion(site);
+        }
         let Some((owner, kind)) = (self.objects.get(&site))
             .filter(|o| o.is_site())
             .and_then(|o| Some((o.owner?, o.kind)))
@@ -142,7 +150,7 @@ impl Sim {
         (gone.iter())
             .filter_map(|id| {
                 let o = self.objects.get(id)?;
-                Some((o.construction?.builder.unit(), *id, o.pos))
+                Some((o.construction?.builder.unit()?, *id, o.pos))
             })
             .collect()
     }

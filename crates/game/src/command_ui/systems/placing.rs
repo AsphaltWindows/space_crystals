@@ -2,7 +2,7 @@
 //! Shift ends the Drones' queued placement, and the input layer is told whether a building is being placed.
 
 use bevy::prelude::*;
-use sc_sim::{ConstructionCommand, OrderKind, Reject};
+use sc_sim::{ConstructionCommand, OrderKind, Reject, TunnelCommand};
 
 use super::OrderOutbox;
 use crate::ClientMode;
@@ -82,6 +82,16 @@ pub(in crate::command_ui) fn end_queued_placement(actions: Res<ActionState>, mut
 ///   place with the next Agent), and back to DefaultState. It is paid as it is given (design change 0233): a Build
 ///   the gate refuses (too few Supplies since A was pressed, the Agent building already) sends nothing, says why
 ///   ([`CommandRefused`], design change 0162) and placement goes on, as a Warp In's.
+/// - **A Tunnel's expansion** (`factions/syndicate/tunnels.md > AwaitingPlacement (Expansion)`: "Left-click valid
+///   location: places expansion, begins construction (CommandIssuingTransition, returns to DefaultState)"; slice M4-F):
+///   the ghost held within the Tunnel Area ([`Placing::origin`]), if `Sim::expansion_check` allows it, as far as the
+///   player knows: one `TunnelCommand::Expand` to the Tunnel, and back to DefaultState. Shift changes nothing: a Tunnel
+///   performs one operation at a time, with no queue (`factions/syndicate/tunnels.md > Expansions under construction`:
+///   "the Tunnel does one operation at a time, so there's no queue"), so, as a GDO constructor's, a Shift-click places
+///   it and ends placement (`systems/controls/selection_and_hud.md > AwaitingTarget > Shift while placing`: "This only
+///   applies when the builder **can carry out more queued buildings**"). It is paid as it is given: an Expand the gate
+///   refuses (too few Space Crystals since its entry was pressed) sends nothing, says why ([`CommandRefused`]) and
+///   placement goes on; one the truth refuses (design change 0240) as an invalid click.
 ///
 /// An invalid click sends nothing and placement goes on (M2 plan, H2: "cannot be confirmed"), with a short message
 /// ([`InvalidPlacement`]; placeholder: the design gives feedback for invalid target clicks,
@@ -196,6 +206,36 @@ pub(in crate::command_ui) fn place_on_click(
                     orientation,
                 };
                 match outbox.try_give(player, vec![agent], build, queue) {
+                    Ok(()) => control.update(|state| state.interface = InterfaceState::DefaultState),
+                    Err(Reject::Unplaceable(problem)) => {
+                        let problem = Some(problem);
+                        invalid.write(InvalidPlacement { problem, tick });
+                    }
+                    Err(reject) => {
+                        let why = WhyUnavailable::Refused(reject);
+                        refused.write(CommandRefused { why, tick });
+                    }
+                }
+            }
+            Builder::Tunnel(tunnel) => {
+                let Some(origin) = placing.origin(control.sim(), Some(click.ground)) else {
+                    continue;
+                };
+                let (kind, orientation) = (placing.kind, placing.orientation);
+                let Some(check) = control.sim().expansion_check(tunnel, kind, origin, orientation) else {
+                    continue;
+                };
+                if !check.is_valid() {
+                    let problem = check.first_problem();
+                    invalid.write(InvalidPlacement { problem, tick });
+                    continue;
+                }
+                let expand = TunnelCommand::Expand {
+                    kind,
+                    origin,
+                    orientation,
+                };
+                match outbox.try_tunnel(player, tunnel, expand) {
                     Ok(()) => control.update(|state| state.interface = InterfaceState::DefaultState),
                     Err(Reject::Unplaceable(problem)) => {
                         let problem = Some(problem);

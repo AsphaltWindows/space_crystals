@@ -9,6 +9,7 @@ use sc_sim::construction::{self, Constructor};
 use super::{
     ATTACK_SLOT, BuildMenu, InterfaceState, PanelCommand, colonists, grid, hides_attack, slot_index, syndicate,
 };
+use crate::command_ui::interface::Builder;
 use crate::input::CommandSlot;
 
 /// Whether objects of `kind` construct buildings (`StructureDef::constructs`): the Deployment Center and the
@@ -49,7 +50,9 @@ pub fn menu_of(kind: ObjectKind, building: ObjectKind) -> Option<BuildMenu> {
 /// - a build menu: the menu's entries ([`menu_grid`]); AwaitingPlacement: those of the state it goes back to
 ///   (`InterfaceState::back`): the Deployment Center's menu of the building, a Beacon's Warp In menu of it, the
 ///   Extraction Facility's and the Drone's DefaultState;
-/// - the EjectMenu: its tiles (`syndicate::eject_menu`), on a type whose DefaultState opens it, the Tunnel;
+/// - the EjectMenu: its tiles (`syndicate::eject_menu`), on a type whose DefaultState opens it, the Tunnel; the
+///   ExpandMenu alike, its entries (`syndicate::expand_menu`), and in an expansion's AwaitingPlacement, which goes
+///   back to it;
 /// - a constructor's building ready to place takes its entry's slot, as "Select completed building" (design change
 ///   0104; the Extraction Facility's "Q: Place Plate"), and its X is Cancel Construction while it constructs and Cancel
 ///   Ready Building while it holds a building ready, and empty while it is idle
@@ -70,12 +73,21 @@ pub fn state_grid(
     if interface == InterfaceState::EjectMenu && grid(kind).contains(&Some(PanelCommand::EjectMenu)) {
         return syndicate::eject_menu::grid();
     }
+    let expanding = interface
+        .placing()
+        .is_some_and(|placing| matches!(placing.builder, Builder::Tunnel(_)));
+    if (interface == InterfaceState::ExpandMenu || expanding) && grid(kind).contains(&Some(PanelCommand::ExpandMenu)) {
+        return syndicate::expand_menu::grid();
+    }
     let menu = match interface {
         InterfaceState::BuildMenu(menu) => {
             Some(menu).filter(|&menu| grid(kind).contains(&Some(PanelCommand::BuildMenu(menu))))
         }
         InterfaceState::AwaitingPlacement(placing) => menu_of(kind, placing.kind),
-        InterfaceState::DefaultState | InterfaceState::AwaitingTarget { .. } | InterfaceState::EjectMenu => None,
+        InterfaceState::DefaultState
+        | InterfaceState::AwaitingTarget { .. }
+        | InterfaceState::EjectMenu
+        | InterfaceState::ExpandMenu => None,
     };
     let mut commands = match menu {
         Some(menu) => menu_grid(kind, menu),

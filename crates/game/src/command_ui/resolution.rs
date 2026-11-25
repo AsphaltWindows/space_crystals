@@ -401,7 +401,8 @@ impl PointerDisplay {
 
 /// `systems/controls/selection_and_hud.md > PointerDisplayType > Resolution Rules` over `target`, for the selected
 /// `units` (none: nothing commandable is selected, `systems/controls/selection_and_hud.md > CommandPanel`). In a build
-/// menu a right-click only goes back: Inactive (placeholder: the rules list no build menu). AwaitingPlacement has "No
+/// menu, or a Tunnel's EjectMenu or ExpandMenu, a right-click only goes back: Inactive (placeholder: the rules list no
+/// menu). AwaitingPlacement has "No
 /// pointer display type — the building ghost preview serves as the cursor" (`super::cursor` shows none): Inactive here.
 pub fn pointer_display(interface: InterfaceState, units: &[UnitCapabilities], target: &MapTarget) -> PointerDisplay {
     if units.is_empty() {
@@ -410,9 +411,10 @@ pub fn pointer_display(interface: InterfaceState, units: &[UnitCapabilities], ta
     match interface {
         InterfaceState::DefaultState => right_click_display(units, target),
         InterfaceState::AwaitingTarget { pending, .. } => awaiting_display(pending, target),
-        InterfaceState::BuildMenu(_) | InterfaceState::EjectMenu | InterfaceState::AwaitingPlacement(_) => {
-            PointerDisplay::Inactive
-        }
+        InterfaceState::BuildMenu(_)
+        | InterfaceState::EjectMenu
+        | InterfaceState::ExpandMenu
+        | InterfaceState::AwaitingPlacement(_) => PointerDisplay::Inactive,
     }
 }
 
