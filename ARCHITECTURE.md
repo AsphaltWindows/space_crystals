@@ -268,22 +268,23 @@ Units, structures and resources are all `Object`s (`object.rs`, `core/entities.m
   (`gives_tunnel_space`) all ask it, so that a site does nothing but Cancel. A site counts for defeat, blocks and is
   seen as any structure; the worker inside, held, is not.
 - **Expansions and a Tunnel's operation** (`sim/expansions.rs`, `tunnel/operation.rs`; slice M4-F;
-  `factions/syndicate/tunnels.md > ExpandMenu`, `> AwaitingPlacement (Expansion)`, `> Expansions under construction`;
-  design changes 0240, 0254, 0290, 0291): a Tunnel builds an underground expansion in its area as **its one
-  operation**, `TunnelState::operation: Option<Operation>` (`Operation::Building(site)`; slice M4-G's upgrade joins
-  the enum), hashed (a tag) and saved only while set. The expansion is a site as above, `Builder::Tunnel(tunnel)`, no
-  worker held. `TunnelCommand::Expand { kind, origin, orientation }`'s gate (`Sim::check_expand`) is first
-  **`Sim::can_expand`** (the player's Tunnel in operation, no operation under way `Reject::OperationUnderWay`, the
-  kind's Tier Requirement `Reject::TierRequirement`, its prerequisites `check_tech_prerequisites`, a stub that slice
-  M4-K's check replaces, then the bank), which the ExpandMenu greys its entries by, then the placement by the truth
-  (`Sim::expansion_truth`, `Reject::Unplaceable`). Paid at the click, Tunnel Space used and the ConstructionHP rule
-  from the start (0254); completion (`Sim::complete_expansion`) ends the operation, and so does a cancel, the site's X
-  or the Tunnel's (`TunnelCommand::Cancel`, `Sim::cancel_operation`; 75% back, `Refund::Expansion`), or the site gone
-  any other way (`forget_references`, no refund). **The ExpandMenu's one table** is `defs::EXPAND_MENU`
-  (`ExpandEntry::Kind(kind)` or `ExpandEntry::Planned(name)`): the nine expansions of the Tech Tree table in its order
-  and the Laser Turret tenth, each holding its slot (0291); the slice that brings one turns its entry into its
-  `Kind`, and tests check the list against the design's table and against `StructureDef::expansion`.
-  `Sim::operation_progress(tunnel)` gives the operation and its `Progress` for the Tunnel's InfoPanel.
+  `factions/syndicate/tunnels.md > ExpandMenu`, `factions/syndicate/tunnels.md > AwaitingPlacement (Expansion)`,
+  `factions/syndicate/tunnels.md > Expansions under construction`; design changes 0240, 0254, 0290, 0291): a Tunnel
+  builds an underground expansion in its area as **its one operation**, `TunnelState::operation: Option<Operation>`
+  (`Operation::Building(site)`; slice M4-G's upgrade joins the enum), hashed (a tag) and saved only while set. The
+  expansion is a site as above, `Builder::Tunnel(tunnel)`, no worker held.
+  `TunnelCommand::Expand { kind, origin, orientation }`'s gate (`Sim::check_expand`) is first **`Sim::can_expand`** (the
+  player's Tunnel in operation, no operation under way `Reject::OperationUnderWay`, the kind's Tier Requirement
+  `Reject::TierRequirement`, its prerequisites `check_tech_prerequisites`, a stub that slice M4-K's check replaces, then
+  the bank), which the ExpandMenu greys its entries by, then the placement by the truth (`Sim::expansion_truth`,
+  `Reject::Unplaceable`). Paid at the click, Tunnel Space used and the ConstructionHP rule from the start (0254);
+  completion (`Sim::complete_expansion`) ends the operation, and so does a cancel, the site's X or the Tunnel's
+  (`TunnelCommand::Cancel`, `Sim::cancel_operation`; 75% back, `Refund::Expansion`), or the site gone any other way
+  (`forget_references`, no refund). **The ExpandMenu's one table** is `defs::EXPAND_MENU` (`ExpandEntry::Kind(kind)` or
+  `ExpandEntry::Planned(name)`): the nine expansions of the Tech Tree table in its order and the Laser Turret tenth,
+  each holding its slot (0291); the slice that brings one turns its entry into its `Kind`, and tests check the list
+  against the design's table and against `StructureDef::expansion`. `Sim::operation_progress(tunnel)` gives the
+  operation and its `Progress` for the Tunnel's InfoPanel.
 - **Losing Tunnels** (`sim/tunnels.rs`; slice M4-H; `factions/syndicate/tunnels.md > Losing Tunnels`, design changes
   0254 and 0258): what a Tunnel leaves when it leaves the game, on the removal path (*Removal path*): its unfinished
   expansions (`built_by`: the sites it builds, `Builder::Tunnel`, slice M4-F) are destroyed with no refund; its

@@ -83,13 +83,13 @@ pub(in crate::command_ui) fn end_queued_placement(actions: Res<ActionState>, mut
 ///   the gate refuses (too few Supplies since A was pressed, the Agent building already) sends nothing, says why
 ///   ([`CommandRefused`], design change 0162) and placement goes on, as a Warp In's.
 /// - **A Tunnel's expansion** (`factions/syndicate/tunnels.md > AwaitingPlacement (Expansion)`: "Left-click valid
-///   location: places expansion, begins construction (CommandIssuingTransition, returns to DefaultState)"; slice
-///   M4-F): the ghost held within the Tunnel Area ([`Placing::origin`]), if `Sim::expansion_check` allows it, as far as
-///   the player knows: one `TunnelCommand::Expand` to the Tunnel, and back to DefaultState. Shift changes nothing: a
-///   Tunnel performs one operation at a time, with no queue (`> Expansions under construction`: "the Tunnel does one
-///   operation at a time, so there's no queue"), so, as a GDO constructor's, a Shift-click places it and ends
-///   placement (`systems/controls/selection_and_hud.md > AwaitingTarget > Shift while placing`: "This only applies
-///   when the builder **can carry out more queued buildings**"). It is paid as it is given: an Expand the gate
+///   location: places expansion, begins construction (CommandIssuingTransition, returns to DefaultState)"; slice M4-F):
+///   the ghost held within the Tunnel Area ([`Placing::origin`]), if `Sim::expansion_check` allows it, as far as the
+///   player knows: one `TunnelCommand::Expand` to the Tunnel, and back to DefaultState. Shift changes nothing: a Tunnel
+///   performs one operation at a time, with no queue (`factions/syndicate/tunnels.md > Expansions under construction`:
+///   "the Tunnel does one operation at a time, so there's no queue"), so, as a GDO constructor's, a Shift-click places
+///   it and ends placement (`systems/controls/selection_and_hud.md > AwaitingTarget > Shift while placing`: "This only
+///   applies when the builder **can carry out more queued buildings**"). It is paid as it is given: an Expand the gate
 ///   refuses (too few Space Crystals since its entry was pressed) sends nothing, says why ([`CommandRefused`]) and
 ///   placement goes on; one the truth refuses (design change 0240) as an invalid click.
 ///

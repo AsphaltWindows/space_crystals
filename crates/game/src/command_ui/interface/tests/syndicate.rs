@@ -20,10 +20,10 @@ fn why_text(panel: &Panel, slot: CommandSlot) -> Option<&'static str> {
 }
 
 /// `factions/syndicate/tunnels.md > Tunnel ObjectInterfaceState` (design change 0257): Q Upgrade Tunnel, W Expand
-/// Tunnel, E Eject, X Cancel. Upgrade isn't in the game yet (slice M4-G); W opens the ExpandMenu (slice M4-F) and E
-/// the EjectMenu; X cancels the Tunnel's operation, greyed while it performs none (`Reject::NoOperation`), and sends
-/// the Cancel once it does (`> Expansions under construction`: "The Tunnel's X cancels whatever operation it is
-/// running"). A greyed-out button does nothing and says why.
+/// Tunnel, E Eject, X Cancel. Upgrade isn't in the game yet (slice M4-G); W opens the ExpandMenu (slice M4-F) and E the
+/// EjectMenu; X cancels the Tunnel's operation, greyed while it performs none (`Reject::NoOperation`), and sends the
+/// Cancel once it does (`factions/syndicate/tunnels.md > Expansions under construction`: "The Tunnel's X cancels
+/// whatever operation it is running"). A greyed-out button does nothing and says why.
 #[test]
 fn the_tunnel_has_q_upgrade_w_expand_e_eject_and_x_cancel() {
     use ButtonLook::{Common, Disabled, Unavailable};

@@ -159,9 +159,9 @@ fn the_expand_menu_belongs_to_the_active_tunnel() {
 }
 
 /// `factions/syndicate/tunnels.md > ExpandMenu`: "Click an expansion type: [...] enters AwaitingPlacement for that
-/// expansion"; `> Expansions under construction`: "**Z**: returns to ExpandMenu". While it is placed, the menu stays
-/// on the panel with the expansion marked and the others waiting, and the placement holds while its Tunnel is the
-/// ActiveGroup.
+/// expansion"; `factions/syndicate/tunnels.md > Expansions under construction`: "**Z**: returns to ExpandMenu". While
+/// it is placed, the menu stays on the panel with the expansion marked and the others waiting, and the placement holds
+/// while its Tunnel is the ActiveGroup.
 #[test]
 fn an_expansion_is_placed_from_the_menu_and_z_goes_back_to_it() {
     let tunnel = Selection::new([(id(1), TUNNEL)]);
