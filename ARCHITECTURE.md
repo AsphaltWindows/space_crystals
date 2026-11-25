@@ -247,10 +247,11 @@ Units, structures and resources are all `Object`s (`object.rs`, `core/entities.m
   Option<ObjectId>` (plan decision T56): the Hall that produced the unit's Recruit, hashed (a tag) and saved only while
   set, kept by `Sim::change_kind`, and set by nothing yet (by the Hall at spawn, slice M5-C, and by the layout at a
   game's start, M5-B); a Cults unit without one is an orphan (Placeholder (Q0101 point 2)). The Gunner is the first
-  kind with a MinRange, which M3-L2's code serves as it is (*Behaviours*), and the first TailDisjointed attack, which
-  hits as a FullyConnected one until slice M5-O3 (*Combat*). The Storage, 1/6 on its 2x2 as written, is the
-  building armour test's one exception (`tests/building_armor.rs`, Placeholder (Q0094)). The Cults stay the faction
-  not implemented yet (`StartingConditions::of`) until slice M5-B.
+  kind with a MinRange, which M3-L2's code serves (*Behaviours*; M5-A gave a unit that can't back off its "Target too
+  close", design change 0204 point 3), and the first TailDisjointed attack, which hits as a FullyConnected one until
+  slice M5-O3 (*Combat*). The Storage, 1/6 on its 2x2 as written, is the building armour test's one exception
+  (`tests/building_armor.rs`, Placeholder (Q0094)). The Cults stay the faction not implemented yet
+  (`StartingConditions::of`) until slice M5-B.
 - **Units off the map: the held store** (`network.rs`, `sim/network.rs`; slice M4-C, plan decision T30;
   `factions/syndicate/tunnels.md > Tunnel Network`): a unit inside a Tunnel Network is **not among the objects**. It
   is a `Held { object, place, since, entered }` in `Sim::held`, a second map by id beside `Sim::objects`, with the
@@ -638,9 +639,9 @@ Layout validation can't disagree. **Never test a placement rule anywhere else: a
      of the path (the normal Failure rule, 0247), ends (`SimEvent::EnterFailed`). Before 5b to 5f, so that no grid,
      collision, shot or sight of the tick includes a unit that has gone in.
    - Attacks on a target too close, `Sim::step_too_close` (slice M3-L2, design change 0182): part of 5a, right after
-     the deployments, in id order. Each unit that can't move whose Attack order 5a found with its target inside its
-     MinRange (`AttackOrder::too_close`) ends the order, and its next queued one starts in the next tick, with
-     `SimEvent::TargetTooClose`.
+     the deployments, in id order. Each unit that can't move, or can't back off further (design change 0204 point
+     3), whose Attack order 5a found with its target inside its MinRange (`AttackOrder::too_close`) ends the order,
+     and its next queued one starts in the next tick, with `SimEvent::TargetTooClose`.
    - 5b `paths::sync`: if the blocking footprints changed, rebuild the true navigation grids and bump
      `nav_version`.
    - 5c `paths::serve`: first each unit's staggered path checks, in the ticks where `(tick + id) % 4 == 0` (after
@@ -1081,7 +1082,9 @@ writes the mover's goal and the target the attack engages, and reads `Mover::sta
   **A target inside MinRange** (`engage::too_close`, design change 0182): a unit that can move backs straight away
   from it, to where the gap would be the middle of the band from MinRange to Range (`AttackOrder::backing_off`), and
   attacks once out of MinRange; one that can't (`Mover::can_move`) fails the order (`AttackOrder::too_close`,
-  `Sim::step_too_close`, `SimEvent::TargetTooClose`; the client's feedback line says "Target too close").
+  `Sim::step_too_close`, `SimEvent::TargetTooClose`; the client's feedback line says "Target too close"), and so
+  does one whose back-off ended with the target still inside and where it was: it can't back off ("cornered, or
+  blocked behind", design change 0204 point 3; slice M5-A, which gave it the feedback).
 - **Idle units** (`engage::idle`): scan their SightRange every tick; the acquired enemy is engaged with `close_in`
   from the IdleOrigin, where the unit stood. Farther than `IDLE_LEASH_GU` (4) from it the unit disengages and walks
   back without scanning; a target destroyed or out of SightRange leaves it idle where it is.
@@ -1248,8 +1251,10 @@ writes the mover's goal and the target the attack engages, and reads `Mover::sta
 - **Placeholders** (the design is silent; each is a comment or a named const in `orders/`): "within SightRange" for
   a scan is measured edge to edge like Range; a 45° step reaches up to its upper bound; a unit backing off
   from a target inside its MinRange goes to the middle of the band from MinRange to Range, and gives the order up
-  when a back-off ends with the target inside and where it was; a queued Attack or Follow whose target, a unit, is
-  out of its owner's sight when its turn comes completes at once, as one lost from vision (0200).
+  when a back-off ends with the target inside and where it was (both written into the design since, by design
+  change 0204, the second with the "Target too close" feedback, which slice M5-A added); a queued Attack or Follow
+  whose target, a unit, is out of its owner's sight when its turn comes completes at once, as one lost from vision
+  (0200).
 - **Auto-targeting switch**: `DebugCommand::SetAutoTargeting { on }` (`Sim::auto_targeting`, hashed state) turns
   every scan off or on, for tests and QA runs about movement between hostile units; `TestSim::without_auto_
   targeting()` schedules it for tick 1. Attack orders work either way.
@@ -2101,10 +2106,10 @@ their energy doorway, slice M3-D2: design change 0145, `factions/colonists/struc
   for each object it took, which the client draws nothing of, and `Died` (see *Client architecture > Visuals*,
   Combat effects). `DeployFailed { drone, origin, problems }` (slice M3-F) is a Deploy that failed on arrival; the
   client's feedback line says why (`command_ui/feedback.rs`). `TargetTooClose { unit, target }` (slice M3-L2, design
-  change 0182) is an Attack order
-  that failed because its target is inside the MinRange of a unit that can't move; the feedback line says "Target
-  too close". `SupplyStationEmpty { station, owner }` (slice M4-I, design change 0256 point 3) is a station whose last
-  Supply was picked up, for each player gathering there; the client's notice says so (`hud/notices.rs`).
+  change 0182) is an Attack order that failed because its target is inside the MinRange of a unit that can't move,
+  or can't back off further (design change 0204 point 3); the feedback line says "Target too close".
+  `SupplyStationEmpty { station, owner }` (slice M4-I, design change 0256 point 3) is a station whose last Supply was
+  picked up, for each player gathering there; the client's notice says so (`hud/notices.rs`).
   `EnteredNetwork { unit, tunnel }` and `LeftNetwork { unit, tunnel }` (slice M4-C) are a unit leaving the map
   for a Tunnel Network and coming back with its id: no `Removed` and no `Spawned` go with them. `EnterFailed { unit,
   tunnel }` is an Enter that ended without the unit going in. `BuildFailed { worker, kind, origin, orientation,

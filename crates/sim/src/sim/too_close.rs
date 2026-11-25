@@ -1,7 +1,8 @@
 //! `systems/controls/behaviors.md > AttackingObject > Target inside MinRange` in a game (design change 0182): the
 //! step right after phase 5a that ends the Attack orders their units can't carry out, the target inside the unit's
-//! MinRange and the unit unable to move, with their feedback. The behaviour found it (`orders::engage`); behaviours
-//! don't report, so this step does, as `Sim::step_deployments` does for the Deploys.
+//! MinRange and the unit unable to move, or to back off further (design change 0204 point 3), with their feedback.
+//! The behaviour found it (`orders::engage`); behaviours don't report, so this step does, as `Sim::step_deployments`
+//! does for the Deploys.
 
 use super::Sim;
 use crate::events::SimEvent;

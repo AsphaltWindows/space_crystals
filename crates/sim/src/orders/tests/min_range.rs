@@ -208,8 +208,8 @@ fn auto_targeting_skips_enemies_inside_the_min_range() {
 /// the design with a MinRange, its own def but for a MaxSpeed of 0: a Gunner that can't move, as a garrisoned one will
 /// be (`factions/cults/structures/garrison.md > Garrisoning`: "Militants and Gunners use their own AttackAttributes";
 /// none can be yet). Ordered to attack a Peacekeeper of player 2 that hugs it, it fails the order in its first tick
-/// with a `SimEvent::TargetTooClose`, and never fires at it. One that can move backs off instead
-/// (`crates/sim/tests/cults_combat.rs`).
+/// with a `SimEvent::TargetTooClose`, and never fires at it. One that can move backs off instead, and fails so only
+/// once it can't back off further (`crates/sim/tests/cults_combat.rs`).
 #[test]
 fn a_gunner_that_cant_move_fails_its_attack_on_a_target_too_close() {
     let _rooted = TestDef::unit(ObjectKind::Gunner, |unit| {

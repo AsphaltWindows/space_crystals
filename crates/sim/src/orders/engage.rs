@@ -175,8 +175,10 @@ pub(super) fn attack(unit: &mut Unit, id: ObjectId, state: &mut AttackOrder, aut
 ///   from the target ([`back_off_spot`]) once its attack sequence lets it move (`combat::may_move`), and [`attack`]
 ///   goes on as ever once the target is outside MinRange ([`close_in`] stops it in range). A back-off that ended
 ///   with the target still inside starts again from where the unit stands if the target moved meanwhile (it follows
-///   the unit); if it didn't, the unit is as far as it gets from it, and gives the target up (`> Failure`): backed
-///   against a cliff, say.
+///   the unit); if it didn't, the unit is as far as it gets from it: backed against a cliff, say. **A unit that
+///   can't back off** ("cornered, or blocked behind": design change 0204 point 3) "gives up the order with the same
+///   "Target too close" feedback, like an immobile unit": it fails as below (slice M5-A; it gave the order up
+///   without the feedback before).
 /// - **A unit that can't move** (`Mover::can_move`: a deployed Artillery Rig, when there is one; a unit converting
 ///   its weapon too, while it does, though none has a MinRange) "can't carry it out: the order fails with feedback
 ///   ("Target too close"; same channel as other refusals)". Behaviours don't report: it marks the order
@@ -200,9 +202,12 @@ fn too_close(unit: &mut Unit, attrs: &AttackAttrs, state: &mut AttackOrder, targ
             return false;
         }
         if target.pos == from {
+            // It can't back off (design change 0204 point 3): it fails as a unit that can't move does.
             state.backing_off = None;
             unit.engage(None);
-            return true;
+            unit.halt();
+            state.too_close = true;
+            return false;
         }
     }
     if unit.may_move() {

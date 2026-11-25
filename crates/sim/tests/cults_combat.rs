@@ -2,9 +2,10 @@
 //! Militant (`factions/cults/units/militant.md`) fights a Peacekeeper to a result, and the Gunner
 //! (`factions/cults/units/gunner.md`), the first kind of the design with a MinRange, never fires at a target nearer
 //! than 2 grid units (`systems/controls/behaviors.md > AttackingObject > Target inside MinRange`,
-//! `systems/controls/behaviors.md > BaseAutoTargeting > Targets inside MinRange`; slice M3-L2's code, as it is: plan
-//! decision T55). A Gunner that can't move, which fails such an order with a `SimEvent::TargetTooClose`, is
-//! `sc_sim::orders`' test: none can yet, so it needs a test def.
+//! `systems/controls/behaviors.md > BaseAutoTargeting > Targets inside MinRange`; slice M3-L2's code: plan decision
+//! T55). It backs off from such a target, and fails its Attack with a `SimEvent::TargetTooClose` once it can't back
+//! off further (design change 0204 point 3, which slice M5-A added to that code). A Gunner that can't move at all
+//! fails at once: `sc_sim::orders`' test, since none can yet, so it needs a test def.
 //!
 //! Every test runs under the invariants of `TestSim`.
 
@@ -144,6 +145,52 @@ fn a_gunner_backs_off_from_a_target_inside_its_min_range_then_fires() {
     t.run(60);
     assert_eq!(t.sim().object(gunner).unwrap().pos, stood, "it stands while it attacks");
     assert!(attacks(&t, gunner, target).len() >= 2);
+}
+
+/// `systems/controls/behaviors.md > AttackingObject > Target inside MinRange`: "A unit that can't back off (cornered,
+/// or blocked behind): it gives up the order with the same "Target too close" feedback, like an immobile unit" (design
+/// change 0204 point 3). The Gunner stands with its back to the map's west edge, and a Peacekeeper of player 2 hugs
+/// it from the east (auto-targeting off). Ordered to attack it, the Gunner backs off as far as the edge lets it, and
+/// fails the order there with a `SimEvent::TargetTooClose`, its one feedback; it never fires, and stays where it
+/// stopped.
+#[test]
+fn a_cornered_gunner_fails_its_attack_with_target_too_close() {
+    let (gunner, target) = (ObjectId(1), ObjectId(2));
+    let start = Vec2::new(HALF + 4.0, 320.0);
+    let mut t = ScenarioBuilder::new(&open()).start();
+    t.without_auto_targeting()
+        .spawn_unit_at(1, ObjectKind::Gunner, P1, start)
+        .spawn_unit_at(1, ObjectKind::Peacekeeper, P2, start + Vec2::new(2.0 * HALF + 8.0, 0.0))
+        .order_at(2, P1, &[gunner], OrderKind::Attack(target), false)
+        .run_until(2);
+    let too_close = |t: &TestSim| -> Vec<(Tick, SimEvent)> {
+        let failed = |(_, e): &&(Tick, SimEvent)| matches!(e, SimEvent::TargetTooClose { .. });
+        t.events().iter().filter(failed).cloned().collect()
+    };
+    while too_close(&t).is_empty() {
+        assert!(t.sim().tick() < 200, "it never gave up\n{}", t.ascii(None));
+        assert_eq!(
+            current(&t, gunner),
+            Some(OrderKind::Attack(target)),
+            "tick {}",
+            t.sim().tick()
+        );
+        t.step();
+    }
+    let failed = too_close(&t);
+    assert_eq!(failed.len(), 1, "{failed:?}");
+    assert_eq!(failed[0].1, SimEvent::TargetTooClose { unit: gunner, target });
+    assert_eq!(current(&t, gunner), None, "the order ended");
+    assert!(gap(&t, gunner, target) < gu(MIN_RANGE_GU));
+    let stood = t.sim().object(gunner).unwrap().pos;
+    assert!(
+        stood.x < start.x && stood.y == start.y,
+        "it backed straight off: {stood}"
+    );
+    t.run(40);
+    assert_eq!(attacks(&t, gunner, target), [] as [Tick; 0]);
+    assert_eq!(t.sim().object(gunner).unwrap().pos, stood);
+    assert_eq!(too_close(&t).len(), 1);
 }
 
 /// `systems/controls/behaviors.md > BaseAutoTargeting > Targets inside MinRange`: an idle Gunner, with a Peacekeeper

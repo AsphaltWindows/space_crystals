@@ -26,9 +26,10 @@
 //!   economy.md > Beacon Deployment > Placement`), and a Build at the end of its worker's (`SimEvent::BuildFailed`,
 //!   slice M4-E): what the check found on arrival, as for a building, or that the worker didn't get to its site
 //!   ([`deploy_failed_text`]). Placeholders too;
-//! - an Attack whose unit can't move and whose target is inside its MinRange (`SimEvent::TargetTooClose`;
-//!   `systems/controls/behaviors.md > AttackingObject > Target inside MinRange`, design change 0182: "the order
-//!   fails with feedback ("Target too close"; same channel as other refusals)"): [`TARGET_TOO_CLOSE_TEXT`];
+//! - an Attack whose unit can't move, or can't back off further (design change 0204 point 3), and whose target is
+//!   inside its MinRange (`SimEvent::TargetTooClose`; `systems/controls/behaviors.md > AttackingObject > Target
+//!   inside MinRange`, design change 0182: "the order fails with feedback ("Target too close"; same channel as other
+//!   refusals)"): [`TARGET_TOO_CLOSE_TEXT`];
 //! - a greyed-out button pressed, or its hotkey (`systems/controls/selection_and_hud.md > CommandPanel > Pressing an
 //!   unavailable command`, design change 0162: "nothing is issued, and the player gets the same feedback as when an
 //!   order is refused, naming the reason (e.g. "Not enough Space Crystals", "Queue is full")"), and a Warp In whose

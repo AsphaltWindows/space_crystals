@@ -68,9 +68,9 @@ pub struct AttackOrder {
     /// and the unit's current move is its back-off from it (`orders::engage`), given when the target stood here.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub backing_off: Option<Vec2>,
-    /// Design change 0182: the target is inside the unit's MinRange and the unit can't move to back off, so it can't
-    /// carry the order out. The step right after phase 5a ends the order, with the "Target too close" feedback
-    /// (`Sim::step_too_close`).
+    /// Design change 0182: the target is inside the unit's MinRange and the unit can't move to back off, or can't
+    /// back off further (design change 0204 point 3), so it can't carry the order out. The step right after phase 5a
+    /// ends the order, with the "Target too close" feedback (`Sim::step_too_close`).
     #[serde(default, skip_serializing_if = "is_false")]
     pub too_close: bool,
 }
