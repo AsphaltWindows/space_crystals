@@ -942,7 +942,10 @@ or `Visible` for each player, and each player remembers the structures and resou
   remembers its own objects, whether or not it sees them). **Damage never asks**
   (`systems/combat.md > AoEDamage`, design change 0262, keeping 0218: underground objects "take their share of any blast
   over them, even unseen"): a hit on the tick's list lands whoever sees its target (`combat/damage.rs`). Hidden units
-  come with the Tunnel network (design change 0219).
+  come with the Tunnel network (design change 0219). **The hook for a new arm of the rule** (slice M4-S2's pop-up
+  turret, hidden while lowered) is `Hiding::of` in `vision/hidden.rs`, alone: vision, targeting, the records and the
+  client's `Sight` ask it of the live objects, a death carries it (`SimEvent::Died::hiding`, slice M4-V), and the
+  client's filter of events takes it for a removal (*Client architecture > Viewer events*).
 - **Paths** are planned from what each player knows (design changes 0040 and 0042; *Navigation > Path knowledge*):
   the records' footprints are the other players' structures and the resources it knows of, the map's from the start
   (0159); its own come from the live objects, as they are never recorded.
@@ -1981,11 +1984,13 @@ their energy doorway, slice M3-D2: design change 0145, `factions/colonists/struc
   `ConstructionCompleted`, `ConstructionCancelled`, `StructurePlaced`, `PlacementRefused`, `PlayerDefeated`,
   `GameOver`, `KindChanged`, `TransformCompleted`, `TransformCancelled`, `ResourcesDelivered`, `DeployFailed`,
   `TargetTooClose`, `SupplyStationEmpty`, `ProjectileLaunched`, `Blast`, …) are output only, for effects, sounds and
-  UI. The sim never reads them. `ProjectileLaunched { shooter, target, from, to, lands_at }` and `Blast { at, radius }`
-  (slice M4-O) are a projectile leaving and landing; a blast's damage follows as a `Hit` for each object it took,
-  which the client draws nothing of, and `Died` (see *Client architecture > Visuals*, Combat effects). `DeployFailed { drone,
-  origin, problems }` (slice M3-F) is a Deploy that failed on arrival; the client's feedback line says why
-  (`command_ui/feedback.rs`). `TargetTooClose { unit, target }` (slice M3-L2, design change 0182) is an Attack order
+  UI. The sim never reads them, and tells each to every player; the client shows a player only what they may
+  perceive of it (*Client architecture > Viewer events*). `ProjectileLaunched { shooter, target, from, to, lands_at }`
+  and `Blast { at, radius }` (slice M4-O) are a projectile leaving and landing; a blast's damage follows as a `Hit`
+  for each object it took, which the client draws nothing of, and `Died` (see *Client architecture > Visuals*,
+  Combat effects). `DeployFailed { drone, origin, problems }` (slice M3-F) is a Deploy that failed on arrival; the
+  client's feedback line says why (`command_ui/feedback.rs`). `TargetTooClose { unit, target }` (slice M3-L2, design
+  change 0182) is an Attack order
   that failed because its target is inside the MinRange of a unit that can't move; the feedback line says "Target
   too close". `SupplyStationEmpty { station, owner }` (slice M4-I, design change 0256 point 3) is a station whose last
   Supply was picked up, for each player gathering there; the client's notice says so (`hud/notices.rs`).
@@ -2523,8 +2528,9 @@ these.
   right above for an object that has Shields (`systems/combat.md > Shields > Display`, design change 0148;
   `SHIELD_FILL`, a placeholder colour), shown too while only its Shields are down, and a fading marker for each
   `SimEvent::Died` (`DEATH_MARKER_TICKS`), never for an object that was hidden from the local player
-  (`shows_death`, `sc_sim::vision::Hiding::of_kind`; plan decision T52: "nothing is drawn for a hidden victim", as a
-  Hideout under a blast; no hit is drawn for any victim). Slice M4-O adds the projectiles in flight
+  (`shows_death`, the `Hiding` its death carries; plan decision T52: "nothing is drawn for a hidden victim", as a
+  Hideout under a blast; no hit is drawn for any victim). Each effect keeps its event's `Sighting` (*Viewer events*):
+  the drawing code only cuts a path to the Visible tiles. Slice M4-O adds the projectiles in flight
   (`combat_effects/projectiles.rs`, `Flight`, from `SimEvent::ProjectileLaunched`): each along the straight path to
   its locked point at the pace of the ticks, lifted by a cosmetic arc (`ARC`) over its shadow, shown while its point
   on the ground is over a Visible tile (`shows_flight`; `core/vision.md > Attacks from outside vision`), whoever
@@ -2555,6 +2561,23 @@ these.
   `FogOfWar` turns it off for QA (`--no-fog`, the debug key F3, which a replay's playback takes without debug
   commands too): display only, the sim computes every player's
   vision anyway. The editor shows no fog; its play-tests do.
+- **Viewer events** (`viewer_events.rs`, slice M4-V): **one filter between the sim's events and every view of them.**
+  The sim tells every event to everyone. `filter_events` (in `SyncSim`, set `FilterEvents`) alone reads that stream,
+  besides the QA state dump (tooling). It gives each event an `Audience` as it arrives, and fills the frame's
+  `ViewerEvents`, which every consumer reads instead. A consumer asks how a viewer perceives each event: `Whole`,
+  `Clipped` (a path seen only over the viewer's Visible tiles, which the drawing code cuts), or `Nothing`. The
+  audiences:
+  - `Owner`, the owner alone: feedback, refusals, notices, refunds, production, construction and upgrades;
+  - `Object`, whoever `Sight::sees` the object;
+  - `Seen`, by place: every shot and projectile is clipped for every viewer, the shooter's owner too (0293); a blast
+    shows where its centre is Visible; a death shows to its owner and where it is Visible, never to a player it was
+    hidden from;
+  - `Removal`, whoever was shown the object where it went, never a player who remembers it out of sight;
+  - `Everyone`: defeats and the end of the game.
+
+  The fog off shows everything but a player's own business. Whom an object is hidden from is `Hiding::of`'s alone
+  (the hook, *Vision > Hidden objects*). A new `SimEvent` doesn't compile until `Arrival::audience` has its rule, and
+  fails the table test (`viewer_events/tests.rs`) until it has a row. Never read `SimEventMessage` elsewhere.
 - Never make one entity per tile. Draw the terrain as one mesh or texture, or a few chunks; the fog of war is one
   texture, never per-tile materials.
 - Create mesh and material handles once and cache them in a `Resource`. Never create assets per frame, per object or
