@@ -1,5 +1,5 @@
-//! The records drawn on Explored tiles (`core/vision.md > Explored`): as last seen, never the live objects there, and
-//! an enemy structure's as placed, with its tag.
+//! The records drawn on Explored tiles (`core/vision.md > Explored`): as last seen, never the live objects there, an
+//! enemy structure's as placed, with its tag, and a Tunnel's at the tier last seen.
 
 use sc_sim::{Rotation, SlotId};
 use space_crystals::input::InjectedInput;
@@ -138,4 +138,49 @@ fn a_remembered_enemy_structure_shows_as_placed_with_its_tag() {
         dim.red < bright.red && dim.green < bright.green && dim.blue < bright.blue,
         "{dim:?}"
     );
+}
+
+/// Design changes 0258 ("Enemies see a Tunnel's tier") and 0237 (the tier last seen): an enemy Tunnel at Tier 2 is
+/// tagged "T2" and drawn as one; raised to Tier 3 out of sight (a debug command), its record still shows Tier 2, its
+/// look and its tag, until the player sees it again.
+#[test]
+fn a_remembered_tunnel_keeps_the_tier_it_was_seen_at() {
+    let mut scenario = scenarios::empty(24, 16);
+    scenario.setup.players[1].faction = Faction::Syndicate;
+    let tunnel = Spawn::new(ObjectKind::Tunnel, Some(SlotId(2)), SpawnAt::Tile(TilePos::new(8, 4)));
+    scenario.map.spawns = vec![tunnel]; // 1: (8, 4) to (11, 7)
+    let mut app = headless(AppConfig::new(scenario));
+    // Looking only: units attack enemy structures on their own (`World::pick`).
+    debug(&mut app, DebugCommand::SetAutoTargeting { on: false });
+    spawn_unit(&mut app, P1, 5, 7); // 2: sees the Tunnel
+    let (tunnel, scout) = (1, ObjectId(2));
+    let set_tier = |tier| DebugCommand::SetTier {
+        id: ObjectId(tunnel),
+        tier,
+    };
+    debug(&mut app, set_tier(2));
+    app.update();
+    let live = |app: &App| app.world().resource::<ObjectVisuals>().by_id[&ObjectId(tunnel)];
+    let label = |app: &App, entity| tag(app, entity).map(|(_, label, _)| label);
+    let mesh = |app: &App, entity| app.world().get::<Mesh2d>(entity).unwrap().0.clone();
+    assert!(drawn(&app, tunnel));
+    assert_eq!(label(&app, live(&app)).as_deref(), Some("T2"));
+    let tier_2 = mesh(&app, live(&app));
+
+    move_to(&mut app, scout, 20, 7);
+    debug(&mut app, set_tier(3));
+    app.update();
+    let sim = app.world().resource::<SimRes>();
+    let now = sim.object(ObjectId(tunnel)).and_then(|o| o.tunnel).map(|t| t.tier);
+    assert_eq!(now, Some(3), "raised out of sight");
+    assert!(!drawn(&app, tunnel));
+    assert_eq!(remembered(&app), [tunnel]);
+    let memory = app.world().resource::<RememberedVisuals>().by_id[&ObjectId(tunnel)];
+    assert_eq!(label(&app, memory).as_deref(), Some("T2"), "the tier last seen");
+    assert_eq!(mesh(&app, memory), tier_2, "drawn as last seen, at Tier 2");
+
+    move_to(&mut app, scout, 5, 7);
+    assert!(drawn(&app, tunnel));
+    assert_eq!(remembered(&app), [0_u32; 0]);
+    assert_eq!(label(&app, live(&app)).as_deref(), Some("T3"), "seen again");
 }

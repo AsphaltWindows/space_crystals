@@ -5,9 +5,9 @@
 //! from a shooter it revealed (design changes 0177 and 0206); and the markers on a remembered target stay on its
 //! record (design change 0139). Headless, one tick per update, as in `fog.rs`.
 //!
-//! One test binary: `records` (the records drawn on Explored tiles, an enemy structure's as placed), `station` (the
-//! remembered SupplyDeliveryStation: who may select it, its frame and its InfoPanel), `shots` (a shot from the fog)
-//! and `markers` (the markers on a remembered target).
+//! One test binary: `records` (the records drawn on Explored tiles, an enemy structure's as placed, a Tunnel's at the
+//! tier last seen), `station` (the remembered SupplyDeliveryStation: who may select it, its frame and its InfoPanel),
+//! `shots` (a shot from the fog) and `markers` (the markers on a remembered target).
 
 mod markers;
 mod records;

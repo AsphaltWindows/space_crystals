@@ -117,7 +117,8 @@ struct Shown<'a> {
     kind: ObjectKind,
     owner: Option<PlayerId>,
     hp: Option<f32>,
-    /// Its MaxHP: its kind's, or while it transforms the interpolated one (`Object::max_hp`).
+    /// Its MaxHP: its kind's, a Tunnel's its tier's (a record's the tier last seen, `LastKnown::max_hp`), or while it
+    /// transforms the interpolated one (`Object::max_hp`).
     max_hp: Option<f32>,
     /// Its Shields and MaxShields, the latter interpolated while it transforms (`Object::max_shields`).
     shields: Option<f32>,
@@ -162,7 +163,7 @@ impl<'a> Shown<'a> {
             kind: record.kind,
             owner: record.owner,
             hp: record.hp,
-            max_hp: record.kind.def().max_hp,
+            max_hp: record.max_hp(),
             shields: None,
             max_shields: None,
             resource,
