@@ -1457,3 +1457,9 @@ Quote these in the slice briefs.
   - The site counts for defeat.
   - The Agent keeps its load.
   - Enemies see the site, not the Agent.
+- **0237** (Q0062 point 1, for E and G): the non-overlap rule applies between all players' Tunnels, which replaces the own-Tunnels-only proposal. Crowding or blocking an enemy's Tunnels is a valid tactic.
+  - The build ghost judges known enemy Tunnels at their remembered position and last-seen tier.
+  - The check on arrival uses the truth, so it can fail on an upgrade the player didn't see.
+  - Upgrade checks use the truth, and any Tunnel's area blocks them.
+- **0238** (Q0062 point 2, for B and F): Tunnel Space counts the whole area square, cells past the map edge included. Expansions can be placed on map cells only.
+- **0239** (Q0062 points 3a, 3b and 3e, for F): every tile under an expansion must be Drillable. Plane, Rugged and Cliff are; Mountain and Water aren't. Own and neutral underground structures, and the Tunnel's own footprint, block it, as proposed.
