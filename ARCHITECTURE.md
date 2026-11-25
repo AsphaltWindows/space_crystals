@@ -2221,7 +2221,9 @@ their energy doorway, slice M3-D2: design change 0145, `factions/colonists/struc
   with the fog on.
   Measured (release, 500 units on 256 × 256; slice M2-J2, within 7 % of M1's in an interleaved A/B): 0.13 ms a tick
   with everyone idle or on Hold in sight of the enemy, 0.29 ms on average and 0.65 ms at worst in a battle of 250
-  against 250.
+  against 250. The release build's split into codegen units moves these by a few percent with code that isn't on
+  their path: slice M4-S1's battle ran 3% slower with no new work in it until `World::pick` was `#[inline]` (the
+  split had left its call in `travel::march` out of line); with one codegen unit on both sides it was within noise.
 - **Resource collision tests** are `crates/sim/tests/resources_block.rs` (design change 0038's verification: units
   path around a crystal field, can't walk across a Supply Delivery Station, and walk through the tile of a patch
   removed by a debug command, standing in for depletion; `economy_mining.rs` has the real thing, below).
