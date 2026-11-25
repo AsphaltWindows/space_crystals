@@ -1,43 +1,39 @@
-//! The GDO's openings (slice M2-J1) against `factions/gdo/economy.md > Opening Economy Baseline` and the GDO column of
-//! `> Economy Targets (GDO vs Colonists)` (the module docs of `main.rs`).
+//! The GDO's openings (slice M2-J1) against `factions/gdo/economy.md > Opening Economy Baseline` (the module docs of
+//! `main.rs`).
 
 use sc_sim::testing::TestSim;
 use sc_sim::testing::build_order::{Books, BuildOrder, Order, first_spot};
 use sc_sim::{BuildingOrientation, Command, ConstructionCommand, ObjectKind, ProductionCommand, Sim, SimConfig, Tick};
 
 use super::played::{CYCLE, FRAMES, LUMP, PLATE_RATE, Played, design, plates_first, reference_base};
-use super::{P1, at, clock, seconds};
+use super::{P1, TABLE, at, clock, seconds};
 
 use ObjectKind::{
     Barracks, DeploymentCenter as DC, ExtractionFacility as EF, ExtractionPlate as Plate, Generator, Peacekeeper as PK,
 };
 
-/// The times of `> Economy Targets (GDO vs Colonists)`'s table and its GDO income there.
-pub(crate) const TARGETS: [(Tick, f64); 9] = [
-    (at(0, 0), 6.7),
-    (at(0, 40), 10.0),
-    (at(1, 0), 13.3),
-    (at(1, 20), 16.7),
-    (at(1, 40), 20.0),
-    (at(2, 20), 23.3),
-    (at(2, 40), 26.7),
-    (at(3, 0), 26.7),
-    (at(4, 0), 26.7),
-];
+/// The reference line's income at `tick` by `> How the opening plays out`, as a trickle: the two starting plates and
+/// the k-th plate built landing at 25·k seconds ("Fully plated at ~2:30 on the reference base (6 plates to build at 25
+/// seconds each)"), each mining [`PLATE_RATE`] from then. Until design change 0236 this model was the GDO column of
+/// `> Economy Targets (GDO vs Colonists)`'s table; since then the column is the line measured (`main.rs`'s `TABLE`,
+/// checked in `colonists.rs`).
+fn model(tick: Tick) -> f64 {
+    PLATE_RATE * f64::from(2 + (tick / at(0, 25)).min(6))
+}
 
-/// The reference line against the GDO column of `> Economy Targets (GDO vs Colonists)` and `> Opening Economy
-/// Baseline`: income at the table's times; the Extraction Facility plating non-stop but for money, the plates landing
-/// every 25 seconds, "fully plated at ~2:30"; "Power is not a constraint in the opening"; and every cost, build time
-/// and lump exactly the design's.
+/// The reference line against `> Opening Economy Baseline`: income at the times of `> Economy Targets (GDO vs
+/// Colonists)`'s table by its plates ([`model`]); the Extraction Facility plating non-stop but for money, the plates
+/// landing every 25 seconds, "fully plated at ~2:30"; "Power is not a constraint in the opening"; and every cost,
+/// build time and lump exactly the design's.
 #[test]
 fn the_plates_first_line_earns_the_targets_income() {
     let g = plates_first(at(4, 0));
-    g.print(&TARGETS.map(|(t, _)| t.max(1)));
+    g.print(&TABLE.map(|(t, ..)| t.max(1)));
     g.check_design_numbers();
 
-    // The table's model lands the k-th built plate at 25·k seconds ("6 plates to build at 25 seconds each"). Here
-    // each lands then or up to one cycle later: the Extraction Facility waits for its 75 Space Crystals once a
-    // Generator took the bank.
+    // The model lands the k-th built plate at 25·k seconds ("6 plates to build at 25 seconds each"). Here each
+    // lands then or up to one cycle later: the Extraction Facility waits for its 75 Space Crystals once a Generator
+    // took the bank.
     let plates = g.runs_of(Plate);
     assert_eq!(plates.len(), 6);
     for (k, plate) in (1..).zip(&plates) {
@@ -53,19 +49,19 @@ fn the_plates_first_line_earns_the_targets_income() {
     let full = seconds(plates[5].placed.unwrap());
     assert!((150.0..=153.0).contains(&full), "fully plated at {full} s");
 
-    // Income at the table's times. A plate the table lands within the 15 seconds before (12 seconds for its first
+    // Income at the table's times. A plate the model lands within the 15 seconds before (12 seconds for its first
     // lump and the window, 3 for the wait for money above) may not count yet: the measure may be that many plates
-    // under the table's figure, never over it (the table rounds to 0.1).
-    for (tick, target) in TARGETS {
+    // under the model's figure, never over it (to the float's rounding).
+    for (tick, ..) in TABLE {
         let landing = |k: u32| at(0, 25 * k);
         let late = (1..=6)
             .filter(|&k| landing(k) <= tick && landing(k) + at(0, 15) > tick)
             .count();
-        let income = g.income(tick);
-        let low = target - PLATE_RATE * late as f64 - 0.05;
+        let (income, target) = (g.income(tick), model(tick));
+        let low = target - PLATE_RATE * late as f64 - 1e-9;
         assert!(
-            (low..=target + 0.05).contains(&income),
-            "income at {}: {income:.2}/s, the table's {target} (down to {low:.2})",
+            (low..=target + 1e-9).contains(&income),
+            "income at {}: {income:.2}/s, the model's {target:.2} (down to {low:.2})",
             clock(tick)
         );
     }

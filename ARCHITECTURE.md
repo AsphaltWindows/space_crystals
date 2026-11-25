@@ -1745,16 +1745,17 @@ M3-D2: design change 0145, `> Portals > Portal Exits (energy doorway)`).
   `gate`, `placing`, `saves`). The clean Barracks opening, which slice
   M2-D1 measured there first, is the economy oracle's.
 - **The economy oracle** is `crates/sim/tests/economy_oracle/`, one binary in modules; its measured results are in
-  `docs/economy_oracle.md`. **The Colonists** (slice M3-K1, `colonists.rs` and `curve.rs`): the reference line on
-  `testing::colonists::reference_field` (one Robo Portal training Drones without a break, every 6th deploying)
-  against the Colonists' column of `> Economy Targets (GDO vs Colonists)` within ±15% (design change 0108) and its
-  targets 1 to 4, beside the GDO's reference line measured the same way (what each delivered or mined over the 21 s
-  centred on a time), and the saturation curve of the row by number of Drones; the figures and targets measured
-  outside the design are pinned as measured (a question to the Designer, not tuned). **The GDO** (slice M2-J1,
-  `played.rs` and `gdo.rs`): GDO openings on
+  `docs/economy_oracle.md`. **The Colonists** (slices M3-K1 and M3-K4, `colonists.rs` and `curve.rs`): the
+  reference line on `testing::colonists::reference_field` (one Robo Portal training Drones without a break, every
+  6th deploying) and the GDO's reference line measured the same way (what each delivered or mined over the 21 s
+  centred on a time) against both columns of the table of `> Economy Targets (GDO vs Colonists)` (`main.rs`'s
+  `TABLE`) within ±15% (design change 0108) and its targets 1 to 4, and the saturation curve of the row by number of
+  Drones against `factions/colonists/units.md > Drone > Patch Occupancy`. Since design change 0236 the table and the
+  curve are this measurement (slice M3-K3's), rounded; a figure out of the tolerance or a failing target is a
+  question to the Designer, not tuned. **The GDO** (slice M2-J1, `played.rs` and `gdo.rs`): GDO openings on
   `maps/dev_skirmish.json` from its real start, played with `testing::build_order` (player 2 idle), against
-  `factions/gdo/economy.md > Opening Economy Baseline` and the GDO income of `> Economy Targets`: plates first (the
-  reference line: income at the table's times, plates every 25 s, fully plated at about 2:30, the float at 1:30 and
+  `factions/gdo/economy.md > Opening Economy Baseline`: plates first (the reference line: income at the table's
+  times by its plates landing every 25 s, fully plated at about 2:30, the float at 1:30 and
   2:00), Generator first, the fastest clean Barracks (pinned: started in tick 769, ready at the end of 928), the
   all-in Barracks at −21, and the refunds. Income is the average over the 9 s (3 lump cycles) ending at a time; the
   tolerances on the design's trickle figures are named where they are used (a plate's first lump 3 s after it
