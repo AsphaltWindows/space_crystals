@@ -1532,9 +1532,9 @@ section of its own.
   centre, side) and has **the hatch square**
   (`hatch_offset`, `hatch_tile`, `hatch_square(tunnel, Resource)`, also `tunnel::hatch_square`): the middle tile of
   the side, of two middle tiles the one farther from Side A, read off `sides()` so that it turns and flips with the
-  structure; the client draws the hatches there. The Agent: 50 a load, 80 frames of mining, 64 of unloading, reaches
-  of 8 su; alone it delivers every 144, 150, 172, 192, 214, 236 and 256 ticks at 0 to 6 GU from hatch to patch, edge
-  to edge (the design's table: 9.0 to 17.0 s; all within 15%).
+  structure; the client draws the hatches there. The Agent: 50 a load, 64 frames of mining (design change 0294; 80
+  before), 64 of unloading, reaches of 8 su; alone it delivers every 128, 134, 156, 176, 198, 220 and 240 ticks at 0
+  to 6 GU from hatch to patch, edge to edge (the design's table: 8.0 to 16.0 s; all within 15%).
   **Measured with DragMovement, the rules of slice M3-H3 and the Drone's numbers of design change 0205**
   (`tests/gathering/`, `tests/gathering_soak.rs`; nothing is tuned to the design's table): one Drone with its
   patch 2 GU from the node, edge to edge, delivers every 73 ticks, 1.75 Space Crystals per second (81 ticks and
@@ -2046,9 +2046,9 @@ their energy doorway, slice M3-D2: design change 0145, `factions/colonists/struc
   Layout whose Deployment Center sees and reaches its 8-patch field (design change 0095) and two plates on it, and a
   Colonists one (slice M3-C, plan decision T24: the Egress Node on tile (4, 4) within the field's arc, the Robo
   Portal on (6, 6), the Drones at points clear of the node's sides and the portal's), and a Syndicate one (slice
-  M4-B: the Tunnel on (4, 4) turned 180°, Side A south to the open map, Side D east to the middle, its crystal hatch
-  (4, 5) 1 grid unit from the patch (2, 5), design changes 0248, 0255 and 0259, Q0076; the Hideout on (8, 8) in its
-  Tier 1 area; the Agent at (6, 9.5) grid units), gentle hills of slopes only,
+  M4-B: the Tunnel on (6, 6) turned 180°, Side A south to the open map, Side D east to the middle, its crystal hatch
+  (6, 7) 3 grid units from the nearest patches, (2, 6) and (2, 7), design changes 0248, 0255, 0259 and 0294; the
+  Hideout on (10, 10) in its Tier 1 area; the Agent at (8, 11.5) grid units), gentle hills of slopes only,
   and a central plateau ringed by cliffs with a ramp up through a gap in the west and in the east
   (`maps/dev_skirmish.json` is the same map, which a test checks);
   `dev_structures`, a flat 30×12 Custom QA map with one of each GDO structure for each of two players (a plate on a

@@ -423,14 +423,14 @@ mod tests {
             "> Patch Occupancy > Search radius (design change 0123)"
         );
         assert!(def.pass_through && def.keeps_drop_off && !def.shares_patches);
-        // `factions/syndicate/units/agent.md > Gathering > Space Crystals`: 50 a load, 80 frames of mining, 64 of
-        // unloading, reaches of 8 su; `factions/syndicate/units/agent.md > Supplies`: 1 a trip, 48 frames each way, the
+        // `factions/syndicate/units/agent.md > Gathering > Space Crystals`: 50 a load, 64 frames of mining (design
+        // change 0294), 64 of unloading, reaches of 8 su; `factions/syndicate/units/agent.md > Supplies`: 1 a trip, 48 frames each way, the
         // same reaches (design change 0292 point 1); design change 0255: shared patches, no Set Drop-off; 0106: "Drones
         // only" pass through each other.
         let def = worker_def(ObjectKind::Agent).expect("a worker");
         let crystals = LoadDef {
             carry_capacity: 50,
-            pick_up_ticks: 80,
+            pick_up_ticks: 64,
             drop_off_ticks: 64,
             pick_up_reach: 8.0,
             drop_off_reach: 8.0,

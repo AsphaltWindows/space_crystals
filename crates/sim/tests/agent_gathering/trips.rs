@@ -6,12 +6,14 @@
 
 use super::*;
 
-/// The design's table: the trip time in seconds at 0 to 6 grid units from the hatch.
-const TABLE_TRIP_S: [f32; 7] = [9.0, 10.3, 11.7, 13.0, 14.3, 15.7, 17.0];
-/// One Agent's trip as measured, ticks, at 0 to 6 grid units: 80 of mining, 64 of unloading and the two legs. At 0
-/// the Agent stands within both reaches at once and never walks. The legs are shorter than the table's (which walks
-/// the whole distance both ways at 1.5 grid units per second): the Agent's own 36 su and the two reaches come off.
-const TRIP: [Tick; 7] = [144, 150, 172, 192, 214, 236, 256];
+/// The design's table: the trip time in seconds at 0 to 6 grid units from the hatch (recomputed by design change 0294
+/// for 4 seconds of mining).
+const TABLE_TRIP_S: [f32; 7] = [8.0, 9.3, 10.7, 12.0, 13.3, 14.7, 16.0];
+/// One Agent's trip as measured, ticks, at 0 to 6 grid units: 64 of mining (design change 0294), 64 of unloading and
+/// the two legs. At 0 the Agent stands within both reaches at once and never walks. The legs are shorter than the
+/// table's (which walks the whole distance both ways at 1.5 grid units per second): the Agent's own 36 su and the two
+/// reaches come off. With 80 frames of mining they were 16 ticks longer: 144, 150, 172, 192, 214, 236 and 256.
+const TRIP: [Tick; 7] = [128, 134, 156, 176, 198, 220, 240];
 
 /// Slice D's acceptance: "One Agent at 0–6 GU from Side B: trip times measured and recorded against the table."
 /// Each is within the check's 15% of the table's; the loads are 50, and the bank gets them.
@@ -55,10 +57,10 @@ fn one_agent_trips_follow_the_table_at_every_distance() {
     }
 }
 
-/// One trip, phase by phase, at 2 grid units: MiningDuration 80 frames, then the load of 50 as the mining ends;
+/// One trip, phase by phase, at 2 grid units: MiningDuration 64 frames, then the load of 50 as the mining ends;
 /// DropOffDuration 64 frames at the hatch, then the bank (`economy::gathering`, by the recipe timing).
 #[test]
-fn an_agent_mines_for_80_frames_and_unloads_for_64() {
+fn an_agent_mines_for_64_frames_and_unloads_for_64() {
     let mut t = field(1, 2).start();
     let start = bank(&t);
     gather(&mut t, 1, &[3], 2);
@@ -108,17 +110,20 @@ fn measured(count: u32, distance: i32) -> (f32, Vec<usize>) {
 /// Slice D's acceptance: "Two, three and four Agents at 1 GU: income measured. It never passes 12.5 SC per second
 /// per Tunnel. Never two Agents drop off at one side at once."
 ///
-/// **Measured** (Space Crystals per second; the table has 9.7, 12.5 and 12.5): two Agents 10.67; three and four
-/// 5.33, one Agent's worth. With the patch 1 grid unit from the hatch the strip between them is 64 su wide, and an
-/// Agent is 36: Agents can't pass each other in it. Each works in a lane of its own from the wall to the patch, and
-/// one that comes to stand behind another in its lane blocks it head-on, for good: neither yields, having an order
-/// (`systems/units.md > Ground Collision > Friendly yielding`: "Two moving units never yield to each other or swap
-/// places"), and neither gives up (design change 0255). From these starts, south-east of the Tunnel, two of three
-/// Agents end up so. The open issue is in the slice's report; the ceiling and the hatch's rules hold all the same.
+/// **Measured** (Space Crystals per second, with 64 frames of mining; the table has 10.7, 12.5 and 12.5): two Agents
+/// 12.0; three and four 6.0, one Agent's worth (10.67 and 5.33 with 80 frames). With the patch 1 grid unit from the
+/// hatch the strip between them is 64 su wide, and an Agent is 36: Agents can't pass each other in it. Each works in
+/// a lane of its own from the wall to the patch, and one that comes to stand behind another in its lane blocks it
+/// head-on, for good: neither yields, having an order (`systems/units.md > Ground Collision > Friendly yielding`:
+/// "Two moving units never yield to each other or swap places"), and neither gives up (design change 0255). From
+/// these starts, south-east of the Tunnel, two of three Agents end up so. Design change 0294 keeps collision and
+/// leaves rows 0 to 2 of the table theoretical (`factions/syndicate/units/agent.md > Gathering > Space Crystals >
+/// Close patches and traffic`: "Very close to the hatch (0–2 grid units) they can get in each other's way and income
+/// drops"); the ceiling and the hatch's rules hold all the same.
 #[test]
 fn incomes_at_one_grid_unit_never_pass_the_ceiling() {
     let (two, each) = measured(2, 1);
-    assert!((two - 9.7).abs() / 9.7 <= 0.15, "{two} against the table's 9.7");
+    assert!((two - 10.7).abs() / 10.7 <= 0.15, "{two} against the table's 10.7");
     assert!(each.iter().all(|&count| count >= 60), "{each:?}");
     for count in [3, 4] {
         let (income, each) = measured(count, 1);
@@ -127,22 +132,25 @@ fn incomes_at_one_grid_unit_never_pass_the_ceiling() {
 }
 
 /// The same from 2 to 6 grid units, where Agents walk round each other: every Agent delivers its share, and the
-/// income is within the check's 15% of the table's from 3 grid units on. At 2 grid units three and four Agents
-/// bring 9.8 and 10.0 where the table has 12.5 and 12.5: they still get in each other's way at the hatch.
+/// income is within the check's 15% of the table's (as design change 0294 recomputed it). Measured with 64 frames of
+/// mining: at 2 grid units 10.17, 11.0 and 11.33 for two, three and four Agents; at 3 grid units 9.0, 10.67 (14.7%
+/// short of the table's 12.5: they get in each other's way at the hatch) and 11.83; at 4 grid units 11.17 and 12.17
+/// for three and four; at 6 grid units 9.67 and 12.5. With 80 frames three and four Agents at 2 grid units brought
+/// 9.8 and 10.0, more than 15% short.
 #[test]
 fn incomes_from_two_grid_units_on_follow_the_table() {
     // (Agents, grid units, the table's income, whether it is within 15%).
     let rows = [
-        (2, 2, 8.6, true),
-        (3, 2, 12.5, false),
-        (4, 2, 12.5, false),
-        (2, 3, 7.7, true),
-        (3, 3, 11.5, true),
+        (2, 2, 9.4, true),
+        (3, 2, 12.5, true),
+        (4, 2, 12.5, true),
+        (2, 3, 8.3, true),
+        (3, 3, 12.5, true),
         (4, 3, 12.5, true),
-        (3, 4, 10.5, true),
+        (3, 4, 11.3, true),
         (4, 4, 12.5, true),
-        (3, 6, 8.8, true),
-        (4, 6, 11.8, true),
+        (3, 6, 9.4, true),
+        (4, 6, 12.5, true),
     ];
     for (count, distance, table, within) in rows {
         let (income, each) = measured(count, distance);

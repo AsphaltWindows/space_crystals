@@ -1,8 +1,9 @@
 //! Where a worker stands to pick up at a Supply Delivery Station (slice M4-I; `factions/syndicate/units/agent.md >
 //! Gathering > Supplies`). "Any number pick up at once, as at patches" (design change 0256 point 1), and Agents
-//! collide with each other (question Q0076), so a leg to a station heads for a **free spot**: the point nearest to the
-//! worker where its Silhouette stands against one of the station's four faces, or beside a face's end within its
-//! PickUpReach of the station (the hatch's rule, `legs::return_leg`), clear of
+//! collide with each other (design change 0294: "Agents keep normal collision while gathering"), so a leg to a
+//! station heads for a **free spot**: the point nearest to the worker where its Silhouette stands against one of the
+//! station's four faces, or beside a face's end within its PickUpReach of the station (the hatch's rule,
+//! `legs::return_leg`), clear of
 //! - the structures and map resources its owner knows of (`World::known_fixed`, as for `legs::approach_point`);
 //! - the units its owner sees there in the worker's own domain, those picking up or waiting and any other;
 //! - the spots that the workers before it in this tick's phase 5a set off for ([`Claims`]), so that workers sent

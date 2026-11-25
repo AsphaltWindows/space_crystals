@@ -18,8 +18,9 @@
 //! - `orders`: the gate and the default order on a station, a rally on a station, a Supply carried through the Tunnel
 //!   Network and delivered by a Drop Off order.
 //!
-//! The stations of the trips stand 3 grid units from the Supplies hatch, or more: closer, Agents jam head-on there
-//! (question Q0076).
+//! The stations of the trips stand 3 grid units from the Supplies hatch, or more: closer, Agents get in each other's
+//! way there (design change 0294: Agents keep collision, and "Very close to the hatch (0–2 grid units) they can get in
+//! each other's way").
 
 mod hatches;
 mod orders;

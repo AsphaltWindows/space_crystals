@@ -155,7 +155,7 @@ fn a_gather_while_carrying_skips_mining_and_interrupted_mining_collects_nothing(
 }
 
 /// `factions/colonists/units/drone.md > Last load of a patch` (0138) and `factions/colonists/units/drone.md > When a
-/// Gather ends` (0123): the last load is what is left, after the full 80 frames; with no patch left in its search
+/// Gather ends` (0123): the last load is what is left, after the full 64 frames; with no patch left in its search
 /// radius the Agent delivers it, and the Gather is complete.
 #[test]
 fn the_last_load_is_what_is_left_and_the_gather_ends_with_no_patch_left() {

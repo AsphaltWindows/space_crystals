@@ -30,10 +30,10 @@ use sc_sim::{
 const P1: PlayerId = PlayerId(1);
 const AGENT: ObjectKind = ObjectKind::Agent;
 const TUNNEL: ObjectKind = ObjectKind::Tunnel;
-/// `factions/syndicate/units/agent.md > Gathering > Space Crystals`: CarryCapacity, MiningDuration, DropOffDuration and
-/// the two reaches.
+/// `factions/syndicate/units/agent.md > Gathering > Space Crystals`: CarryCapacity, MiningDuration (64 frames since
+/// design change 0294), DropOffDuration and the two reaches.
 const LOAD: u32 = 50;
-const MINING: Tick = 80;
+const MINING: Tick = 64;
 const DROP_OFF: Tick = 64;
 const REACH: f32 = 8.0;
 

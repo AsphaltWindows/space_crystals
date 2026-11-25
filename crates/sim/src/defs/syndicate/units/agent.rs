@@ -67,7 +67,7 @@ pub(crate) static AGENT: ObjectDef = ObjectDef {
             // `> Gathering > Space Crystals`
             crystals: LoadDef {
                 carry_capacity: 50,  // CarryCapacity: 50 Space Crystals per load
-                pick_up_ticks: 80,   // MiningDuration: 80 frames (5 seconds)
+                pick_up_ticks: 64,   // MiningDuration: 64 frames (4 seconds), design change 0294 (was 80)
                 drop_off_ticks: 64,  // DropOffDuration: 64 frames (4 seconds)
                 pick_up_reach: 8.0,  // MiningReach: 8 space units (placeholder)
                 drop_off_reach: 8.0, // DropOffReach: 8 space units, to the crystal hatch (placeholder)
@@ -84,10 +84,12 @@ pub(crate) static AGENT: ObjectDef = ObjectDef {
             }),
             shares_patches: true,  // Patch sharing: any number of Agents may mine the same patch
             keeps_drop_off: false, // `> Gathering rules`: the nearest Tunnel, picked again by each Gather
-            // Placeholder: the Drone's 6 grid units. `> Gathering rules` gives the Agent the Drone's "When a Gather
-            // ends" and "Last load of a patch", which look round within a search radius, and names no number for it.
+            // `> Gathering rules > Search radius` (design change 0295): "within 6 grid units of itself, the Drone's
+            // value (placeholder)".
             search_radius: 6.0,
-            // `factions/colonists/units/drone.md > Gathering Drones pass through each other`: "Drones only".
+            // `factions/colonists/units/drone.md > Gathering Drones pass through each other`: "Drones only"; `> Gathering
+            // > Space Crystals > Close patches and traffic` (design change 0294): "Agents keep normal collision while
+            // gathering (no pass-through)".
             pass_through: false,
             // `> Building` (slice M4-E): "Agents construct Tunnels"; the Laser Turret comes with slice S1.
             builds: &[ObjectKind::Tunnel],
