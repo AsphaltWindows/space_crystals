@@ -236,7 +236,7 @@ GDO artillery vehicle produced at the Factory; requires Advanced Mechanics. Has 
   - **The difference** (user, 2026-11-25): with a mode switch the unit's type changes **instantly** and the unit catches up in its own time. With deployment, **the deploying process is what actually changes the unit**: it stays the mobile type until the process completes.
   - **Queueable**: Shift-Deploy waits until the earlier orders are done (e.g. move here, then deploy). Without Shift it replaces the current orders and starts at once.
   - **No reversing mid-way**: **Undeploy is only available once deployment is complete**. The unit becomes Artillery Rig (Deployed) (type and SelectionGroup) when deploying finishes; until then it is still an Artillery Rig. (Undeploying is assumed symmetric: Deploy becomes available again only once undeploying is complete.)
-  - **Stop while deploying** (user, 2026-11-25): stops the deploy and **undoes the part already done**: the unit winds back from its current point (halfway deployed → half the deploy time to pack up) and ends mobile. It can't move or attack until that is done. (Assumed symmetric: Stop while undeploying winds back to deployed.)
+  - **Not cancellable** (user, 2026-11-25; replaces the earlier wind-back on Stop): once deploying has started it always runs to completion; Stop doesn't interrupt it. (Assumed symmetric: undeploying also always completes.)
   - When the switch makes a group disappear, the group the units joined becomes active (systems/controls/selection_and_hud.md > ActiveGroup > When the ActiveGroup disappears).
 
 ### AttackAttributes (Deployed only):

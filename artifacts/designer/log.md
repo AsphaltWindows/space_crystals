@@ -2176,3 +2176,4 @@ Laser Battery: Amplify dial (N^-1/3), narrow arc turret. Entry 0209.
 Laser Battery req Optics Lab; LB + Artillery Rig deploy = two unit types under toggle rule. Entry 0210.
 Deploy = queueable order, no undeploy until complete, type at completion (replaces 0210 toggle part). Entry 0211.
 Stop while deploying winds back. Entry 0212.
+Deploy not cancellable (replaces 0212). Entry 0213.
