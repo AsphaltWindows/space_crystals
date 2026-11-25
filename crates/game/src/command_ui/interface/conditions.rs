@@ -25,12 +25,20 @@
 //! slice M4-J2): a tile is greyed while no unit of its type is in the network free to leave, while every one of them
 //! only just walked in (Q0077 point 1), or while this Tunnel's tier doesn't let the type out; and its count is the
 //! network's ([`Conditions::network_count`]).
+//!
+//! The Agent's A, Build Tunnel (`factions/syndicate/units/agent.md > Agent ObjectInterfaceState`, slice M4-J1), asks
+//! for its Build order where it would stand anywhere, and leaves out the placement's refusal as a Warp In does: it is
+//! greyed while the bank can't pay the Tunnel's price ([`Conditions::price`], `Sim::build_price`; design change 0233:
+//! "a Build order that can't be paid is refused"). Its S, Drop Off, is greyed while none of its recipients carries a
+//! load (`factions/syndicate/units/agent.md > DefaultState commands`: "Always visible, greyed out when Agent is not
+//! carrying resources"), the gate's own test (`Reject::NothingToDeliver`). A site's panel is its Cancel alone
+//! ([`Conditions::site`], design change 0237).
 
 use std::collections::{BTreeMap, BTreeSet};
 
 use sc_sim::{
-    BuildingOrientation, Command, ConstructionCommand, Constructor, Object, ObjectId, ObjectKind, PlayerCommand,
-    PlayerId, Reject, ShieldMode, Sim, riot_shield,
+    BuildingOrientation, Command, ConstructionCommand, Constructor, ObjectId, ObjectKind, OrderKind, PlayerCommand,
+    PlayerId, Reject, ShieldMode, Sim, TilePos, riot_shield,
 };
 
 use super::{PanelCommand, commands, recipients};
@@ -43,9 +51,10 @@ use crate::selection::Selection;
 /// type it groups as in the selection (the type from the press, `crate::selection::ControlState::toggle`) and the sim's
 /// own query (`sc_sim::riot_shield::takes_attack_orders`, so that the panel and the right-click never judge a type
 /// otherwise than the gate), which of the workers carry a load, which a right-click on a drop-off reads
-/// (`factions/colonists/units/drone.md > Right-Click Resolution`: "Own Egress Node (carrying resources)"), and which of
-/// the selected objects transform (`sc_sim::Object::transform`). Which way a shield goes is its unit's type (design
-/// change 0173), whose panel offers the command that turns it.
+/// (`factions/colonists/units/drone.md > Right-Click Resolution`: "Own Egress Node (carrying resources)") and the
+/// Agent's Drop Off, and which of the selected objects aren't in operation yet (`sc_sim::Object::is_operational`: one
+/// that transforms, or a site under construction). Which way a shield goes is its unit's type (design change 0173),
+/// whose panel offers the command that turns it.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct Modes {
     /// The units whose type takes no Attack.
@@ -67,7 +76,7 @@ impl Modes {
                 .collect(),
             transforming: selection
                 .ids()
-                .filter(|&id| sim.object(id).is_some_and(Object::is_transforming))
+                .filter(|&id| sim.object(id).is_some_and(|o| !o.is_operational()))
                 .collect(),
         }
     }
@@ -77,15 +86,22 @@ impl Modes {
         self.loaded.contains(&id)
     }
 
+    /// The same, with `ids` carrying a load: for the unit tests.
+    pub fn with_loaded(mut self, ids: impl IntoIterator<Item = ObjectId>) -> Self {
+        self.loaded.extend(ids);
+        self
+    }
+
     /// The same, with `ids` transforming: for the unit tests.
     pub fn with_transforming(mut self, ids: impl IntoIterator<Item = ObjectId>) -> Self {
         self.transforming.extend(ids);
         self
     }
 
-    /// Whether `id` transforms: a Beacon under deployment, a building under Warp In
+    /// Whether `id` isn't in operation yet: a Beacon under deployment, a building under Warp In
     /// (`factions/colonists/economy.md > Beacon Deployment > While transforming: only Cancel`, design change 0116:
-    /// "no rally point, no other commands"); none of its functions work yet).
+    /// "no rally point, no other commands"), a site under construction (`factions/syndicate/units/agent.md > While the
+    /// Tunnel is under construction`: "It does nothing but Cancel"); none of its functions work yet.
     pub fn transforming(&self, id: ObjectId) -> bool {
         self.transforming.contains(&id)
     }
@@ -160,6 +176,13 @@ pub struct Conditions {
     /// queue (`sc_sim::Sim::network_counts`; `factions/syndicate/tunnels.md > EjectMenu`: "the tile's count drops at
     /// the click"); none while the ActiveGroup isn't a Tunnel.
     network: BTreeMap<ObjectKind, u32>,
+    /// The price of each Build the ActiveGroup offers (`PanelCommand::Build`), in Supplies, as the sim would charge it
+    /// now (`Sim::build_price`, design change 0233).
+    prices: BTreeMap<PanelCommand, u32>,
+    /// Whether the ActiveGroup is a site under construction (`sc_sim::Object::is_site`; design change 0237: "a Tunnel
+    /// site is a structure that does nothing but Cancel"), whose panel is its X Cancel Construction alone, whatever
+    /// its type (`super::templates::SITE_GRID`).
+    pub site: bool,
 }
 
 impl Conditions {
@@ -170,8 +193,9 @@ impl Conditions {
     /// the types the selection groups its objects as ([`Modes::of`]). A Warp In menu entry asks for its Warp In
     /// unturned, and leaves
     /// out the placement's refusal (`Reject::Unplaceable`, the gate's last check): the player turns the ghost before it
-    /// is placed, and the ghost shows each tile's problem. A Tunnel's EjectMenu tile asks for its `Command::Tunnel`,
-    /// and the network's counts are the player's while the ActiveGroup opens the EjectMenu.
+    /// is placed, and the ghost shows each tile's problem. An Agent's Build asks for its Build order, unqueued, the
+    /// same way ([`build_probe`]). A Tunnel's EjectMenu tile asks for its `Command::Tunnel`, and the network's counts
+    /// are the player's while the ActiveGroup opens the EjectMenu.
     pub fn of(sim: &Sim, player: PlayerId, selection: &Selection) -> Self {
         let commands = selection
             .active()
@@ -189,8 +213,8 @@ impl Conditions {
             BTreeMap::new()
         };
         let refused = commands
-            .into_iter()
-            .filter_map(|command| {
+            .iter()
+            .filter_map(|&command| {
                 let objects = recipients(selection, command);
                 let sent = if let Some(production) = command.production() {
                     Command::Production {
@@ -213,6 +237,8 @@ impl Conditions {
                         tunnel: *objects.first()?,
                         command: tunnel,
                     }
+                } else if let PanelCommand::Build(kind) = command {
+                    build_probe(objects, kind)
                 } else {
                     Command::Ability {
                         units: objects,
@@ -221,21 +247,30 @@ impl Conditions {
                 };
                 let sent = PlayerCommand { player, command: sent };
                 let reject = sim.validate(&sent).err()?;
-                let placed = matches!(command, PanelCommand::WarpIn(_)) && matches!(reject, Reject::Unplaceable(_));
+                let placed = matches!(command, PanelCommand::WarpIn(_) | PanelCommand::Build(_))
+                    && matches!(reject, Reject::Unplaceable(_));
                 (!placed).then_some((command, reject))
             })
             .collect();
+        let prices = (commands.iter())
+            .filter_map(|&command| match command {
+                PanelCommand::Build(kind) => Some((command, sim.build_price(player, kind)?)),
+                _ => None,
+            })
+            .collect();
         let group = selection.active_group();
-        let constructor = group
+        let first = group
             .as_ref()
             .and_then(|group| group.instances.first().copied())
-            .and_then(|id| sim.object(id)?.constructor);
+            .and_then(|id| sim.object(id));
         Self {
             modes: Modes::of(sim, selection),
-            constructor,
+            constructor: first.and_then(|o| o.constructor),
             refused,
             returning,
             network,
+            prices,
+            site: first.is_some_and(|o| o.is_site()),
         }
     }
 
@@ -247,6 +282,8 @@ impl Conditions {
             refused: BTreeMap::new(),
             returning: Vec::new(),
             network: BTreeMap::new(),
+            prices: BTreeMap::new(),
+            site: false,
         }
     }
 
@@ -271,6 +308,23 @@ impl Conditions {
     /// The Drones the active Egress Node's F selects, in id order.
     pub fn returning(&self) -> &[ObjectId] {
         &self.returning
+    }
+
+    /// The same, with the ActiveGroup a site under construction: for the unit tests.
+    pub fn on_site(mut self) -> Self {
+        self.site = true;
+        self
+    }
+
+    /// The same, with `command` priced at `price`: for the unit tests.
+    pub fn pricing(mut self, command: PanelCommand, price: u32) -> Self {
+        self.prices.insert(command, price);
+        self
+    }
+
+    /// What a Build costs now, in Supplies (`Sim::build_price`): `None` for a command that isn't a Build.
+    pub fn price(&self, command: PanelCommand) -> Option<u32> {
+        self.prices.get(&command).copied()
     }
 
     /// The same, with `counts` the network's: for the unit tests.
@@ -307,7 +361,8 @@ impl Conditions {
     }
 
     /// Why the game doesn't let `command` go to its recipients in `selection` now ([`Conditions::allows`]), if it
-    /// doesn't: their types, or the gate's refusal.
+    /// doesn't: their types, their loads (a Drop Off none of whose recipients carries anything, the gate's
+    /// `Reject::NothingToDeliver`), or the gate's refusal.
     pub fn unavailable(&self, selection: &Selection, command: PanelCommand) -> Option<WhyUnavailable> {
         match command {
             PanelCommand::Attack => {
@@ -316,7 +371,29 @@ impl Conditions {
                     .any(|id| self.modes.can_attack(id));
                 (!may).then_some(WhyUnavailable::ShieldsUp)
             }
+            PanelCommand::DropOff => {
+                let loaded = recipients(selection, command)
+                    .into_iter()
+                    .any(|id| self.modes.carries(id));
+                (!loaded).then_some(WhyUnavailable::Refused(Reject::NothingToDeliver))
+            }
             _ => self.refusal(command).map(WhyUnavailable::Refused),
         }
+    }
+}
+
+/// The Build order an Agent's A would send (`PanelCommand::Build`), to ask the gate whether the button is available:
+/// unqueued, unturned, at the map's north-west corner. Where it stands matters only to the placement's check, the
+/// gate's last (`Reject::Unplaceable`), which the panel leaves out: the ghost judges each spot as it is placed.
+fn build_probe(units: Vec<ObjectId>, kind: ObjectKind) -> Command {
+    let kind = OrderKind::Build {
+        kind,
+        origin: TilePos::new(0, 0),
+        orientation: BuildingOrientation::default(),
+    };
+    Command::Order {
+        units,
+        kind,
+        queue: false,
     }
 }

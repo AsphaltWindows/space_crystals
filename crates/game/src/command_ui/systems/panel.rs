@@ -145,6 +145,13 @@ pub(in crate::command_ui) fn press_command_slots(
             SlotPress::AwaitDeploy => {
                 control.update(|state| state.interface = InterfaceState::AwaitingPlacement(Placing::deploy()));
             }
+            SlotPress::AwaitBuild(kind) => {
+                // The one Agent of the ActiveGroup (Ungroupable), the one Tabbed to.
+                if let [agent] = recipients(&state.selection, PanelCommand::Build(kind))[..] {
+                    let placing = Placing::build(agent, kind);
+                    control.update(|state| state.interface = InterfaceState::AwaitingPlacement(placing));
+                }
+            }
             SlotPress::OpenEjectMenu => {
                 control.update(|state| state.interface = InterfaceState::EjectMenu);
             }

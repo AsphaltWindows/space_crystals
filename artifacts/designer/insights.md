@@ -27,9 +27,8 @@
 
 ## Open Director Questions
 
-Arrived 2026-11-25 night (Q0076–Q0087). Answered from docs: Q0078 (0283), Q0085 (0284), Q0086 pt 1 (0285). Q0077 DONE (0288). Q0079 DONE (0289). Q0080 DONE (0290). Q0081 DONE (0291). Q0082 DONE (0292). Open, need the user:
+Arrived 2026-11-25 night (Q0076–Q0087). Answered from docs: Q0078 (0283), Q0085 (0284), Q0086 pt 1 (0285). Q0077 DONE (0288). Q0079 DONE (0289). Q0080 DONE (0290). Q0081 DONE (0291). Q0082 DONE (0292). Q0083 DONE (0293). Q0088 (jam costs, reply to 0286) arrived — open with Q0076. Open, need the user:
 - **Q0076 (partly BLOCKING)** Agents jam head-on near the hatch. Waiting on Director cost estimates (0286): mover sidestep (infantry step right; vehicles turn & graze), idle-yield infantry-only, quick re-route on unit block, 2-square hatch (one at a time CONFIRMED; user would rather avoid for looks, though cheapest), workers return to last drop-off spot, pass-through. User wants mover sidestep IN GENERAL (0287). User clarified: they THOUGHT sidestep = mover steps aside & retries (docs: idle unit yields). Still to confirm: hatch square, search radius 6.
-- Q0083 AoE: friendly fire; reveal timing; Attack Ground one shot or continuous; drawing.
 - Q0084 Laser Turret: 9 points (hidden states, sight, blocking, paying, refunds, sites, Agent exit, targeting, slot for Agent-built).
 - Q0086 pts 2–5: empty types greyed; panel stays in EjectMenu; when Tunnel Areas are drawn; recall of all-held group.
 - Q0087 Builder Agent transit delay.

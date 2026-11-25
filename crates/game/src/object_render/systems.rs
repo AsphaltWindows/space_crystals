@@ -4,8 +4,9 @@
 use bevy::prelude::*;
 
 use super::{
-    FacingTick, LoadMarker, MeshKey, ObjectVisual, ObjectVisualAssets, ObjectVisuals, RiotShieldVisual, body_turns,
-    drawn_kind, has_tick, load, object_height, object_transform, structures, underground, units, visual_mesh,
+    FacingTick, LoadMarker, MeshKey, ObjectVisual, ObjectVisualAssets, ObjectVisuals, RiotShieldVisual, SiteProgress,
+    body_turns, drawn_kind, has_tick, load, object_height, object_transform, site, structures, underground, units,
+    visual_mesh,
 };
 use crate::coords::{facing_to_rotation, lerp_facing};
 use crate::kinds::object_label;
@@ -84,6 +85,20 @@ pub(super) fn sync_object_visuals(
         if let Some(size) = key.size {
             let label = object_label(drawn, object.tunnel.clone());
             commands.spawn((structures::tag(object.id, label, size, 1.0), ChildOf(entity)));
+            if key.site {
+                let fill = assets
+                    .site_fill
+                    .get_or_insert_with(|| meshes.add(site::fill_mesh()))
+                    .clone();
+                commands.spawn((
+                    Name::new("Site progress"),
+                    SiteProgress::new(object.id, size),
+                    Mesh2d(fill),
+                    MeshMaterial2d(material.clone()),
+                    site::fill_transform(size, 0.0),
+                    ChildOf(entity),
+                ));
+            }
         }
         if units::tagged(drawn) {
             commands.spawn((units::tag(object.id, drawn), ChildOf(entity)));
@@ -119,15 +134,15 @@ pub(super) fn sync_object_visuals(
                 ChildOf(entity),
             ));
         }
-        if load::marked(drawn) {
+        for resource in load::carried(drawn) {
             let marker = assets
                 .loads
-                .entry(drawn)
-                .or_insert_with(|| meshes.add(load::mesh(drawn)))
+                .entry((drawn, resource))
+                .or_insert_with(|| meshes.add(load::mesh(drawn, resource)))
                 .clone();
             commands.spawn((
                 Name::new("Load marker"),
-                LoadMarker(object.id),
+                LoadMarker(object.id, resource),
                 Mesh2d(marker),
                 MeshMaterial2d(material.clone()),
                 Transform::from_xyz(0.0, 0.0, 0.004),

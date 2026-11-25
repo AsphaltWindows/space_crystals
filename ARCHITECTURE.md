@@ -2366,9 +2366,11 @@ these.
   Type and form*): a Legionnaire whose conversion is pending keeps its old form's look and tag, its selection group
   its new type's. A unit that carries a Riot Shield has a `RiotShieldVisual` child: a pale arc in
   front of it, hidden while the shield is down (a deferred raise's too), growing to its full size as it goes up. It is `Visibility::Hidden` or
-  `Inherited`, never `Visible`, so the fog that hides its unit hides it too. A worker has a `LoadMarker` child
-  (`object_render/load.rs`, slice M3-J2, a placeholder): a crystal shard in the crystals' cyan with a dark rim at
-  the top right of its body, shown the same way while it carries a load (`carries`), to every player who sees it.
+  `Inherited`, never `Visible`, so the fog that hides its unit hides it too. A worker has a `LoadMarker` child per
+  resource it gathers (`object_render/load.rs`, `load::carried`; slices M3-J2 and M4-J1, placeholders): a crystal
+  shard in the crystals' cyan with a dark rim at the top right of its body, and on an Agent an amber supply crate
+  there too, each shown the same way while it carries a load of its resource (`carries_of`), to every player who sees
+  it.
 - **Structures** (`object_render/structures.rs`) are placeholders too: the footprint as placed, in the owner's colour
   inside a dark rim, drawn `INSET_SU` (8) inside its edge so that a selection frame shows around it, and over a map
   resource's placeholder (a plate covers its patch). A `StructureTag` child, a `Text2d` of the type's short label
@@ -2381,6 +2383,11 @@ these.
   (`TunnelLook`, part of the `MeshKey`): Side A's two paths, ragged at Tier 1 and paved from Tier 2, a hatch on Sides
   B (crystals' cyan) and D (Supplies' amber), none on C, and the Tier 3 air doors over the paths' halves; its tag
   names its tier (T1 to T3, `kinds::object_label`), to enemies too (design change 0258), a record's the tier last seen.
+  **A site** (`Object::is_site`, slice M4-J1; `object_render/site.rs`, a placeholder) is drawn by being one, whatever
+  its kind (`MeshKey::site`): its footprint tinted half way to a pale sand and braced at its corners by a scaffold
+  (clear of its tag) instead of its finished look, with a progress bar near its south edge, a dark track in its mesh
+  and a `SiteProgress` child stretched to its share done (`place_site_progress`, `Progress::ratio`), to everyone who
+  sees it. A record of one looks finished: `LastKnown` keeps no construction.
 - **Path overlay** (`path_overlay.rs`, P or `--show-paths`): each unit's remaining path (`Mover::remaining_path`) as
   a thin line from where the unit is drawn, cut into short pieces lifted by the terrain's height, in the overlays
   layer, and a frame around each unit in the colour of its move's status (`status_color`: green moving, amber held
@@ -2585,8 +2592,9 @@ elsewhere.
 state. `ControlStates` holds every player's `ControlState`, a `Selection`, 10 control groups and the
 ObjectInterfaceState (see Commands UI); the input changes and the HUD shows the local player's (`LocalPlayer`).
 - **Model** (`selection/model.rs`): a selection is a set of object ids with the types they group as, a `GroupType`:
-  the kind, and whether the object is unfinished, a building under construction or transformation
-  (`Object::is_transforming`: a Beacon a Drone deploys into, a building warped in). Its SelectionGroups are derived:
+  the kind, and whether the object is unfinished, not in operation (`!Object::is_operational`): a site under
+  construction (`Object::is_site`, slice M4-J1) or a transformation (`Object::is_transforming`: a Beacon a Drone
+  deploys into, a building warped in). Its SelectionGroups are derived:
   one per `GroupType`, each by id, and one per instance of an ungroupable type (the map resources, which are never
   selected with other objects, design change 0048; the Colonists' Egress Node and Beacon, 0122; the Drone is
   Groupable, 0125). So a type's unfinished buildings are a group of their own, "as if it were another type", with
@@ -2822,6 +2830,24 @@ Drones, through one command flow (plan decision T10, slices M2-H1, M2-H2 and M3-
   on the map, and a group with none on the map recalls as an empty one does: nothing changes (placeholder,
   `ControlState::recall_group`). A Hideout's rally pointer and marker on an own Tunnel or Hideout are every producer's
   (Move, a green Object marker); the sim decides what the unit does (0252).
+- **The Agent's panel** (slice M4-J1; `factions/syndicate/units/agent.md > Agent ObjectInterfaceState`; design changes
+  0233, 0237 and 0257): `templates/syndicate/agent.rs` (`InterfaceTemplate::Agent`) is Q Move, A
+  `PanelCommand::Build(Tunnel)`, S `PanelCommand::DropOff`, D `Planned::LaserTurret` (greyed, "Requires an Optics
+  Lab", until slice M4-S1) and X Stop; its right-click is the sim's one rule (*Gathering* above). **A Build** is an
+  instance command (`SlotPress::AwaitBuild`): `AwaitingPlacement` with `Builder::Agent` for the ActiveGroup's one Agent
+  (Agents are Ungroupable: Tab picks the next one). It is greyed exactly when the gate refuses an unqueued Build of
+  that Agent's (`conditions::build_probe`), the placement's own refusal left out; its price (`Sim::build_price`) is
+  `PanelSlot::price`. A click checks the ghost (`Sim::build_check`; a red one sends `InvalidPlacement`), then gives
+  the order through `OrderOutbox::try_give`, which returns the gate's `Reject`: a refused one (the bank, "Already
+  building" for a second Build queued to an Agent) sends `CommandRefused` and placement goes on; a sent one, queued
+  with Shift, ends it ("each Agent takes exactly one placement"). The client counts no Build still in
+  `PendingCommands` in a price or a ghost. **S** awaits an own drop-off in operation (`drop_off_target`), greyed while
+  none of its recipients carries a load (`Reject::NothingToDeliver`, "Not carrying resources"). A right-click that
+  enters a Tunnel shows `PointerDisplay::Enter` (`cursor::ENTER_COLOR`, a placeholder); a carrying Agent's on its
+  Tunnel ReturnResources; on a site, Move. **A site's panel** (`templates/site.rs`, `SITE_GRID`) is X
+  `CancelConstruction` alone, for any site (`Conditions::site`: `Object::is_site`, never its kind), which slices M4-F
+  and M4-S1 reuse: an unfinished `GroupType` offers both Cancels (`offers::UNFINISHED`), and the gate takes the one
+  that fits.
 - **Visuals**: the panel's buttons (`hud/command_panel.rs`) are rebuilt when the panel, the bindings or the surface
   changes; each shows its command's label (`PanelSlot::label`) and its hotkey from the bindings, and an EjectMenu tile
   its count in its bottom-right corner. **Every label keeps
@@ -2833,7 +2859,8 @@ Drones, through one command flow (plan decision T10, slices M2-H1, M2-H2 and M3-
   InfoPanel names every button under the pointer in full, with its hotkey (`hud/info_panel/hint.rs`, `Panel::name`:
   "R: Raise Shield", "Q: Train Peacekeeper"; the client has no tooltips; slices M3-S and M3-K2a), after the
   ActiveGroup's type where the design names a command so (`PanelCommand::name_on`: a Beacon's "Warp In (Basic)",
-  "Cancel Deployment" and "Cancel Warp In"; a Convert names its target form, "Convert to Rifle Legionnaire"). A label never wraps
+  "Cancel Deployment" and "Cancel Warp In"; a Convert names its target form, "Convert to Rifle Legionnaire"), and with
+  a Build's price, the sim's (`PanelSlot::price`: "A: Build Tunnel (1 Supply)", slice M4-J1). A label never wraps
   (`TextLayout::no_wrap`): one too long for its button at `LABEL_VH` (on a surface too small for it) is drawn smaller
   to fit on one line inside a lit button's thicker border (`label_px`, from the default font's fixed advance, 0.6 em,
   which a unit test checks against the font), so a label keeps its size when its button lights up. The indicators
@@ -2889,21 +2916,26 @@ Drones, through one command flow (plan decision T10, slices M2-H1, M2-H2 and M3-
   z band just in front of the fog layer (`overlay::AREA_Z`), but on the tiles the local player hasn't explored, which
   stay black (slice M3-J3, `BuildAreaOverlay::unexplored`), rebuilt only when the area differs from the one it last
   drew (`BuildArea: PartialEq`), its unexplored tiles changed or the map meshes were rebuilt (`MapView::builds`). The ghost's check is its
-  builder's (`ghost::check_now`: `Sim::placement_check`, `warp_in_check`, or `deploy_check` for the Drone a click
-  would go to, the player's knowledge, Reserved over a lingering ghost included); the overlay shows for a
-  constructor's placement only. `LingeringGhosts` (`placement/lingering.rs`, `core/entities.md > Placement
-  Validation > Lingering build ghosts`) draws the local player's pending worker builds (`Sim::pending_builds`, never
-  another player's: Deploys, and an Agent's Tunnels as their footprints until slice M4-J1's look) in the game modes,
-  whatever the interface: each site's footprint tinted on the terrain with an outline, one mesh rebuilt only when the
-  sites or the map change, just in front of the build area overlay (`LINGERING_Z`). A ghost goes with its order, when
+  builder's (`ghost::check_now`: `Sim::placement_check`, `warp_in_check`, `deploy_check` for the Drone a click
+  would go to, or `build_check` for an Agent's Build; the last two by the player's knowledge, Reserved over a
+  lingering ghost included); the overlay shows for a constructor's placement only. A Tunnel ghost (slice M4-J1) has
+  its Tier 1 Tunnel Area drawn around it (`GhostArea`, `placement/ghost_area.rs`: `ShownArea::of`), green or red by
+  the check's Tunnel Area problems alone (`area_is_clear`: the `WholeProblem::TunnelArea*`), on its explored tiles,
+  just in front of the area overlays and behind the lingering ghosts (`GHOST_AREA_Z`). `LingeringGhosts`
+  (`placement/lingering.rs`, `core/entities.md > Placement Validation > Lingering build ghosts`) draws the local
+  player's pending worker builds (`Sim::pending_builds`, never another player's: Deploys, and an Agent's Tunnels with
+  their Tier 1 areas, `lingering_sites`) in the game modes, whatever the interface: each area tinted on its explored
+  tiles with its outline, then each site's footprint tinted on the terrain with an outline, one mesh rebuilt only when
+  the sites, the areas' unexplored tiles or the map change, just in front of the build area overlay (`LINGERING_Z`).
+  A ghost goes with its order, when
   the deployment or the site starts or the order is cancelled, replaced or fails. `TunnelAreaOverlay`
   (`placement/tunnel_areas.rs`, slice M4-J2) shows the Tunnel Areas the local player knows
   of (`known_areas`: their own Tunnels' at their tier now; the others' they see at their tier now, and those they
   remember at the record's place and the tier last seen, `LastKnown::tunnel`; never one they know nothing of), their
   own in violet and the others' in red, with the build area overlay's look (`overlay::tint_area`) and z, but on
   unexplored tiles and off the map; one mesh rebuilt only when the areas, their unexplored tiles or the map changed.
-  It shows while a Tunnel of theirs is the ActiveGroup (`tunnel_areas::shows`, a placeholder); the placements of
-  slices M4-J1 and M4-F add theirs there.
+  It shows while a Tunnel of theirs is the ActiveGroup, and while they place a Tunnel (`tunnel_areas::shows`, a
+  placeholder: Q0086 point 4); slice M4-F's placement adds its own there.
 - The design leaves some things open (labels, colours, the flash, the cursor's shapes and the Mixed look, the
   invalid-target and insufficient-resources feedbacks' form and duration, the targeting click allowance's value, when
   Shift counts for a targeting click, Shift with a rally point; the ghost's and the overlay's looks, the placement

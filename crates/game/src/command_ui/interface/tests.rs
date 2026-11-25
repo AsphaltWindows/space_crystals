@@ -1,3 +1,4 @@
+mod agent;
 mod colonists;
 mod construction;
 mod gathering;

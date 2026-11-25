@@ -73,6 +73,14 @@
 //! Upgrade, W Expand and X Cancel, and the Hideout's Guard and Grenadier, hold their slots, greyed with why, until the
 //! slices that bring them ([`Planned`]).
 //!
+//! The Syndicate's Agent (`factions/syndicate/units/agent.md > Agent ObjectInterfaceState`, design change 0257; slice
+//! M4-J1) has Q Move, A Build Tunnel, S Drop Off, D Build Laser Turret (greyed with its reason until slice M4-S1) and
+//! X Stop. A enters AwaitingPlacement of a Tunnel built by the Agent Tabbed to ([`Builder::Agent`]), greyed while the
+//! bank can't pay the Tunnel's price, which its hint shows ([`PanelSlot::price`], design change 0233); a click sends
+//! that Agent its Build and returns to DefaultState, Shift held or not. S awaits the Tunnel to drop off at, greyed
+//! while no Agent carries a load. A site under construction, of any type, shows X Cancel Construction alone
+//! ([`SITE_GRID`], design change 0237).
+//!
 //! A greyed-out button, or its hotkey, can still be pressed: nothing is issued, and the player is told why
 //! ([`PanelSlot::why`], design change 0162).
 //!
@@ -97,8 +105,8 @@ pub use panel::{
 };
 pub use placing::{Builder, Placing, deploy_recipient, deploying};
 pub use templates::{
-    BuildMenu, InterfaceTemplate, Planned, TRANSFORMING_GRID, can_target_ground, commands, grid, menu_grid, menu_of,
-    offers, slot_index, state_grid,
+    BuildMenu, InterfaceTemplate, Planned, SITE_GRID, TRANSFORMING_GRID, can_target_ground, commands, grid, menu_grid,
+    menu_of, offers, slot_index, state_grid,
 };
 
 use sc_sim::deploy;
@@ -211,7 +219,8 @@ impl InterfaceState {
 ///   open while its state changes (a construction that completes shows its building ready in the menu);
 /// - AwaitingPlacement while the ActiveGroup is the constructor, which still holds the building ready
 ///   (`conditions`: its state); while it is Drones; while it is the Beacon, which isn't being deployed (the bank is
-///   the click's to check: `crate::command_ui::feedback` says why it is refused);
+///   the click's to check: `crate::command_ui::feedback` says why it is refused); while it is the Agent placing, the
+///   bank the click's to check as well (slice M4-J1);
 /// - the EjectMenu while the ActiveGroup is a Tunnel: the menu stays open while the network's contents change, its
 ///   tiles greyed while they can't eject.
 ///
@@ -252,6 +261,12 @@ pub fn still_valid(
                             && selection
                                 .active()
                                 .is_some_and(|active| offers(active.group_type(), PanelCommand::WarpIn(placing.kind)))
+                    }
+                    Builder::Agent(agent) => {
+                        selection.in_active_group(agent)
+                            && selection
+                                .active()
+                                .is_some_and(|active| offers(active.group_type(), PanelCommand::Build(placing.kind)))
                     }
                 }
         }

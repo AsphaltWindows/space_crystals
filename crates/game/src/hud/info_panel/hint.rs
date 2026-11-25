@@ -3,7 +3,9 @@
 //! for Raise Shield, "PK" for Train Peacekeeper), which this keeps in sight with its hotkey, "R: Raise Shield", for
 //! every button of every panel, Back and the greyed-out ones too (`crate::command_ui::Panel::name`: named after the
 //! ActiveGroup's type where the design does so, "Q: Warp In (Basic)" on a Beacon's). The client has no tooltips; the
-//! design names no place for a command's name (placeholder until the HUD pass).
+//! design names no place for a command's name (placeholder until the HUD pass). An Agent's Build names its price too,
+//! "A: Build Tunnel (2 Supplies)" (slice M4-J1; design change 0233: "the price shown on the Build button is the next
+//! Tunnel's"; `crate::command_ui::PanelSlot::price`), the placeholder for its tooltip.
 
 use bevy::prelude::*;
 
@@ -33,13 +35,26 @@ pub(in crate::hud) fn spawn(panel: &mut ChildSpawnerCommands) {
 }
 
 /// What the hint says of `slot` of `panel`, whose hotkeys are `hotkeys` (row by row from the top left): its hotkey
-/// and its full name (`Panel::name`), or the name alone for an unbound slot; `None` for an empty slot.
+/// and its full name (`Panel::name`), or the name alone for an unbound slot, and its price if it has one; `None` for
+/// an empty slot.
 pub fn hint(panel: &Panel, hotkeys: &[String], slot: CommandSlot) -> Option<String> {
     let name = panel.name(slot)?;
+    let name = match panel.get(slot).and_then(|shown| shown.price) {
+        Some(price) => format!("{name} ({})", supplies(price)),
+        None => name,
+    };
     Some(match hotkeys.get(slot_index(slot)).filter(|key| !key.is_empty()) {
         Some(key) => format!("{key}: {name}"),
         None => name,
     })
+}
+
+/// A price in Supplies, as the design counts them ("1 Supply per trip").
+fn supplies(price: u32) -> String {
+    match price {
+        1 => "1 Supply".into(),
+        _ => format!("{price} Supplies"),
+    }
 }
 
 /// Names the button under the pointer, in a game mode: the slot the cursor is in (the geometry the clicks use,
@@ -77,11 +92,15 @@ mod tests {
 
     /// The panels of a selection of one object of type `ty`, in every state it may be in: DefaultState, for a
     /// constructor idle, constructing and holding ready each building it constructs; in each of its menus; awaiting
-    /// the target of each of its commands that needs one. An Egress Node has Drones to select.
+    /// the target of each of its commands that needs one. An Egress Node has Drones to select; an unfinished object
+    /// may be a site (slice M4-J1).
     fn panels_of(ty: GroupType) -> Vec<Panel> {
         let selection = Selection::new([(ObjectId(1), ty)]);
         let base = Conditions::default().with_returning(vec![ObjectId(2)]);
         let mut conditions = vec![base.clone()];
+        if ty.unfinished {
+            conditions.push(base.clone().on_site());
+        }
         for recipe in construction::recipes(ty.kind) {
             let states = [
                 Constructor::Idle,
@@ -128,7 +147,13 @@ mod tests {
         let whole = ["Move", "Attack", "Patrol", "Stop", "Deploy", "Eject", "Back"];
         let mut types: Vec<GroupType> = ObjectKind::ALL.iter().map(|&kind| GroupType::finished(kind)).collect();
         let warped_in = transform::warp_in_recipes(ObjectKind::Beacon).iter().map(|r| r.kind);
-        types.extend(warped_in.chain([ObjectKind::Beacon]).map(GroupType::unfinished));
+        let sites = [ObjectKind::Tunnel];
+        types.extend(
+            warped_in
+                .chain([ObjectKind::Beacon])
+                .chain(sites)
+                .map(GroupType::unfinished),
+        );
         let mut backs = 0;
         for ty in types {
             let mut seen = BTreeSet::new();
@@ -169,6 +194,43 @@ mod tests {
             }
         }
         assert!(backs > 0);
+    }
+
+    /// Slice M4-J1: the Agent's buttons by name (`factions/syndicate/units/agent.md > Agent ObjectInterfaceState`), its
+    /// Build with the price the sim would charge (design change 0233: "the price shown on the Build button is the next
+    /// Tunnel's", the hint standing in for its tooltip), greyed or not; and a site's one button.
+    #[test]
+    fn the_hint_names_the_agents_buttons_and_the_tunnels_price() {
+        let hotkeys: Vec<String> = CommandSlot::all()
+            .map(|s| hotkey_label(&Bindings::default(), s))
+            .collect();
+        let slot = |row, column| CommandSlot::new(row, column).unwrap();
+        let agent = Selection::new([(ObjectId(1), GroupType::finished(ObjectKind::Agent))]);
+        let build = PanelCommand::Build(ObjectKind::Tunnel);
+        let said = |conditions: Conditions, at: CommandSlot| {
+            let shown = panel(&agent, InterfaceState::DefaultState, &conditions);
+            hint(&shown, &hotkeys, at).expect("a button")
+        };
+        let priced = |price| Conditions::default().pricing(build, price);
+        let short = priced(3).refusing(build, sc_sim::Reject::InsufficientSupplies);
+        let cases = [
+            (said(priced(0), slot(1, 0)), "A: Build Tunnel (0 Supplies)"),
+            (said(priced(1), slot(1, 0)), "A: Build Tunnel (1 Supply)"),
+            (said(short, slot(1, 0)), "A: Build Tunnel (3 Supplies)"),
+            (said(priced(2), slot(0, 0)), "Q: Move"),
+            (said(priced(2), slot(1, 1)), "S: Drop Off Resources"),
+            (said(priced(2), slot(1, 2)), "D: Build Laser Turret"),
+            (said(priced(2), slot(2, 1)), "X: Stop"),
+        ];
+        for (said, expected) in cases {
+            assert_eq!(said, expected);
+        }
+        let site = Selection::new([(ObjectId(1), GroupType::unfinished(ObjectKind::Tunnel))]);
+        let shown = panel(&site, InterfaceState::DefaultState, &Conditions::default().on_site());
+        assert_eq!(
+            hint(&shown, &hotkeys, slot(2, 1)).as_deref(),
+            Some("X: Cancel Construction")
+        );
     }
 
     /// The names the design gives some buttons after the object whose panel shows them (`PanelCommand::name_on`), and

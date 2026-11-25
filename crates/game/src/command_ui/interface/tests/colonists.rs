@@ -244,7 +244,8 @@ fn finished_and_unfinished_portals_have_their_own_panels() {
 /// Every command a Colonists type may show, in any state (`commands`), which the panel's conditions ask the gate
 /// about: the Beacon's menus and its three Warp Ins; a portal's production; the Drone's four, no Cancel (it never
 /// transforms itself, its Beacon does); the Egress Node's F. An unfinished Beacon, portal or node, in a group of its
-/// own (design change 0185), shows its Cancel alone. They go to the ActiveGroup only (`PanelCommand::instance_only`),
+/// own (design change 0185), shows its Cancel alone (an unfinished type has both Cancels, the panel shows the one it
+/// is: a site's, slice M4-J1). They go to the ActiveGroup only (`PanelCommand::instance_only`),
 /// but the Drone's.
 #[test]
 fn the_colonists_commands() {
@@ -266,7 +267,12 @@ fn the_colonists_commands() {
     assert!(commands(ROBO_PORTAL).contains(&PanelCommand::Train(DRONE)));
     assert!(!commands(ROBO_PORTAL).contains(&CancelTransform));
     for kind in [BEACON, ROBO_PORTAL, ObjectKind::EgressNode] {
-        assert_eq!(commands(GroupType::unfinished(kind)), [CancelTransform], "{kind:?}");
+        let cancels = [PanelCommand::CancelConstruction, CancelTransform];
+        assert_eq!(
+            commands(GroupType::unfinished(kind)),
+            cancels,
+            "{kind:?}: either Cancel, a site's too"
+        );
         assert!(offers(GroupType::unfinished(kind), CancelTransform) && !offers(kind, CancelTransform));
     }
     assert!(!offers(GroupType::unfinished(ROBO_PORTAL), PanelCommand::Train(DRONE)));

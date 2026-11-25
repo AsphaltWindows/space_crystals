@@ -2,7 +2,7 @@
 //! Shift ends the Drones' queued placement, and the input layer is told whether a building is being placed.
 
 use bevy::prelude::*;
-use sc_sim::{ConstructionCommand, OrderKind};
+use sc_sim::{ConstructionCommand, OrderKind, Reject};
 
 use super::OrderOutbox;
 use crate::ClientMode;
@@ -74,6 +74,14 @@ pub(in crate::command_ui) fn end_queued_placement(actions: Res<ActionState>, mut
 ///   (`systems/controls/selection_and_hud.md > AwaitingTarget > Shift while placing > Exception, Drones`), until Shift
 ///   is let go ([`end_queued_placement`]). **Reading**: a Shift-click while every Drone of the group has a Deploy
 ///   already sends nothing and ends placement ("Once every Drone in the group has a Deploy, placement ends").
+/// - **An Agent's building** (`factions/syndicate/units/agent.md > Agent ObjectInterfaceState > A: Build Tunnel`:
+///   "Left-click valid location confirms placement and dispatches the Agent (CommandIssuingTransition, returns to
+///   DefaultState)"; slice M4-J1): the ghost under the click, if `Sim::build_check` allows it: one `OrderKind::Build`
+///   to the Agent placing, queued with Shift (`systems/controls/selection_and_hud.md > AwaitingTarget > Shift while
+///   placing`: "each Agent takes exactly one placement", and placement ends like a plain click's; Tab and A again
+///   place with the next Agent), and back to DefaultState. It is paid as it is given (design change 0233): a Build
+///   the gate refuses (too few Supplies since A was pressed, the Agent building already) sends nothing, says why
+///   ([`CommandRefused`], design change 0162) and placement goes on, as a Warp In's.
 ///
 /// An invalid click sends nothing and placement goes on (M2 plan, H2: "cannot be confirmed"), with a short message
 /// ([`InvalidPlacement`]; placeholder: the design gives feedback for invalid target clicks,
@@ -167,6 +175,37 @@ pub(in crate::command_ui) fn place_on_click(
                         InterfaceState::AwaitingPlacement(Placing { builder, ..placing })
                     });
                 control.update(|state| state.interface = next);
+            }
+            Builder::Agent(agent) => {
+                let Some(origin) = placing.origin_under(click.ground) else {
+                    continue;
+                };
+                let queue = bindings.holds(InputAction::Queue, click.modifiers);
+                let (kind, orientation) = (placing.kind, placing.orientation);
+                let Some(check) = control.sim().build_check(agent, kind, origin, orientation, queue) else {
+                    continue;
+                };
+                if !check.is_valid() {
+                    let problem = check.first_problem();
+                    invalid.write(InvalidPlacement { problem, tick });
+                    continue;
+                }
+                let build = OrderKind::Build {
+                    kind,
+                    origin,
+                    orientation,
+                };
+                match outbox.try_give(player, vec![agent], build, queue) {
+                    Ok(()) => control.update(|state| state.interface = InterfaceState::DefaultState),
+                    Err(Reject::Unplaceable(problem)) => {
+                        let problem = Some(problem);
+                        invalid.write(InvalidPlacement { problem, tick });
+                    }
+                    Err(reject) => {
+                        let why = WhyUnavailable::Refused(reject);
+                        refused.write(CommandRefused { why, tick });
+                    }
+                }
             }
         }
     }

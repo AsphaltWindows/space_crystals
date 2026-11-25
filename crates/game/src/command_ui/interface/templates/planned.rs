@@ -2,8 +2,8 @@
 //! it is pressed (design change 0162). The Colonists' buildings and units whose numbers are TBD (design change 0124:
 //! "Buildings and units whose costs are TBD show in their slot, unavailable"; slices M3-J1 and M3-J2), and the
 //! Syndicate's commands and units that later slices bring (design change 0257: "unavailable entries are greyed"; slice
-//! M4-J2): the Tunnel's Upgrade, Expand and Cancel, the Hideout's Guard and Grenadier. The slice that brings one
-//! replaces its entry with the real command.
+//! M4-J2): the Tunnel's Upgrade, Expand and Cancel, the Hideout's Guard and Grenadier, and the Agent's Laser Turret
+//! (slice M4-J1). The slice that brings one replaces its entry with the real command.
 
 use sc_sim::ObjectKind;
 
@@ -15,7 +15,8 @@ use crate::kinds::short_label;
 /// or a unit of a portal's panel: a building's cost and WarpInTime are TBD (`factions/colonists/economy.md > Warp In >
 /// Constructs List`), and so is the rest of it (Q0043); a unit's stats, cost and time are TBD
 /// (`factions/colonists/units/scout.md`, `factions/colonists/units/lancer.md`; the psionic unit has no section yet).
-/// The Syndicate's are the Tunnel's commands of slices M4-F and M4-G and the Hideout's units of slices M4-K and M4-U.
+/// The Syndicate's are the Tunnel's commands of slices M4-F and M4-G, the Hideout's units of slices M4-K and M4-U, and
+/// the Agent's Laser Turret of slice M4-S1.
 #[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum Planned {
     AlloyFurnace,
@@ -52,11 +53,16 @@ pub enum Planned {
     /// The Hideout's E, "Build Grenadier" (design change 0260): "Only available if the player owns at least one
     /// Chemical Plant". Slice M4-U brings the Grenadier and its recipe, which take the slot.
     Grenadier,
+    /// The Agent's D, "Build Laser Turret" (`factions/syndicate/units/agent.md > Agent ObjectInterfaceState > Panel
+    /// letters`, design change 0257: "**D** Build Laser Turret (greyed until available)";
+    /// `factions/syndicate/units/agent.md > DefaultState commands`: "Visible but greyed out until the player owns an
+    /// Optics Lab"). Slice M4-S1 brings the Laser Turret, whose Build then takes the slot.
+    LaserTurret,
 }
 
 impl Planned {
     /// Every one, in declaration order.
-    pub const ALL: [Planned; 19] = [
+    pub const ALL: [Planned; 20] = [
         Planned::AlloyFurnace,
         Planned::EssenceRefinery,
         Planned::FluxReactor,
@@ -76,6 +82,7 @@ impl Planned {
         Planned::CancelOperation,
         Planned::Guard,
         Planned::Grenadier,
+        Planned::LaserTurret,
     ];
 
     /// Its name, the design's.
@@ -100,6 +107,7 @@ impl Planned {
             Planned::CancelOperation => "Cancel Operation",
             Planned::Guard => ObjectKind::Guard.def().name,
             Planned::Grenadier => "Grenadier",
+            Planned::LaserTurret => "Laser Turret",
         }
     }
 
@@ -118,7 +126,8 @@ impl Planned {
     /// `crate::kinds::short_label`). A type in the game shows its own tag ([`Planned::kind`]: the Guard's "GD"), so
     /// that its button looks the same once its recipe replaces the entry; the Grenadier's is its first and second
     /// letters, as the Guard's. The Tunnel's commands are named as the other commands' labels are: "Upgr." shortens
-    /// Upgrade as "Adv." does Advanced, Expand is short enough, and every Cancel is "Cancel".
+    /// Upgrade as "Adv." does Advanced, Expand is short enough, and every Cancel is "Cancel". The Laser Turret's is its
+    /// initials, "LT", as a building's.
     pub fn label(self) -> &'static str {
         match self {
             Planned::AlloyFurnace => "AF",
@@ -140,6 +149,7 @@ impl Planned {
             Planned::CancelOperation => "Cancel",
             Planned::Guard => short_label(ObjectKind::Guard),
             Planned::Grenadier => "GR",
+            Planned::LaserTurret => "LT",
         }
     }
 
@@ -160,13 +170,15 @@ impl Planned {
     }
 
     /// The full name of its button (`PanelCommand::name`): the command it will be, "Train Scout" or "Warp In Alloy
-    /// Furnace", as a unit in the game is trained and a building warped in, or the Tunnel's command by its name
-    /// ("Upgrade Tunnel").
+    /// Furnace", as a unit in the game is trained and a building warped in, the Agent's "Build Laser Turret", as it
+    /// builds a Tunnel (`PanelCommand::Build`), or the Tunnel's command by its name ("Upgrade Tunnel").
     pub fn command_name(self) -> String {
         if self.is_command() {
             self.name().into()
         } else if self.is_unit() {
             format!("Train {}", self.name())
+        } else if self == Planned::LaserTurret {
+            format!("Build {}", self.name())
         } else {
             format!("Warp In {}", self.name())
         }
@@ -175,11 +187,12 @@ impl Planned {
     /// Why its button is greyed out (design change 0162): it isn't in the game yet, but where the reason the command
     /// gate will give is known and true now, that one (slice M4-J2), so that the button says the same before and after
     /// its slice: the Hideout's units their prerequisites, which no player can own yet ("Requires an Optics Lab",
-    /// "Requires a Chemical Plant", as slice M4-K will grey them), and the Tunnel's Cancel that there is nothing to
-    /// cancel.
+    /// "Requires a Chemical Plant", as slice M4-K will grey them), the Agent's Laser Turret its own (design change
+    /// 0260: "greyed until available"; `factions/syndicate/units/agent.md > DefaultState commands`: "until the player
+    /// owns an Optics Lab"), and the Tunnel's Cancel that there is nothing to cancel.
     pub fn why(self) -> WhyUnavailable {
         match self {
-            Planned::Guard => WhyUnavailable::Placeholder(REQUIRES_OPTICS_LAB_TEXT),
+            Planned::Guard | Planned::LaserTurret => WhyUnavailable::Placeholder(REQUIRES_OPTICS_LAB_TEXT),
             Planned::Grenadier => WhyUnavailable::Placeholder(REQUIRES_CHEMICAL_PLANT_TEXT),
             Planned::CancelOperation => WhyUnavailable::Placeholder(NOTHING_TO_CANCEL_TEXT),
             _ => WhyUnavailable::NotYet,

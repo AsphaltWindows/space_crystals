@@ -7,9 +7,10 @@
 //! don't see now and don't remember, has none: the overlay never draws what the player doesn't know
 //! (`crate::fog::Sight`).
 //!
-//! **When it shows** ([`shows`]). Placeholder (not in the design): while the local player's ActiveGroup is a Tunnel
-//! of theirs, in a game mode, while they may command it. The placements of a Tunnel (slice M4-J1) and of an expansion
-//! (slice M4-F) add theirs.
+//! **When it shows** ([`shows`]). Placeholder (not in the design; Q0086 point 4): while the local player's ActiveGroup
+//! is a Tunnel of theirs, in a game mode, while they may command it, and while they place a Tunnel (slice M4-J1: the
+//! Tier 1 area the ghost needs clear of every area they know of, design change 0242). The placement of an expansion
+//! (slice M4-F) adds its own.
 //!
 //! **The look**, placeholders until the art (Q0001): the GDO build area's (`super::overlay`), each area's tiles tinted
 //! on the terrain's surface with a brighter line along its edge, the player's own in violet and the others' in red;
@@ -87,12 +88,13 @@ pub fn known_areas(sim: &Sim, sight: &Sight) -> Vec<KnownArea> {
 
 /// Whether the overlay shows for `player` now (module docs): in a game mode, while their selection is commandable
 /// (`crate::command_ui::interface::commandable`: never once the game is over or they are defeated) and its ActiveGroup
-/// is a Tunnel. Placeholder (not in the design).
+/// is a Tunnel, or they place one (an Agent's Build Tunnel, slice M4-J1). Placeholder (not in the design).
 pub fn shows(mode: ClientMode, sim: &Sim, player: PlayerId, states: &ControlStates) -> bool {
     let state = states.of(player);
+    let placing = (state.interface.placing()).is_some_and(|placing| tunnel::def_of(placing.kind).is_some());
     mode.is_game()
         && commandable(sim, player, &state.selection)
-        && (state.selection.active()).is_some_and(|active| tunnel::def_of(active.kind).is_some())
+        && (placing || (state.selection.active()).is_some_and(|active| tunnel::def_of(active.kind).is_some()))
 }
 
 /// The overlay's mesh: each of `areas` ([`tint_area`]) in its owner's colours, its tiles on `map` that are `drawn`,

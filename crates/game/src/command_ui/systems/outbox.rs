@@ -31,10 +31,26 @@ impl OrderOutbox<'_> {
     /// same when a Lower Shield sent for the same tick makes one of them a Peacekeeper first
     /// ([`Self::attack_once_toggled`]).
     pub(super) fn give(&mut self, player: PlayerId, units: Vec<ObjectId>, kind: OrderKind, queue: bool) -> bool {
+        self.try_give(player, units, kind, queue).is_ok()
+    }
+
+    /// The same, saying why nothing was sent: the gate's refusal (`Reject::NoUnits` when none of `units` is the
+    /// player's, `Reject::OffMap` for a point that isn't finite). An Agent's Build placed on a site it can't pay
+    /// for says so (slice M4-J1, design change 0162).
+    pub(super) fn try_give(
+        &mut self,
+        player: PlayerId,
+        units: Vec<ObjectId>,
+        kind: OrderKind,
+        queue: bool,
+    ) -> Result<(), Reject> {
         let units = self.own_units(player, units);
+        if units.is_empty() {
+            return Err(Reject::NoUnits);
+        }
         // `ARCHITECTURE.md > Commands, events and replays`: never a non-finite number, which a replay can't store.
-        if units.is_empty() || !finite(kind) {
-            return false;
+        if !finite(kind) {
+            return Err(Reject::OffMap);
         }
         let command = PlayerCommand {
             player,
@@ -48,7 +64,7 @@ impl OrderOutbox<'_> {
             && !(reject == Reject::CannotAttack && self.attack_once_toggled(player, &units))
         {
             debug!("order {kind:?} not given: {reject}");
-            return false;
+            return Err(reject);
         }
         self.pending.0.push(command);
         self.issued.write(OrderIssued {
@@ -57,7 +73,7 @@ impl OrderOutbox<'_> {
             queue,
             tick: self.sim.tick(),
         });
-        true
+        Ok(())
     }
 
     /// Gives each of `orders` (a unit and its order, in the units' order) as few orders as possible: one per

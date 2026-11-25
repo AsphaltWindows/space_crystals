@@ -12,16 +12,20 @@
 //! - [`overlay`]: "The player's current GDO build area is highlighted as a semi-transparent overlay on the ground",
 //!   the area only (design change 0093), redrawn only when the area or the map changes; while a GDO constructor
 //!   places its building;
-//! - [`lingering`]: the lingering build ghosts, the sites of the player's pending Deploys (`core/entities.md >
-//!   Placement Validation > Lingering build ghosts`, design change 0125), whatever the player does;
+//! - [`ghost_area`]: the Tier 1 Tunnel Area of a Tunnel ghost, green or red as the check finds it (slice M4-J1,
+//!   design change 0242);
+//! - [`lingering`]: the lingering build ghosts, the sites of the player's pending Deploys and Builds, a Tunnel's with
+//!   its Tier 1 area (`core/entities.md > Placement Validation > Lingering build ghosts`, design change 0125),
+//!   whatever the player does;
 //! - [`tunnel_areas`]: the Tunnel Areas the player knows of, their own and the others' (slice M4-J2), while a Tunnel
-//!   of theirs is the ActiveGroup ([`tunnel_areas::shows`]).
+//!   of theirs is the ActiveGroup or they place one ([`tunnel_areas::shows`]).
 //!
 //! The ghost and the overlay show only while the local player places a building ([`placing_now`]): in a game mode,
 //! in AwaitingPlacement, with a selection they may command (never once the game is over or they are defeated:
 //! `core/game_rules.md > End of Game`, design change 0101).
 
 pub mod ghost;
+pub mod ghost_area;
 pub mod lingering;
 pub mod overlay;
 pub mod tunnel_areas;
@@ -30,6 +34,7 @@ use bevy::prelude::*;
 use sc_sim::{PlayerId, Sim};
 
 pub use ghost::{Ghost, PlacementGhost};
+pub use ghost_area::GhostArea;
 pub use lingering::LingeringGhosts;
 pub use overlay::BuildAreaOverlay;
 pub use tunnel_areas::TunnelAreaOverlay;
@@ -52,6 +57,7 @@ pub struct PlacementPlugin;
 impl Plugin for PlacementPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<PlacementGhost>()
+            .init_resource::<GhostArea>()
             .init_resource::<BuildAreaOverlay>()
             .init_resource::<LingeringGhosts>()
             .init_resource::<TunnelAreaOverlay>()
@@ -59,6 +65,7 @@ impl Plugin for PlacementPlugin {
                 Startup,
                 (
                     ghost::spawn_ghost,
+                    ghost_area::spawn_ghost_area,
                     overlay::spawn_overlay,
                     lingering::spawn_lingering,
                     tunnel_areas::spawn_overlay,
@@ -67,7 +74,7 @@ impl Plugin for PlacementPlugin {
             .add_systems(
                 Update,
                 (
-                    (ghost::update_ghost, ghost::draw_ghost).chain(),
+                    (ghost::update_ghost, ghost::draw_ghost, ghost_area::draw_ghost_area).chain(),
                     overlay::draw_overlay,
                     lingering::draw_lingering,
                     tunnel_areas::draw_overlay,
