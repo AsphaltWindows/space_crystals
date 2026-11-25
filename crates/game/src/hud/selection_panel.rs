@@ -16,26 +16,18 @@ use bevy::ecs::system::SystemParam;
 use bevy::prelude::*;
 use sc_sim::{ObjectId, ObjectKind};
 
+mod cells;
+
+use cells::{cell_node, spawn_cell_content};
+
 use super::layout::PortraitGrid;
-use super::{HudSection, SectionLabel, show_node, text};
+use super::{HudSection, SectionLabel, show_node};
 use crate::ClientMode;
 use crate::camera::CameraView;
 use crate::input::{ActionState, Bindings, InputAction};
-use crate::kinds::object_label;
-use crate::object_render::{Look, UnitShape, player_color, transforming_color};
 use crate::platform::SurfaceSize;
 use crate::selection::{ClickRoles, ControlStates, LocalControl, Selection};
 use crate::sim_driver::{LocalPlayer, SimRes};
-
-const CELL_BACKGROUND: Color = Color::srgb(0.16, 0.18, 0.22);
-const CELL_BORDER: Color = Color::srgb(0.30, 0.33, 0.38);
-/// The ActiveGroup's "sheer highlight" (placeholder colours).
-const ACTIVE_BACKGROUND: Color = Color::srgb(0.22, 0.30, 0.26);
-const ACTIVE_BORDER: Color = Color::srgb(0.55, 0.95, 0.60);
-const CELL_TEXT: Color = Color::srgb(0.88, 0.90, 0.93);
-/// A cell's label size, and its shape's share of the cell (placeholders).
-const CELL_LABEL_VH: f32 = 1.3;
-const SHAPE_PERCENT: f32 = 48.0;
 
 /// A type's short label, each its own: the kind's ([`crate::kinds`]).
 pub use crate::kinds::short_label;
@@ -106,11 +98,6 @@ pub fn portraits(selection: &Selection, capacity: usize) -> Vec<PortraitCell> {
     cells
 }
 
-/// Whether a type's portrait shape is round, as its placeholder on the map is ([`Look`]).
-fn round(kind: ObjectKind) -> bool {
-    Look::of(kind).unit_shape() == Some(UnitShape::Round)
-}
-
 /// What the SelectionPanel shows: the local player's selection, in a game mode, on a surface of some size.
 #[derive(SystemParam)]
 pub(super) struct PanelSource<'w> {
@@ -170,58 +157,6 @@ pub(super) fn update_selection_panel(
     view.surface = Some(surface);
 }
 
-/// A cell's node, background and border.
-fn cell_node(at: Vec2, side: f32, active: bool) -> impl Bundle {
-    (
-        Node {
-            position_type: PositionType::Absolute,
-            left: px(at.x),
-            top: px(at.y),
-            width: px(side),
-            height: px(side),
-            border: UiRect::all(px(if active { 2.0 } else { 1.0 })),
-            flex_direction: FlexDirection::Column,
-            justify_content: JustifyContent::Center,
-            align_items: AlignItems::Center,
-            row_gap: px(side * 0.04),
-            ..default()
-        },
-        BackgroundColor(if active { ACTIVE_BACKGROUND } else { CELL_BACKGROUND }),
-        BorderColor::all(if active { ACTIVE_BORDER } else { CELL_BORDER }),
-    )
-}
-
-/// A cell's shape and label.
-fn spawn_cell_content(commands: &mut Commands, cell: Entity, shown: PortraitCell, sim: &SimRes) {
-    match shown {
-        PortraitCell::Object {
-            id, kind, unfinished, ..
-        } => {
-            let object = sim.object(id);
-            let owner = player_color(object.and_then(|o| o.owner));
-            commands.spawn((
-                Node {
-                    width: percent(SHAPE_PERCENT),
-                    height: percent(SHAPE_PERCENT),
-                    border_radius: if round(kind) {
-                        BorderRadius::MAX
-                    } else {
-                        BorderRadius::ZERO
-                    },
-                    ..default()
-                },
-                BackgroundColor(if unfinished { transforming_color(owner) } else { owner }),
-                ChildOf(cell),
-            ));
-            let label = object_label(kind, object.and_then(|o| o.tunnel.clone()));
-            commands.spawn((text(label, CELL_LABEL_VH, CELL_TEXT), ChildOf(cell)));
-        }
-        PortraitCell::More { count, .. } => {
-            commands.spawn((text(format!("+{count}"), CELL_LABEL_VH * 1.4, CELL_TEXT), ChildOf(cell)));
-        }
-    }
-}
-
 /// `> SelectionPanel > Interactions`: a press of [`InputAction::Select`] on a portrait, with the roles its
 /// modifiers hold. The portrait under the cursor comes from the layout ([`PortraitGrid`]), not from UI picking.
 pub(super) fn click_portraits(
@@ -251,152 +186,4 @@ pub(super) fn click_portraits(
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-
-    const PK: ObjectKind = ObjectKind::Peacekeeper;
-    const GUARD: ObjectKind = ObjectKind::Guard;
-
-    /// The objects of the highlighted portraits, in the panel's order.
-    fn highlighted(selection: &Selection) -> Vec<u32> {
-        portraits(selection, 10)
-            .into_iter()
-            .filter_map(|cell| match cell {
-                PortraitCell::Object { id, active: true, .. } => Some(id.0),
-                _ => None,
-            })
-            .collect()
-    }
-
-    #[test]
-    fn portraits_need_two_objects_and_end_in_a_count_when_full() {
-        let selection = |n: u32| Selection::new((1..=n).map(|i| (ObjectId(i), PK)));
-        assert!(portraits(&selection(1), 10).is_empty());
-        let two = portraits(&selection(2), 10);
-        assert_eq!(
-            two,
-            [1, 2].map(|i| PortraitCell::Object {
-                id: ObjectId(i),
-                kind: PK,
-                unfinished: false,
-                active: true
-            })
-        );
-        let full = portraits(&selection(12), 10);
-        assert_eq!(full.len(), 10);
-        assert_eq!(full[9], PortraitCell::More { count: 3, active: true });
-        let exactly = portraits(&selection(10), 10);
-        assert_eq!(exactly.len(), 10, "exactly full shows them all");
-        assert!(exactly.iter().all(|cell| matches!(cell, PortraitCell::Object { .. })));
-    }
-
-    #[test]
-    fn only_the_active_groups_portraits_are_highlighted() {
-        let mut selection = Selection::new([(ObjectId(1), PK), (ObjectId(2), GUARD), (ObjectId(3), PK)]);
-        selection.cycle(true);
-        let active: Vec<(ObjectId, bool)> = portraits(&selection, 10)
-            .into_iter()
-            .map(|c| match c {
-                PortraitCell::Object { id, active, .. } => (id, active),
-                PortraitCell::More { .. } => unreachable!(),
-            })
-            .collect();
-        assert_eq!(
-            active,
-            [(ObjectId(1), false), (ObjectId(3), false), (ObjectId(2), true)]
-        );
-    }
-
-    /// `> SelectionPanel` (design change 0055): the portraits come group by group, and Tab and Shift-Tab make the
-    /// groups active in that order, wrapping around. Patches stand in for the Ungroupable own structures that don't
-    /// exist yet (a resource is never selected with other objects, 0048).
-    #[test]
-    fn tab_and_shift_tab_follow_the_order_of_the_portraits() {
-        let patch = ObjectKind::CrystalPatch;
-        let mut selection = Selection::new([
-            (ObjectId(1), GUARD),
-            (ObjectId(2), PK),
-            (ObjectId(3), patch),
-            (ObjectId(4), PK),
-            (ObjectId(5), patch),
-        ]);
-        let order: Vec<u32> = portraits(&selection, 10)
-            .into_iter()
-            .map(|cell| match cell {
-                PortraitCell::Object { id, .. } => id.0,
-                PortraitCell::More { .. } => unreachable!(),
-            })
-            .collect();
-        assert_eq!(
-            order,
-            [3, 5, 2, 4, 1],
-            "each patch alone, then the Peacekeepers, then the Guard"
-        );
-        assert_eq!(highlighted(&selection), [3], "the first group is active");
-        let mut tab = |forward: bool| {
-            selection.cycle(forward);
-            highlighted(&selection)
-        };
-        let forward: Vec<Vec<u32>> = (0..4).map(|_| tab(true)).collect();
-        assert_eq!(forward, [vec![5], vec![2, 4], vec![1], vec![3]]);
-        let backward: Vec<Vec<u32>> = (0..4).map(|_| tab(false)).collect();
-        assert_eq!(backward, [vec![1], vec![2, 4], vec![5], vec![3]]);
-    }
-
-    /// The count of the portraits that don't fit is highlighted when it hides some of the ActiveGroup's.
-    #[test]
-    fn the_count_of_hidden_portraits_is_highlighted_when_it_hides_the_active_group() {
-        let pks = (1..=9).map(|i| (ObjectId(i), PK));
-        let mut selection = Selection::new(pks.chain((10..=12).map(|i| (ObjectId(i), GUARD))));
-        let cells = portraits(&selection, 10);
-        assert!(cells[..9].iter().all(|cell| cell.is_active()));
-        assert_eq!(
-            cells[9],
-            PortraitCell::More {
-                count: 3,
-                active: false
-            }
-        );
-        selection.cycle(true);
-        let cells = portraits(&selection, 10);
-        assert!(cells[..9].iter().all(|cell| !cell.is_active()));
-        assert_eq!(
-            cells[9],
-            PortraitCell::More { count: 3, active: true },
-            "the Guards are all hidden"
-        );
-    }
-
-    /// Design change 0185: 2 finished Bio Portals and 1 warping in, two groups; the unfinished one's portrait comes
-    /// after the finished ones' and is marked, and Tab highlights it alone.
-    #[test]
-    fn an_unfinished_buildings_portrait_comes_in_a_group_of_its_own() {
-        let bio = ObjectKind::BioPortal;
-        let unfinished = crate::selection::GroupType::unfinished(bio);
-        let mut selection = Selection::new([
-            (ObjectId(3), unfinished),
-            (ObjectId(4), bio.into()),
-            (ObjectId(5), bio.into()),
-        ]);
-        let cells = |selection: &Selection| -> Vec<(u32, bool, bool)> {
-            portraits(selection, 10)
-                .into_iter()
-                .map(|cell| match cell {
-                    PortraitCell::Object {
-                        id, unfinished, active, ..
-                    } => (id.0, unfinished, active),
-                    PortraitCell::More { .. } => unreachable!(),
-                })
-                .collect()
-        };
-        assert_eq!(
-            cells(&selection),
-            [(4, false, true), (5, false, true), (3, true, false)]
-        );
-        selection.cycle(true);
-        assert_eq!(
-            cells(&selection),
-            [(4, false, false), (5, false, false), (3, true, true)]
-        );
-    }
-}
+mod tests;

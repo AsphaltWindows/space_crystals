@@ -10,19 +10,24 @@
 
 pub mod colonists;
 pub mod gdo;
+mod offers;
+mod production;
+mod state;
 
 use sc_sim::ObjectKind;
-use sc_sim::construction::{self, Constructor};
 use sc_sim::conversion;
 use sc_sim::defs::AttackType;
-use sc_sim::transform;
 
 pub use colonists::{Planned, TRANSFORMING_GRID};
+pub use offers::{commands, offers};
+pub use state::{menu_grid, menu_of, state_grid};
+
+use production::production_grid;
+use state::constructs;
 
 use super::{InterfaceState, PanelCommand};
 use crate::input::CommandSlot;
 use crate::kinds;
-use crate::selection::GroupType;
 
 /// An ObjectInterfaceState template: which commands a type offers, in which slots, and how its clicks resolve.
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
@@ -122,43 +127,6 @@ const BASIC_COMBAT_UNIT_GRID: [Option<PanelCommand>; 12] = {
     ]
 };
 
-/// How many units a producing structure's panel trains: one in each of Q, W, E, R, A, S, D and F; the bottom row is
-/// `> Standard Slot Assignments`' (Z Back, X Cancel Production, C Set Rally Point).
-const TRAIN_SLOTS: usize = 8;
-
-/// A producing structure's DefaultState commands (plan decision T23): Train each of the units of its `ProductionDef`,
-/// in the design's order, from Q on (Q, W, E, R, then A, S, D, F); X Cancel Production and C Set Rally Point
-/// (`> Standard Slot Assignments`); Z is Back while a target is awaited.
-///
-/// - The Barracks: Q Build Peacekeeper, X, C (`factions/gdo/structures/barracks.md >
-///   ObjectInterfaceState[Barracks]`). "W: Build Rocketman (hotkey tentative)" stays empty: the Rocketman isn't in
-///   the game yet (its cost and time are TBD, and so is its Arsenal; M2 plan § 1.2), so it isn't among the recipes
-///   and its button is hidden.
-/// - The Robo Portal: Q Drone, W Scout, X, C; the Bio Portal: Q Sabre Legionnaire, W Lancer, E psionic unit, X, C
-///   (`factions/colonists/structures/robo_portal.md > Robo Portal ObjectInterfaceState`,
-///   `factions/colonists/structures/bio_portal.md > Bio Portal ObjectInterfaceState`, design change 0124). The Scout,
-///   the Lancer and the psionic unit aren't in the game (their stats, cost and time are TBD), so they aren't among the
-///   recipes: 0124 has them show in their slot, unavailable ([`PanelCommand::Planned`], [`PanelTemplate::planned`];
-///   slice M3-J2).
-fn production_grid(kind: ObjectKind) -> [Option<PanelCommand>; 12] {
-    let mut grid = [None; 12];
-    let production = kind.def().structure.as_ref().and_then(|s| s.production.as_ref());
-    let recipes = production.map_or(&[][..], |production| production.recipes);
-    debug_assert!(
-        recipes.len() <= TRAIN_SLOTS,
-        "{kind:?} trains more units than its panel has slots"
-    );
-    for (slot, recipe) in grid.iter_mut().zip(recipes.iter().take(TRAIN_SLOTS)) {
-        *slot = Some(PanelCommand::Train(recipe.kind));
-    }
-    for &(slot, planned) in kinds::of(kind).template.planned {
-        grid[slot] = grid[slot].or(Some(PanelCommand::Planned(planned)));
-    }
-    grid[slot_index(CommandSlot::CANCEL_PRODUCTION)] = Some(PanelCommand::CancelProduction);
-    grid[slot_index(CommandSlot::RALLY_POINT)] = Some(PanelCommand::SetRallyPoint);
-    grid
-}
-
 /// `factions/gdo/units/peacekeeper.md > Riot Shield > Hotkey`: "**Hotkey: R** (Raise Shield on Peacekeeper, Lower
 /// Shield on Peacekeeper (Shielded)), placeholder" (design change 0174): slot R, the first slot the BasicCombatUnit
 /// grid leaves free, where the Colonists' Legionnaires have their own command ([`CONVERT_SLOT`]).
@@ -239,168 +207,6 @@ pub fn grid(kind: ObjectKind) -> [Option<PanelCommand>; 12] {
 pub fn hides_attack(kind: ObjectKind) -> bool {
     let shield = kind.def().unit.as_ref().and_then(|unit| unit.riot_shield);
     shield.is_some_and(|shield| kind == shield.raised)
-}
-
-/// Whether objects of `kind` construct buildings (`StructureDef::constructs`): the Deployment Center and the
-/// Extraction Facility.
-fn constructs(kind: ObjectKind) -> bool {
-    !construction::recipes(kind).is_empty()
-}
-
-/// The entries of a `kind` object's build menu `menu`, slot by slot (`CommandSlot::all` order): a Beacon's Warp In
-/// menu (`factions/colonists/economy.md > Beacon > Beacon ObjectInterfaceState`: every building of the design's
-/// menu, those not in the game unavailable), else the Deployment Center's menu, its buildings to construct.
-pub fn menu_grid(kind: ObjectKind, menu: BuildMenu) -> [Option<PanelCommand>; 12] {
-    if colonists::warps_in(kind) {
-        colonists::beacon::warp_in_menu(menu)
-    } else {
-        menu.entries().map(|entry| entry.map(PanelCommand::Construct))
-    }
-}
-
-/// The build menu of a `kind` object whose `building` is placed (the Deployment Center's, holding it ready; a
-/// Beacon's, warping it in), if it has one.
-pub fn menu_of(kind: ObjectKind, building: ObjectKind) -> Option<BuildMenu> {
-    BuildMenu::ALL.into_iter().find(|&menu| {
-        grid(kind).contains(&Some(PanelCommand::BuildMenu(menu)))
-            && menu_grid(kind, menu)
-                .iter()
-                .flatten()
-                .any(|entry| entry.building() == Some(building))
-    })
-}
-
-/// The commands a `kind` ActiveGroup shows in `interface`, slot by slot (`CommandSlot::all` order), while its
-/// constructor, if it is one, is `constructor` (the ActiveGroup is then a single instance: constructors are
-/// Ungroupable, `> SelectionGroup`, so the panel "can reliably read that instance's specific game state"):
-/// - DefaultState and AwaitingTarget: its DefaultState grid ([`grid`]), but the Peacekeeper (Shielded)'s Attack
-///   ([`hides_attack`]);
-/// - a build menu: the menu's entries ([`menu_grid`]); AwaitingPlacement: those of the state it goes back to
-///   (`InterfaceState::back`): the Deployment Center's menu of the building, a Beacon's Warp In menu of it, the
-///   Extraction Facility's and the Drone's DefaultState;
-/// - a constructor's building ready to place takes its entry's slot, as "Select completed building" (design change
-///   0104; the Extraction Facility's "Q: Place Plate"), and its X is Cancel Construction while it constructs and
-///   Cancel Ready Building while it holds a building ready, and empty while it is idle (`> DefaultState commands`:
-///   "Only visible when CurrentConstruction is set", "Only visible when ReadyToPlace is set");
-/// - a build menu shows its other entries while the constructor is busy, unavailable (`> BuildMenu (instance
-///   constructing)`: "Other build options unavailable": [`super::Conditions`] disables them), but the Extraction
-///   Facility's DefaultState lists only X while it constructs and only Q Place Plate and X while its plate is ready
-///   (`factions/gdo/economy.md > ExtractionFacility > ObjectInterfaceState[ExtractionFacility]`), so a building to
-///   construct in a DefaultState grid shows only while the constructor is idle.
-pub fn state_grid(
-    kind: ObjectKind,
-    interface: InterfaceState,
-    constructor: Option<Constructor>,
-) -> [Option<PanelCommand>; 12] {
-    // A menu `kind` doesn't have (another group just became active, until the state is validated) shows its grid.
-    let menu = match interface {
-        InterfaceState::BuildMenu(menu) => {
-            Some(menu).filter(|&menu| grid(kind).contains(&Some(PanelCommand::BuildMenu(menu))))
-        }
-        InterfaceState::AwaitingPlacement(placing) => menu_of(kind, placing.kind),
-        InterfaceState::DefaultState | InterfaceState::AwaitingTarget { .. } => None,
-    };
-    let mut commands = match menu {
-        Some(menu) => menu_grid(kind, menu),
-        None => grid(kind),
-    };
-    if menu.is_none() && hides_attack(kind) {
-        commands[ATTACK_SLOT] = None;
-    }
-    let Some(constructor) = constructor.filter(|_| constructs(kind)) else {
-        return commands;
-    };
-    if let Some(ready) = constructor.ready() {
-        for command in commands
-            .iter_mut()
-            .filter(|c| **c == Some(PanelCommand::Construct(ready)))
-        {
-            *command = Some(PanelCommand::PlaceReady(ready));
-        }
-    }
-    if menu.is_none() && !constructor.is_idle() {
-        for command in commands
-            .iter_mut()
-            .filter(|c| matches!(c, Some(PanelCommand::Construct(_))))
-        {
-            *command = None;
-        }
-    }
-    commands[slot_index(CommandSlot::CANCEL_PRODUCTION)] = match constructor {
-        Constructor::Constructing { .. } => Some(PanelCommand::CancelConstruction),
-        Constructor::Ready { .. } => Some(PanelCommand::CancelReady),
-        Constructor::Idle => None,
-    };
-    commands
-}
-
-/// Every command objects of type `ty` (a kind: a finished one) may show, in any state ([`state_grid`]): an
-/// unfinished building's Cancel alone ([`TRANSFORMING_GRID`], design change 0185); a finished type's DefaultState
-/// grid, and a constructor's buildings to construct and to place, and its two Cancels; a Beacon's buildings to warp
-/// in. In order, each once.
-pub fn commands(ty: impl Into<GroupType>) -> Vec<PanelCommand> {
-    let GroupType { kind, unfinished } = ty.into();
-    if unfinished {
-        return vec![PanelCommand::CancelTransform];
-    }
-    let mut commands: Vec<PanelCommand> = grid(kind).into_iter().flatten().collect();
-    commands.extend(
-        transform::warp_in_recipes(kind)
-            .iter()
-            .map(|r| PanelCommand::WarpIn(r.kind)),
-    );
-    if constructs(kind) {
-        for recipe in construction::recipes(kind) {
-            commands.extend([
-                PanelCommand::Construct(recipe.kind),
-                PanelCommand::PlaceReady(recipe.kind),
-            ]);
-        }
-        commands.extend([PanelCommand::CancelConstruction, PanelCommand::CancelReady]);
-    }
-    commands.sort_unstable();
-    commands.dedup();
-    commands
-}
-
-/// Whether objects of type `ty` (a kind: a finished one) offer `command`. An unfinished building, in a group of its
-/// own "as if it were another type" (design change 0185), offers its Cancel and nothing else (`factions/colonists/
-/// economy.md > Beacon Deployment > While transforming: only Cancel`, [`TRANSFORMING_GRID`]). A finished one offers
-/// what its grid has ([`grid`]), and a conditional command only when the type can (`> BasicCombatUnitInterfaceState`:
-/// Reverse with the UnitBase's CanReverse, AttackGround with the AttackType's CanTargetGround). A constructor offers
-/// its own buildings (its `Constructs` list) and its Cancels, a Beacon the buildings of its Constructs List; a
-/// building or a unit that isn't in the game is offered by no one (design change 0124: "shown but unavailable"). A
-/// build menu is offered while it shows something, so the Deployment Center's W, Advanced Construction, shows
-/// unavailable: none of its buildings exists yet, and they are hidden (design change 0104: "greyed placeholders"); the
-/// Beacon's Warp In (Advanced) opens, on its unavailable buildings.
-pub fn offers(ty: impl Into<GroupType>, command: PanelCommand) -> bool {
-    let GroupType { kind, unfinished } = ty.into();
-    if unfinished {
-        return command == PanelCommand::CancelTransform;
-    }
-    match command {
-        PanelCommand::Construct(building) | PanelCommand::PlaceReady(building) => {
-            return construction::recipe(kind, building).is_some();
-        }
-        PanelCommand::CancelConstruction | PanelCommand::CancelReady => return constructs(kind),
-        PanelCommand::BuildMenu(menu) => {
-            return grid(kind).contains(&Some(command)) && menu_grid(kind, menu).iter().any(Option::is_some);
-        }
-        PanelCommand::WarpIn(building) => return transform::warp_in_recipe(kind, building).is_some(),
-        PanelCommand::Planned(_) | PanelCommand::CancelTransform => return false,
-        _ => {}
-    }
-    if !grid(kind).contains(&Some(command)) {
-        return false;
-    }
-    let unit = kind.def().unit.as_ref();
-    match command {
-        PanelCommand::Reverse => unit.is_some_and(|unit| unit.base_def().can_reverse),
-        PanelCommand::AttackGround => unit
-            .and_then(|unit| unit.attack)
-            .is_some_and(|attack| can_target_ground(attack.attack_type)),
-        _ => true,
-    }
 }
 
 /// A slot's position in `CommandSlot::all` order.
