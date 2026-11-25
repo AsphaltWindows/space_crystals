@@ -2094,6 +2094,14 @@ their energy doorway, slice M3-D2: design change 0145, `factions/colonists/struc
   Capacity falls to 1 (the 5th Drone made and every 6th after it), and pays for the rest through a `BuildOrder`.
   `reference_field(drones)` is the reference geometry of design change 0107, and `colonists::skirmish` plays
   `dev_skirmish` with a Colonists line against the GDO's (the Colonists' golden games, and longer runs of them).
+  `testing::syndicate` (slice M4-L) plays a Syndicate player the same way: a `Syndicate` line sends the Agents to
+  gather (one command), sets the Hideouts' rally points, gives the player's `n`th Agent a job (Supplies at a station,
+  or a Tunnel to build once the Supplies cover `Sim::build_price` and the build check takes its site), ejects an Agent
+  that finished a Tunnel by it, has the `n`th Tunnel build the line's expansions once `Sim::can_expand` allows them
+  and the bank covers them, trains units behind a prerequisite (the Guards behind an Optics Lab) only while the
+  player owns it, and pays for its Agents through a `BuildOrder`; `SupplyBooks` balance the Supplies as `Books` do the
+  crystals. `reference_field(distance, agents)`, `opening_field(distance)` and `stacked_field(distance, agents)` are
+  the Syndicate economy check's reference layouts (design changes 0259 and 0294).
 - **Movement scenario tests** are `crates/sim/tests/movement_collision/` (passing, head-on, choke, group arrival,
   idle units, repaths, oscillation bounds, save and load in a crowd; in modules by topic: `passing`, `crowds`,
   `paths`), `group_destinations.rs` (the magic box; a
@@ -2182,6 +2190,13 @@ their energy doorway, slice M3-D2: design change 0145, `factions/colonists/struc
   tolerances on the design's trickle figures are named where they are used (a plate's first lump 3 s after it
   lands, a wait for money up to one cycle longer, a bank under a trickle's by less than a lump per plate), while
   costs, build times, lumps and the power penalty are checked exactly. `--nocapture` prints each line's timeline.
+  **The Syndicate** (slice M4-L, `syndicate.rs`): the economy check of `factions/syndicate/units/agent.md > Gathering >
+  Space Crystals` (design changes 0259 and 0294) on `testing::syndicate`'s layouts: one Agent's trip and the income
+  of 2, 3 and 4 Agents (minutes 5 to 10 of a ten-minute game) at 3 to 6 GU within ±15% of the table, a test for each
+  row (rows 0 to 2 are theoretical: the ignored `syndicate_table` measures them for the record); the ceiling, no two
+  deliveries at a Tunnel less than 64 ticks apart, in every game; two stacked Tunnels at 3 GU doubling the field's
+  intake; the opening at 3 GU from the Starting Conditions, its third Agent out within 0:34–0:46, both books
+  balanced every tick; and the lowest one-base saturation.
 - **Game start tests** are `crates/sim/tests/game_start/` (slice M2-F1: each player's Starting Layout and banks,
   the Skirmish Default restriction and completeness, the layout rules of design change 0097, a layout plate off its
   patch refused by the game's rule, a pre-placed one by the same rule, two players' layouts in each other's way, the
