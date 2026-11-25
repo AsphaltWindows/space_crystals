@@ -31,7 +31,7 @@
 
 
 
-- **Q0059–Q0071 (M4 Syndicate, arrived 2026-11-25)**: Q0059 DONE (0229 placeholders). Q0060 pts 1–2 DONE (0229); pts 3–6 open (in-progress upgrades count; HP at completion; destroyed mid-upgrade; reserve target area). Q0061–Q0071 non-blocking, Director proceeding on its proposals: Agent-built Tunnels, areas/layers, network transit, ejection, expansions under construction, Agent gathering, Supplies gathering, panel letters, losing Tunnels, Syndicate economy check, deferred content. Go through with the user one at a time (many may be answerable by proposals; check docs first).
+- **Q0059–Q0071 (M4 Syndicate, arrived 2026-11-25)**: Q0059 DONE (0229 placeholders). Q0060 DONE (0229, 0231, 0232 refund = current top price). Q0061 pts 1–2 DONE (0233: pay at ghost, ghosts count); pts 3–5, 7–9 proposals pending user OK. Q0061–Q0071 non-blocking, Director proceeding on its proposals: Agent-built Tunnels, areas/layers, network transit, ejection, expansions under construction, Agent gathering, Supplies gathering, panel letters, losing Tunnels, Syndicate economy check, deferred content. Go through with the user one at a time (many may be answerable by proposals; check docs first).
 
 All others through Q0058 answered (this session: 0197–0206, 0223, 0230).
   - All questions answered through Q0048 (2026-11-24/25).
