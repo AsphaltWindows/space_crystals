@@ -27,8 +27,7 @@
 
 ## Open Director Questions
 
-Arrived 2026-11-25 night (Q0076–Q0087). Answered from docs: Q0078 (0283), Q0085 (0284), Q0086 pt 1 (0285). Q0077 DONE (0288). Q0079 DONE (0289). Q0080 DONE (0290). Q0081 DONE (0291). Q0082 DONE (0292). Q0083 DONE (0293). Q0076/Q0088 DONE (0294: mining 4 s, keep collision, ref distance 3 GU, map makers decide distance; sidestep documented; 0295 hatch square, search radius). Open, need the user:
-- Q0084 Laser Turret: 9 points (hidden states, sight, blocking, paying, refunds, sites, Agent exit, targeting, slot for Agent-built).
+Arrived 2026-11-25 night (Q0076–Q0087). Answered from docs: Q0078 (0283), Q0085 (0284), Q0086 pt 1 (0285). Q0077 DONE (0288). Q0079 DONE (0289). Q0080 DONE (0290). Q0081 DONE (0291). Q0082 DONE (0292). Q0083 DONE (0293). Q0076/Q0088 DONE (0294: mining 4 s, keep collision, ref distance 3 GU, map makers decide distance; sidestep documented; 0295 hatch square, search radius). Q0084 DONE (0296–0298). Open, need the user:
 - Q0086 pts 2–5: empty types greyed; panel stays in EjectMenu; when Tunnel Areas are drawn; recall of all-held group.
 - Q0087 Builder Agent transit delay.
 
