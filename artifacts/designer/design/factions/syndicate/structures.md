@@ -115,7 +115,7 @@ Prerequisite for the **Shadebringer** (2026-11-25). While the player owns a Vaul
 
 Syndicate production building that assembles Syndicate ground vehicles.
 
-Produces (2026-11-25): **Assault Bike**, **Shadebringer** (requires a Vault), **Laser Battery** (requires an Optics Lab) (factions/syndicate/units.md). Costs, times and panel layout: TBD.
+Produces (2026-11-25): **Assault Bike**, **Shadebringer** (requires a Vault), **Laser Battery** (requires an Optics Lab), **Subterranean Transport** (factions/syndicate/units.md). Costs, times and panel layout: TBD.
 
 #### Entity Type - Structure Type (Underground)
 #### Tier Requirement - 2
