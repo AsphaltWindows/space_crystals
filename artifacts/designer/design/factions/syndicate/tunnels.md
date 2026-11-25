@@ -4,6 +4,10 @@
 
 The Tunnel Network is the collective of all Tunnels owned by a Syndicate player. Units inside the Tunnel Network can travel between Tunnels freely, but can only enter or exit the network through a Tunnel whose tier is sufficient for their unit base category.
 
+**Transit delay** (user, 2026-11-25; Q0063): after a unit **enters** the network, there is a **small delay before it can exit**: **2 seconds (32 frames), placeholder**. After that it can exit from **any** Tunnel whose tier suits it, however far away: the delay is flat, not by distance. Units **produced** inside the network (by expansions) have **no delay**: they can exit as soon as they are produced (user, 2026-11-25).
+
+**Walking in** (user, 2026-11-25; Q0063): units enter through the entry path by **walking into it at their normal speed, one behind another with normal spacing**, like walking through any one-unit-wide passage; there is no fixed hold time per unit. A unit leaves the map once it has walked into the Tunnel. So an army files in about as fast as it can walk in single file, without big traffic jams.
+
 ### Transit Tier Requirements
 - Tier 1+: Infantry (Light Infantry, Heavy Infantry)
 - Tier 2+: Vehicles (Wheeled, Tracked, Drill, Hover Vehicle, Mech)
@@ -45,7 +49,7 @@ Starting Space Crystals: **100** (same as GDO and the Colonists). With 100, the 
 ### SymmetryType - ABCD
 
 Each side of the Tunnel has a distinct function:
-- **Side A**: Unit entrance/exit (units enter and emerge from the Tunnel Network here). It has **two paths: one for entering, one for exiting** (user, 2026-11-25). **Each path takes one unit at a time** and fixes where units go in and come out: entering and exiting units never block each other, but an army enters or leaves single file. (Whether the Tier 3 air doors also take one aircraft at a time: TBD.)
+- **Side A**: Unit entrance/exit (units enter and emerge from the Tunnel Network here). It has **two paths: one for entering, one for exiting** (user, 2026-11-25). **Each path is one unit wide** and fixes where units go in and come out: entering and exiting units never block each other, and an army enters or leaves single file, each unit walking through at its normal speed with normal spacing (Tunnel Network > Walking in). (Whether the Tier 3 air doors also take one aircraft at a time: TBD.)
 - **Side B**: Crystal drop-off, a **hatch** for Space Crystals (Agents deliver Space Crystals here)
 - **Side C**: Supply drop-off, a **hatch** for Supplies (Agents deliver Supplies here)
 - **Side D**: Back wall (no gameplay function)
@@ -98,7 +102,7 @@ Displays available underground expansion types for this Tunnel's current tier. A
 - **Z**: returns to DefaultState (StateOnlyTransition)
 
 #### AwaitingPlacement (Expansion):
-- A ghost preview of the expansion follows the cursor within the Tunnel Area, snapped to the grid. Tinted green when valid, red when invalid. The expansion must fit entirely within the Tunnel Area. **Every tile under it must be Drillable** (user, 2026-11-25; Q0062: Plane, Rugged and Cliff yes; Mountain and Water no; core/map.md > DefaultTilePresets). Own and neutral underground structures block it; so does the Tunnel's own footprint.
+- A ghost preview of the expansion follows the cursor within the Tunnel Area, snapped to the grid. Tinted green when valid, red when invalid. The expansion must fit entirely within the Tunnel Area. **Every tile under it must be Drillable** (user, 2026-11-25; Q0062: Plane, Rugged and Cliff yes; Mountain and Water no; core/map.md > DefaultTilePresets). Own and neutral underground structures block it; so does the Tunnel's own footprint. **Surface structures block it too** (user, 2026-11-25; Q0062): no expansion can be placed under any surface building, any player's (judged by the truth; the placement is refused).
 - R rotates the ghost 90 degrees clockwise, Shift+R counter-clockwise. F flips horizontally, Shift+F flips vertically.
 - Left-click valid location: places expansion, begins construction (CommandIssuingTransition, returns to DefaultState)
 - **Z**: returns to ExpandMenu (StateOnlyTransition)
@@ -118,6 +122,8 @@ Tunnel Areas cannot overlap with each other. The non-overlap check uses the **cu
 
 This means players can place Tier 1 Tunnels closer together for early aggression, but sacrifice the ability to upgrade them later. Spacing Tunnels further apart preserves upgrade potential for the late game.
 
+**Drillable area** (user, 2026-11-25): a Tunnel can only be **placed** if every cell of its Tunnel Area is **on the map and Drillable** (no Water or Mountain; core/map.md > DefaultTilePresets). So **no Tunnel near the map edge** (closer than its area reaches). An **upgrade** is likewise blocked if the larger area would include a non-Drillable or off-map cell, so a Tier 1 Tunnel by a lake or a mountain may never be upgradable. The ghost shows this like any other invalid placement (terrain is always known to the player as far as explored; never-explored tiles pass on the ghost, and the real check happens on arrival).
+
 **Every player's Tunnels count** (user, 2026-11-25; Q0062): the rule applies between **all** Tunnels, not just a player's own. In Syndicate-vs-Syndicate games a player can **crowd or block** an enemy's Tunnels: a Tunnel placed near an enemy one stops the enemy from building where the areas would overlap, and can stop the enemy Tunnel's upgrade.
 - **The ghost** judges enemy Tunnels by what the player knows: their remembered position and their tier as last seen (core/entities.md > Worker-Built Structures > The ghost judges by what the player knows). The real check on arrival uses the truth, so a build can fail on arrival because an enemy Tunnel was upgraded unseen.
 - **Upgrades** are blocked by any Tunnel's area, own or enemy (the upgrade check uses the truth; the upgrading Tunnel's owner learns that something blocks it).
@@ -130,7 +136,7 @@ Tunnel Space is derived from unused underground space rather than provided as a 
 
 - **Tunnel-region**: a Tunnel's Tunnel Area, excluding the 4x4 grid units occupied by the Tunnel's own footprint. (E.g. a Tier 1 Tunnel has an 8x8 = 64 grid unit Tunnel Area, minus its own 16 grid unit footprint = 48 grid units of tunnel-region.)
 - **Unused tunnel-region**: the portion of a Tunnel's tunnel-region not currently occupied by a placed expansion.
-- **Cells off the map count** (user, 2026-11-25; Q0062): a Tunnel near the map edge keeps its whole square for Tunnel Space, including the part past the edge. No expansion can be built there, and an edge Tunnel can't be crowded from that side; both are judged minor.
+- **The whole area is always drillable** (user, 2026-11-25; replaces the earlier "off-map cells count" and "non-Drillable cells don't count"): a Tunnel can only be placed, and only be upgraded, if its whole Tunnel Area (at the new tier, for an upgrade) is on the map and Drillable (see Tunnel Area Non-Overlap Rule > Drillable area). So every tunnel-region cell is usable.
 - **Tunnel Space = floor((sum of unused tunnel-region grid units across all owned Tunnels) / 4)** — rounded down to a whole number — capped at a hard maximum of 200 (see factions/syndicate/overview.md > SyndicateResources). Because of the rounding, structures smaller than 2x2 (e.g. a 1x1 pop-up Laser Turret, ¼ of a Tunnel Space) only lower Tunnel Space when they push the unused total below the next multiple of 4.
 
 Building an expansion permanently converts part of a Tunnel's unused tunnel-region into occupied space, directly reducing total Tunnel Space. The only way to grow both production capacity and army capacity simultaneously is building more Tunnels or upgrading existing ones to increase their Tunnel Area (and therefore tunnel-region).

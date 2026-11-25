@@ -20,7 +20,13 @@ Complete list of Syndicate structures. "Tier" is the Tier Requirement checked ag
 
 ## Tunnel Expansions
 
-Underground buildings constructed within a Tunnel's Tunnel Area. Expansions are invisible to enemies without detection and can be walked over by surface units. All Syndicate units are produced by Tunnel expansions.
+Underground buildings constructed within a Tunnel's Tunnel Area. Expansions are invisible to enemies without detection and can be walked over by surface units.
+
+**No buildings on top of expansions, and no expansions under buildings** (user, 2026-11-25; Q0062): a surface structure and an underground expansion (any player's, including neutral ones) can never share a tile.
+- **Surface buildings over a hidden expansion**: an enemy's placement is refused. A **direct placement** (e.g. a GDO building) shows its ghost **red at once**, which reveals that something is underground there; this is accepted, since GDO is limited by its build area. A **worker-built** building's ghost judges by what the player knows (so it stays green), and the order **fails when the worker arrives** (core/entities.md > Placement Validation > Worker-Built Structures).
+- **Expansions under a surface building**: refused (see factions/syndicate/tunnels.md > AwaitingPlacement (Expansion)).
+- Units still walk freely over expansions.
+- **No expansions under resources** (user, 2026-11-25; Q0062): a Space Crystals patch or Supply Delivery Station above blocks an expansion (core/entities.md > Placement Validation > All placement methods: no buildings on resources). All Syndicate units are produced by Tunnel expansions.
 
 ### Expansion Requirements
 

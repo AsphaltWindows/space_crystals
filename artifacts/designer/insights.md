@@ -30,7 +30,7 @@
 
 
 
-- **Q0059–Q0071 (M4 Syndicate, arrived 2026-11-25)**: Q0059 DONE (0229 placeholders). Q0060 DONE (0229, 0231, 0232 refund = current top price). Q0061 DONE (0233, 0234). New: (Q0055/Q0072 DONE, 0236: measured economy = design, ×1.5 kept.) (Q0073 DONE, 0235.) Q0061–Q0071 non-blocking, Director proceeding on its proposals: Agent-built Tunnels, areas/layers, network transit, ejection, expansions under construction, Agent gathering, Supplies gathering, panel letters, losing Tunnels, Syndicate economy check, deferred content. Go through with the user one at a time (many may be answerable by proposals; check docs first).
+- **Q0059–Q0071 (M4 Syndicate, arrived 2026-11-25)**: Q0059 DONE (0229 placeholders). Q0060 DONE (0229, 0231, 0232 refund = current top price). Q0061 DONE (0233, 0234). Q0062 DONE (0237–0242; whole Tunnel area must be drillable + on map, 0242). Q0074 DONE (0243, B, measure cost). (Q0075 DONE, 0244.) Open: Q0063–Q0071. New: (Q0055/Q0072 DONE, 0236: measured economy = design, ×1.5 kept.) (Q0073 DONE, 0235.) Q0061–Q0071 non-blocking, Director proceeding on its proposals: Agent-built Tunnels, areas/layers, network transit, ejection, expansions under construction, Agent gathering, Supplies gathering, panel letters, losing Tunnels, Syndicate economy check, deferred content. Go through with the user one at a time (many may be answerable by proposals; check docs first).
 
 All others through Q0058 answered (this session: 0197–0206, 0223, 0230).
   - All questions answered through Q0048 (2026-11-24/25).
