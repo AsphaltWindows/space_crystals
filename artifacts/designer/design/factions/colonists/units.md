@@ -23,11 +23,13 @@ With 5 BeaconCapacity per Beacon and the Drone's own 1 freed when it starts depl
 
 ### UnitBaseAttributes[HoverVehicle]:
 - TurnRate: 45 degrees/frame
-- ForwardAcceleration: 0.6 space units/frame squared
-- OmniDirectionalAcceleration: 0.2 space units/frame squared
-- DragRatio: 0.1 per frame
+- ForwardAcceleration: 0.9 space units/frame squared
+- OmniDirectionalAcceleration: 0.3 space units/frame squared
+- DragRatio: 0.15 per frame
 
-MaxSpeed equilibrium = (ForwardAcceleration + OmniDirectionalAcceleration) / DragRatio = (0.6 + 0.2) / 0.1 = 8 space units/frame.
+MaxSpeed equilibrium = (ForwardAcceleration + OmniDirectionalAcceleration) / DragRatio = (0.9 + 0.3) / 0.15 = 8 space units/frame.
+
+(User, 2026-11-25: thrust and drag raised ×1.5 from 0.6 / 0.2 / 0.1, keeping top speed 8 but reaching it faster: ~65% after ~7 frames, near top speed after ~20 frames, instead of 10 and ~30. Snappier starts, stops and turns. Tried while re-measuring the Colonists economy, Q0055.)
 
 ### TurretAttributes - None
 ### AttackAttributes - None (unarmed)

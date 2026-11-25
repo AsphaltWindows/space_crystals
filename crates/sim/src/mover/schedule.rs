@@ -1,6 +1,8 @@
 //! When a unit on its way counts as stuck, when it looks for another route and when it gives up — design change
 //! 0024 (`systems/controls/behaviors.md > MovingToLocation > Failure`), `docs/movement.md > 5.6`, `> 6.5`.
 
+use glam::Vec2;
+
 use super::{MoveGoal, MoveStatus, Mover, PathState};
 use crate::units::Tick;
 
@@ -52,6 +54,43 @@ impl Mover {
         self.repaths_left -= 1;
         self.last_repath = tick;
         self.repath(tick);
+        true
+    }
+
+    /// (M3-G2) Whether an attempt at a way round a row of standing units may happen in `tick`
+    /// ([`Mover::go_round`]): the wait since the last attempt (or since the leg began) is over, and one is left,
+    /// or this one is `free`.
+    pub fn may_go_round(&self, tick: Tick, free: bool) -> bool {
+        (free || self.repaths_left > 0) && tick >= self.last_repath.saturating_add(self.next_wait())
+    }
+
+    /// (M3-G2) An attempt at a way round a row of standing units (`movement::round`), which counts against the
+    /// leg's cap like a repath and waits like one, but asks for no path: `detour` (waypoints from `from`, where the
+    /// unit stands, round the row) goes in front of what is left of its path; with none, only the attempt is
+    /// counted. Progress is measured afresh, as on a new path. Returns `false`, changing nothing, unless
+    /// [`Mover::may_repath`].
+    pub fn go_round(&mut self, from: Vec2, detour: &[Vec2], tick: Tick, free: bool) -> bool {
+        if !self.may_go_round(tick, free) || self.goal == MoveGoal::None {
+            return false;
+        }
+        if !free {
+            self.repaths_left -= 1;
+        }
+        self.last_repath = tick;
+        if !detour.is_empty() {
+            // What is left of an earlier detour goes: this one starts from where the unit is.
+            let ahead = self
+                .path
+                .split_off(usize::from(self.next.max(self.detour_end)).min(self.path.len()));
+            self.path.clear();
+            self.path.push(from);
+            self.path.extend_from_slice(detour);
+            self.detour_end = self.path.len() as u16;
+            self.path.extend(ahead);
+            self.next = 1;
+            self.best_remaining = f32::MAX;
+            self.blocked_ticks = 0;
+        }
         true
     }
 

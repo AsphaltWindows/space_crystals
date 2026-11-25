@@ -34,7 +34,7 @@ The tile is currently within the SightRange of one of the player's units or stru
 
 ## Attacks from outside vision
 (user, 2026-11-24)
-- **Shots are drawn where they travel through vision**: a shot, tracer or projectile is visible to a player only along the part of its path that crosses tiles **Visible** to that player. A shot fired from the fog at your unit is seen coming out of the fog edge, which shows its direction.
+- **Shots are drawn where they travel through vision**: a shot, tracer or projectile is visible to a player only along the part of its path that crosses tiles **Visible** to that player. A shot fired from the fog at your unit is seen coming out of the fog edge, which shows its direction. **Exception: a revealed attacker's shots** (user, 2026-11-25; Q0056): while an attacker is revealed to you (below), its own shots are drawn along their **whole path**, from the attacker to the target, so they visibly come from the unit you can see. This shows nothing new, since the attacker itself is visible. Shots from attackers that aren't revealed to you are still drawn only over your Visible tiles.
 - **The attacker is revealed**: a unit or structure that attacks one of your units or structures while outside your vision becomes **visible to you** for **1.5 seconds (24 frames), placeholder**, after each shot; a unit that keeps firing stays visible. Only the attacker itself is revealed, not the area around it.
 - While revealed it is a normal visible object for you: it can be seen, selected and **targeted** (e.g. your units can shoot back if in range).
 - Applies to every attacker, including long-range ones (e.g. the Artillery Rig).

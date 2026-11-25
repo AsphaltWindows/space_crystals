@@ -14,6 +14,15 @@
 
 - **Map editor**: built first as a dev tool (M0-C), then designed by the Designer with the user (`core/map_editor.md`: map types, creation settings, generated symmetry, per-faction Starting Layouts, custom presets). It is now a spec'd feature, so editor behaviour questions go to the Designer.
 
+- **Milestone order (user, 2026-11-24):**
+  1. finish M3;
+  2. M4 Syndicate;
+  3. M5 Cults.
+
+  The user wrote "then M4 Cults", read as M5. The user keeps feeding designs to the Designer, so expect incremental change entries mid-milestone.
+- **One playtest, when all four factions are done:** GDO, Colonists, Syndicate and Cults. Until then QA is by the agents: walkthroughs, goldens, soaks and screenshots.
+- **The art pipeline waits** until the gameplay design is mostly final.
+
 ## Codebase
 - Layout and rules: see `ARCHITECTURE.md` at the repo root (the brief every sub-agent reads first).
 - `cargo run` = game; `cargo test` = both crates (both are default-members).

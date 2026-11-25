@@ -791,6 +791,9 @@ the target the attack engages, and reads `Mover::status` and the snapshot.
   target it let go of alone for the rest of the leg; a unit backing off from a target inside its MinRange goes to the
   middle of the band from MinRange to Range, and gives the order up when a back-off ends with the target inside and
   where it was; a queued Attack whose target was never seen while it ran completes at once.
+- **An order that ends with its target ends its walk** (slice M3-G2, `sim/removal.rs::forget`): the removal path
+  stops a unit whose current order it ends while the unit walks to a point for it (the walk to a last seen
+  position), as it ends a move to the object itself (`MoveStatus::TargetLost`).
 - **Auto-targeting switch**: `DebugCommand::SetAutoTargeting { on }` (`Sim::auto_targeting`, hashed state) turns
   every scan off or on, for tests and QA runs about movement between hostile units; `TestSim::without_auto_
   targeting()` schedules it for tick 1. Attack orders work either way.
@@ -897,7 +900,8 @@ The module is pure: it takes the `Map` and tile rectangles and knows nothing of 
 The design is `docs/movement.md > 6` (binding; its **(D)** marks are where slice D changed it, **(M)** where the
 magic box did, **(Y)** where friendly yielding and the answers to Q0008 did, **(Q)** where queued group orders did, **(G)** where
 the hardening of crowds and nav performance did, **(H2)** where gathering Drones passing through each other did,
-**(M3-G)** where DragMovement and idle units moving apart did),
+**(M3-G)** where DragMovement and idle units moving apart did, **(M3-G2)** where a queueing unit going round
+the row in its way did),
 and the code is `crates/sim/src/movement.rs` and `movement/`, with the unit's state in `mover.rs`.
 
 - **One pipeline, sequential commit** (`movement::step`, phase 5d): the step builds one spatial grid per collision
@@ -1010,7 +1014,23 @@ and the code is `crates/sim/src/movement.rs` and `movement/`, with the unit's st
   of its path if the object hasn't moved, or by the occupied-target rule (its 3 GU measured as that gap). Progress
   towards a moving object is moving forward at all; towards one at rest it is measured as to a point. A unit
   chasing its attack's target behind stationary attackers of its owner on the same target **queues**
-  (`stuck::queues_behind`): no repath, no failure.
+  (`stuck::queues_behind`): no path request, no failure.
+- **A queueing unit goes round the row** (slice M3-G2, `movement/round.rs`, `docs/movement.md > 6.5` rule 2;
+  `systems/units.md > UnitCollision > Ground Collision`: "Moving units must pathfind around occupied space").
+  The row is the unit in its way and the units standing for good next to it, nearer to each other than the unit
+  is wide. The detour leads straight out of the row's box (grown by the unit's half extents and
+  `ROW_CLEARANCE_SU`), round it from corner to corner, to an end of the side that faces the target: the shortest
+  way whose legs are clear of blocked tiles and of the row's units. `Mover::go_round` puts its waypoints in front
+  of the path, and `Mover::detour_end` (hashed and serialized only while set) keeps the staggered check from
+  skipping them. An attempt counts against the leg's `MAX_REPATHS` on the repath schedule, or comes after
+  `JAMMED_TICKS` behind a unit with no goal; it asks for no path. One after a lost race (the unit now in the way
+  moved after this unit's last attempt, `Body::moved`) is free. With no way round, or no attempt left, the unit
+  **waits and stands** (`stuck::waits_in_queue`, `World::hold`): no step aside, no failure, and on the moment the
+  way straight ahead is free. Measured (`tests/attack_behind_friends.rs`): four Peacekeepers in a column all fire
+  on a building within 135 ticks of the order in all 16 layouts, where one of the four never fired in 5; eight
+  within 255. **Never give a queueing unit a path request for the row**: no grid shows it. A melee unit behind
+  its owner's attackers is within `OCCUPIED_ARRIVAL_GU` of its target, so the occupied-target rule comes first
+  and its approach ends there (an open design question, see the M3-G2 report).
 - **Movement models** (`movement/follow.rs`, `movement/drag.rs`; `docs/movement.md > 6.7`): path following, lane
   seeking, the rules after the sweep, yielding and the stuck clock are shared (`follow`), and a model replaces only
   the "direction → facing and velocity" part. Two are built: the units that stop within the tick (every GDO unit

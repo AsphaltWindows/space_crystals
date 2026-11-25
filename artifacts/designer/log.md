@@ -2168,3 +2168,21 @@ Q0052: Set Drop-off pointer ReturnResources; load visual public, details owner-o
 Q0053 pt1: orders accepted per new type at press, executed after toggle (B). Entry 0202.
 Rocketman MinRange (TBD). Entry 0203.
 Q0054: A for all (dropped target ignored rest of leg; back off mid-band; cornered gives up); locked Rocketman no MinRange. Entry 0204.
+Drone acceleration/drag x1.5 (top speed 8); re-measure requested for Q0055. Entry 0205.
+Q0056: revealed attacker's shots drawn along whole path (B). Entry 0206.
+Syndicate: Laser Battery added; Syndicate lasers red. Entry 0207.
+Laser Battery: always charging; empty → same rhythm, ~63% surges. Entry 0208.
+Laser Battery: Amplify dial (N^-1/3), narrow arc turret. Entry 0209.
+Laser Battery req Optics Lab; LB + Artillery Rig deploy = two unit types under toggle rule. Entry 0210.
+Deploy = queueable order, no undeploy until complete, type at completion (replaces 0210 toggle part). Entry 0211.
+Stop while deploying winds back. Entry 0212.
+Deploy not cancellable (replaces 0212). Entry 0213.
+Orders during deploying held, illegal dropped. Entry 0214.
+Syndicate: Subterranean Transport added. Entry 0215.
+Subterranean Transport hidden underground unless detected. Entry 0216.
+Subterranean Transport surfacing: tile passability, not reachability. Entry 0217.
+AoE still hits hidden transport. Entry 0218.
+All DrillUnits hidden underground unless detected. Entry 0219.
+Transport burrow/surface = deploy model; passengers die. Entry 0220.
+Transport req Forge; enters tunnels loaded. Entry 0221.
+Transport passengers locked in inside network. Entry 0222.

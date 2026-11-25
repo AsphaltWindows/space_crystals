@@ -43,6 +43,7 @@ fn turning_tick(
         yields: false,
         gathers: false,
         leads: true,
+        moved: 0,
     }];
     let mut counters = MoveCounters::default();
     let mut world = World {

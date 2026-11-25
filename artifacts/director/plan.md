@@ -602,13 +602,53 @@ Approach: thin vertical slices the user can run and see, each verified by tests 
   - **Labels.** Every label is six characters at most, at full size at 720p ("Drop" for Set Drop-off), and a hover hint names each button in full.
   - **Cleanup.** `fog_memory.rs` is split, and `riot_shield::is_going_up` removed. Gathering perf is unchanged.
 
+- **M3-K2 final QA** (merged in `3559b40`; 1329 tests, 14 ignored):
+  - **Perf.** `drones_perf` (2 × 40 Drones gathering and 20 Legionnaires fighting, release) runs at 0.10 ms a tick, p99 0.12–0.21 ms. Movement takes 0.053 ms, vision 0.025 and behaviours 0.013. All 14 ignored tests pass in 49 s.
+  - **Soak.** `skirmish_soak` plays 10 minutes of `colonists_vs_gdo` twice, plus the replay. There is no deadlock or stuck order, the invariants hold every tick, and the hashes match every 64 ticks. `soak_sweep`'s settle bound is now per order in flight, and 40/40 seeds pass.
+  - **Fix.** Structure HP and Shields bars span the top edge of the footprint.
+  - **Docs.**
+    - `docs/playtest/m3.md`: how to start, F2, the debug keys, things to try, placeholders, known issues and open questions.
+    - `m2.md` is refreshed.
+    - ARCHITECTURE.md is checked against the code, and "Adding a faction" is finished.
+    - No test file is over 500 lines.
+  - **Walkthrough findings:**
+    - the last Peacekeeper of an attack-move column is stuck and never fires (M3-G2);
+    - a revealed attacker's tracer starts at the fog edge (Q0056);
+    - M3-J3 polish:
+      - a marker hides a unit's label;
+      - the build-area tint turns unexplored ground lake-blue;
+      - F2 keeps the camera, so the other side sees black;
+      - Peacekeepers have no map label;
+      - "SC" labels both the Scout button and a patch;
+    - the Minimap and Portrait are empty (the design has no spec beyond "Always visible");
+    - a conversion shows only a greyed R (placeholder).
+  - **The waiting Drones' order.** At over-saturation, lowest id first starves late Drones (one waited 1984 ticks).
+    - The design leaves the rule to us (`units.md > Patch Occupancy` point 4).
+    - Consider longest-waiting first once Q0055 is answered, since it would move the pinned oracle figures.
+
+- **M3-G2 stuck behind friends** (Fable; merged in `d98ae13`; 1343 tests):
+  - **Cause.** A unit chasing its attack's target behind its own side's standing attackers "queued" (`docs/movement.md` 6.5 rule 2), and only waited. Units in a firing line stop a step out of line, so the unit behind stepped to and fro in the pocket between two of them.
+  - **Fix.** A queueing unit detours round the row of standing units, to the end on the side facing the target (`movement/round.rs`, `stuck.rs`, `collide/hold.rs`, `Mover::go_round`, `Mover::detour_end`). Each attempt counts against the leg's three. With no way round, the unit stands still and never fails. Plain moves are unchanged.
+  - **Also.** `sim/removal.rs::forget` now stops a walk to a last-seen point when its order ends. This was an older bug, found through soak seed 17.
+  - **Tests.** `attack_behind_friends.rs` has 8:
+    - four Peacekeepers in a column all fire within 200 ticks, in 16 layouts;
+    - also covered: eight Peacekeepers, Guards, lines, and corridors with no room.
+
+    One case isn't covered: eight Guards on an AttackMove, where the last is still walking round in 1 of 12 layouts.
+  - **Goldens and perf.** `attack_move_battle` and `colonists_vs_gdo` were re-blessed. The perf counters are identical, and the timings are unchanged within the noise.
+  - **Question Q0057:**
+    - melee attackers behind their own side, within 3 GU, give the target up (2–3 of 8 Sabres never strike);
+    - whether a unit should wait without limit;
+    - whether three attempts at a way round are right.
+
 ## In progress
 - **M3 waves 2 and 3** (common brief `scratchpad/briefs/m3-common.md`; status `m3-w2-status.md`):
-  - **M3-T toggles set a target state** (Opus; brief `scratchpad/briefs/m3t-toggles-target-state.md`): 0198 for Convert and the Riot Shield.
-  - **M3-K2 final QA** (Opus; brief `scratchpad/briefs/m3k2-qa.md`): `drones_perf`, the 10-minute skirmish soak, soak seed 5, all ignored tests, a scripted walkthrough, the playtest notes (m3.md, m2.md refreshed), the ARCHITECTURE review, long test files.
+  - **M3-T toggles set a target state** (Opus; brief `scratchpad/briefs/m3t-toggles-target-state.md`): 0198 for Convert and the Riot Shield, with 0199 (the ActiveGroup) and 0202 (orders during the shield toggle) folded in.
+  - **M3-L3 target lost ends the attack** (Opus; brief `scratchpad/briefs/m3l3-target-lost-stops.md`): 0200 for Attack and Follow.
+  - **M3-K3 Drone acceleration** (Opus; brief `scratchpad/briefs/m3k3-drone-acceleration.md`): 0205's constants; the Colonists oracle re-measured for Q0055; goldens re-blessed.
 - **Next**:
-  - **M1 playtest**: M1 is complete at `80b3d88`. The user has been asked to play `cargo run` (dev_skirmish).
-  - **M2 playtest** with the user, using `docs/playtest/m2.md`.
+  - **Playtest:** the user plays once all four factions are built (2026-11-24), using `docs/playtest/m2.md`, `m3.md` and later notes. This replaces separate M1–M3 playtests.
+  - **M4 Syndicate plan:** a planning agent is drafting it (brief `scratchpad/briefs/m4-planning.md`).
   - **The Move-onto-itself bug** is being fixed in M3-R (0168).
 
 ## M1 plan (from the movement spike; the approved design is in `docs/movement.md`)
@@ -705,6 +745,12 @@ A movement design spike may come first. Fable is reserved for pathfinding, movem
 First playable after M2-H2.
 
 ### M3–M5: other factions, basics
+**Order agreed with the user (2026-11-24):**
+1. Finish M3.
+2. M4 Syndicate (plan being drafted; it will become `artifacts/director/m4-plan.md`).
+3. M5 Cults.
+
+The user keeps feeding unit and other designs to the Designer, so expect incremental change entries throughout. The user playtests once all four factions are complete. The art pipeline starts once the gameplay design is mostly final.
 - **M3 Colonists** (**planned**; spec: `artifacts/director/m3-plan.md`, from the M3-P spike). It covers the statted opening: Drone gathering, Beacon Deployment and Warp In (Egress Node, Robo Portal, Bio Portal), portals with exits on several sides, Sabre and Rifle Legionnaires with Weapon Conversion, Shields, Beacon Capacity, Colonists Starting Conditions and layouts, HUD and panels, and an economy oracle against `Economy Targets (GDO vs Colonists)`. Refining, the tech tier and the other units are deferred (Q0043).
   - **Slices:** 12, in 6 waves:
     1. A;
@@ -741,11 +787,15 @@ First playable after M2-H2.
     | U | done (`d3814be`) |
     | S | done (`08f09a6`) |
     | K2a | done (`e481b24`) |
-    | T (0198 toggles set a target state; brief `scratchpad/briefs/m3t-toggles-target-state.md`) | running (wave 6) |
+    | T (0198 toggles set a target state, with 0199 and 0202; brief `scratchpad/briefs/m3t-toggles-target-state.md`) | running (wave 6) |
     | L1 | done (`aeb54ae`) |
     | L2 | done (`f039e5c`) |
     | K1 | done (`f73262a`; Q0055) |
-    | K2 (final QA; brief `scratchpad/briefs/m3k2-qa.md`) | running (wave 6) |
+    | K2 | done (`3559b40`) |
+    | L3 (0200 target lost ends Attack and Follow; brief `scratchpad/briefs/m3l3-target-lost-stops.md`) | running (wave 7) |
+    | G2 | done (`d98ae13`; Q0057) |
+    | K3 (0205 Drone acceleration; the Colonists oracle re-measured for Q0055; brief `scratchpad/briefs/m3k3-drone-acceleration.md`) | running (wave 7) |
+    | J3 (0201 markers for Gather, Drop Off and Set Drop-off; 0206 a revealed attacker's shots drawn from it; K2's client polish: label under a marker, build tint over unexplored ground, F2 camera per player, Peacekeeper label, "SC" clash) | queued (next free slot after K3) |
 - **M4 Syndicate**: tunnels, Hideout, Agent, Guard economy, 0186's Optics Lab gate and Agent pistol, the Grenadier (0187) and the Assault Bike (0188), once their numbers exist. Underground expansions are exempt from the flatness rule (0005).
 - **M5 Cults**: Recruitment Hall, Storage, Recruit, Armory, Soldier, Gunner.
   - Recruits are Groupable: every selected Recruit builds (0072).
@@ -819,15 +869,17 @@ First playable after M2-H2.
 | Q0047 | Waiting for capacity: several waiting buildings, no power, zero-cost units | no | answered by 0175 (as built) and 0176 (point 3 in M3-V) |
 | Q0048 | Pressing other commands while targeting (0066 vs 0162); a portal group only partly warping in | no | answered: point 1 by 0184 (as built), point 2 by 0185 (M3-U) |
 | Q0049 | Convert pressed again while a conversion waits for Cooldown (0153) | no | answered by 0198 (replaces 0197; M3-T) |
-| Q0050 | The ActiveGroup when an unfinished group's last building completes | no | open; M3-U makes the joined finished group active |
-| Q0051 | A target that outruns sight is lost at once, despite the fog delay | no | open; M3-L1 lingers tiles only |
-| Q0052 | Gathering UI: a Drone's right-click on enemies, the Set Drop-off pointer, who sees a Drone's load, Gather indicators | no | open; M3-J2 built the stated current behaviour |
-| Q0053 | Riot Shield toggle edge cases: orders while lowering, Lower during a waiting raise, the ActiveGroup during a deferred raise | no | points 2–3 answered by 0198 (M3-T); point 1 open |
-| Q0054 | AttackMove: a dropped target not chased again on that leg; the MinRange back-off spot; a cornered unit | no | open; M3-L2 built the stated current behaviour |
+| Q0050 | The ActiveGroup when an unfinished group's last building completes | no | answered by 0199 (M3-T) |
+| Q0051 | A target that outruns sight is lost at once, despite the fog delay | no | answered by 0200 (M3-L3) |
+| Q0052 | Gathering UI: a Drone's right-click on enemies, the Set Drop-off pointer, who sees a Drone's load, Gather indicators | no | answered by 0201 (points 1–3 as built; markers M3-J3) |
+| Q0053 | Riot Shield toggle edge cases: orders while lowering, Lower during a waiting raise, the ActiveGroup during a deferred raise | no | answered: points 2–3 by 0198, point 1 by 0202 (M3-T) |
+| Q0054 | AttackMove: a dropped target not chased again on that leg; the MinRange back-off spot; a cornered unit | no | answered by 0204 (as built M3-L2) |
 | Q0055 | The Colonists' measured economy misses the table: 1:00, 3:00 and 4:00 outside ±15%; targets 1 and 4 fail (full saturation needs 27 Drones) | no | open; M3-K1 pins the measured figures; no game number changed (0108) |
+| Q0056 | Should a revealed attacker's shots be drawn from the attacker, or only over Visible tiles (a gap of about 140 px, M3-K2)? | no | answered by 0206 (B; M3-J3) |
+| Q0057 | An attacker blocked by its own side near its target: melee units within 3 GU give the target up (2–3 of 8 Sabres never strike); should a unit wait without limit; three attempts at a way round | no | open; as M3-G2 built it |
 
 ## Design change entries
-Last triaged: 0198.
+Last triaged: 0222.
 
 | Entry | Status | Notes |
 |---|---|---|
@@ -1016,4 +1068,18 @@ Last triaged: 0198.
 | 0189–0196 Syndicate Shadebringer: support vehicle with Sludge (slows everyone except hover and air, Drill Units only on the surface (0196), laid behind it) and Cover (smoke that blocks line of sight and blinds units inside); separate tanks refilled in the Tunnel Network with a Vault | queued (M4; concept only, numbers and several rules TBD; line-of-sight blocking is new to the vision model) | user additions |
 | 0197 Convert pressed again while a conversion is deferred cancels it; in a group, per unit (converted switch back, mid-conversion left out, waiting cancel) | superseded by 0198 (never built; M3-K2 told to drop it) | answers Q0049; changes M3-R's behaviour |
 | 0198 A mode toggle (Convert, Riot Shield) sets a target state: type and group switch at the press, even when deferred; the ActiveGroup follows; only the ActiveGroup receives the press | in progress (new slice M3-T) | answers Q0049 (replaces 0197) and Q0053 points 2–3; changes M3-R and M3-S |
+| 0199 The ActiveGroup when it disappears: on a type change the joined group becomes active, the panel resets and targeting ends; when the last member dies or leaves, the next group in Tab order (wrapping) | in progress (M3-T, folded in) | answers Q0050 |
+| 0200 A target lost from vision ends Attack and Follow at once; the unit stops or goes on to its next order (replaces 0034's walk to the last seen position) | in progress (M3-L3) | answers Q0051 |
+| 0201 Gathering UI: a Drone's right-click on enemies, the Set Drop-off pointer and who sees the load confirmed; Gather, Drop Off and Set Drop-off get their own markers | points 1–3 done (as built M3-J2); point 4 queued (M3-J3) | answers Q0052 |
+| 0202 Orders during the Riot Shield toggle follow the new type from the press; an Attack given while lowering is held until the shield is down | in progress (M3-T, folded in) | answers Q0053 point 1 |
+| 0203 The Rocketman's normal attack has a MinRange (value TBD) | queued (waiting for the value; the MinRange rules are built, M3-L2) | context for Q0054 |
+| 0204 AttackMove's dropped target, the MinRange back-off spot and a cornered unit stay as M3-L2 built them; a locked Rocketman's fire ignores MinRange | done (as built M3-L2); the locked-fire part is queued with Target Lock | answers Q0054 |
+| 0205 The Drone accelerates faster (ForwardAcceleration 0.9, OmniDirectionalAcceleration 0.3, DragRatio 0.15; were 0.6 / 0.2 / 0.1); re-run the Colonists oracle and report the table for Q0055 | queued (M3-K3, next free slot) | a step toward Q0055, which stays open; the table and targets stay unchanged |
+| 0206 While an attacker in the fog is revealed, its own shots are drawn from it to the target; other shots stay clipped to Visible tiles | queued (M3-J3) | answers Q0056; client only |
+| 0207–0209 Laser Battery, a new Syndicate vehicle: always charging, weaker surges on an empty battery, Amplify, a narrow turret arc; Syndicate lasers are red | queued (M4: red lasers in M4-A; the Laser Battery is gated on numbers, N3) | concept; no numbers yet |
+| 0210 The Laser Battery needs an Optics Lab; the Laser Battery and the Artillery Rig have mobile and deployed as two unit types | queued (M4 N3; the Artillery Rig part with the Artillery Rig, not yet built) | deploy times TBD |
+| 0211, 0213, 0214 Vehicle deploy is a queueable order, can't be cancelled once started, switches type at completion; orders given meanwhile are held and checked against the deployed type | queued (with the first deploying vehicle: Laser Battery, Artillery Rig or the Transport's Burrow and Surface) | not the Drone's Beacon Deployment, which stays as M3 built it (0214) |
+| 0212 Stop while deploying winds the deploy back | superseded by 0213 | never built |
+| 0215–0220 Subterranean Transport, a new Syndicate infantry transport (Burrow and Surface on the deploy model, hidden underground unless detected, area damage still hits it, surfaces on tiles a tracked vehicle can cross that have no building, passengers die with it); every DrillUnit hidden underground unless detected | queued (M4 N3; hiding needs the detection system, TBD) | concept; capacity, timings and detection TBD |
+| 0221–0222 The Subterranean Transport requires a Forge and drives into Tunnels loaded; passengers stay aboard in the network, and only its own Tunnel space counts | queued (M4 N3) | concept |
 | 0014 GDO Airfield and aircraft | queued (Later: air) | |

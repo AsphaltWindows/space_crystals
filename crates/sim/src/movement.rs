@@ -34,6 +34,7 @@ mod collide;
 mod doorway;
 mod drag;
 mod follow;
+mod round;
 mod separate;
 mod space;
 mod stuck;
@@ -191,6 +192,7 @@ fn body_of(o: &Object, mover: &Mover, unit: &UnitDef, half: Vec2) -> Body {
         yields: yielding::can_yield(o, mover, unit),
         gathers: gather::on_gather_job(o),
         leads: stuck::leads(mover),
+        moved: mover.last_progress,
     }
 }
 

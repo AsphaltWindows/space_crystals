@@ -41,7 +41,9 @@ pub(super) fn staggered_check(grid: &NavGrid, pos: Vec2, half: Vec2, mover: &mut
     }
     // The steering also stays out of the unit's avoid tiles, as its path does.
     let mut at = next;
+    // (M3-G2) Nor does it skip the waypoints of a detour round standing units: no grid shows what they lead round.
     while at + 1 < mover.path.len()
+        && at >= usize::from(mover.detour_end)
         && at - next < MAX_WAYPOINTS_PER_CHECK
         && sees(pos, mover.path[at + 1])
         && nav::segment_avoids(pos, mover.path[at + 1], &mover.avoid_tiles)
@@ -94,6 +96,7 @@ pub(super) fn chase_check(
         mover.path.clear();
         mover.path.extend([pos, target]);
         mover.next = 1;
+        mover.detour_end = 0;
         mover.planned_target = target;
         return;
     }

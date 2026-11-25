@@ -315,6 +315,7 @@ mod tests {
             yields,
             gathers: false,
             leads: true,
+            moved: 0,
         }
     }
 
