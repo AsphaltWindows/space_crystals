@@ -1234,10 +1234,11 @@ Approach: thin vertical slices the user can run and see, each verified by tests 
 ## In progress
 - **Running:**
   - **M4-Z The QA strays** (Opus; brief `scratchpad/briefs/m4z-qa-strays.md`): the Q0060 mark, Q0091's marks, `eject_builders` on turret sites, and the test books' turret and expansion refunds. No behaviour change.
+  - **M5-R Playtest pairings** (Opus; brief `scratchpad/briefs/m5r-playtest-pairings.md`): every ordered faction pairing (9 now, 16 after B) starts, plays and ends on every map; a headless client test per pair; and `docs/playtest/README.md` (hot-seat, command line, how to report a finding).
   - **M5-A The Cults foundation** (Opus; brief `scratchpad/briefs/m5a-cults-foundation.md`; common rules `scratchpad/briefs/m5-common.md`): the six designed kinds, their client kinds and the lineage field. The Gunner is TailDisjointed as data (0304); O3 builds the attack.
 - **Next**:
   - **M4 is complete** (M4-M, `4e3fdd4a`), apart from Z, and the hatch jam's fix. M4-W diagnosed the jam (`189d0162`), and the fix waits on **Q0109** (blocking, for the fix only). It must land before the playtest.
-  - **M5 wave 1:** A is running. R (playtest pairings) launches when Z lands, keeping to three builds at most.
+  - **M5 wave 1:** A and R are running. Wave 2 (C, D on Fable, F1) follows A.
   - **Playtest:** the user plays once all four factions are built, in hot-seat from the command line (2026-11-25). The kit is `docs/playtest/` (m2–m4 and M5's README). This replaces separate M1–M4 playtests.
 
 ## M1 plan (from the movement spike; the approved design is in `docs/movement.md`)
