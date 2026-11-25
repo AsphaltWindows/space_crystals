@@ -17,7 +17,7 @@
 //!   on the half nearer B and the entry's on the half nearer D, set back towards the back wall so that they cover
 //!   neither the paths nor the tag. Slice M4-C gives them their roles.
 //!
-//! The tag in the middle names the tier (`crate::hud::selection_panel::object_label`); nothing here covers it.
+//! The tag in the middle names the tier (`crate::kinds::object_label`); nothing here covers it.
 
 use bevy::prelude::*;
 use sc_sim::economy::drop_off::hatch_offset;

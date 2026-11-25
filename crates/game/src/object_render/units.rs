@@ -8,28 +8,17 @@
 use bevy::prelude::*;
 use sc_sim::{ObjectId, ObjectKind};
 
-use super::ObjectVisual;
+use super::{Look, ObjectVisual, UnitShape};
 use crate::command_ui::indicators::INDICATORS_Z;
 use crate::coords::DrawLayer;
-use crate::hud::selection_panel::short_label;
+use crate::kinds::short_label;
 use crate::shapes::{ColorMesh, darken};
 
-#[derive(Copy, Clone, Debug, PartialEq, Eq)]
-enum UnitShape {
-    Round,
-    Square,
-    /// A square with its corners cut off.
-    Octagon,
-}
-
-/// The placeholder shape of a `kind` unit: round for the Peacekeeper, shielded or not, an octagon for the Drone (a
-/// HoverVehicle), and a square for the HeavyInfantry: the Guard, the Agent and the Legionnaires.
+/// The placeholder shape of a `kind` unit, its look's (`crate::kinds`): round for the Peacekeeper, shielded or not,
+/// an octagon for the Drone (a HoverVehicle), and a square for the HeavyInfantry: the Guard, the Agent and the
+/// Legionnaires.
 fn shape(kind: ObjectKind) -> UnitShape {
-    match kind {
-        ObjectKind::Peacekeeper | ObjectKind::PeacekeeperShielded => UnitShape::Round,
-        ObjectKind::Drone => UnitShape::Octagon,
-        _ => UnitShape::Square,
-    }
+    Look::of(kind).unit_shape().unwrap_or(UnitShape::Square)
 }
 
 /// Whether a `kind` unit's body turns with its facing: only a round one does. A square or an octagon stays
@@ -39,21 +28,13 @@ pub(super) fn body_turns(kind: ObjectKind) -> bool {
     shape(kind) == UnitShape::Round
 }
 
-/// Whether a `kind` unit carries its type's tag ([`UnitTag`]): the Colonists' units, the Peacekeeper's two types
-/// (slice M3-J3: M3-K2's walkthrough found the Peacekeepers unlabelled on the map), and the Agent (slice M4-A). The
-/// Legionnaire's two forms share one silhouette (`factions/colonists/units/weapon_conversion.md`), as the
-/// Peacekeeper's two types share their body (design change 0173); a square is the Guard's too, which goes without,
-/// and the Agent's, which its AG tells apart.
+/// Whether a `kind` unit carries its type's tag ([`UnitTag`]), by its look (`crate::kinds`): the Colonists' units,
+/// the Peacekeeper's two types (slice M3-J3: M3-K2's walkthrough found the Peacekeepers unlabelled on the map), and
+/// the Agent (slice M4-A). The Legionnaire's two forms share one silhouette
+/// (`factions/colonists/units/weapon_conversion.md`), as the Peacekeeper's two types share their body (design change
+/// 0173); a square is the Guard's too, which goes without, and the Agent's, which its AG tells apart.
 pub(super) fn tagged(kind: ObjectKind) -> bool {
-    matches!(
-        kind,
-        ObjectKind::Drone
-            | ObjectKind::SabreLegionnaire
-            | ObjectKind::RifleLegionnaire
-            | ObjectKind::Peacekeeper
-            | ObjectKind::PeacekeeperShielded
-            | ObjectKind::Agent
-    )
+    Look::of(kind).tagged()
 }
 
 /// The tag of a unit's visual ([`tagged`]): a child of the visual, which the fog hides with it. It is drawn above the

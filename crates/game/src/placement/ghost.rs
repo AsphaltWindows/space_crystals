@@ -25,7 +25,7 @@
 //!   whole ghost;
 //! - the letter of each side at its edge, inside the footprint (`sc_sim::sides`), except on a single tile, whose
 //!   sides are all alike (the Extraction Plate's AAAA); and the building's tag in the middle, as its placeholder on
-//!   the map shows it (`crate::hud::selection_panel::short_label`), a Warp In's a little below it, clear of the tag
+//!   the map shows it (`crate::kinds::short_label`), a Warp In's a little below it, clear of the tag
 //!   of the Beacon under the ghost ([`TAG_BELOW_SU`]);
 //! - over everything on the map, under the command indicators: it is the cursor.
 
@@ -42,8 +42,8 @@ use crate::ClientMode;
 use crate::command_ui::interface::{deploy_recipient, deploying};
 use crate::command_ui::{Builder, Placing};
 use crate::coords::{DrawLayer, drawn_at_height, view_to_world};
-use crate::hud::selection_panel::short_label;
 use crate::input::{ActionState, InputAction};
+use crate::kinds::short_label;
 use crate::map_render::tile_surface;
 use crate::selection::{ControlStates, Selection};
 use crate::shapes::ColorMesh;

@@ -1,14 +1,17 @@
 //! The Colonists' panels (slices M3-J1 and M3-J2, design change 0124): the Beacon's, with its two Warp In menus
-//! (`factions/colonists/economy.md > Beacon > Beacon ObjectInterfaceState`), the Drone's
-//! (`factions/colonists/units/drone.md > Drone ObjectInterfaceState`), the Egress Node's
-//! (`factions/colonists/economy.md > Egress Node > Egress Node ObjectInterfaceState`), and the one of an object that
-//! transforms (`factions/colonists/economy.md > Beacon Deployment > While transforming: only Cancel`). The portals have
-//! the Production template (`super::production_grid`, slice M3-D), with their units not in the game yet in their slots
-//! ([`planned_units`]).
+//! ([`beacon`]), the Drone's ([`drone`]), the Egress Node's ([`egress_node`]), and the one of an object that transforms
+//! ([`TRANSFORMING_GRID`]). The portals have the Production template (`super::production_grid`, slice M3-D), with
+//! their units not in the game yet in their slots ([`robo_portal`], [`bio_portal`]: [`Planned`]).
+
+pub mod beacon;
+pub mod bio_portal;
+pub mod drone;
+pub mod egress_node;
+pub mod robo_portal;
 
 use sc_sim::{ObjectKind, transform};
 
-use super::super::{BuildMenu, PanelCommand};
+use super::super::PanelCommand;
 
 /// A building of the Beacon's Warp In menus, or a unit of a portal's panel, that isn't in the game yet: a building's
 /// cost and WarpInTime are TBD (`factions/colonists/economy.md > Warp In > Constructs List`), and so is the rest of it
@@ -78,7 +81,7 @@ impl Planned {
     /// Its button's label: a placeholder for its icon (Q0001), the initials of its name, as a building warped in and a
     /// unit trained are labelled by their type's tag (`PanelCommand::label`); the Scout's its first and last letters,
     /// "ST", as the Guard's and the Beacon's are, since "SC" is the crystal patch's (slice M3-J3: every label its own,
-    /// `crate::hud::selection_panel::short_label`).
+    /// `crate::kinds::short_label`).
     pub fn label(self) -> &'static str {
         match self {
             Planned::AlloyFurnace => "AF",
@@ -111,100 +114,10 @@ impl Planned {
     }
 }
 
-/// The units of a `kind` portal's panel that aren't in the game yet ([`Planned`]), each with its slot
-/// (`CommandSlot::all` order), which `super::production_grid` adds to the portal's recipes: the Robo Portal's "[W]
-/// Scout" (`factions/colonists/structures/robo_portal.md > Robo Portal ObjectInterfaceState`), the Bio Portal's "[W]
-/// Lancer" and "[E] Psionic unit (TBD)" (`factions/colonists/structures/bio_portal.md > Bio Portal
-/// ObjectInterfaceState`); design change 0124: "Robo Portal: Q Drone, W Scout, X, C. Bio Portal: Q Sabre, W Lancer, E
-/// psionic unit, X, C".
-pub(super) fn planned_units(kind: ObjectKind) -> &'static [(usize, Planned)] {
-    match kind {
-        ObjectKind::RoboPortal => &[(1, Planned::Scout)],
-        ObjectKind::BioPortal => &[(1, Planned::Lancer), (2, Planned::PsionicUnit)],
-        _ => &[],
-    }
-}
-
-/// `> Beacon ObjectInterfaceState > DefaultState`: "Q: Warp In (Basic)", "W: Warp In (Advanced)", the two menus
-/// "like the Deployment Center's two build menus" (`PanelCommand::BuildMenu`, opened in `InterfaceState::BuildMenu`).
-#[rustfmt::skip]
-pub(super) const BEACON_GRID: [Option<PanelCommand>; 12] = {
-    use PanelCommand::BuildMenu as Menu;
-    [
-        Some(Menu(BuildMenu::Basic)), Some(Menu(BuildMenu::Advanced)), None, None,
-        None,                         None,                            None, None,
-        None,                         None,                            None, None,
-    ]
-};
-
-/// `> Beacon ObjectInterfaceState > Warp In (Basic)`, "economy and production": Q Egress Node, W Robo Portal, E Bio
-/// Portal, the buildings in the game, and A Alloy Furnace, S Essence Refinery, D Flux Reactor, which aren't yet; Z is
-/// Back (`super::super::panel`).
-#[rustfmt::skip]
-const WARP_IN_BASIC: [Option<PanelCommand>; 12] = {
-    use ObjectKind::{BioPortal, EgressNode, RoboPortal};
-    use PanelCommand::{Planned as P, WarpIn as W};
-    use Planned::{AlloyFurnace, EssenceRefinery, FluxReactor};
-    [
-        Some(W(EgressNode)),   Some(W(RoboPortal)),      Some(W(BioPortal)),   None,
-        Some(P(AlloyFurnace)), Some(P(EssenceRefinery)), Some(P(FluxReactor)), None,
-        None,                  None,                     None,                 None,
-    ]
-};
-
-/// `> Beacon ObjectInterfaceState > Warp In (Advanced)`, "tech and defense (each defense next to the building it
-/// requires)": Q Exophysics Engine, W Skylance, E Fusion Core, R Plasma Turret, A Relay Array, S Navigation Spire, D
-/// Psionic Amplifier, F Structural Analyzer, none of which is in the game yet; Z is Back.
-#[rustfmt::skip]
-const WARP_IN_ADVANCED: [Option<PanelCommand>; 12] = {
-    use PanelCommand::Planned as P;
-    use Planned::{
-        ExophysicsEngine, FusionCore, NavigationSpire, PlasmaTurret, PsionicAmplifier, RelayArray, Skylance,
-        StructuralAnalyzer,
-    };
-    [
-        Some(P(ExophysicsEngine)), Some(P(Skylance)),        Some(P(FusionCore)),       Some(P(PlasmaTurret)),
-        Some(P(RelayArray)),       Some(P(NavigationSpire)), Some(P(PsionicAmplifier)), Some(P(StructuralAnalyzer)),
-        None,                      None,                     None,                      None,
-    ]
-};
-
-/// A Beacon's Warp In menu `menu`, slot by slot: every building of the design's menu shows, the ones not in the game
-/// unavailable (`PanelCommand::Planned`).
-pub(super) fn warp_in_menu(menu: BuildMenu) -> [Option<PanelCommand>; 12] {
-    match menu {
-        BuildMenu::Basic => WARP_IN_BASIC,
-        BuildMenu::Advanced => WARP_IN_ADVANCED,
-    }
-}
-
-/// `factions/colonists/units/drone.md > Drone ObjectInterfaceState > DefaultState commands` ("No Hold Position, Patrol
-/// or Attack"): Q Move and X Stop, "as in BasicCombatUnitInterfaceState", A Deploy, and S Set Drop-off, which awaits
-/// its drop-off (AwaitingTarget\[SetDropOffLocation\]; design change 0124: "Drone: Q Move, A Deploy, S Set Drop-off, X
-/// Stop").
-#[rustfmt::skip]
-pub(super) const DRONE_GRID: [Option<PanelCommand>; 12] = {
-    use PanelCommand::{Deploy, Move, SetDropOff, Stop};
-    [
-        Some(Move),   None,             None, None,
-        Some(Deploy), Some(SetDropOff), None, None,
-        None,         Some(Stop),       None, None,
-    ]
-};
-
-/// `factions/colonists/economy.md > Egress Node > Egress Node ObjectInterfaceState`: "F: Select Returning Drones"
-/// (design change 0124: "Egress Node: F"), its one command.
-#[rustfmt::skip]
-pub(super) const EGRESS_NODE_GRID: [Option<PanelCommand>; 12] = [
-    None, None, None, None,
-    None, None, None, Some(PanelCommand::SelectReturningDrones),
-    None, None, None, None,
-];
-
-/// `> While transforming: only Cancel` (design change 0116): "A Beacon under deployment and a building under Warp In
-/// show only the Cancel command in their CommandPanel (no rally point, no other commands)", in X ("Cancel's hotkey:
-/// X"): the panel of their group, the unfinished buildings of a type (design change 0185: "with its own panel (e.g.
-/// Cancel only)").
+/// `factions/colonists/economy.md > Beacon Deployment > While transforming: only Cancel` (design change 0116): "A
+/// Beacon under deployment and a building under Warp In show only the Cancel command in their CommandPanel (no rally
+/// point, no other commands)", in X ("Cancel's hotkey: X"): the panel of their group, the unfinished buildings of a
+/// type (design change 0185: "with its own panel (e.g. Cancel only)").
 #[rustfmt::skip]
 pub const TRANSFORMING_GRID: [Option<PanelCommand>; 12] = [
     None, None,                                None, None,

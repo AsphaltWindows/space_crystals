@@ -1,6 +1,6 @@
 //! Structures' placeholder visuals (until the art direction, Q0001, settles them; the design gives none): the
 //! footprint as placed (turned, `Placement::w` × `Placement::h`), in its owner's colour inside a dark rim, with a
-//! two-letter tag of its type on top (`crate::hud::selection_panel::object_label`: a Tunnel's names its tier). Drawn a
+//! two-letter tag of its type on top (`crate::kinds::object_label`: a Tunnel's names its tier). Drawn a
 //! little inside the footprint, so that a selection frame (`selection::markers`, just inside the footprint) shows
 //! around it, and over a map resource's whole placeholder, as a plate covers the patch it is placed onto. A Tunnel's
 //! sides show their functions by its tier (`super::tunnel`). An underground structure (plan decision T32: the

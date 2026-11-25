@@ -2,10 +2,10 @@
 //! structures and constructors alike (plan decision T10: one command flow, not a structure UI beside the unit UI):
 //! [`PanelCommand`], and what pressing each one gives the sim.
 
-use sc_sim::{Ability, ConstructionCommand, ObjectKind, OrderKind, ProductionCommand, transform};
+use sc_sim::{Ability, ConstructionCommand, ObjectKind, OrderKind, ProductionCommand};
 
 use super::{BuildMenu, Planned};
-use crate::hud::selection_panel::short_label;
+use crate::kinds::{self, short_label};
 
 /// A command of the command panel: the unit commands of `systems/controls/commands.md`, as `>
 /// BasicCombatUnitInterfaceState` lists them, those of the producing structures (`factions/gdo/structures/barracks.md >
@@ -331,7 +331,7 @@ impl PanelCommand {
 
     /// The command's full name on the panel of a `kind` ActiveGroup, which the InfoPanel's hint shows
     /// (`super::Panel::name`): [`Self::name`], but for the commands the design names after the object whose panel
-    /// shows them:
+    /// shows them, from its panel template (`super::templates::PanelTemplate::names`):
     /// - a Beacon's menus: "Q: Warp In (Basic)", "W: Warp In (Advanced)" (`factions/colonists/economy.md > Beacon >
     ///   Beacon ObjectInterfaceState`), the Deployment Center's being "Basic Construction" and "Advanced
     ///   Construction";
@@ -341,15 +341,11 @@ impl PanelCommand {
     /// - the Extraction Facility's "X: Cancel Ready Plate" (`factions/gdo/economy.md > ExtractionFacility >
     ///   ObjectInterfaceState[ExtractionFacility]`).
     pub fn name_on(self, kind: ObjectKind) -> String {
-        match self {
-            PanelCommand::BuildMenu(menu) if !transform::warp_in_recipes(kind).is_empty() => match menu {
-                BuildMenu::Basic => "Warp In (Basic)".into(),
-                BuildMenu::Advanced => "Warp In (Advanced)".into(),
-            },
-            PanelCommand::CancelTransform if kind == ObjectKind::Beacon => "Cancel Deployment".into(),
-            PanelCommand::CancelTransform => "Cancel Warp In".into(),
-            PanelCommand::CancelReady if kind == ObjectKind::ExtractionFacility => "Cancel Ready Plate".into(),
-            _ => self.name(),
+        let names = kinds::of(kind).template.names;
+        match names.iter().find(|&&(command, _)| command == self) {
+            Some(&(_, name)) => name.into(),
+            None if self == PanelCommand::CancelTransform => "Cancel Warp In".into(),
+            None => self.name(),
         }
     }
 }

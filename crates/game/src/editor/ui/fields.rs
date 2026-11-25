@@ -61,33 +61,16 @@ pub enum SpawnValue {
 }
 
 impl SpawnValue {
-    /// The values objects of `kind` have.
+    /// The values objects of `kind` have: those of its settings (`SpawnSettings::defaults`), none for a kind without.
     pub fn of(kind: ObjectKind) -> &'static [SpawnValue] {
-        match kind {
-            ObjectKind::CrystalPatch => &[SpawnValue::StartingAmount],
-            ObjectKind::SupplyDeliveryStation => &[
+        match SpawnSettings::defaults(kind) {
+            Some(SpawnSettings::CrystalPatch { .. }) => &[SpawnValue::StartingAmount],
+            Some(SpawnSettings::SupplyDeliveryStation { .. }) => &[
                 SpawnValue::StartingSupplies,
                 SpawnValue::DeliverySize,
                 SpawnValue::DeliveryInterval,
             ],
-            ObjectKind::Peacekeeper
-            | ObjectKind::Guard
-            | ObjectKind::DeploymentCenter
-            | ObjectKind::Generator
-            | ObjectKind::Barracks
-            | ObjectKind::ExtractionFacility
-            | ObjectKind::ExtractionPlate
-            | ObjectKind::Drone
-            | ObjectKind::Beacon
-            | ObjectKind::EgressNode
-            | ObjectKind::RoboPortal
-            | ObjectKind::BioPortal
-            | ObjectKind::SabreLegionnaire
-            | ObjectKind::RifleLegionnaire
-            | ObjectKind::PeacekeeperShielded
-            | ObjectKind::Agent
-            | ObjectKind::Tunnel
-            | ObjectKind::Hideout => &[],
+            None => &[],
         }
     }
 

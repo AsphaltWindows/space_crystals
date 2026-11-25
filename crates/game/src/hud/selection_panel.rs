@@ -14,7 +14,6 @@
 
 use bevy::ecs::system::SystemParam;
 use bevy::prelude::*;
-use sc_sim::tunnel::TunnelState;
 use sc_sim::{ObjectId, ObjectKind};
 
 use super::layout::PortraitGrid;
@@ -22,7 +21,8 @@ use super::{HudSection, SectionLabel, show_node, text};
 use crate::ClientMode;
 use crate::camera::CameraView;
 use crate::input::{ActionState, Bindings, InputAction};
-use crate::object_render::{player_color, transforming_color};
+use crate::kinds::object_label;
+use crate::object_render::{Look, UnitShape, player_color, transforming_color};
 use crate::platform::SurfaceSize;
 use crate::selection::{ClickRoles, ControlStates, LocalControl, Selection};
 use crate::sim_driver::{LocalPlayer, SimRes};
@@ -36,6 +36,9 @@ const CELL_TEXT: Color = Color::srgb(0.88, 0.90, 0.93);
 /// A cell's label size, and its shape's share of the cell (placeholders).
 const CELL_LABEL_VH: f32 = 1.3;
 const SHAPE_PERCENT: f32 = 48.0;
+
+/// A type's short label, each its own: the kind's ([`crate::kinds`]).
+pub use crate::kinds::short_label;
 
 /// What a portrait cell shows.
 #[derive(Component, Copy, Clone, Debug, PartialEq, Eq)]
@@ -103,61 +106,9 @@ pub fn portraits(selection: &Selection, capacity: usize) -> Vec<PortraitCell> {
     cells
 }
 
-/// The short label of a type (placeholders until the art, Q0001): on its portrait, on the map (`object_render`'s
-/// tags) and on the button that makes it. Each its own (slice M3-J3): none is another type's, nor a planned unit's or
-/// building's button label (`Planned::label`: the Scout's had been the patch's "SC"). The Peacekeeper's two types
-/// have two letters each, "PK" and "PS", short enough for the Peacekeeper's 24-su body.
-pub fn short_label(kind: ObjectKind) -> &'static str {
-    match kind {
-        ObjectKind::CrystalPatch => "SC",
-        ObjectKind::SupplyDeliveryStation => "SDS",
-        ObjectKind::Peacekeeper => "PK",
-        ObjectKind::Guard => "GD",
-        ObjectKind::DeploymentCenter => "DC",
-        ObjectKind::Generator => "GN",
-        ObjectKind::Barracks => "BR",
-        ObjectKind::ExtractionFacility => "EF",
-        ObjectKind::ExtractionPlate => "EP",
-        ObjectKind::Drone => "DR",
-        ObjectKind::Beacon => "BN",
-        ObjectKind::EgressNode => "EN",
-        ObjectKind::RoboPortal => "RP",
-        ObjectKind::BioPortal => "BP",
-        ObjectKind::SabreLegionnaire => "SL",
-        ObjectKind::RifleLegionnaire => "RL",
-        ObjectKind::PeacekeeperShielded => "PS",
-        ObjectKind::Agent => "AG",
-        // A Tunnel shows its tier ([`object_label`]): its type's label is Tier 1's, the tier it starts at.
-        ObjectKind::Tunnel => TIER_LABELS[0],
-        ObjectKind::Hideout => "HI",
-    }
-}
-
-/// A Tunnel's label by tier (slice M4-A, `factions/syndicate/tunnels.md > Tunnel > Tiers`): "T1" to "T3".
-const TIER_LABELS: [&str; 3] = ["T1", "T2", "T3"];
-
-/// The label of a Tunnel at `tier` ([`TIER_LABELS`]); the type's own for a tier the table hasn't.
-pub fn tier_label(tier: u8) -> &'static str {
-    let index = usize::from(tier).checked_sub(1);
-    index
-        .and_then(|i| TIER_LABELS.get(i))
-        .copied()
-        .unwrap_or(TIER_LABELS[0])
-}
-
-/// The label an object shows, on the map (a record's too) and on its portrait: its type's short label
-/// ([`short_label`]), a Tunnel's its tier's ([`tier_label`], from `Object::tunnel` or the record's), to every player
-/// who sees it (design change 0258: "Enemies see a Tunnel's tier").
-pub fn object_label(kind: ObjectKind, tunnel: Option<TunnelState>) -> &'static str {
-    match tunnel {
-        Some(state) => tier_label(state.tier),
-        None => short_label(kind),
-    }
-}
-
-/// Whether a type's portrait shape is round (as its placeholder on the map is).
+/// Whether a type's portrait shape is round, as its placeholder on the map is ([`Look`]).
 fn round(kind: ObjectKind) -> bool {
-    matches!(kind, ObjectKind::Peacekeeper | ObjectKind::PeacekeeperShielded)
+    Look::of(kind).unit_shape() == Some(UnitShape::Round)
 }
 
 /// What the SelectionPanel shows: the local player's selection, in a game mode, on a surface of some size.
@@ -446,31 +397,6 @@ mod tests {
         assert_eq!(
             cells(&selection),
             [(4, false, false), (5, false, false), (3, true, true)]
-        );
-    }
-
-    /// Slice M3-J3 (M3-K2's walkthrough): every type's short label is its own, and none is a planned unit's or
-    /// building's button label ("SC" was both the crystal patch's and the Scout button's); the Peacekeeper's two
-    /// types have two-letter labels of their own. Slice M4-A: the Agent's AG, the Hideout's HI, and a Tunnel's by
-    /// tier, T1 to T3, T1 its type's.
-    #[test]
-    fn every_label_is_its_own() {
-        use crate::command_ui::interface::templates::Planned;
-        let labels: Vec<&str> = (ObjectKind::ALL.iter().map(|&kind| short_label(kind)))
-            .chain([2, 3].map(tier_label))
-            .chain(Planned::ALL.map(Planned::label))
-            .collect();
-        let syndicate = [ObjectKind::Agent, ObjectKind::Tunnel, ObjectKind::Hideout].map(short_label);
-        assert_eq!(syndicate, ["AG", "T1", "HI"]);
-        assert_eq!([0, 1, 2, 3, 4].map(tier_label), ["T1", "T1", "T2", "T3", "T1"]);
-        let tier = |tier| object_label(ObjectKind::Tunnel, Some(TunnelState::at(tier)));
-        assert_eq!((tier(3), object_label(ObjectKind::Agent, None)), ("T3", "AG"));
-        let distinct: std::collections::BTreeSet<&str> = labels.iter().copied().collect();
-        assert_eq!(distinct.len(), labels.len(), "{labels:?}");
-        assert_eq!([PK, ObjectKind::PeacekeeperShielded].map(short_label), ["PK", "PS"]);
-        assert_eq!(
-            (short_label(ObjectKind::CrystalPatch), Planned::Scout.label()),
-            ("SC", "ST")
         );
     }
 }

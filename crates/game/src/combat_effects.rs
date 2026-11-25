@@ -70,8 +70,8 @@ pub struct Tracer {
     pub to: Vec2,
 }
 
-/// How a shot is drawn, by the weapon that fired it: the one place that says which weapons are lasers of which
-/// colour.
+/// How a shot is drawn, by the weapon that fired it: each shooting kind's style is in its module
+/// (`crate::kinds::ClientKind::shot`), which says which weapons are lasers of which colour.
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub enum ShotStyle {
     /// A pale tracer inside a glow in the shooter's colour: every weapon but a Syndicate laser (placeholder, Q0001).
@@ -82,13 +82,13 @@ pub enum ShotStyle {
 }
 
 impl ShotStyle {
-    /// The style of a shot fired in the form `weapon`: the Guard's laser rifle is a red laser (the Laser Battery
-    /// and the Laser Turret will be when they exist); every other weapon, the Agent's pistol included, a tracer.
+    /// The style of a shot fired in the form `weapon`, its kind's: the Guard's laser rifle is a red laser (the Laser
+    /// Battery and the Laser Turret will be when they exist); every other weapon, the Agent's pistol included, a
+    /// tracer, as is a shot whose shooter the client no longer knows.
     pub fn of(weapon: Option<ObjectKind>) -> Self {
-        match weapon {
-            Some(ObjectKind::Guard) => ShotStyle::RedLaser,
-            _ => ShotStyle::Tracer,
-        }
+        weapon
+            .and_then(|kind| crate::kinds::of(kind).shot)
+            .unwrap_or(ShotStyle::Tracer)
     }
 }
 

@@ -17,7 +17,7 @@ use sc_sim::{ObjectId, ObjectKind, Placement, PlayerId};
 
 use super::{MeshKey, ObjectVisualAssets, object_height, object_transform, structures, underground, visual_mesh};
 use crate::fog::{EXPLORED_ALPHA, LocalSight, Revision};
-use crate::hud::selection_panel::object_label;
+use crate::kinds::object_label;
 use crate::sim_driver::SimRes;
 
 /// Links a visual entity to the record it shows: the local player's record of object `0`.

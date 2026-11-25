@@ -1,12 +1,15 @@
 //! The ObjectInterfaceState templates (`systems/controls/selection_and_hud.md > ObjectInterfaceState[ObjectEnum]`):
 //! which commands a type offers, in which slots of the 4 × 3 grid (`> CommandPanel > Grid Layout`), and how its
-//! clicks resolve (`super::super::resolution`). A constructor's panel also follows its state and the menu that is
-//! open ([`state_grid`]): the Deployment Center's build menus ([`BuildMenu`], design change 0104) and the Extraction
-//! Facility's plate (`factions/gdo/economy.md > ExtractionFacility > ObjectInterfaceState[ExtractionFacility]`). The
-//! Colonists' Beacon has two Warp In menus built the same way, the Drone its Deploy and its Set Drop-off, the Egress
-//! Node its F, and an object that transforms shows only its Cancel ([`colonists`], slices M3-J1 and M3-J2).
+//! clicks resolve (`super::super::resolution`). Each type's template is in its module (`crate::kinds`,
+//! [`PanelTemplate`]); a panel of its own, by faction and object: [`gdo`], [`colonists`]. A constructor's panel also
+//! follows its state and the menu that is open ([`state_grid`]): the Deployment Center's build menus ([`BuildMenu`],
+//! design change 0104) and the Extraction Facility's plate (`factions/gdo/economy.md > ExtractionFacility >
+//! ObjectInterfaceState[ExtractionFacility]`). The Colonists' Beacon has two Warp In menus built the same way, the
+//! Drone its Deploy and its Set Drop-off, the Egress Node its F, and an object that transforms shows only its Cancel
+//! ([`colonists`], slices M3-J1 and M3-J2).
 
-mod colonists;
+pub mod colonists;
+pub mod gdo;
 
 use sc_sim::ObjectKind;
 use sc_sim::construction::{self, Constructor};
@@ -18,6 +21,7 @@ pub use colonists::{Planned, TRANSFORMING_GRID};
 
 use super::{InterfaceState, PanelCommand};
 use crate::input::CommandSlot;
+use crate::kinds;
 use crate::selection::GroupType;
 
 /// An ObjectInterfaceState template: which commands a type offers, in which slots, and how its clicks resolve.
@@ -65,32 +69,44 @@ pub enum BuildMenu {
     Advanced,
 }
 
-/// `> BuildMenu[Basic]`, slot by slot: Q Generator, W Barracks, E Extraction Facility (design change 0104). Its R
-/// Supply Tower, A Radar Station, S Arsenal, D Career Campus and F Defense System aren't in the game yet (their costs
-/// and times are TBD: M2 plan 1.2), so their slots stay hidden: "The other slots can show greyed placeholders, or be
-/// hidden until those buildings exist". Z is Back and X the constructor's Cancel ([`state_grid`]).
-#[rustfmt::skip]
-const BASIC_MENU: [Option<ObjectKind>; 12] = {
-    use ObjectKind::{Barracks, ExtractionFacility, Generator};
-    [
-        Some(Generator), Some(Barracks), Some(ExtractionFacility), None,
-        None,            None,           None,                     None,
-        None,            None,           None,                     None,
-    ]
-};
-
-/// `> BuildMenu[Advanced]`: Q Factory, W Advanced Mechanics, E Airfield, R Propulsion Labs and A Industrial
-/// Powerplant, none of which is in the game yet: every slot hidden, and the menu unavailable ([`offers`]).
-const ADVANCED_MENU: [Option<ObjectKind>; 12] = [None; 12];
-
 impl BuildMenu {
     pub const ALL: [BuildMenu; 2] = [BuildMenu::Basic, BuildMenu::Advanced];
 
-    /// The Deployment Center's entries, slot by slot (`CommandSlot::all` order): the buildings it constructs.
+    /// The Deployment Center's entries, slot by slot (`CommandSlot::all` order): the buildings it constructs
+    /// ([`gdo::deployment_center::menu`]).
     pub fn entries(self) -> &'static [Option<ObjectKind>; 12] {
-        match self {
-            BuildMenu::Basic => &BASIC_MENU,
-            BuildMenu::Advanced => &ADVANCED_MENU,
+        gdo::deployment_center::menu(self)
+    }
+}
+
+/// A type's panel template, from its module (`crate::kinds::ClientKind::template`): its ObjectInterfaceState
+/// template, and what its own panel adds to it. A type with a panel of its own has its template in [`gdo`] or
+/// [`colonists`], by object.
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+pub struct PanelTemplate {
+    /// Its ObjectInterfaceState template ([`InterfaceTemplate::of`]); none for a type without commands.
+    pub interface: Option<InterfaceTemplate>,
+    /// The units of a producing structure's panel that aren't in the game yet ([`Planned`]), each with its slot
+    /// (`CommandSlot::all` order), which [`production_grid`] adds to its recipes: a portal's (design change 0124).
+    pub planned: &'static [(usize, Planned)],
+    /// The commands the design names after the object whose panel shows them, with their names
+    /// (`PanelCommand::name_on`).
+    pub names: &'static [(PanelCommand, &'static str)],
+}
+
+impl PanelTemplate {
+    /// No panel: a type without commands.
+    pub const NONE: PanelTemplate = PanelTemplate {
+        interface: None,
+        planned: &[],
+        names: &[],
+    };
+
+    /// The panel of `interface`, with nothing of its own.
+    pub const fn of(interface: InterfaceTemplate) -> PanelTemplate {
+        PanelTemplate {
+            interface: Some(interface),
+            ..PanelTemplate::NONE
         }
     }
 }
@@ -122,7 +138,7 @@ const TRAIN_SLOTS: usize = 8;
 ///   (`factions/colonists/structures/robo_portal.md > Robo Portal ObjectInterfaceState`,
 ///   `factions/colonists/structures/bio_portal.md > Bio Portal ObjectInterfaceState`, design change 0124). The Scout,
 ///   the Lancer and the psionic unit aren't in the game (their stats, cost and time are TBD), so they aren't among the
-///   recipes: 0124 has them show in their slot, unavailable ([`PanelCommand::Planned`], `colonists::planned_units`;
+///   recipes: 0124 has them show in their slot, unavailable ([`PanelCommand::Planned`], [`PanelTemplate::planned`];
 ///   slice M3-J2).
 fn production_grid(kind: ObjectKind) -> [Option<PanelCommand>; 12] {
     let mut grid = [None; 12];
@@ -135,36 +151,13 @@ fn production_grid(kind: ObjectKind) -> [Option<PanelCommand>; 12] {
     for (slot, recipe) in grid.iter_mut().zip(recipes.iter().take(TRAIN_SLOTS)) {
         *slot = Some(PanelCommand::Train(recipe.kind));
     }
-    for &(slot, planned) in colonists::planned_units(kind) {
+    for &(slot, planned) in kinds::of(kind).template.planned {
         grid[slot] = grid[slot].or(Some(PanelCommand::Planned(planned)));
     }
     grid[slot_index(CommandSlot::CANCEL_PRODUCTION)] = Some(PanelCommand::CancelProduction);
     grid[slot_index(CommandSlot::RALLY_POINT)] = Some(PanelCommand::SetRallyPoint);
     grid
 }
-
-/// `> ObjectInterfaceState[DeploymentCenter] > DefaultState commands` (design change 0104): "Q: Basic Construction"
-/// and "W: Advanced Construction", which open the build menus. Its X, Cancel Construction or Cancel Ready Building,
-/// shows only while it constructs or holds a building ready ([`state_grid`]).
-#[rustfmt::skip]
-const DEPLOYMENT_CENTER_GRID: [Option<PanelCommand>; 12] = {
-    use PanelCommand::BuildMenu as Menu;
-    [
-        Some(Menu(BuildMenu::Basic)), Some(Menu(BuildMenu::Advanced)), None, None,
-        None,                         None,                            None, None,
-        None,                         None,                            None, None,
-    ]
-};
-
-/// `> ObjectInterfaceState[ExtractionFacility] > DefaultState`: "Q: Build Extraction Plate", which becomes "Q: Place
-/// Plate" once the plate is ready; its X, Cancel Construction or Cancel Ready Plate, shows only while it constructs
-/// or holds the plate ready ([`state_grid`]).
-#[rustfmt::skip]
-const EXTRACTION_FACILITY_GRID: [Option<PanelCommand>; 12] = [
-    Some(PanelCommand::Construct(ObjectKind::ExtractionPlate)), None, None, None,
-    None,                                                       None, None, None,
-    None,                                                       None, None, None,
-];
 
 /// `factions/gdo/units/peacekeeper.md > Riot Shield > Hotkey`: "**Hotkey: R** (Raise Shield on Peacekeeper, Lower
 /// Shield on Peacekeeper (Shielded)), placeholder" (design change 0174): slot R, the first slot the BasicCombatUnit
@@ -180,52 +173,28 @@ const ATTACK_SLOT: usize = 4;
 const CONVERT_SLOT: usize = 3;
 
 impl InterfaceTemplate {
-    /// The template of `kind`'s ObjectInterfaceState; none for types without commands: the map resources, and the
-    /// structures that have none (the Generator, the Extraction Plate). The Legionnaires' is
-    /// "BasicCombatUnitInterfaceState, plus" their R (`factions/colonists/units/sabre_legionnaire.md >
-    /// ObjectInterfaceState`: Convert, [`grid`]). Every type that produces units has the Production
-    /// template; the Egress Node has its own, its F (slice M3-J2). Whatever its type, an object that transforms shows
-    /// only its Cancel ([`TRANSFORMING_GRID`], `super::panel`) and resolves no right-click
+    /// The template of `kind`'s ObjectInterfaceState, its module's (`crate::kinds`); none for types without commands:
+    /// the map resources, and the structures that have none (the Generator, the Extraction Plate). The Legionnaires'
+    /// is "BasicCombatUnitInterfaceState, plus" their R (`factions/colonists/units/sabre_legionnaire.md >
+    /// ObjectInterfaceState`: Convert, [`grid`]). Every type that produces units has the Production template; the
+    /// Egress Node has its own, its F (slice M3-J2). Whatever its type, an object that transforms shows only its
+    /// Cancel ([`TRANSFORMING_GRID`], `super::panel`) and resolves no right-click
     /// (`super::super::resolution::UnitCapabilities::of`).
     pub fn of(kind: ObjectKind) -> Option<Self> {
-        match kind {
-            ObjectKind::Peacekeeper
-            | ObjectKind::PeacekeeperShielded
-            | ObjectKind::Guard
-            | ObjectKind::SabreLegionnaire
-            | ObjectKind::RifleLegionnaire => Some(InterfaceTemplate::BasicCombatUnit),
-            // The Hideout too (slice M4-C: it produces into the Tunnel Network, plan decision T23: "every type that
-            // produces units has the Production template"); slice M4-J2 gives its panel the design's letters.
-            ObjectKind::Barracks | ObjectKind::RoboPortal | ObjectKind::BioPortal | ObjectKind::Hideout => {
-                Some(InterfaceTemplate::Production)
-            }
-            ObjectKind::DeploymentCenter => Some(InterfaceTemplate::DeploymentCenter),
-            ObjectKind::ExtractionFacility => Some(InterfaceTemplate::ExtractionFacility),
-            ObjectKind::Beacon => Some(InterfaceTemplate::Beacon),
-            ObjectKind::Drone => Some(InterfaceTemplate::Drone),
-            ObjectKind::EgressNode => Some(InterfaceTemplate::EgressNode),
-            ObjectKind::CrystalPatch
-            | ObjectKind::SupplyDeliveryStation
-            | ObjectKind::Generator
-            | ObjectKind::ExtractionPlate => None,
-            // The Syndicate's interfaces come with slices M4-J1 and M4-J2 (`factions/syndicate/units/agent.md >
-            // Agent ObjectInterfaceState`, `factions/syndicate/tunnels.md > Tunnel ObjectInterfaceState`,
-            // `factions/syndicate/structures/hideout.md > ObjectInterfaceState[Hideout]`).
-            ObjectKind::Agent | ObjectKind::Tunnel => None,
-        }
+        kinds::of(kind).template.interface
     }
 
     /// Its DefaultState's commands for a `kind` object, slot by slot (`CommandSlot::all` order): the Production
-    /// template's come from the type's `ProductionDef` ([`production_grid`]).
+    /// template's come from the type's `ProductionDef` ([`production_grid`]), an object's own from its module.
     pub fn grid(self, kind: ObjectKind) -> [Option<PanelCommand>; 12] {
         match self {
             InterfaceTemplate::BasicCombatUnit => BASIC_COMBAT_UNIT_GRID,
             InterfaceTemplate::Production => production_grid(kind),
-            InterfaceTemplate::DeploymentCenter => DEPLOYMENT_CENTER_GRID,
-            InterfaceTemplate::ExtractionFacility => EXTRACTION_FACILITY_GRID,
-            InterfaceTemplate::Beacon => colonists::BEACON_GRID,
-            InterfaceTemplate::Drone => colonists::DRONE_GRID,
-            InterfaceTemplate::EgressNode => colonists::EGRESS_NODE_GRID,
+            InterfaceTemplate::DeploymentCenter => gdo::deployment_center::GRID,
+            InterfaceTemplate::ExtractionFacility => gdo::extraction_facility::GRID,
+            InterfaceTemplate::Beacon => colonists::beacon::GRID,
+            InterfaceTemplate::Drone => colonists::drone::GRID,
+            InterfaceTemplate::EgressNode => colonists::egress_node::GRID,
         }
     }
 }
@@ -283,7 +252,7 @@ fn constructs(kind: ObjectKind) -> bool {
 /// menu, those not in the game unavailable), else the Deployment Center's menu, its buildings to construct.
 pub fn menu_grid(kind: ObjectKind, menu: BuildMenu) -> [Option<PanelCommand>; 12] {
     if colonists::warps_in(kind) {
-        colonists::warp_in_menu(menu)
+        colonists::beacon::warp_in_menu(menu)
     } else {
         menu.entries().map(|entry| entry.map(PanelCommand::Construct))
     }

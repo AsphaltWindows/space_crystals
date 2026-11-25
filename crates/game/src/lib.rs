@@ -22,6 +22,9 @@
 //! - [`qa`]: screenshots, exit at a tick, state dump, commands and input at given ticks;
 //! - [`replay`]: recording the game, and playing a recording back (`--replay`).
 //!
+//! What the client knows of each object kind (its label, its look, its shots' style and its panel template) is in
+//! [`kinds`], one module per kind behind one registry.
+//!
 //! Everything except [`hud`], [`selection`], [`command_ui`] and [`editor`] is independent of the mode
 //! ([`ClientMode`]), apart from the input layer, which applies the bindings of the mode's input context
 //! ([`ClientMode::input_context`]).
@@ -35,6 +38,7 @@ pub mod editor;
 pub mod fog;
 pub mod hud;
 pub mod input;
+pub mod kinds;
 pub mod map_render;
 pub mod object_render;
 pub mod path_overlay;

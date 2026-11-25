@@ -3,33 +3,35 @@
 //! The sim is the source of truth. Each visual is a separate entity linked to its object by [`ObjectVisual`]. Visuals
 //! are created and despawned by diffing them against `Sim::objects()` (scenario spawns emit no events); one whose
 //! object is now drawn otherwise ([`MeshKey`]) is made anew: an object that changed its kind in place
-//! (`SimEvent::KindChanged`, plan decision T15) gets its new kind's mesh, size and tag, a transformation's start
-//! and end change its tint, and a defeated player's units turn neutral (`core/game_rules.md > On Defeat`). A unit is
-//! drawn in the form it is in, not by its type ([`drawn_kind`], design change 0198): a Legionnaire pressed with
-//! Convert changes its look when its conversion is over, its weapon with it. Placed
-//! from the sim every frame at `prev_pos.lerp(pos, alpha)`, drawn at the terrain height there (a tile-based object
-//! at its footprint's height, `core/art_direction.md > Elevation Display`) and y-sorted by its ground position in its
-//! layer: the units' above the structures' and map resources', so that a unit crossing a footprint (out of a portal's
-//! energy doorway) stays in sight ([`draw_layer`]). Placeholder shapes stand in until the art direction (Q0001) is
-//! settled ([`units`]): a unit is a shape of its own per kind, its silhouette's size, in its owner's colour, with a
-//! tick showing its facing. A square or octagonal body (the Guard's, the Colonists' units') stays axis-aligned, like
-//! its collision box, and only its tick turns ([`FacingTick`]); the Colonists' units and the Peacekeepers carry a tag
-//! naming their type ([`UnitTag`]), upright, above the command indicators so that no marker hides it (slice M3-J3). A
-//! Peacekeeper's raised Riot Shield is a pale arc in front of it ([`RiotShieldVisual`]), growing out
-//! of its body as the shield goes up and shrinking back as it comes down: the Peacekeeper (Shielded) is the
-//! Peacekeeper's round body with its shield up or on its way up (design change 0173), which becomes the Peacekeeper's
-//! again, the shield on its way down, when the shield is lowered. A worker that carries a load shows a crystal shard
-//! on its body ([`LoadMarker`], slice M3-J2). A structure is its footprint as placed, in its owner's colour, with a
-//! tag naming its type ([`structures`]); a Tunnel's names its tier, and its sides show their functions by tier
-//! ([`tunnel`], design change 0224); an underground structure (the Hideout) is a translucent outline under the units
-//! that walk over it (plan decision T32), which only its owner sees while it has one. An object transforming into
-//! its kind (`Object::transform`: a building being warped in) is tinted towards a pale cyan until it is complete
-//! ([`transforming_color`]). The map resources have shapes of their own ([`resources`]).
+//! (`SimEvent::KindChanged`, plan decision T15) gets its new kind's mesh, size and tag, a transformation's start and
+//! end change its tint, and a defeated player's units turn neutral (`core/game_rules.md > On Defeat`). A unit is drawn
+//! in the form it is in, not by its type ([`drawn_kind`], design change 0198): a Legionnaire pressed with Convert
+//! changes its look when its conversion is over, its weapon with it. Placed from the sim every frame at
+//! `prev_pos.lerp(pos, alpha)`, drawn at the terrain height there (a tile-based object at its footprint's height,
+//! `core/art_direction.md > Elevation Display`) and y-sorted by its ground position in its layer: the units' above the
+//! structures' and map resources', so that a unit crossing a footprint (out of a portal's energy doorway) stays in
+//! sight ([`draw_layer`]). Placeholder shapes stand in until the art direction (Q0001) is settled, each kind's look in
+//! its module ([`Look`], `crate::kinds`; drawn by [`units`], [`structures`] and [`resources`]): a unit is a shape of
+//! its own per kind, its silhouette's size, in its owner's colour, with a tick showing its facing. A square or
+//! octagonal body (the Guard's, the Colonists' units') stays axis-aligned, like its collision box, and only its tick
+//! turns ([`FacingTick`]); the Colonists' units and the Peacekeepers carry a tag naming their type ([`UnitTag`]),
+//! upright, above the command indicators so that no marker hides it (slice M3-J3). A Peacekeeper's raised Riot Shield
+//! is a pale arc in front of it ([`RiotShieldVisual`]), growing out of its body as the shield goes up and shrinking
+//! back as it comes down: the Peacekeeper (Shielded) is the Peacekeeper's round body with its shield up or on its way
+//! up (design change 0173), which becomes the Peacekeeper's again, the shield on its way down, when the shield is
+//! lowered. A worker that carries a load shows a crystal shard on its body ([`LoadMarker`], slice M3-J2). A structure
+//! is its footprint as placed, in its owner's colour, with a tag naming its type ([`structures`]); a Tunnel's names its
+//! tier, and its sides show their functions by tier ([`tunnel`], design change 0224); an underground structure (the
+//! Hideout) is a translucent outline under the units that walk over it (plan decision T32), which only its owner sees
+//! while it has one. An object transforming into its kind (`Object::transform`: a building being warped in) is tinted
+//! towards a pale cyan until it is complete ([`transforming_color`]). The map resources have shapes of their own
+//! ([`resources`]).
 //!
 //! The fog of war hides the visuals of the objects the local player doesn't see (`crate::fog`); Explored tiles show
 //! the records of what it remembers instead, as visuals of their own ([`remembered`]).
 
 mod load;
+mod look;
 mod remembered;
 mod resources;
 mod structures;
@@ -44,7 +46,7 @@ use sc_sim::{Category, Map, Object, ObjectId, ObjectKind, Placement, PlayerId};
 
 use crate::ClientSystems;
 use crate::coords::{DrawLayer, facing_to_rotation, footprint_height, ground_translation, lerp_facing};
-use crate::hud::selection_panel::object_label;
+use crate::kinds::object_label;
 use crate::shapes::vertex_color_material;
 use crate::sim_driver::{RenderAlpha, SimRes};
 use tunnel::TunnelLook;
@@ -65,6 +67,7 @@ pub struct FacingTick(pub ObjectId);
 pub struct RiotShieldVisual(pub ObjectId);
 
 pub use load::{LoadMarker, carries};
+pub use look::{Look, UnitShape};
 pub use remembered::{RememberedVisual, RememberedVisuals};
 pub use structures::{StructureTag, underground};
 pub use units::UnitTag;
@@ -191,30 +194,14 @@ pub fn placeholder_mesh(kind: ObjectKind) -> Mesh {
     object_mesh(kind, None)
 }
 
-/// The placeholder shape of an object of `kind` owned by `owner`, a structure unturned. Units and structures take
-/// their owner's colour.
+/// The placeholder shape of an object of `kind` owned by `owner`, by its kind's look ([`Look`]), a structure
+/// unturned. Units and structures take their owner's colour.
 pub fn object_mesh(kind: ObjectKind, owner: Option<PlayerId>) -> Mesh {
-    match kind {
-        ObjectKind::CrystalPatch => resources::crystal_patch_mesh(),
-        ObjectKind::SupplyDeliveryStation => resources::supply_station_mesh(),
-        ObjectKind::Peacekeeper
-        | ObjectKind::PeacekeeperShielded
-        | ObjectKind::Guard
-        | ObjectKind::Drone
-        | ObjectKind::SabreLegionnaire
-        | ObjectKind::RifleLegionnaire
-        | ObjectKind::Agent => units::unit_mesh(kind, player_color(owner), true),
-        ObjectKind::DeploymentCenter
-        | ObjectKind::Generator
-        | ObjectKind::Barracks
-        | ObjectKind::ExtractionFacility
-        | ObjectKind::ExtractionPlate
-        | ObjectKind::Beacon
-        | ObjectKind::EgressNode
-        | ObjectKind::RoboPortal
-        | ObjectKind::BioPortal
-        | ObjectKind::Tunnel
-        | ObjectKind::Hideout => {
+    match Look::of(kind) {
+        Look::CrystalPatch => resources::crystal_patch_mesh(),
+        Look::SupplyDeliveryStation => resources::supply_station_mesh(),
+        Look::Unit { .. } => units::unit_mesh(kind, player_color(owner), true),
+        Look::Structure => {
             let (w, h) = kind.def().tile_size().unwrap_or((1, 1));
             structures::structure_mesh(w, h, player_color(owner))
         }
