@@ -657,7 +657,7 @@ Approach: thin vertical slices the user can run and see, each verified by tests 
   - **M3-K3 Drone acceleration** (Opus; brief `scratchpad/briefs/m3k3-drone-acceleration.md`): 0205's constants; the Colonists oracle re-measured for Q0055; goldens re-blessed.
 - **Next**:
   - **Playtest:** the user plays once all four factions are built (2026-11-24), using `docs/playtest/m2.md`, `m3.md` and later notes. This replaces separate M1–M3 playtests.
-  - **M4 Syndicate plan:** a planning agent is drafting it (brief `scratchpad/briefs/m4-planning.md`).
+  - **M4 Syndicate:** the plan is adopted (`artifacts/director/m4-plan.md`). M4-A starts when M3's last slices free a slot.
   - **The Move-onto-itself bug** is being fixed in M3-R (0168).
 
 ## M1 plan (from the movement spike; the approved design is in `docs/movement.md`)
@@ -806,7 +806,11 @@ The user keeps feeding unit and other designs to the Designer, so expect increme
     | K3 (0205 Drone acceleration; the Colonists oracle re-measured for Q0055; brief `scratchpad/briefs/m3k3-drone-acceleration.md`) | running (wave 7) |
     | J3 (0201 markers for Gather, Drop Off and Set Drop-off; 0206 a revealed attacker's shots drawn from it; K2's client polish: label under a marker, build tint over unexplored ground, F2 camera per player, Peacekeeper label, "SC" clash) | queued (next free slot after K3) |
     | G3 (0223: no indefinite wait behind blockers; the Failure rule applies; brief `scratchpad/briefs/m3g3-no-indefinite-wait.md`) | running (wave 8) |
-- **M4 Syndicate**: tunnels, Hideout, Agent, Guard economy, 0186's Optics Lab gate and Agent pistol, the Grenadier (0187) and the Assault Bike (0188), once their numbers exist. Underground expansions are exempt from the flatness rule (0005).
+- **M4 Syndicate** (**planned**; spec: `artifacts/director/m4-plan.md`, from the design at `36a8cd8` plus 0210–0228).
+  - **Slices:** 14, in 6 waves: A; B, C (Fable), D (Fable); E, I, J2; F, H, J1 (the first playable); G, K, L; M (QA).
+  - **Deferred until numbers exist:** the gated N1–N6, i.e. the Grenadier, Laser Turret, vehicles, Shadebringer, other expansions and the Phantom.
+  - **Questions:** Q0059–Q0071. Q0059 (Optics Lab stats) blocks K, and Q0060 (the upgrade's duration) blocks G.
+  - **Earlier scope note:** tunnels, Hideout, Agent, Guard economy, 0186's Optics Lab gate and Agent pistol, the Grenadier (0187) and the Assault Bike (0188), once their numbers exist. Underground expansions are exempt from the flatness rule (0005).
 - **M5 Cults**: Recruitment Hall, Storage, Recruit, Armory, Soldier, Gunner.
   - Recruits are Groupable: every selected Recruit builds (0072).
   - Shift-placement queues build orders while Shift is held, with the cost paid per order (0071).
@@ -888,6 +892,19 @@ The user keeps feeding unit and other designs to the Designer, so expect increme
 | Q0056 | Should a revealed attacker's shots be drawn from the attacker, or only over Visible tiles (a gap of about 140 px, M3-K2)? | no | answered by 0206 (B; M3-J3) |
 | Q0057 | An attacker blocked by its own side near its target: melee units within 3 GU give the target up (2–3 of 8 Sabres never strike); should a unit wait without limit; three attempts at a way round | no | answered by 0223 (points 1 A, 2 B, 3 A; M3-G3) |
 | Q0058 | AttackMove: is a target lost to the fog left alone for the rest of the leg, like one dropped at the leash? (taking it again loops near walls: soak seeds 8 and 29) | no | open; as M3-L2 built it (A) |
+| Q0059 | Optics Lab: placeholder stats | yes | open; blocks M4-K |
+| Q0060 | Tunnel upgrade: duration, HP and payment | yes | open; blocks M4-G |
+| Q0061 | Agent-built Tunnels: payment, ownership and the site | no | open; M4 builds the proposals |
+| Q0062 | Tunnel Areas and the two layers | no | open; M4 builds the proposals |
+| Q0063 | The Tunnel Network: transit, entering single file, and units inside | no | open; M4 builds the proposals |
+| Q0064 | Ejection and production out of the network | no | open; M4 builds the proposals |
+| Q0065 | Expansions under construction | no | open; M4 builds the proposals |
+| Q0066 | Agent gathering: the Drone's rules, the Tunnel it uses, and the line at Side B | no | open; M4 builds the proposals |
+| Q0067 | Supplies gathering | no | open; M4 builds the proposals |
+| Q0068 | Panel letters outside the 4x3 grid | no | open; M4 builds the proposals |
+| Q0069 | Losing Tunnels: the open cases | no | open; M4 builds the proposals |
+| Q0070 | The Syndicate economy check | no | open; M4 builds the proposals |
+| Q0071 | Deferred Syndicate content: which items will get their numbers or design in time for M4? | no | open; M4 builds the proposals |
 
 ## Design change entries
 Last triaged: 0228.
