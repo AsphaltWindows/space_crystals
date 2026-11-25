@@ -180,6 +180,9 @@ fn structure_is_consistent(def: &ObjectDef, structure: &StructureDef) {
     );
     tunnel_is_consistent(def, structure);
     requires_are_consistent(def, def.kind, structure.requires);
+    if let Some(attack) = &structure.attack {
+        attack_is_consistent(name, attack);
+    }
     assert!(def.selectable, "{name}: selectable");
     // What a structure goes onto is a map resource (the plate's patch), and seeding the build area is the GDO's
     // (`factions/gdo/structures/README.md > GDOBuildArea`).
@@ -256,6 +259,27 @@ fn structure_is_consistent(def: &ObjectDef, structure: &StructureDef) {
             );
             requires_are_consistent(def, recipe.kind, recipe.requires);
         }
+    }
+}
+
+/// `defs_are_consistent` for the attack of a unit type or of a structure type named `name` (`StructureDef::attack`,
+/// slice M4-S1: the Laser Turret's). `systems/combat.md > AttackType`: "ProjectileSpeed - number (HeadDisjointed /
+/// DoublyDisjointed only)", which both require (`systems/combat.md > HeadDisjointed`, `systems/combat.md >
+/// DoublyDisjointed`: "RequiresProjectileSpeed - true"); the Grenadier's grenade is the first (slice M4-U). An area
+/// attack's circle has a radius.
+fn attack_is_consistent(name: &str, attack: &AttackAttrs) {
+    let flies = matches!(
+        attack.attack_type,
+        AttackType::HeadDisjointed | AttackType::DoublyDisjointed
+    );
+    let speed = attack.projectile_speed;
+    assert_eq!(
+        speed.is_some_and(|speed| speed.is_finite() && speed > 0.0),
+        flies,
+        "{name}: ProjectileSpeed {speed:?}"
+    );
+    if let TargetType::AoE { radius } = attack.target_type {
+        assert!(radius.is_finite() && radius > 0.0, "{name}: AoE radius {radius}");
     }
 }
 
@@ -365,24 +389,8 @@ fn unit_is_consistent(def: &ObjectDef, unit: &UnitDef) {
             "{name}: melee range"
         );
     }
-    // `systems/combat.md > AttackType`: "ProjectileSpeed - number (HeadDisjointed / DoublyDisjointed only)", which
-    // both require (`systems/combat.md > HeadDisjointed`, `systems/combat.md > DoublyDisjointed`:
-    // "RequiresProjectileSpeed - true"); the Grenadier's grenade is the first (slice M4-U). An area attack's circle has
-    // a radius.
     if let Some(attack) = &unit.attack {
-        let flies = matches!(
-            attack.attack_type,
-            AttackType::HeadDisjointed | AttackType::DoublyDisjointed
-        );
-        let speed = attack.projectile_speed;
-        assert_eq!(
-            speed.is_some_and(|speed| speed.is_finite() && speed > 0.0),
-            flies,
-            "{name}: ProjectileSpeed {speed:?}"
-        );
-        if let TargetType::AoE { radius } = attack.target_type {
-            assert!(radius.is_finite() && radius > 0.0, "{name}: AoE radius {radius}");
-        }
+        attack_is_consistent(name, attack);
     }
     assert!(def.faction.is_some(), "{name}: units belong to a faction");
     assert!(def.half_extents().is_some(), "{name}: units have a collision box");
