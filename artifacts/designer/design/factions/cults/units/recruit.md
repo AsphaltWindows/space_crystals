@@ -1,6 +1,6 @@
 # Recruit
 
-The Recruit is the Cults' basic worker unit, automatically produced by Recruitment Halls from the surrounding Recruitable population. Recruits gather Space Crystals, construct buildings from outside the site, assist in-progress construction, can enter an Armory to be trained into Militants or Gunners, can enter an Altar to be augmented, can enter a Cathedral to be trained into Acolytes, staff research buildings such as the Temple, Gunworks, and Machine Shop (only Recruits can staff research), and power the Shrine by joining its ritual. Recruits have a melee attack for basic self-defense.
+The Recruit is the Cults' basic worker unit, automatically produced by Recruitment Halls from the surrounding Recruitable population. Recruits gather Space Crystals, construct buildings from outside the site, assist in-progress construction, can enter an Armory to be trained into Militants or Gunners, can enter an Altar to be augmented, can enter a Cathedral to be trained into Disciples, staff research buildings such as the Temple, Gunworks, and Machine Shop (only Recruits can staff research), and power the Shrine by joining its ritual. Recruits have a melee attack for basic self-defense.
 
 ## Entity Type - Unit
 ## Faction - TheCults

@@ -95,14 +95,14 @@ Index of the design docs. Paths are relative to this folder.
 | `factions/cults/structures/airstrip.md` | Tech/Weaponry T3 aircraft production |
 | `factions/cults/structures/scrap_hangar.md` | Tech/Weaponry T3 support |
 | `factions/cults/structures/temple.md` | Mystical T2; research, Recruit staffing |
-| `factions/cults/structures/cathedral.md` | Mystical T3; trains Acolytes |
+| `factions/cults/structures/cathedral.md` | Mystical T3; trains Disciples |
 | `factions/cults/structures/shrine.md` | Mystical T3; rituals, energy, abilities |
 | `factions/cults/augmentation.md` | Augmentation system, Altar |
 | `factions/cults/units/README.md` | Index of Cults units |
 | `factions/cults/units/recruit.md` | Worker: gathering, building, Armory entry |
 | `factions/cults/units/militant.md` | Basic combat infantry |
 | `factions/cults/units/gunner.md` | Heavier-hitting infantry |
-| `factions/cults/units/acolyte.md` | Spell caster (Cathedral) |
+| `factions/cults/units/disciple.md` | Spell caster (Cathedral) |
 | `factions/colonists/overview.md` | Colonists identity and resources (Space Crystals, Alloys, Essence, Flux, Beacon Capacity) |
 | `factions/colonists/economy.md` | Beacon Deployment, Beacon, Warp In, Starting Conditions, Egress Node, refining (Alloy Furnace, Essence Refinery, Flux Reactor) |
 | `factions/colonists/structures/README.md` | Tech Model, Portals (upgrade line, exits); index of Colonists structures |

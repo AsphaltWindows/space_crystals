@@ -350,8 +350,8 @@ Target commands (StateOnlyTransition to AwaitingTarget):
 - Cursor over EnemyObject: issues Attack command targeting that object
 - Cursor over Ground: issues Move command to that location
 - Cursor over own Tunnel (Syndicate units only, tier sufficient): issues Enter command targeting that Tunnel
-- Cursor over own Altar (Cults infantry only — Militant, Gunner, Acolyte): issues Enter command targeting that Altar
-- Cursor over own Garrison (Cults infantry only — Militant, Gunner, Acolyte): issues Enter command targeting that Garrison
+- Cursor over own Altar (Cults infantry only — Militant, Gunner, Disciple): issues Enter command targeting that Altar
+- Cursor over own Garrison (Cults infantry only — Militant, Gunner, Disciple): issues Enter command targeting that Garrison
 - Cursor over own Bunker (GDO infantry): issues Enter command targeting that Bunker
 - Cursor over FriendlyObject or NeutralObject (all other cases): issues Move command to that object
 

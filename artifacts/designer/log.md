@@ -2266,3 +2266,8 @@ Answered Q0069–Q0071 (0258–0267): losing-Tunnel edges, Syndicate economy che
 2026-11-26 — Q0087 (a). Entry 0301. All open Director questions answered.
 2026-11-26 — Cults Soldier → Militant. Entry 0302.
 2026-11-26 — Q0089 (a): third Agent at work by 0:40; table an ideal. Entry 0303.
+2026-11-26 — Gunner TailDisjointed. Entry 0304.
+2026-11-26 — Acolyte → Disciple. Entry 0305. Q0092–Q0108 arrived.
+2026-11-26 — Disciple cloud spell concept. Entry 0306.
+2026-11-26 — Disciple cloud details. Entry 0307.
+2026-11-26 — Cloud: attackers under it do full damage. Entry 0308.
