@@ -111,7 +111,7 @@
   - `kinds/<faction>/<object>.rs` (label, `Look`, `ShotStyle`, `PanelTemplate`) behind the exhaustive `kinds::of`;
   - panels in `command_ui/interface/templates/<faction>/<object>.rs`;
   - feel tunables in `crates/game/src/tuning/`.
-- **Citations.** `crates/sim/tests/design_citations.rs` fails on any cited path that doesn't exist. The rule is full paths, with a relative `> Section` only inside a module whose doc names exactly one design file.
+- **Citations.** `crates/sim/tests/design_citations/` fails on any cited path that doesn't exist. The rule is full paths, with a relative `> Section` only inside a module whose doc names exactly one design file.
 - **Files** stay under about 500 lines (`ARCHITECTURE.md`). Splitting is a normal part of every slice.
 
 ## Lessons from M4 so far
