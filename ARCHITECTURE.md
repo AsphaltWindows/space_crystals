@@ -235,6 +235,22 @@ Units, structures and resources are all `Object`s (`object.rs`, `core/entities.m
   under its centre, blocks no movement (*Navigation*) and is hidden from the other players (*Vision > Hidden
   objects*). Surface and underground footprints never share a tile (design change 0240): `may_overlap` keeps them
   apart as any two footprints, and so do the placement methods of slices M4-E and M4-F (*Placement*).
+- **The Cults** (`defs/cults/`; `factions/cults/`, slice M5-A, plan decision T55): the Recruit, the Militant and the
+  Gunner, the Recruitment Hall, the Storage and the Armory, after the Syndicate's kinds, with their numbers and their
+  client kinds, and none of the faction's systems: **each system's slice adds its own field** to their defs (the
+  Recruit's `worker`, the Storage's `drop_off`, every structure's `site`, the Hall's and the Armory's `production`,
+  the Armory's holding; plan §3.2, "one field per slice"), and `attack` and `popup` stay `None` on every Cults
+  structure. The Armory's `requires: [Storage]` is data until Recruits build (slice M5-E). **A Cults unit's Unit
+  Control cost** is the Recruits it takes (`factions/cults/economy.md > RecruitmentHall > Unit Control Tracking`),
+  kept in the GDO's `UnitDef::unit_control_cost`, 1 for each infantry unit (`defs/cults/tests.rs` checks every Cults
+  unit's); `ArmyResource::of(Faction::Cults)` stays `None` until slice M5-C. **The lineage**, `Object::lineage:
+  Option<ObjectId>` (plan decision T56): the Hall that produced the unit's Recruit, hashed (a tag) and saved only while
+  set, kept by `Sim::change_kind`, and set by nothing yet (by the Hall at spawn, slice M5-C, and by the layout at a
+  game's start, M5-B); a Cults unit without one is an orphan (Placeholder (Q0101 point 2)). The Gunner is the first
+  kind with a MinRange, which M3-L2's code serves as it is (*Behaviours*), and the first TailDisjointed attack, which
+  hits as a FullyConnected one until slice M5-O3 (*Combat*). The Storage, 1/6 on its 2x2 as written, is the
+  building armour test's one exception (`tests/building_armor.rs`, Placeholder (Q0094)). The Cults stay the faction
+  not implemented yet (`StartingConditions::of`) until slice M5-B.
 - **Units off the map: the held store** (`network.rs`, `sim/network.rs`; slice M4-C, plan decision T30;
   `factions/syndicate/tunnels.md > Tunnel Network`): a unit inside a Tunnel Network is **not among the objects**. It
   is a `Held { object, place, since, entered }` in `Sim::held`, a second map by id beside `Sim::objects`, with the
@@ -3630,7 +3646,9 @@ examples.
    registry (the state hash numbers kinds in that order), its `static ObjectDef` with `faction: Some(..)` and, for a
    unit, its army-cap cost in its `UnitDef`; every exhaustive match over `ObjectKind` (sim and client) decided. Each
    kind has its client module (*Adding a unit or structure*), and the editor's unit palette lists the faction's units
-   by itself.
+   by itself. A cost may share another faction's field when it means the same: the Cults' Unit Control cost, the
+   Recruits a unit takes, is `unit_control_cost` (slice M5-A, plan decision T55), whose `defs_are_consistent` check
+   names the factions that have one.
 2. **Banks**: a resource the faction stores is a `Player` field (`u32`, hashed in `hash.rs`, `#[serde(default)]`),
    in `Banks` and `DebugCommand::SetResources` (`serde(default)` there too, so older command files load). Re-bless
    the goldens (see *Replays and golden hashes*). The Syndicate's Supplies (slice M4-I) took no new field: the bank
