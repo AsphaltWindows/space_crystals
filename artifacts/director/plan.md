@@ -673,10 +673,18 @@ Approach: thin vertical slices the user can run and see, each verified by tests 
   - **The oracle, re-measured:** every figure is within ±15% (6.93 / 11.43 / 13.33 / 16.00 / 18.67 / 22.86 / 25.14 / 26.29 / 27.81). Targets 2–4 hold, and target 1 fails at 2:20 only. 24 Drones saturate the row. The figures went to the Designer as Q0072.
   - **Goldens.** `colonists_opening` and `colonists_vs_gdo` were re-blessed. The soaks are re-pinned, and `docs/economy_oracle.md` keeps the tables from before 0205.
 
+- **M3-G3 no indefinite wait** (merged in `8480ee0`; 1374 tests; goldens unchanged):
+  - **0223.** A unit queueing behind its own side, with no way round or no attempt left, follows the Failure rule. It gives up STUCK_TICKS after its third attempt, about 84–112 ticks after it is blocked. M3-G2's wait is deleted (`movement/collide/hold.rs` and `World::hold`). Only `movement/` changed.
+  - **Tests.** `attack_behind_friends/no_room.rs` covers 0223's Verification:
+    - in the corridor, the three units behind give up and go idle, and fire once the front unit is gone;
+    - of eight Sabres, 2–4 give up and take the target again by themselves.
+  - **Handed to M3-L4:** the AttackMove re-take cycle (0235), and the explicit-Attack re-take in the same tick, which should be 32 ticks (0181).
+  - **Perf.** `movement_perf` is unchanged, and its counters are identical.
+
 ## In progress
 - **M3 waves 2 and 3** (common brief `scratchpad/briefs/m3-common.md`; status `m3-w2-status.md`):
   - **M3-J3 markers and polish** (Opus; brief `scratchpad/briefs/m3j3-markers-and-polish.md`): the 0201 markers, 0206, M3-K2's client polish and the playtest notes.
-  - **M3-G3 no indefinite wait** (Opus; brief `scratchpad/briefs/m3g3-no-indefinite-wait.md`): 0223; a unit with no way round follows the Failure rule.
+  - **M4-A Syndicate foundation** (Opus; brief `scratchpad/briefs/m4a-syndicate-foundation.md`, common `m4-common.md`): the Agent, Tunnel and Hideout kinds, tier state, the underground layer (`Sim::hidden_from`), the pistol, placeholder looks, red lasers.
   - **M3-L4 AttackMove reach rule** (Fable; brief `scratchpad/briefs/m3l4-attackmove-reach-rule.md`): 0230, a transparent rejection cache, a bound on judgement paths per tick, and a large-army perf test.
 - **Next**:
   - **Playtest:** the user plays once all four factions are built (2026-11-24), using `docs/playtest/m2.md`, `m3.md` and later notes. This replaces separate M1–M3 playtests.
@@ -830,11 +838,12 @@ The user keeps feeding unit and other designs to the Designer, so expect increme
     | L4 (Fable: 0230 AttackMove reach rule; brief `scratchpad/briefs/m3l4-attackmove-reach-rule.md`) | running (wave 9) |
     | K4 (0236: the measured Colonists economy is the design; the oracle's table and target 1; brief `scratchpad/briefs/m3k4-economy-table.md`) | queued (next free slot after M4-A) |
     | J3 (0201 markers for Gather, Drop Off and Set Drop-off; 0206 a revealed attacker's shots drawn from it; K2's client polish: label under a marker, build tint over unexplored ground, F2 camera per player, Peacekeeper label, "SC" clash) | running (wave 8) |
-    | G3 (0223: no indefinite wait behind blockers; the Failure rule applies; brief `scratchpad/briefs/m3g3-no-indefinite-wait.md`) | running (wave 8) |
+    | G3 | done (`8480ee0`) |
 - **M4 Syndicate** (**planned**; spec: `artifacts/director/m4-plan.md`, from the design at `36a8cd8` plus 0210–0228).
   - **Slices:** 14, in 6 waves: A; B, C (Fable), D (Fable); E, I, J2; F, H, J1 (the first playable); G, K, L; M (QA).
   - **Deferred until numbers exist:** the gated N1–N6, i.e. the Grenadier, Laser Turret, vehicles, Shadebringer, other expansions and the Phantom.
-  - **Questions:** Q0059–Q0071. Q0059 (Optics Lab stats) blocks K, and Q0060 (the upgrade's duration) blocks G.
+  - **Questions:** Q0059–Q0071. Q0059 (Optics Lab stats) blocks K, and Q0060 (the upgrade's duration) blocks G. Both were answered by 0229.
+  - **Slice status:** A is running (wave 1). The rest are queued.
   - **Earlier scope note:** tunnels, Hideout, Agent, Guard economy, 0186's Optics Lab gate and Agent pistol, the Grenadier (0187) and the Assault Bike (0188), once their numbers exist. Underground expansions are exempt from the flatness rule (0005).
 - **M5 Cults**: Recruitment Hall, Storage, Recruit, Armory, Soldier, Gunner.
   - Recruits are Groupable: every selected Recruit builds (0072).
@@ -1137,7 +1146,7 @@ Last triaged: 0236.
 | 0212 Stop while deploying winds the deploy back | superseded by 0213 | never built |
 | 0215–0220 Subterranean Transport, a new Syndicate infantry transport (Burrow and Surface on the deploy model, hidden underground unless detected, area damage still hits it, surfaces on tiles a tracked vehicle can cross that have no building, passengers die with it); every DrillUnit hidden underground unless detected | queued (M4 N3; hiding needs the detection system, TBD) | concept; capacity, timings and detection TBD |
 | 0221–0222 The Subterranean Transport requires a Forge and drives into Tunnels loaded; passengers stay aboard in the network, and only its own Tunnel space counts | queued (M4 N3) | concept |
-| 0223 Attackers blocked by their own side: no special crowd logic. Melee units within 3 GU give up (as built); farther out a unit goes round if it can, else the Failure rule applies (about 7 s), with no indefinite wait; a few attempts, no re-checking. New principle: default behaviour is predictable, not optimal | queued (M3-G3) | answers Q0057; removes M3-G2's and M1-E's indefinite wait |
+| 0223 Attackers blocked by their own side: no special crowd logic. Melee units within 3 GU give up (as built); farther out a unit goes round if it can, else the Failure rule applies (about 7 s), with no indefinite wait; a few attempts, no re-checking. New principle: default behaviour is predictable, not optimal | done (M3-G3, `8480ee0`); the AttackMove part via 0235 (M3-L4) | answers Q0057; removes M3-G2's and M1-E's indefinite wait |
 | 0224 The Tunnel: Side A has an entry path and an exit path; Sides B and C are hatches for crystals and Supplies; Side D has no function; the look changes by tier; T3 adds air doors | queued (M4: A, C, D and I; air doors deferred with air units) | art direction for three tiers |
 | 0225 Each Side A path takes one unit at a time at a fixed position; entering and exiting don't block each other | queued (M4-C) | how long a unit holds a path is TBD (an M4 question) |
 | 0226–0227 The Phantom, a Syndicate hovering aircraft from the Aerospace Assembly: requires an Optics Lab, rises from a T3 Tunnel's air door, red laser against air and ground, a 60–90° turret arc, Guard-like but squishier and faster | queued (M4, deferred: numbers TBD) | concept |
