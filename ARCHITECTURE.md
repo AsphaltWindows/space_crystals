@@ -231,7 +231,7 @@ Units, structures and resources are all `Object`s (`object.rs`, `core/entities.m
   flat ground (`ObjectDef::needs_flat_ground`, design change 0005), stands for the ElevationModifier at the level
   under its centre, blocks no movement (*Navigation*) and is hidden from the other players (*Vision > Hidden
   objects*). Surface and underground footprints never share a tile (design change 0240): `may_overlap` keeps them
-  apart as any two footprints; the placement rules across the layers come with slices M4-E and M4-F.
+  apart as any two footprints, and so do the placement methods of slices M4-E and M4-F (*Placement*).
 - **Units off the map: the held store** (`network.rs`, `sim/network.rs`; slice M4-C, plan decision T30;
   `factions/syndicate/tunnels.md > Tunnel Network`): a unit inside a Tunnel Network is **not among the objects**. It
   is a `Held { object, place, since, entered }` in `Sim::held`, a second map by id beside `Sim::objects`, with the
