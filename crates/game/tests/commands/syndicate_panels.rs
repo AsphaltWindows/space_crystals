@@ -133,15 +133,15 @@ fn rally_markers(app: &App) -> Vec<RallyIndicator> {
     rally_indicators(sim, &Sight::new(sim, local_player(app), false), states)
 }
 
-/// `factions/syndicate/tunnels.md > Tunnel ObjectInterfaceState` (design change 0257): Q Upgrade Tunnel, greyed until
-/// the slice that brings it, W Expand Tunnel, which opens the ExpandMenu (slice M4-F: `expansions`), E Eject, X
-/// Cancel, greyed while there is no operation to cancel. A greyed button says why. E opens the EjectMenu, whose tiles
+/// `factions/syndicate/tunnels.md > Tunnel ObjectInterfaceState` (design change 0257): Q Upgrade Tunnel, greyed while
+/// the bank can't pay it (slice M4-G: `tunnel_upgrade`), W Expand Tunnel, which opens the ExpandMenu (slice M4-F:
+/// `expansions`), E Eject, X Cancel, greyed while there is no operation to cancel. A greyed button says why. E opens the EjectMenu, whose tiles
 /// are greyed while the network has none of their type, each saying so; Z goes back, as Escape and a right-click do.
 /// While the Tunnel is selected its area shows.
 #[test]
 fn the_tunnel_has_its_letters_and_e_opens_the_eject_menu() {
-    use ButtonLook::{Back, Common, Disabled, Unavailable};
-    use PanelCommand::{CancelOperation, Eject, EjectMenu, ExpandMenu, Planned as P};
+    use ButtonLook::{Back, Common, Disabled};
+    use PanelCommand::{CancelOperation, Eject, EjectMenu, ExpandMenu, UpgradeTunnel};
     let mut app = syndicate_game();
     let overlay = |app: &App| {
         let overlay = app.world().resource::<TunnelAreaOverlay>();
@@ -157,7 +157,7 @@ fn the_tunnel_has_its_letters_and_e_opens_the_eject_menu() {
     assert_eq!(
         buttons(&mut app),
         [
-            (slot(0, 0), c(P(Planned::UpgradeTunnel)), Unavailable, None),
+            (slot(0, 0), c(UpgradeTunnel), Disabled, None),
             (slot(0, 1), c(ExpandMenu), Common, None),
             (slot(0, 2), c(EjectMenu), Common, None),
             (CommandSlot::CANCEL_PRODUCTION, c(CancelOperation), Disabled, None),
@@ -165,7 +165,7 @@ fn the_tunnel_has_its_letters_and_e_opens_the_eject_menu() {
     );
     let area = TileRect::new(TilePos::new(14, 13), 8, 8);
     assert_eq!(overlay(&app), (true, vec![area]));
-    for (key, says) in [(KeyQ, "Not available yet"), (KeyX, "Nothing to cancel")] {
+    for (key, says) in [(KeyQ, "Not enough Supplies"), (KeyX, "Nothing to cancel")] {
         tap(&mut app, &[], key);
         assert_eq!(feedback(&app), Some(says), "{key:?}");
         assert_eq!(interface(&app), InterfaceState::DefaultState);

@@ -12,6 +12,12 @@
 //! Tier 1 area the ghost needs clear of every area they know of, design change 0242). The placement of an expansion
 //! (slice M4-F) is its Tunnel's, the ActiveGroup all along: the area its ghost is held within shows meanwhile.
 //!
+//! **The reserved areas** ([`reserving`], slice M4-G). Placeholder: Q0086 point 4. While the player places a Tunnel,
+//! each of their own Tunnels that upgrades shows the area it reserves, its target tier's (`factions/syndicate/tunnels.md
+//! > Cost Scaling > Upgrade Costs`: "from the start of the upgrade, the larger Tunnel Area of the target tier counts
+//! against other placements"), so that a ghost red over it shows why; its current area the rest of the time. An
+//! enemy's upgrade the player isn't shown (`sc_sim::placement::Occupant::as_seen`).
+//!
 //! **The look**, placeholders until the art (Q0001): the GDO build area's (`super::overlay`), each area's tiles tinted
 //! on the terrain's surface with a brighter line along its edge, the player's own in violet and the others' in red;
 //! not on the tiles they haven't explored, which stay black (`core/vision.md > Unexplored`), nor off the map. One mesh,
@@ -47,7 +53,8 @@ pub struct KnownArea {
     pub tunnel: ObjectId,
     /// Whether that Tunnel is the player's own.
     pub own: bool,
-    /// Its tier as the player knows it: now for a Tunnel they see, as last seen for one they remember.
+    /// Its tier as the player knows it: now for a Tunnel they see, as last seen for one they remember; the tier an own
+    /// Tunnel upgrades to while the player places a Tunnel ([`reserving`]).
     pub tier: u8,
     /// The area at that tier (`sc_sim::tunnel::area`), which may reach past the map's edge.
     pub area: TileRect,
@@ -86,15 +93,37 @@ pub fn known_areas(sim: &Sim, sight: &Sight) -> Vec<KnownArea> {
     areas
 }
 
+/// `areas` while the player places a Tunnel (module docs, slice M4-G): each of their own Tunnels that upgrades at the
+/// tier whose area it reserves, the target tier (`sc_sim::tunnel::TunnelState::reserved_tier`,
+/// `sc_sim::tunnel::area::reserved`), which their ghost must keep clear of; the others as they are.
+// Placeholder: Q0086 point 4.
+pub fn reserving(sim: &Sim, areas: Vec<KnownArea>) -> Vec<KnownArea> {
+    let reserved = |known: &KnownArea| {
+        let o = sim.object(known.tunnel).filter(|_| known.own)?;
+        Some((o.tunnel.as_ref()?.reserved_tier(), tunnel::area::reserved(o)?))
+    };
+    (areas.into_iter())
+        .map(|known| match reserved(&known) {
+            Some((tier, area)) => KnownArea { tier, area, ..known },
+            None => known,
+        })
+        .collect()
+}
+
+/// Whether `player` places a Tunnel now (an Agent's Build Tunnel, slice M4-J1).
+pub fn places_tunnel(player: PlayerId, states: &ControlStates) -> bool {
+    (states.of(player).interface.placing()).is_some_and(|placing| tunnel::def_of(placing.kind).is_some())
+}
+
 /// Whether the overlay shows for `player` now (module docs): in a game mode, while their selection is commandable
 /// (`crate::command_ui::interface::commandable`: never once the game is over or they are defeated) and its ActiveGroup
-/// is a Tunnel, or they place one (an Agent's Build Tunnel, slice M4-J1). Placeholder (not in the design).
+/// is a Tunnel, or they place one ([`places_tunnel`]). Placeholder (not in the design).
 pub fn shows(mode: ClientMode, sim: &Sim, player: PlayerId, states: &ControlStates) -> bool {
     let state = states.of(player);
-    let placing = (state.interface.placing()).is_some_and(|placing| tunnel::def_of(placing.kind).is_some());
     mode.is_game()
         && commandable(sim, player, &state.selection)
-        && (placing || (state.selection.active()).is_some_and(|active| tunnel::def_of(active.kind).is_some()))
+        && (places_tunnel(player, states)
+            || (state.selection.active()).is_some_and(|active| tunnel::def_of(active.kind).is_some()))
 }
 
 /// The overlay's mesh: each of `areas` ([`tint_area`]) in its owner's colours, its tiles on `map` that are `drawn`,
@@ -163,8 +192,8 @@ pub(super) fn spawn_overlay(
     commands.insert_resource(TunnelAreaAssets { mesh });
 }
 
-/// Shows the Tunnel Areas the local player knows of while it [`shows`], but on the tiles they haven't explored,
-/// redrawn when either changed.
+/// Shows the Tunnel Areas the local player knows of while it [`shows`], their own upgrades' reserved areas while they
+/// place a Tunnel ([`reserving`]), but on the tiles they haven't explored, redrawn when either changed.
 #[expect(clippy::too_many_arguments, reason = "a system's parameters")]
 pub(super) fn draw_overlay(
     mode: Res<ClientMode>,
@@ -179,7 +208,10 @@ pub(super) fn draw_overlay(
     let (sim, sight) = (local.sim(), local.get());
     let showing = shows(*mode, sim, sight.player(), &states);
     if showing {
-        let areas = known_areas(sim, &sight);
+        let areas = match places_tunnel(sight.player(), &states) {
+            true => reserving(sim, known_areas(sim, &sight)),
+            false => known_areas(sim, &sight),
+        };
         let unexplored: Vec<TilePos> = (areas.iter())
             .flat_map(|known| tunnel::area::cells(known.area))
             .filter(|&t| sim.map().in_bounds(t) && sight.tile(t) == VisibilityState::Unexplored)

@@ -12,7 +12,8 @@
 //!   and its progress, or the building ready to place;
 //! - production (the production capability of slice M2-D2, [`production`]): the unit in production and its
 //!   progress, the wait for room under the army cap (design change 0143), the queue length, and the rally point;
-//! - a Tunnel's operation (slice M4-F, [`operation`]): the expansion it builds and its progress.
+//! - a Tunnel's operation (slice M4-F, [`operation`]): the expansion it builds and its progress, or the tier it
+//!   upgrades to and its progress (slice M4-G).
 //!
 //! Lines read only the sim, the structure and what the player knows of the objects it names (its sight), so a test
 //! can check them without the UI. Their wording is a placeholder until the panel's layout exists (Q0001).
@@ -103,17 +104,21 @@ pub fn production(sim: &Sim, sight: &Sight, structure: &Object) -> Vec<String> {
 }
 
 /// A Tunnel's line while it performs an operation (`factions/syndicate/tunnels.md > Expansions under construction`:
-/// "**The Tunnel meanwhile** shows the progress"; `Sim::operation_progress`): the expansion it builds, its site's
-/// progress in whole percent rounded down, 100% only once complete. Nothing for a Tunnel that performs none, nor for
-/// another structure.
+/// "**The Tunnel meanwhile** shows the progress"; `Sim::operation_progress`): the expansion it builds, or the tier it
+/// upgrades to (slice M4-G: "Upgrading to Tier 2", placeholder wording), and the progress in whole percent rounded
+/// down, 100% only once complete. Nothing for a Tunnel that performs none, nor for another structure.
 pub fn operation(sim: &Sim, structure: &Object) -> Vec<String> {
-    let Some((Operation::Building(site), progress)) = sim.operation_progress(structure.id) else {
+    let Some((operation, progress)) = sim.operation_progress(structure.id) else {
         return Vec::new();
     };
-    let Some(site) = sim.object(site) else {
-        return Vec::new();
+    let doing = match operation {
+        Operation::Building(site) => match sim.object(site) {
+            Some(site) => format!("Building {}", site.def().name),
+            None => return Vec::new(),
+        },
+        Operation::Upgrading { to, .. } => format!("Upgrading to Tier {to}"),
     };
-    vec![format!("Building {}: {}%", site.def().name, progress.percent())]
+    vec![format!("{doing}: {}%", progress.percent())]
 }
 
 /// The RallyPoint of a producer of `owner`: the ground, or the object it is on by its type's name, marked when it is
@@ -401,6 +406,36 @@ mod tests {
         assert_eq!(shown(t.sim()), ["Building Hideout: 25%"]);
         t.at(102, P1, command(TunnelCommand::Cancel));
         t.run_until(102);
+        assert_eq!(shown(t.sim()), Vec::<String>::new(), "cancelled");
+    }
+
+    /// Slice M4-G (placeholder wording): Player 1's Tunnel (1) upgrades to Tier 2 (480 frames) from tick 1; its line
+    /// names the tier and the progress, a quarter after 120 frames, until the Tunnel's X cancels it.
+    #[test]
+    fn a_tunnel_shows_the_tier_it_upgrades_to_and_its_progress() {
+        let tunnel = ObjectId(1);
+        let mut t = ScenarioBuilder::new(&vec![".".repeat(24); 16].join("\n"))
+            .faction(P1, Faction::Syndicate)
+            .spawn(ObjectKind::Tunnel, Some(P1), tile(10, 6))
+            .start();
+        let shown = |sim: &Sim| lines_of(sim, tunnel);
+        let supplies = DebugCommand::SetResources {
+            player: P1,
+            crystals: 0,
+            supplies: 10,
+            alloys: 0,
+            essence: 0,
+            flux: 0,
+        };
+        t.debug_at(1, supplies);
+        let command = |command| Command::Tunnel { tunnel, command };
+        t.at(1, P1, command(TunnelCommand::Upgrade));
+        t.run_until(1);
+        assert_eq!(shown(t.sim()), ["Upgrading to Tier 2: 0%"]);
+        t.run_until(121);
+        assert_eq!(shown(t.sim()), ["Upgrading to Tier 2: 25%"]);
+        t.at(122, P1, command(TunnelCommand::Cancel));
+        t.run_until(122);
         assert_eq!(shown(t.sim()), Vec::<String>::new(), "cancelled");
     }
 }

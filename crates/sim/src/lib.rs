@@ -61,7 +61,7 @@ pub use construction::{ConstructionCommand, Constructor};
 pub use defs::{
     Armor, BEACON_CAPACITY_CAP, BEACON_CAPACITY_PER_BUILDING, Category, ExitRule, Footprint, MiningDef, ObjectDef,
     ObjectKind, ProductionDef, Recipe, StructureDef, SymmetryType, TUNNEL_SPACE_CAP, TierDef, Transit, TunnelDef,
-    UNIT_CONTROL_CAP,
+    UNIT_CONTROL_CAP, UpgradeDef,
 };
 pub use economy::{ArmyCap, ArmyResource, Extractor, Outcome, PowerSummary};
 pub use events::SimEvent;

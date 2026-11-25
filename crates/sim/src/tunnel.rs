@@ -8,9 +8,12 @@
 //!   Tunnel an Agent builds starts at the base tier too). Hashed only while set, so that the states of games without a
 //!   Tunnel hash as they did before the field existed, and serialized.
 //! - **MaxHP** is the tier's (`Object::max_hp`, [`tier_def`]): 600, 800 and 1000.
-//! - **A change of tier** ([`set_tier`]) is the one place a tier changes: so far only the debug command
-//!   (`DebugCommand::SetTier`); the upgrades of slice M4-G will end there too. The HP follows the MaxHP (design change
-//!   0231 point 4: "on completion, current HP rises with max HP (damage stays)").
+//! - **A change of tier** ([`set_tier`]) is the one place a tier changes: an upgrade's completion (slice M4-G,
+//!   `sim/upgrades.rs`) and the debug command (`DebugCommand::SetTier`). The HP follows the MaxHP (design change 0231
+//!   point 4: "on completion, current HP rises with max HP (damage stays)").
+//! - **The reserved tier** ([`TunnelState::reserved_tier`], slice M4-G): during an upgrade the Tunnel is at its tier
+//!   for everything but the Tunnel Area it holds against the others, which is the target tier's
+//!   (`factions/syndicate/tunnels.md > Cost Scaling > Upgrade Costs`: "**The future area is reserved**").
 //!
 //! The Tunnel Area's radius and the transit by tier are in the table for the slices that use them (M4-B, M4-C, M4-F).
 
@@ -60,6 +63,17 @@ impl TunnelState {
             eject: Vec::new(),
             operation: None,
         }
+    }
+
+    /// The tier whose Tunnel Area the Tunnel holds against the others (slice M4-G): its tier, but during an upgrade the
+    /// target tier's, "from the start of the upgrade, the larger Tunnel Area of the target tier counts against other
+    /// placements (Tunnel Area Non-Overlap Rule), so nothing placed during the upgrade can make the finished area
+    /// overlap" (`factions/syndicate/tunnels.md > Cost Scaling > Upgrade Costs`). Transit, the exits, Tunnel Space and
+    /// reclaiming read the tier itself (design change 0249: "until the upgrade has fully finished, a Tunnel only
+    /// accepts, and only lets out, units supported by the tier it had **before** the upgrade began").
+    pub fn reserved_tier(&self) -> u8 {
+        let to = self.operation.and_then(Operation::upgrade_to);
+        to.map_or(self.tier, |to| to.max(self.tier))
     }
 }
 
@@ -120,6 +134,7 @@ mod tests {
     use super::*;
     use crate::ids::{ObjectId, PlayerId};
     use crate::object::Placement;
+    use crate::progress::Progress;
     use crate::units::TilePos;
 
     /// A Tunnel of player 1's at Tier 1, as `Sim::insert_object` makes one, with `hp`.
@@ -235,6 +250,32 @@ mod tests {
         assert_ne!(hash(building(7)), hash(TunnelState::at(1)));
         assert_ne!(hash(building(7)), hash(building(8)));
         assert_ne!(hash(building(7)), hash(queued));
+        // An upgrade (slice M4-G): apart from an expansion, by its progress and by its tier.
+        let upgrading = |elapsed, to| TunnelState {
+            operation: Some(Operation::Upgrading {
+                progress: Progress { elapsed, total: 480 },
+                to,
+            }),
+            ..TunnelState::at(1)
+        };
+        assert_ne!(hash(upgrading(0, 2)), hash(TunnelState::at(1)));
+        assert_ne!(hash(upgrading(0, 2)), hash(upgrading(1, 2)));
+        assert_ne!(hash(upgrading(0, 2)), hash(upgrading(0, 3)));
+        assert_ne!(hash(upgrading(7, 2)), hash(building(7)));
+    }
+
+    /// Slice M4-G: the Tunnel Area a Tunnel holds is its tier's, but during an upgrade the target tier's.
+    #[test]
+    fn an_upgrade_reserves_its_target_tier() {
+        let mut state = TunnelState::at(2);
+        assert_eq!(state.reserved_tier(), 2);
+        state.operation = Some(Operation::Building(ObjectId(9)));
+        assert_eq!(state.reserved_tier(), 2, "an expansion reserves nothing more");
+        state.operation = Some(Operation::Upgrading {
+            progress: Progress::new(480),
+            to: 3,
+        });
+        assert_eq!((state.tier, state.reserved_tier()), (2, 3));
     }
 
     /// Saves: a Tunnel's operation is in its file while it has one, and a file without one loads with none (slice
@@ -249,6 +290,19 @@ mod tests {
         assert_eq!(
             json["tunnel"],
             serde_json::json!({ "tier": 1, "operation": { "Building": 9 } })
+        );
+        assert_eq!(serde_json::from_value::<Object>(json).unwrap(), t);
+        // An upgrade with its progress and its tier (slice M4-G).
+        if let Some(state) = &mut t.tunnel {
+            state.operation = Some(Operation::Upgrading {
+                progress: Progress { elapsed: 5, total: 480 },
+                to: 2,
+            });
+        }
+        let json = serde_json::to_value(&t).unwrap();
+        assert_eq!(
+            json["tunnel"]["operation"],
+            serde_json::json!({ "Upgrading": { "progress": { "progress": 5, "total": 480 }, "to": 2 } })
         );
         assert_eq!(serde_json::from_value::<Object>(json).unwrap(), t);
     }

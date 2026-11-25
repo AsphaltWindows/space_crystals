@@ -226,11 +226,11 @@ Units, structures and resources are all `Object`s (`object.rs`, `core/entities.m
   T39): `StructureDef::tunnel` holds
   its `TunnelDef`, the rows of `factions/syndicate/tunnels.md > Tiers` (`TierDef`: MaxHP, Tunnel Area Radius, Transit),
   and the object its `TunnelState` (`tunnel.rs`), from Tier 1. `Object::max_hp` reads its tier's row; `tunnel::set_tier`
-  changes the tier as an upgrade will, the damage kept (`transform::follow_max`, design change 0231 point 4), through
-  `DebugCommand::SetTier` until the upgrades (slice M4-H). Records carry the tier last seen (`LastKnown::tunnel`,
-  0237). **The Hideout is an underground expansion**, as are the Optics Lab and the Chemical Plant
-  (`StructureDef::underground`, plan decision T32): it needs no
-  flat ground (`ObjectDef::needs_flat_ground`, design change 0005), stands for the ElevationModifier at the level
+  changes the tier, the damage kept (`transform::follow_max`, design change 0231 point 4), through `Sim::set_tier`: an
+  upgrade's completion (slice M4-G, *Tunnel upgrades* below) and `DebugCommand::SetTier`, which ends an upgrade under
+  way, unrefunded. Records carry the tier last seen (`LastKnown::tunnel`, 0237). **The Hideout is an underground
+  expansion**, as are the Optics Lab and the Chemical Plant (`StructureDef::underground`, plan decision T32): it needs
+  no flat ground (`ObjectDef::needs_flat_ground`, design change 0005), stands for the ElevationModifier at the level
   under its centre, blocks no movement (*Navigation*) and is hidden from the other players (*Vision > Hidden
   objects*). Surface and underground footprints never share a tile (design change 0240): `may_overlap` keeps them
   apart as any two footprints, and so do the placement methods of slices M4-E and M4-F (*Placement*).
@@ -273,7 +273,8 @@ Units, structures and resources are all `Object`s (`object.rs`, `core/entities.m
   `factions/syndicate/tunnels.md > ExpandMenu`, `factions/syndicate/tunnels.md > AwaitingPlacement (Expansion)`,
   `factions/syndicate/tunnels.md > Expansions under construction`; design changes 0240, 0254, 0290, 0291): a Tunnel
   builds an underground expansion in its area as **its one operation**, `TunnelState::operation: Option<Operation>`
-  (`Operation::Building(site)`; slice M4-G's upgrade joins the enum), hashed (a tag) and saved only while set. The
+  (`Operation::Building(site)`, or `Operation::Upgrading { progress, to }`, *Tunnel upgrades* below), hashed (a tag)
+  and saved only while set. The
   expansion is a site as above, `Builder::Tunnel(tunnel)`, no worker held.
   `TunnelCommand::Expand { kind, origin, orientation }`'s gate (`Sim::check_expand`) is first **`Sim::can_expand`** (the
   player's Tunnel in operation, no operation under way `Reject::OperationUnderWay`, the kind's Tier Requirement
@@ -316,9 +317,29 @@ Units, structures and resources are all `Object`s (`object.rs`, `core/entities.m
   `tuning::tunnel::DECAY_PERCENT_PER_SECOND` (1%, placeholder) of a 100-second decay a tick, and its HP follows the
   share of its MaxHP the decay has left (`decayed`, computed from the whole ticks in 64 bits, so that a full Hideout
   dies in its 1600th tick of decay, the first being its Tunnel's last). **Reclaiming** is `Sim::reclaim(tunnel)`,
-  which a site's completion calls (`Sim::complete_site`) and an upgrade's will (slice M4-G): every neutral expansion
+  which a site's completion calls (`Sim::complete_site`) and an upgrade's (slice M4-G): every neutral expansion
   wholly inside the finished Tunnel's area, at or below its tier (the Tier Requirement, `ExpansionDef::tier`: 1 for
   the Hideout), becomes the Tunnel owner's, stops decaying and is hidden again, with no event.
+- **Tunnel upgrades** (`sim/upgrades.rs`; slice M4-G; `factions/syndicate/tunnels.md > Cost Scaling > Upgrade
+  Costs`, `factions/syndicate/tunnels.md > Tunnel Area Non-Overlap Rule`; design changes 0229, 0231, 0232, 0237,
+  0242, 0249, 0283, 0284): `TunnelCommand::Upgrade` takes a Tunnel to the tier above as its one operation,
+  `Operation::Upgrading { progress, to }`. **The data** is the tier table's: `TierDef::upgrade: Option<UpgradeDef {
+  frames, base, per_tunnel }>` on the tier it reaches (480 frames, placeholder; 2 + 2 per Tunnel, 3 + 3 per Tunnel).
+  **One price function**, `Sim::price_to`, counts the owner's other Tunnels whose `TunnelState::reserved_tier` (the
+  tier, or the one it upgrades to) is the target or above, never the Tunnel itself: the order pays it
+  (`Sim::upgrade_price`, which the panel shows), and the Tunnel's X refunds it as it is then (`Sim::cancel_upgrade`,
+  "the current top price"); a Tunnel destroyed mid-upgrade loses it. **The gate**, `Sim::can_upgrade` (the panel's
+  Q), as `Sim::can_expand`: the top tier (`Reject::TopTier`), an operation under way, the Supplies, then the truth
+  (`Reject::UpgradeBlocked`, never what): the area at the target tier on the map and Drillable (`area::breaches`) and
+  clear of every other Tunnel's `area::reserved`, any player's, a site's and another upgrade's target included. The
+  owner's lingering ghosts don't block it (a reading: a ghost is no Tunnel, an upgrade no placement), and their builds
+  then fail on arrival. **The reserved area**: from the start, the Tunnel holds its target tier's area against every
+  placement and upgrade (`Occupant::of`, the truth and its owner's knowledge; the other players judge by the tier they
+  see, `Occupant::as_seen`, and records keep only the tier), while transit, exits, Tunnel Space and reclaiming read
+  the tier it has (0249). **The frames**: `Sim::step_upgrades` (*Tick pipeline*); completion is `Sim::set_tier` (the
+  HP rising with the MaxHP), then `Sim::reclaim`. Events `UpgradeStarted`, `UpgradeCompleted`, `UpgradeCancelled`.
+  Tests: `tests/upgrades/` (`costs`, with the books over random orders; `blocked`, every edge; `during`; `completion`)
+  and `sim/upgrades.rs`'s (0231's 500/600 to 700/800).
 - **Side A's paths** (`network::Paths`, design changes 0225 and 0248): the one geometry of a Tunnel's entry and
   exit, for the sim and the client's drawing (`object_render/tunnel.rs` reads `PATH_OFFSET_SU`): two spots on Side
   A's line, 30 su from its middle, the exit towards Side B and the entry towards Side D, wherever the sides face
@@ -508,7 +529,9 @@ Layout validation can't disagree. **Never test a placement rule anywhere else: a
   `tests/placement_perf.rs`. Measured (release, 769 objects, 101 buildings of the player's; slice M2-J2, on a quiet
   machine): 4 µs a check, 2 µs a build area. Slice M4-E's tiers and overlap rule, A/B against the master before it
   (four alternating runs at load 1.1): 4.5 µs a check before, 4.9 µs after; the rule gathers Tunnel Areas only for a
-  kind with a tier table (`tunnel_overlap::Overlap`) and reads only a placed object's tier (`Occupant::of`).
+  kind with a tier table (`tunnel_overlap::Overlap`) and reads only a placed object's tier (`Occupant::of`). An
+  upgrading Tunnel's is the tier it upgrades to for the truth and its owner, the tier it has for the others
+  (`Occupant::as_seen`; slice M4-G).
 
 ## Tick pipeline
 
@@ -589,6 +612,9 @@ Layout validation can't disagree. **Never test a placement rule anywhere else: a
      step. A site is a new object, so by the spawn-tick rule one started in tick `t` does its first frame in `t + 1`
      and completes at the end of `t + frames`. A Tunnel that completes reclaims the neutral expansions it covers
      (`Sim::reclaim`, slice M4-H).
+   - Upgrades, `Sim::step_upgrades` (slice M4-G, `sim/upgrades.rs`): right after the sites. Each Tunnel from before
+     the tick that upgrades does a frame, in id order: the Tunnel exists already, so an upgrade ordered in tick `t`
+     completes at the end of `t + frames - 1`, as a recipe; then it reclaims, before the decay.
    - Decay, `Sim::step_decay` (slice M4-H, `sim/tunnels.rs`): part of the economy phase, right after the sites, so
      that an expansion a Tunnel finished over in the tick is its owner's again first. Each neutral expansion that
      decays loses a tick of it, in id order; one whose HP reaches 0 dies (`SimEvent::Died`, owner `None`) and leaves
@@ -1439,9 +1465,11 @@ and the code is `crates/sim/src/movement.rs` and `movement/`, with the unit's st
   off it (design change 0126). K1 (`paths`): each player's known grids are those a fresh build
   from the state gives. P1 (`projectiles`, slice M4-O, plan decision T42): every projectile in flight lands after the
   tick just played, between finite points. O1 (`operations`, slice M4-F): a Tunnel's operation and its site name each
-  other (`TunnelState::operation`, `Builder::Tunnel`). A `TestSim` checks them after every tick and panics with a picture of the map (`TestSim::ascii`: units as
-  letters, with a legend). The check is on by default; `check_invariants(false)` turns it off for timing runs. A
-  test that steps a bare `Sim` keeps its own `Invariants` and calls `check` after each step.
+  other (`TunnelState::operation`, `Builder::Tunnel`); an upgrading Tunnel is in operation, a tier below its target,
+  over its target tier's frames (slice M4-G). A `TestSim` checks them after every tick and panics with a picture of
+  the map (`TestSim::ascii`: units as letters, with a legend). The check is on by default; `check_invariants(false)`
+  turns it off for timing runs. A test that steps a bare `Sim` keeps its own `Invariants` and calls `check` after each
+  step.
 
 ## Economy
 
@@ -1904,7 +1932,9 @@ their energy doorway, slice M3-D2: design change 0145, `factions/colonists/struc
   (`NotInNetwork`) and past its transit delay (`InTransit`: **a reading**, design change 0245's "For 2 s it can't be
   ejected anywhere" refuses the click rather than queueing the unit). The gate picks the one inside longest
   (`Sim::next_out`, design change 0251, ties by id) and the command reserves it at the end of the Tunnel's queue.
-  The queue can't be cancelled, and goes with its Tunnel, its units staying in the network.
+  The queue can't be cancelled, and goes with its Tunnel, its units staying in the network. **`Upgrade`** (slice
+  M4-G): `Sim::can_upgrade` (*Tunnel upgrades*); **`Cancel`** ends the Tunnel's operation, an expansion or an
+  upgrade (`NoOperation`).
 - **Default orders** (`orders/resolution.rs`; `systems/controls/selection_and_hud.md > RightClickResolution`, design
   changes 0062, 0063, 0074 and 0136): `resolve(Abilities, Aim)` is the one rule for what a unit does against a target
   by default: the ground gives Move; a worker on a patch it can gather Gather, on its owner's drop-off Drop Off while
@@ -1963,6 +1993,8 @@ their energy doorway, slice M3-D2: design change 0145, `factions/colonists/struc
   problems }`, `BuildRefunded { worker, kind, refund }`, `SiteStarted { worker, site }`, `SiteCompleted { site,
   worker }`, `SiteCancelled { site, kind, refund }` and `LeftSite { worker, site }` (slice M4-E) are a Build that
   failed on arrival, a Build refunded, and a site's life; `LeftSite` is its worker back on the map with its id.
+  `UpgradeStarted { tunnel, to, price }`, `UpgradeCompleted { tunnel, tier }` and `UpgradeCancelled { tunnel, to,
+  refund }` (slice M4-G) are a Tunnel upgrade's life; one destroyed mid-upgrade has no event of its own.
   `ProductionWaiting { producer, reason }` (slice M3-P, design change 0143) is a producer whose unit at the front
   began to wait for room under the army cap `reason`, raised once per wait: the placeholder of 0143's notification.
   `Sim::events()` holds only the latest step's events, and `Sim::new` discards the events from the scenario's
@@ -2323,6 +2355,17 @@ their energy doorway, slice M3-D2: design change 0145, `factions/colonists/struc
   ExpandMenu's list `defs/syndicate/tests.rs` (against the Tech Tree table, 0291). In the client,
   `command_ui/interface/tests/expansions.rs` (the menu's letters and greying, the placement, the clamp) and
   `crates/game/tests/commands/expansions.rs` (W, the ghost, the click, the bank, the operation and both X's).
+- **Upgrade tests** (slice M4-G) are `crates/sim/tests/upgrades/`, under O1 after every tick: `costs` (2 then 4, 3
+  then 6, a Tier 3 Tunnel in the Tier 2 price, two started together, 0232's refunds in either order, and the books
+  over random starts and cancels), `blocked` (an own neighbour, an enemy's site and Tunnel by the truth, Mountain and
+  Water, every map edge at 3 and 4 tiles, the gate's order, and an own lingering ghost that doesn't block and fails on
+  arrival), `during` (the reserved area against the owner's ghost and an enemy's, 0249's vehicle, the X, the Tunnel
+  destroyed) and `completion` (480 frames, the HP, Tunnel Space, a reclaim, saves and the replay); 0231's 500/600 is
+  `sim/upgrades.rs`'s unit test. In the client, `command_ui/interface/tests/syndicate.rs` (Q and its reasons),
+  `hud/info_panel/hint.rs`'s (the price), `hud/info_panel/activity.rs`'s (the line),
+  `placement/tunnel_areas/tests.rs` (the reserved areas), `crates/game/tests/commands/tunnel_upgrade.rs` (Q, the
+  progress, X's refund, the larger area, what blocks it) and `crates/game/tests/commands/agent_ui/ghost.rs` (the
+  ghost red over the reserved area, the overlay while placing).
 - **Game end tests** are `crates/sim/tests/game_end/` (defeat by a removal and in combat, plates counting; no
   defeat without a structure ever owned; the units made neutral and idle; every command of a defeated player
   refused; a 1v1, three players defeated one after the other, and the draws of 0163: two players defeated in one
@@ -2883,7 +2926,9 @@ Drones, through one command flow (plan decision T10, slices M2-H1, M2-H2 and M3-
   `factions/syndicate/tunnels.md > EjectMenu`, `factions/syndicate/structures/hideout.md > ObjectInterfaceState[Hideout]`;
   design changes 0252, 0257, 0260): `command_ui/interface/templates/syndicate/` has `tunnel.rs`
   (`InterfaceTemplate::Tunnel`, no right-click: W `PanelCommand::ExpandMenu`, E `PanelCommand::EjectMenu`, X
-  `PanelCommand::CancelOperation`; Q Upgrade held greyed until slice M4-G), `hideout.rs` (the Production grid: W
+  `PanelCommand::CancelOperation`; Q `PanelCommand::UpgradeTunnel`, slice M4-G: greyed by `Sim::can_upgrade` with the
+  gate's reason, "Something blocks the upgrade" never saying what, its price in the hint, "Q: Upgrade Tunnel (2
+  Supplies)", `Conditions::price`), `hideout.rs` (the Production grid: W
   trains the Guard, greyed "Requires an Optics Lab" by the gate until the player owns one, slice M4-K; E Grenadier
   held greyed), `eject_menu.rs` and `expand_menu.rs`. **A placeholder entry** (`templates/planned.rs`, `Planned`)
   holds its slot greyed with its reason (`Conditions::planned`): "Requires a Chemical Plant" while the player owns no
@@ -2919,7 +2964,8 @@ Drones, through one command flow (plan decision T10, slices M2-H1, M2-H2 and M3-
   `CommandRefused` (the bank) or `InvalidPlacement` (the truth) and placement goes on. X is `CancelOperation`
   (`TunnelCommand::Cancel`), greyed while there is none (`Reject::NoOperation`, "Nothing to cancel"). The expansion's
   site is any site: `SITE_GRID`, and the look and progress bar of `object_render/site.rs`. The Tunnel's InfoPanel shows
-  its operation, "Building Hideout: 25%" (`activity::operation`).
+  its operation, "Building Hideout: 25%" or "Upgrading to Tier 2: 25%" (slice M4-G, placeholder wording;
+  `activity::operation`), which its X cancels either way.
 - **The Agent's panel** (slice M4-J1; `factions/syndicate/units/agent.md > Agent ObjectInterfaceState`; design changes
   0233, 0237 and 0257): `templates/syndicate/agent.rs` (`InterfaceTemplate::Agent`) is Q Move, A
   `PanelCommand::Build(Tunnel)`, S `PanelCommand::DropOff`, D `Planned::LaserTurret` (greyed, "Requires an Optics
@@ -3026,7 +3072,9 @@ Drones, through one command flow (plan decision T10, slices M2-H1, M2-H2 and M3-
   own in violet and the others' in red, with the build area overlay's look (`overlay::tint_area`) and z, but on
   unexplored tiles and off the map; one mesh rebuilt only when the areas, their unexplored tiles or the map changed.
   It shows while a Tunnel of theirs is the ActiveGroup, and while they place a Tunnel (`tunnel_areas::shows`, a
-  placeholder: Q0086 point 4); an expansion's placement is its Tunnel's, the ActiveGroup all along (slice M4-F).
+  placeholder: Q0086 point 4); an expansion's placement is its Tunnel's, the ActiveGroup all along (slice M4-F). While
+  they place a Tunnel, their own upgrading Tunnels show the area they reserve, the target tier's
+  (`tunnel_areas::reserving`, slice M4-G, the same placeholder), which their ghost is red over.
 - The design leaves some things open (labels, colours, the flash, the cursor's shapes and the Mixed look, the
   invalid-target and insufficient-resources feedbacks' form and duration, the targeting click allowance's value, when
   Shift counts for a targeting click, Shift with a rally point; the ghost's and the overlay's looks, the placement

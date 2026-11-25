@@ -64,12 +64,13 @@ impl Sim {
     }
 
     /// Tunnel `tunnel`'s operation, if it performs one, with how far it is: an expansion's its site's progress
-    /// (`Construction::progress`). For the Tunnel's InfoPanel: "**The Tunnel meanwhile** shows the progress"
-    /// (`factions/syndicate/tunnels.md > Expansions under construction`).
+    /// (`Construction::progress`), an upgrade's its own (slice M4-G). For the Tunnel's InfoPanel: "**The Tunnel
+    /// meanwhile** shows the progress" (`factions/syndicate/tunnels.md > Expansions under construction`).
     pub fn operation_progress(&self, tunnel: ObjectId) -> Option<(Operation, Progress)> {
         let operation = self.object(tunnel)?.tunnel.as_ref()?.operation?;
         let progress = match operation {
             Operation::Building(site) => self.object(site)?.construction?.progress,
+            Operation::Upgrading { progress, .. } => progress,
         };
         Some((operation, progress))
     }
@@ -175,11 +176,13 @@ impl Sim {
 
     /// `TunnelCommand::Cancel` on `tunnel` (`factions/syndicate/tunnels.md > Tunnel ObjectInterfaceState`: "**X**
     /// Cancel (upgrade, construction or the current operation)"): its operation is cancelled, an expansion as by its
-    /// own Cancel Construction ([`Sim::cancel_expansion`]). Slice M4-G adds the upgrade.
+    /// own Cancel Construction ([`Sim::cancel_expansion`]), an upgrade refunded at the current top price
+    /// (`Sim::cancel_upgrade`, slice M4-G).
     pub(super) fn cancel_operation(&mut self, tunnel: ObjectId) {
         let operation = (self.objects.get(&tunnel)).and_then(|o| o.tunnel.as_ref()?.operation);
         match operation {
             Some(Operation::Building(site)) => self.cancel_expansion(site),
+            Some(Operation::Upgrading { .. }) => self.cancel_upgrade(tunnel),
             None => {}
         }
     }

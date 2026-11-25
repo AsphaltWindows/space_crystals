@@ -21,22 +21,23 @@ fn why_text(panel: &Panel, slot: CommandSlot) -> Option<&'static str> {
 }
 
 /// `factions/syndicate/tunnels.md > Tunnel ObjectInterfaceState` (design change 0257): Q Upgrade Tunnel, W Expand
-/// Tunnel, E Eject, X Cancel. Upgrade isn't in the game yet (slice M4-G); W opens the ExpandMenu (slice M4-F) and E the
-/// EjectMenu; X cancels the Tunnel's operation, greyed while it performs none (`Reject::NoOperation`), and sends the
-/// Cancel once it does (`factions/syndicate/tunnels.md > Expansions under construction`: "The Tunnel's X cancels
-/// whatever operation it is running"). A greyed-out button does nothing and says why.
+/// Tunnel, E Eject, X Cancel. Q sends the Upgrade (slice M4-G) and names its price; W opens the ExpandMenu (slice
+/// M4-F) and E the EjectMenu; X cancels the Tunnel's operation, greyed while it performs none (`Reject::NoOperation`),
+/// and sends the Cancel once it does (`factions/syndicate/tunnels.md > Expansions under construction`: "The Tunnel's X
+/// cancels whatever operation it is running"), an upgrade's too. A greyed-out button does nothing and says why.
 #[test]
 fn the_tunnel_has_q_upgrade_w_expand_e_eject_and_x_cancel() {
-    use ButtonLook::{Common, Disabled, Unavailable};
-    use PanelCommand::{CancelOperation, EjectMenu, ExpandMenu, Planned as P};
+    use ButtonLook::{Common, Disabled};
+    use PanelCommand::{CancelOperation, EjectMenu, ExpandMenu, UpgradeTunnel};
     let tunnel = Selection::new([(id(1), TUNNEL)]);
-    let conditions = Conditions::default().refusing(CancelOperation, Reject::NoOperation(id(1)));
+    let conditions =
+        (Conditions::default().refusing(CancelOperation, Reject::NoOperation(id(1)))).pricing(UpgradeTunnel, 2);
     let shown_panel = panel(&tunnel, InterfaceState::DefaultState, &conditions);
     let c = PanelButton::Command;
     assert_eq!(
         shown(&shown_panel),
         [
-            (slot(0, 0), c(P(Planned::UpgradeTunnel)), Unavailable),
+            (slot(0, 0), c(UpgradeTunnel), Common),
             (slot(0, 1), c(ExpandMenu), Common),
             (slot(0, 2), c(EjectMenu), Common),
             (CommandSlot::CANCEL_PRODUCTION, c(CancelOperation), Disabled),
@@ -49,16 +50,19 @@ fn the_tunnel_has_q_upgrade_w_expand_e_eject_and_x_cancel() {
         .filter_map(|(slot, _)| shown_panel.name(slot))
         .collect();
     assert_eq!(names, ["Upgrade Tunnel", "Expand Tunnel", "Eject", "Cancel Operation"]);
-    assert_eq!(why_text(&shown_panel, slot(0, 0)), Some("Not available yet"));
+    assert_eq!(shown_panel.get(slot(0, 0)).and_then(|s| s.price), Some(2));
+    assert_eq!(why_text(&shown_panel, slot(0, 0)), None);
     assert_eq!(why_text(&shown_panel, slot(0, 1)), None);
     assert_eq!(why_text(&shown_panel, slot(0, 2)), None);
     assert_eq!(
         why_text(&shown_panel, CommandSlot::CANCEL_PRODUCTION),
         Some("Nothing to cancel")
     );
-    for greyed in [slot(0, 0), CommandSlot::CANCEL_PRODUCTION] {
-        assert_eq!(press(&shown_panel, greyed), SlotPress::Nothing);
-    }
+    assert_eq!(press(&shown_panel, CommandSlot::CANCEL_PRODUCTION), SlotPress::Nothing);
+    assert_eq!(
+        press(&shown_panel, slot(0, 0)),
+        SlotPress::Tunnel(UpgradeTunnel, TunnelCommand::Upgrade)
+    );
     assert_eq!(press(&shown_panel, slot(0, 1)), SlotPress::OpenExpandMenu);
     assert_eq!(press(&shown_panel, slot(0, 2)), SlotPress::OpenEjectMenu);
     assert_eq!(InterfaceTemplate::of(TUNNEL), Some(InterfaceTemplate::Tunnel));
@@ -68,6 +72,37 @@ fn the_tunnel_has_q_upgrade_w_expand_e_eject_and_x_cancel() {
         press(&building, CommandSlot::CANCEL_PRODUCTION),
         SlotPress::Tunnel(CancelOperation, TunnelCommand::Cancel)
     );
+}
+
+/// Slice M4-G: the Tunnel's Q is greyed while the gate refuses its Upgrade (`Sim::can_upgrade`), with the gate's
+/// reason: already at its top tier (`factions/syndicate/tunnels.md > Tunnel ObjectInterfaceState`: "Unavailable if
+/// already Tier 3"), an operation under way, too few Supplies, or something that blocks the larger area, never what
+/// (`factions/syndicate/tunnels.md > Tunnel Area Non-Overlap Rule`: "learns that something blocks it"). Pressed, it
+/// does nothing and says why; its price still shows.
+#[test]
+fn the_tunnels_upgrade_is_greyed_with_the_gates_reason() {
+    use PanelCommand::UpgradeTunnel;
+    let tunnel = Selection::new([(id(1), TUNNEL)]);
+    let cases = [
+        (Reject::TopTier(id(1)), "Already at the top tier"),
+        (Reject::OperationUnderWay(id(1)), "This Tunnel is busy"),
+        (Reject::InsufficientSupplies, "Not enough Supplies"),
+        (Reject::UpgradeBlocked(id(1)), "Something blocks the upgrade"),
+    ];
+    for (reject, text) in cases {
+        let conditions = Conditions::default()
+            .refusing(UpgradeTunnel, reject)
+            .pricing(UpgradeTunnel, 4);
+        let shown_panel = panel(&tunnel, InterfaceState::DefaultState, &conditions);
+        let q = shown_panel.get(slot(0, 0)).expect("Q");
+        assert_eq!(
+            (q.button, q.look),
+            (PanelButton::Command(UpgradeTunnel), ButtonLook::Disabled)
+        );
+        assert_eq!(q.price, Some(4));
+        assert_eq!(why_text(&shown_panel, slot(0, 0)), Some(text), "{reject:?}");
+        assert_eq!(press(&shown_panel, slot(0, 0)), SlotPress::Nothing);
+    }
 }
 
 /// `factions/syndicate/tunnels.md > EjectMenu`: a tile per unit type of the sim's list, in grid order (design change

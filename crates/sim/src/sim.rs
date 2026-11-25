@@ -434,4 +434,5 @@ mod tests;
 mod too_close;
 mod transform;
 mod tunnels;
+mod upgrades;
 mod workers;

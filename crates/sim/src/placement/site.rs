@@ -9,6 +9,7 @@ use crate::ids::PlayerId;
 use crate::map::Map;
 use crate::nav::TileRect;
 use crate::object::{Object, Placement};
+use crate::tunnel::TunnelState;
 use crate::vision::Vision;
 
 /// Something on the map that a footprint must keep clear of, or is placed onto: an object of a game, or one of a map
@@ -20,21 +21,42 @@ pub struct Occupant {
     pub pos: Vec2,
     /// A tile-based object's footprint.
     pub placement: Option<Placement>,
-    /// A Tunnel's tier as the check knows it: its tier (`Object::tunnel`), or a record's tier as last seen (design
-    /// change 0237: "their tier as last seen"), which sets how far its Tunnel Area reaches for the non-overlap rule
-    /// ([`WholeProblem::TunnelAreaOverlap`](super::WholeProblem::TunnelAreaOverlap), slice M4-E). `None` for every
-    /// other object, and for a Tunnel of a map or of a Starting Layout, which counts at the base tier as it starts
-    /// there.
+    /// A Tunnel's tier as the check knows it, which sets how far its Tunnel Area reaches for the non-overlap rule
+    /// ([`WholeProblem::TunnelAreaOverlap`](super::WholeProblem::TunnelAreaOverlap), slice M4-E): the tier whose area
+    /// it holds in truth, during an upgrade the target tier's (`TunnelState::reserved_tier`, slice M4-G: "**The future
+    /// area is reserved**", `factions/syndicate/tunnels.md > Cost Scaling > Upgrade Costs`); its tier as another
+    /// player sees it ([`Occupant::as_seen`]); or a record's tier as last seen (design change 0237: "their tier as last
+    /// seen"). `None` for every other object, and for a Tunnel of a map or of a Starting Layout, which counts at the
+    /// base tier as it starts there.
+    ///
+    /// [`TunnelState::reserved_tier`]: crate::tunnel::TunnelState::reserved_tier
     pub tier: Option<u8>,
 }
 
 impl Occupant {
-    /// What object `o` is to a placement: its kind, centre, footprint and tier. Only an object with a footprint has a
-    /// Tunnel Area, so a unit's tier is never read: the check of a crowded map walks the units as it did before tiers
-    /// (`tests/placement_perf.rs`).
+    /// What object `o` is to a placement, in truth: its kind, centre, footprint and tier, a Tunnel's the one whose
+    /// area it holds (during an upgrade the target tier, slice M4-G), as its owner knows it too. Only an object with a
+    /// footprint has a Tunnel Area, so a unit's tier is never read: the check of a crowded map walks the units as it
+    /// did before tiers (`tests/placement_perf.rs`).
     pub fn of(o: &Object) -> Self {
+        Self::at_tier(o, |tunnel| tunnel.reserved_tier())
+    }
+
+    /// What object `o`, seen now, is to a placement by another player than its owner ([`Mode::Known`]): as
+    /// [`Occupant::of`], but a Tunnel at its tier, whatever it upgrades to (slice M4-G). The design shows no one else a
+    /// Tunnel's upgrade ("The ghost judges enemy Tunnels by what the player knows: their remembered position and their
+    /// tier as last seen", `factions/syndicate/tunnels.md > Tunnel Area Non-Overlap Rule`; the InfoPanel shows
+    /// another player's structure with "no production or queue information", `core/entities.md > Object Type >
+    /// InfoPanel`): so the other player's ghost ignores the reserved area, and the build fails on arrival, judged by
+    /// the truth ("a build can fail on arrival because an enemy Tunnel was upgraded unseen").
+    pub fn as_seen(o: &Object) -> Self {
+        Self::at_tier(o, |tunnel| tunnel.tier)
+    }
+
+    /// [`Occupant::of`] with a Tunnel at the tier `tier` gives of its state.
+    fn at_tier(o: &Object, tier: impl Fn(&TunnelState) -> u8) -> Self {
         let tier = match o.placement {
-            Some(_) => o.tunnel.as_ref().map(|tunnel| tunnel.tier),
+            Some(_) => o.tunnel.as_ref().map(tier),
             None => None,
         };
         Self {

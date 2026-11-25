@@ -5,7 +5,8 @@
 //! ActiveGroup's type where the design does so, "Q: Warp In (Basic)" on a Beacon's). The client has no tooltips; the
 //! design names no place for a command's name (placeholder until the HUD pass). An Agent's Build names its price too,
 //! "A: Build Tunnel (2 Supplies)" (slice M4-J1; design change 0233: "the price shown on the Build button is the next
-//! Tunnel's"; `crate::command_ui::PanelSlot::price`), the placeholder for its tooltip.
+//! Tunnel's"; `crate::command_ui::PanelSlot::price`), the placeholder for its tooltip, and so does a Tunnel's Upgrade,
+//! "Q: Upgrade Tunnel (2 Supplies)" (slice M4-G).
 
 use bevy::prelude::*;
 
@@ -232,6 +233,36 @@ mod tests {
             hint(&shown, &hotkeys, slot(2, 1)).as_deref(),
             Some("X: Cancel Construction")
         );
+    }
+
+    /// Slice M4-G: a Tunnel's Q names its Upgrade's price (`Sim::upgrade_price`), greyed or not, as an Agent's Build
+    /// does; none at its top tier, which has no upgrade.
+    #[test]
+    fn the_hint_names_the_tunnels_upgrade_and_its_price() {
+        let hotkeys: Vec<String> = CommandSlot::all()
+            .map(|s| hotkey_label(&Bindings::default(), s))
+            .collect();
+        let q = CommandSlot::new(0, 0).unwrap();
+        let tunnel = Selection::new([(ObjectId(1), GroupType::finished(ObjectKind::Tunnel))]);
+        let upgrade = PanelCommand::UpgradeTunnel;
+        let said = |conditions: Conditions| {
+            let shown = panel(&tunnel, InterfaceState::DefaultState, &conditions);
+            hint(&shown, &hotkeys, q).expect("a button")
+        };
+        let busy = (Conditions::default().pricing(upgrade, 4))
+            .refusing(upgrade, sc_sim::Reject::OperationUnderWay(ObjectId(1)));
+        let top = Conditions::default().refusing(upgrade, sc_sim::Reject::TopTier(ObjectId(1)));
+        let cases = [
+            (
+                said(Conditions::default().pricing(upgrade, 2)),
+                "Q: Upgrade Tunnel (2 Supplies)",
+            ),
+            (said(busy), "Q: Upgrade Tunnel (4 Supplies)"),
+            (said(top), "Q: Upgrade Tunnel"),
+        ];
+        for (said, expected) in cases {
+            assert_eq!(said, expected);
+        }
     }
 
     /// The names the design gives some buttons after the object whose panel shows them (`PanelCommand::name_on`), and

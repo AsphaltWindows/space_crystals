@@ -199,6 +199,23 @@ pub struct TierDef {
     /// network (slice M4-C).
     #[serde(deserialize_with = "super::leak::slice")]
     pub transit: &'static [Transit],
+    /// How a Tunnel upgrades to this tier from the one below (`factions/syndicate/tunnels.md > Cost Scaling > Upgrade
+    /// Costs`, slice M4-G): `None` for the base tier, which no upgrade reaches.
+    #[serde(default)]
+    pub upgrade: Option<UpgradeDef>,
+}
+
+/// `factions/syndicate/tunnels.md > Cost Scaling > Upgrade Costs`: a Tunnel's upgrade to a tier ([`TierDef::upgrade`],
+/// slice M4-G). Data only: the sim prices it (`Sim::upgrade_price`) and counts its frames (`tunnel::Operation`).
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct UpgradeDef {
+    /// "**Upgrade duration**": how long it takes at full speed, frames (ticks).
+    pub frames: u32,
+    /// The price's base, in Supplies: the first 2 of "**Upgrade to Tier 2**: 2 + 2 x (number of T2+ Tunnels owned)".
+    pub base: u32,
+    /// What each of the owner's other Tunnels at this tier or above adds to the price, one upgrading to it included
+    /// ("**Upgrades in progress count**"): the second 2 of the same.
+    pub per_tunnel: u32,
 }
 
 impl TierDef {
