@@ -52,10 +52,14 @@ Starting Space Crystals: **100** (same as GDO and the Colonists). With 100, the 
 Each side of the Tunnel has a distinct function:
 - **Side A**: Unit entrance/exit (units enter and emerge from the Tunnel Network here). It has **two paths: one for entering, one for exiting** (user, 2026-11-25). **Each path is one unit wide** and fixes where units go in and come out: entering and exiting units never block each other, and an army enters or leaves single file, each unit walking through at its normal speed with normal spacing (Tunnel Network > Walking in). (Whether the Tier 3 air doors also take one aircraft at a time: TBD.)
 - **Side B**: Crystal drop-off, a **hatch** for Space Crystals (Agents deliver Space Crystals here)
-- **Side C**: Supply drop-off, a **hatch** for Supplies (Agents deliver Supplies here)
-- **Side D**: Back wall (no gameplay function)
+- **Side C** (opposite Side A): Back wall (no gameplay function)
+- **Side D**: Supply drop-off, a **hatch** for Supplies (Agents deliver Supplies here)
 
-Each resource must be delivered to **its own hatch**: crystals only at Side B, Supplies only at Side C (user, 2026-11-25; unchanged rule, now stated explicitly).
+(User, 2026-11-25: corrected from the earlier C = Supplies, D = back wall. The two hatches are the sides **next to** the entrance, and the back wall is **opposite** it. Clockwise from the top in the default orientation: A entrance/exit, B crystal hatch, C back wall, D Supplies hatch.)
+
+**Which half of Side A** (user, 2026-11-25; Q0063): the **exit path** is the half of Side A **nearer the crystal hatch** (Side B), the **entry path** the half **nearer the Supplies hatch** (Side D). Both turn and flip with the Tunnel.
+
+Each resource must be delivered to **its own hatch**: crystals only at Side B, Supplies only at Side D (user, 2026-11-25; unchanged rule, now stated explicitly).
 
 **Look by tier** (user, 2026-11-25):
 - **Tier 1**: the Side A paths are **narrow and shaggy-looking**, supporting only infantry.

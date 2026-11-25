@@ -106,7 +106,7 @@ One shot every 20 frames (1.25 s) = 4 damage per second, a third of a Guard's.
 
 ### Gathering
 
-Agents gather resources and deliver them to Tunnels. Crystal and Supply drop-offs use separate Tunnel sides (B and C respectively), so they do not block each other.
+Agents gather resources and deliver them to Tunnels. Crystal and Supply drop-offs use separate Tunnel sides (B and D respectively), so they do not block each other.
 
 #### Space Crystals
 - CarryCapacity: 50 Space Crystals per load
@@ -135,13 +135,13 @@ Rationale: the drop-off time (not carry or mining time) sets the ceiling, so len
 - CarryCapacity: 1 Supply per trip
 - PickUpDuration: 48 frames (3 seconds)
 - DropOffDuration: 48 frames (3 seconds)
-- Drop-off side: Tunnel Side C
+- Drop-off side: Tunnel Side D
 
 ### Agent ObjectInterfaceState
 
 #### DefaultState commands:
 - **A: Build Tunnel** — enters AwaitingPlacement for a Tunnel (StateOnlyTransition). Ghost preview follows cursor, snapped to grid. Tinted green when valid, red when invalid. R rotates 90° clockwise, Shift+R counter-clockwise. F flips horizontally, Shift+F flips vertically. Left-click valid location confirms placement and dispatches the Agent (CommandIssuingTransition, returns to DefaultState). Escape/right-click cancels back to DefaultState.
-- **B: Drop Off Resources** — targeted command (CommandIssuingTransition). Requires clicking an own Tunnel. Agent walks to the appropriate side automatically (Side B for crystals, Side C for supplies). Always visible, greyed out when Agent is not carrying resources.
+- **B: Drop Off Resources** — targeted command (CommandIssuingTransition). Requires clicking an own Tunnel. Agent walks to the appropriate side automatically (Side B for crystals, Side D for supplies). Always visible, greyed out when Agent is not carrying resources.
 - **Build Laser Turret** (hotkey TBD) — enters AwaitingPlacement for a Laser Turret (StateOnlyTransition), same placement flow as Build Tunnel. Left-click a valid location confirms placement and dispatches the Agent (CommandIssuingTransition, returns to DefaultState). Visible but greyed out until the player owns an Optics Lab.
 
 #### Unit Commands:
