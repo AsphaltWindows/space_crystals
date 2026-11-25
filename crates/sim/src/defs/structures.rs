@@ -66,6 +66,29 @@ pub struct StructureDef {
     /// (`WorkerDef::builds`). `None` for a type no worker builds; the Drone's Beacon is a deployment instead
     /// (`UnitDef::deploy`, T51). The Tunnel's so far; the Laser Turret's comes with slice S1.
     pub site: Option<SiteDef>,
+    /// How a Tunnel builds the type in its Tunnel Area, as its one operation (slice M4-F;
+    /// `factions/syndicate/tunnels.md > Tunnel ObjectInterfaceState > ExpandMenu`, `factions/syndicate/tunnels.md >
+    /// Construction and Upgrade Rules`; `crate::construction::site`): its Tier Requirement, its cost and its build
+    /// time, and the HP its site starts at. `None` for a type no Tunnel builds. The Hideout's so far; the ExpandMenu
+    /// lists the types in its order (`defs::EXPAND_MENU`).
+    pub expansion: Option<ExpansionDef>,
+}
+
+/// A Tunnel expansion's construction (`StructureDef::expansion`, slice M4-F): a Tunnel builds it in its Tunnel Area,
+/// on a site that is the expansion from its first frame (plan decision T31, `crate::construction::site`), paid when its
+/// ghost is placed (`factions/syndicate/tunnels.md > Expansions under construction`, design change 0254).
+#[derive(Copy, Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct ExpansionDef {
+    /// `Tier Requirement`: the lowest tier of a Tunnel that builds it (`factions/syndicate/structures/README.md >
+    /// Tunnel Expansions > Expansion Requirements`: "checked against the building Tunnel").
+    pub tier: u8,
+    /// `Cost`, Space Crystals, paid as its ghost is placed (0254: "Paid when the ghost is placed").
+    pub cost: u32,
+    /// `Build Time`, ticks: the site completes at the end of its `frames`-th tick, as a worker's (`SiteDef::frames`).
+    pub frames: u32,
+    /// `core/entities.md > ConstructionHP Rule`: the share of its MaxHP its site starts at (0254: "the ConstructionHP
+    /// Rule applies to every expansion (starts at 10%, grows with progress)"), as a worker's (`SiteDef::start_hp`).
+    pub start_hp: f32,
 }
 
 /// A worker-built structure type's construction on its site (`StructureDef::site`, plan decisions T31 and T51).

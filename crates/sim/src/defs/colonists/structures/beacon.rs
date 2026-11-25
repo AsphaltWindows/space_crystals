@@ -56,6 +56,7 @@ pub(crate) static BEACON: ObjectDef = ObjectDef {
         underground: false,
         tunnel: None,
         site: None,
+        expansion: None,
     }),
     default_settings: None,
 };

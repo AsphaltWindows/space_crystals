@@ -1,12 +1,12 @@
 //! The Hideout — `factions/syndicate/structures/hideout.md`.
 
-use crate::defs::structures::{ExitRule, ProductionDef, Recipe, StructureDef, SymmetryType};
+use crate::defs::structures::{ExitRule, ExpansionDef, ProductionDef, Recipe, StructureDef, SymmetryType};
 use crate::defs::{Armor, Category, Footprint, ObjectDef, ObjectKind};
 use crate::player::Faction;
 
 /// `factions/syndicate/structures/hideout.md`: an underground expansion (plan decision T32): hidden from the other
 /// players while owned, it is walked over, and can be destroyed. It produces into its owner's Tunnel Network (slice
-/// M4-C, `crate::network`); its construction comes with slice M4-F.
+/// M4-C, `crate::network`). A Tunnel builds it in its Tunnel Area ([`HIDEOUT_EXPANSION`], slice M4-F).
 pub(crate) static HIDEOUT: ObjectDef = ObjectDef {
     kind: ObjectKind::Hideout,
     name: "Hideout",
@@ -55,8 +55,20 @@ pub(crate) static HIDEOUT: ObjectDef = ObjectDef {
         underground: true, // Entity Type - Structure Type (Underground)
         tunnel: None,
         site: None,
+        expansion: Some(HIDEOUT_EXPANSION),
     }),
     default_settings: None,
+};
+
+/// The Hideout's construction by a Tunnel (`StructureDef::expansion`, slice M4-F): "Additional Hideouts can be
+/// constructed in any Tier 1+ Tunnel".
+pub(crate) const HIDEOUT_EXPANSION: ExpansionDef = ExpansionDef {
+    tier: 1,     // Tier Requirement - 1
+    cost: 200,   // Cost - 200 Space Crystals
+    frames: 400, // Build Time - 400 frames (25 seconds)
+    // `factions/syndicate/tunnels.md > Expansions under construction` (design change 0254): "the ConstructionHP Rule
+    // applies to every expansion (starts at 10%, grows with progress)".
+    start_hp: 0.1,
 };
 
 #[cfg(test)]
@@ -103,5 +115,19 @@ mod tests {
             .map(|recipe| (recipe.kind, recipe.cost, recipe.frames))
             .collect();
         assert_eq!(recipes, [(ObjectKind::Agent, 100, 240)]);
+    }
+
+    /// "Tier Requirement - 1", "Cost - 200 Space Crystals", "Build Time - 400 frames (25 seconds)", built by a Tunnel
+    /// from 10% of its HP (`factions/syndicate/tunnels.md > Expansions under construction`, design change 0254).
+    #[test]
+    fn a_tunnel_builds_it_for_200_crystals_in_400_frames() {
+        let structure = ObjectKind::Hideout.def().structure.as_ref().unwrap();
+        let expected = ExpansionDef {
+            tier: 1,
+            cost: 200,
+            frames: 400,
+            start_hp: 0.1,
+        };
+        assert_eq!((structure.expansion, structure.site), (Some(expected), None));
     }
 }
