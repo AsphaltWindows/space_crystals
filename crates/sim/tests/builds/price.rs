@@ -3,6 +3,10 @@
 //! the current top price whenever an order goes before its site starts; and the books, over random orders.
 
 use super::*;
+use sc_sim::construction::site::expansion_def;
+use sc_sim::defs::Resource;
+use sc_sim::testing::build_order::Books;
+use sc_sim::testing::syndicate::SupplyBooks;
 use sc_sim::{Rng, Sim, Target};
 
 /// Design change 0233's verification: "With 3 Supplies and 1 Tunnel, order two Tunnels with Shift. Both ghosts appear
@@ -176,20 +180,79 @@ const CANDIDATES: [(i32, i32); 15] = [
     (26, 14),
 ];
 
+/// The tiles where [`the_books_balance_whatever_the_orders`]' Agents build a Laser Turret (slice M4-S1): five in the
+/// open, one in Tunnel 1's area, where it completes a pop-up (slice M4-S2), and two on the footprints of the
+/// [`CANDIDATES`] (14, 10) and (22, 18), refused or failing while a Tunnel or a turret stands in the other's way.
+const TURRET_CANDIDATES: [(i32, i32); 8] = [
+    (11, 16),
+    (19, 15),
+    (10, 4),
+    (34, 15),
+    (27, 22),
+    (6, 13),
+    (16, 12),
+    (24, 20),
+];
+
+/// The expansions Tunnel 1 builds in [`the_books_balance_whatever_the_orders`] (slices M4-F and M4-S2), each a kind and
+/// the top-left tile of its footprint, in its area clear of it and the Optics Lab: three Laser Turrets and three
+/// Hideouts, the last over the turret candidate (6, 13).
+const EXPANSIONS: [(ObjectKind, (i32, i32)); 6] = [
+    (TURRET, (6, 6)),
+    (TURRET, (9, 7)),
+    (TURRET, (8, 10)),
+    (ObjectKind::Hideout, (8, 12)),
+    (ObjectKind::Hideout, (2, 9)),
+    (ObjectKind::Hideout, (5, 12)),
+];
+
+/// The Build orders of a Tunnel among `o`'s orders, current or queued.
+fn tunnel_builds(o: &Object) -> usize {
+    let Some(orders) = o.orders.as_ref() else {
+        return 0;
+    };
+    let current = orders.current.iter().map(|active| active.order.kind);
+    (current.chain(orders.queue.iter().map(|order| order.kind)))
+        .filter(|kind| matches!(kind, OrderKind::Build { kind: TUNNEL, .. }))
+        .count()
+}
+
 /// How many Tunnels `player` has for the price, counted from the state on its own: those standing, sites included, and
 /// the Build orders of a Tunnel among the player's units' orders, current or queued.
 fn owned(sim: &Sim, player: PlayerId) -> u32 {
     let mine = || sim.objects().filter(move |o| o.owner == Some(player));
     let standing = mine().filter(|o| o.kind == TUNNEL).count();
-    let ordered = mine()
-        .filter_map(|o| o.orders.as_ref())
-        .flat_map(|orders| {
-            let current = orders.current.iter().map(|active| active.order.kind);
-            current.chain(orders.queue.iter().map(|order| order.kind))
-        })
-        .filter(|kind| matches!(kind, OrderKind::Build { kind: TUNNEL, .. }))
-        .count();
+    let ordered: usize = mine().map(tunnel_builds).sum();
     u32::try_from(standing + ordered).expect("a few")
+}
+
+/// What player 1's `command`, which the gate takes, pays as it applies: (Space Crystals, Supplies). A Build pays its
+/// price once the Builds it replaces, its Agent's own, have gone (`Sim::give_order`; the gate refuses one with Shift to
+/// an Agent that has one): a Tunnel's the count of what player 1 has, its Agent's Builds of a Tunnel left out; a Laser
+/// Turret's 100 Space Crystals, whatever it replaces. An Expand pays its expansion's cost (design change 0254).
+fn pays(sim: &Sim, command: &Command) -> (u32, u32) {
+    match command {
+        Command::Order {
+            units,
+            kind: OrderKind::Build { kind, .. },
+            ..
+        } => {
+            let price = sim.build_price(P1, *kind).expect("an Agent builds it");
+            match price.resource {
+                Resource::Crystals => (price.amount, 0),
+                Resource::Supplies => {
+                    let agent = sim.object(units[0]).expect("the Agent");
+                    let replaced = u32::try_from(tunnel_builds(agent)).expect("a few");
+                    (0, price.amount - replaced)
+                }
+            }
+        }
+        Command::Tunnel {
+            command: TunnelCommand::Expand { kind, .. },
+            ..
+        } => (expansion_def(*kind).expect("a Tunnel builds it").cost, 0),
+        _ => (0, 0),
+    }
 }
 
 /// The formula's total for `n` Tunnels (`factions/syndicate/tunnels.md > Cost Scaling > Construction Cost`): the price
@@ -200,9 +263,10 @@ fn total(n: u32) -> i64 {
 }
 
 /// A random command of player 1's for [`the_books_balance_whatever_the_orders`], or none when what it drew has nothing to
-/// go to: a Build of a Tunnel at one of the [`CANDIDATES`] to one Agent, with Shift or without; a Stop; a Move, with
-/// Shift or without; Cancel Construction on a site; an Eject from a Tunnel in operation; or an Enter into Tunnel 1, with
-/// Shift or without.
+/// go to: a Build of a Tunnel at one of the [`CANDIDATES`], or of a Laser Turret at one of the [`TURRET_CANDIDATES`], to
+/// one Agent, with Shift or without; a Stop; a Move, with Shift or without; Cancel Construction on a site, an Agent's
+/// or an expansion; an Eject from a Tunnel in operation; an Enter into Tunnel 1, with Shift or without; or one of the
+/// [`EXPANSIONS`] by Tunnel 1, or its X.
 fn random_command(t: &TestSim, rng: &mut Rng) -> Option<Command> {
     let sim = t.sim();
     let mine = |o: &&Object| o.owner == Some(P1);
@@ -215,10 +279,11 @@ fn random_command(t: &TestSim, rng: &mut Rng) -> Option<Command> {
         .map(|o| o.id)
         .collect();
     let sites = sites(t);
-    let draw = rng.below(16);
+    let draw = rng.below(22);
     let shift = rng.below(2) == 1;
     let mut pick = |len: usize| (len > 0).then(|| rng.below(u32::try_from(len).expect("a few")) as usize);
     let agent = pick(agents.len()).map(|i| agents[i]);
+    let orientation = BuildingOrientation::default();
     Some(match draw {
         0..=7 => {
             let (x, y) = CANDIDATES[pick(CANDIDATES.len())?];
@@ -231,13 +296,37 @@ fn random_command(t: &TestSim, rng: &mut Rng) -> Option<Command> {
         }
         11..=12 => cancel(&[sites[pick(sites.len())?]]),
         13..=14 => eject(tunnels[pick(tunnels.len())?]),
-        _ => order(&[agent?], OrderKind::Enter(T1), shift),
+        15 => order(&[agent?], OrderKind::Enter(T1), shift),
+        16..=18 => {
+            let (x, y) = TURRET_CANDIDATES[pick(TURRET_CANDIDATES.len())?];
+            let kind = OrderKind::Build {
+                kind: TURRET,
+                origin: at(x, y),
+                orientation,
+            };
+            order(&[agent?], kind, shift)
+        }
+        19..=20 => {
+            let (kind, (x, y)) = EXPANSIONS[pick(EXPANSIONS.len())?];
+            let origin = at(x, y);
+            let command = TunnelCommand::Expand {
+                kind,
+                origin,
+                orientation,
+            };
+            Command::Tunnel { tunnel: T1, command }
+        }
+        _ => Command::Tunnel {
+            tunnel: T1,
+            command: TunnelCommand::Cancel,
+        },
     })
 }
 
 /// [`the_books_balance_whatever_the_orders`]' map: 48 × 24, flat but for Water at (43, 15), in the area of the
 /// candidate (38, 10), which a Build there finds on arrival, until an Agent explored it; player 1's Tunnel 1 on tiles
-/// (4, 8) to (7, 11), and four Agents of theirs, 2 to 5, south of it.
+/// (4, 8) to (7, 11), four Agents of theirs, 2 to 5, south of it, and their Optics Lab (6) in its area, on tiles (2, 6)
+/// to (3, 7), which the Laser Turret requires.
 fn books_field() -> TestSim {
     let mut rows: Vec<String> = (0..24).map(|_| ".".repeat(48)).collect();
     rows[15].replace_range(43..44, "~");
@@ -245,21 +334,27 @@ fn books_field() -> TestSim {
     for x in [8, 10, 12, 14] {
         builder = builder.spawn(AGENT, Some(P1), point(x, 20));
     }
-    builder.start()
+    builder.spawn(ObjectKind::OpticsLab, Some(P1), tile(2, 6)).start()
 }
 
 /// What the random sequences went through, over every seed.
 #[derive(Default, Debug)]
 struct Coverage {
-    /// The Builds the gate accepted, and those it refused for want of Supplies, or for anything else.
+    /// The Builds of a Tunnel the gate accepted, and those it refused for want of Supplies, or for anything else.
     paid: u32,
     unpaid: u32,
     refused: u32,
+    /// A Tunnel's Build orders that went before their sites started, and its sites cancelled.
     refunded: u32,
     started: u32,
     failed: u32,
     cancelled: u32,
     completed: u32,
+    /// A Laser Turret's Build orders that went before their sites started (cancelled or replaced), and its sites
+    /// cancelled; the expansions cancelled (slice M4-Z).
+    turret_refunded: u32,
+    turret_cancelled: u32,
+    expansion_cancelled: u32,
 }
 
 /// `factions/syndicate/tunnels.md > Cost Scaling > Upgrade Costs`: "The Supplies paid for what the player still has
@@ -269,7 +364,11 @@ struct Coverage {
 /// ([`random_command`]), a random wait of up to 4 seconds after each: some the gate refuses (the price, a busy Agent,
 /// an area over another), which changes nothing; Agents complete Tunnels and are ejected again. After every tick the
 /// Supplies spent less those refunded equal the formula's total for what player 1 has, over the Tunnel it started with,
-/// and the price is the count of what it has.
+/// and the price is the count of what it has. Among the commands, Laser Turrets that Agents build for Space Crystals
+/// and Tunnel 1's expansions (slice M4-Z), their orders replaced and their sites cancelled, refunded in Space Crystals
+/// (design changes 0297 points 4 and 5, and 0254): both of player 1's banks balance every tick, by
+/// `testing::build_order::Books` and `testing::syndicate::SupplyBooks`, each with what the tick's command paid in its
+/// resource ([`pays`]).
 #[test]
 fn the_books_balance_whatever_the_orders() {
     const SEEDS: [u64; 8] = [1, 2, 3, 5, 8, 13, 21, 34];
@@ -277,14 +376,24 @@ fn the_books_balance_whatever_the_orders() {
     let mut seen = Coverage::default();
     for seed in SEEDS {
         let mut t = books_field();
-        t.debug_at(1, supplies_of(P1, START));
+        let banks = DebugCommand::SetResources {
+            player: P1,
+            crystals: 1000,
+            supplies: START,
+            alloys: 0,
+            essence: 0,
+            flux: 0,
+        };
+        t.debug_at(1, banks);
         step(&mut t);
         let mut rng = Rng::from_seed(seed);
         for _ in 0..60 {
+            // What the command pays as it applies, in the next tick: (Space Crystals, Supplies).
+            let mut paying = (0, 0);
             if let Some(command) = random_command(&t, &mut rng) {
                 let verdict = gate(&t, P1, command.clone());
                 if let Command::Order {
-                    kind: OrderKind::Build { .. },
+                    kind: OrderKind::Build { kind: TUNNEL, .. },
                     ..
                 } = command
                 {
@@ -294,11 +403,19 @@ fn the_books_balance_whatever_the_orders() {
                         Err(_) => seen.refused += 1,
                     }
                 }
+                if verdict.is_ok() {
+                    paying = pays(t.sim(), &command);
+                }
                 let tick = t.sim().tick() + 1;
                 t.at(tick, P1, command);
             }
             for _ in 0..=rng.below(64) {
+                let (crystals, supplies_paid) = std::mem::take(&mut paying);
+                let books = Books::open(t.sim(), P1);
+                let supply_books = SupplyBooks::open(t.sim(), P1);
                 step(&mut t);
+                books.close(t.sim(), crystals);
+                supply_books.close(t.sim(), supplies_paid);
                 let n = owned(t.sim(), P1);
                 let spent = i64::from(START) - i64::from(supplies(&t, P1));
                 assert_eq!(
@@ -312,10 +429,13 @@ fn the_books_balance_whatever_the_orders() {
         }
         for (_, e) in t.events() {
             match e {
-                SimEvent::BuildRefunded { .. } => seen.refunded += 1,
+                SimEvent::BuildRefunded { kind: TUNNEL, .. } => seen.refunded += 1,
+                SimEvent::BuildRefunded { kind: TURRET, .. } => seen.turret_refunded += 1,
                 SimEvent::SiteStarted { .. } => seen.started += 1,
                 SimEvent::BuildFailed { .. } => seen.failed += 1,
-                SimEvent::SiteCancelled { .. } => seen.cancelled += 1,
+                SimEvent::SiteCancelled { kind: TUNNEL, .. } => seen.cancelled += 1,
+                SimEvent::SiteCancelled { kind: TURRET, .. } => seen.turret_cancelled += 1,
+                SimEvent::ExpansionCancelled { .. } => seen.expansion_cancelled += 1,
                 SimEvent::SiteCompleted { .. } => seen.completed += 1,
                 _ => {}
             }
@@ -330,8 +450,23 @@ fn the_books_balance_whatever_the_orders() {
         failed,
         cancelled,
         completed,
+        turret_refunded,
+        turret_cancelled,
+        expansion_cancelled,
     } = seen;
-    let all = [paid, unpaid, refused, refunded, started, failed, cancelled, completed];
+    let all = [
+        paid,
+        unpaid,
+        refused,
+        refunded,
+        started,
+        failed,
+        cancelled,
+        completed,
+        turret_refunded,
+        turret_cancelled,
+        expansion_cancelled,
+    ];
     assert!(
         all.iter().all(|&n| n > 0),
         "every way the books change, and every refusal: {seen:?}"
