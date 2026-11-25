@@ -2225,3 +2225,4 @@ Q0070 Syndicate economy check. Entry 0259.
 Q0071 B: placeholders Laser Turret, Grenadier, Chemical Plant. Entry 0260.
 Q0071 gap: no AoE underground unless direct target (replaces 0218). Entry 0261.
 Q0071 gap reversed: AoE hits underground; expansions high armor placeholder. Entry 0262 replaces 0261.
+Q0071 confirmations. Entry 0263.

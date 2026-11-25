@@ -338,8 +338,8 @@ Converts the **entire remaining battery** into the **next surge**. A single big 
   - **The difference** (user, 2026-11-25): with a mode switch the unit's type changes **instantly** and the unit catches up in its own time. With deployment, **the deploying process is what actually changes the unit**: it stays the mobile type until the process completes.
   - **Queueable**: Shift-Deploy waits until the earlier orders are done (e.g. move here, then deploy). Without Shift it replaces the current orders and starts at once.
   - **No reversing mid-way**: **Undeploy is only available once deployment is complete**. The unit becomes Laser Battery (Deployed) (type and SelectionGroup) when deploying finishes; until then it is still a Laser Battery. (Undeploying is assumed symmetric: Deploy becomes available again only once undeploying is complete.)
-  - **Not cancellable** (user, 2026-11-25; replaces the earlier wind-back on Stop): once deploying has started it always runs to completion; Stop doesn't interrupt it. (Assumed symmetric: undeploying also always completes.)
-  - **Orders given while deploying** (user, 2026-11-25): the **last order given** (without Shift; each new one replaces the previous) is **held**, and it is the first thing the unit tries once deployment finishes. Shift-queued orders line up behind it as usual. At that point each order is checked against the deployed unit: one it can't carry out (e.g. **Move**, since a deployed unit can't move) is **dropped** (with the usual unavailable-command feedback, assumed), and the next one is tried.
+  - **Not cancellable** (user, 2026-11-25; replaces the earlier wind-back on Stop): once deploying has started it always runs to completion; Stop doesn't interrupt it. Undeploying likewise always completes, and Deploy is available again only once it has (user, 2026-11-25; Q0071).
+  - **Orders given while deploying** (user, 2026-11-25): the **last order given** (without Shift; each new one replaces the previous) is **held**, and it is the first thing the unit tries once deployment finishes. Shift-queued orders line up behind it as usual. At that point each order is checked against the deployed unit: one it can't carry out (e.g. **Move**, since a deployed unit can't move) is **dropped** with the usual unavailable-command feedback (user, 2026-11-25; Q0071), and the next one is tried.
   - **Not the same as the Colonists Drone's Deploy** (user, 2026-11-25): a Drone becomes a Beacon **immediately** and the transformation **can be cancelled** (factions/colonists/economy.md > Beacon Deployment).
   - When the switch makes a group disappear, the group the units joined becomes active (systems/controls/selection_and_hud.md > ActiveGroup > When the ActiveGroup disappears).
 - The battery keeps charging in every mode (Battery: always charging).
@@ -352,10 +352,10 @@ All numbers (HP, armor, sight, speed, TunnelSpaceCost, battery, damage, range, t
 
 ### Entity Type - Unit
 ### Faction - TheSyndicate
-### UnitBase - DrillUnit (assumed; exits only through Tier 2+ Tunnels like other vehicles)
+### UnitBase - DrillUnit (confirmed, Q0071; exits only through Tier 2+ Tunnels like other vehicles)
 ### Produced at - Vehicle Assembly
 ### TechPrerequisite - player owns at least one **Forge** (user, 2026-11-25)
-### AttackAttributes - none (assumed)
+### AttackAttributes - none (confirmed, Q0071)
 
 ### Above-ground mode
 - When built, it **drives out of the Tunnel in its above-ground mode**, behaving as a tracked vehicle.
@@ -389,12 +389,12 @@ TBD: capacity (and whether it counts each infantry unit's TunnelSpaceCost); burr
 ### UnitBase - HoverCraft (enters and exits only through Tier 3 Tunnels' air doors)
 ### Produced at - Aerospace Assembly
 ### TechPrerequisite - player owns at least one **Optics Lab** (user, 2026-11-25)
-### Groupable - true (assumed)
+### Groupable - true (confirmed, Q0071)
 
 ### AttackAttributes:
-- AttackType: FullyConnected (laser, assumed like other Syndicate lasers: instant, cannot miss)
+- AttackType: FullyConnected (laser like other Syndicate lasers: instant, cannot miss; confirmed, Q0071)
 - TargetDomain: Universal (ground and air)
-- TargetType: SingleTarget (assumed)
+- TargetType: SingleTarget (confirmed, Q0071)
 
 ### Role
 (user, 2026-11-25) **Comparable to the Guard** (a laser all-rounder against air and ground), but **somewhat squishier for its cost**, and **faster**, and of course it **flies** (over cliffs, buildings and ground units like any air unit): the airborne, mobile counterpart of the Guard.
