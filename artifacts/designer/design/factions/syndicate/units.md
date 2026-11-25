@@ -303,7 +303,7 @@ All numbers (HP, armor, sight, speed, TunnelSpaceCost, battery, damage, range, t
 ### Faction - TheSyndicate
 ### UnitBase - DrillUnit (assumed; exits only through Tier 2+ Tunnels like other vehicles)
 ### Produced at - Vehicle Assembly
-### TechPrerequisite - TBD
+### TechPrerequisite - player owns at least one **Forge** (user, 2026-11-25)
 ### AttackAttributes - none (assumed)
 
 ### Above-ground mode
@@ -322,8 +322,11 @@ Brings it back to its above-ground mode. **It can't surface on top of a building
 ### Burrowing and surfacing work like vehicle deploy
 (user, 2026-11-25) Burrow and Surface follow the **vehicle deploy model** (factions/gdo/units.md > Artillery Rig > Modes): each takes time, is a **queueable order**, **can't be cancelled** once started, and the unit changes mode only when the process completes. The **last order given meanwhile is held** and tried first once it's done; orders the unit can't carry out in its new mode are dropped.
 
+### Entering the Tunnel Network loaded
+(user, 2026-11-25) It **can drive into a Tunnel with infantry inside**; they travel along inside it and stay aboard.
+
 ### Destroyed with passengers
 (user, 2026-11-25) If it is destroyed, **all infantry inside die** with it (above ground or underground).
 
-TBD: capacity (and whether it counts each infantry unit's TunnelSpaceCost); burrow/surface time; whether it can enter the Tunnel Network carrying passengers; load/unload commands and the panel; all numbers.
+TBD: capacity (and whether it counts each infantry unit's TunnelSpaceCost); burrow/surface time; whether its passengers count against Tunnel space while it is inside the network; load/unload commands and the panel; all numbers.
 
