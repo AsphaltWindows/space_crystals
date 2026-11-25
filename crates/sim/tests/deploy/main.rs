@@ -36,6 +36,15 @@ use ObjectKind::{Beacon, CrystalPatch, Drone, EgressNode, Peacekeeper};
 const P1: PlayerId = PlayerId(1);
 const P2: PlayerId = PlayerId(2);
 
+/// `player`'s pending Deploys, each a Drone and its Beacon's site: their lingering build ghosts
+/// (`Sim::pending_builds`, every worker build's since slice M4-E).
+fn pending_deploys(sim: &Sim, player: PlayerId) -> Vec<(ObjectId, sc_sim::Placement)> {
+    (sim.pending_builds(player).into_iter())
+        .filter(|pending| pending.kind == Beacon)
+        .map(|pending| (pending.worker, pending.site))
+        .collect()
+}
+
 /// Where most tests deploy: the Beacon on tiles (8, 9) to (9, 10), in the sight of Drone 2 where it starts.
 const SITE: TilePos = TilePos::new(8, 9);
 

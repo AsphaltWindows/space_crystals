@@ -53,6 +53,7 @@ impl MapDef {
                 kind,
                 pos,
                 placement: placement.copied(),
+                tier: None,
             })
             .collect();
         let skirmish = self.map_type == MapType::SkirmishDefault;
@@ -76,6 +77,7 @@ impl MapDef {
                                 kind: o.kind,
                                 pos,
                                 placement,
+                                tier: None,
                             },
                         )),
                         Err(problem) => found.push((

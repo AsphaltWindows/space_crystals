@@ -9,7 +9,8 @@ use glam::Vec2;
 use super::reach::Reach;
 use super::state::{Approach, AttackOrder, Auto, Behaviour, Leg, Patrol};
 use super::world::{Unit, World};
-use super::{ActiveOrder, Order, OrderKind, Orders, Target, deploy, engage, enter, gather, travel};
+use super::{ActiveOrder, Order, OrderKind, Orders, Target, build, engage, enter, gather, travel};
+use crate::deploy;
 use crate::ids::ObjectId;
 use crate::mover::{MoveGoal, MoveStatus};
 use crate::nav::PathGroup;
@@ -116,6 +117,7 @@ pub(super) fn start(order: &Order, unit: &mut Unit, world: &World) -> Behaviour 
         OrderKind::Attack(_) | OrderKind::Move(Target::Object(_)) | OrderKind::AttackMove(_) | OrderKind::Patrol(_) => {
         }
         OrderKind::Gather(_) | OrderKind::DropOff(_) | OrderKind::Deploy { .. } | OrderKind::Enter(_) => {}
+        OrderKind::Build { .. } => {}
     }
     unit.mover.stop();
     match order.kind {
@@ -140,7 +142,13 @@ pub(super) fn start(order: &Order, unit: &mut Unit, world: &World) -> Behaviour 
         // `factions/colonists/units/drone.md > Gathering`: the worker's job.
         OrderKind::Gather(_) | OrderKind::DropOff(_) => Behaviour::Gather(gather::begin(order.kind, unit, world)),
         // `factions/colonists/economy.md > Beacon Deployment > Deploy Command`: to the footprint's centre.
-        OrderKind::Deploy { origin } => Behaviour::Deploy(deploy::begin(origin, unit, tick)),
+        OrderKind::Deploy { origin } => Behaviour::Deploy(build::begin(&deploy::site(origin), unit, tick)),
+        // `core/entities.md > Worker-Built Structures`: to the footprint's centre too (plan decision T51). A kind
+        // without a footprint (only a save edited by hand has one) has no walk: the order ends in its first tick.
+        OrderKind::Build { .. } => match build::build_site(order.kind) {
+            Some((_, site)) => Behaviour::Build(build::begin(&site, unit, tick)),
+            None => Behaviour::Plain,
+        },
         // `systems/controls/commands.md > Enter`: to the Tunnel's entry path.
         OrderKind::Enter(tunnel) => Behaviour::Enter(enter::begin(tunnel, unit, world)),
     }
@@ -184,13 +192,17 @@ fn run(
             gather::run(&mut order.kind, state, unit, world, claims)
         }
         // The walk to the site; the step right after this phase ends the order (`Sim::step_deployments`).
-        (OrderKind::Deploy { origin }, Behaviour::Deploy(state)) => deploy::run(origin, state, unit),
+        (OrderKind::Deploy { origin }, Behaviour::Deploy(state)) => build::run(&deploy::site(origin), state, unit),
+        (OrderKind::Build { .. }, Behaviour::Build(state)) => match build::build_site(order.kind) {
+            Some((_, site)) => build::run(&site, state, unit),
+            None => true,
+        },
         // The walk into the entry path; the step right after this phase takes the unit into the network or ends the
         // order (`Sim::step_entries`).
         (OrderKind::Enter(_), Behaviour::Enter(state)) => enter::run(state, unit),
         // A state that isn't its order's (a save edited by hand): the order ends.
         (OrderKind::Hold | OrderKind::Attack(_) | OrderKind::AttackMove(_) | OrderKind::Patrol(_), _)
         | (OrderKind::Move(Target::Object(_)) | OrderKind::Gather(_) | OrderKind::DropOff(_), _)
-        | (OrderKind::Deploy { .. } | OrderKind::Enter(_), _) => true,
+        | (OrderKind::Deploy { .. } | OrderKind::Enter(_) | OrderKind::Build { .. }, _) => true,
     }
 }

@@ -56,7 +56,8 @@ impl Sim {
     /// group its own destination by the magic box (`> Group Destinations (Magic Box)`, `docs/movement.md > 6.4`),
     /// resolved here, at the click, and kept in the unit's order (design change 0030); a Shift-queued one builds the
     /// box where the units' earlier orders leave them (design change 0029). Orders only fill queues here; phase 5a
-    /// starts them.
+    /// starts them. An order given without Shift replaces the unit's, a Build among them refunded, and a Build is paid
+    /// for as it is given (`sim/builds.rs`).
     pub(super) fn give_order(&mut self, units: &[ObjectId], kind: OrderKind, queue: bool) {
         let group = OrderGroup(self.next_group);
         self.next_group = self.next_group.wrapping_add(1);
@@ -73,12 +74,18 @@ impl Sim {
                 vec![None; units.len()]
             }
             OrderKind::Gather(_) | OrderKind::DropOff(_) | OrderKind::Deploy { .. } => vec![None; units.len()],
-            OrderKind::Enter(_) => vec![None; units.len()],
+            OrderKind::Enter(_) | OrderKind::Build { .. } => vec![None; units.len()],
         };
         for (id, slot) in units.iter().zip(slots) {
-            if let Some(orders) = self.objects.get_mut(id).and_then(|o| o.orders.as_mut()) {
-                // A full queue drops the order for this unit only.
-                orders.give(Order { kind, group, slot }, queue);
+            if !queue {
+                self.drop_orders(*id);
+            }
+            let price = self.price_of_order(*id, kind);
+            // A full queue drops the order for this unit only.
+            let given = (self.objects.get_mut(id).and_then(|o| o.orders.as_mut()))
+                .is_some_and(|orders| orders.give(Order { kind, group, slot }, queue));
+            if let (true, Some((player, price))) = (given, price) {
+                self.pay_build(player, price);
             }
         }
     }

@@ -50,7 +50,7 @@ fn a_deploy_goes_to_one_drone_of_the_players() {
     next(&mut t, deploy(&[5, 2, 99], SITE, false));
     assert_eq!(current(&t, 2), Some(OrderKind::Deploy { origin: SITE }));
     assert!(idle(&t, 5));
-    assert_eq!(t.sim().pending_deploys(P1), [(id(2), deploy::site(SITE))]);
+    assert_eq!(pending_deploys(t.sim(), P1), [(id(2), deploy::site(SITE))]);
 }
 
 /// Design change 0120 ("The ghost judges by what the player knows"; the plan's `Mode::Known`): tiles never explored

@@ -269,6 +269,15 @@ pub fn every_command() -> Vec<Command> {
             origin: crate::units::TilePos::new(7, 3),
         },
         OrderKind::Enter(ObjectId(6)),
+        OrderKind::Build {
+            kind: ObjectKind::Tunnel,
+            origin: crate::units::TilePos::new(9, 4),
+            orientation: crate::scenario::BuildingOrientation {
+                rotation: crate::object::Rotation::R90,
+                flip_h: false,
+                flip_v: true,
+            },
+        },
     ];
     let mut commands: Vec<Command> = kinds
         .into_iter()
@@ -403,7 +412,8 @@ pub fn every_command() -> Vec<Command> {
                 | OrderKind::Gather(_)
                 | OrderKind::DropOff(_)
                 | OrderKind::Deploy { .. }
-                | OrderKind::Enter(_) => {}
+                | OrderKind::Enter(_)
+                | OrderKind::Build { .. } => {}
             },
             Command::Ability {
                 ability: Ability::RiotShield { .. } | Ability::SetDropOff(_) | Ability::Convert,

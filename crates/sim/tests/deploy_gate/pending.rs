@@ -4,7 +4,7 @@
 use super::*;
 
 /// Design change 0125, "Lingering build ghosts" (`core/entities.md > Placement Validation`): every Deploy ordered,
-/// current or Shift-queued, is pending until its deployment starts (`Sim::pending_deploys`, derived from the orders),
+/// current or Shift-queued, is pending until its deployment starts (`Sim::pending_builds`, derived from the orders),
 /// and its site is reserved against its owner's further placements: a Deploy (`TileProblem::Reserved`) and a Warp In
 /// alike. A Deploy without Shift replaces the Drone's orders, so its own sites don't count against it; another
 /// player's sites never count. A site is free again once its order is gone. Player 1's Beacon 5 would warp a Robo
@@ -46,10 +46,10 @@ fn pending_deploys_reserve_their_sites_against_their_owners_placements() {
     .step();
     let site = deploy::site;
     assert_eq!(
-        t.sim().pending_deploys(P1),
+        pending_deploys(t.sim(), P1),
         [(id(2), site(s1)), (id(2), site(s2)), (id(4), site(s3))]
     );
-    assert_eq!(t.sim().pending_deploys(P2), []);
+    assert_eq!(pending_deploys(t.sim(), P2), []);
     // Another Drone's sites, current and queued, and a Drone's own with Shift.
     assert_eq!(
         gate(&t, P1, deploy(&[4], at(10, 10), false)),
@@ -99,7 +99,7 @@ fn pending_deploys_reserve_their_sites_against_their_owners_placements() {
     )
     .order_at(tick, P1, &[id(4)], OrderKind::Stop, false)
     .step();
-    assert_eq!(t.sim().pending_deploys(P1), []);
+    assert_eq!(pending_deploys(t.sim(), P1), []);
     assert_eq!(gate(&t, P1, deploy(&[4], at(10, 10), false)), Ok(()));
     assert_eq!(gate(&t, P1, warp_in), Ok(()));
 }
@@ -131,7 +131,7 @@ fn pending_sites_block_no_one() {
     let mut crossed = false;
     while t.pos(4) != goal {
         assert!(t.sim().tick() < 200, "the Peacekeeper gets there");
-        assert_eq!(t.sim().pending_deploys(P1), [(id(2), site)]);
+        assert_eq!(pending_deploys(t.sim(), P1), [(id(2), site)]);
         // A Peacekeeper's box is 24 across.
         crossed |= TilePos::new(30, 8).corner().x < t.pos(4).x + 12.0 && t.pos(4).x - 12.0 < 32.0 * 64.0;
         t.step();

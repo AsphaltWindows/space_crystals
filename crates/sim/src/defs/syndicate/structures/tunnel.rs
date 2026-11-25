@@ -1,7 +1,9 @@
-//! The Tunnel — `factions/syndicate/tunnels.md > Tunnel` — with its tier table and the rules of the Tunnel Network
-//! that its Tunnels make up.
+//! The Tunnel — `factions/syndicate/tunnels.md > Tunnel` — with its tier table, the rules of the Tunnel Network
+//! that its Tunnels make up, and its construction by an Agent.
 
-use crate::defs::structures::{DropOff, StructureDef, SymmetryType, TierDef, Transit, TunnelDef};
+use crate::defs::structures::{
+    BuilderGoes, DropOff, SiteDef, SitePrice, StructureDef, SymmetryType, TierDef, Transit, TunnelDef,
+};
 use crate::defs::{Armor, Category, Footprint, ObjectDef, ObjectKind};
 use crate::player::Faction;
 use crate::sides::SideLetter;
@@ -41,9 +43,26 @@ pub(crate) const TUNNEL_DEF: TunnelDef = TunnelDef {
     regen_per_second: 0.01,
 };
 
+/// The Tunnel's construction on its site by an Agent (`StructureDef::site`, slice M4-E; `> Constructed by - Agent`).
+pub(crate) const TUNNEL_SITE: SiteDef = SiteDef {
+    // `factions/syndicate/tunnels.md > Cost Scaling > Construction Cost`: "Cost = current Tunnels owned (all tiers
+    // count), in Supplies"; "Lingering Tunnel ghosts count as Tunnels owned [...] (likewise a Tunnel under construction
+    // counts)" (design change 0233).
+    price: SitePrice::SuppliesPerOwned,
+    // `factions/syndicate/tunnels.md > Cost Scaling > Construction Time`: "480 frames (30 seconds)".
+    frames: 480,
+    // `factions/syndicate/units/agent.md > Building > Tunnel Construction Flow`: "The Tunnel starts at 10% HP
+    // (ConstructionHP Rule)".
+    start_hp: 0.1,
+    // `factions/syndicate/units/agent.md > Tunnel Construction Flow`: "If construction completes: The Tunnel becomes
+    // operational and the Agent is inside the Tunnel Network".
+    builder_goes: BuilderGoes::Network,
+};
+
 /// `factions/syndicate/tunnels.md > Tunnel`: one type with a tier (plan decision T39; `crate::tunnel`). It blocks,
-/// sees and can be destroyed (slice M4-A), and takes the Agents' Space Crystals at its Side B hatch (slice M4-D). The
-/// network, the Supplies at Side D, its construction and its upgrades come with slices M4-C to M4-I.
+/// sees and can be destroyed (slice M4-A), and takes the Agents' Space Crystals at its Side B hatch (slice M4-D). An
+/// Agent builds it (`> Constructed by - Agent`, slice M4-E: [`TUNNEL_SITE`]). The network, the Supplies at Side D and
+/// its upgrades come with slices M4-C to M4-I.
 pub(crate) static TUNNEL: ObjectDef = ObjectDef {
     kind: ObjectKind::Tunnel,
     name: "Tunnel",
@@ -87,6 +106,7 @@ pub(crate) static TUNNEL: ObjectDef = ObjectDef {
         }),
         underground: false,
         tunnel: Some(TUNNEL_DEF),
+        site: Some(TUNNEL_SITE),
     }),
     default_settings: None,
 };
@@ -154,8 +174,29 @@ mod tests {
             }),
             underground: false,
             tunnel: structure.tunnel,
+            site: structure.site,
         };
         assert_eq!(structure, &expected);
+    }
+
+    /// `factions/syndicate/tunnels.md > Cost Scaling`: its price counts the Tunnels owned, in Supplies, and its
+    /// construction takes "480 frames (30 seconds)"; `factions/syndicate/units/agent.md > Building > Tunnel
+    /// Construction Flow`: it "starts at 10% HP (ConstructionHP Rule)", and the Agent ends up "inside the Tunnel
+    /// Network".
+    #[test]
+    fn an_agent_builds_it_in_480_frames_for_a_supply_per_tunnel() {
+        let site = ObjectKind::Tunnel.def().structure.as_ref().unwrap().site.unwrap();
+        assert_eq!(
+            site,
+            SiteDef {
+                price: SitePrice::SuppliesPerOwned,
+                frames: 480,
+                start_hp: 0.1,
+                builder_goes: BuilderGoes::Network,
+            }
+        );
+        let agent = ObjectKind::Agent.def().unit.as_ref().unwrap().worker.unwrap();
+        assert_eq!(agent.builds, [ObjectKind::Tunnel]);
     }
 
     /// `factions/syndicate/tunnels.md > Tunnel Network > Transit Tier Requirements`: "Tier 1+: Infantry (Light

@@ -59,6 +59,47 @@ pub struct StructureDef {
     /// Tiers`, `factions/syndicate/tunnels.md > Tunnel Network`): an object of a type with one carries its tier
     /// (`Object::tunnel`, `crate::tunnel`). `None` for every other type.
     pub tunnel: Option<TunnelDef>,
+    /// How a worker builds the type on its site (plan decisions T31 and T51, slice M4-E; `core/entities.md >
+    /// Placement Validation > Worker-Built Structures`, `core/entities.md > ConstructionHP Rule`;
+    /// `crate::construction::site`): what an order to build one costs, how long its construction takes, the HP it
+    /// starts at, and where its builder goes as it completes. The units that build it list it in their worker's def
+    /// (`WorkerDef::builds`). `None` for a type no worker builds; the Drone's Beacon is a deployment instead
+    /// (`UnitDef::deploy`, T51). The Tunnel's so far; the Laser Turret's comes with slice S1.
+    pub site: Option<SiteDef>,
+}
+
+/// A worker-built structure type's construction on its site (`StructureDef::site`, plan decisions T31 and T51).
+#[derive(Copy, Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct SiteDef {
+    /// What an order to build one costs.
+    pub price: SitePrice,
+    /// The construction time, ticks: the site completes at the end of its `frames`-th tick.
+    pub frames: u32,
+    /// `core/entities.md > ConstructionHP Rule`: the share of its MaxHP a site starts at, "10%". Its MaxHP grows
+    /// linearly from there to the whole as the construction progresses ("HP during construction = MaxHP x (10% + 90% x
+    /// construction_progress)"), and the damage it takes stays taken (design change 0234).
+    pub start_hp: f32,
+    /// Where the builder goes as the construction completes (plan decision T51).
+    pub builder_goes: BuilderGoes,
+}
+
+/// What an order to build a worker-built structure costs (`SiteDef::price`).
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub enum SitePrice {
+    /// Supplies, one for each structure of the type its owner has: those standing, at any tier, those under
+    /// construction, and the lingering ghosts of the orders to build one (the Tunnel's: `factions/syndicate/tunnels.md >
+    /// Cost Scaling > Construction Cost`, design change 0233). An order that goes without its construction starting,
+    /// and a site cancelled, refund the price as it is once they are gone ("the current construction price, not
+    /// counting itself", `factions/syndicate/tunnels.md > Upgrade Costs`).
+    SuppliesPerOwned,
+}
+
+/// Where a worker-built structure's builder goes as the construction completes (plan decision T51).
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub enum BuilderGoes {
+    /// Into its owner's Tunnel Network: the Tunnel's Agent (`factions/syndicate/units/agent.md > Building > Tunnel
+    /// Construction Flow`: "the Agent is inside the Tunnel Network, available for redeployment from any Tunnel").
+    Network,
 }
 
 /// Where a structure type takes workers' loads (`StructureDef::drop_off`; plan decision T34: "the drop-off rule comes

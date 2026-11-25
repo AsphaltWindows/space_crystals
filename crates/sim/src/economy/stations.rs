@@ -112,6 +112,7 @@ mod tests {
             transform: None,
             conversion: None,
             tunnel: None,
+            construction: None,
         }
     }
 

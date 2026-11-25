@@ -357,8 +357,8 @@ impl PointerDisplay {
     /// gives Hold or Stop.
     pub fn of_order(kind: OrderKind) -> Self {
         match kind {
-            // No click gives a Deploy (slice M3-J1 places it).
-            OrderKind::Move(_) | OrderKind::Deploy { .. } => PointerDisplay::Move,
+            // No click gives a Deploy (slice M3-J1 places it), nor a Build.
+            OrderKind::Move(_) | OrderKind::Deploy { .. } | OrderKind::Build { .. } => PointerDisplay::Move,
             // **Placeholder**: the Enter pointer ("Unit will enter this object") comes with slice M4-J1.
             OrderKind::Enter(_) => PointerDisplay::Move,
             OrderKind::Gather(_) => PointerDisplay::GatherResources,

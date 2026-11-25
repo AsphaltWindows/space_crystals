@@ -19,15 +19,22 @@ pub struct Occupant {
     pub pos: Vec2,
     /// A tile-based object's footprint.
     pub placement: Option<Placement>,
+    /// A Tunnel's tier as the check knows it: its tier (`Object::tunnel`), or a record's tier as last seen (design
+    /// change 0237: "their tier as last seen"), which sets how far its Tunnel Area reaches for the non-overlap rule
+    /// ([`WholeProblem::TunnelAreaOverlap`](super::WholeProblem::TunnelAreaOverlap), slice M4-E). `None` for every
+    /// other object, and for a Tunnel of a map or of a Starting Layout, which counts at the base tier as it starts
+    /// there.
+    pub tier: Option<u8>,
 }
 
 impl Occupant {
-    /// What object `o` is to a placement: its kind, centre and footprint.
+    /// What object `o` is to a placement: its kind, centre, footprint and tier.
     pub fn of(o: &Object) -> Self {
         Self {
             kind: o.kind,
             pos: o.pos,
             placement: o.placement,
+            tier: o.tunnel.as_ref().map(|tunnel| tunnel.tier),
         }
     }
 }

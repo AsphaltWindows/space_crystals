@@ -135,6 +135,7 @@ mod tests {
             transform: None,
             conversion: None,
             tunnel: fresh(kind),
+            construction: None,
         }
     }
 

@@ -42,7 +42,7 @@ fn a_deploy_into_never_explored_ground_is_checked_on_arrival() {
     assert_eq!(problems.tiles, [(at(30, 7), Structure), (at(30, 8), Structure)]);
     assert!(idle(&t, 2));
     assert_eq!(object(&t, 2).kind, Drone);
-    assert!(t.sim().pending_deploys(P1).iter().all(|&(drone, _)| drone != id(2)));
+    assert!(pending_deploys(t.sim(), P1).iter().all(|&(drone, _)| drone != id(2)));
     assert_eq!(failures(&t), [(2, at(29, 7))]);
     outcome(&mut t, 5).expect("it deploys");
     assert_eq!(object(&t, 5).placement, Some(deploy::site(at(24, 12))));

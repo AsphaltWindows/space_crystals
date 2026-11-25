@@ -13,7 +13,8 @@
 //! - [`travel`]: MovingToObject (Follow for a unit), AttackMovingToLocation and Patrolling;
 //! - Move to a point, and Stop, need only the mover's status;
 //! - [`gather`]: a worker's job, the Gather and Drop Off orders of `factions/colonists/units/drone.md`;
-//! - [`deploy`]: a Drone's walk to the site of the Beacon it deploys into (`crate::deploy`);
+//! - [`build`]: a worker's walk to the site of what it builds, a Drone's Beacon (`crate::deploy`) or an Agent's Tunnel
+//!   (`crate::construction::site`);
 //! - [`enter`]: a unit's walk into a Tunnel's entry path (`crate::network`).
 //!
 //! What a unit does by default against a target, a right-click's and a rally point's order, is [`resolution`]'s.
@@ -21,7 +22,7 @@
 //! Their working state ([`state`], the design's BaseBehaviorState) is part of the order, or of the unit while it
 //! has none ([`Orders::auto`]).
 
-mod deploy;
+pub mod build;
 pub(crate) mod destinations;
 mod engage;
 mod enter;
@@ -39,7 +40,9 @@ use std::collections::VecDeque;
 use glam::Vec2;
 use serde::{Deserialize, Serialize};
 
+use crate::defs::ObjectKind;
 use crate::ids::ObjectId;
+use crate::scenario::BuildingOrientation;
 use crate::units::{Tick, TilePos};
 
 pub use reach::{JUDGE_PATHS_PER_TICK, MAX_REJECTED, ReachCounters};
@@ -91,12 +94,23 @@ pub enum OrderKind {
     /// to this drop-off of its owner's, an Egress Node ([`gather`]).
     DropOff(ObjectId),
     /// `factions/colonists/economy.md > Beacon Deployment > Deploy Command`: a Drone walks to the site of a Beacon
-    /// whose footprint's top-left tile is `origin` and deploys into it there (`crate::deploy`, [`deploy`]).
+    /// whose footprint's top-left tile is `origin` and deploys into it there (`crate::deploy`, [`build`]).
     Deploy { origin: TilePos },
     /// `systems/controls/commands.md > Enter`: "The unit walks to Side A and enters the Tunnel Network"
     /// (`factions/syndicate/tunnels.md > Tunnel Network > Walking in`; [`enter`], `crate::network`): this Tunnel of its
     /// owner's, through its entry path.
     Enter(ObjectId),
+    /// `core/entities.md > Placement Validation > Worker-Built Structures` (plan decision T51, slice M4-E): a worker
+    /// walks to the site of a structure of `kind` whose footprint's top-left tile is `origin`, turned by `orientation`,
+    /// and builds it there (`crate::construction::site`, [`build`]): an Agent's Tunnel
+    /// (`factions/syndicate/units/agent.md > Building > Tunnel Construction Flow`). Its price is paid when it is given
+    /// (`factions/syndicate/tunnels.md > Cost Scaling > Construction Cost`, design change 0233).
+    Build {
+        kind: ObjectKind,
+        origin: TilePos,
+        #[serde(default, skip_serializing_if = "BuildingOrientation::is_default")]
+        orientation: BuildingOrientation,
+    },
 }
 
 impl OrderKind {
@@ -109,7 +123,7 @@ impl OrderKind {
             | OrderKind::DropOff(id)
             | OrderKind::Enter(id) => Some(id),
             OrderKind::Move(Target::Point(_)) | OrderKind::AttackMove(_) | OrderKind::Patrol(_) => None,
-            OrderKind::Hold | OrderKind::Stop | OrderKind::Deploy { .. } => None,
+            OrderKind::Hold | OrderKind::Stop | OrderKind::Deploy { .. } | OrderKind::Build { .. } => None,
         }
     }
 }
@@ -134,7 +148,7 @@ impl Order {
             }
             OrderKind::Move(Target::Object(_)) | OrderKind::Attack(_) | OrderKind::Hold | OrderKind::Stop => None,
             OrderKind::Gather(_) | OrderKind::DropOff(_) | OrderKind::Deploy { .. } => None,
-            OrderKind::Enter(_) => None,
+            OrderKind::Enter(_) | OrderKind::Build { .. } => None,
         }
     }
 

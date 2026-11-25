@@ -49,6 +49,7 @@ pub(crate) static BIO_PORTAL: ObjectDef = ObjectDef {
         drop_off: None,
         underground: false,
         tunnel: None,
+        site: None,
     }),
     default_settings: None,
 };

@@ -143,8 +143,8 @@ impl Plugin for IndicatorsPlugin {
 pub fn order_color(kind: OrderKind) -> Option<Color> {
     match kind {
         // `> Indicator assignments` has no row for a Deploy: placeholder, it shows as a Move to its site's centre
-        // beside its ghost (slice M3-J1).
-        OrderKind::Move(_) | OrderKind::Deploy { .. } => Some(MOVE_COLOR),
+        // beside its ghost (slice M3-J1); a Build too (slice M4-E).
+        OrderKind::Move(_) | OrderKind::Deploy { .. } | OrderKind::Build { .. } => Some(MOVE_COLOR),
         // `> Indicator assignments`: "Enter | Object | Green", the Move's green (slice M4-C; its look is M4-J1's).
         OrderKind::Enter(_) => Some(MOVE_COLOR),
         // Design change 0201: the gathering markers' own colours.
@@ -183,6 +183,10 @@ pub fn indicator(sim: &Sim, sight: &Sight, kind: OrderKind) -> Option<Indicator>
         }),
         OrderKind::Deploy { origin } => Some(Indicator::Location {
             at: sc_sim::deploy::site(origin).center(),
+            color,
+        }),
+        OrderKind::Build { .. } => Some(Indicator::Location {
+            at: sc_sim::orders::build::build_site(kind)?.1.center(),
             color,
         }),
         OrderKind::Hold | OrderKind::Stop => None,

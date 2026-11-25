@@ -9,6 +9,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::combat::AttackState;
 use crate::construction::Constructor;
+use crate::construction::site::Construction;
 use crate::conversion::Conversion;
 use crate::defs::{Footprint, ObjectDef, ObjectKind};
 use crate::economy::{Extractor, Worker};
@@ -93,6 +94,13 @@ pub struct Object {
     /// `None`, so that states saved before it existed still load.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub tunnel: Option<TunnelState>,
+    /// A site, a structure under construction on its site: its progress and the unit that builds it
+    /// (`factions/syndicate/units/agent.md > Building > Tunnel Construction Flow`, plan decision T31, slice M4-E;
+    /// `construction::site`, which also gives its maximum HP by the ConstructionHP Rule, `Object::max_hp`). `None` for
+    /// everything else. Optional in files, and left out of them while `None`, so that states saved before it existed
+    /// still load and those without a site are as they were.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub construction: Option<Construction>,
 }
 
 impl Object {

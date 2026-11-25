@@ -231,4 +231,55 @@ pub enum SimEvent {
         unit: ObjectId,
         target: ObjectId,
     },
+    /// `worker`'s Build of a `kind` at `origin`, turned by `orientation`, failed at the end of its walk
+    /// (`core/entities.md > Placement Validation > Worker-Built Structures`: "validates on arrival"; `sim/builds.rs`,
+    /// slice M4-E): `problems` is what the check on arrival found on the truth (a unit on the site, an enemy Tunnel's
+    /// area upgraded unseen, undrillable ground never explored), empty if the worker stopped short of the footprint.
+    /// The order ends and the worker idles, its queued orders going on; a [`SimEvent::BuildRefunded`] follows.
+    BuildFailed {
+        worker: ObjectId,
+        kind: ObjectKind,
+        origin: TilePos,
+        orientation: BuildingOrientation,
+        problems: PlacementCheck,
+    },
+    /// A Build order of `worker`'s for a `kind` went before its site started, and its owner got `refund` Supplies
+    /// back, the current top price (`factions/syndicate/tunnels.md > Cost Scaling > Construction Cost`, design change
+    /// 0233; `sim/builds.rs`): replaced by a new order, failed on arrival, or gone with its worker (which may have left
+    /// the game).
+    BuildRefunded {
+        worker: ObjectId,
+        kind: ObjectKind,
+        refund: u32,
+    },
+    /// `worker` got to its site and went inside `site`, which came into the game under construction
+    /// (`factions/syndicate/units/agent.md > Building > Tunnel Construction Flow`: "the partially-built Tunnel appears
+    /// at the location with the Agent inside it"; `sim/sites.rs`). The worker keeps its id and is held off the map
+    /// (`network::Place::Site`): no `Removed` follows. A `Spawned` comes with the site.
+    SiteStarted {
+        worker: ObjectId,
+        site: ObjectId,
+    },
+    /// `site` is complete, a structure in operation from now on, and `worker`, which built it, is in its owner's
+    /// Tunnel Network (`factions/syndicate/units/agent.md > Building > Tunnel Construction Flow`: "If construction
+    /// completes").
+    SiteCompleted {
+        site: ObjectId,
+        worker: ObjectId,
+    },
+    /// `site`, a `kind` under construction, was cancelled (`ConstructionCommand::CancelConstruction`), and its owner
+    /// got `refund` Supplies back, the current top price (design change 0233). It left the game (`Removed`), and its
+    /// worker came out ([`SimEvent::LeftSite`]).
+    SiteCancelled {
+        site: ObjectId,
+        kind: ObjectKind,
+        refund: u32,
+    },
+    /// `worker` came out of `site`, which left the game while under construction (cancelled or destroyed), at the
+    /// centre of its footprint (design change 0234: "Where the Agent comes out on cancel or destruction"), and is among
+    /// the sim's objects again, with the id it had, idle. No `Spawned` comes with it.
+    LeftSite {
+        worker: ObjectId,
+        site: ObjectId,
+    },
 }

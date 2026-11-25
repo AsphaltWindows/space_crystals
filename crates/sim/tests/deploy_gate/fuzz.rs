@@ -188,7 +188,7 @@ fn deploy_fuzz(seed: u64) -> (Counts, Vec<u64>, Replay) {
             assert!(o.orders.is_none() && o.mover.is_none() && o.worker.is_none() && o.production.is_none());
         }
         for player in [P1, P2] {
-            for (drone, _) in sim.pending_deploys(player) {
+            for (drone, _) in pending_deploys(sim, player) {
                 let o = sim.object(drone).expect("a pending Deploy's Drone exists");
                 assert_eq!((o.kind, o.owner), (Drone, Some(player)));
             }

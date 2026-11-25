@@ -12,7 +12,7 @@ use crate::construction::{self, ConstructionCommand, Constructor};
 use crate::defs::ObjectKind;
 use crate::events::SimEvent;
 use crate::ids::{ObjectId, PlayerId};
-use crate::object::Placement;
+use crate::object::{Object, Placement};
 use crate::placement::footprint_size;
 use crate::scenario::BuildingOrientation;
 use crate::transform;
@@ -26,8 +26,11 @@ pub(super) enum Resolved {
         constructors: Vec<ObjectId>,
     },
     /// Each of `constructors` cancels its construction or its ready building, with the refund that goes with it and
-    /// its `SimEvent::ConstructionCancelled`.
-    Cancel { constructors: Vec<ObjectId> },
+    /// its `SimEvent::ConstructionCancelled`; then each of `sites` is cancelled (`sim/sites.rs`).
+    Cancel {
+        constructors: Vec<ObjectId>,
+        sites: Vec<ObjectId>,
+    },
     /// `constructor` places its ready `kind` at `placement`, centred on `pos`.
     Place {
         constructor: ObjectId,
@@ -54,7 +57,9 @@ impl Sim {
     /// - **Construct**: each constructor, in id order, that has the building on its list, is idle and can pay for it
     ///   from what the bank holds once the constructors before it paid; if none can, the first one's reason
     ///   ([`Reject::CannotConstruct`], [`Reject::ConstructorBusy`], [`Reject::InsufficientCrystals`]);
-    /// - **Cancel Construction**: each one constructing, else [`Reject::NotConstructing`];
+    /// - **Cancel Construction**: each one constructing, and each of the player's sites among `objects` (`sim/sites.rs`,
+    ///   slice M4-E; design change 0234: a site's "only command is X Cancel Construction"); with no site, as without
+    ///   them: [`Reject::NotConstructing`] if no constructor is constructing;
     /// - **Cancel Ready Building**: each one holding a building ready, else [`Reject::NothingReady`];
     /// - **Place**: one constructor ([`Reject::SeveralConstructors`]) holding a building ready
     ///   ([`Reject::NothingReady`]), which the placement check allows there now ([`Sim::placement_check`]: else
@@ -69,16 +74,10 @@ impl Sim {
     ) -> Result<Checked, Reject> {
         let resolved = match command {
             ConstructionCommand::Construct(kind) => self.check_construct(player, objects, kind)?,
-            ConstructionCommand::CancelConstruction => Resolved::Cancel {
-                constructors: self.constructors_that(
-                    player,
-                    objects,
-                    |c| c.current().is_some(),
-                    Reject::NotConstructing,
-                )?,
-            },
+            ConstructionCommand::CancelConstruction => self.check_cancel_construction(player, objects)?,
             ConstructionCommand::CancelReady => Resolved::Cancel {
                 constructors: self.constructors_that(player, objects, |c| c.ready().is_some(), Reject::NothingReady)?,
+                sites: Vec::new(),
             },
             ConstructionCommand::Place { origin, orientation } => {
                 self.check_place(player, objects, origin, orientation)?
@@ -123,6 +122,20 @@ impl Sim {
             return Err(none);
         }
         Ok(kept)
+    }
+
+    /// Cancel Construction: the constructors constructing among `objects`, and the player's sites among them.
+    fn check_cancel_construction(&self, player: PlayerId, objects: &[ObjectId]) -> Result<Resolved, Reject> {
+        let sites = self.own_units(player, objects, Object::is_site)?;
+        let constructing = self.constructors_that(player, objects, |c| c.current().is_some(), Reject::NotConstructing);
+        match constructing {
+            Ok(constructors) => Ok(Resolved::Cancel { constructors, sites }),
+            Err(_) if !sites.is_empty() => Ok(Resolved::Cancel {
+                constructors: Vec::new(),
+                sites,
+            }),
+            Err(reject) => Err(reject),
+        }
     }
 
     /// Construct `kind` (plan decision T7: the bank is checked as the command applies, per constructor in id order).
@@ -218,9 +231,12 @@ impl Sim {
                     }
                 }
             }
-            Resolved::Cancel { constructors } => {
+            Resolved::Cancel { constructors, sites } => {
                 for id in constructors {
                     self.cancel_construction(id);
+                }
+                for site in sites {
+                    self.cancel_site(site);
                 }
             }
             Resolved::Place {

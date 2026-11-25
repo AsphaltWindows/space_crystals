@@ -300,6 +300,7 @@ mod tests {
             transform: None,
             conversion: None,
             tunnel: crate::tunnel::fresh(kind),
+            construction: None,
         }
     }
 

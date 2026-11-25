@@ -113,7 +113,8 @@ impl Sim {
         .with_knowledge(&self.path_knowledge, self.nav_version);
         orders::update(&mut self.objects, first_new, &world, &mut reach);
         self.nav.put_reach(reach);
-        // The Drones that got to their sites in 5a deploy, or their orders fail; before 5b claims the footprints.
+        // The workers that got to their sites in 5a deploy or start their sites, or their orders fail
+        // (`sim/builds.rs`); before 5b claims the footprints.
         self.step_deployments(first_new);
         // The units that walked into a Tunnel's entry path in 5a leave the map for the network, and the Enter orders
         // that can't go on end (`sim/network.rs`). Here, as the deployments: before 5b to 5f, so that no grid,
@@ -186,6 +187,9 @@ impl Sim {
         // The transformations (slice M3-E, `crate::transform`), part of the economy phase after construction (plan
         // decision T5's position): here, because completing one turns its functions on from the sim's objects.
         self.step_transforms(first_new);
+        // The sites (`sim/sites.rs`), beside the transformations and for the same reason: a site completed in the tick
+        // is a Tunnel in operation for what follows (its Agent in the network, for the network's step).
+        self.step_sites(first_new);
         // The producers (slice M2-D2), part of the economy phase: here, not inside `economy::step`, because a
         // finished unit is inserted into the game. Before 5f, so that it is seen in its own tick.
         self.step_production(first_new);

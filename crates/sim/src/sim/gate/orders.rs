@@ -69,6 +69,12 @@ impl Sim {
             // `systems/controls/commands.md > Enter` (`sim/network.rs`): the units the Tunnel's tier lets in take
             // it, the others ignore it.
             OrderKind::Enter(tunnel) => ordered = self.check_enter(player, ordered, tunnel)?,
+            // `core/entities.md > Worker-Built Structures` (`sim/builds.rs`): one worker takes it, and pays for it.
+            OrderKind::Build {
+                kind,
+                origin,
+                orientation,
+            } => ordered = self.check_build(ordered, (kind, origin, orientation), queue)?,
         }
         Ok(Checked::Order {
             units: ordered,

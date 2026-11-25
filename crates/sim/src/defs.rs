@@ -32,7 +32,8 @@ pub use gdo::units::peacekeeper::RIOT_SHIELD_TOGGLE_TICKS;
 pub use map::crystal_patch::DEFAULT_STARTING_AMOUNT;
 pub use map::supply_delivery_station::{DEFAULT_DELIVERY_INTERVAL, DEFAULT_DELIVERY_SIZE, DEFAULT_STARTING_SUPPLIES};
 pub use structures::{
-    DropOff, ExitRule, MiningDef, ProductionDef, Recipe, StructureDef, SymmetryType, TierDef, Transit, TunnelDef,
+    BuilderGoes, DropOff, ExitRule, MiningDef, ProductionDef, Recipe, SiteDef, SitePrice, StructureDef, SymmetryType,
+    TierDef, Transit, TunnelDef,
 };
 pub use syndicate::structures::tunnel::TRANSIT_DELAY_TICKS;
 pub use syndicate::{CELLS_PER_TUNNEL_SPACE, TUNNEL_SPACE_CAP};

@@ -288,6 +288,7 @@ fn laid(kind: ObjectKind, x: i32, y: i32) -> Occupant {
         kind,
         pos: placement.center(),
         placement: Some(placement),
+        tier: None,
     }
 }
 
@@ -297,6 +298,7 @@ fn unit_at(kind: ObjectKind, pos: Vec2) -> Occupant {
         kind,
         pos,
         placement: None,
+        tier: None,
     }
 }
 

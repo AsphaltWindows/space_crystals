@@ -15,15 +15,18 @@
 //! ([`Method::WarpIn`], slice M3-E; `core/entities.md > Placement Validation > Warp In`) has the same tile rules,
 //! sight included (design change 0119), none but sight on the tiles of the Beacon it consumes, and no build area;
 //! its footprint is derived from the Beacon (`crate::transform::warp_in_footprint`, design change 0121), and a game
-//! asks [`Sim::warp_in_check`]. A worker-built structure ([`Method::WorkerBuilt`], slice M3-F: a Drone deploying a
-//! Beacon, `crate::deploy`; `core/entities.md > Worker-Built Structures`) has the same tile rules and no build area;
-//! its order and its ghost are checked on what the player knows ([`Mode::Known`], design change 0120: never-explored
-//! tiles pass, units hidden in the fog don't count), a game asking [`Sim::deploy_check`], and the worker checks its
-//! site again on arrival, on the truth ([`Mode::Arrival`]).
+//! asks [`Sim::warp_in_check`]. A worker-built structure ([`Method::WorkerBuilt`]: a Drone deploying a Beacon, slice
+//! M3-F, `crate::deploy`; an Agent building a Tunnel, slice M4-E, `crate::construction::site`; `core/entities.md >
+//! Worker-Built Structures`) has the same tile rules and no build area; its order and its ghost are checked on what
+//! the player knows ([`Mode::Known`], design change 0120: never-explored tiles pass, units hidden in the fog don't
+//! count, and the structures out of sight are as last seen), a game asking [`Sim::deploy_check`] or
+//! [`Sim::build_check`], and the worker checks its site again on arrival, on the truth ([`Mode::Arrival`]).
 //!
 //! **Reservations** (`core/entities.md > Lingering build ghosts`, design change 0125): a player's pending worker builds
-//! reserve their sites against that player's further placements, a Deploy's and a Warp In's ([`check_reserving`],
-//! [`TileProblem::Reserved`]). Another player's never matter, and units walk over them.
+//! ([`Sim::pending_builds`]) reserve their sites against that player's further placements, a Deploy's, a Build's and
+//! a Warp In's ([`check_reserving`], [`TileProblem::Reserved`]); a Tunnel's whole Tier 1 area too, against a further
+//! Tunnel's (Placeholder: Q0079 point 2, [`WholeProblem::TunnelAreaOverlap`]). Another player's never matter, and
+//! units walk over them.
 //!
 //! **The rules**, in the order the problems are listed:
 //! - each footprint tile: on the map; Buildable (`core/map.md > TilePreset`); flat (`core/map.md > Elevation >
@@ -45,11 +48,16 @@
 //!   tier table), its whole Tier 1 Tunnel Area on the map and Drillable (slice M4-B; `factions/syndicate/tunnels.md >
 //!   Tunnel Area Non-Overlap Rule > Drillable area`, design change 0242: [`WholeProblem::TunnelAreaOffMap`],
 //!   [`WholeProblem::TunnelAreaNotDrillable`]), in every mode, [`Mode::Known`] counting only the undrillable ground
-//!   the player explored (`placement/tunnel_area.rs`). Map and debug spawns don't take the check, so they are exempt.
+//!   the player explored (`placement/tunnel_area.rs`); and that area overlapping no other Tunnel's area at its tier,
+//!   whoever owns it, a site included (slice M4-E; `factions/syndicate/tunnels.md > Tunnel Area Non-Overlap Rule`,
+//!   design change 0237: [`WholeProblem::TunnelAreaOverlap`], `placement/tunnel_overlap.rs`), [`Mode::Known`] judging
+//!   other players' Tunnels by what the player knows of them. Map and debug spawns don't take the check, so they are
+//!   exempt.
 //!
 //! **The files**: [`Site`], [`Mode`], [`Method`] and [`Occupant`] in `site.rs`; the problems in `problems.rs`; the
-//! check in `check.rs`, its footprint's tiles in `footprint.rs`; the Tunnel Area's rules in `tunnel_area.rs`, on the
-//! geometry of `crate::tunnel::area`; the build area in `build_area.rs` and [`Onto`] in `onto.rs`.
+//! check in `check.rs`, its footprint's tiles in `footprint.rs`; the Tunnel Area's rules in `tunnel_area.rs` and
+//! `tunnel_overlap.rs`, on the geometry of `crate::tunnel::area`; the build area in `build_area.rs` and [`Onto`] in
+//! `onto.rs`.
 //!
 //! **The build area** ([`BuildArea`], [`Sim::build_area`]): the union of the parts each of the player's GDO
 //! buildings adds, its footprint grown by its BuildRadiusExtension, square (design change 0091). It is derived from
@@ -75,6 +83,7 @@ mod site;
 #[cfg(test)]
 mod tests;
 mod tunnel_area;
+mod tunnel_overlap;
 
 pub use build_area::{BuildArea, seeds_build_area};
 pub use check::{check, check_layout, check_reserving, footprint_size};
@@ -82,10 +91,11 @@ pub use onto::Onto;
 pub use problems::{PlacementCheck, PlacementProblem, TileProblem, WholeProblem};
 pub use site::{Method, Mode, Occupant, Site};
 
+use crate::construction::site::builds;
 use crate::defs::ObjectKind;
 use crate::deploy;
 use crate::ids::{ObjectId, PlayerId};
-use crate::object::Placement;
+use crate::object::Object;
 use crate::scenario::BuildingOrientation;
 use crate::sim::Sim;
 use crate::transform::warp_in_footprint;
@@ -125,7 +135,8 @@ impl Sim {
     /// [`Mode::Command`] (slice M3-E): every object as it is now but the Beacon, whose tiles the building takes over,
     /// and the sight of the Beacon's owner as the latest tick left it (design change 0119: "every footprint tile must
     /// be Visible to the player"), with no build area. The sites of the owner's pending Deploys are reserved
-    /// ([`check_reserving`], design change 0125). The command gate asks it when a `ConstructionCommand::WarpIn`
+    /// ([`check_reserving`], design change 0125), as are those of its pending Builds. The command gate asks it when a
+    /// `ConstructionCommand::WarpIn`
     /// applies, and the Warp In ghost can ask it every frame (slice M3-J1). Whether the Beacon may warp in a `kind` at
     /// all (its Constructs List, the bank) is the gate's. `None` if `beacon` is no object of a player's with a
     /// footprint.
@@ -156,17 +167,52 @@ impl Sim {
 
     /// `core/entities.md > Placement Validation > Worker-Built Structures` for a Deploy (slice M3-F, `crate::deploy`):
     /// everything that keeps the Drone `drone` from being ordered to deploy into a Beacon whose footprint's top-left
-    /// tile is `origin`, as far as its owner knows ([`check_reserving`] with [`Method::WorkerBuilt`] in
-    /// [`Mode::Known`]; design change 0120: "it is green if, as far as the player knows, nothing blocks the
-    /// footprint"). The occupants are the owner's objects, the others it sees, and its records of the structures and
-    /// resources out of its sight (`Sim::known_occupants`), the Drone left out (design change 0118), on the owner's
-    /// sight as the latest tick left it. The sites of the owner's pending Deploys are reserved (design change 0125),
-    /// those of `drone`'s own orders but for a Deploy `queued` with Shift: without, the new order replaces them. The
-    /// command gate asks it when the order applies, and the Deploy ghost can ask it every frame (slice M3-J1). `None` if
-    /// `drone` is no unit of a player's that deploys.
+    /// tile is `origin`, as far as its owner knows ([`Sim::worker_check`]). The command gate asks it when the order
+    /// applies, and the Deploy ghost can ask it every frame (slice M3-J1). `None` if `drone` is no unit of a player's
+    /// that deploys.
     pub fn deploy_check(&self, drone: ObjectId, origin: TilePos, queued: bool) -> Option<PlacementCheck> {
         let o = self.object(drone).filter(|o| deploy::deploys(o.kind))?;
-        let player = o.owner?;
+        let beacon = deploy::BEACON_DEPLOYMENT.kind;
+        self.worker_check(o, beacon, origin, BuildingOrientation::default(), queued)
+    }
+
+    /// `core/entities.md > Placement Validation > Worker-Built Structures` for a Build (slice M4-E, plan decision T51):
+    /// everything that keeps `worker` from being ordered to build a structure of `kind` with the top-left tile of its
+    /// footprint at `origin`, turned by `orientation`, as far as its owner knows ([`Sim::worker_check`]): for a
+    /// Tunnel, its Tier 1 area on the map and Drillable where the owner explored (design change 0242), clear of every
+    /// Tunnel's area as the owner knows it, at its tier as last seen (0237: "The ghost judges enemy Tunnels by what the
+    /// player knows"), and clear of the areas of the owner's other lingering Tunnel ghosts (Placeholder: Q0079 point
+    /// 2). The command gate asks it when the order applies, and the ghost can ask it every frame. `None` if `worker` is
+    /// no unit of a player's that builds `kind` ([`builds`]).
+    pub fn build_check(
+        &self,
+        worker: ObjectId,
+        kind: ObjectKind,
+        origin: TilePos,
+        orientation: BuildingOrientation,
+        queued: bool,
+    ) -> Option<PlacementCheck> {
+        let o = self.object(worker).filter(|o| builds(o.kind, kind))?;
+        self.worker_check(o, kind, origin, orientation, queued)
+    }
+
+    /// The check of a worker build's order, worker `o` building a `kind` at `origin` turned by `orientation`, as far as
+    /// its owner knows ([`check_reserving`] with [`Method::WorkerBuilt`] in [`Mode::Known`]; design change 0120: "it
+    /// is green if, as far as the player knows, nothing blocks the footprint"). The occupants are the owner's
+    /// objects, the others it sees, and its records of the structures and resources out of its sight
+    /// (`Sim::known_occupants`), the worker left out (design change 0118), on the owner's sight as the latest tick
+    /// left it. The sites of the owner's pending worker builds are reserved (design change 0125), those of `o`'s own
+    /// orders but for an order `queued` with Shift: without, the new order replaces them. `None` for an object
+    /// without an owner.
+    fn worker_check(
+        &self,
+        o: &Object,
+        kind: ObjectKind,
+        origin: TilePos,
+        orientation: BuildingOrientation,
+        queued: bool,
+    ) -> Option<PlacementCheck> {
+        let (worker, player) = (o.id, o.owner?);
         let area = BuildArea::default();
         let site = Site {
             map: self.map(),
@@ -177,16 +223,15 @@ impl Sim {
             },
             method: Method::WorkerBuilt,
         };
-        let others = self.known_occupants(player).filter(|&(id, _)| id != Some(drone));
-        let reserved = self.reserved_sites(player, (!queued).then_some(drone));
-        let beacon = deploy::BEACON_DEPLOYMENT.kind;
+        let others = self.known_occupants(player).filter(|&(id, _)| id != Some(worker));
+        let reserved = self.reserved_sites(player, (!queued).then_some(worker));
         Some(check_reserving(
             &site,
             others.map(|(_, occupant)| occupant),
             &reserved,
-            beacon,
+            kind,
             origin,
-            BuildingOrientation::default(),
+            orientation,
         ))
     }
 
@@ -209,19 +254,26 @@ impl Sim {
                     kind: record.kind,
                     pos: record.pos(),
                     placement: Some(record.placement),
+                    tier: record.tunnel.as_ref().map(|tunnel| tunnel.tier),
                 };
                 (None, occupant)
             });
         seen.chain(remembered)
     }
 
-    /// The footprints `player`'s pending Deploys reserve ([`Sim::pending_deploys`], design change 0125), but those of
-    /// `except`'s orders.
-    fn reserved_sites(&self, player: PlayerId, except: Option<ObjectId>) -> Vec<Placement> {
-        self.pending_deploys(player)
+    /// The sites `player`'s pending worker builds reserve ([`Sim::pending_builds`], design change 0125), but those of
+    /// `except`'s orders: each the structure it will be, on its footprint, a Tunnel at the tier it starts at
+    /// ([`check_reserving`]).
+    fn reserved_sites(&self, player: PlayerId, except: Option<ObjectId>) -> Vec<Occupant> {
+        self.pending_builds(player)
             .into_iter()
-            .filter(|&(drone, _)| Some(drone) != except)
-            .map(|(_, site)| site)
+            .filter(|pending| Some(pending.worker) != except)
+            .map(|pending| Occupant {
+                kind: pending.kind,
+                pos: pending.site.center(),
+                placement: Some(pending.site),
+                tier: None,
+            })
             .collect()
     }
 

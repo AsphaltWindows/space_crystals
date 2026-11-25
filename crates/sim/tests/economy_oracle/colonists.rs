@@ -129,7 +129,7 @@ impl Counts {
         let own = |kind| sim.objects().filter(|o| o.owner == Some(P1) && o.kind == kind).count() as u32;
         Self {
             drones: own(Drone),
-            walking: sim.pending_deploys(P1).len() as u32,
+            walking: sim.pending_builds(P1).len() as u32,
             beacons: own(Beacon),
         }
     }

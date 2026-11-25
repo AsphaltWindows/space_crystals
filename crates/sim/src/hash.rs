@@ -309,6 +309,7 @@ impl StateHash for Object {
             transform,
             conversion,
             tunnel,
+            construction,
         } = self;
         id.hash(h);
         kind.hash(h);
@@ -339,6 +340,11 @@ impl StateHash for Object {
         if let Some(tunnel) = tunnel {
             h.tag(1);
             tunnel.hash(h);
+        }
+        // (M4-E) The same for a site (`construction/site.rs`), under a tag of its own.
+        if let Some(construction) = construction {
+            h.tag(2);
+            construction.hash(h);
         }
     }
 }

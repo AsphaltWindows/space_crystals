@@ -185,6 +185,7 @@ impl Sim {
             transform: _,
             conversion: _,
             tunnel: tunnel_state,
+            construction: _,
         } = o;
         *object_kind = kind;
         if let Some(placement) = &placement {

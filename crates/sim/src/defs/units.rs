@@ -275,6 +275,12 @@ pub struct WorkerDef {
     /// (`orders::gather::on_gather_job`, `movement::space::blocks`). "Drones only": the workers of the other
     /// factions keep normal collision while they mine.
     pub pass_through: bool,
+    /// The structures it builds on their sites with a Build order (`core/entities.md > Placement Validation >
+    /// Worker-Built Structures`, plan decision T51; `OrderKind::Build`, `crate::construction::site`), each of a type
+    /// with a `StructureDef::site`: the Agent's Tunnel (`factions/syndicate/units/agent.md > Building`, slice M4-E).
+    /// Empty for a worker that builds nothing so: the Drone deploys instead (`UnitDef::deploy`).
+    #[serde(deserialize_with = "super::leak::slice")]
+    pub builds: &'static [ObjectKind],
 }
 
 impl WorkerDef {

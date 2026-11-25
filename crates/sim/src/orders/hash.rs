@@ -2,6 +2,7 @@
 
 use super::{ActiveOrder, Order, OrderGroup, OrderKind, Orders, Target};
 use crate::hash::{StateHash, StateHasher};
+use crate::scenario::BuildingOrientation;
 
 impl StateHash for OrderGroup {
     fn hash(&self, h: &mut StateHasher) {
@@ -60,6 +61,23 @@ impl StateHash for OrderKind {
             OrderKind::Enter(id) => {
                 h.tag(9);
                 id.hash(h);
+            }
+            OrderKind::Build {
+                kind,
+                origin,
+                orientation,
+            } => {
+                h.tag(10);
+                kind.hash(h);
+                origin.hash(h);
+                let BuildingOrientation {
+                    rotation,
+                    flip_h,
+                    flip_v,
+                } = orientation;
+                rotation.hash(h);
+                flip_h.hash(h);
+                flip_v.hash(h);
             }
         }
     }

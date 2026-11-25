@@ -244,11 +244,12 @@ impl Gather {
     }
 }
 
-/// The state of a Deploy order (`orders::deploy`, `crate::deploy`).
+/// The state of a worker's walk to its site (`orders::build`): a Deploy order's (`crate::deploy`) and a Build order's
+/// (`crate::construction::site`).
 #[derive(Copy, Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
-pub struct Deploy {
-    /// The Drone's walk to its site is over (design change 0117): the step right after phase 5a starts its deployment
-    /// or fails the order (`Sim::step_deployments`).
+pub struct SiteWalk {
+    /// The worker's walk to its site is over (design change 0117): the step right after phase 5a starts its deployment
+    /// or its site, or fails the order (`Sim::step_deployments`).
     pub arrived: bool,
 }
 
@@ -277,9 +278,11 @@ pub enum Behaviour {
     /// A worker's job, for a Gather and a Drop Off order alike (`factions/colonists/units/drone.md > Gathering`).
     Gather(Gather),
     /// A Drone on its way to deploy (`factions/colonists/economy.md > Beacon Deployment > Deploy Command`).
-    Deploy(Deploy),
+    Deploy(SiteWalk),
     /// A unit on its way into a Tunnel (`systems/controls/commands.md > Enter`).
     Enter(Enter),
+    /// A worker on its way to build (`core/entities.md > Placement Validation > Worker-Built Structures`, slice M4-E).
+    Build(SiteWalk),
 }
 
 impl Leg {
@@ -316,7 +319,7 @@ impl Behaviour {
             Behaviour::Patrol(patrol) => patrol.leg.targets().collect(),
             Behaviour::Hold { target } => target.iter().copied().collect(),
             Behaviour::Gather(gather) => gather.node.iter().copied().collect(),
-            Behaviour::Deploy(_) | Behaviour::Enter(_) => Vec::new(),
+            Behaviour::Deploy(_) | Behaviour::Enter(_) | Behaviour::Build(_) => Vec::new(),
         }
     }
 
@@ -325,7 +328,7 @@ impl Behaviour {
     pub(crate) fn forget(&mut self, is_gone: &impl Fn(ObjectId) -> bool) {
         match self {
             Behaviour::Plain | Behaviour::Attack(_) | Behaviour::Approach(_) | Behaviour::Deploy(_) => {}
-            Behaviour::Enter(_) => {}
+            Behaviour::Enter(_) | Behaviour::Build(_) => {}
             Behaviour::AttackMove(leg) => leg.forget(is_gone),
             Behaviour::Patrol(patrol) => patrol.leg.forget(is_gone),
             Behaviour::Hold { target } => {

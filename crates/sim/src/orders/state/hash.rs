@@ -245,13 +245,17 @@ impl StateHash for Behaviour {
                 h.tag(6);
                 gather.hash(h);
             }
-            Behaviour::Deploy(Deploy { arrived }) => {
+            Behaviour::Deploy(SiteWalk { arrived }) => {
                 h.tag(7);
                 arrived.hash(h);
             }
             Behaviour::Enter(Enter { walked }) => {
                 h.tag(8);
                 walked.hash(h);
+            }
+            Behaviour::Build(SiteWalk { arrived }) => {
+                h.tag(9);
+                arrived.hash(h);
             }
         }
     }

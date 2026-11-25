@@ -59,6 +59,7 @@ fn insert_unit(sim: &mut Sim, pos: Vec2) -> ObjectId {
         transform: None,
         conversion: None,
         tunnel: None,
+        construction: None,
     };
     sim.objects.insert(id, unit);
     id

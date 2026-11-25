@@ -68,6 +68,16 @@ fn tiles_under_ground_units() {
     );
 }
 
+/// A pending Deploy's site, as a game reserves it (`Sim::pending_builds`): the Beacon it will be, on its footprint.
+fn reserved_beacon(site: Placement) -> Occupant {
+    Occupant {
+        kind: ObjectKind::Beacon,
+        pos: site.center(),
+        placement: Some(site),
+        tier: None,
+    }
+}
+
 /// Design change 0125 (`core/entities.md > Lingering build ghosts`): the tiles of the sites the placing player has
 /// reserved are `Reserved`, in their place among the other problems; a site only touching the footprint reserves none
 /// of it.
@@ -80,7 +90,7 @@ fn tiles_under_reserved_sites() {
         mode: Mode::Layout,
         method: Method::WorkerBuilt,
     };
-    let beacon = |x, y| Placement::new(t(x, y), ObjectKind::Beacon.def().footprint);
+    let beacon = |x, y| reserved_beacon(Placement::new(t(x, y), ObjectKind::Beacon.def().footprint));
     let reserved = [beacon(5, 5), beacon(2, 4)];
     let unturned = BuildingOrientation::default();
     let check = check_reserving(
@@ -119,7 +129,10 @@ fn never_explored_tiles_pass_but_reservations() {
         method: Method::WorkerBuilt,
     };
     let unturned = BuildingOrientation::default();
-    let reserved = [Placement::new(t(20, 5), ObjectKind::Beacon.def().footprint)];
+    let reserved = [reserved_beacon(Placement::new(
+        t(20, 5),
+        ObjectKind::Beacon.def().footprint,
+    ))];
     let beacon = |x, y| {
         let objects = sim.objects().map(Occupant::of);
         check_reserving(&known, objects, &reserved, ObjectKind::Beacon, t(x, y), unturned)

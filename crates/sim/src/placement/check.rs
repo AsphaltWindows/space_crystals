@@ -9,10 +9,10 @@ use super::onto::Onto;
 use super::problems::{PlacementCheck, TileProblem, WholeProblem};
 use super::site::{Method, Mode, Occupant, Site};
 use super::tunnel_area::{area_rule, outside_tunnel_area};
+use super::tunnel_overlap::{area_of, overlap_rule};
 use crate::defs::{Category, Domain, ObjectKind};
 use crate::map::Map;
 use crate::nav::TileRect;
-use crate::object::Placement;
 use crate::paths::box_overlaps_rect;
 use crate::scenario::BuildingOrientation;
 use crate::units::TilePos;
@@ -40,12 +40,14 @@ pub fn check(
     check_reserving(site, occupants, &[], kind, origin, orientation)
 }
 
-/// [`check`], with the footprints the placing player has `reserved` for its pending worker builds
-/// ([`TileProblem::Reserved`], design change 0125): a Deploy's and a Warp In's (slice M3-F).
+/// [`check`], with the sites the placing player has `reserved` for its pending worker builds, each the structure it
+/// will be where it will stand: their footprints' tiles ([`TileProblem::Reserved`], design change 0125), against a
+/// Deploy, a Warp In (slice M3-F) and a Build (slice M4-E), and a Tunnel's Tier 1 area against a Tunnel's
+/// ([`WholeProblem::TunnelAreaOverlap`], Placeholder: Q0079 point 2; `placement/tunnel_overlap.rs`).
 pub fn check_reserving(
     site: &Site<'_>,
     occupants: impl IntoIterator<Item = Occupant>,
-    reserved: &[Placement],
+    reserved: &[Occupant],
     kind: ObjectKind,
     origin: TilePos,
     orientation: BuildingOrientation,
@@ -80,8 +82,11 @@ pub fn check_reserving(
             found[i] |= TileProblem::NotVisible.bit();
         }
     }
+    // The Tunnel Areas the structure's, if it has one, must keep clear of (`super::tunnel_overlap`).
+    let mut areas = Vec::new();
     for o in occupants {
         onto.see(&o);
+        areas.extend(area_of(&o));
         match &o.placement {
             Some(placement) => {
                 let rect = TileRect::new(placement.origin, placement.w, placement.h);
@@ -112,6 +117,10 @@ pub fn check_reserving(
         }
     }
     for reserved in reserved {
+        areas.extend(area_of(reserved));
+        let Some(reserved) = reserved.placement else {
+            continue;
+        };
         let rect = TileRect::new(reserved.origin, reserved.w, reserved.h);
         if overlap(rect, footprint.rect()) {
             footprint.mark(&mut found, TileProblem::Reserved, |tile| {
@@ -151,6 +160,8 @@ pub fn check_reserving(
     }
     // Design change 0242: a Tunnel's whole Tier 1 area on the map and Drillable (`super::tunnel_area`).
     whole.extend(area_rule(site, kind, footprint.rect()));
+    // Design change 0237: and clear of every other Tunnel's area (`super::tunnel_overlap`).
+    whole.extend(overlap_rule(kind, footprint.rect(), &areas));
     PlacementCheck { tiles, whole }
 }
 

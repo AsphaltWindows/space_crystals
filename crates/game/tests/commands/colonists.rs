@@ -143,9 +143,9 @@ fn lingering(app: &mut App) -> Vec<Placement> {
 /// `player`'s pending Deploys, as the sim has them: Drone and site.
 fn pending(app: &App, player: PlayerId) -> Vec<(u32, Placement)> {
     let sim = app.world().resource::<SimRes>();
-    sim.pending_deploys(player)
+    sim.pending_builds(player)
         .into_iter()
-        .map(|(drone, site)| (drone.0, site))
+        .map(|pending| (pending.worker.0, pending.site))
         .collect()
 }
 

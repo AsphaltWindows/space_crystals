@@ -106,8 +106,9 @@ impl Gathering {
         let mut picking: Vec<ObjectId> = Vec::new();
         for (index, o) in objects.values().enumerate() {
             // An Egress Node being warped in takes nothing until it is complete (design change 0116,
-            // `crate::transform`).
-            if !o.is_transforming()
+            // `crate::transform`), nor does a Tunnel under construction (design change 0234: "no drop-offs",
+            // `Object::is_operational`).
+            if o.is_operational()
                 && let Some(crystals) = drop_point_of(o, Resource::Crystals)
                 && let Some(supplies) = drop_point_of(o, Resource::Supplies)
             {

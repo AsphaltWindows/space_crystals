@@ -33,8 +33,9 @@ pub enum TileProblem {
     Unit,
     /// One of the placing player's pending worker builds covers the tile (`core/entities.md > Placement Validation >
     /// Lingering build ghosts`: it "reserves the site against the owner's further placements: a new ghost overlapping
-    /// it is invalid", design change 0125; slice M3-F: a Deploy, current or queued, `crate::Sim::pending_deploys`).
-    /// The tile's only problem on ground the player never explored ([`super::Mode::Known`]).
+    /// it is invalid", design change 0125): a Deploy (slice M3-F) or a Build (slice M4-E), current or queued
+    /// (`crate::Sim::pending_builds`). The tile's only problem on ground the player never explored
+    /// ([`super::Mode::Known`]).
     Reserved,
 }
 
@@ -80,6 +81,13 @@ pub enum WholeProblem {
     /// flag, a custom one included (`core/map.md > Tile`: "Any combination of properties is valid"). In
     /// [`super::Mode::Known`] only on ground the player has explored ("never-explored tiles pass on the ghost").
     TunnelAreaNotDrillable,
+    /// The Tunnel Area that the Tunnel would have at Tier 1 overlaps the Tunnel Area of another Tunnel, any player's, a
+    /// site included, at that Tunnel's tier (slice M4-E; `factions/syndicate/tunnels.md > Tunnel Area Non-Overlap
+    /// Rule`, design change 0237: "Every player's Tunnels count"; question Q0079 point 3), or the Tier 1 area of one of
+    /// the placing player's lingering Tunnel ghosts (Placeholder: Q0079 point 2). In [`super::Mode::Known`] another
+    /// player's Tunnel counts as the player knows it, "their remembered position and their tier as last seen". The
+    /// rule is in `placement/tunnel_overlap.rs`.
+    TunnelAreaOverlap,
     /// A Starting Layout's underground structure doesn't lie wholly inside the Tier 1 Tunnel Area of a Tunnel of the
     /// same layout (slice M4-B; `factions/syndicate/tunnels.md > Tunnel > Starting Conditions`: "One pre-built
     /// **Tier 1 Tunnel** containing one pre-built **Hideout**"; `factions/syndicate/structures/README.md > Tunnel
@@ -163,6 +171,9 @@ impl fmt::Display for WholeProblem {
             WholeProblem::TunnelAreaNotDrillable => {
                 "the Tunnel Area takes in undrillable ground: a Tunnel's whole Tunnel Area must be Drillable (no Water \
                  or Mountain)"
+            }
+            WholeProblem::TunnelAreaOverlap => {
+                "the Tunnel Area overlaps another Tunnel's: Tunnel Areas never overlap, whoever owns them"
             }
             WholeProblem::OutsideTunnelArea => "an expansion lies wholly inside a Tunnel's Tunnel Area",
         })

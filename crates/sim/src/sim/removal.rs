@@ -5,7 +5,7 @@
 //! until the owner sees its place ([`Sim::follow_targets`], at the end of the tick), and so does a rally point on it;
 //! a Gather on its way to its patch's spot goes on there.
 
-use super::Sim;
+use super::{Sim, builds};
 use crate::economy;
 use crate::events::SimEvent;
 use crate::ids::ObjectId;
@@ -35,6 +35,10 @@ impl Sim {
     ///
     /// A constructor refunds its construction or its ready building to its owner as if cancelled (design change 0084,
     /// `Sim::refund_constructors`).
+    ///
+    /// A worker's pending Build orders are refunded at the current top price once it has gone (`sim/builds.rs`;
+    /// Placeholder: Q0079 point 1), and a site's worker comes out at the centre of its footprint, the Supplies paid for
+    /// it lost (`sim/sites.rs`, design change 0234).
     ///
     /// A worker gathering at a patch that goes keeps its Gather, and heads for where the patch was
     /// (`Sim::keep_gatherers_on_spots`, design change 0134). A worker on its way back to a drop-off that goes takes
@@ -69,7 +73,13 @@ impl Sim {
             self.refund_production(id);
         }
         self.refund_constructors(&gone);
+        let builds: Vec<_> = (gone.iter().filter_map(|id| self.objects.get(id)))
+            .flat_map(builds::dropped_of)
+            .collect();
+        let builders = self.site_builders(&gone);
         gone.retain(|id| self.objects.remove(id).is_some());
+        self.refund_builds(&builds);
+        self.release_builders(&builders);
         if gone.is_empty() {
             return;
         }

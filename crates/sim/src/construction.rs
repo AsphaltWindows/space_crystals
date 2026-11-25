@@ -43,6 +43,10 @@
 //!   (`paths::sync_known`), and works from the next tick on (`ARCHITECTURE.md > Tick pipeline > Spawn tick`).
 //! - **Not built** (`artifacts/director/m2-plan.md` 1.2): tech prerequisites, as none of the buildings with a cost and
 //!   a time has one; ConstructionHP, as GDO buildings are placed whole.
+//!
+//! The on-site construction of worker-built structures, which has ConstructionHP, is [`site`] (slice M4-E).
+
+pub mod site;
 
 use std::collections::BTreeMap;
 

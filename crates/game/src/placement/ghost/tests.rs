@@ -161,7 +161,7 @@ fn each_builder_asks_its_own_check() {
     t.at(1, p1, deploy(drones[0], false));
     t.run_until(1);
     let sim = t.sim();
-    assert_eq!(sim.pending_deploys(p1).len(), 1);
+    assert_eq!(sim.pending_builds(p1).len(), 1);
 
     let robo = Placing::warp_in(beacon, ObjectKind::RoboPortal);
     let on_beacon = Selection::new([(beacon, ObjectKind::Beacon)]);

@@ -61,6 +61,7 @@ fn world(bearing: f32) -> (Map, Targets, Vision) {
                 transform: None,
                 conversion: None,
                 tunnel: None,
+                construction: None,
             },
         );
     }

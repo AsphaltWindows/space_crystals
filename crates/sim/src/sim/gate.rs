@@ -86,6 +86,10 @@ pub enum Reject {
     /// ObjectInterfaceState[DeploymentCenter]`). The army cap refuses nothing: design change 0143 checks it when
     /// production starts (`Production::blocked`), and M2's `UnitControlCap` went with the check at queue time.
     InsufficientCrystals,
+    /// The player's Supplies don't cover a Build order's price (`factions/syndicate/tunnels.md > Cost Scaling >
+    /// Construction Cost`, design change 0233: "The order is refused, with feedback, if the player can't pay";
+    /// `Sim::build_price`, slice M4-E).
+    InsufficientSupplies,
     /// Cancel Production: no producer has anything queued.
     NothingQueued,
     /// None of the objects a construction command names is one of the player's constructors that exists
@@ -172,6 +176,7 @@ impl fmt::Display for Reject {
             Reject::CannotProduce(kind) => write!(f, "none of the producers trains a {}", kind.def().name),
             Reject::QueueFull => write!(f, "the build queue is full"),
             Reject::InsufficientCrystals => write!(f, "not enough Space Crystals"),
+            Reject::InsufficientSupplies => write!(f, "not enough Supplies"),
             Reject::NothingQueued => write!(f, "nothing is queued"),
             Reject::NoConstructor => write!(f, "none of the objects is a constructor of the player's"),
             Reject::SeveralConstructors => write!(f, "a building is placed by one constructor"),

@@ -23,8 +23,9 @@
 //!   building's slot enters placement again. Both say why: the placement check's first problem ([`placement_text`]).
 //!   Placeholders: the design gives no message for either;
 //! - a Deploy that failed at the end of the Drone's walk (`SimEvent::DeployFailed`, slice M3-F; `factions/colonists/
-//!   economy.md > Beacon Deployment > Placement`): what the check found on arrival, as for a building, or that the
-//!   Drone didn't get to its site ([`deploy_failed_text`]). Placeholders too;
+//!   economy.md > Beacon Deployment > Placement`), and a Build at the end of its worker's (`SimEvent::BuildFailed`,
+//!   slice M4-E): what the check found on arrival, as for a building, or that the worker didn't get to its site
+//!   ([`deploy_failed_text`]). Placeholders too;
 //! - an Attack whose unit can't move and whose target is inside its MinRange (`SimEvent::TargetTooClose`;
 //!   `systems/controls/behaviors.md > AttackingObject > Target inside MinRange`, design change 0182: "the order
 //!   fails with feedback ("Target too close"; same channel as other refusals)"): [`TARGET_TOO_CLOSE_TEXT`];
@@ -57,6 +58,10 @@ pub const INVALID_TARGET_TEXT: &str = "Invalid target";
 /// The message of a Train that producers didn't queue for want of Space Crystals (design change 0083). Placeholder
 /// wording.
 pub const NO_CRYSTALS_TEXT: &str = "Not enough Space Crystals";
+/// The message of a Build its player can't pay for (`factions/syndicate/tunnels.md > Cost Scaling > Construction
+/// Cost`, design change 0233: "The order is refused, with feedback, if the player can't pay"). Placeholder wording,
+/// after the design's "Not enough Space Crystals" (0162).
+pub const NO_SUPPLIES_TEXT: &str = "Not enough Supplies";
 /// The messages of a producer that waits for room under the army cap (design change 0143), by the faction's cap (plan
 /// decision T20: the faction's name in the feedback; [`army_cap_text`]). Placeholder wordings.
 pub const UNIT_CONTROL_TEXT: &str = "Unit Control limit reached";
@@ -200,6 +205,7 @@ pub fn placement_text(problem: Option<PlacementProblem>) -> &'static str {
             WholeProblem::NotOnPatch => "Must be placed on a crystal patch",
             WholeProblem::TunnelAreaOffMap => "The Tunnel Area reaches off the map",
             WholeProblem::TunnelAreaNotDrillable => "The Tunnel Area must be drillable ground",
+            WholeProblem::TunnelAreaOverlap => "The Tunnel Area overlaps another Tunnel's",
             WholeProblem::OutsideTunnelArea => "Must be inside a Tunnel Area",
         },
         Some(PlacementProblem::Tile(_, problem)) => match problem {
@@ -234,6 +240,7 @@ pub fn unavailable_text(why: WhyUnavailable) -> &'static str {
 pub fn reject_text(reject: Reject) -> &'static str {
     match reject {
         Reject::InsufficientCrystals => NO_CRYSTALS_TEXT,
+        Reject::InsufficientSupplies => NO_SUPPLIES_TEXT,
         Reject::QueueFull => QUEUE_FULL_TEXT,
         Reject::NothingQueued | Reject::NotConstructing | Reject::NothingReady | Reject::NotTransforming => {
             NOTHING_TO_CANCEL_TEXT
@@ -245,8 +252,9 @@ pub fn reject_text(reject: Reject) -> &'static str {
     }
 }
 
-/// The message of a Deploy that failed on arrival (`SimEvent::DeployFailed`): the first problem the check of its site
-/// found ([`placement_text`]), or, with none, that the Drone stopped short of the footprint.
+/// The message of a Deploy or a Build that failed on arrival (`SimEvent::DeployFailed`, `SimEvent::BuildFailed`): the
+/// first problem the check of its site found ([`placement_text`]), or, with none, that the worker stopped short of the
+/// footprint.
 pub fn deploy_failed_text(problems: &PlacementCheck) -> &'static str {
     match problems.first_problem() {
         Some(problem) => placement_text(Some(problem)),
@@ -289,6 +297,9 @@ fn show_feedback(
             constructor, problems, ..
         } if own(*constructor) => Some((message.tick, placement_text(problems.first_problem()))),
         SimEvent::DeployFailed { drone, problems, .. } if own(*drone) => {
+            Some((message.tick, deploy_failed_text(problems)))
+        }
+        SimEvent::BuildFailed { worker, problems, .. } if own(*worker) => {
             Some((message.tick, deploy_failed_text(problems)))
         }
         SimEvent::TargetTooClose { unit, .. } if own(*unit) => Some((message.tick, TARGET_TOO_CLOSE_TEXT)),

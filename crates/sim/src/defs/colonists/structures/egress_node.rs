@@ -36,6 +36,7 @@ pub(crate) static EGRESS_NODE: ObjectDef = ObjectDef {
         drop_off: Some(DropOff::Anywhere), // `factions/colonists/economy.md > Egress Node > Drop Off`
         underground: false,
         tunnel: None,
+        site: None,
     }),
     default_settings: None,
 };

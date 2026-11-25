@@ -77,10 +77,11 @@ impl Sim {
     /// Unit Commands`: "own Egress Node"; `factions/colonists/units/drone.md > Drone ObjectInterfaceState`: "an Egress
     /// Node or own refinery"): the target exists and is a drop-off of `player`'s, complete: an Egress Node being warped
     /// in takes nothing yet (design change 0116: "A Drone can't deliver to an Egress Node under Warp In",
-    /// `crate::transform`) ([`Reject::NotDropOff`]). A player always sees its own structures.
+    /// `crate::transform`), nor a Tunnel under construction (design change 0234: "no drop-offs";
+    /// `Object::is_operational`) ([`Reject::NotDropOff`]). A player always sees its own structures.
     pub(super) fn check_drop_off(&self, player: PlayerId, node: ObjectId) -> Result<(), Reject> {
         let target = self.referenced(node, None)?;
-        if target.owner != Some(player) || !is_drop_off(target.kind) || target.is_transforming() {
+        if target.owner != Some(player) || !is_drop_off(target.kind) || !target.is_operational() {
             return Err(Reject::NotDropOff(node));
         }
         Ok(())
@@ -220,7 +221,7 @@ impl Sim {
     ) -> Option<ObjectId> {
         owner?;
         (self.objects.values())
-            .filter(|o| o.owner == owner && !o.is_transforming() && !is_gone(o.id))
+            .filter(|o| o.owner == owner && o.is_operational() && !is_gone(o.id))
             .filter_map(|o| Some((o.id, drop_point_of(o, resource)?.centre.distance_squared(pos))))
             .min_by(|a, b| a.1.total_cmp(&b.1))
             .map(|(id, _)| id)

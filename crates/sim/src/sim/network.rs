@@ -55,6 +55,7 @@ impl Sim {
     pub fn network(&self, player: PlayerId) -> impl Iterator<Item = &Held> + '_ {
         self.held.values().filter(move |held| match held.place {
             Place::Network => held.object.owner == Some(player),
+            Place::Site(_) => false,
         })
     }
 
@@ -182,6 +183,8 @@ impl Sim {
     /// Call it before 5b (a step right after 5a), as a change of kind: the grids hold no unit, but the movement,
     /// the combat and the vision of the tick must not see a unit that has gone.
     pub(super) fn take_off_map(&mut self, id: ObjectId, place: Place, entered: bool) -> bool {
+        // Its orders go, and a Build among them, gone before its site started, is refunded (`sim/builds.rs`).
+        self.drop_orders(id);
         let Some(mut object) = self.objects.remove(&id) else {
             return false;
         };

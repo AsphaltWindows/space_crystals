@@ -298,7 +298,13 @@ fn fuzz_run(seed: u64) -> Run {
                 | SimEvent::TargetTooClose { .. }
                 | SimEvent::EnteredNetwork { .. }
                 | SimEvent::LeftNetwork { .. }
-                | SimEvent::EnterFailed { .. } => {}
+                | SimEvent::EnterFailed { .. }
+                | SimEvent::BuildFailed { .. }
+                | SimEvent::BuildRefunded { .. }
+                | SimEvent::SiteStarted { .. }
+                | SimEvent::SiteCompleted { .. }
+                | SimEvent::SiteCancelled { .. }
+                | SimEvent::LeftSite { .. } => {}
             }
         }
         unit_steps += sim

@@ -33,9 +33,10 @@ use crate::nav::TileRect;
 use crate::object::Object;
 use crate::tunnel;
 
-/// Whether `o` gives its owner Tunnel Space: every Tunnel (module docs; slice M4-E adds its sites' exception).
+/// Whether `o` gives its owner Tunnel Space: every Tunnel in operation (module docs; `Object::is_operational`: a
+/// Tunnel under construction gives none, design change 0234, slice M4-E).
 pub(crate) fn gives_tunnel_space(o: &Object) -> bool {
-    tunnel::def_of(o.kind).is_some()
+    tunnel::def_of(o.kind).is_some() && o.is_operational()
 }
 
 /// Whether `o` occupies tunnel-region for the Tunnels of `player`: an underground structure (`StructureDef::

@@ -41,6 +41,7 @@ pub(crate) static EXTRACTION_FACILITY: ObjectDef = ObjectDef {
         drop_off: None,
         underground: false,
         tunnel: None,
+        site: None,
     }),
     default_settings: None,
 };

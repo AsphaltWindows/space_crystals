@@ -61,7 +61,7 @@ fn a_drone_walks_to_the_centre_of_its_site_and_deploys_on_arrival() {
     assert_eq!(DEPLOYMENT_FRAMES, 48);
     assert_eq!(capacity(&t, P1), (9, 10), "the Drone's 1 freed, the Beacon's 5 not yet");
     assert_eq!(
-        t.sim().pending_deploys(P1),
+        pending_deploys(t.sim(), P1),
         [],
         "the site is built on, no longer pending"
     );
@@ -98,7 +98,7 @@ fn a_deploy_queued_behind_a_move_runs_after_it() {
     t.order_at(1, P1, &[id(2)], OrderKind::Move(Target::Point(first)), false)
         .order_at(1, P1, &[id(2)], deploy_at(SITE), true)
         .step();
-    assert_eq!(t.sim().pending_deploys(P1), [(id(2), deploy::site(SITE))]);
+    assert_eq!(pending_deploys(t.sim(), P1), [(id(2), deploy::site(SITE))]);
     let current = |t: &TestSim| {
         object(t, 2)
             .orders

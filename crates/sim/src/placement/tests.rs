@@ -43,6 +43,7 @@ fn on(kind: ObjectKind, x: i32, y: i32) -> Occupant {
         kind,
         pos: placement.center(),
         placement: Some(placement),
+        tier: None,
     }
 }
 
@@ -52,6 +53,7 @@ fn unit(kind: ObjectKind, x: f32, y: f32) -> Occupant {
         kind,
         pos: Vec2::new(x, y),
         placement: None,
+        tier: None,
     }
 }
 

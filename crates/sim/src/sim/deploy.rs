@@ -1,32 +1,19 @@
-//! Beacon Deployment in a game (`crate::deploy`, slice M3-F): the gate's rule for a Deploy order, the pending Deploys
-//! that reserve their sites, and the step right after phase 5a that starts the deployments of the Drones that got to
-//! their sites, or fails their orders.
+//! Beacon Deployment in a game (`crate::deploy`, slice M3-F): the gate's rule for a Deploy order, and a Drone's arrival
+//! at its site, where it deploys or its order fails. Its pending Deploys, which reserve their sites, and the step right
+//! after phase 5a that brings it to its arrival are every worker build's (`sim/builds.rs`, plan decision T51).
 
 use super::Sim;
 use super::gate::Reject;
 use super::transform::hold_back;
+use crate::defs::ObjectKind;
 use crate::deploy::{self, BEACON_DEPLOYMENT, on_site};
 use crate::events::SimEvent;
-use crate::ids::{ObjectId, PlayerId};
-use crate::object::{Object, Placement};
-use crate::orders::OrderKind;
-use crate::orders::state::Behaviour;
+use crate::ids::ObjectId;
+use crate::object::Placement;
 use crate::placement::{self, BuildArea, Method, Mode, Occupant, PlacementCheck, Site};
 use crate::scenario::BuildingOrientation;
 use crate::transform::Transform;
 use crate::units::TilePos;
-
-/// The sites of `o`'s Deploy orders: its current order's first, then its queue's, in order.
-fn deploy_sites(o: &Object) -> impl Iterator<Item = Placement> + '_ {
-    let orders = o.orders.iter().flat_map(|orders| {
-        let current = orders.current.iter().map(|active| &active.order);
-        current.chain(&orders.queue)
-    });
-    orders.filter_map(|order| match order.kind {
-        OrderKind::Deploy { origin } => Some(deploy::site(origin)),
-        _ => None,
-    })
-}
 
 impl Sim {
     /// The gate for `OrderKind::Deploy { origin }` (`factions/colonists/economy.md > Beacon Deployment > Deploy
@@ -59,40 +46,6 @@ impl Sim {
         Ok(vec![drone])
     }
 
-    /// `core/entities.md > Placement Validation > Lingering build ghosts` (design change 0125): `player`'s pending
-    /// Deploys, each a Drone and the footprint of the Beacon it is ordered to deploy into, current or queued: the
-    /// Drones in id order, each one's current order first, then its queue's in order. Derived from the orders, so a
-    /// site goes with its order: when the deployment starts (the Drone is a Beacon then), is cancelled or replaced by a
-    /// new order, or fails. The client draws them for their owner (slice M3-J1); they reserve their sites against the
-    /// owner's further placements ([`Sim::deploy_check`], [`Sim::warp_in_check`]) and block no one.
-    pub fn pending_deploys(&self, player: PlayerId) -> Vec<(ObjectId, Placement)> {
-        self.objects
-            .values()
-            .filter(|o| o.owner == Some(player))
-            .flat_map(|o| deploy_sites(o).map(move |site| (o.id, site)))
-            .collect()
-    }
-
-    /// The deployments' step, right after phase 5a and before 5b (`crate::deploy`; `ARCHITECTURE.md > Tick
-    /// pipeline`): each Drone from before this tick (`first_new`) whose walk to its site is over
-    /// ([`Behaviour::Deploy`]'s `arrived`, set by phase 5a), in id order, deploys there or fails its order.
-    pub(super) fn step_deployments(&mut self, first_new: ObjectId) {
-        let arrived: Vec<(ObjectId, TilePos)> = self
-            .objects
-            .range(..first_new)
-            .filter_map(|(&id, o)| {
-                let active = o.orders.as_ref()?.current.as_ref()?;
-                match (active.order.kind, &active.state) {
-                    (OrderKind::Deploy { origin }, Behaviour::Deploy(state)) if state.arrived => Some((id, origin)),
-                    _ => None,
-                }
-            })
-            .collect();
-        for (drone, origin) in arrived {
-            self.arrive(drone, origin);
-        }
-    }
-
     /// Drone `drone` is at the end of its walk to the site at `origin` (`factions/colonists/economy.md > Deploy
     /// Command`, design change 0117). If it overlaps the footprint ([`on_site`]) and the site is valid on the truth
     /// ([`Sim::arrival_check`]), it deploys there ([`Sim::start_deployment`]). Otherwise "the order is cancelled and
@@ -100,14 +53,14 @@ impl Sim {
     /// ones go on (the next one starts in the next tick, as after an order that completed:
     /// `systems/controls/commands.md > Unit Command`), with a `SimEvent::DeployFailed` whose problems are the arrival
     /// check's, none if the Drone stopped short of the footprint.
-    fn arrive(&mut self, drone: ObjectId, origin: TilePos) {
+    pub(super) fn arrive(&mut self, drone: ObjectId, origin: TilePos) {
         let Some(o) = self.objects.get(&drone) else {
             return;
         };
         let site = deploy::site(origin);
         let reached = deploy::deploys(o.kind) && on_site(o.kind, o.pos, &site);
         let problems = if reached {
-            self.arrival_check(drone, origin)
+            self.arrival_check(drone, BEACON_DEPLOYMENT.kind, origin, BuildingOrientation::default())
         } else {
             PlacementCheck::default()
         };
@@ -131,12 +84,21 @@ impl Sim {
         });
     }
 
-    /// The check of a Deploy's site on arrival, `core/entities.md > Placement Validation > Worker-Built Structures`:
-    /// "validates on arrival", "the real check happens on arrival" (design change 0120). That is [`placement::check`]
-    /// with [`Method::WorkerBuilt`] in [`Mode::Arrival`]: every object as it is now, the Drone `drone` left out (design
+    /// The check on arrival of a worker build's site, a `kind` at `origin` turned by `orientation` (a Deploy's Beacon,
+    /// a Build's structure), `core/entities.md > Placement Validation > Worker-Built Structures`: "validates on
+    /// arrival", "the real check happens on arrival" (design change 0120). That is [`placement::check`] with
+    /// [`Method::WorkerBuilt`] in [`Mode::Arrival`]: every object as it is now, the worker `worker` left out (design
     /// change 0118), with no sight rule ("No visibility requirement on arrival"). Pending sites don't count: they
-    /// reserve their sites against placements, and block no one.
-    fn arrival_check(&self, drone: ObjectId, origin: TilePos) -> PlacementCheck {
+    /// reserve their sites against placements, and block no one. A Tunnel's area by the truth too: the other
+    /// Tunnels' tiers as they are (design change 0237: "The real check on arrival uses the truth"), its cells'
+    /// terrain as it is (0242).
+    pub(super) fn arrival_check(
+        &self,
+        worker: ObjectId,
+        kind: ObjectKind,
+        origin: TilePos,
+        orientation: BuildingOrientation,
+    ) -> PlacementCheck {
         let area = BuildArea::default();
         let site = Site {
             map: &self.map,
@@ -144,14 +106,8 @@ impl Sim {
             mode: Mode::Arrival,
             method: Method::WorkerBuilt,
         };
-        let others = self.objects.values().filter(|o| o.id != drone).map(Occupant::of);
-        placement::check(
-            &site,
-            others,
-            BEACON_DEPLOYMENT.kind,
-            origin,
-            BuildingOrientation::default(),
-        )
+        let others = self.objects.values().filter(|o| o.id != worker).map(Occupant::of);
+        placement::check(&site, others, kind, origin, orientation)
     }
 
     /// Drone `drone` begins deploying on `site` (`factions/colonists/economy.md > A Beacon from the first frame`,

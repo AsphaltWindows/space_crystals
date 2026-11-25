@@ -54,6 +54,7 @@ pub(crate) static HIDEOUT: ObjectDef = ObjectDef {
         drop_off: None,
         underground: true, // Entity Type - Structure Type (Underground)
         tunnel: None,
+        site: None,
     }),
     default_settings: None,
 };

@@ -70,6 +70,8 @@ pub(crate) static DRONE: ObjectDef = ObjectDef {
             keeps_drop_off: true,  // > Assigned Drop-off
             search_radius: 6.0,    // > Patch Occupancy > Search radius: 6 grid units (placeholder, design change 0123)
             pass_through: true,    // > Gathering Drones pass through each other (design change 0106)
+            // It deploys instead (`deploy`, plan decision T51).
+            builds: &[],
         }),
     }),
     structure: None,

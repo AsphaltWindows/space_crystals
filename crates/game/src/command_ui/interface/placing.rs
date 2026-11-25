@@ -169,7 +169,7 @@ pub fn deploy_recipient(selection: &Selection, queue: bool, deploying: &BTreeSet
     group.instances.into_iter().find(|id| !queue || !deploying.contains(id))
 }
 
-/// The Drones of `player`'s that have a Deploy, current or queued: those the sim has (`Sim::pending_deploys`), and
+/// The Drones of `player`'s that have a Deploy, current or queued: those the sim has (`Sim::pending_builds`), and
 /// those named by a Deploy among the commands `unsent` that the sim hasn't applied yet (the client's
 /// `PendingCommands`), so that two Shift-clicks before the next tick go to two Drones.
 pub fn deploying(sim: &Sim, player: PlayerId, unsent: &[PlayerCommand]) -> BTreeSet<ObjectId> {
@@ -184,9 +184,10 @@ pub fn deploying(sim: &Sim, player: PlayerId, unsent: &[PlayerCommand]) -> BTree
             } => units.clone(),
             _ => Vec::new(),
         });
-    sim.pending_deploys(player)
+    sim.pending_builds(player)
         .into_iter()
-        .map(|(drone, _)| drone)
+        .filter(|pending| pending.kind == deploy::BEACON_DEPLOYMENT.kind)
+        .map(|pending| pending.worker)
         .chain(sent)
         .collect()
 }

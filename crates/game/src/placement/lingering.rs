@@ -1,9 +1,10 @@
 //! The lingering build ghosts (`core/entities.md > Placement Validation > Lingering build ghosts`, design change
 //! 0125): "Every ordered worker build (Drone Deploy, Agent build, Cults Recruits' Construct), including every
 //! Shift-queued one, leaves a ghost of the building on its site until construction actually starts", "Visible to its
-//! owner. Enemies never see it". The local player's pending Deploys (`Sim::pending_deploys`), each the Beacon's
-//! footprint on its site, in the game modes. A ghost goes with its order: when the deployment starts (the Drone is a
-//! Beacon then), or the order is cancelled, replaced by a new one, or fails. They block no one (the sim's rule:
+//! owner. Enemies never see it". The local player's pending worker builds (`Sim::pending_builds`), each the footprint
+//! of what it builds on its site, in the game modes: a Drone's Beacon, an Agent's Tunnel (slice M4-E; its own look,
+//! with its area, is slice M4-J1's). A ghost goes with its order: when the deployment or the site starts, or the
+//! order is cancelled, replaced by a new one, or fails. They block no one (the sim's rule:
 //! `crates/sim/tests/deploy_gate/`, `pending_sites_block_no_one`) and reserve their sites against the player's
 //! further placements, which the placement ghost shows red there (`super::ghost`).
 //!
@@ -36,7 +37,7 @@ pub const LINGERING_Z: f32 = AREA_Z + 0.01;
 /// What the lingering ghosts show.
 #[derive(Resource, Debug, Default)]
 pub struct LingeringGhosts {
-    /// The footprints shown, in `Sim::pending_deploys` order; empty while none shows.
+    /// The footprints shown, in `Sim::pending_builds` order; empty while none shows.
     pub shown: Vec<Placement>,
     /// The map meshes' build count (`MapView::builds`) when the mesh was built: a new map redraws it.
     map_builds: u32,
@@ -89,9 +90,9 @@ pub(super) fn draw_lingering(
     mut drawn: Query<&mut Visibility, With<LingeringMesh>>,
 ) {
     let sites: Vec<Placement> = if mode.is_game() {
-        sim.pending_deploys(player.0)
+        sim.pending_builds(player.0)
             .into_iter()
-            .map(|(_, site)| site)
+            .map(|pending| pending.site)
             .collect()
     } else {
         Vec::new()

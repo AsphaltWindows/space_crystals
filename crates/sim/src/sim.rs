@@ -345,6 +345,7 @@ impl Sim {
             transform: None,
             conversion: None,
             tunnel,
+            construction: None,
         }
     }
 
@@ -387,6 +388,7 @@ impl Sim {
     }
 }
 
+mod builds;
 mod commands;
 mod construction;
 mod deploy;
@@ -401,6 +403,7 @@ mod preview;
 mod producers;
 mod removal;
 mod resources;
+mod sites;
 #[cfg(test)]
 mod tests;
 mod too_close;

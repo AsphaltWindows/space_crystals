@@ -161,6 +161,7 @@ impl MapDef {
                 kind: s.kind,
                 pos: *pos,
                 placement: *placement,
+                tier: None,
             })
         };
         let all: Vec<Option<Occupant>> = self.spawns.iter().zip(spots).map(occupant).collect();

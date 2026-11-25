@@ -11,10 +11,10 @@
 //!   sight. Units hidden in the fog don't count, and never-explored tiles pass: "The order can be given even where the
 //!   area isn't visible; the real check happens on arrival." The player's pending Deploys reserve their sites against
 //!   its further placements, Deploy and Warp In alike (`core/entities.md > Lingering build ghosts`, design change 0125;
-//!   `TileProblem::Reserved`). They are derived from the order queues (`Sim::pending_deploys`), never stored, so a
+//!   `TileProblem::Reserved`). They are derived from the order queues (`Sim::pending_builds`), never stored, so a
 //!   site is free again once its order is gone, whatever ended it: the deployment started, a cancel, a new order in
 //!   its place, a failure.
-//! - **The walk** (`orders::deploy`, phase 5a; design change 0117): the Drone heads for the footprint's centre and is
+//! - **The walk** (`orders::build`, phase 5a; design change 0117): the Drone heads for the footprint's centre and is
 //!   there once its move ends. "If it is stopped by a blocker on the way while already overlapping the footprint, it
 //!   starts deploying from where it stands" (stopped: it found no way forward for `tuning::movement::JAMMED_TICKS` in a
 //!   row, the movement's own notion of a unit at a standstill); "if it stops without overlapping the footprint, the

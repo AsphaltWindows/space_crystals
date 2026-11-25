@@ -9,8 +9,8 @@ use crate::math::PI;
 use crate::player::Faction;
 
 /// `factions/syndicate/units/agent.md`: the Syndicate's worker, with its pistol (slice M4-A) and its gathering of
-/// Space Crystals and Supplies (`> Gathering`: its `worker`, slices M4-D and M4-I). Its construction comes with slice
-/// M4-E.
+/// Space Crystals and Supplies (`> Gathering`: its `worker`, slices M4-D and M4-I), and its Tunnels (`> Building`:
+/// its worker's `builds`, slice M4-E).
 pub(crate) static AGENT: ObjectDef = ObjectDef {
     kind: ObjectKind::Agent,
     name: "Agent",
@@ -90,6 +90,8 @@ pub(crate) static AGENT: ObjectDef = ObjectDef {
             search_radius: 6.0,
             // `factions/colonists/units/drone.md > Gathering Drones pass through each other`: "Drones only".
             pass_through: false,
+            // `> Building` (slice M4-E): "Agents construct Tunnels"; the Laser Turret comes with slice S1.
+            builds: &[ObjectKind::Tunnel],
         }),
     }),
     structure: None,

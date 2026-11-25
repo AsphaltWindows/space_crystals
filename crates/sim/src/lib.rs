@@ -70,6 +70,7 @@ pub use map::{MAX_ELEVATION, MAX_TRAVERSIBLE_SLOPE, Map, Tile, TileLook, TilePre
 pub use movement::MoveCounters;
 pub use mover::{MoveGoal, MoveStatus, Mover};
 pub use object::{Object, Placement, ResourceState, Rotation};
+pub use orders::build::PendingBuild;
 pub use orders::{OrderKind, Orders, Target};
 pub use placement::{BuildArea, PlacementCheck, PlacementProblem, TileProblem, WholeProblem};
 pub use player::{Banks, Faction, Player};

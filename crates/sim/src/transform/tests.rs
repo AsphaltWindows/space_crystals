@@ -47,6 +47,7 @@ fn object(kind: ObjectKind, transform: Option<Transform>) -> Object {
         transform,
         conversion: None,
         tunnel: None,
+        construction: None,
     }
 }
 

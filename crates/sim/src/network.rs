@@ -56,12 +56,17 @@ pub fn rules() -> &'static TunnelDef {
 const WALL_CLEARANCE: f32 = 1.0 / 64.0;
 
 /// Where a held unit is (plan decision T30). Match it exhaustively, and never assume a held unit's place is on the
-/// map: slice M4-E adds the site an Agent builds from inside, and a transport's passengers (design changes 0221 and
-/// 0222, deferred) will be held at their carrier, which may itself be held.
+/// map: a transport's passengers (design changes 0221 and 0222, deferred) will be held at their carrier, which may
+/// itself be held.
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum Place {
     /// In its owner's Tunnel Network.
     Network,
+    /// Inside the site it builds, this object (slice M4-E, `construction::site`; `factions/syndicate/units/agent.md >
+    /// Building > Tunnel Construction Flow`: "the partially-built Tunnel appears at the location with the Agent inside
+    /// it"): not in the network, so no Eject brings it out and it doesn't regenerate. It comes out at the site's
+    /// centre if the site goes, into the network once it completes (`sim/sites.rs`).
+    Site(ObjectId),
 }
 
 /// A unit off the map (plan decision T30, module docs): the object, with its id, where it is and since when.
@@ -92,6 +97,7 @@ impl Held {
     pub(crate) fn regenerate(&mut self) {
         match self.place {
             Place::Network => {}
+            Place::Site(_) => return,
         }
         let (Some(hp), Some(max)) = (self.object.hp, self.object.max_hp()) else {
             return;
@@ -213,11 +219,11 @@ pub fn passes(transit: &[Transit], class: Transit) -> bool {
     transit.contains(&class) && (class != Transit::Air || AIR_DOORS)
 }
 
-/// Whether `tunnel` is a way into and out of the network: a Tunnel with an owner. (`factions/syndicate/tunnels.md >
-/// Losing Tunnels`: "A Tunnel that is still under construction does not count as an exit": slice M4-E's sites answer
-/// `false` here.)
+/// Whether `tunnel` is a way into and out of the network: a Tunnel with an owner, in operation
+/// (`factions/syndicate/tunnels.md > Losing Tunnels`: "A Tunnel that is still under construction does not count as an
+/// exit"; `Object::is_operational`, slice M4-E).
 pub fn is_exit(tunnel: &Object) -> bool {
-    tunnel.tunnel.is_some() && tunnel.placement.is_some() && tunnel.owner.is_some()
+    tunnel.tunnel.is_some() && tunnel.placement.is_some() && tunnel.owner.is_some() && tunnel.is_operational()
 }
 
 /// One entry of a Tunnel's eject queue (`TunnelState::eject`; `factions/syndicate/tunnels.md > EjectMenu`, design
@@ -237,6 +243,10 @@ impl StateHash for Place {
     fn hash(&self, h: &mut StateHasher) {
         match self {
             Place::Network => h.tag(0),
+            Place::Site(site) => {
+                h.tag(1);
+                site.hash(h);
+            }
         }
     }
 }

@@ -42,8 +42,9 @@ pub struct Player {
     /// at the player's faction's Starting Conditions (`crate::StartingConditions`: the Syndicate's 1 Supply,
     /// `factions/syndicate/tunnels.md > Tunnel > Starting Conditions`, slice M4-B; 0 for the GDO, whose supply loop is
     /// deferred, design change 0077, and for the Colonists); each Supplies delivery of an Agent adds to it
-    /// (`economy::gathering`, slice M4-I), and `DebugCommand::SetResources` sets it. Nothing spends it yet. Optional in
-    /// files, so that states saved before it existed still load.
+    /// (`economy::gathering`, slice M4-I), an Agent's Build order pays its price from it and a refund goes back to it
+    /// (`factions/syndicate/tunnels.md > Cost Scaling > Construction Cost`, slice M4-E), and
+    /// `DebugCommand::SetResources` sets it. Optional in files, so that states saved before it existed still load.
     #[serde(default)]
     pub supplies: u32,
     /// The Colonists' refined resources (`factions/colonists/overview.md > ColonistResources > Alloys`,
@@ -142,6 +143,24 @@ impl Player {
         match self.crystals.checked_sub(cost) {
             Some(left) => {
                 self.crystals = left;
+                true
+            }
+            None => false,
+        }
+    }
+
+    /// Pays `amount` Supplies into the bank (a refund), saturating as [`Player::credit_crystals`] does.
+    pub fn credit_supplies(&mut self, amount: u32) {
+        self.supplies = self.supplies.saturating_add(amount);
+    }
+
+    /// Takes `cost` Supplies from the bank if it holds that many, and says whether it did, as
+    /// [`Player::spend_crystals`] does.
+    #[must_use]
+    pub fn spend_supplies(&mut self, cost: u32) -> bool {
+        match self.supplies.checked_sub(cost) {
+            Some(left) => {
+                self.supplies = left;
                 true
             }
             None => false,

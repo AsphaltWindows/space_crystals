@@ -53,7 +53,7 @@ impl Sim {
                     domain: object_domain(o),
                     gatherable: gatherable(&self.objects, id),
                     station: is_station(o.kind),
-                    drop_off: o.owner == Some(player) && is_drop_off(o.kind) && !o.is_transforming(),
+                    drop_off: o.owner == Some(player) && is_drop_off(o.kind) && o.is_operational(),
                     // `systems/controls/commands.md > Enter`: an own Tunnel, by its tier (`crate::network`).
                     transit: crate::tunnel::tier_def(o)
                         .filter(|_| o.owner == Some(player) && network::is_exit(o))

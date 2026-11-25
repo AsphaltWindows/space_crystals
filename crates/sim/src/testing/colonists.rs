@@ -268,7 +268,10 @@ pub fn room(sim: &Sim, player: PlayerId) -> i64 {
         .objects()
         .filter(|o| o.owner == Some(player) && o.is_deploying())
         .count();
-    let walking = sim.pending_deploys(player).len();
+    let beacon = crate::deploy::BEACON_DEPLOYMENT.kind;
+    let walking = (sim.pending_builds(player).iter())
+        .filter(|pending| pending.kind == beacon)
+        .count();
     i64::from(cap.available) - i64::from(cap.used) + 5 * deploying as i64 + 6 * walking as i64
 }
 
