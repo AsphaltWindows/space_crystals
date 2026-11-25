@@ -1,4 +1,4 @@
-//! Gathering Drones pass through each other (slice M3-H2; design change 0106, `factions/colonists/units.md > Drone >
+//! Gathering Drones pass through each other (slice M3-H2; design change 0106, `factions/colonists/units/drone.md >
 //! Gathering Drones pass through each other`, `systems/units.md > UnitCollision > Ground Collision > Exception,
 //! gathering Drones` and `> Units that already overlap`): 0106's Verification, point by point. What becomes of a
 //! Drone stopped inside another (design change 0126: idle, it moves off) is `movement_separate.rs`. The saturated row is

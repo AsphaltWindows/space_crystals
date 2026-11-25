@@ -1,5 +1,5 @@
 //! The gathering rules of the design answers to questions Q0037 and Q0044 (slice M3-H3; in
-//! `factions/colonists/units.md > Drone`: `> Patch Occupancy (one Drone per patch)`, `> Last load of a patch`,
+//! `factions/colonists/units/drone.md`: `> Patch Occupancy (one Drone per patch)`, `> Last load of a patch`,
 //! `> Interrupted mining`, `> Other orders keep the load`, `> Gather while carrying a load`, `> Drop Off order`,
 //! `> When a Gather ends`, `> Assigned Drop-off`): one test per Verification point of design changes 0123, 0127 to
 //! 0135, 0137, 0138, 0140, 0141 and 0170 that `gathering/` doesn't already cover, one test binary:

@@ -22,8 +22,8 @@ pub(crate) const WINDOW: Tick = 3 * CYCLE;
 pub(crate) const LUMP: u32 = 10;
 /// A plate's income at full power, Space Crystals per second.
 pub(crate) const PLATE_RATE: f64 = LUMP as f64 * TICKS_PER_SECOND as f64 / CYCLE as f64;
-/// The design's costs: `> ExtractionFacility > Constructs`, `factions/gdo/structures.md > DeploymentCenter >
-/// Constructs` and `> Barracks > Produces`.
+/// The design's costs: `> ExtractionFacility > Constructs`, `factions/gdo/structures/deployment_center.md >
+/// Constructs` and `factions/gdo/structures/barracks.md > Produces`.
 pub(crate) const COSTS: [(ObjectKind, u32); 4] = [(Plate, 75), (Generator, 100), (Barracks, 200), (PK, 50)];
 /// The design's build times, frames: the same sections.
 pub(crate) const FRAMES: [(ObjectKind, u32); 4] = [(Plate, 400), (Generator, 240), (Barracks, 160), (PK, 80)];

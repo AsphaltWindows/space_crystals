@@ -1,4 +1,4 @@
-//! Weapon Conversion — `factions/colonists/units.md > Weapon Conversion` (plan decision T26, slice M3-B; design change
+//! Weapon Conversion — `factions/colonists/units/weapon_conversion.md` (plan decision T26, slice M3-B; design change
 //! 0198, slice M3-T): "Sabre Legionnaire and Rifle Legionnaire are two forms of the same underlying unit [...]
 //! differing only in AttackAttributes. Either form may convert into the other at any time via the Convert command."
 //!
@@ -101,10 +101,11 @@ fn ticks(form: ObjectKind) -> u32 {
     def_of(form).map_or(0, |conversion| conversion.ticks)
 }
 
-/// `> Weapon Conversion`: the other form of a `kind` unit, the one a Convert turns it into, if it has one
-/// (`ConversionDef::forms`; a press flips the target form, `toggle::pressed`): the Sabre Legionnaire's is the Rifle
-/// Legionnaire, and the other way round (`> Sabre Legionnaire > ObjectInterfaceState`: "R: Convert to Rifle
-/// Legionnaire"; `> Rifle Legionnaire > ObjectInterfaceState`: "R: Convert to Sabre Legionnaire").
+/// `factions/colonists/units/weapon_conversion.md`: the other form of a `kind` unit, the one a Convert turns it into,
+/// if it has one (`ConversionDef::forms`; a press flips the target form, `toggle::pressed`): the Sabre Legionnaire's is
+/// the Rifle Legionnaire, and the other way round (`factions/colonists/units/sabre_legionnaire.md >
+/// ObjectInterfaceState`: "R: Convert to Rifle Legionnaire"; `factions/colonists/units/rifle_legionnaire.md >
+/// ObjectInterfaceState`: "R: Convert to Sabre Legionnaire").
 pub fn converts_to(kind: ObjectKind) -> Option<ObjectKind> {
     toggle::pressed(def_of(kind)?.forms, kind, Press::Flip)
 }
@@ -165,7 +166,7 @@ pub(crate) fn step(objects: &mut BTreeMap<ObjectId, Object>, first_new: ObjectId
         };
         match conversion.left {
             Some(0) => {
-                // `> Completion`: its four frames are done.
+                // `factions/colonists/units/weapon_conversion.md > Completion`: its four frames are done.
                 conversion.form = converts_to(conversion.form).unwrap_or(conversion.form);
                 conversion.left = None;
             }

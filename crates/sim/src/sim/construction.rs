@@ -163,7 +163,7 @@ impl Sim {
     }
 
     /// Place the ready building with the top-left tile of its footprint at `origin`, turned by `orientation`
-    /// (`factions/gdo/structures.md > DeploymentCenter > AwaitingPlacement`, `factions/gdo/economy.md >
+    /// (`factions/gdo/structures/deployment_center.md > AwaitingPlacement`, `factions/gdo/economy.md >
     /// ExtractionFacility > AwaitingPlacement`): where the placement check in Command mode finds no problem now, as
     /// the command applies (plan decision T4), with the state the earlier commands of the tick left.
     fn check_place(
@@ -285,7 +285,7 @@ impl Sim {
         }
     }
 
-    /// Design change 0084 (`factions/gdo/structures.md > DeploymentCenter > Cancellation`: "Destroyed while
+    /// Design change 0084 (`factions/gdo/structures/deployment_center.md > Cancellation`: "Destroyed while
     /// constructing or holding a ready building: refunded as if cancelled"): each constructor among the objects
     /// `gone`, which are leaving the game, gives its owner back what cancelling would ([`construction::refund`]).
     /// For destructions and debug removals alike: the removal path is the one way out of the game.

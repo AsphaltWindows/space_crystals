@@ -16,7 +16,7 @@ fn a_footprint_on_open_ground_is_valid() {
     assert!(place(&map, &area, &[], Generator, 0, 14).is_valid(), "in the corner");
 }
 
-/// The build area (`factions/gdo/structures.md > GDOBuildArea`): a GDO building needs one tile in it, the
+/// The build area (`factions/gdo/structures/README.md > GDOBuildArea`): a GDO building needs one tile in it, the
 /// Deployment Center, which seeds it, none.
 #[test]
 fn a_footprint_must_reach_the_build_area() {

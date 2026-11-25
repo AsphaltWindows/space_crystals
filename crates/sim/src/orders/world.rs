@@ -98,7 +98,7 @@ impl Unit<'_> {
     }
 
     /// Its attack, if it has one (`systems/combat.md > AttackAttributes`) and may use it now: the weapon in hand
-    /// ([`Unit::weapon`]). A unit whose Riot Shield is up has none (`factions/gdo/units.md > Peacekeeper > Riot
+    /// ([`Unit::weapon`]). A unit whose Riot Shield is up has none (`factions/gdo/units/peacekeeper.md > Riot
     /// Shield`: it "cannot attack" and "does not auto-target enemies"): its behaviours pick no target and let go of
     /// the one they engaged.
     pub fn attrs(&self) -> Option<&'static AttackAttrs> {

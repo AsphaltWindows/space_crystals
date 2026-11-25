@@ -76,12 +76,12 @@ pub(crate) fn step(
 /// What cancelling gives back of a Space Crystals cost (plan decision T7: one helper for every refund).
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub enum Refund {
-    /// The whole cost: a construction cancelled while it runs (`factions/gdo/structures.md > DeploymentCenter >
+    /// The whole cost: a construction cancelled while it runs (`factions/gdo/structures/deployment_center.md >
     /// Cancellation`, `factions/gdo/economy.md > ExtractionFacility > Cancellation`), a unit taken off a queue
-    /// (`factions/gdo/structures.md > Barracks`: "X: Cancel Production ... refunds full cost").
+    /// (`factions/gdo/structures/barracks.md`: "X: Cancel Production ... refunds full cost").
     Full,
-    /// A building cancelled once it is ready to place: "75% refund of Space Crystals cost (rounded down)"
-    /// (`> Cancellation`).
+    /// A building cancelled once it is ready to place: "75% refund of Space Crystals cost (rounded down)" (the same
+    /// two `> Cancellation` sections).
     Ready,
 }
 
@@ -100,7 +100,8 @@ impl Refund {
 mod tests {
     use super::*;
 
-    /// `> Cancellation`: 75% rounded down once ready (the plan's acceptance numbers for slice M2-D1).
+    /// `factions/gdo/structures/deployment_center.md > Cancellation`, `factions/gdo/economy.md > ExtractionFacility >
+    /// Cancellation`: 75% rounded down once ready (the plan's acceptance numbers for slice M2-D1).
     #[test]
     fn refunds_follow_the_cancellation_rules() {
         assert_eq!([75, 100, 200].map(|cost| Refund::Ready.of(cost)), [56, 75, 150]);

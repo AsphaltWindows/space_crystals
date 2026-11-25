@@ -89,8 +89,8 @@ impl ArmyResource {
         }
     }
 
-    /// What a unit of `kind` takes of it: its UnitControlCost (`factions/gdo/units.md > Peacekeeper >
-    /// UnitControlCost`), its BeaconCapacityCost (`factions/colonists/units.md > Drone > BeaconCapacityCost`) or its
+    /// What a unit of `kind` takes of it: its UnitControlCost (`factions/gdo/units/peacekeeper.md >
+    /// UnitControlCost`), its BeaconCapacityCost (`factions/colonists/units/drone.md > BeaconCapacityCost`) or its
     /// TunnelSpaceCost (`factions/syndicate/units/agent.md > TunnelSpaceCost`); 0 for a kind without one.
     pub fn cost_of(self, kind: ObjectKind) -> u32 {
         let unit = kind.def().unit.as_ref();
@@ -206,13 +206,13 @@ mod tests {
         // `factions/colonists/overview.md > ColonistResources > Beacon Capacity`: "caps at 200"; `economy.md > Beacon
         // > BeaconCapacity provided - 5`.
         assert_eq!((BEACON_CAPACITY_CAP, BEACON_CAPACITY_PER_BUILDING), (200, 5));
-        // `factions/gdo/units.md > Peacekeeper > UnitControlCost - 1`; the Syndicate's Guard has none.
+        // `factions/gdo/units/peacekeeper.md > UnitControlCost - 1`; the Syndicate's Guard has none.
         let cost = |kind: ObjectKind| kind.def().unit.as_ref().and_then(|u| u.unit_control_cost);
         assert_eq!(
             (cost(ObjectKind::Peacekeeper), cost(ObjectKind::Guard)),
             (Some(1), None)
         );
-        // `factions/colonists/units.md`: the Drone's BeaconCapacityCost is 1, the Legionnaires' 2.
+        // `factions/colonists/units/README.md`: the Drone's BeaconCapacityCost is 1, the Legionnaires' 2.
         let (uc, bc, ts) = (
             ArmyResource::UnitControl,
             ArmyResource::BeaconCapacity,

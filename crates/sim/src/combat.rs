@@ -29,14 +29,14 @@
 //! - **Range** (`> Range Measurement`, design change 0031): edge to edge, the gap between the attacker's shape and
 //!   the target's (`shape`); [`reaches`] is the one check.
 //!
-//! - **Riot Shield** (`factions/gdo/units.md > Peacekeeper > Riot Shield`, `riot_shield`): only a Peacekeeper whose
+//! - **Riot Shield** (`factions/gdo/units/peacekeeper.md > Riot Shield`, `riot_shield`): only a Peacekeeper whose
 //!   shield is all the way down attacks (`riot_shield::allows_attack`): one whose shield is up or on its way (design
 //!   change 0171), or whose raise waits for its shot (design change 0198), doesn't. Its behaviours engage nothing
 //!   then; whatever is still engaged is dropped here, which cancels an aim, while Firing and Cooldown run on, and a
 //!   reload keeps counting. Its shield all the way up halves the hits against it before armour
 //!   ([`pre_armor_multiplier`]).
 //!
-//! - **Weapon Conversion** (`factions/colonists/units.md > Weapon Conversion`, `crate::conversion`): a unit fights
+//! - **Weapon Conversion** (`factions/colonists/units/weapon_conversion.md`, `crate::conversion`): a unit fights
 //!   with the weapon of the form it has ([`weapon`]), which isn't its type while a conversion is pending (design change
 //!   0198: the type switches at the press, the weapon when the conversion ends). A unit converting its weapon neither
 //!   moves nor turns ([`may_move`], [`may_turn`]) and attacks nothing: this phase skips it, and its attack sequence,
@@ -230,7 +230,7 @@ pub(crate) fn step(
     let targets = targeting::Targets::snapshot(map, objects);
     let mut hits = Vec::new();
     for o in objects.range_mut(..first_new).map(|(_, o)| o) {
-        // `factions/colonists/units.md > Weapon Conversion`: a unit converting its weapon attacks nothing; what it
+        // `factions/colonists/units/weapon_conversion.md`: a unit converting its weapon attacks nothing; what it
         // engages waits for the new weapon (`conversion`).
         if conversion::is_converting(o) {
             continue;

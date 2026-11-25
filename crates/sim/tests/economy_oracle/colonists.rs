@@ -107,7 +107,7 @@ const END: Tick = LAST + WINDOW / 2;
 const TRIPS: usize = 4;
 /// "every 6th Drone becomes a Beacon": the Drones made that deploy, by their number.
 const DEPLOYED: [usize; 4] = [5, 11, 17, 23];
-/// The design's costs: `factions/colonists/structures.md > Robo Portal > Produces` ("Drone: 50 Space Crystals") and
+/// The design's costs: `factions/colonists/structures/robo_portal.md > Produces` ("Drone: 50 Space Crystals") and
 /// `factions/gdo/economy.md > ExtractionFacility > Constructs` ("Extraction Plate: 75 Space Crystals").
 const DRONE_COST: u32 = 50;
 const PLATE_COST: u32 = 75;

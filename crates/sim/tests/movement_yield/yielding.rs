@@ -127,7 +127,7 @@ fn a_unit_attacking_from_where_it_stands_doesnt_budge() {
 enum Mode {
     /// None: it moves at its full speed.
     Normal,
-    /// Its Riot Shield raised in tick 1 (`factions/gdo/units.md > Peacekeeper > Riot Shield`): half speed.
+    /// Its Riot Shield raised in tick 1 (`factions/gdo/units/peacekeeper.md > Riot Shield`): half speed.
     Shielded,
     /// A mode it can't move in, stood in for by a save edited in tick 1 to a `Mover::speed_factor` of 0.
     Fixed,

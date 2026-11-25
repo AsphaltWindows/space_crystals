@@ -17,9 +17,9 @@
 //! sight of the Drones.
 //!
 //! It prints, for the whole tick and for each phase, the mean, the 99th percentile (which a busy machine's preemption
-//! inflates less than the worst) and the worst tick, flagging a worst tick over 10 ms (slice M2-J2's target for a
-//! whole tick); and the whole tick in the waiting Drones' re-check ticks apart from the others, since every waiting
-//! Drone looks round in the same ticks (`factions/colonists/units.md > Patch Occupancy > Waiting and re-checking`).
+//! inflates less than the worst) and the worst tick, flagging a worst tick over 10 ms (slice M2-J2's target for a whole
+//! tick); and the whole tick in the waiting Drones' re-check ticks apart from the others, since every waiting Drone
+//! looks round in the same ticks (`factions/colonists/units/drone.md > Patch Occupancy > Waiting and re-checking`).
 //! Tick 1, with the 32 Gathers of 80 Drones and the two group orders, is a section of its own. The assertions are on
 //! the game, never on wall time.
 

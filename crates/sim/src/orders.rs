@@ -11,7 +11,7 @@
 //!   Hold Position;
 //! - [`travel`]: MovingToObject (Follow for a unit), AttackMovingToLocation and Patrolling;
 //! - Move to a point, and Stop, need only the mover's status;
-//! - [`gather`]: a worker's job, the Gather and Drop Off orders of `factions/colonists/units.md > Drone`;
+//! - [`gather`]: a worker's job, the Gather and Drop Off orders of `factions/colonists/units/drone.md`;
 //! - [`deploy`]: a Drone's walk to the site of the Beacon it deploys into (`crate::deploy`);
 //! - [`enter`]: a unit's walk into a Tunnel's entry path (`crate::network`).
 //!
@@ -80,7 +80,7 @@ pub enum OrderKind {
     Hold,
     /// `> Stop`.
     Stop,
-    /// `factions/colonists/units.md > Drone > Unit Commands > Gather`: a worker gathers from a Space Crystals patch
+    /// `factions/colonists/units/drone.md > Unit Commands > Gather`: a worker gathers from a Space Crystals patch
     /// and delivers to its AssignedDropOff, again and again ([`gather`]). The patch is the one the worker heads for
     /// now: the order follows it to another when its patch is occupied, out of reach or gone (design change 0132:
     /// "its gather target follows where it actually mined"). A patch that is gone stays named while the worker

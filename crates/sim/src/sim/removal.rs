@@ -155,7 +155,7 @@ fn forget(o: &mut Object, gone: &[ObjectId], remembered: impl Fn(ObjectId) -> bo
     if o.extractor.is_some_and(|extractor| is_gone(extractor.patch)) {
         o.extractor = None;
     }
-    // A rally point on an object that is gone resets to None (`factions/gdo/structures.md > Barracks > RallyPoint
+    // A rally point on an object that is gone resets to None (`factions/gdo/structures/barracks.md > RallyPoint
     // behavior`; for an enemy unit only while its owner saw it, `production::rally::follow`), but for one on a
     // remembered object (design change 0139: "A rally point on an enemy structure stays on it after it leaves sight").
     if let Some(production) = &mut o.production {

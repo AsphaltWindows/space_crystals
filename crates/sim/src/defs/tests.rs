@@ -252,10 +252,10 @@ fn structure_is_consistent(def: &ObjectDef, structure: &StructureDef) {
     }
 }
 
-/// `defs_are_consistent` for a structure's tier table (plan decision T39): only the Tunnel has one, a surface
-/// structure (`factions/syndicate/tunnels.md > Tunnel > Tiers`). Its tiers are 1 to 3, each with more MaxHP, a wider
-/// Tunnel Area and at least the transit of the tier below, infantry from Tier 1; its type's MaxHP is that of Tier 1, the
-/// tier a Tunnel starts at.
+/// `defs_are_consistent` for a structure's tier table (plan decision T39): only the Tunnel has one, a surface structure
+/// (`factions/syndicate/tunnels.md > Tunnel > Tiers`). Its tiers are 1 to 3, each with more MaxHP, a wider Tunnel Area
+/// and at least the transit of the tier below, infantry from Tier 1; its type's MaxHP is that of Tier 1, the tier a
+/// Tunnel starts at.
 fn tunnel_is_consistent(def: &ObjectDef, structure: &StructureDef) {
     let name = def.name;
     assert_eq!(
@@ -310,8 +310,8 @@ fn unit_is_consistent(def: &ObjectDef, unit: &UnitDef) {
         unit.base == UnitBase::LightInfantry,
         "{name}: RuggedTerrainDefenseBonus belongs to LightInfantry"
     );
-    // Each faction's army cost belongs to its own units: `factions/gdo/units.md > UnitControlCost`, the Syndicate's
-    // TunnelSpaceCost (`factions/syndicate/tunnels.md`), the Colonists' BeaconCapacityCost
+    // Each faction's army cost belongs to its own units: the GDO's UnitControlCost (`factions/gdo/overview.md > Unit
+    // Control`), the Syndicate's TunnelSpaceCost (`factions/syndicate/tunnels.md`), the Colonists' BeaconCapacityCost
     // (`factions/colonists/overview.md > Beacon Capacity`).
     let of = |faction| def.faction == Some(faction);
     assert_eq!(

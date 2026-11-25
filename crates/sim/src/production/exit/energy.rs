@@ -1,4 +1,4 @@
-//! The portals' energy doorway — design change 0145 (`factions/colonists/structures.md > Portals > Portal Exits
+//! The portals' energy doorway — design change 0145 (`factions/colonists/structures/README.md > Portals > Portal Exits
 //! (energy doorway)`, which answers question Q0041 points 5 and 6): "At the centre of every portal is an energy doorway
 //! from which units emerge. Portals don't use exit sides".
 //!

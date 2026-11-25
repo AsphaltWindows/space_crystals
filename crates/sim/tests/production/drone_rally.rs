@@ -15,7 +15,7 @@ use super::queue::{crystals, produced, rally_of};
 use super::{P1, P2, PK, at, flat, production, tile};
 
 /// The Drone rallied on the enemy follows it (it is unarmed: "Enemy or other object → Move to it: Follow if it is a
-/// unit", `factions/colonists/units.md > Drone > Right-Click Resolution`), and waits by it, out of the portal. The
+/// unit", `factions/colonists/units/drone.md > Right-Click Resolution`), and waits by it, out of the portal. The
 /// enemy leaves sight at once, set far off: the Drone's Follow ends in the next tick, and it stays where it is
 /// (design change 0200). The rally point is a ground rally where the enemy was last seen by then (design change
 /// 0088), so the next Drone, trained after the enemy was lost, walks there.

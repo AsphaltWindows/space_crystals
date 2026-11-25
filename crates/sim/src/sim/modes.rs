@@ -4,8 +4,8 @@
 //! a Weapon Conversion (`conversion`, slice M3-B). A mode isn't an order (`ARCHITECTURE.md > Adding a new system`): an
 //! ability leaves the units' orders as they are.
 //!
-//! **A toggle sets a target state** (design change 0198, slice M3-T; `factions/colonists/units.md > Weapon Conversion >
-//! A toggle sets a target form`, `factions/gdo/units.md > Peacekeeper > Riot Shield > Two unit types`; the rule is
+//! **A toggle sets a target state** (design change 0198, slice M3-T; `factions/colonists/units/weapon_conversion.md >
+//! A toggle sets a target form`, `factions/gdo/units/peacekeeper.md > Riot Shield > Two unit types`; the rule is
 //! `crate::toggle`'s): the Legionnaires' Convert and the Peacekeeper's Riot Shield switch the unit's type at the press
 //! ("The unit's type, and so its SelectionGroup, switches at the press to the target form", "including when the raise
 //! is deferred behind a shot"), through [`Sim::change_kind`] ([`Ability::switched_kind`]), and leave what the unit has
@@ -51,7 +51,7 @@ impl Sim {
                 continue;
             };
             match ability {
-                // `factions/colonists/units.md > Drone > Assigned Drop-off`: it "only updates AssignedDropOff"; the
+                // `factions/colonists/units/drone.md > Assigned Drop-off`: it "only updates AssignedDropOff"; the
                 // worker's order goes on.
                 Ability::SetDropOff(node) => {
                     if let Some(worker) = &mut o.worker {

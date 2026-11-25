@@ -4,7 +4,7 @@
 
 use super::*;
 
-/// `factions/cults/units.md > Recruit` (throughput note), `docs/movement.md > 6.3` rule 4: a 64 su gap fits two
+/// `factions/cults/units/recruit.md` (throughput note), `docs/movement.md > 6.3` rule 4: a 64 su gap fits two
 /// 24 su units side by side. Two Peacekeepers meeting head-on in it each step to their right and pass.
 #[test]
 fn two_peacekeepers_pass_each_other_in_a_corridor() {

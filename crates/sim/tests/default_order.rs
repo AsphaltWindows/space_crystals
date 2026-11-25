@@ -1,6 +1,6 @@
 //! A unit's default command against a target (`sc_sim::orders::resolution`, `Sim::default_order`): the one rule of
 //! the right-click and the rally point (`systems/controls/selection_and_hud.md > RightClickResolution`, design changes
-//! 0062, 0063, 0074, 0136, 0139 and 0140; `factions/colonists/units.md > Drone > Right-Click Resolution`), as a table
+//! 0062, 0063, 0074, 0136, 0139 and 0140; `factions/colonists/units/drone.md > Right-Click Resolution`), as a table
 //! of unit kinds against kinds of targets, in a game and as the pure rule.
 
 use sc_sim::combat::domain_allows;

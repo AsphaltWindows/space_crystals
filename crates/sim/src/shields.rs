@@ -5,7 +5,7 @@
 //!   MaxShields, `None` for every other. An object enters the game with full Shields (`Sim::insert_object`, as with
 //!   its HP) and keeps them through a change of kind, at most the new maximum (`Sim::change_kind`): a Weapon
 //!   Conversion's two forms have equal maxima, so "current HP/Shields values carry over unchanged"
-//!   (`factions/colonists/units.md > Weapon Conversion > HP/Shields`). While an object transforms, its maximum is the
+//!   (`factions/colonists/units/weapon_conversion.md > HP/Shields`). While an object transforms, its maximum is the
 //!   interpolated one ([`Object::max_shields`]): each frame its Shields rise by what that maximum rises (design
 //!   change 0110: "current += (newMax − oldMax) each frame", `transform::follow_max`), and a cancel leaves them the
 //!   fraction of the maximum they had (design change 0111: "Shields by the same fraction (no minimum needed)",
@@ -24,7 +24,7 @@
 //!   change 0146).
 //!
 //! TODO(Fusion Core): the Fusion Core's shield upgrades raise the rate (`> ShieldRegenRate`: "each level increasing
-//! the rate; per-level values TBD", `factions/colonists/structures.md > Fusion Core > Research`).
+//! the rate; per-level values TBD", `factions/colonists/structures/fusion_core.md > Research`).
 
 use std::collections::BTreeMap;
 

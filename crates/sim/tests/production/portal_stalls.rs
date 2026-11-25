@@ -1,7 +1,7 @@
-//! A portal whose way out is blocked (slice M3-D2, design change 0145, `factions/colonists/structures.md > Portals >
-//! Portal Exits (energy doorway)`, points 4 and 5): the unit that can't get out stays half out at the edge of the
-//! footprint, a normal unit; the next one reaches 100% and waits inside until the first has left the doorway, and is
-//! refunded if the portal is destroyed (design changes 0084 and 0085). And invariants I1 and I2 around the energy
+//! A portal whose way out is blocked (slice M3-D2, design change 0145, `factions/colonists/structures/README.md >
+//! Portals > Portal Exits (energy doorway)`, points 4 and 5): the unit that can't get out stays half out at the edge of
+//! the footprint, a normal unit; the next one reaches 100% and waits inside until the first has left the doorway, and
+//! is refunded if the portal is destroyed (design changes 0084 and 0085). And invariants I1 and I2 around the energy
 //! doorway: negative tests, in the way of `tests/invariants_overlap.rs` (the movement step never breaks them, so they
 //! put a unit where it must not be by editing a saved state, and ask the checker).
 

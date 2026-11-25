@@ -37,7 +37,7 @@
 //!   overlapped by no ground unit's box, whoever owns it (design change 0094: units are never pushed aside, and air
 //!   and underground units don't count);
 //! - the footprint: a structure's; for a GDO building, at least one tile in the build area
-//!   (`factions/gdo/structures.md > GDOBuildArea`), except for the Deployment Center, which seeds the area
+//!   (`factions/gdo/structures/README.md > GDOBuildArea`), except for the Deployment Center, which seeds the area
 //!   ([`seeds_build_area`]); for an Extraction Plate, exactly onto a Space Crystals Patch
 //!   (`factions/gdo/economy.md > ExtractionFacility > AwaitingPlacement`), which must have no plate yet: a covered
 //!   patch is a tile under a structure. That rule is [`Onto`], which map validation also applies to the map's
@@ -225,7 +225,7 @@ impl Sim {
             .collect()
     }
 
-    /// `factions/gdo/structures.md > GDOBuildArea`: `player`'s build area now, from the GDO buildings they own
+    /// `factions/gdo/structures/README.md > GDOBuildArea`: `player`'s build area now, from the GDO buildings they own
     /// ([`BuildArea`]). Worked out from the objects at each call (each building is one rectangle), so it is always
     /// that of the buildings standing now. Empty for a player who owns none.
     pub fn build_area(&self, player: PlayerId) -> BuildArea {

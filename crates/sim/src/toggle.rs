@@ -1,5 +1,5 @@
-//! A toggle sets a target form — design change 0198 (`factions/colonists/units.md > Weapon Conversion > A toggle sets
-//! a target form`, `factions/gdo/units.md > Peacekeeper > Riot Shield > Two unit types`): the one rule of the
+//! A toggle sets a target form — design change 0198 (`factions/colonists/units/weapon_conversion.md > A toggle sets
+//! a target form`, `factions/gdo/units/peacekeeper.md > Riot Shield > Two unit types`): the one rule of the
 //! Legionnaires' Weapon Conversion (`crate::conversion`) and the Peacekeeper's Riot Shield (`crate::riot_shield`),
 //! implemented once (plan decision T54). Each keeps its own state, in its own `Object` field, hashed as before.
 //!
@@ -7,9 +7,9 @@
 //!   press asks for, the other one for a Convert ("Pressing R **flips the unit's target form**"), the raised or the
 //!   lowered type for a raise or a lowering of the shield: "The unit's type, and so its SelectionGroup, switches at the
 //!   press to the target form". A press for the type the unit has already changes nothing.
-//! - **The work** ([`toward`]): "the unit then works to get itself into that form": the Modes step takes the unit's
-//!   own state (the form it fights with, how far up its shield is) toward its type, a tick at a time. A change that
-//!   hasn't begun waits while the unit is Firing or in Cooldown (`combat::mid_attack`): "deferred, not rejected" (design
+//! - **The work** ([`toward`]): "the unit then works to get itself into that form": the Modes step takes the unit's own
+//!   state (the form it fights with, how far up its shield is) toward its type, a tick at a time. A change that hasn't
+//!   begun waits while the unit is Firing or in Cooldown (`combat::mid_attack`): "deferred, not rejected" (design
 //!   change 0153), "the shot finishes, then the shield starts rising immediately" (design change 0172). So "however
 //!   fast R is pressed, every unit that received the presses ends up in the same form".
 

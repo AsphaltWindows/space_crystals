@@ -53,25 +53,25 @@ pub struct Object {
     /// Units that can attack: the attack sequence (`systems/combat.md`; `combat`).
     pub attack: Option<AttackState>,
     /// Units that carry a Riot Shield: how far up it is, the way it goes being the unit's type
-    /// (`factions/gdo/units.md > Peacekeeper > Riot Shield`, design change 0173; `riot_shield`).
+    /// (`factions/gdo/units/peacekeeper.md > Riot Shield`, design change 0173; `riot_shield`).
     pub riot_shield: Option<RiotShield>,
     /// A structure that mines, standing on a Space Crystals patch: the patch and its mining cycle
     /// (`factions/gdo/economy.md > ExtractionPlate`; `economy::mining`). `None` for everything else, a plate on bare
     /// ground included.
     pub extractor: Option<Extractor>,
     /// A structure that produces units: its queue, the progress of the unit in production and its rally point
-    /// (`factions/gdo/structures.md > Barracks > BarracksInstanceState`; `production`). Optional in files, so that
+    /// (`factions/gdo/structures/barracks.md > BarracksInstanceState`; `production`). Optional in files, so that
     /// states saved before it existed still load.
     #[serde(default)]
     pub production: Option<Production>,
     /// A structure that constructs buildings, the Deployment Center and the Extraction Facility: what it is
-    /// building, or the building it holds ready to place (`factions/gdo/structures.md > DeploymentCenter >
+    /// building, or the building it holds ready to place (`factions/gdo/structures/deployment_center.md >
     /// DeploymentCenterInstanceState`, `factions/gdo/economy.md > ExtractionFacility`; `construction`). `None` for
     /// everything else. Optional in files, so that states saved before it existed still load.
     #[serde(default)]
     pub constructor: Option<Constructor>,
     /// A worker, the Drone: the load it carries, its AssignedDropOff and the patch it gathers
-    /// (`factions/colonists/units.md > Drone > Gathering`, `> Assigned Drop-off`; `economy::gathering`). `None` for
+    /// (`factions/colonists/units/drone.md > Gathering`, `> Assigned Drop-off`; `economy::gathering`). `None` for
     /// everything else. Optional in files, so that states saved before it existed still load.
     #[serde(default)]
     pub worker: Option<Worker>,
@@ -82,7 +82,7 @@ pub struct Object {
     #[serde(default)]
     pub transform: Option<Transform>,
     /// A Legionnaire whose form isn't its type yet: the form it has, and the frames left of its conversion under way
-    /// (`factions/colonists/units.md > Weapon Conversion`, plan decision T26, design change 0198; `conversion`).
+    /// (`factions/colonists/units/weapon_conversion.md`, plan decision T26, design change 0198; `conversion`).
     /// `None` for everything else. Optional in files, so that states saved before it existed still load, and so do
     /// those saved before design change 0198 (`conversion::saved`).
     #[serde(default, deserialize_with = "crate::conversion::saved")]

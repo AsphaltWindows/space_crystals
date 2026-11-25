@@ -1,6 +1,6 @@
 //! Hidden objects (plan decision T32): what an owned underground object keeps from the other players
-//! (`factions/syndicate/structures.md > Tunnel Expansions`: "Expansions are invisible to enemies without detection and
-//! can be walked over by surface units").
+//! (`factions/syndicate/structures/README.md > Tunnel Expansions`: "Expansions are invisible to enemies without
+//! detection and can be walked over by surface units").
 //!
 //! - **The rule** ([`hidden_from`]): an object of an underground structure type (`StructureDef::underground`, the
 //!   Hideout so far) that has an owner is hidden from every other player. Its owner always knows it, and a neutral one

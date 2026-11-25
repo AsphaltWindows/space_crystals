@@ -57,7 +57,7 @@ const ORDER_TICKS: Tick = 2 * (64 + 48) * 64 / 4;
 /// Egress Node; the longest goes to a patch across the field, round it through the crowd of Drones (the field's arc,
 /// the Egress Node and the Robo Portal close the arc's inside in two).
 const STEP_TICKS: Tick = 30 * TICKS_PER_SECOND;
-/// A waiting Drone looks round again every 16 ticks (`factions/colonists/units.md > Patch Occupancy > Waiting and
+/// A waiting Drone looks round again every 16 ticks (`factions/colonists/units/drone.md > Patch Occupancy > Waiting and
 /// re-checking`, `tuning::gathering::RECHECK_TICKS`).
 const RECHECK_TICKS: Tick = 16;
 /// While the field lasts, its Drones deliver at least this often (the first delivery comes after the first Drones'

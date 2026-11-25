@@ -25,7 +25,7 @@ use crate::{combat, conversion, riot_shield};
 /// the vision of its phase 5f.
 pub(crate) fn update(objects: &mut BTreeMap<ObjectId, Object>, first_new: ObjectId, world: &World, reach: &mut Reach) {
     reach.begin_tick();
-    // `factions/colonists/units.md > Drone > Patch Occupancy (one Drone per patch)`: in id order within the tick.
+    // `factions/colonists/units/drone.md > Patch Occupancy (one Drone per patch)`: in id order within the tick.
     let mut claims = gather::Claims::default();
     for o in objects.range_mut(..first_new).map(|(_, o)| o) {
         let may_attack = riot_shield::allows_attack(o);
@@ -135,7 +135,7 @@ pub(super) fn start(order: &Order, unit: &mut Unit, world: &World) -> Behaviour 
                 leg: Leg::new(unit.pos, destination),
             })
         }
-        // `factions/colonists/units.md > Drone > Gathering`: the worker's job.
+        // `factions/colonists/units/drone.md > Gathering`: the worker's job.
         OrderKind::Gather(_) | OrderKind::DropOff(_) => Behaviour::Gather(gather::begin(order.kind, unit, world)),
         // `factions/colonists/economy.md > Beacon Deployment > Deploy Command`: to the footprint's centre.
         OrderKind::Deploy { origin } => Behaviour::Deploy(deploy::begin(origin, unit, tick)),

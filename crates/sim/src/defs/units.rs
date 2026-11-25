@@ -185,7 +185,7 @@ pub struct AttackAttrs {
     pub reload_ticks: u32,
 }
 
-/// `factions/gdo/units.md > Peacekeeper > Riot Shield (toggled ability)`: a Riot Shield, the same on both of the
+/// `factions/gdo/units/peacekeeper.md > Riot Shield (toggled ability)`: a Riot Shield, the same on both of the
 /// unit types it switches between (design change 0173: "shield down and shield up are two unit types [...] They share
 /// everything except what the shield changes"; `crate::riot_shield`).
 #[derive(Copy, Clone, Debug, PartialEq, Serialize, Deserialize)]
@@ -270,7 +270,7 @@ pub struct WorkerDef {
     /// stat yet), grid units: a worker looks for another patch only within this distance of itself, centre to
     /// centre (`orders::gather`).
     pub search_radius: f32,
-    /// `factions/colonists/units.md > Drone > Gathering Drones pass through each other` (design change 0106):
+    /// `factions/colonists/units/drone.md > Gathering Drones pass through each other` (design change 0106):
     /// workers of this type that are on a Gather job don't collide with each other, whoever owns them
     /// (`orders::gather::on_gather_job`, `movement::space::blocks`). "Drones only": the workers of the other
     /// factions keep normal collision while they mine.
@@ -302,14 +302,14 @@ pub struct UnitDef {
     pub turret: Option<TurretAttrs>,
     /// `> AttackAttributes`: `None` for units that can't attack.
     pub attack: Option<AttackAttrs>,
-    /// `factions/gdo/units.md > UnitControlCost`: GDO units only.
+    /// `factions/gdo/overview.md > Unit Control`, a unit's `UnitControlCost`: GDO units only.
     pub unit_control_cost: Option<u32>,
     /// `factions/syndicate/tunnels.md`, a unit's `TunnelSpaceCost`: Syndicate units only.
     pub tunnel_space_cost: Option<u32>,
-    /// `factions/colonists/units.md`, a unit's `BeaconCapacityCost` (`factions/colonists/overview.md > Beacon
+    /// `factions/colonists/units/README.md`, a unit's `BeaconCapacityCost` (`factions/colonists/overview.md > Beacon
     /// Capacity`): Colonists units only (plan decision T14). Data only until slice M3-C counts it.
     pub beacon_capacity_cost: Option<u32>,
-    /// `factions/gdo/units.md > Peacekeeper > Riot Shield`.
+    /// `factions/gdo/units/peacekeeper.md > Riot Shield`.
     pub riot_shield: Option<RiotShieldDef>,
     /// `factions/colonists/units/weapon_conversion.md`: the two forms it converts between, for a unit that has
     /// another form (`crate::conversion`).
@@ -317,7 +317,7 @@ pub struct UnitDef {
     /// `factions/colonists/units/drone.md > Deploying`: what it deploys into, in place, for a unit that deploys
     /// (`crate::deploy`): the structure, the frames it takes, and its cost.
     pub deploy: Option<Recipe>,
-    /// `factions/colonists/units.md > Drone > Gathering`: `None` for units that gather nothing.
+    /// `factions/colonists/units/drone.md > Gathering`: `None` for units that gather nothing.
     pub worker: Option<WorkerDef>,
 }
 

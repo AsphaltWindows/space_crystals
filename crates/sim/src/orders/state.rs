@@ -168,7 +168,7 @@ pub struct Patrol {
     pub leg: Leg,
 }
 
-/// Where a worker is in its job (`factions/colonists/units.md > Drone > Gathering`: "pick up at X, deliver to Y";
+/// Where a worker is in its job (`factions/colonists/units/drone.md > Gathering`: "pick up at X, deliver to Y";
 /// `orders::gather`).
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum GatherPhase {
@@ -208,9 +208,9 @@ pub struct Gather {
     /// The leg to the drop-off ended short of it: the next one begins no sooner than this tick
     /// (`tuning::gathering::LEG_RETRY_TICKS`). 0 while no leg has.
     pub retry_at: Tick,
-    /// Where the order's patch is, its centre, while the worker can't go by the patch itself: out of its owner's
-    /// sight, where the owner remembers it (design change 0139), and once it has left the game, where it was (design
-    /// change 0134, `factions/colonists/units.md > Patch Occupancy > A patch that runs out`). Gone to the owner, the
+    /// Where the order's patch is, its centre, while the worker can't go by the patch itself: out of its owner's sight,
+    /// where the owner remembers it (design change 0139), and once it has left the game, where it was (design change
+    /// 0134, `factions/colonists/units/drone.md > Patch Occupancy > A patch that runs out`). Gone to the owner, the
     /// patch is "treated like an occupied one": the worker heads for its spot and looks for another patch there.
     /// Meanwhile the order may name a patch that is gone (`orders::Order::outlives_target`). `None` while the owner
     /// sees the patch. Optional in files.
@@ -273,7 +273,7 @@ pub enum Behaviour {
     Hold {
         target: Option<ObjectId>,
     },
-    /// A worker's job, for a Gather and a Drop Off order alike (`factions/colonists/units.md > Drone > Gathering`).
+    /// A worker's job, for a Gather and a Drop Off order alike (`factions/colonists/units/drone.md > Gathering`).
     Gather(Gather),
     /// A Drone on its way to deploy (`factions/colonists/economy.md > Beacon Deployment > Deploy Command`).
     Deploy(Deploy),

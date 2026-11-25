@@ -1,4 +1,4 @@
-//! Rally points — `factions/gdo/structures.md > Barracks > RallyPoint behavior`,
+//! Rally points — `factions/gdo/structures/barracks.md > RallyPoint behavior`,
 //! `systems/controls/selection_and_hud.md > Production Building Default Right-Click`, `> Rally points on enemy
 //! objects`, `> What a rally point makes a new unit do` (design changes 0086, 0088, 0136 and 0139).
 //!

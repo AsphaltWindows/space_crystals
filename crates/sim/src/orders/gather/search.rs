@@ -1,4 +1,4 @@
-//! Occupancy and the search for another patch (`factions/colonists/units.md > Drone > Patch Occupancy (one Drone
+//! Occupancy and the search for another patch (`factions/colonists/units/drone.md > Patch Occupancy (one Drone
 //! per patch)`, design changes 0131 to 0134 and 0141; the module docs of `orders::gather`).
 
 use crate::defs::WorkerDef;
@@ -64,9 +64,9 @@ pub(super) fn search(world: &World, claims: &Claims, unit: &Unit, def: &WorkerDe
 /// is `waiting` at it itself, another one waits at it within reach and gets it as soon as it frees (design change
 /// 0133). Among the workers waiting there, the claims alone decide: the lowest id claims first.
 ///
-/// Never for a worker of a type that shares patches (`WorkerDef::shares_patches`: `factions/syndicate/units.md >
-/// Agent > Gathering rules`, "Agents share patches (no occupancy rule)"). Such workers aren't among those that mine,
-/// wait or claim here either (`World::patch_mined`, [`claim`]): the occupancy is the other workers' alone.
+/// Never for a worker of a type that shares patches (`WorkerDef::shares_patches`: `factions/syndicate/units/agent.md >
+/// Gathering rules`, "Agents share patches (no occupancy rule)"). Such workers aren't among those that mine, wait or
+/// claim here either (`World::patch_mined`, [`claim`]): the occupancy is the other workers' alone.
 pub(super) fn taken(
     world: &World,
     claims: &Claims,

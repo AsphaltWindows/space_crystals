@@ -1,10 +1,10 @@
 //! Gathering: how often a waiting worker looks round, and how long one whose return leg ended short stands before it
-//! tries again (`factions/colonists/units.md > Drone > Gathering`; `factions/syndicate/units/agent.md > Gathering`;
+//! tries again (`factions/colonists/units/drone.md > Gathering`; `factions/syndicate/units/agent.md > Gathering`;
 //! `crate::orders::gather`). The workers' loads, durations and reaches are their defs' (`defs::WorkerDef`).
 
 use crate::units::Tick;
 
-/// `factions/colonists/units.md > Drone > Patch Occupancy > Waiting and re-checking`, item 2 (design change 0132): a
+/// `factions/colonists/units/drone.md > Patch Occupancy > Waiting and re-checking`, item 2 (design change 0132): a
 /// waiting worker looks round again at this interval, in the ticks that are multiples of it. The design's
 /// placeholder: 16 frames, 1 second.
 ///

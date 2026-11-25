@@ -1,4 +1,4 @@
-//! Unit production (slice M2-D2; `factions/gdo/structures.md > Barracks`; the Colonists' portals, slice M3-D), one
+//! Unit production (slice M2-D2; `factions/gdo/structures/barracks.md`; the Colonists' portals, slice M3-D), one
 //! test binary:
 //! - `queue`: the queue and its costs, the commands and their gate, group production (design change 0083), the
 //!   refund of a destroyed producer (0084), a game replayed and saved;
@@ -6,9 +6,9 @@
 //! - `exit`: the exit doorway (`core/entities.md > Structure Type > Exit Doorway`, design change 0080): where a unit
 //!   appears, in every orientation, and how it gets out;
 //! - `stalls`: blocked doorways (production pauses, design change 0085's refund), saves, and a long random game;
-//! - `portals`: the Robo Portal and the Bio Portal (`factions/colonists/structures.md`; their energy doorway, design
-//!   change 0145): the unit that materializes at the centre and the heading it walks out along (towards the rally
-//!   point, round by the nearest free open direction, or at random), the Bio Portal's arc in every orientation,
+//! - `portals`: the Robo Portal and the Bio Portal (`factions/colonists/structures/README.md`; their energy doorway,
+//!   design change 0145): the unit that materializes at the centre and the heading it walks out along (towards the
+//!   rally point, round by the nearest free open direction, or at random), the Bio Portal's arc in every orientation,
 //!   rally points on enemies, refunds and Beacon Capacity, a game replayed and saved;
 //! - `portal_stalls`: a portal whose way out is blocked (the unit half out, the next one waiting at 100%, the
 //!   refund), and invariants I1 and I2 around the energy doorway (negative tests);

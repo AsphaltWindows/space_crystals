@@ -107,7 +107,7 @@ mod tests {
         }
     }
 
-    /// Design change 0079 for the Bio Portal (AABB, `factions/colonists/structures.md > Bio Portal`): unturned, A on
+    /// Design change 0079 for the Bio Portal (AABB, `factions/colonists/structures/bio_portal.md`): unturned, A on
     /// top and on the right, B at the bottom and on the left. Its two A sides, its exits (`> Exit Behavior`), stay
     /// side by side in every orientation, and a flip gives what a turn would.
     #[test]

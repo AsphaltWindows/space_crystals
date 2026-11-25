@@ -62,7 +62,7 @@ fn may_move(t: &TestSim, id: ObjectId) -> bool {
     combat::may_move(t.sim().object(id).expect("exists"))
 }
 
-/// `factions/gdo/units.md > Peacekeeper`: Aim 2, Firing 1, Cooldown 2, Reload 12, a period of 17 ticks. Ordered in
+/// `factions/gdo/units/peacekeeper.md`: Aim 2, Firing 1, Cooldown 2, Reload 12, a period of 17 ticks. Ordered in
 /// tick 2, it aims in ticks 2–3, fires in 4 (the hit lands at its end), cools down in 5–6 and reloads in 7–18; the
 /// next sequence starts in 19. The Guard holds 200 su off, beyond its own Range (3 grid units): its hits of 17 would
 /// kill the Peacekeeper before its fourth shot.
@@ -87,7 +87,7 @@ fn peacekeeper_attacks_every_17_ticks() {
     assert_eq!(attack_ticks(&t, ATTACKER), [4, 21, 38, 55]);
 }
 
-/// `factions/syndicate/units.md > Guard`, its laser rifle (design change 0186): Aim 4, Firing 1, Cooldown 3, Reload
+/// `factions/syndicate/units/guard.md`, its laser rifle (design change 0186): Aim 4, Firing 1, Cooldown 3, Reload
 /// 16, a period of 24 ticks. Ordered in tick 2, it aims in ticks 2–5, fires in 6, cools down in 7–9 and reloads in
 /// 10–25; the next sequence starts in 26. Its third hit of 17 kills the Peacekeeper (50 HP, PointArmor 1).
 #[test]

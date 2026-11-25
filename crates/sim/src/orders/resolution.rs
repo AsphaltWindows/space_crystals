@@ -8,15 +8,15 @@
 //! sees or remembers, design change 0139), the client from what it shows (`command_ui::resolution`), so the click,
 //! its pointer and a rally point all come out of the same function.
 //!
-//! - **The ground**: Move there (`> BasicCombatUnitInterfaceState > RightClickResolution`, `factions/colonists/units.md
-//!   > Drone > Right-Click Resolution`: "Ground → Move").
-//! - **A worker** (the Drone, `> Drone > Right-Click Resolution`): a Space Crystals patch it can gather gives Gather
-//!   ("Space Crystal patch → Gather"; a patch under a mining structure is no patch to it, question Q0037 point 11); its
-//!   owner's drop-off that takes loads gives Drop Off while it carries a load ("Own Egress Node (carrying resources) →
-//!   Drop off resources"); without a load, a Move there (design change 0140). A worker that gathers Supplies (the
-//!   Agent, `factions/syndicate/units/agent.md > Right-Click Resolution`: "Supply Delivery Station → Gather supplies";
-//!   slice M4-I) gets Gather on a Supply Delivery Station too, whatever it carries (design change 0256 point 4: it
-//!   "goes straight to the station").
+//! - **The ground**: Move there (`> BasicCombatUnitInterfaceState > RightClickResolution`,
+//!   `factions/colonists/units/drone.md > Right-Click Resolution`: "Ground → Move").
+//! - **A worker** (the Drone, `factions/colonists/units/drone.md > Right-Click Resolution`): a Space Crystals patch it
+//!   can gather gives Gather ("Space Crystal patch → Gather"; a patch under a mining structure is no patch to it,
+//!   question Q0037 point 11); its owner's drop-off that takes loads gives Drop Off while it carries a load ("Own
+//!   Egress Node (carrying resources) → Drop off resources"); without a load, a Move there (design change 0140). A
+//!   worker that gathers Supplies (the Agent, `factions/syndicate/units/agent.md > Right-Click Resolution`: "Supply
+//!   Delivery Station → Gather supplies"; slice M4-I) gets Gather on a Supply Delivery Station too, whatever it carries
+//!   (design change 0256 point 4: it "goes straight to the station").
 //! - **An own Tunnel** whose tier lets the unit through gives Enter (`systems/controls/commands.md > Enter`: "any
 //!   Syndicate unit, when the target Tunnel's tier is sufficient for the unit's base category";
 //!   `factions/syndicate/units/agent.md > Right-Click Resolution`: "Own Tunnel (not carrying resources) → Enter";

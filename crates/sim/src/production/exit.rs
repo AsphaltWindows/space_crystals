@@ -1,6 +1,6 @@
 //! The exit doorways — `core/entities.md > Structure Type > Exit Doorway` (design change 0080) and the portals' energy
-//! doorway (design change 0145, `factions/colonists/structures.md > Portals > Portal Exits (energy doorway)`): where a
-//! producing structure releases its units, and the one case in which a unit's box may overlap a structure.
+//! doorway (design change 0145, `factions/colonists/structures/README.md > Portals > Portal Exits (energy doorway)`):
+//! where a producing structure releases its units, and the one case in which a unit's box may overlap a structure.
 //!
 //! A building's exit rule (`ProductionDef::exits`) gives it one of two kinds of doorway ([`ExitDoor::of`]):
 //! - **A side doorway** ([`Doorway`], `ExitRule::Side`, plan decision T19): the middle of its exit side ([`Door`]),

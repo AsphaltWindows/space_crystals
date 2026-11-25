@@ -328,7 +328,7 @@ fn path_knowledge(sim: &Sim) -> Result<(), Violation> {
 /// I1's two exceptions (design change 0106): whether the units `a` and `b` of one layer, whose boxes overlap as
 /// the tick ends, may. `before` is what the checker saw of the units a tick earlier.
 ///
-/// 1. **Gathering Drones** (`factions/colonists/units.md > Drone > Gathering Drones pass through each other`):
+/// 1. **Gathering Drones** (`factions/colonists/units/drone.md > Gathering Drones pass through each other`):
 ///    both are Drones on a Gather job. The movement step saw a unit so if it is on one now, or was a tick earlier
 ///    and has no order now: an order ends after the movement only by leaving the unit idle (a Drop Off whose
 ///    drop-off was destroyed in phase 5e), while an order given in this tick began before the movement and is the

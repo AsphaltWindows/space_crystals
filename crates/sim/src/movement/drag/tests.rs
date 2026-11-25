@@ -4,7 +4,7 @@
 use super::*;
 use crate::defs::ObjectKind;
 
-/// `factions/colonists/units.md > Drone > UnitBaseAttributes[HoverVehicle]`: since design change 0205, thrust and
+/// `factions/colonists/units/drone.md > UnitBaseAttributes[HoverVehicle]`: since design change 0205, thrust and
 /// drag ×1.5 of [`BEFORE_0205`], the same top speed.
 const DRONE: MovementAttrs = MovementAttrs::Drag {
     forward_acceleration: 0.9,

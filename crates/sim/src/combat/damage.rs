@@ -92,10 +92,10 @@ pub fn resolve(hit: &Hit, shields: Option<f32>) -> Taken {
 /// - the RuggedTerrainDefenseBonus (`systems/units.md > LightInfantry`): the bonus's fraction of the damage is taken
 ///   off while the unit's centre is on a Rugged tile (a placeholder reading: the design doesn't say which tile counts
 ///   for a unit standing on several);
-/// - the Peacekeeper's raised Riot Shield (`factions/gdo/units.md > Peacekeeper > Riot Shield`): "a 50% pre-armor
+/// - the Peacekeeper's raised Riot Shield (`factions/gdo/units/peacekeeper.md > Riot Shield`): "a 50% pre-armor
 ///   reduction ... multiplying with other pre-armor reductions" (`riot_shield::damage_factor`).
 ///
-/// TODO: the Null Chamber exit buff (`factions/syndicate/structures.md > Tunnel Expansions > Null Chamber`)
+/// TODO: the Null Chamber exit buff (`factions/syndicate/structures/null_chamber.md`)
 /// multiplies in here.
 pub fn pre_armor_multiplier(map: &Map, o: &Object) -> f32 {
     let bonus = o

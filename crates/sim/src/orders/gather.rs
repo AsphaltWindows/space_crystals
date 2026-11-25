@@ -1,4 +1,4 @@
-//! A worker's job — `factions/colonists/units.md > Drone > Gathering`, `> Patch Occupancy (one Drone per patch)`,
+//! A worker's job — `factions/colonists/units/drone.md > Gathering`, `> Patch Occupancy (one Drone per patch)`,
 //! `> Last load of a patch`, `> Interrupted mining`, `> Other orders keep the load`, `> Gather while carrying a
 //! load`, `> Drop Off order`, `> When a Gather ends` and `> Assigned Drop-off` (slices M3-H and M3-H3, plan decision
 //! T17; design changes 0123 and 0127 to 0141 answered question Q0037). `systems/controls/commands.md` and
@@ -77,7 +77,7 @@
 //! there, out of reach (design change 0141); one back to the drop-off that ends short is begun again after
 //! [`LEG_RETRY_TICKS`].
 //!
-//! **Collision** (design change 0106, `factions/colonists/units.md > Drone > Gathering Drones pass through each
+//! **Collision** (design change 0106, `factions/colonists/units/drone.md > Gathering Drones pass through each
 //! other`): Drones on a Gather job don't collide with each other, whoever owns them ([`on_gather_job`]; the
 //! exception itself is `movement::space::blocks`). They collide with everything else, and having an order they
 //! never yield (`systems/units.md > UnitCollision > Ground Collision > Who yields`). So Drones wait, mine and
@@ -103,7 +103,7 @@ use deliver::{delivered, nearest_drop_off, to_drop_off};
 use patch::{mine, to_patch, wait};
 use site::note_spot;
 
-/// `factions/colonists/units.md > Drone > Gathering Drones pass through each other` (design change 0106): whether
+/// `factions/colonists/units/drone.md > Gathering Drones pass through each other` (design change 0106): whether
 /// `o` is a Drone **on a Gather job**: a worker of a type that passes through its like (`WorkerDef::pass_through`,
 /// "Drones only") whose current order is a Gather or a Drop Off. That is "every step of the jobs in the table":
 /// travelling to the pick-up point, mining, waiting at an occupied patch, carrying the load and delivering it.

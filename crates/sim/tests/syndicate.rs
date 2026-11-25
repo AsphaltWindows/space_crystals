@@ -239,10 +239,10 @@ fn units_walk_across_a_hideout() {
     assert_eq!((t.status(2), t.pos(2)), (MoveStatus::Arrived, goal(lane_2)));
 }
 
-/// Plan decision T32 (`factions/syndicate/structures.md > Tunnel Expansions`: invisible to the other players): an
-/// enemy never sees an owned Hideout, even with its units standing on it and the tiles under it Visible; it never
-/// records it, can't target it and doesn't shoot it. Its owner sees it. A Tunnel next to it is seen and remembered
-/// like any surface structure.
+/// Plan decision T32 (`factions/syndicate/structures/README.md > Tunnel Expansions`: invisible to the other players):
+/// an enemy never sees an owned Hideout, even with its units standing on it and the tiles under it Visible; it never
+/// records it, can't target it and doesn't shoot it. Its owner sees it. A Tunnel next to it is seen and remembered like
+/// any surface structure.
 #[test]
 fn an_enemy_never_sees_an_owned_hideout() {
     let scenario = syndicate(&flat(30, 10))
@@ -335,7 +335,7 @@ fn a_neutral_hideout_is_visible() {
     );
 }
 
-/// `factions/syndicate/units.md > Agent > Attack`: the pistol, "one shot every 20 frames", Range 2 grid units,
+/// `factions/syndicate/units/agent.md > Attack`: the pistol, "one shot every 20 frames", Range 2 grid units,
 /// edge to edge (design change 0031). On Hold Position, an Agent's first hit on an enemy Peacekeeper lands after its
 /// Aim of 3 frames, in tick 5, and then every 20 ticks, at a gap of 128 su; 1 su further, never.
 #[test]

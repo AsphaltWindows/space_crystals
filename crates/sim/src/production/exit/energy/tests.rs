@@ -41,8 +41,8 @@ fn the_headings_are_32_directions_that_the_square_turns_and_flips_into_one_anoth
     }
 }
 
-/// `> Robo Portal`: "Since the Robo Portal is fully symmetric (AAAA), units may leave in any direction", however it
-/// is turned.
+/// `factions/colonists/structures/robo_portal.md`: "Since the Robo Portal is fully symmetric (AAAA), units may leave in
+/// any direction", however it is turned.
 #[test]
 fn the_robo_portal_is_open_all_round_in_every_orientation() {
     for (rotation, flip_h) in orientations() {
@@ -55,10 +55,10 @@ fn the_robo_portal_is_open_all_round_in_every_orientation() {
     }
 }
 
-/// `> Bio Portal > Exit Behavior` (design change 0145): open through its two A sides, top and right unturned
-/// (design change 0079), wherever they face once it is placed: "a half-circle from pointing at the top-left corner
-/// round to pointing at the bottom-right corner", turned and flipped with it, its ends open (the Director's
-/// reading). 17 of the 32 headings.
+/// `factions/colonists/structures/bio_portal.md > Exit Behavior` (design change 0145): open through its two A sides,
+/// top and right unturned (design change 0079), wherever they face once it is placed: "a half-circle from pointing at
+/// the top-left corner round to pointing at the bottom-right corner", turned and flipped with it, its ends open (the
+/// Director's reading). 17 of the 32 headings.
 #[test]
 fn the_bio_portal_is_open_through_its_two_a_sides_in_all_eight_orientations() {
     let (n, e, s, w) = (Vec2::NEG_Y, Vec2::X, Vec2::Y, Vec2::NEG_X);

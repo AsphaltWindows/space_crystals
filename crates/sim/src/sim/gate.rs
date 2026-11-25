@@ -63,7 +63,7 @@ pub enum Reject {
     /// None of the units an ability names has that ability.
     LacksAbility,
     /// None of the units an Attack order names can attack now: their Riot Shields are up
-    /// (`factions/gdo/units.md > Peacekeeper > Riot Shield`: "Attack orders are not possible").
+    /// (`factions/gdo/units/peacekeeper.md > Riot Shield`: "Attack orders are not possible").
     CannotAttack,
     /// A unit's box there would overlap a blocked tile, a blocking footprint or the map's edge
     /// (`docs/movement.md > 3`).
@@ -76,13 +76,13 @@ pub enum Reject {
     Overlaps(ObjectId),
     /// None of the objects a production command names produces units (or exists any more).
     NoProducers,
-    /// None of the producers can produce a unit of this kind (`factions/gdo/structures.md > Barracks > Produces`).
+    /// None of the producers can produce a unit of this kind (`factions/gdo/structures/barracks.md > Produces`).
     CannotProduce(ObjectKind),
     /// The BuildQueue of every producer that could train the unit is full (design change 0081: 20 with the unit in
     /// production).
     QueueFull,
     /// The player's Space Crystals don't cover the unit, or the building to construct ("Only available if player
-    /// has sufficient Space Crystals", `factions/gdo/structures.md > DeploymentCenter >
+    /// has sufficient Space Crystals", `factions/gdo/structures/deployment_center.md >
     /// ObjectInterfaceState[DeploymentCenter]`). The army cap refuses nothing: design change 0143 checks it when
     /// production starts (`Production::blocked`), and M2's `UnitControlCap` went with the check at queue time.
     InsufficientCrystals,
@@ -95,7 +95,7 @@ pub enum Reject {
     /// Warp In more than one Beacon: one Beacon becomes the building (plan decision T22); a Deploy more than one
     /// Drone: one Drone becomes the Beacon (`crate::deploy`).
     SeveralConstructors,
-    /// The building isn't on the constructor's `Constructs` list (`factions/gdo/structures.md > DeploymentCenter >
+    /// The building isn't on the constructor's `Constructs` list (`factions/gdo/structures/deployment_center.md >
     /// Constructs`, `factions/gdo/economy.md > ExtractionFacility > Constructs`), or on the Beacon's
     /// (`factions/colonists/economy.md > Warp In > Constructs List`).
     CannotConstruct(ObjectKind),
@@ -107,7 +107,7 @@ pub enum Reject {
     NotConstructing,
     /// A Cancel Ready Building or a Place to a constructor that holds no building ready to place.
     NothingReady,
-    /// None of the units a Gather or a Drop Off order names is a worker (`factions/colonists/units.md > Drone`), none
+    /// None of the units a Gather or a Drop Off order names is a worker (`factions/colonists/units/drone.md`), none
     /// of those a Gather on a Supply Delivery Station names gathers Supplies (`Sim::gatherers_among`, slice M4-I), or
     /// none of those a Deploy names deploys (`crate::deploy`).
     NoWorkers,
@@ -115,7 +115,7 @@ pub enum Reject {
     /// object, or a patch under a mining structure (design change 0137).
     NotGatherable(ObjectId),
     /// The target of a Drop Off order or of Set Drop-off Location isn't a drop-off of the player's, an own Egress
-    /// Node (`factions/colonists/units.md > Drone > Assigned Drop-off`).
+    /// Node (`factions/colonists/units/drone.md > Assigned Drop-off`).
     NotDropOff(ObjectId),
     /// The ready building can't be placed there (`core/entities.md > Placement Validation`, `crate::placement`): the
     /// first problem the placement check finds. When a Place is refused for this as it applies, the sim says why

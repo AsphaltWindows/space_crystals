@@ -1,9 +1,9 @@
-//! The Colonists' kinds in the game (slice M3-A; `factions/colonists/units.md`, `factions/colonists/economy.md`):
-//! they spawn for any player with their stat blocks, their structures block the ground and see with their
-//! SightRange, the Legionnaires fight (the Sabre at contact, without the ElevationModifier; the Rifle at 4 grid
-//! units, with it), and the Drone moves on the stand-in (plan decision T25). Their stat blocks against the design are
-//! `defs/colonists/tests.rs`; `Sim::change_kind` is `sim/kinds/tests.rs`. `TestSim` checks the invariants after every
-//! tick.
+//! The Colonists' kinds in the game (slice M3-A; `factions/colonists/units/README.md`,
+//! `factions/colonists/economy.md`): they spawn for any player with their stat blocks, their structures block the
+//! ground and see with their SightRange, the Legionnaires fight (the Sabre at contact, without the ElevationModifier;
+//! the Rifle at 4 grid units, with it), and the Drone moves on the stand-in (plan decision T25). Their stat blocks
+//! against the design are `defs/colonists/tests.rs`; `Sim::change_kind` is `sim/kinds/tests.rs`. `TestSim` checks the
+//! invariants after every tick.
 
 use sc_sim::combat;
 use sc_sim::defs::MELEE_CONTACT_GU;
@@ -172,7 +172,7 @@ fn each_kind_sees_with_its_sight_range() {
     }
 }
 
-/// `factions/colonists/units.md > Sabre Legionnaire`: a melee attack (`systems/combat.md > FullyConnected > Melee`),
+/// `factions/colonists/units/sabre_legionnaire.md`: a melee attack (`systems/combat.md > FullyConnected > Melee`),
 /// at contact: the reach of 8 space units of the placeholder (design change 0149). Ordered to attack a Peacekeeper
 /// 200 su away, a Sabre Legionnaire closes in and strikes only once the gap between their edges is at most 8 su;
 /// four hits of 14 (Damage 15 less the Peacekeeper's PointArmor 1) destroy its 50 HP. The Peacekeeper doesn't shoot
@@ -263,7 +263,7 @@ fn a_sabre_legionnaire_takes_no_elevation_bonus() {
     );
 }
 
-/// `factions/colonists/units.md > Rifle Legionnaire`: Range 4 grid units (256 su) edge to edge, with the
+/// `factions/colonists/units/rifle_legionnaire.md`: Range 4 grid units (256 su) edge to edge, with the
 /// ElevationModifier (`core/vision.md > ElevationModifier`). On level ground it reaches a Peacekeeper across a gap of
 /// exactly 256 su and not 257; from the top of the ramp (level 1) across 275 su, which it doesn't from 1 su lower
 /// (level 0); and uphill not across 200 su (3 grid units).
@@ -293,7 +293,7 @@ fn a_rifle_legionnaire_fires_at_four_grid_units_with_the_elevation_modifier() {
     );
 }
 
-/// `factions/colonists/units.md > Drone`: it moves by DragMovement (slice M3-G; `tests/movement_drag/` has the
+/// `factions/colonists/units/drone.md`: it moves by DragMovement (slice M3-G; `tests/movement_drag/` has the
 /// model's own tests). From rest it gains 1.2 space units/frame in its first frame and approaches the equilibrium
 /// `(ForwardAcceleration + OmniDirectionalAcceleration) / DragRatio` = (0.9 + 0.3) / 0.15 = 8 space units/frame
 /// (design change 0205) without ever passing it; a Peacekeeper moves 4 from its first frame.

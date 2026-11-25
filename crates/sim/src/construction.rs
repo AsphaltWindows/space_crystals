@@ -1,6 +1,6 @@
 //! Construction (slice M2-D1): the GDO constructors, the Deployment Center and the Extraction Facility, build one
-//! building at a time and hold it ready until the player places it — `factions/gdo/structures.md >
-//! DeploymentCenter`, `factions/gdo/economy.md > ExtractionFacility`.
+//! building at a time and hold it ready until the player places it — `factions/gdo/structures/deployment_center.md`,
+//! `factions/gdo/economy.md > ExtractionFacility`.
 //!
 //! - **The capability** ([`Constructor`], `Object::constructor`): the design's instance state (`>
 //!   DeploymentCenterInstanceState`, `> ExtractionFacilityInstanceState`: CurrentConstruction, ConstructionProgress,

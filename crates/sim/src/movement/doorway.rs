@@ -1,6 +1,6 @@
 //! Leaving an exit doorway — `core/entities.md > Structure Type > Exit Doorway` (design changes 0080 and 0086), and
-//! (M3-D2) a portal's energy doorway (design change 0145, `factions/colonists/structures.md > Portals > Portal Exits
-//! (energy doorway)`). The doorways' geometry and their rules are `production::ExitDoor`; the exception itself is
+//! (M3-D2) a portal's energy doorway (design change 0145, `factions/colonists/structures/README.md > Portals > Portal
+//! Exits (energy doorway)`). The doorways' geometry and their rules are `production::ExitDoor`; the exception itself is
 //! applied where every move is tested, in `collide` (`World::door`).
 
 use glam::Vec2;

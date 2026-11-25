@@ -77,9 +77,9 @@ pub enum BlockerKind {
     /// A map resource (`core/map.md > SpaceCrystalsPatch`, `> SupplyDeliveryStation`).
     Resource,
     /// An underground expansion (`StructureDef::underground`, plan decision T32): surface units walk over it
-    /// (`factions/syndicate/structures.md > Tunnel Expansions`: "can be walked over by surface units"; design change
-    /// 0240: "Units still walk freely over expansions"). It blocks no movement and no path; where buildings may stand
-    /// is the placement's question (0240: a surface building and an expansion never share a tile, slices M4-E and
+    /// (`factions/syndicate/structures/README.md > Tunnel Expansions`: "can be walked over by surface units"; design
+    /// change 0240: "Units still walk freely over expansions"). It blocks no movement and no path; where buildings may
+    /// stand is the placement's question (0240: a surface building and an expansion never share a tile, slices M4-E and
     /// M4-F).
     UndergroundExpansion,
 }

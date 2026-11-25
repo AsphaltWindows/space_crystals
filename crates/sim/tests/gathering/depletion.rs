@@ -1,4 +1,4 @@
-//! Patches running out (`factions/colonists/units.md > Drone > When a Gather ends`): the Drones going on at
+//! Patches running out (`factions/colonists/units/drone.md > When a Gather ends`): the Drones going on at
 //! another patch, or delivering and idling when no patch is left.
 
 use super::*;

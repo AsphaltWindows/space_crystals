@@ -14,13 +14,13 @@ pub struct StructureDef {
     /// `core/entities.md > Structure Type > SymmetryType`.
     pub symmetry: SymmetryType,
     /// `BuildRadiusExtension`, grid units: how far the type grows its owner's build area around its footprint
-    /// (`factions/gdo/structures.md > GDOBuildArea`). 0 for none.
+    /// (`factions/gdo/structures/README.md > GDOBuildArea`). 0 for none.
     pub build_radius_extension: u32,
     /// `Power`: what the type adds to its owner's power, positive for a generator, negative for a consumer
     /// (`factions/gdo/economy.md`).
     pub power: i32,
-    /// Whether the type seeds its owner's build area instead of having to reach it (`factions/gdo/structures.md >
-    /// GDOBuildArea`: "Seeded by each Deployment Center's and each Outpost's BuildRadiusExtension";
+    /// Whether the type seeds its owner's build area instead of having to reach it (`factions/gdo/structures/README.md
+    /// > GDOBuildArea`: "Seeded by each Deployment Center's and each Outpost's BuildRadiusExtension";
     /// `placement::seeds_build_area`): the Deployment Center.
     pub seeds_build_area: bool,
     /// What the type produces from its queue, and through which side (`crate::production`): the Barracks' units,
@@ -34,7 +34,7 @@ pub struct StructureDef {
     /// (`factions/gdo/economy.md > ExtractionPlate`: "Placed onto a Space Crystal Patch"); `None` for the others.
     pub onto: Option<ObjectKind>,
     /// `Constructs`: the buildings the type constructs, one at a time (`crate::construction`), with their costs and
-    /// times (`factions/gdo/structures.md > DeploymentCenter > Constructs`, `factions/gdo/economy.md >
+    /// times (`factions/gdo/structures/deployment_center.md > Constructs`, `factions/gdo/economy.md >
     /// ExtractionFacility > Constructs`). A type with any is a constructor (`Object::constructor`); empty for the
     /// others.
     #[serde(deserialize_with = "super::leak::slice")]
@@ -50,10 +50,10 @@ pub struct StructureDef {
     /// pool"; the Tunnel's `SymmetryType - ABCD` in `factions/syndicate/tunnels.md`; `crate::economy::gathering`,
     /// `crate::economy::drop_off`).
     pub drop_off: Option<DropOff>,
-    /// Whether the type is an underground structure (plan decision T32; `factions/syndicate/structures.md > Tunnel
-    /// Expansions`: "Expansions are invisible to enemies without detection and can be walked over by surface units"):
-    /// its footprint blocks no movement (`nav::BlockerKind::UndergroundExpansion`), and while it has an owner it is
-    /// hidden from the other players (`vision::hidden_from`). The Syndicate's expansions: the Hideout so far.
+    /// Whether the type is an underground structure (plan decision T32; `factions/syndicate/structures/README.md >
+    /// Tunnel Expansions`: "Expansions are invisible to enemies without detection and can be walked over by surface
+    /// units"): its footprint blocks no movement (`nav::BlockerKind::UndergroundExpansion`), and while it has an owner
+    /// it is hidden from the other players (`vision::hidden_from`). The Syndicate's expansions: the Hideout so far.
     pub underground: bool,
     /// The Tunnel's tier table and its network's rules (plan decision T39, `factions/syndicate/tunnels.md > Tunnel >
     /// Tiers`, `> Tunnel Network`): an object of a type with one carries its tier (`Object::tunnel`, `crate::tunnel`).
@@ -167,7 +167,7 @@ pub struct MiningDef {
     pub cycle_ticks: u32,
 }
 
-/// A producing structure's recipes and its exits (`factions/gdo/structures.md > Barracks > Produces`,
+/// A producing structure's recipes and its exits (`factions/gdo/structures/barracks.md > Produces`,
 /// `core/entities.md > Structure Type > Exit Doorway`).
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ProductionDef {
@@ -192,11 +192,11 @@ impl ProductionDef {
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum ExitRule {
     /// One exit side, the only one its SymmetryType letters so, with the exit doorway in its middle (design change
-    /// 0080): the Barracks' B ("Units exit from one of the short sides (B side ...)", `factions/gdo/structures.md >
-    /// Barracks`).
+    /// 0080): the Barracks' B ("Units exit from one of the short sides (B side ...)",
+    /// `factions/gdo/structures/barracks.md`).
     Side(SideLetter),
-    /// An energy doorway at the centre (design change 0145, `factions/colonists/structures.md > Portals > Portal Exits
-    /// (energy doorway)`: "Portals don't use exit sides"): a unit materializes at the centre and leaves in any
+    /// An energy doorway at the centre (design change 0145, `factions/colonists/structures/README.md > Portals > Portal
+    /// Exits (energy doorway)`: "Portals don't use exit sides"): a unit materializes at the centre and leaves in any
     /// direction that passes out through a side lettered with one of these, the **open** sides. The portals' A sides;
     /// the Heavy and Star Portals' are TBD.
     Centre(#[serde(deserialize_with = "super::leak::slice")] &'static [SideLetter]),

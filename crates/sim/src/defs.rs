@@ -78,42 +78,42 @@ kind_registry! {
     CrystalPatch => map::crystal_patch::CRYSTAL_PATCH,
     /// `core/map.md > SupplyDeliveryStation`
     SupplyDeliveryStation => map::supply_delivery_station::SUPPLY_DELIVERY_STATION,
-    /// `factions/gdo/units.md > Peacekeeper`
+    /// `factions/gdo/units/peacekeeper.md`
     Peacekeeper => gdo::units::peacekeeper::PEACEKEEPER,
-    /// `factions/syndicate/units.md > Guard`
+    /// `factions/syndicate/units/guard.md`
     Guard => syndicate::units::guard::GUARD,
-    /// `factions/gdo/structures.md > DeploymentCenter`
+    /// `factions/gdo/structures/deployment_center.md`
     DeploymentCenter => gdo::structures::deployment_center::DEPLOYMENT_CENTER,
     /// `factions/gdo/economy.md > Generator`
     Generator => gdo::structures::generator::GENERATOR,
-    /// `factions/gdo/structures.md > Barracks`
+    /// `factions/gdo/structures/barracks.md`
     Barracks => gdo::structures::barracks::BARRACKS,
     /// `factions/gdo/economy.md > ExtractionFacility`
     ExtractionFacility => gdo::structures::extraction_facility::EXTRACTION_FACILITY,
     /// `factions/gdo/economy.md > ExtractionPlate`
     ExtractionPlate => gdo::structures::extraction_plate::EXTRACTION_PLATE,
-    /// `factions/colonists/units.md > Drone`
+    /// `factions/colonists/units/drone.md`
     Drone => colonists::units::drone::DRONE,
     /// `factions/colonists/economy.md > Beacon`
     Beacon => colonists::structures::beacon::BEACON,
     /// `factions/colonists/economy.md > Egress Node`
     EgressNode => colonists::structures::egress_node::EGRESS_NODE,
-    /// `factions/colonists/structures.md > Robo Portal`
+    /// `factions/colonists/structures/robo_portal.md`
     RoboPortal => colonists::structures::robo_portal::ROBO_PORTAL,
-    /// `factions/colonists/structures.md > Bio Portal`
+    /// `factions/colonists/structures/bio_portal.md`
     BioPortal => colonists::structures::bio_portal::BIO_PORTAL,
-    /// `factions/colonists/units.md > Sabre Legionnaire`
+    /// `factions/colonists/units/sabre_legionnaire.md`
     SabreLegionnaire => colonists::units::sabre_legionnaire::SABRE_LEGIONNAIRE,
-    /// `factions/colonists/units.md > Rifle Legionnaire`
+    /// `factions/colonists/units/rifle_legionnaire.md`
     RifleLegionnaire => colonists::units::rifle_legionnaire::RIFLE_LEGIONNAIRE,
-    /// `factions/gdo/units.md > Peacekeeper > Riot Shield > Two unit types` (design change 0173): the Peacekeeper
+    /// `factions/gdo/units/peacekeeper.md > Riot Shield > Two unit types` (design change 0173): the Peacekeeper
     /// with its shield up
     PeacekeeperShielded => gdo::units::peacekeeper::PEACEKEEPER_SHIELDED,
-    /// `factions/syndicate/units.md > Agent`
+    /// `factions/syndicate/units/agent.md`
     Agent => syndicate::units::agent::AGENT,
     /// `factions/syndicate/tunnels.md > Tunnel`, at any of its tiers (plan decision T39)
     Tunnel => syndicate::structures::tunnel::TUNNEL,
-    /// `factions/syndicate/structures.md > Hideout`
+    /// `factions/syndicate/structures/hideout.md`
     Hideout => syndicate::structures::hideout::HIDEOUT,
 }
 

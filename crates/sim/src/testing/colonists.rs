@@ -8,7 +8,7 @@
 //! 1. **Gathering**, either way a player would send Drones:
 //!    - [`Colonists::gather`]: at the start, the player's Drones are sent to one patch with one command, as one
 //!      right-click sends a selection, and the occupancy rule deals them out over the field
-//!      (`factions/colonists/units.md > Drone > Patch Occupancy`: "When a Drone arrives at an occupied patch, it goes
+//!      (`factions/colonists/units/drone.md > Patch Occupancy`: "When a Drone arrives at an occupied patch, it goes
 //!      to the nearest unoccupied patch"); new Drones follow the rally point.
 //!    - [`Colonists::deal`]: each Drone is sent to a patch of its own, the starting ones at the start and each new
 //!      one as it comes out (unless it deploys): to the patch the fewest of the player's Drones gather now, by their
@@ -16,7 +16,7 @@
 //! 2. **Rally points**: each portal of a kind the line rallies gets its rally point once it can produce, the starting
 //!    ones at the start and a warped-in one once it is complete. A Drone rallied on a patch gathers it (design change
 //!    0136, `systems/controls/selection_and_hud.md > What a rally point makes a new unit do`).
-//! 3. **Deploying** (`factions/colonists/units.md > Drone`: "With 5 BeaconCapacity per Beacon and the Drone's own 1
+//! 3. **Deploying** (`factions/colonists/units/drone.md`: "With 5 BeaconCapacity per Beacon and the Drone's own 1
 //!    freed when it starts deploying, each Beacon is a net +6: beyond the starting 10 BeaconCapacity, roughly every
 //!    6th Drone must deploy as a Beacon to keep Drone production going"): a Drone a portal releases deploys, at the
 //!    first of the line's sites that the deploy check takes, when the room it leaves under the player's Beacon

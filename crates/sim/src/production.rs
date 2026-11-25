@@ -1,6 +1,7 @@
-//! Unit production (slice M2-D2) — `factions/gdo/structures.md > Barracks`, and the Colonists' portals (slice M3-D,
-//! `factions/colonists/structures.md > Robo Portal`, `> Bio Portal`): a producing structure trains units from a
-//! queue, one at a time, and releases each through an exit doorway with the order its rally point gives.
+//! Unit production (slice M2-D2) — `factions/gdo/structures/barracks.md`, and the Colonists' portals (slice M3-D,
+//! `factions/colonists/structures/robo_portal.md`, `factions/colonists/structures/bio_portal.md`): a producing
+//! structure trains units from a queue, one at a time, and releases each through an exit doorway with the order its
+//! rally point gives.
 //!
 //! - **State** ([`Production`], `Object::production`): the BuildQueue, whose head is CurrentBuild (design change
 //!   0081: the limit of [`QUEUE_LIMIT`] includes it), CurrentBuildProgress in the economy's fixed point
@@ -38,7 +39,7 @@ use crate::tuning::production::QUEUE_LIMIT;
 pub use exit::{Door, Doorway, EnergyDoorway, ExitDoor};
 pub use rally::Rally;
 
-/// What the player tells producing structures (`factions/gdo/structures.md > Barracks >
+/// What the player tells producing structures (`factions/gdo/structures/barracks.md >
 /// ObjectInterfaceState[Barracks]`), sent as `Command::Production` to every producer of the selection
 /// (`systems/controls/selection_and_hud.md > SelectionGroup > No smart-casting`).
 #[derive(Copy, Clone, Debug, PartialEq, Serialize, Deserialize)]
@@ -66,7 +67,7 @@ pub enum Refusal {
     Crystals,
 }
 
-/// `factions/gdo/structures.md > Barracks > BarracksInstanceState`: a producing structure's state.
+/// `factions/gdo/structures/barracks.md > BarracksInstanceState`: a producing structure's state.
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
 pub struct Production {
     /// BuildQueue, at most [`QUEUE_LIMIT`] long. Its first entry is CurrentBuild, the unit in production.

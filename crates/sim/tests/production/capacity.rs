@@ -323,7 +323,7 @@ fn an_over_capacity_portal_finishes_its_drone_and_waits_for_room() {
 
 /// Design changes 0084 and 0085 under 0143: a destroyed producer refunds its whole queue in full, whatever it was
 /// doing; of the army cap it frees only what its unit in production took ("Unit Control released for the unit in
-/// production", `factions/gdo/structures.md > Barracks > Destroyed while producing`; the queued ones never took
+/// production", `factions/gdo/structures/barracks.md > Destroyed while producing`; the queued ones never took
 /// any). The waiting Barracks frees nothing; the producing one its one Peacekeeper. Debug removals for the
 /// destructions.
 #[test]

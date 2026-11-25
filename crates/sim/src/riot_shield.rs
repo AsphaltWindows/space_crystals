@@ -1,4 +1,4 @@
-//! The Peacekeeper's Riot Shield — `factions/gdo/units.md > Peacekeeper > Riot Shield (toggled ability)`.
+//! The Peacekeeper's Riot Shield — `factions/gdo/units/peacekeeper.md > Riot Shield (toggled ability)`.
 //!
 //! **Two unit types** (design change 0173, `> Two unit types`): "shield down and shield up are **two unit types**,
 //! **Peacekeeper** and **Peacekeeper (Shielded)**, like the Sabre and Rifle Legionnaire [...]. They share everything

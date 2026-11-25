@@ -1,4 +1,4 @@
-//! A unit stuck half out of a portal's energy doorway (design change 0145, `factions/colonists/structures.md >
+//! A unit stuck half out of a portal's energy doorway (design change 0145, `factions/colonists/structures/README.md >
 //! Portals > Portal Exits (energy doorway)`, point 4: it "walks out as far as there is room and stays there, half out
 //! at the edge of the footprint. It is a normal unit there (selectable, attackable, able to attack)"; slice M3-K2a):
 //! a Sabre Legionnaire that can't get out of its Bio Portal auto-targets an enemy in its reach and hits it, carries out

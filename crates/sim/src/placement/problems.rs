@@ -62,9 +62,9 @@ impl TileProblem {
 pub enum WholeProblem {
     /// Only structures are placed this way, not units or map resources; nothing else is checked.
     NotAStructure,
-    /// No tile of the GDO building is in the build area (`factions/gdo/structures.md > GDOBuildArea`: "at least 1
-    /// grid cell of the new building must be within the current build area"). A Deployment Center seeds the area
-    /// and needs none ([`super::seeds_build_area`]).
+    /// No tile of the GDO building is in the build area (`factions/gdo/structures/README.md > GDOBuildArea`: "at least
+    /// 1 grid cell of the new building must be within the current build area"). A Deployment Center seeds the area and
+    /// needs none ([`super::seeds_build_area`]).
     OutsideBuildArea,
     /// The Extraction Plate isn't exactly on a Space Crystals Patch (`factions/gdo/economy.md > ExtractionFacility >
     /// AwaitingPlacement`: "Left-click Space Crystal Patch within GDO build area that does not already have a plate").

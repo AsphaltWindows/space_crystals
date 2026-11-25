@@ -1,4 +1,4 @@
-//! A toggle sets a target state (design change 0198, `factions/gdo/units.md > Peacekeeper > Riot Shield > Two unit
+//! A toggle sets a target state (design change 0198, `factions/gdo/units/peacekeeper.md > Riot Shield > Two unit
 //! types`: "pressing R flips the Peacekeeper's target (shield up or down), and the unit works to reach it. The type,
 //! and so the SelectionGroup, switches **at the press**, including when the raise is deferred behind a shot"), and
 //! the orders the unit takes meanwhile follow its type (design change 0202, `> During the toggle > Orders given

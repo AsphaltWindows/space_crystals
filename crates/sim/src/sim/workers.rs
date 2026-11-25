@@ -73,11 +73,11 @@ impl Sim {
         Ok(workers)
     }
 
-    /// The gate for `OrderKind::DropOff(node)` and `Ability::SetDropOff(node)` (`> Unit Commands`: "own Egress
-    /// Node"; `> Drone ObjectInterfaceState`: "an Egress Node or own refinery"): the target exists and is a
-    /// drop-off of `player`'s, complete: an Egress Node being warped in takes nothing yet (design change 0116: "A
-    /// Drone can't deliver to an Egress Node under Warp In", `crate::transform`) ([`Reject::NotDropOff`]). A player
-    /// always sees its own structures.
+    /// The gate for `OrderKind::DropOff(node)` and `Ability::SetDropOff(node)` (`factions/colonists/units/drone.md >
+    /// Unit Commands`: "own Egress Node"; `> Drone ObjectInterfaceState`: "an Egress Node or own refinery"): the target
+    /// exists and is a drop-off of `player`'s, complete: an Egress Node being warped in takes nothing yet (design
+    /// change 0116: "A Drone can't deliver to an Egress Node under Warp In", `crate::transform`)
+    /// ([`Reject::NotDropOff`]). A player always sees its own structures.
     pub(super) fn check_drop_off(&self, player: PlayerId, node: ObjectId) -> Result<(), Reject> {
         let target = self.referenced(node, None)?;
         if target.owner != Some(player) || !is_drop_off(target.kind) || target.is_transforming() {
@@ -133,13 +133,12 @@ impl Sim {
             .collect()
     }
 
-    /// The removal path, before the objects `gone` (sorted) leave: the workers carrying out a Gather at a patch
-    /// among them keep it, and keep heading for where the patch was (`orders::state::Gather::spot`). Design change
-    /// 0134 (`factions/colonists/units.md > Patch Occupancy > A patch that runs out`): "a depleted patch is treated
-    /// like an occupied one". The behaviour looks round for another patch when the worker is there: at once for
-    /// one waiting at it or carrying off its last load, on arrival for one walking to it, after its drop-off for
-    /// one carrying a load back (`orders::gather`). The order goes on naming the patch
-    /// (`orders::Order::outlives_target`).
+    /// The removal path, before the objects `gone` (sorted) leave: the workers carrying out a Gather at a patch among
+    /// them keep it, and keep heading for where the patch was (`orders::state::Gather::spot`). Design change 0134
+    /// (`factions/colonists/units/drone.md > Patch Occupancy > A patch that runs out`): "a depleted patch is treated
+    /// like an occupied one". The behaviour looks round for another patch when the worker is there: at once for one
+    /// waiting at it or carrying off its last load, on arrival for one walking to it, after its drop-off for one
+    /// carrying a load back (`orders::gather`). The order goes on naming the patch (`orders::Order::outlives_target`).
     pub(super) fn keep_gatherers_on_spots(&mut self, gone: &[ObjectId]) {
         let spot_of = |id: ObjectId| -> Option<Vec2> {
             let o = self.objects.get(&id).filter(|_| gone.binary_search(&id).is_ok())?;
@@ -166,14 +165,14 @@ impl Sim {
     }
 
     /// The removal path, before the objects `gone` (sorted) leave: design change 0170, answering question Q0046
-    /// (`factions/colonists/units.md > Assigned Drop-off > Destroyed mid-trip`): "if its drop-off is destroyed while
-    /// the Drone is already on its way there, it switches at once to the nearest own Egress Node (or idles holding its
-    /// load if there is none)". "How the loss is detected ... is the Director's choice; the user's goal is to avoid
-    /// performance cost": the destruction reassigns, once, and the return leg never checks that its drop-off still
-    /// stands. Each worker on its way back to a drop-off among `gone` ([`returning_to`]) takes its owner's nearest
-    /// to where it is, by the rule of a return trip that starts without one (design change 0135, `> Drop-off gone`;
-    /// [`Sim::nearest_drop_off`]), or none if none is left: its return leg then goes on as one that starts without
-    /// one, and with none to take the worker idles holding its load (`orders::gather`).
+    /// (`factions/colonists/units/drone.md > Assigned Drop-off > Destroyed mid-trip`): "if its drop-off is destroyed
+    /// while the Drone is already on its way there, it switches at once to the nearest own Egress Node (or idles
+    /// holding its load if there is none)". "How the loss is detected ... is the Director's choice; the user's goal is
+    /// to avoid performance cost": the destruction reassigns, once, and the return leg never checks that its drop-off
+    /// still stands. Each worker on its way back to a drop-off among `gone` ([`returning_to`]) takes its owner's
+    /// nearest to where it is, by the rule of a return trip that starts without one (design change 0135, `> Drop-off
+    /// gone`; [`Sim::nearest_drop_off`]), or none if none is left: its return leg then goes on as one that starts
+    /// without one, and with none to take the worker idles holding its load (`orders::gather`).
     ///
     /// The worker turns when it did while the leg checked every tick: in the first phase 5a after the loss, in the
     /// tick of a removal by a command and in the next one for a death in phase 5e. Only the assignment shows sooner

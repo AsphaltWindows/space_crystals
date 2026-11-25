@@ -1,6 +1,6 @@
 //! `Sim::change_kind` (plan decision T15): the object keeps its id, its capabilities are rebuilt from the new kind,
 //! the state hash changes and a `SimEvent::KindChanged` says so. The changes the design names: a Legionnaire's weapon
-//! (`factions/colonists/units.md > Weapon Conversion`), a Drone into a Beacon and back (`economy.md > Beacon
+//! (`factions/colonists/units/weapon_conversion.md`), a Drone into a Beacon and back (`economy.md > Beacon
 //! Deployment`), a Beacon into a building and back (`> Warp In`).
 
 use glam::Vec2;
@@ -55,9 +55,9 @@ fn object(sim: &Sim, id: u32) -> &Object {
     &sim.objects[&ObjectId(id)]
 }
 
-/// `> Weapon Conversion`: a Sabre Legionnaire that becomes a Rifle Legionnaire is the same unit, where it was, with its
-/// HP, its orders and its move (design change 0150); its weapon is the Rifle's, ready (design change 0152), aimed at
-/// what its order engages. So it carries on with the order and fires its rifle.
+/// `factions/colonists/units/weapon_conversion.md`: a Sabre Legionnaire that becomes a Rifle Legionnaire is the same
+/// unit, where it was, with its HP, its orders and its move (design change 0150); its weapon is the Rifle's, ready
+/// (design change 0152), aimed at what its order engages. So it carries on with the order and fires its rifle.
 #[test]
 fn a_legionnaire_changes_its_weapon_and_carries_on_with_its_order() {
     let mut sim = sim(&[
@@ -130,7 +130,7 @@ fn a_legionnaire_changes_its_weapon_and_carries_on_with_its_order() {
     assert_eq!(shots.first(), Some(&(sabre, pk, 9.0)), "the Rifle Legionnaire fired");
 }
 
-/// `factions/gdo/units.md > Peacekeeper > Riot Shield > Two unit types` (design change 0173): "They share everything
+/// `factions/gdo/units/peacekeeper.md > Riot Shield > Two unit types` (design change 0173): "They share everything
 /// except what the shield changes", the weapon included, so a Peacekeeper that becomes a Peacekeeper (Shielded) and
 /// back keeps its attack as it was, the reload under way with it, unlike a Legionnaire's new weapon; and it keeps its
 /// shield where it was, and its speed factor, which `riot_shield::settle` sets after a toggle.
@@ -161,7 +161,7 @@ fn the_shields_two_types_keep_the_weapon_and_the_shield_as_they_were() {
     }
 }
 
-/// Design change 0198 (`factions/colonists/units.md > Weapon Conversion > A toggle sets a target form`): a press
+/// Design change 0198 (`factions/colonists/units/weapon_conversion.md > A toggle sets a target form`): a press
 /// switches a Legionnaire's type at once, the weapon in hand staying its form's, which its pending conversion holds
 /// (`conversion::hold_form`). So the change of type keeps its attack as it was, a shot under way included, and the
 /// conversion with it; only the end of the conversion changes the weapon.

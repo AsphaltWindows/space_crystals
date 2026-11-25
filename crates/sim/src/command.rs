@@ -26,13 +26,13 @@ pub enum Command {
         kind: OrderKind,
         queue: bool,
     },
-    /// The player's `units` use `ability` at once (`factions/gdo/units.md > Peacekeeper > Riot Shield (toggled
+    /// The player's `units` use `ability` at once (`factions/gdo/units/peacekeeper.md > Riot Shield (toggled
     /// ability)`). An ability is not an order: it doesn't enter or replace a unit's command queue, Shift means nothing
     /// to it, and the unit goes on with its orders meanwhile (design change 0023: a mode isn't a task). Ids that no
     /// longer exist, repeated ids and units without the ability are dropped; the command is rejected if no unit
     /// remains or one belongs to someone else.
     Ability { units: Vec<ObjectId>, ability: Ability },
-    /// The player's producing structures among `objects` take `command` (`factions/gdo/structures.md > Barracks >
+    /// The player's producing structures among `objects` take `command` (`factions/gdo/structures/barracks.md >
     /// ObjectInterfaceState[Barracks]`; `production`): train a unit, cancel the last one queued, or set the rally
     /// point. Every producer of the selection receives it (`systems/controls/selection_and_hud.md > SelectionGroup >
     /// No smart-casting`). Ids that no longer exist, repeated ids and the player's objects that produce nothing are
@@ -42,7 +42,7 @@ pub enum Command {
         command: ProductionCommand,
     },
     /// The player's constructors `objects` (the Deployment Center, the Extraction Facility) carry out `command`
-    /// (`crate::construction`; `factions/gdo/structures.md > DeploymentCenter`, `factions/gdo/economy.md >
+    /// (`crate::construction`; `factions/gdo/structures/deployment_center.md`, `factions/gdo/economy.md >
     /// ExtractionFacility`), each in id order that can. Ids that no longer exist, repeated ids and objects that
     /// construct nothing are dropped; the command is rejected if none of the rest can carry it out, or one of the
     /// objects belongs to someone else. A Place names one constructor.
@@ -72,20 +72,21 @@ pub enum TunnelCommand {
 /// An ability a unit uses at once ([`Command::Ability`]).
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum Ability {
-    /// `factions/gdo/units.md > Peacekeeper > Riot Shield`: raise the shield (`raise`) or lower it
+    /// `factions/gdo/units/peacekeeper.md > Riot Shield`: raise the shield (`raise`) or lower it
     /// (`crate::riot_shield`), which makes the unit a Peacekeeper (Shielded) or a Peacekeeper at once, its shield then
     /// working toward it (design changes 0173 and 0198). The command says which, rather than "toggle", so that it
     /// means the same to every unit of a group and when it arrives twice: the Peacekeeper's panel sends Raise Shield,
     /// the Peacekeeper (Shielded)'s Lower Shield.
     RiotShield { raise: bool },
-    /// `factions/colonists/units.md > Drone > Assigned Drop-off > Set Drop-off Location command`: the workers'
+    /// `factions/colonists/units/drone.md > Assigned Drop-off > Set Drop-off Location command`: the workers'
     /// AssignedDropOff becomes this drop-off of their owner's, an Egress Node. It "does not interrupt the Drone's
     /// current action": a return trip under way turns to it (`crate::orders::gather`).
     SetDropOff(ObjectId),
-    /// `factions/colonists/units.md > Weapon Conversion > Convert Command`: each unit's target form flips, a Sabre
+    /// `factions/colonists/units/weapon_conversion.md > Convert Command`: each unit's target form flips, a Sabre
     /// Legionnaire's to the Rifle Legionnaire and the other way round, and the unit converts in place to it over 4
     /// frames (`crate::conversion`, plan decision T26; design change 0198: "Pressing R **flips the unit's target
-    /// form**"). Its orders stay (`> Weapon Conversion > Orders are kept`, design change 0150).
+    /// form**"). Its orders stay (`factions/colonists/units/weapon_conversion.md > Orders are kept`, design change
+    /// 0150).
     Convert,
 }
 
