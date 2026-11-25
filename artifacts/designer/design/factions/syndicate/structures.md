@@ -129,7 +129,9 @@ Syndicate tech building enabling the Syndicate's explosives and propulsion techn
 
 Syndicate equipment storage warehouse for re-arming Syndicate forces.
 
-Prerequisite for the **Shadebringer** (2026-11-25). While the player owns a Vault, Shadebringers inside the Tunnel Network recharge their Sludge and Cover charges (factions/syndicate/units.md > Shadebringer > Charges and recharging).
+Prerequisite for the **Shadebringer** and (with a Chemical Plant) the **Bomber** (2026-11-25).
+
+**Network-wide** (user, 2026-11-25): a Vault re-arms and recharges units **anywhere in the Tunnel Network**, not only units that entered through the Tunnel whose area it sits in. While the player owns a Vault, Shadebringers inside the Tunnel Network recharge their Sludge and Cover charges (factions/syndicate/units.md > Shadebringer > Charges and recharging).
 
 **Throughput limits** (user, 2026-11-25, to be designed): re-arming should probably be **limited**: only so many units re-armed at a time (per Vault), and each re-arming takes time. Numbers and exact rules TBD.
 
@@ -197,7 +199,7 @@ Syndicate production building that assembles Syndicate aviation and orbital forc
 #### Tier Requirement - 3
 #### TechPrerequisite - player owns at least one Forge (anywhere in the Tunnel Network)
 
-Produces (2026-11-25): **Phantom** (requires an Optics Lab) (factions/syndicate/units.md).
+Produces (2026-11-25): **Phantom** (requires an Optics Lab), **Bomber** (name TBD) (factions/syndicate/units.md).
 
 (Full stats TBD)
 
@@ -241,7 +243,7 @@ The form updates automatically whenever Tunnel Areas change:
 
 #### Construction
 - **By an Agent**: built using the same flow as Tunnel construction (see Agent > Building > Tunnel Construction Flow): the Agent enters the partially-built structure and is untargetable for the duration; if the structure is destroyed or cancelled mid-construction the Agent survives and emerges at the location. On successful completion, the Agent emerges on the surface adjacent to the finished structure (unlike Tunnels, where the Agent ends up inside the Tunnel Network). If built inside a Tunnel Area, it is a pop-up turret on completion.
-- **By a Tunnel**: from the Tunnel's ExpandMenu, placed within that Tunnel's Tunnel Area like an expansion. Whether it occupies the Tunnel's single operation slot (like an expansion) is TBD.
+- **By a Tunnel**: from the Tunnel's ExpandMenu, placed within that Tunnel's Tunnel Area like an expansion. It **uses the Tunnel's single operation slot**, like an expansion (user, 2026-11-25; Q0071): while a Tunnel builds a turret it can't build an expansion or upgrade.
 
 **Placeholder stats** (designer, 2026-11-25, Q0071; tune later):
 - Cost: 100 Space Crystals (no Supplies). Build time: 320 frames (20 s).
