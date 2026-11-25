@@ -440,8 +440,10 @@ Layout validation can't disagree. **Never test a placement rule anywhere else: a
   0097 in games and layouts, determinism, a save), `tests/warp_in/` (the Warp In method, see *Economy > Warp In*),
   `tests/deploy_gate/` (the worker-built method, its modes and the reservations), `tests/builds/` (the Build's: the
   overlap rule by knowledge and by truth, the Drillable area, hidden expansions) and the ignored
-  `tests/placement_perf.rs`. Measured (release, 769 objects,
-  101 buildings of the player's; slice M2-J2, on a quiet machine): 4 µs a check, 2 µs a build area.
+  `tests/placement_perf.rs`. Measured (release, 769 objects, 101 buildings of the player's; slice M2-J2, on a quiet
+  machine): 4 µs a check, 2 µs a build area. Slice M4-E's tiers and overlap rule, A/B against the master before it
+  (four alternating runs at load 1.1): 4.5 µs a check before, 4.9 µs after; the rule gathers Tunnel Areas only for a
+  kind with a tier table (`tunnel_overlap::Overlap`) and reads only a placed object's tier (`Occupant::of`).
 
 ## Tick pipeline
 

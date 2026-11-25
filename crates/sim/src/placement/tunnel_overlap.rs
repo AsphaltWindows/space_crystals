@@ -23,19 +23,45 @@ use crate::defs::ObjectKind;
 use crate::nav::TileRect;
 use crate::tunnel::{self, BASE_TIER};
 
-/// The Tunnel Area of occupant `o` at its tier as the check knows it (`Occupant::tier`, the base tier when none is
-/// known): `None` for an occupant that isn't a placed Tunnel, or whose tier the table hasn't.
-pub(super) fn area_of(o: &Occupant) -> Option<TileRect> {
-    let row = tunnel::def_of(o.kind)?.tier(o.tier.unwrap_or(BASE_TIER))?;
-    let placement = o.placement?;
-    let footprint = TileRect::new(placement.origin, placement.w, placement.h);
-    Some(tunnel::area::area(footprint, row.area_radius))
+/// The rule for a placement of one kind: the Tunnel Areas it must keep clear of, gathered from the occupants and the
+/// reserved sites as the check walks them ([`Overlap::see`]), then judged ([`Overlap::rule`]). It gathers nothing for
+/// a kind without a tier table, so that every other placement pays only a branch per occupant.
+pub(super) struct Overlap {
+    /// The placed kind's Tier 1 area radius; `None` if it has no tier table, and so no Tunnel Area.
+    radius: Option<u32>,
+    /// The areas seen so far.
+    areas: Vec<TileRect>,
 }
 
-/// Design change 0237 for a structure of `kind` whose footprint is `footprint`: [`WholeProblem::TunnelAreaOverlap`] if
-/// its Tier 1 Tunnel Area overlaps one of `areas`, the other Tunnels' and the reserved ones (module docs). Nothing for
-/// a kind without a tier table.
-pub(super) fn overlap_rule(kind: ObjectKind, footprint: TileRect, areas: &[TileRect]) -> Option<WholeProblem> {
-    let area = tunnel::area::area(footprint, tunnel::area::base_radius(kind)?);
-    (areas.iter().any(|&other| tunnel::area::overlaps(area, other))).then_some(WholeProblem::TunnelAreaOverlap)
+impl Overlap {
+    /// The rule for a structure of `kind`.
+    pub(super) fn new(kind: ObjectKind) -> Self {
+        Self {
+            radius: tunnel::area::base_radius(kind),
+            areas: Vec::new(),
+        }
+    }
+
+    /// Takes in occupant or reserved site `o`: its Tunnel Area at its tier as the check knows it (`Occupant::tier`, the
+    /// base tier when none is known), if it is a placed Tunnel whose tier the table has.
+    pub(super) fn see(&mut self, o: &Occupant) {
+        if self.radius.is_none() {
+            return;
+        }
+        let Some(row) = tunnel::def_of(o.kind).and_then(|def| def.tier(o.tier.unwrap_or(BASE_TIER))) else {
+            return;
+        };
+        if let Some(placement) = o.placement {
+            let footprint = TileRect::new(placement.origin, placement.w, placement.h);
+            self.areas.push(tunnel::area::area(footprint, row.area_radius));
+        }
+    }
+
+    /// Design change 0237 for the structure whose footprint is `footprint`: [`WholeProblem::TunnelAreaOverlap`] if its
+    /// Tier 1 Tunnel Area overlaps one of the areas seen, the other Tunnels' and the reserved ones (module docs).
+    /// Nothing for a kind without a tier table.
+    pub(super) fn rule(&self, footprint: TileRect) -> Option<WholeProblem> {
+        let area = tunnel::area::area(footprint, self.radius?);
+        (self.areas.iter().any(|&other| tunnel::area::overlaps(area, other))).then_some(WholeProblem::TunnelAreaOverlap)
+    }
 }

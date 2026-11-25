@@ -28,13 +28,19 @@ pub struct Occupant {
 }
 
 impl Occupant {
-    /// What object `o` is to a placement: its kind, centre, footprint and tier.
+    /// What object `o` is to a placement: its kind, centre, footprint and tier. Only an object with a footprint has a
+    /// Tunnel Area, so a unit's tier is never read: the check of a crowded map walks the units as it did before tiers
+    /// (`tests/placement_perf.rs`).
     pub fn of(o: &Object) -> Self {
+        let tier = match o.placement {
+            Some(_) => o.tunnel.as_ref().map(|tunnel| tunnel.tier),
+            None => None,
+        };
         Self {
             kind: o.kind,
             pos: o.pos,
             placement: o.placement,
-            tier: o.tunnel.as_ref().map(|tunnel| tunnel.tier),
+            tier,
         }
     }
 }

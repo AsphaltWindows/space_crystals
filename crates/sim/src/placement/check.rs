@@ -9,7 +9,7 @@ use super::onto::Onto;
 use super::problems::{PlacementCheck, TileProblem, WholeProblem};
 use super::site::{Method, Mode, Occupant, Site};
 use super::tunnel_area::{area_rule, outside_tunnel_area};
-use super::tunnel_overlap::{area_of, overlap_rule};
+use super::tunnel_overlap::Overlap;
 use crate::defs::{Category, Domain, ObjectKind};
 use crate::map::Map;
 use crate::nav::TileRect;
@@ -83,10 +83,10 @@ pub fn check_reserving(
         }
     }
     // The Tunnel Areas the structure's, if it has one, must keep clear of (`super::tunnel_overlap`).
-    let mut areas = Vec::new();
+    let mut tunnel_areas = Overlap::new(kind);
     for o in occupants {
         onto.see(&o);
-        areas.extend(area_of(&o));
+        tunnel_areas.see(&o);
         match &o.placement {
             Some(placement) => {
                 let rect = TileRect::new(placement.origin, placement.w, placement.h);
@@ -117,7 +117,7 @@ pub fn check_reserving(
         }
     }
     for reserved in reserved {
-        areas.extend(area_of(reserved));
+        tunnel_areas.see(reserved);
         let Some(reserved) = reserved.placement else {
             continue;
         };
@@ -161,7 +161,7 @@ pub fn check_reserving(
     // Design change 0242: a Tunnel's whole Tier 1 area on the map and Drillable (`super::tunnel_area`).
     whole.extend(area_rule(site, kind, footprint.rect()));
     // Design change 0237: and clear of every other Tunnel's area (`super::tunnel_overlap`).
-    whole.extend(overlap_rule(kind, footprint.rect(), &areas));
+    whole.extend(tunnel_areas.rule(footprint.rect()));
     PlacementCheck { tiles, whole }
 }
 
