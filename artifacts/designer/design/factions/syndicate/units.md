@@ -296,3 +296,25 @@ Converts the **entire remaining battery** into the **next surge**. A single big 
 
 All numbers (HP, armor, sight, speed, TunnelSpaceCost, battery, damage, range, timings, cost, build time): TBD.
 
+## Subterranean Transport
+(user, 2026-11-25; name tentative, the user picks) Syndicate **infantry transport** that travels **underground**. It carries **infantry only**.
+
+### Entity Type - Unit
+### Faction - TheSyndicate
+### UnitBase - DrillUnit (assumed; exits only through Tier 2+ Tunnels like other vehicles)
+### Produced at - Vehicle Assembly
+### TechPrerequisite - TBD
+### AttackAttributes - none (assumed)
+
+### Above-ground mode
+- When built, it **drives out of the Tunnel in its above-ground mode**, behaving as a tracked vehicle.
+- In this mode, **infantry can be loaded** into it, and it can **unload** them.
+
+### Burrow (ability)
+Makes it **go underground**. Underground it can travel **under buildings and obstacles such as cliffs**: across **all drillable terrain**.
+
+### Surface (ability)
+Brings it back to its above-ground mode. Only possible where it is **on a tile it could reach as a tracked vehicle** (designer's reading: a tile a tracked vehicle could drive to over ground, so it can't surface on top of a building or on ground that tracked vehicles can't reach). Once surfaced it can unload and load again.
+
+TBD: capacity (and whether it counts each infantry unit's TunnelSpaceCost); burrow/surface time and whether they follow the deploy model (not cancellable, factions/gdo/units.md > Artillery Rig > Modes) or the mode toggle model; who can see and attack it underground (the DrillUnit base says it is visible while subterranean); what happens to passengers if it is destroyed; whether it can enter the Tunnel Network carrying passengers; load/unload commands and the panel; all numbers.
+
