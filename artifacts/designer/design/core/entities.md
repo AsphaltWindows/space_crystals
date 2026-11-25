@@ -56,6 +56,9 @@ It has one of 7 symmetry types from the perspective of how relevant the building
 
 ### SymmetryType - AAAA | AAAB | AABB | ABAB | AABC | ABAC | ABCD
 
+### Building armor rule
+(user, 2026-11-25) A building's armor should generally be **PointArmor n, FullArmor n x (its size in grid squares)**, for some n chosen per building (e.g. a 2x2 Hideout: 1 / 4; a 4x4 Tunnel: 1 / 16). There may be exceptions. Since AoE effective armor = FullArmor x the fraction of the building covered (systems/combat.md > AoEDamage), this gives every covered grid square the same n of armor against a blast.
+
 **Side lettering convention** (user, 2026-11-24): the letters name the building's four sides **clockwise starting from the top edge**, in the building's **default orientation** (rotation 0, unflipped): 1st letter = top, 2nd = right, 3rd = bottom, 4th = left. Size (Height x Width) is also given for the default orientation. Example: the GDO Barracks is 2x3 (2 tall, 3 wide) with ABAC: top A, right B (short side), bottom A, left C (short side). Rotating or flipping the building carries the sides with it.
 
 ### Exit Doorway
