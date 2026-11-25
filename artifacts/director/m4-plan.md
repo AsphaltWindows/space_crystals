@@ -1461,10 +1461,23 @@ Quote these in the slice briefs.
   - The build ghost judges known enemy Tunnels at their remembered position and last-seen tier.
   - The check on arrival uses the truth, so it can fail on an upgrade the player didn't see.
   - Upgrade checks use the truth, and any Tunnel's area blocks them.
-- **0238** (Q0062 point 2, for B and F): Tunnel Space counts the whole area square, cells past the map edge included. Expansions can be placed on map cells only.
+- **0238** (Q0062 point 2): superseded by 0242.
 - **0239** (Q0062 points 3a, 3b and 3e, for F): every tile under an expansion must be Drillable. Plane, Rugged and Cliff are; Mountain and Water aren't. Own and neutral underground structures, and the Tunnel's own footprint, block it, as proposed.
 - **0240** (Q0062 points 3c and 4, for E and F): surface buildings and underground expansions never share a tile, whatever the owner, neutral included. Units still walk over expansions. This replaces T32's "the surface methods ignore them".
   - **E: surface placement reads the underground truth.**
     - A direct placement (GDO) over a hidden expansion is red at once. The leak is accepted.
     - A worker-built ghost (the Deploy pattern, Agent-built Tunnels) judges by what the player knows, so it stays green, and the order fails on the worker's arrival.
   - **F:** no expansion under a surface building.
+- **0241** (Q0062 points 3d and 5, for F): patches and Supply Delivery Stations above block expansions. Its "non-Drillable cells give no Tunnel Space" is superseded by 0242.
+- **0242** (completes Q0062, for B, E and G): a Tunnel can be placed only if its whole Tunnel Area is on the map and Drillable.
+  - An upgrade is blocked if the larger area would include a non-Drillable or off-map cell.
+  - Every tunnel-region cell is usable, so Tunnel Space needs no special cases.
+  - **E:** the ghost judges by what the player knows, and the final check on arrival uses the truth.
+  - **G:** the upgrade check.
+  - **B:** starting layouts and the editor's starting Tunnels must respect it. B's layout validation reports a breach.
+- **0245** (Q0063 point 1, for C): after entering, a unit can exit only once a flat delay of 32 frames (placeholder) has passed. Each unit inside stores when it entered. Produced units have no delay (0246).
+- **0246** (Q0063 point 7 and part of 2, for C):
+  - Entering units walk into the entry path at their normal speed, single file, with normal spacing, like any one-unit-wide passage. There is no fixed hold per unit, which replaces the 8-frame proposal. 0225's "one unit at a time" means "one unit wide".
+  - Units leave the map once they have walked into the Tunnel, so throughput follows unit speed and spacing.
+  - Exits wait on Q0064.
+- **0247** (Q0063 point 2, for C): entering uses the normal Failure rule, with no special waiting rule.
