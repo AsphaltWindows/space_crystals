@@ -96,8 +96,8 @@ Rationale: the drop-off time (not carry or mining time) sets the ceiling, so len
 
 ### DefaultState commands:
 - **A: Build Tunnel** — enters AwaitingPlacement for a Tunnel (StateOnlyTransition). Ghost preview follows cursor, snapped to grid. Tinted green when valid, red when invalid. R rotates 90° clockwise, Shift+R counter-clockwise. F flips horizontally, Shift+F flips vertically. Left-click valid location confirms placement and dispatches the Agent (CommandIssuingTransition, returns to DefaultState). Escape/right-click cancels back to DefaultState.
-- **B: Drop Off Resources** — targeted command (CommandIssuingTransition). Requires clicking an own Tunnel. Agent walks to the appropriate side automatically (Side B for crystals, Side D for supplies). Always visible, greyed out when Agent is not carrying resources.
-- **Build Laser Turret** (hotkey TBD) — enters AwaitingPlacement for a Laser Turret (StateOnlyTransition), same placement flow as Build Tunnel. Left-click a valid location confirms placement and dispatches the Agent (CommandIssuingTransition, returns to DefaultState). Visible but greyed out until the player owns an Optics Lab.
+- **S: Drop Off Resources** (letters per Panel letters above) — targeted command (CommandIssuingTransition). Requires clicking an own Tunnel. Agent walks to the appropriate side automatically (Side B for crystals, Side D for supplies). Always visible, greyed out when Agent is not carrying resources.
+- **D: Build Laser Turret** — enters AwaitingPlacement for a Laser Turret (StateOnlyTransition), same placement flow as Build Tunnel. Left-click a valid location confirms placement and dispatches the Agent (CommandIssuingTransition, returns to DefaultState). Visible but greyed out until the player owns an Optics Lab.
 
 ### Unit Commands:
 - **Move** — right-click ground
@@ -105,7 +105,7 @@ Rationale: the drop-off time (not carry or mining time) sets the ceiling, so len
 - **Attack** — right-click enemy unit/building (pistol, ground only)
 - **Enter** — right-click own Tunnel (when not carrying resources)
 - **Gather** — right-click Space Crystals patch or Supply Delivery Station
-- **Drop Off Resources** — right-click own Tunnel (when carrying resources), or via panel button B
+- **Drop Off Resources** — right-click own Tunnel (when carrying resources), or via panel button S
 - **Build Tunnel** — via panel button A
 
 ### Right-Click Resolution:
@@ -127,7 +127,7 @@ Agents construct Tunnels and surface defensive structures (see Surface Defensive
 2. Construction begins — the partially-built Tunnel appears at the location with the Agent inside it. The Tunnel starts at 10% HP (ConstructionHP Rule). The Agent is untargetable for the duration of construction.
 3. **If construction completes**: The Tunnel becomes operational and the Agent is inside the Tunnel Network, available for redeployment from any Tunnel.
 4. **If the partially-built Tunnel is destroyed**: The Agent survives and emerges at the location. The Tunnel is lost and any Supplies spent are lost.
-5. **If construction is cancelled by the player**: The Agent survives and emerges at the location, same as destruction. A rubble animation plays (cosmetic only, no gameplay effect). 100% of the Supplies cost is refunded.
+5. **If construction is cancelled by the player**: The Agent survives and emerges at the location, same as destruction. A rubble animation plays (cosmetic only, no gameplay effect). The Supplies are refunded at the **current top price** (factions/syndicate/tunnels.md > Upgrade Costs; Q0085).
 
 ### While the Tunnel is under construction
 (user, 2026-11-25; Q0061, the Director's proposals)
@@ -140,4 +140,4 @@ Agents construct Tunnels and surface defensive structures (see Surface Defensive
 
 ### Cancel Construction
 While a Tunnel is under initial construction (Agent inside, not yet operational), the owning player may cancel it:
-- **X: Cancel Construction**: cancels the in-progress initial build (CommandIssuingTransition). The Agent survives and emerges at the location. Full refund of Supplies cost. Only available while the Tunnel is under initial construction — mutually exclusive with the post-operational **X: Cancel Upgrade** command, since a Tunnel is never in both states at once.
+- **X: Cancel Construction**: cancels the in-progress initial build (CommandIssuingTransition). The Agent survives and emerges at the location. Supplies refunded at the current top price (factions/syndicate/tunnels.md > Upgrade Costs; Q0085). Only available while the Tunnel is under initial construction — mutually exclusive with the post-operational **X: Cancel Upgrade** command, since a Tunnel is never in both states at once.

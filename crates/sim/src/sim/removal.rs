@@ -55,6 +55,10 @@ impl Sim {
     /// object, the move and the attack included, which never name a remembered object
     /// (`orders::travel::walk_to_remembered`, the Gather's legs).
     ///
+    /// A Tunnel leaves its expansions neutral, destroys its unfinished ones and strands the network units no remaining
+    /// Tunnel can let out (`factions/syndicate/tunnels.md > Losing Tunnels`, slice M4-H: `sim/tunnels.rs`), once it
+    /// and everything else of `ids` has gone.
+    ///
     /// The grids aren't touched: phase 5b catches up with a footprint that went away, and a removal after it must
     /// sync them (`paths::sync`).
     pub(super) fn remove_objects(&mut self, ids: &[ObjectId]) {
@@ -78,6 +82,8 @@ impl Sim {
             .flat_map(builds::dropped_of)
             .collect();
         let builders = self.site_builders(&gone);
+        // The Tunnels among them, as they are before they go (slice M4-H, `sim/tunnels.rs`).
+        let tunnels = self.lost_tunnels(&gone);
         gone.retain(|id| self.objects.remove(id).is_some());
         self.refund_builds(&builds);
         self.release_builders(&builders);
@@ -86,6 +92,9 @@ impl Sim {
         }
         self.events.extend(gone.iter().map(|&id| SimEvent::Removed(id)));
         self.forget_references(&gone);
+        // What the Tunnels leave behind (`factions/syndicate/tunnels.md > Losing Tunnels`, `sim/tunnels.rs`): their
+        // expansions neutral, their unfinished ones destroyed, and the network units stranded.
+        self.lose_tunnels(&tunnels);
     }
 
     /// The reference cleanup of a removal, without its effects of a death (plan decision T30): every object, and

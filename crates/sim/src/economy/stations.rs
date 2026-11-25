@@ -113,6 +113,7 @@ mod tests {
             conversion: None,
             tunnel: None,
             construction: None,
+            decay: None,
         }
     }
 

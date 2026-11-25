@@ -10,7 +10,7 @@ Syndicate tech building enabling the Syndicate's laser weaponry. It is the prere
 ## Cost - 150 Space Crystals (no Supplies)
 ## Build Time - 400 frames (25 seconds)
 ## HP - 400
-## PointArmor - 1
-## FullArmor - 4
+## PointArmor - 6 (underground expansion, n = 6; README > Tunnel Expansions > High armor underground)
+## FullArmor - 24
 ## Groupable - true
 ## Commands - none for now: it is only a prerequisite (laser research TBD)

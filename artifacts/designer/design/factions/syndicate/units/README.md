@@ -4,9 +4,11 @@
 
 ## Files
 
+Listed in panel order: this is the order used by the Tunnel's EjectMenu (factions/syndicate/tunnels.md > Tunnel ObjectInterfaceState). Agent, Guard, Grenadier, then the vehicles and aircraft in production-building order.
+
+- `agent.md` — **Agent**: Worker: pistol, crystal/Supplies gathering, building (Tunnel Construction Flow)
 - `guard.md` — **Guard**: Basic laser infantry, ground+air (Optics Lab)
 - `grenadier.md` — **Grenadier**: Grenade AoE infantry (Chemical Plant)
-- `agent.md` — **Agent**: Worker: pistol, crystal/Supplies gathering, building (Tunnel Construction Flow)
 - `assault_bike.md` — **Assault Bike**: Fastest wheeled vehicle, mortar turret
 - `shadebringer.md` — **Shadebringer**: Support vehicle: Sludge and Cover (smoke) toggles (Vault)
 - `laser_battery.md` — **Laser Battery**: Battery-powered laser tank; Amplify, Deploy (AA), Relay through Prisms

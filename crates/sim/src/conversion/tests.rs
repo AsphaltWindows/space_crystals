@@ -36,6 +36,7 @@ fn unit(kind: ObjectKind, phase: Option<AttackPhase>) -> Object {
         conversion: None,
         tunnel: None,
         construction: None,
+        decay: None,
     }
 }
 

@@ -23,11 +23,13 @@
 //! crate ([`LoadMarker`], slices M3-J2 and M4-J1). A structure is its footprint as placed, in its owner's colour, with
 //! a tag naming its type ([`structures`]); a Tunnel's names its tier, and its sides show their functions by tier
 //! ([`tunnel`], design change 0224); an underground structure (the Hideout) is a translucent outline under the units
-//! that walk over it (plan decision T32), which only its owner sees while it has one. An object transforming into its
-//! kind (`Object::transform`: a building being warped in) is tinted towards a pale cyan until it is complete
-//! ([`transforming_color`]); a site under construction (`Object::is_site`) is tinted towards a pale sand, braced by a
-//! scaffold, and shows its progress ([`site`], slice M4-J1). The map resources have shapes of their own
-//! ([`resources`]).
+//! that walk over it (plan decision T32), which only its owner sees while it has one; a neutral one, which a lost
+//! Tunnel left (`factions/syndicate/tunnels.md > Losing Tunnels`, slice M4-H: "visible to everyone"), shows to whoever
+//! sees its tiles, in the neutral colour, with its HP bar falling as it decays (`crate::combat_effects::hp_bars`: it is
+//! a damaged object). An object transforming into its kind (`Object::transform`: a building being warped in) is tinted
+//! towards a pale cyan until it is complete ([`transforming_color`]); a site under construction (`Object::is_site`) is
+//! tinted towards a pale sand, braced by a scaffold, and shows its progress ([`site`], slice M4-J1). The map resources
+//! have shapes of their own ([`resources`]).
 //!
 //! The fog of war hides the visuals of the objects the local player doesn't see (`crate::fog`); Explored tiles show
 //! the records of what it remembers instead, as visuals of their own ([`remembered`]).

@@ -136,6 +136,7 @@ mod tests {
             conversion: None,
             tunnel: fresh(kind),
             construction: None,
+            decay: None,
         }
     }
 

@@ -186,6 +186,7 @@ impl Sim {
             conversion: _,
             tunnel: tunnel_state,
             construction: _,
+            decay: _,
         } = o;
         *object_kind = kind;
         if let Some(placement) = &placement {

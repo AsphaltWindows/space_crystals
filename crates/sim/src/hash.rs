@@ -310,6 +310,7 @@ impl StateHash for Object {
             conversion,
             tunnel,
             construction,
+            decay,
         } = self;
         id.hash(h);
         kind.hash(h);
@@ -345,6 +346,11 @@ impl StateHash for Object {
         if let Some(construction) = construction {
             h.tag(2);
             construction.hash(h);
+        }
+        // (M4-H) The same for a neutral expansion's decay (`sim/tunnels.rs`), under a tag of its own.
+        if let Some(decay) = decay {
+            h.tag(3);
+            decay.hash(h);
         }
     }
 }

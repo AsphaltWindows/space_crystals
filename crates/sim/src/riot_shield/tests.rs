@@ -40,6 +40,7 @@ fn unit(kind: ObjectKind, up: u32) -> Object {
         conversion: None,
         tunnel: None,
         construction: None,
+        decay: None,
     }
 }
 

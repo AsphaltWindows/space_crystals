@@ -369,6 +369,7 @@ impl Sim {
             conversion: None,
             tunnel,
             construction: None,
+            decay: None,
         }
     }
 
@@ -431,4 +432,5 @@ mod sites;
 mod tests;
 mod too_close;
 mod transform;
+mod tunnels;
 mod workers;
