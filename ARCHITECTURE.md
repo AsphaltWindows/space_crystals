@@ -2130,7 +2130,8 @@ their energy doorway, slice M3-D2: design change 0145, `factions/colonists/struc
   gather (one command), sets the Hideouts' rally points, gives the player's `n`th Agent a job (Supplies at a station,
   or a Tunnel to build once the Supplies cover `Sim::build_price` and the build check takes its site), ejects an Agent
   that finished a Tunnel by it, has the `n`th Tunnel build the line's expansions once `Sim::can_expand` allows them
-  and the bank covers them, trains units behind a prerequisite (the Guards behind an Optics Lab) only while the
+  and the bank covers them, and its upgrades once `Sim::can_upgrade` does and the Supplies cover them (slice M4-G;
+  `tests/syndicate_line.rs`), trains units behind a prerequisite (the Guards behind an Optics Lab) only while the
   player owns it, and pays for its Agents through a `BuildOrder`; `SupplyBooks` balance the Supplies as `Books` do the
   crystals. `reference_field(distance, agents)`, `opening_field(distance)` and `stacked_field(distance, agents)` are
   the Syndicate economy check's reference layouts (design changes 0259 and 0294), and `syndicate::skirmish` plays

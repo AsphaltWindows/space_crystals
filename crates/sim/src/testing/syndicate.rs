@@ -26,7 +26,11 @@
 //!    (by id, the starting one first) once the Tunnel may build it now (`Sim::can_expand`: in operation, with no
 //!    operation under way, its prerequisites met), the bank covers it after the build order's orders of the tick, and
 //!    the expansion check takes its site (`TunnelCommand::Expand`, `factions/syndicate/tunnels.md > AwaitingPlacement
-//!    (Expansion)`).
+//!    (Expansion)`). **Upgrading** ([`Syndicate::upgrade`]) likewise: the line's upgrades, in order, each of the
+//!    player's `n`th Tunnel once the gate would take it (`Sim::can_upgrade`: in operation, below its top tier, with no
+//!    operation under way, its larger area clear by the truth) and the Supplies left after the tick's Builds cover its
+//!    price (`Sim::upgrade_price`, `factions/syndicate/tunnels.md > Cost Scaling > Upgrade Costs`), as the Tunnel's
+//!    one operation of the tick (`TunnelCommand::Upgrade`, slice M4-G).
 //! 6. **What the player trains** goes through a [`BuildOrder`]: Agents at the first Hideout. Units behind a
 //!    prerequisite ([`Syndicate::after`]) are trained by the line itself, in order, each while the player owns a
 //!    complete structure of that kind, as the Hideout's panel offers the unit only then, and once the bank covers it
@@ -34,13 +38,14 @@
 //!    (`factions/syndicate/structures/hideout.md > ObjectInterfaceState[Hideout]`: "Only available if the player owns
 //!    at least one Optics Lab"). A prerequisite lost stops them, as the gate would refuse them.
 //!
-//! The build order gets the Space Crystals first, then the units behind prerequisites, then the expansions; a Build
-//! pays in Supplies, which nothing else spends. [`Books`](super::build_order::Books) balance the player's Space
+//! The build order gets the Space Crystals first, then the units behind prerequisites, then the expansions; the Builds
+//! get the Supplies first, then the upgrades. [`Books`](super::build_order::Books) balance the player's Space
 //! Crystals, counting the Agents' deliveries; [`SupplyBooks`] balance their Supplies.
 //!
 //! [`reference_field`], [`stacked_field`] and [`opening_field`] are the check's reference layouts (`fields.rs`).
 //! [`skirmish`] plays `dev_skirmish` with a Syndicate line, alone or against a GDO one, for the golden games.
 
+mod books;
 mod fields;
 pub mod skirmish;
 
@@ -48,7 +53,7 @@ use std::collections::BTreeSet;
 
 use crate::command::{Command, PlayerCommand, TunnelCommand};
 use crate::construction::site::expansion_def;
-use crate::defs::{ObjectKind, Resource};
+use crate::defs::ObjectKind;
 use crate::events::SimEvent;
 use crate::ids::{ObjectId, PlayerId};
 use crate::orders::{OrderKind, Target};
@@ -59,6 +64,7 @@ use crate::units::{Tick, TilePos};
 
 use super::build_order::{BuildOrder, Order};
 
+pub use books::SupplyBooks;
 pub use fields::{
     FIELD_HIDEOUT, FIELD_PATCH, FIELD_PLAYER, FIELD_RESERVE, FIELD_TUNNEL, STACKED_PATCH, STACKED_TUNNEL, field_agents,
     opening_field, reference_field, stacked_agents, stacked_field,
@@ -94,6 +100,8 @@ pub enum Done {
     Eject { tunnel: ObjectId, kind: ObjectKind },
     /// Tunnel `tunnel` started its expansion `expansion`.
     Expand { tunnel: ObjectId, expansion: Expansion },
+    /// Tunnel `tunnel` started its upgrade, for `price` Supplies.
+    Upgrade { tunnel: ObjectId, price: u32 },
     /// Producer `by` was ordered to train a unit behind a prerequisite.
     Train { by: ObjectId, order: Order },
 }
@@ -111,6 +119,8 @@ pub struct Syndicate {
     /// The job of an Agent that comes out of the Tunnel it built, if the line ejects it.
     after_build: Option<Job>,
     expansions: Vec<Expansion>,
+    /// The upgrades still to start, in order, each by the place of its Tunnel among the player's ([`Syndicate::upgrade`]).
+    upgrades: Vec<usize>,
     /// The units behind a prerequisite still to train, in order, each with its prerequisite.
     gated: Vec<(ObjectKind, Order)>,
     started: bool,
@@ -134,6 +144,7 @@ impl Syndicate {
             jobs: Vec::new(),
             after_build: None,
             expansions: Vec::new(),
+            upgrades: Vec::new(),
             gated: Vec::new(),
             started: false,
             agents: Vec::new(),
@@ -177,6 +188,13 @@ impl Syndicate {
             origin,
             orientation,
         });
+        self
+    }
+
+    /// The player's `tunnel`th Tunnel upgrades to the tier above its own, after the line's earlier upgrades (module
+    /// docs, 5).
+    pub fn upgrade(mut self, tunnel: usize) -> Self {
+        self.upgrades.push(tunnel);
         self
     }
 
@@ -343,9 +361,10 @@ impl Syndicate {
         }
 
         // The next expansion, if its Tunnel may build it now and the bank covers it.
+        let mut tunnels: Vec<ObjectId> = own().filter(|o| o.kind == ObjectKind::Tunnel).map(|o| o.id).collect();
+        tunnels.sort_unstable();
+        let mut expanding = None;
         if let Some(&expansion) = self.expansions.first() {
-            let mut tunnels: Vec<ObjectId> = own().filter(|o| o.kind == ObjectKind::Tunnel).map(|o| o.id).collect();
-            tunnels.sort_unstable();
             let cost = expansion_def(expansion.kind).map_or(u32::MAX, |def| def.cost);
             let tunnel = tunnels.get(expansion.tunnel).copied();
             let site_ok = |tunnel| {
@@ -368,7 +387,24 @@ impl Syndicate {
                 self.paid.push((tick, cost, 0));
                 self.done.push((tick, Done::Expand { tunnel, expansion }));
                 self.expansions.remove(0);
+                expanding = Some(tunnel);
             }
+        }
+
+        // The next upgrade, if the gate would take it and the Supplies left cover it: never in the tick its Tunnel
+        // starts an expansion, its one operation.
+        if let Some(&n) = self.upgrades.first()
+            && let Some(tunnel) = tunnels.get(n).copied().filter(|&tunnel| expanding != Some(tunnel))
+            && let Some(price) = sim.upgrade_price(tunnel).filter(|&price| price <= supplies)
+            && sim.can_upgrade(player, tunnel).is_ok()
+        {
+            commands.push(command(Command::Tunnel {
+                tunnel,
+                command: TunnelCommand::Upgrade,
+            }));
+            self.paid.push((tick, 0, price));
+            self.done.push((tick, Done::Upgrade { tunnel, price }));
+            self.upgrades.remove(0);
         }
         commands
     }
@@ -400,66 +436,5 @@ impl Syndicate {
             kind,
             queue: false,
         })
-    }
-}
-
-/// A Syndicate player's Supplies for one step (module docs): opened before it, closed after it, as
-/// [`Books`](super::build_order::Books) keep their Space Crystals.
-#[derive(Clone, Debug)]
-pub struct SupplyBooks {
-    player: PlayerId,
-    supplies: u32,
-    /// The player's sites as the step starts: a cancelled one's refund is theirs.
-    sites: BTreeSet<ObjectId>,
-}
-
-impl SupplyBooks {
-    pub fn open(sim: &Sim, player: PlayerId) -> Self {
-        let supplies = sim.player(player).map_or(0, |p| p.supplies);
-        let sites = (sim.objects())
-            .filter(|o| o.owner == Some(player) && o.is_site())
-            .map(|o| o.id)
-            .collect();
-        Self {
-            player,
-            supplies,
-            sites,
-        }
-    }
-
-    /// Closes the books after the step in which the player's commands paid `spent` Supplies, and returns the bank.
-    /// Panics unless it changed by what the player's Agents delivered (their `SimEvent::ResourcesDelivered` of
-    /// Supplies), less `spent`, plus the Build refunds (`SimEvent::BuildRefunded` and `SimEvent::SiteCancelled` of the
-    /// player's workers and sites, design change 0233).
-    pub fn close(self, sim: &Sim, spent: u32) -> u32 {
-        let mine = |id: ObjectId| {
-            let held = sim.held_unit(id).map(|held| &held.object);
-            sim.object(id).or(held).is_some_and(|o| o.owner == Some(self.player))
-        };
-        let (mut delivered, mut refunded) = (0, 0);
-        for e in sim.events() {
-            match *e {
-                SimEvent::ResourcesDelivered {
-                    worker,
-                    amount,
-                    resource: Resource::Supplies,
-                    ..
-                } if mine(worker) => delivered += amount,
-                SimEvent::BuildRefunded { worker, refund, .. } if mine(worker) => refunded += refund,
-                SimEvent::SiteCancelled { site, refund, .. } if self.sites.contains(&site) => refunded += refund,
-                _ => {}
-            }
-        }
-        let bank = sim.player(self.player).map_or(0, |p| p.supplies);
-        assert_eq!(
-            i64::from(bank),
-            i64::from(self.supplies) + i64::from(delivered) - i64::from(spent) + i64::from(refunded),
-            "tick {}: player {}'s Supplies went from {} to {bank}, but the Agents delivered {delivered}, the commands \
-             paid {spent} and {refunded} came back",
-            sim.tick(),
-            self.player.0,
-            self.supplies,
-        );
-        bank
     }
 }
