@@ -9,7 +9,7 @@ use glam::Vec2;
 
 use super::gate::Checked;
 use super::{Reject, Sim};
-use crate::defs::{ObjectKind, ProductionDef, UnitDef};
+use crate::defs::{ExitRule, ObjectKind, ProductionDef, UnitDef};
 use crate::economy::{ArmyResource, Refund};
 use crate::events::SimEvent;
 use crate::ids::{ObjectId, PlayerId};
@@ -36,6 +36,11 @@ pub(super) enum ProductionPlan {
     Cancel(Vec<ObjectId>),
     /// The producers, in id order, and the target as the gate resolved it.
     SetRally(Vec<ObjectId>, Target),
+}
+
+/// What `o`'s type produces, if anything.
+fn producer_def(o: &Object) -> Option<&'static ProductionDef> {
+    o.def().structure.as_ref()?.production.as_ref()
 }
 
 /// A producer and what its type produces.
@@ -296,6 +301,10 @@ impl Sim {
         let Some(building) = self.objects.get(&producer) else {
             return;
         };
+        // A producer underground releases into its owner's Tunnel Network (`sim/network.rs`).
+        if producer_def(building).is_some_and(|def| def.exits == ExitRule::Network) {
+            return self.release_into_network(producer);
+        }
         let (Some(doorway), Some(owner)) = (ExitDoor::of(building), building.owner) else {
             return;
         };

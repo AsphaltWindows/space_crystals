@@ -379,10 +379,22 @@ impl ControlState {
     /// Selection changes while targeting`: "Targeting is only cancelled if the whole ActiveGroup is gone"), the next
     /// group in Tab order becoming active (design change 0199, [`Selection::remove`]), and the command flow checks the
     /// rest against the game every frame.
-    pub fn retain(&mut self, mut keep: impl FnMut(ObjectId) -> bool) -> bool {
+    pub fn retain(&mut self, keep: impl FnMut(ObjectId) -> bool) -> bool {
+        self.retain_on_map(keep, |_| false)
+    }
+
+    /// [`ControlState::retain`], but that the control groups also keep the objects `off_map`: the player's units
+    /// inside a Tunnel Network (`factions/syndicate/tunnels.md > Tunnel Network > Walking in`, design change 0249: a
+    /// unit that enters "stays in its control groups (a recall selects only the members on the map)"; it "leaves the
+    /// selection by entering a building, transport or tunnel", `> Selection`).
+    pub fn retain_on_map(
+        &mut self,
+        mut keep: impl FnMut(ObjectId) -> bool,
+        mut off_map: impl FnMut(ObjectId) -> bool,
+    ) -> bool {
         let active = self.selection.active();
         let selection = self.selection.retain(|id, _| keep(id));
-        let groups = self.groups.retain(keep);
+        let groups = self.groups.retain(|id| keep(id) || off_map(id));
         let reset = self.selection.active() != active && self.interface != InterfaceState::DefaultState;
         if reset {
             self.interface = InterfaceState::DefaultState;

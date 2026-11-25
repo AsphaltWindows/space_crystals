@@ -126,9 +126,9 @@ fn each_kind_spawns_for_two_owners() {
     ] {
         let o = object(&t, id);
         let max_hp = [75.0, 600.0, 400.0][(id as usize - 1) % 3];
-        let tier = (kind == TUNNEL).then_some(TunnelState { tier: 1 });
+        let tier = (kind == TUNNEL).then_some(TunnelState::at(1));
         assert_eq!(
-            (o.kind, o.owner, o.hp, o.max_hp(), o.tunnel),
+            (o.kind, o.owner, o.hp, o.max_hp(), o.tunnel.clone()),
             (kind, Some(owner), Some(max_hp), Some(max_hp), tier),
             "#{id}"
         );
@@ -369,10 +369,14 @@ fn a_tunnels_tier_sets_its_max_hp() {
     t.spawn_unit_at(1, AGENT, P2, Vec2::new(8.0 * 64.0 + 18.0 + 32.0, 5.0 * 64.0)) // 3
         .order_at(2, P2, &[ObjectId(3)], OrderKind::Hold, false)
         .run_until(5);
-    let hp = |t: &TestSim| (object(t, 1).hp, object(t, 1).max_hp(), object(t, 1).tunnel);
-    let tier = |tier| Some(TunnelState { tier });
+    let hp = |t: &TestSim| (object(t, 1).hp, object(t, 1).max_hp(), object(t, 1).tunnel.clone());
+    let tier = |tier| Some(TunnelState::at(tier));
     assert_eq!(hp(&t), (Some(596.0), Some(600.0), tier(1)));
-    let record = |t: &TestSim| vision(t, P2).record(ObjectId(1)).map(|r| (r.tunnel, r.max_hp()));
+    let record = |t: &TestSim| {
+        vision(t, P2)
+            .record(ObjectId(1))
+            .map(|r| (r.tunnel.clone(), r.max_hp()))
+    };
     assert_eq!(record(&t), Some((tier(1), Some(600.0))));
 
     t.debug_at(6, set_tier(1, 2)).run_until(6);
@@ -408,7 +412,7 @@ fn a_tunnels_tier_sets_its_max_hp() {
     assert_eq!(hp(&t), (Some(996.0), Some(1000.0), tier(3)));
     let remembered = vision(&t, P2)
         .remembered_record(ObjectId(1))
-        .map(|r| (r.tunnel, r.max_hp()));
+        .map(|r| (r.tunnel.clone(), r.max_hp()));
     assert_eq!(remembered, Some((tier(2), Some(800.0))));
 }
 

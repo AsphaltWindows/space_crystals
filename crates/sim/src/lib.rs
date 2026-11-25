@@ -27,6 +27,7 @@ pub mod math;
 mod movement;
 pub mod mover;
 pub mod nav;
+pub mod network;
 pub mod object;
 pub mod orders;
 mod paths;
@@ -51,7 +52,7 @@ pub mod units;
 pub mod vision;
 
 pub use combat::{AttackPhase, AttackState};
-pub use command::{Ability, Command, DebugCommand, PlayerCommand, TickInputs};
+pub use command::{Ability, Command, DebugCommand, PlayerCommand, TickInputs, TunnelCommand};
 pub use construction::{ConstructionCommand, Constructor};
 pub use defs::{
     Armor, Category, ExitRule, Footprint, MiningDef, ObjectDef, ObjectKind, ProductionDef, Recipe, StructureDef,

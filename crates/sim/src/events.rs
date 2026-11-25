@@ -184,6 +184,29 @@ pub enum SimEvent {
         origin: TilePos,
         problems: PlacementCheck,
     },
+    /// `unit` walked into `tunnel`'s entry path and left the map for its owner's Tunnel Network
+    /// (`factions/syndicate/tunnels.md > Tunnel Network > Walking in`; `crate::network`, `Sim::step_entries`). It
+    /// keeps its id, and is no longer among the sim's objects: no `Removed` follows. The client drops it from the
+    /// selection and keeps it in its control groups (design change 0249).
+    EnteredNetwork {
+        unit: ObjectId,
+        tunnel: ObjectId,
+    },
+    /// `unit` came out of the Tunnel Network on `tunnel`'s exit path, and is among the sim's objects again, with the
+    /// id it had (`> EjectMenu`; `Sim::step_ejections`): ejected by its player, or sent out by a surface rally point
+    /// (`factions/syndicate/structures/README.md > Rally Point Behavior`). No `Spawned` comes with it.
+    LeftNetwork {
+        unit: ObjectId,
+        tunnel: ObjectId,
+    },
+    /// `unit`'s Enter order on `tunnel` ended without it going in (`> Tunnel Network > Walking in`: "if the Tunnel a
+    /// unit is heading for is destroyed, or its tier doesn't suit the unit, the Enter order ends and the unit idles";
+    /// "if the way is genuinely blocked, the normal Failure rule applies"): its walk ended short of the entry path, or
+    /// the Tunnel no longer suits it. For the feedback line, and for counting those that give up.
+    EnterFailed {
+        unit: ObjectId,
+        tunnel: ObjectId,
+    },
     /// `unit`'s Attack order on `target` failed: the target is inside the unit's MinRange and the unit can't move to
     /// back off (`systems/controls/behaviors.md > AttackingObject > Target inside MinRange`, design change 0182: "the
     /// order fails with feedback ("Target too close"; same channel as other refusals)"; `Sim::step_too_close`). The

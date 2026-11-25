@@ -33,7 +33,7 @@ use std::collections::BTreeMap;
 
 use glam::Vec2;
 
-use crate::command::{Ability, Command, DebugCommand, PlayerCommand, TickInputs};
+use crate::command::{Ability, Command, DebugCommand, PlayerCommand, TickInputs, TunnelCommand};
 use crate::construction::ConstructionCommand;
 use crate::defs::ObjectKind;
 use crate::events::SimEvent;
@@ -268,6 +268,7 @@ pub fn every_command() -> Vec<Command> {
         OrderKind::Deploy {
             origin: crate::units::TilePos::new(7, 3),
         },
+        OrderKind::Enter(ObjectId(6)),
     ];
     let mut commands: Vec<Command> = kinds
         .into_iter()
@@ -384,6 +385,12 @@ pub fn every_command() -> Vec<Command> {
             command,
         }),
     );
+    commands.push(Command::Tunnel {
+        tunnel: ObjectId(6),
+        command: TunnelCommand::Eject {
+            kind: ObjectKind::Guard,
+        },
+    });
     for command in &commands {
         match command {
             Command::Order { kind, .. } => match kind {
@@ -395,7 +402,8 @@ pub fn every_command() -> Vec<Command> {
                 | OrderKind::Stop
                 | OrderKind::Gather(_)
                 | OrderKind::DropOff(_)
-                | OrderKind::Deploy { .. } => {}
+                | OrderKind::Deploy { .. }
+                | OrderKind::Enter(_) => {}
             },
             Command::Ability {
                 ability: Ability::RiotShield { .. } | Ability::SetDropOff(_) | Ability::Convert,
@@ -414,6 +422,10 @@ pub fn every_command() -> Vec<Command> {
                 | ConstructionCommand::WarpIn { .. }
                 | ConstructionCommand::CancelTransform => {}
             },
+            Command::Tunnel {
+                command: TunnelCommand::Eject { .. },
+                ..
+            } => {}
             Command::Debug(
                 DebugCommand::Spawn {
                     at: SpawnAt::Point(_) | SpawnAt::Tile(_),

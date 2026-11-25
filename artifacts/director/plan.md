@@ -784,10 +784,27 @@ Approach: thin vertical slices the user can run and see, each verified by tests 
     - The soak (stacked Tunnels on opposite sides, 2 GU, 10 min) holds 25.00 SC/s every minute.
   - **Perf.** `drones_perf` is unchanged, and the Colonists oracle passes.
 
+- **M4-C Tunnel Network** (Fable; merged in `f67df212`; 1475 tests; goldens unchanged):
+  - **The held store.** `network.rs`, `Sim::held`, and `take_off_map`, `put_on_map` and `remove_held`. Hashed and saved only while non-empty.
+  - **Enter.** `OrderKind::Enter`, with `Sim::step_entries` after 5a. A unit goes in the tick its box is within 8 su of the entry spot, with no hold (0246): 20 Guards file in 8 ticks apart. Any unit of the Tunnel's owner may enter.
+  - **Eject.** `Command::Tunnel { Eject }`, queued in `TunnelState::eject`. The longest-inside unit goes first, and a unit comes out once the spot is clear (0250).
+    - An Eject while every unit of the type is in transit is refused (`InTransit`; Q0077).
+  - **Production and rallies.** `ExitRule::Network`, the Hideout's Agent recipe, and rallies (0252). Auto-ejected units share the queue (0253).
+  - **`Sim::step_network`.** Regeneration (0249), then ejection.
+  - **Held units count** in `Sim::army_cap`.
+  - **The client.** Enter on right-click. Held units leave the selection and stay in their control groups. The Hideout gets the Production template.
+  - **Crowd:** 40 Guards all entered (0 gave up) and were ejected in 578 ticks. `movement_perf` is unchanged.
+  - **Notes for later slices:**
+    - B folds `network::area` and `network::parent` into `tunnel/area.rs`;
+    - H calls `Sim::remove_held` for stranded units;
+    - J1 owns the Enter pointer and indicator;
+    - R splits `sim.rs` (648 lines);
+    - M judges the units that idle 1 GU out (Q0077).
+
 ## In progress
 - **M3 waves 2 and 3** (common brief `scratchpad/briefs/m3-common.md`; status `m3-w2-status.md`):
-  - **M4-C Tunnel Network** (Fable; brief `scratchpad/briefs/m4c-tunnel-network.md`): Enter, the held store, transit, Eject, production into the network and rallies, with 0245–0253. No air doors yet.
   - **M4-B Syndicate start** (Opus; brief `scratchpad/briefs/m4b-syndicate-start.md`, spec `scratchpad/m4/rev/B.md`): the Starting Conditions, the `dev_skirmish` layouts, Tunnel Space, 0242's area rule in placement and layouts, and the 0264 armor test across all factions.
+  - **M4-I Supplies** (Opus; brief `scratchpad/briefs/m4i-supplies.md`): 0256 (any number of Agents pick up at once; a station that empties means a notification placeholder and Agents waiting for ever; switching resources loses the load) and 0248 (the Supplies hatch on D).
 - **Next**:
   - **Playtest:** the user plays once all four factions are built (2026-11-24), using `docs/playtest/m2.md`, `m3.md` and later notes. This replaces separate M1–M3 playtests.
   - **M4 Syndicate:** the plan is adopted (`artifacts/director/m4-plan.md`). M4-A is running, and every later slice waits for it.
@@ -948,8 +965,10 @@ The user keeps feeding unit and other designs to the Designer, so expect increme
   - **Questions:** Q0059–Q0071. Q0059 (Optics Lab stats) blocks K, and Q0060 (the upgrade's duration) blocks G. Both were answered by 0229.
   - **Slice status:**
     - A: done (`fcd06dc`).
-    - C: running (wave 2, Fable).
+    - C: done (`f67df212`; Q0077).
     - D: done (`edc30e11`; Q0076).
+    - I: running (wave 3, started early since it needs only D; Opus; brief `scratchpad/briefs/m4i-supplies.md`).
+    - R (code organization: citations, defs per object, tuning modules): after B, C and I land, before E and J2.
     - B: running (wave 2; Opus; the revised spec `scratchpad/m4/rev/B.md`).
     - The rest are queued. A planning pass is folding 0229–0271 into slices B and E–M, and planning 0260's new content: a combat spike, the Grenadier, the Laser Turret and the Chemical Plant.
   - **All M4 questions are answered** (Q0059–Q0071), by 0229–0267.
@@ -1053,6 +1072,7 @@ The user keeps feeding unit and other designs to the Designer, so expect increme
 | Q0074 | AttackMove: should the unit's own movement re-check an enemy it rejected? As built, a unit that rejected a standing enemy across a wall doesn't take it after rounding the wall, unless it comes within weapon range | no | answered by 0243 (B, to try; M3-L5 measures the cost) |
 | Q0075 | A revealed attacker shooting at a target the player can't see: draw the shot whole (literal 0206) or clip it? | no | answered by 0244 (stricter than B; M3-L5) |
 | Q0076 | Agents jam head-on between a near patch (0–1 GU) and the hatch: 3+ Agents halve the income (5.33 against 12.5 SC/s). Pass through like Drones, move patches to 3 GU or more, or a right-of-way rule? | partly (M4-L's oracle; the first playable) | open; as built, Agents collide |
+| Q0077 | Eject while every unit of the type is in transit: refused or queued? And where an ejected unit with no rally waits: 1 GU out, as built, or farther? | no | open; as built in M4-C |
 
 ## Design change entries
 Last triaged: 0282.
@@ -1278,15 +1298,15 @@ Last triaged: 0282.
 | 0242 A Tunnel's whole area must be on the map and Drillable, for placement and upgrades; every tunnel-region cell is usable; starting layouts must respect it | queued (M4-B: layout validation and a simple Tunnel Space; M4-E: placement, the ghost by knowledge and the check on arrival; M4-G: the upgrade check) | completes Q0062; replaces 0238 and 0241's Tunnel Space part |
 | 0243 AttackMove: a reach-rule rejection is also re-checked once the unit has moved about 1 GU from where it judged; Failure-rule and fog rejections keep 0230's triggers; measure the cost | done (M3-L5, `a777ae3`); the 1 GU step is kept: at most 1.45× master's mean tick, about +0.05 ms for 100 Guards | answers Q0074 (B, "to try") |
 | 0244 A revealed attacker's shot is drawn whole only when its target is the viewer's own object; everything else is clipped to Visible tiles | done (M3-L5, `a777ae3`) | answers Q0075; narrows 0206 |
-| 0245 Tunnel Network: a flat transit delay of 32 frames (placeholder) after entering before a unit can exit; produced units have none | queued (M4-C) | answers Q0063 point 1 |
-| 0246 Units walk into a Tunnel single file at normal speed with normal spacing, no fixed hold per unit ("one unit wide"); produced units exit without delay | queued (M4-C) | answers Q0063 point 7 and part of 2; replaces the 8-frame hold proposal |
-| 0247 Entering a Tunnel uses the normal Failure rule; no special waiting rule | queued (M4-C) | answers Q0063 point 2, as proposed |
-| 0248 Tunnel sides corrected: A entrance and exit, B crystal hatch, C back wall (no function), D Supplies hatch. Side A's exit path is the half nearer B, the entry path the half nearer D | in progress (M4-A, folded in: the hatch marks on B and D); queued (M4-C: Side A's halves; M4-I: Supplies delivered at Side D) | answers Q0063 point 2 (which half of Side A); corrects 0224's B and C hatches |
-| 0249 Inside the network: orders cleared, control groups and loads kept, slow HP regeneration; a Tunnel being upgraded keeps its old tier for entry and exit until it completes | in progress (M4-C) | Q0063 complete (0245–0249) |
-| 0250 Ejection: ground units walk out single file, gated on the exit spot being clear; air doors have their own rate (8 frames) | in progress (M4-C); the air doors wait for the first Syndicate air unit | answers Q0064 points 1, 2, 4, 10 and 11 |
-| 0251 Ejection: the longest-inside unit goes first; queue rules; air doors on the roof over the matching path halves; Vault and Null Chamber limits noted | in progress (M4-C); the air doors wait for the first Syndicate air unit | answers Q0064 points 3, 4 and 11 |
-| 0252 Syndicate rallies: a rally on a Tunnel stays inside; one on an expansion means the surface spot above it | in progress (M4-C) | answers Q0064 points 5–7 |
-| 0253 Auto-ejected units share the exit queue | in progress (M4-C) | Q0064 complete (0250–0253) |
+| 0245 Tunnel Network: a flat transit delay of 32 frames (placeholder) after entering before a unit can exit; produced units have none | done (M4-C, `f67df212`) | answers Q0063 point 1 |
+| 0246 Units walk into a Tunnel single file at normal speed with normal spacing, no fixed hold per unit ("one unit wide"); produced units exit without delay | done (M4-C, `f67df212`) | answers Q0063 point 7 and part of 2; replaces the 8-frame hold proposal |
+| 0247 Entering a Tunnel uses the normal Failure rule; no special waiting rule | done (M4-C, `f67df212`) | answers Q0063 point 2, as proposed |
+| 0248 Tunnel sides corrected: A entrance and exit, B crystal hatch, C back wall (no function), D Supplies hatch. Side A's exit path is the half nearer B, the entry path the half nearer D | done: A, C and D (`fcd06dc`, `f67df212`, `edc30e11`); I delivers Supplies at D | answers Q0063 point 2 (which half of Side A); corrects 0224's B and C hatches |
+| 0249 Inside the network: orders cleared, control groups and loads kept, slow HP regeneration; a Tunnel being upgraded keeps its old tier for entry and exit until it completes | done (M4-C, `f67df212`); the upgrade case waits for G | Q0063 complete (0245–0249) |
+| 0250 Ejection: ground units walk out single file, gated on the exit spot being clear; air doors have their own rate (8 frames) | done for ground units (M4-C, `f67df212`); the air doors wait for the first Syndicate air unit | answers Q0064 points 1, 2, 4, 10 and 11 |
+| 0251 Ejection: the longest-inside unit goes first; queue rules; air doors on the roof over the matching path halves; Vault and Null Chamber limits noted | done for ground units (M4-C, `f67df212`); the air doors wait for the first Syndicate air unit | answers Q0064 points 3, 4 and 11 |
+| 0252 Syndicate rallies: a rally on a Tunnel stays inside; one on an expansion means the surface spot above it | done (M4-C, `f67df212`) | answers Q0064 points 5–7 |
+| 0253 Auto-ejected units share the exit queue | done (M4-C, `f67df212`) | Q0064 complete (0250–0253) |
 | 0254 Expansions under construction, as proposed, except the 75% refund on cancel | partly done (M4-A, `fcd06dc`: the Hideout's sight 0 and Groupable); queued (M4-F) | answers Q0065 |
 | 0255 Agent gathering: the Drone's rules, the nearest Tunnel, the 1-square hatch as the drop-off target, and Agents wait at the hatch for ever. The Drones' placeholder (retry every 2 s, never give up) is the settled rule | done (M4-D, `edc30e11`); patches 0–1 GU from the hatch jam with 3+ Agents (Q0076) | answers Q0066; confirms Q0065 point 4 (an expansion's cells are reserved from construction start) |
 | 0256 Supplies gathering: shared stations, waiting at an empty station, switching resources loses the load; the notification waits for a notification system | queued (M4-I) | answers Q0067 |

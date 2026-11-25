@@ -19,13 +19,16 @@ impl Sim {
     /// their producers' units in production take up of their faction's cap (design change 0143), and what is
     /// available (the GDO's Unit Control, the Colonists' Beacon Capacity, the Syndicate's Tunnel Space). The HUD's
     /// figure, and what a unit at the front of a queue is checked against when its production would start
-    /// (`sim/producers/step.rs`). `None` for a faction without one yet, or a player who isn't in the game.
-    ///
-    /// It counts the objects on the map. Slice M4-C chains the units it holds out of the map into this iterator (the
-    /// Tunnel Network's, and an Agent inside its site): they are alive, and use Tunnel Space (design change 0265).
+    /// (`sim/producers/step.rs`). `None` for a faction without one yet, or a player who isn't in the game. The units
+    /// inside the Tunnel Network take up theirs as those on the map do (`crate::network`): they are alive, and use
+    /// Tunnel Space (`factions/syndicate/tunnels.md > Tunnel Space`, design change 0265). Tunnel Space's providers and
+    /// the cells it loses are structures, all on the map.
     pub fn army_cap(&self, player: PlayerId) -> Option<ArmyCap> {
         let faction = self.player(player)?.faction;
-        economy::army::cap(self.objects.values(), player, faction)
+        // The units held off the map count as those on it (plan decision T30: a unit takes its cost "for as long as
+        // the unit lives", inside the Tunnel Network too).
+        let held = self.held.values().map(|held| &held.object);
+        economy::army::cap(self.objects.values().chain(held), player, faction)
     }
 
     /// The Unit Control `player` uses at the end of the latest tick (`> Unit Control`): the UnitControlCost of their
@@ -33,7 +36,8 @@ impl Sim {
     /// in-production units, not merely queued ones"), out of [`economy::UNIT_CONTROL_CAP`]. A GDO player's
     /// [`Sim::army_cap`] `used`.
     pub fn unit_control(&self, player: PlayerId) -> u32 {
-        economy::army::unit_control_used(self.objects.values(), player)
+        let held = self.held.values().map(|held| &held.object);
+        economy::army::unit_control_used(self.objects.values().chain(held), player)
     }
 
     /// `DebugCommand::SetResources`, checked: `player`'s banks become `banks`.

@@ -129,6 +129,19 @@ pub enum Reject {
     /// A debug SetTier to an object without that tier: it isn't a Tunnel, or its tier table hasn't the tier
     /// (`factions/syndicate/tunnels.md > Tunnel > Tiers`: 1 to 3).
     NoSuchTier { id: ObjectId, tier: u8 },
+    /// The target of an Enter order or of a Tunnel command isn't a Tunnel in operation
+    /// (`systems/controls/commands.md > Enter`, `crate::network::is_exit`).
+    NotATunnel(ObjectId),
+    /// The Tunnel's tier lets none of the units an Enter names into the network, or not a unit of the kind an Eject
+    /// names out of it (`factions/syndicate/tunnels.md > Tunnel Network > Transit Tier Requirements`); no air unit
+    /// passes yet (`crate::network::AIR_DOORS`).
+    NoTransit { tunnel: ObjectId, kind: Option<ObjectKind> },
+    /// An Eject for a kind of which the player has no unit in the Tunnel Network that isn't queued to come out
+    /// already (`> EjectMenu`: "each click reserves a specific unit").
+    NotInNetwork(ObjectKind),
+    /// An Eject for a kind whose units in the network all walked in less than the transit delay ago (`> Tunnel
+    /// Network > Transit delay`, design change 0245: "For 2 s it can't be ejected anywhere").
+    InTransit(ObjectKind),
 }
 
 impl fmt::Display for Reject {
@@ -171,6 +184,16 @@ impl fmt::Display for Reject {
             Reject::NotTransforming => write!(f, "nothing is transforming"),
             Reject::NothingToDeliver => write!(f, "none of the workers carries anything"),
             Reject::NoSuchTier { id, tier } => write!(f, "object {} has no tier {tier}", id.0),
+            Reject::NotATunnel(id) => write!(f, "object {} is no Tunnel in operation", id.0),
+            Reject::NoTransit { tunnel, kind: None } => {
+                write!(f, "Tunnel {}'s tier lets none of the units in", tunnel.0)
+            }
+            Reject::NoTransit {
+                tunnel,
+                kind: Some(kind),
+            } => write!(f, "Tunnel {}'s tier lets no {} out", tunnel.0, kind.def().name),
+            Reject::NotInNetwork(kind) => write!(f, "no {} in the Tunnel Network is free to leave", kind.def().name),
+            Reject::InTransit(kind) => write!(f, "the {} only just entered the Tunnel Network", kind.def().name),
         }
     }
 }
@@ -209,6 +232,11 @@ pub(super) enum Checked {
     SetTier {
         id: ObjectId,
         tier: u8,
+    },
+    /// `tunnel`: the player's, in operation; `unit`: the unit of the network an Eject reserves (`sim/network.rs`).
+    Eject {
+        tunnel: ObjectId,
+        unit: ObjectId,
     },
     /// `player`'s production command, with what its checks resolved (`sim/producers.rs`).
     Production {
@@ -263,6 +291,7 @@ impl Sim {
             Command::Ability { units, ability } => self.check_ability(cmd.player, units, *ability),
             Command::Production { objects, command } => self.check_production(cmd.player, objects, *command),
             Command::Construction { objects, command } => self.check_construction(cmd.player, objects, *command),
+            Command::Tunnel { tunnel, command } => self.check_tunnel(cmd.player, *tunnel, *command),
             Command::Debug(debug) => {
                 if !self.config.debug {
                     return Err(Reject::DebugDisabled);

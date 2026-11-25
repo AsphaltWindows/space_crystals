@@ -104,7 +104,12 @@ impl Sim {
     /// `docs/movement.md > 3`: a unit of `kind` placed at `pos` keeps the invariants: its box is clear of blocked
     /// tiles and blocking footprints and inside the map, and overlaps no other unit of its layer (`moving` is the
     /// unit itself, when it is teleported). Other kinds pass.
-    fn check_unit_fits(&self, kind: ObjectKind, pos: Vec2, moving: Option<ObjectId>) -> Result<(), Reject> {
+    pub(in crate::sim) fn check_unit_fits(
+        &self,
+        kind: ObjectKind,
+        pos: Vec2,
+        moving: Option<ObjectId>,
+    ) -> Result<(), Reject> {
         let def = kind.def();
         let (Some(unit), Some(silhouette)) = (&def.unit, def.silhouette()) else {
             return Ok(());

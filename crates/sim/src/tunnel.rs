@@ -23,17 +23,35 @@ use crate::defs::{ObjectKind, TierDef, TunnelDef};
 /// Supplies at Side D (design changes 0248 and 0255 point 6).
 pub use crate::economy::drop_off::{Resource, hatch_square};
 use crate::hash::{StateHash, StateHasher};
+use crate::network::Eject;
 use crate::object::Object;
 use crate::transform::follow_max;
 
 /// The tier a Tunnel starts at: Tier 1, the base (`factions/syndicate/tunnels.md > Tunnel > Tiers`).
 pub const BASE_TIER: u8 = 1;
 
-/// A Tunnel's state (plan decision T39): its tier, from 1 to the number of its table's tiers (3). The upgrade under way
-/// and the eject queue join it in slices M4-G and M4-C.
-#[derive(Copy, Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+/// A Tunnel's state (plan decision T39): its tier, from 1 to the number of its table's tiers (3), and its eject queue
+/// (slice M4-C). The upgrade under way joins it in slice M4-G.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct TunnelState {
     pub tier: u8,
+    /// `factions/syndicate/tunnels.md > EjectMenu` (design changes 0250, 0251 and 0253): the units waiting to come out
+    /// of this Tunnel's exit path, first come, first served: those a player's Eject reserved and those a surface rally
+    /// point sends out by themselves, each held in its owner's network (`crate::network`). It goes with the Tunnel:
+    /// "if the Tunnel is destroyed with a queue, the queued units stay in the network". Left out of files and of the
+    /// hash while empty, so that the states without a queue are as they were.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub eject: Vec<Eject>,
+}
+
+impl TunnelState {
+    /// A Tunnel at `tier` with nothing queued to come out.
+    pub fn at(tier: u8) -> Self {
+        Self {
+            tier,
+            eject: Vec::new(),
+        }
+    }
 }
 
 /// The tier table of objects of `kind`: the Tunnel's; `None` for every other type.
@@ -43,13 +61,13 @@ pub fn def_of(kind: ObjectKind) -> Option<&'static TunnelDef> {
 
 /// What a new object of `kind` starts with: a Tunnel at [`BASE_TIER`], every other type nothing.
 pub(crate) fn fresh(kind: ObjectKind) -> Option<TunnelState> {
-    def_of(kind).map(|_| TunnelState { tier: BASE_TIER })
+    def_of(kind).map(|_| TunnelState::at(BASE_TIER))
 }
 
 /// The row of `o`'s tier in its table: its MaxHP, Tunnel Area radius and transit now. `None` for an object that isn't
 /// a Tunnel.
 pub fn tier_def(o: &Object) -> Option<&'static TierDef> {
-    def_of(o.kind)?.tier(o.tunnel?.tier)
+    def_of(o.kind)?.tier(o.tunnel.as_ref()?.tier)
 }
 
 /// Object `o`, a Tunnel, goes to tier `tier`: its MaxHP becomes that tier's, and its HP rises or falls by as much,
@@ -73,8 +91,13 @@ pub(crate) fn set_tier(o: &mut Object, tier: u8) -> bool {
 
 impl StateHash for TunnelState {
     fn hash(&self, h: &mut StateHasher) {
-        let TunnelState { tier } = self;
+        let TunnelState { tier, eject } = self;
         tier.hash(h);
+        // Only while something is queued, so that a Tunnel without a queue hashes as before the queue existed.
+        if !eject.is_empty() {
+            h.tag(1);
+            eject.hash(h);
+        }
     }
 }
 
@@ -122,7 +145,7 @@ mod tests {
             assert_eq!(fresh(kind).is_some(), kind == ObjectKind::Tunnel, "{kind:?}");
         }
         let t = tunnel(600.0);
-        assert_eq!(t.tunnel, Some(TunnelState { tier: 1 }));
+        assert_eq!(t.tunnel, Some(TunnelState::at(1)));
         assert_eq!(
             (t.max_hp(), tier_def(&t).map(|row| row.area_radius)),
             (Some(600.0), Some(2))
@@ -148,7 +171,7 @@ mod tests {
         assert_eq!(low.hp, Some(300.0));
         // No tier 0 or 4, and nothing but a Tunnel has a tier.
         assert!(!set_tier(&mut t, 0) && !set_tier(&mut t, 4));
-        assert_eq!(t.tunnel, Some(TunnelState { tier: 1 }));
+        assert_eq!(t.tunnel, Some(TunnelState::at(1)));
         let mut other = tunnel(1.0);
         other.kind = ObjectKind::Hideout;
         assert!(!set_tier(&mut other, 2));
@@ -178,6 +201,15 @@ mod tests {
             state.hash(&mut h);
             h.finish()
         };
-        assert_ne!(hash(TunnelState { tier: 1 }), hash(TunnelState { tier: 2 }));
+        assert_ne!(hash(TunnelState::at(1)), hash(TunnelState::at(2)));
+        // The eject queue is hashed while it holds something (slice M4-C).
+        let queued = TunnelState {
+            eject: vec![Eject {
+                unit: ObjectId(7),
+                order: None,
+            }],
+            ..TunnelState::at(1)
+        };
+        assert_ne!(hash(queued), hash(TunnelState::at(1)));
     }
 }

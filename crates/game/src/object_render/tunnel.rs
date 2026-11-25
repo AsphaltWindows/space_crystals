@@ -5,7 +5,8 @@
 //! (0248, correcting 0224's C and D):
 //! - **Side A**, "two paths: one for entering, one for exiting": two strips from the edge in, "narrow and
 //!   shaggy-looking" at Tier 1 (ragged dirt), "wider and well paved" at Tiers 2 and 3. They lie on the half nearer B,
-//!   the exit, and the half nearer D, the entry (0248), drawn alike: slice M4-C gives them their roles.
+//!   the exit, and the half nearer D, the entry (0248), drawn alike, where the sim lets units out and in
+//!   (`sc_sim::network::Paths`, slice M4-C).
 //! - **Sides B and D**, each "a hatch": a framed square at the edge, B's in the crystals' cyan, D's in the Supplies'
 //!   amber (the map resources' colours, `super::resources`). Side C, the back wall, has no mark. Each is drawn on its
 //!   hatch square, "1 grid square, near the middle of the side" (design change 0255 point 6): the sim's
@@ -52,9 +53,10 @@ impl TunnelLook {
 /// The view directions `sc_sim::sides` lists its letters in: north (+y in the view's world space), east, south, west.
 const FACING: [Vec2; 4] = [Vec2::Y, Vec2::X, Vec2::NEG_Y, Vec2::NEG_X];
 
-/// Side A's paths: how far apart their middles are, how far in they reach from the edge, and how wide they are at
-/// Tier 1 and from Tier 2 on, space units.
-const PATH_SPACING_SU: f32 = 60.0;
+/// Side A's paths: how far apart their middles are (the sim's spots, `sc_sim::network::Paths`: where units go in and
+/// come out, slice M4-C), how far in they reach from the edge, and how wide they are at Tier 1 and from Tier 2 on,
+/// space units.
+const PATH_SPACING_SU: f32 = 2.0 * sc_sim::network::PATH_OFFSET_SU;
 const PATH_LENGTH_SU: f32 = 58.0;
 const TRAIL_SU: f32 = 12.0;
 const PAVED_SU: f32 = 24.0;
@@ -162,7 +164,7 @@ mod tests {
             rotation,
             ..Placement::new(TilePos::new(0, 0), ObjectKind::Tunnel.def().footprint)
         };
-        TunnelLook::of(ObjectKind::Tunnel, Some(TunnelState { tier }), Some(&placement))
+        TunnelLook::of(ObjectKind::Tunnel, Some(TunnelState::at(tier)), Some(&placement))
     }
 
     /// Design change 0224: a Tunnel's look follows its tier and its sides; nothing else has one.

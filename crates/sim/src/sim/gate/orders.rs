@@ -66,6 +66,9 @@ impl Sim {
             }
             // `factions/colonists/economy.md > Beacon Deployment` (`sim/deploy.rs`): one Drone takes it.
             OrderKind::Deploy { origin } => ordered = self.check_deploy(ordered, origin, queue)?,
+            // `systems/controls/commands.md > Enter` (`sim/network.rs`): the units the Tunnel's tier lets in take
+            // it, the others ignore it.
+            OrderKind::Enter(tunnel) => ordered = self.check_enter(player, ordered, tunnel)?,
         }
         Ok(Checked::Order {
             units: ordered,

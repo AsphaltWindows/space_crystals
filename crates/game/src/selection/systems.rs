@@ -24,7 +24,8 @@ use crate::sim_driver::{LocalPlayer, PendingCommands, SimEventMessage, SimRes};
 /// anything else that no longer exists, and anything that player may no longer select (`pick::selectable_id`):
 /// an enemy that walks out of sight is deselected at once (a placeholder rule: the design doesn't say). A record
 /// the player may select (a GDO player's remembered SupplyDeliveryStation) stays selected even if its object is
-/// removed out of sight: the player doesn't learn of it. An object the player sees that changed its kind in place
+/// removed out of sight: the player doesn't learn of it. A unit that walked into a Tunnel leaves the selection and
+/// stays in its control groups, whose recall selects the members on the map (design change 0249). An object the player sees that changed its kind in place
 /// (`SimEvent::KindChanged`, plan decision T15), or that started or stopped being unfinished (design change 0185: a
 /// building whose Warp In completes or is cancelled), stays selected as the type it groups as now
 /// (`ControlState::set_type`), so the panels show its new group: the group its members joined becomes the
@@ -59,10 +60,16 @@ pub(super) fn sync_control_states(
     let mut changed = false;
     for (&player, state) in &mut states.bypass_change_detection().by_player {
         let sight = Sight::new(&sim, player, fog.applies(*mode));
-        changed |= state.retain(|id| {
-            let remembered = sight.remembered_record(id).is_some();
-            (remembered || !removed.contains(&id)) && selectable_id(&sim, &sight, id)
-        });
+        // A unit inside the player's Tunnel Network is off the map: out of the selection, kept in the control groups
+        // (design change 0249, `sc_sim::network`).
+        let held = |id: ObjectId| (sim.held_unit(id)).is_some_and(|held| held.object.owner == Some(player));
+        changed |= state.retain_on_map(
+            |id| {
+                let remembered = sight.remembered_record(id).is_some();
+                (remembered || !removed.contains(&id)) && selectable_id(&sim, &sight, id)
+            },
+            held,
+        );
         let changed_types: Vec<(ObjectId, GroupType)> = state
             .selection
             .member_types()

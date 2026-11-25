@@ -249,6 +249,10 @@ impl StateHash for Behaviour {
                 h.tag(7);
                 arrived.hash(h);
             }
+            Behaviour::Enter(Enter { walked }) => {
+                h.tag(8);
+                walked.hash(h);
+            }
         }
     }
 }

@@ -262,7 +262,7 @@ fn spawn_cell_content(commands: &mut Commands, cell: Entity, shown: PortraitCell
                 BackgroundColor(if unfinished { transforming_color(owner) } else { owner }),
                 ChildOf(cell),
             ));
-            let label = object_label(kind, object.and_then(|o| o.tunnel));
+            let label = object_label(kind, object.and_then(|o| o.tunnel.clone()));
             commands.spawn((text(label, CELL_LABEL_VH, CELL_TEXT), ChildOf(cell)));
         }
         PortraitCell::More { count, .. } => {
@@ -463,7 +463,7 @@ mod tests {
         let syndicate = [ObjectKind::Agent, ObjectKind::Tunnel, ObjectKind::Hideout].map(short_label);
         assert_eq!(syndicate, ["AG", "T1", "HI"]);
         assert_eq!([0, 1, 2, 3, 4].map(tier_label), ["T1", "T1", "T2", "T3", "T1"]);
-        let tier = |tier| object_label(ObjectKind::Tunnel, Some(TunnelState { tier }));
+        let tier = |tier| object_label(ObjectKind::Tunnel, Some(TunnelState::at(tier)));
         assert_eq!((tier(3), object_label(ObjectKind::Agent, None)), ("T3", "AG"));
         let distinct: std::collections::BTreeSet<&str> = labels.iter().copied().collect();
         assert_eq!(distinct.len(), labels.len(), "{labels:?}");

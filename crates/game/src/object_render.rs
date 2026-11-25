@@ -107,7 +107,7 @@ impl MeshKey {
         let placement = object.placement.as_ref();
         Self {
             transforming: object.is_transforming(),
-            ..Self::of(drawn_kind(object), object.owner, placement, object.tunnel)
+            ..Self::of(drawn_kind(object), object.owner, placement, object.tunnel.clone())
         }
     }
 }
@@ -373,7 +373,7 @@ fn sync_object_visuals(
             ))
             .id();
         if let Some(size) = key.size {
-            let label = object_label(drawn, object.tunnel);
+            let label = object_label(drawn, object.tunnel.clone());
             commands.spawn((structures::tag(object.id, label, size, 1.0), ChildOf(entity)));
         }
         if units::tagged(drawn) {

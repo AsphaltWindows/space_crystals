@@ -50,8 +50,23 @@ pub enum Command {
         objects: Vec<ObjectId>,
         command: ConstructionCommand,
     },
+    /// The player's Tunnel `tunnel` carries out `command` (`factions/syndicate/tunnels.md > Tunnel
+    /// ObjectInterfaceState`, plan decision T36; `crate::network`). Rejected if it doesn't exist, belongs to someone
+    /// else, isn't a Tunnel in operation, or can't carry the command out.
+    Tunnel { tunnel: ObjectId, command: TunnelCommand },
     /// Development / QA only — never offered to players in a real match.
     Debug(DebugCommand),
+}
+
+/// A command to a Tunnel ([`Command::Tunnel`], plan decision T36). Expand, Upgrade and the cancels join it with
+/// slices M4-E to M4-G.
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub enum TunnelCommand {
+    /// `factions/syndicate/tunnels.md > EjectMenu`: "ejects one unit of that type from this Tunnel's Side A", the one
+    /// of `kind` "that has been inside the network longest" among those free to leave (design changes 0245 and
+    /// 0251). The click reserves that unit on the Tunnel's eject queue, and it comes out of the exit path once the
+    /// units queued before it are out and the exit spot is clear (0250).
+    Eject { kind: ObjectKind },
 }
 
 /// An ability a unit uses at once ([`Command::Ability`]).

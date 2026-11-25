@@ -251,6 +251,14 @@ pub struct Deploy {
     pub arrived: bool,
 }
 
+/// The state of an Enter order (`orders::enter`, `crate::network`).
+#[derive(Copy, Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub struct Enter {
+    /// The unit's walk to the entry path is over, wherever it ended: the step right after phase 5a takes the unit
+    /// into the network if it got there, and ends the order if it didn't (`Sim::step_entries`).
+    pub walked: bool,
+}
+
 /// The state of the current order's behaviour.
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
 pub enum Behaviour {
@@ -269,6 +277,8 @@ pub enum Behaviour {
     Gather(Gather),
     /// A Drone on its way to deploy (`factions/colonists/economy.md > Beacon Deployment > Deploy Command`).
     Deploy(Deploy),
+    /// A unit on its way into a Tunnel (`systems/controls/commands.md > Enter`).
+    Enter(Enter),
 }
 
 impl Leg {
@@ -305,7 +315,7 @@ impl Behaviour {
             Behaviour::Patrol(patrol) => patrol.leg.targets().collect(),
             Behaviour::Hold { target } => target.iter().copied().collect(),
             Behaviour::Gather(gather) => gather.node.iter().copied().collect(),
-            Behaviour::Deploy(_) => Vec::new(),
+            Behaviour::Deploy(_) | Behaviour::Enter(_) => Vec::new(),
         }
     }
 
@@ -314,6 +324,7 @@ impl Behaviour {
     pub(crate) fn forget(&mut self, is_gone: &impl Fn(ObjectId) -> bool) {
         match self {
             Behaviour::Plain | Behaviour::Attack(_) | Behaviour::Approach(_) | Behaviour::Deploy(_) => {}
+            Behaviour::Enter(_) => {}
             Behaviour::AttackMove(leg) => leg.forget(is_gone),
             Behaviour::Patrol(patrol) => patrol.leg.forget(is_gone),
             Behaviour::Hold { target } => {

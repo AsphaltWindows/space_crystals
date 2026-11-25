@@ -12,7 +12,8 @@
 //! - [`travel`]: MovingToObject (Follow for a unit), AttackMovingToLocation and Patrolling;
 //! - Move to a point, and Stop, need only the mover's status;
 //! - [`gather`]: a worker's job, the Gather and Drop Off orders of `factions/colonists/units.md > Drone`;
-//! - [`deploy`]: a Drone's walk to the site of the Beacon it deploys into (`crate::deploy`).
+//! - [`deploy`]: a Drone's walk to the site of the Beacon it deploys into (`crate::deploy`);
+//! - [`enter`]: a unit's walk into a Tunnel's entry path (`crate::network`).
 //!
 //! What a unit does by default against a target, a right-click's and a rally point's order, is [`resolution`]'s.
 //!
@@ -22,7 +23,9 @@
 mod deploy;
 pub(crate) mod destinations;
 mod engage;
+mod enter;
 pub(crate) mod gather;
+mod hash;
 pub(crate) mod reach;
 pub mod resolution;
 pub mod state;
@@ -34,7 +37,6 @@ use std::collections::{BTreeMap, VecDeque};
 use glam::Vec2;
 use serde::{Deserialize, Serialize};
 
-use crate::hash::{StateHash, StateHasher};
 use crate::ids::ObjectId;
 use crate::mover::{MoveGoal, MoveStatus};
 use crate::nav::PathGroup;
@@ -119,6 +121,24 @@ pub enum OrderKind {
     /// `factions/colonists/economy.md > Beacon Deployment > Deploy Command`: a Drone walks to the site of a Beacon
     /// whose footprint's top-left tile is `origin` and deploys into it there (`crate::deploy`, [`deploy`]).
     Deploy { origin: TilePos },
+    /// `> Enter`: "The unit walks to Side A and enters the Tunnel Network" (`factions/syndicate/tunnels.md > Tunnel
+    /// Network > Walking in`; [`enter`], `crate::network`): this Tunnel of its owner's, through its entry path.
+    Enter(ObjectId),
+}
+
+impl OrderKind {
+    /// The object the order names, if any.
+    pub fn target(self) -> Option<ObjectId> {
+        match self {
+            OrderKind::Move(Target::Object(id))
+            | OrderKind::Attack(id)
+            | OrderKind::Gather(id)
+            | OrderKind::DropOff(id)
+            | OrderKind::Enter(id) => Some(id),
+            OrderKind::Move(Target::Point(_)) | OrderKind::AttackMove(_) | OrderKind::Patrol(_) => None,
+            OrderKind::Hold | OrderKind::Stop | OrderKind::Deploy { .. } => None,
+        }
+    }
 }
 
 /// One unit's order.
@@ -141,19 +161,13 @@ impl Order {
             }
             OrderKind::Move(Target::Object(_)) | OrderKind::Attack(_) | OrderKind::Hold | OrderKind::Stop => None,
             OrderKind::Gather(_) | OrderKind::DropOff(_) | OrderKind::Deploy { .. } => None,
+            OrderKind::Enter(_) => None,
         }
     }
 
     /// The object the order names, if any.
     pub fn target(&self) -> Option<ObjectId> {
-        match self.kind {
-            OrderKind::Move(Target::Object(id))
-            | OrderKind::Attack(id)
-            | OrderKind::Gather(id)
-            | OrderKind::DropOff(id) => Some(id),
-            OrderKind::Move(Target::Point(_)) | OrderKind::AttackMove(_) | OrderKind::Patrol(_) => None,
-            OrderKind::Hold | OrderKind::Stop | OrderKind::Deploy { .. } => None,
-        }
+        self.kind.target()
     }
 
     /// The one rule for an order that names an object no longer in the game (design changes 0134 and 0139): whether
@@ -332,7 +346,7 @@ fn start(order: &Order, unit: &mut Unit, world: &World) -> Behaviour {
         // The others set off in their first tick ([`run`]), from a standstill.
         OrderKind::Attack(_) | OrderKind::Move(Target::Object(_)) | OrderKind::AttackMove(_) | OrderKind::Patrol(_) => {
         }
-        OrderKind::Gather(_) | OrderKind::DropOff(_) | OrderKind::Deploy { .. } => {}
+        OrderKind::Gather(_) | OrderKind::DropOff(_) | OrderKind::Deploy { .. } | OrderKind::Enter(_) => {}
     }
     unit.mover.stop();
     match order.kind {
@@ -358,6 +372,8 @@ fn start(order: &Order, unit: &mut Unit, world: &World) -> Behaviour {
         OrderKind::Gather(_) | OrderKind::DropOff(_) => Behaviour::Gather(gather::begin(order.kind, unit, world)),
         // `factions/colonists/economy.md > Beacon Deployment > Deploy Command`: to the footprint's centre.
         OrderKind::Deploy { origin } => Behaviour::Deploy(deploy::begin(origin, unit, tick)),
+        // `systems/controls/commands.md > Enter`: to the Tunnel's entry path.
+        OrderKind::Enter(tunnel) => Behaviour::Enter(enter::begin(tunnel, unit, world)),
     }
 }
 
@@ -399,95 +415,13 @@ fn run(
         }
         // The walk to the site; the step right after this phase ends the order (`Sim::step_deployments`).
         (OrderKind::Deploy { origin }, Behaviour::Deploy(state)) => deploy::run(origin, state, unit),
+        // The walk into the entry path; the step right after this phase takes the unit into the network or ends the
+        // order (`Sim::step_entries`).
+        (OrderKind::Enter(_), Behaviour::Enter(state)) => enter::run(state, unit),
         // A state that isn't its order's (a save edited by hand): the order ends.
         (OrderKind::Hold | OrderKind::Attack(_) | OrderKind::AttackMove(_) | OrderKind::Patrol(_), _)
         | (OrderKind::Move(Target::Object(_)) | OrderKind::Gather(_) | OrderKind::DropOff(_), _)
-        | (OrderKind::Deploy { .. }, _) => true,
-    }
-}
-
-impl StateHash for OrderGroup {
-    fn hash(&self, h: &mut StateHasher) {
-        self.0.hash(h);
-    }
-}
-
-impl StateHash for Target {
-    fn hash(&self, h: &mut StateHasher) {
-        match self {
-            Target::Point(p) => {
-                h.tag(0);
-                p.hash(h);
-            }
-            Target::Object(id) => {
-                h.tag(1);
-                id.hash(h);
-            }
-        }
-    }
-}
-
-impl StateHash for OrderKind {
-    fn hash(&self, h: &mut StateHasher) {
-        match self {
-            OrderKind::Move(target) => {
-                h.tag(0);
-                target.hash(h);
-            }
-            OrderKind::Attack(id) => {
-                h.tag(1);
-                id.hash(h);
-            }
-            OrderKind::AttackMove(p) => {
-                h.tag(2);
-                p.hash(h);
-            }
-            OrderKind::Patrol(p) => {
-                h.tag(3);
-                p.hash(h);
-            }
-            OrderKind::Hold => h.tag(4),
-            OrderKind::Stop => h.tag(5),
-            OrderKind::Gather(id) => {
-                h.tag(6);
-                id.hash(h);
-            }
-            OrderKind::DropOff(id) => {
-                h.tag(7);
-                id.hash(h);
-            }
-            OrderKind::Deploy { origin } => {
-                h.tag(8);
-                origin.hash(h);
-            }
-        }
-    }
-}
-
-impl StateHash for Order {
-    fn hash(&self, h: &mut StateHasher) {
-        let Order { kind, group, slot } = self;
-        kind.hash(h);
-        group.hash(h);
-        slot.hash(h);
-    }
-}
-
-impl StateHash for ActiveOrder {
-    fn hash(&self, h: &mut StateHasher) {
-        let ActiveOrder { order, since, state } = self;
-        order.hash(h);
-        since.hash(h);
-        state.hash(h);
-    }
-}
-
-impl StateHash for Orders {
-    fn hash(&self, h: &mut StateHasher) {
-        let Orders { queue, current, auto } = self;
-        queue.hash(h);
-        current.hash(h);
-        auto.hash(h);
+        | (OrderKind::Deploy { .. } | OrderKind::Enter(_), _) => true,
     }
 }
 

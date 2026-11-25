@@ -4,7 +4,7 @@
 //! of unit kinds against kinds of targets, in a game and as the pure rule.
 
 use sc_sim::combat::domain_allows;
-use sc_sim::defs::{Domain, TargetDomain};
+use sc_sim::defs::{Domain, TargetDomain, Transit};
 use sc_sim::orders::resolution::{Abilities, Aim, Aimed, resolve};
 use sc_sim::testing::{ScenarioBuilder, TestSim};
 use sc_sim::{
@@ -176,12 +176,14 @@ fn the_rule_on_abilities_and_targets() {
         may_attack: true,
         worker: false,
         carrying: false,
+        transit: Transit::Infantry,
     };
     let drone = |carrying| Abilities {
         attack: None,
         may_attack: true,
         worker: true,
         carrying,
+        transit: Transit::Vehicles,
     };
     let object = |enemy, destructible, domain, gatherable, drop_off| Aimed {
         id: ObjectId(5),
@@ -190,6 +192,7 @@ fn the_rule_on_abilities_and_targets() {
         domain,
         gatherable,
         drop_off,
+        transit: &[],
     };
     let follow = OrderKind::Move(Target::Object(ObjectId(5)));
     let attack = OrderKind::Attack(ObjectId(5));
@@ -233,6 +236,39 @@ fn the_rule_on_abilities_and_targets() {
         resolve(armed(TargetDomain::Universal), Aim::Object(indestructible)),
         follow
     );
+    // An own Tunnel (slice M4-C, `systems/controls/commands.md > Enter`): Enter for a unit its tier lets in, after a
+    // loaded worker's Drop Off there; never for an air unit, whatever the tier lists (no air doors in M4).
+    let enter = OrderKind::Enter(ObjectId(5));
+    let tunnel = |transit, drop_off| Aimed {
+        transit,
+        ..object(false, true, Domain::Ground, false, drop_off)
+    };
+    let (tier_1, tier_3) = (
+        &[Transit::Infantry][..],
+        &[Transit::Infantry, Transit::Vehicles, Transit::Air][..],
+    );
+    let infantry = armed(TargetDomain::Ground);
+    assert_eq!(resolve(infantry, Aim::Object(tunnel(tier_1, false))), enter);
+    assert_eq!(
+        resolve(drone(false), Aim::Object(tunnel(tier_1, false))),
+        follow,
+        "a vehicle at Tier 1"
+    );
+    assert_eq!(resolve(drone(false), Aim::Object(tunnel(tier_3, false))), enter);
+    assert_eq!(
+        resolve(drone(true), Aim::Object(tunnel(tier_3, true))),
+        OrderKind::DropOff(ObjectId(5))
+    );
+    assert_eq!(
+        resolve(drone(false), Aim::Object(tunnel(tier_3, true))),
+        enter,
+        "not carrying"
+    );
+    let flyer = Abilities {
+        transit: Transit::Air,
+        ..infantry
+    };
+    assert_eq!(resolve(flyer, Aim::Object(tunnel(tier_3, false))), follow);
     let p = Vec2::new(1.0, 2.0);
     assert_eq!(resolve(drone(true), Aim::Ground(p)), OrderKind::Move(Target::Point(p)));
 }

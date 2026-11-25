@@ -2,11 +2,14 @@
 //! zone centered on the Tunnel. The radius extends outward from the Tunnel's 4x4 footprint in each direction, forming
 //! a square of (radius + 4 + radius) per side", the radius being the tier's (`> Tiers`: 2, 3 and 4 grid units). This
 //! module is the one place that works a Tunnel Area out: Tunnel Space (`crate::economy::army`, plan decision T33 as
-//! design change 0242 revised it), the placement rule of 0242 (`crate::placement`), and the slices that will place
-//! Tunnels and expansions, keep Tunnel Areas apart and upgrade Tunnels (M4-E, M4-F, M4-G, M4-H, M4-J) all ask it.
+//! design change 0242 revised it), the placement rule of 0242 (`crate::placement`), an expansion's parent Tunnel
+//! (`Sim::parent_tunnel`, slice M4-C), and the slices that will place Tunnels and expansions, keep Tunnel Areas apart
+//! and upgrade Tunnels (M4-E, M4-F, M4-G, M4-H, M4-J) all ask it.
 //!
 //! - **The area** ([`area`], [`of`]): the footprint grown by the radius on all four sides, a rectangle of cells that
 //!   may reach past the map's edge, as a footprint may. It is never clamped to the map.
+//! - **The parent Tunnel** ([`parent`], plan decision T32): an expansion's owner's Tunnel in operation whose current
+//!   area fully contains it, derived and never stored.
 //! - **The region** ([`region`]): `> Tunnel Space > Tunnel-region`, "a Tunnel's Tunnel Area, excluding the 4x4 grid
 //!   units occupied by the Tunnel's own footprint": 48, 84 and 128 cells at Tiers 1, 2 and 3. It counts every cell,
 //!   on the map or off it, Drillable or not (0242: "So every tunnel-region cell is usable"; the earlier off-map and
@@ -17,8 +20,10 @@
 //!   never its look.
 
 use crate::defs::ObjectKind;
+use crate::ids::ObjectId;
 use crate::map::Map;
 use crate::nav::TileRect;
+use crate::network;
 use crate::object::Object;
 use crate::units::TilePos;
 
@@ -42,6 +47,21 @@ pub fn of(o: &Object) -> Option<TileRect> {
     let placement = o.placement?;
     let radius = tier_def(o)?.area_radius;
     Some(area(TileRect::new(placement.origin, placement.w, placement.h), radius))
+}
+
+/// The parent Tunnel of `expansion`, an underground structure (plan decision T32: derived, never stored): "the
+/// owner's Tunnel whose current area fully contains it" ([`of`], [`encloses`]), the first by id of `tunnels` (an
+/// owner's Tunnel Areas never overlap, so there is at most one). `None` for an expansion without an owner or a
+/// footprint, or outside the area of every one of its owner's Tunnels in operation (`crate::network::is_exit`).
+pub fn parent<'a>(expansion: &Object, tunnels: impl IntoIterator<Item = &'a Object>) -> Option<ObjectId> {
+    let owner = expansion.owner?;
+    let p = expansion.placement?;
+    let footprint = TileRect::new(p.origin, p.w, p.h);
+    let contains = |t: &Object| of(t).is_some_and(|area| encloses(area, footprint));
+    tunnels
+        .into_iter()
+        .find(|t| t.owner == Some(owner) && network::is_exit(t) && contains(t))
+        .map(|t| t.id)
 }
 
 /// The Tunnel Area radius of a new object of `kind`, at [`BASE_TIER`]: Tier 1's 2 for the Tunnel, what a Tunnel being
@@ -117,7 +137,6 @@ pub fn breaches(map: &Map, area: TileRect) -> impl Iterator<Item = (TilePos, Bre
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::ids::ObjectId;
     use crate::map::{Tile, TilePreset, TilePresetId};
     use crate::scenario::SpawnAt;
     use crate::sim::Sim;
@@ -166,6 +185,31 @@ mod tests {
         assert!(super::super::set_tier(&mut tunnel, 3));
         assert_eq!(of(&tunnel), Some(TileRect::new(TilePos::new(2, 2), 12, 12)));
         assert_eq!(of(sim.object(ObjectId(2)).unwrap()), None);
+    }
+
+    /// Plan decision T32: an expansion's parent is its owner's Tunnel whose current area wholly holds it. Player 1's
+    /// Tunnel (1) on (6, 6) has its Tier 1 area on (4, 4) to (11, 11), player 2's (2) on (14, 6) to (17, 9). The
+    /// Hideout inside player 1's area has it for its parent; half outside, or player 2's in that area, or a neutral
+    /// one, has none; at Tier 3 the area reaches the Hideout half outside.
+    #[test]
+    fn an_expansions_parent_is_its_owners_tunnel_whose_area_holds_it() {
+        let tile = |x, y| SpawnAt::Tile(TilePos::new(x, y));
+        let (p1, p2) = (Some(crate::PlayerId(1)), Some(crate::PlayerId(2)));
+        let scenario = ScenarioBuilder::new(&vec![".".repeat(24); 16].join("\n"))
+            .spawn(TUNNEL, p1, tile(6, 6)) // 1
+            .spawn(TUNNEL, p2, tile(14, 6)) // 2
+            .spawn(ObjectKind::Hideout, p1, tile(10, 4)) // 3: inside
+            .spawn(ObjectKind::Hideout, p1, tile(11, 10)) // 4: half outside
+            .spawn(ObjectKind::Hideout, p2, tile(4, 10)) // 5: another player's
+            .spawn(ObjectKind::Hideout, None, tile(4, 4)) // 6: neutral
+            .build();
+        let sim = Sim::new(&scenario);
+        let object = |n| sim.object(ObjectId(n)).unwrap();
+        let parents = |tunnels: &[Object]| (3..=6).map(|n| parent(object(n), tunnels)).collect::<Vec<_>>();
+        let mut tunnels: Vec<Object> = [1, 2].map(|n| object(n).clone()).to_vec();
+        assert_eq!(parents(&tunnels), [Some(ObjectId(1)), None, None, None]);
+        assert!(super::super::set_tier(&mut tunnels[0], 3));
+        assert_eq!(parents(&tunnels), [Some(ObjectId(1)), Some(ObjectId(1)), None, None]);
     }
 
     /// Design change 0242: the cells off the map and those whose preset isn't Drillable breach, whatever their look;

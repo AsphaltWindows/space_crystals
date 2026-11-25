@@ -170,6 +170,8 @@ fn structure_is_consistent(def: &ObjectDef, structure: &StructureDef) {
                     assert!(count(letter) >= 1, "{name}: exit side {letter:?}");
                 }
             }
+            // Into the Tunnel Network: through no side, from an underground expansion.
+            ExitRule::Network => assert!(structure.underground, "{name}: produces into the network"),
         }
         for (i, recipe) in production.recipes.iter().enumerate() {
             let unit = recipe.kind.def();

@@ -313,17 +313,17 @@ fn hidden_structures_are_never_recorded_and_a_tunnels_record_keeps_its_tier() {
     let ids: Vec<u32> = p1(&vision).records().map(|r| r.id.0).collect();
     assert_eq!(ids, [3, 4]);
     assert_eq!(p1(&vision).object_state(&hideout), VisibilityState::Explored);
-    let tier = |vision: &Vision| p1(vision).record(ObjectId(4)).and_then(|r| r.tunnel);
+    let tier = |vision: &Vision| p1(vision).record(ObjectId(4)).and_then(|r| r.tunnel.clone());
     let hash = |vision: &Vision| {
         let mut h = crate::hash::StateHasher::new();
         crate::hash::StateHash::hash(p1(vision).record(ObjectId(4)).unwrap(), &mut h);
         h.finish()
     };
-    assert_eq!(tier(&vision), Some(TunnelState { tier: 1 }));
+    assert_eq!(tier(&vision), Some(TunnelState::at(1)));
     let at_tier_1 = hash(&vision);
-    tunnel.tunnel = Some(TunnelState { tier: 3 });
+    tunnel.tunnel = Some(TunnelState::at(3));
     end_tick(&mut vision, &map, 2, &[&eye, &hideout, &neutral, &tunnel]);
-    assert_eq!(tier(&vision), Some(TunnelState { tier: 3 }));
+    assert_eq!(tier(&vision), Some(TunnelState::at(3)));
     assert_ne!(hash(&vision), at_tier_1);
     assert!(p1(&vision).record(ObjectId(3)).unwrap().tunnel.is_none());
 }
