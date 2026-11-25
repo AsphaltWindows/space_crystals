@@ -39,9 +39,10 @@
 //! fully lowered (`factions/syndicate/structures/laser_turret.md > Upright vs Pop-up (by location)`), holds for all
 //! three at once.
 //!
-//! Open, the design being silent: each keeps the client's behaviour before this filter, marked where it applies.
+//! Open, the design being silent (Q0090): each keeps the client's behaviour before this filter, marked where it
+//! applies.
 //! - A shot or a projectile at an object hidden from the viewer shows over the viewer's Visible tiles all the same, up
-//!   to where the object is (`Placeholder (M4-V)` at [`Sighting::path`]).
+//!   to where the object is (`Placeholder (Q0090)` at [`Sighting::path`]).
 //! - A shot's glow and a projectile's body are in the colour of their shooter's owner, whom the viewer may not see
 //!   (`combat_effects`).
 //! - A defeat before the end of the game reaches every player, as the end does (at `SimEvent::PlayerDefeated` below).
@@ -187,7 +188,7 @@ impl Sighting {
     /// A shot's or a projectile's path from `from` to `to` (ground points), drawn to every viewer only over their
     /// Visible tiles, its shooter's owner included (`core/vision.md > Attacks from outside vision`, design change 0293:
     /// "every shot, tracer or projectile, whoever fires it and at whatever, is drawn only over your Visible tiles").
-    /// Placeholder (M4-V): one at an object hidden from the viewer shows over their Visible tiles all the same, up to
+    /// Placeholder (Q0090): one at an object hidden from the viewer shows over their Visible tiles all the same, up to
     /// where the object is (the design's "at whatever"; it says nothing of hidden targets).
     pub fn path(from: Vec2, to: Vec2) -> Self {
         Self {
@@ -395,7 +396,7 @@ impl<'a> Arrival<'a> {
             | SimEvent::ConstructionCancelled { constructor, .. }
             | SimEvent::PlacementRefused { constructor, .. } => self.owner(constructor),
             SimEvent::StructurePlaced { structure, .. } => self.object(structure),
-            // Placeholder (M4-V): the design has every player see the end of the game (`core/game_rules.md > End of
+            // Placeholder (Q0090): the design has every player see the end of the game (`core/game_rules.md > End of
             // Game`), but doesn't say who learns of a defeat before it; nothing shows one yet.
             SimEvent::PlayerDefeated { .. } | SimEvent::GameOver { .. } => Audience::Everyone,
             SimEvent::ResourcesDelivered { worker, .. }
