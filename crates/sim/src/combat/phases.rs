@@ -260,7 +260,7 @@ pub(super) fn run(
         if over {
             state.phase = end(phase, aimed_at, shooter, targets, volley, events);
             state.elapsed = 0;
-            // `// Placeholder: Q0083 point 3`: an Attack Ground fires once. Its location is let go of as its one
+            // Placeholder: Q0083 point 3. An Attack Ground fires once: its location is let go of as its one
             // projectile launches, and its behaviour completes at the blast (`orders::attack_ground`).
             if let AttackPhase::FiringAt { at, target: None } = phase
                 && state.location == Some(at)

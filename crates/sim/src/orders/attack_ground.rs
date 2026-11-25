@@ -32,8 +32,8 @@ use crate::mover::{MoveGoal, MoveStatus};
 pub(super) fn run(unit: &mut Unit, at: Vec2, state: &mut AttackGround, world: &World) -> bool {
     let engaged = unit.attack.as_deref().is_some_and(|attack| attack.location == Some(at));
     if !engaged {
-        // The one shot is away, or the attack let go of a location its weapon can't target: complete once nothing of
-        // it is in flight.
+        // Placeholder: Q0083 point 3. The one shot is away, or the attack let go of a location its weapon can't
+        // target: the order completes once nothing of it is in flight, at its blast.
         return !world.in_flight(unit.id, at);
     }
     let Some(attrs) = unit.attrs() else {

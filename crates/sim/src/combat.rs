@@ -339,6 +339,8 @@ pub(crate) fn step(
     projectiles::land(projectiles, tick, &targets, &mut hits, events);
     hits.append(&mut volley.hits);
     let dead = damage::apply(objects, &hits, events);
+    // Placeholder: Q0083 point 2. A blast's hits reveal its attacker, if it still exists, to each damaged object's
+    // owner, as a shot's do.
     for hit in &hits {
         let victim = objects.get(&hit.target).and_then(|o| o.owner);
         if let (Some(victim), Some(attacker)) = (victim, objects.get(&hit.attacker)) {

@@ -125,6 +125,8 @@ pub(super) fn strike(blast: &Blast, targets: &Targets, hits: &mut Vec<Hit>) {
     if circle <= 0.0 {
         return;
     }
+    // Placeholder: Q0083 point 1. Friendly fire, the literal rule: every object whose domain the blast hits, whoever
+    // owns it, the attacker and its owner's objects included.
     for t in targets.all() {
         if !hits_domain(blast.domain, t.domain) {
             continue;
