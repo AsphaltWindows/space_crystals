@@ -12,6 +12,11 @@ The set of ObjectInstances currently selected by the player, grouped by object t
 ### Groups - array of SelectionGroup
 ### ActiveGroup - SelectionGroup | None (None when selection is empty). Usually identified by its object type; for Ungroupable objects each instance is its own SelectionGroup, so ActiveGroup points at one specific group, and GroupCycling (Tab) steps through them one by one.
 
+**When the ActiveGroup disappears** (user, 2026-11-25; Q0050):
+- **Its members changed type and joined another group** (an unfinished building completes and joins its finished group, 0185; units pressed with a mode toggle, factions/colonists/units.md > Weapon Conversion > A toggle sets a target form): **the group they joined becomes active**. The command panel resets to that group's default state, which ends any targeting in progress.
+- **Its last member died** (or otherwise left the selection, e.g. by entering a building, transport or tunnel): **the next group in Tab order becomes active** (the group after it in the SelectionPanel, wrapping around to the first). If no group is left, the selection is empty.
+- Any other group change, e.g. a completion in a group that isn't active, **never changes the ActiveGroup**.
+
 ### Constraints:
 - If any selected object is not owned by the player, the selection must contain exactly one object and one group
 - If all selected objects are owned by the player, no limit on count or mixing of types
