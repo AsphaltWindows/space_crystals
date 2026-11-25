@@ -432,6 +432,7 @@ mod producers;
 mod removal;
 mod resources;
 mod sites;
+mod spots;
 #[cfg(test)]
 mod tests;
 mod too_close;
