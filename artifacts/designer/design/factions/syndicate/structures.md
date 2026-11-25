@@ -22,6 +22,8 @@ Complete list of Syndicate structures. "Tier" is the Tier Requirement checked ag
 
 Underground buildings constructed within a Tunnel's Tunnel Area. Expansions are invisible to enemies without detection and can be walked over by surface units.
 
+**High armor underground** (user, 2026-11-25; Q0071): expansions are hit by area damage over them (systems/combat.md > AoEDamage) but have **high armor**. **Placeholder for every expansion: n = 6, i.e. PointArmor 6, FullArmor 6 x size in grid squares** (a 2x2 expansion: 6 / 24), following the building armor rule (core/entities.md > Structure Type > Building armor rule); this replaces the 1/4 listed in individual stat blocks. Numbers to be tuned.
+
 **No buildings on top of expansions, and no expansions under buildings** (user, 2026-11-25; Q0062): a surface structure and an underground expansion (any player's, including neutral ones) can never share a tile.
 - **Surface buildings over a hidden expansion**: an enemy's placement is refused. A **direct placement** (e.g. a GDO building) shows its ghost **red at once**, which reveals that something is underground there; this is accepted, since GDO is limited by its build area. A **worker-built** building's ghost judges by what the player knows (so it stays green), and the order **fails when the worker arrives** (core/entities.md > Placement Validation > Worker-Built Structures).
 - **Expansions under a surface building**: refused (see factions/syndicate/tunnels.md > AwaitingPlacement (Expansion)).
@@ -64,7 +66,7 @@ The Hideout (renamed from Headquarters) is the primary accommodations for Syndic
 #### Produces:
 - Agent: 100 Space Crystals, 240 frames (15 seconds)
 - Guard: 125 Space Crystals, 120 frames (7.5 seconds). Unit Prerequisite: player owns at least one Optics Lab (2026-11-24).
-- Grenadier: cost/time TBD. Unit Prerequisite: player owns at least one Chemical Plant (2026-11-25).
+- Grenadier: 150 Space Crystals, 160 frames (10 seconds), placeholder. Unit Prerequisite: player owns at least one Chemical Plant (2026-11-25).
 
 #### HideoutInstanceState:
 - RallyPoint: Coordinates | ObjectInstance | None
@@ -83,7 +85,7 @@ Right-click resolution:
 Immediate commands (CommandIssuingTransition):
 - **Q: Build Agent**: deducts 100 Space Crystals from player, adds Agent to BuildQueue. Only available if BuildQueue has fewer than 20 entries and player has sufficient Space Crystals. Tunnel Space is checked when the Agent is about to start, not when queued (see Tunnel > Tunnel Space > Production and Tunnel Space).
 - **W: Build Guard**: deducts 125 Space Crystals from player, adds Guard to BuildQueue. Only available if the player owns at least one Optics Lab, BuildQueue has fewer than 20 entries and player has sufficient Space Crystals. Tunnel Space is checked when the Guard is about to start, not when queued.
-- **E: Build Grenadier** (hotkey tentative): deducts its cost (TBD), adds Grenadier to BuildQueue. Only available if the player owns at least one Chemical Plant, BuildQueue has fewer than 20 entries and the player can pay.
+- **E: Build Grenadier**: deducts 150 Space Crystals (placeholder), adds Grenadier to BuildQueue. Only available if the player owns at least one Chemical Plant, BuildQueue has fewer than 20 entries and the player can pay.
 - **X: Cancel Production**: removes last entry from BuildQueue, refunds full cost to player. Only available if BuildQueue is not empty.
 
 Target commands (StateOnlyTransition):
@@ -113,14 +115,23 @@ Syndicate tech building enabling the Syndicate's explosives and propulsion techn
 #### Entity Type - Structure Type (Underground)
 #### Tier Requirement - 1
 #### TechPrerequisite - None
-
-(Full stats TBD)
+**Placeholder stats** (designer, 2026-11-25, Q0071; like the Optics Lab):
+#### Size - 2x2
+#### Cost - 150 Space Crystals (no Supplies)
+#### Build Time - 400 frames (25 seconds)
+#### HP - 400
+#### PointArmor - 1
+#### FullArmor - 4
+#### Groupable - true
+#### Commands - none for now: it is only a prerequisite (explosives/propulsion research TBD)
 
 ### Vault
 
 Syndicate equipment storage warehouse for re-arming Syndicate forces.
 
-Prerequisite for the **Shadebringer** (2026-11-25). While the player owns a Vault, Shadebringers inside the Tunnel Network recharge their Sludge and Cover charges (factions/syndicate/units.md > Shadebringer > Charges and recharging).
+Prerequisite for the **Shadebringer** and (with a Chemical Plant) the **Specter** (2026-11-25).
+
+**Network-wide** (user, 2026-11-25): a Vault re-arms and recharges units **anywhere in the Tunnel Network**, not only units that entered through the Tunnel whose area it sits in. While the player owns a Vault, Shadebringers inside the Tunnel Network recharge their Sludge and Cover charges (factions/syndicate/units.md > Shadebringer > Charges and recharging).
 
 **Throughput limits** (user, 2026-11-25, to be designed): re-arming should probably be **limited**: only so many units re-armed at a time (per Vault), and each re-arming takes time. Numbers and exact rules TBD.
 
@@ -188,7 +199,7 @@ Syndicate production building that assembles Syndicate aviation and orbital forc
 #### Tier Requirement - 3
 #### TechPrerequisite - player owns at least one Forge (anywhere in the Tunnel Network)
 
-Produces (2026-11-25): **Phantom** (requires an Optics Lab) (factions/syndicate/units.md).
+Produces (2026-11-25): **Phantom** (requires an Optics Lab), **Specter** (bomber) (factions/syndicate/units.md).
 
 (Full stats TBD)
 
@@ -232,6 +243,12 @@ The form updates automatically whenever Tunnel Areas change:
 
 #### Construction
 - **By an Agent**: built using the same flow as Tunnel construction (see Agent > Building > Tunnel Construction Flow): the Agent enters the partially-built structure and is untargetable for the duration; if the structure is destroyed or cancelled mid-construction the Agent survives and emerges at the location. On successful completion, the Agent emerges on the surface adjacent to the finished structure (unlike Tunnels, where the Agent ends up inside the Tunnel Network). If built inside a Tunnel Area, it is a pop-up turret on completion.
-- **By a Tunnel**: from the Tunnel's ExpandMenu, placed within that Tunnel's Tunnel Area like an expansion. Whether it occupies the Tunnel's single operation slot (like an expansion) is TBD.
+- **By a Tunnel**: from the Tunnel's ExpandMenu, placed within that Tunnel's Tunnel Area like an expansion. It **uses the Tunnel's single operation slot**, like an expansion (user, 2026-11-25; Q0071): while a Tunnel builds a turret it can't build an expansion or upgrade.
 
-(Full stats TBD — cost, build time, HP, raised/underground armor, range, damage, rise/retract timing.)
+**Placeholder stats** (designer, 2026-11-25, Q0071; tune later):
+- Cost: 100 Space Crystals (no Supplies). Build time: 320 frames (20 s).
+- HP: 300. SightRange: 6 grid units.
+- Armor (building armor rule, 1x1): raised PointArmor 1, FullArmor 1; underground (pop-up) PointArmor 6, FullArmor 6.
+- AttackAttributes: FullyConnected red laser (instant, cannot miss); TargetDomain Universal; SingleTarget; Damage 24; Range 5 grid units; MinRange 0; Aim 4, Firing 1, Cooldown 3, Reload 16 frames (one shot per 24 frames, 16 damage per second).
+- Pop-up: rises in 8 frames (already facing its target); retracts after 32 frames with no target, taking 8 frames. It can't fire while rising or retracting.
+- Hotkey: Agent **D** (Q0068); in the Tunnel's ExpandMenu it takes the next slot after the expansions.

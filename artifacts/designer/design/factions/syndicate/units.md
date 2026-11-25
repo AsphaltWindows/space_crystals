@@ -55,13 +55,33 @@ One shot every 24 frames (1.5 s) ≈ 12 damage per second, the same output as th
 ### TechPrerequisite - player owns at least one **Chemical Plant** (explosives)
 ### Groupable - true (assumed)
 
+**Placeholder stats** (designer, 2026-11-25, Q0071; tune later):
+### Silhouette - 36x36
+### MaxHP - 70
+### PointArmor - 1
+### FullArmor - 1
+### SightRange - 5
+### TunnelSpaceCost - 1
+
+### UnitBaseAttributes[HeavyInfantry]:
+- MaxSpeed: 5 space units/frame
+- Acceleration: infinite
+- Deceleration: infinite
+- TurnRate: 180 degrees/frame
+
 ### AttackAttributes:
 - AttackType: DoublyDisjointed (slow projectile to the target's position at the end of Aiming; can be dodged)
 - TargetDomain: Ground
 - TargetType: AoE (moderate-high damage)
 - CanTargetGround: true (derived)
+- Damage: 100 (total over the circle; systems/combat.md > AoEDamage: a 36x36 infantry fully inside takes about 26 before armor)
+- AoE radius: 40 space units (0.625 grid units)
+- Range: 4 grid units
+- MinRange: 0
+- ProjectileSpeed: 8 space units/frame (a 4 GU throw takes 2 s, so moving units can step out of the blast)
+- AimDuration: 6 frames; FiringDuration: 2 frames; CooldownDuration: 4 frames; ReloadDuration: 28 frames (one grenade per 40 frames, 2.5 s)
 
-All numbers (HP, armor, sight, speed, TunnelSpaceCost, damage, AoE radius, range, projectile speed, attack timings, cost, build time): TBD.
+### Cost - 150 Space Crystals; Build Time - 160 frames (10 seconds)
 
 ### ObjectInterfaceState: BasicCombatUnitInterfaceState
 
@@ -135,6 +155,13 @@ Because a Tunnel's crystal side accepts one drop-off at a time, a Tunnel takes i
 | 4 | 14.3 s | 3.5 | 29 s | 3.58 | 7.0 | 10.5 | 12.5 |
 | 5 | 15.7 s | 3.2 | 31 s | 3.92 | 6.4 | 9.6 | 12.5 |
 | 6 | 17.0 s | 2.9 | 34 s | 4.25 | 5.9 | 8.8 | 11.8 |
+
+**Syndicate economy check** (user, 2026-11-25; Q0070):
+- **Distance** in the table is measured **edge to edge**, from the patch's edge to the Tunnel's **crystal hatch** (the 1-square hatch on Side B), as for Drones (0107).
+- **Tolerance**: ±15% on every figure, except the **12.5 Space Crystals per second ceiling per Tunnel**, which must hold exactly (hard rule: one drop-off per 4 s).
+- **Targets**: the opening (3 Agents saturate a Tunnel around 0:40, i.e. 0:34–0:46, with the patch 1 GU from the hatch); the table row by row; stacked Tunnels double a field's intake; the Syndicate's one-base saturation income is the lowest of the measured factions.
+- **Reference layout**: one Tunnel with its crystal hatch facing a single patch at each distance (Agents share patches, so the patch count doesn't matter). For the **stacked** check, the two Tunnels stand on **opposite sides of the field**, each hatch facing it, so every Agent's nearest Tunnel is its own (Agents deliver to the nearest Tunnel, Gathering rules).
+- **Stacking is not something maps should encourage** (user, 2026-11-25): map makers shouldn't lay out fields that invite two Tunnels on one patch group. It stays allowed, with its existing costs (Tunnel Area Non-Overlap Rule > Crystal intake and stacked Tunnels).
 
 Rationale: the drop-off time (not carry or mining time) sets the ceiling, so lengthening it lowers the per-Tunnel ceiling while keeping the number of Agents (and Tunnel Space) needed to saturate a Tunnel low. The 5-second mining time deliberately makes distance matter: 3 Agents saturate a Tunnel only when the crystals are within ~2 grid units of Side B, and 2 Agents never fully saturate. This incentivizes placing Tunnels as close to the crystals as possible (with Side B facing them). The Agent's payback is faster than the Extraction Plate's (22.5 s) only within ~1 grid unit, and slower beyond — tight Tunnel placement is what makes Agents efficient. Agents take 15 seconds to build at the Hideout, so the Syndicate's early ramp is not instant even though its ceiling is low.
 
@@ -311,8 +338,8 @@ Converts the **entire remaining battery** into the **next surge**. A single big 
   - **The difference** (user, 2026-11-25): with a mode switch the unit's type changes **instantly** and the unit catches up in its own time. With deployment, **the deploying process is what actually changes the unit**: it stays the mobile type until the process completes.
   - **Queueable**: Shift-Deploy waits until the earlier orders are done (e.g. move here, then deploy). Without Shift it replaces the current orders and starts at once.
   - **No reversing mid-way**: **Undeploy is only available once deployment is complete**. The unit becomes Laser Battery (Deployed) (type and SelectionGroup) when deploying finishes; until then it is still a Laser Battery. (Undeploying is assumed symmetric: Deploy becomes available again only once undeploying is complete.)
-  - **Not cancellable** (user, 2026-11-25; replaces the earlier wind-back on Stop): once deploying has started it always runs to completion; Stop doesn't interrupt it. (Assumed symmetric: undeploying also always completes.)
-  - **Orders given while deploying** (user, 2026-11-25): the **last order given** (without Shift; each new one replaces the previous) is **held**, and it is the first thing the unit tries once deployment finishes. Shift-queued orders line up behind it as usual. At that point each order is checked against the deployed unit: one it can't carry out (e.g. **Move**, since a deployed unit can't move) is **dropped** (with the usual unavailable-command feedback, assumed), and the next one is tried.
+  - **Not cancellable** (user, 2026-11-25; replaces the earlier wind-back on Stop): once deploying has started it always runs to completion; Stop doesn't interrupt it. Undeploying likewise always completes, and Deploy is available again only once it has (user, 2026-11-25; Q0071).
+  - **Orders given while deploying** (user, 2026-11-25): the **last order given** (without Shift; each new one replaces the previous) is **held**, and it is the first thing the unit tries once deployment finishes. Shift-queued orders line up behind it as usual. At that point each order is checked against the deployed unit: one it can't carry out (e.g. **Move**, since a deployed unit can't move) is **dropped** with the usual unavailable-command feedback (user, 2026-11-25; Q0071), and the next one is tried.
   - **Not the same as the Colonists Drone's Deploy** (user, 2026-11-25): a Drone becomes a Beacon **immediately** and the transformation **can be cancelled** (factions/colonists/economy.md > Beacon Deployment).
   - When the switch makes a group disappear, the group the units joined becomes active (systems/controls/selection_and_hud.md > ActiveGroup > When the ActiveGroup disappears).
 - The battery keeps charging in every mode (Battery: always charging).
@@ -325,10 +352,10 @@ All numbers (HP, armor, sight, speed, TunnelSpaceCost, battery, damage, range, t
 
 ### Entity Type - Unit
 ### Faction - TheSyndicate
-### UnitBase - DrillUnit (assumed; exits only through Tier 2+ Tunnels like other vehicles)
+### UnitBase - DrillUnit (confirmed, Q0071; exits only through Tier 2+ Tunnels like other vehicles)
 ### Produced at - Vehicle Assembly
 ### TechPrerequisite - player owns at least one **Forge** (user, 2026-11-25)
-### AttackAttributes - none (assumed)
+### AttackAttributes - none (confirmed, Q0071)
 
 ### Above-ground mode
 - When built, it **drives out of the Tunnel in its above-ground mode**, behaving as a tracked vehicle.
@@ -338,16 +365,19 @@ All numbers (HP, armor, sight, speed, TunnelSpaceCost, battery, damage, range, t
 Makes it **go underground**. Underground it can travel **under buildings and obstacles such as cliffs**: across **all drillable terrain**.
 
 ### Underground: hidden unless detected
-(user, 2026-11-25; the rule for every DrillUnit, systems/units.md > DrillUnit) While underground it is **hidden** from other players (its owner sees it). It becomes visible, and **targetable**, only while **revealed by a detector**. Undetected, it can't be **targeted**, but **area (AoE) damage still affects it** (user, 2026-11-25): a blast landing over it damages it like any unit in the area, e.g. a Grenadier's Attack Ground on a spot where it is suspected. Detection itself is not designed yet (detectors: which units/structures, range; to be designed, likely together with stealth such as the Colonists Scout's).
+(user, 2026-11-25; the rule for every DrillUnit, systems/units.md > DrillUnit) While underground it is **hidden** from other players (its owner sees it). It becomes visible, and **targetable**, only while **revealed by a detector**. Undetected, it can't be **targeted**, but **area (AoE) damage still affects it** (user, 2026-11-25; confirmed Q0071): a blast landing over it damages it like any unit in the area, e.g. a Grenadier's Attack Ground on a spot where it is suspected. Detection itself is not designed yet (detectors: which units/structures, range; to be designed, likely together with stealth such as the Colonists Scout's).
+
+### Underground movement
+(user, 2026-11-25; Q0071) A burrowed transport **passes through every underground structure** (expansions of any player, a retracted pop-up Laser Turret, GDO mines), as underground units already pass through each other (systems/units.md > Underground Collision). Nothing hidden can block it, so moving never reveals anything.
 
 ### Surface (ability)
-Brings it back to its above-ground mode. **It can't surface on top of a building, or on ground that tracked vehicles can't traverse** (user, 2026-11-25). The check is the tile itself (it must be passable for a tracked vehicle and free of buildings), **not** whether a tracked vehicle could drive there: so it **can** surface on a plateau or behind cliffs that ground vehicles can't reach. Once surfaced it can unload and load again.
+Brings it back to its above-ground mode. **It can't surface on top of a building, or on ground that tracked vehicles can't traverse** (user, 2026-11-25). The check is the tile itself (it must be passable for a tracked vehicle and free of buildings), **not** whether a tracked vehicle could drive there: so it **can** surface on a plateau or behind cliffs that ground vehicles can't reach. It **can surface above an expansion** (units stand over expansions anyway). The general surfacing rules also apply (systems/units.md > Underground Collision > Surfacing, > Reserved while surfacing): it can't surface where it would overlap an above-ground unit, and the spot is reserved once surfacing starts (user, 2026-11-25; Q0071). Once surfaced it can unload and load again.
 
 ### Burrowing and surfacing work like vehicle deploy
 (user, 2026-11-25) Burrow and Surface follow the **vehicle deploy model** (factions/gdo/units.md > Artillery Rig > Modes): each takes time, is a **queueable order**, **can't be cancelled** once started, and the unit changes mode only when the process completes. The **last order given meanwhile is held** and tried first once it's done; orders the unit can't carry out in its new mode are dropped.
 
 ### Entering the Tunnel Network loaded
-(user, 2026-11-25) It **can drive into a Tunnel with infantry inside**; they travel along inside it and stay aboard. Inside the network the passengers are **still locked inside the transport**: they only come out when the transport unloads (on the surface), can't be ejected from a Tunnel on their own, and only the transport's own Tunnel space counts.
+(user, 2026-11-25) It **can drive into a Tunnel with infantry inside**; they travel along inside it and stay aboard. Inside the network the passengers are **still locked inside the transport**: they only come out when the transport unloads (on the surface), and can't be ejected from a Tunnel on their own. **They always keep counting against the Tunnel Space cap** (user, 2026-11-25; Q0071: Tunnel Space is an army limit, factions/syndicate/tunnels.md > Production and Tunnel Space), aboard or not, inside the network or on the surface.
 
 ### Destroyed with passengers
 (user, 2026-11-25) If it is destroyed, **all infantry inside die** with it (above ground or underground).
@@ -362,12 +392,12 @@ TBD: capacity (and whether it counts each infantry unit's TunnelSpaceCost); burr
 ### UnitBase - HoverCraft (enters and exits only through Tier 3 Tunnels' air doors)
 ### Produced at - Aerospace Assembly
 ### TechPrerequisite - player owns at least one **Optics Lab** (user, 2026-11-25)
-### Groupable - true (assumed)
+### Groupable - true (confirmed, Q0071)
 
 ### AttackAttributes:
-- AttackType: FullyConnected (laser, assumed like other Syndicate lasers: instant, cannot miss)
+- AttackType: FullyConnected (laser like other Syndicate lasers: instant, cannot miss; confirmed, Q0071)
 - TargetDomain: Universal (ground and air)
-- TargetType: SingleTarget (assumed)
+- TargetType: SingleTarget (confirmed, Q0071)
 
 ### Role
 (user, 2026-11-25) **Comparable to the Guard** (a laser all-rounder against air and ground), but **somewhat squishier for its cost**, and **faster**, and of course it **flies** (over cliffs, buildings and ground units like any air unit): the airborne, mobile counterpart of the Guard.
@@ -376,4 +406,23 @@ TBD: capacity (and whether it counts each infantry unit's TunnelSpaceCost); burr
 - TurnAngle: **moderate, 60–90°** (user, 2026-11-25: the **total** cone, i.e. 30–45° to each side of its facing; exact value TBD)
 
 TBD: all numbers (HP, armor, sight, speed and handling, TunnelSpaceCost, damage, range, timings, cost, build time); hotkeys.
+
+## Specter
+(user, 2026-11-25; named by the user) Syndicate **bomber** carrying a **single payload**. It flies as a **Glider** (must keep moving), but **lifts off and lands vertically** through a Tier 3 Tunnel's air doors (factions/syndicate/tunnels.md > Tunnel > Look by tier).
+
+### Entity Type - Unit
+### Faction - TheSyndicate
+### UnitBase - Glider (with vertical lift-off and landing at the Tunnel air doors)
+### Produced at - Aerospace Assembly
+### TechPrerequisite - player owns at least one **Vault** and at least one **Chemical Plant** (user, 2026-11-25)
+
+### Attack
+- **A single payload**: one bomb per sortie. **Re-arming** (user, 2026-11-25, designer's reading of "requires a Vault"): it flies back and lands in any own Tunnel it can land in, i.e. a **Tier 3** Tunnel with air doors (not one mid-upgrade to Tier 3); inside the network it is re-armed, as long as the player owns a Vault **anywhere** in the network (Vault > Network-wide).
+- **AoE damage**.
+- On a **turret with very low range**: it must be nearly over its target.
+- **Can miss**: the bomb falls to a locked location, so targets can dodge (DoublyDisjointed, assumed). The **projectile travel time is relatively high**, almost all of it the **vertical fall**.
+- Like every attack that can miss, it can **Attack Ground** (systems/combat.md > AttackType > CanTargetGround).
+- TargetDomain: **Ground only** (user, 2026-11-25).
+
+TBD: re-arming time and the Vault's throughput limit; the lift-off/landing transition; all numbers.
 

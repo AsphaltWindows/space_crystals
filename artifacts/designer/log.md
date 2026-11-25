@@ -2221,3 +2221,15 @@ Q0066 Agent gathering. Entry 0255.
 Q0067 Supplies gathering. Entry 0256.
 Q0068 panel letters. Entry 0257.
 Q0069 losing tunnels edges. Entry 0258.
+Q0070 Syndicate economy check. Entry 0259.
+Q0071 B: placeholders Laser Turret, Grenadier, Chemical Plant. Entry 0260.
+Q0071 gap: no AoE underground unless direct target (replaces 0218). Entry 0261.
+Q0071 gap reversed: AoE hits underground; expansions high armor placeholder. Entry 0262 replaces 0261.
+Q0071 confirmations. Entry 0263.
+Building armor rule n / n*size; placeholders corrected. Entry 0264.
+Q0071 gap: passengers count against Tunnel Space. Entry 0265.
+Q0071 gaps: transport passes underground structures; surfacing rules. Entry 0266.
+Q0071 done: turret uses slot; detection after faction units. Entry 0267.
+Syndicate: Bomber (name TBD) added. Entry 0268.
+Bomber prereqs, ground only, re-arm; Vault network-wide. Entry 0269.
+Bomber named Specter. Entry 0270.
