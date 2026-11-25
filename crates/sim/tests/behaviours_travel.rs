@@ -274,30 +274,31 @@ fn a_follower_blocked_near_its_target_waits_without_re_routing() {
     assert_eq!(t.status(1), MoveStatus::Moving);
 }
 
-/// Design change 0034, extended to Follow: following an enemy (a Move on it) that goes into the fog, the unit goes
-/// to its last seen position and the order completes there. A Move never engages.
+/// Design change 0200 (it replaces 0034's walk to the last seen position): following an enemy (a Move on it) that
+/// "goes out of the owner's vision", "the behavior completes, and the unit stops where it is", in the next tick
+/// (behaviours read the vision of the tick before). A Move never engages.
 #[test]
-fn a_followed_enemy_lost_in_the_fog_ends_the_follow_at_its_last_seen_position() {
+fn a_followed_enemy_lost_in_the_fog_ends_the_follow_where_the_unit_stands() {
     let mut t = ScenarioBuilder::new(&open()).start();
     t.spawn_unit_at(1, PK, P1, v(200.0, 300.0))
         .spawn_unit_at(1, GUARD, P2, v(450.0, 300.0))
         .order_at(2, P1, &[id(1)], follow(2), false)
         .order_at(2, P2, &[id(2)], move_to(v(1900.0, 300.0)), false);
-    let mut last_seen = None;
-    let mut lost = false;
+    let mut lost = None;
     t.run_until(2);
     assert_eq!(current(&t, 1), Some(follow(2)));
     while !is_idle(&t, 1) {
         assert!(t.sim().tick() < 600, "the follow never ends\n{}", t.ascii(None));
-        let guard = t.sim().object(id(2)).unwrap();
-        // Up to the first tick it is out of sight; sight goes by tiles, so it may flicker back in later.
-        lost |= !t.sim().is_visible(P1, guard);
-        if !lost {
-            last_seen = Some(guard.pos);
-        }
         t.step();
+        if lost.is_none() && !t.sim().is_visible(P1, t.sim().object(id(2)).unwrap()) {
+            lost = Some((t.sim().tick() + 1, pos(&t, 1)));
+        }
     }
-    assert_eq!(Some(pos(&t, 1)), last_seen);
+    let (now, here) = (t.sim().tick(), pos(&t, 1));
+    assert_eq!(lost, Some((now, here)), "it stops at once, right there");
+    assert_eq!(t.status(1), MoveStatus::Idle);
+    t.run(100);
+    assert_eq!(pos(&t, 1), here, "no walk into the fog");
     assert_eq!(attack_ticks(&t, 1), [] as [Tick; 0]);
     assert!(pos(&t, 2).x > pos(&t, 1).x + gu(5.0));
 }

@@ -44,16 +44,16 @@ impl Default for Auto {
 /// `> AttackingObject`: the state of an Attack order.
 ///
 /// The fields M3-R and M3-L2 added (`remembered`, `on_hold`, `backing_off`, `too_close`) are left out of files while
-/// they are unset, and out of the hash ([`hash`]), so that states saved before they existed still load and the goldens
-/// of M1 and M2 stand.
+/// they are unset, and out of the hash ([`hash`]), so that states saved before they existed still load.
 #[derive(Copy, Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
 pub struct AttackOrder {
     /// The unit's current move is the approach to the target.
     pub chasing: bool,
-    /// Where the unit's owner last saw the target (`> AttackingObject` 6, design change 0034); `None` until it has.
-    pub last_seen: Option<Vec2>,
-    /// The target went out of the owner's sight: the unit walks to `last_seen`, and the order completes there.
-    pub lost: bool,
+    /// The unit's owner has seen the target while the order ran. From then on, the target no longer visible to it
+    /// ends the order at once (`> AttackingObject` 6, design change 0200); until then, a target it remembers is
+    /// walked to (design change 0139, `remembered`). Optional in files (slice M3-L3).
+    #[serde(default)]
+    pub seen: bool,
     /// Design change 0139: the owner doesn't see the target but remembers it (a structure), and the unit's current
     /// move is its walk to the target's last-known position. It engages nothing meanwhile, and engages the target
     /// again once the owner sees it.
@@ -75,7 +75,8 @@ pub struct AttackOrder {
     pub too_close: bool,
 }
 
-/// `> MovingToObject`: the state of a Move to an object.
+/// `> MovingToObject`: the state of a Move to an object. A followed unit that goes out of the owner's sight ends it
+/// at once (design change 0200), so nothing of where it was is kept.
 ///
 /// Its `remembered` (slice M3-R) is left out of files while unset, and out of the hash, as [`AttackOrder`]'s.
 #[derive(Copy, Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
@@ -85,10 +86,6 @@ pub struct Approach {
     /// `> Completion`, Follow: the followed unit's position when this unit last stood within proximity of it, or
     /// stopped behind the units around it. It follows again once the unit has left proximity and that spot.
     pub parked: Option<Vec2>,
-    /// Where the unit's owner last saw a followed unit (design change 0034, extended to Follow).
-    pub last_seen: Option<Vec2>,
-    /// The followed unit went out of the owner's sight: the unit walks to `last_seen`, and the order completes.
-    pub lost: bool,
     /// Design change 0139: the owner doesn't see the object but remembers it (a structure or a resource), and the
     /// unit's current move is its walk to the object's last-known position.
     #[serde(default, skip_serializing_if = "is_false")]

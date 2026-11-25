@@ -579,7 +579,7 @@ or `Visible` for each player, and each player remembers the structures and resou
   source of the player sees any more in 5f of tick `t` lingers, genuinely Visible, at the end of ticks `t` to
   `t + FOG_DELAY_TICKS − 1` (8, a placeholder); 5f of `t + FOG_DELAY_TICKS` turns it Explored unless a source sees
   it again first. It is the one fix for a target blinking out at the edge of sight: Attack and Follow have no grace
-  period of their own, and 0034's last-seen logic runs as before. Per player, `Linger` keeps a bit and an end tick
+  period of their own, and end once the delay is over (0200). Per player, `Linger` keeps a bit and an end tick
   per tile and a FIFO of `(end, tile)` in the order the delays end (a tile back in sight leaves a stale entry that
   the pop skips), so 5f costs the tiles that leave sight or come back, as before, plus the entries due, never a pass
   over the map. A delay that ends changes the revision, and the memory takes it as the tile leaving sight. It
@@ -656,13 +656,15 @@ the target the attack engages, and reads `Mover::status` and the snapshot.
 - **AttackingObject** (`orders/engage.rs`): `close_in` is its core, shared by all fighting. In range (`combat::
   reaches`) the unit stops and phase 5e attacks; out of range it heads for the target with `MoveGoal::Object`,
   starting only while `combat::may_move` holds. An **Attack order** adds its ends: the target destroyed (the removal
-  path completes the order); the target out of its owner's sight (design change 0034: the unit walks to the **last
-  seen position**, which the behaviour notes while it sees the target, and the order completes there; it never
-  re-engages on the way); the approach failed, or ended as near as the unit gets to a target that hasn't moved.
-  **A remembered target** (design change 0139; the snapshot's `World::known`, the owner's `TargetView`): the unit
-  walks to its last-known position, engaging nothing (`AttackOrder::remembered`), attacks it once its owner sees it
-  standing, and stops where its owner sees its place empty, "the way it would for a vanished target" (the next
-  queued order starts). The removal path leaves such an order alone (*Combat > Removal path*).
+  path completes the order); the target **lost from its owner's vision** (design change 0200, which replaced 0034's
+  walk to the last seen position): once its owner has seen it while the order ran (`AttackOrder::seen`), the order
+  completes at once, as for a destroyed target, and the unit stops where it is (or the next queued order starts);
+  the approach failed, or ended as near as the unit gets to a target that hasn't moved.
+  **A remembered target** (design change 0139; the snapshot's `World::known`, the owner's `TargetView`) not seen
+  since the order began: the unit walks to its last-known position, engaging nothing (`AttackOrder::remembered`),
+  attacks it once its owner sees it standing, and stops where its owner sees its place empty, "the way it would for
+  a vanished target" (the next queued order starts). Once seen, it is lost as above when the fog covers it again.
+  The removal path leaves such an order alone (*Combat > Removal path*).
   **A target inside MinRange** (`engage::too_close`, design change 0182): a unit that can move backs straight away
   from it, to where the gap would be the middle of the band from MinRange to Range (`AttackOrder::backing_off`), and
   attacks once out of MinRange; one that can't (`Mover::can_move`) fails the order (`AttackOrder::too_close`,
@@ -677,7 +679,7 @@ the target the attack engages, and reads `Mover::status` and the snapshot.
   stuck within 3 GU of it behind units that won't move). **A unit is followed**: the order never completes by
   itself; the follower waits within proximity (or where it was stopped near it, without re-routing) and sets off
   again when the target moves. It ends with a new order, the target's death, a failed move, or an enemy target
-  going out of sight (to its last seen position, as for Attack). "Leaves the map" (transports, buildings, tunnels)
+  going out of sight: the follower stops where it is (0200). "Leaves the map" (transports, buildings, tunnels)
   is a documented hook in `approach`. A remembered object (0139) is approached at its last-known position, as an
   Attack's. **A Move or Follow whose target is the unit itself is a Stop** (design change 0168): it halts, and the
   order ends at once, as if arrived; a Shift-queued one completes in the tick it starts; the other units of the
@@ -690,11 +692,12 @@ the target the attack engages, and reads `Mover::status` and the snapshot.
   `Leg::follow_path`) is the first path the leg's move gets; it is kept after fights (the move's path then, the
   walking path, is `Leg::walking`) and replaced by a new path the unit gets while it walks its leg: a re-route round
   a blockage. The unit lets go, and resumes the move with a new walking path, when the target is destroyed, dropped
-  or no longer valid. **A target let go of while it lives** (dropped at the leash or lost from sight on the way) is
-  left alone for the rest of the leg (`Leg::dropped`, the last `MAX_DROPPED` (16)), fought only within weapon range:
-  without it, a unit whose way to an enemy at the edge of its sight leads out of that sight takes and drops it every
-  other tick, for good (`behaviours_soak`'s seed 1), and two such enemies in turn if it may take one again once it
-  is out of its sight (seed 29).
+  or no longer valid (out of sight: its attack completes, design change 0200). **A target let go of while it
+  lives** (dropped at the leash, design change 0204; or lost from sight on the way, a placeholder that slice M3-L3
+  put to the Designer) is left alone for the rest of the leg (`Leg::dropped`, the last `MAX_DROPPED` (16)), fought
+  only within weapon range: without it, a unit whose way to an enemy at the edge of its sight leads out of that
+  sight takes and drops it every other tick, for good (`behaviours_soak`'s seeds 1 and 8), and two such enemies in
+  turn if it may take one again once it is out of its sight (seed 29).
 - **Patrol** (`travel::patrol`): legs to and fro between the position where the Patrol started executing (design
   change 0036) and the destination. A failed leg counts as arrived; `PATROL_FAILED_LEGS` (2) in a row end it (design
   change 0037).
@@ -754,15 +757,15 @@ the target the attack engages, and reads `Mover::status` and the snapshot.
   - **Gathering Drones pass through each other** (design change 0106; `gather::on_gather_job`, see *Movement and
     collision > Collision exceptions*): a worker of a type with `WorkerDef::pass_through` (the Drone) whose current
     order is a Gather or a Drop Off. They collide with everything else and, having an order, never yield.
-- **Not active during Move**: a Move never engages, and neither does the walk back to an IdleOrigin or to a last
-  seen position.
+- **Not active during Move**: a Move never engages, and neither does the walk back to an IdleOrigin.
 - **Unreachable auto-targets** (design change 0181, "for now"): a unit doesn't re-acquire a target it couldn't get
   to for `GIVE_UP_RETRY_TICKS` (32).
 - **Placeholders** (the design is silent; each is a comment or a named const in `orders/`): "within SightRange" for
   a scan is measured edge to edge like Range; a 45° step reaches up to its upper bound; an AttackMove leaves a
-  target it let go of alone for the rest of the leg; a unit backing off from a target inside its MinRange goes to the
-  middle of the band from MinRange to Range, and gives the order up when a back-off ends with the target inside and
-  where it was; a queued Attack whose target was never seen while it ran completes at once.
+  target it lost from sight alone for the rest of the leg, as one dropped at the leash (0204); a unit backing off
+  from a target inside its MinRange goes to the middle of the band from MinRange to Range, and gives the order up
+  when a back-off ends with the target inside and where it was; a queued Attack or Follow whose target, a unit, is
+  out of its owner's sight when its turn comes completes at once, as one lost from vision (0200).
 - **Auto-targeting switch**: `DebugCommand::SetAutoTargeting { on }` (`Sim::auto_targeting`, hashed state) turns
   every scan off or on, for tests and QA runs about movement between hostile units; `TestSim::without_auto_
   targeting()` schedules it for tick 1. Attack orders work either way.
@@ -1617,7 +1620,8 @@ M3-D2: design change 0145, `> Portals > Portal Exits (energy doorway)`).
   unit shares: a unit behind one whose legs begin again finds its way round), `invariants_overlap.rs` (I1's two
   exceptions and nothing more, on edited states) and the ignored `movement_perf.rs`.
 - **Behaviour scenario tests** are `crates/sim/tests/behaviours_attack.rs` (the approach to a gap of Range, the
-  chase, the last seen position, a target out of reach, queueing), `behaviours_idle.rs` (acquiring by priority,
+  chase, a target lost from vision, a target out of reach, queueing), `target_lost.rs` (design change 0200: Attack,
+  Follow, a queue, AttackMove and idle units as the target leaves vision), `behaviours_idle.rs` (acquiring by priority,
   the leash and the return, Hold, Move doesn't engage, the auto-targeting switch), `behaviours_travel.rs` (Follow,
   static objects, AttackMove groups and the leash, a fight replayed and saved in its middle), `attack_move_leash.rs`
   (design change 0180: a target let go of for the rest of the leg, alone and with another, the leash measured from
@@ -2431,8 +2435,8 @@ unchecked.
   told otherwise. To check a replay quickly: `cargo run -- --replay <file> --headless --fast`.
 - **Golden hashes** (`crates/sim/tests/golden/`: the games in `units.rs`, `gdo.rs`, `colonists.rs` and `main.rs`, the
   recording and the comparison in `harness.rs`): nine games, a 3v3 duel, a 40-unit AttackMove battle, a
-  12-unit group move through a choke, a patrol that meets an enemy, a chase into the fog, three Peacekeepers that
-  raise their Riot Shields (`Command::Ability`; one turns back half-way), walk up to a Guard under fire and lower
+  12-unit group move through a choke, a patrol that meets an enemy, a chase lost in the fog, three Peacekeepers
+  that raise their Riot Shields (`Command::Ability`; one turns back half-way), walk up to a Guard under fire and lower
   them to kill it, and `gdo_opening` (slice M2-J1: `dev_skirmish` from its real start, to 2:45; player 1 plays the
   fastest clean Barracks and rallies ten Peacekeepers to player 2's crystal field, where they destroy four plates,
   while player 2 plates its field and builds Generators), and the Colonists' `colonists_opening` and

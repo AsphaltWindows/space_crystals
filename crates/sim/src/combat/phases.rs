@@ -146,7 +146,7 @@ pub(super) fn run(
 ) {
     // A target this unit can't attack at all (gone, itself, or in a domain its attack can't reach) is dropped, and
     // the order that engaged it completes (`orders::update`). One its owner doesn't see stays engaged here: what
-    // to do about it is the behaviour's (`orders::engage`, design change 0034).
+    // to do about it is the behaviour's (`orders::engage`: an Attack completes, design change 0200).
     if let Some(target) = state.target
         && !targets.get(target).is_some_and(|t| shooter.can_target(t))
     {

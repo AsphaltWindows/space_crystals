@@ -1,8 +1,8 @@
 //! The fog delay (`core/vision.md > Visible > Fog delay`, design change 0178, answering question Q0018 point 1): a
 //! tile that leaves the sight of all of a player's units and structures stays Visible for [`FOG_DELAY_TICKS`]
 //! before it turns Explored. What stands on it stays seen for as long: drawn, selectable and targetable. Attack and
-//! Follow have no grace period of their own: design change 0034's last-seen rule triggers only once the target is
-//! no longer Visible. `TestSim` checks V1 after every tick, the tiles that linger included.
+//! Follow have no grace period of their own: their target lost from vision ends them at once (design change 0200),
+//! once it is no longer Visible. `TestSim` checks V1 after every tick, the tiles that linger included.
 
 use sc_sim::mover::MoveGoal;
 use sc_sim::orders::Behaviour;
@@ -60,12 +60,17 @@ fn attack(player: PlayerId, unit: u32, target: u32) -> PlayerCommand {
     }
 }
 
-/// Whether unit `n`'s Attack or Follow lost its target (design change 0034: it walks to where it last saw it).
+/// Whether unit `n`'s Attack or Follow lost its target: it ended, and the unit stands where it was, idle (design
+/// change 0200: "the behavior completes at once"; the unit has no other order).
 fn lost(t: &TestSim, n: u32) -> bool {
     let orders = t.sim().object(ObjectId(n)).unwrap().orders.as_ref().unwrap();
     match orders.current.as_ref().map(|active| &active.state) {
-        Some(Behaviour::Attack(state)) => state.lost,
-        Some(Behaviour::Approach(state)) => state.lost,
+        Some(Behaviour::Attack(_) | Behaviour::Approach(_)) => false,
+        None => {
+            assert!(orders.is_idle(), "#{n}: {orders:?}");
+            assert_eq!(t.mover(n).goal, MoveGoal::None, "#{n} stops where it is");
+            true
+        }
         other => panic!("#{n} has no Attack or Follow: {other:?}"),
     }
 }
@@ -123,7 +128,7 @@ fn a_scout_walking_past_leaves_them_visible_for_the_fog_delay() {
 
 /// How the hand-over of [`a_short_gap_in_sight_keeps_the_attack_and_the_follow`] went: the ticks in which no source
 /// of player 1's saw the Guard, each with whether the Guard was Visible then; and the first tick the chaser's order
-/// had lost it, if it did.
+/// had lost it, if it did: it had ended, and the chaser stood where it was from then on.
 struct Handover {
     gap: Vec<(Tick, bool)>,
     lost: Option<Tick>,
@@ -146,28 +151,31 @@ fn handover(distance: f32, order: OrderKind) -> Handover {
         gap: Vec::new(),
         lost: None,
     };
+    let mut stopped = None;
     while t.sim().tick() < 80 {
         t.step();
         let tick = t.sim().tick();
         if !in_sight(&t, P1, 1) {
             handover.gap.push((tick, is_visible(&t, P1, 1)));
         }
-        if handover.lost.is_none() && lost(&t, 3) {
+        if let Some(at) = stopped {
+            assert_eq!(t.pos(3), at, "it stays where it stopped");
+        } else if lost(&t, 3) {
             handover.lost = Some(tick);
-            let walk = t.mover(3).goal;
-            assert_eq!(walk, MoveGoal::Point(guard), "to where it was last seen");
+            stopped = Some(t.pos(3));
         }
     }
     handover
 }
 
 /// Design change 0178 (the acceptance's "chasing an enemy at the edge of sight no longer drops to the last-seen
-/// position on a one-tick gap"): "Attack/Follow don't drop to last-seen position on one-tick gaps". Across the
-/// distances [`handover`] tries, the gap between the scout's sight leaving the Guard's tile and the chaser's own
+/// position on a one-tick gap"): "Attack/Follow don't drop to last-seen position on one-tick gaps"; and design
+/// change 0200: "the fog delay ... still keeps a target on tiles that just left sight visible for its 0.5 s". Across
+/// the distances [`handover`] tries, the gap between the scout's sight leaving the Guard's tile and the chaser's own
 /// reaching it runs from none to more than the delay. While it lasts at most `FOG_DELAY_TICKS`, the Guard stays
-/// Visible all through it, and neither an Attack nor a Follow loses it: with no delay, each of those gaps would
-/// have sent the chaser to the last-seen position (0034). A longer gap loses it in the tick after the delay ran out,
-/// as before.
+/// Visible all through it, and neither an Attack nor a Follow loses it: with no delay, each of those gaps would have
+/// ended the order. A longer gap keeps the Guard the target for the delay's 8 ticks, and loses it in the tick after:
+/// the order ends there, and the chaser stops where it is (0200).
 #[test]
 fn a_short_gap_in_sight_keeps_the_attack_and_the_follow() {
     let (mut shortest, mut longest) = (Tick::MAX, 0);
@@ -211,8 +219,8 @@ fn a_short_gap_in_sight_keeps_the_attack_and_the_follow() {
 /// The fog delay keeps only tiles that were in sight, so it leaks nothing (`> Fog delay`: "during the delay the tile
 /// is genuinely Visible"). Player 1's Peacekeeper attacks player 2's, 4.8 grid units ahead at the edge of its sight,
 /// which runs east as fast as it: the target steps onto a tile ahead that no source of player 1's has seen yet, so it
-/// is out of sight at once, and the attack goes to where it was last seen (design change 0034), as before the delay.
-/// The delay smooths what leaves sight, not a target running ahead of it.
+/// is out of sight at once, and the attack ends in the next tick, the Peacekeeper standing where it is (design change
+/// 0200). The delay smooths what leaves sight, not a target running ahead of it.
 #[test]
 fn a_target_stepping_onto_a_tile_never_seen_is_lost_at_once() {
     let mut t = ScenarioBuilder::new(&open(48, 12)).start();
@@ -223,11 +231,9 @@ fn a_target_stepping_onto_a_tile_never_seen_is_lost_at_once() {
         .order_at(2, P1, &[ObjectId(1)], OrderKind::Attack(ObjectId(2)), false)
         .order_at(2, P2, &[ObjectId(2)], move_to(centre(46, 5)), false)
         .run_until(2);
-    let mut last_seen = start;
     while is_visible(&t, P1, 2) {
         assert!(t.sim().tick() < 200, "never out of sight");
         assert!(in_sight(&t, P1, 2), "no tile under it lingers");
-        last_seen = t.sim().object(ObjectId(2)).unwrap().pos;
         t.step();
     }
     let (lo, hi) = Shape::of(t.sim().object(ObjectId(2)).unwrap()).bounds();
@@ -236,5 +242,7 @@ fn a_target_stepping_onto_a_tile_never_seen_is_lost_at_once() {
     assert!(!lost(&t, 1));
     t.step();
     assert!(lost(&t, 1));
-    assert_eq!(t.mover(1).goal, MoveGoal::Point(last_seen));
+    let stopped = t.pos(1);
+    t.run(20);
+    assert_eq!(t.pos(1), stopped, "no walk into the fog");
 }

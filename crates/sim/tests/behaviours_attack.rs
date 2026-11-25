@@ -1,6 +1,6 @@
 //! The Attack order (`systems/controls/behaviors.md > AttackingObject`): the approach until the target is in range
-//! (measured edge to edge, design change 0031), the chase when it moves, the walk to its last seen position when it
-//! goes into the fog (design change 0034), and giving up a target out of reach.
+//! (measured edge to edge, design change 0031), the chase when it moves, the stop where the unit stands when the
+//! target goes into the fog (design change 0200; more in `target_lost.rs`), and giving up a target out of reach.
 
 use sc_sim::testing::{ScenarioBuilder, TestSim};
 use sc_sim::{MoveStatus, ObjectId, ObjectKind, OrderKind, PlayerId, Shape, SimEvent, Target, Tick, Vec2, gu};
@@ -147,80 +147,80 @@ fn an_attacker_chases_a_moving_target_until_it_is_destroyed() {
     assert_eq!(attack_ticks(&t, 1).len(), 3, "{:?}", attack_ticks(&t, 1));
 }
 
-/// Design change 0034's Verification: "Attack a fast enemy that runs out of sight: your unit runs to where it
-/// vanished and stops." A Peacekeeper attacks a Guard that runs east, faster than it. The Guard leaves player 1's
-/// sight; the Peacekeeper walks to the Guard's last seen position, and its order completes there. It doesn't
-/// follow the Guard through the fog.
+/// Design change 0200's Verification (answering question Q0051; it replaces design change 0034's walk to the last
+/// seen position): "A Peacekeeper attacks a fleeing enemy that walks out of sight. It stops right there, with no walk
+/// into the fog." The Guard runs east, faster than the Peacekeeper, which goes after it. In the tick after the Guard
+/// leaves player 1's sight (behaviours read the vision of the tick before), the order completes, "exactly as when the
+/// target is destroyed": the Peacekeeper stands where it was as the Guard vanished, idle, engaging nothing.
 #[test]
-fn a_target_lost_in_the_fog_is_followed_to_its_last_seen_position() {
+fn a_target_lost_in_the_fog_ends_the_attack_where_the_unit_stands() {
     let mut t = ScenarioBuilder::new(OPEN).start();
     t.spawn_unit_at(1, PK, P1, v(200.0, 300.0))
         .spawn_unit_at(1, GUARD, P2, v(500.0, 300.0))
         .order_at(2, P1, &[id(1)], OrderKind::Attack(id(2)), false)
         .order_at(2, P2, &[id(2)], OrderKind::Move(Target::Point(v(2400.0, 300.0))), false);
-    let mut last_seen = None;
-    let mut lost_at = None;
+    let mut lost = None;
     t.run_until(2);
     while !is_idle(&t, 1) {
         assert!(t.sim().tick() < 600, "the order never completes\n{}", t.ascii(None));
         t.step();
-        let guard = t.sim().object(id(2)).unwrap();
-        if lost_at.is_none() {
-            if t.sim().is_visible(P1, guard) {
-                last_seen = Some(guard.pos);
-            } else {
-                lost_at = Some(t.sim().tick());
-            }
+        if lost.is_none() && !t.sim().is_visible(P1, t.sim().object(id(2)).unwrap()) {
+            lost = Some((t.sim().tick(), pos(&t, 1)));
         }
     }
-    let (last_seen, lost_at) = (last_seen.unwrap(), lost_at.expect("the Guard got away"));
-    // Sight goes by tiles: the Guard is lost as soon as its box has left the last tile whose centre is in sight.
-    assert!(last_seen.x > 500.0 && last_seen.x < 600.0, "{last_seen}");
-    assert_eq!(pos(&t, 1), last_seen, "it stands where the Guard vanished");
-    assert_eq!(t.status(1), MoveStatus::Arrived);
-    assert!(t.sim().tick() > lost_at + 20, "it walked there after losing it");
-    assert_eq!(attack_ticks(&t, 1), [] as [Tick; 0], "the Guard was never in range");
-    // The Guard is long gone: the unit stays, idle.
-    let guard = pos(&t, 2);
-    assert!(guard.x > last_seen.x + gu(5.0), "{guard}");
-    let stands = pos(&t, 1);
-    t.run(100);
-    assert_eq!(pos(&t, 1), stands);
+    let (lost_at, there) = lost.expect("the Guard got away");
+    assert_eq!(t.sim().tick(), lost_at + 1, "it completes at once");
+    assert!(there.x > 200.0, "it went after the Guard while it saw it: {there}");
+    assert_eq!(pos(&t, 1), there, "it stops right there");
+    assert_eq!(t.status(1), MoveStatus::Idle);
     assert_eq!(t.sim().object(id(1)).unwrap().attack.as_ref().unwrap().target, None);
+    assert_eq!(attack_ticks(&t, 1), [] as [Tick; 0], "the Guard was never in range");
+    // The Guard runs on through the fog; the unit stays, idle.
+    t.run(100);
+    assert_eq!(pos(&t, 1), there, "no walk into the fog");
+    assert!(pos(&t, 2).x > there.x + gu(10.0), "{}", pos(&t, 2));
 }
 
-/// Design change 0034: "Once stopped it is idle, and normal idle auto-targeting applies if the enemy is visible
-/// again." The Guard stops not far beyond where it vanished. The Peacekeeper sees it again on its way, but walks
-/// on to the last seen position without a shot; there its order is over and, idle, it engages the Guard on its own.
+/// Design change 0200's Verification: "When the enemy steps back into view near the idle Peacekeeper, it is engaged"
+/// ("Once idle, normal idle auto-targeting (Idle behavior, with IdleLeashDistance) applies if the enemy is visible
+/// again"). The Guard runs out of sight, and the Peacekeeper's Attack ends where it stands. The Guard stops beyond
+/// its sight, and the Peacekeeper doesn't go looking for it; once the Guard walks back into its sight, the idle
+/// Peacekeeper engages it on its own, and fires.
 #[test]
-fn from_the_last_seen_position_idle_auto_targeting_takes_over() {
+fn an_enemy_back_in_view_is_engaged_by_the_idle_unit() {
     let mut t = ScenarioBuilder::new(OPEN).start();
     t.spawn_unit_at(1, PK, P1, v(200.0, 300.0))
         .spawn_unit_at(1, GUARD, P2, v(500.0, 300.0))
         .order_at(2, P1, &[id(1)], OrderKind::Attack(id(2)), false)
-        .order_at(2, P2, &[id(2)], OrderKind::Move(Target::Point(v(760.0, 300.0))), false)
-        // It holds there, so that it doesn't come back for the Peacekeeper by itself.
-        .order_at(2, P2, &[id(2)], OrderKind::Hold, true);
-    let mut completed = None;
-    let mut lost = false;
+        .order_at(2, P2, &[id(2)], OrderKind::Move(Target::Point(v(1400.0, 300.0))), false);
     t.run_until(2);
-    while t.sim().tick() < 200 {
+    while !is_idle(&t, 1) {
+        assert!(t.sim().tick() < 300, "the order never completes\n{}", t.ascii(None));
         t.step();
-        lost |= !t.sim().is_visible(P1, t.sim().object(id(2)).unwrap());
-        if completed.is_none() && is_idle(&t, 1) {
-            completed = Some(t.sim().tick());
-            assert!(lost, "the Guard went out of sight first");
-            assert_eq!(attack_ticks(&t, 1), [] as [Tick; 0], "no shot under the order");
-        }
     }
-    let completed = completed.expect("the Attack order completed");
+    let (completed, there) = (t.sim().tick(), pos(&t, 1));
+    t.run_until(completed + 200);
+    assert_eq!(pos(&t, 1), there, "the Guard stopped out of its sight");
+    assert!(!t.sim().is_visible(P1, t.sim().object(id(2)).unwrap()));
+    // The Guard walks back, into the Peacekeeper's sight and Range, and holds there.
+    let (back, at) = (Target::Point(there + v(12.0 + 220.0 + 18.0, 0.0)), completed + 201);
+    t.order_at(at, P2, &[id(2)], OrderKind::Move(back), false)
+        .order_at(at, P2, &[id(2)], OrderKind::Hold, true);
+    let engaged = loop {
+        assert!(t.sim().tick() < completed + 600, "it never engaged the Guard");
+        t.step();
+        if t.sim().object(id(1)).unwrap().attack.as_ref().unwrap().target == Some(id(2)) {
+            break t.sim().tick();
+        }
+    };
+    assert!(is_idle(&t, 1), "on its own");
+    assert!(t.sim().is_visible(P1, t.sim().object(id(2)).unwrap()));
+    t.run(60);
     let shots = attack_ticks(&t, 1);
     assert!(
-        shots.first().is_some_and(|&first| first > completed),
-        "it attacked only after its order was over, on its own: {shots:?} after {completed}"
+        shots.first().is_some_and(|&first| first > engaged),
+        "it fired once the Guard was back: {shots:?} after {engaged}"
     );
-    assert!(is_idle(&t, 1));
-    assert!(gap(&t, 1, 2) <= gu(4.0));
 }
 
 /// A moat four tiles wide with an island beyond it.
@@ -279,8 +279,9 @@ fn a_target_out_of_reach_ends_the_order_at_the_nearest_point() {
     );
 }
 
-/// A queued Attack whose target is out of sight when its turn comes has no last seen position to go to: the order
-/// completes at once (a placeholder, the design doesn't cover it). The gate took it while the target was in sight.
+/// A queued Attack whose target, a unit, is out of its owner's sight when its turn comes completes at once, as one
+/// lost from vision does (design change 0200; a placeholder reading, since the target left sight before the order
+/// began, which the design doesn't cover). The gate took it while the target was in sight.
 #[test]
 fn a_queued_attack_on_a_target_that_left_sight_before_its_turn_completes_at_once() {
     let mut t = ScenarioBuilder::new(OPEN).start();
