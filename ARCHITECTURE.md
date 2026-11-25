@@ -2275,7 +2275,15 @@ these.
   its silhouette's corners, a structure's along the top edge of its footprint and as wide as it), with a shield bar
   right above for an object that has Shields (`systems/combat.md > Shields > Display`, design change 0148;
   `SHIELD_FILL`, a placeholder colour), shown too while only its Shields are down, and a fading marker for each
-  `SimEvent::Died` (`DEATH_MARKER_TICKS`). One alpha-blended mesh in the overlays layer, rebuilt every frame while
+  `SimEvent::Died` (`DEATH_MARKER_TICKS`), never for an object that was hidden from the local player
+  (`shows_death`, `sc_sim::vision::Hiding::of_kind`; plan decision T52: "nothing is drawn for a hidden victim", as a
+  Hideout under a blast; no hit is drawn for any victim). Slice M4-O adds the projectiles in flight
+  (`combat_effects/projectiles.rs`, `Flight`, from `SimEvent::ProjectileLaunched`): each along the straight path to
+  its locked point at the pace of the ticks, lifted by a cosmetic arc (`ARC`) over its shadow, shown while its point
+  on the ground is over a Visible tile (`core/vision.md > Attacks from outside vision`), or whole from a shooter
+  revealed to the player at one of the player's own objects (`shows_flight`; Placeholder: Q0083 point 4); and the
+  blasts (`combat_effects/blasts.rs`, from `SimEvent::Blast`, `BLAST_TICKS`): a ring the size of the area, shown
+  while the tile under its centre is Visible (`shows_blast`). One alpha-blended mesh in the overlays layer, rebuilt every frame while
   anything shows; effects age by the sim's tick and the render alpha, so screenshots stay deterministic.
 - **Fog of war** (`fog.rs`, `core/vision.md`): `Sight` (`fog/sight.rs`) says what the local player is shown: its own
   objects, and everything on its Visible tiles (`Sight::sees`); on Explored tiles the terrain and the player's records
@@ -2283,7 +2291,8 @@ these.
   see Vision); on Unexplored tiles nothing (a map object known from the start, design change 0159, shows once a tile
   under it is Explored). Object visuals it doesn't see get `Visibility::Hidden`; the records get
   visuals of their own (`object_render/remembered.rs`, `RememberedVisuals`: one entity per record shown, dimmed
-  like the Explored ground, a placeholder; synced when the sight changes). Tracers, death markers, HP bars, the
+  like the Explored ground, a placeholder; synced when the sight changes). Tracers, death markers, HP bars,
+  projectiles and blasts, the
   path overlay, the selection (`selectable_by`) and with it what a click or the pointer targets, the InfoPanel and
   the command indicators ask it too. The fog layer (`fog/layer.rs`) is one mesh that follows the terrain's surface tile
   by tile, in the terrain's z band `FOG_Z` in front of it (so no cliff stratum shows through), and one texture of

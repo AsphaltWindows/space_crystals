@@ -3,7 +3,9 @@
 //! change 0207), HP bars over damaged and selected objects, with a
 //! shield bar above the HP bar of an object that has Shields (`systems/combat.md > Shields > Display`, slice M3-B,
 //! design change 0148: "a shield bar sits directly above the HP bar"; its styling waits for the HUD pass), and a
-//! fading marker where an object died (`SimEvent::Died`).
+//! fading marker where an object died (`SimEvent::Died`). Slice M4-O adds the projectiles in flight
+//! ([`projectiles`], from `SimEvent::ProjectileLaunched`, plan decision T52) and the blasts where they land
+//! ([`blasts`], `SimEvent::Blast`).
 //!
 //! Everything is one vertex-coloured, alpha-blended mesh in the overlays layer, rebuilt every frame while anything
 //! shows. Effects age by the sim's ticks plus the render alpha, so a QA screenshot of a tick (alpha 1) always shows
@@ -21,11 +23,19 @@
 //!   [`shot_spans`]). "Other shots from the fog are still clipped to Visible tiles", a revealed attacker's at
 //!   anything else too.
 //! - **A death marker** only on a Visible tile or for one of the player's own objects, and **an HP bar** only over an
-//!   object the player sees (`Sight::sees`): placeholder rules, the design is silent.
+//!   object the player sees (`Sight::sees`): placeholder rules, the design is silent. Neither ever shows for an object
+//!   hidden from the player (`sc_sim::vision::Hiding`: a Hideout under a blast, plan decision T52: "nothing is drawn
+//!   for a hidden victim"), and no hit is drawn for any victim.
+//! - **A projectile** only while its point on the ground is over a Visible tile, or whole from a revealed shooter at
+//!   the player's own object ([`shows_flight`]); **a blast** only while the tile under its centre is Visible
+//!   ([`shows_blast`]).
 
+pub mod blasts;
 mod draw;
+pub mod projectiles;
 
 use bevy::prelude::*;
+use sc_sim::vision::Hiding;
 use sc_sim::{Map, Object, ObjectId, ObjectKind, PlayerId, SU_PER_GU, Sim, SimEvent, Tick, VisibilityState};
 
 use crate::ClientSystems;
@@ -36,6 +46,8 @@ use crate::sim_driver::{SimEventMessage, SimRes};
 use draw::{draw_effects, spawn_effects_mesh};
 
 pub use crate::tuning::feedback::{DEATH_MARKER_TICKS, TRACER_TICKS};
+pub use blasts::{BLAST_TICKS, Blast, shows_blast};
+pub use projectiles::{Flight, shows_flight};
 
 /// HP bars: height, gap above the corners of the unit's silhouette (clear of a selection ring, which lies 7 su
 /// outside them: `selection::markers`) or above a tile-based object's footprint, and the narrowest bar, su. A shield
@@ -94,11 +106,15 @@ pub struct DeathMarker {
     pub pos: Vec2,
 }
 
-/// The tracers and death markers on screen, from the sim's events, dropped once they have faded.
+/// The tracers, death markers, projectiles and blasts on screen, from the sim's events, dropped once they have faded
+/// or landed.
 #[derive(Resource, Default, Debug)]
 pub struct CombatEffects {
     pub tracers: Vec<Tracer>,
     pub deaths: Vec<DeathMarker>,
+    /// The projectiles in flight, in launch order (slice M4-O).
+    pub flights: Vec<Flight>,
+    pub blasts: Vec<Blast>,
     /// The `SimRes::generation` they belong to.
     generation: Option<u32>,
 }
@@ -210,9 +226,15 @@ pub fn shot_spans(sim: &Sim, sight: &Sight, tracer: &Tracer) -> Vec<(f32, f32)> 
     visible_spans(sight, tracer.from, tracer.to)
 }
 
-/// Whether `sight` shows `death`: one of the player's own objects, or on a Visible tile.
+/// Whether `sight` shows `death`: one of the player's own objects, or on a Visible tile; and, while the fog applies,
+/// never one that was hidden from the player ([`Hiding::of_kind`]: a Hideout that a blast killed unseen, plan decision
+/// T52).
 pub fn shows_death(sight: &Sight, death: &DeathMarker) -> bool {
-    death.owner == Some(sight.player()) || sight.at(death.pos) == VisibilityState::Visible
+    if death.owner == Some(sight.player()) {
+        return true;
+    }
+    let hidden = sight.is_fogged() && Hiding::of_kind(death.kind, death.owner).hides_from(sight.player());
+    !hidden && sight.at(death.pos) == VisibilityState::Visible
 }
 
 /// The bars of `o`: over a unit, clear of its silhouette's corners however it turns, as wide as the silhouette; over a
@@ -240,12 +262,14 @@ fn hp_bar(map: &Map, o: &Object, alpha: f32, fraction: f32, shields: Option<f32>
     }
 }
 
-/// Takes the new shots and deaths from the tick's events and drops the effects that have faded. A replaced sim
-/// starts from none.
+/// Takes the new shots, deaths, projectiles and blasts from the tick's events and drops the effects that have faded
+/// and the projectiles that have landed. A replaced sim starts from none.
 fn collect_effects(sim: Res<SimRes>, mut messages: MessageReader<SimEventMessage>, mut effects: ResMut<CombatEffects>) {
     if effects.generation != Some(sim.generation()) {
         effects.tracers.clear();
         effects.deaths.clear();
+        effects.flights.clear();
+        effects.blasts.clear();
         effects.generation = Some(sim.generation());
     }
     let messages: Vec<&SimEventMessage> = messages.read().collect();
@@ -259,6 +283,10 @@ fn collect_effects(sim: Res<SimRes>, mut messages: MessageReader<SimEventMessage
             } if dead == id => Some((kind, owner)),
             _ => None,
         })
+    };
+    let owner = |id: ObjectId| match sim.object(id) {
+        Some(o) => o.owner,
+        None => fallen(id).and_then(|(_, owner)| owner),
     };
     for message in &messages {
         match message.event {
@@ -278,14 +306,32 @@ fn collect_effects(sim: Res<SimRes>, mut messages: MessageReader<SimEventMessage
                     weapon: shooter.map(|(form, _)| form),
                     owner: shooter.and_then(|(_, owner)| owner),
                     target,
-                    target_owner: match sim.object(target) {
-                        Some(o) => o.owner,
-                        None => fallen(target).and_then(|(_, owner)| owner),
-                    },
+                    target_owner: owner(target),
                     from,
                     to,
                 });
             }
+            SimEvent::ProjectileLaunched {
+                shooter,
+                target,
+                from,
+                to,
+                lands_at,
+            } => effects.flights.push(Flight {
+                tick: message.tick,
+                shooter,
+                owner: owner(shooter),
+                target,
+                target_owner: target.and_then(owner),
+                from,
+                to,
+                lands_at,
+            }),
+            SimEvent::Blast { at, radius } => effects.blasts.push(Blast {
+                tick: message.tick,
+                at,
+                radius,
+            }),
             SimEvent::Died { kind, owner, pos, .. } => effects.deaths.push(DeathMarker {
                 tick: message.tick,
                 kind,
@@ -297,4 +343,6 @@ fn collect_effects(sim: Res<SimRes>, mut messages: MessageReader<SimEventMessage
     }
     effects.tracers.retain(|t| shows(&sim, t.tick, TRACER_TICKS));
     effects.deaths.retain(|d| shows(&sim, d.tick, DEATH_MARKER_TICKS));
+    effects.flights.retain(|f| sim.tick() < f.lands_at);
+    effects.blasts.retain(|b| shows(&sim, b.tick, BLAST_TICKS));
 }
