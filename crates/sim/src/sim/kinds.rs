@@ -1,7 +1,8 @@
 //! Objects that change their kind in place — plan decision T15: one object through every transformation. A Drone
 //! deploying into a Beacon (`factions/colonists/economy.md > Beacon Deployment`, slice M3-F), a Beacon warping in a
-//! building (`> Warp In`, M3-E) and a Legionnaire converting its weapon (`factions/colonists/units.md > Weapon
-//! Conversion`, M3-B) each stay the same object, with the same `ObjectId`, so selections, control groups, rally
+//! building (`> Warp In`, M3-E), a Legionnaire pressed to convert its weapon (`factions/colonists/units.md > Weapon
+//! Conversion`, M3-B; its type switches at the press, design change 0198) and a Peacekeeper raising or lowering its
+//! Riot Shield (M3-S) each stay the same object, with the same `ObjectId`, so selections, control groups, rally
 //! points and the fog's records keep it ("the Drone unit itself transforms into the Beacon in place").
 //!
 //! [`Sim::change_kind`] is the one place an object's kind changes. [`Capabilities::fresh`] is what an object of a
@@ -10,8 +11,9 @@
 use std::collections::BTreeMap;
 
 use super::Sim;
-use crate::combat::AttackState;
+use crate::combat::{self, AttackState};
 use crate::construction::{self, Constructor};
+use crate::conversion;
 use crate::defs::{Category, ObjectDef, ObjectKind};
 use crate::economy::{self, Extractor, Worker};
 use crate::events::SimEvent;
@@ -102,11 +104,13 @@ impl Sim {
     ///   the same definition keeps its state, the others start as on a new object, and those the new kind lacks go. So
     ///   a unit that stays a unit keeps its orders and its move (design change 0150: "Orders are kept"), and plans its
     ///   path again if it walks on another grid. A unit that keeps an attack keeps what it engages (its order's
-    ///   target); with another weapon, its attack sequence starts again, the new weapon ready (design change 0152:
-    ///   a Weapon Conversion), and with the same one it goes on as it was, a reload or a deferred ability included (the
-    ///   Riot Shield's two types, design change 0173: "They share everything except what the shield changes"). A Riot
-    ///   Shield that the new kind shares keeps how far up it is, whose speed its caller settles (`riot_shield`); one
-    ///   that goes takes its slowdown with it.
+    ///   target); with another weapon in hand, its attack sequence starts again, the new weapon ready (design change
+    ///   0152), and with the same one it goes on as it was, a shot or a reload included. The weapon in hand is the
+    ///   form's (`combat::weapon`), which a pending Weapon Conversion holds (`Object::conversion`): a Legionnaire
+    ///   whose type a press switches keeps its weapon, and its attack, until its conversion ends (design change 0198,
+    ///   `conversion::hold_form`); the Riot Shield's two types have the same weapon (design change 0173: "They share
+    ///   everything except what the shield changes"). A Riot Shield that the new kind shares keeps how far up it is,
+    ///   whose speed its caller settles (`riot_shield`); one that goes takes its slowdown with it.
     /// - **Paid state is never lost**: a production queue or a construction the new kind has no place for is
     ///   refunded first, as when the object leaves the game (`Sim::refund_production`, `Sim::refund_constructors`).
     /// - A [`SimEvent::KindChanged`] (after the refunds' events).
@@ -145,6 +149,11 @@ impl Sim {
         let Some(o) = self.objects.get_mut(&id) else {
             return false;
         };
+        // The weapon in hand before and after: the form's (`conversion::form`), which a pending conversion holds
+        // whatever the type (design change 0198).
+        let held = o.conversion;
+        let keeps_weapon = combat::weapon_of(conversion::form_of(from, held.as_ref()))
+            == combat::weapon_of(conversion::form_of(kind, held.as_ref()));
         let Object {
             id: _,
             kind: object_kind,
@@ -191,8 +200,6 @@ impl Sim {
                 mover.speed_factor = Mover::default().speed_factor;
             }
         }
-        let weapon_of = |def: &'static ObjectDef| unit_of(def).and_then(|u| u.attack);
-        let keeps_weapon = weapon_of(old) == weapon_of(new);
         *attack = match (attack.take(), fresh.attack) {
             (Some(old), Some(_)) if keeps_weapon => Some(old),
             (Some(old), Some(fresh)) => Some(AttackState {

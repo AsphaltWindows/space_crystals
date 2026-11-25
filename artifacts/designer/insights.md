@@ -30,9 +30,10 @@
 - **Q0055** (not blocking): Colonists economy misses the table (1:00 −16%, 3:00 −15%, 4:00 −24%; target 1 fails, target 4 only from 27 Drones). Options A accept measured / B change numbers / C change benchmark line (e.g. 2nd Robo Portal; one-portal line banks 320 by 1:00) / D widen tolerance. Step taken: Drone thrust/drag ×1.5 (0205) with a re-measure request. **Wait for the Director's new table, then decide with the user.** Context: plate payback 22.5 s running / ~47 s from order; Drone ~36 s / ~46 s (middle patch); growth per producer ~equal (~8 SC/s per minute), hence target 1 fails.
 
 
-- **Q0058** (not blocking): AttackMove target lost to the fog — left alone for the rest of the leg like a leash-dropped target (A, as built) / until it moves a distance (B) / re-taken whenever seen (C, loops). Lean A per Core principle.
 
-All others through Q0057 answered (this session: 0197–0206, 0223).
+- **Q0059–Q0071 (M4 Syndicate, arrived 2026-11-25)**: Q0059 DONE (0229 placeholders). Q0060 pts 1–2 DONE (0229); pts 3–6 open (in-progress upgrades count; HP at completion; destroyed mid-upgrade; reserve target area). Q0061–Q0071 non-blocking, Director proceeding on its proposals: Agent-built Tunnels, areas/layers, network transit, ejection, expansions under construction, Agent gathering, Supplies gathering, panel letters, losing Tunnels, Syndicate economy check, deferred content. Go through with the user one at a time (many may be answerable by proposals; check docs first).
+
+All others through Q0058 answered (this session: 0197–0206, 0223, 0230).
   - All questions answered through Q0048 (2026-11-24/25).
 - Yielding (0023): only no-command units yield; Hold Position/busy don't; modes (Riot Shield) irrelevant; deployed Artillery Rig = fixed obstacle. TBD sidestep distance, allies. Watch: mining workers don't yield → possible clots at patches (worker collision while gathering never designed).
 
@@ -116,6 +117,7 @@ New standing decisions worth remembering: Drones Groupable + lingering build gho
 - In lists, the user reads in order and stops at the first item they disagree with: items BEFORE it are agreed, items AFTER it are unread (2026-11-23, Q0013.4; 0050/0051). Never treat later items as agreed. Ask ONE thing per message.
 - Don't claim how other games work unless sure; say plainly when unsure (2026-11-23: I overstated SC2/AoE2 behaviour; user checked me).
 - User WANTS to hear edge cases in full and expects me to CONTRADICT them when they misjudge impact (2026-11-23: they said magic-box centres-vs-silhouettes 'doesn't make a big difference' as a test; I wrongly agreed — it matters a lot for 2-unit / line groups). Never just agree to be agreeable; say plainly when something matters.
+- **No hidden per-target memory in behaviors** (user, 2026-11-25): the same situation (even an unseen swap of identical enemies) must get the same response; prefer rules that depend only on the current situation, with change-driven caching for performance (0230).
 - **CORE PRINCIPLE (user, 2026-11-25): unit behavior = predictable, not optimal.** No clever situational algorithms; the player manages bottlenecks/micro; units differ in how much control they need. Use it to judge behavior questions (systems/controls/behaviors.md > Core principle).
 - **Deploy (Artillery Rig, Laser Battery) is NOT a mode toggle** (0211, 0213, 0214): a queueable order, not cancellable, type switches at completion; orders given meanwhile are held, ones the deployed unit can't do are dropped. Drone→Beacon is a third model (instant type, cancellable).
 - **Mode toggles (Convert, Riot Shield, likely future ones) set a target state**: the press goes to the ActiveGroup, type/group switches at the press, units work toward the target; spam ends with everyone in the same state (user, 2026-11-25).

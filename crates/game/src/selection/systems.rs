@@ -17,7 +17,7 @@ use crate::fog::{FogOfWar, Sight};
 use crate::input::{ActionState, Bindings, InputAction, MapClick, SelectionBox};
 use crate::platform::SurfaceSize;
 use crate::replay::Playback;
-use crate::sim_driver::{LocalPlayer, SimEventMessage, SimRes};
+use crate::sim_driver::{LocalPlayer, PendingCommands, SimEventMessage, SimRes};
 
 /// `> ControlState`: validated against the game state every tick. Removed objects (`SimEvent::Removed`, which
 /// combat's deaths send too) leave every player's selection and control groups in the frame of their tick; so does
@@ -27,12 +27,17 @@ use crate::sim_driver::{LocalPlayer, SimEventMessage, SimRes};
 /// removed out of sight: the player doesn't learn of it. An object the player sees that changed its kind in place
 /// (`SimEvent::KindChanged`, plan decision T15), or that started or stopped being unfinished (design change 0185: a
 /// building whose Warp In completes or is cancelled), stays selected as the type it groups as now
-/// (`ControlState::set_type`), so the panels show its new group. A replaced sim (`SimRes::generation`) starts every
-/// ControlState over, because its ids name other objects.
+/// (`ControlState::set_type`), so the panels show its new group: the group its members joined becomes the
+/// ActiveGroup if theirs is gone (design change 0199); and the ActiveGroup whose last member left gives way to the
+/// next group in Tab order. The type a mode toggle pressed for the next tick switches it to counts as its type from
+/// the press (design change 0198: `PendingCommands::kind_of`, which `ControlState::toggle` took at the press), so that
+/// the selection keeps it until the sim has it too. A replaced sim (`SimRes::generation`) starts every ControlState
+/// over, because its ids name other objects.
 pub(super) fn sync_control_states(
     sim: Res<SimRes>,
     fog: Res<FogOfWar>,
     mode: Res<ClientMode>,
+    pending: Res<PendingCommands>,
     mut events: MessageReader<SimEventMessage>,
     mut states: ResMut<ControlStates>,
 ) {
@@ -62,7 +67,12 @@ pub(super) fn sync_control_states(
             .selection
             .member_types()
             .filter_map(|(id, ty)| {
-                let now = sim.object(id).filter(|o| selectable_by(o, &sight)).map(GroupType::of)?;
+                let object = sim.object(id).filter(|o| selectable_by(o, &sight))?;
+                let kind = pending.kind_of(&sim, player, id)?;
+                let now = GroupType {
+                    kind,
+                    ..GroupType::of(object)
+                };
                 (now != ty).then_some((id, now))
             })
             .collect();

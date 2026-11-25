@@ -50,7 +50,10 @@ pub(in crate::command_ui) fn cancel_on_escape(actions: Res<ActionState>, mut con
 /// Select action over the button, found by the panel's geometry like the SelectionPanel's portraits) enters
 /// AwaitingTarget for a command that needs a target, or issues an immediate one: a common command to the whole
 /// selection, a group command to the ActiveGroup (`> CommandPanel`), a Train or a Cancel Production to every
-/// producer among them as one command. A constructor's enter its build menu (`InterfaceState::BuildMenu`) or the
+/// producer among them as one command. A mode toggle (Raise and Lower Shield, Convert) switches the type of the
+/// units it goes to at the press, and their merged group becomes the ActiveGroup (design change 0198,
+/// `crate::selection::ControlState::toggle`), so that the next press, the next frame or even before the sim's next
+/// tick, reaches them all. A constructor's enter its build menu (`InterfaceState::BuildMenu`) or the
 /// placement of its building ready to place (`InterfaceState::AwaitingPlacement`), or give its one constructor a
 /// construction command and return to DefaultState ("CommandIssuingTransition, returns to DefaultState"). A
 /// Beacon's enter its Warp In menus and a Warp In's placement on it (`factions/colonists/economy.md > Beacon > Beacon
@@ -107,7 +110,9 @@ pub(in crate::command_ui) fn press_command_slots(
             }
             SlotPress::UseAbility(command, ability) => {
                 let units = recipients(&state.selection, command);
-                outbox.use_ability(player, units, ability);
+                if outbox.use_ability(player, units.clone(), ability) {
+                    control.update(|state| state.toggle(&units, ability));
+                }
             }
             SlotPress::Produce(command, production) => {
                 let producers = recipients(&state.selection, command);

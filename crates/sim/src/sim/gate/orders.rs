@@ -44,7 +44,10 @@ impl Sim {
                 self.check_target_known(player, id)?;
                 // `factions/gdo/units.md > Peacekeeper > Riot Shield`: "Attack orders are not possible" while the
                 // shield is up ("the player must lower the shield before ordering an attack"): those units ignore it.
-                ordered.retain(|id| self.objects.get(id).is_some_and(riot_shield::allows_attack));
+                // Which orders a unit takes follows its type from the press (design change 0202): a Peacekeeper
+                // (Shielded), its shield up or on its way up, takes none; a Peacekeeper whose shield is on its way
+                // down takes it, and attacks once its shield is down.
+                ordered.retain(|id| (self.objects.get(id)).is_some_and(|o| riot_shield::takes_attack_orders(o.kind)));
                 if ordered.is_empty() {
                     return Err(Reject::CannotAttack);
                 }
@@ -73,8 +76,10 @@ impl Sim {
 
     /// [`Command::Ability`](crate::Command::Ability): the player's own units that have the ability. Ids that no
     /// longer exist and the player's objects without the ability are dropped: [`Reject::NoUnits`] if nothing of the
-    /// player's remains at all, [`Reject::LacksAbility`] if none of it has the ability. A Convert goes to the units
-    /// with another form that may convert now (`conversion::may_convert`), [`Reject::CannotConvert`] if none may.
+    /// player's remains at all, [`Reject::LacksAbility`] if none of it has the ability. A toggle is never refused for
+    /// what the unit is doing (design change 0198: a press flips the unit's target, `sim/modes.rs`): a Convert goes
+    /// to every unit with another form (`conversion::converts_to`), a conversion waiting or under way included, and
+    /// a Riot Shield's to every unit that carries one.
     ///
     /// TODO(Bunker): units inside a Bunker can't use their abilities (`factions/gdo/structures.md > Bunker >
     /// Garrison`: "a Peacekeeper cannot raise its Riot Shield"); drop them here once units can enter one.
@@ -96,21 +101,12 @@ impl Sim {
         if let Ability::SetDropOff(node) = ability {
             self.check_drop_off(player, node)?;
         }
-        let mut units: Vec<ObjectId> = own
+        let units: Vec<ObjectId> = own
             .into_iter()
             .filter(|id| self.objects.get(id).is_some_and(has))
             .collect();
         if units.is_empty() {
             return Err(Reject::LacksAbility);
-        }
-        if ability == Ability::Convert {
-            // `factions/colonists/units.md > Weapon Conversion > Eligibility`: those converting already, or waiting
-            // to, are left out, and the others convert; one in Firing or Cooldown after its Cooldown (design change
-            // 0153: "deferred, not rejected").
-            units.retain(|id| self.objects.get(id).is_some_and(conversion::may_convert));
-            if units.is_empty() {
-                return Err(Reject::CannotConvert);
-            }
         }
         Ok(Checked::Ability { units, ability })
     }

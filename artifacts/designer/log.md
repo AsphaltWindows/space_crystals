@@ -2192,3 +2192,5 @@ Tunnel paths one unit at a time. Entry 0225.
 Syndicate: Phantom added. Entry 0226.
 Phantom turret 60-90, Guard-like role. Entry 0227.
 Phantom total cone; stale fog line fixed. Entry 0228. Q0058 noted.
+Q0059 placeholders; Q0060 pt1-2. Entry 0229. Q0059-Q0071 noted.
+Q0058: AttackMove reach rule (path within leash+sight), no dropped-target memory; replaces 0204 pt1. Entry 0230.

@@ -1,7 +1,7 @@
 //! What the game allows a selection's commands now, as the sim has it (`systems/controls/selection_and_hud.md >
 //! CommandPanel`: "derived from ControlState and game state each tick"): the selected units' modes ([`Modes`]), the
 //! ActiveGroup's constructor state, and the command gate's answer to each production and construction command the
-//! ActiveGroup offers, and to its Convert ([`Conditions`]).
+//! ActiveGroup offers, and to its toggles ([`Conditions`]).
 //!
 //! A button is available exactly when the sim would take its command now (plan decision T10: "button availability
 //! uses the same `sc_sim` predicates as the gate"): the panel asks `Sim::validate` with the command it would send,
@@ -12,11 +12,10 @@
 //! the army cap leaves a Train available, the Colonists' Beacon Capacity alike), and so is a greyed-out build menu
 //! entry (`> DeploymentCenter > ObjectInterfaceState[DeploymentCenter]`: "Only available if player has sufficient
 //! Space Crystals"; "Other build options unavailable" while the Deployment Center constructs or holds a building
-//! ready), and so is a greyed-out Convert (`factions/colonists/units.md > Weapon Conversion > Eligibility`: it goes to
-//! the recipients that are neither converting nor waiting to, one Firing or in Cooldown converting once its Cooldown
-//! is over, design change 0153; `Reject::CannotConvert` when none may), and a greyed-out Warp In menu entry
-//! (`factions/colonists/economy.md > Warp In`: the Beacon busy deploying, or too few Space Crystals; where the
-//! building would stand, the ghost shows).
+//! ready), and so is a greyed-out Warp In menu entry (`factions/colonists/economy.md > Warp In`: the Beacon busy
+//! deploying, or too few Space Crystals; where the building would stand, the ghost shows). The mode toggles are
+//! never greyed out: the gate takes a Convert or a Raise or Lower Shield whenever a recipient has the mode, at any
+//! point of a toggle or a shot (design change 0198: a press flips the target state).
 //!
 //! Every greyed-out button has its reason ([`WhyUnavailable`], from the same check that greys it), which pressing it
 //! shows (design change 0162). The Egress Node's F shows only while the node has Drones to select
@@ -32,16 +31,19 @@ use sc_sim::{
 use super::{PanelCommand, commands, recipients};
 use crate::selection::Selection;
 
-/// What the selected units' modes let them do now, as the sim has them: which of them their Riot Shield keeps from
-/// attacking (`factions/gdo/units.md > Peacekeeper > Riot Shield`: a Peacekeeper (Shielded), and a Peacekeeper whose
-/// shield is on its way down, design change 0171), by the sim's own query (`sc_sim::riot_shield::allows_attack`, so
-/// that the panel and the right-click never judge a shield otherwise than the gate), which of the workers carry a
-/// load, which a right-click on a drop-off reads (`factions/colonists/units.md > Drone > Right-Click Resolution`:
-/// "Own Egress Node (carrying resources)"), and which of the selected objects transform (`sc_sim::Object::transform`).
+/// What the selected units' modes let them do now: which of them take no Attack (`factions/gdo/units.md >
+/// Peacekeeper > Riot Shield > During the toggle`, design change 0202: "which orders a unit accepts follows its new
+/// type from the press": a Peacekeeper (Shielded), whose shield is up, on its way up or waiting for its shot to go
+/// up, but not a Peacekeeper whose shield is on its way down, which takes an Attack and holds it until its shield is
+/// down), by the type it groups as in the selection (the type from the press,
+/// `crate::selection::ControlState::toggle`) and the sim's own query (`sc_sim::riot_shield::takes_attack_orders`, so
+/// that the panel and the right-click never judge a type otherwise than the gate), which of the workers carry a load,
+/// which a right-click on a drop-off reads (`factions/colonists/units.md > Drone > Right-Click Resolution`: "Own
+/// Egress Node (carrying resources)"), and which of the selected objects transform (`sc_sim::Object::transform`).
 /// Which way a shield goes is its unit's type (design change 0173), whose panel offers the command that turns it.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct Modes {
-    /// The units whose Riot Shield keeps them from attacking now.
+    /// The units whose type takes no Attack.
     held: BTreeSet<ObjectId>,
     loaded: BTreeSet<ObjectId>,
     transforming: BTreeSet<ObjectId>,
@@ -51,10 +53,9 @@ impl Modes {
     /// The modes of `selection`'s objects in `sim`.
     pub fn of(sim: &Sim, selection: &Selection) -> Self {
         Self {
-            held: (selection.ids())
-                .filter_map(|id| sim.object(id))
-                .filter(|o| !riot_shield::allows_attack(o))
-                .map(|o| o.id)
+            held: (selection.members())
+                .filter(|&(_, kind)| !riot_shield::takes_attack_orders(kind))
+                .map(|(id, _)| id)
                 .collect(),
             loaded: (selection.ids())
                 .filter(|&id| (sim.object(id)).is_some_and(|o| o.worker.is_some_and(|worker| worker.load > 0)))
@@ -84,20 +85,20 @@ impl Modes {
         self.transforming.contains(&id)
     }
 
-    /// Whether `id` may attack now: not while its Riot Shield is up, nor on its way up or down
-    /// (`sc_sim::riot_shield::allows_attack`).
+    /// Whether `id` takes an Attack: not a Peacekeeper (Shielded) (`sc_sim::riot_shield::takes_attack_orders`).
     pub fn can_attack(&self, id: ObjectId) -> bool {
         !self.held.contains(&id)
     }
 }
 
-/// The modes of units whose Riot Shields do these, for the unit tests: only one all the way down lets its unit
-/// attack (`sc_sim::riot_shield::allows_attack`).
+/// The modes of units whose Riot Shields do these, for the unit tests: a shield down or on its way down is a
+/// Peacekeeper's, which takes an Attack; one up, on its way up or waiting for its shot to go up is a Peacekeeper
+/// (Shielded)'s, which takes none (design change 0202, `sc_sim::riot_shield::takes_attack_orders`).
 impl FromIterator<(ObjectId, ShieldMode)> for Modes {
     fn from_iter<I: IntoIterator<Item = (ObjectId, ShieldMode)>>(shields: I) -> Self {
         Self {
             held: (shields.into_iter())
-                .filter(|&(_, mode)| mode != ShieldMode::Lowered)
+                .filter(|&(_, mode)| !matches!(mode, ShieldMode::Lowered | ShieldMode::Lowering { .. }))
                 .map(|(id, _)| id)
                 .collect(),
             loaded: BTreeSet::new(),
@@ -112,10 +113,10 @@ impl FromIterator<(ObjectId, ShieldMode)> for Modes {
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub enum WhyUnavailable {
     /// The command gate would refuse the command it sends (`Sim::validate`): too few Space Crystals, a full queue,
-    /// nothing to cancel, a constructor or a Beacon already busy, no recipient that may convert.
+    /// nothing to cancel, a constructor or a Beacon already busy.
     Refused(Reject),
-    /// Every recipient's Riot Shield keeps it from attacking (`factions/gdo/units.md > Peacekeeper > Riot Shield`:
-    /// "the player must lower the shield before ordering an attack").
+    /// Every recipient is a Peacekeeper (Shielded), which takes no Attack (`factions/gdo/units.md > Peacekeeper > Riot
+    /// Shield`: "the player must lower the shield before ordering an attack"; design change 0202).
     ShieldsUp,
     /// Another command awaits its target, or a building is placed (`> AwaitingTarget > Other commands while
     /// targeting`, design change 0066: "unavailable until the player cancels").
@@ -129,7 +130,7 @@ pub enum WhyUnavailable {
 }
 
 /// What the game allows a selection's commands now: its units' [`Modes`], the ActiveGroup's constructor state, and
-/// each production or construction command or Convert the ActiveGroup may show that the command gate would refuse,
+/// each production or construction command or toggle the ActiveGroup may show that the command gate would refuse,
 /// with why.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct Conditions {
@@ -140,7 +141,7 @@ pub struct Conditions {
     /// transforms is its key's (`crate::selection::GroupKey::unfinished`, design change 0185: the unfinished
     /// buildings of a type form a group of their own, whose panel is the Cancel alone).
     pub constructor: Option<Constructor>,
-    /// The production and construction commands and the Convert the gate would refuse now, for the objects they go
+    /// The production and construction commands and the toggles the gate would refuse now, for the objects they go
     /// to ([`recipients`]).
     refused: BTreeMap<PanelCommand, Reject>,
     /// The Drones the active Egress Node's F selects (`sc_sim::Sim::returning_drones`), in id order: none while the
@@ -151,8 +152,10 @@ pub struct Conditions {
 impl Conditions {
     /// The conditions of `player`'s `selection` in `sim`: the modes, the ActiveGroup's constructor state, and
     /// `Sim::validate`'s answer to the `Command::Production`, `Command::Construction` or `Command::Ability` each such
-    /// command the ActiveGroup may show would send ([`commands`]). Raise and Lower Shield are never refused: the gate
-    /// takes them whenever a recipient carries a shield. A Warp In menu entry asks for its Warp In unturned, and leaves
+    /// command the ActiveGroup may show would send ([`commands`]). Raise and Lower Shield and Convert are never
+    /// refused: the gate takes them whenever a recipient has the mode (design change 0198). The modes are those of
+    /// the types the selection groups its objects as ([`Modes::of`]). A Warp In menu entry asks for its Warp In
+    /// unturned, and leaves
     /// out the placement's refusal (`Reject::Unplaceable`, the gate's last check): the player turns the ghost before it
     /// is placed, and the ghost shows each tile's problem.
     pub fn of(sim: &Sim, player: PlayerId, selection: &Selection) -> Self {
@@ -252,21 +255,21 @@ impl Conditions {
         command != PanelCommand::SelectReturningDrones || !self.returning.is_empty()
     }
 
-    /// Why the gate would refuse production or construction command or Convert `command` now, if it would.
+    /// Why the gate would refuse production or construction command or toggle `command` now, if it would.
     pub fn refusal(&self, command: PanelCommand) -> Option<Reject> {
         self.refused.get(&command).copied()
     }
 
-    /// Whether the game lets `command` go to its recipients in `selection` now: Attack while one of them can attack
+    /// Whether the game lets `command` go to its recipients in `selection` now: Attack while one of them takes it
     /// (`factions/gdo/units.md > Peacekeeper > Riot Shield`: "the player must lower the shield before ordering an
-    /// attack"), a production or construction command, a Warp In or a Convert while the gate would take it, anything
-    /// else always.
+    /// attack"; design change 0202: a Peacekeeper whose shield is on its way down takes it), a production or
+    /// construction command, a Warp In or a toggle while the gate would take it, anything else always.
     pub fn allows(&self, selection: &Selection, command: PanelCommand) -> bool {
         self.unavailable(selection, command).is_none()
     }
 
     /// Why the game doesn't let `command` go to its recipients in `selection` now ([`Conditions::allows`]), if it
-    /// doesn't: their shields, or the gate's refusal.
+    /// doesn't: their types, or the gate's refusal.
     pub fn unavailable(&self, selection: &Selection, command: PanelCommand) -> Option<WhyUnavailable> {
         match command {
             PanelCommand::Attack => {

@@ -293,10 +293,11 @@ pub fn is_common(selection: &Selection, command: PanelCommand) -> bool {
 /// Clicking a group-specific command issues it only to objects in the ActiveGroup." `> SelectionGroup > No
 /// smart-casting` (design changes 0071 and 0075): every one of them, the whole Selection or the whole ActiveGroup,
 /// never a single member picked out; only a unit that can't carry the command out is left out of it (a Peacekeeper
-/// (Shielded), or a Peacekeeper whose shield is on its way down, under an explicit Attack on an object:
-/// `super::super::resolution::unit_target_order`). Raise Shield and Lower Shield are each one type's, so in
-/// a selection of both types they go to the ActiveGroup (`factions/gdo/units.md > Peacekeeper > Riot Shield > Two
-/// unit types`: "the shield command goes to the ActiveGroup"). Every panel command, by hotkey
+/// (Shielded) under an explicit Attack on an object, design change 0202: `super::super::resolution::unit_target_order`).
+/// Raise Shield and Lower Shield are each one type's, and so is each form's Convert, so in a selection of both types
+/// they go to the ActiveGroup (`factions/gdo/units.md > Peacekeeper > Riot Shield > Two unit types`: "the shield
+/// command goes to the ActiveGroup"; design change 0198: "Only the ActiveGroup receives the press"). Every panel
+/// command, by hotkey
 /// or button, goes to these objects: a Train to every Barracks of the ActiveGroup, which the sim serves least work
 /// first as far as the player can pay (design change 0083), but never to an unfinished one, which is in a group of
 /// its own and offers its Cancel alone (design change 0185). A constructor's command goes to the ActiveGroup, the one

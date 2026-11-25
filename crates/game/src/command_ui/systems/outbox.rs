@@ -26,7 +26,9 @@ pub(in crate::command_ui) struct OrderOutbox<'w> {
 impl OrderOutbox<'_> {
     /// Gives `kind` to `player`'s units among `units` (`> CommandPanel`: "Commands can only be issued to objects
     /// owned by the player"; only units take orders). Nothing when none of them is left, or when the sim would
-    /// reject the order (`Sim::validate`: e.g. a point off the map, or an indestructible target to attack).
+    /// reject the order (`Sim::validate`: e.g. a point off the map, or an indestructible target to attack). An Attack
+    /// that the gate refuses only because none of the units takes one yet goes all the same when a Lower Shield sent
+    /// for the same tick makes one of them a Peacekeeper first ([`Self::attack_once_toggled`]).
     pub(super) fn give(&mut self, player: PlayerId, units: Vec<ObjectId>, kind: OrderKind, queue: bool) -> bool {
         let units = self.own_units(player, units);
         // `ARCHITECTURE.md > Commands, events and replays`: never a non-finite number, which a replay can't store.
@@ -41,7 +43,9 @@ impl OrderOutbox<'_> {
                 queue,
             },
         };
-        if let Err(reject) = self.sim.validate(&command) {
+        if let Err(reject) = self.sim.validate(&command)
+            && !(reject == Reject::CannotAttack && self.attack_once_toggled(player, &units))
+        {
             debug!("order {kind:?} not given: {reject}");
             return false;
         }
@@ -152,6 +156,18 @@ impl OrderOutbox<'_> {
     /// `player`'s Drones that have a Deploy, in the sim or sent for its next tick ([`deploying`]).
     pub(super) fn deploying(&self, player: PlayerId) -> BTreeSet<ObjectId> {
         deploying(&self.sim, player, &self.pending.0)
+    }
+
+    /// Whether one of `units` takes an Attack once the mode toggles already sent for the next tick are applied, which
+    /// the sim does before the orders sent after them (design change 0202: "which orders a unit accepts follows its
+    /// new type from the press"; 0198: the press switches it): an Attack, by the panel or a right-click, right after
+    /// a Lower Shield the sim hasn't applied yet, which the selection already shows as Peacekeepers
+    /// (`PendingCommands::kind_of`). The gate takes it in that tick, and the units attack once their shields are
+    /// down.
+    fn attack_once_toggled(&self, player: PlayerId, units: &[ObjectId]) -> bool {
+        units.iter().any(|&id| {
+            (self.pending.kind_of(&self.sim, player, id)).is_some_and(sc_sim::riot_shield::takes_attack_orders)
+        })
     }
 
     /// The units among `units` that are `player`'s and take orders.

@@ -74,10 +74,9 @@ pub const NOTHING_TO_CANCEL_TEXT: &str = "Nothing to cancel";
 /// (`factions/gdo/structures.md > DeploymentCenter > ObjectInterfaceState[DeploymentCenter]`: "Other build options
 /// unavailable"). Placeholder wording.
 pub const BUSY_TEXT: &str = "Already building";
-/// The message of a Convert pressed while none of its recipients may convert. Placeholder wording.
-pub const CANNOT_CONVERT_TEXT: &str = "Cannot convert now";
-/// The message of an Attack pressed while every recipient's Riot Shield is up. Placeholder wording, after
-/// `factions/gdo/units.md > Peacekeeper > Riot Shield`: "the player must lower the shield before ordering an attack".
+/// The message of an Attack pressed while every recipient is a Peacekeeper (Shielded), its shield up or on its way
+/// up (design change 0202). Placeholder wording, after `factions/gdo/units.md > Peacekeeper > Riot Shield`: "the
+/// player must lower the shield before ordering an attack".
 pub const SHIELDS_UP_TEXT: &str = "Lower the Riot Shield first";
 /// The message of another command pressed while one awaits its target or a building is placed (design change 0066:
 /// "To change commands, the player cancels first"). Placeholder wording.
@@ -235,7 +234,6 @@ pub fn reject_text(reject: Reject) -> &'static str {
             NOTHING_TO_CANCEL_TEXT
         }
         Reject::ConstructorBusy(_) => BUSY_TEXT,
-        Reject::CannotConvert => CANNOT_CONVERT_TEXT,
         Reject::CannotAttack => SHIELDS_UP_TEXT,
         Reject::Unplaceable(problem) => placement_text(Some(problem)),
         _ => CANNOT_DO_TEXT,

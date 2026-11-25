@@ -80,10 +80,11 @@ pub struct Object {
     /// saved before it existed still load.
     #[serde(default)]
     pub transform: Option<Transform>,
-    /// A Legionnaire converting to its other form: the frames it has left (`factions/colonists/units.md > Weapon
-    /// Conversion`, plan decision T26; `conversion`). `None` for everything else. Optional in files, so that states
-    /// saved before it existed still load.
-    #[serde(default)]
+    /// A Legionnaire whose form isn't its type yet: the form it has, and the frames left of its conversion under way
+    /// (`factions/colonists/units.md > Weapon Conversion`, plan decision T26, design change 0198; `conversion`).
+    /// `None` for everything else. Optional in files, so that states saved before it existed still load, and so do
+    /// those saved before design change 0198 (`conversion::saved`).
+    #[serde(default, deserialize_with = "crate::conversion::saved")]
     pub conversion: Option<Conversion>,
 }
 

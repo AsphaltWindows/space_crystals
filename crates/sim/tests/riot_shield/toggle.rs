@@ -1,8 +1,8 @@
 //! The two unit types and the toggle's window (design changes 0171 to 0174, which answer question Q0020;
 //! `factions/gdo/units.md > Peacekeeper > Riot Shield > Two unit types`, `> During the toggle`, `> Toggle time`):
-//! the type switches when the toggle starts; while the shield goes up or down the unit is slow and doesn't attack,
-//! and only a shield all the way up protects; a press mid-way turns back from there; a raise pressed mid-attack
-//! waits for the shot; the Barracks trains the Peacekeeper, and both types cost the same Unit Control.
+//! the type switches at the press (design change 0198); while the shield goes up or down the unit is slow and doesn't
+//! attack, and only a shield all the way up protects; a press mid-way turns back from there; a raise pressed
+//! mid-attack waits for the shot; the Barracks trains the Peacekeeper, and both types cost the same Unit Control.
 
 use sc_sim::testing::ScenarioBuilder;
 use sc_sim::{DebugCommand, ProductionCommand, SpawnAt, TilePos};
@@ -20,14 +20,14 @@ fn kind_changes(t: &TestSim) -> Vec<(Tick, u32, ObjectKind, ObjectKind)> {
         .collect()
 }
 
-/// Design change 0173 (`> Two unit types`): "Raising or lowering the shield switches the unit's type", "**when the
-/// toggle starts**". A walking Peacekeeper raised in tick 3 is a Peacekeeper (Shielded) from that tick on, its shield
-/// on its way up; lowered in tick 12, a Peacekeeper again from that tick, its shield on its way down. It stays the
-/// same unit: its id, HP and orders, and its walk goes on: 4 su in tick 2, 2 a tick from the raise to the end of the
-/// lowering (ticks 3 to 12 + T − 2), and 4 again from then on. "Cost and Unit Control are the same for both types":
-/// player 1's Unit Control stays 1 all along.
+/// Design change 0173 (`> Two unit types`): "Raising or lowering the shield switches the unit's type", **at the
+/// press** (design change 0198). A walking Peacekeeper raised in tick 3 is a Peacekeeper (Shielded) from that tick
+/// on, its shield on its way up; lowered in tick 12, a Peacekeeper again from that tick, its shield on its way down.
+/// It stays the same unit: its id, HP and orders, and its walk goes on: 4 su in tick 2, 2 a tick from the raise to
+/// the end of the lowering (ticks 3 to 12 + T − 2), and 4 again from then on. "Cost and Unit Control are the same for
+/// both types": player 1's Unit Control stays 1 all along.
 #[test]
-fn the_type_switches_when_the_toggle_starts() {
+fn the_type_switches_at_the_press() {
     let mut t = spawned(&[(PK, P1, Vec2::new(100.0, 300.0))], false);
     let to = OrderKind::Move(Target::Point(Vec2::new(900.0, 300.0)));
     t.order_at(2, P1, &ids(&[1]), to, false)
@@ -64,7 +64,7 @@ fn the_type_switches_when_the_toggle_starts() {
     assert_eq!(
         kind_changes(&t),
         [(3, 1, PK, SHIELDED), (12, 1, SHIELDED, PK)],
-        "once each way, as each toggle starts"
+        "once each way, at each press"
     );
     let slow = 12 + T - 2 - 3 + 1;
     let walked = 4.0 + 2.0 * slow as f32 + 4.0 * (20 - (12 + T - 2)) as f32;
@@ -73,8 +73,10 @@ fn the_type_switches_when_the_toggle_starts() {
 
 /// Design change 0171 (`> During the toggle`): "While raising **or** lowering, the Peacekeeper moves at half speed
 /// (as with the shield up) and **cannot attack**." A walking Peacekeeper raised in tick 3 and lowered in tick 12
-/// covers 2 su a tick from tick 3 to the end of the lowering, tick 12 + T − 1, and 4 from then on; and all that
-/// while, the gate takes no Attack order for it (`Reject::CannotAttack`), which it takes once the shield is down.
+/// covers 2 su a tick from tick 3 to the end of the lowering, tick 12 + T − 1, and 4 from then on; it never fires.
+/// The gate takes no Attack order for it while it is a Peacekeeper (Shielded) (`Reject::CannotAttack`), and takes one
+/// from the lowering on (design change 0202: "which orders the unit accepts follows its new type from the press"),
+/// its shield on its way down.
 #[test]
 fn while_the_shield_goes_up_or_down_the_unit_is_slow_and_does_not_attack() {
     let mut t = spawned(
@@ -97,13 +99,11 @@ fn while_the_shield_goes_up_or_down_the_unit_is_slow_and_does_not_attack() {
         if tick < down {
             assert_ne!(shield(&t, 1), ShieldMode::Lowered, "tick {tick}");
         }
-        let expected = if tick < down {
-            (2.0, Err(Reject::CannotAttack))
-        } else {
-            (4.0, Ok(()))
-        };
-        assert_eq!((t.pos(1).distance(before), attack), expected, "tick {tick}");
+        let speed = if tick < down { 2.0 } else { 4.0 };
+        let takes = if tick < 12 { Err(Reject::CannotAttack) } else { Ok(()) };
+        assert_eq!((t.pos(1).distance(before), attack), (speed, takes), "tick {tick}");
     }
+    assert_eq!(attacks_by(&t, 1), Vec::<Tick>::new());
 }
 
 /// Design change 0171, Verification: "Raise the shield and get hit mid-raise: full damage." And mid-lowering: the 50%
@@ -166,11 +166,13 @@ fn a_press_mid_way_turns_back_from_where_the_shield_is() {
 /// Design change 0172, Verification: "Peacekeepers fighting, press the shield key: every one raises its shield, some
 /// a few frames after the others." Five Peacekeepers, ordered to attack one tick apart (unit `n` in tick `n + 1`),
 /// aim for 2 ticks, fire in the next (Aim 2, Firing 1: unit `n` in tick `n + 3`), then cool down for 2 ticks. In tick
-/// 7 all five are given the raise. Unit 1, its Cooldown over (ticks 5 and 6), and unit 5, still aiming (an aim can be
-/// interrupted), raise it at once; units 2 to 4, in Cooldown or Firing (`combat::mid_attack`), finish their shot
-/// first, and become Peacekeepers (Shielded) in the first tick after their Cooldown: units 2 and 3 in ticks 8 and 9,
-/// and unit 4, whose aim was done and whose shot goes out in tick 7, in tick 10. Each shot fired lands, unit 5's aim
-/// is cancelled, and nobody fires once shielded.
+/// 7 all five are given the raise, and all five are Peacekeepers (Shielded) from that tick (design change 0198: "The
+/// type, and so the SelectionGroup, switches **at the press**, including when the raise is deferred behind a shot").
+/// Unit 1, its Cooldown over (ticks 5 and 6), and unit 5, still aiming (an aim can be interrupted), start the shield
+/// up at once; units 2 to 4, in Cooldown or Firing (`combat::mid_attack`), finish their shot first, their shields
+/// down, and start them up in the first tick after their Cooldown: units 2 and 3 in ticks 8 and 9, and unit 4, whose
+/// aim was done and whose shot goes out in tick 7, in tick 10. Each shot fired lands, unit 5's aim is cancelled, and
+/// nobody fires once shielded.
 #[test]
 fn fighting_peacekeepers_all_raise_some_a_few_frames_later() {
     let mut t = spawned(
@@ -187,9 +189,23 @@ fn fighting_peacekeepers_all_raise_some_a_few_frames_later() {
     for unit in 1..=5 {
         t.at(unit + 1, P1, attack_order(&[unit], 6, false).command);
     }
-    t.ability_at(7, P1, &ids(&[1, 2, 3, 4, 5]), RAISE).run_until(40);
-    let raised: Vec<(Tick, u32)> = kind_changes(&t).iter().map(|&(tick, id, _, _)| (tick, id)).collect();
-    assert_eq!(raised, [(7, 1), (7, 5), (8, 2), (9, 3), (10, 4)]);
+    t.ability_at(7, P1, &ids(&[1, 2, 3, 4, 5]), RAISE).run_until(6);
+    let mut raised: Vec<(Tick, u32)> = Vec::new();
+    while t.sim().tick() < 40 {
+        t.step();
+        for unit in 1..=5 {
+            let up = t.sim().object(ObjectId(unit)).unwrap().riot_shield.unwrap().up;
+            if up > 0 && !raised.iter().any(|&(_, id)| id == unit) {
+                raised.push((t.sim().tick(), unit));
+            }
+            if t.sim().tick() >= 7 {
+                assert_eq!(kind(&t, unit), SHIELDED, "#{unit} in tick {}", t.sim().tick());
+            }
+        }
+    }
+    assert_eq!(raised, [(7, 1), (7, 5), (8, 2), (9, 3), (10, 4)], "off the ground");
+    let switched: Vec<(Tick, u32)> = kind_changes(&t).iter().map(|&(tick, id, _, _)| (tick, id)).collect();
+    assert_eq!(switched, [(7, 1), (7, 2), (7, 3), (7, 4), (7, 5)], "at the press");
     let fired: Vec<(Tick, u32)> = t
         .events()
         .iter()

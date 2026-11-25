@@ -3,7 +3,7 @@ mod turns;
 
 use super::*;
 use crate::combat::{AttackPhase, AttackState};
-use crate::command::{Ability, Command, DebugCommand};
+use crate::command::{Command, DebugCommand};
 use crate::construction::Constructor;
 use crate::conversion::Conversion;
 use crate::ids::SlotId;

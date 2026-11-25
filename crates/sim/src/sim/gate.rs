@@ -123,10 +123,6 @@ pub enum Reject {
     /// A Cancel Warp In to objects none of which is transforming (`factions/colonists/economy.md > Warp In > Cancel
     /// Warp In`, `crate::transform`).
     NotTransforming,
-    /// None of the units a Convert names may convert (`factions/colonists/units.md > Weapon Conversion >
-    /// Eligibility`, `crate::conversion`): each is converting already, or waiting to (design change 0153: one Firing
-    /// or in Cooldown converts after its Cooldown, "deferred, not rejected").
-    CannotConvert,
     /// A Drop Off order to workers none of which carries anything (design change 0140: "Drop Off is only resolved
     /// for a Drone that is carrying something"; the empty ones among loaded ones are left out).
     NothingToDeliver,
@@ -170,10 +166,6 @@ impl fmt::Display for Reject {
             Reject::NotDropOff(id) => write!(f, "object {} is no drop-off of the player's", id.0),
             Reject::Unplaceable(problem) => write!(f, "the building can't go there: {problem}"),
             Reject::NotTransforming => write!(f, "nothing is transforming"),
-            Reject::CannotConvert => write!(
-                f,
-                "none of the units can convert now: firing, cooling down or converting"
-            ),
             Reject::NothingToDeliver => write!(f, "none of the workers carries anything"),
         }
     }
@@ -234,8 +226,7 @@ impl Sim {
     ///    (`docs/movement.md > 3`);
     /// 4. the command's own rules hold: an order's size and target (which the player must see,
     ///    [`Reject::NotVisible`]), and for an Attack, units that can attack now ([`Reject::CannotAttack`]); the units
-    ///    of an ability that have it ([`Reject::LacksAbility`]), and of a Convert, those that may convert now
-    ///    ([`Reject::CannotConvert`]); the producers of a production command and what they can queue
+    ///    of an ability that have it ([`Reject::LacksAbility`]); the producers of a production command and what they can queue
     ///    (`sim/producers.rs`); the constructors of a construction command that can carry it out, the bank
     ///    that pays and the placement check of a Place (`sim/construction.rs`), and the same of a Warp In's Beacon,
     ///    or the transforming objects a cancel goes to (`sim/transform.rs`); a spawn's owner and placement (a
