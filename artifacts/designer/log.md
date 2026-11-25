@@ -2167,3 +2167,4 @@ Q0051: target lost from vision ends Attack/Follow, unit stops (or next queued). 
 Q0052: Set Drop-off pointer ReturnResources; load visual public, details owner-only; distinct Gather/DropOff/SetDropOff markers. Entry 0201.
 Q0053 pt1: orders accepted per new type at press, executed after toggle (B). Entry 0202.
 Rocketman MinRange (TBD). Entry 0203.
+Q0054: A for all (dropped target ignored rest of leg; back off mid-band; cornered gives up); locked Rocketman no MinRange. Entry 0204.

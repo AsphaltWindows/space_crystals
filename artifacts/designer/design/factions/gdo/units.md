@@ -95,6 +95,7 @@ GDO missile infantry, trained at the Barracks once the player owns an Arsenal. F
 ### AttackAttributes (normal attack):
 - AttackType: DoublyDisjointed (the missile travels to where the target was at the end of Aiming; targets can dodge; can also be fired at the ground)
 - TargetDomain: Universal (ground and air)
+- MinRange: yes (user, 2026-11-25): enemies closer than MinRange can't be targeted; value TBD (systems/controls/behaviors.md > AttackingObject > Target inside MinRange)
 - Damage, Range, ProjectileSpeed, timings: TBD
 
 ### Target Lock (targeted ability)
@@ -105,6 +106,8 @@ The player orders Target Lock on one enemy unit.
 **Locked:** once locked, the Rocketman fires at the locked target from then on, and every missile it fires at that target is **homing** (HeadDisjointed behavior: tracks the target, cannot miss). Locked missiles can be fired from anywhere within LockRange.
 
 **LockRange** is a bit longer than the normal missile Range — so a lock both reaches further and is harder to shake off than a normal attack.
+
+**No minimum range when locked** (user, 2026-11-25): locked homing missiles can be fired at **any distance** up to LockRange, even inside the normal attack's MinRange.
 
 **The lock (or the locking in progress) breaks when:**
 - the target leaves LockRange,

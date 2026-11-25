@@ -170,6 +170,8 @@ If the unit repeatedly fails to make progress toward the target, behavior comple
 
 ### Target inside MinRange
 (user, 2026-11-24) On an explicit Attack whose target is inside the weapon's MinRange, a unit that can move **backs off** until the target is outside MinRange, then attacks. A unit that can't move (e.g. a deployed Artillery Rig) can't carry it out: the order fails with feedback ("Target too close"; same channel as other refusals).
+- **How far it backs off** (user, 2026-11-25; Q0054): to the **middle of the band** between MinRange and Range, not just past MinRange, so a target that keeps stepping closer doesn't make it stop and start on every step.
+- **A unit that can't back off** (cornered, or blocked behind): it **gives up the order** with the same "Target too close" feedback, like an immobile unit (user, 2026-11-25; Q0054; for now).
 
 ## AttackingLocation
 Base behavior for attacking a ground location. Only available to units whose AttackType has CanTargetGround = true.
@@ -230,6 +232,7 @@ Base behavior for moving to a target location while engaging enemies encountered
    - For turret units: set TurretCommandState.LockedTarget = CurrentTarget
 3. While engaged with CurrentTarget:
    - **The leash limits chasing only** (user, 2026-11-24): a CurrentTarget **within weapon range is always fought**, wherever the unit is. The unit does not **move** to chase a target if that would take it beyond AttackMoveLeashDistance (perpendicular distance from PathReference). If the target is out of weapon range and can only be reached by going beyond the leash: disengage, clear CurrentTarget, resume MovingToLocation from current position toward TargetLocation (recompute path). So an attack-moving unit is never shot without fighting back by an enemy it can reach from where it is; it only ignores enemies that outrange it from beyond the leash.
+   - **A dropped target is left alone for the rest of the leg** (user, 2026-11-25; Q0054, for now): a target the unit disengaged from (above) while it was still alive is not taken again as CurrentTarget until the unit reaches TargetLocation (the end of this leg), **unless it comes within weapon range**, where it is fought as always. This stops a unit from dropping and re-taking the same target forever at the leash edge.
    - If CurrentTarget is destroyed: clear CurrentTarget, resume MovingToLocation from current position toward TargetLocation (recompute path)
 4. When unit arrives at TargetLocation: behavior complete
 
