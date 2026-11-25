@@ -2632,8 +2632,28 @@ Drones, through one command flow (plan decision T10, slices M2-H1, M2-H2 and M3-
   (`SlotPress::SelectReturningDrones`, then `ControlState::replace_selection`) that replaces the selection with the
   node's `Sim::returning_drones` (`Conditions::returning`, asked for the ActiveGroup's node: `instance_only`); the
   button shows only while there are some (`Conditions::shows`). Its label, "Drones", keeps the full label size at 720p.
+- **The Syndicate's panels** (slice M4-J2; `factions/syndicate/tunnels.md > Tunnel ObjectInterfaceState`,
+  `factions/syndicate/tunnels.md > EjectMenu`, `factions/syndicate/structures/hideout.md > ObjectInterfaceState[Hideout]`;
+  design changes 0252, 0257, 0260): `command_ui/interface/templates/syndicate/` has `tunnel.rs`
+  (`InterfaceTemplate::Tunnel`, no right-click: E `PanelCommand::EjectMenu`; Q Upgrade, W Expand and X Cancel held
+  greyed until slices M4-G and M4-F), `hideout.rs` (the Production grid, W Guard and E Grenadier held greyed) and
+  `eject_menu.rs`. **A placeholder entry** (`templates/planned.rs`, `Planned`) holds its slot greyed with its own
+  reason (`Planned::why`: `WhyUnavailable::Placeholder`, such as "Requires an Optics Lab"), until the slice that brings
+  its command replaces it. **A menu's order is the sim's data** (`sc_sim::defs::EJECT_MENU_ORDER`, design change 0257's
+  "Agent, Guard, Grenadier, …"): a slice that adds a unit adds it there, not in the client. E enters
+  `InterfaceState::EjectMenu`, a StateOnlyTransition (`SlotPress::OpenEjectMenu`): a `PanelCommand::Eject(kind)` tile
+  per kind of that list, from Q on, every slot but Z; each is greyed by the gate's answer to its `Command::Tunnel`
+  (`Reject::NotInNetwork`, `InTransit` for Q0077's transit delay, `NoTransit` for the tier, each with its message) and
+  carries the network's count (`PanelSlot::count`, `Conditions::network_count` from `Sim::network_counts`, so the count
+  drops at the press). A tile sends `TunnelCommand::Eject` to the Tunnel Tabbed to (Tunnels are Ungroupable;
+  `SlotPress::Tunnel`, `OrderOutbox::tunnel`) and the menu stays open; Z, Escape and a right-click go back. Held units
+  leave the selection and stay in their control groups (`ControlState::retain_on_map`); a recall selects the members
+  on the map, and a group with none on the map recalls as an empty one does: nothing changes (placeholder,
+  `ControlState::recall_group`). A Hideout's rally pointer and marker on an own Tunnel or Hideout are every producer's
+  (Move, a green Object marker); the sim decides what the unit does (0252).
 - **Visuals**: the panel's buttons (`hud/command_panel.rs`) are rebuilt when the panel, the bindings or the surface
-  changes; each shows its command's label (`PanelSlot::label`) and its hotkey from the bindings. **Every label keeps
+  changes; each shows its command's label (`PanelSlot::label`) and its hotkey from the bindings, and an EjectMenu tile
+  its count in its bottom-right corner. **Every label keeps
   the full label size at 720p: six characters at most** (slice M3-K2a; a unit test measures every label of every
   panel on surfaces down to 800 × 600): what a button makes by its type's tag ("PK" trains a Peacekeeper, "GN" builds
   a Generator, "RP" warps in a Robo Portal, as `short_label` shows them on the map), "Place" for a ready building,
@@ -2703,7 +2723,13 @@ Drones, through one command flow (plan decision T10, slices M2-H1, M2-H2 and M3-
   another player's) in the game modes, whatever the interface: each site's footprint tinted on the terrain with an
   outline, one mesh rebuilt only when the sites or the map change, just in front of the build area overlay
   (`LINGERING_Z`). A ghost goes with its order, when the deployment starts or the order is cancelled, replaced or
-  fails.
+  fails. `TunnelAreaOverlay` (`placement/tunnel_areas.rs`, slice M4-J2) shows the Tunnel Areas the local player knows
+  of (`known_areas`: their own Tunnels' at their tier now; the others' they see at their tier now, and those they
+  remember at the record's place and the tier last seen, `LastKnown::tunnel`; never one they know nothing of), their
+  own in violet and the others' in red, with the build area overlay's look (`overlay::tint_area`) and z, but on
+  unexplored tiles and off the map; one mesh rebuilt only when the areas, their unexplored tiles or the map changed.
+  It shows while a Tunnel of theirs is the ActiveGroup (`tunnel_areas::shows`, a placeholder); the placements of
+  slices M4-J1 and M4-F add theirs there.
 - The design leaves some things open (labels, colours, the flash, the cursor's shapes and the Mixed look, the
   invalid-target and insufficient-resources feedbacks' form and duration, the targeting click allowance's value, when
   Shift counts for a targeting click, Shift with a rally point; the ghost's and the overlay's looks, the placement
@@ -3053,8 +3079,10 @@ One kind (plan decision T54, slices M4-R1 and M4-R2): its own files, and one lin
 3. **A panel of its own**, `crates/game/src/command_ui/interface/templates/<faction>/<object>.rs`: its `TEMPLATE`, its
    grid and menus, and its `InterfaceTemplate` variant, with its arms in `InterfaceTemplate::grid` and in the
    right-click (`command_ui/resolution.rs`). A unit or building of its panel that isn't in the game yet holds its slot
-   (`PanelTemplate::planned`, `PanelCommand::Planned`), and a command the design names after the object has its name
-   there (`PanelTemplate::names`). A builder also needs its `Builder` (*Adding a faction*, step 7).
+   (`PanelTemplate::planned`, `PanelCommand::Planned`, with its reason in `Planned::why`), and a command the design
+   names after the object has its name there (`PanelTemplate::names`). A menu whose entries follow a design list in
+   grid order takes the list from the sim's data (`sc_sim::defs::EJECT_MENU_ORDER`), so a new unit or expansion joins
+   it there. A builder also needs its `Builder` (*Adding a faction*, step 7).
 4. **Where numbers go**:
    - the object's own numbers in its def, as fields, not in logic files;
    - a number a system uses for every kind in that system's tuning module (*Tunables*);

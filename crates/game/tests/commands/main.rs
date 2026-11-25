@@ -44,6 +44,7 @@ mod riot_shield;
 mod shield_orders;
 mod shift_targeting;
 mod supplies;
+mod syndicate_panels;
 mod targeting;
 mod tunnel_network;
 
