@@ -149,7 +149,7 @@ fn the_tunnel_has_its_letters_and_e_opens_the_eject_menu() {
         let overlay = app.world().resource::<TunnelAreaOverlay>();
         (
             overlay.visible,
-            overlay.shown.iter().map(|known| known.area).collect::<Vec<_>>(),
+            overlay.selected.iter().map(|shown| shown.area).collect::<Vec<_>>(),
         )
     };
     assert_eq!(overlay(&app), (false, vec![]));

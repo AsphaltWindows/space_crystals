@@ -32,7 +32,8 @@
 //! ghosts, the Enter and Drop Off pointers, a carried Supply): `agent_ui`, on a Syndicate field. A Tunnel's
 //! expansions (slice M4-F: its ExpandMenu, the ghost held within its area, the operation and its Cancel):
 //! `expansions`, on another. Its Upgrade (slice M4-G: Q with its price and its reasons, the progress, X's refund, the
-//! larger area): `tunnel_upgrade`.
+//! larger area): `tunnel_upgrade`. The Tunnel Area display (slice M4-J3: a selected Tunnel's area, never an enemy's,
+//! and a Tunnel ghost's Tier 2 and Tier 3 rings with their red cells): `tunnel_areas`.
 
 mod agent_ui;
 mod click_allowance;
@@ -54,6 +55,7 @@ mod shift_targeting;
 mod supplies;
 mod syndicate_panels;
 mod targeting;
+mod tunnel_areas;
 mod tunnel_network;
 mod tunnel_upgrade;
 

@@ -199,12 +199,13 @@ fn w_opens_the_expand_menu_nine_expansions_then_the_turret() {
 }
 
 /// `factions/syndicate/tunnels.md > AwaitingPlacement (Expansion)`: "A ghost preview of the expansion follows the
-/// cursor within the Tunnel Area, snapped to the grid", while the area shows (Q0086 point 4, placeholder). Design
-/// change 0290's verification, "Place a Hideout under a standing Guard: it is accepted": the ghost is green over the
-/// Guard. East of the area the ghost stays at its edge, on the crystal patch: red, and a click there says why and
-/// sends nothing. Z goes back to the ExpandMenu ("**Z**: returns to ExpandMenu"), Q places again, and a click over
-/// the Guard builds the Hideout there (one `TunnelCommand::Expand`) and returns to DefaultState: paid at once
-/// (design change 0254), the Guard where it stood.
+/// cursor within the Tunnel Area, snapped to the grid", while the area shows (`factions/syndicate/tunnels.md > Tunnel
+/// Area display`: "**Placing an expansion** (from a selected Tunnel) shows that Tunnel's area too"; design change 0300,
+/// answering Q0086 point 4: "as built"). Design change 0290's verification, "Place a Hideout under a standing Guard: it
+/// is accepted": the ghost is green over the Guard. East of the area the ghost stays at its edge, on the crystal patch:
+/// red, and a click there says why and sends nothing. Z goes back to the ExpandMenu ("**Z**: returns to ExpandMenu"), Q
+/// places again, and a click over the Guard builds the Hideout there (one `TunnelCommand::Expand`) and returns to
+/// DefaultState: paid at once (design change 0254), the Guard where it stood.
 #[test]
 fn the_ghost_stays_in_the_area_and_a_click_builds_the_hideout() {
     let mut app = expansion_game();
@@ -213,8 +214,12 @@ fn the_ghost_stays_in_the_area_and_a_click_builds_the_hideout() {
     assert_eq!(interface(&app), placing_hideout());
     let overlay = app.world().resource::<TunnelAreaOverlay>();
     assert!(overlay.visible, "the area shows");
-    let areas: Vec<TileRect> = overlay.shown.iter().map(|known| known.area).collect();
-    assert_eq!(areas, [AREA]);
+    let areas: Vec<TileRect> = overlay.selected.iter().map(|shown| shown.area).collect();
+    assert_eq!(
+        (areas, overlay.rings.len()),
+        (vec![AREA], 0),
+        "the Tunnel's area, no ring"
+    );
 
     pointer_over(&mut app, centre(UNDER_GUARD));
     let over_guard = ghost(&app).expect("a ghost");
