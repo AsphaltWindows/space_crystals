@@ -9,7 +9,7 @@
 use sc_sim::orders::state::{Judged, Leg};
 use sc_sim::orders::{Behaviour, JUDGE_PATHS_PER_TICK, REJUDGE_SELF_SU};
 use sc_sim::testing::{ScenarioBuilder, TestSim};
-use sc_sim::{ObjectId, ObjectKind, OrderKind, PlayerId, Shape, SimEvent, SpawnAt, Tick, TilePos, Vec2};
+use sc_sim::{DebugCommand, ObjectId, ObjectKind, OrderKind, PlayerId, Shape, SimEvent, SpawnAt, Tick, TilePos, Vec2};
 
 const P1: PlayerId = PlayerId(1);
 const P2: PlayerId = PlayerId(2);
@@ -387,4 +387,54 @@ fn a_unit_standing_still_judges_no_rejection_again() {
     }
     assert!(standing >= 80, "it stood {standing} ticks");
     assert!(attack_ticks(&t, 1, 2).is_empty() && attack_ticks(&t, 1, 3).is_empty());
+}
+
+/// "Covered: reach-rule rejections, and chases that end beyond the leash", the leash being part of the reach rule
+/// (design change 0230). In the open, the Guard attack-moving east along row 1 takes the Drone 4 rows south of its
+/// route, within its reach, and goes after it. Pushed aside (a teleport) beyond the leash, 7.1 grid units from its
+/// route, with the Drone in its sight and out of its Range, it lets go: a rejection by the reach rule, where it
+/// stands. It walks back towards its route, judging nothing while beyond the leash; on the leash again, more than a
+/// grid unit from where it let go, it judges the Drone again, takes it and shoots it, as a fresh Guard there would.
+/// With 0230's triggers alone it walked on: the Drone stood, its owner knew the same obstacles, the route was the same.
+#[test]
+fn a_chase_that_ended_beyond_the_leash_is_judged_again_once_the_unit_has_moved() {
+    let open = "..............................\n".repeat(12);
+    let mut t = ScenarioBuilder::new(&open)
+        .spawn(GUARD, Some(P1), SpawnAt::Point(centre(4, 1))) // 1
+        .spawn(DRONE, Some(P2), SpawnAt::Point(centre(15, 5))) // 2
+        .start();
+    t.order_at(2, P1, &[id(1)], OrderKind::AttackMove(centre(29, 1)), false)
+        .run_until(2);
+    while !(engaged(&t, 1) == Some(id(2)) && leg(&t, 1).is_some_and(|leg| leg.chase.is_some())) {
+        assert!(t.sim().tick() < 300, "never went after the Drone\n{}", t.ascii(None));
+        t.step();
+    }
+    let chase = leg(&t, 1).unwrap().chase.unwrap();
+    assert_eq!(chase.from, None, "a chase's judgement keeps 0230's triggers");
+    let beyond = Vec2::new(1142.0, 552.0);
+    let pushed = t.sim().tick() + 1;
+    t.debug_at(pushed, DebugCommand::SetPosition { id: id(1), pos: beyond })
+        .run_until(pushed);
+    assert!(
+        gap(&t, 1, 2) > RANGE_SU && gap(&t, 1, 2) <= SIGHT_SU,
+        "{}",
+        gap(&t, 1, 2)
+    );
+    assert_eq!(engaged(&t, 1), None, "let go");
+    let judged = rejection(&t, 1, 2).expect("rejected");
+    assert_eq!(judged.from, Some(beyond), "by the reach rule, where it stood");
+    while engaged(&t, 1).is_none() {
+        assert!(!is_idle(&t, 1), "it walked on, and never took the Drone again");
+        assert!(t.sim().tick() < pushed + 200, "never took it again\n{}", t.ascii(None));
+        t.step();
+        if leg(&t, 1).is_some_and(|leg| leg.engaged.is_none()) {
+            assert_eq!(rejection(&t, 1, 2), Some(judged), "tick {}", t.sim().tick());
+        }
+    }
+    assert!(pos(&t, 1).distance(beyond) >= REJUDGE_SELF_SU, "{}", pos(&t, 1));
+    assert!(t.sim().reach_counters().paths >= 1, "by a judgement");
+    while attack_ticks(&t, 1, 2).is_empty() {
+        assert!(t.sim().tick() < pushed + 400, "never shot it\n{}", t.ascii(None));
+        t.step();
+    }
 }

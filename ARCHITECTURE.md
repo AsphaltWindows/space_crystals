@@ -1734,8 +1734,8 @@ M3-D2: design change 0145, `> Portals > Portal Exits (energy doorway)`).
   walls passed without a chase, a rejected enemy taken within weapon range, an identical enemy swapped in, judging
   again when the enemy moves a grid unit or the known obstacles change, the paths per unit and tick),
   `attack_move_own_movement.rs` (0243: judging again once the unit has walked a grid unit from where it judged,
-  tick by tick and within the bound, none while it stands, and 0243's Verification against a fresh Guard on the
-  same spot), `target_priority.rs` (0179:
+  tick by tick and within the bound, none while it stands, a chase that ended beyond the leash, and 0243's
+  Verification against a fresh Guard on the same spot), `target_priority.rs` (0179:
   the 45° steps of rotation, the step's bound, ties by id), the unit tests in `orders/tests/` (with test-only defs:
   a unit fighting back beyond its leash, artillery out-ranging it left alone, MinRange: the back-off, the immobile
   unit's failed order, the scans skipping enemies inside it; the steps themselves),
