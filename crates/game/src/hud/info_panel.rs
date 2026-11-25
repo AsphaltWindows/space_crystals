@@ -32,6 +32,7 @@ pub mod activity;
 pub mod hint;
 
 use bevy::prelude::*;
+use sc_sim::defs::Resource;
 use sc_sim::economy::Worker;
 use sc_sim::vision::LastKnown;
 use sc_sim::{Object, ObjectKind, PlayerId, ResourceState, Sim, TICKS_PER_SECOND};
@@ -246,14 +247,19 @@ fn object_info(sim: &Sim, sight: &Sight, shown: Shown, record: Option<&LastKnown
 }
 
 /// What one of the local player's own workers carries, and where it delivers it (slice M3-J2): "Carrying 8 Space
-/// Crystals" while it carries a load (`factions/colonists/units.md > Drone > Gathering`), and its AssignedDropOff's
+/// Crystals", or "Carrying 1 Supply" (slice M4-I), while it carries a load (`factions/colonists/units.md > Drone >
+/// Gathering`, `factions/syndicate/units/agent.md > Gathering`), and its AssignedDropOff's
 /// name while it has one (`> Assigned Drop-off`). Placeholder lines, and only its owner sees them, as only a
 /// structure's owner sees what it is doing (design change 0105; the design doesn't say what a worker's panel
 /// shows). Its load shows on its body to everyone (`crate::object_render::LoadMarker`).
 fn worker_lines(sim: &Sim, worker: Worker) -> Vec<String> {
     let mut lines = Vec::new();
     if worker.load > 0 {
-        lines.push(format!("Carrying {} Space Crystals", worker.load));
+        lines.push(match (worker.resource, worker.load) {
+            (Resource::Crystals, load) => format!("Carrying {load} Space Crystals"),
+            (Resource::Supplies, 1) => "Carrying 1 Supply".to_string(),
+            (Resource::Supplies, load) => format!("Carrying {load} Supplies"),
+        });
     }
     if let Some(node) = worker.drop_off.and_then(|id| sim.object(id)) {
         lines.push(format!("Drop-off: {}", node.def().name));

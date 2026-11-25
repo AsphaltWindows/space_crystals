@@ -222,7 +222,9 @@ fn loaded(unit: &Unit) -> bool {
 
 /// Whether the worker carries a load of `resource` (`economy::gathering::Worker::resource`).
 fn carrying(unit: &Unit, resource: Resource) -> bool {
-    unit.worker.as_ref().is_some_and(|worker| worker.load > 0 && worker.resource == resource)
+    unit.worker
+        .as_ref()
+        .is_some_and(|worker| worker.load > 0 && worker.resource == resource)
 }
 
 /// Whether the job is on its way back: from the patch with its load, at the drop-off, or just done there.

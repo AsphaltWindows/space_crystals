@@ -198,7 +198,13 @@ mod tests {
             (Some(B), tile.center(), Shape::rect(tile.center(), Vec2::splat(32.0)))
         );
         // Slice M4-I: Supplies at the hatch on Side D, tile (10, 22).
-        let point = drop_point(ObjectKind::Tunnel, placement.center(), whole, Some(&placement), Resource::Supplies);
+        let point = drop_point(
+            ObjectKind::Tunnel,
+            placement.center(),
+            whole,
+            Some(&placement),
+            Resource::Supplies,
+        );
         let tile = TilePos::new(10, 22);
         assert_eq!(
             point.map(|point| (point.side, point.centre, point.shape)),

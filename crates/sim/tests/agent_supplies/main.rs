@@ -31,7 +31,7 @@ use sc_sim::orders::state::{Behaviour, GatherPhase};
 use sc_sim::testing::{ScenarioBuilder, TestSim};
 use sc_sim::{
     Faction, Object, ObjectId, ObjectKind, OrderKind, PlayerId, ResourceState, Shape, SimEvent, SpawnAt, SpawnSettings,
-    Tick, TilePos, Vec2,
+    Tick, TilePos,
 };
 
 const P1: PlayerId = PlayerId(1);
@@ -282,9 +282,4 @@ fn run_to(
         }
     }
     panic!("{what}: not within {limit} ticks\n{}", t.ascii(None));
-}
-
-/// A point of tile `(x, y)`'s middle.
-fn middle(x: i32, y: i32) -> Vec2 {
-    TilePos::new(x, y).center()
 }

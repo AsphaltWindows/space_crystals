@@ -107,7 +107,8 @@ pub enum Reject {
     NotConstructing,
     /// A Cancel Ready Building or a Place to a constructor that holds no building ready to place.
     NothingReady,
-    /// None of the units a Gather or a Drop Off order names is a worker (`factions/colonists/units.md > Drone`), or
+    /// None of the units a Gather or a Drop Off order names is a worker (`factions/colonists/units.md > Drone`), none
+    /// of those a Gather on a Supply Delivery Station names gathers Supplies (`Sim::gatherers_among`, slice M4-I), or
     /// none of those a Deploy names deploys (`crate::deploy`).
     NoWorkers,
     /// A Gather's target isn't a Space Crystals patch that workers can gather, nor a Supply Delivery Station: another

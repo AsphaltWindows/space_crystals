@@ -835,12 +835,14 @@ the target the attack engages, and reads `Mover::status` and the snapshot.
 - **Patrol** (`travel::patrol`): legs to and fro between the position where the Patrol started executing (design
   change 0036) and the destination. A failed leg counts as arrived; `PATROL_FAILED_LEGS` (2) in a row end it (design
   change 0037).
-- **Gathering** (`orders/gather.rs` with `gather/patch.rs` (the job at its patch), `gather/deliver.rs` (the way
-  back and the line at a hatch), `gather/claims.rs`, `gather/search.rs`, `gather/legs.rs` and `gather/site.rs` (the
-  patch as the owner knows it, design change 0139), `orders/world/gathering.rs`;
-  slices M3-H, M3-H3 and M4-D, plan decisions T17 and T34; `factions/colonists/units/drone.md`, whose rules design
-  changes 0123 and 0127 to 0141 settled, answering question Q0037; `factions/syndicate/units/agent.md >
-  Gathering`, design change 0255): one behaviour for the Gather and the Drop Off order of **every worker type**, in
+- **Gathering** (`orders/gather.rs` with `gather/patch.rs` (the job at its patch), `gather/station.rs` and
+  `gather/station/spot.rs` (the job at a Supply Delivery Station), `gather/deliver.rs` (the way back and the line at
+  a hatch), `gather/claims.rs`, `gather/search.rs`, `gather/legs.rs` and `gather/site.rs` (the patch or the station as
+  the owner knows it, design change 0139), `orders/world/gathering.rs`;
+  slices M3-H, M3-H3, M4-D and M4-I, plan decisions T17 and T34; `factions/colonists/units/drone.md`, whose rules
+  design changes 0123 and 0127 to 0141 settled, answering question Q0037; `factions/syndicate/units/agent.md >
+  Gathering`, design changes 0255 and 0256): one behaviour for the Gather and the Drop Off order of **every worker
+  type** and both resources, in
   the phases of `GatherPhase`: ToPatch, Waiting, Mining, ToDropOff, AtHatch, DroppingOff, Delivered. What differs
   between the Drone and the Agent is data: the worker's `WorkerDef` and the drop-off's `StructureDef::drop_off`.
   - **Agents** (M4-D): `WorkerDef::shares_patches` takes a type out of the occupancy below altogether (it neither
@@ -848,7 +850,28 @@ the target the attack engages, and reads `Mover::status` and the snapshot.
     mine one patch together); without `keeps_drop_off` a Gather begins with no AssignedDropOff and takes the nearest
     drop-off as its first return starts, keeping it for that Gather (there is no Set Drop-off for the type: the gate's
     `Sim::sets_drop_off`). "Nearest" is by the drop point's centre (`economy::drop_off::DropPoint`): a Tunnel's
-    crystal hatch, an Egress Node's own centre.
+    hatch for the load's resource, an Egress Node's own centre.
+  - **Supplies** (M4-I; `agent.md > Gathering > Supplies`, design change 0256): a Gather on a Supply Delivery
+    Station (`Site::Station`, the station as the owner knows it) runs the same phases, for a worker type with
+    `WorkerDef::supplies` (the Agent; the gate's `Sim::gatherers_among`, `resolve`'s station rule). `Mining` at a
+    station is the pick-up, PickUpDuration long; `economy::gathering::step` tells a station from a patch by the target
+    (`economy::stations`). **No occupancy** (point 1): each worker heads for a free spot of its own round the station
+    (`station::spot`: the nearest point against a face, or beside a face's end within reach, clear of known
+    structures, of the units its owner sees there and of the spots claimed in this tick, `Claims::take_spot`), since
+    Agents collide. **Claims on the Supplies** (point 2): a pick-up begins only while the station's Supplies outnumber
+    the pick-ups running as 5a began (`World::unclaimed_supplies`) plus those begun in this tick
+    (`Claims::take_supply`); the Supply leaves the station as the pick-up ends (`stations::take`), never before, and
+    a pick-up stopped earlier takes nothing (0130). **An empty station** (point 3): the worker waits beside it
+    (`Waiting`), keeping its Gather, for ever, and picks up as soon as a Supply is free; one that can't get within
+    reach sets off again every `RECHECK_TICKS`, for a spot free by then (0141's rule). The pick-up that takes the last
+    Supply emits `SimEvent::SupplyStationEmpty { station, owner }` once for each player whose workers' Gather names
+    the station (the notification, a placeholder reading of "the owner"). **Switching resources** (point 4; Q0082
+    point 3, a placeholder): `Worker::resource` says what the load is; a worker with crystals sent to a station (or
+    with a Supply to a patch) goes straight there, and loses its load as the new pick-up or mining ends, with the new
+    load in hand; one stopped before then keeps it. A worker with a Supply sent to a station turns round there and
+    delivers it (0128). **The return** goes to the hatch of the load's resource: Side D for Supplies (design change
+    0248), with its own one-at-a-time line, so a Tunnel takes a crystal and a Supply delivery in the same ticks; the
+    nearest Tunnel is measured to that hatch and both reaches are 8 su (Placeholders: Q0082 points 1 and 2).
   - **A hatch takes one worker at a time** (`defs::DropOff::Hatches`, the Tunnel; `deliver::at_hatch`). DropOffReach
     is measured to the hatch square. A worker within reach is `AtHatch { since }`: it unloads if nobody did as phase
     5a began (`World::hatch_busy`) or has begun since (`Claims::take_hatch`), and it is the first of the line
@@ -1317,10 +1340,16 @@ section of its own.
   emptied this way leaves the map in the same tick, unless a plate stands on it; workers never gather a plated
   patch. `Sim::returning_drones(node)` is the Egress Node's F.
   **Worker types and drop-offs are data** (slice M4-D, plan decision T34): a `WorkerDef` has a `LoadDef` per
-  resource (`crystals`; `supplies` is `None` until slice M4-I), `shares_patches`, `keeps_drop_off`, `search_radius`
+  resource (`crystals`, and `supplies`, the Agent's since slice M4-I: 1 a trip, 48 frames to pick up and 48 to unload,
+  reaches of 8 su, `WorkerDef::load(Resource)`), `shares_patches`, `keeps_drop_off`, `search_radius`
   and `pass_through`; `StructureDef::drop_off` is `None`, `DropOff::Anywhere` (the Egress Node) or
-  `DropOff::Hatches { crystals, supplies }` (the Tunnel: Sides B and D, design change 0248).
-  `economy/drop_off.rs` turns that into a `DropPoint` (shape, centre, side) and has **the hatch square**
+  `DropOff::Hatches { crystals, supplies }` (the Tunnel: Sides B and D, design change 0248; `DropOff::hatch`).
+  `Worker::resource` (`defs::Resource`, Crystals by default) is what the load is, kept in saves and hashed only while
+  it is Supplies; a delivery credits the bank of its resource, and `SimEvent::ResourcesDelivered` says which.
+  `economy/stations.rs` is the station's side of a pick-up: the Supply taken as the pick-up ends, and the
+  notification of an empty station (slice M4-I, see *Behaviours > Gathering*).
+  `economy/drop_off.rs` turns that into a `DropPoint` for a resource (`drop_point_of(object, resource)`: shape,
+  centre, side) and has **the hatch square**
   (`hatch_offset`, `hatch_tile`, `hatch_square(tunnel, Resource)`, also `tunnel::hatch_square`): the middle tile of
   the side, of two middle tiles the one farther from Side A, read off `sides()` so that it turns and flips with the
   structure; the client draws the hatches there. The Agent: 50 a load, 80 frames of mining, 64 of unloading, reaches
@@ -1709,11 +1738,12 @@ M3-D2: design change 0145, `> Portals > Portal Exits (energy doorway)`).
   `PatchDepleted`, `ProductionQueued`, `ProductionRefused`, `ProductionCancelled`, `ProductionWaiting`, `UnitProduced`,
   `ConstructionCompleted`, `ConstructionCancelled`, `StructurePlaced`, `PlacementRefused`, `PlayerDefeated`,
   `GameOver`, `KindChanged`, `TransformCompleted`, `TransformCancelled`, `ResourcesDelivered`, `DeployFailed`,
-  `TargetTooClose`, …) are output only, for effects, sounds and UI. The sim never reads them. `DeployFailed { drone,
+  `TargetTooClose`, `SupplyStationEmpty`, …) are output only, for effects, sounds and UI. The sim never reads them. `DeployFailed { drone,
   origin, problems }` (slice M3-F) is a Deploy that failed on arrival; the client's feedback line says why
   (`command_ui/feedback.rs`). `TargetTooClose { unit, target }` (slice M3-L2, design change 0182) is an Attack order
   that failed because its target is inside the MinRange of a unit that can't move; the feedback line says "Target
-  too close".
+  too close". `SupplyStationEmpty { station, owner }` (slice M4-I, design change 0256 point 3) is a station whose last
+  Supply was picked up, for each player gathering there; the client's notice says so (`hud/notices.rs`).
   `EnteredNetwork { unit, tunnel }` and `LeftNetwork { unit, tunnel }` (slice M4-C) are a unit leaving the map
   for a Tunnel Network and coming back with its id: no `Removed` and no `Spawned` go with them. `EnterFailed { unit,
   tunnel }` is an Enter that ended without the unit going in.
@@ -2256,7 +2286,10 @@ that the units in production (design change 0143) count as the sim counts them; 
 / available (`Sim::army_cap`; red over capacity, 0112), with no Power; for the Syndicate (slice M4-B,
 `factions/syndicate/overview.md > DisplayHud`) Space Crystals, Supplies and Tunnel Space as used / available
 (`Sim::army_cap`; red over capacity, as `tunnels.md > Tunnel Space` has it, "12/10"); the Cults Space Crystals
-only, until their own resources exist. At the end of the game a banner across the world view (`hud/outcome.rs`,
+only, until their own resources exist. Under the top bar, a placeholder notice (`hud/notices.rs`,
+`STATION_EMPTY_TEXT` for `NOTICE_TICKS` sim ticks) tells the local player that a Supply Delivery Station where their
+Agents gather is empty (`SimEvent::SupplyStationEmpty`, design change 0256 point 3: "the owner gets a notification",
+notifications not designed yet). At the end of the game a banner across the world view (`hud/outcome.rs`,
 placeholder look and wording) shows the local player's `Banner`: VICTORY for the winners, DEFEAT for everyone else,
 DRAW for everyone when nobody won (design change 0163), and DEFEATED with a spectating line while a defeated player
 watches the game go on beside an ally (0102; never yet: the sim has no teams). A player defeated while the game goes

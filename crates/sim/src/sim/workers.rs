@@ -190,7 +190,14 @@ impl Sim {
         }
         let returning: Vec<(ObjectId, Vec2, Option<PlayerId>, Resource)> = (self.objects.values())
             .filter(|o| !is_gone(o.id) && returning_to(o).is_some_and(is_gone))
-            .map(|o| (o.id, o.pos, o.owner, o.worker.map_or(Resource::Crystals, |w| w.resource)))
+            .map(|o| {
+                (
+                    o.id,
+                    o.pos,
+                    o.owner,
+                    o.worker.map_or(Resource::Crystals, |w| w.resource),
+                )
+            })
             .collect();
         for (id, pos, owner, resource) in returning {
             let nearest = self.nearest_drop_off(pos, owner, resource, is_gone);

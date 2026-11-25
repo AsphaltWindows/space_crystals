@@ -137,11 +137,11 @@ pub(super) static AGENT: ObjectDef = ObjectDef {
             },
             // `> Gathering > Supplies` (slice M4-I; design change 0256 for the rules at a station)
             supplies: Some(LoadDef {
-                carry_capacity: 1,               // CarryCapacity: 1 Supply per trip
-                pick_up_ticks: 48,               // PickUpDuration: 48 frames (3 seconds)
-                drop_off_ticks: 48,              // DropOffDuration: 48 frames (3 seconds)
-                pick_up_reach: SUPPLIES_REACH,   // to the station's edge
-                drop_off_reach: SUPPLIES_REACH,  // to the Supplies hatch on Side D
+                carry_capacity: 1,              // CarryCapacity: 1 Supply per trip
+                pick_up_ticks: 48,              // PickUpDuration: 48 frames (3 seconds)
+                drop_off_ticks: 48,             // DropOffDuration: 48 frames (3 seconds)
+                pick_up_reach: SUPPLIES_REACH,  // to the station's edge
+                drop_off_reach: SUPPLIES_REACH, // to the Supplies hatch on Side D
             }),
             shares_patches: true,  // Patch sharing: any number of Agents may mine the same patch
             keeps_drop_off: false, // `> Gathering rules`: the nearest Tunnel, picked again by each Gather

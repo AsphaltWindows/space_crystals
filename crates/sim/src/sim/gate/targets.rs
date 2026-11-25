@@ -92,7 +92,10 @@ impl Sim {
     /// Delivery Station"; slice M4-I), which only the workers that gather Supplies take (`Sim::gatherers_among`).
     pub(in crate::sim) fn check_gather_target(&self, player: PlayerId, id: ObjectId) -> Result<(), Reject> {
         self.check_target_known(player, id)?;
-        if !self.aimed(player, id).is_some_and(|aimed| aimed.gatherable || aimed.station) {
+        if !self
+            .aimed(player, id)
+            .is_some_and(|aimed| aimed.gatherable || aimed.station)
+        {
             return Err(Reject::NotGatherable(id));
         }
         Ok(())

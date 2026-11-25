@@ -28,19 +28,33 @@ fn one_agent_empties_a_station_of_four_and_four_arrive_again() {
         supply_deliveries(t).len() == 4
     });
     let delivered = supply_deliveries(&t);
-    assert!(delivered.iter().all(|d| (d.1, d.2, d.3) == (3, T1, CARRY)), "{delivered:?}");
+    assert!(
+        delivered.iter().all(|d| (d.1, d.2, d.3) == (3, T1, CARRY)),
+        "{delivered:?}"
+    );
     assert_eq!(banks(&t, P1), (before.0, before.1 + 4), "the bank gains 4 Supplies");
     // 0256 point 3: "stands next to it indefinitely, keeping its job, waiting for the next supply delivery".
-    run_to(&mut t, &all, &[STATION], 300, "back at the station", |t| is_waiting(t, 3));
+    run_to(&mut t, &all, &[STATION], 300, "back at the station", |t| {
+        is_waiting(t, 3)
+    });
     let refill = run_to(&mut t, &all, &[STATION], DELIVERY_INTERVAL, "the delivery", |t| {
         assert_eq!(order(t, 3), Some(OrderKind::Gather(id(STATION))));
         assert!(gap(t, 3, STATION) <= REACH, "beside the station");
         let refilled = !refills(t).is_empty();
-        assert!(refilled || is_waiting(t, 3), "tick {}: {:?}", t.sim().tick(), phase(t, 3));
+        assert!(
+            refilled || is_waiting(t, 3),
+            "tick {}: {:?}",
+            t.sim().tick(),
+            phase(t, 3)
+        );
         refilled
     });
     assert_eq!(refills(&t), [(refill, STATION, DELIVERY_SIZE)]);
-    assert_eq!(refill - emptied, DELIVERY_INTERVAL - 1, "960 frames, the tick it emptied the first");
+    assert_eq!(
+        refill - emptied,
+        DELIVERY_INTERVAL - 1,
+        "960 frames, the tick it emptied the first"
+    );
     assert_eq!((supplies(&t, STATION), countdown(&t, STATION)), (4, None));
     step(&mut t, &all, &[STATION]);
     assert_eq!(picking_up_at(&t, &all, STATION), [3], "it resumes");
@@ -56,14 +70,25 @@ fn two_agents_pick_up_at_one_station_at_once() {
     let mut t = field(2, 3, station_of(100)).start();
     let all = agents(2);
     gather(&mut t, 1, &all, STATION);
+    // The Syndicate's starting Supplies (`factions/syndicate/tunnels.md > Tunnel > Starting Conditions`; slice M4-B).
+    let banked = banks(&t, P1).1;
     let mut together = false;
     for _ in 0..1200 {
         step(&mut t, &all, &[STATION]);
         together |= picking_up_at(&t, &all, STATION).len() == 2;
         let unloading: Vec<u32> = (all.iter().copied()).filter(|&n| is_unloading(&t, n)).collect();
-        assert!(unloading.len() <= 1, "tick {}: {unloading:?} unload at once", t.sim().tick());
-        let carried: u32 = (all.iter()).map(|&n| load(&t, n)).filter(|l| l.1 == Resource::Supplies).map(|l| l.0).sum();
-        assert_eq!(supplies(&t, STATION) + carried + banks(&t, P1).1, 100, "tick {}", t.sim().tick());
+        assert!(
+            unloading.len() <= 1,
+            "tick {}: {unloading:?} unload at once",
+            t.sim().tick()
+        );
+        let carried: u32 = (all.iter())
+            .map(|&n| load(&t, n))
+            .filter(|l| l.1 == Resource::Supplies)
+            .map(|l| l.0)
+            .sum();
+        let gained = banks(&t, P1).1 - banked;
+        assert_eq!(supplies(&t, STATION) + carried + gained, 100, "tick {}", t.sim().tick());
     }
     assert!(together, "both picked up at once");
     let delivered = supply_deliveries(&t);
@@ -72,6 +97,9 @@ fn two_agents_pick_up_at_one_station_at_once() {
         assert!(trips >= 4, "Agent {n} delivered {trips} Supplies: {delivered:?}");
     }
     for pair in delivered.windows(2) {
-        assert!(pair[1].0 - pair[0].0 >= DROP_OFF, "one at a time at the hatch: {pair:?}");
+        assert!(
+            pair[1].0 - pair[0].0 >= DROP_OFF,
+            "one at a time at the hatch: {pair:?}"
+        );
     }
 }

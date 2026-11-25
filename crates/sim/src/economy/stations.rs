@@ -76,7 +76,11 @@ pub(super) fn notify_empty(objects: &BTreeMap<ObjectId, Object>, station: Object
         .collect();
     owners.sort_unstable();
     owners.dedup();
-    events.extend(owners.into_iter().map(|owner| SimEvent::SupplyStationEmpty { station, owner }));
+    events.extend(
+        owners
+            .into_iter()
+            .map(|owner| SimEvent::SupplyStationEmpty { station, owner }),
+    );
 }
 
 #[cfg(test)]
