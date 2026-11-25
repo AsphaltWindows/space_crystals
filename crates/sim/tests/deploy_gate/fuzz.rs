@@ -177,7 +177,7 @@ fn deploy_fuzz(seed: u64) -> (Counts, Vec<u64>, Replay) {
                     o.kind,
                     deploying.from,
                     deploying.from_placement,
-                    deploying.total,
+                    deploying.progress.total,
                     deploying.paid
                 ),
                 (Beacon, Drone, None, 48, 0),

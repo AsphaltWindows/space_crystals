@@ -215,20 +215,6 @@ pub struct ConversionDef {
     pub ticks: u32,
 }
 
-impl ConversionDef {
-    /// The form a `kind` unit converts into: the other one of the two; `None` if `kind` is neither.
-    pub fn other(&self, kind: ObjectKind) -> Option<ObjectKind> {
-        let [a, b] = self.forms;
-        if kind == a {
-            Some(b)
-        } else if kind == b {
-            Some(a)
-        } else {
-            None
-        }
-    }
-}
-
 /// What a worker carries and delivers (`factions/syndicate/units/agent.md > Gathering`: "Agents gather resources and
 /// deliver them to Tunnels"): each has its own [`LoadDef`] in a [`WorkerDef`] and its own hatch at a Tunnel
 /// (`DropOff::Hatches`).

@@ -4,8 +4,8 @@
 //!
 //! **A toggle sets a target form** (design change 0198, `> A toggle sets a target form`): "Pressing R **flips the
 //! unit's target form**; the unit then works to get itself into that form. So however fast R is pressed, every unit
-//! that received the presses ends up in the same form". While a change is pending, a Legionnaire is two forms at once
-//! (`ARCHITECTURE.md > Object model > Type and form`):
+//! that received the presses ends up in the same form", the rule of `crate::toggle`. While a change is pending, a
+//! Legionnaire is two forms at once (`ARCHITECTURE.md > Object model > Type and form`):
 //! - its **type**, `Object::kind`, is the form it works toward: "The unit's type, and so its SelectionGroup, switches
 //!   at the press to the target form" (`Sim::change_kind`, the same object). Whatever commands the unit reads it: the
 //!   client's selection, groups and panel, the gate, the default command;
@@ -60,12 +60,12 @@ use std::collections::BTreeMap;
 
 use serde::{Deserialize, Deserializer, Serialize};
 
-use crate::combat;
 use crate::defs::{ConversionDef, ObjectKind};
 use crate::hash::{StateHash, StateHasher};
 use crate::ids::ObjectId;
 use crate::mover::Mover;
 use crate::object::Object;
+use crate::toggle::{self, Press, Toward};
 
 /// A Legionnaire's change of form that is pending (module docs): `Object::conversion` from the press that makes its
 /// type another form than the one it has until it has its type's form again, `None` otherwise.
@@ -102,11 +102,11 @@ fn ticks(form: ObjectKind) -> u32 {
 }
 
 /// `> Weapon Conversion`: the other form of a `kind` unit, the one a Convert turns it into, if it has one
-/// (`ConversionDef::forms`): the Sabre Legionnaire's is the Rifle Legionnaire, and the other way round (`> Sabre
-/// Legionnaire > ObjectInterfaceState`: "R: Convert to Rifle Legionnaire"; `> Rifle Legionnaire >
-/// ObjectInterfaceState`: "R: Convert to Sabre Legionnaire").
+/// (`ConversionDef::forms`; a press flips the target form, `toggle::pressed`): the Sabre Legionnaire's is the Rifle
+/// Legionnaire, and the other way round (`> Sabre Legionnaire > ObjectInterfaceState`: "R: Convert to Rifle
+/// Legionnaire"; `> Rifle Legionnaire > ObjectInterfaceState`: "R: Convert to Sabre Legionnaire").
 pub fn converts_to(kind: ObjectKind) -> Option<ObjectKind> {
-    def_of(kind)?.other(kind)
+    toggle::pressed(def_of(kind)?.forms, kind, Press::Flip)
 }
 
 /// The form `o` has in the world now (module docs): the one its pending conversion holds, else its type. What the
@@ -156,8 +156,8 @@ pub(crate) fn retarget(o: &mut Object) {
 
 /// The conversions' part of the Modes step (module docs): each unit before `first_new` with a pending conversion, in
 /// id order, takes the next frame of the one under way, or, its frames done, has its other form; then one that isn't
-/// converting works toward its type: it has it, and its conversion is over; or it starts converting to it, unless
-/// it is Firing or in Cooldown, and waits.
+/// converting works toward its type (`toggle::toward`): it has it, and its conversion is over; or it starts converting
+/// to it, unless it is Firing or in Cooldown, and waits.
 pub(crate) fn step(objects: &mut BTreeMap<ObjectId, Object>, first_new: ObjectId) {
     for o in objects.range_mut(..first_new).map(|(_, o)| o) {
         let Some(conversion) = &mut o.conversion else {
@@ -176,11 +176,13 @@ pub(crate) fn step(objects: &mut BTreeMap<ObjectId, Object>, first_new: ObjectId
             None => {}
         }
         let Conversion { form, .. } = *conversion;
-        // A type that is neither the form nor its other one (a hand-edited save) has nothing to convert to.
-        if form == o.kind || converts_to(form) != Some(o.kind) {
-            finish(o);
-        } else if !combat::mid_attack(o) {
-            start(o);
+        // A type that is neither the form nor its other one (a hand-edited save) has nothing to convert to: as good as
+        // there. A conversion that ends here hasn't begun: one under way went on above.
+        let there = form == o.kind || converts_to(form) != Some(o.kind);
+        match toggle::toward(o, there, false) {
+            Toward::There => finish(o),
+            Toward::Waits => {}
+            Toward::Goes => start(o),
         }
     }
 }

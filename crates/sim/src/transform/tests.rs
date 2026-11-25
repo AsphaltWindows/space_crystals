@@ -4,7 +4,9 @@
 use glam::Vec2;
 
 use super::*;
+use crate::economy::RATIO_ONE;
 use crate::ids::ObjectId;
+use crate::progress::Progress;
 use crate::tuning::construction::MIN_HP_AFTER_CANCEL;
 use crate::units::TilePos;
 
@@ -73,7 +75,7 @@ fn the_beacon_warps_in_its_three_buildings() {
 #[test]
 fn progress_counts_whole_frames_up_to_the_warp_in_time() {
     let mut t = warping(EgressNode);
-    assert_eq!((t.from, t.paid, t.total), (Beacon, 75, 320));
+    assert_eq!((t.from, t.paid, t.progress.total), (Beacon, 75, 320));
     assert_eq!((t.frames_done(), t.percent(), t.ratio()), (0, 0, 0.0));
     assert!(!t.advance(RATIO_ONE / 2));
     assert_eq!(t.frames_done(), 0, "half a frame isn't one");
@@ -91,8 +93,8 @@ fn progress_counts_whole_frames_up_to_the_warp_in_time() {
     assert_eq!((t.frames_done(), t.percent(), t.ratio()), (320, 100, 1.0));
     assert!(t.is_complete());
     // A hand-edited save's progress saturates.
-    t.progress = u32::MAX - 1;
-    assert!(t.advance(RATIO_ONE) && t.progress == u32::MAX && t.frames_done() == 320);
+    t.progress.elapsed = u32::MAX - 1;
+    assert!(t.advance(RATIO_ONE) && t.progress.elapsed == u32::MAX && t.frames_done() == 320);
 }
 
 /// `> HP/Shields Interpolation`: "HP = Beacon MaxHP + (Building MaxHP - Beacon MaxHP) x progress", the same for
@@ -108,7 +110,7 @@ fn the_maxima_interpolate_by_the_formulas() {
     for (kind, hp, shields) in cases {
         let mut t = warping(kind);
         for (i, quarter) in [0, 1, 2, 4].into_iter().enumerate() {
-            t.progress = t.total / 4 * quarter * RATIO_ONE;
+            t.progress.elapsed = t.progress.total / 4 * quarter * RATIO_ONE;
             let o = object(kind, Some(t.clone()));
             assert_eq!(
                 (o.max_hp(), o.max_shields()),
@@ -164,8 +166,7 @@ fn damage_is_carried_through_unchanged() {
     let deploying = || Transform {
         from: ObjectKind::Drone,
         from_placement: None,
-        progress: 0,
-        total: 48,
+        progress: Progress::new(48),
         paid: 0,
         load: 0,
     };
@@ -177,7 +178,7 @@ fn damage_is_carried_through_unchanged() {
     assert_eq!(follow(&mut t, drone_to_beacon, hp - 30.0, 24), 90.0);
     for (kind, to) in [(EgressNode, 200.0), (RoboPortal, 600.0), (BioPortal, 250.0)] {
         let mut t = warping(kind);
-        let frames = t.total;
+        let frames = t.progress.total;
         assert_eq!(follow(&mut t, (120.0, to), 80.0, frames), to - 40.0, "{kind:?}");
     }
 }
@@ -281,11 +282,17 @@ fn the_hash_covers_every_field() {
             ..t
         },
         Transform {
-            progress: t.progress + 1,
+            progress: Progress {
+                elapsed: t.progress.elapsed + 1,
+                ..t.progress
+            },
             ..t
         },
         Transform {
-            total: t.total + 1,
+            progress: Progress {
+                total: t.progress.total + 1,
+                ..t.progress
+            },
             ..t
         },
         Transform { paid: t.paid + 1, ..t },
@@ -294,4 +301,40 @@ fn the_hash_covers_every_field() {
     for other in changed {
         assert_ne!(hash_of(&other), hash_of(&t), "{other:?}");
     }
+}
+
+/// A transformation keeps its progress as a [`Progress`] (plan decision T54), and its files and its hash are as they
+/// were: the frames done and the total stand among its other fields, in the same order, and a file of before loads.
+#[test]
+fn its_file_and_its_hash_are_as_before_the_progress() {
+    let t = Transform {
+        from: ObjectKind::Drone,
+        from_placement: None,
+        progress: Progress {
+            elapsed: 10 * RATIO_ONE,
+            total: 48,
+        },
+        paid: 0,
+        load: 8,
+    };
+    let before = r#"{"from":"Drone","from_placement":null,"progress":655360,"total":48,"paid":0,"load":8}"#;
+    assert_eq!(serde_json::to_string(&t).unwrap(), before);
+    assert_eq!(serde_json::from_str::<Transform>(before).unwrap(), t);
+    let no_load = r#"{"from":"Drone","from_placement":null,"progress":655360,"total":48,"paid":0}"#;
+    assert_eq!(
+        serde_json::from_str::<Transform>(no_load).unwrap().load,
+        0,
+        "optional in files"
+    );
+    let mut h = StateHasher::new();
+    t.from.hash(&mut h);
+    t.from_placement.hash(&mut h);
+    for n in [10 * RATIO_ONE, 48, 0, 8] {
+        n.hash(&mut h);
+    }
+    assert_eq!(
+        hash_of(&t),
+        h.finish(),
+        "the progress, the total, what it paid and its load"
+    );
 }

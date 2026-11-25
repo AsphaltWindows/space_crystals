@@ -45,8 +45,10 @@ fn a_transforming_beacon_warps_nothing_in() {
     let deploying = Transform {
         from: Drone,
         from_placement: None,
-        progress: 10 * RATIO_ONE,
-        total: 48,
+        progress: Progress {
+            elapsed: 10 * RATIO_ONE,
+            total: 48,
+        },
         paid: 0,
         load: 0,
     };

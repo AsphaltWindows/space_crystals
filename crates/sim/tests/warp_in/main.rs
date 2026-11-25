@@ -39,8 +39,8 @@ use sc_sim::transform::warp_in_footprint;
 use sc_sim::{
     Ability, BuildArea, BuildingOrientation, Command, ConstructionCommand, DebugCommand, Faction, Object, ObjectId,
     ObjectKind, OrderKind, Placement, PlacementCheck, PlacementProblem, PlayerCommand, PlayerId, ProductionCommand,
-    Reject, Replay, Rng, Rotation, SU_PER_GU, SideLetter, Sim, SimConfig, SimEvent, SpawnAt, Target, Tick, TickInputs,
-    TilePos, TileProblem, Transform, Vec2, sides,
+    Progress, Reject, Replay, Rng, Rotation, SU_PER_GU, SideLetter, Sim, SimConfig, SimEvent, SpawnAt, Target, Tick,
+    TickInputs, TilePos, TileProblem, Transform, Vec2, sides,
 };
 
 use ConstructionCommand::{CancelTransform, WarpIn};

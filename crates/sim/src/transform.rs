@@ -50,9 +50,9 @@
 use serde::{Deserialize, Serialize};
 
 use crate::defs::{ObjectKind, Recipe};
-use crate::economy::RATIO_ONE;
 use crate::hash::{StateHash, StateHasher};
 use crate::object::{Object, Placement};
+use crate::progress::Progress;
 use crate::scenario::BuildingOrientation;
 use crate::symmetry::Orientation;
 use crate::units::TilePos;
@@ -65,11 +65,10 @@ pub struct Transform {
     /// Where it stood as `from`, and stands again after a cancel: the Beacon's footprint (`None` for a unit, the
     /// Drone of a deployment).
     pub from_placement: Option<Placement>,
-    /// How far it has come, in fixed point (plan decision T6): [`RATIO_ONE`] for each frame done; complete at
-    /// `total × RATIO_ONE`.
-    pub progress: u32,
-    /// How many frames it takes: the building's WarpInTime (`> Constructs List`).
-    pub total: u32,
+    /// How far it has come, of how many frames: the building's WarpInTime (`> Constructs List`). In files its two
+    /// numbers stand among the others, `progress` and `total`, as before it was a [`Progress`].
+    #[serde(flatten)]
+    pub progress: Progress,
     /// The Space Crystals it paid when it started, of which a cancel refunds 75% (`> Cancel Warp In`).
     pub paid: u32,
     /// The load the Drone of a deployment carried as it began (`> Beacon Deployment > Deploying with a load`, design
@@ -86,37 +85,30 @@ impl Transform {
         Self {
             from,
             from_placement,
-            progress: 0,
-            total: recipe.frames,
+            progress: Progress::new(recipe.frames),
             paid: recipe.cost,
             load: 0,
         }
     }
 
-    /// "frames elapsed": the whole frames done, at most [`Transform::total`].
+    /// "frames elapsed": the whole frames done, at most its total ([`Progress::ticks_done`]).
     pub fn frames_done(&self) -> u32 {
-        (self.progress / RATIO_ONE).min(self.total)
+        self.progress.ticks_done()
     }
 
     /// Whether every frame is done.
     pub fn is_complete(&self) -> bool {
-        self.progress >= self.total.saturating_mul(RATIO_ONE)
+        self.progress.done()
     }
 
     /// The design's progress, "frames elapsed / WarpInTime", from 0 to 1 (1 for a transformation of no frames).
     pub fn ratio(&self) -> f32 {
-        match self.total {
-            0 => 1.0,
-            total => self.frames_done() as f32 / total as f32,
-        }
+        self.progress.ratio()
     }
 
     /// The whole percent done, rounded down: 100 only once it is complete.
     pub fn percent(&self) -> u32 {
-        match self.total {
-            0 => 100,
-            total => (u64::from(self.frames_done()) * 100 / u64::from(total)) as u32,
-        }
+        self.progress.percent()
     }
 
     /// `> HP/Shields Interpolation`: a value going from `from` (the old kind's) to `to` (the new kind's) as the
@@ -125,18 +117,16 @@ impl Transform {
     /// design's whole-number maxima, exact whenever the step per frame is (a Robo Portal's 0.75 HP, an Egress Node's
     /// 0.25), so that a damaged object's HP stays a whole number short of its maximum ([`follow_max`]).
     pub fn interpolate(&self, from: f32, to: f32) -> f32 {
-        match self.total {
+        match self.progress.total {
             0 => to,
             total => from + (to - from) * self.frames_done() as f32 / total as f32,
         }
     }
 
-    /// One tick of the transformation at `speed`, in [`RATIO_ONE`]s of a frame: whether it is complete. Saturating:
-    /// the WarpInTimes are short enough for their progress to fit (`ObjectDef` consistency tests), a hand-edited save
-    /// needn't be.
+    /// One tick of the transformation at `speed`, in `economy::RATIO_ONE`s of a frame ([`Progress::step`]): whether
+    /// it is complete.
     pub(crate) fn advance(&mut self, speed: u32) -> bool {
-        self.progress = self.progress.saturating_add(speed);
-        self.is_complete()
+        self.progress.step(speed)
     }
 
     /// An interpolated maximum, from the old kind's `from` to the new kind's `to`: the new kind's if the old one has
@@ -153,14 +143,13 @@ impl StateHash for Transform {
             from,
             from_placement,
             progress,
-            total,
             paid,
             load,
         } = self;
         from.hash(h);
         from_placement.hash(h);
+        // The frames done, then the total (`Progress`'s hash): the bytes of the two numbers it kept before.
         progress.hash(h);
-        total.hash(h);
         paid.hash(h);
         load.hash(h);
     }

@@ -34,6 +34,7 @@ mod paths;
 pub mod placement;
 pub mod player;
 pub mod production;
+pub mod progress;
 pub mod replay;
 pub mod riot_shield;
 pub mod rng;
@@ -46,6 +47,7 @@ pub mod sim;
 pub mod symmetry;
 pub mod targets;
 pub mod testing;
+pub mod toggle;
 pub mod transform;
 pub mod tuning;
 pub mod tunnel;
@@ -74,6 +76,7 @@ pub use player::{Banks, Faction, Player};
 pub use production::{
     Door, Doorway, EnergyDoorway, ExitDoor, Production, ProductionCommand, ProductionStatus, Rally, Refusal,
 };
+pub use progress::Progress;
 pub use replay::{Checkpoint, Desync, Replay, ReplayError};
 pub use riot_shield::{RiotShield, ShieldMode};
 pub use rng::Rng;

@@ -52,7 +52,7 @@ fn a_drone_walks_to_the_centre_of_its_site_and_deploys_on_arrival() {
         (
             deploying.from,
             deploying.from_placement,
-            deploying.total,
+            deploying.progress.total,
             deploying.paid,
             deploying.load
         ),

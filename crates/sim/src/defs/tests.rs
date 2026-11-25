@@ -345,12 +345,20 @@ fn unit_is_consistent(def: &ObjectDef, unit: &UnitDef) {
     // A unit with two forms is one of them, and its other form's def has the same conversion
     // (`factions/colonists/units/weapon_conversion.md`); a conversion takes time.
     if let Some(conversion) = unit.conversion {
-        let other = conversion
-            .other(def.kind)
-            .unwrap_or_else(|| panic!("{name}: not one of its forms"));
+        let other =
+            crate::toggle::other(conversion.forms, def.kind).unwrap_or_else(|| panic!("{name}: not one of its forms"));
         let back = other.def().unit.as_ref().and_then(|u| u.conversion);
         assert_eq!(back, Some(conversion), "{name}: its other form's conversion");
         assert!(conversion.ticks >= 1, "{name}: {conversion:?}");
+    }
+    // So does a unit with a Riot Shield, whose two forms are its lowered and its raised type (design change 0173,
+    // `crate::toggle`); raising or lowering it takes time.
+    if let Some(shield) = unit.riot_shield {
+        let other = crate::toggle::other([shield.lowered, shield.raised], def.kind)
+            .unwrap_or_else(|| panic!("{name}: not one of its shield's types"));
+        let back = other.def().unit.as_ref().and_then(|u| u.riot_shield);
+        assert_eq!(back, Some(shield), "{name}: its other type's shield");
+        assert!(shield.toggle_ticks >= 1, "{name}: {shield:?}");
     }
     // A unit deploys into a building of its own faction, which takes time (`factions/colonists/economy.md > Beacon
     // Deployment`).
