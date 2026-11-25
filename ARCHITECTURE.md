@@ -1196,8 +1196,9 @@ section of its own.
   in a row, the node 2 GU south of the middle), with gathering Drones passing through each other (design change
   0106), nothing jams: 4, 8, 12, 16, 20 and 24 Drones dealt out over the patches give 6.9, 12.7, 18.8, 25.3, 26.1
   and 31.4 per second (before 0205: 6.3, 11.7, 17.2, 23.1, 24.5, 26.2; before M3-H3: 17.9 for 12, 25.6 for 20,
-  27.3 for 24; the stand-in: 8.3, 15.1, 22.0, 26.8, 32.0, 32.0; the design's table: 6.1 for 4, 23 for 16, 32 for
-  about 24). Three findings for the economy oracle (slices K1 and K3): 24 Drones dealt out nearly saturate 8
+  27.3 for 24; the stand-in: 8.3, 15.1, 22.0, 26.8, 32.0, 32.0; the design since design change 0236: 6.9 for 4,
+  about 25 for 16, about 26 for 20, 32 for 24). Three findings for the economy oracle (slices K1 and K3): 24
+  Drones dealt out nearly saturate 8
   patches (before 0205 they didn't: the end patches' trips were longer than three Drones' mining covered); a
   Drone sent on from an occupied patch to the nearest free one often finds that taken too when it gets there
   (dealt out, the longest one of 24 went between two deliveries is 393 ticks, within the plan's 480, 30 s; 357 to

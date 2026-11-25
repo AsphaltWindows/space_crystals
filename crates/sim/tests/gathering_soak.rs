@@ -15,9 +15,10 @@
 //! `saturation_curve` prints the measurements. **With DragMovement** (slice M3-G, plan decision T25; nothing here
 //! is tuned to the design's table, `factions/gdo/economy.md > Economy Targets (GDO vs Colonists)`), the gathering
 //! rules of slice M3-H3 and the Drone's numbers of design change 0205 (slice M3-K3: thrust and drag ×1.5, a trip of
-//! 73 ticks where it took 81) the reference field gives, dealt out, per second: 6.9 with 4 Drones (the table:
-//! 6.1), 12.7 with 8, 18.8 with 12, 25.3 with 16 (the table: 23 at 2 Drones per patch), 26.1 with 20 and 31.4 with
-//! 24 (the table: 32 for about 24 working Drones); sent by one right-click, 6.9, 12.7, 19.0, 25.4, 25.7 and 27.4.
+//! 73 ticks where it took 81) the reference field gives, dealt out, per second: 6.9 with 4 Drones (the table's
+//! 0:00 since design change 0236: 6.9), 12.7 with 8, 18.8 with 12, 25.3 with 16, 26.1 with 20 and 31.4 with 24
+//! (0236, `factions/colonists/units.md > Drone > Patch Occupancy`: ≈25 with 16, 2 per patch, ≈26 with 20, and 32
+//! with about 24 working Drones, 3 per patch); sent by one right-click, 6.9, 12.7, 19.0, 25.4, 25.7 and 27.4.
 //! Before 0205 they were 6.3, 11.7, 17.2, 23.1, 24.5 and 26.2 dealt out; on the stand-in mover slice M3-H2
 //! measured 8.3, 15.1, 22.0, 26.8, 32.0 and 32.0, about 30 % high below saturation, as T25 estimated. Three
 //! findings at the crowded end, for the economy oracle (slices K1 and K3):
@@ -215,7 +216,8 @@ fn soak(patches: u32, drones: u32, spread: bool) -> Soak {
 /// field, for 5 minutes: nobody is in anybody's way for long. Every Drone delivers at least once every 30 s, and
 /// the income is that of four Drones each on a patch of its own: 1.75 Space Crystals per second and Drone with
 /// DragMovement and the numbers of design change 0205 (a trip of 73 ticks), a little less for the patches farther
-/// from the node. Measured: 6.91 either way (6.3 before 0205). The design's table has 6.1 for the four.
+/// from the node. Measured: 6.91 either way (6.3 before 0205). The design's table has 6.9 for the four (its 0:00,
+/// design change 0236).
 #[test]
 fn four_drones_gather_for_five_minutes_without_a_hitch() {
     for spread in [false, true] {
@@ -233,9 +235,10 @@ fn four_drones_gather_for_five_minutes_without_a_hitch() {
 /// the Egress Node, no jams; income approaches the Economy Targets table", and the plan's acceptance for the soak
 /// (§3.3 H): "24 Drones on 8 patches for 5 minutes. No deadlock: every Drone delivers at least once every 30 s."
 /// Sent by one right-click and dealt out over the patches alike.
-/// - The income is 27.4 Space Crystals per second sent by one right-click and 31.4 dealt out, against the table's
-///   "fully saturated ≈ 32 per second (~24 working Drones)" (module docs: with the numbers of design change 0205 24
-///   Drones dealt out nearly keep 8 patches mined without a break; before 0205 both gave 26).
+/// - The income is 27.4 Space Crystals per second sent by one right-click and 31.4 dealt out, against the design's
+///   "Colonists fully saturated = 32 per second (24 working Drones)" (`> Reference check`, design change 0236; module
+///   docs: with the numbers of design change 0205 24 Drones dealt out nearly keep 8 patches mined without a break;
+///   before 0205 both gave 26).
 /// - Every Drone delivers at least once every 30 s, dealt out as well (module docs, the second finding).
 /// - No Space Crystal is lost or made, every Drone still has its job, no state names an object that is gone, and
 ///   the invariants hold in the crowd (`TestSim`, every tick).
@@ -259,7 +262,8 @@ fn the_soak_of_24_drones_keeps_every_drone_delivering() {
 
 /// The saturation curve of the reference field: each Drone adds income, and nowhere does a crowd give less than a
 /// smaller one did (under hard collision the income fell from 10 Drones on, and to nothing with 24). 2 Drones a
-/// patch give at least the table's 23 per second (25.3 measured), and 24 Drones 31 (31.4; module docs).
+/// patch give at least 23 per second (25.3 measured; design change 0236: ≈25 with 16), and 24 Drones 31 (31.4;
+/// 0236: 32; module docs).
 #[test]
 fn the_income_of_the_reference_field_grows_with_its_drones_up_to_saturation() {
     let mut last = 0.0;
