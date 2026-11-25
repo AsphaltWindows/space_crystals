@@ -2177,3 +2177,4 @@ Laser Battery req Optics Lab; LB + Artillery Rig deploy = two unit types under t
 Deploy = queueable order, no undeploy until complete, type at completion (replaces 0210 toggle part). Entry 0211.
 Stop while deploying winds back. Entry 0212.
 Deploy not cancellable (replaces 0212). Entry 0213.
+Orders during deploying held, illegal dropped. Entry 0214.
