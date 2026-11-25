@@ -2220,3 +2220,4 @@ Q0065 expansions under construction. Entry 0254.
 Q0066 Agent gathering. Entry 0255.
 Q0067 Supplies gathering. Entry 0256.
 Q0068 panel letters. Entry 0257.
+Q0069 losing tunnels edges. Entry 0258.

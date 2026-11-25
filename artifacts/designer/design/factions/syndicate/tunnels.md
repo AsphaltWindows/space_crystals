@@ -22,7 +22,10 @@ The Tunnel Network is the collective of all Tunnels owned by a Syndicate player.
 ### Losing Tunnels
 - **Expansions become neutral**: when a Tunnel is destroyed, every expansion in its Tunnel Area becomes neutral — no longer owned by the Syndicate player.
   - Neutral expansions are **no longer hidden** (visible to everyone, no detection needed).
-  - They **slowly lose HP** until destroyed. Decay rate: TBD.
+  - They **slowly lose HP** until destroyed. **Decay is a percentage of MaxHP per second** (user, 2026-11-25; Q0069): **1% per second, placeholder** (a Hideout lasts 100 s); the number is to be tuned.
+  - **Attacking them** (Q0069): only with an **explicit Attack** order; right-click never attacks a neutral object and auto-targeting ignores them.
+  - **Reclaiming happens** the moment the covering Tunnel, or its upgrade, **finishes**; a Tunnel under construction reclaims nothing (Q0069).
+  - **Partly inside an own Tunnel Area** (user, 2026-11-25; Q0069): until reclaimed, a neutral expansion still **blocks its cells**: nothing can be built there, and they **count as occupied** for that Tunnel's Tunnel Space.
   - **Reclaiming**: if a Tunnel is built whose Tunnel Area fully covers a neutral expansion, and that Tunnel's tier meets the expansion's Tier Requirement, the expansion becomes owned by that Tunnel's owner — the original Syndicate player or an enemy Syndicate player — and stops decaying. It occupies that Tunnel's tunnel-region like any expansion (reducing Tunnel Space). An expansion only partly covered by the new Tunnel Area, or whose Tier Requirement is higher than the new Tunnel's tier, stays neutral (and keeps decaying) — until that Tunnel is upgraded to a tier where its Tunnel Area fully covers the expansion and meets its Tier Requirement, at which point the Tunnel takes ownership of it.
   - **In-progress work is destroyed**: any production or research in progress in the expansion when its Tunnel is destroyed is lost.
   - **Queued work is refunded**: units or research queued in the expansion but not yet started are removed and their full cost is refunded to the player.
@@ -144,6 +147,8 @@ Tunnel Areas cannot overlap with each other. The non-overlap check uses the **cu
 This means players can place Tier 1 Tunnels closer together for early aggression, but sacrifice the ability to upgrade them later. Spacing Tunnels further apart preserves upgrade potential for the late game.
 
 **Drillable area** (user, 2026-11-25): a Tunnel can only be **placed** if every cell of its Tunnel Area is **on the map and Drillable** (no Water or Mountain; core/map.md > DefaultTilePresets). So **no Tunnel near the map edge** (closer than its area reaches). An **upgrade** is likewise blocked if the larger area would include a non-Drillable or off-map cell, so a Tier 1 Tunnel by a lake or a mountain may never be upgradable. The ghost shows this like any other invalid placement (terrain is always known to the player as far as explored; never-explored tiles pass on the ghost, and the real check happens on arrival).
+
+**Enemies see a Tunnel's tier** (user, 2026-11-25; Q0069): it is a surface structure and each tier looks different (Look by tier).
 
 **Every player's Tunnels count** (user, 2026-11-25; Q0062): the rule applies between **all** Tunnels, not just a player's own. In Syndicate-vs-Syndicate games a player can **crowd or block** an enemy's Tunnels: a Tunnel placed near an enemy one stops the enemy from building where the areas would overlap, and can stop the enemy Tunnel's upgrade.
 - **The ghost** judges enemy Tunnels by what the player knows: their remembered position and their tier as last seen (core/entities.md > Worker-Built Structures > The ghost judges by what the player knows). The real check on arrival uses the truth, so a build can fail on arrival because an enemy Tunnel was upgraded unseen.
