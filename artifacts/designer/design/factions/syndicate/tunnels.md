@@ -4,9 +4,14 @@
 
 The Tunnel Network is the collective of all Tunnels owned by a Syndicate player. Units inside the Tunnel Network can travel between Tunnels freely, but can only enter or exit the network through a Tunnel whose tier is sufficient for their unit base category.
 
+**Regeneration inside** (user, 2026-11-25; Q0063): **every unit inside the Tunnel Network slowly regenerates HP**: **1% of its MaxHP per second, placeholder**. This is the Syndicate's only healing (the other factions have shields, Shrines or Field Engineers). Units carried inside a Subterranean Transport don't count as being in the network themselves (assumed; the transport itself regenerates).
+
 **Transit delay** (user, 2026-11-25; Q0063): after a unit **enters** the network, there is a **small delay before it can exit**: **2 seconds (32 frames), placeholder**. After that it can exit from **any** Tunnel whose tier suits it, however far away: the delay is flat, not by distance. Units **produced** inside the network (by expansions) have **no delay**: they can exit as soon as they are produced (user, 2026-11-25).
 
 **Walking in** (user, 2026-11-25; Q0063): units enter through the entry path by **walking into it at their normal speed, one behind another with normal spacing**, like walking through any one-unit-wide passage; there is no fixed hold time per unit. A unit leaves the map once it has walked into the Tunnel. So an army files in about as fast as it can walk in single file, without big traffic jams.
+- **On entering** (user, 2026-11-25; Q0063): the unit's orders are **cleared**, queued ones included; it is idle inside. It **stays in its control groups** (a recall selects only the members on the map). An Agent **keeps its load**.
+- **Upgrading Tunnels** (user, 2026-11-25; Q0063): until the upgrade has fully finished, a Tunnel only accepts, and only lets out, units supported by the tier it had **before** the upgrade began.
+- **Target Tunnel gone or unsuitable**: if the Tunnel a unit is heading for is destroyed, or its tier doesn't suit the unit, the Enter order ends and the unit idles (Q0063, as proposed).
 - **No special waiting rule** (user, 2026-11-25; Q0063): a unit heading for the entry path moves like any unit. In a moving line it keeps making progress; if the way is genuinely blocked, the normal Failure rule applies (systems/controls/behaviors.md > MovingToLocation > Failure): it gives up after about 7 s and idles. An occasional idle unit is acceptable.
 
 ### Transit Tier Requirements

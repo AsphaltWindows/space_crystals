@@ -2211,3 +2211,4 @@ Q0063 pt1: flat 2 s transit delay (placeholder). Entry 0245.
 Q0063 pt7: walk in at normal speed/spacing; produced units no delay. Entry 0246.
 Q0063 pt2: normal Failure rule for entering. Entry 0247.
 Tunnel sides corrected (D Supplies, C back); exit nearer crystals. Entry 0248.
+Q0063 rest: inside rules, regen 1%/s placeholder, upgrade old tier. Entry 0249.
