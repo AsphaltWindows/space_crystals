@@ -58,22 +58,28 @@ fn cycling_wraps_around_both_ways() {
     assert!(!Selection::EMPTY.clone().cycle(false));
 }
 
+/// `> Selection > ActiveGroup > When the ActiveGroup disappears` (design change 0199): the ActiveGroup stays while it
+/// has members, whatever the other groups do ("Any other group change [...] never changes the ActiveGroup"); when its
+/// last member leaves the selection, "the next group in Tab order becomes active (the group after it in the
+/// SelectionPanel, wrapping around to the first). If no group is left, the selection is empty." The groups in their
+/// order: the patch, the Peacekeepers, the Guards and the Peacekeepers (Shielded).
 #[test]
 fn the_active_group_stays_while_it_has_members() {
-    let mut s = Selection::new([(id(1), PK), (id(2), GUARD)]);
+    let shielded = ObjectKind::PeacekeeperShielded;
+    let mut s = Selection::new([(id(1), PK), (id(2), GUARD), (id(4), shielded), (id(5), GUARD)]);
     s.cycle(true);
     assert_eq!(s.active().unwrap().kind, GUARD);
     assert!(s.insert(id(3), PATCH));
     assert!(!s.insert(id(3), PATCH), "already selected");
     assert_eq!(s.active().unwrap().kind, GUARD, "adding keeps the active group");
     assert!(s.remove(id(1)));
-    assert_eq!(s.active().unwrap().kind, GUARD);
+    assert_eq!(s.active().unwrap().kind, GUARD, "another group gone");
     assert!(s.remove(id(2)));
-    assert_eq!(
-        s.active().unwrap().kind,
-        PATCH,
-        "a group that is gone gives way to the first"
-    );
+    assert_eq!(s.active().unwrap().kind, GUARD, "Guard 5 is still in it");
+    assert!(s.retain(|i, _| i != id(5)));
+    assert_eq!(s.active().unwrap().kind, shielded, "the next group, not the first");
+    assert!(s.remove(id(4)));
+    assert_eq!(s.active().unwrap().kind, PATCH, "wrapping around to the first");
     assert!(s.retain(|_, _| false));
     assert!(s.is_empty() && s.active().is_none());
     assert!(!s.remove(id(9)));
@@ -119,7 +125,9 @@ fn a_control_state_drops_objects_from_both() {
     assert!(!state.retain(|_| true));
 }
 
-/// `> ControlState`: a removal resets the ObjectInterfaceState only when it takes away the ActiveGroup.
+/// `> ControlState`: a removal resets the ObjectInterfaceState only when it takes away the ActiveGroup (`>
+/// AwaitingTarget > Selection changes while targeting`: "Targeting is only cancelled if the whole ActiveGroup is
+/// gone"), whose next group in Tab order becomes active (design change 0199).
 #[test]
 fn a_removal_resets_the_interface_state_only_with_the_active_group() {
     let awaiting = InterfaceState::awaiting(crate::command_ui::PanelCommand::Attack);
@@ -134,8 +142,9 @@ fn a_removal_resets_the_interface_state_only_with_the_active_group() {
 }
 
 /// Plan decision T15 (`SimEvent::KindChanged`): an object that changes its type in place stays selected, with its
-/// id, in its new type's group. An ActiveGroup it leaves empty gives way to that group; one it doesn't leave
-/// empty stays active. The ObjectInterfaceState resets only with the ActiveGroup. Beacons 1 and 2 (Ungroupable,
+/// id, in its new type's group. An ActiveGroup it leaves empty gives way to that group (design change 0199: "the
+/// group they joined becomes active"); one it doesn't leave empty stays active. The ObjectInterfaceState resets only
+/// with the ActiveGroup. Beacons 1 and 2 (Ungroupable,
 /// design change 0122: a group each) warp in Robo Portals (Groupable: one group for both) and an Egress Node
 /// (Ungroupable); a cancel turns one back.
 #[test]
@@ -278,4 +287,50 @@ fn a_completed_building_joins_the_finished_group() {
     state.selection.cycle(true);
     assert!(state.set_type(id(3), Beacon.into()));
     assert_eq!(state.selection.active(), Some(GroupKey::of(id(3), Beacon)));
+}
+
+/// A mode toggle's press (design change 0198, `ControlState::toggle`): the pressed units switch type at once, to the
+/// one the sim gives them, and join that type's group, merging with its units, and that group becomes the
+/// ActiveGroup, in its DefaultState (design change 0199). Four Sabres (active) and six Rifles: Convert on the Sabres
+/// gives ten Rifles in one active group; Convert on the ten, ten Sabres. Raise Shield on two Peacekeepers makes them
+/// Peacekeepers (Shielded), with the one selected already, and that group becomes active, whichever was (the Guards'
+/// here, which no press from the panel can be: it goes to the ActiveGroup). A toggle that switches none of its units
+/// (Raise Shield on Peacekeepers (Shielded), Convert on a Guard) changes nothing.
+#[test]
+fn a_toggle_switches_the_type_at_the_press_and_its_group_becomes_active() {
+    use ObjectKind::{PeacekeeperShielded, RifleLegionnaire, SabreLegionnaire};
+    let mut state = ControlState::EMPTY;
+    let ten = (1..=10).map(|n| (id(n), if n <= 4 { SabreLegionnaire } else { RifleLegionnaire }));
+    state.selection = Selection::new(ten);
+    let sabres: Vec<ObjectId> = (1..=4).map(id).collect();
+    let all: Vec<ObjectId> = (1..=10).map(id).collect();
+    assert_eq!(state.selection.active_group().unwrap().instances, sabres);
+    assert!(state.toggle(&sabres, Ability::Convert));
+    assert_eq!(state.selection.groups().len(), 1);
+    assert_eq!(state.selection.active(), Some(GroupKey::of(id(1), RifleLegionnaire)));
+    assert!(state.toggle(&all, Ability::Convert));
+    assert_eq!(state.selection.active_group().unwrap().instances, all);
+    assert_eq!(state.selection.active().map(|k| k.kind), Some(SabreLegionnaire));
+
+    let raise = Ability::RiotShield { raise: true };
+    state.selection = Selection::new([(id(1), PK), (id(2), PK), (id(3), GUARD), (id(4), PeacekeeperShielded)]);
+    state.selection.cycle(true);
+    state.interface = InterfaceState::awaiting(crate::command_ui::PanelCommand::Attack);
+    assert!(state.toggle(&[id(1), id(2)], raise));
+    let groups: Vec<(ObjectKind, Vec<ObjectId>)> = state
+        .selection
+        .groups()
+        .into_iter()
+        .map(|g| (g.kind(), g.instances))
+        .collect();
+    assert_eq!(
+        groups,
+        [(GUARD, vec![id(3)]), (PeacekeeperShielded, vec![id(1), id(2), id(4)])]
+    );
+    assert_eq!(state.selection.active().map(|k| k.kind), Some(PeacekeeperShielded));
+    assert_eq!(state.interface, InterfaceState::DefaultState);
+    let before = state.clone();
+    assert!(!state.toggle(&[id(1), id(2), id(4)], raise), "already Shielded");
+    assert!(!state.toggle(&[id(3)], Ability::Convert), "a Guard has no other form");
+    assert_eq!(state, before);
 }

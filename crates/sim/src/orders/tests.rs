@@ -71,6 +71,11 @@ fn tick(orders: &mut Orders, mover: &mut Mover, attack: Option<&mut AttackState>
         facing: 0.0,
         mover,
         attack,
+        weapon: ObjectKind::Peacekeeper
+            .def()
+            .unit
+            .as_ref()
+            .and_then(|unit| unit.attack.as_ref()),
         may_attack: true,
         converting: false,
         worker: None,
@@ -172,6 +177,11 @@ fn unit<'a>(mover: &'a mut Mover, attack: Option<&'a mut AttackState>) -> Unit<'
         facing: 0.0,
         mover,
         attack,
+        weapon: ObjectKind::Peacekeeper
+            .def()
+            .unit
+            .as_ref()
+            .and_then(|unit| unit.attack.as_ref()),
         may_attack: true,
         converting: false,
         worker: None,

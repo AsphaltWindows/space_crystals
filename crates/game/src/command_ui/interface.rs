@@ -20,22 +20,24 @@
 //! down and shield up are two unit types (design change 0173), Peacekeeper and Peacekeeper (Shielded), which form
 //! separate SelectionGroups. The Peacekeeper's panel has Raise Shield in slot R ([`PanelCommand::RaiseShield`]), the
 //! Peacekeeper (Shielded)'s Lower Shield there ([`PanelCommand::LowerShield`]) and no Attack (design change 0174: R,
-//! a placeholder). Each is its type's own, so in a selection of both it goes to the ActiveGroup; the units it raises
-//! or lowers change their type at once, so they move to the other type's group ("Tab to the 4, raise → all 10 are
-//! one type and form one group"), which becomes active when theirs empties
-//! (`crate::selection::ControlState::set_type`). While a unit's shield isn't all the way down it can't attack (design
-//! change 0171: neither while it goes up nor while it comes down; [`Modes`]): Attack is disabled when none of its
-//! recipients can, an explicit Attack leaves it out (`super::resolution::unit_target_order`), and a right-click on an
-//! enemy sends it after the enemy instead (`super::resolution::unit_right_click`). The Peacekeeper (Shielded) still
-//! offers the Attack its panel hides ([`templates::hides_attack`]): in a selection with other units, an AttackMove
-//! takes it along (design change 0076).
+//! a placeholder). Each is its type's own, so in a selection of both it goes to the ActiveGroup. A mode toggle sets
+//! a target state (design change 0198): the units pressed switch their type at the press, before the sim applies
+//! the command (`crate::selection::ControlState::toggle`, and `crate::sim_driver::PendingCommands::kind_of` until
+//! it does), including those whose raise waits for their shot, so they move to the other type's group at once,
+//! which becomes the ActiveGroup (design change 0199), and a second press reaches them all. Which orders a unit
+//! takes follows its type (design change 0202, [`Modes`]): a Peacekeeper (Shielded) takes no Attack (its panel has
+//! none, an explicit Attack leaves it out, `super::resolution::unit_target_order`, and a right-click on an enemy
+//! sends it after the enemy instead, `super::resolution::unit_right_click`), while a Peacekeeper whose shield is on
+//! its way down takes one, and the sim holds it until the shield is down. The Peacekeeper (Shielded) still offers
+//! the Attack its panel hides ([`templates::hides_attack`]): in a selection with other units, an AttackMove takes
+//! it along (design change 0076).
 //!
 //! The Colonists' Legionnaires convert between their two forms with R (`factions/colonists/units.md > Weapon
-//! Conversion`, [`PanelCommand::Convert`]), a common command of a selection of both (each converts to its other
-//! form), issued at once and never queued. It is disabled while the gate would refuse it: while each of its
-//! recipients is converting or waiting to (design change 0153: one pressed while Firing or in Cooldown converts once
-//! its Cooldown is over). The converted unit stays selected as its new type
-//! (`crate::selection::ControlState::set_type`) and is drawn anew (`crate::object_render`).
+//! Conversion`, [`PanelCommand::Convert`]), each form's own command, so that in a selection of both it goes to the
+//! ActiveGroup alone (design change 0198), issued at once and never queued, and never refused: it flips each unit's
+//! target form. The units switch their type at the press as the shield's do, joining the other form's group, which
+//! becomes the ActiveGroup, and are drawn by their form, the weapon in hand, until their conversion is over
+//! (`crate::object_render`, `sc_sim::conversion::form`).
 //!
 //! A Barracks (`factions/gdo/structures.md > Barracks > ObjectInterfaceState[Barracks]`) trains a Peacekeeper (Q)
 //! and cancels the last unit queued (X), at once, and awaits the target of its rally point (C); a Train or a Cancel

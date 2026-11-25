@@ -86,15 +86,20 @@ fn a_mixed_selection_shows_the_basic_combat_unit_grid() {
 }
 
 /// `factions/colonists/units.md > Sabre Legionnaire > ObjectInterfaceState`: "BasicCombatUnitInterfaceState, plus" R,
-/// Convert (slice M3-B, `convert`): both Legionnaires show the Guard's grid with Convert in R. The portals show the
-/// production panel (slice M3-D, `portals`), the Beacon and the Drone their own (slice M3-J1, `warp_in`, `deploy`);
-/// the Egress Node its F (slice M3-J2, `colonists::gathering`).
+/// Convert (slice M3-B, `convert`): both Legionnaires show the Guard's grid with their Convert in R, "R: Convert to
+/// Rifle Legionnaire" on the Sabre's, "R: Convert to Sabre Legionnaire" on the Rifle's (each form's own, design change
+/// 0198). The portals show the production panel (slice M3-D, `portals`), the Beacon and the Drone their own (slice
+/// M3-J1, `warp_in`, `deploy`); the Egress Node its F (slice M3-J2, `colonists::gathering`).
 #[test]
 fn the_legionnaires_show_the_basic_combat_unit_grid() {
+    use ObjectKind::{RifleLegionnaire, SabreLegionnaire};
     use space_crystals::command_ui::interface::templates::{InterfaceTemplate, grid};
-    let mut legionnaire = grid(ObjectKind::Guard);
-    legionnaire[3] = Some(PanelCommand::Convert);
-    for kind in [ObjectKind::SabreLegionnaire, ObjectKind::RifleLegionnaire] {
+    for (kind, other) in [
+        (SabreLegionnaire, RifleLegionnaire),
+        (RifleLegionnaire, SabreLegionnaire),
+    ] {
+        let mut legionnaire = grid(ObjectKind::Guard);
+        legionnaire[3] = Some(PanelCommand::Convert(other));
         assert_eq!(InterfaceTemplate::of(kind), Some(InterfaceTemplate::BasicCombatUnit));
         assert_eq!(grid(kind), legionnaire, "{kind:?}");
     }

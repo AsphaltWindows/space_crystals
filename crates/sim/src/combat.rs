@@ -33,9 +33,11 @@
 //!   is dropped here, which cancels an aim, while Firing and Cooldown run on, and a reload keeps counting. Its shield
 //!   all the way up halves the hits against it before armour ([`pre_armor_multiplier`]).
 //!
-//! - **Weapon Conversion** (`factions/colonists/units.md > Weapon Conversion`, `crate::conversion`): a unit
-//!   converting its weapon neither moves nor turns ([`may_move`], [`may_turn`]) and attacks nothing: this phase
-//!   skips it, and its attack sequence, interrupted when the conversion started, begins again with the new weapon.
+//! - **Weapon Conversion** (`factions/colonists/units.md > Weapon Conversion`, `crate::conversion`): a unit fights
+//!   with the weapon of the form it has ([`weapon`]), which isn't its type while a conversion is pending (design change
+//!   0198: the type switches at the press, the weapon when the conversion ends). A unit converting its weapon neither
+//!   moves nor turns ([`may_move`], [`may_turn`]) and attacks nothing: this phase skips it, and its attack sequence,
+//!   interrupted when the conversion started, begins again with the new weapon.
 //!
 //! Not built yet: turrets, projectiles and location targets (the disjointed attack types), and AoE damage.
 
@@ -47,9 +49,8 @@ use std::collections::BTreeMap;
 
 use serde::{Deserialize, Serialize};
 
-use crate::command::Ability;
 use crate::conversion;
-use crate::defs::ObjectKind;
+use crate::defs::{AttackAttrs, ObjectKind};
 use crate::events::SimEvent;
 use crate::hash::{StateHash, StateHasher};
 use crate::ids::ObjectId;
@@ -100,12 +101,27 @@ impl AttackPhase {
 }
 
 /// Whether an attack phase that can't be interrupted is under way on `o`: Firing or Cooldown (`systems/combat.md >
-/// AttackPhase > Interruptible`). A mode switch pressed now waits for it ([`AttackState::pending`], design change
-/// 0153). Idle, moving, Aiming and Reloading are all fine.
+/// AttackPhase > Interruptible`). A mode toggled now waits for it: a Weapon Conversion and a raise of the Riot Shield
+/// (design changes 0153 and 0172, `sim/modes.rs`). Idle, moving, Aiming and Reloading are all fine.
 pub fn mid_attack(o: &Object) -> bool {
     (o.attack.as_ref())
         .and_then(|attack| attack.phase)
         .is_some_and(|phase| !phase.interruptible())
+}
+
+/// The AttackAttributes of the weapon `o` fights with now (`systems/combat.md > AttackAttributes`): its form's
+/// (`conversion::form`), which is its type's but while a Legionnaire's change of form is pending (design change 0198:
+/// its type is the form it works toward, its form the one whose weapon it has; `ARCHITECTURE.md > Object model > Type
+/// and form`). The one source of a unit's attack attributes for what it does in the world: phase 5e, the behaviours
+/// (`orders::world::Unit::attrs`, and the threat it is to the others' scans) and [`can_attack_now`]. `None` for an
+/// object without an attack.
+pub fn weapon(o: &Object) -> Option<&'static AttackAttrs> {
+    weapon_of(conversion::form(o))
+}
+
+/// The AttackAttributes of a unit of form `form` ([`weapon`]).
+pub(crate) fn weapon_of(form: ObjectKind) -> Option<&'static AttackAttrs> {
+    form.def().unit.as_ref()?.attack.as_ref()
 }
 
 /// A unit's attack capability (`systems/combat.md > AttackAttributes`: only units that can attack have one).
@@ -118,16 +134,6 @@ pub struct AttackState {
     pub phase: Option<AttackPhase>,
     /// Ticks spent in `phase` so far.
     pub elapsed: u32,
-    /// An ability the unit was given while an attack phase that can't be interrupted was under way ([`mid_attack`]),
-    /// which waits for it: a Convert pressed while Firing or in Cooldown (design change 0153,
-    /// `factions/colonists/units.md > Weapon Conversion > Eligibility`: "the unit finishes Firing and Cooldown, then
-    /// converts immediately (instead of starting its Reloading phase)"), or a raise of the Riot Shield (design change
-    /// 0172, `factions/gdo/units.md > Peacekeeper > Riot Shield > During the toggle`: "the shot finishes, then the
-    /// shield starts rising immediately"). The first Modes step after the Cooldown's last tick uses it, before the
-    /// Reloading that followed has run a tick (`Sim::step_modes`); which abilities wait is `Sim::use_ability`'s. One
-    /// at a time. Left out of files while unset, and out of the hash, so older states load and hash alike.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub pending: Option<Ability>,
 }
 
 impl AttackState {
@@ -231,13 +237,15 @@ pub(crate) fn step(
             continue;
         }
         let may_attack = riot_shield::allows_attack(o);
+        // The weapon in hand: the form's, which a Legionnaire whose conversion waits still fights with (design change
+        // 0198); its shape and its turn rate are its type's, the same in either form.
+        let Some(attrs) = weapon(o) else {
+            continue;
+        };
         let Some(state) = &mut o.attack else {
             continue;
         };
         let Some(unit) = &o.kind.def().unit else {
-            continue;
-        };
-        let Some(attrs) = &unit.attack else {
             continue;
         };
         if !may_attack {
@@ -277,18 +285,10 @@ impl StateHash for AttackPhase {
 
 impl StateHash for AttackState {
     fn hash(&self, h: &mut StateHasher) {
-        let AttackState {
-            target,
-            phase,
-            elapsed,
-            pending,
-        } = self;
+        let AttackState { target, phase, elapsed } = self;
         target.hash(h);
         phase.hash(h);
         elapsed.hash(h);
-        if let Some(ability) = pending {
-            ability.hash(h);
-        }
     }
 }
 
@@ -301,7 +301,6 @@ mod tests {
             target: target.map(ObjectId),
             phase,
             elapsed: 1,
-            pending: None,
         }
     }
 

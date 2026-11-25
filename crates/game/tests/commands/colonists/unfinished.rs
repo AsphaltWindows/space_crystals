@@ -291,3 +291,37 @@ fn control_groups_and_type_selection_keep_the_unfinished_group_apart() {
     click(&mut app, DRONES_AT[1], &[ControlLeft]);
     assert_eq!(selected(&app), DRONES, "a Ctrl-click");
 }
+
+/// Design change 0199's Verification (`systems/controls/selection_and_hud.md > Selection > ActiveGroup > When the
+/// ActiveGroup disappears`): "Select a Barracks under construction (active) and a finished one. When the first
+/// completes, the merged Barracks group is active." A GDO building is placed finished, so a Bio Portal warping in
+/// stands in for the Barracks under construction, the one way a building is unfinished in the game. Tabbed to, its
+/// group is active, with only Cancel; when the Warp In completes, its members "changed type and joined another group:
+/// the group they joined becomes active", and its panel, the portal's, is in its DefaultState.
+#[test]
+fn a_building_under_construction_active_completes_and_the_merged_group_is_active() {
+    let mut app = portals_game();
+    warp_in_bio_portal(&mut app, BEACON_1, BEACON_1_AT);
+    select_portals(&mut app, &[PORTAL_A, BEACON_1]);
+    tap(&mut app, &[], Tab);
+    assert_eq!(
+        groups(&app),
+        [
+            (BioPortal, false, vec![PORTAL_A], false),
+            (BioPortal, true, vec![BEACON_1], true),
+        ]
+    );
+    run_until(&mut app, 600, "the Warp In completes", |app| {
+        !object(app, BEACON_1).is_transforming()
+    });
+    app.update();
+    assert_eq!(groups(&app), [(BioPortal, false, vec![PORTAL_A, BEACON_1], true)]);
+    assert_eq!(interface(&app), InterfaceState::DefaultState);
+    let train = (
+        slot(0, 0),
+        PanelButton::Command(Train(SabreLegionnaire)),
+        ButtonLook::Common,
+        "SL",
+    );
+    assert_eq!(buttons(&mut app).first(), Some(&train));
+}

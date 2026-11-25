@@ -4,7 +4,9 @@
 //! are created and despawned by diffing them against `Sim::objects()` (scenario spawns emit no events); one whose
 //! object is now drawn otherwise ([`MeshKey`]) is made anew: an object that changed its kind in place
 //! (`SimEvent::KindChanged`, plan decision T15) gets its new kind's mesh, size and tag, a transformation's start
-//! and end change its tint, and a defeated player's units turn neutral (`core/game_rules.md > On Defeat`). Placed
+//! and end change its tint, and a defeated player's units turn neutral (`core/game_rules.md > On Defeat`). A unit is
+//! drawn in the form it is in, not by its type ([`drawn_kind`], design change 0198): a Legionnaire pressed with
+//! Convert changes its look when its conversion is over, its weapon with it. Placed
 //! from the sim every frame at `prev_pos.lerp(pos, alpha)`, drawn at the terrain height there (a tile-based object
 //! at its footprint's height, `core/art_direction.md > Elevation Display`) and y-sorted by its ground position in its
 //! layer: the units' above the structures' and map resources', so that a unit crossing a footprint (out of a portal's
@@ -84,11 +86,11 @@ impl MeshKey {
         }
     }
 
-    /// The live `object`'s.
+    /// The live `object`'s, in the form it is in ([`drawn_kind`]).
     fn of_object(object: &Object) -> Self {
         Self {
             transforming: object.is_transforming(),
-            ..Self::of(object.kind, object.owner, object.placement.as_ref())
+            ..Self::of(drawn_kind(object), object.owner, object.placement.as_ref())
         }
     }
 }
@@ -194,6 +196,15 @@ pub fn object_mesh(kind: ObjectKind, owner: Option<PlayerId>) -> Mesh {
             structures::structure_mesh(w, h, player_color(owner))
         }
     }
+}
+
+/// The kind a live `object` is drawn as: the form it is in (`sc_sim::conversion::form`, `ARCHITECTURE.md > Object
+/// model > Type and form`), which is its type but for a Legionnaire whose conversion hasn't ended yet (design change
+/// 0198: its type switches at the press, its weapon when the conversion is over), so that a Sabre still finishing its
+/// swing in the Rifle group is drawn as the Sabre it still is. The Peacekeeper (Shielded) has the Peacekeeper's body,
+/// its shield drawn by its state ([`place_riot_shields`]).
+fn drawn_kind(object: &Object) -> ObjectKind {
+    sc_sim::conversion::form(object)
 }
 
 /// Whether a visual of `kind` turns with its object's facing: only a unit's round body does (`units::body_turns`).
@@ -307,33 +318,34 @@ fn sync_object_visuals(
             continue;
         }
         let key = MeshKey::of_object(object);
+        let drawn = key.kind;
         let mesh = assets
             .meshes
             .entry(key)
             .or_insert_with(|| meshes.add(visual_mesh(key)))
             .clone();
         let height = object_height(sim.map(), object.pos, object.placement.as_ref());
-        let facing = if body_turns(object.kind) { object.facing } else { 0.0 };
+        let facing = if body_turns(drawn) { object.facing } else { 0.0 };
         let entity = commands
             .spawn((
-                Name::new(format!("{:?} #{}", object.kind, object.id.0)),
+                Name::new(format!("{:?} #{}", drawn, object.id.0)),
                 ObjectVisual(object.id),
                 Mesh2d(mesh),
                 MeshMaterial2d(material.clone()),
-                object_transform(object.kind, object.pos, height, facing),
+                object_transform(drawn, object.pos, height, facing),
             ))
             .id();
         if let Some(size) = key.size {
-            commands.spawn((structures::tag(object.id, object.kind, size, 1.0), ChildOf(entity)));
+            commands.spawn((structures::tag(object.id, drawn, size, 1.0), ChildOf(entity)));
         }
-        if units::tagged(object.kind) {
-            commands.spawn((units::tag(object.id, object.kind), ChildOf(entity)));
+        if units::tagged(drawn) {
+            commands.spawn((units::tag(object.id, drawn), ChildOf(entity)));
         }
-        if has_tick(object.kind) {
+        if has_tick(drawn) {
             let tick = assets
                 .ticks
-                .entry(object.kind)
-                .or_insert_with(|| meshes.add(units::tick_mesh(object.kind)))
+                .entry(drawn)
+                .or_insert_with(|| meshes.add(units::tick_mesh(drawn)))
                 .clone();
             commands.spawn((
                 Name::new("Facing tick"),
@@ -347,8 +359,8 @@ fn sync_object_visuals(
         if object.riot_shield.is_some() {
             let shield = assets
                 .shields
-                .entry(object.kind)
-                .or_insert_with(|| meshes.add(units::riot_shield_mesh(object.kind)))
+                .entry(drawn)
+                .or_insert_with(|| meshes.add(units::riot_shield_mesh(drawn)))
                 .clone();
             commands.spawn((
                 Name::new("Riot Shield"),
@@ -360,11 +372,11 @@ fn sync_object_visuals(
                 ChildOf(entity),
             ));
         }
-        if load::marked(object.kind) {
+        if load::marked(drawn) {
             let marker = assets
                 .loads
-                .entry(object.kind)
-                .or_insert_with(|| meshes.add(load::mesh(object.kind)))
+                .entry(drawn)
+                .or_insert_with(|| meshes.add(load::mesh(drawn)))
                 .clone();
             commands.spawn((
                 Name::new("Load marker"),
@@ -392,11 +404,12 @@ fn place_object_visuals(
         let Some(object) = sim.object(visual.0) else {
             continue;
         };
+        let drawn = drawn_kind(object);
         let pos = object.prev_pos.lerp(object.pos, alpha.0);
         let facing = lerp_facing(object.prev_facing, object.facing, alpha.0);
         let height = object_height(sim.map(), pos, object.placement.as_ref());
-        let facing = if body_turns(object.kind) { facing } else { 0.0 };
-        transform.set_if_neq(object_transform(object.kind, pos, height, facing));
+        let facing = if body_turns(drawn) { facing } else { 0.0 };
+        transform.set_if_neq(object_transform(drawn, pos, height, facing));
     }
     for (tick, mut transform) in &mut ticks {
         let Some(object) = sim.object(tick.0) else {
@@ -410,7 +423,9 @@ fn place_object_visuals(
 /// Shows each Riot Shield that isn't down, sized by how far up it is (from 60% of its size, close to the body, to
 /// all of it: `sc_sim::ShieldMode::progress`, from the unit's type and the toggle's state, design changes 0171 and
 /// 0173), so that only a shield all the way up, the one that protects, is drawn whole; turned with its unit's facing
-/// when the body doesn't turn. Never `Visible`: a shown shield inherits its unit's visibility.
+/// when the body doesn't turn. A raise that waits for its unit's shot (`sc_sim::ShieldMode::Deferred`, design change
+/// 0198: the unit is a Peacekeeper (Shielded) from the press) is a shield still down, and shows nothing. Never
+/// `Visible`: a shown shield inherits its unit's visibility.
 fn place_riot_shields(
     sim: Res<SimRes>,
     alpha: Res<RenderAlpha>,
@@ -423,14 +438,14 @@ fn place_riot_shields(
         let (Some(mode), Some(def)) = (sc_sim::riot_shield::mode(object), sc_sim::riot_shield::def_of(object)) else {
             continue;
         };
-        let shown = mode != sc_sim::ShieldMode::Lowered;
+        let shown = !matches!(mode, sc_sim::ShieldMode::Lowered | sc_sim::ShieldMode::Deferred);
         visibility.set_if_neq(if shown {
             Visibility::Inherited
         } else {
             Visibility::Hidden
         });
         let scale = 0.6 + 0.4 * mode.progress(def.toggle_ticks);
-        let rotation = if body_turns(object.kind) {
+        let rotation = if body_turns(drawn_kind(object)) {
             Quat::IDENTITY
         } else {
             facing_to_rotation(lerp_facing(object.prev_facing, object.facing, alpha.0))

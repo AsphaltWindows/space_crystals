@@ -4,7 +4,7 @@
 
 use std::collections::BTreeMap;
 
-use sc_sim::{Object, ObjectId, ObjectKind};
+use sc_sim::{Ability, Object, ObjectId, ObjectKind};
 
 use crate::command_ui::InterfaceState;
 use crate::input::ControlGroup;
@@ -225,7 +225,8 @@ impl Selection {
         true
     }
 
-    /// Removes an object. The ActiveGroup stays if it still has members, else the first group becomes active.
+    /// Removes an object. The ActiveGroup stays if it still has members, else the next group in Tab order becomes
+    /// active ([`Selection::fix_active`]).
     pub fn remove(&mut self, id: ObjectId) -> bool {
         let removed = self.members.remove(&id).is_some();
         if removed {
@@ -247,12 +248,12 @@ impl Selection {
     }
 
     /// The type object `id` groups as changed in place, to `ty`: its kind (`SimEvent::KindChanged`, plan decision T15:
-    /// a Beacon warping in a building), or whether it is finished (design change 0185: a building that completes
-    /// "joins the finished group"). It stays selected, with the same id, in its new type's group. An ActiveGroup that
-    /// it leaves empty gives way to its new group, so that the object whose panel was shown still is; otherwise the
-    /// ActiveGroup stays (`> ObjectInterfaceState`: a change the player didn't make keeps it unless "the ActiveGroup
-    /// becomes empty"; placeholder reading of which group takes over then, the design is silent). Says whether
-    /// anything changed.
+    /// a Beacon warping in a building; a mode toggle's press, design change 0198), or whether it is finished (design
+    /// change 0185: a building that completes "joins the finished group"). It stays selected, with the same id, in its
+    /// new type's group. An ActiveGroup that it leaves empty gives way to its new group (`> Selection > ActiveGroup >
+    /// When the ActiveGroup disappears`, design change 0199: "Its members changed type and joined another group [...]
+    /// the group they joined becomes active"); otherwise the ActiveGroup stays ("Any other group change [...] never
+    /// changes the ActiveGroup"). Says whether anything changed.
     pub fn set_type(&mut self, id: ObjectId, ty: GroupType) -> bool {
         let Some(member) = self.members.get_mut(&id) else {
             return false;
@@ -291,11 +292,20 @@ impl Selection {
         changed
     }
 
-    /// `> Selection > Constraints`: ActiveGroup must name an existing group. A group that is gone gives way to the
-    /// first one (placeholder: the design doesn't say which group becomes active then).
+    /// `> Selection > Constraints`: ActiveGroup must name an existing group. An ActiveGroup whose last member left
+    /// the selection (it died, or was removed from it) gives way to the next group in Tab order, wrapping around to
+    /// the first (`> Selection > ActiveGroup > When the ActiveGroup disappears`, design change 0199: "the next group
+    /// in Tab order becomes active (the group after it in the SelectionPanel, wrapping around to the first). If no
+    /// group is left, the selection is empty"): the first group after its key ([`Selection::groups`] order). A
+    /// selection that had none, a new one, has its first group active.
     fn fix_active(&mut self) {
-        if self.active.is_none_or(|key| !self.exists(key)) {
-            self.active = self.groups().first().map(|g| g.key);
+        match self.active {
+            Some(key) if self.exists(key) => {}
+            gone => {
+                let groups = self.groups();
+                let next = gone.and_then(|gone| groups.iter().find(|g| g.key > gone));
+                self.active = next.or(groups.first()).map(|g| g.key);
+            }
         }
     }
 }
@@ -365,8 +375,10 @@ impl ControlState {
 
     /// Drops the objects for which `keep` fails from the selection and the control groups. Says whether anything
     /// changed. `> ControlState`: an ObjectInterfaceState the removal makes invalid resets to DefaultState; one of an
-    /// ActiveGroup that is gone does (it was its type's, `> ObjectInterfaceState[ObjectEnum]`), and the command flow
-    /// checks the rest against the game every frame.
+    /// ActiveGroup that is gone does (it was its type's, `> ObjectInterfaceState[ObjectEnum]`; `> AwaitingTarget >
+    /// Selection changes while targeting`: "Targeting is only cancelled if the whole ActiveGroup is gone"), the next
+    /// group in Tab order becoming active (design change 0199, [`Selection::remove`]), and the command flow checks the
+    /// rest against the game every frame.
     pub fn retain(&mut self, mut keep: impl FnMut(ObjectId) -> bool) -> bool {
         let active = self.selection.active();
         let selection = self.selection.retain(|id, _| keep(id));
@@ -389,6 +401,35 @@ impl ControlState {
             self.interface = InterfaceState::DefaultState;
         }
         changed
+    }
+
+    /// The selected `units` were pressed with the mode toggle `ability` (`factions/colonists/units.md > Weapon
+    /// Conversion > A toggle sets a target form`, `factions/gdo/units.md > Peacekeeper > Riot Shield > Two unit
+    /// types`; design change 0198): "The unit's type, and so its SelectionGroup, switches at the press to the target
+    /// form. The pressed units join the group of that form (merging with any units of that form already selected),
+    /// and that merged group becomes the ActiveGroup", the panel back in its DefaultState (design change 0199). Each
+    /// takes the type the sim switches it to when it applies the press (`sc_sim::Ability::switched_kind`), so the
+    /// panel shows the new group's commands at once, and a second press goes to the merged group (until the sim has
+    /// applied the press, `crate::sim_driver::PendingCommands::kind_of` keeps the type the selection's checks find).
+    /// Says whether anything changed.
+    pub fn toggle(&mut self, units: &[ObjectId], ability: Ability) -> bool {
+        let mut joined = None;
+        for &id in units {
+            let Some(ty) = self.selection.type_of(id) else {
+                continue;
+            };
+            if let Some(kind) = ability.switched_kind(ty.kind) {
+                let ty = GroupType { kind, ..ty };
+                self.set_type(id, ty);
+                joined = Some(GroupKey::of(id, ty));
+            }
+        }
+        let Some(joined) = joined else {
+            return false;
+        };
+        self.selection.active = Some(joined);
+        self.interface = InterfaceState::DefaultState;
+        true
     }
 }
 

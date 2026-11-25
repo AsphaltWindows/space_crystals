@@ -225,11 +225,14 @@ fn each_peacekeeper_type_has_its_shield_command_in_slot_r() {
     }
 }
 
-/// `factions/gdo/units.md > Peacekeeper > Riot Shield`: "the player must lower the shield before ordering an
-/// attack", and a Peacekeeper whose shield is on its way down can't attack yet (design change 0171). Attack is
-/// disabled while none of its recipients can attack, and a pending Attack ends; a Guard in the selection still can.
-/// Peacekeepers (Shielded) show no Attack (design change 0173), but with other units Attack goes to them too, a
-/// common command: an Attack on an object then leaves them out (0075), and an AttackMove takes them along (0076).
+/// `factions/gdo/units.md > Peacekeeper > Riot Shield > During the toggle` (design change 0202): "which orders a unit
+/// accepts follows its new type from the press". Peacekeepers whose shields are on their way down take an Attack,
+/// which the sim holds until their shields are down: "The panel shows Attack, and pressing it must not silently skip
+/// the unit"; it awaits its target, and a pending Attack goes on. A Peacekeeper (Shielded), its shield up, on its way
+/// up or waiting for its shot to go up, takes none ("the player must lower the shield before ordering an attack"):
+/// its panel shows no Attack (design change 0173), but with other units Attack goes to it too, a common command: an
+/// Attack on an object then leaves it out (0075), and an AttackMove takes it along (0076). Attack is disabled, and a
+/// pending one ends, only while none of its recipients takes one.
 #[test]
 fn attack_waits_for_a_recipient_that_can_attack() {
     let a = slot(1, 0);
@@ -239,24 +242,37 @@ fn attack_waits_for_a_recipient_that_can_attack() {
         (id(2), ShieldMode::Lowering { left: 4 }),
     ]));
     let pks = Selection::new([(id(1), PK), (id(2), PK)]);
-    let panel_of = |selection: &Selection| panel(selection, InterfaceState::DefaultState, &lowering);
-    assert_eq!(panel_of(&pks).get(a).map(|s| s.look), Some(ButtonLook::Disabled));
-    assert_eq!(press(&panel_of(&pks), a), SlotPress::Nothing);
-    assert!(!still_valid(attack, &pks, true, &lowering));
-    let with_guard = Selection::new([(id(1), PK), (id(2), PK), (id(3), GUARD)]);
+    let panel_of = |selection: &Selection, conditions| panel(selection, InterfaceState::DefaultState, conditions);
     assert_eq!(
-        press(&panel_of(&with_guard), a),
-        SlotPress::AwaitTarget(PanelCommand::Attack)
-    );
-    assert!(still_valid(attack, &with_guard, true, &lowering));
-    let one_down = Modes::from_iter([(id(1), ShieldMode::Lowering { left: 1 }), (id(2), ShieldMode::Lowered)]);
-    assert!(one_down.can_attack(id(2)) && !one_down.can_attack(id(1)) && one_down.can_attack(id(3)));
-    assert_eq!(
-        panel(&pks, InterfaceState::DefaultState, &Conditions::with_modes(one_down))
-            .get(a)
-            .map(|s| s.look),
+        panel_of(&pks, &lowering).get(a).map(|s| s.look),
         Some(ButtonLook::Common)
     );
+    assert_eq!(
+        press(&panel_of(&pks, &lowering), a),
+        SlotPress::AwaitTarget(PanelCommand::Attack)
+    );
+    assert!(still_valid(attack, &pks, true, &lowering));
+    let shielded = Modes::from_iter([
+        (id(1), ShieldMode::Deferred),
+        (id(2), ShieldMode::Raising { left: 3 }),
+        (id(5), ShieldMode::Raised),
+        (id(6), ShieldMode::Lowered),
+    ]);
+    assert_eq!(
+        [1, 2, 5, 6].map(|n| shielded.can_attack(id(n))),
+        [false, false, false, true]
+    );
+    assert!(shielded.can_attack(id(3)), "no shield");
+    let held = Conditions::with_modes(shielded);
+    assert_eq!(panel_of(&pks, &held).get(a).map(|s| s.look), Some(ButtonLook::Disabled));
+    assert_eq!(press(&panel_of(&pks, &held), a), SlotPress::Nothing);
+    assert!(!still_valid(attack, &pks, true, &held));
+    let with_guard = Selection::new([(id(1), PK), (id(2), PK), (id(3), GUARD)]);
+    assert_eq!(
+        press(&panel_of(&with_guard, &held), a),
+        SlotPress::AwaitTarget(PanelCommand::Attack)
+    );
+    assert!(still_valid(attack, &with_guard, true, &held));
     let with_shielded = Selection::new([(id(1), PK), (id(3), GUARD), (id(5), SHIELDED)]);
     assert_eq!(recipients(&with_shielded, PanelCommand::Attack), [id(1), id(3), id(5)]);
     assert_eq!(

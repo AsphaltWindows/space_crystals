@@ -1,8 +1,9 @@
 //! Weapon Conversion in the game (slice M3-B; `factions/colonists/units.md > Weapon Conversion`, plan decision T26):
 //! its timing and what the unit keeps, who may convert, a mixed group, no cancel and no shelter, the orders that go on
 //! (`> Orders are kept`, design change 0150), saves and replays; `mid_attack`: a Convert pressed mid-attack, which
-//! waits for the Cooldown's end (design change 0153). Its pieces are `conversion`'s unit tests. `TestSim` checks the
-//! movement invariants after every tick.
+//! waits for the Cooldown's end (design change 0153); `target`: a press flips the unit's target form (design change
+//! 0198, slice M3-T), its type switching at the press and its form, its weapon, when its conversion ends. Its pieces
+//! are `conversion`'s unit tests. `TestSim` checks the movement invariants after every tick.
 
 use sc_sim::combat;
 use sc_sim::conversion::{self, CONVERT_TICKS};
@@ -20,6 +21,7 @@ const RIFLE: ObjectKind = ObjectKind::RifleLegionnaire;
 const PK: ObjectKind = ObjectKind::Peacekeeper;
 
 mod mid_attack;
+mod target;
 
 fn flat(w: usize, h: usize) -> String {
     vec![".".repeat(w); h].join("\n")
@@ -97,8 +99,8 @@ fn phase(sim: &Sim, n: u32) -> Option<AttackPhase> {
     object(sim, n).attack.as_ref().and_then(|attack| attack.phase)
 }
 
-/// `o`'s conversion: `Some(true)` while its Convert waits for its Cooldown's end (design change 0153: the unit's
-/// pending ability), `Some(false)` under way, `None` without one.
+/// `o`'s conversion: `Some(true)` while it waits for its Cooldown's end (design change 0153), its type its target
+/// form already (design change 0198), `Some(false)` under way, `None` without one.
 fn waits(o: &Object) -> Option<bool> {
     match conversion::waits_to_convert(o) {
         true => Some(true),
@@ -108,9 +110,10 @@ fn waits(o: &Object) -> Option<bool> {
 
 /// The plan's acceptance: "A Sabre becomes a Rifle in 4 ticks, keeping HP and Shields" (`> Convert Command`: "The
 /// unit converts in place over 4 frames"; `> HP/Shields`: "current HP/Shields values carry over unchanged"). Player
-/// 1's Sabre, at 35 HP and 3 Shields, converts in tick 2: it is a Sabre converting, frame by frame, through tick 5,
-/// and the same object is a Rifle from tick 6 on, with a `KindChanged` in that tick only. Its HP stays 35; its Shields
-/// regenerate all along, 0.25 a tick. It stood still throughout, and can move again.
+/// 1's Sabre, at 35 HP and 3 Shields, converts in tick 2: its type is the Rifle Legionnaire from that tick on, with a
+/// `KindChanged` in that tick only (design change 0198: "The unit's type, and so its SelectionGroup, switches at the
+/// press"); its form is the Sabre's, converting frame by frame, through tick 5, and the Rifle's from tick 6 on. Its HP
+/// stays 35; its Shields regenerate all along, 0.25 a tick. It stood still throughout, and can move again.
 #[test]
 fn a_sabre_becomes_a_rifle_in_four_ticks_keeping_its_hp_and_shields() {
     let mut t = builder().spawn(SABRE, Some(P1), point(300.0, 192.0)).start();
@@ -124,12 +127,8 @@ fn a_sabre_becomes_a_rifle_in_four_ticks_keeping_its_hp_and_shields() {
         let o = object(&sim, 1);
         let frames = tick - 1;
         let kind_changed = sim.events().iter().any(|e| matches!(e, SimEvent::KindChanged { .. }));
-        if frames <= CONVERT_TICKS {
-            assert_eq!(o.kind, SABRE, "tick {tick}");
-            assert_eq!(o.conversion.map(|c| c.frames_done()), Some(frames), "tick {tick}");
-            assert!(!kind_changed, "tick {tick}");
-        } else {
-            assert_eq!((o.kind, o.conversion), (RIFLE, None), "tick {tick}");
+        assert_eq!(o.kind, RIFLE, "tick {tick}: its type from the press");
+        if tick == 2 {
             assert_eq!(
                 sim.events(),
                 [SimEvent::KindChanged {
@@ -138,6 +137,15 @@ fn a_sabre_becomes_a_rifle_in_four_ticks_keeping_its_hp_and_shields() {
                     to: RIFLE,
                 }]
             );
+        } else {
+            assert!(!kind_changed, "tick {tick}");
+        }
+        if frames <= CONVERT_TICKS {
+            assert_eq!(conversion::form(o), SABRE, "tick {tick}");
+            assert!(conversion::is_converting(o), "tick {tick}");
+            assert_eq!(o.conversion.and_then(|c| c.frames_done()), Some(frames), "tick {tick}");
+        } else {
+            assert_eq!((conversion::form(o), o.conversion), (RIFLE, None), "tick {tick}");
         }
         assert_eq!((o.pos, o.hp), (at, Some(35.0)), "tick {tick}");
         assert_eq!(
@@ -163,8 +171,9 @@ fn a_moving_legionnaire_may_convert() {
 
 /// The plan's acceptance: "A mixed group converts each unit to its other form" (`> Convert Command`: "units may be
 /// mixed in selection; each converts to its respective other form"). Player 1's Sabre 1, Rifle 2 and Drone 3 are
-/// sent a Convert: the Legionnaires swap forms, the Drone, which has no other form, is left out. A Convert to
-/// Drones alone is refused (`Reject::LacksAbility`), and so is one to another player's Legionnaire.
+/// sent a Convert: the Legionnaires swap forms, their types at once and their weapons 4 ticks later, the Drone, which
+/// has no other form, is left out. A Convert to Drones alone is refused (`Reject::LacksAbility`), and so is one to
+/// another player's Legionnaire.
 #[test]
 fn a_mixed_group_converts_each_unit_to_its_other_form() {
     let mut t = builder()
@@ -178,17 +187,24 @@ fn a_mixed_group_converts_each_unit_to_its_other_form() {
     assert_eq!(check(t.sim(), &[1, 4]), Err(Reject::NotOwned(id(4))));
     t.at(2, P1, convert(&[1, 2, 3])).run_until(1 + CONVERT_TICKS);
     let kinds = |sim: &Sim| [1, 2, 3].map(|n| object(sim, n).kind);
-    assert_eq!(kinds(t.sim()), [SABRE, RIFLE, ObjectKind::Drone], "converting");
+    let forms = |sim: &Sim| [1, 2, 3].map(|n| conversion::form(object(sim, n)));
+    assert_eq!(
+        kinds(t.sim()),
+        [RIFLE, SABRE, ObjectKind::Drone],
+        "the types at the press"
+    );
+    assert_eq!(forms(t.sim()), [SABRE, RIFLE, ObjectKind::Drone], "converting");
     t.step();
-    assert_eq!(kinds(t.sim()), [RIFLE, SABRE, ObjectKind::Drone]);
+    assert_eq!(forms(t.sim()), [RIFLE, SABRE, ObjectKind::Drone]);
+    assert_eq!(kinds(t.sim()), forms(t.sim()));
     assert_eq!(object(t.sim(), 3).conversion, None);
 }
 
 /// The plan's acceptance: "A conversion can't be cancelled, and the unit is attackable throughout" (`> Completion`:
 /// "runs to completion over its 4 frames and cannot be cancelled"; `> Vulnerability`: "no invulnerability window").
 /// Player 2's Peacekeeper 2 shoots player 1's Sabre 1; the Sabre converts two ticks before a hit lands, which lands
-/// while it converts. A second Convert is refused (`Reject::CannotConvert`), and a Stop, which is taken, changes
-/// nothing: the Sabre is a Rifle 4 ticks after the first Convert.
+/// while it converts. A Stop, which is taken, changes nothing: the Sabre has its rifle 4 ticks after the Convert. (A
+/// second Convert doesn't cancel it either: the unit converts back once it is done, `target`.)
 #[test]
 fn a_conversion_cannot_be_cancelled_and_the_unit_stays_attackable() {
     let game = || {
@@ -209,12 +225,12 @@ fn a_conversion_cannot_be_cancelled_and_the_unit_stays_attackable() {
     let mut t = game();
     t.run_until(start - 1);
     t.at(start, P1, convert(&[1])).step();
-    assert_eq!(check(t.sim(), &[1]), Err(Reject::CannotConvert), "no second Convert");
     t.order_at(start + 1, P1, &[id(1)], OrderKind::Stop, false);
     for tick in start + 1..start + CONVERT_TICKS {
         t.step();
-        assert_eq!(object(t.sim(), 1).kind, SABRE, "tick {tick}: still converting");
-        assert!(object(t.sim(), 1).conversion.is_some(), "tick {tick}");
+        let o = object(t.sim(), 1);
+        assert_eq!(conversion::form(o), SABRE, "tick {tick}: still converting");
+        assert!(conversion::is_converting(o), "tick {tick}");
     }
     assert!(
         hits(&t).contains(&(landed[1], id(2), id(1))),
@@ -222,8 +238,13 @@ fn a_conversion_cannot_be_cancelled_and_the_unit_stays_attackable() {
         landed[1]
     );
     t.step();
-    assert_eq!(object(t.sim(), 1).kind, RIFLE, "4 ticks after the Convert");
-    assert_eq!(object(t.sim(), 1).conversion, None);
+    let o = object(t.sim(), 1);
+    assert_eq!(
+        (o.kind, conversion::form(o)),
+        (RIFLE, RIFLE),
+        "4 ticks after the Convert"
+    );
+    assert_eq!(o.conversion, None);
 }
 
 /// `> Weapon Conversion > Orders are kept` (design change 0150): "The unit holds still for the 4 frames, then carries
@@ -252,7 +273,7 @@ fn orders_stay_and_the_unit_carries_on_with_its_other_weapon() {
         assert_eq!(order, Some(OrderKind::Move(Target::Point(to))), "tick {tick}");
     }
     t.step();
-    assert_eq!(object(t.sim(), 1).kind, RIFLE);
+    assert_eq!(conversion::form(object(t.sim(), 1)), RIFLE);
     assert_ne!(t.pos(1), stood, "walks on");
     while t.pos(1) != to {
         assert!(t.sim().tick() < 400, "arrives");
@@ -274,7 +295,7 @@ fn orders_stay_and_the_unit_carries_on_with_its_other_weapon() {
     assert!(rifle_hits >= 1);
     let tick = t.sim().tick() + 1;
     t.at(tick, P1, convert(&[1])).run_until(tick + CONVERT_TICKS);
-    assert_eq!(object(t.sim(), 1).kind, SABRE);
+    assert_eq!(conversion::form(object(t.sim(), 1)), SABRE);
     let order = object(t.sim(), 1)
         .orders
         .as_ref()
@@ -312,10 +333,15 @@ fn the_new_weapon_starts_ready() {
     }
     let tick = t.sim().tick() + 1;
     t.at(tick, P1, convert(&[1])).run_until(tick + CONVERT_TICKS - 1);
-    assert_eq!(object(t.sim(), 1).kind, RIFLE, "converting");
+    assert_eq!(conversion::form(object(t.sim(), 1)), RIFLE, "converting");
     assert_eq!(phase(t.sim(), 1), None, "converting");
     t.step();
-    assert_eq!(object(t.sim(), 1).kind, SABRE, "tick {}", tick + CONVERT_TICKS);
+    assert_eq!(
+        conversion::form(object(t.sim(), 1)),
+        SABRE,
+        "tick {}",
+        tick + CONVERT_TICKS
+    );
     let phase = phase(t.sim(), 1);
     assert!(matches!(phase, Some(AttackPhase::Aiming { .. })), "{phase:?}");
 }

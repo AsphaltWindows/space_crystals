@@ -29,6 +29,7 @@ const RAISE: Ability = Ability::RiotShield { raise: true };
 const LOWER: Ability = Ability::RiotShield { raise: false };
 
 mod orders_kept;
+mod target;
 mod toggle;
 
 /// 16 × 8 tiles; tiles (2..=3, 1..=2) are Rugged.
@@ -122,8 +123,8 @@ fn attack_order(units: &[u32], target: u32, queue: bool) -> PlayerCommand {
 }
 
 /// `> Toggle time`: raised in tick `t`, the shield is up at the end of tick `t + T − 1`; lowered, down after as
-/// long. The unit is a Peacekeeper (Shielded) from the start of the raise, a Peacekeeper from the start of the
-/// lowering (design change 0173), and slow from the start of the raise to the end of the lowering (design change
+/// long. The unit is a Peacekeeper (Shielded) from the raise's press, a Peacekeeper from the lowering's (design
+/// changes 0173 and 0198), and slow from the start of the raise to the end of the lowering (design change
 /// 0171: "While raising **or** lowering, the Peacekeeper moves at half speed"). A second raise changes nothing, and
 /// a lowering half-way up turns back from there.
 #[test]
@@ -230,8 +231,9 @@ fn a_raised_shield_halves_the_damage_before_the_armor() {
 }
 
 /// `> Riot Shield`: "Attack orders are not possible: the player must lower the shield before ordering an attack."
-/// The gate takes no Attack order for a Peacekeeper whose shield is up or on its way up or down, queued or not; in a
-/// group, the others take it. A move, an AttackMove or a Patrol it does take.
+/// The gate takes no Attack order for a Peacekeeper (Shielded), its shield up or on its way up, queued or not; in a
+/// group, the others take it. A move, an AttackMove or a Patrol it does take. Lowered, it is a Peacekeeper again,
+/// which takes one from the press on (design change 0202: "accepted and held"; `target`).
 #[test]
 fn no_attack_orders_with_the_shield_up() {
     let mut t = spawned(
@@ -273,9 +275,10 @@ fn no_attack_orders_with_the_shield_up() {
         (current(&t, 1), current(&t, 2)),
         (None, Some(OrderKind::Attack(ObjectId(3))))
     );
-    // Lowering: not yet. Down: yes.
+    // Lowering: yes, as once it is down.
     t.ability_at(10, P1, &ids(&[1]), LOWER).run_until(10);
-    assert_eq!(validate(&t, &attack_order(&[1], 3, false)), Err(Reject::CannotAttack));
+    assert_eq!(shield(&t, 1), ShieldMode::Lowering { left: T - 1 });
+    assert_eq!(validate(&t, &attack_order(&[1], 3, false)), Ok(()));
     t.run_until(10 + T - 1);
     assert_eq!(shield(&t, 1), ShieldMode::Lowered);
     assert_eq!(validate(&t, &attack_order(&[1], 3, false)), Ok(()));

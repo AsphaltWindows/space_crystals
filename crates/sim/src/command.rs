@@ -10,7 +10,6 @@ use serde::{Deserialize, Serialize};
 
 use crate::construction::ConstructionCommand;
 use crate::defs::ObjectKind;
-use crate::hash::{StateHash, StateHasher};
 use crate::ids::{ObjectId, PlayerId};
 use crate::orders::OrderKind;
 use crate::production::ProductionCommand;
@@ -59,35 +58,20 @@ pub enum Command {
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum Ability {
     /// `factions/gdo/units.md > Peacekeeper > Riot Shield`: raise the shield (`raise`) or lower it
-    /// (`crate::riot_shield`), which makes the unit a Peacekeeper (Shielded) or a Peacekeeper (design change 0173).
-    /// The command says which, rather than "toggle", so that it means the same to every unit of a group and when it
-    /// arrives twice: the Peacekeeper's panel sends Raise Shield, the Peacekeeper (Shielded)'s Lower Shield.
+    /// (`crate::riot_shield`), which makes the unit a Peacekeeper (Shielded) or a Peacekeeper at once, its shield then
+    /// working toward it (design changes 0173 and 0198). The command says which, rather than "toggle", so that it
+    /// means the same to every unit of a group and when it arrives twice: the Peacekeeper's panel sends Raise Shield,
+    /// the Peacekeeper (Shielded)'s Lower Shield.
     RiotShield { raise: bool },
     /// `factions/colonists/units.md > Drone > Assigned Drop-off > Set Drop-off Location command`: the workers'
     /// AssignedDropOff becomes this drop-off of their owner's, an Egress Node. It "does not interrupt the Drone's
     /// current action": a return trip under way turns to it (`crate::orders::gather`).
     SetDropOff(ObjectId),
-    /// `factions/colonists/units.md > Weapon Conversion > Convert Command`: each unit converts in place to its other
-    /// form, a Sabre Legionnaire to a Rifle Legionnaire and the other way round, over 4 frames (`crate::conversion`,
-    /// plan decision T26). Its orders stay (`> Weapon Conversion > Orders are kept`, design change 0150).
+    /// `factions/colonists/units.md > Weapon Conversion > Convert Command`: each unit's target form flips, a Sabre
+    /// Legionnaire's to the Rifle Legionnaire and the other way round, and the unit converts in place to it over 4
+    /// frames (`crate::conversion`, plan decision T26; design change 0198: "Pressing R **flips the unit's target
+    /// form**"). Its orders stay (`> Weapon Conversion > Orders are kept`, design change 0150).
     Convert,
-}
-
-/// An ability waiting for a unit's attack is state (`crate::combat::AttackState::pending`).
-impl StateHash for Ability {
-    fn hash(&self, h: &mut StateHasher) {
-        match *self {
-            Ability::RiotShield { raise } => {
-                h.tag(0);
-                raise.hash(h);
-            }
-            Ability::SetDropOff(node) => {
-                h.tag(1);
-                node.hash(h);
-            }
-            Ability::Convert => h.tag(2),
-        }
-    }
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]

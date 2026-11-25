@@ -99,7 +99,6 @@ fn a_legionnaire_changes_its_weapon_and_carries_on_with_its_order() {
             target: Some(pk),
             phase: None,
             elapsed: 0,
-            pending: None,
         })
     );
     assert_eq!(after.placement, None);
@@ -133,8 +132,8 @@ fn a_legionnaire_changes_its_weapon_and_carries_on_with_its_order() {
 
 /// `factions/gdo/units.md > Peacekeeper > Riot Shield > Two unit types` (design change 0173): "They share everything
 /// except what the shield changes", the weapon included, so a Peacekeeper that becomes a Peacekeeper (Shielded) and
-/// back keeps its attack as it was, the reload under way and a deferred ability with it, unlike a Legionnaire's new
-/// weapon; and it keeps its shield where it was, and its speed factor, which `riot_shield::settle` sets after a toggle.
+/// back keeps its attack as it was, the reload under way with it, unlike a Legionnaire's new weapon; and it keeps its
+/// shield where it was, and its speed factor, which `riot_shield::settle` sets after a toggle.
 #[test]
 fn the_shields_two_types_keep_the_weapon_and_the_shield_as_they_were() {
     let mut sim = sim(&[(ObjectKind::Peacekeeper, P1, SpawnAt::Point(Vec2::new(300.0, 300.0)))]);
@@ -143,7 +142,6 @@ fn the_shields_two_types_keep_the_weapon_and_the_shield_as_they_were() {
         target: Some(ObjectId(7)),
         phase: Some(crate::combat::AttackPhase::Reloading),
         elapsed: 5,
-        pending: Some(crate::command::Ability::RiotShield { raise: true }),
     };
     let o = sim.objects.get_mut(&pk).unwrap();
     o.attack = Some(reloading.clone());
@@ -161,6 +159,58 @@ fn the_shields_two_types_keep_the_weapon_and_the_shield_as_they_were() {
         );
         assert_eq!(o.mover.as_ref().unwrap().speed_factor, 0.5, "{kind:?}");
     }
+}
+
+/// Design change 0198 (`factions/colonists/units.md > Weapon Conversion > A toggle sets a target form`): a press
+/// switches a Legionnaire's type at once, the weapon in hand staying its form's, which its pending conversion holds
+/// (`conversion::hold_form`). So the change of type keeps its attack as it was, a shot under way included, and the
+/// conversion with it; only the end of the conversion changes the weapon.
+#[test]
+fn a_legionnaire_whose_conversion_holds_its_form_keeps_its_weapon() {
+    let mut sim = sim(&[(
+        ObjectKind::SabreLegionnaire,
+        P1,
+        SpawnAt::Point(Vec2::new(300.0, 300.0)),
+    )]);
+    let sabre = ObjectId(1);
+    let firing = AttackState {
+        target: Some(ObjectId(7)),
+        phase: Some(crate::combat::AttackPhase::Firing {
+            target: Some(ObjectId(7)),
+        }),
+        elapsed: 1,
+    };
+    let held = crate::conversion::Conversion {
+        form: ObjectKind::SabreLegionnaire,
+        left: None,
+    };
+    let o = sim.objects.get_mut(&sabre).unwrap();
+    o.attack = Some(firing.clone());
+    o.conversion = Some(held);
+    sim.events.clear();
+    assert!(sim.change_kind(sabre, ObjectKind::RifleLegionnaire, None));
+    let o = object(&sim, 1);
+    assert_eq!(o.kind, ObjectKind::RifleLegionnaire);
+    assert_eq!((o.attack.as_ref(), o.conversion), (Some(&firing), Some(held)));
+    assert_eq!(crate::conversion::form(o), ObjectKind::SabreLegionnaire);
+    assert_eq!(
+        crate::combat::weapon(o),
+        ObjectKind::SabreLegionnaire
+            .def()
+            .unit
+            .as_ref()
+            .unwrap()
+            .attack
+            .as_ref()
+    );
+    assert_eq!(
+        sim.events,
+        [SimEvent::KindChanged {
+            id: sabre,
+            from: ObjectKind::SabreLegionnaire,
+            to: ObjectKind::RifleLegionnaire,
+        }]
+    );
 }
 
 /// `economy.md > Beacon Deployment`: a Drone that becomes a Beacon stands on its footprint, at its centre, and keeps

@@ -56,11 +56,13 @@ fn convert_is_taken_in_every_phase_and_waits_in_firing_or_cooldown() {
 
 /// Design change 0153 for one unit (`> Eligibility`: "the unit finishes Firing and Cooldown, then converts
 /// immediately (instead of starting its Reloading phase)"; "Applies to single units too"). Player 1's Rifle 1 shoots
-/// player 2's Peacekeeper 2 and is sent a Convert while it is Firing. It fires on, its hit landing at Firing's end,
-/// and cools down, its conversion waiting; a second Convert is refused meanwhile (`Reject::CannotConvert`: one under
-/// way or waiting can't be cancelled, a placeholder reading), and one to a group with an idle Sabre 3 goes to the
-/// Sabre only. In the tick after its Cooldown's last, it converts, never having reloaded, and 4 ticks later it is a
-/// Sabre, still attacking the Peacekeeper.
+/// player 2's Peacekeeper 2 and is sent a Convert while it is Firing: its type is the Sabre's from the press (design
+/// change 0198). It fires on with its rifle, its hit landing at Firing's end, and cools down, its conversion waiting;
+/// the gate takes a second Convert meanwhile, which would flip its target back (`target`), and one to a group with an
+/// idle Sabre 3 in the Cooldown's last tick flips the Rifle back, which then doesn't convert at all ("if that is its
+/// current weapon again, it doesn't convert at all"), and converts the Sabre. Left alone, in the tick after its
+/// Cooldown's last it converts, never having reloaded, and 4 ticks later it has its sabre, still attacking the
+/// Peacekeeper.
 #[test]
 fn a_rifle_sent_a_convert_while_firing_converts_after_its_cooldown() {
     let mut t = builder()
@@ -85,7 +87,8 @@ fn a_rifle_sent_a_convert_while_firing_converts_after_its_cooldown() {
         let o = object(t.sim(), 1);
         assert_eq!(waits(o), Some(true), "tick {}", t.sim().tick());
         assert!(combat::mid_attack(o) && !conversion::is_converting(o));
-        assert_eq!(check(t.sim(), &[1]), Err(Reject::CannotConvert), "no second Convert");
+        assert_eq!((o.kind, conversion::form(o)), (SABRE, RIFLE), "tick {}", t.sim().tick());
+        assert_eq!(check(t.sim(), &[1]), Ok(()), "a second Convert is taken");
         t.step();
     }
     assert!(hits(&t).contains(&(hit, id(1), id(2))), "it fired on: {:?}", hits(&t));
@@ -96,25 +99,32 @@ fn a_rifle_sent_a_convert_while_firing_converts_after_its_cooldown() {
     let deferred = [1, 3].map(|n| waits(object(&sim, n)));
     assert_eq!(
         deferred,
-        [Some(false), Some(false)],
-        "the Sabre's Convert taken, the Rifle's not"
+        [None, Some(false)],
+        "the Rifle flipped back, the Sabre converting"
     );
-    assert_eq!(object(&sim, 1).conversion.unwrap().frames_done(), 1);
+    assert_eq!([1, 3].map(|n| object(&sim, n).kind), [RIFLE, RIFLE]);
+    assert_eq!(phase(&sim, 1), Some(AttackPhase::Reloading), "the Rifle reloads on");
+    assert_eq!(object(&sim, 3).conversion.unwrap().frames_done(), Some(1));
     t.step();
     let o = object(t.sim(), 1);
     assert!(conversion::is_converting(o), "tick {}", t.sim().tick());
-    assert_eq!(o.conversion.unwrap().frames_done(), 1);
+    assert_eq!(o.conversion.unwrap().frames_done(), Some(1));
     assert_eq!(phase(t.sim(), 1), None, "no reload");
     t.run(CONVERT_TICKS - 1);
     assert_eq!(
-        object(t.sim(), 1).kind,
+        conversion::form(object(t.sim(), 1)),
         RIFLE,
         "converting through tick {}",
         t.sim().tick()
     );
     t.step();
     let o = object(t.sim(), 1);
-    assert_eq!((o.kind, o.conversion), (SABRE, None), "tick {}", t.sim().tick());
+    assert_eq!(
+        (o.kind, conversion::form(o), o.conversion),
+        (SABRE, SABRE, None),
+        "tick {}",
+        t.sim().tick()
+    );
     assert_eq!(o.attack.as_ref().unwrap().target, Some(id(2)));
     let current = o.orders.as_ref().unwrap().current.as_ref().map(|a| a.order.kind);
     assert_eq!(current, Some(OrderKind::Attack(id(2))));
@@ -123,8 +133,9 @@ fn a_rifle_sent_a_convert_while_firing_converts_after_its_cooldown() {
 /// Design change 0153's Verification: "10 Sabres fighting, press R once: all 10 end up Rifles; a few convert 1–4
 /// frames after the others." Player 1's ten Sabres attack player 2's two Deployment Centers, set off a tick apart so
 /// that their attack sequences don't keep step. Once each has struck, R goes to all ten in a tick when some of them
-/// are mid-swing (Firing or in Cooldown) and some aren't. Those that aren't are Rifles 4 ticks after it; each of the
-/// others as many ticks later as it had Firing and Cooldown ticks left (1 to 4: a Sabre fires 3, cools down 1).
+/// are mid-swing (Firing or in Cooldown) and some aren't. All ten are of the Rifle's type from the press (design
+/// change 0198), so one group; those that aren't mid-swing have their rifles 4 ticks after it, each of the others as
+/// many ticks later as it had Firing and Cooldown ticks left (1 to 4: a Sabre fires 3, cools down 1).
 #[test]
 fn ten_sabres_fighting_all_convert_on_one_press_the_mid_swing_ones_a_little_later() {
     // Two Deployment Centers (1, 2) on tiles (4, 4) to (7, 7) and (14, 4) to (17, 7); five Sabres by each, a step
@@ -193,7 +204,20 @@ fn ten_sabres_fighting_all_convert_on_one_press_the_mid_swing_ones_a_little_late
         .collect();
     let late: Vec<Tick> = (sabres.iter()).map(|&n| wait(n)).filter(|&w| w > 0).collect();
     assert!(late.len() >= 2 && late.iter().all(|w| (1..=4).contains(w)), "{late:?}");
-    t.at(press, P1, convert(&sabres)).run_until(press + CONVERT_TICKS + 4);
+    t.at(press, P1, convert(&sabres));
+    let mut armed: Vec<(ObjectId, Tick)> = Vec::new();
+    while t.sim().tick() < press + CONVERT_TICKS + 4 {
+        t.step();
+        for &n in &sabres {
+            let o = object(t.sim(), n);
+            assert_eq!(o.kind, RIFLE, "tick {}: the type from the press", t.sim().tick());
+            if conversion::form(o) == RIFLE && !armed.iter().any(|&(armed, _)| armed == id(n)) {
+                armed.push((id(n), t.sim().tick()));
+            }
+        }
+    }
+    armed.sort();
+    assert_eq!(armed, expected, "pressed in tick {press}");
     let mut changed: Vec<(ObjectId, Tick)> = (t.events().iter())
         .filter_map(|(tick, e)| match e {
             SimEvent::KindChanged { id, from, to } => {
@@ -204,8 +228,9 @@ fn ten_sabres_fighting_all_convert_on_one_press_the_mid_swing_ones_a_little_late
         })
         .collect();
     changed.sort();
-    assert_eq!(changed, expected, "pressed in tick {press}");
+    let at_the_press: Vec<(ObjectId, Tick)> = sabres.iter().map(|&n| (id(n), press)).collect();
+    assert_eq!(changed, at_the_press, "one KindChanged each, at the press");
     for &n in &sabres {
-        assert_eq!(object(t.sim(), n).kind, RIFLE, "all 10 end up Rifles");
+        assert_eq!(object(t.sim(), n).conversion, None, "all 10 end up Rifles");
     }
 }

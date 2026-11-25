@@ -99,7 +99,7 @@ pub(super) fn end_queued_targeting(actions: Res<ActionState>, pressed: Res<Targe
 /// `> AwaitingTarget`: a left-click on the map (a press and release of the Select action) on a valid target gives
 /// the PendingCommand's order for what is under it ([`target_order`]) to the command's recipients ([`recipients`]:
 /// the whole selection for a common command, the ActiveGroup for a group one), each as [`unit_target_order`] has it:
-/// an explicit Attack leaves out the units whose Riot Shield is up (design change 0075). A plain click then returns
+/// an explicit Attack leaves out the Peacekeepers (Shielded) (design changes 0075 and 0202). A plain click then returns
 /// to DefaultState. A Shift-click queues the order and keeps the target awaited, marked queued, until Shift is let go
 /// ([`end_queued_targeting`], design change 0070); each one appends one order to each unit's queue.
 ///
@@ -197,8 +197,9 @@ fn give_targeted(control: &LocalControl, outbox: &mut OrderOutbox, click: Presse
 /// selected object resolves it for itself ([`object_right_click`], design changes 0062 and 0063), whichever group is
 /// active: each unit gets its default command on what was clicked, as the player knows it: an object it sees or one
 /// it remembers (design change 0139). The units that can carry out the resolved command do, the others move to the
-/// location or follow the unit under the cursor, and so do those whose Riot Shield is up, instead of attacking an
-/// enemy: they follow a unit and move to a structure (`super::resolution::unit_right_click`, design change 0074).
+/// location or follow the unit under the cursor, and so do the Peacekeepers (Shielded), instead of attacking an
+/// enemy: they follow a unit and move to a structure (`super::resolution::unit_right_click`, design changes 0074 and
+/// 0202).
 /// A unit right-clicked among the selected ones stops, and the others follow it (design change 0168: "Following
 /// itself = Stop", the sim's). The orders go out
 /// grouped ([`OrderOutbox::give_each`]). The selected producers set their rally point on what was clicked, as one

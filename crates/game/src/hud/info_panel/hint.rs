@@ -152,7 +152,8 @@ mod tests {
                         PanelCommand::Train(kind)
                         | PanelCommand::Construct(kind)
                         | PanelCommand::PlaceReady(kind)
-                        | PanelCommand::WarpIn(kind) => assert!(name.ends_with(kind.def().name), "{name}"),
+                        | PanelCommand::WarpIn(kind)
+                        | PanelCommand::Convert(kind) => assert!(name.ends_with(kind.def().name), "{name}"),
                         PanelCommand::Planned(planned) => assert!(name.ends_with(planned.name()), "{name}"),
                         _ => {}
                     }

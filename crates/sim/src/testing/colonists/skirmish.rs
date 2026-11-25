@@ -22,7 +22,6 @@
 use std::collections::BTreeSet;
 
 use crate::command::{Ability, Command, PlayerCommand};
-use crate::conversion;
 use crate::defs::ObjectKind;
 use crate::events::SimEvent;
 use crate::ids::{ObjectId, PlayerId};
@@ -166,7 +165,8 @@ impl Skirmish {
         let mut commands = self.colonists.commands(sim);
         let plays = |player| sim.outcome().is_none() && sim.player(player).is_some_and(|p| !p.is_defeated());
 
-        // Sabres convert CONVERT_AFTER ticks after they come out, as many as the game converts, if they still may.
+        // Sabres convert CONVERT_AFTER ticks after they come out, as many as the game converts, if they are still
+        // Sabres: a Convert to one pressed already would flip it back (design change 0198).
         let new = sim.events().iter().filter_map(|e| match *e {
             SimEvent::UnitProduced { unit, .. } => sim
                 .object(unit)
@@ -176,9 +176,7 @@ impl Skirmish {
         });
         self.sabres.extend(new);
         let due: Vec<ObjectId> = (self.sabres.iter().take(self.converts))
-            .filter(|&&(out, sabre)| {
-                tick == out + CONVERT_AFTER && sim.object(sabre).is_some_and(conversion::may_convert)
-            })
+            .filter(|&&(out, sabre)| tick == out + CONVERT_AFTER && sim.object(sabre).is_some_and(|o| o.kind == Sabre))
             .map(|&(_, sabre)| sabre)
             .collect();
         if !due.is_empty() && plays(COLONISTS) {

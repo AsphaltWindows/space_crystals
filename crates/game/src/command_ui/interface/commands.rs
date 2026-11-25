@@ -2,7 +2,7 @@
 //! structures and constructors alike (plan decision T10: one command flow, not a structure UI beside the unit UI):
 //! [`PanelCommand`], and what pressing each one gives the sim.
 
-use sc_sim::{Ability, ConstructionCommand, ObjectKind, OrderKind, ProductionCommand, conversion, transform};
+use sc_sim::{Ability, ConstructionCommand, ObjectKind, OrderKind, ProductionCommand, transform};
 
 use super::{BuildMenu, Planned};
 use crate::hud::selection_panel::short_label;
@@ -34,10 +34,12 @@ pub enum PanelCommand {
     /// Peacekeeper, its shield going down from where it is, at once.
     LowerShield,
     /// `factions/colonists/units.md > Sabre Legionnaire > ObjectInterfaceState`: "R: Convert to Rifle Legionnaire",
-    /// and the Rifle Legionnaire's "R: Convert to Sabre Legionnaire", one command (`> Weapon Conversion > Convert
-    /// Command`: "units may be mixed in selection; each converts to its respective other form"), at once
-    /// (`sc_sim::Ability::Convert`).
-    Convert,
+    /// and the Rifle Legionnaire's "R: Convert to Sabre Legionnaire": each form's own command, named for the form it
+    /// converts to, so that in a selection of both it goes to the ActiveGroup alone (`> Weapon Conversion > Convert
+    /// Command`, design change 0198: "It goes only to the ActiveGroup"), as Raise and Lower Shield do. At once
+    /// (`sc_sim::Ability::Convert`): it flips each unit's target form, and so its type, at the press (`> A toggle
+    /// sets a target form`).
+    Convert(ObjectKind),
     /// `> ObjectInterfaceState[Barracks]`: "Q: Build Peacekeeper": pays for a unit of this kind and adds it to the
     /// BuildQueue, at once (`sc_sim::ProductionCommand::Train`).
     Train(ObjectKind),
@@ -112,7 +114,7 @@ impl PanelCommand {
             | PanelCommand::Stop
             | PanelCommand::RaiseShield
             | PanelCommand::LowerShield
-            | PanelCommand::Convert
+            | PanelCommand::Convert(_)
             | PanelCommand::Train(_)
             | PanelCommand::CancelProduction
             | PanelCommand::BuildMenu(_)
@@ -139,13 +141,13 @@ impl PanelCommand {
 
     /// The ability of an ability command issued at once (`sc_sim::Command::Ability`): Raise Shield's raises, Lower
     /// Shield's lowers (each type's panel has the one that turns its shields the other way, design change 0173), and
-    /// Convert's converts. Set Drop-off's waits for its target, the drop-off
+    /// Convert's flips the target form. Set Drop-off's waits for its target, the drop-off
     /// (`super::super::resolution::target_resolution`).
     pub fn ability(self) -> Option<Ability> {
         match self {
             PanelCommand::RaiseShield => Some(Ability::RiotShield { raise: true }),
             PanelCommand::LowerShield => Some(Ability::RiotShield { raise: false }),
-            PanelCommand::Convert => Some(Ability::Convert),
+            PanelCommand::Convert(_) => Some(Ability::Convert),
             _ => None,
         }
     }
@@ -240,7 +242,7 @@ impl PanelCommand {
             | PanelCommand::Deploy => true,
             PanelCommand::RaiseShield
             | PanelCommand::LowerShield
-            | PanelCommand::Convert
+            | PanelCommand::Convert(_)
             | PanelCommand::Train(_)
             | PanelCommand::CancelProduction
             | PanelCommand::SetRallyPoint
@@ -276,7 +278,7 @@ impl PanelCommand {
             PanelCommand::Stop => "Stop",
             PanelCommand::RaiseShield => "Raise",
             PanelCommand::LowerShield => "Lower",
-            PanelCommand::Convert => "Conv.",
+            PanelCommand::Convert(_) => "Conv.",
             PanelCommand::Train(kind) | PanelCommand::Construct(kind) | PanelCommand::WarpIn(kind) => short_label(kind),
             PanelCommand::Planned(planned) => planned.label(),
             PanelCommand::CancelProduction
@@ -304,7 +306,7 @@ impl PanelCommand {
             PanelCommand::AttackGround => "Attack Ground".into(),
             PanelCommand::RaiseShield => "Raise Shield".into(),
             PanelCommand::LowerShield => "Lower Shield".into(),
-            PanelCommand::Convert => "Convert".into(),
+            PanelCommand::Convert(kind) => named("Convert to", kind),
             PanelCommand::Train(kind) => named("Train", kind),
             PanelCommand::CancelProduction => "Cancel Production".into(),
             PanelCommand::SetRallyPoint => "Set Rally Point".into(),
@@ -333,9 +335,6 @@ impl PanelCommand {
     /// - a Beacon's menus: "Q: Warp In (Basic)", "W: Warp In (Advanced)" (`factions/colonists/economy.md > Beacon >
     ///   Beacon ObjectInterfaceState`), the Deployment Center's being "Basic Construction" and "Advanced
     ///   Construction";
-    /// - a Legionnaire's Convert: "R: Convert to Rifle Legionnaire" on the Sabre's, "R: Convert to Sabre Legionnaire"
-    ///   on the Rifle's (`factions/colonists/units.md > Sabre Legionnaire > ObjectInterfaceState`, `> Rifle
-    ///   Legionnaire > ObjectInterfaceState`; `sc_sim::conversion::converts_to`);
     /// - the Cancel of an object that transforms (`factions/colonists/economy.md > Beacon Deployment > While
     ///   transforming: only Cancel`: "Cancel Deployment / Cancel Warp In"): a Beacon's under deployment, any other
     ///   building's under Warp In (the object is the building from the first frame, `sc_sim::transform`);
@@ -346,10 +345,6 @@ impl PanelCommand {
             PanelCommand::BuildMenu(menu) if !transform::warp_in_recipes(kind).is_empty() => match menu {
                 BuildMenu::Basic => "Warp In (Basic)".into(),
                 BuildMenu::Advanced => "Warp In (Advanced)".into(),
-            },
-            PanelCommand::Convert => match conversion::converts_to(kind) {
-                Some(other) => format!("Convert to {}", other.def().name),
-                None => self.name(),
             },
             PanelCommand::CancelTransform if kind == ObjectKind::Beacon => "Cancel Deployment".into(),
             PanelCommand::CancelTransform => "Cancel Warp In".into(),
