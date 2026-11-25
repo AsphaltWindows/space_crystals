@@ -23,11 +23,11 @@
 //!
 //! A Tunnel's EjectMenu tiles are its Ejects, which the gate answers too (`factions/syndicate/tunnels.md > EjectMenu`,
 //! slice M4-J2): a tile is greyed while no unit of its type is in the network free to leave, while every one of them
-//! only just walked in (Q0077 point 1), or while this Tunnel's tier doesn't let the type out; and its count is the
-//! network's ([`Conditions::network_count`]). Its ExpandMenu's entries are greyed by the gate's answer to an Expand
-//! short of its placement (`Sim::can_expand`, slice M4-F: an operation under way, a Tier Requirement above this
-//! Tunnel's tier, a prerequisite missing, too few Space Crystals), where the expansion goes being the ghost's to show;
-//! its X while it performs no operation.
+//! only just walked in (design change 0288 point 1), or while this Tunnel's tier doesn't let the type out; and its
+//! count is the network's ([`Conditions::network_count`]). Its ExpandMenu's entries are greyed by the gate's answer to
+//! an Expand short of its placement (`Sim::can_expand`, slice M4-F: an operation under way, a Tier Requirement above
+//! this Tunnel's tier, a prerequisite missing, too few Space Crystals), where the expansion goes being the ghost's to
+//! show; its X while it performs no operation.
 //!
 //! The Agent's A, Build Tunnel (`factions/syndicate/units/agent.md > Agent ObjectInterfaceState`, slice M4-J1), asks
 //! for its Build order where it would stand anywhere, and leaves out the placement's refusal as a Warp In does: it is

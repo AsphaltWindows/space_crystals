@@ -1,7 +1,7 @@
 //! Where a Tunnel may stand (`core/entities.md > Placement Validation > Worker-Built Structures`): its ghost judged by
 //! what the player knows (`Sim::build_check`, `Mode::Known`), its arrival by the truth; the overlap rule (design change
 //! 0237), the Drillable area (0242), the hidden expansions (0240), a unit on the site, and the lingering ghosts
-//! (0125; Placeholder: Q0079 point 2).
+//! (0125; design change 0289 point 2).
 
 use super::*;
 use sc_sim::tuning::vision::FOG_DELAY_TICKS;
@@ -31,7 +31,8 @@ fn tiles(origin: TilePos, w: i32, h: i32) -> Vec<TilePos> {
 /// overlap the area of a Tunnel of its owner's, at its current tier ("The non-overlap check uses the current tier's
 /// area"); it may touch it. The ghost shows it as a whole problem (`WholeProblem::TunnelAreaOverlap`), and the gate
 /// refuses the order with it. On arrival the check is the truth: Tunnel 1, upgraded since the order (a debug tier
-/// here, as slice M4-G will), fails it, refunded. A site's area counts as any Tunnel's (Placeholder: Q0079 point 3).
+/// here, as slice M4-G will), fails it, refunded. A site's area counts as any Tunnel's (design change 0289 point 3: "A
+/// site counts with its whole area for every player from the moment it appears").
 #[test]
 fn an_area_may_not_overlap_an_own_tunnels() {
     let mut t = base()
@@ -256,7 +257,7 @@ fn a_unit_on_the_site_fails_the_order() {
 
 /// `core/entities.md > Placement Validation > Lingering build ghosts` (design change 0125): Agent 2's pending Build
 /// reserves its site against its owner's further placements (`TileProblem::Reserved`) and, a Tunnel's, its whole
-/// Tier 1 area against their further Tunnels (Placeholder: Q0079 point 2, `WholeProblem::TunnelAreaOverlap`); it may
+/// Tier 1 area against their further Tunnels (design change 0289 point 2, `WholeProblem::TunnelAreaOverlap`); it may
 /// be touched. It is its owner's alone (`Sim::pending_builds`: "Visible to its owner. Enemies never see it"), and
 /// reserves nothing against another player. A Build without Shift to Agent 2 itself replaces it, so it doesn't count
 /// against that.

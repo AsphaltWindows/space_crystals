@@ -38,7 +38,7 @@ impl Sim {
     /// `Sim::refund_constructors`).
     ///
     /// A worker's pending Build orders are refunded at the current top price once it has gone (`sim/builds.rs`;
-    /// Placeholder: Q0079 point 1), and a site's worker comes out at the centre of its footprint, the Supplies paid for
+    /// design change 0289 point 1), and a site's worker comes out at the centre of its footprint, the Supplies paid for
     /// it lost (`sim/sites.rs`, design change 0234).
     ///
     /// A worker gathering at a patch that goes keeps its Gather, and heads for where the patch was

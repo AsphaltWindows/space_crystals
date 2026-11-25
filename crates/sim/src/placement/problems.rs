@@ -93,8 +93,8 @@ pub enum WholeProblem {
     TunnelAreaNotDrillable,
     /// The Tunnel Area that the Tunnel would have at Tier 1 overlaps the Tunnel Area of another Tunnel, any player's, a
     /// site included, at that Tunnel's tier (slice M4-E; `factions/syndicate/tunnels.md > Tunnel Area Non-Overlap
-    /// Rule`, design change 0237: "Every player's Tunnels count"; question Q0079 point 3), or the Tier 1 area of one of
-    /// the placing player's lingering Tunnel ghosts (Placeholder: Q0079 point 2). In [`super::Mode::Known`] another
+    /// Rule`, design change 0237: "Every player's Tunnels count"; design change 0289 point 3), or the Tier 1 area of
+    /// one of the placing player's lingering Tunnel ghosts (0289 point 2). In [`super::Mode::Known`] another
     /// player's Tunnel counts as the player knows it, "their remembered position and their tier as last seen". The
     /// rule is in `placement/tunnel_overlap.rs`.
     TunnelAreaOverlap,

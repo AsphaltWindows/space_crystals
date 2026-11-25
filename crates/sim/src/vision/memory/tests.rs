@@ -330,3 +330,51 @@ fn hidden_structures_are_never_recorded_and_a_tunnels_record_keeps_its_tier() {
     assert_ne!(hash(&vision), at_tier_1);
     assert!(p1(&vision).record(ObjectId(3)).unwrap().tunnel.is_none());
 }
+
+/// Slice M4-I2 (`core/vision.md > Explored`: "last-known state"): the record of a site keeps how far its construction
+/// had come when last seen, not its builder, and its MaxHP is the ConstructionHP Rule's at that progress, as the site's
+/// own was (`core/entities.md > ConstructionHP Rule`: 600 × (10% + 90% × 0.5) = 330 halfway). Its hash covers the
+/// progress, and it goes to files and back. Seen finished, the record is of a finished Tunnel, which saves no progress.
+#[test]
+fn a_sites_record_keeps_the_progress_last_seen() {
+    use crate::construction::site::{Builder, Construction, site_def};
+    use crate::economy::RATIO_ONE;
+    let map = Map::new(40, 20);
+    let mut vision = Vision::new(&map, [P1, P2]);
+    let eye = scout(1, P1, 10, 10);
+    let placement = Placement::new(TilePos::new(12, 8), ObjectKind::Tunnel.def().footprint);
+    let mut tunnel = object(2, ObjectKind::Tunnel, Some(P2), placement.center());
+    tunnel.placement = Some(placement);
+    let def = site_def(ObjectKind::Tunnel).unwrap();
+    let mut site = Construction::new(def, Builder::Held(ObjectId(3)));
+    site.progress.step(240 * RATIO_ONE);
+    tunnel.construction = Some(site);
+    tunnel.hp = Some(200.0);
+    end_tick(&mut vision, &map, 1, &[&eye, &tunnel]);
+    let record = |vision: &Vision| p1(vision).record(ObjectId(2)).unwrap().clone();
+    let hash = |record: &LastKnown| {
+        let mut h = crate::hash::StateHasher::new();
+        crate::hash::StateHash::hash(record, &mut h);
+        h.finish()
+    };
+    let at_half = record(&vision);
+    assert_eq!(at_half.site, Some(site.progress));
+    assert_eq!((at_half.hp, at_half.max_hp()), (Some(200.0), tunnel.max_hp()));
+    assert!((at_half.max_hp().unwrap() - 330.0).abs() < 1e-3);
+    let json = serde_json::to_string(&at_half).unwrap();
+    assert_eq!(serde_json::from_str::<LastKnown>(&json).unwrap(), at_half);
+
+    tunnel.construction = None;
+    tunnel.hp = Some(470.0);
+    end_tick(&mut vision, &map, 2, &[&eye, &tunnel]);
+    let finished = record(&vision);
+    assert_eq!((finished.site, finished.max_hp()), (None, Some(600.0)));
+    let before = LastKnown {
+        seen: 1,
+        hp: Some(200.0),
+        ..finished.clone()
+    };
+    assert_ne!(hash(&before), hash(&at_half), "the progress is hashed");
+    let json = serde_json::to_string(&finished).unwrap();
+    assert!(!json.contains("site"), "{json}");
+}

@@ -5,8 +5,7 @@
 use glam::Vec2;
 
 use super::{Reject, Sim};
-use crate::defs::Resource;
-use crate::economy::drop_off::drop_point_of;
+use crate::economy::drop_off::{self, crystal_point_of};
 use crate::economy::gathering::{is_drop_off, worker_def};
 use crate::economy::stations::is_station;
 use crate::ids::{ObjectId, PlayerId};
@@ -189,41 +188,30 @@ impl Sim {
         if !gone.iter().any(lost) {
             return;
         }
-        let returning: Vec<(ObjectId, Vec2, Option<PlayerId>, Resource)> = (self.objects.values())
+        let returning: Vec<(ObjectId, Vec2, Option<PlayerId>)> = (self.objects.values())
             .filter(|o| !is_gone(o.id) && returning_to(o).is_some_and(is_gone))
-            .map(|o| {
-                (
-                    o.id,
-                    o.pos,
-                    o.owner,
-                    o.worker.map_or(Resource::Crystals, |w| w.resource),
-                )
-            })
+            .map(|o| (o.id, o.pos, o.owner))
             .collect();
-        for (id, pos, owner, resource) in returning {
-            let nearest = self.nearest_drop_off(pos, owner, resource, is_gone);
+        for (id, pos, owner) in returning {
+            let nearest = self.nearest_drop_off(pos, owner, is_gone);
             if let Some(worker) = self.objects.get_mut(&id).and_then(|o| o.worker.as_mut()) {
                 worker.drop_off = nearest;
             }
         }
     }
 
-    /// The drop-off of `owner`'s nearest to `pos` for a load of `resource`, by its centre or the centre of the hatch
-    /// that takes `resource` (`economy::drop_off::DropPoint::centre`), the lowest id among equals, of those that take
-    /// loads (an Egress Node being warped in takes nothing, design change 0116) and aren't `gone`: the rule of the
-    /// return leg's `orders::gather::nearest_drop_off`, here on the game rather than on the behaviours' snapshot.
+    /// The drop-off of `owner`'s nearest to `pos`, for a load of either resource, by its centre or the centre of its
+    /// crystal hatch (design change 0292 point 2; `economy::drop_off::nearest`), the lowest id among equals, of those
+    /// that take loads (an Egress Node being warped in takes nothing, design change 0116) and aren't `gone`: the rule of
+    /// the return leg's `orders::gather::nearest_drop_off`, here on the game rather than on the behaviours' snapshot.
     fn nearest_drop_off(
         &self,
         pos: Vec2,
         owner: Option<PlayerId>,
-        resource: Resource,
         is_gone: impl Fn(ObjectId) -> bool,
     ) -> Option<ObjectId> {
         owner?;
-        (self.objects.values())
-            .filter(|o| o.owner == owner && o.is_operational() && !is_gone(o.id))
-            .filter_map(|o| Some((o.id, drop_point_of(o, resource)?.centre.distance_squared(pos))))
-            .min_by(|a, b| a.1.total_cmp(&b.1))
-            .map(|(id, _)| id)
+        let own = (self.objects.values()).filter(|o| o.owner == owner && o.is_operational() && !is_gone(o.id));
+        drop_off::nearest(pos, own.filter_map(|o| Some((o.id, crystal_point_of(o)?))))
     }
 }

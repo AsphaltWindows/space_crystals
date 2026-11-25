@@ -425,7 +425,7 @@ Layout validation can't disagree. **Never test a placement rule anywhere else: a
   Center's area. Map and debug spawns don't take the check: a spawned Tunnel by Water or the edge stays valid.
 - **The overlap rule** (slice M4-E, `placement/tunnel_overlap.rs`; design change 0237, `factions/syndicate/tunnels.md >
   Tunnel Area Non-Overlap Rule`): a kind with a tier table has its Tier 1 area overlap no area of a Tunnel among the
-  occupants, any player's, sites included (Placeholder: Q0079 point 3), each at its tier as the check knows it
+  occupants, any player's, sites included (design change 0289 point 3), each at its tier as the check knows it
   (`Occupant::tier`: an object's tier now, a record's as last seen); touching is allowed. It is
   `WholeProblem::TunnelAreaOverlap`, in every mode: `Mode::Known` judges by what the player knows ("their remembered
   position and their tier as last seen"), `Mode::Arrival` by the truth, so a Tunnel upgraded unseen fails a build on
@@ -466,7 +466,7 @@ Layout validation can't disagree. **Never test a placement rule anywhere else: a
   yet started (a Deploy, a Build), current or Shift-queued, reserves its site against its owner's further placements,
   a worker build's and a Warp In's (`TileProblem::Reserved`, through `placement::check_reserving`, which takes them as
   `Occupant`s; an order without Shift replaces its worker's orders, so that worker's own sites don't count). A pending
-  Tunnel's whole Tier 1 area is reserved too, by the overlap rule (Placeholder: Q0079 point 2). They are derived from
+  Tunnel's whole Tier 1 area is reserved too, by the overlap rule (design change 0289 point 2). They are derived from
   the order queues (`Sim::pending_builds(player)`: `PendingBuild { worker, kind, site }`, the lingering ghosts), never
   stored; another player's never count, and they block no unit.
 - **The build area** (`BuildArea`, `Sim::build_area(player)`; `factions/gdo/structures/README.md > GDOBuildArea`) is the
@@ -848,8 +848,9 @@ or `Visible` for each player, and each player remembers the structures and resou
   (24, a placeholder); each such shot renews it. `PlayerVision::reveals` maps each attacker revealed to its end,
   and 5f drops those that end. Every attacker, whatever its range; a neutral victim reveals nothing.
 - **Memory** (`vision/memory.rs`, `core/vision.md > Explored`): a `LastKnown` record per tile-based object (a
-  structure or a resource) the player has seen and doesn't own: kind, owner, footprint, HP, resource state and the
-  tick it was last seen. An object is in a player's sight while a tile under its footprint is Visible; its record
+  structure or a resource) the player has seen and doesn't own: kind, owner, footprint, HP, resource state, a Tunnel's
+  tier, a site's progress (`LastKnown::site`, slice M4-I2: the `Progress`, not who builds it; hashed only while set)
+  and the tick it was last seen. An object is in a player's sight while a tile under its footprint is Visible; its record
   is rewritten at the end of every such tick (`Vision::remember`, the last phase) and stays as it was out of sight.
   A record whose object is gone, or has moved, is dropped once a tile under the record is Visible: an object
   destroyed in the fog is remembered until its place is seen. An object placed on Explored tiles gets no record, so
@@ -1003,8 +1004,9 @@ writes the mover's goal and the target the attack engages, and reads `Mover::sta
     occupies, waits for nor claims a patch, and isn't in `World::patch_mined` or `waited_at`, so a Drone and an Agent
     mine one patch together); without `keeps_drop_off` a Gather begins with no AssignedDropOff and takes the nearest
     drop-off as its first return starts, keeping it for that Gather (there is no Set Drop-off for the type: the gate's
-    `Sim::sets_drop_off`). "Nearest" is by the drop point's centre (`economy::drop_off::DropPoint`): a Tunnel's
-    hatch for the load's resource, an Egress Node's own centre.
+    `Sim::sets_drop_off`). "Nearest" is by the centre of the crystal point, whatever the load
+    (`economy::drop_off::nearest`, the one rule of the return leg and of the removal path): a Tunnel's crystal hatch
+    (design change 0292 point 2: "the same measure as for crystals"), an Egress Node's own centre.
   - **Supplies** (M4-I; `factions/syndicate/units/agent.md > Gathering > Supplies`, design change 0256): a Gather on a
     Supply Delivery Station (`Site::Station`, the station as the owner knows it) runs the same phases, for a worker type
     with `WorkerDef::supplies` (the Agent; the gate's `Sim::gatherers_among`, `resolve`'s station rule). `Mining` at a
@@ -1019,13 +1021,14 @@ writes the mover's goal and the target the attack engages, and reads `Mover::sta
     (`Waiting`), keeping its Gather, for ever, and picks up as soon as a Supply is free; one that can't get within
     reach sets off again every `RECHECK_TICKS`, for a spot free by then (0141's rule). The pick-up that takes the last
     Supply emits `SimEvent::SupplyStationEmpty { station, owner }` once for each player whose workers' Gather names
-    the station (the notification, a placeholder reading of "the owner"). **Switching resources** (point 4; Q0082
-    point 3, a placeholder): `Worker::resource` says what the load is; a worker with crystals sent to a station (or
+    the station (the notification, a placeholder reading of "the owner"). **Switching resources** (point 4; design
+    change 0292 point 3): `Worker::resource` says what the load is; a worker with crystals sent to a station (or
     with a Supply to a patch) goes straight there, and loses its load as the new pick-up or mining ends, with the new
     load in hand; one stopped before then keeps it. A worker with a Supply sent to a station turns round there and
     delivers it (0128). **The return** goes to the hatch of the load's resource: Side D for Supplies (design change
     0248), with its own one-at-a-time line, so a Tunnel takes a crystal and a Supply delivery in the same ticks; the
-    nearest Tunnel is measured to that hatch and both reaches are 8 su (Placeholders: Q0082 points 1 and 2).
+    nearest Tunnel is measured to its crystal hatch all the same, and both reaches are 8 su (design change 0292
+    points 2 and 1).
   - **A hatch takes one worker at a time** (`defs::DropOff::Hatches`, the Tunnel; `deliver::at_hatch`). DropOffReach
     is measured to the hatch square. A worker within reach is `AtHatch { since }`: it unloads if nobody did as phase
     5a began (`World::hatch_busy`) or has begun since (`Claims::take_hatch`), and it is the first of the line
@@ -1602,7 +1605,7 @@ section of its own.
   (`Sim::give_order`, `pay_build`); the gate refuses what the bank can't pay (`Reject::InsufficientSupplies`), counting
   what the orders it replaces give back. **Refunds** are the price once the order has gone, "the current top price",
   "not counting itself" (design change 0284): for an order replaced (`Sim::drop_orders`), gone with its worker
-  off the map (`take_off_map`) or out of the game (`remove_objects`; Placeholder: Q0079 point 1), or failed on
+  off the map (`take_off_map`) or out of the game (`remove_objects`; design change 0289 point 1), or failed on
   arrival (`SimEvent::BuildRefunded`), and for a site cancelled (`Sim::cancel_site`, `SimEvent::SiteCancelled`); a
   destroyed site gives nothing back, nor do a defeated player's orders. So **the books** hold: the Supplies spent less
   those refunded equal the formula's total for what the player has, whatever the order of starts and cancels. A site
@@ -2415,8 +2418,10 @@ these.
   its kind (`MeshKey::site`), on the surface or underground (an expansion's outline, slice M4-F): its footprint tinted
   half way to a pale sand and braced at its corners by a scaffold (clear of its tag) instead of its finished look,
   with a progress bar near its south edge, a dark track in its mesh and a `SiteProgress` child stretched to its share
-  done (`place_site_progress`, `Progress::ratio`), to everyone who sees it. A record of one looks finished:
-  `LastKnown` keeps no construction.
+  done (`place_site_progress`, `Progress::ratio`), to everyone who sees it. A record of one is drawn as a site too
+  (`MeshKey::of_record`, slice M4-I2), dimmed, its bar fixed at the progress last seen (`LastKnown::site`,
+  `SiteProgress::remembered`, which `place_site_progress` leaves alone): the site may have grown or been finished
+  since.
 - **Path overlay** (`path_overlay.rs`, P or `--show-paths`): each unit's remaining path (`Mover::remaining_path`) as
   a thin line from where the unit is drawn, cut into short pieces lifted by the terrain's height, in the overlays
   layer, and a frame around each unit in the colour of its move's status (`status_color`: green moving, amber held
@@ -2850,9 +2855,9 @@ Drones, through one command flow (plan decision T10, slices M2-H1, M2-H2 and M3-
   a slice that adds a unit or an expansion adds it there, not in the client. E enters
   `InterfaceState::EjectMenu`, a StateOnlyTransition (`SlotPress::OpenEjectMenu`): a `PanelCommand::Eject(kind)` tile
   per kind of that list, from Q on, every slot but Z; each is greyed by the gate's answer to its `Command::Tunnel`
-  (`Reject::NotInNetwork`, `InTransit` for Q0077's transit delay, `NoTransit` for the tier, each with its message) and
-  carries the network's count (`PanelSlot::count`, `Conditions::network_count` from `Sim::network_counts`, so the count
-  drops at the press). A tile sends `TunnelCommand::Eject` to the Tunnel Tabbed to (Tunnels are Ungroupable;
+  (`Reject::NotInNetwork`, `InTransit` for the transit delay, design change 0288 point 1, `NoTransit` for the tier,
+  each with its message) and carries the network's count (`PanelSlot::count`, `Conditions::network_count` from
+  `Sim::network_counts`, so the count drops at the press). A tile sends `TunnelCommand::Eject` to the Tunnel Tabbed to (Tunnels are Ungroupable;
   `SlotPress::Tunnel`, `OrderOutbox::tunnel`) and the menu stays open; Z, Escape and a right-click go back. Held units
   leave the selection and stay in their control groups (`ControlState::retain_on_map`); a recall selects the members
   on the map, and a group with none on the map recalls as an empty one does: nothing changes (placeholder,

@@ -109,8 +109,8 @@ fn the_eject_menu_shows_the_network_in_grid_order_with_counts() {
     assert_eq!(InterfaceState::EjectMenu.pending(), None);
     assert!(!InterfaceState::EjectMenu.takes_map_clicks());
 
-    // Q0077 point 1: while every Agent only just walked in, its tile is greyed, and says so; a Tunnel whose tier
-    // doesn't let a type out greys it too ("visible but greyed out (disabled)").
+    // Design change 0288 point 1: while every Agent only just walked in, its tile is greyed, and says so; a Tunnel
+    // whose tier doesn't let a type out greys it too ("visible but greyed out (disabled)").
     let in_transit = Conditions::default()
         .with_network([(AGENT, 1), (GUARD, 1)])
         .refusing(Eject(AGENT), Reject::InTransit(AGENT))

@@ -242,7 +242,9 @@ fn a_blocked_entry_follows_the_failure_rule() {
 }
 
 /// Design change 0245's Verification: "A Guard enters a Tunnel. For 2 s it can't be ejected anywhere; afterwards it
-/// can be ejected from any Tunnel." The delay is flat: the far Tunnel lets it out as soon as the near one.
+/// can be ejected from any Tunnel." The delay is flat: the far Tunnel lets it out as soon as the near one. Until then
+/// an Eject is refused, and one sent all the same queues nothing (design change 0288 point 1: "the click is refused;
+/// nothing is queued"; the client's grey tile is `syndicate_panels`').
 #[test]
 fn an_entered_unit_can_exit_anywhere_after_the_transit_delay() {
     let mut t = base().spawn(TUNNEL, Some(P1), tile(22, 2)).start(); // 2: far away
@@ -261,6 +263,10 @@ fn an_entered_unit_can_exit_anywhere_after_the_transit_delay() {
         }
         step_checked(&mut t);
         assert_eq!(inside(&t), [id(3)]);
+        for tunnel in [T1, far] {
+            let queue = &t.sim().object(tunnel).unwrap().tunnel.as_ref().unwrap().eject;
+            assert!(queue.is_empty(), "nothing is queued");
+        }
     }
     t.at(entered + TRANSIT_DELAY_TICKS, P1, eject(far, GUARD));
     run_checked(&mut t, entered + TRANSIT_DELAY_TICKS);
