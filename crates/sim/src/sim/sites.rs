@@ -31,7 +31,7 @@ use glam::Vec2;
 
 use super::Sim;
 use crate::construction::site::{Builder, Construction, site_def};
-use crate::defs::ObjectKind;
+use crate::defs::{BuilderGoes, ObjectKind};
 use crate::economy::RATIO_ONE;
 use crate::events::SimEvent;
 use crate::ids::ObjectId;
@@ -90,17 +90,26 @@ impl Sim {
     }
 
     /// Site `id` is complete (module docs): it is the structure it was building, in operation from now on, and its
-    /// worker goes on into its owner's Tunnel Network, keeping its load; a `SimEvent::SiteCompleted`.
+    /// worker goes where its def says (`SiteDef::builder_goes`): the Tunnel's Agent into its owner's Tunnel Network,
+    /// keeping its load; a `SimEvent::SiteCompleted`.
     fn complete_site(&mut self, id: ObjectId) {
-        let Some(site) = self.objects.get_mut(&id).and_then(|o| o.construction.take()) else {
+        let Some(o) = self.objects.get_mut(&id) else {
+            return;
+        };
+        let (Some(site), kind) = (o.construction.take(), o.kind) else {
             return;
         };
         let worker = site.builder.unit();
         let tick = self.tick;
+        let goes = site_def(kind).map_or(BuilderGoes::Network, |def| def.builder_goes);
         if let Some(held) = self.held.get_mut(&worker).filter(|held| held.place == Place::Site(id)) {
-            held.place = Place::Network;
-            held.since = tick;
-            held.entered = false;
+            match goes {
+                BuilderGoes::Network => {
+                    held.place = Place::Network;
+                    held.since = tick;
+                    held.entered = false;
+                }
+            }
         }
         self.events.push(SimEvent::SiteCompleted { site: id, worker });
     }

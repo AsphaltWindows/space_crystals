@@ -136,10 +136,9 @@ impl Sim {
     /// and the sight of the Beacon's owner as the latest tick left it (design change 0119: "every footprint tile must
     /// be Visible to the player"), with no build area. The sites of the owner's pending Deploys are reserved
     /// ([`check_reserving`], design change 0125), as are those of its pending Builds. The command gate asks it when a
-    /// `ConstructionCommand::WarpIn`
-    /// applies, and the Warp In ghost can ask it every frame (slice M3-J1). Whether the Beacon may warp in a `kind` at
-    /// all (its Constructs List, the bank) is the gate's. `None` if `beacon` is no object of a player's with a
-    /// footprint.
+    /// `ConstructionCommand::WarpIn` applies, and the Warp In ghost can ask it every frame (slice M3-J1). Whether the
+    /// Beacon may warp in a `kind` at all (its Constructs List, the bank) is the gate's. `None` if `beacon` is no object
+    /// of a player's with a footprint.
     pub fn warp_in_check(
         &self,
         beacon: ObjectId,

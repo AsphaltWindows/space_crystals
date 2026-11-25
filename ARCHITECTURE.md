@@ -241,18 +241,31 @@ Units, structures and resources are all `Object`s (`object.rs`, `core/entities.m
   Tunnel Space), the removal path's reference cleanup (`Sim::forget_references` walks them too, so a held unit never
   names an object that is gone), `Sim::clear_defeated_networks` (a defeated player's go, `Sim::remove_held`, which
   slice M4-H's stranded-unit rule calls too), the state hash and the saves, `testing::dangling_references`, the
-  client's control groups (`ControlState::retain_on_map`). `Place` is where: `Network` so far; match it
-  exhaustively and never assume a held unit's place is on the map (M4-E adds a site, a transport's passengers a
-  carrier that may itself be held). `Sim::take_off_map(id, place, entered)` and `Sim::put_on_map(id, pos, facing)`
-  are the only ways off and back: the first ends every reference to the unit as a removal does, without a death's
-  effects (no `Died`, no `Removed`), and clears the unit's own orders, move and attack (design change 0249), its HP,
-  load and modes kept; call it before 5b, as a change of kind. `Sim::held()`, `held_unit(id)`, `network(player)`,
+  client's control groups (`ControlState::retain_on_map`). `Place` is where: `Network`, or `Site(site)`, a worker
+  inside the site it builds (slice M4-E, *Sites* below: not in the network, so no Eject brings it out, and it doesn't
+  regenerate); match it exhaustively and never assume a held unit's place is on the map (a transport's passengers
+  will be held at a carrier that may itself be held). `Sim::take_off_map(id, place, entered)` and `Sim::put_on_map(id,
+  pos, facing)` are the only ways off and back: the first ends every reference to the unit as a removal does, without
+  a death's effects (no `Died`, no `Removed`), and clears the unit's own orders (a Build among them refunded,
+  `Sim::drop_orders`), move and attack (design change 0249), its HP, load and modes kept; call it before 5b, as a
+  change of kind. `Sim::held()`, `held_unit(id)`, `network(player)`,
   `network_counts(player)` (the EjectMenu's tiles: unreserved units by kind), `reserved()` and `next_out(player,
   kind)` are what the interface reads. Hashed and saved **only while non-empty** (`#[serde(default,
   skip_serializing_if)]`, a tag in `Sim::state_hash`), as a Tunnel's eject queue is (`TunnelState::eject`), so the
   states without a held unit, the goldens among them, are as they were. Inside, a unit regenerates 1% of its MaxHP
   a second (`TunnelDef::regen_per_second`, placeholder, 0249) and may leave `TRANSIT_DELAY_TICKS` (32, placeholder,
   0245) after it walked in, a unit produced inside at once (0246; `Held::may_exit`).
+- **Sites** (`construction/site.rs`, `sim/sites.rs`; slice M4-E, plan decision T31; `factions/syndicate/units/agent.md
+  > Building > Tunnel Construction Flow`, design change 0234): a structure a worker builds where it stands is, from its
+  first frame, the object it will be, with `Object::construction: Option<Construction { progress, builder }>` while it
+  is a site: a `Progress` over its def's frames (`SiteDef`, `StructureDef::site`) and `Builder::Held(worker)`, the
+  worker held at `Place::Site(site)`. Hashed (a tag) and saved only while set, so the states without a site are as they
+  were. `Object::max_hp` gives the ConstructionHP rule's maximum (`SiteDef::start_hp`, 10%, growing with the frames),
+  and the HP follow it up with the damage kept (`transform::follow_max`). **`Object::is_operational`** (neither a site
+  nor transforming) is the one predicate of a structure doing what its type does: the exits and Enter
+  (`network::is_exit`), the drop-offs (the gate, `Sim::nearest_drop_off`, the resolution's facts) and Tunnel Space
+  (`gives_tunnel_space`) all ask it, so that a site does nothing but Cancel. A site counts for defeat, blocks and is
+  seen as any structure; the worker inside, held, is not.
 - **Side A's paths** (`network::Paths`, design changes 0225 and 0248): the one geometry of a Tunnel's entry and
   exit, for the sim and the client's drawing (`object_render/tunnel.rs` reads `PATH_OFFSET_SU`): two spots on Side
   A's line, 30 su from its middle, the exit towards Side B and the entry towards Side D, wherever the sides face
@@ -357,11 +370,11 @@ Layout validation can't disagree. **Never test a placement rule anywhere else: a
   orientation)`, a layout object `placement::check_layout(map, others, layout, index)`.
 - **Out**: a `PlacementCheck`: the `TileProblem`s of each footprint tile (off the map, not Buildable, sloped, not
   Visible, under a structure, under a resource, under a ground unit, reserved), row by row and in that order, and the
-  `WholeProblem`s (not a structure, outside the build area, a plate not on a patch, a Tunnel Area off the map or on
-  undrillable ground, a layout's expansion outside its Tunnel's area). Valid means both are empty: the
-  ghost shows the tiles' problems tile by tile, and the gate refuses a placement with any problem. The check reads
-  the true state, but a tile the player doesn't see has `NotVisible` as its only problem, so it tells nothing the fog
-  hides.
+  `WholeProblem`s (not a structure, outside the build area, a plate not on a patch, a Tunnel Area off the map, on
+  undrillable ground or over another Tunnel's, a layout's expansion outside its Tunnel's area). Valid means both are
+  empty: the ghost shows the tiles' problems tile by tile, and the gate refuses a placement with any problem. The
+  check reads the true state, but a tile the player doesn't see has `NotVisible` as its only problem, so it tells
+  nothing the fog hides.
 - **The rules** are listed with their design sections in the module docs. Footprints share tiles only as
   `ObjectKind::may_overlap` allows. A ground unit of any player blocks the tiles its box overlaps, and is never pushed
   aside (design change 0094); air and underground units never block. A plate goes exactly onto a patch
@@ -376,10 +389,18 @@ Layout validation can't disagree. **Never test a placement rule anywhere else: a
   layout (`OutsideTunnelArea`), as a layout's plates lie in its own Deployment Center's area. Map and debug spawns
   don't take the check: a spawned Tunnel by Water or the edge stays valid. Until slice M4-F's expansion method, a
   Hideout's tiles follow `Method::Direct`'s rules (Buildable, stricter than design change 0239's Drillable).
+- **The overlap rule** (slice M4-E, `placement/tunnel_overlap.rs`; design change 0237, `factions/syndicate/tunnels.md >
+  Tunnel Area Non-Overlap Rule`): a kind with a tier table has its Tier 1 area overlap no area of a Tunnel among the
+  occupants, any player's, sites included (Placeholder: Q0079 point 3), each at its tier as the check knows it
+  (`Occupant::tier`: an object's tier now, a record's as last seen); touching is allowed. It is
+  `WholeProblem::TunnelAreaOverlap`, in every mode: `Mode::Known` judges by what the player knows ("their remembered
+  position and their tier as last seen"), `Mode::Arrival` by the truth, so a Tunnel upgraded unseen fails a build on
+  arrival.
 - **The files** (`placement/`): `site.rs` (`Site`, `Mode`, `Method`, `Occupant`), `problems.rs` (the problems,
   `PlacementCheck`, their texts), `check.rs` (the check), `footprint.rs` (its tiles), `tunnel_area.rs`,
-  `build_area.rs` and `onto.rs`. The geometry of Tunnel Areas, their regions and an expansion's parent Tunnel is
-  `tunnel/area.rs`, the one place that works them out (Tunnel Space, these rules, `Sim::parent_tunnel`).
+  `tunnel_overlap.rs`, `build_area.rs` and `onto.rs`. The geometry of Tunnel Areas, their regions and an expansion's
+  parent Tunnel is `tunnel/area.rs`, the one place that works them out (Tunnel Space, these rules,
+  `Sim::parent_tunnel`).
 - **Methods** (plan decision T16): the `Site` also names how the structure comes to stand (`Method`), and the one
   check applies that method's rules. `Method::Direct` is the GDO's Direct Placement, with its build area.
   `Method::WarpIn { beacon }` (slice M3-E; `core/entities.md > Placement Validation > Warp In`) has the same tile
@@ -389,16 +410,20 @@ Layout validation can't disagree. **Never test a placement rule anywhere else: a
   derives it (0121: centred on the Beacon; an odd-sized building's extra row and column at the bottom-right, turned
   and flipped about the Beacon's centre as the building's sides are), and `Sim::warp_in_check(beacon, kind,
   orientation)` checks it. The gate and the Warp In ghost (slice M3-J1) call those two. `Method::WorkerBuilt`
-  (slice M3-F; `core/entities.md > Worker-Built Structures`, a Drone's Deploy) has the tile rules without a build area;
+  (slice M3-F; `core/entities.md > Worker-Built Structures`: a Drone's Deploy, and an Agent's Build since slice M4-E)
+  has the tile rules without a build area;
   the caller leaves the worker out of the occupants (0118). Its order is judged in `Mode::Known { vision, player }`
   (0120: what the player knows: its own objects, the others it sees, its records of structures and resources in the fog;
   a tile never explored passes, but for the reservations), its arrival in `Mode::Arrival` (the truth, no sight rule).
-  `Sim::deploy_check(drone, origin, queued)` is the order's check, for the gate and the Deploy ghost (M3-J1).
-- **Reservations** (design change 0125, `core/entities.md > Lingering build ghosts`): each Deploy ordered and not yet
-  started, current or Shift-queued, reserves its site against its owner's further placements, a Deploy's and a Warp In's
-  (`TileProblem::Reserved`, through `placement::check_reserving`; a Deploy without Shift replaces its Drone's orders,
-  so that Drone's own sites don't count). They are derived from the order queues (`Sim::pending_deploys(player)`,
-  for the ghosts of M3-J1), never stored; another player's never count, and they block no unit.
+  `Sim::deploy_check(drone, origin, queued)` and `Sim::build_check(worker, kind, origin, orientation, queued)` are the
+  orders' checks, for the gate and the ghosts; `Sim::arrival_check` is the arrival's.
+- **Reservations** (design change 0125, `core/entities.md > Lingering build ghosts`): each worker build ordered and not
+  yet started (a Deploy, a Build), current or Shift-queued, reserves its site against its owner's further placements,
+  a worker build's and a Warp In's (`TileProblem::Reserved`, through `placement::check_reserving`, which takes them as
+  `Occupant`s; an order without Shift replaces its worker's orders, so that worker's own sites don't count). A pending
+  Tunnel's whole Tier 1 area is reserved too, by the overlap rule (Placeholder: Q0079 point 2). They are derived from
+  the order queues (`Sim::pending_builds(player)`: `PendingBuild { worker, kind, site }`, the lingering ghosts), never
+  stored; another player's never count, and they block no unit.
 - **The build area** (`BuildArea`, `Sim::build_area(player)`; `factions/gdo/structures/README.md > GDOBuildArea`) is the
   union of one rectangle per GDO building the player owns: its footprint grown by its BuildRadiusExtension on every
   side, clamped to the map (design change 0091: square). A building with an extension of 0, the plate, adds nothing.
@@ -412,7 +437,9 @@ Layout validation can't disagree. **Never test a placement rule anywhere else: a
 - **Tests**: `src/placement/tests/` (each rule on the pure check), `placement/build_area.rs`'s (the 28 × 28 area,
   each kind's extension, the runs), `tests/placement.rs` (the verification points of design changes 0004 and 0091 to
   0097 in games and layouts, determinism, a save), `tests/warp_in/` (the Warp In method, see *Economy > Warp In*),
-  `tests/deploy_gate/` (the worker-built method, its modes and the reservations) and the ignored `tests/placement_perf.rs`. Measured (release, 769 objects,
+  `tests/deploy_gate/` (the worker-built method, its modes and the reservations), `tests/builds/` (the Build's: the
+  overlap rule by knowledge and by truth, the Drillable area, hidden expansions) and the ignored
+  `tests/placement_perf.rs`. Measured (release, 769 objects,
   101 buildings of the player's; slice M2-J2, on a quiet machine): 4 µs a check, 2 µs a build area.
 
 ## Tick pipeline
@@ -440,9 +467,11 @@ Layout validation can't disagree. **Never test a placement rule anywhere else: a
      (see *Behaviours*). They write goals (`Mover::go_to`, `stop`) and the target the attack engages. Everything
      they read of other objects comes from one snapshot taken first (`orders::world::World`): the positions and the
      vision the last tick left.
-   - Deployments, `Sim::step_deployments` (slice M3-F, see *Economy > Beacon Deployment*): part of 5a, right after
-     `orders::update`, in id order. Each Drone whose walk to its site ended this tick deploys there (a change of kind:
-     before 5b, which claims the footprint) or fails its order (`SimEvent::DeployFailed`): the changes of kind and
+   - Arrivals, `Sim::step_deployments` (slices M3-F and M4-E, `sim/builds.rs`; see *Economy > Beacon Deployment* and
+     *Economy > Agent-built Tunnels*): part of 5a, right after `orders::update`, in id order. Each worker whose walk
+     to its site ended this tick deploys there (a Drone: a change of kind) or starts its site there (an Agent: a new
+     object, which it leaves the map for, `Sim::start_site`), before 5b, which claims the footprint; or its order fails
+     (`SimEvent::DeployFailed`, `SimEvent::BuildFailed`, a Build refunded): the changes of kind, the new objects and
      the events that a behaviour may not make.
    - Entries, `Sim::step_entries` (slice M4-C, `sim/network.rs`; `factions/syndicate/tunnels.md > Tunnel Network >
      Walking in`): part of 5a, right after the deployments, in id order. Each unit whose current order is an Enter
@@ -485,6 +514,11 @@ Layout validation can't disagree. **Never test a placement rule anywhere else: a
      its interpolated maxima and its HP follow, and a complete one turns its functions on, so a portal takes a Train
      from the next tick's commands. It changes no footprint: a Warp In and a cancel change theirs in the commands
      phase, before 5b.
+   - Sites, `Sim::step_sites` (slice M4-E, `sim/sites.rs`): part of the economy phase, right after the
+     transformations and for the same reason. Each site from before the tick does a frame, its HP following its
+     maximum, and a complete one works from the next tick's commands, its worker in the network for the network's
+     step. A site is a new object, so by the spawn-tick rule one started in tick `t` does its first frame in `t + 1`
+     and completes at the end of `t + frames`.
    - Producers, `Sim::step_production` (slice M2-D2, see *Production*): part of the economy phase, run right after
      `economy::step` and not inside it, because a finished unit is inserted into the game (`Sim::insert_object`).
      A unit at the front starts only if its owner's army cap has room for it (design change 0143), the unit in
@@ -1309,7 +1343,8 @@ section of its own.
   `Player::spend_crystals`, which refuses when the bank is short and leaves it as it was; credit with
   `Player::credit_crystals`, which saturates (only a debug command fills a bank that far, and input never panics the
   sim). Every refund goes through `economy::Refund` (`Full`, or `Ready`: 75 %
-  rounded down). Supplies are a counter only: nothing costs them yet (design change 0077).
+  rounded down). Supplies pay for an Agent's Tunnel (slice M4-E, *Agent-built Tunnels* below: `Player::spend_supplies`,
+  `credit_supplies`); nothing else costs them yet.
 - **Power and the army caps are derived** from the objects whenever they are asked for, never stored, so they can't
   drift (plan decision T7). `Sim::power(player)` is a `PowerSummary`: `generated` and `consumed`, the HUD's
   used / available (design change 0090). `Sim::army_cap(player)` is an `ArmyCap { resource, used, available }` for
@@ -1442,12 +1477,14 @@ section of its own.
   was, on its old tiles, with the fraction of its HP it had and at least 1, and the fraction of its Shields with no
   minimum (`transform::keep_fraction`, 0111), and
   refunds `Refund::Ready` of what it paid (`SimEvent::TransformCancelled`); a destroyed one refunds nothing (0115).
-- **Beacon Deployment** (`deploy.rs`, `orders/deploy.rs`, `sim/deploy.rs`; slice M3-F, plan decisions T15 to T17;
+- **Beacon Deployment** (`deploy.rs`, `orders/build.rs`, `sim/deploy.rs`, `sim/builds.rs`; slice M3-F, plan decisions
+  T15 to T17;
   `factions/colonists/economy.md > Beacon Deployment`, design changes 0109 to 0120 and 0125): a Drone walks to a site
   and transforms in place into a Beacon, by the Warp In's machinery. `OrderKind::Deploy { origin }` (the Beacon's
   2 × 2 footprint, `deploy::site`, never turned; Shift queues it) goes to one Drone; the gate checks its site on what
   the player knows (see *Placement and the build area > Methods*). In phase 5a the Drone heads for the footprint's
-  centre (`orders::deploy`); its walk is over once its move ended, or when it found no way forward for `JAMMED_TICKS`
+  centre (`orders::build`, the walk a Build shares); its walk is over once its move ended, or when it found no way
+  forward for `JAMMED_TICKS`
   while overlapping the footprint (0117). Then `Sim::step_deployments` (see *Tick pipeline*) checks the site on the
   truth: if the Drone overlaps the footprint (`deploy::on_site`) and it passes, the Drone becomes the Beacon on the
   footprint, wherever it stood, the same object (0109: its footprint claimed in 5b of that tick), transforming `from`
@@ -1459,6 +1496,24 @@ section of its own.
   frees the Drone's 1 Beacon Capacity as it starts and provides the Beacon's 5 only at completion
   (`Object::is_deploying`, `economy::army`; a cancel takes the 1 back even over the cap, 0112). It counts for defeat
   (0113). The Drone's load stays in `Transform::load`, is lost at completion and returns with a cancel (0114).
+- **Agent-built Tunnels** (`orders/build.rs`, `sim/builds.rs`, `sim/sites.rs`, `construction/site.rs`; slice M4-E,
+  plan decisions T31 and T51; `factions/syndicate/units/agent.md > Building`, design changes 0233 and 0234):
+  `OrderKind::Build { kind, origin, orientation }` is the kind-generic worker build (T51). It goes to the one unit
+  named that builds `kind` (`WorkerDef::builds`, `construction::site::builds`), which walks to its site as a Drone
+  does, and on arrival starts a site there (*Object model > Sites*) or fails. **The price**
+  (`factions/syndicate/tunnels.md > Cost Scaling > Construction Cost`; `SiteDef::price`, `SitePrice::SuppliesPerOwned`)
+  is `Sim::build_price(player, kind)`: a Supply for each structure of the kind the player has, sites included, and
+  for each Build of the kind among their units' orders (the lingering ghosts). It is paid as the order is given
+  (`Sim::give_order`, `pay_build`); the gate refuses what the bank can't pay (`Reject::InsufficientSupplies`), counting
+  what the orders it replaces give back. **Refunds** are the price once the order has gone, "the current top price",
+  "not counting itself" (Q0085: not the docs' "100%"): for an order replaced (`Sim::drop_orders`), gone with its worker
+  off the map (`take_off_map`) or out of the game (`remove_objects`; Placeholder: Q0079 point 1), or failed on
+  arrival (`SimEvent::BuildRefunded`), and for a site cancelled (`Sim::cancel_site`, `SimEvent::SiteCancelled`); a
+  destroyed site gives nothing back, nor do a defeated player's orders. So **the books** hold: the Supplies spent less
+  those refunded equal the formula's total for what the player has, whatever the order of starts and cancels. A site
+  completes after `SiteDef::frames` (480), its worker going where `SiteDef::builder_goes` says (into the network);
+  cancelled or destroyed, it lets its worker out at the footprint's centre, idle, with its load
+  (`Sim::release_builders`, on the removal path).
 - **Adding to the economy** (slices M2-D2, M2-F): put the new step into `economy::step` at its numbered place, advance
   progress by `PowerSummary::speed` from the tick the command applies (*Recipe timing*), take costs with
   `spend_crystals` when the command applies, and give refunds through `Refund`; `construction.rs` is the pattern.
@@ -1663,7 +1718,11 @@ their energy doorway, slice M3-D2: design change 0145, `factions/colonists/struc
   (`Unplaceable(PlacementProblem)`, not reported: `Sim::deploy_check`). `Enter(tunnel)` (slice M4-C,
   `systems/controls/commands.md > Enter`, `Sim::check_enter`) names a Tunnel of the player's own in operation
   (`NotOwned`, `NotATunnel`), and goes to the units its tier lets in (`network::admits`; `NoTransit` if none: any
-  unit of the Tunnel's owner may enter, whatever its type's faction). Without `queue` the order replaces the unit's
+  unit of the Tunnel's owner may enter, whatever its type's faction). `Build { kind, origin, orientation }` (slice
+  M4-E, `Sim::check_build`) goes to the one unit among them that builds `kind` (`NoWorkers`, `SeveralConstructors`),
+  Shift-queued only to a unit with no Build yet (`ConstructorBusy`: each Agent takes one placement), and is paid for as
+  it is given (`InsufficientSupplies`), its site allowed as far as the player knows (`Unplaceable`, not reported:
+  `Sim::build_check`). Without `queue` the order replaces the unit's
   queue and current order; with it, the order is
   appended (a full queue drops it). Each order command is one group (`Sim::next_group`); a location order gives
   each unit of a group its own destination (the magic box, see *Navigation*). What each order does is in
@@ -1775,7 +1834,10 @@ their energy doorway, slice M3-D2: design change 0145, `factions/colonists/struc
   Supply was picked up, for each player gathering there; the client's notice says so (`hud/notices.rs`).
   `EnteredNetwork { unit, tunnel }` and `LeftNetwork { unit, tunnel }` (slice M4-C) are a unit leaving the map
   for a Tunnel Network and coming back with its id: no `Removed` and no `Spawned` go with them. `EnterFailed { unit,
-  tunnel }` is an Enter that ended without the unit going in.
+  tunnel }` is an Enter that ended without the unit going in. `BuildFailed { worker, kind, origin, orientation,
+  problems }`, `BuildRefunded { worker, kind, refund }`, `SiteStarted { worker, site }`, `SiteCompleted { site,
+  worker }`, `SiteCancelled { site, kind, refund }` and `LeftSite { worker, site }` (slice M4-E) are a Build that
+  failed on arrival, a Build refunded, and a site's life; `LeftSite` is its worker back on the map with its id.
   `ProductionWaiting { producer, reason }` (slice M3-P, design change 0143) is a producer whose unit at the front
   began to wait for room under the army cap `reason`, raised once per wait: the placeholder of 0143's notification.
   `Sim::events()` holds only the latest step's events, and `Sim::new` discards the events from the scenario's
@@ -2091,9 +2153,16 @@ their energy doorway, slice M3-D2: design change 0145, `factions/colonists/struc
   Drone per Deploy; the gate on what the player knows, remembered buildings, hidden units and never-explored ground
   (0120); failures on arrival for a structure, a unit of either player, a patch, a Drone walled off, and a Drone blocked
   while overlapping that deploys (0117, 0118); only Cancel on a deploying Beacon (0116); the reservations and
-  `Sim::pending_deploys` (0125); a fuzz of the gate and the arrival; in modules by topic: `gate`, `arrival`,
+  `Sim::pending_builds` (0125); a fuzz of the gate and the arrival; in modules by topic: `gate`, `arrival`,
   `pending`, `fuzz`). Unit tests: `deploy.rs`'s, `placement/tests/`
   (reservations, `Mode::Known`) and `transform/tests.rs` (the load hashed).
+- **Agent-built Tunnel tests** (slice M4-E) are `crates/sim/tests/builds/`, under `check_sites` (each site's worker held
+  in it and nowhere else) after every tick: `flow` (the order paid at once, the site's HP and completion, the network
+  and an Eject, the site's one command, the load kept, what enemies see and target, a cancel, a destruction, the
+  defeat), `price` (0233's verification, the refusal, every refund, a price of 0, and the books: a property test over
+  random orders, Shift-queues, cancels and replacements, with a fixed seed list) and `rules` (the overlap rule by
+  knowledge and by truth, the Drillable area, 0240's hidden expansions for the three factions, a unit on the site,
+  the lingering ghosts' reservations). Unit tests: `construction/site.rs`'s (the maximum, who builds what).
 - **Game end tests** are `crates/sim/tests/game_end/` (defeat by a removal and in combat, plates counting; no
   defeat without a structure ever owned; the units made neutral and idle; every command of a defeated player
   refused; a 1v1, three players defeated one after the other, and the draws of 0163: two players defeated in one
@@ -2603,7 +2672,7 @@ Drones, through one command flow (plan decision T10, slices M2-H1, M2-H2 and M3-
   and the right-click: Gathering below); A enters `AwaitingPlacement` with `Builder::Drones { queued }`: the ghost
   under the cursor, checked by `Sim::deploy_check` for the Drone the click would go to (`deploy_recipient`: a plain
   click's the ActiveGroup's first Drone in portrait order, whose orders the Deploy replaces; a Shift-click's the
-  first with no Deploy, among `Sim::pending_deploys` and the Deploys still in `PendingCommands`, `deploying`). A
+  first with no Deploy, among `Sim::pending_builds` and the Deploys still in `PendingCommands`, `deploying`). A
   click gives that one Drone `OrderKind::Deploy { origin }`, queued with Shift; Shift-placement stays (`queued:
   true`) while another Drone of the group has none, and letting go of Shift ends it (`end_queued_placement`).
   Whatever transforms (`Object::is_transforming`) is unfinished, in its type's unfinished group (design change
@@ -2719,11 +2788,12 @@ Drones, through one command flow (plan decision T10, slices M2-H1, M2-H2 and M3-
   builder's (`ghost::check_now`: `Sim::placement_check`, `warp_in_check`, or `deploy_check` for the Drone a click
   would go to, the player's knowledge, Reserved over a lingering ghost included); the overlay shows for a
   constructor's placement only. `LingeringGhosts` (`placement/lingering.rs`, `core/entities.md > Placement
-  Validation > Lingering build ghosts`) draws the local player's pending Deploys (`Sim::pending_deploys`, never
-  another player's) in the game modes, whatever the interface: each site's footprint tinted on the terrain with an
-  outline, one mesh rebuilt only when the sites or the map change, just in front of the build area overlay
-  (`LINGERING_Z`). A ghost goes with its order, when the deployment starts or the order is cancelled, replaced or
-  fails. `TunnelAreaOverlay` (`placement/tunnel_areas.rs`, slice M4-J2) shows the Tunnel Areas the local player knows
+  Validation > Lingering build ghosts`) draws the local player's pending worker builds (`Sim::pending_builds`, never
+  another player's: Deploys, and an Agent's Tunnels as their footprints until slice M4-J1's look) in the game modes,
+  whatever the interface: each site's footprint tinted on the terrain with an outline, one mesh rebuilt only when the
+  sites or the map change, just in front of the build area overlay (`LINGERING_Z`). A ghost goes with its order, when
+  the deployment or the site starts or the order is cancelled, replaced or fails. `TunnelAreaOverlay`
+  (`placement/tunnel_areas.rs`, slice M4-J2) shows the Tunnel Areas the local player knows
   of (`known_areas`: their own Tunnels' at their tier now; the others' they see at their tier now, and those they
   remember at the record's place and the tier last seen, `LastKnown::tunnel`; never one they know nothing of), their
   own in violet and the others' in red, with the build area overlay's look (`overlay::tint_area`) and z, but on
@@ -3167,8 +3237,11 @@ The faction's own mechanics come next, each only if it has them (M3's in bracket
 13. **A movement model** (M3-G, plan decision T25): a `MovementAttrs` variant with its mover in `movement/`
     (`drag.rs` beside `follow.rs`), the movement invariants amended in writing, and `movement_perf` run A/B.
 14. **Orders of its own** (M3-F Deploy): an `OrderKind` with its behaviour in `orders/`, its gate check and its
-    events (`SimEvent::DeployFailed`), reservations that others' placements respect (`Sim::pending_deploys`), and the
-    client's ghost (a `Builder` in `command_ui/interface/placing.rs`).
+    events (`SimEvent::DeployFailed`), reservations that others' placements respect (`Sim::pending_builds`), and the
+    client's ghost (a `Builder` in `command_ui/interface/placing.rs`). **A worker-built structure** (M4-E) needs no
+    order of its own: its def's `StructureDef::site` (`SiteDef`: the price, the frames, the share of its MaxHP it
+    starts at, where the builder goes) and its builder's `WorkerDef::builds`, and the Build order, the price and the
+    site take it (*Economy > Agent-built Tunnels*).
 15. **Tests and QA** (plan decision T27; slices M3-K1 and M3-K2): `ScenarioBuilder::faction` sets a test player's
     faction, and `cargo run -- --factions <f1,f2>` starts a game with it, which its replay records. Then:
     - a build line through the gate beside `testing::build_order` (`testing::colonists`: Train, Gather, Deploy and

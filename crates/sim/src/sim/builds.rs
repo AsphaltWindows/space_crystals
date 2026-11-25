@@ -128,9 +128,8 @@ impl Sim {
     /// The price of `player`'s next Build of `kind` now (`factions/syndicate/tunnels.md > Cost Scaling > Construction
     /// Cost`, design change 0233), in Supplies: one for each it has ([`Sim::owned_for_price`]), so 0 with none
     /// (`factions/syndicate/tunnels.md > Losing Tunnels`: "with no Tunnels owned, a new Tunnel costs 0 Supplies"). It
-    /// is also what a Build
-    /// that has just gone gives back, the "current top price" "not counting itself" (module docs). The gate, the
-    /// client's tooltip and every refund ask it. `None` for a kind no worker builds.
+    /// is also what a Build that has just gone gives back, the "current top price" "not counting itself" (module
+    /// docs). The gate, the client's tooltip and every refund ask it. `None` for a kind no worker builds.
     pub fn build_price(&self, player: PlayerId, kind: ObjectKind) -> Option<u32> {
         price_at(kind, self.owned_for_price(player, kind))
     }
@@ -139,9 +138,9 @@ impl Sim {
     /// Worker-Built Structures`, plan decision T51), given `units`, the player's units that take orders:
     /// - **Its builder**: the units among them that build `kind` ([`site::builds`]: the Agents for a Tunnel), exactly
     ///   one, else [`Reject::NoWorkers`] or [`Reject::SeveralConstructors`]. "Each Agent takes exactly one placement"
-    ///   (`systems/controls/selection_and_hud.md > Shift while placing`), as it "goes inside the structure it builds":
-    ///   a Build `queued` with Shift to one with a Build already, current or queued, is [`Reject::ConstructorBusy`]
-    ///   (without Shift, the new one replaces it).
+    ///   (`systems/controls/selection_and_hud.md > AwaitingTarget > Shift while placing`), as it "goes inside the
+    ///   structure it builds": a Build `queued` with Shift to one with a Build already, current or queued, is
+    ///   [`Reject::ConstructorBusy`] (without Shift, the new one replaces it).
     /// - **The price** (design change 0233): "The order is refused, with feedback, if the player can't pay"
     ///   ([`Reject::InsufficientSupplies`]): the price once the Build orders it replaces have gone
     ///   ([`Sim::build_price`]), out of the bank and their refunds ([`Sim::replacing`]).
