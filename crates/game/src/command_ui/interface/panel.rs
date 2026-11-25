@@ -8,7 +8,7 @@ use super::{
     state_grid,
 };
 use crate::input::CommandSlot;
-use crate::selection::Selection;
+use crate::selection::{GroupType, Selection};
 
 /// What a slot of the command panel holds.
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
@@ -69,7 +69,8 @@ impl PanelSlot {
         }
     }
 
-    /// The button's full name (`PanelCommand::name`), which its label may shorten.
+    /// The button's full name (`PanelCommand::name`), which its label may shorten; on a panel, named after the
+    /// ActiveGroup's type where the design does so ([`Panel::name`]).
     pub fn name(&self) -> String {
         match self.button {
             PanelButton::Command(command) => command.name(),
@@ -78,15 +79,29 @@ impl PanelSlot {
     }
 }
 
-/// The command panel (`> CommandPanel > Grid Layout`): what each of the 12 slots shows, if anything.
+/// The command panel (`> CommandPanel > Grid Layout`): what each of the 12 slots shows, if anything, for the
+/// ActiveGroup of a type.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct Panel {
     slots: [Option<PanelSlot>; 12],
+    /// The type of the ActiveGroup whose commands it shows, which names some of them ([`Panel::name`]).
+    active: Option<GroupType>,
 }
 
 impl Panel {
     pub fn get(&self, slot: CommandSlot) -> Option<PanelSlot> {
         self.slots[slot_index(slot)]
+    }
+
+    /// The full name of `slot`'s button on this panel, which the InfoPanel's hint for the button under the pointer
+    /// shows (`crate::hud::info_panel::hint`): its command's as the ActiveGroup's type names it
+    /// (`PanelCommand::name_on`: a Beacon's menus are its Warp In menus), or Back's. `None` for an empty slot.
+    pub fn name(&self, slot: CommandSlot) -> Option<String> {
+        let shown = self.get(slot)?;
+        Some(match (shown.button, self.active) {
+            (PanelButton::Command(command), Some(active)) => command.name_on(active.kind),
+            _ => shown.name(),
+        })
     }
 
     /// Every slot, row by row from the top left.
@@ -130,6 +145,7 @@ pub fn panel(selection: &Selection, interface: InterfaceState, conditions: &Cond
     let Some(active) = selection.active() else {
         return panel;
     };
+    panel.active = Some(active.group_type());
     let grid = if active.unfinished {
         TRANSFORMING_GRID
     } else {

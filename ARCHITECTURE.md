@@ -2162,13 +2162,20 @@ their producing structures and their constructors, and the Colonists' Beacons an
   (`Conditions::returning`, asked for the ActiveGroup's node: `instance_only`); the button shows only while there are
   some (`Conditions::shows`). Its label, "Drones", keeps the full label size at 720p.
 - **Visuals**: the panel's buttons (`hud/command_panel.rs`) are rebuilt when the panel, the bindings or the surface
-  changes; each shows its command's label (`PanelSlot::label`, short enough for its button at 720p: "Raise" and
-  "Lower" for Raise Shield and Lower Shield) and its hotkey from the bindings. The InfoPanel names the command of the
-  button under the pointer in full, with its hotkey (`hud/info_panel/hint.rs`, `PanelCommand::name`: "R: Raise
-  Shield"; the client has no tooltips; slice M3-S). A label never wraps (`TextLayout::no_wrap`): one too
-  long for its button at `LABEL_VH` is drawn smaller to fit on one line inside a lit button's thicker border
-  (`label_px`, from the default font's fixed advance, 0.6 em, which a unit test checks against the font), so a label
-  keeps its size when its button lights up. The indicators (`command_ui/indicators.rs`) are
+  changes; each shows its command's label (`PanelSlot::label`) and its hotkey from the bindings. **Every label keeps
+  the full label size at 720p: six characters at most** (slice M3-K2a; a unit test measures every label of every
+  panel on surfaces down to 800 × 600): what a button makes by its type's tag ("PK" trains a Peacekeeper, "GN" builds
+  a Generator, "RP" warps in a Robo Portal, as `short_label` shows them on the map), "Place" for a ready building,
+  "Cancel" for every Cancel, else the command's name, its first word or a shortening ("Raise", "Drop", "Rev.",
+  "AtkGnd", "Adv."). **Never add a label longer than that**; its full name goes in `PanelCommand::name`. The
+  InfoPanel names every button under the pointer in full, with its hotkey (`hud/info_panel/hint.rs`, `Panel::name`:
+  "R: Raise Shield", "Q: Train Peacekeeper"; the client has no tooltips; slices M3-S and M3-K2a), after the
+  ActiveGroup's type where the design names a command so (`PanelCommand::name_on`: a Beacon's "Warp In (Basic)", a
+  Sabre's "Convert to Rifle Legionnaire", "Cancel Deployment" and "Cancel Warp In"). A label never wraps
+  (`TextLayout::no_wrap`): one too long for its button at `LABEL_VH` (on a surface too small for it) is drawn smaller
+  to fit on one line inside a lit button's thicker border (`label_px`, from the default font's fixed advance, 0.6 em,
+  which a unit test checks against the font), so a label keeps its size when its button lights up. The indicators
+  (`command_ui/indicators.rs`) are
   one mesh in the overlays layer, rebuilt every frame while anything shows: markers at the targets of the selected
   own units' current orders (and queued ones while Shift is held), a flash where an order was just given
   (`FLASH_TICKS`), and while Shift is held each unit's route through its waypoints as dashed lines; colours follow

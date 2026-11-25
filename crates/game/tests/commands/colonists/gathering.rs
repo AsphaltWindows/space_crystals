@@ -351,11 +351,8 @@ fn a_portals_units_not_in_the_game_yet_are_unavailable() {
     use Planned::{Lancer, PsionicUnit, Scout};
     let mut app = gathering_game();
     set_crystals(&mut app, 1000);
-    let robo = [(slot(0, 1), Scout, KeyW, "Train SC")];
-    let bio = [
-        (slot(0, 1), Lancer, KeyW, "Train LA"),
-        (slot(0, 2), PsionicUnit, KeyE, "Train PU"),
-    ];
+    let robo = [(slot(0, 1), Scout, KeyW, "SC")];
+    let bio = [(slot(0, 1), Lancer, KeyW, "LA"), (slot(0, 2), PsionicUnit, KeyE, "PU")];
     for (portal, planned) in [(ROBO_PORTAL, &robo[..]), (BIO_PORTAL, &bio[..])] {
         click(&mut app, home(portal), &[]);
         assert_eq!(selected(&app), [portal]);

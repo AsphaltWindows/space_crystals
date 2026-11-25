@@ -57,25 +57,37 @@ impl Planned {
         }
     }
 
-    /// Its button's label: a placeholder for its icon (Q0001), the initials of its name, as a building warped in is
-    /// labelled by its tag and a unit trained by its type's (`PanelCommand::label`).
+    /// Its button's label: a placeholder for its icon (Q0001), the initials of its name, as a building warped in and a
+    /// unit trained are labelled by their type's tag (`PanelCommand::label`).
     pub fn label(self) -> &'static str {
         match self {
-            Planned::AlloyFurnace => "Warp AF",
-            Planned::EssenceRefinery => "Warp ER",
-            Planned::FluxReactor => "Warp FR",
-            Planned::ExophysicsEngine => "Warp EE",
-            Planned::Skylance => "Warp SK",
-            Planned::FusionCore => "Warp FC",
-            Planned::PlasmaTurret => "Warp PT",
-            Planned::RelayArray => "Warp RA",
-            Planned::NavigationSpire => "Warp NS",
-            Planned::PsionicAmplifier => "Warp PA",
-            Planned::StructuralAnalyzer => "Warp SA",
-            Planned::Scout => "Train SC",
-            Planned::Lancer => "Train LA",
-            Planned::PsionicUnit => "Train PU",
+            Planned::AlloyFurnace => "AF",
+            Planned::EssenceRefinery => "ER",
+            Planned::FluxReactor => "FR",
+            Planned::ExophysicsEngine => "EE",
+            Planned::Skylance => "SK",
+            Planned::FusionCore => "FC",
+            Planned::PlasmaTurret => "PT",
+            Planned::RelayArray => "RA",
+            Planned::NavigationSpire => "NS",
+            Planned::PsionicAmplifier => "PA",
+            Planned::StructuralAnalyzer => "SA",
+            Planned::Scout => "SC",
+            Planned::Lancer => "LA",
+            Planned::PsionicUnit => "PU",
         }
+    }
+
+    /// Whether it is a unit, of a portal's panel; else a building of the Beacon's Warp In menus.
+    pub fn is_unit(self) -> bool {
+        matches!(self, Planned::Scout | Planned::Lancer | Planned::PsionicUnit)
+    }
+
+    /// The full name of its button (`PanelCommand::name`): the command it will be, "Train Scout" or "Warp In Alloy
+    /// Furnace", as a unit in the game is trained and a building warped in.
+    pub fn command_name(self) -> String {
+        let verb = if self.is_unit() { "Train" } else { "Warp In" };
+        format!("{verb} {}", self.name())
     }
 }
 

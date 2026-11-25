@@ -75,7 +75,7 @@ fn the_beacon_opens_warp_in_basic_and_its_ghost_stands_on_the_beacon() {
         buttons(&mut app),
         [
             (q(), c(Menu(BuildMenu::Basic)), Common, "Basic"),
-            (slot(0, 1), c(Menu(BuildMenu::Advanced)), Common, "Advanced"),
+            (slot(0, 1), c(Menu(BuildMenu::Advanced)), Common, "Adv."),
         ]
     );
     tap(&mut app, &[], KeyQ);
@@ -84,12 +84,12 @@ fn the_beacon_opens_warp_in_basic_and_its_ghost_stands_on_the_beacon() {
     assert_eq!(
         buttons(&mut app),
         [
-            (q(), c(WarpIn(EgressNode)), Common, "Warp EN"),
-            (slot(0, 1), c(WarpIn(RoboPortal)), Common, "Warp RP"),
-            (slot(0, 2), c(WarpIn(BioPortal)), Common, "Warp BP"),
-            (slot(1, 0), p(Planned::AlloyFurnace), Unavailable, "Warp AF"),
-            (slot(1, 1), p(Planned::EssenceRefinery), Unavailable, "Warp ER"),
-            (slot(1, 2), p(Planned::FluxReactor), Unavailable, "Warp FR"),
+            (q(), c(WarpIn(EgressNode)), Common, "EN"),
+            (slot(0, 1), c(WarpIn(RoboPortal)), Common, "RP"),
+            (slot(0, 2), c(WarpIn(BioPortal)), Common, "BP"),
+            (slot(1, 0), p(Planned::AlloyFurnace), Unavailable, "AF"),
+            (slot(1, 1), p(Planned::EssenceRefinery), Unavailable, "ER"),
+            (slot(1, 2), p(Planned::FluxReactor), Unavailable, "FR"),
             (CommandSlot::BACK, PanelButton::Back, Back, "Back"),
         ]
     );
@@ -227,14 +227,14 @@ fn the_advanced_menu_shows_its_eight_buildings_unavailable() {
     tap(&mut app, &[], KeyW);
     assert_eq!(interface(&app), InterfaceState::BuildMenu(BuildMenu::Advanced));
     let planned = [
-        (ExophysicsEngine, "Warp EE"),
-        (Skylance, "Warp SK"),
-        (FusionCore, "Warp FC"),
-        (PlasmaTurret, "Warp PT"),
-        (RelayArray, "Warp RA"),
-        (NavigationSpire, "Warp NS"),
-        (PsionicAmplifier, "Warp PA"),
-        (StructuralAnalyzer, "Warp SA"),
+        (ExophysicsEngine, "EE"),
+        (Skylance, "SK"),
+        (FusionCore, "FC"),
+        (PlasmaTurret, "PT"),
+        (RelayArray, "RA"),
+        (NavigationSpire, "NS"),
+        (PsionicAmplifier, "PA"),
+        (StructuralAnalyzer, "SA"),
     ];
     let mut expected: Vec<_> = CommandSlot::all()
         .zip(planned)

@@ -105,7 +105,7 @@ fn until(app: &mut App, wanted: fn(Option<AttackPhase>) -> bool) {
 }
 
 /// `> Weapon Conversion > Convert Command`: "units may be mixed in selection; each converts to its respective other
-/// form". Two Sabres and a Rifle selected, R is one common command, "Convert"; its hotkey sends them all a Convert, an
+/// form". Two Sabres and a Rifle selected, R is one common command, "Conv."; its hotkey sends them all a Convert, an
 /// ability and no order, and 4 ticks on the Sabres are Rifles and the Rifle a Sabre, still selected, each drawn anew.
 /// Its button converts them back, and Shift with R queues nothing (design change 0151).
 #[test]
@@ -115,11 +115,7 @@ fn r_converts_each_selected_legionnaire_to_its_other_form() {
     let shown = button(&mut app).expect("a button in R");
     assert_eq!(
         (shown.button, shown.look, shown.label()),
-        (
-            PanelButton::Command(PanelCommand::Convert),
-            ButtonLook::Common,
-            "Convert"
-        )
+        (PanelButton::Command(PanelCommand::Convert), ButtonLook::Common, "Conv.")
     );
     let drawn = [1, 2, 3].map(|n| visual(&app, n));
 

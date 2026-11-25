@@ -332,7 +332,7 @@ fn the_deployment_center_opens_its_basic_build_menu() {
         buttons(&mut app),
         [
             (q(), c(Menu(BuildMenu::Basic)), Common, "Basic"),
-            (w(), c(Menu(BuildMenu::Advanced)), Unavailable, "Advanced"),
+            (w(), c(Menu(BuildMenu::Advanced)), Unavailable, "Adv."),
         ]
     );
     tap(&mut app, &[], KeyW);
@@ -348,9 +348,9 @@ fn the_deployment_center_opens_its_basic_build_menu() {
     assert_eq!(
         buttons(&mut app),
         [
-            (q(), c(Construct(GENERATOR)), Common, "Build GN"),
-            (w(), c(Construct(BARRACKS_KIND)), Common, "Build BR"),
-            (e(), c(Construct(EXTRACTION_FACILITY)), Common, "Build EF"),
+            (q(), c(Construct(GENERATOR)), Common, "GN"),
+            (w(), c(Construct(BARRACKS_KIND)), Common, "BR"),
+            (e(), c(Construct(EXTRACTION_FACILITY)), Common, "EF"),
             (CommandSlot::BACK, PanelButton::Back, Back, "Back"),
         ]
     );
@@ -390,7 +390,7 @@ fn the_deployment_center_opens_its_basic_build_menu() {
         InterfaceState::DefaultState,
         "the Extraction Facility has no build menu"
     );
-    assert_eq!(buttons(&mut app), [(q(), c(Construct(PLATE_KIND)), Group, "Build EP")]);
+    assert_eq!(buttons(&mut app), [(q(), c(Construct(PLATE_KIND)), Group, "EP")]);
     tap(&mut app, &[], KeyQ);
     assert_eq!(
         constructions(&app),
@@ -424,7 +424,7 @@ fn a_construction_is_cancelled_with_a_full_refund() {
         buttons(&mut app),
         [
             (q(), c(Menu(BuildMenu::Basic)), Common, "Basic"),
-            (w(), c(Menu(BuildMenu::Advanced)), Unavailable, "Advanced"),
+            (w(), c(Menu(BuildMenu::Advanced)), Unavailable, "Adv."),
             (X, c(CancelConstruction), Common, "Cancel"),
         ]
     );
@@ -446,9 +446,9 @@ fn a_construction_is_cancelled_with_a_full_refund() {
     assert_eq!(
         buttons(&mut app),
         [
-            (q(), c(Construct(GENERATOR)), Disabled, "Build GN"),
-            (w(), c(Construct(BARRACKS_KIND)), Disabled, "Build BR"),
-            (e(), c(Construct(EXTRACTION_FACILITY)), Disabled, "Build EF"),
+            (q(), c(Construct(GENERATOR)), Disabled, "GN"),
+            (w(), c(Construct(BARRACKS_KIND)), Disabled, "BR"),
+            (e(), c(Construct(EXTRACTION_FACILITY)), Disabled, "EF"),
             (CommandSlot::BACK, PanelButton::Back, Back, "Back"),
             (X, c(CancelConstruction), Common, "Cancel"),
         ]
@@ -481,20 +481,17 @@ fn a_ready_generator_is_placed_where_the_ghost_is_green() {
     assert_eq!(
         buttons(&mut app),
         [
-            (q(), c(PlaceReady(GENERATOR)), Common, "Place GN"),
-            (w(), c(Construct(BARRACKS_KIND)), Disabled, "Build BR"),
-            (e(), c(Construct(EXTRACTION_FACILITY)), Disabled, "Build EF"),
+            (q(), c(PlaceReady(GENERATOR)), Common, "Place"),
+            (w(), c(Construct(BARRACKS_KIND)), Disabled, "BR"),
+            (e(), c(Construct(EXTRACTION_FACILITY)), Disabled, "EF"),
             (CommandSlot::BACK, PanelButton::Back, Back, "Back"),
-            (X, c(CancelReady), Common, "Cancel Ready"),
+            (X, c(CancelReady), Common, "Cancel"),
         ]
     );
     assert!(!placement_keys(&app));
     tap(&mut app, &[], KeyQ);
     assert_eq!(placing(&app), Some(Placing::new(ObjectId(DC), GENERATOR)));
-    assert_eq!(
-        buttons(&mut app)[0],
-        (q(), c(PlaceReady(GENERATOR)), Pending, "Place GN")
-    );
+    assert_eq!(buttons(&mut app)[0], (q(), c(PlaceReady(GENERATOR)), Pending, "Place"));
     assert!(placement_keys(&app));
 
     hover(&mut app, middle(OPEN, (2, 2)));
@@ -752,7 +749,7 @@ fn the_extraction_facility_places_its_plate_on_a_free_patch() {
     let mut app = construction_game(1000);
     select(&mut app, EF);
     let c = PanelButton::Command;
-    assert_eq!(buttons(&mut app), [(q(), c(Construct(PLATE_KIND)), Common, "Build EP")]);
+    assert_eq!(buttons(&mut app), [(q(), c(Construct(PLATE_KIND)), Common, "EP")]);
     tap(&mut app, &[], KeyQ);
     let construct = ConstructionCommand::Construct(PLATE_KIND);
     assert_eq!(constructions(&app), [(P1, vec![EF], construct)]);
@@ -763,8 +760,8 @@ fn the_extraction_facility_places_its_plate_on_a_free_patch() {
     assert_eq!(
         buttons(&mut app),
         [
-            (q(), c(PlaceReady(PLATE_KIND)), Common, "Place EP"),
-            (X, c(CancelReady), Common, "Cancel Ready"),
+            (q(), c(PlaceReady(PLATE_KIND)), Common, "Place"),
+            (X, c(CancelReady), Common, "Cancel"),
         ]
     );
     tap(&mut app, &[], KeyQ);
@@ -816,7 +813,7 @@ fn the_extraction_facility_places_its_plate_on_a_free_patch() {
     assert_eq!(interface(&app), InterfaceState::DefaultState);
     assert!(structure_at(&app, PLATE_KIND, FREE_PATCH).is_some());
     assert_eq!(constructor(&app, EF), Constructor::Idle);
-    assert_eq!(buttons(&mut app), [(q(), c(Construct(PLATE_KIND)), Common, "Build EP")]);
+    assert_eq!(buttons(&mut app), [(q(), c(Construct(PLATE_KIND)), Common, "EP")]);
 }
 
 /// `factions/gdo/structures.md > GDOBuildArea`: "After placement, the build area expands outward from the placed
