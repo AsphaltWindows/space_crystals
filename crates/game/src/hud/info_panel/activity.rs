@@ -46,7 +46,7 @@ pub fn transformation(structure: &Object) -> Vec<String> {
     vec![format!("{doing}: {} {}%", structure.def().name, t.percent())]
 }
 
-/// A constructor's line (`factions/gdo/structures.md > DeploymentCenter > DeploymentCenterInstanceState`,
+/// A constructor's line (`factions/gdo/structures/deployment_center.md > DeploymentCenterInstanceState`,
 /// `factions/gdo/economy.md > ExtractionFacility`; design change 0105: "construction [...] progress [...] a
 /// ready-to-place building"): the building under construction (CurrentConstruction) with its progress
 /// (ConstructionProgress, "frames elapsed", of its recipe's frames), or the building ready to place (ReadyToPlace).
@@ -67,7 +67,7 @@ pub fn construction(structure: &Object) -> Vec<String> {
     }
 }
 
-/// A producer's lines (`factions/gdo/structures.md > Barracks > BarracksInstanceState`): while it has a BuildQueue,
+/// A producer's lines (`factions/gdo/structures/barracks.md > BarracksInstanceState`): while it has a BuildQueue,
 /// the unit in production (CurrentBuild) with its progress, and how many units are queued, that one included, of
 /// the most a queue holds (design change 0081); then its RallyPoint, while it has one. A unit that is finished but
 /// held inside because the exit doorway is occupied shows at 100% (design change 0085). A unit at the front that

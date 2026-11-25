@@ -31,16 +31,16 @@ pub enum ButtonLook {
     /// placed.
     Pending,
     /// Offered, but not now ([`Conditions::allows`]): the other commands while one awaits its target (`>
-    /// AwaitingTarget > Other commands while targeting`, design change 0066: unavailable until the player cancels)
-    /// or while a building is placed, Attack while none of its recipients can attack, a production or construction
-    /// command the command gate would refuse (Train with the BuildQueue full, or too few Space Crystals, the army cap
-    /// being checked when production starts, design change 0143; Cancel Production with nothing queued:
-    /// `factions/gdo/structures.md > Barracks > ObjectInterfaceState[Barracks]`, "Only available if"; a building to
-    /// construct while the bank can't pay for it, or while the constructor constructs or holds a building ready: `>
-    /// DeploymentCenter > ObjectInterfaceState[DeploymentCenter]`, "Other build options unavailable"; a Convert none
-    /// of whose recipients may convert, all of them converting or waiting to: `factions/colonists/units.md > Weapon
-    /// Conversion > Eligibility`, design change 0153; a Warp In while the Beacon deploys or the bank can't pay for
-    /// it), and a command the sim has no order for yet.
+    /// AwaitingTarget > Other commands while targeting`, design change 0066: unavailable until the player cancels) or
+    /// while a building is placed, Attack while none of its recipients can attack, a production or construction command
+    /// the command gate would refuse (Train with the BuildQueue full, or too few Space Crystals, the army cap being
+    /// checked when production starts, design change 0143; Cancel Production with nothing queued:
+    /// `factions/gdo/structures/barracks.md > ObjectInterfaceState[Barracks]`, "Only available if"; a building to
+    /// construct while the bank can't pay for it, or while the constructor constructs or holds a building ready:
+    /// `factions/gdo/structures/deployment_center.md > ObjectInterfaceState[DeploymentCenter]`, "Other build options
+    /// unavailable"; a Convert none of whose recipients may convert, all of them converting or waiting to:
+    /// `factions/colonists/units/weapon_conversion.md > Eligibility`, design change 0153; a Warp In while the Beacon
+    /// deploys or the bank can't pay for it), and a command the sim has no order for yet.
     Disabled,
     /// In the template, but this type can't (`> BasicCombatUnitInterfaceState`: the conditional Reverse and
     /// AttackGround; a build menu none of whose buildings is in the game yet; a building of the Beacon's Warp In
@@ -295,7 +295,7 @@ pub fn is_common(selection: &Selection, command: PanelCommand) -> bool {
 /// never a single member picked out; only a unit that can't carry the command out is left out of it (a Peacekeeper
 /// (Shielded) under an explicit Attack on an object, design change 0202: `super::super::resolution::unit_target_order`).
 /// Raise Shield and Lower Shield are each one type's, and so is each form's Convert, so in a selection of both types
-/// they go to the ActiveGroup (`factions/gdo/units.md > Peacekeeper > Riot Shield > Two unit types`: "the shield
+/// they go to the ActiveGroup (`factions/gdo/units/peacekeeper.md > Riot Shield > Two unit types`: "the shield
 /// command goes to the ActiveGroup"; design change 0198: "Only the ActiveGroup receives the press"). Every panel
 /// command, by hotkey
 /// or button, goes to these objects: a Train to every Barracks of the ActiveGroup, which the sim serves least work

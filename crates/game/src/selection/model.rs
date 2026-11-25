@@ -415,15 +415,16 @@ impl ControlState {
         changed
     }
 
-    /// The selected `units` were pressed with the mode toggle `ability` (`factions/colonists/units.md > Weapon
-    /// Conversion > A toggle sets a target form`, `factions/gdo/units.md > Peacekeeper > Riot Shield > Two unit
-    /// types`; design change 0198): "The unit's type, and so its SelectionGroup, switches at the press to the target
-    /// form. The pressed units join the group of that form (merging with any units of that form already selected),
-    /// and that merged group becomes the ActiveGroup", the panel back in its DefaultState (design change 0199). Each
-    /// takes the type the sim switches it to when it applies the press (`sc_sim::Ability::switched_kind`), so the
-    /// panel shows the new group's commands at once, and a second press goes to the merged group (until the sim has
-    /// applied the press, `crate::sim_driver::PendingCommands::kind_of` keeps the type the selection's checks find).
-    /// Says whether anything changed.
+    /// The selected `units` were pressed with the mode toggle `ability`
+    /// (`factions/colonists/units/weapon_conversion.md > A toggle sets a target form`,
+    /// `factions/gdo/units/peacekeeper.md > Riot Shield > Two unit types`; design change 0198): "The unit's type, and
+    /// so its SelectionGroup, switches at the press to the target form. The pressed units join the group of that form
+    /// (merging with any units of that form already selected), and that merged group becomes the ActiveGroup", the
+    /// panel back in its DefaultState (design change 0199). Each takes the type the sim switches it to when it applies
+    /// the press (`sc_sim::Ability::switched_kind`), so the panel shows the new group's commands at once, and a second
+    /// press goes to the merged group (until the sim has applied the press,
+    /// `crate::sim_driver::PendingCommands::kind_of` keeps the type the selection's checks find). Says whether anything
+    /// changed.
     pub fn toggle(&mut self, units: &[ObjectId], ability: Ability) -> bool {
         let mut joined = None;
         for &id in units {

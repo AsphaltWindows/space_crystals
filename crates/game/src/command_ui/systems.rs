@@ -7,11 +7,11 @@
 //! ([`super::resolution::group_orders`]). A command issued with the Queue modifier held (Shift) is queued
 //! (`systems/controls/commands.md > Unit Command`), else it replaces the units' orders. Abilities (the Riot Shield,
 //! Convert) go as `Command::Ability`, at once and never queued. A producer's commands
-//! (`factions/gdo/structures.md > Barracks > ObjectInterfaceState[Barracks]`) go as one `Command::Production` to all
+//! (`factions/gdo/structures/barracks.md > ObjectInterfaceState[Barracks]`) go as one `Command::Production` to all
 //! the producers they are issued to, also never queued: Train and Cancel Production at once, the rally point on a
 //! right-click or a click while Set Rally Point awaits its target. The sim decides which producers a Train reaches
 //! (design change 0083); the client sends it to all of them (no smart-casting, design changes 0071 and 0075). A
-//! constructor's commands (`factions/gdo/structures.md > DeploymentCenter > ObjectInterfaceState[DeploymentCenter]`,
+//! constructor's commands (`factions/gdo/structures/deployment_center.md > ObjectInterfaceState[DeploymentCenter]`,
 //! `factions/gdo/economy.md > ExtractionFacility > ObjectInterfaceState[ExtractionFacility]`) go as
 //! `Command::Construction` to the one constructor of the ActiveGroup, never queued: Construct and the Cancels at
 //! once, Place on a left-click in AwaitingPlacement, only where the placement check allows it now. A Beacon's Warp In
@@ -112,13 +112,13 @@ pub(super) fn end_queued_targeting(actions: Res<ActionState>, pressed: Res<Targe
 /// - **An invalid target** (design change 0065): a click that gives nothing, on a target the command can't use
 ///   (the Inactive pointer), is ignored and the target is still awaited, with Shift too; an [`InvalidTarget`]
 ///   message tells the player (`super::feedback`).
-/// - **Set Rally Point** (`factions/gdo/structures.md > Barracks`: "Left-click ground or object sets the rally
+/// - **Set Rally Point** (`factions/gdo/structures/barracks.md`: "Left-click ground or object sets the rally
 ///   point (CommandIssuingTransition, returns to DefaultState)"): the rally point goes to the command's recipients,
 ///   every selected producer of the ActiveGroup, as one `Command::Production`; a click on the producer itself clears
 ///   its rally point (design change 0086). A rally point isn't queued, so a Shift-click sets it and ends the
 ///   targeting like a plain click ([`PanelCommand::queues`], a placeholder reading).
-/// - **Set Drop-off** (`factions/colonists/units.md > Drone ObjectInterfaceState > S: Set Drop-off Location`, slice
-///   M3-J2): a click on an own Egress Node makes it the AssignedDropOff of every selected Drone, as one
+/// - **Set Drop-off** (`factions/colonists/units/drone.md > Drone ObjectInterfaceState > S: Set Drop-off Location`,
+///   slice M3-J2): a click on an own Egress Node makes it the AssignedDropOff of every selected Drone, as one
 ///   `Command::Ability` (question Q0040 point 9), and returns to DefaultState ("CommandIssuingTransition"); a
 ///   Shift-click too, like a rally point's. Their orders go on (`sc_sim::Ability::SetDropOff`: "Does not interrupt
 ///   current mining/movement"). Anything else is an invalid target.

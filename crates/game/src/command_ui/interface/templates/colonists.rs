@@ -1,9 +1,9 @@
 //! The Colonists' panels (slices M3-J1 and M3-J2, design change 0124): the Beacon's, with its two Warp In menus
 //! (`factions/colonists/economy.md > Beacon > Beacon ObjectInterfaceState`), the Drone's
-//! (`factions/colonists/units.md > Drone ObjectInterfaceState`), the Egress Node's (`factions/colonists/economy.md >
-//! Egress Node > Egress Node ObjectInterfaceState`), and the one of an object that transforms
-//! (`factions/colonists/economy.md > Beacon Deployment > While transforming: only Cancel`). The portals have the
-//! Production template (`super::production_grid`, slice M3-D), with their units not in the game yet in their slots
+//! (`factions/colonists/units/drone.md > Drone ObjectInterfaceState`), the Egress Node's
+//! (`factions/colonists/economy.md > Egress Node > Egress Node ObjectInterfaceState`), and the one of an object that
+//! transforms (`factions/colonists/economy.md > Beacon Deployment > While transforming: only Cancel`). The portals have
+//! the Production template (`super::production_grid`, slice M3-D), with their units not in the game yet in their slots
 //! ([`planned_units`]).
 
 use sc_sim::{ObjectKind, transform};
@@ -11,10 +11,10 @@ use sc_sim::{ObjectKind, transform};
 use super::super::{BuildMenu, PanelCommand};
 
 /// A building of the Beacon's Warp In menus, or a unit of a portal's panel, that isn't in the game yet: a building's
-/// cost and WarpInTime are TBD (`factions/colonists/economy.md > Warp In > Constructs List`), and so is the rest of
-/// it (Q0043); a unit's stats, cost and time are TBD (`factions/colonists/units.md > Scout`, `> Lancer`; the psionic
-/// unit has no section yet). Each holds its slot, unavailable (design change 0124: "Buildings and units whose costs
-/// are TBD show in their slot, unavailable").
+/// cost and WarpInTime are TBD (`factions/colonists/economy.md > Warp In > Constructs List`), and so is the rest of it
+/// (Q0043); a unit's stats, cost and time are TBD (`factions/colonists/units/scout.md`,
+/// `factions/colonists/units/lancer.md`; the psionic unit has no section yet). Each holds its slot, unavailable (design
+/// change 0124: "Buildings and units whose costs are TBD show in their slot, unavailable").
 #[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum Planned {
     AlloyFurnace,
@@ -28,9 +28,9 @@ pub enum Planned {
     NavigationSpire,
     PsionicAmplifier,
     StructuralAnalyzer,
-    /// The Robo Portal's W (`factions/colonists/structures.md > Robo Portal ObjectInterfaceState`).
+    /// The Robo Portal's W (`factions/colonists/structures/robo_portal.md > Robo Portal ObjectInterfaceState`).
     Scout,
-    /// The Bio Portal's W (`> Bio Portal ObjectInterfaceState`).
+    /// The Bio Portal's W (`factions/colonists/structures/bio_portal.md > Bio Portal ObjectInterfaceState`).
     Lancer,
     /// The Bio Portal's E, "Psionic unit (TBD)" (`> Bio Portal ObjectInterfaceState`).
     PsionicUnit,
@@ -113,9 +113,10 @@ impl Planned {
 
 /// The units of a `kind` portal's panel that aren't in the game yet ([`Planned`]), each with its slot
 /// (`CommandSlot::all` order), which `super::production_grid` adds to the portal's recipes: the Robo Portal's "[W]
-/// Scout" (`factions/colonists/structures.md > Robo Portal ObjectInterfaceState`), the Bio Portal's "[W] Lancer" and
-/// "[E] Psionic unit (TBD)" (`> Bio Portal ObjectInterfaceState`); design change 0124: "Robo Portal: Q Drone, W
-/// Scout, X, C. Bio Portal: Q Sabre, W Lancer, E psionic unit, X, C".
+/// Scout" (`factions/colonists/structures/robo_portal.md > Robo Portal ObjectInterfaceState`), the Bio Portal's "[W]
+/// Lancer" and "[E] Psionic unit (TBD)" (`factions/colonists/structures/bio_portal.md > Bio Portal
+/// ObjectInterfaceState`); design change 0124: "Robo Portal: Q Drone, W Scout, X, C. Bio Portal: Q Sabre, W Lancer, E
+/// psionic unit, X, C".
 pub(super) fn planned_units(kind: ObjectKind) -> &'static [(usize, Planned)] {
     match kind {
         ObjectKind::RoboPortal => &[(1, Planned::Scout)],
@@ -177,10 +178,10 @@ pub(super) fn warp_in_menu(menu: BuildMenu) -> [Option<PanelCommand>; 12] {
     }
 }
 
-/// `factions/colonists/units.md > Drone ObjectInterfaceState > DefaultState commands` ("No Hold Position, Patrol or
-/// Attack"): Q Move and X Stop, "as in BasicCombatUnitInterfaceState", A Deploy, and S Set Drop-off, which awaits
-/// its drop-off (AwaitingTarget\[SetDropOffLocation\]; design change 0124: "Drone: Q Move, A Deploy, S Set Drop-off,
-/// X Stop").
+/// `factions/colonists/units/drone.md > Drone ObjectInterfaceState > DefaultState commands` ("No Hold Position, Patrol
+/// or Attack"): Q Move and X Stop, "as in BasicCombatUnitInterfaceState", A Deploy, and S Set Drop-off, which awaits
+/// its drop-off (AwaitingTarget\[SetDropOffLocation\]; design change 0124: "Drone: Q Move, A Deploy, S Set Drop-off, X
+/// Stop").
 #[rustfmt::skip]
 pub(super) const DRONE_GRID: [Option<PanelCommand>; 12] = {
     use PanelCommand::{Deploy, Move, SetDropOff, Stop};

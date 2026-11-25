@@ -154,7 +154,7 @@ fn awaiting_a_target_holds_while_the_active_group_offers_its_command() {
     ));
 }
 
-/// `factions/gdo/units.md > Peacekeeper > Riot Shield > Two unit types` (design change 0173): "The Peacekeeper's panel
+/// `factions/gdo/units/peacekeeper.md > Riot Shield > Two unit types` (design change 0173): "The Peacekeeper's panel
 /// shows **Raise Shield**; Peacekeeper (Shielded)'s shows **Lower Shield** and no Attack", both in R (design change
 /// 0174), labelled short enough for their button ("Raise", "Lower") and named in full ([`PanelSlot::name`]). Each is
 /// its type's own: in a selection of both types, it goes to the ActiveGroup ("the shield command goes to the
@@ -225,7 +225,7 @@ fn each_peacekeeper_type_has_its_shield_command_in_slot_r() {
     }
 }
 
-/// `factions/gdo/units.md > Peacekeeper > Riot Shield > During the toggle` (design change 0202): "which orders a unit
+/// `factions/gdo/units/peacekeeper.md > Riot Shield > During the toggle` (design change 0202): "which orders a unit
 /// accepts follows its new type from the press". Peacekeepers whose shields are on their way down take an Attack,
 /// which the sim holds until their shields are down: "The panel shows Attack, and pressing it must not silently skip
 /// the unit"; it awaits its target, and a pending Attack goes on. A Peacekeeper (Shielded), its shield up, on its way
@@ -293,7 +293,7 @@ fn only_tail_and_doubly_disjointed_attacks_target_the_ground() {
     assert!(!offers(PK, PanelCommand::AttackGround) && !offers(GUARD, PanelCommand::Reverse));
 }
 
-/// `factions/gdo/structures.md > Barracks > ObjectInterfaceState[Barracks]` with `> Standard Slot Assignments`:
+/// `factions/gdo/structures/barracks.md > ObjectInterfaceState[Barracks]` with `> Standard Slot Assignments`:
 /// Q trains a Peacekeeper and X cancels the last unit queued, both at once; C awaits the rally point's target,
 /// with Z Back and the other commands waiting meanwhile. W, the Rocketman's, stays empty until it is in the game.
 #[test]

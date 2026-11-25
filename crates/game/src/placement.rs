@@ -1,6 +1,6 @@
-//! What the local player sees while placing a building (`factions/gdo/structures.md > DeploymentCenter >
+//! What the local player sees while placing a building (`factions/gdo/structures/deployment_center.md >
 //! ObjectInterfaceState[DeploymentCenter] > AwaitingPlacement`, `factions/gdo/economy.md > ExtractionFacility >
-//! ObjectInterfaceState[ExtractionFacility] > AwaitingPlacement`, `factions/colonists/units.md > Drone
+//! ObjectInterfaceState[ExtractionFacility] > AwaitingPlacement`, `factions/colonists/units/drone.md > Drone
 //! ObjectInterfaceState > A: Deploy`, `factions/colonists/economy.md > Warp In > Warp In Command`; plan decisions T10,
 //! T23), and the buildings ordered but not started. The state itself, its keys and its clicks are the command flow's
 //! (`crate::command_ui::InterfaceState::AwaitingPlacement`); this module only shows it:

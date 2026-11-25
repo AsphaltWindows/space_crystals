@@ -1,4 +1,4 @@
-//! The placement ghost (`factions/gdo/structures.md > DeploymentCenter > ObjectInterfaceState[DeploymentCenter] >
+//! The placement ghost (`factions/gdo/structures/deployment_center.md > ObjectInterfaceState[DeploymentCenter] >
 //! AwaitingPlacement`): "A ghost preview of the building follows the cursor, snapped to the grid. The ghost is tinted
 //! green when the placement is valid and red when invalid. [...] whether a given tile is valid right now (flat,
 //! Visible, unoccupied, not a resource) is shown per tile on the ghost" (design change 0093). "Side labels (A/B/C/D

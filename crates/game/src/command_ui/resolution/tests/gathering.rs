@@ -1,6 +1,6 @@
 //! The Colonists' gathering clicks and pointers (slice M3-J2): `> PointerDisplayType > Resolution Rules >
 //! DefaultState`'s GatherResources and ReturnResources, resolved per unit (design change 0063), and the Drones' Set
-//! Drop-off (`factions/colonists/units.md > Drone ObjectInterfaceState > S: Set Drop-off Location`).
+//! Drop-off (`factions/colonists/units/drone.md > Drone ObjectInterfaceState > S: Set Drop-off Location`).
 
 use sc_sim::Ability;
 

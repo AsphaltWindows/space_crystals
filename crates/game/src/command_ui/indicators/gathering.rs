@@ -12,12 +12,12 @@
 //! - The **Return Resources marker** ("Drop Off (return resources to an Egress Node or refinery) | Object | Return
 //!   Resources marker"): a ring with four arrowheads pointing in, in the ReturnResources pointer's gold, on a Drop
 //!   Off's drop-off.
-//! - The **Set Drop-off marker** ("Set Drop-off | Object | Set Drop-off marker"): a dashed ring in a violet of its
-//!   own, wider than the other rings so that it shows round a Drop Off's on the same node, on the AssignedDropOff of
-//!   each selected worker ([`drop_off_indicators`]). Set Drop-off Location applies at once and leaves the
-//!   AssignedDropOff it sets (`sc_sim::Ability::SetDropOff`: it "only updates AssignedDropOff"), as Set Rally Point
-//!   leaves a rally point; so the marker shows as a rally point's does (design change 0087), while the worker is
-//!   selected, on the drop-off it has now. That is also one its first Gather assigned (`> Assigned Drop-off >
+//! - The **Set Drop-off marker** ("Set Drop-off | Object | Set Drop-off marker"): a dashed ring in a violet of its own,
+//!   wider than the other rings so that it shows round a Drop Off's on the same node, on the AssignedDropOff of each
+//!   selected worker ([`drop_off_indicators`]). Set Drop-off Location applies at once and leaves the AssignedDropOff it
+//!   sets (`sc_sim::Ability::SetDropOff`: it "only updates AssignedDropOff"), as Set Rally Point leaves a rally point;
+//!   so the marker shows as a rally point's does (design change 0087), while the worker is selected, on the drop-off it
+//!   has now. That is also one its first Gather assigned (`factions/colonists/units/drone.md > Assigned Drop-off >
 //!   Auto-assignment`), the one its InfoPanel names. A reading: the design gives the marker, not when it shows.
 //!
 //! An order's marker flashes as the order is given (`super::Flash`), a Gather's and a Drop Off's too. Set Drop-off

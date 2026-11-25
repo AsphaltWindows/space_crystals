@@ -1,4 +1,4 @@
-//! The Riot Shield's two unit types in a selection (`factions/gdo/units.md > Peacekeeper > Riot Shield > Two unit
+//! The Riot Shield's two unit types in a selection (`factions/gdo/units/peacekeeper.md > Riot Shield > Two unit
 //! types`, design change 0173): the Peacekeepers and the Peacekeepers (Shielded) form separate SelectionGroups, the
 //! shield command goes to the ActiveGroup, and the units it turns change group at the press, also those whose raise
 //! waits for their shot (design change 0198: "The type, and so the SelectionGroup, switches at the press"). The group

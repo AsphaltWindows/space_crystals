@@ -319,10 +319,10 @@ fn a_robo_portal_rallied_on_a_patch_sends_its_drones_to_mine() {
 }
 
 /// The acceptance for 0136: a Robo Portal right-clicked onto an enemy unit in sight rallies on it, and its new Drone,
-/// unarmed, follows it ("Enemy or other object → Move to it: Follow if it is a unit", `factions/colonists/units.md >
-/// Drone > Right-Click Resolution`), and waits by it, out of the portal. Once the enemy is out of sight, the Drone's
-/// Follow ends and it stays where it is (design change 0200), and the rally point is a ground rally where the enemy
-/// was last seen (design change 0088).
+/// unarmed, follows it ("Enemy or other object → Move to it: Follow if it is a unit",
+/// `factions/colonists/units/drone.md > Right-Click Resolution`), and waits by it, out of the portal. Once the enemy is
+/// out of sight, the Drone's Follow ends and it stays where it is (design change 0200), and the rally point is a ground
+/// rally where the enemy was last seen (design change 0088).
 #[test]
 fn a_robo_portal_rallied_on_an_enemy_unit_sends_its_drones_after_it() {
     let mut app = colonists_field();

@@ -41,7 +41,7 @@ pub(super) fn body_turns(kind: ObjectKind) -> bool {
 
 /// Whether a `kind` unit carries its type's tag ([`UnitTag`]): the Colonists' units, the Peacekeeper's two types
 /// (slice M3-J3: M3-K2's walkthrough found the Peacekeepers unlabelled on the map), and the Agent (slice M4-A). The
-/// Legionnaire's two forms share one silhouette (`factions/colonists/units.md > Weapon Conversion`), as the
+/// Legionnaire's two forms share one silhouette (`factions/colonists/units/weapon_conversion.md`), as the
 /// Peacekeeper's two types share their body (design change 0173); a square is the Guard's too, which goes without,
 /// and the Agent's, which its AG tells apart.
 pub(super) fn tagged(kind: ObjectKind) -> bool {

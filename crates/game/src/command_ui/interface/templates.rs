@@ -23,16 +23,17 @@ use crate::selection::GroupType;
 /// An ObjectInterfaceState template: which commands a type offers, in which slots, and how its clicks resolve.
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub enum InterfaceTemplate {
-    /// `> BasicCombatUnitInterfaceState`: the Peacekeeper's (`factions/gdo/units.md > Peacekeeper`), and its
-    /// shielded type's less Attack (design change 0173), and the Guard's (`factions/syndicate/units.md > Guard`).
+    /// `> BasicCombatUnitInterfaceState`: the Peacekeeper's (`factions/gdo/units/peacekeeper.md`), and its
+    /// shielded type's less Attack (design change 0173), and the Guard's (`factions/syndicate/units/guard.md`).
     BasicCombatUnit,
     /// A producing structure's panel (plan decision T23), built from its `ProductionDef` ([`production_grid`]): the
-    /// Barracks' (`factions/gdo/structures.md > Barracks > ObjectInterfaceState[Barracks]`) and the Colonists'
-    /// portals' (`factions/colonists/structures.md > Robo Portal ObjectInterfaceState`, `> Bio Portal
-    /// ObjectInterfaceState`, design change 0124: "Standard production panel, same conventions as GDO's Barracks").
-    /// Its right-click sets the rally point (`> CommandPanel > Production Building Default Right-Click`).
+    /// Barracks' (`factions/gdo/structures/barracks.md > ObjectInterfaceState[Barracks]`) and the Colonists' portals'
+    /// (`factions/colonists/structures/robo_portal.md > Robo Portal ObjectInterfaceState`,
+    /// `factions/colonists/structures/bio_portal.md > Bio Portal ObjectInterfaceState`, design change 0124: "Standard
+    /// production panel, same conventions as GDO's Barracks"). Its right-click sets the rally point (`> CommandPanel >
+    /// Production Building Default Right-Click`).
     Production,
-    /// `factions/gdo/structures.md > DeploymentCenter > ObjectInterfaceState[DeploymentCenter]`: its DefaultState
+    /// `factions/gdo/structures/deployment_center.md > ObjectInterfaceState[DeploymentCenter]`: its DefaultState
     /// opens the build menus, whose entries construct; once a building is ready, its entry enters AwaitingPlacement.
     /// It produces no units and has no right-click.
     DeploymentCenter,
@@ -42,7 +43,7 @@ pub enum InterfaceTemplate {
     /// `factions/colonists/economy.md > Beacon > Beacon ObjectInterfaceState` (design change 0124): its DefaultState
     /// opens the two Warp In menus, whose entries enter the Warp In's placement on the Beacon. No right-click.
     Beacon,
-    /// `factions/colonists/units.md > Drone ObjectInterfaceState`: Q Move, A Deploy, S Set Drop-off, X Stop. Its
+    /// `factions/colonists/units/drone.md > Drone ObjectInterfaceState`: Q Move, A Deploy, S Set Drop-off, X Stop. Its
     /// right-click (`> Right-Click Resolution`: Gather, Drop Off, Move, Follow) is the sim's one rule, as every
     /// unit's (`crate::command_ui::resolution::unit_right_click`, slice M3-R).
     Drone,
@@ -113,15 +114,16 @@ const TRAIN_SLOTS: usize = 8;
 /// in the design's order, from Q on (Q, W, E, R, then A, S, D, F); X Cancel Production and C Set Rally Point
 /// (`> Standard Slot Assignments`); Z is Back while a target is awaited.
 ///
-/// - The Barracks: Q Build Peacekeeper, X, C (`factions/gdo/structures.md > Barracks >
+/// - The Barracks: Q Build Peacekeeper, X, C (`factions/gdo/structures/barracks.md >
 ///   ObjectInterfaceState[Barracks]`). "W: Build Rocketman (hotkey tentative)" stays empty: the Rocketman isn't in
 ///   the game yet (its cost and time are TBD, and so is its Arsenal; M2 plan § 1.2), so it isn't among the recipes
 ///   and its button is hidden.
 /// - The Robo Portal: Q Drone, W Scout, X, C; the Bio Portal: Q Sabre Legionnaire, W Lancer, E psionic unit, X, C
-///   (`factions/colonists/structures.md > Robo Portal ObjectInterfaceState`, `> Bio Portal ObjectInterfaceState`,
-///   design change 0124). The Scout, the Lancer and the psionic unit aren't in the game (their stats, cost and time
-///   are TBD), so they aren't among the recipes: 0124 has them show in their slot, unavailable
-///   ([`PanelCommand::Planned`], `colonists::planned_units`; slice M3-J2).
+///   (`factions/colonists/structures/robo_portal.md > Robo Portal ObjectInterfaceState`,
+///   `factions/colonists/structures/bio_portal.md > Bio Portal ObjectInterfaceState`, design change 0124). The Scout,
+///   the Lancer and the psionic unit aren't in the game (their stats, cost and time are TBD), so they aren't among the
+///   recipes: 0124 has them show in their slot, unavailable ([`PanelCommand::Planned`], `colonists::planned_units`;
+///   slice M3-J2).
 fn production_grid(kind: ObjectKind) -> [Option<PanelCommand>; 12] {
     let mut grid = [None; 12];
     let production = kind.def().structure.as_ref().and_then(|s| s.production.as_ref());
@@ -164,7 +166,7 @@ const EXTRACTION_FACILITY_GRID: [Option<PanelCommand>; 12] = [
     None,                                                       None, None, None,
 ];
 
-/// `factions/gdo/units.md > Peacekeeper > Riot Shield > Hotkey`: "**Hotkey: R** (Raise Shield on Peacekeeper, Lower
+/// `factions/gdo/units/peacekeeper.md > Riot Shield > Hotkey`: "**Hotkey: R** (Raise Shield on Peacekeeper, Lower
 /// Shield on Peacekeeper (Shielded)), placeholder" (design change 0174): slot R, the first slot the BasicCombatUnit
 /// grid leaves free, where the Colonists' Legionnaires have their own command ([`CONVERT_SLOT`]).
 const RIOT_SHIELD_SLOT: usize = 3;
@@ -173,14 +175,14 @@ const RIOT_SHIELD_SLOT: usize = 3;
 /// panel leaves empty ([`hides_attack`]).
 const ATTACK_SLOT: usize = 4;
 
-/// `factions/colonists/units.md > Sabre Legionnaire > ObjectInterfaceState`: "BasicCombatUnitInterfaceState, plus:
+/// `factions/colonists/units/sabre_legionnaire.md > ObjectInterfaceState`: "BasicCombatUnitInterfaceState, plus:
 /// R: Convert to Rifle Legionnaire", and the Rifle Legionnaire's "R: Convert to Sabre Legionnaire".
 const CONVERT_SLOT: usize = 3;
 
 impl InterfaceTemplate {
     /// The template of `kind`'s ObjectInterfaceState; none for types without commands: the map resources, and the
     /// structures that have none (the Generator, the Extraction Plate). The Legionnaires' is
-    /// "BasicCombatUnitInterfaceState, plus" their R (`factions/colonists/units.md > Sabre Legionnaire >
+    /// "BasicCombatUnitInterfaceState, plus" their R (`factions/colonists/units/sabre_legionnaire.md >
     /// ObjectInterfaceState`: Convert, [`grid`]). Every type that produces units has the Production
     /// template; the Egress Node has its own, its F (slice M3-J2). Whatever its type, an object that transforms shows
     /// only its Cancel ([`TRANSFORMING_GRID`], `super::panel`) and resolves no right-click
@@ -206,8 +208,9 @@ impl InterfaceTemplate {
             | ObjectKind::SupplyDeliveryStation
             | ObjectKind::Generator
             | ObjectKind::ExtractionPlate => None,
-            // The Syndicate's interfaces come with slices M4-J1 and M4-J2 (`factions/syndicate/units.md > Agent >
-            // ObjectInterfaceState`, `tunnels.md > Tunnel ObjectInterfaceState`, `structures.md > Hideout`).
+            // The Syndicate's interfaces come with slices M4-J1 and M4-J2 (`factions/syndicate/units/agent.md >
+            // Agent ObjectInterfaceState`, `factions/syndicate/tunnels.md > Tunnel ObjectInterfaceState`,
+            // `factions/syndicate/structures/hideout.md > ObjectInterfaceState[Hideout]`).
             ObjectKind::Agent | ObjectKind::Tunnel => None,
         }
     }
@@ -234,7 +237,7 @@ pub fn can_target_ground(attack_type: AttackType) -> bool {
 
 /// `kind`'s DefaultState commands, slot by slot (`CommandSlot::all` order): its template's grid, plus its own
 /// commands in slots the template leaves free: a unit that carries a Riot Shield the command that turns it, in R
-/// (`factions/gdo/units.md > Peacekeeper > Riot Shield > Two unit types`, design change 0173: "The Peacekeeper's
+/// (`factions/gdo/units/peacekeeper.md > Riot Shield > Two unit types`, design change 0173: "The Peacekeeper's
 /// panel shows **Raise Shield**; Peacekeeper (Shielded)'s shows **Lower Shield**": [`PanelCommand::RaiseShield`] or
 /// [`PanelCommand::LowerShield`]); a unit with another form, a Legionnaire, the Convert to that form in R
 /// ([`PanelCommand::Convert`]: "R: Convert to Rifle Legionnaire" on the Sabre's panel). These
@@ -258,7 +261,7 @@ pub fn grid(kind: ObjectKind) -> [Option<PanelCommand>; 12] {
 }
 
 /// Whether the panel of a `kind` ActiveGroup leaves out its Attack: the Peacekeeper (Shielded)'s
-/// (`factions/gdo/units.md > Peacekeeper > Riot Shield > Two unit types`, design change 0173: its panel "shows Lower
+/// (`factions/gdo/units/peacekeeper.md > Riot Shield > Two unit types`, design change 0173: its panel "shows Lower
 /// Shield and no Attack"). The type still offers Attack ([`offers`]), so that in a selection with other units,
 /// Attack, a common command, goes to them too: an Attack on an object leaves them out (design change 0075,
 /// `super::super::resolution::unit_target_order`), and an AttackMove takes them along, walking (0076: "shielded

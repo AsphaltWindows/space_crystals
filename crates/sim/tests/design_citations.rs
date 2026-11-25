@@ -217,16 +217,14 @@ fn scanned_files(root: &Path) -> Vec<PathBuf> {
     files
 }
 
-/// Until the slices that rewrite them have: the citations of the faction files design change 0282 removed, each
-/// faction's `units.md` and `structures.md`, in the files of slices M4-R1 (the sim) and M4-R2 (the client, `docs/`
-/// and `ARCHITECTURE.md`).
+/// Until slice M4-R1 has rewritten them: the citations of the faction files design change 0282 removed, each
+/// faction's `units.md` and `structures.md`, in the sim's files.
 fn tolerated(file: &Path, path: &str) -> bool {
     let removed = path
         .strip_prefix("factions/")
         .and_then(|rest| rest.split_once('/'))
         .is_some_and(|(_, name)| name == "units.md" || name == "structures.md");
-    let rewritten = ["crates/sim", "crates/game", "docs", "ARCHITECTURE.md"];
-    removed && rewritten.iter().any(|area| file.starts_with(area))
+    removed && file.starts_with("crates/sim")
 }
 
 /// Each citation in the scanned files whose path doesn't exist, as `file:line: path`, and how many paths are cited.

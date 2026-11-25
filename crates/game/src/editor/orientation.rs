@@ -1,6 +1,6 @@
 //! Turning the structure about to be placed (slice M2-I; `core/entities.md > Structure Instance`: "Rotation - 0 | 90
 //! | 180 | 270", "FlipHorizontal", "FlipVertical"). `core/map_editor.md` gives the editor no keys for it, so the
-//! Place and Layout tools take those of the game's placement ghost (`factions/gdo/structures.md > DeploymentCenter >
+//! Place and Layout tools take those of the game's placement ghost (`factions/gdo/structures/deployment_center.md >
 //! ObjectInterfaceState[DeploymentCenter] > AwaitingPlacement`): "R rotates the ghost 90 degrees clockwise, Shift+R
 //! rotates 90 degrees counter-clockwise. Non-square buildings swap footprint dimensions when rotated to 90 or 270. F
 //! flips the ghost horizontally, Shift+F flips vertically". The flips are as seen on the map, whatever the turn

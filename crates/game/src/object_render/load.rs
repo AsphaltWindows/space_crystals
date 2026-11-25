@@ -1,5 +1,5 @@
 //! What a worker carries, shown on its body (slice M3-J2): a placeholder marker until the art (Q0001), a Space
-//! Crystal shard by the top-right corner of a Drone that carries a load (`factions/colonists/units.md > Drone >
+//! Crystal shard by the top-right corner of a Drone that carries a load (`factions/colonists/units/drone.md >
 //! Gathering`: it picks up its CarryCapacity at the patch and delivers it at its drop-off, and keeps a load through
 //! other orders, design change 0129). The marker shows on every worker the local player sees that carries something,
 //! anyone's, as the body that carries it shows (placeholder reading: the design doesn't say who sees a load).

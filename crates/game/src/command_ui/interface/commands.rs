@@ -7,15 +7,15 @@ use sc_sim::{Ability, ConstructionCommand, ObjectKind, OrderKind, ProductionComm
 use super::{BuildMenu, Planned};
 use crate::hud::selection_panel::short_label;
 
-/// A command of the command panel: the unit commands of `systems/controls/commands.md`, as
-/// `> BasicCombatUnitInterfaceState` lists them, those of the producing structures
-/// (`factions/gdo/structures.md > Barracks > ObjectInterfaceState[Barracks]`, `> Standard Slot Assignments`), and
-/// those of the constructors (`factions/gdo/structures.md > DeploymentCenter > ObjectInterfaceState[DeploymentCenter]`,
-/// `factions/gdo/economy.md > ExtractionFacility > ObjectInterfaceState[ExtractionFacility]`), and the Colonists'
-/// Beacon, Drone, Egress Node and transforming objects (`factions/colonists/economy.md > Beacon > Beacon
-/// ObjectInterfaceState`, `factions/colonists/units.md > Drone ObjectInterfaceState`, `factions/colonists/economy.md >
-/// Egress Node > Egress Node ObjectInterfaceState`, `> Beacon Deployment > While transforming: only Cancel`; slices
-/// M3-J1 and M3-J2, design change 0124).
+/// A command of the command panel: the unit commands of `systems/controls/commands.md`, as `>
+/// BasicCombatUnitInterfaceState` lists them, those of the producing structures (`factions/gdo/structures/barracks.md >
+/// ObjectInterfaceState[Barracks]`, `> Standard Slot Assignments`), and those of the constructors
+/// (`factions/gdo/structures/deployment_center.md > ObjectInterfaceState[DeploymentCenter]`, `factions/gdo/economy.md >
+/// ExtractionFacility > ObjectInterfaceState[ExtractionFacility]`), and the Colonists' Beacon, Drone, Egress Node and
+/// transforming objects (`factions/colonists/economy.md > Beacon > Beacon ObjectInterfaceState`,
+/// `factions/colonists/units/drone.md > Drone ObjectInterfaceState`, `factions/colonists/economy.md > Egress Node >
+/// Egress Node ObjectInterfaceState`, `> Beacon Deployment > While transforming: only Cancel`; slices M3-J1 and M3-J2,
+/// design change 0124).
 #[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum PanelCommand {
     Move,
@@ -25,7 +25,7 @@ pub enum PanelCommand {
     Patrol,
     AttackGround,
     Stop,
-    /// `factions/gdo/units.md > Peacekeeper > Riot Shield > Two unit types` (design change 0173): "The Peacekeeper's
+    /// `factions/gdo/units/peacekeeper.md > Riot Shield > Two unit types` (design change 0173): "The Peacekeeper's
     /// panel shows **Raise Shield**": each Peacekeeper becomes a Peacekeeper (Shielded), its shield going up from
     /// where it is, at once (`sc_sim::Ability::RiotShield`; one Firing or in Cooldown once its shot is over, design
     /// change 0172).
@@ -33,12 +33,12 @@ pub enum PanelCommand {
     /// The same's "Peacekeeper (Shielded)'s shows **Lower Shield**": each Peacekeeper (Shielded) becomes a
     /// Peacekeeper, its shield going down from where it is, at once.
     LowerShield,
-    /// `factions/colonists/units.md > Sabre Legionnaire > ObjectInterfaceState`: "R: Convert to Rifle Legionnaire",
-    /// and the Rifle Legionnaire's "R: Convert to Sabre Legionnaire": each form's own command, named for the form it
-    /// converts to, so that in a selection of both it goes to the ActiveGroup alone (`> Weapon Conversion > Convert
-    /// Command`, design change 0198: "It goes only to the ActiveGroup"), as Raise and Lower Shield do. At once
-    /// (`sc_sim::Ability::Convert`): it flips each unit's target form, and so its type, at the press (`> A toggle
-    /// sets a target form`).
+    /// `factions/colonists/units/sabre_legionnaire.md > ObjectInterfaceState`: "R: Convert to Rifle Legionnaire", and
+    /// the Rifle Legionnaire's "R: Convert to Sabre Legionnaire": each form's own command, named for the form it
+    /// converts to, so that in a selection of both it goes to the ActiveGroup alone
+    /// (`factions/colonists/units/weapon_conversion.md > Convert Command`, design change 0198: "It goes only to the
+    /// ActiveGroup"), as Raise and Lower Shield do. At once (`sc_sim::Ability::Convert`): it flips each unit's target
+    /// form, and so its type, at the press (`> A toggle sets a target form`).
     Convert(ObjectKind),
     /// `> ObjectInterfaceState[Barracks]`: "Q: Build Peacekeeper": pays for a unit of this kind and adds it to the
     /// BuildQueue, at once (`sc_sim::ProductionCommand::Train`).
@@ -72,15 +72,15 @@ pub enum PanelCommand {
     /// A Warp In menu's building, or a portal's unit, that isn't in the game yet (design change 0124: "Buildings and
     /// units whose costs are TBD show in their slot, unavailable"): it holds its slot and does nothing.
     Planned(Planned),
-    /// `factions/colonists/units.md > Drone ObjectInterfaceState > A: Deploy`: "enters AwaitingPlacement for a Beacon
-    /// (StateOnlyTransition)", where a click sends one Drone of the group to deploy there (design change 0125,
+    /// `factions/colonists/units/drone.md > Drone ObjectInterfaceState > A: Deploy`: "enters AwaitingPlacement for a
+    /// Beacon (StateOnlyTransition)", where a click sends one Drone of the group to deploy there (design change 0125,
     /// `sc_sim::OrderKind::Deploy`).
     Deploy,
     /// `factions/colonists/economy.md > Beacon Deployment > While transforming: only Cancel`: "X" Cancel Deployment
     /// and Cancel Warp In (design change 0116), the one command of an object that transforms, at once
     /// (`sc_sim::ConstructionCommand::CancelTransform`; `> Cancel Deployment`, `> Warp In > Cancel Warp In`).
     CancelTransform,
-    /// `factions/colonists/units.md > Drone ObjectInterfaceState > S: Set Drop-off Location`: "enters
+    /// `factions/colonists/units/drone.md > Drone ObjectInterfaceState > S: Set Drop-off Location`: "enters
     /// AwaitingTarget\[SetDropOffLocation\] (StateOnlyTransition)", where a left-click on the player's own Egress
     /// Node (or refinery, none in the game yet) "sets it as the selected Drone(s)' AssignedDropOff
     /// (CommandIssuingTransition, returns to DefaultState)" (`sc_sim::Ability::SetDropOff`, slice M3-J2): every
@@ -219,17 +219,17 @@ impl PanelCommand {
 
     /// Whether Shift queues it (`systems/controls/commands.md > Unit Command`): the orders of units. A Shift-click on
     /// such a command's target also keeps the target awaited (`> AwaitingTarget > Shift while targeting`, design change
-    /// 0070). Abilities, production and construction commands are never queued (Convert: `factions/colonists/units.md >
-    /// Weapon Conversion > Orders are kept`, design change 0151: "holding Shift changes nothing"; the Riot Shield's
-    /// alike, `factions/gdo/units.md > Peacekeeper > Riot Shield > Not queueable`). Set Rally Point is
-    /// no Unit Command: a producer has one rally point, which nothing queues (`factions/gdo/structures.md > Barracks >
-    /// BarracksInstanceState`), so a Shift-click sets it like a plain click and ends the targeting. **Placeholder
-    /// reading**: the design gives Shift no meaning for a rally point; this follows its rule for a builder that can't
-    /// carry out more queued buildings (`> Shift while placing`: "a Shift-click sends it and ends placement like a
-    /// plain click"). A Deploy is a unit's order too, which Shift queues as it is placed (`> Shift while placing >
-    /// Exception, Drones`, design change 0125). Set Drop-off is an ability, which "only updates AssignedDropOff": a
-    /// Shift-click sets it and ends the targeting like a plain click, as a rally point's (the same placeholder
-    /// reading).
+    /// 0070). Abilities, production and construction commands are never queued (Convert:
+    /// `factions/colonists/units/weapon_conversion.md > Orders are kept`, design change 0151: "holding Shift changes
+    /// nothing"; the Riot Shield's alike, `factions/gdo/units/peacekeeper.md > Riot Shield > Not queueable`). Set Rally
+    /// Point is no Unit Command: a producer has one rally point, which nothing queues
+    /// (`factions/gdo/structures/barracks.md > BarracksInstanceState`), so a Shift-click sets it like a plain click and
+    /// ends the targeting. **Placeholder reading**: the design gives Shift no meaning for a rally point; this follows
+    /// its rule for a builder that can't carry out more queued buildings (`> Shift while placing`: "a Shift-click sends
+    /// it and ends placement like a plain click"). A Deploy is a unit's order too, which Shift queues as it is placed
+    /// (`> Shift while placing > Exception, Drones`, design change 0125). Set Drop-off is an ability, which "only
+    /// updates AssignedDropOff": a Shift-click sets it and ends the targeting like a plain click, as a rally point's
+    /// (the same placeholder reading).
     pub fn queues(self) -> bool {
         match self {
             PanelCommand::Move

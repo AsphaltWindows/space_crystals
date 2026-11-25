@@ -1,6 +1,6 @@
-//! AwaitingPlacement's building (`factions/gdo/structures.md > DeploymentCenter >
+//! AwaitingPlacement's building (`factions/gdo/structures/deployment_center.md >
 //! ObjectInterfaceState[DeploymentCenter] > AwaitingPlacement`, `factions/gdo/economy.md > ExtractionFacility >
-//! ObjectInterfaceState[ExtractionFacility] > AwaitingPlacement`, `factions/colonists/units.md > Drone
+//! ObjectInterfaceState[ExtractionFacility] > AwaitingPlacement`, `factions/colonists/units/drone.md > Drone
 //! ObjectInterfaceState > A: Deploy`, `factions/colonists/economy.md > Warp In > Warp In Command`): which one is
 //! placed and who builds it ([`Placing`], [`Builder`]; plan decision T23), where its ghost stands
 //! ([`Placing::origin`]), and how the placement keys turn it ([`Placing::turned`]). A Deploy given to a group of
@@ -72,7 +72,7 @@ impl Placing {
         }
     }
 
-    /// The placement of the Beacon a Drone of the ActiveGroup deploys into (`factions/colonists/units.md > Drone
+    /// The placement of the Beacon a Drone of the ActiveGroup deploys into (`factions/colonists/units/drone.md > Drone
     /// ObjectInterfaceState > A: Deploy`), no Deploy sent yet.
     pub fn deploy() -> Self {
         Self {

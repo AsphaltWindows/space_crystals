@@ -10,7 +10,7 @@ const SABRE: ObjectKind = ObjectKind::SabreLegionnaire;
 const S: (u8, u8) = (1, 1);
 const F: (u8, u8) = (1, 3);
 
-/// `factions/colonists/units.md > Drone ObjectInterfaceState > S: Set Drop-off Location`: "enters
+/// `factions/colonists/units/drone.md > Drone ObjectInterfaceState > S: Set Drop-off Location`: "enters
 /// AwaitingTarget\[SetDropOffLocation\] (StateOnlyTransition)", where S is marked, the other commands wait and Z is
 /// Back. It goes to every selected Drone (question Q0040 point 9): a group command beside the Sabres, which don't
 /// have it, and the targeting holds while the ActiveGroup is Drones, not once it is the Sabres.

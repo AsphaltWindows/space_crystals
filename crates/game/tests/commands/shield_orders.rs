@@ -1,4 +1,4 @@
-//! What a raised Riot Shield does to the orders a Peacekeeper takes (`factions/gdo/units.md > Peacekeeper > Riot
+//! What a raised Riot Shield does to the orders a Peacekeeper takes (`factions/gdo/units/peacekeeper.md > Riot
 //! Shield`): a right-click on an enemy has it follow a unit or move to a structure instead of attacking (design
 //! change 0074) while the others of the selection attack; an explicit Attack on an object leaves it out, on its
 //! orders (0075); an AttackMove takes it along, walking on without firing (0076). A Peacekeeper with its shield up is

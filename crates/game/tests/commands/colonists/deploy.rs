@@ -1,10 +1,11 @@
-//! A Drone's Deploy from the command panel (`factions/colonists/units.md > Drone ObjectInterfaceState > A: Deploy`,
-//! design changes 0120 and 0125): A enters AwaitingPlacement of a Beacon, whose ghost follows the cursor snapped to the
-//! grid, green or red as far as the player knows (`Sim::deploy_check`, Reserved over a lingering ghost included); a
-//! click sends one Drone of the group to deploy there, a plain one the first, a Shift-click the first with no Deploy
-//! yet, placement chaining through the group while Shift is held; every Deploy ordered lingers as a ghost of its own
-//! player's until the deployment starts, or the order is gone (`core/entities.md > Placement Validation > Lingering
-//! build ghosts`). A Drone that deploys stays selected as its Beacon, which shows only X Cancel (design change 0116).
+//! A Drone's Deploy from the command panel (`factions/colonists/units/drone.md > Drone ObjectInterfaceState > A:
+//! Deploy`, design changes 0120 and 0125): A enters AwaitingPlacement of a Beacon, whose ghost follows the cursor
+//! snapped to the grid, green or red as far as the player knows (`Sim::deploy_check`, Reserved over a lingering ghost
+//! included); a click sends one Drone of the group to deploy there, a plain one the first, a Shift-click the first with
+//! no Deploy yet, placement chaining through the group while Shift is held; every Deploy ordered lingers as a ghost of
+//! its own player's until the deployment starts, or the order is gone (`core/entities.md > Placement Validation >
+//! Lingering build ghosts`). A Drone that deploys stays selected as its Beacon, which shows only X Cancel (design
+//! change 0116).
 
 use sc_sim::{TileProblem, deploy};
 use space_crystals::command_ui::{Builder, PanelCommand};

@@ -16,7 +16,7 @@
 //!   to ([`deploy_recipient`]);
 //! - here: the ObjectInterfaceState itself ([`InterfaceState`]), and whether it still holds ([`still_valid`]).
 //!
-//! The Peacekeeper's Riot Shield (`factions/gdo/units.md > Peacekeeper > Riot Shield (toggled ability)`): shield
+//! The Peacekeeper's Riot Shield (`factions/gdo/units/peacekeeper.md > Riot Shield (toggled ability)`): shield
 //! down and shield up are two unit types (design change 0173), Peacekeeper and Peacekeeper (Shielded), which form
 //! separate SelectionGroups. The Peacekeeper's panel has Raise Shield in slot R ([`PanelCommand::RaiseShield`]), the
 //! Peacekeeper (Shielded)'s Lower Shield there ([`PanelCommand::LowerShield`]) and no Attack (design change 0174: R,
@@ -32,22 +32,22 @@
 //! the Attack its panel hides ([`templates::hides_attack`]): in a selection with other units, an AttackMove takes
 //! it along (design change 0076).
 //!
-//! The Colonists' Legionnaires convert between their two forms with R (`factions/colonists/units.md > Weapon
-//! Conversion`, [`PanelCommand::Convert`]), each form's own command, so that in a selection of both it goes to the
-//! ActiveGroup alone (design change 0198), issued at once and never queued, and never refused: it flips each unit's
-//! target form. The units switch their type at the press as the shield's do, joining the other form's group, which
-//! becomes the ActiveGroup, and are drawn by their form, the weapon in hand, until their conversion is over
+//! The Colonists' Legionnaires convert between their two forms with R (`factions/colonists/units/weapon_conversion.md`,
+//! [`PanelCommand::Convert`]), each form's own command, so that in a selection of both it goes to the ActiveGroup alone
+//! (design change 0198), issued at once and never queued, and never refused: it flips each unit's target form. The
+//! units switch their type at the press as the shield's do, joining the other form's group, which becomes the
+//! ActiveGroup, and are drawn by their form, the weapon in hand, until their conversion is over
 //! (`crate::object_render`, `sc_sim::conversion::form`).
 //!
-//! A Barracks (`factions/gdo/structures.md > Barracks > ObjectInterfaceState[Barracks]`) trains a Peacekeeper (Q)
-//! and cancels the last unit queued (X), at once, and awaits the target of its rally point (C); a Train or a Cancel
+//! A Barracks (`factions/gdo/structures/barracks.md > ObjectInterfaceState[Barracks]`) trains a Peacekeeper (Q) and
+//! cancels the last unit queued (X), at once, and awaits the target of its rally point (C); a Train or a Cancel
 //! Production that the command gate would refuse shows disabled ([`Conditions`]: the same predicates as the gate).
-//! Every producing structure has this panel, built from its recipes (the Production template, plan decision T23):
-//! the Colonists' Robo Portal trains a Drone in Q, the Bio Portal a Sabre Legionnaire
-//! (`factions/colonists/structures.md > Robo Portal ObjectInterfaceState`, `> Bio Portal ObjectInterfaceState`,
-//! design change 0124).
+//! Every producing structure has this panel, built from its recipes (the Production template, plan decision T23): the
+//! Colonists' Robo Portal trains a Drone in Q, the Bio Portal a Sabre Legionnaire
+//! (`factions/colonists/structures/robo_portal.md > Robo Portal ObjectInterfaceState`,
+//! `factions/colonists/structures/bio_portal.md > Bio Portal ObjectInterfaceState`, design change 0124).
 //!
-//! A Deployment Center (`factions/gdo/structures.md > DeploymentCenter > ObjectInterfaceState[DeploymentCenter]`,
+//! A Deployment Center (`factions/gdo/structures/deployment_center.md > ObjectInterfaceState[DeploymentCenter]`,
 //! design change 0104) opens BuildMenu\[Basic\] (Q) and BuildMenu\[Advanced\] (W, unavailable while none of its
 //! buildings is in the game); a menu's entry constructs its building and returns to DefaultState; once the building
 //! is ready, its entry enters AwaitingPlacement; X cancels the construction, or the building ready to place. An
@@ -59,7 +59,7 @@
 //! Beacon > Beacon ObjectInterfaceState`) opens Warp In (Basic) (Q) and Warp In (Advanced) (W) like the Deployment
 //! Center's menus; a menu's building enters AwaitingPlacement on the Beacon, the ghost centred on it and turned by
 //! the placement keys about its centre (design change 0121), and a click warps it in; the buildings not in the game
-//! yet show unavailable. A Drone's A (`factions/colonists/units.md > Drone ObjectInterfaceState`) enters
+//! yet show unavailable. A Drone's A (`factions/colonists/units/drone.md > Drone ObjectInterfaceState`) enters
 //! AwaitingPlacement of a Beacon under the cursor; each click sends one Drone of the group to deploy there (design
 //! change 0125), with Shift the next one that has no Deploy yet. Whatever transforms, a Beacon under deployment or
 //! a building under Warp In, shows X Cancel and nothing else (design change 0116): the unfinished buildings of a type
@@ -111,7 +111,7 @@ pub enum InterfaceState {
     #[default]
     DefaultState,
     /// `> AwaitingTarget[CommandType]`: the PendingCommand waits for a left-click on its target: a unit command's,
-    /// or a producer's rally point (`factions/gdo/structures.md > Barracks`: "C: Set Rally Point: enters
+    /// or a producer's rally point (`factions/gdo/structures/barracks.md`: "C: Set Rally Point: enters
     /// AwaitingTarget\[SetRallyPoint\]").
     AwaitingTarget {
         /// The PendingCommand.
@@ -122,7 +122,7 @@ pub enum InterfaceState {
         /// simply continues").
         queued: bool,
     },
-    /// `factions/gdo/structures.md > DeploymentCenter > ObjectInterfaceState[DeploymentCenter]`: one of the
+    /// `factions/gdo/structures/deployment_center.md > ObjectInterfaceState[DeploymentCenter]`: one of the
     /// Deployment Center's build menus is open (design change 0104), in whichever state the Deployment Center is:
     /// idle, constructing or holding a building ready; or one of a Beacon's Warp In menus
     /// (`factions/colonists/economy.md > Beacon > Beacon ObjectInterfaceState`).

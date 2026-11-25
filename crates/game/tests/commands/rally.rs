@@ -1,6 +1,6 @@
 //! Rally points from the command flow (slice M2-H1): a right-click with a Barracks selected sets its rally point
 //! (`> Production Building Default Right-Click`), and so does C, Set Rally Point, then a left-click
-//! (`factions/gdo/structures.md > Barracks > ObjectInterfaceState[Barracks]`); on the Barracks itself either clears it
+//! (`factions/gdo/structures/barracks.md > ObjectInterfaceState[Barracks]`); on the Barracks itself either clears it
 //! (design change 0086). In a mixed selection each object does its own (design changes 0062 and 0063). While the
 //! Barracks is selected its rally point shows: a marker and a line from the building (design change 0087), red on an
 //! enemy until the sim turns it into a ground rally point where the enemy was last seen (design change 0088).

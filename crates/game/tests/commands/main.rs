@@ -8,7 +8,7 @@
 //! on an object only while the player sees it, so player 1 has scouts off screen, in sight of every target; and
 //! auto-targeting is off (a debug command), so that nobody fights while the orders are given.
 //!
-//! The production UI of slice M2-H1 (`factions/gdo/structures.md > Barracks > ObjectInterfaceState[Barracks]`,
+//! The production UI of slice M2-H1 (`factions/gdo/structures/barracks.md > ObjectInterfaceState[Barracks]`,
 //! `> Production Building Default Right-Click`) plays on the same field with player 1's Barracks added
 //! ([`production_scenario`]): `production` for Train and Cancel Production, `rally` for the rally points and their
 //! indicators.

@@ -178,7 +178,7 @@ Units, structures and resources are all `Object`s (`object.rs`, `core/entities.m
   (turret, crushable, …), the attributes of that movement model (`MovementAttrs`), and its turret, attack and costs.
   Its box is its silhouette (`ObjectDef::half_extents`). Armour (`ObjectDef::armor`, an `Armor` of PointArmor and
   FullArmor) is the same for units and structures; map resources have `Armor::NONE`.
-- **Structures** (`defs/structures.rs`, `defs/gdo.rs`; `factions/gdo/structures.md`, `factions/gdo/economy.md`): the
+- **Structures** (`defs/structures.rs`, `defs/gdo.rs`; `factions/gdo/structures/`, `factions/gdo/economy.md`): the
   GDO's Deployment Center, Generator, Barracks, Extraction Facility and Extraction Plate (slice M2-A; their
   `ObjectKind`s follow the M1 ones, because the state hash numbers kinds in declaration order). A structure type has
   `ObjectDef::structure: Some(StructureDef)` (its `SymmetryType`, BuildRadiusExtension and Power, the plate's
@@ -187,7 +187,7 @@ Units, structures and resources are all `Object`s (`object.rs`, `core/entities.m
   its `Placement` holds it as placed, `w` and `h` swapped by a quarter turn, with the orientation it was placed in
   (`Placement::orientation`). It has HP, armour and a SightRange, and no orders, mover or attack, so behaviours,
   movement and combat pass it by.
-- **The Colonists** (`defs/colonists.rs`; `factions/colonists/units.md`, `factions/colonists/economy.md`, slice M3-A):
+- **The Colonists** (`defs/colonists.rs`; `factions/colonists/units/`, `factions/colonists/economy.md`, slice M3-A):
   the Drone, the Beacon, the Egress Node, the Robo Portal, the Bio Portal and the Sabre and Rifle Legionnaires, after
   the M2 kinds. Three def fields came before their slices: `ObjectDef::max_shields` (MaxShields, set for exactly
   the Colonists' kinds; their Shields came with M3-B, see *Combat > Shields*), `UnitDef::beacon_capacity_cost`
@@ -373,7 +373,7 @@ Layout validation can't disagree. **Never test a placement rule anywhere else: a
   (`TileProblem::Reserved`, through `placement::check_reserving`; a Deploy without Shift replaces its Drone's orders,
   so that Drone's own sites don't count). They are derived from the order queues (`Sim::pending_deploys(player)`,
   for the ghosts of M3-J1), never stored; another player's never count, and they block no unit.
-- **The build area** (`BuildArea`, `Sim::build_area(player)`; `factions/gdo/structures.md > GDOBuildArea`) is the
+- **The build area** (`BuildArea`, `Sim::build_area(player)`; `factions/gdo/structures/README.md > GDOBuildArea`) is the
   union of one rectangle per GDO building the player owns: its footprint grown by its BuildRadiusExtension on every
   side, clamped to the map (design change 0091: square). A building with an extension of 0, the plate, adds nothing.
   It is derived, never stored or hashed: worked out from the objects whenever it is asked for, so it follows every
@@ -595,7 +595,7 @@ ticks spent in it. Hashed and serialized like all state.
   change 0146), in their own step (see *Tick pipeline*). A transforming object's follow its interpolated maximum as
   its HP do and regenerate up to it (design changes 0110 and 0146, `transform::follow_max`), and a cancel keeps
   their fraction, with no minimum (0111, `transform::keep_fraction`). The vision's records keep no Shields.
-- **Weapon Conversion** (`conversion.rs`, `sim/modes.rs`; `factions/colonists/units.md > Weapon Conversion`, plan
+- **Weapon Conversion** (`conversion.rs`, `sim/modes.rs`; `factions/colonists/units/weapon_conversion.md`, plan
   decision T26, design change 0198): `Ability::Convert` flips the target form of each Legionnaire it goes to, a
   Sabre's to the Rifle Legionnaire and a Rifle's to the Sabre (`conversion::converts_to`): its type switches at the
   press, and the unit converts to it (*Object model > Type and form*). The gate drops the units without another form
@@ -633,7 +633,7 @@ ticks spent in it. Hashed and serialized like all state.
   heads for where the patch was (`Gather::spot`, see *Behaviours > Gathering*); the next tick's snapshot sees such a
   target Remembered until its place is seen, and Gone then (`sim/removal.rs::forget_seen_gone` ends what names it).
   `testing::dangling_references` checks that nothing else names a removed object.
-- **Riot Shield** (`riot_shield.rs`; `factions/gdo/units.md > Peacekeeper > Riot Shield (toggled ability)`, slice
+- **Riot Shield** (`riot_shield.rs`; `factions/gdo/units/peacekeeper.md > Riot Shield (toggled ability)`, slice
   M3-S): shield down and shield up are two unit types, `Peacekeeper` and `PeacekeeperShielded` (design change 0173),
   which carry the same `RiotShieldDef`, naming both; the Barracks trains the first, and the Unit Control, a sum over
   the objects, is the same. `Object::riot_shield` (`RiotShield { up }`) is how many ticks of the toggle time the
@@ -1326,7 +1326,7 @@ section of its own.
   is left, then the residual 1 forever (design changes 0098, 0099; `SimEvent::PatchDepleted` when the patch reaches
   0, and it stays under the plate). Spawn-tick rule: a plate placed in tick `t` pays first in tick `t + 48`.
 - **Gathering** (`economy/gathering.rs`, `orders/gather.rs`, `sim/workers.rs`; slices M3-H and M3-H3, plan
-  decision T17; `factions/colonists/units.md > Drone > Gathering`, `factions/colonists/economy.md > Egress Node >
+  decision T17; `factions/colonists/units/drone.md > Gathering`, `factions/colonists/economy.md > Egress Node >
   Drop Off`): a unit type with a `WorkerDef` (`UnitDef::worker`: the Drone's CarryCapacity 8, MiningDuration 32,
   DropOffDuration 2, the two reaches of 8 su and its search radius) is a worker, and a structure type with
   `StructureDef::drop_off` (the Egress Node, the Tunnel) takes its loads. `Object::worker` (`Worker`) holds only what outlives
@@ -1379,7 +1379,7 @@ section of its own.
   A plate whose patch is removed (only a debug command does that) loses its extractor. `testing::referenced_ids`
   lists the extractor's patch, so `dangling_references` checks it.
 - **Construction** (`construction.rs`, `sim/construction.rs`; slice M2-D1;
-  `factions/gdo/structures.md > DeploymentCenter`, `factions/gdo/economy.md > ExtractionFacility`): a structure type
+  `factions/gdo/structures/deployment_center.md`, `factions/gdo/economy.md > ExtractionFacility`): a structure type
   with a `Constructs` list (`StructureDef::constructs`: each `Recipe` a building, its cost and its frames) is a
   constructor, and its object has a `Constructor`: `Idle`, `Constructing { kind, progress }` or `Ready { kind }`, one
   building at a time and one ready at most (design change 0071). `Command::Construction` drives it (see *Commands,
@@ -1463,10 +1463,11 @@ section of its own.
 ## Production
 
 Producing structures, their rally points and the exit doorways (`production.rs`, `production/`, `sim/producers.rs`,
-`sim/producers/step.rs`; slice M2-D2, the army caps at production start slice M3-P; `factions/gdo/structures.md >
-Barracks`, `core/entities.md > Structure Type > Exit Doorway`; the Colonists' portals, slice M3-D:
-`factions/colonists/structures.md > Robo Portal`, `> Bio Portal`, plan decision T19; their energy doorway, slice
-M3-D2: design change 0145, `> Portals > Portal Exits (energy doorway)`).
+`sim/producers/step.rs`; slice M2-D2, the army caps at production start slice M3-P;
+`factions/gdo/structures/barracks.md`, `core/entities.md > Structure Type > Exit Doorway`; the Colonists' portals, slice
+M3-D: `factions/colonists/structures/robo_portal.md`, `factions/colonists/structures/bio_portal.md`, plan decision T19;
+their energy doorway, slice M3-D2: design change 0145, `factions/colonists/structures/README.md > Portals > Portal Exits
+(energy doorway)`).
 
 - **State**: `Object::production` (`Production`: the BuildQueue, whose head is the unit in production, so the
   limit `QUEUE_LIMIT` (20) includes it, design change 0081; its progress in `RATIO_ONE`s; the rally point). What a
@@ -1619,7 +1620,7 @@ M3-D2: design change 0145, `> Portals > Portal Exits (energy doorway)`).
   outside the state hash) says why (`Sim::report_refusal`). Add another such event only when the UI needs it.
 - **`Command::Order { units, kind, queue }`** (`systems/controls/commands.md > Unit Command`, `docs/movement.md > 3`):
   `OrderKind` is `Move(Target)` (a point or an object), `Attack(id)`, `AttackMove(point)`, `Patrol(point)`, `Hold`,
-  `Stop`, and for workers `Gather(patch)` and `DropOff(node)` (`factions/colonists/units.md > Drone > Unit
+  `Stop`, and for workers `Gather(patch)` and `DropOff(node)` (`factions/colonists/units/drone.md > Unit
   Commands`). The gate takes an order whole or not at all, but tolerates stale selections: at most `MAX_ORDER_UNITS`
   ids (`TooManyUnits`), repeated ids count once, ids of objects that are gone and objects that take no orders are
   dropped, and nothing left is `NoUnits`; any id of another player's object rejects it (`NotOwned`). Points must be
@@ -1643,12 +1644,12 @@ M3-D2: design change 0145, `> Portals > Portal Exits (energy doorway)`).
   Shift, no group, and their orders go on. `Ability::RiotShield { raise }` says which way rather than "toggle", so a
   group and a replay mean the same whatever each unit's mode. `Ability::SetDropOff(node)` sets the workers'
   AssignedDropOff to a drop-off of the player's own (`NotDropOff`), and "does not interrupt the Drone's current
-  action" (`factions/colonists/units.md > Drone > Assigned Drop-off`). `Ability::Convert` flips the Legionnaires'
+  action" (`factions/colonists/units/drone.md > Assigned Drop-off`). `Ability::Convert` flips the Legionnaires'
   target form (see *Combat > Weapon Conversion*). A toggle switches its units' type at the press (*Object model >
   Type and form*, design change 0198), so a second one reaches them whatever their state. The gate tolerates stale
   selections as for orders (`TooManyUnits`, repeats, gone ids, `NotOwned`, `NoUnits`) and drops the units without
   the ability (`Reject::LacksAbility` when none is left); it refuses no toggle for the state its units are in.
-- **`Command::Production { objects, command }`** (`factions/gdo/structures.md > Barracks >
+- **`Command::Production { objects, command }`** (`factions/gdo/structures/barracks.md >
   ObjectInterfaceState[Barracks]`, see *Production*): the producers are the player's objects among `objects` that
   produce units, found as an order's units are (stale and repeated ids dropped, `NotOwned`); none is
   `Reject::NoProducers`. `Train(kind)` is taken when at least one producer queues the unit, else
@@ -1955,7 +1956,7 @@ M3-D2: design change 0145, `> Portals > Portal Exits (energy doorway)`).
   6th deploying) and the GDO's reference line measured the same way (what each delivered or mined over the 21 s
   centred on a time) against both columns of the table of `> Economy Targets (GDO vs Colonists)` (`main.rs`'s
   `TABLE`) within ±15% (design change 0108) and its targets 1 to 4, and the saturation curve of the row by number of
-  Drones against `factions/colonists/units.md > Drone > Patch Occupancy`. Since design change 0236 the table and the
+  Drones against `factions/colonists/units/drone.md > Patch Occupancy`. Since design change 0236 the table and the
   curve are this measurement (slice M3-K3's), rounded; a figure out of the tolerance or a failing target is a
   question to the Designer, not tuned. **The GDO** (slice M2-J1, `played.rs` and `gdo.rs`): GDO openings on
   `maps/dev_skirmish.json` from its real start, played with `testing::build_order` (player 2 idle), against
@@ -2526,29 +2527,28 @@ their producing structures and their constructors, and the Colonists' Beacons an
   Shift held or not. The player's changes of the selection or the ActiveGroup cancel targeting
   (`LocalControl::update`), and so does every control group recall, of the same selection too (0078); removals by
   the game (deaths) don't, unless the whole ActiveGroup is gone (`ControlState::retain`).
-- **Construction** (slice M2-H2; `factions/gdo/structures.md > DeploymentCenter > ObjectInterfaceState
-  [DeploymentCenter]`, design change 0104; `factions/gdo/economy.md > ExtractionFacility > ObjectInterfaceState
-  [ExtractionFacility]`): the constructors' commands are `PanelCommand`s too: `BuildMenu(menu)` (the Deployment
-  Center's Q Basic and W Advanced, unavailable while none of its buildings is in the game), `Construct(kind)`,
-  `CancelConstruction` and `CancelReady` (X), and `PlaceReady(kind)`, "Select completed building", which takes its
-  building's slot once it is ready. `InterfaceState` adds `BuildMenu(menu)` and `AwaitingPlacement(Placing
-  { builder, kind, orientation })`, the builder a constructor's `Builder::Constructor(id)`. A constructor's panel
-  follows its state (`state_grid`, from
-  `Conditions::constructor`, the ActiveGroup's one instance's `Constructor`), and its commands are that instance's
-  own (`PanelCommand::instance_only`): they go to the active constructor only, never to the other selected ones. A
-  construction command is one `Command::Construction` (`OrderOutbox::construct`, validated like the others), and
-  Construct and the Cancels return to DefaultState. Back, Esc and a right-click go back one state
-  (`InterfaceState::back`): from AwaitingPlacement to the Deployment Center's build menu or the Extraction Facility's
-  DefaultState, from a build menu to DefaultState. While placing, the placement keys turn the ghost (`turn_ghost`,
-  see Input), and a left-click on the map places it if `Sim::placement_check` allows it now: one Place at the
-  footprint centred under the cursor (`Placing::origin_under`), as turned, and back to DefaultState; a Shift-click
-  the same (0071); elsewhere nothing is sent, placing goes on, and an `InvalidPlacement` message says why. A Place
-  the sim refuses as it applies it (`SimEvent::PlacementRefused`) leaves the building ready and the player in
-  DefaultState. A build menu leaves the map's clicks to the selection; AwaitingPlacement takes them
+- **Construction** (slice M2-H2; `factions/gdo/structures/deployment_center.md >
+  ObjectInterfaceState[DeploymentCenter]`, design change 0104; `factions/gdo/economy.md > ExtractionFacility >
+  ObjectInterfaceState[ExtractionFacility]`): the constructors' commands are `PanelCommand`s too: `BuildMenu(menu)` (the
+  Deployment Center's Q Basic and W Advanced, unavailable while none of its buildings is in the game),
+  `Construct(kind)`, `CancelConstruction` and `CancelReady` (X), and `PlaceReady(kind)`, "Select completed building",
+  which takes its building's slot once it is ready. `InterfaceState` adds `BuildMenu(menu)` and
+  `AwaitingPlacement(Placing { builder, kind, orientation })`, the builder a constructor's `Builder::Constructor(id)`. A
+  constructor's panel follows its state (`state_grid`, from `Conditions::constructor`, the ActiveGroup's one instance's
+  `Constructor`), and its commands are that instance's own (`PanelCommand::instance_only`): they go to the active
+  constructor only, never to the other selected ones. A construction command is one `Command::Construction`
+  (`OrderOutbox::construct`, validated like the others), and Construct and the Cancels return to DefaultState. Back, Esc
+  and a right-click go back one state (`InterfaceState::back`): from AwaitingPlacement to the Deployment Center's build
+  menu or the Extraction Facility's DefaultState, from a build menu to DefaultState. While placing, the placement keys
+  turn the ghost (`turn_ghost`, see Input), and a left-click on the map places it if `Sim::placement_check` allows it
+  now: one Place at the footprint centred under the cursor (`Placing::origin_under`), as turned, and back to
+  DefaultState; a Shift-click the same (0071); elsewhere nothing is sent, placing goes on, and an `InvalidPlacement`
+  message says why. A Place the sim refuses as it applies it (`SimEvent::PlacementRefused`) leaves the building ready
+  and the player in DefaultState. A build menu leaves the map's clicks to the selection; AwaitingPlacement takes them
   (`InterfaceState::takes_map_clicks`). `Validate` ends a build menu the ActiveGroup doesn't have, a placement whose
   constructor isn't active or holds the building no more, and both when the selection isn't commandable.
 - **Warp In and Deploy** (slice M3-J1; `factions/colonists/economy.md > Beacon > Beacon ObjectInterfaceState`,
-  `factions/colonists/units.md > Drone ObjectInterfaceState`; design changes 0116, 0119 to 0122, 0124, 0125):
+  `factions/colonists/units/drone.md > Drone ObjectInterfaceState`; design changes 0116, 0119 to 0122, 0124, 0125):
   `command_ui/interface/templates/colonists.rs` has the Colonists' grids. The Beacon's (`InterfaceTemplate::Beacon`)
   opens Warp In (Basic) in Q and Warp In (Advanced) in W, `BuildMenu`s whose entries are its own (`menu_grid`): a
   `WarpIn(kind)` for each building of its Constructs List (`transform::warp_in_recipes`), and a `Planned(..)` for
@@ -2576,7 +2576,7 @@ their producing structures and their constructors, and the Colonists' Beacons an
   `WhyUnavailable`: the gate's `Reject`, the shields, a command awaiting its target, the type, not in the game
   yet); pressing it, by hotkey or click, issues nothing and sends `CommandRefused`, whose message
   (`feedback::unavailable_text`) the feedback band shows.
-- **Gathering** (slice M3-J2; `factions/colonists/units.md > Drone > Right-Click Resolution`, `> Set Drop-off
+- **Gathering** (slice M3-J2; `factions/colonists/units/drone.md > Right-Click Resolution`, `> Set Drop-off
   Location`, `factions/colonists/economy.md > Egress Node > Egress Node ObjectInterfaceState`; design changes 0124,
   0136, 0139, 0140, 0155): a Drone's right-click is the sim's one rule, per unit like every unit's: a patch (seen or
   remembered) gives Gather, an own drop-off a carrying Drone's `DropOff` and an empty one's Move to it (0140: no empty

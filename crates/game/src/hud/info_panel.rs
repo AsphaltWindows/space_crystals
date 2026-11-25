@@ -247,11 +247,11 @@ fn object_info(sim: &Sim, sight: &Sight, shown: Shown, record: Option<&LastKnown
 }
 
 /// What one of the local player's own workers carries, and where it delivers it (slice M3-J2): "Carrying 8 Space
-/// Crystals", or "Carrying 1 Supply" (slice M4-I), while it carries a load (`factions/colonists/units.md > Drone >
-/// Gathering`, `factions/syndicate/units/agent.md > Gathering`), and its AssignedDropOff's
-/// name while it has one (`> Assigned Drop-off`). Placeholder lines, and only its owner sees them, as only a
-/// structure's owner sees what it is doing (design change 0105; the design doesn't say what a worker's panel
-/// shows). Its load shows on its body to everyone (`crate::object_render::LoadMarker`).
+/// Crystals", or "Carrying 1 Supply" (slice M4-I), while it carries a load (`factions/colonists/units/drone.md >
+/// Gathering`, `factions/syndicate/units/agent.md > Gathering`), and its AssignedDropOff's name while it has one
+/// (`factions/colonists/units/drone.md > Assigned Drop-off`). Placeholder lines, and only its owner sees them, as only
+/// a structure's owner sees what it is doing (design change 0105; the design doesn't say what a worker's panel shows).
+/// Its load shows on its body to everyone (`crate::object_render::LoadMarker`).
 fn worker_lines(sim: &Sim, worker: Worker) -> Vec<String> {
     let mut lines = Vec::new();
     if worker.load > 0 {

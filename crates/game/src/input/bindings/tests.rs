@@ -196,9 +196,9 @@ fn the_editor_has_its_own_bindings_and_shares_some() {
     assert!(InputAction::Queue.works_in(Game) && !InputAction::Queue.works_in(Editor));
 }
 
-/// The editor places with the keys of the game's placement ghost (`factions/gdo/structures.md > AwaitingPlacement`):
-/// while a structure is being placed, R and Shift + R turn it and F and Shift + F flip it, F over the Fill tool; while
-/// none is, they are nothing or the Fill tool.
+/// The editor places with the keys of the game's placement ghost (`factions/gdo/structures/deployment_center.md >
+/// ObjectInterfaceState[DeploymentCenter] > AwaitingPlacement`): while a structure is being placed, R and Shift + R
+/// turn it and F and Shift + F flip it, F over the Fill tool; while none is, they are nothing or the Fill tool.
 #[test]
 fn placement_keys_work_only_while_placing_and_override_the_others() {
     use InputContext::{Editor, Game};
@@ -253,7 +253,7 @@ fn placement_keys_work_only_while_placing_and_override_the_others() {
     }
 }
 
-/// Risk R11 (plan decision T10): in the game's AwaitingPlacement (`factions/gdo/structures.md > DeploymentCenter >
+/// Risk R11 (plan decision T10): in the game's AwaitingPlacement (`factions/gdo/structures/deployment_center.md >
 /// ObjectInterfaceState[DeploymentCenter] > AwaitingPlacement`) R and F turn the ghost instead of pressing the command
 /// slots R and F, and Shift + R and Shift + F turn it the other way although Shift is the Queue modifier; otherwise R
 /// and F are the command slots, with or without Shift (Shift + R is slot R with the queue modifier held), and Shift

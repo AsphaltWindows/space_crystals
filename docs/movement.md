@@ -72,16 +72,16 @@ Every number marked *(placeholder)* becomes a named const tagged with the questi
 | Topic | Rule | Source |
 |---|---|---|
 | Time, space | 16 ticks/s; speeds in su/tick; 64 su = 1 tile | `core/scale.md` |
-| M1 units | Peacekeeper: LightInfantry, 24×24 su, 4 su/tick (2 with Riot Shield up), Range 4 GU, Sight 5 GU. Guard: HeavyInfantry, 36×36, 5 su/tick, Range 3 GU. Both: TurnRate 180°/tick, infinite acceleration and deceleration, so M1 kinematics are instant | `factions/gdo/units.md > Peacekeeper`, `factions/syndicate/units.md > Guard` |
+| M1 units | Peacekeeper: LightInfantry, 24×24 su, 4 su/tick (2 with Riot Shield up), Range 4 GU, Sight 5 GU. Guard: HeavyInfantry, 36×36, 5 su/tick, Range 3 GU. Both: TurnRate 180°/tick, infinite acceleration and deceleration, so M1 kinematics are instant | `factions/gdo/units/peacekeeper.md`, `factions/syndicate/units/guard.md` |
 | Later range | Silhouettes 24–60 su so far (vehicles TBD, may exceed a tile); speeds 4–8 su/tick; five movement models (TurnRate, FixedTurnRadius, SpeedTurnRadius, Drag, Glider) | `systems/units.md > MovementModel` ff., faction unit files |
 | Domains | Ground, Air, Underground per UnitBase | `systems/units.md > UnitBase` |
 | Ground collision | Hard, never overlapping; shape is the Silhouette rectangle; **(Y) friendly yielding**: an idle unit takes one short sidestep for a blocked moving unit of its owner (not on Hold, not busy, not if it can't move, not for its own group order); enemies never yield, and moving units never yield or swap; moving units path around occupied space; ground units collide with ground units and structures | `systems/units.md > UnitCollision > Ground Collision` (0022, 0023, 0027) |
 | Air collision | None with ground or structures; soft separation among air units (SeparationRadius) | `> Air Collision` |
 | Crushing | Moving TrackedVehicle/Mech pass through and kill enemy LightInfantry; not friendly; stationary crushers are solid | `> Crushing` (not M1, but the collision filter must allow it) |
-| Sub-tile lanes | A 64 su gap fits two 24 su units side by side, one lane each way | `factions/cults/units.md > Recruit` (throughput note) |
+| Sub-tile lanes | A 64 su gap fits two 24 su units side by side, one lane each way | `factions/cults/units/recruit.md` (throughput note) |
 | Terrain | Non-Traversible tiles block ground units. RuggedTerrain = true bases (infantry, Mech) cross Rugged tiles. Drill units travel on Drillable tiles | `core/map.md > Tile`, `systems/units.md > UnitBase`, `> DrillUnit` |
 | Elevation | Slopes change neither speed nor path cost; cliffs are non-Traversible tiles; corners are shared, so two adjacent Traversible tiles are always connected | `core/map.md > Elevation` |
-| Underground | Expansions are walked over by surface units | `factions/syndicate/structures.md > Tunnel Expansions` |
+| Underground | Expansions are walked over by surface units | `factions/syndicate/structures/README.md > Tunnel Expansions` |
 | Move | To a location or an object; ends with Stopping, complete when stopped; completes "within proximity" of an object; on repeated failure to progress: stop, complete. **(Y)** Stuck after 24 ticks without getting closer, 3 re-route attempts after waits of 8, 16 and 32 ticks, then give up (0024); an unreachable target becomes the nearest reachable point (0025); stuck within 3 GU of the target behind units that aren't moving is arrived (0026; **(V)** 3 GU since 0169, 2 before) | `systems/controls/behaviors.md > MovingToLocation`, `> MovingToObject` |
 | Chase | AttackingObject approaches until the target is within Range, beyond MinRange and in facing; resumes when it leaves range. Infantry (UnitBaseSource) cannot move during Aiming, Firing, Cooldown | `> AttackingObject`, `systems/combat.md > AttackPhase` |
 | Range | ±1 GU by elevation level difference, ground and underground only | `core/vision.md > ElevationModifier` |
@@ -99,7 +99,7 @@ Top five first. Each default is what this design implements until answered.
 | # | Question | Proposed default |
 |---|---|---|
 | G1 | Several units are ordered to one point and cannot all stand on it. Where does each end up? | **(M) Answered by 0021** (Q0007, part 1): the magic box, 6.4. The default proposed here, a compact lattice of slots around the point, was rejected. Units move at their own speed, not the slowest's |
-| G2 | **Contradiction with the Director's brief**, which assumes idle units make way. `units.md > Ground Collision` says they don't. Confirm: no pushing or yielding at all, even for own units blocking a chokepoint? | **(Y) Answered by 0022, 0023 and 0027**: idle own units yield with one short sidestep (6.6). The default here was "no pushing" |
+| G2 | **Contradiction with the Director's brief**, which assumes idle units make way. `systems/units.md > Ground Collision` says they don't. Confirm: no pushing or yielding at all, even for own units blocking a chokepoint? | **(Y) Answered by 0022, 0023 and 0027**: idle own units yield with one short sidestep (6.6). The default here was "no pushing" |
 | G3 | With hard collision and no yielding, two units meeting head-on in a corridor too narrow to pass (two Guards, 72 su, in one tile) deadlock. Is "both give up and stop" intended? | **(Y) Answered by 0022**: yes, both give up; moving units never yield or swap |
 | G4 | "Repeatedly fails to make progress" has no numbers. | **(Y) Answered by 0024** with these numbers: stuck after 24 ticks without progress; at most 3 repaths per order after waits of 8, 16 and 32 ticks; then fail (about 7 s in total). The schedule is 5.6 |
 | G5 | Move target that cannot be reached (cliff, water, inside a structure, cut-off area), or whose point is occupied by a unit that won't move. | **(Y) Answered by 0025 and 0026**: go to the reachable point nearest the target and complete there; arrived when stuck within **2 GU** of the goal behind units that aren't moving (6.5, rule 1); **(V)** 3 GU since 0169 |
@@ -709,7 +709,7 @@ Drone. It replaces only the "desired direction → velocity and facing" step of 
   not built.
 - **Kinematic steps**: a yielding unit's sidestep (6.6), the walk out of a side doorway (the Barracks') and the
   step off an overlapped unit (6.8) are plain steps for every model, without momentum.
-- **Out of a portal's energy doorway (M3-D2)**: design change 0145 (`factions/colonists/structures.md > Portals >
+- **Out of a portal's energy doorway (M3-D2)**: design change 0145 (`factions/colonists/structures/README.md > Portals >
   Portal Exits (energy doorway)`); the code is `movement/doorway.rs::emerge`. The unit appears at the portal's
   centre and moves straight along the heading chosen at its release (`Mover::exit_heading`) until its box is clear
   of the footprint, by its own model: a Drone thrusts along the ray (`Drag::along`), its speed carried from tick

@@ -1,4 +1,4 @@
-//! The Peacekeeper's Riot Shield in the command flow (`factions/gdo/units.md > Peacekeeper > Riot Shield (toggled
+//! The Peacekeeper's Riot Shield in the command flow (`factions/gdo/units/peacekeeper.md > Riot Shield (toggled
 //! ability)`): shield down and shield up are two unit types, the Peacekeeper and the Peacekeeper (Shielded) (design
 //! change 0173), which form separate SelectionGroups. The Peacekeeper's button in R raises the shields, the Peacekeeper
 //! (Shielded)'s lowers them (design change 0174: R, a placeholder), each going to the ActiveGroup; the units switch
@@ -246,7 +246,7 @@ fn with_their_shields_up_peacekeepers_follow_the_enemy_they_are_sent_at() {
     assert_eq!(current, follow);
 }
 
-/// Design change 0150 (`factions/gdo/units.md > Peacekeeper > Riot Shield > Orders are kept`): the toggle is a mode
+/// Design change 0150 (`factions/gdo/units/peacekeeper.md > Riot Shield > Orders are kept`): the toggle is a mode
 /// switch. With Peacekeepers walking a Shift-queued route, R and Shift + R raise and lower their shields and give no
 /// order: each keeps its current order and its queue ("Shift has no effect"), whichever its type.
 #[test]

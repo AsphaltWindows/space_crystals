@@ -127,7 +127,7 @@ fn r_and_f_turn_the_barracks_ghost_and_its_side_letters() {
     assert!(!placement_keys(&app));
 }
 
-/// `factions/gdo/structures.md > GDOBuildArea`: "After placement, the build area expands outward from the placed
+/// `factions/gdo/structures/README.md > GDOBuildArea`: "After placement, the build area expands outward from the placed
 /// building by that building's BuildRadiusExtension", and "it shrinks when a building is destroyed". The overlay shows
 /// the area as it is each time a building is placed, and follows it while placement goes on; its mesh is built only
 /// when the area changed (design change 0093: "one clean shape, which doesn't flicker").

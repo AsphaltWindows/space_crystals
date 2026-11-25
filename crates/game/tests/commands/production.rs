@@ -1,4 +1,4 @@
-//! Production from the command panel (`factions/gdo/structures.md > Barracks > ObjectInterfaceState[Barracks]`, slice
+//! Production from the command panel (`factions/gdo/structures/barracks.md > ObjectInterfaceState[Barracks]`, slice
 //! M2-H1): Q trains a Peacekeeper and X cancels the last unit queued, by hotkey and by button, as one
 //! `Command::Production` to every selected Barracks (no smart-casting, design changes 0071 and 0075: the sim orders
 //! the payments, 0083, and the player hears when crystals fell short). A Train or a Cancel Production that the

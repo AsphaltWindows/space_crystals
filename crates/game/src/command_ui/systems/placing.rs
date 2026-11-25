@@ -52,7 +52,7 @@ pub(in crate::command_ui) fn end_queued_placement(actions: Res<ActionState>, mut
 /// confirms the ghost, where its builder puts it ([`Builder`]), if the check the ghost shows allows it now; the sim
 /// checks it again as it applies.
 ///
-/// - **A constructor's building** (`factions/gdo/structures.md > DeploymentCenter >
+/// - **A constructor's building** (`factions/gdo/structures/deployment_center.md >
 ///   ObjectInterfaceState[DeploymentCenter] > AwaitingPlacement`: "Left-click valid location within build radius:
 ///   places building at the ghost's position and rotation, clears ReadyToPlace (CommandIssuingTransition, returns to
 ///   DefaultState)"): the ghost under the click ([`Placing::origin_under`]), if `Sim::placement_check` allows it: one
@@ -65,14 +65,14 @@ pub(in crate::command_ui) fn end_queued_placement(actions: Res<ActionState>, mut
 ///   change 0121), if `Sim::warp_in_check` allows it: one `ConstructionCommand::WarpIn` to the Beacon, and back to
 ///   DefaultState. The bank pays as it is given: a Warp In the gate refuses (too few Space Crystals since its entry
 ///   was pressed) sends nothing, says why ([`CommandRefused`], design change 0162) and placement goes on.
-/// - **The Drones' Beacon** (`factions/colonists/units.md > Drone ObjectInterfaceState > A: Deploy`; design change
-///   0125, `systems/controls/selection_and_hud.md > SelectionGroup > Groupable workers used up by a build`): the ghost
-///   under the click, if `Sim::deploy_check` allows it for the Drone the click goes to ([`deploy_recipient`]): a
-///   plain click to the first Drone of the group, replacing its orders, and back to DefaultState; a Shift-click to
-///   the first one with no Deploy yet, queued, and placement stays while another Drone of the group has none (`>
-///   AwaitingTarget > Shift while placing > Exception, Drones`), until Shift is let go
-///   ([`end_queued_placement`]). **Reading**: a Shift-click while every Drone of the group has a Deploy already
-///   sends nothing and ends placement ("Once every Drone in the group has a Deploy, placement ends").
+/// - **The Drones' Beacon** (`factions/colonists/units/drone.md > Drone ObjectInterfaceState > A: Deploy`; design
+///   change 0125, `systems/controls/selection_and_hud.md > SelectionGroup > Groupable workers used up by a build`): the
+///   ghost under the click, if `Sim::deploy_check` allows it for the Drone the click goes to ([`deploy_recipient`]): a
+///   plain click to the first Drone of the group, replacing its orders, and back to DefaultState; a Shift-click to the
+///   first one with no Deploy yet, queued, and placement stays while another Drone of the group has none (`>
+///   AwaitingTarget > Shift while placing > Exception, Drones`), until Shift is let go ([`end_queued_placement`]).
+///   **Reading**: a Shift-click while every Drone of the group has a Deploy already sends nothing and ends placement
+///   ("Once every Drone in the group has a Deploy, placement ends").
 ///
 /// An invalid click sends nothing and placement goes on (M2 plan, H2: "cannot be confirmed"), with a short message
 /// ([`InvalidPlacement`]; placeholder: the design gives feedback for invalid target clicks, `> AwaitingTarget >

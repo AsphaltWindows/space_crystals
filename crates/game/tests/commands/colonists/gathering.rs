@@ -1,5 +1,5 @@
 //! The Colonists' gathering UI (slice M3-J2) on a field of its own ([`gathering_game`]): a Drone's right-click
-//! (`factions/colonists/units.md > Drone > Right-Click Resolution`), each selected unit resolving its own, with the
+//! (`factions/colonists/units/drone.md > Right-Click Resolution`), each selected unit resolving its own, with the
 //! pointer it shows (`systems/controls/selection_and_hud.md > PointerDisplayType > Resolution Rules`); a load carried,
 //! on the map and in the InfoPanel; a portal's rally point on a patch; the portals' units not in the game yet (design
 //! change 0124). A Drone's S, Set Drop-off: `drop_off`; the Egress Node's F, Select Returning Drones: `returning`; the
@@ -287,9 +287,10 @@ fn a_right_click_on_an_own_node_drops_a_load_off_and_moves_an_empty_drone() {
 }
 
 /// A load carried (slice M3-J2's placeholders): a Drone that carries one shows a crystal shard on its body
-/// ([`LoadMarker`]), and its InfoPanel, which its owner sees, says what it carries and where it takes it (`> Drone >
-/// Assigned Drop-off`): "Carrying 8 Space Crystals", "Drop-off: Egress Node". Neither shows while it is empty: before
-/// its first load, its drop-off not assigned yet, and once the load is delivered.
+/// ([`LoadMarker`]), and its InfoPanel, which its owner sees, says what it carries and where it takes it
+/// (`factions/colonists/units/drone.md > Assigned Drop-off`): "Carrying 8 Space Crystals", "Drop-off: Egress Node".
+/// Neither shows while it is empty: before its first load, its drop-off not assigned yet, and once the load is
+/// delivered.
 #[test]
 fn a_drone_shows_the_load_it_carries() {
     let mut app = gathering_game();

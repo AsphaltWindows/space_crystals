@@ -38,7 +38,7 @@ fn texts(app: &mut App) -> Vec<String> {
 /// `> BasicCombatUnitInterfaceState > DefaultState commands` and `> Standard Slot Assignments` (0002): a selection
 /// of Peacekeepers and Guards shows Move (Q), Hold (E), Attack (A), Patrol (S) and Stop (X), all common to both
 /// types; Reverse (W) and AttackGround (D) unavailable to both; Z, C and V empty. The Peacekeepers, the ActiveGroup,
-/// add their Raise Shield in R, a group command (`factions/gdo/units.md > Peacekeeper > Riot Shield`), labelled
+/// add their Raise Shield in R, a group command (`factions/gdo/units/peacekeeper.md > Riot Shield`), labelled
 /// "Raise" to fit its button at 720p. Each button is labelled with its command and its hotkey. While a target is
 /// awaited Z is Back, and disabled and unavailable buttons look apart.
 #[test]
@@ -85,7 +85,7 @@ fn a_mixed_selection_shows_the_basic_combat_unit_grid() {
     assert_ne!(background(ButtonLook::Disabled), background(ButtonLook::Unavailable));
 }
 
-/// `factions/colonists/units.md > Sabre Legionnaire > ObjectInterfaceState`: "BasicCombatUnitInterfaceState, plus" R,
+/// `factions/colonists/units/sabre_legionnaire.md > ObjectInterfaceState`: "BasicCombatUnitInterfaceState, plus" R,
 /// Convert (slice M3-B, `convert`): both Legionnaires show the Guard's grid with their Convert in R, "R: Convert to
 /// Rifle Legionnaire" on the Sabre's, "R: Convert to Sabre Legionnaire" on the Rifle's (each form's own, design change
 /// 0198). The portals show the production panel (slice M3-D, `portals`), the Beacon and the Drone their own (slice

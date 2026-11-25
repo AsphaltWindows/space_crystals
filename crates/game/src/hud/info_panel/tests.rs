@@ -118,7 +118,7 @@ fn only_its_owner_sees_the_crystals_left_under_a_plate() {
 }
 
 /// Slice M3-J2: one of the local player's own workers shows what it carries and its AssignedDropOff under its HP
-/// and Shields (`factions/colonists/units.md > Drone > Assigned Drop-off`); another player sees its owner, HP and
+/// and Shields (`factions/colonists/units/drone.md > Assigned Drop-off`); another player sees its owner, HP and
 /// Shields only, as for a structure (placeholder reading of design change 0105). Player 1's Drone (2), with nothing
 /// to carry and no drop-off, then carrying 8 Space Crystals for its Egress Node (1) (a saved state edited).
 #[test]

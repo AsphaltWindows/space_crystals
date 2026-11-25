@@ -69,7 +69,7 @@ Played on, the line passes the GDO's 26.67 between 3:40 (25.90 SC/s, 23 working 
 | Dealt out, SC/s | 6.91 | 12.67 | 18.75 | 25.34 | 25.34 | 25.95 | 26.78 | 32.00 | 32.00 |
 | One command, SC/s | 6.91 | 12.74 | 19.23 | 25.41 | 25.38 | 25.86 | 26.37 | 29.60 | 32.00 |
 
-Since 0236 the design's curve is this measurement too (`factions/colonists/units.md > Drone > Patch Occupancy`). The row saturates at about 24 working Drones, 3 per patch, for 32 SC/s. 2 per patch (16 Drones, about 25 SC/s) is the efficient point. Drones 17–20 add almost nothing (about 26 at 20), a plateau the design accepts for now. The default test measures over 100 s:
+Since 0236 the design's curve is this measurement too (`factions/colonists/units/drone.md > Patch Occupancy`). The row saturates at about 24 working Drones, 3 per patch, for 32 SC/s. 2 per patch (16 Drones, about 25 SC/s) is the efficient point. Drones 17–20 add almost nothing (about 26 at 20), a plateau the design accepts for now. The default test measures over 100 s:
 
 | Drones | Measured | Design | Delta |
 |---|---|---|---|
@@ -108,7 +108,7 @@ The saturation curve against the design's estimates then:
 | 16 | 25.34 | 23 | +10.2% |
 | 24 | 32.00 | 32 | +0.0% |
 
-Full saturation took 24 Drones dealt out, as the design estimated (`> Reference check`: about 24), and 25 sent with one command. The design's other estimate, 18–22 (`factions/colonists/units.md > Drone > Patch Occupancy`), was low.
+Full saturation took 24 Drones dealt out, as the design estimated (`> Reference check`: about 24), and 25 sent with one command. The design's other estimate, 18–22 (`factions/colonists/units/drone.md > Patch Occupancy`), was low.
 
 **The targets then:**
 
@@ -156,7 +156,7 @@ Against the design's estimates then:
 | 16 | 23.10 | 23 | +0.4% |
 | 24 | 26.24 | 32 | **−18.0%** |
 
-Full saturation (8 patches at 4 SC/s) took 27 Drones. The design estimated about 24 (`> Reference check`) or 18–22 (`factions/colonists/units.md > Drone > Patch Occupancy`).
+Full saturation (8 patches at 4 SC/s) took 27 Drones. The design estimated about 24 (`> Reference check`) or 18–22 (`factions/colonists/units/drone.md > Patch Occupancy`).
 
 **The targets then:**
 

@@ -58,7 +58,7 @@ pub struct ObjectVisual(pub ObjectId);
 #[derive(Component, Copy, Clone, Debug, PartialEq, Eq)]
 pub struct FacingTick(pub ObjectId);
 
-/// The Riot Shield of a unit that carries one (`factions/gdo/units.md > Peacekeeper > Riot Shield`): a child of the
+/// The Riot Shield of a unit that carries one (`factions/gdo/units/peacekeeper.md > Riot Shield`): a child of the
 /// unit's visual, hidden while the shield is down, else inheriting the visual's visibility, so the fog hides it with
 /// its unit (`crate::fog`). Placeholder until the art exists (Q0001).
 #[derive(Component, Copy, Clone, Debug, PartialEq, Eq)]

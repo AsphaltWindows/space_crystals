@@ -3,17 +3,17 @@
 //! ActiveGroup's constructor state, and the command gate's answer to each production and construction command the
 //! ActiveGroup offers, and to its toggles ([`Conditions`]).
 //!
-//! A button is available exactly when the sim would take its command now (plan decision T10: "button availability
-//! uses the same `sc_sim` predicates as the gate"): the panel asks `Sim::validate` with the command it would send,
-//! to the objects it would go to, so a greyed-out Train is one the gate refuses (`factions/gdo/structures.md >
-//! Barracks > ObjectInterfaceState[Barracks]`: "Only available if BuildQueue has fewer than 20 entries and player has
-//! sufficient Space Crystals (Unit Control is checked when production starts: factions/gdo/overview.md > Unit
-//! Control)"; "X: Cancel Production [...] Only available if BuildQueue is not empty"; design changes 0081 and 0143:
-//! the army cap leaves a Train available, the Colonists' Beacon Capacity alike), and so is a greyed-out build menu
-//! entry (`> DeploymentCenter > ObjectInterfaceState[DeploymentCenter]`: "Only available if player has sufficient
-//! Space Crystals"; "Other build options unavailable" while the Deployment Center constructs or holds a building
-//! ready), and so is a greyed-out Warp In menu entry (`factions/colonists/economy.md > Warp In`: the Beacon busy
-//! deploying, or too few Space Crystals; where the building would stand, the ghost shows). The mode toggles are
+//! A button is available exactly when the sim would take its command now (plan decision T10: "button availability uses
+//! the same `sc_sim` predicates as the gate"): the panel asks `Sim::validate` with the command it would send, to the
+//! objects it would go to, so a greyed-out Train is one the gate refuses (`factions/gdo/structures/barracks.md >
+//! ObjectInterfaceState[Barracks]`: "Only available if BuildQueue has fewer than 20 entries and player has sufficient
+//! Space Crystals (Unit Control is checked when production starts: factions/gdo/overview.md > Unit Control)"; "X:
+//! Cancel Production [...] Only available if BuildQueue is not empty"; design changes 0081 and 0143: the army cap
+//! leaves a Train available, the Colonists' Beacon Capacity alike), and so is a greyed-out build menu entry
+//! (`factions/gdo/structures/deployment_center.md > ObjectInterfaceState[DeploymentCenter]`: "Only available if player
+//! has sufficient Space Crystals"; "Other build options unavailable" while the Deployment Center constructs or holds a
+//! building ready), and so is a greyed-out Warp In menu entry (`factions/colonists/economy.md > Warp In`: the Beacon
+//! busy deploying, or too few Space Crystals; where the building would stand, the ghost shows). The mode toggles are
 //! never greyed out: the gate takes a Convert or a Raise or Lower Shield whenever a recipient has the mode, at any
 //! point of a toggle or a shot (design change 0198: a press flips the target state).
 //!
@@ -31,16 +31,16 @@ use sc_sim::{
 use super::{PanelCommand, commands, recipients};
 use crate::selection::Selection;
 
-/// What the selected units' modes let them do now: which of them take no Attack (`factions/gdo/units.md >
-/// Peacekeeper > Riot Shield > During the toggle`, design change 0202: "which orders a unit accepts follows its new
-/// type from the press": a Peacekeeper (Shielded), whose shield is up, on its way up or waiting for its shot to go
-/// up, but not a Peacekeeper whose shield is on its way down, which takes an Attack and holds it until its shield is
-/// down), by the type it groups as in the selection (the type from the press,
-/// `crate::selection::ControlState::toggle`) and the sim's own query (`sc_sim::riot_shield::takes_attack_orders`, so
-/// that the panel and the right-click never judge a type otherwise than the gate), which of the workers carry a load,
-/// which a right-click on a drop-off reads (`factions/colonists/units.md > Drone > Right-Click Resolution`: "Own
-/// Egress Node (carrying resources)"), and which of the selected objects transform (`sc_sim::Object::transform`).
-/// Which way a shield goes is its unit's type (design change 0173), whose panel offers the command that turns it.
+/// What the selected units' modes let them do now: which of them take no Attack (`factions/gdo/units/peacekeeper.md >
+/// Riot Shield > During the toggle`, design change 0202: "which orders a unit accepts follows its new type from the
+/// press": a Peacekeeper (Shielded), whose shield is up, on its way up or waiting for its shot to go up, but not a
+/// Peacekeeper whose shield is on its way down, which takes an Attack and holds it until its shield is down), by the
+/// type it groups as in the selection (the type from the press, `crate::selection::ControlState::toggle`) and the sim's
+/// own query (`sc_sim::riot_shield::takes_attack_orders`, so that the panel and the right-click never judge a type
+/// otherwise than the gate), which of the workers carry a load, which a right-click on a drop-off reads
+/// (`factions/colonists/units/drone.md > Right-Click Resolution`: "Own Egress Node (carrying resources)"), and which of
+/// the selected objects transform (`sc_sim::Object::transform`). Which way a shield goes is its unit's type (design
+/// change 0173), whose panel offers the command that turns it.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct Modes {
     /// The units whose type takes no Attack.
@@ -115,7 +115,7 @@ pub enum WhyUnavailable {
     /// The command gate would refuse the command it sends (`Sim::validate`): too few Space Crystals, a full queue,
     /// nothing to cancel, a constructor or a Beacon already busy.
     Refused(Reject),
-    /// Every recipient is a Peacekeeper (Shielded), which takes no Attack (`factions/gdo/units.md > Peacekeeper > Riot
+    /// Every recipient is a Peacekeeper (Shielded), which takes no Attack (`factions/gdo/units/peacekeeper.md > Riot
     /// Shield`: "the player must lower the shield before ordering an attack"; design change 0202).
     ShieldsUp,
     /// Another command awaits its target, or a building is placed (`> AwaitingTarget > Other commands while
@@ -261,7 +261,7 @@ impl Conditions {
     }
 
     /// Whether the game lets `command` go to its recipients in `selection` now: Attack while one of them takes it
-    /// (`factions/gdo/units.md > Peacekeeper > Riot Shield`: "the player must lower the shield before ordering an
+    /// (`factions/gdo/units/peacekeeper.md > Riot Shield`: "the player must lower the shield before ordering an
     /// attack"; design change 0202: a Peacekeeper whose shield is on its way down takes it), a production or
     /// construction command, a Warp In or a toggle while the gate would take it, anything else always.
     pub fn allows(&self, selection: &Selection, command: PanelCommand) -> bool {

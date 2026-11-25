@@ -1,4 +1,4 @@
-//! The build area overlay (`factions/gdo/structures.md > DeploymentCenter > ObjectInterfaceState[DeploymentCenter] >
+//! The build area overlay (`factions/gdo/structures/deployment_center.md > ObjectInterfaceState[DeploymentCenter] >
 //! AwaitingPlacement`: "The player's current GDO build area is highlighted as a semi-transparent overlay on the
 //! ground. The overlay shows the **build area only**"; design change 0093: "one clean shape, which doesn't flicker as
 //! units move"). Whether a tile is valid right now shows on the ghost (`super::ghost`), never here.

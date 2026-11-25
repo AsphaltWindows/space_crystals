@@ -24,7 +24,7 @@ fn busy(kind: ObjectKind, constructor: Constructor) -> Conditions {
         })
 }
 
-/// `factions/gdo/structures.md > DeploymentCenter > ObjectInterfaceState[DeploymentCenter]` (design change 0104):
+/// `factions/gdo/structures/deployment_center.md > ObjectInterfaceState[DeploymentCenter]` (design change 0104):
 /// DefaultState opens BuildMenu[Basic] (Q) and BuildMenu[Advanced] (W, unavailable: none of its buildings is in the
 /// game yet); the idle Basic menu constructs a Generator (Q), a Barracks (W) or an Extraction Facility (E), its other
 /// slots hidden; Z is Back; X shows only while something is constructed or ready.

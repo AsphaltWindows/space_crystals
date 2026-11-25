@@ -1,4 +1,4 @@
-//! A Drone's S, Set Drop-off (`factions/colonists/units.md > Drone > Set Drop-off Location`, `> Drone
+//! A Drone's S, Set Drop-off (`factions/colonists/units/drone.md > Set Drop-off Location`, `> Drone
 //! ObjectInterfaceState`; design change 0124: "Drone: Q Move, A Deploy, S Set Drop-off, X Stop"): S enters
 //! AwaitingTarget\[SetDropOffLocation\], and a left-click on an own Egress Node makes it the AssignedDropOff of the
 //! selected Drones (`sc_sim::Ability::SetDropOff`, to every selected Drone: question Q0040 point 9), back in

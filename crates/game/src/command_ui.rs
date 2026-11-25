@@ -1,11 +1,11 @@
 //! How the local player commands their units, producing structures and constructors
-//! (`systems/controls/selection_and_hud.md > ObjectInterfaceState`, `> CommandPanel`, `> DefaultState`,
-//! `> RightClickResolution`, `> Production Building Default Right-Click`, `> AwaitingTarget`, `> PointerDisplayType`,
-//! `> CommandIndicators`; `systems/controls/commands.md > Unit Command`; `factions/gdo/structures.md > Barracks >
-//! ObjectInterfaceState[Barracks]`, `> DeploymentCenter > ObjectInterfaceState[DeploymentCenter]`;
-//! `factions/gdo/economy.md > ExtractionFacility > ObjectInterfaceState[ExtractionFacility]`;
-//! `factions/colonists/economy.md > Beacon > Beacon ObjectInterfaceState`, `factions/colonists/units.md > Drone
-//! ObjectInterfaceState`).
+//! (`systems/controls/selection_and_hud.md > ObjectInterfaceState`, `> CommandPanel`, `> DefaultState`, `>
+//! RightClickResolution`, `> Production Building Default Right-Click`, `> AwaitingTarget`, `> PointerDisplayType`, `>
+//! CommandIndicators`; `systems/controls/commands.md > Unit Command`; `factions/gdo/structures/barracks.md >
+//! ObjectInterfaceState[Barracks]`, `factions/gdo/structures/deployment_center.md >
+//! ObjectInterfaceState[DeploymentCenter]`; `factions/gdo/economy.md > ExtractionFacility >
+//! ObjectInterfaceState[ExtractionFacility]`; `factions/colonists/economy.md > Beacon > Beacon ObjectInterfaceState`,
+//! `factions/colonists/units/drone.md > Drone ObjectInterfaceState`).
 //!
 //! - [`interface`]: the rules as plain data: the panel's commands ([`PanelCommand`], for units, producers and
 //!   constructors alike: plan decision T10), the ObjectInterfaceState of each ControlState (with the Deployment

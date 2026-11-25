@@ -218,7 +218,7 @@ fn each_unit_resolves_a_right_click_for_itself() {
     assert_eq!(resolved(BUILDING, MapTarget::ground(P)), None);
 }
 
-/// `factions/colonists/units.md > Drone > Right-Click Resolution`, by the sim's one rule (design change 0136): a
+/// `factions/colonists/units/drone.md > Right-Click Resolution`, by the sim's one rule (design change 0136): a
 /// patch gives Gather, the player's own node Drop Off while the Drone carries a load and a Move there without one
 /// (design change 0140), an enemy a Move to it (unarmed: it follows a unit), the ground a Move. A target the player
 /// remembers resolves as one it sees, by what it knows (design change 0139); one it knows nothing of (only the fog's
@@ -367,7 +367,7 @@ fn units_that_would_do_different_things_show_the_mixed_pointer() {
     assert_eq!(preview(&[], enemy()), D::Inactive);
 }
 
-/// `> Production Building Default Right-Click` (design change 0086) and `factions/gdo/structures.md > Barracks >
+/// `> Production Building Default Right-Click` (design change 0086) and `factions/gdo/structures/barracks.md >
 /// ObjectInterfaceState[Barracks]`: a producer's right-click, and a left-click while Set Rally Point awaits its
 /// target, set its rally point on what is under the cursor: the ground or any object (the producer itself too, which
 /// the sim takes as clearing it). It gives no order. The pointer shows Move (`> Resolution Rules`: "Selection is a

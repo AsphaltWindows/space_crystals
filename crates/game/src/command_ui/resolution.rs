@@ -10,7 +10,7 @@
 //!   command moves to the location or to the object instead, following a unit; so does a Peacekeeper (Shielded),
 //!   whose type takes no Attack (design changes 0074 and 0202); a Drone gathers a patch, delivers its load to its own
 //!   Egress Node,
-//!   and moves to anything else, following a unit (`factions/colonists/units.md > Drone > Right-Click Resolution`;
+//!   and moves to anything else, following a unit (`factions/colonists/units/drone.md > Right-Click Resolution`;
 //!   an empty Drone moves to the node, design change 0140). The orders go out grouped, one per distinct order
 //!   ([`group_orders`]). A producing
 //!   structure sets its rally point on what was clicked ([`rally_target`], `> Production Building Default
@@ -205,7 +205,7 @@ pub fn object_right_click(object: UnitCapabilities, target: &MapTarget) -> Optio
             | InterfaceTemplate::EgressNode,
         ) => None,
         // A unit's default command, by the sim's one rule: the BasicCombatUnit's table and the Drone's own
-        // (`factions/colonists/units.md > Drone > Right-Click Resolution`; slices M3-R and M3-J2). Without a
+        // (`factions/colonists/units/drone.md > Right-Click Resolution`; slices M3-R and M3-J2). Without a
         // template, an object that transforms, which resolves nothing (`unit_right_click`: it has no abilities then).
         Some(InterfaceTemplate::BasicCombatUnit | InterfaceTemplate::Drone) | None => {
             unit_right_click(object, target).map(Resolved::Order)
@@ -254,7 +254,7 @@ pub fn move_to(target: &MapTarget) -> OrderKind {
 }
 
 /// The order one of a targeting click's recipients takes, when the click gives `kind` ([`target_order`]): design
-/// change 0075 (`factions/gdo/units.md > Peacekeeper > Riot Shield > Explicit Attack`): a unit whose type takes no
+/// change 0075 (`factions/gdo/units/peacekeeper.md > Riot Shield > Explicit Attack`): a unit whose type takes no
 /// Attack (a Peacekeeper (Shielded), design change 0202) is left out of an explicit Attack, on any object, and keeps
 /// its orders; the units that take it carry it out, a Peacekeeper whose shield is on its way down once it is down.
 /// Every other order goes to every recipient, an AttackMove too
@@ -304,7 +304,7 @@ pub fn target_order(pending: PanelCommand, target: &MapTarget) -> Option<OrderKi
 
 /// `> AwaitingTarget[..] resolution` for any PendingCommand: what a left-click on `target` gives, if the target is
 /// valid. A unit command's order ([`target_order`]); the rally point of Set Rally Point, which takes the ground
-/// and any object (`factions/gdo/structures.md > Barracks`: "Left-click ground or object sets the rally point";
+/// and any object (`factions/gdo/structures/barracks.md`: "Left-click ground or object sets the rally point";
 /// `> Standard Slot Assignments > C`: the building itself clears it); the Drones' new drop-off for Set Drop-off
 /// ([`drop_off_target`]).
 pub fn target_resolution(pending: PanelCommand, target: &MapTarget) -> Option<Resolved> {
@@ -315,10 +315,10 @@ pub fn target_resolution(pending: PanelCommand, target: &MapTarget) -> Option<Re
     }
 }
 
-/// `factions/colonists/units.md > Drone ObjectInterfaceState > S: Set Drop-off Location`: "Left-click an Egress Node
-/// or own refinery" (no refinery is in the game yet): the drop-off under a click while Set Drop-off awaits its target,
-/// if it is one of the player's own that takes loads now (`sc_sim::orders::resolution::Aimed::drop_off`, the gate's
-/// own check: not while it is warped in). Anything else is an invalid target (design change 0065).
+/// `factions/colonists/units/drone.md > Drone ObjectInterfaceState > S: Set Drop-off Location`: "Left-click an Egress
+/// Node or own refinery" (no refinery is in the game yet): the drop-off under a click while Set Drop-off awaits its
+/// target, if it is one of the player's own that takes loads now (`sc_sim::orders::resolution::Aimed::drop_off`, the
+/// gate's own check: not while it is warped in). Anything else is an invalid target (design change 0065).
 pub fn drop_off_target(target: &MapTarget) -> Option<ObjectId> {
     target.aimed.filter(|aimed| aimed.drop_off).map(|aimed| aimed.id)
 }

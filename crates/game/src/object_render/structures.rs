@@ -29,7 +29,7 @@ const TAG_SU: f32 = 22.0;
 const SMALL_TAG_SU: f32 = 15.0;
 const TAG_COLOR: Color = Color::srgb(0.97, 0.97, 0.94);
 /// An underground structure's outline: how opaque its rim and its fill are (placeholders: the design says only that
-/// expansions are underground and walked over, `factions/syndicate/structures.md > Tunnel Expansions`).
+/// expansions are underground and walked over, `factions/syndicate/structures/README.md > Tunnel Expansions`).
 const UNDERGROUND_RIM_ALPHA: f32 = 0.85;
 const UNDERGROUND_FILL_ALPHA: f32 = 0.2;
 

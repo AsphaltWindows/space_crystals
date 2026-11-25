@@ -76,8 +76,8 @@ pub struct Tracer {
 pub enum ShotStyle {
     /// A pale tracer inside a glow in the shooter's colour: every weapon but a Syndicate laser (placeholder, Q0001).
     Tracer,
-    /// A red laser: design change 0207 (`factions/syndicate/units.md`): "every Syndicate laser-shooting unit and
-    /// structure (Guard, Laser Battery, Laser Turret) fires a **red** laser", whoever owns it.
+    /// A red laser: design change 0207 (`factions/syndicate/units/README.md`): "every Syndicate laser-shooting unit
+    /// and structure (Guard, Laser Battery, Laser Turret) fires a **red** laser", whoever owns it.
     RedLaser,
 }
 

@@ -104,9 +104,10 @@ fn a_warp_in_the_bank_cannot_pay_for_says_why() {
     );
 }
 
-/// `factions/colonists/units.md > Drone ObjectInterfaceState` (design change 0124): Q Move, A Deploy, S Set Drop-off
-/// (`gathering`), X Stop. A enters AwaitingPlacement for a Beacon (a StateOnlyTransition), the Deploy marked and Back
-/// in Z, which returns to DefaultState; the placement holds while the ActiveGroup is Drones. The Beacon doesn't turn.
+/// `factions/colonists/units/drone.md > Drone ObjectInterfaceState` (design change 0124): Q Move, A Deploy, S Set
+/// Drop-off (`gathering`), X Stop. A enters AwaitingPlacement for a Beacon (a StateOnlyTransition), the Deploy marked
+/// and Back in Z, which returns to DefaultState; the placement holds while the ActiveGroup is Drones. The Beacon
+/// doesn't turn.
 #[test]
 fn the_drone_deploys_with_a() {
     use ButtonLook::Common;

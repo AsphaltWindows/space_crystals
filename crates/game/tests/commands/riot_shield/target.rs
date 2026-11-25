@@ -1,4 +1,4 @@
-//! A press of R sets the Peacekeepers' target state (design change 0198, `factions/gdo/units.md > Peacekeeper > Riot
+//! A press of R sets the Peacekeepers' target state (design change 0198, `factions/gdo/units/peacekeeper.md > Riot
 //! Shield > Two unit types`): their type switches at the press, and a second press reaches them all, so however fast
 //! R is pressed they end in the same state. Which orders a unit takes follows its type from the press, and the sim
 //! carries them out once the shield is done (design change 0202, `> During the toggle > Orders given during the

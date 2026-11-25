@@ -132,7 +132,7 @@ impl InputAction {
     /// Whether the action turns the structure being placed. Its bindings take a press only while one is
     /// ([`super::Placing`]), and then before every other binding of that press, which they override: in the editor F
     /// flips while a structure is being placed and chooses the Fill tool otherwise; in the game R and F turn the
-    /// ghost of the building being placed (`factions/gdo/structures.md > DeploymentCenter >
+    /// ghost of the building being placed (`factions/gdo/structures/deployment_center.md >
     /// ObjectInterfaceState[DeploymentCenter] > AwaitingPlacement`) instead of pressing the command slots R and F,
     /// and Shift + R and Shift + F turn it the other way, the Shift that is otherwise the Queue modifier (plan
     /// decision T10, risk R11). One definition of the placement keys for both: these actions work in either context
@@ -191,7 +191,7 @@ pub enum EditorInput {
     PlayTest,
     ToggleHelp,
     /// While a structure is being placed: turns it a quarter turn clockwise. The editor places with the keys of the
-    /// game's placement ghost (`factions/gdo/structures.md > DeploymentCenter > ObjectInterfaceState[DeploymentCenter]
+    /// game's placement ghost (`factions/gdo/structures/deployment_center.md > ObjectInterfaceState[DeploymentCenter]
     /// > AwaitingPlacement`: "R rotates the ghost 90 degrees clockwise, Shift+R rotates 90 degrees counter-clockwise
     /// ... F flips the ghost horizontally, Shift+F flips vertically"), as `core/map_editor.md` gives none. These four
     /// are placement actions ([`InputAction::is_placement`]), shared with the game, whose AwaitingPlacement turns

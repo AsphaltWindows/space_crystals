@@ -1,5 +1,5 @@
 //! Construction from the command panel (slice M2-H2, plan decision T10): the Deployment Center's build menu
-//! (`factions/gdo/structures.md > DeploymentCenter > ObjectInterfaceState[DeploymentCenter]`, design change 0104) and
+//! (`factions/gdo/structures/deployment_center.md > ObjectInterfaceState[DeploymentCenter]`, design change 0104) and
 //! the Extraction Facility's plate (`factions/gdo/economy.md > ExtractionFacility >
 //! ObjectInterfaceState[ExtractionFacility]`): Construct, Cancel Construction and Cancel Ready Building, then
 //! AwaitingPlacement, whose ghost follows the cursor green or red tile by tile (design change 0093) with the letters

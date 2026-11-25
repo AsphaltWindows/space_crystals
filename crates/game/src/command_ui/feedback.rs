@@ -14,7 +14,7 @@
 //!   notification, the cap's name ([`army_cap_text`]: Unit Control, or the Colonists' Beacon Capacity, plan decision
 //!   T20), once as the wait begins; the producer's InfoPanel shows the wait for as long as it lasts
 //!   (`crate::hud::info_panel`);
-//! - a building that can't be placed (`factions/gdo/structures.md > DeploymentCenter >
+//! - a building that can't be placed (`factions/gdo/structures/deployment_center.md >
 //!   ObjectInterfaceState[DeploymentCenter] > AwaitingPlacement`): a left-click where the ghost is invalid sends
 //!   nothing and placement goes on (`super::InvalidPlacement`), and a Place that the sim refused as it applied it,
 //!   the game having changed since the click (`SimEvent::PlacementRefused`, e.g. a unit walked onto the footprint),
@@ -72,11 +72,11 @@ pub const QUEUE_FULL_TEXT: &str = "Queue is full";
 /// The message of a Cancel pressed with nothing to cancel. Placeholder wording.
 pub const NOTHING_TO_CANCEL_TEXT: &str = "Nothing to cancel";
 /// The message of a building to construct pressed while its constructor constructs or holds a building ready
-/// (`factions/gdo/structures.md > DeploymentCenter > ObjectInterfaceState[DeploymentCenter]`: "Other build options
+/// (`factions/gdo/structures/deployment_center.md > ObjectInterfaceState[DeploymentCenter]`: "Other build options
 /// unavailable"). Placeholder wording.
 pub const BUSY_TEXT: &str = "Already building";
 /// The message of an Attack pressed while every recipient is a Peacekeeper (Shielded), its shield up or on its way
-/// up (design change 0202). Placeholder wording, after `factions/gdo/units.md > Peacekeeper > Riot Shield`: "the
+/// up (design change 0202). Placeholder wording, after `factions/gdo/units/peacekeeper.md > Riot Shield`: "the
 /// player must lower the shield before ordering an attack".
 pub const SHIELDS_UP_TEXT: &str = "Lower the Riot Shield first";
 /// The message of another command pressed while one awaits its target or a building is placed (design change 0066:
