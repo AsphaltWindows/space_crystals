@@ -116,9 +116,9 @@ impl Opening for Colonists {
 ///
 /// Three Agents on one crystal hatch, its saturation (design change 0294), and no more: as built, four or more whose
 /// patch lies to the side of the hatch can gridlock beside it for good, and the income stops (Q0109, whose first step,
-/// design change 0315, isn't built yet; `docs/playtest/m4.md > Known issues (from the M4 QA, not fixed yet)`: "Three
-/// Agents a hatch, the design's saturation, never jammed"). So this line keeps to three, as `tests/syndicate_soak.rs`
-/// does.
+/// design change 0315, is built and doesn't end it; `docs/playtest/m4.md > Known issues (from the M4 QA, not fixed
+/// yet)`: "Three Agents a hatch, the design's saturation, never jammed"). So this line keeps to three, as
+/// `tests/syndicate_soak.rs` does.
 pub fn syndicate(sim: &Sim, player: PlayerId) -> Box<dyn Opening> {
     let mut line = Syndicate::new(BuildOrder::new(player).track(vec![Order::new(Hideout, Agent); AGENTS]))
         .after(OpticsLab, vec![Order::new(Hideout, Guard); GUARDS]);
