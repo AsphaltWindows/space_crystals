@@ -54,14 +54,16 @@ fn tech_tree_expansions() -> Vec<String> {
         .collect()
 }
 
-/// Design change 0257 and Q0081 (Placeholder): the ExpandMenu lists every expansion of the Tech Tree table, in its
-/// order, each once; a type in the game by its kind, the Hideout first.
+/// Design changes 0257 and 0291: the ExpandMenu lists every expansion of the Tech Tree table, in its order, each once,
+/// a type in the game by its kind, the Hideout first, and then the Laser Turret: 0291's verification, "The ExpandMenu
+/// shows nine expansion slots and then the turret".
 #[test]
 fn the_expand_menu_follows_the_tech_tree() {
     let names: Vec<&str> = EXPAND_MENU.iter().map(|entry| entry.name()).collect();
     let table = tech_tree_expansions();
     assert_eq!(table.len(), 9, "the table's expansions: {table:?}");
-    assert_eq!(names, table);
+    assert_eq!(names[..9], table);
+    assert_eq!(names[9..], ["Laser Turret"], "the tenth slot");
     assert_eq!(EXPAND_MENU[0], ExpandEntry::Kind(ObjectKind::Hideout));
     for entry in EXPAND_MENU {
         if let ExpandEntry::Planned(name) = entry {
