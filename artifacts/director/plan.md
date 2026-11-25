@@ -960,7 +960,18 @@ The user keeps feeding unit and other designs to the Designer, so expect increme
     | J3 | done (`827dfeb`; Q0075) |
     | G3 | done (`8480ee0`) |
 - **M4 Syndicate** (**planned**; spec: `artifacts/director/m4-plan.md`, from the design at `36a8cd8` plus 0210–0228).
-  - **Slices:** 14, in 6 waves: A; B, C (Fable), D (Fable); E, I, J2; F, H, J1 (the first playable); G, K, L; M (QA).
+  - **Slices** (revised plan, adopted 2026-11-25, which folds in 0229–0282): A–M plus R1 and R2 (code organization), O (combat spike), U (Grenadier), and S1 and S2 (Laser Turrets). The waves:
+    1. A
+    2. B, C, D, then I
+    3. R1, R2
+    4. E, J2
+    5. J1, H, F (the first playable)
+    6. K, G, O
+    7. L, S1
+    8. U, S2
+    9. M
+
+    The critical path is A → C → R1 → E → F → K → S1 → S2 → M.
   - **Deferred until numbers exist:** the gated N1–N6, i.e. the Grenadier, Laser Turret, vehicles, Shadebringer, other expansions and the Phantom.
   - **Questions:** Q0059–Q0071. Q0059 (Optics Lab stats) blocks K, and Q0060 (the upgrade's duration) blocks G. Both were answered by 0229.
   - **Slice status:**
@@ -1073,6 +1084,14 @@ The user keeps feeding unit and other designs to the Designer, so expect increme
 | Q0075 | A revealed attacker shooting at a target the player can't see: draw the shot whole (literal 0206) or clip it? | no | answered by 0244 (stricter than B; M3-L5) |
 | Q0076 | Agents jam head-on between a near patch (0–1 GU) and the hatch: 3+ Agents halve the income (5.33 against 12.5 SC/s). Pass through like Drones, move patches to 3 GU or more, or a right-of-way rule? | partly (M4-L's oracle; the first playable) | open; as built, Agents collide |
 | Q0077 | Eject while every unit of the type is in transit: refused or queued? And where an ejected unit with no rally waits: 1 GU out, as built, or farther? | no | open; as built in M4-C |
+| Q0078 | Tunnel near the map edge: 0242's Verification (2 tiles from the edge is red) is one tile off its own rule | no | open; M4-B builds the rule as written |
+| Q0079 | Agent build orders: a refund if the Agent is killed before the start; does a pending ghost or a site reserve its whole area? | no | open; M4-E builds the proposals |
+| Q0080 | Expansion placement: do ground units and lingering ghosts block it; is a Warp In over a hidden expansion red at once? | no | open; M4-F builds the proposals |
+| Q0081 | ExpandMenu slots: do expansions not yet in the game keep their greyed slots, so the turret's letter never moves? | no | open; M4-J2 and M4-F build the proposal |
+| Q0082 | Supplies gathering: pick-up and drop-off reaches; nearest Tunnel measured to the Supplies hatch; the old load lost at the end of the new pick-up | no | open; M4-I builds A |
+| Q0083 | Area damage: friendly fire, the reveal, Attack Ground's end, how grenades are drawn | no | open; M4-O and M4-U build the proposals |
+| Q0084 | Laser Turret: hidden when, sight, blocking, payment, refunds, sites, the Agent's exit, targeting | no | open; M4-S1 and M4-S2 build the proposals |
+| Q0085 | Stale doc lines that later answers contradict (seven lines) | no | open; the newer answer wins |
 
 ## Design change entries
 Last triaged: 0282.
