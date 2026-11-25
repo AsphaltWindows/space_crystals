@@ -130,6 +130,7 @@ Tunnel Space is derived from unused underground space rather than provided as a 
 
 - **Tunnel-region**: a Tunnel's Tunnel Area, excluding the 4x4 grid units occupied by the Tunnel's own footprint. (E.g. a Tier 1 Tunnel has an 8x8 = 64 grid unit Tunnel Area, minus its own 16 grid unit footprint = 48 grid units of tunnel-region.)
 - **Unused tunnel-region**: the portion of a Tunnel's tunnel-region not currently occupied by a placed expansion.
+- **Non-Drillable cells don't count** (user, 2026-11-25; Q0062): Water and Mountain cells (core/map.md > DefaultTilePresets) inside a Tunnel Area are not tunnel-region and give no Tunnel Space.
 - **Cells off the map count** (user, 2026-11-25; Q0062): a Tunnel near the map edge keeps its whole square for Tunnel Space, including the part past the edge. No expansion can be built there, and an edge Tunnel can't be crowded from that side; both are judged minor.
 - **Tunnel Space = floor((sum of unused tunnel-region grid units across all owned Tunnels) / 4)** — rounded down to a whole number — capped at a hard maximum of 200 (see factions/syndicate/overview.md > SyndicateResources). Because of the rounding, structures smaller than 2x2 (e.g. a 1x1 pop-up Laser Turret, ¼ of a Tunnel Space) only lower Tunnel Space when they push the unused total below the next multiple of 4.
 
