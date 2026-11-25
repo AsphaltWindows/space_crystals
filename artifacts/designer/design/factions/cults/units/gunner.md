@@ -1,6 +1,6 @@
 # Gunner
 
-The Gunner is the Cults' heavier-hitting combat infantry, trained from a Recruit at the Armory (requires owning a Gunworks). Shares the Soldier's physical profile but trades air targeting and attack speed for a longer-range, harder-hitting ground attack.
+The Gunner is the Cults' heavier-hitting combat infantry, trained from a Recruit at the Armory (requires owning a Gunworks). Shares the Militant's physical profile but trades air targeting and attack speed for a longer-range, harder-hitting ground attack.
 
 ## Entity Type - Unit
 ## Faction - TheCults

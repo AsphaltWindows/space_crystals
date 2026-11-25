@@ -13,7 +13,7 @@ Can be placed on **any Buildable terrain** — not limited to the GDO build area
 Works like the Cults Garrison (factions/cults/structures/garrison.md), except as noted:
 - **Who can enter**: all GDO infantry, up to **4 units**, using the Enter command.
 - Units inside **fire their own weapons** from the Bunker. (Unlike the Cults Garrison, the Bunker gives no units a substitute weapon — an unarmed unit stays unarmed.)
-- **No bonus range** for units inside (the Cults Garrison gives Soldiers and Gunners +1).
+- **No bonus range** for units inside (the Cults Garrison gives Militants and Gunners +1).
 - **Protection**: units inside cannot be targeted and take no damage while the Bunker stands.
 - **Evacuation on destruction**: when the Bunker is destroyed, everyone inside comes out alive around its footprint.
 - Units inside are not consumed and still count toward Unit Control.
