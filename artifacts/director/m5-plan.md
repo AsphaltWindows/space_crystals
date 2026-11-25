@@ -90,7 +90,8 @@
 >   No AI and no start screen in M5. The Cults' scope for the playtest is Q0092, which the Designer takes to the user.
 > - **Since the plan:**
 >   - 0305 renamed the Acolyte the **Disciple**;
->   - 0306–0308 sketch its cloud spell. They are a concept only, "not for the current playtest": gated N4.
+>   - 0306–0312 sketch its cloud spell, named **Shroud** (0312). They are a concept only, "not for the current playtest": gated N4;
+>   - 0313 sketches the Cults' light vehicle, a buggy from the Chop Shop: gated N6, with the vehicles.
 > - **M5 starts** after M4-M merges.
 
 ---

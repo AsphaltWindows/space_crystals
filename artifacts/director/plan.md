@@ -1220,14 +1220,25 @@ Approach: thin vertical slices the user can run and see, each verified by tests 
       - a site's InfoPanel shows its current construction maximum ("HP 74 / 74" at 10%) with a full bar;
       - a revealed shooter is drawn over unexplored ground.
 
+- **M4-W The four-Agent hatch jam, diagnosed** (**Fable**; merged in `189d0162`; tests and docs only; no sim change). **The fix waits on Q0109.**
+  - **Where it happens:** any four or more Agents whose patch lies to the side of the hatch, so that they come along the Tunnel's wall. `dev_skirmish`'s own field is like that. Facing the hatch (the oracle's layout) nothing jams.
+  - **Why it locks:**
+    - every return leg ends at one point (`legs::return_leg`, the near end of the wall within reach of the hatch);
+    - the Agent unloading there is boxed in. Its steering never steps back along a face, and its re-routes repeat the same path;
+    - the waiting Agents retry for ever (0255), and since all hold orders, none yields.
+  - **Measured** north-west of the hatch, in SC/s with 4/5/6 Agents: as built, 0.0–4.0 at 2–3 GU, and 7 of the 15 cases go over 60 s without a delivery. Prototype (a), where a waiting Agent steps aside, gives 8.5–10.2. Prototype (b), where legs end only in front of the square, still jams in places.
+  - **Tests:** two ignored tests that fail as built, in `crates/sim/tests/agent_gathering/jam.rs`: a focused repro, and a stress run with 4–6 Agents at 1–5 GU.
+  - **Docs:** `docs/playtest/m4.md`'s Known issue carries the diagnosis and the table.
+  - **The fix** is a new who-gives-way rule, so it is design: **Q0109**, with options (a)–(e). It must land before the playtest.
+
 ## In progress
 - **Running:**
-  - **M4-W The four-Agent hatch jam** (**Fable**; brief `scratchpad/briefs/m4w-hatch-jam.md`): four Agents at one crystal hatch gridlock for good (M4-M's soak, at 6:54). Reproduce, diagnose and fix it within the existing rules. If it needs a new behaviour rule, report the options for a design question instead. The soak then runs four crystal Agents again.
   - **M4-Z The QA strays** (Opus; brief `scratchpad/briefs/m4z-qa-strays.md`): the Q0060 mark, Q0091's marks, `eject_builders` on turret sites, and the test books' turret and expansion refunds. No behaviour change.
+  - **M5-R Playtest pairings** (Opus; brief `scratchpad/briefs/m5r-playtest-pairings.md`): every ordered faction pairing (9 now, 16 after B) starts, plays and ends on every map; a headless client test per pair; and `docs/playtest/README.md` (hot-seat, command line, how to report a finding).
   - **M5-A The Cults foundation** (Opus; brief `scratchpad/briefs/m5a-cults-foundation.md`; common rules `scratchpad/briefs/m5-common.md`): the six designed kinds, their client kinds and the lineage field. The Gunner is TailDisjointed as data (0304); O3 builds the attack.
 - **Next**:
-  - **M4 is complete** (M4-M, `4e3fdd4a`), apart from the follow-ups W and Z.
-  - **M5 wave 1:** A is running. R (playtest pairings) launches when Z lands, keeping to three builds at most.
+  - **M4 is complete** (M4-M, `4e3fdd4a`), apart from Z, and the hatch jam's fix. M4-W diagnosed the jam (`189d0162`), and the fix waits on **Q0109** (blocking, for the fix only). It must land before the playtest.
+  - **M5 wave 1:** A and R are running. Wave 2 (C, D on Fable, F1) follows A.
   - **Playtest:** the user plays once all four factions are built, in hot-seat from the command line (2026-11-25). The kit is `docs/playtest/` (m2–m4 and M5's README). This replaces separate M1–M4 playtests.
 
 ## M1 plan (from the movement spike; the approved design is in `docs/movement.md`)
@@ -1578,6 +1589,7 @@ The user keeps feeding unit and other designs to the Designer, so expect increme
 | Q0106 | Evacuation: where and in what order units come out (M5) | no | open; M5 builds the proposal as a placeholder |
 | Q0107 | Showing the Recruitment Area (M5) | no | open; M5 builds the proposal as a placeholder |
 | Q0108 | Stale lines in the Cults docs and the Enter command (M5) | no | open; M5 builds the proposal as a placeholder |
+| Q0109 | Agents at a hatch: who gives way? Four or more Agents whose patch lies to the side of the hatch gridlock for good (M4-W's diagnosis) | yes, for the jam's fix (before the playtest) | open; options (a) a waiting Agent steps aside, (b) legs end in front of the square only, (c) detour round standing units, (d) pass-through, (e) accept |
 
 ## Design change entries
 Last triaged: 0282.
@@ -1865,4 +1877,6 @@ Last triaged: 0282.
 | 0304 The Cults' Gunner can miss: a TailDisjointed attack (the position locks at the end of Aiming; the shot lands there at the end of Firing and hits whatever unit is at the spot), and Attack Ground | queued (M5-O3: TailDisjointed attacks, which aren't built yet; the Gunner's Attack Ground; "Target too close" for a location, since the Gunner has MinRange 2. The Gunner's kind is in M5-A) | — |
 | 0305 The Cults' Acolyte is renamed Disciple (`factions/cults/units/disciple.md`) | queued (M5-N4, gated: no code mentions the Acolyte) | — |
 | 0306–0308 The Disciple's channeled cloud spell (concept): damage on ground objects under connected clouds goes into a shared buffer, released as AoE every 0.5 s; attacks from under the same cloud do full damage | queued (M5-N4, gated: "Concept only, not for the current playtest"; size, drain, end, buffer splits, name and hotkey TBD) | — |
+| 0309–0312 The Disciple's cloud spell, named **Shroud** (0312, after "Shared Burden" in 0311): a release's share is ordinary damage, with the receiver's modifiers, armor and minimum; the buffer is released at once when the channel ends or the cloud splits; the channel ends only on death, a cancel command, or running out of energy (0310 corrects 0309: taking damage doesn't end it) | queued (M5-N4, gated: concept only; size and drain TBD) | — |
+| 0313 The Cults' light vehicle, the Chop Shop's first: a wheeled buggy with a 360° machine-gun turret, FullyConnected, low damage at a high rate of fire | queued (N6, gated: concept only; name, Recruits consumed, target domain, numbers and the Chop Shop's flow TBD; vehicles aren't built) | — |
 | 0014 GDO Airfield and aircraft | queued (Later: air) | |
