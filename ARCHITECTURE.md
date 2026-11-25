@@ -2368,9 +2368,11 @@ their energy doorway, slice M3-D2: design change 0145, `factions/colonists/struc
   the refined banks. `syndicate_start.rs` (slice M4-B) has the Syndicate's start in either slot (the objects, 100
   Space Crystals and 1 Supply, Tunnel Space 1/11, the camera on the Tunnel), the crystal hatch 1 grid unit from a
   patch (`tunnel::hatch_square`), the nine faction combinations, an incomplete layout, a layout Tunnel by the lake
-  or the edge refused (0242), and an expansion over full Tunnel Space removing nothing. The Tunnel Area's rules are
-  unit-tested in `placement/tests/tunnel_area.rs`, Tunnel Space in `economy/army/tunnel_space.rs`, the geometry in
-  `tunnel/area.rs`; a unit inside the network keeping its Tunnel Space in `tests/tunnel_network/enter.rs`.
+  or the edge refused (0242), and an expansion over full Tunnel Space removing nothing. `pairings/` (slice M5-R) starts
+  every ordered pair of the factions with Starting Conditions on every Skirmish Default map and plays it to a win
+  (*Adding a faction*, item 19). The Tunnel Area's rules are unit-tested in `placement/tests/tunnel_area.rs`, Tunnel
+  Space in `economy/army/tunnel_space.rs`, the geometry in `tunnel/area.rs`; a unit inside the network keeping its
+  Tunnel Space in `tests/tunnel_network/enter.rs`.
 - **The building armor rule** (design change 0264, `core/entities.md > Structure Type > Building armor rule`):
   `crates/sim/tests/building_armor.rs` holds every faction's buildings, from the defs alone, to "PointArmor n,
   FullArmor n × size", with an `EXCEPTIONS` list (empty; a stale entry fails), and every underground expansion to
@@ -3766,8 +3768,12 @@ The faction's own mechanics come next, each only if it has them (M3's and M4's i
       golden game (`tests/skirmish_soak.rs`, `tests/syndicate_soak.rs`: invariants, books, no stuck order, the hash
       stable over two runs; the Syndicate's adds the network's invariants, `check_network`, and plays on past the
       golden's end with more on both sides);
+    - its opening in the playtest pairings (slice M5-R), one line in `OPENINGS` (`tests/pairings/main.rs`, its hook in
+      `openings.rs`): every ordered pair of the factions with Starting Conditions plays on every Skirmish Default map
+      under the invariants, the books and the gate, until player 2's buildings are removed and player 1 wins; the
+      client's `tests/pairings.rs` starts each pair from `--factions`. A faction without a line plays idle;
     - a scripted walkthrough of the first playable (`--factions` with `--input-script`, see *QA mode*), and its
-      playtest notes in `docs/playtest/`.
+      playtest notes in `docs/playtest/`, listed in `docs/playtest/README.md`.
 
 ## Tunables
 

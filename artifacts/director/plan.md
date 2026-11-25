@@ -1253,15 +1253,27 @@ Approach: thin vertical slices the user can run and see, each verified by tests 
   - **Left as is:** the client offers the Gunner Attack Ground (`can_target_ground`), and the order ends at once until O3.
   - **Perf** not run: no hot path changed (one Option per object in the hash, and a rare MinRange branch). Screenshot: `scratchpad/m5a/cults_kinds.png`.
 
+- **M5-R Playtest pairings** (Opus; merged in `afd9c152`; tests and docs only; no game code changed; goldens unchanged).
+  - **`crates/sim/tests/pairings/`** (`main.rs`, `openings.rs`): every ordered pair of factions with Starting Conditions (9 now; the Cults join with no edit after B), each with a scripted opening.
+    - **The openings:** the GDO's golden Barracks line plus 6 Peacekeepers; the Colonists' golden opening; the Syndicate's 3 Agents on a hatch (Q0109; 0315 not built yet), an Optics Lab and 4 Guards.
+    - **Checked every tick:** the invariants, held units and references, the gate taking every command, both books, and that nobody is defeated.
+    - **The end:** player 2's buildings are removed by debug commands, and player 1 wins.
+    - **Adding a faction** is one line in the `OPENINGS` table (M5-L adds the Cults').
+    - **Naming:** each pairing runs on a thread named after its command line.
+    - **Runs:** the default run is 9 × 30 s and takes 0.13 s. The ignored run is the built-in `dev_skirmish` and `maps/dev_skirmish.json`, 18 × 3 minutes.
+  - **`crates/game/tests/pairings.rs`:** `--factions a,b --headless --exit-at-tick 64` with `--scenario` or `--map`, for every pair and map, in-process through `cli::parse`, `cli::into_config` and `build_app` (a spawned headless run paces by the clock). 18 runs.
+  - **`docs/playtest/README.md`:** the 9 commands, hot-seat with F2, F3, Tab, the debug keys, replays, links to m2–m4, and a template for reporting a finding (design to the Designer, bugs to the Director). It was checked against `cli/usage.rs`, the key bindings and screenshots.
+  - **Left for B:** the `--factions` line in `crates/game/src/cli/usage.rs` is out of date. B owns that file.
+
 ## In progress
 - **Running:**
-  - **M5-R Playtest pairings** (Opus; brief `scratchpad/briefs/m5r-playtest-pairings.md`): every ordered faction pairing (9 now, 16 after B) starts, plays and ends on every map; a headless client test per pair; and `docs/playtest/README.md` (hot-seat, command line, how to report a finding).
+  - **M5-C Recruitment Halls** (Opus; brief `scratchpad/briefs/m5c-recruitment-halls.md`): tile claims by completion order, free Recruits up to the Hall's capacity, Unit Control by lineage (T56, T57), the HUD's Unit Control, and the Hall's panel. Q0099–Q0101 as placeholders. It also settles the cross-faction cost: a unit costs only in its own faction's resource.
   - **M5-F1 Buildings that hold units** (Opus; brief `scratchpad/briefs/m5f1-holding.md`): one capability for every holding Cults building, built for the Armory: Enter at the entrance side, a capacity, Eject All through the exit doorway, evacuation alive on destruction (T60), and T62's spots around a footprint. Q0104 and Q0106 as placeholders.
   - **M5-D Recruit gathering** (**Fable**; brief `scratchpad/briefs/m5d-recruit-gathering.md`): the Recruit's crystals and the Storage's drop-off, measured against the design's 1.45 / 0.59 / 0.37 SC/s, plus crowd checks under hard collision. Q0102 as a placeholder. If Recruits jam for Q0109's reason, it reports measurements instead of a new rule.
 - **Next**:
-  - **M4 is complete** (M4-M, `4e3fdd4a`; the strays, M4-Z, `95b4bc6e`), apart from the hatch jam's fix. M4-W diagnosed the jam (`189d0162`), and the fix waits on **Q0109** (blocking, for the fix only). It must land before the playtest.
-  - **M5 wave 1:** A merged (`ed23874e`); R is running.
-  - **M5 wave 2:** F1 and D are running. C (brief `scratchpad/briefs/m5c-recruitment-halls.md`) launches when R lands, keeping to three builds at most.
+  - **M4 is complete** (M4-M, `4e3fdd4a`; the strays, M4-Z, `95b4bc6e`), apart from the hatch jam's fix. M4-W diagnosed the jam (`189d0162`), and **0315** answered Q0109 with a first step. **M4-W2** (Fable; brief `scratchpad/briefs/m4w2-hatch-rule.md`) builds the rule and re-measures, launching at the next free slot after C. It must land before the playtest.
+  - **M5 wave 1 is done:** A (`ed23874e`) and R (`afd9c152`).
+  - **M5 wave 2:** F1, D and C are running. M4-W2 (the hatch rule, 0315) takes the next free slot. Wave 3 (B, E, F2) follows: B after C (it reads C's `economy/army.rs` and HUD), E after F1, and F2 after C and F1.
   - **Playtest:** the user plays once all four factions are built, in hot-seat from the command line (2026-11-25). The kit is `docs/playtest/` (m2–m4 and M5's README). This replaces separate M1–M4 playtests.
 
 ## M1 plan (from the movement spike; the approved design is in `docs/movement.md`)
@@ -1612,7 +1624,7 @@ The user keeps feeding unit and other designs to the Designer, so expect increme
 | Q0106 | Evacuation: where and in what order units come out (M5) | no | open; M5 builds the proposal as a placeholder |
 | Q0107 | Showing the Recruitment Area (M5) | no | open; M5 builds the proposal as a placeholder |
 | Q0108 | Stale lines in the Cults docs and the Enter command (M5) | no | open; M5 builds the proposal as a placeholder |
-| Q0109 | Agents at a hatch: who gives way? Four or more Agents whose patch lies to the side of the hatch gridlock for good (M4-W's diagnosis) | yes, for the jam's fix (before the playtest) | open; options (a) a waiting Agent steps aside, (b) legs end in front of the square only, (c) detour round standing units, (d) pass-through, (e) accept |
+| Q0109 | Agents at a hatch: who gives way? Four or more Agents whose patch lies to the side of the hatch gridlock for good (M4-W's diagnosis) | no (answered for now by 0315) | answered, first step, by 0315: an Agent waits only within reach of the hatch, and until then keeps steering toward it. M4-W2 builds it and re-measures; a follow-up question goes if any case still gridlocks, and the user then considers option (a) |
 
 ## Design change entries
 Last triaged: 0282.
@@ -1902,4 +1914,8 @@ Last triaged: 0282.
 | 0306–0308 The Disciple's channeled cloud spell (concept): damage on ground objects under connected clouds goes into a shared buffer, released as AoE every 0.5 s; attacks from under the same cloud do full damage | queued (M5-N4, gated: "Concept only, not for the current playtest"; size, drain, end, buffer splits, name and hotkey TBD) | — |
 | 0309–0312 The Disciple's cloud spell, named **Shroud** (0312, after "Shared Burden" in 0311): a release's share is ordinary damage, with the receiver's modifiers, armor and minimum; the buffer is released at once when the channel ends or the cloud splits; the channel ends only on death, a cancel command, or running out of energy (0310 corrects 0309: taking damage doesn't end it) | queued (M5-N4, gated: concept only; size and drain TBD) | — |
 | 0313 The Cults' light vehicle, the Chop Shop's first: a wheeled buggy with a 360° machine-gun turret, FullyConnected, low damage at a high rate of fire | queued (N6, gated: concept only; name, Recruits consumed, target domain, numbers and the Chop Shop's flow TBD; vehicles aren't built) | — |
+| 0314 The light vehicle (0313) is the **Jackal**: it fires at ground and air (Universal) and consumes 2 Recruits (Unit Control 2). **The Chop Shop trains like the Armory:** a Recruit pool, serial queueable orders that reserve Recruits, Eject All and Cancel | queued (N6, gated: concept only; the Chop Shop's capacity, queue and sides, and the Jackal's numbers, TBD). It will reuse F1's holding capability and F2's training from a pool | — |
+| 0315 **Q0109, first step:** an Agent waits only once it is within reach of the hatch. Until then it is never "arrived": it keeps moving toward the hatch, steering round blockers, exempt from MovingToLocation's occupied-target arrival rule, and never gives up. Option (a) is not adopted for now; the user decides on it after the re-measurement | queued (**M4-W2**, Fable: build the rule, re-run M4-W's measurements, and file a follow-up if any case still gridlocks) | — |
+| 0316 A new Cults aircraft, the Airstrip's first: a small machine-gun glider hitting air and ground (name TBD) | queued (N6, gated: concept only; name, Recruits, whether it can miss, gun or turret, ammo, numbers and the Airstrip's flow TBD) | — |
+| 0317–0318 The glider (0316) is the **Sparrow**: a turret with a 45° cone in total that can't miss (FullyConnected, Universal), unlimited ammo (it never lands), 1 Recruit. **The Airstrip trains like the Armory**, and an aircraft takes off and never lands back | queued (N6, gated: concept only; its numbers TBD). It will reuse F1's holding and F2's training from a pool | — |
 | 0014 GDO Airfield and aircraft | queued (Later: air) | |
