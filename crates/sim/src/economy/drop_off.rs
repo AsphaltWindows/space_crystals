@@ -10,7 +10,7 @@
 //! the art's. It turns and flips with the structure, since it is read off the sides as placed (`crate::sides`); the
 //! client draws the hatches on the same squares (`object_render/tunnel.rs`).
 //!
-//! DropOffReach is measured to that square (`factions/syndicate/units.md > Agent > Gathering > Space Crystals`:
+//! DropOffReach is measured to that square (`factions/syndicate/units/agent.md > Gathering > Space Crystals`:
 //! "within 8 su of the crystal hatch on Side B"), and so is the distance that picks the nearest Tunnel (`> Gathering
 //! rules`: "straight line to its crystal hatch").
 

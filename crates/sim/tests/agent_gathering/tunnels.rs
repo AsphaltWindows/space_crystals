@@ -1,4 +1,4 @@
-//! Which Tunnel an Agent delivers to (`factions/syndicate/units.md > Agent > Gathering rules > Which Tunnel`, design
+//! Which Tunnel an Agent delivers to (`factions/syndicate/units/agent.md > Gathering rules > Which Tunnel`, design
 //! change 0255): "the nearest own operational Tunnel (straight line to its crystal hatch), regardless of how many
 //! other Agents already use it; no load balancing. It is chosen when the Gather's first return starts and kept for
 //! that Gather (a new Gather picks again; a lost Tunnel means picking the nearest again)."

@@ -119,7 +119,7 @@ pub(super) fn leg(state: &mut Gather, unit: &mut Unit, target: &Shape, beside: O
 ///
 /// To a hatch (`hatch_reach`: the worker's DropOffReach there, `None` for a drop-off that takes loads anywhere) it
 /// heads for the point nearest to it against the hatch's wall **within reach of the hatch**: in front of the square,
-/// or beside it by up to the reach (`factions/syndicate/units.md > Agent > Gathering rules`: "an Agent waits within
+/// or beside it by up to the reach (`factions/syndicate/units/agent.md > Gathering rules`: "an Agent waits within
 /// reach (or as close as it can get) while another drops off"), so that those waiting stand side by side along the
 /// wall and the next one is in reach when the hatch frees.
 pub(super) fn return_leg(state: &mut Gather, unit: &mut Unit, target: &Shape, hatch_reach: Option<f32>, world: &World) {

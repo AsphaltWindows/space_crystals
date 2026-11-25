@@ -1,4 +1,4 @@
-//! Trip times and incomes against the design's table (`factions/syndicate/units.md > Agent > Gathering > Space
+//! Trip times and incomes against the design's table (`factions/syndicate/units/agent.md > Gathering > Space
 //! Crystals`; design change 0259, the Syndicate economy check: "Distance in the table is measured edge to edge, from
 //! the patch's edge to the Tunnel's crystal hatch", "Tolerance: ±15% on every figure, except the 12.5 Space Crystals
 //! per second ceiling per Tunnel, which must hold exactly"). Nothing is tuned to the table: the trips are pinned as

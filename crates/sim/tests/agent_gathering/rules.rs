@@ -1,4 +1,4 @@
-//! The Drone's job rules on the Agent (`factions/syndicate/units.md > Agent > Gathering rules`, design change 0255:
+//! The Drone's job rules on the Agent (`factions/syndicate/units/agent.md > Gathering rules`, design change 0255:
 //! "The Drone's job rules apply to Agents (Last load of a patch, Interrupted mining, Other orders keep the load,
 //! Gather while carrying a load, Drop Off order, When a Gather ends), with two exceptions: Agents share patches (no
 //! occupancy rule), and there is no Set Drop-off command"), and `> Right-Click Resolution`.

@@ -66,7 +66,7 @@ pub(super) static GUARD: ObjectDef = ObjectDef {
     structure: None,
 };
 
-/// `factions/syndicate/units.md > Agent`: the Syndicate's worker, with its pistol (slice M4-A) and its gathering of
+/// `factions/syndicate/units/agent.md`: the Syndicate's worker, with its pistol (slice M4-A) and its gathering of
 /// Space Crystals (`> Gathering`: its `worker`, slice M4-D). Its Supplies and its construction come with slices M4-I
 /// and M4-E.
 pub(super) static AGENT: ObjectDef = ObjectDef {
@@ -134,7 +134,7 @@ pub(super) static AGENT: ObjectDef = ObjectDef {
             // Placeholder: the Drone's 6 grid units. `> Gathering rules` gives the Agent the Drone's "When a Gather
             // ends" and "Last load of a patch", which look round within a search radius, and names no number for it.
             search_radius: 6.0,
-            // `factions/colonists/units.md > Gathering Drones pass through each other`: "Drones only".
+            // `factions/colonists/units/drone.md > Gathering Drones pass through each other`: "Drones only".
             pass_through: false,
         }),
     }),

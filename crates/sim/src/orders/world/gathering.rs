@@ -169,7 +169,7 @@ impl World<'_> {
         self.gathering.unloading.binary_search(&(node, side)).is_ok()
     }
 
-    /// Design change 0255 (`factions/syndicate/units.md > Agent > Gathering rules > Waiting at the hatch`): the
+    /// Design change 0255 (`factions/syndicate/units/agent.md > Gathering rules > Waiting at the hatch`): the
     /// worker that unloads next at the hatch on `side` of `node`, of those that waited within reach of it as the
     /// phase began: the first to arrive, the lowest id of those that arrived in one tick.
     pub(crate) fn first_in_line(&self, node: ObjectId, side: SideLetter) -> Option<ObjectId> {

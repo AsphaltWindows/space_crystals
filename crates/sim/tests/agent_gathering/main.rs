@@ -1,4 +1,4 @@
-//! Agents gather Space Crystals (slice M4-D; `factions/syndicate/units.md > Agent > Gathering`, design changes 0248,
+//! Agents gather Space Crystals (slice M4-D; `factions/syndicate/units/agent.md > Gathering`, design changes 0248,
 //! 0255 and 0259; `factions/syndicate/tunnels.md > Tunnel > SymmetryType - ABCD`; plan decision T34): one Gather job
 //! for the Drone and the Agent, which shares patches, delivers at the 1-square crystal hatch on its Tunnel's Side B,
 //! one Agent at a time, and takes the nearest Tunnel anew with each Gather. `TestSim` checks the invariants after

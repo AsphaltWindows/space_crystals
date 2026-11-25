@@ -259,7 +259,7 @@ mod tests {
         assert_eq!(saved, emptied);
     }
 
-    /// `factions/colonists/units.md > Drone > Gathering`, `factions/syndicate/units.md > Agent > Gathering`: the Drone
+    /// `factions/colonists/units/drone.md > Gathering`, `factions/syndicate/units/agent.md > Gathering`: the Drone
     /// and the Agent are the workers, the Egress Node and the Tunnel the drop-offs.
     #[test]
     fn the_drone_and_the_agent_are_the_workers() {

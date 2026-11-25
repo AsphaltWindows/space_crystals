@@ -185,7 +185,7 @@ pub enum GatherPhase {
     /// Carrying its load to the drop-off.
     ToDropOff,
     /// Within DropOffReach of the hatch of [`Gather::node`] since tick `since`, waiting for its turn there
-    /// (`factions/syndicate/units.md > Agent > Gathering rules > Waiting at the hatch`, design change 0255: "the
+    /// (`factions/syndicate/units/agent.md > Gathering rules > Waiting at the hatch`, design change 0255: "the
     /// first to arrive delivers next. It waits as long as it takes; it never gives up"). Only at a drop-off with
     /// hatches (`defs::DropOff::Hatches`), which takes one worker at a time.
     AtHatch { since: Tick },

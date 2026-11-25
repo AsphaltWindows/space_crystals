@@ -4,7 +4,7 @@
 //! T17; design changes 0123 and 0127 to 0141 answered question Q0037). `systems/controls/commands.md` and
 //! `behaviors.md` define no Gather or Drop Off, so the Drone's own sections are the spec.
 //!
-//! **One job for every worker type** (slice M4-D, plan decision T34; `factions/syndicate/units.md > Agent >
+//! **One job for every worker type** (slice M4-D, plan decision T34; `factions/syndicate/units/agent.md >
 //! Gathering > Gathering rules`, design change 0255: "The Drone's job rules apply to Agents [...] with two exceptions:
 //! Agents share patches (no occupancy rule), and there is no Set Drop-off command"). The differences are data: the
 //! worker's `WorkerDef` (its loads, `shares_patches`, `keeps_drop_off`, `pass_through`) and its drop-off's rule
@@ -139,7 +139,7 @@ pub(crate) fn on_gather_job(o: &Object) -> bool {
 /// - `> Gather while carrying a load` (design change 0128): a worker that carries a load "goes straight to the new
 ///   pick-up point" all the same.
 /// - `> Drop Off order` (design change 0127): straight to the order's drop-off.
-/// - `factions/syndicate/units.md > Agent > Gathering rules` (design change 0255), for a worker without a lasting
+/// - `factions/syndicate/units/agent.md > Gathering rules` (design change 0255), for a worker without a lasting
 ///   AssignedDropOff (`WorkerDef::keeps_drop_off`): the Tunnel "is chosen when the Gather's first return starts and
 ///   kept for that Gather (a new Gather picks again)". The Gather begins without one, and its first return takes the
 ///   nearest (`deliver::to_drop_off`).

@@ -1,4 +1,4 @@
-//! The line at the hatch (`factions/syndicate/units.md > Agent > Gathering rules > Waiting at the hatch`, design
+//! The line at the hatch (`factions/syndicate/units/agent.md > Gathering rules > Waiting at the hatch`, design
 //! change 0255: "an Agent waits within reach (or as close as it can get) while another drops off, and the first to
 //! arrive delivers next. It waits as long as it takes; it never gives up"), and where an Agent stands to deliver
 //! ("The hatch is 1 grid square long, near the middle of its side. An Agent must be within DropOffReach of the hatch

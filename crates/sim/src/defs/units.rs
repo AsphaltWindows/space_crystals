@@ -202,8 +202,8 @@ pub struct RiotShieldDef {
     pub toggle_ticks: u32,
 }
 
-/// What a worker does with one resource (`factions/colonists/units.md > Drone > Gathering`,
-/// `factions/syndicate/units.md > Agent > Gathering > Space Crystals` and `> Supplies`): one load of it, from picking
+/// What a worker does with one resource (`factions/colonists/units/drone.md > Gathering`,
+/// `factions/syndicate/units/agent.md > Gathering > Space Crystals` and `> Supplies`): one load of it, from picking
 /// it up to unloading it.
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub struct LoadDef {
@@ -220,25 +220,25 @@ pub struct LoadDef {
     pub drop_off_reach: f32,
 }
 
-/// `factions/colonists/units.md > Drone > Gathering`, `factions/syndicate/units.md > Agent > Gathering`: what makes a
+/// `factions/colonists/units/drone.md > Gathering`, `factions/syndicate/units/agent.md > Gathering`: what makes a
 /// unit type a worker (`crate::economy::gathering`). One Gather job runs every worker (plan decision T34); these are
 /// the differences between the types.
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub struct WorkerDef {
     /// Its loads of Space Crystals.
     pub crystals: LoadDef,
-    /// Its loads of Supplies (`factions/syndicate/units.md > Agent > Gathering > Supplies`), for a type that gathers
+    /// Its loads of Supplies (`factions/syndicate/units/agent.md > Gathering > Supplies`), for a type that gathers
     /// them: none yet. Slice M4-I fills the Agent's and adds the job at a Supply Delivery Station (design change
     /// 0256: stations are shared as the Agents' patches are; an Agent at an empty one waits beside it and keeps its
     /// job; the load of one resource is lost at the pick-up of the other).
     pub supplies: Option<LoadDef>,
-    /// `factions/syndicate/units.md > Agent > Gathering > Space Crystals > Patch sharing`: "any number of Agents may
+    /// `factions/syndicate/units/agent.md > Gathering > Space Crystals > Patch sharing`: "any number of Agents may
     /// mine the same Space Crystals patch at the same time (unlike Drones)"; `> Gathering rules`: "Agents share
     /// patches (no occupancy rule)". Workers of such a type neither occupy a patch nor take one for occupied
     /// (`orders::gather`).
     pub shares_patches: bool,
-    /// `factions/colonists/units.md > Drone > Assigned Drop-off`: the type has an AssignedDropOff that lasts from
-    /// Gather to Gather, and a Set Drop-off Location command. Without it (`factions/syndicate/units.md > Agent >
+    /// `factions/colonists/units/drone.md > Assigned Drop-off`: the type has an AssignedDropOff that lasts from
+    /// Gather to Gather, and a Set Drop-off Location command. Without it (`factions/syndicate/units/agent.md >
     /// Gathering rules`: "there is no Set Drop-off command"; "chosen when the Gather's first return starts and kept
     /// for that Gather (a new Gather picks again)") each Gather takes the nearest drop-off as its first return
     /// starts.

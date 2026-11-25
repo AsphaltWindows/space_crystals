@@ -19,7 +19,7 @@ use super::site::{Site, site};
 use super::{Claims, Flow};
 
 /// The drop-off of `owner` nearest to `pos`: by its centre, or by its crystal hatch's for one with hatches
-/// (`factions/syndicate/units.md > Agent > Gathering rules`: "the nearest own operational Tunnel (straight line to
+/// (`factions/syndicate/units/agent.md > Gathering rules`: "the nearest own operational Tunnel (straight line to
 /// its crystal hatch), regardless of how many other Agents already use it"); the lowest id among equals
 /// (`Sim::nearest_drop_off`).
 pub(super) fn nearest_drop_off<'a>(world: &'a World, pos: Vec2, owner: Option<PlayerId>) -> Option<&'a View> {
@@ -117,7 +117,7 @@ pub(super) fn to_drop_off(
 }
 
 /// `factions/syndicate/tunnels.md > Tunnel > SymmetryType - ABCD`: "Only one Agent may drop off resources at a side
-/// at a time"; `factions/syndicate/units.md > Agent > Gathering rules > Waiting at the hatch` (design change 0255):
+/// at a time"; `factions/syndicate/units/agent.md > Gathering rules > Waiting at the hatch` (design change 0255):
 /// "an Agent waits within reach (or as close as it can get) while another drops off, and the first to arrive
 /// delivers next. It waits as long as it takes; it never gives up".
 ///

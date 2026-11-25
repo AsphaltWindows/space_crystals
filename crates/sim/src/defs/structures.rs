@@ -32,10 +32,10 @@ pub struct StructureDef {
     /// [`StructureDef::constructs`], which makes its type a GDO-style constructor (plan decision T14): a Warp In
     /// turns the Beacon itself into the building (`crate::transform`, plan decision T15).
     pub warp_in: &'static [Recipe],
-    /// Whether workers deliver their loads to the type, and where at it (`factions/colonists/economy.md > Egress Node
-    /// > Drop Off`: "the only way resources enter the player's resource pool"; `factions/syndicate/tunnels.md > Tunnel
-    /// > SymmetryType - ABCD`; `crate::economy::gathering`, `crate::economy::drop_off`). `None` for a type that takes
-    /// no loads.
+    /// Whether workers deliver their loads to the type, and where at it: `None` for a type that takes no loads
+    /// (`factions/colonists/economy.md > Egress Node > Drop Off`: "the only way resources enter the player's resource
+    /// pool"; the Tunnel's `SymmetryType - ABCD` in `factions/syndicate/tunnels.md`; `crate::economy::gathering`,
+    /// `crate::economy::drop_off`).
     pub drop_off: Option<DropOff>,
     /// Whether the type is an underground structure (plan decision T32; `factions/syndicate/structures.md > Tunnel
     /// Expansions`: "Expansions are invisible to enemies without detection and can be walked over by surface units"):
@@ -51,7 +51,7 @@ pub struct StructureDef {
 /// from the target's def").
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub enum DropOff {
-    /// Anywhere at the structure, any number of workers at once (`factions/colonists/units.md > Drone > Gathering`:
+    /// Anywhere at the structure, any number of workers at once (`factions/colonists/units/drone.md > Gathering`:
     /// DropOffReach is measured to the Egress Node's edge).
     Anywhere,
     /// At a hatch on one of its sides, one for each resource (`factions/syndicate/tunnels.md > Tunnel > SymmetryType

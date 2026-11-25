@@ -222,13 +222,15 @@ mod tests {
             );
             assert!(!any(&|p| p.y > 100.0 && p.x.abs() > 60.0), "A's paths only");
         }
-        let doors = |points: &[Vec2]| points.iter().filter(|p| p.y < -30.0).count();
+        // Towards C, between the hatches.
+        let door = |p: &Vec2| p.y < -30.0 && p.x.abs() < 60.0;
+        let doors = |points: &[Vec2]| points.iter().filter(|p| door(p)).count();
         assert_eq!(
             (doors(&drawn(1)), doors(&drawn(3)) > 0),
             (0, true),
             "the air doors at Tier 3"
         );
-        let door_on = |points: &[Vec2], east: bool| points.iter().any(|p| p.y < -30.0 && (p.x > 10.0) == east);
+        let door_on = |points: &[Vec2], east: bool| points.iter().any(|p| door(p) && (p.x > 10.0) == east);
         let t3 = drawn(3);
         assert!(door_on(&t3, true) && door_on(&t3, false), "one door over each half");
     }

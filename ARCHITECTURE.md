@@ -775,8 +775,8 @@ the target the attack engages, and reads `Mover::status` and the snapshot.
 - **Gathering** (`orders/gather.rs` with `gather/patch.rs` (the job at its patch), `gather/deliver.rs` (the way
   back and the line at a hatch), `gather/claims.rs`, `gather/search.rs`, `gather/legs.rs` and `gather/site.rs` (the
   patch as the owner knows it, design change 0139), `orders/world/gathering.rs`;
-  slices M3-H, M3-H3 and M4-D, plan decisions T17 and T34; `factions/colonists/units.md > Drone`, whose rules design
-  changes 0123 and 0127 to 0141 settled, answering question Q0037; `factions/syndicate/units.md > Agent >
+  slices M3-H, M3-H3 and M4-D, plan decisions T17 and T34; `factions/colonists/units/drone.md`, whose rules design
+  changes 0123 and 0127 to 0141 settled, answering question Q0037; `factions/syndicate/units/agent.md >
   Gathering`, design change 0255): one behaviour for the Gather and the Drop Off order of **every worker type**, in
   the phases of `GatherPhase`: ToPatch, Waiting, Mining, ToDropOff, AtHatch, DroppingOff, Delivered. What differs
   between the Drone and the Agent is data: the worker's `WorkerDef` and the drop-off's `StructureDef::drop_off`.
