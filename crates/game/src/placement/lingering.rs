@@ -4,7 +4,7 @@
 //! owner. Enemies never see it". The local player's pending Deploys (`Sim::pending_deploys`), each the Beacon's
 //! footprint on its site, in the game modes. A ghost goes with its order: when the deployment starts (the Drone is a
 //! Beacon then), or the order is cancelled, replaced by a new one, or fails. They block no one (the sim's rule:
-//! `crates/sim/tests/deploy_gate.rs`, `pending_sites_block_no_one`) and reserve their sites against the player's
+//! `crates/sim/tests/deploy_gate/`, `pending_sites_block_no_one`) and reserve their sites against the player's
 //! further placements, which the placement ghost shows red there (`super::ghost`).
 //!
 //! One mesh, under one handle, rebuilt in place only when the sites or the map change. The look, placeholders until

@@ -42,7 +42,7 @@ fn dev_skirmish_layout() {
     let sim = Sim::new(&scenario);
     // Spawns get ascending ids in list order: the west half's patches and the central station, then the patches'
     // images (the station is its own image). Then each player's GDO Starting Layout (`factions/gdo/economy.md >
-    // Starting Conditions`; the layouts are in `game_start.rs`).
+    // Starting Conditions`; the layouts are in `game_start/`).
     let kinds: Vec<_> = sim.objects().map(|o| (o.id, o.kind, o.owner)).collect();
     let mut expected: Vec<_> = (1..=17)
         .map(|i| {

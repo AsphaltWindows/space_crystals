@@ -1,7 +1,7 @@
 //! Unit moves (`systems/controls/behaviors.md > MovingToLocation`, `docs/movement.md > 4–6`): a unit follows its
 //! smoothed path at its top speed, arrives exactly, goes around walls and cliffs, plays queued orders back to back,
 //! sends a group's units to their own destinations, replans when the ground changes, and stays deterministic across
-//! a save and between runs. Units in each other's way are in `movement_collision.rs`. Every `TestSim` checks the invariants
+//! a save and between runs. Units in each other's way are in `movement_collision/`. Every `TestSim` checks the invariants
 //! I1–I7 after each tick (`docs/movement.md > 8`).
 
 use sc_sim::testing::{ScenarioBuilder, TestSim};

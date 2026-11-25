@@ -292,7 +292,7 @@ fn a_plate_destroyed_on_a_depleted_patch_takes_it_along() {
 }
 
 /// Design change 0042's second verification with the mining itself ("A patch mined out in the fog is still routed
-/// around until a unit sees its tile"; `path_knowledge.rs` has it with a debug removal): player 2's plate mines out a
+/// around until a unit sees its tile"; `path_knowledge/` has it with a debug removal): player 2's plate mines out a
 /// map patch of 10 in tick 48 and is removed in tick 50, taking the patch along, which opens the true grid at once.
 /// Player 1, who never saw either, still knows the patch there by its record from the start (design change 0159),
 /// its planning grid blocked, until its Peacekeeper comes in sight of the tile.

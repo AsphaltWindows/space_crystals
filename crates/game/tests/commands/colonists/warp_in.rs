@@ -187,7 +187,7 @@ fn the_bio_portal_turns_about_the_beacon_and_warps_in_where_its_ghost_was() {
 /// confirmed": a unit on a tile of the Robo Portal's ring (design change 0119: units block), red, and a click sends
 /// nothing but says why; once it is gone, the ghost is green and a click warps the Robo Portal in. A tile out of the
 /// player's sight would be red too (design change 0119), but the Beacon's own sight always covers its footprint: the
-/// sim's `a_warp_in_needs_every_tile_visible` (`crates/sim/tests/warp_in.rs`) and the ghost's
+/// sim's `a_warp_in_needs_every_tile_visible` (`crates/sim/tests/warp_in/`) and the ghost's
 /// `a_warp_in_ghost_shows_a_tile_out_of_sight_red` check it.
 #[test]
 fn the_warp_in_ghost_is_red_where_a_unit_stands() {

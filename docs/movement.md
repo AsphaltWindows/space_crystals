@@ -307,7 +307,7 @@ a death in 5e. Each player's known grids are rebuilt at the end of the tick, whe
 changed, so at most once per player and tick; a map resource seen for the first time changes nothing (the same
 footprint, now remembered instead of assumed). During a tick a player's grids are those of the end of the tick
 before: an own structure placed by a command joins them at the end of its tick. **Measured**
-(`tests/nav_perf.rs`, release, 256 × 256): one grid restamped in 0.17 ms on the bad-case map of 5.8 (1.4 ms for
+(`tests/nav_perf/`, release, 256 × 256): one grid restamped in 0.17 ms on the bad-case map of 5.8 (1.4 ms for
 the build it replaces); with 4 players, 412 units (400 on the move) and 160 patches, the tick in which ten
 Generators go in sight of all four players rebuilds 5 sets of grids and takes 1.0 ms in all, the worst tick of
 the units' path checks after it 1.3 ms, against 0.27 ms for the ticks before.
@@ -723,7 +723,7 @@ apart within `18 × (n − 1)` ticks for Drones, 12 each for Peacekeepers.
     earlier, and may be other than at rest only if it is `Stopping`, its `velocity` equals its `momentum` (or the
     momentum is zero: it met an obstacle in this tick), and it is **shorter than the momentum a tick earlier**. So it brakes to a stop and nothing else: one that keeps its speed,
     gains speed or moves while claiming to stand fails, and so does a unit of any other model that has momentum
-    at all (`tests/movement_drag.rs`, from the wrong side).
+    at all (`tests/movement_drag/`, from the wrong side).
   - **I5 and I7, separating**: a unit without a goal may move, and be other than at rest, if it has no command
     and its box overlapped another unit's a tick earlier (6.8).
   - **I1** is unchanged: DragMovement adds no way for two boxes to come to overlap (every position is committed
@@ -756,7 +756,7 @@ apart within `18 × (n − 1)` ticks for Drones, 12 each for Peacekeepers.
   on purpose. `World::lane` has its own unit test. Nav: a group's field costs at most the component; shared smoothing
   gives the waypoints of `smooth`; `open_around` implies `box_clear` and `los`; the cells' marks never miss a heading
   that counts as oncoming.
-  **(M3-G)** DragMovement (`crates/sim/tests/movement_drag.rs`, `movement/drag/tests.rs`): the speed curve from
+  **(M3-G)** DragMovement (`crates/sim/tests/movement_drag/`, `movement/drag/tests.rs`): the speed curve from
   rest and its equilibrium; braking within the bound and an exact landing; a Stop in full flight; a Rugged strip
   at 4 su a tick and back to 8; a wall met at speed takes all its velocity, and the creep along a wall is
   progress for 400 ticks (0035); a teleport; rest within

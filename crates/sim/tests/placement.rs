@@ -1,7 +1,7 @@
 //! Placement validation in games (slice M2-C; `core/entities.md > Placement Validation`): `Sim::placement_check` and
 //! `Sim::build_area` on scenarios whose objects debug commands add, move and remove, and Starting Layouts checked by
 //! `placement::check_layout`. One test per design change and its verification points (0004, 0091 to 0097); the
-//! rules one by one, on the pure check, are in `src/placement/tests.rs`. `TestSim` checks the invariants after every
+//! rules one by one, on the pure check, are in `src/placement/tests/`. `TestSim` checks the invariants after every
 //! tick.
 
 use sc_sim::placement::{Occupant, check_layout};

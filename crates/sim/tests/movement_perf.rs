@@ -5,7 +5,7 @@
 //! cargo test -p sc_sim --release --test movement_perf -- --ignored --nocapture
 //! ```
 //!
-//! The assertions are on the deterministic counters only, never on wall time; `movement_collision.rs` asserts the
+//! The assertions are on the deterministic counters only, never on wall time; `movement_collision/` asserts the
 //! same counters in the normal test run.
 
 use std::time::Duration;
@@ -102,7 +102,7 @@ fn perf_500_units_on_256() {
             t.step();
         });
         let moves = t.sim().move_counters();
-        // `movement_collision.rs` asserts the same bounds in the normal test run.
+        // `movement_collision/` asserts the same bounds in the normal test run.
         assert!(moves.unit_sweeps <= 8 * moves.steered && moves.tile_sweeps <= 8 * moves.steered);
         assert!(moves.pair_tests <= 24 * moves.unit_sweeps);
         if moves.steered >= UNITS * 9 / 10 {

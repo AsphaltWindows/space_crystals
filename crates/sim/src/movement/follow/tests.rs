@@ -1,5 +1,5 @@
 //! One DragMovement unit's ticks against tiles, without a game: the creep of design change 0035 and the stuck
-//! clock. The scenario tests are `crates/sim/tests/movement_drag.rs`.
+//! clock. The scenario tests are `crates/sim/tests/movement_drag/`.
 
 use super::*;
 use crate::map::Map;

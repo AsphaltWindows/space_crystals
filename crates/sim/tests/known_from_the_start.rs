@@ -4,7 +4,7 @@
 //! layouts are never pre-known ("would leak start position and faction"), nor is anything placed after the start.
 //! Elsewhere: a Gather on a map patch never seen, and a patch placed later (`gathering_rules/remembered.rs`); the
 //! Drones' search (`gathering_rules/knowledge.rs`); a never-seen crystal field routed around
-//! (`path_knowledge.rs`); the records themselves (`vision_memory.rs`).
+//! (`path_knowledge/plans.rs`); the records themselves (`vision_memory.rs`).
 //!
 //! Every `TestSim` checks the invariants after each tick, V1 among them (the records are those a fresh build keeps).
 
@@ -56,7 +56,7 @@ fn first_plan(t: &mut TestSim) -> Vec<Vec2> {
 /// Unexplored, its record as of tick 0), and blocks player 1's plans: the first plan goes around it. Player 2's
 /// Deployment Center, of its starting layout, is in no record of player 1's, a target player 1 doesn't know, and
 /// open ground for its plans: the first plan goes straight through (collision still keeps the unit out of it,
-/// `path_knowledge.rs`).
+/// `path_knowledge/collision.rs`).
 #[test]
 fn a_neutral_map_object_is_routed_around_before_it_is_ever_seen_and_an_enemy_dc_is_not() {
     let mut t = scene(ObjectKind::SupplyDeliveryStation, None);

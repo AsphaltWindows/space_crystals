@@ -312,7 +312,7 @@ fn a_deploy_to_mining_drones_takes_the_first_of_them_only() {
 /// `core/entities.md > Placement Validation > Lingering build ghosts`: "Visible to its owner. Enemies never see it":
 /// player 2's Deploy shows no ghost to player 1. Player 1's shows until "construction starts (the real structure
 /// replaces it)": once the Drone begins deploying, it is gone. Units walk over a ghost (`pending_sites_block_no_one`
-/// in `crates/sim/tests/deploy_gate.rs`: the sim's rule, which the client only draws).
+/// in `crates/sim/tests/deploy_gate/`: the sim's rule, which the client only draws).
 #[test]
 fn a_lingering_ghost_is_its_owners_until_the_deployment_starts() {
     let mut app = drone_game();
