@@ -24,3 +24,25 @@
   - the Bevy `Text2d` layout quirk.
 - **M2 complete** at `3d98e29`: J2's final QA merged, with 926 tests, a 24-step walkthrough to VICTORY, clean perf, and `docs/playtest/m2.md`. Next: the M1/M2 playtest with the user, and the M3 planning spike.
 
+
+## 2026-11-24 to 2026-11-25: M3 complete; M4 Syndicate through wave 6 (catch-up entry)
+- **M3 Colonists complete** at `a777ae3` (M3-L5), except 0203, which waits for the Rocketman's MinRange value. See plan.md > Built and `m3-plan.md`.
+- **M4 planned** (`m4-plan.md`, revision 2). The user asked for organized, modular code (0282; "Modules now, data files at playtest"). M4-R1 and M4-R2 reorganized the sim and the client into per-object modules and tuning modules, with no golden moved.
+- **M4 slices merged:**
+  - A `fcd06dc`, D `edc30e11` (Fable), C `f67df212` (Fable), B `35e19634`, I `9aca8972`;
+  - R1 `8eab2290`, R2 `c60b8d0f`, J2 `c5910e4d`, O `356d1a96`, E `4933e094`, H `f456b0ca`;
+  - J1 `dd14dc38`, which with H is **the Syndicate's first playable**;
+  - F `2cbb777e` (wave 5 complete), I2 `4f31587f`, O2 `2e0f31f4`.
+
+  The count is 1685 tests at O2.
+- **Running:** K (prerequisites, the Optics Lab, the Chemical Plant), G (Tunnel upgrades) and L (the Syndicate oracle and goldens, started early). S1's brief is written and launches after K.
+- **The Agents' jam (Q0076).** The user asked for costs (0286, 0287). A Fable investigation found:
+  - two Agents each want the spot the other stands on, so it isn't head-on;
+  - infantry sidestep already exists in the code;
+  - only pass-through reaches 12.5 SC/s at 0–2 GU.
+
+  This went to the Designer as Q0088, with the costs per option. L reports the 0–2 GU rows as blocked until the answer.
+- **Questions filed this stretch:** up to Q0088 (the next is Q0089). Design changes were triaged up to 0293.
+- **Lessons:**
+  - `cd` into a worktree without a subshell moves the session's cwd. It happened three times; use `( cd $WT && ... )` or `git -C`.
+  - The plan helper `setcell` must restore the trailing ` |` when it replaces a row's last cell.
