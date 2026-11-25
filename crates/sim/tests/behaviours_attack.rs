@@ -297,6 +297,35 @@ fn a_queued_attack_on_a_target_that_left_sight_before_its_turn_completes_at_once
     assert_eq!(pos(&t, 1), v(200.0, 700.0), "it stayed where its move ended");
 }
 
+/// (M3-G2) `systems/controls/behaviors.md > MovingToObject > Completion`: when the target dies, "the behavior
+/// completes, and the unit stops where it is". A unit on its walk to where its target was last seen (a move to a
+/// point) stops too when the target leaves the game: the removal path ended the order and left the walk, and the
+/// unit went on to that point without an order (`behaviours_soak`'s seed 17, with the timing of slice M3-G2).
+#[test]
+fn the_walk_to_a_last_seen_position_ends_with_its_target() {
+    let mut t = ScenarioBuilder::new(OPEN).start();
+    t.spawn_unit_at(1, PK, P1, v(200.0, 300.0))
+        .spawn_unit_at(1, GUARD, P2, v(500.0, 300.0))
+        .order_at(2, P1, &[id(1)], OrderKind::Attack(id(2)), false)
+        .order_at(2, P2, &[id(2)], OrderKind::Move(Target::Point(v(2400.0, 300.0))), false);
+    t.run_until(2);
+    while t.sim().is_visible(P1, t.sim().object(id(2)).unwrap()) {
+        assert!(t.sim().tick() < 200, "the Guard never got away");
+        t.step();
+    }
+    // It walks to the last seen position; five ticks on, the Guard is gone.
+    t.run(5);
+    assert_eq!(t.status(1), MoveStatus::Moving);
+    let gone = t.sim().tick() + 1;
+    t.debug_at(gone, sc_sim::DebugCommand::Remove { id: id(2) });
+    t.step();
+    assert!(is_idle(&t, 1), "the order ended with its target");
+    assert_eq!(t.status(1), MoveStatus::Idle, "and its walk with it");
+    let stands = pos(&t, 1);
+    t.run(60);
+    assert_eq!(pos(&t, 1), stands);
+}
+
 /// A corridor one tile (64 su) wide and 26 long, y from 64 to 128: two Guards (36 su) can't pass each other in it.
 /// Tile 14 (x 896 to 960) is Rugged.
 const CORRIDOR: &str = "
@@ -306,8 +335,9 @@ const CORRIDOR: &str = "
 ";
 
 /// `docs/movement.md > 6.5`, rule 2 (queueing): a unit chasing the target of its attack, blocked by a unit of its
-/// owner that stands attacking the same target, keeps waiting: no re-route, no failure, however long the fight
-/// lasts. Two Guards attack a Peacekeeper down a corridor; the second can't get into range past the first, which
+/// owner that stands attacking the same target, keeps waiting: no path request, no failure, however long the fight
+/// lasts. (M3-G2: it looks for a way round the unit ahead, which a corridor doesn't have, and those attempts are
+/// the leg's three; `tests/attack_behind_friends.rs` has the cases with room.) Two Guards attack a Peacekeeper down a corridor; the second can't get into range past the first, which
 /// fights for longer than the 104 ticks after which a stuck move gives up (on Rugged ground the Peacekeeper takes 8 a
 /// hit, 18 × 0.5 − 1: seven hits, one every 24 ticks). When the target is destroyed, both orders complete.
 /// (Auto-targeting is off, so the target doesn't fight back and the scout that sees it doesn't join in.)
@@ -326,6 +356,9 @@ fn an_attacker_queues_behind_its_owners_attackers_of_the_same_target() {
     loop {
         assert!(t.sim().tick() < 600, "the fight never ends\n{}", t.ascii(None));
         t.step();
+        // The order's own two paths are planned in tick 2, and none after it.
+        let planned = t.sim().nav_counters().searches + t.sim().nav_counters().fields;
+        assert!(t.sim().tick() <= 2 || planned == 0, "a path in tick {}", t.sim().tick());
         if t.sim().object(id(3)).is_none() {
             break;
         }
@@ -343,7 +376,11 @@ fn an_attacker_queues_behind_its_owners_attackers_of_the_same_target() {
     assert!(waited > 120, "it queued for {waited} ticks");
     assert!(gap(&t, 1, 2) == 0.0, "still right behind it");
     assert_eq!(attack_ticks(&t, 2), [] as [Tick; 0], "it never got into range");
-    assert_eq!(t.mover(2).repaths_left, sc_sim::mover::MAX_REPATHS, "no re-route");
+    assert_eq!(
+        t.mover(2).repaths_left,
+        0,
+        "it looked for a way round, and there is none"
+    );
     assert!(
         t.events()
             .iter()

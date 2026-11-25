@@ -35,6 +35,7 @@ fn a_unit_going_round_on_its_lean_side_never_steps_back() {
         yields: false,
         gathers: false,
         leads: true,
+        moved: 0,
     };
     // An idle Guard, x 502..538 and y 372..408. A Peacekeeper against its east face heads for a point north-west
     // of it; a head-on contact would make it step south.
@@ -89,6 +90,7 @@ fn a_unit_inside_another_walks_out_unhindered_and_is_blocked_once_apart() {
         yields: false,
         gathers: false,
         leads: true,
+        moved: 0,
     };
     let guard = body(2, Vec2::new(520.0, 390.0), 18.0);
     let mut pos = Vec2::new(514.0, 392.0);

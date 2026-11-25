@@ -46,6 +46,10 @@ pub(crate) struct Body {
     /// (M3-H2) Whether those waiting behind it share its `progress` (`super::stuck::leads`): it has got on since
     /// its leg began.
     pub leads: bool,
+    /// (M3-G2) `Mover::last_progress`, whether or not the unit is on its way: for one that stands, about when it
+    /// got there (its last leg's latest progress, or the tick that leg began). A unit queueing behind it reads
+    /// from it whether it came to stand in its way since its last attempt at a way round (`super::stuck`).
+    pub moved: Tick,
 }
 
 /// `docs/movement.md > 6.1`: whether `other` is an obstacle for `mover`, both of one layer, for the move `mover`

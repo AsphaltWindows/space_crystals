@@ -365,6 +365,7 @@ mod tests {
             yields: true,
             gathers: false,
             leads: true,
+            moved: 0,
         };
         let (p1, p2) = (Some(PlayerId(1)), Some(PlayerId(2)));
         assert!(yields_to(&body(p1, None), p1, Some(3)));
@@ -377,6 +378,7 @@ mod tests {
             yields: false,
             gathers: false,
             leads: true,
+            moved: 0,
             ..body(p1, None)
         };
         assert!(!yields_to(&busy, p1, None));

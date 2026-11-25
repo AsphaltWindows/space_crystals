@@ -309,9 +309,13 @@ fn an_attack_move_takes_shielded_peacekeepers_past_the_enemies() {
     let events = run_collecting(&mut app, 450);
     assert!(!fired(&events, &GUARDS).is_empty(), "the Guards fight");
     assert!(fired(&events, &PKS).is_empty(), "the Peacekeepers never fire");
+    // The last one in may find the others of its order standing in its way, and has then arrived where they
+    // stopped it, within the 3 grid units of design change 0183. (Since slice M3-G2 the Guards go round each other
+    // in their fight, and the fourth Peacekeeper comes in behind the third: it stands 76 su from its place.)
+    let radius = sc_sim::gu(sc_sim::mover::OCCUPIED_ARRIVAL_GU);
     for (id, destination) in PKS.iter().zip(destinations) {
         assert_eq!(object_orders(&app, *id).current, None, "{id} arrived");
         let distance = pos(&app, *id).distance(destination);
-        assert!(distance < 30.0, "{id} at its destination: {distance}");
+        assert!(distance < radius, "{id} at its destination: {distance}");
     }
 }

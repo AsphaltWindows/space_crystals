@@ -83,6 +83,7 @@ fn the_sectors_against_a_direction_hold_every_heading_against_it() {
         yields,
         gathers: false,
         leads: true,
+        moved: 0,
     };
     let (mut against, mut others) = (0, 0);
     for _ in 0..20_000 {
@@ -161,6 +162,7 @@ fn body(id: u32, pos: Vec2, half: f32, gathers: bool) -> Body {
         yields: false,
         gathers,
         leads: true,
+        moved: 0,
     }
 }
 

@@ -212,10 +212,21 @@ pub struct Mover {
     /// are as they were.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub exit_heading: Option<Vec2>,
+    /// (M3-G2) The end of a detour round a row of standing units (`movement::round`, [`Mover::go_round`]): the
+    /// index into `path` just after its last waypoint, 0 without one. The waypoints before it lead round units,
+    /// which are in no grid, so the staggered check doesn't skip them for a later waypoint the tiles let it see
+    /// (`paths::checks`). Cleared when the unit is past them, and with every new path. Left out of files and of
+    /// the hash while 0 (`mover/hash.rs`), so that states without such a detour are as they were.
+    #[serde(default, skip_serializing_if = "is_zero_index")]
+    pub detour_end: u16,
 }
 
 fn is_zero(v: &Vec2) -> bool {
     *v == Vec2::ZERO
+}
+
+fn is_zero_index(index: &u16) -> bool {
+    *index == 0
 }
 
 impl Default for Mover {
@@ -247,6 +258,7 @@ impl Default for Mover {
             exit: None,
             momentum: Vec2::ZERO,
             exit_heading: None,
+            detour_end: 0,
         }
     }
 }
@@ -298,6 +310,7 @@ impl Mover {
         // Head for the first waypoint after the start.
         self.next = u16::from(path.len() > 1);
         self.path = path;
+        self.detour_end = 0;
         self.path_state = PathState::Ready;
         self.nav_version = nav_version;
         self.planned_target = planned_target;
@@ -351,6 +364,7 @@ impl Mover {
     fn clear_path(&mut self) {
         self.path.clear();
         self.next = 0;
+        self.detour_end = 0;
         self.path_state = PathState::None;
     }
 }
