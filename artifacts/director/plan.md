@@ -870,15 +870,37 @@ Approach: thin vertical slices the user can run and see, each verified by tests 
     - The rule is gated by `design_citations/rule.rs`: a relative `> Section` only inside a module whose doc names one design file, and no bare design file names. It has no false positives.
     - 1548 tests.
 
+- **M4-J2 Tunnel and Hideout UI** (Opus; merged in `c5910e4d`; 1561 tests; client only, plus the EjectMenu's order as sim data; goldens unchanged):
+  - **The Tunnel's panel** (0257): Q Upgrade and W Expand greyed "Not available yet" until G and F; E opens the EjectMenu; X Cancel greyed "Nothing to cancel". No right-click.
+  - **The EjectMenu:**
+    - one tile per kind in `defs::EJECT_MENU_ORDER` (Agent, Guard; U adds the Grenadier), in grid order, with Z back;
+    - each tile shows how many are in the network and not yet queued;
+    - a tile is greyed with the gate's reason: none inside, all in transit (Q0077), or the tier too low;
+    - a click ejects the oldest, and the menu stays open;
+    - Z, Escape and right-click go back.
+  - **The Hideout's panel:**
+    - Q trains the Agent.
+    - W Guard is greyed "Requires an Optics Lab", and E Grenadier "Requires a Chemical Plant". Both are `Planned` entries (`templates/planned.rs`); K and U replace them in `templates/syndicate/hideout.rs`.
+    - X cancels; C sets the rally.
+  - **The Tunnel Area overlay** (`placement/tunnel_areas.rs`, through the shared `overlay::tint_area`):
+    - own areas at their current tier;
+    - enemy areas at their live tier, or their last-seen tier;
+    - never an unknown Tunnel, an unexplored tile or an off-map tile.
+
+    It shows while an own Tunnel is the active group (placeholder, Q0086).
+  - **Held units** leave the selection and stay in their control groups. Recalling an all-held group changes nothing, as with an empty group (placeholder, Q0086).
+  - **0252 on the client:** a rally on a Hideout puts the unit over it; a rally on a Tunnel keeps the unit inside.
+  - **Open:**
+    - Q0086: the EjectMenu's order (`units/README.md > Files` contradicts 0257), its zero-count tiles, staying open, when areas are drawn, and all-held groups.
+    - The greyed reasons' wording is a placeholder.
+    - A rally on an expansion still shows the object marker.
+
 ## In progress
   - **M4-E Agent-built Tunnels** (Opus): the kind-generic Build order (T51), paid at the ghost with top-price refunds (0233), the site (0234), placement against every player's areas (0237), drillable and on the map (0242), over hidden expansions (0240), and sites left out of "operational".
-  - **M4-J2 Tunnel and Hideout UI** (Opus): the panel letters (0257), the EjectMenu, the area overlay, the network's contents, held units in selection and groups, and rallies (0252, 0253).
   - **M4-O Combat spike** (Opus): projectiles (T45), area damage built once (T46; 0262, 0264), Attack Ground (T47), reveals (T48) and drawing (T52); Q0083's placeholders.
-- **M3 waves 2 and 3** (common brief `scratchpad/briefs/m3-common.md`; status `m3-w2-status.md`):
 - **Next**:
+  - **M4 wave 5:** J1, H and F, once E lands. The first playable comes after J1 and H.
   - **Playtest:** the user plays once all four factions are built (2026-11-24), using `docs/playtest/m2.md`, `m3.md` and later notes. This replaces separate M1–M3 playtests.
-  - **M4 Syndicate:** the plan is adopted (`artifacts/director/m4-plan.md`). M4-A is running, and every later slice waits for it.
-  - **The Move-onto-itself bug** is being fixed in M3-R (0168).
 
 ## M1 plan (from the movement spike; the approved design is in `docs/movement.md`)
 The spike gaps went to the Designer as Q0007–Q0011. Until they're answered, the defaults from the doc apply.
@@ -1051,7 +1073,7 @@ The user keeps feeding unit and other designs to the Designer, so expect increme
     - N7: the Specter.
   - **Questions:**
     - Q0059–Q0071 are all answered, by 0229–0267.
-    - Q0076–Q0085 are open. Q0076, the Agents' jam near the hatch, partly blocks L's oracle; the others don't block, and their slices build the proposals.
+    - Q0076–Q0086 are open. Q0076, the Agents' jam near the hatch, partly blocks L's oracle; the others don't block, and their slices build the proposals.
   - **Slice status:**
     - A: done (`fcd06dc`).
     - C: done (`f67df212`; Q0077).
@@ -1060,7 +1082,8 @@ The user keeps feeding unit and other designs to the Designer, so expect increme
     - R1 (sim): done (`8eab2290`).
     - R2 (client, docs, citation test): done (`c60b8d0f`, and the citation pass `06d82614`).
     - B: done (`35e19634`).
-    - E, J2 and O: running (wave 4, Opus; briefs `scratchpad/briefs/m4e-agent-built-tunnels.md`, `m4j2-tunnel-hideout-ui.md` and `m4o-combat-spike.md`).
+    - J2: done (`c5910e4d`; Q0086).
+    - E and O: running (wave 4, Opus; briefs `scratchpad/briefs/m4e-agent-built-tunnels.md` and `m4o-combat-spike.md`).
     - The rest are queued in the waves above.
   - **Earlier scope note:** tunnels, Hideout, Agent, Guard economy, 0186's Optics Lab gate and Agent pistol, the Grenadier (0187) and the Assault Bike (0188), once their numbers exist. Underground expansions are exempt from the flatness rule (0005).
 - **M5 Cults**: Recruitment Hall, Storage, Recruit, Armory, Soldier, Gunner.
@@ -1172,6 +1195,7 @@ The user keeps feeding unit and other designs to the Designer, so expect increme
 | Q0083 | Area damage: friendly fire, the reveal, Attack Ground's end, how grenades are drawn | no | open; M4-O and M4-U build the proposals |
 | Q0084 | Laser Turret: hidden when, sight, blocking, payment, refunds, sites, the Agent's exit, targeting | no | open; M4-S1 and M4-S2 build the proposals |
 | Q0085 | Stale doc lines that later answers contradict (seven lines) | no | open; the newer answer wins |
+| Q0086 | The EjectMenu's order, zero-count tiles and state after a click; when Tunnel Areas are drawn; recalling an all-held group | no | open; as built in M4-J2 |
 
 ## Design change entries
 Last triaged: 0282.
@@ -1404,12 +1428,12 @@ Last triaged: 0282.
 | 0249 Inside the network: orders cleared, control groups and loads kept, slow HP regeneration; a Tunnel being upgraded keeps its old tier for entry and exit until it completes | done (M4-C, `f67df212`); the upgrade case waits for G | Q0063 complete (0245–0249) |
 | 0250 Ejection: ground units walk out single file, gated on the exit spot being clear; air doors have their own rate (8 frames) | done for ground units (M4-C, `f67df212`); the air doors wait for the first Syndicate air unit | answers Q0064 points 1, 2, 4, 10 and 11 |
 | 0251 Ejection: the longest-inside unit goes first; queue rules; air doors on the roof over the matching path halves; Vault and Null Chamber limits noted | done for ground units (M4-C, `f67df212`); the air doors wait for the first Syndicate air unit | answers Q0064 points 3, 4 and 11 |
-| 0252 Syndicate rallies: a rally on a Tunnel stays inside; one on an expansion means the surface spot above it | done (M4-C, `f67df212`) | answers Q0064 points 5–7 |
+| 0252 Syndicate rallies: a rally on a Tunnel stays inside; one on an expansion means the surface spot above it | done (M4-C, `f67df212`; client tests M4-J2, `c5910e4d`) | answers Q0064 points 5–7 |
 | 0253 Auto-ejected units share the exit queue | done (M4-C, `f67df212`) | Q0064 complete (0250–0253) |
 | 0254 Expansions under construction, as proposed, except the 75% refund on cancel | partly done (M4-A, `fcd06dc`: the Hideout's sight 0 and Groupable); queued (M4-F) | answers Q0065 |
 | 0255 Agent gathering: the Drone's rules, the nearest Tunnel, the 1-square hatch as the drop-off target, and Agents wait at the hatch for ever. The Drones' placeholder (retry every 2 s, never give up) is the settled rule | done (M4-D, `edc30e11`); patches 0–1 GU from the hatch jam with 3+ Agents (Q0076) | answers Q0066; confirms Q0065 point 4 (an expansion's cells are reserved from construction start) |
 | 0256 Supplies gathering: shared stations, waiting at an empty station, switching resources loses the load; the notification waits for a notification system | done (M4-I, `9aca8972`); Q0082's three proposals as placeholders | answers Q0067 |
-| 0257 Syndicate panel letters on the 4x3 grid | queued (M4-J1, M4-J2) | answers Q0068, as proposed |
+| 0257 Syndicate panel letters on the 4x3 grid | partly done (M4-J2, `c5910e4d`: the Tunnel's and the Hideout's panels, and the EjectMenu); queued (M4-J1 the Agent, M4-F the ExpandMenu, M4-G the upgrade) | answers Q0068, as proposed |
 | 0258 Losing Tunnels: decay %, attacking neutral expansions, reclaiming, blocked cells (counted as occupied), defeat, and the enemy sees the tier | partly done (M4-A, `fcd06dc`: the tier seen and remembered); queued (M4-H) | answers Q0069 |
 | 0259 The Syndicate economy check: measured to the hatch square; the stacked layout puts the Tunnels on opposite sides | queued (M4-L); the stacked layout is in M4-D's soak | answers Q0070 |
 | 0260 Placeholders for the Laser Turret, the Grenadier and the Chemical Plant, so they can be planned into M4; the Grenadier needs a projectile, AoE and Attack Ground combat spike | queued (planned in M4 revision 2: O the combat spike, U the Grenadier, S1 and S2 the Laser Turret, K the Chemical Plant) | answers Q0071 (scope B) |
