@@ -969,7 +969,7 @@ The user keeps feeding unit and other designs to the Designer, so expect increme
 | Q0059 | Optics Lab: placeholder stats | yes | answered by 0229 (placeholders; unblocks M4-K) |
 | Q0060 | Tunnel upgrade: duration, HP and payment | yes | answered by 0229, 0231 and 0232 (unblocks M4-G) |
 | Q0061 | Agent-built Tunnels: payment, ownership and the site | no | answered: points 1–2 by 0233, points 3–5 and 7–9 by 0234; point 6 moot |
-| Q0062 | Tunnel Areas and the two layers | no | points 1, 2, 3a, 3b and 3e answered by 0237–0239; 3c, 3d, 4 and 5 open |
+| Q0062 | Tunnel Areas and the two layers | no | points 1, 2, 3a–3c, 3e and 4 answered by 0237–0240; 3d and 5 open |
 | Q0063 | The Tunnel Network: transit, entering single file, and units inside | no | open; M4 builds the proposals |
 | Q0064 | Ejection and production out of the network | no | open; M4 builds the proposals |
 | Q0065 | Expansions under construction | no | open; M4 builds the proposals |
@@ -985,7 +985,7 @@ The user keeps feeding unit and other designs to the Designer, so expect increme
 | Q0075 | A revealed attacker shooting at a target the player can't see: draw the shot whole (literal 0206) or clip it? | no | open; A as built (M3-J3) |
 
 ## Design change entries
-Last triaged: 0239.
+Last triaged: 0240.
 
 | Entry | Status | Notes |
 |---|---|---|
@@ -1203,4 +1203,5 @@ Last triaged: 0239.
 | 0237 Tunnel Areas may not overlap any player's Tunnels: crowding and blocking an enemy's Tunnels is allowed. The ghost judges known enemy Tunnels at their remembered position and tier; the check on arrival and upgrade checks use the truth | queued (M4-E, M4-G) | answers Q0062 point 1; replaces the own-Tunnels-only proposal |
 | 0238 A Tunnel Area's cells past the map edge count for Tunnel Space; expansions are placed on map cells only | queued (M4-B, M4-F) | answers Q0062 point 2 |
 | 0239 Every tile under an expansion must be Drillable (Plane, Rugged and Cliff; not Mountain or Water); own and neutral underground structures and the Tunnel's footprint block it | queued (M4-F) | answers Q0062 points 3a, 3b and 3e, as proposed |
+| 0240 Surface buildings and underground expansions never share a tile, whatever the owner (neutral included). A direct placement (GDO) over a hidden expansion is red at once, an accepted leak. A worker-built ghost judges by what the player knows and fails on the worker's arrival. Units still walk over expansions | queued (M4-E for surface placement: direct placement and the check on arrival read the underground truth; M4-F for expansions: none under a surface building) | answers Q0062 points 3c and 4; replaces T32's "the surface methods ignore them" |
 | 0014 GDO Airfield and aircraft | queued (Later: air) | |

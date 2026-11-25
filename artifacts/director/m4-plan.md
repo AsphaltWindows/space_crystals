@@ -1463,3 +1463,8 @@ Quote these in the slice briefs.
   - Upgrade checks use the truth, and any Tunnel's area blocks them.
 - **0238** (Q0062 point 2, for B and F): Tunnel Space counts the whole area square, cells past the map edge included. Expansions can be placed on map cells only.
 - **0239** (Q0062 points 3a, 3b and 3e, for F): every tile under an expansion must be Drillable. Plane, Rugged and Cliff are; Mountain and Water aren't. Own and neutral underground structures, and the Tunnel's own footprint, block it, as proposed.
+- **0240** (Q0062 points 3c and 4, for E and F): surface buildings and underground expansions never share a tile, whatever the owner, neutral included. Units still walk over expansions. This replaces T32's "the surface methods ignore them".
+  - **E: surface placement reads the underground truth.**
+    - A direct placement (GDO) over a hidden expansion is red at once. The leak is accepted.
+    - A worker-built ghost (the Deploy pattern, Agent-built Tunnels) judges by what the player knows, so it stays green, and the order fails on the worker's arrival.
+  - **F:** no expansion under a surface building.
