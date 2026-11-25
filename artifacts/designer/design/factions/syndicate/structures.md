@@ -197,7 +197,7 @@ Syndicate production building that assembles Syndicate aviation and orbital forc
 #### Tier Requirement - 3
 #### TechPrerequisite - player owns at least one Forge (anywhere in the Tunnel Network)
 
-Produces (2026-11-25): **Phantom** (requires an Optics Lab) (factions/syndicate/units.md).
+Produces (2026-11-25): **Phantom** (requires an Optics Lab), **Bomber** (name TBD) (factions/syndicate/units.md).
 
 (Full stats TBD)
 

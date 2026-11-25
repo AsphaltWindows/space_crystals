@@ -407,3 +407,21 @@ TBD: capacity (and whether it counts each infantry unit's TunnelSpaceCost); burr
 
 TBD: all numbers (HP, armor, sight, speed and handling, TunnelSpaceCost, damage, range, timings, cost, build time); hotkeys.
 
+## Bomber (name TBD)
+(user, 2026-11-25) Syndicate **bomber** carrying a **single payload**. It flies as a **Glider** (must keep moving), but **lifts off and lands vertically** through a Tier 3 Tunnel's air doors (factions/syndicate/tunnels.md > Tunnel > Look by tier).
+
+### Entity Type - Unit
+### Faction - TheSyndicate
+### UnitBase - Glider (with vertical lift-off and landing at the Tunnel air doors)
+### Produced at - Aerospace Assembly
+
+### Attack
+- **A single payload**: one bomb per sortie (how it is re-armed: TBD).
+- **AoE damage**.
+- On a **turret with very low range**: it must be nearly over its target.
+- **Can miss**: the bomb falls to a locked location, so targets can dodge (DoublyDisjointed, assumed). The **projectile travel time is relatively high**, almost all of it the **vertical fall**.
+- Like every attack that can miss, it can **Attack Ground** (systems/combat.md > AttackType > CanTargetGround).
+- TargetDomain: Ground (assumed: a falling bomb).
+
+TBD: name; tech prerequisite; re-arming; the lift-off/landing transition; all numbers.
+
