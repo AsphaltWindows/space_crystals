@@ -852,8 +852,23 @@ Approach: thin vertical slices the user can run and see, each verified by tests 
   - **Perf:** `drones_perf` and `nav_perf` are unchanged in 12 interleaved ABBA runs per side, and the counters match.
   - **The client:** 7 `use` lines in 6 files.
 
+- **M4-R2 Code organization, the client and docs** (Opus; merged in `c60b8d0f`; 1546 tests; QA screenshots byte-identical; 131 files):
+  - **The citation test,** `crates/sim/tests/design_citations.rs`. It fails, naming file and line, on any cited design or `docs/` path that doesn't exist, with a planted-path test. An ignored report lists cited sections that aren't headings. It passes on the whole repository.
+  - **Client kinds.** `kinds.rs` and `kinds/<faction>/<object>.rs` (label, `Look`, `ShotStyle`, `PanelTemplate`), behind the exhaustive `kinds::of`. The panels are in `command_ui/interface/templates/<faction>/<object>.rs`, and 10 kind matches are gone.
+  - **Splits:**
+    - `templates.rs`, `hud/selection_panel.rs`, `command_ui/indicators.rs`, `object_render.rs` and `combat_effects.rs`;
+    - then `fog.rs` (→ `fog/{sight,layer}.rs`) and `editor/objects.rs`.
+    - No client file is over 500 lines.
+  - **Client tuning:** `crates/game/src/tuning/{camera,input,feedback}.rs`. The editor's limits stay where they are, with placeholder notes.
+  - **ARCHITECTURE.md:**
+    - "Adding a unit or structure", "Tunables" and "Client architecture > Kinds";
+    - R1's sim layout;
+    - one citation rule: full paths, with a relative `> Section` only inside a module whose doc names its design file.
+  - **Citations:** 0 stale. The relative and bare-name citations in ARCHITECTURE.md and `docs/` are written out in full: 54, 10 of which pointed at the wrong file.
+  - **A follow-up pass is running** in the same worktree, comments only: the remaining ~630 relative citations in modules that name several design files or none, and the rule gated if that's reliable.
+
 ## In progress
-  - **M4-R2 Code organization, the client and docs** (Opus; brief `scratchpad/briefs/m4r2-client-docs-organization.md`): the citation test, per-kind client modules, client splits, client tuning, and the citations in the client, `docs/` and `ARCHITECTURE.md`. Merges after R1.
+  - **M4-R2 follow-up: citations in full** (Opus; same worktree): comments only, before wave 4.
 - **M3 waves 2 and 3** (common brief `scratchpad/briefs/m3-common.md`; status `m3-w2-status.md`):
 - **Next**:
   - **Playtest:** the user plays once all four factions are built (2026-11-24), using `docs/playtest/m2.md`, `m3.md` and later notes. This replaces separate M1–M3 playtests.
@@ -1038,7 +1053,7 @@ The user keeps feeding unit and other designs to the Designer, so expect increme
     - D: done (`edc30e11`; Q0076).
     - I: done (`9aca8972`).
     - R1 (sim): done (`8eab2290`).
-    - R2 (client, docs, citation test): merging R1. It drops the citation test's temporary allowance and updates ARCHITECTURE.md's sim sections.
+    - R2 (client, docs, citation test): done (`c60b8d0f`). A comments-only citation pass runs before wave 4.
     - B: done (`35e19634`).
     - The rest are queued in the waves above. E, J2 and O come next, after R1 and R2. Their briefs are ready: `scratchpad/briefs/m4e-agent-built-tunnels.md`, `m4j2-tunnel-hideout-ui.md` and `m4o-combat-spike.md`.
   - **Earlier scope note:** tunnels, Hideout, Agent, Guard economy, 0186's Optics Lab gate and Agent pistol, the Grenadier (0187) and the Assault Bike (0188), once their numbers exist. Underground expansions are exempt from the flatness rule (0005).
@@ -1413,5 +1428,5 @@ Last triaged: 0282.
 | 0279 Relay: every selected Battery must reach a Satellite; the armed Satellite takes Attack orders | gated (concept only) | — |
 | 0280 Satellite thrust charges never recharge; the armed Satellite fires at anything the player sees | gated (concept only) | — |
 | 0281 The satellite is named Prism; it can be shot down while launching | gated (concept only) | — |
-| 0282 The design docs are reorganized into one file per unit and per structure (`factions/<f>/units/*.md`, `structures/*.md`, shared sections in each folder's README); no design content changed. From the user: keep the code organized and modular too: per-object definitions, data and tunables apart from logic, shared mechanics written once | queued (M4-R1 and M4-R2, after I lands; briefs ready). Slices since then cite the per-object paths | — |
+| 0282 The design docs are reorganized into one file per unit and per structure (`factions/<f>/units/*.md`, `structures/*.md`, shared sections in each folder's README); no design content changed. From the user: keep the code organized and modular too: per-object definitions, data and tunables apart from logic, shared mechanics written once | done (M4-R1 `8eab2290`, M4-R2 `c60b8d0f`): per-object defs and client kinds, tuning modules, serde-ready defs, 0 stale citations, gated by a test | — |
 | 0014 GDO Airfield and aircraft | queued (Later: air) | |
