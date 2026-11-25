@@ -28,10 +28,12 @@
 //! - **Range** (`> Range Measurement`, design change 0031): edge to edge, the gap between the attacker's shape and
 //!   the target's (`shape`); [`reaches`] is the one check.
 //!
-//! - **Riot Shield** (`factions/gdo/units.md > Peacekeeper > Riot Shield`, `riot_shield`): a unit whose shield isn't
-//!   all the way down can't attack (design change 0171). Its behaviours engage nothing then; whatever is still engaged
-//!   is dropped here, which cancels an aim, while Firing and Cooldown run on, and a reload keeps counting. Its shield
-//!   all the way up halves the hits against it before armour ([`pre_armor_multiplier`]).
+//! - **Riot Shield** (`factions/gdo/units.md > Peacekeeper > Riot Shield`, `riot_shield`): only a Peacekeeper whose
+//!   shield is all the way down attacks (`riot_shield::allows_attack`): one whose shield is up or on its way (design
+//!   change 0171), or whose raise waits for its shot (design change 0198), doesn't. Its behaviours engage nothing
+//!   then; whatever is still engaged is dropped here, which cancels an aim, while Firing and Cooldown run on, and a
+//!   reload keeps counting. Its shield all the way up halves the hits against it before armour
+//!   ([`pre_armor_multiplier`]).
 //!
 //! - **Weapon Conversion** (`factions/colonists/units.md > Weapon Conversion`, `crate::conversion`): a unit fights
 //!   with the weapon of the form it has ([`weapon`]), which isn't its type while a conversion is pending (design change

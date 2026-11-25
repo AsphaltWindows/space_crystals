@@ -58,7 +58,7 @@
 
 use std::collections::BTreeMap;
 
-use serde::{Deserialize, Serialize};
+use serde::{Deserialize, Deserializer, Serialize};
 
 use crate::combat;
 use crate::defs::ObjectKind;
@@ -203,6 +203,26 @@ fn finish(o: &mut Object) {
     if let Some(mover) = &mut o.mover {
         mover.speed_factor = Mover::default().speed_factor;
     }
+}
+
+/// `Object::conversion` as a file has it. A state saved before design change 0198 has a conversion under way as its
+/// frames left alone (`{"left": 2}`), its unit's type then being the form it converted from: it loads as none, the
+/// unit keeping that form, and its press is lost (a save in the 4 frames of a conversion; its other change, a Convert
+/// or a raise waiting for a shot in the attack's `pending`, which files no longer have, is lost alike).
+pub(crate) fn saved<'de, D: Deserializer<'de>>(deserializer: D) -> Result<Option<Conversion>, D::Error> {
+    #[derive(Deserialize)]
+    #[serde(untagged)]
+    enum Saved {
+        Now(Conversion),
+        Before {
+            #[serde(rename = "left")]
+            _left: u32,
+        },
+    }
+    Ok(match Option::<Saved>::deserialize(deserializer)? {
+        Some(Saved::Now(conversion)) => Some(conversion),
+        Some(Saved::Before { .. }) | None => None,
+    })
 }
 
 impl StateHash for Conversion {

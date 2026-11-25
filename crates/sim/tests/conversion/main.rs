@@ -371,3 +371,21 @@ fn conversions_go_on_alike_after_a_save_and_in_a_replay() {
     let replay: Replay = serde_json::from_str(&serde_json::to_string(t.replay()).unwrap()).unwrap();
     assert_eq!(replay.run().state_hash(), t.sim().state_hash());
 }
+
+/// A state saved before design change 0198 had a conversion under way as its frames left alone, its unit's type
+/// being the form it converted from: it loads without it, the unit keeping that form (`conversion::saved`), and plays
+/// on.
+#[test]
+fn a_conversion_saved_before_the_target_form_loads_as_none() {
+    let mut t = builder().spawn(SABRE, Some(P1), point(200.0, 192.0)).start();
+    t.run_until(2);
+    let mut loaded = edited(t.sim(), 1, "conversion", serde_json::json!({ "left": 2 }));
+    assert_eq!((object(&loaded, 1).kind, object(&loaded, 1).conversion), (SABRE, None));
+    assert_eq!(loaded.state_hash(), t.sim().state_hash());
+    step(&mut loaded, vec![convert(&[1])]);
+    assert_eq!(
+        object(&loaded, 1).kind,
+        ObjectKind::RifleLegionnaire,
+        "a press goes on as ever"
+    );
+}
