@@ -1,12 +1,16 @@
 //! Units' placeholder visuals (until the art direction, Q0001, settles them; `ARCHITECTURE.md > Client architecture >
 //! Visuals`): a shape of its own per kind, its silhouette's size, in its owner's colour, with a tick showing its
-//! facing. A body turns with its facing only if it is round ([`body_turns`]); the Colonists' units carry a two-letter
-//! tag of their type ([`UnitTag`]). A Peacekeeper's raised Riot Shield is a pale arc in front of it
-//! ([`riot_shield_mesh`]), the Peacekeeper (Shielded)'s too: the two types share their body (design change 0173).
+//! facing. A body turns with its facing only if it is round ([`body_turns`]); the Colonists' units and the
+//! Peacekeepers carry a two-letter tag of their type ([`UnitTag`]), drawn above the command indicators and upright.
+//! A Peacekeeper's raised Riot Shield is a pale arc in front of it ([`riot_shield_mesh`]), the Peacekeeper
+//! (Shielded)'s too: the two types share their body (design change 0173).
 
 use bevy::prelude::*;
 use sc_sim::{ObjectId, ObjectKind};
 
+use super::ObjectVisual;
+use crate::command_ui::indicators::INDICATORS_Z;
+use crate::coords::DrawLayer;
 use crate::hud::selection_panel::short_label;
 use crate::shapes::{ColorMesh, darken};
 
@@ -35,25 +39,42 @@ pub(super) fn body_turns(kind: ObjectKind) -> bool {
     shape(kind) == UnitShape::Round
 }
 
-/// Whether a `kind` unit carries its type's tag ([`UnitTag`]): the Colonists' units. The Legionnaire's two forms
-/// share one silhouette (`factions/colonists/units.md > Weapon Conversion`), and a square is the Guard's too.
+/// Whether a `kind` unit carries its type's tag ([`UnitTag`]): the Colonists' units, and the Peacekeeper's two types
+/// (slice M3-J3: M3-K2's walkthrough found the Peacekeepers unlabelled on the map). The Legionnaire's two forms share
+/// one silhouette (`factions/colonists/units.md > Weapon Conversion`), as the Peacekeeper's two types share their
+/// body (design change 0173); a square is the Guard's too, which goes without.
 pub(super) fn tagged(kind: ObjectKind) -> bool {
     matches!(
         kind,
-        ObjectKind::Drone | ObjectKind::SabreLegionnaire | ObjectKind::RifleLegionnaire
+        ObjectKind::Drone
+            | ObjectKind::SabreLegionnaire
+            | ObjectKind::RifleLegionnaire
+            | ObjectKind::Peacekeeper
+            | ObjectKind::PeacekeeperShielded
     )
 }
 
-/// The tag of a unit's visual ([`tagged`]): a child of the visual, which the fog hides with it, and which stays
-/// upright on a body that doesn't turn.
+/// The tag of a unit's visual ([`tagged`]): a child of the visual, which the fog hides with it. It is drawn above the
+/// command indicators ([`tag_z`]) and stays upright, on a body that turns too ([`upright_tags`]).
 #[derive(Component, Copy, Clone, Debug, PartialEq, Eq)]
 pub struct UnitTag(pub ObjectId);
 
-/// The tag's text height, space units: two letters inside a 36-su body.
+/// The tag's text height, space units: two letters inside a 36-su body, and across most of a Peacekeeper's 24.
 const TAG_SU: f32 = 14.0;
 const TAG_COLOR: Color = Color::srgb(0.97, 0.97, 0.94);
+/// How far above the command indicators a tag is drawn (at its unit's ground y), in the overlays layer.
+const TAG_OVER_INDICATORS: f32 = 0.1;
 
-/// The tag of object `id`, a `kind` unit: its type's short label ([`short_label`]), over the body and its tick.
+/// A tag's z over its visual's: up into the overlays layer, just above the command indicators
+/// (`command_ui::indicators::INDICATORS_Z`), y-sorted as its unit is (slice M3-J3: M3-K2's walkthrough found the
+/// Bio Portal's rally marker, where its Rifle Legionnaire stood, hiding the unit's tag). So a marker on a unit never
+/// hides its tag; the tags draw above every unit's body, the combat effects too further south. A structure's tag
+/// stays with its structure, under the units that cross it (`super::structures`).
+fn tag_z() -> f32 {
+    DrawLayer::Overlays.base_z() - DrawLayer::GroundUnits.base_z() + INDICATORS_Z + TAG_OVER_INDICATORS
+}
+
+/// The tag of object `id`, a `kind` unit: its type's short label ([`short_label`]), above the indicators ([`tag_z`]).
 pub(super) fn tag(id: ObjectId, kind: ObjectKind) -> impl Bundle {
     (
         Name::new("Unit tag"),
@@ -61,8 +82,23 @@ pub(super) fn tag(id: ObjectId, kind: ObjectKind) -> impl Bundle {
         Text2d::new(short_label(kind)),
         TextFont::from_font_size(FontSize::Px(TAG_SU)),
         TextColor(TAG_COLOR),
-        Transform::from_xyz(0.0, 0.0, 0.003),
+        Transform::from_xyz(0.0, 0.0, tag_z()),
     )
+}
+
+/// Keeps every tag upright: its rotation undoes its visual's, which turns with a round body's facing (a Peacekeeper's,
+/// [`body_turns`]) and is none otherwise. After the visuals are placed (`super::place_object_visuals`).
+pub(super) fn upright_tags(
+    visuals: Query<&Transform, (With<ObjectVisual>, Without<UnitTag>)>,
+    mut tags: Query<(&ChildOf, &mut Transform), With<UnitTag>>,
+) {
+    for (parent, mut transform) in &mut tags {
+        let Ok(visual) = visuals.get(parent.parent()) else {
+            continue;
+        };
+        let upright = Transform::from_xyz(0.0, 0.0, tag_z()).with_rotation(visual.rotation.inverse());
+        transform.set_if_neq(upright);
+    }
 }
 
 /// A unit (placeholders until Q0001 settles the art): its silhouette's size in a shape of its own ([`shape`]), filled

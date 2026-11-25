@@ -3,13 +3,22 @@
 //! **last-known position**. [...] Nothing about the real state leaks: the cursor, the command and any rally marker
 //! treat the remembered object as present until the player sees otherwise." The sim's [`TargetView`]
 //! (`sc_sim::targets`), through a [`Sight`], so that it agrees with what the world view draws: the object itself
-//! while the sight shows it, the record drawn in its place while the player remembers it (slice M3-K2a).
+//! while the sight shows it, the record drawn in its place while the player remembers it (slice M3-K2a). And whether
+//! an attacker is revealed to the player ([`Sight::reveals`]), whose shots are then drawn whole (design change 0206).
 
 use sc_sim::{ObjectId, Sim, TargetView};
 
 use super::Sight;
 
 impl Sight<'_> {
+    /// Whether attacker `id` is revealed to the player (`core/vision.md > Attacks from outside vision`,
+    /// `sc_sim::vision::reveal`): by one of the visions it watches, until `REVEAL_TICKS` after the attacker's last
+    /// shot from outside them at the player's objects, also once the attacker is gone (a reveal ends only with its
+    /// time). `false` while the fog doesn't apply, where every shot shows whole anyway.
+    pub fn reveals(&self, id: ObjectId) -> bool {
+        self.visions().any(|vision| vision.is_revealed(id))
+    }
+
     /// What the player knows of object `id` (`sc_sim::targets::view`, design change 0139), as this sight shows it:
     /// - **Visible** while it shows the object as it is ([`Sight::sees`]: the player's own always, and every object
     ///   while the fog doesn't apply);

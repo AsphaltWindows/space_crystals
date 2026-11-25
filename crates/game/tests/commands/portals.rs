@@ -71,7 +71,7 @@ fn a_portal_trains_in_q_cancels_in_x_and_rallies_in_c() {
             ObjectKind::Drone,
             "DR",
             50,
-            vec![(slot(0, 1), c(P(Scout)), Unavailable, "SC")],
+            vec![(slot(0, 1), c(P(Scout)), Unavailable, "ST")],
         ),
         (
             BIO_PORTAL,

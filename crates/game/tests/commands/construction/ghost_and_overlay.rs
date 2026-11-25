@@ -1,6 +1,10 @@
 //! The placement ghost and the build area overlay: the ghost green or red tile by tile by the placement rules
 //! (design change 0093), R and F turning it and its side letters (0079), and the overlay following the build
-//! area as Generators come and go.
+//! area as Generators come and go, and as the player explores it.
+
+use sc_sim::VisibilityState;
+use space_crystals::fog::{FogOfWar, Sight};
+use space_crystals::placement::overlay::area_mesh;
 
 use super::*;
 
@@ -163,4 +167,62 @@ fn the_overlay_follows_the_build_area_as_generators_come_and_go() {
     assert_eq!(build_area(&app), first, "it shrinks back");
     assert_eq!(overlay(&mut app), (Some(first), true));
     assert_eq!(overlay_builds(&app), built + 2);
+}
+
+/// How many vertices the overlay's mesh has.
+fn overlay_vertices(app: &mut App) -> usize {
+    let mut query = app.world_mut().query_filtered::<&Mesh2d, With<BuildAreaMesh>>();
+    let mesh = query.single(app.world()).unwrap();
+    let meshes = app.world().resource::<Assets<Mesh>>();
+    meshes.get(&mesh.0).unwrap().count_vertices()
+}
+
+/// Slice M3-J3 (M3-K2's walkthrough: "the build-area tint turns unexplored ground lake-blue"): with the fog on (F3:
+/// debug commands are on), the overlay leaves out the tiles of the area player 1 hasn't explored, which stay black
+/// (`core/vision.md > Unexplored`: "fully black"), tiles (30, 8) to (31, 9) among them, in nobody's sight; it tints
+/// them once their Peacekeeper has been there to look, and every tile with the fog off.
+#[test]
+fn the_overlay_leaves_out_the_tiles_the_player_hasnt_explored() {
+    let mut app = construction_game(1000);
+    tap(&mut app, &[], KeyCode::F3);
+    assert!(app.world().resource::<FogOfWar>().enabled, "the fog on");
+    select(&mut app, DC);
+    construct_and_place(&mut app, KeyQ, GENERATOR);
+    let area = build_area(&app);
+    let map = app.world().resource::<SimRes>().map().clone();
+    let unexplored = |app: &App| app.world().resource::<BuildAreaOverlay>().unexplored.clone();
+    let without = |left_out: &[TilePos]| area_mesh(&map, &area, |t| !left_out.contains(&t)).vertex_count();
+    let dark = [(30, 8), (31, 8), (30, 9), (31, 9)].map(|(x, y)| TilePos::new(x, y));
+
+    let left_out = unexplored(&app);
+    let sight_says: Vec<TilePos> = {
+        let sim = app.world().resource::<SimRes>();
+        let sight = Sight::new(sim, P1, true);
+        (area.tiles())
+            .filter(|&t| sight.tile(t) == VisibilityState::Unexplored)
+            .collect()
+    };
+    assert_eq!(left_out, sight_says);
+    assert!(dark.iter().all(|t| left_out.contains(t)), "{left_out:?}");
+    assert!(left_out.len() < area.tiles().count(), "the rest is explored");
+    assert_eq!(overlay(&mut app), (Some(area.clone()), true));
+    assert_eq!(overlay_vertices(&mut app), without(&left_out));
+    let all = without(&[]);
+    assert!(overlay_vertices(&mut app) < all);
+
+    let pos = TilePos::new(31, 9).corner();
+    submit(
+        &mut app,
+        P1,
+        Command::Debug(DebugCommand::SetPosition { id: ObjectId(PK), pos }),
+    );
+    updates(&mut app, 3);
+    let explored = unexplored(&app);
+    assert!(dark.iter().all(|t| !explored.contains(t)), "{explored:?}");
+    assert!(explored.len() < left_out.len());
+    assert_eq!(overlay_vertices(&mut app), without(&explored));
+
+    tap(&mut app, &[], KeyCode::F3);
+    assert!(unexplored(&app).is_empty(), "the fog off");
+    assert_eq!(overlay_vertices(&mut app), all);
 }

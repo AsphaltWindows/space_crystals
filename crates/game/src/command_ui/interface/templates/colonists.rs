@@ -37,6 +37,24 @@ pub enum Planned {
 }
 
 impl Planned {
+    /// Every one, in declaration order.
+    pub const ALL: [Planned; 14] = [
+        Planned::AlloyFurnace,
+        Planned::EssenceRefinery,
+        Planned::FluxReactor,
+        Planned::ExophysicsEngine,
+        Planned::Skylance,
+        Planned::FusionCore,
+        Planned::PlasmaTurret,
+        Planned::RelayArray,
+        Planned::NavigationSpire,
+        Planned::PsionicAmplifier,
+        Planned::StructuralAnalyzer,
+        Planned::Scout,
+        Planned::Lancer,
+        Planned::PsionicUnit,
+    ];
+
     /// Its name, the design's.
     pub fn name(self) -> &'static str {
         match self {
@@ -58,7 +76,9 @@ impl Planned {
     }
 
     /// Its button's label: a placeholder for its icon (Q0001), the initials of its name, as a building warped in and a
-    /// unit trained are labelled by their type's tag (`PanelCommand::label`).
+    /// unit trained are labelled by their type's tag (`PanelCommand::label`); the Scout's its first and last letters,
+    /// "ST", as the Guard's and the Beacon's are, since "SC" is the crystal patch's (slice M3-J3: every label its own,
+    /// `crate::hud::selection_panel::short_label`).
     pub fn label(self) -> &'static str {
         match self {
             Planned::AlloyFurnace => "AF",
@@ -72,7 +92,7 @@ impl Planned {
             Planned::NavigationSpire => "NS",
             Planned::PsionicAmplifier => "PA",
             Planned::StructuralAnalyzer => "SA",
-            Planned::Scout => "SC",
+            Planned::Scout => "ST",
             Planned::Lancer => "LA",
             Planned::PsionicUnit => "PU",
         }

@@ -52,6 +52,8 @@ fn the_debug_switch_changes_whose_selection_and_units_are_in_use() {
     assert_eq!(local_player(&app), PlayerId(2));
     assert!(top_bar_shows(&mut app, "Player 2") && !top_bar_shows(&mut app, "Player 1"));
     assert!(selected(&app).is_empty(), "player 2 has selected nothing yet");
+    // Player 2 has a camera of their own, at their start (slice M3-J3): back to this test's view.
+    app.world_mut().resource_mut::<CameraView>().center = VIEW_CENTER;
     // Player 2's units are the own ones now: Ctrl selects their type, and player 1's are enemies.
     click(&mut app, at(ENEMY_PK), &[ControlLeft]);
     assert_eq!(selected(&app), [ENEMY_PK, ENEMY_PK_2]);

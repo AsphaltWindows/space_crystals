@@ -83,7 +83,7 @@ fn the_egress_nodes_f_shows_only_with_drones_to_select() {
 fn the_portals_show_their_units_not_in_the_game_yet() {
     use PanelCommand::Planned as P;
     let cases = [
-        (ObjectKind::RoboPortal, vec![(slot(0, 1), Planned::Scout, "SC")]),
+        (ObjectKind::RoboPortal, vec![(slot(0, 1), Planned::Scout, "ST")]),
         (
             ObjectKind::BioPortal,
             vec![

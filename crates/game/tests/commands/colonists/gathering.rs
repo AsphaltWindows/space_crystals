@@ -2,11 +2,12 @@
 //! (`factions/colonists/units.md > Drone > Right-Click Resolution`), each selected unit resolving its own, with the
 //! pointer it shows (`systems/controls/selection_and_hud.md > PointerDisplayType > Resolution Rules`); a load carried,
 //! on the map and in the InfoPanel; a portal's rally point on a patch; the portals' units not in the game yet (design
-//! change 0124). A Drone's S, Set Drop-off: `drop_off`; the Egress Node's F, Select Returning Drones: `returning`. A
-//! right-click on a patch remembered in the fog (design change 0139) is `remembered`'s
-//! (`drones_right_clicked_on_a_greyed_patch_walk_there_and_mine`).
+//! change 0124). A Drone's S, Set Drop-off: `drop_off`; the Egress Node's F, Select Returning Drones: `returning`; the
+//! gathering markers (design change 0201): `markers`. A right-click on a patch remembered in the fog (design change
+//! 0139) is `remembered`'s (`drones_right_clicked_on_a_greyed_patch_walk_there_and_mine`).
 
 mod drop_off;
+mod markers;
 mod returning;
 
 use sc_sim::orders::state::{Behaviour, Gather, GatherPhase};
@@ -351,7 +352,7 @@ fn a_portals_units_not_in_the_game_yet_are_unavailable() {
     use Planned::{Lancer, PsionicUnit, Scout};
     let mut app = gathering_game();
     set_crystals(&mut app, 1000);
-    let robo = [(slot(0, 1), Scout, KeyW, "SC")];
+    let robo = [(slot(0, 1), Scout, KeyW, "ST")];
     let bio = [(slot(0, 1), Lancer, KeyW, "LA"), (slot(0, 2), PsionicUnit, KeyE, "PU")];
     for (portal, planned) in [(ROBO_PORTAL, &robo[..]), (BIO_PORTAL, &bio[..])] {
         click(&mut app, home(portal), &[]);

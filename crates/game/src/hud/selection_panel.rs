@@ -102,7 +102,10 @@ pub fn portraits(selection: &Selection, capacity: usize) -> Vec<PortraitCell> {
     cells
 }
 
-/// The short label of a type on its portrait (placeholder).
+/// The short label of a type (placeholders until the art, Q0001): on its portrait, on the map (`object_render`'s
+/// tags) and on the button that makes it. Each its own (slice M3-J3): none is another type's, nor a planned unit's or
+/// building's button label (`Planned::label`: the Scout's had been the patch's "SC"). The Peacekeeper's two types
+/// have two letters each, "PK" and "PS", short enough for the Peacekeeper's 24-su body.
 pub fn short_label(kind: ObjectKind) -> &'static str {
     match kind {
         ObjectKind::CrystalPatch => "SC",
@@ -121,7 +124,7 @@ pub fn short_label(kind: ObjectKind) -> &'static str {
         ObjectKind::BioPortal => "BP",
         ObjectKind::SabreLegionnaire => "SL",
         ObjectKind::RifleLegionnaire => "RL",
-        ObjectKind::PeacekeeperShielded => "PKS",
+        ObjectKind::PeacekeeperShielded => "PS",
     }
 }
 
@@ -414,6 +417,24 @@ mod tests {
         assert_eq!(
             cells(&selection),
             [(4, false, false), (5, false, false), (3, true, true)]
+        );
+    }
+
+    /// Slice M3-J3 (M3-K2's walkthrough): every type's short label is its own, and none is a planned unit's or
+    /// building's button label ("SC" was both the crystal patch's and the Scout button's); the Peacekeeper's two
+    /// types have two-letter labels of their own.
+    #[test]
+    fn every_label_is_its_own() {
+        use crate::command_ui::interface::templates::Planned;
+        let labels: Vec<&str> = (ObjectKind::ALL.iter().map(|&kind| short_label(kind)))
+            .chain(Planned::ALL.map(Planned::label))
+            .collect();
+        let distinct: std::collections::BTreeSet<&str> = labels.iter().copied().collect();
+        assert_eq!(distinct.len(), labels.len(), "{labels:?}");
+        assert_eq!([PK, ObjectKind::PeacekeeperShielded].map(short_label), ["PK", "PS"]);
+        assert_eq!(
+            (short_label(ObjectKind::CrystalPatch), Planned::Scout.label()),
+            ("SC", "ST")
         );
     }
 }

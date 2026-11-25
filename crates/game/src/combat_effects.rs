@@ -12,7 +12,10 @@
 //! - **A shot** shows only along the parts of its path over tiles Visible to the player ([`visible_spans`];
 //!   `core/vision.md > Attacks from outside vision`, design change 0177: "a shot fired from the fog at your unit is
 //!   seen coming out of the fog edge, which shows its direction"). The attacker itself is the sim's to reveal
-//!   (`sc_sim::vision::reveal`): revealed, it shows like any object the player sees.
+//!   (`sc_sim::vision::reveal`): revealed, it shows like any object the player sees, and its own shots are drawn
+//!   whole, from it to their target (design change 0206, answering Q0056: "while an attacker in the fog is revealed
+//!   to a player, that attacker's own shots are drawn from the attacker to the target, with no gap at the fog edge";
+//!   [`shot_spans`]). "Other shots from the fog are still clipped to Visible tiles."
 //! - **A death marker** only on a Visible tile or for one of the player's own objects, and **an HP bar** only over an
 //!   object the player sees (`Sight::sees`): placeholder rules, the design is silent.
 
@@ -48,6 +51,8 @@ const EFFECTS_Z: f32 = 1.0;
 #[derive(Clone, Debug, PartialEq)]
 pub struct Tracer {
     pub tick: Tick,
+    /// The attacker: while it is revealed to the player, its shot is drawn whole ([`shot_spans`]).
+    pub attacker: ObjectId,
     pub owner: Option<PlayerId>,
     /// The object hit.
     pub target: ObjectId,
@@ -160,11 +165,17 @@ pub fn visible_spans(sight: &Sight, from: Vec2, to: Vec2) -> Vec<(f32, f32)> {
     spans
 }
 
-/// How `sight` shows the shot of `tracer` now: the [`visible_spans`] of its path, for [`TRACER_TICKS`]; none once it
-/// has faded.
+/// How `sight` shows the shot of `tracer` now, for [`TRACER_TICKS`], none once it has faded: whole while its attacker
+/// is revealed to the player ([`Sight::reveals`]; design change 0206: "from the attacker to the target, with no gap at
+/// the fog edge"; "No ground around the attacker is revealed"), else the [`visible_spans`] of its path (design change
+/// 0177). A literal reading: whatever the shot hits, so a revealed attacker's shot at something the player doesn't
+/// see (a neutral unit in the fog, or a third player's) shows its far end too.
 pub fn shot_spans(sim: &Sim, sight: &Sight, tracer: &Tracer) -> Vec<(f32, f32)> {
     if !shows(sim, tracer.tick, TRACER_TICKS) {
         return Vec::new();
+    }
+    if sight.reveals(tracer.attacker) {
+        return vec![(0.0, 1.0)];
     }
     visible_spans(sight, tracer.from, tracer.to)
 }
@@ -237,6 +248,7 @@ fn collect_effects(sim: Res<SimRes>, mut messages: MessageReader<SimEventMessage
                 let owner = sim.object(attacker).and_then(|o| o.owner);
                 effects.tracers.push(Tracer {
                     tick: message.tick,
+                    attacker,
                     owner,
                     target,
                     from,

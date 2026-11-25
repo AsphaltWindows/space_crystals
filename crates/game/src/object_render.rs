@@ -13,8 +13,9 @@
 //! energy doorway) stays in sight ([`draw_layer`]). Placeholder shapes stand in until the art direction (Q0001) is
 //! settled ([`units`]): a unit is a shape of its own per kind, its silhouette's size, in its owner's colour, with a
 //! tick showing its facing. A square or octagonal body (the Guard's, the Colonists' units') stays axis-aligned, like
-//! its collision box, and only its tick turns ([`FacingTick`]); the Colonists' units carry a tag naming their type
-//! ([`UnitTag`]). A Peacekeeper's raised Riot Shield is a pale arc in front of it ([`RiotShieldVisual`]), growing out
+//! its collision box, and only its tick turns ([`FacingTick`]); the Colonists' units and the Peacekeepers carry a tag
+//! naming their type ([`UnitTag`]), upright, above the command indicators so that no marker hides it (slice M3-J3). A
+//! Peacekeeper's raised Riot Shield is a pale arc in front of it ([`RiotShieldVisual`]), growing out
 //! of its body as the shield goes up and shrinking back as it comes down: the Peacekeeper (Shielded) is the
 //! Peacekeeper's round body with its shield up or on its way up (design change 0173), which becomes the Peacekeeper's
 //! again, the shield on its way down, when the shield is lowered. A worker that carries a load shows a crystal shard
@@ -129,7 +130,7 @@ impl Plugin for ObjectRenderPlugin {
             .add_systems(
                 Update,
                 (
-                    place_object_visuals,
+                    (place_object_visuals, units::upright_tags).chain(),
                     place_riot_shields,
                     load::place_load_markers,
                     remembered::sync_remembered_visuals,

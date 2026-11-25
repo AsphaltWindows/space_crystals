@@ -1881,7 +1881,9 @@ out by the same rules.
   above them whatever the depths (`object_render::draw_layer`, slice M3-U), so a unit crossing a footprint, as one
   leaving a portal's energy doorway does, is never hidden under it (`tests/selection/draw_order.rs`). Selection rings
   are unit decals, between the two; frames lie with their structures; ghosts, HP bars, path and command indicators are
-  overlays, above everything.
+  overlays, above everything. So are the units' tags, just above the command indicators and still y-sorted by their
+  units (`units::tag_z`, slice M3-J3), so that no marker on a unit hides its label; a structure's tag stays with its
+  structure, under the units that cross it.
 - **Terrain** (`map_render.rs`): one mesh. A flat tile is a quad, a sloped one four triangles around its center (at
   the corners' mean height), each shaded by Lambert's law towards `LIGHT_TOWARDS` (a placeholder: from the north-west,
   45° up), so flat ground keeps its colour. A non-Traversible tile at least `CLIFF_MIN_SLOPE` levels steep reads as a
@@ -1894,8 +1896,13 @@ out by the same rules.
   facing. Only a round body turns with the interpolated facing (`body_turns`). A square or an octagon stays
   axis-aligned like its collision box, and only its tick turns (a `FacingTick` child, `has_tick`). Structures and map
   resources never turn, whatever their facing (a structure keeps a unit's facing through `Sim::change_kind`). The
-  Colonists' units carry a `UnitTag` child, a `Text2d` of the type's short label (DR, SL, RL), because the
-  Legionnaire's two forms share a silhouette. One mesh per `MeshKey` (kind, owner, a structure's size as placed, and
+  Colonists' units and the Peacekeeper's two types carry a `UnitTag` child, a `Text2d` of the type's short label
+  (DR, SL, RL, PK, PS), because the Legionnaire's two forms share a silhouette and the Peacekeeper's two types a body
+  (slice M3-J3). A tag's local z lifts it into the overlays band (`units::tag_z`, see Draw order), and it stays
+  upright on a body that turns: `units::upright_tags`, chained after `place_object_visuals`, gives it the inverse of
+  its visual's rotation. Every type's short label (`hud::selection_panel::short_label`) is its own, and none is a
+  planned unit's or building's button label (`Planned::label`: the Scout's is "ST", the patch's "SC"); a unit test
+  checks it. One mesh per `MeshKey` (kind, owner, a structure's size as placed, and
   whether it is transforming) is shared, and one tick mesh per kind. A visual whose object is drawn otherwise now
   (its `MeshKey` changed: a kind changed in place, `SimEvent::KindChanged`; a transformation began or ended; a
   defeated player's unit turned neutral) is despawned with its children and made anew (`ObjectVisuals` keeps the
@@ -1920,7 +1927,10 @@ out by the same rules.
 - **Combat effects** (`combat_effects.rs`, placeholders until Q0001): a tracer for each `SimEvent::Attacked`
   (`TRACER_TICKS`), drawn only along the parts of its path over the local player's Visible tiles (`visible_spans`,
   which cuts it at every tile edge it crosses; design change 0177: a shot from the fog shows from the fog edge, one
-  all in the fog not at all; its attacker is revealed by the sim), HP bars over damaged and selected objects (a
+  all in the fog not at all; its attacker is revealed by the sim), but whole, from the attacker to the target, while
+  its attacker is revealed to the local player (`shot_spans`, `Sight::reveals`; design change 0206, answering Q0056:
+  so the shot that reveals an attacker, and every later one while the reveal lasts, comes from the unit the player
+  sees; a shot at a neutral object reveals nobody and stays clipped), HP bars over damaged and selected objects (a
   unit's clear of its silhouette's corners, a structure's along the top edge of its footprint and as wide as it),
   with a shield bar right above for an object that has Shields (`systems/combat.md > Shields > Display`, design change
   0148; `SHIELD_FILL`, a placeholder colour), shown too while only its Shields are down, and a fading marker for
@@ -1966,7 +1976,11 @@ at the local player's slot's camera start (`Slot::camera_start`), or else on the
 Starting Layout places it (`Scenario::primary_structure`). Without one (a faction not implemented yet, or a layout
 without it) the slot's
 start position stands in, and the map centre for a player without a slot (`camera::start_center`, shown through
-`start_view`). Only the editor zooms (`CameraZoom`).
+`start_view`). Only the editor zooms (`CameraZoom`). Under the debug player switch (F2) each player has a camera of
+their own (`camera::PlayerCameras`, `camera/players.rs`, slice M3-J3): when the local player changes within a sim,
+the camera keeps the view of the one before and goes to the new one's, at their `start_view` the first time; a new
+sim (`SimRes::generation`: a play-test, a loaded scenario) forgets them all and leaves the camera where its switch
+put it.
 
 **HUD**: built with bevy_ui (`core/camera.md > HUD Layout`). It has a top resource bar and, at the bottom, the HUD
 Bar with five fixed sections. From left to right they are Minimap, Portrait, InfoPanel, SelectionPanel and
@@ -2338,12 +2352,17 @@ their producing structures and their constructors, and the Colonists' Beacons an
   (the sim turns an enemy rally point it loses sight of into a ground one, so the marker turns green there), and a
   solid line from the footprint's edge to it; nothing while the producer isn't selected or has none; a portal rallied
   on a patch rings the patch in green (slice M3-J2). The InfoPanel's rally line names the target as the player knows
-  it too (`activity::rally_line`). A Gather or a Drop Off is marked as a Move to its object, a green
-  Location marker (placeholders: the design gives them no indicator). The pointer
+  it too (`activity::rally_line`). The gathering markers (`indicators/gathering.rs`, design change 0201 point 4,
+  slice M3-J3; placeholder looks, each a shape and a colour of its own, `Indicator::Gathering` with a
+  `GatheringMarker`) take the Move marker's place: the Gather marker, cyan corner brackets round a Gather's source;
+  the Return Resources marker, a gold ring with four arrowheads pointing in, round a Drop Off's drop-off; and the Set
+  Drop-off marker, a wider dashed violet ring round each selected worker's AssignedDropOff (`drop_off_indicators`), as
+  a rally point shows while its producer is selected (a reading: Set Drop-off applies at once and gives no flash; the
+  design gives the marker, not when it shows). The pointer
   (`command_ui/cursor.rs`) shows the `PointerLook`: images drawn in code and cached per look, set as the window's
   `CursorIcon`, and drawn as a UI node at the injected cursor in QA runs, which render no system cursor; Mixed is
   striped in the Attack red and the Move green (`MIXED_COLORS`, `MIXED_STRIPE_PX`), GatherResources is the crystals'
-  cyan (`GATHER_COLOR`) and ReturnResources gold (`RETURN_COLOR`). The invalid-target feedback
+  cyan (`GATHER_COLOR`) and ReturnResources gold (`RETURN_COLOR`), the Gather and Return Resources markers' colours. The invalid-target feedback
   (`command_ui/feedback.rs`) is the message `INVALID_TARGET_TEXT` above the HUD Bar for `FEEDBACK_TICKS` sim ticks
   after the latest `InvalidTarget` (`TargetFeedback`), never in the pointer's way (`Pickable::IGNORE`). The same
   band gives the insufficient-resources feedback (0083): `NO_CRYSTALS_TEXT` after the sim's `ProductionRefused` for
@@ -2364,8 +2383,9 @@ their producing structures and their constructors, and the Colonists' Beacons an
   before, and drops a change made in a frame without one: a text that changes must keep one in view). It lies
   over the map's other overlays, under the indicators: it is the cursor, so no pointer shows over the map
   (`PointerLook::placing`). `BuildAreaOverlay` shows `Sim::build_area`, the area only, as one mesh in the terrain's
-  z band just in front of the fog layer (`overlay::AREA_Z`), rebuilt only when the area differs from the one it last
-  drew (`BuildArea: PartialEq`) or the map meshes were rebuilt (`MapView::builds`). The ghost's check is its
+  z band just in front of the fog layer (`overlay::AREA_Z`), but on the tiles the local player hasn't explored, which
+  stay black (slice M3-J3, `BuildAreaOverlay::unexplored`), rebuilt only when the area differs from the one it last
+  drew (`BuildArea: PartialEq`), its unexplored tiles changed or the map meshes were rebuilt (`MapView::builds`). The ghost's check is its
   builder's (`ghost::check_now`: `Sim::placement_check`, `warp_in_check`, or `deploy_check` for the Drone a click
   would go to, the player's knowledge, Reserved over a lingering ghost included); the overlay shows for a
   constructor's placement only. `LingeringGhosts` (`placement/lingering.rs`, `core/entities.md > Placement

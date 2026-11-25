@@ -25,7 +25,7 @@ use bevy::prelude::*;
 use bevy::render::render_resource::{Extent3d, TextureDimension, TextureFormat};
 use bevy::window::{CursorIcon, CursorOptions, CustomCursor, CustomCursorImage, PrimaryWindow, SystemCursorIcon};
 
-use super::indicators::{AGGRESSIVE_COLOR, ATTACK_COLOR, MOVE_COLOR};
+use super::indicators::{AGGRESSIVE_COLOR, ATTACK_COLOR, GATHER_COLOR, MOVE_COLOR, RETURN_COLOR};
 use super::interface::{Modes, commandable};
 use super::resolution::{MapTarget, PointerDisplay, UnitCapabilities, capabilities, pointer_display};
 use crate::fog::LocalSight;
@@ -39,13 +39,10 @@ use crate::{ClientMode, ClientSystems};
 pub const CURSOR_SIZE: u32 = 32;
 /// The cursor sprite draws above every other UI node.
 const SPRITE_Z: i32 = 10_000;
-/// Placeholder colours of the PointerDisplayTypes without an indicator colour.
+/// Placeholder colours of the PointerDisplayTypes without an indicator colour. GatherResources and ReturnResources
+/// have the Gather marker's cyan and the Return Resources marker's gold (`super::indicators::gathering`).
 const INACTIVE_COLOR: Color = Color::srgb(0.80, 0.82, 0.86);
 const ATTACK_GROUND_COLOR: Color = Color::srgb(0.90, 0.20, 0.50);
-/// GatherResources: the cyan of the Space Crystals' shards (`crate::object_render`).
-const GATHER_COLOR: Color = Color::srgb(0.36, 0.90, 0.98);
-/// ReturnResources: gold, the bank's.
-const RETURN_COLOR: Color = Color::srgb(1.0, 0.84, 0.30);
 /// The Mixed look (`> Mixed Right-Click Preview`, design change 0063: visual TBD), a placeholder: diagonal stripes
 /// of these two colours, each this many pixels wide.
 const MIXED_COLORS: [Color; 2] = [ATTACK_COLOR, MOVE_COLOR];

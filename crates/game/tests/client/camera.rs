@@ -1,5 +1,5 @@
-//! The camera (`core/camera.md`): where it starts, panning by the pan actions and the middle-mouse grab, and
-//! the clamp to the map.
+//! The camera (`core/camera.md`): where it starts, panning by the pan actions and the middle-mouse grab, the clamp
+//! to the map, and each player's own camera under the debug player switch.
 
 use bevy::prelude::*;
 
@@ -9,9 +9,11 @@ use space_crystals::camera::{GrabPan, ViewportInsets, cursor_to_view, start_cent
 use space_crystals::hud::{HUD_BAR_HEIGHT_VH, TOP_BAR_HEIGHT_VH};
 use space_crystals::input::InputAction;
 use space_crystals::platform::SurfaceSize;
-use space_crystals::sim_driver::SimRes;
+use space_crystals::sim_driver::{LocalPlayer, SimRes};
 
-use super::{camera_center, centered_scenario, headless, headless_app, hold, press, set_cursor, updates};
+use super::{
+    camera_center, centered_scenario, headless, headless_app, hold, input, press, set_cursor, updates, view_middle,
+};
 
 #[test]
 fn the_camera_starts_at_the_players_camera_start() {
@@ -140,4 +142,53 @@ fn the_middle_mouse_grab_keeps_the_grabbed_point_under_the_cursor() {
     updates(&mut app, 3);
     assert_eq!(camera_center(&app), released_at);
     assert_eq!(app.world().resource::<GrabPan>().grabbed, None);
+}
+
+/// Pans the view with the middle-mouse grab: the cursor grabs the view's middle and goes `by` logical pixels from
+/// there, and the button is released.
+fn grab_by(app: &mut App, by: Vec2) {
+    let from = view_middle(app);
+    set_cursor(app, from);
+    press(app, InputAction::GrabPan);
+    app.update();
+    hold(app, &[InputAction::GrabPan]);
+    set_cursor(app, from + by);
+    app.update();
+    hold(app, &[]);
+    app.update();
+}
+
+/// The debug player switch (F2, a debug key; slice M3-J3: M3-K2's walkthrough found it kept the camera, so the other
+/// side saw black): each player has a camera of their own, which starts at their start (`core/camera.md > Starting
+/// Position`: player 2's camera start here, player 1's start position) and which the camera comes back to, where
+/// they left it, when the switch comes back to them.
+#[test]
+fn the_player_switch_gives_each_player_their_own_camera() {
+    let mut scenario = scenarios::empty(64, 48);
+    scenario.map.slots[1].camera_start = Some(TilePos::new(40, 30).center());
+    let mut app = headless_app(scenario);
+    app.update();
+    let shown = |app: &App| (app.world().resource::<LocalPlayer>().0, camera_center(app));
+    let f2 = |app: &mut App| {
+        input(app).tap_key(KeyCode::F2);
+        app.update();
+    };
+    let starts = [TilePos::new(16, 12).center(), TilePos::new(40, 30).center()];
+    assert_eq!(shown(&app), (PlayerId(1), starts[0]));
+    grab_by(&mut app, Vec2::new(-120.0, -60.0));
+    let first = camera_center(&app);
+    assert_ne!(first, starts[0], "player 1 looks elsewhere");
+
+    f2(&mut app);
+    assert_eq!(shown(&app), (PlayerId(2), starts[1]), "player 2's start");
+    grab_by(&mut app, Vec2::new(90.0, 40.0));
+    let second = camera_center(&app);
+    assert_ne!(second, starts[1], "player 2 looks elsewhere");
+
+    f2(&mut app);
+    assert_eq!(shown(&app), (PlayerId(1), first), "where player 1 left it");
+    f2(&mut app);
+    assert_eq!(shown(&app), (PlayerId(2), second), "where player 2 left it");
+    updates(&mut app, 3);
+    assert_eq!(shown(&app), (PlayerId(2), second), "and there it stays");
 }

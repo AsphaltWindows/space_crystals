@@ -3,30 +3,34 @@
 //! ground. The overlay shows the **build area only**"; design change 0093: "one clean shape, which doesn't flicker as
 //! units move"). Whether a tile is valid right now shows on the ghost (`super::ghost`), never here.
 //!
-//! One mesh, under one handle, rebuilt in place only when the local player's build area (`Sim::build_area`) or the
-//! map under it changed: the overlay keeps the area it last drew and compares the new one with it (`BuildArea`'s
-//! `PartialEq`, as the sim suggests), so it follows every placement and every loss without redrawing every frame.
+//! One mesh, under one handle, rebuilt in place only when the local player's build area (`Sim::build_area`), the
+//! tiles of it they haven't explored, or the map under it changed: the overlay keeps the area it last drew and
+//! compares the new one with it (`BuildArea`'s `PartialEq`, as the sim suggests), so it follows every placement and
+//! every loss without redrawing every frame.
 //!
 //! The look, placeholders until the art (Q0001): every tile of the area tinted on the terrain's surface, as the
 //! terrain mesh draws it (tile by tile rather than by `BuildArea::runs`: a run's tiles may slope), and a brighter line
 //! along the area's edge. Building it takes about 0.2 ms for a whole 28 × 28 area (dev profile). It lies in the
-//! terrain's z band like the fog
-//! layer and the grid, so the terrain in front hides it and objects stand on it, just in front of the fog
-//! ([`AREA_Z`]): the player sees their whole area, also where the fog is dark (placeholder: the design doesn't say).
+//! terrain's z band like the fog layer and the grid, so the terrain in front hides it and objects stand on it, just
+//! in front of the fog ([`AREA_Z`]): the player sees their whole area, also where the fog is dark (placeholder: the
+//! design doesn't say), but on the tiles they haven't explored, which stay black (`core/vision.md > Unexplored`:
+//! "fully black"; slice M3-J3: M3-K2's walkthrough found the tint turning unexplored ground lake-blue). There the
+//! overlay draws neither tint nor edge, and no edge either where the area goes on into them.
+
+use std::collections::HashSet;
 
 use bevy::prelude::*;
 use bevy::sprite_render::AlphaMode2d;
-use sc_sim::{BuildArea, Map, TilePos};
+use sc_sim::{BuildArea, Map, TilePos, VisibilityState};
 
 use super::placing_now;
 use crate::ClientMode;
 use crate::command_ui::Builder;
 use crate::coords::DrawLayer;
-use crate::fog::FOG_Z;
+use crate::fog::{FOG_Z, LocalSight};
 use crate::map_render::{MapView, SURFACE_LIFT_Z, surface_vertex, tile_surface};
 use crate::selection::ControlStates;
 use crate::shapes::ColorMesh;
-use crate::sim_driver::{LocalPlayer, SimRes};
 
 /// An area tile's tint, and the area's edge (placeholder colours).
 pub const AREA_FILL: Color = Color::srgba(0.30, 0.70, 1.0, 0.16);
@@ -42,9 +46,13 @@ pub const AREA_Z: f32 = FOG_Z + 0.01;
 pub struct BuildAreaOverlay {
     /// The area its mesh was last built from.
     pub shown: Option<BuildArea>,
+    /// The tiles of that area it left out, in the area's order: those the local player hadn't explored (module docs).
+    pub unexplored: Vec<TilePos>,
+    /// Whether that mesh has anything to show.
+    drawn: bool,
     /// The map meshes' build count (`MapView::builds`) when it was: a new map redraws it.
     map_builds: u32,
-    /// Whether it shows now: while the local player places a building and has an area.
+    /// Whether it shows now: while the local player places a building and has an area, explored in part at least.
     pub visible: bool,
     /// How many times its mesh was built.
     pub builds: u32,
@@ -83,12 +91,12 @@ pub(super) fn spawn_overlay(
 }
 
 /// Shows the local player's build area while one of their constructors places its building ([`placing_now`]; the
-/// Colonists build where their Beacons and Drones stand: no build area), redrawn when it changed.
+/// Colonists build where their Beacons and Drones stand: no build area), but on the tiles they haven't explored,
+/// redrawn when either changed.
 #[expect(clippy::too_many_arguments, reason = "a system's parameters")]
 pub(super) fn draw_overlay(
     mode: Res<ClientMode>,
-    sim: Res<SimRes>,
-    player: Res<LocalPlayer>,
+    local: LocalSight,
     states: Res<ControlStates>,
     view: Res<MapView>,
     assets: Res<OverlayAssets>,
@@ -96,23 +104,33 @@ pub(super) fn draw_overlay(
     mut overlay: ResMut<BuildAreaOverlay>,
     mut shown: Query<&mut Visibility, With<BuildAreaMesh>>,
 ) {
-    let placing = placing_now(*mode, &sim, player.0, &states)
+    let (sim, sight) = (local.sim(), local.get());
+    let placing = placing_now(*mode, sim, sight.player(), &states)
         .is_some_and(|placing| matches!(placing.builder, Builder::Constructor(_)));
     if placing {
-        let area = sim.build_area(player.0);
-        if overlay.shown.as_ref() != Some(&area) || overlay.map_builds != view.builds {
-            let mesh = area_mesh(sim.map(), &area);
-            if mesh.vertex_count() > 0
+        let area = sim.build_area(sight.player());
+        let unexplored: Vec<TilePos> = (area.tiles())
+            .filter(|&t| sight.tile(t) == VisibilityState::Unexplored)
+            .collect();
+        if overlay.shown.as_ref() != Some(&area)
+            || overlay.unexplored != unexplored
+            || overlay.map_builds != view.builds
+        {
+            let hidden: HashSet<TilePos> = unexplored.iter().copied().collect();
+            let mesh = area_mesh(sim.map(), &area, |t| !hidden.contains(&t));
+            overlay.drawn = mesh.vertex_count() > 0;
+            if overlay.drawn
                 && let Err(error) = meshes.insert(&assets.mesh, mesh.into_mesh())
             {
                 error!("build area overlay mesh: {error}");
             }
             overlay.shown = Some(area);
+            overlay.unexplored = unexplored;
             overlay.map_builds = view.builds;
             overlay.builds += 1;
         }
     }
-    let visible = placing && overlay.shown.as_ref().is_some_and(|area| !area.is_empty());
+    let visible = placing && overlay.drawn;
     if overlay.visible != visible {
         overlay.visible = visible;
     }
@@ -126,12 +144,13 @@ pub(super) fn draw_overlay(
     }
 }
 
-/// The overlay's mesh: each tile of `area` tinted on `map`'s surface (a quad if it is flat, else four triangles
-/// around its centre), and a line along every tile edge where the area ends. Bevy world coordinates in the terrain's
-/// z band, relative to the overlay's entity.
-pub fn area_mesh(map: &Map, area: &BuildArea) -> ColorMesh {
+/// The overlay's mesh: each tile of `area` that is `drawn` tinted on `map`'s surface (a quad if it is flat, else four
+/// triangles around its centre), and a line along each of their edges where the area ends. Bevy world coordinates in
+/// the terrain's z band, relative to the overlay's entity.
+pub fn area_mesh(map: &Map, area: &BuildArea, drawn: impl Fn(TilePos) -> bool) -> ColorMesh {
     let mut mesh = ColorMesh::triangles();
-    let tiles: Vec<TilePos> = area.tiles().collect();
+    let inside: HashSet<TilePos> = area.tiles().collect();
+    let tiles: Vec<TilePos> = area.tiles().filter(|&t| drawn(t)).collect();
     for &t in &tiles {
         let surface = tile_surface(map, t);
         let [nw, ne, se, sw, center] = surface.map(|(ground, height)| surface_vertex(ground, height, SURFACE_LIFT_Z));
@@ -143,7 +162,6 @@ pub fn area_mesh(map: &Map, area: &BuildArea) -> ColorMesh {
             }
         }
     }
-    let inside: std::collections::HashSet<TilePos> = tiles.iter().copied().collect();
     for &t in &tiles {
         let [nw, ne, se, sw, _] =
             tile_surface(map, t).map(|(ground, height)| surface_vertex(ground, height, SURFACE_LIFT_Z));
@@ -193,7 +211,26 @@ mod tests {
         let area = BuildArea::of(&map, [(ObjectKind::Generator, &placement)]);
         assert_eq!(area.tiles().count(), 16);
         // 16 quads, and 16 tile edges around the square.
-        assert_eq!(area_mesh(&map, &area).vertex_count(), 16 * 4 + 16 * 4);
-        assert_eq!(area_mesh(&map, &BuildArea::default()).vertex_count(), 0);
+        assert_eq!(area_mesh(&map, &area, |_| true).vertex_count(), 16 * 4 + 16 * 4);
+        assert_eq!(area_mesh(&map, &BuildArea::default(), |_| true).vertex_count(), 0);
+    }
+
+    /// Slice M3-J3: the tiles left out (those the player hasn't explored) get neither tint nor edge, and no edge
+    /// shows where the area goes on into them. Of the Generator's area, tiles (4, 4) to (7, 7), the west half: 8
+    /// quads, and 8 tile edges, 4 to the west, 2 to the north and 2 to the south.
+    #[test]
+    fn the_overlay_leaves_out_the_tiles_it_doesnt_draw() {
+        let map = Map::new(20, 20);
+        let placement = Placement {
+            origin: TilePos::new(5, 5),
+            w: 2,
+            h: 2,
+            rotation: Rotation::R0,
+            flip_h: false,
+            flip_v: false,
+        };
+        let area = BuildArea::of(&map, [(ObjectKind::Generator, &placement)]);
+        assert_eq!(area_mesh(&map, &area, |t| t.x < 6).vertex_count(), 8 * 4 + 8 * 4);
+        assert_eq!(area_mesh(&map, &area, |_| false).vertex_count(), 0);
     }
 }

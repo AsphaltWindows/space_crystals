@@ -1,5 +1,9 @@
 //! How each kind is drawn: a structure as placed with a tag, a Peacekeeper turning with its facing and a
-//! Guard's square axis-aligned with only its tick turning, and the Colonists' kinds with their tags.
+//! Guard's square axis-aligned with only its tick turning, the Colonists' kinds with their tags, and the
+//! Peacekeepers' tags, upright and above the command indicators.
+
+use space_crystals::command_ui::indicators::INDICATORS_Z;
+use space_crystals::coords::DrawLayer;
 
 use super::*;
 
@@ -204,4 +208,64 @@ fn the_colonists_kinds_are_drawn_with_tags() {
     let mut ticks = app.world_mut().query::<(&FacingTick, &ChildOf)>();
     let ticks: BTreeSet<_> = ticks.iter(app.world()).map(|(t, parent)| (t.0, parent.0)).collect();
     assert_eq!(ticks, BTreeSet::from(units.map(|id| (id, visuals[&id]))));
+}
+
+/// Slice M3-J3 (M3-K2's walkthrough): the Peacekeeper's two types carry tags of their own, "PK" and "PS" (M3-T draws
+/// a unit by its form, and the two share their round body, design change 0173), which stay upright while the body
+/// turns with its facing. And a unit's tag draws above the command indicators, so that no marker on the unit hides
+/// it (in the walkthrough, the Bio Portal's rally marker on a Rifle Legionnaire), and in its unit's y order.
+#[test]
+fn the_peacekeepers_tags_stay_upright_above_the_indicators() {
+    let mut app = headless_app(small_scenario());
+    app.update();
+    let kinds = [ObjectKind::Peacekeeper, ObjectKind::PeacekeeperShielded];
+    for (kind, y) in kinds.into_iter().zip([560.0, 650.0]) {
+        let spawn = debug(DebugCommand::Spawn {
+            kind,
+            owner: Some(PlayerId(1)),
+            at: SpawnAt::Point(Vec2::new(100.0, y)),
+            orientation: Default::default(),
+        });
+        app.world_mut().resource_mut::<PendingCommands>().0.push(spawn);
+    }
+    app.update();
+    let ids = [5, 6].map(ObjectId);
+    let go = PlayerCommand {
+        player: PlayerId(1),
+        command: Command::Order {
+            units: ids.to_vec(),
+            kind: OrderKind::Move(Target::Point(Vec2::new(500.0, 740.0))),
+            queue: false,
+        },
+    };
+    app.world_mut().resource_mut::<PendingCommands>().0.push(go);
+    updates(&mut app, 12);
+
+    let visuals = app.world().resource::<ObjectVisuals>().by_id.clone();
+    let mut tags = app.world_mut().query::<(&UnitTag, &GlobalTransform)>();
+    let tags: Vec<(ObjectId, GlobalTransform)> = tags.iter(app.world()).map(|(tag, at)| (tag.0, *at)).collect();
+    let mut zs = Vec::new();
+    for (id, label) in ids.into_iter().zip(["PK", "PS"]) {
+        let entity = visuals[&id];
+        assert_eq!(unit_tags(&app, entity), [(id, label.to_string())]);
+        let body = app.world().get::<GlobalTransform>(entity).unwrap();
+        let (_, tag) = tags.iter().find(|(of, _)| *of == id).unwrap();
+        assert!(
+            body.rotation().angle_between(Quat::IDENTITY) > 0.1,
+            "{label}'s body turns"
+        );
+        assert!(
+            tag.rotation().angle_between(Quat::IDENTITY) < 1e-4,
+            "{label}'s tag doesn't"
+        );
+        assert!(
+            tag.translation().z > DrawLayer::Overlays.base_z() + INDICATORS_Z,
+            "{label}"
+        );
+        zs.push(tag.translation().z);
+    }
+    assert!(
+        zs[1] > zs[0],
+        "y-sorted: the southern unit's tag over the northern one's"
+    );
 }

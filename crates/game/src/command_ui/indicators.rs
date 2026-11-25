@@ -5,6 +5,8 @@
 //!   assignments`): a ring with a dot on the ground for a Location indicator (Move, AttackMove, Patrol; a Move to an
 //!   object marks where the object is), a ring around the target for an Object indicator (Attack). They go when the
 //!   unit is deselected or the order completes. Patrol's origin isn't marked: the sim keeps no origin yet.
+//! - **Gathering markers** ([`gathering`], design change 0201): a Gather's on its source, a Drop Off's on its
+//!   drop-off, and the Set Drop-off marker on each selected worker's AssignedDropOff, each with a look of its own.
 //! - **Flashes** where an order was just given ([`OrderIssued`]): a ring closing in on the target while it fades,
 //!   for [`FLASH_TICKS`]. They show for every order given, even one that completes at once.
 //! - **Waypoints**: while the Queue modifier (Shift) is held, each selected unit's route from where it is drawn
@@ -13,7 +15,8 @@
 //! - **Rally points** ([`rally`], design change 0087): each selected producer's rally point, a marker with a line
 //!   from the building to it; none while it has no rally point.
 //!
-//! Colours follow `> Color language`: green for Move, red for Attack, orange for AttackMove and Patrol. A target
+//! Colours follow `> Color language`: green for Move, red for Attack, orange for AttackMove and Patrol; the gathering
+//! markers have colours of their own (`gathering::GATHER_COLOR`, the pointers'). A target
 //! object is marked, and ends a route leg, where the local player knows it ([`targets`], design change 0139): where
 //! it is drawn while the player sees it, where its record is drawn while the player remembers it (a structure or a
 //! resource on Explored tiles), wherever the object really is; and not at all while the fog of war hides it otherwise
@@ -22,6 +25,7 @@
 //! Flashes age by the sim's ticks and the render alpha, so a QA screenshot of a tick (alpha 1) always shows them
 //! alike.
 
+pub mod gathering;
 pub mod rally;
 mod targets;
 
@@ -41,6 +45,7 @@ use crate::shapes::ColorMesh;
 use crate::sim_driver::{RenderAlpha, SimRes};
 use crate::{ClientMode, ClientSystems};
 
+pub use gathering::{GATHER_COLOR, GatheringMarker, RETURN_COLOR, SET_DROP_OFF_COLOR, drop_off_indicators};
 pub use rally::{RallyIndicator, rally_indicators};
 
 /// How long the flash of a given order lasts, ticks. Placeholder: the design gives none.
@@ -65,8 +70,9 @@ const FLASH_REACH: f32 = 18.0;
 const DASH: f32 = 12.0;
 /// The routes' opacity.
 const ROUTE_ALPHA: f32 = 0.8;
-/// Above the path overlay (at the layer's base) and below the combat effects (+1).
-const INDICATORS_Z: f32 = 0.5;
+/// Above the path overlay (at the layer's base) and below the combat effects (+1), in the overlays layer; the units'
+/// tags go above it (`object_render::units`).
+pub const INDICATORS_Z: f32 = 0.5;
 /// Segments of a ring.
 const RING_SEGMENTS: usize = 32;
 
@@ -93,13 +99,27 @@ pub enum Indicator {
     /// `> Object Indicator`: a marker around an object's perimeter, as the local player knows the object
     /// ([`targets`]).
     Object { id: ObjectId, color: Color },
+    /// `> Gathering markers` (design change 0201): an Object indicator with a look of its own, one of the three
+    /// gathering markers ([`gathering`]), around an object as the local player knows it.
+    Gathering { id: ObjectId, marker: GatheringMarker },
 }
 
 impl Indicator {
-    /// Its colour (`> Color language`).
+    /// Its colour (`> Color language`; a gathering marker's own).
     pub fn color(self) -> Color {
         match self {
             Indicator::Location { color, .. } | Indicator::Object { color, .. } => color,
+            Indicator::Gathering { marker, .. } => marker.color(),
+        }
+    }
+
+    /// What tells it apart from another marker, so that each shows once: its kind, its place and its colour.
+    fn key(self) -> (u8, [u32; 2], [u8; 4]) {
+        let color = self.color().to_srgba().to_u8_array();
+        match self {
+            Indicator::Location { at, .. } => (0, [at.x.to_bits(), at.y.to_bits()], color),
+            Indicator::Object { id, .. } => (1, [id.0, 0], color),
+            Indicator::Gathering { id, marker } => (2, [id.0, marker as u32], color),
         }
     }
 }
@@ -114,6 +134,9 @@ pub struct MarkerRing {
     pub height: f32,
     /// Its ring's radius, su.
     pub radius: f32,
+    /// The half extents of the box an Object marker surrounds, su (`targets::object_box`); none for a Location
+    /// marker. A gathering marker that isn't a ring goes by it ([`gathering`]).
+    pub half: Vec2,
 }
 
 /// The entity holding the indicators' mesh.
@@ -135,15 +158,16 @@ impl Plugin for IndicatorsPlugin {
     }
 }
 
-/// The colour of an order's indicator (`> Indicator assignments`); none for orders without a target.
+/// The colour of an order's indicator (`> Indicator assignments`), and of its leg of a route; none for orders without
+/// a target.
 pub fn order_color(kind: OrderKind) -> Option<Color> {
     match kind {
-        // `> Indicator assignments` has no row for a worker's Gather and Drop Off: placeholder, they show as the
-        // Move to their object they begin with, a green Location marker at it (slice M3-J2); a Deploy as a Move to
-        // its site's centre beside its ghost (slice M3-J1).
-        OrderKind::Move(_) | OrderKind::Gather(_) | OrderKind::DropOff(_) | OrderKind::Deploy { .. } => {
-            Some(MOVE_COLOR)
-        }
+        // `> Indicator assignments` has no row for a Deploy: placeholder, it shows as a Move to its site's centre
+        // beside its ghost (slice M3-J1).
+        OrderKind::Move(_) | OrderKind::Deploy { .. } => Some(MOVE_COLOR),
+        // Design change 0201: the gathering markers' own colours.
+        OrderKind::Gather(_) => Some(GATHER_COLOR),
+        OrderKind::DropOff(_) => Some(RETURN_COLOR),
         OrderKind::Attack(_) => Some(ATTACK_COLOR),
         OrderKind::AttackMove(_) | OrderKind::Patrol(_) => Some(AGGRESSIVE_COLOR),
         OrderKind::Hold | OrderKind::Stop => None,
@@ -152,21 +176,29 @@ pub fn order_color(kind: OrderKind) -> Option<Color> {
 
 /// The indicator of an order (`> Indicator assignments`): a Location for Move, AttackMove and Patrol (a Move to an
 /// object at the object as the player knows it, [`targets`]), an Object for Attack, around the object as the player
-/// knows it; none for orders without a target, or whose target the player knows nothing of.
+/// knows it, and the Gather marker and the Return Resources marker for Gather and Drop Off, around theirs (design
+/// change 0201: "replacing the Move marker"); none for orders without a target, or whose target the player knows
+/// nothing of.
 pub fn indicator(sim: &Sim, sight: &Sight, kind: OrderKind) -> Option<Indicator> {
     let color = order_color(kind)?;
+    let known = |id| sight.target_view(sim, id).is_known();
     match kind {
         OrderKind::Move(Target::Point(at)) | OrderKind::AttackMove(at) | OrderKind::Patrol(at) => {
             Some(Indicator::Location { at, color })
         }
-        OrderKind::Move(Target::Object(id)) | OrderKind::Gather(id) | OrderKind::DropOff(id) => {
+        OrderKind::Move(Target::Object(id)) => {
             let at = targets::shown_at(sim, sight, id)?;
             Some(Indicator::Location { at, color })
         }
-        OrderKind::Attack(id) => sight
-            .target_view(sim, id)
-            .is_known()
-            .then_some(Indicator::Object { id, color }),
+        OrderKind::Attack(id) => known(id).then_some(Indicator::Object { id, color }),
+        OrderKind::Gather(id) => known(id).then_some(Indicator::Gathering {
+            id,
+            marker: GatheringMarker::Gather,
+        }),
+        OrderKind::DropOff(id) => known(id).then_some(Indicator::Gathering {
+            id,
+            marker: GatheringMarker::ReturnResources,
+        }),
         OrderKind::Deploy { origin } => Some(Indicator::Location {
             at: sc_sim::deploy::site(origin).center(),
             color,
@@ -189,11 +221,7 @@ pub fn selection_indicators(sim: &Sim, sight: &Sight, states: &ControlStates, qu
             let Some(indicator) = indicator(sim, sight, order.kind) else {
                 continue;
             };
-            let key = match indicator {
-                Indicator::Location { at, .. } => (0, at.x.to_bits(), at.y.to_bits(), 0),
-                Indicator::Object { id, .. } => (1, 0, 0, id.0),
-            };
-            if seen.insert((key, order_color(order.kind).map(|c| c.to_srgba().to_u8_array()))) {
+            if seen.insert(indicator.key()) {
                 indicators.push(indicator);
             }
         }
@@ -215,12 +243,13 @@ fn own_selected<'a>(
 }
 
 /// Where the leg of a route that carries out `order` ends, ground space: the target object as the player knows it
-/// ([`targets`]), else the unit's own destination (its place in the group's shape, `Order::destination`); none for
-/// Hold and Stop, and for a target the player knows nothing of.
+/// ([`targets`]; a Gather's source and a Drop Off's drop-off too, which their markers surround), else the unit's own
+/// destination (its place in the group's shape, `Order::destination`); none for Hold and Stop, and for a target the
+/// player knows nothing of.
 fn waypoint(sim: &Sim, sight: &Sight, order: &Order) -> Option<Vec2> {
-    match order.kind {
-        OrderKind::Move(Target::Object(id)) | OrderKind::Attack(id) => targets::shown_at(sim, sight, id),
-        _ => order.destination(),
+    match order.target() {
+        Some(id) => targets::shown_at(sim, sight, id),
+        None => order.destination(),
     }
 }
 
@@ -273,8 +302,9 @@ fn flash_progress(sim: &Sim, alpha: f32, tick: Tick) -> f32 {
     ((sim.tick().saturating_sub(tick) as f32 + alpha - 1.0) / FLASH_TICKS as f32).clamp(0.0, 1.0)
 }
 
-/// Rebuilds the indicators' mesh: the routes and the rally lines at the back, then the markers (the orders' and the
-/// rally points'), then the flashes. Hidden while nothing shows, and outside the game modes.
+/// Rebuilds the indicators' mesh: the routes and the rally lines at the back, then the markers (the orders', the
+/// selected workers' drop-offs' and the rally points'), then the flashes. Hidden while nothing shows, and outside the
+/// game modes.
 #[expect(clippy::too_many_arguments, reason = "a system's parameters")]
 fn draw_indicators(
     mode: Res<ClientMode>,
@@ -305,7 +335,9 @@ fn draw_indicators(
         }
         let at = |indicator| marker_ring(sim, &sight, indicator, alpha.0);
         let markers = selection_indicators(sim, &sight, &states, queued);
-        for indicator in markers.into_iter().chain(rallies.iter().map(|rally| rally.marker)) {
+        let drop_offs = drop_off_indicators(sim, &sight, &states);
+        let rally_markers = rallies.iter().map(|rally| rally.marker);
+        for indicator in markers.into_iter().chain(drop_offs).chain(rally_markers) {
             if let Some(at) = at(indicator) {
                 marker(&mut mesh, indicator, at, 0.0, 1.0, z);
             }
@@ -356,11 +388,15 @@ fn dashed_on_terrain(mesh: &mut ColorMesh, map: &Map, a: Vec2, b: Vec2, z: f32, 
 }
 
 /// Draws `indicator`'s marker `at` its place ([`marker_ring`]): its ring `grow` su wider than at rest, at `opacity`.
-/// A Location also gets its dot while at rest or nearly.
+/// A Location also gets its dot while at rest or nearly; a gathering marker has a look of its own ([`gathering`]).
 fn marker(mesh: &mut ColorMesh, indicator: Indicator, at: MarkerRing, grow: f32, opacity: f32, z: f32) {
     let width = if grow > 0.0 { FLASH_WIDTH } else { MARKER_WIDTH };
     let center = view_to_world(drawn_at_height(at.center, at.height));
     let color = indicator.color().with_alpha(opacity);
+    if let Indicator::Gathering { marker, .. } = indicator {
+        gathering::draw(mesh, marker, center.extend(z), at, grow, width, color);
+        return;
+    }
     ring(mesh, center, at.radius + grow, width, z, color);
     if matches!(indicator, Indicator::Location { .. }) && grow < FLASH_REACH / 2.0 {
         disc(mesh, center, DOT_RADIUS, z, color);
@@ -368,22 +404,24 @@ fn marker(mesh: &mut ColorMesh, indicator: Indicator, at: MarkerRing, grow: f32,
 }
 
 /// Where `indicator`'s marker is drawn at rest, at the render `alpha`, as the player whose `sight` this is knows its
-/// target: a Location at its point on the ground; an Object around the object's box, where the object is drawn while
-/// the player sees it, around its record's footprint while the player remembers it, wherever the object really is
-/// ([`targets`], design change 0139); none while the player knows of nothing there.
+/// target: a Location at its point on the ground; an Object or a gathering marker around the object's box, where the
+/// object is drawn while the player sees it, around its record's footprint while the player remembers it, wherever
+/// the object really is ([`targets`], design change 0139); none while the player knows of nothing there.
 pub fn marker_ring(sim: &Sim, sight: &Sight, indicator: Indicator, alpha: f32) -> Option<MarkerRing> {
     match indicator {
         Indicator::Location { at, .. } => Some(MarkerRing {
             center: at,
             height: sim.map().height_at(at),
             radius: LOCATION_RADIUS,
+            half: Vec2::ZERO,
         }),
-        Indicator::Object { id, .. } => {
+        Indicator::Object { id, .. } | Indicator::Gathering { id, .. } => {
             let (center, height, half) = targets::object_box(sim, sight, id, alpha)?;
             Some(MarkerRing {
                 center,
                 height,
                 radius: half.length() + OBJECT_GAP,
+                half,
             })
         }
     }
@@ -420,21 +458,4 @@ fn disc(mesh: &mut ColorMesh, center: Vec2, radius: f32, z: f32, color: Color) {
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn indicator_colours_follow_the_colour_language() {
-        let p = Vec2::new(10.0, 20.0);
-        assert_eq!(order_color(OrderKind::Move(Target::Point(p))), Some(MOVE_COLOR));
-        assert_eq!(
-            order_color(OrderKind::Move(Target::Object(ObjectId(3)))),
-            Some(MOVE_COLOR)
-        );
-        assert_eq!(order_color(OrderKind::Attack(ObjectId(3))), Some(ATTACK_COLOR));
-        assert_eq!(order_color(OrderKind::AttackMove(p)), Some(AGGRESSIVE_COLOR));
-        assert_eq!(order_color(OrderKind::Patrol(p)), Some(AGGRESSIVE_COLOR));
-        assert_eq!(order_color(OrderKind::Hold), None);
-        assert_eq!(order_color(OrderKind::Stop), None);
-    }
-}
+mod tests;

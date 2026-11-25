@@ -284,6 +284,8 @@ fn only_the_local_players_units_take_commands() {
 
     tap(&mut app, &[], F2);
     assert_eq!(local_player(&app), PlayerId(2));
+    // Player 2 has a camera of their own, at their start (slice M3-J3): back to this test's view.
+    app.world_mut().resource_mut::<CameraView>().center = VIEW_CENTER;
     click(&mut app, at(ENEMY_PK), &[]);
     tap(&mut app, &[], KeyE);
     assert_eq!(
