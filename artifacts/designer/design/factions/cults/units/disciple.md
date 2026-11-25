@@ -19,7 +19,8 @@ The Disciple has its own energy pool, which it spends on its spells. It regenera
 - **The cloud is centered on the Disciple** (user, 2026-11-26). The Disciple **can't move while channeling**.
 - **It affects every ground object under it** (user, 2026-11-26): **ground units and buildings**, whoever owns them, **not air units**. **All anti-ground damage** landing on objects under the cloud, single-target and area alike, is **absorbed and redistributed** over the connected cloud (likely through a damage buffer; mechanism being designed).
 - Contiguous clouds merge for this purpose: **all contiguously connected clouds share one damage buffer** (user, 2026-11-26), and it is spread over their whole combined area.
+- **The buffer** (user, 2026-11-26): anti-ground damage aimed at objects under the cloud goes into the shared buffer instead of hitting its target. Every **0.5 s (8 frames), placeholder**, the buffer is released as **one area hit over the whole connected cloud** and empties. Each ground object under it takes its share by **overlap area** (systems/combat.md > AoEDamage), with armor applied once per release; the share falling on empty cloud area is **lost**. So sparse clouds absorb much of the damage, and crowded ones little.
 
-TBD: cloud size; what ends or interrupts the channel; whether damage spread over empty cloud area is lost or shared among the units under it; drain rate; name; hotkey.
+TBD: cloud size; what ends or interrupts the channel; drain rate; name; hotkey.
 
 , armor, SightRange, Groupable, movement attributes, AttackAttributes (if any), spells/abilities, and ObjectInterfaceState: TBD. Whether the Disciple counts as an "unarmed" unit for Augmentation increments is TBD.
