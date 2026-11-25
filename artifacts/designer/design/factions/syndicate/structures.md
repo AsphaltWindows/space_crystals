@@ -199,13 +199,15 @@ Syndicate production building that assembles Syndicate aviation and orbital forc
 #### Tier Requirement - 3
 #### TechPrerequisite - player owns at least one Forge (anywhere in the Tunnel Network)
 
-Produces (2026-11-25): **Phantom** (requires an Optics Lab), **Specter** (bomber) (factions/syndicate/units.md).
+Produces (2026-11-25): **Phantom** (requires an Optics Lab), **Specter** (bomber) (factions/syndicate/units.md). **Satellites** require an **Orbital Command**, the final Syndicate tech building (user, 2026-11-25; design in progress).
 
 (Full stats TBD)
 
 ### Orbital Command
 
 Syndicate facility allowing for control and coordination of orbital forces.
+
+Prerequisite for **satellites** (user, 2026-11-25).
 
 #### Entity Type - Structure Type (Underground)
 #### Tier Requirement - 3
