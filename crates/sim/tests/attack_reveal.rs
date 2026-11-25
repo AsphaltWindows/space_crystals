@@ -160,7 +160,7 @@ fn a_revealed_attacker_can_be_ordered_as_a_target() {
     let guard = t.sim().object(ObjectId(VICTIM)).unwrap();
     let current = guard.orders.as_ref().unwrap().current.as_ref().unwrap();
     assert_eq!(current.order.kind, OrderKind::Attack(ObjectId(SNIPER)));
-    assert!(matches!(&current.state, Behaviour::Attack(state) if state.chasing && !state.lost));
+    assert!(matches!(&current.state, Behaviour::Attack(state) if state.chasing && state.seen));
     let from = guard.pos;
     t.run(5);
     assert!(t.sim().object(ObjectId(VICTIM)).unwrap().pos.x > from.x, "up the ramp");

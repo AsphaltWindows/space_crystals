@@ -1,6 +1,7 @@
 //! The state hash of the behaviours' working state (`hash.rs`): every field, destructured, so that a new one doesn't
 //! compile until it is hashed. The fields added after M2 are hashed only while set, so that a state without them
-//! hashes as it did before they existed (the goldens stand).
+//! hashes as it did before they existed (the goldens stand); but `AttackOrder::seen`, which took the place of M2's
+//! last seen position (slice M3-L3, design change 0200), is hashed where that was.
 
 use super::*;
 use crate::hash::{StateHash, StateHasher};
@@ -45,20 +46,18 @@ impl StateHash for AttackOrder {
     fn hash(&self, h: &mut StateHasher) {
         let AttackOrder {
             chasing,
-            last_seen,
-            lost,
+            seen,
             remembered,
             on_hold,
             backing_off,
             too_close,
         } = self;
         chasing.hash(h);
-        last_seen.hash(h);
-        lost.hash(h);
+        // (M3-L3) In the place of the last-seen position and the walk there, which design change 0200 removed.
+        seen.hash(h);
         // (M3-R, M3-L2) Only while set, as `Mover::momentum` (`mover/hash.rs`): an Attack that never went for a
-        // remembered target, waited behind a Riot Shield nor had its target inside its MinRange hashes as it did
-        // before the fields existed (the goldens stand). A state with one differs from the same state without by its
-        // tag and value.
+        // remembered target, waited behind a Riot Shield nor had its target inside its MinRange hashes as if the
+        // fields didn't exist. A state with one differs from the same state without by its tag and value.
         if *remembered {
             h.tag(1);
         }
@@ -81,14 +80,10 @@ impl StateHash for Approach {
         let Approach {
             moving,
             parked,
-            last_seen,
-            lost,
             remembered,
         } = self;
         moving.hash(h);
         parked.hash(h);
-        last_seen.hash(h);
-        lost.hash(h);
         // (M3-R) Only while set, as `AttackOrder`'s.
         if *remembered {
             h.tag(1);

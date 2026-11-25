@@ -32,8 +32,8 @@ pub enum TargetView {
     /// and treats it as present there until the player sees the place. Whether it still exists, nothing says.
     Remembered { position: Vec2, footprint: Placement },
     /// Neither: as far as the player knows there is nothing to go to. An object it saw gone (its record was dropped),
-    /// a unit out of its sight (units aren't remembered: a Follow ends when its target leaves sight, design change
-    /// 0034), or one it never saw.
+    /// a unit out of its sight (units aren't remembered: an Attack or a Follow ends when its target leaves sight,
+    /// design change 0200), or one it never saw.
     Gone,
 }
 

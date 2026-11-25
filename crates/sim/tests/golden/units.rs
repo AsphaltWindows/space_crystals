@@ -120,8 +120,8 @@ pub(crate) fn patrol() -> Game {
 }
 
 /// A Peacekeeper (player 1, id 1) attacks a Guard (player 2, id 2) that runs away east, faster than it: the
-/// Peacekeeper shoots while it can, chases, loses the Guard in the fog, walks to where it last saw it and stops
-/// there (design change 0034).
+/// Peacekeeper shoots while it can, chases, and stops where it stands once the Guard is lost in the fog (design
+/// change 0200, which replaced 0034's walk to where it last saw it).
 pub(crate) fn fog_chase() -> Game {
     let builder = ScenarioBuilder::new(&open(48, 10))
         .spawn(PK, Some(P1), at(4, 5))
@@ -141,8 +141,8 @@ pub(crate) fn fog_chase() -> Game {
             assert!(!sim.is_visible(P1, runner), "out of the chaser's sight");
             assert!(chaser.orders.as_ref().unwrap().is_idle(), "the chase ended");
             assert!(
-                chaser.pos.x > 9.0 * SU_PER_GU,
-                "it chased past the Guard's start: {}",
+                chaser.pos.x > 5.0 * SU_PER_GU && chaser.pos.x < 8.0 * SU_PER_GU,
+                "it chased, and stopped short of the Guard's start: {}",
                 chaser.pos
             );
         },

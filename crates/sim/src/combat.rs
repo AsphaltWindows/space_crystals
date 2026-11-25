@@ -22,7 +22,7 @@
 //! - **Vision** (`systems/combat.md > ValidTarget` 2): a sequence starts, and Aiming goes on, only while the unit's
 //!   owner sees the target, by the vision phase 5f left at the end of the last tick (`vision`), an attacker revealed
 //!   to the owner included. What a unit does about a target out of range or out of sight is its behaviour's
-//!   (`orders::engage`: it closes in, or goes to where the target was last seen).
+//!   (`orders::engage`: it closes in, or its Attack completes and it stops where it is, design change 0200).
 //! - **Attacks from outside vision** (`core/vision.md`, design change 0177): each hit reveals its attacker to the
 //!   owner of the object hit, if that player didn't see it (`vision::reveal`), once the tick's hits are applied.
 //! - **Range** (`> Range Measurement`, design change 0031): edge to edge, the gap between the attacker's shape and
