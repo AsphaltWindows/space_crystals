@@ -8,6 +8,7 @@ use bevy::prelude::*;
 use bevy::time::TimeUpdateStrategy;
 
 use sc_sim::defs::RIOT_SHIELD_TOGGLE_TICKS;
+use sc_sim::vision::Hiding;
 use sc_sim::{
     Ability, Command, DebugCommand, ObjectId, ObjectKind, OrderKind, PlayerCommand, PlayerId, Scenario, SimConfig,
     SpawnAt, Target, Tick, TilePos, scenarios,
@@ -23,6 +24,7 @@ use space_crystals::object_render::{ObjectVisuals, RiotShieldVisual};
 use space_crystals::platform::DisplayMode;
 use space_crystals::selection::{ControlStates, Selectables, Selection};
 use space_crystals::sim_driver::{PendingCommands, SimRes};
+use space_crystals::viewer_events::Sighting;
 use space_crystals::{AppConfig, ClientMode, build_app};
 
 const P1: PlayerId = PlayerId(1);
@@ -324,6 +326,7 @@ fn combat_in_the_fog_shows_nothing() {
             kind: ObjectKind::Guard,
             owner: Some(owner),
             pos: centre(x, y),
+            seen: Sighting::object_at(Some(owner), Hiding::default(), centre(x, y)),
         };
         assert!(shows_death(&sight, &death(P2, 6, 8)));
         assert!(!shows_death(&sight, &death(P2, 18, 8)));

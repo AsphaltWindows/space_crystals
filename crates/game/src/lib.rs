@@ -12,6 +12,8 @@
 //! - [`map_render`]: the terrain mesh and the grid overlay;
 //! - [`object_render`]: placeholder visuals of sim objects;
 //! - [`fog`]: the fog of war: what the local player sees, the fog layer over the terrain, and hiding the rest;
+//! - [`viewer_events`]: the one filter of the sim's events: what each player may perceive of each, which every view
+//!   of them reads instead of the sim's own stream;
 //! - [`path_overlay`]: the units' remaining paths, a development view;
 //! - [`combat_effects`]: placeholder combat feedback: tracers, HP bars, death markers;
 //! - [`selection`]: the players' selections and control groups (client-side UI state), and their markers;
@@ -51,6 +53,7 @@ pub mod selection;
 pub mod shapes;
 pub mod sim_driver;
 pub mod tuning;
+pub mod viewer_events;
 
 use std::path::PathBuf;
 
@@ -73,6 +76,7 @@ use crate::qa::{QaConfig, QaPlugin};
 use crate::replay::{PlaybackPlugin, RecordPlugin};
 use crate::selection::SelectionPlugin;
 use crate::sim_driver::SimDriverPlugin;
+use crate::viewer_events::ViewerEventsPlugin;
 
 /// Order of the client's `Update` systems within a frame.
 #[derive(SystemSet, Debug, Clone, PartialEq, Eq, Hash)]
@@ -227,6 +231,7 @@ pub fn build_app(config: AppConfig) -> App {
         FogPlugin {
             enabled: !config.qa.no_fog,
         },
+        ViewerEventsPlugin,
         QaPlugin { config: config.qa },
         SelectionPlugin,
         CommandUiPlugin,

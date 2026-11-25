@@ -3,7 +3,8 @@
 //! (notifications not designed yet)"; 0256's Implementation impact: "M4 may show it in a placeholder form").
 //!
 //! When the sim reports that a Supply Delivery Station where the local player's Agents gather has run out
-//! (`SimEvent::SupplyStationEmpty`, sent to each player whose Agents gather there), [`STATION_EMPTY_TEXT`] shows
+//! (`SimEvent::SupplyStationEmpty`, sent to each player whose Agents gather there, and through the filter of events to
+//! that player alone, `crate::viewer_events`), [`STATION_EMPTY_TEXT`] shows
 //! across the top of the world view, under the top bar, for [`NOTICE_TICKS`] after the latest one. It ages by the
 //! sim's ticks, so a QA screenshot of a tick always shows it alike, and a sim replaced (a load, a replay) shows none of
 //! the old one's. It never takes the pointer: clicks pass through it to the map.
@@ -15,7 +16,9 @@ use bevy::prelude::*;
 use sc_sim::{SimEvent, Tick};
 
 use super::TOP_BAR_HEIGHT_VH;
-use crate::sim_driver::{LocalPlayer, SimEventMessage, SimRes};
+use crate::fog::LocalSight;
+use crate::sim_driver::SimRes;
+use crate::viewer_events::ViewerEvents;
 use crate::{ClientMode, ClientSystems};
 
 /// The notice's line. Placeholder wording.
@@ -83,19 +86,19 @@ fn spawn_notice(mut commands: Commands) {
     ));
 }
 
-/// Takes the frame's empty stations of the local player's, and shows the notice for [`NOTICE_TICKS`] after the
-/// latest.
+/// Takes the frame's empty stations that the local player perceives (theirs alone), and shows the notice for
+/// [`NOTICE_TICKS`] after the latest.
 fn show_notice(
     mode: Res<ClientMode>,
     sim: Res<SimRes>,
-    player: Res<LocalPlayer>,
-    mut events: MessageReader<SimEventMessage>,
+    sight: LocalSight,
+    events: Res<ViewerEvents>,
     mut notice: ResMut<StationNotice>,
     mut views: Query<&mut Visibility, With<StationNoticeView>>,
 ) {
-    let latest = (events.read())
-        .filter(|message| matches!(message.event, SimEvent::SupplyStationEmpty { owner, .. } if owner == player.0))
-        .map(|message| message.tick)
+    let latest = (events.perceived_by(sight.sim(), sight.get()))
+        .filter(|(_, event, _)| matches!(event, SimEvent::SupplyStationEmpty { .. }))
+        .map(|(tick, ..)| tick)
         .max();
     let generation = Some(sim.generation());
     let earlier = notice.since.filter(|_| notice.generation == generation);

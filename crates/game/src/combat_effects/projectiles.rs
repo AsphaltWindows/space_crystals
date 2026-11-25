@@ -11,7 +11,7 @@
 //! along the part of its path that crosses tiles **Visible** to that player": a projectile shows while its point on
 //! the ground is over a Visible tile ([`shows_flight`]), as a shot's path is cut ([`super::visible_spans`]). **No
 //! exceptions** (design change 0293, answering Q0083 point 4): a revealed attacker's projectile at the player's own
-//! objects too, "you see only the visible part of its projectiles".
+//! objects too, "you see only the visible part of its projectiles". Its sighting says so (`crate::viewer_events`).
 
 use bevy::prelude::*;
 use sc_sim::{Map, ObjectId, ObjectKind, PlayerId, Sim, Tick, VisibilityState};
@@ -22,6 +22,7 @@ use crate::coords::{drawn_at_height, view_to_world};
 use crate::fog::Sight;
 use crate::object_render::player_color;
 use crate::shapes::{ColorMesh, lighten};
+use crate::viewer_events::{Perception, Sighting};
 
 /// How high the arc of a projectile rises halfway, as a share of its path's length. Placeholder (not in the design): a
 /// lob, so that a grenade reads as thrown.
@@ -51,6 +52,9 @@ pub struct Flight {
     pub to: Vec2,
     /// The tick it lands in.
     pub lands_at: Tick,
+    /// Whom it reaches, and how: along its path, over each viewer's Visible tiles (`crate::viewer_events`,
+    /// [`shows_flight`]).
+    pub seen: Sighting,
 }
 
 impl Flight {
@@ -80,12 +84,18 @@ impl Flight {
     }
 }
 
-/// Whether `sight` shows `flight` now, at `progress` of its way: while it flies, and its point on the ground is over a
-/// tile Visible to the player (`core/vision.md > Attacks from outside vision`), whoever threw it and at whatever: a
-/// shooter revealed to the player, at the player's own object, too (design change 0293, which replaced the
+/// Whether `sight` shows `flight` now, at `progress` of its way: while it flies, as its sighting reaches the player
+/// (`crate::viewer_events`): while its point on the ground is over a tile Visible to the player
+/// (`core/vision.md > Attacks from outside vision`), always while the fog doesn't apply; whoever threw it and at
+/// whatever: a shooter revealed to the player, at the player's own object, too (design change 0293, which replaced the
 /// placeholder that drew those whole, as design change 0244 drew its shots).
 pub fn shows_flight(sim: &Sim, sight: &Sight, flight: &Flight, progress: f32) -> bool {
-    flight.flying(sim) && sight.at(flight.ground(progress)) == VisibilityState::Visible
+    flight.flying(sim)
+        && match flight.seen.perceived_by(sight) {
+            Perception::Whole => true,
+            Perception::Clipped { from, to } => sight.at(from.lerp(to, progress)) == VisibilityState::Visible,
+            Perception::Nothing => false,
+        }
 }
 
 /// The projectile at `progress` of its way, in its shooter's colour, above its shadow on the ground; a grenade
@@ -130,15 +140,17 @@ mod tests {
 
     /// A projectile from the origin to 4 GU east, launched in `tick`, landing in `lands_at`.
     fn flight(tick: Tick, lands_at: Tick) -> Flight {
+        let (from, to) = (Vec2::ZERO, Vec2::new(256.0, 0.0));
         Flight {
             tick,
             shooter: ObjectId(1),
             weapon: None,
             owner: None,
             target: None,
-            from: Vec2::ZERO,
-            to: Vec2::new(256.0, 0.0),
+            from,
+            to,
             lands_at,
+            seen: Sighting::path(from, to),
         }
     }
 

@@ -3,17 +3,19 @@
 //! for [`BLAST_TICKS`]. Placeholder look until the art direction (Q0001).
 //!
 //! The fog: a blast shows only while the tile under its centre is Visible to the player ([`shows_blast`]), however far
-//! its ring reaches (a placeholder reading of "where the viewer has vision"). What it hit shows nothing of itself: a
-//! `SimEvent::Hit` is drawn for no victim, and an object the player doesn't see, a hidden Hideout under the blast
-//! among them, shows no HP bar and no death marker (`super::hp_bars`, `super::shows_death`).
+//! its ring reaches (a placeholder reading of "where the viewer has vision"; its sighting, `crate::viewer_events`).
+//! What it hit shows nothing of itself: a `SimEvent::Hit` is drawn for no victim, and an object the player doesn't
+//! see, a hidden Hideout under the blast among them, shows no HP bar and no death marker (`super::hp_bars`,
+//! `super::shows_death`).
 
 use bevy::prelude::*;
-use sc_sim::{Map, Sim, Tick, VisibilityState};
+use sc_sim::{Map, Sim, Tick};
 
 use super::shows;
 use crate::coords::{drawn_at_height, view_to_world};
 use crate::fog::Sight;
 use crate::shapes::ColorMesh;
+use crate::viewer_events::{Perception, Sighting};
 
 pub use crate::tuning::feedback::BLAST_TICKS;
 
@@ -29,12 +31,16 @@ pub struct Blast {
     pub tick: Tick,
     pub at: Vec2,
     pub radius: f32,
+    /// Whom it reaches, and how: each viewer while its centre's tile is Visible to them (`crate::viewer_events`,
+    /// [`shows_blast`]).
+    pub seen: Sighting,
 }
 
-/// Whether `sight` shows `blast` now: for [`BLAST_TICKS`] from its tick, while the tile under its centre is Visible to
-/// the player.
+/// Whether `sight` shows `blast` now: for [`BLAST_TICKS`] from its tick, as its sighting reaches the player
+/// (`crate::viewer_events`): while the tile under its centre is Visible to the player, always while the fog doesn't
+/// apply.
 pub fn shows_blast(sim: &Sim, sight: &Sight, blast: &Blast) -> bool {
-    shows(sim, blast.tick, BLAST_TICKS) && sight.at(blast.at) == VisibilityState::Visible
+    shows(sim, blast.tick, BLAST_TICKS) && blast.seen.perceived_by(sight) == Perception::Whole
 }
 
 /// The blast `age` ticks after it landed: a pale disc that fades in its first third, inside a ring that grows from

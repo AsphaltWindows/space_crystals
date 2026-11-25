@@ -1,6 +1,6 @@
 //! The selection's systems: the input layer's clicks, boxes and actions (`ARCHITECTURE.md > Client architecture >
 //! Input`) become the selection rules (`super::rules`) on the local player's ControlState, and the sim's removals
-//! leave every ControlState at once.
+//! leave every ControlState at once, each player's those they perceive (`crate::viewer_events`).
 
 use std::collections::BTreeSet;
 
@@ -17,14 +17,16 @@ use crate::fog::{FogOfWar, Sight};
 use crate::input::{ActionState, Bindings, InputAction, MapClick, SelectionBox};
 use crate::platform::SurfaceSize;
 use crate::replay::Playback;
-use crate::sim_driver::{LocalPlayer, PendingCommands, SimEventMessage, SimRes};
+use crate::sim_driver::{LocalPlayer, PendingCommands, SimRes};
+use crate::viewer_events::ViewerEvents;
 
 /// `systems/controls/selection_and_hud.md > ControlState`: validated against the game state every tick. Removed objects
 /// (`SimEvent::Removed`, which combat's deaths send too) leave every player's selection and control groups in the frame
-/// of their tick; so does anything else that no longer exists, and anything that player may no longer select
-/// (`pick::selectable_id`): an enemy that walks out of sight is deselected at once (a placeholder rule: the design
-/// doesn't say). A record the player may select (a GDO player's remembered SupplyDeliveryStation) stays selected even
-/// if its object is removed out of sight: the player doesn't learn of it. A unit that walked into a Tunnel leaves the
+/// of their tick, each player's the removals they perceive (`crate::viewer_events`); so does anything else that no
+/// longer exists, and anything that player may no longer select (`pick::selectable_id`): an enemy that walks out of
+/// sight is deselected at once (a placeholder rule: the design doesn't say). A record the player may select (a GDO
+/// player's remembered SupplyDeliveryStation) stays selected even if its object is removed out of sight: the player
+/// doesn't learn of it (the filter gives them no such removal). A unit that walked into a Tunnel leaves the
 /// selection and stays in its control groups, whose recall selects the members on the map (design change 0249). An
 /// object the player sees that changed its kind in place (`SimEvent::KindChanged`, plan decision T15), or that started
 /// or stopped being unfinished (design change 0185: a building whose Warp In completes or is cancelled), stays selected
@@ -39,37 +41,30 @@ pub(super) fn sync_control_states(
     fog: Res<FogOfWar>,
     mode: Res<ClientMode>,
     pending: Res<PendingCommands>,
-    mut events: MessageReader<SimEventMessage>,
+    events: Res<ViewerEvents>,
     mut states: ResMut<ControlStates>,
 ) {
-    let removed: BTreeSet<ObjectId> = events
-        .read()
-        .filter_map(|m| match m.event {
-            SimEvent::Removed(id) => Some(id),
-            _ => None,
-        })
-        .collect();
     if states.generation != Some(sim.generation()) {
         states.by_player.clear();
         states.generation = Some(sim.generation());
         return;
     }
-    if removed.is_empty() && !sim.is_changed() && !fog.is_changed() && !mode.is_changed() {
+    if events.is_empty() && !sim.is_changed() && !fog.is_changed() && !mode.is_changed() {
         return;
     }
     let mut changed = false;
     for (&player, state) in &mut states.bypass_change_detection().by_player {
         let sight = Sight::new(&sim, player, fog.applies(*mode));
+        let removed: BTreeSet<ObjectId> = (events.perceived_by(&sim, sight))
+            .filter_map(|(_, event, _)| match *event {
+                SimEvent::Removed(id) => Some(id),
+                _ => None,
+            })
+            .collect();
         // A unit inside the player's Tunnel Network is off the map: out of the selection, kept in the control groups
         // (design change 0249, `sc_sim::network`).
         let held = |id: ObjectId| (sim.held_unit(id)).is_some_and(|held| held.object.owner == Some(player));
-        changed |= state.retain_on_map(
-            |id| {
-                let remembered = sight.remembered_record(id).is_some();
-                (remembered || !removed.contains(&id)) && selectable_id(&sim, &sight, id)
-            },
-            held,
-        );
+        changed |= state.retain_on_map(|id| !removed.contains(&id) && selectable_id(&sim, &sight, id), held);
         let changed_types: Vec<(ObjectId, GroupType)> = state
             .selection
             .member_types()
