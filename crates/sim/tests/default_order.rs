@@ -199,6 +199,7 @@ fn the_rule_on_abilities_and_targets() {
         drop_off,
         transit: &[],
         accepts: &[],
+        full: false,
         site: None,
         repair: None,
     };
@@ -366,6 +367,30 @@ fn the_rule_on_abilities_and_targets() {
             ..damaged(ObjectKind::Armory)
         };
         assert_eq!(resolve(recruit, Aim::Object(armory)), enter);
+        // (M5-S2b) Unless it is full (design change 0378: "a damaged enterable building that is **full at the moment
+        // of the click** resolves to **Repair** [...]. This applies to every building that holds units"): the Recruit
+        // repairs a full damaged Armory or Garrison, and enters a full one with nothing to repair; a Militant, whose
+        // type repairs nothing, gets the Enter, which ends at the door (the normal Full-building rule).
+        let full = |aimed: Aimed| Aimed { full: true, ..aimed };
+        assert_eq!(resolve(recruit, Aim::Object(full(armory))), repair);
+        let garrison = Aimed {
+            accepts: &[ObjectKind::Recruit, ObjectKind::Militant],
+            ..damaged(ObjectKind::Garrison)
+        };
+        assert_eq!(resolve(recruit, Aim::Object(garrison)), enter, "a free slot");
+        assert_eq!(resolve(recruit, Aim::Object(full(garrison))), repair);
+        let militant = Abilities {
+            kind: ObjectKind::Militant,
+            worker: false,
+            carrying: false,
+            ..recruit
+        };
+        assert_eq!(resolve(militant, Aim::Object(full(garrison))), enter);
+        let whole = Aimed {
+            repair: None,
+            ..full(armory)
+        };
+        assert_eq!(resolve(recruit, Aim::Object(whole)), enter, "nothing to repair");
         assert_eq!(resolve(agent, Aim::Object(damaged(ObjectKind::LaserTurret))), repair);
         // No one repairs a Tunnel's expansion: it regenerates.
         assert_eq!(resolve(agent, Aim::Object(damaged(ObjectKind::Hideout))), follow);

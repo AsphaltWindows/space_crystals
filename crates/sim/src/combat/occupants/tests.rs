@@ -1,5 +1,6 @@
 //! The occupants' weapons and where their shots leave from (slice M5-N2, `factions/cults/structures/garrison.md >
-//! Garrisoning`). Their fire through the whole sim is `tests/garrison/`.
+//! Garrisoning`), and (M5-S2b) the threat they make of their building ([`threat`]). Their fire through the whole sim
+//! is `tests/garrison/`.
 
 use glam::Vec2;
 
@@ -124,3 +125,5 @@ fn an_occupants_shots_leave_from_the_footprints_edge_nearest_the_target() {
     let own = Shooter::new(map, garrison, &attrs, None, 0.0);
     assert_eq!(own.muzzle(Vec2::new(600.0, 600.0)), garrison.pos);
 }
+
+mod threat;

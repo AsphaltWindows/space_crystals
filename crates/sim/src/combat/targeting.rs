@@ -156,7 +156,8 @@ pub(super) struct TargetView {
     /// (M4-S1) Its owner: a structure's own pick takes only its enemies (`super::structures`).
     pub owner: Option<PlayerId>,
     /// (M4-S1) The domain its own attack threatens (`super::threat`), for a structure's own pick: threatening targets
-    /// first (`systems/controls/behaviors.md > BaseAutoTargeting > Target Selection Priority`).
+    /// first (`systems/controls/behaviors.md > BaseAutoTargeting > Target Selection Priority`). (M5-S2b) A building's
+    /// units inside add theirs ([`Targets::with_occupants`]).
     pub threat: Option<TargetDomain>,
     pub pos: Vec2,
     pub facing: f32,
@@ -207,6 +208,14 @@ impl Targets {
             })
             .collect();
         Self(views)
+    }
+
+    /// (M5-S2b) The snapshot with what the units inside the buildings threaten (`super::Threats`, design change 0377,
+    /// answering Q0139): a building that fires through its occupants is a threatening target to a structure's own
+    /// pick, its occupants' among them, while one of them could attack the ground (`super::structures::pick`).
+    pub(super) fn with_occupants(mut self, inside: &super::Threats) -> Self {
+        inside.add_to(&mut self.0, |t| t.id, |t| &mut t.threat);
+        self
     }
 
     pub(super) fn get(&self, id: ObjectId) -> Option<&TargetView> {

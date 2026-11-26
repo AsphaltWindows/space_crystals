@@ -85,7 +85,10 @@ impl World<'_> {
     /// `systems/controls/behaviors.md > BaseAutoTargeting > Target Selection Priority`
     /// (`systems/controls/behaviors.md > TurretAutonomousScanning`): the best ValidTarget within the reach of `scan`,
     /// if any, among those `admit` lets through:
-    /// 1. **threatening** targets first, those whose own attack can target this unit's domain;
+    /// 1. **threatening** targets first, those whose own attack can target this unit's domain, and (M5-S2b) the
+    ///    buildings with a unit inside whose attack, as fired from there, can (design change 0377, answering Q0139:
+    ///    "**Buildings that fire through their occupants** [...] count as threatening while **any occupant's weapon**
+    ///    [...] could attack this unit's domain"; [`World::with_occupants`]);
     /// 2. then the **least rotation** from the unit's facing, or its turret's for a unit with a turret (slice M5-U1,
     ///    [`Unit::aim_facing`]), in 45° steps (design change 0179, [`rotation_step`]): targets in one step count as
     ///    needing equal rotation;
@@ -94,7 +97,8 @@ impl World<'_> {
     ///
     /// Enemy structures are ValidTargets too (`systems/combat.md > ValidTarget`, design change 0103), so units
     /// attack enemy buildings on their own; those that can't attack (all but a complete Laser Turret, slice M4-S1:
-    /// `combat::threat`) are non-threatening, and come after the targets that can shoot back. An enemy inside the
+    /// `combat::threat`, and a manned Garrison, 0377) are non-threatening, and come after the targets that can shoot
+    /// back. An enemy inside the
     /// unit's MinRange is never picked (design change 0182, [`Scan`]).
     ///
     /// Nothing while auto-targeting is off (`DebugCommand::SetAutoTargeting`).

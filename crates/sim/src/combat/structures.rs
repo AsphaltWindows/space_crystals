@@ -31,7 +31,8 @@ fn enemy(shooter: &Shooter, t: &TargetView) -> bool {
 ///   destructible, in a domain its attack allows, seen by its owner) within Range and beyond MinRange.
 /// - **Else it picks** the best such target (`systems/controls/behaviors.md > BaseAutoTargeting > Target Selection
 ///   Priority`): **threatening** targets first, those whose own attack can target it (a structure stands on the
-///   ground: `super::object_domain`), then the **closest**, by the gap between the shapes, then the lowest id (the
+///   ground: `super::object_domain`), (M5-S2b) a building whose units inside could among them (design change 0377,
+///   `super::Threats`), then the **closest**, by the gap between the shapes, then the lowest id (the
 ///   deterministic tie-break). BaseAutoTargeting's second criterion, the least rotation, counts for nothing: a
 ///   structure fires in any direction (plan decision T49). None in range: it engages nothing.
 ///

@@ -110,9 +110,12 @@ pub(super) fn start(order: &Order, unit: &mut Unit, world: &World) -> Behaviour 
     // (M4-O) An Attack Ground engages its location instead (`systems/controls/command_behaviors.md >
     // AttackingLocation`).
     // (M5-U1) A Stop also clears the turret's LockedTarget (`systems/controls/command_behaviors.md >
-    // StoppingBehavior` 2: "Clear TurretCommandState.LockedTarget (turret falls back to autonomous scanning)"); every
-    // other order leaves it as it is (`systems/controls/commands.md > TurretCommandState`: "When the base behavior does
-    // not specify a target, the turret retains its previous TurretCommandState").
+    // StoppingBehavior` 2: "Clear TurretCommandState.LockedTarget (turret falls back to autonomous scanning)";
+    // `systems/controls/commands.md > TurretCommandState > When a lock ends`, design change 0376, answering Q0137:
+    // "**Stop clears the lock** [...]. The turret then scans, and may pick the same enemy again", in this very tick,
+    // the unit idle by then: `update`'s `turret::run`); every other order leaves it as it is
+    // (`systems/controls/commands.md > TurretCommandState`: "When the base behavior does not specify a target, the
+    // turret retains its previous TurretCommandState"; 0376: "**Commands that set no target leave the lock alone**").
     match order.kind {
         OrderKind::AttackGround(at) => unit.engage_ground(at),
         OrderKind::Attack(id) => unit.engage(Some(id)),

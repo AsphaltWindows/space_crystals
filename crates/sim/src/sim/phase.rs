@@ -118,7 +118,8 @@ impl Sim {
             self.auto_targeting,
         )
         .with_knowledge(&self.path_knowledge, self.nav_version)
-        .with_research(Research::new(&self.players));
+        .with_research(Research::new(&self.players))
+        .with_occupants(&combat::Threats::of(&self.objects, &self.held));
         orders::update(&mut self.objects, first_new, &world, &mut reach);
         self.nav.put_reach(reach);
         // The workers that got to their sites in 5a deploy or start their sites, or their orders fail

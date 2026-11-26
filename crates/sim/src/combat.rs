@@ -107,6 +107,7 @@ use crate::vision::Vision;
 
 pub use area::{hits_domain, overlap};
 pub use damage::{Hit, Taken, directional_multiplier, hit_damage, pre_armor_multiplier, resolve};
+pub(crate) use occupants::Threats;
 pub use projectiles::{Projectile, flight_ticks};
 pub use targeting::{
     can_attack_now, can_target_ground, domain_allows, inside_min_range, max_range, object_box, object_domain, reaches,
@@ -205,10 +206,11 @@ pub(crate) fn weapon_of(form: ObjectKind) -> Option<&'static AttackAttrs> {
     }
 }
 
-/// The domain `o` threatens: its weapon's TargetDomain ([`weapon`]), if it has an attack it can use: a unit that
-/// attacks, a structure that attacks once complete (`Object::is_operational`: a site does nothing but cancel). What the
-/// auto-targeting scans rank first (`systems/controls/behaviors.md > BaseAutoTargeting > Target Selection Priority`:
-/// "threatening targets first"): the behaviours' (`orders::world`), and a structure's own pick ([`structures`]).
+/// The domain `o`'s own attack threatens: its weapon's TargetDomain ([`weapon`]), if it has an attack it can use: a unit
+/// that attacks, a structure that attacks once complete (`Object::is_operational`: a site does nothing but cancel). What
+/// the auto-targeting scans rank first (`systems/controls/behaviors.md > BaseAutoTargeting > Target Selection Priority`:
+/// "threatening targets first"): the behaviours' (`orders::world`), and a structure's own pick ([`structures`]), whose
+/// snapshots add (M5-S2b) what a building's units inside threaten ([`Threats`], design change 0377).
 pub(crate) fn threat(o: &Object) -> Option<TargetDomain> {
     weapon_in_hand(o)
         .filter(|_| o.attack.is_some() && o.is_operational())
@@ -399,7 +401,7 @@ pub(crate) fn step(
     if projectiles.is_empty() && inside.is_empty() && !objects.range(..first_new).any(|(_, o)| busy(o)) {
         return Vec::new();
     }
-    let targets = targeting::Targets::snapshot(map, objects);
+    let targets = targeting::Targets::snapshot(map, objects).with_occupants(&Threats::of(objects, held));
     let mut volley = phases::Volley::new(tick);
     for o in objects.range_mut(..first_new).map(|(_, o)| o) {
         // `factions/colonists/units/weapon_conversion.md`: a unit converting its weapon attacks nothing; what it

@@ -141,9 +141,9 @@ pub(super) fn turn(turret: &mut TurretState, attrs: &TurretAttrs, facing: f32, f
 /// ([`turn`]).
 /// - **What it aims at**: an Attack Ground's location while the unit engages one
 ///   (`systems/controls/command_behaviors.md > AttackingLocation`: "turret fires at location, not a unit"), else its
-///   LockedTarget, at its centre. Placeholder (not in the design: a turret that turned toward a target its owner
-///   doesn't see would show the player where the target is): only a LockedTarget its owner sees, by the vision the
-///   last tick left (`systems/combat.md > ValidTarget` 2).
+///   LockedTarget, at its centre, only while its owner sees it, by the vision the last tick left
+///   (`systems/controls/commands.md > TurretCommandState > When a lock ends`, design change 0376, answering Q0137: "A
+///   turret turns only toward a lock its owner sees"; `systems/combat.md > ValidTarget` 2).
 /// - Not while the phase it starts the tick in is Firing or Cooldown (`systems/combat.md > AttackPhase`:
 ///   TurretSourceActions None); in Aiming, Reloading and with no sequence it turns (Turning).
 pub(super) fn step(state: &mut AttackState, attrs: &TurretAttrs, facing: f32, shooter: &Shooter, targets: &Targets) {

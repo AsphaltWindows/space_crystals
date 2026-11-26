@@ -459,8 +459,8 @@ Units, structures and resources are all `Object`s (`object.rs`, `core/entities.m
     (`economy/army/cults.rs` counts the held units). A unit comes out with no attack under way
     (`Sim::put_on_map`: T72, "leaving clears it"). Right-click: the four kinds' on an own Garrison in operation is
     an Enter by `RULES`'s one Enter row (an own building in operation that takes the kind in, before N8's Repair, so a
-    damaged Garrison is entered, design change 0325; its room is not asked, as at the Armory), so no row of its
-    own.
+    damaged Garrison is entered, design change 0325; (M5-S2b) but a full one, damaged, is the Recruits' to repair,
+    as at every building that holds units, design change 0378: `Aimed::full`), so no row of its own.
 - **Expansions and a Tunnel's operation** (`sim/expansions.rs`, `tunnel/operation.rs`; slice M4-F;
   `factions/syndicate/tunnel_menus.md > ExpandMenu`, `factions/syndicate/tunnel_menus.md > AwaitingPlacement
   (Expansion)`, `factions/syndicate/tunnel_menus.md > Expansions under construction`; design changes 0240, 0254, 0290,
@@ -1279,8 +1279,9 @@ ticks spent in it. Hashed and serialized like all state.
   target** (`structures::pick`; design change 0298 point 8, `factions/syndicate/structures/laser_turret.md >
   Targeting`: "targets like a unit holding position: BaseAutoTargeting within Range ..., then the closest ... It
   **keeps its target** while the target stays valid and in range"): an enemy's ValidTarget within Range, threatening
-  targets first (`TargetView::threat`, `combat::threat`: an attack that can target the ground), then the smallest
-  gap, then the lowest id; none while auto-targeting is off. Its `facing` snaps to what it fires at
+  targets first (`TargetView::threat`, `combat::threat`: an attack that can target the ground; a manned Garrison's
+  occupants', M5-S2b), then the smallest gap, then the lowest id; none while auto-targeting is off. Its `facing` snaps
+  to what it fires at
   (`structures::face`), for the client's barrel only. Its `AttackState` comes with its kind (`sim/kinds.rs`,
   `Capabilities`), so hashed and saved as a unit's; the goldens, which have no such structure, are as they were.
   **A pop-up fires only while raised** (slice M4-S2, `popup::may_fire`; "It can't fire while rising or retracting"):
@@ -1296,22 +1297,23 @@ ticks spent in it. Hashed and serialized like all state.
   while set, and every state without one, the goldens', is as it was. `AttackState::target` stays what the base's
   behaviour engages; the turret's sequence runs at `locked` (`Shooter::aimed`). **In 5e**, before the phases
   (`turret::step`): a lock its attack can't target at all is let go, then the turret turns toward an Attack Ground's
-  location or its LockedTarget, the latter only while its owner sees it (a placeholder: turning to an unseen one
-  would show the player where it is), by its TurnRate, a full circle (`turret::full_turn`, within `FACING_TOLERANCE`
+  location or its LockedTarget, the latter only while its owner sees it (design change 0376, answering Q0137: "A
+  turret turns only toward a lock its owner sees"), by its TurnRate, a full circle (`turret::full_turn`, within `FACING_TOLERANCE`
   of 360°) the shorter way, a limited arc only within it, to its edge toward a point outside; not when the tick
   starts in Firing or Cooldown (their TurretSourceActions are None). A sequence starts at a seen lock in range and
   in the arc (`turret::in_arc`, bounds included), Aiming lasts until the turret faces it too and is cancelled when
   it leaves the arc, and an Attack Ground's location takes the same arc. The base turns only in 5d: `base_is_free`
   holds throughout. **In 5a**, right after the base's behaviour, the turret's own (`orders/turret.rs::run`): it keeps
   a lock its base engages; any other it keeps only while it could fire at it from where it stands (`fireable`: seen,
-  a valid domain, Range and MinRange, the arc; a placeholder, as the design never says when a turret lets go), else
-  lets it go; with nothing locked it scans (`World::turret_pick`: `World::pick` with `Scan::Weapon` and the arc as
+  a valid domain, Range and MinRange, the arc; `systems/controls/commands.md > TurretCommandState > When a lock
+  ends`, design change 0376), else lets it go; with nothing locked it scans (`World::turret_pick`: `World::pick` with `Scan::Weapon` and the arc as
   `admit`, a Move's tick included) and locks the best. The rotation a scan measures, the base's
   (`BaseAutoTargeting`) and the turret's alike, is from the turret's facing (`Unit::aim_facing`, design change
   0179). **Who sets the lock**: `close_in` once the target is in range and in the arc (out of the arc the approach
   goes on, the move turning the base), the idle and the AttackMove acquisitions; a Hold's base engages nothing and
-  leaves it to the turret's scan; a Stop clears it (`orders::run::start`); every other order leaves it ("When the
-  base behavior does not specify a target, the turret retains its previous TurretCommandState"); the removal path
+  leaves it to the turret's scan; a Stop clears it (`orders::run::start`; 0376: "**Stop clears the lock**"), and
+  the turret scans in the same tick; every other order leaves it ("When the base behavior does not specify a target,
+  the turret retains its previous TurretCommandState"; 0376: a Move keeps a lock from an Attack, a friendly one too); the removal path
   clears it (`AttackState::forget`); a kind change keeps it only for a type with a turret (`sim/kinds.rs`). **Not
   shared with the Laser Turret** (*Structures that attack*), which has no arc and no turn rate, snaps its facing and
   picks by the gap in 5e: its code and its golden (`cults_vs_syndicate`) are as they were. Tests on test turret units
@@ -1335,9 +1337,18 @@ ticks spent in it. Hashed and serialized like all state.
   (`Shooter::muzzle`: the target's point clamped into the footprint; a unit's or a structure's own is its centre):
   `SimEvent::Attacked::from`, `Missed::from`, a projectile's start and the side directional armour is hit from.
   A hit's reveal (`vision.reveal`) names the Garrison (`occupants::building_of`), which the victim then sees. **No
-  spells from inside** (Q0115): only the attack runs. The Garrison isn't a threat to the scans (`combat::threat`:
-  it has no attack of its own; a reading, the design is silent). Leaving clears the unit's attack (`Sim::put_on_map`,
-  a Disciple's made one gone). Tests: `combat/occupants/tests.rs` (the weapons, the muzzle) and
+  spells from inside** (Q0115): only the attack runs. **It is a threat while manned** (slice M5-S2b; design change
+  0377, answering Q0139: "enemies' target scans treat the Garrison as a threatening target while any occupant could
+  attack the scanner's domain", `systems/controls/behaviors.md > TurretAutonomousScanning > Target Selection
+  Priority` 1, the Militant stand-in included; "An empty Garrison, or one with no weapon that can reach the scanner's
+  domain, is not a threat"): **`combat::Threats::of(objects, held)`**, one pass over the held units as each snapshot is
+  taken, gives each building in operation whose units inside have an attack there the TargetDomain all of theirs
+  cover (`occupants::domain_inside`: `occupants::weapon`'s, as they fire; Ground with Air makes Universal, which no
+  building's units can mix today), and both snapshots add it to the building's own threat (`World::with_occupants` in
+  5a, `Targets::with_occupants` in 5e), so a scan still reads one `threat` a target (tests:
+  `combat/occupants/tests/threat.rs`, 0377's Verification among them, and `combat/structures/tests.rs`). Leaving clears
+  the unit's attack (`Sim::put_on_map`, a Disciple's made one gone). Tests: `combat/occupants/tests.rs` (the weapons,
+  the muzzle) and
   `tests/garrison/fire.rs`, `tests/garrison/protection.rs` (0319's "A Garrison with 4 Militants fires at range 5":
   4.9 grid units off the footprint hit, 5.1 never; the stand-ins at 4 with an augmented Recruit's blow unchanged;
   the Gunner's band from the edge; no fire while empty; each its own target; no damage inside, a Grenadier's blasts
@@ -1462,8 +1473,10 @@ writes the mover's goal and the target the attack engages, and reads `Mover::sta
   the first), then the smallest gap, then the lowest id. A scan of SightRange skips enemies inside the unit's MinRange
   (design change 0182) and picks one it can hit; the caller may leave out more (`pick`'s `admit`: the AttackMove's
   leash). Enemy structures are ValidTargets too (design change 0103), so units attack enemy bases on their own; the
-  structures that can't attack come after the targets that shoot back. The grid holds candidates by their centres, so a
-  scan looks as far as the unit's longest range with the modifier, plus its own half size and the largest candidate's
+  structures that can't attack come after the targets that shoot back (a Garrison is one that can while a unit inside
+  could attack the scanner's domain: design change 0377, `World::with_occupants`). The grid holds candidates by their
+  centres, so a scan looks as far as the unit's longest range with the modifier, plus its own half size and the largest
+  candidate's
   (`World::candidate_half`): a footprint in reach is found however far its centre lies.
 - **AttackingObject** (`orders/engage.rs`): `close_in` is its core, shared by all fighting. In range (`combat::
   reaches`) the unit stops and phase 5e attacks; out of range it heads for the target with `MoveGoal::Object`,
@@ -2833,7 +2846,12 @@ their energy doorway, slice M3-D2: design change 0145, `factions/colonists/struc
   `RULES`, a list of `Rule`s tried in order (Gather, GatherSupplies, DropOff, Enter, Assist, Repair, Attack), the
   first that applies (`Rule::order`) giving the order; a new default order is a `Rule` in its place in the list
   (slice M5-N8's Repair is after Enter and Assist, design changes 0322 and 0325: a damaged own building that the unit
-  can enter is entered; `Aimed::repair` against `repair::repairs`, *Economy > Repair*).
+  can enter is entered; `Aimed::repair` against `repair::repairs`, *Economy > Repair*). (M5-S2b) **Unless it is
+  full**: the Enter row lets a building that holds units through to the Repair row while it has no room at the moment
+  of the click (`Aimed::full`: `Sim::room` is 0, everyone inside counted, reserved units included; design change
+  0378, answering Q0140: "a damaged enterable building that is **full at the moment of the click** resolves to
+  **Repair**"). A unit whose type repairs nothing keeps the Enter, which ends at the door if the building is still
+  full (the normal Full-building rule), as does an Enter given while it had room.
 - **Debug spawns and teleports of units** keep the unit invariants: a box on blocked ground or across the map's edge
   is `Reject::Blocked`, one overlapping another unit of its layer `Reject::Occupied(id)`, and so is a blocking
   footprint spawned onto a ground unit. Touching is allowed. A teleported unit plans its path again.
@@ -4189,7 +4207,9 @@ Drones, through one command flow (plan decision T10, slices M2-H1, M2-H2 and M3-
   pointer shows `PointerDisplay::Repair` (`cursor::REPAIR_COLOR`, a placeholder) where the right-click gives a Repair,
   and while D awaits over an object that a selected type repairs (`resolution::repaired_by`,
   `sc_sim::repair::repairs`), else Inactive, where a click sends `InvalidTarget` and targeting goes on. A damaged own
-  Armory that takes the Recruit in is entered by a right-click, repaired by D (Enter wins, 0325). Enter shows over an
+  Armory that takes the Recruit in is entered by a right-click, repaired by D (Enter wins, 0325), and repaired by a
+  right-click too while it is full, under the Repair pointer (slice M5-S2b, 0378; `tests/commands/recruit_ui/
+  repairing.rs` plays 0378's Verification on a Garrison). Enter shows over an
   own Armory in operation that takes the Recruit in, never over its site (0347 point 4). The right-click is the sim's
   one rule (`sc_sim::orders::resolution::RULES`). The InfoPanel shows a carrying Recruit's load to its owner, as a
   Drone's ("Carrying 2 Space Crystals", `info_panel::worker_lines`).
