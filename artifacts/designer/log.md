@@ -2344,3 +2344,5 @@ Answered Q0069–Q0071 (0258–0267): losing-Tunnel edges, Syndicate economy che
 2026-11-27 — Q0140 (b). Entry 0378.
 2026-11-27 — Q0142 (b). Entry 0379.
 2026-11-27 — Q0135 partial: Storage back to 3x2. Entry 0380.
+2026-11-27 — Q0135 answered: realistic opening should overtake by ~4:00; longer timeline to 6:00. Entry 0381.
+2026-11-27 — Economy comparison metrics (income/s, mined, bank, spent on economy). Entry 0382.

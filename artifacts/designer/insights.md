@@ -27,10 +27,11 @@
 - Game will be rebuilt from scratch → docs must stand alone as the complete spec. Old prototype stays at `artifacts/developer/` as reference; Director decides with user where new code lives.
 
 ## Open Director Questions
-- Q0135 Cults economy check: 5 misses; realistic opening ~0.5-0.6 of others (nb, big)
 
 Order of work (placeholder passes done, 0366/0367): finish Cults units → Colonists units → techs → detection → numbers review.
 ## Loose Ends
+- **Cults economy (Q0135, 0380/0381)**: waiting for the Director's re-measure with the 3x2 Storage out to 6:00. Open: is ~0.9 of GDO/Colonists at 2:48 (ideal mining) acceptable? Does the realistic opening overtake by ~4:00?
+- **Agent drop-off (0375)**: asked the user whether Agents should re-pick their Tunnel at every return like Recruits (now: picked at first return, kept for the Gather). No answer yet.
 - **Cults identity check (2026-11-27), open tensions for the user**: no front-line tank (are infantry masses the tank?); thin, short-range anti-air and no Cults AA building; detection later; Mystical branch has only the Disciple as a new unit (user: fine).
 - **Next Cults work**: Scrap Hangar aircraft (paratrooper plane, airship), maybe more vehicles, more Disciple spells. Then Colonists units (incl. salvo concept for Lancer/Skylance).
 - **Supply Chopper transport rules** (load/unload, capacity, destroyed with passengers): still TBD, the last GDO design gap.
