@@ -142,8 +142,9 @@ fn rally_markers(app: &App) -> Vec<RallyIndicator> {
 /// Q0086 point 1: "0257's parenthetical (Agent, Guard, Grenadier, …) is the intended order"), each there with a count
 /// of 0 and greyed while the network has none of its type, saying so (design change 0299, answering Q0086 point 2:
 /// "every Syndicate unit type keeps its EjectMenu tile; types with none inside show 0, greyed"); Z goes back, as
-/// Escape and a right-click do. While the Tunnel is selected its area shows, and it hides with the selection (design
-/// change 0299: "selecting one of your Tunnels shows its area").
+/// Escape does, and a right-click, the Tunnel's, does nothing and leaves the menu open (design change 0400). While the
+/// Tunnel is selected its area shows, and it hides with the selection (design change 0299: "selecting one of your
+/// Tunnels shows its area").
 #[test]
 fn the_tunnel_has_its_letters_and_e_opens_the_eject_menu() {
     use ButtonLook::{Back, Common, Disabled};
@@ -202,13 +203,13 @@ fn the_tunnel_has_its_letters_and_e_opens_the_eject_menu() {
     assert_eq!(interface(&app), InterfaceState::EjectMenu);
     tap(&mut app, &[], KeyZ);
     assert_eq!(interface(&app), InterfaceState::DefaultState);
-    // Escape and a right-click go back too.
+    // Escape goes back too; a right-click leaves the menu open.
     tap(&mut app, &[], KeyE);
     tap(&mut app, &[], Escape);
     assert_eq!(interface(&app), InterfaceState::DefaultState);
     tap(&mut app, &[], KeyE);
     right_click(&mut app, GROUND, &[]);
-    assert_eq!(interface(&app), InterfaceState::DefaultState);
+    assert_eq!(interface(&app), InterfaceState::EjectMenu);
     assert_eq!(selected(&app), [TUNNEL]);
 
     click(&mut app, GROUND, &[]);

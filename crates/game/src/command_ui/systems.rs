@@ -196,24 +196,27 @@ fn give_targeted(control: &LocalControl, outbox: &mut OrderOutbox, click: Presse
     }
 }
 
-/// `systems/controls/interface.md > RightClickResolution`: a right-click on the map (the ContextCommand
-/// action's click) in DefaultState. Each selected object resolves it for itself ([`object_right_click`], design changes
+/// `systems/controls/interface.md > RightClickResolution`: a right-click on the map (the ContextCommand action's click)
+/// in DefaultState, or in a menu. Each selected object resolves it for itself ([`object_right_click`], design changes
 /// 0062 and 0063), whichever group is active: each unit gets its default command on what was clicked, as the player
 /// knows it: an object it sees or one it remembers (design change 0139). The units that can carry out the resolved
 /// command do, the others move to the location or follow the unit under the cursor, and so do the Peacekeepers
 /// (Shielded), instead of attacking an enemy: they follow a unit and move to a structure
-/// (`super::resolution::unit_right_click`, design changes 0074 and 0202).
-/// A unit right-clicked among the selected ones stops, and the others follow it (design change 0168: "Following
-/// itself = Stop", the sim's). The orders go out
+/// (`super::resolution::unit_right_click`, design changes 0074 and 0202). A unit right-clicked among the selected ones
+/// stops, and the others follow it (design change 0168: "Following itself = Stop", the sim's). The orders go out
 /// grouped ([`OrderOutbox::give_each`]). The selected producers set their rally point on what was clicked, as one
-/// `Command::Production` (`systems/controls/interface.md > Production Building Default Right-Click`; on a
-/// producer itself, which clears its rally point: design change 0086), whatever the Queue modifier. Objects without
-/// commands do nothing. Nothing unless the selection is all the player's (`systems/controls/interface.md >
-/// CommandPanel`). While a target is awaited, a right-click anywhere, over the HUD too, cancels instead
-/// (`systems/controls/interface.md > AwaitingTarget`), and in the other multi-stage states it goes back one
-/// state (`InterfaceState::back`: "Escape/right-click: returns to BuildMenu" from the Deployment Center's
-/// AwaitingPlacement, "returns to DefaultState" from a build menu and from the Extraction Facility's
-/// AwaitingPlacement).
+/// `Command::Production` (`systems/controls/interface.md > Production Building Default Right-Click`; on a producer
+/// itself, which clears its rally point: design change 0086), whatever the Queue modifier. Objects without commands do
+/// nothing. Nothing unless the selection is all the player's (`systems/controls/interface.md > CommandPanel`).
+///
+/// Design change 0400 (`systems/controls/interface.md > CommandPanel > Standard Slot Assignments > Right-click in
+/// multi-stage menus`): "right-click **doesn't reset a menu**". In a menu where the next step is choosing an option (a
+/// build menu, the Tunnel's EjectMenu and ExpandMenu, a KindMenu, the Altar's AugmentMenus) the right-click is the
+/// same as in DefaultState, and "the menu **stays open**". "Only when the next step is a **left-click on a location or
+/// target** (AwaitingTarget, AwaitingPlacement) does a right-click cancel, and it goes **straight back to
+/// DefaultState** (not to the previous menu)": a right-click anywhere, over the HUD too, then orders nothing and
+/// returns to DefaultState ([`InterfaceState::takes_map_clicks`]). A building ready to place stays ready. Escape and
+/// Back (Z) still go back one step ([`InterfaceState::back`]).
 pub(super) fn right_click_orders(
     actions: Res<ActionState>,
     mut clicks: MessageReader<MapClick>,
@@ -226,11 +229,9 @@ pub(super) fn right_click_orders(
         .filter(|click| click.action == InputAction::ContextCommand)
         .copied()
         .collect();
-    let state = control.state();
-    if state.interface != InterfaceState::DefaultState {
+    if control.state().interface.takes_map_clicks() {
         if actions.just_pressed(InputAction::ContextCommand) {
-            let back = state.interface.back(&state.selection);
-            control.update(|state| state.interface = back);
+            control.update(|state| state.interface = InterfaceState::DefaultState);
         }
         return;
     }

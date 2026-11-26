@@ -35,10 +35,11 @@ pub(in crate::command_ui) fn validate_interface(mut control: LocalControl) {
 }
 
 /// `systems/controls/interface.md > AwaitingTarget`: "Escape or right-click cancels via a StateOnlyTransition
-/// back to DefaultState"; in the other multi-stage states Esc goes back one state (`InterfaceState::back`): from
-/// AwaitingPlacement to the Deployment Center's build menu, the Beacon's Warp In menu, or the Extraction Facility's or
-/// the Drones' DefaultState, from a build menu to DefaultState. Esc is the Cancel action; right-click is
-/// [`super::right_click_orders`], Back (Z) [`press_command_slots`].
+/// back to DefaultState"; in the other multi-stage states Esc goes back one state (`InterfaceState::back`, design
+/// change 0400: "Escape and Z still go back one step"): from AwaitingPlacement to the Deployment Center's build menu,
+/// the Beacon's Warp In menu, or the Extraction Facility's or the Drones' DefaultState, from a build menu to
+/// DefaultState. Esc is the Cancel action; right-click is [`super::right_click_orders`] (straight to DefaultState from
+/// a target or a placement, the normal right-click in a menu), Back (Z) [`press_command_slots`].
 pub(in crate::command_ui) fn cancel_on_escape(actions: Res<ActionState>, mut control: LocalControl) {
     let state = control.state();
     if actions.just_pressed(InputAction::Cancel) && state.interface != InterfaceState::DefaultState {

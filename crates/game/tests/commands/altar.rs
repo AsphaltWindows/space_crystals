@@ -107,6 +107,27 @@ fn q_q_q_gives_a_recruit_enhanced_constitution_3_s_later() {
     assert_eq!(out(&app, RECRUIT_ID), (RECRUIT, augmented, Some(60.0), Some(60.0)));
 }
 
+/// Design change 0400 (`systems/controls/interface.md > CommandPanel > Standard Slot Assignments > Right-click in
+/// multi-stage menus`): in a menu a right-click "does its **normal right-click** for the selection (e.g. [...] sets a
+/// building's rally point), and the menu **stays open**". In AugmentMenu\[Militant, Unaugmented\] the pointer previews
+/// the Altar's rally point, Move, and a right-click on the ground sets it there; the menu is still open, and Escape
+/// goes back one stage.
+#[test]
+fn a_right_click_in_the_augment_menu_sets_the_rally_point_and_keeps_the_menu_open() {
+    let mut app = altar_game();
+    click(&mut app, ALTAR_AT, &[]);
+    tap(&mut app, &[], KeyW);
+    tap(&mut app, &[], KeyQ);
+    let menu = InterfaceState::AugmentStateMenu(MILITANT, Plain);
+    assert_eq!(interface(&app), menu);
+    assert_eq!(pointer_over(&mut app, RALLY_AT), Some(PointerDisplay::Move));
+    right_click(&mut app, RALLY_AT, &[]);
+    assert!(rallied(&app));
+    assert_eq!(interface(&app), menu, "the menu stays open");
+    tap(&mut app, &[], KeyCode::Escape);
+    assert_eq!(interface(&app), InterfaceState::AugmentMenu(MILITANT));
+}
+
 /// Whether the Altar's rally point is [`RALLY_AT`], give or take the cursor's rounding.
 fn rallied(app: &App) -> bool {
     let sim = app.world().resource::<SimRes>();

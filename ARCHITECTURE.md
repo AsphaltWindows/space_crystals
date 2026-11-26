@@ -4175,8 +4175,11 @@ Drones, through one command flow (plan decision T10, slices M2-H1, M2-H2 and M3-
   which the sim walks on without engaging (0076, `systems/controls/commands.md > AttackMove > Units that can't
   attack`: the sim's gate drops the units that can't attack from Attack only). The pointer
   previews the set of per-unit right-click actions: one shows its pointer, several show `Mixed` (0063); while a target
-  is awaited, the pending command's look over a target it can use, else Inactive. Nothing is commandable unless the
-  whole selection is the player's, nor once the game is over (`commandable`).
+  is awaited, the pending command's look over a target it can use, else Inactive. In a menu (a build menu, the
+  EjectMenu and the ExpandMenu, a KindMenu, the AugmentMenus) the right-click is DefaultState's, previewed as there,
+  and the menu stays open; in AwaitingTarget and AwaitingPlacement it goes straight back to DefaultState, a building
+  ready to place staying ready (design change 0400, `right_click_orders`). Nothing is commandable unless the whole
+  selection is the player's, nor once the game is over (`commandable`).
 - **Systems** (`CommandUiSystems`): `Validate` (in `SyncSim`, after the selection's sync) ends an AwaitingTarget that
   no longer holds. `Input` (in `Actions`, after the selection's input) turns Esc, the command hotkeys
   (`InputAction::CommandSlot`), clicks on the panel (found by `CommandGrid`), left-clicks on the map while a target is
@@ -4214,9 +4217,10 @@ Drones, through one command flow (plan decision T10, slices M2-H1, M2-H2 and M3-
   ActiveGroup's one instance's `Constructor`), and its commands are that instance's own (`PanelCommand::instance_only`):
   they go to the active constructor only, never to the other selected ones. A construction command is one
   `Command::Construction` (`OrderOutbox::construct`, validated like the others), and Construct and the Cancels return to
-  DefaultState. Back, Esc and a right-click go back one state (`InterfaceState::back`): from AwaitingPlacement to the
-  Deployment Center's build menu (its DefaultState from E's) or the Extraction Facility's DefaultState, from a build
-  menu to DefaultState. While placing, the placement keys turn the ghost (`turn_ghost`, see Input), and a left-click on
+  DefaultState. Back and Esc go back one state (`InterfaceState::back`): from AwaitingPlacement to the Deployment
+  Center's build menu (its DefaultState from E's) or the Extraction Facility's DefaultState, from a build menu to
+  DefaultState; a right-click leaves a placement for DefaultState, and a build menu open (0400). While placing, the
+  placement keys turn the ghost (`turn_ghost`, see Input), and a left-click on
   the map places it if `Sim::placement_check` allows it now: one Place at the footprint centred under the cursor
   (`Placing::origin_under`), as turned, and back to DefaultState; a Shift-click the same (0071); elsewhere nothing is
   sent, placing goes on, and an `InvalidPlacement` message says why. A Place the sim refuses as it applies it
@@ -4305,7 +4309,7 @@ Drones, through one command flow (plan decision T10, slices M2-H1, M2-H2 and M3-
   `Sim::network_counts`, so the count drops at the press); a kind with none inside keeps its tile, 0 and greyed (design
   change 0299, answering Q0086 point 2; the order is 0285's, point 1). A tile sends `TunnelCommand::Eject` to the Tunnel
   Tabbed to (Tunnels are Ungroupable; `SlotPress::Tunnel`, `OrderOutbox::tunnel`) and the menu stays open (0300, point
-  3); Z, Escape and a right-click go back. Held units leave the selection and stay in their control groups
+  3); Z and Escape go back, not a right-click (0400). Held units leave the selection and stay in their control groups
   (`ControlState::retain_on_map`); a recall selects the members on the map, and a group with none on the map recalls as
   an empty one does: nothing changes (`ControlState::recall_group`; 0299, point 5). A Hideout's rally pointer and marker
   on an own Tunnel or Hideout are every producer's (Move, a green Object marker); the sim decides what the unit does

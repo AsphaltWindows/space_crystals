@@ -384,6 +384,38 @@ fn the_pointer_previews_what_a_click_would_do() {
     );
 }
 
+/// Design change 0400: in a menu where the next step is choosing an option a right-click does its normal right-click,
+/// so the pointer previews it as in DefaultState (**reading**: `systems/controls/hud.md > PointerDisplayType >
+/// Resolution Rules` lists no menu): an attack, Mixed, a producer's rally point. In AwaitingPlacement the ghost is the
+/// cursor: Inactive here.
+#[test]
+fn a_menu_previews_the_right_click_as_default_state_does() {
+    use crate::command_ui::{BuildMenu, Placing};
+    use PointerDisplay as D;
+    use sc_sim::{ObjectKind, RecruitKind};
+    let ground = MapTarget::ground(P);
+    let menus = [
+        InterfaceState::BuildMenu(BuildMenu::Basic),
+        InterfaceState::EjectMenu,
+        InterfaceState::ExpandMenu,
+        InterfaceState::KindMenu(RecruitKind::Plain),
+        InterfaceState::AugmentMenu(ObjectKind::Militant),
+        InterfaceState::AugmentStateMenu(ObjectKind::Militant, RecruitKind::Plain),
+    ];
+    let cases: [(&[UnitCapabilities], MapTarget, D); 3] = [
+        (&[ARMED], enemy(), D::Attack),
+        (&[ARMED, UNARMED], enemy(), D::Mixed),
+        (&[PRODUCER], ground, D::Move),
+    ];
+    for menu in menus {
+        for (units, target, shown) in cases {
+            assert_eq!(pointer_display(menu, units, &target), shown, "{menu:?}");
+        }
+    }
+    let placing = InterfaceState::AwaitingPlacement(Placing::recruits(ObjectKind::Storage));
+    assert_eq!(pointer_display(placing, &[ARMED], &ground), D::Inactive);
+}
+
 /// `systems/controls/hud.md > Mixed Right-Click Preview` (design change 0063): the pointer shows what the
 /// units would do, or Mixed when they would do different things. Moving to a spot and following are both Move.
 #[test]

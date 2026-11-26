@@ -242,7 +242,8 @@ impl InterfaceState {
     /// Whether the state takes the left-clicks on the map as its own, a target or a placement, so that they select
     /// nothing, and a drag on the map does nothing (`systems/controls/interface.md > AwaitingTarget > Dragging
     /// while targeting`, design change 0067; the same for a placement). A build menu leaves the map's clicks to the
-    /// selection.
+    /// selection. These are the states a right-click cancels, straight to DefaultState (design change 0400: "Only when
+    /// the next step is a **left-click on a location or target** [...] does a right-click cancel").
     pub fn takes_map_clicks(self) -> bool {
         matches!(
             self,
@@ -250,19 +251,19 @@ impl InterfaceState {
         )
     }
 
-    /// The state before this one, which Back (Z), Esc and a right-click return to
-    /// (`systems/controls/interface.md > Standard Slot Assignments > Z`: "In any multi-stage menu (BuildMenu,
-    /// ExpandMenu, EjectMenu, AwaitingTarget, AwaitingPlacement), Z returns to the previous state
-    /// (StateOnlyTransition). Equivalent to Escape or right-click cancel."): from AwaitingPlacement of a Deployment
-    /// Center's building, its build menu (`factions/gdo/structures/deployment_center.md > AwaitingPlacement`:
-    /// "Escape/right-click: returns to BuildMenu"), but DefaultState from one entered with its E: Place
+    /// The state before this one, which Back (Z) and Esc return to (`systems/controls/interface.md > Standard Slot
+    /// Assignments > Z`: "In any multi-stage menu (BuildMenu, ExpandMenu, EjectMenu, AwaitingTarget,
+    /// AwaitingPlacement), Z returns to the previous state (StateOnlyTransition). Equivalent to Escape."; a right-click
+    /// no longer does, design change 0400: `super::systems::right_click_orders`): from AwaitingPlacement of a
+    /// Deployment Center's building, its build menu (`factions/gdo/structures/deployment_center.md >
+    /// AwaitingPlacement`: "Escape: returns to BuildMenu"), but DefaultState from one entered with its E: Place
     /// (`Placing::shortcut`, design change 0388: "Escape/right-click from there returns to DefaultState"), and from a
     /// Beacon's Warp In the Warp In menu its building was
     /// chosen in (the menus are "like the Deployment Center's two build menus": `factions/colonists/economy.md >
     /// Beacon > Beacon ObjectInterfaceState`), and from an expansion's the Tunnel's ExpandMenu
     /// (`factions/syndicate/tunnel_menus.md > Expansions under construction`: "**Z**: returns to ExpandMenu"); from
     /// anything else DefaultState: the Extraction Facility's AwaitingPlacement ("Escape/right-click: returns to
-    /// DefaultState"), the Drones' (A is pressed in their DefaultState), a build menu ("Escape/right-click: returns to
+    /// DefaultState"), the Drones' (W is pressed in their DefaultState), a build menu ("Escape: returns to
     /// DefaultState"), AwaitingTarget, and the Tunnel's EjectMenu and ExpandMenu (`factions/syndicate/tunnel_menus.md >
     /// EjectMenu`, `factions/syndicate/tunnel_menus.md > ExpandMenu`: "**Z**: returns to DefaultState"), and a pool
     /// building's KindMenu ("**Z** back"). An Altar's AugmentMenu\[UnitType, State\] goes back to AugmentMenu\[UnitType\],

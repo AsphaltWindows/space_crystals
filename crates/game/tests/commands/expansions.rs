@@ -155,8 +155,9 @@ fn placing_hideout() -> InterfaceState {
 /// Design change 0291's verification, "The ExpandMenu shows nine expansion slots and then the turret": W opens it
 /// (design change 0257), the Hideout in Q, the Optics Lab in W and the Chemical Plant in E (slice M4-K), the six
 /// expansions not in the game yet greyed in R to X, Z being Back, and the Laser Turret in C (slice M4-S2), greyed
-/// by its gate with its prerequisite: this player owns no Optics Lab. A greyed entry says why and leaves the menu open; Z goes back to DefaultState, and so do Escape and a
-/// right-click.
+/// by its gate with its prerequisite: this player owns no Optics Lab. A greyed entry says why and leaves the menu open;
+/// Z goes back to DefaultState, and so does Escape. A right-click does the Tunnel's, nothing, and the menu stays open
+/// (design change 0400: "right-click **doesn't reset a menu**").
 #[test]
 fn w_opens_the_expand_menu_nine_expansions_then_the_turret() {
     use ButtonLook::{Back, Common, Unavailable};
@@ -194,7 +195,7 @@ fn w_opens_the_expand_menu_nine_expansions_then_the_turret() {
     assert_eq!(interface(&app), InterfaceState::DefaultState);
     tap(&mut app, &[], KeyW);
     right_click(&mut app, EAST, &[]);
-    assert_eq!(interface(&app), InterfaceState::DefaultState);
+    assert_eq!(interface(&app), InterfaceState::ExpandMenu);
     assert_eq!(selected(&app), [TUNNEL]);
     assert_eq!(tunnel_commands(&app), []);
 }
