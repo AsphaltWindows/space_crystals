@@ -2244,8 +2244,8 @@ The user keeps feeding unit and other designs to the Designer, so expect increme
 | Q0140 | A right-click on a full, damaged own building: Enter or Repair? (0325) (M5) | no | answered by 0378 (b); done (S2b): Repair when full at click time |
 | Q0141 | Barracks E: does queuing a Field Engineer need free Unit Control? (`barracks.md > ObjectInterfaceState[Barracks]`, `gdo/overview.md > Unit Control`) (M5) | no | answered by 0371 (a): checked when production starts, as N9 built (`1cfb889c`) |
 | Q0142 | Neutral units and research: does a defeated player's research still apply to their units once they are neutral? (`core/game_rules.md > On Defeat`, `core/tech_and_research.md > Research`) (M5) | no | answered by 0379 (b): neutral units keep their research; built by N3 (`63003d0c`) |
-| Q0143 | Shroud: does an attack absorbed by a cloud reveal its attacker? (`core/vision.md > Attacks from outside vision`, `disciple.md > Spells > Shroud`) (M5) | no | open; built as (a): an absorbed hit reveals as if it had landed, a release reveals nobody (M5-N4b) |
-| Q0144 | The economies compared to 6:00: the realistic opening never overtakes ideal mining on one 8-patch field, and ideal mining is still about 0.9 by 2:48. What targets now? (`factions/cults/economy.md > Economy check`) (M5) | no | open; nothing tuned, every figure pinned as measured (S2a) |
+| Q0143 | Shroud: does an attack absorbed by a cloud reveal its attacker? (`core/vision.md > Attacks from outside vision`, `disciple.md > Spells > Shroud`) (M5) | no | answered by 0386 (a): as built in N4b |
+| Q0144 | The economies compared to 6:00: the realistic opening never overtakes ideal mining on one 8-patch field, and ideal mining is still about 0.9 by 2:48. What targets now? (`factions/cults/economy.md > Economy check`) (M5) | no | answered in part by 0385: the economy is rerun on a two-sided 8-patch line, One Hall against Two Halls (M5-S3, queued); the 2:48 target waits for the new figures |
 
 ## Design change entries
 Last triaged: 0282.
@@ -2605,4 +2605,6 @@ Last triaged: 0282.
 | 0382 **Economy comparison metrics:** income/s over the preceding 10 s, total mined, bank, and spent on economy, per line and checkpoint | done (S2a, `1801cf59`): the four metrics, pinned | — |
 | 0383 **Everything spent counts as economy, Generators included;** spent is everything spent, net of refunds. Replaces 0382's item list | done (S2a, `1801cf59`): "spent" is everything spent | — |
 | 0384 **Agents choose their Tunnel at every return,** nearest crystal hatch to the Agent when it finishes mining; ties to the earlier id. Replaces the choice kept for the Gather | done (S2a, `1801cf59`): Agents re-pick at every return, Supplies included | — |
+| 0385 **The Cults economy rerun** (answers Q0144 in part): an 8-patch line mined from both long sides, seating about 32 Recruits; One Hall against Two Halls, both starting with one Storage and adding Storages as needed; the same table to 6:00, with the GDO and the Colonists | queued: **M5-S3** (Opus), held while the user playtests so the game has the machine. The Q0144 pins are superseded; the new table goes back as a question | Verification: One Hall levels off at 20 mining; Two Halls reaches about 32 and builds about 5–6 Storages |
+| 0386 **A hit absorbed by Shroud reveals its attacker** to the targeted object's owner for 1.5 s; the release reveals nobody (answers Q0143) | done as built (N4b, `c0ca0956`); 0386's Verification becomes a test in M5-S3 | — |
 | 0014 GDO Airfield and aircraft | queued (Later: air) | |
