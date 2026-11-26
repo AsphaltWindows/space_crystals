@@ -42,9 +42,9 @@
 //! The Agent's A, Build Tunnel (`factions/syndicate/units/agent.md > Agent ObjectInterfaceState`, slice M4-J1), asks
 //! for its Build order where it would stand anywhere, and leaves out the placement's refusal as a Warp In does: it is
 //! greyed while the bank can't pay the Tunnel's price ([`Conditions::price`], `Sim::build_price`; design change 0233:
-//! "a Build order that can't be paid is refused"). So is its D, Build Laser Turret (slice M4-S1), greyed while the
-//! player owns no Optics Lab ("Requires an Optics Lab", the gate's first check) or the bank holds less than its 100
-//! Space Crystals, its price in its own resource (`sc_sim::construction::site::BuildPrice`). Its S, Drop Off, is greyed
+//! "a Build order that can't be paid is refused"). (Slice M4-S1's D, Build Laser Turret, is gone with design change
+//! 0359: the Agent's D is Repair, greyed until slice N8, [`Conditions::planned`].) A Build's price is in its own
+//! resource (`sc_sim::construction::site::BuildPrice`): a Cults building's in Space Crystals. Its S, Drop Off, is greyed
 //! while none of its recipients carries a load (`factions/syndicate/units/agent.md > DefaultState commands`: "Always
 //! visible, greyed out when Agent is not carrying resources"), the gate's own test (`Reject::NothingToDeliver`). A
 //! site's panel is its Cancel alone ([`Conditions::site`], design change 0237), an expansion's too.
@@ -124,8 +124,8 @@ pub struct Conditions {
     /// at the click"); none while the ActiveGroup isn't a Tunnel.
     network: BTreeMap<ObjectKind, u32>,
     /// The price of each Build the ActiveGroup offers (`PanelCommand::Build`), in its resource, as the sim would charge
-    /// it now (`Sim::build_price`, design change 0233): a Tunnel's in Supplies, a Laser Turret's in Space Crystals
-    /// (slice M4-S1); and of a Tunnel's Upgrade, in Supplies (`PanelCommand::UpgradeTunnel`, `Sim::upgrade_price`,
+    /// it now (`Sim::build_price`, design change 0233): a Tunnel's in Supplies, a Cults building's in Space Crystals
+    /// (slice M5-J1); and of a Tunnel's Upgrade, in Supplies (`PanelCommand::UpgradeTunnel`, `Sim::upgrade_price`,
     /// slice M4-G).
     prices: BTreeMap<PanelCommand, BuildPrice>,
     /// Whether the ActiveGroup is a site under construction (`sc_sim::Object::is_site`; design change 0237: "a Tunnel

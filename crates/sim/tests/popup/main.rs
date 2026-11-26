@@ -1,22 +1,27 @@
-//! The pop-up Laser Turret (slice M4-S2, plan decision T50; `factions/syndicate/structures/laser_turret.md > Upright vs
-//! Pop-up`, `factions/syndicate/structures/laser_turret.md > Pop-up rules`,
-//! `factions/syndicate/structures/laser_turret.md > Conversion`, `factions/syndicate/structures/laser_turret.md >
-//! Construction`; design changes 0267, 0296 and 0297), through the gate, one test binary:
-//! - `cycle`: lowered with no target, 8 frames up at an enemy in range, firing only while raised, 32 frames after its
-//!   last target 8 frames down;
-//! - `blocking`: design change 0296 point 3: a raised pop-up blocks a walker and a lowered one doesn't; a unit over it
+//! The pop-up Laser Turret (slices M4-S2 and M5-Y, plan decision T50; `factions/syndicate/structures/laser_turret.md >
+//! Pop-up turret`, `factions/syndicate/structures/laser_turret.md > Pop-up rules`,
+//! `factions/syndicate/structures/laser_turret.md > When its Tunnel is lost`,
+//! `factions/syndicate/structures/laser_turret.md > Construction`; design changes 0267, 0296 and 0358 to 0360), through
+//! the gate, one test binary:
+//! - `cycle`: lowered from its first tick, 8 frames up at an enemy in range, firing only while raised, 32 frames after
+//!   its last target 8 frames down, and a target seen while it retracts;
+//! - `blocking`: design change 0296 point 3: a raised turret blocks a walker and a lowered one doesn't; a unit over it
 //!   keeps it down, an enemy or an own unit with an order; its owner's idle unit is pushed off, and it rises;
 //! - `hidden`: what the other player sees of it lowered, nothing, and its two armours;
-//! - `building`: the Tunnel's own build of it, from the ExpandMenu: the Optics Lab, the price, the operation slot
-//!   (0267), the hidden site, the 75% cancel, Tunnel Space by quarters;
-//! - `conversion`: the form follows the Tunnel Areas: a new area, an upgrade, a Tunnel lost.
+//! - `building`: the Tunnel's build of it, from the ExpandMenu: the Optics Lab, the price, the operation slot
+//!   (0267), the hidden site, the 75% cancel, Tunnel Space by quarters from the site's first frame; and no Agent's
+//!   (design change 0359);
+//! - `active`: active only inside its Tunnel's area (design change 0360): one outside its owner's areas stays down, and
+//!   an area that comes to cover it makes it active; its Tunnel lost, it drops, neutral and seen by everyone, never
+//!   fires and decays, until a new Tunnel takes it back, active again; lost under an enemy, it shows at once, at its
+//!   underground armour, and stays down once clear (design change 0358's verification, its point 1 now 0360's).
 //!
 //! Every test runs under the invariants of `TestSim`: I2 among them (no ground box overlaps a blocked tile), which a
 //! turret rising under a unit would break in the tick it did.
 
+mod active;
 mod blocking;
 mod building;
-mod conversion;
 mod cycle;
 mod hidden;
 
@@ -47,10 +52,6 @@ const POPUP: ObjectId = ObjectId(3);
 const SPOT: TilePos = TilePos::new(9, 10);
 const CENTRE: Vec2 = Vec2::new(9.5 * 64.0, 10.5 * 64.0);
 
-/// The tick by which a turret that a game starts with inside an area is lowered: it stands raised as the game starts,
-/// has no target for 32 ticks and takes 8 to retract.
-const DOWN: Tick = 40;
-
 fn at(x: i32, y: i32) -> TilePos {
     TilePos::new(x, y)
 }
@@ -74,10 +75,12 @@ fn with_turret() -> ScenarioBuilder {
     base().spawn(TURRET, Some(P1), SpawnAt::Tile(SPOT))
 }
 
-/// `scenario` started and run until its turret is down ([`DOWN`]).
+/// `scenario` started and its first tick run: its turret ([`POPUP`]) is lowered from the start (design change 0360:
+/// "always a hidden **pop-up turret**"), and stays down with no target.
 fn lowered(scenario: ScenarioBuilder) -> TestSim {
     let mut t = scenario.start();
-    t.run_until(DOWN);
+    assert_eq!(popup(&t, POPUP), Some(PopUp::LOWERED), "as the game starts");
+    t.step();
     assert_eq!(popup(&t, POPUP), Some(PopUp::LOWERED));
     t
 }

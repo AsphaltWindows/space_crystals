@@ -11,14 +11,17 @@ pub(super) fn table(sim: &Sim) -> Vec<(SimEvent, [Seen; 4])> {
     let at = |id| sim.object(id).unwrap().pos;
     let (unit, watcher, hideout, turret) = (at(UNIT), at(WATCHER), at(HIDEOUT), at(TURRET));
     let hidden = Hiding::of(sim.object(HIDEOUT).unwrap());
-    // Player 1's turret as it is once fully lowered (slice M4-S2), and as it stands raised in this world: the rule's
-    // own answers for the two (`Hiding::of`).
-    let raised = sim.object(TURRET).unwrap();
-    let lowered = sc_sim::Object {
-        popup: Some(sc_sim::popup::PopUp::LOWERED),
-        ..raised.clone()
+    // Player 1's turret as it stands fully lowered in this world (slice M4-S2; design change 0360: from its first
+    // tick), and as it is once raised: the rule's own answers for the two (`Hiding::of`).
+    let lowered = sim.object(TURRET).unwrap();
+    assert_eq!(lowered.popup, Some(sc_sim::popup::PopUp::LOWERED));
+    let raised = sc_sim::Object {
+        popup: Some(sc_sim::popup::PopUp::Raised {
+            idle: sc_sim::Progress::new(32),
+        }),
+        ..lowered.clone()
     };
-    let (lowered, raised) = (Hiding::of(&lowered), Hiding::of(raised));
+    let (lowered, raised) = (Hiding::of(lowered), Hiding::of(&raised));
     assert!(lowered.hides_from(P2) && !lowered.hides_from(P1) && raised == Hiding::default());
     let origin = TilePos::new(12, 2);
     let orientation = BuildingOrientation::default();

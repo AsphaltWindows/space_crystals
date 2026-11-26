@@ -188,8 +188,8 @@ impl Sim {
     /// A unit claims its spot as it gets the order, not on arrival (**Placeholder (not in the design: when a builder
     /// claims its part of the wall)**, 0339 leaving it to the implementation), so that the units of a group, those
     /// nearest the footprint first, spread along the wall as they set off, each from its own nearest part, and none
-    /// walks to a part another is walking to. The search is the one exception to `Sim::spot_around`'s fixed order of
-    /// T62's spots (design change 0339: "The fixed order of spots goes").
+    /// walks to a part another is walking to. The search replaced plan decision T62's fixed order of spots for them
+    /// (design change 0339: "The fixed order of spots goes").
     fn free_spot(
         &self,
         id: ObjectId,

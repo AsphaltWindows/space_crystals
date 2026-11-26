@@ -2,13 +2,14 @@
 //! stands, and the way it walks there round the footprint — `factions/cults/economy.md > Cults Building Mechanics >
 //! Group construction rules`: "each Recruit walks to the **part of the footprint closest to it**; if that part is
 //! taken (blocked), it **wall-hugs** along the footprint until it reaches a part where it can work, and builds from
-//! there (within its 8 su reach of the edge, as for mining)". Geometry alone, as T62's spots are (`placement::Spots`,
-//! which this leaves as they were): what takes a unit, and where it stands, is the caller's (`Sim::step_spots`).
+//! there (within its 8 su reach of the edge, as for mining)". Geometry alone: what takes a unit, and where it stands,
+//! is the caller's (`Sim::step_spots`).
 //!
 //! - **The wall** ([`Wall`]): the loop a unit's centre follows round a footprint with its box a margin off the
 //!   footprint's edge: a rectangle, the footprint grown on each side by half the unit's box and the margin, whose
 //!   corners are diagonally off the footprint's. Its points are counted along it from the middle of its east side,
-//!   clockwise on screen (+y is south), as T62's spots are numbered. [`Wall::out`] is the same loop further out.
+//!   clockwise on screen (+y is south), as slice M5-F1's spots round a footprint were. [`Wall::out`] is the same loop
+//!   further out.
 //! - **The search** ([`Wall::hug`]): the point of the wall nearest the unit (the part of the footprint closest to it),
 //!   then further and further along the wall from there, both ways a step at a time, of two as far the clockwise one
 //!   first, until the two ways meet halfway round: the nearest part along the wall either way, the shorter way first.

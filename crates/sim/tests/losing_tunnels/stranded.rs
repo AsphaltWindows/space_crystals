@@ -93,24 +93,23 @@ fn the_last_tunnel_lost_strands_every_unit_in_the_network_though_a_site_stands()
 }
 
 /// The free rebuild ("with no Tunnels owned, a new Tunnel costs 0 Supplies", `factions/syndicate/tunnels.md > Cost
-/// Scaling > Construction Cost`): player 1, alive by its Barracks, or by an upright Laser Turret ("Losing the last
-/// Tunnel therefore defeats the Syndicate only if they own no Laser Turrets", `factions/syndicate/tunnels.md > Losing
-/// Tunnels > Defeat`; slice M4-S1), loses its only Tunnel with no Supplies in the bank. The structure stays its own,
-/// and its next Tunnel costs nothing: its surviving Agent's Build is taken, and its site starts.
+/// Scaling > Construction Cost`): player 1, alive by its Barracks (`factions/syndicate/tunnels.md > Losing Tunnels`:
+/// "**losing its last Tunnel defeats the Syndicate** unless it owns some other structure. The 0-Supplies first Tunnel
+/// (Cost Scaling) still applies to a player who survives that way"), loses its only Tunnel with no Supplies in the
+/// bank. The Barracks stays its own, and its next Tunnel costs nothing: its surviving Agent's Build is taken, and its
+/// site starts. (A turret keeps no Syndicate player in the game any more, design change 0360: `neutral.rs`.)
 #[test]
 fn with_no_tunnel_left_the_next_tunnel_costs_nothing() {
-    for survivor in [ObjectKind::Barracks, ObjectKind::LaserTurret] {
-        let mut t = with_structure(survivor);
-        next(&mut t, P1, bank(P1, 0, 0));
-        assert_eq!(t.sim().build_price(P1, TUNNEL).map(|price| price.amount), Some(1));
-        next(&mut t, P1, remove(T1));
-        assert!(!t.sim().player(P1).expect("in the game").is_defeated(), "{survivor:?}");
-        assert_eq!(owner(&t, id(5)), Some(P1), "{survivor:?}");
-        assert_eq!(t.sim().build_price(P1, TUNNEL).map(|price| price.amount), Some(0));
-        assert_eq!(gate(&t, P1, build(&[3], at(20, 8))), Ok(()));
-        next(&mut t, P1, build(&[3], at(20, 8)));
-        let (_, site) = until_started(&mut t, 3);
-        assert_eq!(object(&t, site).kind, TUNNEL);
-        assert_eq!(t.sim().player(P1).expect("in the game").supplies, 0);
-    }
+    let mut t = with_barracks();
+    next(&mut t, P1, bank(P1, 0, 0));
+    assert_eq!(t.sim().build_price(P1, TUNNEL).map(|price| price.amount), Some(1));
+    next(&mut t, P1, remove(T1));
+    assert!(!t.sim().player(P1).expect("in the game").is_defeated());
+    assert_eq!(owner(&t, id(5)), Some(P1));
+    assert_eq!(t.sim().build_price(P1, TUNNEL).map(|price| price.amount), Some(0));
+    assert_eq!(gate(&t, P1, build(&[3], at(20, 8))), Ok(()));
+    next(&mut t, P1, build(&[3], at(20, 8)));
+    let (_, site) = until_started(&mut t, 3);
+    assert_eq!(object(&t, site).kind, TUNNEL);
+    assert_eq!(t.sim().player(P1).expect("in the game").supplies, 0);
 }

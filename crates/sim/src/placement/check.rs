@@ -85,10 +85,9 @@ pub fn check_reserving(
             }
             // (M4-S2) A Tunnel's Laser Turret is "placed within that Tunnel's Tunnel Area like an expansion"
             // (`factions/syndicate/structures/laser_turret.md > Construction`), and is a surface structure once it
-            // rises: Placeholder (Q0091 point 3), a reading: it also needs the ground its type needs wherever it is
-            // built, Buildable and flat (`core/map.md > Elevation > Structures only on flat terrain`), so that a
-            // Tunnel builds one only where an Agent could. Still no sight, and units over it don't block it: it starts
-            // lowered.
+            // rises: design change 0358 point 3 (`factions/syndicate/structures/laser_turret.md > Pop-up turret`), "on
+            // ground that is **Buildable, flat and Drillable** (it must be able to rise)" (`core/map.md > Elevation >
+            // Structures only on flat terrain`). Still no sight, and units over it don't block it: it starts lowered.
             if !surfaces {
                 continue;
             }

@@ -13,8 +13,8 @@
 //! owner's known ones, and sends the walkers' staggered checks along their paths. Timings are printed, never
 //! asserted.
 //!
-//! It uses nothing of the pop-up's own API, so that the same file runs against a build without pop-ups, where the
-//! turrets stand upright all along and no grid changes: the baseline of an A/B run.
+//! It uses nothing of the pop-up's own API, so that the same file runs against a build without pop-ups (before slice
+//! M4-S2, where the turrets stood upright all along and no grid changed): the baseline of an A/B run.
 
 use std::time::Duration;
 

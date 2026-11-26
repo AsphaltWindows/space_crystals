@@ -60,10 +60,11 @@ pub fn reserved(o: &Object) -> Option<TileRect> {
     Some(area(TileRect::new(placement.origin, placement.w, placement.h), radius))
 }
 
-/// The parent Tunnel of `expansion`, an underground structure (plan decision T32: derived, never stored): "the
-/// owner's Tunnel whose current area fully contains it" ([`of`], [`encloses`]), the first by id of `tunnels` (an
-/// owner's Tunnel Areas never overlap, so there is at most one). `None` for an expansion without an owner or a
-/// footprint, or outside the area of every one of its owner's Tunnels in operation (`crate::network::is_exit`).
+/// The parent Tunnel of `expansion`, an expansion building (`super::is_expansion`: an underground structure or a Laser
+/// Turret; plan decision T32: derived, never stored): "the owner's Tunnel whose current area fully contains it"
+/// ([`of`], [`encloses`]), the first by id of `tunnels` (an owner's Tunnel Areas never overlap, so there is at most
+/// one). `None` for an expansion without an owner or a footprint, or outside the area of every one of its owner's
+/// Tunnels in operation (`crate::network::is_exit`).
 pub fn parent<'a>(expansion: &Object, tunnels: impl IntoIterator<Item = &'a Object>) -> Option<ObjectId> {
     let owner = expansion.owner?;
     let p = expansion.placement?;

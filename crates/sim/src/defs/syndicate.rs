@@ -33,10 +33,9 @@ pub enum ExpandEntry {
     /// A type a Tunnel builds (its `StructureDef::expansion`).
     Kind(ObjectKind),
     /// An entry no Tunnel builds yet, by its name in the design: an expansion of
-    /// `factions/syndicate/structures/README.md > Tech Tree Overview` not in the game, or the Laser Turret
-    /// (`factions/syndicate/structures/laser_turret.md`: in the game from slice M4-S1, an Agent's; a Tunnel's from
-    /// slice M4-S2). It holds its slot, greyed (design change 0291: "Unavailable ones are greyed, including ones not in
-    /// the build yet"). The slice that has a Tunnel build it turns it into its `Kind`.
+    /// `factions/syndicate/structures/README.md > Tech Tree Overview` not in the game (the Laser Turret was one until
+    /// slice M4-S2 had a Tunnel build it). It holds its slot, greyed (design change 0291: "Unavailable ones are greyed,
+    /// including ones not in the build yet"). The slice that has a Tunnel build it turns it into its `Kind`.
     Planned(&'static str),
 }
 

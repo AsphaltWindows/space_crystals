@@ -13,9 +13,10 @@ use super::*;
 /// over an expansion."
 ///
 /// Player 2's Guard stands by the lowered turret, the tile under it Visible to player 2, with auto-targeting off, so
-/// that the turret has no target. Player 2 doesn't see it or record it, and can't name it in an order; its Agent's
-/// ghost of a turret over it judges by what player 2 knows and is green, and the build, judged by the truth, is
-/// refused (design change 0240). With auto-targeting on again the turret rises at the Guard: player 2 sees it from
+/// that the turret has no target. Player 2 doesn't see it or record it, and can't name it in an order; a placement
+/// over it, judged by the truth, is refused as over an expansion (design change 0240; no worker of player 2's builds
+/// anything a ghost could show there: only a Tunnel builds a turret, design change 0359, and inside its own area,
+/// which never overlaps another's). With auto-targeting on again the turret rises at the Guard: player 2 sees it from
 /// that tick, records it, and may attack it; lowered again, it is hidden again and the record goes.
 ///
 /// (A lowered turret's death and the blasts over it are events the client must keep from the other players: slice
@@ -24,13 +25,9 @@ use super::*;
 fn lowered_the_enemy_doesnt_see_it_and_rising_it_does() {
     let mut t = with_turret().start();
     t.without_auto_targeting();
-    t.run_until(DOWN);
     next_debug(&mut t, spawn(GUARD, P2, east(0.5)));
     let guard = newest(&t);
     next(&mut t, P2, order(guard, OrderKind::Hold));
-    next_debug(&mut t, spawn(AGENT, P2, east(2.0)));
-    let agent = newest(&t);
-    next(&mut t, P2, order(agent, OrderKind::Hold));
     t.run(sc_sim::tuning::vision::FOG_DELAY_TICKS + 1);
     let attack = || order(guard, OrderKind::Attack(POPUP));
     let record = |t: &TestSim| {
@@ -51,13 +48,8 @@ fn lowered_the_enemy_doesnt_see_it_and_rising_it_does() {
         assert_eq!(gate(&t, P2, attack()), Err(Reject::NotVisible(POPUP)));
         t.step();
     }
-    // Player 2's own turret over it: the ghost is green, the truth isn't.
+    // A structure of player 2's over it, by the truth.
     let orientation = BuildingOrientation::default();
-    let ghost = t.sim().build_check(agent, TURRET, SPOT, orientation, false);
-    assert!(
-        ghost.expect("an Agent builds turrets").is_valid(),
-        "by what player 2 knows"
-    );
     let truth = t.sim().placement_check(P2, TURRET, SPOT, orientation);
     assert_eq!(
         truth.first_problem(),
@@ -85,20 +77,38 @@ fn lowered_the_enemy_doesnt_see_it_and_rising_it_does() {
 
 /// `factions/syndicate/structures/laser_turret.md`: "Armor (building armor rule, 1x1): raised PointArmor 1, FullArmor
 /// 1; underground (pop-up) PointArmor 6, FullArmor 6", the underground one "only while fully lowered" (design change
-/// 0296 point 1): the turret's armour through a whole cycle. (What a blast takes of each is `combat/area/tests.rs`'s.)
+/// 0296 point 1): the turret's armour through a whole cycle, from the underground one it starts with. Player 2's Guard
+/// brings it up, and is taken off the map (a debug removal) once it stands: it is raised, then retracts, at its raised
+/// armour, until it is down again. (What a blast takes of each is `combat/area/tests.rs`'s.)
 #[test]
 fn its_armour_is_the_underground_one_only_while_fully_lowered() {
     let (raised, underground) = (Armor { point: 1.0, full: 1.0 }, Armor { point: 6.0, full: 6.0 });
     let mut t = with_turret().start();
-    for tick in 0..=DOWN {
-        let o = object(&t, POPUP);
-        let expected = if tick < DOWN { raised } else { underground };
-        assert_eq!(o.armor(), expected, "tick {tick}: {:?}", o.popup);
+    for tick in 0..10 {
+        assert_eq!(
+            object(&t, POPUP).armor(),
+            underground,
+            "tick {tick}: lowered from the start"
+        );
         t.step();
     }
     next_debug(&mut t, spawn(GUARD, P2, east(4.0)));
+    let guard = newest(&t);
     assert!(matches!(popup(&t, POPUP), Some(PopUp::Rising(_))));
     assert_eq!(object(&t, POPUP).armor(), raised, "from the first rising frame");
+    next(&mut t, P2, order(guard, OrderKind::Hold));
+    t.run(7);
+    assert!(matches!(popup(&t, POPUP), Some(PopUp::Raised { .. })));
+    next_debug(&mut t, DebugCommand::Remove { id: guard });
+    let mut retracted = false;
+    while popup(&t, POPUP) != Some(PopUp::LOWERED) {
+        let o = object(&t, POPUP);
+        assert_eq!(o.armor(), raised, "tick {}: {:?}", t.sim().tick(), o.popup);
+        retracted |= matches!(o.popup, Some(PopUp::Retracting(_)));
+        t.step();
+    }
+    assert!(retracted);
+    assert_eq!(object(&t, POPUP).armor(), underground, "down again");
 }
 
 /// Design change 0296 point 2: "**Sight 6 grid units in both forms**: a lowered turret notices enemies by itself and

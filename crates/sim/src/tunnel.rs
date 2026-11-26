@@ -82,6 +82,17 @@ pub fn def_of(kind: ObjectKind) -> Option<&'static TunnelDef> {
     kind.def().structure.as_ref()?.tunnel.as_ref()
 }
 
+/// Whether objects of `kind` are a Tunnel's expansion buildings (`factions/syndicate/tunnels.md > Losing Tunnels`):
+/// what a lost Tunnel leaves neutral and a new one takes back (`sim/tunnels.rs`), and what occupies tunnel-region
+/// (`economy::army`). The underground structures (`StructureDef::underground`, plan decision T32: the Hideout, the
+/// Optics Lab, the Chemical Plant), and the pop-up Laser Turret (`StructureDef::popup`), "a Tunnel expansion in all
+/// but name" that "**behaves exactly like the Tunnel's other expansions**" when its Tunnel is lost (design change 0360,
+/// `factions/syndicate/structures/laser_turret.md > When its Tunnel is lost`) and "Occupies 1 grid unit of that
+/// Tunnel's tunnel-region, like an expansion" (`factions/syndicate/structures/laser_turret.md > Pop-up turret`).
+pub fn is_expansion(kind: ObjectKind) -> bool {
+    (kind.def().structure.as_ref()).is_some_and(|structure| structure.underground || structure.popup.is_some())
+}
+
 /// What a new object of `kind` starts with: a Tunnel at [`BASE_TIER`], every other type nothing.
 pub(crate) fn fresh(kind: ObjectKind) -> Option<TunnelState> {
     def_of(kind).map(|_| TunnelState::at(BASE_TIER))

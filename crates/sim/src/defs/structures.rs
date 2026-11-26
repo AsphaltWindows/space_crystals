@@ -64,19 +64,19 @@ pub struct StructureDef {
     /// `crate::construction::site`): what an order to build one costs, how long its construction takes, the HP it
     /// starts at, and where its builder goes as it completes. The units that build it list it in their worker's def
     /// (`WorkerDef::builds`). `None` for a type no worker builds; the Drone's Beacon is a deployment instead
-    /// (`UnitDef::deploy`, T51). The Tunnel's and the Laser Turret's (slice M4-S1).
+    /// (`UnitDef::deploy`, T51). The Tunnel's (an Agent's) and the Cults' buildings (the Recruits', slice M5-E).
     pub site: Option<SiteDef>,
     /// How a Tunnel builds the type in its Tunnel Area, as its one operation (slice M4-F;
     /// `factions/syndicate/tunnel_menus.md > Tunnel ObjectInterfaceState > ExpandMenu`,
     /// `factions/syndicate/tunnels.md > Construction and Upgrade Rules`; `crate::construction::site`): its Tier
     /// Requirement, its cost and its build time, and the HP its site starts at. `None` for a type no Tunnel builds. The
-    /// Hideout, the Optics Lab and the Chemical Plant so far; the ExpandMenu lists the types in its order
-    /// (`defs::EXPAND_MENU`).
+    /// Hideout, the Optics Lab, the Chemical Plant and the Laser Turret so far; the ExpandMenu lists the types in its
+    /// order (`defs::EXPAND_MENU`).
     pub expansion: Option<ExpansionDef>,
     /// Its `TechPrerequisite` (`core/tech_and_research.md > Tech Prerequisites`; plan decision T37, slice M4-K): the
     /// structure types its player must own, each at least once, before one can be started, by whichever way it is
     /// built (a constructor's Construct, a Warp In, an expansion, a worker's Build; `crate::tech`). Empty for none;
-    /// the Laser Turret's Optics Lab is the first (slice M4-S1).
+    /// the Laser Turret's Optics Lab was the first (slice M4-S1).
     #[serde(deserialize_with = "super::leak::slice")]
     pub requires: &'static [ObjectKind],
     /// The type's attack, for a structure that attacks (plan decision T49, slice M4-S1; `systems/combat.md >
@@ -86,10 +86,10 @@ pub struct StructureDef {
     /// files.
     #[serde(default)]
     pub attack: Option<AttackAttrs>,
-    /// The type's pop-up form (plan decision T50, slice M4-S2; `factions/syndicate/structures/laser_turret.md >
-    /// Upright vs Pop-up`): how long it takes to rise and to retract, how long it stays up with no target, and its
-    /// armour while underground. An object of a type with one is a pop-up while it stands inside an own Tunnel Area
-    /// (`crate::popup`). `None` for every other structure. Optional in files.
+    /// The type's pop-up form (plan decision T50, slice M4-S2; `factions/syndicate/structures/laser_turret.md > Pop-up
+    /// turret`): how long it takes to rise and to retract, how long it stays up with no target, and its armour while
+    /// underground. Every object of a type with one is a pop-up, active only inside its Tunnel's area (design change
+    /// 0360; `crate::popup`). `None` for every other structure. Optional in files.
     #[serde(default)]
     pub popup: Option<PopUpDef>,
     /// The units the type holds inside (plan decision T60, slice M5-F1; `systems/controls/commands.md > Enter`: "an own
@@ -185,12 +185,11 @@ pub enum SitePrice {
     /// and a site cancelled, refund the price as it is once they are gone ("the current construction price, not
     /// counting itself", `factions/syndicate/tunnels.md > Upgrade Costs`).
     SuppliesPerOwned,
-    /// A fixed price in Space Crystals: the Laser Turret's 100 (`factions/syndicate/structures/laser_turret.md`:
-    /// "Cost: 100 Space Crystals (no Supplies)"; slice M4-S1). Paid as the order is given, "with the same refunds" as
-    /// an Agent's Tunnel (design change 0297 point 4, `factions/syndicate/structures/laser_turret.md > Construction`):
-    /// an order that goes before its site starts gives back the current top price, all of it, the price having no
-    /// scaling. A cancelled site gives back "75%" of it, rounded down, "like an expansion" (0297 point 5;
-    /// `construction::site::BuildPrice::cancelled`).
+    /// A fixed price in Space Crystals: the Cults' buildings' (slice M5-E; `factions/cults/economy.md > Cults Building
+    /// Mechanics`), the Storage's 100 for one. Paid as the order is given, as an Agent's Tunnel is: an order that goes
+    /// before its site starts gives back the current top price, all of it, the price having no scaling. A cancelled
+    /// site gives back "75% of the building's Space Crystals cost (rounded down)" (`factions/cults/economy.md > Cancel
+    /// Construction`; `construction::site::BuildPrice::cancelled`).
     Crystals(u32),
 }
 
@@ -200,12 +199,6 @@ pub enum BuilderGoes {
     /// Into its owner's Tunnel Network: the Tunnel's Agent (`factions/syndicate/units/agent.md > Building > Tunnel
     /// Construction Flow`: "the Agent is inside the Tunnel Network, available for redeployment from any Tunnel").
     Network,
-    /// Out onto the surface, beside the finished structure: the Laser Turret's Agent
-    /// (`factions/syndicate/structures/laser_turret.md > Construction`: "the Agent emerges on the surface adjacent to
-    /// the finished structure (unlike Tunnels, where the Agent ends up inside the Tunnel Network)"): "at the **first
-    /// clear spot next to the turret**, searched in a fixed order starting from the side it came from; if none is
-    /// clear, it waits inside until one is" (design change 0298 point 7; `sim/sites.rs`).
-    Beside,
     /// Nowhere: its builders build it from outside and stay on the field (plan decision T59, slice M5-E;
     /// `factions/cults/economy.md > Cults Building Mechanics`: "Assigned Recruits are not consumed — they remain on the
     /// field near the site for the duration of construction"; "On completion, all Recruits that participated remain on

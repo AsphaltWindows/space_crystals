@@ -15,13 +15,10 @@
 //!   (`factions/syndicate/tunnels.md > Cost Scaling > Upgrade Costs`): the price once it has gone. So "the Supplies
 //!   paid for what the player still has always equal the formula's total, so the order of starting and cancelling
 //!   can't gain or lose Supplies" (the same).
-//! - **The Laser Turret's price** (slice M4-S1, `SitePrice::Crystals`): "Cost: 100 Space Crystals (no Supplies)"
-//!   (`factions/syndicate/structures/laser_turret.md`), by the Tunnel's rules, with no scaling: "an Agent's turret is
-//!   paid **when the order is given** (ghost placed), like an Agent's Tunnel ..., with the same refunds if the order is
-//!   cancelled, replaced, fails, or the Agent is killed before construction starts" (design change 0297 point 4,
-//!   `factions/syndicate/structures/laser_turret.md > Construction`), in full, its "current top price" being its price.
-//!   Every price is in its def's resource ([`BuildPrice`]), and so is every refund of it; an order that replaces Builds
-//!   counts only the refunds in its own resource toward its price. Its cancelled site's 75% is `sim/sites.rs`'s.
+//! - **A price in Space Crystals** (`SitePrice::Crystals`): a Cults building's (slice M5-E), by the same rules with no
+//!   scaling, its "current top price" being its price. Every price is in its def's resource ([`BuildPrice`]), and so
+//!   is every refund of it; an order that replaces Builds counts only the refunds in its own resource toward its price.
+//!   A cancelled site's 75% is `sim/sites.rs`'s.
 //! - **When an order goes** before its site starts, it is refunded: a new order replaces it ([`Sim::drop_orders`],
 //!   from `Sim::give_order`), its worker leaves the map with its queue (`Sim::take_off_map`, the same), it fails on
 //!   arrival ([`Sim::step_deployments`]), or its worker leaves the game (`Sim::remove_objects`; design change 0289
@@ -189,9 +186,9 @@ impl Sim {
     /// The price of `player`'s next Build of `kind` now (`factions/syndicate/tunnels.md > Cost Scaling > Construction
     /// Cost`, design change 0233), in its def's resource ([`BuildPrice`]): a Tunnel's in Supplies, one for each it has
     /// ([`Sim::owned_for_price`]), so 0 with none (`factions/syndicate/tunnels.md > Losing Tunnels`: "with no Tunnels
-    /// owned, a new Tunnel costs 0 Supplies"); a Laser Turret's 100 Space Crystals (module docs). It is also what a
-    /// Build that has just gone gives back, the "current top price" "not counting itself" (module docs). The gate, the
-    /// client's tooltip and every refund ask it. `None` for a kind no worker builds.
+    /// owned, a new Tunnel costs 0 Supplies"); a Cults building's fixed price in Space Crystals (module docs). It is
+    /// also what a Build that has just gone gives back, the "current top price" "not counting itself" (module docs).
+    /// The gate, the client's tooltip and every refund ask it. `None` for a kind no worker builds.
     pub fn build_price(&self, player: PlayerId, kind: ObjectKind) -> Option<BuildPrice> {
         price_at(kind, self.owned_for_price(player, kind))
     }
@@ -204,15 +201,15 @@ impl Sim {
     ///   structure it builds": a Build `queued` with Shift to one with a Build already, current or queued, is
     ///   [`Reject::ConstructorBusy`] (without Shift, the new one replaces it).
     /// - **Its TechPrerequisite** (slice M4-K, `crate::tech`): the player owns what `kind` requires
-    ///   (`StructureDef::requires`: the Laser Turret's Optics Lab, slice M4-S1), else [`Reject::Requires`]. Checked as
+    ///   (`StructureDef::requires`; none for a Tunnel, a Storage for an Armory), else [`Reject::Requires`]. Checked as
     ///   the order is given, which is when it is paid (design change 0233), as a constructor's Construct is, and only
     ///   then: `core/tech_and_research.md > Tech Prerequisites > Check Timing`, "checked only at the moment
     ///   construction is **started** (queued at the constructor, ...)", the moment the order is paid, so the worker's
-    ///   arrival doesn't check it again (`Sim::arrive_to_build`), and an Optics Lab lost on the way stops nothing.
+    ///   arrival doesn't check it again (`Sim::arrive_to_build`), and a prerequisite lost on the way stops nothing.
     /// - **The price** (design change 0233): "The order is refused, with feedback, if the player can't pay"
-    ///   ([`Reject::InsufficientSupplies`], a Laser Turret's [`Reject::InsufficientCrystals`]): the price once the
-    ///   Build orders it replaces have gone ([`Sim::build_price`]), out of the bank and their refunds in its resource
-    ///   ([`Sim::replacing`]).
+    ///   ([`Reject::InsufficientSupplies`], or [`Reject::InsufficientCrystals`] for a price in Space Crystals): the
+    ///   price once the Build orders it replaces have gone ([`Sim::build_price`]), out of the bank and their refunds
+    ///   in its resource ([`Sim::replacing`]).
     /// - **The site**: allowed as far as the player knows ([`Sim::build_check`]), else [`Reject::Unplaceable`] with
     ///   the first problem.
     ///
@@ -257,8 +254,8 @@ impl Sim {
     }
 
     /// A Build of `kind` for `player` that replaces the Build orders `replaced`, still in the game: what they give back
-    /// as they go, one at a time in order ([`Sim::refund_builds`]), in the new one's resource (a Tunnel's Supplies
-    /// don't pay for a Laser Turret), and the new one's price then.
+    /// as they go, one at a time in order ([`Sim::refund_builds`]), in the new one's resource (a refund in another
+    /// resource pays nothing toward it), and the new one's price then.
     fn replacing(&self, replaced: &[Dropped], player: PlayerId, kind: ObjectKind) -> (u64, Option<BuildPrice>) {
         let owned_after = |kind: ObjectKind| {
             let going = replaced.iter().filter(|d| (d.owner, d.kind) == (player, kind)).count();
@@ -289,8 +286,9 @@ impl Sim {
     }
 
     /// `player` pays `price` for a Build order it has just given (design change 0233: "an Agent's build order pays the
-    /// Supplies when it is given"; a Laser Turret's Space Crystals alike, design change 0297 point 4: "paid **when the
-    /// order is given**"). The gate made sure the bank holds them ([`Sim::check_build`]).
+    /// Supplies when it is given"; a Cults building's Space Crystals alike, `factions/cults/economy.md > Build
+    /// Command`: "deducted as soon as the build order is given"). The gate made sure the bank holds them
+    /// ([`Sim::check_build`]).
     pub(super) fn pay_build(&mut self, player: PlayerId, price: BuildPrice) {
         if let Some(bank) = self.players.iter_mut().find(|p| p.id == player) {
             let paid = price.pay(bank);
@@ -316,8 +314,7 @@ impl Sim {
     /// Design change 0233: the Build orders `dropped`, which have just gone before their sites started, in order, are
     /// "refunded at the current top price", each the price once it has gone ([`Sim::build_price`]), with a
     /// `SimEvent::BuildRefunded`. They went one at a time in order, so each of those after one still counted when it
-    /// went. A Laser Turret's is its whole price, which has no scaling (design change 0297 point 4: "with the same
-    /// refunds" as an Agent's Tunnel).
+    /// went. A price in Space Crystals comes back whole, having no scaling.
     ///
     /// (M5-E) A group's Build once, by the first of its holders among `dropped`, and only once none holds it any more
     /// ([`Sim::refundable`]): design change 0340 (`factions/cults/economy.md > Cults Building Mechanics > Group
@@ -409,7 +406,7 @@ impl Sim {
             orientation,
         });
         let reached = site.filter(|(_, site)| site::builds(o.kind, kind) && on_site(o.kind, o.pos, site));
-        // No TechPrerequisite here (a Laser Turret's Optics Lab): `core/tech_and_research.md > Tech Prerequisites >
+        // No TechPrerequisite here (an Armory's Storage): `core/tech_and_research.md > Tech Prerequisites >
         // Check Timing`, "checked only at the moment construction is **started** (queued at the constructor, ...)",
         // which for a worker's Build is the order, paid as it is given (`Sim::check_build`).
         let problems = match reached {

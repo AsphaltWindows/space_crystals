@@ -155,11 +155,10 @@ impl Sim {
             o.construction = Some(Construction::expansion(def, tunnel));
             o.hp = o.max_hp();
             hold_back(o);
-            // (M4-S2) A Tunnel's turret is underground from its first frame (design change 0297 point 6: "A Tunnel's
-            // site is hidden like an expansion under construction"), and so completes lowered (`popup`).
-            if popup::def_of(kind).is_some() {
-                o.popup = Some(PopUp::LOWERED);
-            }
+            // A turret's site is lowered from its first frame, as every turret is (`Sim::new_object`): "The **site is
+            // hidden** like an expansion under construction" (`factions/syndicate/structures/laser_turret.md >
+            // Construction`), and it completes lowered (`popup`).
+            debug_assert!(popup::def_of(kind).is_none() || o.popup == Some(PopUp::LOWERED));
         }
         if let Some(state) = self.objects.get_mut(&tunnel).and_then(|o| o.tunnel.as_mut()) {
             state.operation = Some(Operation::Building(site));

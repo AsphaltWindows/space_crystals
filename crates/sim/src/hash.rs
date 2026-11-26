@@ -355,7 +355,7 @@ impl StateHash for Object {
             h.tag(3);
             decay.hash(h);
         }
-        // (M4-S2) The same for a turret's pop-up state (`popup.rs`), under a tag of its own: only a pop-up has one.
+        // (M4-S2) The same for a turret's pop-up state (`popup.rs`), under a tag of its own: only a turret has one.
         if let Some(popup) = popup {
             h.tag(4);
             popup.hash(h);

@@ -48,7 +48,7 @@ fn follows_the_rule(kind: ObjectKind, squares: u32) -> bool {
 /// 0264: every building follows the rule but the listed exceptions, and no listed exception follows it. Today 16 of
 /// the 17 do: the GDO's Deployment Center 1/16, Generator 1/4, Barracks 1/6, Extraction Facility 1/9 and Extraction
 /// Plate 2/2; the Colonists' Beacon 0/0, Egress Node 0/0, Robo Portal 1/16 and Bio Portal 1/9; the Syndicate's Tunnel
-/// 1/16, Hideout 6/24, Optics Lab 6/24 and Chemical Plant 6/24 (slice M4-K), and its upright Laser Turret 1/1 (slice
+/// 1/16, Hideout 6/24, Optics Lab 6/24 and Chemical Plant 6/24 (slice M4-K), and its Laser Turret, raised, 1/1 (slice
 /// M4-S1; `factions/syndicate/structures/laser_turret.md`: "building armor rule, 1x1"); the Cults' Recruitment Hall
 /// 1/16 and Armory 1/6 (slice M5-A). The Cults' Storage, 1/6 on its 2x2, is the one exception (Q0094).
 #[test]

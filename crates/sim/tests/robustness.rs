@@ -382,8 +382,8 @@ fn fuzz_run(seed: u64) -> Run {
 }
 
 /// The stream's seed: any seed does. A stream can end a game: its Grenadiers (slice M4-U: four grenades of 98.8
-/// against the Generator's 350 HP) and Laser Turrets (M4-S1) can destroy a base. 8 of the first 256 seeds' streams do
-/// within [`TICKS`] (slice M4-M), and this one does in tick 1367.
+/// against the Generator's 350 HP) and Laser Turrets (M4-S1; one in its owner's Tunnel Area, since M5-Y) can destroy a
+/// base. 8 of the first 256 seeds' streams do within [`TICKS`] (slice M4-M), and this one does in tick 1367.
 ///
 /// The fuzz accepts that end rather than preventing it. Keeping the bases out of the fight would take a rule the sim
 /// hasn't (a structure no damage reaches), or a stream that knows every way a unit gets within reach of a base (each

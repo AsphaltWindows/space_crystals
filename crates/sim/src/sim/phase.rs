@@ -179,9 +179,10 @@ impl Sim {
             self.remove_objects(&dead);
             paths::sync(&mut self.nav, &self.objects, &mut self.nav_version);
         }
-        // The pop-up turrets (slice M4-S2, `sim/popups.rs`): after 5e, where each picked its target, and its removals,
-        // so that a Tunnel lost in this tick converts its turrets in it; after 5d, so that the footprint-clear test
-        // reads where the units stand as the tick ends; before 5f, which sees a turret from the tick it starts to rise.
+        // The pop-up turrets (slices M4-S2 and M5-Y, `sim/popups.rs`): after 5e, where each picked its target, and its
+        // removals, so that a turret whose Tunnel is lost in this tick is down at its end; after 5d, so that the
+        // footprint-clear test reads where the units stand as the tick ends; before 5f, which sees a turret from the
+        // tick it starts to rise.
         observe(Phase::PopUps);
         self.step_popups(first_new);
         // The Shields regenerate (plan decision T18): after 5e's hits and the removal of the dead, so that the dead

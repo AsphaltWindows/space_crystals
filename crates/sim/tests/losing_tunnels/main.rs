@@ -1,8 +1,9 @@
 //! Losing Tunnels (slice M4-H; `factions/syndicate/tunnels.md > Losing Tunnels`, design changes 0254 and 0258, which
 //! answers question Q0069; `core/game_rules.md > On Defeat`), through the gate, one test binary:
-//! - `neutral`: a Tunnel destroyed leaves its expansions neutral, visible to everyone and decaying, their work in
-//!   progress lost and their queue refunded, and the one it was building destroyed, unrefunded; the Syndicate
-//!   defeated with its last structure;
+//! - `neutral`: a Tunnel destroyed leaves its expansions neutral, every kind of them seen by everyone at once and
+//!   decaying, their work in progress lost and their queue refunded, and the one it was building destroyed,
+//!   unrefunded; the Syndicate defeated with its last structure, a turret keeping it in the game no longer (design
+//!   change 0360);
 //! - `stranded`: the network units no remaining Tunnel lets out are destroyed; a player who lives on without a Tunnel
 //!   rebuilds for nothing; an Agent's site isn't the lost Tunnel's;
 //! - `attack`: a neutral expansion is attacked only by an explicit Attack;
@@ -166,8 +167,9 @@ fn names(event: &SimEvent, id: ObjectId) -> bool {
 }
 
 /// This binary's invariants: no reference dangles and no held unit is on the map or named there (the held store's,
-/// `tests/tunnel_network`); each site's builder is held in it; and only a neutral expansion decays, every one of
-/// those a lost Tunnel left (and no other neutral expansion is in these tests' games).
+/// `tests/tunnel_network`); each site's builder is held in it; and only a neutral expansion decays
+/// (`sc_sim::tunnel::is_expansion`, a turret among them since design change 0360), every one of those a lost Tunnel
+/// left (and no other neutral expansion is in these tests' games).
 fn check(t: &TestSim) {
     let sim = t.sim();
     assert_eq!(dangling_references(sim), []);
@@ -189,7 +191,7 @@ fn check(t: &TestSim) {
         }
     }
     for o in sim.objects() {
-        let expansion = o.kind == HIDEOUT;
+        let expansion = sc_sim::tunnel::is_expansion(o.kind);
         assert_eq!(
             o.decay.is_some(),
             expansion && o.owner.is_none(),

@@ -225,7 +225,11 @@ mod tests {
             }
         );
         let agent = ObjectKind::Agent.def().unit.as_ref().unwrap().worker.unwrap();
-        assert_eq!(agent.builds, [ObjectKind::Tunnel, ObjectKind::LaserTurret]);
+        assert_eq!(
+            agent.builds,
+            [ObjectKind::Tunnel],
+            "the Tunnel alone (design change 0359)"
+        );
     }
 
     /// `factions/syndicate/tunnels.md > Tunnel Network > Transit Tier Requirements`: "Tier 1+: Infantry (Light

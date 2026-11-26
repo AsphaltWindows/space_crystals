@@ -6,20 +6,22 @@
 //! that brings one replaces its entry with the real command, as slice M4-K did the Hideout's Guard and the
 //! ExpandMenu's Optics Lab and Chemical Plant, slice M4-G the Tunnel's Upgrade
 //! (`super::super::PanelCommand::UpgradeTunnel`), slice M4-U the Hideout's Grenadier, slice M4-S1 the Agent's Laser
-//! Turret (`super::super::PanelCommand::Build`) and slice M4-S2 the ExpandMenu's (`super::super::PanelCommand::Expand`).
+//! Turret (`super::super::PanelCommand::Build`, gone with design change 0359) and slice M4-S2 the ExpandMenu's
+//! (`super::super::PanelCommand::Expand`).
 //! The Cults' Armory trains its Gunner once the Gunworks it requires is in the game (slice M5-G2): until then the
 //! Gunner holds its slot of the Armory's kind menus (slice M5-F2). So do the buildings of the Recruits' Construct
 //! menus not in the game yet, the Gunworks among them (slice M5-J1, design change 0327: "every building greyed until
-//! available, including ones not in the build yet"), and the Recruit's Repair, until slice N8 (design change 0322).
+//! available, including ones not in the build yet"), and the Recruit's Repair, until slice N8 (design change 0322),
+//! the Agent's too (slice M5-Y, design change 0359).
 
 /// A panel entry that isn't in the game yet (module docs). The Colonists' are a building of the Beacon's Warp In menus
 /// or a unit of a portal's panel: a building's cost and WarpInTime are TBD (`factions/colonists/economy.md > Warp In >
 /// Constructs List`), and so is the rest of it (Q0043); a unit's stats, cost and time are TBD
 /// (`factions/colonists/units/scout.md`, `factions/colonists/units/lancer.md`; the psionic unit has no section yet).
 /// The Syndicate's are the ExpandMenu's entries that aren't in the game yet (slice M4-F:
-/// `sc_sim::defs::ExpandEntry::Planned`, by name): its expansions. The Cults' are the Armory's Gunner, the Construct
-/// menus' buildings not in the game yet (slice M5-J1: `sc_sim::defs::ConstructEntry::Planned`, by name) and the
-/// Recruit's Repair.
+/// `sc_sim::defs::ExpandEntry::Planned`, by name): its expansions, and the Agent's Repair. The Cults' are the Armory's
+/// Gunner, the Construct menus' buildings not in the game yet (slice M5-J1: `sc_sim::defs::ConstructEntry::Planned`,
+/// by name) and the Recruit's Repair.
 #[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum Planned {
     AlloyFurnace,
@@ -72,7 +74,10 @@ pub enum Planned {
     Shrine,
     /// (M5-J1) The Recruit's D (`factions/cults/units/recruit.md > Recruit ObjectInterfaceState > DefaultState
     /// commands`, design change 0322): "**D: Repair** — targeted command (StateOnlyTransition). Left-click a damaged
-    /// own building or vehicle to repair it", which slice N8 brings.
+    /// own building or vehicle to repair it", which slice N8 brings. (M5-Y) The Agent's D too
+    /// (`factions/syndicate/units/agent.md > Agent ObjectInterfaceState > DefaultState commands`, design change 0359):
+    /// "**D: Repair** — targeted command (StateOnlyTransition). Left-click a damaged own Tunnel or Laser Turret to
+    /// repair it".
     Repair,
 }
 
@@ -175,7 +180,7 @@ impl Planned {
     /// Gunworks), but for the Garrison's "GA" and the Shrine's "SR", "GN" and "SE" being the Generator's and the
     /// Storage's. An entry's type takes its label with it into the game (the Optics Lab's "OL", the Chemical Plant's
     /// "CP" and the Grenadier's "GR", `crate::kinds`), and a command its own: the Tunnel's Upgrade's "Upgr." (slice
-    /// M4-G); the Recruit's Repair is labelled by its name, as the commands are.
+    /// M4-G); the Recruit's and the Agent's Repair is labelled by its name, as the commands are.
     pub fn label(self) -> &'static str {
         match self {
             Planned::AlloyFurnace => "AF",
@@ -215,7 +220,7 @@ impl Planned {
     }
 
     /// Whether it is a unit, of a production panel; else a building, of the Beacon's Warp In menus, the Tunnel's
-    /// ExpandMenu or the Recruits' Construct menus, or the Recruit's Repair.
+    /// ExpandMenu or the Recruits' Construct menus, or the Recruit's and the Agent's Repair.
     pub fn is_unit(self) -> bool {
         matches!(
             self,

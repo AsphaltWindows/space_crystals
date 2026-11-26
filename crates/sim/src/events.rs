@@ -285,10 +285,9 @@ pub enum SimEvent {
     },
     /// A Build order of `worker`'s for a `kind` went before its site started, and its owner got `refund` back in the
     /// resource of its price (`construction::site::BuildPrice`): a Tunnel's in Supplies, the current top price
-    /// (`factions/syndicate/tunnels.md > Cost Scaling > Construction Cost`, design change 0233), a Laser Turret's in
-    /// Space Crystals, all of it, its price having no scaling (slice M4-S1; design change 0297 point 4: "with the same
-    /// refunds" as an Agent's Tunnel; `sim/builds.rs`): replaced by a new order, failed on arrival, or gone with its
-    /// worker (which may have left the game).
+    /// (`factions/syndicate/tunnels.md > Cost Scaling > Construction Cost`, design change 0233), a Cults building's in
+    /// Space Crystals, all of it, its price having no scaling (slice M5-E; `sim/builds.rs`): replaced by a new order,
+    /// failed on arrival, or gone with its worker (which may have left the game).
     BuildRefunded {
         worker: ObjectId,
         kind: ObjectKind,
@@ -308,8 +307,7 @@ pub enum SimEvent {
     },
     /// `site` is complete, a structure in operation from now on, and `worker`, which built it, is in its owner's
     /// Tunnel Network (`factions/syndicate/units/agent.md > Building > Tunnel Construction Flow`: "If construction
-    /// completes"), or, for a Laser Turret, about to come out beside it (`defs::BuilderGoes::Beside`, slice M4-S1): a
-    /// [`SimEvent::LeftSite`] follows once a spot beside it is clear, in that tick or later.
+    /// completes").
     SiteCompleted {
         site: ObjectId,
         worker: ObjectId,
@@ -323,9 +321,8 @@ pub enum SimEvent {
     },
     /// `site`, a `kind` under construction, was cancelled (`ConstructionCommand::CancelConstruction`), and its owner
     /// got `refund` back in the resource of its price: a Tunnel's Supplies, the current top price (design change 0233),
-    /// a Laser Turret's Space Crystals, 75% of them rounded down, like an expansion's (slice M4-S1; design change 0297
-    /// point 5: "75% refund for both, Agent-built or Tunnel-built"). It left the game (`Removed`), and its worker came
-    /// out ([`SimEvent::LeftSite`]).
+    /// a Cults building's Space Crystals, 75% of them rounded down (`factions/cults/economy.md > Cancel Construction`).
+    /// It left the game (`Removed`), and its worker, if one was inside, came out ([`SimEvent::LeftSite`]).
     SiteCancelled {
         site: ObjectId,
         kind: ObjectKind,
@@ -333,10 +330,7 @@ pub enum SimEvent {
     },
     /// `worker` came out of `site`, which left the game while under construction (cancelled or destroyed), at the
     /// centre of its footprint (design change 0234: "Where the Agent comes out on cancel or destruction"), and is among
-    /// the sim's objects again, with the id it had, idle. No `Spawned` comes with it. Also a Laser Turret's Agent once
-    /// the turret is complete (slice M4-S1), beside it (`factions/syndicate/structures/laser_turret.md > Construction`:
-    /// "the Agent emerges on the surface adjacent to the finished structure"; `sim/sites.rs`), or, if the turret goes
-    /// with the Agent still waiting inside, at the centre of its footprint.
+    /// the sim's objects again, with the id it had, idle. No `Spawned` comes with it.
     LeftSite {
         worker: ObjectId,
         site: ObjectId,

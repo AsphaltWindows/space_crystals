@@ -1,7 +1,8 @@
-//! A Tunnel's own Laser Turret (`factions/syndicate/structures/laser_turret.md > Construction`: "**By a Tunnel**: from
-//! the Tunnel's ExpandMenu, placed within that Tunnel's Tunnel Area like an expansion. It **uses the Tunnel's single
-//! operation slot**"; design changes 0267 and 0297), and what a pop-up takes of Tunnel Space (`> Upright vs Pop-up`:
-//! "¼ Tunnel Space, subject to the rounding rule").
+//! A Tunnel's Laser Turret (`factions/syndicate/structures/laser_turret.md > Construction`: "**By a Tunnel**: from the
+//! Tunnel's ExpandMenu, placed within that Tunnel's Tunnel Area like an expansion. It **uses the Tunnel's single
+//! operation slot**"; design changes 0267 and 0297), the only one there is ("**only Tunnels build turrets**", design
+//! change 0359), and what a turret takes of Tunnel Space (`> Pop-up turret`: "¼ Tunnel Space, subject to the rounding
+//! rule").
 
 use sc_sim::tunnel::Operation;
 use sc_sim::{ConstructionCommand, PlacementProblem, TileProblem, WholeProblem};
@@ -30,7 +31,7 @@ fn building(t: &TestSim) -> ObjectId {
 /// `factions/syndicate/tunnel_menus.md > ExpandMenu`: "The ExpandMenu also offers the **Laser Turret** (once the player
 /// owns an Optics Lab)"; "Cost: 100 Space Crystals (no Supplies)". The gate's answers short of the placement
 /// (`Sim::can_expand`, which the menu greys its tenth slot by), and the placement's: inside the Tunnel's area, on
-/// ground a surface structure may stand on (a reading: Buildable and flat as well as Drillable), clear of every
+/// ground that is "**Buildable, flat and Drillable**" (design change 0358 point 3), clear of every
 /// structure, a unit over it or not.
 #[test]
 fn the_tunnel_builds_it_behind_an_optics_lab_inside_its_area() {
@@ -102,9 +103,9 @@ fn the_tunnel_builds_it_behind_an_optics_lab_inside_its_area() {
 
 /// Plan §3.3 S2's acceptance: "A turret from the ExpandMenu inside the area: 100 SC at placement, 320 ticks", and
 /// design change 0267's verification: "While a Tunnel builds a Laser Turret, its Expand and Upgrade are unavailable."
-/// The site is the Tunnel's one operation, underground and hidden from its first frame (design change 0297 point 6:
-/// "A Tunnel's site is hidden like an expansion under construction"), at the ConstructionHP rule's 10%; it completes
-/// at the end of its 320th tick, a lowered pop-up, and the slot is free again.
+/// The site is the Tunnel's one operation, underground and hidden from its first frame (`> Construction`: "The **site
+/// is hidden** like an expansion under construction"), at the ConstructionHP rule's 10%; it completes at the end of
+/// its 320th tick, a lowered turret, active in its Tunnel's area, and the slot is free again.
 #[test]
 fn it_takes_the_operation_slot_100_crystals_and_320_frames() {
     let mut t = started(base().spawn(GUARD, Some(P2), SpawnAt::Point(at(11, 8).center())), 1000);
@@ -138,7 +139,7 @@ fn it_takes_the_operation_slot_100_crystals_and_320_frames() {
     let o = object(&t, site);
     assert!(!o.is_site(), "complete at the end of tick {}", placed + FRAMES);
     assert_eq!((o.popup, o.hp), (Some(PopUp::LOWERED), Some(300.0)));
-    assert!(t.sim().is_popup(o));
+    assert!(t.sim().is_active_turret(o));
     assert_eq!(object(&t, T1).tunnel.as_ref().and_then(|state| state.operation), None);
     assert_eq!(gate(&t, P1, expand(8, 9)), Ok(()));
     // Supplies aside, the Upgrade is no longer refused for the slot.
@@ -149,8 +150,8 @@ fn it_takes_the_operation_slot_100_crystals_and_320_frames() {
     assert_eq!(crystals(&t, P1), 900);
 }
 
-/// Design change 0297 point 5: "cancelling a site refunds **75% for both** Agent-built and Tunnel-built turrets": by
-/// the Tunnel's X, and by the site's own Cancel Construction; the slot is free again.
+/// `> Construction`: "**Cancelling** the site refunds **75%** (like an expansion)": by the Tunnel's X, and by the
+/// site's own Cancel Construction; the slot is free again.
 #[test]
 fn cancelling_its_site_refunds_75() {
     let mut t = started(base(), 1000);
@@ -175,15 +176,16 @@ fn cancelling_its_site_refunds_75() {
     assert_eq!(gate(&t, P1, expand(8, 8)), Ok(()));
 }
 
-/// `factions/syndicate/structures/laser_turret.md > Upright vs Pop-up`: a pop-up "Occupies 1 grid unit of that
-/// Tunnel's tunnel-region, like an expansion, so it reduces Tunnel Space (¼ Tunnel Space, subject to the rounding rule
-/// in Tunnel Space)"; `factions/syndicate/tunnel_area_and_space.md > Tunnel Space`: "structures smaller than 2x2 ...
-/// only lower Tunnel Space when they push the unused total below the next multiple of 4". Plan §3.3 S2's acceptance:
-/// "Four pop-ups take 1."
+/// `factions/syndicate/structures/laser_turret.md > Pop-up turret`: a turret "Occupies 1 grid unit of that Tunnel's
+/// tunnel-region, like an expansion, so it reduces Tunnel Space (¼ Tunnel Space, subject to the rounding rule in Tunnel
+/// Space)"; `factions/syndicate/tunnel_area_and_space.md > Tunnel Space`: "structures smaller than 2x2 ... only lower
+/// Tunnel Space when they push the unused total below the next multiple of 4". Plan §3.3 S2's acceptance: "Four
+/// pop-ups take 1."
 ///
 /// The Tunnel's 48 cells less the Optics Lab's 4 leave 44, Tunnel Space 11. A Tunnel's turret takes its cell as its
-/// site starts, like an expansion (design change 0254): 43 cells, 10. Three more pop-ups: 40 cells, still 10: four
-/// took 1. A fifth: 39, 9. A turret outside the area is upright and takes nothing.
+/// site starts, like an expansion (design changes 0254 and 0358 point 5: "**A turret site takes its Tunnel Space from
+/// the start of construction**"): 43 cells, 10. Three more turrets: 40 cells, still 10: four took 1. A fifth: 39, 9. A
+/// turret outside the area (a debug placement) is inactive and takes nothing.
 #[test]
 fn four_popups_take_one_tunnel_space() {
     let mut t = started(base(), 1000);
@@ -205,6 +207,29 @@ fn four_popups_take_one_tunnel_space() {
     next_debug(&mut t, turret(9, 11));
     assert_eq!(tunnel_space(&t, P1), (0, 9), "the fifth: 39 cells");
     next_debug(&mut t, turret(12, 8));
-    assert_eq!(tunnel_space(&t, P1), (0, 9), "an upright turret costs no Tunnel Space");
-    assert!(!t.sim().is_popup(object(&t, newest(&t))));
+    assert_eq!(
+        tunnel_space(&t, P1),
+        (0, 9),
+        "a turret outside the area costs no Tunnel Space"
+    );
+    assert!(!t.sim().is_active_turret(object(&t, newest(&t))));
+}
+
+/// Design change 0359 (`> Construction`: "**only Tunnels build turrets**"): an Agent builds Tunnels alone. Player 1's
+/// Agent, with an Optics Lab and Space Crystals enough, has no turret to build: the gate refuses its Build of one, it
+/// has no ghost of one, and a turret has no Build price; the Tunnel's ExpandMenu takes it.
+#[test]
+fn no_agent_builds_a_turret() {
+    let t = started(base().spawn(AGENT, Some(P1), SpawnAt::Point(at(12, 12).center())), 1000);
+    let (agent, origin, orientation) = (ObjectId(3), at(14, 10), BuildingOrientation::default());
+    assert_eq!(object(&t, agent).kind, AGENT);
+    let build = OrderKind::Build {
+        kind: TURRET,
+        origin,
+        orientation,
+    };
+    assert_eq!(gate(&t, P1, order(agent, build)), Err(Reject::NoWorkers));
+    assert!(t.sim().build_check(agent, TURRET, origin, orientation, false).is_none());
+    assert_eq!(t.sim().build_price(P1, TURRET), None);
+    assert_eq!(gate(&t, P1, expand(8, 8)), Ok(()));
 }

@@ -22,9 +22,6 @@
 //! 4. **Ejecting** ([`Syndicate::eject_builders`]): an Agent that finishes a Tunnel goes into the Tunnel Network
 //!    (`factions/syndicate/units/agent.md > Building > Tunnel Construction Flow`). The line ejects it by that Tunnel
 //!    (`TunnelCommand::Eject`, `factions/syndicate/tunnel_menus.md > EjectMenu`) and gives it a job once it is out.
-//!    Only a Tunnel's: an Agent that finishes a Laser Turret comes out beside it by itself
-//!    (`factions/syndicate/structures/laser_turret.md > Construction`, design change 0298 point 7), and the line
-//!    leaves it be.
 //! 5. **Expanding** ([`Syndicate::expand`]): the line's expansions, in order, each built by the player's `n`th Tunnel
 //!    (by id, the starting one first) once the Tunnel may build it now (`Sim::can_expand`: in operation, with no
 //!    operation under way, its prerequisites met), the bank covers it after the build order's orders of the tick, and
@@ -177,8 +174,7 @@ impl Syndicate {
         self
     }
 
-    /// An Agent that finishes a Tunnel is ejected by it, and gets `job` once it is out (module docs, 4); one that
-    /// finishes another structure, a Laser Turret, comes out by itself and is left be.
+    /// An Agent that finishes a Tunnel is ejected by it, and gets `job` once it is out (module docs, 4).
     pub fn eject_builders(mut self, job: Job) -> Self {
         self.after_build = Some(job);
         self
@@ -287,8 +283,8 @@ impl Syndicate {
                         self.agents.push(unit);
                     }
                 }
-                // A Tunnel's builder only: a Laser Turret's comes out beside it (design change 0298 point 7), and the
-                // gate refuses an Eject by anything but a Tunnel (`Reject::NotATunnel`).
+                // A Tunnel's builder, the only structure an Agent builds (design change 0359): the gate refuses an
+                // Eject by anything but a Tunnel (`Reject::NotATunnel`).
                 SimEvent::SiteCompleted { site, worker }
                     if self.after_build.is_some()
                         && (sim.object(site))
