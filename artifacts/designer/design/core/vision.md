@@ -23,6 +23,12 @@ Objects in Explored areas are **not selectable**, with one exception:
 - The order goes to the object's **last-known position**. When that spot comes into sight, the memory updates: if the object is **still there**, the order carries on normally (attack it, gather it, …); if it is **gone**, the order ends the way it would for a vanished target (e.g. Gather: the redirect rules, factions/colonists/units/drone.md > Gathering > Patch Occupancy; Attack: the unit stops there and takes its next queued order or idles).
 - Nothing about the real state leaks: the cursor, the command and any rally marker treat the remembered object as present until the player sees otherwise.
 
+## Starting exploration
+(user, 2026-11-26) A game option: the map **starts explored** (fog of war still on). **Default: on.**
+- With it on, every tile starts **Explored** for every player instead of Unexplored. What each player remembers at 0:00: the **terrain** and the **neutral objects as they are at the start** (Space Crystal patches with their starting amounts, Supply Delivery Stations and other neutral objects). **No player's objects** are remembered, so bases still have to be scouted. Memories update as usual when an area comes into sight.
+- With it off, the map starts Unexplored (black), as described above.
+- **Where it is set**: in the future, the **game creation screen**; for now a **command-line flag** (like the computer players, core/game_rules.md > Computer players (playtest tool)). Restart (core/game_rules.md > Playtest menu (temporary)) keeps the setting.
+
 ## Visible
 The tile is currently within the SightRange of one of the player's units or structures. Everything on the tile is shown in real time — terrain, structures, and units.
 
