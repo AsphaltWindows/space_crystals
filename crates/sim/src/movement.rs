@@ -297,6 +297,7 @@ pub(crate) fn step(
             layer: layer.map(|l| &scratch.layers[l]),
             bodies: &scratch.bodies,
             me,
+            contact: base.contact_step,
             door,
             lanes: &mut scratch.lanes,
             counters: &mut scratch.counters,

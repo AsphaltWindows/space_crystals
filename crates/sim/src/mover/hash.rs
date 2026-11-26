@@ -1,7 +1,7 @@
 //! The state hash of the mover and its parts (`hash.rs`): every field, destructured, so that a new one doesn't
 //! compile until it is hashed.
 
-use super::{Locomotion, MoveGoal, MoveStatus, Mover, Orientation, PathState, Side, Sidestep};
+use super::{Locomotion, MoveGoal, MoveStatus, Mover, Orientation, PathState, Side, Sidestep, StepAside};
 use crate::hash::{StateHash, StateHasher};
 use crate::nav::PathGroup;
 
@@ -103,6 +103,7 @@ impl StateHash for Mover {
             exit_heading,
             detour_end,
             presses_on,
+            step_aside,
         } = self;
         goal.hash(h);
         status.hash(h);
@@ -148,6 +149,12 @@ impl StateHash for Mover {
         // Agent's leg back to a hatch.
         if *presses_on {
             h.tag(4);
+        }
+        // (M4-W3, design change 0323) Likewise only while the unit is taking a contact step.
+        if let Some(StepAside { along_y, to }) = step_aside {
+            h.tag(5);
+            along_y.hash(h);
+            to.hash(h);
         }
     }
 }

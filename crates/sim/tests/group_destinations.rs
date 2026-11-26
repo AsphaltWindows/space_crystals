@@ -167,11 +167,18 @@ fn a_line_clicked_on_itself_closes_up() {
             t.ascii(None)
         );
     }
-    assert_eq!(
-        (t.pos(2), t.pos(4)),
-        (v(156.0, 300.0), v(204.0, 300.0)),
-        "shoulder to shoulder"
-    );
+    // (M4-W3) Shoulder to shoulder with the middle unit: its neighbours touch it. Until design change 0323 they
+    // stopped beside it on the line, at (156, 300) and (204, 300). With the contact step each goes round on its near
+    // side by a whole width (`docs/movement.md > 6.3`), and they end above and below it, at (182, 324) and (178, 276):
+    // the line has closed up into a column on the click.
+    for id in [2, 4] {
+        let apart = (t.pos(id) - click).abs();
+        assert!(
+            apart.max_element() <= 24.0 + 1e-3 && apart.max_element() >= 24.0 - 1e-3,
+            "#{id} at {}: shoulder to shoulder",
+            t.pos(id)
+        );
+    }
 }
 
 /// 0021, Verification, and "no formation movement": every unit goes at its own speed, so a mixed group strings out
@@ -251,8 +258,14 @@ fn a_line_clicked_between_two_units_converges_and_clicked_above_keeps_its_shape(
     assert_nobody_failed(&t);
     for (id, &(_, start)) in (1..=5).zip(&line) {
         assert_eq!(t.status(id), MoveStatus::Arrived);
+        // (M4-W3) Within a tile of the click. Until design change 0323 no unit ended farther from it than it began;
+        // now the third, which began 21 su from it, ends 51 su away: the second took the click, and the third went
+        // round it by its contact step, a whole width (`docs/movement.md > 6.3`). The group still converges.
         let (before, after) = (start.distance(between), t.pos(id).distance(between));
-        assert!(after <= before && after <= 64.0, "#{id} {after} su from the click");
+        assert!(
+            after <= before.max(64.0) && after <= 64.0,
+            "#{id} {after} su from the click"
+        );
     }
     let width = |t: &TestSim| t.pos(5).x - t.pos(1).x;
     assert!(width(&t) < 110.0, "the line closed up from 160 su to {}", width(&t));

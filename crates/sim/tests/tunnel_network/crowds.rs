@@ -135,8 +135,33 @@ fn forty_guards_enter_one_tunnel_and_come_out_again() {
     }
     run_checked(&mut t, tick);
     assert!(t.sim().network_counts(P1).is_empty(), "all reserved");
+    // (M4-W3) Nobody orders those that come out anywhere, so they crowd the exit, and the queue lets a Guard out
+    // only while the exit is clear. Until design change 0323 the crowd happened to leave it clear for all 40. With
+    // its contact step (`docs/movement.md > 6.3`) the Guards that walk their grid unit out step a whole width round
+    // each other and pack the ground in front of Side A: after 31, one stands idle in the doorway with no room for
+    // its sidestep, and the nine behind it wait in the queue. "Getting them out of the way is the player's job"
+    // (design change 0223): at least 30 come out by themselves, and the rest once the crowd is sent away.
+    let waits = tick + 40 * 60;
+    while !inside(&t).is_empty() && t.sim().tick() < waits {
+        step_checked(&mut t);
+    }
+    let by_themselves = exits(&t, T1).len();
+    assert!(
+        by_themselves >= 30,
+        "{by_themselves} came out before the exit was crowded"
+    );
+    if !inside(&t).is_empty() {
+        let crowd: Vec<ObjectId> = exits(&t, T1).iter().map(|&(_, unit)| unit).collect();
+        let away = sc_sim::OrderKind::Move(sc_sim::Target::Point(Vec2::new(300.0, 200.0)));
+        let order = sc_sim::Command::Order {
+            units: crowd,
+            kind: away,
+            queue: false,
+        };
+        t.at(t.sim().tick() + 1, P1, order);
+    }
     while !inside(&t).is_empty() {
-        assert!(t.sim().tick() < tick + 40 * 60, "{} still inside", inside(&t).len());
+        assert!(t.sim().tick() < waits + 40 * 60, "{} still inside", inside(&t).len());
         step_checked(&mut t);
     }
     let out = exits(&t, T1);

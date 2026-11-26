@@ -126,7 +126,7 @@ AugmentationState tiles for the selected unit type (StateOnlyTransition to Augme
 - **Q: Unaugmented**
 - **W: Enhanced Constitution only**
 - **E: Improved Metabolism only**
-- **R: Fully augmented** — always disabled (count shown for information; nothing can be applied)
+- **R: Fully augmented** — enabled when there are any (only Release is possible)
 - **Z**: returns to DefaultState (StateOnlyTransition)
 
 #### AugmentMenu[UnitType, State]:
@@ -134,4 +134,5 @@ Shows only the Augmentations the selected group is missing. Each click queues on
 - From Unaugmented: **Q: Enhanced Constitution**, **W: Improved Metabolism**, **E: Both**
 - From Enhanced Constitution only: **W: Improved Metabolism**
 - From Improved Metabolism only: **Q: Enhanced Constitution**
+- In every state: **A: Release** (free no-op, 4 frames, placeholder; the unit walks out unchanged; README > Choosing Recruits, Release and Eject All)
 - **Z**: returns to AugmentMenu[UnitType] (StateOnlyTransition)

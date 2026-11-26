@@ -38,6 +38,7 @@ fn detour_of(bodies: &[Body], grid: Option<&NavGrid>, target: Vec2, other_end: b
         layer: Some(&layer),
         bodies,
         me: 0,
+        contact: crate::defs::ContactStep::Sideways,
         door: None,
         lanes: &mut Vec::new(),
         counters: &mut MoveCounters::default(),
