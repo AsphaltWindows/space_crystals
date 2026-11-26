@@ -15,6 +15,7 @@
 use std::collections::BTreeMap;
 
 use super::Sim;
+use crate::augmentation::{self, Augmentation, Research};
 use crate::combat::{self, AttackState};
 use crate::construction::{self, Constructor};
 use crate::conversion;
@@ -119,6 +120,11 @@ impl Sim {
     ///   interpolated values itself (`factions/colonists/economy.md > Beacon Deployment > HP/Shields Interpolation`,
     ///   design change 0110), and a Weapon Conversion's forms have the same maxima (`crate::conversion`). A
     ///   conversion or a transformation under way is its caller's to end.
+    /// - (M5-N1a) **Its Augmentations** (plan decision T73, `factions/cults/augmentation.md > Persistence`): kept
+    ///   through a change to a kind that can have them (`augmentation::is_augmentable`: "a trained unit inherits its
+    ///   Recruit's AugmentationState unchanged"), lost through a change to any other ("if augmented Recruits are
+    ///   consumed to produce a vehicle, their Augmentations are lost"). The new kind's MaxHP that its HP stays within
+    ///   is the one with those it keeps (`Object::max_hp_with`).
     /// - **Capabilities**, rebuilt from the new kind's definition ([`Capabilities::fresh`]): one the old kind had with
     ///   the same definition keeps its state, the others start as on a new object, and those the new kind lacks go. So
     ///   a unit that stays a unit keeps its orders and its move (design change 0150: "Orders are kept"), and plans its
@@ -176,6 +182,10 @@ impl Sim {
         let held = o.conversion;
         let keeps_weapon = combat::weapon_of(conversion::form_of(from, held.as_ref()))
             == combat::weapon_of(conversion::form_of(kind, held.as_ref()));
+        if !augmentation::is_augmentable(kind) {
+            o.augmentation = Augmentation::NONE;
+        }
+        let increments = o.augmentation.increments(Research::new(&self.players).levels(o.owner));
         let Object {
             id: _,
             kind: object_kind,
@@ -206,8 +216,7 @@ impl Sim {
             // Kept, every entry (plan decision T56): "This lineage persists when a Recruit is trained into another
             // unit" (`factions/cults/structures/recruitment_hall.md > Unit Control Tracking`).
             lineage: _,
-            // Kept: the caller that trains a unit settles it (`Sim::train`: an infantry unit keeps its Augmentations,
-            // a vehicle loses them).
+            // Kept or lost above, with the kind.
             augmentation: _,
         } = o;
         *object_kind = kind;
@@ -216,7 +225,8 @@ impl Sim {
             *prev_pos = *pos;
         }
         *object_placement = placement;
-        *hp = new.max_hp.map(|max| hp.map_or(max, |hp| hp.min(max)));
+        let max_hp = new.max_hp.map(|max| augmentation::max_hp_of(max, increments));
+        *hp = max_hp.map(|max| hp.map_or(max, |hp| hp.min(max)));
         *shields = new
             .max_shields
             .map(|max| shields.map_or(max, |shields| shields.min(max)));

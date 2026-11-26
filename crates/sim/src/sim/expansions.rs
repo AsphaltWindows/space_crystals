@@ -39,6 +39,7 @@
 use super::Sim;
 use super::gate::{Checked, Reject};
 use super::transform::hold_back;
+use crate::augmentation::Research;
 use crate::command::TunnelCommand;
 use crate::construction::site::{Construction, expansion_def};
 use crate::defs::ObjectKind;
@@ -257,12 +258,13 @@ impl Sim {
     /// `tuning::tunnel::EXPANSION_REGEN_PER_SECOND` of its MaxHP a second, up to it (`crate::regeneration`), in id
     /// order. A neutral one, its Tunnel lost, decays instead (`sim/tunnels.rs`).
     pub(super) fn regenerate_expansions(&mut self) {
+        let research = Research::new(&self.players);
         let damaged = |o: &Object| {
             let underground = o.def().structure.as_ref().is_some_and(|s| s.underground);
             underground
                 && o.owner.is_some()
                 && o.is_operational()
-                && o.hp.zip(o.max_hp()).is_some_and(|(hp, max)| hp < max)
+                && o.hp.zip(o.max_hp_with(research)).is_some_and(|(hp, max)| hp < max)
         };
         if !self.objects.values().any(damaged) {
             return;
@@ -274,7 +276,7 @@ impl Sim {
             .collect();
         for id in regenerating {
             if let Some(o) = self.objects.get_mut(&id) {
-                regeneration::regenerate(o, EXPANSION_REGEN_PER_SECOND);
+                regeneration::regenerate(o, EXPANSION_REGEN_PER_SECOND, research);
             }
         }
     }

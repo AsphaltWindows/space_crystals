@@ -181,12 +181,14 @@ fn shows(sim: &Sim, tick: Tick, ticks: u32) -> bool {
 
 /// The HP bars to draw: one over each object that is damaged (its HP or its Shields short of their maximum) or
 /// `selected`, at its interpolated position, among those `sight` sees. Out of its MaxHP and MaxShields now: a
-/// transforming object's interpolated ones (`Object::max_hp`, `Object::max_shields`).
+/// transforming object's interpolated ones (`Object::max_hp`, `Object::max_shields`), (slice M5-N1a) an augmented
+/// unit's with its Augmentations (`Object::max_hp_with`).
 pub fn hp_bars(sim: &Sim, sight: &Sight, alpha: f32, selected: impl Fn(ObjectId) -> bool) -> Vec<HpBar> {
+    let research = sim.research();
     sim.objects()
         .filter(|o| sight.sees(o))
         .filter_map(|o| {
-            let (hp, max_hp) = (o.hp?, o.max_hp()?);
+            let (hp, max_hp) = (o.hp?, o.max_hp_with(research)?);
             let shields = o.shields.zip(o.max_shields()).filter(|&(_, max)| max > 0.0);
             let damaged = hp < max_hp || shields.is_some_and(|(shields, max)| shields < max);
             let shields = shields.map(|(shields, max)| shields / max);

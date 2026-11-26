@@ -250,7 +250,7 @@ fn check_invariants(sim: &Sim) {
             }
             let moved = o.pos.distance(o.prev_pos);
             assert!(
-                moved <= unit.movement.max_speed() + 1e-3,
+                moved <= o.max_speed(sim.research()) + 1e-3,
                 "I3 in tick {tick}: {moved} su: {o:?}"
             );
             let mover = o.mover.as_ref().expect("units move");

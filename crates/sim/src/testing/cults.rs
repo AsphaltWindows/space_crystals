@@ -23,25 +23,27 @@
 //!    once the building is complete. A Build that fails before its site starts, or a site lost before it is complete,
 //!    is ordered again (the gate refunds the first in full, `factions/cults/economy.md > Cults Building Mechanics >
 //!    Group construction refunds`).
-//! 3. **Militants** ([`Cults::militants`]): once the player owns a complete Armory (their first, by id), idle Recruits
-//!    go into it rather than to a seat, one for each Militant the line still trains (`factions/cults/units/recruit.md >
-//!    Armory Entry`), and the Armory trains a Militant of a Recruit inside whenever one is free and the bank covers it,
-//!    one a tick (`ProductionCommand::TrainFrom`, `factions/cults/structures/armory.md > Training`). The Armory gets
-//!    the line's rally point once complete.
+//! 3. **Militants and Gunners** ([`Cults::militants`], [`Cults::gunners`]; `armory.rs`): once the player owns a
+//!    complete Armory (their first, by id), idle Recruits go into it rather than to a seat, one for each Militant and
+//!    Gunner the line trains (`factions/cults/units/recruit.md > Armory Entry`), and the Armory trains one of a Recruit
+//!    inside whenever one is free and the bank covers it, one a tick (`ProductionCommand::TrainFrom`,
+//!    `factions/cults/structures/armory.md > Training`): a Gunner (W) while the line has Gunners left and the player
+//!    owns a complete Gunworks (the Gunner's TechPrerequisite), else a Militant (Q). The Armory gets the line's rally
+//!    point once complete.
 //!
-//! What the line pays (its Builds and Militants) is recorded by tick ([`Cults::spent_in`]), so that
+//! What the line pays (its Builds, Militants and Gunners) is recorded by tick ([`Cults::spent_in`]), so that
 //! [`Books`](super::build_order::Books) balance a Cults player's bank as they do the others', counting the Recruits'
 //! deliveries. A Hall's Recruits cost nothing (`factions/cults/structures/recruitment_hall.md > Production Behavior`).
 //!
 //! [`reference_field`], [`crowd_field`] and [`face_field`] are the check's layouts (`fields.rs`); [`skirmish`] plays
 //! `dev_skirmish` with a Cults line, alone or against a Syndicate one, for the golden games.
 
+mod armory;
 mod fields;
 pub mod skirmish;
 
 use std::collections::{BTreeMap, BTreeSet, VecDeque};
 
-use crate::augmentation::RecruitKind;
 use crate::command::{Command, PlayerCommand};
 use crate::defs::ObjectKind;
 use crate::events::SimEvent;
@@ -49,13 +51,10 @@ use crate::ids::{ObjectId, PlayerId};
 use crate::object::Object;
 use crate::orders::{OrderKind, Target};
 use crate::placement::footprint_size;
-use crate::production::ProductionCommand;
 use crate::scenario::BuildingOrientation;
 use crate::shape::Shape;
 use crate::sim::Sim;
 use crate::units::{SU_PER_GU, Tick, TilePos};
-
-use super::build_order::Order;
 
 pub use fields::{
     FIELD_PAIRS, FIELD_PLAYER, FIELD_RESERVE, FIELD_STORAGES, SECOND_HALL, START_PAIR, crowd_field, face_field,
@@ -130,8 +129,12 @@ pub enum Done {
     Lost { build: Build },
     /// It sent `recruit` into the Armory `armory`.
     Entered { recruit: ObjectId, armory: ObjectId },
-    /// It had the Armory `armory` train a Militant of a Recruit inside, for `price`.
-    Trained { armory: ObjectId, price: u32 },
+    /// It had the Armory `armory` train a `kind`, a Militant or a Gunner, of a Recruit inside, for `price`.
+    Trained {
+        armory: ObjectId,
+        kind: ObjectKind,
+        price: u32,
+    },
 }
 
 /// A Cults player's scripted line (module docs).
@@ -147,9 +150,12 @@ pub struct Cults {
     /// How many Militants the line trains, and the Armory's rally point.
     militants: usize,
     armory_rally: Option<Target>,
-    /// The Recruits sent into an Armory, and the Militants ordered.
+    /// How many Gunners it trains (`armory.rs`).
+    gunners: usize,
+    /// The Recruits sent into an Armory, and the Militants and Gunners ordered.
     entered: usize,
     trained: usize,
+    gunners_trained: usize,
     rallied: BTreeSet<ObjectId>,
     done: Vec<(Tick, Done)>,
     /// What the line's commands paid, by tick.
@@ -166,8 +172,10 @@ impl Cults {
             building: None,
             militants: 0,
             armory_rally: None,
+            gunners: 0,
             entered: 0,
             trained: 0,
+            gunners_trained: 0,
             rallied: BTreeSet::new(),
             done: Vec::new(),
             paid: Vec::new(),
@@ -190,6 +198,12 @@ impl Cults {
     pub fn militants(mut self, n: usize, rally: Option<Target>) -> Self {
         self.militants = n;
         self.armory_rally = rally;
+        self
+    }
+
+    /// `n` Gunners from the player's first Armory, once the player owns a complete Gunworks (module docs, 3).
+    pub fn gunners(mut self, n: usize) -> Self {
+        self.gunners = n;
         self
     }
 
@@ -254,7 +268,7 @@ impl Cults {
         let mut given = BTreeSet::new();
         for o in recruits.iter().filter(|o| is_idle(o)) {
             if let Some(armory) = armory
-                && self.entered < self.militants
+                && self.armory_takes_more()
             {
                 commands.push(order(vec![o.id], OrderKind::Enter(armory), false));
                 self.done.push((tick, Done::Entered { recruit: o.id, armory }));
@@ -307,38 +321,7 @@ impl Cults {
         }
 
         if let Some(armory) = armory {
-            if let Some(target) = self.armory_rally
-                && self.rallied.insert(armory)
-            {
-                commands.push(PlayerCommand {
-                    player,
-                    command: Command::Production {
-                        objects: vec![armory],
-                        command: ProductionCommand::SetRally(target),
-                    },
-                });
-            }
-            let price = Order::new(ObjectKind::Armory, ObjectKind::Militant).recipe().cost;
-            let train = PlayerCommand {
-                player,
-                command: Command::Production {
-                    objects: vec![armory],
-                    command: ProductionCommand::TrainFrom {
-                        kind: ObjectKind::Militant,
-                        from: RecruitKind::Plain,
-                    },
-                },
-            };
-            if self.trained < self.militants
-                && price <= crystals
-                && !sim.free_units(armory, RecruitKind::Plain).is_empty()
-                && sim.validate(&train).is_ok()
-            {
-                commands.push(train);
-                self.paid.push((tick, price));
-                self.done.push((tick, Done::Trained { armory, price }));
-                self.trained += 1;
-            }
+            self.armory_commands(sim, tick, armory, crystals, &mut commands);
         }
         commands
     }

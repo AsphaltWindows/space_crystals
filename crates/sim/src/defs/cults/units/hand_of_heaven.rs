@@ -80,6 +80,7 @@ pub(crate) static HAND_OF_HEAVEN: ObjectDef = ObjectDef {
         conversion: None,
         deploy: None, // "Unlike the GDO's Artillery Rig it **never deploys**"
         worker: None,
+        augmentable: None,
     }),
     structure: None,
     default_settings: None,

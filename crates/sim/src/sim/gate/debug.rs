@@ -5,6 +5,7 @@
 use glam::Vec2;
 
 use super::Checked;
+use crate::augmentation;
 use crate::command::DebugCommand;
 use crate::defs::{Domain, ObjectKind};
 use crate::ids::ObjectId;
@@ -102,6 +103,9 @@ impl Sim {
                 let object = self.referenced(id, anyone)?;
                 if object.def().unit.is_none() {
                     return Err(Reject::TileObject(id));
+                }
+                if !augmentation.is_none() && !augmentation::is_augmentable(object.kind) {
+                    return Err(Reject::NotAugmentable(id));
                 }
                 Ok(Checked::SetAugmentation { id, augmentation })
             }

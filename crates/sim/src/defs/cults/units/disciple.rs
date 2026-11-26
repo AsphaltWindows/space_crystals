@@ -1,6 +1,6 @@
 //! The Disciple — `factions/cults/units/disciple.md`.
 
-use crate::defs::units::{MovementAttrs, UnitBase, UnitDef};
+use crate::defs::units::{Augmentable, MovementAttrs, UnitBase, UnitDef};
 use crate::defs::{Armor, Category, Footprint, ObjectDef, ObjectKind};
 use crate::math::PI;
 use crate::player::Faction;
@@ -53,6 +53,8 @@ pub(crate) static DISCIPLE: ObjectDef = ObjectDef {
         conversion: None,
         deploy: None,
         worker: None,
+        // (M5-N1a) `factions/cults/units/disciple.md > AttackAttributes`: "for Augmentation it is **armed**".
+        augmentable: Some(Augmentable { unarmed: false }),
     }),
     structure: None,
     default_settings: None,

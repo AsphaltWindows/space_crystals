@@ -26,7 +26,7 @@
 //!   game refunds every entry but a finished one, whose unit comes out as the unit it trained, unrefunded (design
 //!   change 0349 point 3), and the others' units come out as they are, Recruits (`sim/holding/evacuation.rs`).
 
-use crate::augmentation::{Augmentation, RecruitKind};
+use crate::augmentation::{Augmentation, RecruitKind, Research};
 use crate::defs::ObjectKind;
 use crate::ids::ObjectId;
 use crate::sim::Sim;
@@ -90,7 +90,8 @@ impl Sim {
     /// consumed, so that the Halls' usage stays as it was).
     /// - **HP** (`> Training`): "infantry trained from a Recruit **keep the Recruit's damage** (the missing HP carries
     ///   over); vehicles and aircraft come out at full HP" (`transform::follow_max`: the HP moves with the MaxHP, the
-    ///   damage staying).
+    ///   damage staying). (M5-N1a) The MaxHP before and after are the unit's with its Augmentations
+    ///   (`Object::max_hp_with`): a Constitution Recruit's 60, a vehicle's own.
     /// - **Augmentations** (`factions/cults/augmentation.md > Persistence`): infantry keep them ("a trained unit
     ///   inherits its Recruit's AugmentationState unchanged"), the others lose them ("if augmented Recruits are
     ///   consumed to produce a vehicle, their Augmentations are lost").
@@ -102,22 +103,24 @@ impl Sim {
             .flat_map(|held| held.object.lineage.iter().copied())
             .collect();
         self.remove_held(consumed);
-        let Some((hp, max_before)) = self.objects.get(&unit).map(|o| (o.hp, o.max_hp())) else {
+        let research = self.research();
+        let Some((hp, max_before)) = self.objects.get(&unit).map(|o| (o.hp, o.max_hp_with(research))) else {
             return;
         };
         self.change_kind(unit, kind, None);
+        let research = Research::new(&self.players);
         let Some(o) = self.objects.get_mut(&unit) else {
             return;
         };
         o.lineage.extend(joined);
         let infantry = is_infantry(kind);
-        o.hp = match (hp, max_before, o.max_hp()) {
-            (Some(hp), Some(before), Some(after)) if infantry => Some(transform::follow_max(hp, before, after)),
-            (.., max) => max,
-        };
         if !infantry {
             o.augmentation = Augmentation::NONE;
         }
+        o.hp = match (hp, max_before, o.max_hp_with(research)) {
+            (Some(hp), Some(before), Some(after)) if infantry => Some(transform::follow_max(hp, before, after)),
+            (.., max) => max,
+        };
         if let Some(worker) = &mut o.worker {
             worker.load = 0;
         }

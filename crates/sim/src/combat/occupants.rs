@@ -21,8 +21,9 @@
 //!   with the Garrison's SightRange").
 //! - **Weapons** ([`weapon`]): a stand-in's attack for the kinds that fire another kind's, as the stand-in type's def
 //!   has it ("a Recruit or Disciple inside attacks with the Militant's AttackAttributes"; "**Augmentations don't change
-//!   the borrowed attack**"), else the unit's own weapon (`super::weapon`), with the Range bonus of its kind ("**Militants
-//!   and Gunners** inside get **+1 grid unit of Range**"). "**No spells from inside**": an attack is all they use.
+//!   the borrowed attack**"), else the unit's own weapon (`super::weapon`, (M5-N1a) with its Augmentations', which
+//!   leave an armed unit's as it is), with the Range bonus of its kind ("**Militants and Gunners** inside get **+1
+//!   grid unit of Range**"). "**No spells from inside**": an attack is all they use.
 //! - **Revealed** (`core/vision.md > Attacks from outside vision`): a unit inside that hits an object of a player who
 //!   doesn't see it reveals the building it fires from ([`building_of`]), where its shots come from.
 
@@ -32,6 +33,7 @@ use super::AttackState;
 use super::phases::{self, Shooter, Volley};
 use super::structures;
 use super::targeting::Targets;
+use crate::augmentation::Research;
 use crate::defs::{AttackAttrs, OccupantFire};
 use crate::events::SimEvent;
 use crate::ids::ObjectId;
@@ -68,12 +70,12 @@ pub(super) fn firing(
 }
 
 /// The attack unit `o` fires from a building whose occupants fire by `fire` (module docs): the stand-in type's, as its
-/// def has it, for a kind that fires another kind's ([`OccupantFire::weapon_kind`]), else its own weapon
-/// (`super::weapon`, the form's), its Range raised by its kind's bonus ([`OccupantFire::range_bonus`]). `None` for a
-/// unit without one.
-pub(super) fn weapon(fire: &OccupantFire, o: &Object) -> Option<AttackAttrs> {
+/// def has it, for a kind that fires another kind's ([`OccupantFire::weapon_kind`]), which no Augmentation changes,
+/// else its own weapon (`super::weapon`, the form's, (M5-N1a) with its Augmentations' at its owner's levels in
+/// `research`), its Range raised by its kind's bonus ([`OccupantFire::range_bonus`]). `None` for a unit without one.
+pub(super) fn weapon(fire: &OccupantFire, o: &Object, research: Research) -> Option<AttackAttrs> {
     let mut attrs = if fire.fires_own(o.kind) {
-        *super::weapon(o)?
+        super::weapon(o, research)?
     } else {
         *super::weapon_of(fire.weapon_kind(o.kind))?
     };
@@ -83,7 +85,8 @@ pub(super) fn weapon(fire: &OccupantFire, o: &Object) -> Option<AttackAttrs> {
 
 /// Phase 5e's fire of the units `firing` ([`firing`]) from the buildings they are in (module docs), after every
 /// object's own attack: each picks its target ([`structures::pick`]) and runs its sequence ([`phases::run`]) from its
-/// building, its hits and its projectiles going to `volley` with the others of the tick.
+/// building, its hits and its projectiles going to `volley` with the others of the tick. (M5-N1a) Their weapons are as
+/// their Augmentations make them at their owners' levels in `research` ([`weapon`]).
 #[expect(clippy::too_many_arguments, reason = "phase 5e's state, as `super::step` holds it")]
 pub(super) fn step(
     firing: &[ObjectId],
@@ -93,6 +96,7 @@ pub(super) fn step(
     vision: &Vision,
     targets: &Targets,
     auto_targeting: bool,
+    research: Research,
     volley: &mut Volley,
     events: &mut Vec<SimEvent>,
 ) {
@@ -106,7 +110,7 @@ pub(super) fn step(
         let Some((building, fire)) = objects.get(&building).and_then(|b| Some((b, fire_of(b)?))) else {
             continue;
         };
-        let Some(attrs) = weapon(fire, &held.object) else {
+        let Some(attrs) = weapon(fire, &held.object, research) else {
             continue;
         };
         // A unit whose type has no attack (the Disciple) fires its stand-in's with a sequence of its own while inside,

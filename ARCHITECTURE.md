@@ -280,7 +280,8 @@ Units, structures and resources are all `Object`s (`object.rs`, `core/entities.m
   AugmentationState (per unit instance)`): `Object::augmentation: Augmentation { constitution, metabolism }`, hashed (a
   tag) and saved only while one is set, so the states without one, the goldens among them, are as they were; its
   `RecruitKind` (Plain, Constitution, Metabolism or Both, design change 0337) is what a pool building's orders choose
-  by. Nothing gives one yet but `DebugCommand::SetAugmentation` (the Altar's is a later slice). The Gunner is the first
+  by. Nothing gives one yet but `DebugCommand::SetAugmentation` (the Altar's is a later slice); their effects are
+  read through accessors since slice M5-N1a (*Augmented stats* below). The Gunner is the first
   kind with a MinRange, which M3-L2's code serves (*Behaviours*; M5-A gave a unit that can't back off its "Target too
   close", design change 0204 point 3; M5-O3 took the back-off on to the middle of the band, question Q0054, and gave
   an Attack Ground's location the same rule), and the first TailDisjointed attack (slice M5-O3, *Combat > TailDisjointed
@@ -619,6 +620,53 @@ Units, structures and resources are all `Object`s (`object.rs`, `core/entities.m
   takes follows its type from the press, carrying them out waits for its form (design change 0202:
   `riot_shield::takes_attack_orders(kind)` for the first, `allows_attack(o)` for the second). A Legionnaire's two
   forms share everything but the weapon, so its shape, sight and speed are its type's and its form's alike.
+- **Augmented stats** (slice M5-N1a, plan decision T73 as design changes 0330, 0331, 0336 and 0338 amend it;
+  `augmentation.rs`, `augmentation/stats.rs`, `augmentation/levels.rs`; `factions/cults/augmentation.md > Increments`):
+  a unit's MaxHP, top speed and weapon are read through accessors that apply its Augmentations, and only through them:
+  `Object::max_hp_with(research)`, `Object::movement(research)` and `Object::max_speed(research)` (before the mode's
+  `Mover::speed_factor`), and `combat::weapon(o, research) -> Option<AttackAttrs>`, a copy; by reference,
+  `Object::movement_ref` and `combat::weapon_ref` (below). The kind's numbers
+  (`ObjectDef::max_hp`, `UnitDef::movement`, `UnitDef::attack`) and `Object::max_hp` (a tier's, a site's, a
+  transformation's) are the values before them. The effects table is data (`defs/cults/augmentation.rs`), and which
+  kinds take Augmentations, armed or not, is `UnitDef::augmentable` (the four Cults infantry types, the Recruit alone
+  unarmed).
+  - **The amounts follow the owner's current levels**, read whenever a stat is (design change 0336: research is
+    retroactive; 0338: every Cults stat upgrade applies to the units that exist). A unit stores which Augmentations it
+    has, never their amounts or a level. `Research<'a>` is a view of the players' research: `Levels::of(player)` is the
+    one place a player's levels come from, "No research" until the Temple (slice M5-N3 fills it, and applies the HP
+    rule below to the units it changes), and `Research::at(levels)` puts everyone at given levels, for tests.
+  - **Why this shape.** The systems that hold the objects mutably (phases 5a, 5d and 5e, the network's regeneration)
+    take a `Research` beside them, a borrow of the players alone, which a `Sim` method couldn't be; code that has the
+    `Sim` asks `Sim::research()`. Stats stored on the object would go stale when a level completes or a def changes
+    (T73's rejected alternative). A unit without an Augmentation costs a branch (`Augmentation::is_none`): the loops
+    over every unit (phases 5a, 5d and 5e) borrow its kind's numbers (`Object::movement_ref`, `combat::weapon_ref`,
+    which make an augmented unit's in a slot of the caller's), through accessors inlined into them, their augmented
+    paths out of line (`augmented_increments`, `augmented_movement`); an augmented unit looks its owner up among the
+    few players. The behaviours keep a unit's increments (`orders::world::Unit::increments`) and work out its top
+    speed only where they need it. Measured (release, 10 interleaved rounds against slice M5-N2's build, load average
+    1.5 to 2.2): `movement_perf` 0.481 ms and `recruits_perf` 0.078 ms a whole tick on both sides; a first version
+    that copied the numbers out (`Object::movement`, `combat::weapon` in the loops) ran `movement_perf` 2% slower.
+  - **HP restored** goes up to `max_hp_with`: the repair's (`repair::damage`, whose MaxHP also sets its rate and its
+    price's steps, slice M5-N8) and the regeneration's (`crate::regeneration`). No repairer repairs infantry yet.
+  - **HP when MaxHP changes** (design changes 0330 and 0331): `augmentation::follow_max`, applied by
+    `augmentation::set` (`DebugCommand::SetAugmentation` now, the Altar and the research later). Up, the HP rises as
+    much: `transform::follow_max`'s rule, the damage staying. Down, the HP stays unless it is above the new MaxHP:
+    there the two rules part, as a transformation's keeps the damage (design change 0110). No floor; an augmentation
+    never kills.
+  - **Kind changes** (`Sim::change_kind`): a unit keeps its Augmentations as a kind that can have them, loses them as
+    any other, its HP within the new kind's MaxHP with those it keeps; `Sim::train` follows the MaxHP with them before
+    and after (a Constitution Recruit's 60 is a Militant's 60).
+  - **What they don't change** reads the weapon before them (`combat::weapon_in_hand`): the threat a unit is to the
+    scans (`combat::threat`, its TargetDomain) and `can_attack_now` (its ranges); and the TurnRate. A weapon borrowed
+    from another kind (a Recruit's or a Disciple's in the Garrison, the Militant's, slice M5-N2) is that kind's, read
+    from its def (`combat::occupants::weapon`, `weapon_of`), and the effects apply to a unit's own attack only
+    (`augmentation::augmented`; `factions/cults/structures/garrison.md`: "Augmentations don't change the borrowed
+    attack"); a Militant or a Gunner inside fires its own through `combat::weapon`.
+  - **The guard**: `tests/augmentation/raw_reads.rs` scans the sim's and the client's code, outside the defs, the
+    accessors and the tests, for the reads past the accessors (`.max_hp()`, a `.movement` field, `weapon_of(`), and
+    fails on any its list doesn't allow with a reason (a structure's MaxHP, a turn rate, a kind's weapon). A new read
+    goes through the accessor, or joins the list with its reason. A test rather than unreachable fields: the defs are
+    public data that their own tests and the client's panels read, and `Object::max_hp` stays the structures' MaxHP.
 - **Mechanics implemented once** (plan decision T54, slice M4-R1): `Progress` (`progress.rs`), ticks done of a total
   in the fixed point of plan decision T6, so that a tick at part speed counts its share of a tick; a transformation
   counts its frames with one (`Transform`). The toggle rule (`toggle.rs`, design change 0198, see *Type and form*):
@@ -2197,10 +2245,10 @@ section of its own.
     repairer that pays pays Space Crystals, so a price in another resource (the Tunnel's Supplies) is repaired for free
     or not at all (placeholder).
   - **The target** (`repair::can_repair`, `Sim::can_repair`): another object of the repairer's owner's, complete (no
-    site, nothing transforming) and below its MaxHP (`repair::damage`, repair's one read of `Object::max_hp`), of a kind
-    its type repairs. The gate (`Sim::check_repair`) keeps the units that can, else `Reject::CantRepair(target)`;
-    `Sim::aimed` gives the kind as `Aimed::repair` for the right-click (*Commands, events and replays > Default
-    orders*).
+    site, nothing transforming) and below its MaxHP (`repair::damage`, repair's one read of a MaxHP: the one with its
+    Augmentations, `Object::max_hp_with`, slice M5-N1a), of a kind its type repairs. The gate (`Sim::check_repair`)
+    keeps the units that can, else `Reject::CantRepair(target)`; `Sim::aimed` gives the kind as `Aimed::repair` for
+    the right-click (*Commands, events and replays > Default orders*).
   - **The order** (`OrderKind::Repair(target)`, `RepairWork`): at a building the repairer works from its own spot beside
     the footprint (`RepairWork::Spot`: the spots' step, as an Assist's, *Cults construction*), a Tunnel and a lowered
     Laser Turret alike, which nothing of a repair raises; at a vehicle it follows it (`RepairWork::Follow`,
@@ -2224,7 +2272,7 @@ section of its own.
   regains 1% of its MaxHP a second (placeholder), always on, under fire too; a neutral one decays instead (*Object
   model > Losing Tunnels*); the Laser Turret, which isn't underground, regenerates nothing (Agents repair it,
   placeholder). `regeneration::regenerate` is the one rule of HP regained as a share of MaxHP a second, the network's
-  held units' too (`network::Held::regenerate`).
+  held units' too (`network::Held::regenerate`), up to the MaxHP with a unit's Augmentations (`Object::max_hp_with`).
 - **Adding to the economy** (slices M2-D2, M2-F): put the new step into `economy::step` at its numbered place, advance
   progress by `PowerSummary::speed` from the tick the command applies (*Recipe timing*), take costs with
   `spend_crystals` when the command applies, and give refunds through `Refund`; `construction.rs` is the pattern.
@@ -2628,7 +2676,9 @@ their energy doorway, slice M3-D2: design change 0145, `factions/colonists/struc
   *Behaviours*), `SetResources` (any player's banks, see *Economy*; the gate checks that the player it names is in
   the game, `UnknownPlayer`) and `SetTier` (a Tunnel's tier, `NoSuchTier` for a tier it has no row for or an object
   without tiers; *Object model > The Syndicate*), and `SetAugmentation { id, augmentation }` (slice M5-F2: a unit's on
-  the map, until the Altar gives them; *Object model > The Cults*), for development and QA. `Spawn`
+  the map, until the Altar gives them; *Object model > The Cults*; since slice M5-N1a its HP follows its MaxHP, and
+  `NotAugmentable` refuses Augmentations to a unit that can't have them, *Object model > Augmented stats*), for
+  development and QA. `Spawn`
   places a tile-based object in an
   `orientation`
   (`BuildingOrientation`), which files may leave out: unturned is the default and isn't written, so replays from
@@ -4187,15 +4237,16 @@ unchecked.
   every step, and player 1's Supplies too (`testing::syndicate::SupplyBooks`). The Cults' games play `dev_skirmish`
   with player 1 as the Cults, by `testing::cults::skirmish`: in `cults_opening` (to 2:45) its Recruits are dealt to
   the field, and the line builds a second Storage, a second Hall east of the hill (100% Effectiveness) and an Armory,
-  and trains four Militants; in `cults_vs_syndicate` (to 3:40.56, where it ends) it builds the Armory first and trains
-  eight Militants of the Recruits it has no seat for, which attack-move in a wave to player 2's Tunnel, while player 2
-  plays the Syndicate: two Agents, an Optics Lab, a Laser Turret from the Tunnel's ExpandMenu (slice M5-Y) and four
-  Guards at its patch. The turret kills six Militants before they destroy it, and the last two destroy the Tunnel,
-  which defeats player 2. Both players' books balance every step, player 2's Supplies too. In `cults_garrison` (to
-  0:40, on a test map) three Militants and a Gunner go into a Garrison through its door, and four Agents and two
-  Grenadiers attack-move onto it: the four fire from the footprint, farther than either, and kill an Agent; the
-  Grenadiers' blasts land on it and hurt no one inside (`during`, every tick); one brings it down, and the four come
-  out alive and unhurt and kill the rest (a Storage keeps player 1 in the game). The ignored
+  and trains four Militants; in `cults_vs_syndicate` (to 2:58.31, where it ends) it builds the Armory first, then a
+  Gunworks, and trains eight Militants and three Gunners (slice M5-N1a's first step) of the Recruits it has no seat
+  for, which attack-move in a wave to player 2's Tunnel, while player 2 plays the Syndicate: two Agents, an Optics Lab,
+  a Laser Turret from the Tunnel's ExpandMenu (slice M5-Y) and four Guards at its patch. The turret kills four
+  Militants before it is destroyed, and then the Tunnel falls, which defeats player 2. Both players' books balance
+  every step, player 2's Supplies too. In `cults_garrison` (to 0:40, on a test map) three Militants and a Gunner go
+  into a Garrison through its door, and four Agents and two Grenadiers attack-move onto it: the four fire from the
+  footprint, farther than either, and kill an Agent; the Grenadiers' blasts land on it and hurt no one inside
+  (`during`, every tick); one brings it down, and the four come out alive and unhurt and kill the rest (a Storage
+  keeps player 1 in the game). The ignored
   `tests/skirmish_soak.rs`
   (slice M3-K2) plays the Colonists' two players for 10 minutes, twice, until player 1's field runs out: the
   movement invariants and the books every tick, no dangling id, no order stuck in one step beyond a bound (a waiting

@@ -12,6 +12,7 @@ use std::collections::BTreeMap;
 
 use glam::Vec2;
 
+use crate::augmentation::{self, Increments, Research};
 use crate::combat::{self, AttackState, domain_allows, object_domain};
 use crate::defs::{AttackAttrs, Domain, ObjectKind, TargetDomain, TurretAttrs, UnitDef};
 use crate::economy::Worker;
@@ -83,8 +84,11 @@ pub(crate) struct Unit<'a> {
     pub mover: &'a mut Mover,
     pub attack: Option<&'a mut AttackState>,
     /// The weapon in hand (`combat::weapon`): its form's, which a Legionnaire whose conversion waits still fights
-    /// with (design change 0198).
-    pub weapon: Option<&'static AttackAttrs>,
+    /// with (design change 0198), (M5-N1a) as its Augmentations make it.
+    pub weapon: Option<&'a AttackAttrs>,
+    /// (M5-N1a) Its Augmentations' net increments at its owner's levels (`Object::increments`), which its top speed
+    /// follows ([`Unit::max_speed`]).
+    pub increments: Increments,
     /// Whether its mode lets it attack now: not while its Riot Shield is up (`riot_shield::allows_attack`).
     pub may_attack: bool,
     /// Whether it converts its weapon (`conversion::is_converting`): it holds still meanwhile.
@@ -93,16 +97,22 @@ pub(crate) struct Unit<'a> {
     pub worker: Option<&'a mut Worker>,
 }
 
-impl Unit<'_> {
+impl<'a> Unit<'a> {
     pub fn unit_def(&self) -> Option<&'static UnitDef> {
         self.kind.def().unit.as_ref()
+    }
+
+    /// (M5-N1a) Its top speed with its Augmentations' (`Object::max_speed`), before its mode's speed factor.
+    pub fn max_speed(&self) -> f32 {
+        let movement = |def: &UnitDef| augmentation::movement_of(def.movement, self.increments);
+        self.unit_def().map_or(0.0, |def| movement(def).max_speed())
     }
 
     /// Its attack, if it has one (`systems/combat.md > AttackAttributes`) and may use it now: the weapon in hand
     /// ([`Unit::weapon`]). A unit whose Riot Shield is up has none (`factions/gdo/units/peacekeeper.md > Riot
     /// Shield`: it "cannot attack" and "does not auto-target enemies"): its behaviours pick no target and let go of
     /// the one they engaged.
-    pub fn attrs(&self) -> Option<&'static AttackAttrs> {
+    pub fn attrs(&self) -> Option<&'a AttackAttrs> {
         self.weapon.filter(|_| self.attack.is_some() && self.may_attack)
     }
 
@@ -200,6 +210,9 @@ pub(crate) struct World<'a> {
     /// The entry path of every Tunnel and every building that holds units, in id order (`crate::network::EntryPath`):
     /// where an Enter order walks to.
     entries: Vec<(ObjectId, EntryPath)>,
+    /// (M5-N1a) Every player's research, which the units' stats follow (`augmentation::Research`): their weapons and
+    /// top speeds (`orders::update`).
+    pub research: Research<'a>,
 }
 
 impl<'a> World<'a> {
@@ -250,6 +263,7 @@ impl<'a> World<'a> {
             entries: (objects.values())
                 .filter_map(|o| Some((o.id, EntryPath::of_object(o)?)))
                 .collect(),
+            research: Research::NONE,
         };
         // A counting sort by cell keeps the id order within each cell.
         let is_candidate = |v: &View| v.destructible && v.owner.is_some();
@@ -270,6 +284,13 @@ impl<'a> World<'a> {
             next[cell] += 1;
         }
         world
+    }
+
+    /// (M5-N1a) The snapshot with every player's research (`augmentation::Research`), which the units' weapons and
+    /// top speeds follow. Without this, everyone's levels are "No research".
+    pub(crate) fn with_research(mut self, research: Research<'a>) -> Self {
+        self.research = research;
+        self
     }
 
     fn cell_coord(&self, v: f32, cells: u32) -> u32 {

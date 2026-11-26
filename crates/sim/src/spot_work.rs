@@ -39,6 +39,7 @@ use std::collections::BTreeMap;
 
 use glam::Vec2;
 
+use crate::augmentation::Research;
 use crate::construction::site::shares_builds;
 use crate::ids::{ObjectId, PlayerId};
 use crate::mover::MoveStatus;
@@ -103,13 +104,13 @@ pub(crate) fn spot_mut(o: &mut Object) -> Option<&mut Option<Vec2>> {
 /// its builders build from outside (`Object::is_built_from_outside`; design change 0339, `factions/cults/economy.md >
 /// Cults Building Mechanics > Group construction rules`: "**Assist** targets only a building **already under
 /// construction**, not a ghost whose order hasn't started"); (M5-N8) a Repair at an object that `unit` can repair now
-/// (`repair::can_repair`: its owner's, complete and damaged, of a kind its type repairs). The orders that work at no
-/// target suit none.
-pub fn suits(order: OrderKind, unit: &Object, target: &Object) -> bool {
+/// (`repair::can_repair`: its owner's, complete and damaged, of a kind its type repairs; (M5-N1a) damaged below its
+/// MaxHP at its owner's levels in `research`). The orders that work at no target suit none.
+pub fn suits(order: OrderKind, unit: &Object, target: &Object, research: Research) -> bool {
     let owner = unit.owner;
     match order {
         OrderKind::Assist(_) => owner.is_some() && target.owner == owner && target.is_built_from_outside(),
-        OrderKind::Repair(_) => repair::can_repair(unit, target),
+        OrderKind::Repair(_) => repair::can_repair(unit, target, research),
         _ => false,
     }
 }
@@ -147,17 +148,18 @@ impl Claim {
 }
 
 /// The target `o` is at work on now (module docs): the one its current order works at by `target_of`, if the order
-/// suits it ([`suits`]), `o` standing within reach of its edge (`Shape::of`: a structure's footprint, as
-/// [`within_reach`] has it, or a unit's Silhouette), its walk over (no move on its way, `MoveStatus::Moving`). `None`
-/// for a unit at work on nothing.
+/// suits it ([`suits`], at the owners' levels in `research`), `o` standing within reach of its edge (`Shape::of`: a
+/// structure's footprint, as [`within_reach`] has it, or a unit's Silhouette), its walk over (no move on its way,
+/// `MoveStatus::Moving`). `None` for a unit at work on nothing.
 pub fn at_work(
     o: &Object,
     objects: &BTreeMap<ObjectId, Object>,
+    research: Research,
     target_of: impl Fn(OrderKind) -> Option<ObjectId>,
 ) -> Option<ObjectId> {
     let order = o.orders.as_ref()?.current.as_ref()?.order.kind;
     let target = target_of(order)?;
-    let t = objects.get(&target).filter(|t| suits(order, o, t))?;
+    let t = objects.get(&target).filter(|t| suits(order, o, t, research))?;
     let walking = o.mover.as_ref().is_some_and(|mover| mover.status == MoveStatus::Moving);
     (!walking && Shape::of(o).gap(&Shape::of(t)) <= BUILD_REACH_SU).then_some(target)
 }
@@ -166,11 +168,12 @@ pub fn at_work(
 /// ([`at_work`]). Builders of a site built from outside by `target_of` = an Assist's site ([`assisted`]).
 pub fn counts(
     objects: &BTreeMap<ObjectId, Object>,
+    research: Research,
     target_of: impl Fn(OrderKind) -> Option<ObjectId>,
 ) -> BTreeMap<ObjectId, u32> {
     let mut counts = BTreeMap::new();
     for o in objects.values() {
-        if let Some(target) = at_work(o, objects, &target_of) {
+        if let Some(target) = at_work(o, objects, research, &target_of) {
             *counts.entry(target).or_insert(0) += 1;
         }
     }

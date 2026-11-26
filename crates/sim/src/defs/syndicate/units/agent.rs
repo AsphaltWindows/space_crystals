@@ -107,6 +107,7 @@ pub(crate) static AGENT: ObjectDef = ObjectDef {
                 ]),
             }),
         }),
+        augmentable: None,
     }),
     structure: None,
     default_settings: None,

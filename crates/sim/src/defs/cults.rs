@@ -16,6 +16,7 @@
 //! plan decision T56). The faction's own rule so far: the Recruits' two Construct menus ([`CONSTRUCT_MENU`], slice
 //! M5-J1), which the client's panel reads.
 
+pub(crate) mod augmentation;
 pub(crate) mod structures;
 pub(crate) mod units;
 

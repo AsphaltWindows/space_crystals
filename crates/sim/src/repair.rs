@@ -42,6 +42,7 @@
 #[cfg(test)]
 pub(crate) mod tests;
 
+use crate::augmentation::Research;
 use crate::defs::{Category, MovementModel, ObjectKind, Recipe, RepairPayment, RepairTargets, SitePrice};
 use crate::economy::gathering::worker_def;
 use crate::object::Object;
@@ -129,23 +130,24 @@ pub fn repairs(repairer: ObjectKind, target: ObjectKind) -> bool {
     payment(repairer, target).is_some()
 }
 
-/// The HP of `o` and its MaxHP now (`Object::max_hp`), if it is complete (no site, nothing transforming) and below
-/// that MaxHP: what a repair may restore (module docs). The one place where repair reads a MaxHP.
-pub fn damage(o: &Object) -> Option<(f32, f32)> {
+/// The HP of `o` and its MaxHP now, (M5-N1a) its Augmentations' included, at its owner's levels in `research`
+/// (`Object::max_hp_with`), if it is complete (no site, nothing transforming) and below that MaxHP: what a repair may
+/// restore (module docs). The one place where repair reads a MaxHP.
+pub fn damage(o: &Object, research: Research) -> Option<(f32, f32)> {
     if o.is_site() || o.is_transforming() {
         return None;
     }
-    let (hp, max) = (o.hp?, o.max_hp()?);
+    let (hp, max) = (o.hp?, o.max_hp_with(research)?);
     (hp < max).then_some((hp, max))
 }
 
 /// Whether `unit` can repair `target` now (module docs): another object of its owner's, damaged and complete
-/// ([`damage`]), that its type repairs ([`payment`]).
-pub fn can_repair(unit: &Object, target: &Object) -> bool {
+/// ([`damage`], at the owners' levels in `research`), that its type repairs ([`payment`]).
+pub fn can_repair(unit: &Object, target: &Object, research: Research) -> bool {
     unit.owner.is_some()
         && target.owner == unit.owner
         && unit.id != target.id
-        && damage(target).is_some()
+        && damage(target, research).is_some()
         && repairs(unit.kind, target.kind)
 }
 

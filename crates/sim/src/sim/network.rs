@@ -161,7 +161,7 @@ impl Sim {
             return false;
         };
         if object.attack.is_some() {
-            object.attack = combat::weapon(&object).map(|_| AttackState::default());
+            object.attack = combat::weapon(&object, self.research()).map(|_| AttackState::default());
         }
         object.pos = pos;
         object.prev_pos = pos;

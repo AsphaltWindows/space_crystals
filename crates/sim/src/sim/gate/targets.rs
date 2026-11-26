@@ -67,7 +67,7 @@ impl Sim {
                     // (M5-E) An own site built from outside, which the units that assist it Assist.
                     site: (o.owner == Some(player) && o.is_built_from_outside()).then_some(o.kind),
                     // (M5-N8) A damaged own object, complete, which the units that repair its kind Repair.
-                    repair: (o.owner == Some(player) && repair::damage(o).is_some()).then_some(o.kind),
+                    repair: (o.owner == Some(player) && repair::damage(o, self.research()).is_some()).then_some(o.kind),
                 })
             }
             TargetView::Remembered { .. } => {

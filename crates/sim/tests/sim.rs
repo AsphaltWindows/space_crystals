@@ -23,6 +23,8 @@ mod attack_move_leash;
 mod attack_move_own_movement;
 mod attack_move_reach;
 mod attack_reveal;
+#[path = "augmentation/main.rs"]
+mod augmentation;
 mod behaviours_attack;
 mod behaviours_gate;
 mod behaviours_idle;

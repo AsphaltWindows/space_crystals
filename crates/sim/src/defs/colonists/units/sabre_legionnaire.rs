@@ -63,6 +63,7 @@ pub(crate) static SABRE_LEGIONNAIRE: ObjectDef = ObjectDef {
         conversion: Some(LEGIONNAIRE_CONVERSION), // `factions/colonists/units/weapon_conversion.md`
         deploy: None,
         worker: None,
+        augmentable: None,
     }),
     structure: None,
     default_settings: None,

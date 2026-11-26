@@ -1,8 +1,8 @@
 //! The Recruit — `factions/cults/units/recruit.md`.
 
 use crate::defs::units::{
-    AttackAttrs, AttackType, DropOffChoice, FullyConnectedSubtype, LoadDef, MELEE_CONTACT_GU, MovementAttrs, RepairDef,
-    RepairTargets, TargetDomain, TargetType, UnitBase, UnitDef, WorkerDef,
+    AttackAttrs, AttackType, Augmentable, DropOffChoice, FullyConnectedSubtype, LoadDef, MELEE_CONTACT_GU,
+    MovementAttrs, RepairDef, RepairTargets, TargetDomain, TargetType, UnitBase, UnitDef, WorkerDef,
 };
 use crate::defs::{Armor, Category, Footprint, ObjectDef, ObjectKind};
 use crate::math::PI;
@@ -109,6 +109,8 @@ pub(crate) static RECRUIT: ObjectDef = ObjectDef {
                 targets: RepairTargets::OwnBuildingsAndVehicles,
             }),
         }),
+        // (M5-N1a) `factions/cults/augmentation.md > Increments`: "Unarmed units ... currently only the Recruit".
+        augmentable: Some(Augmentable { unarmed: true }),
     }),
     structure: None,
     default_settings: None,

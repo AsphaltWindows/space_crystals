@@ -213,11 +213,11 @@ impl Invariants {
                     }
                 }
             }
-            // I3: a unit moves at most its speed per tick. (M3-G) For a unit with momentum that is its model's
-            // maximum, where thrust and drag balance on open ground (`MovementAttrs::max_speed`): a mode that
+            // I3: a unit moves at most its speed per tick, (M5-N1a) its Augmentations' included. (M3-G) For a unit
+            // with momentum that is its model's maximum, where thrust and drag balance on open ground: a mode that
             // slows the unit only weakens its thrust, and the speed it has decays.
             let drag = unit.movement.model() == MovementModel::Drag;
-            let step = unit.movement.max_speed() * if drag { 1.0 } else { mover.speed_factor };
+            let step = o.max_speed(sim.research()) * if drag { 1.0 } else { mover.speed_factor };
             let moved = o.pos.distance(o.prev_pos);
             if moved > step * 1.0001 + 1e-3 {
                 return fail("I3", format!("moved {moved} su in one tick, more than its {step}"));

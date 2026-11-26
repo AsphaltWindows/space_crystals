@@ -4,6 +4,7 @@
 use glam::Vec2;
 
 use super::*;
+use crate::augmentation::Research;
 use crate::combat::weapon_of;
 use crate::defs::ObjectKind;
 use crate::ids::PlayerId;
@@ -65,12 +66,40 @@ fn each_kind_fires_its_own_or_the_militants_attack_with_its_bonus() {
     for (i, (kind, expected)) in INFANTRY.into_iter().zip(expected).enumerate() {
         let o = t.sim().object(ObjectId(i as u32 + 2)).expect("spawned");
         assert_eq!(o.kind, kind);
-        assert_eq!(weapon(fire, o), Some(expected), "{kind:?}");
+        assert_eq!(weapon(fire, o, Research::NONE), Some(expected), "{kind:?}");
     }
     assert_eq!(
-        weapon(fire, t.sim().object(ObjectId(4)).unwrap()).map(|a| a.min_range),
+        weapon(fire, t.sim().object(ObjectId(4)).unwrap(), Research::NONE).map(|a| a.min_range),
         Some(2.0)
     );
+}
+
+/// (M5-N1a) "**Augmentations don't change the borrowed attack**", nor an armed unit's own
+/// (`factions/cults/augmentation.md > Increments`: "Armed infantry (Militant, Gunner) receive only the MaxHP part of
+/// Constitution increments and only the movement-speed part of Metabolism increments"): each kind with both
+/// Augmentations, at Level 2 of both lines, fires as it does without them, and a Recruit exactly the Militant's attack,
+/// though its own melee strike is harder with them.
+#[test]
+fn augmentations_leave_each_kinds_attack_from_inside_as_it_is() {
+    let t = objects();
+    let fire = garrison_fire();
+    let l2 = Research::at(crate::augmentation::Levels {
+        constitution: crate::augmentation::Level::L2,
+        metabolism: crate::augmentation::Level::L2,
+    });
+    for i in 0..INFANTRY.len() as u32 {
+        let mut o = t.sim().object(ObjectId(i + 2)).expect("spawned").clone();
+        let plain = weapon(fire, &o, l2);
+        o.augmentation = crate::augmentation::Augmentation::of(crate::augmentation::RecruitKind::Both);
+        assert_eq!(weapon(fire, &o, l2), plain, "{:?}", o.kind);
+    }
+    let recruit = t.sim().object(ObjectId(2)).expect("spawned");
+    let mut both = recruit.clone();
+    both.augmentation = crate::augmentation::Augmentation::of(crate::augmentation::RecruitKind::Both);
+    let militant = *weapon_of(ObjectKind::Militant).expect("the Militant's attack");
+    assert_eq!(weapon(fire, &both, l2), Some(militant), "exactly the Militant's");
+    let damage = |o: &Object| crate::combat::weapon(o, l2).map(|attrs| attrs.damage);
+    assert!(damage(&both) > damage(recruit), "its own strike");
 }
 
 /// Plan decision T72: "shots start from the footprint's edge nearest the target". The Garrison covers x and y 256 to

@@ -2,6 +2,7 @@
 //! order, and [`Phase`] names them, for measurements ([`Sim::step_observed`]).
 
 use super::Sim;
+use crate::augmentation::Research;
 use crate::command::TickInputs;
 use crate::economy::defeat;
 use crate::ids::ObjectId;
@@ -113,7 +114,8 @@ impl Sim {
             self.tick,
             self.auto_targeting,
         )
-        .with_knowledge(&self.path_knowledge, self.nav_version);
+        .with_knowledge(&self.path_knowledge, self.nav_version)
+        .with_research(Research::new(&self.players));
         orders::update(&mut self.objects, first_new, &world, &mut reach);
         self.nav.put_reach(reach);
         // The workers that got to their sites in 5a deploy or start their sites, or their orders fail
@@ -155,6 +157,7 @@ impl Sim {
             nav,
             scratch,
             self.tick,
+            Research::new(&self.players),
             &mut self.events,
         );
         // 5e: shoots from the positions movement committed, and the projectiles due land (`combat::projectiles`). The
@@ -175,6 +178,7 @@ impl Sim {
             first_new,
             self.tick,
             self.auto_targeting,
+            Research::new(&self.players),
             &mut self.events,
         );
         observe(Phase::Deaths);

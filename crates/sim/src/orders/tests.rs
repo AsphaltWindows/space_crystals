@@ -83,6 +83,7 @@ fn tick(orders: &mut Orders, mover: &mut Mover, attack: Option<&mut AttackState>
             .unit
             .as_ref()
             .and_then(|unit| unit.attack.as_ref()),
+        increments: crate::augmentation::Increments::NONE,
         may_attack: true,
         converting: false,
         worker: None,
@@ -195,6 +196,7 @@ fn unit<'a>(mover: &'a mut Mover, attack: Option<&'a mut AttackState>) -> Unit<'
             .unit
             .as_ref()
             .and_then(|unit| unit.attack.as_ref()),
+        increments: crate::augmentation::Increments::NONE,
         may_attack: true,
         converting: false,
         worker: None,

@@ -49,8 +49,8 @@ fn object(sim: &Sim, id: ObjectId) -> &Object {
     &sim.objects[&id]
 }
 
-fn weapon_of_kind(kind: ObjectKind) -> Option<&'static crate::defs::AttackAttrs> {
-    kind.def().unit.as_ref().unwrap().attack.as_ref()
+fn weapon_of_kind(kind: ObjectKind) -> Option<crate::defs::AttackAttrs> {
+    kind.def().unit.as_ref().unwrap().attack
 }
 
 /// Design change 0198: "The unit's type, and so its SelectionGroup, switches at the press to the target form" (and
@@ -103,7 +103,7 @@ fn a_toggle_mid_attack_switches_the_type_at_once_and_waits_for_the_cooldown() {
         );
         assert_eq!(conversion::form(o), ObjectKind::RifleLegionnaire, "{phase:?}");
         assert_eq!(
-            combat::weapon(o),
+            combat::weapon(o, crate::augmentation::Research::NONE),
             weapon_of_kind(ObjectKind::RifleLegionnaire),
             "{phase:?}"
         );

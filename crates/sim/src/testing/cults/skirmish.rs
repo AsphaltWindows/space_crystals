@@ -7,17 +7,18 @@
 //!   Storage ([`NEAR`]), then to its western column ([`WEST`]), for which the line builds a second Storage
 //!   ([`STORAGE_SITE`]) as soon as it can; then a second Recruitment Hall ([`HALL_SITE`]), an Armory
 //!   ([`ARMORY_SITE`]) and [`OPENING_MILITANTS`] Militants, rallied at [`STAGING`]. Player 2 does nothing.
-//! - [`Skirmish::versus_syndicate`]: player 1's Recruits are dealt to [`NEAR`] only, the Armory comes first, and
-//!   every Recruit without a seat goes into it to become one of [`MILITANTS`] Militants. Once [`WAVE`] of them wait at
-//!   [`STAGING`] they attack-move to player 2's Tunnel, fighting what they meet on the way; one trained later goes on
-//!   its own. Player 2's Agents gather [`PATCH`], 3 grid units from its crystal hatch, and its Hideout, rallied on the
-//!   patch, trains [`AGENTS`] more; its Tunnel expands an Optics Lab ([`OPTICS_LAB_SITE`]) and then a Laser Turret
-//!   ([`TURRET_SITE`]), ordered from its ExpandMenu as slice M5-Y made it, and the Hideout trains [`GUARDS`] Guards
-//!   once the Optics Lab stands, which come out to the patch. The script knows where player 2's Tunnel is, as a
-//!   player who scouted would.
+//! - [`Skirmish::versus_syndicate`]: player 1's Recruits are dealt to [`NEAR`] only, the Armory comes first, then a
+//!   Gunworks ([`GUNWORKS_SITE`], slice M5-N1a's first step), and every Recruit without a seat goes into the Armory to
+//!   become one of [`MILITANTS`] Militants or [`GUNNERS`] Gunners, the Gunners trained first once the Gunworks stands.
+//!   Once [`WAVE`] of them wait at [`STAGING`] they attack-move to player 2's Tunnel, fighting what they meet on the
+//!   way; one trained later goes on its own. Player 2's Agents gather [`PATCH`], 3 grid units from its crystal hatch,
+//!   and its Hideout, rallied on the patch, trains [`AGENTS`] more; its Tunnel expands an Optics Lab
+//!   ([`OPTICS_LAB_SITE`]) and then a Laser Turret ([`TURRET_SITE`]), ordered from its ExpandMenu as slice M5-Y made
+//!   it, and the Hideout trains [`GUARDS`] Guards once the Optics Lab stands, which come out to the patch. The script
+//!   knows where player 2's Tunnel is, as a player who scouted would.
 //!
 //! Nothing here assumes the game goes as the goldens' do: the players stop once the game is over or they are
-//! defeated, and a Militant whose target has fallen goes on to the next Tunnel.
+//! defeated, and a Militant or Gunner whose target has fallen goes on to the next Tunnel.
 
 use std::collections::BTreeMap;
 
@@ -36,7 +37,9 @@ use crate::units::{Tick, TilePos};
 
 use super::{Build, Crew, Cults};
 
-use ObjectKind::{Agent, Armory, Guard, Hideout, LaserTurret, Militant, OpticsLab, RecruitmentHall, Storage, Tunnel};
+use ObjectKind::{
+    Agent, Armory, Guard, Gunner, Gunworks, Hideout, LaserTurret, Militant, OpticsLab, RecruitmentHall, Storage, Tunnel,
+};
 
 /// The Cults' player, in slot 1.
 pub const CULTS: PlayerId = PlayerId(1);
@@ -66,6 +69,10 @@ pub const HALL_SITE: TilePos = TilePos::new(20, 17);
 /// The Armory, on (13, 5) to (15, 6), unturned: its entrance, B, east; its exit, C, west, toward the field. North-east
 /// of the starting Hall, off the Recruits' ways between the Hall, the field and the Storages.
 pub const ARMORY_SITE: TilePos = TilePos::new(13, 5);
+/// [`Skirmish::versus_syndicate`]: the Gunworks, on (13, 2) to (14, 3), unturned: north of the Armory, a tile from it,
+/// east of the field's northern row and off the Recruits' ways between the Hall, the field, the Storage and the
+/// Armory's entrance, B, east.
+pub const GUNWORKS_SITE: TilePos = TilePos::new(13, 2);
 /// Where the Armory's Militants wait: open ground south-east of the starting Hall.
 pub const STAGING: TilePos = TilePos::new(16, 12);
 /// [`Skirmish::opening`]: the Militants the Armory trains.
@@ -74,6 +81,10 @@ pub const OPENING_MILITANTS: usize = 4;
 /// off.
 pub const MILITANTS: usize = 8;
 pub const WAVE: usize = 6;
+/// [`Skirmish::versus_syndicate`]: the Gunners the Armory trains once the Gunworks stands
+/// (`factions/cults/structures/armory.md > Training`: "**Gunner** (SpaceCrystalsCost: 40, TrainingTime: 32 frames).
+/// TechPrerequisite: player owns at least one Gunworks").
+pub const GUNNERS: usize = 3;
 /// [`Skirmish::versus_syndicate`]: slot 2's patch on tile (61, 40), the image of slot 1's (2, 7), 3 grid units from
 /// slot 2's crystal hatch: the third of slot 2's field, whose spawns follow the station's. Player 2's starting Agent is
 /// sent to it, and its Hideout is rallied on it.
@@ -103,7 +114,7 @@ pub fn scenario(versus: bool) -> Scenario {
 pub struct Skirmish {
     cults: Cults,
     syndicate: Option<Syndicate>,
-    /// Player 1's Militants sent to attack, each with the Tunnel it was sent to.
+    /// Player 1's Militants and Gunners sent to attack, each with the Tunnel it was sent to.
     sent: BTreeMap<ObjectId, ObjectId>,
 }
 
@@ -121,13 +132,15 @@ impl Skirmish {
         Self::new(cults, None)
     }
 
-    /// The Cults against the Syndicate (module docs): [`MILITANTS`] Militants in a wave against player 2's Tunnel,
-    /// its Optics Lab, Laser Turret and [`GUARDS`] Guards.
+    /// The Cults against the Syndicate (module docs): [`MILITANTS`] Militants and [`GUNNERS`] Gunners in a wave
+    /// against player 2's Tunnel, its Optics Lab, Laser Turret and [`GUARDS`] Guards.
     pub fn versus_syndicate() -> Self {
         let cults = Cults::new(CULTS)
             .deal(NEAR)
             .build(Build::new(Armory, ARMORY_SITE, Crew::Nearest(3)))
-            .militants(MILITANTS, Some(Target::Point(STAGING.center())));
+            .build(Build::new(Gunworks, GUNWORKS_SITE, Crew::Nearest(3)))
+            .militants(MILITANTS, Some(Target::Point(STAGING.center())))
+            .gunners(GUNNERS);
         let agents = BuildOrder::new(SYNDICATE).track(vec![Order::new(Hideout, Agent); AGENTS]);
         let syndicate = Syndicate::new(agents)
             .gather(PATCH)
@@ -182,9 +195,9 @@ impl Skirmish {
         commands
     }
 
-    /// Player 1's Militants (module docs): a wave of the idle ones that never set off once there are [`WAVE`] of
-    /// them, and at once each one sent that is idle and whose Tunnel has fallen, attack-moving to the centre of
-    /// player 2's Tunnel nearest [`STAGING`].
+    /// Player 1's Militants and Gunners (module docs): a wave of the idle ones that never set off once there are
+    /// [`WAVE`] of them, and at once each one sent that is idle and whose Tunnel has fallen, attack-moving to the
+    /// centre of player 2's Tunnel nearest [`STAGING`].
     fn attack(&mut self, sim: &Sim, commands: &mut Vec<PlayerCommand>) {
         let staging = STAGING.center();
         let Some(target) = (sim.objects())
@@ -194,7 +207,9 @@ impl Skirmish {
             return;
         };
         let own = || sim.objects().filter(|o| o.owner == Some(CULTS));
-        let idle = |o: &&Object| o.kind == Militant && o.orders.as_ref().is_none_or(|orders| orders.is_idle());
+        let idle = |o: &&Object| {
+            matches!(o.kind, Militant | Gunner) && o.orders.as_ref().is_none_or(|orders| orders.is_idle())
+        };
         let standing = |tunnel: &ObjectId| sim.object(*tunnel).is_some_and(|o| o.owner == Some(SYNDICATE));
         let again = own()
             .filter(idle)

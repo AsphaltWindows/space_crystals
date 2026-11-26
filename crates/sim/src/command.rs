@@ -183,8 +183,10 @@ pub enum DebugCommand {
     /// (M5-F2) Set the augmentations of `id`, a unit on the map (`Object::augmentation`,
     /// `factions/cults/augmentation.md > AugmentationState (per unit instance)`), whoever owns it, and with them the
     /// kind a building that trains it counts it as (design change 0337). For tests and QA runs of the Armory's kinds
-    /// until the Altar augments (slice M5-N1b); the augmentations have no effect yet (slice M5-N1a). Rejected for an
-    /// object that isn't a unit.
+    /// and of the augmented stats until the Altar augments (slice M5-N1b). (M5-N1a) They take effect at once, at its
+    /// owner's levels (`crate::augmentation`), its HP following its MaxHP (`augmentation::follow_max`: the damage
+    /// stays as MaxHP goes up, HP drops to a lower MaxHP only if above it). Rejected for an object that isn't a unit,
+    /// and for Augmentations to a unit that can't have them (`Reject::NotAugmentable`).
     SetAugmentation { id: ObjectId, augmentation: Augmentation },
 }
 

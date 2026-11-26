@@ -4,6 +4,7 @@
 
 use super::Sim;
 use super::gate::Checked;
+use crate::augmentation::{self, Research};
 use crate::command::PlayerCommand;
 use crate::ids::ObjectId;
 use crate::orders::{Order, OrderGroup, OrderKind, Target, destinations};
@@ -60,8 +61,10 @@ impl Sim {
             Checked::Construction { player, resolved } => self.apply_construction(player, resolved),
             Checked::Holding { buildings, command } => self.apply_holding(&buildings, command),
             Checked::SetAugmentation { id, augmentation } => {
+                // (M5-N1a) Its HP follows its MaxHP (`augmentation::set`).
+                let research = Research::new(&self.players);
                 if let Some(o) = self.objects.get_mut(&id) {
-                    o.augmentation = augmentation;
+                    augmentation::set(o, augmentation, research);
                 }
             }
         }

@@ -91,6 +91,7 @@ use std::collections::BTreeMap;
 use glam::Vec2;
 use serde::{Deserialize, Serialize};
 
+use crate::augmentation::{self, Research};
 use crate::conversion;
 use crate::defs::{AttackAttrs, AttackType, ObjectKind, TargetDomain};
 use crate::events::SimEvent;
@@ -167,10 +168,30 @@ pub fn mid_attack(o: &Object) -> bool {
 /// The AttackAttributes of the weapon `o` fights with now (`systems/combat.md > AttackAttributes`): its form's
 /// (`conversion::form`), which is its type's but while a Legionnaire's change of form is pending (design change 0198:
 /// its type is the form it works toward, its form the one whose weapon it has; `ARCHITECTURE.md > Object model > Type
-/// and form`). The one source of a unit's attack attributes for what it does in the world: phase 5e, the behaviours
-/// (`orders::world::Unit::attrs`, and the threat it is to the others' scans) and [`can_attack_now`]. `None` for an
-/// object without an attack.
-pub fn weapon(o: &Object) -> Option<&'static AttackAttrs> {
+/// and form`), with (M5-N1a) its Augmentations' effects at its owner's levels in `research`
+/// (`augmentation::augmented`: an unarmed unit's Damage and FiringDuration), a copy. The one source of a unit's attack
+/// attributes for what it does in the world: phase 5e and the behaviours (`orders::world::Unit::attrs`), which read it
+/// by reference ([`weapon_ref`]). `None` for an object without an attack.
+#[inline]
+pub fn weapon(o: &Object, research: Research) -> Option<AttackAttrs> {
+    weapon_ref(o, research, &mut None).copied()
+}
+
+/// (M5-N1a) [`weapon`] by reference: the weapon in hand without an Augmentation, else made in `slot`. The read of the
+/// behaviours' and phase 5e's loops over every unit, with nothing copied for a unit without one (inlined into them, as
+/// the other accessors are: `augmentation/stats.rs`).
+#[inline]
+pub fn weapon_ref<'a>(o: &Object, research: Research, slot: &'a mut Option<AttackAttrs>) -> Option<&'a AttackAttrs> {
+    let attrs = weapon_in_hand(o)?;
+    if o.augmentation.is_none() {
+        return Some(attrs);
+    }
+    Some(slot.insert(augmentation::augmented(o, attrs, research)))
+}
+
+/// The weapon `o` holds as its form's type has it, before its Augmentations ([`weapon`]): for what they leave as it is,
+/// its TargetDomain and its ranges (the threat it is to the others' scans, [`can_attack_now`]).
+fn weapon_in_hand(o: &Object) -> Option<&'static AttackAttrs> {
     weapon_of(conversion::form(o))
 }
 
@@ -189,7 +210,7 @@ pub(crate) fn weapon_of(form: ObjectKind) -> Option<&'static AttackAttrs> {
 /// auto-targeting scans rank first (`systems/controls/behaviors.md > BaseAutoTargeting > Target Selection Priority`:
 /// "threatening targets first"): the behaviours' (`orders::world`), and a structure's own pick ([`structures`]).
 pub(crate) fn threat(o: &Object) -> Option<TargetDomain> {
-    weapon(o)
+    weapon_in_hand(o)
         .filter(|_| o.attack.is_some() && o.is_operational())
         .map(|attack| attack.target_domain)
 }
@@ -343,6 +364,8 @@ pub(crate) fn base_is_free(kind: ObjectKind, state: Option<&AttackState>) -> boo
 /// footprint must re-sync the grids (`paths::sync`), as phase 5b does. `vision` is the last tick's: what each owner
 /// sees, all through the phase (the reveals don't change what it sees of tiles). `turns` holds the angle phase 5d of
 /// this tick turned each unit: the aim turns a unit only by what is left of its TurnRate (one budget per tick).
+/// (M5-N1a) Each attacks with its weapon as its Augmentations make it, at its owner's levels in `research`
+/// ([`weapon`]).
 #[expect(
     clippy::too_many_arguments,
     reason = "phase 5e's state, in the parts of the sim it reads and writes"
@@ -357,6 +380,7 @@ pub(crate) fn step(
     first_new: ObjectId,
     tick: Tick,
     auto_targeting: bool,
+    research: Research,
     events: &mut Vec<SimEvent>,
 ) -> Vec<ObjectId> {
     // A structure that attacks is always busy: it looks for its targets in this phase. So is a turret with a target
@@ -386,7 +410,9 @@ pub(crate) fn step(
         let may_attack = riot_shield::allows_attack(o);
         // The weapon in hand: the form's, which a Legionnaire whose conversion waits still fights with (design change
         // 0198); its shape and its turn rate are its type's, the same in either form. A structure's is its type's.
-        let Some(attrs) = weapon(o) else {
+        // (M5-N1a) With its Augmentations' effects.
+        let mut augmented = None;
+        let Some(attrs) = weapon_ref(o, research, &mut augmented) else {
             continue;
         };
         if o.attack.is_none() {
@@ -437,6 +463,7 @@ pub(crate) fn step(
         vision,
         &targets,
         auto_targeting,
+        research,
         &mut volley,
         events,
     );

@@ -28,6 +28,7 @@
 use std::collections::BTreeMap;
 
 use super::Sim;
+use crate::augmentation::Research;
 use crate::defs::RepairPayment;
 use crate::ids::ObjectId;
 use crate::object::Object;
@@ -56,7 +57,7 @@ impl Sim {
     /// either is gone.
     pub fn can_repair(&self, unit: ObjectId, target: ObjectId) -> bool {
         match (self.objects.get(&unit), self.objects.get(&target)) {
-            (Some(unit), Some(target)) => repair::can_repair(unit, target),
+            (Some(unit), Some(target)) => repair::can_repair(unit, target, self.research()),
             _ => false,
         }
     }
@@ -67,6 +68,7 @@ impl Sim {
     pub(super) fn step_repairs(&mut self) {
         let mut crews: BTreeMap<ObjectId, Crew> = BTreeMap::new();
         let mut over: Vec<ObjectId> = Vec::new();
+        let research = Research::new(&self.players);
         for o in self.objects.values() {
             let Some(target) = repairing(o) else {
                 continue;
@@ -75,7 +77,7 @@ impl Sim {
             let Some(t) = self.objects.get(&target) else {
                 continue;
             };
-            let payment = repair::can_repair(o, t)
+            let payment = repair::can_repair(o, t, research)
                 .then(|| repair::payment(o.kind, t.kind))
                 .flatten();
             let Some(payment) = payment else {
@@ -84,7 +86,7 @@ impl Sim {
             };
             let crew = crews.entry(target).or_default();
             crew.units.push((o.id, payment));
-            if spot_work::at_work(o, &self.objects, spot_work::repaired).is_some() {
+            if spot_work::at_work(o, &self.objects, research, spot_work::repaired).is_some() {
                 match payment {
                     RepairPayment::Free => crew.free += 1,
                     RepairPayment::Paid => crew.paid += 1,
@@ -115,7 +117,8 @@ impl Sim {
     /// of a crystal it owed; `None` if it isn't damaged or has no terms.
     fn repair(&mut self, target: ObjectId, free: u32, paid: u32) -> Option<(bool, bool)> {
         let t = self.objects.get(&target)?;
-        let ((hp, max), terms, owner) = (repair::damage(t)?, repair::terms(t.kind)?, t.owner);
+        let research = Research::new(&self.players);
+        let ((hp, max), terms, owner) = (repair::damage(t, research)?, repair::terms(t.kind)?, t.owner);
         let rate = max / terms.frames;
         let mut restored = (hp + rate * free as f32).min(max);
         let mut broke = false;

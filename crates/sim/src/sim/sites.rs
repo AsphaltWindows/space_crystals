@@ -86,7 +86,7 @@ impl Sim {
     /// current value (no decay)" (`factions/cults/economy.md > Cults Building Mechanics`), its HP as it was.
     pub(super) fn step_sites(&mut self, first_new: ObjectId) {
         let builders = match self.objects.values().any(Object::is_built_from_outside) {
-            true => spot_work::counts(&self.objects, spot_work::assisted),
+            true => spot_work::counts(&self.objects, self.research(), spot_work::assisted),
             false => BTreeMap::new(),
         };
         let mut completed = Vec::new();

@@ -31,6 +31,7 @@
 use glam::Vec2;
 use serde::{Deserialize, Serialize};
 
+use crate::augmentation::Research;
 use crate::defs::{ObjectKind, Transit, TunnelDef};
 use crate::hash::{StateHash, StateHasher};
 use crate::ids::ObjectId;
@@ -113,11 +114,12 @@ impl Held {
     }
 
     /// One tick of `factions/syndicate/tunnels.md > Regeneration inside` (design change 0249): the network's share of
-    /// its MaxHP a second ([`rules`]), up to its MaxHP (`crate::regeneration`, the rule of the Tunnel expansions' too).
-    /// Only "inside the Tunnel Network": a unit held elsewhere regenerates nothing.
-    pub(crate) fn regenerate(&mut self) {
+    /// its MaxHP a second ([`rules`]), up to its MaxHP (`crate::regeneration`, the rule of the Tunnel expansions' too),
+    /// (M5-N1a) its Augmentations' included, at its owner's levels in `research`. Only "inside the Tunnel Network": a
+    /// unit held elsewhere regenerates nothing.
+    pub(crate) fn regenerate(&mut self, research: Research) {
         match self.place {
-            Place::Network => regeneration::regenerate(&mut self.object, rules().regen_per_second),
+            Place::Network => regeneration::regenerate(&mut self.object, rules().regen_per_second, research),
             Place::Site(_) | Place::Building(_) => {}
         }
     }
@@ -464,12 +466,12 @@ mod tests {
         };
         held.object.hp = Some(40.0);
         for _ in 0..160 {
-            held.regenerate();
+            held.regenerate(Research::NONE);
         }
         let hp = held.object.hp.unwrap();
         assert!((hp - 48.0).abs() < 1e-3, "10 s: 50% to 60% of 80, got {hp}");
         held.object.hp = Some(79.99);
-        held.regenerate();
+        held.regenerate(Research::NONE);
         assert_eq!(held.object.hp, Some(80.0));
     }
 }

@@ -1,18 +1,36 @@
 //! A Cults infantry unit's Augmentations (`factions/cults/augmentation.md > AugmentationState (per unit instance)`:
-//! "EnhancedConstitution: boolean", "ImprovedMetabolism: boolean"), and the four kinds of units that the buildings
+//! "EnhancedConstitution: boolean", "ImprovedMetabolism: boolean"), the four kinds of units that the buildings
 //! holding them choose by them (design change 0337, `factions/cults/structures/README.md > Choosing Recruits, Release
 //! and Eject All`: "The four **kinds** are: **Plain** (unaugmented), **Constitution** (Enhanced Constitution only),
-//! **Metabolism** (Improved Metabolism only) and **Both**").
+//! **Metabolism** (Improved Metabolism only) and **Both**"), and what they do.
 //!
-//! Slice M5-F2 has the state, for the kinds ([`Augmentation::kind`]): a unit keeps it inside a building and when it is
-//! trained into infantry (`factions/cults/augmentation.md > Persistence`: "a trained unit inherits its Recruit's
-//! AugmentationState unchanged"), and loses it when it is trained into a vehicle or an aircraft ("if augmented Recruits
-//! are consumed to produce a vehicle, their Augmentations are lost"; `Sim::train`). The Altar that gives it, and what
-//! it does (`factions/cults/augmentation.md > Increments`), come with a later slice: until then only a test sets it.
+//! - **The state** (slice M5-F2): which Augmentations a unit has ([`Augmentation`]), and its kind
+//!   ([`Augmentation::kind`]). A unit keeps it inside a building and through a change to another augmentable kind,
+//!   such as its training into infantry (`factions/cults/augmentation.md > Persistence`: "a trained unit inherits its
+//!   Recruit's AugmentationState unchanged"), and loses it through a change to any other ("if augmented Recruits are
+//!   consumed to produce a vehicle, their Augmentations are lost"; `Sim::change_kind`).
+//! - **The amounts** (slice M5-N1a, design change 0336): from its owner's current research levels, read whenever a
+//!   stat is ([`Research`], [`Levels`]; `levels.rs`). No research yet: every amount is the table's "No research"
+//!   column until the Temple (slice M5-N3).
+//! - **The effects** (slice M5-N1a, plan decision T73; `stats.rs`): a unit's MaxHP, speed and weapon are read through
+//!   accessors that apply its net increments ([`Increments`]): `Object::max_hp_with`, `Object::movement`,
+//!   `Object::max_speed` and `combat::weapon`. Its HP follows its MaxHP when its Augmentations change ([`follow_max`]):
+//!   `DebugCommand::SetAugmentation` sets them for tests and QA runs until the Altar does (slice M5-N1b).
+//!   `tests/augmentation/raw_reads.rs` keeps the stats' raw reads out of the code outside the accessors
+//!   (`ARCHITECTURE.md > Object model > Augmented stats`).
+
+mod levels;
+mod stats;
+#[cfg(test)]
+mod tests;
 
 use serde::{Deserialize, Serialize};
 
 use crate::hash::{StateHash, StateHasher};
+
+pub use levels::{Level, Levels, Research};
+pub use stats::{Increments, follow_max, is_augmentable};
+pub(crate) use stats::{augmented, max_hp_of, movement_of, set};
 
 /// `factions/cults/augmentation.md > AugmentationState (per unit instance)`: which of the two Augmentations a unit has
 /// ("A unit may have neither, either, or both Augmentations"). The default, neither, is every unit's but a Cults
@@ -39,6 +57,7 @@ impl Augmentation {
     };
 
     /// Whether it has neither (`Object::augmentation`: left out of files and the hash then).
+    #[inline]
     pub fn is_none(&self) -> bool {
         *self == Augmentation::NONE
     }
@@ -119,32 +138,5 @@ impl StateHash for RecruitKind {
     fn hash(&self, h: &mut StateHasher) {
         // Fieldless enum: the discriminant is the declaration index.
         (*self as u32).hash(h);
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    /// Design change 0337: the four kinds, from the two Augmentations, both ways.
-    #[test]
-    fn the_four_kinds_come_from_the_two_augmentations() {
-        for kind in RecruitKind::ALL {
-            assert_eq!(Augmentation::of(kind).kind(), kind);
-        }
-        assert_eq!(Augmentation::NONE.kind(), RecruitKind::Plain);
-        assert!(Augmentation::default().is_none() && !Augmentation::of(RecruitKind::Both).is_none());
-        let names: Vec<&str> = RecruitKind::ALL.iter().map(|kind| kind.name()).collect();
-        assert_eq!(names, ["Plain", "Constitution", "Metabolism", "Both"]);
-    }
-
-    /// Left out of files while it has neither, so that states saved before it existed load.
-    #[test]
-    fn an_augmentation_saves_only_what_it_has() {
-        let constitution = Augmentation::of(RecruitKind::Constitution);
-        let json = serde_json::to_string(&constitution).unwrap();
-        assert_eq!(json, r#"{"constitution":true}"#);
-        assert_eq!(serde_json::from_str::<Augmentation>(&json).unwrap(), constitution);
-        assert_eq!(serde_json::from_str::<Augmentation>("{}").unwrap(), Augmentation::NONE);
     }
 }

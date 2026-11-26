@@ -129,7 +129,7 @@ fn destroying_the_garrison_evacuates_them_alive() {
         );
         assert_eq!(o.hp, Some(40.0), "{unit:?}");
         assert!(o.orders.as_ref().unwrap().is_idle());
-        match weapon(o) {
+        match weapon(o, t.sim().research()) {
             Some(_) => {
                 let attack = o.attack.as_ref().expect("its attack");
                 assert_eq!((attack.target, attack.phase), (None, None), "{unit:?}: cleared");
