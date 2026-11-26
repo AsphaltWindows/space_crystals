@@ -50,6 +50,10 @@ Immediate commands (CommandIssuingTransition):
 State commands (StateOnlyTransition):
 - **Q: Basic Construction**: enters BuildMenu[Basic] (StateOnlyTransition)
 - **W: Advanced Construction**: enters BuildMenu[Advanced] (StateOnlyTransition)
+- **E: Place** (user, 2026-11-27; letter: designer placeholder): a shortcut so the player doesn't need to open the build menu to place. Shown whenever CurrentConstruction or ReadyToPlace is set, with the building's icon.
+  - **While constructing**: greyed out, with a **running progress bar** on the button showing the construction's progress.
+  - **When ready** (ReadyToPlace set): enabled; pressing it enters AwaitingPlacement for the ready building (StateOnlyTransition), exactly as the building's slot in the build menu does. Escape/right-click from there returns to DefaultState.
+  - Hidden when the Deployment Center is idle.
 
 **Two build menus** (user, 2026-11-24): the DC's buildings don't fit one 12-slot panel, so they are split. Names: "Basic Construction" / "Advanced Construction" ("Basic Structures" / "Advanced Structures" also acceptable to the user). Slot layout (fine for now, user):
 

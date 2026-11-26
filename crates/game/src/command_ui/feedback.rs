@@ -281,7 +281,6 @@ pub fn placement_text(problem: Option<PlacementProblem>) -> &'static str {
             WholeProblem::TunnelAreaNotDrillable => "The Tunnel Area must be drillable ground",
             WholeProblem::TunnelAreaOverlap => "The Tunnel Area overlaps another Tunnel's",
             WholeProblem::OutsideTunnelArea => "Must be inside a Tunnel Area",
-            WholeProblem::RecruitmentAreaOffMap => "The Recruitment Area reaches off the map",
         },
         Some(PlacementProblem::Tile(_, problem)) => match problem {
             TileProblem::OffMap => "Outside the map",

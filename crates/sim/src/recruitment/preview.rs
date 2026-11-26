@@ -15,7 +15,8 @@
 //!   (design changes 0350 and 0352: "The preview reads the player's memory of enemy Halls, not the true state").
 //! - **Its tiles** ([`PreviewTile`]): each tile of the area claimable, taken by another Hall (and whose:
 //!   [`Claimer`]), or not Recruitable, as far as the player knows the ground (`known`; a tile off the map is none, and
-//!   counts among the area's tiles all the same, as in the game's claims).
+//!   counts among the area's tiles all the same, as in the game's claims: design change 0387, "The preview's
+//!   Effectiveness counts off-map tiles as 0").
 //! - **The Effectiveness** ([`Preview::effectiveness_percent`]): the claimable tiles over the area's, rounded down
 //!   (`super::effectiveness_percent`, as the Hall's own InfoPanel shows it).
 

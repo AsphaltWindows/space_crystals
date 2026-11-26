@@ -48,9 +48,11 @@
 //! release of one participant and Eject All): `shrine`, on another.
 //!
 //! The Recruit's UI (slice M5-J1: its panel and its two Construct menus, the Assist, Enter and gathering pointers, Tab
-//! over Recruits and Militants, the group's placement with its Shift chain, and a Hall refused at the map's edge; slice
-//! M5-N8: the Repair pointer, D Repair and the right-click on a damaged building): `recruit_ui`, on a Cults field. The Recruitment Area display (slice M5-J2: a Hall's preview among the Halls the
-//! player knows of, its Effectiveness, and a selected Hall's claims): `recruitment_areas`, with the fog of war on.
+//! over Recruits and Militants, the group's placement with its Shift chain, and, slice M5-S4, a Hall placed flush
+//! against the map's edge; slice M5-N8: the Repair pointer, D Repair and the right-click on a damaged building):
+//! `recruit_ui`, on a Cults field. The Recruitment Area display (slice M5-J2: a Hall's preview among the Halls the
+//! player knows of, its Effectiveness, and a selected Hall's claims; slice M5-S4: the preview of a Hall at the map's
+//! edge): `recruitment_areas`, with the fog of war on.
 //!
 //! The GDO's Field Engineer (slice M5-N9: its panel and its Construct menu, greyed, the Repair pointer and the
 //! right-click on a damaged Barracks): `field_engineer_ui`, on a GDO field. The Barracks' E, the Field Engineer, is

@@ -25,6 +25,8 @@ The effect is a **buff applied to units at the moment of casting**: qualifying u
 | Health regeneration (name TBD) | Own Cults infantry | Grants health regeneration (+2 HP/s, placeholder) for the duration — Cults infantry have no natural regeneration | 75 | radius 4 grid units | 15 s |
 | Energy regeneration (name TBD) | Own Disciples | Increases Disciple energy regeneration (+1/s, placeholder) for the duration | 50 | radius 4 grid units | 20 s |
 
+**Buff marks** (user, 2026-11-27; Q0145): a buffed unit shows a small mark beside its HP bar to **every player who sees the unit**, enemies included, like the HP, Shield and energy bars.
+
 Cooldowns: none. Energy costs, areas, durations and rates: see Placeholder stats below.
 
 ## ShrineInstanceState:

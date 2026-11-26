@@ -6,17 +6,17 @@
 //! 1-tile gap from the field (`factions/cults/structures/storage.md`). The map validates in each of the 16 pairings,
 //! and an incomplete Cults layout lists what it lacks (`core/map_editor.md > Starting Layouts > Skirmish Default
 //! restriction`; design change 0012: "Leave the Cults layout incomplete: the editor lists the missing Recruits, and
-//! the map can't be started"), and a layout's Hall whose Recruitment Area would leave the map is refused (design change
-//! 0341 point 1). The lineage of a layout's units wherever its Hall stands, on a Custom map, and without one. The Starting Conditions table is unit-tested in `scenario/starting.rs`, the Halls in `tests/recruitment/`, the
-//! bar, the camera and the editor in the client.
+//! the map can't be started"), and a layout's Hall flush against the map's edge is valid, its area's tiles off the map
+//! counting as non-Recruitable (design change 0387). The lineage of a layout's units wherever its Hall stands, on a
+//! Custom map, and without one. The Starting Conditions table is unit-tested in `scenario/starting.rs`, the Halls in
+//! `tests/recruitment/`, the bar, the camera and the editor in the client.
 
 use sc_sim::recruitment;
 use sc_sim::scenario::DEFAULT_SEED;
 use sc_sim::testing::{ScenarioBuilder, TestSim};
 use sc_sim::{
-    ArmyCap, ArmyResource, Banks, Doorway, Faction, GameSetup, LayoutObject, MapDef, ObjectId, ObjectKind,
-    PlacementCheck, PlayerId, SU_PER_GU, Scenario, ScenarioProblem, Sim, SimEvent, SlotId, SpawnAt, StartingConditions,
-    TilePos, Vec2, WholeProblem, scenarios,
+    ArmyCap, ArmyResource, Banks, Doorway, Faction, GameSetup, LayoutObject, MapDef, ObjectId, ObjectKind, PlayerId,
+    SU_PER_GU, Scenario, ScenarioProblem, Sim, SimEvent, SlotId, SpawnAt, StartingConditions, TilePos, Vec2, scenarios,
 };
 
 const P1: PlayerId = PlayerId(1);
@@ -339,28 +339,42 @@ fn an_incomplete_cults_layout_lists_what_it_lacks() {
     );
 }
 
-/// Design change 0341 point 1 (`factions/cults/structures/recruitment_hall.md > RecruitmentArea`: "a Hall whose area
-/// would leave the map can't be placed") in the map's validation (`core/map_editor.md > Starting Layouts > Layout
-/// validation`, slice M5-J1): `dev_skirmish`'s starting Hall moved to (12, 1), its area reaching 2 rows past the north
-/// edge, is refused as a whole in slot 1 and in its image (`ScenarioProblem::LayoutPlacement`), and no game starts.
+/// Design change 0387 (`factions/cults/structures/recruitment_hall.md > RecruitmentArea`: "a Hall can be placed anywhere
+/// its 4x4 footprint fits on the map, including right at the edge") in the map's validation (`core/map_editor.md >
+/// Starting Layouts > Layout validation`), where slice M5-J1 refused a Hall whose area left the map (0341 point 1):
+/// `dev_skirmish`'s starting Hall moved to (12, 0), flush against the north edge, and so its image flush against the
+/// south edge, validate, and a game of the Cults in both slots starts with them. "The part of its area that lies **off
+/// the map yields no Recruitable tiles**", and "Effectiveness still divides by the full 100 tiles": each Hall claims
+/// the 70 tiles of its area on the map, 70% (0387: "a Hall against the edge has 3 of its 10 rows off the map, so at
+/// most 70%"), and provides 14 Unit Control (20 × 70%), its six Recruits using 6; its seventh Recruit gains 70 tiles a
+/// frame.
 #[test]
-fn a_layout_hall_whose_area_leaves_the_map_is_refused() {
+fn a_layout_hall_flush_against_the_map_edge_is_valid() {
     let mut map = scenarios::dev_skirmish_map();
-    map.slots[0].layouts.get_mut(CULTS)[0].at = SpawnAt::Tile(TilePos::new(12, 1));
+    map.slots[0].layouts.get_mut(CULTS)[0].at = SpawnAt::Tile(TilePos::new(12, 0));
     map.regenerate();
-    let refused = |slot| ScenarioProblem::LayoutPlacement {
-        slot: SlotId(slot),
-        faction: CULTS,
-        index: 0,
-        kind: HALL,
-        check: PlacementCheck {
-            tiles: Vec::new(),
-            whole: vec![WholeProblem::RecruitmentAreaOffMap],
-        },
-    };
-    let expected = [refused(1), refused(2)];
-    assert_eq!(map.validate(), expected);
-    assert_eq!(Sim::try_new(&Scenario::new(map)).err(), Some(expected.to_vec()));
+    assert_eq!(map.validate(), []);
+    let setup = GameSetup::per_slot(&map, &[CULTS, CULTS], DEFAULT_SEED);
+    let mut t = TestSim::new(Scenario { map, setup });
+    for (player, origin) in [(P1, TilePos::new(12, 0)), (P2, TilePos::new(48, 44))] {
+        let hall = ids(t.sim(), player, HALL)[0];
+        let placement = t.sim().object(hall).unwrap().placement.unwrap();
+        assert_eq!(placement.origin, origin, "{player:?}");
+        let state = t.sim().hall_state(hall).unwrap();
+        assert_eq!(
+            (state.claimed, state.tiles, state.effectiveness_percent()),
+            (70, 100, 70),
+            "{player:?}"
+        );
+        assert_eq!((state.usage, state.capacity.floor()), (6, 14), "{player:?}");
+        assert_eq!(t.sim().army_cap(player), unit_control(6, 14), "{player:?}");
+    }
+    t.run(1);
+    for player in [P1, P2] {
+        let hall = ids(t.sim(), player, HALL)[0];
+        let progress = t.sim().production_status(hall).map(|status| status.progress);
+        assert_eq!(progress, Some(70), "{player:?}: 70 tiles a frame");
+    }
 }
 
 /// The lineage of a layout's units (`Scenario::start_objects`, `Object::lineage`): each Cults unit embodies a Recruit

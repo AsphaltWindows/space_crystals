@@ -14,11 +14,13 @@
 //!   the order's own Recruits to step off (a group under its building, one walking off the middle, one holding the
 //!   order queued, and 0372's Verification, a Hall Shift-placed over a builder's spot at a Storage); any other unit on
 //!   it, an enemy or an own one, fails the whole order, refunded once;
-//! - `gate`: the gate's checks of a Build and an Assist, the Armory's Storage, the ghosts;
+//! - `gate`: the gate's checks of a Build and an Assist, the Armory's Storage, the ghosts, a Hall flush against the
+//!   map's edge (design change 0387);
 //! - `crowds`: more Recruits than the builders' wall holds wait further out; the builders never stand on the
 //!   footprint;
-//! - `hall`: a Recruitment Hall the Recruits build makes Recruits of its own lineage; gatherers taken off to build and
-//!   sent back keep gathering by slice M5-D's rules; a game saved and replayed;
+//! - `hall`: a Recruitment Hall the Recruits build makes Recruits of its own lineage, at the map's edge and in its
+//!   corner at the Effectiveness the edge leaves it (design change 0387); gatherers taken off to build and sent back
+//!   keep gathering by slice M5-D's rules; a game saved and replayed;
 //! - `tech`: the Gunworks, the Machine Shop and the Scrap Hangar (slice M5-G2), each at its price and in its time,
 //!   behind its TechPrerequisite; the Gunworks unlocking the Gunner once complete; a right-click on one a Move.
 //!

@@ -2351,3 +2351,9 @@ Answered Q0069–Q0071 (0258–0267): losing-Tunnel edges, Syndicate economy che
 2026-11-27 — Q0144 (part): rerun with two-sided 8-patch line (~32 seats), One vs Two Halls, start with 1 Storage, Storages as needed. Entry 0385.
 2026-11-27 — Q0143 (a). Entry 0386.
 2026-11-27 — Hall placeable at map edge, off-map tiles non-Recruitable (replaces Q0099). Entry 0387. Q0145 arrived.
+2026-11-27 — DC Place button with progress bar. Entry 0388.
+2026-11-27 — Recruit E: Attack. Entry 0389.
+2026-11-27 — Ghost entrance/exit arrows. Entry 0390.
+2026-11-27 — Faster augmentations (3 s / 6 s). Entry 0391.
+2026-11-27 — EF/DS Place progress (0392); Q0145 (a) (0393); arrows on selected (0394); Hall groupable (0395); rally on unfinished (0396).
+2026-11-27 — Attack always A; Attack issued to all (non-attackers move/follow). Entry 0397.

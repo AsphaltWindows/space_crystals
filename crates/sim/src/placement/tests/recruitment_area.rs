@@ -1,14 +1,15 @@
-//! The Recruitment Area's rule (slice M5-J1, `placement/recruitment_area.rs`): a Recruitment Hall's whole 10 × 10 area
-//! on the map (design change 0341 point 1), in every mode, the map's edge being known.
+//! A Recruitment Hall's placement by its footprint alone (slice M5-S4; design change 0387, which replaced slice M5-J1's
+//! rule, 0341 point 1's "The whole 10x10 area must lie on the map"): right up to the map's edge and in its corners, its
+//! Recruitment Area reaching off the map, in every mode.
 
 use super::*;
 
-use ObjectKind::{RecruitmentHall, Storage};
-use WholeProblem::RecruitmentAreaOffMap;
+use ObjectKind::RecruitmentHall;
 
-/// [`check`] of a Recruitment Hall at `(x, y)` on `sim`'s map in `mode`, built from outside as the Recruits build it:
-/// the problems as a whole.
-fn hall_in(sim: &Sim, mode: Mode<'_>, x: i32, y: i32) -> Vec<WholeProblem> {
+const P1: PlayerId = PlayerId(1);
+
+/// [`check`] of a Recruitment Hall at `(x, y)` on `sim`'s map in `mode`, built from outside as the Recruits build it.
+fn hall_in(sim: &Sim, mode: Mode<'_>, x: i32, y: i32) -> PlacementCheck {
     let area = BuildArea::default();
     let site = Site {
         map: sim.map(),
@@ -16,62 +17,61 @@ fn hall_in(sim: &Sim, mode: Mode<'_>, x: i32, y: i32) -> Vec<WholeProblem> {
         mode,
         method: Method::WorkerBuilt,
     };
-    check(&site, [], RecruitmentHall, t(x, y), BuildingOrientation::default()).whole
+    check(&site, [], RecruitmentHall, t(x, y), BuildingOrientation::default())
 }
 
-/// `factions/cults/structures/recruitment_hall.md > RecruitmentArea`: "**The whole area must lie on the map** ...: a
-/// Hall whose area would leave the map can't be placed (as Tunnels, 0242)". The area reaches 3 tiles past the Hall's 4
-/// × 4 on every side (`recruitment::area`). With 2 tiles between the footprint and an edge, a row or a column of the
-/// area lies off the map, and the Hall is refused as a whole, its own tiles being fine; with 3 tiles, the area just
-/// reaches the edge and the Hall is valid (design change 0371: "0341's Verification example is off by one. A Hall 3
-/// tiles from the edge is accepted; one 2 tiles from the edge is refused"; Tunnels count their gap so, design change
-/// 0283).
-/// Only a kind that recruits has the rule.
+/// Design change 0387's Verification: "Place a Hall flush against the map edge: it is accepted"
+/// (`factions/cults/structures/recruitment_hall.md > RecruitmentArea`: "a Hall can be placed anywhere its 4x4 footprint
+/// fits on the map, including right at the edge"). On a 20 × 16 map, a Hall flush against each edge, 3 rows or columns
+/// of its area off the map, and in each corner, both edges cutting its area, is valid; so is one 2 tiles from an edge,
+/// which slice M5-J1 refused (design change 0371: "one 2 tiles from the edge is refused"). Only its footprint counts: a
+/// Hall a column past the edge has that column's tiles off the map, its one problem.
 #[test]
-fn a_halls_area_must_be_on_the_map() {
+fn a_hall_may_stand_right_up_to_the_map_edge() {
     let map = Map::new(20, 16);
     let area = BuildArea::default();
     let hall = |x, y| place(&map, &area, &[], RecruitmentHall, x, y);
-    // 2 tiles from the west, north, east and south edges, and in the corner.
-    for (x, y) in [(2, 6), (8, 2), (14, 6), (8, 10), (0, 0)] {
-        let check = hall(x, y);
-        assert_eq!(
-            (check.tiles, check.whole),
-            (vec![], vec![RecruitmentAreaOffMap]),
-            "({x}, {y})"
-        );
+    let edges = [(0, 6), (8, 0), (16, 6), (8, 12)];
+    let corners = [(0, 0), (16, 0), (0, 12), (16, 12)];
+    for (x, y) in edges.into_iter().chain(corners).chain([(2, 6)]) {
+        assert_eq!(hall(x, y), PlacementCheck::default(), "({x}, {y})");
     }
-    for (x, y) in [(3, 3), (13, 9), (3, 9), (13, 3)] {
-        assert!(hall(x, y).is_valid(), "3 tiles from the edges: ({x}, {y})");
-    }
-    assert!(place(&map, &area, &[], Storage, 0, 0).is_valid());
-    // Past the edge, the footprint's own tiles are off the map as well; far past it, nothing panics.
-    let off = hall(18, 6);
-    assert_eq!(off.whole, [RecruitmentAreaOffMap]);
-    assert!(!off.tiles.is_empty() && off.tiles.iter().all(|&(_, p)| p == OffMap));
-    for (x, y) in [(-1, 5), (i32::MAX - 1, 0), (i32::MIN, i32::MIN)] {
-        assert_eq!(hall(x, y).whole, [RecruitmentAreaOffMap], "({x}, {y})");
-    }
+    let past = hall(17, 6);
+    assert_eq!(past.whole, []);
+    assert_eq!(past.tiles, (6..10).map(|y| (t(20, y), OffMap)).collect::<Vec<_>>());
 }
 
-/// 0341 is "as Tunnels, 0242": the map's edge is known, so the ghost of a player who never explored the map
-/// (`Mode::Known`) refuses a Hall 2 tiles from the edge, as the gate (`Mode::Command`) and the check on arrival
-/// (`Mode::Arrival`) do, and passes one 3 tiles from it.
+/// Design change 0387: "A Hall can be placed wherever its 4x4 footprint fits on the map", whoever checks it: a Hall
+/// flush against the north edge, in player 1's sight, is valid in every mode, the Recruits' ghost's (`Mode::Known`),
+/// the check on arrival (`Mode::Arrival`), a Starting Layout's (`Mode::Layout`) and a game's direct placement
+/// (`Mode::Command`). Out of sight, a direct placement's one problem is its own tiles' (`TileProblem::NotVisible`),
+/// nothing of the whole.
 #[test]
-fn every_mode_knows_the_edge() {
-    let sim = Sim::new(&ScenarioBuilder::new(&vec![".".repeat(20); 16].join("\n")).build());
-    assert_eq!(sim.visibility(PlayerId(1), t(2, 6)), VisibilityState::Unexplored);
+fn every_mode_takes_a_hall_at_the_edge() {
+    let rows = vec![".".repeat(20); 16].join("\n");
+    let sim = Sim::new(
+        &ScenarioBuilder::new(&rows)
+            .spawn(RecruitmentHall, Some(P1), crate::SpawnAt::Tile(t(8, 4)))
+            .build(),
+    );
+    let footprint = |x0: i32| (0..4).flat_map(move |y| (x0..x0 + 4).map(move |x| t(x, y)));
+    assert!(footprint(8).all(|tile| sim.visibility(P1, tile) == VisibilityState::Visible));
     let known = Mode::Known {
         vision: sim.vision(),
-        player: PlayerId(1),
+        player: P1,
     };
     let command = Mode::Command {
         vision: sim.vision(),
-        player: PlayerId(1),
+        player: P1,
     };
-    for mode in [known, Mode::Arrival, command] {
-        assert_eq!(hall_in(&sim, mode, 2, 6), [RecruitmentAreaOffMap], "{mode:?}");
+    for mode in [known, Mode::Arrival, Mode::Layout, command] {
+        assert_eq!(hall_in(&sim, mode, 8, 0), PlacementCheck::default(), "{mode:?}");
     }
-    assert_eq!(hall_in(&sim, known, 3, 6), []);
-    assert_eq!(hall_in(&sim, Mode::Arrival, 3, 6), []);
+    assert!(footprint(16).all(|tile| sim.visibility(P1, tile) != VisibilityState::Visible));
+    let unseen = hall_in(&sim, command, 16, 0);
+    assert_eq!(unseen.whole, []);
+    assert_eq!(
+        unseen.tiles,
+        footprint(16).map(|tile| (tile, NotVisible)).collect::<Vec<_>>()
+    );
 }

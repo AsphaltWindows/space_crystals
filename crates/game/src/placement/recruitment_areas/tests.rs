@@ -124,3 +124,19 @@ fn the_mesh_tints_each_tile_within_the_outline() {
     let label = shown(0, 0).label();
     assert_eq!(label, "Effectiveness: 49%");
 }
+
+/// The Effectiveness label stands 1.5 tiles north of a Hall's footprint, on the map; for a Hall flush against the
+/// north edge or a tile from it (design change 0387, slice M5-S4), where that point is off the map and out of the view,
+/// 1.5 tiles south of it.
+#[test]
+fn the_label_stands_north_of_the_hall_and_south_of_one_at_the_north_edge() {
+    let at = |x: i32, y: i32| label_ground(&Placement::new(TilePos::new(x, y), Footprint::Tiles { w: 4, h: 4 })) / 64.0;
+    assert_eq!(at(10, 10), Vec2::new(12.0, 8.5));
+    assert_eq!(
+        at(10, 2),
+        Vec2::new(12.0, 0.5),
+        "2 tiles from the edge: still north, half a tile from it"
+    );
+    assert_eq!(at(10, 1), Vec2::new(12.0, 6.5));
+    assert_eq!(at(0, 0), Vec2::new(2.0, 5.5), "in the corner");
+}

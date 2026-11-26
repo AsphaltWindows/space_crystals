@@ -7,7 +7,6 @@ use super::build_area::{BuildArea, needs_build_area, overlap};
 use super::footprint::Footprint;
 use super::onto::Onto;
 use super::problems::{PlacementCheck, TileProblem, WholeProblem};
-use super::recruitment_area;
 use super::site::{Method, Mode, Occupant, Site};
 use super::tunnel_area::{area_rule, layout_method};
 use super::tunnel_overlap::Overlap;
@@ -200,9 +199,9 @@ pub fn check_reserving(
     {
         whole.push(WholeProblem::OutsideTunnelArea);
     }
-    // (M5-J1) Design change 0341 point 1: a Recruitment Hall's whole Recruitment Area on the map
-    // (`super::recruitment_area`).
-    whole.extend(recruitment_area::area_rule(map, kind, footprint.rect()));
+    // A Recruitment Hall's area has no rule (design change 0387, slice M5-S4, in place of slice M5-J1's whole area on
+    // the map): it stands wherever its footprint fits, and its area's tiles off the map count as non-Recruitable
+    // (`crate::recruitment`).
     PlacementCheck { tiles, whole }
 }
 

@@ -1,13 +1,15 @@
 //! The Recruitment Area display in the client (slice M5-J2; `factions/cults/structures/recruitment_hall.md >
 //! Recruitment Area display`, design changes 0350, 0351 and 0352, answering Q0107), with the fog of war on: the
 //! preview of a Hall placed beside an own Hall, an other player's Hall in sight, one never seen, one remembered and
-//! destroyed unseen, and an own ghost Hall; its Effectiveness by the ghost; a selected own Hall's claimed tiles; and
-//! never an enemy's area.
+//! destroyed unseen, and an own ghost Hall; its Effectiveness by the ghost; a selected own Hall's claimed tiles; never
+//! an enemy's area; and the preview of a Hall at the map's edge and in its corner (slice M5-S4, design change 0387).
 
 use sc_sim::recruitment::preview::{Claimer, PreviewTile};
 use sc_sim::testing::ScenarioBuilder;
 use sc_sim::tuning::vision::FOG_DELAY_TICKS;
 use sc_sim::{Faction, SU_PER_GU};
+use space_crystals::camera::{CameraZoom, view_rect};
+use space_crystals::coords::world_to_view;
 use space_crystals::placement::RecruitmentAreaOverlay;
 use space_crystals::placement::recruitment_areas::EffectivenessLabel;
 
@@ -299,4 +301,52 @@ fn a_selected_own_hall_shows_its_claimed_tiles_and_an_enemy_none() {
     assert_eq!(selected(&app), [SEEN_HALL]);
     assert!(overlay(&app).selected.is_empty());
     assert!(!overlay(&app).visible);
+}
+
+/// Where the Effectiveness label stands, as a view point (the map is flat: over the ground there).
+fn label_view(app: &mut App) -> Vec2 {
+    let mut query = app.world_mut().query_filtered::<&Transform, With<EffectivenessLabel>>();
+    let at = query.single(app.world()).expect("one label").translation.truncate();
+    world_to_view(at)
+}
+
+/// The area the world view shows, in view space.
+fn shown_area(app: &App) -> Rect {
+    let world = app.world();
+    let (size, insets) = (*world.resource::<SurfaceSize>(), *world.resource::<ViewportInsets>());
+    view_rect(
+        size,
+        insets,
+        world.resource::<CameraView>().center,
+        world.resource::<CameraZoom>().0,
+    )
+}
+
+/// Design change 0387's Verification through the preview: "The preview shows Effectiveness ≤ 70%"
+/// (`factions/cults/structures/recruitment_hall.md > Effectiveness`: "The total is always the full 10x10 = 100,
+/// **off-map tiles included**"; 0387: "The preview's Effectiveness counts off-map tiles as 0"). Flush against the
+/// north edge, away from the other Halls, the 3 rows of the ghost's area off the map are not Recruitable: 70%; in the
+/// north-east corner, both edges cutting the area, 49%. North of the footprint is off the map there, which the view
+/// never shows: the label stands south of it, in the view (slice M5-S4, a placeholder).
+#[test]
+fn a_hall_at_the_map_edge_previews_its_tiles_off_the_map_as_not_recruitable() {
+    let mut app = field();
+    place_a_hall(&mut app);
+    for (origin, shown, text) in [
+        (TilePos::new(40, 0), ([70, 0, 0, 0, 30], 70), "Effectiveness: 70%"),
+        (TilePos::new(60, 0), ([49, 0, 0, 0, 51], 49), "Effectiveness: 49%"),
+    ] {
+        ghost_at(&mut app, origin);
+        assert_eq!(counts(&app), shown, "{origin:?}");
+        assert_eq!(label(&mut app), text);
+        let at = label_view(&mut app);
+        assert!(
+            shown_area(&app).contains(at),
+            "{origin:?}: the label, at {at:?}, in the view"
+        );
+        assert!(
+            at.y > (origin.y + 4) as f32 * SU_PER_GU,
+            "{origin:?}: south of the footprint"
+        );
+    }
 }
