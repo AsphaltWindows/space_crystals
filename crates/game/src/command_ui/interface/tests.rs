@@ -371,7 +371,8 @@ fn a_barracks_trains_in_q_cancels_in_x_and_rallies_in_c() {
 
 /// Plan decision T23: every type that produces units has the Production template, its grid built from its
 /// `ProductionDef`: its units in Q, W and on, X Cancel Production and C Set Rally Point; but a pool building, which
-/// trains the units it holds, has the PoolProducer template (slice M5-F2, `cults`). The Barracks' is the grid of
+/// trains the units it holds, has the PoolProducer template (slice M5-F2, `cults`), and one that augments them, the
+/// Altar, the Altar template (slice M5-N1b, `altar`). The Barracks' is the grid of
 /// `factions/gdo/structures/barracks.md > ObjectInterfaceState[Barracks]`, the Field Engineer in E, the slot the design
 /// gives it, and W, the Rocketman's, empty (slice M5-N9, `PanelTemplate::trains`); the Robo Portal trains the Drone in
 /// Q, the Bio Portal the Sabre Legionnaire, and their units not in the game yet hold their slots (design change 0124:
@@ -381,9 +382,12 @@ fn every_producer_gets_the_production_panel_of_its_recipes() {
     use PanelCommand::{CancelProduction, Planned as P, SetRallyPoint, Train};
     for &kind in ObjectKind::ALL {
         let production = kind.def().structure.as_ref().and_then(|s| s.production.as_ref());
-        let template = match sc_sim::holding::trains(kind) {
-            true => InterfaceTemplate::PoolProducer,
-            false => InterfaceTemplate::Production,
+        let template = if production.is_some_and(|production| !production.augment.is_empty()) {
+            InterfaceTemplate::Altar
+        } else if sc_sim::holding::trains(kind) {
+            InterfaceTemplate::PoolProducer
+        } else {
+            InterfaceTemplate::Production
         };
         assert_eq!(
             InterfaceTemplate::of(kind) == Some(template),

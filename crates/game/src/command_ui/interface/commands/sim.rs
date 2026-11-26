@@ -29,14 +29,17 @@ impl PanelCommand {
     }
 
     /// The production command of a producer's command that needs no target (`sc_sim::Command::Production`): Train
-    /// and Cancel Production, and a pool building's KindMenu entries, a training of a kind and a Release. Set Rally
-    /// Point's waits for its target (`crate::command_ui::resolution::target_resolution`).
+    /// and Cancel Production, a pool building's KindMenu entries, a training of a kind and a Release, and an Altar's
+    /// AugmentMenu\[UnitType, State\] entries, an order and a Release of the type and the state (slice M5-N1b). Set
+    /// Rally Point's waits for its target (`crate::command_ui::resolution::target_resolution`).
     pub fn production(self) -> Option<ProductionCommand> {
         match self {
             PanelCommand::Train(kind) => Some(ProductionCommand::Train(kind)),
             PanelCommand::CancelProduction => Some(ProductionCommand::CancelProduction),
             PanelCommand::TrainFrom(kind, from) => Some(ProductionCommand::TrainFrom { kind, from }),
             PanelCommand::Release(from) => Some(ProductionCommand::Release(from)),
+            PanelCommand::Augment(kind, from, order) => Some(ProductionCommand::Augment { kind, from, order }),
+            PanelCommand::ReleaseOf(kind, from) => Some(ProductionCommand::ReleaseOf { kind, from }),
             _ => None,
         }
     }

@@ -210,7 +210,7 @@ fn w_shows_one_and_a_releases_the_constitution_recruit_after_a_quarter_second() 
         [0, 1, 2, 3].map(|column| (slot(0, column), drawn[column as usize].clone()))
     );
     tap(&mut app, &[], KeyE);
-    assert_eq!(feedback(&app), Some("No free Recruit of that kind"));
+    assert_eq!(feedback(&app), Some("No free unit of that kind"));
     assert_eq!(interface(&app), InterfaceState::DefaultState);
     tap(&mut app, &[], KeyX);
     assert_eq!(feedback(&app), Some("Nothing to cancel"));
@@ -276,7 +276,7 @@ fn w_shows_one_and_a_releases_the_constitution_recruit_after_a_quarter_second() 
     };
     assert_eq!(releases(&app), 1);
     tap(&mut app, &[], KeyA);
-    assert_eq!(feedback(&app), Some("No free Recruit of that kind"));
+    assert_eq!(feedback(&app), Some("No free unit of that kind"));
     assert_eq!(releases(&app), 1, "one Release queued");
     assert_eq!(
         interface(&app),
@@ -343,7 +343,7 @@ fn q_trains_a_militant_x_cancels_and_a_ejects_the_free_recruits() {
     );
     assert_eq!(bank(&app), 1000 - 2 * 20);
     tap(&mut app, &[], KeyQ);
-    assert_eq!(feedback(&app), Some("No free Recruit of that kind"));
+    assert_eq!(feedback(&app), Some("No free unit of that kind"));
     tap(&mut app, &[], KeyZ);
     assert_eq!(
         buttons(&mut app)[0],
@@ -369,7 +369,7 @@ fn q_trains_a_militant_x_cancels_and_a_ejects_the_free_recruits() {
     assert_eq!(inside(&app, ARMORY_1), [first_in], "the reserved Recruit stays");
     assert_eq!(buttons(&mut app)[4].2, Disabled, "nothing free to eject");
     tap(&mut app, &[], KeyA);
-    assert_eq!(feedback(&app), Some("No free Recruit inside"));
+    assert_eq!(feedback(&app), Some("No free unit inside"));
     assert_eq!(holdings(&app).len(), 1);
     let trained = |app: &App| {
         app.world()

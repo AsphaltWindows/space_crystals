@@ -1,7 +1,7 @@
 //! The panel commands' labels and names ([`PanelCommand::label`], [`PanelCommand::name`], [`PanelCommand::name_on`]):
 //! what a button shows, and what the InfoPanel's hint for it says (`crate::hud::info_panel::hint`).
 
-use sc_sim::{ObjectKind, RecruitKind};
+use sc_sim::{AugmentOrder, ObjectKind, RecruitKind};
 
 use super::super::BuildMenu;
 use super::PanelCommand;
@@ -21,7 +21,9 @@ impl PanelCommand {
     /// (`super::super::PanelSlot::count`); an ExpandMenu entry its expansion's, as a building constructed does. A pool
     /// building's kind buttons show their kind for the icon of its augments, "Plain", "Const.", "Metab.", "Both", with
     /// their counts; its KindMenu's training the unit's tag, as a Train does, its Release "Rel." and its Eject All
-    /// "Eject" (slice M5-F2).
+    /// "Eject" (slice M5-F2). An Altar's unit type tiles show their type's tag, as an EjectMenu tile does, its state
+    /// tiles their kind as the kind buttons do, and its orders the Augmentation they apply, "Const.", "Metab." and
+    /// "Both", for their icons (slice M5-N1b).
     pub fn label(self) -> &'static str {
         match self {
             PanelCommand::Move => "Move",
@@ -36,6 +38,7 @@ impl PanelCommand {
             PanelCommand::Convert(_) => "Conv.",
             PanelCommand::Train(kind)
             | PanelCommand::TrainFrom(kind, _)
+            | PanelCommand::AugmentMenu(kind)
             | PanelCommand::Construct(kind)
             | PanelCommand::WarpIn(kind)
             | PanelCommand::Eject(kind)
@@ -58,8 +61,9 @@ impl PanelCommand {
             PanelCommand::EjectMenu => "Eject",
             PanelCommand::ExpandMenu => "Expand",
             PanelCommand::UpgradeTunnel => "Upgr.",
-            PanelCommand::KindMenu(kind) => kind_label(kind),
-            PanelCommand::Release(_) => "Rel.",
+            PanelCommand::KindMenu(kind) | PanelCommand::AugmentState(_, kind) => kind_label(kind),
+            PanelCommand::Augment(_, _, order) => order_label(order),
+            PanelCommand::Release(_) | PanelCommand::ReleaseOf(..) => "Rel.",
             PanelCommand::EjectAll => "Eject",
             PanelCommand::Assist => "Assist",
             PanelCommand::Repair => "Repair",
@@ -102,8 +106,11 @@ impl PanelCommand {
             PanelCommand::UpgradeTunnel => "Upgrade Tunnel".into(),
             PanelCommand::KindMenu(kind) => format!("{} Recruits", kind.name()),
             PanelCommand::TrainFrom(kind, _) => named("Train", kind),
-            PanelCommand::Release(_) => "Release".into(),
+            PanelCommand::Release(_) | PanelCommand::ReleaseOf(..) => "Release".into(),
             PanelCommand::EjectAll => "Eject All".into(),
+            PanelCommand::AugmentMenu(kind) => kind.def().name.into(),
+            PanelCommand::AugmentState(_, kind) => state_name(kind).into(),
+            PanelCommand::Augment(_, _, order) => order_name(order).into(),
             PanelCommand::Assist => "Assist Construction".into(),
             PanelCommand::Move
             | PanelCommand::Attack
@@ -136,13 +143,47 @@ impl PanelCommand {
     }
 }
 
-/// The label of a kind's button (`PanelCommand::KindMenu`): a placeholder for the icon of its augments (Q0001,
-/// design change 0337: "Each kind's button shows the unit with an **icon for its augments**").
+/// The label of a kind's button (`PanelCommand::KindMenu`), and of an Altar's state tile (`PanelCommand::AugmentState`):
+/// a placeholder for the icon of its augments (Q0001, design change 0337: "Each kind's button shows the unit with an
+/// **icon for its augments**").
 fn kind_label(kind: RecruitKind) -> &'static str {
     match kind {
         RecruitKind::Plain => "Plain",
         RecruitKind::Constitution => "Const.",
         RecruitKind::Metabolism => "Metab.",
         RecruitKind::Both => "Both",
+    }
+}
+
+/// (M5-N1b) The name of an Altar's state tile (`factions/cults/augmentation.md > Altar > ObjectInterfaceState[Altar] >
+/// AugmentMenu[UnitType]`): "**Q: Unaugmented**", "**W: Enhanced Constitution only**", "**E: Improved Metabolism
+/// only**", "**R: Fully augmented**".
+fn state_name(kind: RecruitKind) -> &'static str {
+    match kind {
+        RecruitKind::Plain => "Unaugmented",
+        RecruitKind::Constitution => "Enhanced Constitution only",
+        RecruitKind::Metabolism => "Improved Metabolism only",
+        RecruitKind::Both => "Fully augmented",
+    }
+}
+
+/// (M5-N1b) The label of an Altar's order (`PanelCommand::Augment`): a placeholder for the icon of the Augmentation it
+/// applies (Q0001), as a kind's button shows its augments.
+fn order_label(order: AugmentOrder) -> &'static str {
+    match order {
+        AugmentOrder::EnhancedConstitution => "Const.",
+        AugmentOrder::ImprovedMetabolism => "Metab.",
+        AugmentOrder::Both => "Both",
+    }
+}
+
+/// (M5-N1b) The name of an Altar's order (`factions/cults/augmentation.md > Altar > Augmentation Orders`: "**Enhanced
+/// Constitution**, **Improved Metabolism**, or **Both** (a single order that applies both)"): the Augmentation's
+/// (`AugmentOrder::name`), Both's said in full, "Both Augmentations" (placeholder wording), as the hint names a
+/// button more fully than its label does.
+fn order_name(order: AugmentOrder) -> &'static str {
+    match order {
+        AugmentOrder::Both => "Both Augmentations",
+        _ => order.name(),
     }
 }

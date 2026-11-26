@@ -15,7 +15,8 @@ const UNFINISHED: [PanelCommand; 2] = [PanelCommand::CancelConstruction, PanelCo
 /// of a site's construction ([`SITE_GRID`], design change 0237), whichever it is; a finished type's DefaultState
 /// grid, and a constructor's buildings to construct and to place, and its two Cancels; a Beacon's buildings to warp
 /// in; a Tunnel's EjectMenu tiles and the expansions of its ExpandMenu; a pool building's KindMenus' entries, every
-/// kind's; a Recruit's buildings of its Construct menus (slice M5-J1: [`menu_builds`]). In order, each once.
+/// kind's; an Altar's AugmentMenus' tiles and entries, every type's and state's (slice M5-N1b); a Recruit's buildings
+/// of its Construct menus (slice M5-J1: [`menu_builds`]). In order, each once.
 pub fn commands(ty: impl Into<GroupType>) -> Vec<PanelCommand> {
     let GroupType { kind, unfinished } = ty.into();
     if unfinished {
@@ -49,6 +50,9 @@ pub fn commands(ty: impl Into<GroupType>) -> Vec<PanelCommand> {
     if pools(kind) {
         commands.extend(cults::armory::kind_menus(kind));
     }
+    if augments(kind) {
+        commands.extend(cults::altar::menus(kind));
+    }
     commands.extend(menu_builds(kind));
     commands.sort_unstable();
     commands.dedup();
@@ -69,8 +73,9 @@ pub fn commands(ty: impl Into<GroupType>) -> Vec<PanelCommand> {
 /// Beacon's Warp In (Advanced) opens, on its unavailable buildings. A type whose DefaultState opens the EjectMenu, the
 /// Tunnel, offers its tiles, and one that opens the ExpandMenu, the Tunnel, the expansions in the game
 /// (`sc_sim::defs::EXPAND_MENU`), each a type a Tunnel builds (`StructureDef::expansion`). A pool building offers its
-/// KindMenus' trainings and Releases (slice M5-F2). A worker offers the Build its grid has (the Agent's) and those of
-/// the build menus it opens (the Recruit's Construct menus, slice M5-J1: [`menu_builds`]).
+/// KindMenus' trainings and Releases (slice M5-F2), an Altar its AugmentMenus' tiles, orders and Releases (slice
+/// M5-N1b). A worker offers the Build its grid has (the Agent's) and those of the build menus it opens (the Recruit's
+/// Construct menus, slice M5-J1: [`menu_builds`]).
 pub fn offers(ty: impl Into<GroupType>, command: PanelCommand) -> bool {
     let GroupType { kind, unfinished } = ty.into();
     if unfinished {
@@ -92,6 +97,9 @@ pub fn offers(ty: impl Into<GroupType>, command: PanelCommand) -> bool {
         PanelCommand::Planned(_) | PanelCommand::CancelTransform => return false,
         PanelCommand::TrainFrom(..) | PanelCommand::Release(_) => {
             return pools(kind) && cults::armory::kind_menus(kind).any(|entry| entry == command);
+        }
+        PanelCommand::AugmentState(..) | PanelCommand::Augment(..) | PanelCommand::ReleaseOf(..) => {
+            return augments(kind) && cults::altar::menus(kind).any(|entry| entry == command);
         }
         PanelCommand::Build(_) if menu_builds(kind).any(|build| build == command) => return true,
         _ => {}
@@ -134,4 +142,12 @@ fn expands(kind: sc_sim::ObjectKind) -> bool {
 /// Whether objects of `kind` open the KindMenus: the pool buildings, the Armory (slice M5-F2).
 fn pools(kind: sc_sim::ObjectKind) -> bool {
     grid(kind).contains(&Some(PanelCommand::KindMenu(RecruitKind::Plain)))
+}
+
+/// Whether objects of `kind` open the AugmentMenus: the Altar (slice M5-N1b).
+fn augments(kind: sc_sim::ObjectKind) -> bool {
+    grid(kind)
+        .iter()
+        .flatten()
+        .any(|command| matches!(command, PanelCommand::AugmentMenu(_)))
 }

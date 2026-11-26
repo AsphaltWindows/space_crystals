@@ -87,6 +87,13 @@
 //! Armory Tabbed to (design change 0348 point 5, `factions/cults/structures/README.md > Choosing Recruits, Release and
 //! Eject All`: "a command goes to one building").
 //!
+//! The Cults' Altar (`factions/cults/augmentation.md > Altar > ObjectInterfaceState[Altar]`, slice M5-N1b) picks a
+//! unit type first, Q Recruit, W Militant, E Gunner and R Disciple, each with the count of its free units inside and
+//! greyed while there are none, opening AugmentMenu\[UnitType\]: Q Unaugmented, W Enhanced Constitution only, E Improved
+//! Metabolism only and R Fully augmented, the same, each opening AugmentMenu\[UnitType, State\], whose orders the units
+//! of the state may take queue one each and A releases one, the menu staying open; Z goes back a stage. Its A, X and C
+//! are the Armory's, and every command goes to the Altar Tabbed to.
+//!
 //! The Syndicate's Agent (`factions/syndicate/units/agent.md > Agent ObjectInterfaceState`, design changes 0257 and
 //! 0359; slices M4-J1 and M5-Y) has Q Move, A Build Tunnel, S Drop Off, D Repair (slice M5-N8) and X Stop:
 //! a Laser Turret is the Tunnel's ExpandMenu's alone. A enters AwaitingPlacement of a Tunnel built by the Agent Tabbed
@@ -135,7 +142,7 @@ pub use templates::{
     menu_of, offers, slot_index, state_grid,
 };
 
-use sc_sim::{RecruitKind, deploy};
+use sc_sim::{ObjectKind, RecruitKind, deploy};
 
 use crate::input::CommandSlot;
 use crate::selection::Selection;
@@ -187,6 +194,14 @@ pub enum InterfaceState {
     /// Recruits of that kind [...], plus **A: Release**; **Z** back. Clicks stay in the menu so they can be repeated."
     /// Like a build menu, it leaves the map's clicks to the selection (slice M5-F2).
     KindMenu(RecruitKind),
+    /// (M5-N1b) `factions/cults/augmentation.md > Altar > ObjectInterfaceState[Altar] > AugmentMenu[UnitType]`: an
+    /// Altar's AugmentationState tiles for the unit type chosen in its DefaultState ("**Z**: returns to DefaultState
+    /// (StateOnlyTransition)"). Like a build menu, it leaves the map's clicks to the selection.
+    AugmentMenu(ObjectKind),
+    /// (M5-N1b) `... > AugmentMenu[UnitType, State]`: the orders a unit of the type and the state may take, and Release
+    /// ("Each click queues one order (CommandIssuingTransition) and stays in this menu so further clicks queue more";
+    /// "**Z**: returns to AugmentMenu[UnitType] (StateOnlyTransition)").
+    AugmentStateMenu(ObjectKind, RecruitKind),
 }
 
 impl InterfaceState {
@@ -204,7 +219,9 @@ impl InterfaceState {
             | InterfaceState::AwaitingPlacement(_)
             | InterfaceState::EjectMenu
             | InterfaceState::ExpandMenu
-            | InterfaceState::KindMenu(_) => None,
+            | InterfaceState::KindMenu(_)
+            | InterfaceState::AugmentMenu(_)
+            | InterfaceState::AugmentStateMenu(..) => None,
         }
     }
 
@@ -240,9 +257,12 @@ impl InterfaceState {
     /// DefaultState"), the Drones' (A is pressed in their DefaultState), a build menu ("Escape/right-click: returns to
     /// DefaultState"), AwaitingTarget, and the Tunnel's EjectMenu and ExpandMenu (`factions/syndicate/tunnel_menus.md >
     /// EjectMenu`, `factions/syndicate/tunnel_menus.md > ExpandMenu`: "**Z**: returns to DefaultState"), and a pool
-    /// building's KindMenu ("**Z** back").
+    /// building's KindMenu ("**Z** back"). An Altar's AugmentMenu\[UnitType, State\] goes back to AugmentMenu\[UnitType\],
+    /// that to DefaultState (`factions/cults/augmentation.md > Altar > ObjectInterfaceState[Altar]`: "Z returns to the
+    /// previous stage at every stage").
     pub fn back(self, selection: &Selection) -> InterfaceState {
         match self {
+            InterfaceState::AugmentStateMenu(unit, _) => InterfaceState::AugmentMenu(unit),
             InterfaceState::AwaitingPlacement(Placing {
                 builder: Builder::Tunnel(_),
                 ..
@@ -273,7 +293,9 @@ impl InterfaceState {
 /// - the EjectMenu and the ExpandMenu while the ActiveGroup is a Tunnel: the menu stays open while the network's
 ///   contents or the Tunnel's operation change, its entries greyed while they can't be used;
 /// - a KindMenu while the ActiveGroup is a pool building: the menu stays open while its pool changes, its kind's
-///   last Recruit used or gone out included (its entries greyed then), so that clicks can be repeated.
+///   last Recruit used or gone out included (its entries greyed then), so that clicks can be repeated;
+/// - an AugmentMenu while the ActiveGroup is an Altar with its tile: the menu stays open while its units change, as a
+///   KindMenu does (slice M5-N1b).
 ///
 /// A selected object that transforms has the panel of its new type's unfinished group, only its Cancel (design
 /// changes 0116 and 0185): what its old type was doing ends (`crate::selection::ControlState::set_type`), and so does
@@ -330,10 +352,16 @@ pub fn still_valid(
                         .is_some_and(|active| offers(active.group_type(), PanelCommand::Build(placing.kind))),
                 }
         }
-        InterfaceState::EjectMenu | InterfaceState::ExpandMenu | InterfaceState::KindMenu(_) => {
+        InterfaceState::EjectMenu
+        | InterfaceState::ExpandMenu
+        | InterfaceState::KindMenu(_)
+        | InterfaceState::AugmentMenu(_)
+        | InterfaceState::AugmentStateMenu(..) => {
             let menu = match interface {
                 InterfaceState::EjectMenu => PanelCommand::EjectMenu,
                 InterfaceState::KindMenu(kind) => PanelCommand::KindMenu(kind),
+                InterfaceState::AugmentMenu(unit) => PanelCommand::AugmentMenu(unit),
+                InterfaceState::AugmentStateMenu(unit, state) => PanelCommand::AugmentState(unit, state),
                 _ => PanelCommand::ExpandMenu,
             };
             commandable

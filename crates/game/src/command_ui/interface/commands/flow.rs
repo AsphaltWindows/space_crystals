@@ -51,7 +51,11 @@ impl PanelCommand {
             | PanelCommand::KindMenu(_)
             | PanelCommand::TrainFrom(..)
             | PanelCommand::Release(_)
-            | PanelCommand::EjectAll => false,
+            | PanelCommand::EjectAll
+            | PanelCommand::AugmentMenu(_)
+            | PanelCommand::AugmentState(..)
+            | PanelCommand::Augment(..)
+            | PanelCommand::ReleaseOf(..) => false,
         }
     }
 
@@ -72,9 +76,9 @@ impl PanelCommand {
     /// Recruit being Groupable (slice M5-J1; `factions/cults/units/recruit.md > Recruit ObjectInterfaceState`:
     /// "Construct sends every selected Recruit to build the **same** building together", design change 0072), and never
     /// to the other types' units. So do a pool building's kind menus, their entries and its Eject All, which read and
-    /// change its own pool (design change 0337: "the count inside (unreserved)"); and every command of a pool building
-    /// goes to the one Tabbed to, its X and C too (design change 0348 point 5: "a command goes to one building";
-    /// `super::super::is_common`).
+    /// change its own pool (design change 0337: "the count inside (unreserved)"), and an Altar's menus and their
+    /// entries alike (slice M5-N1b); and every command of a pool building goes to the one Tabbed to, its X and C too
+    /// (design change 0348 point 5: "a command goes to one building"; `super::super::is_common`).
     pub fn instance_only(self) -> bool {
         matches!(
             self,
@@ -99,6 +103,10 @@ impl PanelCommand {
                 | PanelCommand::TrainFrom(..)
                 | PanelCommand::Release(_)
                 | PanelCommand::EjectAll
+                | PanelCommand::AugmentMenu(_)
+                | PanelCommand::AugmentState(..)
+                | PanelCommand::Augment(..)
+                | PanelCommand::ReleaseOf(..)
         )
     }
 
@@ -156,7 +164,11 @@ impl PanelCommand {
             | PanelCommand::KindMenu(_)
             | PanelCommand::TrainFrom(..)
             | PanelCommand::Release(_)
-            | PanelCommand::EjectAll => false,
+            | PanelCommand::EjectAll
+            | PanelCommand::AugmentMenu(_)
+            | PanelCommand::AugmentState(..)
+            | PanelCommand::Augment(..)
+            | PanelCommand::ReleaseOf(..) => false,
         }
     }
 }

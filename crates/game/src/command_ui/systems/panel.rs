@@ -65,8 +65,9 @@ pub(in crate::command_ui) fn cancel_on_escape(actions: Res<ActionState>, mut con
 /// Tunnel an Eject, the menu staying open (`factions/syndicate/tunnel_menus.md > EjectMenu`, slice M4-J2); its W opens
 /// its ExpandMenu, whose entries enter their placement in the Tunnel Area, and its X cancels its operation
 /// (`factions/syndicate/tunnel_menus.md > ExpandMenu`, slice M4-F). A pool building's Q, W, E and R open their
-/// KindMenus, whose entries train or release at once, the menu staying open, and its A ejects (slice M5-F2). Back (Z)
-/// returns to the previous state. While a target
+/// KindMenus, whose entries train or release at once, the menu staying open, and its A ejects (slice M5-F2); an
+/// Altar's tiles open its AugmentMenus, whose entries augment or release at once, the menu staying open (slice
+/// M5-N1b). Back (Z) returns to the previous state. While a target
 /// is awaited or a building placed the other commands are unavailable (design change 0066), and so is a production or
 /// construction command the gate would refuse (design change 0081; never for the army cap, 0143): [`press`] finds
 /// nothing to do for them, and a greyed-out button says why it is ([`CommandRefused`], design change 0162: "nothing is
@@ -183,6 +184,12 @@ pub(in crate::command_ui) fn press_command_slots(
             }
             SlotPress::OpenKindMenu(kind) => {
                 control.update(|state| state.interface = InterfaceState::KindMenu(kind));
+            }
+            SlotPress::OpenAugmentMenu(unit) => {
+                control.update(|state| state.interface = InterfaceState::AugmentMenu(unit));
+            }
+            SlotPress::OpenAugmentStateMenu(unit, kind) => {
+                control.update(|state| state.interface = InterfaceState::AugmentStateMenu(unit, kind));
             }
             SlotPress::Hold(command, holding) => {
                 let buildings = recipients(&state.selection, command);

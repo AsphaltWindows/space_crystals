@@ -7,7 +7,7 @@ mod flow;
 mod names;
 mod sim;
 
-use sc_sim::{ObjectKind, RecruitKind};
+use sc_sim::{AugmentOrder, ObjectKind, RecruitKind};
 
 use super::{BuildMenu, Planned};
 
@@ -22,7 +22,8 @@ use super::{BuildMenu, Planned};
 /// Cancel`; slices M3-J1 and M3-J2, design change 0124), and the Syndicate's Tunnel
 /// (`factions/syndicate/tunnel_menus.md > Tunnel ObjectInterfaceState`, slices M4-J2 and M4-F) and Agent
 /// (`factions/syndicate/units/agent.md > Agent ObjectInterfaceState`, slice M4-J1), and the Cults' pool buildings'
-/// (design change 0337, `factions/cults/structures/README.md > Choosing Recruits, Release and Eject All`; slice M5-F2).
+/// (design change 0337, `factions/cults/structures/README.md > Choosing Recruits, Release and Eject All`; slice M5-F2)
+/// and Altar's (`factions/cults/augmentation.md > Altar > ObjectInterfaceState[Altar]`, slice M5-N1b).
 #[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum PanelCommand {
     Move,
@@ -184,4 +185,26 @@ pub enum PanelCommand {
     /// right-click entering it (`factions/cults/units/recruit.md > Right-Click Resolution`: "Repair those with **D:
     /// Repair**").
     Repair,
+    /// (M5-N1b) An Altar's unit type tile (`factions/cults/augmentation.md > Altar > ObjectInterfaceState[Altar]`: "Unit
+    /// type tiles (StateOnlyTransition to AugmentMenu[UnitType]) — each tile shows the count of that unit type in
+    /// StoredUnits; disabled if there are none: **Q: Recruit**, **W: Militant**, **E: Gunner**, **R: Disciple**"): a
+    /// StateOnlyTransition to `super::InterfaceState::AugmentMenu` (`super::PanelSlot::count`,
+    /// `super::Conditions::stored_count`).
+    AugmentMenu(ObjectKind),
+    /// (M5-N1b) An AugmentMenu\[UnitType\]'s AugmentationState tile (`factions/cults/augmentation.md > Altar >
+    /// ObjectInterfaceState[Altar] > AugmentMenu[UnitType]`: "StateOnlyTransition to AugmentMenu[UnitType, State].
+    /// Each tile shows the count of unreserved units of that type and state in StoredUnits; disabled if there are
+    /// none"): **Q: Unaugmented**, **W: Enhanced Constitution only**, **E: Improved Metabolism only**, "**R: Fully
+    /// augmented** — enabled when there are any (only Release is possible)"; a StateOnlyTransition to
+    /// `super::InterfaceState::AugmentStateMenu`.
+    AugmentState(ObjectKind, RecruitKind),
+    /// (M5-N1b) An AugmentMenu\[UnitType, State\]'s order (`factions/cults/augmentation.md > Altar >
+    /// ObjectInterfaceState[Altar] > AugmentMenu[UnitType, State]`: "Each click queues one order
+    /// (CommandIssuingTransition) and stays in this menu so further clicks queue more"), for a unit of the type and the
+    /// state, at once (`sc_sim::ProductionCommand::Augment`).
+    Augment(ObjectKind, RecruitKind, AugmentOrder),
+    /// (M5-N1b) An AugmentMenu\[UnitType, State\]'s "In every state: **A: Release** (free no-op, 4 frames,
+    /// placeholder; the unit walks out unchanged)" (design change 0337), of a unit of the type and the state, at once
+    /// (`sc_sim::ProductionCommand::ReleaseOf`); the menu stays open, as for an order.
+    ReleaseOf(ObjectKind, RecruitKind),
 }

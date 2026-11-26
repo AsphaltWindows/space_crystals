@@ -10,8 +10,9 @@
 //! its EjectMenu ([`syndicate`], slice M4-J2), and its Agent builds Tunnels (slice M4-J1). The Cults' pool buildings,
 //! the Armory first, open a menu per kind of Recruit ([`cults`], slice M5-F2), and the Recruit two Construct menus
 //! built the same way, their entries the group's Builds (slice M5-J1); the Garrison lets everyone out (slice M5-N2).
-//! The GDO's Field Engineer repairs, and its Construct menu holds its buildings' slots (slice M5-N9). An entry not in
-//! the game yet holds its slot, unavailable ([`Planned`]).
+//! The GDO's Field Engineer repairs, and its Construct menu holds its buildings' slots (slice M5-N9). The Cults' Altar
+//! picks a unit type, then a state, then the orders (slice M5-N1b). An entry not in the game yet holds its slot,
+//! unavailable ([`Planned`]).
 
 pub mod colonists;
 pub mod cults;
@@ -103,6 +104,11 @@ pub enum InterfaceTemplate {
     /// damaged own building or vehicle: Repair (Enter wins on a building it can enter, as for Recruits)") is the
     /// sim's one rule, as every unit's.
     FieldEngineer,
+    /// (M5-N1b) `factions/cults/augmentation.md > Altar > ObjectInterfaceState[Altar]`: "a three-stage selection: **unit
+    /// type → current AugmentationState → Augmentation to apply**" ([`cults::altar`]), its orders those of its
+    /// `ProductionDef::augment`, with A Eject All, X Cancel Production and C Set Rally Point. Its right-click sets the
+    /// rally point ("Right-click Ground: issues SetRallyPoint command to that location").
+    Altar,
 }
 
 /// The Deployment Center's build menus (`factions/gdo/structures/deployment_center.md >
@@ -227,6 +233,7 @@ impl InterfaceTemplate {
             InterfaceTemplate::Recruit => cults::recruit::GRID,
             InterfaceTemplate::Garrison => cults::garrison::GRID,
             InterfaceTemplate::FieldEngineer => gdo::field_engineer::GRID,
+            InterfaceTemplate::Altar => cults::altar::GRID,
         }
     }
 }
