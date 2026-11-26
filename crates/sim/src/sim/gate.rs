@@ -176,8 +176,9 @@ pub enum Reject {
     /// (`factions/syndicate/tunnel_area_and_space.md > Tunnel Area Non-Overlap Rule`). It never says what: "the upgrade
     /// check uses the truth; the upgrading Tunnel's owner learns that something blocks it".
     UpgradeBlocked(ObjectId),
-    /// (M5-F1) The target of an Enter is a building that holds units, under construction (Placeholder (Q0104 point 4):
-    /// an Armory under construction can't be entered; "A right-click on one Assists").
+    /// (M5-F1) The target of an Enter is a building that holds units, under construction (design change 0347 point 4,
+    /// `factions/cults/structures/README.md > Entering pool buildings`: "a building under construction **can't be
+    /// entered**; a right-click on it Assists").
     UnderConstruction(ObjectId),
     /// (M5-F1) The building takes none of the units an Enter names (`systems/controls/commands.md > Enter`: "Cults —
     /// Armory, Cathedral: Recruits only"; `HoldsDef::accepts`).

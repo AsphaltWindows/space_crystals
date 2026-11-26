@@ -25,10 +25,13 @@
 //!   resources"). So does **an own building that holds units** of the unit's kind, in operation (slice M5-F1,
 //!   `crate::holding`; `factions/cults/units/recruit.md > Right-Click Resolution`: "Own Armory → Enter Armory";
 //!   `systems/controls/commands.md > Enter`: "Cults — Armory, Cathedral: Recruits only"), whether or not its pool has
-//!   room, which the unit finds out as it gets there (Placeholder (Q0104 point 2)).
+//!   room, which the unit finds out as it gets there (design change 0347 point 2,
+//!   `factions/cults/structures/README.md > Entering pool buildings`: "a unit arriving when the building is full has
+//!   its Enter **end** and idles beside the building").
 //! - **An own building under construction** that the unit's type builds from outside gives Assist (slice M5-E;
 //!   `factions/cults/units/recruit.md > Right-Click Resolution`: "In-progress own building → Assist Construction";
-//!   `OrderKind::Assist`), after Enter: an Armory under construction takes no one in.
+//!   `OrderKind::Assist`), after Enter: an Armory under construction takes no one in (design change 0347 point 4:
+//!   "a building under construction **can't be entered**; a right-click on it Assists").
 //! - **An enemy** (another player's object) that the unit can attack gives Attack: it has an attack whose
 //!   TargetDomain allows the object's domain (`systems/combat.md > ValidTarget` 3), and the object is destructible.
 //! - **Everything else** gives a Move to the object (`systems/controls/command_behaviors.md > MovingToObject`), which

@@ -1,17 +1,15 @@
-//! Buildings that hold units, where a test needs the sim's inside: an Armory under construction (no Cults site exists
-//! before slice M5-E), and the mark Eject All leaves on a unit inside (`Held::leaving`, slice M5-F2's).
+//! Buildings that hold units, where a test needs the sim's inside: the mark Eject All leaves on a unit inside
+//! (`Held::leaving`, slice M5-F2's). (An Armory under construction, which no Enter gets into, is
+//! `tests/holding/entering.rs`'s, on a site its Recruits build.)
 
 use glam::Vec2;
 
 use crate::command::{Command, HoldCommand, PlayerCommand};
-use crate::construction::site::{Builder, Construction};
 use crate::defs::ObjectKind;
 use crate::ids::{ObjectId, PlayerId};
-use crate::orders::{OrderKind, Target};
+use crate::orders::OrderKind;
 use crate::player::Faction;
-use crate::progress::Progress;
 use crate::scenario::SpawnAt;
-use crate::sim::Reject;
 use crate::testing::{ScenarioBuilder, TestSim};
 use crate::units::TilePos;
 
@@ -39,26 +37,6 @@ fn enter() -> PlayerCommand {
         queue: false,
     };
     PlayerCommand { player: P1, command }
-}
-
-/// Placeholder (Q0104 point 4): "an Armory under construction can't be entered"; "A right-click on one Assists"
-/// (slice M5-E), which until then is a Move to it. In operation it takes the Recruit, by the gate and the right-click.
-#[test]
-fn an_armory_under_construction_refuses_enter() {
-    let t = base();
-    assert_eq!(t.sim().validate(&enter()), Ok(()));
-    let right_click = |sim: &crate::sim::Sim| sim.default_order(RECRUIT, Target::Object(ARMORY));
-    assert_eq!(right_click(t.sim()), Some(OrderKind::Enter(ARMORY)));
-    let mut sim = t.sim().clone();
-    let armory = sim.objects.get_mut(&ARMORY).unwrap();
-    armory.construction = Some(Construction {
-        progress: Progress::new(480),
-        builder: Builder::Held(ObjectId(99)),
-    });
-    assert!(armory.is_site());
-    assert_eq!(sim.validate(&enter()), Err(Reject::UnderConstruction(ARMORY)));
-    assert_eq!(right_click(&sim), Some(OrderKind::Move(Target::Object(ARMORY))));
-    assert_eq!(sim.room(ARMORY), 10, "an empty pool, all the same");
 }
 
 /// The mark Eject All leaves on a unit inside (`Held::leaving`, the tick it is ready to leave from) is part of the

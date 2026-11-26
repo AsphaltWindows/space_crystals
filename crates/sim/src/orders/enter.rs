@@ -1,8 +1,9 @@
 //! A unit's walk into a Tunnel or a building that holds units — `systems/controls/commands.md > Enter` ("The unit walks
 //! to the structure's entrance side and goes inside"; its TargetObject "the structure being entered", design change
 //! 0319), `factions/syndicate/tunnels.md > Tunnel Network > Walking in` (design changes 0246 and 0247), slice M4-C
-//! (`crate::network`), and the same walk into an Armory's entrance side (slice M5-F1, `crate::holding`; Placeholder
-//! (Q0104 point 1): "The middle of side B, as the Tunnel's Side A").
+//! (`crate::network`), and the same walk into an Armory's entrance doorway (slice M5-F1, `crate::holding`; design
+//! change 0347 point 1, `core/entities.md > Entrance and exit (production and research buildings)`: "The entrance is a
+//! dedicated doorway at the middle of the entrance side (like the Exit Doorway): units walk to it and go in there").
 //!
 //! "Units enter through the entry path by walking into it at their normal speed, one behind another with normal
 //! spacing, like walking through any one-unit-wide passage; there is no fixed hold time per unit." The walk is a plain
