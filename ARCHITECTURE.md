@@ -58,7 +58,11 @@ pub const DEFAULT_PATCH_AMOUNT: u32 = 1500;
   is Bevy's `Vec2`) and is built with its `libm` feature.
 - **Ask the Director before adding a Bevy feature or any new dependency.** `serde_json` is pre-approved for the client.
 - The dev profile optimizes dependencies at `opt-level = 3` and builds our crates at `opt-level = 1`. Integer overflow
-  checks stay on in dev and test builds.
+  checks stay on in dev and test builds. Its debug info (slice M5-T) is line tables for our crates and none for the
+  dependencies, which took the client's test program and binary from 1.7 GB each to under 0.25 GB: a backtrace
+  still gives each frame of ours its file and line, with its function's bare name (`pos` for `TestSim::pos`), and
+  `split-debuginfo = "unpacked"` measured no faster. For a debugger, `CARGO_PROFILE_DEV_DEBUG=true` gives our
+  crates full debug info, in a build of their own; the dependencies' builds stay as they are.
 
 ## Definition of done
 
