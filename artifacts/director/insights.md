@@ -96,7 +96,7 @@
 - `artifacts/director/m4-plan.md` is the planner's revision 2, which folds in 0229–0282. It adds R1 and R2 (code organization), O (combat spike), U (Grenadier), and S1 and S2 (Laser Turrets). The waves and the critical path are in `plan.md`'s M4 entry.
 - The common brief, `scratchpad/briefs/m4-common.md`, now binds T29–T54, cites the per-object design paths (0282) and the code-organization rules (T54). Update it whenever the plan's structure changes.
 - M4-R runs alone: no other slice beside R1 and R2, since the refactor touches nearly every file. Briefs written after it lands must use its new module layout.
-- The next question number is **Q0128**.
+- The next question number is **Q0129**.
 - **Build timing (2026-11-25, load 13 on 8 cores):** a full check after a change takes about 72 s to compile and link and 41 s to run the 1877 tests; fmt and a warm clippy take seconds. Agents spend 20–35% of a slice in cargo and most of the rest reasoning. rustc 1.100 already links with LLD by default, so mold would gain little; fewer test binaries (116 today) is the bigger lever, best done between waves.
 - **M5 planning started early (2026-11-26).** M5-P, a read-only planning spike on Opus (brief `scratchpad/briefs/m5-planning.md`), drafts `scratchpad/m5/m5-plan-draft.md` while M4's last slices run. M5 ends at the user's first playtest, so the draft also plans playtest readiness for all four factions, and the user's "data files at playtest" step. Adopted as `artifacts/director/m5-plan.md` (2026-11-25), with the Director's decisions at its top; Q0092–Q0108 filed from its drafts. The user's product decisions (the opponent, a start screen) come before M5 starts.
 
