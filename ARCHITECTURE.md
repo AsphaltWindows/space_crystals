@@ -1406,15 +1406,17 @@ ticks spent in it. Hashed and serialized like all state.
   targets; an air unit's hits stay, slice M5-H1's to test), whose attack doesn't leave from under the same cloud
   (`damage::Origins`, where each attack left, kept only while there is a cloud; Placeholder: a projectile's launch
   point, judged as it lands), into the cloud's buffer at its raw damage; the first starts the 8-tick timer
-  (`tuning::spells::RELEASE_DELAY`). An absorbed hit still reveals its attacker (Placeholder). Then
-  **`damage::release`** turns each buffer due into one area hit: `SimEvent::ShroudReleased`, which every player is
-  told of, then a `Hit` for each object under the cloud by its overlap share of the cloud's area (counted on a
-  lattice, `shroud::lattice`), under the AoE rules (`area::share`) but without directional armour; the share over
-  empty cloud is lost, and a release reveals no one (its attacker is the cloud's first member). Hashed under tag 3 of
-  `Sim::state_hash` and saved only while there is a cloud or a buffer waiting, so that a game without Shroud hashes
-  as before; C1 (*Movement and collision > Invariants*) holds the clouds to the channels. Without a cloud none of it
-  runs. Tests: `tests/shroud/` (absorption, the clouds, the channel, their state through splits and joins, a replay
-  and a save) and the golden `cults_shroud` (*Replays and golden hashes*); a 3x3 building wholly under a circle,
+  (`tuning::spells::RELEASE_DELAY`). An absorbed hit still reveals its attacker to the owner of the object it was
+  aimed at, as if it had landed (design change 0386, answering Q0143: "whether a direct shot, a projectile or an area
+  hit"). Then **`damage::release`** turns each buffer due into one area hit: `SimEvent::ShroudReleased`, which every
+  player is told of, then a `Hit` for each object under the cloud by its overlap share of the cloud's area (counted on
+  a lattice, `shroud::lattice`), under the AoE rules (`area::share`) but without directional armour; the share over
+  empty cloud is lost, and a release reveals no one (0386: "The cloud's later release reveals nobody"; its attacker
+  is the cloud's first member). Hashed under tag 3 of `Sim::state_hash` and saved only while there is a cloud or a
+  buffer waiting, so that a game without Shroud hashes as before; C1 (*Movement and collision > Invariants*) holds the
+  clouds to the channels. Without a cloud none of it runs. Tests: `tests/shroud/` (absorption, the clouds, the
+  channel, their state through splits and joins, a replay and a save, and what an absorbed hit and a release reveal)
+  and the golden `cults_shroud` (*Replays and golden hashes*); a 3x3 building wholly under a circle,
   which no Disciple can stand in, is a unit test's (`combat/damage/tests.rs`). The client draws the clouds
   (`shroud_view`, *Client architecture > Visuals*) and puts the spell in the Disciple's R.
   - **Measured** (`tests/shroud_perf.rs`, ignored, release): eight Disciples, four clouds of two circles, over sixty

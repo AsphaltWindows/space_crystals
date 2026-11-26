@@ -11,7 +11,9 @@
 //!   ticks after it started from full; below 10 energy the gate refuses it, and a queued one that starts below 10 ends
 //!   at once;
 //! - `state`: a replay with clouds splitting and merging reproduces the hash; the clouds saved and loaded, and hashed
-//!   only while there are any.
+//!   only while there are any;
+//! - `reveals` (design change 0386): an absorbed shot or blast reveals its unseen attacker to the owner of the object
+//!   it was aimed at for 1.5 s, the damage buffered; the release reveals nobody.
 //!
 //! The clouds' bookkeeping on its own and the release over one circle that holds a 3x3 building wholly are the sim's
 //! unit tests (`shroud/tests.rs`, `shroud/lattice.rs`, `combat/damage/tests.rs`). Every `TestSim` game runs under the
@@ -20,6 +22,7 @@
 mod absorption;
 mod channel;
 mod clouds;
+mod reveals;
 mod state;
 
 use sc_sim::shroud::{Cloud, lattice::Union};

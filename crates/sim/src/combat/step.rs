@@ -165,9 +165,11 @@ pub(crate) fn step(
     // damaged (every hit takes something, its minimum at least, so a blast that hits nothing, a dodged grenade,
     // reveals nobody); and only if the attacker is still alive: one that died during the flight is out of the game
     // (plan decision T45). One killed in this tick, by its own blast too, leaves with the tick's dead, unseen. (M5-N2) A
-    // unit firing from inside a building reveals the building (`occupants::building_of`). (M5-N4b) A hit a cloud absorbed
-    // reveals its attacker as it would have landed, and a release, which no one fires, reveals no one. Placeholder (the
-    // design doesn't say): the attack is made where it is absorbed, and the shooter isn't hidden by the cloud's.
+    // unit firing from inside a building reveals the building (`occupants::building_of`). (M5-N4b) Design change 0386
+    // (answering Q0143; `factions/cults/units/disciple.md > Spells > Shroud`, Reveals): "An absorbed hit, whether a
+    // direct shot, a projectile or an area hit, counts as landing on the object it was aimed at. It reveals the attacker
+    // to that object's owner for the usual 1.5 s. The cloud's later release reveals nobody": the hits a cloud absorbed
+    // (`damage::absorb`) reveal as the tick's own do, and a release's (`hits[own..]`, `damage::release`) none.
     for hit in hits[..own].iter().chain(&absorbed) {
         let victim = objects.get(&hit.target).and_then(|o| o.owner);
         let attacker = (objects.get(&hit.attacker)).or_else(|| occupants::building_of(objects, held, hit.attacker));
