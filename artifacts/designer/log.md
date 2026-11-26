@@ -2355,3 +2355,4 @@ Answered Q0069–Q0071 (0258–0267): losing-Tunnel edges, Syndicate economy che
 2026-11-27 — Recruit E: Attack. Entry 0389.
 2026-11-27 — Ghost entrance/exit arrows. Entry 0390.
 2026-11-27 — Faster augmentations (3 s / 6 s). Entry 0391.
+2026-11-27 — EF/DS Place progress (0392); Q0145 (a) (0393); arrows on selected (0394); Hall groupable (0395); rally on unfinished (0396).
