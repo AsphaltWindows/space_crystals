@@ -132,7 +132,7 @@ Multiple Agents can be selected simultaneously. Right-click commands are issued 
 
 ## Building
 
-Agents construct Tunnels and surface defensive structures (see Surface Defensive Structures) on the surface. Defensive structures use the same construction flow as Tunnels (below). Only one Agent may construct a given Tunnel — multiple Agents cannot speed up construction.
+Agents construct **only Tunnels** (user, 2026-11-26; 0359): Laser Turrets are ordered from a Tunnel's ExpandMenu (factions/syndicate/tunnel_menus.md). Only one Agent may construct a given Tunnel — multiple Agents cannot speed up construction.
 
 ### Tunnel Construction Flow
 1. Agent receives build command and walks to the target location
