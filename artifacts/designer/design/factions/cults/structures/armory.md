@@ -25,7 +25,7 @@ Recruits enter through the entrance side. Trained units and ejected Recruits exi
 The Armory can hold up to 10 Recruits in its internal pool at a time.
 
 ## Training
-Training is queueable and serial — orders are processed one at a time, in the order queued. Queuing an order immediately deducts its Space Crystals cost from the player and reserves one Recruit from StoredRecruits (removing it from the internal pool for the duration it sits in the queue). Only the front of the queue actively trains; queued-but-not-yet-started orders wait with their Recruit and Space Crystals already committed. When an order finishes training, its reserved Recruit is consumed and the trained unit exits from the exit side. The trained unit inherits the Recruit's AugmentationState unchanged (see Augmentation) — Augmentation and Armory training can happen in either order with the same result.
+Training is queueable and serial — orders are processed one at a time, in the order queued. Queuing an order immediately deducts its Space Crystals cost from the player and reserves one Recruit from StoredRecruits (removing it from the internal pool for the duration it sits in the queue). Only the front of the queue actively trains; queued-but-not-yet-started orders wait with their Recruit and Space Crystals already committed. When an order finishes training, its reserved Recruit is consumed and the trained unit exits from the exit side. The trained unit inherits the Recruit's AugmentationState unchanged (see Augmentation) — Augmentation and Armory training can happen in either order with the same result. **Which unit** (user, 2026-11-26; Q0105/Q0114/Q0121): an order reserves the matching unit(s) that **entered the building first** (first in, first trained). **HP**: infantry trained from a Recruit **keep the Recruit's damage** (the missing HP carries over); vehicles and aircraft come out at full HP.
 
 Available unit types:
 - **Militant** (SpaceCrystalsCost: 20, TrainingTime: 32 frames)
@@ -57,6 +57,8 @@ Immediate commands (CommandIssuingTransition):
 Target commands (StateOnlyTransition):
 - **C: Set Rally Point**: enters AwaitingTarget[SetRallyPoint]. Left-click ground or object sets the rally point (CommandIssuingTransition, returns to DefaultState).
 
-Production commands (CommandIssuingTransition):
+Kinds and Release (user, 2026-11-26): **Q/W/E/R choose a kind of Recruit first** (Plain, Constitution, Metabolism, Both), then **Q: Train Militant**, **W: Train Gunner** or **A: Release** (factions/cults/structures/README.md > Choosing Recruits, Release and Eject All). The commands below act on Recruits of the chosen kind.
+
+Production commands (CommandIssuingTransition, in KindMenu[kind]):
 - **Q: Train Militant**: deducts Militant's Space Crystals cost from the player, moves one Recruit from StoredRecruits into a new TrainingQueue entry. Only available if StoredRecruits is not empty, TrainingQueue has fewer than 20 entries, and player has sufficient Space Crystals.
 - **W: Train Gunner**: deducts Gunner's Space Crystals cost from the player, moves one Recruit from StoredRecruits into a new TrainingQueue entry. Only available if StoredRecruits is not empty, TrainingQueue has fewer than 20 entries, player has sufficient Space Crystals, and the player owns at least one Gunworks (TechPrerequisite).

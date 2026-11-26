@@ -111,7 +111,7 @@ The Firing phase is short and spawns a projectile which tracks the target indepe
 ### RequiresProjectileSpeed - true
 
 ## TailDisjointed
-The target location is locked at the end of the Aiming phase. The animation and effect are applied to that location. The unit remains locked during the Firing phase. The effect applies to whatever units are at the target location at the end of the Firing phase. Targets can dodge by moving out of the locked location.
+The target location is locked at the end of the Aiming phase. The animation and effect are applied to that location. The unit remains locked during the Firing phase. The effect applies to whatever units are at the target location at the end of the Firing phase. Targets can dodge by moving out of the locked location. **Structures count too** (Q0126): whatever object (unit or structure) covers the locked point is hit; if several do, the one the shot was aimed at, if it still covers the point, otherwise any one of them (Director's choice).
 
 ## DoublyDisjointed
 Combination of Head and Tail disjointed. The Firing phase is short and spawns a projectile which travels to the location the target was at at the end of the Aiming phase. The unit is free after the projectile spawns. The effect applies to whatever units are at the target location when the projectile arrives. Targets can dodge by moving out of the locked location.

@@ -16,4 +16,6 @@ Produces Cults aircraft: the **Sparrow** (small glider; factions/cults/units/spa
 - Cost and time: Recruit > Constructs (250 SC, 640 frames).
 - InternalRecruitCapacity 10; production queue 10 orders.
 - **Sparrow**: 1 Recruit, 75 Space Crystals, 320 frames (20 seconds).
-- Panel like the Armory's: **Q: Build Sparrow**, **A: Eject All**, **C: Set Rally Point**, **X: Cancel Production**.
+- Panel like the Armory's (choose a kind with Q/W/E/R first, then; README > Choosing Recruits, Release and Eject All): **Q: Build Sparrow**, **A: Release** in the kind menu; **A: Eject All**, **C: Set Rally Point**, **X: Cancel Production**.
+
+**Full HP** (user, 2026-11-26; Q0121): a vehicle or aircraft comes out at **full HP**, whatever damage its Recruits had.
