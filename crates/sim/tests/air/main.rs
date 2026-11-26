@@ -8,6 +8,8 @@
 //!   (`systems/controls/command_behaviors.md > AttackingObject`, GliderMovement exception; Q0120);
 //! - `orders`: Stop circles where the Sparrow is, Hold circles there and fires only at what comes into range, without
 //!   chasing (`factions/cults/units/sparrow.md > Flight rules`);
+//! - `attack_move`: an AttackMove strafes what it meets on the way and ends in idle circling over its destination
+//!   (`systems/controls/command_behaviors.md > AttackMovingToLocation`, GliderMovement exception);
 //! - `edge`: circling near the map's edge takes it past the edge, where it stays visible and attackable as at the
 //!   nearest edge tile; a click past the edge sends it to the edge (`systems/units.md > Air Collision`);
 //! - `separation`: six Sparrows sent to one point circle it without stacking (`systems/units.md > Air Collision`:
@@ -20,6 +22,7 @@
 //! `orders/tests/air.rs`. Every `TestSim` game runs under the invariants, the Glider invariant G1 among them
 //! (`testing/invariants/gliders.rs`).
 
+mod attack_move;
 mod edge;
 mod flight;
 mod orders;
