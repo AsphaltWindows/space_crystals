@@ -174,12 +174,22 @@ pub enum PanelCommand {
     /// every selected Recruit ("both right-click and panel commands (Construct, Assist Construction, Repair) are issued
     /// to all of them").
     Assist,
+    /// (M5-N8) `factions/cults/units/recruit.md > Recruit ObjectInterfaceState > DefaultState commands`: "**D: Repair**
+    /// — targeted command (StateOnlyTransition). Left-click a damaged own building or vehicle to repair it", and the
+    /// Agent's D (`factions/syndicate/units/agent.md > Agent ObjectInterfaceState`: "Left-click a damaged own Tunnel or
+    /// Laser Turret to repair it"): awaits its target, where a left-click on a damaged own object that a recipient
+    /// repairs gives them a Repair order (`sc_sim::OrderKind::Repair`, `sc_sim::repair`), every selected Recruit as for
+    /// an Assist. On a building that the selection may enter, the panel's Repair is the way to repair it, the
+    /// right-click entering it (`factions/cults/units/recruit.md > Right-Click Resolution`: "Repair those with **D:
+    /// Repair**").
+    Repair,
 }
 
 impl PanelCommand {
     /// Whether the command awaits a target (a StateOnlyTransition to AwaitingTarget): the target commands of
     /// `> BasicCombatUnitInterfaceState > DefaultState commands`, Set Rally Point, the Drone's Set Drop-off, the
-    /// Agent's Drop Off and the Recruits' Assist Construction. The others are issued at once: HoldPosition and Stop,
+    /// Agent's Drop Off, the Recruits' Assist Construction and the Recruits' and the Agent's Repair (slice M5-N8). The
+    /// others are issued at once: HoldPosition and Stop,
     /// Raise and Lower Shield, Convert, a producer's Train and Cancel Production, a constructor's Construct and
     /// Cancels, a Tunnel's Eject and Cancel; or they enter a state of their own: a build menu, the EjectMenu, the
     /// ExpandMenu, AwaitingPlacement (an Agent's Build, a Tunnel's expansion and a Recruits' Construct menu entry
@@ -194,7 +204,8 @@ impl PanelCommand {
             | PanelCommand::SetRallyPoint
             | PanelCommand::SetDropOff
             | PanelCommand::DropOff
-            | PanelCommand::Assist => true,
+            | PanelCommand::Assist
+            | PanelCommand::Repair => true,
             PanelCommand::HoldPosition
             | PanelCommand::Stop
             | PanelCommand::RaiseShield
@@ -376,7 +387,7 @@ impl PanelCommand {
     /// updates AssignedDropOff": a Shift-click sets it and ends the targeting like a plain click, as a rally point's
     /// (the same placeholder reading). The Agent's Drop Off is a unit's order (`factions/syndicate/units/agent.md >
     /// Unit Commands`), and so is its Build, which Shift queues as it is placed (`> Shift while placing`); so are the
-    /// Recruits' Build and Assist (`factions/cults/units/recruit.md > Unit Commands`).
+    /// Recruits' Build and Assist (`factions/cults/units/recruit.md > Unit Commands`), and a Repair (slice M5-N8).
     pub fn queues(self) -> bool {
         match self {
             PanelCommand::Move
@@ -389,7 +400,8 @@ impl PanelCommand {
             | PanelCommand::Deploy
             | PanelCommand::Build(_)
             | PanelCommand::DropOff
-            | PanelCommand::Assist => true,
+            | PanelCommand::Assist
+            | PanelCommand::Repair => true,
             PanelCommand::RaiseShield
             | PanelCommand::LowerShield
             | PanelCommand::Convert(_)

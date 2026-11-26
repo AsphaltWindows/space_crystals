@@ -1,5 +1,6 @@
 mod gathering;
 mod recruit;
+mod repair;
 
 use sc_sim::defs::TargetDomain;
 

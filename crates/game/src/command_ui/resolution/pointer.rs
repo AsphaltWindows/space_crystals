@@ -7,7 +7,7 @@ use std::collections::BTreeSet;
 
 use sc_sim::{Ability, OrderKind};
 
-use super::{CursorTarget, MapTarget, Resolved, UnitCapabilities, object_right_click, target_resolution};
+use super::{CursorTarget, MapTarget, Resolved, UnitCapabilities, object_right_click, repaired_by, target_resolution};
 use crate::command_ui::interface::{InterfaceState, PanelCommand};
 
 /// `systems/controls/hud.md > PointerDisplayType > Types` that the game can show so far.
@@ -39,8 +39,8 @@ pub enum PointerDisplay {
     /// and while S awaits its target.
     Assist,
     /// (M5-J1) The Recruits' Repair (design change 0322, a placeholder look): over a damaged own building or vehicle
-    /// the selection can repair, the Agents' over a damaged own Tunnel or Laser Turret (slice M5-N8, `sc_sim::OrderKind::Repair`),
-    /// on a right-click and while D awaits its target.
+    /// the selection can repair, and the Agents' over a damaged own Tunnel or Laser Turret (slice M5-N8,
+    /// `sc_sim::OrderKind::Repair`), on a right-click and while D awaits its target.
     Repair,
 }
 
@@ -94,7 +94,7 @@ pub fn pointer_display(interface: InterfaceState, units: &[UnitCapabilities], ta
     }
     match interface {
         InterfaceState::DefaultState => right_click_display(units, target),
-        InterfaceState::AwaitingTarget { pending, .. } => awaiting_display(pending, target),
+        InterfaceState::AwaitingTarget { pending, .. } => awaiting_display(pending, units, target),
         InterfaceState::BuildMenu(_)
         | InterfaceState::EjectMenu
         | InterfaceState::ExpandMenu
@@ -123,10 +123,13 @@ pub fn right_click_display(units: &[UnitCapabilities], target: &MapTarget) -> Po
 }
 
 /// `systems/controls/hud.md > Resolution Rules > AwaitingTarget[CommandType]`: the pending command's look
-/// over a target it can use, else Inactive. Reverse, which has no order yet, by the design's row for the ground.
-fn awaiting_display(pending: PanelCommand, target: &MapTarget) -> PointerDisplay {
+/// over a target it can use, else Inactive. Reverse, which has no order yet, by the design's row for the ground. (M5-N8)
+/// A Repair's over a damaged own object that one of the selected `units` repairs ([`repaired_by`]): over one that none
+/// of them repairs, an Agent's over a Storage, the gate would refuse the click.
+fn awaiting_display(pending: PanelCommand, units: &[UnitCapabilities], target: &MapTarget) -> PointerDisplay {
     match (pending, target.target) {
         (PanelCommand::Reverse, CursorTarget::Ground(_)) => PointerDisplay::Move,
+        (PanelCommand::Repair, _) if !repaired_by(units, target) => PointerDisplay::Inactive,
         _ => target_resolution(pending, target).map_or(PointerDisplay::Inactive, PointerDisplay::of),
     }
 }

@@ -29,7 +29,8 @@
 //!   all of them (design change 0076). Set Rally Point takes the ground or any object, as the right-click does; the
 //!   Drones' Set Drop-off an own Egress Node, which becomes the AssignedDropOff of every one of them (an ability,
 //!   `sc_sim::Ability::SetDropOff`; slice M3-J2); the Agents' Drop Off an own Tunnel in operation, a Drop Off order
-//!   (slice M4-J1); the Recruits' Assist Construction an own site built from outside, an Assist order (slice M5-J1).
+//!   (slice M4-J1); the Recruits' Assist Construction an own site built from outside, an Assist order (slice M5-J1);
+//!   the Recruits' and the Agents' Repair a damaged own object that one of them repairs, a Repair order (slice M5-N8).
 //! - **The pointer** ([`pointer_display`]): in DefaultState the one thing the selected objects would all do on a
 //!   right-click, or Mixed when they would do different things (a rally point shows Move:
 //!   `systems/controls/hud.md > Resolution Rules > DefaultState`, "Selection is a production building:
@@ -39,6 +40,7 @@
 use bevy::math::Vec2;
 use sc_sim::defs::{Domain, Transit};
 use sc_sim::orders::resolution::{Abilities, Aim, Aimed, resolve};
+use sc_sim::repair::repairs;
 use sc_sim::{Ability, ObjectId, ObjectKind, OrderKind, PlayerId, Sim, Target};
 
 use super::interface::{InterfaceTemplate, Modes, PanelCommand};
@@ -311,8 +313,8 @@ pub fn group_orders(orders: impl IntoIterator<Item = (ObjectId, OrderKind)>) -> 
 /// issues AttackGround command to that location"; slice M4-O), wherever the click falls on it, over an object the
 /// player doesn't see too. The Agent's Drop Off takes an own drop-off in operation ([`drop_off_target`], slice M4-J1;
 /// `factions/syndicate/units/agent.md > Agent ObjectInterfaceState`: "Requires clicking an own Tunnel"). The Recruits'
-/// Assist Construction takes an own site built from outside ([`assist_target`], slice M5-J1). Reverse has no order in
-/// the sim yet.
+/// Assist Construction takes an own site built from outside ([`assist_target`], slice M5-J1), and the Repair a damaged
+/// own object ([`repair_target`], slice M5-N8). Reverse has no order in the sim yet.
 pub fn target_order(pending: PanelCommand, target: &MapTarget) -> Option<OrderKind> {
     use CursorTarget::{EnemyObject, FriendlyObject, Ground, NeutralObject};
     match (pending, target.target) {
@@ -328,6 +330,7 @@ pub fn target_order(pending: PanelCommand, target: &MapTarget) -> Option<OrderKi
         (PanelCommand::AttackGround, Ground(point)) => Some(OrderKind::AttackGround(point)),
         (PanelCommand::DropOff, _) => drop_off_target(target).map(OrderKind::DropOff),
         (PanelCommand::Assist, _) => assist_target(target).map(OrderKind::Assist),
+        (PanelCommand::Repair, _) => repair_target(target).map(OrderKind::Repair),
         _ => None,
     }
 }
@@ -362,6 +365,29 @@ pub fn drop_off_target(target: &MapTarget) -> Option<ObjectId> {
 /// Which recipients build its kind, the gate decides (`Reject::NoWorkers`). Anything else is an invalid target.
 pub fn assist_target(target: &MapTarget) -> Option<ObjectId> {
     target.aimed.filter(|aimed| aimed.site.is_some()).map(|aimed| aimed.id)
+}
+
+/// (M5-N8) `factions/cults/units/recruit.md > Recruit ObjectInterfaceState > DefaultState commands`: "**D: Repair** —
+/// [...] Left-click a damaged own building or vehicle to repair it" (the Agent's: "a damaged own Tunnel or Laser
+/// Turret"): the object under a click while Repair awaits its target, if it is one of the player's own that a repair
+/// may restore (`sc_sim::orders::resolution::Aimed::repair`, the right-click's Repair: complete and below its MaxHP).
+/// Which recipients repair its kind, the gate decides (`Reject::CantRepair`), and the pointer previews
+/// ([`repaired_by`]). Anything else is an invalid target.
+pub fn repair_target(target: &MapTarget) -> Option<ObjectId> {
+    target
+        .aimed
+        .filter(|aimed| aimed.repair.is_some())
+        .map(|aimed| aimed.id)
+}
+
+/// (M5-N8) Whether one of `units` repairs the object under `target` (`sc_sim::repair::repairs`, by its kind): a
+/// damaged own object, complete ([`repair_target`]), of a kind one of their types repairs, which a Repair's click on it
+/// would give that unit.
+pub fn repaired_by(units: &[UnitCapabilities], target: &MapTarget) -> bool {
+    let Some(kind) = target.aimed.and_then(|aimed| aimed.repair) else {
+        return false;
+    };
+    (units.iter()).any(|unit| unit.abilities.is_some_and(|abilities| repairs(abilities.kind, kind)))
 }
 
 #[cfg(test)]

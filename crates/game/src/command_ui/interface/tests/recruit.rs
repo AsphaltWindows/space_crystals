@@ -1,5 +1,5 @@
 //! The Recruit's panel and its Construct menus as plain data (slice M5-J1; design changes 0322 and 0327): its letters,
-//! D Repair greyed until slice N8; the two menus' fixed slots, every building greyed with the gate's reason (its
+//! D Repair awaiting its target (slice M5-N8); the two menus' fixed slots, every building greyed with the gate's reason (its
 //! TechPrerequisite, the bank: read from a game) or as not in the game yet; a building's placement for the whole
 //! group, which goes back to its menu; and Tab, which stops once on the Recruits (design change 0072).
 
@@ -41,18 +41,17 @@ fn labels_and_names(panel: &Panel) -> Vec<(&'static str, String)> {
 /// `factions/cults/units/recruit.md > Recruit ObjectInterfaceState > DefaultState commands` (design changes 0322 and
 /// 0327; 0322's Verification: "Select Recruits: the panel shows Q, A, S, D and X", and W since 0327): Q Move, W
 /// Advanced Construct, A Basic Construct, S Assist Construction, D Repair, X Stop, each named as the design names it.
-/// Q and S await their targets, A and W open their menus, X stops at once, and D, which slice N8 brings, is greyed:
-/// "Not available yet". No Attack, Hold Position or Patrol button ("Same layout as the Agent's panel"). Every command
+/// Q, S and D (slice M5-N8) await their targets, A and W open their menus, X stops at once. No Attack, Hold Position or
+/// Patrol button ("Same layout as the Agent's panel"). Every command
 /// goes to all four ("both right-click and panel commands (Construct, Assist Construction, Repair) are issued to all
 /// of them").
 #[test]
 fn the_recruit_has_q_move_a_and_w_construct_s_assist_d_repair_and_x_stop() {
-    use ButtonLook::{Common, Unavailable};
-    use PanelCommand::{Assist, BuildMenu as Menu, Move, Stop};
+    use ButtonLook::Common;
+    use PanelCommand::{Assist, BuildMenu as Menu, Move, Repair, Stop};
     let selection = recruits();
     let shown_panel = panel(&selection, InterfaceState::DefaultState, &Conditions::default());
     let c = PanelButton::Command;
-    let repair = PanelCommand::Planned(Planned::Repair);
     let (q, w, a, s, d, x) = (slot(0, 0), slot(0, 1), slot(1, 0), slot(1, 1), slot(1, 2), slot(2, 1));
     assert_eq!(
         shown(&shown_panel),
@@ -61,7 +60,7 @@ fn the_recruit_has_q_move_a_and_w_construct_s_assist_d_repair_and_x_stop() {
             (w, c(Menu(BuildMenu::Advanced)), Common),
             (a, c(Menu(BuildMenu::Basic)), Common),
             (s, c(Assist), Common),
-            (d, c(repair), Unavailable),
+            (d, c(Repair), Common),
             (x, c(Stop), Common),
         ]
     );
@@ -79,13 +78,13 @@ fn the_recruit_has_q_move_a_and_w_construct_s_assist_d_repair_and_x_stop() {
     assert_eq!(press(&shown_panel, a), SlotPress::OpenMenu(BuildMenu::Basic));
     assert_eq!(press(&shown_panel, s), SlotPress::AwaitTarget(Assist));
     assert_eq!(press(&shown_panel, x), SlotPress::Issue(Stop, OrderKind::Stop));
-    assert_eq!(why_text(&shown_panel, d), Some(NOT_YET_TEXT));
-    assert_eq!(press(&shown_panel, d), SlotPress::Nothing);
+    assert_eq!(press(&shown_panel, d), SlotPress::AwaitTarget(Repair));
+    assert_eq!(why_text(&shown_panel, d), None);
     for absent in [PanelCommand::Attack, PanelCommand::HoldPosition, PanelCommand::Patrol] {
         assert!(!offers(RECRUIT, absent), "{absent:?}");
     }
     let all: Vec<ObjectId> = (1..=4).map(id).collect();
-    for command in [Move, Assist, Stop, PanelCommand::Build(STORAGE)] {
+    for command in [Move, Assist, Repair, Stop, PanelCommand::Build(STORAGE)] {
         assert_eq!(recipients(&selection, command), all, "{command:?}");
     }
     assert!(still_valid(

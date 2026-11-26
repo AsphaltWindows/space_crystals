@@ -61,6 +61,7 @@ impl PanelCommand {
             PanelCommand::Release(_) => "Rel.",
             PanelCommand::EjectAll => "Eject",
             PanelCommand::Assist => "Assist",
+            PanelCommand::Repair => "Repair",
         }
     }
 
@@ -107,7 +108,8 @@ impl PanelCommand {
             | PanelCommand::Patrol
             | PanelCommand::Stop
             | PanelCommand::Deploy
-            | PanelCommand::EjectMenu => self.label().into(),
+            | PanelCommand::EjectMenu
+            | PanelCommand::Repair => self.label().into(),
         }
     }
 

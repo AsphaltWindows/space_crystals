@@ -43,7 +43,7 @@
 //! for its Build order where it would stand anywhere, and leaves out the placement's refusal as a Warp In does: it is
 //! greyed while the bank can't pay the Tunnel's price ([`Conditions::price`], `Sim::build_price`; design change 0233:
 //! "a Build order that can't be paid is refused"). (Slice M4-S1's D, Build Laser Turret, is gone with design change
-//! 0359: the Agent's D is Repair, greyed until slice N8, [`Conditions::planned`].) A Build's price is in its own
+//! 0359: the Agent's D is Repair, slice M5-N8's, which awaits its target.) A Build's price is in its own
 //! resource (`sc_sim::construction::site::BuildPrice`): a Cults building's in Space Crystals. Its S, Drop Off, is greyed
 //! while none of its recipients carries a load (`factions/syndicate/units/agent.md > DefaultState commands`: "Always
 //! visible, greyed out when Agent is not carrying resources"), the gate's own test (`Reject::NothingToDeliver`). A

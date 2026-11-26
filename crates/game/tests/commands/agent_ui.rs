@@ -1,19 +1,21 @@
 //! The Agent's UI in the client (slice M4-J1; design changes 0233, 0234, 0237, 0257, 0260 and 0359): its panel's
-//! letters, D Repair greyed with its reason; no turret of the Agent's, the Tunnel's ExpandMenu's alone (slice M5-Y);
+//! letters, S greyed with its reason; no turret of the Agent's, the Tunnel's ExpandMenu's alone (slice M5-Y);
 //! Build Tunnel's price and its refusal while the bank can't pay; Shift placing one ghost per Agent; a site's X Cancel
 //! Construction alone; the lingering Tunnel ghosts, which only their owner sees; the Enter and Drop Off pointers; and
-//! the Supply an Agent carries. The Tunnel ghost's verdicts are [`ghost`]'s (design change 0242).
+//! the Supply an Agent carries. The Tunnel ghost's verdicts are [`ghost`]'s (design change 0242), the Agents' Repair
+//! [`repairing`]'s (slice M5-N8).
 
 mod ghost;
+mod repairing;
 
 use sc_sim::defs::Resource;
 use sc_sim::nav::TileRect;
 use sc_sim::testing::ScenarioBuilder;
 use sc_sim::{BuildingOrientation, ConstructionCommand, Faction, PlayerCommand as Sent, SU_PER_GU, SpawnSettings};
 use space_crystals::command_ui::feedback::{
-    BUSY_TEXT, NO_SUPPLIES_TEXT, NOT_YET_TEXT, NOTHING_CARRIED_TEXT, TargetFeedback, placement_text,
+    BUSY_TEXT, NO_SUPPLIES_TEXT, NOTHING_CARRIED_TEXT, TargetFeedback, placement_text,
 };
-use space_crystals::command_ui::{ButtonLook, PanelButton, PanelCommand, Placing, Planned};
+use space_crystals::command_ui::{ButtonLook, PanelButton, PanelCommand, Placing};
 use space_crystals::hud::command_panel::CommandButton;
 use space_crystals::hud::info_panel::hint::CommandHint;
 use space_crystals::object_render::{LoadMarker, SiteProgress};
@@ -29,7 +31,7 @@ const AGENT: ObjectKind = ObjectKind::Agent;
 const TUNNEL_KIND: ObjectKind = ObjectKind::Tunnel;
 const BUILD: PanelCommand = PanelCommand::Build(TUNNEL_KIND);
 const TURRET_KIND: ObjectKind = ObjectKind::LaserTurret;
-const REPAIR: PanelCommand = PanelCommand::Planned(Planned::Repair);
+const REPAIR: PanelCommand = PanelCommand::Repair;
 
 /// The objects of [`agent_game`], by id, and where they are (the map is flat: where they are drawn).
 const TUNNEL: u32 = 1;
@@ -194,13 +196,13 @@ fn click_on(app: &mut App, id: u32) {
 }
 
 /// Design changes 0257 and 0359 (`factions/syndicate/units/agent.md > Agent ObjectInterfaceState`): Q Move, A Build
-/// Tunnel, S Drop Off Resources, D Repair, X Stop, and no Attack, Hold, Patrol or AttackMove. D and S, greyed, say why
-/// when pressed (design change 0162) and do nothing: D, which slice N8 brings, that it isn't in the game yet; S, that
-/// the Agent carries nothing. A's hint names the Tunnel's price as the sim would charge it (design change 0233: 1
-/// Supply with one Tunnel owned), D's its name alone.
+/// Tunnel, S Drop Off Resources, D Repair, X Stop, and no Attack, Hold, Patrol or AttackMove. S, greyed, says why when
+/// pressed (design change 0162), that the Agent carries nothing, and does nothing. D (slice M5-N8) awaits its target:
+/// "Left-click a damaged own Tunnel or Laser Turret to repair it" (`> DefaultState commands`). A's hint names the
+/// Tunnel's price as the sim would charge it (design change 0233: 1 Supply with one Tunnel owned), D's its name alone.
 #[test]
-fn the_agents_panel_has_its_letters_d_greyed_with_its_reason() {
-    use ButtonLook::{Common, Disabled, Unavailable};
+fn the_agents_panel_has_its_letters_s_greyed_with_its_reason() {
+    use ButtonLook::{Common, Disabled};
     let mut app = agent_game();
     click_on(&mut app, AGENTS[0]);
     let c = PanelButton::Command;
@@ -210,18 +212,17 @@ fn the_agents_panel_has_its_letters_d_greyed_with_its_reason() {
             (q(), c(PanelCommand::Move), Common),
             (a(), c(BUILD), Common),
             (s(), c(PanelCommand::DropOff), Disabled),
-            (d(), c(REPAIR), Unavailable),
+            (d(), c(REPAIR), Common),
             (x(), c(PanelCommand::Stop), Common),
         ]
     );
-    tap(&mut app, &[], KeyD);
-    assert_eq!(said(&app), Some(NOT_YET_TEXT));
-    assert_eq!(interface(&app), InterfaceState::DefaultState);
+    assert_eq!(hint_over(&mut app, a()).as_deref(), Some("A: Build Tunnel (1 Supply)"));
+    assert_eq!(hint_over(&mut app, d()).as_deref(), Some("D: Repair"));
     tap(&mut app, &[], KeyS);
     assert_eq!(said(&app), Some(NOTHING_CARRIED_TEXT));
     assert_eq!(interface(&app), InterfaceState::DefaultState);
-    assert_eq!(hint_over(&mut app, a()).as_deref(), Some("A: Build Tunnel (1 Supply)"));
-    assert_eq!(hint_over(&mut app, d()).as_deref(), Some("D: Repair"));
+    tap(&mut app, &[], KeyD);
+    assert_eq!(interface(&app), InterfaceState::awaiting(REPAIR));
     assert_eq!(orders(&app), []);
 }
 
@@ -231,8 +232,7 @@ const LAB_AT: TilePos = TilePos::new(14, 13);
 
 /// Design change 0359's verification: "The Agent panel shows A: Build Tunnel with no turret option. Turrets can be
 /// ordered only from a Tunnel's ExpandMenu." Player 1 owns an Optics Lab and has the turret's 100 Space Crystals, all
-/// a Laser Turret requires: the Agent's panel is its letters still, D Repair greyed, with no Build of a turret in any
-/// slot. The Tunnel's W opens its ExpandMenu, where C, the Laser Turret, is lit, and enters its placement, the
+/// a Laser Turret requires: the Agent's panel is its letters still, with no Build of a turret in any slot. The Tunnel's W opens its ExpandMenu, where C, the Laser Turret, is lit, and enters its placement, the
 /// Tunnel's (`factions/syndicate/tunnel_menus.md > AwaitingPlacement (Expansion)`).
 #[test]
 fn a_turret_is_the_tunnels_expand_menus_and_never_the_agents() {
@@ -258,7 +258,7 @@ fn a_turret_is_the_tunnels_expand_menus_and_never_the_agents() {
     let shown = buttons(&mut app);
     let commands: Vec<PanelButton> = shown.iter().map(|&(_, button, _)| button).collect();
     assert_eq!(commands, [Move, BUILD, DropOff, REPAIR, Stop].map(PanelButton::Command));
-    assert_eq!(shown[3].2, ButtonLook::Unavailable, "D: Repair, greyed");
+    assert_eq!(shown[3].2, ButtonLook::Common, "D: Repair");
 
     click(&mut app, TUNNEL_AT, &[]);
     assert_eq!(selected(&app), [TUNNEL]);
