@@ -14,7 +14,7 @@ Produces Cults vehicles: the **Jackal** ( light vehicle, factions/cults/units/ja
 **Placeholder stats** (designer, 2026-11-26, at the user's request: provisional numbers so the Director can implement; tune in the numbers pass):
 - Size 3x3; SymmetryType ABAC; EntranceSide B, ExitSide C (like the Armory); MaxHP 450; PointArmor 1, FullArmor 9; SightRange 4 grid units; Groupable true.
 - Cost and time: Recruit > Constructs (200 SC, 640 frames).
-- InternalRecruitCapacity 10; production queue 10 orders.
+- InternalRecruitCapacity 10, counting reserved Recruits; so at most 5 Jackals queued (bounded by capacity: reserved units count toward it; Q0104).
 - **Jackal**: 2 Recruits, 75 Space Crystals, 320 frames (20 seconds).
 - Panel like the Armory's (choose a kind with Q/W/E/R first, then; README > Choosing Recruits, Release and Eject All): **Q: Build Jackal**, **A: Release** in the kind menu; **A: Eject All**, **C: Set Rally Point**, **X: Cancel Production** (refunds the crystals and returns the reserved Recruits).
 

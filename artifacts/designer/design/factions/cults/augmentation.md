@@ -89,7 +89,7 @@ Cost and time per order type (placeholder, designer 2026-11-26): **Enhanced Cons
 
 ### AltarInstanceState:
 - StoredUnits: list of Cults infantry references (max InternalUnitCapacity)
-- AugmentationQueue: array of {Order: EnhancedConstitution | ImprovedMetabolism | Both, ReservedUnit: unit reference} (max 20, placeholder)
+- AugmentationQueue: array of {Order: EnhancedConstitution | ImprovedMetabolism | Both, ReservedUnit: unit reference} (bounded by InternalUnitCapacity, reserved units included, Q0104; nominal max 20, placeholder)
 - CurrentAugmentationProgress: number (frames elapsed for the front entry of AugmentationQueue) | None
 - RallyPoint: Coordinates | ObjectInstance | None
 

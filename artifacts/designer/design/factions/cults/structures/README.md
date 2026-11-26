@@ -59,6 +59,13 @@ Every Cults unit, including vehicles and aircraft, is made from Recruits. Vehicl
 
 **Tech buildings** (Temple, Gunworks, Machine Shop, Shrine): DefaultState has **one button per kind**, **A** Plain, **S** Constitution, **D** Metabolism, **F** Both: pressing one sends **one** Recruit of that kind out of the exit at once (no queue). Research and abilities keep the top row; **V** Eject All; **X** Cancel (letters: designer placeholder).
 
+**Entering pool buildings** (user, 2026-11-26; Q0104):
+- Units go in at the **entrance doorway** (middle of the entrance side; core/entities.md > Entrance and exit).
+- **Full building**: a unit arriving when the building is full has its Enter **end** and idles beside the building (the normal Failure rule).
+- **Loads**: a Recruit carrying Space Crystals **keeps its load** inside and comes out with it; a Recruit consumed by training loses it.
+- **Under construction**: a building under construction **can't be entered**; a right-click on it Assists.
+- **Capacity counts everyone inside**, reserved units included: the queue can never hold more orders than the building's capacity allows (e.g. the Armory: 10 Recruits inside in all, so at most 10 queued orders). Capacities are placeholders and may be raised in the numbers pass.
+
 **Eject All still exists** everywhere (user, 2026-11-26): every unreserved unit leaves, one at a time through the exit (the Garrison: all at once through its door).
 
 ## Files
