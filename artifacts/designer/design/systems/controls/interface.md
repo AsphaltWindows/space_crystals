@@ -22,7 +22,12 @@ An InterfaceTransition that modifies ControlState and also issues a Command to o
 ## CommandPanel
 The display of available commands for the current selection, derived from ControlState and game state each tick. The CommandPanel is only displayed when all objects in the Selection are owned by the player. When selecting enemy or neutral objects, only the InfoPanel is shown — no commands are available, no right-click resolution is performed, and no InterfaceTransitions can be initiated. Commands can only be issued to objects owned by the player.
 
-When visible, commands available to all objects in the Selection are visually distinguished from commands available only to the ActiveGroup. Clicking a common command issues it to all selected objects. Clicking a group-specific command issues it only to objects in the ActiveGroup.
+When visible, commands available to all objects in the Selection are visually distinguished from commands available only to the ActiveGroup. Clicking a common command issues it to all selected objects. Clicking a group-specific command issues it only to objects in the ActiveGroup. **Common means the same command**, wherever its button sits (designer's clarification, 2026-11-27).
+
+**Attack goes to everyone** (user, 2026-11-27): an Attack (A) is issued to **every selected unit**, even when some can't attack:
+- Units that can attack carry it out: Attack on a target, or Attack Move on ground.
+- Units that can't attack (e.g. a Prayer-mobile, Shadebringer, Disciple or Drone) do the closest thing: on ground they **Move** to the spot (keeping the group's formation, as for Attack Move); on a target they **follow** it.
+- So an attack-move with casters in the army brings the casters along.
 
 **Pressing an unavailable command** (user, 2026-11-24): a greyed-out command (e.g. Train with too few Space Crystals, or a full queue) can still be pressed or its hotkey used; nothing is issued, and the player gets the **same feedback as when an order is refused**, naming the reason (e.g. "Not enough Space Crystals", "Queue is full"). Same channel as invalid target clicks (AwaitingTarget > Invalid target clicks; exact form TBD with the notification system).
 
@@ -45,6 +50,7 @@ Certain slots have standardized functions across all object types that use them.
 - **X (bottom row, 2nd slot)**: Cancel Production / Cancel Upgrade. In production buildings, cancels the last queued item and refunds cost. In structures with upgrades, cancels the in-progress upgrade and refunds cost.
 - **C (bottom row, 3rd slot)**: Set Rally Point. In unit-producing structures, enters AwaitingTarget[SetRallyPoint]. Left-click ground or object sets the rally point (CommandIssuingTransition, returns to DefaultState). Clicking the **producing building itself** clears the rally point (RallyPoint = None; user, 2026-11-24).
 - **V (bottom row, 4th slot / bottom-right)**: no standard function; free for object-specific commands.
+- **A: Attack, on every unit** (user, 2026-11-27): Attack is always in slot **A**, whichever group is in focus, so the key never changes. No unit puts another command on A (worker panels are being rearranged accordingly).
 
 ### Production Building Default Right-Click
 For all unit-producing structures, right-click from DefaultState sets the rally point:
