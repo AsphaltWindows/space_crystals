@@ -29,4 +29,12 @@ The player orders Target Lock on one enemy unit.
 - the Rocketman is given **any** order (move, stop, attack something else, etc.),
 - or the target dies.
 
-TBD: LockOnDuration, LockRange, hotkey, whether Target Lock can target structures, stats (Silhouette, HP, armor, speed, UnitBase, cost, build time, Unit Control cost), ObjectInterfaceState.
+**Target Lock can target structures** (user, 2026-11-26) as well as units.
+
+**Placeholder stats** (designer, 2026-11-26, user's standing permission; tune in the numbers pass):
+- UnitBase LightInfantry; Silhouette 24x24 space units; MaxHP 45; PointArmor 1, FullArmor 1; SightRange 6 grid units; Groupable true; UnitControlCost 1.
+- Movement as the Peacekeeper, but MaxSpeed **3 space units/frame** (heavier kit).
+- Normal attack: Damage **20**; Range **6 grid units**; MinRange **2 grid units**; ProjectileSpeed **16 su/frame**; AimDuration 6, FiringDuration 2, CooldownDuration 16, ReloadDuration 8 frames (one missile every 32 frames, 2 s: 10 damage per second before armor).
+- Target Lock: **LockOnDuration 48 frames (3 s)**; **LockRange 7 grid units**; locked missiles use the same Damage and timings, homing.
+- Cost: Barracks, **100 Space Crystals, 160 frames (10 s)**; hotkey **W** at the Barracks (as listed).
+- Panel: BasicCombatUnitInterfaceState, plus **R: Target Lock** (targeted: left-click an enemy unit or structure).

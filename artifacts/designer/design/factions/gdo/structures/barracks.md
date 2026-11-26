@@ -27,7 +27,7 @@ When a unit finishes production and spawns, if RallyPoint is set, it is issued i
 
 ## Produces:
 - Peacekeeper: 50 Space Crystals, 80 frames (5 seconds)
-- Rocketman: cost/time TBD. Requires: player owns at least one Arsenal.
+- Rocketman: 100 Space Crystals, 160 frames (10 seconds) (placeholder). Requires: player owns at least one Arsenal.
 - Drone Operator: cost/time TBD. Requires: player owns at least one Career Campus.
 - Field Engineer: 75 Space Crystals, 160 frames (10 seconds) (placeholder). Requires: player owns at least one Career Campus.
 
@@ -41,7 +41,7 @@ Right-click resolution:
 
 Immediate commands (CommandIssuingTransition):
 - **Q: Build Peacekeeper**: deducts 50 Space Crystals from player, adds Peacekeeper to BuildQueue. Only available if BuildQueue has fewer than 20 entries and player has sufficient Space Crystals (Unit Control is checked when production starts: factions/gdo/overview.md > Unit Control).
-- **W: Build Rocketman** (hotkey tentative): deducts the Rocketman's Space Crystals cost (TBD) from player, adds Rocketman to BuildQueue. Only available if the player owns at least one Arsenal, BuildQueue has fewer than 20 entries, and player has sufficient Space Crystals (Unit Control is checked when production starts: factions/gdo/overview.md > Unit Control).
+- **W: Build Rocketman** (hotkey tentative): deducts the Rocketman's Space Crystals cost (100, placeholder) from player, adds Rocketman to BuildQueue. Only available if the player owns at least one Arsenal, BuildQueue has fewer than 20 entries, and player has sufficient Space Crystals (Unit Control is checked when production starts: factions/gdo/overview.md > Unit Control).
 - **E: Build Field Engineer** (placeholder letter): deducts 75 Space Crystals, adds a Field Engineer to BuildQueue. Only available if the player owns at least one Career Campus, BuildQueue has fewer than 20 entries and the player has sufficient Space Crystals and Unit Control.
 - **X: Cancel Production**: removes last entry from BuildQueue, refunds full cost to player. Only available if BuildQueue is not empty.
 
