@@ -29,6 +29,10 @@
 
 **None open** (all answered through Q0129, entries 0319–0358, 2026-11-27). Standing TODO: general GDO/Syndicate placeholder pass (Missile Turret, Defense System, Radar Station, etc.). Order of work: finish Cults units → Colonists units → techs → detection → numbers review.
 ## Loose Ends
+- **Cults identity check (2026-11-27), open tensions for the user**: no front-line tank (are infantry masses the tank?); thin, short-range anti-air and no Cults AA building; detection later; Mystical branch has only the Disciple as a new unit (user: fine).
+- **Next Cults work**: Scrap Hangar aircraft (paratrooper plane, airship), maybe more vehicles, more Disciple spells. Then Colonists units (incl. salvo concept for Lancer/Skylance).
+- **Supply Chopper transport rules** (load/unload, capacity, destroyed with passengers): still TBD, the last GDO design gap.
+- **Placeholder passes done** for Cults (0319), GDO (0366), Syndicate (0367); rules confirmed in 0368/0369.
 - **Placeholder review** (after all units + techs): every 'placeholder' number across factions, incl. Disciple having no weapon (0319).
 - **Cults roster IN PROGRESS (2026-11-27)**: Armory: Militant, Gunner (TailDisjointed, Firing 4 f). Cathedral: Disciple (Shroud, Ungroupable). Chop Shop: **Seeker** (ex-Jackal), **Hand of Heaven** (tracked shoot-and-scoot missile, 3 Recruits), **Prayer-mobile** (wheeled caster, Inspire/Suppress, 2 Recruits, Temple). Airstrip: Sparrow. TODO: Scrap Hangar aircraft (paratrooper plane, airship), maybe more vehicles, more Disciple spells. Then Colonists units.
 - **Map view modes with toggles** (user, 2026-11-26, 'later'): e.g. show all own Tunnel Areas; maybe other overlays.
