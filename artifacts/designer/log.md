@@ -2289,3 +2289,4 @@ Answered Q0069–Q0071 (0258–0267): losing-Tunnel edges, Syndicate economy che
 2026-11-26 — Q0111: try 0323 sidestep with 1-sq hatch first. Entry 0324.
 2026-11-26 — Enter beats Repair; Agent F Repair; Mech sidestep. Entry 0325.
 2026-11-26 — Agent Construct menu. Entry 0326.
+2026-11-26 — Q0096 Basic/Advanced. Entry 0327.

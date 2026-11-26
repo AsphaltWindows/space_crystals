@@ -77,9 +77,14 @@ Recruits can enter an Armory to join its internal StoredRecruits pool (up to Int
 ## Recruit ObjectInterfaceState
 
 ### DefaultState commands:
-(Letters: user, 2026-11-26; Q0095. Same layout as the Agent's panel.)
+(Letters: user, 2026-11-26; Q0095/Q0096. Same layout as the Agent's panel, plus W for the second build menu.)
 - **Q: Move** — as in BasicCombatUnitInterfaceState.
-- **A: Construct** — enters BuildMenu (StateOnlyTransition). Multi-stage: select a building type, then place it on the ground (ghost preview, same placement flow as the Build Command).
+- **A: Basic Construct** — enters BuildMenu[Basic] (StateOnlyTransition). Multi-stage: select a building type, then place it on the ground (ghost preview, same placement flow as the Build Command).
+- **W: Advanced Construct** — enters BuildMenu[Advanced] (StateOnlyTransition), same flow.
+
+  Two build menus (user, 2026-11-26; Q0096, "basic and advanced", as the GDO's Deployment Center). Fixed slots: every building keeps its key and is greyed until its TechPrerequisite is met, so no hotkey ever moves. Rows follow the branches: top row shared base, **A S D F row Tech/Weaponry, X C V row Mystical**; **Z** returns to DefaultState. (Split and slots: designer placeholder, 2026-11-26.)
+  - **BuildMenu[Basic]**: **Q** Recruitment Hall, **W** Storage; **A** Armory, **S** Gunworks, **D** Garrison; **X** Altar.
+  - **BuildMenu[Advanced]**: **A** Chop Shop, **S** Machine Shop, **D** Airstrip, **F** Scrap Hangar; **X** Temple, **C** Cathedral, **V** Shrine.
 - **S: Assist Construction** — targeted command (StateOnlyTransition). Left-click an in-progress own building to join construction.
 - **D: Repair** — targeted command (StateOnlyTransition). Left-click a damaged own building or vehicle to repair it (see Repair).
 - **X: Stop** — as in BasicCombatUnitInterfaceState.
@@ -96,7 +101,7 @@ Recruits can enter an Armory to join its internal StoredRecruits pool (up to Int
 - **Enter Gunworks** / **Enter Machine Shop** (staff research) — right-click own Gunworks / Machine Shop
 - **Gather** — right-click Space Crystal patch
 - **Drop Off Resources** — right-click own Storage (when carrying Space Crystals)
-- **Construct** — via panel button A
+- **Construct** — via panel buttons A (Basic) and W (Advanced)
 - **Assist Construction** — via panel button S, or right-click
 - **Repair** — via panel button D, or right-click
 
