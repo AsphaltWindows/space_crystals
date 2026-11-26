@@ -30,3 +30,13 @@ In a normal game, a player is **defeated when they own no buildings**. This appl
 (user, 2026-11-27; Q0147) For now, computer players are a **playtest tool**, not a player-facing feature: started from the command line, taking any player's slot. Their behavior (profiles such as standard, rush and passive; build orders) is the Director's placeholder; the Designer writes a proper design when computer players become a feature.
 - **Fair knowledge**: a computer player sees only what its own objects see and remembers what it has seen, as the fog of war does for a human player (core/vision.md). It also knows the map and every player's starting location. It never sees the whole map.
 - It issues the same commands a player can, under the same rules.
+
+## Playtest menu (temporary)
+(user, 2026-11-26) A simple **temporary** menu for playtests, until a real in-game menu is designed.
+- **Opens** when the **game ends** (Victory, Defeat or Draw, shown with it; End of Game) and when the player presses **F10** during the game.
+- **Options**:
+  - **Restart**: starts the same game over from the beginning: the same map, player slots, factions and computer players (with their profiles) as the current game was started with.
+  - **Quit**: closes the game.
+  - **Resume** (F10 menu only): closes the menu. **F10** again does the same.
+- **While the F10 menu is open the game is paused** (designer's placeholder, 2026-11-26; playtests are local games, so nothing else runs on). The game-end menu appears over the stopped game.
+- No confirmation step (designer's placeholder): the menu itself is the deliberate step.
