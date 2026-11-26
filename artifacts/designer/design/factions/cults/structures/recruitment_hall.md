@@ -18,7 +18,7 @@ The Cults' starting structure. Automatically produces Recruits from the surround
 The player starts with one RecruitmentHall, but additional ones are buildable by Recruits like any other Cults structure. Space Crystals cost and construction time are listed under the Recruit's Constructs list (see Recruit > Building).
 
 ## RecruitmentArea
-A 10x10 grid unit area centered on the 4x4 building. **The whole area must lie on the map** (user, 2026-11-26; Q0099): a Hall whose area would leave the map can't be placed (as Tunnels, 0242).
+A 10x10 grid unit area centered on the 4x4 building. **The area may extend past the map edge** (user, 2026-11-27; replaces Q0099's "the whole area must lie on the map"): a Hall can be placed anywhere its 4x4 footprint fits on the map, including right at the edge. The part of its area that lies **off the map yields no Recruitable tiles**, so a Hall near the edge is **suboptimal but possible**. Effectiveness still divides by the full 100 tiles (Effectiveness). (Tunnel Areas keep their own on-map rule, 0242.)
 
 ## Recruitment Area display
 (user, 2026-11-26; Q0107, option b; as the Tunnel Area display, factions/syndicate/tunnel_area_and_space.md > Tunnel Area display)
@@ -38,7 +38,7 @@ A Recruitment Hall claims Recruitable tiles within its Recruitment Area that are
 - **Rounding**: LocalUnitControlCapacity is **rounded down** everywhere (production and HUD): 33 claimed tiles of 100 gives 6.6, so 6.
 
 ## Effectiveness
-Effectiveness = (number of claimed Recruitable tiles in Recruitment Area) / (total number of tiles in Recruitment Area).
+Effectiveness = (number of claimed Recruitable tiles in Recruitment Area) / (total number of tiles in Recruitment Area). The total is always the full 10x10 = 100, **off-map tiles included** (they count as non-Recruitable; user, 2026-11-27).
 
 Buildings do not affect recruitability. A Recruitable tile stays Recruitable whether or not a building stands on it — the Recruitment Hall's own 4x4 footprint, any other Cults building, or another faction's building. The only thing that prevents a hall from counting a Recruitable tile is that tile being claimed by another Recruitment Hall (see tile claiming above). A hall on fully Recruitable terrain with no competing halls therefore reaches 100% effectiveness.
 
