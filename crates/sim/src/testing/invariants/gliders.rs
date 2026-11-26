@@ -4,7 +4,9 @@
 //! IdleSpeed and its MaxSpeed (`systems/units.md > GliderMovement`: "Unit must always maintain movement to stay
 //! airborne"), its own move in the tick being that flight (`Mover::velocity`: the soft separation of air units
 //! comes on top, `movement::air`), and where it counts as being (`Object::map_pos`) is on the map, wherever it flies
-//! (`systems/units.md > Air Collision`: "stays visible and attackable as if it were at the nearest edge tile").
+//! (`systems/units.md > Air Collision`: "stays visible and attackable as if it were at the nearest edge tile"). One
+//! stopped after its flight in the tick (`Mover::stop`: an order that ended in phase 5e, its target gone) shows no
+//! move, Stationary, until its next flight, from which it circles where it is; it keeps its speed.
 //!
 //! It also holds the exemptions the Gliders and the soft separation need from I3, I5 and I7 (`super::check_units`):
 //! a Glider moves, and has momentum, without a goal, and an air unit is pushed apart from another by at most
@@ -12,10 +14,12 @@
 
 use std::collections::BTreeMap;
 
+use glam::Vec2;
+
 use super::{Seen, Violation};
 use crate::defs::{Domain, MovementAttrs, UnitDef};
 use crate::ids::ObjectId;
-use crate::mover::Locomotion;
+use crate::mover::{Locomotion, MoveGoal};
 use crate::object::Object;
 use crate::sim::Sim;
 use crate::tuning::air::SEPARATION_PUSH_SU;
@@ -44,7 +48,12 @@ pub(super) fn gliders(sim: &Sim, seen: &BTreeMap<ObjectId, Seen>) -> Result<(), 
             })
         };
         let speed = mover.momentum.length();
-        if mover.locomotion != Locomotion::Moving {
+        let stopped = mover.goal == MoveGoal::None
+            && mover.orbit.is_none()
+            && mover.strafe.is_none()
+            && mover.velocity == Vec2::ZERO
+            && mover.locomotion == Locomotion::Stationary;
+        if mover.locomotion != Locomotion::Moving && !stopped {
             return fail(format!("is a Glider, and isn't flying: {mover:?}"));
         }
         let slowest = idle_speed * (1.0 - SPEED_TOLERANCE) - SPEED_TOLERANCE;
@@ -58,7 +67,7 @@ pub(super) fn gliders(sim: &Sim, seen: &BTreeMap<ObjectId, Seen>) -> Result<(), 
                 "flies at {speed} su a tick, faster than its MaxSpeed of {max_speed}"
             ));
         }
-        if mover.velocity != mover.momentum {
+        if mover.velocity != mover.momentum && !stopped {
             return fail(format!(
                 "moved by {} in its own flight, which was {}",
                 mover.velocity, mover.momentum
@@ -133,12 +142,14 @@ mod tests {
         serde_json::to_value(t.sim()).expect("a state serializes")
     }
 
-    /// The rules' verdict (`Invariants::check_rules`) on `json` loaded, with the Sparrow's mover's `field` set to
-    /// `value`.
-    fn check_with(mut json: Value, field: &str, value: Value) -> Result<(), Violation> {
+    /// The rules' verdict (`Invariants::check_rules`) on `json` loaded, with each of the Sparrow's mover's `fields`
+    /// set to its value.
+    fn check_with(mut json: Value, fields: &[(&str, Value)]) -> Result<(), Violation> {
         let objects = json["objects"].as_array_mut().expect("the objects are a list");
         let sparrow = objects.iter_mut().find(|o| o["id"] == 1).expect("in the state");
-        sparrow["mover"][field] = value;
+        for (field, value) in fields {
+            sparrow["mover"][*field] = value.clone();
+        }
         let sim: Sim = serde_json::from_value(json).expect("the edited state loads");
         Invariants::new(&sim).check_rules(&sim, &TickInputs::default())
     }
@@ -157,10 +168,31 @@ mod tests {
             ("locomotion", json!("Stationary"), "isn't flying"),
             ("velocity", json!([0.0, 0.0]), "in its own flight"),
         ] {
-            let broken = check_with(json.clone(), field, value).unwrap_err();
+            let broken = check_with(json.clone(), &[(field, value)]).unwrap_err();
             assert_eq!(broken.invariant, "G1", "{broken:?}");
             assert!(broken.message.contains(problem), "{field}: {broken:?}");
         }
         assert!(momentum.is_array(), "the Sparrow flies: {momentum}");
+    }
+
+    /// A Sparrow stopped after its flight in the tick (`Mover::stop`, as when the target of its Attack dies in phase
+    /// 5e) shows no move until its next flight, and passes G1 so: no goal, no circle, no strafing run, no velocity,
+    /// Stationary. It still keeps its speed, and with anything left of a goal it breaks G1.
+    #[test]
+    fn a_glider_stopped_after_its_flight_keeps_g1_while_it_keeps_its_speed() {
+        let stopped = [
+            ("goal", json!("None")),
+            ("orbit", Value::Null),
+            ("velocity", json!([0.0, 0.0])),
+            ("locomotion", json!("Stationary")),
+        ];
+        let json = saved();
+        assert_eq!(check_with(json.clone(), &stopped), Ok(()));
+        let slow = [stopped.as_slice(), &[("momentum", json!([0.0, 3.0]))]].concat();
+        let broken = check_with(json.clone(), &slow).unwrap_err();
+        assert!(broken.message.contains("slower than its IdleSpeed"), "{broken:?}");
+        let circling = [&stopped[..1], &stopped[2..]].concat();
+        let broken = check_with(json, &circling).unwrap_err();
+        assert!(broken.message.contains("isn't flying"), "{broken:?}");
     }
 }

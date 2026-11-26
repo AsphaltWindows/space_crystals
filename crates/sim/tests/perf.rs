@@ -4,6 +4,7 @@
 //! module here as in `sim.rs`.
 
 mod agents_perf;
+mod air_perf;
 mod attack_move_perf;
 mod behaviours_perf;
 mod drones_perf;
