@@ -3,8 +3,9 @@
 //! (`UnitDef::augmentable`, `augmentation::is_augmentable`; `factions/cults/augmentation.md > Eligibility`: "Only Cults
 //! infantry can be augmented"). A unit loses its Augmentations as it changes into a kind that can't have them
 //! (`Sim::change_kind`, `Sim::train`: "if augmented Recruits are consumed to produce a vehicle, their Augmentations are
-//! lost", `factions/cults/augmentation.md > Persistence`), and `DebugCommand::SetAugmentation` refuses such a kind
-//! (`Reject::NotAugmentable`).
+//! lost", `factions/cults/augmentation.md > Persistence`), and gets them only through `augmentation::set`, which gives
+//! none to such a kind: the Altar's orders as the unit comes out (`Sim::augment`, slice M5-N1b), and
+//! `DebugCommand::SetAugmentation`, which refuses such a kind (`Reject::NotAugmentable`).
 
 use super::{Violation, every_object};
 use crate::augmentation;
