@@ -32,7 +32,7 @@ Cooldowns: none. Energy costs, areas, durations and rates: see Placeholder stats
 - Energy: number (0 to MaxEnergy)
 
 **Placeholder stats** (designer, 2026-11-26, at the user's request: provisional numbers so the Director can implement; tune in the numbers pass):
-- Size 2x2; SymmetryType AAAA; MaxHP 300; PointArmor 1, FullArmor 4; SightRange 4 grid units; Groupable **false** (user, 2026-11-26; Q0118: each press casts from one Shrine).
+- Size 2x2; SymmetryType ABAC, **EntranceSide B, ExitSide C** (user, 2026-11-26: like the production and research buildings; participants leave one at a time); MaxHP 300; PointArmor 1, FullArmor 4; SightRange 4 grid units; Groupable **false** (user, 2026-11-26; Q0118: each press casts from one Shrine).
 - Cost and time: Recruit > Constructs (200 SC, 480 frames).
 - Recruit capacity 8. MaxEnergy 200; starts at 0; regeneration **0.25 energy per second per Recruit inside** (2 per second when full).
 - **Health regeneration** (hotkey Q): 75 energy; circle of radius 4 grid units; **+2 HP per second for 15 seconds**.

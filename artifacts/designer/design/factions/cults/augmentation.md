@@ -25,7 +25,7 @@ Increments can be negative. A negative increment applies the opposite effect (e.
 
 ### Augmentation Effects
 
-Each Augmentation grants a positive amount of its own increment and a negative amount of the other. The amounts depend on the Temple research level in effect when the augmentation is applied (see Temple and Level Locking below):
+Each Augmentation grants a positive amount of its own increment and a negative amount of the other. The amounts depend on the Temple research level **currently** researched (see Temple and Research applies to everyone below):
 
 | Augmentation | No research | Level 1 researched | Level 2 researched |
 |---|---|---|---|
@@ -36,15 +36,14 @@ A unit may have neither, either, or both Augmentations. A unit with both sums th
 - Both at no research: +1 Constitution / +1 Metabolism.
 - Enhanced Constitution at Level 2 + Improved Metabolism at no research: +5 Constitution / −1 Metabolism.
 
-### Level Locking
+### Research applies to everyone
+(user, 2026-11-26; replaces Level Locking, "to avoid unnecessary complexity") Temple research is **retroactive**: when a level completes, **every unit that has that Augmentation** gets the new amounts at once, along with units augmented later. HP follows the MaxHP rule (Increments > HP when MaxHP changes): if MaxHP goes up, HP rises by the same amount.
 
-A unit receives the research level that is in effect **at the moment its augmentation finishes** at the Altar — not when the order was queued, and not when the unit was trained. The unit keeps that level permanently; research completed later does not change it (Cults stat upgrades are not retroactive — see core/tech_and_research.md > Research > Faction Exceptions).
-
-A unit cannot receive an Augmentation it already has. There is no way to re-augment a unit to a newer research level.
+A unit cannot receive an Augmentation it already has.
 
 ### AugmentationState (per unit instance)
-- EnhancedConstitution: None | NoResearch | Level1 | Level2
-- ImprovedMetabolism: None | NoResearch | Level1 | Level2
+- EnhancedConstitution: boolean (the amounts come from the player's current research level)
+- ImprovedMetabolism: boolean
 
 ### Eligibility
 All four Cults infantry types: Recruit, Militant, Gunner, and Disciple. Only Cults infantry can be augmented.
@@ -84,7 +83,7 @@ Fully augmented units (both Augmentations already applied) can also enter, but t
 ### Augmentation Orders
 Order types: **Enhanced Constitution**, **Improved Metabolism**, or **Both** (a single order that applies both). An order can only target a unit that is missing every Augmentation the order applies.
 
-Orders are queueable and serial — processed one at a time, in the order queued. Queuing an order immediately deducts its Space Crystals cost and reserves one unit of the selected type and AugmentationState from StoredUnits (removing it from the pool while it waits). Only the front of the queue actively progresses. When an order finishes, the unit's AugmentationState is updated using the research level in effect at that moment (see Augmentation > Level Locking), and the unit **automatically exits** from the exit side and moves to the RallyPoint. **Which unit** (user, 2026-11-26; Q0105/Q0114/Q0121): an order reserves the matching unit(s) that **entered the building first** (first in, first trained). **HP**: infantry trained from a Recruit **keep the Recruit's damage** (the missing HP carries over); vehicles and aircraft come out at full HP.
+Orders are queueable and serial — processed one at a time, in the order queued. Queuing an order immediately deducts its Space Crystals cost and reserves one unit of the selected type and AugmentationState from StoredUnits (removing it from the pool while it waits). Only the front of the queue actively progresses. When an order finishes, the unit's AugmentationState is updated (its amounts follow the current research level; see Augmentation > Research applies to everyone), and the unit **automatically exits** from the exit side and moves to the RallyPoint. **Which unit** (user, 2026-11-26; Q0105/Q0114/Q0121): an order reserves the matching unit(s) that **entered the building first** (first in, first trained). **HP**: infantry trained from a Recruit **keep the Recruit's damage** (the missing HP carries over); vehicles and aircraft come out at full HP.
 
 Cost and time per order type (placeholder, designer 2026-11-26): **Enhanced Constitution** and **Improved Metabolism**: 25 Space Crystals, 160 frames (10 s) each; **Both**: the sum, 50 Space Crystals, 320 frames.
 

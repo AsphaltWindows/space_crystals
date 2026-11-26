@@ -10,7 +10,7 @@ Size, armor and other stats: see Placeholder stats below. Space Crystals cost an
 
 ## Research (first set)
 
-Each Augmentation has its own two-level improvement line. Each level raises the effect of that Augmentation for units augmented **after** the level completes (see Augmentation > Level Locking).
+Each Augmentation has its own two-level improvement line. Each level raises the effect of that Augmentation for **every** unit that has it, including units already augmented (retroactive; see Augmentation > Research applies to everyone).
 
 | Technology | Requires | Effect | Cost / Time |
 |---|---|---|---|
