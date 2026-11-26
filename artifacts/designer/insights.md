@@ -27,6 +27,7 @@
 - Game will be rebuilt from scratch → docs must stand alone as the complete spec. Old prototype stays at `artifacts/developer/` as reference; Director decides with user where new code lives.
 
 ## Open Director Questions
+- Q0145 do enemies see Shrine buff marks? (nb)
 
 Order of work (placeholder passes done, 0366/0367): finish Cults units → Colonists units → techs → detection → numbers review.
 ## Loose Ends
