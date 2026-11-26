@@ -1,19 +1,23 @@
-//! The Cults' construction (slice M5-E, plan decisions T59 and T62; design changes 0071 and 0072), through the gate:
-//! `factions/cults/economy.md > Cults Building Mechanics`, `factions/cults/economy.md > BaseConstructionTime Scaling`,
-//! `factions/cults/economy.md > Build Command`, `factions/cults/economy.md > Assist Construction Command`,
-//! `factions/cults/economy.md > Cancel Construction`, `factions/cults/units/recruit.md > Building` and
-//! `factions/cults/units/recruit.md > Constructs`. One test binary:
-//! - `flow`: a group builds a building from outside, faster with more builders, paid once; one Recruit alone; a Shift
-//!   chain; builders pulled off (the stall, the slowdown) and back by Assist; the right-click;
-//! - `refunds`: the refunds before the start (re-ordered, killed, failed on arrival), none after it, the 75% of X;
+//! The Cults' construction (slice M5-E, plan decisions T59 and T62; design changes 0071, 0072, 0339 and 0340), through
+//! the gate: `factions/cults/economy.md > Cults Building Mechanics`, `factions/cults/economy.md > Cults Building
+//! Mechanics > Group construction rules`, `factions/cults/economy.md > Cults Building Mechanics > Group construction
+//! refunds`, `factions/cults/economy.md > BaseConstructionTime Scaling`, `factions/cults/economy.md > Build Command`,
+//! `factions/cults/economy.md > Assist Construction Command`, `factions/cults/economy.md > Cancel Construction`,
+//! `factions/cults/units/recruit.md > Building` and `factions/cults/units/recruit.md > Constructs`. One test binary:
+//! - `flow`: a group builds a building from outside, faster with more builders, paid once; five from one side spread
+//!   along the wall, the first building at once; two builders build twice as fast; one Recruit alone; a Shift chain;
+//!   builders pulled off (the stall, the slowdown) and back by Assist; the right-click;
+//! - `refunds`: the refunds before the start (re-ordered, killed, failed on arrival, a Recruit of the order on the
+//!   ghost), none after it, the 75% of X, the group going on to its queued building after X;
 //! - `gate`: the gate's checks of a Build and an Assist, the Armory's Storage, the ghosts;
-//! - `crowds`: more Recruits than ring 0 holds wait further out and move in as room frees; the builders never stand on
-//!   the footprint;
+//! - `crowds`: more Recruits than the builders' wall holds wait further out; the builders never stand on the
+//!   footprint;
 //! - `hall`: a Recruitment Hall the Recruits build makes Recruits of its own lineage; gatherers taken off to build and
 //!   sent back keep gathering by slice M5-D's rules; a game saved and replayed.
 //!
 //! Every test runs under the invariants of `TestSim` (no unit stands on a footprint, so no builder does), and [`step`]
-//! checks after each tick that a site built from outside gained exactly one frame for each builder within reach.
+//! checks after each tick that a site built from outside gained exactly one frame for each builder at work: on an
+//! Assist of it, within reach, its walk over.
 
 mod crowds;
 mod flow;
@@ -52,7 +56,7 @@ const STORAGE_PRICE: u32 = 100;
 const STORAGE_FRAMES: u32 = 320;
 /// The starting bank of [`world`].
 const BANK: u32 = 1000;
-/// `tuning::construction::BUILD_REACH_SU`: Placeholder (Q0097 point 1).
+/// `tuning::construction::BUILD_REACH_SU`, design change 0339: "within its 8 su reach of the edge".
 const REACH: f32 = 8.0;
 /// The longest walk to a site in these tests, ticks.
 const WALK: Tick = 400;
@@ -213,7 +217,7 @@ fn queued(t: &TestSim, n: u32) -> Vec<OrderKind> {
 
 /// Whether unit `n` is on its way somewhere.
 fn moving(t: &TestSim, n: u32) -> bool {
-    (object(t, id(n)).mover.as_ref()).is_some_and(|mover| mover.status == sc_sim::MoveStatus::Moving)
+    walking(object(t, id(n)))
 }
 
 /// Whether unit `n` is on the map with no order, current or queued.
@@ -221,19 +225,25 @@ fn idle(t: &TestSim, n: u32) -> bool {
     (t.sim().object(id(n))).is_some_and(|o| o.orders.as_ref().is_some_and(|orders| orders.is_idle()))
 }
 
-/// Whether unit `o` stands within reach of the footprint of `site` (Placeholder (Q0097 point 1): 8 su of its edge).
+/// Whether unit `o` stands within reach of the footprint of `site` (design change 0339: 8 su of its edge).
 fn in_reach(o: &Object, site: &Object) -> bool {
     let footprint = Shape::footprint(&site.placement.expect("a footprint"));
     Shape::of(o).gap(&footprint) <= REACH
 }
 
-/// The builders of `site`: the units on an Assist of it within reach of its footprint, in id order.
+/// Whether unit `o` is on its way somewhere.
+fn walking(o: &Object) -> bool {
+    (o.mover.as_ref()).is_some_and(|mover| mover.status == sc_sim::MoveStatus::Moving)
+}
+
+/// The builders at work on `site`: the units on an Assist of it within reach of its footprint, their walk over
+/// (design change 0339: "Recruits still walking, waiting for a spot or doing anything else add nothing"), in id order.
 fn builders(t: &TestSim, site: ObjectId) -> Vec<ObjectId> {
     let s = object(t, site);
     (t.sim().objects())
         .filter(|o| {
             let current = o.orders.as_ref().and_then(|orders| orders.current.as_ref());
-            current.is_some_and(|active| active.order.kind == OrderKind::Assist(site)) && in_reach(o, s)
+            current.is_some_and(|active| active.order.kind == OrderKind::Assist(site)) && in_reach(o, s) && !walking(o)
         })
         .map(|o| o.id)
         .collect()
@@ -261,8 +271,8 @@ fn site_frames(t: &TestSim) -> Vec<(ObjectId, u32, u32)> {
 }
 
 /// One tick, and the builders' rule after it: each site built from outside gained one frame for each of its builders
-/// within reach, as they stand now (the count is taken after the movement, `sim/sites.rs`). `TestSim` checks that
-/// no unit stands on a footprint.
+/// at work ([`builders`]), as they stand now (the count is taken after the movement, `sim/sites.rs`). `TestSim`
+/// checks that no unit stands on a footprint.
 fn step(t: &mut TestSim) {
     let before = site_frames(t);
     t.step();

@@ -55,6 +55,82 @@ fn four_recruits_build_a_storage_in_about_80_frames_paid_once() {
     }
 }
 
+/// [`cults`] with `count` Recruits of player 1's, ids 2 on, in a file west of [`SITE`] on the row of its middle, the
+/// first at x = 1100 and each next one 32 su further west; player 1's bank is [`BANK`] from tick 1.
+fn file(count: u32) -> TestSim {
+    let mut scenario = cults();
+    for i in 0..count {
+        let at = Vec2::new(1100.0 - 32.0 * i as f32, 960.0);
+        scenario = scenario.spawn(RECRUIT, Some(P1), SpawnAt::Point(at));
+    }
+    let mut t = scenario.start();
+    t.debug_at(1, crystals_of(P1, BANK));
+    t
+}
+
+/// Design change 0339's first verification (`factions/cults/economy.md > Cults Building Mechanics > Group
+/// construction rules`): "Five Recruits from one side: the first builds at once, and the others spread along the
+/// wall." Five in a file west of a Storage: the first takes the part of the footprint closest to it, the middle of its
+/// west side; each next one, finding that part taken, the nearest free part along the wall, a builder's room from the
+/// others, of two as near the clockwise one (north, on the west side). The site starts as the first gets there, and it
+/// builds from the next tick while the others still walk; each adds its frame as it arrives, and all five build from
+/// the west side.
+#[test]
+fn five_recruits_from_one_side_the_first_builds_at_once_and_the_others_spread_along_the_wall() {
+    let mut t = file(5);
+    let group = recruits(5);
+    t.at(2, P1, build(&group, STORAGE, SITE, false));
+    run(&mut t, 2);
+    // The builders' wall on the west: x = 1280 − 12 − 4; the middle of the side, y = 960, and a room (32 su) apart.
+    let spots: Vec<Vec2> = group.iter().map(|&n| spot(&t, n).expect("a spot")).collect();
+    let wall = [960.0, 928.0, 992.0, 896.0, 1024.0].map(|y| Vec2::new(1264.0, y));
+    assert_eq!(spots, wall, "the nearest free part each, north first");
+
+    let start = run_to(&mut t, WALK, "the site starts", |t| !sites(t).is_empty());
+    let site = sites(&t)[0];
+    assert_eq!(started(&t), [(start, (site, id(2)))], "as the first gets there");
+    step(&mut t);
+    assert_eq!(
+        (frames(&t, site), builders(&t, site)),
+        (1, vec![id(2)]),
+        "the first builds at once"
+    );
+    assert!(group[1..].iter().all(|&n| moving(&t, n)), "while the others walk");
+    let mut at_work = 1;
+    while at_work < 5 {
+        step(&mut t);
+        let now = builders(&t, site).len();
+        assert!(now >= at_work, "each adds its frame as it arrives, and keeps building");
+        at_work = now;
+        assert!(t.sim().tick() < start + WALK, "all five at work");
+    }
+    for &n in &group {
+        let o = object(&t, id(n));
+        assert!(o.pos.x < 1280.0, "#{n} builds from the west side: {}", o.pos);
+    }
+}
+
+/// Design change 0339's second verification (`> Group construction rules`): "With two builders the progress rate
+/// doubles while both work": two Recruits on a Storage, one off each side, build it two frames a tick while both are
+/// at work, and one frame a tick once one of them is pulled off.
+#[test]
+fn two_builders_double_the_rate_while_both_work() {
+    let mut t = four_round();
+    t.at(2, P1, build(&[2, 3], STORAGE, SITE, false));
+    run_to(&mut t, WALK, "the site starts", |t| !sites(t).is_empty());
+    let site = sites(&t)[0];
+    run_to(&mut t, WALK, "both at work", |t| builders(t, site).len() == 2);
+    let both = frames(&t, site);
+    run(&mut t, 10);
+    assert_eq!(frames(&t, site) - both, 20, "two frames a tick with two");
+    let now = t.sim().tick() + 1;
+    t.at(now, P1, move_to(&[3], Vec2::new(1800.0, 960.0)));
+    step(&mut t);
+    let one = frames(&t, site);
+    run(&mut t, 10);
+    assert_eq!(frames(&t, site) - one, 10, "one frame a tick with one");
+}
+
 /// `> BaseConstructionTime Scaling`: "the time to complete construction with exactly 1 Recruit assigned": one Recruit
 /// builds a Storage alone, 320 frames from its arrival.
 #[test]
