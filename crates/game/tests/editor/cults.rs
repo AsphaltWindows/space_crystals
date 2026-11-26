@@ -2,16 +2,17 @@
 //! Layouts`, `factions/cults/economy.md > Starting Conditions`): on a Skirmish Default map the Layout tool's palette is
 //! their Recruitment Hall, Storage and six Recruits, the Recruits go where they are clicked, as units; an incomplete
 //! layout lists what it lacks and the map can't be play-tested (design change 0012: "Leave the Cults layout
-//! incomplete: the editor lists the missing Recruits, and the map can't be started"); and the map plays once the
-//! layout is complete.
+//! incomplete: the editor lists the missing Recruits, and the map can't be started"); a Hall flush against the map's
+//! edge is valid (design change 0387, slice M5-S4); and the map plays once the layout is complete.
 
 use bevy::prelude::App;
 use sc_sim::{
     ArmyCap, ArmyResource, BuildingOrientation, Faction, LayoutObject, MapDef, ObjectKind, PlayerId, Rotation,
-    SU_PER_GU, SlotId, SpawnAt, Symmetry, Vec2,
+    SU_PER_GU, SlotId, SpawnAt, Symmetry, TilePos, Vec2,
 };
 use space_crystals::ClientMode;
 use space_crystals::editor::actions::EditorAction as A;
+use space_crystals::editor::layouts::check::LayoutPreview;
 use space_crystals::editor::layouts::{PaletteEntry, palette};
 use space_crystals::editor::state::StatusLevel;
 use space_crystals::editor::ui::lists::ProblemList;
@@ -82,10 +83,11 @@ fn cults(app: &App, slot: SlotId) -> Vec<LayoutObject> {
 /// Slice M5-B's acceptance: "An incomplete Cults layout lists what it lacks, in the editor and in validation". On a new
 /// Skirmish Default map (here with the GDO's, the Syndicate's and the Colonists' layouts done) the Problems list says
 /// what the Cults' layout lacks; the palette offers the Recruitment Hall, the Storage and six Recruits, and moves on to
-/// the next kind as each is done; a Recruit goes exactly where it is clicked, a point. Two Recruits short, the Layout
-/// panel and the Problems list name them, and the map can't be play-tested (design change 0012). Complete, slot 2's
-/// layout is the image, and the map plays: slot 2's Cults player starts with it, each Recruit of its Hall's lineage, at
-/// Unit Control 6/20.
+/// the next kind as each is done; a Hall's ghost flush against the map's edge is valid (design change 0387's
+/// Verification: "Place a Hall flush against the map edge: it is accepted"; slice M5-J1 refused it, design change 0341
+/// point 1); a Recruit goes exactly where it is clicked, a point. Two Recruits short, the Layout panel and the Problems
+/// list name them, and the map can't be play-tested (design change 0012). Complete, slot 2's layout is the image, and
+/// the map plays: slot 2's Cults player starts with it, each Recruit of its Hall's lineage, at Unit Control 6/20.
 #[test]
 fn the_cults_layout_lists_its_missing_recruits_until_complete() {
     let dir = temp_maps("cults_layout");
@@ -121,6 +123,11 @@ fn the_cults_layout_lists_its_missing_recruits_until_complete() {
         assert!(panel.iter().any(|t| t == expected), "{expected:?} not in {panel:?}");
     }
     assert_eq!(tools(&app).layout_kind, HALL);
+    // Flush against the west edge, 3 columns of its Recruitment Area off the map (its image flush against the east).
+    act(&mut app, [A::Hover(Some(spot(0, 8, 4, 4)))]);
+    app.update();
+    let ghost = app.world().resource::<LayoutPreview>().0.clone().expect("a ghost");
+    assert_eq!((ghost.at, ghost.verdict), (SpawnAt::Tile(TilePos::new(0, 8)), Ok(())));
     click(&mut app, spot(3, 10, 4, 4));
     assert_eq!(tools(&app).layout_kind, STORAGE, "on to the next kind the layout lacks");
     click(&mut app, spot(8, 10, 3, 2));

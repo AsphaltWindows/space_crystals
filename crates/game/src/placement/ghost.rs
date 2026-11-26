@@ -314,8 +314,8 @@ pub fn check_now(
 /// (`crate::command_ui::interface::Builder::Recruits`): `Sim::group_build_check`, the gate's site check, as far as
 /// the player knows (`factions/cults/economy.md > Cults Building Mechanics > Group construction rules`): the
 /// footprint's tiles, the player's other sites and lingering ghosts reserved (a plain click's order replaces the
-/// group's own), and a Recruitment Hall's whole Recruitment Area on the map (design change 0341 point 1). The group is
-/// left out of the occupants: a Recruit of the order standing on the footprint doesn't make the ghost red, as it
+/// group's own); a Recruitment Hall's area takes no check, so it may stand right up to the map's edge (design change
+/// 0387, slice M5-S4, in place of slice M5-J1's whole area on the map). The group is left out of the occupants: a Recruit of the order standing on the footprint doesn't make the ghost red, as it
 /// doesn't fail the order (design change 0362, answering Q0130: "the site **waits** for Recruits of the same order who
 /// stand on the footprint to step off, then starts"; `sc_sim`'s `sim/builds/shared.rs`), so no warning is needed. The
 /// one place the ghost judges the Recruits' placement, so that a warning for them would go here. `None` without a

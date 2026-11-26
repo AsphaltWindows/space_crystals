@@ -291,10 +291,10 @@ fn a_tunnel_shows_the_tier_it_upgrades_to_and_its_progress() {
 }
 
 /// Slice M5-C (placeholder wording; `factions/cults/structures/recruitment_hall.md > RecruitmentHallInstanceState`):
-/// player 1's Recruitment Hall in the map's top right corner, its side B open, a map spawn, which takes no placement
-/// check, claims the 49 tiles of its area on the map (**Placeholder (not in the design: 0341 rules such a Hall out)**:
-/// design change 0341 point 1, "The whole 10x10 area must lie on the map"), so 49% and a capacity of 9.8, 9 (design
-/// change 0341: "Capacity is rounded down everywhere"). From its first step its Recruit is in production at 49 tiles a
+/// player 1's Recruitment Hall in the map's top right corner, its side B open, claims the 49 tiles of its area on the
+/// map (design change 0387: "The part of its 10x10 area beyond the map edge yields **no Recruitable tiles**.
+/// Effectiveness still divides by the full 100"), so 49% and a capacity of 9.8, 9 (design change 0341: "Capacity is
+/// rounded down everywhere"). From its first step its Recruit is in production at 49 tiles a
 /// frame, and counts (design change 0342); out at 392 frames (192 × 100 / 49, rounded up), when its next Recruit starts
 /// at once: the Hall's usage is 2. No queue line: a Hall has none to fill.
 #[test]
