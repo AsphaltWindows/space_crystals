@@ -662,9 +662,11 @@ Layout validation can't disagree. **Never test a placement rule anywhere else: a
   building that holds units (every ring, clockwise from its exit side, *Object model > Buildings that hold units*).
   **A new rule that puts units beside a footprint calls `Sim::spot_around`; it never writes its own search.** The one
   exception is the units that walk to a spot to work there (slice M5-E, `crate::spot_work`, `Sim::free_spot` in
-  `sim/spot_work.rs`; *Economy > Cults construction*): the same `Spots`, for a box `BUILD_STANDOFF_SU` bigger, beside
-  the footprint's sides only, nearest the unit first, since both ways from its side sent half of a group walking up
-  from one side across the others' spots.
+  `sim/spot_work.rs`; *Economy > Cults construction*): design change 0339 replaced the fixed order for them by a
+  wall-hug, `placement::Wall` (`placement/wall.rs`, geometry alone, as `Spots`): the loop round the footprint where a
+  unit's box stands `BUILD_STANDOFF_SU` off it, searched from its point nearest the unit (`Wall::hug`), then both ways
+  along it, `HUG_STEP_SU` at a time, of two as far the clockwise one first; `Wall::out` is a row further out,
+  `Wall::next_corner` where the way along it turns.
 - **Tests**: `src/placement/tests/` (each rule on the pure check), `placement/build_area.rs`'s (the 28 × 28 area,
   each kind's extension, the runs), `tests/placement.rs` (the verification points of design changes 0004 and 0091 to
   0097 in games and layouts, determinism, a save), `tests/warp_in/` (the Warp In method, see *Economy > Warp In*),
@@ -711,9 +713,10 @@ Layout validation can't disagree. **Never test a placement rule anywhere else: a
      the events that a behaviour may not make.
    - Spots, `Sim::step_spots` (slice M5-E, `sim/spot_work.rs`; *Economy > Cults construction*): part of 5a, right
      after the deployments, in id order. Each unit whose current order works at a footprint from a spot beside it (a
-     group's Build, an Assist) and has no spot gets one and walks there; an order on a structure that no longer suits
-     it ends; every `RESPOT_TICKS`, a unit whose walk is over keeps where it stands within reach, or looks again on
-     ring 0. Before 5b, so that its walks get their paths in the tick.
+     group's Build, an Assist) and has no spot gets one and walks there, round the footprint, a unit on its way
+     heading on at each corner (`Sim::head_on`); an order on a structure that no longer suits it ends; every
+     `RESPOT_TICKS`, a unit whose walk is over keeps where it stands within reach, or looks again along the builders'
+     wall. Before 5b, so that its walks get their paths in the tick.
    - Entries, `Sim::step_entries` (slice M4-C, `sim/network.rs`; `factions/syndicate/tunnels.md > Tunnel Network >
      Walking in`): part of 5a, right after the deployments, in id order. Each unit whose current order is an Enter
      and whose box is within `ENTRY_REACH_SU` of its Tunnel's entry spot leaves the map for the network
@@ -1941,28 +1944,31 @@ section of its own.
   meanwhile (`Sim::site_builders`). No Tunnel's operation slot is taken (0298 point 9), and a turret counts for
   defeat as any structure. Until slice M4-S2 it stands upright also inside an own Tunnel Area.
 - **Cults construction** (`sim/builds/shared.rs`, `crate::spot_work`, `sim/spot_work.rs`, `orders/assist.rs`,
-  `sim/sites.rs`; slice M5-E, plan decisions T59 and T62; `factions/cults/economy.md > Cults Building Mechanics`,
-  design changes 0071 and 0072): Recruits build together, from outside. The Recruit's `WorkerDef::builds` (Hall,
+  `sim/sites.rs`, `placement/wall.rs`; slice M5-E, plan decisions T59 and T62; `factions/cults/economy.md > Cults
+  Building Mechanics`, design changes 0071, 0072, 0339 and 0340): Recruits build together, from outside. The Recruit's `WorkerDef::builds` (Hall,
   Storage, Armory) and each structure's `SiteDef` (price, frames, `BuilderGoes::Outside`) are data, so a further Cults
   building is a def alone; `WorkerDef::shares_builds` is what makes a worker's Builds shared.
   - **The ticket** (T59, `Ticket`): a Build given to several such workers is one order they each hold, current or
     queued, by its owner, kind, origin and orientation, derived from the orders: one ghost, one structure for the
     price, paid once as it is given (`Sim::give_shared_build`), refunded once when its last holder drops it before its
-    site starts (re-ordered, killed, failed together; Placeholder (Q0098 points 1 to 3)), never after. The gate
+    site starts (re-ordered, killed, failed together; design change 0340), never after. The gate
     (`Sim::check_shared_build`) takes the whole group, no `Reject::SeveralConstructors` (it stays for Drones and
     Agents), and checks the site with the group left out (`Sim::group_build_check`).
-  - **The site** starts at the first holder within `BUILD_REACH_SU` of the footprint (`Sim::arrive_together`, in the
-    arrivals' step), on the truth check (a unit on it fails the whole ticket, refunded once; Placeholder (Q0097 point
-    4)), at 10% HP; every holder's Build becomes `OrderKind::Assist(site)`, queued ones too. A Recruit on the footprint
-    still walking out holds the start (Placeholder (Q0097 point 3), a deviation: no push, `movement/` being another
-    slice's). It gains a frame a tick for each unit on an Assist of it within reach (`spot_work::counts`), so n
-    Recruits build n times as fast and none stall it, its progress and HP kept; complete, `SimEvent::SiteBuilt`, its
-    builders' Assists end and they idle. X refunds 75% (`Sim::cancel_site`).
-  - **The spots** (T62, `crate::spot_work`): each worker claims its own spot beside the footprint, in its order's
-    state, `BUILD_STANDOFF_SU` (4 su) off the wall and the next spot, beside the sides only (the corners free for
-    those walking round), nearest it first; when ring 0 is full it waits on a ring from the second on and doesn't
-    count (Placeholder (Q0097 point 8)); walks press on (`Mover::press_on`). The count within reach and the claim are
-    written over an order and its target, for slice N8's Repair.
+  - **The site** starts at the first holder whose walk ends within `BUILD_REACH_SU` of the footprint
+    (`Sim::arrive_together`, in the arrivals' step), on the truth check with nobody left out (design change 0339: any
+    unit on it, a Recruit of the order too, fails the whole ticket, refunded once, and nothing retries), at 10% HP;
+    every holder's Build becomes `OrderKind::Assist(site)`, queued ones too. It gains a frame a tick for each unit on
+    an Assist of it within reach with its walk over (`spot_work::counts`; 0339's Recruit-frames: those walking or
+    waiting add nothing), so n Recruits build n times as fast and none stall it, its progress and HP kept; complete,
+    `SimEvent::SiteBuilt`, its builders' Assists end and they go on to their queued orders or idle (0340). X refunds
+    75% (`Sim::cancel_site`).
+  - **The spots** (T62, 0339, `crate::spot_work`): each worker claims its own spot as it gets the order, in its
+    order's state: the part of the builders' wall nearest it (`placement::Wall`, its box `BUILD_STANDOFF_SU` off the
+    footprint), or else the nearest free part along the wall either way, clockwise first, a room (its box and the
+    standoff) from the others' (`Claim::keeps`); with the wall full, it waits on a row from the third out (row 1 kept
+    free, the way round) and doesn't count. It walks round the footprint and the others' rooms: along the row outside
+    its spot's, by that row's corners, and in from there (`Sim::leg`); walks press on (`Mover::press_on`). The count
+    of those at work and the claim are written over an order and its target, for slice N8's Repair.
   - **Assist** (`OrderKind::Assist(site)`, `orders/assist.rs`): of an own site built from outside, by its builders
     (`Reject::NotASite`, `Reject::NoWorkers`); the right-click on such a site (`orders::resolution`).
 - **Adding to the economy** (slices M2-D2, M2-F): put the new step into `economy::step` at its numbered place, advance
@@ -2692,12 +2698,14 @@ their energy doorway, slice M3-D2: design change 0145, `factions/colonists/struc
   hashed and saved only while set; `placement/spots/tests.rs` the rings and both rounds. The ignored
   `holding_perf.rs` times eight Armories cycling, then evacuated (*Object model > Buildings that hold units*).
 - **Cults construction tests** (slice M5-E) are `crates/sim/tests/cults_construction/` (`flow.rs`: four Recruits in
-  80 frames paid once, one alone, a Shift chain, builders pulled off and back by Assist, the right-click;
-  `refunds.rs`: before the start, after it, X, a failed arrival; `gate.rs`: the Armory's Storage, Shift-clicks each
-  paid, Assist's refusals; `crowds.rs`: twenty on a Storage; `hall.rs`: a built Hall's lineage, gatherers taken off
-  and back), each tick checking a frame per builder within reach. `sim/spot_work/tests.rs` (test defs): those
-  waiting further out moving in, and oblong ABAC footprints, 2 × 3 and 2 × 4, at four rotations;
-  `spot_work/tests.rs` the claim and the reach.
+  80 frames paid once, five from one side spread along the wall (0339), two at twice the rate, one alone, a Shift
+  chain, builders pulled off and back by Assist, the right-click; `refunds.rs`: two of three re-ordered and then the
+  third (0340), killed, after the start, X, a failed arrival, a Recruit of the order on the ghost (0339), the queued
+  building after X; `gate.rs`: the Armory's Storage, Shift-clicks each paid, Assist's refusals; `crowds.rs`:
+  twenty-four on a Storage; `hall.rs`: a built Hall's lineage, gatherers taken off and back), each tick checking a
+  frame per builder at work. `sim/spot_work/tests.rs` (test defs): the wall full and those waiting further out moving
+  in, and oblong ABAC footprints, 2 × 3 and 2 × 4, at four rotations; `placement/wall/tests.rs` the wall, its search
+  and the way round; `spot_work/tests.rs` the claim and the reach.
 - **Beacon Deployment tests** (slice M3-F) are `crates/sim/tests/deploy/` (the walk to the footprint's centre and the
   start on arrival, the 48 frames, the HP from 20 to 120 and damage carried through (0110), Beacon Capacity 10/10 to
   9/10 to 9/15 and a cancel to 11/10 (0112), the cancel's fractions of HP and Shields and its place (0109, 0111), the
