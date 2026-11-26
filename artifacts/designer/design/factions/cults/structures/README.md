@@ -66,6 +66,10 @@ Every Cults unit, including vehicles and aircraft, is made from Recruits. Vehicl
 - **Under construction**: a building under construction **can't be entered**; a right-click on it Assists.
 - **Capacity counts everyone inside**, reserved units included: the queue can never hold more orders than the building's capacity allows (e.g. the Armory: 10 Recruits inside in all, so at most 10 queued orders). Capacities are placeholders and may be raised in the numbers pass.
 
+**Leaving** (user, 2026-11-26; Q0105): ejected and released units walk **to the RallyPoint**, like trained units; units sharing the exit doorway come out **in the order they are ready**.
+
+**Not groupable** (user, 2026-11-26; Q0105): Cults production buildings (Armory, Altar, Cathedral, Chop Shop, Airstrip) are Ungroupable: a command goes to one building.
+
 **Eject All still exists** everywhere (user, 2026-11-26): every unreserved unit leaves, one at a time through the exit (the Garrison: all at once through its door).
 
 ## Files

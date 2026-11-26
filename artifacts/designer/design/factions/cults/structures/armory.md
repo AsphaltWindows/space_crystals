@@ -10,7 +10,7 @@ Training building where Recruits are converted into combat units. Recruits enter
 ## FullArmor - 6
 ## SightRange - 4 grid units
 ## Destructible - true
-## Groupable - true
+## Groupable - false (user, 2026-11-26; Q0105: Cults production buildings aren't groupable)
 ## TechPrerequisite - player owns at least one Storage
 
 Space Crystals cost and construction time are listed under the Recruit's Constructs list, not here (see Recruit > Building).
