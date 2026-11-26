@@ -527,7 +527,9 @@ Units, structures and resources are all `Object`s (`object.rs`, `core/entities.m
   again: `core/tech_and_research.md > Tech Prerequisites > Check Timing`, "checked only at the moment construction is
   **started** (queued at the constructor, ...)", read as the order, which is when it is paid; slice M4-S1), each before
   the bank, so a greyed entry says "Requires ..." rather than the price. Nothing checks again:
-  work queued or started goes on when the last one is lost
+  work queued or started goes on when the last one is lost, a worker's Build ordered and paid but short of its site
+  among it, and a finished building keeps working and counting (design change 0335: "losing a prerequisite never
+  cancels or disables anything already started or finished"; `sim/tech/tests/losing.rs`, every faction's cases)
   (`core/tech_and_research.md > Tech Prerequisites > Losing a Prerequisite`). Today the Hideout's Guard and the Laser
   Turret (slice M4-S1; the ExpandMenu's alone since design change 0359) require the Optics Lab, and the Hideout's
   Grenadier the Chemical Plant (slice M4-U); the Optics Lab and the Chemical Plant are placeholder expansions (2 × 2,
@@ -1525,8 +1527,9 @@ writes the mover's goal and the target the attack engages, and reads `Mover::sta
     `None`) the Recruit takes the own completed Storage nearest to its patch, **edge to edge**
     (`deliver::nearest_to_patch`), and with none it idles holding its load. One lost on the way is replaced by
     the removal path as any worker's is. Within what the design says a face holds (4 to 5 Recruits a 2-tile face)
-    nothing jams; with more Recruits than lanes they stand head-on and starve one another, which no existing rule
-    resolves (question Q0109: `tests/recruit_gathering/jam.rs`, ignored).
+    nothing jams; with more Recruits than lanes they stand head-on and starve one another, which the design accepts
+    (design change 0320, answering Q0110: no give-way rule, more Storages are the player's answer;
+    `tests/recruit_gathering/jam.rs`, ignored).
     **Measured** (`tests/recruit_gathering/`): one Recruit at gaps of 1, 2 and 3 tiles makes a trip in 24, 56 and 88
     ticks (1.33, 0.57 and 0.36 Space Crystals per second; the design's formula gives 1.45, 0.59 and 0.37); 10 on an
     8-patch field with three Storages, 12.9. `tests/recruits_perf.rs` (ignored, release): 60 Recruits on 22 patches
@@ -2588,10 +2591,12 @@ their energy doorway, slice M3-D2: design change 0145, `factions/colonists/struc
   (`NothingToDeliver` if none does, design change 0140). `Deploy { origin }` (slice M3-F, see *Economy >
   Beacon Deployment*) goes to the one Drone among the units (`NoWorkers` if none, `SeveralConstructors` if more: the
   client picks one, design change 0125), with a site allowed as far as the player knows, its pending sites reserved
-  (`Unplaceable(PlacementProblem)`, not reported: `Sim::deploy_check`). `Enter(tunnel)` (slice M4-C,
-  `systems/controls/commands.md > Enter`, `Sim::check_enter`) names a Tunnel of the player's own in operation
-  (`NotOwned`, `NotATunnel`), and goes to the units its tier lets in (`network::admits`; `NoTransit` if none: any
-  unit of the Tunnel's owner may enter, whatever its type's faction). `Build { kind, origin, orientation }` (slice
+  (`Unplaceable(PlacementProblem)`, not reported: `Sim::deploy_check`). `Enter(target)` (slice M4-C,
+  `systems/controls/commands.md > Enter`, `Sim::check_enter`) names the structure being entered (design change 0319),
+  the player's own (`NotOwned`): a Tunnel in operation, and goes to the units its tier lets in (`network::admits`;
+  `NoTransit` if none), or a building that holds units, not a site (`UnderConstruction`; slice M5-F1), and goes to
+  the units of the kinds it takes in (`NotAccepted` if none); anything else is `NotATunnel`. Any unit of the target's
+  owner may enter, whatever its type's faction. `Build { kind, origin, orientation }` (slice
   M4-E, `Sim::check_build`) goes to the one unit among them that builds `kind` (`NoWorkers`, `SeveralConstructors`),
   Shift-queued only to a unit with no Build yet (`ConstructorBusy`: each Agent takes one placement), and is paid for as
   it is given (`InsufficientSupplies`), its site allowed as far as the player knows (`Unplaceable`, not reported:
@@ -2671,7 +2676,8 @@ their energy doorway, slice M3-D2: design change 0145, `factions/colonists/struc
   changes 0062, 0063, 0074 and 0136): `resolve(Abilities, Aim)` is the one rule for what a unit does against a target
   by default: the ground gives Move; a worker on a patch it can gather Gather, on its owner's drop-off Drop Off while
   it carries a load (else a Move there, 0140); an own Tunnel whose tier lets the unit through Enter (slice M4-C:
-  `Abilities::transit` against `Aimed::transit`, `network::passes`); an enemy it can attack (its attack's
+  `Abilities::transit` against `Aimed::transit`, `network::passes`), and so does an own building in operation that
+  takes the unit's kind in (slice M5-F1: `Aimed::accepts`, `Abilities::kind`); an enemy it can attack (its attack's
   TargetDomain, the target
   destructible, its mode letting it attack) Attack; anything else a Move to the object, which follows a unit (an
   unarmed Drone follows an enemy, a shielded Peacekeeper too). `Sim::aimed(player, id)` is the target as the player
@@ -3236,7 +3242,8 @@ their energy doorway, slice M3-D2: design change 0145, `factions/colonists/struc
   modules by topic: `defeat`, `on_defeat`, `end_of_game`, `saves`) and,
   in the client, `crates/game/tests/game_end/` (`outcome`: the banners, Draw for everyone, the stop; `recording`:
   the saved recording, QA's end; `results`: the results screen of 0164 in a three-player game, under the debug
-  player switch and in a replay, the draw seen from it, the spectator's fog) with the unit tests of `hud/results.rs`
+  player switch and in a replay, the draw seen from it, the spectator's fog; `notice`: the defeat notice of 0357,
+  every other player told, under the debug player switch) with the unit tests of `hud/results.rs`
   (who leaves, allies included, which the sim can't make yet). The fuzz games of `robustness.rs` give each player a
   base the stream never removes, so that a debug removal doesn't end them; a fight still can (a Grenadier, or a Laser
   Turret in its owner's Tunnel Area, takes a base), and then the tick after the end checks that every command is refused
@@ -3533,7 +3540,10 @@ available (`Sim::army_cap`: their Halls' usage and orphaned points over their Ha
 capacity after a Hall is lost, not in red: the design gives the figure no warning). Under the top bar, a placeholder
 notice (`hud/notices.rs`, `STATION_EMPTY_TEXT` for `NOTICE_TICKS` sim ticks) tells the local player that a Supply
 Delivery Station where their Agents gather is empty (`SimEvent::SupplyStationEmpty`, design change 0256 point 3: "the
-owner gets a notification", notifications not designed yet). At the end of the game a banner across the world view
+owner gets a notification", notifications not designed yet). A second, under it, tells every player who hasn't left
+the game (below) of each other player defeated while it goes on, a line each (`DefeatNotice`, `defeat_text`, for
+`NOTICE_TICKS` from the defeat; `core/game_rules.md > On Defeat`: "**all players** are told", design change 0357); the
+defeat that ends the game the banner tells. At the end of the game a banner across the world view
 (`hud/outcome.rs`, placeholder look and wording) shows the local player's `Banner`: VICTORY for the winners, DEFEAT for
 everyone else, DRAW for everyone when nobody won (design change 0163), and DEFEATED with a spectating line while a
 defeated player watches the game go on beside an ally (0102; never yet: the sim has no teams). A player defeated while

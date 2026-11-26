@@ -136,8 +136,9 @@ pub enum Reject {
     /// A debug SetTier to an object without that tier: it isn't a Tunnel, or its tier table hasn't the tier
     /// (`factions/syndicate/tunnels.md > Tunnel > Tiers`: 1 to 3).
     NoSuchTier { id: ObjectId, tier: u8 },
-    /// The target of an Enter order or of a Tunnel command isn't a Tunnel in operation
-    /// (`systems/controls/commands.md > Enter`, `crate::network::is_exit`).
+    /// The target of an Enter order is neither a Tunnel in operation nor a building that holds units
+    /// (`systems/controls/commands.md > Enter`: "the structure being entered"; `crate::network::is_exit`,
+    /// `crate::holding::holds`), or the target of a Tunnel command isn't a Tunnel in operation.
     NotATunnel(ObjectId),
     /// The Tunnel's tier lets none of the units an Enter names into the network, or not a unit of the kind an Eject
     /// names out of it (`factions/syndicate/tunnels.md > Tunnel Network > Transit Tier Requirements`); no air unit

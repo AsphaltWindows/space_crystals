@@ -20,9 +20,14 @@
 //!   (`sim/builds.rs`, as the order is given and paid). A refusal names the first type missing, [`Reject::Requires`],
 //!   which the panel greys the entry with ("Requires an Optics Lab"): "Options whose TechPrerequisite is not met are
 //!   unavailable in the build menu".
-//! - **Losing one** (`core/tech_and_research.md > Tech Prerequisites > Losing a Prerequisite`): nothing checks again,
-//!   so "units already queued or in production continue and complete normally", and "Constructions already started ...
-//!   continue"; only new ones are refused.
+//! - **Losing one** (`core/tech_and_research.md > Tech Prerequisites > Losing a Prerequisite`; design change 0335,
+//!   `core/tech_and_research.md > Tech Prerequisites > Research Prerequisites`: "**losing a prerequisite never cancels
+//!   or disables anything already started or finished**"): nothing checks again, so "units already queued or in
+//!   production continue and complete normally", "Constructions already started ... continue", and "Already-completed
+//!   structures that required it keep functioning normally", counting for the types that require them as before
+//!   ([`counts`] looks at no prerequisite of their own); only new ones are refused. An order given and paid whose work
+//!   hasn't started, a builder on its way to its site or a Build queued behind another order, goes on as started.
+//!   `tech/tests/losing.rs` is the table of these cases, every faction's.
 
 use crate::defs::{ObjectKind, Recipe};
 use crate::ids::PlayerId;

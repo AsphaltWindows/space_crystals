@@ -127,9 +127,10 @@ impl Sim {
         // (M5-E) The units that work at a footprint from a spot beside it get their spots and walk there
         // (`sim/spot_work.rs`): after the arrivals, which may have started their site; before 5c serves their paths.
         self.step_spots(first_new);
-        // The units that walked into a Tunnel's entry path in 5a leave the map for the network, and the Enter orders
-        // that can't go on end (`sim/network.rs`). Here, as the deployments: before 5b to 5f, so that no grid,
-        // collision, shot or sight of this tick includes a unit that has gone in.
+        // The units that walked into the entry path of the structure being entered in 5a leave the map for it (the
+        // network, a building's pool), and the Enter orders that can't go on end (`sim/network.rs`). Here, as the
+        // deployments: before 5b to 5f, so that no grid, collision, shot or sight of this tick includes a unit that
+        // has gone in.
         self.step_entries(first_new);
         // The Attacks 5a found a unit can't carry out, its target too close (design change 0182), fail.
         self.step_too_close(first_new);

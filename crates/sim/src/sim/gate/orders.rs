@@ -67,9 +67,9 @@ impl Sim {
             }
             // `factions/colonists/economy.md > Beacon Deployment` (`sim/deploy.rs`): one Drone takes it.
             OrderKind::Deploy { origin } => ordered = self.check_deploy(ordered, origin, queue)?,
-            // `systems/controls/commands.md > Enter` (`sim/network.rs`): the units the Tunnel's tier lets in take
-            // it, the others ignore it.
-            OrderKind::Enter(tunnel) => ordered = self.check_enter(player, ordered, tunnel)?,
+            // `systems/controls/commands.md > Enter` (`sim/network.rs`): the units the structure being entered lets
+            // in take it (a Tunnel's tier, a building's kinds), the others ignore it.
+            OrderKind::Enter(target) => ordered = self.check_enter(player, ordered, target)?,
             // (M4-O) `systems/controls/commands.md > AttackGround`: "Only available to units whose AttackType has
             // CanTargetGround" (plan decision T47): those units take it, the others ignore it. The point is the one
             // clicked, on the map; no one needs to see it.
