@@ -27,6 +27,15 @@
 - Game will be rebuilt from scratch → docs must stand alone as the complete spec. Old prototype stays at `artifacts/developer/` as reference; Director decides with user where new code lives.
 
 ## Open Director Questions
+- Q0131 site waits for a Recruit holding the Build queued? (nb)
+- Q0133 selected own Hall shows true claims (leaks unseen enemy Hall)? (nb)
+- Q0134 Buildable-not-Traversible ground under exits (nb)
+- Q0135 Cults economy check: 5 misses; realistic opening ~0.5-0.6 of others (nb, big)
+- Q0136 tie between equidistant Storages (nb)
+- Q0137 when a turret drops its lock; does Move clear it (nb)
+- Q0139 Garrison with occupants counts as a threat? (nb)
+- Q0140 right-click on full damaged enterable building: Enter or Repair (nb)
+- Q0142 neutral (defeated) units keep research amounts? (nb)
 
 **None open** (all answered through Q0129, entries 0319–0358, 2026-11-27). Standing TODO: general GDO/Syndicate placeholder pass (Missile Turret, Defense System, Radar Station, etc.). Order of work: finish Cults units → Colonists units → techs → detection → numbers review.
 ## Loose Ends

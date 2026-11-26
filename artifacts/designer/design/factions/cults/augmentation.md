@@ -78,7 +78,7 @@ Space Crystals cost and construction time are listed under the Recruit's Constru
 ### Entry
 Any Cults infantry (Recruit, Militant, Gunner, Disciple) can enter the Altar to join its StoredUnits pool, up to InternalUnitCapacity. Right-clicking an own Altar with Cults infantry selected issues Enter Altar.
 
-Fully augmented units (both Augmentations already applied) can also enter, but there is nothing to apply to them — they can only leave, via Eject All.
+Fully augmented units (both Augmentations already applied) can also enter, but there is nothing to apply to them: they leave by **Release** (the Fully augmented tile; 0337) or Eject All.
 
 ### Augmentation Orders
 Order types: **Enhanced Constitution**, **Improved Metabolism**, or **Both** (a single order that applies both). An order can only target a unit that is missing every Augmentation the order applies.
@@ -94,7 +94,7 @@ Cost and time per order type (placeholder, designer 2026-11-26): **Enhanced Cons
 - RallyPoint: Coordinates | ObjectInstance | None
 
 ### Eject All
-Same as the Armory's Eject All: ejects all StoredUnits from the exit side in a rapid stream. Units reserved by a queued order are not ejected. This is the only way for fully augmented units to leave.
+Same as the Armory's Eject All: ejects all StoredUnits from the exit side in a rapid stream. Units reserved by a queued order are not ejected. Fully augmented units can also leave one at a time by Release (0337).
 
 ### ConstructionHP Rule - applies
 
