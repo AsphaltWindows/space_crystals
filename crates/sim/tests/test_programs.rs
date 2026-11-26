@@ -1,7 +1,8 @@
 //! Every test file is in a test program (slice M5-T). Each crate's integration tests are modules of the few programs
 //! its `Cargo.toml` lists as `[[test]]` targets, with `autotests = false`, so a file that no program includes would
 //! never be compiled, let alone run. This fails for the sim and for the client, naming each such file and the line
-//! that includes it, and each file that two programs include, whose tests would run twice.
+//! that includes it (for a folder, its root alone), and each file that two programs include, whose tests would run
+//! twice.
 //!
 //! It follows the module declarations from each program's root as the compiler does: in a root, a `mod.rs` or a file
 //! included by a `#[path]`, `mod foo;` is `foo.rs` (or `foo/mod.rs`) beside it; in any other file, `bar.rs`, it is in
@@ -28,7 +29,7 @@ fn every_client_test_file_is_in_a_program() {
 
 /// The check on a crate made up for it, in a folder of its own: two programs, one by its `path` and one by its
 /// `name`, a folder included by a `#[path]` with a module in it and one in that; and a file left out at each level, a
-/// folder left out, and a file that both programs include.
+/// folder left out (named by its root alone, not by the modules in it), and a file that both programs include.
 #[test]
 fn it_names_each_file_in_no_program_or_in_two() {
     let dir = std::env::temp_dir().join(format!("sc_test_programs_{}", std::process::id()));
@@ -47,7 +48,9 @@ fn it_names_each_file_in_no_program_or_in_two() {
         ("tests/b/c/d.rs", ""),
         ("tests/both.rs", ""),
         ("tests/lost.rs", ""),
-        ("tests/lost_folder/main.rs", ""),
+        ("tests/lost_folder/main.rs", "mod inside;\n"),
+        ("tests/lost_folder/inside.rs", "mod deeper;\n"),
+        ("tests/lost_folder/inside/deeper.rs", ""),
         ("tests/b/c/lost.rs", ""),
     ];
     for (file, text) in files {
@@ -109,7 +112,7 @@ fn problems(dir: &Path, root: &Path) -> Vec<String> {
     let roots: Vec<String> = roots.iter().map(|program| shown(program, root)).collect();
     let tests = fs::canonicalize(dir.join("tests")).unwrap_or_else(|e| panic!("{}/tests: {e}", dir.display()));
     for file in rs_files(&tests) {
-        if !included.contains_key(&file) {
+        if !included.contains_key(&file) && !behind_left_out(&tests, &file, &included) {
             let line = inclusion(&tests, &file, &roots.join(" or "));
             problems.push(format!(
                 "{}: in no test program, so its tests never run; {line}",
@@ -273,6 +276,36 @@ fn rs_files(dir: &Path) -> Vec<PathBuf> {
     }
     files.sort();
     files
+}
+
+/// Whether `file`, a file of `tests` that no program includes, is left out only because the file that would declare it
+/// is too: a module of a folder whose root (`main.rs`, `mod.rs`, or the file named after the folder) exists and no
+/// program includes. That file is the one to name, and its modules are checked once it is in.
+fn behind_left_out(tests: &Path, file: &Path, included: &BTreeMap<PathBuf, PathBuf>) -> bool {
+    let Some(mut folder) = file.parent() else {
+        return false;
+    };
+    // A folder's own root is declared by the module of the folder around it.
+    if file
+        .file_name()
+        .is_some_and(|name| name == "main.rs" || name == "mod.rs")
+    {
+        let Some(outer) = folder.parent() else {
+            return false;
+        };
+        folder = outer;
+    }
+    if folder == tests || !folder.starts_with(tests) {
+        return false;
+    }
+    let declaring = [
+        folder.join("main.rs"),
+        folder.join("mod.rs"),
+        folder.with_extension("rs"),
+    ];
+    declaring
+        .iter()
+        .any(|root| root != file && root.exists() && !included.contains_key(root))
 }
 
 /// The declaration that would include `file`, a file of `tests` (a crate's `tests/`) that no program includes: in a

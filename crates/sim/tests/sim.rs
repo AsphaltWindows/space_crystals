@@ -42,6 +42,8 @@ mod construction;
 #[path = "conversion/main.rs"]
 mod conversion;
 mod cults_combat;
+#[path = "cults_construction/main.rs"]
+mod cults_construction;
 mod cults_start;
 mod debug_commands;
 mod default_order;
