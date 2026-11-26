@@ -59,8 +59,9 @@ pub const NEAR: [(ObjectId, u32); 5] = [
 /// [`Skirmish::opening`]: seats on the field's western column, (2, 5) to (2, 7), patches 1 to 3, 2 and 3 tiles from
 /// the starting Storage and a tile from the second ([`STORAGE_SITE`]): two each.
 pub const WEST: [(ObjectId, u32); 3] = [(ObjectId(1), 2), (ObjectId(2), 2), (ObjectId(3), 2)];
-/// [`Skirmish::opening`]: the second Storage, on (4, 6) to (5, 7), a 1-tile gap east of the western column's three
-/// patches and south-west of the starting Storage, which it touches at a corner.
+/// [`Skirmish::opening`]: the second Storage, unturned on (4, 6) to (6, 7) (design change 0380: 3x2), a 1-tile gap
+/// east of the western column's three patches (its west side facing (2, 6) and (2, 7), its corner (2, 5)), and
+/// south-west of the starting Storage, whose south side it touches along two tiles.
 pub const STORAGE_SITE: TilePos = TilePos::new(4, 6);
 /// [`Skirmish::opening`]: the second Recruitment Hall, on (20, 17) to (23, 20), unturned (its exit side, B, west):
 /// on flat Plane east of the hill and west of the plateau. Its Recruitment Area, (17, 14) to (26, 23), is all on the

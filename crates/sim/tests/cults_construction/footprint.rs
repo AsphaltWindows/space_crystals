@@ -12,8 +12,8 @@ use super::*;
 /// `factions/cults/units/recruit.md > Constructs`: "RecruitmentHall: 300 Space Crystals".
 const HALL_PRICE: u32 = 300;
 
-/// A Storage's footprint west of [`SITE`], touching it: tiles (18, 14) to (19, 15), x 1152..1280 and y 896..1024.
-const SITE_WEST: TilePos = TilePos::new(18, 14);
+/// A Storage's footprint west of [`SITE`], touching it: tiles (17, 14) to (19, 15), x 1088..1280 and y 896..1024.
+const SITE_WEST: TilePos = TilePos::new(17, 14);
 
 /// Whether unit `n` stands on the footprint of a `kind` at `origin`, unturned, as the placement check counts a unit on
 /// it (`sc_sim::deploy::on_site`).

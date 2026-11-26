@@ -8,27 +8,28 @@
 
 use super::*;
 
-/// Patch 1 on tile (10, 8); Storage 2 west of it on tiles (6, 8) to (7, 9), 2 tiles from its edge; Storage 3 east of
-/// it on (14, 8) to (15, 9), 3 tiles from its edge; Recruit 4 east of the patch, so that it mines at the patch's east
-/// face, nearer to Storage 3 than to Storage 2.
+/// Patch 1 on tile (10, 8); Storage 2 west of it on tiles (5, 8) to (7, 9), 2 tiles from its edge; Storage 3 east of
+/// it on (14, 8) to (16, 9), 3 tiles from its edge (design change 0380: each 3x2, unturned); Recruit 4 east of the
+/// patch, so that it mines at the patch's east face, nearer to Storage 3 than to Storage 2.
 fn two_storages() -> ScenarioBuilder {
     flat(24, 20)
         .spawn_with(patch_of(1_000_000), tile(10, 8))
-        .spawn(STORAGE, Some(P1), tile(6, 8))
+        .spawn(STORAGE, Some(P1), tile(5, 8))
         .spawn(STORAGE, Some(P1), tile(14, 8))
         .spawn(RECRUIT, Some(P1), centre(12, 8))
 }
 
-/// Design change 0375's field: 8 patches side by side (ids 1 to 8) on tiles (4, 4) to (11, 4), four 2-tile faces, and
-/// a Storage under each face a 1-tile gap south of it, on tiles (x, 6) to (x + 1, 7) for x = 4, 6, 8 and 10 (ids 9 to
-/// 12, from the west; or from the east with `from_the_east`). Between the patches and the Storages lies a 1-tile lane,
-/// tile row 5.
+/// Design change 0375's field with design change 0380's Storage: 8 patches side by side (ids 1 to 8) on tiles (4, 4) to
+/// (11, 4), and a Storage unturned under each face of the row, its long north side a 1-tile gap south of it, on tiles
+/// (x, 6) to (x + 2, 7) for x = 4, 7 and 10 (ids 9 to 11, from the west; or from the east with `from_the_east`): faces
+/// A (patches 1 to 3), B (4 to 6) and C (7 and 8, its Storage reaching a tile past the row). Between the patches and
+/// the Storages lies a 1-tile lane, tile row 5.
 fn adjacent_faces(from_the_east: bool) -> ScenarioBuilder {
     let mut builder = flat(24, 20);
     for x in 4..12 {
         builder = builder.spawn_with(patch_of(1_000_000), tile(x, 4));
     }
-    let mut columns = [4, 6, 8, 10];
+    let mut columns = [4, 7, 10];
     if from_the_east {
         columns.reverse();
     }
@@ -82,15 +83,15 @@ fn the_storage_nearest_to_the_recruit_edge_to_edge_takes_the_load() {
     assert_eq!(at, [3, 3]);
 }
 
-/// "Edge to edge", not centre to centre: the Recruit mines at the patch's south face, over Storage 2, two tiles below
-/// the patch, and takes its load to Storage 3, south-east of it beside the lane, whose edge is the nearer although its
-/// centre is the farther.
+/// "Edge to edge", not centre to centre: the Recruit mines at the patch's south face, over Storage 2 on (9, 11) to
+/// (11, 12), two tiles below the patch, and takes its load to Storage 3 on (12, 9) to (14, 10), east of it beside the
+/// lane, whose edge is the nearer although its centre is the farther.
 #[test]
 fn the_nearest_storage_is_by_its_edge_not_by_its_centre() {
     let mut t = flat(24, 20)
         .spawn_with(patch_of(1_000_000), tile(10, 8))
-        .spawn(STORAGE, Some(P1), tile(10, 11))
-        .spawn(STORAGE, Some(P1), tile(12, 10))
+        .spawn(STORAGE, Some(P1), tile(9, 11))
+        .spawn(STORAGE, Some(P1), tile(12, 9))
         .spawn(RECRUIT, Some(P1), centre(10, 9))
         .start();
     gather(&mut t, 1, &[4], 1);
@@ -139,7 +140,7 @@ fn each_return_takes_the_nearest_storage_there_is_then() {
 fn a_storage_completed_beside_a_busy_patch_takes_the_next_returns() {
     let mut t = flat(24, 20)
         .spawn_with(patch_of(1_000_000), tile(10, 8))
-        .spawn(STORAGE, Some(P1), tile(5, 8))
+        .spawn(STORAGE, Some(P1), tile(4, 8))
         .spawn(RECRUIT, Some(P1), centre(12, 8))
         .spawn(RECRUIT, Some(P1), centre(12, 9))
         .spawn(RECRUIT, Some(P1), centre(13, 8))
@@ -226,8 +227,8 @@ fn a_storage_lost_on_the_way_is_replaced_and_with_none_left_the_recruit_idles_wi
 
 /// Design change 0375's Verification: "On 8 adjacent patches with one Storage per face, Recruits on the end patch of a
 /// face deliver to their own face's Storage, not the neighbouring one." [`adjacent_faces`], with a Recruit in the lane
-/// in front of each patch (13 to 20, from the west), each patch the end of its face. Patches 3, 5 and 7 lie as near
-/// the Storage of the face west of theirs as their own, edge to edge from the patch (a tile from both), and by design
+/// in front of each patch (12 to 19, from the west). Patches 4 and 7, the west ends of faces B and C, lie as near the
+/// Storage of the face west of theirs as their own, edge to edge from the patch (a tile from both), and by design
 /// change 0345's rule, which 0375 replaces, their loads went to that one, the earlier. From the Recruit, its own
 /// face's Storage is the nearer: the change entry's "A Recruit mining an end patch from its own face's side is nearer
 /// that face's Storage, so it stays with its face".
@@ -239,22 +240,22 @@ fn on_adjacent_patches_a_recruit_on_the_end_patch_of_a_face_delivers_to_its_own_
     }
     let mut t = builder.start();
     for n in 0..8 {
-        gather(&mut t, 1, &[13 + n], 1 + n);
+        gather(&mut t, 1, &[12 + n], 1 + n);
     }
     t.run(60 * 16);
     for n in 0..8 {
-        let at: Vec<u32> = (deliveries(&t).iter()).filter(|d| d.1 == 13 + n).map(|d| d.2).collect();
-        let own = 9 + n / 2;
+        let at: Vec<u32> = (deliveries(&t).iter()).filter(|d| d.1 == 12 + n).map(|d| d.2).collect();
+        let own = 9 + n / 3;
         assert!(
             at.len() >= 30 && at.iter().all(|&at| at == own),
             "Recruit {} on patch {}: {at:?}",
-            13 + n,
+            12 + n,
             1 + n
         );
     }
 }
 
-/// "**Tie**: the Storage with the **earlier id** (built first)". On [`adjacent_faces`], a Recruit that mines patch 3,
+/// "**Tie**: the Storage with the **earlier id** (built first)". On [`adjacent_faces`], a Recruit that mines patch 4,
 /// the west end of face B, from the lane with its Silhouette reaching over face A's Storage is as near to it as to
 /// face B's, its own: the gap to each is the lane's alone, edge to edge. It takes its load to the earlier of the two:
 /// face A's with the Storages numbered from the west, face B's numbered from the east. So a Recruit that comes along
@@ -264,13 +265,13 @@ fn on_adjacent_patches_a_recruit_on_the_end_patch_of_a_face_delivers_to_its_own_
 #[test]
 fn a_recruit_as_near_two_storages_takes_its_load_to_the_earlier() {
     // Faces A's and B's Storages, and the earlier of the two.
-    for (from_the_east, [a, b], earlier) in [(false, [9, 10], 9), (true, [12, 11], 11)] {
+    for (from_the_east, [a, b], earlier) in [(false, [9, 10], 9), (true, [11, 10], 10)] {
         let mut t = adjacent_faces(from_the_east)
-            .spawn(RECRUIT, Some(P1), in_the_lane(6.1))
+            .spawn(RECRUIT, Some(P1), in_the_lane(7.1))
             .start();
-        gather(&mut t, 1, &[13], 3);
-        run_to(&mut t, 50, "it mines patch 3", |t| is_mining(t, 13));
-        let me = Shape::of(object(&t, 13));
+        gather(&mut t, 1, &[12], 4);
+        run_to(&mut t, 50, "it mines patch 4", |t| is_mining(t, 12));
+        let me = Shape::of(object(&t, 12));
         let gap = |n: u32| me.gap(&Shape::of(object(&t, n)));
         assert_eq!(gap(a), gap(b), "as near to both");
         run_to(&mut t, 100, "the load is in", |t| deliveries(t).len() == 1);

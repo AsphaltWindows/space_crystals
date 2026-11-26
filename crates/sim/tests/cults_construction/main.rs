@@ -48,15 +48,16 @@ const STORAGE: ObjectKind = ObjectKind::Storage;
 const ARMORY: ObjectKind = ObjectKind::Armory;
 const HALL: ObjectKind = ObjectKind::RecruitmentHall;
 
-/// Player 1's Storage on tiles (2, 2) to (3, 3), standing from the start, in [`world`]: their structure, so that a
+/// Player 1's Storage on tiles (2, 2) to (4, 3), standing from the start, in [`world`]: their structure, so that a
 /// cancelled site doesn't defeat them, and the Armory's TechPrerequisite.
 const S1: ObjectId = ObjectId(1);
 
-/// Where the tests build: a Storage's footprint, tiles (20, 14) to (21, 15), x 1280..1408 and y 896..1024.
+/// Where the tests build: a Storage's footprint, unturned (design change 0380: 3x2), tiles (20, 14) to (22, 15),
+/// x 1280..1472 and y 896..1024.
 const SITE: TilePos = TilePos::new(20, 14);
-/// A second site, east of [`SITE`] across a gap of two tiles: tiles (24, 14) to (25, 15).
-const SITE_2: TilePos = TilePos::new(24, 14);
-/// A third, south of [`SITE`]: tiles (20, 18) to (21, 19).
+/// A second site, east of [`SITE`] across a gap of two tiles: tiles (25, 14) to (27, 15).
+const SITE_2: TilePos = TilePos::new(25, 14);
+/// A third, south of [`SITE`]: tiles (20, 18) to (22, 19).
 const SITE_3: TilePos = TilePos::new(20, 18);
 
 /// `factions/cults/units/recruit.md > Constructs`: "Storage: 100 Space Crystals, 320 frames (20 seconds)
@@ -111,13 +112,15 @@ fn world(count: u32) -> TestSim {
     t
 }
 
-/// [`cults`] with four Recruits of player 1's, ids 2 to 5, one off each side of [`SITE`], 150 su from its middle
-/// (west, east, north, south), so that they get there together; player 1's bank is [`BANK`] from tick 1.
+/// [`cults`] with four Recruits of player 1's, ids 2 to 5, one off each side of [`SITE`], 150 su from its edge, in
+/// line with its middle (west, east, north, south), so that they get there together; player 1's bank is [`BANK`] from
+/// tick 1.
 fn four_round() -> TestSim {
-    let centre = Vec2::new(1344.0, 960.0);
+    // The footprint's middle, and its half extents: 3 tiles across, 2 down.
+    let (centre, half) = (Vec2::new(1376.0, 960.0), Vec2::new(96.0, 64.0));
     let mut scenario = cults();
     for out in [Vec2::NEG_X, Vec2::X, Vec2::NEG_Y, Vec2::Y] {
-        scenario = scenario.spawn(RECRUIT, Some(P1), SpawnAt::Point(centre + out * (64.0 + 150.0)));
+        scenario = scenario.spawn(RECRUIT, Some(P1), SpawnAt::Point(centre + out * (half + 150.0)));
     }
     let mut t = scenario.start();
     t.debug_at(1, crystals_of(P1, BANK));

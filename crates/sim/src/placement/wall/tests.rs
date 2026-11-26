@@ -3,7 +3,8 @@
 use super::*;
 use crate::units::TilePos;
 
-/// A Storage's 2 × 2 footprint on tiles (4, 4) to (5, 5): x and y 256..384, centred on (320, 320).
+/// A 2 × 2 footprint, a Storage's before design change 0380, on tiles (4, 4) to (5, 5): x and y 256..384, centred on
+/// (320, 320).
 fn storage() -> Placement {
     Placement {
         w: 2,

@@ -9,8 +9,9 @@
 //! - `storages`: which Storage (design changes 0345 and 0375), edge to edge, a new one, one completed beside a busy
 //!   patch (0345's Verification), the ends of faces on adjacent patches (0375's), a tie, a lost one, none;
 //! - `rules`: patch sharing, unloading together, collision kept, the Drop Off order, the gate, a patch that runs out;
-//! - `crowds`: 4 and 5 Recruits on one 2-tile face, 10 on an 8-patch field with three Storages, for 5 minutes, and
-//!   the jam check (no Recruit goes 10 seconds without a delivery);
+//! - `crowds`: 4 and 5 Recruits on one 2-tile face, the lanes of a 3-tile face (0380's Verification), 10 on an
+//!   8-patch field with three Storages, for 5 minutes, and the jam check (no Recruit goes 10 seconds without a
+//!   delivery);
 //! - `jam`: more Recruits than a face holds (ignored: they fail as built, the design's behaviour, design change 0320),
 //!   and the measurements by layout and count.
 
@@ -24,7 +25,7 @@ use sc_sim::orders::state::{Behaviour, GatherPhase};
 use sc_sim::testing::{ScenarioBuilder, TestSim};
 use sc_sim::{
     Ability, Command, DebugCommand, Faction, Object, ObjectId, ObjectKind, OrderKind, PlayerCommand, PlayerId, Reject,
-    ResourceState, Shape, SimEvent, SpawnAt, SpawnSettings, Target, Tick, TilePos, Vec2,
+    ResourceState, Rotation, Shape, SimEvent, SpawnAt, SpawnSettings, Target, Tick, TilePos, Vec2,
 };
 
 const P1: PlayerId = PlayerId(1);
@@ -184,11 +185,24 @@ fn longest_gap(t: &TestSim, recruits: &[u32], from: Tick, to: Tick) -> (Tick, u3
 
 /// One face of a Storage and the patches in front of it (`factions/cults/structures/storage.md`: "The best layout
 /// leaves a 1-tile gap between patch and Storage; each 2-tile face supports roughly 4–5 Recruits at full
-/// efficiency"): Storage 1 on tiles (10, 6) to (11, 7); `patches` patches (ids from 2) in a row facing its south face,
-/// `gap` tiles from it, from tile (10 + `shift`, 8 + `gap`) eastwards (`shift` 0 and two patches: the whole face); the
-/// `recruits` (ids after the patches') in a row farther south.
+/// efficiency"): Storage 1 turned a quarter on tiles (10, 5) to (11, 7), so that its south face is one of its short
+/// sides, 2 tiles, as the whole south face of the 2x2 Storage on (10, 6) to (11, 7) was until design change 0380 made
+/// it 3x2; `patches` patches (ids from 2) in a row facing its south face, `gap` tiles from it, from tile (10 +
+/// `shift`, 8 + `gap`) eastwards (`shift` 0 and two patches: the whole face); the `recruits` (ids after the patches')
+/// in a row farther south.
 fn face(recruits: u32, gap: i32, patches: u32, shift: i32) -> TestSim {
-    let mut builder = flat(24, 20).spawn(STORAGE, Some(P1), tile(10, 6));
+    faced(tile(10, 5), Rotation::R90, recruits, gap, patches, shift)
+}
+
+/// [`face`] with Storage 1 unturned on tiles (10, 6) to (12, 7), so that the patches face one of its long sides, 3
+/// tiles (design change 0380): `shift` 0 and three patches, the whole face.
+fn long_face(recruits: u32, gap: i32, patches: u32, shift: i32) -> TestSim {
+    faced(tile(10, 6), Rotation::R0, recruits, gap, patches, shift)
+}
+
+/// [`face`] and [`long_face`]: Storage 1 at `storage`, turned by `rotation`, its south edge on y = 512 su.
+fn faced(storage: SpawnAt, rotation: Rotation, recruits: u32, gap: i32, patches: u32, shift: i32) -> TestSim {
+    let mut builder = flat(24, 20).spawn(STORAGE, Some(P1), storage);
     for i in 0..patches as i32 {
         builder = builder.spawn_with(patch_of(1_000_000), tile(10 + shift + i, 8 + gap));
     }
@@ -196,7 +210,9 @@ fn face(recruits: u32, gap: i32, patches: u32, shift: i32) -> TestSim {
         let at = Vec2::new(520.0 + 40.0 * i as f32, 920.0);
         builder = builder.spawn(RECRUIT, Some(P1), SpawnAt::Point(at));
     }
-    builder.start()
+    let mut scenario = builder.build();
+    scenario.map.spawns[0].orientation.rotation = rotation;
+    TestSim::new(scenario)
 }
 
 /// The ids of [`face`]'s Recruits.
@@ -206,7 +222,16 @@ fn face_recruits(recruits: u32, patches: u32) -> Vec<u32> {
 
 /// [`face`] with its Recruits dealt to its patches in turn, sent in tick 1.
 fn face_at_work(recruits: u32, gap: i32, patches: u32, shift: i32) -> (TestSim, Vec<u32>) {
-    let mut t = face(recruits, gap, patches, shift);
+    at_work(face(recruits, gap, patches, shift), recruits, patches)
+}
+
+/// [`long_face`] with its Recruits dealt to its patches in turn, sent in tick 1.
+fn long_face_at_work(recruits: u32, gap: i32, patches: u32, shift: i32) -> (TestSim, Vec<u32>) {
+    at_work(long_face(recruits, gap, patches, shift), recruits, patches)
+}
+
+/// The `recruits` of a face with `patches` patches dealt to them in turn, sent in tick 1.
+fn at_work(mut t: TestSim, recruits: u32, patches: u32) -> (TestSim, Vec<u32>) {
     let ids = face_recruits(recruits, patches);
     for (i, &n) in ids.iter().enumerate() {
         gather(&mut t, 1, &[n], 2 + i as u32 % patches);
@@ -216,8 +241,9 @@ fn face_at_work(recruits: u32, gap: i32, patches: u32, shift: i32) -> (TestSim, 
 
 /// An 8-patch field with three Storages (`factions/cults/structures/storage.md`: "an efficient crystal field take[s]
 /// more Storages (3–4 for an 8-patch field)"): patches 1 to 8 in a row on tiles (4, 3) to (11, 3); Storages 9, 10
-/// and 11 `gap` tiles south of the row, on columns 4-5, 7-8 and 10-11; the `recruits` (ids from 12) in rows farther
-/// south, dealt to the patches in turn and sent in tick 1.
+/// and 11 `gap` tiles south of the row, unturned on columns 4-6, 7-9 and 10-12 (on 4-5, 7-8 and 10-11 until design
+/// change 0380 made them 3x2); the `recruits` (ids from 12) in rows farther south, dealt to the patches in turn and
+/// sent in tick 1.
 fn field_at_work(recruits: u32, gap: i32) -> (TestSim, Vec<u32>) {
     let mut builder = flat(20, 20);
     for x in 0..8 {

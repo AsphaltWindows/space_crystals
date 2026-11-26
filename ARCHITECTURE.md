@@ -293,9 +293,10 @@ Units, structures and resources are all `Object`s (`object.rs`, `core/entities.m
   close", design change 0204 point 3; M5-O3 took the back-off on to the middle of the band, question Q0054, and gave
   an Attack Ground's location the same rule), and the first TailDisjointed attack (slice M5-O3, *Combat > TailDisjointed
   attacks*), which can miss; the Armory trains it for a player who owns a Gunworks (slice M5-G2, `Recipe::requires`,
-  *Tech prerequisites*). The Storage is 1/4 on its 2x2 since slice M5-G2 (Q0094 a), so the building armour test has
-  no exception left. The Cults start a game since slice M5-B (plan decision T63;
-  `tests/cults_start.rs`, *Sim scenarios and tests*): no faction is "not implemented" any more.
+  *Tech prerequisites*). The Storage was 1/4 on its 2x2 from slice M5-G2 (Q0094 a), and is 1/6 on its 3x2 since
+  design change 0380 (slice M5-S2a), so the building armour test has no exception left. The Cults start a game since
+  slice M5-B (plan decision T63; `tests/cults_start.rs`, *Sim scenarios and tests*): no faction is "not implemented"
+  any more.
 - **Units off the map: the held store** (`network.rs`, `sim/network.rs`; slice M4-C, plan decision T30;
   `factions/syndicate/tunnels.md > Tunnel Network`): a unit inside a Tunnel Network is **not among the objects**. It
   is a `Held { object, place, since, entered }` in `Sim::held`, a second map by id beside `Sim::objects`, with the

@@ -10,9 +10,9 @@ use sc_sim::{Category, Footprint, ObjectKind};
 
 /// The buildings that break the rule on purpose, each with the design's reason ("There may be exceptions"); a building
 /// listed here that follows the rule fails the test, so that the list never goes stale. None today: the Cults' Storage,
-/// the one there was (slice M5-A, 1 / 6 on its 2x2), is 1 / 4 since slice M5-G2
-/// (`factions/cults/structures/storage.md`: "FullArmor - 4 (building armor rule; was 6, a leftover from the old 3x2
-/// size; Q0094)").
+/// the one there was (slice M5-A, 1 / 6 on its 2x2), followed the rule at 1 / 4 from slice M5-G2, and since design
+/// change 0380 is a 3x2 at the rule's 1 / 6 (`factions/cults/structures/storage.md`: "FullArmor - 6 (building armor
+/// rule, n × size = 1 × 6)").
 const EXCEPTIONS: &[(ObjectKind, &str)] = &[];
 
 /// The PointArmor n that expansions have, the placeholder of `factions/syndicate/structures/README.md > High armor
@@ -108,15 +108,15 @@ fn every_building_has_full_armor_n_times_its_size() {
 
 /// The plan addendum's G2 acceptance: "Every Cults building follows the rule (n = 2 for the Garrison) with no exception
 /// left". Each of the faction's thirteen at its design file's PointArmor and FullArmor: the Recruitment Hall 1/16 on its
-/// 4x4, the Storage 1/4 on its 2x2 (Q0094), the Armory 1/6 on its 2x3; the Gunworks 1/4, the Garrison 2/8 ("building
-/// armor rule, n = 2: sturdier as a defense", `factions/cults/structures/garrison.md`), the Chop Shop 1/9, the Machine
-/// Shop 1/4, the Airstrip 1/8 on its runway's 2x4 and the Scrap Hangar 1/9; the Altar 1/6
+/// 4x4, the Storage 1/6 on its 3x2 (design change 0380), the Armory 1/6 on its 2x3; the Gunworks 1/4, the Garrison 2/8
+/// ("building armor rule, n = 2: sturdier as a defense", `factions/cults/structures/garrison.md`), the Chop Shop 1/9,
+/// the Machine Shop 1/4, the Airstrip 1/8 on its runway's 2x4 and the Scrap Hangar 1/9; the Altar 1/6
 /// (`factions/cults/augmentation.md > Altar`), the Temple 1/9, the Cathedral 1/6 and the Shrine 1/4.
 #[test]
 fn the_cults_buildings_follow_the_rule() {
     let rows = [
         (ObjectKind::RecruitmentHall, 1.0, 16.0),
-        (ObjectKind::Storage, 1.0, 4.0),
+        (ObjectKind::Storage, 1.0, 6.0),
         (ObjectKind::Armory, 1.0, 6.0),
         (ObjectKind::Gunworks, 1.0, 4.0),
         (ObjectKind::Garrison, 2.0, 8.0),

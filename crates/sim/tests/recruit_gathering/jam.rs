@@ -24,8 +24,8 @@
 //! existing rule resolves it**, and the design adds none: "Recruits keep collision, and there is no give-way rule"
 //! (design change 0320). Slice M5-D measured and stopped here.
 //!
-//! **Measured as built** (5 minutes, from the 10th second: Space Crystals per second / the longest any Recruit went
-//! without a delivery, ticks; a gap of 1 tile):
+//! **Measured as built** in slice M5-D, with the 2x2 Storage of the time (5 minutes, from the 10th second: Space
+//! Crystals per second / the longest any Recruit went without a delivery, ticks; a gap of 1 tile):
 //!
 //! | Recruits | 2 | 3 | 4 | 5 | 6 | 7 | 8 |
 //! |---|---|---|---|---|---|---|---|

@@ -37,8 +37,8 @@ fn a_hall_the_recruits_build_makes_recruits_of_its_lineage() {
 /// back to; the loads they carried while building are delivered, not lost.
 #[test]
 fn gatherers_taken_off_to_build_and_sent_back_gather_on() {
-    // Storage 1 on tiles (2, 2) to (3, 3); the patch 2 on (7, 2), 192 su from it; the Recruits 3 to 6 beside the
-    // patch; the new Storage on (10, 2) to (11, 3), 128 su from the patch.
+    // Storage 1 on tiles (2, 2) to (4, 3); the patch 2 on (7, 2), 128 su from it; the Recruits 3 to 6 beside the
+    // patch; the new Storage on (9, 2) to (11, 3), 64 su from the patch (design change 0380: each 3x2).
     let mut scenario = cults().spawn_with(
         sc_sim::SpawnSettings::CrystalPatch {
             starting_amount: 1_000_000,
@@ -69,7 +69,7 @@ fn gatherers_taken_off_to_build_and_sent_back_gather_on() {
         })
     };
     run_to(&mut t, 600, "each delivers", |t| deliveries(t).len() >= 8);
-    let new = TilePos::new(10, 2);
+    let new = TilePos::new(9, 2);
     let now = t.sim().tick() + 1;
     let bank = crystals(&t);
     t.at(now, P1, build(&group, STORAGE, new, false));
