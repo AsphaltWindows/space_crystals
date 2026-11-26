@@ -24,20 +24,29 @@
 //! - **The walk**: each holder walks to its own spot beside the footprint, round it (`crate::spot_work`, design change
 //!   0339's wall-hug), the spots' step's, not to the footprint's centre (`orders::build`).
 //! - **The start** ([`Sim::arrive_together`], from the arrivals' step right after phase 5a): at the first holder that
-//!   ends its walk within reach of the footprint, by the check on arrival on the truth with nobody left out
-//!   (`core/entities.md > Placement Validation > Worker-Built Structures`: "validates on arrival"); design change 0339
+//!   ends its walk within reach of the footprint, by the check on arrival on the truth (`core/entities.md > Placement
+//!   Validation > Worker-Built Structures`: "validates on arrival"); design change 0339
 //!   (`factions/cults/economy.md > Cults Building Mechanics > Group construction rules`): "the site starts **as soon as
-//!   the first Recruit of the order arrives** (placement is checked then)", and "units on the footprint at that
-//!   moment, **including Recruits of the same order**, block it": a holder still on its way over the footprint fails
-//!   it as any unit does, and nothing pushes it off. The site comes into the game on the footprint, with its owner, at
-//!   the ConstructionHP Rule's 10%, its production held back until it is complete, as a transformation's
-//!   (`Sim::start_functions`); every holder's Build of the ticket, current or queued, becomes an Assist of the site
-//!   (`OrderKind::Assist`, `orders::assist`), the current ones keeping their spots and walks. A `SimEvent::SiteStarted`
-//!   names the first arrival.
-//! - **The failure**: a check on arrival that fails, or every holder's walk over and none within reach, fails the
-//!   whole order (0339: "the whole order fails (refunded once in full ...)", "nothing retries"): it goes from every
-//!   holder, current and queued, the current ones stop, a `SimEvent::BuildFailed` names the first arrival (or the
-//!   holder with the lowest id), and the ticket is refunded once.
+//!   the first Recruit of the order arrives** (placement is checked then)". Design change 0362 (Q0130, the same
+//!   section): "the site **waits** for Recruits of the same order who stand on the footprint to step off, then starts.
+//!   Only other units fail it". So the check runs twice ([`Sim::arrival_check_without`]): with nobody left out, the
+//!   site starts; else with the order's holders left out, anything that still blocks it fails the order; else only its
+//!   own Recruits stand on the footprint, and the site waits, checked again each tick, as they walk off to their spots
+//!   beside it, the quickest way (`Sim::leg`). One whose walk ended on the footprint, short of its spot, looks for one
+//!   again (`Sim::step_spots`), so the site never waits on a Recruit standing still. A holder of the order counts
+//!   whether it holds it current or queued (**Placeholder (not in the design: a Recruit that holds the order queued,
+//!   behind another)**: the ghost leaves the whole group out, `group_build_check`, and the Recruit is one of the
+//!   order's): the site waits for it as long as its current order keeps it on the footprint, an Assist of the
+//!   building beside it until that is built, then it walks off to build this one. The site comes into the game on the
+//!   footprint, with its owner, at the ConstructionHP Rule's 10%, its production held back until it is complete, as a
+//!   transformation's (`Sim::start_functions`); every holder's Build of the ticket, current or queued, becomes an
+//!   Assist of the site (`OrderKind::Assist`, `orders::assist`), the current ones keeping their spots and walks. A
+//!   `SimEvent::SiteStarted` names the first arrival.
+//! - **The failure**: a check on arrival that fails with the holders left out (another unit on the footprint, of any
+//!   player, or else its ground), or every holder's walk over and none within reach, fails the whole order (0339: "the
+//!   whole order fails (refunded once in full ...)", "nothing retries"): it goes from every holder, current and queued,
+//!   the current ones stop, a `SimEvent::BuildFailed` names the first arrival (or the holder with the lowest id) with
+//!   the problems of that check, and the ticket is refunded once.
 
 use super::{Dropped, orders_of, short_of};
 use crate::construction::site::{Builder, Construction, shares_builds, site_def};
@@ -97,6 +106,12 @@ impl Ticket {
     fn site(&self) -> Option<Placement> {
         footprint(self.kind, self.origin, self.orientation)
     }
+}
+
+/// Whether `o` holds `ticket`, current or queued.
+fn holds_ticket(o: &Object, ticket: Ticket) -> bool {
+    o.owner == Some(ticket.owner)
+        && (o.orders.iter().flat_map(orders_of)).any(|order| Ticket::of(o, order.kind) == Some(ticket))
 }
 
 /// What the arrivals' step sees of a ticket's holders whose current order it is ([`Sim::arrive_together`]).
@@ -166,9 +181,15 @@ impl Sim {
 
     /// Whether a unit of its owner's, but those of `except`, holds `ticket`, current or queued.
     fn holds(&self, ticket: Ticket, except: &[ObjectId]) -> bool {
+        (self.objects.values()).any(|o| !except.contains(&o.id) && holds_ticket(o, ticket))
+    }
+
+    /// The units that hold `ticket`, current or queued: the Recruits of the order (design change 0362, module docs).
+    fn holders(&self, ticket: Ticket) -> Vec<ObjectId> {
         (self.objects.values())
-            .filter(|o| o.owner == Some(ticket.owner) && !except.contains(&o.id))
-            .any(|o| (o.orders.iter().flat_map(orders_of)).any(|order| Ticket::of(o, order.kind) == Some(ticket)))
+            .filter(|o| holds_ticket(o, ticket))
+            .map(|o| o.id)
+            .collect()
     }
 
     /// Whether `kind`, given to `units`, is a group's Build (module docs): a Build, and every unit a worker that shares
@@ -210,9 +231,10 @@ impl Sim {
     }
 
     /// The arrivals of `ticket` (module docs), from the arrivals' step, which found a holder whose walk is over: its
-    /// site starts at the first holder within reach of the footprint if the check on arrival allows it, the order's
-    /// own Recruits on the footprint counting as any unit does; the order fails if that check doesn't, or if every
-    /// holder's walk is over and none is within reach. Otherwise it waits for the holders on their way.
+    /// site starts at the first holder within reach of the footprint if the check on arrival allows it with nobody
+    /// left out; the order fails if that check doesn't with its holders left out, or if every holder's walk is over and
+    /// none is within reach. Otherwise it waits: for its own Recruits on the footprint to step off (design change
+    /// 0362), or for the holders on their way.
     pub(in crate::sim) fn arrive_together(&mut self, ticket: Ticket) {
         let Some(site) = ticket.site() else {
             return;
@@ -223,13 +245,16 @@ impl Sim {
         };
         match walks.in_reach {
             Some(arrived) => {
-                // Nobody left out: any unit on the footprint blocks it, a Recruit of the order too (design change
-                // 0339).
-                let problems = self.arrival_check(None, ticket.kind, ticket.origin, ticket.orientation);
-                if problems.is_valid() && self.next_id < u32::MAX {
+                let (kind, origin, orientation) = (ticket.kind, ticket.origin, ticket.orientation);
+                // Nobody left out: nothing stands on the footprint, the order's own Recruits neither.
+                if self.arrival_check_without(&[], kind, origin, orientation).is_valid() && self.next_id < u32::MAX {
                     self.start_shared_site(ticket, arrived, site);
-                } else {
-                    self.fail_ticket(ticket, arrived, problems);
+                    return;
+                }
+                // The order's own Recruits left out: what blocks it now fails it; they alone make it wait.
+                let others = self.arrival_check_without(&self.holders(ticket), kind, origin, orientation);
+                if !others.is_valid() || self.next_id == u32::MAX {
+                    self.fail_ticket(ticket, arrived, others);
                 }
             }
             None if walks.all_over => self.fail_ticket(ticket, first, PlacementCheck::default()),

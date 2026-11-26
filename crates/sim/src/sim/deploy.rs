@@ -93,14 +93,27 @@ impl Sim {
     /// a Build's structure), `core/entities.md > Placement Validation > Worker-Built Structures`: "validates on
     /// arrival", "the real check happens on arrival" (design change 0120). That is [`placement::check`] with
     /// [`Method::WorkerBuilt`] in [`Mode::Arrival`]: every object as it is now, the worker `worker` left out (design
-    /// change 0118), with no sight rule ("No visibility requirement on arrival"). (M5-E) A group's Build leaves nobody
-    /// out (`worker` `None`; design change 0339: a Recruit of the order on the footprint blocks it too,
-    /// `sim/builds/shared.rs`). Pending sites don't count: they reserve their sites against placements, and block no
-    /// one. A Tunnel's area by the truth too: the other Tunnels' tiers as they are (design change 0237: "The real check
-    /// on arrival uses the truth"), its cells' terrain as it is (0242).
+    /// change 0118), with no sight rule ("No visibility requirement on arrival"). Pending sites don't count: they
+    /// reserve their sites against placements, and block no one. A Tunnel's area by the truth too: the other Tunnels'
+    /// tiers as they are (design change 0237: "The real check on arrival uses the truth"), its cells' terrain as it is
+    /// (0242). A group's Build checks with [`Sim::arrival_check_without`].
     pub(super) fn arrival_check(
         &self,
         worker: Option<ObjectId>,
+        kind: ObjectKind,
+        origin: TilePos,
+        orientation: BuildingOrientation,
+    ) -> PlacementCheck {
+        self.arrival_check_without(worker.as_slice(), kind, origin, orientation)
+    }
+
+    /// [`Sim::arrival_check`] with every unit of `left_out` left out of the occupants, and nobody with none. (M5-J1) A
+    /// group's Build checks its site twice (`sim/builds/shared.rs`, design change 0362: "the site **waits** for Recruits
+    /// of the same order who stand on the footprint to step off, then starts. Only other units fail it"): with its
+    /// holders left out, whether anything else blocks it, and with nobody left out, whether it can start now.
+    pub(super) fn arrival_check_without(
+        &self,
+        left_out: &[ObjectId],
         kind: ObjectKind,
         origin: TilePos,
         orientation: BuildingOrientation,
@@ -112,7 +125,11 @@ impl Sim {
             mode: Mode::Arrival,
             method: Method::WorkerBuilt,
         };
-        let others = self.objects.values().filter(|o| Some(o.id) != worker).map(Occupant::of);
+        let others = self
+            .objects
+            .values()
+            .filter(|o| !left_out.contains(&o.id))
+            .map(Occupant::of);
         placement::check(&site, others, kind, origin, orientation)
     }
 

@@ -721,7 +721,8 @@ Layout validation can't disagree. **Never test a placement rule anywhere else: a
      group's Build, an Assist) and has no spot gets one and walks there, round the footprint, a unit on its way
      heading on at each corner (`Sim::head_on`); an order on a structure that no longer suits it ends; every
      `RESPOT_TICKS`, a unit whose walk is over keeps where it stands within reach, or looks again along the builders'
-     wall. Before 5b, so that its walks get their paths in the tick.
+     wall, and one whose walk ended on the footprint itself looks again as far out as needed (slice M5-J1: its site
+     waits for it, design change 0362). Before 5b, so that its walks get their paths in the tick.
    - Entries, `Sim::step_entries` (slice M4-C, `sim/network.rs`; `factions/syndicate/tunnels.md > Tunnel Network >
      Walking in`): part of 5a, right after the deployments, in id order. Each unit whose current order is an Enter
      and whose box is within `ENTRY_REACH_SU` of its Tunnel's entry spot leaves the map for the network
@@ -1961,13 +1962,16 @@ section of its own.
     (`Sim::check_shared_build`) takes the whole group, no `Reject::SeveralConstructors` (it stays for Drones and
     Agents), and checks the site with the group left out (`Sim::group_build_check`).
   - **The site** starts at the first holder whose walk ends within `BUILD_REACH_SU` of the footprint
-    (`Sim::arrive_together`, in the arrivals' step), on the truth check with nobody left out (design change 0339: any
-    unit on it, a Recruit of the order too, fails the whole ticket, refunded once, and nothing retries), at 10% HP;
-    every holder's Build becomes `OrderKind::Assist(site)`, queued ones too. It gains a frame a tick for each unit on
-    an Assist of it within reach with its walk over (`spot_work::counts`; 0339's Recruit-frames: those walking or
-    waiting add nothing), so n Recruits build n times as fast and none stall it, its progress and HP kept; complete,
-    `SimEvent::SiteBuilt`, its builders' Assists end and they go on to their queued orders or idle (0340). X refunds
-    75% (`Sim::cancel_site`).
+    (`Sim::arrive_together`, in the arrivals' step), on the truth check (`Sim::arrival_check_without`), checked twice
+    (slice M5-J1, design change 0362): with nobody left out it starts; else with the ticket's holders left out, any
+    other unit on it, of any player, or its ground fails the whole ticket, refunded once, and nothing retries (0339);
+    else only its own Recruits stand on it, current or queued holders, and it waits, checked again each tick, as they
+    walk off to their spots (a walk ended on the footprint looks again, `Sim::step_spots`, so none stands still there).
+    It starts at 10% HP; every holder's Build becomes `OrderKind::Assist(site)`, queued ones too. It gains a frame a
+    tick for each unit on an Assist of it within reach with its walk over (`spot_work::counts`; 0339's Recruit-frames:
+    those walking or waiting add nothing), so n Recruits build n times as fast and none stall it, its progress and HP
+    kept; complete, `SimEvent::SiteBuilt`, its builders' Assists end and they go on to their queued orders or idle
+    (0340). X refunds 75% (`Sim::cancel_site`).
   - **The spots** (T62, 0339, `crate::spot_work`): each worker claims its own spot as it gets the order, in its
     order's state: the part of the builders' wall nearest it (`placement::Wall`, its box `BUILD_STANDOFF_SU` off the
     footprint), or else the nearest free part along the wall either way, clockwise first, a room (its box and the
@@ -2735,12 +2739,15 @@ their energy doorway, slice M3-D2: design change 0145, `factions/colonists/struc
 - **Cults construction tests** (slice M5-E) are `crates/sim/tests/cults_construction/` (`flow.rs`: four Recruits in
   80 frames paid once, five from one side spread along the wall (0339), two at twice the rate, one alone, a Shift
   chain, builders pulled off and back by Assist, the right-click; `refunds.rs`: two of three re-ordered and then the
-  third (0340), killed, after the start, a queued building its last holder drops (0340), X, a failed arrival, a
-  Recruit of the order on the ghost (0339), the queued building after X; `gate.rs`: the Armory's Storage, Shift-clicks
-  each paid, Assist's refusals; `crowds.rs`: twenty-four on a Storage; `hall.rs`: a built Hall's lineage, gatherers
-  taken off and back), each tick checking a frame per builder at work. `sim/spot_work/tests.rs` (test defs): the wall full and those waiting further out moving
-  in, and oblong ABAC footprints, 2 × 3 and 2 × 4, at four rotations; `placement/wall/tests.rs` the wall, its search
-  and the way round; `spot_work/tests.rs` the claim and the reach.
+  third (0340), killed, after the start, a queued building its last holder drops (0340), X, the queued building after
+  X; `footprint.rs` (slice M5-J1, design change 0362): nine Recruits under a Hall walk off and it starts, a site
+  waiting for one walking off its middle, an enemy and an own Recruit not on the order each failing it, refunded once,
+  a Recruit holding it queued holding it back until it walks off; `gate.rs`: the Armory's Storage, Shift-clicks each
+  paid, Assist's refusals; `crowds.rs`: twenty-four on a Storage; `hall.rs`: a built Hall's lineage, gatherers taken
+  off and back), each tick checking a frame per builder at work. `sim/spot_work/tests.rs` (test defs): the wall full
+  and those waiting further out moving in, oblong ABAC footprints, 2 × 3 and 2 × 4, at four rotations, and a walk
+  ended on the footprint looking again (0362); `placement/wall/tests.rs` the wall, its search and the way round;
+  `spot_work/tests.rs` the claim and the reach.
 - **Beacon Deployment tests** (slice M3-F) are `crates/sim/tests/deploy/` (the walk to the footprint's centre and the
   start on arrival, the 48 frames, the HP from 20 to 120 and damage carried through (0110), Beacon Capacity 10/10 to
   9/10 to 9/15 and a cancel to 11/10 (0112), the cancel's fractions of HP and Shields and its place (0109, 0111), the

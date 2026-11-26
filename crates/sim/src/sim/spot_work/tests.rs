@@ -6,14 +6,15 @@
 
 use glam::Vec2;
 
-use crate::command::{Command, DebugCommand};
+use crate::command::{Command, DebugCommand, TickInputs};
 
 use crate::defs::test_defs::TestDef;
 use crate::defs::{Footprint, ObjectDef, ObjectKind, SymmetryType};
+use crate::deploy::on_site;
 use crate::events::SimEvent;
 use crate::ids::{ObjectId, PlayerId};
 use crate::mover::MoveStatus::Moving;
-use crate::object::{Object, Rotation};
+use crate::object::{Object, Placement, Rotation};
 use crate::orders::OrderKind;
 use crate::player::Faction;
 use crate::scenario::{BuildingOrientation, SpawnAt};
@@ -46,10 +47,16 @@ fn oblong_storage(w: u32, h: u32) -> TestDef {
 /// A flat 40 × 30 map of the Cults' with `count` Recruits of player 1's, ids 1 to `count`, in columns of eight 32 su
 /// apart west of [`SITE`], and 10 000 Space Crystals.
 fn recruits(count: u32) -> TestSim {
-    let mut scenario = ScenarioBuilder::new(&vec![".".repeat(40); 30].join("\n")).faction(P1, Faction::Cults);
-    for i in 0..count {
+    recruits_at((0..count).map(|i| {
         let (column, row) = (i / 8, i % 8);
-        let at = Vec2::new(1100.0 - 32.0 * column as f32, 848.0 + 32.0 * row as f32);
+        Vec2::new(1100.0 - 32.0 * column as f32, 848.0 + 32.0 * row as f32)
+    }))
+}
+
+/// A flat 40 × 30 map of the Cults' with Recruits of player 1's at `points`, ids from 1 on, and 10 000 Space Crystals.
+fn recruits_at(points: impl IntoIterator<Item = Vec2>) -> TestSim {
+    let mut scenario = ScenarioBuilder::new(&vec![".".repeat(40); 30].join("\n")).faction(P1, Faction::Cults);
+    for at in points {
         scenario = scenario.spawn(ObjectKind::Recruit, Some(P1), SpawnAt::Point(at));
     }
     let mut t = scenario.start();
@@ -186,6 +193,45 @@ fn those_who_wait_further_out_move_in_as_room_frees() {
     println!("the wall full again {} ticks after", t.sim().tick() - start);
     let moved_in = builders(&t, &s).iter().filter(|id| waiting.contains(id)).count();
     assert_eq!(moved_in, 2);
+}
+
+/// (M5-J1) The site waits for the order's own Recruits to step off its footprint (design change 0362,
+/// `factions/cults/economy.md > Cults Building Mechanics > Group construction rules`: "the site **waits** for Recruits
+/// of the same order who stand on the footprint to step off, then starts"), so none may stand still there. #1 stands at
+/// its spot west of the footprint, #2 on its middle; as #2 walks off, its walk ends where it stands, still on the
+/// footprint, as a walk that found no way left does. It doesn't take that place as its spot (`Sim::step_spots`): within
+/// `RESPOT_TICKS` it looks for one again and walks off, and the site starts, with no failure.
+#[test]
+fn a_recruit_whose_walk_ended_on_the_footprint_looks_for_a_spot_again() {
+    let mut t = recruits_at([Vec2::new(1264.0, 960.0), Vec2::new(1344.0, 960.0)]);
+    build(&mut t, 2, Rotation::R0);
+    let walking = |t: &TestSim| {
+        (t.sim().object(ObjectId(2)))
+            .is_some_and(|o| spot_of(o).is_some() && o.mover.as_ref().is_some_and(|m| m.status == Moving))
+    };
+    run_to(&mut t, 4, "#2 walks to its spot", walking);
+    let footprint = Placement::new(SITE, STORAGE.def().footprint);
+    let mut sim = t.sim().clone();
+    let o = sim.objects.get_mut(&ObjectId(2)).expect("#2");
+    assert!(on_site(o.kind, o.pos, &footprint), "#2 on the footprint at {}", o.pos);
+    o.mover.as_mut().expect("a unit").stop();
+    let (stopped, limit) = (sim.tick(), RESPOT_TICKS + 60);
+    let mut started = None;
+    for _ in 0..limit {
+        sim.step(&TickInputs::default());
+        let failed = sim.events().iter().any(|e| matches!(e, SimEvent::BuildFailed { .. }));
+        assert!(!failed, "tick {}: no failure", sim.tick());
+        if sim.events().iter().any(|e| matches!(e, SimEvent::SiteStarted { .. })) {
+            started = Some(sim.tick());
+            break;
+        }
+    }
+    let started = started.unwrap_or_else(|| panic!("the site starts within {limit} ticks of tick {stopped}"));
+    let o = &sim.objects[&ObjectId(2)];
+    assert!(
+        !on_site(o.kind, o.pos, &footprint),
+        "#2 off the footprint at tick {started}"
+    );
 }
 
 /// The Director's note 2: four Recruits build a Storage given an oblong footprint lettered ABAC, 2 × 3 and 2 × 4, at

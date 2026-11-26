@@ -9,6 +9,7 @@ use glam::Vec2;
 use super::Sim;
 use super::builds::Dropped;
 use crate::defs::ObjectKind;
+use crate::deploy::on_site;
 use crate::events::SimEvent;
 use crate::ids::ObjectId;
 use crate::mover::{MoveGoal, MoveStatus};
@@ -46,7 +47,11 @@ impl Sim {
     /// - in the ticks that are multiples of `tuning::construction::RESPOT_TICKS`, a unit whose walk is over takes the
     ///   place where it stands as its spot if it is within reach of the footprint, so that a unit that stopped short
     ///   of its spot doesn't keep another from the spot it stands on; out of reach, it looks for a free spot on the
-    ///   builders' wall, its own claim aside, and walks there if it finds one.
+    ///   builders' wall, its own claim aside, and walks there if it finds one. (M5-J1) One whose walk ended on the
+    ///   footprint itself, short of its spot ([`on_site`], as the placement check counts a unit on it: a group's Build
+    ///   before its site starts), looks as one without a spot does, on row 0 and then on every row from the third on,
+    ///   and with none on the whole map its order ends ([`Sim::no_spot`]): the site waits for its own Recruits to
+    ///   step off (design change 0362, `sim/builds/shared.rs`), so none may stand still there.
     pub(super) fn step_spots(&mut self, first_new: ObjectId) {
         let workers: Vec<(ObjectId, Work)> = (self.objects.range(..first_new))
             .filter_map(|(&id, o)| Some((id, work_of(o)?)))
@@ -93,9 +98,9 @@ impl Sim {
         if !self.tick.is_multiple_of(RESPOT_TICKS) {
             return;
         }
-        // The units whose walk is over, by whether they stand within reach.
+        // The units whose walk is over, by whether they stand within reach, off the footprint.
         let mut astray = Vec::new();
-        for &(id, _, at) in placed.iter().filter(|(_, work, _)| work.spot.is_some()) {
+        for &(id, work, at) in placed.iter().filter(|(_, work, _)| work.spot.is_some()) {
             let Some(o) = self.objects.get_mut(&id) else {
                 continue;
             };
@@ -103,8 +108,9 @@ impl Sim {
             if !over {
                 continue;
             }
-            if !within_reach(&Shape::of(o), &at) {
-                astray.push((id, at));
+            let stranded = on_site(o.kind, o.pos, &at);
+            if stranded || !within_reach(&Shape::of(o), &at) {
+                astray.push((id, work, at, stranded));
                 continue;
             }
             let pos = o.pos;
@@ -115,12 +121,21 @@ impl Sim {
                 }
             }
         }
-        for (id, at) in astray {
-            if let Some(spot) = self.free_spot(id, &at, 0..=0, &claims) {
-                self.send_to(id, &at, spot, &claims);
-                if let Some(claim) = claims.iter_mut().find(|claim| claim.unit == id) {
-                    claim.spot = spot;
+        for (id, work, at, stranded) in astray {
+            // Off the footprint, along the builders' wall; on it, as far out as one without a spot looks.
+            let last = match self.objects.get(&id) {
+                Some(o) if stranded => self.rows_on_map(o.kind, &at),
+                _ => 0,
+            };
+            match self.free_spot(id, &at, std::iter::once(0).chain(2..=last), &claims) {
+                Some(spot) => {
+                    self.send_to(id, &at, spot, &claims);
+                    if let Some(claim) = claims.iter_mut().find(|claim| claim.unit == id) {
+                        claim.spot = spot;
+                    }
                 }
+                None if stranded => self.no_spot(id, work.order),
+                None => {}
             }
         }
     }
@@ -217,8 +232,8 @@ impl Sim {
     }
 
     /// Where unit `id` heads for now on its way to `spot` beside the footprint `at` (design change 0339: it "wall-hugs
-    /// along the footprint"), never over the footprint, since a Recruit of the order standing on it as the first
-    /// arrives fails the whole order (`sim/builds/shared.rs`), nor through the builders at the wall: straight to its
+    /// along the footprint"), never over the footprint, since the site waits for a Recruit of the order standing on it
+    /// (design change 0362, `sim/builds/shared.rs`), nor through the builders at the wall: straight to its
     /// spot while that way keeps its box off the footprint and off the rooms of the others' spots among `claims`
     /// (`placement::crosses`); else round them, along the wall a row further out than its spot's
     /// (`placement::Wall::row_of`: row 1 for a builder's spot, which nobody waits on), by that wall's corners where the
