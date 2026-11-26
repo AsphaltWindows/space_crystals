@@ -1,8 +1,8 @@
 //! Every test file is in a test program (slice M5-T). Each crate's integration tests are modules of the few programs
 //! its `Cargo.toml` lists as `[[test]]` targets, with `autotests = false`, so a file that no program includes would
-//! never be compiled, let alone run. This fails for the sim and for the client, naming each such file and the line
-//! that includes it (for a folder, its root alone), and each file that two programs include, whose tests would run
-//! twice.
+//! never be compiled, let alone run. This fails for the sim, the computer players (slice A1) and the client, naming
+//! each such file and the line that includes it (for a folder, its root alone), and each file that two programs
+//! include, whose tests would run twice.
 //!
 //! It follows the module declarations from each program's root as the compiler does: in a root, a `mod.rs` or a file
 //! included by a `#[path]`, `mod foo;` is `foo.rs` (or `foo/mod.rs`) beside it; in any other file, `bar.rs`, it is in
@@ -25,6 +25,17 @@ fn every_client_test_file_is_in_a_program() {
     let root = root();
     let problems = problems(&root.join("crates/game"), &root);
     assert!(problems.is_empty(), "the client's test files:\n{}", problems.join("\n"));
+}
+
+#[test]
+fn every_computer_player_test_file_is_in_a_program() {
+    let root = root();
+    let problems = problems(&root.join("crates/ai"), &root);
+    assert!(
+        problems.is_empty(),
+        "the computer players' test files:\n{}",
+        problems.join("\n")
+    );
 }
 
 /// The check on a crate made up for it, in a folder of its own: two programs, one by its `path` and one by its

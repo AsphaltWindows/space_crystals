@@ -1,8 +1,8 @@
 [workspace]
 resolver = "3"
-members = ["crates/sim", "crates/game"]
-# `cargo run` starts the game (the only binary); `cargo test` covers both crates.
-default-members = ["crates/sim", "crates/game"]
+members = ["crates/sim", "crates/ai", "crates/game"]
+# `cargo run` starts the game (the only binary); `cargo test` covers every crate.
+default-members = ["crates/sim", "crates/ai", "crates/game"]
 
 [workspace.package]
 version = "0.1.0"

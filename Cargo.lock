@@ -3905,6 +3905,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "sc_ai"
+version = "0.1.0"
+dependencies = [
+ "sc_sim",
+ "serde_json",
+]
+
+[[package]]
 name = "sc_sim"
 version = "0.1.0"
 dependencies = [

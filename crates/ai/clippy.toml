@@ -1,0 +1,51 @@
+# Determinism guard rails for the computer players, the sim's own (ARCHITECTURE.md > Determinism, > Computer players):
+# a computer player gives the same commands in the same game on every machine, and the replays record them.
+# CI-equivalent check: `cargo clippy -p sc_ai --all-targets -- -D warnings`.
+
+disallowed-methods = [
+    # Transcendental float functions are not guaranteed bit-identical across platforms
+    # and compilers. Use `sc_sim::math` (libm, pure Rust) instead.
+    { path = "f32::sin", reason = "platform-dependent result; use sc_sim::math::sin" },
+    { path = "f32::cos", reason = "platform-dependent result; use sc_sim::math::cos" },
+    { path = "f32::tan", reason = "platform-dependent result; use sc_sim::math (libm)" },
+    { path = "f32::sin_cos", reason = "platform-dependent result; use sc_sim::math::sin / cos" },
+    { path = "f32::asin", reason = "platform-dependent result; use sc_sim::math (libm)" },
+    { path = "f32::acos", reason = "platform-dependent result; use sc_sim::math (libm)" },
+    { path = "f32::atan", reason = "platform-dependent result; use sc_sim::math (libm)" },
+    { path = "f32::atan2", reason = "platform-dependent result; use sc_sim::math::atan2" },
+    { path = "f32::sinh", reason = "platform-dependent result; use sc_sim::math (libm)" },
+    { path = "f32::cosh", reason = "platform-dependent result; use sc_sim::math (libm)" },
+    { path = "f32::tanh", reason = "platform-dependent result; use sc_sim::math (libm)" },
+    { path = "f32::exp", reason = "platform-dependent result; use sc_sim::math (libm)" },
+    { path = "f32::exp2", reason = "platform-dependent result; use sc_sim::math (libm)" },
+    { path = "f32::ln", reason = "platform-dependent result; use sc_sim::math (libm)" },
+    { path = "f32::log", reason = "platform-dependent result; use sc_sim::math (libm)" },
+    { path = "f32::log2", reason = "platform-dependent result; use sc_sim::math (libm)" },
+    { path = "f32::log10", reason = "platform-dependent result; use sc_sim::math (libm)" },
+    { path = "f32::powf", reason = "platform-dependent result; use sc_sim::math (libm)" },
+    { path = "f32::powi", reason = "differs between const-eval and runtime; multiply explicitly" },
+    { path = "f32::hypot", reason = "platform-dependent result; use (x*x + y*y).sqrt()" },
+    { path = "f32::cbrt", reason = "platform-dependent result; use sc_sim::math (libm)" },
+    { path = "f64::sin", reason = "platform-dependent result; the AI uses f32 + sc_sim::math" },
+    { path = "f64::cos", reason = "platform-dependent result; the AI uses f32 + sc_sim::math" },
+    { path = "f64::tan", reason = "platform-dependent result; the AI uses f32 + sc_sim::math" },
+    { path = "f64::atan2", reason = "platform-dependent result; the AI uses f32 + sc_sim::math" },
+    { path = "f64::exp", reason = "platform-dependent result; the AI uses f32 + sc_sim::math" },
+    { path = "f64::ln", reason = "platform-dependent result; the AI uses f32 + sc_sim::math" },
+    { path = "f64::powf", reason = "platform-dependent result; the AI uses f32 + sc_sim::math" },
+    { path = "f64::powi", reason = "differs between const-eval and runtime; multiply explicitly" },
+    # Keep float arithmetic uniform, as the sim does (Rust never contracts `a * b + c` on its own).
+    { path = "f32::mul_add", reason = "fused multiply-add rounds differently from `a * b + c`; write `a * b + c`" },
+    { path = "f64::mul_add", reason = "fused multiply-add rounds differently from `a * b + c`; the AI uses f32" },
+    # No wall clock, no threads: a computer player thinks only from the game its View shows.
+    { path = "std::time::Instant::now", reason = "a computer player must not read the wall clock" },
+    { path = "std::time::SystemTime::now", reason = "a computer player must not read the wall clock" },
+    { path = "std::thread::spawn", reason = "a computer player is single-threaded for determinism" },
+]
+
+disallowed-types = [
+    # Iteration order of std hash containers is randomized per process.
+    { path = "std::collections::HashMap", reason = "random iteration order; use BTreeMap (or Vec + sort)" },
+    { path = "std::collections::HashSet", reason = "random iteration order; use BTreeSet (or Vec + sort)" },
+    { path = "std::collections::hash_map::RandomState", reason = "randomly seeded hashing" },
+]

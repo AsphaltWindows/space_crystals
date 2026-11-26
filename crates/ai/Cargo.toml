@@ -1,0 +1,23 @@
+[package]
+name = "sc_ai"
+description = "Space Crystals computer players (a playtest tool: deterministic, no engine dependency)"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+# The integration tests are modules of the test program below: `tests/ai.rs` says how to add one.
+autotests = false
+
+[dependencies]
+sc_sim.workspace = true
+
+[lints]
+workspace = true
+
+[dev-dependencies]
+# Loading the maps of `maps/` for the games of computer players against each other (tests only, as in the sim).
+serde_json = "1"
+
+[[test]]
+name = "ai"
+path = "tests/ai.rs"
