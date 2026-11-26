@@ -51,5 +51,11 @@ class Doc:
         m = self._row(prefix)
         self.s = self.s[:m.end()] + '\n' + row + self.s[m.end():]
 
+    def insert_after(self, pattern, text):
+        """Insert `text` right after the one match of the regex `pattern` (re.M); the rest of the file is kept."""
+        m = list(re.finditer(pattern, self.s, re.M))
+        assert len(m) == 1, (self.p, pattern, len(m))
+        self.s = self.s[:m[0].end()] + text + self.s[m[0].end():]
+
     def save(self):
         open(self.p, 'w').write(self.s)
