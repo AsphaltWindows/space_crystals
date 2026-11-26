@@ -2333,3 +2333,4 @@ Answered Q0069–Q0071 (0258–0267): losing-Tunnel edges, Syndicate economy che
 2026-11-27 — GDO rule confirmations. Entry 0368.
 2026-11-27 — Syndicate rule confirmations. Entry 0369.
 2026-11-27 — Session end: all Director questions answered through Q0130; GDO/Syndicate placeholder passes; Cults roster: Hand of Heaven, Prayer-mobile, Seeker rename; turrets Tunnel-only and neutral with Tunnel; Cults identity check given (tensions in insights).
+2026-11-27 — Doc reorg (user request): split selection_and_hud, behaviors, syndicate/tunnels; moved Cults Recruitment Hall and Storage to structures/ (restoring the lost RecruitmentHall heading). Content verified line-for-line; refs and index updated. Entry 0370.

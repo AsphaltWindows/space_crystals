@@ -23,9 +23,13 @@ Index of the design docs. Paths are relative to this folder.
 |---|---|
 | `systems/units.md` | Unit attributes, collision (incl. crushing), movement models, unit bases (infantry, vehicles, air), turrets |
 | `systems/combat.md` | Attack phases, targeting, attack types, damage calculation (armor, directional, AoE, minimum), shields |
-| `systems/controls/selection_and_hud.md` | Selection, control groups, interface states, HUD bar, selection/command panels, right-click resolution, cursor, command indicators |
+| `systems/controls/selection.md` | ControlState, selection and SelectionGroups (incl. no smart-casting), box and click selection, control groups, group cycling |
+| `systems/controls/interface.md` | Key rebinding, interface states and transitions, command panel (grid, standard slots, rally points), DefaultState, right-click resolution, AwaitingTarget, cursor target, BasicCombatUnitInterfaceState |
+| `systems/controls/hud.md` | HUD bar, SelectionPanel, pointer display types (cursor), command indicators |
 | `systems/controls/commands.md` | Unit commands (+ group destinations / magic box): Move, Attack, Attack Ground, Attack Move, Patrol, Hold, Stop, Reverse, Enter |
-| `systems/controls/behaviors.md` | Unit/turret behaviors, auto-targeting, action channels (locomotion, orientation, attack) |
+| `systems/controls/behaviors.md` | Core principle (predictable, not optimal), behavior states, turret scanning, auto-targeting, path knowledge |
+| `systems/controls/command_behaviors.md` | One behavior per command: moving, attacking, reversing, attack-move, patrol, hold, stop |
+| `systems/controls/action_channels.md` | Action channels: locomotion, orientation, attack phases (base and turret) |
 
 ## factions/ — one folder per faction
 | File | Contents |
@@ -61,7 +65,9 @@ Index of the design docs. Paths are relative to this folder.
 | `factions/gdo/units/dragonfly.md` | Air-to-air glider fighter (Airfield, Propulsion Labs) |
 | `factions/gdo/units/supply_chopper.md` | Supply transport aircraft |
 | `factions/syndicate/overview.md` | Syndicate identity and resources (Space Crystals, Supplies, Tunnel Space) |
-| `factions/syndicate/tunnels.md` | Tunnel Network (incl. losing Tunnels, neutral expansions), Tunnel (tiers, sides, Tunnel Area, Tunnel Space) |
+| `factions/syndicate/tunnels.md` | Tunnel Network (incl. losing Tunnels, neutral expansions), Tunnel (stats, sides, tiers), construction and upgrade rules, cost scaling |
+| `factions/syndicate/tunnel_menus.md` | Tunnel panel: DefaultState, Eject and Expand menus, expansion placement, expansions under construction |
+| `factions/syndicate/tunnel_area_and_space.md` | Tunnel Area (display, non-overlap rule), Tunnel Space (incl. production) |
 | `factions/syndicate/structures/README.md` | Tech tree overview, Tunnel Expansion rules (requirements, rally points), Surface Defensive Structures; index |
 | `factions/syndicate/structures/hideout.md` | Infantry production expansion |
 | `factions/syndicate/structures/optics_lab.md` | Laser tech building |
@@ -85,8 +91,10 @@ Index of the design docs. Paths are relative to this folder.
 | `factions/syndicate/units/specter.md` | Single-payload glider bomber; re-arms in Tier 3 Tunnels (Vault + Chemical Plant) |
 | `factions/syndicate/units/prism.md` | Satellite: laser relay, one-way launch, thrust charges (Orbital Command) |
 | `factions/cults/overview.md` | Cults identity and resources (Space Crystals, Unit Control) |
-| `factions/cults/economy.md` | Starting Conditions, building mechanics (Recruit-time principles), Recruitment Hall, Storage |
+| `factions/cults/economy.md` | Starting Conditions, building mechanics (Recruit-time principles, group construction, evacuation), economy check |
 | `factions/cults/structures/README.md` | Tech tree overview; index of Cults structures |
+| `factions/cults/structures/recruitment_hall.md` | Starting structure: Recruit production, Recruitment Area and tile claiming, Unit Control |
+| `factions/cults/structures/storage.md` | Space Crystals drop-off |
 | `factions/cults/structures/armory.md` | Trains Recruits into combat units |
 | `factions/cults/structures/gunworks.md` | Tech/Weaponry T2 support |
 | `factions/cults/structures/garrison.md` | Defensive structure |

@@ -14,7 +14,7 @@ The Colonists' worker unit. Gathers Space Crystals and deploys into Beacons (see
 ## SightRange - 5 grid units
 ## Destructible - true
 ## Groupable - true
-(user, 2026-11-24; was false) Bulk commands (Move, Stop, Set Drop-off) reach every selected Drone; a Deploy goes to one Drone only (systems/controls/selection_and_hud.md > SelectionGroup > Groupable workers used up by a build).
+(user, 2026-11-24; was false) Bulk commands (Move, Stop, Set Drop-off) reach every selected Drone; a Deploy goes to one Drone only (systems/controls/selection.md > SelectionGroup > Groupable workers used up by a build).
 ## BeaconCapacityCost - 1
 
 With 5 BeaconCapacity per Beacon and the Drone's own 1 freed when it starts deploying, each Beacon is a net +6: beyond the starting 10 BeaconCapacity, roughly every 6th Drone must deploy as a Beacon to keep Drone production going.
@@ -101,7 +101,7 @@ When a Drone arrives at an occupied patch, it goes to the **nearest unoccupied p
 ### Drop Off order
 (user, 2026-11-24) An explicit **Drop Off** (right-click an own Egress Node or accepting refinery while carrying) is **only a delivery**, not a Gather: the Drone delivers its load and the order is **complete**. It then starts its next queued order (e.g. a Shift-queued build), or with nothing queued **becomes idle** at the drop-off point; it does not walk back to its patch. (If Drop Off counted as a Gather, an order Shift-queued behind it would wait until the field is mined out.)
 
-**Empty Drones** (user, 2026-11-24): Drop Off is only resolved for a Drone that is carrying something. A right-click on an own Egress Node with an **empty** Drone is a plain **Move to the node** (it walks there and stops). Right-click resolves per Drone (systems/controls/selection_and_hud.md > RightClickResolution), so in a mixed group the loaded Drones deliver and idle, and the empty ones walk to the node; none goes back to mining on its own.
+**Empty Drones** (user, 2026-11-24): Drop Off is only resolved for a Drone that is carrying something. A right-click on an own Egress Node with an **empty** Drone is a plain **Move to the node** (it walks there and stops). Right-click resolves per Drone (systems/controls/interface.md > RightClickResolution), so in a mixed group the loaded Drones deliver and idle, and the empty ones walk to the node; none goes back to mining on its own.
 
 ### When a Gather ends
 (user, 2026-11-24) A Gather order normally never ends: the Drone repeats its trip. It **ends on its own** only when the Drone runs out of crystals to mine: its patch is gone and no patch is left within its search radius. It first **delivers any load** it carries, then becomes idle (or starts its next queued order).
@@ -153,7 +153,7 @@ Drones can deploy into a Beacon (see Beacon Deployment above). This transformati
 - Own Egress Node (carrying resources) → Drop off resources
 - Own refinery (carrying a resource it accepts as input) → Drop off resources
 - Own refinery (not carrying) → Gather (haul from its output)
-- Enemy or other object → Move to it: **Follow** if it is a unit, Move to its location otherwise (Drone is unarmed and cannot attack; systems/controls/selection_and_hud.md > RightClickResolution > Units that can't carry out the resolved command)
+- Enemy or other object → Move to it: **Follow** if it is a unit, Move to its location otherwise (Drone is unarmed and cannot attack; systems/controls/interface.md > RightClickResolution > Units that can't carry out the resolved command)
 - Ground → Move
 
 Multiple Drones can be selected simultaneously and form one SelectionGroup (Groupable). Right-click commands and Set Drop-off go to every selected Drone; Deploy goes to one Drone (first in selection order without a Deploy; see Groupable above).
