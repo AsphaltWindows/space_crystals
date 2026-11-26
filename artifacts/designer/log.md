@@ -2365,3 +2365,8 @@ Answered Q0069–Q0071 (0258–0267): losing-Tunnel edges, Syndicate economy che
 2026-11-27 — Q0148 part 1: Sparrow sight 8; Attack Move unchanged. Entry 0403.
 2026-11-27 — Q0148 part 2: glider Move completes on arrival. Entry 0404.
 2026-11-27 — Q0148 part 3: gliders separate slowly; radii 48/48/64. Entry 0405.
+
+## 2026-11-26 — Q0149–Q0152 arrive
+- Q0150 answered from the docs (0396 wins): Colonists Warp In doc now allows a rally point on portals warping in (0406).
+- Q0151 part 3 answered from the docs (0399, "whichever group is in focus"): 0407, no doc change.
+- Q0149, Q0151 parts 1–2, Q0152 brought to the user.
