@@ -125,6 +125,39 @@
 >   - **N7:** takeoff at IdleSpeed, speeding up along the runway; with no rally, the Sparrow circles 2 GU past the
 >     C end.
 >   - **G2 (or H1):** the Sparrow's MaxCentripetalAcceleration is 0.5 su/frame².
+> - **0356–0360, two new slices outside the Cults:**
+>   - **M5-K, GDO anti-air (Opus, after H1; Q0122 answered by 0356):**
+>     - **The Arsenal** (2x2, HP 350, 1/4, Power −20, 150 SC, 320 f, from the Deployment Center; no panel yet).
+>     - **The Rocketman** (Barracks W; LightInfantry; HP 45; armour 1/1; sight 6; speed 3). Its missile is a
+>       DoublyDisjointed projectile (M4-O): Damage 20, Range 6, MinRange 2 (0203), 16 su/f, every 32 f, hitting air
+>       and ground.
+>     - **Target Lock** (R): LockOn 48 f and LockRange 7. A locked missile can't be dodged, its fire ignores
+>       MinRange (0204), and it may target structures.
+>     - 0356's Verification needs H1's Sparrow: Rocketmen shoot one down; a circling Sparrow sometimes dodges the
+>       normal missile, and a locked one never does.
+>   - **M5-Y, Syndicate turrets (Opus, after E, which owns `orders/build.rs` and `sim/sites.rs`):**
+>     - **0359:** remove the Agent's turret (its order, site, refunds, exit and client), so the Agent's panel is Q Move,
+>       A Build Tunnel, S Drop Off, D Repair (Planned until N8), X Stop. The ExpandMenu's turret and the Agent's
+>       repair of turrets stay.
+>     - **0360:** remove the upright form and conversion. On Tunnel loss a turret joins the expansions' path:
+>       neutral, visible to all, high armour, a raised turret retracts at once, it never fires, it decays 1% MaxHP/s,
+>       and a new Tunnel covering it reclaims it. Defeat no longer counts turrets.
+>     - **0358:** every expansion of a destroyed Tunnel becomes visible at once, and the Q0091 marks go.
+>     - Goldens may move if one has an Agent-built or upright turret.
+>   - **J1** builds no Agent Construct menu (0326 is superseded). **S1** shows every player the defeat notice
+>     (0357), and the playtest notes name the Colonists' anti-air gap (0356).
+> - **The waves after these additions** (a sketch; the binding rule is each slice's "after"):
+>   - W4: J1, Y and F3;
+>   - W5: L, U1 and G2;
+>   - W6: V1, N8 and N1a;
+>   - W7: N2, V2 and N1b;
+>   - W8: N4a, H1 and N3;
+>   - W9: N4b, N6 and N5;
+>   - W10: N7, K, N9 and S1;
+>   - W11: X1; W12: X2 and S2; W13: M, then the playtest.
+>
+>   The playtest moves about one wave later, to the end of W13. An infantry-core playtest would come at the end of
+>   W10.
 > - **The waves (§C) stand,** but the playtest's timing is the user's call: the full Cults at the end of W12, or a
 >   first playtest of the infantry core at the end of W9 (§F), put to the user on 2026-11-25.
 
