@@ -8,16 +8,20 @@ use super::*;
 /// units from the PathReference, here the straight way from the Sparrow's start to its destination, along y = 640.
 const LEASH: f32 = 6.0 * 64.0;
 
-/// Player 1's Sparrow (1) attack-moves 1700 su east past player 2's idle Drone (2), 100 su south of its way, which
-/// player 1's Disciple (3), 250 su south of the Drone, keeps in sight: the Sparrow takes the Drone and makes a
-/// strafing pass over it, firing; it flies on to its destination, where its AttackMove is over, and from then on it is
-/// idle and circles the destination: within 15 s at IdleSpeed on its idle circle, for good.
+/// Player 1's Sparrow (1), alone, attack-moves 1700 su east past player 2's idle Drone (2), 100 su south of its way:
+/// the Sparrow takes the Drone and makes strafing passes over it, firing; it flies on to its destination, where its
+/// AttackMove is over, and from then on it is idle and circles the destination: within 15 s at IdleSpeed on its idle
+/// circle, for good.
 ///
-/// With the Sparrow's numbers it makes one pass only. Flying on out of range and looping back at full speed on its
-/// 200-su turn radius, it swings more than the leash south of its way, and it lets the Drone go as it crosses the leash
-/// ("Leash is measured the same way"; `systems/controls/command_behaviors.md > AttackMovingToLocation` 3) and resumes
-/// its way. Without the Disciple it would let the Drone go a few ticks earlier, as it loses sight of it: no longer a
-/// ValidTarget (design change 0200).
+/// The leash lets the Drone go (design change 0403: "**Attack Move is unchanged**: its 6 GU leash may still drop a
+/// looping Sparrow's target"). Flying on out of range and looping back at full speed on its 200-su turn radius, the
+/// Sparrow swings more than the leash off its way after its second pass, and it lets the Drone go as it crosses the
+/// leash ("Leash is measured the same way"; `systems/controls/command_behaviors.md > AttackMovingToLocation` 3) and
+/// resumes its way. Its own SightRange of 8 grid units (0403) keeps the Drone in sight meanwhile: as it resumes its
+/// way, the Drone is judged again by the reach rule like any other enemy (design change 0230: "There is no memory of
+/// the targets it let go"), and it takes it once more, for two more passes, and lets it go again at the leash. The
+/// Drone's Shields, back up after each pass, keep it alive. (With the SightRange of 6 this test was written for, a
+/// spotter kept the Drone in sight, and the Sparrow took it once, for one pass.)
 #[test]
 fn on_an_attack_move_it_strafes_what_it_meets_and_circles_its_destination() {
     let destination = Vec2::new(2000.0, 640.0);
@@ -25,13 +29,12 @@ fn on_an_attack_move_it_strafes_what_it_meets_and_circles_its_destination() {
         .faction(P2, Faction::Colonists)
         .spawn(SPARROW, Some(P1), point(300.0, 640.0))
         .spawn(ObjectKind::Drone, Some(P2), point(1100.0, 740.0))
-        .spawn(ObjectKind::Disciple, Some(P1), point(1100.0, 990.0))
         .start();
     order(&mut t, 1, P1, &[1], OrderKind::AttackMove(destination));
     let off_way = |p: Vec2| (p.y - destination.y).abs();
-    let (mut strafed, mut let_go) = (0, None);
+    let (mut strafed, mut let_go) = (0, Vec::new());
     while t.sim().tick() < 2 || current(&t, 1).is_some() {
-        assert!(t.sim().tick() < 16 * 30, "still on its way at {}", t.pos(1));
+        assert!(t.sim().tick() < 16 * 60, "still on its way at {}", t.pos(1));
         let (before, judged_at, strafing) = (hits(&t).len(), t.pos(1), t.mover(1).strafe.is_some());
         t.step();
         let shots = &hits(&t)[before..];
@@ -46,18 +49,17 @@ fn on_an_attack_move_it_strafes_what_it_meets_and_circles_its_destination() {
             strafed += shots.len();
         }
         if strafing && t.mover(1).strafe.is_none() {
-            assert_eq!(let_go.replace(off_way(judged_at)), None, "it takes the Drone once");
+            let_go.push(off_way(judged_at));
         }
     }
-    assert!(strafed >= 3, "{strafed} hits");
+    assert!(strafed >= 12, "{strafed} hits");
     assert!(t.sim().object(ObjectId(2)).is_some(), "the Drone lives on");
     // Where it stood as its AttackMove judged the chase, before its flight in the tick: just past the leash, by less
-    // than a tick's flight at MaxSpeed (10 su).
-    let let_go = let_go.expect("it lets the Drone go");
-    assert!(
-        let_go > LEASH - 2.0 && let_go < LEASH + 12.0,
-        "let go {let_go} su off its way"
-    );
+    // than a tick's flight at MaxSpeed (10 su), each time.
+    assert_eq!(let_go.len(), 2, "it takes the Drone twice: {let_go:?}");
+    for &off in &let_go {
+        assert!(off > LEASH - 2.0 && off < LEASH + 12.0, "let go {off} su off its way");
+    }
     assert_eq!(t.mover(1).orbit, Some(destination));
     t.run(16 * 15);
     for _ in 0..16 * 10 {

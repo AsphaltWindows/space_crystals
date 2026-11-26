@@ -31,9 +31,11 @@ fn geometry(t: &TestSim, a: u32, b: u32) -> (f32, f32) {
 /// lasts a frame (`systems/combat.md > Firing`; the Sparrow's "Aim 1, Firing 1" frames), so it is there that the target
 /// is within the cone, even when the Sparrow passes over it before the hit lands.
 ///
-/// The spotter keeps the target in player 1's sight: a loop back at full speed, 200 su to the side, takes the Sparrow
-/// some 500 su from its target, past its own SightRange of 6 grid units, and an Attack whose target its owner no longer
-/// sees ends (`systems/controls/command_behaviors.md > AttackingObject` 6, design change 0200).
+/// The spotter keeps the target in player 1's sight, so that the passes alone are tested: from the start, 880 su off,
+/// and through the loops, as an Attack whose target its owner no longer sees ends
+/// (`systems/controls/command_behaviors.md > AttackingObject` 6, design change 0200). A loop back at full speed, 200 su
+/// to the side, takes the Sparrow some 500 su from its target, and more from one this long: about its SightRange of 8
+/// grid units (512 su, design change 0403; 6 when this test was written). The next test has no spotter.
 #[test]
 fn an_attack_makes_pass_after_pass_over_a_stationary_target() {
     let mut t = quiet(
@@ -95,4 +97,61 @@ fn an_attack_makes_pass_after_pass_over_a_stationary_target() {
         }
     }
     assert_eq!(current(&t, 1), Some(OrderKind::Attack(ObjectId(2))));
+}
+
+/// The Sparrow's SightRange, 8 grid units (design change 0403).
+const SIGHT: f32 = 8.0 * 64.0;
+
+/// Design change 0403's Verification: "A lone Sparrow ordered to Attack a stationary target, with no spotter, makes
+/// repeated passes until the target dies" (`factions/cults/units/sparrow.md > Placeholder stats`: "SightRange **8 grid
+/// units** [...] its full-speed loop carries it up to ~500 su from its target, so 8 GU = 512 su keeps the target in
+/// sight through every pass and a lone Sparrow keeps strafing on an Attack"). Player 1's Sparrow (1), alone, attacks
+/// player 2's Peacekeeper (2), 412 su east of it. The Peacekeeper stands still (auto-targeting off) at the centre of a
+/// tile, the one tile it covers, so that player 1 sees it only while that tile's centre, its own, is within the
+/// Sparrow's sight (or for the fog delay after). The Attack is the Sparrow's order until the Peacekeeper (MaxHP 50,
+/// PointArmor 1: 2 HP a hit) dies, on its fifth pass; each loop between two passes takes the Sparrow 497 to 502 su from
+/// its target, within its sight; the Attack then completes.
+#[test]
+fn a_lone_sparrow_makes_pass_after_pass_until_its_target_dies() {
+    let target = Vec2::new(1312.0, 1312.0);
+    let mut t = quiet(
+        flat(40, 40)
+            .faction(P2, Faction::Gdo)
+            .spawn(SPARROW, Some(P1), point(900.0, 1312.0))
+            .spawn(ObjectKind::Peacekeeper, Some(P2), SpawnAt::Point(target))
+            .start(),
+    );
+    order(&mut t, 1, P1, &[1], OrderKind::Attack(ObjectId(2)));
+    // Each pass, its shots no more than 2 s apart: its last shot, and the farthest the Sparrow got from the target
+    // between the pass before and this one.
+    let mut passes: Vec<(Tick, f32)> = Vec::new();
+    let (mut seen, mut farthest) = (0, 0.0_f32);
+    loop {
+        t.step();
+        let tick = t.sim().tick();
+        farthest = farthest.max(t.pos(1).distance(target));
+        let shots = hits(&t);
+        for &(at, attacker, target, _) in &shots[seen..] {
+            assert_eq!((at, attacker, target), (tick, 1, 2));
+            match passes.last_mut() {
+                Some(pass) if tick - pass.0 <= 32 => pass.0 = tick,
+                _ => passes.push((tick, std::mem::take(&mut farthest))),
+            }
+        }
+        seen = shots.len();
+        if t.sim().object(ObjectId(2)).is_none() {
+            break;
+        }
+        assert!(tick < 16 * 60, "the target lives on: {passes:?}");
+        assert_eq!(
+            current(&t, 1),
+            Some(OrderKind::Attack(ObjectId(2))),
+            "tick {tick}: {passes:?}"
+        );
+    }
+    assert!(passes.len() >= 4, "{passes:?}");
+    for &(_, farthest) in &passes[1..] {
+        assert!(farthest < SIGHT, "a loop took it {farthest} su off: {passes:?}");
+    }
+    assert_eq!(current(&t, 1), None, "its target died");
 }

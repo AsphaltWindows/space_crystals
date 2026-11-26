@@ -72,6 +72,9 @@
   the amendments of I3, I5 and I7. Its changes are marked **(H1)**. The code is `crates/sim/src/movement/glider.rs`,
   `movement/air.rs`, `mover/flight.rs` (`Mover::orbit`, `Mover::strafe`), `tuning/air.rs`, `Object::map_pos` and the
   gate's clamp of an order's point onto the map (`sim/gate/orders.rs`).
+- **The Sparrow sees 8 grid units** (slice M5-H2; design change 0403, answering Q0148 part 1): a lone Sparrow's loops
+  keep a small target in its own sight, so its Attack goes on pass after pass (the tests of 8). Its changes are
+  marked **(M5-H2)**. The code is the Sparrow's def (`crates/sim/src/defs/cults/units/sparrow.rs`).
 
 Design references are `path/file.md > Section`, with paths relative to `artifacts/designer/design/`.
 Every number marked *(placeholder)* becomes a named const tagged with the question that covers it (section 2).
@@ -985,9 +988,12 @@ each tick's flight may bring it a hair nearer before the next.
   numbers): 4 su a tick to 10 in 12 ticks; a 180° turn at full speed on a 200 su radius, within 1 %; a Move's point
   circled on 64 su at IdleSpeed for ever, a queued order waiting; idle, Stop and Hold circle where the Sparrow was,
   and on Hold it shoots what the circle brings into range and arc, never chasing; an AttackMove strafes what it meets
-  and ends circling its destination (one pass with the Sparrow's numbers: its loop swings past the leash); an Attack
-  makes pass after pass over a stationary target, each shot fired within the 45° arc and 3 grid units, flying on
-  beyond the range between passes, at MaxSpeed throughout; a click past the edge circles the edge's point; circling by
+  and ends circling its destination (its loop swings past the leash, which lets the target go; **(M5-H2)** with its
+  SightRange of 8 grid units the target is still in sight as it resumes its way, and it takes it again: two takes of
+  two passes, where it made one pass at 6); an Attack makes pass after pass over a stationary target, each shot fired
+  within the 45° arc and 3 grid units, flying on beyond the range between passes, at MaxSpeed throughout;
+  **(M5-H2)** a lone Sparrow, with no spotter, until its target dies, each loop 497 to 502 su from a 24-su target,
+  within its sight; a click past the edge circles the edge's point; circling by
   the edge takes it off the map, where it is seen and hit as at the edge's tile; six Sparrows on one point keep 32 su
   apart; under a Shroud cloud an anti-air attack's hits land in full. Separation: only pairs within the radius, a
   HoverCraft kept on the map, ground units never pushed. The soak (`robustness.rs`) spawns Sparrows and gives them

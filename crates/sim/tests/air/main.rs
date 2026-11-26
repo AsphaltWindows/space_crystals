@@ -5,7 +5,9 @@
 //!   IdleSpeed on the idle circle of 1 grid unit (design change 0354), for ever: its Move never completes;
 //! - `strafing`: an Attack makes pass after pass over a stationary target, firing only while the target is within the
 //!   turret's 45° cone and the Range of 3 grid units, flying on until out of range and looping back at full speed
-//!   (`systems/controls/command_behaviors.md > AttackingObject`, GliderMovement exception; Q0120);
+//!   (`systems/controls/command_behaviors.md > AttackingObject`, GliderMovement exception; Q0120); (M5-H2) a lone
+//!   Sparrow, with no spotter, until its target dies, its SightRange of 8 grid units keeping the target in sight
+//!   through its loops (design change 0403);
 //! - `orders`: Stop circles where the Sparrow is, Hold circles there and fires only at what comes into range, without
 //!   chasing (`factions/cults/units/sparrow.md > Flight rules`);
 //! - `attack_move`: an AttackMove strafes what it meets on the way and ends in idle circling over its destination

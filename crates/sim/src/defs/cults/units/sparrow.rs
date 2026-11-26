@@ -22,8 +22,11 @@ pub(crate) static SPARROW: ObjectDef = ObjectDef {
     selectable: true,                                      // `core/entities.md > Object Type > Selectable - true`
     // Not listed; a type with MaxHP is destructible (`core/entities.md > Object Instance > HP`).
     destructible: true,
-    groupable: true,    // Groupable true
-    sight_range: 6.0,   // SightRange 6 grid units
+    groupable: true, // Groupable true
+    // "SightRange **8 grid units** (user, 2026-11-27; Q0148: was 6; its full-speed loop carries it up to ~500 su from
+    // its target, so 8 GU = 512 su keeps the target in sight through every pass and a lone Sparrow keeps strafing on
+    // an Attack. [...])" (design change 0403, answering Q0148 part 1).
+    sight_range: 8.0,
     max_hp: Some(50.0), // MaxHP 50
     max_shields: None,
     armor: Armor {
@@ -92,10 +95,10 @@ mod tests {
     use crate::defs::Domain;
     use crate::defs::cults::tests::timings;
 
-    /// A 40×40 Glider, in the air, MaxHP 50, no armour, SightRange 6, Groupable; GliderMovement from an idle 4 su a
-    /// frame to 10, with a MaxCentripetalAcceleration of 0.5 (design change 0355); a turret of a 45° cone turning 8° a
-    /// frame; a machine gun that can't miss, at air and ground, 3 damage up to 3 grid units, a shot every 4 frames;
-    /// Unit Control 1, the Recruit it is made of; (M5-H1) a SeparationRadius of 32 su.
+    /// A 40×40 Glider, in the air, MaxHP 50, no armour, SightRange 8 (design change 0403: was 6), Groupable;
+    /// GliderMovement from an idle 4 su a frame to 10, with a MaxCentripetalAcceleration of 0.5 (design change 0355); a
+    /// turret of a 45° cone turning 8° a frame; a machine gun that can't miss, at air and ground, 3 damage up to 3 grid
+    /// units, a shot every 4 frames; Unit Control 1, the Recruit it is made of; (M5-H1) a SeparationRadius of 32 su.
     #[test]
     fn the_sparrow_follows_the_design() {
         let def = ObjectKind::Sparrow.def();
@@ -106,7 +109,8 @@ mod tests {
         assert_eq!(def.silhouette(), Some(Vec2::new(40.0, 40.0)));
         assert_eq!(
             (def.max_hp, def.max_shields, def.armor, def.sight_range),
-            (Some(50.0), None, Armor::NONE, 6.0)
+            (Some(50.0), None, Armor::NONE, 8.0),
+            "design change 0403: SightRange 8, was 6"
         );
         assert_eq!((def.selectable, def.destructible, def.groupable), (true, true, true));
         let unit = def.unit.as_ref().unwrap();
