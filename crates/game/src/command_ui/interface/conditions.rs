@@ -57,6 +57,14 @@
 //! kind left: "the second press is greyed"), and so does its Eject All (`Command::Holding`: nothing in the pool, "Only
 //! available if StoredRecruits is not empty"). Its W, Train Gunner, asks the gate too, which refuses it while the player
 //! owns no Gunworks (`Reject::Requires`, "Requires a Gunworks"; slice M5-G2).
+//!
+//! An Altar's unit type and state tiles (slice M5-N1b, `factions/cults/augmentation.md > Altar >
+//! ObjectInterfaceState[Altar]`: "each tile shows the count of that unit type in StoredUnits; disabled if there are
+//! none"; "Each tile shows the count of unreserved units of that type and state in StoredUnits; disabled if there are
+//! none") show its free units of each type and state ([`Conditions::stored_count`], `Sim::pool_counts_of`), and are
+//! greyed while there are none, as the gate would refuse every entry of their menus (`Reject::NoRecruit`; a type tile
+//! says so of its first state's); its orders and Releases ask the gate ("Available only if the group still has an
+//! unreserved unit, the AugmentationQueue is not full, and the player has sufficient Space Crystals").
 
 mod modes;
 
@@ -130,6 +138,9 @@ pub struct Conditions {
     /// The free units of each kind in the active pool building (`Sim::pool_counts`, by `RecruitKind as usize`): those
     /// no order reserves (slice M5-F2); none while the ActiveGroup isn't a pool building.
     pool: [u32; 4],
+    /// (M5-N1b) The free units of each type its tiles show in the active Altar, by kind (`Sim::pool_counts_of`); none
+    /// while the ActiveGroup isn't an Altar.
+    stored: BTreeMap<ObjectKind, [u32; 4]>,
 }
 
 impl Conditions {
@@ -167,6 +178,16 @@ impl Conditions {
             .then(|| recipients(selection, kinds))
             .and_then(|buildings| buildings.first().copied())
             .map_or([0; 4], |building| sim.pool_counts(building));
+        let types = (commands.iter()).filter_map(|&command| match command {
+            PanelCommand::AugmentMenu(unit) => Some((command, unit)),
+            _ => None,
+        });
+        let stored = types
+            .filter_map(|(command, unit)| {
+                let altar = *recipients(selection, command).first()?;
+                Some((unit, sim.pool_counts_of(altar, unit)))
+            })
+            .collect();
         let refused = commands
             .iter()
             .filter_map(|&command| {
@@ -240,6 +261,7 @@ impl Conditions {
             prices,
             site: first.is_some_and(|o| o.is_site()),
             pool,
+            stored,
         }
     }
 
@@ -254,6 +276,7 @@ impl Conditions {
             prices: BTreeMap::new(),
             site: false,
             pool: [0; 4],
+            stored: BTreeMap::new(),
         }
     }
 
@@ -304,6 +327,22 @@ impl Conditions {
         self.pool[kind as usize]
     }
 
+    /// The same, with `counts` the active Altar's free units of type `unit`, by kind: for the unit tests.
+    pub fn with_stored(mut self, unit: ObjectKind, counts: [u32; 4]) -> Self {
+        self.stored.insert(unit, counts);
+        self
+    }
+
+    /// (M5-N1b) An Altar's type tile's count: its free units of type `unit`, of every kind.
+    pub fn stored_count(&self, unit: ObjectKind) -> u32 {
+        self.stored.get(&unit).map_or(0, |counts| counts.iter().sum())
+    }
+
+    /// (M5-N1b) An Altar's state tile's count: its free units of type `unit` with the Augmentations of kind `state`.
+    pub fn stored_state_count(&self, unit: ObjectKind, state: RecruitKind) -> u32 {
+        self.stored.get(&unit).map_or(0, |counts| counts[state as usize])
+    }
+
     /// The same, with `command` priced at `price`: for the unit tests.
     pub fn pricing(mut self, command: PanelCommand, price: BuildPrice) -> Self {
         self.prices.insert(command, price);
@@ -352,7 +391,8 @@ impl Conditions {
     /// Why the game doesn't let `command` go to its recipients in `selection` now ([`Conditions::allows`]), if it
     /// doesn't: their types, their loads (a Drop Off none of whose recipients carries anything, the gate's
     /// `Reject::NothingToDeliver`), a pool building's free units (a kind button with none of its kind, which every
-    /// entry of its KindMenu would want: `Reject::NoRecruit`), or the gate's refusal.
+    /// entry of its KindMenu would want: `Reject::NoRecruit`), an Altar's (a type or state tile with none, said as the
+    /// first state's, Unaugmented, for a type tile), or the gate's refusal.
     pub fn unavailable(&self, selection: &Selection, command: PanelCommand) -> Option<WhyUnavailable> {
         match command {
             PanelCommand::Attack => {
@@ -369,6 +409,12 @@ impl Conditions {
             }
             PanelCommand::KindMenu(kind) => {
                 (self.pool_count(kind) == 0).then_some(WhyUnavailable::Refused(Reject::NoRecruit(kind)))
+            }
+            PanelCommand::AugmentMenu(unit) => {
+                (self.stored_count(unit) == 0).then_some(WhyUnavailable::Refused(Reject::NoRecruit(RecruitKind::Plain)))
+            }
+            PanelCommand::AugmentState(unit, state) => {
+                (self.stored_state_count(unit, state) == 0).then_some(WhyUnavailable::Refused(Reject::NoRecruit(state)))
             }
             _ => self.refusal(command).map(WhyUnavailable::Refused),
         }

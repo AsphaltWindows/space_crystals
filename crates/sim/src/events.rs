@@ -4,6 +4,7 @@
 use glam::Vec2;
 use serde::{Deserialize, Serialize};
 
+use crate::augmentation::AugmentOrder;
 use crate::defs::{ObjectKind, Resource};
 use crate::economy::ArmyResource;
 use crate::ids::{ObjectId, PlayerId};
@@ -110,8 +111,8 @@ pub enum SimEvent {
     },
     /// `producer` released `unit` into its exit doorway (`core/entities.md > Structure Type > Exit Doorway`), after
     /// the unit's `Spawned` event; or, at a producer that trains the units inside it (slice M5-F2,
-    /// `sim/producers/pool.rs`), let out `unit`, one of them, trained into its new type, after its `KindChanged`: the
-    /// same object, with no `Spawned`.
+    /// `sim/producers/pool.rs`), let out `unit`, one of them, trained into its new type, after its `KindChanged`, or
+    /// augmented by the order it finished (an Altar's, slice M5-N1b): the same object, with no `Spawned`.
     UnitProduced {
         producer: ObjectId,
         unit: ObjectId,
@@ -257,8 +258,9 @@ pub enum SimEvent {
     /// (M5-F1) `unit` was inside `building` as the building left the game, and came out alive inside its former
     /// footprint, idle (`factions/cults/economy.md > Cults Building Mechanics > Evacuation on Destruction`: "Everyone
     /// inside is evacuated alive"; design change 0349, slice M5-F3: they "all appear at the same time inside its former
-    /// footprint"; `Sim::evacuate`), a unit whose training had finished as its new type, after its `KindChanged`. It
-    /// follows the building's `Removed`, in the same tick, with the id it had.
+    /// footprint"; `Sim::evacuate`), a unit whose training had finished as its new type, after its `KindChanged`, and
+    /// one whose augmentation had finished augmented (slice M5-N1b). It follows the building's `Removed`, in the same
+    /// tick, with the id it had.
     Evacuated {
         unit: ObjectId,
         building: ObjectId,
@@ -435,5 +437,24 @@ pub enum SimEvent {
     ReleaseCancelled {
         producer: ObjectId,
         unit: ObjectId,
+    },
+    /// (M5-N1b) `producer`, an Altar, queued `order` for `unit`, one of the units inside, which it reserves from then on
+    /// (`ProductionCommand::Augment`; `factions/cults/augmentation.md > Altar > Augmentation Orders`: "Queuing an order
+    /// immediately deducts its Space Crystals cost and reserves one unit of the selected type and AugmentationState
+    /// from StoredUnits"). Once the order completes the unit comes out augmented, with a [`SimEvent::UnitProduced`].
+    AugmentQueued {
+        producer: ObjectId,
+        unit: ObjectId,
+        order: AugmentOrder,
+    },
+    /// (M5-N1b) `producer`'s `order` for `unit` left its queue before the unit came out, and `refund` Space Crystals
+    /// went back to its owner: X took it off ("refunds its full Space Crystals cost, and returns its reserved unit to
+    /// StoredUnits"), or the building left the game. The unit is back in the pool, unaugmented by it, or comes out as
+    /// the building's units do then (`Sim::evacuate`).
+    AugmentCancelled {
+        producer: ObjectId,
+        unit: ObjectId,
+        order: AugmentOrder,
+        refund: u32,
     },
 }

@@ -185,8 +185,9 @@ impl Sim {
     /// Unit `unit`, ready to leave `building`, comes out if the doorway lets it ([`Sim::release_held`]), with what it
     /// leaves for:
     /// - the first unit the front entry of the building's queue reserved, that entry finished (`sim/producers/pool.rs`):
-    ///   a training's comes out as the unit it trains (`Sim::train`, a `SimEvent::UnitProduced`), a Release's as it
-    ///   is (`SimEvent::LeftBuilding`), and the entry leaves the queue (`Production::release`);
+    ///   a training's comes out as the unit it trains (`Sim::train`, a `SimEvent::UnitProduced`), an augmentation
+    ///   order's augmented (`Sim::augment`, slice M5-N1b; a `SimEvent::UnitProduced` too), a Release's as it is
+    ///   (`SimEvent::LeftBuilding`), and the entry leaves the queue (`Production::release`);
     /// - any other, ejected: as it is (`SimEvent::LeftBuilding`).
     ///
     /// Then it goes to the building's RallyPoint, with the order the rally gives (`Sim::rally_order`), as a producer's
@@ -205,8 +206,8 @@ impl Sim {
             production.release()
         });
         match released {
-            Some((QueueEntry::Unit(kind), reserved)) => {
-                self.train(unit, kind, reserved.get(1..).unwrap_or_default());
+            Some((entry @ (QueueEntry::Unit(_) | QueueEntry::Augment { .. }), reserved)) => {
+                self.complete(unit, entry, reserved.get(1..).unwrap_or_default());
                 self.events.push(SimEvent::UnitProduced {
                     producer: building,
                     unit,

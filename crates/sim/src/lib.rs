@@ -63,7 +63,7 @@ pub mod tunnel;
 pub mod units;
 pub mod vision;
 
-pub use augmentation::{Augmentation, Increments, Level, Levels, RecruitKind, Research};
+pub use augmentation::{AugmentOrder, Augmentation, Increments, Level, Levels, RecruitKind, Research};
 pub use combat::{AttackPhase, AttackState};
 pub use command::{Ability, Command, DebugCommand, HoldCommand, PlayerCommand, TickInputs, TunnelCommand};
 pub use construction::{ConstructionCommand, Constructor};

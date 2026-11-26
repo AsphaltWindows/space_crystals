@@ -16,8 +16,8 @@ const ARMORY: ObjectKind = ObjectKind::Armory;
 const MILITANT: ObjectKind = ObjectKind::Militant;
 const GUNNER: ObjectKind = ObjectKind::Gunner;
 
-/// The buttons of `panel` with their counts.
-fn counted(panel: &Panel) -> Vec<(CommandSlot, PanelButton, ButtonLook, Option<u32>)> {
+/// The buttons of `panel` with their counts (the Altar's tests' too, `super::altar`).
+pub(super) fn counted(panel: &Panel) -> Vec<(CommandSlot, PanelButton, ButtonLook, Option<u32>)> {
     panel
         .slots()
         .filter_map(|(slot, shown)| shown.map(|s| (slot, s.button, s.look, s.count)))

@@ -63,6 +63,7 @@ pub(crate) static CATHEDRAL: ObjectDef = ObjectDef {
                 },
             ],
             recruitment: None,
+            augment: &[],
         }),
         mining: None,
         onto: None,

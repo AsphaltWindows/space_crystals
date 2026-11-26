@@ -59,7 +59,8 @@ pub fn menu_of(kind: ObjectKind, building: ObjectKind) -> Option<BuildMenu> {
 ///   Extraction Facility's and the Drone's DefaultState;
 /// - the EjectMenu: its tiles (`syndicate::eject_menu`), on a type whose DefaultState opens it, the Tunnel; the
 ///   ExpandMenu alike, its entries (`syndicate::expand_menu`), and in an expansion's AwaitingPlacement, which goes
-///   back to it; a KindMenu its entries (`cults::armory::kind_menu`), on a pool building;
+///   back to it; a KindMenu its entries (`cults::armory::kind_menu`), on a pool building; an AugmentMenu its tiles or
+///   its entries (`cults::altar::type_menu`, `cults::altar::state_menu`), on an Altar with a tile for its type;
 /// - a constructor's building ready to place takes its entry's slot, as "Select completed building" (design change
 ///   0104; the Extraction Facility's "Q: Place Plate"), and its X is Cancel Construction while it constructs and Cancel
 ///   Ready Building while it holds a building ready, and empty while it is idle
@@ -91,6 +92,14 @@ pub fn state_grid(
     {
         return cults::armory::kind_menu(kind, from);
     }
+    let has_tile = |unit| grid(kind).contains(&Some(PanelCommand::AugmentMenu(unit)));
+    match interface {
+        InterfaceState::AugmentMenu(unit) if has_tile(unit) => return cults::altar::type_menu(unit),
+        InterfaceState::AugmentStateMenu(unit, state) if has_tile(unit) => {
+            return cults::altar::state_menu(kind, unit, state);
+        }
+        _ => {}
+    }
     let menu = match interface {
         InterfaceState::BuildMenu(menu) => {
             Some(menu).filter(|&menu| grid(kind).contains(&Some(PanelCommand::BuildMenu(menu))))
@@ -100,7 +109,9 @@ pub fn state_grid(
         | InterfaceState::AwaitingTarget { .. }
         | InterfaceState::EjectMenu
         | InterfaceState::ExpandMenu
-        | InterfaceState::KindMenu(_) => None,
+        | InterfaceState::KindMenu(_)
+        | InterfaceState::AugmentMenu(_)
+        | InterfaceState::AugmentStateMenu(..) => None,
     };
     let mut commands = match menu {
         Some(menu) => menu_grid(kind, menu),

@@ -85,7 +85,7 @@ fn enter(app: &mut App, units: &[u32], armory: u32) {
 }
 
 /// The ids of the units inside `building`, longest inside first.
-fn inside(app: &App, building: u32) -> Vec<u32> {
+pub(super) fn inside(app: &App, building: u32) -> Vec<u32> {
     let sim = app.world().resource::<SimRes>();
     sim.held_in(ObjectId(building))
         .iter()
@@ -94,12 +94,12 @@ fn inside(app: &App, building: u32) -> Vec<u32> {
 }
 
 /// Whether object `id` is on the map.
-fn on_map(app: &App, id: u32) -> bool {
+pub(super) fn on_map(app: &App, id: u32) -> bool {
     app.world().resource::<SimRes>().object(ObjectId(id)).is_some()
 }
 
 /// Runs frames until `done`, `frames` at most.
-fn until(app: &mut App, frames: usize, done: impl Fn(&App) -> bool) {
+pub(super) fn until(app: &mut App, frames: usize, done: impl Fn(&App) -> bool) {
     for _ in 0..frames {
         if done(app) {
             return;
@@ -110,7 +110,7 @@ fn until(app: &mut App, frames: usize, done: impl Fn(&App) -> bool) {
 }
 
 /// The buttons the HUD shows: slot, button, look and count.
-fn buttons(app: &mut App) -> Vec<(CommandSlot, PanelButton, ButtonLook, Option<u32>)> {
+pub(super) fn buttons(app: &mut App) -> Vec<(CommandSlot, PanelButton, ButtonLook, Option<u32>)> {
     let mut query = app.world_mut().query::<&CommandButton>();
     let mut shown: Vec<_> = (query.iter(app.world()))
         .map(|b| (b.slot, b.shown.button, b.shown.look, b.shown.count))
@@ -120,7 +120,7 @@ fn buttons(app: &mut App) -> Vec<(CommandSlot, PanelButton, ButtonLook, Option<u
 }
 
 /// The counts drawn on the buttons, in slot order.
-fn counts_drawn(app: &mut App) -> Vec<(CommandSlot, String)> {
+pub(super) fn counts_drawn(app: &mut App) -> Vec<(CommandSlot, String)> {
     let mut query = app.world_mut().query::<(&Name, &Text, &ChildOf)>();
     let mut drawn: Vec<_> = (query.iter(app.world()))
         .filter(|(name, ..)| name.as_str() == "Command button count")
@@ -137,13 +137,13 @@ fn counts_drawn(app: &mut App) -> Vec<(CommandSlot, String)> {
 }
 
 /// The feedback message that shows.
-fn feedback(app: &App) -> Option<&'static str> {
+pub(super) fn feedback(app: &App) -> Option<&'static str> {
     let feedback = app.world().resource::<TargetFeedback>();
     feedback.since.map(|_| feedback.text)
 }
 
 /// Every holding command given so far, as the sim received them (like [`orders`]): player, buildings, command.
-fn holdings(app: &App) -> Vec<(PlayerId, Vec<u32>, HoldCommand)> {
+pub(super) fn holdings(app: &App) -> Vec<(PlayerId, Vec<u32>, HoldCommand)> {
     let recorded = app.world().resource::<RecordedInputs>();
     let pending = app.world().resource::<PendingCommands>();
     let commands = recorded.ticks.iter().flat_map(|t| t.commands.iter()).chain(&pending.0);
@@ -170,7 +170,7 @@ fn rallied(app: &App, id: u32) -> bool {
 }
 
 /// The tick of the sim.
-fn tick(app: &App) -> Tick {
+pub(super) fn tick(app: &App) -> Tick {
     app.world().resource::<SimRes>().tick()
 }
 
@@ -210,7 +210,7 @@ fn w_shows_one_and_a_releases_the_constitution_recruit_after_a_quarter_second() 
         [0, 1, 2, 3].map(|column| (slot(0, column), drawn[column as usize].clone()))
     );
     tap(&mut app, &[], KeyE);
-    assert_eq!(feedback(&app), Some("No free Recruit of that kind"));
+    assert_eq!(feedback(&app), Some("No free unit of that kind"));
     assert_eq!(interface(&app), InterfaceState::DefaultState);
     tap(&mut app, &[], KeyX);
     assert_eq!(feedback(&app), Some("Nothing to cancel"));
@@ -276,7 +276,7 @@ fn w_shows_one_and_a_releases_the_constitution_recruit_after_a_quarter_second() 
     };
     assert_eq!(releases(&app), 1);
     tap(&mut app, &[], KeyA);
-    assert_eq!(feedback(&app), Some("No free Recruit of that kind"));
+    assert_eq!(feedback(&app), Some("No free unit of that kind"));
     assert_eq!(releases(&app), 1, "one Release queued");
     assert_eq!(
         interface(&app),
@@ -343,7 +343,7 @@ fn q_trains_a_militant_x_cancels_and_a_ejects_the_free_recruits() {
     );
     assert_eq!(bank(&app), 1000 - 2 * 20);
     tap(&mut app, &[], KeyQ);
-    assert_eq!(feedback(&app), Some("No free Recruit of that kind"));
+    assert_eq!(feedback(&app), Some("No free unit of that kind"));
     tap(&mut app, &[], KeyZ);
     assert_eq!(
         buttons(&mut app)[0],
@@ -369,7 +369,7 @@ fn q_trains_a_militant_x_cancels_and_a_ejects_the_free_recruits() {
     assert_eq!(inside(&app, ARMORY_1), [first_in], "the reserved Recruit stays");
     assert_eq!(buttons(&mut app)[4].2, Disabled, "nothing free to eject");
     tap(&mut app, &[], KeyA);
-    assert_eq!(feedback(&app), Some("No free Recruit inside"));
+    assert_eq!(feedback(&app), Some("No free unit inside"));
     assert_eq!(holdings(&app).len(), 1);
     let trained = |app: &App| {
         app.world()

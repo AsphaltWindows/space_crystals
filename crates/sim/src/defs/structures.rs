@@ -3,6 +3,7 @@
 
 use serde::{Deserialize, Serialize};
 
+use crate::augmentation::AugmentOrder;
 use crate::defs::{Armor, AttackAttrs, ObjectKind, Resource, UnitBase};
 use crate::sides::SideLetter;
 use crate::units::Tick;
@@ -359,12 +360,22 @@ pub struct ProductionDef {
     /// what it is told. Optional in files.
     #[serde(default)]
     pub recruitment: Option<RecruitmentDef>,
+    /// (M5-N1b) The augmentation orders it takes of the units inside, the Altar's (`factions/cults/augmentation.md >
+    /// Altar > Augmentation Orders`; `QueueEntry::Augment`), in the order of the design's list. Empty for every other
+    /// producer. Optional in files.
+    #[serde(default, deserialize_with = "super::leak::slice")]
+    pub augment: &'static [AugmentRecipe],
 }
 
 impl ProductionDef {
     /// The recipe for a unit of `kind`, if the type produces it.
     pub fn recipe(&self, kind: ObjectKind) -> Option<&'static Recipe> {
         self.recipes.iter().find(|recipe| recipe.kind == kind)
+    }
+
+    /// (M5-N1b) The recipe for an `order`, if the type takes it.
+    pub fn augment_recipe(&self, order: AugmentOrder) -> Option<&'static AugmentRecipe> {
+        self.augment.iter().find(|recipe| recipe.order == order)
     }
 }
 
@@ -448,6 +459,17 @@ pub struct Recipe {
     /// (`StructureDef::requires`), which holds wherever it is built. Empty for none.
     #[serde(deserialize_with = "super::leak::slice")]
     pub requires: &'static [ObjectKind],
+}
+
+/// (M5-N1b) One of the orders an Altar takes (`ProductionDef::augment`; `factions/cults/augmentation.md > Altar >
+/// Augmentation Orders`): "Cost and time per order type".
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct AugmentRecipe {
+    pub order: AugmentOrder,
+    /// Space Crystals, paid when the order is queued ("Queuing an order immediately deducts its Space Crystals cost").
+    pub cost: u32,
+    /// The time it takes, ticks.
+    pub frames: u32,
 }
 
 /// `core/entities.md > Structure Type > SymmetryType`: which of a structure's four sides are alike. The letters name

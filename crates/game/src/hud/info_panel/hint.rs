@@ -124,6 +124,13 @@ mod tests {
         states.push(InterfaceState::EjectMenu);
         states.push(InterfaceState::ExpandMenu);
         states.extend(sc_sim::RecruitKind::ALL.map(InterfaceState::KindMenu));
+        // An Altar's two stages of AugmentMenus, for each type it has a tile for (slice M5-N1b).
+        for command in grid(ty.kind).into_iter().flatten() {
+            if let PanelCommand::AugmentMenu(unit) = command {
+                states.push(InterfaceState::AugmentMenu(unit));
+                states.extend(sc_sim::RecruitKind::ALL.map(|state| InterfaceState::AugmentStateMenu(unit, state)));
+            }
+        }
         states.extend(commands.filter(|c| c.needs_target()).map(InterfaceState::awaiting));
         let panels = conditions
             .iter()

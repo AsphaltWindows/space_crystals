@@ -11,7 +11,8 @@
 //! The Cults' buildings of the Recruits' Construct menus that the Recruits don't build yet hold their slots (slice
 //! M5-J1, design change 0327: "every building greyed until available, including ones not in the build yet"), each
 //! until its slice; slice M5-G2 made the Gunworks, the Machine Shop and the Scrap Hangar live, and the Armory's Gunner,
-//! which had held its slot of the Armory's kind menus (slice M5-F2) until its Gunworks; slice M5-N2 the Garrison. The
+//! which had held its slot of the Armory's kind menus (slice M5-F2) until its Gunworks; slice M5-N2 the Garrison;
+//! slice M5-N1b the Altar. The
 //! Recruit's Repair and the Agent's held theirs until slice M5-N8 (`super::super::PanelCommand::Repair`). The Field
 //! Engineer's Construct menu holds its two buildings' slots (slice M5-N9, `factions/gdo/units/field_engineer.md >
 //! Placeholder stats`: "both greyed until designed").
@@ -58,8 +59,7 @@ pub enum Planned {
     /// Tree Overview`; design change 0327), in the menus' order: the sim's `sc_sim::defs::CONSTRUCT_MENU` names them
     /// ([`Planned::construct`]). Their types are in the game's model since slice M5-G2, each with its label
     /// (`crate::kinds::cults`), and their slices make them live, as slice M5-G2 did the Gunworks, the Machine Shop and
-    /// the Scrap Hangar, and slice M5-N2 the Garrison.
-    Altar,
+    /// the Scrap Hangar, slice M5-N2 the Garrison and slice M5-N1b the Altar.
     ChopShop,
     Airstrip,
     Temple,
@@ -74,7 +74,7 @@ pub enum Planned {
 
 impl Planned {
     /// Every one, in declaration order.
-    pub const ALL: [Planned; 28] = [
+    pub const ALL: [Planned; 27] = [
         Planned::AlloyFurnace,
         Planned::EssenceRefinery,
         Planned::FluxReactor,
@@ -95,7 +95,6 @@ impl Planned {
         Planned::NullChamber,
         Planned::AerospaceAssembly,
         Planned::OrbitalCommand,
-        Planned::Altar,
         Planned::ChopShop,
         Planned::Airstrip,
         Planned::Temple,
@@ -144,7 +143,6 @@ impl Planned {
             Planned::NullChamber => "Null Chamber",
             Planned::AerospaceAssembly => "Aerospace Assembly",
             Planned::OrbitalCommand => "Orbital Command",
-            Planned::Altar => "Altar",
             Planned::ChopShop => "Chop Shop",
             Planned::Airstrip => "Airstrip",
             Planned::Temple => "Temple",
@@ -187,7 +185,6 @@ impl Planned {
             Planned::NullChamber => "NC",
             Planned::AerospaceAssembly => "AA",
             Planned::OrbitalCommand => "OC",
-            Planned::Altar => "AR",
             Planned::ChopShop => "CS",
             Planned::Airstrip => "AP",
             Planned::Temple => "TE",
@@ -221,18 +218,13 @@ impl Planned {
     pub fn is_construct(self) -> bool {
         matches!(
             self,
-            Planned::Altar
-                | Planned::ChopShop
-                | Planned::Airstrip
-                | Planned::Temple
-                | Planned::Cathedral
-                | Planned::Shrine
+            Planned::ChopShop | Planned::Airstrip | Planned::Temple | Planned::Cathedral | Planned::Shrine
         )
     }
 
     /// The full name of its button (`PanelCommand::name`): the command it will be, "Train Scout", "Warp In Alloy
     /// Furnace" or "Build Vault", as a unit in the game is trained, a building warped in and an expansion built
-    /// (`PanelCommand::Expand`); "Build Altar", as the Recruits build a building (`PanelCommand::Build`). The Field
+    /// (`PanelCommand::Expand`); "Build Temple", as the Recruits build a building (`PanelCommand::Build`). The Field
     /// Engineer's as the design names its abilities (`factions/gdo/units/field_engineer.md > Abilities`): "**Build
     /// Bunker**", "**Set up First Aid Tent**".
     pub fn command_name(self) -> String {

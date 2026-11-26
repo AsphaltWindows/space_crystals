@@ -405,6 +405,15 @@ pub fn every_command() -> Vec<Command> {
                 from: crate::augmentation::RecruitKind::Constitution,
             },
             ProductionCommand::Release(crate::augmentation::RecruitKind::Both),
+            ProductionCommand::Augment {
+                kind: ObjectKind::Gunner,
+                from: crate::augmentation::RecruitKind::Metabolism,
+                order: crate::augmentation::AugmentOrder::EnhancedConstitution,
+            },
+            ProductionCommand::ReleaseOf {
+                kind: ObjectKind::Disciple,
+                from: crate::augmentation::RecruitKind::Plain,
+            },
         ]
         .map(|command| Command::Production {
             objects: units.clone(),
@@ -467,7 +476,9 @@ pub fn every_command() -> Vec<Command> {
                 | ProductionCommand::CancelProduction
                 | ProductionCommand::SetRally(Target::Point(_) | Target::Object(_))
                 | ProductionCommand::TrainFrom { .. }
-                | ProductionCommand::Release(_) => {}
+                | ProductionCommand::Release(_)
+                | ProductionCommand::Augment { .. }
+                | ProductionCommand::ReleaseOf { .. } => {}
             },
             Command::Construction { command, .. } => match command {
                 ConstructionCommand::Construct(_)

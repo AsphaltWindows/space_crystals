@@ -1,16 +1,20 @@
 //! The Altar — `factions/cults/augmentation.md > Altar`.
 
-use crate::defs::structures::{BuilderGoes, SiteDef, SitePrice, StructureDef, SymmetryType};
+use crate::augmentation::AugmentOrder;
+use crate::defs::structures::{
+    AugmentRecipe, BuilderGoes, ExitRule, HoldsDef, ProductionDef, SiteDef, SitePrice, StructureDef, SymmetryType,
+};
 use crate::defs::{Armor, Category, Footprint, ObjectDef, ObjectKind};
 use crate::player::Faction;
+use crate::sides::SideLetter;
 
 /// `factions/cults/augmentation.md > Altar`: "Tier 1 of the Mystical/Human Enhancement branch. The place where Cults
 /// infantry consume Space Crystals and augment their flesh with them", which "works like the Armory: it holds an
-/// internal pool of units, processes a serial queue of orders, and sends finished units out to its RallyPoint". Its
-/// numbers and its site only (slice M5-G2, plan decision T69): its pool (`> Altar > EntranceSide / ExitSide - B / C
-/// (placeholder, like the Armory)`, `> Altar > InternalUnitCapacity - 10 (placeholder)`, "Any Cults infantry"), its
-/// orders and its panel come with its slice (plan decisions T70 and T71), which adds it to the Recruits' builds, so it
-/// holds no one and Recruits don't build it yet.
+/// internal pool of units, processes a serial queue of orders, and sends finished units out to its RallyPoint": the
+/// Armory's pool (`holds`, `crate::holding`) and queue (`production`, plan decisions T70 and T71), the queue's entries
+/// its augmentation orders (`ProductionDef::augment`, `QueueEntry::Augment`) and Releases, of the units inside
+/// (`sim/producers/pool.rs`; slice M5-N1b). Its numbers and its site are slice M5-G2's (plan decision T69), and
+/// Recruits build it from outside ([`ALTAR_SITE`]).
 pub(crate) static ALTAR: ObjectDef = ObjectDef {
     kind: ObjectKind::Altar,
     name: "Altar",
@@ -39,8 +43,35 @@ pub(crate) static ALTAR: ObjectDef = ObjectDef {
         build_radius_extension: 0,
         power: 0,
         seeds_build_area: false,
-        // Its augmentation orders (`> Altar > Augmentation Orders`): with its slice.
-        production: None,
+        // `> Altar > Augmentation Orders`: "Orders are queueable and serial — processed one at a time, in the order
+        // queued"; "the unit **automatically exits** from the exit side and moves to the RallyPoint", as the units it
+        // holds do (`holds`). It trains no unit and recruits none: its entries are its orders (and Releases, design
+        // change 0337), each of one unit inside.
+        production: Some(ProductionDef {
+            exits: ExitRule::Side(SideLetter::C),
+            recipes: &[],
+            recruitment: None,
+            // "Cost and time per order type (placeholder, designer 2026-11-26): **Enhanced Constitution** and
+            // **Improved Metabolism**: 25 Space Crystals, 160 frames (10 s) each; **Both**: the sum, 50 Space
+            // Crystals, 320 frames", in the order of `> Augmentation Orders`' "Order types".
+            augment: &[
+                AugmentRecipe {
+                    order: AugmentOrder::EnhancedConstitution,
+                    cost: 25,
+                    frames: 160,
+                },
+                AugmentRecipe {
+                    order: AugmentOrder::ImprovedMetabolism,
+                    cost: 25,
+                    frames: 160,
+                },
+                AugmentRecipe {
+                    order: AugmentOrder::Both,
+                    cost: 50,
+                    frames: 320,
+                },
+            ],
+        }),
         mining: None,
         onto: None,
         constructs: &[],
@@ -53,8 +84,22 @@ pub(crate) static ALTAR: ObjectDef = ObjectDef {
         requires: &[ObjectKind::Storage], // TechPrerequisite - player owns at least one Storage
         attack: None,
         popup: None,
-        // Its pool of Cults infantry: with its slice.
-        holds: None,
+        // `> Altar > EntranceSide / ExitSide - B / C (placeholder, like the Armory)`, `> Altar > InternalUnitCapacity -
+        // 10 (placeholder)`, and `> Altar > Entry`: "Any Cults infantry (Recruit, Militant, Gunner, Disciple) can enter
+        // the Altar to join its StoredUnits pool, up to InternalUnitCapacity", in the order of the type tiles of
+        // `> Altar > ObjectInterfaceState[Altar]` ("**Q: Recruit**", "**W: Militant**", "**E: Gunner**", "**R:
+        // Disciple**").
+        holds: Some(HoldsDef {
+            entrance: SideLetter::B,
+            exit: ExitRule::Side(SideLetter::C),
+            capacity: 10,
+            accepts: &[
+                ObjectKind::Recruit,
+                ObjectKind::Militant,
+                ObjectKind::Gunner,
+                ObjectKind::Disciple,
+            ],
+        }),
         occupants_fire: None,
     }),
     default_settings: None,
@@ -79,8 +124,11 @@ mod tests {
     use crate::defs::cults::tests::assert_structure;
 
     /// 2 tall and 3 wide, ABAC, MaxHP 300, PointArmor 1, FullArmor 6 (the building armour rule's n = 1), SightRange 4,
-    /// not Groupable (design change 0348), behind a Storage; it holds no one and orders nothing yet. Recruits will
-    /// build it from outside for 150 Space Crystals in 480 frames with one of them, from 10% HP.
+    /// not Groupable (design change 0348), behind a Storage. The four Cults infantry types walk in at its short side B
+    /// and come out of the opposite one, C, and it holds 10 of them. Its orders come out of C too: Enhanced
+    /// Constitution and Improved Metabolism, 25 Space Crystals and 160 frames each, and Both, 50 and 320; it trains no
+    /// unit and recruits none (slice M5-N1b). Recruits build it from outside for 150 Space Crystals in 480 frames with
+    /// one of them, from 10% HP.
     #[test]
     fn the_altar_follows_the_design() {
         let structure = assert_structure(
@@ -94,9 +142,30 @@ mod tests {
         );
         assert_eq!(ObjectKind::Altar.def().name, "Altar");
         assert_eq!(structure.requires, [ObjectKind::Storage], "TechPrerequisite: a Storage");
+        assert_eq!(structure.drop_off, None);
+        let production = structure.production.expect("it augments");
+        assert_eq!(production.exits, ExitRule::Side(SideLetter::C));
+        assert_eq!((production.recipes, production.recruitment), (&[][..], None));
+        let recipe = |order| production.augment_recipe(order).map(|r| (r.cost, r.frames));
+        assert_eq!(recipe(AugmentOrder::EnhancedConstitution), Some((25, 160)));
+        assert_eq!(recipe(AugmentOrder::ImprovedMetabolism), Some((25, 160)));
+        assert_eq!(recipe(AugmentOrder::Both), Some((50, 320)), "the sum");
+        let orders: Vec<AugmentOrder> = production.augment.iter().map(|r| r.order).collect();
+        assert_eq!(orders, AugmentOrder::ALL);
+        let holds = structure.holds.expect("the Altar holds Cults infantry");
         assert_eq!(
-            (structure.production, structure.drop_off, structure.holds),
-            (None, None, None)
+            (holds.entrance, holds.exit, holds.capacity),
+            (SideLetter::B, ExitRule::Side(SideLetter::C), 10)
+        );
+        assert_eq!(
+            holds.accepts,
+            [
+                ObjectKind::Recruit,
+                ObjectKind::Militant,
+                ObjectKind::Gunner,
+                ObjectKind::Disciple
+            ],
+            "Q, W, E and R"
         );
         let site = structure.site.expect("Recruits build it");
         assert_eq!(

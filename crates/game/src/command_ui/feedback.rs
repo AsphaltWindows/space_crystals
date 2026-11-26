@@ -133,12 +133,17 @@ pub const TARGET_TOO_CLOSE_TEXT: &str = "Target too close";
 pub const BUILDING_FULL_TEXT: &str = "No room inside";
 /// The message of a pool building's training or Release, or a kind button, pressed while no Recruit of its kind is
 /// free inside (`Reject::NoRecruit`, `sc_sim::Refusal::NoRecruit`; design change 0337: "it is greyed if there are
-/// none", "the second press is greyed"; slice M5-F2). Placeholder wording.
-pub const NO_RECRUIT_TEXT: &str = "No free Recruit of that kind";
+/// none", "the second press is greyed"; slice M5-F2), and of an Altar's order, Release or tile while no unit of its
+/// type and state is (slice M5-N1b: a Militant, a Gunner or a Disciple as well as a Recruit). Placeholder wording.
+pub const NO_RECRUIT_TEXT: &str = "No free unit of that kind";
 /// The message of an Eject All pressed with nothing in the pool (`Reject::NothingInside`;
 /// `factions/cults/structures/armory.md > ObjectInterfaceState[Armory]`: "Only available if StoredRecruits is not
-/// empty"). Placeholder wording.
-pub const NOTHING_INSIDE_TEXT: &str = "No free Recruit inside";
+/// empty"), of any building that holds units. Placeholder wording.
+pub const NOTHING_INSIDE_TEXT: &str = "No free unit inside";
+/// (M5-N1b) The message of an Altar's order for units that have an Augmentation it applies (`Reject::AlreadyAugmented`;
+/// `factions/cults/augmentation.md > Altar > Augmentation Orders`: "An order can only target a unit that is missing
+/// every Augmentation the order applies"), which the panel never shows. Placeholder wording.
+pub const ALREADY_AUGMENTED_TEXT: &str = "Already has that Augmentation";
 /// The message of a Drop Off pressed while none of its workers carries a load (`Reject::NothingToDeliver`;
 /// `factions/syndicate/units/agent.md > Agent ObjectInterfaceState`: "greyed out when Agent is not carrying
 /// resources"). Placeholder wording.
@@ -322,6 +327,7 @@ pub fn reject_text(reject: Reject) -> &'static str {
         Reject::UpgradeBlocked(_) => UPGRADE_BLOCKED_TEXT,
         Reject::NoRecruit(_) => NO_RECRUIT_TEXT,
         Reject::NothingInside => NOTHING_INSIDE_TEXT,
+        Reject::AlreadyAugmented(_) => ALREADY_AUGMENTED_TEXT,
         _ => CANNOT_DO_TEXT,
     }
 }

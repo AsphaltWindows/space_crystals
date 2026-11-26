@@ -68,6 +68,7 @@ pub(crate) static HIDEOUT: ObjectDef = ObjectDef {
                 },
             ],
             recruitment: None,
+            augment: &[],
         }),
         mining: None,
         onto: None,

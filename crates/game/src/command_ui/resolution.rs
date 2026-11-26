@@ -209,8 +209,9 @@ pub enum Resolved {
 pub fn object_right_click(object: UnitCapabilities, target: &MapTarget) -> Option<Resolved> {
     match object.template {
         // A pool building's too (`factions/cults/structures/armory.md > ObjectInterfaceState[Armory] > Right-click
-        // resolution`: "Right-click Ground: issues SetRallyPoint command to that location", slice M5-F2).
-        Some(InterfaceTemplate::Production | InterfaceTemplate::PoolProducer) => {
+        // resolution`: "Right-click Ground: issues SetRallyPoint command to that location", slice M5-F2), and the
+        // Altar's (`factions/cults/augmentation.md > Altar > ObjectInterfaceState[Altar]`, slice M5-N1b).
+        Some(InterfaceTemplate::Production | InterfaceTemplate::PoolProducer | InterfaceTemplate::Altar) => {
             Some(Resolved::Rally(rally_target(target)))
         }
         // A constructor produces no units, and the Beacon, the Egress Node and the Tunnel have no right-click, nor has

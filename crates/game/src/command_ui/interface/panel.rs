@@ -65,7 +65,8 @@ pub struct PanelSlot {
     /// An EjectMenu tile's count (`factions/syndicate/tunnel_menus.md > EjectMenu`: "Each tile shows the unit type icon
     /// and a count of how many of that type are in the network"): those not reserved on an eject queue
     /// ([`Conditions::network_count`]); a pool building's kind button's (design change 0337: "the count inside
-    /// (unreserved)", [`Conditions::pool_count`]); none on the other buttons.
+    /// (unreserved)", [`Conditions::pool_count`]); an Altar's type and state tiles' (slice M5-N1b,
+    /// [`Conditions::stored_count`]); none on the other buttons.
     pub count: Option<u32>,
     /// What a Build costs now, in its resource ([`Conditions::price`], design change 0233: "the price shown on the
     /// Build button is the next Tunnel's"; a Cults building's Space Crystals, slice M5-J1), and a Tunnel's Upgrade,
@@ -158,7 +159,8 @@ pub fn commandable(sim: &Sim, player: PlayerId, selection: &Selection) -> bool {
 /// ExpandMenu, its entries greyed while the gate would refuse their Expand (`sc_sim::Sim::can_expand`). A site under
 /// construction shows X Cancel Construction alone ([`SITE_GRID`], design change 0237), whatever its type (an
 /// expansion's too), and an Agent's Build its price ([`PanelSlot::price`]). A pool building's kind buttons show their
-/// counts, greyed at 0, and its KindMenu works as a build menu does (slice M5-F2).
+/// counts, greyed at 0, and its KindMenu works as a build menu does (slice M5-F2); an Altar's type and state tiles
+/// alike, and its AugmentMenus (slice M5-N1b).
 pub fn panel(selection: &Selection, interface: InterfaceState, conditions: &Conditions) -> Panel {
     let mut panel = Panel::default();
     let Some(active) = selection.active() else {
@@ -191,7 +193,9 @@ pub fn panel(selection: &Selection, interface: InterfaceState, conditions: &Cond
                 | InterfaceState::BuildMenu(_)
                 | InterfaceState::EjectMenu
                 | InterfaceState::ExpandMenu
-                | InterfaceState::KindMenu(_) => {
+                | InterfaceState::KindMenu(_)
+                | InterfaceState::AugmentMenu(_)
+                | InterfaceState::AugmentStateMenu(..) => {
                     let why = (!command.has_sim_command())
                         .then_some(WhyUnavailable::NotYet)
                         .or_else(|| conditions.unavailable(selection, command));
@@ -209,6 +213,8 @@ pub fn panel(selection: &Selection, interface: InterfaceState, conditions: &Cond
         let count = match command {
             PanelCommand::Eject(kind) => Some(conditions.network_count(kind)),
             PanelCommand::KindMenu(kind) => Some(conditions.pool_count(kind)),
+            PanelCommand::AugmentMenu(unit) => Some(conditions.stored_count(unit)),
+            PanelCommand::AugmentState(unit, state) => Some(conditions.stored_state_count(unit, state)),
             _ => None,
         };
         panel.set(
@@ -287,6 +293,10 @@ pub enum SlotPress {
     SelectReturningDrones,
     /// A StateOnlyTransition to a pool building's KindMenu\[kind\] (`InterfaceState::KindMenu`, slice M5-F2).
     OpenKindMenu(RecruitKind),
+    /// A StateOnlyTransition to an Altar's AugmentMenu\[UnitType\] (`InterfaceState::AugmentMenu`, slice M5-N1b).
+    OpenAugmentMenu(ObjectKind),
+    /// A StateOnlyTransition to an Altar's AugmentMenu\[UnitType, State\] (`InterfaceState::AugmentStateMenu`).
+    OpenAugmentStateMenu(ObjectKind, RecruitKind),
     /// A CommandIssuingTransition: the command's holding command, at once (`sc_sim::Command::Holding`): a pool
     /// building's Eject All.
     Hold(PanelCommand, HoldCommand),
@@ -302,7 +312,8 @@ pub enum SlotPress {
 /// Beacon's its Warp In menus and a Warp In's placement, a Drone's Deploy its placement, an Egress Node's F selects
 /// its Drones, a Tunnel's E its EjectMenu, whose tiles eject, its W its ExpandMenu, whose entries enter their
 /// placement, and its X cancels its operation, a pool building's Q, W, E and R its KindMenus, whose entries train and
-/// release, and its A ejects; `> Standard Slot Assignments > Z`: Back.
+/// release, and its A ejects, an Altar's tiles its AugmentMenus, whose entries augment and release;
+/// `> Standard Slot Assignments > Z`: Back.
 pub fn press(panel: &Panel, slot: CommandSlot) -> SlotPress {
     match panel.get(slot) {
         Some(PanelSlot {
@@ -326,6 +337,10 @@ pub fn press(panel: &Panel, slot: CommandSlot) -> SlotPress {
                 SlotPress::Hold(command, holding)
             } else if let PanelCommand::KindMenu(kind) = command {
                 SlotPress::OpenKindMenu(kind)
+            } else if let PanelCommand::AugmentMenu(unit) = command {
+                SlotPress::OpenAugmentMenu(unit)
+            } else if let PanelCommand::AugmentState(unit, state) = command {
+                SlotPress::OpenAugmentStateMenu(unit, state)
             } else if command == PanelCommand::EjectMenu {
                 SlotPress::OpenEjectMenu
             } else if command == PanelCommand::ExpandMenu {
