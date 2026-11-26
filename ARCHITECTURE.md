@@ -324,20 +324,23 @@ Units, structures and resources are all `Object`s (`object.rs`, `core/entities.m
   everything the store does for a Tunnel's (references, the hash, the saves, a defeat) holds for them too.
   - **In**: M4-C's Enter order, generalized, not forked. `network::admits(target, kind)` asks `holding::admits` of a
     building that holds units (placed, owned, `Object::is_operational`: a site refuses, `Reject::UnderConstruction`
-    at the gate, Placeholder (Q0104 point 4); `accepts` names the kind, else `NoTransit::NotAccepted`,
+    at the gate; design change 0347 point 4: "a building under construction **can't be entered**; a right-click on
+    it Assists", *Economy > Cults construction*; `accepts` names the kind, else `NoTransit::NotAccepted`,
     `Reject::NotAccepted` when none of the units is let in). The walk ends at `network::EntryPath` (`outward`, `spot`;
     `stand(half)`, `reached(pos, half)`), `EntryPath::of_object`: a Tunnel's from `Paths::entry_path`, a holder's
-    the middle of its entrance side (`holding::entry_path`, Placeholder (Q0104 point 1)). A Tunnel's units walk up
+    the middle of its entrance side (`holding::entry_path`; 0347 point 1: "a dedicated doorway at the middle of the
+    entrance side": a unit goes in once its box is within `ENTRY_REACH_SU`, 8 su, of that one point, and nowhere
+    else along the side, `entering.rs`). A Tunnel's units walk up
     against the wall (M4-C, unchanged); a holder's stop `holding::ENTRY_STANDOFF_SU` (4 su, within the reach) clear
     of it (`EntryPath::standoff`): against it, a Recruit pressed along the wall by the crowd coming round the corner of
     the entrance side slid ever more slowly towards a spot it couldn't get round the corner to, and gave up with the
     one behind it (`entering.rs`, the QA run's game). **The room is judged on
     arrival** (`Sim::room`: capacity less everyone inside, those an order reserves and those on their way out
-    included, design change 0347 point 5: "Capacity counts reserved units"; Placeholder (Q0104 point 2) for the
-    arrival), not at the gate: a unit that
-    gets there with no room loses its order and idles (`SimEvent::EnterFailed { full: true }`, the client's "No room
-    inside" line). The right-click resolves an own operational holder that takes the unit's kind to Enter
-    (`Aimed::accepts`, `Abilities::kind`; "Own Armory → Enter Armory").
+    included, design change 0347 point 5: "Capacity counts reserved units"), not at the gate: a unit that gets there
+    with no room loses its order and idles beside the building (`SimEvent::EnterFailed { full: true }`, the client's
+    "No room inside" line; 0347 point 2: "a unit arriving when the building is full has its Enter **end** and idles
+    beside the building (the normal Failure rule)"). The right-click resolves an own operational holder that takes
+    the unit's kind to Enter (`Aimed::accepts`, `Abilities::kind`; "Own Armory → Enter Armory").
   - **Out by Eject All** (`Command::Holding { objects, command: HoldCommand::EjectAll }`, gate `Sim::check_holding`:
     `Reject::NoHolders`, `Reject::NothingInside`): it marks every unit of the pool ready to leave, `Held::leaving`
     (the tick it was marked; hashed and saved only while set), and `Sim::step_holding`, in the economy phase right
@@ -350,31 +353,47 @@ Units, structures and resources are all `Object`s (`object.rs`, `core/entities.m
     and so do the reserved ones. Out, the unit goes to the building's RallyPoint with the rally's order (0348 point 3:
     "Ejected and released units walk to the RallyPoint"), or straight out to idle without one (`Sim::rally_order`).
     `production::exit_rule` gives a building's doorway its rule: production's, else the holder's.
-  - **Out by destruction**: in `Sim::remove_objects`, `Sim::evacuations` reads each going holder's units first,
-    before the refunds: those its queue reserves, entry by entry from the front (the unit in training first), then the
-    others, longest inside first (Placeholder (Q0106 point 2)); each comes out as it is, a Recruit in training or ready
-    to leave included, every entry refunded in full (`Sim::refund_production`; design change 0349 point 3, a unit
-    that had finished training coming out as the trained unit, is slice M5-F3's, with the rest of 0349), and
-    `Sim::evacuate` puts them on the map once the building has left the game and every reference to it is gone: each
-    at `Sim::spot_around` over every ring on the map, clockwise from the exit side's middle (Placeholder (Q0106
-    point 1)), unchanged and idle (point 4), with a `SimEvent::Evacuated` after the building's `Removed`; so before
-    the defeat check of the tick, and a defeated player's evacuees turn neutral on the map with its other units. One
-    with no spot on the whole map leaves the game (`Sim::remove_held`; Placeholder, not in the design).
+  - **Out by destruction** (slice M5-F3, design change 0349: "evacuated units **all appear at the same time inside
+    its former footprint**, unharmed, spread over it. Units that overlap ignore each other until separated, and idle
+    ones push apart"): in `Sim::remove_objects`, `Sim::evacuations` reads each going holder's units first, longest
+    inside first (`Sim::held_in`; 0349: "No placement order"), and takes a finished front entry off its queue
+    unrefunded (`Sim::finished_training`: "A unit that had finished training [...] comes out **as the trained unit**,
+    with no refund"); then `Sim::refund_production` refunds every other entry in full, so that the units they
+    reserved come out as Recruits, a Recruit mid-training among them. `Sim::evacuate` puts them all on the map in that
+    call, once the building has left the game and every reference to it is gone: each on the centre of the next tile
+    of the footprint, row by row from its north-west tile, west to east (`Placement::tiles`), round again past the
+    last (`Sim::footprint_spot`; Placeholder, not in the design: how they spread over it), its box moved in to lie
+    inside the footprint, a tile whose terrain the unit can't stand on passed over (`nav::box_on_terrain`, the
+    terrain alone: the grids still have the footprint until `paths::sync`). The finished training's unit is trained
+    there (`Sim::train`, its `KindChanged`), the others are as they were; each faces as it did, idles (0349 point 4)
+    and has a `SimEvent::Evacuated` after the building's `Removed`; so before the defeat check of the tick, and a
+    defeated player's evacuees turn neutral on the map with its other units. They overlap, which I1 allows in the
+    tick they come out (`invariants::may_overlap`, *Movement and collision > Collision exceptions*), and part by the
+    movement's own rules: overlapping units ignore each other (`space::blocks`), idle ones step apart
+    (`movement/separate.rs`), from the movement of the same tick on (ten Recruits in an Armory are apart within 5
+    ticks). Neutral ones don't: no unit yields that has no owner (`yielding::can_yield`), so a defeated player's
+    stay as they came out. One for which no tile of the footprint is ground it can stand on (buildable terrain it
+    can't stand on) leaves the game (`Sim::remove_held`; Placeholder, not in the design).
   - **Measured** (`tests/holding_perf.rs`, ignored, release): 8 Armories with 10 Recruits each cycling through Enter
     and Eject All, a mean of 0.028 ms and a p99 of 0.071 ms a whole sim tick (the economy phase, `step_holding`
     with the rest, 0.001 ms); the tick that removes all 8 with 80 inside, 0.22 ms. `agents_perf` (the Tunnels'
     Enter) and `recruits_perf` ran A/B against master unchanged: the same games, the same timings (load average 3.9).
     Slice M5-F2 (its ready order, the pool producers' step) ran `holding_perf`, `structures_perf` and `recruits_perf`
     A/B against master: the same games, the same timings within noise (load average 2.4; `recruits_perf`'s tick 1, a
-    single cold sample, varies with the build, 0.28 to 0.42 ms on either side).
+    single cold sample, varies with the build, 0.28 to 0.42 ms on either side). Slice M5-F3 (the evacuation inside
+    the footprint) ran `holding_perf` and `recruits_perf` A/B against master, interleaved, three rounds each: the
+    same games, the same timings within noise (cycling, 0.030 to 0.037 ms a tick on either side; `recruits_perf`,
+    0.076 to 0.079 ms), but for the tick that removes the 8 Armories with 80 inside, 0.22 to 0.23 ms before and 0.135
+    to 0.141 ms now (its commands phase, where the removal is, 0.14 ms before and 0.04 ms now: no search round the
+    footprints) (load average 2.0).
   - **The pool** (`Sim::pool`, the Armory's StoredRecruits) is the units inside that no entry of the building's queue
-    reserves and that aren't on their way out (slice M5-F2); `Sim::held_in` is everyone inside. **Not yet**: the
-    Enter pointer (M5-J1's). Design change 0319's other holders fit the def as
-    it is (the Chop Shop, Cathedral, Altar and Airstrip with sides and capacities; the Temple and Shrine, AAAA, take
-    the first side lettered A clockwise from the top). The Garrison's "units leave through any side, at the first
-    clear spot next to the footprint" is either slice M5-C's `ExitRule::Sides` (a door on every side, the first free
-    one, which `Sim::release_held` already serves; the defs test allows holders `ExitRule::Side` only, for now) or a
-    rule of its own served by `Sim::spot_around`.
+    reserves and that aren't on their way out (slice M5-F2); `Sim::held_in` is everyone inside. The client's Enter
+    pointer is slice M5-J1's (*Client architecture*, *The Recruit's panel*). Design change 0319's other holders fit
+    the def as it is (the Chop Shop, Cathedral, Altar and Airstrip with sides and capacities; the Temple and Shrine,
+    AAAA, take the first side lettered A clockwise from the top). The Garrison's "units leave through any side, at the
+    first clear spot next to the footprint" is either slice M5-C's `ExitRule::Sides` (a door on every side, the first
+    free one, which `Sim::release_held` already serves; the defs test allows holders `ExitRule::Side` only, for now)
+    or a rule of its own served by `Sim::spot_around`.
 - **Expansions and a Tunnel's operation** (`sim/expansions.rs`, `tunnel/operation.rs`; slice M4-F;
   `factions/syndicate/tunnel_menus.md > ExpandMenu`, `factions/syndicate/tunnel_menus.md > AwaitingPlacement
   (Expansion)`, `factions/syndicate/tunnel_menus.md > Expansions under construction`; design changes 0240, 0254, 0290,
@@ -686,11 +705,12 @@ Layout validation can't disagree. **Never test a placement rule anywhere else: a
   directions out of it). They are numbered clockwise on screen from the east side's middle. `Spots::first(rings,
   towards, round, fits)` tries ring after ring, each from its spot in the one of the eight directions nearest
   `towards`, `Round::BothWays` (that spot, then further and further round both ways, of two equally far the
-  lower-numbered first) or `Round::Clockwise`. `Sim::spot_around(kind, placement, rings, towards, round)` is the
-  sim's: each spot on the map that `Sim::check_unit_fits` takes, against what stands there, the units placed before
-  it in the same search included; `Sim::rings_on_map` is every ring that can still have a spot on the map. Users: the
-  Laser Turret's Agent (ring 0, both ways from the side it came from, *Economy*) and the evacuation of a destroyed
-  building that holds units (every ring, clockwise from its exit side, *Object model > Buildings that hold units*).
+  lower-numbered first). `Sim::spot_around(kind, placement, rings, towards, round)` is the sim's: each spot on the
+  map that `Sim::check_unit_fits` takes, against what stands there, the units placed before it in the same search
+  included. Users: the Laser Turret's Agent (ring 0, both ways from the side it came from, *Economy*). The evacuation
+  of a destroyed building that holds units came out at these spots, every ring clockwise from its exit side, until
+  design change 0349 put it inside the footprint (slice M5-F3, *Object model > Buildings that hold units*), which
+  took out what it alone used: `Sim::rings_on_map`, `Spots::last_ring` and `Round::Clockwise`.
   **A new rule that puts units beside a footprint calls `Sim::spot_around`; it never writes its own search.** The one
   exception is the units that walk to a spot to work there (slice M5-E, `crate::spot_work`, `Sim::free_spot` in
   `sim/spot_work.rs`; *Economy > Cults construction*): design change 0339 replaced the fixed order for them by a
@@ -1002,9 +1022,9 @@ ticks spent in it. Hashed and serialized like all state.
   `testing::dangling_references` checks that nothing else names a removed object. A Tunnel taken, whatever took it,
   leaves its expansions neutral, destroys its unfinished ones and strands the network units no remaining Tunnel lets
   out, once everything of the call has gone (`Sim::lost_tunnels` before, `Sim::lose_tunnels` after; slice M4-H,
-  *Object model > Losing Tunnels*). The units inside a building that holds units come out alive around its footprint
-  in the same way (`Sim::evacuations` first, before the refunds, `Sim::evacuate` once the building and every
-  reference to it are gone; slice M5-F1, *Object model > Buildings that hold units*).
+  *Object model > Losing Tunnels*). The units inside a building that holds units come out alive inside its former
+  footprint in the same way (`Sim::evacuations` first, before the refunds, `Sim::evacuate` once the building and
+  every reference to it are gone; slices M5-F1 and M5-F3, *Object model > Buildings that hold units*).
 - **Riot Shield** (`riot_shield.rs`; `factions/gdo/units/peacekeeper.md > Riot Shield (toggled ability)`, slice
   M3-S): shield down and shield up are two unit types, `Peacekeeper` and `PeacekeeperShielded` (design change 0173),
   which carry the same `RiotShieldDef`, naming both; the Barracks trains the first, and the Unit Control, a sum over
@@ -1603,9 +1623,10 @@ and the code is `crates/sim/src/movement.rs` and `movement/`, with the unit's st
     the mover's turn begins don't block each other. `space::overlaps` is I1's own predicate, so the pair is ignored
     exactly while I1 would name it, and normal collision is back the moment the boxes are apart (touching is apart).
     Nothing pushes them apart, and either may move any way meanwhile; an idle one moves off by itself (design
-    change 0126, below). Only the first exception ever brings two
-    boxes to overlap, so in today's game such a pair is two Drones of which one left its job; the rule itself asks
-    nothing about the units' kinds.
+    change 0126, below). Only the first exception and an evacuation ever bring two boxes to overlap (design change
+    0349, slice M5-F3: everyone inside a destroyed building appears inside its former footprint at once), so in
+    today's game such a pair is two Drones of which one left its job, or two evacuees; the rule itself asks nothing
+    about the units' kinds.
   A later exception (crushing) is one more clause there. A slice that adds a way for two boxes to come to overlap
   must add it to `testing::invariants::may_overlap` too, or I1 fails.
 - **The exit doorway** (`core/entities.md > Structure Type > Exit Doorway`, design change 0080; a portal's energy
@@ -1740,7 +1761,9 @@ and the code is `crates/sim/src/movement.rs` and `movement/`, with the unit's st
 - **Invariants** (`docs/movement.md > 8`, `sc_sim::testing::invariants`): I1 no two units of a layer overlap, except
   (design change 0106, `invariants::may_overlap`) two Drones on a Gather job, and two units that already overlapped
   a tick earlier, until they have been apart (a Drone counts as on its job for the tick in which the job ended
-  without another order: a patch emptied in the economy phase ends it after the movement). Any other overlap fails,
+  without another order: a patch emptied in the economy phase ends it after the movement), and (design change 0349,
+  slice M5-F3) a unit evacuated in the tick with any other (`SimEvent::Evacuated`: it wasn't on the map a tick
+  earlier). Any other overlap fails,
   the first tick it exists (`tests/invariants_overlap.rs` puts units where they must not be and asks the checker); I2 no
   ground box overlaps a blocked tile or leaves the map, except a unit in an exit doorway (`Mover::exit`), which
   overlaps the tiles of the building that released it and no other blocked tile, overlaps that footprint for as
@@ -1753,8 +1776,9 @@ and the code is `crates/sim/src/movement.rs` and `movement/`, with the unit's st
   a Patrol's next leg, the way back to an IdleOrigin). The exceptions to I5 and I7 are a unit taking its sidestep,
   which must have neither a goal nor an order, a unit walking out of an exit doorway, **(M3-G)** a DragMovement
   unit braking off the momentum it had (it must be `Stopping`, its velocity its momentum, and slower than a tick
-  before; no other model may ever have momentum), and an idle unit that overlapped another a tick earlier, moving
-  off it (design change 0126). K1 (`paths`): each player's known grids are those a fresh build
+  before; no other model may ever have momentum), and an idle unit that overlapped another a tick earlier, or was
+  evacuated in the tick, moving off it (design changes 0126 and 0349). K1 (`paths`): each player's known grids are
+  those a fresh build
   from the state gives. P1 (`projectiles`, slice M4-O, plan decision T42): every projectile in flight lands after the
   tick just played, between finite points. O1 (`operations`, slice M4-F): a Tunnel's operation and its site name each
   other (`TunnelState::operation`, `Builder::Tunnel`); an upgrading Tunnel is in operation, a tier below its target,
@@ -2143,10 +2167,11 @@ their energy doorway, slice M3-D2: design change 0145, `factions/colonists/struc
   the game into it, held, with no `Died` and their lineages appended, so the Halls' usage stays as it was. The entry
   then leaves the queue, and the next starts in the next tick. A Release's unit comes out unchanged. **X** takes the
   last entry back, refunding its Space Crystals and freeing its units into the pool (`Sim::unreserve`); a pool
-  building that leaves the game refunds every entry, its units evacuated as they are. **Invariant R1**
-  (`testing/invariants/reservations.rs`): only a pool building reserves, an entry each, each of its units held in its
-  building and reserved once, and only the front's first may be leaving. **Not yet**: the Gunner's Gunworks
-  (slice M5-G2) and design change 0349's evacuation (slice M5-F3).
+  building that leaves the game refunds every entry but a finished one, whose unit comes out as the trained unit
+  (design change 0349 point 3, slice M5-F3), its other units evacuated as they are (*Object model > Buildings that
+  hold units*). **Invariant R1** (`testing/invariants/reservations.rs`): only a pool building reserves, an entry
+  each, each of its units held in its building and reserved once, and only the front's first may be leaving. **Not
+  yet**: the Gunner's Gunworks (slice M5-G2).
 - **The exit doorways** (`production::ExitDoor`, the one geometry for the release, the movement step and the
   invariants; `ExitDoor::of` reads the building's `ProductionDef::exits`, an `ExitRule`, against its sides as
   placed, `sides`). Two kinds:
@@ -2436,7 +2461,8 @@ their energy doorway, slice M3-D2: design change 0145, `factions/colonists/struc
   target, full }` is an Enter that ended without the unit going in, `full` when a building that holds units had no
   room for it (the feedback line says "No room inside"). `EnteredBuilding { unit, building }`, `LeftBuilding { unit,
   building }` and `Evacuated { unit, building }` (slice M5-F1) are the same for a building that holds units: in, out
-  of its doorway by Eject All or a Release, and out around its footprint as it is destroyed, after its `Removed`.
+  of its doorway by Eject All or a Release, and out inside its former footprint as it is destroyed, after its
+  `Removed` (and after the `KindChanged` of a unit whose training was finished, design change 0349).
   `ReleaseQueued { producer, unit }` and `ReleaseCancelled { producer, unit }` (slice M5-F2) are a pool building's
   Release, queued and taken back by X or a refund; its trained unit is a `UnitProduced`. `BuildFailed {
   worker, kind, origin, orientation, problems }`, `BuildRefunded { worker, kind, refund }`, `SiteStarted { worker,
@@ -2800,22 +2826,27 @@ their energy doorway, slice M3-D2: design change 0145, `factions/colonists/struc
   and stay in their control groups, whose recall selects those on the map).
 - **Holding tests** (slice M5-F1) are `crates/sim/tests/holding/` (`entering.rs`: ten Recruits filing in, timed, from
   a block and from every side, the eleventh's Enter failing for want of room, the QA run's ejected ten going round
-  to side B and back in, the gate, the right-click, an Enter whose Armory goes; `eject.rs`: Eject All streaming the
-  pool out of side C one at a time, a Recruit that goes in during the stream, the gate; `evacuation.rs`: ten
-  evacuated alive in the fixed order at exact spots, the free spots around a Storage, an enemy and a unit in the
-  doorway, the evacuees of a defeated player; `loads.rs`: a load kept inside and out by real gathering, and through an
-  evacuation; `saves.rs`: saves at every stage and a replay; `control.rs`: a Hall's Recruit inside an Armory still
-  in its Hall's usage, inside and evacuated, and an orphaned point once its Hall is gone), each tick checking
-  `testing::dangling_references`. `holding/tests.rs` has the entry path in every orientation and the kinds let in;
-  `sim/holding/tests.rs` an Armory under construction (no Cults site exists before slice M5-E) and the Eject All mark
-  hashed and saved only while set; `placement/spots/tests.rs` the rings and both rounds. The ignored
-  `holding_perf.rs` times eight Armories cycling, then evacuated (*Object model > Buildings that hold units*).
+  to side B and back in, the gate, the right-click, an Enter whose Armory goes, a Recruit walled in against side B
+  that gets in only once it can reach the doorway (slice M5-F3), a site its Recruits build that no Enter gets into
+  and a right-click on assists; `eject.rs`: Eject All streaming the pool out of side C one at a time, a Recruit that
+  goes in during the stream, the gate; `evacuation.rs` (slice M5-F3): design change 0349's Verification, ten
+  inside the footprint in the tick, then apart and idle, the same whatever stands round it (a Storage, an enemy, a
+  unit in the doorway), a tile no Recruit can stand on passed over, the evacuees of a defeated player; `loads.rs`: a
+  load kept inside and out by real gathering, and through an evacuation; `saves.rs`: saves at every stage and a
+  replay; `control.rs`: a Hall's Recruit inside an Armory still in its Hall's usage, inside and evacuated, and an
+  orphaned point once its Hall is gone), each tick checking `testing::dangling_references`. `holding/tests.rs` has
+  the entry path in every orientation, its reach only in the doorway, and the kinds let in; `sim/holding/tests.rs`
+  the Eject All mark hashed and saved only while set; `defs/tests/holds.rs` every exit opposite its entrance (0347
+  point 1); `placement/spots/tests.rs` the rings and the round. The ignored `holding_perf.rs` times eight Armories
+  cycling, then evacuated (*Object model > Buildings that hold units*).
 - **Armory tests** (slice M5-F2) are `crates/sim/tests/armory/` (`training.rs`: Q pays 20 and a Militant comes out
   of side C 32 ticks later toward the rally point, first in first trained, X's refund, the gate, Q to three Armories;
   `release.rs`: design change 0337's Verification, X taking a Release back, a Release queued like any order;
   `eject.rs`: Eject All leaving the reserved units inside, the order units are ready in; `capacity.rs`: 0347's
   Verification, the load a trained unit drops and a released one keeps; `destruction.rs`: an Armory destroyed
-  mid-training; `control.rs`: the Unit Control unchanged through training, and a Militant trained of a destroyed
+  mid-training, and one holding a trained Militant waiting for its doorway, which comes out a Militant, unrefunded,
+  with the rest refunded (slice M5-F3); `control.rs`: the Unit Control unchanged through training, and a Militant
+  trained of a destroyed
   Hall's Recruit an orphan; `saves.rs`: saves at every stage and a replay), each tick under the invariants, R1 among
   them, and checking `testing::dangling_references`.
   `sim/producers/pool/tests.rs` has a hurt Recruit's damage, a vehicle's full HP, a unit of two Recruits and an
