@@ -52,9 +52,9 @@ impl Sim {
     /// `building`'s pool, longest inside first: the Armory's "StoredRecruits" (`factions/cults/structures/armory.md >
     /// ArmoryInstanceState`), which Eject All empties and the orders draw on: the units inside that no entry of its
     /// queue reserves (slice M5-F2, `Production::reserved`: an order "reserves one Recruit from StoredRecruits
-    /// (removing it from the internal pool for the duration it sits in the queue)", `factions/cults/structures/armory.md
-    /// > Training`) and that aren't on their way out (`Held::leaving`). None for anything but a building that holds
-    /// units.
+    /// (removing it from the internal pool for the duration it sits in the queue)",
+    /// `factions/cults/structures/armory.md > Training`) and that aren't on their way out (`Held::leaving`). None for
+    /// anything but a building that holds units.
     pub fn pool(&self, building: ObjectId) -> Vec<&Held> {
         let production = self.objects.get(&building).and_then(|o| o.production.as_ref());
         let reserved = |unit: ObjectId| production.is_some_and(|production| production.reserves(unit));
@@ -156,7 +156,8 @@ impl Sim {
     /// - any other, ejected: as it is (`SimEvent::LeftBuilding`).
     ///
     /// Then it goes to the building's RallyPoint, with the order the rally gives (`Sim::rally_order`), as a producer's
-    /// unit does (design change 0348: "ejected and released units walk **to the RallyPoint**, like trained units").
+    /// unit does (design change 0348, `factions/cults/structures/README.md > Choosing Recruits, Release and Eject All`:
+    /// "ejected and released units walk **to the RallyPoint**, like trained units").
     fn let_out(&mut self, building: ObjectId, unit: ObjectId) {
         let production = self.objects.get(&building).and_then(|o| o.production.as_ref());
         let rally = production.and_then(|production| production.rally);

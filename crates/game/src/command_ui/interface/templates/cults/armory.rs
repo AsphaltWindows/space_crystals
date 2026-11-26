@@ -9,10 +9,11 @@
 //!   can be repeated." A unit not in the game holds its slot ([`PanelTemplate::planned`]): the Armory's Gunner, which
 //!   requires the Gunworks (slice M5-G2).
 //!
-//! Its right-click sets the rally point (`> ObjectInterfaceState[Armory] > Right-click resolution`: "Right-click
-//! Ground: issues SetRallyPoint command to that location; Right-click Object: issues SetRallyPoint command to that
-//! object"), as a producing structure's. A pool building is Ungroupable (design change 0348 point 5: "a command goes
-//! to one building"), so each command goes to the one Tabbed to (`super::super::super::is_common`).
+//! Its right-click sets the rally point (`factions/cults/structures/armory.md > ObjectInterfaceState[Armory] >
+//! Right-click resolution`: "Right-click Ground: issues SetRallyPoint command to that location; Right-click Object:
+//! issues SetRallyPoint command to that object"), as a producing structure's. A pool building is Ungroupable (design
+//! change 0348 point 5, `factions/cults/structures/README.md > Choosing Recruits, Release and Eject All`: "a command
+//! goes to one building"), so each command goes to the one Tabbed to (`super::super::super::is_common`).
 
 use sc_sim::{ObjectKind, RecruitKind};
 

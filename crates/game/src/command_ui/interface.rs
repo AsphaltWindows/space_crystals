@@ -83,7 +83,8 @@
 //! free Recruits inside and greyed while there are none, open KindMenu\[kind\], whose Q trains a Militant of a Recruit
 //! of the kind and A releases one, the menu staying open, Z going back; the Gunner holds W, "Requires a Gunworks". Its
 //! A ejects every free Recruit, X cancels the last entry and C awaits its rally point. Every command goes to the
-//! Armory Tabbed to (design change 0348 point 5: "a command goes to one building").
+//! Armory Tabbed to (design change 0348 point 5, `factions/cults/structures/README.md > Choosing Recruits, Release and
+//! Eject All`: "a command goes to one building").
 //!
 //! The Syndicate's Agent (`factions/syndicate/units/agent.md > Agent ObjectInterfaceState`, design change 0257; slice
 //! M4-J1) has Q Move, A Build Tunnel, S Drop Off, D Build Laser Turret (slice M4-S1) and X Stop. A and D enter

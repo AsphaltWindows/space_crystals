@@ -211,9 +211,9 @@ impl Doorway {
     /// The doors in the order a unit tries them (`Sim::release_unit`), the first free one taking it: the one facing
     /// `toward`, the direction from the building's centre to its rally point, then the next ones clockwise (slice
     /// M5-C's rule for the Hall's four sides before design change 0342; **Placeholder (not in the design: no building
-    /// has several exit sides now)**). With no direction (no rally point, or one right at the centre) the first is the one
-    /// facing south, the bottom side. The door facing `toward` is the one at the smallest angle from it, and of two at
-    /// the same angle, a rally point exactly on a diagonal, the clockwise one. With one exit side, its door alone.
+    /// has several exit sides now)**). With no direction (no rally point, or one right at the centre) the first is the
+    /// one facing south, the bottom side. The door facing `toward` is the one at the smallest angle from it, and of two
+    /// at the same angle, a rally point exactly on a diagonal, the clockwise one. With one exit side, its door alone.
     pub fn order(&self, toward: Option<Vec2>) -> impl Iterator<Item = Door> + '_ {
         let toward = toward.filter(|t| *t != Vec2::ZERO).unwrap_or(Vec2::Y);
         // The doors by the direction they face, the first being the one facing `toward`: the greatest cosine, then the

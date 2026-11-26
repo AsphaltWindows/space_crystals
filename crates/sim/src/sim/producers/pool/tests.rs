@@ -115,8 +115,8 @@ fn train(sim: &mut Sim, invariants: &mut Invariants) -> (Tick, ObjectId, Vec<Obj
 /// Recruit **keep the Recruit's damage** (the missing HP carries over)"): a hurt Recruit, at 25 of its 40 HP, goes in
 /// first, a healthy one after it ("Send in a hurt Recruit, then a healthy one, and queue a Militant: the Militant comes
 /// out with the hurt Recruit's missing HP"); the Militant queued comes out of the hurt one, which "entered the building
-/// first", missing its 15 HP: at 45 of the 60 a test def gives the Militant (`transform::follow_max`), the same object. The
-/// healthy one stays inside, free.
+/// first", missing its 15 HP: at 45 of the 60 a test def gives the Militant (`transform::follow_max`), the same
+/// object. The healthy one stays inside, free.
 #[test]
 fn a_militant_trained_of_a_hurt_recruit_keeps_its_damage() {
     let _militant = TestDef::set(crate::defs::ObjectDef {

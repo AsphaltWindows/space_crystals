@@ -13,9 +13,9 @@
 //!   of its production"; its Verification, "At 19/20 with a Recruit in production, the HUD shows 20/20"), plus the
 //!   player's orphaned points: the entries of their units whose Hall is gone (`factions/cults/economy.md >
 //!   RecruitmentHall > On Destruction`: "Surviving units produced by this hall remain on the field and continue to
-//!   count toward the global usage sum") and the whole cost of their Cults units without a lineage (design change
-//!   0344: "Recruits no Hall produced [...] are orphans from the start"). The units held off the map count as those on
-//!   it.
+//!   count toward the global usage sum") and the points of their Cults units' costs that no lineage entry stands for,
+//!   the whole cost of one without a lineage (design change 0344: "Recruits no Hall produced [...] are orphans from
+//!   the start"; `Lineages::of`). The units held off the map count as those on it.
 //!
 //! It is for display only: no production waits for it (design change 0344: "Global total is for display only";
 //! `ArmyResource::reserves`).

@@ -91,9 +91,9 @@ fn x_takes_back_a_release() {
 
 /// A Release is "queued like any order": behind a training it waits its turn, and the training behind it waits for its
 /// Recruit to be out (`factions/cults/structures/armory.md > Training`: "orders are processed one at a time, in the
-/// order queued"; "Only the front of the queue actively trains"). The doorway is the one way out, so the Released Recruit comes out once the Militant
-/// before it has walked clear of it (`core/entities.md > Structure Type > Exit Doorway` 3: "the next unit can only
-/// appear once the doorway is free"); the second Militant 32 ticks after that.
+/// order queued"; "Only the front of the queue actively trains"). The doorway is the one way out, so the Released
+/// Recruit comes out once the Militant before it has walked clear of it (`core/entities.md > Structure Type > Exit
+/// Doorway` 3: "the next unit can only appear once the doorway is free"); the second Militant 32 ticks after that.
 #[test]
 fn a_release_is_queued_like_any_order() {
     let (mut t, plain, constitution) = two_plain_and_one_constitution();

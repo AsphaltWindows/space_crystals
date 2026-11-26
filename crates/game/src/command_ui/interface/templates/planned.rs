@@ -50,7 +50,8 @@ pub enum Planned {
     /// The Armory's KindMenu\[kind\] "**W** Train Gunner" (design change 0337, `factions/cults/structures/README.md >
     /// Choosing Recruits, Release and Eject All`): "TechPrerequisite: player owns at least one Gunworks"
     /// (`factions/cults/structures/armory.md > Training`), a building that isn't in the game yet, so the Armory's
-    /// recipes leave the Gunner out (slice M5-F2), and its slot says what it requires (`super::super::Conditions::planned`).
+    /// recipes leave the Gunner out (slice M5-F2), and its slot says what it requires
+    /// (`super::super::Conditions::planned`).
     Gunner,
 }
 

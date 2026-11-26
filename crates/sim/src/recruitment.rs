@@ -153,7 +153,8 @@ impl Capacity {
         usage < self.floor()
     }
 
-    /// Rounded down, as it counts everywhere (design change 0341 point 2: "6.6 becomes 6, in production and on the HUD").
+    /// Rounded down, as it counts everywhere (design change 0341 point 2: "6.6 becomes 6, in production and on the
+    /// HUD").
     pub fn floor(self) -> u32 {
         u32::try_from(self.num / self.den).unwrap_or(u32::MAX)
     }

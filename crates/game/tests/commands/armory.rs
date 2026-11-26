@@ -305,9 +305,10 @@ fn w_shows_one_and_a_releases_the_constitution_recruit_after_a_quarter_second() 
 /// staying open so that Q can be pressed again ("Clicks stay in the menu so they can be repeated"); the kind button's
 /// count drops by the Recruits reserved. X cancels the last entry, its Recruit free again and its Space Crystals back.
 /// The Armory's A, Eject All, sends every free Recruit out (the sim's `crates/sim/tests/armory/eject.rs` keeps the
-/// reserved ones inside), greyed once none is left (`factions/cults/structures/armory.md > ObjectInterfaceState[Armory]`:
-/// "Only available if StoredRecruits is not empty"); and a right-click on the ground sets the rally point
-/// (`> Right-click resolution`).
+/// reserved ones inside), greyed once none is left
+/// (`factions/cults/structures/armory.md > ObjectInterfaceState[Armory]`: "Only available if StoredRecruits is not
+/// empty"); and a right-click on the ground sets the rally point
+/// (`factions/cults/structures/armory.md > ObjectInterfaceState[Armory] > Right-click resolution`).
 #[test]
 fn q_trains_a_militant_x_cancels_and_a_ejects_the_free_recruits() {
     use ButtonLook::{Common, Disabled};

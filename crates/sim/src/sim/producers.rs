@@ -42,6 +42,10 @@ pub(super) enum ProductionPlan {
     SetRally(Vec<ObjectId>, Target),
 }
 
+/// A producer that may take a `Train` or a `TrainFrom` ([`Sim::plan_training`]): the work it has queued, its id, the
+/// unit's cost, why it can't take the unit whatever the bank, and the units the entry would reserve.
+type Candidate = (u64, ObjectId, u32, Option<Refusal>, Vec<ObjectId>);
+
 /// What `o`'s type produces, if anything.
 fn producer_def(o: &Object) -> Option<&'static ProductionDef> {
     o.def().structure.as_ref()?.production.as_ref()
@@ -97,7 +101,7 @@ impl Sim {
     ///   no longer considers the army cap); a full queue is passed over. A pool producer (`producers/pool.rs`, slice
     ///   M5-F2) takes no `Train`: its units are of a kind.
     /// - **TrainFrom** (slice M5-F2): the same, at pool producers alone, each needing the free units of the kind that
-    ///   the unit is made of ([`Reject::NoRecruit`]; passed over like a full queue), and no free queue slot: its
+    ///   the unit is made of ([`Reject::NoRecruit`]; passed over like a full queue) but no free queue slot: its
     ///   capacity bounds its queue (design change 0347 point 5).
     /// - **Release** (slice M5-F2): a pool producer with a free unit of the kind queues it ([`Sim::plan_release`]).
     /// - **CancelProduction**: a producer has something queued, else [`Reject::NothingQueued`]; never a Recruitment
@@ -166,13 +170,12 @@ impl Sim {
         kind: ObjectKind,
         from: Option<RecruitKind>,
     ) -> Result<ProductionPlan, Reject> {
-        // (work queued, id, the unit's cost, why it can't take it whatever the bank, the units it reserves), least work
-        // first, ties by id. A producer whose entry requires a type the player doesn't own queues nothing
+        // Least work first, ties by id. A producer whose entry requires a type the player doesn't own queues nothing
         // (`core/tech_and_research.md > Tech Prerequisites > Unit Prerequisites`: "checked only when the unit is
         // queued"; slice M4-K, `crate::tech`).
         let entry = QueueEntry::Unit(kind);
         let mut unmet = None;
-        let mut able: Vec<(u64, ObjectId, u32, Option<Refusal>, Vec<ObjectId>)> = producers
+        let mut able: Vec<Candidate> = producers
             .iter()
             .filter_map(|&id| {
                 let o = &self.objects[&id];

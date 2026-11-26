@@ -252,10 +252,17 @@ Units, structures and resources are all `Object`s (`object.rs`, `core/entities.m
   **The lineage**, `Object::lineage: Vec<ObjectId>` (plan decision T56 as the Director amended it for design change
   0319): one entry per Recruit the unit embodies, the Hall that made it, so a Recruit has one and a Seeker will have
   two, perhaps the same Hall twice; hashed (a tag) and saved only while it has an entry, kept whole by
-  `Sim::change_kind` (slice M5-F2 will concatenate the consumed Recruits'), and set by the Hall that releases the
-  Recruit (slice M5-C, *Production > The Recruitment Halls*; by the layout at a game's start, M5-B). An entry whose
-  Hall is gone stays: it is an orphaned point, and a Cults unit without an entry is orphaned whole (Placeholder
-  (Q0101 point 2)); `testing::references` doesn't check it as a reference for that reason. The Gunner is the first
+  `Sim::change_kind`, to which a pool building's training adds the lineages of the other Recruits it consumes (slice
+  M5-F2, *Production > Pool buildings*), and set by the Hall that releases the Recruit (slice M5-C, *Production > The
+  Recruitment Halls*; by the layout at a game's start, M5-B). An entry whose Hall is gone stays: it is an orphaned
+  point, and so is each point of a Cults unit's cost that no entry stands for (`recruitment::Lineages::of`: the cost
+  less the entries), so a unit without an entry is orphaned whole (design change 0344: "Recruits no Hall produced
+  (custom maps, debug) are orphans from the start"); `testing::references` doesn't check an entry as a reference for
+  that reason. **The Augmentations** (slice M5-F2; `augmentation.rs`, `factions/cults/augmentation.md >
+  AugmentationState (per unit instance)`): `Object::augmentation: Augmentation { constitution, metabolism }`, hashed (a
+  tag) and saved only while one is set, so the states without one, the goldens among them, are as they were; its
+  `RecruitKind` (Plain, Constitution, Metabolism or Both, design change 0337) is what a pool building's orders choose
+  by. Nothing gives one yet but `DebugCommand::SetAugmentation` (the Altar's is a later slice). The Gunner is the first
   kind with a MinRange, which M3-L2's code serves (*Behaviours*; M5-A gave a unit that can't back off its "Target too
   close", design change 0204 point 3; M5-O3 took the back-off on to the middle of the band, question Q0054, and gave
   an Attack Ground's location the same rule), and the first TailDisjointed attack (slice M5-O3, *Combat > TailDisjointed
@@ -325,21 +332,29 @@ Units, structures and resources are all `Object`s (`object.rs`, `core/entities.m
     of it (`EntryPath::standoff`): against it, a Recruit pressed along the wall by the crowd coming round the corner of
     the entrance side slid ever more slowly towards a spot it couldn't get round the corner to, and gave up with the
     one behind it (`entering.rs`, the QA run's game). **The room is judged on
-    arrival** (`Sim::room`: capacity less the pool, Placeholder (Q0104 points 2 and 5)), not at the gate: a unit that
+    arrival** (`Sim::room`: capacity less everyone inside, those an order reserves and those on their way out
+    included, design change 0347 point 5: "Capacity counts reserved units"; Placeholder (Q0104 point 2) for the
+    arrival), not at the gate: a unit that
     gets there with no room loses its order and idles (`SimEvent::EnterFailed { full: true }`, the client's "No room
     inside" line). The right-click resolves an own operational holder that takes the unit's kind to Enter
     (`Aimed::accepts`, `Abilities::kind`; "Own Armory → Enter Armory").
   - **Out by Eject All** (`Command::Holding { objects, command: HoldCommand::EjectAll }`, gate `Sim::check_holding`:
-    `Reject::NoHolders`, `Reject::NothingInside`): it marks the pool `Held::ejected` (hashed and saved only while
-    set), and `Sim::step_holding`, in the economy phase right after `Sim::step_network`, lets the marked unit longest
-    inside out of each building in id order through its exit doorway (`Sim::release_held`, a producer's release:
-    `doorway_spot`, `Mover::exit`, one at a time, only once the doorway is free; of several doors, the first free one
-    in `Doorway::order`, slice M5-C's rule; `SimEvent::LeftBuilding`). A unit that goes in meanwhile isn't marked,
-    and stays. With no order (the RallyPoint is slice M5-F2's), the unit walks
-    straight out and idles. `production::exit_rule` gives a building's doorway its rule: production's, else the
-    holder's.
-  - **Out by destruction**: in `Sim::remove_objects`, `Sim::evacuations` reads each going holder's units first
-    (before the refunds, for slice M5-F2's reserved and training units, Placeholder (Q0106 point 2)), and
+    `Reject::NoHolders`, `Reject::NothingInside`): it marks every unit of the pool ready to leave, `Held::leaving`
+    (the tick it was marked; hashed and saved only while set), and `Sim::step_holding`, in the economy phase right
+    after `Sim::step_network`, lets each building's unit ready first out, in id order of the buildings, through its
+    exit doorway (`Sim::let_out`, `Sim::release_held`, a producer's release: `doorway_spot`, `Mover::exit`, one at a
+    time, only once the doorway is free; of several doors, the first free one in `Doorway::order`, slice M5-C's rule;
+    `SimEvent::LeftBuilding`): "in the order they are ready" (design change 0348 point 4), ties by the longest inside,
+    then id. A pool building's trained and released units are made ready the same way (*Production > Pool
+    buildings*), so one doorway serves them all in that order. A unit that goes in meanwhile isn't marked, and stays,
+    and so do the reserved ones. Out, the unit goes to the building's RallyPoint with the rally's order (0348 point 3:
+    "Ejected and released units walk to the RallyPoint"), or straight out to idle without one (`Sim::rally_order`).
+    `production::exit_rule` gives a building's doorway its rule: production's, else the holder's.
+  - **Out by destruction**: in `Sim::remove_objects`, `Sim::evacuations` reads each going holder's units first,
+    before the refunds: those its queue reserves, entry by entry from the front (the unit in training first), then the
+    others, longest inside first (Placeholder (Q0106 point 2)); each comes out as it is, a Recruit in training or ready
+    to leave included, every entry refunded in full (`Sim::refund_production`; design change 0349 point 3, a unit
+    that had finished training coming out as the trained unit, is slice M5-F3's, with the rest of 0349), and
     `Sim::evacuate` puts them on the map once the building has left the game and every reference to it is gone: each
     at `Sim::spot_around` over every ring on the map, clockwise from the exit side's middle (Placeholder (Q0106
     point 1)), unchanged and idle (point 4), with a `SimEvent::Evacuated` after the building's `Removed`; so before
@@ -349,8 +364,12 @@ Units, structures and resources are all `Object`s (`object.rs`, `core/entities.m
     and Eject All, a mean of 0.028 ms and a p99 of 0.071 ms a whole sim tick (the economy phase, `step_holding`
     with the rest, 0.001 ms); the tick that removes all 8 with 80 inside, 0.22 ms. `agents_perf` (the Tunnels'
     Enter) and `recruits_perf` ran A/B against master unchanged: the same games, the same timings (load average 3.9).
-  - **Not yet**: the pool is every unit inside (`Sim::pool`, slice M5-F2 leaves the reserved ones out of it), and no
-    interface (the panel is M5-F2's, the Enter pointer M5-J1's). Design change 0319's other holders fit the def as
+    Slice M5-F2 (its ready order, the pool producers' step) ran `holding_perf`, `structures_perf` and `recruits_perf`
+    A/B against master: the same games, the same timings within noise (load average 2.4; `recruits_perf`'s tick 1, a
+    single cold sample, varies with the build, 0.28 to 0.42 ms on either side).
+  - **The pool** (`Sim::pool`, the Armory's StoredRecruits) is the units inside that no entry of the building's queue
+    reserves and that aren't on their way out (slice M5-F2); `Sim::held_in` is everyone inside. **Not yet**: the
+    Enter pointer (M5-J1's). Design change 0319's other holders fit the def as
     it is (the Chop Shop, Cathedral, Altar and Airstrip with sides and capacities; the Temple and Shrine, AAAA, take
     the first side lettered A clockwise from the top). The Garrison's "units leave through any side, at the first
     clear spot next to the footprint" is either slice M5-C's `ExitRule::Sides` (a door on every side, the first free
@@ -809,10 +828,12 @@ Layout validation can't disagree. **Never test a placement rule anywhere else: a
      appears; before 5f, which sees it. **Old ids come back** (plan decision T35): nothing after this step may take
      `first_new` for "everything that arrived this tick".
    - Buildings that hold units, `Sim::step_holding` (slice M5-F1, `sim/holding.rs`): part of the economy phase,
-     right after the Tunnel Network. Each building with units Eject All marked, in id order, lets the one longest
-     inside out into its exit doorway if the doorway is free (`Sim::release_held`, `SimEvent::LeftBuilding`): one a
-     tick at most, and none while the last is still in the doorway. For the same reasons, after the producers (whose
-     trained units share the doorway, slice M5-F2) and 5d, before 5f.
+     right after the Tunnel Network. Each building with units ready to leave (`Held::leaving`: ejected, or the unit of
+     a pool building's finished entry, slice M5-F2), in id order, lets the one ready first out into its exit doorway
+     if the doorway is free (`Sim::let_out`: a trained unit as the unit it trains, `SimEvent::UnitProduced`; an
+     ejected or released one as it is, `SimEvent::LeftBuilding`), toward the rally point: one a tick at most, and none
+     while the last is still in the doorway. After the producers, so that an entry finished in the tick lets its unit
+     out in it, and for the same reasons as theirs after 5d, before 5f.
    - Defeat, `economy::defeat::step` (slice M2-F2, plan decision T8, see *Economy > Defeat and the end of the
      game*): the economy phase's last step, run by `step` after the producers, so that every way a structure left
      the game in the tick counts (the commands' removals, 5e's deaths). Before 5f, so that the units a defeat makes
@@ -1767,10 +1788,12 @@ section of its own.
   point 4), never another player's. The regions are summed Tunnel by Tunnel, as the formula reads. And the Cults'
   **Unit Control** (slice M5-C, plan decisions T56 and T57; `economy/army/cults.rs`, `recruitment.rs`;
   `factions/cults/economy.md > RecruitmentHall > Cults Unit Control HUD Display`): available is the sum of their
-  completed Recruitment Halls' capacities, exact fractions, then rounded down (Placeholder (Q0099 point 2): two Halls
-  of 6.6 give 13); used is their Halls' usage, the entries of every unit's lineage that name them, plus their
-  orphaned points, the entries whose Hall is gone and the whole cost of their Cults units without a lineage
-  (Placeholder (Q0101 point 2)), the units held off the map counted too. **A unit costs only in its own faction's
+  completed Recruitment Halls' capacities, each rounded down (design change 0341 point 2: "Capacity is rounded down
+  everywhere", so two Halls of 6.6 give 12); used is their Halls' usage, the entries of every unit's lineage that
+  name them and each Hall's Recruit in production (design change 0342 point 3), plus their orphaned points, the
+  entries whose Hall is gone and the points of a Cults unit's cost that no entry stands for (design change 0344:
+  "Recruits no Hall produced (custom maps, debug) are orphans from the start"), the units held off the map counted
+  too. **A unit costs only in its own faction's
   resource** (`ArmyResource::cost_of`; the Director's decision, slice M5-C): another faction's unit, which only a
   debug or a Custom game gives a player, costs 0 in it, both ways (`economy/army.rs`'s
   `another_factions_unit_costs_nothing_in_either_direction`), so the Recruit's and the Peacekeeper's shared
@@ -1778,9 +1801,10 @@ section of its own.
   the player's units plus, for a resource that `reserves`, their producers' units in production (design change 0143,
   for the GDO, the Colonists and the Syndicate: `Production::in_production`, the unit at the front once its progress
   has begun, a finished one waiting inside included; a unit only queued, or waiting at 0% for room, takes nothing).
-  The Cults' Unit Control reserves nothing: a Recruit counts from the tick it exists (Placeholder (Q0100 point 3)).
-  The cap is checked when a unit's production would start, never when it is queued (*Production*), but for the
-  Cults', which is for display only and makes nothing wait (Placeholder (Q0101 point 1)). Capacity that falls below
+  The Cults' Unit Control reserves nothing (`ArmyResource::reserves`): a Hall counts its own Recruit in production,
+  and a unit trained of Recruits embodies their points (*Production > Pool buildings*). The cap is checked when a
+  unit's production would start, never when it is queued (*Production*), but for the Cults', which is for display
+  only and makes nothing wait (design change 0344: "Global total is for display only"). Capacity that falls below
   what is used leaves the units and the unit in production alone, and no new unit starts until there is room (design
   changes 0112 and 0143, Q0041 point 2). `Sim::unit_control(player)` is the GDO's used figure alone, which the HUD
   reads. A
@@ -2019,16 +2043,20 @@ their energy doorway, slice M3-D2: design change 0145, `factions/colonists/struc
 (energy doorway)`).
 
 - **State**: `Object::production` (`Production`: the BuildQueue, whose head is the unit in production, so the
-  limit `QUEUE_LIMIT` (20) includes it, design change 0081; its progress in `RATIO_ONE`s, a Recruitment Hall's in
-  tiles; the rally point; a Hall's completion tick, `completed_at`, hashed and saved only while not 0). What a type
-  produces is `StructureDef::production` (`ProductionDef`: its exit rule, `ExitRule`, the `Recipe`s: kind, Space
-  Crystals, frames, and for a Hall its `RecruitmentDef`). `Sim::production_status(id)` is what the interface shows: the
-  kind, the progress out of its total, `waiting` (finished, held for the doorway) and `blocked` (the army cap the unit
+  limit `QUEUE_LIMIT` (20) includes it, design change 0081; its entries `QueueEntry`s, a unit or a pool building's
+  Release, slice M5-F2, a unit's written as its kind alone so the files and hashes from before are as they were; its
+  progress in `RATIO_ONE`s, a Recruitment Hall's in tiles; the rally point; a Hall's completion tick, `completed_at`,
+  hashed and saved only while not 0; a pool building's `reserved` units, entry by entry, hashed and saved only while
+  any). What a type produces is `StructureDef::production` (`ProductionDef`: its exit rule, `ExitRule`, the
+  `Recipe`s: kind, Space Crystals, frames, and for a Hall its `RecruitmentDef`). `Sim::production_status(id)` is what
+  the interface shows: the entry, the progress out of its total, `waiting` (finished, held for the doorway) and
+  `blocked` (the army cap the unit
   at the front waits for at 0%, design change 0143). `Production::blocked`, the stored mark of that wait, is hashed and
   saved only while true (`#[serde(default, skip_serializing_if)]`, as `Mover::momentum` is while non-zero), so that the
   games without a wait, the goldens among them, keep their hashes.
 - **Commands**: `Command::Production { objects, command }` with `ProductionCommand::Train(kind)`,
-  `CancelProduction` and `SetRally(Target)`; the gate's rules are in *Commands, events and replays*.
+  `CancelProduction` and `SetRally(Target)`, and a pool building's `TrainFrom { kind, from }` and `Release(from)`
+  (slice M5-F2); the gate's rules are in *Commands, events and replays*.
 - **Costs** (plan decision T7): a unit's Space Crystals are paid when it is queued, and only they and room in the
   queue are checked then. Its army cost (Unit Control, Beacon Capacity; see *Economy*) is taken when its production
   starts (design change 0143, which replaces 0082's reservation at queue time, for every faction): no `Reject` or
@@ -2060,24 +2088,50 @@ their energy doorway, slice M3-D2: design change 0145, `factions/colonists/struc
   `ProductionDef::recruitment` (`RecruitmentDef { area: 10, capacity: 20 }`) switches on. **The claims**
   (`recruitment::Claims`, derived each time, never stored): each Recruitable tile (`TilePreset::recruitable`: every
   default preset but Water) of a Hall's 10 × 10 area centred on its footprint goes to the first completed Hall whose
-  area has it, by `Production::completed_at` and then id (Placeholder (Q0099 point 3)), whoever owns it (Placeholder
-  (Q0099 point 5)); buildings never matter; the area's tiles off the map count among its 100 and can't be claimed
-  (Placeholder (Q0099 point 1)); a Hall under construction claims nothing (Placeholder (Q0099 point 4),
-  `Object::is_operational`). `completed_at` is the tick `Capabilities::fresh` gives the producer, so a spawn's
+  area has it, by `Production::completed_at`, and of Halls completed in the same tick the one whose centre is nearer
+  the tile, then the lower id (design change 0341 point 3), whoever owns it (0341 point 5); buildings never matter;
+  the area's tiles off the map count among its 100 and can't be claimed (Placeholder (Q0099 point 1)); a Hall under
+  construction claims nothing (0341 point 4, `Object::is_operational`). `completed_at` is the tick
+  `Capabilities::fresh` gives the producer, so a spawn's
   insertion tick, 0 for a map's, and the tick `Sim::start_functions` completes a site (slice M5-E). **The start**
   (`Sim::start_recruits`, first in the producers' step): a completed Hall with an owner and an empty queue queues its
-  recipe's Recruit, free, while its usage (`recruitment::Lineages`) is below its capacity, BaseUnitControlCapacity ×
-  claimed / 100 compared exactly (`recruitment::Capacity`, Placeholder (Q0099 point 2): `100 × usage < 20 ×
-  claimed`), whatever the global Unit Control (Placeholder (Q0101 point 1)); a Hall that releases its Recruit queues
-  the next at once (`Sim::recruit_next`), so it shows 0% rather than nothing between them, and one at capacity
-  starts again from 0% in the tick a unit of its lineage is lost (Placeholder (Q0100 point 4)). **The progress**
+  recipe's Recruit, free, while its usage (`recruitment::Lineages`, its Recruit in production counted: design change
+  0342 point 3) is below its capacity, BaseUnitControlCapacity × claimed / 100 rounded down (`recruitment::Capacity`,
+  design change 0341 point 2: 33 tiles stop at 6), whatever the global Unit Control (design change 0344); a Hall that
+  releases its Recruit queues the next at once (`Sim::recruit_next`), so it shows 0% rather than nothing between
+  them, and one at capacity starts again from 0% in the tick a unit of its lineage is lost (0342 point 4). **The
+  progress**
   gains the claimed tiles each tick, whatever the power, to a total of 192 × 100 (`production::total_of`): 192 ticks
-  a Recruit at 100 tiles, 384 at 50, the k-th of a full Hall in tick 192 k (6 → 20 in 2688 ticks). **The release**
-  sets the Recruit's lineage to the Hall. **X** takes the Recruit off for nothing (`Refund::Full` of 0,
-  `ProductionCancelled`), and the next starts in the same tick's step (Placeholder (Q0100 point 2)); with nothing in
-  production it is refused (`Reject::NothingQueued`), which greys it. A `Train` to a Hall is `CannotProduce`.
+  a Recruit at 100 tiles, 384 at 50, the k-th of a full Hall in tick 192 k (6 → 20 in 2688 ticks). **The release**,
+  out of its one exit side, B (design change 0342 point 1), sets the Recruit's lineage to the Hall. **No X** (0342
+  point 2: "Recruits can't be cancelled"): a `CancelProduction` finds nothing to cancel at a Hall
+  (`Reject::NothingQueued`), and its panel has no X. A `Train` to a Hall is `CannotProduce`.
   `Sim::claims` and `Sim::hall_state` (`HallState`: claimed and area tiles, effectiveness, usage, capacity) are the
   interface's.
+- **Pool buildings** (slice M5-F2, plan decisions T61, T70 and T71; `sim/producers/pool.rs`, `production/queue.rs`;
+  `factions/cults/structures/armory.md > Training`, `factions/cults/structures/README.md > Choosing Recruits, Release
+  and Eject All`; design changes 0332, 0337, 0347 and 0348): a producer that also holds units (`holding::trains`: a
+  `StructureDef` with both `holds` and `production`), the Armory first, makes its units of the units inside, one path
+  for every such type, so that the Cathedral, the Chop Shop and the Airstrip are data. **An entry**, `QueueEntry::Unit`
+  or `QueueEntry::Release` (`frames`: a recipe's, a Release's `RELEASE_FRAMES`, 4, the design's "very fast (**4
+  frames**, placeholder)"; `cost`: a recipe's Space Crystals, a Release none), **reserves its units when it is
+  queued**, `Production::reserved` beside the queue, entry by entry (`QueueEntry::units_reserved`: the unit's Unit
+  Control cost, at least 1; 1 for a Release): the free units of its kind (`Sim::free_units`, `RecruitKind`, those
+  that entered first), else `Refusal::NoRecruit`. They stay inside, out of the pool (`Sim::pool`), and the capacity
+  counts them (0347 point 5), so the capacity alone bounds the queue: no `QUEUE_LIMIT` for a pool building. **The
+  front** advances a frame a tick, the Cults having no power, and finished, its first unit is ready to leave
+  (`Sim::ready_to_leave`, `Held::leaving`), the entry waiting at 100% while the units ready before it go out first
+  (*Object model > Buildings that hold units*). **Out** (`Sim::let_out`), a training's unit is the Recruit changed in
+  kind (`Sim::train`, plan decision T15: its id, its lineage): infantry keep its damage (`transform::follow_max`) and
+  its Augmentations, vehicles and aircraft come out at full HP without them (design change 0332,
+  `factions/cults/augmentation.md > Persistence`), and a load goes (0347 point 3); the other units it reserved leave
+  the game into it, held, with no `Died` and their lineages appended, so the Halls' usage stays as it was. The entry
+  then leaves the queue, and the next starts in the next tick. A Release's unit comes out unchanged. **X** takes the
+  last entry back, refunding its Space Crystals and freeing its units into the pool (`Sim::unreserve`); a pool
+  building that leaves the game refunds every entry, its units evacuated as they are. **Invariant R1**
+  (`testing/invariants/reservations.rs`): only a pool building reserves, an entry each, each of its units held in its
+  building and reserved once, and only the front's first may be leaving. **Not yet**: the Gunner's Gunworks
+  (slice M5-G2) and design change 0349's evacuation (slice M5-F3).
 - **The exit doorways** (`production::ExitDoor`, the one geometry for the release, the movement step and the
   invariants; `ExitDoor::of` reads the building's `ProductionDef::exits`, an `ExitRule`, against its sides as
   placed, `sides`). Two kinds:
@@ -2088,11 +2142,12 @@ their energy doorway, slice M3-D2: design change 0145, `factions/colonists/struc
     stands as far out as there is room, fully inside against the exit side at most (`Sim::doorway_spot`;
     `Door::room_before` counts only what is in front, not what stands behind the door or beyond the building): the
     design's "half inside" would overlap what stands there, and its verification wants the unit to appear all the
-    same. **Several exit sides** (slice M5-C, `ExitRule::Sides(A)`: the Recruitment Hall's four;
-    `core/entities.md > Structure Type > Exit Doorway`: "a side whose doorway is occupied counts as blocked, and the
-    building pauses only when every eligible doorway is occupied"): a door on each, tried in `Doorway::order`, the
-    side facing the rally point (the greatest cosine with the direction from the centre; of two alike, a diagonal,
-    the clockwise one), the bottom one without a rally point, then clockwise (Placeholder (Q0100 point 1)); the unit
+    same. **Several exit sides** (slice M5-C, `ExitRule::Sides(A)`: the Recruitment Hall's four, until design change
+    0342 gave it one, B, so that no type has them now; `core/entities.md > Structure Type > Exit Doorway`: "a side
+    whose doorway is occupied counts as blocked, and the building pauses only when every eligible doorway is
+    occupied"): a door on each, tried in `Doorway::order`, the side facing the rally point (the greatest cosine with
+    the direction from the centre; of two alike, a diagonal, the clockwise one), the bottom one without a rally point,
+    then clockwise (Placeholder (not in the design: no building has several exit sides now)); the unit
     takes the first door free of a released unit that has a spot for it. A unit in the doorway is in the door whose
     side it is least inside of (`Doorway::door_at`), which the movement step, the paths and the invariants ask.
   - **A portal's energy doorway** (slice M3-D2, design change 0145; `production::EnergyDoorway`,
@@ -2244,8 +2299,13 @@ their energy doorway, slice M3-D2: design change 0145, `factions/colonists/struc
   produce units, found as an order's units are (stale and repeated ids dropped, `NotOwned`); none is
   `Reject::NoProducers`. `Train(kind)` is taken when at least one producer queues the unit, else
   `CannotProduce(kind)`, `InsufficientCrystals` or `QueueFull` (the army cap is no reason: design change 0143 checks
-  it when production starts); `CancelProduction` when a producer
-  has something queued, else `NothingQueued`; `SetRally` with a point on the map (`OffMap`) or an object the
+  it when production starts); a pool building takes no `Train` (slice M5-F2) but `TrainFrom { kind, from }`, the same
+  at pool buildings alone, each needing as many free units of kind `from` as the unit costs Unit Control
+  (`NoRecruit(from)`; one without them is passed over as a full queue is, `Refusal::NoRecruit`) but no free queue
+  slot, its capacity bounding its queue; `Release(from)` when a pool building has a free unit of the kind
+  (`NoRecruit`, `NoHolders` for none that holds units), free; `CancelProduction` when a producer other than a
+  Recruitment Hall (design change 0342) has something queued, else `NothingQueued`; `SetRally` with a point on the
+  map (`OffMap`) or an object the
   player sees or remembers, as for an order's target (`UnknownObject`, `NotVisible`; the producer itself
   always). `Sim::validate` gives the interface the same answers for its buttons.
 - **`Command::Construction { objects, command }`** (`construction.rs`, `sim/construction.rs`): the player's constructors
@@ -2317,7 +2377,9 @@ their energy doorway, slice M3-D2: design change 0145, `factions/colonists/struc
 - `Command::Debug(DebugCommand::…)` covers `Spawn`, `Remove`, `SetPosition`, `SetAutoTargeting` (see
   *Behaviours*), `SetResources` (any player's banks, see *Economy*; the gate checks that the player it names is in
   the game, `UnknownPlayer`) and `SetTier` (a Tunnel's tier, `NoSuchTier` for a tier it has no row for or an object
-  without tiers; *Object model > The Syndicate*), for development and QA. `Spawn` places a tile-based object in an
+  without tiers; *Object model > The Syndicate*), and `SetAugmentation { id, augmentation }` (slice M5-F2: a unit's on
+  the map, until the Altar gives them; *Object model > The Cults*), for development and QA. `Spawn`
+  places a tile-based object in an
   `orientation`
   (`BuildingOrientation`), which files may leave out: unturned is the default and isn't written, so replays from
   before it load unchanged. It bypasses costs and rules, only works while `SimConfig::debug` is on, and
@@ -2356,7 +2418,9 @@ their energy doorway, slice M3-D2: design change 0145, `factions/colonists/struc
   target, full }` is an Enter that ended without the unit going in, `full` when a building that holds units had no
   room for it (the feedback line says "No room inside"). `EnteredBuilding { unit, building }`, `LeftBuilding { unit,
   building }` and `Evacuated { unit, building }` (slice M5-F1) are the same for a building that holds units: in, out
-  of its doorway by Eject All, and out around its footprint as it is destroyed, after its `Removed`. `BuildFailed {
+  of its doorway by Eject All or a Release, and out around its footprint as it is destroyed, after its `Removed`.
+  `ReleaseQueued { producer, unit }` and `ReleaseCancelled { producer, unit }` (slice M5-F2) are a pool building's
+  Release, queued and taken back by X or a refund; its trained unit is a `UnitProduced`. `BuildFailed {
   worker, kind, origin, orientation, problems }`, `BuildRefunded { worker, kind, refund }`, `SiteStarted { worker,
   site }`, `SiteCompleted { site, worker }`, `SiteCancelled { site, kind, refund }` and `LeftSite { worker, site }`
   (slice M4-E) are a Build that failed on arrival, a Build refunded, and a site's life; `LeftSite` is its worker back
@@ -2395,7 +2459,8 @@ their energy doorway, slice M3-D2: design change 0145, `factions/colonists/struc
     the lineage of its first Recruitment Hall, an entry for each point of their Unit Control cost (slice M5-B;
     `factions/cults/economy.md > Starting Conditions`: "Six **Recruits**, all belonging to the starting Recruitment
     Hall"): `StartObject::lineage` holds the Hall's index among the start objects, which `try_new` turns into its id.
-    A layout without a Hall (a Custom map's may) leaves them orphaned (Placeholder (Q0101 point 2)).
+    A layout without a Hall (a Custom map's may) leaves them orphaned (design change 0344: "Recruits no Hall produced
+    (custom maps, debug) are orphans from the start").
 - `MapDef::validate()` and `Scenario::validate()` list every problem (`ScenarioProblem`) and never panic.
   `Sim::try_new` returns the problems as an error and `Sim::new` panics with them, so load files and editor maps with
   `try_new`. Units start on open ground and apart (`paths::misplaced`, in list order): a unit's box must not overlap
@@ -2727,6 +2792,18 @@ their energy doorway, slice M3-D2: design change 0145, `factions/colonists/struc
   `sim/holding/tests.rs` an Armory under construction (no Cults site exists before slice M5-E) and the Eject All mark
   hashed and saved only while set; `placement/spots/tests.rs` the rings and both rounds. The ignored
   `holding_perf.rs` times eight Armories cycling, then evacuated (*Object model > Buildings that hold units*).
+- **Armory tests** (slice M5-F2) are `crates/sim/tests/armory/` (`training.rs`: Q pays 20 and a Militant comes out
+  of side C 32 ticks later toward the rally point, first in first trained, X's refund, the gate, Q to three Armories;
+  `release.rs`: design change 0337's Verification, X taking a Release back, a Release queued like any order;
+  `eject.rs`: Eject All leaving the reserved units inside, the order units are ready in; `capacity.rs`: 0347's
+  Verification, the load a trained unit drops and a released one keeps; `destruction.rs`: an Armory destroyed
+  mid-training; `control.rs`: the Unit Control unchanged through training, and a Militant trained of a destroyed
+  Hall's Recruit an orphan; `saves.rs`: saves at every stage and a replay), each tick under the invariants, R1 among
+  them, and checking `testing::dangling_references`.
+  `sim/producers/pool/tests.rs` has a hurt Recruit's damage, a vehicle's full HP, a unit of two Recruits and an
+  orphan's point (test defs); `production/tests.rs` the queue's entries. In the client:
+  `tests/commands/armory.rs` (0337's and 0348's verifications, Q, X, Eject All and the right-click rally),
+  `command_ui/interface/tests/cults.rs` (the panel as data) and `hud/info_panel/activity/tests/armory.rs`.
 - **Cults construction tests** (slice M5-E) are `crates/sim/tests/cults_construction/` (`flow.rs`: four Recruits in
   80 frames paid once, five from one side spread along the wall (0339), two at twice the rate, one alone, a Shift
   chain, builders pulled off and back by Assist, the right-click; `refunds.rs`: two of three re-ordered and then the
@@ -3052,7 +3129,10 @@ constructor's (`activity::construction`) are the building under construction and
 its recipe's, whole percent rounded down), or the building ready to place. A Recruitment Hall's
 (`activity::recruitment`, slice M5-C, `Sim::hall_state`) are its Effectiveness with its claimed tiles, "Effectiveness:
 49% (49/100 tiles)", and its "Unit Control: usage / capacity" rounded down, before its production's "Recruiting Recruit:
-50%" and rally point, with no queue line. A transforming structure's
+50%" and rally point, with no queue line. A building that holds units (`activity::holding`, slice M5-F2) shows "Inside:
+3 / 10", everyone inside of its capacity, and a pool building its free units by kind, "Free: Plain 2, Constitution 1,
+Metabolism 0, Both 0"; its queue line names the entries, "Queue: Militant, Release (2 / 10)", of its capacity, and a
+Release under way is "Releasing Recruit: 50%". A transforming structure's
 (`activity::transformation`, first; slice M3-E) is the building it becomes and its progress, "Warping in: Robo Portal
 45%" ("Deploying" from a unit, slice M3-F), and its HP is out of its interpolated MaxHP (`Object::max_hp`), as its HP
 bar is. A plate
@@ -3450,6 +3530,21 @@ Drones, through one command flow (plan decision T10, slices M2-H1, M2-H2 and M3-
   `CancelConstruction` alone, for any site (`Conditions::site`: `Object::is_site`, never its kind), which slices M4-F
   and M4-S1 reuse: an unfinished `GroupType` offers both Cancels (`offers::UNFINISHED`), and the gate takes the one
   that fits.
+- **The Armory's panel** (slice M5-F2; `factions/cults/structures/armory.md > ObjectInterfaceState[Armory]`, design
+  changes 0337 and 0348): `templates/cults/armory.rs` (`InterfaceTemplate::PoolProducer`, the pool buildings' one
+  template, built from the building's `ProductionDef` as the Production template is) is Q, W, E and R
+  `PanelCommand::KindMenu(kind)`, A `EjectAll`, X `CancelProduction` and C `SetRallyPoint`. A kind button counts its
+  free Recruits (`PanelSlot::count`, `Conditions::pool_count` from `Sim::pool_counts`) and is greyed at 0 (the gate's
+  `Reject::NoRecruit`, "No free Recruit of that kind"); it enters `InterfaceState::KindMenu(kind)`
+  (`SlotPress::OpenKindMenu`), whose grid (`armory::kind_menu`) is a `PanelCommand::TrainFrom(unit, kind)` per recipe
+  from Q (`ProductionCommand::TrainFrom`), the units not in the game yet in their slots (the Gunner's W,
+  `Planned::Gunner`, greyed "Requires a Gunworks": `WhyUnavailable::Placeholder`), A `PanelCommand::Release(kind)` and Z
+  Back; the menu stays open while its entries are used (`still_valid`), greyed by the gate. Eject All is a
+  `Command::Holding` (`SlotPress::Hold`, `OrderOutbox::hold`), greyed by the gate ("No free Recruit inside"). The
+  right-click sets the rally point, as a producer's (`object_right_click`). **One building at a time** (design change
+  0348 point 5: the Armory is Ungroupable): every command of a pool building's panel goes to the one Tabbed to, X and C
+  too (`is_common`, `holding::trains`), where a Barracks shares them with the others selected (0083); a right-click
+  still rallies every selected producer, as each selected object resolves it for itself.
 - **Visuals**: the panel's buttons (`hud/command_panel.rs`) are rebuilt when the panel, the bindings or the surface
   changes; each shows its command's label (`PanelSlot::label`) and its hotkey from the bindings, and an EjectMenu tile
   its count in its bottom-right corner. **Every label keeps
@@ -3918,7 +4013,9 @@ One kind (plan decision T54, slices M4-R1 and M4-R2): its own files, and one lin
    - its shots' style (`combat_effects::ShotStyle`) if it has a weapon, none if not
      (`kinds::tests::every_kind_module_fits_its_def` checks both against its def);
    - its panel template. A shared one: `PanelTemplate::of(InterfaceTemplate::BasicCombatUnit)`, or `Production` for a
-     producer, whose grid comes from its `ProductionDef`. `PanelTemplate::NONE` until its slice builds its panel.
+     producer, whose grid comes from its `ProductionDef`, or `PoolProducer` for a pool building's (slice M5-F2, the
+     Armory's `templates/cults/armory.rs`, its KindMenus from its `ProductionDef`). `PanelTemplate::NONE` until its
+     slice builds its panel.
 
    Then its line in the client's registry, `kinds::of`: the `match` is exhaustive, so the compiler names a kind
    without one.
@@ -3991,7 +4088,8 @@ examples.
 7. **Templates** (`command_ui/interface/templates.rs`, an object's own panel in `templates/<faction>/<object>.rs`): each
    kind's panel template, in its client module (*Adding a unit or structure*), `PanelTemplate::NONE` until its slice
    builds one. A producer takes `InterfaceTemplate::Production`, whose grid comes from its `ProductionDef` (a new unit
-   to train shows its label; a producer that recruits by itself, the Recruitment Hall, shows no Train, only X and C).
+   to train shows its label; a producer that recruits by itself, the Recruitment Hall, shows no Train and no X, only
+   C), and a pool building `InterfaceTemplate::PoolProducer`, whose KindMenus come from it (slice M5-F2).
    A builder needs its `Builder` (`command_ui/interface/placing.rs`: where the ghost stands,
    which check colours it, what a click sends; slice M3-J1 has a constructor's, the Drones' and the Beacon's), and a
    building not in the game yet holds its menu slot as a `PanelCommand::Planned`. A type that transforms shows only its
