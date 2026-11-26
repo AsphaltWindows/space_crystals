@@ -47,6 +47,7 @@ pub(crate) static EXTRACTION_PLATE: ObjectDef = ObjectDef {
         requires: &[], // No TechPrerequisite: none declared
         attack: None,
         popup: None,
+        holds: None,
     }),
     default_settings: None,
 };

@@ -163,6 +163,7 @@ fn constructions(app: &App) -> Vec<(PlayerId, Vec<u32>, ConstructionCommand)> {
             | Command::Ability { .. }
             | Command::Production { .. }
             | Command::Tunnel { .. }
+            | Command::Holding { .. }
             | Command::Debug(_) => None,
         })
         .collect()

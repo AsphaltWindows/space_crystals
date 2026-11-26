@@ -172,6 +172,7 @@ fn the_default_order_of_each_unit_kind_on_each_kind_of_target() {
 #[test]
 fn the_rule_on_abilities_and_targets() {
     let armed = |domain| Abilities {
+        kind: ObjectKind::Guard,
         attack: Some(domain),
         may_attack: true,
         worker: false,
@@ -180,6 +181,7 @@ fn the_rule_on_abilities_and_targets() {
         transit: Transit::Infantry,
     };
     let drone = |carrying| Abilities {
+        kind: ObjectKind::Drone,
         attack: None,
         may_attack: true,
         worker: true,
@@ -196,6 +198,7 @@ fn the_rule_on_abilities_and_targets() {
         station: false,
         drop_off,
         transit: &[],
+        accepts: &[],
     };
     let follow = OrderKind::Move(Target::Object(ObjectId(5)));
     let attack = OrderKind::Attack(ObjectId(5));
@@ -291,4 +294,19 @@ fn the_rule_on_abilities_and_targets() {
         assert_eq!(resolve(drone(carrying), Aim::Object(station)), follow);
     }
     assert_eq!(resolve(armed(TargetDomain::Ground), Aim::Object(station)), follow);
+    // An own building that holds units (slice M5-F1; `factions/cults/units/recruit.md > Right-Click Resolution`: "Own
+    // Armory → Enter Armory"): Enter for a unit of a kind it takes, loaded or not; a Move to it for any other.
+    let armory = Aimed {
+        accepts: &[ObjectKind::Recruit],
+        ..object(false, true, Domain::Ground, false, false)
+    };
+    for carrying in [false, true] {
+        let recruit = Abilities {
+            kind: ObjectKind::Recruit,
+            attack: Some(TargetDomain::Ground),
+            ..drone(carrying)
+        };
+        assert_eq!(resolve(recruit, Aim::Object(armory)), enter);
+    }
+    assert_eq!(resolve(armed(TargetDomain::Ground), Aim::Object(armory)), follow);
 }

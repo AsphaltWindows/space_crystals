@@ -61,6 +61,7 @@ pub(crate) static LASER_TURRET: ObjectDef = ObjectDef {
         requires: &[ObjectKind::OpticsLab],
         attack: Some(LASER_TURRET_ATTACK),
         popup: Some(LASER_TURRET_POPUP),
+        holds: None,
     }),
     default_settings: None,
 };

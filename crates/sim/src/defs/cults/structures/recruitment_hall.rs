@@ -64,6 +64,7 @@ pub(crate) static RECRUITMENT_HALL: ObjectDef = ObjectDef {
         requires: &[], // TechPrerequisite - None
         attack: None,
         popup: None,
+        holds: None,
     }),
     default_settings: None,
 };

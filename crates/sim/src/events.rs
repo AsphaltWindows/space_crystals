@@ -224,14 +224,39 @@ pub enum SimEvent {
         unit: ObjectId,
         tunnel: ObjectId,
     },
-    /// `unit`'s Enter order on `tunnel` ended without it going in (`factions/syndicate/tunnels.md > Tunnel Network >
-    /// Walking in`: "if the Tunnel a unit is heading for is destroyed, or its tier doesn't suit the unit, the Enter
-    /// order ends and the unit idles"; "if the way is genuinely blocked, the normal Failure rule applies"): its walk
-    /// ended short of the entry path, or the Tunnel no longer suits it. For the feedback line, and for counting those
-    /// that give up.
+    /// `unit`'s Enter order on `target`, a Tunnel or a building that holds units, ended without it going in
+    /// (`factions/syndicate/tunnels.md > Tunnel Network > Walking in`: "if the Tunnel a unit is heading for is
+    /// destroyed, or its tier doesn't suit the unit, the Enter order ends and the unit idles"; "if the way is genuinely
+    /// blocked, the normal Failure rule applies"): its walk ended short of the entry path, or the target no longer
+    /// suits it, or (`full`) the unit got to a building's entry path with no room in its pool (slice M5-F1;
+    /// Placeholder (Q0104 point 2): "The Enter ends and it idles beside the Armory (the normal Failure rule)"). For the
+    /// feedback line, and for counting those that give up.
     EnterFailed {
         unit: ObjectId,
-        tunnel: ObjectId,
+        target: ObjectId,
+        full: bool,
+    },
+    /// (M5-F1) `unit` walked into `building`'s entry path and went inside, into its pool (`crate::holding`;
+    /// `systems/controls/commands.md > Enter`: "The unit walks to the structure's entrance side and goes inside"). It
+    /// keeps its id, and is held off the map (`network::Place::Building`), as in a Tunnel Network: no `Removed`
+    /// follows.
+    EnteredBuilding {
+        unit: ObjectId,
+        building: ObjectId,
+    },
+    /// (M5-F1) `unit`, ejected (`HoldCommand::EjectAll`), came out of `building` into its exit doorway, and is among
+    /// the sim's objects again, with the id it had (`factions/cults/structures/armory.md > Eject All`;
+    /// `Sim::step_holding`). No `Spawned` comes with it.
+    LeftBuilding {
+        unit: ObjectId,
+        building: ObjectId,
+    },
+    /// (M5-F1) `unit` was inside `building` as the building left the game, and came out alive beside its footprint,
+    /// idle (`factions/cults/economy.md > Cults Building Mechanics > Evacuation on Destruction`: "Everyone inside is
+    /// evacuated alive"; `Sim::evacuate`). It follows the building's `Removed`, in the same tick, with the id it had.
+    Evacuated {
+        unit: ObjectId,
+        building: ObjectId,
     },
     /// `unit`'s Attack order on `target` failed: the target is inside the unit's MinRange and the unit can't move to
     /// back off (`systems/controls/behaviors.md > AttackingObject > Target inside MinRange`, design change 0182: "the

@@ -91,6 +91,40 @@ pub struct StructureDef {
     /// (`crate::popup`). `None` for every other structure. Optional in files.
     #[serde(default)]
     pub popup: Option<PopUpDef>,
+    /// The units the type holds inside (plan decision T60, slice M5-F1; `systems/controls/commands.md > Enter`: "an own
+    /// structure that can hold units"; `crate::holding`): the side they walk in at, the side they come out of, how
+    /// many its pool holds, and the kinds it takes. `None` for a type that holds none. Optional in files.
+    #[serde(default)]
+    pub holds: Option<HoldsDef>,
+}
+
+/// A structure type that holds units inside (`StructureDef::holds`, plan decision T60; `crate::holding`): one
+/// capability for every such building. The Armory's (`factions/cults/structures/armory.md`); later the Altar, the
+/// Temple, the Cathedral, the Shrine, the Garrison, the Chop Shop and the Airstrip (`factions/cults/economy.md > Cults
+/// Building Mechanics > Evacuation on Destruction`; design change 0319 gives their numbers), and the GDO's Bunker.
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct HoldsDef {
+    /// `EntranceSide`, as its SymmetryType letters it: the side the units walk in at
+    /// (`factions/cults/structures/armory.md > EntranceSide - one short side (B)`: "Recruits enter through the
+    /// entrance side"), by the entry path in its middle (`crate::holding::entry_path`). Of a type whose every side has
+    /// one letter (AAAA), the first side so lettered clockwise from the top.
+    pub entrance: SideLetter,
+    /// How the units come out (`ExitSide`): the exit rule of a producing structure, the one vocabulary for how a
+    /// structure releases units. Only an exit side is built (M5-F1, `defs_are_consistent`): the units come out "one
+    /// at a time through the exit doorway" in its middle (`factions/cults/structures/armory.md > ExitSide - opposite
+    /// short side (C)`; `core/entities.md > Structure Type > Exit Doorway`; `production::Doorway`). A type that also
+    /// produces releases by the same rule (`ProductionDef::exits`). A Garrison's "Units leave through any side, at
+    /// the first clear spot next to the footprint (like Evacuation on Destruction)"
+    /// (`factions/cults/structures/garrison.md`) will be a rule of its own, by the same search as an evacuation
+    /// (`Sim::spot_around`).
+    pub exit: ExitRule,
+    /// How many units its pool holds (`factions/cults/structures/armory.md > InternalRecruitCapacity - 10`), the ones a
+    /// queued order reserved not counted (Placeholder (Q0104 point 5)).
+    pub capacity: u32,
+    /// The kinds of unit it takes in (`systems/controls/commands.md > Enter`: "Cults — Armory, Cathedral: Recruits
+    /// only").
+    #[serde(deserialize_with = "super::leak::slice")]
+    pub accepts: &'static [ObjectKind],
 }
 
 /// A structure type's pop-up form (`StructureDef::popup`, slice M4-S2; `crate::popup`): the Laser Turret's

@@ -89,6 +89,7 @@ mod footprint;
 mod onto;
 mod problems;
 mod site;
+mod spots;
 #[cfg(test)]
 mod tests;
 mod tunnel_area;
@@ -99,6 +100,7 @@ pub use check::{check, check_layout, check_reserving, footprint_size};
 pub use onto::Onto;
 pub use problems::{PlacementCheck, PlacementProblem, TileProblem, WholeProblem};
 pub use site::{Method, Mode, Occupant, Site};
+pub use spots::{Ring, Round, Spots};
 
 use crate::construction::site::builds;
 use crate::defs::ObjectKind;

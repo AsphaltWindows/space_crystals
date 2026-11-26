@@ -420,6 +420,7 @@ mod construction;
 mod deploy;
 mod expansions;
 mod gate;
+mod holding;
 mod kinds;
 mod load;
 mod modes;
@@ -433,6 +434,7 @@ mod recruitment;
 mod removal;
 mod resources;
 mod sites;
+mod spots;
 #[cfg(test)]
 mod tests;
 mod too_close;
