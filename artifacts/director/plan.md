@@ -1939,7 +1939,8 @@ Approach: thin vertical slices the user can run and see, each verified by tests 
   - **M5-H2 Glider follow-ups** (Opus, small; brief `scratchpad/briefs/m5h2-glider-followups.md`):
     - 0403: the Sparrow's SightRange is 8 GU, so a lone Sparrow keeps strafing on Attack;
     - 0404: a glider's Move completes on arrival, so queued orders start;
-    - Q0148 part 3, SeparationRadius against the Silhouette, once it is answered.
+    - 0405, folded in as item 3 when it arrived: gliders separate at a quarter of the HoverCraft strength, and the Sparrow's SeparationRadius is 48.
+    - H2 found that with sight 8 a lone Sparrow keeps small targets but loses bigger ones after 1–4 passes, since its loop grows with the target's size. That went to the Designer as Q0149.
 - **Queued for the playtest:**
   - **Computer opponents.** The user asked for them for the next playtest (2026-11-26). 0402 answered Q0147: a playtest tool with fair knowledge (`core/game_rules.md > Computer players (playtest tool)`), built as planned. **The A1 brief is ready (`scratchpad/briefs/a1-ai-framework-gdo.md`) and waits for the user's go-ahead.**
     - **Architecture** (the Director's):
@@ -2349,7 +2350,8 @@ The user keeps feeding unit and other designs to the Designer, so expect increme
 | Q0145 | Does a player see the Shrine's buffs on enemy units? (`factions/cults/structures/shrine.md`) (M5) | no | answered by 0393 (a): as built |
 | Q0146 | The economy oracle is wrapped up (user, 2026-11-26): its last figures, and closing the Economy check (`factions/cults/economy.md > Economy check`) (M5) | no | answered by 0401 (a): closed, and the targets stay as playtest reference |
 | Q0147 | Basic computer opponents for playtesting: what they know and how they play. The design has no computer players yet | no | answered by 0402: fair knowledge, and (a), a playtest tool |
-| Q0148 | Gliders: a lone Sparrow makes one pass; a glider's Move never completes; SeparationRadius under the Silhouette (`sparrow.md`, `systems/units.md`) (M5-H1) | no | parts 1 and 2 answered by 0403 (sight 8) and 0404 (Moves complete); part 3 (separation) open |
+| Q0148 | Gliders: a lone Sparrow makes one pass; a glider's Move never completes; SeparationRadius under the Silhouette (`sparrow.md`, `systems/units.md`) (M5-H1) | no | answered: part 1 by 0403 (sight 8), part 2 by 0404 (Moves complete), part 3 by 0405 (slow separation, radii above silhouettes) |
+| Q0149 | With sight 8, a lone Sparrow still loses bigger targets, since its loop grows with the target's size (`sparrow.md`) (M5-H2) | no | open; built as 0403 says |
 
 ## Design change entries
 Last triaged: 0282.
@@ -2729,4 +2731,5 @@ Last triaged: 0282.
 | 0402 **Computer players are a playtest tool, with fair knowledge** (answers Q0147: fair, a). They see only what their own objects see, remember what they have seen, and know the map and the start locations. They use a player's commands and rules, and their behavior is the Director's placeholder (`core/game_rules.md > Computer players (playtest tool)`) | queued: **A1**, whose brief quotes it | Verification: in an AI-vs-AI game, an AI doesn't attack a building it has never seen or scouted, apart from the known start locations |
 | 0403 **The Sparrow's SightRange is 8 GU** (answers Q0148 part 1), so a lone Sparrow keeps its target in sight through its loop. Attack Move is unchanged, and what Attack Move means for units that can't stop stays an open design question | in progress (**M5-H2**) | Verification: a lone Sparrow ordered to Attack a stationary target, with no spotter, makes repeated passes until it dies |
 | 0404 **A glider's Move completes when it first reaches its point** (answers Q0148 part 2). The next queued order starts; with none, it circles there as when idle | in progress (**M5-H2**) | Verification: Shift-queue Move A then Move B for a Sparrow: it passes A, flies on to B and circles at B |
+| 0405 **Gliders push apart slowly, at a quarter of the HoverCraft strength, and their SeparationRadius exceeds their silhouette** (answers Q0148 part 3): Sparrow and Dragonfly 48, Specter 64 | in progress (**M5-H2**, item 3) | Verification: six Sparrows sent to one point drift apart while circling and end about 48 su apart; two Sparrows passing on one target stay on their lines |
 | 0014 GDO Airfield and aircraft | queued (Later: air) | |
