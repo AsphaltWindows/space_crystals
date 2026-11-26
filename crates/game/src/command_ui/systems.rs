@@ -94,9 +94,10 @@ pub(super) fn end_queued_targeting(actions: Res<ActionState>, pressed: Res<Targe
 
 /// `systems/controls/interface.md > AwaitingTarget`: a left-click on the map (a press and release of the Select
 /// action) on a valid target gives the PendingCommand's order for what is under it ([`target_order`]) to the command's
-/// recipients ([`recipients`]: the whole selection for a common command, the ActiveGroup for a group one), each as
-/// [`unit_target_order`] has it: an explicit Attack leaves out the Peacekeepers (Shielded) (design changes 0075 and
-/// 0202). A plain click then returns to DefaultState. A Shift-click queues the order and keeps the target awaited,
+/// recipients ([`recipients`]: the whole selection for a common command, the ActiveGroup for a group one, every
+/// selected unit for an Attack), each as [`unit_target_order`] has it: a unit that can't attack moves to the object of
+/// an explicit Attack (design change 0398). A plain click then returns to DefaultState. A Shift-click queues the order
+/// and keeps the target awaited,
 /// marked queued, until Shift is let go ([`end_queued_targeting`], design change 0070); each one appends one order to
 /// each unit's queue.
 ///
@@ -182,7 +183,7 @@ fn give_targeted(control: &LocalControl, outbox: &mut OrderOutbox, click: Presse
                 .into_iter()
                 .filter_map(|id| {
                     let unit = UnitCapabilities::of(id, state.selection.kind_of(id)?, &modes);
-                    Some((id, unit_target_order(unit, kind)?))
+                    Some((id, unit_target_order(unit, kind)))
                 })
                 .collect();
             outbox.give_each(control.player(), orders, click.queue)

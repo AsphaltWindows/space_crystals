@@ -58,7 +58,7 @@ pub(in crate::command_ui) fn cancel_on_escape(actions: Res<ActionState>, mut con
 /// (`InterfaceState::BuildMenu`) or the placement of its building ready to place (`InterfaceState::AwaitingPlacement`),
 /// or give its one constructor a construction command and return to DefaultState ("CommandIssuingTransition, returns to
 /// DefaultState"). A Beacon's enter its Warp In menus and a Warp In's placement on it (`factions/colonists/economy.md >
-/// Beacon > Beacon ObjectInterfaceState`, design change 0122: the Beacon Tabbed to), the Drones' A the placement of a
+/// Beacon > Beacon ObjectInterfaceState`, design change 0122: the Beacon Tabbed to), the Drones' W the placement of a
 /// Beacon (design change 0125), an Egress Node's F selects its returning Drones instead
 /// (`factions/colonists/economy.md > Egress Node > Egress Node ObjectInterfaceState`, slice M3-J2), and the X of
 /// whatever transforms cancels it (design change 0116). A Tunnel's E opens its EjectMenu, whose tiles each send the

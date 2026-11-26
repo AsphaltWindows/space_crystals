@@ -72,7 +72,7 @@ pub(in crate::command_ui) fn end_queued_placement(actions: Res<ActionState>, mut
 ///   change 0121), if `Sim::warp_in_check` allows it: one `ConstructionCommand::WarpIn` to the Beacon, and back to
 ///   DefaultState. The bank pays as it is given: a Warp In the gate refuses (too few Space Crystals since its entry
 ///   was pressed) sends nothing, says why ([`CommandRefused`], design change 0162) and placement goes on.
-/// - **The Drones' Beacon** (`factions/colonists/units/drone.md > Drone ObjectInterfaceState > A: Deploy`; design
+/// - **The Drones' Beacon** (`factions/colonists/units/drone.md > Drone ObjectInterfaceState > W: Deploy`; design
 ///   change 0125, `systems/controls/selection.md > SelectionGroup > Groupable workers used up by a build`): the
 ///   ghost under the click, if `Sim::deploy_check` allows it for the Drone the click goes to ([`deploy_recipient`]): a
 ///   plain click to the first Drone of the group, replacing its orders, and back to DefaultState; a Shift-click to the
@@ -80,13 +80,13 @@ pub(in crate::command_ui) fn end_queued_placement(actions: Res<ActionState>, mut
 ///   (`systems/controls/interface.md > AwaitingTarget > Shift while placing > Exception, Drones`), until Shift
 ///   is let go ([`end_queued_placement`]). **Reading**: a Shift-click while every Drone of the group has a Deploy
 ///   already sends nothing and ends placement ("Once every Drone in the group has a Deploy, placement ends").
-/// - **An Agent's building** (`factions/syndicate/units/agent.md > Agent ObjectInterfaceState > A: Build Tunnel`:
+/// - **An Agent's building** (`factions/syndicate/units/agent.md > Agent ObjectInterfaceState > W: Build Tunnel`:
 ///   "Left-click valid location confirms placement and dispatches the Agent (CommandIssuingTransition, returns to
 ///   DefaultState)"; slice M4-J1): the ghost under the click, if `Sim::build_check` allows it: one `OrderKind::Build`
 ///   to the Agent placing, queued with Shift (`systems/controls/interface.md > AwaitingTarget > Shift while
-///   placing`: "each Agent takes exactly one placement", and placement ends like a plain click's; Tab and A again
+///   placing`: "each Agent takes exactly one placement", and placement ends like a plain click's; Tab and W again
 ///   place with the next Agent), and back to DefaultState. It is paid as it is given (design change 0233): a Build
-///   the gate refuses (too few Supplies since A was pressed, the Agent building already) sends nothing, says why
+///   the gate refuses (too few Supplies since W was pressed, the Agent building already) sends nothing, says why
 ///   ([`CommandRefused`], design change 0162) and placement goes on, as a Warp In's.
 /// - **A Tunnel's expansion** (`factions/syndicate/tunnel_menus.md > AwaitingPlacement (Expansion)`: "Left-click valid
 ///   location: places expansion, begins construction (CommandIssuingTransition, returns to DefaultState)"; slice M4-F):

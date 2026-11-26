@@ -12,7 +12,6 @@ use sc_sim::testing::ScenarioBuilder;
 use sc_sim::{
     Faction, ObjectId, ObjectKind, OrderKind, PlayerId, ProductionCommand, RecruitKind, SpawnAt, Target, TilePos,
 };
-use space_crystals::command_ui::feedback::NOT_FOR_TYPE_TEXT;
 use space_crystals::command_ui::{ButtonLook, InterfaceState, PanelButton, PanelCommand, PointerDisplay};
 use space_crystals::hud::info_panel::InfoText;
 
@@ -81,7 +80,7 @@ fn info_lines(app: &mut App) -> Vec<String> {
 fn q_q_trains_a_disciple_that_comes_out_with_its_energy() {
     use ButtonLook::{Back, Common, Disabled, Unavailable};
     use PanelCommand::{
-        Attack, AttackGround, CancelProduction, EjectAll, HoldPosition, KindMenu, Move, Patrol, Release, Reverse,
+        AttackGround, CancelProduction, EjectAll, HoldPosition, KindMenu, Move, Patrol, Release, Reverse,
         SetRallyPoint, Stop, TrainFrom,
     };
     let mut app = cathedral_game();
@@ -127,7 +126,8 @@ fn q_q_trains_a_disciple_that_comes_out_with_its_energy() {
     assert_eq!(sc_sim::energy::of(&out), Some((50.0, 200.0)));
     assert_eq!(inside(&app, CATHEDRAL).len(), 1, "the other Recruit stays");
 
-    // The Disciple: BasicCombatUnitInterfaceState, A greyed for want of a weapon, R its Shroud.
+    // The Disciple: BasicCombatUnitInterfaceState, R its Shroud, and no A: it has no weapon, and no selected unit can
+    // attack (design change 0399: "Only when **no** selected unit can attack is A not shown").
     select_units(&mut app, &[first_in]);
     assert_eq!(
         buttons(&mut app),
@@ -136,14 +136,13 @@ fn q_q_trains_a_disciple_that_comes_out_with_its_energy() {
             (slot(0, 1), c(Reverse), Unavailable, None),
             (slot(0, 2), c(HoldPosition), Common, None),
             (slot(0, 3), c(PanelCommand::Shroud), Common, None),
-            (slot(1, 0), c(Attack), Disabled, None),
             (slot(1, 1), c(Patrol), Common, None),
             (slot(1, 2), c(AttackGround), Unavailable, None),
             (slot(2, 1), c(Stop), Common, None),
         ]
     );
     tap(&mut app, &[], KeyA);
-    assert_eq!(feedback(&app), Some(NOT_FOR_TYPE_TEXT));
+    assert_eq!(feedback(&app), None, "an empty slot says nothing");
     assert_eq!(interface(&app), InterfaceState::DefaultState, "no target awaited");
     let lines = info_lines(&mut app);
     assert_eq!(lines[1..], ["HP 40 / 40", "Energy 50 / 200"], "{lines:?}");

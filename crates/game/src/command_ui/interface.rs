@@ -25,12 +25,18 @@
 //! the command (`crate::selection::ControlState::toggle`, and `crate::sim_driver::PendingCommands::kind_of` until
 //! it does), including those whose raise waits for their shot, so they move to the other type's group at once,
 //! which becomes the ActiveGroup (design change 0199), and a second press reaches them all. Which orders a unit
-//! takes follows its type (design change 0202, [`Modes`]): a Peacekeeper (Shielded) takes no Attack (its panel has
-//! none, an explicit Attack leaves it out, `super::resolution::unit_target_order`, and a right-click on an enemy
-//! sends it after the enemy instead, `super::resolution::unit_right_click`), while a Peacekeeper whose shield is on
-//! its way down takes one, and the sim holds it until the shield is down. The Peacekeeper (Shielded) still offers
-//! the Attack its panel hides ([`templates::hides_attack`]): in a selection with other units, an AttackMove takes
-//! it along (design change 0076).
+//! takes follows its type (design change 0202, [`Modes`]): a Peacekeeper (Shielded) takes no Attack (its panel alone
+//! has none, [`templates::attack_slot`]; an explicit Attack sends it to the target instead, as every unit that can't
+//! attack, `super::resolution::unit_target_order`, design change 0398; and a right-click on an enemy sends it after
+//! the enemy, `super::resolution::unit_right_click`), while a Peacekeeper whose shield is on its way down takes one,
+//! and the sim holds it until the shield is down. In a selection with other units, an AttackMove takes it along
+//! (design change 0076).
+//!
+//! **Attack goes to everyone** (`systems/controls/interface.md > CommandPanel`, design changes 0397 to 0399): A is
+//! Attack on every unit's panel, shown whenever one of the selected units can attack, whichever group is in focus
+//! ([`templates::attack_slot`]), and the Attack goes to every selected unit ([`recipients`]): those that can attack
+//! carry it out, an Attack on an object or an Attack Move on the ground, and the others move, to the spot with the
+//! group (the Attack Move, which plays out as a move for them) or to the object (a Move to it).
 //!
 //! The Colonists' Legionnaires convert between their two forms with R (`factions/colonists/units/weapon_conversion.md`,
 //! [`PanelCommand::Convert`]), each form's own command, so that in a selection of both it goes to the ActiveGroup alone
@@ -59,7 +65,7 @@
 //! Beacon > Beacon ObjectInterfaceState`) opens Warp In (Basic) (Q) and Warp In (Advanced) (W) like the Deployment
 //! Center's menus; a menu's building enters AwaitingPlacement on the Beacon, the ghost centred on it and turned by
 //! the placement keys about its centre (design change 0121), and a click warps it in; the buildings not in the game
-//! yet show unavailable. A Drone's A (`factions/colonists/units/drone.md > Drone ObjectInterfaceState`) enters
+//! yet show unavailable. A Drone's W (`factions/colonists/units/drone.md > Drone ObjectInterfaceState`) enters
 //! AwaitingPlacement of a Beacon under the cursor; each click sends one Drone of the group to deploy there (design
 //! change 0125), with Shift the next one that has no Deploy yet. Whatever transforms, a Beacon under deployment or
 //! a building under Warp In, shows X Cancel and nothing else (design change 0116): the unfinished buildings of a type
@@ -94,18 +100,18 @@
 //! of the state may take queue one each and A releases one, the menu staying open; Z goes back a stage. Its A, X and C
 //! are the Armory's, and every command goes to the Altar Tabbed to.
 //!
-//! The Syndicate's Agent (`factions/syndicate/units/agent.md > Agent ObjectInterfaceState`, design changes 0257 and
-//! 0359; slices M4-J1 and M5-Y) has Q Move, A Build Tunnel, S Drop Off, D Repair (slice M5-N8) and X Stop:
-//! a Laser Turret is the Tunnel's ExpandMenu's alone. A enters AwaitingPlacement of a Tunnel built by the Agent Tabbed
-//! to ([`Builder::Agent`]), greyed while the gate would refuse it (the bank can't pay its price, which its hint shows,
-//! [`PanelSlot::price`], design change 0233); a click sends that Agent its Build and returns to DefaultState, Shift
-//! held or not. S awaits the Tunnel to drop off at, greyed while no Agent carries a load; D a damaged own Tunnel or
-//! Laser Turret, which the Agents repair (`sc_sim::OrderKind::Repair`). A site under construction,
-//! of any type, shows X Cancel Construction alone ([`SITE_GRID`], design change 0237).
+//! The Syndicate's Agent (`factions/syndicate/units/agent.md > Agent ObjectInterfaceState`, design changes 0257,
+//! 0359 and 0398; slices M4-J1 and M5-Y) has Q Move, W Build Tunnel, A Attack, S Drop Off, D Repair (slice M5-N8) and
+//! X Stop: a Laser Turret is the Tunnel's ExpandMenu's alone. W enters AwaitingPlacement of a Tunnel built by the Agent
+//! Tabbed to ([`Builder::Agent`]), greyed while the gate would refuse it (the bank can't pay its price, which its hint
+//! shows, [`PanelSlot::price`], design change 0233); a click sends that Agent its Build and returns to DefaultState,
+//! Shift held or not. S awaits the Tunnel to drop off at, greyed while no Agent carries a load; D a damaged own Tunnel
+//! or Laser Turret, which the Agents repair (`sc_sim::OrderKind::Repair`). A site under construction, of any type,
+//! shows X Cancel Construction alone ([`SITE_GRID`], design change 0237).
 //!
-//! The Cults' Recruit (`factions/cults/units/recruit.md > Recruit ObjectInterfaceState`, design changes 0322 and 0327;
-//! slice M5-J1) has Q Move, A Basic Construct, W Advanced Construct, S Assist Construction, D Repair (slice M5-N8) and
-//! X Stop. A and W open the two Construct menus, fixed slots from the sim's table
+//! The Cults' Recruit (`factions/cults/units/recruit.md > Recruit ObjectInterfaceState`, design changes 0322, 0327
+//! and 0398; slice M5-J1) has Q Move, W Basic Construct, E Advanced Construct, A Attack, S Assist Construction, D
+//! Repair (slice M5-N8) and X Stop. W and E open the two Construct menus, fixed slots from the sim's table
 //! (`sc_sim::defs::CONSTRUCT_MENU`), every building in its slot, greyed with why until it can be built (its
 //! TechPrerequisite, the bank, or not in the game yet); Z goes back. An entry enters AwaitingPlacement of the building
 //! that all the selected Recruits build together ([`Builder::Recruits`]: Groupable, they are one ActiveGroup, and the
@@ -144,7 +150,6 @@ pub use templates::{
 
 use sc_sim::{ObjectKind, RecruitKind, deploy};
 
-use crate::input::CommandSlot;
 use crate::selection::Selection;
 
 /// `systems/controls/interface.md > ObjectInterfaceState[ObjectEnum]`: where the ActiveGroup's command flow
@@ -279,8 +284,9 @@ impl InterfaceState {
 /// `systems/controls/interface.md > ObjectInterfaceState`: whether `interface` still holds for `selection`
 /// (validated every frame), while the selection is commandable (a defeated player's and everyone's after the end of the
 /// game is not):
-/// - AwaitingTarget while its ActiveGroup still offers the PendingCommand, which the game still allows
-///   (`conditions`: an Attack while some recipient can attack);
+/// - AwaitingTarget while its ActiveGroup's DefaultState panel still has the PendingCommand, which the game still
+///   allows (`conditions`): the selection's Attack while one of the selected units can attack, whichever group is in
+///   focus (design change 0399);
 /// - a build menu while the ActiveGroup is a Deployment Center, a Beacon that isn't being deployed, or Recruits (slice
 ///   M5-J1): the menu stays open while its state changes (a construction that completes shows its building ready in the
 ///   menu);
@@ -309,11 +315,8 @@ pub fn still_valid(
     match interface {
         InterfaceState::DefaultState => true,
         InterfaceState::AwaitingTarget { pending, .. } => {
-            commandable
-                && press(
-                    &panel(selection, InterfaceState::DefaultState, conditions),
-                    command_slot(selection, pending),
-                ) == SlotPress::AwaitTarget(pending)
+            let default = panel(selection, InterfaceState::DefaultState, conditions);
+            commandable && (default.slots()).any(|(slot, _)| press(&default, slot) == SlotPress::AwaitTarget(pending))
         }
         InterfaceState::BuildMenu(menu) => {
             commandable
@@ -370,19 +373,6 @@ pub fn still_valid(
                     .is_some_and(|active| offers(active.group_type(), menu))
         }
     }
-}
-
-/// The slot of `command` in the ActiveGroup's grid (Back's when it has none, which no command is pressed from).
-fn command_slot(selection: &Selection, command: PanelCommand) -> CommandSlot {
-    selection
-        .active()
-        .and_then(|active| {
-            CommandSlot::all()
-                .zip(grid(active.kind))
-                .find(|(_, c)| *c == Some(command))
-                .map(|(slot, _)| slot)
-        })
-        .unwrap_or(CommandSlot::BACK)
 }
 
 #[cfg(test)]

@@ -27,9 +27,10 @@ fn portraits(app: &App) -> Vec<(ObjectKind, bool)> {
 /// SelectionPanel shows two groups. Tab to the 4 and press R: all 10 are shielded, in one group. The Peacekeeper
 /// panel shows Raise Shield (R); the Shielded panel shows Lower Shield (R) and no Attack." With the ten selected, the
 /// four Peacekeepers' group comes first in the panel's order, active; Tab goes to the six, whose panel is the
-/// Shielded one, and on to the four again. Their R goes to them alone, a group command; they switch type at the
-/// press, joining the six, and the one group left is active (design change 0198: "that merged group becomes the
-/// ActiveGroup").
+/// Shielded one, its A still Attack while the four can attack (design change 0399: "A: Attack is **shown** on the
+/// panel whenever at least one selected group can attack, whichever group is in focus"), and on to the four again.
+/// Their R goes to them alone, a group command; they switch type at the press, joining the six, and the one group
+/// left is active (design change 0198: "that merged group becomes the ActiveGroup"), its panel with no Attack.
 #[test]
 fn six_shielded_of_ten_are_a_group_of_their_own_until_the_other_four_raise_theirs() {
     const SIX: [u32; 6] = [1, 2, 3, 4, 5, 6];
@@ -72,7 +73,11 @@ fn six_shielded_of_ten_are_a_group_of_their_own_until_the_other_four_raise_their
         command(&mut app, r()),
         Some((PanelCommand::LowerShield, ButtonLook::Group))
     );
-    assert_eq!(button(&mut app, a()), None, "no Attack");
+    assert_eq!(
+        command(&mut app, a()),
+        Some((PanelCommand::Attack, ButtonLook::Common)),
+        "the 4 can attack"
+    );
     tap(&mut app, &[], Tab);
     assert_eq!(active_type(&app), Some(PEACEKEEPER), "the 4");
 
@@ -82,6 +87,7 @@ fn six_shielded_of_ten_are_a_group_of_their_own_until_the_other_four_raise_their
     assert_eq!(groups(&app), [(SHIELDED, ten.clone(), true)]);
     assert_eq!(portraits(&app), [(SHIELDED, true); 10], "one group");
     assert_eq!(interface(&app), InterfaceState::DefaultState);
+    assert_eq!(button(&mut app, a()), None, "no Attack");
     toggle_time(&mut app);
     assert!(ten.iter().all(|&id| state(&app, id) == (SHIELDED, ShieldMode::Raised)));
 }

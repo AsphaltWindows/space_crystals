@@ -15,6 +15,7 @@ use sc_sim::defs::AttackType;
 use sc_sim::{Ability, ObjectId, ObjectKind, OrderKind, ProductionCommand, Reject, ShieldMode};
 
 use super::*;
+use crate::input::CommandSlot;
 
 const PK: ObjectKind = ObjectKind::Peacekeeper;
 const SHIELDED: ObjectKind = ObjectKind::PeacekeeperShielded;
@@ -112,9 +113,10 @@ fn a_resource_has_no_commands() {
 }
 
 /// `systems/controls/interface.md > CommandPanel`: a common command goes to the whole selection; a command only
-/// the ActiveGroup's type offers goes to the ActiveGroup. A resource stands in for a type that lacks Attack; the Riot
-/// Shield, which Guards lack, is `the_riot_shield_toggles_in_slot_r`'s. A right-click leaves an object without commands
-/// alone (design change 0062: buildings aren't affected).
+/// the ActiveGroup's type offers goes to the ActiveGroup. A resource stands in for a type that lacks Hold Position; the
+/// Riot Shield, which Guards lack, is `the_riot_shield_toggles_in_slot_r`'s. Attack is common whatever the types,
+/// going to every selected unit (design change 0397), which the resource isn't. A right-click leaves an object without
+/// commands alone (design change 0062: buildings aren't affected).
 #[test]
 fn common_commands_go_to_the_selection_and_group_commands_to_the_active_group() {
     use crate::command_ui::resolution::{MapTarget, capabilities, unit_right_click};
@@ -128,7 +130,9 @@ fn common_commands_go_to_the_selection_and_group_commands_to_the_active_group() 
     mixed.cycle(true);
     assert_eq!(mixed.active().map(|k| k.kind), Some(PK));
     let panel = panel(&mixed, InterfaceState::DefaultState, &Conditions::default());
-    assert_eq!(panel.get(slot(1, 0)).map(|s| s.look), Some(ButtonLook::Group));
+    assert_eq!(panel.get(slot(0, 2)).map(|s| s.look), Some(ButtonLook::Group));
+    assert_eq!(recipients(&mixed, PanelCommand::HoldPosition), [id(1), id(3)]);
+    assert_eq!(panel.get(slot(1, 0)).map(|s| s.look), Some(ButtonLook::Common));
     assert_eq!(recipients(&mixed, PanelCommand::Attack), [id(1), id(3)]);
     let ground = MapTarget::ground(bevy::math::Vec2::new(100.0, 100.0));
     let moved: Vec<ObjectId> = capabilities(&mixed, &Modes::default())
@@ -218,7 +222,8 @@ fn each_peacekeeper_type_has_its_shield_command_in_slot_r() {
 
     let guards = Selection::new([(id(4), GUARD)]);
     assert_eq!(default(&guards).get(r), None);
-    // The Peacekeeper (Shielded) offers an Attack its panel doesn't show (`hides_attack`).
+    // The Peacekeeper (Shielded) offers an Attack its panel alone doesn't show (`attack_slot`: no selected unit can
+    // attack).
     for (ty, raise, lower, attack) in [
         (PK, true, false, true),
         (SHIELDED, false, true, true),
@@ -241,9 +246,10 @@ fn each_peacekeeper_type_has_its_shield_command_in_slot_r() {
 /// which the sim holds until their shields are down: "The panel shows Attack, and pressing it must not silently skip
 /// the unit"; it awaits its target, and a pending Attack goes on. A Peacekeeper (Shielded), its shield up, on its way
 /// up or waiting for its shot to go up, takes none ("the player must lower the shield before ordering an attack"):
-/// its panel shows no Attack (design change 0173), but with other units Attack goes to it too, a common command: an
-/// Attack on an object then leaves it out (0075), and an AttackMove takes it along (0076). Attack is disabled, and a
-/// pending one ends, only while none of its recipients takes one.
+/// its panel alone shows no Attack (design change 0173), but with other units Attack goes to it too, a common
+/// command: an Attack on an object then sends it to the object (design change 0398), and an AttackMove takes it along
+/// (0076). Attack isn't shown, and a pending one ends, only while no selected unit can attack (design change 0399:
+/// "Only when **no** selected unit can attack is A not shown").
 #[test]
 fn attack_waits_for_a_recipient_that_can_attack() {
     let a = slot(1, 0);
@@ -275,7 +281,7 @@ fn attack_waits_for_a_recipient_that_can_attack() {
     );
     assert!(shielded.can_attack(id(3)), "no shield");
     let held = Conditions::with_modes(shielded);
-    assert_eq!(panel_of(&pks, &held).get(a).map(|s| s.look), Some(ButtonLook::Disabled));
+    assert_eq!(panel_of(&pks, &held).get(a), None);
     assert_eq!(press(&panel_of(&pks, &held), a), SlotPress::Nothing);
     assert!(!still_valid(attack, &pks, true, &held));
     let with_guard = Selection::new([(id(1), PK), (id(2), PK), (id(3), GUARD)]);

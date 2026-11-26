@@ -23,15 +23,16 @@
 //!   the ground.
 //! - **Left-click while a target is awaited** ([`target_resolution`]): the PendingCommand's order for the target
 //!   ([`target_order`]); Attack takes any destructible object, own and neutral ones too (design changes 0059 and
-//!   0064). It goes to every unit of the command's recipients, except that an explicit Attack leaves out the units
-//!   whose type takes none, the Peacekeepers (Shielded) ([`unit_target_order`], design changes 0075 and 0202: a
-//!   Peacekeeper whose shield is on its way down takes it, and attacks once the shield is down); an AttackMove goes to
-//!   all of them (design change 0076). Set Rally Point takes the ground or any object, as the right-click does; the
-//!   Drones' Set Drop-off an own Egress Node, which becomes the AssignedDropOff of every one of them (an ability,
-//!   `sc_sim::Ability::SetDropOff`; slice M3-J2); the Agents' Drop Off an own Tunnel in operation, a Drop Off order
-//!   (slice M4-J1); the Recruits' Assist Construction an own site built from outside, an Assist order (slice M5-J1);
-//!   the Recruits' and the Agents' Repair a damaged own object that one of them repairs, a Repair order (slice M5-N8);
-//!   (M5-N5) a Shrine's cast a point the player sees now, the ground under the cursor, a cast there.
+//!   0064). It goes to every unit of the command's recipients, every selected unit for an Attack (design change
+//!   0397), except that a unit that can't attack moves to the object instead of an explicit Attack on it
+//!   ([`unit_target_order`], design change 0398; a Peacekeeper whose shield is on its way down takes the Attack, and
+//!   attacks once the shield is down, design change 0202); an AttackMove goes to all of them (design change 0076),
+//!   which plays out as a move for those that can't attack. Set Rally Point takes the ground or any object, as the
+//!   right-click does; the Drones' Set Drop-off an own Egress Node, which becomes the AssignedDropOff of every one of
+//!   them (an ability, `sc_sim::Ability::SetDropOff`; slice M3-J2); the Agents' Drop Off an own Tunnel in operation, a
+//!   Drop Off order (slice M4-J1); the Recruits' Assist Construction an own site built from outside, an Assist order
+//!   (slice M5-J1); the Recruits' and the Agents' Repair a damaged own object that one of them repairs, a Repair order
+//!   (slice M5-N8); (M5-N5) a Shrine's cast a point the player sees now, the ground under the cursor, a cast there.
 //! - **The pointer** ([`pointer_display`]): in DefaultState the one thing the selected objects would all do on a
 //!   right-click, or Mixed when they would do different things (a rally point shows Move:
 //!   `systems/controls/hud.md > Resolution Rules > DefaultState`, "Selection is a production building:
@@ -181,7 +182,7 @@ impl UnitCapabilities {
     }
 
     /// Its type takes an Attack: not a Peacekeeper (Shielded) ([`Modes::can_attack`], design change 0202), nor (M5-N4a)
-    /// a unit without a weapon.
+    /// a unit without a weapon. One that doesn't moves instead of an Attack ([`unit_target_order`]).
     pub fn may_attack(&self) -> bool {
         self.abilities.is_none_or(|abilities| abilities.may_attack)
     }
@@ -274,10 +275,10 @@ pub fn rally_target(target: &MapTarget) -> Target {
 /// target as the player knows it ([`MapTarget::aimed`]). A unit that can't carry out the command it would get moves to
 /// the target instead, a Peacekeeper (Shielded) too, its shield up or on its way up (design change 0074: it follows an
 /// enemy unit, and moves to an enemy structure, so that in a mixed group the shield wall stays with the units that
-/// attack; an explicit Attack leaves it out instead, [`unit_target_order`], design change 0075). A Peacekeeper whose
-/// shield is on its way down attacks (design change 0202: "a right-click on an enemy is accepted and held"). Over an
-/// object the player knows nothing of, a Move to it
-/// ([`move_to`]), which the sim refuses. Nothing for an object that isn't a unit.
+/// attack; an explicit Attack moves it to the target too, [`unit_target_order`], design change 0397, where 0075 left it
+/// out). A Peacekeeper whose shield is on its way down attacks (design change 0202: "a right-click on an enemy is
+/// accepted and held"). Over an object the player knows nothing of, a Move to it ([`move_to`]), which the sim refuses.
+/// Nothing for an object that isn't a unit.
 pub fn unit_right_click(unit: UnitCapabilities, target: &MapTarget) -> Option<OrderKind> {
     let abilities = unit.abilities?;
     let aim = match (target.target, target.aimed) {
@@ -297,18 +298,25 @@ pub fn move_to(target: &MapTarget) -> OrderKind {
     })
 }
 
-/// The order one of a targeting click's recipients takes, when the click gives `kind` ([`target_order`]): design
-/// change 0075 (`factions/gdo/units/peacekeeper.md > Riot Shield > Explicit Attack`): a unit whose type takes no
-/// Attack (a Peacekeeper (Shielded), design change 0202; (M5-N4a) a unit without a weapon, a Disciple, as the gate
-/// leaves it out: `sc_sim::combat::takes_attack_orders`) is left out of an explicit Attack, on any object, and keeps
-/// its orders; the units that take it carry it out, a Peacekeeper whose shield is on its way down once it is down.
-/// Every other order goes to every recipient, an AttackMove too
-/// (design change 0076, `systems/controls/commands.md > AttackMove > Units that can't attack`: it plays out as a
-/// move for a unit that can't attack). Unlike the right-click ([`unit_right_click`]), on purpose.
-pub fn unit_target_order(unit: UnitCapabilities, kind: OrderKind) -> Option<OrderKind> {
+/// The order one of a targeting click's recipients takes, when the click gives `kind` ([`target_order`]):
+/// `systems/controls/interface.md > CommandPanel` (design changes 0397 and 0398): "an Attack (A) is issued to **every
+/// selected unit**, even when some can't attack: Units that can attack carry it out: Attack on a target, or Attack
+/// Move on ground. Units that can't attack [...] treat an Attack or an Attack Move as a **Move** (user, 2026-11-27): on
+/// ground they move to the spot (with the group, as for Attack Move); on a target they move to it (as a Move on that
+/// object)." A unit whose type takes no Attack (a unit without a weapon, as the gate judges it,
+/// `sc_sim::combat::takes_attack_orders`; a Peacekeeper (Shielded), design change 0202) gets a Move to the object of an
+/// explicit Attack, which follows a unit (`systems/controls/command_behaviors.md > MovingToObject`); the units that
+/// take the Attack carry it out, a Peacekeeper whose shield is on its way down once it is down. Every other order goes
+/// to every recipient as it is, an AttackMove too (design change 0076, `systems/controls/commands.md > AttackMove >
+/// Units that can't attack`: it plays out as a move for a unit that can't attack), so that the group's units go to the
+/// spot as one group. **Reading**: the Peacekeeper (Shielded) moves to the target too, though
+/// `factions/gdo/units/peacekeeper.md > Riot Shield` still leaves it out of an explicit Attack (design change 0075),
+/// "follow[ing] the CommandPanel rule that a command goes only to objects that can carry it out", the rule design
+/// change 0397 replaced. Unlike the right-click ([`unit_right_click`]), on purpose.
+pub fn unit_target_order(unit: UnitCapabilities, kind: OrderKind) -> OrderKind {
     match kind {
-        OrderKind::Attack(_) if !unit.may_attack() => None,
-        _ => Some(kind),
+        OrderKind::Attack(id) if !unit.may_attack() => OrderKind::Move(Target::Object(id)),
+        _ => kind,
     }
 }
 

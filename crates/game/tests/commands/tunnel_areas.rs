@@ -10,7 +10,7 @@ use space_crystals::placement::tunnel_areas::TunnelArea;
 use space_crystals::placement::{PlacementGhost, TunnelAreaOverlay};
 
 use super::*;
-use KeyCode::{Escape, KeyA};
+use KeyCode::{Escape, KeyW};
 
 const P1: PlayerId = PlayerId(1);
 const P2: PlayerId = PlayerId(2);
@@ -98,13 +98,13 @@ fn red_at(app: &mut App, origin: TilePos) -> Vec<Vec<TilePos>> {
     overlay.rings.iter().map(|ring| ring.blocked.clone()).collect()
 }
 
-/// Selects player 1's Agent, the camera on it, and presses A, Build Tunnel.
+/// Selects player 1's Agent, the camera on it, and presses W, Build Tunnel (design change 0398).
 fn place_a_tunnel(app: &mut App) {
     app.world_mut().resource_mut::<CameraView>().center = AGENT_AT;
     app.update();
     click(app, AGENT_AT, &[]);
     assert_eq!(selected(app), [AGENT]);
-    tap(app, &[], KeyA);
+    tap(app, &[], KeyW);
     assert!(matches!(interface(app), InterfaceState::AwaitingPlacement(_)));
 }
 

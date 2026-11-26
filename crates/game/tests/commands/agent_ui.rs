@@ -23,7 +23,7 @@ use space_crystals::placement::lingering::LingeringMesh;
 use space_crystals::placement::{LingeringGhosts, PlacementGhost};
 
 use super::*;
-use KeyCode::{F2, KeyA, KeyC, KeyD, KeyS, KeyW, KeyX, ShiftLeft, Tab};
+use KeyCode::{Escape, F2, KeyA, KeyC, KeyD, KeyS, KeyW, KeyX, ShiftLeft, Tab};
 
 const P1: PlayerId = PlayerId(1);
 const P2: PlayerId = PlayerId(2);
@@ -175,6 +175,9 @@ fn builds(app: &App) -> Vec<Given> {
 fn q() -> CommandSlot {
     slot(0, 0)
 }
+fn w() -> CommandSlot {
+    slot(0, 1)
+}
 fn a() -> CommandSlot {
     slot(1, 0)
 }
@@ -195,12 +198,12 @@ fn click_on(app: &mut App, id: u32) {
     assert_eq!(selected(app), [id]);
 }
 
-/// Design changes 0257 and 0359 (`factions/syndicate/units/agent.md > Agent ObjectInterfaceState`): Q Move, A Build
-/// Tunnel, S Drop Off Resources, D Repair, X Stop, and no Attack, Hold, Patrol or AttackMove. S, greyed, says why when
+/// Design changes 0257, 0359 and 0398 (`factions/syndicate/units/agent.md > Agent ObjectInterfaceState`): Q Move, W
+/// Build Tunnel, A Attack, S Drop Off Resources, D Repair, X Stop, and no Hold or Patrol. S, greyed, says why when
 /// pressed (design change 0162), that the Agent carries nothing, and does nothing. D (slice M5-N8) awaits its target:
 /// "Left-click a damaged own Tunnel or Laser Turret to repair it" (`factions/syndicate/units/agent.md > Agent
-/// ObjectInterfaceState > DefaultState commands`). A's hint names the
-/// Tunnel's price as the sim would charge it (design change 0233: 1 Supply with one Tunnel owned), D's its name alone.
+/// ObjectInterfaceState > DefaultState commands`), and so does A, an Attack's. W's hint names the Tunnel's price as the
+/// sim would charge it (design change 0233: 1 Supply with one Tunnel owned), A's and D's their names alone.
 #[test]
 fn the_agents_panel_has_its_letters_s_greyed_with_its_reason() {
     use ButtonLook::{Common, Disabled};
@@ -211,19 +214,24 @@ fn the_agents_panel_has_its_letters_s_greyed_with_its_reason() {
         buttons(&mut app),
         [
             (q(), c(PanelCommand::Move), Common),
-            (a(), c(BUILD), Common),
+            (w(), c(BUILD), Common),
+            (a(), c(PanelCommand::Attack), Common),
             (s(), c(PanelCommand::DropOff), Disabled),
             (d(), c(REPAIR), Common),
             (x(), c(PanelCommand::Stop), Common),
         ]
     );
-    assert_eq!(hint_over(&mut app, a()).as_deref(), Some("A: Build Tunnel (1 Supply)"));
+    assert_eq!(hint_over(&mut app, w()).as_deref(), Some("W: Build Tunnel (1 Supply)"));
+    assert_eq!(hint_over(&mut app, a()).as_deref(), Some("A: Attack"));
     assert_eq!(hint_over(&mut app, d()).as_deref(), Some("D: Repair"));
     tap(&mut app, &[], KeyS);
     assert_eq!(said(&app), Some(NOTHING_CARRIED_TEXT));
     assert_eq!(interface(&app), InterfaceState::DefaultState);
     tap(&mut app, &[], KeyD);
     assert_eq!(interface(&app), InterfaceState::awaiting(REPAIR));
+    tap(&mut app, &[], Escape);
+    tap(&mut app, &[], KeyA);
+    assert_eq!(interface(&app), InterfaceState::awaiting(PanelCommand::Attack));
     assert_eq!(orders(&app), []);
 }
 
@@ -232,12 +240,13 @@ fn the_agents_panel_has_its_letters_s_greyed_with_its_reason() {
 const LAB_AT: TilePos = TilePos::new(14, 13);
 
 /// Design change 0359's verification: "The Agent panel shows A: Build Tunnel with no turret option. Turrets can be
-/// ordered only from a Tunnel's ExpandMenu." Player 1 owns an Optics Lab and has the turret's 100 Space Crystals, all
-/// a Laser Turret requires: the Agent's panel is its letters still, with no Build of a turret in any slot. The Tunnel's W opens its ExpandMenu, where C, the Laser Turret, is lit, and enters its placement, the
-/// Tunnel's (`factions/syndicate/tunnel_menus.md > AwaitingPlacement (Expansion)`).
+/// ordered only from a Tunnel's ExpandMenu." (Build Tunnel is on W since design change 0398.) Player 1 owns an Optics
+/// Lab and has the turret's 100 Space Crystals, all a Laser Turret requires: the Agent's panel is its letters still,
+/// with no Build of a turret in any slot. The Tunnel's W opens its ExpandMenu, where C, the Laser Turret, is lit, and
+/// enters its placement, the Tunnel's (`factions/syndicate/tunnel_menus.md > AwaitingPlacement (Expansion)`).
 #[test]
 fn a_turret_is_the_tunnels_expand_menus_and_never_the_agents() {
-    use PanelCommand::{DropOff, Expand, Move, Stop};
+    use PanelCommand::{Attack, DropOff, Expand, Move, Stop};
     let mut app = agent_game();
     let lab = DebugCommand::Spawn {
         kind: ObjectKind::OpticsLab,
@@ -258,8 +267,11 @@ fn a_turret_is_the_tunnels_expand_menus_and_never_the_agents() {
     click_on(&mut app, AGENTS[0]);
     let shown = buttons(&mut app);
     let commands: Vec<PanelButton> = shown.iter().map(|&(_, button, _)| button).collect();
-    assert_eq!(commands, [Move, BUILD, DropOff, REPAIR, Stop].map(PanelButton::Command));
-    assert_eq!(shown[3].2, ButtonLook::Common, "D: Repair");
+    assert_eq!(
+        commands,
+        [Move, BUILD, Attack, DropOff, REPAIR, Stop].map(PanelButton::Command)
+    );
+    assert_eq!(shown[4].2, ButtonLook::Common, "D: Repair");
 
     click(&mut app, TUNNEL_AT, &[]);
     assert_eq!(selected(&app), [TUNNEL]);
@@ -279,17 +291,17 @@ fn a_turret_is_the_tunnels_expand_menus_and_never_the_agents() {
 }
 
 /// Design change 0233: "a Build order that can't be paid is refused" (0162: with the unavailable-command feedback).
-/// With 0 Supplies, A is greyed: pressing it says so, shows no ghost, and a click on the map then sends no Build. With
-/// 1 Supply, A shows the ghost; a click once the bank no longer pays (the Supplies spent meanwhile) says so too, sends
+/// With 0 Supplies, W is greyed: pressing it says so, shows no ghost, and a click on the map then sends no Build. With
+/// 1 Supply, W shows the ghost; a click once the bank no longer pays (the Supplies spent meanwhile) says so too, sends
 /// nothing, and placement goes on.
 #[test]
 fn a_build_the_bank_cant_pay_says_so_and_sends_nothing() {
     let mut app = agent_game();
     set_supplies(&mut app, 0);
     click_on(&mut app, AGENTS[0]);
-    let greyed = buttons(&mut app).into_iter().find(|(slot, ..)| *slot == a());
+    let greyed = buttons(&mut app).into_iter().find(|(slot, ..)| *slot == w());
     assert_eq!(greyed.map(|(.., look)| look), Some(ButtonLook::Disabled));
-    tap(&mut app, &[], KeyA);
+    tap(&mut app, &[], KeyW);
     let (text, first) = feedback(&app).expect("a message");
     assert_eq!(text, NO_SUPPLIES_TEXT);
     assert_eq!(interface(&app), InterfaceState::DefaultState);
@@ -299,7 +311,7 @@ fn a_build_the_bank_cant_pay_says_so_and_sends_nothing() {
 
     set_supplies(&mut app, 1);
     click_on(&mut app, AGENTS[0]);
-    tap(&mut app, &[], KeyA);
+    tap(&mut app, &[], KeyW);
     assert!(matches!(interface(&app), InterfaceState::AwaitingPlacement(_)));
     set_supplies(&mut app, 0);
     click(&mut app, centre(SITES[0]), &[]);
@@ -312,7 +324,7 @@ fn a_build_the_bank_cant_pay_says_so_and_sends_nothing() {
 
 /// `systems/controls/interface.md > AwaitingTarget > Shift while placing`: "each Agent takes exactly one
 /// placement", and placement ends at a Shift-click as at a plain one; to place with the next Agent, the player presses
-/// Tab, then A. Two Shift-clicks with two Agents leave two lingering ghosts with their Tier 1 areas, each paid as it
+/// Tab, then W. Two Shift-clicks with two Agents leave two lingering ghosts with their Tier 1 areas, each paid as it
 /// was given (1, then 2: the first ghost counts, design change 0233). The second Agent's ghost is red where its area
 /// would overlap the first ghost's, and a Shift-click there says why and sends nothing, placement going on (design
 /// change 0289: "Shift-queue two Tunnels whose areas overlap: the second ghost is red"). A third Shift-click with the
@@ -323,7 +335,7 @@ fn shift_places_several_ghosts_one_agent_each() {
     let mut app = agent_game();
     select_units(&mut app, &AGENTS);
     for (agent, site) in AGENTS.into_iter().zip(SITES) {
-        tap(&mut app, &[], KeyA);
+        tap(&mut app, &[], KeyW);
         assert!(matches!(interface(&app), InterfaceState::AwaitingPlacement(_)));
         if agent == AGENTS[1] {
             let overlapping = TilePos::new(SITES[0].x + 4, SITES[0].y);
@@ -354,7 +366,7 @@ fn shift_places_several_ghosts_one_agent_each() {
 
     // Tabbed back to the first Agent.
     let third = TilePos::new(40, 30);
-    tap(&mut app, &[], KeyA);
+    tap(&mut app, &[], KeyW);
     look_at(&mut app, centre(third));
     click(&mut app, centre(third), &[ShiftLeft]);
     assert_eq!(said(&app), Some(BUSY_TEXT));

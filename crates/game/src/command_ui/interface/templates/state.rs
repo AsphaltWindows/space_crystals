@@ -7,8 +7,8 @@ use sc_sim::ObjectKind;
 use sc_sim::construction::{self, Constructor};
 
 use super::{
-    ATTACK_SLOT, BuildMenu, InterfaceState, InterfaceTemplate, PanelCommand, colonists, cults, gdo, grid, hides_attack,
-    slot_index, syndicate,
+    BuildMenu, InterfaceState, InterfaceTemplate, PanelCommand, attack_slot, colonists, cults, gdo, grid, slot_index,
+    syndicate,
 };
 use crate::command_ui::interface::Builder;
 use crate::input::CommandSlot;
@@ -52,8 +52,8 @@ pub fn menu_of(kind: ObjectKind, building: ObjectKind) -> Option<BuildMenu> {
 /// constructor, if it is one, is `constructor` (the ActiveGroup is then a single instance: constructors are
 /// Ungroupable, `systems/controls/selection.md > SelectionGroup`, so the panel "can reliably read that
 /// instance's specific game state"):
-/// - DefaultState and AwaitingTarget: its DefaultState grid ([`grid`]), but the Peacekeeper (Shielded)'s Attack
-///   ([`hides_attack`]);
+/// - DefaultState and AwaitingTarget: its DefaultState grid ([`grid`]), its A the selection's ([`attack_slot`]:
+///   Attack while one of the selected units can attack, `attackers`, whichever group is in focus);
 /// - a build menu: the menu's entries ([`menu_grid`]); AwaitingPlacement: those of the state it goes back to
 ///   (`InterfaceState::back`): the Deployment Center's menu of the building, a Beacon's Warp In menu of it, the
 ///   Extraction Facility's and the Drone's DefaultState;
@@ -76,6 +76,7 @@ pub fn state_grid(
     kind: ObjectKind,
     interface: InterfaceState,
     constructor: Option<Constructor>,
+    attackers: bool,
 ) -> [Option<PanelCommand>; 12] {
     // A menu `kind` doesn't have (another group just became active, until the state is validated) shows its grid.
     if interface == InterfaceState::EjectMenu && grid(kind).contains(&Some(PanelCommand::EjectMenu)) {
@@ -117,8 +118,8 @@ pub fn state_grid(
         Some(menu) => menu_grid(kind, menu),
         None => grid(kind),
     };
-    if menu.is_none() && hides_attack(kind) {
-        commands[ATTACK_SLOT] = None;
+    if menu.is_none() {
+        attack_slot(&mut commands, attackers);
     }
     let Some(constructor) = constructor.filter(|_| constructs(kind)) else {
         return commands;

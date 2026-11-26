@@ -1,5 +1,6 @@
 //! A Drone's S, Set Drop-off (`factions/colonists/units/drone.md > Set Drop-off Location`, `> Drone
-//! ObjectInterfaceState`; design change 0124: "Drone: Q Move, A Deploy, S Set Drop-off, X Stop"): S enters
+//! ObjectInterfaceState`; design change 0124: "Drone: Q Move, A Deploy, S Set Drop-off, X Stop", W Deploy since
+//! design change 0398): S enters
 //! AwaitingTarget\[SetDropOffLocation\], and a left-click on an own Egress Node makes it the AssignedDropOff of the
 //! selected Drones (`sc_sim::Ability::SetDropOff`, to every selected Drone: question Q0040 point 9), back in
 //! DefaultState. "Does not interrupt current mining/movement — only updates AssignedDropOff."

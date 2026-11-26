@@ -136,7 +136,7 @@ fn the_tunnel_ghost_is_judged_by_what_the_player_knows() {
     let mut app = fog_game();
     click_on(&mut app, AGENT_ID);
     assert_eq!(display(&app), None);
-    tap(&mut app, &[], KeyA);
+    tap(&mut app, &[], KeyW);
     assert!(matches!(interface(&app), InterfaceState::AwaitingPlacement(_)));
     let (areas, rings) = display(&app).expect("the ghost's rings show");
     assert_eq!((areas, rings.len()), (vec![], 2));
@@ -221,7 +221,7 @@ fn an_upgrading_tunnel_reserves_its_larger_area_against_the_ghost() {
     submit(&mut app, P1, upgrade);
     updates(&mut app, 2);
     click_on(&mut app, AGENT_ID);
-    tap(&mut app, &[], KeyA);
+    tap(&mut app, &[], KeyW);
     let beside = TilePos::new(24, 17);
     assert_eq!(
         ghost_at(&mut app, beside),

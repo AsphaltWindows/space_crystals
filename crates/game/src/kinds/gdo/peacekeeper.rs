@@ -3,7 +3,7 @@
 //! turns with its unit's facing, and carry their labels on it (slice M3-J3: M3-K2's walkthrough found the
 //! Peacekeepers unlabelled on the map), two letters each, short enough for the Peacekeeper's 24-su body. Their panel
 //! is the BasicCombatUnit template, with the Riot Shield's toggle in R, and no Attack on the Peacekeeper
-//! (Shielded)'s (`crate::command_ui::interface::templates::grid`, `hides_attack`).
+//! (Shielded)'s while no selected unit can attack (`crate::command_ui::interface::templates::grid`, `attack_slot`).
 
 use crate::combat_effects::ShotStyle;
 use crate::command_ui::interface::templates::{InterfaceTemplate, PanelTemplate};

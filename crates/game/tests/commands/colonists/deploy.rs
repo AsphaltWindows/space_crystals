@@ -1,5 +1,5 @@
-//! A Drone's Deploy from the command panel (`factions/colonists/units/drone.md > Drone ObjectInterfaceState > A:
-//! Deploy`, design changes 0120 and 0125): A enters AwaitingPlacement of a Beacon, whose ghost follows the cursor
+//! A Drone's Deploy from the command panel (`factions/colonists/units/drone.md > Drone ObjectInterfaceState > W:
+//! Deploy`, design changes 0120, 0125 and 0398): W enters AwaitingPlacement of a Beacon, whose ghost follows the cursor
 //! snapped to the grid, green or red as far as the player knows (`Sim::deploy_check`, Reserved over a lingering ghost
 //! included); a click sends one Drone of the group to deploy there, a plain one the first, a Shift-click the first with
 //! no Deploy yet, placement chaining through the group while Shift is held; every Deploy ordered lingers as a ghost of
@@ -11,7 +11,7 @@ use sc_sim::{TileProblem, deploy};
 use space_crystals::command_ui::{Builder, PanelCommand};
 
 use super::*;
-use KeyCode::{Escape, KeyA, KeyC, KeyQ, KeyX, KeyZ, ShiftLeft, Tab};
+use KeyCode::{Escape, KeyA, KeyC, KeyQ, KeyW, KeyX, KeyZ, ShiftLeft, Tab};
 
 /// The Beacon's footprint.
 const SIZE: (u32, u32) = (2, 2);
@@ -64,8 +64,8 @@ fn queued() -> Placing {
     }
 }
 
-/// `factions/colonists/units/drone.md > Drone ObjectInterfaceState > DefaultState commands`: Q Move, A Deploy, S Set
-/// Drop-off (slice M3-J2's `gathering`), X Stop. A enters AwaitingPlacement for a Beacon, the placement keys on and no
+/// `factions/colonists/units/drone.md > Drone ObjectInterfaceState > DefaultState commands`: Q Move, W Deploy, S Set
+/// Drop-off (slice M3-J2's `gathering`), X Stop. W enters AwaitingPlacement for a Beacon, the placement keys on and no
 /// pointer over the map: the ghost,
 /// 2 × 2, follows the cursor snapped to the grid, the footprint whose centre is nearest it, and shows nothing over the
 /// HUD. A click sends the Drone a Deploy there ("Left-click on a valid location issues the Deploy order"), and back to
@@ -83,18 +83,18 @@ fn a_drone_deploys_where_its_ghost_snaps_under_the_cursor() {
         buttons(&mut app),
         [
             (slot(0, 0), c(Move), Common, "Move"),
-            (slot(1, 0), c(Deploy), Common, "Deploy"),
+            (slot(0, 1), c(Deploy), Common, "Deploy"),
             (slot(1, 1), c(SetDropOff), Common, "Drop"),
             (x, c(Stop), Common, "Stop"),
         ]
     );
-    tap(&mut app, &[], KeyA);
+    tap(&mut app, &[], KeyW);
     assert_eq!(placing(&app), Some(Placing::deploy()));
     assert_eq!(
         buttons(&mut app),
         [
             (slot(0, 0), c(Move), Disabled, "Move"),
-            (slot(1, 0), c(Deploy), Pending, "Deploy"),
+            (slot(0, 1), c(Deploy), Pending, "Deploy"),
             (slot(1, 1), c(SetDropOff), Disabled, "Drop"),
             (CommandSlot::BACK, PanelButton::Back, Back, "Back"),
             (x, c(Stop), Disabled, "Stop"),
@@ -126,13 +126,13 @@ fn a_drone_deploys_where_its_ghost_snaps_under_the_cursor() {
 }
 
 /// `systems/controls/interface.md > AwaitingTarget`: "Escape or right-click cancels"; and Back (Z): the Drones'
-/// placement goes back to their DefaultState (A is pressed there), and nothing is ordered.
+/// placement goes back to their DefaultState (W is pressed there), and nothing is ordered.
 #[test]
 fn esc_a_right_click_and_back_end_the_placement() {
     let mut app = drone_game();
     select_drones(&mut app, &[3, 4]);
     for cancel in 0..3 {
-        tap(&mut app, &[], KeyA);
+        tap(&mut app, &[], KeyW);
         assert_eq!(placing(&app), Some(Placing::deploy()));
         match cancel {
             0 => tap(&mut app, &[], Escape),
@@ -160,7 +160,7 @@ fn the_deploy_ghost_is_red_where_the_player_knows_of_a_blocker() {
             .collect()
     };
     click(&mut app, drone_at(3), &[]);
-    tap(&mut app, &[], KeyA);
+    tap(&mut app, &[], KeyW);
     hover(&mut app, middle(OWN_NODE_AT, SIZE));
     assert!(!ghost(&app).unwrap().is_valid());
     assert_eq!(tiles_with(&app, TileProblem::Structure).len(), 4, "the Egress Node");
@@ -168,10 +168,10 @@ fn the_deploy_ghost_is_red_where_the_player_knows_of_a_blocker() {
 
     // Drone 4 is ordered to deploy at the first site; it stays selected.
     click(&mut app, drone_at(4), &[]);
-    tap(&mut app, &[], KeyA);
+    tap(&mut app, &[], KeyW);
     click(&mut app, middle(SITES[0], SIZE), &[]);
     assert_eq!(orders(&app), [given(&[4], deploy_to(SITES[0]), false)]);
-    tap(&mut app, &[], KeyA);
+    tap(&mut app, &[], KeyW);
     hover(&mut app, middle(SITES[0], SIZE));
     assert!(ghost(&app).unwrap().is_valid(), "its own site, its order replaced");
     press_keys(&mut app, &[ShiftLeft]);
@@ -186,7 +186,7 @@ fn the_deploy_ghost_is_red_where_the_player_knows_of_a_blocker() {
 
     // Another Drone: the lingering ghost reserves its site.
     click(&mut app, drone_at(3), &[]);
-    tap(&mut app, &[], KeyA);
+    tap(&mut app, &[], KeyW);
     hover(&mut app, middle(SITES[0], SIZE));
     assert_eq!(tiles_with(&app, TileProblem::Reserved).len(), 4);
     let east = TilePos::new(SITES[0].x + 1, SITES[0].y);
@@ -210,7 +210,7 @@ fn the_deploy_ghost_is_red_where_the_player_knows_of_a_blocker() {
 fn shift_placement_chains_through_the_group_until_every_drone_has_a_deploy() {
     let mut app = drone_game();
     select_drones(&mut app, &[3, 4, 5, 6]);
-    tap(&mut app, &[], KeyA);
+    tap(&mut app, &[], KeyW);
     press_keys(&mut app, &[ShiftLeft]);
     for (i, site) in SITES.into_iter().enumerate() {
         click(&mut app, middle(site, SIZE), &[]);
@@ -236,7 +236,7 @@ fn shift_placement_chains_through_the_group_until_every_drone_has_a_deploy() {
 fn letting_go_of_shift_or_a_single_drone_ends_the_placement() {
     let mut app = drone_game();
     select_drones(&mut app, &[3, 4, 5, 6]);
-    tap(&mut app, &[], KeyA);
+    tap(&mut app, &[], KeyW);
     press_keys(&mut app, &[ShiftLeft]);
     click(&mut app, middle(SITES[0], SIZE), &[]);
     assert_eq!(placing(&app), Some(queued()));
@@ -247,7 +247,7 @@ fn letting_go_of_shift_or_a_single_drone_ends_the_placement() {
 
     click(&mut app, drone_at(6), &[]);
     assert_eq!(selected(&app), [6]);
-    tap(&mut app, &[], KeyA);
+    tap(&mut app, &[], KeyW);
     press_keys(&mut app, &[ShiftLeft]);
     click(&mut app, middle(SITES[2], SIZE), &[]);
     assert_eq!(interface(&app), InterfaceState::DefaultState, "Shift still held");
@@ -257,7 +257,7 @@ fn letting_go_of_shift_or_a_single_drone_ends_the_placement() {
 
 /// Design change 0125: "A Deploy order given to a group of Drones goes to one Drone only: the first in selection
 /// order [...]: a plain click goes to the first Drone in the group (replacing its orders [...]). The other Drones are
-/// untouched": six mining Drones, A and one click, and one of them goes to deploy while five keep mining.
+/// untouched": six mining Drones, W and one click, and one of them goes to deploy while five keep mining.
 #[test]
 fn a_deploy_to_mining_drones_takes_the_first_of_them_only() {
     let drones = [3, 4, 5, 6, 7, 8];
@@ -293,7 +293,7 @@ fn a_deploy_to_mining_drones_takes_the_first_of_them_only() {
             "{drone} mines"
         );
     }
-    tap(&mut app, &[], KeyA);
+    tap(&mut app, &[], KeyW);
     click(&mut app, middle(SITES[3], SIZE), &[]);
     let deploys: Vec<Given> = orders(&app)
         .into_iter()
@@ -333,7 +333,7 @@ fn a_lingering_ghost_is_its_owners_until_the_deployment_starts() {
     assert_eq!(lingering(&mut app), [], "not player 1's");
 
     click(&mut app, drone_at(4), &[]);
-    tap(&mut app, &[], KeyA);
+    tap(&mut app, &[], KeyW);
     click(&mut app, middle(SITES[0], SIZE), &[]);
     assert_eq!(lingering(&mut app), [deploy::site(SITES[0])]);
     run_until(&mut app, 600, "Drone 4 deploys", |app| {
@@ -352,7 +352,7 @@ fn a_lingering_ghost_is_its_owners_until_the_deployment_starts() {
 fn a_lingering_ghost_goes_with_a_cancelled_or_failed_deploy() {
     let mut app = drone_game();
     click(&mut app, drone_at(3), &[]);
-    tap(&mut app, &[], KeyA);
+    tap(&mut app, &[], KeyW);
     click(&mut app, middle(SITES[0], SIZE), &[]);
     assert_eq!(lingering(&mut app), [deploy::site(SITES[0])]);
     tap(&mut app, &[], KeyX);
@@ -361,7 +361,7 @@ fn a_lingering_ghost_goes_with_a_cancelled_or_failed_deploy() {
     assert_eq!(lingering(&mut app), [], "Stop replaced it");
 
     click(&mut app, drone_at(5), &[]);
-    tap(&mut app, &[], KeyA);
+    tap(&mut app, &[], KeyW);
     click(&mut app, middle(SITES[1], SIZE), &[]);
     assert_eq!(lingering(&mut app), [deploy::site(SITES[1])]);
     spawn(&mut app, ObjectKind::Peacekeeper, Some(P2), SITES[1].center());
@@ -386,12 +386,12 @@ fn a_drone_that_deploys_stays_selected_as_its_beacon() {
     use space_crystals::selection::ControlStates;
     let mut app = drone_game();
     select_drones(&mut app, &[3, 4]);
-    tap(&mut app, &[], KeyA);
+    tap(&mut app, &[], KeyW);
     // Drone 3's own spot: the footprint under it.
     let here = TilePos::new(14, 17);
     click(&mut app, middle(here, SIZE), &[]);
     assert_eq!(orders(&app), [given(&[3], deploy_to(here), false)]);
-    tap(&mut app, &[], KeyA);
+    tap(&mut app, &[], KeyW);
     run_until(&mut app, 200, "Drone 3 deploys", |app| {
         object(app, 3).kind == ObjectKind::Beacon
     });
@@ -417,7 +417,7 @@ fn a_drone_that_deploys_stays_selected_as_its_beacon() {
     let x = CommandSlot::CANCEL_PRODUCTION;
     let cancel = (x, c(PanelCommand::CancelTransform), ButtonLook::Group, "Cancel");
     assert_eq!(buttons(&mut app), [cancel]);
-    for key in [KeyQ, KeyA, KeyC] {
+    for key in [KeyQ, KeyW, KeyA, KeyC] {
         tap(&mut app, &[], key);
         assert_eq!(interface(&app), InterfaceState::DefaultState, "{key:?} does nothing");
     }
@@ -439,9 +439,9 @@ fn a_drone_that_deploys_stays_selected_as_its_beacon() {
 fn the_placement_ends_when_its_last_drone_becomes_a_beacon() {
     let mut app = drone_game();
     click(&mut app, drone_at(3), &[]);
-    tap(&mut app, &[], KeyA);
+    tap(&mut app, &[], KeyW);
     click(&mut app, middle(SITES[0], SIZE), &[]);
-    tap(&mut app, &[], KeyA);
+    tap(&mut app, &[], KeyW);
     assert_eq!(placing(&app), Some(Placing::deploy()));
     run_until(&mut app, 600, "Drone 3 deploys", |app| {
         object(app, 3).kind == ObjectKind::Beacon

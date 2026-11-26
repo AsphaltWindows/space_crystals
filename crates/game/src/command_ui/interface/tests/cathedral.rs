@@ -2,16 +2,16 @@
 //! (`factions/cults/structures/cathedral.md > Placeholder stats`: "Panel like the Armory's (choose a kind with Q/W/E/R
 //! first, then; README > Choosing Recruits, Release and Eject All): **Q: Train Disciple**, **A: Release** in the kind
 //! menu; **A: Eject All**, **C: Set Rally Point**, **X: Cancel Production**"); the Disciple's the BasicCombatUnit's,
-//! its attack commands greyed for want of a weapon, and its R, Shroud (`factions/cults/units/disciple.md > Placeholder
-//! stats`: "ObjectInterfaceState: BasicCombatUnitInterfaceState, plus **R: Shroud**"; slice M5-N4b). Both in a game:
-//! `crates/game/tests/commands/cathedral.rs`.
+//! its attack commands greyed or not shown for want of a weapon, and its R, Shroud (`factions/cults/units/disciple.md >
+//! Placeholder stats`: "ObjectInterfaceState: BasicCombatUnitInterfaceState, plus **R: Shroud**"; slice M5-N4b). Both
+//! in a game: `crates/game/tests/commands/cathedral.rs`.
 
 use sc_sim::testing::ScenarioBuilder;
 use sc_sim::{Faction, PlayerId, RecruitKind, SpawnAt};
 
 use super::cults::counted;
 use super::*;
-use crate::command_ui::feedback::{NOT_ENOUGH_ENERGY_TEXT, NOT_FOR_TYPE_TEXT, SHIELDS_UP_TEXT, unavailable_text};
+use crate::command_ui::feedback::{NOT_ENOUGH_ENERGY_TEXT, NOT_FOR_TYPE_TEXT, unavailable_text};
 use crate::command_ui::resolution::{UnitCapabilities, unit_target_order};
 
 const CATHEDRAL: ObjectKind = ObjectKind::Cathedral;
@@ -82,9 +82,10 @@ fn the_cathedral_trains_disciples_from_its_kind_menus() {
 
 /// `factions/cults/units/disciple.md > Placeholder stats`: "ObjectInterfaceState: BasicCombatUnitInterfaceState, plus
 /// **R: Shroud**", read from a game with two Disciples. Q Move, E Hold Position, S Patrol and X Stop are its own; W
-/// Reverse and D Attack Ground are unavailable, as an infantry's without a ground attack are; A Attack is greyed, "Not
-/// available for this unit": it has no weapon ("AttackAttributes - None"), and the gate refuses its Attack
-/// (`sc_sim::combat::takes_attack_orders`, plan decision T10). R is Shroud (slice M5-N4b), labelled with its name, a
+/// Reverse and D Attack Ground are unavailable, as an infantry's without a ground attack are; A Attack isn't shown: it
+/// has no weapon ("AttackAttributes - None"), the gate refusing its Attack (`sc_sim::combat::takes_attack_orders`,
+/// plan decision T10), and no selected unit can attack (design change 0399: "Only when **no** selected unit can attack
+/// is A not shown"). R is Shroud (slice M5-N4b), labelled with its name, a
 /// Shroud order at once. The Disciple is Ungroupable ("Groupable - false (user, 2026-11-26; Q0112: each R press starts
 /// one Disciple's channel; Tab to the next)"): two are two groups, a common command goes to both, and R to the one of
 /// the ActiveGroup alone. Below 10 energy R is greyed, "Not enough energy", as the gate refuses it
@@ -93,7 +94,7 @@ fn the_cathedral_trains_disciples_from_its_kind_menus() {
 #[test]
 fn the_disciple_greys_its_attack_commands_and_shrouds_with_r() {
     use ButtonLook::{Common, Disabled, Group, Unavailable};
-    use PanelCommand::{Attack, AttackGround, HoldPosition, Move, Patrol, Reverse, Shroud, Stop};
+    use PanelCommand::{AttackGround, HoldPosition, Move, Patrol, Reverse, Shroud, Stop};
     let player = PlayerId(1);
     let mut t = ScenarioBuilder::new(&vec![".".repeat(16); 16].join("\n"))
         .faction(player, Faction::Cults)
@@ -119,18 +120,13 @@ fn the_disciple_greys_its_attack_commands_and_shrouds_with_r() {
             (slot(0, 1), c(Reverse), Unavailable),
             (slot(0, 2), c(HoldPosition), Common),
             (slot(0, 3), c(Shroud), Common),
-            (slot(1, 0), c(Attack), Disabled),
             (slot(1, 1), c(Patrol), Common),
             (slot(1, 2), c(AttackGround), Unavailable),
             (slot(2, 1), c(Stop), Common),
         ]
     );
     let why = |panel: &Panel, at| panel.get(at).and_then(|shown| shown.why).map(unavailable_text);
-    assert_eq!(
-        why(&default, slot(1, 0)),
-        Some(NOT_FOR_TYPE_TEXT),
-        "Attack, without a weapon"
-    );
+    assert_eq!(default.get(slot(1, 0)), None, "no Attack, without a weapon");
     assert_eq!(why(&default, slot(1, 2)), Some(NOT_FOR_TYPE_TEXT), "Attack Ground");
     assert_eq!(why(&default, slot(0, 3)), None, "Shroud, with its 50 energy");
     let shroud = default.get(slot(0, 3)).unwrap();
@@ -166,30 +162,54 @@ fn the_disciple_greys_its_attack_commands_and_shrouds_with_r() {
     assert_eq!(other.unavailable(&tabbed, Shroud), None, "the other one has its energy");
 }
 
-/// A Disciple among armed units (design change 0075's rule for the units that take no Attack, `unit_target_order`):
-/// beside a Militant, A Attack is available, the Militant's; an explicit Attack on an object leaves the Disciple out,
-/// which keeps its orders, as the gate does (`sc_sim::combat::takes_attack_orders`), and an AttackMove takes it along
-/// (design change 0076: "it plays out as a move for a unit that can't attack"). Beside a Peacekeeper (Shielded) only,
-/// Attack is greyed for the shield: "Lower the Riot Shield first".
+/// A Disciple among armed units (`systems/controls/interface.md > CommandPanel`, design changes 0397 to 0399): beside a
+/// Militant, A Attack shows with either in focus, the Disciple's group too, and goes to both; an explicit Attack on an
+/// object sends the Disciple, which can't attack, to the object, a Move to it ("on a target they move to it (as a Move
+/// on that object)", `unit_target_order`), and an AttackMove takes it along, which plays out as a move for it ("on
+/// ground they move to the spot (with the group, as for Attack Move)", design change 0076). Alone, or beside a
+/// Peacekeeper (Shielded) only, no selected unit can attack, and no panel of theirs shows A ("Only when **no**
+/// selected unit can attack is A not shown").
 #[test]
-fn an_attack_leaves_the_disciple_out_and_an_attack_move_takes_it_along() {
-    let mixed = Selection::new([(id(1), DISCIPLE), (id(2), MILITANT)]);
+fn an_attack_sends_the_disciple_to_its_target_and_an_attack_move_takes_it_along() {
+    use sc_sim::Target;
+    let mut mixed = Selection::new([(id(1), DISCIPLE), (id(2), MILITANT)]);
     let modes = Modes::default().with_unarmed([id(1)]);
     let conditions = Conditions::with_modes(modes.clone());
+    assert!(conditions.attacks(&mixed));
     assert!(conditions.allows(&mixed, PanelCommand::Attack));
-    assert_eq!(recipients(&mixed, PanelCommand::Attack), [id(1), id(2)]);
+    for _ in 0..2 {
+        let shown = panel(&mixed, InterfaceState::DefaultState, &conditions);
+        let a = shown.get(slot(1, 0)).map(|a| (a.button, a.look));
+        let attack = (PanelButton::Command(PanelCommand::Attack), ButtonLook::Common);
+        assert_eq!(a, Some(attack), "{:?} in focus", mixed.active().map(|g| g.kind));
+        assert_eq!(press(&shown, slot(1, 0)), SlotPress::AwaitTarget(PanelCommand::Attack));
+        assert_eq!(recipients(&mixed, PanelCommand::Attack), [id(1), id(2)]);
+        mixed.cycle(true);
+    }
     let disciple = UnitCapabilities::of(id(1), DISCIPLE, &modes);
     let militant = UnitCapabilities::of(id(2), MILITANT, &modes);
     let attack = OrderKind::Attack(id(9));
-    assert_eq!(unit_target_order(disciple, attack), None, "left out");
-    assert_eq!(unit_target_order(militant, attack), Some(attack));
+    let to_it = OrderKind::Move(Target::Object(id(9)));
+    assert_eq!(unit_target_order(disciple, attack), to_it, "moves to it");
+    assert_eq!(unit_target_order(militant, attack), attack);
     let attack_move = OrderKind::AttackMove(bevy::math::Vec2::new(100.0, 100.0));
-    assert_eq!(unit_target_order(disciple, attack_move), Some(attack_move));
+    assert_eq!(unit_target_order(disciple, attack_move), attack_move);
     let disciples = Selection::new([(id(1), DISCIPLE)]);
-    let why = conditions.unavailable(&disciples, PanelCommand::Attack);
-    assert_eq!(why, Some(WhyUnavailable::NotForThisType));
-    let shielded = Selection::new([(id(1), DISCIPLE), (id(3), ObjectKind::PeacekeeperShielded)]);
+    assert!(!conditions.attacks(&disciples));
+    let alone = panel(&disciples, InterfaceState::DefaultState, &conditions);
+    assert_eq!(alone.get(slot(1, 0)), None, "no A");
+    let mut shielded = Selection::new([(id(1), DISCIPLE), (id(3), ObjectKind::PeacekeeperShielded)]);
     let modes = Modes::from_iter([(id(3), ShieldMode::Raised)]).with_unarmed([id(1)]);
-    let why = Conditions::with_modes(modes).unavailable(&shielded, PanelCommand::Attack);
-    assert_eq!(why.map(unavailable_text), Some(SHIELDS_UP_TEXT));
+    let conditions = Conditions::with_modes(modes);
+    assert!(!conditions.attacks(&shielded));
+    for _ in 0..2 {
+        let shown = panel(&shielded, InterfaceState::DefaultState, &conditions);
+        assert_eq!(
+            shown.get(slot(1, 0)),
+            None,
+            "{:?}: no A",
+            shielded.active().map(|g| g.kind)
+        );
+        shielded.cycle(true);
+    }
 }

@@ -14,7 +14,7 @@ use space_crystals::placement::RecruitmentAreaOverlay;
 use space_crystals::placement::recruitment_areas::EffectivenessLabel;
 
 use super::*;
-use KeyCode::{KeyA, KeyQ, ShiftLeft};
+use KeyCode::{KeyQ, KeyW, ShiftLeft};
 
 const P1: PlayerId = PlayerId(1);
 const P2: PlayerId = PlayerId(2);
@@ -92,12 +92,13 @@ fn look_at(app: &mut App, view: Vec2) {
     app.update();
 }
 
-/// Selects player 1's four Recruits and enters their Recruitment Hall's placement: A then Q
-/// (`factions/cults/units/recruit.md > Recruit ObjectInterfaceState`, slice M5-J1).
+/// Selects player 1's four Recruits and enters their Recruitment Hall's placement: W then Q
+/// (`factions/cults/units/recruit.md > Recruit ObjectInterfaceState`, slice M5-J1; W Basic Construct since design
+/// change 0398).
 fn place_a_hall(app: &mut App) {
     look_at(app, pos(app, RECRUITS[1]));
     select_units(app, &RECRUITS);
-    tap(app, &[], KeyA);
+    tap(app, &[], KeyW);
     tap(app, &[], KeyQ);
     assert!(matches!(interface(app), InterfaceState::AwaitingPlacement(_)));
 }
@@ -268,7 +269,7 @@ fn a_ghost_hall_placed_takes_its_tiles_from_the_next() {
         "letting go of Shift ends placement"
     );
 
-    tap(&mut app, &[], KeyA);
+    tap(&mut app, &[], KeyW);
     tap(&mut app, &[], KeyQ);
     ghost_at(&mut app, second);
     assert_eq!(counts(&app), ([100, 0, 0, 0, 0], 100), "the click would replace it");

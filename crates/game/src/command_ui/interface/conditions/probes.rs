@@ -75,7 +75,7 @@ pub(super) fn refusal(sim: &Sim, player: PlayerId, selection: &Selection, comman
     (!placed).then_some(reject)
 }
 
-/// The Build order an Agent's A or a Recruits' Construct menu entry would send (`PanelCommand::Build`, to the command's
+/// The Build order an Agent's W or a Recruits' Construct menu entry would send (`PanelCommand::Build`, to the command's
 /// recipients), to ask the gate whether the button is available: unqueued, unturned, at the map's north-west corner.
 /// Where it stands matters only to the placement's check, the gate's last (`Reject::Unplaceable`), which the panel
 /// leaves out: the ghost judges each spot as it is placed.

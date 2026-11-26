@@ -4,7 +4,7 @@
 //! every button of every panel, Back and the greyed-out ones too (`crate::command_ui::Panel::name`: named after the
 //! ActiveGroup's type where the design does so, "Q: Warp In (Basic)" on a Beacon's). The client has no tooltips; the
 //! design names no place for a command's name (placeholder until the HUD pass). An Agent's Build names its price too,
-//! "A: Build Tunnel (2 Supplies)" (slice M4-J1; design change 0233: "the price shown on the Build button is the next
+//! "W: Build Tunnel (2 Supplies)" (slice M4-J1; design change 0233: "the price shown on the Build button is the next
 //! Tunnel's"; `crate::command_ui::PanelSlot::price`), the placeholder for its tooltip, as a Recruit's does in its
 //! resource, "W: Build Storage (100 Space Crystals)" (slice M5-J1), and so does a Tunnel's Upgrade, "Q: Upgrade Tunnel
 //! (2 Supplies)" (slice M4-G).
@@ -218,8 +218,10 @@ mod tests {
                     seen.insert(command);
                 }
             }
-            // All of them; but the Peacekeeper (Shielded)'s panel shows "no Attack" (design change 0173).
-            let hidden = (ty.kind == ObjectKind::PeacekeeperShielded).then_some(PanelCommand::Attack);
+            // All of them; but the A of a type that can't attack, alone, shows no Attack (design change 0399: "Only
+            // when **no** selected unit can attack is A not shown"): the Peacekeeper (Shielded)'s (design change
+            // 0173), the Disciple's.
+            let hidden = (!sc_sim::combat::takes_attack_orders(ty.kind)).then_some(PanelCommand::Attack);
             for command in commands(ty).into_iter().filter(|&c| Some(c) != hidden) {
                 assert!(seen.contains(&command), "{ty:?}'s {command:?} is shown");
             }
@@ -228,10 +230,10 @@ mod tests {
     }
 
     /// Slice M4-J1: the Agent's buttons by name (`factions/syndicate/units/agent.md > Agent ObjectInterfaceState`), its
-    /// Build with the price the sim would charge (design change 0233: "the price shown on the Build button is the next
-    /// Tunnel's", the hint standing in for its tooltip), greyed or not; its D, Repair (design change 0359, slice M5-N8),
-    /// with no price; and a site's one button. (A price in Space Crystals, a Cults building's, is
-    /// `tests/commands/recruit_ui.rs`'s.)
+    /// W Build (design change 0398) with the price the sim would charge (design change 0233: "the price shown on the
+    /// Build button is the next Tunnel's", the hint standing in for its tooltip), greyed or not; its A, Attack; its D,
+    /// Repair (design change 0359, slice M5-N8), with no price; and a site's one button. (A price in Space Crystals, a
+    /// Cults building's, is `tests/commands/recruit_ui.rs`'s.)
     #[test]
     fn the_hint_names_the_agents_buttons_and_their_prices() {
         let hotkeys: Vec<String> = CommandSlot::all()
@@ -247,10 +249,11 @@ mod tests {
         let priced = |price| Conditions::default().pricing(build, BuildPrice::supplies(price));
         let short = priced(3).refusing(build, sc_sim::Reject::InsufficientSupplies);
         let cases = [
-            (said(priced(0), slot(1, 0)), "A: Build Tunnel (0 Supplies)"),
-            (said(priced(1), slot(1, 0)), "A: Build Tunnel (1 Supply)"),
-            (said(short, slot(1, 0)), "A: Build Tunnel (3 Supplies)"),
+            (said(priced(0), slot(0, 1)), "W: Build Tunnel (0 Supplies)"),
+            (said(priced(1), slot(0, 1)), "W: Build Tunnel (1 Supply)"),
+            (said(short, slot(0, 1)), "W: Build Tunnel (3 Supplies)"),
             (said(priced(2), slot(0, 0)), "Q: Move"),
+            (said(priced(2), slot(1, 0)), "A: Attack"),
             (said(priced(2), slot(1, 1)), "S: Drop Off Resources"),
             (said(priced(2), slot(1, 2)), "D: Repair"),
             (said(priced(2), slot(2, 1)), "X: Stop"),

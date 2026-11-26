@@ -181,16 +181,17 @@ fn clicks_resolve_by_what_is_under_the_cursor() {
 }
 
 /// The Riot Shield's two rules. A right-click that would attack sends a shielded unit after the target instead
-/// (design change 0074): it follows a unit and moves to a structure. An explicit Attack leaves it out (0075), on
-/// any object, own ones too (force-attack); every other order of a targeting click, an AttackMove included
-/// (0076), goes to it as to the others.
+/// (design change 0074): it follows a unit and moves to a structure. An explicit Attack, on any object, own ones too
+/// (force-attack), sends it to the object, a Move to it, as every unit that can't attack (design change 0398: "on a
+/// target they move to it (as a Move on that object)"); every other order of a targeting click, an AttackMove
+/// included (0076), goes to it as to the others.
 #[test]
-fn a_raised_shield_follows_on_a_right_click_and_is_left_out_of_an_explicit_attack() {
+fn a_raised_shield_follows_on_a_right_click_and_moves_to_the_target_of_an_explicit_attack() {
     assert_eq!(unit_right_click(SHIELDED, &enemy()), Some(object(6)));
     assert_eq!(unit_right_click(SHIELDED, &enemy_structure()), Some(object(5)));
-    for kind in [OrderKind::Attack(id(6)), OrderKind::Attack(id(2))] {
-        assert_eq!(unit_target_order(SHIELDED, kind), None, "{kind:?}");
-        assert_eq!(unit_target_order(ARMED, kind), Some(kind));
+    for (target, kind) in [(6, OrderKind::Attack(id(6))), (2, OrderKind::Attack(id(2)))] {
+        assert_eq!(unit_target_order(SHIELDED, kind), object(target), "{kind:?}");
+        assert_eq!(unit_target_order(ARMED, kind), kind);
     }
     let everyone = [
         OrderKind::AttackMove(P),
@@ -202,7 +203,7 @@ fn a_raised_shield_follows_on_a_right_click_and_is_left_out_of_an_explicit_attac
     ];
     for kind in everyone {
         for unit in [ARMED, SHIELDED, UNARMED] {
-            assert_eq!(unit_target_order(unit, kind), Some(kind), "{unit:?} {kind:?}");
+            assert_eq!(unit_target_order(unit, kind), kind, "{unit:?} {kind:?}");
         }
     }
 }
