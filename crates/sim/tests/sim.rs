@@ -88,6 +88,7 @@ mod gunner;
 #[path = "holding/main.rs"]
 mod holding;
 mod invariants_overlap;
+mod invariants_state;
 mod known_from_the_start;
 #[path = "losing_tunnels/main.rs"]
 mod losing_tunnels;
