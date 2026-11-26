@@ -1899,8 +1899,9 @@ The design is `docs/movement.md > 6` (binding; its **(D)** marks are where slice
 magic box did, **(Y)** where friendly yielding and the answers to Q0008 did, **(Q)** where queued group orders did, **(G)** where
 the hardening of crowds and nav performance did, **(H2)** where gathering Drones passing through each other did,
 **(M3-G)** where DragMovement and idle units moving apart did, **(M3-G2)** where a queueing unit going round
-the row in its way did, **(M3-G3)** where one with no way round giving up did),
-and the code is `crates/sim/src/movement.rs` and `movement/`, with the unit's state in `mover.rs`.
+the row in its way did, **(M3-G3)** where one with no way round giving up did, **(H1)** where Gliders and the soft
+separation of air units did), and the code is `crates/sim/src/movement.rs` and `movement/`, with the unit's state in
+`mover.rs`.
 
 - **One pipeline, sequential commit** (`movement::step`, phase 5d): the step builds one spatial grid per collision
   layer (ground, underground; air units collide with nothing) from every unit, then moves the units in id order and
@@ -2055,9 +2056,9 @@ and the code is `crates/sim/src/movement.rs` and `movement/`, with the unit's st
   it gives the target up (design change 0223 point 1, as built).
 - **Movement models** (`movement/follow.rs`, `movement/drag.rs`; `docs/movement.md > 6.7`): path following, lane
   seeking, the rules after the sweep, yielding and the stuck clock are shared (`follow`), and a model replaces only
-  the "direction → facing and velocity" part. Two are built: the units that stop within the tick (every GDO unit
+  the "direction → facing and velocity" part. Two are built so: the units that stop within the tick (every GDO unit
   and the Legionnaires: the step the rules give is their move) and **DragMovement** (the Drone, slice M3-G, plan
-  decision T25).
+  decision T25). **GliderMovement** (below) replaces the whole tick.
   - **The integration scheme is fixed**: turn (at most TurnRate, towards the step the unit wants; it never stands
     to turn), drag (`v ← v × (1 − DragRatio)`, the ratio doubled while the tile under the unit's centre is Rugged:
     design change 0039), thrust (`v ← v + a`: OmniDirectionalAcceleration any way plus up to ForwardAcceleration
@@ -2092,7 +2093,35 @@ and the code is `crates/sim/src/movement.rs` and `movement/`, with the unit's st
     swings wide, or meets the wall beyond and starts again from rest. **(M3-D2)** The walk out of a portal's energy
     doorway is the model's own (`Drag::along`: thrust along the heading, the speed carried from tick to tick, and
     without a path braking to land where the unit comes clear).
-  - The other three models aren't built: their units would move like the first kind.
+  - The other two models aren't built: their units would move like the first kind.
+- **GliderMovement** (`movement/glider.rs`, `Glider::fly`; slice M5-H1, plan decision T81; `docs/movement.md > 6.9`): a
+  Glider (the Sparrow) flies instead of following a path, and collides with nothing. Its speed is `Mover::momentum`'s
+  length, always between IdleSpeed and MaxSpeed, its turn in a tick at most `MaxCentripetalAcceleration / v`, and its
+  Locomotion always Moving. Without a goal it circles its `Mover::orbit` at IdleSpeed on 1 grid unit
+  (`tuning::air::IDLE_CIRCLE_GU`); with a point it arrives within that circle and circles the point for as long as the
+  order lasts; an Attack or an Attack Ground makes a strafing run (`Mover::strafe`, `Pass`: toward the target, over it,
+  on until out of range, back at full speed), set by `orders::engage::close_in` and `orders::attack_ground`. Ask
+  `UnitDef::glides` (or a behaviour's `orders::world::Unit::glides`) whether a unit is a Glider. **Never make a Glider
+  stand**: `Mover::stop` and `finish` clear its goal, orbit and run, and it circles where it is from its next flight;
+  the behaviours never wait on its arrival (a Move's order never completes, so a queued order after it waits). The
+  ground units' back-off from a target inside MinRange is skipped for it. Its base gets no turn budget in phase 5e
+  (`movement::turn_rate` is 0 for it): only its turret aims.
+- **Where an object counts as being: `Object::map_pos`** (slice M5-H1; `systems/units.md > Air Collision`: a Glider
+  outside the map edge "stays visible and attackable as if it were at the nearest edge tile"). A Glider's `pos` may
+  leave the map while it turns or circles (no cap: design change 0354); `map_pos` is `pos` clamped onto the map
+  (`Map::clamp_point`), and `Shape::on_map` the shape there. Vision (an object's eye and how others see it,
+  `PlayerVision::map_box`), targeting and the combat phases, ranges and chases (`movement::Chased`), the behaviours'
+  snapshot (`orders::world::View`) and path serving read `map_pos`. **Read `pos` only for where the object is drawn
+  and moves from**; anything that asks where it is in the game asks `map_pos`. For every object on the map the two are
+  the same.
+- **Air units keep apart softly** (`movement/air.rs`, `air::separate`; slice M5-H1, plan decision T81, design change
+  0328; `docs/movement.md > 6.10`): after every unit has moved and yielded in 5d, each pair of air units with a
+  SeparationRadius (`UnitDef::separation_radius`: the Sparrow's 32 su) nearer than the larger radius is pushed apart,
+  each by half of what the pair lacks, a unit's whole push in a tick capped at `tuning::air::SEPARATION_PUSH_SU`
+  (2 su, a placeholder). The pairs come from a `space::Layer` of the air units, in id order, and the pushes are summed
+  and applied together; nothing blocks them. A HoverCraft is kept on the map (design change 0045), a Glider isn't. A
+  push is no part of the unit's own move: `velocity` and `momentum` stay its movement's, and a unit at rest stays at
+  rest. Units spawned in the tick are pushed against but not pushed.
 - **Idle units that overlap move apart** (`movement/separate.rs`; design change 0126, which amends 0106's "nothing
   is pushed apart"): in its turn, a unit that yields (`yielding::can_yield`: no command at all) and is at rest
   takes a step off the lowest-id unit its box overlaps, along the axis it is out soonest, at
@@ -2126,7 +2155,12 @@ and the code is `crates/sim/src/movement.rs` and `movement/`, with the unit's st
   which must have neither a goal nor an order, a unit walking out of an exit doorway, **(M3-G)** a DragMovement
   unit braking off the momentum it had (it must be `Stopping`, its velocity its momentum, and slower than a tick
   before; no other model may ever have momentum), and an idle unit that overlapped another a tick earlier, or was
-  evacuated in the tick, moving off it (design changes 0126 and 0349). K1 (`paths`): each player's known grids are
+  evacuated in the tick, moving off it (design changes 0126 and 0349), and (M5-H1) a Glider, which flies and has
+  momentum without a goal, and an air unit with a SeparationRadius pushed off another, by at most
+  `SEPARATION_PUSH_SU` (which I3 allows it beyond its speed too). (M5-H1) G1 (`gliders`): every Glider that was in the
+  game a tick earlier flies at a speed between its IdleSpeed and MaxSpeed, its velocity its momentum, and its
+  `map_pos` is on the map; one stopped after its flight (its Attack's target died in phase 5e) shows no move until
+  its next, and keeps its speed. K1 (`paths`): each player's known grids are
   those a fresh build
   from the state gives. P1 (`projectiles`, slice M4-O, plan decision T42): every projectile in flight lands after the
   tick just played, between finite points. O1 (`operations`, slice M4-F): a Tunnel's operation and its site name each
@@ -2151,7 +2185,7 @@ and the code is `crates/sim/src/movement.rs` and `movement/`, with the unit's st
   the map (`TestSim::ascii`: units as letters, with a legend). The check is on by default; `check_invariants(false)`
   turns it off for timing runs. A test that steps a bare `Sim` keeps its own `Invariants` and calls `check` after each
   step, as the golden games do (`tests/golden/harness.rs`). The fuzz's games (`tests/robustness.rs`, the seed sweep's)
-  check the rules' invariants alone, `Invariants::check_rules` (P1, O1, R1, H1, B1, A1, E1, T1, C1, F1): V1 and K1, which
+  check the rules' invariants alone, `Invariants::check_rules` (P1, O1, R1, H1, B1, A1, E1, T1, C1, F1, G1): V1 and K1, which
   rebuild the vision and the planning grids, would take the sweep from 5 s to 26 s.
 
 ## Economy
@@ -2790,7 +2824,9 @@ their energy doorway, slice M3-D2: design change 0145, `factions/colonists/struc
   and the player isn't defeated (`Defeated`, see *Economy > Defeat and the end of the game*), a debug command needs
   debug commands on (`DebugDisabled`), then the command's own rules: every id it names exists (`UnknownObject`) and, for
   a player's orders to objects, belongs to that player (`NotOwned`, through `Sim::referenced(id, Some(player))`; debug
-  commands and targets may name anyone's objects), positions are finite and on the map (`OffMap`), an order's target
+  commands and targets may name anyone's objects), positions are finite and on the map (`OffMap`; (M5-H1) an order's
+  finite point is clamped onto the map instead, `Map::clamp_point`, so that a click past the edge sends the units to
+  the edge: plan decision T81, design change 0045), an order's target
   object is one the issuing player sees or remembers (`NotVisible`, below), spawns fit (`Spawn(SpawnProblem)`) and keep apart
   from other footprints (`Overlaps(id)`, see Object model). A rejected command changes nothing, neither the state
   nor the events, and never panics.
@@ -5085,8 +5121,9 @@ each module can later become one loaded struct (the data files come at playtest,
 belongs to one object goes in its def instead (*Adding a unit or structure*).
 
 - **The sim's** (`crates/sim/src/tuning/`, slice M4-R1): one module per system, `combat.rs`, `construction.rs`,
-  `gathering.rs`, `movement.rs`, `orders.rs`, `paths.rs`, `production.rs`, `repair.rs`, `shields.rs`, `tunnel.rs` and
-  `vision.rs`, each mapping one to one onto the struct a data file will load at playtest prep. The code imports its
+  `gathering.rs`, `movement.rs`, `orders.rs`, `paths.rs`, `production.rs`, `repair.rs`, `shields.rs`, `tunnel.rs`,
+  `vision.rs` and (slice M5-H1) `air.rs` (the idle circle, the separation's push, how a Glider joins its circle), each
+  mapping one to one onto the struct a data file will load at playtest prep. The code imports its
   constants from there (`use crate::tuning::movement::{JAMMED_TICKS, MAX_REPATHS};`). A faction's own rule is in its
   `defs/<faction>.rs`.
 - **The client's feel** (`crates/game/src/tuning/`, slice M4-R2): `camera.rs` (the view's width, the pan speed, the

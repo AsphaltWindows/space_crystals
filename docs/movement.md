@@ -67,6 +67,11 @@
   Q0109): 6.5's rule 1 doesn't apply to an Agent's leg back to its Tunnel's crystal hatch. Its changes are marked
   **(M4-W2)**. The code is `Mover::presses_on`, `stuck.rs` (`target_is_occupied`) and
   `crates/sim/src/orders/gather/legs.rs` (`return_leg`).
+- **Gliders fly, and air units keep apart** (slice M5-H1; plan decision T81; design changes 0328, 0354 and 0355,
+  answering Q0120): 6.9 is GliderMovement, 6.10 the soft separation of air units, and 8 has the invariant G1 and
+  the amendments of I3, I5 and I7. Its changes are marked **(H1)**. The code is `crates/sim/src/movement/glider.rs`,
+  `movement/air.rs`, `mover/flight.rs` (`Mover::orbit`, `Mover::strafe`), `tuning/air.rs`, `Object::map_pos` and the
+  gate's clamp of an order's point onto the map (`sim/gate/orders.rs`).
 
 Design references are `path/file.md > Section`, with paths relative to `artifacts/designer/design/`.
 Every number marked *(placeholder)* becomes a named const tagged with the question that covers it (section 2).
@@ -186,7 +191,7 @@ Phases 1–4 stay as they are. Order commands (phase 4) only write `Orders` queu
 | 5a `orders::update` | Pops completed orders, runs the behaviour state machine, writes `mover.goal`, reads `mover.status` and last tick's positions and visibility. **(E)** Every behaviour reads one snapshot of the objects, taken before any of them runs (`orders::world::World`) | After commands, so an order acts in its own tick; before movement, so there is one writer of goals |
 | 5b `paths::sync` | If a tile-blocking object changed: rebuild the **true** NavGrids and components, bump `nav_version` **(K)**. Then build the grids of a class whose first unit came in, or was queued (5.2, M5-Z2) | The movement below must collide with this tick's obstacles |
 | 5c `paths::serve` | Runs the staggered path checks (5.6, 6.2), then serves `Wanted` requests within the budget (5.5). **(K)** Each unit on its owner's known grids, as of the end of the last tick | After goals, before steering; a repath a check asks for is served in the same tick |
-| 5d `movement::step` | **The one movement pipeline**: steer, resolve collisions, commit `pos`/`facing`/`velocity`/channels, set `status` | Single place that writes `pos` |
+| 5d `movement::step` | **The one movement pipeline**: steer, resolve collisions, commit `pos`/`facing`/`velocity`/channels, set `status`. **(H1)** A Glider flies instead (6.9); after every unit has moved and yielded, air units are pushed apart (6.10) | Single place that writes `pos` |
 | 5e combat | Attack phases, hit list, damage, deaths (other slice) | Shoots from post-move positions |
 | 5f vision | Visibility per player (other slice) | Sees final positions |
 | end: path knowledge **(K)** | `PathKnowledge::observe`, the grids of the units the tick brought (5.2), then `paths::sync_known`: each player whose known footprints changed gets a new knowledge version and its grids rebuilt | After the vision and its records, which it follows from; once per tick, so a player's grids are rebuilt at most once per tick and between ticks they follow from the state alone |
@@ -833,6 +838,58 @@ units both move; a unit with a command (Hold Position, mining, any order) never 
 through the same predicates as every move, so it brings no new overlap. `n` units stacked on one point come
 apart within `18 × (n − 1)` ticks for Drones, 12 each for Peacekeepers.
 
+**6.9 GliderMovement. (H1)** `systems/units.md > GliderMovement`, `systems/units.md > Air Collision`; the
+GliderMovement exceptions of `systems/controls/command_behaviors.md > MovingToLocation`,
+`systems/controls/command_behaviors.md > AttackingObject`, `systems/controls/command_behaviors.md >
+AttackingLocation`, `systems/controls/command_behaviors.md > Stopping` and `systems/controls/command_behaviors.md >
+HoldingPosition`; `factions/cults/units/sparrow.md > Placeholder stats` (its Flight rules); plan decision T81. The code is `movement/glider.rs` (`Glider::fly`, one Glider's tick in place
+of 6.3's), and its unit tests are `movement/glider/tests.rs`.
+- **It never stops.** Its speed is the length of `Mover::momentum`, carried from tick to tick along its facing,
+  between IdleSpeed and MaxSpeed, changed by at most its Acceleration or Deceleration in a tick. It wants MaxSpeed
+  with a goal and IdleSpeed without one. Its Locomotion is always Moving. One that hasn't flown yet starts at
+  IdleSpeed (*placeholder*: a debug spawn comes into the game flying).
+- **Its turn** in a tick is at most `MaxCentripetalAcceleration / v` radians at the speed `v` of that tick, so its
+  tightest circle has a radius of `v² / a`: 200 su for a Sparrow at its MaxSpeed of 10 su a tick and its 0.5 su a
+  tick² (design change 0355), a full loop in about 8 s. Nothing is left of the turn budget (6.3) for phase 5e to
+  aim its base by: only its flight turns it, and its turret aims.
+- **Circling**: without a goal it circles its orbit (`Mover::orbit`) at IdleSpeed on a circle of 1 grid unit
+  (`IDLE_CIRCLE_GU`, design change 0354), clockwise (*placeholder*), its heading the circle's tangent pulled toward
+  the circle by its distance off it (`CIRCLE_PULL`, *placeholder*). An orbit is set when a goal ends, or at the first
+  tick without one: the point of the map nearest to where the Glider is. A Stop and a Hold Position circle where the
+  Glider was when it got them (0354 point 7); a Move to a point arrives within the circle's radius and circles the
+  point for as long as the order lasts, which is until another replaces it
+  (`systems/controls/command_behaviors.md > MovingToLocation`: "Behavior does not complete"), so a Shift-queued
+  order after it waits.
+- **Strafing**: an Attack gives the Glider an object goal on its target, an Attack Ground a point goal, and either a
+  strafing run (`Mover::strafe`, the run's range its attack's): it flies at the target at MaxSpeed, passes over it,
+  holds its course until the gap is more than the range, then turns back at MaxSpeed on its tightest turn (0354 point
+  6). Its turret fires on each pass while the target is within its arc and range (slice M5-U1's turret). The run never
+  arrives; it ends with its order. The ground units' back-off from a target inside MinRange doesn't apply
+  (*placeholder*: no Glider has a MinRange yet).
+- **The map's edge**: nothing keeps it on the map, as far as its turn takes it (0354 point 2: "no extra cap"). Its
+  goals and orbits are on the map, so it always turns back. **Where it counts as being** is `Object::map_pos`, its
+  position clamped onto the map: vision (its eye and how others see it), targeting, ranges, chases, the behaviours'
+  snapshot and path serving all use it (`systems/units.md > Air Collision`: "stays visible and attackable as if it
+  were at the nearest edge tile"). The gate clamps a finite point of an order onto the map, so a click past the edge
+  sends a unit to the edge (`Reject::OffMap` is left for points that aren't finite).
+- **State**: `Mover::orbit` and `Mover::strafe`, serialized and hashed only while set (hash tags 6 and 7 of the
+  mover's), and the momentum (6.7), so the states of games without a Glider hash as they did.
+
+**6.10 Soft separation of air units. (H1)** `systems/units.md > Air Collision`: "a gentle repulsion force that
+prevents stacking but does not hard-block"; plan decision T81; design change 0328 (the Sparrow's SeparationRadius,
+32 su). The code is `movement/air.rs`, and its unit tests are `movement/air/tests.rs`. After every unit has moved
+and yielded in 5d, each pair of air units with a SeparationRadius (`UnitDef::separation_radius`) whose centres are
+nearer than the larger of their two radii is pushed apart along the line between them, each unit by half of what
+the pair lacks, at most `SEPARATION_PUSH_SU` (2 su, *placeholder*: T81's "at most 2 su a tick each", read as the cap
+on a unit's whole push in a tick). The pairs come from the movement's spatial grid (`space::Layer`, each air unit in
+the cell of its centre), taken in id order; the pushes are summed from where the moves left the units and applied
+together, so no push depends on another's, and nothing blocks them. Two units on one point part along the x axis.
+A Glider may be pushed past the edge; a HoverCraft is clamped onto the map by its half extents (design change 0045).
+A push is no part of the unit's own move: its velocity and momentum stay its movement's, and a unit at rest stays
+at rest. Units spawned in this tick are pushed against but not pushed. Six Sparrows sent to one point come within
+1 % of 32 su of each other within 10 s and within 0.001 su from 20 s: a soft push leaves a pair at the radius, and
+each tick's flight may bring it a hair nearer before the next.
+
 ## 7. Numbers: f32, not fixed point
 
 **Decision: keep `f32` under the current rules, and keep every discrete decision in the pathfinder in integers.**
@@ -879,6 +936,16 @@ apart within `18 × (n − 1)` ticks for Drones, 12 each for Peacekeepers.
     and its box overlapped another unit's a tick earlier (6.8).
   - **I1** is unchanged: DragMovement adds no way for two boxes to come to overlap (every position is committed
     through `World::is_free`), and a separating pair is covered by "already overlapped a tick earlier".
+  **(H1)** Amended for Gliders and the soft separation (`testing/invariants/gliders.rs`), and one more:
+  - **I3**: an air unit with a SeparationRadius may move `SEPARATION_PUSH_SU` more than its speed in a tick.
+  - **I5 and I7**: a Glider moves, and has momentum, without a goal and after it arrived; an air unit with a
+    SeparationRadius may move without a goal by at most `SEPARATION_PUSH_SU`, while another such unit is near enough
+    to have pushed it.
+  - **G1**: every Glider that was in the game a tick earlier flies (Locomotion Moving) at a speed between its
+    IdleSpeed and its MaxSpeed, its velocity its momentum (its own flight; the push comes on top), and its
+    `Object::map_pos` is on the map. One stopped after its flight in the tick (its Attack's target died in 5e) shows
+    no move, Stationary, without a goal or a circle, and keeps its speed. A test breaks each rule on purpose.
+  - **I2** is unchanged: it holds for ground boxes, and an air unit has none.
   **(D)** The switch (`TestSim::check_invariants`) is on by default, so every test that uses a `TestSim` runs them;
   `sc_sim::testing::invariants` has the checker for tests that step a bare `Sim`.
 - **Scenario tests** (`crates/sim/tests/movement_*.rs`, inline ASCII maps): straight move arrives exactly at
@@ -914,6 +981,15 @@ apart within `18 × (n − 1)` ticks for Drones, 12 each for Peacekeepers.
   reach of a patch and a node without touching them or turning back; a save in full flight. Separation
   (`movement_separate.rs`, 0126's Verification): two idle Drones drift apart, one stopped inside a mining Drone
   moves off alone, one on Hold stays, stacks of 2 to 8 on one point and in a corner come apart within the bound.
+  **(H1)** Gliders (`crates/sim/tests/air/`, `movement/glider/tests.rs`, `movement/air/tests.rs`, the Sparrow's
+  numbers): 4 su a tick to 10 in 12 ticks; a 180° turn at full speed on a 200 su radius, within 1 %; a Move's point
+  circled on 64 su at IdleSpeed for ever, a queued order waiting; idle, Stop and Hold circle where the Sparrow was,
+  and on Hold it shoots what the circle brings into range and arc, never chasing; an Attack makes pass after pass over
+  a stationary target, each shot fired within the 45° arc and 3 grid units, flying on beyond the range between passes,
+  at MaxSpeed throughout; a click past the edge circles the edge's point; circling by the edge takes it off the map,
+  where it is seen and hit as at the edge's tile; six Sparrows on one point keep 32 su apart; under a Shroud cloud an
+  anti-air attack's hits land in full. Separation: only pairs within the radius, a HoverCraft kept on the map,
+  ground units never pushed. The soak (`robustness.rs`) spawns Sparrows and gives them orders, and checks G1.
 - **Oscillation**: distance travelled ≤ 1.5 × path length + c; reversals of velocity along the path ≤ a small bound.
 - **Determinism**: same run twice, per-tick hashes equal; replay round trip; **save at tick k, load, continue**:
   hashes equal (catches hidden unserialized state); **golden hashes** for three scenarios as committed constants.
@@ -923,6 +999,7 @@ apart within `18 × (n − 1)` ticks for Drones, 12 each for Peacekeepers.
   moves in the three seeds, where 105, 54 and 64 failed; 8 % with the re-route round the group, 40, 9 and 43,
   within the spread of the seeds: over 64 seeds 2 918 moves failed where 2 850 did, and 63 more arrived).
 - **Perf**: an `#[ignore]` test printing ms per tick for 500 units on 256×256, plus CI assertions on the counters.
+  **(H1)** `air_perf`: forty Sparrows, twenty strafing and twenty crowding one point, for 40 s.
 - **(E) Behaviours** (`crates/sim/tests/behaviours_*.rs`, the Verification lists of 0031–0034, 0036 and 0037): an
   attacker stops when the gap between the edges is its Range; a chase around a corner until the target is
   destroyed; a target lost in the fog ends the order where the attacker stands (**(M3-L3)** design change 0200;
