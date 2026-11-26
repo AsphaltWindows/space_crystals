@@ -214,8 +214,9 @@ static DRILL_UNIT: UnitBaseDef = UnitBaseDef {
     can_turn_in_place: true,
     can_reverse: true,
     movement_model: MovementModel::SpeedTurnRadius,
-    // The design names no contact step for the DrillUnit (underground): as it was built.
-    contact_step: ContactStep::Diagonal,
+    // Design change 0338: "DrillUnits take 0323's 90° body-width step" (as the TrackedVehicle: the Subterranean
+    // Transport is tracked when above ground).
+    contact_step: ContactStep::Sideways,
     transit: Transit::Vehicles, // "Tier 2+: Vehicles (Wheeled, Tracked, Drill, Hover Vehicle, Mech)"
 };
 

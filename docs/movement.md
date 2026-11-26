@@ -462,8 +462,8 @@ every tick a waypoint within one step is passed, so a unit rounds a corner witho
        `movement/collide/contact.rs`). Until 0323 the step was `d` turned 45°, which got the unit on, else one
        tick's step along the face. Which step a base takes is data on its def (`UnitBaseDef::contact_step`):
        `Sideways` for the bases 0323 names and for the Mech (0325; its turn to the side first isn't built, there
-       is no Mech); `Diagonal`, the step as it was, for the WheeledVehicle until slice M5-V2 builds its "turn and
-       graze", and for the DrillUnit, which the design doesn't name. The technical decisions, each the simplest
+       is no Mech) and for the DrillUnit (0338); `Diagonal`, the step as it was, for the WheeledVehicle until slice
+       M5-V2 builds its "turn and graze". The technical decisions, each the simplest
        predictable rule (0223):
        - **Straight sideways is along the blocker's face**, as every sidestep here: for a unit that meets the face
          squarely that is 90° to its heading; the quarter turn of a leaning heading leans into the blocker on one
