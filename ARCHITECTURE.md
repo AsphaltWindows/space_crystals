@@ -1340,9 +1340,9 @@ writes the mover's goal and the target the attack engages, and reads `Mover::sta
   - **Recruits** (M5-D, plan decision T58; `factions/cults/units/recruit.md > Gathering`,
     `factions/cults/structures/storage.md`): data again. `shares_patches`, no `pass_through` (design change 0106:
     Recruits collide while they gather), the Storage's `DropOff::Anywhere`, and
-    `DropOffChoice::EachReturn`: **Placeholder (Q0102 point 1)**, as each return starts (`state::Gather::node` is
+    `DropOffChoice::EachReturn` (design change 0345, answering Q0102): as each return starts (`state::Gather::node` is
     `None`) the Recruit takes the own completed Storage nearest to its patch, **edge to edge**
-    (`deliver::nearest_to_patch`), and with none it idles holding its load (point 2). One lost on the way is replaced by
+    (`deliver::nearest_to_patch`), and with none it idles holding its load. One lost on the way is replaced by
     the removal path as any worker's is. Within what the design says a face holds (4 to 5 Recruits a 2-tile face)
     nothing jams; with more Recruits than lanes they stand head-on and starve one another, which no existing rule
     resolves (question Q0109: `tests/recruit_gathering/jam.rs`, ignored).

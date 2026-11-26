@@ -30,7 +30,7 @@ pub(super) fn nearest_drop_off<'a>(world: &'a World, pos: Vec2, owner: Option<Pl
     drop_off::nearest(pos, own.map(|(node, crystals)| (node, *crystals)))
 }
 
-/// **Placeholder (Q0102 point 1)**, for a worker that chooses at each return (`DropOffChoice::EachReturn`: the
+/// Design change 0345 (answering Q0102), for a worker that chooses at each return (`DropOffChoice::EachReturn`: the
 /// Recruit): the drop-off of `owner` nearest to `from`, the patch the load comes from, **edge to edge** (the gap
 /// between the patch and where the drop-off takes Space Crystals), the lowest id among equals. Only those that take
 /// loads now are looked at (`World::drop_offs`: a completed Storage).
@@ -62,7 +62,7 @@ pub(super) fn to_drop_off(
     {
         return find_another(kind, state, unit, def, world, claims);
     }
-    // Placeholder (Q0102 point 1): the Recruit's return starts (it has read no drop-off yet), and takes the Storage
+    // Design change 0345: the Recruit's return starts (it has read no drop-off yet), and takes the Storage
     // nearest to its patch, or to where the patch was, whichever it used before. One lost on the way was replaced by
     // the removal path, as any worker's is (design change 0170).
     let starts = def.drop_off == DropOffChoice::EachReturn && state.node.is_none();
