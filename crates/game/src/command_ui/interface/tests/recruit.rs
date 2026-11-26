@@ -42,9 +42,8 @@ fn labels_and_names(panel: &Panel) -> Vec<(&'static str, String)> {
 /// 0327; 0322's Verification: "Select Recruits: the panel shows Q, A, S, D and X", and W since 0327): Q Move, W
 /// Advanced Construct, A Basic Construct, S Assist Construction, D Repair, X Stop, each named as the design names it.
 /// Q, S and D (slice M5-N8) await their targets, A and W open their menus, X stops at once. No Attack, Hold Position or
-/// Patrol button ("Same layout as the Agent's panel"). Every command
-/// goes to all four ("both right-click and panel commands (Construct, Assist Construction, Repair) are issued to all
-/// of them").
+/// Patrol button ("Same layout as the Agent's panel"). Every command goes to all four ("both right-click and panel
+/// commands (Construct, Assist Construction, Repair) are issued to all of them").
 #[test]
 fn the_recruit_has_q_move_a_and_w_construct_s_assist_d_repair_and_x_stop() {
     use ButtonLook::Common;

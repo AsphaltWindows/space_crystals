@@ -189,11 +189,10 @@ impl PanelCommand {
     /// Whether the command awaits a target (a StateOnlyTransition to AwaitingTarget): the target commands of
     /// `> BasicCombatUnitInterfaceState > DefaultState commands`, Set Rally Point, the Drone's Set Drop-off, the
     /// Agent's Drop Off, the Recruits' Assist Construction and the Recruits' and the Agent's Repair (slice M5-N8). The
-    /// others are issued at once: HoldPosition and Stop,
-    /// Raise and Lower Shield, Convert, a producer's Train and Cancel Production, a constructor's Construct and
-    /// Cancels, a Tunnel's Eject and Cancel; or they enter a state of their own: a build menu, the EjectMenu, the
-    /// ExpandMenu, AwaitingPlacement (an Agent's Build, a Tunnel's expansion and a Recruits' Construct menu entry
-    /// too); or they change the selection (the Egress Node's F).
+    /// others are issued at once: HoldPosition and Stop, Raise and Lower Shield, Convert, a producer's Train and Cancel
+    /// Production, a constructor's Construct and Cancels, a Tunnel's Eject and Cancel; or they enter a state of their
+    /// own: a build menu, the EjectMenu, the ExpandMenu, AwaitingPlacement (an Agent's Build, a Tunnel's expansion and
+    /// a Recruits' Construct menu entry too); or they change the selection (the Egress Node's F).
     pub fn needs_target(self) -> bool {
         match self {
             PanelCommand::Move
