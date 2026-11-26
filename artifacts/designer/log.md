@@ -2371,3 +2371,4 @@ Answered Q0069–Q0071 (0258–0267): losing-Tunnel edges, Syndicate economy che
 - Q0151 part 3 answered from the docs (0399, "whichever group is in focus"): 0407, no doc change.
 - Q0149, Q0151 parts 1–2, Q0152 brought to the user.
 - Q0149 answered (user: c): a glider's pass ends when the target's centre is out of range; loop no longer grows with target size (0408).
+- Q0151 part 1 (user: a): shielded Peacekeepers follow an explicit Attack's target; peacekeeper.md updated (0409).
