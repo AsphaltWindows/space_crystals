@@ -231,7 +231,7 @@ impl<'a> View<'a> {
         self.sim.build_area(self.player)
     }
 
-    /// How the player sees `tile` now (`core/vision.md > VisibilityStateEnum`).
+    /// How the player sees `tile` now (`core/vision.md > VisibilityState`).
     pub fn visibility(&self, tile: TilePos) -> VisibilityState {
         self.sim.visibility(self.player, tile)
     }
