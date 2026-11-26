@@ -1670,9 +1670,27 @@ Approach: thin vertical slices the user can run and see, each verified by tests 
     - the repair's rate and price follow the augmented MaxHP, though no repairer repairs infantry.
   - 2169 tests passed, 34 ignored. Only `cults_vs_syndicate` moved (step 1), and the seed sweep passes.
 
+- **M5-Z2 Lazy class grids** (Opus; merged in `31997e9e`). This fixes G2's perf regression: the `(Ground, 1)` grid was built in every game.
+  - **Which grids exist:** a set, true or a player's, holds a grid only for a `(class, size)` that a unit in the game walks on, whether on the map, held, queued at a producer, or a Hall's Recruit.
+    - `NavState::cover` builds a late grid from the same footprints as the other grids in its set, and never drops it. It bumps no version and no rebuild count.
+    - It runs at 5b after the sync and at the end of the tick, and also on a debug spawn, on `change_kind`, at the start and on load. The code is in `paths/grids.rs`.
+  - **Missing grids are loud:** every read goes through `paths::unit_grid` or `plan_grid`, which panic in debug builds on a missing grid, and I2 reports one. The gate checks a first-of-class debug spawn on a throwaway grid. A refused spawn builds nothing.
+  - **New:** `Sim::true_grid(class, size)`, for tests that read a grid of a class with no unit in the game. nav_perf gains `knowledge_rebuilds_256_with_a_vehicle`.
+  - **Tests** (`paths/grids/tests.rs`):
+    - no `(Ground, 1)` grid, true or known, without a vehicle;
+    - a debug-spawned or produced vehicle gets its grid from its tick or its queueing;
+    - a late grid equals an eager one tile for tile, true and known, with the same hashes and paths;
+    - saves before, at, during and after a vehicle load equal and play on the same;
+    - the gate check works, and the debug panic fires.
+  - **Perf,** against `698fbe78`, 8 interleaved rounds, at load 2.3–2.7:
+    - nav_perf's rebuild tick goes from 1.64 to 1.02 ms, back to before G2;
+    - with one vehicle it is 1.59 ms, master's cost;
+    - `structures_perf`'s whole tick is 0.358 ms on both sides, with p99 from 0.71 to 0.68 ms and the grid sync's p99 from 0.26 to 0.15 ms.
+  - **Accepted:** grids are never dropped, so a game whose vehicles all died still restamps their grid until a load, with no difference in play. A first-of-class debug spawn's check costs about 1.4 ms, for debug only.
+  - 2176 tests passed, 35 ignored. The goldens are unchanged, and the seed sweep passes.
+
 ## In progress
 - **Running:**
-  - **M5-Z2 Lazy class grids** (Opus; brief `scratchpad/briefs/m5z2-lazy-class-grids.md`). G2's perf regression: build a `(class, size class)` nav grid only once a unit that walks on it is in the game, never dropping it afterwards. A late grid must equal an eager one, which a test compares.
   - **M5-N9 The Field Engineer and the Career Campus** (Opus; brief `scratchpad/briefs/m5n9-field-engineer.md`). The 0328 header note:
     - the two defs, 0328's placeholders;
     - the Barracks' E recipe, which needs a Career Campus, and the Deployment Center's D in BuildMenu[Basic];
@@ -1686,11 +1704,16 @@ Approach: thin vertical slices the user can run and see, each verified by tests 
     - completion through `augmentation::set`, with the HP rule;
     - Release in every state menu (0337, Q0138), and the three-stage panel;
     - a new golden, `cults_altar`.
+  - **M5-S1 The first answer sweep** (Opus; brief `scratchpad/briefs/m5s1-answer-sweep.md`):
+    - 0335's rule across the four factions: losing a prerequisite never cancels or disables anything started or finished, with a report on orders given but not yet started;
+    - 0357's defeat notice to every player;
+    - 0320's citation in `recruit_gathering/jam.rs`;
+    - Q0108.1's wording in the code docs.
 - **Next**:
   - **M4 is complete** (M4-M, `4e3fdd4a`; the strays, M4-Z, `95b4bc6e`; the hatch jam fixed by M4-W3's contact step, `5305c2f3`). The jam's history: M4-W diagnosed it (`189d0162`), M4-W2 built 0315's first step (`b81b2089`), which didn't fix it, and 0324 planned the 90° contact step, which did. 0336 accepted the oversaturated hatch and dropped 0324's steps 2 and 3.
   - **M5 wave 1 is done:** A (`ed23874e`) and R (`afd9c152`).
   - **M5 wave 2 is done:** D (`36a06de4`), C (`afd9b366`) and F1 (`e0444eab`), and O3, pulled forward from W4 (`e64cf8d2`).
-  - **0319** put every designed Cults building and unit in M5, with placeholder numbers. The gated slices N1–N6 and G are now in scope. M5-P2's addendum plans them: 31 slices in all, with the playtest at the end of W12, or a first playtest of the Cults' infantry core at the end of W9 (the choice is with the user, 2026-11-25). The addendum is adopted as `artifacts/director/m5-plan-addendum.md`, with T69–T83, and its 14 question drafts are filed as Q0112–Q0125. Wave 3: B (`98dfe65a`) and E (`62dd3e7f`) have landed. **M5-T, build speed**, has landed (`4ecfc18a`). **F2, Armory training,** has landed (`d9492a69`). **J1, Recruit UI,** has landed (`2286859e`). **F3, holding,** has landed (`da08f46d`). **M5-Y, Syndicate turrets,** has landed (`c65cc1b0`). **J2, the Recruitment Area display,** has landed (`e548e6ca`). **Z1, a fuzz bug,** has landed (`4d99074c`). **L, the Cults oracle and goldens,** has landed (`d729a418`), and **G2, the remaining Cults kinds and the Gunner** (`9b7986e4`). **U1, unit turrets,** has landed (`54b9c2fe`), **N8, Repair** (`26501427`), **N2, the Garrison** (`b706f6c0`), and **N1a, augmented stats** (`698fbe78`). **Z2** (lazy nav grids), **N9** (the Field Engineer and the Career Campus) and **N1b** (the Altar) are running. V1 waits for the user's playtest decision. **Next:** S1 (the answer sweep), needed by both playtest options, or N4a (the Cathedral, the Disciple and energy) for the full one, by the user's decision. **New since:** **M5-K, GDO anti-air** (0356: the Rocketman and the Arsenal), after H1. **The Field Engineer is in M5 now** (0328): slice N9, after N8 and before X1.
+  - **0319** put every designed Cults building and unit in M5, with placeholder numbers. The gated slices N1–N6 and G are now in scope. M5-P2's addendum plans them: 31 slices in all, with the playtest at the end of W12, or a first playtest of the Cults' infantry core at the end of W9 (the choice is with the user, 2026-11-25). The addendum is adopted as `artifacts/director/m5-plan-addendum.md`, with T69–T83, and its 14 question drafts are filed as Q0112–Q0125. Wave 3: B (`98dfe65a`) and E (`62dd3e7f`) have landed. **M5-T, build speed**, has landed (`4ecfc18a`). **F2, Armory training,** has landed (`d9492a69`). **J1, Recruit UI,** has landed (`2286859e`). **F3, holding,** has landed (`da08f46d`). **M5-Y, Syndicate turrets,** has landed (`c65cc1b0`). **J2, the Recruitment Area display,** has landed (`e548e6ca`). **Z1, a fuzz bug,** has landed (`4d99074c`). **L, the Cults oracle and goldens,** has landed (`d729a418`), and **G2, the remaining Cults kinds and the Gunner** (`9b7986e4`). **U1, unit turrets,** has landed (`54b9c2fe`), **N8, Repair** (`26501427`), **N2, the Garrison** (`b706f6c0`), **N1a, augmented stats** (`698fbe78`), and **Z2, lazy nav grids** (`31997e9e`). **N9** (the Field Engineer and the Career Campus), **N1b** (the Altar) and **S1** (the first answer sweep) are running. V1 waits for the user's playtest decision. **Next:** by the user's playtest decision. The infantry-core playtest needs only X1, X2 and M after these. The full one needs N4a (the Cathedral, the Disciple and energy), N3, V1 and the rest. **New since:** **M5-K, GDO anti-air** (0356: the Rocketman and the Arsenal), after H1. **The Field Engineer is in M5 now** (0328): slice N9, after N8 and before X1.
   - **Playtest:** the user plays once all four factions are built, in hot-seat from the command line (2026-11-25). The kit is `docs/playtest/` (m2–m4 and M5's README). This replaces separate M1–M4 playtests.
 
 ## M1 plan (from the movement spike; the approved design is in `docs/movement.md`)
