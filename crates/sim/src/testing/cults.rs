@@ -33,9 +33,11 @@
 //! [`Books`](super::build_order::Books) balance a Cults player's bank as they do the others', counting the Recruits'
 //! deliveries. A Hall's Recruits cost nothing (`factions/cults/structures/recruitment_hall.md > Production Behavior`).
 //!
-//! [`reference_field`], [`crowd_field`] and [`face_field`] are the check's layouts (`fields.rs`).
+//! [`reference_field`], [`crowd_field`] and [`face_field`] are the check's layouts (`fields.rs`); [`skirmish`] plays
+//! `dev_skirmish` with a Cults line, alone or against a Syndicate one, for the golden games.
 
 mod fields;
+pub mod skirmish;
 
 use std::collections::{BTreeMap, BTreeSet, VecDeque};
 
