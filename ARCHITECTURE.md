@@ -256,8 +256,8 @@ Units, structures and resources are all `Object`s (`object.rs`, `core/entities.m
   close", design change 0204 point 3; M5-O3 took the back-off on to the middle of the band, question Q0054, and gave
   an Attack Ground's location the same rule), and the first TailDisjointed attack (slice M5-O3, *Combat > TailDisjointed
   attacks*), which can miss. The Storage, 1/6 on its 2x2 as written, is the building armour test's one exception
-  (`tests/building_armor.rs`, Placeholder (Q0094)). The Cults stay the faction not implemented yet
-  (`StartingConditions::of`) until slice M5-B.
+  (`tests/building_armor.rs`, Placeholder (Q0094)). The Cults start a game since slice M5-B (plan decision T63;
+  `tests/cults_start.rs`, *Sim scenarios and tests*): no faction is "not implemented" any more.
 - **Units off the map: the held store** (`network.rs`, `sim/network.rs`; slice M4-C, plan decision T30;
   `factions/syndicate/tunnels.md > Tunnel Network`): a unit inside a Tunnel Network is **not among the objects**. It
   is a `Held { object, place, since, entered }` in `Sim::held`, a second map by id beside `Sim::objects`, with the
@@ -1725,7 +1725,7 @@ section of its own.
   are `u32`, hashed, and `#[serde(default)]` so that older states load. A game starts them at the player's faction's
   Starting Conditions (`Player::starting`, `StartingConditions`, slice M2-F1; see *Sim scenarios and tests*): a GDO or
   Colonists player's at 100 Space Crystals and the rest at 0, a Syndicate player's at 100 Space Crystals and 1 Supply
-  (slice M4-B), those of a faction not implemented yet at 0.
+  (slice M4-B), a Cults player's all at 0 (slice M5-B).
   `DebugCommand::SetResources` sets all five (`Player::set_banks`; the refined ones `serde(default)` in command files
   too), and `Player::banks` reads them as one `Banks`. Pay with
   `Player::spend_crystals`, which refuses when the bank is short and leaves it as it was; credit with
@@ -2342,8 +2342,12 @@ their energy doorway, slice M3-D2: design change 0145, `factions/colonists/struc
     as `--map` and `--scenario` do (`--factions` picks each slot's, `GameSetup::per_slot`); the editor's play-test
     panel builds its own.
   - `Sim::try_new` creates the map's objects first, in list order (so their ids ascend in it), leaving out those of
-    slots no player takes, then each player's Starting Layout for its faction at its slot. A slot's objects belong to
-    the player who takes it.
+    slots no player takes, then each player's Starting Layout for its faction at its slot (`Scenario::start_objects`,
+    `scenario/validate/start.rs`). A slot's objects belong to the player who takes it. A layout's Cults units start in
+    the lineage of its first Recruitment Hall, an entry for each point of their Unit Control cost (slice M5-B;
+    `factions/cults/economy.md > Starting Conditions`: "Six **Recruits**, all belonging to the starting Recruitment
+    Hall"): `StartObject::lineage` holds the Hall's index among the start objects, which `try_new` turns into its id.
+    A layout without a Hall (a Custom map's may) leaves them orphaned (Placeholder (Q0101 point 2)).
 - `MapDef::validate()` and `Scenario::validate()` list every problem (`ScenarioProblem`) and never panic.
   `Sim::try_new` returns the problems as an error and `Sim::new` panics with them, so load files and editor maps with
   `try_new`. Units start on open ground and apart (`paths::misplaced`, in list order): a unit's box must not overlap
@@ -2355,20 +2359,22 @@ their energy doorway, slice M3-D2: design change 0145, `factions/colonists/struc
   (`scenario/validate/layouts.rs`; `core/map_editor.md > Starting Layouts > Layout validation`, design change 0097):
   among the map's objects, its structures by their faction's placement rules minus sight (`placement::check_layout`,
   `LayoutPlacement`; the GDO's need the area of the layout's own Deployment Center), its units by the unit-start rule
-  (`InvalidLayoutObject`), and nothing else. Layouts of different factions may overlap. `Scenario::validate` adds the
-  layouts of the players of one game in each other's way, once the map has no problems of its own.
+  (`InvalidLayoutObject`), and nothing else. Layouts of different factions may overlap. `Scenario::validate`
+  (`scenario/validate/start.rs`) adds the layouts of the players of one game in each other's way, once the map has no
+  problems of its own.
 - **Starting Conditions** (`scenario/starting.rs`, slice M2-F1, plan decision T11): `StartingConditions::of(faction)`
   is a faction's table (`factions/gdo/economy.md > Starting Conditions`; the Colonists' since slice M3-C,
   `factions/colonists/economy.md > Starting Conditions`: an Egress Node, a Robo Portal and four Drones; the
   Syndicate's since slice M4-B, `factions/syndicate/tunnels.md > Tunnel > Starting Conditions`: a Tier 1 Tunnel, a
-  Hideout inside its Tunnel Area and an Agent, 100 Space Crystals and 1 Supply, the camera on the Tunnel): its
-  starting objects with their counts, its starting banks, and its primary structure, which the camera starts on. A
-  faction without one (the Cults) is "not implemented yet". A game starts each player's banks from it
-  (`Player::starting`). On a Skirmish Default map
+  Hideout inside its Tunnel Area and an Agent, 100 Space Crystals and 1 Supply, the camera on the Tunnel; the Cults'
+  since slice M5-B, `factions/cults/economy.md > Starting Conditions`: a Recruitment Hall, a Storage and six Recruits
+  of the Hall's lineage, 0 Space Crystals, the camera on the Hall): its starting objects with their counts, its
+  starting banks, and its primary structure, which the camera starts on. Every faction has one, so `of` is total
+  (plan decision T63): no faction is "not implemented", and a test that needs a faction without something uses
+  `test_defs`. A game starts each player's banks from it (`Player::starting`). On a Skirmish Default map
   (`core/map_editor.md > Skirmish Default restriction`, design changes 0009 and 0012) a layout holds only its faction's
-  Starting Conditions objects, no more of a kind than they do (`LayoutExtra`; for a faction not implemented yet,
-  nothing), and every implemented faction's layout is complete at every start (`LayoutMissing`), so a new Skirmish
-  Default map isn't playable until its layouts are placed. "Outdated" layouts (`MapDef::outdated_layouts`: holding
+  Starting Conditions objects, no more of a kind than they do (`LayoutExtra`), and every faction's layout is complete
+  at every start (`LayoutMissing`), so a new Skirmish Default map isn't playable until its layouts are placed. "Outdated" layouts (`MapDef::outdated_layouts`: holding
   objects, but not exactly the current Starting Conditions) are derived, never stored, so the map format stays at 3.
   When a faction gets its table, every Skirmish Default map in `maps/` needs its layouts
   (`the_maps_in_the_repository_are_playable` says which).
@@ -2578,8 +2584,13 @@ their energy doorway, slice M3-D2: design change 0145, `factions/colonists/struc
   the refined banks. `syndicate_start.rs` (slice M4-B) has the Syndicate's start in either slot (the objects, 100
   Space Crystals and 1 Supply, Tunnel Space 1/11, the camera on the Tunnel), the crystal hatch 1 grid unit from a
   patch (`tunnel::hatch_square`), the nine faction combinations, an incomplete layout, a layout Tunnel by the lake
-  or the edge refused (0242), and an expansion over full Tunnel Space removing nothing. `pairings/` (slice M5-R) starts
-  every ordered pair of the factions with Starting Conditions on every Skirmish Default map and plays it to a win
+  or the edge refused (0242), and an expansion over full Tunnel Space removing nothing. `cults_start.rs` (slice M5-B)
+  has the Cults' start in either slot (the objects, 0 Space Crystals, the six Recruits of the Hall's lineage, Unit
+  Control 6/20, the camera on the Hall), the Hall's seventh Recruit started at once and out of its bottom door at tick
+  192, `dev_skirmish`'s layout as the design asks for it (the Hall's area on the map, Recruitable and uncontested; the
+  Storage a 1-tile gap from the patches; the Recruits beside it, clear of the doors), the 16 faction combinations, an
+  incomplete layout and one with a Recruit too many, and a layout's units belonging to its first Hall. `pairings/`
+  (slice M5-R) starts every ordered pair of the four factions, 16, on every Skirmish Default map and plays it to a win
   (*Adding a faction*, item 19). The Tunnel Area's rules are unit-tested in `placement/tests/tunnel_area.rs`, Tunnel
   Space in `economy/army/tunnel_space.rs`, the geometry in `tunnel/area.rs`; a unit inside the network keeping its
   Tunnel Space in `tests/tunnel_network/enter.rs`.
@@ -2950,9 +2961,9 @@ stays reachable). The middle-mouse grab (`core/camera.md > Panning > Middle-mous
 view point grabbed on the press exactly under the cursor while the button is held, and stops on the release; the
 game and the editor share it. Centering on something snaps instantly (`core/camera.md > Panning`). The camera starts
 at the local player's slot's camera start (`Slot::camera_start`), or else on the primary starting structure
-(`core/camera.md > Starting Position`): the GDO's Deployment Center or the Colonists' Robo Portal, where the player's
-Starting Layout places it (`Scenario::primary_structure`). Without one (a faction not implemented yet, or a layout
-without it) the slot's
+(`core/camera.md > Starting Position`): the GDO's Deployment Center, the Syndicate's Tunnel, the Cults' Recruitment
+Hall or the Colonists' Robo Portal, where the player's Starting Layout places it (`Scenario::primary_structure`).
+Without one (a Custom map's layout may lack it) the slot's
 start position stands in, and the map centre for a player without a slot (`camera::start_center`, shown through
 `start_view`). Only the editor zooms (`CameraZoom`). Under the debug player switch (F2) each player has a camera of
 their own (`camera::PlayerCameras`, `camera/players.rs`, slice M3-J3): when the local player changes within a sim,
@@ -3717,11 +3728,13 @@ unchecked.
   complete, and flags outdated layouts (`layouts::outdated_text`); choosing the tool scrolls the palette to it.
   - **What it offers** (`layouts::palette`): on a Skirmish Default map the faction's Starting Conditions with how many
     the layout may still take (a placed kind moves the tool on to the next one missing); on a Custom map every kind a
-    player may own; for a faction without Starting Conditions nothing ("not implemented yet", plan decision T11).
+    player may own. Every faction has Starting Conditions (plan decision T63), so every faction has a palette.
     Structures snap to tiles and units, such as the Colonists' Drones, go at the point clicked (`objects::snap_spawn`;
     `tests/editor/colonists.rs`). The Syndicate's palette is its Tunnel, Hideout and Agent (slice M4-B); a Tunnel
     whose Tier 1 Tunnel Area reaches off the map or onto undrillable ground, or a Hideout outside that area, shows a
-    red ghost and is refused with the rule's text (`rule_text`; `tests/editor/syndicate.rs`).
+    red ghost and is refused with the rule's text (`rule_text`; `tests/editor/syndicate.rs`). The Cults' is their
+    Recruitment Hall, Storage and six Recruits (slice M5-B), and an incomplete Cults layout lists the Recruits it
+    lacks and keeps the map from play-testing (0012; `tests/editor/cults.rs`).
   - **Checks** (`layouts/check.rs::check_object`): the editor's own rules first (the Starting Conditions' kinds and
     counts on a Skirmish Default map, the editable part, no overlap with the object's own image), then the sim's:
     `MapDef::validate` of the map with the object in place, keeping only that object's problems. The sim is the
@@ -3895,15 +3908,18 @@ examples.
    `StartingConditions::of`. A game then starts the player's banks from it (`Player::starting`), and the camera on
    its primary structure (`Scenario::primary_structure`).
 4. **Layouts**: from then on every Skirmish Default map needs the faction's layout at every start (plan decisions
-   T11, T24): `scenarios::dev_skirmish_map` (slot 1's; `MapDef::regenerate` makes the images), every Skirmish
+   T11, T24, T63): `scenarios::dev_skirmish_map` (slot 1's; `MapDef::regenerate` makes the images), every Skirmish
    Default file in `maps/` (place them with the editor's Layout tool and save;
    `the_maps_in_the_repository_are_playable` says which), and the tests that build a Skirmish Default map and expect
-   it playable (the editor's use `tests/editor/colonists.rs::with_colonists` and
-   `tests/editor/syndicate.rs::with_syndicate`). Check each layout with `MapDef::validate` (its structures by
-   `placement::check_layout`, its units by the unit-start rule), and keep the starting units clear of the structures'
-   sides and exits. The tests that used the faction as the one not implemented yet move to another (slice M4-B moved
-   the Syndicate's to the Cults). A faction's own layout rule goes into `check_layout` (the Syndicate's expansions
-   inside their Tunnel's area), and its text into the editor's `rule_text` and the client's `placement_text`.
+   it playable (the editor's use `tests/editor/colonists.rs::with_colonists`,
+   `tests/editor/syndicate.rs::with_syndicate` and `tests/editor/cults.rs::with_cults`). Check each layout with
+   `MapDef::validate` (its structures by `placement::check_layout`, its units by the unit-start rule), and keep the
+   starting units clear of the structures' sides and exits. The goldens on `dev_skirmish` embed its map, layouts and
+   all, so they are re-blessed for the new layouts, every checkpoint the same (as slices M3-C and M4-B did; *Replays
+   and golden hashes*). Every faction has Starting Conditions since slice M5-B (plan decision T63): a test that needs
+   a faction without something uses `test_defs`. A faction's own layout rule goes into `check_layout` (the
+   Syndicate's expansions inside their Tunnel's area), and its text into the editor's `rule_text` and the client's
+   `placement_text`.
 5. **Army cap** (`economy/army.rs`): the faction's `ArmyResource` (`ArmyResource::of`, `name`, `cost_of`, and what
    is available in `cap`), or none. A cap may be derived rather than built (the Syndicate's Tunnel Space, plan
    decision T33: its Tunnels' areas less their expansions' cells), and then counts the units off the map too
@@ -4001,7 +4017,7 @@ The faction's own mechanics come next, each only if it has them (M3's and M4's i
       stable over two runs; the Syndicate's adds the network's invariants, `check_network`, and plays on past the
       golden's end with more on both sides);
     - its opening in the playtest pairings (slice M5-R), one line in `OPENINGS` (`tests/pairings/main.rs`, its hook in
-      `openings.rs`): every ordered pair of the factions with Starting Conditions plays on every Skirmish Default map
+      `openings.rs`): every ordered pair of the four factions (16) plays on every Skirmish Default map
       under the invariants, the books and the gate, until player 2's buildings are removed and player 1 wins; the
       client's `tests/pairings.rs` starts each pair from `--factions`. A faction without a line plays idle;
     - a scripted walkthrough of the first playable (`--factions` with `--input-script`, see *QA mode*), and its

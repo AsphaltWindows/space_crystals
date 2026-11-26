@@ -5,6 +5,7 @@
 
 mod colonists;
 mod creation;
+mod cults;
 mod edits;
 mod input;
 mod layouts;

@@ -3,8 +3,8 @@
 
 use super::*;
 
-/// 0008 (a layout per start position and faction) and T11 (only the GDO is implemented): the picker chooses the
-/// slot and the faction, and lists the editable slots with the generated ones that follow them.
+/// 0008 (a layout per start position and faction) and T63 (every faction has its Starting Conditions): the picker
+/// chooses the slot and the faction, and lists the editable slots with the generated ones that follow them.
 #[test]
 fn the_layout_tool_edits_the_chosen_slot_and_faction() {
     let mut app = editor(skirmish(48, 32, 4, Symmetry::Rotate180), &temp_maps("layout_pick"));
@@ -34,24 +34,41 @@ fn the_layout_tool_edits_the_chosen_slot_and_faction() {
         "generated slots aren't edited: {panel:?}"
     );
 
-    // The Cults can be chosen, but have nothing to place yet (the Syndicate has had its kinds since slice M4-B).
+    // Every faction can be chosen, each with its Starting Conditions to place (plan decision T63: the Cults' since
+    // slice M5-B). The click places into the chosen slot's layout, and the slot generated from it follows.
     act(&mut app, [A::SetLayoutFaction(Faction::Cults)]);
     assert_eq!(tools(&app).faction, Faction::Cults);
-    assert!(
-        status(&app).message.contains("not implemented yet"),
-        "{}",
-        status(&app).message
+    assert_eq!(
+        status_message(&app),
+        (
+            StatusLevel::Info,
+            "Editing the S3 Cults layout: missing Recruitment Hall, Storage, Recruit x6".into()
+        )
     );
-    assert_eq!(palette(doc(&app), SlotId(3), Faction::Cults), []);
-    let before = doc(&app).clone();
-    click(&mut app, at(5, 20));
-    assert_warned(&app, "Cults: not implemented yet, its layouts stay empty");
-    assert_eq!(*doc(&app), before);
+    let entry = |kind, left| PaletteEntry { kind, left: Some(left) };
+    assert_eq!(
+        palette(doc(&app), SlotId(3), Faction::Cults),
+        [
+            entry(ObjectKind::RecruitmentHall, 1),
+            entry(ObjectKind::Storage, 1),
+            entry(ObjectKind::Recruit, 6)
+        ]
+    );
+    click(&mut app, spot(5, 20, 4, 4));
+    let cults = |app: &App, slot| doc(app).slot(slot).unwrap().layouts.get(Faction::Cults).to_vec();
+    let hall = |x, y, orientation| laid(ObjectKind::RecruitmentHall, x, y, orientation);
+    assert_eq!(cults(&app, SlotId(3)), [hall(5, 20, UNTURNED)]);
+    assert_eq!(cults(&app, SlotId(4)), [hall(39, 8, turned(Rotation::R180, false))]);
+    assert_eq!(
+        (cults(&app, S1), cults(&app, S2)),
+        (vec![], vec![]),
+        "only S3's, and its image"
+    );
     let panel = texts_under::<LayoutPanel>(&mut app);
     assert!(
         panel
             .iter()
-            .any(|t| t == "Cults: not implemented yet, its layouts stay empty"),
+            .any(|t| t == "S3 Cults layout: missing Storage, Recruit x6"),
         "{panel:?}"
     );
 }

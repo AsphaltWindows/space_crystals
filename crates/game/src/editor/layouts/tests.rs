@@ -24,7 +24,7 @@ fn object(kind: ObjectKind, x: i32, y: i32) -> LayoutObject {
 }
 
 /// `core/map_editor.md > Skirmish Default restriction`: the GDO's Starting Conditions with their counts left; on a
-/// Custom map every type a player may own; nothing for a faction not implemented yet (T11).
+/// Custom map every type a player may own.
 #[test]
 fn the_palette_offers_what_the_layout_may_take() {
     let mut map = skirmish();
@@ -53,14 +53,9 @@ fn the_palette_offers_what_the_layout_may_take() {
     assert_eq!(labels(&map)[0], "Deployment Center: done");
     assert_eq!(labels(&map)[2], "Extraction Plate: 1 left");
     assert_eq!(
-        missing_text(
-            &StartingConditions::of(Faction::Gdo)
-                .unwrap()
-                .missing(layout(&map, slot, Faction::Gdo))
-        ),
+        missing_text(&StartingConditions::of(Faction::Gdo).missing(layout(&map, slot, Faction::Gdo))),
         "Extraction Facility, Extraction Plate"
     );
-    assert!(palette(&map, slot, Faction::Cults).is_empty());
     map.map_type = MapType::Custom;
     let custom = palette(&map, slot, Faction::Gdo);
     assert!(
@@ -85,7 +80,7 @@ fn the_syndicate_palette_holds_its_three_kinds() {
             .collect()
     };
     assert_eq!(labels(&map), ["Tunnel: 1 left", "Hideout: 1 left", "Agent: 1 left"]);
-    let syndicate = StartingConditions::of(Faction::Syndicate).unwrap();
+    let syndicate = StartingConditions::of(Faction::Syndicate);
     assert_eq!(missing_text(&syndicate.missing(&[])), "Tunnel, Hideout, Agent");
     let layouts = &mut map.slot_mut(slot).unwrap().layouts;
     layouts
@@ -94,9 +89,42 @@ fn the_syndicate_palette_holds_its_three_kinds() {
     assert_eq!(labels(&map), ["Tunnel: done", "Hideout: 1 left", "Agent: 1 left"]);
 }
 
+/// Slice M5-B (plan decision T63): the Cults' palette on a Skirmish Default map holds their Hall, their Storage and
+/// their six Recruits (`factions/cults/economy.md > Starting Conditions`), and the missing list names the Recruits
+/// still to place (design change 0012: "Leave the Cults layout incomplete: the editor lists the missing Recruits").
+#[test]
+fn the_cults_palette_holds_their_hall_storage_and_six_recruits() {
+    let mut map = skirmish();
+    let slot = SlotId(1);
+    let labels = |map: &MapDef| -> Vec<String> {
+        palette(map, slot, Faction::Cults)
+            .iter()
+            .map(PaletteEntry::label)
+            .collect()
+    };
+    assert_eq!(
+        labels(&map),
+        ["Recruitment Hall: 1 left", "Storage: 1 left", "Recruit: 6 left"]
+    );
+    let recruit = |x: f32| LayoutObject {
+        kind: ObjectKind::Recruit,
+        at: SpawnAt::Point(Vec2::new(x, 2.5) * sc_sim::SU_PER_GU),
+        orientation: BuildingOrientation::default(),
+    };
+    let cults = map.slot_mut(slot).unwrap().layouts.get_mut(Faction::Cults);
+    cults.push(object(ObjectKind::RecruitmentHall, 4, 4));
+    cults.extend([recruit(10.5), recruit(11.5)]);
+    assert_eq!(
+        labels(&map),
+        ["Recruitment Hall: done", "Storage: 1 left", "Recruit: 4 left"]
+    );
+    let missing = StartingConditions::of(Faction::Cults).missing(layout(&map, slot, Faction::Cults));
+    assert_eq!(missing_text(&missing), "Storage, Recruit x4");
+}
+
 #[test]
 fn missing_lists_read_like_the_design() {
-    let gdo = StartingConditions::of(Faction::Gdo).unwrap();
+    let gdo = StartingConditions::of(Faction::Gdo);
     assert_eq!(
         missing_text(&gdo.missing(&[])),
         "Deployment Center, Extraction Facility, Extraction Plate x2"

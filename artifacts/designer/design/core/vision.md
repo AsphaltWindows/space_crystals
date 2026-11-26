@@ -38,6 +38,8 @@ The tile is currently within the SightRange of one of the player's units or stru
 - **The attacker is revealed**: a unit or structure that attacks one of your units or structures while outside your vision becomes **visible to you** for **1.5 seconds (24 frames), placeholder**, after each shot; a unit that keeps firing stays visible. **For projectiles and area damage** (user, 2026-11-26; Q0083) the reveal happens **when the damage lands**, not at the throw, and only to the owners of the objects it **damaged**; a dodged projectile or a blast that damages nothing reveals nothing. The attacker is revealed only if it is still alive. Only the attacker itself is revealed, not the area around it.
 - While revealed it is a normal visible object for you: it can be seen, selected and **targeted** (e.g. your units can shoot back if in range).
 - Applies to every attacker, including long-range ones (e.g. the Artillery Rig).
+- **Colour** (user, 2026-11-26; Q0090): a shot is always drawn in the **shooter's player colour**, even when the viewer doesn't see the shooter.
+- **Marks seen late** (user, 2026-11-26; Q0090): a death marker or blast mark is shown on any of the viewer's Visible tiles while it is still fading, even if the viewer didn't see the event itself.
 - Stealthed attackers: TBD when stealth and detection are designed.
 
 ## ElevationModifier

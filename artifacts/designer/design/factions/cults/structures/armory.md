@@ -10,7 +10,7 @@ Training building where Recruits are converted into combat units. Recruits enter
 ## FullArmor - 6
 ## SightRange - 4 grid units
 ## Destructible - true
-## Groupable - true
+## Groupable - false (user, 2026-11-26; Q0105: Cults production buildings aren't groupable)
 ## TechPrerequisite - player owns at least one Storage
 
 Space Crystals cost and construction time are listed under the Recruit's Constructs list, not here (see Recruit > Building).
@@ -33,7 +33,7 @@ Available unit types:
 
 ## ArmoryInstanceState:
 - StoredRecruits: list of Recruit references (max 10)
-- TrainingQueue: array of {UnitType: Militant | Gunner, ReservedRecruit: Recruit reference} (max 20, including the order currently training; user, 2026-11-24)
+- TrainingQueue: array of {UnitType: Militant | Gunner, ReservedRecruit: Recruit reference} (max 20, including the order currently training; user, 2026-11-24; **in practice bounded by the Armory's capacity of 10 Recruits, reserved ones included**, user, 2026-11-26, Q0104)
 - CurrentTrainingProgress: number (frames elapsed for the front entry of TrainingQueue) | None
 - RallyPoint: Coordinates | ObjectInstance | None
 

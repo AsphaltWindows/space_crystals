@@ -131,6 +131,55 @@ fn factions_start_the_syndicates_layout() {
     }
 }
 
+/// Slice M5-B's acceptance: "`cargo run -- --factions cults,gdo` starts with the Hall, the Storage and six Recruits,
+/// at 0 Space Crystals" (plan decision T63). The default scenario, `dev_skirmish`, has a Cults layout in each slot
+/// (`factions/cults/economy.md > Starting Conditions`): the Cults player starts with it, and nothing in the bank, in
+/// either slot.
+#[test]
+fn factions_start_the_cults_layout() {
+    use sc_sim::Faction::{Cults, Gdo};
+    use sc_sim::ObjectKind::{Recruit, RecruitmentHall, Storage};
+    for (flag, factions, player) in [
+        ("--factions cults,gdo", [Cults, Gdo], PlayerId(1)),
+        ("--factions gdo,cults", [Gdo, Cults], PlayerId(2)),
+    ] {
+        let config = into_config(parse(&args(flag)).unwrap()).unwrap();
+        let players: Vec<sc_sim::Faction> = config.scenario.setup.players.iter().map(|p| p.faction).collect();
+        assert_eq!(players, factions, "{flag}");
+        let sim = sc_sim::Sim::new(&config.scenario);
+        let base: Vec<sc_sim::ObjectKind> = sim
+            .objects()
+            .filter(|o| o.owner == Some(player))
+            .map(|o| o.kind)
+            .collect();
+        let mut expected = vec![RecruitmentHall, Storage];
+        expected.extend([Recruit; 6]);
+        assert_eq!(base, expected, "{flag}");
+        assert_eq!(sim.player(player).unwrap().banks(), sc_sim::Banks::default(), "{flag}");
+    }
+}
+
+/// Slice M5-B (plan decision T63): the help's `--factions` line names all four factions, each as `--factions` takes it,
+/// and no longer says that some start with nothing.
+#[test]
+fn the_usage_names_every_faction() {
+    let text = usage();
+    let from = text.find("--factions").unwrap();
+    let to = from + text[from..].find("--player").unwrap();
+    let line = text[from..to].split_whitespace().collect::<Vec<_>>().join(" ");
+    assert_eq!(
+        line,
+        "--factions <f1,f2,...> The factions of the players in slots 1, 2, ...: gdo, syndicate, cults or colonists \
+         (any case); gdo for the slots not named"
+    );
+    for &faction in sc_sim::Faction::ALL {
+        let name = crate::editor::objects::faction_name(faction).to_lowercase();
+        assert!(line.contains(&name), "{name}: {line}");
+        let o = parse(&args(&format!("--factions {name}"))).unwrap();
+        assert_eq!(o.factions, Some(vec![faction]));
+    }
+}
+
 #[test]
 fn qa_flags_render_offscreen_and_windowless_runs_must_end() {
     let config = into_config(parse(&args("--screenshot 3:s.png --screenshot 1:t.png")).unwrap()).unwrap();

@@ -1,6 +1,6 @@
 //! Playtest pairings (slice M5-R, `artifacts/director/m5-plan.md > R: Playtest pairings`): every ordered pair of the
-//! factions that have Starting Conditions ([`factions`]: 3 × 3 = 9 while the Cults have none, 16 from slice M5-B on,
-//! with no edit here), on every Skirmish Default map ([`maps`], `core/map_editor.md > Map Types > Skirmish Default`:
+//! four factions (`Faction::ALL`: 4 × 4 = 16, every faction having its Starting Conditions since slice M5-B, plan
+//! decision T63), on every Skirmish Default map ([`maps`], `core/map_editor.md > Map Types > Skirmish Default`:
 //! the built-in scenarios of that type and the maps of `maps/`). Each starts as the client's `--factions a,b` starts
 //! it, player 1 playing `a` and player 2 `b`, and is named by that command line in the output and in every failure
 //! ([`Pairing::name`]: `--factions gdo,syndicate --scenario dev_skirmish`).
@@ -33,7 +33,7 @@ use sc_sim::testing::syndicate::SupplyBooks;
 use sc_sim::testing::{self, TestSim};
 use sc_sim::{
     Category, Command, ConstructionCommand, DebugCommand, Faction, GameSetup, MapDef, MapType, ObjectId, PlayerCommand,
-    PlayerId, Reject, ResourceState, Scenario, Sim, StartingConditions, TICKS_PER_SECOND, Tick, scenarios,
+    PlayerId, Reject, ResourceState, Scenario, Sim, TICKS_PER_SECOND, Tick, scenarios,
 };
 
 use openings::{Hook, Opening};
@@ -68,20 +68,6 @@ fn every_pairing_plays_the_first_map() {
 #[ignore = "every map for 3 minutes: cargo test -p sc_sim --release --test sim pairings:: -- --ignored --nocapture"]
 fn every_pairing_plays_every_map() {
     run(&maps(), LONG);
-}
-
-/// The factions in the pairings: those that have Starting Conditions (`StartingConditions::of`), in `Faction::ALL`'s
-/// order.
-fn factions() -> Vec<Faction> {
-    (Faction::ALL.iter().copied())
-        .filter(|&faction| given(StartingConditions::of(faction)))
-        .collect()
-}
-
-/// Whether `StartingConditions::of` gave a faction's: through `Into<Option<_>>`, so that this reads it as it is now,
-/// an `Option` (none for the Cults, until slice M5-B), and as plan decision T63 makes it, total.
-fn given<'a>(conditions: impl Into<Option<&'a StartingConditions>>) -> bool {
-    conditions.into().is_some()
 }
 
 /// A Skirmish Default map, as the client starts it.
@@ -124,15 +110,19 @@ fn maps() -> Vec<Map> {
 /// Plays every pairing on each of `maps` with `ticks` of openings, each on a thread named after it, prints what each
 /// came to, and fails naming every pairing that failed, with its message.
 fn run(maps: &[Map], ticks: Tick) {
-    let factions = factions();
     let mut pairings = Vec::new();
     for map in maps {
-        for &a in &factions {
-            for &b in &factions {
+        for &a in Faction::ALL {
+            for &b in Faction::ALL {
                 pairings.push(Pairing { map, factions: [a, b] });
             }
         }
     }
+    assert_eq!(
+        pairings.len(),
+        16 * maps.len(),
+        "the 16 pairings of the four factions on each map"
+    );
     let results: Vec<(String, Result<String, String>)> = thread::scope(|s| {
         let threads: Vec<_> = (pairings.iter())
             .map(|pairing| {
