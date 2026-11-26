@@ -133,7 +133,9 @@ fn an_agent_blocked_from_the_hatch_presses_on_and_never_gives_up() {
         assert_eq!((order(&t, 3), load(&t, 3)), (Some(OrderKind::Gather(id(2))), LOAD));
         assert_eq!(phase(&t, 3), Some(GatherPhase::ToDropOff), "never within reach");
     }
-    assert!((8..=10).contains(&legs), "{legs} legs in a minute");
+    // (M4-W3) Six with design change 0323's contact step: a step of its whole width along the Guards and back is
+    // progress now and then, so a leg lasts longer than the 104 ticks (8 to 10 legs until then).
+    assert!((6..=10).contains(&legs), "{legs} legs in a minute");
     assert_eq!(deliveries(&t), []);
     let now = t.sim().tick();
     for &guard in &guards {

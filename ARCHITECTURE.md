@@ -163,8 +163,8 @@ Units, structures and resources are all `Object`s (`object.rs`, `core/entities.m
 - **Capabilities**: today these are `placement` (the tile footprint), `resource` (`ResourceState`), and for units
   `orders` (`Orders`, `orders.rs`: the current order with its behaviour's state, a queue of at most
   `MAX_QUEUED_ORDERS`, and what the unit does on its own while it has none; see *Behaviours*), `mover`
-  (`Mover`, `mover.rs`: goal, status, path, the replanning state of `docs/movement.md > 3` and the sidestep of a
-  yielding unit; `mover/` holds the stuck schedule, the sidestep and the hash), for units that
+  (`Mover`, `mover.rs`: goal, status, path, the replanning state of `docs/movement.md > 3`, the sidestep of a
+  yielding unit and a moving unit's contact step; `mover/` holds the stuck schedule, the two steps and the hash), for units that
   can attack, `attack` (`AttackState`, `combat.rs`: see *Combat*) and, for units that carry a Riot Shield,
   `riot_shield` (`RiotShield`, `riot_shield.rs`: how far up the shield is, the way it goes being the unit's type,
   see *Combat*); for a plate on a patch,
@@ -1514,9 +1514,13 @@ and the code is `crates/sim/src/movement.rs` and `movement/`, with the unit's st
   doesn't look at bodies. Keep them conservative: mark on every insert and whenever a body's kinds change.
 - **One unit's tick** (`step_unit`, `collide.rs`): turn towards the steering waypoint (at most TurnRate), then move
   one step: a lane step (above), else free; **slide** along tiles (per axis); **follow** a unit moving the same way; **go around** a standing
-  or oncoming one (a glance along its face, a 45° step, a step along the face; to the side the unit leans to, which
-  it keeps, else to its Right first, so head-on units pass like traffic; a crossing unit is passed behind); else
-  close up or stay. Within one step of the
+  or oncoming one (`collide/contact.rs`: a glance along its face, else **the contact step** of design change 0323:
+  straight sideways along the blocker's face by the unit's own width, taken over several ticks as `Mover::step_aside`,
+  hashed only while set, during which the unit makes no other move; it commits its side for a second; at a standing
+  blocker the side is the near one, at a moving one the side the unit leans to, else its Right first, so head-on
+  units pass like traffic; a crossing unit is passed behind); else close up or stay. **Which contact step a base
+  takes is data**: `UnitBaseDef::contact_step` (`ContactStep::Sideways`, or `Diagonal`, the 45° step as built before
+  0323, kept for the WheeledVehicle until its turn and graze is built). Never match on the base in movement. Within one step of the
   goal the unit lands exactly on it. A unit without a goal moves only by its own sidestep (below), by braking off
   its momentum, or off a unit it overlaps (*Movement models*, *Idle units that overlap*): nothing pushes.
 - **Friendly yielding** (`yielding.rs`, `docs/movement.md > 6.6`; design changes 0022, 0023, 0027): a moving unit

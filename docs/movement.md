@@ -415,6 +415,11 @@ every tick a waypoint within one step is passed, so a unit rounds a corner witho
     (14 before; 18 with two owners). Over 192 layouts of two blocks (Peacekeepers and Guards, three shapes, gaps
     of 8 to 24 su, four offsets, one and two owners) 1.4 % of the units fail, 8 of 50 at worst, where 22 % did,
     and 40 of 50 at worst. The soak's failed moves fall from 223 to 81 of about 1 080.
+  - **(M4-W3) With the contact step of design change 0323** (rule 4 below; lane seeking itself is unchanged): 18 v
+    18 Peacekeepers 0 of 36 fail, done in tick 234 where it was 190; over the 192 layouts 2 of 5,856 units fail
+    where 7 did (0.03 %; 1 at worst in a layout); 5 × 5 Guard blocks 16 su apart lose none (1). The soak's failed
+    moves are 9, 0 and 2 for its three seeds where they were 68, 2 and 56, with 134, 394 and 400 moves arrived
+    (181, 506 and 476).
   - **Known limits**: in a passage too narrow for two lanes nothing changes: head-on movers fail there, by
     design. **(G)** Blocks of Guards lost a few units, but never in the crossing: none of the sweep's failures
     has an oncoming unit near it. The crossing reorders a block, and its late units find their places walled
@@ -478,8 +483,24 @@ every tick a waypoint within one step is passed, so a unit rounds a corner witho
          ticks (rule 5; not for a unit with momentum that moves), and the stuck clock runs (6.5). The unit still
          in the way ahead, if there is one, stays the unit's blocker for the stuck rules, and is asked to yield
          (6.6).
-       - **Sides**: unchanged. The lean, `avoid_side`, the pass behind and the near side choose as before; a step
-         that began is finished whatever `avoid_until` says.
+       - **A step commits its side** for 16 ticks, as a switch of sides always did: it becomes `avoid_side`, and
+         until `avoid_until` the unit takes its next step to the same side whatever its lean ("to its right first,
+         switching sides after 1 s"). A step of a whole width can leave the unit just short of clear of a blocker
+         that stands a little to that side, leaning back the way it came; by its lean it then stepped straight
+         back, to and fro for good (a Guard between two of its firing line). A step that began is finished whatever
+         `avoid_until` says.
+       - **At a blocker that stands, the near side** (the rule below, which slice M3-G made for the units with
+         momentum, now for every base that takes the contact step, for the reason given there: seen from the
+         blocker's middle the side never changes as the unit steps). `avoid_side`, Right at first, decides dead
+         in the middle. At a blocker that moves the sides are chosen as before: the lean, `avoid_side` head-on,
+         the pass behind.
+       - **Measured against the other choices** (30 layouts of the Agents' grid, the sim's test suite): with the
+         lean choosing every step, 11 layouts had an Agent a minute without a load; with the commitment 7; with
+         the commitment and the near side 6, and no layout to the hatch's side stops for good.
+       - **What it costs** (`docs/playtest/m4.md > Known issues`): units that converge on an occupied point, or
+         crowd a doorway or a patch's face, step a whole width round the unit in their way where they used to
+         shuffle a step, and settle later and elsewhere. The tests that held them to the old outcome are ignored,
+         each with what it sees now.
        - **A new path ends it** (a repath, a re-aimed chase, a detour round a row: 6.5), and so does a new leg or
          a stop: the unit has another way to go.
        - **Lane seeking is unchanged**, and still comes first for a unit that isn't taking a step: its step
@@ -651,6 +672,15 @@ remaining path length, measured afresh from when it came to rest. A unit is **st
   waiting their turn and failed. **(H2)** Only the clock of a unit that has got on since its leg began is taken
   over (`stuck::leads`): a new leg sets a unit's own clock and is no progress, so a blocked unit sent again and
   again no longer keeps those behind it from looking for a way round.
+  **(M4-W3) What it lets through, and a correction that wasn't kept.** The first measure on every new path sets
+  `best_remaining` afresh, so a unit whose legs begin again and again (a worker trying its patch, 6.5 rule 1's
+  pressing leg) makes half a step of "progress" on each by regaining ground it stepped back from; from its first
+  such step it leads, and those blocked by it take its clock over and never look for another route (slice M4-W2
+  saw five Agents stand so for five minutes). Measured on top of design change 0323's contact step: sharing the
+  clock only with a blocker that heads the same way as the unit (waiting *behind* it, not against it) left 8 of
+  the Agents' 30 layouts with an Agent a minute without a load where 0323 alone leaves 6, and cost the crowds (5 of
+  5,856 units fail in the two-block layouts where 2 do, the soak's failed moves 17, 1 and 10 where 9, 0 and 2). With
+  0323 the hatch no longer locks up, so the rule stays as it was.
 - **A new path is no progress.** Its first measure only sets `best_remaining`; **(Y)** and nothing else restarts
   the stuck clock (5.6).
 - **Grace.** A unit due for a repath or for giving up that touches no unit in that tick (it just stepped around

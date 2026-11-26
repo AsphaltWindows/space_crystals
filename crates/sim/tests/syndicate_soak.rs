@@ -8,7 +8,7 @@
 //!   Tunnel's upgrade to Tier 2, and [`GUARDS`] Guards, [`GRENADIERS`] Grenadiers and [`RESERVES`] more Guards behind
 //!   their prerequisites.
 //! - **An upright Laser Turret**, which its [`TURRET_BUILDER`]th Agent builds at the front ([`UPRIGHT_SITE`], outside
-//!   every Tunnel Area) once the Optics Lab stands, and then gathers Supplies.
+//!   every Tunnel Area) once the Optics Lab stands, and then goes back to the crystals.
 //! - **The front** is the foot of the plateau's west ramp, below the forward Tunnel. Its units go in and out by the
 //!   forward Tunnel while it is in operation, else by the first. The first [`GUARDS_OUT`] Guards out hold
 //!   [`GUARD_POST`]; one below half its MaxHP walks back in, heals in the network (`network::Held::regenerate`), and
@@ -109,17 +109,13 @@ const CHEMICAL_PLANT_SITE: TilePos = TilePos::new(4, 10);
 /// Peacekeepers come off the ramp (ElevationModifier: it would see one grid unit less of them on the slope).
 const UPRIGHT_SITE: TilePos = TilePos::new(20, 23);
 /// The Agent that builds it, by its place among the player's (`Syndicate::agents`): the first one trained. Once out it
-/// gathers Supplies, not crystals. Back on the patch it would make four Agents for one crystal hatch, one more than
-/// saturate it (design change 0294), and they gridlock on its side for good (slice M4-M, reported; question Q0109):
-/// the one that has delivered can't get out past the three coming to it, and none of them makes way. In this game
-/// that happens at 6:53, once the patches west of the hatch are gone and the Agents come from (3, 3), north-west of
-/// it: an Agent's leg to the hatch never ends, and the income stops.
+/// goes back to the crystals, the fourth Agent on one crystal hatch, one more than saturate it (design change 0294).
 ///
-/// **Still so with design change 0315 built** (slice M4-W2: the Agents coming to the hatch press on where they stood
-/// and tried again, `orders::gather::legs::return_leg`). Measured with this Agent back on crystals, and with one and
-/// two more Agents trained: four stop for good at 6:53 (7:05 before 0315), five never stop for a minute but one
-/// goes 93 seconds without a load, six stop for good at 4:59 (`docs/playtest/m4.md > Known issues`). So the fourth
-/// Agent stays off the crystals until Q0109's follow-up is answered.
+/// **(M4-W3) Restored with design change 0323's contact step.** Until then the four gridlocked beside the hatch for
+/// good (slice M4-M; questions Q0109 and Q0111), at 6:53 with design change 0315 built, once the patches west of the
+/// hatch were gone and the Agents came from (3, 3), north-west of it; so this Agent gathered Supplies instead. With
+/// 0323 the first Tunnel never stops, with four, five or six Agents on crystals: 12.2 Space Crystals per second after
+/// the first minute and no stretch without a delivery after the walk to the first (`docs/playtest/m4.md`).
 const TURRET_BUILDER: usize = 1;
 /// Where the Guards stand: west of the ramp's foot (the golden game's hold its top, `skirmish::GUARD_POST`).
 const GUARD_POST: TilePos = TilePos::new(22, 22);
@@ -150,10 +146,6 @@ struct Players {
     cleared: bool,
     /// The upright turret's Agent, once it has its Build order.
     turret_builder: Option<ObjectId>,
-    /// The Agents that finished a Tunnel, to come out of it and gather Supplies, each with its Tunnel ([`builders`]).
-    ///
-    /// [`builders`]: Players::builders
-    builders: Vec<(ObjectId, ObjectId)>,
     /// What the soak's own commands paid, in Space Crystals, by tick: the upright turret.
     paid: Vec<(Tick, u32)>,
     /// Whether player 2's Barracks has its rally point.
@@ -181,6 +173,7 @@ impl Players {
             .gather(PATCH)
             .rally(Target::Object(PATCH))
             .job(BUILDER, Job::Tunnel(TUNNEL_SITE, TURNED))
+            .eject_builders(Job::Supplies(STATION))
             .expand(0, OpticsLab, OPTICS_LAB_SITE)
             .expand(1, LaserTurret, POPUPS[0])
             .expand(0, ChemicalPlant, CHEMICAL_PLANT_SITE)
@@ -194,7 +187,6 @@ impl Players {
             gdo,
             cleared: false,
             turret_builder: None,
-            builders: Vec::new(),
             paid: Vec::new(),
             rallied: false,
             sent: BTreeSet::new(),
@@ -226,7 +218,6 @@ impl Players {
             // What the line's commands leave in the bank for the soak's own.
             let bank = sim.player(SYNDICATE).map_or(0, |p| p.crystals);
             let budget = bank.saturating_sub(self.syndicate.spent_in(tick));
-            self.builders(sim, &mut commands);
             self.upright_turret(sim, tick, budget, &mut commands);
             // The Tunnel the front's units go in and out by: the forward one while it is in operation, else the first.
             let tunnels = || {
@@ -245,44 +236,8 @@ impl Players {
         commands
     }
 
-    /// The golden line's `Syndicate::eject_builders(Job::Supplies(STATION))`, for a Tunnel only: an Agent that finishes
-    /// one is ejected by it at once (design change 0301), and gathers Supplies at [`STATION`] once out. The line's own
-    /// takes every finished site of the player's for a Tunnel, an Agent's Laser Turret included, whose Eject the gate
-    /// refuses (`Reject::NotATunnel`).
-    fn builders(&mut self, sim: &Sim, commands: &mut Vec<PlayerCommand>) {
-        let command = |command| PlayerCommand {
-            player: SYNDICATE,
-            command,
-        };
-        for e in sim.events() {
-            if let SimEvent::SiteCompleted { site, worker } = *e
-                && sim
-                    .object(site)
-                    .is_some_and(|o| o.owner == Some(SYNDICATE) && o.kind == Tunnel)
-            {
-                commands.push(command(Command::Tunnel {
-                    tunnel: site,
-                    command: TunnelCommand::Eject { kind: Agent },
-                }));
-                self.builders.push((site, worker));
-            }
-        }
-        let out: Vec<ObjectId> = (self.builders.iter())
-            .filter(|&&(_, worker)| sim.object(worker).is_some())
-            .map(|&(_, worker)| worker)
-            .collect();
-        self.builders.retain(|(_, worker)| !out.contains(worker));
-        if !out.is_empty() {
-            commands.push(command(Command::Order {
-                units: out,
-                kind: OrderKind::Gather(STATION),
-                queue: false,
-            }));
-        }
-    }
-
     /// The upright turret (module docs): ordered once the player owns a finished Optics Lab and the budget covers its
-    /// price, and its Agent sent to gather Supplies once it is out ([`TURRET_BUILDER`]).
+    /// price, and its Agent sent back to the crystals once it is out ([`TURRET_BUILDER`]).
     fn upright_turret(&mut self, sim: &Sim, tick: Tick, budget: u32, commands: &mut Vec<PlayerCommand>) {
         let command = |command| PlayerCommand {
             player: SYNDICATE,
@@ -293,7 +248,7 @@ impl Players {
             if out && sim.object(agent).is_some() {
                 commands.push(command(Command::Order {
                     units: vec![agent],
-                    kind: OrderKind::Gather(STATION),
+                    kind: OrderKind::Gather(PATCH),
                     queue: false,
                 }));
             }

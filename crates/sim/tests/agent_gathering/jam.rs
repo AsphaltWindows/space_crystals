@@ -2,13 +2,28 @@
 //! M4-W, question Q0109): four or more Agents whose patch lies **to the side of the hatch**, so that they come to it
 //! along the Tunnel's wall, stop delivering, in many layouts for good.
 //!
-//! **Design change 0315 is built, and doesn't end it** (slice M4-W2; `factions/syndicate/units/agent.md > Gathering >
+//! **Design change 0323's contact step ends it** (slice M4-W3; step 1 of design change 0324, "keep the 1-square hatch
+//! and 0315's rule. Implement 0323's sidestep (90°, one body width). Measure it"; `docs/movement.md > 6.3`): a
+//! blocked Agent leaves its lane by a whole width where it used to shuffle a step along the Agent in its way, and the
+//! pocket below opens. In none of the 30 layouts does the income stop any more
+//! ([`the_income_never_stops_and_no_agent_goes_a_minute_without_delivering`]). In six an Agent still goes a minute
+//! without a load ([`WAITS`]), and none of those is a lock-up:
+//! - **facing the hatch at 1 grid unit** (4, 5 and 6 Agents): two Agents mine and unload from one place each,
+//!   between the patch and the hatch square, and keep the hatch at 10.7 to 12.5 Space Crystals per second; the others
+//!   stand loaded behind them, 40 to 70 su from the hatch and out of its reach, so they aren't in its line (0255) and
+//!   get no turn;
+//! - **six Agents** at 1 and 3 grid units to the side and at 4 facing it: they take turns at a saturated hatch (11.6
+//!   to 12.5 per second, 17 to 30 loads each), and the longest wait for a turn is 66 to 76 seconds.
+//!
+//! The rest of these notes is the jam as slices M4-W and M4-W2 found it, before 0323.
+//!
+//! **Design change 0315 was built first, and didn't end it** (slice M4-W2; `factions/syndicate/units/agent.md > Gathering >
 //! Gathering rules`, "Waiting at the hatch": "an Agent waits only once it is within reach of the hatch [...] Until it
 //! is within reach it is never 'arrived': it keeps actively moving toward the hatch"; built in
 //! `orders::gather::legs::return_leg`). The user chose to try it alone first; option (a) of Q0109, waiting Agents
 //! yielding like idle units, isn't adopted. Measured over ten minutes (the table is in `docs/playtest/m4.md > Known
-//! issues`): the layouts in which the income stops for a minute or more are others than before, and no fewer
-//! ([`STILL_JAM`]); and [`no_agent_goes_a_minute_without_delivering`], 0315's Verification, fails in most layouts.
+//! issues`): the layouts in which the income stopped for a minute or more were others than before, and no fewer
+//! (nine); and 0315's Verification, "no Agent should go 60 s without delivering", failed in 20 of the 30.
 //!
 //! **What happens under 0315** (traced in [`north_west`]'s layout at 3 grid units with five Agents, from tick 2500,
 //! and in the soak with six Agents on crystals, from tick 4788 to its end):
@@ -56,20 +71,16 @@ const LONGEST_GAP: Tick = 60 * 16;
 /// ([`field`]), its distance from the hatch in grid units, and the Agents.
 type Layout = (bool, i32, u32);
 
-/// The layouts in which the income stops for a minute or more **with design change 0315 built** (module docs): all
-/// of them to the side of the hatch. Until 0315 they were seven: 1 grid unit with 4, 5 and 6 Agents, 2 with 4 and 6,
-/// 4 with 6 and 5 with 5. Which ones jam turns on a few space units of where the Agents meet: neither list is of
-/// layouts that are safe.
-const STILL_JAM: [Layout; 9] = [
-    (true, 1, 4),
-    (true, 1, 5),
+/// The layouts in which some Agent still goes a minute or more without a load **with design change 0323's contact
+/// step built** (module docs): in none of them does the income stop, and none is to be fixed by step 1 of design
+/// change 0324. Until 0323 they were 20 of the 30, nine of them with the income stopped for a minute or more.
+const WAITS: [Layout; 6] = [
+    (false, 1, 4),
+    (false, 1, 5),
+    (false, 1, 6),
     (true, 1, 6),
-    (true, 3, 4),
-    (true, 3, 5),
     (true, 3, 6),
-    (true, 4, 5),
-    (true, 4, 6),
-    (true, 5, 6),
+    (false, 4, 6),
 ];
 
 /// Tunnel 1 turned Side A south at tiles (6, 6) to (9, 9), its crystal hatch (6, 7) facing west, as player 1's in
@@ -145,60 +156,32 @@ fn layouts() -> Vec<Layout> {
 }
 
 /// Slice M4-W's focused repro: four Agents, the patch 2 grid units north-west of the hatch. Until design change 0315
-/// they delivered four loads, the last at tick 688, and then stood for the nine minutes left. With it the income
-/// never stops for a minute (375 ticks at most), at 4.35 Space Crystals per second: the four still lock up, again
-/// and again, and one of them goes 5,392 ticks without a load ([`no_agent_goes_a_minute_without_delivering`]).
+/// they delivered four loads, the last at tick 688, and then stood for the nine minutes left; with 0315 they locked
+/// up again and again (4.35 Space Crystals per second, one Agent 5,392 ticks without a load). With design change
+/// 0323's contact step they work: 11.85 per second, no stretch without a delivery beyond the walk to the first load,
+/// and no Agent more than 30 seconds without one.
 #[test]
 fn four_agents_coming_along_the_wall_keep_delivering() {
     let measured = measure((true, 2, 4));
     assert!(
-        measured.longest <= LONGEST_GAP,
-        "no delivery for {} ticks; {:.2} Space Crystals per second",
+        measured.longest <= LONGEST_GAP && measured.worst_agent <= LONGEST_GAP,
+        "no delivery for {} ticks, an Agent's {}; {:.2} Space Crystals per second",
         measured.longest,
+        measured.worst_agent,
         measured.income
     );
 }
 
-/// Slice M4-W's acceptance, where it holds with design change 0315 built: in every layout of the measurements but
-/// [`STILL_JAM`], the Agents never stop delivering for 60 seconds. Facing the hatch the longest stretch is 301 ticks
-/// (six Agents at 2 grid units; elsewhere the walk to the first load, 225 or less); to its side, 301 to 798 ticks.
+/// Design change 0324's Verification, step 1 ("The Q0111 grid: count the layouts where an Agent goes 60 s or more
+/// without delivering, against 20/30 now"), and slice M4-W's acceptance, in every layout of the measurements:
+/// - **the income never stops for 60 seconds**, in all 30 (the longest stretch is 19 seconds: at 5 grid units to the side, the walk to the first
+///   load at 5 grid units to the side; until 0323 it stopped in nine);
+/// - **no Agent goes 60 seconds without delivering** (0315's Verification), in every layout but [`WAITS`].
+///
+/// It prints the measurements of `docs/playtest/m4.md > Known issues`.
 #[test]
-fn the_income_never_stops_where_it_holds() {
-    let mut jams = Vec::new();
-    for layout in layouts().into_iter().filter(|layout| !STILL_JAM.contains(layout)) {
-        let measured = measure(layout);
-        if measured.longest > LONGEST_GAP {
-            jams.push((layout, measured.longest));
-        }
-    }
-    assert_eq!(jams, [], "((sideways, grid units, Agents), the longest gap in ticks)");
-}
-
-/// Slice M4-W's acceptance in the layouts of [`STILL_JAM`]. Ignored: it fails with design change 0315 built, in every
-/// one of them (module docs), and what would fix it is a rule the design doesn't have (0315: "file a follow-up if
-/// any case still gridlocks. The user will then consider adding (a)").
-#[test]
-#[ignore = "M4-W2: fails with design change 0315 built (the jam at the hatch); it needs the follow-up to Q0109"]
-fn the_income_never_stops_in_the_layouts_that_still_jam() {
-    let mut jams = Vec::new();
-    for layout in STILL_JAM {
-        let measured = measure(layout);
-        if measured.longest > LONGEST_GAP {
-            jams.push((layout, measured.longest));
-        }
-    }
-    assert_eq!(jams, [], "((sideways, grid units, Agents), the longest gap in ticks)");
-}
-
-/// Design change 0315's Verification, in every layout of the measurements: "no Agent should go 60 s without
-/// delivering". It prints the measurements of `docs/playtest/m4.md > Known issues`. Ignored: it fails with 0315
-/// built, in 20 of the 30 layouts (module docs): every one to the side of the hatch but four Agents at 5 grid units;
-/// and facing it, every one at 1 grid unit, six Agents at 2 and five or six at 3, where the last in line waits up to
-/// 1,123 ticks for its turn (six Agents on one hatch are twice what saturates it, design change 0294).
-#[test]
-#[ignore = "M4-W2: fails with design change 0315 built (the jam at the hatch); it needs the follow-up to Q0109"]
-fn no_agent_goes_a_minute_without_delivering() {
-    let mut jams = Vec::new();
+fn the_income_never_stops_and_no_agent_goes_a_minute_without_delivering() {
+    let (mut stops, mut waits) = (Vec::new(), Vec::new());
     for layout in layouts() {
         let measured = measure(layout);
         let (sideways, distance, count) = layout;
@@ -207,13 +190,63 @@ fn no_agent_goes_a_minute_without_delivering() {
             "{name:>10}, {distance} GU, {count} Agents: {:5.2} per second, longest gap {:4} ticks, an Agent's {:4}",
             measured.income, measured.longest, measured.worst_agent
         );
-        if measured.worst_agent > LONGEST_GAP {
-            jams.push((layout, measured.worst_agent));
+        if measured.longest > LONGEST_GAP {
+            stops.push((layout, measured.longest));
+        }
+        if measured.worst_agent > LONGEST_GAP && !WAITS.contains(&layout) {
+            waits.push((layout, measured.worst_agent));
+        }
+    }
+    assert_eq!(stops, [], "((sideways, grid units, Agents), the longest gap in ticks)");
+    assert_eq!(
+        waits,
+        [],
+        "((sideways, grid units, Agents), an Agent's longest gap in ticks)"
+    );
+}
+
+/// Design change 0315's Verification, "no Agent should go 60 s without delivering", in the layouts of [`WAITS`].
+/// Ignored: it fails in each of them with design change 0323's contact step built, step 1 of design change 0324
+/// ("Bring the measurements back, as a new question, if step 1 isn't enough"; module docs). It prints, for each
+/// layout, every Agent's loads and its longest wait, and where it is at the end.
+#[test]
+#[ignore = "M4-W3: fails with design change 0323 built: an Agent waits a minute or more for its turn (design change 0324, step 1)"]
+fn no_agent_goes_a_minute_without_delivering_where_one_still_waits() {
+    let mut waits = Vec::new();
+    for layout in WAITS {
+        let (sideways, distance, count) = layout;
+        let mut t = if sideways {
+            north_west(count, distance)
+        } else {
+            field(count, distance).start()
+        };
+        gather(&mut t, 1, &agents(count), 2);
+        t.run(TEN_MINUTES);
+        println!("{layout:?}: {:.2} per second", income(&t, 960, TEN_MINUTES));
+        for n in agents(count) {
+            let mine: Vec<Tick> = (deliveries(&t).iter()).filter(|d| d.1 == n).map(|d| d.0).collect();
+            let ticks: Vec<Tick> = [0]
+                .into_iter()
+                .chain(mine.iter().copied())
+                .chain([TEN_MINUTES])
+                .collect();
+            let longest = ticks.windows(2).map(|pair| pair[1] - pair[0]).max().unwrap_or(0);
+            println!(
+                "  #{n}: {} loads, longest wait {longest} ticks; at the end {:?} at {:?}, {:.0} su from the hatch, load {}",
+                mine.len(),
+                phase(&t, n),
+                object(&t, n).pos,
+                gap_to_hatch(&t, n, 1),
+                load(&t, n)
+            );
+            if longest > LONGEST_GAP {
+                waits.push((layout, n, longest));
+            }
         }
     }
     assert_eq!(
-        jams,
+        waits,
         [],
-        "((sideways, grid units, Agents), an Agent's longest gap in ticks)"
+        "((sideways, grid units, Agents), the Agent, its longest wait in ticks)"
     );
 }
