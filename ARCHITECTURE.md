@@ -1295,22 +1295,23 @@ ticks spent in it. Hashed and serialized like all state.
   while set, and every state without one, the goldens', is as it was. `AttackState::target` stays what the base's
   behaviour engages; the turret's sequence runs at `locked` (`Shooter::aimed`). **In 5e**, before the phases
   (`turret::step`): a lock its attack can't target at all is let go, then the turret turns toward an Attack Ground's
-  location or its LockedTarget, the latter only while its owner sees it (a placeholder: turning to an unseen one
-  would show the player where it is), by its TurnRate, a full circle (`turret::full_turn`, within `FACING_TOLERANCE`
+  location or its LockedTarget, the latter only while its owner sees it (design change 0376, answering Q0137: "A
+  turret turns only toward a lock its owner sees"), by its TurnRate, a full circle (`turret::full_turn`, within `FACING_TOLERANCE`
   of 360°) the shorter way, a limited arc only within it, to its edge toward a point outside; not when the tick
   starts in Firing or Cooldown (their TurretSourceActions are None). A sequence starts at a seen lock in range and
   in the arc (`turret::in_arc`, bounds included), Aiming lasts until the turret faces it too and is cancelled when
   it leaves the arc, and an Attack Ground's location takes the same arc. The base turns only in 5d: `base_is_free`
   holds throughout. **In 5a**, right after the base's behaviour, the turret's own (`orders/turret.rs::run`): it keeps
   a lock its base engages; any other it keeps only while it could fire at it from where it stands (`fireable`: seen,
-  a valid domain, Range and MinRange, the arc; a placeholder, as the design never says when a turret lets go), else
-  lets it go; with nothing locked it scans (`World::turret_pick`: `World::pick` with `Scan::Weapon` and the arc as
+  a valid domain, Range and MinRange, the arc; `systems/controls/commands.md > TurretCommandState > When a lock
+  ends`, design change 0376), else lets it go; with nothing locked it scans (`World::turret_pick`: `World::pick` with `Scan::Weapon` and the arc as
   `admit`, a Move's tick included) and locks the best. The rotation a scan measures, the base's
   (`BaseAutoTargeting`) and the turret's alike, is from the turret's facing (`Unit::aim_facing`, design change
   0179). **Who sets the lock**: `close_in` once the target is in range and in the arc (out of the arc the approach
   goes on, the move turning the base), the idle and the AttackMove acquisitions; a Hold's base engages nothing and
-  leaves it to the turret's scan; a Stop clears it (`orders::run::start`); every other order leaves it ("When the
-  base behavior does not specify a target, the turret retains its previous TurretCommandState"); the removal path
+  leaves it to the turret's scan; a Stop clears it (`orders::run::start`; 0376: "**Stop clears the lock**"), and
+  the turret scans in the same tick; every other order leaves it ("When the base behavior does not specify a target,
+  the turret retains its previous TurretCommandState"; 0376: a Move keeps a lock from an Attack, a friendly one too); the removal path
   clears it (`AttackState::forget`); a kind change keeps it only for a type with a turret (`sim/kinds.rs`). **Not
   shared with the Laser Turret** (*Structures that attack*), which has no arc and no turn rate, snaps its facing and
   picks by the gap in 5e: its code and its golden (`cults_vs_syndicate`) are as they were. Tests on test turret units

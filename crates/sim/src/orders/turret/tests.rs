@@ -1,8 +1,9 @@
 //! (M5-U1) A unit's turret's behaviour in phase 5a (`super`), and what the base's behaviours set of it, on the test
 //! turret units (`combat::turret::testing`): plan U1's acceptance of the scan (`systems/controls/behaviors.md >
 //! TurretAutonomousScanning`), its order, MinRange skip and facing; the retention rule
-//! (`systems/controls/commands.md > TurretCommandState`); a Move's scan, which never stops the base; an Attack, a Hold
-//! and a Stop.
+//! (`systems/controls/commands.md > TurretCommandState`), and when a lock ends (design change 0376, answering Q0137:
+//! `systems/controls/commands.md > TurretCommandState > When a lock ends`); a Move's scan, which never stops the base;
+//! an Attack, a Hold and a Stop.
 
 use glam::Vec2;
 
@@ -16,7 +17,7 @@ use crate::ids::{ObjectId, PlayerId};
 use crate::orders::{OrderKind, Target};
 use crate::shape::Shape;
 use crate::testing::{ScenarioBuilder, TestSim};
-use crate::units::gu;
+use crate::units::{Tick, gu};
 
 const P1: PlayerId = PlayerId(1);
 const P2: PlayerId = PlayerId(2);
@@ -206,8 +207,9 @@ fn a_and_b() -> (TestSim, ObjectId, ObjectId) {
 /// assigned target, it falls back to autonomous target scanning." The turret, locked on A by an Attack
 /// (`systems/controls/command_behaviors.md > AttackingObject` 3), keeps A through a Move that specifies no target,
 /// though its scan would take B (as it does holding position, unlocked), and fires at A all the while A is within its
-/// reach. Once A is out of range, it lets go (a placeholder: the design doesn't say when) and falls back to its scan,
-/// which takes B. The unit drives on all the while.
+/// reach. Once A is out of range, it lets go and falls back to its scan, which takes B
+/// (`systems/controls/commands.md > TurretCommandState > When a lock ends`, design change 0376: "When neither holds, it
+/// drops the lock and scans for a new target in the same tick"). The unit drives on all the while.
 #[test]
 fn a_turret_keeps_its_target_through_an_order_without_one_and_then_scans() {
     let _def = turret_unit(turret(360.0, 12.0), GUN);
@@ -344,10 +346,11 @@ fn a_turret_holding_position_scans_and_fires_while_its_base_stands() {
 }
 
 /// `systems/controls/command_behaviors.md > StoppingBehavior` 2: "Clear TurretCommandState.LockedTarget (turret falls
-/// back to autonomous scanning)." The turret, locked by an Attack on one of its owner's own Drones (an Attack's target
-/// may be anything destructible), keeps it through a Move a few steps on (the retention rule) and fires at it all the
-/// while; a Stop lets it go, and its scan, and its idle base's, take enemies only, of which there are none: it fires
-/// no more.
+/// back to autonomous scanning)"; `systems/controls/commands.md > TurretCommandState > When a lock ends` (design change
+/// 0376): "**Stop clears the lock**". The turret, locked by an Attack on one of its owner's own Drones (an Attack's
+/// target may be anything destructible), keeps it through a Move a few steps on (the retention rule) and fires at it
+/// all the while; a Stop lets it go, and its scan, and its idle base's, take enemies only, of which there are none: it
+/// fires no more.
 #[test]
 fn a_stop_clears_the_turret_s_target() {
     let _def = turret_unit(turret(360.0, 12.0), GUN);
@@ -370,4 +373,64 @@ fn a_stop_clears_the_turret_s_target() {
     assert_eq!(kept, Some(own));
     assert!(fired >= 5, "{fired}");
     assert_eq!(then(OrderKind::Stop), (None, 0));
+}
+
+/// Design change 0376's Verification (`systems/controls/commands.md > TurretCommandState > When a lock ends`, answering
+/// Q0137), on the test turret unit (no Raptor yet): "Force-Attack a friendly unit [...], then Move nearby: the turret
+/// keeps firing at it. Press Stop: the turret drops it and scans for enemies." Locked by an Attack on one of its
+/// owner's own Drones, the turret keeps it through a Move east ("**Commands that set no target leave the lock
+/// alone**") and fires at it alone on the move, though an enemy Drone is within its reach all the while; a Stop
+/// pressed on the way ("**Stop clears the lock**") lets it go, and in that very tick it is locked on the enemy, which
+/// the scan of its base, idle by then, took (`systems/controls/behaviors.md > BaseAutoTargeting`: "For turret units,
+/// the base sets TurretCommandState.LockedTarget"). It fires at the enemy alone from then on, the unit standing. (That
+/// base's scan would lock the enemy even over a lock the Stop kept: [`a_stop_clears_the_turret_s_target`], with no
+/// enemy about, shows the drop.)
+#[test]
+fn a_stop_drops_the_lock_a_move_kept_and_the_turret_scans_for_enemies() {
+    const MOVE: Tick = 12;
+    const STOP: Tick = 30;
+    let _def = turret_unit(turret(360.0, 12.0), GUN);
+    let at = Vec2::new(400.0, 300.0);
+    let (own, enemy) = (ObjectId(2), ObjectId(3));
+    let order = OrderKind::Move(Target::Point(at + Vec2::new(300.0, 0.0)));
+    let mut t = ScenarioBuilder::new(&open(16, 10)).start();
+    t.spawn_unit_at(1, TURRET_UNIT, P1, at)
+        .spawn_unit_at(1, ObjectKind::Drone, P1, at + Vec2::new(0.0, 100.0))
+        .spawn_unit_at(1, ObjectKind::Drone, P2, at + Vec2::new(100.0, -60.0))
+        .order_at(2, P1, &[UNIT], OrderKind::Attack(own), false)
+        .order_at(MOVE, P1, &[UNIT], order, false)
+        .order_at(STOP, P1, &[UNIT], OrderKind::Stop, false)
+        .run_until(MOVE - 1);
+    assert_eq!(locked(&t, UNIT), Some(own));
+    assert!(!shots(&t, UNIT).is_empty(), "it fires at its own Drone");
+    let reach = gu(GUN.range);
+    while t.sim().tick() < STOP - 1 {
+        t.step();
+        let tick = t.sim().tick();
+        assert_eq!(current(&t, UNIT), Some(order), "tick {tick}: on the move");
+        assert_eq!(locked(&t, UNIT), Some(own), "tick {tick}: it keeps its own Drone");
+        assert!(gap(&t, UNIT, enemy) <= reach, "tick {tick}: the enemy is within reach");
+    }
+    assert!(t.pos(1).x > at.x + 50.0, "it drove on: {}", t.pos(1));
+    let moving: Vec<_> = (shots(&t, UNIT).into_iter())
+        .filter(|&(tick, _)| tick >= MOVE)
+        .collect();
+    assert!(
+        moving.len() >= 3 && moving.iter().all(|&(_, target)| target == own),
+        "{moving:?}"
+    );
+    t.step();
+    assert_eq!(current(&t, UNIT), None, "stopped");
+    assert_eq!(locked(&t, UNIT), Some(enemy), "it dropped its own Drone, and scanned");
+    assert_eq!(engaged(&t, UNIT), Some(enemy));
+    let stood = t.pos(1);
+    t.run_until(STOP + 40);
+    let after: Vec<_> = (shots(&t, UNIT).into_iter())
+        .filter(|&(tick, _)| tick >= STOP)
+        .collect();
+    assert!(
+        after.len() >= 3 && after.iter().all(|&(_, target)| target == enemy),
+        "{after:?}"
+    );
+    assert_eq!(t.pos(1), stood, "it stands");
 }

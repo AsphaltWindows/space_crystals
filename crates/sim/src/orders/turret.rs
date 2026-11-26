@@ -13,13 +13,15 @@ use crate::defs::{AttackAttrs, TurretAttrs};
 /// (`systems/controls/commands.md > TurretCommandState`: "When the base behavior identifies a target, it updates the
 /// TurretCommandState. When the base behavior does not specify a target, the turret retains its previous
 /// TurretCommandState. If the turret has no assigned target, it falls back to autonomous target scanning").
-/// - **It keeps its LockedTarget** while the base engages that very object (`AttackState::target`: its Attack's,
-///   AttackMove's CurrentTarget, the enemy its idle auto-targeting acquired), whose own rules end the engagement (out
-///   of sight, beyond the leash, destroyed). Placeholder (not in the design, which never says when the turret lets go
-///   of a target, but at a Stop): any other LockedTarget, one its scan locked or one an order before left it
-///   ([`fireable`]), it keeps only while it can fire at it; then it lets go and scans at once. So it never stays on a
-///   target out of its reach, while the base drives on, say, as the Laser Turret "keeps its target while the target
-///   stays valid and in range" (`factions/syndicate/structures/laser_turret.md > Targeting`).
+/// - **When a lock ends** (`systems/controls/commands.md > TurretCommandState > When a lock ends`, design change 0376,
+///   answering Q0137): "A turret keeps a lock **while its base is engaging that target**, or otherwise **while it can
+///   fire at it**: in range, in its arc, and seen by its owner. When neither holds, it drops the lock and scans for a
+///   new target in the same tick." Its base engages that very object (`AttackState::target`: its Attack's,
+///   AttackMove's CurrentTarget, the enemy its idle auto-targeting acquired) until the engagement's own rules end it
+///   (out of sight, beyond the leash, destroyed); any other LockedTarget, one its scan locked or one an order before
+///   left it, it keeps while it can fire at it ([`fireable`]): "a Move keeps a lock set by an earlier Attack, friendly
+///   or enemy, for as long as the turret can fire at it (firing on the move)". A Stop clears it, and the turret scans
+///   in that tick (`orders::run::start`: "**Stop clears the lock**").
 /// - **With nothing locked it scans** (`systems/controls/behaviors.md > TurretAutonomousScanning`, [`World::turret_pick`])
 ///   and locks what it finds (step 4: "Set TurretCommandState.LockedTarget to the selected target"); nothing found,
 ///   it stays inactive (step 5). Nothing while auto-targeting is off (`DebugCommand::SetAutoTargeting`).
@@ -53,10 +55,12 @@ pub(super) fn run(unit: &mut Unit, world: &World) {
     }
 }
 
-/// Whether the turret `turret` of `unit`, attacking with `attrs`, can fire at `target` from where the unit stands:
-/// its owner sees the target (`systems/combat.md > ValidTarget` 2), which is another object, destructible, in a domain
-/// the attack can target (`> ValidTarget` 1 and 3, of any owner: an Attack's target needn't be an enemy), within Range
-/// and beyond MinRange ([`Scan::Weapon`]), and within the turret's arc (`combat::turret::in_arc`).
+/// Whether the turret `turret` of `unit`, attacking with `attrs`, can fire at `target` from where the unit stands
+/// (`systems/controls/commands.md > TurretCommandState > When a lock ends`: "in range, in its arc, and seen by its
+/// owner"): its owner sees the target (`systems/combat.md > ValidTarget` 2), which is another object, destructible, in
+/// a domain the attack can target (`systems/combat.md > ValidTarget` 1 and 3, of any owner: an Attack's target needn't
+/// be an enemy), within Range and beyond MinRange ([`Scan::Weapon`]), and within the turret's arc
+/// (`combat::turret::in_arc`).
 fn fireable(unit: &Unit, attrs: &AttackAttrs, turret: &TurretAttrs, target: &View, world: &World) -> bool {
     target.id != unit.id
         && target.destructible
