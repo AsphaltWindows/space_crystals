@@ -2954,7 +2954,12 @@ their energy doorway, slice M3-D2: design change 0145, `factions/colonists/struc
   (who leaves, allies included, which the sim can't make yet). The fuzz games of `robustness.rs` give each player a
   base the stream never removes, so that a debug removal doesn't end them; a fight still can (a Grenadier, or a Laser
   Turret in its owner's Tunnel Area, takes a base), and then the tick after the end checks that every command is refused
-  and changes nothing, and the stream goes on in a new game (slice M4-M: any seed does, none is hunted for).
+  and changes nothing, and the stream goes on in a new game (slice M4-M: any seed does, none is hunted for). One seed
+  is one sample, which the next kind or rule reshuffles: **the ignored `robustness::seed_sweep`** (slice M5-Z1) plays
+  the first 256 seeds' streams and lists every one that panics, with its message (each of the fuzz's own checks names
+  what broke and the tick). A slice that changes the sim runs it before it reports: `cargo test -p sc_sim --release
+  --test sim robustness::seed_sweep -- --ignored --nocapture`, about 4 s. At M5-Z1 all 256 pass, and 9 of them end a
+  game, which the fixed seed no longer does.
 - **Determinism tests** compare `Sim::state_hash()`, an FNV-1a 64 hash of the whole state except the events. Run the
   same scenario and inputs twice, or play back a `Replay`, and compare the hashes (`determinism.rs`, with the replay
   checkpoints). Every state type's hash impl destructures it (`hash.rs`), so a new field doesn't compile until it is
