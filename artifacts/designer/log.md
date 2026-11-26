@@ -2296,3 +2296,4 @@ Answered Q0069–Q0071 (0258–0267): losing-Tunnel edges, Syndicate economy che
 2026-11-26 — MaxHP up keeps damage. Entry 0331.
 2026-11-26 — First in first trained; keep damage. Entry 0332.
 2026-11-26 — Gunner firing 4 frames. Entry 0333.
+2026-11-26 — Shroud rules, Disciple ungroupable. Entry 0334.
