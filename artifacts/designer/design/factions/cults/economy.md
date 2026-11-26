@@ -83,10 +83,7 @@ Applies to every Cults building that can hold units inside (Armory, Altar, Templ
        2. **Total mined**: Space Crystals delivered since 0:00 (the starting bank not included);
        3. **Bank**: unspent Space Crystals at the checkpoint;
        4. **Total spent on economy**: Space Crystals paid so far for economy items, refunds subtracted.
-     - **Economy items** (designer's working list; flag borderline cases):
-       - Cults: Recruitment Halls and Storages beyond the starting ones (Recruits themselves are free).
-       - GDO: Extraction Facilities and Extraction Plates. Generators are **not** counted (they power everything); report them on a separate line.
-       - Colonists: Drones and Egress Nodes (refining is not counted).
+     - **Everything built in these runs is economy** (user, 2026-11-27): the scenarios build nothing but economy, so "spent on economy" is simply **everything spent**, Generators included (e.g. Cults Halls and Storages; GDO Extraction Facilities, Plates and Generators; Colonists Drones and Egress Nodes). If a scenario ever needs a non-economy building, report it separately.
      - First measurement (Q0135, 2x2 Storage): 0.51 of the GDO by 1:30 and 0.62 by 2:48. The 3x2 Storage (0380) is expected to help.
 
 ## Buildings
