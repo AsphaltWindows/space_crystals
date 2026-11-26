@@ -132,8 +132,8 @@ impl TryFrom<SimState> for Sim {
         // Between ticks the true grids match the objects and each player's what it knows (`paths`), so rebuilding
         // them gives the running game's.
         path_knowledge.check(&ids, &map)?;
-        // Of the units in the game and those about to come into it, as in the running game (`paths`, *Which grids*):
-        // one there with a grid the state has no unit for is no different to play.
+        // The grids of the units in the game and of those about to come into it (`paths`, *Which grids*). The running
+        // game may have more, of units gone since, which no unit reads: the loaded game plays the same.
         let keys = super::navigation::walking_keys(&objects, &held);
         let nav = NavState::build(&map, &objects, &keys, &vision, &path_knowledge);
         Ok(Sim {

@@ -184,12 +184,12 @@ Phases 1–4 stay as they are. Order commands (phase 4) only write `Orders` queu
 | Phase | Does | Why here |
 |---|---|---|
 | 5a `orders::update` | Pops completed orders, runs the behaviour state machine, writes `mover.goal`, reads `mover.status` and last tick's positions and visibility. **(E)** Every behaviour reads one snapshot of the objects, taken before any of them runs (`orders::world::World`) | After commands, so an order acts in its own tick; before movement, so there is one writer of goals |
-| 5b `paths::sync` | If a tile-blocking object changed: rebuild the **true** NavGrids and components, bump `nav_version` **(K)** | The movement below must collide with this tick's obstacles |
+| 5b `paths::sync` | If a tile-blocking object changed: rebuild the **true** NavGrids and components, bump `nav_version` **(K)**. Then build the grids of a class whose first unit came in, or was queued (5.2, M5-Z2) | The movement below must collide with this tick's obstacles |
 | 5c `paths::serve` | Runs the staggered path checks (5.6, 6.2), then serves `Wanted` requests within the budget (5.5). **(K)** Each unit on its owner's known grids, as of the end of the last tick | After goals, before steering; a repath a check asks for is served in the same tick |
 | 5d `movement::step` | **The one movement pipeline**: steer, resolve collisions, commit `pos`/`facing`/`velocity`/channels, set `status` | Single place that writes `pos` |
 | 5e combat | Attack phases, hit list, damage, deaths (other slice) | Shoots from post-move positions |
 | 5f vision | Visibility per player (other slice) | Sees final positions |
-| end: path knowledge **(K)** | `PathKnowledge::observe`, then `paths::sync_known`: each player whose known footprints changed gets a new knowledge version and its grids rebuilt | After the vision and its records, which it follows from; once per tick, so a player's grids are rebuilt at most once per tick and between ticks they follow from the state alone |
+| end: path knowledge **(K)** | `PathKnowledge::observe`, the grids of the units the tick brought (5.2), then `paths::sync_known`: each player whose known footprints changed gets a new knowledge version and its grids rebuilt | After the vision and its records, which it follows from; once per tick, so a player's grids are rebuilt at most once per tick and between ticks they follow from the state alone |
 
 - 5d builds the spatial grids first from **all** units, including this tick's spawns (obstacles, though not updated),
   then moves units one by one, updating the grid at each commit. A unit tests against movers already at their new
@@ -211,7 +211,11 @@ changes are costly, hard to verify), hierarchical/portal graphs (unneeded at the
 A Dijkstra field is used only to mass-produce paths for group orders (5.5).
 
 **5.2 NavGrid.** One per `(NavClass, size class)` in use: a `blocked` bit per tile plus a component label per tile
-(flood fill, row-major seeds, so labels are deterministic).
+(flood fill, row-major seeds, so labels are deterministic). **In use** (slice M5-Z2): a unit in the game walks on it,
+on the map, held off it or queued at a producer. A grid is built with the first such unit, in the true grids and in
+each player's, and never dropped; built late, it is the grid an eager build would have made (the same terrain, each
+set's own footprints), so which grids a game has never shows in its play and is not state. A unit without its grid
+is a bug, loud in debug builds.
 - `Ground`: blocked if not Traversible, or Rugged (G11), or under a blocking footprint. `GroundRugged`: not
   Traversible, or under a footprint. `Underground`: not Drillable. Blocking footprints: surface structures and
   resources (G10), never underground expansions. Slopes never matter.
@@ -222,7 +226,7 @@ A Dijkstra field is used only to mass-produce paths for group orders (5.5).
   owner's known grids: path requests, the staggered checks, a chase's line of sight, `reachable_point` for
   destinations and object goals. Collision reads the true grids: the movement step (section 6), the spawn and
   teleport checks, invariant I2. A unit without an owner plans on the true grids. A player's grids are built
-  lazily, with its first unit that walks on one.
+  lazily, with its first unit that walks on one, and hold the classes the true grids hold.
 - Size class `k > 1`: a tile is passable if the `k × k` block anchored on it is (true-clearance); M1 only builds `k = 1`.
 - Map edge: a unit's box stays inside the map; tiles outside are blocked.
 

@@ -20,8 +20,8 @@
 //! **Which grids** (slice M5-Z2, [`grids`]): a set holds a grid for each `(class, size class)` that a unit in the game
 //! walks on, or one about to come into it ([`walking_keys`]: on the map, held off it, or queued at a producer). A
 //! grid is built with the first such unit ([`NavState::cover`]) and never dropped: `Sim::cover_grids` in phase 5b and
-//! at the end of the tick, a debug spawn's gate check (`Sim::apply_command`), a change of kind (`Sim::change_kind`),
-//! and [`NavState::build`] at the start and on a load. Built late, a grid is what it would have been from the start,
+//! at the end of the tick, a debug spawn (`Sim::apply_command`), a change of kind (`Sim::change_kind`), and
+//! [`NavState::build`] at the start and on a load. Built late, a grid is what it would have been from the start,
 //! so which grids a game has is never seen in its play; a missing grid for a unit is a bug, loud in debug builds
 //! ([`unit_grid`]).
 //!

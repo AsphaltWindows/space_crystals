@@ -4,6 +4,7 @@
 
 use glam::Vec2;
 
+use crate::augmentation::RecruitKind;
 use crate::command::{Command, DebugCommand, PlayerCommand};
 use crate::defs::test_defs::TestDef;
 use crate::defs::{ObjectKind, UnitBase};
@@ -12,6 +13,7 @@ use crate::ids::{ObjectId, PlayerId};
 use crate::mover::MoveStatus;
 use crate::nav::{Nav, NavClass};
 use crate::orders::{OrderKind, Target};
+use crate::player::Faction;
 use crate::production::ProductionCommand;
 use crate::scenario::SpawnAt;
 use crate::sim::{Reject, Sim};
@@ -272,6 +274,52 @@ fn a_save_before_or_after_the_first_vehicle_loads_and_plays_on_the_same() {
             same_grids(&loaded, twin.sim(), &when);
         }
     }
+}
+
+/// A held unit has its grid for the spot it comes out at (`ARCHITECTURE.md > Object model > Units off the map: the held
+/// store`): the game's one vehicle, a test def's wheeled Recruit, inside player 1's Armory, and a save taken while it is
+/// inside loads with its grid, though no unit on the map walks on it; Released, it comes out at the Armory's door the
+/// same in the loaded game as in the game it was taken from.
+#[test]
+fn a_held_vehicle_keeps_its_grid_and_a_save_loads_it() {
+    const ARMORY: ObjectId = ObjectId(1);
+    const RECRUIT: ObjectId = ObjectId(2);
+    const INSIDE: Tick = 61;
+    let _vehicle = TestDef::unit(ObjectKind::Recruit, |unit| unit.base = UnitBase::WheeledVehicle);
+    let game = || {
+        // The Armory on tiles (12, 10) to (14, 11), its entrance facing east, the Recruit east of it.
+        let mut t = ScenarioBuilder::new(&"..............................\n".repeat(22))
+            .faction(P1, Faction::Cults)
+            .spawn(ObjectKind::Armory, Some(P1), SpawnAt::Tile(TilePos::new(12, 10))) // 1
+            .spawn(ObjectKind::Recruit, Some(P1), SpawnAt::Point(Vec2::new(1050.0, 704.0))) // 2
+            .start();
+        let release = Command::Production {
+            objects: vec![ARMORY],
+            command: ProductionCommand::Release(RecruitKind::Plain),
+        };
+        t.without_auto_targeting()
+            .order_at(1, P1, &[RECRUIT], OrderKind::Enter(ARMORY), false)
+            .at(INSIDE + 1, P1, release);
+        t
+    };
+    let mut t = game();
+    t.run_until(INSIDE);
+    assert!(t.sim().object(RECRUIT).is_none(), "inside");
+    let json = serde_json::to_string(t.sim()).unwrap();
+    let mut loaded: Sim = serde_json::from_str(&json).unwrap();
+    assert_eq!(loaded.state_hash(), t.sim().state_hash());
+    assert!(loaded.nav().grid(VEHICLES.0, VEHICLES.1) == t.sim().nav().grid(VEHICLES.0, VEHICLES.1));
+    assert!(
+        loaded.nav().grid(VEHICLES.0, VEHICLES.1).is_some(),
+        "built for the held vehicle"
+    );
+    for _ in 0..120 {
+        t.step();
+        let tick = t.sim().tick();
+        loaded.step(&t.replay().inputs[tick as usize - 1]);
+        assert_eq!(loaded.state_hash(), t.sim().state_hash(), "tick {tick}");
+    }
+    assert!(loaded.object(RECRUIT).is_some(), "out");
 }
 
 /// The gate asked about a debug spawn of the first vehicle (`Sim::validate`, as the client asks) checks its spot on
