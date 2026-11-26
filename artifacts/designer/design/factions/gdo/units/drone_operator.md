@@ -8,7 +8,7 @@ GDO specialist infantry, trained at the Barracks once the player owns a Career C
 
 ## Drone Stock
 - Starts with **1** drone when trained; holds a **maximum of 1** (changed from 3).
-- **Build Drone** is one of the Drone Operator's abilities: once its drone has been used, it purchases/builds a replacement (cost, build time, hotkey TBD).
+- **Build Drone** is one of the Drone Operator's abilities: once its drone has been used, it purchases/builds a replacement (placeholders below).
 
 ## Launching and piloting
 - The Drone Operator launches a drone from its stock. The drone is a separate flying unit **controlled directly by the player**.
@@ -28,4 +28,9 @@ GDO specialist infantry, trained at the Barracks once the player owns a Career C
 | Runs out of **battery** (time limit) | Yes | No |
 | Its **operator dies** | Yes | No |
 
-TBD: whether the explosion is AoE or single-target; leash range, battery time, explosion damage/radius, drone HP/speed; all operator stats, cost, build time; hotkeys; ObjectInterfaceState.
+**Placeholder stats** (designer, 2026-11-27, user's standing permission; tune in the numbers pass):
+- Operator: LightInfantry 24x24; MaxHP 45; PointArmor 1, FullArmor 1; SightRange 6 grid units; MaxSpeed 4 su/frame; Groupable true; UnitControlCost 1. Cost: Barracks, 100 Space Crystals, 160 frames.
+- **Build Drone** (hotkey **F**): 50 Space Crystals, 160 frames (10 s).
+- **Launch Drone** (hotkey **R**).
+- Drone: Air unit 24x24; MaxHP 30; MaxSpeed 10 su/frame; SightRange 5; **leash range 8 grid units**; **battery 20 s** (320 frames).
+- Explosion: **AoE** (designer's choice, to confirm), Damage **150** total, AoERadius **48 su**, melee range.

@@ -23,16 +23,16 @@ GDO primary construction structure. Constructs buildings one at a time, which mu
 - Generator: 100 Space Crystals, 240 frames (15 seconds)
 - Barracks: 200 Space Crystals, 160 frames (10 seconds)
 - Extraction Facility: 200 Space Crystals, 320 frames (20 seconds)
-- Supply Tower: cost/time TBD. Requires: player owns at least one Radar Station.
+- Supply Tower: 150 Space Crystals, 320 frames (20 seconds) (placeholder). Requires: player owns at least one Radar Station.
 - Arsenal: 150 Space Crystals, 320 frames (20 seconds) (placeholder). Requires: player owns at least one Barracks.
 - Career Campus: 150 Space Crystals, 320 frames (20 seconds) (placeholder). Requires: player owns at least one Barracks.
-- Factory: cost/time TBD. Requires: player owns at least one Barracks.
-- Radar Station: cost/time TBD. Requires: player owns at least one Generator.
-- Advanced Mechanics: cost/time TBD. Requires: player owns at least one Factory.
-- Airfield: cost/time TBD. Requires: player owns at least one Advanced Mechanics.
-- Propulsion Labs: cost/time TBD. Requires: player owns at least one Airfield.
-- Industrial Powerplant: cost/time TBD. Requires: player owns at least one Advanced Mechanics.
-- Defense System: cost/time TBD. Requires: player owns at least one Radar Station and at least one Arsenal.
+- Factory: 250 Space Crystals, 480 frames (30 seconds) (placeholder). Requires: player owns at least one Barracks.
+- Radar Station: 150 Space Crystals, 320 frames (20 seconds) (placeholder). Requires: player owns at least one Generator.
+- Advanced Mechanics: 200 Space Crystals, 400 frames (25 seconds) (placeholder). Requires: player owns at least one Factory.
+- Airfield: 250 Space Crystals, 480 frames (30 seconds) (placeholder). Requires: player owns at least one Advanced Mechanics.
+- Propulsion Labs: 200 Space Crystals, 400 frames (25 seconds) (placeholder). Requires: player owns at least one Airfield.
+- Industrial Powerplant: 250 Space Crystals, 480 frames (30 seconds) (placeholder). Requires: player owns at least one Advanced Mechanics.
+- Defense System: 150 Space Crystals, 320 frames (20 seconds) (placeholder). Requires: player owns at least one Radar Station and at least one Arsenal.
 
 ## Cancellation:
 - Cancel during construction: full refund of Space Crystals cost
@@ -71,8 +71,8 @@ BuildMenu[Basic] / BuildMenu[Advanced] (instance idle — no CurrentConstruction
 - Generator: deducts 100 Space Crystals, sets CurrentConstruction = Generator (CommandIssuingTransition, returns to DefaultState). Only available if player has sufficient Space Crystals.
 - Barracks: deducts 200 Space Crystals, sets CurrentConstruction = Barracks (CommandIssuingTransition, returns to DefaultState). Only available if player has sufficient Space Crystals.
 - Extraction Facility: deducts 200 Space Crystals, sets CurrentConstruction = ExtractionFacility (CommandIssuingTransition, returns to DefaultState). Only available if player has sufficient Space Crystals.
-- Supply Tower: deducts Space Crystals (TBD), sets CurrentConstruction = SupplyTower (CommandIssuingTransition, returns to DefaultState). Only available if player has sufficient Space Crystals and owns at least one Radar Station.
-- Arsenal, Career Campus, Factory, Radar Station, Advanced Mechanics, Airfield, Propulsion Labs, Industrial Powerplant, Defense System: deduct their cost and set CurrentConstruction the same way; costs TBD (see Constructs), availability per their Requires clause.
+- Supply Tower: deducts 150 Space Crystals (placeholder), sets CurrentConstruction = SupplyTower (CommandIssuingTransition, returns to DefaultState). Only available if player has sufficient Space Crystals and owns at least one Radar Station.
+- Arsenal, Career Campus, Factory, Radar Station, Advanced Mechanics, Airfield, Propulsion Labs, Industrial Powerplant, Defense System: deduct their cost and set CurrentConstruction the same way; costs as in Constructs (placeholders), availability per their Requires clause.
 - Escape/right-click: returns to DefaultState (StateOnlyTransition)
 
 BuildMenu (instance constructing — CurrentConstruction is set):

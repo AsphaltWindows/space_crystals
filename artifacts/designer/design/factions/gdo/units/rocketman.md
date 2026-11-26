@@ -9,8 +9,8 @@ GDO missile infantry, trained at the Barracks once the player owns an Arsenal. F
 ## AttackAttributes (normal attack):
 - AttackType: DoublyDisjointed (the missile travels to where the target was at the end of Aiming; targets can dodge; can also be fired at the ground)
 - TargetDomain: Universal (ground and air)
-- MinRange: yes (user, 2026-11-25): enemies closer than MinRange can't be targeted; value TBD (systems/controls/behaviors.md > AttackingObject > Target inside MinRange)
-- Damage, Range, ProjectileSpeed, timings: TBD
+- MinRange: yes (user, 2026-11-25): enemies closer than MinRange can't be targeted; value: placeholder below (systems/controls/behaviors.md > AttackingObject > Target inside MinRange)
+- Damage, Range, ProjectileSpeed, timings: placeholders below
 
 ## Target Lock (targeted ability)
 The player orders Target Lock on one enemy unit.

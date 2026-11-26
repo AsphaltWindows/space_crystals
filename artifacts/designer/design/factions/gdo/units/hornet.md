@@ -11,7 +11,12 @@ GDO air-to-ground attack aircraft produced at the Airfield. A HoverCraft (a chop
 - Weapon: air-to-ground missiles
 - TargetDomain: Ground
 - Ammo: **5 missiles**, then it must reload at its assigned Airfield
-- RearmTimePerAmmo: TBD (time to reload one missile at the Airfield; differs per aircraft type)
-- AttackType, Damage, Range, timings: TBD
+- RearmTimePerAmmo: placeholder below
+- AttackType, Damage, Range, timings: placeholders below
 
-TBD: Silhouette, MaxHP, armor, SightRange, movement values, turret, cost, build time, Unit Control cost, ObjectInterfaceState.
+**Placeholder stats** (designer, 2026-11-27, user's standing permission; tune in the numbers pass):
+- Silhouette 48x48 space units; MaxHP 120; PointArmor 1, FullArmor 1; SightRange 7 grid units; Groupable true; UnitControlCost 2.
+- HoverCraft movement: MaxSpeed 9 su/frame; Acceleration 0.6; Deceleration 0.6; TurnRate 8°/frame. No turret (fires forward; it turns in place to aim).
+- Attack: **HeadDisjointed** (homing; designer's choice, to confirm); Damage 30; Range 5 grid units; ProjectileSpeed 14 su/frame; Aim 4, Firing 2, Cooldown 4, Reload 22 frames; **RearmTimePerAmmo 32 frames** (5 missiles in 10 s).
+- Cost: Airfield, 150 Space Crystals, 320 frames.
+- Panel: BasicCombatUnitInterfaceState plus **F: Return to Base**.
