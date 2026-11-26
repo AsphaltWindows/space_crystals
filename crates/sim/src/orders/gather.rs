@@ -29,9 +29,9 @@
 //! `factions/cults/structures/storage.md`) are data on the same job: they share patches as Agents do ("any number of
 //! Recruits may mine the same Space Crystals patch at the same time"), deliver anywhere at a Storage, any number at
 //! once ("Multiple Recruits can drop off Space Crystals simultaneously"), and keep normal collision (design change
-//! 0106). **Which Storage** is a placeholder (Q0102 point 1, `deliver::nearest_to_patch`): the nearest own completed
-//! one, edge to edge from the patch, chosen as each return starts; with none, the Recruit idles holding its load
-//! (Q0102 point 2: the rule of design change 0135).
+//! 0106). **Which Storage** (design change 0345, answering Q0102; `deliver::nearest_to_patch`): the nearest own
+//! completed one, edge to edge from the patch, chosen as each return starts; with none, the Recruit idles holding its
+//! load (the rule of design change 0135).
 //!
 //! One behaviour runs both orders: `OrderKind::Gather(patch)` and `OrderKind::DropOff(node)`. Its phases
 //! (`state::GatherPhase`):
@@ -143,7 +143,7 @@ pub(crate) fn on_gather_job(o: &Object) -> bool {
 ///   AssignedDropOff (`DropOffChoice::FirstReturn`): the Tunnel "is chosen when the Gather's first return starts and
 ///   kept for that Gather (a new Gather picks again)". The Gather begins without one, and its first return takes the
 ///   nearest (`deliver::to_drop_off`). So does a Recruit's, which picks again as every return starts
-///   (`DropOffChoice::EachReturn`, Placeholder (Q0102 point 1)).
+///   (`DropOffChoice::EachReturn`, design change 0345).
 pub(super) fn begin(kind: OrderKind, unit: &mut Unit, world: &World) -> Gather {
     let (pos, owner) = (unit.pos, unit.owner);
     let keeps =

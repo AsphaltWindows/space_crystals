@@ -256,9 +256,10 @@ pub enum DropOffChoice {
     /// worker, "chosen when the Gather's first return starts and kept for that Gather (a new Gather picks again)".
     /// The Agent.
     FirstReturn,
-    /// **Placeholder (Q0102 point 1)**: the nearest own completed drop-off, edge to edge from the patch, chosen anew
-    /// as each return starts; no Set Drop-off command. The Recruit (`factions/cults/units/recruit.md > Gathering`:
-    /// "deliver them to Storage"; `factions/cults/structures/storage.md` assumes the Storage next to the patch).
+    /// The nearest own completed drop-off, edge to edge from the patch, chosen anew as each return starts; no Set
+    /// Drop-off command. The Recruit (design change 0345, answering Q0102; `factions/cults/units/recruit.md >
+    /// Gathering`: "at **every return** the Recruit takes its load to the **nearest own completed Storage, edge to edge
+    /// from its patch**").
     EachReturn,
 }
 

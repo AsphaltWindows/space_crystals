@@ -1,10 +1,11 @@
 //! The pairings' scripted openings (`super::OPENINGS`, one hook a faction): each plays its player from their faction's
-//! Starting Conditions through the lines of `sc_sim::testing` (`build_order` for the GDO, `colonists`, `syndicate`),
-//! with the player's own commands through the gate, as a player would.
+//! Starting Conditions through the lines of `sc_sim::testing` (`build_order` for the GDO, `colonists`, `syndicate`,
+//! `cults`), with the player's own commands through the gate, as a player would.
 //!
 //! - **Any map, either slot.** A hook takes what its line needs from the game as it starts, never from a map's layout:
 //!   the patch nearest the player's drop-off ([`nearest_patch`]), the Beacon sites around their Robo Portal
-//!   ([`beacon_sites`]), the Optics Lab's spot in their Tunnel's area ([`expansion_site`]).
+//!   ([`beacon_sites`]), the Optics Lab's spot in their Tunnel's area ([`expansion_site`]), the patches nearest the
+//!   Cults' Storage and their Armory's spot by their Hall ([`armory_site`]).
 //! - **An opening, not an attack.** Each gathers, builds and trains at home, and sends no unit out, so that a pairing
 //!   ends only by the test's removals (`super::end`).
 
@@ -13,16 +14,18 @@ use sc_sim::nav::TileRect;
 use sc_sim::placement::footprint_size;
 use sc_sim::testing::build_order::{BuildOrder, Order};
 use sc_sim::testing::colonists::Colonists;
+use sc_sim::testing::cults::{Build, Crew, Cults};
 use sc_sim::testing::syndicate::{Done, Syndicate};
 use sc_sim::tunnel::area;
 use sc_sim::{
     BuildingOrientation, Command, Object, ObjectId, ObjectKind, PlayerCommand, PlayerId, ProductionCommand, SU_PER_GU,
-    Sim, Target, Tick, TilePos, Vec2,
+    Shape, Sim, Target, Tick, TilePos, Vec2,
 };
 
 use ObjectKind::{
-    Agent, Barracks, Beacon, BioPortal, CrystalPatch, DeploymentCenter, Drone, ExtractionFacility, ExtractionPlate,
-    Generator, Guard, Hideout, OpticsLab, Peacekeeper, RoboPortal, SabreLegionnaire, Tunnel,
+    Agent, Armory, Barracks, Beacon, BioPortal, CrystalPatch, DeploymentCenter, Drone, ExtractionFacility,
+    ExtractionPlate, Generator, Guard, Hideout, OpticsLab, Peacekeeper, Recruit, RecruitmentHall, RoboPortal,
+    SabreLegionnaire, Storage, Tunnel,
 };
 
 /// A player's scripted opening.
@@ -49,8 +52,16 @@ const GUARDS: usize = 4;
 /// The Beacon sites' lattice, in tiles ([`beacon_sites`]): a 2 × 2 Beacon, the column and row that a Bio Portal warped
 /// in on it adds (its 3 × 3 footprint starts at the Beacon's, `sc_sim::transform::warp_in_footprint`), and a free one.
 const LATTICE: i32 = 4;
-/// How many lattice steps from the Robo Portal the Beacon sites reach.
+/// How many lattice steps from the Robo Portal the Beacon sites reach, and from the Recruitment Hall the Armory's
+/// ([`armory_site`]).
 const REACH: i32 = 3;
+/// The patches the Cults' Recruits are dealt to ([`cults`]), and how many a patch seats.
+const SEATED: usize = 4;
+const PER_PATCH: u32 = 2;
+/// The Recruits that build the Cults' Armory.
+const BUILDERS: usize = 3;
+/// The Cults' Militants.
+const MILITANTS: usize = 2;
 
 /// The GDO (`testing::build_order`): player 1's line in the golden game `gdo_opening` (`tests/golden/gdo.rs`), the
 /// fastest clean Barracks (`factions/gdo/economy.md > Starting Conditions > Opening Economy Baseline`: "Plate,
@@ -171,6 +182,83 @@ impl Opening for SyndicateOpening {
     fn paid_in(&self, tick: Tick) -> (u32, u32) {
         (self.line.spent_in(tick), self.line.supplies_spent_in(tick))
     }
+}
+
+/// The Cults (`testing::cults`): player 1's line in the golden game `cults_opening` (`testing::cults::skirmish`), cut
+/// down to what any map gives: the Recruits dealt to the [`SEATED`] patches nearest the starting Storage, edge to
+/// edge, [`PER_PATCH`] to a patch (within the design's 4–5 Recruits a 2-tile face, design change 0320); an Armory at
+/// [`armory_site`], built by the [`BUILDERS`] Recruits nearest it, which go back to their patches after; and
+/// [`MILITANTS`] Militants of the Recruits without a seat, which stay by the Armory (no rally point).
+pub fn cults(sim: &Sim, player: PlayerId) -> Box<dyn Opening> {
+    let mut line = Cults::new(player);
+    let storage = (sim.objects()).find(|o| o.owner == Some(player) && o.kind == Storage);
+    if let Some(storage) = storage {
+        let from = Shape::of(storage);
+        let mut patches: Vec<(f32, ObjectId)> = (sim.objects())
+            .filter(|o| o.kind == CrystalPatch)
+            .map(|o| (from.gap(&Shape::of(o)), o.id))
+            .collect();
+        patches.sort_by(|a, b| a.0.total_cmp(&b.0).then(a.1.cmp(&b.1)));
+        line = line.deal(patches.iter().take(SEATED).map(|&(_, patch)| (patch, PER_PATCH)));
+    }
+    if let Some(origin) = armory_site(sim, player) {
+        line = line.build(Build::new(Armory, origin, Crew::Nearest(BUILDERS)));
+    }
+    Box::new(line.militants(MILITANTS, None))
+}
+
+impl Opening for Cults {
+    fn play(&mut self, sim: &Sim) -> Vec<PlayerCommand> {
+        self.commands(sim)
+    }
+
+    fn paid_in(&self, tick: Tick) -> (u32, u32) {
+        (self.spent_in(tick), 0)
+    }
+}
+
+/// Where `player`'s Armory goes ([`cults`]): of the origins within [`REACH`] lattice steps of their Recruitment
+/// Hall's, a tile at a time, those whose footprint has a free tile all round it on the map as the game starts (clear
+/// of every footprint, patches included) and lies beyond the Hall from the patch nearest it, out of the Recruits' way
+/// between the Hall, its Storage and the field; the nearest the Hall first, ties row by row; the first the build check
+/// takes for a Recruit of theirs (`Sim::build_check`: the gate's, but for the price, which the line waits for). `None`
+/// without a Hall, a Recruit or such a spot.
+fn armory_site(sim: &Sim, player: PlayerId) -> Option<TilePos> {
+    let own = |kind| (sim.objects()).find(move |o: &&Object| o.owner == Some(player) && o.kind == kind);
+    let (hall, recruit) = (own(RecruitmentHall)?, own(Recruit)?);
+    let placement = hall.placement?;
+    let orientation = BuildingOrientation::default();
+    let (w, h) = footprint_size(Armory, orientation)?;
+    let patches = sim.objects().filter(|o| o.kind == CrystalPatch);
+    let patch = patches.min_by(|a, b| (a.pos.distance_squared(hall.pos)).total_cmp(&b.pos.distance_squared(hall.pos)));
+    let away = patch.map(|patch| hall.pos - patch.pos);
+    let taken: Vec<TileRect> = sim.objects().filter_map(footprint).collect();
+    let map = TileRect::new(TilePos::new(0, 0), sim.map().width(), sim.map().height());
+    let span = REACH * LATTICE;
+    let mut sites: Vec<(f32, TilePos)> = ((-span..=span).flat_map(|j| (-span..=span).map(move |i| (i, j))))
+        .map(|(i, j)| TilePos::new(placement.origin.x + i, placement.origin.y + j))
+        .filter(|&origin| {
+            let margin = TileRect::new(TilePos::new(origin.x - 1, origin.y - 1), w + 2, h + 2);
+            area::encloses(map, margin) && !taken.iter().any(|&t| area::overlaps(t, margin))
+        })
+        .map(|origin| {
+            (
+                origin.corner() + Vec2::new(w as f32, h as f32) * (SU_PER_GU / 2.0),
+                origin,
+            )
+        })
+        .filter(|&(centre, _)| away.is_none_or(|away| (centre - hall.pos).dot(away) > 0.0))
+        .map(|(centre, origin)| (centre.distance_squared(hall.pos), origin))
+        .collect();
+    sites.sort_by(|a, b| (a.0.total_cmp(&b.0)).then((a.1.y, a.1.x).cmp(&(b.1.y, b.1.x))));
+    let takes = |origin| {
+        let check = sim.build_check(recruit.id, Armory, origin, orientation, false);
+        check.is_some_and(|check| check.is_valid())
+    };
+    sites
+        .into_iter()
+        .map(|(_, origin)| origin)
+        .find(|&origin| takes(origin))
 }
 
 /// The crystal patch nearest where `player`'s first drop-off (by id) takes loads: its crystal hatch's square for a

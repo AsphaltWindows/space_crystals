@@ -1359,9 +1359,9 @@ writes the mover's goal and the target the attack engages, and reads `Mover::sta
   - **Recruits** (M5-D, plan decision T58; `factions/cults/units/recruit.md > Gathering`,
     `factions/cults/structures/storage.md`): data again. `shares_patches`, no `pass_through` (design change 0106:
     Recruits collide while they gather), the Storage's `DropOff::Anywhere`, and
-    `DropOffChoice::EachReturn`: **Placeholder (Q0102 point 1)**, as each return starts (`state::Gather::node` is
+    `DropOffChoice::EachReturn` (design change 0345, answering Q0102): as each return starts (`state::Gather::node` is
     `None`) the Recruit takes the own completed Storage nearest to its patch, **edge to edge**
-    (`deliver::nearest_to_patch`), and with none it idles holding its load (point 2). One lost on the way is replaced by
+    (`deliver::nearest_to_patch`), and with none it idles holding its load. One lost on the way is replaced by
     the removal path as any worker's is. Within what the design says a face holds (4 to 5 Recruits a 2-tile face)
     nothing jams; with more Recruits than lanes they stand head-on and starve one another, which no existing rule
     resolves (question Q0109: `tests/recruit_gathering/jam.rs`, ignored).
@@ -2686,6 +2686,14 @@ their energy doorway, slice M3-D2: design change 0145, `factions/colonists/struc
   crystals. `reference_field(distance, agents)`, `opening_field(distance)` and `stacked_field(distance, agents)` are
   the Syndicate economy check's reference layouts (design changes 0259 and 0294), and `syndicate::skirmish` plays
   `dev_skirmish` with a Syndicate line, alone or against the GDO's (the Syndicate's golden games).
+  `testing::cults` (slice M5-L) plays a Cults player the same way: a `Cults` line deals each idle Recruit to a seat
+  (a patch, in groups, at most a face's 4 to 5, design change 0320) once the player has a completed Storage, orders
+  its buildings in turn, each as one group Build from its crew (the Recruits on patches with no own Storage a tile
+  away, or the `n` nearest the site) with each builder's Gather queued back after it, sends idle Recruits into its
+  first Armory and trains Militants of them (`ProductionCommand::TrainFrom`), and records what it pays by tick for
+  `Books`. `reference_field(faces)`, `crowd_field(recruits)` and `face_field(gap, recruits)` are the Cults economy
+  check's layouts (design change 0346), and `cults::skirmish` plays `dev_skirmish` with a Cults line, alone or against
+  a Syndicate one (the Cults' golden games).
 - **Movement scenario tests** are `crates/sim/tests/movement_collision/` (passing, head-on, choke, group arrival,
   idle units, repaths, oscillation bounds, save and load in a crowd; in modules by topic: `passing`, `crowds`,
   `paths`), `group_destinations.rs` (the magic box; a
@@ -2782,7 +2790,13 @@ their energy doorway, slice M3-D2: design change 0145, `factions/colonists/struc
   row (rows 0 to 2 are theoretical: the ignored `syndicate_table` measures them for the record); the ceiling, no two
   deliveries at a Tunnel less than 64 ticks apart, in every game; two stacked Tunnels at 3 GU doubling the field's
   intake; the opening at 3 GU from the Starting Conditions, its third Agent out within 0:34–0:46, both books
-  balanced every tick; and the lowest one-base saturation.
+  balanced every tick; and the lowest one-base saturation. **The Cults** (slice M5-L, `cults.rs`): the economy check
+  of `factions/cults/economy.md > Economy check` (design change 0346) on `testing::cults`'s layouts, played by a
+  `Cults` line through the gate with the books balanced every tick. Scenario 1, ideal mining (one Storage per face):
+  every target within ±15%, those out of it pinned (`OUT_OF_TOLERANCE`: the fifth Recruit of a face, the gain per face
+  of a Storage a tile closer and its payback, and "slightly ahead by 2:48"). Scenario 2, the user's realistic opening
+  (a second Hall before any other Storage, built by the Recruits on far patches, then a Storage per face): measured
+  against the GDO and the Colonists at 1:30 and 2:48 and reported, with no target.
 - **Game start tests** are `crates/sim/tests/game_start/` (slice M2-F1: each player's Starting Layout and banks,
   the Skirmish Default restriction and completeness, the layout rules of design change 0097, a layout plate off its
   patch refused by the game's rule, a pre-placed one by the same rule, two players' layouts in each other's way, the
@@ -3933,16 +3947,16 @@ unchecked.
   or ", end", and "Tick n / end". Screenshots, `--exit-at-tick`, `--dump-state`, `--input-script` (to press the
   playback keys), `--windowed` and `--headless` work with it; a windowless playback ends at the replay's end unless
   told otherwise. To check a replay quickly: `cargo run -- --replay <file> --headless --fast`.
-- **Golden hashes** (`crates/sim/tests/golden/`: the games in `units.rs`, `gdo.rs`, `colonists.rs`, `syndicate.rs`
-  and `main.rs`, the recording and the comparison in `harness.rs`): eleven games, a 3v3 duel, a 40-unit AttackMove
-  battle, a 12-unit group move through a choke, a patrol that meets an enemy, a chase lost in the fog, three
+- **Golden hashes** (`crates/sim/tests/golden/`: the games in `units.rs`, `gdo.rs`, `colonists.rs`, `syndicate.rs`,
+  `cults.rs` and `main.rs`, the recording and the comparison in `harness.rs`): thirteen games, a 3v3 duel, a 40-unit
+  AttackMove battle, a 12-unit group move through a choke, a patrol that meets an enemy, a chase lost in the fog, three
   Peacekeepers that raise their Riot Shields (`Command::Ability`; one turns back half-way), walk up to a Guard under
   fire and lower them to kill it, and `gdo_opening` (slice M2-J1: `dev_skirmish` from its real start, to 2:45; player 1
   plays the fastest clean Barracks and rallies ten Peacekeepers to player 2's crystal field, where they destroy four
   plates, while player 2 plates its field and builds Generators), the Colonists' `colonists_opening` and
-  `colonists_vs_gdo` (slice M3-K1, below) and the Syndicate's `syndicate_opening` and `syndicate_vs_gdo` (slice
-  M4-L, below), are blessed as replays with a checkpoint every 32 ticks and
-  at the end, in `crates/sim/tests/golden/<name>.json`. A tenth, `area_attacks` (slice M4-O), is a unit test
+  `colonists_vs_gdo` (slice M3-K1, below), the Syndicate's `syndicate_opening` and `syndicate_vs_gdo` (slice
+  M4-L, below) and the Cults' `cults_opening` and `cults_vs_syndicate` (slice M5-L, below), are blessed as replays
+  with a checkpoint every 32 ticks and at the end, in `crates/sim/tests/golden/<name>.json`. A tenth, `area_attacks` (slice M4-O), is a unit test
   (`combat/projectiles/golden.rs`), as it plays test throwers (`combat::testing`): grenades in flight, blasts over a
   hidden Hideout and a group, an Attack Ground. Its file is `tests/golden/test_defs/area_attacks.json`, out of the
   client's playback of `tests/golden/*.json`, which knows only the game's types. The test plays each game from its definition, checks that the
@@ -3971,7 +3985,15 @@ unchecked.
   the Syndicate's Tunnel nearest them: Guards and Peacekeepers die, the second Tunnel falls, then the first, which
   leaves the Hideout and the Optics Lab neutral, strands the two Guards in the network and defeats player 1; the game
   is over in its last tick, as the client's playback stops where a game ends. Both players' books balance
-  every step, and player 1's Supplies too (`testing::syndicate::SupplyBooks`). The ignored `tests/skirmish_soak.rs`
+  every step, and player 1's Supplies too (`testing::syndicate::SupplyBooks`). The Cults' games play `dev_skirmish`
+  with player 1 as the Cults, by `testing::cults::skirmish`: in `cults_opening` (to 2:45) its Recruits are dealt to
+  the field, and the line builds a second Storage, a second Hall east of the hill (100% Effectiveness) and an Armory,
+  and trains four Militants; in `cults_vs_syndicate` (to 3:40.56, where it ends) it builds the Armory first and trains
+  eight Militants of the Recruits it has no seat for, which attack-move in a wave to player 2's Tunnel, while player 2
+  plays the Syndicate: two Agents, an Optics Lab, a Laser Turret from the Tunnel's ExpandMenu (slice M5-Y) and four
+  Guards at its patch. The turret kills six Militants before they destroy it, and the last two destroy the Tunnel,
+  which defeats player 2. Both players' books balance every step, player 2's Supplies too. The ignored
+  `tests/skirmish_soak.rs`
   (slice M3-K2) plays the Colonists' two players for 10 minutes, twice, until player 1's field runs out: the
   movement invariants and the books every tick, no dangling id, no order stuck in one step beyond a bound (a waiting
   Drone re-checks within 16 ticks once its patch is free), the field's 12000 crystals all delivered, no game end, and
@@ -4325,10 +4347,12 @@ The faction's own mechanics come next, each only if it has them (M3's and M4's i
 19. **Tests and QA** (plan decision T27; slices M3-K1 and M3-K2, M4-L and M4-M): `ScenarioBuilder::faction` sets a
     test player's faction, and `cargo run -- --factions <f1,f2>` starts a game with it, which its replay records. Then:
     - a build line through the gate beside `testing::build_order` (`testing::colonists`: Train, Gather, Deploy and
-      Warp In; `testing::syndicate`: Gather, Job, Expand, Upgrade and After, with `SupplyBooks` for the Supplies),
+      Warp In; `testing::syndicate`: Gather, Job, Expand, Upgrade and After, with `SupplyBooks` for the Supplies;
+      `testing::cults`: seats, group Builds and Train From),
       whose `Books` count what the faction's income adds;
     - goldens of its opening and of a game against another faction, both players scripted (`tests/golden/colonists.rs`,
-      `testing::colonists::skirmish`; `tests/golden/syndicate.rs`, `testing::syndicate::skirmish`);
+      `testing::colonists::skirmish`; `tests/golden/syndicate.rs`, `testing::syndicate::skirmish`;
+      `tests/golden/cults.rs`, `testing::cults::skirmish`);
     - its economy oracle against the design's targets (`tests/economy_oracle/`, `docs/economy_oracle.md`);
     - a perf test of its crowds (`tests/drones_perf.rs`, `tests/agents_perf.rs`, `tests/recruits_perf.rs`) and an ignored 10-minute soak of the
       golden game (`tests/skirmish_soak.rs`, `tests/syndicate_soak.rs`: invariants, books, no stuck order, the hash

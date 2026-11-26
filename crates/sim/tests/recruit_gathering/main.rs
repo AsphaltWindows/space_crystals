@@ -1,12 +1,13 @@
 //! Recruits gather Space Crystals (slice M5-D, plan decision T58; `factions/cults/units/recruit.md > Gathering`,
 //! `factions/cults/structures/storage.md`; design change 0106: Recruits keep normal collision while they mine): the
 //! one Gather job of the Drone and the Agent, with the Recruit's data. It shares patches, delivers anywhere at a
-//! Storage, any number at once, and takes the Storage nearest to its patch as each return starts (Placeholder (Q0102
-//! point 1)). `TestSim` checks the invariants after every tick.
+//! Storage, any number at once, and takes the Storage nearest to its patch as each return starts (design change 0345,
+//! answering Q0102). `TestSim` checks the invariants after every tick.
 //!
 //! In modules by topic, one test binary:
 //! - `trips`: one Recruit's trip at gaps of 1, 2 and 3 tiles against the design's formula, and a trip phase by phase;
-//! - `storages`: which Storage (Q0102's placeholder), a new one, a lost one, none;
+//! - `storages`: which Storage (design change 0345), a new one, one completed beside a busy patch (0345's
+//!   Verification), a lost one, none;
 //! - `rules`: patch sharing, unloading together, collision kept, the Drop Off order, the gate, a patch that runs out;
 //! - `crowds`: 4 and 5 Recruits on one 2-tile face, 10 on an 8-patch field with three Storages, for 5 minutes, and
 //!   the jam check (no Recruit goes 10 seconds without a delivery);

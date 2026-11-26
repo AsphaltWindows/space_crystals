@@ -1,8 +1,8 @@
-//! Golden hashes (`ARCHITECTURE.md > Replays and golden hashes`): eleven small games, defined below and in
-//! `colonists.rs` and `syndicate.rs` and recorded as replays in `tests/golden/`, each with the state hash at tick 0,
-//! every 32 ticks and at its end (`harness.rs`). A run must give the blessed hashes: a change that alters how any of
-//! these games plays out fails here, at the first checkpoint that differs. The replays play in the client too (`cargo run -- --replay
-//! crates/sim/tests/golden/<name>.json`).
+//! Golden hashes (`ARCHITECTURE.md > Replays and golden hashes`): thirteen small games, defined below and in
+//! `colonists.rs`, `syndicate.rs` and `cults.rs` and recorded as replays in `tests/golden/`, each with the state hash
+//! at tick 0, every 32 ticks and at its end (`harness.rs`). A run must give the blessed hashes: a change that alters
+//! how any of these games plays out fails here, at the first checkpoint that differs. The replays play in the client
+//! too (`cargo run -- --replay crates/sim/tests/golden/<name>.json`).
 //!
 //! When the change is intended, re-bless the files and review the diff (the checkpoint hashes) before committing:
 //!
@@ -12,10 +12,11 @@
 //!
 //! The games are defined in `units.rs` (small games of units on test maps: a duel, an AttackMove battle, a
 //! group move through a choke, a patrol and a chase into the fog), `gdo.rs` (the GDO opening on `dev_skirmish`),
-//! `colonists.rs` (the Colonists' two), `syndicate.rs` (the Syndicate's two) and below (the Riot Shield game), and
-//! every test is below.
+//! `colonists.rs` (the Colonists' two), `syndicate.rs` (the Syndicate's two), `cults.rs` (the Cults' two) and below
+//! (the Riot Shield game), and every test is below.
 
 mod colonists;
+mod cults;
 mod gdo;
 mod harness;
 mod syndicate;
@@ -188,4 +189,14 @@ fn golden_syndicate_opening() {
 #[test]
 fn golden_syndicate_vs_gdo() {
     golden("syndicate_vs_gdo", syndicate::versus_gdo);
+}
+
+#[test]
+fn golden_cults_opening() {
+    golden("cults_opening", cults::opening);
+}
+
+#[test]
+fn golden_cults_vs_syndicate() {
+    golden("cults_vs_syndicate", cults::versus_syndicate);
 }

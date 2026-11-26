@@ -122,7 +122,8 @@ fn a_drop_off_order_delivers_the_load_at_its_storage() {
     );
 }
 
-/// The Recruit has no Set Drop-off command (its sections name none; Q0102): the gate refuses the ability.
+/// The Recruit has no Set Drop-off command (its sections name none; design change 0345: the nearest Storage at every
+/// return): the gate refuses the ability.
 #[test]
 fn a_recruit_has_no_set_drop_off() {
     let t = face(1, 1, 1, 0);
