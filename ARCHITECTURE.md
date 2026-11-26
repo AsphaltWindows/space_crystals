@@ -3816,7 +3816,8 @@ these.
   vision alone, which has no Visible tile left once the fog delay of their last tiles is over.
   `FogOfWar` turns it off for QA (`--no-fog`, the debug key F3, which a replay's playback takes without debug
   commands too): display only, the sim computes every player's
-  vision anyway. The editor shows no fog; its play-tests do.
+  vision anyway; the top bar says so meanwhile, "Fog off (F3)" (slice M5-S6, `TopBarNote::FogOff`, below). The editor
+  shows no fog; its play-tests do.
 - **Viewer events** (`viewer_events.rs`, slice M4-V): **one filter between the sim's events and every view of them.**
   The sim tells every event to everyone. `filter_events` (in `SyncSim`, set `FilterEvents`) alone reads that stream,
   besides the QA state dump (tooling). It gives each event an `Audience` as it arrives, and fills the frame's
@@ -3922,7 +3923,15 @@ that the units in production (design change 0143) count as the sim counts them; 
 (`Sim::army_cap`; red over capacity, as `factions/syndicate/tunnel_area_and_space.md > Tunnel Space` has it, "12/10");
 for the Cults (slice M5-C, `factions/cults/overview.md > DisplayHud`) Space Crystals and Unit Control as used /
 available (`Sim::army_cap`: their Halls' usage and orphaned points over their Halls' capacities rounded down; over
-capacity after a Hall is lost, not in red: the design gives the figure no warning). Under the top bar, a placeholder
+capacity after a Hall is lost, not in red: the design gives the figure no warning). The name and the tick take equal
+shares of the width the resources leave, which keeps them centred; what doesn't fit in a share is clipped there, never
+drawn over the resources. (M5-S6) **Notes** (`TopBarNote`, placeholders) say how this client shows the game while it
+applies, in amber, in the bar's row: "Fog off (F3)" after the name while `FogOfWar` is off, in games and replays alike
+(the user took the map revealed by F3 for a bug). A note takes room of its own, so it never covers a figure, and gives
+it up first: short of room, it shrinks, clipped at its end, while the name, the figures and the tick keep their size
+(`spawn_note`). The bar is laid out in `vh`, so what fits depends on the window's shape, not its size: at 16:9 and
+16:10 every faction's bar fits its notes; at 4:3 a long bar (the Colonists', the GDO's in the game) clips them. Tests:
+`tests/hud.rs` (F3 and `--no-fog`), `tests/replay.rs` (a playback). Under the top bar, a placeholder
 notice (`hud/notices.rs`, `STATION_EMPTY_TEXT` for `NOTICE_TICKS` sim ticks) tells the local player that a Supply
 Delivery Station where their Agents gather is empty (`SimEvent::SupplyStationEmpty`, design change 0256 point 3: "the
 owner gets a notification", notifications not designed yet). A second, under it, tells every player who hasn't left
