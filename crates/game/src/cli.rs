@@ -1,6 +1,7 @@
 //! Command-line flags, parsed by hand. `ARCHITECTURE.md > QA mode` documents them for agents; [`usage`] is the help
 //! text.
 
+mod ai;
 mod usage;
 mod values;
 
@@ -10,6 +11,7 @@ use std::time::SystemTime;
 use bevy::math::UVec2;
 use sc_sim::{Faction, GameSetup, MapDef, PlayerId, Scenario, SimConfig, Tick, scenarios};
 
+use crate::ai_players::AiSlot;
 use crate::editor::actions::EditorAction;
 use crate::editor::{EditorConfig, files};
 use crate::platform::DisplayMode;
@@ -34,6 +36,8 @@ pub struct CliOptions {
     /// `--factions`: the faction of each slot's player, in slot order (plan decision T24); `None` for the default
     /// setup, a GDO player in every slot.
     pub factions: Option<Vec<Faction>>,
+    /// `--ai`: the players computers play, each with its profile.
+    pub ai: Vec<AiSlot>,
     /// `--editor`, with the file to edit if one was given.
     pub editor: bool,
     pub editor_path: Option<PathBuf>,
@@ -68,6 +72,7 @@ impl Default for CliOptions {
             scenario: None,
             map: None,
             factions: None,
+            ai: Vec::new(),
             editor: false,
             editor_path: None,
             editor_script: None,
@@ -107,6 +112,7 @@ pub fn parse(args: &[String]) -> Result<CliOptions, String> {
             "--scenario" => options.scenario = Some(value()?),
             "--map" => options.map = Some(value()?.into()),
             "--factions" => options.factions = Some(parse_factions(&value()?)?),
+            "--ai" => options.ai = ai::parse_ai(&value()?)?,
             "--editor-script" => options.editor_script = Some(value()?.into()),
             "--player" => options.player = parse_player(&value()?)?,
             "--window-size" => options.window_size = parse_size(&value()?)?,
@@ -153,6 +159,10 @@ pub fn into_config(options: CliOptions) -> Result<AppConfig, String> {
     } else {
         (game_scenario(&options)?, None)
     };
+    if editor.is_some() && !options.ai.is_empty() {
+        return Err("--ai needs a game: the editor's play-tests have no computer players".into());
+    }
+    ai::check(&options.ai, &scenario)?;
     if editor.is_none() && scenario.setup.player(player).is_none() {
         return Err(format!(
             "map {:?} has no player {} (players 1 to {}, one per slot)",
@@ -263,6 +273,7 @@ pub fn into_config(options: CliOptions) -> Result<AppConfig, String> {
         editor,
         record,
         playback,
+        ai: options.ai,
     })
 }
 
@@ -275,6 +286,7 @@ fn playback_source(options: &CliOptions, path: &Path) -> Result<PlaybackSource, 
         (options.factions.is_some(), "--factions"),
         (!options.debug, "--no-debug"),
         (options.commands.is_some(), "--commands"),
+        (!options.ai.is_empty(), "--ai"),
     ];
     if let Some((_, flag)) = conflicts.into_iter().find(|(given, _)| *given) {
         return Err(format!(

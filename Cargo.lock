@@ -4074,6 +4074,7 @@ name = "space_crystals"
 version = "0.1.0"
 dependencies = [
  "bevy",
+ "sc_ai",
  "sc_sim",
  "serde",
  "serde_json",

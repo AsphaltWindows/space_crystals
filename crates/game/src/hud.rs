@@ -5,14 +5,14 @@
 //! of the surface height (`vh`), so the HUD scales with the window and the world view between the bars keeps its
 //! shape at every resolution. The top bar shows the player, their resources as their faction's DisplayHud lists them
 //! ([`resources`]) and the tick, and while a replay plays back (`crate::replay::playback`) its last tick, speed and
-//! state, and a desync; notes say while the fog of war is off and in the map editor's play-test ([`TopBarNote`]). The
-//! sections are placed at the rectangles of [`layout`], which also find the portrait or the command button under a
-//! click. Two panels show the selection: the InfoPanel ([`info_panel`]) and the SelectionPanel ([`selection_panel`]);
-//! the CommandPanel ([`command_panel`]) shows the commands for it (`crate::command_ui`), a Place button with its
-//! building's progress ([`progress_bar`]). The others show their names, and so do these
-//! three while they have nothing to show. At the end of the game a banner shows Victory, Defeat or Draw, and a
-//! defeated player gives no more commands ([`outcome`]); one defeated with no ally left while the game goes on
-//! leaves for the results screen ([`results`]), over everything below the top bar. Under the top bar, a placeholder
+//! state, and a desync; notes say while a computer plays the local player, while the fog of war is off and in the map
+//! editor's play-test ([`TopBarNote`]). The sections are placed at the rectangles of [`layout`], which also find the
+//! portrait or the command button under a click. Two panels show the selection: the InfoPanel ([`info_panel`]) and the
+//! SelectionPanel ([`selection_panel`]); the CommandPanel ([`command_panel`]) shows the commands for it
+//! (`crate::command_ui`), a Place button with its building's progress ([`progress_bar`]). The others show their names,
+//! and so do these three while they have nothing to show. At the end of the game a banner shows Victory, Defeat or
+//! Draw, and a defeated player gives no more commands ([`outcome`]); one defeated with no ally left while the game goes
+//! on leaves for the results screen ([`results`]), over everything below the top bar. Under the top bar, a placeholder
 //! notice tells that a Supply Delivery Station where the player's Agents gather is empty ([`notices`]).
 //!
 //! The HUD is specific to the game mode: it tells the camera which strip it leaves free through
@@ -27,17 +27,19 @@ pub mod progress_bar;
 pub mod resources;
 pub mod results;
 pub mod selection_panel;
+mod top_bar_notes;
 
 use bevy::prelude::*;
 
 use crate::camera::ViewportInsets;
-use crate::fog::FogOfWar;
 use crate::platform::SurfaceSize;
 use crate::replay::Playback;
 use crate::selection::SelectionSystems;
 use crate::sim_driver::{LocalPlayer, Pace, SimControl, SimRes};
 use crate::{ClientMode, ClientSystems};
 use layout::{SECTION_BORDER_PX, SECTION_PADDING_VH, section_rect};
+pub use top_bar_notes::TopBarNote;
+use top_bar_notes::{spawn_note, update_top_bar_notes};
 
 /// Height of the top resource bar, in percent of the surface height (placeholder size).
 pub const TOP_BAR_HEIGHT_VH: f32 = 4.0;
@@ -55,8 +57,6 @@ const LABEL_COLOR: Color = Color::srgb(0.55, 0.60, 0.66);
 const TEXT_COLOR: Color = Color::srgb(0.88, 0.90, 0.93);
 /// The top bar's replay note after a desync (placeholder).
 const DESYNC_COLOR: Color = Color::srgb(1.0, 0.35, 0.3);
-/// The top bar's notes ([`TopBarNote`]): the amber of the map editor's warnings (placeholder).
-const NOTE_COLOR: Color = Color::srgb(0.98, 0.76, 0.32);
 /// Size of a section's name.
 const LABEL_VH: f32 = 1.6;
 
@@ -133,41 +133,6 @@ struct TickText;
 /// The top bar's note on the replay being played back: hidden in a game.
 #[derive(Component)]
 pub struct ReplayText;
-
-/// (M5-S6) A note in the top bar on how this client shows the game, shown only while it applies, in the bar's row:
-/// it takes room of its own there, so it never covers the name, the resources or the tick, and it gives that room up
-/// first, shrinking and clipped at its end when the bar is short of room, while they keep their size
-/// ([`spawn_note`]). Placeholders, the design having no such note: the wording, the colour, the place.
-#[derive(Component, Copy, Clone, Debug, PartialEq, Eq)]
-pub enum TopBarNote {
-    /// "Fog off (F3)", on the left after the player's name, while the fog of war is off ([`FogOfWar`]: `--no-fog`, or
-    /// F3, the debug key next to F2's player switch), in games and replays alike: the user, switching sides with F2 in
-    /// a hot-seat game, hit F3 and took the revealed map for a bug.
-    FogOff,
-    /// "Play-test (F5)", on the right before the tick, where a replay's note is (a play-test is never a replay), in the
-    /// map editor's play-test (`ClientMode::PlayTest`), which F5 started and ends, as the editor's "Play-test (F5)"
-    /// button says. It replaces the banner the editor laid over the top bar, which covered its figures (found by slice
-    /// M5-Z3).
-    PlayTest,
-}
-
-impl TopBarNote {
-    /// What the note says.
-    pub fn text(self) -> &'static str {
-        match self {
-            TopBarNote::FogOff => "Fog off (F3)",
-            TopBarNote::PlayTest => "Play-test (F5)",
-        }
-    }
-
-    /// Whether the note shows, with the fog of war `fog`, in `mode`.
-    pub fn applies(self, fog: FogOfWar, mode: ClientMode) -> bool {
-        match self {
-            TopBarNote::FogOff => !fog.enabled,
-            TopBarNote::PlayTest => mode == ClientMode::PlayTest,
-        }
-    }
-}
 
 /// The strip the HUD leaves for the world view: everything between its two bars.
 pub const HUD_INSETS: ViewportInsets = ViewportInsets {
@@ -252,24 +217,6 @@ fn fixed_text(content: impl Into<String>) -> impl Bundle {
     )
 }
 
-/// The top bar's `note`, hidden until it applies ([`update_top_bar_notes`]): its text on one line, in a node that
-/// shrinks first when the bar is short of room, clipping the text at its end (as the map editor's status line gives
-/// way to its message).
-fn spawn_note(side: &mut ChildSpawnerCommands, note: TopBarNote) {
-    side.spawn((
-        Name::new("Top bar note"),
-        note,
-        Node {
-            display: Display::None,
-            flex_shrink: 1.0,
-            min_width: px(0),
-            overflow: Overflow::clip(),
-            ..default()
-        },
-    ))
-    .with_child((text(note.text(), 2.0, NOTE_COLOR), TextLayout::no_wrap()));
-}
-
 fn spawn_hud(mut commands: Commands, size: Res<SurfaceSize>) {
     commands
         .spawn((
@@ -308,6 +255,7 @@ fn spawn_hud(mut commands: Commands, size: Res<SurfaceSize>) {
             };
             bar.spawn(side(JustifyContent::Start)).with_children(|left| {
                 left.spawn((PlayerNameText, fixed_text("")));
+                spawn_note(left, TopBarNote::Computer);
                 spawn_note(left, TopBarNote::FogOff);
             });
             resources::spawn_bar(bar);
@@ -442,17 +390,6 @@ fn update_replay_note(
         TEXT_COLOR
     };
     color.set_if_neq(TextColor(shown));
-}
-
-/// Shows each of the top bar's notes while it applies ([`TopBarNote::applies`]): when the fog of war is switched, and
-/// when the mode changes (a play-test starts or ends).
-fn update_top_bar_notes(fog: Res<FogOfWar>, mode: Res<ClientMode>, mut notes: Query<(&TopBarNote, &mut Node)>) {
-    if !fog.is_changed() && !mode.is_changed() {
-        return;
-    }
-    for (note, mut node) in &mut notes {
-        show_node(&mut node, note.applies(*fog, *mode));
-    }
 }
 
 /// Changes the text only when it differs, so unchanged text isn't marked changed and laid out again.

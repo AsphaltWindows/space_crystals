@@ -68,6 +68,20 @@ impl fmt::Display for AiError {
 
 impl std::error::Error for AiError {}
 
+/// Whether a computer player can take `player`'s slot in the game `scenario` starts: the game has the player, and the
+/// player's faction has a computer player. What the command line checks before the game starts.
+pub fn can_play(scenario: &Scenario, player: PlayerId) -> Result<(), AiError> {
+    let faction = scenario
+        .setup
+        .player(player)
+        .ok_or(AiError::UnknownPlayer(player))?
+        .faction;
+    match factions::hook(faction) {
+        Some(_) => Ok(()),
+        None => Err(AiError::NoAi { player, faction }),
+    }
+}
+
 impl Ai {
     /// A computer player for `player` in `sim`, the game `scenario` starts, playing `profile`; an error if the game has
     /// no such player or its faction has no computer player yet.

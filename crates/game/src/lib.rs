@@ -24,7 +24,8 @@
 //! - [`hud`]: the game mode's HUD frame, with the InfoPanel, the SelectionPanel and the CommandPanel;
 //! - [`editor`]: the map editor (`--editor`), with its own UI, tools and play-test;
 //! - [`qa`]: screenshots, exit at a tick, state dump, commands and input at given ticks;
-//! - [`replay`]: recording the game, and playing a recording back (`--replay`).
+//! - [`replay`]: recording the game, and playing a recording back (`--replay`);
+//! - [`ai_players`]: the computer players of `--ai` (`sc_ai`), which give their players' commands each tick.
 //!
 //! What the client knows of each object kind (its label, its look, its shots' style and its panel template) is in
 //! [`kinds`], one module per kind behind one registry; its feel tunables (the camera's, the input's, and how long
@@ -34,6 +35,7 @@
 //! ([`ClientMode`]), apart from the input layer, which applies the bindings of the mode's input context
 //! ([`ClientMode::input_context`]).
 
+pub mod ai_players;
 pub mod camera;
 pub mod cli;
 pub mod combat_effects;
@@ -64,6 +66,7 @@ use std::path::PathBuf;
 use bevy::prelude::*;
 use sc_sim::{PlayerId, Replay, Scenario, SimConfig};
 
+use crate::ai_players::{AiPlayersPlugin, AiSlot};
 use crate::camera::GameCameraPlugin;
 use crate::combat_effects::CombatEffectsPlugin;
 use crate::command_ui::CommandUiPlugin;
@@ -147,6 +150,9 @@ pub struct AppConfig {
     /// Play this recorded game back instead of playing `scenario` (`--replay`, `replay::playback`), whose
     /// scenario it then is ([`AppConfig::playback`]).
     pub playback: Option<PlaybackSource>,
+    /// The players computers play (`--ai`, [`ai_players`]). Never in the editor nor in a replay's playback, whose
+    /// recorded commands are the computers' own.
+    pub ai: Vec<AiSlot>,
 }
 
 /// A replay to play back, and the file it came from.
@@ -171,6 +177,7 @@ impl AppConfig {
             editor: None,
             record: None,
             playback: None,
+            ai: Vec::new(),
         }
     }
 
@@ -245,6 +252,9 @@ pub fn build_app(config: AppConfig) -> App {
     ))
     // The game mode; the editor hides the HUD except in its play-tests.
     .add_plugins(HudPlugin);
+    if !config.ai.is_empty() && config.playback.is_none() && !editing {
+        app.add_plugins(AiPlayersPlugin { slots: config.ai });
+    }
     if let Some(PlaybackSource { file, replay }) = config.playback {
         app.add_plugins(PlaybackPlugin { file, replay });
     }

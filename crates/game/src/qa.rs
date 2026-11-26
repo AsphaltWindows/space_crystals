@@ -201,7 +201,8 @@ impl Plugin for QaPlugin {
 }
 
 /// `--commands`: hands the commands of the next tick to the step that applies them (a held sim keeps them pending).
-fn inject_commands(mut qa: ResMut<QaState>, sim: Res<SimRes>, mut pending: ResMut<PendingCommands>) {
+/// The computer players' commands come after them (`crate::ai_players`).
+pub(crate) fn inject_commands(mut qa: ResMut<QaState>, sim: Res<SimRes>, mut pending: ResMut<PendingCommands>) {
     let next = sim.tick() + 1;
     while let Some(c) = qa.commands.pop_front_if(|c| c.tick <= next) {
         pending.0.push(PlayerCommand {

@@ -57,6 +57,9 @@
 //! The GDO's Field Engineer (slice M5-N9: its panel and its Construct menu, greyed, the Repair pointer and the
 //! right-click on a damaged Barracks): `field_engineer_ui`, on a GDO field. The Barracks' E, the Field Engineer, is
 //! `production`'s, and the Deployment Center's D, the Career Campus, `construction`'s.
+//!
+//! A computer player's player (slice A1, `--ai`: no command from the client's input while it is the local player, the
+//! top bar's "(AI)", F2 to a human player): `computer`.
 
 mod agent_ui;
 mod altar;
@@ -64,6 +67,7 @@ mod armory;
 mod cathedral;
 mod click_allowance;
 mod colonists;
+mod computer;
 mod construction;
 mod convert;
 mod expansions;

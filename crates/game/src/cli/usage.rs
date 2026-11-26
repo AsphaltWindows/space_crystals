@@ -1,5 +1,6 @@
 //! The help text of the flags (`--help`, and after a flag error).
 
+use sc_ai::{Profile, factions};
 use sc_sim::scenarios;
 
 use super::{DEFAULT_SCENARIO, DEFAULT_WINDOW_SIZE};
@@ -18,6 +19,10 @@ Game:
   --factions <f1,f2,...>      The factions of the players in slots 1, 2, ...: gdo, syndicate, cults or
                               colonists (any case); gdo for the slots not named
   --player <n>                Show player n's view (default 1)
+  --ai <n>[:<profile>],...    Computers play players n, ... (a playtest tool), each with a profile:
+                              {profiles} (default {default_profile}); e.g. --ai 2, --ai 1,2:passive.
+                              Their factions must have a computer player: {with_ai}. A computer's player
+                              takes no commands from the client; F2 still switches the player (needs debug)
   --window-size <W>x<H>       Window or offscreen image size in pixels (default {w}x{h})
   --fast                      Run as many ticks per frame as possible instead of 16 per second
   --no-debug                  Reject debug commands, as a real match does (they are on by default)
@@ -56,6 +61,13 @@ QA (any of these makes the run reproducible: keyboard and mouse are ignored, fra
 
   -h, --help                  Show this help",
         names = scenarios::NAMES.join(", "),
+        profiles = Profile::ALL.iter().map(|p| p.name()).collect::<Vec<_>>().join(" or "),
+        default_profile = Profile::default(),
+        with_ai = factions::with_ai()
+            .into_iter()
+            .map(factions::name)
+            .collect::<Vec<_>>()
+            .join(", "),
         replays = replay::REPLAYS_DIR,
         nw = files::NEW_MAP_SIZE.0,
         nh = files::NEW_MAP_SIZE.1,

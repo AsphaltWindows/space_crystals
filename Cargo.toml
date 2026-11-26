@@ -12,6 +12,7 @@ publish = false
 
 [workspace.dependencies]
 sc_sim = { path = "crates/sim" }
+sc_ai = { path = "crates/ai" }
 serde = { version = "1", features = ["derive"] }
 libm = "0.2"
 # Same glam as bevy_math 0.20.1, so sim vectors are Bevy vectors. `libm` = platform-independent trig.
