@@ -1,6 +1,6 @@
 # Temple
 
-Tier 2 of the Mystical/Human Enhancement branch. Researches technologies for the Cults. Research follows the shared rules in core/tech_and_research.md > Research, including the Cults exceptions: stat upgrades are not retroactive, and research only progresses while Recruits are staffing the building (speed scales with the number of Recruits inside).
+Tier 2 of the Mystical/Human Enhancement branch. Researches technologies for the Cults. Research follows the shared rules in core/tech_and_research.md > Research, including the Cults exception: research only progresses while Recruits are staffing the building (speed scales with the number of Recruits inside).
 
 ## Faction - TheCults
 ## Constructed by - Recruit
