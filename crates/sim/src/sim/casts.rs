@@ -61,10 +61,17 @@ impl Sim {
         if !self.map.contains_point(at) {
             return Err(Reject::OffMap);
         }
-        if self.vision.state(player, TilePos::containing(at)) != VisibilityState::Visible {
+        if !self.sees_point(player, at) {
             return Err(Reject::OutOfSight);
         }
         Ok(Checked::Cast { caster, ability, at })
+    }
+
+    /// Whether `player` sees the point `at` now, as the gate judges a cast's point (module docs: "anywhere the player
+    /// currently has vision"): on the map, on a tile Visible to them as the last tick left their vision. What the
+    /// client's cast cursor shows by, and its click is taken by.
+    pub fn sees_point(&self, player: PlayerId, at: Vec2) -> bool {
+        self.map.contains_point(at) && self.vision.state(player, TilePos::containing(at)) == VisibilityState::Visible
     }
 
     /// `caster` casts `ability` at `at`, as the gate passed it: it pays the energy, and its owner's units in the circle
