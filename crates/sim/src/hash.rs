@@ -331,6 +331,7 @@ impl StateHash for Object {
             lineage,
             augmentation,
             energy,
+            kept_research,
         } = self;
         id.hash(h);
         kind.hash(h);
@@ -394,6 +395,12 @@ impl StateHash for Object {
         if let Some(energy) = energy {
             h.tag(7);
             energy.hash(h);
+        }
+        // (M5-N3) The same for the research a neutral unit keeps (design change 0379), under a tag of its own: only
+        // while it keeps one.
+        if let Some(player) = kept_research {
+            h.tag(8);
+            player.hash(h);
         }
     }
 }

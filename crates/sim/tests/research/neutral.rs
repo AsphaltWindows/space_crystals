@@ -1,25 +1,25 @@
-//! A defeated player's research (`core/game_rules.md > On Defeat`: their units become neutral;
-//! `core/tech_and_research.md > Research > Shared Rules` 1: research "applies to all of that player's eligible
-//! objects"): a neutral unit is no one's, so it has no one's research, and its HP follows its MaxHP
-//! (`factions/cults/augmentation.md > Increments`: "HP when MaxHP changes"). **Placeholder (Q0142)**: option (a), the
-//! literal reading; option (b) would keep the amounts it had.
+//! A defeated player's research (design change 0379, answering question Q0142; `core/game_rules.md > On Defeat`:
+//! "**Research is kept too** [...]: the defeated player's completed research is **frozen** at the moment of defeat and
+//! keeps applying to their former units [...], so nothing changes on them"): a unit that turns neutral keeps the
+//! amounts it had (`sc_sim::Object::kept_research`), in a save too.
 
-use sc_sim::{GameSetup, Slot};
+use sc_sim::{GameSetup, Sim, Slot};
 
 use super::*;
 
 const P3: PlayerId = PlayerId(3);
 
-/// Question Q0142, option (a), in a three-player game, so that the defeat doesn't end it: player 2's Temple (1), six
-/// Recruits of theirs inside, completes Enhanced Constitution Level 1 and Improved Metabolism Level 1, and their
-/// Enhanced Constitution Militant, at full HP, goes from 60/60 to 80/80 (+4 Constitution), their Improved Metabolism
-/// one from 30/30 to 20/20 (−2), walking at 6 su a frame. Their Temple, their last structure, destroyed, they are
-/// defeated in that tick, and their units turn neutral with the amounts of no research again: the first Militant
-/// 60/60 (a decrease of MaxHP only caps HP), the second 30/30 (an increase raises HP as much), stopped where it walked
-/// at its old speed in that tick (`TestSim`'s I3 holds); the Plain Recruits evacuated from the Temple don't change.
-/// Players 1 and 3, each with a Storage, play on.
+/// Design change 0379's Verification ("In a 3-player game, research Enhanced Constitution Level 1, augment a Militant,
+/// and get defeated. The neutral Militant keeps its MaxHP (+40) and HP"), so that the defeat doesn't end the game:
+/// player 2's Temple (1), six Recruits of theirs inside, completes Enhanced Constitution Level 1 and Improved
+/// Metabolism Level 1, and their Enhanced Constitution Militant, at full HP, goes from 60/60 to 80/80 (+4
+/// Constitution), their Improved Metabolism one from 30/30 to 20/20 (−2), walking at 6 su a frame. Their Temple, their
+/// last structure, destroyed, they are defeated in that tick, and their units turn neutral with the research they
+/// had: the first Militant stays at 80/80, the second at 20/20 and 6 su a frame, stopped where it walked in that tick;
+/// the Plain Recruits evacuated from the Temple, which no research changes, keep none. A save of the game loads with
+/// it. Players 1 and 3, each with a Storage, play on.
 #[test]
-fn a_defeated_players_units_lose_their_research_when_they_turn_neutral() {
+fn a_defeated_players_units_keep_their_research_when_they_turn_neutral() {
     let builder = cults(&flat(30, 22))
         .spawn(TEMPLE, Some(P2), tile(12, 10)) // 1
         .spawn(ObjectKind::Storage, Some(P1), tile(2, 2)); // 2
@@ -71,21 +71,40 @@ fn a_defeated_players_units_lose_their_research_when_they_turn_neutral() {
     assert_eq!(speed(&t), 6.0, "+4 Metabolism");
     let was = t.sim().object(walker).unwrap().pos;
     run_checked(&mut t, gone);
-    let moved = t.sim().object(walker).unwrap().pos.distance(was);
-    assert!(
-        (moved - 6.0).abs() < 1e-3,
-        "it walked at its speed of the tick before: {moved}"
-    );
-    assert_eq!(speed(&t), 5.0, "+2 Metabolism, no one's research");
-    assert_eq!(hp(&t, walker), (30.0, 30.0));
     assert_eq!(t.sim().player(P2).unwrap().defeated_at, Some(gone));
-    let o = t.sim().object(militant).expect("on the map");
-    assert_eq!(o.owner, None, "neutral");
-    assert_eq!(hp(&t, militant), (60.0, 60.0), "no one's research");
+    let moved = t.sim().object(walker).unwrap().pos.distance(was);
+    assert!((moved - 6.0).abs() < 1e-3, "it walked at its speed: {moved}");
+    for unit in [militant, walker] {
+        let o = t.sim().object(unit).expect("on the map");
+        assert_eq!(
+            (o.owner, o.kept_research),
+            (None, Some(P2)),
+            "neutral, with player 2's research"
+        );
+    }
+    assert_eq!(hp(&t, militant), (80.0, 80.0), "it keeps its MaxHP (+40) and HP");
+    assert_eq!(hp(&t, walker), (20.0, 20.0));
+    assert_eq!(speed(&t), 6.0, "and its speed");
+    let o = t.sim().object(walker).unwrap();
+    assert!(
+        o.orders.as_ref().is_some_and(|orders| orders.current.is_none()),
+        "stopped"
+    );
     for unit in staff {
         let o = t.sim().object(unit).expect("evacuated");
-        assert_eq!((o.owner, hp(&t, unit)), (None, (40.0, 40.0)));
+        assert_eq!((o.owner, o.kept_research, hp(&t, unit)), (None, None, (40.0, 40.0)));
     }
+    run_checked(&mut t, gone + 20);
+    assert_eq!(hp(&t, militant), (80.0, 80.0), "frozen");
+    let saved = serde_json::to_string(t.sim()).unwrap();
+    let loaded: Sim = serde_json::from_str(&saved).unwrap();
+    assert_eq!(&loaded, t.sim(), "a save loads with it");
+    assert_eq!(loaded.state_hash(), t.sim().state_hash());
+    let o = loaded.object(militant).unwrap();
+    assert_eq!(
+        (o.kept_research, o.max_hp_with(loaded.research())),
+        (Some(P2), Some(80.0))
+    );
     assert_eq!(t.sim().outcome(), None, "players 1 and 3 play on");
     let [p1, p3] = [P1, P3].map(|p| t.sim().player(p).unwrap().defeated_at);
     assert_eq!((p1, p3), (None, None));

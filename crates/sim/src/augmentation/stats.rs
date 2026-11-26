@@ -132,7 +132,7 @@ fn augmented_movement<'a>(
 #[inline(never)]
 fn augmented_increments(o: &Object, research: Research) -> Increments {
     match is_augmentable(o.kind) {
-        true => o.augmentation.increments(research.levels(o.owner)),
+        true => o.augmentation.increments(research.levels_of(o)),
         false => Increments::NONE,
     }
 }

@@ -181,10 +181,9 @@ impl Invariants {
         let tick = sim.tick();
         let overlapped = overlaps::overlapped_before(sim, &self.seen);
         // (M5-N3) The research levels changed after the movement step of this tick: a level completed in the economy
-        // phase (`SimEvent::ResearchCompleted`), or a player defeated at its end, whose units turned neutral with no
-        // one's levels (`economy::defeat`). The units moved at the MaxSpeeds of the levels before (I3).
-        let levels_changed = (sim.events().iter())
-            .any(|e| matches!(e, SimEvent::ResearchCompleted { .. } | SimEvent::PlayerDefeated { .. }));
+        // phase (`SimEvent::ResearchCompleted`). The units moved at the MaxSpeeds of the levels before (I3). A defeat
+        // changes none: the units turned neutral keep their research (design change 0379, `Object::kept_research`).
+        let levels_changed = (sim.events().iter()).any(|e| matches!(e, SimEvent::ResearchCompleted { .. }));
         for o in sim.objects() {
             let fail = |invariant, message: String| {
                 Err(Violation {

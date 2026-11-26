@@ -4,11 +4,13 @@
 //! amounts are read from its owner's current research levels ([`Levels`]) whenever its stats are, through
 //! [`Research`], so nothing on the unit goes stale when a level completes. The levels come from the technologies its
 //! owner completed at a Temple (slice M5-N3, [`Levels::of`]); a completed level takes the HP of every unit it changes
-//! along with its MaxHP (`Sim::complete_research`), and so does a unit's turning neutral (`economy::defeat`), which
-//! takes it to no one's levels.
+//! along with its MaxHP (`Sim::complete_research`). A defeated player's units keep their research as they turn neutral,
+//! frozen at the defeat (design change 0379, `core/game_rules.md > On Defeat`; `Object::kept_research`), so nothing on
+//! them changes ([`Research::levels_of`]).
 
 use crate::defs::ResearchLine;
 use crate::ids::PlayerId;
+use crate::object::Object;
 use crate::player::Player;
 
 /// A research level of one Augmentation's line (`factions/cults/structures/temple.md > Research (first set)`: "Each
@@ -119,6 +121,13 @@ impl<'a> Research<'a> {
         Self {
             source: Source::Players(players),
         }
+    }
+
+    /// The levels that apply to `o` (module docs): its owner's, or, once it is neutral, those of the defeated player
+    /// whose research it keeps (`Object::kept_research`, design change 0379), frozen at their defeat; none for an object
+    /// that has neither.
+    pub fn levels_of(self, o: &Object) -> Levels {
+        self.levels(o.owner.or(o.kept_research))
     }
 
     /// The current levels of `owner`'s research ([`Levels::of`]); none for an object without an owner, or one whose

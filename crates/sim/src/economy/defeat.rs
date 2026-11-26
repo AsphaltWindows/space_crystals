@@ -19,7 +19,6 @@ use std::collections::BTreeMap;
 
 use serde::{Deserialize, Serialize};
 
-use crate::augmentation::{Research, follow_max};
 use crate::defs::Category;
 use crate::events::SimEvent;
 use crate::hash::{StateHash, StateHasher};
@@ -144,7 +143,7 @@ pub(crate) fn step(
         }
         events.push(SimEvent::PlayerDefeated { player });
     }
-    to_neutral(objects, players, &defeated, tick);
+    to_neutral(objects, &defeated, tick);
     if let Some(end) = game_end(players, tick) {
         events.push(SimEvent::GameOver {
             winners: end.winners.clone(),
@@ -167,19 +166,17 @@ pub(crate) fn step(
 /// - plans its path again (`Mover::repath`; the note from M2-E in plan §9): what it had was planned on its old
 ///   owner's knowledge grids, and a neutral unit plans on the true grids. A unit standing still has no goal to plan
 ///   for, so today this asks for nothing; it stays for whatever may keep a transferred unit moving;
-/// - (M5-N3) with Augmentations, takes no one's research levels, the amounts of "No research"
-///   (`augmentation::Research::levels`: a neutral unit has no player's levels), its HP following its MaxHP as for any
-///   change of the levels (`augmentation::follow_max`: a decrease only caps it, so nothing dies of it): a full-HP
-///   Enhanced Constitution Militant of a player with Level 1 goes from 80/80 to 60/60. **Placeholder (Q0142)**: option
-///   (a), the literal reading of "that player's eligible objects" (`core/tech_and_research.md > Research > Shared
-///   Rules` 1); option (b) would keep the amounts it had.
+/// - (M5-N3) keeps its research (design change 0379: "**Research is kept too** [...]: the defeated player's completed
+///   research is **frozen** at the moment of defeat and keeps applying to their former units [...], so nothing changes
+///   on them"): a unit whose stats follow research, one with an Augmentation, keeps its owner's
+///   (`Object::kept_research`), so its MaxHP, speed and weapon stay as they were: an Enhanced Constitution Militant of
+///   a player with Level 1 stays at 80 MaxHP.
 ///
 /// The rest follows from having no owner: from phase 5f of this tick on the units are no one's eyes, so their vision
 /// counts for no one; they are never auto-targeted and never acquire a target themselves (`systems/combat.md >
 /// ValidTarget`: auto-targeting never picks neutral objects); any player can destroy them with an explicit Attack
 /// order; and they block movement and never step aside (only own idle units yield).
-fn to_neutral(objects: &mut BTreeMap<ObjectId, Object>, players: &[Player], defeated: &[PlayerId], tick: Tick) {
-    let research = Research::new(players);
+fn to_neutral(objects: &mut BTreeMap<ObjectId, Object>, defeated: &[PlayerId], tick: Tick) {
     for o in objects.values_mut() {
         if !o.owner.is_some_and(|owner| defeated.contains(&owner)) {
             continue;
@@ -188,11 +185,10 @@ fn to_neutral(objects: &mut BTreeMap<ObjectId, Object>, players: &[Player], defe
             o.def().category != Category::Structure,
             "a defeated player owns no structure (plan decision T8)"
         );
-        let before = o.max_hp_with(research);
-        o.owner = None;
-        if let (Some(hp), Some(before), Some(after)) = (o.hp, before, o.max_hp_with(research)) {
-            o.hp = Some(follow_max(hp, before, after));
+        if !o.augmentation.is_none() {
+            o.kept_research = o.owner;
         }
+        o.owner = None;
         if let Some(orders) = &mut o.orders {
             *orders = Orders::default();
         }

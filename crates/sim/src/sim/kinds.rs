@@ -185,7 +185,7 @@ impl Sim {
         if !augmentation::is_augmentable(kind) {
             o.augmentation = Augmentation::NONE;
         }
-        let increments = o.augmentation.increments(Research::new(&self.players).levels(o.owner));
+        let increments = o.augmentation.increments(Research::new(&self.players).levels_of(o));
         let Object {
             id: _,
             kind: object_kind,
@@ -219,6 +219,8 @@ impl Sim {
             // Kept or lost above, with the kind.
             augmentation: _,
             energy,
+            // Kept: whose research applies to it doesn't depend on its kind.
+            kept_research: _,
         } = o;
         *object_kind = kind;
         if let Some(placement) = &placement {

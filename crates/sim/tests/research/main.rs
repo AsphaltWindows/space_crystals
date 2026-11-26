@@ -15,7 +15,7 @@
 //! - `doors`: the staff go in at side B, Eject All lets them out of side C one at a time, a Release one of a kind; no
 //!   rally point, and no one but Recruits;
 //! - `saves`: a game with research under way goes on alike after a save and in a replay;
-//! - `neutral`: a defeated player's units lose their research (question Q0142).
+//! - `neutral`: a defeated player's units keep their research as they turn neutral (design change 0379).
 //!
 //! Every test runs under the invariants of `TestSim`, the research invariant T1 among them
 //! (`testing/invariants/research.rs`), and checks that no reference to a unit that went inside is left behind.

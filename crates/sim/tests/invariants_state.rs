@@ -6,7 +6,8 @@
 //!   a dead object still in the game; HP missing; Shields out of 0 to the MaxShields;
 //! - B1 (`invariants/banks.rs`): a bank that wrapped below 0 or past its top, unless a `DebugCommand::SetResources` of
 //!   the tick set the player's banks;
-//! - A1 (`invariants/augmentations.rs`): an Augmentation on a kind that can't have it, on the map or held;
+//! - A1 (`invariants/augmentations.rs`): an Augmentation on a kind that can't have it, on the map or held; (M5-N3)
+//!   research kept by a unit that has an owner (`Object::kept_research`, design change 0379);
 //! - T1 (`invariants/research.rs`): a technology held without its previous level, queued before it, queued once
 //!   completed, queued twice, at two structures or at one, at a structure whose type doesn't research it, or for no
 //!   player.
@@ -240,6 +241,18 @@ fn an_augmentation_on_a_kind_that_cant_have_one_breaks_a1() {
         o["kind"] = json!("Peacekeeper");
         o["augmentation"] = constitution;
     });
+    assert_eq!(broken_alone(&before, &held), Some("A1"));
+}
+
+/// (M5-N3) A1: only a neutral unit keeps research, a defeated player's (design change 0379: "the defeated player's
+/// completed research is **frozen** at the moment of defeat and keeps applying to their former units"), never one that
+/// has an owner, whose research is its owner's. The neutral units of `tests/research/neutral.rs` keep it, A1 holding.
+#[test]
+fn research_kept_by_a_unit_with_an_owner_breaks_a1() {
+    let (before, after) = game();
+    let kept = with(&after, CONSTITUTION, "kept_research", json!(P2.0));
+    assert_eq!(broken_alone(&before, &kept), Some("A1"));
+    let held = edited(&after, |json| object(json, HELD)["kept_research"] = json!(P1.0));
     assert_eq!(broken_alone(&before, &held), Some("A1"));
 }
 

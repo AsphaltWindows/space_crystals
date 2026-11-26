@@ -152,6 +152,16 @@ pub struct Object {
     /// load (`sim/load.rs`: an object of such a type at its start) and those without one hash as they did.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub energy: Option<u32>,
+    /// (M5-N3) The defeated player whose research a neutral unit keeps (design change 0379, `core/game_rules.md > On
+    /// Defeat`: "the defeated player's completed research is **frozen** at the moment of defeat and keeps applying to
+    /// their former units"): its owner, set as it turns neutral (`economy::defeat`) if its stats follow research, as a
+    /// unit with an Augmentation's do (the only research so far). Their research is frozen with no copy of it: a
+    /// defeated player owns no structure (plan decision T8), so completes no research again
+    /// (`Sim::complete_research`). Only research reads it (`augmentation::Research::levels_of`): for everything else
+    /// the unit is no one's. `None` for every other object. Optional in files and left out of them while `None`, and
+    /// hashed only while set, so that states saved before it existed load and those without one hash as they did.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub kept_research: Option<PlayerId>,
 }
 
 impl Object {
