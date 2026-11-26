@@ -523,7 +523,9 @@ Units, structures and resources are all `Object`s (`object.rs`, `core/entities.m
   again: `core/tech_and_research.md > Tech Prerequisites > Check Timing`, "checked only at the moment construction is
   **started** (queued at the constructor, ...)", read as the order, which is when it is paid; slice M4-S1), each before
   the bank, so a greyed entry says "Requires ..." rather than the price. Nothing checks again:
-  work queued or started goes on when the last one is lost
+  work queued or started goes on when the last one is lost, a worker's Build ordered and paid but short of its site
+  among it, and a finished building keeps working and counting (design change 0335: "losing a prerequisite never
+  cancels or disables anything already started or finished"; `sim/tech/tests/losing.rs`, every faction's cases)
   (`core/tech_and_research.md > Tech Prerequisites > Losing a Prerequisite`). Today the Hideout's Guard and the Laser
   Turret (slice M4-S1; the ExpandMenu's alone since design change 0359) require the Optics Lab, and the Hideout's
   Grenadier the Chemical Plant (slice M4-U); the Optics Lab and the Chemical Plant are placeholder expansions (2 × 2,
