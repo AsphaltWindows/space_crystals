@@ -298,6 +298,28 @@ fn the_way_out_is_free_unless_a_blocked_tile_or_a_unit_lies_in_its_sweep() {
     assert!(portal.way_out_free(Vec2::NEG_X, HALF, grid, &[]));
 }
 
+/// (M5-Z1) Under the portal, ground the unit can't stand on blocks it (`Frame::blocks`): a map's object or a debug
+/// spawn may stand on any flat ground, and the doorway lets the unit overlap the portal, not that ground. A Robo
+/// Portal over a Cliff has no way out across it, and no spot over it; its open tiles never block.
+#[test]
+fn ground_it_cant_stand_on_under_the_portal_blocks_its_unit() {
+    // The Robo Portal at tile (2, 2), x and y 128..384, over a Cliff on tile (5, 3), x 320..384 and y 192..256:
+    // straight east from the centre, (256, 256), the box sweeps y 238..274 across it.
+    let map = "........\n........\n........\n.....c..\n........\n........\n........\n........";
+    let t = ScenarioBuilder::new(map)
+        .spawn(ObjectKind::RoboPortal, None, SpawnAt::Tile(TilePos::new(2, 2)))
+        .start();
+    let portal = EnergyDoorway::of(t.sim().objects().next().unwrap()).unwrap();
+    let grid = t.sim().nav().grid(drone_class(), nav::size_class(HALF * 2.0));
+    assert!(!portal.way_out_free(Vec2::X, HALF, grid, &[]), "across the Cliff");
+    assert!(portal.way_out_free(Vec2::NEG_X, HALF, grid, &[]));
+    assert!(portal.way_out_free(Vec2::NEG_Y, HALF, grid, &[]));
+    let (grid, centre) = (grid.unwrap(), portal.centre());
+    assert!(portal.box_clear(grid, HALF, centre), "the centre, on its open tiles");
+    // At (320, 216) the box covers tiles (4, 3) and (5, 3).
+    assert!(!portal.box_clear(grid, HALF, centre + Vec2::new(64.0, -40.0)));
+}
+
 /// The Drone's nav class (a hover vehicle's, which crosses Rugged terrain).
 fn drone_class() -> NavClass {
     let def = ObjectKind::Drone.def();

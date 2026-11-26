@@ -856,7 +856,8 @@ apart within `18 × (n − 1)` ticks for Drones, 12 each for Peacekeepers.
   I1 no two units of a layer overlap (**(H2)** except two Drones on a Gather job, and two units that already
   overlapped a tick earlier, until they are apart: design change 0106); I2 no ground box overlaps a blocked tile or
   leaves the map (except a unit in an exit doorway, `Mover::exit`, on its own building's tiles: it only comes out,
-  and **(M3-D2)** out of a portal's energy doorway only within its open arc);
+  and **(M3-D2)** out of a portal's energy doorway only within its open arc; **(M5-Z1)** never over ground under the
+  footprint that it can't stand on, so that it stands on open ground when the building goes);
   I3 `|pos − prev_pos| ≤ max_speed`; I4 all floats finite; I5 a unit with no goal doesn't move;
   I6 repaths per order ≤ `MAX_REPATHS`, request age bounded; I7 an `Arrived` unit never moves again without an order.
   **(Y)** I5 and I7 allow the one exception of 6.6: a unit without a goal may move while it has a `Mover::sidestep`,

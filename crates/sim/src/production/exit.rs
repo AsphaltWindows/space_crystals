@@ -18,10 +18,12 @@
 //!   and moves straight out along a heading that leaves through an open side.
 //!
 //! - **The exception** ([`ExitDoor::allows`], [`ExitDoor::box_clear`]): while a released unit (`Mover::exit` names the
-//!   building) still overlaps the footprint, the footprint's tiles don't block it. It may only come out: never deeper
-//!   in (out of a side doorway: inside only within the exit side's span, so it leaves through that side and no other;
-//!   out of an energy doorway: never closer to the centre). Every other blocked tile blocks it as ever. Once its box
-//!   is clear of the footprint the exception ends for good ("once the unit is fully out, it can't re-enter").
+//!   building) still overlaps the footprint, the footprint's tiles don't block it, but for ground under them that the
+//!   unit can't stand on (slice M5-Z1, `Frame::blocks`: the building lets it overlap the building, not that ground,
+//!   so that it never stands there once the building is gone). It may only come out: never deeper in (out of a side
+//!   doorway: inside only within the exit side's span, so it leaves through that side and no other; out of an energy
+//!   doorway: never closer to the centre). Every other blocked tile blocks it as ever. Once its box is clear of the
+//!   footprint the exception ends for good ("once the unit is fully out, it can't re-enter").
 //! - **Occupied**: a doorway is occupied while a unit the building released is still in it; the next finished unit
 //!   waits inside meanwhile (`Sim::release_unit`), and so does the next unit Eject All lets out (`Sim::release_held`).
 //!   With several exit sides, a door is occupied while such a unit is in it, and the building waits only while every
@@ -80,8 +82,28 @@ impl Frame {
             && (self.origin.y..self.origin.y + self.size.1).contains(&t.y)
     }
 
+    /// Whether tile `t` blocks a unit the building released, on its class's `grid` (module docs, the exception): a
+    /// solid tile **other than the footprint's**, and a tile of the footprint whose ground the unit can't stand on,
+    /// whatever stands on it (`NavGrid::is_terrain_solid`; off the map, every tile). The building lets the unit
+    /// overlap it, not the ground under it (`core/entities.md > Structure Type > Exit Doorway`, point 1: "Only the
+    /// releasing building lets a unit overlap its footprint this way"), so the unit never stands where it couldn't
+    /// once the building is gone: the ground a holder's evacuation puts its units on too (`nav::box_on_terrain`,
+    /// slice M5-F3). (Slice M5-Z1: seed 155 of the fuzz left a Recruit on a Cliff that a debug-spawned Hall had
+    /// covered; a map's custom presets can make Buildable ground that isn't Traversible, `core/map.md > Tile`: "Any
+    /// combination of properties is valid".) **Placeholder (not in the design: ground under a footprint that its
+    /// units can't stand on)**: the design's buildings stand on Buildable ground, and its default presets make it all
+    /// Traversible.
+    fn blocks(&self, grid: &NavGrid, t: TilePos) -> bool {
+        if self.covers(t) {
+            grid.is_terrain_solid(t)
+        } else {
+            grid.is_solid(t)
+        }
+    }
+
     /// `nav::box_clear` for a released unit: whether a box with half extents `half` centred on `p` lies inside the
-    /// map and overlaps no solid tile **other than the footprint's**.
+    /// map and overlaps no tile that blocks the unit ([`Frame::blocks`]): no solid tile **other than the
+    /// footprint's**, nor any ground of the footprint the unit can't stand on.
     fn box_clear(&self, grid: &NavGrid, half: Vec2, p: Vec2) -> bool {
         if !p.is_finite() {
             return false;
@@ -96,12 +118,7 @@ impl Frame {
         if !grid.in_bounds(first) || !grid.in_bounds(last) {
             return false;
         }
-        (first.y..=last.y).all(|y| {
-            (first.x..=last.x).all(|x| {
-                let t = TilePos::new(x, y);
-                self.covers(t) || !grid.is_solid(t)
-            })
-        })
+        (first.y..=last.y).all(|y| (first.x..=last.x).all(|x| !self.blocks(grid, TilePos::new(x, y))))
     }
 }
 
@@ -142,7 +159,8 @@ impl ExitDoor {
     }
 
     /// `nav::box_clear` for a released unit: whether a box with half extents `half` centred on `p` lies inside the
-    /// map and overlaps no solid tile **other than the footprint's**.
+    /// map and overlaps no solid tile **other than the footprint's**, nor ground of the footprint that the unit can't
+    /// stand on (`Frame::blocks`).
     pub fn box_clear(&self, grid: &NavGrid, half: Vec2, p: Vec2) -> bool {
         match self {
             ExitDoor::Side(doorway) => doorway.box_clear(grid, half, p),
@@ -270,7 +288,8 @@ impl Doorway {
     }
 
     /// `nav::box_clear` for a released unit: whether a box with half extents `half` centred on `p` lies inside the
-    /// map and overlaps no solid tile **other than the footprint's**.
+    /// map and overlaps no solid tile **other than the footprint's**, nor ground of the footprint that the unit can't
+    /// stand on (`Frame::blocks`).
     pub fn box_clear(&self, grid: &NavGrid, half: Vec2, p: Vec2) -> bool {
         self.door_at(p).box_clear(grid, half, p)
     }
@@ -381,7 +400,8 @@ impl Door {
     }
 
     /// `nav::box_clear` for a released unit: whether a box with half extents `half` centred on `p` lies inside the
-    /// map and overlaps no solid tile **other than the footprint's**.
+    /// map and overlaps no solid tile **other than the footprint's**, nor ground of the footprint that the unit can't
+    /// stand on (`Frame::blocks`).
     pub fn box_clear(&self, grid: &NavGrid, half: Vec2, p: Vec2) -> bool {
         self.frame.box_clear(grid, half, p)
     }

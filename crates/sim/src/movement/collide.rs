@@ -89,8 +89,9 @@ impl World<'_> {
 
     /// **The one collision exception against tiles** (design changes 0080 and 0145): for a unit still in the exit
     /// doorway of the building that released it, whether its box may be at `to`, coming from `from`. That building's
-    /// tiles don't block it, every other blocked tile does, and it may only come out of the footprint
-    /// (`ExitDoor::allows`). `None` for every other unit: the tiles block it as they are.
+    /// tiles don't block it, but for ground under them it can't stand on (slice M5-Z1), every other blocked tile does
+    /// (`ExitDoor::box_clear`), and it may only come out of the footprint (`ExitDoor::allows`). `None` for every
+    /// other unit: the tiles block it as they are.
     fn door_free(&self, from: Vec2, to: Vec2) -> Option<bool> {
         let door = self.door?;
         let half = self.body().half;
