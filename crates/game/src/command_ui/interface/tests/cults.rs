@@ -1,6 +1,7 @@
 //! The Cults' panels as plain data (slice M5-C): the Recruitment Hall's, read from a game, which has no X (design change
 //! 0342); the Armory's (slice M5-F2, design change 0337): a kind of Recruit first, then its KindMenu, each command to
-//! the one Armory Tabbed to (design change 0348 point 5). The panel in a game, its counts and its presses, is
+//! the one Armory Tabbed to (design change 0348 point 5); and the Gunworks', the Machine Shop's and the Scrap Hangar's,
+//! empty (slice M5-G2). The Armory's panel in a game, its counts and its presses, is
 //! `crates/game/tests/commands/armory.rs`'s.
 
 use sc_sim::testing::ScenarioBuilder;
@@ -230,4 +231,37 @@ fn each_command_goes_to_the_armory_tabbed_to() {
     }
     let one = Selection::new([(id(1), ARMORY)]);
     assert!(is_common(&one, CancelProduction), "the ActiveGroup is all of it");
+}
+
+/// Slice M5-G2: the Gunworks and the Machine Shop "Until its research is designed ... [have] no panel commands"
+/// (`factions/cults/structures/gunworks.md`, `factions/cults/structures/machine_shop.md`), and the Scrap Hangar "No
+/// panel commands (it only unlocks)" (`factions/cults/structures/scrap_hangar.md`): one of each, complete and selected,
+/// shows an empty panel, alone or together.
+#[test]
+fn the_tech_buildings_have_no_commands() {
+    let player = PlayerId(1);
+    let kinds = [ObjectKind::Gunworks, ObjectKind::MachineShop, ObjectKind::ScrapHangar];
+    let mut builder = ScenarioBuilder::new(&vec![".".repeat(24); 24].join("\n")).faction(player, Faction::Cults);
+    for (x, kind) in [2, 7, 12].into_iter().zip(kinds) {
+        builder = builder.spawn(kind, Some(player), SpawnAt::Tile(TilePos::new(x, 4)));
+    }
+    let t = builder.start();
+    for (n, kind) in (1..).zip(kinds) {
+        assert_eq!(t.sim().object(id(n)).map(|o| o.kind), Some(kind));
+        let one = Selection::new([(id(n), kind)]);
+        let shown = panel(
+            &one,
+            InterfaceState::DefaultState,
+            &Conditions::of(t.sim(), player, &one),
+        );
+        assert!(shown.is_empty(), "{kind:?}: {:?}", self::shown(&shown));
+        assert_eq!(InterfaceTemplate::of(kind), None, "{kind:?}");
+    }
+    let all = Selection::new([(id(1), kinds[0]), (id(2), kinds[1]), (id(3), kinds[2])]);
+    let shown = panel(
+        &all,
+        InterfaceState::DefaultState,
+        &Conditions::of(t.sim(), player, &all),
+    );
+    assert!(shown.is_empty());
 }
