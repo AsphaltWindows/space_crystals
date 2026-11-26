@@ -18,7 +18,7 @@ use space_crystals::object_render::LoadMarker;
 use space_crystals::placement::{Ghost, LingeringGhosts, PlacementGhost};
 
 use super::*;
-use KeyCode::{KeyA, KeyD, KeyF, KeyS, KeyW, KeyZ, Tab};
+use KeyCode::{KeyA, KeyD, KeyF, KeyS, KeyW, KeyX, KeyZ, Tab};
 
 const P1: PlayerId = PlayerId(1);
 const P2: PlayerId = PlayerId(2);
@@ -272,9 +272,9 @@ fn the_recruits_panel_shows_every_letter_d_greyed() {
 /// Design change 0327 (`factions/cults/units/recruit.md > Recruit ObjectInterfaceState > DefaultState commands`,
 /// BuildMenu[Basic] and BuildMenu[Advanced]: "Fixed slots: every building keeps its key and is greyed until its
 /// TechPrerequisite is met, so no hotkey ever moves"; "**Z** returns to DefaultState"). With 250 Space Crystals: A
-/// opens the Basic menu, Q Recruitment Hall greyed for the bank, W Storage, A Armory (a Storage stands) and S Gunworks
-/// (an Armory stands; slice M5-G2), D Garrison and X Altar greyed as not in the game yet, which says so when pressed,
-/// the menu staying open; each Build's hint names its price. Z goes back; W opens the Advanced menu: S Machine Shop and
+/// opens the Basic menu, Q Recruitment Hall greyed for the bank, W Storage, A Armory (a Storage stands), S Gunworks
+/// (an Armory stands; slice M5-G2) and D Garrison (an Armory stands; slice M5-N2), X Altar greyed as not in the game
+/// yet, which says so when pressed, the menu staying open; each Build's hint names its price. Z goes back; W opens the Advanced menu: S Machine Shop and
 /// F Scrap Hangar (slice M5-G2) greyed by the gate for their TechPrerequisites, a Chop Shop and an Airstrip, which
 /// they name when pressed; A Chop Shop, D Airstrip, X Temple, C Cathedral and V Shrine greyed as not in the game yet
 /// (0327's Verification: "W then A places a Chop Shop (greyed without an Armory)": its Build comes with its slice).
@@ -295,7 +295,7 @@ fn the_construct_menus_keep_their_slots_greying_what_cant_be_built() {
             (w(), cmd(Build(STORAGE_KIND)), Common, "SE"),
             (a(), cmd(Build(ARMORY_KIND)), Common, "AY"),
             (s(), cmd(Build(ObjectKind::Gunworks)), Common, "GS"),
-            (d(), planned(Planned::Garrison), Unavailable, "GA"),
+            (d(), cmd(Build(ObjectKind::Garrison)), Common, "GA"),
             (z(), PanelButton::Back, Back, "Back"),
             (x(), planned(Planned::Altar), Unavailable, "AR"),
         ]
@@ -305,12 +305,13 @@ fn the_construct_menus_keep_their_slots_greying_what_cant_be_built() {
         (w(), "W: Build Storage (100 Space Crystals)"),
         (a(), "A: Build Armory (200 Space Crystals)"),
         (s(), "S: Build Gunworks (150 Space Crystals)"),
-        (d(), "D: Build Garrison"),
+        (d(), "D: Build Garrison (150 Space Crystals)"),
+        (x(), "X: Build Altar"),
     ];
     for (at, hint) in hints {
         assert_eq!(hint_over(&mut app, at).as_deref(), Some(hint));
     }
-    tap(&mut app, &[], KeyD);
+    tap(&mut app, &[], KeyX);
     assert_eq!(said(&app), Some(NOT_YET_TEXT));
     assert_eq!(interface(&app), InterfaceState::BuildMenu(BuildMenu::Basic));
     tap(&mut app, &[], KeyZ);
