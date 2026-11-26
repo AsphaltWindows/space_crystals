@@ -1,14 +1,15 @@
 //! The Recruitment Hall — `factions/cults/economy.md > RecruitmentHall`.
 
-use crate::defs::structures::{StructureDef, SymmetryType};
+use crate::defs::structures::{ExitRule, ProductionDef, Recipe, RecruitmentDef, StructureDef, SymmetryType};
 use crate::defs::{Armor, Category, Footprint, ObjectDef, ObjectKind};
 use crate::player::Faction;
+use crate::sides::SideLetter;
 
 /// `factions/cults/economy.md > RecruitmentHall`: "The Cults' starting structure. Automatically produces Recruits from
 /// the surrounding population of Recruitable terrain." Its production, its Recruitment Area and its Unit Control
 /// (`> RecruitmentHall > RecruitmentArea`, `> RecruitmentHall > Production Behavior`, `> RecruitmentHall > Unit
-/// Control Tracking`) come with slice M5-C, its construction by Recruits with slice M5-E, and the starting one with
-/// slice M5-B.
+/// Control Tracking`) are slice M5-C's (`crate::recruitment`), its construction by Recruits slice M5-E's, and the
+/// starting one slice M5-B's.
 pub(crate) static RECRUITMENT_HALL: ObjectDef = ObjectDef {
     kind: ObjectKind::RecruitmentHall,
     name: "Recruitment Hall",
@@ -34,7 +35,23 @@ pub(crate) static RECRUITMENT_HALL: ObjectDef = ObjectDef {
         build_radius_extension: 0,
         power: 0,
         seeds_build_area: false,
-        production: None, // `> RecruitmentHall > Production Behavior`: slice M5-C
+        // `> RecruitmentHall > Production Behavior`: "automatically and continuously produces Recruits at no resource
+        // cost until LocalUnitControlUsage reaches LocalUnitControlCapacity" (plan decision T57).
+        production: Some(ProductionDef {
+            // "Produced Recruits spawn at the hall and move to its rally point": out of one of its four sides, the one
+            // facing the rally point first (**Placeholder (Q0100 point 1)**).
+            exits: ExitRule::Sides(SideLetter::A),
+            recipes: &[Recipe {
+                kind: ObjectKind::Recruit,
+                cost: 0,     // "at no resource cost"
+                frames: 192, // BaseRecruitProductionTime - 12 seconds (192 frames) per Recruit, at 100% effectiveness
+                requires: &[],
+            }],
+            recruitment: Some(RecruitmentDef {
+                area: 10,     // RecruitmentArea: "A 10x10 grid unit area centered on the 4x4 building"
+                capacity: 20, // BaseUnitControlCapacity - 20
+            }),
+        }),
         mining: None,
         onto: None,
         constructs: &[],
@@ -57,7 +74,8 @@ mod tests {
     use crate::defs::cults::tests::assert_structure;
 
     /// 4×4, AAAA, MaxHP 1000, PointArmor 1, FullArmor 16 (the building armour rule's n = 1), SightRange 6, not
-    /// Groupable, no TechPrerequisite. Its production comes with slice M5-C, its site with slice M5-E.
+    /// Groupable, no TechPrerequisite. It recruits Recruits for free, 192 frames each at 100% effectiveness, out of
+    /// its four sides, with a 10x10 Recruitment Area and a capacity of 20 (slice M5-C). Its site comes with slice M5-E.
     #[test]
     fn the_recruitment_hall_follows_the_design() {
         let structure = assert_structure(
@@ -71,10 +89,16 @@ mod tests {
         );
         assert_eq!(ObjectKind::RecruitmentHall.def().name, "Recruitment Hall");
         assert_eq!(structure.requires, &[][..]);
+        let production = structure.production.expect("it produces");
+        assert_eq!(production.exits, ExitRule::Sides(SideLetter::A));
+        let recipe = |kind| production.recipe(kind).map(|r| (r.cost, r.frames, r.requires));
+        assert_eq!(recipe(ObjectKind::Recruit), Some((0, 192, &[][..])));
+        assert_eq!(production.recipes.len(), 1);
+        let recruitment = production.recruitment.expect("it recruits");
         assert_eq!(
-            (structure.production, structure.drop_off, structure.site),
-            (None, None, None),
-            "slices M5-C and M5-E"
+            (recruitment.area, recruitment.capacity, recruitment.tiles()),
+            (10, 20, 100)
         );
+        assert_eq!((structure.drop_off, structure.site), (None, None), "slice M5-E");
     }
 }

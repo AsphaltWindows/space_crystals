@@ -224,11 +224,12 @@ fn refusal_text(reason: Refusal) -> Option<&'static str> {
 
 /// The message of a producer whose unit waits for room under the army cap `resource` (`SimEvent::ProductionWaiting`,
 /// design change 0143; placeholder for its notification), named after it: Unit Control, the Colonists' Beacon
-/// Capacity, or the Syndicate's Tunnel Space (slice M4-B).
+/// Capacity, or the Syndicate's Tunnel Space (slice M4-B). The Cults' Unit Control makes nothing wait
+/// (`ArmyResource::reserves`, slice M5-C), and would read as the GDO's.
 pub fn army_cap_text(resource: ArmyResource) -> &'static str {
     match resource {
         ArmyResource::BeaconCapacity => BEACON_CAPACITY_TEXT,
-        ArmyResource::UnitControl => UNIT_CONTROL_TEXT,
+        ArmyResource::UnitControl | ArmyResource::CultsUnitControl => UNIT_CONTROL_TEXT,
         ArmyResource::TunnelSpace => TUNNEL_SPACE_TEXT,
     }
 }

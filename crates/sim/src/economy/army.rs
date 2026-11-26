@@ -15,22 +15,35 @@
 //!   `factions/syndicate/tunnels.md > Tunnel > Tunnel Space`): "Each Syndicate unit has a Tunnel Space cost", and what
 //!   is available is min(200, ⌊the unused tunnel-region cells of the player's Tunnels / 4⌋), derived from the Tunnels
 //!   and the expansions where they stand (`tunnel_space.rs`).
-//! - **The Cults** have none yet: their Unit Control comes with their milestone ([`ArmyResource::of`]), and nothing
-//!   caps their armies until then.
+//! - **The Cults: Unit Control** (slice M5-C, plan decision T56; `factions/cults/overview.md > CultsResources > Unit
+//!   Control`: "Provided by Recruitment Halls in proportion to the number of Recruitable tiles each hall is actively
+//!   recruiting from. No hard cap"; `cults.rs`): what is available is the sum of the completed Halls' capacities,
+//!   rounded down, and what is used is the Halls' usage plus the orphaned points, by the units' lineages
+//!   (`factions/cults/economy.md > RecruitmentHall > Cults Unit Control HUD Display`; `crate::recruitment`). It counts
+//!   the units held off the map as the others do.
 //!
-//! **Used** is what the player's units cost, plus their producers' units in production (design change 0143, for
-//! every faction: `factions/gdo/overview.md > GDOResources > Unit Control`, "Reserved when production starts": the
-//! HUD's "used" count "includes in-production units, not merely queued ones"; `factions/colonists/overview.md >
-//! Beacon Capacity > Reserved when production starts` alike). A unit takes its cost from the tick its producer
-//! begins progress on it (`Production::in_production`) for as long as it lives; a unit only queued takes none, nor
-//! does one waiting at 0% for room. Units without a cost in the resource, such as another faction's, take none.
+//! **A unit costs only in its own faction's resource** ([`ArmyResource::cost_of`]; the Director's decision, slice
+//! M5-C): another faction's unit, which only a debug or a Custom game can give a player, takes none of it. So a Cults
+//! unit of a GDO player's takes none of their Unit Control, nor a GDO unit of a Cults player's any of theirs.
+//!
+//! **Used** is what the player's units cost, plus their producers' units in production (design change 0143, for the
+//! GDO, the Colonists and the Syndicate: `factions/gdo/overview.md > GDOResources > Unit Control`, "Reserved when
+//! production starts": the HUD's "used" count "includes in-production units, not merely queued ones";
+//! `factions/colonists/overview.md > Beacon Capacity > Reserved when production starts` alike). A unit takes its cost
+//! from the tick its producer begins progress on it (`Production::in_production`) for as long as it lives; a unit only
+//! queued takes none, nor does one waiting at 0% for room. The Cults reserve nothing ([`ArmyResource::reserves`]): a
+//! Hall's Recruit counts from the tick it exists (**Placeholder (Q0100 point 3)**), as LocalUnitControlUsage counts
+//! the units there are, and so does every Cults unit.
 //!
 //! **The check** is made when production starts, not when a unit is queued (0143, which replaces design change 0082's
 //! reservation at queue time and with it M2's and M3-C's refusal of a `Train`): the unit at the front of a queue
 //! starts only while `available − used ≥ cost` ([`ArmyCap::fits`]); else its producer waits with it at 0% and starts
 //! by itself once there is room (`sim/producers/step.rs`, `Production::blocked`). A unit whose cost is 0 always starts,
 //! even over capacity (design change 0176 point 3). The client names the faction's resource in the wait's line and
-//! feedback ([`ArmyResource::name`]).
+//! feedback ([`ArmyResource::name`]). The Cults' Unit Control is never checked: it is for display only, each Hall
+//! producing by its own usage and capacity (**Placeholder (Q0101 point 1)**; `factions/cults/economy.md >
+//! RecruitmentHall > Production Behavior`: "Production logic is entirely local — global Unit Control state does not
+//! affect production decisions").
 //!
 //! **Over capacity** (`factions/colonists/overview.md > Beacon Capacity > Over capacity`, design change 0112 as 0143
 //! amends it): when a Colonists building is lost, or a Beacon's deployment is cancelled, more can be used than is
@@ -43,6 +56,7 @@
 //! Network and an Agent inside its site are alive and use Tunnel Space (design change 0265: "units count from
 //! production for life"): slice M4-C chains its store of them into that iterator.
 
+mod cults;
 mod tunnel_space;
 
 use serde::{Deserialize, Serialize};
@@ -53,6 +67,7 @@ use crate::defs::{BEACON_CAPACITY_CAP, BEACON_CAPACITY_PER_BUILDING, Category, O
 #[cfg(test)]
 use crate::defs::{CELLS_PER_TUNNEL_SPACE, TUNNEL_SPACE_CAP};
 use crate::ids::PlayerId;
+use crate::map::Map;
 use crate::object::Object;
 use crate::player::Faction;
 use crate::production::Production;
@@ -66,49 +81,70 @@ pub enum ArmyResource {
     BeaconCapacity,
     /// The Syndicate's: `factions/syndicate/overview.md > SyndicateResources > Tunnel Space` (slice M4-B).
     TunnelSpace,
+    /// The Cults': `factions/cults/overview.md > CultsResources > Unit Control` (slice M5-C), which the Recruitment
+    /// Halls provide (`cults.rs`).
+    CultsUnitControl,
 }
 
 impl ArmyResource {
-    /// `faction`'s, or `None` for a faction whose cap isn't implemented yet: the Cults' Unit Control comes with their
-    /// milestone.
-    pub fn of(faction: Faction) -> Option<ArmyResource> {
+    /// `faction`'s: every faction has its own (the Cults' since slice M5-C).
+    pub fn of(faction: Faction) -> ArmyResource {
         match faction {
-            Faction::Gdo => Some(ArmyResource::UnitControl),
-            Faction::Colonists => Some(ArmyResource::BeaconCapacity),
-            Faction::Syndicate => Some(ArmyResource::TunnelSpace),
-            Faction::Cults => None,
+            Faction::Gdo => ArmyResource::UnitControl,
+            Faction::Colonists => ArmyResource::BeaconCapacity,
+            Faction::Syndicate => ArmyResource::TunnelSpace,
+            Faction::Cults => ArmyResource::CultsUnitControl,
         }
     }
 
     /// Its name, as the DisplayHuds give it (`factions/gdo/overview.md > DisplayHud`, `factions/colonists/
-    /// overview.md > DisplayHud`, `factions/syndicate/overview.md > DisplayHud`).
+    /// overview.md > DisplayHud`, `factions/syndicate/overview.md > DisplayHud`, `factions/cults/overview.md >
+    /// DisplayHud`): the GDO and the Cults both call theirs "Unit Control".
     pub fn name(self) -> &'static str {
         match self {
-            ArmyResource::UnitControl => "Unit Control",
+            ArmyResource::UnitControl | ArmyResource::CultsUnitControl => "Unit Control",
             ArmyResource::BeaconCapacity => "Beacon Capacity",
             ArmyResource::TunnelSpace => "Tunnel Space",
         }
     }
 
     /// What a unit of `kind` takes of it: its UnitControlCost (`factions/gdo/units/peacekeeper.md >
-    /// UnitControlCost`), its BeaconCapacityCost (`factions/colonists/units/drone.md > BeaconCapacityCost`) or its
-    /// TunnelSpaceCost (`factions/syndicate/units/agent.md > TunnelSpaceCost`); 0 for a kind without one.
+    /// UnitControlCost`; a Cults unit's, `factions/cults/overview.md > CultsResources > Unit Control`: "Each Cult unit
+    /// has a Unit Control cost"), its BeaconCapacityCost (`factions/colonists/units/drone.md > BeaconCapacityCost`) or
+    /// its TunnelSpaceCost (`factions/syndicate/units/agent.md > TunnelSpaceCost`); 0 for a kind without one, and for
+    /// another faction's unit (module docs: a unit costs only in its own faction's resource).
     pub fn cost_of(self, kind: ObjectKind) -> u32 {
-        let unit = kind.def().unit.as_ref();
+        let def = kind.def();
+        if def.faction.map(ArmyResource::of) != Some(self) {
+            return 0;
+        }
+        let unit = def.unit.as_ref();
         let cost = match self {
-            ArmyResource::UnitControl => unit.and_then(|u| u.unit_control_cost),
+            ArmyResource::UnitControl | ArmyResource::CultsUnitControl => unit.and_then(|u| u.unit_control_cost),
             ArmyResource::BeaconCapacity => unit.and_then(|u| u.beacon_capacity_cost),
             ArmyResource::TunnelSpace => unit.and_then(|u| u.tunnel_space_cost),
         };
         cost.unwrap_or(0)
     }
 
-    /// What `o` takes up of it for its owner: a unit its cost, a producer its unit in production's (module docs).
+    /// Whether a unit takes its cost from the start of its production, and its start waits for room (design change
+    /// 0143, "Reserved when production starts"; module docs): the GDO's, the Colonists' and the Syndicate's. Not the
+    /// Cults' Unit Control, which counts the units there are (`factions/cults/economy.md > RecruitmentHall >
+    /// RecruitmentHallInstanceState`: "LocalUnitControlUsage: number (current usage against this hall)"; **Placeholder
+    /// (Q0100 point 3)**: the Recruit in production counts once it exists) and makes no production wait
+    /// (**Placeholder (Q0101 point 1)**).
+    pub fn reserves(self) -> bool {
+        self != ArmyResource::CultsUnitControl
+    }
+
+    /// What `o` takes up of it for its owner: a unit its cost, and a producer its unit in production's if the resource
+    /// [`reserves`](ArmyResource::reserves) (module docs).
     fn taken_by(self, o: &Object) -> u32 {
         let in_production = o
             .production
             .as_ref()
             .and_then(Production::in_production)
+            .filter(|_| self.reserves())
             .map_or(0, |kind| self.cost_of(kind));
         self.cost_of(o.kind).saturating_add(in_production)
     }
@@ -125,7 +161,8 @@ pub struct ArmyCap {
     pub used: u32,
     /// [`UNIT_CONTROL_CAP`] for Unit Control; min([`BEACON_CAPACITY_CAP`], [`BEACON_CAPACITY_PER_BUILDING`] × the
     /// player's Colonists structures) for Beacon Capacity; min([`crate::defs::TUNNEL_SPACE_CAP`], ⌊the unused
-    /// tunnel-region cells of the player's Tunnels / [`crate::defs::CELLS_PER_TUNNEL_SPACE`]⌋) for Tunnel Space.
+    /// tunnel-region cells of the player's Tunnels / [`crate::defs::CELLS_PER_TUNNEL_SPACE`]⌋) for Tunnel Space; the
+    /// sum of the player's completed Halls' capacities, rounded down, for the Cults' Unit Control (`cults.rs`).
     pub available: u32,
 }
 
@@ -136,21 +173,27 @@ impl ArmyCap {
     /// GDO's Unit Control alike), where a unit without a cost always fits, even over the cap (design change 0176 point
     /// 3, `factions/gdo/overview.md > Unit Control`: "a unit whose capacity cost is 0 never waits for capacity, even
     /// when used is over available"; every faction's cap). Today's units all cost something in their own faction's
-    /// resource, so only another faction's unit, in a debug game, costs 0.
+    /// resource, so only another faction's unit, in a debug or a Custom game, costs 0 ([`ArmyResource::cost_of`]).
+    /// Never asked of the Cults' Unit Control, which no production waits for ([`ArmyResource::reserves`]).
     pub fn fits(&self, cost: u32) -> bool {
         cost == 0 || self.used.saturating_add(cost) <= self.available
     }
 }
 
 /// The army cap of `player`, whose faction is `faction`, among `objects` (module docs: the map's, and the units held
-/// out of it); `None` for a faction without one yet. Tunnel Space looks at every object, as a neutral expansion takes
-/// up tunnel-region (`tunnel_space.rs`); the other figures only at `player`'s.
+/// out of it), on `map`. Tunnel Space looks at every object, as a neutral expansion takes up tunnel-region
+/// (`tunnel_space.rs`), and so does the Cults' Unit Control, every Hall claiming tiles and every unit's lineage naming
+/// its Halls (`cults.rs`); the other figures only at `player`'s.
 pub(crate) fn cap<'a>(
     objects: impl IntoIterator<Item = &'a Object>,
+    map: &Map,
     player: PlayerId,
     faction: Faction,
-) -> Option<ArmyCap> {
-    let resource = ArmyResource::of(faction)?;
+) -> ArmyCap {
+    let resource = ArmyResource::of(faction);
+    if resource == ArmyResource::CultsUnitControl {
+        return cults::cap(objects, map, player);
+    }
     let (mut used, mut providers) = (0u32, 0u32);
     let mut space = TunnelSpace::default();
     for o in objects {
@@ -169,16 +212,19 @@ pub(crate) fn cap<'a>(
             .saturating_mul(BEACON_CAPACITY_PER_BUILDING)
             .min(BEACON_CAPACITY_CAP),
         ArmyResource::TunnelSpace => space.available(),
+        // Returned above.
+        ArmyResource::CultsUnitControl => 0,
     };
-    Some(ArmyCap {
+    ArmyCap {
         resource,
         used,
         available,
-    })
+    }
 }
 
-/// The Unit Control `player` uses among `objects` (`Sim::unit_control`): the UnitControlCost of their units and of
-/// their producers' units in production (design change 0143), whatever their faction.
+/// The GDO's Unit Control `player` uses among `objects` (`Sim::unit_control`): the UnitControlCost of their GDO units
+/// and of their producers' GDO units in production (design change 0143). Another faction's unit costs none of it
+/// (module docs).
 pub(crate) fn unit_control_used<'a>(objects: impl IntoIterator<Item = &'a Object>, player: PlayerId) -> u32 {
     objects
         .into_iter()
@@ -215,10 +261,11 @@ mod tests {
             (Some(1), None)
         );
         // `factions/colonists/units/README.md`: the Drone's BeaconCapacityCost is 1, the Legionnaires' 2.
-        let (uc, bc, ts) = (
+        let (uc, bc, ts, cu) = (
             ArmyResource::UnitControl,
             ArmyResource::BeaconCapacity,
             ArmyResource::TunnelSpace,
+            ArmyResource::CultsUnitControl,
         );
         let costs = |resource: ArmyResource| {
             [
@@ -227,35 +274,70 @@ mod tests {
                 ObjectKind::SabreLegionnaire,
                 ObjectKind::Guard,
                 ObjectKind::Agent,
+                ObjectKind::Recruit,
             ]
             .map(|kind| resource.cost_of(kind))
         };
-        assert_eq!(costs(uc), [1, 0, 0, 0, 0]);
-        assert_eq!(costs(bc), [0, 1, 2, 0, 0]);
+        // The Peacekeeper and the Recruit both have a UnitControlCost of 1, each in its own faction's resource alone
+        // (module docs).
+        assert_eq!(costs(uc), [1, 0, 0, 0, 0, 0]);
+        assert_eq!(costs(bc), [0, 1, 2, 0, 0, 0]);
         // `factions/syndicate/units/guard.md` and `factions/syndicate/units/agent.md > TunnelSpaceCost - 1`.
-        assert_eq!(costs(ts), [0, 0, 0, 1, 1]);
+        assert_eq!(costs(ts), [0, 0, 0, 1, 1, 0]);
+        // `factions/cults/overview.md > CultsResources > Unit Control`: "Each Cult unit has a Unit Control cost".
+        assert_eq!(costs(cu), [0, 0, 0, 0, 0, 1]);
+        assert_eq!(cu.cost_of(ObjectKind::RecruitmentHall), 0);
         assert_eq!(bc.cost_of(ObjectKind::RoboPortal), 0, "a structure costs nothing");
         assert_eq!(ts.cost_of(ObjectKind::Hideout), 0);
         // `factions/syndicate/tunnels.md > Tunnel Space`: "floor((...) / 4) ... capped at a hard maximum of 200".
         assert_eq!((TUNNEL_SPACE_CAP, CELLS_PER_TUNNEL_SPACE), (200, 4));
     }
 
-    /// Each implemented faction has its own cap, named as its DisplayHud names it; the Cults have none yet.
+    /// Each faction has its own cap, named as its DisplayHud names it: the GDO's and the Cults' are both "Unit
+    /// Control" (`factions/cults/overview.md > DisplayHud`), and only the Cults' reserves nothing.
     #[test]
     fn each_faction_has_its_own_cap() {
-        let names: Vec<Option<&str>> = Faction::ALL
-            .iter()
-            .map(|&f| ArmyResource::of(f).map(ArmyResource::name))
-            .collect();
+        let resources = Faction::ALL.iter().map(|&f| ArmyResource::of(f));
+        let names: Vec<(&str, bool)> = resources.map(|r| (r.name(), r.reserves())).collect();
         assert_eq!(
             names,
             [
-                Some("Unit Control"),
-                Some("Tunnel Space"),
-                None,
-                Some("Beacon Capacity")
+                ("Unit Control", true),
+                ("Tunnel Space", true),
+                ("Unit Control", false),
+                ("Beacon Capacity", true)
             ]
         );
+    }
+
+    /// The Director's decision (slice M5-C; module docs): a unit costs only in its own faction's resource, both ways. A
+    /// GDO player's Recruit takes none of their Unit Control, and a Cults player's Peacekeeper none of theirs, though
+    /// both have a UnitControlCost; each player's own unit takes its 1 (the Recruit as an orphan: **Placeholder (Q0101
+    /// point 2)**).
+    #[test]
+    fn another_factions_unit_costs_nothing_in_either_direction() {
+        use crate::ids::PlayerId;
+        use crate::scenario::SpawnAt;
+        use crate::sim::Sim;
+        use crate::testing::ScenarioBuilder;
+        use crate::units::TilePos;
+        let (gdo, cults) = (PlayerId(1), PlayerId(2));
+        let used = |spawns: &[(ObjectKind, PlayerId)]| {
+            let mut builder = ScenarioBuilder::new(&vec![".".repeat(16); 16].join("\n"))
+                .faction(gdo, Faction::Gdo)
+                .faction(cults, Faction::Cults);
+            for (i, &(kind, owner)) in (0..).zip(spawns) {
+                builder = builder.spawn(kind, Some(owner), SpawnAt::Point(TilePos::new(2 + 2 * i, 2).center()));
+            }
+            let sim = Sim::new(&builder.build());
+            let used = |player| sim.army_cap(player).map(|cap| (cap.resource, cap.used));
+            (used(gdo), used(cults))
+        };
+        let (uc, cu) = (ArmyResource::UnitControl, ArmyResource::CultsUnitControl);
+        let foreign = [(ObjectKind::Recruit, gdo), (ObjectKind::Peacekeeper, cults)];
+        assert_eq!(used(&foreign), (Some((uc, 0)), Some((cu, 0))));
+        let own = [(ObjectKind::Peacekeeper, gdo), (ObjectKind::Recruit, cults)];
+        assert_eq!(used(&own), (Some((uc, 1)), Some((cu, 1))));
     }
 
     /// A unit fits while the used figure stays at most at the available one.

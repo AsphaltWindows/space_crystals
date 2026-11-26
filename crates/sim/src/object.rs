@@ -117,17 +117,22 @@ pub struct Object {
     /// still load and those without a pop-up are as they were.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub popup: Option<PopUp>,
-    /// A Cults unit's lineage (plan decision T56, slice M5-A): the Recruitment Hall that produced its Recruit
+    /// A Cults unit's lineage (plan decision T56, slice M5-A), one entry per Recruit the unit embodies (the Director's
+    /// amendment to T56 for design change 0319, slice M5-C): the Recruitment Hall that produced each
     /// (`factions/cults/economy.md > RecruitmentHall > Unit Control Tracking`: "Each Recruit tracks which Recruitment
-    /// Hall produced it. This lineage persists when a Recruit is trained into another unit"), whose Unit Control it
-    /// counts against. It stays when the Hall is gone, and the unit then counts toward the global usage only
-    /// (`factions/cults/economy.md > RecruitmentHall > On Destruction`). `None` for everything else, and for a Cults
-    /// unit that no Hall produced (a map's or a debug spawn's: an orphan, **Placeholder (Q0101 point 2)**). Nothing sets
-    /// it yet: the Hall will at spawn (slice M5-C), and the layout at a game's start (slice M5-B); a kind change keeps
-    /// it (`Sim::change_kind`). Optional in files, and left out of them while `None`, so that states saved before it
-    /// existed still load and those without one are as they were.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub lineage: Option<ObjectId>,
+    /// Hall produced it. This lineage persists when a Recruit is trained into another unit. A trained unit's Unit
+    /// Control cost equals the number of Recruits consumed to produce it, with each point of cost attributed to the
+    /// originating hall of the respective Recruit"). A Recruit has one entry, the Hall that made it (`Sim::release_unit`,
+    /// slice M5-C; the starting Hall's for the starting Recruits, slice M5-B); a unit trained from several Recruits, a
+    /// Jackal from two, has one per Recruit consumed, the same Hall perhaps twice (slice M5-F2 joins the consumed
+    /// Recruits' entries). Each entry is a point of Unit Control used at its Hall (`crate::recruitment::Lineages`); an
+    /// entry whose Hall is gone stays, and is an orphaned point, which counts toward the global usage only
+    /// (`factions/cults/economy.md > RecruitmentHall > On Destruction`). Empty for everything else, and for a Cults unit
+    /// that no Hall produced (a map's or a debug spawn's), whose whole cost is orphaned (**Placeholder (Q0101 point
+    /// 2)**). A kind change keeps it (`Sim::change_kind`). Optional in files, and left out of them while empty, so that
+    /// states saved before it existed still load and those without one are as they were.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub lineage: Vec<ObjectId>,
 }
 
 impl Object {

@@ -42,7 +42,7 @@ fn unit(kind: ObjectKind, up: u32) -> Object {
         construction: None,
         decay: None,
         popup: None,
-        lineage: None,
+        lineage: Vec::new(),
     }
 }
 

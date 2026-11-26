@@ -67,6 +67,7 @@ pub(crate) static HIDEOUT: ObjectDef = ObjectDef {
                     requires: &[ObjectKind::ChemicalPlant],
                 },
             ],
+            recruitment: None,
         }),
         mining: None,
         onto: None,

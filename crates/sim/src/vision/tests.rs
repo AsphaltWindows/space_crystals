@@ -32,7 +32,7 @@ fn unit(id: u32, kind: ObjectKind, owner: Option<PlayerId>, pos: Vec2) -> Object
         construction: None,
         decay: None,
         popup: None,
-        lineage: None,
+        lineage: Vec::new(),
     }
 }
 

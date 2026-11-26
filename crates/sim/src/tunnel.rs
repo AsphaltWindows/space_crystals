@@ -167,7 +167,7 @@ mod tests {
             construction: None,
             decay: None,
             popup: None,
-            lineage: None,
+            lineage: Vec::new(),
         }
     }
 

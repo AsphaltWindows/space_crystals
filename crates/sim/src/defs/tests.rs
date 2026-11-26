@@ -234,13 +234,16 @@ fn structure_is_consistent(def: &ObjectDef, structure: &StructureDef) {
         }
     }
     // `Produces`: units of the producer's own faction, each listed once, each taking time, out of sides its
-    // SymmetryType has: a `Side` rule's letter names exactly one side (the Barracks' B), each open letter of a
-    // `Centre` rule at least one (plan decision T19; the portals' energy doorway, design change 0145).
+    // SymmetryType has: a `Side` rule's letter names exactly one side (the Barracks' B), a `Sides` rule's several (the
+    // Recruitment Hall's four A sides, slice M5-C), each open letter of a `Centre` rule at least one (plan decision
+    // T19; the portals' energy doorway, design change 0145). A producer that recruits by itself has one recipe, what
+    // it recruits, and an area at least as large as its footprint (plan decision T57).
     if let Some(production) = &structure.production {
         let letters = structure.symmetry.letters();
         let count = |letter| letters.iter().filter(|&&l| l == letter).count();
         match production.exits {
             ExitRule::Side(letter) => assert_eq!(count(letter), 1, "{name}: exit side {letter:?}"),
+            ExitRule::Sides(letter) => assert!(count(letter) >= 2, "{name}: exit sides {letter:?}"),
             ExitRule::Centre(exits) => {
                 assert!(!exits.is_empty(), "{name}: no open side");
                 for &letter in exits {
@@ -249,6 +252,14 @@ fn structure_is_consistent(def: &ObjectDef, structure: &StructureDef) {
             }
             // Into the Tunnel Network: through no side, from an underground expansion.
             ExitRule::Network => assert!(structure.underground, "{name}: produces into the network"),
+        }
+        if let Some(recruitment) = production.recruitment {
+            let (w, h) = def.tile_size().expect("a structure has tiles");
+            assert_eq!(production.recipes.len(), 1, "{name} recruits one kind");
+            assert!(
+                recruitment.area >= w.max(h) && recruitment.capacity > 0,
+                "{name}: {recruitment:?}"
+            );
         }
         for (i, recipe) in production.recipes.iter().enumerate() {
             let unit = recipe.kind.def();
