@@ -85,7 +85,7 @@ Order types: **Enhanced Constitution**, **Improved Metabolism**, or **Both** (a 
 
 Orders are queueable and serial — processed one at a time, in the order queued. Queuing an order immediately deducts its Space Crystals cost and reserves one unit of the selected type and AugmentationState from StoredUnits (removing it from the pool while it waits). Only the front of the queue actively progresses. When an order finishes, the unit's AugmentationState is updated (its amounts follow the current research level; see Augmentation > Research applies to everyone), and the unit **automatically exits** from the exit side and moves to the RallyPoint. **Which unit** (user, 2026-11-26; Q0105/Q0114/Q0121): an order reserves the matching unit(s) that **entered the building first** (first in, first trained). **HP**: infantry trained from a Recruit **keep the Recruit's damage** (the missing HP carries over); vehicles and aircraft come out at full HP.
 
-Cost and time per order type (placeholder, designer 2026-11-26): **Enhanced Constitution** and **Improved Metabolism**: 25 Space Crystals, 160 frames (10 s) each; **Both**: the sum, 50 Space Crystals, 320 frames.
+Cost and time per order type (placeholder, designer 2026-11-26): **Enhanced Constitution** and **Improved Metabolism**: 25 Space Crystals, **48 frames (3 s)** each; **Both**: the sum, 50 Space Crystals, **96 frames (6 s)** (user, 2026-11-27: "much faster to complete"; was 160 / 320 frames; numbers placeholder).
 
 ### AltarInstanceState:
 - StoredUnits: list of Cults infantry references (max InternalUnitCapacity)
