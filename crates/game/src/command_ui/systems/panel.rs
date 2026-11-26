@@ -2,6 +2,7 @@
 //! pressed by hotkey or by a click on their button.
 
 use bevy::prelude::*;
+use sc_sim::construction::site::shares_builds;
 
 use super::OrderOutbox;
 use crate::ClientMode;
@@ -149,9 +150,17 @@ pub(in crate::command_ui) fn press_command_slots(
                 control.update(|state| state.interface = InterfaceState::AwaitingPlacement(Placing::deploy()));
             }
             SlotPress::AwaitBuild(kind) => {
-                // The one Agent of the ActiveGroup (Ungroupable), the one Tabbed to.
-                if let [agent] = recipients(&state.selection, PanelCommand::Build(kind))[..] {
-                    let placing = Placing::build(agent, kind);
+                let builders = recipients(&state.selection, PanelCommand::Build(kind));
+                let shared = (state.selection.active_group()).is_some_and(|group| shares_builds(group.kind()));
+                let placing = match builders[..] {
+                    // (M5-J1) The Recruits of the ActiveGroup (Groupable: every selected Recruit), who build it
+                    // together (`factions/cults/units/recruit.md > Recruit ObjectInterfaceState`).
+                    [_, ..] if shared => Some(Placing::recruits(kind)),
+                    // The one Agent of the ActiveGroup (Ungroupable), the one Tabbed to.
+                    [agent] => Some(Placing::build(agent, kind)),
+                    _ => None,
+                };
+                if let Some(placing) = placing {
                     control.update(|state| state.interface = InterfaceState::AwaitingPlacement(placing));
                 }
             }

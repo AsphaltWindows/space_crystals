@@ -6,7 +6,8 @@
 //! per look ([`CursorImages`]): an arrow in DefaultState and a crosshair while a target is awaited, coloured by the
 //! PointerDisplayType (`> Types`: Inactive muted grey; Move green, Attack red, Patrol orange as their indicators;
 //! AttackGround crimson; GatherResources the cyan of the crystals, ReturnResources gold, slice M3-J2; Enter violet,
-//! slice M4-J1; Mixed, "a generic hybrid cursor" whose visual is TBD, striped in the Attack red and the Move green),
+//! slice M4-J1; Assist blue and Repair tan, slice M5-J1 (design change 0322: placeholder looks; Repair's shows from
+//! slice N8 on); Mixed, "a generic hybrid cursor" whose visual is TBD, striped in the Attack red and the Move green),
 //! with a dot in the
 //! relation's colour (own green, enemy red, neutral yellow, as the selection markers) while
 //! it points at an object. With nothing to preview (Inactive, no object, no target awaited) and over the UI, a window
@@ -46,6 +47,12 @@ const INACTIVE_COLOR: Color = Color::srgb(0.80, 0.82, 0.86);
 const ATTACK_GROUND_COLOR: Color = Color::srgb(0.90, 0.20, 0.50);
 /// Enter's (slice M4-J1), a placeholder: the violet of nothing else on the map.
 pub const ENTER_COLOR: Color = Color::srgb(0.62, 0.42, 0.98);
+/// Assist's (slice M5-J1, design change 0322: "Two new pointer types (placeholder looks)"), a placeholder: a
+/// chartreuse of nothing else on the map (player 1's blue would have hidden it).
+pub const ASSIST_COLOR: Color = Color::srgb(0.78, 1.00, 0.20);
+/// Repair's (slice M5-J1, the hook of slice N8's Repair, design change 0322), a placeholder: a tan of nothing else on
+/// the map.
+pub const REPAIR_COLOR: Color = Color::srgb(0.80, 0.62, 0.40);
 /// The Mixed look (`> Mixed Right-Click Preview`, design change 0063: visual TBD), a placeholder: diagonal stripes
 /// of these two colours, each this many pixels wide.
 const MIXED_COLORS: [Color; 2] = [ATTACK_COLOR, MOVE_COLOR];
@@ -266,6 +273,8 @@ fn display_color(display: Option<PointerDisplay>, p: Vec2) -> Color {
         Some(PointerDisplay::GatherResources) => GATHER_COLOR,
         Some(PointerDisplay::ReturnResources) => RETURN_COLOR,
         Some(PointerDisplay::Enter) => ENTER_COLOR,
+        Some(PointerDisplay::Assist) => ASSIST_COLOR,
+        Some(PointerDisplay::Repair) => REPAIR_COLOR,
         Some(PointerDisplay::Mixed) => {
             let stripe = ((p.x + p.y) / MIXED_STRIPE_PX).floor().rem_euclid(2.0);
             MIXED_COLORS[usize::from(stripe >= 1.0)]
@@ -419,5 +428,26 @@ mod tests {
         assert_eq!(pixel(&image, 3, 6), ATTACK_COLOR.to_srgba().to_u8_array());
         assert_eq!(pixel(&image, 3, 8), MOVE_COLOR.to_srgba().to_u8_array());
         assert!(!mixed.is_plain());
+    }
+
+    /// Slice M5-J1 (design change 0322: "Two new pointer types (placeholder looks)"): Assist and Repair are arrows of
+    /// their own colours.
+    #[test]
+    fn assist_and_repair_have_their_own_colours() {
+        let looks = [
+            (PointerDisplay::Assist, ASSIST_COLOR),
+            (PointerDisplay::Repair, REPAIR_COLOR),
+        ];
+        for (display, color) in looks {
+            let look = PointerLook {
+                display: Some(display),
+                targeting: false,
+                placing: false,
+                hovered: Some(Relation::Own),
+            };
+            let image = cursor_image(look);
+            assert_eq!(pixel(&image, 3, 8), color.to_srgba().to_u8_array(), "{display:?}");
+        }
+        assert_ne!(ASSIST_COLOR, REPAIR_COLOR);
     }
 }

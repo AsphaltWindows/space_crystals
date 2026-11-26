@@ -1,8 +1,10 @@
 mod gathering;
+mod recruit;
 
 use sc_sim::defs::TargetDomain;
 
 use super::*;
+use crate::command_ui::interface::InterfaceState;
 
 fn id(n: u32) -> ObjectId {
     ObjectId(n)

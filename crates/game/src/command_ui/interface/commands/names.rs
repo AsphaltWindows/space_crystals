@@ -17,10 +17,11 @@ impl PanelCommand {
     /// "Place", and every Cancel "Cancel". The others are the command's name or its first word ("Hold", "Rally",
     /// "Raise", "Lower", "Drop" for Set Drop-off Location and for the Agent's Drop Off, "Drones" for Select Returning
     /// Drones), or a shortening of it ("Rev.", "AtkGnd", "Conv.", "Adv.", the Tunnel's "Upgr." for Upgrade Tunnel). An
-    /// EjectMenu tile shows its unit type's tag, as a unit trained does, and its count (`super::PanelSlot::count`); an
-    /// ExpandMenu entry its expansion's, as a building constructed does. A pool building's kind buttons show their kind
-    /// for the icon of its augments, "Plain", "Const.", "Metab.", "Both", with their counts; its KindMenu's training
-    /// the unit's tag, as a Train does, its Release "Rel." and its Eject All "Eject" (slice M5-F2).
+    /// EjectMenu tile shows its unit type's tag, as a unit trained does, and its count
+    /// (`super::super::PanelSlot::count`); an ExpandMenu entry its expansion's, as a building constructed does. A pool
+    /// building's kind buttons show their kind for the icon of its augments, "Plain", "Const.", "Metab.", "Both", with
+    /// their counts; its KindMenu's training the unit's tag, as a Train does, its Release "Rel." and its Eject All
+    /// "Eject" (slice M5-F2).
     pub fn label(self) -> &'static str {
         match self {
             PanelCommand::Move => "Move",
@@ -59,6 +60,7 @@ impl PanelCommand {
             PanelCommand::KindMenu(kind) => kind_label(kind),
             PanelCommand::Release(_) => "Rel.",
             PanelCommand::EjectAll => "Eject",
+            PanelCommand::Assist => "Assist",
         }
     }
 
@@ -99,6 +101,7 @@ impl PanelCommand {
             PanelCommand::TrainFrom(kind, _) => named("Train", kind),
             PanelCommand::Release(_) => "Release".into(),
             PanelCommand::EjectAll => "Eject All".into(),
+            PanelCommand::Assist => "Assist Construction".into(),
             PanelCommand::Move
             | PanelCommand::Attack
             | PanelCommand::Patrol
@@ -109,8 +112,8 @@ impl PanelCommand {
     }
 
     /// The command's full name on the panel of a `kind` ActiveGroup, which the InfoPanel's hint shows
-    /// (`super::Panel::name`): [`Self::name`], but for the commands the design names after the object whose panel
-    /// shows them, from its panel template (`super::templates::PanelTemplate::names`):
+    /// (`super::super::Panel::name`): [`Self::name`], but for the commands the design names after the object whose
+    /// panel shows them, from its panel template (`super::super::templates::PanelTemplate::names`):
     /// - a Beacon's menus: "Q: Warp In (Basic)", "W: Warp In (Advanced)" (`factions/colonists/economy.md > Beacon >
     ///   Beacon ObjectInterfaceState`), the Deployment Center's being "Basic Construction" and "Advanced
     ///   Construction";

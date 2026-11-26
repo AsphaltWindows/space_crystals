@@ -151,7 +151,7 @@ mod tests {
     fn the_hint_names_every_button_in_full() {
         let bindings = Bindings::default();
         let hotkeys: Vec<String> = CommandSlot::all().map(|slot| hotkey_label(&bindings, slot)).collect();
-        let whole = ["Move", "Attack", "Patrol", "Stop", "Deploy", "Eject", "Back"];
+        let whole = ["Move", "Attack", "Patrol", "Stop", "Deploy", "Eject", "Repair", "Back"];
         let mut types: Vec<GroupType> = ObjectKind::ALL.iter().map(|&kind| GroupType::finished(kind)).collect();
         let warped_in = transform::warp_in_recipes(ObjectKind::Beacon).iter().map(|r| r.kind);
         let sites = [ObjectKind::Tunnel];

@@ -621,9 +621,16 @@ Layout validation can't disagree. **Never test a placement rule anywhere else: a
   allowed. It is `WholeProblem::TunnelAreaOverlap`, in every mode: `Mode::Known` judges by what the player knows ("their
   remembered position and their tier as last seen"), `Mode::Arrival` by the truth, so a Tunnel upgraded unseen fails a
   build on arrival.
+- **The Recruitment Area rule** (slice M5-J1, `placement/recruitment_area.rs`; design change 0341 point 1,
+  `factions/cults/structures/recruitment_hall.md > RecruitmentArea`): a kind that recruits (`recruitment::def_of`),
+  the Recruitment Hall, has its whole Recruitment Area (`recruitment::area`, centred on the footprint) on the map, in
+  every mode, as the Tunnel Area's edge rule: `WholeProblem::RecruitmentAreaOffMap`, "The Recruitment Area reaches off
+  the map". A Hall's 10-tile area holds its 4 × 4 footprint with 3 tiles a side, so an origin 3 tiles from the edge is
+  valid and 2 is refused. Map and debug spawns don't take the check: such a Hall's tiles off the map count among its
+  area's and can't be claimed (`recruitment.rs`, a placeholder).
 - **The files** (`placement/`): `site.rs` (`Site`, `Mode`, `Method`, `Occupant`), `problems.rs` (the problems,
   `PlacementCheck`, their texts), `check.rs` (the check), `footprint.rs` (its tiles), `tunnel_area.rs`,
-  `tunnel_overlap.rs`, `build_area.rs` and `onto.rs`. The geometry of Tunnel Areas, their regions and an expansion's
+  `tunnel_overlap.rs`, `recruitment_area.rs`, `build_area.rs` and `onto.rs`. The geometry of Tunnel Areas, their regions and an expansion's
   parent Tunnel is `tunnel/area.rs`, the one place that works them out (Tunnel Space, these rules,
   `Sim::parent_tunnel`).
 - **Methods** (plan decision T16): the `Site` also names how the structure comes to stand (`Method`), and the one
@@ -740,7 +747,8 @@ Layout validation can't disagree. **Never test a placement rule anywhere else: a
      group's Build, an Assist) and has no spot gets one and walks there, round the footprint, a unit on its way
      heading on at each corner (`Sim::head_on`); an order on a structure that no longer suits it ends; every
      `RESPOT_TICKS`, a unit whose walk is over keeps where it stands within reach, or looks again along the builders'
-     wall. Before 5b, so that its walks get their paths in the tick.
+     wall, and one whose walk ended on the footprint itself looks again as far out as needed (slice M5-J1: its site
+     waits for it, design change 0362). Before 5b, so that its walks get their paths in the tick.
    - Entries, `Sim::step_entries` (slice M4-C, `sim/network.rs`; `factions/syndicate/tunnels.md > Tunnel Network >
      Walking in`): part of 5a, right after the deployments, in id order. Each unit whose current order is an Enter
      and whose box is within `ENTRY_REACH_SU` of its Tunnel's entry spot leaves the map for the network
@@ -1987,13 +1995,16 @@ section of its own.
     (`Sim::check_shared_build`) takes the whole group, no `Reject::SeveralConstructors` (it stays for Drones and
     Agents), and checks the site with the group left out (`Sim::group_build_check`).
   - **The site** starts at the first holder whose walk ends within `BUILD_REACH_SU` of the footprint
-    (`Sim::arrive_together`, in the arrivals' step), on the truth check with nobody left out (design change 0339: any
-    unit on it, a Recruit of the order too, fails the whole ticket, refunded once, and nothing retries), at 10% HP;
-    every holder's Build becomes `OrderKind::Assist(site)`, queued ones too. It gains a frame a tick for each unit on
-    an Assist of it within reach with its walk over (`spot_work::counts`; 0339's Recruit-frames: those walking or
-    waiting add nothing), so n Recruits build n times as fast and none stall it, its progress and HP kept; complete,
-    `SimEvent::SiteBuilt`, its builders' Assists end and they go on to their queued orders or idle (0340). X refunds
-    75% (`Sim::cancel_site`).
+    (`Sim::arrive_together`, in the arrivals' step), on the truth check (`Sim::arrival_check_without`), checked twice
+    (slice M5-J1, design change 0362): with nobody left out it starts; else with the ticket's holders left out, any
+    other unit on it, of any player, or its ground fails the whole ticket, refunded once, and nothing retries (0339);
+    else only its own Recruits stand on it, current or queued holders, and it waits, checked again each tick, as they
+    walk off to their spots (a walk ended on the footprint looks again, `Sim::step_spots`, so none stands still there).
+    It starts at 10% HP; every holder's Build becomes `OrderKind::Assist(site)`, queued ones too. It gains a frame a
+    tick for each unit on an Assist of it within reach with its walk over (`spot_work::counts`; 0339's Recruit-frames:
+    those walking or waiting add nothing), so n Recruits build n times as fast and none stall it, its progress and HP
+    kept; complete, `SimEvent::SiteBuilt`, its builders' Assists end and they go on to their queued orders or idle
+    (0340). X refunds 75% (`Sim::cancel_site`).
   - **The spots** (T62, 0339, `crate::spot_work`): each worker claims its own spot as it gets the order, in its
     order's state: the part of the builders' wall nearest it (`placement::Wall`, its box `BUILD_STANDOFF_SU` off the
     footprint), or else the nearest free part along the wall either way, clockwise first, a room (its box and the
@@ -2092,8 +2103,10 @@ their energy doorway, slice M3-D2: design change 0145, `factions/colonists/struc
   default preset but Water) of a Hall's 10 × 10 area centred on its footprint goes to the first completed Hall whose
   area has it, by `Production::completed_at`, and of Halls completed in the same tick the one whose centre is nearer
   the tile, then the lower id (design change 0341 point 3), whoever owns it (0341 point 5); buildings never matter;
-  the area's tiles off the map count among its 100 and can't be claimed (Placeholder (Q0099 point 1)); a Hall under
-  construction claims nothing (0341 point 4, `Object::is_operational`). `completed_at` is the tick
+  the whole area lies on the map, the placement check refusing a Hall whose area would leave it (0341 point 1, slice
+  M5-J1: `WholeProblem::RecruitmentAreaOffMap`, `placement/recruitment_area.rs`), and a debug spawn's tiles off the
+  map count among its 100 and can't be claimed (Placeholder (not in the design: 0341 rules such a Hall out)); a Hall
+  under construction claims nothing (0341 point 4, `Object::is_operational`). `completed_at` is the tick
   `Capabilities::fresh` gives the producer, so a spawn's
   insertion tick, 0 for a map's, and the tick `Sim::start_functions` completes a site (slice M5-E). **The start**
   (`Sim::start_recruits`, first in the producers' step): a completed Hall with an owner and an empty queue queues its
@@ -2365,7 +2378,10 @@ their energy doorway, slice M3-D2: design change 0145, `factions/colonists/struc
   knows it (`Aimed`: enemy, destructible, domain, gatherable, drop-off; a remembered one by its record) and
   `Sim::default_order(unit, target)` the sim's answer; the rally points use it (*Production > Rally points*), and the
   client's right-click calls `resolve` itself on what it shows (*Client architecture > Command UI*).
-  `tests/default_order.rs` has the table of unit kinds against targets.
+  `tests/default_order.rs` has the table of unit kinds against targets. The rules on an object are data (slice M5-J1):
+  `RULES`, a list of `Rule`s tried in order (Gather, GatherSupplies, DropOff, Enter, Assist, Attack), the first that
+  applies (`Rule::order`) giving the order; a new default order is a `Rule` in its place in the list (slice N8's
+  Repair goes after Enter, design change 0322).
 - **Debug spawns and teleports of units** keep the unit invariants: a box on blocked ground or across the map's edge
   is `Reject::Blocked`, one overlapping another unit of its layer `Reject::Occupied(id)`, and so is a blocking
   footprint spawned onto a ground unit. Touching is allowed. A teleported unit plans its path again.
@@ -2809,12 +2825,15 @@ their energy doorway, slice M3-D2: design change 0145, `factions/colonists/struc
 - **Cults construction tests** (slice M5-E) are `crates/sim/tests/cults_construction/` (`flow.rs`: four Recruits in
   80 frames paid once, five from one side spread along the wall (0339), two at twice the rate, one alone, a Shift
   chain, builders pulled off and back by Assist, the right-click; `refunds.rs`: two of three re-ordered and then the
-  third (0340), killed, after the start, a queued building its last holder drops (0340), X, a failed arrival, a
-  Recruit of the order on the ghost (0339), the queued building after X; `gate.rs`: the Armory's Storage, Shift-clicks
-  each paid, Assist's refusals; `crowds.rs`: twenty-four on a Storage; `hall.rs`: a built Hall's lineage, gatherers
-  taken off and back), each tick checking a frame per builder at work. `sim/spot_work/tests.rs` (test defs): the wall full and those waiting further out moving
-  in, and oblong ABAC footprints, 2 × 3 and 2 × 4, at four rotations; `placement/wall/tests.rs` the wall, its search
-  and the way round; `spot_work/tests.rs` the claim and the reach.
+  third (0340), killed, after the start, a queued building its last holder drops (0340), X, the queued building after
+  X; `footprint.rs` (slice M5-J1, design change 0362): nine Recruits under a Hall walk off and it starts, a site
+  waiting for one walking off its middle, an enemy and an own Recruit not on the order each failing it, refunded once,
+  a Recruit holding it queued holding it back until it walks off; `gate.rs`: the Armory's Storage, Shift-clicks each
+  paid, Assist's refusals; `crowds.rs`: twenty-four on a Storage; `hall.rs`: a built Hall's lineage, gatherers taken
+  off and back), each tick checking a frame per builder at work. `sim/spot_work/tests.rs` (test defs): the wall full
+  and those waiting further out moving in, oblong ABAC footprints, 2 × 3 and 2 × 4, at four rotations, and a walk
+  ended on the footprint looking again (0362); `placement/wall/tests.rs` the wall, its search and the way round;
+  `spot_work/tests.rs` the claim and the reach.
 - **Beacon Deployment tests** (slice M3-F) are `crates/sim/tests/deploy/` (the walk to the footprint's centre and the
   start on arrival, the 48 frames, the HP from 20 to 120 and damage carried through (0110), Beacon Capacity 10/10 to
   9/10 to 9/15 and a cancel to 11/10 (0112), the cancel's fractions of HP and Shields and its place (0109, 0111), the
@@ -3348,7 +3367,9 @@ Drones, through one command flow (plan decision T10, slices M2-H1, M2-H2 and M3-
   `Command::Production` pressing it would send (the gate's own predicates, no copy of them: crystals, a full queue,
   nothing to cancel; 0081; never the army cap, which is checked when production starts, 0143); a toggle never is
   (design change 0198: a press is never refused). `command_ui/resolution.rs`
-  has what a click resolves to and the `PointerDisplay` that previews it. A `MapTarget` is what is under the cursor
+  has what a click resolves to, and `resolution/pointer.rs` the `PointerDisplay` that previews it (split off in slice
+  M5-J1); `interface/commands/names.rs` has the commands' labels and names, beside `commands.rs`, the commands and
+  what they give the sim. A `MapTarget` is what is under the cursor
   (`CursorTarget`, from `Selectables::target_at`: a remembered record too, 0139), with the ground point there and,
   for an object, the target as the local player knows it (`aimed`, the sim's `Sim::aimed`). A right-click resolves
   per unit (design changes 0062, 0063), whichever group is active, by the sim's one rule (`unit_right_click` calls
@@ -3547,6 +3568,26 @@ Drones, through one command flow (plan decision T10, slices M2-H1, M2-H2 and M3-
   0348 point 5: the Armory is Ungroupable): every command of a pool building's panel goes to the one Tabbed to, X and C
   too (`is_common`, `holding::trains`), where a Barracks shares them with the others selected (0083); a right-click
   still rallies every selected producer, as each selected object resolves it for itself.
+- **The Recruit's panel** (slice M5-J1; `factions/cults/units/recruit.md > Recruit ObjectInterfaceState`, design
+  changes 0322, 0327 and 0347): `templates/cults/recruit.rs` (`InterfaceTemplate::Recruit`) is Q Move, A and W
+  `PanelCommand::BuildMenu` (named "Basic Construct" and "Advanced Construct", `PanelTemplate::names`), S
+  `PanelCommand::Assist`, D `Planned::Repair` (greyed until slice N8) and X Stop. Recruits are Groupable: every
+  command goes to all the selected Recruits, the one ActiveGroup (Tab stops on them once). **The Construct menus**
+  (`templates/cults/construct_menu.rs`) are the sim's `defs::CONSTRUCT_MENU`, the one table of their fixed slots: a
+  type in the game is its `PanelCommand::Build(kind)`, greyed by the gate (its TechPrerequisite, the bank), one not
+  yet in the game its `Planned` entry, found by name (`Planned::construct`), so a slice that brings a building
+  changes the sim's table only; Z is Back. A Build enters `AwaitingPlacement` with **`Builder::Recruits { queued }`**
+  (`Placing::recruits`): one ghost for the group, judged by `ghost::recruits_check` (`Sim::group_build_check`, the
+  gate's own check as far as the player knows, the group left out of the occupants: design change 0362, a Recruit of
+  the order on the footprint makes the site wait, so no warning). A click gives one `OrderKind::Build` to every
+  Recruit of the group through `OrderOutbox::try_give`, paid once; a Shift-click queues it and placement stays while
+  Shift is held (`end_queued_placement`), each Build its ticket's one lingering ghost. **S** awaits an own site that
+  the recipients build from outside (`resolution::assist_target`) and gives `OrderKind::Assist`. The pointer shows
+  `PointerDisplay::Assist` over such a site (`cursor::ASSIST_COLOR`, a placeholder), on a right-click as while S
+  awaits; `PointerDisplay::Repair` (`cursor::REPAIR_COLOR`) is the hook for slice N8's Repair, which no order gives
+  yet. Enter shows over an own Armory in operation that takes the Recruit in, never over its site (0347 point 4). The
+  right-click is the sim's one rule (`sc_sim::orders::resolution::RULES`). The InfoPanel shows a carrying Recruit's
+  load to its owner, as a Drone's ("Carrying 2 Space Crystals", `info_panel::worker_lines`).
 - **Visuals**: the panel's buttons (`hud/command_panel.rs`) are rebuilt when the panel, the bindings or the surface
   changes; each shows its command's label (`PanelSlot::label`) and its hotkey from the bindings, and an EjectMenu tile
   its count in its bottom-right corner. **Every label keeps

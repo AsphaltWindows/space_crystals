@@ -1,15 +1,19 @@
 //! AwaitingPlacement's systems (`super`): the placement keys turn the ghost, a left-click places it, letting go of
-//! Shift ends the Drones' queued placement, and the input layer is told whether a building is being placed.
+//! Shift ends the Drones' and the Recruits' queued placement, and the input layer is told whether a building is being
+//! placed.
 
 use bevy::prelude::*;
 use sc_sim::{ConstructionCommand, OrderKind, Reject, TunnelCommand};
 
 use super::OrderOutbox;
 use crate::ClientMode;
-use crate::command_ui::interface::{Builder, InterfaceState, Placing, WhyUnavailable, commandable, deploy_recipient};
+use crate::command_ui::interface::{
+    Builder, InterfaceState, Placing, WhyUnavailable, commandable, deploy_recipient, recipients,
+};
 use crate::command_ui::{CommandRefused, InvalidPlacement};
 use crate::editor::orientation::Turn;
 use crate::input::{self, ActionState, Bindings, InputAction, MapClick};
+use crate::placement::ghost::recruits_check;
 use crate::selection::{ControlStates, LocalControl};
 use crate::sim_driver::LocalPlayer;
 
@@ -33,17 +37,19 @@ pub(in crate::command_ui) fn turn_ghost(actions: Res<ActionState>, mut control: 
 
 /// `systems/controls/interface.md > AwaitingTarget > Shift while placing`
 /// (`systems/controls/interface.md > Exception, Drones`, design change 0125): once a Shift-click has sent a
-/// Drone of the group to deploy and placement stayed for the next one (`Builder::Drones::queued`), letting go of Shift,
-/// the Queue modifier, ends placement: back to DefaultState ("releasing Shift ends placement"). Before the first
-/// Shift-click, letting go of it changes nothing, as for a target (`super::end_queued_targeting`, the design's proposed
-/// default). It runs before the other input systems, as that one does, so that a command key pressed as Shift is let go
-/// starts anew.
+/// Drone of the group to deploy and placement stayed for the next one (`Builder::Drones::queued`), or queued the
+/// Recruits' Build and placement stayed for their next building (`Builder::Recruits::queued`, slice M5-J1), letting go
+/// of Shift, the Queue modifier, ends placement: back to DefaultState ("releasing Shift ends placement"). Before the
+/// first Shift-click, letting go of it changes nothing, as for a target (`super::end_queued_targeting`, the design's
+/// proposed default). It runs before the other input systems, as that one does, so that a command key pressed as Shift
+/// is let go starts anew.
 pub(in crate::command_ui) fn end_queued_placement(actions: Res<ActionState>, mut control: LocalControl) {
-    let queued = control
-        .state()
-        .interface
-        .placing()
-        .is_some_and(|placing| placing.builder == Builder::Drones { queued: true });
+    let queued = control.state().interface.placing().is_some_and(|placing| {
+        matches!(
+            placing.builder,
+            Builder::Drones { queued: true } | Builder::Recruits { queued: true }
+        )
+    });
     if queued && !actions.held(InputAction::Queue) {
         control.update(|state| state.interface = InterfaceState::DefaultState);
     }
@@ -92,6 +98,14 @@ pub(in crate::command_ui) fn end_queued_placement(actions: Res<ActionState>, mut
 ///   "This only applies when the builder **can carry out more queued buildings**"). It is paid as it is given: an
 ///   Expand the gate refuses (too few Space Crystals since its entry was pressed) sends nothing, says why
 ///   ([`CommandRefused`]) and placement goes on; one the truth refuses (design change 0240) as an invalid click.
+/// - **The Recruits' building** (slice M5-J1; `factions/cults/economy.md > Build Command`): the ghost under the click,
+///   if their group's check allows it (`crate::placement::ghost::recruits_check`, the ghost's own): one
+///   `OrderKind::Build` to every Recruit of the ActiveGroup (`recipients`: "Construct sends every selected Recruit
+///   to build the **same** building together"), paid once as it is given, the gate refusing one the bank can't pay
+///   (said as a Warp In's, [`CommandRefused`]). A plain click returns to DefaultState; a Shift-click queues it and
+///   placement stays while Shift is held (`systems/controls/interface.md > AwaitingTarget > Shift while
+///   placing`: "e.g. Cults Recruits (the whole selected group) build one and walk together to the next"), until it is
+///   let go ([`end_queued_placement`]).
 ///
 /// An invalid click sends nothing and placement goes on (M2 plan, H2: "cannot be confirmed"), with a short message
 /// ([`InvalidPlacement`]; placeholder: the design gives feedback for invalid target clicks,
@@ -236,6 +250,43 @@ pub(in crate::command_ui) fn place_on_click(
                     orientation,
                 };
                 match outbox.try_tunnel(player, tunnel, expand) {
+                    Ok(()) => control.update(|state| state.interface = InterfaceState::DefaultState),
+                    Err(Reject::Unplaceable(problem)) => {
+                        let problem = Some(problem);
+                        invalid.write(InvalidPlacement { problem, tick });
+                    }
+                    Err(reject) => {
+                        let why = WhyUnavailable::Refused(reject);
+                        refused.write(CommandRefused { why, tick });
+                    }
+                }
+            }
+            Builder::Recruits { .. } => {
+                let Some(origin) = placing.origin_under(click.ground) else {
+                    continue;
+                };
+                let queue = bindings.holds(InputAction::Queue, click.modifiers);
+                let recruits = recipients(&state.selection, placing.command());
+                let (kind, orientation) = (placing.kind, placing.orientation);
+                let Some(check) = recruits_check(control.sim(), &recruits, kind, origin, orientation, queue) else {
+                    continue;
+                };
+                if !check.is_valid() {
+                    let problem = check.first_problem();
+                    invalid.write(InvalidPlacement { problem, tick });
+                    continue;
+                }
+                let build = OrderKind::Build {
+                    kind,
+                    origin,
+                    orientation,
+                };
+                match outbox.try_give(player, recruits, build, queue) {
+                    Ok(()) if queue => {
+                        let builder = Builder::Recruits { queued: true };
+                        let next = InterfaceState::AwaitingPlacement(Placing { builder, ..placing });
+                        control.update(|state| state.interface = next);
+                    }
                     Ok(()) => control.update(|state| state.interface = InterfaceState::DefaultState),
                     Err(Reject::Unplaceable(problem)) => {
                         let problem = Some(problem);

@@ -167,15 +167,23 @@ pub enum PanelCommand {
     /// Recruits from the exit side. Only available if StoredRecruits is not empty", at once
     /// (`sc_sim::HoldCommand::EjectAll`): every unit inside that no order reserves.
     EjectAll,
+    /// (M5-J1) `factions/cults/units/recruit.md > Recruit ObjectInterfaceState > DefaultState commands`: "**S: Assist
+    /// Construction** — targeted command (StateOnlyTransition). Left-click an in-progress own building to join
+    /// construction": awaits its site, where a left-click on an own site that the recipients build from outside gives
+    /// them an Assist order (`sc_sim::OrderKind::Assist`, `factions/cults/economy.md > Assist Construction Command`):
+    /// every selected Recruit ("both right-click and panel commands (Construct, Assist Construction, Repair) are issued
+    /// to all of them").
+    Assist,
 }
 
 impl PanelCommand {
     /// Whether the command awaits a target (a StateOnlyTransition to AwaitingTarget): the target commands of
-    /// `> BasicCombatUnitInterfaceState > DefaultState commands`, Set Rally Point, the Drone's Set Drop-off and the
-    /// Agent's Drop Off. The others are issued at once: HoldPosition and Stop, Raise and Lower Shield, Convert, a
-    /// producer's Train and Cancel Production, a constructor's Construct and Cancels, a Tunnel's Eject and Cancel; or
-    /// they enter a state of their own: a build menu, the EjectMenu, the ExpandMenu, AwaitingPlacement (an Agent's
-    /// Build and a Tunnel's expansion too); or they change the selection (the Egress Node's F).
+    /// `> BasicCombatUnitInterfaceState > DefaultState commands`, Set Rally Point, the Drone's Set Drop-off, the
+    /// Agent's Drop Off and the Recruits' Assist Construction. The others are issued at once: HoldPosition and Stop,
+    /// Raise and Lower Shield, Convert, a producer's Train and Cancel Production, a constructor's Construct and
+    /// Cancels, a Tunnel's Eject and Cancel; or they enter a state of their own: a build menu, the EjectMenu, the
+    /// ExpandMenu, AwaitingPlacement (an Agent's Build, a Tunnel's expansion and a Recruits' Construct menu entry
+    /// too); or they change the selection (the Egress Node's F).
     pub fn needs_target(self) -> bool {
         match self {
             PanelCommand::Move
@@ -185,7 +193,8 @@ impl PanelCommand {
             | PanelCommand::AttackGround
             | PanelCommand::SetRallyPoint
             | PanelCommand::SetDropOff
-            | PanelCommand::DropOff => true,
+            | PanelCommand::DropOff
+            | PanelCommand::Assist => true,
             PanelCommand::HoldPosition
             | PanelCommand::Stop
             | PanelCommand::RaiseShield
@@ -294,34 +303,38 @@ impl PanelCommand {
     }
 
     /// The building it constructs, places, warps in or builds: a build menu's entry, a ready building's slot, an
-    /// ExpandMenu entry.
+    /// ExpandMenu entry, a worker's Build (an Agent's, a Recruit's Construct menu entry: slice M5-J1).
     pub fn building(self) -> Option<ObjectKind> {
         match self {
             PanelCommand::Construct(kind)
             | PanelCommand::PlaceReady(kind)
             | PanelCommand::WarpIn(kind)
-            | PanelCommand::Expand(kind) => Some(kind),
+            | PanelCommand::Expand(kind)
+            | PanelCommand::Build(kind) => Some(kind),
             _ => None,
         }
     }
 
     /// Whether it belongs to one instance's own state: a constructor's commands, which read and change what that one
-    /// Deployment Center or Extraction Facility constructs (`> SelectionGroup`: for an Ungroupable type "the
-    /// ObjectInterfaceState can reliably read that instance's specific game state"; design change 0071: "a Build
-    /// order from the panel goes only to the active Recruit"), and a Beacon's Warp In (design change 0122: "Warp In
-    /// applies to the Beacon the player has Tabbed to"). Such a command goes to the ActiveGroup only, never to the
-    /// other selected instances of its type (`super::recipients`). So do a Deploy, which one Drone of the ActiveGroup
-    /// takes (design change 0125), the Cancel of the objects that transform, whose panel shows it, and the Egress
-    /// Node's F, which selects the Drones of "this Egress Node" (Ungroupable: the one Tabbed to). So do a Tunnel's
-    /// EjectMenu and its tiles, which eject "from this Tunnel's Side A" (`factions/syndicate/tunnel_menus.md >
-    /// EjectMenu`; Ungroupable too: the one Tabbed to), and its ExpandMenu, its entries, its Upgrade and its Cancel,
-    /// which read and change this Tunnel's one operation (`factions/syndicate/tunnel_menus.md > ExpandMenu`: "**this**
-    /// Tunnel's tier"). So does an Agent's Build: "each Agent takes exactly one placement", and "Placement never moves
-    /// on to another selected worker" (`systems/controls/interface.md > AwaitingTarget > Shift while placing`: "to
-    /// place with the next Agent, the player presses Tab"). So do a pool building's kind menus, their entries and its
-    /// Eject All, which read and change its own pool (design change 0337: "the count inside (unreserved)"); and every
-    /// command of a pool building goes to the one Tabbed to, its X and C too (design change 0348 point 5: "a command
-    /// goes to one building"; `super::is_common`).
+    /// Deployment Center or Extraction Facility constructs (`systems/controls/selection.md > SelectionGroup`: for an
+    /// Ungroupable type "the ObjectInterfaceState can reliably read that instance's specific game state"), and a
+    /// Beacon's Warp In (design change 0122: "Warp In applies to the Beacon the player has Tabbed to"). Such a command
+    /// goes to the ActiveGroup only, never to the other selected instances of its type (`super::recipients`). So do a
+    /// Deploy, which one Drone of the ActiveGroup takes (design change 0125), the Cancel of the objects that transform,
+    /// whose panel shows it, and the Egress Node's F, which selects the Drones of "this Egress Node" (Ungroupable: the
+    /// one Tabbed to). So do a Tunnel's EjectMenu and its tiles, which eject "from this Tunnel's Side A"
+    /// (`factions/syndicate/tunnel_menus.md > EjectMenu`; Ungroupable too: the one Tabbed to), and its ExpandMenu, its
+    /// entries, its Upgrade and its Cancel, which read and change this Tunnel's one operation
+    /// (`factions/syndicate/tunnel_menus.md > ExpandMenu`: "**this** Tunnel's tier"). So does an Agent's Build: "each
+    /// Agent takes exactly one placement", and "Placement never moves on to another selected worker"
+    /// (`systems/controls/interface.md > AwaitingTarget > Shift while placing`: "to place with the next Agent, the
+    /// player presses Tab"). A Recruits' Build goes to the ActiveGroup too, which is every selected Recruit, the
+    /// Recruit being Groupable (slice M5-J1; `factions/cults/units/recruit.md > Recruit ObjectInterfaceState`:
+    /// "Construct sends every selected Recruit to build the **same** building together", design change 0072), and
+    /// never to the other types' units. So do a pool building's kind menus, their entries and its Eject All, which
+    /// read and change its own pool (design change 0337: "the count inside (unreserved)"); and every command of a pool
+    /// building goes to the one Tabbed to, its X and C too (design change 0348 point 5: "a command goes to one
+    /// building"; `super::is_common`).
     pub fn instance_only(self) -> bool {
         matches!(
             self,
@@ -362,7 +375,8 @@ impl PanelCommand {
     /// (`> Shift while placing > Exception, Drones`, design change 0125). Set Drop-off is an ability, which "only
     /// updates AssignedDropOff": a Shift-click sets it and ends the targeting like a plain click, as a rally point's
     /// (the same placeholder reading). The Agent's Drop Off is a unit's order (`factions/syndicate/units/agent.md >
-    /// Unit Commands`), and so is its Build, which Shift queues as it is placed (`> Shift while placing`).
+    /// Unit Commands`), and so is its Build, which Shift queues as it is placed (`> Shift while placing`); so are the
+    /// Recruits' Build and Assist (`factions/cults/units/recruit.md > Unit Commands`).
     pub fn queues(self) -> bool {
         match self {
             PanelCommand::Move
@@ -374,7 +388,8 @@ impl PanelCommand {
             | PanelCommand::Stop
             | PanelCommand::Deploy
             | PanelCommand::Build(_)
-            | PanelCommand::DropOff => true,
+            | PanelCommand::DropOff
+            | PanelCommand::Assist => true,
             PanelCommand::RaiseShield
             | PanelCommand::LowerShield
             | PanelCommand::Convert(_)

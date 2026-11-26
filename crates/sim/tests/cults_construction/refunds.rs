@@ -2,7 +2,8 @@
 //! 0340, `factions/cults/economy.md > Cults Building Mechanics > Group construction refunds`): paid once as it is
 //! given, it comes back once, as the last Recruit holding it drops it before its site starts, and never after the
 //! start; X on the site refunds 75% of it. A failed order is refunded once in full (design change 0339,
-//! `factions/cults/economy.md > Cults Building Mechanics > Group construction rules`).
+//! `factions/cults/economy.md > Cults Building Mechanics > Group construction rules`): those that fail on arrival
+//! are `footprint`'s.
 
 use super::*;
 
@@ -139,61 +140,4 @@ fn after_a_cancel_the_group_goes_on_to_its_queued_building() {
     assert_eq!(building_at(&t, SITE_2), Some(built(&t)[0].1));
     assert_eq!(crystals(&t), BANK - 2 * STORAGE_PRICE + 75);
     assert!(refunds(&t).is_empty());
-}
-
-/// Design change 0339 (`> Group construction rules`: "units on the footprint at that moment ... block it, and **the
-/// whole order fails** (refunded once in full ...)"), the check on arrival being the truth (`core/entities.md >
-/// Placement Validation > Worker-Built Structures`): a unit of player 2's standing on the footprint as the first
-/// Recruit gets within reach fails the whole order, which is refunded once, and the group is idle.
-#[test]
-fn a_unit_on_the_site_fails_the_whole_order_refunded_once() {
-    let mut t = world(4);
-    let group = recruits(4);
-    t.without_auto_targeting();
-    t.at(2, P1, build(&group, STORAGE, SITE, false));
-    t.spawn_unit_at(4, RECRUIT, P2, SITE.center());
-    run_to(&mut t, WALK, "it fails", |t| !failures(t).is_empty());
-    run(&mut t, 2);
-    let (_, (_, problems)) = &failures(&t)[0];
-    assert!(!problems.is_valid(), "{problems:?}");
-    assert_eq!(failures(&t).len(), 1, "one failure for the group");
-    assert_eq!(crystals(&t), BANK);
-    assert_eq!(refunds(&t).len(), 1);
-    assert!(sites(&t).is_empty() && t.sim().pending_builds(P1).is_empty());
-    for &n in &group {
-        assert!(idle(&t, n), "#{n}");
-    }
-}
-
-/// Design change 0339's third verification (`> Group construction rules`: "units on the footprint at that moment,
-/// **including Recruits of the same order**, block it"): "A Recruit of the order standing on the ghost at the first
-/// arrival fails the order with a full refund." One Recruit of the group stands beside the footprint, at its spot,
-/// the other on the middle of the footprint: as the first gets there, at once, the second is still walking off the
-/// ghost, and the whole order fails, refunded once in full; nothing retries, and both are idle.
-#[test]
-fn a_recruit_of_the_order_on_the_ghost_at_the_first_arrival_fails_it_with_a_full_refund() {
-    let mut scenario = cults();
-    // #2 on the builders' wall west of the footprint, its box 4 su off; #3 on the footprint's middle.
-    for at in [Vec2::new(1264.0, 960.0), SITE.center() + Vec2::splat(32.0)] {
-        scenario = scenario.spawn(RECRUIT, Some(P1), SpawnAt::Point(at));
-    }
-    let mut t = scenario.start();
-    t.debug_at(1, crystals_of(P1, BANK));
-    t.at(2, P1, build(&[2, 3], STORAGE, SITE, false));
-    let failed = run_to(&mut t, 20, "it fails", |t| !failures(t).is_empty());
-    // The footprint's middle (1344, 960), 64 su to each edge; a Recruit's box 12 su to its edges.
-    let off_middle = (object(&t, id(3)).pos - Vec2::new(1344.0, 960.0)).abs();
-    assert!(
-        off_middle.cmplt(Vec2::splat(64.0 + 12.0)).all(),
-        "#3 still on the ghost at tick {failed}: {off_middle}"
-    );
-    let (_, (worker, problems)) = &failures(&t)[0];
-    assert_eq!(*worker, id(2), "the first arrival");
-    assert!(!problems.is_valid(), "{problems:?}");
-    run(&mut t, WALK);
-    assert_eq!(failures(&t).len(), 1, "one failure for the group, and no retry");
-    assert_eq!(crystals(&t), BANK, "a full refund");
-    assert_eq!(refunds(&t).len(), 1, "once");
-    assert!(sites(&t).is_empty() && t.sim().pending_builds(P1).is_empty());
-    assert!(idle(&t, 2) && idle(&t, 3));
 }

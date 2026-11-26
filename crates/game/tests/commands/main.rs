@@ -37,6 +37,10 @@
 //!
 //! The Cults' Armory (slice M5-F2: its kinds of Recruit with their counts, its KindMenus' training and Release, Eject
 //! All, the rally point, and one panel at a time for two Armories): `armory`, on a Cults field.
+//!
+//! The Recruit's UI (slice M5-J1: its panel and its two Construct menus, the Assist, Enter and gathering pointers, Tab
+//! over Recruits and Militants, the group's placement with its Shift chain, and a Hall refused at the map's edge):
+//! `recruit_ui`, on a Cults field.
 
 mod agent_ui;
 mod armory;
@@ -51,6 +55,7 @@ mod portals;
 mod production;
 mod production_field;
 mod rally;
+mod recruit_ui;
 mod remembered;
 mod right_click;
 mod riot_shield;

@@ -29,22 +29,24 @@
 //!   all of them (design change 0076). Set Rally Point takes the ground or any object, as the right-click does; the
 //!   Drones' Set Drop-off an own Egress Node, which becomes the AssignedDropOff of every one of them (an ability,
 //!   `sc_sim::Ability::SetDropOff`; slice M3-J2); the Agents' Drop Off an own Tunnel in operation, a Drop Off order
-//!   (slice M4-J1).
+//!   (slice M4-J1); the Recruits' Assist Construction an own site built from outside, an Assist order (slice M5-J1).
 //! - **The pointer** ([`pointer_display`]): in DefaultState the one thing the selected objects would all do on a
 //!   right-click, or Mixed when they would do different things (a rally point shows Move:
 //!   `systems/controls/hud.md > Resolution Rules > DefaultState`, "Selection is a production building:
 //!   Move (rally point)"; a Gather GatherResources, a Drop Off ReturnResources, an Enter Enter); while a target is
-//!   awaited, the pending command's look over a valid target, else Inactive.
-
-use std::collections::BTreeSet;
+//!   awaited, the pending command's look over a valid target, else Inactive (`resolution/pointer.rs`).
 
 use bevy::math::Vec2;
 use sc_sim::defs::{Domain, Transit};
 use sc_sim::orders::resolution::{Abilities, Aim, Aimed, resolve};
 use sc_sim::{Ability, ObjectId, ObjectKind, OrderKind, PlayerId, Sim, Target};
 
-use super::interface::{InterfaceState, InterfaceTemplate, Modes, PanelCommand};
+use super::interface::{InterfaceTemplate, Modes, PanelCommand};
 use crate::selection::{Relation, Selectables, Selection};
+
+mod pointer;
+
+pub use pointer::{PointerDisplay, pointer_display, right_click_display};
 
 /// `systems/controls/interface.md > CursorTarget`: what is under the cursor when it clicks.
 #[derive(Copy, Clone, Debug, PartialEq)]
@@ -219,11 +221,16 @@ pub fn object_right_click(object: UnitCapabilities, target: &MapTarget) -> Optio
         ) => None,
         // A unit's default command, by the sim's one rule: the BasicCombatUnit's table, the Drone's own
         // (`factions/colonists/units/drone.md > Right-Click Resolution`; slices M3-R and M3-J2) and the Agent's
-        // (`factions/syndicate/units/agent.md > Right-Click Resolution`, slice M4-J1). Without a template, an object
+        // (`factions/syndicate/units/agent.md > Right-Click Resolution`, slice M4-J1) and the Recruit's
+        // (`factions/cults/units/recruit.md > Right-Click Resolution`, slice M5-J1). Without a template, an object
         // that transforms, which resolves nothing (`unit_right_click`: it has no abilities then).
-        Some(InterfaceTemplate::BasicCombatUnit | InterfaceTemplate::Drone | InterfaceTemplate::Agent) | None => {
-            unit_right_click(object, target).map(Resolved::Order)
-        }
+        Some(
+            InterfaceTemplate::BasicCombatUnit
+            | InterfaceTemplate::Drone
+            | InterfaceTemplate::Agent
+            | InterfaceTemplate::Recruit,
+        )
+        | None => unit_right_click(object, target).map(Resolved::Order),
     }
 }
 
@@ -303,8 +310,9 @@ pub fn group_orders(orders: impl IntoIterator<Item = (ObjectId, OrderKind)>) -> 
 /// ground only (`systems/controls/interface.md > AwaitingTarget[AttackGround] resolution`: "Left-click Ground:
 /// issues AttackGround command to that location"; slice M4-O), wherever the click falls on it, over an object the
 /// player doesn't see too. The Agent's Drop Off takes an own drop-off in operation ([`drop_off_target`], slice M4-J1;
-/// `factions/syndicate/units/agent.md > Agent ObjectInterfaceState`: "Requires clicking an own Tunnel"). Reverse has
-/// no order in the sim yet.
+/// `factions/syndicate/units/agent.md > Agent ObjectInterfaceState`: "Requires clicking an own Tunnel"). The Recruits'
+/// Assist Construction takes an own site built from outside ([`assist_target`], slice M5-J1). Reverse has no order in
+/// the sim yet.
 pub fn target_order(pending: PanelCommand, target: &MapTarget) -> Option<OrderKind> {
     use CursorTarget::{EnemyObject, FriendlyObject, Ground, NeutralObject};
     match (pending, target.target) {
@@ -319,6 +327,7 @@ pub fn target_order(pending: PanelCommand, target: &MapTarget) -> Option<OrderKi
         (PanelCommand::Patrol, Ground(point)) => Some(OrderKind::Patrol(point)),
         (PanelCommand::AttackGround, Ground(point)) => Some(OrderKind::AttackGround(point)),
         (PanelCommand::DropOff, _) => drop_off_target(target).map(OrderKind::DropOff),
+        (PanelCommand::Assist, _) => assist_target(target).map(OrderKind::Assist),
         _ => None,
     }
 }
@@ -346,112 +355,13 @@ pub fn drop_off_target(target: &MapTarget) -> Option<ObjectId> {
     target.aimed.filter(|aimed| aimed.drop_off).map(|aimed| aimed.id)
 }
 
-/// `systems/controls/hud.md > PointerDisplayType > Types` that the game can show so far.
-#[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub enum PointerDisplay {
-    /// Nothing will happen on a click.
-    Inactive,
-    Move,
-    Attack,
-    AttackGround,
-    Patrol,
-    /// "Unit will gather from this resource" (slice M3-J2).
-    GatherResources,
-    /// "Unit will return carried resources to this drop-off point" (slice M3-J2).
-    ReturnResources,
-    /// "Unit will enter this object" (slice M4-J1): "Cursor over own Tunnel (Syndicate unit, tier sufficient)", the
-    /// sim's Enter (`sc_sim::OrderKind::Enter`): an Agent that carries nothing, or any unit the Tunnel's tier lets
-    /// into the network, over an own Tunnel in operation; never over a site, which takes no Enter (design change 0237).
-    Enter,
-    /// `systems/controls/hud.md > Mixed Right-Click Preview` (design change 0063): the selected units
-    /// would do different things on a right-click.
-    Mixed,
-}
-
-impl PointerDisplay {
-    /// The PointerDisplayType of an order a click gives: Attack for an AttackMove too
-    /// (`systems/controls/hud.md > Resolution Rules > AwaitingTarget[CommandType]`: Attack over ground
-    /// "will issue AttackMove"); GatherResources for a Gather ("Cursor over resource (resource gatherer selected)"),
-    /// ReturnResources for a Drop Off ("Cursor over drop-off point (resource gatherer carrying resources)"), Enter for
-    /// an Enter ("Cursor over own Tunnel (Syndicate unit, tier sufficient)"). No click gives Hold or Stop.
-    pub fn of_order(kind: OrderKind) -> Self {
-        match kind {
-            // No click gives a Deploy (slice M3-J1 places it), nor a Build.
-            OrderKind::Move(_) | OrderKind::Deploy { .. } | OrderKind::Build { .. } => PointerDisplay::Move,
-            OrderKind::Enter(_) => PointerDisplay::Enter,
-            // (M5-E) A right-click on an own site built from outside: placeholder, a Move's (slice M5-J1's).
-            OrderKind::Assist(_) => PointerDisplay::Move,
-            OrderKind::Gather(_) => PointerDisplay::GatherResources,
-            OrderKind::DropOff(_) => PointerDisplay::ReturnResources,
-            OrderKind::Attack(_) | OrderKind::AttackMove(_) => PointerDisplay::Attack,
-            OrderKind::Patrol(_) => PointerDisplay::Patrol,
-            OrderKind::AttackGround(_) => PointerDisplay::AttackGround,
-            OrderKind::Hold | OrderKind::Stop => PointerDisplay::Inactive,
-        }
-    }
-
-    /// The PointerDisplayType of what a click gives an object: its order's, or Move for a rally point
-    /// (`systems/controls/hud.md > Resolution Rules > DefaultState`: "Selection is a production building:
-    /// Move (rally point)"; `systems/controls/interface.md > AwaitingTarget[CommandType]`:
-    /// "AwaitingTarget\[SetRallyPoint\] over ground or object: Move"). Set Drop-off over a drop-off shows
-    /// ReturnResources: **placeholder**, the rules have no AwaitingTarget\[SetDropOffLocation\] row, and its target is
-    /// the drop-off point the loads will return to.
-    pub fn of(resolved: Resolved) -> Self {
-        match resolved {
-            Resolved::Order(kind) => Self::of_order(kind),
-            Resolved::Rally(_) => PointerDisplay::Move,
-            Resolved::Ability(Ability::SetDropOff(_)) => PointerDisplay::ReturnResources,
-            Resolved::Ability(_) => PointerDisplay::Inactive,
-        }
-    }
-}
-
-/// `systems/controls/hud.md > PointerDisplayType > Resolution Rules` over `target`, for the selected
-/// `units` (none: nothing commandable is selected, `systems/controls/interface.md > CommandPanel`). In a build
-/// menu, a Tunnel's EjectMenu or ExpandMenu, or a pool building's KindMenu, a right-click only goes back: Inactive
-/// (placeholder: the rules list no menu). AwaitingPlacement has "No
-/// pointer display type — the building ghost preview serves as the cursor" (`super::cursor` shows none): Inactive here.
-pub fn pointer_display(interface: InterfaceState, units: &[UnitCapabilities], target: &MapTarget) -> PointerDisplay {
-    if units.is_empty() {
-        return PointerDisplay::Inactive;
-    }
-    match interface {
-        InterfaceState::DefaultState => right_click_display(units, target),
-        InterfaceState::AwaitingTarget { pending, .. } => awaiting_display(pending, target),
-        InterfaceState::BuildMenu(_)
-        | InterfaceState::EjectMenu
-        | InterfaceState::ExpandMenu
-        | InterfaceState::KindMenu(_)
-        | InterfaceState::AwaitingPlacement(_) => PointerDisplay::Inactive,
-    }
-}
-
-/// `systems/controls/hud.md > Resolution Rules > DefaultState` and
-/// `systems/controls/hud.md > Mixed Right-Click Preview` (design change 0063): the right-click preview,
-/// from the action each of `units` would take ([`object_right_click`]). One action shows its pointer, more than one
-/// Mixed, none Inactive. An action is a PointerDisplayType, so a Move to the location, a Follow and a rally point are
-/// all Move.
-pub fn right_click_display(units: &[UnitCapabilities], target: &MapTarget) -> PointerDisplay {
-    let actions: BTreeSet<PointerDisplay> = units
-        .iter()
-        .filter_map(|&unit| object_right_click(unit, target))
-        .map(PointerDisplay::of)
-        .collect();
-    let mut actions = actions.into_iter();
-    match (actions.next(), actions.next()) {
-        (None, _) => PointerDisplay::Inactive,
-        (Some(action), None) => action,
-        (Some(_), Some(_)) => PointerDisplay::Mixed,
-    }
-}
-
-/// `systems/controls/hud.md > Resolution Rules > AwaitingTarget[CommandType]`: the pending command's look
-/// over a target it can use, else Inactive. Reverse, which has no order yet, by the design's row for the ground.
-fn awaiting_display(pending: PanelCommand, target: &MapTarget) -> PointerDisplay {
-    match (pending, target.target) {
-        (PanelCommand::Reverse, CursorTarget::Ground(_)) => PointerDisplay::Move,
-        _ => target_resolution(pending, target).map_or(PointerDisplay::Inactive, PointerDisplay::of),
-    }
+/// `factions/cults/units/recruit.md > Recruit ObjectInterfaceState > DefaultState commands`: "**S: Assist
+/// Construction** — [...] Left-click an in-progress own building to join construction" (slice M5-J1): the site under a
+/// click while Assist Construction awaits its target, if it is one of the player's own that its builders build from
+/// outside (`sc_sim::orders::resolution::Aimed::site`, the right-click's Assist: a Cults building under construction).
+/// Which recipients build its kind, the gate decides (`Reject::NoWorkers`). Anything else is an invalid target.
+pub fn assist_target(target: &MapTarget) -> Option<ObjectId> {
+    target.aimed.filter(|aimed| aimed.site.is_some()).map(|aimed| aimed.id)
 }
 
 #[cfg(test)]

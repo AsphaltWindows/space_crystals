@@ -28,6 +28,7 @@ use crate::scenario::SpawnSettings;
 pub use colonists::units::drone::BEACON_DEPLOYMENT;
 pub use colonists::units::weapon_conversion::CONVERT_TICKS;
 pub use colonists::{BEACON_CAPACITY_CAP, BEACON_CAPACITY_PER_BUILDING};
+pub use cults::{CONSTRUCT_MENU, ConstructEntry, ConstructMenu, ConstructSlot};
 pub use gdo::UNIT_CONTROL_CAP;
 pub use gdo::units::peacekeeper::RIOT_SHIELD_TOGGLE_TICKS;
 pub use map::crystal_patch::DEFAULT_STARTING_AMOUNT;

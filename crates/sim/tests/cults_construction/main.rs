@@ -1,14 +1,18 @@
-//! The Cults' construction (slice M5-E, plan decisions T59 and T62; design changes 0071, 0072, 0339 and 0340), through
-//! the gate: `factions/cults/economy.md > Cults Building Mechanics`, `factions/cults/economy.md > Cults Building
-//! Mechanics > Group construction rules`, `factions/cults/economy.md > Cults Building Mechanics > Group construction
-//! refunds`, `factions/cults/economy.md > BaseConstructionTime Scaling`, `factions/cults/economy.md > Build Command`,
-//! `factions/cults/economy.md > Assist Construction Command`, `factions/cults/economy.md > Cancel Construction`,
-//! `factions/cults/units/recruit.md > Building` and `factions/cults/units/recruit.md > Constructs`. One test binary:
+//! The Cults' construction (slice M5-E, plan decisions T59 and T62; design changes 0071, 0072, 0339, 0340 and, slice
+//! M5-J1, 0362), through the gate: `factions/cults/economy.md > Cults Building Mechanics`, `factions/cults/economy.md >
+//! Cults Building Mechanics > Group construction rules`, `factions/cults/economy.md > Cults Building Mechanics > Group
+//! construction refunds`, `factions/cults/economy.md > BaseConstructionTime Scaling`, `factions/cults/economy.md >
+//! Build Command`, `factions/cults/economy.md > Assist Construction Command`, `factions/cults/economy.md > Cancel
+//! Construction`, `factions/cults/units/recruit.md > Building` and `factions/cults/units/recruit.md > Constructs`. One
+//! test binary:
 //! - `flow`: a group builds a building from outside, faster with more builders, paid once; five from one side spread
 //!   along the wall, the first building at once; two builders build twice as fast; one Recruit alone; a Shift chain;
 //!   builders pulled off (the stall, the slowdown) and back by Assist; the right-click;
-//! - `refunds`: the refunds before the start (re-ordered, killed, failed on arrival, a Recruit of the order on the
-//!   ghost), none after it, the 75% of X, the group going on to its queued building after X;
+//! - `refunds`: the refunds before the start (re-ordered, killed, a queued building dropped), none after it, the 75%
+//!   of X, the group going on to its queued building after X;
+//! - `footprint`: who may stand on the footprint as the site starts (design change 0362): the site waits for the
+//!   order's own Recruits to step off (a group under its building, one walking off the middle, one holding the order
+//!   queued); any other unit on it, an enemy or an own one, fails the whole order, refunded once;
 //! - `gate`: the gate's checks of a Build and an Assist, the Armory's Storage, the ghosts;
 //! - `crowds`: more Recruits than the builders' wall holds wait further out; the builders never stand on the
 //!   footprint;
@@ -21,6 +25,7 @@
 
 mod crowds;
 mod flow;
+mod footprint;
 mod gate;
 mod hall;
 mod refunds;

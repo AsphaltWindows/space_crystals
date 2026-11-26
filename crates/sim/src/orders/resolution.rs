@@ -41,7 +41,9 @@
 //!   ("accepted and held, and the attack starts once the shield is fully down").
 //!
 //! The Peacekeeper, the Guard, the Sabre and the Rifle Legionnaire resolve by the BasicCombatUnit table, the Drone by
-//! its own; both are this one rule (`tests/default_order.rs` has the table of unit kinds against targets).
+//! its own; both are this one rule (`tests/default_order.rs` has the table of unit kinds against targets). The rules
+//! on an object are data, tried in their order ([`RULES`], [`Rule`]; slice M5-J1), so that a new default order is a
+//! row of the table: slice N8 adds the Recruit's Repair after Enter.
 
 use glam::Vec2;
 
@@ -139,31 +141,67 @@ pub enum Aim {
     Object(Aimed),
 }
 
-/// `systems/controls/interface.md > RightClickResolution` for one unit (module docs): the order a unit that can
-/// do `unit` gets against `aim`. Every unit can move, so there is always one.
+/// `systems/controls/interface.md > RightClickResolution` for one unit (module docs): the order a unit that can do
+/// `unit` gets against `aim`. Every unit can move, so there is always one: on an object, the order of the first of the
+/// [`RULES`] that applies, else a Move to it.
 pub fn resolve(unit: Abilities, aim: Aim) -> OrderKind {
     let target = match aim {
         Aim::Ground(point) => return OrderKind::Move(Target::Point(point)),
         Aim::Object(target) => target,
     };
-    if unit.worker && target.gatherable {
-        return OrderKind::Gather(target.id);
+    (RULES.iter())
+        .find_map(|rule| rule.order(&unit, &target))
+        .unwrap_or(OrderKind::Move(Target::Object(target.id)))
+}
+
+/// A rule of the resolution on an object ([`RULES`], module docs): the condition under which a unit gets one order
+/// against it.
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+pub enum Rule {
+    /// A worker on a patch it can gather: Gather.
+    Gather,
+    /// A worker that gathers Supplies on a Supply Delivery Station: Gather.
+    GatherSupplies,
+    /// A worker that carries a load on its owner's drop-off: Drop Off.
+    DropOff,
+    /// An own Tunnel whose tier lets the unit through, or an own building in operation that takes its kind in: Enter.
+    Enter,
+    /// An own site that the unit's type builds from outside: Assist.
+    Assist,
+    /// An enemy the unit can attack, its type taking Attack orders: Attack.
+    Attack,
+}
+
+/// (M5-J1) The rules of the resolution on an object, in the order they are tried, as data: the first that applies
+/// gives the order, and a Move to the object if none does (module docs). A new default order is a row in its place:
+/// slice N8's Repair, after [`Rule::Enter`] and before [`Rule::Attack`] (`factions/cults/units/recruit.md >
+/// Right-Click Resolution`, design change 0322: "Damaged own building or vehicle (completed) → Repair, **unless the
+/// building can be entered** by the selection: then **Enter** wins").
+pub const RULES: &[Rule] = &[
+    Rule::Gather,
+    Rule::GatherSupplies,
+    Rule::DropOff,
+    Rule::Enter,
+    Rule::Assist,
+    Rule::Attack,
+];
+
+impl Rule {
+    /// The order a unit that can do `unit` gets against `target` by this rule, if it applies.
+    pub fn order(self, unit: &Abilities, target: &Aimed) -> Option<OrderKind> {
+        let id = target.id;
+        match self {
+            Rule::Gather => (unit.worker && target.gatherable).then_some(OrderKind::Gather(id)),
+            Rule::GatherSupplies => (unit.gathers_supplies && target.station).then_some(OrderKind::Gather(id)),
+            Rule::DropOff => (unit.worker && unit.carrying && target.drop_off).then_some(OrderKind::DropOff(id)),
+            Rule::Enter => (network::passes(target.transit, unit.transit) || target.accepts.contains(&unit.kind))
+                .then_some(OrderKind::Enter(id)),
+            Rule::Assist => (target.site.is_some_and(|kind| assists(unit.kind, kind))).then_some(OrderKind::Assist(id)),
+            Rule::Attack => {
+                let can_attack =
+                    target.destructible && unit.attack.is_some_and(|domain| domain_allows(domain, target.domain));
+                (target.enemy && can_attack && unit.may_attack).then_some(OrderKind::Attack(id))
+            }
+        }
     }
-    if unit.gathers_supplies && target.station {
-        return OrderKind::Gather(target.id);
-    }
-    if unit.worker && unit.carrying && target.drop_off {
-        return OrderKind::DropOff(target.id);
-    }
-    if network::passes(target.transit, unit.transit) || target.accepts.contains(&unit.kind) {
-        return OrderKind::Enter(target.id);
-    }
-    if target.site.is_some_and(|kind| assists(unit.kind, kind)) {
-        return OrderKind::Assist(target.id);
-    }
-    let can_attack = target.destructible && unit.attack.is_some_and(|domain| domain_allows(domain, target.domain));
-    if target.enemy && can_attack && unit.may_attack {
-        return OrderKind::Attack(target.id);
-    }
-    OrderKind::Move(Target::Object(target.id))
 }

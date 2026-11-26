@@ -6,16 +6,17 @@
 //! 1-tile gap from the field (`factions/cults/structures/storage.md`). The map validates in each of the 16 pairings,
 //! and an incomplete Cults layout lists what it lacks (`core/map_editor.md > Starting Layouts > Skirmish Default
 //! restriction`; design change 0012: "Leave the Cults layout incomplete: the editor lists the missing Recruits, and
-//! the map can't be started"). The lineage of a layout's units wherever its Hall stands, on a Custom map, and without
-//! one. The Starting Conditions table is unit-tested in `scenario/starting.rs`, the Halls in `tests/recruitment/`, the
+//! the map can't be started"), and a layout's Hall whose Recruitment Area would leave the map is refused (design change
+//! 0341 point 1). The lineage of a layout's units wherever its Hall stands, on a Custom map, and without one. The Starting Conditions table is unit-tested in `scenario/starting.rs`, the Halls in `tests/recruitment/`, the
 //! bar, the camera and the editor in the client.
 
 use sc_sim::recruitment;
 use sc_sim::scenario::DEFAULT_SEED;
 use sc_sim::testing::{ScenarioBuilder, TestSim};
 use sc_sim::{
-    ArmyCap, ArmyResource, Banks, Doorway, Faction, GameSetup, LayoutObject, MapDef, ObjectId, ObjectKind, PlayerId,
-    SU_PER_GU, Scenario, ScenarioProblem, Sim, SimEvent, SlotId, SpawnAt, StartingConditions, TilePos, Vec2, scenarios,
+    ArmyCap, ArmyResource, Banks, Doorway, Faction, GameSetup, LayoutObject, MapDef, ObjectId, ObjectKind,
+    PlacementCheck, PlayerId, SU_PER_GU, Scenario, ScenarioProblem, Sim, SimEvent, SlotId, SpawnAt, StartingConditions,
+    TilePos, Vec2, WholeProblem, scenarios,
 };
 
 const P1: PlayerId = PlayerId(1);
@@ -335,6 +336,30 @@ fn an_incomplete_cults_layout_lists_what_it_lacks() {
         "slot 1 Cults layout object 8 (Recruit): beyond the 6 of the Cults Starting Conditions: a Skirmish Default \
          layout holds only those"
     );
+}
+
+/// Design change 0341 point 1 (`factions/cults/structures/recruitment_hall.md > RecruitmentArea`: "a Hall whose area
+/// would leave the map can't be placed") in the map's validation (`core/map_editor.md > Starting Layouts > Layout
+/// validation`, slice M5-J1): `dev_skirmish`'s starting Hall moved to (12, 1), its area reaching 2 rows past the north
+/// edge, is refused as a whole in slot 1 and in its image (`ScenarioProblem::LayoutPlacement`), and no game starts.
+#[test]
+fn a_layout_hall_whose_area_leaves_the_map_is_refused() {
+    let mut map = scenarios::dev_skirmish_map();
+    map.slots[0].layouts.get_mut(CULTS)[0].at = SpawnAt::Tile(TilePos::new(12, 1));
+    map.regenerate();
+    let refused = |slot| ScenarioProblem::LayoutPlacement {
+        slot: SlotId(slot),
+        faction: CULTS,
+        index: 0,
+        kind: HALL,
+        check: PlacementCheck {
+            tiles: Vec::new(),
+            whole: vec![WholeProblem::RecruitmentAreaOffMap],
+        },
+    };
+    let expected = [refused(1), refused(2)];
+    assert_eq!(map.validate(), expected);
+    assert_eq!(Sim::try_new(&Scenario::new(map)).err(), Some(expected.to_vec()));
 }
 
 /// The lineage of a layout's units (`Scenario::start_objects`, `Object::lineage`): each Cults unit embodies a Recruit
