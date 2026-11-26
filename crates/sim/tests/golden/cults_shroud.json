@@ -1,0 +1,598 @@
+{
+  "scenario": {
+    "map": {
+      "version": 3,
+      "map_type": "Custom",
+      "name": "cults_shroud",
+      "description": "",
+      "symmetry": "None",
+      "terrain": {
+        "custom_presets": [],
+        "tiles": [
+          "........................",
+          "........................",
+          "........................",
+          "........................",
+          "........................",
+          "........................",
+          "........................",
+          "........................",
+          "........................",
+          "........................",
+          "........................",
+          "........................",
+          "........................",
+          "........................",
+          "........................"
+        ],
+        "heights": [
+          "0000000000000000000000000",
+          "0000000000000000000000000",
+          "0000000000000000000000000",
+          "0000000000000000000000000",
+          "0000000000000000000000000",
+          "0000000000000000000000000",
+          "0000000000000000000000000",
+          "0000000000000000000000000",
+          "0000000000000000000000000",
+          "0000000000000000000000000",
+          "0000000000000000000000000",
+          "0000000000000000000000000",
+          "0000000000000000000000000",
+          "0000000000000000000000000",
+          "0000000000000000000000000",
+          "0000000000000000000000000"
+        ]
+      },
+      "slots": [
+        {
+          "start": {
+            "x": 6,
+            "y": 3
+          },
+          "camera_start": [
+            768.0,
+            480.0
+          ],
+          "layouts": {
+            "Gdo": [],
+            "Syndicate": [],
+            "Cults": [],
+            "Colonists": []
+          }
+        },
+        {
+          "start": {
+            "x": 17,
+            "y": 11
+          },
+          "camera_start": [
+            768.0,
+            480.0
+          ],
+          "layouts": {
+            "Gdo": [],
+            "Syndicate": [],
+            "Cults": [],
+            "Colonists": []
+          }
+        }
+      ],
+      "spawns": [
+        {
+          "kind": "Disciple",
+          "owner": 1,
+          "at": {
+            "Point": [
+              480.0,
+              416.0
+            ]
+          },
+          "settings": null
+        },
+        {
+          "kind": "Disciple",
+          "owner": 1,
+          "at": {
+            "Point": [
+              736.0,
+              416.0
+            ]
+          },
+          "settings": null
+        },
+        {
+          "kind": "Disciple",
+          "owner": 1,
+          "at": {
+            "Point": [
+              992.0,
+              416.0
+            ]
+          },
+          "settings": null
+        },
+        {
+          "kind": "Militant",
+          "owner": 1,
+          "at": {
+            "Point": [
+              416.0,
+              480.0
+            ]
+          },
+          "settings": null
+        },
+        {
+          "kind": "Militant",
+          "owner": 1,
+          "at": {
+            "Point": [
+              544.0,
+              480.0
+            ]
+          },
+          "settings": null
+        },
+        {
+          "kind": "Militant",
+          "owner": 1,
+          "at": {
+            "Point": [
+              672.0,
+              352.0
+            ]
+          },
+          "settings": null
+        },
+        {
+          "kind": "Militant",
+          "owner": 1,
+          "at": {
+            "Point": [
+              800.0,
+              352.0
+            ]
+          },
+          "settings": null
+        },
+        {
+          "kind": "Militant",
+          "owner": 1,
+          "at": {
+            "Point": [
+              928.0,
+              480.0
+            ]
+          },
+          "settings": null
+        },
+        {
+          "kind": "Militant",
+          "owner": 1,
+          "at": {
+            "Point": [
+              1056.0,
+              480.0
+            ]
+          },
+          "settings": null
+        },
+        {
+          "kind": "Guard",
+          "owner": 2,
+          "at": {
+            "Point": [
+              480.0,
+              864.0
+            ]
+          },
+          "settings": null
+        },
+        {
+          "kind": "Guard",
+          "owner": 2,
+          "at": {
+            "Point": [
+              736.0,
+              864.0
+            ]
+          },
+          "settings": null
+        },
+        {
+          "kind": "Guard",
+          "owner": 2,
+          "at": {
+            "Point": [
+              992.0,
+              864.0
+            ]
+          },
+          "settings": null
+        },
+        {
+          "kind": "Grenadier",
+          "owner": 2,
+          "at": {
+            "Point": [
+              800.0,
+              864.0
+            ]
+          },
+          "settings": null
+        }
+      ]
+    },
+    "setup": {
+      "players": [
+        {
+          "name": "Player 1",
+          "faction": "Cults",
+          "slot": 1
+        },
+        {
+          "name": "Player 2",
+          "faction": "Syndicate",
+          "slot": 2
+        }
+      ],
+      "seed": 1,
+      "config": {
+        "debug": false
+      }
+    }
+  },
+  "inputs": [
+    {"commands":[{"player":1,"command":{"Order":{"units":[1,3],"kind":"Shroud","queue":false}}},{"player":1,"command":{"Order":{"units":[4,5,6,7,8,9],"kind":"Hold","queue":false}}},{"player":2,"command":{"Order":{"units":[10,11,12,13],"kind":{"AttackMove":[736.0,480.0]},"queue":false}}}]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[{"player":1,"command":{"Order":{"units":[2],"kind":"Shroud","queue":false}}}]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[{"player":1,"command":{"Order":{"units":[2],"kind":"Stop","queue":false}}}]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[{"player":1,"command":{"Order":{"units":[2],"kind":"Shroud","queue":false}}}]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[{"player":1,"command":{"Order":{"units":[6,7,9],"kind":{"AttackMove":[800.0,736.0]},"queue":false}}}]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]},
+    {"commands":[]}
+  ],
+  "checkpoints": [
+    {"tick":0,"hash":13596181744702453238},
+    {"tick":32,"hash":3480143404155761998},
+    {"tick":64,"hash":14070869724542339780},
+    {"tick":96,"hash":14543799216743391776},
+    {"tick":128,"hash":17208332758807322293},
+    {"tick":160,"hash":859365792335517527},
+    {"tick":192,"hash":3340585097245681287},
+    {"tick":224,"hash":3709688185920234284},
+    {"tick":256,"hash":6189398470406524569},
+    {"tick":288,"hash":17080194563322488476},
+    {"tick":320,"hash":15452820719130102485},
+    {"tick":336,"hash":11558086281775382474}
+  ]
+}

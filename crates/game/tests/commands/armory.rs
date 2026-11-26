@@ -157,6 +157,7 @@ pub(super) fn holdings(app: &App) -> Vec<(PlayerId, Vec<u32>, HoldCommand)> {
             | Command::Production { .. }
             | Command::Construction { .. }
             | Command::Tunnel { .. }
+            | Command::Cast { .. }
             | Command::Debug(_) => None,
         })
         .collect()

@@ -123,7 +123,7 @@ impl Sim {
         .with_knowledge(&self.path_knowledge, self.nav_version)
         .with_research(Research::new(&self.players))
         .with_occupants(&combat::Threats::of(&self.objects, &self.held));
-        orders::update(&mut self.objects, first_new, &world, &mut reach);
+        let channelling = orders::update(&mut self.objects, first_new, &world, &mut reach);
         self.nav.put_reach(reach);
         // The workers that got to their sites in 5a deploy or start their sites, or their orders fail
         // (`sim/builds.rs`); before 5b claims the footprints.
@@ -138,6 +138,9 @@ impl Sim {
         self.step_entries(first_new);
         // The Attacks 5a found a unit can't carry out, its target too close (design change 0182), fail.
         self.step_too_close(first_new);
+        // (M5-N4b) The clouds follow the channels as 5a leaves them (`crate::shroud`, plan decision T77): a channel that
+        // started in it protects in this tick's 5e, and one that ended releases its cloud's buffer there.
+        self.clouds.update(channelling, &mut self.events);
         // 5b: the movement below must collide with this tick's obstacles (the true grids), and every unit that came
         // into the game or was queued since the last tick has its grid from here on (slice M5-Z2, `paths`).
         observe(Phase::NavSync);
@@ -187,6 +190,7 @@ impl Sim {
             self.tick,
             self.auto_targeting,
             Research::new(&self.players),
+            &mut self.clouds,
             &mut self.events,
         );
         observe(Phase::Deaths);
@@ -276,6 +280,9 @@ impl Sim {
         );
         // A defeated player's network goes with their last structure (`sim/network.rs`).
         self.clear_defeated_networks();
+        // (M5-N4b) The clouds of the channels that ended since 5a, by a death in 5e or a defeat's cleared orders
+        // (`shroud::Clouds::settle`): after every way a channel ends; their buffers wait for the next tick's 5e.
+        self.clouds.settle(|id| self.objects.get(&id), &mut self.events);
         // 5f: sees the tick's final positions, this tick's new objects included; the fog delays and reveals that end
         // in this tick end (`vision::linger`, `vision::reveal`).
         observe(Phase::Vision);

@@ -16,6 +16,7 @@
 //!   of them reads instead of the sim's own stream;
 //! - [`path_overlay`]: the units' remaining paths, a development view;
 //! - [`combat_effects`]: placeholder combat feedback: tracers, HP bars, death markers;
+//! - [`shroud_view`]: the Disciples' Shroud clouds and their releases, over each player's Visible tiles;
 //! - [`selection`]: the players' selections and control groups (client-side UI state), and their markers;
 //! - [`command_ui`]: orders from the command panel, right-clicks and targeting; command indicators and cursors;
 //! - [`placement`]: the placement ghost of the building being placed, and the build area overlay;
@@ -51,6 +52,7 @@ pub mod qa;
 pub mod replay;
 pub mod selection;
 pub mod shapes;
+pub mod shroud_view;
 pub mod sim_driver;
 pub mod tuning;
 pub mod viewer_events;
@@ -75,6 +77,7 @@ use crate::platform::{DisplayMode, PlatformPlugin};
 use crate::qa::{QaConfig, QaPlugin};
 use crate::replay::{PlaybackPlugin, RecordPlugin};
 use crate::selection::SelectionPlugin;
+use crate::shroud_view::ShroudViewPlugin;
 use crate::sim_driver::SimDriverPlugin;
 use crate::viewer_events::ViewerEventsPlugin;
 
@@ -228,6 +231,7 @@ pub fn build_app(config: AppConfig) -> App {
             visible: config.qa.show_paths,
         },
         CombatEffectsPlugin,
+        ShroudViewPlugin,
         FogPlugin {
             enabled: !config.qa.no_fog,
         },

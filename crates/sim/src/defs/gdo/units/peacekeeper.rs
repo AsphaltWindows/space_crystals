@@ -108,6 +108,7 @@ const PEACEKEEPER_UNIT: UnitDef = UnitDef {
     worker: None,
     augmentable: None,
     repairs: None,
+    spells: &[],
 };
 
 #[cfg(test)]

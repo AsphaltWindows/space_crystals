@@ -5,21 +5,32 @@
 //! shot puts the attack's Damage on the list with what the target's armour and position make of it ([`Hit`]), and
 //! [`apply`] takes the target's Shields as the hits before it in the list left them ([`resolve`]). So the second of
 //! two hits in a tick meets the Shields the first one left.
+//!
+//! **Shroud** (slice M5-N4b, plan decision T77; `crate::shroud`): before the list is applied, the hits on objects under
+//! a cloud from outside it go into the cloud's buffer instead ([`absorb`]), single hits and area shares alike, and the
+//! buffers due are released as area hits over their clouds ([`release`]), on the list after the tick's own. Where
+//! each attack leaves from, which says whether it comes from under the cloud, its hits' [`Origins`] tell. With no
+//! cloud, nothing of this runs.
 
 use std::collections::BTreeMap;
 
 use glam::Vec2;
 
+use super::area::{self, hits_domain};
+use super::targeting::Targets;
+use crate::defs::TargetDomain;
 use crate::events::SimEvent;
 use crate::ids::ObjectId;
 use crate::map::Map;
 use crate::math::{self, PI};
 use crate::object::Object;
 use crate::riot_shield;
+use crate::shroud::Clouds;
+use crate::shroud::lattice::Union;
 use crate::tuning::combat::{
     DIRECTIONAL_FRONT, DIRECTIONAL_HALF_ARC, DIRECTIONAL_REAR, DIRECTIONAL_SIDE, MINIMUM_DAMAGE,
 };
-use crate::units::TilePos;
+use crate::units::{Tick, TilePos};
 use crate::vision::Hiding;
 
 /// One attack's effect on its target, waiting on the tick's list until every unit has acted: the attack's Damage, and
@@ -210,163 +221,131 @@ pub(super) fn apply(
     struck
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
+/// (M5-N4b) Where each attack whose hits are on a tick's list leaves from (`super::phases::Shooter::muzzle`: a unit's
+/// centre, a structure's, the footprint's edge for a unit firing from inside a building; a projectile's launch point,
+/// `super::Projectile::from`), for the Shroud's absorption ([`absorb`]): "an attack fired by a unit standing **under
+/// the cloud** is not absorbed; it hits normally" (`factions/cults/units/disciple.md > Spells > Shroud`), a projectile
+/// "judged by its position at launch" (plan decision T77). Kept only while there is a cloud: for each attack, the
+/// place on the list of its first hit and its point; its hits run up to the next attack's first.
+#[derive(Debug, Default)]
+pub(super) struct Origins(Option<Vec<(usize, Vec2)>>);
 
-    #[test]
-    fn single_target_damage_follows_the_modifier_order() {
-        // Peacekeeper (10) on a Guard (PointArmor 1): 9.
-        assert_eq!(hit_damage(10.0, 1.0, 1.0, 1.0), 9.0);
-        // Guard (6) on a Peacekeeper (PointArmor 1) on Rugged ground (50% off before armor): 6 × 0.5 − 1 = 2.
-        assert_eq!(hit_damage(6.0, 0.5, 1.0, 1.0), 2.0);
-        // Armor before the directional multiplier: (10 − 2) × 0.75 = 6, not 10 × 0.75 − 2 = 5.5.
-        assert_eq!(hit_damage(10.0, 1.0, 2.0, DIRECTIONAL_FRONT), 6.0);
-        assert_eq!(hit_damage(10.0, 1.0, 2.0, DIRECTIONAL_REAR), 10.0);
-        // The minimum applies last, whatever the armor.
-        assert_eq!(hit_damage(3.0, 1.0, 5.0, DIRECTIONAL_REAR), MINIMUM_DAMAGE);
-        assert_eq!(hit_damage(1.0, 0.5, 0.0, DIRECTIONAL_FRONT), MINIMUM_DAMAGE);
-        // Fractions stay fractions.
-        assert_eq!(hit_damage(5.0, 0.5, 1.0, 1.0), 1.5);
+impl Origins {
+    /// Kept if `keep` (while there is a cloud), else nothing.
+    pub(super) fn new(keep: bool) -> Self {
+        Self(keep.then(Vec::new))
     }
 
-    #[test]
-    fn directional_zones() {
-        let facing = 0.0; // east
-        let deg = |d: f32| math::facing_vector(math::degrees_to_radians(d));
-        assert_eq!(directional_multiplier(facing, deg(0.0)), DIRECTIONAL_FRONT);
-        assert_eq!(directional_multiplier(facing, deg(44.0)), DIRECTIONAL_FRONT);
-        assert_eq!(directional_multiplier(facing, deg(-44.0)), DIRECTIONAL_FRONT);
-        assert_eq!(directional_multiplier(facing, deg(46.0)), DIRECTIONAL_SIDE);
-        assert_eq!(directional_multiplier(facing, deg(-90.0)), DIRECTIONAL_SIDE);
-        assert_eq!(directional_multiplier(facing, deg(134.0)), DIRECTIONAL_SIDE);
-        assert_eq!(directional_multiplier(facing, deg(136.0)), DIRECTIONAL_REAR);
-        assert_eq!(directional_multiplier(facing, deg(180.0)), DIRECTIONAL_REAR);
-        assert_eq!(directional_multiplier(facing, deg(-170.0)), DIRECTIONAL_REAR);
-        // Facing south: a source to the north is behind.
-        assert_eq!(directional_multiplier(PI / 2.0, Vec2::new(0.0, -5.0)), DIRECTIONAL_REAR);
-        assert_eq!(directional_multiplier(PI / 2.0, Vec2::new(0.0, 5.0)), DIRECTIONAL_FRONT);
-        assert_eq!(directional_multiplier(facing, Vec2::ZERO), DIRECTIONAL_FRONT);
-    }
-
-    /// A hit of `damage` against PointArmor `point_armor`, from no particular direction.
-    fn hit(damage: f32, point_armor: f32) -> Hit {
-        Hit::single(ObjectId(1), ObjectId(2), damage, 1.0, point_armor, 1.0)
-    }
-
-    fn taken(shields: f32, hp: f32) -> Taken {
-        Taken { shields, hp }
-    }
-
-    /// The plan's acceptance, "The design's cases" (`systems/combat.md > Shields > Shield Damage Resolution`, `>
-    /// MinimumDamage > Shield overflow`), exactly.
-    #[test]
-    fn shields_take_a_hit_first_and_the_overflow_meets_the_armour() {
-        // 15 on 10 Shields, armour 0: the Shields reach 0, the HP drops by 5.
-        assert_eq!(resolve(&hit(15.0, 0.0), Some(10.0)), taken(10.0, 5.0));
-        // 25 on a Robo Portal's 20 Shields, PointArmor 1: 4.
-        assert_eq!(resolve(&hit(25.0, 1.0), Some(20.0)), taken(20.0, 4.0));
-        // 10.25 on 10 Shields, PointArmor 1: the minimum is capped at the overflow, 0.25.
-        assert_eq!(resolve(&hit(10.25, 1.0), Some(10.0)), taken(10.0, 0.25));
-        // 8 on 10 Shields: no HP lost, whatever the armour ("armor is never consulted").
-        for armour in [0.0, 1.0, 100.0] {
-            assert_eq!(resolve(&hit(8.0, armour), Some(10.0)), taken(8.0, 0.0));
-        }
-        // Exactly the Shields: absorbed ("If damage exceeds current Shields" it overflows).
-        assert_eq!(resolve(&hit(10.0, 0.0), Some(10.0)), taken(10.0, 0.0));
-        // No Shields left: the usual damage, the minimum whole.
-        assert_eq!(resolve(&hit(10.0, 1.0), Some(0.0)), taken(0.0, 9.0));
-        assert_eq!(resolve(&hit(3.0, 5.0), Some(0.0)), taken(0.0, MINIMUM_DAMAGE));
-        // An object without Shields: `hit_damage`, as ever.
-        assert_eq!(resolve(&hit(10.0, 1.0), None), taken(0.0, 9.0));
-        assert_eq!(resolve(&hit(3.0, 5.0), None), taken(0.0, MINIMUM_DAMAGE));
-    }
-
-    /// `> DamageModifierOrder` (design change 0147): "no modifier of any step touches Shields"; the pre-armor
-    /// multipliers and the DirectionalArmor touch the overflow only.
-    #[test]
-    fn the_multipliers_touch_the_overflow_only() {
-        let rear = Hit {
-            directional: DIRECTIONAL_REAR,
-            ..hit(15.0, 0.0)
-        };
-        assert_eq!(resolve(&rear, Some(10.0)), taken(10.0, 6.25));
-        let halved = Hit {
-            pre_armor: 0.5,
-            ..hit(15.0, 1.0)
-        };
-        assert_eq!(resolve(&halved, Some(10.0)), taken(10.0, 1.5));
-        // A front hit whose overflow the armour stops: the minimum, capped at the overflow, after the multiplier.
-        let front = Hit {
-            directional: DIRECTIONAL_FRONT,
-            ..hit(10.25, 1.0)
-        };
-        assert_eq!(resolve(&front, Some(10.0)), taken(10.0, 0.25));
-    }
-
-    /// A target of `kind` with `shields`, for [`apply`].
-    fn target(kind: crate::defs::ObjectKind, shields: f32) -> Object {
-        Object {
-            id: ObjectId(2),
-            kind,
-            owner: None,
-            pos: Vec2::ZERO,
-            prev_pos: Vec2::ZERO,
-            facing: 0.0,
-            prev_facing: 0.0,
-            hp: kind.def().max_hp,
-            shields: Some(shields),
-            placement: None,
-            resource: None,
-            orders: None,
-            mover: None,
-            attack: None,
-            riot_shield: None,
-            extractor: None,
-            production: None,
-            constructor: None,
-            worker: None,
-            transform: None,
-            conversion: None,
-            tunnel: crate::tunnel::fresh(kind),
-            construction: None,
-            decay: None,
-            popup: None,
-            lineage: Vec::new(),
-            augmentation: Default::default(),
-            energy: None,
-            kept_research: None,
-            buffs: Vec::new(),
+    /// The attack whose hits go on the list from its place `first` on leaves from `at`.
+    pub(super) fn mark(&mut self, first: usize, at: Vec2) {
+        if let Some(list) = &mut self.0 {
+            list.push((first, at));
         }
     }
 
-    /// Plan decision T18: the hits of a tick are resolved as they are applied, in their order, so the second of two
-    /// hits meets the Shields the first left: two hits of 10 on a Drone's 10 Shields cost it its Shields, then 10 of
-    /// its 20 HP, where resolving both at the shots would have taken nothing but Shields. A third, of 10 more,
-    /// destroys it, and each hit says what it took.
-    #[test]
-    fn the_second_hit_of_a_tick_meets_the_shields_the_first_left() {
-        let mut objects = BTreeMap::from([(ObjectId(2), target(crate::defs::ObjectKind::Drone, 10.0))]);
-        let mut events = Vec::new();
-        let hits = [hit(10.0, 0.0), hit(10.0, 0.0)];
-        assert_eq!(apply(&mut objects, &hits, &mut events), []);
-        let drone = &objects[&ObjectId(2)];
-        assert_eq!((drone.shields, drone.hp), (Some(0.0), Some(10.0)));
-        let took = |events: &[SimEvent]| -> Vec<(f32, f32)> {
-            events
-                .iter()
-                .filter_map(|e| match e {
-                    SimEvent::Hit {
-                        damage, shield_damage, ..
-                    } => Some((*shield_damage, *damage)),
-                    _ => None,
-                })
-                .collect()
-        };
-        assert_eq!(took(&events), [(10.0, 0.0), (0.0, 10.0)]);
-        events.clear();
-        assert_eq!(apply(&mut objects, &[hit(10.0, 0.0)], &mut events), [ObjectId(2)]);
-        assert_eq!(took(&events), [(0.0, 10.0)]);
-        assert!(matches!(events[1], SimEvent::Died { id: ObjectId(2), .. }));
+    /// `other`'s attacks, whose hits now follow on the list from its place `offset` on.
+    pub(super) fn append(&mut self, other: Origins, offset: usize) {
+        if let (Some(list), Some(other)) = (&mut self.0, other.0) {
+            list.extend(other.into_iter().map(|(first, at)| (first + offset, at)));
+        }
+    }
+
+    /// Where the attack of the hit at `index` on the list leaves from, if kept.
+    fn of(&self, index: usize) -> Option<Vec2> {
+        let list = self.0.as_ref()?;
+        let next = list.partition_point(|&(first, _)| first <= index);
+        list.get(next.checked_sub(1)?).map(|&(_, at)| at)
     }
 }
+
+/// (M5-N4b) The Shroud's absorption (`crate::shroud`; `factions/cults/units/disciple.md > Spells > Shroud`): each hit of
+/// the tick's list `hits` whose target is under a cloud of `clouds`, by its centre ("an object is under a cloud when its
+/// **centre** is inside the cloud's area"), goes into that cloud's buffer, its raw damage (the attack's Damage, or an
+/// area attack's share, before any modifier), and leaves the list, unless its attack leaves from under the same cloud
+/// (`origins`: "an attack fired by a unit standing **under the cloud** is not absorbed; it hits normally. Designer's
+/// reading: under the same connected cloud as its target"). "**All anti-ground damage** landing on objects under the
+/// cloud, single-target and area alike, is **absorbed and redistributed**", and "It affects every ground object under
+/// it ... **not air units**"; "Underground objects are affected (user, 2026-11-26; Q0113) ... protected like ground
+/// objects": a target that a Ground area attack hits (`area::hits_domain`), whose hits only an anti-ground attack makes,
+/// a Ground or a Universal one. No air unit is in the game yet: slice M5-H1 tests that its hits aren't absorbed.
+/// `targets` is phase 5e's snapshot, where the hits found them. Returns the hits absorbed, in their order, whose
+/// attackers their targets' owners still learn of (`super::step`).
+pub(super) fn absorb(
+    clouds: &mut Clouds,
+    hits: &mut Vec<Hit>,
+    origins: &Origins,
+    targets: &Targets,
+    tick: Tick,
+) -> Vec<Hit> {
+    let mut absorbed = Vec::new();
+    let mut index = 0;
+    hits.retain(|hit| {
+        let at = index;
+        index += 1;
+        let Some(t) = targets.get(hit.target) else {
+            return true;
+        };
+        if !hits_domain(TargetDomain::Ground, t.domain) {
+            return true;
+        }
+        let Some(cloud) = clouds.over(t.pos) else {
+            return true;
+        };
+        if origins.of(at).is_some_and(|from| clouds.covers(cloud, from)) {
+            return true;
+        }
+        clouds.absorb(cloud, hit.damage, tick);
+        absorbed.push(*hit);
+        false
+    });
+    absorbed
+}
+
+/// (M5-N4b) The Shroud's releases in phase 5e of `tick` (`crate::shroud::Clouds::take_releases`): each buffer due is
+/// released "as **one area hit over the whole connected cloud** ... Each ground object under it takes its share by
+/// **overlap area** (systems/combat.md > AoEDamage), with armor applied once per release; the share falling on empty
+/// cloud area is **lost**", over its cloud's circles (as it was, for a cloud that ended). The hits go on `hits`, one
+/// for each object of `targets` that a Ground area attack hits (`area::hits_domain`: "Underground objects are affected
+/// ... and take their share of releases, as ground area damage hits them (Q0071)") with a part of its shape under the
+/// cloud, under the AoE rules (`area::share`: the share, the effective FullArmor and the minimum by the part under
+/// it): "each receiver's share from a release is treated like any damage it receives: its own pre-armor reductions,
+/// armor and minimum damage apply as always (systems/combat.md > DamageModifierOrder), but **not directional armor**:
+/// a release has no direction (user, 2026-11-26; Q0113)". The areas are counted on the lattice (plan decision T77,
+/// `shroud::lattice`). Each release is a [`SimEvent::ShroudReleased`] ahead of its hits, whose attacker is the cloud's
+/// first member: none of the releases reveals anyone (`super::step`).
+pub(super) fn release(
+    clouds: &mut Clouds,
+    targets: &Targets,
+    tick: Tick,
+    hits: &mut Vec<Hit>,
+    events: &mut Vec<SimEvent>,
+) {
+    for cloud in clouds.take_releases(tick) {
+        let union = Union::of(&cloud.members);
+        let (Some(first), points) = (cloud.members.first(), union.count()) else {
+            continue;
+        };
+        if points == 0 || cloud.buffer <= 0.0 {
+            continue;
+        }
+        events.push(SimEvent::ShroudReleased {
+            circles: cloud.circles(),
+            damage: cloud.buffer,
+        });
+        for t in targets.all() {
+            if !hits_domain(TargetDomain::Ground, t.domain) {
+                continue;
+            }
+            let (lo, hi) = t.shape.bounds();
+            let (inside, total) = union.overlap(lo, hi);
+            if inside == 0 || total == 0 {
+                continue;
+            }
+            let (inside, total, under) = (inside as f32, total as f32, points as f32);
+            hits.push(area::share(first.id, t, cloud.buffer, inside, total, under, 1.0));
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests;

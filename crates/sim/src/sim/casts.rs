@@ -42,9 +42,9 @@ impl Sim {
         if operational.is_empty() {
             return Err(Reject::UnderConstruction(first));
         }
-        let cost = energy::units(ability.def().cost);
+        let cost = ability.def().cost;
         (operational.into_iter())
-            .find(|id| self.objects[id].energy.is_some_and(|energy| energy >= cost))
+            .find(|id| energy::has(&self.objects[id], cost))
             .ok_or(Reject::NotEnoughEnergy)
     }
 
@@ -73,10 +73,13 @@ impl Sim {
         let Some(o) = self.objects.get_mut(&caster) else {
             return;
         };
-        let (Some(owner), Some(energy)) = (o.owner, o.energy) else {
+        let (Some(owner), Some(energy)) = (o.owner, o.energy.as_mut()) else {
             return;
         };
-        o.energy = Some(energy.saturating_sub(energy::units(ability.def().cost)));
+        // The gate passed it with the energy (`energy::has`): it pays it all.
+        if !energy::spend(energy, energy::units(ability.def().cost)) {
+            return;
+        }
         buffs::give(&mut self.objects, owner, ability, at, self.tick);
         self.events.push(SimEvent::Cast { caster, ability, at });
     }

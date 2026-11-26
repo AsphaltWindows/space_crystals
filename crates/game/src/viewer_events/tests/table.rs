@@ -1,11 +1,12 @@
 //! The rows of the filter's table (`every_kind_of_event_reaches_whom_the_table_says`), in the world of `super::world`;
-//! those of the buildings that hold units in `table/holding.rs`.
+//! those of the buildings that hold units in `table/holding.rs`, and (M5-N4b) Shroud's in `table/shroud.rs`.
 
 use sc_sim::{ArmyResource, BuildingOrientation, PlacementCheck, Refusal};
 
 use super::*;
 
 mod holding;
+mod shroud;
 
 /// One event of every kind, a few kinds more than once, each with what four viewers perceive of it: player 1, the
 /// owner of what it is about (or the shooter's owner); player 2, an enemy who sees where it is; player 3, an enemy in
@@ -429,5 +430,6 @@ pub(super) fn table(sim: &Sim) -> Vec<(SimEvent, [Seen; 4])> {
         ),
     ];
     rows.extend(holding::rows());
+    rows.extend(shroud::rows(unit));
     rows
 }

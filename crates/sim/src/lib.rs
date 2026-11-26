@@ -50,6 +50,7 @@ pub mod scenario;
 pub mod scenarios;
 pub mod shape;
 pub mod shields;
+pub mod shroud;
 pub mod sides;
 pub mod sim;
 pub mod spot_work;

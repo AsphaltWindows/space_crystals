@@ -52,6 +52,7 @@ pub(crate) static FIELD_ENGINEER: ObjectDef = ObjectDef {
         repairs: Some(RepairDef {
             targets: RepairTargets::OwnBuildingsAndVehicles,
         }),
+        spells: &[],
     }),
     structure: None,
     default_settings: None,

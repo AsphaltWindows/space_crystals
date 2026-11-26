@@ -103,7 +103,7 @@ fn random_id(rng: &mut Rng, sim: &Sim) -> ObjectId {
 }
 
 /// An order to a few ids, often the issuing player's units, sometimes anyone's or none; one in six raises or
-/// lowers their Riot Shields instead.
+/// lowers their Riot Shields instead. (M5-N4b) One in twelve is a Shroud, which the Disciples among them channel.
 fn random_order(rng: &mut Rng, sim: &Sim, player: PlayerId) -> Command {
     let own: Vec<ObjectId> = sim
         .objects()
@@ -128,7 +128,7 @@ fn random_order(rng: &mut Rng, sim: &Sim, player: PlayerId) -> Command {
         sim.nearest_object(unit.pos, |o| o.id != id && o.hp.is_some())
             .map(|o| o.id)
     });
-    // Half of them moves to a point.
+    // Five in twelve move to a point.
     let kind = match rng.below(12) {
         0 => OrderKind::Move(Target::Object(random_id(rng, sim))),
         1 => {
@@ -143,6 +143,7 @@ fn random_order(rng: &mut Rng, sim: &Sim, player: PlayerId) -> Command {
         3 => OrderKind::Patrol(random_point(rng, sim)),
         4 => OrderKind::Hold,
         5 => OrderKind::Stop,
+        6 => OrderKind::Shroud,
         _ => OrderKind::Move(Target::Point(random_point(rng, sim))),
     };
     Command::Order {
@@ -392,6 +393,9 @@ fn fuzz_run(seed: u64) -> Run {
                 | SimEvent::ResearchQueued { .. }
                 | SimEvent::ResearchCancelled { .. }
                 | SimEvent::ResearchCompleted { .. }
+                | SimEvent::ShroudStarted { .. }
+                | SimEvent::ShroudEnded { .. }
+                | SimEvent::ShroudReleased { .. }
                 | SimEvent::Cast { .. } => {}
             }
         }

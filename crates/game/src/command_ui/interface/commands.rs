@@ -24,7 +24,8 @@ use super::{BuildMenu, Planned};
 /// (`factions/syndicate/units/agent.md > Agent ObjectInterfaceState`, slice M4-J1), and the Cults' pool buildings'
 /// (design change 0337, `factions/cults/structures/README.md > Choosing Recruits, Release and Eject All`; slice M5-F2)
 /// and Altar's (`factions/cults/augmentation.md > Altar > ObjectInterfaceState[Altar]`, slice M5-N1b), and Temple's
-/// (`factions/cults/structures/temple.md > Placeholder stats`, slice M5-N3).
+/// (`factions/cults/structures/temple.md > Placeholder stats`, slice M5-N3), and the Disciple's spell
+/// (`factions/cults/units/disciple.md > Placeholder stats`, slice M5-N4b).
 #[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum PanelCommand {
     Move,
@@ -225,4 +226,11 @@ pub enum PanelCommand {
     /// the one of the kind that went in first. Its button "shows the unit with an icon for its augments and the count
     /// inside [...]; it is greyed if there are none" (`super::PanelSlot::count`, `super::Conditions::pool_count`).
     ReleaseOne(RecruitKind),
+    /// (M5-N4b) The Disciple's R (`factions/cults/units/disciple.md > Placeholder stats`: "ObjectInterfaceState:
+    /// BasicCombatUnitInterfaceState, plus **R: Shroud**"; "hotkey **R** (R starts the channel; Stop or another order
+    /// cancels it [...])"): a Shroud order, at once, where the Disciple stands (`sc_sim::OrderKind::Shroud`), to the
+    /// one Disciple of the ActiveGroup: "Groupable - false (user, 2026-11-26; Q0112: each R press starts one
+    /// Disciple's channel; Tab to the next)". Greyed while the gate would refuse it, below 10 energy
+    /// (`sc_sim::Reject::NotEnoughEnergy`: "needs at least **10 energy** to start").
+    Shroud,
 }

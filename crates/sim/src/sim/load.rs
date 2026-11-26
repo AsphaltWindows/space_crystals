@@ -18,6 +18,7 @@ use crate::paths::NavState;
 use crate::paths::knowledge::PathKnowledge;
 use crate::player::Player;
 use crate::rng::Rng;
+use crate::shroud::Clouds;
 use crate::units::Tick;
 use crate::vision;
 
@@ -49,6 +50,9 @@ pub(super) struct SimState {
     /// Optional, so that states saved before projectiles existed still load, and those without one in flight.
     #[serde(default)]
     projectiles: Vec<Projectile>,
+    /// (M5-N4b) Optional, so that states saved before Shroud still load, and those without a cloud.
+    #[serde(default)]
+    clouds: Clouds,
     next_id: u32,
     rng: Rng,
     config: SimConfig,
@@ -72,6 +76,7 @@ impl TryFrom<SimState> for Sim {
             objects: list,
             held: held_list,
             projectiles,
+            clouds,
             next_id,
             rng,
             config,
@@ -131,6 +136,10 @@ impl TryFrom<SimState> for Sim {
                 ));
             }
         }
+        // (M5-N4b) A cloud names its units by their ids, which a buffer waiting for its release may outlive.
+        if let Some(id) = clouds.ids().find(|id| id.0 >= next_id) {
+            return Err(format!("cloud member id {} is not below next_id {next_id}", id.0));
+        }
         // The Visible tiles follow from the objects, which is how phase 5f left them.
         let ids: Vec<PlayerId> = players.iter().map(|p| p.id).collect();
         if let Some(winner) = outcome.iter().flat_map(|o| &o.winners).find(|w| !ids.contains(w)) {
@@ -152,6 +161,7 @@ impl TryFrom<SimState> for Sim {
             objects,
             held,
             projectiles,
+            clouds,
             next_id,
             rng,
             config,

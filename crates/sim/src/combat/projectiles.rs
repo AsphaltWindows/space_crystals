@@ -21,7 +21,7 @@ use glam::Vec2;
 use serde::{Deserialize, Serialize};
 
 use super::area::{self, Blast};
-use super::damage::Hit;
+use super::damage::{Hit, Origins};
 use super::targeting::Targets;
 use crate::defs::{AttackAttrs, TargetDomain, TargetType};
 use crate::events::SimEvent;
@@ -110,12 +110,15 @@ impl Projectile {
 
 /// Phase 5e of `tick`: every projectile of `store` due by then lands, in launch order, and leaves the store. Each is a
 /// blast where it lands (`SimEvent::Blast`), whose hits on `targets`, the phase's snapshot, go on `hits`
-/// ([`area::strike`]). Whom a blast reveals is phase 5e's to say, from the hits (`super::step`).
+/// ([`area::strike`]). Whom a blast reveals is phase 5e's to say, from the hits (`super::step`). (M5-N4b) Its hits
+/// leave from where it was launched, `origins` (`super::damage::Origins`: "judged by its position at launch", plan
+/// decision T77).
 pub(super) fn land(
     store: &mut Vec<Projectile>,
     tick: Tick,
     targets: &Targets,
     hits: &mut Vec<Hit>,
+    origins: &mut Origins,
     events: &mut Vec<SimEvent>,
 ) {
     store.retain(|p| {
@@ -133,6 +136,7 @@ pub(super) fn land(
             at: p.to,
             radius: p.radius,
         });
+        origins.mark(hits.len(), p.from);
         area::strike(&blast, targets, hits);
         false
     });

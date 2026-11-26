@@ -157,7 +157,8 @@ pub fn order_color(kind: OrderKind) -> Option<Color> {
         // `> Indicator assignments`: "AttackGround | Location | Red" (slice M4-O).
         OrderKind::Attack(_) | OrderKind::AttackGround(_) => Some(ATTACK_COLOR),
         OrderKind::AttackMove(_) | OrderKind::Patrol(_) => Some(AGGRESSIVE_COLOR),
-        OrderKind::Hold | OrderKind::Stop => None,
+        // (M5-N4b) A Shroud is channelled where the Disciple stands: no target.
+        OrderKind::Hold | OrderKind::Stop | OrderKind::Shroud => None,
     }
 }
 
@@ -197,7 +198,7 @@ pub fn indicator(sim: &Sim, sight: &Sight, kind: OrderKind) -> Option<Indicator>
             at: sc_sim::orders::build::build_site(kind)?.1.center(),
             color,
         }),
-        OrderKind::Hold | OrderKind::Stop => None,
+        OrderKind::Hold | OrderKind::Stop | OrderKind::Shroud => None,
     }
 }
 

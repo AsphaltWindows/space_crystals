@@ -141,6 +141,8 @@ mod scenario_files;
 mod scenario_problems;
 mod scenarios;
 mod shields;
+#[path = "shroud/main.rs"]
+mod shroud;
 mod skirmish_soak;
 mod structures;
 mod structures_vision;

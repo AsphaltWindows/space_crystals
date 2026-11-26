@@ -71,6 +71,7 @@ pub(crate) static GRENADIER: ObjectDef = ObjectDef {
         worker: None,
         augmentable: None,
         repairs: None,
+        spells: &[],
     }),
     structure: None,
     default_settings: None,

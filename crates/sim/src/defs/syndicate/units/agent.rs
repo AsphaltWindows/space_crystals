@@ -108,6 +108,7 @@ pub(crate) static AGENT: ObjectDef = ObjectDef {
                 (ObjectKind::LaserTurret, RepairPayment::Paid),
             ]),
         }),
+        spells: &[],
     }),
     structure: None,
     default_settings: None,

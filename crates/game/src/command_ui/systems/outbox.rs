@@ -264,6 +264,6 @@ fn finite(kind: OrderKind) -> bool {
         | OrderKind::AttackGround(p) => p.is_finite(),
         OrderKind::Move(Target::Object(_)) | OrderKind::Attack(_) | OrderKind::Hold | OrderKind::Stop => true,
         OrderKind::Gather(_) | OrderKind::DropOff(_) | OrderKind::Deploy { .. } | OrderKind::Enter(_) => true,
-        OrderKind::Build { .. } | OrderKind::Assist(_) | OrderKind::Repair(_) => true,
+        OrderKind::Build { .. } | OrderKind::Assist(_) | OrderKind::Repair(_) | OrderKind::Shroud => true,
     }
 }
