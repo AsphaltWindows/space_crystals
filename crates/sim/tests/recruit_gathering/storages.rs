@@ -1,6 +1,8 @@
-//! Which Storage a Recruit delivers to. **Placeholder (Q0102 points 1 and 2)**, the question's proposal (a): "The
-//! nearest own completed Storage, edge to edge from the patch, chosen at each return. With none, the Recruit idles
-//! holding its load." (`factions/cults/units/recruit.md > Gathering` says only "deliver them to Storage".)
+//! Which Storage a Recruit delivers to (design change 0345, answering Q0102; `factions/cults/units/recruit.md >
+//! Gathering`, Which Storage): "at **every return** the Recruit takes its load to the **nearest own completed
+//! Storage, edge to edge from its patch**, so a new Storage is used at once. If the Storage is lost **during** a
+//! return, the replacement is the one nearest **the Recruit** (the shared drop-off rule, 0170); the next return
+//! chooses from the patch again. With **no** completed Storage, the Recruit **idles holding its load**."
 
 use super::*;
 
@@ -72,8 +74,79 @@ fn each_return_takes_the_nearest_storage_there_is_then() {
     assert_eq!(at, [2, 2]);
 }
 
+/// Design change 0345's Verification: "Complete a new Storage beside a busy patch: the next returns go to it." Three
+/// Recruits (3 to 5) gather patch 1 for Storage 2, 2 tiles west of it, while a fourth (6) builds a Storage a tile
+/// south of the patch, through the gate. Once it is complete, every load whose return starts after that goes to the
+/// new Storage, with no new order; only a return already under way then ends at Storage 2.
+#[test]
+fn a_storage_completed_beside_a_busy_patch_takes_the_next_returns() {
+    let mut t = flat(24, 20)
+        .spawn_with(patch_of(1_000_000), tile(10, 8))
+        .spawn(STORAGE, Some(P1), tile(6, 8))
+        .spawn(RECRUIT, Some(P1), centre(12, 8))
+        .spawn(RECRUIT, Some(P1), centre(12, 9))
+        .spawn(RECRUIT, Some(P1), centre(13, 8))
+        .spawn(RECRUIT, Some(P1), centre(15, 13))
+        .start();
+    let gatherers = [3, 4, 5];
+    let funds = DebugCommand::SetResources {
+        player: P1,
+        crystals: 100,
+        supplies: 0,
+        alloys: 0,
+        essence: 0,
+        flux: 0,
+    };
+    t.debug_at(1, funds);
+    gather(&mut t, 1, &gatherers, 1);
+    run_to(&mut t, 400, "the patch is busy", |t| deliveries(t).len() >= 6);
+    assert!(deliveries(&t).iter().all(|d| d.2 == 2), "Storage 2's");
+    let build = OrderKind::Build {
+        kind: STORAGE,
+        origin: TilePos::new(10, 10),
+        orientation: Default::default(),
+    };
+    let command = order_of(&[6], build);
+    t.sim().validate(&command).expect("the gate takes the Build");
+    let now = t.sim().tick();
+    t.at(now + 1, P1, command.command);
+    let site = |t: &TestSim| {
+        (t.events().iter()).find_map(|(_, e)| match *e {
+            SimEvent::SiteBuilt { site } => Some(site.0),
+            _ => None,
+        })
+    };
+    let built = run_to(&mut t, 1200, "the Storage is complete", |t| site(t).is_some());
+    let site = site(&t).expect("built");
+    let gap = Shape::of(object(&t, 1)).gap(&Shape::of(object(&t, site)));
+    assert_eq!(gap, 64.0, "a tile from the patch");
+    let under_way: Vec<u32> = (gatherers.iter().copied())
+        .filter(|&n| {
+            matches!(
+                phase(&t, n),
+                Some(GatherPhase::ToDropOff | GatherPhase::DroppingOff { .. })
+            )
+        })
+        .collect();
+    let after = |t: &TestSim, n: u32| -> Vec<u32> {
+        (deliveries(t).iter())
+            .filter(|d| d.0 > built && d.1 == n)
+            .map(|d| d.2)
+            .collect()
+    };
+    run_to(&mut t, 600, "three more loads each", |t| {
+        gatherers.iter().all(|&n| after(t, n).len() >= 3)
+    });
+    for n in gatherers {
+        let at = after(&t, n);
+        let first = usize::from(under_way.contains(&n) && at[0] == 2);
+        assert!(at[first..].iter().all(|&at| at == site), "Recruit {n}: {at:?}");
+        assert_eq!(order(&t, n), Some(OrderKind::Gather(id(1))), "the same Gather");
+    }
+}
+
 /// A Storage lost while the Recruit is on its way to it: it turns to the nearest other at once, as every worker does
-/// (design change 0170, `Sim::reassign_drop_offs`). With none left it idles holding its load (Q0102 point 2).
+/// (design change 0170, `Sim::reassign_drop_offs`). With none left it idles holding its load (design change 0345).
 #[test]
 fn a_storage_lost_on_the_way_is_replaced_and_with_none_left_the_recruit_idles_with_its_load() {
     let mut t = two_storages().start();
@@ -94,7 +167,7 @@ fn a_storage_lost_on_the_way_is_replaced_and_with_none_left_the_recruit_idles_wi
     assert_eq!((order(&t, 4), load(&t, 4)), (None, LOAD));
 }
 
-/// Q0102 point 2: "With none, the Recruit idles holding its load." It mines its load first: the return finds no
+/// Design change 0345: "With none, it idles holding its load." It mines its load first: the return finds no
 /// Storage (the rule of `factions/colonists/units/drone.md > Drop-off gone`, design change 0135).
 #[test]
 fn without_a_storage_a_recruit_mines_one_load_and_idles_holding_it() {

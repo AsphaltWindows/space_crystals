@@ -9,6 +9,8 @@
 //! - **The Syndicate** (slice M4-L; `syndicate.rs`): the Syndicate economy check of `factions/syndicate/units/agent.md >
 //!   Gathering > Space Crystals` (design changes 0259 and 0294), its table, ceiling, opening and stacked Tunnels, on the
 //!   reference layouts of `sc_sim::testing::syndicate`.
+//! - **The Cults** (slice M5-L; `cults.rs`): the Cults economy check of `factions/cults/economy.md > Economy check`
+//!   (design change 0346), its ideal and realistic scenarios, on the reference layouts of `sc_sim::testing::cults`.
 //!
 //! **The GDO's lines** check design changes 0098 (plates pay lumps of 10; the cycle timer advances by the power ratio)
 //! and 0089 (the power penalty; the Deployment Center is never slowed). Each line is player 1's on
@@ -37,6 +39,7 @@
 //! table. The measured results, both factions', are in `docs/economy_oracle.md`: a change that moves one updates it.
 
 mod colonists;
+mod cults;
 mod curve;
 mod gdo;
 mod played;

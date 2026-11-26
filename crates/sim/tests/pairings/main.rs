@@ -39,11 +39,12 @@ use sc_sim::{
 use openings::{Hook, Opening};
 
 /// Each faction's scripted opening (`openings`), one line a faction. A faction without one plays none, and its player
-/// stays idle: the Cults, from slice M5-B (their Starting Conditions) until slice M5-L adds their line here.
+/// stays idle.
 const OPENINGS: &[(Faction, Hook)] = &[
     (Faction::Gdo, openings::gdo),
     (Faction::Colonists, openings::colonists),
     (Faction::Syndicate, openings::syndicate),
+    (Faction::Cults, openings::cults),
 ];
 
 /// The default run's game time, on the first map.

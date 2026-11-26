@@ -26,6 +26,7 @@
 pub mod build_order;
 mod builder;
 pub mod colonists;
+pub mod cults;
 pub mod invariants;
 mod references;
 pub mod syndicate;

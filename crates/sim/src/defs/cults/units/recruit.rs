@@ -77,8 +77,8 @@ pub(crate) static RECRUIT: ObjectDef = ObjectDef {
             },
             supplies: None,
             shares_patches: true, // Patch sharing: any number of Recruits may mine the same patch
-            // Placeholder (Q0102 point 1): the nearest own completed Storage, edge to edge from the patch, chosen at
-            // each return.
+            // Design change 0345 (answering Q0102; `> Gathering`, Which Storage): the nearest own completed Storage,
+            // edge to edge from the patch, chosen at every return.
             drop_off: DropOffChoice::EachReturn,
             // Placeholder (not in the design: the Recruit's sections name no search radius for a patch that runs
             // out; the Drone's and the Agent's 6 grid units, themselves placeholders, design changes 0123 and 0295).
@@ -107,7 +107,7 @@ mod tests {
     /// MaxSpeed 4, with its melee attack "for basic self-defense": FullyConnected Melee, ground only, single target, 3
     /// damage at contact, one blow every 12 frames (Aim 2, Fire 8, Cooldown 1, Reload 1); Unit Control 1.
     /// `> Gathering`: 2 a load, 8 frames of mining and 2 of unloading, reaches of 8 su, shared patches, normal
-    /// collision (design change 0106), no Supplies; the Storage by Q0102's placeholder. `> Building` (slice M5-E): it
+    /// collision (design change 0106), no Supplies; the Storage nearest its patch at every return (design change 0345). `> Building` (slice M5-E): it
     /// builds the Recruitment Hall, the Storage and the Armory, a group sharing one build.
     #[test]
     fn the_recruit_follows_the_design() {
@@ -140,7 +140,7 @@ mod tests {
         assert_eq!(
             worker.drop_off,
             DropOffChoice::EachReturn,
-            "Placeholder (Q0102 point 1)"
+            "design change 0345: the nearest to the patch, at every return"
         );
         assert_eq!(worker.search_radius, 6.0, "a placeholder: the other workers' radius");
         // `> Building`, `> Constructs` (slice M5-E): the three buildings of plan slice M5-A, as one group's build.
