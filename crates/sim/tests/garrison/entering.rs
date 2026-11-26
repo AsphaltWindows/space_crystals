@@ -197,3 +197,47 @@ fn a_garrison_site_cant_be_entered_and_a_right_click_on_it_assists() {
     }
     assert_eq!(inside(&t, site), [militant]);
 }
+
+/// Design change 0325 (`factions/cults/units/recruit.md > Right-Click Resolution`: "Damaged own building or vehicle
+/// (completed) → Repair, **unless the building can be entered** by the selection: then **Enter** wins"), with slice
+/// M5-N8's Repair: player 2's Militant damages player 1's Garrison, which four Militants fill. The Recruits repair it
+/// (the gate takes a Recruit's Repair on it: `OrderKind::Repair`, its panel's D), yet the right-click of each of the
+/// four kinds on it is an Enter, the Recruit's too: `RULES` tries the Enter before the Repair, and the Enter takes
+/// the building's type, not its room, as at the Armory (a unit that finds it full at the door idles there, design
+/// change 0347 point 2).
+#[test]
+fn a_damaged_garrison_is_entered_on_a_right_click_not_repaired() {
+    let mut t = base().start();
+    t.without_auto_targeting();
+    fill(&mut t, &[MILITANT; 4]);
+    let raider = id(next_id(&t));
+    let now = t.sim().tick() + 1;
+    t.spawn_unit_at(now, MILITANT, P2, Vec2::new(HI.x + GU, DOOR.y));
+    t.order_at(now + 1, P2, &[raider], OrderKind::Attack(G1), false);
+    let max = t.sim().object(G1).and_then(|o| o.max_hp()).expect("it has HP");
+    while t.sim().object(G1).and_then(|o| o.hp) == Some(max) {
+        assert!(t.sim().tick() < now + 100, "the raider hits it");
+        step_checked(&mut t);
+    }
+    let gone = t.sim().tick() + 1;
+    t.debug_at(gone, DebugCommand::Remove { id: raider });
+    let units = column(
+        &mut t,
+        gone,
+        &[RECRUIT, MILITANT, GUNNER, DISCIPLE],
+        Vec2::new(600.0, 900.0),
+    );
+    run_checked(&mut t, gone + 1);
+    assert!(t.sim().object(G1).and_then(|o| o.hp) < Some(max), "damaged");
+    assert_eq!(inside(&t, G1).len(), 4, "full");
+    let repair = Command::Order {
+        units: vec![units[0]],
+        kind: OrderKind::Repair(G1),
+        queue: false,
+    };
+    assert_eq!(validate(&t, repair), Ok(()), "the Recruits repair it");
+    for &unit in &units {
+        let order = t.sim().default_order(unit, Target::Object(G1));
+        assert_eq!(order, Some(OrderKind::Enter(G1)), "{unit:?}");
+    }
+}
