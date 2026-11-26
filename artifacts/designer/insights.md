@@ -27,10 +27,11 @@
 - Game will be rebuilt from scratch → docs must stand alone as the complete spec. Old prototype stays at `artifacts/developer/` as reference; Director decides with user where new code lives.
 
 ## Open Director Questions
-- Q0147 basic computer opponents for playtesting: knowledge, profiles; tool vs feature (nb)
+- Q0148 gliders: lone Sparrow one pass; glider Move never completes; SeparationRadius < Silhouette (nb)
 
 Order of work (placeholder passes done, 0366/0367): finish Cults units → Colonists units → techs → detection → numbers review.
 ## Loose Ends
+- **Computer players**: a playtest tool for now (Q0147); write a real design when they become a feature.
 - **Economy**: automated testing closed (Q0146); targets are playtest reference. Open for playtests: Cults One Hall ~0.85 of GDO/Colonists at 2:48.
 - **Cults identity check (2026-11-27), open tensions for the user**: no front-line tank (are infantry masses the tank?); thin, short-range anti-air and no Cults AA building; detection later; Mystical branch has only the Disciple as a new unit (user: fine).
 - **Next Cults work**: Scrap Hangar aircraft (paratrooper plane, airship), maybe more vehicles, more Disciple spells. Then Colonists units (incl. salvo concept for Lancer/Skylance).
