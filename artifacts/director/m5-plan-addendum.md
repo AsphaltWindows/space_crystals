@@ -31,6 +31,21 @@
 >   - **N1a (0330, refined by 0331):** when MaxHP goes up, HP goes up by the same amount, so the damage is kept; when it
 >     goes down, HP is capped at the new maximum, with no floor. This replaces T73's floor at 1 HP.
 >   - **N6 and N7:** products come out at full HP, as T71 planned.
+> - **0332–0334:**
+>   - **0332:** every pool building reserves in order of entry, and trained infantry keep the Recruit's damage (T71's
+>     placeholders confirmed, for F2, N1b, N4a, N6 and N7).
+>   - **0333:** the Gunner's FiringDuration is 4 and its CooldownDuration 6. F2 makes the change.
+>   - **0334, T77 amended for N4b:**
+>     - each connected cloud has its own timer, releasing 8 frames after the first hit it absorbs, replacing the
+>       global clock;
+>     - clouds that join release their buffers at once and start a fresh joint buffer, replacing the summed buffers;
+>     - releases ignore directional armour;
+>     - underground objects are affected;
+>     - the Disciple's regeneration continues while channelling;
+>     - every player sees the cloud over their Visible tiles;
+>     - an object is under a cloud when its centre is.
+>
+>     **N4a:** the Disciple is Ungroupable.
 > - **The waves (§C) stand,** but the playtest's timing is the user's call: the full Cults at the end of W12, or a
 >   first playtest of the infantry core at the end of W9 (§F), put to the user on 2026-11-25.
 
