@@ -284,8 +284,9 @@ Units, structures and resources are all `Object`s (`object.rs`, `core/entities.m
   AugmentationState (per unit instance)`): `Object::augmentation: Augmentation { constitution, metabolism }`, hashed (a
   tag) and saved only while one is set, so the states without one, the goldens among them, are as they were; its
   `RecruitKind` (Plain, Constitution, Metabolism or Both, design change 0337) is what a pool building's orders choose
-  by. Nothing gives one yet but `DebugCommand::SetAugmentation` (the Altar's is a later slice); their effects are
-  read through accessors since slice M5-N1a (*Augmented stats* below). The Gunner is the first
+  by. The Altar gives them (slice M5-N1b, *Production > The Altar*), and `DebugCommand::SetAugmentation` for
+  development and QA; their effects are read through accessors since slice M5-N1a (*Augmented stats* below).
+  The Gunner is the first
   kind with a MinRange, which M3-L2's code serves (*Behaviours*; M5-A gave a unit that can't back off its "Target too
   close", design change 0204 point 3; M5-O3 took the back-off on to the middle of the band, question Q0054, and gave
   an Attack Ground's location the same rule), and the first TailDisjointed attack (slice M5-O3, *Combat > TailDisjointed
@@ -658,7 +659,8 @@ Units, structures and resources are all `Object`s (`object.rs`, `core/entities.m
   - **HP restored** goes up to `max_hp_with`: the repair's (`repair::damage`, whose MaxHP also sets its rate and its
     price's steps, slice M5-N8) and the regeneration's (`crate::regeneration`). No repairer repairs infantry yet.
   - **HP when MaxHP changes** (design changes 0330 and 0331): `augmentation::follow_max`, applied by
-    `augmentation::set` (`DebugCommand::SetAugmentation` now, the Altar and the research later). Up, the HP rises as
+    `augmentation::set` (the Altar's orders, slice M5-N1b, and `DebugCommand::SetAugmentation`; the research later).
+    Up, the HP rises as
     much: `transform::follow_max`'s rule, the damage staying. Down, the HP stays unless it is above the new MaxHP:
     there the two rules part, as a transformation's keeps the damage (design change 0110). No floor; an augmentation
     never kills.
@@ -2333,6 +2335,7 @@ section of its own.
 ## Production
 
 Producing structures, their rally points and the exit doorways (`production.rs`, `production/`, `sim/producers.rs`,
+with the gate's rules in `sim/producers/queuing.rs`, the release in `sim/producers/release.rs` and the step in
 `sim/producers/step.rs`; slice M2-D2, the army caps at production start slice M3-P;
 `factions/gdo/structures/barracks.md`, `core/entities.md > Structure Type > Exit Doorway`; the Colonists' portals, slice
 M3-D: `factions/colonists/structures/robo_portal.md`, `factions/colonists/structures/bio_portal.md`, plan decision T19;
@@ -2341,7 +2344,8 @@ their energy doorway, slice M3-D2: design change 0145, `factions/colonists/struc
 
 - **State**: `Object::production` (`Production`: the BuildQueue, whose head is the unit in production, so the
   limit `QUEUE_LIMIT` (20) includes it, design change 0081; its entries `QueueEntry`s, a unit or a pool building's
-  Release, slice M5-F2, a unit's written as its kind alone so the files and hashes from before are as they were; its
+  Release, slice M5-F2, or an Altar's augmentation order, slice M5-N1b, a unit's written as its kind alone so the
+  files and hashes from before are as they were; its
   progress in `RATIO_ONE`s, a Recruitment Hall's in tiles; the rally point; a Hall's completion tick, `completed_at`,
   hashed and saved only while not 0; a pool building's `reserved` units, entry by entry, hashed and saved only while
   any). What a type produces is `StructureDef::production` (`ProductionDef`: its exit rule, `ExitRule`, the
@@ -2352,8 +2356,9 @@ their energy doorway, slice M3-D2: design change 0145, `factions/colonists/struc
   saved only while true (`#[serde(default, skip_serializing_if)]`, as `Mover::momentum` is while non-zero), so that the
   games without a wait, the goldens among them, keep their hashes.
 - **Commands**: `Command::Production { objects, command }` with `ProductionCommand::Train(kind)`,
-  `CancelProduction` and `SetRally(Target)`, and a pool building's `TrainFrom { kind, from }` and `Release(from)`
-  (slice M5-F2); the gate's rules are in *Commands, events and replays*.
+  `CancelProduction` and `SetRally(Target)`, a pool building's `TrainFrom { kind, from }` and `Release(from)`
+  (slice M5-F2), and an Altar's `Augment { kind, from, order }` and `ReleaseOf { kind, from }`, of a unit of a type
+  and a kind (slice M5-N1b); the gate's rules are in *Commands, events and replays*.
 - **Costs** (plan decision T7): a unit's Space Crystals are paid when it is queued, and only they and room in the
   queue are checked then. Its army cost (Unit Control, Beacon Capacity; see *Economy*) is taken when its production
   starts (design change 0143, which replaces 0082's reservation at queue time, for every faction): no `Reject` or
@@ -2445,6 +2450,27 @@ their energy doorway, slice M3-D2: design change 0145, `factions/colonists/struc
   each, each of its units held in its building and reserved once, and only the front's first may be leaving. The
   Gunner's recipe requires a Gunworks (slice M5-G2), checked as it is queued and never again
   (`tests/armory/gunner.rs`: losing the last Gunworks keeps the Gunners queued and in training).
+- **The Altar** (slice M5-N1b, plan decisions T70 and T71; `factions/cults/augmentation.md > Altar`, design changes
+  0332, 0336, 0337 and 0348; `augmentation/orders.rs`, `sim/producers/pool.rs`, `sim/producers/queuing.rs`): a pool
+  building as data (`defs/cults/structures/altar.rs`: the four Cults infantry types in at B, 10 of them, out at C), no
+  recipe, its entries the orders of `ProductionDef::augment` (`AugmentRecipe { order, cost, frames }`: 25 Space Crystals
+  and 160 frames each for Enhanced Constitution and Improved Metabolism, 50 and 320 for Both, placeholders) and
+  Releases. **An order**, `QueueEntry::Augment { order }` (`AugmentOrder`: `fits(kind)`, "missing every Augmentation
+  the order applies", and `onto(before)`), is paid and reserves its unit when queued, as a training does: the free
+  unit of the type and the kind that went in first (`Sim::free_units_of`, design change 0332), the queue bounded by
+  the capacity, the reserved units counted. The gate (`Sim::plan_augment`) refuses `AlreadyAugmented(kind)` for an
+  order the kind doesn't fit, `CannotAugment(order)` where no producer has the recipe, and else serves the Altars as a
+  training (0083): `QueueFull`, `NoRecruit(from)`, `InsufficientCrystals`. **Out**, the unit gains the Augmentations
+  through `augmentation::set` (`Sim::augment`, from `Sim::complete`), its HP following its MaxHP; no level is stamped
+  on it (design change 0336: its owner's levels are read whenever its stats are). `ReleaseOf { kind, from }` is the
+  Armory's Release of a unit of a type (0337: in every state, a fully augmented unit's only way out but Eject All).
+  X and a destroyed Altar refund as at the Armory: the unit under way comes out unaugmented, and one finished and
+  waiting for the doorway as the building goes comes out augmented, unrefunded (**Placeholder**, read as 0349 point
+  3's training). `Sim::pool_counts_of(building, unit)` counts its free units of a type by kind, its panel's counts.
+  Tests: `crates/sim/tests/altar/` (`orders.rs`: one order of each, timings and stats, a hurt unit's damage, first in
+  first augmented; `refusals.rs`; `release.rs`: 0337's Release and a fully augmented unit; `cancel.rs`;
+  `destruction.rs`; `entering.rs`: the four types and the right-click; `training.rs`: an augmented Recruit trained;
+  `saves.rs`), each tick under the invariants.
 - **The exit doorways** (`production::ExitDoor`, the one geometry for the release, the movement step and the
   invariants; `ExitDoor::of` reads the building's `ProductionDef::exits`, an `ExitRule`, against its sides as
   placed, `sides`). Two kinds:
@@ -2623,7 +2649,9 @@ their energy doorway, slice M3-D2: design change 0145, `factions/colonists/struc
   at pool buildings alone, each needing as many free units of kind `from` as the unit costs Unit Control
   (`NoRecruit(from)`; one without them is passed over as a full queue is, `Refusal::NoRecruit`) but no free queue
   slot, its capacity bounding its queue; `Release(from)` when a pool building has a free unit of the kind
-  (`NoRecruit`, `NoHolders` for none that holds units), free; `CancelProduction` when a producer other than a
+  (`NoRecruit`, `NoHolders` for none that holds units), free, and `ReleaseOf { kind, from }` alike, of a unit of the
+  type (slice M5-N1b); `Augment { kind, from, order }` at an Altar (`AlreadyAugmented`, `CannotAugment`, then as a
+  `TrainFrom`, *Production > The Altar*); `CancelProduction` when a producer other than a
   Recruitment Hall (design change 0342) has something queued, else `NothingQueued`; `SetRally` with a point on the
   map (`OffMap`) or an object the
   player sees or remembers, as for an order's target (`UnknownObject`, `NotVisible`; the producer itself
@@ -2704,7 +2732,8 @@ their energy doorway, slice M3-D2: design change 0145, `factions/colonists/struc
   *Behaviours*), `SetResources` (any player's banks, see *Economy*; the gate checks that the player it names is in
   the game, `UnknownPlayer`) and `SetTier` (a Tunnel's tier, `NoSuchTier` for a tier it has no row for or an object
   without tiers; *Object model > The Syndicate*), and `SetAugmentation { id, augmentation }` (slice M5-F2: a unit's on
-  the map, until the Altar gives them; *Object model > The Cults*; since slice M5-N1a its HP follows its MaxHP, and
+  the map, as the Altar gives them, slice M5-N1b; *Object model > The Cults*; since slice M5-N1a its HP follows its
+  MaxHP, and
   `NotAugmentable` refuses Augmentations to a unit that can't have them, *Object model > Augmented stats*), for
   development and QA. `Spawn`
   places a tile-based object in an
@@ -2749,7 +2778,9 @@ their energy doorway, slice M3-D2: design change 0145, `factions/colonists/struc
   of its doorway by Eject All or a Release, and out inside its former footprint as it is destroyed, after its
   `Removed` (and after the `KindChanged` of a unit whose training was finished, design change 0349).
   `ReleaseQueued { producer, unit }` and `ReleaseCancelled { producer, unit }` (slice M5-F2) are a pool building's
-  Release, queued and taken back by X or a refund; its trained unit is a `UnitProduced`. `BuildFailed {
+  Release, queued and taken back by X or a refund; its trained unit is a `UnitProduced`. `AugmentQueued { producer,
+  unit, order }` and `AugmentCancelled { producer, unit, order, refund }` (slice M5-N1b) are an Altar's order, queued
+  and taken back; its unit out augmented is a `UnitProduced`. `BuildFailed {
   worker, kind, origin, orientation, problems }`, `BuildRefunded { worker, kind, refund }`, `SiteStarted { worker,
   site }`, `SiteCompleted { site, worker }`, `SiteCancelled { site, kind, refund }` and `LeftSite { worker, site }`
   (slice M4-E) are a Build that failed on arrival, a Build refunded, and a site's life; `LeftSite` is its worker back
@@ -3159,7 +3190,10 @@ their energy doorway, slice M3-D2: design change 0145, `factions/colonists/struc
   `sim/producers/pool/tests.rs` has a hurt Recruit's damage, a vehicle's full HP, a unit of two Recruits and an
   orphan's point (test defs); `production/tests.rs` the queue's entries. In the client:
   `tests/commands/armory.rs` (0337's and 0348's verifications, Q, X, Eject All and the right-click rally),
-  `command_ui/interface/tests/cults.rs` (the panel as data) and `hud/info_panel/activity/tests/armory.rs`.
+  `command_ui/interface/tests/cults.rs` (the panel as data) and `hud/info_panel/activity/tests/armory.rs`. The
+  Altar's (slice M5-N1b): `tests/commands/altar.rs` (units right-clicked in, W,Q,Q's order with the InfoPanel's
+  queue, R,R's Release alone, X's refund, Eject All) and `command_ui/interface/tests/altar.rs` (the three stages as
+  data, their counts from a game, one Altar Tabbed to).
 - **Cults construction tests** (slice M5-E) are `crates/sim/tests/cults_construction/` (`flow.rs`: four Recruits in
   80 frames paid once, five from one side spread along the wall (0339), two at twice the rate, one alone, a Shift
   chain, builders pulled off and back by Assist, the right-click; `refunds.rs`: two of three re-ordered and then the
@@ -3460,7 +3494,8 @@ these.
 
   The fog off shows everything but a player's own business. Whom an object is hidden from is `Hiding::of`'s alone
   (the hook, *Vision > Hidden objects*). A new `SimEvent` doesn't compile until `Arrival::audience` has its rule, and
-  fails the table test (`viewer_events/tests.rs`) until it has a row (`tests/table.rs`). Never read
+  fails the table test (`viewer_events/tests.rs`) until it has a row (`tests/table.rs`, the buildings that hold
+  units' in `tests/table/holding.rs`). Never read
   `SimEventMessage` elsewhere.
 - Never make one entity per tile. Draw the terrain as one mesh or texture, or a few chunks; the fog of war is one
   texture, never per-tile materials.
@@ -3512,10 +3547,13 @@ its recipe's, whole percent rounded down), or the building ready to place. A Rec
 49% (49/100 tiles)", and its "Unit Control: usage / capacity" rounded down, before its production's "Recruiting Recruit:
 50%" and rally point, with no queue line. A building that holds units (`activity::holding`, slice M5-F2) shows "Inside:
 3 / 10", everyone inside of its capacity, and a pool building its free units by kind, "Free: Plain 2, Constitution 1,
-Metabolism 0, Both 0" (another, the Garrison, slice M5-N2, the kinds inside with their counts, in its `accepts` order,
+Metabolism 0, Both 0", one that takes in several types, the Altar, by type, "Free: Recruit 0, Militant 2, Gunner 0,
+Disciple 1" (slice M5-N1b, a placeholder; another, the Garrison, slice M5-N2, the kinds inside with their counts, in
+its `accepts` order,
 "Occupants: Militant 2, Gunner 1": a placeholder, the design has no GarrisonInstanceState); its queue line names the
 entries, "Queue: Militant, Release (2 / 10)", of its capacity, and a
-Release under way is "Releasing Recruit: 50%". A transforming structure's
+Release under way is "Releasing Recruit: 50%", an Altar's order "Augmenting Militant (Enhanced Constitution): 45%",
+its queue line naming its orders. A transforming structure's
 (`activity::transformation`, first; slice M3-E) is the building it becomes and its progress, "Warping in: Robo Portal
 45%" ("Deploying" from a unit, slice M3-F), and its HP is out of its interpolated MaxHP (`Object::max_hp`), as its HP
 bar is. A plate
@@ -3735,8 +3773,9 @@ Drones, through one command flow (plan decision T10, slices M2-H1, M2-H2 and M3-
   nothing to cancel; 0081; never the army cap, which is checked when production starts, 0143); a toggle never is
   (design change 0198: a press is never refused). `command_ui/resolution.rs`
   has what a click resolves to, and `resolution/pointer.rs` the `PointerDisplay` that previews it (split off in slice
-  M5-J1); `interface/commands/names.rs` has the commands' labels and names, beside `commands.rs`, the commands and
-  what they give the sim. A `MapTarget` is what is under the cursor
+  M5-J1); `interface/commands/names.rs` has the commands' labels and names, `commands/flow.rs` how each flows
+  (whether it needs a target, belongs to one instance, queues) and `commands/sim.rs` what it gives the sim (split
+  off in slice M5-N1b), beside `commands.rs`, the commands. A `MapTarget` is what is under the cursor
   (`CursorTarget`, from `Selectables::target_at`: a remembered record too, 0139), with the ground point there and,
   for an object, the target as the local player knows it (`aimed`, the sim's `Sim::aimed`). A right-click resolves
   per unit (design changes 0062, 0063), whichever group is active, by the sim's one rule (`unit_right_click` calls
@@ -3927,17 +3966,30 @@ Drones, through one command flow (plan decision T10, slices M2-H1, M2-H2 and M3-
   template, built from the building's `ProductionDef` as the Production template is) is Q, W, E and R
   `PanelCommand::KindMenu(kind)`, A `EjectAll`, X `CancelProduction` and C `SetRallyPoint`. A kind button counts its
   free Recruits (`PanelSlot::count`, `Conditions::pool_count` from `Sim::pool_counts`) and is greyed at 0 (the gate's
-  `Reject::NoRecruit`, "No free Recruit of that kind"); it enters `InterfaceState::KindMenu(kind)`
-  (`SlotPress::OpenKindMenu`), whose grid (`armory::kind_menu`) is a `PanelCommand::TrainFrom(unit, kind)` per recipe
+  `Reject::NoRecruit`, "No free unit of that kind", the Altar's units being of four types, slice M5-N1b); it enters
+  `InterfaceState::KindMenu(kind)` (`SlotPress::OpenKindMenu`), whose grid (`armory::kind_menu`) is a
+  `PanelCommand::TrainFrom(unit, kind)` per recipe
   from Q (`ProductionCommand::TrainFrom`: the Armory's Q Militant and W Gunner, the Gunner greyed "Requires a
   Gunworks" by the gate's `Reject::Requires` while its player owns none, slice M5-G2), a unit not in the game yet in
   its slot (`PanelTemplate::planned`, none today), A `PanelCommand::Release(kind)` and Z Back; the menu stays open while
   its entries are used (`still_valid`), greyed by the gate. Eject All is a
-  `Command::Holding` (`SlotPress::Hold`, `OrderOutbox::hold`), greyed by the gate ("No free Recruit inside"). The
+  `Command::Holding` (`SlotPress::Hold`, `OrderOutbox::hold`), greyed by the gate ("No free unit inside"). The
   right-click sets the rally point, as a producer's (`object_right_click`). **One building at a time** (design change
   0348 point 5: the Armory is Ungroupable): every command of a pool building's panel goes to the one Tabbed to, X and C
   too (`is_common`, `holding::trains`), where a Barracks shares them with the others selected (0083); a right-click
   still rallies every selected producer, as each selected object resolves it for itself.
+- **The Altar's panel** (slice M5-N1b; `factions/cults/augmentation.md > Altar > ObjectInterfaceState[Altar]`: "a
+  three-stage selection: **unit type → current AugmentationState → Augmentation to apply**"): `templates/cults/altar.rs`
+  (`InterfaceTemplate::Altar`) is Q, W, E and R `PanelCommand::AugmentMenu(unit)` (Recruit, Militant, Gunner,
+  Disciple), A `EjectAll`, X `CancelProduction` and C `SetRallyPoint`. A type tile counts its free units
+  (`Conditions::stored_count`, from `Sim::pool_counts_of`), greyed at 0, and enters
+  `InterfaceState::AugmentMenu(unit)` (`SlotPress::OpenAugmentMenu`): Q to R `PanelCommand::AugmentState(unit,
+  kind)`, each with its count, greyed at 0 (Fully augmented too: it enables with any, 0337), entering
+  `InterfaceState::AugmentStateMenu(unit, kind)`: each order of the Altar's `ProductionDef::augment` that the kind
+  fits, in its slot (Q Enhanced Constitution, W Improved Metabolism, E Both), A `PanelCommand::ReleaseOf(unit, kind)`
+  and Z Back, the orders and the Release greyed by the gate. Each press queues one (`ProductionCommand::Augment`), the
+  menu staying open (`still_valid`); Z goes back a stage at a time (`InterfaceState::back`). Its commands go to the
+  Altar Tabbed to, as the Armory's, and its right-click sets the rally point.
 - **The Garrison's panel** (slice M5-N2; `factions/cults/structures/garrison.md > Placeholder stats > Panel`: "**A:
   Eject All** (everyone inside leaves); **X: Cancel construction** while being built. Right-click resolution: none"):
   `templates/cults/garrison.rs` (`InterfaceTemplate::Garrison`) is A `EjectAll` alone, in the Armory's slot for it,
@@ -4239,7 +4291,8 @@ unchecked.
   playback keys), `--windowed` and `--headless` work with it; a windowless playback ends at the replay's end unless
   told otherwise. To check a replay quickly: `cargo run -- --replay <file> --headless --fast`.
 - **Golden hashes** (`crates/sim/tests/golden/`: the games in `units.rs`, `gdo.rs`, `colonists.rs`, `syndicate.rs`,
-  `cults.rs`, `garrison.rs` and `main.rs`, the recording and the comparison in `harness.rs`): fourteen games, a 3v3
+  `cults.rs`, `garrison.rs`, `altar.rs` and `main.rs`, the recording and the comparison in `harness.rs`): fifteen
+  games, a 3v3
   duel, a 40-unit
   AttackMove battle, a 12-unit group move through a choke, a patrol that meets an enemy, a chase lost in the fog, three
   Peacekeepers that raise their Riot Shields (`Command::Ability`; one turns back half-way), walk up to a Guard under
@@ -4247,8 +4300,8 @@ unchecked.
   plays the fastest clean Barracks and rallies ten Peacekeepers to player 2's crystal field, where they destroy four
   plates, while player 2 plates its field and builds Generators), the Colonists' `colonists_opening` and
   `colonists_vs_gdo` (slice M3-K1, below), the Syndicate's `syndicate_opening` and `syndicate_vs_gdo` (slice
-  M4-L, below), the Cults' `cults_opening` and `cults_vs_syndicate` (slice M5-L, below) and `cults_garrison` (slice
-  M5-N2, below), are blessed as replays
+  M4-L, below), the Cults' `cults_opening` and `cults_vs_syndicate` (slice M5-L, below), `cults_garrison` (slice
+  M5-N2, below) and `cults_altar` (slice M5-N1b, below), are blessed as replays
   with a checkpoint every 32 ticks and at the end, in `crates/sim/tests/golden/<name>.json`. A tenth, `area_attacks` (slice M4-O), is a unit test
   (`combat/projectiles/golden.rs`), as it plays test throwers (`combat::testing`): grenades in flight, blasts over a
   hidden Hideout and a group, an Attack Ground. Its file is `tests/golden/test_defs/area_attacks.json`, out of the
@@ -4290,7 +4343,10 @@ unchecked.
   into a Garrison through its door, and four Agents and two Grenadiers attack-move onto it: the four fire from the
   footprint, farther than either, and kill an Agent; the Grenadiers' blasts land on it and hurt no one inside
   (`during`, every tick); one brings it down, and the four come out alive and unhurt and kill the rest (a Storage
-  keeps player 1 in the game). The ignored
+  keeps player 1 in the game). In `cults_altar` (to 1:00, on a test map, debug commands on for the Cults' 100 Space
+  Crystals) three Militants go into an Altar, which queues one order of each type: they come out at their orders'
+  ticks with MaxHP 60, 30 and 50 at full HP (`during`), and kill two Agents; the Improved Metabolism one falls. The
+  ignored
   `tests/skirmish_soak.rs`
   (slice M3-K2) plays the Colonists' two players for 10 minutes, twice, until player 1's field runs out: the
   movement invariants and the books every tick, no dangling id, no order stuck in one step beyond a bound (a waiting
