@@ -38,6 +38,7 @@ use super::{AttackPhase, AttackState};
 use crate::defs::{ObjectKind, TurretAttrs, UnitDef};
 use crate::ids::ObjectId;
 use crate::math;
+use crate::object::Object;
 use crate::tuning::combat::FACING_TOLERANCE;
 
 /// A unit's turret (module docs): `systems/units.md > Unit Instance > TurretCommandState`, and its facing.
@@ -101,6 +102,14 @@ pub(crate) fn in_arc(attrs: &TurretAttrs, facing: f32, from: Vec2, at: Vec2) -> 
 /// turret with no state yet, which is centred (module docs).
 pub(crate) fn aim_facing(turret: Option<TurretState>, facing: f32) -> f32 {
     math::wrap_angle(facing + turret.map_or(0.0, |turret| turret.facing))
+}
+
+/// The direction the turret of `object` faces, radians in `(-PI, PI]`, if its type has a turret ([`aim_facing`]): for
+/// the client's barrel.
+pub fn turret_facing(object: &Object) -> Option<f32> {
+    attrs_of(object.kind)?;
+    let turret = object.attack.as_ref().and_then(|attack| attack.turret);
+    Some(aim_facing(turret, object.facing))
 }
 
 /// `systems/controls/action_channels.md > TurretTurning`: one tick of the turret's turn toward the point `at`, on a base

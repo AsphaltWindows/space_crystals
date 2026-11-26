@@ -275,6 +275,70 @@ fn a_popup_turret_is_an_outline_while_lowered_and_its_barrel_comes_out_as_it_ris
     );
 }
 
+/// Slice M5-U1: a unit with a turret (the Seeker's: all the way round, 12° a frame; `object_render::turret`) carries a
+/// barrel on its body, turned to its turret's facing, which turns on the base's: idle, the Seeker engages a Drone of
+/// player 2's due south of it, in range, and its turret turns to it while its base goes on facing east. Its square body
+/// stays axis-aligned and its facing tick points east; its barrel points south.
+#[test]
+fn a_units_turret_barrel_turns_on_its_base() {
+    let mut app = headless_app(scenarios::empty(16, 12));
+    app.update();
+    let spawn = |kind, owner, at| {
+        debug(DebugCommand::Spawn {
+            kind,
+            owner: Some(PlayerId(owner)),
+            at: SpawnAt::Point(at),
+            orientation: Default::default(),
+        })
+    };
+    let pending = |app: &mut App, command| app.world_mut().resource_mut::<PendingCommands>().0.push(command);
+    pending(&mut app, spawn(ObjectKind::Seeker, 1, Vec2::new(320.0, 320.0)));
+    pending(&mut app, spawn(ObjectKind::Drone, 2, Vec2::new(320.0, 480.0)));
+    app.update();
+    let seeker = {
+        let sim = app.world().resource::<SimRes>();
+        sim.objects()
+            .find(|o| o.kind == ObjectKind::Seeker)
+            .expect("spawned")
+            .id
+    };
+    let aim = |app: &App| {
+        let o = app.world().resource::<SimRes>().object(seeker).unwrap();
+        (sc_sim::combat::turret_facing(o).unwrap(), o.facing)
+    };
+    let south = std::f32::consts::FRAC_PI_2;
+    for _ in 0..40 {
+        if (aim(&app).0 - south).abs() < 1e-4 {
+            break;
+        }
+        app.update();
+    }
+    assert_eq!(aim(&app), (south, 0.0), "its turret faces the Drone, its base east");
+    app.update();
+    let entity = app.world().resource::<ObjectVisuals>().by_id[&seeker];
+    assert_eq!(app.world().get::<Transform>(entity).unwrap().rotation, Quat::IDENTITY);
+    let front = |transform: &Transform| transform.rotation * Vec3::X;
+    let mut barrels = app.world_mut().query::<(&TurretBarrel, &Transform, &ChildOf)>();
+    let barrels: Vec<_> = (barrels.iter(app.world()))
+        .map(|(barrel, transform, parent)| (barrel.0, *transform, parent.0))
+        .collect();
+    let [(of, transform, parent)] = barrels.as_slice() else {
+        panic!("one barrel: {barrels:?}");
+    };
+    assert_eq!((*of, *parent), (seeker, entity));
+    assert!(
+        front(transform).distance(Vec3::NEG_Y) < 1e-3,
+        "the barrel points south: {}",
+        front(transform)
+    );
+    let mut ticks = app.world_mut().query::<(&FacingTick, &Transform)>();
+    let tick = ticks.iter(app.world()).find(|(t, _)| t.0 == seeker).map(|(_, t)| *t);
+    assert!(
+        front(&tick.expect("a square's tick")).distance(Vec3::X) < 1e-3,
+        "its tick east"
+    );
+}
+
 /// The unit tags among `entity`'s children: whose they are, and what they say.
 fn unit_tags(app: &App, entity: Entity) -> Vec<(ObjectId, String)> {
     let world = app.world();

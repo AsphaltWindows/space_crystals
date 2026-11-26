@@ -103,19 +103,25 @@ pub(super) fn sync_object_visuals(
         if units::tagged(drawn) {
             commands.spawn((units::tag(object.id, drawn), ChildOf(entity)));
         }
-        if Look::of(drawn) == Look::Turret && !key.site && !key.lowered {
+        // (M5-U1) A unit's turret too, turned to its own facing on its body's (`turret::TurretTrack`).
+        let unit_turret = (sc_sim::combat::turret_facing(object)).filter(|_| turret::on_unit(drawn));
+        if (Look::of(drawn) == Look::Turret && !key.site && !key.lowered) || unit_turret.is_some() {
             let barrel = assets
                 .barrel
                 .get_or_insert_with(|| meshes.add(turret::barrel_mesh()))
                 .clone();
-            commands.spawn((
+            let turn = unit_turret.map_or(object.facing, |aim| aim - facing);
+            let mut barrel = commands.spawn((
                 Name::new("Turret barrel"),
                 TurretBarrel(object.id),
                 Mesh2d(barrel),
                 MeshMaterial2d(material.clone()),
-                Transform::from_rotation(facing_to_rotation(object.facing)),
+                Transform::from_rotation(facing_to_rotation(turn)),
                 ChildOf(entity),
             ));
+            if let Some(aim) = unit_turret {
+                barrel.insert(turret::TurretTrack::new(sim.tick(), aim));
+            }
         }
         if has_tick(drawn) {
             let tick = assets

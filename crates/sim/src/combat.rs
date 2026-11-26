@@ -105,7 +105,7 @@ pub use targeting::{
     can_attack_now, can_target_ground, domain_allows, inside_min_range, max_range, object_box, object_domain, reaches,
     reaches_point, within_range,
 };
-pub use turret::TurretState;
+pub use turret::{TurretState, turret_facing};
 
 /// `systems/combat.md > AttackPhase`, one value of the design's BaseAttackChannel
 /// (`systems/controls/action_channels.md > BaseAttackChannel`). The phases run in this order; after Reloading the
