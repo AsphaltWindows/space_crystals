@@ -21,9 +21,9 @@
 //!   with the Garrison's SightRange").
 //! - **Weapons** ([`weapon`]): a stand-in's attack for the kinds that fire another kind's, as the stand-in type's def
 //!   has it ("a Recruit or Disciple inside attacks with the Militant's AttackAttributes"; "**Augmentations don't change
-//!   the borrowed attack**"), else the unit's own weapon (`super::weapon`, (M5-N1a) with its Augmentations', which leave
-//!   an armed unit's as it is), with the Range bonus of its kind ("**Militants
-//!   and Gunners** inside get **+1 grid unit of Range**"). "**No spells from inside**": an attack is all they use.
+//!   the borrowed attack**"), else the unit's own weapon (`super::weapon`, (M5-N1a) with its Augmentations', which
+//!   leave an armed unit's as it is), with the Range bonus of its kind ("**Militants and Gunners** inside get **+1
+//!   grid unit of Range**"). "**No spells from inside**": an attack is all they use.
 //! - **Revealed** (`core/vision.md > Attacks from outside vision`): a unit inside that hits an object of a player who
 //!   doesn't see it reveals the building it fires from ([`building_of`]), where its shots come from.
 

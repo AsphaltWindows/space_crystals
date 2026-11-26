@@ -74,10 +74,11 @@ fn each_kind_fires_its_own_or_the_militants_attack_with_its_bonus() {
     );
 }
 
-/// (M5-N1a) "**Augmentations don't change the borrowed attack**", nor an armed unit's own (`factions/cults/
-/// augmentation.md > Increments`: "Armed infantry ... receive only the MaxHP part of Constitution increments and only
-/// the movement-speed part of Metabolism increments"): each kind with both Augmentations, at Level 2 of both lines,
-/// fires as it does without them, though a Recruit's own melee strike is harder with them.
+/// (M5-N1a) "**Augmentations don't change the borrowed attack**", nor an armed unit's own
+/// (`factions/cults/augmentation.md > Increments`: "Armed infantry (Militant, Gunner) receive only the MaxHP part of
+/// Constitution increments and only the movement-speed part of Metabolism increments"): each kind with both
+/// Augmentations, at Level 2 of both lines, fires as it does without them, and a Recruit exactly the Militant's attack,
+/// though its own melee strike is harder with them.
 #[test]
 fn augmentations_leave_each_kinds_attack_from_inside_as_it_is() {
     let t = objects();

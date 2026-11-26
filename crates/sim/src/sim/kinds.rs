@@ -123,8 +123,8 @@ impl Sim {
     /// - (M5-N1a) **Its Augmentations** (plan decision T73, `factions/cults/augmentation.md > Persistence`): kept
     ///   through a change to a kind that can have them (`augmentation::is_augmentable`: "a trained unit inherits its
     ///   Recruit's AugmentationState unchanged"), lost through a change to any other ("if augmented Recruits are
-    ///   consumed to produce a vehicle, their Augmentations are lost"). The new kind's MaxHP that its HP stays within is
-    ///   the one with those it keeps (`Object::max_hp_with`).
+    ///   consumed to produce a vehicle, their Augmentations are lost"). The new kind's MaxHP that its HP stays within
+    ///   is the one with those it keeps (`Object::max_hp_with`).
     /// - **Capabilities**, rebuilt from the new kind's definition ([`Capabilities::fresh`]): one the old kind had with
     ///   the same definition keeps its state, the others start as on a new object, and those the new kind lacks go. So
     ///   a unit that stays a unit keeps its orders and its move (design change 0150: "Orders are kept"), and plans its

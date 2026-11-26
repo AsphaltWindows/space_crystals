@@ -364,7 +364,8 @@ pub(crate) fn base_is_free(kind: ObjectKind, state: Option<&AttackState>) -> boo
 /// footprint must re-sync the grids (`paths::sync`), as phase 5b does. `vision` is the last tick's: what each owner
 /// sees, all through the phase (the reveals don't change what it sees of tiles). `turns` holds the angle phase 5d of
 /// this tick turned each unit: the aim turns a unit only by what is left of its TurnRate (one budget per tick).
-/// (M5-N1a) Each attacks with its weapon as its Augmentations make it, at its owner's levels in `research` ([`weapon`]).
+/// (M5-N1a) Each attacks with its weapon as its Augmentations make it, at its owner's levels in `research`
+/// ([`weapon`]).
 #[expect(
     clippy::too_many_arguments,
     reason = "phase 5e's state, in the parts of the sim it reads and writes"

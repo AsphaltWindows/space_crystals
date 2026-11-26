@@ -64,9 +64,9 @@ pub fn is_augmentable(kind: ObjectKind) -> bool {
 }
 
 // The loops of phases 5a, 5d and 5e read every unit's stats: a unit without an Augmentation costs them a branch, its
-// kind's numbers read by reference ([`Object::movement_ref`], `combat::weapon_ref`), and an augmented unit's amounts are
-// worked out out of line ([`augmented_increments`]). The hints keep the release build's split into codegen units from
-// leaving the calls out of line (`ARCHITECTURE.md > Object model > Augmented stats`).
+// kind's numbers read by reference ([`Object::movement_ref`], `combat::weapon_ref`), and an augmented unit's amounts
+// are worked out out of line ([`augmented_increments`]). The hints keep the release build's split into codegen units
+// from leaving the calls out of line (`ARCHITECTURE.md > Object model > Augmented stats`).
 impl Object {
     /// (M5-N1a) Its net increments ([`Increments`]): its Augmentations' at its owner's current levels
     /// (`Research::levels`), none for a kind that can't be augmented.

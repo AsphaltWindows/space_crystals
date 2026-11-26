@@ -11,11 +11,11 @@
 //!   Gunworks ([`GUNWORKS_SITE`], slice M5-N1a's first step), and every Recruit without a seat goes into the Armory to
 //!   become one of [`MILITANTS`] Militants or [`GUNNERS`] Gunners, the Gunners trained first once the Gunworks stands.
 //!   Once [`WAVE`] of them wait at [`STAGING`] they attack-move to player 2's Tunnel, fighting what they meet on the
-//!   way; one trained later goes on its own. Player 2's Agents gather [`PATCH`], 3 grid units from its crystal hatch, and its Hideout, rallied on the
-//!   patch, trains [`AGENTS`] more; its Tunnel expands an Optics Lab ([`OPTICS_LAB_SITE`]) and then a Laser Turret
-//!   ([`TURRET_SITE`]), ordered from its ExpandMenu as slice M5-Y made it, and the Hideout trains [`GUARDS`] Guards
-//!   once the Optics Lab stands, which come out to the patch. The script knows where player 2's Tunnel is, as a
-//!   player who scouted would.
+//!   way; one trained later goes on its own. Player 2's Agents gather [`PATCH`], 3 grid units from its crystal hatch,
+//!   and its Hideout, rallied on the patch, trains [`AGENTS`] more; its Tunnel expands an Optics Lab
+//!   ([`OPTICS_LAB_SITE`]) and then a Laser Turret ([`TURRET_SITE`]), ordered from its ExpandMenu as slice M5-Y made
+//!   it, and the Hideout trains [`GUARDS`] Guards once the Optics Lab stands, which come out to the patch. The script
+//!   knows where player 2's Tunnel is, as a player who scouted would.
 //!
 //! Nothing here assumes the game goes as the goldens' do: the players stop once the game is over or they are
 //! defeated, and a Militant or Gunner whose target has fallen goes on to the next Tunnel.

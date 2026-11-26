@@ -148,9 +148,9 @@ impl Claim {
 }
 
 /// The target `o` is at work on now (module docs): the one its current order works at by `target_of`, if the order
-/// suits it ([`suits`], at the owners' levels in `research`), `o` standing within reach of its edge (`Shape::of`: a structure's footprint, as
-/// [`within_reach`] has it, or a unit's Silhouette), its walk over (no move on its way, `MoveStatus::Moving`). `None`
-/// for a unit at work on nothing.
+/// suits it ([`suits`], at the owners' levels in `research`), `o` standing within reach of its edge (`Shape::of`: a
+/// structure's footprint, as [`within_reach`] has it, or a unit's Silhouette), its walk over (no move on its way,
+/// `MoveStatus::Moving`). `None` for a unit at work on nothing.
 pub fn at_work(
     o: &Object,
     objects: &BTreeMap<ObjectId, Object>,

@@ -2246,9 +2246,9 @@ section of its own.
     or not at all (placeholder).
   - **The target** (`repair::can_repair`, `Sim::can_repair`): another object of the repairer's owner's, complete (no
     site, nothing transforming) and below its MaxHP (`repair::damage`, repair's one read of a MaxHP: the one with its
-    Augmentations, `Object::max_hp_with`, slice M5-N1a), of a kind its type repairs. The gate (`Sim::check_repair`) keeps the units that can, else `Reject::CantRepair(target)`;
-    `Sim::aimed` gives the kind as `Aimed::repair` for the right-click (*Commands, events and replays > Default
-    orders*).
+    Augmentations, `Object::max_hp_with`, slice M5-N1a), of a kind its type repairs. The gate (`Sim::check_repair`)
+    keeps the units that can, else `Reject::CantRepair(target)`; `Sim::aimed` gives the kind as `Aimed::repair` for
+    the right-click (*Commands, events and replays > Default orders*).
   - **The order** (`OrderKind::Repair(target)`, `RepairWork`): at a building the repairer works from its own spot beside
     the footprint (`RepairWork::Spot`: the spots' step, as an Assist's, *Cults construction*), a Tunnel and a lowered
     Laser Turret alike, which nothing of a repair raises; at a vehicle it follows it (`RepairWork::Follow`,
