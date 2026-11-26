@@ -984,12 +984,14 @@ each tick's flight may bring it a hair nearer before the next.
   **(H1)** Gliders (`crates/sim/tests/air/`, `movement/glider/tests.rs`, `movement/air/tests.rs`, the Sparrow's
   numbers): 4 su a tick to 10 in 12 ticks; a 180° turn at full speed on a 200 su radius, within 1 %; a Move's point
   circled on 64 su at IdleSpeed for ever, a queued order waiting; idle, Stop and Hold circle where the Sparrow was,
-  and on Hold it shoots what the circle brings into range and arc, never chasing; an Attack makes pass after pass over
-  a stationary target, each shot fired within the 45° arc and 3 grid units, flying on beyond the range between passes,
-  at MaxSpeed throughout; a click past the edge circles the edge's point; circling by the edge takes it off the map,
-  where it is seen and hit as at the edge's tile; six Sparrows on one point keep 32 su apart; under a Shroud cloud an
-  anti-air attack's hits land in full. Separation: only pairs within the radius, a HoverCraft kept on the map,
-  ground units never pushed. The soak (`robustness.rs`) spawns Sparrows and gives them orders, and checks G1.
+  and on Hold it shoots what the circle brings into range and arc, never chasing; an AttackMove strafes what it meets
+  and ends circling its destination (one pass with the Sparrow's numbers: its loop swings past the leash); an Attack
+  makes pass after pass over a stationary target, each shot fired within the 45° arc and 3 grid units, flying on
+  beyond the range between passes, at MaxSpeed throughout; a click past the edge circles the edge's point; circling by
+  the edge takes it off the map, where it is seen and hit as at the edge's tile; six Sparrows on one point keep 32 su
+  apart; under a Shroud cloud an anti-air attack's hits land in full. Separation: only pairs within the radius, a
+  HoverCraft kept on the map, ground units never pushed. The soak (`robustness.rs`) spawns Sparrows and gives them
+  orders, and checks G1.
 - **Oscillation**: distance travelled ≤ 1.5 × path length + c; reversals of velocity along the path ≤ a small bound.
 - **Determinism**: same run twice, per-tick hashes equal; replay round trip; **save at tick k, load, continue**:
   hashes equal (catches hidden unserialized state); **golden hashes** for three scenarios as committed constants.
