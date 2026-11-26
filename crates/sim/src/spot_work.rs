@@ -4,8 +4,9 @@
 //! the number of Recruits currently assigned"), `factions/cults/economy.md > Cults Building Mechanics > Group
 //! construction rules` (design change 0339), `factions/cults/economy.md > Assist Construction Command` ("Once the
 //! selected Recruits reach the building they join construction from outside"). Two rules, each written once over an
-//! order and its target, not for one order alone, so that every order worked so reuses them (a group's Build and an
-//! Assist today; the Repair of slice N8, whose "repairers stack linearly", design change 0321):
+//! order and its target, not for one order alone, so that every order worked so reuses them: a group's Build, an
+//! Assist, and a Repair (slice M5-N8, `crate::repair`: "several repairers on one target repair **faster, scaling
+//! linearly** (2 repairers = twice the rate), as construction does", design change 0321):
 //!
 //! - **The claim of a spot** ([`work_of`], [`Claim`]): each unit working at a footprint walks to its own spot beside
 //!   it, which its order's state holds (`orders::state::SiteWalk::spot`, `orders::state::SpotWork::spot`) and which no
@@ -20,28 +21,33 @@
 //!   footprint to its spot, never over it. Every `tuning::construction::RESPOT_TICKS`, a unit whose walk is over within
 //!   reach takes the place where it stands as its spot, and one whose walk is over out of reach looks again along the
 //!   builders' wall and walks to the free spot it finds.
-//! - **The count of those at work** ([`counts`]): the units whose current order works at a target, standing within
-//!   `tuning::construction::BUILD_REACH_SU` of its footprint's edge with their walk over (0339: "a building needs a
+//! - **The count of those at work** ([`counts`], [`at_work`]): the units whose current order works at a target,
+//!   standing within `tuning::construction::BUILD_REACH_SU` of its edge with their walk over (0339: "a building needs a
 //!   fixed number of **Recruit-frames** (BaseConstructionTime with 1 Recruit). Every frame, each Recruit that is
 //!   building during that frame adds 1. Recruits still walking, waiting for a spot or doing anything else add
 //!   nothing"), derived in each tick, so that n of them give exactly n times one's rate. A site built from outside
-//!   gains a frame for each (`sim/sites.rs`).
+//!   gains a frame for each (`sim/sites.rs`), and a repaired object its share of HP for each repairer
+//!   (`sim/repairs.rs`). The edge is a footprint's, or a unit's Silhouette for a vehicle's repairers, which work at no
+//!   spot but follow the vehicle (`orders::repair`).
 //!
 //! Where a unit works ([`WorkAt`]) is a footprint: a group's Build's, before its site starts (its ticket's,
-//! `sim/builds/shared.rs`), or a structure's (an Assist's site). An order on a structure that no longer suits it
-//! ([`suits`]: an Assist's site complete, or not its owner's) ends in the spots' step.
+//! `sim/builds/shared.rs`), or a structure's (an Assist's site, a Repair's building). An order on a structure that no
+//! longer suits it ([`suits`]: an Assist's site complete, a repaired building at full HP, either not its owner's) ends
+//! in the spots' step.
 
 use std::collections::BTreeMap;
 
 use glam::Vec2;
 
+use crate::augmentation::Research;
 use crate::construction::site::shares_builds;
 use crate::ids::{ObjectId, PlayerId};
 use crate::mover::MoveStatus;
 use crate::object::{Object, Placement};
 use crate::orders::OrderKind;
 use crate::orders::build::build_site;
-use crate::orders::state::Behaviour;
+use crate::orders::state::{Behaviour, RepairWork};
+use crate::repair;
 use crate::shape::Shape;
 use crate::tuning::construction::BUILD_REACH_SU;
 
@@ -50,7 +56,7 @@ use crate::tuning::construction::BUILD_REACH_SU;
 pub enum WorkAt {
     /// The footprint of a group's Build whose site hasn't started (plan decision T59).
     Footprint(Placement),
-    /// A structure, by its footprint: an Assist's site.
+    /// A structure, by its footprint: an Assist's site, a Repair's building.
     Object(ObjectId),
 }
 
@@ -64,8 +70,9 @@ pub struct Work {
 }
 
 /// The work `o`'s current order does from a spot beside a footprint (module docs): a Build of a worker that shares
-/// builds (`WorkerDef::shares_builds`), before its site starts, and an Assist. `None` for every other order, and for an
-/// object without one.
+/// builds (`WorkerDef::shares_builds`), before its site starts, an Assist, and a building's Repair
+/// (`RepairWork::Spot`). `None` for every other order, a vehicle's Repair among them, and for an object without
+/// one.
 pub fn work_of(o: &Object) -> Option<Work> {
     let active = o.orders.as_ref()?.current.as_ref()?;
     let order = active.order.kind;
@@ -74,6 +81,7 @@ pub fn work_of(o: &Object) -> Option<Work> {
             (WorkAt::Footprint(build_site(order)?.1), walk.spot)
         }
         (OrderKind::Assist(site), Behaviour::Assist(work)) => (WorkAt::Object(site), work.spot),
+        (OrderKind::Repair(target), Behaviour::Repair(RepairWork::Spot(work))) => (WorkAt::Object(target), work.spot),
         _ => return None,
     };
     Some(Work { order, at, spot })
@@ -87,18 +95,22 @@ pub(crate) fn spot_mut(o: &mut Object) -> Option<&mut Option<Vec2>> {
     match &mut active.state {
         Behaviour::Build(walk) if shares && matches!(order, OrderKind::Build { .. }) => Some(&mut walk.spot),
         Behaviour::Assist(work) if matches!(order, OrderKind::Assist(_)) => Some(&mut work.spot),
+        Behaviour::Repair(RepairWork::Spot(work)) if matches!(order, OrderKind::Repair(_)) => Some(&mut work.spot),
         _ => None,
     }
 }
 
-/// Whether `order`, carried by a unit of `owner`'s, works at `target` (module docs): an Assist at a site of the same
-/// owner's that its builders build from outside (`Object::is_built_from_outside`; design change 0339,
-/// `factions/cults/economy.md > Cults Building Mechanics > Group construction rules`: "**Assist** targets only a
-/// building **already under construction**, not a ghost whose order hasn't started"). The orders that work at no
-/// structure suit none.
-pub fn suits(order: OrderKind, owner: Option<PlayerId>, target: &Object) -> bool {
+/// Whether `order`, carried by `unit`, works at `target` (module docs): an Assist at a site of the same owner's that
+/// its builders build from outside (`Object::is_built_from_outside`; design change 0339, `factions/cults/economy.md >
+/// Cults Building Mechanics > Group construction rules`: "**Assist** targets only a building **already under
+/// construction**, not a ghost whose order hasn't started"); (M5-N8) a Repair at an object that `unit` can repair now
+/// (`repair::can_repair`: its owner's, complete and damaged, of a kind its type repairs; (M5-N1a) damaged below its
+/// MaxHP at its owner's levels in `research`). The orders that work at no target suit none.
+pub fn suits(order: OrderKind, unit: &Object, target: &Object, research: Research) -> bool {
+    let owner = unit.owner;
     match order {
         OrderKind::Assist(_) => owner.is_some() && target.owner == owner && target.is_built_from_outside(),
+        OrderKind::Repair(_) => repair::can_repair(unit, target, research),
         _ => false,
     }
 }
@@ -135,27 +147,33 @@ impl Claim {
     }
 }
 
-/// The count of those at work (module docs): for each target, the units of `objects` whose current order `target_of`
-/// maps to it, which it suits ([`suits`]), standing within reach of its footprint's edge ([`within_reach`]), their
-/// walk over (no move on its way, `MoveStatus::Moving`). Builders of a site built from outside by `target_of` = an
-/// Assist's site.
+/// The target `o` is at work on now (module docs): the one its current order works at by `target_of`, if the order
+/// suits it ([`suits`], at the owners' levels in `research`), `o` standing within reach of its edge (`Shape::of`: a structure's footprint, as
+/// [`within_reach`] has it, or a unit's Silhouette), its walk over (no move on its way, `MoveStatus::Moving`). `None`
+/// for a unit at work on nothing.
+pub fn at_work(
+    o: &Object,
+    objects: &BTreeMap<ObjectId, Object>,
+    research: Research,
+    target_of: impl Fn(OrderKind) -> Option<ObjectId>,
+) -> Option<ObjectId> {
+    let order = o.orders.as_ref()?.current.as_ref()?.order.kind;
+    let target = target_of(order)?;
+    let t = objects.get(&target).filter(|t| suits(order, o, t, research))?;
+    let walking = o.mover.as_ref().is_some_and(|mover| mover.status == MoveStatus::Moving);
+    (!walking && Shape::of(o).gap(&Shape::of(t)) <= BUILD_REACH_SU).then_some(target)
+}
+
+/// The count of those at work (module docs): for each target, the units of `objects` at work on it by `target_of`
+/// ([`at_work`]). Builders of a site built from outside by `target_of` = an Assist's site ([`assisted`]).
 pub fn counts(
     objects: &BTreeMap<ObjectId, Object>,
+    research: Research,
     target_of: impl Fn(OrderKind) -> Option<ObjectId>,
 ) -> BTreeMap<ObjectId, u32> {
     let mut counts = BTreeMap::new();
     for o in objects.values() {
-        let Some(active) = o.orders.as_ref().and_then(|orders| orders.current.as_ref()) else {
-            continue;
-        };
-        let Some(target) = target_of(active.order.kind) else {
-            continue;
-        };
-        let Some(t) = objects.get(&target).filter(|t| suits(active.order.kind, o.owner, t)) else {
-            continue;
-        };
-        let walking = o.mover.as_ref().is_some_and(|mover| mover.status == MoveStatus::Moving);
-        if !walking && t.placement.is_some_and(|at| within_reach(&Shape::of(o), &at)) {
+        if let Some(target) = at_work(o, objects, research, &target_of) {
             *counts.entry(target).or_insert(0) += 1;
         }
     }
@@ -166,6 +184,14 @@ pub fn counts(
 pub fn assisted(order: OrderKind) -> Option<ObjectId> {
     match order {
         OrderKind::Assist(site) => Some(site),
+        _ => None,
+    }
+}
+
+/// (M5-N8) The object an order repairs, if it is a Repair: the target of the count of its repairers ([`at_work`]).
+pub fn repaired(order: OrderKind) -> Option<ObjectId> {
+    match order {
+        OrderKind::Repair(target) => Some(target),
         _ => None,
     }
 }

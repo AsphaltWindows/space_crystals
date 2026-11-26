@@ -126,6 +126,13 @@ impl UnitBase {
             UnitBase::Glider => &GLIDER,
         }
     }
+
+    /// Whether it is an infantry base (`systems/units.md > UnitBase`: LightInfantry and HeavyInfantry): the units
+    /// trained from Recruits keep the Recruit's damage and Augmentations (`sim/producers/pool.rs`), and they aren't
+    /// vehicles to a repairer (slice M5-N8, `crate::repair::is_vehicle`).
+    pub fn is_infantry(self) -> bool {
+        matches!(self, UnitBase::LightInfantry | UnitBase::HeavyInfantry)
+    }
 }
 
 impl UnitBaseDef {

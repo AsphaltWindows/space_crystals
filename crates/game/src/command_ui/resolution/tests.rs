@@ -1,5 +1,6 @@
 mod gathering;
 mod recruit;
+mod repair;
 
 use sc_sim::defs::TargetDomain;
 
@@ -30,6 +31,7 @@ fn on(target: CursorTarget, destructible: bool, domain: Domain) -> MapTarget {
             transit: &[],
             accepts: &[],
             site: None,
+            repair: None,
         }),
     }
 }

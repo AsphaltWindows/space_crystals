@@ -303,6 +303,42 @@ pub struct WorkerDef {
     /// `Reject::SeveralConstructors`). Optional in files: false.
     #[serde(default)]
     pub shares_builds: bool,
+    /// (M5-N8) What it repairs (plan decision T83, `crate::repair`): the Recruit its owner's buildings and vehicles,
+    /// the Agent its owner's Tunnels and Laser Turrets. `None` for a worker that repairs nothing: the Drone. Optional
+    /// in files: none.
+    #[serde(default)]
+    pub repairs: Option<RepairDef>,
+}
+
+/// (M5-N8) What a worker type repairs (`WorkerDef::repairs`, plan decision T83; `crate::repair`): "**Repair rules
+/// shared by every repairer**" (`factions/cults/units/recruit.md > Repair`, `factions/syndicate/units/agent.md >
+/// Repair`). Only its owner's objects, and only those whose repair has terms (`repair::terms`).
+#[derive(Copy, Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct RepairDef {
+    pub targets: RepairTargets,
+}
+
+/// (M5-N8) The objects a repairer repairs ([`RepairDef`]), and whether it pays for each.
+#[derive(Copy, Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub enum RepairTargets {
+    /// Its owner's buildings and vehicles, for Space Crystals (`factions/cults/units/recruit.md > Repair`: "Recruits
+    /// can **repair** own **buildings and vehicles**. Repair **costs Space Crystals**"): the Recruit's. A vehicle is a
+    /// unit of neither infantry base that isn't a glider (`repair::is_vehicle`).
+    OwnBuildingsAndVehicles,
+    /// Its owner's objects of these kinds, each free or paid (`factions/syndicate/units/agent.md > Repair`: "Agents can
+    /// **repair** own **Tunnels** and **Laser Turrets** ... **Laser Turrets cost Space Crystals to repair; Tunnels are
+    /// repaired for free**"): the Agent's. That a Tunnel's repair is free is the Agent's rule, so it is the Agent's
+    /// list that says so.
+    Kinds(#[serde(deserialize_with = "super::leak::slice")] &'static [(ObjectKind, RepairPayment)]),
+}
+
+/// (M5-N8) Whether a repair costs its owner anything ([`RepairTargets`]).
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub enum RepairPayment {
+    /// "Repaired for free".
+    Free,
+    /// Half the target's price over its whole MaxHP, "paid gradually as HP is restored" (`tuning::repair`).
+    Paid,
 }
 
 impl WorkerDef {

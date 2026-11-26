@@ -7,7 +7,7 @@
 //! PointerDisplayType (`> Types`: Inactive muted grey; Move green, Attack red, Patrol orange as their indicators;
 //! AttackGround crimson; GatherResources the cyan of the crystals, ReturnResources gold, slice M3-J2; Enter violet,
 //! slice M4-J1; Assist blue and Repair tan, slice M5-J1 (design change 0322: placeholder looks; Repair's shows from
-//! slice N8 on); Mixed, "a generic hybrid cursor" whose visual is TBD, striped in the Attack red and the Move green),
+//! slice M5-N8 on); Mixed, "a generic hybrid cursor" whose visual is TBD, striped in the Attack red and the Move green),
 //! with a dot in the
 //! relation's colour (own green, enemy red, neutral yellow, as the selection markers) while
 //! it points at an object. With nothing to preview (Inactive, no object, no target awaited) and over the UI, a window
@@ -50,8 +50,8 @@ pub const ENTER_COLOR: Color = Color::srgb(0.62, 0.42, 0.98);
 /// Assist's (slice M5-J1, design change 0322: "Two new pointer types (placeholder looks)"), a placeholder: a
 /// chartreuse of nothing else on the map (player 1's blue would have hidden it).
 pub const ASSIST_COLOR: Color = Color::srgb(0.78, 1.00, 0.20);
-/// Repair's (slice M5-J1, the hook of slice N8's Repair, design change 0322), a placeholder: a tan of nothing else on
-/// the map.
+/// Repair's (slice M5-J1, design change 0322; shown from slice M5-N8's Repair on), a placeholder: a tan of nothing
+/// else on the map.
 pub const REPAIR_COLOR: Color = Color::srgb(0.80, 0.62, 0.40);
 /// The Mixed look (`> Mixed Right-Click Preview`, design change 0063: visual TBD), a placeholder: diagonal stripes
 /// of these two colours, each this many pixels wide.

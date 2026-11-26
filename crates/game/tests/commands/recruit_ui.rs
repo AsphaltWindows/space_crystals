@@ -1,11 +1,12 @@
 //! The Recruit's UI in the client (slice M5-J1; design changes 0322, 0327, 0341 and 0347, and 0072's Verifications):
-//! its panel's letters, D Repair greyed until slice N8; its two Construct menus, each building in its fixed slot and
-//! greyed until it can be built; the Assist pointer over a site, which no one enters, and S Assist Construction; the
-//! Enter pointer over an Armory, the gathering pointers and a load carried; and Tab, which stops once on the Recruits.
-//! A Construct menu's placement for the whole group, the Shift chain and a Hall refused at the map's edge are
-//! [`placing`]'s.
+//! its panel's letters; its two Construct menus, each building in its fixed slot and greyed until it can be built; the
+//! Assist pointer over a site, which no one enters, and S Assist Construction; the Enter pointer over an Armory, the
+//! gathering pointers and a load carried; and Tab, which stops once on the Recruits. A Construct menu's placement for
+//! the whole group, the Shift chain and a Hall refused at the map's edge are [`placing`]'s; the Repair pointer, D
+//! Repair and the right-click on a damaged building [`repairing`]'s (slice M5-N8).
 
 mod placing;
+mod repairing;
 
 use sc_sim::defs::Resource;
 use sc_sim::testing::ScenarioBuilder;
@@ -232,15 +233,14 @@ fn z() -> CommandSlot {
 
 /// Design change 0322's Verification (`factions/cults/units/recruit.md > Recruit ObjectInterfaceState`): "Select
 /// Recruits: the panel shows Q, A, S, D and X", and W since design change 0327: Q Move, W Advanced Construct, A Basic
-/// Construct, S Assist Construction, D Repair, X Stop, each hint naming it in full. D, which slice N8 brings, is greyed
-/// and says so when pressed, and nothing happens.
+/// Construct, S Assist Construction, D Repair, X Stop, each hint naming it in full. D (slice M5-N8) awaits its target,
+/// and gives no order until it has one.
 #[test]
-fn the_recruits_panel_shows_every_letter_d_greyed() {
-    use ButtonLook::{Common, Unavailable};
+fn the_recruits_panel_shows_every_letter() {
+    use ButtonLook::Common;
     let mut app = recruit_game(0);
     select_units(&mut app, &RECRUITS);
     let cmd = PanelButton::Command;
-    let repair = PanelCommand::Planned(Planned::Repair);
     assert_eq!(
         buttons(&mut app),
         [
@@ -248,7 +248,7 @@ fn the_recruits_panel_shows_every_letter_d_greyed() {
             (w(), cmd(PanelCommand::BuildMenu(BuildMenu::Advanced)), Common, "Adv."),
             (a(), cmd(PanelCommand::BuildMenu(BuildMenu::Basic)), Common, "Basic"),
             (s(), cmd(PanelCommand::Assist), Common, "Assist"),
-            (d(), cmd(repair), Unavailable, "Repair"),
+            (d(), cmd(PanelCommand::Repair), Common, "Repair"),
             (x(), cmd(PanelCommand::Stop), Common, "Stop"),
         ]
     );
@@ -264,8 +264,7 @@ fn the_recruits_panel_shows_every_letter_d_greyed() {
         assert_eq!(hint_over(&mut app, at).as_deref(), Some(hint));
     }
     tap(&mut app, &[], KeyD);
-    assert_eq!(said(&app), Some(NOT_YET_TEXT));
-    assert_eq!(interface(&app), InterfaceState::DefaultState);
+    assert_eq!(interface(&app), InterfaceState::awaiting(PanelCommand::Repair));
     assert_eq!(orders(&app), []);
 }
 

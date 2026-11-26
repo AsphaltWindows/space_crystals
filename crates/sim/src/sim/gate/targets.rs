@@ -22,6 +22,7 @@ use crate::object::Object;
 use crate::orders::resolution::{Abilities, Aim, Aimed, resolve};
 use crate::orders::{OrderKind, Target};
 use crate::production::Rally;
+use crate::repair;
 use crate::sim::{Reject, Sim};
 use crate::targets::{self, Live, TargetView};
 
@@ -65,6 +66,8 @@ impl Sim {
                         .map_or(&[], |holds| holds.accepts),
                     // (M5-E) An own site built from outside, which the units that assist it Assist.
                     site: (o.owner == Some(player) && o.is_built_from_outside()).then_some(o.kind),
+                    // (M5-N8) A damaged own object, complete, which the units that repair its kind Repair.
+                    repair: (o.owner == Some(player) && repair::damage(o, self.research()).is_some()).then_some(o.kind),
                 })
             }
             TargetView::Remembered { .. } => {
@@ -81,6 +84,7 @@ impl Sim {
                     transit: &[],
                     accepts: &[],
                     site: None,
+                    repair: None,
                 })
             }
             TargetView::Gone => None,

@@ -1,20 +1,20 @@
 //! The Agent's panel and a site's as plain data (slice M4-J1; design changes 0233, 0237, 0257 and 0359): the Agent's
 //! letters, its Build Tunnel greyed while the bank can't pay with its price, its Drop Off greyed while it carries
-//! nothing, its D Repair greyed until slice N8 and no Build Laser Turret (slice M5-Y), and a site's X Cancel
-//! Construction alone, a Laser Turret's too.
+//! nothing, its D Repair awaiting its target (slice M5-N8) and no Build Laser Turret (slice M5-Y), and a site's X
+//! Cancel Construction alone, a Laser Turret's too.
 
 use sc_sim::ConstructionCommand;
 use sc_sim::construction::site::BuildPrice;
 
 use super::*;
-use crate::command_ui::feedback::{NOT_YET_TEXT, unavailable_text};
+use crate::command_ui::feedback::unavailable_text;
 use crate::selection::GroupType;
 
 const AGENT: ObjectKind = ObjectKind::Agent;
 const TUNNEL: ObjectKind = ObjectKind::Tunnel;
 const BUILD: PanelCommand = PanelCommand::Build(TUNNEL);
 const TURRET: ObjectKind = ObjectKind::LaserTurret;
-const REPAIR: PanelCommand = PanelCommand::Planned(Planned::Repair);
+const REPAIR: PanelCommand = PanelCommand::Repair;
 
 /// What the panel's `slot` says when pressed greyed out, if it is.
 fn why_text(panel: &Panel, slot: CommandSlot) -> Option<&'static str> {
@@ -24,14 +24,14 @@ fn why_text(panel: &Panel, slot: CommandSlot) -> Option<&'static str> {
 /// `factions/syndicate/units/agent.md > Agent ObjectInterfaceState` (design changes 0257 and 0359): "**Q** Move, **A**
 /// Build Tunnel (user, 2026-11-26: Agents no longer build Laser Turrets, so the Construct menu of 0326 is reverted),
 /// **S** Drop Off Resources, **D** Repair (2026-11-26, matching the Recruit's panel), **X** Stop. No Attack, Hold
-/// Position, Patrol or AttackMove buttons". D, which slice N8 brings, holds its slot greyed: pressed, it says "Not
-/// available yet" and does nothing. A enters the Tunnel's placement for the one Agent of the ActiveGroup, its price in
-/// Supplies shown, and no other button has a price. Design change 0359's verification, "The Agent panel shows A: Build
+/// Position, Patrol or AttackMove buttons". D, Repair (slice M5-N8), awaits its target ("Left-click a damaged own
+/// Tunnel or Laser Turret to repair it"), with no price. A enters the Tunnel's placement for the one Agent of the
+/// ActiveGroup, its price in Supplies shown, and no other button has a price. Design change 0359's verification, "The Agent panel shows A: Build
 /// Tunnel with no turret option": the Agent offers no Build of a Laser Turret, in any state (the Tunnel's ExpandMenu
 /// does, `super::expansions`).
 #[test]
 fn the_agent_has_q_move_a_build_tunnel_s_drop_off_d_repair_and_x_stop() {
-    use ButtonLook::{Common, Disabled, Unavailable};
+    use ButtonLook::{Common, Disabled};
     use PanelCommand::{DropOff, Move, Stop};
     let agent = Selection::new([(id(1), AGENT)]);
     let conditions = Conditions::default().pricing(BUILD, BuildPrice::supplies(0));
@@ -43,7 +43,7 @@ fn the_agent_has_q_move_a_build_tunnel_s_drop_off_d_repair_and_x_stop() {
             (slot(0, 0), c(Move), Common),
             (slot(1, 0), c(BUILD), Common),
             (slot(1, 1), c(DropOff), Disabled),
-            (slot(1, 2), c(REPAIR), Unavailable),
+            (slot(1, 2), c(REPAIR), Common),
             (slot(2, 1), c(Stop), Common),
         ]
     );
@@ -51,8 +51,8 @@ fn the_agent_has_q_move_a_build_tunnel_s_drop_off_d_repair_and_x_stop() {
     assert_eq!(labels, ["Move", "T1", "Drop", "Repair", "Stop"]);
     assert_eq!(shown_panel.name(slot(1, 0)).as_deref(), Some("Build Tunnel"));
     assert_eq!(shown_panel.name(slot(1, 2)).as_deref(), Some("Repair"));
-    assert_eq!(why_text(&shown_panel, slot(1, 2)), Some(NOT_YET_TEXT));
-    assert_eq!(press(&shown_panel, slot(1, 2)), SlotPress::Nothing);
+    assert_eq!(why_text(&shown_panel, slot(1, 2)), None);
+    assert_eq!(press(&shown_panel, slot(1, 2)), SlotPress::AwaitTarget(REPAIR));
     assert_eq!(why_text(&shown_panel, slot(1, 1)), Some("Not carrying resources"));
     assert_eq!(press(&shown_panel, slot(1, 1)), SlotPress::Nothing);
     assert_eq!(press(&shown_panel, slot(1, 0)), SlotPress::AwaitBuild(TUNNEL));

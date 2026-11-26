@@ -2,7 +2,7 @@
 
 use crate::defs::units::{
     AttackAttrs, AttackType, Augmentable, DropOffChoice, FullyConnectedSubtype, LoadDef, MELEE_CONTACT_GU,
-    MovementAttrs, TargetDomain, TargetType, UnitBase, UnitDef, WorkerDef,
+    MovementAttrs, RepairDef, RepairTargets, TargetDomain, TargetType, UnitBase, UnitDef, WorkerDef,
 };
 use crate::defs::{Armor, Category, Footprint, ObjectDef, ObjectKind};
 use crate::math::PI;
@@ -101,6 +101,11 @@ pub(crate) static RECRUIT: ObjectDef = ObjectDef {
                 ObjectKind::ScrapHangar,
             ],
             shares_builds: true,
+            // `> Repair` (slice M5-N8): "Recruits can **repair** own **buildings and vehicles**. Repair **costs Space
+            // Crystals**".
+            repairs: Some(RepairDef {
+                targets: RepairTargets::OwnBuildingsAndVehicles,
+            }),
         }),
         // (M5-N1a) `factions/cults/augmentation.md > Increments`: "Unarmed units ... currently only the Recruit".
         augmentable: Some(Augmentable { unarmed: true }),

@@ -7,7 +7,7 @@ use std::collections::BTreeSet;
 
 use sc_sim::{Ability, OrderKind};
 
-use super::{CursorTarget, MapTarget, Resolved, UnitCapabilities, object_right_click, target_resolution};
+use super::{CursorTarget, MapTarget, Resolved, UnitCapabilities, object_right_click, repaired_by, target_resolution};
 use crate::command_ui::interface::{InterfaceState, PanelCommand};
 
 /// `systems/controls/hud.md > PointerDisplayType > Types` that the game can show so far.
@@ -39,8 +39,8 @@ pub enum PointerDisplay {
     /// and while S awaits its target.
     Assist,
     /// (M5-J1) The Recruits' Repair (design change 0322, a placeholder look): over a damaged own building or vehicle
-    /// the selection can repair. Its hook: no order gives it until slice N8 brings `OrderKind`'s Repair, which
-    /// [`PointerDisplay::of_order`] then shows so, on a right-click and while D awaits its target.
+    /// the selection can repair, and the Agents' over a damaged own Tunnel or Laser Turret (slice M5-N8,
+    /// `sc_sim::OrderKind::Repair`), on a right-click and while D awaits its target.
     Repair,
 }
 
@@ -49,14 +49,15 @@ impl PointerDisplay {
     /// (`systems/controls/hud.md > Resolution Rules > AwaitingTarget[CommandType]`: Attack over ground
     /// "will issue AttackMove"); GatherResources for a Gather ("Cursor over resource (resource gatherer selected)"),
     /// ReturnResources for a Drop Off ("Cursor over drop-off point (resource gatherer carrying resources)"), Enter for
-    /// an Enter ("Cursor over own Tunnel (Syndicate unit, tier sufficient)"), Assist for an Assist (design change
-    /// 0322). No click gives Hold or Stop.
+    /// an Enter ("Cursor over own Tunnel (Syndicate unit, tier sufficient)"), Assist for an Assist and Repair for a
+    /// Repair (design change 0322). No click gives Hold or Stop.
     pub fn of_order(kind: OrderKind) -> Self {
         match kind {
             // No click gives a Deploy (slice M3-J1 places it), nor a Build.
             OrderKind::Move(_) | OrderKind::Deploy { .. } | OrderKind::Build { .. } => PointerDisplay::Move,
             OrderKind::Enter(_) => PointerDisplay::Enter,
             OrderKind::Assist(_) => PointerDisplay::Assist,
+            OrderKind::Repair(_) => PointerDisplay::Repair,
             OrderKind::Gather(_) => PointerDisplay::GatherResources,
             OrderKind::DropOff(_) => PointerDisplay::ReturnResources,
             OrderKind::Attack(_) | OrderKind::AttackMove(_) => PointerDisplay::Attack,
@@ -93,7 +94,7 @@ pub fn pointer_display(interface: InterfaceState, units: &[UnitCapabilities], ta
     }
     match interface {
         InterfaceState::DefaultState => right_click_display(units, target),
-        InterfaceState::AwaitingTarget { pending, .. } => awaiting_display(pending, target),
+        InterfaceState::AwaitingTarget { pending, .. } => awaiting_display(pending, units, target),
         InterfaceState::BuildMenu(_)
         | InterfaceState::EjectMenu
         | InterfaceState::ExpandMenu
@@ -122,10 +123,13 @@ pub fn right_click_display(units: &[UnitCapabilities], target: &MapTarget) -> Po
 }
 
 /// `systems/controls/hud.md > Resolution Rules > AwaitingTarget[CommandType]`: the pending command's look
-/// over a target it can use, else Inactive. Reverse, which has no order yet, by the design's row for the ground.
-fn awaiting_display(pending: PanelCommand, target: &MapTarget) -> PointerDisplay {
+/// over a target it can use, else Inactive. Reverse, which has no order yet, by the design's row for the ground. (M5-N8)
+/// A Repair's over a damaged own object that one of the selected `units` repairs ([`repaired_by`]): over one that none
+/// of them repairs, an Agent's over a Storage, the gate would refuse the click.
+fn awaiting_display(pending: PanelCommand, units: &[UnitCapabilities], target: &MapTarget) -> PointerDisplay {
     match (pending, target.target) {
         (PanelCommand::Reverse, CursorTarget::Ground(_)) => PointerDisplay::Move,
+        (PanelCommand::Repair, _) if !repaired_by(units, target) => PointerDisplay::Inactive,
         _ => target_resolution(pending, target).map_or(PointerDisplay::Inactive, PointerDisplay::of),
     }
 }

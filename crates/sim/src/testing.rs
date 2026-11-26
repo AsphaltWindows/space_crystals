@@ -282,6 +282,7 @@ pub fn every_command() -> Vec<Command> {
             },
         },
         OrderKind::Assist(ObjectId(7)),
+        OrderKind::Repair(ObjectId(8)),
     ];
     let mut commands: Vec<Command> = kinds
         .into_iter()
@@ -454,7 +455,8 @@ pub fn every_command() -> Vec<Command> {
                 | OrderKind::Enter(_)
                 | OrderKind::AttackGround(_)
                 | OrderKind::Build { .. }
-                | OrderKind::Assist(_) => {}
+                | OrderKind::Assist(_)
+                | OrderKind::Repair(_) => {}
             },
             Command::Ability {
                 ability: Ability::RiotShield { .. } | Ability::SetDropOff(_) | Ability::Convert,

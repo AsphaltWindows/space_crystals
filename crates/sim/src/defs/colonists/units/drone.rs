@@ -74,6 +74,8 @@ pub(crate) static DRONE: ObjectDef = ObjectDef {
             // It deploys instead (`deploy`, plan decision T51).
             builds: &[],
             shares_builds: false,
+            // It repairs nothing (slice M5-N8): no Colonists repair is in the design.
+            repairs: None,
         }),
         augmentable: None,
     }),

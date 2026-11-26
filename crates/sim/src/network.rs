@@ -38,8 +38,8 @@ use crate::ids::ObjectId;
 use crate::object::{Object, Placement};
 use crate::sides::{DIRECTIONS, SideLetter, sides};
 use crate::tuning::tunnel::{AIR_DOORS, ENTRY_REACH_SU, WALK_OUT_SU};
-use crate::tunnel;
-use crate::units::{SU_PER_GU, TICKS_PER_SECOND, Tick};
+use crate::units::{SU_PER_GU, Tick};
+use crate::{regeneration, tunnel};
 
 /// A tunable of `tuning::tunnel`, re-exported here for the client, which draws the paths by it
 /// (`object_render::tunnel`).
@@ -114,19 +114,13 @@ impl Held {
     }
 
     /// One tick of `factions/syndicate/tunnels.md > Regeneration inside` (design change 0249): the network's share of
-    /// its MaxHP a second ([`rules`]), up to its MaxHP, (M5-N1a) its Augmentations' included, at its owner's levels in
-    /// `research`. Only "inside the Tunnel Network": a unit held elsewhere regenerates nothing.
+    /// its MaxHP a second ([`rules`]), up to its MaxHP (`crate::regeneration`, the rule of the Tunnel expansions' too),
+    /// (M5-N1a) its Augmentations' included, at its owner's levels in `research`. Only "inside the Tunnel Network": a
+    /// unit held elsewhere regenerates nothing.
     pub(crate) fn regenerate(&mut self, research: Research) {
         match self.place {
-            Place::Network => {}
-            Place::Site(_) | Place::Building(_) => return,
-        }
-        let (Some(hp), Some(max)) = (self.object.hp, self.object.max_hp_with(research)) else {
-            return;
-        };
-        if hp < max {
-            let gain = max * (rules().regen_per_second / TICKS_PER_SECOND as f32);
-            self.object.hp = Some((hp + gain).min(max));
+            Place::Network => regeneration::regenerate(&mut self.object, rules().regen_per_second, research),
+            Place::Site(_) | Place::Building(_) => {}
         }
     }
 }

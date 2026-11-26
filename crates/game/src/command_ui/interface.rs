@@ -88,22 +88,24 @@
 //! Eject All`: "a command goes to one building").
 //!
 //! The Syndicate's Agent (`factions/syndicate/units/agent.md > Agent ObjectInterfaceState`, design changes 0257 and
-//! 0359; slices M4-J1 and M5-Y) has Q Move, A Build Tunnel, S Drop Off, D Repair (greyed until slice N8) and X Stop:
+//! 0359; slices M4-J1 and M5-Y) has Q Move, A Build Tunnel, S Drop Off, D Repair (slice M5-N8) and X Stop:
 //! a Laser Turret is the Tunnel's ExpandMenu's alone. A enters AwaitingPlacement of a Tunnel built by the Agent Tabbed
 //! to ([`Builder::Agent`]), greyed while the gate would refuse it (the bank can't pay its price, which its hint shows,
 //! [`PanelSlot::price`], design change 0233); a click sends that Agent its Build and returns to DefaultState, Shift
-//! held or not. S awaits the Tunnel to drop off at, greyed while no Agent carries a load. A site under construction,
+//! held or not. S awaits the Tunnel to drop off at, greyed while no Agent carries a load; D a damaged own Tunnel or
+//! Laser Turret, which the Agents repair (`sc_sim::OrderKind::Repair`). A site under construction,
 //! of any type, shows X Cancel Construction alone ([`SITE_GRID`], design change 0237).
 //!
 //! The Cults' Recruit (`factions/cults/units/recruit.md > Recruit ObjectInterfaceState`, design changes 0322 and 0327;
-//! slice M5-J1) has Q Move, A Basic Construct, W Advanced Construct, S Assist Construction, D Repair (greyed until
-//! slice N8) and X Stop. A and W open the two Construct menus, fixed slots from the sim's table
+//! slice M5-J1) has Q Move, A Basic Construct, W Advanced Construct, S Assist Construction, D Repair (slice M5-N8) and
+//! X Stop. A and W open the two Construct menus, fixed slots from the sim's table
 //! (`sc_sim::defs::CONSTRUCT_MENU`), every building in its slot, greyed with why until it can be built (its
 //! TechPrerequisite, the bank, or not in the game yet); Z goes back. An entry enters AwaitingPlacement of the building
 //! that all the selected Recruits build together ([`Builder::Recruits`]: Groupable, they are one ActiveGroup, and the
 //! group's Build is paid once); a click sends it and returns to DefaultState, a Shift-click queues it and placement
 //! stays while Shift is held, for a chain of buildings. S awaits an own site under construction, which the Recruits
-//! assist (`sc_sim::OrderKind::Assist`).
+//! assist (`sc_sim::OrderKind::Assist`); D a damaged own building or vehicle, which they repair
+//! (`sc_sim::OrderKind::Repair`).
 //!
 //! A greyed-out button, or its hotkey, can still be pressed: nothing is issued, and the player is told why
 //! ([`PanelSlot::why`], design change 0162).

@@ -32,6 +32,11 @@
 //!   `factions/cults/units/recruit.md > Right-Click Resolution`: "In-progress own building → Assist Construction";
 //!   `OrderKind::Assist`), after Enter: an Armory under construction takes no one in (design change 0347 point 4:
 //!   "a building under construction **can't be entered**; a right-click on it Assists").
+//! - **A damaged own building or vehicle** that the unit's type repairs gives Repair (slice M5-N8, `crate::repair`;
+//!   `factions/cults/units/recruit.md > Right-Click Resolution`: "Damaged own building or vehicle (completed) → Repair,
+//!   **unless the building can be entered** by the selection: then **Enter** wins"; `factions/syndicate/units/agent.md
+//!   > Right-Click Resolution`: "Own Tunnel (not carrying resources) → Enter (also when damaged: Enter wins over
+//!   Repair)", "Damaged own Laser Turret → Repair"; `OrderKind::Repair`), after Enter and Assist.
 //! - **An enemy** (another player's object) that the unit can attack gives Attack: it has an attack whose
 //!   TargetDomain allows the object's domain (`systems/combat.md > ValidTarget` 3), and the object is destructible.
 //! - **Everything else** gives a Move to the object (`systems/controls/command_behaviors.md > MovingToObject`), which
@@ -46,7 +51,7 @@
 //! The Peacekeeper, the Guard, the Sabre and the Rifle Legionnaire resolve by the BasicCombatUnit table, the Drone by
 //! its own; both are this one rule (`tests/default_order.rs` has the table of unit kinds against targets). The rules
 //! on an object are data, tried in their order ([`RULES`], [`Rule`]; slice M5-J1), so that a new default order is a
-//! row of the table: slice N8 adds the Recruit's Repair after Enter.
+//! row of the table: slice M5-N8 added the repairers' Repair after Enter and Assist.
 
 use glam::Vec2;
 
@@ -58,6 +63,7 @@ use crate::ids::ObjectId;
 use crate::network;
 use crate::object::Object;
 use crate::orders::{OrderKind, Target};
+use crate::repair::repairs;
 use crate::riot_shield;
 
 /// What a unit can do, as its default command reads it.
@@ -134,6 +140,10 @@ pub struct Aimed {
     /// (`Object::is_built_from_outside`): a Cults building under construction, which the units that assist it take an
     /// Assist on (`construction::site::assists`). `None` for anything else.
     pub site: Option<ObjectKind>,
+    /// (M5-N8) Its kind, if it is an object of the unit's owner's that a repair may restore (`repair::damage`:
+    /// complete, below its MaxHP), which the units whose type repairs that kind take a Repair on (`repair::repairs`).
+    /// `None` for anything else.
+    pub repair: Option<ObjectKind>,
 }
 
 /// What a unit's default command is resolved against.
@@ -171,21 +181,24 @@ pub enum Rule {
     Enter,
     /// An own site that the unit's type builds from outside: Assist.
     Assist,
+    /// (M5-N8) A damaged own building or vehicle that the unit's type repairs: Repair.
+    Repair,
     /// An enemy the unit can attack, its type taking Attack orders: Attack.
     Attack,
 }
 
 /// (M5-J1) The rules of the resolution on an object, in the order they are tried, as data: the first that applies
 /// gives the order, and a Move to the object if none does (module docs). A new default order is a row in its place:
-/// slice N8's Repair, after [`Rule::Enter`] and before [`Rule::Attack`] (`factions/cults/units/recruit.md >
-/// Right-Click Resolution`, design change 0322: "Damaged own building or vehicle (completed) → Repair, **unless the
-/// building can be entered** by the selection: then **Enter** wins").
+/// slice M5-N8's Repair, after [`Rule::Enter`] and [`Rule::Assist`] and before [`Rule::Attack`], in the design's order
+/// (`factions/cults/units/recruit.md > Right-Click Resolution`, design change 0325: "Damaged own building or vehicle
+/// (completed) → Repair, **unless the building can be entered** by the selection: then **Enter** wins").
 pub const RULES: &[Rule] = &[
     Rule::Gather,
     Rule::GatherSupplies,
     Rule::DropOff,
     Rule::Enter,
     Rule::Assist,
+    Rule::Repair,
     Rule::Attack,
 ];
 
@@ -200,6 +213,9 @@ impl Rule {
             Rule::Enter => (network::passes(target.transit, unit.transit) || target.accepts.contains(&unit.kind))
                 .then_some(OrderKind::Enter(id)),
             Rule::Assist => (target.site.is_some_and(|kind| assists(unit.kind, kind))).then_some(OrderKind::Assist(id)),
+            Rule::Repair => {
+                (target.repair.is_some_and(|kind| repairs(unit.kind, kind))).then_some(OrderKind::Repair(id))
+            }
             Rule::Attack => {
                 let can_attack =
                     target.destructible && unit.attack.is_some_and(|domain| domain_allows(domain, target.domain));

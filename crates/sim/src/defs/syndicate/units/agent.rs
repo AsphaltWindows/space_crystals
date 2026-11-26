@@ -1,8 +1,8 @@
 //! The Agent — `factions/syndicate/units/agent.md`.
 
 use crate::defs::units::{
-    AttackAttrs, AttackType, DropOffChoice, FullyConnectedSubtype, LoadDef, MovementAttrs, TargetDomain, TargetType,
-    UnitBase, UnitDef, WorkerDef,
+    AttackAttrs, AttackType, DropOffChoice, FullyConnectedSubtype, LoadDef, MovementAttrs, RepairDef, RepairPayment,
+    RepairTargets, TargetDomain, TargetType, UnitBase, UnitDef, WorkerDef,
 };
 use crate::defs::{Armor, Category, Footprint, ObjectDef, ObjectKind};
 use crate::math::PI;
@@ -98,6 +98,14 @@ pub(crate) static AGENT: ObjectDef = ObjectDef {
             // `> Tunnel Construction Flow`: one Agent builds a site, from inside it ("the partially-built Tunnel
             // appears at the location with the Agent inside it").
             shares_builds: false,
+            // `> Repair` (slice M5-N8): "Agents can **repair** own **Tunnels** and **Laser Turrets**, but **not
+            // expansions** ... **Laser Turrets cost Space Crystals to repair; Tunnels are repaired for free**".
+            repairs: Some(RepairDef {
+                targets: RepairTargets::Kinds(&[
+                    (ObjectKind::Tunnel, RepairPayment::Free),
+                    (ObjectKind::LaserTurret, RepairPayment::Paid),
+                ]),
+            }),
         }),
         augmentable: None,
     }),

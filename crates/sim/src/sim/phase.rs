@@ -203,12 +203,20 @@ impl Sim {
             self.remove_objects(&depleted);
             paths::sync(&mut self.nav, &self.objects, &mut self.nav_version);
         }
+        // (M5-N8) The Tunnel expansions regenerate (`sim/expansions.rs`): before the sites, the upgrades and the decay,
+        // so that one completed or taken back by a Tunnel in the tick regenerates from the next one on, and keeps the
+        // damage it was built with, or that its decay left it, in this one.
+        self.regenerate_expansions();
         // The transformations (slice M3-E, `crate::transform`), part of the economy phase after construction (plan
         // decision T5's position): here, because completing one turns its functions on from the sim's objects.
         self.step_transforms(first_new);
         // The sites (`sim/sites.rs`), beside the transformations and for the same reason: a site completed in the tick
         // is a Tunnel in operation for what follows (its Agent in the network, for the network's step).
         self.step_sites(first_new);
+        // (M5-N8) The repairs (`sim/repairs.rs`), beside the sites, whose builders they are counted as: after 5e, so
+        // that the HP an object lost in the tick is what its repairers restore; a site completed in the tick has no
+        // repairers yet.
+        self.step_repairs();
         // The Tunnels' upgrades (slice M4-G, `sim/upgrades.rs`), beside the sites and for the same reason: a Tunnel
         // upgraded in the tick is at its new tier for what follows (its Tunnel Space, the network's transit).
         self.step_upgrades(first_new);

@@ -46,6 +46,12 @@ const ALLOWED: &[(&str, &str, usize, &str)] = &[
         "a behaviour's unit's, with its increments (`Unit::max_speed`)",
     ),
     (
+        "crates/sim/src/repair.rs",
+        MOVEMENT,
+        1,
+        "whether a kind is a vehicle: its movement model, a glider's or not",
+    ),
+    (
         "crates/sim/src/riot_shield.rs",
         MOVEMENT,
         1,

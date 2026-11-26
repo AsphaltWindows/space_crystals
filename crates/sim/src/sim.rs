@@ -447,6 +447,7 @@ mod preview;
 mod producers;
 mod recruitment;
 mod removal;
+mod repairs;
 mod resources;
 mod sites;
 mod spot_work;

@@ -88,6 +88,11 @@ impl StateHash for OrderKind {
                 h.tag(12);
                 site.hash(h);
             }
+            // (M5-N8) A new tag, hashed only while a unit carries the order.
+            OrderKind::Repair(target) => {
+                h.tag(13);
+                target.hash(h);
+            }
         }
     }
 }

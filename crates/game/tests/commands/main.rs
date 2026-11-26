@@ -39,8 +39,8 @@
 //! All, the rally point, and one panel at a time for two Armories): `armory`, on a Cults field.
 //!
 //! The Recruit's UI (slice M5-J1: its panel and its two Construct menus, the Assist, Enter and gathering pointers, Tab
-//! over Recruits and Militants, the group's placement with its Shift chain, and a Hall refused at the map's edge):
-//! `recruit_ui`, on a Cults field. The Recruitment Area display (slice M5-J2: a Hall's preview among the Halls the
+//! over Recruits and Militants, the group's placement with its Shift chain, and a Hall refused at the map's edge; slice
+//! M5-N8: the Repair pointer, D Repair and the right-click on a damaged building): `recruit_ui`, on a Cults field. The Recruitment Area display (slice M5-J2: a Hall's preview among the Halls the
 //! player knows of, its Effectiveness, and a selected Hall's claims): `recruitment_areas`, with the fog of war on.
 
 mod agent_ui;
@@ -322,6 +322,24 @@ fn pos(app: &App, id: u32) -> Vec2 {
         .object(ObjectId(id))
         .expect("in the game")
         .pos
+}
+
+/// Sets object `id`'s HP to `hp`, as damage would (slice M5-N8: something to repair): the sim is replaced by an
+/// edited state dump of itself, since no command sets HP. Its next tick runs. A replaced sim starts the selection
+/// over: select after this.
+fn set_hp(app: &mut App, id: u32, hp: f32) {
+    let mut state = serde_json::to_value(app.world().resource::<SimRes>().sim()).unwrap();
+    let objects = state["objects"].as_array_mut().unwrap();
+    let object = objects.iter_mut().find(|o| o["id"] == id).expect("in the game");
+    object["hp"] = hp.into();
+    let sim = serde_json::from_value(state).unwrap();
+    app.world_mut().resource_mut::<SimRes>().replace(sim);
+    app.update();
+}
+
+/// Object `id`'s HP now.
+fn hp(app: &App, id: u32) -> Option<f32> {
+    app.world().resource::<SimRes>().object(ObjectId(id))?.hp
 }
 
 /// Spawns a `kind` of `owner` at the point `at` (a debug command) and returns its id, two frames later.

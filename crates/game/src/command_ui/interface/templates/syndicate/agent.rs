@@ -4,13 +4,13 @@
 //! Recruit's panel), **X** Stop. No Attack, Hold Position, Patrol or AttackMove buttons; the Agent attacks by
 //! right-click". A enters the Tunnel's placement (`PanelCommand::Build`) and S awaits its drop-off
 //! (`PanelCommand::DropOff`). D, "Left-click a damaged own Tunnel or Laser Turret to repair it" (`> DefaultState
-//! commands`), comes with slice N8, as the Recruit's does: until then it holds its slot greyed (`Planned::Repair`).
-//! Slice M4-S1's D, the Agent's Build Laser Turret, is gone with design change 0359: a turret is ordered from a Tunnel's
-//! ExpandMenu alone (`super::tunnel`). Its right-click (`> Right-Click Resolution`: Gather, Drop Off, Enter, Attack,
-//! Move; Repair from slice N8) is the sim's one rule, as every unit's
+//! commands`), awaits its target as the Recruit's does (`PanelCommand::Repair`, slice M5-N8): the panel's way to repair
+//! a Tunnel, which a right-click enters. Slice M4-S1's D, the Agent's Build Laser Turret, is gone with design change
+//! 0359: a turret is ordered from a Tunnel's ExpandMenu alone (`super::tunnel`). Its right-click (`> Right-Click
+//! Resolution`: Gather, Drop Off, Enter, Repair, Attack, Move) is the sim's one rule, as every unit's
 //! (`crate::command_ui::resolution::unit_right_click`).
 
-use super::super::{InterfaceTemplate, PanelCommand, PanelTemplate, Planned};
+use super::super::{InterfaceTemplate, PanelCommand, PanelTemplate};
 
 /// The Agent's panel template.
 pub const TEMPLATE: PanelTemplate = PanelTemplate::of(InterfaceTemplate::Agent);
@@ -19,12 +19,11 @@ pub const TEMPLATE: PanelTemplate = PanelTemplate::of(InterfaceTemplate::Agent);
 /// Build Tunnel, S Drop Off and D Repair, the Recruit's slots (`super::super::cults::recruit::GRID`).
 #[rustfmt::skip]
 pub const GRID: [Option<PanelCommand>; 12] = {
-    use PanelCommand::{Build, DropOff, Move, Stop};
+    use PanelCommand::{Build, DropOff, Move, Repair, Stop};
     use sc_sim::ObjectKind::Tunnel;
-    const REPAIR: PanelCommand = PanelCommand::Planned(Planned::Repair);
     [
         Some(Move),          None,          None,         None,
-        Some(Build(Tunnel)), Some(DropOff), Some(REPAIR), None,
+        Some(Build(Tunnel)), Some(DropOff), Some(Repair), None,
         None,                Some(Stop),    None,         None,
     ]
 };
