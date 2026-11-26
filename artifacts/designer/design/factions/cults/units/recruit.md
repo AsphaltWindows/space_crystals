@@ -118,7 +118,7 @@ Recruits can enter an Armory to join its internal StoredRecruits pool (up to Int
 - Own Garrison → Enter Garrison
 - Own Gunworks / Machine Shop → Move (not enterable until their research is designed, 0319)
 - In-progress own building → Assist Construction
-- Damaged own building or vehicle (completed) → Repair, **unless the building can be entered** by the selection: then **Enter** wins (user, 2026-11-26). Repair those with **D: Repair**.
+- Damaged own building or vehicle (completed) → Repair, **unless the building can be entered** by the selection: then **Enter** wins (user, 2026-11-26). Repair those with **D: Repair**. **Except when it is full** (user, 2026-11-27; Q0140): a damaged enterable building that is **full at the moment of the click** resolves to **Repair** (the pointer shows Repair). This applies to every building that holds units.
 - Enemy unit/building → Attack (melee)
 - Ground → Move
 
