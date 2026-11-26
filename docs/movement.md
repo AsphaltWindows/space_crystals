@@ -696,10 +696,11 @@ a sidestep (6.6). A unit reacts to an enemy only on contact, so pathing leaks no
 Collision > Friendly yielding`); the code is `movement/yielding.rs`. **(M4-S2)** A lowered pop-up Laser Turret that
 wants to rise asks its owner's idle units over its footprint for the same sidestep, off the footprint (design change
 0296 point 3, `factions/syndicate/structures/laser_turret.md > Pop-up rules`; `yielding::make_way`); a raised one is
-an obstacle like any structure, from the tick it starts to rise (5.7: the grids follow). A moving unit blocked by an **idle** unit of
-its own owner asks it to make way, and the idle unit takes **one short sidestep**. Collision stays hard: the
-sidestep is a real move, committed through the same predicates as every other (`World::is_free`), in the unit's
-own turn of phase 5d.
+an obstacle like any structure, from the tick it starts to rise (5.7: the grids follow). **(M5-Y)** One outside its
+Tunnel's area, a neutral one among them, never rises, so never asks (design change 0360). A moving unit blocked by an
+**idle** unit of its own owner asks it to make way, and the idle unit takes **one short sidestep**. Collision stays
+hard: the sidestep is a real move, committed through the same predicates as every other (`World::is_free`), in the
+unit's own turn of phase 5d.
 - **Who yields** (`can_yield`): a unit with an owner and **no active command** (no current order, none queued; Hold
   is a command, so units on Hold never yield), without a goal, not in an attack sequence (Aiming, Firing or
   Cooldown; `AttackState::phase`), and able to move in its current mode (`Mover::can_move`: modes that only slow
