@@ -3,7 +3,7 @@
 
 use super::*;
 
-/// Where the Recruits build a Storage, west of where they stand: tiles (6, 14) to (7, 15).
+/// Where the Recruits build a Storage, west of where they stand: tiles (6, 14) to (8, 15).
 const SITE: TilePos = TilePos::new(6, 14);
 
 /// Design change 0329's verification, "Refused: a site under construction, a target at full HP, an enemy's target",

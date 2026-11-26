@@ -95,10 +95,11 @@ fn a_cults_player_starts_with_their_starting_conditions() {
     let scenario = dev_skirmish_as([CULTS, GDO]);
     let sim = Sim::new(&scenario);
     assert_eq!(sim.player(P1).unwrap().banks(), Banks::default());
-    // Slot 1: the Hall on (8, 8) to (11, 11), the Storage on (5, 4) to (6, 5), the Recruits south of the Storage.
+    // Slot 1: the Hall on (8, 8) to (11, 11), the Storage on (5, 4) to (7, 5) (design change 0380: 3x2), the Recruits
+    // south of the Storage.
     let slot_1 = [
         (HALL, point(10.0, 10.0)),
-        (STORAGE, point(6.0, 5.0)),
+        (STORAGE, point(6.5, 5.0)),
         (RECRUIT, point(5.0, 7.0)),
         (RECRUIT, point(6.0, 7.0)),
         (RECRUIT, point(7.0, 7.0)),

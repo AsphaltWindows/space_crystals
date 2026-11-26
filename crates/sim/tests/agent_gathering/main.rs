@@ -9,7 +9,8 @@
 //!   four Agents, with the ceiling of 12.5 Space Crystals per second per Tunnel;
 //! - `line`: the line at the hatch (0255: the first to arrive delivers next, nobody gives up), an Agent blocked from
 //!   the hatch, where an Agent stands, a turned Tunnel;
-//! - `tunnels`: which Tunnel (the nearest by its hatch, kept for the Gather, picked again by a new one, a lost one);
+//! - `tunnels`: which Tunnel (the nearest by its hatch to the Agent itself, design change 0375, chosen again at every
+//!   return, design change 0384, with its Verification; a lost one);
 //! - `rules`: the Drone's job rules on the Agent, patch sharing, the Drop Off order, the gate and the default order;
 //! - `soak`: six Agents on two stacked Tunnels for ten minutes (ignored).
 //! - `jam`: the jam at the hatch of four or more Agents that come along the wall (slices M4-W and M4-W2), ended by

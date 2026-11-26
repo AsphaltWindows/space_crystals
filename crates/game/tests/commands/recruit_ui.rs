@@ -34,7 +34,7 @@ const ARMORY: u32 = 2;
 const RECRUITS: [u32; 4] = [3, 4, 5, 6];
 const MILITANTS: [u32; 2] = [7, 8];
 const PATCH: u32 = 9;
-/// The Storage's tiles (14, 9) to (15, 10), the Armory's (30, 9) to (32, 10), the patch's (24, 17).
+/// The Storage's tiles (14, 9) to (16, 10), the Armory's (30, 9) to (32, 10), the patch's (24, 17).
 const STORAGE_AT: TilePos = TilePos::new(14, 9);
 const ARMORY_AT: TilePos = TilePos::new(30, 9);
 const PATCH_AT: TilePos = TilePos::new(24, 17);

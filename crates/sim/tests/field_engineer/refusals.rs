@@ -17,7 +17,7 @@ const ENGINEERS: [u32; 2] = [5, 6];
 const RECRUIT: u32 = 7;
 /// Player 2's Barracks, on tiles (18, 9) to (20, 10): in the Field Engineers' sight.
 const ENEMY_BARRACKS: u32 = 8;
-/// Where the Recruit builds the Storage: tiles (14, 14) to (15, 15).
+/// Where the Recruit builds the Storage: tiles (14, 14) to (16, 15).
 const SITE: TilePos = TilePos::new(14, 14);
 
 /// The centre of tile `(x, y)`.

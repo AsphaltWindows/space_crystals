@@ -23,8 +23,9 @@ fn hall_in(sim: &Sim, mode: Mode<'_>, x: i32, y: i32) -> Vec<WholeProblem> {
 /// Hall whose area would leave the map can't be placed (as Tunnels, 0242)". The area reaches 3 tiles past the Hall's 4
 /// × 4 on every side (`recruitment::area`). With 2 tiles between the footprint and an edge, a row or a column of the
 /// area lies off the map, and the Hall is refused as a whole, its own tiles being fine; with 3 tiles, the area just
-/// reaches the edge and the Hall is valid (0341's Verification, "Placing a Hall 3 tiles from the edge is refused",
-/// reads as the first: the footprint on the third tile from the edge; Tunnels count their gap so, design change 0283).
+/// reaches the edge and the Hall is valid (design change 0371: "0341's Verification example is off by one. A Hall 3
+/// tiles from the edge is accepted; one 2 tiles from the edge is refused"; Tunnels count their gap so, design change
+/// 0283).
 /// Only a kind that recruits has the rule.
 #[test]
 fn a_halls_area_must_be_on_the_map() {

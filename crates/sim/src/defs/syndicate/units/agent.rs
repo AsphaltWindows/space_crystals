@@ -1,8 +1,8 @@
 //! The Agent — `factions/syndicate/units/agent.md`.
 
 use crate::defs::units::{
-    AttackAttrs, AttackType, DropOffChoice, FullyConnectedSubtype, LoadDef, MovementAttrs, RepairDef, RepairPayment,
-    RepairTargets, TargetDomain, TargetType, UnitBase, UnitDef, WorkerDef,
+    AttackAttrs, AttackType, DropOffChoice, FullyConnectedSubtype, LoadDef, MovementAttrs, Nearest, RepairDef,
+    RepairPayment, RepairTargets, TargetDomain, TargetType, UnitBase, UnitDef, WorkerDef,
 };
 use crate::defs::{Armor, Category, Footprint, ObjectDef, ObjectKind};
 use crate::math::PI;
@@ -83,8 +83,9 @@ pub(crate) static AGENT: ObjectDef = ObjectDef {
                 drop_off_reach: 8.0, // DropOffReach: 8 space units from the Supplies hatch on Side D (placeholder)
             }),
             shares_patches: true, // Patch sharing: any number of Agents may mine the same patch
-            // `> Gathering rules`: the nearest Tunnel, picked again by each Gather
-            drop_off: DropOffChoice::FirstReturn,
+            // `> Gathering rules`, Which Tunnel (design changes 0375 and 0384): the own operational Tunnel whose
+            // crystal hatch is nearest to the Agent itself (straight line) when it finishes mining, at every return.
+            drop_off: DropOffChoice::EachReturn(Nearest::StraightLine),
             // `> Gathering rules > Search radius` (design change 0295): "within 6 grid units of itself, the Drone's
             // value (placeholder)".
             search_radius: 6.0,

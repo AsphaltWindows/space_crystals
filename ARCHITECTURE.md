@@ -293,9 +293,10 @@ Units, structures and resources are all `Object`s (`object.rs`, `core/entities.m
   close", design change 0204 point 3; M5-O3 took the back-off on to the middle of the band, question Q0054, and gave
   an Attack Ground's location the same rule), and the first TailDisjointed attack (slice M5-O3, *Combat > TailDisjointed
   attacks*), which can miss; the Armory trains it for a player who owns a Gunworks (slice M5-G2, `Recipe::requires`,
-  *Tech prerequisites*). The Storage is 1/4 on its 2x2 since slice M5-G2 (Q0094 a), so the building armour test has
-  no exception left. The Cults start a game since slice M5-B (plan decision T63;
-  `tests/cults_start.rs`, *Sim scenarios and tests*): no faction is "not implemented" any more.
+  *Tech prerequisites*). The Storage was 1/4 on its 2x2 from slice M5-G2 (Q0094 a), and is 1/6 on its 3x2 since
+  design change 0380 (slice M5-S2a), so the building armour test has no exception left. The Cults start a game since
+  slice M5-B (plan decision T63; `tests/cults_start.rs`, *Sim scenarios and tests*): no faction is "not implemented"
+  any more.
 - **Units off the map: the held store** (`network.rs`, `sim/network.rs`; slice M4-C, plan decision T30;
   `factions/syndicate/tunnels.md > Tunnel Network`): a unit inside a Tunnel Network is **not among the objects**. It
   is a `Held { object, place, since, entered }` in `Sim::held`, a second map by id beside `Sim::objects`, with the
@@ -1611,19 +1612,26 @@ writes the mover's goal and the target the attack engages, and reads `Mover::sta
   between the Drone and the Agent is data: the worker's `WorkerDef` and the drop-off's `StructureDef::drop_off`.
   - **Agents** (M4-D): `WorkerDef::shares_patches` takes a type out of the occupancy below altogether (it neither
     occupies, waits for nor claims a patch, and isn't in `World::patch_mined` or `waited_at`, so a Drone and an Agent
-    mine one patch together); with `WorkerDef::drop_off` (`DropOffChoice`) `FirstReturn` and not `Assigned` (the
-    Drone's) a Gather begins with no AssignedDropOff and takes the nearest
-    drop-off as its first return starts, keeping it for that Gather (there is no Set Drop-off for the type: the gate's
-    `Sim::sets_drop_off`). "Nearest" is by the centre of the crystal point, whatever the load
-    (`economy::drop_off::nearest`, the one rule of the return leg and of the removal path): a Tunnel's crystal hatch
-    (design change 0292 point 2: "the same measure as for crystals"), an Egress Node's own centre.
+    mine one patch together); with `WorkerDef::drop_off` (`DropOffChoice`) `EachReturn(Nearest::StraightLine)` and
+    not `Assigned` (the Drone's) a Gather begins with no AssignedDropOff and each return takes the nearest drop-off as
+    it starts (design change 0384: "It is chosen **at every return**, like the Recruit's Storage", replacing 0255's
+    choice kept for the Gather; there is no Set Drop-off for the type: the gate's `Sim::sets_drop_off`). "Nearest" is
+    from the worker's own centre where it finished mining (design change 0375, answering Q0136: "nearest to the Agent
+    itself (straight line) when it finishes mining", the earlier id among equals), to the centre of the crystal point,
+    whatever the load (`economy::drop_off::nearest`, the one rule of the
+    Drone's and the Agent's return leg and of the removal path): a Tunnel's crystal hatch (design change 0292 point 2:
+    "the same measure as for crystals"), an Egress Node's own centre.
   - **Recruits** (M5-D, plan decision T58; `factions/cults/units/recruit.md > Gathering`,
     `factions/cults/structures/storage.md`): data again. `shares_patches`, no `pass_through` (design change 0106:
     Recruits collide while they gather), the Storage's `DropOff::Anywhere`, and
-    `DropOffChoice::EachReturn` (design change 0345, answering Q0102): as each return starts (`state::Gather::node` is
-    `None`) the Recruit takes the own completed Storage nearest to its patch, **edge to edge**
-    (`deliver::nearest_to_patch`), and with none it idles holding its load. One lost on the way is replaced by
-    the removal path as any worker's is. Within what the design says a face holds (4 to 5 Recruits a 2-tile face)
+    `DropOffChoice::EachReturn` (design changes 0345 and 0375, answering Q0102 and Q0136): as each return starts
+    (`state::Gather::node` is `None`) the Recruit takes the own completed Storage nearest to itself, **edge to edge**,
+    where it finished mining (`deliver::nearest_to_worker`; 0375 replaces 0345's "edge to edge from its patch"), the
+    earlier id among equals, and with none it idles holding its load. One lost on the way is replaced by the removal
+    path as any worker's is. Where two Storages stand side by side under a row of patches, a Recruit whose Silhouette
+    reaches over both is as near to both and takes the earlier, whichever face its patch is on (the literal reading,
+    reported by slice M5-S2a; `docs/economy_oracle.md > The Cults` measures the adjacent patches).
+    Within what the design says a face holds (4 to 5 Recruits a 2-tile face)
     nothing jams; with more Recruits than lanes they stand head-on and starve one another, which the design accepts
     (design change 0320, answering Q0110: no give-way rule, more Storages are the player's answer;
     `tests/recruit_gathering/jam.rs`, ignored).
@@ -1944,7 +1952,9 @@ and the code is `crates/sim/src/movement.rs` and `movement/`, with the unit's st
   `is_free_for` and `along_axis`: the building's own tiles don't block it, but for ground under them that the unit
   can't stand on (slice M5-Z1, `Frame::blocks`, `NavGrid::is_terrain_solid`: the building lets the unit overlap the
   building, not that ground, so that the unit never stands there once the building is gone; a debug spawn or a map's
-  object may cover any terrain, and a custom preset may be Buildable and not Traversible), every other blocked tile
+  object may cover any terrain, and a custom preset may be Buildable and not Traversible; design change 0374,
+  answering Q0134, `core/entities.md > Structure Type > Exit Doorway` point 6: "never released onto ground under it
+  that it couldn't stand on ... Such a building **holds its finished unit** indefinitely"), every other blocked tile
   does (`ExitDoor::box_clear`), and it may only come out (`ExitDoor::allows`: out of a side doorway, never deeper in,
   and inside only within the exit side's span, so it leaves through that side and no other; out of an energy
   doorway, never closer to the footprint's centre). A door whose every spot lies over such ground has none
@@ -2214,7 +2224,8 @@ section of its own.
   **Worker types and drop-offs are data** (slice M4-D, plan decision T34): a `WorkerDef` has a `LoadDef` per
   resource (`crystals`, and `supplies`, the Agent's since slice M4-I: 1 a trip, 48 frames to pick up and 48 to unload,
   reaches of 8 su, `WorkerDef::load(Resource)`), `shares_patches`, `drop_off` (`DropOffChoice`: `Assigned`, the
-  Drone; `FirstReturn`, the Agent; `EachReturn`, the Recruit, slice M5-D), `search_radius`
+  Drone; `EachReturn(Nearest)`, chosen as each return starts, `StraightLine` for the Agent, design change 0384, and
+  `EdgeToEdge` for the Recruit, slice M5-D and design change 0375), `search_radius`
   and `pass_through`; `StructureDef::drop_off` is `None`, `DropOff::Anywhere` (the Egress Node, the Storage) or
   `DropOff::Hatches { crystals, supplies }` (the Tunnel: Sides B and D, design change 0248; `DropOff::hatch`).
   `Worker::resource` (`defs::Resource`, Crystals by default) is what the load is, kept in saves and hashed only while
@@ -2351,8 +2362,10 @@ section of its own.
     (`Sim::arrive_together`, in the arrivals' step), on the truth check (`Sim::arrival_check_without`), checked twice
     (slice M5-J1, design change 0362): with nobody left out it starts; else with the ticket's holders left out, any
     other unit on it, of any player, or its ground fails the whole ticket, refunded once, and nothing retries (0339);
-    else only its own Recruits stand on it, current or queued holders, and it waits, checked again each tick, as they
-    walk off to their spots (a walk ended on the footprint looks again, `Sim::step_spots`, so none stands still there).
+    else only its own Recruits stand on it, current or queued holders (design change 0372, answering Q0131: "A Recruit
+    holding this Build queued ... counts as one of the order's own Recruits"), and it waits, checked again each tick,
+    as they walk off to their spots (a walk ended on the footprint looks again, `Sim::step_spots`, so none stands
+    still there).
     It starts at 10% HP; every holder's Build becomes `OrderKind::Assist(site)`, queued ones too. It gains a frame a
     tick for each unit on an Assist of it within reach with its walk over (`spot_work::counts`; 0339's Recruit-frames:
     those walking or waiting add nothing), so n Recruits build n times as fast and none stall it, its progress and HP
@@ -3119,13 +3132,16 @@ their energy doorway, slice M3-D2: design change 0145, `factions/colonists/struc
   the Syndicate economy check's reference layouts (design changes 0259 and 0294), and `syndicate::skirmish` plays
   `dev_skirmish` with a Syndicate line, alone or against the GDO's (the Syndicate's golden games).
   `testing::cults` (slice M5-L) plays a Cults player the same way: a `Cults` line deals each idle Recruit to a seat
-  (a patch, in groups, at most a face's 4 to 5, design change 0320) once the player has a completed Storage, orders
-  its buildings in turn, each as one group Build from its crew (the Recruits on patches with no own Storage a tile
-  away, or the `n` nearest the site) with each builder's Gather queued back after it, sends idle Recruits into its
-  first Armory and trains Militants of them (`ProductionCommand::TrainFrom`), and records what it pays by tick for
-  `Books`. `reference_field(faces)`, `crowd_field(recruits)` and `face_field(gap, recruits)` are the Cults economy
-  check's layouts (design change 0346), and `cults::skirmish` plays `dev_skirmish` with a Cults line, alone or against
-  a Syndicate one (the Cults' golden games).
+  (a patch, in groups, near what the design says a face holds: 4 to 5 a 2-tile face, design change 0320, and since
+  0380 about 2 Recruits a tile of face length) once the player has a completed Storage, and keeps the seat it dealt
+  until the Recruit is idle again (slice M5-S2a), orders its buildings in turn, each as one group Build from its crew
+  (the Recruits on patches with no own Storage a tile away, or the `n` nearest the site) with each builder's Gather
+  queued back after it, sends idle Recruits into its first Armory and trains Militants of them
+  (`ProductionCommand::TrainFrom`), and records what it pays by tick for `Books`. `reference_field(faces)`,
+  `crowd_field(recruits)` and `face_field(side, gap, recruits)` are the Cults economy check's layouts (design change
+  0346; for the 3x2 Storage since slice M5-S2a: three faces of 3, 3 and 2 patches), `adjacent_field` the one its free
+  columns are measured against, and `cults::skirmish` plays `dev_skirmish` with a Cults line, alone or against a
+  Syndicate one (the Cults' golden games).
 - **Movement scenario tests** are `crates/sim/tests/movement_collision/` (passing, head-on, choke, group arrival,
   idle units, repaths, oscillation bounds, save and load in a crowd; in modules by topic: `passing`, `crowds`,
   `paths`), `group_destinations.rs` (the magic box; a
@@ -3222,13 +3238,15 @@ their energy doorway, slice M3-D2: design change 0145, `factions/colonists/struc
   row (rows 0 to 2 are theoretical: the ignored `syndicate_table` measures them for the record); the ceiling, no two
   deliveries at a Tunnel less than 64 ticks apart, in every game; two stacked Tunnels at 3 GU doubling the field's
   intake; the opening at 3 GU from the Starting Conditions, its third Agent out within 0:34–0:46, both books
-  balanced every tick; and the lowest one-base saturation. **The Cults** (slice M5-L, `cults.rs`): the economy check
-  of `factions/cults/economy.md > Economy check` (design change 0346) on `testing::cults`'s layouts, played by a
-  `Cults` line through the gate with the books balanced every tick. Scenario 1, ideal mining (one Storage per face):
-  every target within ±15%, those out of it pinned (`OUT_OF_TOLERANCE`: the fifth Recruit of a face, the gain per face
-  of a Storage a tile closer and its payback, and "slightly ahead by 2:48"). Scenario 2, the user's realistic opening
-  (a second Hall before any other Storage, built by the Recruits on far patches, then a Storage per face): measured
-  against the GDO and the Colonists at 1:30 and 2:48 and reported, with no target.
+  balanced every tick; and the lowest one-base saturation. **The Cults** (slices M5-L and M5-S2a, `cults.rs`): the
+  economy check of `factions/cults/economy.md > Economy check` (design change 0346) on `testing::cults`'s layouts,
+  played by a `Cults` line through the gate with the books balanced every tick. Scenario 1, ideal mining (one Storage
+  per face): every target within ±15%, those out of it pinned (`OUT_OF_TOLERANCE`: "slightly ahead by 2:48" of the
+  GDO and of the Colonists). Scenario 2, the user's realistic opening (a second Hall before any other Storage, built by
+  the Recruits on far patches, then a Storage per face). The comparison (design changes 0381 to 0383): both scenarios,
+  the GDO's reference line and the Colonists' to 6:00, each one's income over the 160 frames before, total mined, bank
+  and spent at 1:30, 2:48, 4:00, 5:00 and 6:00, bank + spent = starting bank + total mined at each, every figure
+  pinned (`COMPARED`), and whether the realistic opening has overtaken ideal mining by 4:00 (`OVERTAKEN`).
 - **Game start tests** are `crates/sim/tests/game_start/` (slice M2-F1: each player's Starting Layout and banks,
   the Skirmish Default restriction and completeness, the layout rules of design change 0097, a layout plate off its
   patch refused by the game's rule, a pre-placed one by the same rule, two players' layouts in each other's way, the
@@ -3384,9 +3402,10 @@ their energy doorway, slice M3-D2: design change 0145, `factions/colonists/struc
   80 frames paid once, five from one side spread along the wall (0339), two at twice the rate, one alone, a Shift
   chain, builders pulled off and back by Assist, the right-click; `refunds.rs`: two of three re-ordered and then the
   third (0340), killed, after the start, a queued building its last holder drops (0340), X, the queued building after
-  X; `footprint.rs` (slice M5-J1, design change 0362): nine Recruits under a Hall walk off and it starts, a site
-  waiting for one walking off its middle, an enemy and an own Recruit not on the order each failing it, refunded once,
-  a Recruit holding it queued holding it back until it walks off; `gate.rs`: the Armory's Storage, Shift-clicks each
+  X; `footprint.rs` (slice M5-J1, design changes 0362 and 0372): nine Recruits under a Hall walk off and it starts, a
+  site waiting for one walking off its middle, an enemy and an own Recruit not on the order each failing it, refunded
+  once, a Recruit holding it queued holding it back until it walks off, and 0372's Verification, a Hall Shift-placed
+  over a builder's spot at a Storage; `gate.rs`: the Armory's Storage, Shift-clicks each
   paid, Assist's refusals; `crowds.rs`: twenty-four on a Storage; `hall.rs`: a built Hall's lineage, gatherers taken
   off and back), each tick checking a frame per builder at work. `sim/spot_work/tests.rs` (test defs): the wall full
   and those waiting further out moving in, oblong ABAC footprints, 2 × 3 and 2 × 4, at four rotations, and a walk
@@ -4404,7 +4423,9 @@ Drones, through one command flow (plan decision T10, slices M2-H1, M2-H2 and M3-
     ghosts the placing Recruits alone hold (`command_ui::interface::recipients`) don't count, as in
     `Sim::group_build_check`;
   - **a selected own Hall's claims** (`selected_claims`): the tiles it claims in the game (`Sim::claimed_tiles`, what
-    its InfoPanel's Effectiveness counts), in a selected Tunnel's violet; a site claims none;
+    its InfoPanel's Effectiveness counts), in a selected Tunnel's violet; a site claims none. Its **true** claims, even
+    where an unseen enemy Hall has taken tiles (design change 0373, answering Q0133: "Unlike the placement preview, it
+    may reveal where an unseen enemy Hall took tiles");
   - its colours and z are its own constants in one place (`RECRUITMENT_AREA_Z`, just in front of the Tunnel Area
     overlay), its look the Tunnel display's.
 - The design leaves some things open (labels, colours, the flash, the cursor's shapes and the Mixed look, the
@@ -4584,11 +4605,11 @@ unchecked.
   every step, and player 1's Supplies too (`testing::syndicate::SupplyBooks`). The Cults' games play `dev_skirmish`
   with player 1 as the Cults, by `testing::cults::skirmish`: in `cults_opening` (to 2:45) its Recruits are dealt to
   the field, and the line builds a second Storage, a second Hall east of the hill (100% Effectiveness) and an Armory,
-  and trains four Militants; in `cults_vs_syndicate` (to 2:58.31, where it ends) it builds the Armory first, then a
+  and trains four Militants; in `cults_vs_syndicate` (to 2:55, where it ends) it builds the Armory first, then a
   Gunworks, and trains eight Militants and three Gunners (slice M5-N1a's first step) of the Recruits it has no seat
   for, which attack-move in a wave to player 2's Tunnel, while player 2 plays the Syndicate: two Agents, an Optics Lab,
-  a Laser Turret from the Tunnel's ExpandMenu (slice M5-Y) and four Guards at its patch. The turret kills four
-  Militants before it is destroyed, and then the Tunnel falls, which defeats player 2. Both players' books balance
+  a Laser Turret from the Tunnel's ExpandMenu (slice M5-Y) and four Guards at its patch. Three Militants die
+  before the turret is destroyed, and then the Tunnel falls, which defeats player 2. Both players' books balance
   every step, player 2's Supplies too. In `cults_garrison` (to 0:40, on a test map) three Militants and a Gunner go
   into a Garrison through its door, and four Agents and two Grenadiers attack-move onto it: the four fire from the
   footprint, farther than either, and kill an Agent; the Grenadiers' blasts land on it and hurt no one inside

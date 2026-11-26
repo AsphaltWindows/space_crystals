@@ -39,7 +39,7 @@ const WALK: u32 = 400;
 const LONGEST: u32 = 2000;
 
 // The objects of [`cults`], by id.
-/// Player 1's Storage on tiles (2, 2) to (3, 3), and their Armory on (10, 10) to (12, 11): x 640..832, y 640..768.
+/// Player 1's Storage on tiles (2, 2) to (4, 3), and their Armory on (10, 10) to (12, 11): x 640..832, y 640..768.
 const STORAGE: u32 = 1;
 const ARMORY: u32 = 2;
 /// Player 1's four Recruits, south of the Armory, a fifth far off to the south-west, and a Militant.

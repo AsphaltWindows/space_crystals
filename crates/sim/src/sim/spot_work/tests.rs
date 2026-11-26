@@ -156,17 +156,18 @@ fn run_to(t: &mut TestSim, limit: Tick, what: &str, done: impl Fn(&TestSim) -> b
     panic!("{what}: not within {limit} ticks");
 }
 
-/// The builders' wall round a Storage holds twenty Recruits, a room of 32 su each along its 640 su.
-const ROOM_ROUND: usize = 20;
+/// The builders' wall round a Storage holds twenty-four Recruits, a room of 32 su each along its 768 su round its
+/// 3x2 (design change 0380).
+const ROOM_ROUND: usize = 24;
 
-/// Twenty-four Recruits on a Storage that lasts: twenty build, each on its own spot of the builders' wall, and four
-/// wait out of reach further out (the row next to the builders left free), their Assist kept. Two builders gone, two
-/// of those waiting move in, within the re-check (`RESPOT_TICKS`) and a walk.
+/// Twenty-eight Recruits on a Storage that lasts: twenty-four build, each on its own spot of the builders' wall, and
+/// four wait out of reach further out (the row next to the builders left free), their Assist kept. Two builders gone,
+/// two of those waiting move in, within the re-check (`RESPOT_TICKS`) and a walk.
 #[test]
 fn those_who_wait_further_out_move_in_as_room_frees() {
     let _slow = slow_storage();
-    let mut t = recruits(24);
-    build(&mut t, 24, Rotation::R0);
+    let mut t = recruits(28);
+    build(&mut t, 28, Rotation::R0);
     run_to(&mut t, 400, "the site starts", |t| site(t).is_some());
     let full = |t: &TestSim| builders(t, site(t).unwrap()).len() == ROOM_ROUND;
     run_to(&mut t, 900, "the wall is full", full);
@@ -175,7 +176,7 @@ fn those_who_wait_further_out_move_in_as_room_frees() {
     let s = site(&t).unwrap().clone();
     let builders_now = builders(&t, &s);
     assert_eq!(builders_now.len(), ROOM_ROUND);
-    let waiting: Vec<ObjectId> = (1..=24).map(ObjectId).filter(|id| !builders_now.contains(id)).collect();
+    let waiting: Vec<ObjectId> = (1..=28).map(ObjectId).filter(|id| !builders_now.contains(id)).collect();
     let footprint = Shape::footprint(&s.placement.unwrap());
     for &id in &waiting {
         let o = t.sim().object(id).unwrap();

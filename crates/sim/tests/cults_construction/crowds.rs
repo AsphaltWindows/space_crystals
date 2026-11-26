@@ -6,10 +6,11 @@
 
 use super::*;
 
-/// The builders' wall round a Storage's 2 × 2 footprint, for a Recruit: 4 × (64 + 12 + 4) × 2 = 640 su long, a room of
-/// 32 su for each builder, corners included (`sim/spot_work.rs`).
-const ROOM_ROUND: usize = 20;
-/// The west side of that wall, corners included: 160 su, six rooms.
+/// The builders' wall round a Storage's 3 × 2 footprint (design change 0380), for a Recruit: each side's length and
+/// (12 + 4) × 2 more, 2 × 224 + 2 × 160 = 768 su long, a room of 32 su for each builder, corners included
+/// (`sim/spot_work.rs`).
+const ROOM_ROUND: usize = 24;
+/// The west side of that wall, a short side, corners included: 160 su, six rooms.
 const WEST_SIDE: usize = 6;
 
 /// Twenty-four Recruits build a Storage, coming from one side: never more than the wall holds at work at a time, and

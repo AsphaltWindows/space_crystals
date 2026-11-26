@@ -1,8 +1,8 @@
 //! Crowds under normal collision, within what the design says a layout holds (`factions/cults/structures/storage.md`:
 //! "The best layout leaves a 1-tile gap between patch and Storage; each 2-tile face supports roughly 4–5 Recruits at
-//! full efficiency"; "an efficient crystal field take[s] more Storages (3–4 for an 8-patch field)"). Each runs for 5
-//! minutes with the jam check (plan §3.3 D): no Recruit goes 10 seconds without a delivery. More Recruits than that
-//! on a face: `jam`.
+//! full efficiency"; "an efficient crystal field take[s] more Storages (3–4 for an 8-patch field)"), and the lanes
+//! of a 3x2 Storage's long side (design change 0380). Each runs for 5 minutes with the jam check (plan §3.3 D): no
+//! Recruit goes 10 seconds without a delivery. More Recruits than that on a face: `jam`.
 
 use super::*;
 
@@ -64,6 +64,39 @@ fn four_and_five_recruits_on_one_two_tile_face_work_without_a_jam() {
         (0.73..=0.99).contains(&closer),
         "{closer} per Recruit, the design's ~0.86"
     );
+}
+
+/// Design change 0380's Verification: "Recruits mining a patch facing a long side use three lanes' worth of room".
+/// Read as a face's lanes, a lane a tile of its length with room for two Recruits side by side, one going in and one
+/// out (`factions/cults/units/recruit.md > Gathering`: "A 64 su gap fits two Recruits side by side (one lane in, one
+/// lane out)"; Q0135: "A face has two lanes"), which is the Economy check's "full efficiency at about 2 Recruits per
+/// tile of face length (~6 on a 3-tile face, ~4 on a 2-tile face)" (`factions/cults/economy.md`): six Recruits on the
+/// three patches a tile from a Storage's long side work at the rate of six alone, 7.94 Space Crystals per second of
+/// 8.00, as four do on the two patches facing a short side, 5.29 of 5.33, and none goes 10 seconds without a load (a
+/// seventh on the long side brings 87% of seven alone, a fifth on the short side 82%). Read for one patch, the more
+/// literal reading: the patch facing the long side's middle tile, with the side reaching a tile past it either way,
+/// gives three Recruits three lanes, one partly beside the patch, in front of a patch face that holds two side by
+/// side: they bring 94% of three alone, 3.77. On the patch at the end of a short side, where the Storage stops at the
+/// patch's edge on the side they come from, the three share the patch's width and bring 87%, 3.48.
+#[test]
+fn recruits_mining_a_patch_facing_a_long_side_use_three_lanes() {
+    let full = |count: u32| count as f32 * ALONE[0];
+    let (t, recruits) = long_face_at_work(6, 1, 3, 0);
+    let long = five_minutes(t, &recruits, "6 Recruits on a long side", JAM);
+    let (t, recruits) = face_at_work(4, 1, 2, 0);
+    let short = five_minutes(t, &recruits, "4 Recruits on a short side", JAM);
+    println!(
+        "a long side, 6 Recruits: {long:.2} of {:.2}; a short side, 4: {short:.2} of {:.2}",
+        full(6),
+        full(4)
+    );
+    assert!(long >= 0.97 * full(6) && short >= 0.97 * full(4), "{long}, {short}");
+    let (t, recruits) = long_face_at_work(3, 1, 1, 1);
+    let middle = five_minutes(t, &recruits, "3 Recruits on a long side's middle patch", JAM);
+    let (t, recruits) = face_at_work(3, 1, 1, 0);
+    let end = five_minutes(t, &recruits, "3 Recruits on a short side's end patch", JAM);
+    println!("one patch, 3 Recruits: {middle:.2} facing a long side's middle, {end:.2} a short side's end");
+    assert!(middle >= 0.92 * full(3) && middle > end, "{middle}, {end}");
 }
 
 /// Plan §3.3 D: "10 Recruits on an 8-patch field with three Storages", and "A 5-minute soak has no jam". The Storages

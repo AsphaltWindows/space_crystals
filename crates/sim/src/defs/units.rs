@@ -252,15 +252,25 @@ pub enum DropOffChoice {
     /// `factions/colonists/units/drone.md > Assigned Drop-off`: the type has an AssignedDropOff that lasts from
     /// Gather to Gather, and a Set Drop-off Location command. The Drone.
     Assigned,
-    /// `factions/syndicate/units/agent.md > Gathering rules`: "there is no Set Drop-off command"; the nearest to the
-    /// worker, "chosen when the Gather's first return starts and kept for that Gather (a new Gather picks again)".
-    /// The Agent.
-    FirstReturn,
-    /// The nearest own completed drop-off, edge to edge from the patch, chosen anew as each return starts; no Set
-    /// Drop-off command. The Recruit (design change 0345, answering Q0102; `factions/cults/units/recruit.md >
-    /// Gathering`: "at **every return** the Recruit takes its load to the **nearest own completed Storage, edge to edge
-    /// from its patch**").
-    EachReturn,
+    /// The own drop-off that takes loads nearest to the worker where it finished mining, chosen anew as each return
+    /// starts, the earlier id among equals; no Set Drop-off command. [`Nearest`] is how "nearest" is measured.
+    /// - The Recruit, edge to edge (design changes 0345 and 0375, answering Q0102 and Q0136;
+    ///   `factions/cults/units/recruit.md > Gathering`: "at **every return** the Recruit takes its load to the own
+    ///   completed Storage **nearest to the Recruit itself** (edge to edge) **when it finishes mining**").
+    /// - The Agent, in a straight line (design changes 0375 and 0384; `factions/syndicate/units/agent.md > Gathering
+    ///   rules`, Which Tunnel: "the own operational Tunnel whose crystal hatch is **nearest to the Agent itself**
+    ///   (straight line) **when it finishes mining**", "chosen **at every return**, like the Recruit's Storage").
+    EachReturn(Nearest),
+}
+
+/// How a worker that chooses its drop-off at every return measures "nearest" ([`DropOffChoice::EachReturn`]).
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub enum Nearest {
+    /// From the worker's Silhouette to where the drop-off takes Space Crystals, edge to edge: the Recruit's Storage.
+    EdgeToEdge,
+    /// From the worker's centre to the centre of the drop-off's crystal point, its crystal hatch, in a straight line,
+    /// whatever the load (design change 0292 point 2): the Agent's Tunnel (`economy::drop_off::nearest`).
+    StraightLine,
 }
 
 /// `factions/colonists/units/drone.md > Gathering`, `factions/syndicate/units/agent.md > Gathering`: what makes a

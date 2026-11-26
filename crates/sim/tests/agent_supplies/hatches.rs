@@ -69,7 +69,8 @@ fn a_crystal_delivery_at_b_and_a_supply_delivery_at_d_in_the_same_ticks() {
 /// Side D". The two measures pick different Tunnels here: the west Tunnel (1) stands 1 grid unit from the station (2),
 /// its crystal hatch facing it and its Supplies hatch on its far side; the east one (3) stands 4 grid units off, its
 /// Supplies hatch facing the station. The Agent takes the west one, nearer by its crystal hatch though the east one's
-/// Supplies hatch is nearer, keeps it for the Gather, and walks round it to unload at its Supplies hatch.
+/// Supplies hatch is nearer, as its return starts (at every return, design change 0384), and walks round it to unload
+/// at its Supplies hatch.
 #[test]
 fn the_nearest_tunnel_for_supplies_is_the_one_with_the_nearest_crystal_hatch() {
     let (west, east) = (1, 3);
@@ -89,7 +90,7 @@ fn the_nearest_tunnel_for_supplies_is_the_one_with_the_nearest_crystal_hatch() {
     assert!(distance(west, Resource::Crystals) < distance(east, Resource::Crystals));
     assert!(distance(east, Resource::Supplies) < distance(west, Resource::Supplies));
     step(&mut t, &[4], &[STATION]);
-    assert_eq!(node(&t, 4), Some(west), "chosen as its first return starts");
+    assert_eq!(node(&t, 4), Some(west), "chosen as its return starts");
     let square = hatch(&t, west, Resource::Supplies);
     let delivered = run_to(&mut t, &[4], &[STATION], 600, "the delivery", |t| {
         if is_unloading(t, 4) {
@@ -101,7 +102,7 @@ fn the_nearest_tunnel_for_supplies_is_the_one_with_the_nearest_crystal_hatch() {
     assert_eq!(
         object(&t, 4).worker.unwrap().drop_off,
         Some(id(west)),
-        "kept for the Gather"
+        "its choice until the next return starts"
     );
 }
 

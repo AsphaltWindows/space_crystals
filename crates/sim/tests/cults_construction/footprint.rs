@@ -12,8 +12,8 @@ use super::*;
 /// `factions/cults/units/recruit.md > Constructs`: "RecruitmentHall: 300 Space Crystals".
 const HALL_PRICE: u32 = 300;
 
-/// A Storage's footprint west of [`SITE`], touching it: tiles (18, 14) to (19, 15), x 1152..1280 and y 896..1024.
-const SITE_WEST: TilePos = TilePos::new(18, 14);
+/// A Storage's footprint west of [`SITE`], touching it: tiles (17, 14) to (19, 15), x 1088..1280 and y 896..1024.
+const SITE_WEST: TilePos = TilePos::new(17, 14);
 
 /// Whether unit `n` stands on the footprint of a `kind` at `origin`, unturned, as the placement check counts a unit on
 /// it (`sc_sim::deploy::on_site`).
@@ -164,13 +164,13 @@ fn an_own_recruit_not_on_the_order_fails_it_too() {
     assert!(group.iter().all(|&n| idle(&t, n)) && idle(&t, 6));
 }
 
-/// Design change 0362 for a Recruit that holds the order queued, behind another (**Placeholder (not in the design: a
-/// Recruit that holds the order queued, behind another)**, `sim/builds/shared.rs`): it is one of the order's, so the
-/// site waits for it while its current order keeps it on the footprint. #2 builds a Storage alone, at its spot west of
-/// [`SITE`]; then #2 and #3 are given, with Shift, a second Storage touching the first on that side, [`SITE_WEST`],
-/// whose footprint holds #2's spot. #3 takes it at once and is soon beside it, and the second site waits for #2, which
-/// builds the first until it is built, then walks off to its own spot beside the second; then the second starts. No
-/// failure, and each building paid once.
+/// Design change 0372 (answering Q0131; `factions/cults/economy.md > Cults Building Mechanics > Group construction
+/// rules`): "**A Recruit holding this Build queued** behind another order (a Shift chain) counts as one of the order's
+/// own Recruits ...: the site waits until it steps off, e.g. once it has finished the earlier building and walks
+/// over". #2 builds a Storage alone, at its spot west of [`SITE`]; then #2 and #3 are given, with Shift, a second
+/// Storage touching the first on that side, [`SITE_WEST`], whose footprint holds #2's spot. #3 takes it at once and is
+/// soon beside it, and the second site waits for #2, which builds the first until it is built, then walks off to its
+/// own spot beside the second; then the second starts. No failure, and each building paid once.
 #[test]
 fn a_recruit_holding_the_order_queued_holds_the_site_back_until_it_walks_off() {
     let mut scenario = cults();
@@ -201,4 +201,64 @@ fn a_recruit_holding_the_order_queued_holds_the_site_back_until_it_walks_off() {
     assert_eq!(building_at(&t, SITE_WEST), Some(second));
     assert!(failures(&t).is_empty() && refunds(&t).is_empty());
     assert_eq!(crystals(&t), BANK - 2 * STORAGE_PRICE);
+}
+
+/// A Recruitment Hall's footprint west of [`SITE`], touching it: tiles (16, 13) to (19, 16), x 1024..1280 and
+/// y 832..1088. Its Recruitment Area, 3 tiles further on every side, lies on the map.
+const HALL_WEST: TilePos = TilePos::new(16, 13);
+
+/// Design change 0372's Verification: "With 2 Recruits, Build a Storage, then Shift-place a Hall whose footprint
+/// covers one Recruit's work spot at the Storage. The Hall site waits, and starts once that Recruit leaves the
+/// footprint." #2 builds the Storage on [`SITE`] from its west face, and #3 from its north face at the west end; then
+/// both are given, with Shift, a Hall west of it, [`HALL_WEST`], whose footprint holds #2's spot and touches #3's.
+/// Once the Storage is built, #3 is soon beside the Hall while #2 still stands on its footprint, and the site waits
+/// for #2 to walk off to a spot of its own; then it starts. No failure, and each building paid once.
+#[test]
+fn a_hall_shift_placed_over_a_builders_spot_waits_for_it_to_step_off() {
+    let mut scenario = cults();
+    for at in [Vec2::new(1100.0, 960.0), Vec2::new(1292.0, 780.0)] {
+        scenario = scenario.spawn(RECRUIT, Some(P1), SpawnAt::Point(at));
+    }
+    let mut t = scenario.start();
+    t.debug_at(1, crystals_of(P1, BANK));
+    t.at(2, P1, build(&[2, 3], STORAGE, SITE, false));
+    let tick = run_to(&mut t, WALK, "the Storage's site starts", |t| started(t).len() == 1);
+    let (_, (storage, _)) = started(&t)[0];
+    t.at(tick + 1, P1, build(&[2, 3], HALL, HALL_WEST, true));
+    run_to(&mut t, WALK, "both build the Storage", |t| {
+        builders(t, storage).len() == 2
+    });
+    let hall = OrderKind::Build {
+        kind: HALL,
+        origin: HALL_WEST,
+        orientation: BuildingOrientation::default(),
+    };
+    assert_eq!(
+        (queued(&t, 2), queued(&t, 3)),
+        (vec![hall], vec![hall]),
+        "both hold it queued"
+    );
+    assert!(
+        on_footprint(&t, 2, HALL, HALL_WEST),
+        "#2's spot is on the Hall's footprint"
+    );
+    assert!(!on_footprint(&t, 3, HALL, HALL_WEST));
+    run_to(&mut t, STORAGE_FRAMES, "the Storage is built", |t| !built(t).is_empty());
+    assert!(on_footprint(&t, 2, HALL, HALL_WEST) && started(&t).len() == 1);
+    // The ticks in which the Hall's site waits: #3 at its spot beside it, #2 still on its footprint.
+    let waited = std::cell::Cell::new(0);
+    run_to(&mut t, WALK, "the Hall's site starts", |t| {
+        let starts = started(t).len() == 2;
+        if !starts && walk_over(t, 3) && on_footprint(t, 2, HALL, HALL_WEST) {
+            waited.set(waited.get() + 1);
+        }
+        starts
+    });
+    assert!(waited.get() > 0, "the site waits for #2");
+    let (_, (site, by)) = started(&t)[1];
+    assert_eq!(by, id(3), "the first arrival");
+    assert!(!on_footprint(&t, 2, HALL, HALL_WEST), "#2 has left the footprint");
+    assert_eq!(building_at(&t, HALL_WEST), Some(site));
+    assert!(failures(&t).is_empty() && refunds(&t).is_empty());
+    assert_eq!(crystals(&t), BANK - STORAGE_PRICE - HALL_PRICE);
 }
