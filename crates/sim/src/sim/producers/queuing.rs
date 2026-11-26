@@ -2,14 +2,13 @@
 //! in design change 0083's order, what X takes back, and where a rally point goes. A pool producer's entries reserve
 //! their units here (`producers/pool.rs`, slice M5-F2), an Altar's augmentation orders among them (slice M5-N1b).
 
-use super::research::research_of;
 use super::{ProductionPlan, producer};
 use crate::augmentation::{AugmentOrder, RecruitKind};
 use crate::defs::ObjectKind;
 use crate::holding;
 use crate::ids::{ObjectId, PlayerId};
 use crate::orders::Target;
-use crate::production::{ProductionCommand, QueueEntry, Refusal};
+use crate::production::{ProductionCommand, QueueEntry, Refusal, takes_rally};
 use crate::sim::gate::Checked;
 use crate::sim::{Reject, Sim};
 
@@ -22,7 +21,9 @@ impl Sim {
     /// The gate's rules for `Command::Production` (`factions/gdo/structures/barracks.md >
     /// ObjectInterfaceState[Barracks]`). The producers are the player's objects among `objects` that produce
     /// units, as an order's units are found ([`Sim::own_units`]: stale and repeated ids dropped, `NotOwned` for
-    /// someone else's); none is [`Reject::NoProducers`]. Then:
+    /// someone else's), at work: not a site nor a building that transforms (`Object::is_operational`), whose
+    /// production waits for its completion (`super::super::transform::hold_back`); none is [`Reject::NoProducers`].
+    /// Then:
     /// - **Train**: at least one producer queues the unit, else why not: [`Reject::CannotProduce`] (no producer
     ///   has the recipe, or only a Recruitment Hall, which trains nothing on command: `sim/recruitment.rs`),
     ///   [`Reject::Requires`] (the player owns none of a type its entry requires, slice M4-K:
@@ -53,8 +54,10 @@ impl Sim {
     ///   the rally (design change 0086). (M5-N3) Never a research structure, which has no RallyPoint
     ///   (`factions/cults/structures/temple.md > Placeholder stats`: its panel has no Set Rally Point), its staff
     ///   walking straight out of its exit side and stopping there (`core/entities.md > Structure Type > Exit Doorway`
-    ///   2): **Placeholder (not in the design: where a Temple's staff go)**; [`Reject::NoProducers`] if no other is
-    ///   left.
+    ///   2): **Placeholder (not in the design: where a Temple's staff go)**. (M5-S6) Its producers are the player's
+    ///   buildings of a type that has a RallyPoint ([`takes_rally`]), finished or not: an unfinished one takes it too
+    ///   (design change 0396: "A building that will produce or release units can have its RallyPoint set while it is
+    ///   still under construction or transformation, for every faction"); [`Reject::NoProducers`] if there is none.
     ///
     ///   **Placeholder** (design change 0088: "Rallying on a remembered (fogged) enemy structure: TBD with
     ///   Director question Q0017 point 2"): an object out of sight that the player remembers becomes a ground
@@ -65,7 +68,10 @@ impl Sim {
         objects: &[ObjectId],
         command: ProductionCommand,
     ) -> Result<Checked, Reject> {
-        let producers = self.own_units(player, objects, |o| producer(o).is_some())?;
+        let producers = match command {
+            ProductionCommand::SetRally(_) => self.own_units(player, objects, |o| takes_rally(o.kind))?,
+            _ => self.own_units(player, objects, |o| o.is_operational() && producer(o).is_some())?,
+        };
         if producers.is_empty() {
             return Err(Reject::NoProducers);
         }
@@ -93,12 +99,6 @@ impl Sim {
                 ProductionPlan::Cancel(queued)
             }
             ProductionCommand::SetRally(target) => {
-                let producers: Vec<ObjectId> = (producers.into_iter())
-                    .filter(|id| research_of(&self.objects[id]).is_none())
-                    .collect();
-                if producers.is_empty() {
-                    return Err(Reject::NoProducers);
-                }
                 match target {
                     // `contains_point` also rejects NaN and infinite positions.
                     Target::Point(p) if !self.map.contains_point(p) => return Err(Reject::OffMap),

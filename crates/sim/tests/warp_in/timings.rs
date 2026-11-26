@@ -52,8 +52,9 @@ fn warp_ins_take_their_warp_in_time_and_work_from_the_next_tick() {
             frames - 1
         );
         assert_eq!(completions(&t), []);
-        // Design change 0116: "Production, drop-off, research and abilities start at completion"; "no rally can be
-        // set".
+        // Design change 0116: "Production, drop-off, research and abilities start at completion". (M5-S6) Not the rally
+        // point, which a portal takes meanwhile (design change 0396, over 0116's "no rally can be set": `rally.rs`); an
+        // Egress Node, which produces nothing, takes none.
         let rally = PlayerCommand {
             player: P1,
             command: Command::Production {
@@ -61,11 +62,11 @@ fn warp_ins_take_their_warp_in_time_and_work_from_the_next_tick() {
                 command: ProductionCommand::SetRally(Target::Point(at(3, 12).center())),
             },
         };
-        assert_eq!(
-            t.sim().validate(&rally),
-            Err(Reject::NoProducers),
-            "{kind:?}: no rally yet"
-        );
+        let takes_rally = match unit {
+            Some(_) => Ok(()),
+            None => Err(Reject::NoProducers),
+        };
+        assert_eq!(t.sim().validate(&rally), takes_rally, "{kind:?}: its rally point");
         if let Some(cmd) = &trained {
             assert_eq!(
                 t.sim().validate(cmd),

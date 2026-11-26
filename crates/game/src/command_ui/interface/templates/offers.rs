@@ -1,18 +1,30 @@
 //! What a type offers (`systems/controls/interface.md > ObjectInterfaceState[ObjectEnum]`): every command its
 //! panel may show ([`commands`]), and whether it offers a command ([`offers`]).
 
+use sc_sim::production::takes_rally;
 use sc_sim::{RecruitKind, ResearchDef, construction, transform};
 
 use super::{BuildMenu, PanelCommand, can_target_ground, constructs, cults, grid, menu_grid, syndicate};
 use crate::selection::GroupType;
 
-/// The commands of an unfinished building, the Cancels of its two panels ([`TRANSFORMING_GRID`], [`SITE_GRID`]), in
-/// order.
-const UNFINISHED: [PanelCommand; 2] = [PanelCommand::CancelConstruction, PanelCommand::CancelTransform];
+/// The commands of an unfinished building, the Cancels of its two panels ([`TRANSFORMING_GRID`], [`SITE_GRID`]), and
+/// (M5-S6) the C of one that will produce or release units ([`super::unfinished_grid`], design change 0396), in order.
+const UNFINISHED: [PanelCommand; 3] = [
+    PanelCommand::SetRallyPoint,
+    PanelCommand::CancelConstruction,
+    PanelCommand::CancelTransform,
+];
+
+/// Whether an unfinished building of type `kind` offers `command` ([`UNFINISHED`]): its Cancels, and its C if it will
+/// produce or release units (`sc_sim::production::takes_rally`, the gate's rule).
+fn unfinished_offers(kind: sc_sim::ObjectKind, command: PanelCommand) -> bool {
+    UNFINISHED.contains(&command) && (command != PanelCommand::SetRallyPoint || takes_rally(kind))
+}
 
 /// Every command objects of type `ty` (a kind: a finished one) may show, in any state ([`state_grid`]): an
-/// unfinished building's Cancel alone, the Cancel of a transformation ([`TRANSFORMING_GRID`], design change 0185) or
-/// of a site's construction ([`SITE_GRID`], design change 0237), whichever it is; a finished type's DefaultState
+/// unfinished building's Cancel, the Cancel of a transformation ([`TRANSFORMING_GRID`], design change 0185) or of a
+/// site's construction ([`SITE_GRID`], design change 0237), whichever it is, and (M5-S6) the C of one that will produce
+/// or release units (design change 0396); a finished type's DefaultState
 /// grid, and a constructor's buildings to construct and to place, and its two Cancels; a Beacon's buildings to warp
 /// in; a Tunnel's EjectMenu tiles and the expansions of its ExpandMenu; a pool building's KindMenus' entries, every
 /// kind's; an Altar's AugmentMenus' tiles and entries, every type's and state's (slice M5-N1b); a Recruit's buildings
@@ -21,7 +33,9 @@ const UNFINISHED: [PanelCommand; 2] = [PanelCommand::CancelConstruction, PanelCo
 pub fn commands(ty: impl Into<GroupType>) -> Vec<PanelCommand> {
     let GroupType { kind, unfinished } = ty.into();
     if unfinished {
-        return UNFINISHED.to_vec();
+        return (UNFINISHED.into_iter())
+            .filter(|&command| unfinished_offers(kind, command))
+            .collect();
     }
     let mut commands: Vec<PanelCommand> = grid(kind).into_iter().flatten().collect();
     commands.extend(
@@ -66,10 +80,10 @@ pub fn commands(ty: impl Into<GroupType>) -> Vec<PanelCommand> {
 }
 
 /// Whether objects of type `ty` (a kind: a finished one) offer `command`. An unfinished building, in a group of its
-/// own "as if it were another type" (design change 0185), offers its Cancel and nothing else (`factions/colonists/
-/// economy.md > Beacon Deployment > While transforming: only Cancel`, [`TRANSFORMING_GRID`]; a site, design change
-/// 0237, its Cancel Construction, [`SITE_GRID`]: the type doesn't say which, the panel shows the one it is). A
-/// finished one offers
+/// own "as if it were another type" (design change 0185), offers its Cancel (`factions/colonists/economy.md > Beacon
+/// Deployment > While transforming: only Cancel`, [`TRANSFORMING_GRID`]; a site, design change 0237, its Cancel
+/// Construction, [`SITE_GRID`]: the type doesn't say which, the panel shows the one it is), and (M5-S6) nothing else
+/// but its C if it will produce or release units (design change 0396: [`unfinished_offers`]). A finished one offers
 /// what its grid has ([`grid`]), and a conditional command only when the type can (`> BasicCombatUnitInterfaceState`:
 /// Reverse with the UnitBase's CanReverse, AttackGround with the AttackType's CanTargetGround). A constructor offers
 /// its own buildings (its `Constructs` list) and its Cancels, a Beacon the buildings of its Constructs List; a
@@ -87,7 +101,7 @@ pub fn commands(ty: impl Into<GroupType>) -> Vec<PanelCommand> {
 pub fn offers(ty: impl Into<GroupType>, command: PanelCommand) -> bool {
     let GroupType { kind, unfinished } = ty.into();
     if unfinished {
-        return UNFINISHED.contains(&command);
+        return unfinished_offers(kind, command);
     }
     match command {
         PanelCommand::Construct(building) | PanelCommand::PlaceReady(building) => {

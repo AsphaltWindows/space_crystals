@@ -10,6 +10,7 @@ use crate::economy::{RATIO_ONE, Refund};
 use crate::events::SimEvent;
 use crate::ids::{ObjectId, PlayerId};
 use crate::object::{Object, Placement};
+use crate::production::Production;
 use crate::scenario::BuildingOrientation;
 use crate::tech;
 use crate::transform::{self, Transform, follow_max, keep_fraction};
@@ -204,14 +205,16 @@ impl Sim {
 
     /// What [`hold_back`] held back of object `id` starts: its production, its construction and its mining, as a new
     /// object of its kind has them ([`Capabilities::fresh`]). A transformation's at its completion, and a Tunnel's
-    /// expansion's (slice M4-F, `sim/expansions.rs`).
+    /// expansion's (slice M4-F, `sim/expansions.rs`). (M5-S6) The rally point it was given meanwhile stays (design
+    /// change 0396: "The rally point is kept when the building completes"; `sim/producers.rs`).
     pub(super) fn start_functions(&mut self, id: ObjectId) {
         let Some(o) = self.objects.get(&id) else {
             return;
         };
         let fresh = Capabilities::fresh(&self.objects, o.kind, o.placement.as_ref(), self.tick);
         if let Some(o) = self.objects.get_mut(&id) {
-            o.production = fresh.production;
+            let rally = o.production.as_ref().and_then(|production| production.rally);
+            o.production = fresh.production.map(|production| Production { rally, ..production });
             o.constructor = fresh.constructor;
             o.extractor = fresh.extractor;
         }
@@ -220,10 +223,11 @@ impl Sim {
 
 /// What a transforming object holds back until it completes (design change 0116: "Production, drop-off, research
 /// and abilities start at completion"): the capabilities a structure works with, its production (so it takes no
-/// Train and no rally either: "no Set Rally Point"), its construction and its mining, which completion gives it as
-/// a new object of its kind has them ([`Sim::start_functions`]). What its kind does by itself, such as an Egress
-/// Node taking drop-offs (`sim/workers.rs`), checks [`Object::is_transforming`]. A Tunnel's expansion holds them
-/// back while it is built (slice M4-F).
+/// Train), its construction and its mining, which completion gives it as a new object of its kind has them
+/// ([`Sim::start_functions`]). (M5-S6) Not its rally point, which it takes meanwhile (design change 0396, over 0116's
+/// "no Set Rally Point"; `sim/producers.rs`). What its kind does by itself, such as an Egress Node taking drop-offs
+/// (`sim/workers.rs`), checks [`Object::is_transforming`]. A Tunnel's expansion holds them back while it is built
+/// (slice M4-F).
 pub(super) fn hold_back(o: &mut Object) {
     o.production = None;
     o.constructor = None;

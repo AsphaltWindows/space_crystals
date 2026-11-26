@@ -22,7 +22,9 @@
 //!   corner at the Effectiveness the edge leaves it (design change 0387); gatherers taken off to build and sent back
 //!   keep gathering by slice M5-D's rules; a game saved and replayed;
 //! - `tech`: the Gunworks, the Machine Shop and the Scrap Hangar (slice M5-G2), each at its price and in its time,
-//!   behind its TechPrerequisite; the Gunworks unlocking the Gunner once complete; a right-click on one a Move.
+//!   behind its TechPrerequisite; the Gunworks unlocking the Gunner once complete; a right-click on one a Move;
+//! - `rally` (slice M5-S6, design change 0396): an Armory's site takes a rally point and keeps it, and its Militants
+//!   go there; a site of a building that produces nothing takes none.
 //!
 //! Every test runs under the invariants of `TestSim` (no unit stands on a footprint, so no builder does), and [`step`]
 //! checks after each tick that a site built from outside gained exactly one frame for each builder at work: on an
@@ -33,6 +35,7 @@ mod flow;
 mod footprint;
 mod gate;
 mod hall;
+mod rally;
 mod refunds;
 mod tech;
 
