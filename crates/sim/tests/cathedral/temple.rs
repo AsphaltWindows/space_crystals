@@ -108,3 +108,38 @@ fn losing_the_temple_cancels_no_disciple() {
         "a new Cathedral wants a Temple"
     );
 }
+
+/// Design change 0335 for a structure: "losing a prerequisite never cancels or disables anything already started". A
+/// Recruit's Build of a second Cathedral, taken and paid while the Temple stands, goes on once the Temple is gone the
+/// next tick: the Recruit walks to the site, starts it and builds it, unrefunded.
+#[test]
+fn a_cathedral_ordered_before_the_temple_is_lost_is_built() {
+    let mut t = base().start();
+    t.without_auto_targeting();
+    t.debug_at(1, crystals(P1, BANK));
+    let recruit = id(next_id(&t));
+    t.spawn_unit_at(1, RECRUIT, P1, Vec2::new(1000.0, 600.0));
+    run_checked(&mut t, 1);
+    t.at(2, P1, build(&[recruit], CATHEDRAL, SITE));
+    remove_at(&mut t, 3, T1);
+    run_checked(&mut t, 3);
+    assert!(!t.sim().requirement_met(P1, TEMPLE), "the Temple is gone");
+    assert_eq!(bank(&t, P1), BANK - 250, "paid as the order was given");
+    let built = |t: &TestSim| {
+        (t.events().iter()).find_map(|(_, e)| match *e {
+            SimEvent::SiteBuilt { site } => Some(site),
+            _ => None,
+        })
+    };
+    while built(&t).is_none() {
+        assert!(t.sim().tick() < 1200, "the Cathedral is built\n{}", t.ascii(None));
+        step_checked(&mut t);
+    }
+    let cathedral = built(&t).unwrap();
+    assert!(
+        t.sim()
+            .object(cathedral)
+            .is_some_and(|o| o.kind == CATHEDRAL && o.is_operational())
+    );
+    assert_eq!(bank(&t, P1), BANK - 250, "unrefunded");
+}
