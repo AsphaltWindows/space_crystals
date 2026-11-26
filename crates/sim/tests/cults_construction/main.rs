@@ -10,9 +10,10 @@
 //!   builders pulled off (the stall, the slowdown) and back by Assist; the right-click;
 //! - `refunds`: the refunds before the start (re-ordered, killed, a queued building dropped), none after it, the 75%
 //!   of X, the group going on to its queued building after X;
-//! - `footprint`: who may stand on the footprint as the site starts (design change 0362): the site waits for the
-//!   order's own Recruits to step off (a group under its building, one walking off the middle, one holding the order
-//!   queued); any other unit on it, an enemy or an own one, fails the whole order, refunded once;
+//! - `footprint`: who may stand on the footprint as the site starts (design changes 0362 and 0372): the site waits for
+//!   the order's own Recruits to step off (a group under its building, one walking off the middle, one holding the
+//!   order queued, and 0372's Verification, a Hall Shift-placed over a builder's spot at a Storage); any other unit on
+//!   it, an enemy or an own one, fails the whole order, refunded once;
 //! - `gate`: the gate's checks of a Build and an Assist, the Armory's Storage, the ghosts;
 //! - `crowds`: more Recruits than the builders' wall holds wait further out; the builders never stand on the
 //!   footprint;

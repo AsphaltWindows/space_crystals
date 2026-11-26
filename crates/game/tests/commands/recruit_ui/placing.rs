@@ -92,10 +92,11 @@ fn shift_chains_the_groups_buildings_one_ghost_each() {
 }
 
 /// Design change 0341 point 1 (`factions/cults/structures/recruitment_hall.md > RecruitmentArea`): "The whole 10x10
-/// area must lie on the map. A Hall that would leave it can't be placed" (0341's Verification: "Placing a Hall 3
-/// tiles from the edge is refused", the footprint on the map's third tile: its area, 3 tiles beyond it, would reach a
-/// tile past the edge). Its ghost is red there, and a click says why and sends nothing, placement going on; a tile
-/// further in, its area just on the map, the ghost is green, and the click sends the Build.
+/// area must lie on the map. A Hall that would leave it can't be placed", with design change 0371's correction of
+/// 0341's Verification: "A Hall 3 tiles from the edge is accepted; one 2 tiles from the edge is refused". 2 tiles from
+/// the edge, its area, 3 tiles beyond its footprint, would reach a tile past it: its ghost is red there, and a click
+/// says why and sends nothing, placement going on; 3 tiles from the edge, its area just on the map, the ghost is
+/// green, and the click sends the Build.
 #[test]
 fn a_hall_whose_area_leaves_the_map_is_refused_with_its_reason() {
     let mut app = recruit_game(300);

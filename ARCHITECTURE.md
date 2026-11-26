@@ -2299,8 +2299,10 @@ section of its own.
     (`Sim::arrive_together`, in the arrivals' step), on the truth check (`Sim::arrival_check_without`), checked twice
     (slice M5-J1, design change 0362): with nobody left out it starts; else with the ticket's holders left out, any
     other unit on it, of any player, or its ground fails the whole ticket, refunded once, and nothing retries (0339);
-    else only its own Recruits stand on it, current or queued holders, and it waits, checked again each tick, as they
-    walk off to their spots (a walk ended on the footprint looks again, `Sim::step_spots`, so none stands still there).
+    else only its own Recruits stand on it, current or queued holders (design change 0372, answering Q0131: "A Recruit
+    holding this Build queued ... counts as one of the order's own Recruits"), and it waits, checked again each tick,
+    as they walk off to their spots (a walk ended on the footprint looks again, `Sim::step_spots`, so none stands
+    still there).
     It starts at 10% HP; every holder's Build becomes `OrderKind::Assist(site)`, queued ones too. It gains a frame a
     tick for each unit on an Assist of it within reach with its walk over (`spot_work::counts`; 0339's Recruit-frames:
     those walking or waiting add nothing), so n Recruits build n times as fast and none stall it, its progress and HP
@@ -3314,9 +3316,10 @@ their energy doorway, slice M3-D2: design change 0145, `factions/colonists/struc
   80 frames paid once, five from one side spread along the wall (0339), two at twice the rate, one alone, a Shift
   chain, builders pulled off and back by Assist, the right-click; `refunds.rs`: two of three re-ordered and then the
   third (0340), killed, after the start, a queued building its last holder drops (0340), X, the queued building after
-  X; `footprint.rs` (slice M5-J1, design change 0362): nine Recruits under a Hall walk off and it starts, a site
-  waiting for one walking off its middle, an enemy and an own Recruit not on the order each failing it, refunded once,
-  a Recruit holding it queued holding it back until it walks off; `gate.rs`: the Armory's Storage, Shift-clicks each
+  X; `footprint.rs` (slice M5-J1, design changes 0362 and 0372): nine Recruits under a Hall walk off and it starts, a
+  site waiting for one walking off its middle, an enemy and an own Recruit not on the order each failing it, refunded
+  once, a Recruit holding it queued holding it back until it walks off, and 0372's Verification, a Hall Shift-placed
+  over a builder's spot at a Storage; `gate.rs`: the Armory's Storage, Shift-clicks each
   paid, Assist's refusals; `crowds.rs`: twenty-four on a Storage; `hall.rs`: a built Hall's lineage, gatherers taken
   off and back), each tick checking a frame per builder at work. `sim/spot_work/tests.rs` (test defs): the wall full
   and those waiting further out moving in, oblong ABAC footprints, 2 × 3 and 2 × 4, at four rotations, and a walk
