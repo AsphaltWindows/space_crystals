@@ -130,7 +130,8 @@ fn a_released_unit_overlaps_its_building_but_not_ground_under_it_it_cant_stand_o
     let side = side_b(Rotation::R0, false);
     let peacekeeper = ObjectKind::Peacekeeper.def().unit.as_ref().unwrap().base_def();
     let size = crate::nav::size_class(HALF * 2.0);
-    let grid = t.sim().nav().grid(peacekeeper.nav_class().unwrap(), size).unwrap();
+    let grid = t.sim().true_grid(peacekeeper.nav_class().unwrap(), size);
+    let grid = &*grid;
     assert!(grid.is_solid(TilePos::new(3, 1)) && !grid.is_terrain_solid(TilePos::new(3, 1)));
     let clear = |p: Vec2| door.box_clear(grid, HALF, p);
     // Half inside on the door's middle the box covers tiles (4, 1) to (5, 2), fully inside (4, 1) and (4, 2).

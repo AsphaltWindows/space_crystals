@@ -28,6 +28,9 @@ impl Sim {
                 placement,
             } => {
                 self.insert_object(kind, owner, pos, placement, None);
+                // A debug spawn is the one way a unit comes into the game from nothing, between two grid syncs: the
+                // first of its class builds its grid now (slice M5-Z2, `paths`), for the commands after it.
+                self.cover_kind(kind);
             }
             Checked::Remove(id) => self.remove_objects(&[id]),
             Checked::Teleport { id, pos } => {

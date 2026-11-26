@@ -130,9 +130,11 @@ impl Sim {
         self.step_entries(first_new);
         // The Attacks 5a found a unit can't carry out, its target too close (design change 0182), fail.
         self.step_too_close(first_new);
-        // 5b: the movement below must collide with this tick's obstacles (the true grids).
+        // 5b: the movement below must collide with this tick's obstacles (the true grids), and every unit that came
+        // into the game or was queued since the last tick has its grid from here on (slice M5-Z2, `paths`).
         observe(Phase::NavSync);
         paths::sync(&mut self.nav, &self.objects, &mut self.nav_version);
+        self.cover_grids();
         // 5c: after the goals, before the movement that follows the paths. Each unit plans on what its owner knew
         // at the end of the last tick (`paths::knowledge`).
         observe(Phase::PathServing);
@@ -266,6 +268,8 @@ impl Sim {
         // once per player and tick. Nothing after this may change the objects or the vision.
         observe(Phase::PathKnowledge);
         self.path_knowledge.observe(&self.vision);
+        // Every unit the tick brought has its grid, in the true grids and each player's (slice M5-Z2).
+        self.cover_grids();
         paths::sync_known(&mut self.nav, &self.objects, &self.vision, &mut self.path_knowledge);
         debug_assert!(
             self.nav.matches(&self.objects),

@@ -17,10 +17,9 @@ use crate::events::SimEvent;
 use crate::holding;
 use crate::ids::{ObjectId, PlayerId};
 use crate::math;
-use crate::nav;
 use crate::object::Object;
 use crate::orders::Target;
-use crate::paths::boxes_overlap;
+use crate::paths::{self, boxes_overlap};
 use crate::production::{Door, ExitDoor, Production, ProductionCommand, ProductionStatus, QueueEntry, Rally, Refusal};
 
 /// When something stands right in front of the doorway, the released unit stands this far from it, space units,
@@ -433,10 +432,7 @@ impl Sim {
             }
             ExitDoor::Centre(_) if !released.is_empty() => return,
             ExitDoor::Centre(portal) => {
-                let grid = unit
-                    .base_def()
-                    .nav_class()
-                    .and_then(|class| self.nav.nav().grid(class, nav::size_class(half * 2.0)));
+                let grid = paths::unit_grid(self.nav.nav(), unit.base_def(), half * 2.0);
                 let rng = &mut self.rng;
                 let rally = rally.map(|rally| rally.point());
                 let Some(release) = portal.release(unit, half, grid, &self.objects, rally, |n| rng.below(n)) else {
@@ -474,9 +470,7 @@ impl Sim {
     /// such spot: the unit waits inside, as behind an occupied doorway.
     pub(super) fn doorway_spot(&self, door: &Door, unit: &UnitDef, half: Vec2) -> Option<Vec2> {
         let base = unit.base_def();
-        let grid = base
-            .nav_class()
-            .and_then(|class| self.nav.nav().grid(class, nav::size_class(half * 2.0)));
+        let grid = paths::unit_grid(self.nav.nav(), base, half * 2.0);
         let clear = |p: Vec2| grid.is_none_or(|grid| door.box_clear(grid, half, p));
         let depth = door.outward().abs().dot(half);
         // The other units of its layer, with their half extents.

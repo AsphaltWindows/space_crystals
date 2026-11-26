@@ -274,8 +274,8 @@ fn the_way_out_is_free_unless_a_blocked_tile_or_a_unit_lies_in_its_sweep() {
         .spawn(ObjectKind::RoboPortal, None, SpawnAt::Tile(TilePos::new(2, 2)))
         .start();
     let portal = EnergyDoorway::of(t.sim().objects().next().unwrap()).unwrap();
-    let grid = t.sim().nav().grid(drone_class(), nav::size_class(HALF * 2.0));
-    assert!(grid.is_some());
+    let drone_grid = t.sim().true_grid(drone_class(), nav::size_class(HALF * 2.0));
+    let grid = Some(&*drone_grid);
     let free = |dir: Vec2, others: &[(Vec2, Vec2)]| portal.way_out_free(dir, HALF, grid, others);
     assert!(!free(Vec2::X, &[]), "the cliff");
     assert!(!free(HEADINGS[1], &[]), "the cliff, a little south of east");
@@ -293,7 +293,8 @@ fn the_way_out_is_free_unless_a_blocked_tile_or_a_unit_lies_in_its_sweep() {
         .spawn(ObjectKind::RoboPortal, None, SpawnAt::Tile(TilePos::new(2, 0)))
         .start();
     let portal = EnergyDoorway::of(t.sim().objects().next().unwrap()).unwrap();
-    let grid = t.sim().nav().grid(drone_class(), nav::size_class(HALF * 2.0));
+    let drone_grid = t.sim().true_grid(drone_class(), nav::size_class(HALF * 2.0));
+    let grid = Some(&*drone_grid);
     assert!(!portal.way_out_free(Vec2::NEG_Y, HALF, grid, &[]));
     assert!(portal.way_out_free(Vec2::NEG_X, HALF, grid, &[]));
 }
@@ -310,11 +311,12 @@ fn ground_it_cant_stand_on_under_the_portal_blocks_its_unit() {
         .spawn(ObjectKind::RoboPortal, None, SpawnAt::Tile(TilePos::new(2, 2)))
         .start();
     let portal = EnergyDoorway::of(t.sim().objects().next().unwrap()).unwrap();
-    let grid = t.sim().nav().grid(drone_class(), nav::size_class(HALF * 2.0));
-    assert!(!portal.way_out_free(Vec2::X, HALF, grid, &[]), "across the Cliff");
-    assert!(portal.way_out_free(Vec2::NEG_X, HALF, grid, &[]));
-    assert!(portal.way_out_free(Vec2::NEG_Y, HALF, grid, &[]));
-    let (grid, centre) = (grid.unwrap(), portal.centre());
+    let drone_grid = t.sim().true_grid(drone_class(), nav::size_class(HALF * 2.0));
+    let grid = &*drone_grid;
+    assert!(!portal.way_out_free(Vec2::X, HALF, Some(grid), &[]), "across the Cliff");
+    assert!(portal.way_out_free(Vec2::NEG_X, HALF, Some(grid), &[]));
+    assert!(portal.way_out_free(Vec2::NEG_Y, HALF, Some(grid), &[]));
+    let centre = portal.centre();
     assert!(portal.box_clear(grid, HALF, centre), "the centre, on its open tiles");
     // At (320, 216) the box covers tiles (4, 3) and (5, 3).
     assert!(!portal.box_clear(grid, HALF, centre + Vec2::new(64.0, -40.0)));

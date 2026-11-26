@@ -6,7 +6,7 @@ use super::knowledge::PathKnowledge;
 use crate::defs::ObjectKind;
 use crate::hash::{StateHash, StateHasher};
 use crate::ids::{ObjectId, PlayerId};
-use crate::nav::NavClass;
+use crate::nav::{Nav, NavClass};
 use crate::scenario::SpawnAt;
 use crate::testing::ScenarioBuilder;
 use crate::units::TilePos;
@@ -53,8 +53,12 @@ fn units_plan_on_their_owners_grids_and_ownerless_ones_on_the_true_grids() {
     // Standing on a tile the owner's knowledge blocks (the map's patch): the true grid.
     let on_the_patch = TilePos::new(18, 7).center();
     assert_eq!(state.plan_grid(Some(P1), CLASS, 1, on_the_patch).unwrap().0, 0);
-    // No grid of that class and size at all.
-    assert!(state.plan_grid(Some(P1), CLASS, 3, pos).is_none());
+    // The grids of the units in the game, and no other (slice M5-Z2): no grid for an air unit or a vehicle.
+    let keys = |nav: &Nav| nav.grids().iter().map(|g| (g.class(), g.size())).collect::<Vec<_>>();
+    assert_eq!(
+        (keys(state.nav()), keys(state.known(P1).unwrap())),
+        (vec![(CLASS, 1)], vec![(CLASS, 1)])
+    );
     assert!(std::ptr::eq(state.planning(None), state.nav()));
     assert!(std::ptr::eq(state.planning(Some(P1)), state.known(P1).unwrap()));
     assert!(std::ptr::eq(state.planning(Some(P2)), state.nav()));

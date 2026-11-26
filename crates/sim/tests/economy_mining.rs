@@ -78,9 +78,10 @@ fn payouts(t: &mut TestSim, player: PlayerId, end: Tick) -> Vec<(Tick, u32)> {
     list
 }
 
-/// Whether the Peacekeepers' grid blocks tile `(x, y)`.
+/// Whether the Peacekeepers' grid blocks tile `(x, y)`: the game's, or the one its first Peacekeeper would build
+/// (slice M5-Z2: a game builds the grids of the units in it).
 fn blocked(t: &TestSim, x: i32, y: i32) -> bool {
-    let grid = t.sim().nav().grid(NavClass::GroundRugged, 1).unwrap();
+    let grid = t.sim().true_grid(NavClass::GroundRugged, 1);
     grid.is_blocked(TilePos::new(x, y))
 }
 

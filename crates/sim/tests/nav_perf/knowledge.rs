@@ -10,6 +10,19 @@ use super::*;
 #[test]
 #[ignore = "prints timings; run in release with --ignored --nocapture"]
 fn knowledge_rebuilds_256() {
+    knowledge_rebuilds(false);
+}
+
+/// (M5-Z2) The same with a vehicle in the game, player 1's idle Seeker, a wheeled vehicle, which doesn't cross Rugged
+/// terrain: each set then holds its grid, `(Ground, 1)`, beside the infantry's, and the tick of the deaths rebuilds
+/// both in each of the five.
+#[test]
+#[ignore = "prints timings; run in release with --ignored --nocapture"]
+fn knowledge_rebuilds_256_with_a_vehicle() {
+    knowledge_rebuilds(true);
+}
+
+fn knowledge_rebuilds(vehicle: bool) {
     use sc_sim::testing::TestSim;
     use sc_sim::{
         DebugCommand, MapSettings, MapType, ObjectKind, OrderKind, PlayerId, Scenario, SlotId, Spawn, SpawnAt,
@@ -91,6 +104,10 @@ fn knowledge_rebuilds_256() {
         sim.spawn_unit_at(1, pk, PlayerId(player as u8 + 1), at);
         armies[player].push(ObjectId(first_unit + 12 + i));
     }
+    // Out of everyone's way, in player 1's corner.
+    if vehicle {
+        sim.spawn_unit_at(1, ObjectKind::Seeker, PlayerId(1), Vec2::new(36.5, 20.5) * 64.0);
+    }
     for (player, army) in armies.iter().enumerate() {
         let (gx, gy) = [(230.0, 230.0), (12.0, 230.0), (230.0, 12.0), (12.0, 12.0)][player];
         let order = OrderKind::Move(Target::Point(Vec2::new(gx, gy) * 64.0));
@@ -133,7 +150,8 @@ fn knowledge_rebuilds_256() {
         });
         times.push((tick, time, sim.sim().nav_rebuilds()));
     }
-    assert_eq!(sim.sim().objects().filter(|o| o.mover.is_some()).count(), 412);
+    let units = 412 + usize::from(vehicle);
+    assert_eq!(sim.sim().objects().filter(|o| o.mover.is_some()).count(), units);
     let (_, death_time, rebuilds) = times[DEATHS_AT as usize - 1];
     assert_eq!(rebuilds, 5, "the true grids and each of the four players'");
     let after = versions(&sim);
@@ -166,7 +184,7 @@ fn knowledge_rebuilds_256() {
     };
     let grids = sim.sim().nav().grids().len();
     println!(
-        "\nPath knowledge on {SIDE}x{SIDE}: 4 players, 412 units (400 moving), 160 patches, {grids} grid(s) per set"
+        "\nPath knowledge on {SIDE}x{SIDE}: 4 players, {units} units (400 moving), 160 patches, {grids} grid(s) per set"
     );
     println!(
         "ticks {}..{} (before the deaths): mean {:.3?}, worst {:.3?}",

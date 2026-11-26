@@ -297,7 +297,8 @@ Units, structures and resources are all `Object`s (`object.rs`, `core/entities.m
   case fails closed: it can't show, move or hit a unit that isn't there. The one exception to "never a separate store
   keyed by id" above, for that reason. **What must count held units says so**: `Sim::army_cap` (their army cost,
   Tunnel Space), the removal path's reference cleanup (`Sim::forget_references` walks them too, so a held unit never
-  names an object that is gone), `Sim::clear_defeated_networks` (a defeated player's go, `Sim::remove_held`, which
+  names an object that is gone), the navigation grids (`paths::walking_keys`: a held unit's grid is there for the spot
+  it comes out at, slice M5-Z2), `Sim::clear_defeated_networks` (a defeated player's go, `Sim::remove_held`, which
   slice M4-H's stranded-unit rule calls too), the state hash and the saves, `testing::dangling_references`, the
   client's control groups (`ControlState::retain_on_map`). `Place` is where: `Network`, or `Site(site)`, a worker
   inside the site it builds (slice M4-E, *Sites* below: not in the network, so no Eject brings it out, and it doesn't
@@ -885,7 +886,8 @@ Layout validation can't disagree. **Never test a placement rule anywhere else: a
      Ground 5a found with its location inside (`AttackGround::too_close`, slice M5-O3), with
      `SimEvent::LocationTooClose`.
    - 5b `paths::sync`: if the blocking footprints changed, rebuild the true navigation grids and bump
-     `nav_version`.
+     `nav_version`. Then `Sim::cover_grids` builds the grids of a class whose first unit came into the game, or into
+     a producer's queue, since the last tick (*Navigation > Which grids*).
    - 5c `paths::serve`: first each unit's staggered path checks, in the ticks where `(tick + id) % 4 == 0` (after
      its owner's path knowledge changed, line of sight along its remaining path, and a new plan only if that is
      cut; the farthest waypoint in sight becomes its steering target). Then every `PathState::Wanted` becomes a
@@ -986,10 +988,11 @@ Layout validation can't disagree. **Never test a placement rule anywhere else: a
      final state, the deliveries included (see Vision).
    - Rally points, `production::rally::follow`: on the vision the tick leaves, a rally point on an enemy its owner
      no longer sees becomes a ground rally where it was last seen (design change 0088, see *Production*).
-   - Path knowledge, last (`PathKnowledge::observe`, `paths::sync_known`): each player stops assuming the map
-     resources whose place it now sees, and a player whose known footprints changed gets a new knowledge version
-     and its planning grids rebuilt, at most once per player and tick. After everything it follows from: the
-     objects, the vision and its records. Nothing after it may change any of them.
+   - Path knowledge, last (`PathKnowledge::observe`, `Sim::cover_grids`, `paths::sync_known`): each player stops
+     assuming the map resources whose place it now sees, every unit the tick brought has its grids, and a player
+     whose known footprints changed gets a new knowledge version and its planning grids rebuilt, at most once per
+     player and tick. After everything it follows from: the objects, the vision and its records. Nothing after it
+     may change any of them.
 
 - **Spawn tick**: an object that a command creates during tick `t` is first updated by the systems in tick `t + 1`.
   `step` notes `first_new = ObjectId(next_id)` before the commands, and each system walks only
@@ -1666,14 +1669,26 @@ The module is pure: it takes the `Map` and tile rectangles and knows nothing of 
   step asks it before `box_clear` and `los`, which hold there for a small box and a short move. A `Path` is unit
   state (serde, `PartialEq`, `StateHash`); `NavCounters` are output only.
 - **Switches** of Q0011's answers: `RESOURCES_BLOCK` (design change 0038) and `RUGGED_IMPASSABLE` (0039).
-- **In the sim** (`paths.rs`, `paths/`): `NavState` holds the **true grids**, the `Nav` of every unit type's
-  `(class, size class)` under every blocking footprint (structures and map resources; an underground expansion's,
-  `BlockerKind::UndergroundExpansion`, blocks none: units walk over it, plan decision T32 and design change 0240; nor
-  does a pop-up turret's while it is fully lowered, `paths::blocking`, slice M4-S2, nor a neutral turret's record,
-  `paths::remembered_blocking`, slice M5-Y), and each player's **known grids** (below). It is derived, like the `Nav`:
-  not hashed, compared or serialized, built when a `Sim` is created or loaded. The true grids are rebuilt in phase 5b;
-  `Sim::nav()` (the true grids), `nav_version()`, `nav_counters()` and `nav_rebuilds()` (sets of grids the latest step
-  rebuilt) expose it to tests and overlays.
+- **In the sim** (`paths.rs`, `paths/`): `NavState` holds the **true grids**, the `Nav` of the `(class, size class)`
+  of each unit in the game (*Which grids*, below) under every blocking footprint (structures and map resources; an
+  underground expansion's, `BlockerKind::UndergroundExpansion`, blocks none: units walk over it, plan decision T32
+  and design change 0240; nor does a pop-up turret's while it is fully lowered, `paths::blocking`, slice M4-S2, nor a
+  neutral turret's record, `paths::remembered_blocking`, slice M5-Y), and each player's **known grids** (below). It
+  is derived, like the `Nav`: not hashed, compared or serialized, built when a `Sim` is created or loaded. The true
+  grids are rebuilt in phase 5b; `Sim::nav()` (the true grids), `nav_version()`, `nav_counters()` and
+  `nav_rebuilds()` (sets of grids the latest step rebuilt) expose it to tests and overlays.
+- **Which grids** (slice M5-Z2, `paths/grids.rs`): every set of grids, the true ones and each player's, holds one for
+  each `(class, size class)` that a unit in the game walks on, or one about to come into it (`paths::walking_keys`:
+  on the map, held off it, or queued at a producer, a Recruitment Hall's Recruit from the start). A grid is built
+  with the first such unit and never dropped (`NavState::cover`): the true one of the true footprints, each player's
+  of its own, so a grid built late is the one an eager build would have had, which grids a game has never shows in
+  its play, and no version or rebuild counts one. The grid sync steps cover every unit (`Sim::cover_grids`, in phase
+  5b after the sync and at the end of the tick before `sync_known`); a debug spawn and a change of kind cover theirs
+  at once (`Sim::cover_kind`); a start and a load build those of their units. Every reader of a unit's grid goes
+  through `paths::unit_grid` or `NavState::plan_grid`, which fail in debug builds on a missing one (invariant I2
+  reports it too). The gate, asked about a spawn of the first unit of a class, checks it on the grid it will have
+  (`NavState::fresh_grid`), and `Sim::true_grid` gives tests the ground of a class no unit of which is in the game.
+  A new unit type needs nothing: its definition gives its key.
 - **Path knowledge** (`paths/knowledge.rs`; `systems/controls/behaviors.md > PathKnowledge`, design changes 0040
   to 0042): paths are planned only from what the unit's owner knows, and units collide with what is there.
   - **What a player knows** to block the ground, besides the terrain: the footprints it owns, and those of its
@@ -1697,22 +1712,22 @@ The module is pure: it takes the `Map` and tile rectangles and knows nothing of 
     tick they are those of the end of the tick before (an own structure placed by a command joins them at the end
     of its tick), each player's are rebuilt at most once per tick, and a loaded save rebuilds exactly the running
     game's.
-  - **Lazy**: a player's grids exist only while it has a unit that walks on a grid; `ensure_known` builds them
-    for an order in the tick of its first unit's spawn.
+  - **Lazy**: a player's grids exist only while it has a unit that walks on a grid, of the classes the true ones
+    have (*Which grids*); `ensure_known` builds them for an order in the tick of its first unit's spawn.
   - **No owner**: a neutral unit (and a defeated player's, design change 0101) plans on the true grids by
     `nav_version`: it has nobody's knowledge and sees nothing. Code that changes a unit's owner should call
     `Mover::repath`, since the unit's path was planned on other grids.
   - Measured (`tests/nav_perf/`, ignored, release; 4 players, 412 units and 160 patches on 256 × 256): the tick
     in which ten Generators go in sight of all four players rebuilds 5 sets of grids and takes 1.0 ms; the worst
-    tick after it, with the units' path checks, 1.3 ms. A set held one grid, `(GroundRugged, 1)`, until slice
-    M5-G2: every unit type crossed Rugged terrain and was at most a tile wide, the Drone included (a HoverVehicle,
-    design change 0039; on its stand-in mover it had a grid of its own, which doubled every set). The Cults'
-    wheeled and tracked vehicles (slice M5-G2) don't cross it, so a set holds `(Ground, 1)` too, whether or not one
-    is in the game (`paths::grid_keys`, every unit type's): A/B against master, interleaved, the rebuild tick went
-    from 1.12 and 1.14 ms to 1.81 and 1.72 ms, the ticks around it unchanged (0.31 and 0.345 ms), and
-    `structures_perf`'s whole tick from 0.349 and 0.344 ms to 0.360 and 0.356 (p99 0.66 to 0.71), its grid syncs'
-    p99 about doubled and its other phases within noise (load average 2.9 to 6.5). Building a grid only once a unit
-    of its class is in the game would take that back.
+    tick after it, with the units' path checks, 1.3 ms. Its sets hold one grid, `(GroundRugged, 1)`, the
+    Peacekeepers', which is also every other infantry's and the Drone's (a HoverVehicle crosses Rugged terrain,
+    design change 0039; on its stand-in mover it had a grid of its own, which doubled every set). The Cults' wheeled
+    and tracked vehicles (slice M5-G2) don't cross it and walk on `(Ground, 1)`, which slice M5-G2 put in every set,
+    whether or not a vehicle was in the game; slice M5-Z2 builds it with the first one (*Which grids*). A/B against
+    master, interleaved, 8 rounds (medians, load average 2.3 to 2.7): the rebuild tick from 1.64 to 1.02 ms, the
+    ticks around it unchanged (0.32 and 0.35 ms); with a vehicle in the game (`knowledge_rebuilds_256_with_a_vehicle`,
+    two grids a set) 1.59 ms, master's cost. `structures_perf` (no vehicle): the whole tick 0.358 ms on both sides,
+    p99 0.71 to 0.68 ms, the grid syncs' p99 0.26 to 0.15 ms, a tick with a rebuild 0.48 to 0.41 ms.
 - **Group destinations** (`orders/destinations.rs`, `docs/movement.md > 6.4`, the design's magic box): a location
   order (Move to a point, AttackMove, Patrol) to several units looks at the bounding box of their silhouettes
   (design change 0028). A click inside it sends every unit to the click; outside, each unit goes to the click plus

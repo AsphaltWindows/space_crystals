@@ -115,6 +115,10 @@ impl Sim {
     /// `docs/movement.md > 3`: a unit of `kind` placed at `pos` keeps the invariants: its box is clear of blocked
     /// tiles and blocking footprints and inside the map, and overlaps no other unit of its layer (`moving` is the
     /// unit itself, when it is teleported). Other kinds pass.
+    ///
+    /// The tiles are its grid's (slice M5-Z2, `paths`, *Which grids*); for a spawn of the first unit of its class,
+    /// whose grid the game builds only once it is in (`Sim::apply_command`), the grid it will build, made for the
+    /// answer: of the footprints of the true grids, which the gate checks on.
     pub(in crate::sim) fn check_unit_fits(
         &self,
         kind: ObjectKind,
@@ -128,8 +132,17 @@ impl Sim {
         let half = silhouette / 2.0;
         let base = unit.base_def();
         if let Some(class) = base.nav_class() {
-            let grid = self.nav.nav().grid(class, nav::size_class(silhouette));
-            if grid.is_some_and(|grid| !nav::box_clear(grid, half, pos)) {
+            let size = nav::size_class(silhouette);
+            let built;
+            let grid = match self.nav.nav().grid(class, size) {
+                Some(grid) => grid,
+                None => {
+                    debug_assert!(moving.is_none(), "a unit in the game without its grid");
+                    built = self.nav.fresh_grid(&self.map, class, size);
+                    &built
+                }
+            };
+            if !nav::box_clear(grid, half, pos) {
                 return Err(Reject::Blocked);
             }
         }

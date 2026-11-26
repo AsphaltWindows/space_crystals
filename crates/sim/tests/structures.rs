@@ -50,13 +50,10 @@ fn debug(command: DebugCommand) -> sc_sim::PlayerCommand {
     }
 }
 
-/// Whether the Peacekeepers' grid (`(GroundRugged, 1)`, the light infantry's) blocks tile `(x, y)`.
+/// Whether the Peacekeepers' grid (`(GroundRugged, 1)`, the light infantry's) blocks tile `(x, y)`: the game's, or
+/// the one its first Peacekeeper would build (slice M5-Z2: a game builds the grids of the units in it).
 fn blocked(t: &TestSim, x: i32, y: i32) -> bool {
-    let grid = t
-        .sim()
-        .nav()
-        .grid(NavClass::GroundRugged, 1)
-        .expect("the Peacekeeper's grid");
+    let grid = t.sim().true_grid(NavClass::GroundRugged, 1);
     grid.is_blocked(TilePos::new(x, y))
 }
 

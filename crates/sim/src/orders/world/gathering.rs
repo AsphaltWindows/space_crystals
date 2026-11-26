@@ -14,10 +14,10 @@ use crate::economy::drop_off::{DropPoint, drop_point_of};
 use crate::economy::gathering::worker_def;
 use crate::economy::stations::{is_station, supplies};
 use crate::ids::{ObjectId, PlayerId};
-use crate::nav;
 use crate::object::{Object, ResourceState};
 use crate::orders::OrderKind;
 use crate::orders::state::{Behaviour, GatherPhase};
+use crate::paths;
 use crate::shape::Shape;
 use crate::sides::SideLetter;
 use crate::targets;
@@ -397,13 +397,9 @@ impl World<'_> {
     /// its grid blocks, reaches everything.
     pub(crate) fn reachable(&self, unit: &Unit, target: &Shape) -> bool {
         let def = unit.kind.def();
-        let grid = (def.unit.as_ref())
-            .and_then(|unit| unit.base_def().nav_class())
-            .zip(def.silhouette())
-            .and_then(|(class, silhouette)| {
-                let planning = self.nav.planning(unit.owner);
-                planning.grid(class, nav::size_class(silhouette))
-            });
+        let grid = (def.unit.as_ref().zip(def.silhouette())).and_then(|(walker, silhouette)| {
+            paths::unit_grid(self.nav.planning(unit.owner), walker.base_def(), silhouette)
+        });
         let Some(grid) = grid else {
             return true;
         };

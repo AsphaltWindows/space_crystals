@@ -236,7 +236,7 @@ fn check_invariants(sim: &Sim) {
                 let grid = sim
                     .nav()
                     .grid(class, nav::size_class(silhouette))
-                    .expect("a grid per unit type");
+                    .expect("a grid for each unit in the game (slice M5-Z2)");
                 // A unit in the exit doorway of the building that released it (design change 0080) overlaps that
                 // footprint's tiles but no other blocked tile, nor any ground of the footprint it can't stand on
                 // (`ExitDoor::box_clear`; `testing::invariants` checks the rest of the doorway's rules).
