@@ -13,6 +13,17 @@
 >   - **0326:** the Agent's panel is Q Move, A Construct (Q Tunnel, W Laser Turret, Z Back), S Drop Off, D Repair,
 >     X Stop. **J1** builds the Agent's Construct menu beside the Recruit's, with D `Planned`. **N8** makes the Agent's
 >     **D** live, not F as §B's N8 says.
+> - **0327 and 0328 arrived next:**
+>   - **0327** (answers Q0096): the Recruit has two build menus, **A** Basic and **W** Advanced, with fixed slots by
+>     branch. **J1** builds both, with every building not yet built greyed. This replaces the single
+>     `CONSTRUCT_MENU` of the J1 note in §C.
+>   - **0328** (answers Q0123, Q0125, and points of Q0112, Q0120 and Q0124):
+>     - **New slice N9: the Field Engineer and the Career Campus** (Opus, about 2 h; after N8, before X1). It covers
+>       their defs, the Barracks' E recipe, the Deployment Center's Construct entry, the Field Engineer's panel
+>       (A Construct with Bunker and First Aid Tent greyed; D Repair), and its `repairs` data on N8's mechanism.
+>     - Shroud is on **R** (N4a and N4b).
+>     - The Sparrow's SeparationRadius of 32 su is now the design's (H1).
+>     - **N8:** a Tunnel repairs at its 480-frame rate at every Tier, and a vehicle's repair price is crystals only.
 > - **The waves (§C) stand,** but the playtest's timing is the user's call: the full Cults at the end of W12, or a
 >   first playtest of the infantry core at the end of W9 (§F), put to the user on 2026-11-25.
 
