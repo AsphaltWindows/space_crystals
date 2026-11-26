@@ -16,7 +16,7 @@ Complete list of Syndicate structures. "Tier" is the Tier Requirement checked ag
 | Null Chamber | Expansion | Tunnel | 2 | Hideout | Shielded crystal consumption; manned units exiting the Tunnel Network get a temporary buff (detection, sight, damage reduction) |
 | Aerospace Assembly | Expansion | Tunnel | 3 | Forge | Aviation and orbital (satellite) production |
 | Orbital Command | Expansion | Tunnel | 3 | Aerospace Assembly | Control/coordination of orbital forces |
-| Laser Turret | Surface / pop-up | Agent or Tunnel | — | Optics Lab | Defensive structure, attacks ground and air; inside a Tunnel Area it is a hidden pop-up turret |
+| Laser Turret | Pop-up (upright once its Tunnel is lost) | Tunnel | — | Optics Lab | Defensive structure, attacks ground and air; inside a Tunnel Area it is a hidden pop-up turret |
 
 ## Tunnel Expansions
 
@@ -54,7 +54,7 @@ Each production expansion can have a rally point set. This determines what happe
 
 ## Surface Defensive Structures
 
-Surface (above-ground) Syndicate structures constructed by Agents (the Laser Turret can also be built by a Tunnel). Unlike Tunnel expansions, they have no Tier Requirement and are not restricted to Tunnel Areas; when built by an Agent they follow the Worker-Built Structures placement rules (core/entities.md > Placement Validation). A Laser Turret that stands inside one of the player's Tunnel Areas becomes a pop-up turret (see Laser Turret). TechPrerequisites are satisfied by expansions anywhere in the Tunnel Network.
+(user, 2026-11-26) The Syndicate's defensive structure, the **Laser Turret**, is **built only by Tunnels**, inside their Tunnel Area (factions/syndicate/structures/laser_turret.md); Agents build no surface structures other than Tunnels. A turret stands on the surface (upright) only after its Tunnel is lost.
 
 ## Files
 
