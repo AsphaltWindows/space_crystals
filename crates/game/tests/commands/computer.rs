@@ -4,7 +4,7 @@
 //! player's name. The debug player switch (F2) still changes the local player, and a human player's commands go as ever.
 
 use sc_ai::Profile;
-use space_crystals::ai_players::AiSlot;
+use space_crystals::ai_players::{AiPlayers, AiSlot};
 
 use super::*;
 use crate::hud::notes;
@@ -12,8 +12,8 @@ use crate::hud::notes;
 const P1: PlayerId = PlayerId(1);
 const P2: PlayerId = PlayerId(2);
 
-/// [`game`]'s game with a computer playing player 1, passive: it has no buildings to defend and attacks nothing, so it
-/// gives no order of its own.
+/// [`game`]'s game with a computer playing player 1, passive: it has no buildings to defend and attacks nothing, so its
+/// only orders send its idle units to its staging point ([`client_orders`]).
 fn computer_game() -> App {
     let mut config = AppConfig::new(scenario());
     config.display = DisplayMode::Headless;
@@ -37,6 +37,15 @@ fn computer_game() -> App {
     app
 }
 
+/// The orders given but player 1's computer's own: its Attack Moves to its staging point (`sc_ai::Army`).
+fn client_orders(app: &App) -> Vec<Given> {
+    let staging = (app.world().resource::<AiPlayers>().get(P1))
+        .and_then(|ai| ai.army().staging())
+        .expect("player 1's computer, with a staging point");
+    let computers = |o: &Given| o.player == P1 && o.kind == OrderKind::AttackMove(staging);
+    orders(app).into_iter().filter(|o| !computers(o)).collect()
+}
+
 #[test]
 fn a_computer_players_player_takes_no_commands_from_the_client() {
     let mut app = computer_game();
@@ -49,7 +58,7 @@ fn a_computer_players_player_takes_no_commands_from_the_client() {
     click_button(&mut app, slot(2, 1), &[]);
     updates(&mut app, 4);
     assert_eq!(
-        orders(&app),
+        client_orders(&app),
         [],
         "a right-click, a hotkey and a button: nothing for the computer's player"
     );
@@ -62,7 +71,7 @@ fn a_computer_players_player_takes_no_commands_from_the_client() {
     app.world_mut().resource_mut::<CameraView>().center = VIEW_CENTER;
     select_box(&mut app, &[ENEMY_PK]);
     right_click(&mut app, away, &[]);
-    let given = orders(&app);
+    let given = client_orders(&app);
     assert_eq!(given.len(), 1, "{given:?}");
     let order = &given[0];
     assert_eq!((order.player, order.units.as_slice()), (P2, [ENEMY_PK].as_slice()));
@@ -77,7 +86,7 @@ fn a_computer_players_player_takes_no_commands_from_the_client() {
     tap(&mut app, &[], KeyCode::KeyX);
     updates(&mut app, 2);
     assert_eq!(
-        orders(&app).len(),
+        client_orders(&app).len(),
         1,
         "back on the computer's player: its keys give nothing again"
     );

@@ -10,13 +10,18 @@
 //! ([`View`]: "Fair knowledge").
 //!
 //! - **Layers**: [`view`] (what the player knows), [`turn`] (one tick's commands, each checked by the gate, and what the
-//!   bank still pays), and each faction's own module behind [`FactionAi`] ([`factions`]).
+//!   bank still pays), [`build`] (where a building goes), [`army`] (the staging point, the waves and the defense), and
+//!   each faction's own module behind [`FactionAi`] ([`factions`]), which says what to build and train and which units
+//!   fight. The numbers are all in [`tuning`].
 //! - **Deterministic**, like the sim: the same game gives the same commands on every machine. No hash containers, no
 //!   clock, no randomness of its own, ties broken by `ObjectId`, floats compared with `total_cmp` (`clippy.toml`).
 //! - **Never panics**, whatever the game's state: an assumption that fails skips the action.
 
+pub mod army;
+pub mod build;
 pub mod factions;
 pub mod profile;
+pub mod tuning;
 pub mod turn;
 pub mod view;
 
@@ -24,6 +29,7 @@ use std::fmt;
 
 use sc_sim::{Faction, PlayerCommand, PlayerId, Scenario, Sim};
 
+pub use army::Army;
 pub use factions::FactionAi;
 pub use profile::Profile;
 pub use turn::Turn;
@@ -37,6 +43,7 @@ pub struct Ai {
     /// Every player's start location, from the scenario (the sim doesn't keep the slots).
     starts: Vec<Start>,
     faction: Box<dyn FactionAi>,
+    army: Army,
 }
 
 /// Why a computer player can't take a player's slot.
@@ -89,12 +96,15 @@ impl Ai {
         let faction = sim.player(player).ok_or(AiError::UnknownPlayer(player))?.faction;
         let hook = factions::hook(faction).ok_or(AiError::NoAi { player, faction })?;
         let starts = Start::all(scenario);
-        let faction = hook(&View::new(sim, player, &starts), profile);
+        let view = View::new(sim, player, &starts);
+        let faction = hook(&view, profile);
+        let army = Army::new(&view);
         Ok(Self {
             player,
             profile,
             starts,
             faction,
+            army,
         })
     }
 
@@ -107,6 +117,11 @@ impl Ai {
         self.profile
     }
 
+    /// Its army: where it gathers, and how many waves it has sent.
+    pub fn army(&self) -> &Army {
+        &self.army
+    }
+
     /// The player's commands for the step to tick `sim.tick() + 1`, from the game as it is now (module docs). None once
     /// the player is defeated or the game is over: the gate would refuse them.
     pub fn think(&mut self, sim: &Sim) -> Vec<PlayerCommand> {
@@ -114,8 +129,9 @@ impl Ai {
         if !view.in_game() {
             return Vec::new();
         }
-        let mut turn = Turn::new(&view, self.profile, None);
+        let mut turn = Turn::new(&view, self.profile, self.army.staging());
         self.faction.think(&mut turn);
+        self.army.think(&mut turn, self.faction.as_ref());
         turn.into_commands()
     }
 }

@@ -22,6 +22,8 @@
 #[cfg(test)]
 mod tests;
 
+use std::cell::OnceCell;
+
 use sc_sim::economy::{ArmyCap, PowerSummary};
 use sc_sim::network::Held;
 use sc_sim::vision::{LastKnown, PlayerVision, VisibilityState};
@@ -133,12 +135,19 @@ pub struct View<'a> {
     sim: &'a Sim,
     player: PlayerId,
     starts: &'a [Start],
+    /// [`View::known`], worked out once.
+    known: OnceCell<Vec<Known>>,
 }
 
 impl<'a> View<'a> {
     /// `player`'s view of `sim`, with every player's start location (`starts`, [`Start::all`]).
     pub fn new(sim: &'a Sim, player: PlayerId, starts: &'a [Start]) -> Self {
-        Self { sim, player, starts }
+        Self {
+            sim,
+            player,
+            starts,
+            known: OnceCell::new(),
+        }
     }
 
     /// The player it is the view of.
@@ -231,7 +240,12 @@ impl<'a> View<'a> {
     /// is, and every structure and resource it remembers out of its sight, as it last saw it. Nothing else: no unit out
     /// of its sight, no structure it never saw (or that hides from it underground), but the neutral objects the map
     /// placed, which every player remembers from the start.
-    pub fn known(&self) -> Vec<Known> {
+    pub fn known(&self) -> &[Known] {
+        self.known.get_or_init(|| self.work_out_known())
+    }
+
+    /// [`View::known`].
+    fn work_out_known(&self) -> Vec<Known> {
         let Some(vision) = self.vision() else {
             return Vec::new();
         };
@@ -250,17 +264,14 @@ impl<'a> View<'a> {
     }
 
     /// The structures of other players that the player knows ([`View::known`]), in id order.
-    pub fn enemy_structures(&self) -> Vec<Known> {
-        let mut known = self.known();
-        known.retain(|k| k.owner.is_some_and(|p| p != self.player) && k.is_structure());
-        known
+    pub fn enemy_structures(&self) -> impl Iterator<Item = &Known> {
+        let player = self.player;
+        (self.known().iter()).filter(move |k| k.owner.is_some_and(|p| p != player) && k.is_structure())
     }
 
     /// The Space Crystals patches the player knows, as the map placed them and as it last saw them, in id order.
-    pub fn patches(&self) -> Vec<Known> {
-        let mut known = self.known();
-        known.retain(|k| k.crystals_left().is_some());
-        known
+    pub fn patches(&self) -> impl Iterator<Item = &Known> {
+        self.known().iter().filter(|k| k.crystals_left().is_some())
     }
 
     /// `core/entities.md > Placement Validation > Direct Placement`: what keeps the player from placing a `kind` with

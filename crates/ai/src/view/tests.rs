@@ -6,7 +6,7 @@ use sc_sim::testing::TestSim;
 use sc_sim::tuning::vision::FOG_DELAY_TICKS;
 use sc_sim::{DebugCommand, ObjectKind, PlayerId, Sim, Vec2, gu, scenarios};
 
-use super::{Start, View};
+use super::{Known, Start, View};
 
 const P1: PlayerId = PlayerId(1);
 const P2: PlayerId = PlayerId(2);
@@ -19,7 +19,7 @@ fn fair(sim: &Sim, starts: &[Start], player: PlayerId) -> usize {
     let view = View::new(sim, player, starts);
     let vision = sim.vision().player(player).expect("the player's vision");
     let known = view.known();
-    for k in &known {
+    for k in known {
         assert_ne!(
             k.owner,
             Some(player),
@@ -101,11 +101,11 @@ fn a_view_shows_only_what_its_player_sees_or_remembers() {
     assert_eq!(before, [(0, 0), (0, 0)], "nobody knows the other before the scout");
     let view = View::new(t.sim(), P1, &starts);
     assert_eq!(
-        view.patches().len(),
+        view.patches().count(),
         16,
         "every patch the map placed is known from the start"
     );
-    assert!(view.enemy_structures().is_empty());
+    assert_eq!(view.enemy_structures().count(), 0);
     t.spawn_unit_at(3, ObjectKind::Peacekeeper, P1, theirs + Vec2::new(-gu(5.0), -gu(3.0)));
     t.run(3);
     let scout = t
@@ -115,7 +115,7 @@ fn a_view_shows_only_what_its_player_sees_or_remembers() {
     let scout = scout.expect("the scout").id;
     let seen = fair(t.sim(), &starts, P1);
     let view = View::new(t.sim(), P1, &starts);
-    let structures = view.enemy_structures();
+    let structures: Vec<Known> = view.enemy_structures().cloned().collect();
     assert!(
         seen > structures.len() && !structures.is_empty(),
         "the scout sees the base and its unit: {seen}"
@@ -130,7 +130,7 @@ fn a_view_shows_only_what_its_player_sees_or_remembers() {
         fair(t.sim(), &starts, P2);
     }
     let view = View::new(t.sim(), P1, &starts);
-    let remembered = view.enemy_structures();
+    let remembered: Vec<Known> = view.enemy_structures().cloned().collect();
     assert_eq!(remembered.len(), structures.len(), "the buildings are remembered");
     // Last seen as the scout's sight faded: the tiles stay Visible for the fog delay after it is gone.
     let faded = removed + FOG_DELAY_TICKS;

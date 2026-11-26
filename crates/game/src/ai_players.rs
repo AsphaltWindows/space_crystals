@@ -36,7 +36,12 @@ pub struct AiPlayers {
 impl AiPlayers {
     /// Whether a computer player plays `player`.
     pub fn controls(&self, player: PlayerId) -> bool {
-        self.players.iter().any(|ai| ai.player() == player)
+        self.get(player).is_some()
+    }
+
+    /// The computer player that plays `player`, if one does.
+    pub fn get(&self, player: PlayerId) -> Option<&Ai> {
+        self.players.iter().find(|ai| ai.player() == player)
     }
 
     /// The computer players' slots, in `--ai`'s order.
