@@ -2348,3 +2348,4 @@ Answered Q0069–Q0071 (0258–0267): losing-Tunnel edges, Syndicate economy che
 2026-11-27 — Economy comparison metrics (income/s, mined, bank, spent on economy). Entry 0382.
 2026-11-27 — Economy runs: all spending is economy, Generators included. Entry 0383.
 2026-11-27 — Agents re-pick Tunnel every return. Entry 0384.
+2026-11-27 — Q0144 (part): rerun with two-sided 8-patch line (~32 seats), One vs Two Halls, start with 1 Storage, Storages as needed. Entry 0385.
