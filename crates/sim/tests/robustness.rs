@@ -11,9 +11,9 @@
 
 use sc_sim::testing::{self, ScenarioBuilder};
 use sc_sim::{
-    Ability, BuildingOrientation, Command, DebugCommand, ObjectId, ObjectKind, OrderKind, PlayerCommand, PlayerId,
-    Reject, Replay, Rng, Rotation, SU_PER_GU, Scenario, Sim, SimConfig, SimEvent, Spawn, SpawnAt, SpawnSettings,
-    Target, TickInputs, TilePos, Vec2, nav,
+    Ability, BuildingOrientation, Command, DebugCommand, ExitDoor, ObjectId, ObjectKind, OrderKind, PlayerCommand,
+    PlayerId, Reject, Replay, Rng, Rotation, SU_PER_GU, Scenario, Sim, SimConfig, SimEvent, Spawn, SpawnAt,
+    SpawnSettings, Target, TickInputs, TilePos, Vec2, nav,
 };
 
 const TICKS: u32 = 2000;
@@ -213,38 +213,59 @@ fn random_command(rng: &mut Rng, sim: &Sim) -> PlayerCommand {
 }
 
 /// Every object stays where the sim's rules allow it. Units (`docs/movement.md > 8`): I2, a ground unit's box
-/// overlaps no blocked tile and stays inside the map; I3, no unit moves more than its top speed in a tick.
+/// overlaps no blocked tile and stays inside the map; I3, no unit moves more than its top speed in a tick. Each
+/// message begins with what broke and the tick, so that [`seed_sweep`]'s list reads at a glance.
 fn check_invariants(sim: &Sim) {
-    let map = sim.map();
+    let (map, tick) = (sim.map(), sim.tick());
     for o in sim.objects() {
-        assert!(o.pos.is_finite() && o.prev_pos.is_finite(), "{o:?}");
+        assert!(
+            o.pos.is_finite() && o.prev_pos.is_finite(),
+            "a position not finite in tick {tick}: {o:?}"
+        );
         match &o.placement {
-            Some(p) => assert!(p.tiles().all(|t| map.in_bounds(t)), "{o:?}"),
-            None => assert!(map.contains_point(o.pos), "{o:?}"),
+            Some(p) => assert!(
+                p.tiles().all(|t| map.in_bounds(t)),
+                "a footprint off the map in tick {tick}: {o:?}"
+            ),
+            None => assert!(map.contains_point(o.pos), "off the map in tick {tick}: {o:?}"),
         }
         let def = o.def();
         if let (Some(unit), Some(silhouette)) = (&def.unit, def.silhouette()) {
+            let half = silhouette / 2.0;
             if let Some(class) = unit.base_def().nav_class() {
                 let grid = sim
                     .nav()
                     .grid(class, nav::size_class(silhouette))
                     .expect("a grid per unit type");
-                // But for a unit in the exit doorway of the building that released it (design change 0080;
-                // `tests/production_exit.rs` checks those).
-                let in_doorway = o.mover.as_ref().is_some_and(|mover| mover.exit.is_some());
-                assert!(in_doorway || nav::box_clear(grid, silhouette / 2.0, o.pos), "I2: {o:?}");
+                // A unit in the exit doorway of the building that released it (design change 0080) overlaps that
+                // footprint's tiles but no other blocked tile, nor any ground of the footprint it can't stand on
+                // (`ExitDoor::box_clear`; `testing::invariants` checks the rest of the doorway's rules).
+                let door = (o.mover.as_ref().and_then(|mover| mover.exit))
+                    .and_then(|building| ExitDoor::of(sim.object(building)?));
+                let clear = match door {
+                    Some(door) => door.box_clear(grid, half, o.pos),
+                    None => nav::box_clear(grid, half, o.pos),
+                };
+                assert!(clear, "I2 in tick {tick}: {o:?}");
             }
             let moved = o.pos.distance(o.prev_pos);
-            assert!(moved <= unit.movement.max_speed() + 1e-3, "I3: {moved} su: {o:?}");
+            assert!(
+                moved <= unit.movement.max_speed() + 1e-3,
+                "I3 in tick {tick}: {moved} su: {o:?}"
+            );
             let mover = o.mover.as_ref().expect("units move");
             assert!(
                 mover.velocity.is_finite() && mover.path.iter().all(|p| p.is_finite()),
-                "{o:?}"
+                "a velocity or path not finite in tick {tick}: {o:?}"
             );
         }
     }
     // The removal path (`ARCHITECTURE.md > Combat`) leaves no reference to an object that is gone.
-    assert_eq!(testing::dangling_references(sim), []);
+    assert_eq!(
+        testing::dangling_references(sim),
+        [],
+        "dangling references in tick {tick}"
+    );
 }
 
 /// A game the stream played: its replay from the start, and the state it ended in (at the end of the stream, or in the
@@ -383,15 +404,19 @@ fn fuzz_run(seed: u64) -> Run {
 
 /// The stream's seed: any seed does. A stream can end a game: its Grenadiers (slice M4-U: four grenades of 98.8
 /// against the Generator's 350 HP) and Laser Turrets (M4-S1; one in its owner's Tunnel Area, since M5-Y) can destroy a
-/// base. 8 of the first 256 seeds' streams do within [`TICKS`] (slice M4-M), and this one does in tick 1367.
+/// base. 9 of the first 256 seeds' streams do within [`TICKS`] ([`seed_sweep`]'s, slice M5-Z1; 8 at slice M4-M), but
+/// this one no longer does: its one game lasts the whole stream (it ended in tick 1367 at slice M4-M, before later
+/// kinds reshuffled the streams), so of this file's tests only the ignored sweep now reaches a game's end and
+/// [`check_refused`].
 ///
 /// The fuzz accepts that end rather than preventing it. Keeping the bases out of the fight would take a rule the sim
 /// hasn't (a structure no damage reaches), or a stream that knows every way a unit gets within reach of a base (each
 /// weapon's Range, area damage, paths, chases), which each new kind would change. And a seed whose stream happens to
 /// keep both bases holds only until the next kind reshuffles the streams. So a game's end is one more thing the stream
 /// does: [`check_refused`] checks the tick after it, and the stream goes on in a new game, so that every seed plays
-/// all of its commands. The counts the test asserts lie well under those of any of the 256 streams (spawned 65 to
-/// 115, removed 63 to 101, unit steps 565 to 3841, commands 6722 to 7223), so that a reshuffle keeps them too.
+/// all of its commands. The counts the test asserts lie well under those of any of the 256 streams (spawned 62 to
+/// 116, removed 59 to 103, unit steps 571 to 4239, commands 6684 to 7273; slice M5-Z1), so that a reshuffle keeps
+/// them too.
 const SEED: u64 = 0x5eed;
 
 #[test]
@@ -429,6 +454,37 @@ fn random_debug_commands_never_panic_and_stay_deterministic() {
 
     let other = fuzz_run(0x0dd);
     assert_ne!(other.hashes.last(), first.hashes.last());
+}
+
+/// How many seeds [`seed_sweep`] plays: 0 to 255.
+const SWEEP_SEEDS: u64 = 256;
+
+/// [`fuzz_run`] from each of the first [`SWEEP_SEEDS`] seeds, every one that panics listed with its message. [`SEED`]
+/// is one stream, which the next kind or rule reshuffles (slice M5-Z1: seed 155 broke I2 for a Recruit while the
+/// fixed seed passed), so a slice that changes the sim runs this before it reports, in release (4.1 to 4.6 s at load
+/// 4 to 9, slice M5-Z1):
+/// `cargo test -p sc_sim --release --test sim robustness::seed_sweep -- --ignored --nocapture`.
+#[test]
+#[ignore]
+fn seed_sweep() {
+    let failed: Vec<(u64, String)> = (0..SWEEP_SEEDS)
+        .filter_map(|seed| {
+            let panic = std::panic::catch_unwind(|| fuzz_run(seed)).err()?;
+            let message = (panic.downcast_ref::<String>().cloned())
+                .or_else(|| panic.downcast_ref::<&str>().map(|s| s.to_string()))
+                .unwrap_or_else(|| "a panic without a message".to_string());
+            Some((seed, message))
+        })
+        .collect();
+    for (seed, message) in &failed {
+        eprintln!("seed {seed}: {message}");
+    }
+    let seeds: Vec<u64> = failed.iter().map(|&(seed, _)| seed).collect();
+    assert!(
+        failed.is_empty(),
+        "{} of {SWEEP_SEEDS} seeds failed: {seeds:?}",
+        failed.len()
+    );
 }
 
 /// The command gate (`Sim::validate`): a rejected command changes nothing, neither the state nor the events. Each

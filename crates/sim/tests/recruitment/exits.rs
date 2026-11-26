@@ -4,7 +4,7 @@
 //! west side (`sc_sim::sides`: the letters run clockwise from the top), whose middle is (512, 640), where a Recruit
 //! appears half inside, facing west.
 
-use sc_sim::{ObjectId, Target, Vec2};
+use sc_sim::{BuildingOrientation, DebugCommand, ObjectId, Target, Vec2};
 
 use super::*;
 
@@ -95,4 +95,41 @@ fn the_hall_pauses_while_its_doorway_is_occupied() {
     assert!(status.waiting && status.progress == status.total, "{status:?}");
     let stuck = made(&t, HALL_ID)[0].1;
     assert_eq!(t.pos(stuck.0), first, "still in the doorway");
+}
+
+/// Robustness fuzz seed 155 (slice M5-Z1): a Hall debug-spawned over Cliffs, side B's middle on one of them with
+/// another right against it outside, has no doorway spot for its Recruit. Half inside, the Recruit's box would overlap
+/// the Cliff outside; fully inside, the one under the Hall, and the doorway lets a unit overlap the building, not ground
+/// under it that it can't stand on (`ExitDoor::box_clear`; `core/entities.md > Structure Type > Exit Doorway`, point 1:
+/// "Only the releasing building lets a unit overlap its footprint this way"). So the Hall holds its finished Recruit
+/// as behind an occupied doorway (point 3), and its removal leaves nobody on the Cliffs. Before the fix the Recruit
+/// came out fully inside, stuck in the doorway over the Cliff, and stood on it once the Hall was gone: `TestSim`'s I2
+/// failed in the removal's tick, as the fuzz's did.
+#[test]
+fn no_recruit_comes_out_over_ground_it_cant_stand_on_under_its_hall() {
+    // Cliffs on tiles (7, 9) and (7, 10), against side B's middle, and on (8, 9) and (8, 10), under it. Player 1
+    // keeps a Storage, so that the Hall's removal doesn't end the game.
+    let cliff = |x: i32, y: i32| (7..=8).contains(&x) && (9..=10).contains(&y);
+    let row = |y| (0..30).map(|x| if cliff(x, y) { 'c' } else { '.' }).collect::<String>();
+    let map = (0..20).map(row).collect::<Vec<_>>().join("\n");
+    let mut t = cults(&map).spawn(ObjectKind::Storage, Some(P1), tile(24, 2)).start();
+    // Through the gate, as the fuzz's stream did: the Hall spawned, and removed once its Recruit is finished.
+    let spawn = DebugCommand::Spawn {
+        kind: HALL,
+        owner: Some(P1),
+        at: tile(8, 8),
+        orientation: BuildingOrientation::default(),
+    };
+    t.debug_at(1, spawn).run(1);
+    let hall = (t.sim().objects().find(|o| o.kind == HALL)).expect("spawned").id;
+    t.run(2 * FRAMES);
+    let status = t.sim().production_status(hall).expect("in production");
+    let tick = t.sim().tick() + 1;
+    t.debug_at(tick, DebugCommand::Remove { id: hall }).run(2);
+    assert_eq!(made(&t, hall), Vec::<(Tick, ObjectId)>::new(), "no Recruit came out");
+    assert!(
+        status.waiting && status.progress == status.total,
+        "finished, waiting inside: {status:?}"
+    );
+    assert!(t.sim().objects().all(|o| o.kind != RECRUIT), "{}", t.ascii(None));
 }

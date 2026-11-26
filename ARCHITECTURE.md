@@ -385,7 +385,10 @@ Units, structures and resources are all `Object`s (`object.rs`, `core/entities.m
     same games, the same timings within noise (cycling, 0.030 to 0.037 ms a tick on either side; `recruits_perf`,
     0.076 to 0.079 ms), but for the tick that removes the 8 Armories with 80 inside, 0.22 to 0.23 ms before and 0.135
     to 0.141 ms now (its commands phase, where the removal is, 0.14 ms before and 0.04 ms now: no search round the
-    footprints) (load average 2.0).
+    footprints) (load average 2.0). Slice M5-Z1 (the doorway's tile test, `Frame::blocks`) ran both A/B against
+    master, interleaved, 13 rounds each: the same games, the same timings (medians on either side: cycling 0.030
+    ms a tick, the evacuation's tick 0.129 and 0.131 ms; `recruits_perf` at work 0.076 ms, its Movement 0.032 ms)
+    (load average 2.7 to 3.8).
   - **The pool** (`Sim::pool`, the Armory's StoredRecruits) is the units inside that no entry of the building's queue
     reserves and that aren't on their way out (slice M5-F2); `Sim::held_in` is everyone inside. The client's Enter
     pointer is slice M5-J1's (*Client architecture*, *The Recruit's panel*). Design change 0319's other holders fit
@@ -1638,10 +1641,15 @@ and the code is `crates/sim/src/movement.rs` and `movement/`, with the unit's st
   and the one case in which a unit's box overlaps a structure. A unit a producer released (or a building that holds
   units let out, `Sim::release_held`, slice M5-F1) has `Mover::exit`, the building's id, while its box still
   overlaps that footprint. For that unit alone, `World::door_free` replaces the tile tests of `tiles_free`,
-  `is_free_for` and `along_axis`: the building's own tiles don't block it, every other blocked tile does
-  (`ExitDoor::box_clear`), and it may only come out (`ExitDoor::allows`: out of a side doorway, never deeper in, and
-  inside only within the exit side's span, so it leaves through that side and no other; out of an energy doorway,
-  never closer to the footprint's centre). Units still block it and it blocks them, as ever.
+  `is_free_for` and `along_axis`: the building's own tiles don't block it, but for ground under them that the unit
+  can't stand on (slice M5-Z1, `Frame::blocks`, `NavGrid::is_terrain_solid`: the building lets the unit overlap the
+  building, not that ground, so that the unit never stands there once the building is gone; a debug spawn or a map's
+  object may cover any terrain, and a custom preset may be Buildable and not Traversible), every other blocked tile
+  does (`ExitDoor::box_clear`), and it may only come out (`ExitDoor::allows`: out of a side doorway, never deeper in,
+  and inside only within the exit side's span, so it leaves through that side and no other; out of an energy
+  doorway, never closer to the footprint's centre). A door whose every spot lies over such ground has none
+  (`Sim::doorway_spot`), and its building waits as behind an occupied doorway (fuzz seed 155: a Hall spawned over
+  Cliffs had left its Recruit on one). Units still block it and it blocks them, as ever.
   Phase 5d clears `exit` (and `Mover::exit_heading` with it) in the tick the box is clear of the footprint (or the
   building is gone, or a teleport took the unit away), and nothing ever sets it again: a unit that is out can't
   re-enter.
@@ -1770,7 +1778,8 @@ and the code is `crates/sim/src/movement.rs` and `movement/`, with the unit's st
   earlier). Any other overlap fails,
   the first tick it exists (`tests/invariants_overlap.rs` puts units where they must not be and asks the checker); I2 no
   ground box overlaps a blocked tile or leaves the map, except a unit in an exit doorway (`Mover::exit`), which
-  overlaps the tiles of the building that released it and no other blocked tile, overlaps that footprint for as
+  overlaps the tiles of the building that released it and no other blocked tile, nor ground under them it can't
+  stand on (slice M5-Z1), overlaps that footprint for as
   long as `exit` is set, never moves deeper in (`ExitDoor::allows`), never stands off a portal's open arc
   (**M3-D2**: `EnergyDoorway::margin` at least −1e-3, `ARC_TOLERANCE`), and never comes to be in a doorway by
   moving (`tests/production/portal_stalls.rs` has the energy doorway's negative tests for I1 and I2); I3 a unit moves at most its speed per tick; I4 every float
@@ -2945,7 +2954,12 @@ their energy doorway, slice M3-D2: design change 0145, `factions/colonists/struc
   (who leaves, allies included, which the sim can't make yet). The fuzz games of `robustness.rs` give each player a
   base the stream never removes, so that a debug removal doesn't end them; a fight still can (a Grenadier, or a Laser
   Turret in its owner's Tunnel Area, takes a base), and then the tick after the end checks that every command is refused
-  and changes nothing, and the stream goes on in a new game (slice M4-M: any seed does, none is hunted for).
+  and changes nothing, and the stream goes on in a new game (slice M4-M: any seed does, none is hunted for). One seed
+  is one sample, which the next kind or rule reshuffles: **the ignored `robustness::seed_sweep`** (slice M5-Z1) plays
+  the first 256 seeds' streams and lists every one that panics, with its message (each of the fuzz's own checks names
+  what broke and the tick). A slice that changes the sim runs it before it reports: `cargo test -p sc_sim --release
+  --test sim robustness::seed_sweep -- --ignored --nocapture`, about 4 s. At M5-Z1 all 256 pass, and 9 of them end a
+  game, which the fixed seed no longer does.
 - **Determinism tests** compare `Sim::state_hash()`, an FNV-1a 64 hash of the whole state except the events. Run the
   same scenario and inputs twice, or play back a `Replay`, and compare the hashes (`determinism.rs`, with the replay
   checkpoints). Every state type's hash impl destructures it (`hash.rs`), so a new field doesn't compile until it is

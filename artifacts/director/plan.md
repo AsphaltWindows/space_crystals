@@ -1515,23 +1515,42 @@ Approach: thin vertical slices the user can run and see, each verified by tests 
   - **Perf:** `Claims::of` in the Economy step is no slower (`sixty_recruits_on_a_field_with_four_storages`, mean 0.024–0.025 ms against master's 0.026–0.038 ms at load 8.9).
   - 2043 tests passed, 29 ignored. The goldens are unchanged.
 
+- **M5-Z1 Fuzz seed 155** (Opus; merged in `4d99074c`). A bug fix: in robustness fuzz seed 155, a Recruit broke invariant I2.
+  - **The failure:** a Hall debug-spawned over Cliffs released a Recruit over the Cliff under its side B. When the Hall was removed, the Recruit stood on the Cliff.
+  - **The root cause:** `Frame::box_clear` let a released unit overlap every tile of its building's footprint, including terrain it can't stand on. It came in with **M5-F2** (`a8a35bd0`, 0342: the Hall exits on B), found by bisecting the merges.
+  - **The fix** (`production/exit.rs`, `exit/energy.rs`): `Frame::blocks` still lets the unit overlap the building's tiles, but not ground under them it can't stand on (`is_terrain_solid`, the test F3's evacuation uses). It covers side and energy doorways.
+    - A doorway with no clear spot holds its finished unit, as an occupied one does.
+    - I2 isn't weakened: the invariant checker applies the same rule to units in a doorway.
+  - **Found:** the design allows Buildable ground that isn't Traversible (`core/map.md > Tile`: "Any combination of properties is valid"). A Hall whose side B lies over such ground holds its Recruits for good. Marked Placeholder: **Q0134**.
+  - **Tests:**
+    - a regression test through the gate (`recruitment::exits`);
+    - two unit tests, one for side doorways and one for energy doorways;
+    - all three fail without the fix.
+  - **The seed sweep:** `robustness::seed_sweep`, ignored, fuzzes seeds 0–255 in about 6 s on the workspace build. `cargo test --workspace -- --ignored seed_sweep` is now in every slice's checks (`m5-common.md`). Before the fix only seed 155 failed; now none do.
+    - `SEED`'s doc is updated: 0x5eed no longer ends a game, and 9 of the 256 seeds do.
+  - **Perf:** `recruits_perf` and `holding_perf` are within noise of master (`e548e6ca`), at load 2.7–3.8.
+  - 2046 tests passed, 30 ignored. The goldens are unchanged.
+
 ## In progress
 - **Running:**
   - **M5-L Cults oracle and goldens** (Opus; brief `scratchpad/briefs/m5l-cults-oracle.md`):
     - **Scenario 1:** the doc's figures at ±15%, edge to edge, one Storage per face (0346).
     - **Scenario 2:** the user's early-expansion build line, reported against the GDO and the Colonists at 1:30 and 2:48 with no target (0346).
     - **Also:** 0345's Verification, and the goldens `cults_opening` and `cults_vs_syndicate`, blessed after its last merge of master.
-  - **M5-Z1 Fuzz seed 155** (Opus; brief `scratchpad/briefs/m5z1-fuzz-seed-155.md`). In `fuzz_run(155)`, a Recruit breaks invariant I2 (a ground box on a blocked tile). The slice reproduces it, finds the slice that introduced it (E, F2, J1, F3 or Y), fixes the root cause, and adds a regression test plus an ignored sweep of the first 256 seeds.
   - **M5-G2 Cults kinds and the Gunner** (Opus; brief `scratchpad/briefs/m5g2-cults-kinds.md`). G2 of the addendum, with what changed since:
     - every remaining Cults kind, the last slice to add one (T69), including the Hand of Heaven and the Prayer-mobile (0361, 0363–0365), with the Jackal renamed the Seeker;
     - the Gunworks, Machine Shop and Scrap Hangar built from the Construct menus, with no commands, and not enterable (0328);
     - the Gunner unlocked by a completed Gunworks, the check made at queueing (0335);
     - 0348's Groupable false, the pool buildings' capacities (0347 point 5), and the Storage's armour 1/4 (Q0094 a).
+  - **M5-U1 Unit turrets** (Opus; brief `scratchpad/briefs/m5u1-unit-turrets.md`). U1 of the addendum, with T80: a unit's turret turns within its arc at its turn rate while the base moves, and scans for a target whenever nothing is locked, during a Move too.
+    - It is built and tested on test defs. The real turret units (the Seeker, Sparrow and Hand of Heaven, whose `TurretAttrs` G2 fills in) come with N6, N7 and N10.
+    - Also: the MinRange skip (`behaviors.md > BaseAutoTargeting > Targets inside MinRange`), and `commands.md > TurretCommandState`'s retention rule.
+    - The Laser Turret's sim behaviour is unchanged, and its client barrel is reused for units.
 - **Next**:
   - **M4 is complete** (M4-M, `4e3fdd4a`; the strays, M4-Z, `95b4bc6e`; the hatch jam fixed by M4-W3's contact step, `5305c2f3`). The jam's history: M4-W diagnosed it (`189d0162`), M4-W2 built 0315's first step (`b81b2089`), which didn't fix it, and 0324 planned the 90° contact step, which did. 0336 accepted the oversaturated hatch and dropped 0324's steps 2 and 3.
   - **M5 wave 1 is done:** A (`ed23874e`) and R (`afd9c152`).
   - **M5 wave 2 is done:** D (`36a06de4`), C (`afd9b366`) and F1 (`e0444eab`), and O3, pulled forward from W4 (`e64cf8d2`).
-  - **0319** put every designed Cults building and unit in M5, with placeholder numbers. The gated slices N1–N6 and G are now in scope. M5-P2's addendum plans them: 31 slices in all, with the playtest at the end of W12, or a first playtest of the Cults' infantry core at the end of W9 (the choice is with the user, 2026-11-25). The addendum is adopted as `artifacts/director/m5-plan-addendum.md`, with T69–T83, and its 14 question drafts are filed as Q0112–Q0125. Wave 3: B (`98dfe65a`) and E (`62dd3e7f`) have landed. **M5-T, build speed**, has landed (`4ecfc18a`). **F2, Armory training,** has landed (`d9492a69`). **J1, Recruit UI,** has landed (`2286859e`). **F3, holding,** has landed (`da08f46d`). **M5-Y, Syndicate turrets,** has landed (`c65cc1b0`). **J2, the Recruitment Area display,** has landed (`e548e6ca`). **L** (the Cults oracle and goldens), **Z1** (a fuzz bug) and **G2** (the remaining Cults kinds and the Gunner) are running. **New since:** **M5-K, GDO anti-air** (0356: the Rocketman and the Arsenal), after H1. **The Field Engineer is in M5 now** (0328): slice N9, after N8 and before X1.
+  - **0319** put every designed Cults building and unit in M5, with placeholder numbers. The gated slices N1–N6 and G are now in scope. M5-P2's addendum plans them: 31 slices in all, with the playtest at the end of W12, or a first playtest of the Cults' infantry core at the end of W9 (the choice is with the user, 2026-11-25). The addendum is adopted as `artifacts/director/m5-plan-addendum.md`, with T69–T83, and its 14 question drafts are filed as Q0112–Q0125. Wave 3: B (`98dfe65a`) and E (`62dd3e7f`) have landed. **M5-T, build speed**, has landed (`4ecfc18a`). **F2, Armory training,** has landed (`d9492a69`). **J1, Recruit UI,** has landed (`2286859e`). **F3, holding,** has landed (`da08f46d`). **M5-Y, Syndicate turrets,** has landed (`c65cc1b0`). **J2, the Recruitment Area display,** has landed (`e548e6ca`). **Z1, a fuzz bug,** has landed (`4d99074c`). **L** (the Cults oracle and goldens), **G2** (the remaining Cults kinds and the Gunner) and **U1** (unit turrets) are running: wave 5. **New since:** **M5-K, GDO anti-air** (0356: the Rocketman and the Arsenal), after H1. **The Field Engineer is in M5 now** (0328): slice N9, after N8 and before X1.
   - **Playtest:** the user plays once all four factions are built, in hot-seat from the command line (2026-11-25). The kit is `docs/playtest/` (m2–m4 and M5's README). This replaces separate M1–M4 playtests.
 
 ## M1 plan (from the movement spike; the approved design is in `docs/movement.md`)
@@ -1907,6 +1926,7 @@ The user keeps feeding unit and other designs to the Designer, so expect increme
 | Q0131 | 0362: does a Recruit that holds the Build queued, behind another order, make the site wait? (M5) | no | open (J1 built (a): the site waits for it). Also notes that 0341's "3 tiles from the edge" is off by one |
 | Q0132 | Two doc lines still give the Syndicate Agent-built turrets (`tunnels.md > Losing Tunnels`, `agent.md > Building`) (M5) | no | open; built as 0359 and 0360 say |
 | Q0133 | Can a selected own Hall's claims reveal an enemy Hall the player has never seen? (`recruitment_hall.md > Recruitment Area display`) (M5) | no | open; built as (a): the true claims, matching the InfoPanel's Effectiveness |
+| Q0134 | Buildings on Buildable ground that units can't walk on: how do their units come out? (`core/map.md > Tile`, `core/entities.md > Structure Type > Exit Doorway`) (M5) | no | open; built as (a): no unit is released onto such ground, so the doorway holds it (M5-Z1) |
 
 ## Design change entries
 Last triaged: 0282.

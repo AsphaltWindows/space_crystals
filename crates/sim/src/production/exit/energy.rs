@@ -36,9 +36,10 @@
 //!    and 0085, `Sim::refund_production`).
 //!
 //! **The exception** ([`EnergyDoorway::allows`], [`EnergyDoorway::box_clear`]): while the unit's box overlaps the
-//! footprint, the portal's own tiles don't block it and it never moves closer to the centre; every other blocked tile
-//! blocks it, and units block it and it blocks them, as ever. Its walk keeps it on its heading's ray, which leaves
-//! through an open side; invariant I2 checks that it does (`testing::invariants`).
+//! footprint, the portal's own tiles don't block it, but for ground under them that it can't stand on (slice M5-Z1,
+//! `Frame::blocks`), and it never moves closer to the centre; every other blocked tile blocks it, and units block it
+//! and it blocks them, as ever. Its walk keeps it on its heading's ray, which leaves through an open side; invariant
+//! I2 checks that it does (`testing::invariants`).
 
 use std::collections::BTreeMap;
 
@@ -245,16 +246,17 @@ impl EnergyDoorway {
     }
 
     /// `nav::box_clear` for a released unit: whether a box with half extents `half` centred on `p` lies inside the
-    /// map and overlaps no solid tile **other than the footprint's**.
+    /// map and overlaps no solid tile **other than the footprint's**, nor ground of the footprint that the unit can't
+    /// stand on (`Frame::blocks`).
     pub fn box_clear(&self, grid: &NavGrid, half: Vec2, p: Vec2) -> bool {
         self.frame.box_clear(grid, half, p)
     }
 
     /// Whether the way out along the unit vector `dir` is free for a box with half extents `half` (module docs, 3):
     /// swept straight from the centre to where it is clear of the footprint ([`EnergyDoorway::outside`]) and one unit
-    /// length beyond (its longer side), it enters no solid tile of `grid` but the footprint's own, nor the map's
-    /// edge, nor any of the boxes `others` (centre and half extents). Touching is free. `grid` is `None` for a unit
-    /// that crosses every tile.
+    /// length beyond (its longer side), it enters no solid tile of `grid` but the footprint's own, nor ground of the
+    /// footprint that the unit can't stand on (`Frame::blocks`), nor the map's edge, nor any of the boxes `others`
+    /// (centre and half extents). Touching is free. `grid` is `None` for a unit that crosses every tile.
     pub fn way_out_free(&self, dir: Vec2, half: Vec2, grid: Option<&NavGrid>, others: &[(Vec2, Vec2)]) -> bool {
         let centre = self.centre();
         let end = self.outside(centre, dir, half) + dir * (2.0 * half.max_element());
@@ -270,8 +272,8 @@ impl EnergyDoorway {
                 for x in first.x..=last.x {
                     let t = TilePos::new(x, y);
                     let tile = (t.corner() - half, t.corner() + Vec2::splat(SU_PER_GU) + half);
-                    // Off the map is solid.
-                    if !self.frame.covers(t) && grid.is_solid(t) && segment_enters_box(centre, d, tile.0, tile.1) {
+                    // Off the map is solid; under the footprint only ground the unit can't stand on is (M5-Z1).
+                    if self.frame.blocks(grid, t) && segment_enters_box(centre, d, tile.0, tile.1) {
                         return false;
                     }
                 }
