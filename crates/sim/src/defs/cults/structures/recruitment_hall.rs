@@ -71,8 +71,8 @@ pub(crate) static RECRUITMENT_HALL: ObjectDef = ObjectDef {
     default_settings: None,
 };
 
-/// The Recruitment Hall's construction by Recruits (`StructureDef::site`, slice M5-E; `factions/cults/economy.md > Cults
-/// Building Mechanics`: "Space Crystals cost and construction time for each buildable structure are defined in the
+/// The Recruitment Hall's construction by Recruits (`StructureDef::site`, slice M5-E; `factions/cults/economy.md >
+/// Cults Building Mechanics`: "Space Crystals cost and construction time for each buildable structure are defined in the
 /// Recruit's Constructs list"). Its production starts once it is complete (`Sim::start_functions`), so it claims its
 /// tiles from that tick (`Production::completed_at`; `> RecruitmentHall > TileClaiming`: "the hall that was constructed
 /// first has priority").

@@ -94,10 +94,10 @@ impl Sim {
     /// arrival", "the real check happens on arrival" (design change 0120). That is [`placement::check`] with
     /// [`Method::WorkerBuilt`] in [`Mode::Arrival`]: every object as it is now, the worker `worker` left out (design
     /// change 0118), with no sight rule ("No visibility requirement on arrival"). (M5-E) A group's Build leaves nobody
-    /// out (`worker` `None`): its builders walk off the footprint first (`sim/builds/shared.rs`). Pending sites don't count: they
-    /// reserve their sites against placements, and block no one. A Tunnel's area by the truth too: the other
-    /// Tunnels' tiers as they are (design change 0237: "The real check on arrival uses the truth"), its cells'
-    /// terrain as it is (0242).
+    /// out (`worker` `None`; design change 0339: a Recruit of the order on the footprint blocks it too,
+    /// `sim/builds/shared.rs`). Pending sites don't count: they reserve their sites against placements, and block no
+    /// one. A Tunnel's area by the truth too: the other Tunnels' tiers as they are (design change 0237: "The real check
+    /// on arrival uses the truth"), its cells' terrain as it is (0242).
     pub(super) fn arrival_check(
         &self,
         worker: Option<ObjectId>,

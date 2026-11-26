@@ -112,10 +112,10 @@ struct Walks {
 
 impl Sim {
     /// The gate for a group's Build (module docs), `builders` being the units of the command that build `kind`, all of
-    /// them workers that share builds: its TechPrerequisite ([`Reject::Requires`], as for one worker's, `Sim::check_build`),
-    /// its price out of the bank and the refunds of the tickets the order replaces, those whose every holder is among
-    /// the builders, without Shift ([`Reject::InsufficientCrystals`]), and its site as far as the player knows, the
-    /// group left out ([`Sim::group_build_check`], [`Reject::Unplaceable`]). Every builder takes it.
+    /// them workers that share builds: its TechPrerequisite ([`Reject::Requires`], as for one worker's,
+    /// `Sim::check_build`), its price out of the bank and the refunds of the tickets the order replaces, those whose
+    /// every holder is among the builders, without Shift ([`Reject::InsufficientCrystals`]), and its site as far as the
+    /// player knows, the group left out ([`Sim::group_build_check`], [`Reject::Unplaceable`]). Every builder takes it.
     pub(in crate::sim) fn check_shared_build(
         &self,
         builders: &[&Object],
@@ -223,7 +223,8 @@ impl Sim {
         };
         match walks.in_reach {
             Some(arrived) => {
-                // Nobody left out: any unit on the footprint blocks it, a Recruit of the order too (design change 0339).
+                // Nobody left out: any unit on the footprint blocks it, a Recruit of the order too (design change
+                // 0339).
                 let problems = self.arrival_check(None, ticket.kind, ticket.origin, ticket.orientation);
                 if problems.is_valid() && self.next_id < u32::MAX {
                     self.start_shared_site(ticket, arrived, site);

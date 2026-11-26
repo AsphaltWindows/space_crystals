@@ -2711,10 +2711,10 @@ their energy doorway, slice M3-D2: design change 0145, `factions/colonists/struc
 - **Cults construction tests** (slice M5-E) are `crates/sim/tests/cults_construction/` (`flow.rs`: four Recruits in
   80 frames paid once, five from one side spread along the wall (0339), two at twice the rate, one alone, a Shift
   chain, builders pulled off and back by Assist, the right-click; `refunds.rs`: two of three re-ordered and then the
-  third (0340), killed, after the start, X, a failed arrival, a Recruit of the order on the ghost (0339), the queued
-  building after X; `gate.rs`: the Armory's Storage, Shift-clicks each paid, Assist's refusals; `crowds.rs`:
-  twenty-four on a Storage; `hall.rs`: a built Hall's lineage, gatherers taken off and back), each tick checking a
-  frame per builder at work. `sim/spot_work/tests.rs` (test defs): the wall full and those waiting further out moving
+  third (0340), killed, after the start, a queued building its last holder drops (0340), X, a failed arrival, a
+  Recruit of the order on the ghost (0339), the queued building after X; `gate.rs`: the Armory's Storage, Shift-clicks
+  each paid, Assist's refusals; `crowds.rs`: twenty-four on a Storage; `hall.rs`: a built Hall's lineage, gatherers
+  taken off and back), each tick checking a frame per builder at work. `sim/spot_work/tests.rs` (test defs): the wall full and those waiting further out moving
   in, and oblong ABAC footprints, 2 × 3 and 2 × 4, at four rotations; `placement/wall/tests.rs` the wall, its search
   and the way round; `spot_work/tests.rs` the claim and the reach.
 - **Beacon Deployment tests** (slice M3-F) are `crates/sim/tests/deploy/` (the walk to the footprint's centre and the

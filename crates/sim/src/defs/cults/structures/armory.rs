@@ -82,8 +82,8 @@ mod tests {
 
     /// 2 tall and 3 wide, ABAC, MaxHP 300, PointArmor 1, FullArmor 6 (the building armour rule's n = 1), SightRange 4,
     /// Groupable, behind a Storage. Recruits walk in at its short side B and come out of the opposite one, C, and its
-    /// pool holds 10 of them. Recruits build it from outside for 200 Space Crystals in 480 frames with one of them, from
-    /// 10% HP (slice M5-E). Its training comes with slice M5-F2.
+    /// pool holds 10 of them. Recruits build it from outside for 200 Space Crystals in 480 frames with one of them,
+    /// from 10% HP (slice M5-E). Its training comes with slice M5-F2.
     #[test]
     fn the_armory_follows_the_design() {
         let structure = assert_structure(

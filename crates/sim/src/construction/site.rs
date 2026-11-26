@@ -135,9 +135,9 @@ pub enum Builder {
     Tunnel(ObjectId),
     /// The workers that build it from outside, a group sharing its build (plan decision T59, slice M5-E;
     /// `factions/cults/economy.md > Cults Building Mechanics`: "Cults buildings are constructed on-site by Recruits
-    /// working from outside the structure"; `BuilderGoes::Outside`). Nothing of them is stored: they are the units on an
-    /// Assist of it within reach of its footprint's edge, derived each tick (`crate::spot_work`), and none of them
-    /// leaves the map.
+    /// working from outside the structure"; `BuilderGoes::Outside`). Nothing of them is stored: they are the units on
+    /// an Assist of it within reach of its footprint's edge, their walk over, derived each tick (`crate::spot_work`),
+    /// and none of them leaves the map.
     Recruits,
 }
 

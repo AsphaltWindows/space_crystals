@@ -106,8 +106,8 @@ impl Sim {
     /// it always sees its own), and it is a site of the player's that its builders build from outside
     /// (`Object::is_built_from_outside`; design change 0339, `factions/cults/economy.md > Cults Building Mechanics >
     /// Group construction rules`: "**Assist** targets only a building **already under construction**, not a ghost
-    /// whose order hasn't started"), else [`Reject::NotASite`]. The units of `units` that assist a site of its kind take it
-    /// (`construction::site::assists`), else [`Reject::NoWorkers`].
+    /// whose order hasn't started"), else [`Reject::NotASite`]. The units of `units` that assist a site of its kind
+    /// take it (`construction::site::assists`), else [`Reject::NoWorkers`].
     fn check_assist(&self, player: PlayerId, units: Vec<ObjectId>, site: ObjectId) -> Result<Vec<ObjectId>, Reject> {
         self.check_target_known(player, site)?;
         let target = (self.objects.get(&site))

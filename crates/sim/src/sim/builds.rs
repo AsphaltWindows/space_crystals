@@ -29,9 +29,9 @@
 //!   defeated player's orders go unrefunded: their bank counts for nothing any more (`economy::defeat`).
 //! - **The arrivals** ([`Sim::step_deployments`]): right after phase 5a, each worker whose walk to its site is over
 //!   (`orders::build`) starts building there, or its order fails.
-//! - **A group's Build** (plan decision T59, slice M5-E; [`shared`]): the workers that share builds (the Recruits) take a
-//!   Build together, one order paid once, and build it from outside its site; its refunds go by its ticket, once, when
-//!   its last holder drops it.
+//! - **A group's Build** (plan decision T59, slice M5-E; [`shared`]): the workers that share builds (the Recruits) take
+//!   a Build together, one order paid once, and build it from outside its site; its refunds go by its ticket, once,
+//!   when its last holder drops it.
 
 mod shared;
 

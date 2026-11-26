@@ -163,8 +163,8 @@ impl Sim {
     /// (`factions/cults/economy.md > Cults Building Mechanics > Group construction rules`: "each Recruit walks to the
     /// **part of the footprint closest to it**; if that part is taken (blocked), it **wall-hugs** along the footprint
     /// until it reaches a part where it can work"), along each row's wall in turn (`placement::Wall::hug`): row 0 the
-    /// builders' wall, each next one a [`room`] twice over further out. Along it, the point nearest the unit first, then
-    /// further and further from there both ways, `tuning::construction::HUG_STEP_SU` at a time, of two as far the
+    /// builders' wall, each next one a [`room`] twice over further out. Along it, the point nearest the unit first,
+    /// then further and further from there both ways, `tuning::construction::HUG_STEP_SU` at a time, of two as far the
     /// clockwise one first (**Placeholder (not in the design: the way along the wall, and how finely it is searched)**:
     /// the nearest part either way, 0339 leaving it to the implementation, "shorter way first, with a fixed
     /// tie-break"). A spot fits by the rule of every unit put on the map (`Sim::check_unit_fits`), the unit itself
@@ -222,12 +222,12 @@ impl Sim {
     /// spot while that way keeps its box off the footprint and off the rooms of the others' spots among `claims`
     /// (`placement::crosses`); else round them, along the wall a row further out than its spot's
     /// (`placement::Wall::row_of`: row 1 for a builder's spot, which nobody waits on), by that wall's corners where the
-    /// way along it turns, the shorter way round (`placement::Wall::next_corner`), to its point nearest the spot, and in
-    /// from there, between the builders beside the spot, whose rooms leave a box and twice the standoff clear
+    /// way along it turns, the shorter way round (`placement::Wall::next_corner`), to its point nearest the spot, and
+    /// in from there, between the builders beside the spot, whose rooms leave a box and twice the standoff clear
     /// (**Placeholder (not in the design: the way round the footprint)**). It heads on for its next leg once within two
     /// steps of its walk of a corner or of the way in ([`Sim::head_on`]), so that it never ends its walk there, short
-    /// of its spot. A unit on the footprint goes straight to its spot, the quickest way off, as does one whose way in is
-    /// off the map; one whose next corner is off the map heads for the way in.
+    /// of its spot. A unit on the footprint goes straight to its spot, the quickest way off, as does one whose way in
+    /// is off the map; one whose next corner is off the map heads for the way in.
     fn leg(&self, id: ObjectId, at: &Placement, spot: Vec2, claims: &[Claim]) -> Vec2 {
         let Some(o) = self.objects.get(&id) else {
             return spot;

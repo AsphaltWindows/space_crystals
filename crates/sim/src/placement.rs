@@ -214,9 +214,10 @@ impl Sim {
     /// keeps `workers`, workers of one player's that build `kind` together, from being ordered to build it with the
     /// top-left tile of its footprint at `origin`, turned by `orientation`, as far as their owner knows. Every one of
     /// them is left out of the occupants, as one worker is (design change 0118: "the building worker itself ...
-    /// doesn't count"): they build from outside, and walk off the footprint before the site starts. Without Shift
-    /// (`queued`), the ghosts their orders alone hold reserve nothing: the new order replaces them. `None` if `workers`
-    /// is empty, or holds an object that is no unit of that player's that builds `kind`.
+    /// doesn't count"): they build from outside, off the footprint by the first arrival, when one of them on it fails
+    /// the order (design change 0339, `sim/builds/shared.rs`). Without Shift (`queued`), the ghosts their orders alone
+    /// hold reserve nothing: the new order replaces them. `None` if `workers` is empty, or holds an object that is no
+    /// unit of that player's that builds `kind`.
     pub fn group_build_check(
         &self,
         workers: &[ObjectId],

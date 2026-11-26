@@ -68,10 +68,10 @@ pub fn footprint(kind: ObjectKind, origin: TilePos, orientation: BuildingOrienta
 }
 
 /// A worker-build order to `site` starts (`orders::start`): `unit` heads for the footprint's centre. A worker that
-/// shares builds (`WorkerDef::shares_builds`, the Recruit; slice M5-E) stands instead, until the spots' step right after
-/// this phase gives it its own spot beside the footprint and sends it there (`crate::spot_work`, plan decisions T59 and
-/// T62: "each builder walks to its own spot", "so a group doesn't converge on one point"; design change 0339: the part
-/// of the footprint closest to it, or the nearest free part along the wall).
+/// shares builds (`WorkerDef::shares_builds`, the Recruit; slice M5-E) stands instead, until the spots' step right
+/// after this phase gives it its own spot beside the footprint and sends it there (`crate::spot_work`, plan decisions
+/// T59 and T62: "each builder walks to its own spot", "so a group doesn't converge on one point"; design change 0339:
+/// the part of the footprint closest to it, or the nearest free part along the wall).
 pub(super) fn begin(site: &Placement, unit: &mut Unit, tick: Tick) -> SiteWalk {
     if !shares_builds(unit.kind) {
         unit.mover.go_to(MoveGoal::Point(site.center()), None, tick);
