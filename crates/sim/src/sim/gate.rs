@@ -65,7 +65,8 @@ pub enum Reject {
     /// None of the units an ability names has that ability.
     LacksAbility,
     /// None of the units an Attack order names can attack now: their Riot Shields are up
-    /// (`factions/gdo/units/peacekeeper.md > Riot Shield`: "Attack orders are not possible").
+    /// (`factions/gdo/units/peacekeeper.md > Riot Shield`: "Attack orders are not possible"), or (M5-N4a) they have no
+    /// weapon (the Disciple's "AttackAttributes - None"; `combat::takes_attack_orders`).
     CannotAttack,
     /// A unit's box there would overlap a blocked tile, a blocking footprint or the map's edge
     /// (`docs/movement.md > 3`).
@@ -233,7 +234,7 @@ impl fmt::Display for Reject {
             Reject::NotAttackable(id) => write!(f, "object {} can't be attacked", id.0),
             Reject::NotVisible(id) => write!(f, "object {} is out of sight", id.0),
             Reject::LacksAbility => write!(f, "none of the units has the ability"),
-            Reject::CannotAttack => write!(f, "none of the units can attack with its shield up"),
+            Reject::CannotAttack => write!(f, "none of the units can attack: shields up, or no weapon"),
             Reject::Blocked => write!(f, "the unit doesn't fit there: blocked ground"),
             Reject::Occupied(id) => write!(f, "unit {} is in the way", id.0),
             Reject::Overlaps(id) => write!(f, "the footprint overlaps object {}", id.0),

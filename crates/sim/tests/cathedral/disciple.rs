@@ -3,7 +3,7 @@
 //! AugmentationState"; design change 0332: infantry trained from a Recruit "keep the Recruit's damage"), of which it
 //! gets only the MaxHP and speed parts ("AttackAttributes - None (placeholder: no weapon; for Augmentation it is
 //! **armed**, i.e. it gets only the MaxHP and speed parts of increments"); and without a weapon it never attacks by
-//! itself, and a right-click on an enemy moves it, as for any unit without an attack.
+//! itself, a right-click on an enemy moves it, as for any unit without an attack, and it ignores an Attack order.
 
 use sc_sim::{Level, Levels, Research, combat};
 
@@ -154,4 +154,44 @@ fn a_disciple_never_attacks_and_a_right_click_on_an_enemy_moves_it() {
     assert!(o.pos.distance(beyond) < 40.0, "at the point: {}", o.pos);
     assert!(!attacked_by(&t, disciple), "it never attacks");
     assert!(t.sim().object(storage).is_some_and(|s| s.hp == s.max_hp()));
+}
+
+/// A Disciple takes no Attack order (`combat::takes_attack_orders`): it has nothing to attack with, so it ignores an
+/// explicit Attack as a unit whose attack can't target the ground ignores an Attack Ground. Alone, the gate refuses the
+/// Attack (`Reject::CannotAttack`), which greys the panel's Attack (plan decision T10, the client's
+/// `command_ui::interface::conditions`); beside a Militant, the Militant takes it and attacks, and the Disciple keeps its
+/// own order, a Move.
+#[test]
+fn a_disciple_ignores_an_attack_order_a_militant_beside_it_takes() {
+    let mut t = cults(&flat(30, 22)).start();
+    t.without_auto_targeting();
+    let (disciple, militant, enemy) = (id(1), id(2), id(3));
+    t.spawn_unit_at(1, DISCIPLE, P1, Vec2::new(300.0, 300.0));
+    t.spawn_unit_at(1, ObjectKind::Militant, P1, Vec2::new(300.0, 360.0));
+    t.spawn_unit_at(1, RECRUIT, P2, Vec2::new(500.0, 330.0));
+    run_checked(&mut t, 1);
+    let attack = |units: &[ObjectId]| Command::Order {
+        units: units.to_vec(),
+        kind: OrderKind::Attack(enemy),
+        queue: false,
+    };
+    assert_eq!(validate(&t, attack(&[disciple])), Err(Reject::CannotAttack));
+    assert_eq!(validate(&t, attack(&[disciple, militant])), Ok(()));
+    let away = Vec2::new(300.0, 1000.0);
+    t.order_at(2, P1, &[disciple], OrderKind::Move(Target::Point(away)), false);
+    t.at(3, P1, attack(&[disciple, militant]));
+    run_for(&mut t, 40);
+    let current = |t: &TestSim, unit: ObjectId| {
+        let orders = t.sim().object(unit).expect("on the map").orders.as_ref()?;
+        orders.current.as_ref().map(|active| active.order.kind)
+    };
+    assert_eq!(current(&t, militant), Some(OrderKind::Attack(enemy)));
+    assert_eq!(
+        current(&t, disciple),
+        Some(OrderKind::Move(Target::Point(away))),
+        "its own order"
+    );
+    let hit =
+        (t.events().iter()).any(|(_, e)| matches!(*e, SimEvent::Attacked { attacker, .. } if attacker == militant));
+    assert!(hit, "the Militant attacks");
 }

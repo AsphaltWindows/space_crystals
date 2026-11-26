@@ -110,7 +110,7 @@ pub use damage::{Hit, Taken, directional_multiplier, hit_damage, pre_armor_multi
 pub use projectiles::{Projectile, flight_ticks};
 pub use targeting::{
     can_attack_now, can_target_ground, domain_allows, inside_min_range, max_range, object_box, object_domain, reaches,
-    reaches_point, within_range,
+    reaches_point, takes_attack_orders, within_range,
 };
 pub use turret::{TurretState, turret_facing};
 
