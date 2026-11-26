@@ -71,7 +71,7 @@ The Cults' starting structure. Automatically produces Recruits from the surround
 
 ### Faction - TheCults
 ### Size - 4x4 grid units
-### SymmetryType - AAAA
+### SymmetryType - AAAB (user, 2026-11-26; Q0100: **one exit side, B**; side placeholder; Recruits come out of it one at a time through the Exit Doorway, core/entities.md)
 ### MaxHP - 1000
 ### PointArmor - 1
 ### FullArmor - 16
@@ -120,7 +120,7 @@ Rationale: every Cults unit (miners, builders, staff and army) counts against it
 - RallyPoint: Coordinates | ObjectInstance | None
 
 ### Production Behavior
-The Recruitment Hall automatically and continuously produces Recruits at no resource cost until LocalUnitControlUsage reaches LocalUnitControlCapacity. Produced Recruits spawn at the hall and move to its rally point. Production logic is entirely local — global Unit Control state does not affect production decisions.
+The Recruitment Hall automatically and continuously produces Recruits at no resource cost until LocalUnitControlUsage reaches LocalUnitControlCapacity. Produced Recruits come out of the **exit side (B)** and move to its rally point. **Production can't be cancelled** (user, 2026-11-26; Q0100). **Unit Control**: the Recruit in production **counts toward LocalUnitControlUsage from the start of its production** (as other factions, 0143). When the Hall is at capacity nothing is in production; when capacity frees up (a unit dies), the next Recruit **starts from 0**. Production logic is entirely local — global Unit Control state does not affect production decisions.
 
 ### Unit Control Tracking
 Each Recruit tracks which Recruitment Hall produced it. This lineage persists when a Recruit is trained into another unit. A trained unit's Unit Control cost equals the number of Recruits consumed to produce it, with each point of cost attributed to the originating hall of the respective Recruit. When a unit is destroyed, LocalUnitControlUsage decreases at the originating hall(s).
@@ -143,8 +143,7 @@ Right-click resolution:
 - Right-click Ground: issues SetRallyPoint command to that location
 - Right-click Object: issues SetRallyPoint command to that object
 
-Immediate commands (CommandIssuingTransition):
-- **X: Cancel Production**: cancels the current Recruit in production, resetting ProductionProgress. Only available if ProductionProgress is not None.
+(No cancel: Recruit production can't be cancelled; user, 2026-11-26; Q0100.)
 
 Target commands (StateOnlyTransition):
 - **C: Set Rally Point**: enters AwaitingTarget[SetRallyPoint]. Left-click ground or object sets the rally point (CommandIssuingTransition, returns to DefaultState).
