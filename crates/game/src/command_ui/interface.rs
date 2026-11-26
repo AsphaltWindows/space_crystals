@@ -107,7 +107,8 @@
 //! shows, [`PanelSlot::price`], design change 0233); a click sends that Agent its Build and returns to DefaultState,
 //! Shift held or not. S awaits the Tunnel to drop off at, greyed while no Agent carries a load; D a damaged own Tunnel
 //! or Laser Turret, which the Agents repair (`sc_sim::OrderKind::Repair`). A site under construction, of any type,
-//! shows X Cancel Construction alone ([`SITE_GRID`], design change 0237).
+//! shows X Cancel Construction alone ([`SITE_GRID`], design change 0237), but its C if it will produce or release units
+//! (slice M5-S6, design change 0396: a Hideout's).
 //!
 //! The Cults' Recruit (`factions/cults/units/recruit.md > Recruit ObjectInterfaceState`, design changes 0322, 0327
 //! and 0398; slice M5-J1) has Q Move, W Basic Construct, E Advanced Construct, A Attack, S Assist Construction, D
@@ -308,7 +309,8 @@ impl InterfaceState {
 ///
 /// A selected object that transforms has the panel of its new type's unfinished group, only its Cancel (design
 /// changes 0116 and 0185): what its old type was doing ends (`crate::selection::ControlState::set_type`), and so does
-/// a target awaited for it (the panel offers no command but the Cancel).
+/// a target awaited for it (the panel offers no command but the Cancel), but (M5-S6) a rally point's, on a building
+/// that will produce or release units, which offers its C (design change 0396).
 pub fn still_valid(
     interface: InterfaceState,
     selection: &Selection,

@@ -271,15 +271,29 @@ fn a_drone_resolves_a_right_click_by_its_own_table() {
     assert_eq!(right_click_display(&[DRONE], &patch()), PointerDisplay::GatherResources);
 }
 
-/// Slice M3-J1's objects without a right-click: the Beacon, and an object that transforms (a Beacon deploying, a
-/// portal under Warp In: no rally point, design change 0116), which gets neither a template nor abilities.
+/// Slice M3-J1's objects without a right-click: the Beacon, and an object that transforms (a Beacon deploying, an
+/// Egress Node under Warp In: design change 0116), which gets neither a template nor abilities. (M5-S6) But an
+/// unfinished building that will produce or release units, under Warp In or under construction, sets its rally point
+/// on what was right-clicked, "as on the finished building" (design change 0396): every type that has one.
 #[test]
 fn the_beacon_and_a_transforming_object_resolve_nothing() {
     let modes = Modes::default().with_transforming([id(2)]);
     let beacon = UnitCapabilities::of(id(3), ObjectKind::Beacon, &modes);
     assert_eq!(beacon.template, Some(InterfaceTemplate::Beacon));
     assert_eq!(object_right_click(beacon, &enemy()), None);
-    for kind in [ObjectKind::RoboPortal, ObjectKind::Beacon] {
+    for &kind in ObjectKind::ALL
+        .iter()
+        .filter(|&&kind| sc_sim::production::takes_rally(kind))
+    {
+        let unfinished = UnitCapabilities::of(id(2), kind, &modes);
+        assert_eq!(
+            object_right_click(unfinished, &MapTarget::ground(P)),
+            Some(Resolved::Rally(Target::Point(P))),
+            "{kind:?}"
+        );
+        assert_eq!(unfinished.abilities, None, "{kind:?}");
+    }
+    for kind in [ObjectKind::EgressNode, ObjectKind::Beacon] {
         let transforming = UnitCapabilities::of(id(2), kind, &modes);
         assert_eq!(
             (transforming.template, transforming.abilities),

@@ -1,13 +1,15 @@
 //! The HUD of slice M2-G, headless (`ARCHITECTURE.md > Client architecture > Client tests`): the resource bar in the
-//! top bar (`factions/gdo/overview.md > DisplayHud`; design changes 0077, 0090 and 0143) and the structures'
-//! InfoPanels (design changes 0099, 0105 and 0155), with the fog of war on. Each `App::update` is one tick; clicks come
-//! through the virtual mouse (`InjectedInput`).
+//! top bar (`factions/gdo/overview.md > DisplayHud`; design changes 0077, 0090 and 0143), its note while the fog of
+//! war is off (slice M5-S6) and the structures' InfoPanels (design changes 0099, 0105 and 0155), with the fog of war
+//! on. Each `App::update` is one tick; clicks and keys come through the virtual mouse and keyboard (`InjectedInput`).
 
 use bevy::prelude::*;
 use bevy::time::TimeUpdateStrategy;
 use sc_sim::testing::ScenarioBuilder;
 use sc_sim::{Command, DebugCommand, ObjectKind, PlayerCommand, PlayerId, Scenario, SpawnAt, Tick, TilePos};
 use space_crystals::camera::{CameraView, ViewportInsets, viewport_rect, visible_extent_su};
+use space_crystals::fog::FogOfWar;
+use space_crystals::hud::TopBarNote;
 use space_crystals::hud::info_panel::InfoText;
 use space_crystals::hud::resources::{ALERT_COLOR, ResourceFigure};
 use space_crystals::input::InjectedInput;
@@ -56,9 +58,15 @@ fn scenario() -> Scenario {
 
 /// A headless game of `scenario` as `player`, with the fog of war, the camera over the middle of the map, at tick 1.
 fn game_as(scenario: Scenario, player: PlayerId) -> App {
+    game_of(scenario, player, false)
+}
+
+/// [`game_as`], with the fog of war off from the start if `no_fog` (`--no-fog`).
+fn game_of(scenario: Scenario, player: PlayerId, no_fog: bool) -> App {
     let mut config = AppConfig::new(scenario);
     config.display = DisplayMode::Headless;
     config.player = player;
+    config.qa.no_fog = no_fog;
     let mut app = build_app(config);
     app.insert_resource(TimeUpdateStrategy::FixedTimesteps(1));
     app.finish();
@@ -117,6 +125,25 @@ fn bar(app: &mut App) -> Vec<String> {
         .collect();
     shown.sort();
     shown.into_iter().map(|(_, text)| text).collect()
+}
+
+/// What the top bar's notes say, those it shows ([`TopBarNote`]).
+pub(crate) fn notes(app: &mut App) -> Vec<String> {
+    let mut notes = app.world_mut().query::<(&TopBarNote, &Node, &Children)>();
+    let shown: Vec<Entity> = (notes.iter(app.world()))
+        .filter(|(_, node, _)| node.display != Display::None)
+        .flat_map(|(.., children)| children.iter())
+        .collect();
+    (shown.into_iter())
+        .filter_map(|text| app.world().get::<Text>(text).map(|text| text.0.clone()))
+        .collect()
+}
+
+/// A tap of `key` on the virtual keyboard: down in one frame, up in the next.
+fn tap(app: &mut App, key: KeyCode) {
+    app.world_mut().resource_mut::<InjectedInput>().tap_key(key);
+    app.update();
+    app.update();
 }
 
 /// The InfoPanel's title, its lines and its activity area, those it shows.
@@ -374,4 +401,28 @@ fn only_its_owner_sees_the_crystals_left_under_a_plate() {
     click(&mut app, tile_center(1, 8));
     assert_eq!(selected(&app), [PLATE]);
     assert_eq!(info(&mut app), panel("Extraction Plate", "Player 1\nHP 85 / 85"));
+}
+
+/// (M5-S6) While the fog of war is off, the top bar says so, "Fog off (F3)", after the player's name: F3, the debug
+/// key next to F2's player switch, turns it off and the note shows; F3 again turns it on and the note goes. A game
+/// started with `--no-fog` shows it from the start. (A replay's playback too: `replay.rs`.)
+#[test]
+fn the_top_bar_notes_while_the_fog_is_off() {
+    let fog = |app: &App| app.world().resource::<FogOfWar>().enabled;
+    let mut app = game();
+    assert!(fog(&app));
+    assert_eq!(notes(&mut app), [""; 0]);
+    tap(&mut app, KeyCode::F3);
+    assert!(!fog(&app));
+    assert_eq!(notes(&mut app), ["Fog off (F3)"]);
+    assert_eq!(TopBarNote::FogOff.text(), "Fog off (F3)");
+    tap(&mut app, KeyCode::F3);
+    assert!(fog(&app));
+    assert_eq!(notes(&mut app), [""; 0]);
+
+    let mut app = game_of(scenario(), P1, true);
+    assert!(!fog(&app));
+    assert_eq!(notes(&mut app), ["Fog off (F3)"]);
+    tap(&mut app, KeyCode::F3);
+    assert_eq!(notes(&mut app), [""; 0]);
 }

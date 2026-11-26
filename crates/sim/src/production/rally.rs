@@ -12,12 +12,16 @@
 //!   into a ground rally at its last-seen position (design change 0088); a structure (or a resource) stays the rally
 //!   out of sight, at its last-known position, until its owner sees its place without it (design change 0139: "A
 //!   rally point on an enemy structure stays on it after it leaves sight", `Sim::follow_targets`).
+//! - **On an unfinished building** ([`takes_rally`], design change 0396): a building that will produce or release
+//!   units takes its rally point while it is still under construction or transformation, and keeps it when it
+//!   completes.
 
 use std::collections::BTreeMap;
 
 use glam::Vec2;
 use serde::{Deserialize, Serialize};
 
+use crate::defs::ObjectKind;
 use crate::hash::{StateHash, StateHasher};
 use crate::ids::{ObjectId, PlayerId};
 use crate::object::Object;
@@ -41,6 +45,19 @@ impl Rally {
             Rally::Point(p) | Rally::Object { at: p, .. } => p,
         }
     }
+}
+
+/// Whether a building of `kind` has a RallyPoint (`factions/gdo/structures/barracks.md > BarracksInstanceState`): one
+/// that produces or releases units, by its type's `ProductionDef`, but not a research structure, whose staff walk
+/// straight out of its exit side (`factions/cults/structures/temple.md > Placeholder stats`: its panel has no Set Rally
+/// Point; slice M5-N3). (M5-S6) It has one from the start of its construction or transformation (design change 0396,
+/// `systems/controls/selection.md > SelectionGroup`: "a building that will produce or release units can have its
+/// **RallyPoint set while still under construction or transformation**"), so the gate takes its `SetRally` then too
+/// (`Sim::check_production`), and the interface offers it. A building that never produces nor releases units has
+/// none, unfinished or not: a Storage, and the Garrison, which lets its units out but "has no rally point"
+/// (`factions/cults/structures/garrison.md > Placeholder stats > Panel`).
+pub fn takes_rally(kind: ObjectKind) -> bool {
+    (kind.def().structure.as_ref()).is_some_and(|s| s.production.is_some() && s.research.is_none())
 }
 
 /// Whether `target` is an enemy of `player`: another player's object (no teams yet, so no allies; neutral objects

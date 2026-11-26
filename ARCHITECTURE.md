@@ -342,7 +342,8 @@ Units, structures and resources are all `Object`s (`object.rs`, `core/entities.m
   complete, *Combat > Structures that attack*.) (M5-E) A Cults site is `Builder::Recruits`: nobody is held, and it
   gains a frame for each Recruit building it from outside (*Economy > Cults construction*); its functions are held
   back while it is a site (`sim/transform.rs`, `hold_back`) and start as it completes (`Sim::start_functions`), so that a Hall
-  claims and produces from then on (`Production::completed_at`).
+  claims and produces from then on (`Production::completed_at`); all but a rally point, which it may take meanwhile
+  (slice M5-S6, *Production > Rally points*).
 - **Buildings that hold units** (`holding.rs`, `sim/holding.rs`, `sim/holding/evacuation.rs`; slice M5-F1, plan
   decision T60; `factions/cults/structures/armory.md`, `factions/cults/economy.md > Cults Building Mechanics >
   Evacuation on Destruction`, `systems/controls/commands.md > Enter` with design change 0319's TargetObject): **one
@@ -2355,8 +2356,9 @@ section of its own.
   (`Object::max_hp`, `Object::max_shields`: "Beacon MaxHP + (Building MaxHP − Beacon MaxHP) × progress"), and its
   HP and Shields rise by what their maxima rise (`transform::follow_max`, 0110: damage stays taken, whenever it was
   taken; the Shields since slice M3-B, which regenerate up to the maximum now).
-  Until it is complete it holds its functions back (0116: no production, drop-off, rally or abilities; the gate
-  refuses a Train, a rally and a drop-off at it), but it counts for defeat (0113) and keeps providing its 5 Beacon
+  Until it is complete it holds its functions back (0116: no production, drop-off or abilities; the gate
+  refuses a Train and a drop-off at it; a portal takes a rally point meanwhile since slice M5-S6, design change 0396
+  over 0116's "no rally point": *Production > Rally points*), but it counts for defeat (0113) and keeps providing its 5 Beacon
   Capacity (0112). `ConstructionCommand::CancelTransform` turns every transforming object named back into what it
   was, on its old tiles, with the fraction of its HP it had and at least 1, and the fraction of its Shields with no
   minimum (`transform::keep_fraction`, 0111), and
@@ -2778,6 +2780,19 @@ their energy doorway, slice M3-D2: design change 0145, `factions/colonists/struc
   changes nothing; a **structure** or a resource stays the rally out of sight, at its last-known position, until the
   owner sees its place without it (design change 0139: "A rally point on an enemy structure stays on it after it
   leaves sight"), and a rally may be set on one the owner only remembers.
+- **On an unfinished building** (slice M5-S6, design change 0396: "A building that will produce or release units can
+  have its RallyPoint set while it is still under construction or transformation, for every faction"): a type takes
+  one if it has one finished (`production::takes_rally`: a `ProductionDef` and no `ResearchDef`, so the Barracks, the
+  portals, the Hideout, the Recruitment Hall, the Armory, the Altar and the Cathedral; not the Temple, the Garrison,
+  whose panel has none, nor the Shrine), a site, an expansion's included, or under Warp In. Its functions held back
+  (`Object::production` is `None`), it holds a `Production` with the rally alone while one is set, and `None` again
+  once it is cleared, so a game that sets none keeps its hashes (the goldens'). The gate's `SetRally` takes the
+  player's buildings of such a type, finished or not; its other production commands only producers at work
+  (`Object::is_operational`), so a Train to the site is `NoProducers`. `Sim::start_functions` keeps the rally as the
+  functions start ("The rally point is kept when the building completes"); a cancelled Warp In takes it away with the
+  portal. Tests: `tests/cults_construction/rally.rs` (0396's Verification in the sim, a Storage's and a Garrison's
+  sites), `tests/warp_in/rally.rs` (a portal kept through completion and lost with a cancel, an Egress Node) and
+  `tests/expansions/building.rs` (a Hideout's site).
 - **Tests**: `src/production.rs` and `production/exit/tests.rs` (the queue, the Barracks' door in all 8
   orientations and its rule, the room before a door, the Hall's four doors and their order), `recruitment/tests.rs`
   (slice M5-C: the area, the exact capacity, the claims and their order, the lineages' points),
@@ -3803,7 +3818,8 @@ these.
   vision alone, which has no Visible tile left once the fog delay of their last tiles is over.
   `FogOfWar` turns it off for QA (`--no-fog`, the debug key F3, which a replay's playback takes without debug
   commands too): display only, the sim computes every player's
-  vision anyway. The editor shows no fog; its play-tests do.
+  vision anyway; the top bar says so meanwhile, "Fog off (F3)" (slice M5-S6, `TopBarNote::FogOff`, below). The editor
+  shows no fog; its play-tests do.
 - **Viewer events** (`viewer_events.rs`, slice M4-V): **one filter between the sim's events and every view of them.**
   The sim tells every event to everyone. `filter_events` (in `SyncSim`, set `FilterEvents`) alone reads that stream,
   besides the QA state dump (tooling). It gives each event an `Audience` as it arrives, and fills the frame's
@@ -3909,7 +3925,19 @@ that the units in production (design change 0143) count as the sim counts them; 
 (`Sim::army_cap`; red over capacity, as `factions/syndicate/tunnel_area_and_space.md > Tunnel Space` has it, "12/10");
 for the Cults (slice M5-C, `factions/cults/overview.md > DisplayHud`) Space Crystals and Unit Control as used /
 available (`Sim::army_cap`: their Halls' usage and orphaned points over their Halls' capacities rounded down; over
-capacity after a Hall is lost, not in red: the design gives the figure no warning). Under the top bar, a placeholder
+capacity after a Hall is lost, not in red: the design gives the figure no warning). The name and the tick take equal
+shares of the width the resources leave, which keeps them centred; what doesn't fit in a share is clipped there, never
+drawn over the resources. (M5-S6) **Notes** (`TopBarNote`, placeholders) say how this client shows the game while it
+applies, in amber, in the bar's row: "Fog off (F3)" after the name while `FogOfWar` is off, in games and replays alike
+(the user took the map revealed by F3 for a bug), and "Play-test (F5)" before the tick in the map editor's play-test,
+where a replay's note would be (a play-test is never a replay), in place of the banner the editor laid over the bar's
+figures (found by slice M5-Z3). A note takes room of its own, so it never covers a figure, and gives
+it up first: short of room, it shrinks, clipped at its end, while the name, the figures and the tick keep their size
+(`spawn_note`). The bar is laid out in `vh`, so what fits depends on the window's shape, not its size (the client sets
+no smallest size): at 16:9 and 16:10 every faction's bar fits its notes; at 4:3 a long bar (the Colonists', the GDO's
+later in a game) clips their ends. Headless tests have no UI layout to measure, so QA screenshots check it. Tests:
+`tests/hud.rs` (F3 and `--no-fog`), `tests/replay.rs` (a playback), `tests/editor/session.rs` (a play-test's note,
+in the bar's row). Under the top bar, a placeholder
 notice (`hud/notices.rs`, `STATION_EMPTY_TEXT` for `NOTICE_TICKS` sim ticks) tells the local player that a Supply
 Delivery Station where their Agents gather is empty (`SimEvent::SupplyStationEmpty`, design change 0256 point 3: "the
 owner gets a notification", notifications not designed yet). A second, under it, tells every player who hasn't left
@@ -4066,7 +4094,9 @@ ObjectInterfaceState (see Commands UI); the input changes and the HUD shows the 
   it is drawn just in front of the object (`FRAME_Z`: half a su of ground y, under the objects south of it); coloured
   by relation, the ActiveGroup's solid and the others' dashed; meshes cached per shape, relation and activity, and a
   marker whose object changed its shape (a kind changed in place) takes its new shape's mesh. The drag box is four
-  edges of one shared mesh in the overlay layer, shown while `Pointer::drag_box` is set.
+  edges of one shared mesh in the overlay layer, shown while `Pointer::drag_box` is set. The selected buildings' door
+  arrows (design change 0394, `selection/doors.rs`: `SelectedDoors`, from `door_arrows`, as the placement ghost has
+  them) are one mesh in the overlay layer under the ghost, rebuilt only when the buildings shown or the sim change.
 
 **Commands UI** (`command_ui.rs`, `command_ui/`; `systems/controls/interface.md > ObjectInterfaceState`
 to `systems/controls/hud.md > CommandIndicators`, `systems/controls/commands.md > Unit Command`): how the
@@ -4229,7 +4259,8 @@ Drones, through one command flow (plan decision T10, slices M2-H1, M2-H2 and M3-
   (`ConstructionCommand::CancelTransform`, to the ActiveGroup), as `offers` and `commands` of an unfinished
   `GroupType` give the Cancel and nothing else, so the finished group's commands never go to it and `still_valid`
   ends a transforming Beacon's menu or placement; `Modes::transforming` gives the object no template in the
-  resolution (no right-click, no rally point). A Drone that deploys stays selected as its Beacon in a group of its
+  resolution (no right-click). Since slice M5-S6 a portal warping in adds C Set Rally Point, as every unfinished
+  building of a type with a rally point does (`unfinished_grid`, below). A Drone that deploys stays selected as its Beacon in a group of its
   own (`ControlState::set_type`), and a Drones' placement ends once the ActiveGroup is no longer Drones. A greyed-out button (design change 0162) keeps its reason (`PanelSlot::why`, a
   `WhyUnavailable`: the gate's `Reject`, the shields, a command awaiting its target, the type, not in the game
   yet); pressing it, by hotkey or click, issues nothing and sends `CommandRefused`, whose message
@@ -4318,7 +4349,16 @@ Drones, through one command flow (plan decision T10, slices M2-H1, M2-H2 and M3-
   ReturnResources; on a site, Move. **A site's panel** (`templates/site.rs`, `SITE_GRID`) is X
   `CancelConstruction` alone, for any site (`Conditions::site`: `Object::is_site`, never its kind), which slice M4-F
   reuses, a turret's site among its expansions': an unfinished `GroupType` offers both Cancels (`offers::UNFINISHED`),
-  and the gate takes the one that fits.
+  and the gate takes the one that fits. (M5-S6, design change 0396) **An unfinished building of a type with a rally
+  point** (`sc_sim::production::takes_rally`, *Production > Rally points*) adds C `SetRallyPoint` next to its X, a
+  site's or a transform's (`site::unfinished_grid`): "Its unfinished panel adds **C: Set Rally Point**, next to
+  Cancel". `offers` gives it to that type's unfinished group, a common command (the Cancels stay instance only), so
+  it goes to all of the group, or to the Tabbed one of a pool building's, as on the finished one (`one_building`);
+  the resolution gives the warping portal its template (`Modes::transforming`), a site has its own already, so the
+  right-click sets its rally point as on the finished building, `OrderOutbox::produce` sends it, and its marker shows
+  while it is selected. Tests: `interface/tests/unfinished.rs`, `interface/tests/colonists.rs`,
+  `resolution/tests.rs` and `crates/game/tests/commands/recruit_ui/unfinished_rally.rs` (0396's Verification: an
+  Armory being built, its C, the right-click, the marker, kept through completion, its Militant walking there).
 - **The Armory's panel** (slice M5-F2; `factions/cults/structures/armory.md > ObjectInterfaceState[Armory]`, design
   changes 0337 and 0348): `templates/cults/armory.rs` (`InterfaceTemplate::PoolProducer`, the pool buildings' one
   template, built from the building's `ProductionDef` as the Production template is) is Q, W, E and R
@@ -4508,8 +4548,12 @@ Drones, through one command flow (plan decision T10, slices M2-H1, M2-H2 and M3-
   game mode, AwaitingPlacement, a commandable selection). `PlacementGhost` holds the `Ghost` under the cursor (the
   footprint as turned, the `PlacementCheck` there now, the side letters of `sc_sim::sides`), worked out every frame;
   its one mesh is rebuilt in place, under one handle, only when that changed: each tile on the terrain's surface,
-  green or red by its own problems, red throughout when the footprint breaks a whole rule (0093), and an outline
-  green or red for the verdict; five `Text2d` labels carry the side letters (0079) and the building's tag, never
+  green or red by its own problems, red throughout when the footprint breaks a whole rule (0093), an outline
+  green or red for the verdict, and an arrow at each doorway (0390, `door_arrows.rs`: `door_arrows` from the type's
+  defs and its sides as placed, in at `HoldsDef::entrance`, out at each exit side of `exit_rule`, two-way where they
+  are one door, out of each open side of a portal, in and out at a Tunnel's two paths, `network::Paths`; the same
+  arrows show on the selected buildings, `selection/doors.rs`, 0394); five `Text2d` labels carry the side letters
+  (0079) and the building's tag, never
   hidden and never culled, only emptied (Bevy lays a `Text2d` out only while a camera saw a sprite or a text the frame
   before, and drops a change made in a frame without one: a text that changes must keep one in view). It lies
   over the map's other overlays, under the indicators: it is the cursor, so no pointer shows over the map
@@ -4908,8 +4952,8 @@ unchecked.
   takes the game's bindings in a play-test, the editor's in the editor) look at it. F5 starts a play-test of the
   document with the play-test setup (`PlayTestSetup`, the Play-test panel): each slot's faction, which slot you play,
   the seed, and debug commands on. It is not part of the map. `Sim::try_new` must accept the map; the game runs at
-  the game's zoom. Only F5 returns (Esc is the game's Cancel), to the editor with the document, its history and the
-  view unchanged.
+  the game's zoom, and its top bar says "Play-test (F5)" (`hud::TopBarNote::PlayTest`, slice M5-S6). Only F5 returns
+  (Esc is the game's Cancel), to the editor with the document, its history and the view unchanged.
 - **Unsaved changes**: New, Open, Quit and the window's close button (`WindowCloseRequested`, through
   `editor/input.rs::close_requests`; `platform::ConfirmClose` keeps the platform from exiting by itself) ask once with
   a status warning and go ahead when asked again, also during a play-test.

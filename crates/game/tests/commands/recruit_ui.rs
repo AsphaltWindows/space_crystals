@@ -4,11 +4,14 @@
 //! letters and its two Construct menus, each building in its fixed slot and greyed until it can be built, are
 //! [`menus`]'s; a Construct menu's placement for the whole group, the Shift chain and a Hall placed flush against the
 //! map's edge (slice M5-S4) [`placing`]'s; the Repair pointer, D Repair and the right-click on a damaged building
-//! [`repairing`]'s (slice M5-N8).
+//! [`repairing`]'s (slice M5-N8); the door arrows on the Armory's ghost and on the selected Armory [`doors`]' (design
+//! changes 0390 and 0394); the rally point of an Armory being built [`unfinished_rally`]'s (design change 0396).
 
+mod doors;
 mod menus;
 mod placing;
 mod repairing;
+mod unfinished_rally;
 
 use sc_sim::defs::Resource;
 use sc_sim::testing::ScenarioBuilder;

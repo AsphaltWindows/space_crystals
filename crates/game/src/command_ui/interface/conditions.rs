@@ -47,7 +47,8 @@
 //! resource (`sc_sim::construction::site::BuildPrice`): a Cults building's in Space Crystals. Its S, Drop Off, is greyed
 //! while none of its recipients carries a load (`factions/syndicate/units/agent.md > DefaultState commands`: "Always
 //! visible, greyed out when Agent is not carrying resources"), the gate's own test (`Reject::NothingToDeliver`). A
-//! site's panel is its Cancel alone ([`Conditions::site`], design change 0237), an expansion's too.
+//! site's panel is its Cancel alone ([`Conditions::site`], design change 0237), an expansion's too, but the C of one
+//! that will produce or release units (slice M5-S6, design change 0396).
 //!
 //! A pool building's kind buttons (design change 0337, `factions/cults/structures/README.md > Choosing Recruits,
 //! Release and Eject All`: "Each kind's button shows the unit with an **icon for its augments** and the count inside
@@ -135,7 +136,8 @@ pub struct Conditions {
     /// The state of the ActiveGroup's constructor, if it is one: a Deployment Center or an Extraction Facility, one
     /// instance (they are Ungroupable), whose panel follows it (`super::state_grid`). Whether the ActiveGroup
     /// transforms is its key's (`crate::selection::GroupKey::unfinished`, design change 0185: the unfinished
-    /// buildings of a type form a group of their own, whose panel is the Cancel alone).
+    /// buildings of a type form a group of their own, whose panel is the Cancel, and C on a building that will produce
+    /// or release units, design change 0396).
     pub constructor: Option<Constructor>,
     /// The production and construction commands and the toggles the gate would refuse now, for the objects they go
     /// to ([`recipients`]).
@@ -153,8 +155,8 @@ pub struct Conditions {
     /// slice M4-G).
     prices: BTreeMap<PanelCommand, BuildPrice>,
     /// Whether the ActiveGroup is a site under construction (`sc_sim::Object::is_site`; design change 0237: "a Tunnel
-    /// site is a structure that does nothing but Cancel"), whose panel is its X Cancel Construction alone, whatever
-    /// its type (`super::templates::SITE_GRID`).
+    /// site is a structure that does nothing but Cancel"), whose panel is its X Cancel Construction, whatever its type
+    /// (`super::templates::SITE_GRID`), and its C if it will produce or release units (design change 0396).
     pub site: bool,
     /// The free units of each kind in the active pool building (`Sim::pool_counts`, by `RecruitKind as usize`): those
     /// no order reserves (slice M5-F2); (M5-N3) the staff of each kind in the ActiveGroup's Temples, which each let

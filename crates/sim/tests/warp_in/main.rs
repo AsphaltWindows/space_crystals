@@ -21,12 +21,15 @@
 //!   transforming object named;
 //! - `gate`: the gate's other rules, a transforming Beacon, the gate and `Sim::warp_in_check` in agreement, and
 //!   the gate fuzzed;
-//! - `saves`: a game saved in the middle of its Warp Ins, and its replay.
+//! - `saves`: a game saved in the middle of its Warp Ins, and its replay;
+//! - `rally` (slice M5-S6, design change 0396): a portal warping in takes a rally point and keeps it when it completes;
+//!   a cancelled Warp In loses it; an Egress Node takes none.
 
 mod cancel;
 mod footprints;
 mod gate;
 mod interpolation;
+mod rally;
 mod saves;
 mod timings;
 mod under_warp_in;

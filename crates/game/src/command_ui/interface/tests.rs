@@ -11,6 +11,7 @@ mod recruit;
 mod shrine;
 mod syndicate;
 mod temple;
+mod unfinished;
 
 use sc_sim::defs::AttackType;
 use sc_sim::{Ability, ObjectId, ObjectKind, OrderKind, ProductionCommand, Reject, ShieldMode};

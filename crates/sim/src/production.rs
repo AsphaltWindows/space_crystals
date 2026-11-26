@@ -5,7 +5,9 @@
 //!
 //! - **State** ([`Production`], `Object::production`): the BuildQueue, whose head is CurrentBuild (design change
 //!   0081: the limit of [`QUEUE_LIMIT`] includes it), CurrentBuildProgress in the economy's fixed point
-//!   (`economy::RATIO_ONE` a frame at full power, plan decision T6) and the RallyPoint ([`Rally`], `rally.rs`).
+//!   (`economy::RATIO_ONE` a frame at full power, plan decision T6) and the RallyPoint ([`Rally`], `rally.rs`), which
+//!   an unfinished building of a type that has one keeps alone until it completes ([`takes_rally`], design change
+//!   0396).
 //!   What a type produces, at what cost and through which sides, is its `ProductionDef`
 //!   (`StructureDef::production`).
 //! - **Commands** ([`ProductionCommand`], sent as `Command::Production`; the gate and their application are in
@@ -57,7 +59,7 @@ use crate::units::Tick;
 
 pub use exit::{Door, Doorway, EnergyDoorway, ExitDoor};
 pub use queue::QueueEntry;
-pub use rally::Rally;
+pub use rally::{Rally, takes_rally};
 
 /// What the player tells producing structures (`factions/gdo/structures/barracks.md >
 /// ObjectInterfaceState[Barracks]`), sent as `Command::Production` to every producer of the selection

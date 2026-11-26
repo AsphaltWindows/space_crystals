@@ -6,7 +6,8 @@
 //! Deployment Center's build menus ([`BuildMenu`], design change 0104) and the Extraction Facility's plate
 //! (`factions/gdo/economy.md > ExtractionFacility > ObjectInterfaceState[ExtractionFacility]`). The Colonists' Beacon
 //! has two Warp In menus built the same way, the Drone its Deploy and its Set Drop-off, the Egress Node its F, and an
-//! object that transforms shows only its Cancel ([`colonists`], slices M3-J1 and M3-J2). The Syndicate's Tunnel opens
+//! object that transforms shows only its Cancel ([`colonists`], slices M3-J1 and M3-J2), a portal its C besides
+//! ([`unfinished_grid`], slice M5-S6). The Syndicate's Tunnel opens
 //! its EjectMenu ([`syndicate`], slice M4-J2), and its Agent builds Tunnels (slice M4-J1). The Cults' pool buildings,
 //! the Armory first, open a menu per kind of Recruit ([`cults`], slice M5-F2), and the Recruit two Construct menus
 //! built the same way, their entries the group's Builds (slice M5-J1); the Garrison lets everyone out (slice M5-N2).
@@ -33,7 +34,7 @@ use sc_sim::conversion;
 pub use colonists::TRANSFORMING_GRID;
 pub use offers::{commands, offers};
 pub use planned::Planned;
-pub use site::SITE_GRID;
+pub use site::{SITE_GRID, unfinished_grid};
 pub use state::{menu_grid, menu_of, state_grid};
 
 use production::production_grid;
@@ -234,7 +235,8 @@ impl InterfaceTemplate {
     /// ObjectInterfaceState`: Convert, [`grid`]). Every type that produces units has the Production template; the
     /// Egress Node has its own, its F (slice M3-J2). Whatever its type, an object that transforms shows only its
     /// Cancel ([`TRANSFORMING_GRID`], `super::panel`) and resolves no right-click
-    /// (`super::super::resolution::UnitCapabilities::of`).
+    /// (`super::super::resolution::UnitCapabilities::of`), but a building that will produce or release units, which
+    /// adds its C and sets its rally point (slice M5-S6, design change 0396: [`unfinished_grid`]).
     pub fn of(kind: ObjectKind) -> Option<Self> {
         kinds::of(kind).template.interface
     }

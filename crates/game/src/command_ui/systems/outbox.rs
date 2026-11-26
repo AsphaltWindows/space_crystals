@@ -109,14 +109,17 @@ impl OrderOutbox<'_> {
     /// `player`'s producers among `objects` carry out `command` (`Command::Production`), one command for all of
     /// them, at once: production isn't queued. Nothing when none of them is the player's producer, or when the sim
     /// would reject it (`Sim::validate`, the predicates the panel greys its buttons out by: e.g. a full queue, too
-    /// few Space Crystals, nothing to cancel, a rally point off the map, which a non-finite point is too).
+    /// few Space Crystals, nothing to cancel, a rally point off the map, which a non-finite point is too). (M5-S6) An
+    /// unfinished building that will produce or release units is a producer too, for its rally point (design change
+    /// 0396, `sc_sim::production::takes_rally`), whose production waits for its completion.
     pub(super) fn produce(&mut self, player: PlayerId, objects: Vec<ObjectId>, command: ProductionCommand) -> bool {
+        let producer = |o: &sc_sim::Object| o.production.is_some() || sc_sim::production::takes_rally(o.kind);
         let objects: Vec<ObjectId> = objects
             .into_iter()
             .filter(|&id| {
                 self.sim
                     .object(id)
-                    .is_some_and(|o| o.owner == Some(player) && o.production.is_some())
+                    .is_some_and(|o| o.owner == Some(player) && producer(o))
             })
             .collect();
         if objects.is_empty() {

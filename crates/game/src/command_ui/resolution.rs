@@ -42,6 +42,7 @@
 use bevy::math::Vec2;
 use sc_sim::defs::{Domain, Transit};
 use sc_sim::orders::resolution::{Abilities, Aim, Aimed, resolve};
+use sc_sim::production::takes_rally;
 use sc_sim::repair::repairs;
 use sc_sim::{Ability, AreaAbility, ObjectId, ObjectKind, OrderKind, PlayerId, Sim, Target};
 
@@ -160,13 +161,15 @@ pub struct UnitCapabilities {
 }
 
 impl UnitCapabilities {
-    /// Those of the selected object `id`, of type `kind`, whose mode and load are in `modes`. An object that
-    /// transforms resolves nothing (`factions/colonists/economy.md > Beacon Deployment > While transforming: only
-    /// Cancel`, design change 0116: "no rally point"): a portal under Warp In sets no rally point (slice M3-J1).
+    /// Those of the selected object `id`, of type `kind`, whose mode and load are in `modes`. An object that isn't in
+    /// operation yet resolves nothing (`factions/colonists/economy.md > Beacon Deployment > While transforming: only
+    /// Cancel`, design change 0116; slice M3-J1), but (M5-S6) a building that will produce or release units, whose
+    /// right-click sets its rally point "as on the finished building" (design change 0396,
+    /// `sc_sim::production::takes_rally`).
     pub fn of(id: ObjectId, kind: ObjectKind, modes: &Modes) -> Self {
         let transforming = modes.transforming(id);
         Self {
-            template: InterfaceTemplate::of(kind).filter(|_| !transforming),
+            template: InterfaceTemplate::of(kind).filter(|_| !transforming || takes_rally(kind)),
             abilities: (kind.def().unit.as_ref())
                 .filter(|_| !transforming)
                 .map(|unit| Abilities {

@@ -15,10 +15,12 @@ use space_crystals::editor::state::{EditorFiles, StatusLevel};
 use space_crystals::editor::tools::Tool;
 use space_crystals::editor::ui::{EDITOR_INSETS, ShownIn};
 use space_crystals::editor::view::MIN_ZOOM;
-use space_crystals::hud::{HUD_INSETS, HudRoot};
+use space_crystals::hud::{HUD_INSETS, HudRoot, TopBar, TopBarNote};
 use space_crystals::input::{ActionState, CommandSlot, InputAction, InputContext};
 use space_crystals::platform::SurfaceSize;
 use space_crystals::sim_driver::{LoadedScenario, LocalPlayer, SimControl};
+
+use crate::hud::notes;
 
 use super::{
     act, assert_warned, at, doc, editor, editor_with, patch, sim, status, tap, temp_maps, tile, tools, undo_depth,
@@ -87,8 +89,25 @@ fn saving_and_opening_round_trip_the_map() {
     std::fs::remove_dir_all(&dir).unwrap();
 }
 
+/// Whether the top bar's `note` is laid out in the top bar: a node of its row, rather than one over it.
+fn in_top_bar(app: &mut App, note: TopBarNote) -> bool {
+    let mut notes = app.world_mut().query::<(Entity, &TopBarNote)>();
+    let Some((mut node, _)) = notes.iter(app.world()).find(|(_, shown)| **shown == note) else {
+        return false;
+    };
+    while let Some(parent) = app.world().get::<ChildOf>(node) {
+        node = parent.parent();
+        if app.world().get::<TopBar>(node).is_some() {
+            return true;
+        }
+    }
+    false
+}
+
 /// The play-test's game setup is no part of the map: each slot's faction, the slot you play and the seed are chosen
-/// in the editor, and play-tests run with debug commands on.
+/// in the editor, and play-tests run with debug commands on. (M5-S6) The game's top bar says it is a play-test,
+/// "Play-test (F5)", a note in its own row (`TopBarNote::PlayTest`) where the editor laid a banner over the bar's
+/// figures (found by slice M5-Z3); the note goes with the play-test.
 #[test]
 fn play_testing_runs_the_map_with_its_setup_and_returns_to_the_editor() {
     let mut map = scenarios::empty_map(32, 24);
@@ -126,6 +145,11 @@ fn play_testing_runs_the_map_with_its_setup_and_returns_to_the_editor() {
     assert_eq!(app.world().resource::<CameraZoom>().0, 1.0);
     let mut hud = app.world_mut().query_filtered::<&Visibility, With<HudRoot>>();
     assert!(hud.iter(app.world()).all(|v| *v == Visibility::Inherited));
+    assert_eq!(notes(&mut app), ["Play-test (F5)"]);
+    assert!(
+        in_top_bar(&mut app, TopBarNote::PlayTest),
+        "in the bar's row, not over it"
+    );
     let mut roots = app.world_mut().query::<(&ShownIn, &Visibility)>();
     for (shown_in, visibility) in roots.iter(app.world()) {
         let expected = if shown_in.0 == ClientMode::PlayTest {
@@ -155,6 +179,7 @@ fn play_testing_runs_the_map_with_its_setup_and_returns_to_the_editor() {
     act(&mut app, [A::PlayTest]);
     app.update();
     assert_eq!(*app.world().resource::<ClientMode>(), ClientMode::Editor);
+    assert_eq!(notes(&mut app), [""; 0]);
     assert_eq!(sim(&app).tick(), 0);
     assert!(app.world().resource::<SimControl>().paused);
     assert_eq!(*doc(&app), edited);
