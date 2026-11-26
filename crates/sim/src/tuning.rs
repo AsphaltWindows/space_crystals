@@ -15,6 +15,7 @@ pub mod movement;
 pub mod orders;
 pub mod paths;
 pub mod production;
+pub mod repair;
 pub mod shields;
 pub mod tunnel;
 pub mod vision;

@@ -41,8 +41,8 @@ pub use syndicate::structures::tunnel::TRANSIT_DELAY_TICKS;
 pub use syndicate::{CELLS_PER_TUNNEL_SPACE, EJECT_MENU_ORDER, EXPAND_MENU, ExpandEntry, TUNNEL_SPACE_CAP};
 pub use units::{
     AttackAttrs, AttackType, ContactStep, ConversionDef, Domain, DropOffChoice, FullyConnectedSubtype, LoadDef,
-    MELEE_CONTACT_GU, MovementAttrs, MovementModel, Resource, RiotShieldDef, TargetDomain, TargetType, TurretAttrs,
-    UnitBase, UnitBaseDef, UnitDef, WorkerDef,
+    MELEE_CONTACT_GU, MovementAttrs, MovementModel, RepairDef, RepairPayment, RepairTargets, Resource, RiotShieldDef,
+    TargetDomain, TargetType, TurretAttrs, UnitBase, UnitBaseDef, UnitDef, WorkerDef,
 };
 
 /// The kind registry's macro: from the list of kinds below, each with its def, it makes [`ObjectKind`],

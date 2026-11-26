@@ -271,6 +271,16 @@ pub struct SpotWork {
     pub spot: Option<Vec2>,
 }
 
+/// (M5-N8) The state of a Repair order (`orders::repair`), by what it repairs: a building from a spot beside it, a
+/// vehicle by following it.
+#[derive(Copy, Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub enum RepairWork {
+    /// A building's repairer: its own spot beside the footprint, as an Assist's ([`SpotWork`], `crate::spot_work`).
+    Spot(SpotWork),
+    /// A vehicle's repairer: its Follow of the vehicle, as a Move to a unit's ([`Approach`], `orders::travel`).
+    Follow(Approach),
+}
+
 /// The state of an Enter order (`orders::enter`, `crate::network`).
 #[derive(Copy, Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Enter {
@@ -327,6 +337,8 @@ pub enum Behaviour {
     /// (M5-E) A worker building a site from outside, from its own spot beside it (`factions/cults/economy.md > Assist
     /// Construction Command`).
     Assist(SpotWork),
+    /// (M5-N8) A repairer at a damaged own building or vehicle (`factions/cults/units/recruit.md > Repair`).
+    Repair(RepairWork),
 }
 
 impl Leg {
@@ -364,7 +376,7 @@ impl Behaviour {
             Behaviour::Hold { target } => target.iter().copied().collect(),
             Behaviour::Gather(gather) => gather.node.iter().copied().collect(),
             Behaviour::Deploy(_) | Behaviour::Enter(_) | Behaviour::Build(_) | Behaviour::AttackGround(_) => Vec::new(),
-            Behaviour::Assist(_) => Vec::new(),
+            Behaviour::Assist(_) | Behaviour::Repair(_) => Vec::new(),
         }
     }
 
@@ -374,6 +386,7 @@ impl Behaviour {
         match self {
             Behaviour::Plain | Behaviour::Attack(_) | Behaviour::Approach(_) | Behaviour::Deploy(_) => {}
             Behaviour::Enter(_) | Behaviour::Build(_) | Behaviour::AttackGround(_) | Behaviour::Assist(_) => {}
+            Behaviour::Repair(_) => {}
             Behaviour::AttackMove(leg) => leg.forget(is_gone),
             Behaviour::Patrol(patrol) => patrol.leg.forget(is_gone),
             Behaviour::Hold { target } => {

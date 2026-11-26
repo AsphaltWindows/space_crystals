@@ -90,8 +90,9 @@ impl Sim {
             OrderKind::Enter(_) | OrderKind::Build { .. } => vec![None; units.len()],
             // Each unit fires at the point clicked (plan decision T47: no magic box).
             OrderKind::AttackGround(_) => vec![None; units.len()],
-            // (M5-E) Each walks to its own spot beside the site (`crate::spot_work`).
-            OrderKind::Assist(_) => vec![None; units.len()],
+            // (M5-E) Each walks to its own spot beside the site (`crate::spot_work`); (M5-N8) a Repair's beside its
+            // building, or after its vehicle.
+            OrderKind::Assist(_) | OrderKind::Repair(_) => vec![None; units.len()],
         };
         if self.gives_shared_build(units, kind) {
             return self.give_shared_build(units, kind, queue, group);

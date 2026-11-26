@@ -27,16 +27,16 @@
 //!   change 0349 point 3), and the others' units come out as they are, Recruits (`sim/holding/evacuation.rs`).
 
 use crate::augmentation::{Augmentation, RecruitKind};
-use crate::defs::{ObjectKind, UnitBase};
+use crate::defs::ObjectKind;
 use crate::ids::ObjectId;
 use crate::sim::Sim;
 use crate::transform;
 
-/// Whether units of `kind` are infantry (`systems/units.md > UnitBase`: LightInfantry and HeavyInfantry), which keep
-/// the damage and the Augmentations of the unit they are trained from ([`Sim::train`]).
+/// Whether units of `kind` are infantry (`systems/units.md > UnitBase`: LightInfantry and HeavyInfantry,
+/// `UnitBase::is_infantry`), which keep the damage and the Augmentations of the unit they are trained from
+/// ([`Sim::train`]).
 fn is_infantry(kind: ObjectKind) -> bool {
-    (kind.def().unit.as_ref())
-        .is_some_and(|unit| matches!(unit.base, UnitBase::LightInfantry | UnitBase::HeavyInfantry))
+    (kind.def().unit.as_ref()).is_some_and(|unit| unit.base.is_infantry())
 }
 
 impl Sim {

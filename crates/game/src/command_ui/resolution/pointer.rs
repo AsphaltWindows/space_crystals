@@ -39,8 +39,8 @@ pub enum PointerDisplay {
     /// and while S awaits its target.
     Assist,
     /// (M5-J1) The Recruits' Repair (design change 0322, a placeholder look): over a damaged own building or vehicle
-    /// the selection can repair. Its hook: no order gives it until slice N8 brings `OrderKind`'s Repair, which
-    /// [`PointerDisplay::of_order`] then shows so, on a right-click and while D awaits its target.
+    /// the selection can repair, the Agents' over a damaged own Tunnel or Laser Turret (slice M5-N8, `sc_sim::OrderKind::Repair`),
+    /// on a right-click and while D awaits its target.
     Repair,
 }
 
@@ -49,14 +49,15 @@ impl PointerDisplay {
     /// (`systems/controls/hud.md > Resolution Rules > AwaitingTarget[CommandType]`: Attack over ground
     /// "will issue AttackMove"); GatherResources for a Gather ("Cursor over resource (resource gatherer selected)"),
     /// ReturnResources for a Drop Off ("Cursor over drop-off point (resource gatherer carrying resources)"), Enter for
-    /// an Enter ("Cursor over own Tunnel (Syndicate unit, tier sufficient)"), Assist for an Assist (design change
-    /// 0322). No click gives Hold or Stop.
+    /// an Enter ("Cursor over own Tunnel (Syndicate unit, tier sufficient)"), Assist for an Assist and Repair for a
+    /// Repair (design change 0322). No click gives Hold or Stop.
     pub fn of_order(kind: OrderKind) -> Self {
         match kind {
             // No click gives a Deploy (slice M3-J1 places it), nor a Build.
             OrderKind::Move(_) | OrderKind::Deploy { .. } | OrderKind::Build { .. } => PointerDisplay::Move,
             OrderKind::Enter(_) => PointerDisplay::Enter,
             OrderKind::Assist(_) => PointerDisplay::Assist,
+            OrderKind::Repair(_) => PointerDisplay::Repair,
             OrderKind::Gather(_) => PointerDisplay::GatherResources,
             OrderKind::DropOff(_) => PointerDisplay::ReturnResources,
             OrderKind::Attack(_) | OrderKind::AttackMove(_) => PointerDisplay::Attack,

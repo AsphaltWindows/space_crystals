@@ -93,6 +93,9 @@ impl Sim {
             // (M5-E) `factions/cults/economy.md > Assist Construction Command` (`crate::spot_work`): the workers that
             // assist the site take it, the others ignore it.
             OrderKind::Assist(site) => ordered = self.check_assist(player, ordered, site)?,
+            // (M5-N8) `factions/cults/units/recruit.md > Repair` (`crate::repair`): the units that can repair the object
+            // take it, the others ignore it.
+            OrderKind::Repair(target) => ordered = self.check_repair(player, ordered, target)?,
         }
         Ok(Checked::Order {
             units: ordered,
@@ -120,6 +123,22 @@ impl Sim {
             return Err(Reject::NoWorkers);
         }
         Ok(assisting)
+    }
+
+    /// (M5-N8) The gate for a Repair of `target` (`factions/cults/units/recruit.md > Recruit ObjectInterfaceState`: "**D:
+    /// Repair** — targeted command (StateOnlyTransition). Left-click a damaged own building or vehicle to repair it";
+    /// `factions/syndicate/units/agent.md > Agent ObjectInterfaceState`: "a damaged own Tunnel or Laser Turret"): the
+    /// player knows of it (`Sim::check_target_known`; it always sees its own), and the units of `units` that can repair
+    /// it now take it (`Sim::can_repair`: an object of the player's, complete and below its MaxHP, of a kind their type
+    /// repairs), else [`Reject::CantRepair`]: a site, an object at full HP, another player's or nobody's (a Laser
+    /// Turret whose Tunnel is lost, design change 0360), a glider, a Tunnel's expansion.
+    fn check_repair(&self, player: PlayerId, units: Vec<ObjectId>, target: ObjectId) -> Result<Vec<ObjectId>, Reject> {
+        self.check_target_known(player, target)?;
+        let repairing: Vec<ObjectId> = (units.into_iter()).filter(|&id| self.can_repair(id, target)).collect();
+        if repairing.is_empty() {
+            return Err(Reject::CantRepair(target));
+        }
+        Ok(repairing)
     }
 
     /// [`Command::Ability`](crate::Command::Ability): the player's own units that have the ability. Ids that no

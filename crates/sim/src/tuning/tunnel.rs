@@ -1,7 +1,8 @@
 //! The Tunnel Network's ways in and out (`factions/syndicate/tunnels.md > Tunnel Network`, `> EjectMenu`;
 //! `crate::network`): where Side A's paths lie, how near a unit goes in, how far it walks out, and the air doors. The
 //! transit delay and the regeneration inside are the Tunnel's def's (`defs::TunnelDef`). And the decay of the
-//! expansions a lost Tunnel leaves neutral (`factions/syndicate/tunnels.md > Losing Tunnels`, `sim/tunnels.rs`).
+//! expansions a lost Tunnel leaves neutral (`factions/syndicate/tunnels.md > Losing Tunnels`, `sim/tunnels.rs`), and the
+//! regeneration of those it keeps (slice M5-N8).
 
 use crate::units::SU_PER_GU;
 
@@ -36,3 +37,10 @@ pub const AIR_DOORS: bool = false;
 /// Hideout lasts 100 s); the number is to be tuned". Whole percents of its MaxHP per second (`sim/tunnels.rs`, which
 /// counts it out exactly per tick). **Placeholder** (design change 0258: "1% per second is a placeholder").
 pub const DECAY_PERCENT_PER_SECOND: u32 = 1;
+
+/// (M5-N8) `factions/syndicate/structures/README.md > Tunnel Expansions` (design changes 0329 and 0330): expansions are
+/// "**Not repaired; they regenerate**": "a completed expansion **regenerates HP gradually** while it is part of a Tunnel
+/// system (its Tunnel is alive). Placeholder rate (designer): **1% of MaxHP per second**, always on, **including during
+/// combat**". The share of its MaxHP regained a second (`sim/expansions.rs`, `crate::regeneration`). **Placeholder**
+/// (design change 0329).
+pub const EXPANSION_REGEN_PER_SECOND: f32 = 0.01;

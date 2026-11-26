@@ -279,6 +279,20 @@ impl StateHash for Behaviour {
                 h.tag(11);
                 spot.hash(h);
             }
+            // (M5-N8) A new tag, hashed only while a unit carries a Repair.
+            Behaviour::Repair(work) => {
+                h.tag(12);
+                match work {
+                    RepairWork::Spot(SpotWork { spot }) => {
+                        h.tag(0);
+                        spot.hash(h);
+                    }
+                    RepairWork::Follow(approach) => {
+                        h.tag(1);
+                        approach.hash(h);
+                    }
+                }
+            }
         }
     }
 }

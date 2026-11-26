@@ -51,9 +51,11 @@ fn teleport(t: &mut TestSim, id: ObjectId, x: i32, y: i32) {
 /// H's Acceptance, "A new Tunnel fully covering a neutral Hideout takes it back at completion, never while a site";
 /// plan, Vision: "A reclaimed one is hidden" and an enemy's record of it drops when the enemy sees its tiles again.
 /// Player 1's Agent builds a Tunnel where its lost one stood. Through the site's 480 ticks the Hideout stays neutral
-/// and decays. In the tick the site completes it is player 1's, at the HP the decay left it, and decays no more; player
-/// 2, whose Guard stands beside it, no longer sees it, and its record goes at the end of that tick: player 2 knows
-/// nothing of it from then on. No event of that tick names it. Player 1 has no record of its own Hideout.
+/// and decays. In the tick the site completes it is player 1's, at the HP the decay left it, and decays no more: from
+/// the next tick on it regenerates, its Tunnel alive (slice M5-N8, `factions/syndicate/structures/README.md > Tunnel
+/// Expansions`: "1% of MaxHP per second", 0.25 HP a tick of its 400); player 2, whose Guard stands beside it, no
+/// longer sees it, and its record goes at the end of that tick: player 2 knows nothing of it from then on. No event of
+/// that tick names it. Player 1 has no record of its own Hideout.
 #[test]
 fn a_new_tunnel_over_a_neutral_hideout_takes_it_back_at_completion_never_while_a_site() {
     let (mut t, fell) = lost();
@@ -86,7 +88,7 @@ fn a_new_tunnel_over_a_neutral_hideout_takes_it_back_at_completion_never_while_a
     assert_eq!(named, [], "no event of the tick names it");
 
     run_until(&mut t, done + 64);
-    assert_eq!(hp(&t, H1), left, "it decays no more");
+    assert_eq!(hp(&t, H1), left + 64.0 * 0.25, "it decays no more, and regenerates");
     assert_eq!(record(&t, P2, H1), None);
     assert_eq!(
         gate(&t, P2, order(&[5], OrderKind::Attack(H1), false)),
