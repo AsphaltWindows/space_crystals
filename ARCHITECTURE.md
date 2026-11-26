@@ -45,7 +45,7 @@ pub const DEFAULT_PATCH_AMOUNT: u32 = 1500;
 | `cargo run [-- <flags>]` | Runs the game, the only binary. Flags are listed under *QA mode*. |
 | `cargo test --workspace` | Runs all tests. `cargo test -p sc_sim` tests the sim alone and skips Bevy, but Cargo then resolves the sim's dependencies apart from a `--workspace` build, so the two never share a build of the sim: after an edit, running both compiles it twice. |
 | `cargo test -p sc_sim --test sim holding::` | Runs one test file's tests, here `tests/holding/`'s: the integration tests are modules of a few test programs (*Sim scenarios and tests*), and the filter is the file's module. The client's are `cargo test -p space_crystals --test game commands::`. |
-| `cargo test --release --workspace -- --ignored --test-threads=1` | Runs the ignored tests: the perf tests, soaks, sweeps and measurements (23 at M4's end, all in the sim, about 1 minute on a quiet machine). Run them at a milestone's end, since nothing else does. |
+| `cargo test --release --workspace -- --ignored --test-threads=1 --skip economy_oracle` | Runs the ignored tests: the perf tests, soaks, sweeps and measurements (23 at M4's end, all in the sim, about 1 minute on a quiet machine). Run them at a milestone's end, since nothing else does. `--skip economy_oracle` leaves out the economy oracle, ignored since design change 0401: on demand only, its pins not maintained. |
 | `cargo clippy --workspace --all-targets -- -D warnings` | Runs the lints and turns every warning into an error. |
 | `cargo fmt --all` | Formats the code; add `--check` to verify only. `rustfmt.toml` sets max width 120. |
 
@@ -3291,7 +3291,13 @@ their energy doorway, slice M3-D2: design change 0145, `factions/colonists/struc
   `gate`, `placing`, `saves`). The clean Barracks opening, which slice
   M2-D1 measured there first, is the economy oracle's.
 - **The economy oracle** is `crates/sim/tests/economy_oracle/`, one folder of modules; its measured results are in
-  `docs/economy_oracle.md`. **The Colonists** (slices M3-K1 and M3-K4, `colonists.rs` and `curve.rs`): the
+  `docs/economy_oracle.md`. It runs **on demand only** (design change 0401, which closed the economy checks; their
+  targets stay in the design as reference for playtests): every test is ignored, so the default `cargo test` runs
+  none, and its pins are no longer maintained, so a test may fail; run it with `cargo test --release -p sc_sim --test
+  sim economy_oracle -- --ignored --nocapture`. What it checked along the way has tests of its own that still run:
+  refunds in `construction/refunds.rs` and `production/queue.rs`, the Syndicate's ceiling in `agent_gathering/`,
+  lumps, cycles and the power penalty in `economy_mining.rs` and `construction/timings.rs`; every faction's workers
+  gather in `pairings/`. **The Colonists** (slices M3-K1 and M3-K4, `colonists.rs` and `curve.rs`): the
   reference line on `testing::colonists::reference_field` (one Robo Portal training Drones without a break, every
   6th deploying) and the GDO's reference line measured the same way (what each delivered or mined over the 21 s
   centred on a time) against both columns of the table of `factions/gdo/economy.md > Economy Targets (GDO vs Colonists)`

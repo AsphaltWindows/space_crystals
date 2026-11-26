@@ -26,6 +26,7 @@ fn model(tick: Tick) -> f64 {
 /// landing every 25 seconds, "fully plated at ~2:30"; "Power is not a constraint in the opening"; and every cost,
 /// build time and lump exactly the design's.
 #[test]
+#[ignore = "on demand only, its pins not maintained (design change 0401): see docs/economy_oracle.md"]
 fn the_plates_first_line_earns_the_targets_income() {
     let g = plates_first(at(4, 0));
     g.print(&TABLE.map(|(t, ..)| t.max(1)));
@@ -77,6 +78,7 @@ fn the_plates_first_line_earns_the_targets_income() {
 /// 2:00) and by 10 more for the Extraction Facility's wait for money at 0:50, which lands two plates 1.5 s later than
 /// a trickle would; the design's figures are round, to 15 either way.
 #[test]
+#[ignore = "on demand only, its pins not maintained (design change 0401): see docs/economy_oracle.md"]
 fn a_generators_only_deployment_center_floats_crystals() {
     let g = plates_first(at(2, 0));
     g.print(&[at(1, 0), at(1, 30), at(2, 0)]);
@@ -96,6 +98,7 @@ fn a_generators_only_deployment_center_floats_crystals() {
 /// as a trickle and up to one cycle more with lumps. The income is what the plates mined by 3:00; each second the
 /// later plates land later costs about half a point, so the lumps' up to 3 s give 2 points either way.
 #[test]
+#[ignore = "on demand only, its pins not maintained (design change 0401): see docs/economy_oracle.md"]
 fn opening_with_a_generator_delays_the_first_plate_and_costs_income() {
     let line = BuildOrder::new(P1)
         .track(
@@ -131,6 +134,7 @@ fn opening_with_a_generator_delays_the_first_plate_and_costs_income() {
 /// one without going negative requires two Generators first"). Slice M2-D1 measured it first (its mini-oracle):
 /// started in tick 769 and ready at the end of tick 928, pinned here.
 #[test]
+#[ignore = "on demand only, its pins not maintained (design change 0401): see docs/economy_oracle.md"]
 fn the_fastest_clean_barracks_starts_at_about_48_seconds() {
     let line = BuildOrder::new(P1).track([
         Order::new(EF, Plate),
@@ -167,6 +171,7 @@ fn the_fastest_clean_barracks_starts_at_about_48_seconds() {
 /// 30 / 51 is 58.8%: a Peacekeeper's 80 frames take 136 ticks, a plate's 400 take 680, and the plates' cycles 81.6
 /// ticks.
 #[test]
+#[ignore = "on demand only, its pins not maintained (design change 0401): see docs/economy_oracle.md"]
 fn an_all_in_barracks_runs_plates_and_peacekeepers_at_59_percent() {
     let line = BuildOrder::new(P1).track([
         Order::new(DC, Barracks),
@@ -235,6 +240,7 @@ fn an_all_in_barracks_runs_plates_and_peacekeepers_at_59_percent() {
 /// and a unit taken off the BuildQueue its full cost. Commands by hand, through the gate; the books balance every tick,
 /// so the bank gets exactly what the events report.
 #[test]
+#[ignore = "on demand only, its pins not maintained (design change 0401): see docs/economy_oracle.md"]
 fn cancelled_orders_refund_what_the_design_says() {
     let mut t = TestSim::with_config(reference_base(), SimConfig::default());
     let own = |sim: &Sim, kind| {

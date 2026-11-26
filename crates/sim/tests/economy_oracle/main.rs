@@ -37,9 +37,12 @@
 //!
 //! **The Colonists' line** and how it is measured: `colonists.rs`.
 //!
-//! `cargo test -p sc_sim --test sim economy_oracle -- --nocapture` prints each line's timeline (when each order
-//! started, finished and was placed, and the bank, income and power at the line's checkpoints) and the Colonists'
-//! table. The measured results, both factions', are in `docs/economy_oracle.md`: a change that moves one updates it.
+//! **On demand only** (design change 0401, which closed the economy checks; their targets stay in the design as
+//! reference for playtests): every test here is ignored, so the default `cargo test` runs none, and their pins are no
+//! longer maintained, so one may fail. `cargo test --release -p sc_sim --test sim economy_oracle -- --ignored
+//! --nocapture` runs them all and prints each line's timeline (when each order started, finished and was placed, and
+//! the bank, income and power at the line's checkpoints) and the Colonists' table. The results as last measured are in
+//! `docs/economy_oracle.md`.
 
 mod colonists;
 mod compared;

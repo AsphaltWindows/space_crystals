@@ -300,6 +300,7 @@ fn delta(measured: f64, design: f64) -> f64 {
 /// - **each figure**, the Colonists' and the GDO's, within ±15% of the table (design change 0108);
 /// - **the targets** as they read, target 1 as design change 0236 restated it.
 #[test]
+#[ignore = "on demand only, its pins not maintained (design change 0401): see docs/economy_oracle.md"]
 fn the_colonists_reference_line_against_the_targets() {
     let line = Line::play(END, false);
     let g = plates_first(END);
@@ -417,7 +418,7 @@ fn the_colonists_reference_line_against_the_targets() {
 /// Drone dealt to a patch of its own), and the reference line to 6:00, every 20 seconds, as it passes the GDO's
 /// ceiling and saturates.
 #[test]
-#[ignore = "a measurement: prints the Colonists' lines; run it in release"]
+#[ignore = "on demand only (design change 0401), a measurement: prints the Colonists' lines; run it in release"]
 fn measure_the_colonists_lines() {
     let later = at(6, 0);
     let g = plates_first(END);
