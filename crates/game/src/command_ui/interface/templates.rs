@@ -12,8 +12,9 @@
 //! built the same way, their entries the group's Builds (slice M5-J1); the Garrison lets everyone out (slice M5-N2).
 //! The GDO's Field Engineer repairs, and its Construct menu holds its buildings' slots (slice M5-N9). The Cults' Altar
 //! picks a unit type, then a state, then the orders (slice M5-N1b); their Cathedral is a pool building as the Armory
-//! is, and their Disciple's panel the BasicCombatUnit's, its spell's slot held in R (slice M5-N4a). An entry not in the
-//! game yet holds its slot, unavailable ([`Planned`]).
+//! is, and their Disciple's panel the BasicCombatUnit's, its spell's slot held in R (slice M5-N4a); their Temple
+//! researches each line's next level and lets its staff out (slice M5-N3). An entry not in the game yet holds its
+//! slot, unavailable ([`Planned`]).
 
 pub mod colonists;
 pub mod cults;
@@ -110,6 +111,11 @@ pub enum InterfaceTemplate {
     /// `ProductionDef::augment`, with A Eject All, X Cancel Production and C Set Rally Point. Its right-click sets the
     /// rally point ("Right-click Ground: issues SetRallyPoint command to that location").
     Altar,
+    /// (M5-N3) `factions/cults/structures/temple.md > Placeholder stats`: "**Q** Enhanced Constitution (next level),
+    /// **W** Improved Metabolism (next level), **A/S/D/F** release one Recruit of a kind [...], **V: Eject All** (staff
+    /// leave), **X: Cancel** (last research)" ([`cults::temple`]), its keys showing their line's next level
+    /// (`super::Conditions::key`). No right-click: it has no rally point.
+    Temple,
 }
 
 /// The Deployment Center's build menus (`factions/gdo/structures/deployment_center.md >
@@ -237,6 +243,7 @@ impl InterfaceTemplate {
             InterfaceTemplate::Garrison => cults::garrison::GRID,
             InterfaceTemplate::FieldEngineer => gdo::field_engineer::GRID,
             InterfaceTemplate::Altar => cults::altar::GRID,
+            InterfaceTemplate::Temple => cults::temple::GRID,
         }
     }
 }

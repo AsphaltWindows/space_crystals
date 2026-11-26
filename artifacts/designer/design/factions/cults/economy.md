@@ -72,10 +72,19 @@ Applies to every Cults building that can hold units inside (Armory, Altar, Templ
 (user, 2026-11-26; Q0103) The figures the build is measured against (the Director's economy oracle):
 - **Distance** is measured **edge to edge**, patch to Storage, in whole tiles (as for Agents).
 - **Tolerance ±15%**: a measured figure passes if it is within 15% of its target either way (e.g. 1.45 SC/s per Recruit passes anywhere from about 1.23 to 1.67).
-- **Targets**: ≈ 1.45 SC/s per Recruit at a 1-tile gap (≈ 0.59 at 2, ≈ 0.37 at 3); 4–5 Recruits per 2-tile face at full efficiency; a starting Hall fills from 6 to 20 in 168 s (2:48); the earliest second Hall at ~0:55–1:15; roughly level with the GDO and the Colonists until ~1:30 and slightly ahead by 2:48.
+- **Targets**: ≈ 1.45 SC/s per Recruit at a 1-tile gap (≈ 0.59 at 2, ≈ 0.37 at 3); full efficiency at about **2 Recruits per tile of face length** (designer's estimate for the 3x2 Storage, 2026-11-27: ~6 on a 3-tile face, ~4 on a 2-tile face; was "4–5 per 2-tile face" for the 2x2 Storage; re-measure); a starting Hall fills from 6 to 20 in 168 s (2:48); the earliest second Hall at ~0:55–1:15; roughly level with the GDO and the Colonists until ~1:30 and slightly ahead by 2:48.
 - **Two scenarios, on an 8-patch field:**
   1. **Ideal mining**: one Storage per face, all Recruits mining (the "level until 1:30, ahead by 2:48" comparison was made this way: pure mining, best case).
-  2. **Realistic opening** (user's build line): start with the one starting Storage; **save for a second Recruitment Hall without building any extra Storages**, spreading new Recruits to patches farther from the starting Storage; **build the second Hall with all the non-optimal Recruits** (those on the far patches); then **build Storages around the patches**, one per face. Measured against the GDO and the Colonists at 1:30 and 2:48 and reported (the docs have no target for it yet; it tells whether the Cults stay level when they expand early).
+  2. **Realistic opening** (user's build line): start with the one starting Storage; **save for a second Recruitment Hall without building any extra Storages**, spreading new Recruits to patches farther from the starting Storage; **build the second Hall with all the non-optimal Recruits** (those on the far patches); then **build Storages around the patches**, one per face. Measured against the GDO and the Colonists at 1:30 and 2:48 and reported.
+     - **Target** (user, 2026-11-27; Q0135, option b): expanding early is an **investment**: it may fall behind early, but it should **overtake ideal mining (scenario 1) by about 4:00**.
+     - **A longer timeline** (user, 2026-11-27): measure both Cults scenarios, the GDO and the Colonists out to **6:00**, at **1:30, 2:48, 4:00, 5:00 and 6:00**, and report how the economies compare. Further targets may follow from that.
+     - **What to compare at each checkpoint** (user, 2026-11-27), for all four lines:
+       1. **Income per second** at that point (measuring window: the 10 s, 160 frames, before the checkpoint; designer's choice);
+       2. **Total mined**: Space Crystals delivered since 0:00 (the starting bank not included);
+       3. **Bank**: unspent Space Crystals at the checkpoint;
+       4. **Total spent on economy**: Space Crystals paid so far for economy items, refunds subtracted.
+     - **Everything built in these runs is economy** (user, 2026-11-27): the scenarios build nothing but economy, so "spent on economy" is simply **everything spent**, Generators included (e.g. Cults Halls and Storages; GDO Extraction Facilities, Plates and Generators; Colonists Drones and Egress Nodes). If a scenario ever needs a non-economy building, report it separately.
+     - First measurement (Q0135, 2x2 Storage): 0.51 of the GDO by 1:30 and 0.62 by 2:48. The 3x2 Storage (0380) is expected to help.
 
 ## Buildings
 The Recruitment Hall and the Storage have their own files (moved from here, 2026-11-27): `factions/cults/structures/recruitment_hall.md`, `factions/cults/structures/storage.md`.

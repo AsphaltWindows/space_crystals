@@ -55,7 +55,10 @@ impl PanelCommand {
             | PanelCommand::AugmentMenu(_)
             | PanelCommand::AugmentState(..)
             | PanelCommand::Augment(..)
-            | PanelCommand::ReleaseOf(..) => false,
+            | PanelCommand::ReleaseOf(..)
+            | PanelCommand::Research(_)
+            | PanelCommand::Researching(_)
+            | PanelCommand::ReleaseOne(_) => false,
         }
     }
 
@@ -78,7 +81,11 @@ impl PanelCommand {
     /// to the other types' units. So do a pool building's kind menus, their entries and its Eject All, which read and
     /// change its own pool (design change 0337: "the count inside (unreserved)"), and an Altar's menus and their
     /// entries alike (slice M5-N1b); and every command of a pool building goes to the one Tabbed to, its X and C too
-    /// (design change 0348 point 5: "a command goes to one building"; `super::super::is_common`).
+    /// (design change 0348 point 5: "a command goes to one building"; `super::super::is_common`). So does a Temple's
+    /// release of one Recruit of a kind, which reads and changes its own staff (slice M5-N3), to every Temple of the
+    /// ActiveGroup, the Temple being Groupable (`factions/cults/structures/temple.md > Placeholder stats`: "Groupable
+    /// true"); not its Research, which goes to every Temple of the selection that offers it, one of them taking it
+    /// (`sc_sim::ProductionCommand::Research`), as a Train goes to every Barracks (design change 0083).
     pub fn instance_only(self) -> bool {
         matches!(
             self,
@@ -107,6 +114,7 @@ impl PanelCommand {
                 | PanelCommand::AugmentState(..)
                 | PanelCommand::Augment(..)
                 | PanelCommand::ReleaseOf(..)
+                | PanelCommand::ReleaseOne(_)
         )
     }
 
@@ -168,7 +176,10 @@ impl PanelCommand {
             | PanelCommand::AugmentMenu(_)
             | PanelCommand::AugmentState(..)
             | PanelCommand::Augment(..)
-            | PanelCommand::ReleaseOf(..) => false,
+            | PanelCommand::ReleaseOf(..)
+            | PanelCommand::Research(_)
+            | PanelCommand::Researching(_)
+            | PanelCommand::ReleaseOne(_) => false,
         }
     }
 }

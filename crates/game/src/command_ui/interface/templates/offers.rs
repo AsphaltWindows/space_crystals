@@ -1,7 +1,7 @@
 //! What a type offers (`systems/controls/interface.md > ObjectInterfaceState[ObjectEnum]`): every command its
 //! panel may show ([`commands`]), and whether it offers a command ([`offers`]).
 
-use sc_sim::{RecruitKind, construction, transform};
+use sc_sim::{RecruitKind, ResearchDef, construction, transform};
 
 use super::{BuildMenu, PanelCommand, can_target_ground, constructs, cults, grid, menu_grid, syndicate};
 use crate::selection::GroupType;
@@ -16,7 +16,8 @@ const UNFINISHED: [PanelCommand; 2] = [PanelCommand::CancelConstruction, PanelCo
 /// grid, and a constructor's buildings to construct and to place, and its two Cancels; a Beacon's buildings to warp
 /// in; a Tunnel's EjectMenu tiles and the expansions of its ExpandMenu; a pool building's KindMenus' entries, every
 /// kind's; an Altar's AugmentMenus' tiles and entries, every type's and state's (slice M5-N1b); a Recruit's buildings
-/// of its Construct menus (slice M5-J1: [`menu_builds`]). In order, each once.
+/// of its Construct menus (slice M5-J1: [`menu_builds`]); a research structure's keys, each of its technologies' and
+/// the same in progress (slice M5-N3, `PanelCommand::Researching`). In order, each once.
 pub fn commands(ty: impl Into<GroupType>) -> Vec<PanelCommand> {
     let GroupType { kind, unfinished } = ty.into();
     if unfinished {
@@ -54,6 +55,11 @@ pub fn commands(ty: impl Into<GroupType>) -> Vec<PanelCommand> {
         commands.extend(cults::altar::menus(kind));
     }
     commands.extend(menu_builds(kind));
+    if let Some(research) = research_of(kind) {
+        for &tech in research.techs {
+            commands.extend([PanelCommand::Research(tech), PanelCommand::Researching(tech)]);
+        }
+    }
     commands.sort_unstable();
     commands.dedup();
     commands
@@ -75,7 +81,9 @@ pub fn commands(ty: impl Into<GroupType>) -> Vec<PanelCommand> {
 /// (`sc_sim::defs::EXPAND_MENU`), each a type a Tunnel builds (`StructureDef::expansion`). A pool building offers its
 /// KindMenus' trainings and Releases (slice M5-F2), an Altar its AugmentMenus' tiles, orders and Releases (slice
 /// M5-N1b). A worker offers the Build its grid has (the Agent's) and those of the build menus it opens (the Recruit's
-/// Construct menus, slice M5-J1: [`menu_builds`]).
+/// Construct menus, slice M5-J1: [`menu_builds`]). A research structure offers the Research of each technology it
+/// researches (`StructureDef::research`), its keys showing their line's next level, and the same in progress (slice
+/// M5-N3).
 pub fn offers(ty: impl Into<GroupType>, command: PanelCommand) -> bool {
     let GroupType { kind, unfinished } = ty.into();
     if unfinished {
@@ -102,6 +110,9 @@ pub fn offers(ty: impl Into<GroupType>, command: PanelCommand) -> bool {
             return augments(kind) && cults::altar::menus(kind).any(|entry| entry == command);
         }
         PanelCommand::Build(_) if menu_builds(kind).any(|build| build == command) => return true,
+        PanelCommand::Research(tech) | PanelCommand::Researching(tech) => {
+            return research_of(kind).is_some_and(|research| research.offers(tech));
+        }
         _ => {}
     }
     if !grid(kind).contains(&Some(command)) {
@@ -127,6 +138,12 @@ fn menu_builds(kind: sc_sim::ObjectKind) -> impl Iterator<Item = PanelCommand> {
         .filter(move |&menu| opens.contains(&Some(PanelCommand::BuildMenu(menu))))
         .flat_map(move |menu| menu_grid(kind, menu).into_iter().flatten())
         .filter(|command| matches!(command, PanelCommand::Build(_)))
+}
+
+/// (M5-N3) What objects of `kind` research (`StructureDef::research`): the Temple's technologies. `None` for a type
+/// that researches nothing.
+fn research_of(kind: sc_sim::ObjectKind) -> Option<&'static ResearchDef> {
+    kind.def().structure.as_ref()?.research.as_ref()
 }
 
 /// Whether objects of `kind` open the EjectMenu: the Tunnel (slice M4-J2).

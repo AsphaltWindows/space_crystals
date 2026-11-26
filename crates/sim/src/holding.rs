@@ -51,9 +51,20 @@ pub fn holds(o: &Object) -> Option<&'static HoldsDef> {
 /// Whether objects of `kind` train the units they hold (slice M5-F2, `sim/producers/pool.rs`): the type holds units
 /// and produces, the Armory first (plan decisions T70 and T71: the Cathedral, the Chop Shop and the Airstrip as data).
 /// Design change 0337 calls them "pool buildings" (`factions/cults/structures/README.md > Choosing Recruits, Release
-/// and Eject All`).
+/// and Eject All`). (M5-N3) Not a type that researches on its queue, the Temple, whose units staff it ([`staffed`]).
 pub fn trains(kind: ObjectKind) -> bool {
-    (kind.def().structure.as_ref()).is_some_and(|s| s.holds.is_some() && s.production.is_some())
+    (kind.def().structure.as_ref()).is_some_and(|s| s.holds.is_some() && s.production.is_some() && s.research.is_none())
+}
+
+/// (M5-N3) Whether objects of `kind` are staffed by the units inside them: tech buildings
+/// (`factions/cults/structures/README.md > Choosing Recruits, Release and Eject All`: "**Tech buildings** (Temple,
+/// Gunworks, Machine Shop, Shrine)"), the types that hold units and research (`StructureDef::research`). The Temple
+/// so far; the other three hold no one yet. Such a building researches only while Recruits are inside, as fast as
+/// their number (`core/tech_and_research.md > Research > Faction Exceptions > Cults — research is staffed by
+/// Recruits`; `Sim::staff`), and its **A/S/D/F** let one unit of a kind out at once (`HoldCommand::ReleaseOne`), where a
+/// pool building ([`trains`]) releases by its queue.
+pub fn staffed(kind: ObjectKind) -> bool {
+    (kind.def().structure.as_ref()).is_some_and(|s| s.holds.is_some() && s.research.is_some())
 }
 
 /// Whether `building` takes a unit of `kind` in (`systems/controls/commands.md > Enter`: "an own structure that can

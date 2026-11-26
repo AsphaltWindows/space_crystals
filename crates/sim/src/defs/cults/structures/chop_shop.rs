@@ -63,6 +63,7 @@ pub(crate) static CHOP_SHOP: ObjectDef = ObjectDef {
             accepts: &[ObjectKind::Recruit],
         }),
         occupants_fire: None,
+        research: None,
     }),
     default_settings: None,
     energy: None,

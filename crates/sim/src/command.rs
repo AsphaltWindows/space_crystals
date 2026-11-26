@@ -8,7 +8,7 @@
 use glam::Vec2;
 use serde::{Deserialize, Serialize};
 
-use crate::augmentation::Augmentation;
+use crate::augmentation::{Augmentation, RecruitKind};
 use crate::construction::ConstructionCommand;
 use crate::defs::ObjectKind;
 use crate::ids::{ObjectId, PlayerId};
@@ -109,6 +109,12 @@ pub enum HoldCommand {
     /// comes out through its exit doorway, one at a time (`sim/holding.rs`). "Only available if StoredRecruits is not
     /// empty" (`factions/cults/structures/armory.md > ObjectInterfaceState[Armory]`).
     EjectAll,
+    /// (M5-N3) A tech building's **A/S/D/F** (`factions/cults/structures/README.md > Choosing Recruits, Release and
+    /// Eject All`: "**Tech buildings** (Temple, Gunworks, Machine Shop, Shrine): DefaultState has **one button per
+    /// kind** [...]: pressing one sends **one** Recruit of that kind out of the exit at once (no queue)"): the unit of
+    /// this kind that entered first leaves through the exit doorway, as an ejected one does (`sim/holding.rs`). A
+    /// pool building releases by its queue instead (`ProductionCommand::Release`).
+    ReleaseOne(RecruitKind),
 }
 
 /// An ability a unit uses at once ([`Command::Ability`]).

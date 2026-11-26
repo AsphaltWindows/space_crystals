@@ -2,6 +2,7 @@ mod garrison;
 mod gathering;
 mod recruit;
 mod repair;
+mod temple;
 
 use sc_sim::defs::TargetDomain;
 

@@ -9,7 +9,7 @@
 //! Every impl destructures its type without `..`, so adding a field fails to compile until
 //! the field is hashed. Types with private fields implement [`StateHash`] in their own module.
 
-use std::collections::VecDeque;
+use std::collections::{BTreeSet, VecDeque};
 
 use glam::Vec2;
 
@@ -124,6 +124,16 @@ impl<T: StateHash> StateHash for VecDeque<T> {
     }
 }
 
+/// Like a `Vec`: in order, length first.
+impl<T: StateHash> StateHash for BTreeSet<T> {
+    fn hash(&self, h: &mut StateHasher) {
+        h.len(self.len());
+        for v in self {
+            v.hash(h);
+        }
+    }
+}
+
 impl StateHash for Vec2 {
     fn hash(&self, h: &mut StateHasher) {
         self.x.hash(h);
@@ -222,6 +232,7 @@ impl StateHash for Player {
             essence,
             flux,
             defeated_at,
+            techs,
         } = self;
         id.hash(h);
         name.hash(h);
@@ -232,6 +243,11 @@ impl StateHash for Player {
         essence.hash(h);
         flux.hash(h);
         defeated_at.hash(h);
+        // (M5-N3) Only while the player has completed some, so that a game without research hashes as it did.
+        if !techs.is_empty() {
+            h.tag(1);
+            techs.hash(h);
+        }
     }
 }
 
@@ -315,6 +331,7 @@ impl StateHash for Object {
             lineage,
             augmentation,
             energy,
+            kept_research,
         } = self;
         id.hash(h);
         kind.hash(h);
@@ -378,6 +395,12 @@ impl StateHash for Object {
         if let Some(energy) = energy {
             h.tag(7);
             energy.hash(h);
+        }
+        // (M5-N3) The same for the research a neutral unit keeps (design change 0379), under a tag of its own: only
+        // while it keeps one.
+        if let Some(player) = kept_research {
+            h.tag(8);
+            player.hash(h);
         }
     }
 }

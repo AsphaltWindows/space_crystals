@@ -2,9 +2,15 @@
 //! applies to everyone`): "every unit that has that Augmentation gets the new amounts at once, along with units
 //! augmented later". A unit holds no level of its own, only which Augmentations it has (`super::Augmentation`): its
 //! amounts are read from its owner's current research levels ([`Levels`]) whenever its stats are, through
-//! [`Research`], so nothing on the unit goes stale when a level completes.
+//! [`Research`], so nothing on the unit goes stale when a level completes. The levels come from the technologies its
+//! owner completed at a Temple (slice M5-N3, [`Levels::of`]); a completed level takes the HP of every unit it changes
+//! along with its MaxHP (`Sim::complete_research`). A defeated player's units keep their research as they turn neutral,
+//! frozen at the defeat (design change 0379, `core/game_rules.md > On Defeat`; `Object::kept_research`), so nothing on
+//! them changes ([`Research::levels_of`]).
 
+use crate::defs::ResearchLine;
 use crate::ids::PlayerId;
+use crate::object::Object;
 use crate::player::Player;
 
 /// A research level of one Augmentation's line (`factions/cults/structures/temple.md > Research (first set)`: "Each
@@ -46,10 +52,36 @@ impl Levels {
         metabolism: Level::NoResearch,
     };
 
-    /// `player`'s current levels. No player researches yet: the Temple does from slice M5-N3, whose techs (plan
-    /// decision T74, per player) give them here, and only here, so that every accessor follows.
-    pub fn of(_player: &Player) -> Levels {
-        Levels::NONE
+    /// `player`'s current levels (slice M5-N3, plan decision T74): each line's highest level among the technologies
+    /// the player has completed at a Temple (`Player::techs`), "No research" for a line without one. Here, and only
+    /// here, so that every accessor follows (module docs). It allocates nothing, and a player has at most the four
+    /// technologies; one without any is the common case, and costs a branch.
+    pub fn of(player: &Player) -> Levels {
+        if player.techs.is_empty() {
+            return Levels::NONE;
+        }
+        let mut levels = Levels::NONE;
+        for tech in &player.techs {
+            let def = tech.def();
+            let level = levels.line_mut(def.line);
+            *level = (*level).max(def.level);
+        }
+        levels
+    }
+
+    /// (M5-N3) The current level of `line`.
+    pub fn line(self, line: ResearchLine) -> Level {
+        match line {
+            ResearchLine::EnhancedConstitution => self.constitution,
+            ResearchLine::ImprovedMetabolism => self.metabolism,
+        }
+    }
+
+    fn line_mut(&mut self, line: ResearchLine) -> &mut Level {
+        match line {
+            ResearchLine::EnhancedConstitution => &mut self.constitution,
+            ResearchLine::ImprovedMetabolism => &mut self.metabolism,
+        }
     }
 }
 
@@ -74,8 +106,8 @@ impl Research<'static> {
     /// No one's research: every amount at "No research". For tests, and for an object outside any game.
     pub const NONE: Research<'static> = Research::at(Levels::NONE);
 
-    /// Everyone at `levels`: the amounts at levels that no research gives yet, for tests (the Temple researches from
-    /// slice M5-N3).
+    /// Everyone at `levels`, whatever their research: for tests, and for the units of one player whose levels change
+    /// (`Sim::complete_research`).
     pub const fn at(levels: Levels) -> Self {
         Research {
             source: Source::Everyone(levels),
@@ -89,6 +121,13 @@ impl<'a> Research<'a> {
         Self {
             source: Source::Players(players),
         }
+    }
+
+    /// The levels that apply to `o` (module docs): its owner's, or, once it is neutral, those of the defeated player
+    /// whose research it keeps (`Object::kept_research`, design change 0379), frozen at their defeat; none for an object
+    /// that has neither.
+    pub fn levels_of(self, o: &Object) -> Levels {
+        self.levels(o.owner.or(o.kept_research))
     }
 
     /// The current levels of `owner`'s research ([`Levels::of`]); none for an object without an owner, or one whose

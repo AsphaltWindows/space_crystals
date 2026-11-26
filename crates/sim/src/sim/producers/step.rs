@@ -34,6 +34,7 @@ use crate::defs::ObjectKind;
 use crate::economy::{self, ArmyCap, ArmyResource};
 use crate::events::SimEvent;
 use crate::ids::{ObjectId, PlayerId};
+use crate::production::QueueEntry;
 use crate::sim::Sim;
 
 /// The army caps of the players whose producers have a unit to start in this step (`None` for one that reserves
@@ -65,6 +66,9 @@ impl Sim {
     /// (M5-C) The Recruitment Halls queue their Recruits by themselves first (`Sim::start_recruits`,
     /// `sim/recruitment.rs`), a Hall's Recruit advances by the tiles the Hall claims, whatever the power (plan decision
     /// T57), and a Hall that releases one queues the next at once (`Sim::recruit_next`).
+    ///
+    /// (M5-N3) A staffed building's research advances by a `RATIO_ONE` for each unit staffing it (`Sim::staff`), and
+    /// a finished one completes at once, leaving the queue (`Sim::complete_research`, `producers/research.rs`).
     pub(in crate::sim) fn step_production(&mut self, first_new: ObjectId) {
         let claims = self.start_recruits(first_new);
         let busy: Vec<ObjectId> = self
@@ -82,6 +86,9 @@ impl Sim {
             if !self.may_start(id, &mut room) {
                 continue;
             }
+            let staff = (self.objects.get(&id))
+                .filter(|o| crate::holding::staffed(o.kind))
+                .map(|_| self.staff(id));
             let Some(o) = self.objects.get_mut(&id) else {
                 continue;
             };
@@ -91,18 +98,22 @@ impl Sim {
                 continue;
             };
             let recruits = def.recruitment.is_some();
-            let speed = if recruits {
-                claims.tiles(id)
-            } else {
-                power.get(&owner).copied().unwrap_or_default().speed(o.kind)
+            let speed = match staff {
+                _ if recruits => claims.tiles(id),
+                Some(staff) => staff.saturating_mul(economy::RATIO_ONE),
+                None => power.get(&owner).copied().unwrap_or_default().speed(o.kind),
             };
             let starting = production.in_production().is_none();
             let finished = production.advance(def, speed);
             if starting && let Some(kind) = production.in_production() {
                 room.take(owner, kind);
             }
-            // A pool producer's finished entry waits for its unit's turn at the doorway (`producers/pool.rs`).
-            if finished && pool {
+            let research = production.current().and_then(QueueEntry::tech);
+            if finished && let Some(tech) = research {
+                production.release();
+                self.complete_research(id, tech);
+            } else if finished && pool {
+                // A pool producer's finished entry waits for its unit's turn at the doorway (`producers/pool.rs`).
                 self.ready_to_leave(id);
             } else if finished {
                 self.release_unit(id);

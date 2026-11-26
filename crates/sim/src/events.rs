@@ -5,7 +5,7 @@ use glam::Vec2;
 use serde::{Deserialize, Serialize};
 
 use crate::augmentation::AugmentOrder;
-use crate::defs::{ObjectKind, Resource};
+use crate::defs::{ObjectKind, Resource, Tech};
 use crate::economy::ArmyResource;
 use crate::ids::{ObjectId, PlayerId};
 use crate::placement::PlacementCheck;
@@ -456,5 +456,23 @@ pub enum SimEvent {
         unit: ObjectId,
         order: AugmentOrder,
         refund: u32,
+    },
+    /// (M5-N3) `producer`, a Temple, queued `tech` and its owner paid for it (`ProductionCommand::Research`).
+    ResearchQueued {
+        producer: ObjectId,
+        tech: Tech,
+    },
+    /// (M5-N3) `producer`'s `tech` left its queue unfinished, `refund` Space Crystals back: X took it off, or the
+    /// building left the game (`core/tech_and_research.md > Research > Shared Rules` 6 and 7).
+    ResearchCancelled {
+        producer: ObjectId,
+        tech: Tech,
+        refund: u32,
+    },
+    /// (M5-N3) `producer` completed `tech` for its owner, whose units with the line's Augmentation took the new
+    /// amounts at once (`Sim::complete_research`).
+    ResearchCompleted {
+        producer: ObjectId,
+        tech: Tech,
     },
 }

@@ -165,7 +165,12 @@ pub(crate) fn step(
 ///   (`systems/combat.md > AttackPhase`: not interruptible);
 /// - plans its path again (`Mover::repath`; the note from M2-E in plan §9): what it had was planned on its old
 ///   owner's knowledge grids, and a neutral unit plans on the true grids. A unit standing still has no goal to plan
-///   for, so today this asks for nothing; it stays for whatever may keep a transferred unit moving.
+///   for, so today this asks for nothing; it stays for whatever may keep a transferred unit moving;
+/// - (M5-N3) keeps its research (design change 0379: "**Research is kept too** [...]: the defeated player's completed
+///   research is **frozen** at the moment of defeat and keeps applying to their former units [...], so nothing changes
+///   on them"): a unit whose stats follow research, one with an Augmentation, keeps its owner's
+///   (`Object::kept_research`), so its MaxHP, speed and weapon stay as they were: an Enhanced Constitution Militant of
+///   a player with Level 1 stays at 80 MaxHP.
 ///
 /// The rest follows from having no owner: from phase 5f of this tick on the units are no one's eyes, so their vision
 /// counts for no one; they are never auto-targeted and never acquire a target themselves (`systems/combat.md >
@@ -180,6 +185,9 @@ fn to_neutral(objects: &mut BTreeMap<ObjectId, Object>, defeated: &[PlayerId], t
             o.def().category != Category::Structure,
             "a defeated player owns no structure (plan decision T8)"
         );
+        if !o.augmentation.is_none() {
+            o.kept_research = o.owner;
+        }
         o.owner = None;
         if let Some(orders) = &mut o.orders {
             *orders = Orders::default();

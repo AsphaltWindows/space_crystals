@@ -10,6 +10,10 @@
 //!   ready to leave (`Held::leaving`); "Recruits already reserved by a queued training order are not ejected and
 //!   remain committed to that order" (slice M5-F2). A unit that enters meanwhile stays: it wasn't stored when the
 //!   command came.
+//! - **Release one** (slice M5-N3; `factions/cults/structures/README.md > Choosing Recruits, Release and Eject All`: at
+//!   a tech building, "pressing one sends **one** Recruit of that kind out of the exit at once (no queue)",
+//!   `HoldCommand::ReleaseOne`): the command marks the unit of the kind that entered first ready to leave, as Eject
+//!   All marks them all (`Sim::free_units`: "Within a kind, the unit that entered first is used first (0332)").
 //! - **Leaving** ([`Sim::step_holding`]; design change 0348, `factions/cults/structures/README.md > Choosing Recruits,
 //!   Release and Eject All`: "units sharing the exit doorway come out **in the order they are ready**"): the building
 //!   lets its units ready to leave out through its exit doorway, one at a time, each "only once the doorway is free"
@@ -85,7 +89,11 @@ impl Sim {
     /// player's other objects ignore it ([`Reject::NoHolders`] if none is left). **Eject All**: "Only available if
     /// StoredRecruits is not empty" (`factions/cults/structures/armory.md > ObjectInterfaceState[Armory]`): the
     /// buildings whose pool has a unit take it, [`Reject::NothingInside`] if none has: units reserved by an order, or
-    /// on their way out already, are none of the pool's.
+    /// on their way out already, are none of the pool's. (M5-N3) **Release one**: the tech buildings among them
+    /// (`holding::staffed`, else [`Reject::NoHolders`]: a pool building releases by its queue) with a unit of the kind
+    /// in their pool take it, [`Reject::NoRecruit`] if none has (the kind's button "is greyed if there are none"), each
+    /// letting its own out: **Placeholder (not in the design: A/S/D/F to several Temples)**, read as Eject All is
+    /// ("every one of the selection").
     pub(in crate::sim) fn check_holding(
         &self,
         player: PlayerId,
@@ -109,22 +117,40 @@ impl Sim {
                     command,
                 })
             }
+            HoldCommand::ReleaseOne(kind) => {
+                let staffed: Vec<ObjectId> = (buildings.into_iter())
+                    .filter(|building| holding::staffed(self.objects[building].kind))
+                    .collect();
+                if staffed.is_empty() {
+                    return Err(Reject::NoHolders);
+                }
+                let with: Vec<ObjectId> = (staffed.into_iter())
+                    .filter(|&building| !self.free_units(building, kind).is_empty())
+                    .collect();
+                if with.is_empty() {
+                    return Err(Reject::NoRecruit(kind));
+                }
+                Ok(Checked::Holding {
+                    buildings: with,
+                    command,
+                })
+            }
         }
     }
 
     /// `command` to `buildings`, which passed the gate ([`Sim::check_holding`]). Eject All marks every unit of each
-    /// pool ready to leave from this tick (module docs); [`Sim::step_holding`] lets them out.
+    /// pool ready to leave from this tick (module docs), a Release one the unit of its kind that entered first;
+    /// [`Sim::step_holding`] lets them out.
     pub(in crate::sim) fn apply_holding(&mut self, buildings: &[ObjectId], command: HoldCommand) {
-        match command {
-            HoldCommand::EjectAll => {
-                let tick = self.tick;
-                for &building in buildings {
-                    let pool: Vec<ObjectId> = self.pool(building).iter().map(|held| held.object.id).collect();
-                    for unit in pool {
-                        if let Some(held) = self.held.get_mut(&unit) {
-                            held.leaving = Some(tick);
-                        }
-                    }
+        let tick = self.tick;
+        for &building in buildings {
+            let leaving: Vec<ObjectId> = match command {
+                HoldCommand::EjectAll => self.pool(building).iter().map(|held| held.object.id).collect(),
+                HoldCommand::ReleaseOne(kind) => self.free_units(building, kind).into_iter().take(1).collect(),
+            };
+            for unit in leaving {
+                if let Some(held) = self.held.get_mut(&unit) {
+                    held.leaving = Some(tick);
                 }
             }
         }
@@ -213,7 +239,10 @@ impl Sim {
                     unit,
                 });
             }
-            Some((QueueEntry::Release, _)) | None => self.events.push(SimEvent::LeftBuilding { unit, building }),
+            // A research reserves no unit, so it is never the entry of the unit let out.
+            Some((QueueEntry::Release | QueueEntry::Research { .. }, _)) | None => {
+                self.events.push(SimEvent::LeftBuilding { unit, building })
+            }
         }
         if let Some(kind) = rally.and_then(|rally| self.rally_order(unit, rally)) {
             self.give_order(&[unit], kind, false);

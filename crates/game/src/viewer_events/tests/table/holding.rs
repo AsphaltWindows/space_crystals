@@ -1,6 +1,7 @@
-//! The rows of the buildings that hold units (slices M5-F1, M5-F2 and M5-N1b) in the filter's table (`super::table`).
+//! The rows of the buildings that hold units (slices M5-F1, M5-F2, M5-N1b and M5-N3) in the filter's table
+//! (`super::table`).
 
-use sc_sim::AugmentOrder;
+use sc_sim::{AugmentOrder, Tech};
 
 use super::*;
 
@@ -69,6 +70,29 @@ pub(super) fn rows() -> Vec<(SimEvent, [Seen; 4])> {
                 unit: UNIT,
                 order,
                 refund: 50,
+            },
+            [W, N, N, N],
+        ),
+        // (M5-N3) A Temple's research, queued, taken back and completed: its owner's, as its production's news.
+        (
+            SimEvent::ResearchQueued {
+                producer: TUNNEL,
+                tech: Tech::EnhancedConstitutionL1,
+            },
+            [W, N, N, N],
+        ),
+        (
+            SimEvent::ResearchCancelled {
+                producer: TUNNEL,
+                tech: Tech::EnhancedConstitutionL1,
+                refund: 100,
+            },
+            [W, N, N, N],
+        ),
+        (
+            SimEvent::ResearchCompleted {
+                producer: TUNNEL,
+                tech: Tech::ImprovedMetabolismL2,
             },
             [W, N, N, N],
         ),

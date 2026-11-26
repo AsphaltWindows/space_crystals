@@ -389,6 +389,7 @@ impl Sim {
             augmentation: Default::default(),
             // (M5-N4a) Its type's start (`crate::energy`).
             energy: crate::energy::start(kind),
+            kept_research: None,
         }
     }
 

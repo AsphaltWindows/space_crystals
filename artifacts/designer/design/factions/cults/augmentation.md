@@ -37,7 +37,7 @@ A unit may have neither, either, or both Augmentations. A unit with both sums th
 - Enhanced Constitution at Level 2 + Improved Metabolism at no research: +5 Constitution / −1 Metabolism.
 
 ### Research applies to everyone
-(user, 2026-11-26; replaces Level Locking, "to avoid unnecessary complexity") Temple research is **retroactive**: when a level completes, **every unit that has that Augmentation** gets the new amounts at once, along with units augmented later. HP follows the MaxHP rule (Increments > HP when MaxHP changes): if MaxHP goes up, HP rises by the same amount.
+(user, 2026-11-26; replaces Level Locking, "to avoid unnecessary complexity") Temple research is **retroactive**: when a level completes, **every unit that has that Augmentation** gets the new amounts at once, along with units augmented later. A defeated player's neutral units keep the levels **frozen** at the defeat (core/game_rules.md > On Defeat; Q0142). HP follows the MaxHP rule (Increments > HP when MaxHP changes): if MaxHP goes up, HP rises by the same amount.
 
 A unit cannot receive an Augmentation it already has.
 

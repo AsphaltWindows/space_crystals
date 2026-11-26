@@ -370,6 +370,12 @@ Units, structures and resources are all `Object`s (`object.rs`, `core/entities.m
     "No room inside" line; 0347 point 2: "a unit arriving when the building is full has its Enter **end** and idles
     beside the building (the normal Failure rule)"). The right-click resolves an own operational holder that takes
     the unit's kind to Enter (`Aimed::accepts`, `Abilities::kind`; "Own Armory → Enter Armory").
+  - **One of a kind out** (slice M5-N3, `HoldCommand::ReleaseOne(kind)`; `factions/cults/structures/README.md >
+    Choosing Recruits, Release and Eject All`, the tech buildings' "pressing one sends **one** Recruit of that kind out
+    of the exit at once (no queue)"): a staffed building's (`holding::staffed`: it holds units and researches, the
+    Temple) free unit of the kind that went in first is marked ready to leave, as an Eject All marks them all
+    (`NoHolders` where none is staffed: a pool building releases by its queue; `NoRecruit(kind)` where none has one).
+    Several Temples each let one out (**Placeholder**, as Eject All goes to every one of the selection).
   - **Out by Eject All** (`Command::Holding { objects, command: HoldCommand::EjectAll }`, gate `Sim::check_holding`:
     `Reject::NoHolders`, `Reject::NothingInside`): it marks every unit of the pool ready to leave, `Held::leaving`
     (the tick it was marked; hashed and saved only while set), and `Sim::step_holding`, in the economy phase right
@@ -422,9 +428,10 @@ Units, structures and resources are all `Object`s (`object.rs`, `core/entities.m
     reserves and that aren't on their way out (slice M5-F2); `Sim::held_in` is everyone inside. The client's Enter
     pointer is slice M5-J1's (*Client architecture*, *The Recruit's panel*). Design change 0319's other holders fit
     the def as it is: the Chop Shop, the Cathedral and the Airstrip have their `HoldsDef` since slice M5-G2 (in at B,
-    out at C, 10 Recruits), the Altar, the Temple and the Shrine (all ABAC now) get theirs with their slices, and the
-    Gunworks and the Machine Shop (ABAC too) hold no one until their research is designed (design change 0328), so a
-    right-click on one with Recruits is a Move.
+    out at C, 10 Recruits), the Altar (slice M5-N1b) and the Temple (slice M5-N3: in at B, out at C, 6 Recruits, its
+    staff, *Production > Research*) have theirs, the Shrine (ABAC) gets its with its slice, and the Gunworks and the
+    Machine Shop (ABAC too) hold no one until their research is designed (design change 0328), so a right-click on one
+    with Recruits is a Move.
   - **The Garrison** (slice M5-N2, plan decision T72 as design change 0335 amended it;
     `factions/cults/structures/garrison.md`): `HoldsDef { entrance: B, exit: ExitRule::AtOnce(B), capacity: 4,
     accepts: Recruit, Militant, Gunner, Disciple }`, SymmetryType AAAB: "**the door on side B** (one door, entrance and
@@ -647,8 +654,14 @@ Units, structures and resources are all `Object`s (`object.rs`, `core/entities.m
   - **The amounts follow the owner's current levels**, read whenever a stat is (design change 0336: research is
     retroactive; 0338: every Cults stat upgrade applies to the units that exist). A unit stores which Augmentations it
     has, never their amounts or a level. `Research<'a>` is a view of the players' research: `Levels::of(player)` is the
-    one place a player's levels come from, "No research" until the Temple (slice M5-N3 fills it, and applies the HP
-    rule below to the units it changes), and `Research::at(levels)` puts everyone at given levels, for tests.
+    one place a player's levels come from: each line's highest level among the technologies they have completed
+    (`Player::techs`, slice M5-N3; "No research" without one), in O(1) and allocating nothing; `Research::at(levels)`
+    puts everyone at given levels, for tests. **A defeated player's units keep their research** as they turn neutral,
+    frozen at the defeat (design change 0379, answering Q0142; `core/game_rules.md > On Defeat`), so nothing on them
+    changes: `economy::defeat` sets `Object::kept_research` to their owner on those with an Augmentation (hashed under
+    a tag and saved only while set), and `Research::levels_of(o)`, the accessors' one lookup, reads the levels of
+    `o.owner.or(o.kept_research)`. No copy of the levels is needed: a defeated player owns no structure (T8), so
+    completes no research again. A1 checks that only a neutral unit keeps research, a defeated player's.
   - **Why this shape.** The systems that hold the objects mutably (phases 5a, 5d and 5e, the network's regeneration)
     take a `Research` beside them, a borrow of the players alone, which a `Sim` method couldn't be; code that has the
     `Sim` asks `Sim::research()`. Stats stored on the object would go stale when a level completes or a def changes
@@ -663,7 +676,9 @@ Units, structures and resources are all `Object`s (`object.rs`, `core/entities.m
   - **HP restored** goes up to `max_hp_with`: the repair's (`repair::damage`, whose MaxHP also sets its rate and its
     price's steps, slice M5-N8) and the regeneration's (`crate::regeneration`). No repairer repairs infantry yet.
   - **HP when MaxHP changes** (design changes 0330 and 0331): `augmentation::follow_max`, applied by
-    `augmentation::set` (the Altar's orders, slice M5-N1b, and `DebugCommand::SetAugmentation`; the research later).
+    `augmentation::set` (the Altar's orders, slice M5-N1b, and `DebugCommand::SetAugmentation`), by a completed level
+    to every unit of its owner's with the line's Augmentation, on the map or held (`Sim::complete_research`, slice
+    M5-N3).
     Up, the HP rises as
     much: `transform::follow_max`'s rule, the damage staying. Down, the HP stays unless it is above the new MaxHP:
     there the two rules part, as a transformation's keeps the damage (design change 0110). No floor; an augmentation
@@ -2020,7 +2035,9 @@ and the code is `crates/sim/src/movement.rs` and `movement/`, with the unit's st
   long as `exit` is set, never moves deeper in (`ExitDoor::allows`), never stands off a portal's open arc
   (**M3-D2**: `EnergyDoorway::margin` at least −1e-3, `ARC_TOLERANCE`), and never comes to be in a doorway by
   moving (`tests/production/portal_stalls.rs` has the energy doorway's negative tests for I1 and I2); I3 a unit moves at most its speed per tick; I4 every float
-  is finite (I3's speed is the model's maximum for a unit with momentum: a mode that slows it only weakens its thrust); I5 a unit without a goal doesn't move; I6 repaths per leg are capped and no path request waits longer
+  is finite (I3's speed is the model's maximum for a unit with momentum: a mode that slows it only weakens its thrust;
+  (M5-N3) in a tick a research level completes, after the movement step, the larger of its MaxSpeeds before and after);
+  I5 a unit without a goal doesn't move; I6 repaths per leg are capped and no path request waits longer
   than `MAX_REQUEST_AGE`; I7 an arrived unit never moves again without an order or a move of its behaviour, and a
   unit without a goal is at rest. A leg is one `Mover::go_to`: an order's move, or one a behaviour starts (a chase,
   a Patrol's next leg, the way back to an IdleOrigin). The exceptions to I5 and I7 are a unit taking its sidestep,
@@ -2036,15 +2053,19 @@ and the code is `crates/sim/src/movement.rs` and `movement/`, with the unit's st
   (M5-M1) H1 (`hit_points`): every object, on the map or held, has HP exactly when it has a MaxHP, above 0 and at most
   its MaxHP with its Augmentations (`Object::max_hp_with`), and Shields within 0 and its MaxShields; B1 (`banks`): no
   bank wraps below 0 or past its top in a tick (it changes by less than half its range, but by a `SetResources` of the
-  tick); A1 (`augmentations`): only an augmentable kind has an Augmentation; (M5-N4a) E1 (`energy`): every object,
-  on the map or held, has energy exactly when its kind has a pool, at most its maximum. A `TestSim` checks them after
+  tick); A1 (`augmentations`): only an augmentable kind has an Augmentation, and (M5-N3) only a neutral unit keeps
+  research, a defeated player's (`Object::kept_research`); (M5-N4a) E1 (`energy`): every object,
+  on the map or held, has energy exactly when its kind has a pool, at most its maximum; (M5-N3) T1 (`research`):
+  techs come only from completed research: a player holds a technology only with its previous level, none is both
+  completed and queued, nor queued twice or at two structures, and each queued one is offered by its structure's type
+  (`StructureDef::research`), at a structure with an owner who has its previous level. A `TestSim` checks them after
   every tick
   and panics with a picture of
   the map (`TestSim::ascii`: units as letters, with a legend). The check is on by default; `check_invariants(false)`
   turns it off for timing runs. A test that steps a bare `Sim` keeps its own `Invariants` and calls `check` after each
   step, as the golden games do (`tests/golden/harness.rs`). The fuzz's games (`tests/robustness.rs`, the seed sweep's)
-  check the rules' invariants alone, `Invariants::check_rules` (P1, O1, R1, H1, B1, A1, E1): V1 and K1, which rebuild the
-  vision and the planning grids, would take the sweep from 5 s to 26 s.
+  check the rules' invariants alone, `Invariants::check_rules` (P1, O1, R1, H1, B1, A1, E1, T1): V1 and K1, which
+  rebuild the vision and the planning grids, would take the sweep from 5 s to 26 s.
 
 ## Economy
 
@@ -2384,7 +2405,8 @@ their energy doorway, slice M3-D2: design change 0145, `factions/colonists/struc
 
 - **State**: `Object::production` (`Production`: the BuildQueue, whose head is the unit in production, so the
   limit `QUEUE_LIMIT` (20) includes it, design change 0081; its entries `QueueEntry`s, a unit or a pool building's
-  Release, slice M5-F2, or an Altar's augmentation order, slice M5-N1b, a unit's written as its kind alone so the
+  Release, slice M5-F2, an Altar's augmentation order, slice M5-N1b, or a Temple's research, slice M5-N3, a unit's
+  written as its kind alone so the
   files and hashes from before are as they were; its
   progress in `RATIO_ONE`s, a Recruitment Hall's in tiles; the rally point; a Hall's completion tick, `completed_at`,
   hashed and saved only while not 0; a pool building's `reserved` units, entry by entry, hashed and saved only while
@@ -2397,8 +2419,9 @@ their energy doorway, slice M3-D2: design change 0145, `factions/colonists/struc
   games without a wait, the goldens among them, keep their hashes.
 - **Commands**: `Command::Production { objects, command }` with `ProductionCommand::Train(kind)`,
   `CancelProduction` and `SetRally(Target)`, a pool building's `TrainFrom { kind, from }` and `Release(from)`
-  (slice M5-F2), and an Altar's `Augment { kind, from, order }` and `ReleaseOf { kind, from }`, of a unit of a type
-  and a kind (slice M5-N1b); the gate's rules are in *Commands, events and replays*.
+  (slice M5-F2), an Altar's `Augment { kind, from, order }` and `ReleaseOf { kind, from }`, of a unit of a type
+  and a kind (slice M5-N1b), and a Temple's `Research(tech)` (slice M5-N3); the gate's rules are in *Commands, events
+  and replays*.
 - **Costs** (plan decision T7): a unit's Space Crystals are paid when it is queued, and only they and room in the
   queue are checked then. Its army cost (Unit Control, Beacon Capacity; see *Economy*) is taken when its production
   starts (design change 0143, which replaces 0082's reservation at queue time, for every faction): no `Reject` or
@@ -2524,6 +2547,35 @@ their energy doorway, slice M3-D2: design change 0145, `factions/colonists/struc
   and Augmentations, no weapon, an Attack refused beside a Militant's; `temple.rs`; `saves.rs`) and
   `crates/sim/tests/energy/` (the regeneration exact to the tick, held units', the hash and the saves), each tick under
   the invariants.
+- **Research** (slice M5-N3, plan decisions T70 and T74 as design changes 0335 to 0338 amend them;
+  `core/tech_and_research.md > Research`, `factions/cults/structures/temple.md`; `defs/cults/research.rs`,
+  `defs/structures/research.rs`, `sim/producers/research.rs`): the technologies are data (`Tech`, its `TechDef`: name,
+  line, level, Space Crystals, frames, the previous level it `requires`, the structures it `requires_structures`; the
+  `ResearchLine`s, each an Augmentation's two levels). A structure type researches by `StructureDef::research`
+  (`ResearchDef { techs, queue }`: the Temple's four, queue 5) **on its production queue**, as T70 has it, not a second
+  one: `QueueEntry::Research { tech }` (serde `{"tech": ...}`), paid when queued, X's full refund of the last entry, a
+  destroyed Temple's refund of every entry and the evacuation of its staff, all the queue engine's. **Progress** is one
+  `RATIO_ONE` a frame for each unit staffing the building (`Sim::staff`: held and not on its way out; "Linear
+  scaling", "Pauses when empty ... (no decay)"), exact in integers: Level 1's 960 frames take 320 with three Recruits;
+  a type that holds no one would research at one a frame. **The gate** (`Sim::plan_research`), in T74's order:
+  `CannotResearch` where none of the producers offers it, `Researched`, `ResearchUnderWay` (queued or in progress at
+  any of the player's structures, `Sim::research_site`), `RequiresTech(previous)` until the previous level has
+  **completed** (Q0117), `Requires(Cathedral)` for Level 2, checked as it is queued and never again, then the Temple
+  with room in its queue and the least work (0083's order, ties by id), `QueueFull`, `InsufficientCrystals`. A
+  Temple has no rally point: `SetRally` leaves research structures out (`NoProducers` for a Temple alone), and its
+  staff step out of C and stop (**Placeholder**). **Completion**, in the producers' step (`Sim::complete_research`):
+  the technology joins `Player::techs` (a `BTreeSet<Tech>`, hashed under a tag and saved only while non-empty), and
+  every unit of the owner's with the line's Augmentation, on the map or held anywhere, follows its MaxHP before and
+  after (`augmentation::follow_max`: 0336's "the existing Recruit's MaxHP rises from +20 to +40, and its HP rises by
+  20"); speed and weapon follow by themselves, read through the accessors. It comes before `Sim::step_holding`, where
+  an Altar's unit is augmented, so a unit augmented in the tick a level completes gets it (T74's order; with fixed
+  amounts either order gives the same). Losing the Temple or the Cathedral revokes nothing. `SimEvent::ResearchQueued`,
+  `ResearchCancelled { refund }` and `ResearchCompleted` say so. Tests: `crates/sim/tests/research/` (`staffing.rs`:
+  960, 480, 320 and 160 frames with 1, 2, 3 and 6 Recruits, the pause without staff; `queue.rs`: the price, X, a
+  destroyed Temple, the refusals; `levels.rs`: Level 2 after Level 1 and with a Cathedral, one Temple of a group;
+  `retroactive.rs`: 0336's Verification, held units, units augmented later, the same tick as an Altar's order, walking
+  units; `doors.rs`: in at B, out of C one at a time, A/S/D/F; `saves.rs`; `neutral.rs`: 0379's Verification), each
+  tick under the invariants, T1 among them, whose negative tests are in `tests/invariants_state.rs`.
 - **The exit doorways** (`production::ExitDoor`, the one geometry for the release, the movement step and the
   invariants; `ExitDoor::of` reads the building's `ProductionDef::exits`, an `ExitRule`, against its sides as
   placed, `sides`). Two kinds:
@@ -2704,7 +2756,9 @@ their energy doorway, slice M3-D2: design change 0145, `factions/colonists/struc
   slot, its capacity bounding its queue; `Release(from)` when a pool building has a free unit of the kind
   (`NoRecruit`, `NoHolders` for none that holds units), free, and `ReleaseOf { kind, from }` alike, of a unit of the
   type (slice M5-N1b); `Augment { kind, from, order }` at an Altar (`AlreadyAugmented`, `CannotAugment`, then as a
-  `TrainFrom`, *Production > The Altar*); `CancelProduction` when a producer other than a
+  `TrainFrom`, *Production > The Altar*); `Research(tech)` at a research structure (`CannotResearch`, `Researched`,
+  `ResearchUnderWay`, `RequiresTech`, `Requires`, `QueueFull`, `InsufficientCrystals`: *Production > Research*);
+  `CancelProduction` when a producer other than a
   Recruitment Hall (design change 0342) has something queued, else `NothingQueued`; `SetRally` with a point on the
   map (`OffMap`) or an object the
   player sees or remembers, as for an order's target (`UnknownObject`, `NotVisible`; the producer itself
@@ -2753,6 +2807,8 @@ their energy doorway, slice M3-D2: design change 0145, `factions/colonists/struc
   units*): the player's buildings among `objects` that hold units take it, the player's other objects are ignored
   (`NotOwned` for another's, `NoHolders` if none is left). **`EjectAll`** (`factions/cults/structures/armory.md >
   Eject All`): those whose pool has a unit (`NothingInside` if none has) mark their pool for Eject All.
+  **`ReleaseOne(kind)`** (slice M5-N3): the staffed ones among them (`NoHolders` if none) with a free unit of the kind
+  (`NoRecruit(kind)` if none has) each mark the one that went in first (*Object model > Buildings that hold units*).
 - **Default orders** (`orders/resolution.rs`; `systems/controls/interface.md > RightClickResolution`, design
   changes 0062, 0063, 0074 and 0136): `resolve(Abilities, Aim)` is the one rule for what a unit does against a target
   by default: the ground gives Move; a worker on a patch it can gather Gather, on its owner's drop-off Drop Off while
@@ -3249,7 +3305,11 @@ their energy doorway, slice M3-D2: design change 0145, `factions/colonists/struc
   data, their counts from a game, one Altar Tabbed to). The Cathedral's (slice M5-N4a): `tests/commands/cathedral.rs`
   (Recruits right-clicked in, Q,Q's Disciple out with its energy, its panel and InfoPanel, its right-click on an enemy
   a move), `command_ui/interface/tests/cathedral.rs` (the Cathedral's and the Disciple's panels as data, an Attack
-  leaving the Disciple out), `tests/combat/` (the energy bar) and `hud/info_panel/tests.rs` (the energy line).
+  leaving the Disciple out), `tests/combat/` (the energy bar) and `hud/info_panel/tests.rs` (the energy line). The
+  Temple's (slice M5-N3): `tests/commands/temple.rs` (Recruits right-clicked in, Q's research "In progress" then
+  Level 2 greyed "Requires a Cathedral", an Enhanced Constitution Militant's MaxHP 60 to 80 at once, A/S/D/F's one
+  Recruit out of C, Eject All, X's refund), `command_ui/interface/tests/temple.rs` (the grid, the keys following the
+  gate, the counts, the group) and `command_ui/resolution/tests/temple.rs` (the Enter, no right-click of its own).
 - **Cults construction tests** (slice M5-E) are `crates/sim/tests/cults_construction/` (`flow.rs`: four Recruits in
   80 frames paid once, five from one side spread along the wall (0339), two at twice the rate, one alone, a Shift
   chain, builders pulled off and back by Assist, the right-click; `refunds.rs`: two of three re-ordered and then the
@@ -3611,10 +3671,13 @@ its recipe's, whole percent rounded down), or the building ready to place. A Rec
 Metabolism 0, Both 0", one that takes in several types, the Altar, by type, "Free: Recruit 0, Militant 2, Gunner 0,
 Disciple 1" (slice M5-N1b, a placeholder; another, the Garrison, slice M5-N2, the kinds inside with their counts, in
 its `accepts` order,
-"Occupants: Militant 2, Gunner 1": a placeholder, the design has no GarrisonInstanceState); its queue line names the
-entries, "Queue: Militant, Release (2 / 10)", of its capacity, and a
+"Occupants: Militant 2, Gunner 1": a placeholder, the design has no GarrisonInstanceState; a Temple, slice M5-N3, its
+staff, "Staff: 3 / 6", those not on their way out, `Sim::staff`, and their kinds as the pool's, a placeholder too); its
+queue line names the entries, "Queue: Militant, Release (2 / 10)", of its capacity, and a
 Release under way is "Releasing Recruit: 50%", an Altar's order "Augmenting Militant (Enhanced Constitution): 45%",
-its queue line naming its orders. A transforming structure's
+its queue line naming its orders, a Temple's research "Researching Enhanced Constitution Level 1: 45%", its queue
+line naming the technologies, of its research queue, "Queue: Enhanced Constitution Level 1 (1 / 5)", and no rally
+point. A transforming structure's
 (`activity::transformation`, first; slice M3-E) is the building it becomes and its progress, "Warping in: Robo Portal
 45%" ("Deploying" from a unit, slice M3-F), and its HP is out of its interpolated MaxHP (`Object::max_hp`), as its HP
 bar is. A plate
@@ -4074,6 +4137,25 @@ Drones, through one command flow (plan decision T10, slices M2-H1, M2-H2 and M3-
   shots are drawn from where the sim says they leave, the footprint's edge (`SimEvent::Attacked::from`), in the
   style of the weapon they fire there and their owner's colour (`combat_effects::occupant_form`, from
   `Sim::held_unit`: a held attacker is neither on the map nor dead).
+- **The Temple's panel** (slice M5-N3; `factions/cults/structures/temple.md > Placeholder stats`: "**Q** Enhanced
+  Constitution (next level), **W** Improved Metabolism (next level), **A/S/D/F** release one Recruit of a kind [...],
+  **V: Eject All** (staff leave), **X: Cancel** (last research)"): `templates/cults/temple.rs`
+  (`InterfaceTemplate::Temple`) is Q and W `PanelCommand::Research(tech)` of each line's Level 1, A, S, D and F
+  `PanelCommand::ReleaseOne(kind)` (Plain, Constitution, Metabolism, Both, the kind buttons' order), X
+  `CancelProduction` and V `EjectAll`. **A key shows its line's next level** as the gate answers
+  (`Conditions::key`, the panel's one substitution, from `Sim::validate` alone, as plan decision T10 has every button):
+  the first level the gate doesn't refuse as `Researched`; `PanelCommand::Researching(tech)`, labelled "InProg",
+  greyed and saying "In progress", while it refuses it as `ResearchUnderWay` (0335's "its key shows "In progress"
+  meanwhile"); Level 2 greyed "Requires a Cathedral" while the gate wants one; nothing once the line is completed
+  (`core/tech_and_research.md > Research > Shared Rules` 4). So `Conditions::of` validates every level of both lines
+  (`templates::offers` offers them all at a Temple). Q's hint prices it, "Q: Research Enhanced Constitution Level 1
+  (100 Space Crystals)". A, S, D and F count the staff of their kind (`Conditions::pool_count`, `Sim::pool_counts`
+  summed over the Temples selected: **Placeholder**), greyed by the gate at none (`Reject::NoRecruit`, "No free unit
+  of that kind"), each press a `HoldCommand::ReleaseOne`. It is Groupable: every command goes to all the Temples
+  selected (`is_common`), a Research taken by the one the sim picks. It has no rally point (no C) and resolves no
+  right-click
+  (`object_right_click`: `None`); a Recruit's right-click on it is the sim's Enter, under `PointerDisplay::Enter`.
+  The Recruit's Advanced Construct X is its Build, greyed "Requires an Altar" until one stands.
 - **The Recruit's panel** (slice M5-J1; `factions/cults/units/recruit.md > Recruit ObjectInterfaceState`, design
   changes 0322, 0327 and 0347): `templates/cults/recruit.rs` (`InterfaceTemplate::Recruit`) is Q Move, A and W
   `PanelCommand::BuildMenu` (named "Basic Construct" and "Advanced Construct", `PanelTemplate::names`), S
@@ -4364,8 +4446,8 @@ unchecked.
   playback keys), `--windowed` and `--headless` work with it; a windowless playback ends at the replay's end unless
   told otherwise. To check a replay quickly: `cargo run -- --replay <file> --headless --fast`.
 - **Golden hashes** (`crates/sim/tests/golden/`: the games in `units.rs`, `gdo.rs`, `colonists.rs`, `syndicate.rs`,
-  `cults.rs`, `garrison.rs`, `altar.rs` and `main.rs`, the recording and the comparison in `harness.rs`): fifteen
-  games, a 3v3
+  `cults.rs`, `garrison.rs`, `altar.rs`, `temple.rs` and `main.rs`, the recording and the comparison in `harness.rs`):
+  sixteen games, a 3v3
   duel, a 40-unit
   AttackMove battle, a 12-unit group move through a choke, a patrol that meets an enemy, a chase lost in the fog, three
   Peacekeepers that raise their Riot Shields (`Command::Ability`; one turns back half-way), walk up to a Guard under
@@ -4374,8 +4456,8 @@ unchecked.
   plates, while player 2 plates its field and builds Generators), the Colonists' `colonists_opening` and
   `colonists_vs_gdo` (slice M3-K1, below), the Syndicate's `syndicate_opening` and `syndicate_vs_gdo` (slice
   M4-L, below), the Cults' `cults_opening` and `cults_vs_syndicate` (slice M5-L, below), `cults_garrison` (slice
-  M5-N2, below) and `cults_altar` (slice M5-N1b, below), are blessed as replays
-  with a checkpoint every 32 ticks and at the end, in `crates/sim/tests/golden/<name>.json`. A tenth, `area_attacks` (slice M4-O), is a unit test
+  M5-N2, below), `cults_altar` (slice M5-N1b, below) and `cults_temple` (slice M5-N3, below), are blessed as replays
+  with a checkpoint every 32 ticks and at the end, in `crates/sim/tests/golden/<name>.json`. Another, `area_attacks` (slice M4-O), is a unit test
   (`combat/projectiles/golden.rs`), as it plays test throwers (`combat::testing`): grenades in flight, blasts over a
   hidden Hideout and a group, an Attack Ground. Its file is `tests/golden/test_defs/area_attacks.json`, out of the
   client's playback of `tests/golden/*.json`, which knows only the game's types. The test plays each game from its definition, checks that the
@@ -4418,7 +4500,11 @@ unchecked.
   (`during`, every tick); one brings it down, and the four come out alive and unhurt and kill the rest (a Storage
   keeps player 1 in the game). In `cults_altar` (to 1:00, on a test map, debug commands on for the Cults' 100 Space
   Crystals) three Militants go into an Altar, which queues one order of each type: they come out at their orders'
-  ticks with MaxHP 60, 30 and 50 at full HP (`during`), and kill two Agents; the Improved Metabolism one falls. The
+  ticks with MaxHP 60, 30 and 50 at full HP (`during`), and kill two Agents; the Improved Metabolism one falls. In
+  `cults_temple` (to 0:25, on a test map, debug commands on for the research's 100 Space Crystals) six Recruits staff
+  a Temple, which queues Enhanced Constitution Level 1 at tick 80 and completes it 160 frames on, in tick 239, while
+  three Enhanced Constitution Militants fight three Agents: every Militant has 80 MaxHP from that tick and 20 HP
+  more, its damage kept (`during`); one falls all the same, and the two others kill the Agents. The
   ignored
   `tests/skirmish_soak.rs`
   (slice M3-K2) plays the Colonists' two players for 10 minutes, twice, until player 1's field runs out: the

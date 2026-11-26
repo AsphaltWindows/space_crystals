@@ -65,6 +65,15 @@
 //! greyed while there are none, as the gate would refuse every entry of their menus (`Reject::NoRecruit`; a type tile
 //! says so of its first state's); its orders and Releases ask the gate ("Available only if the group still has an
 //! unreserved unit, the AugmentationQueue is not full, and the player has sufficient Space Crystals").
+//!
+//! (M5-N3) A Temple's keys (`factions/cults/structures/temple.md > Placeholder stats`: "**Q** Enhanced Constitution
+//! (next level), **W** Improved Metabolism (next level)") show what the gate says of each technology of their line
+//! ([`Conditions::key`]): the first one not completed (`Reject::Researched`), "In progress" while it is queued or in
+//! progress at any of the player's structures (`Reject::ResearchUnderWay`: "its key shows "In progress" meanwhile"),
+//! nothing once both are completed; Level 2 greyed while the player owns no Cathedral (`Reject::Requires`), any of them
+//! while the bank can't pay, with their price in the hint. Its releases of one Recruit of a kind count the staff of the
+//! kind and are greyed while there are none, as the gate would refuse them (`Reject::NoRecruit`: "it is greyed if
+//! there are none").
 
 mod modes;
 
@@ -137,7 +146,9 @@ pub struct Conditions {
     /// its type (`super::templates::SITE_GRID`).
     pub site: bool,
     /// The free units of each kind in the active pool building (`Sim::pool_counts`, by `RecruitKind as usize`): those
-    /// no order reserves (slice M5-F2); none while the ActiveGroup isn't a pool building.
+    /// no order reserves (slice M5-F2); (M5-N3) the staff of each kind in the ActiveGroup's Temples, which each let
+    /// one out (`sc_sim::HoldCommand::ReleaseOne`; **Placeholder (not in the design: several Temples' counts are
+    /// their sum)**); none while the ActiveGroup is neither.
     pool: [u32; 4],
     /// (M5-N1b) The free units of each type its tiles show in the active Altar, by kind (`Sim::pool_counts_of`); none
     /// while the ActiveGroup isn't an Altar.
@@ -157,7 +168,10 @@ impl Conditions {
     /// M5-J1: a group's Build, paid once, its TechPrerequisite and the bank the gate's). A Tunnel's EjectMenu tile and its Cancel ask for their `Command::Tunnel`, and the
     /// network's counts are the player's while the ActiveGroup opens the EjectMenu. An ExpandMenu entry asks
     /// `Sim::can_expand`, the gate's Expand short of its placement, for the same reason as a Warp In's. A pool
-    /// building's Eject All asks for its `Command::Holding`, and its kind buttons count its free units.
+    /// building's Eject All asks for its `Command::Holding`, and its kind buttons count its free units. (M5-N3) A
+    /// Temple's Research asks for its `Command::Production` of each technology the Temple offers, its key showing the
+    /// answers ([`Conditions::key`]), priced at the technology's cost; its releases ask for their `Command::Holding` and
+    /// count its staff.
     pub fn of(sim: &Sim, player: PlayerId, selection: &Selection) -> Self {
         let commands = selection
             .active()
@@ -175,10 +189,20 @@ impl Conditions {
             BTreeMap::new()
         };
         let kinds = PanelCommand::KindMenu(RecruitKind::Plain);
-        let pool = (commands.contains(&kinds))
-            .then(|| recipients(selection, kinds))
-            .and_then(|buildings| buildings.first().copied())
-            .map_or([0; 4], |building| sim.pool_counts(building));
+        let releases = PanelCommand::ReleaseOne(RecruitKind::Plain);
+        let pool = if commands.contains(&releases) {
+            let counts = recipients(selection, releases)
+                .into_iter()
+                .map(|temple| sim.pool_counts(temple));
+            counts.fold([0; 4], |sum, counts| {
+                std::array::from_fn(|kind| sum[kind] + counts[kind])
+            })
+        } else {
+            (commands.contains(&kinds))
+                .then(|| recipients(selection, kinds))
+                .and_then(|buildings| buildings.first().copied())
+                .map_or([0; 4], |building| sim.pool_counts(building))
+        };
         let types = (commands.iter()).filter_map(|&command| match command {
             PanelCommand::AugmentMenu(unit) => Some((command, unit)),
             _ => None,
@@ -241,6 +265,7 @@ impl Conditions {
         let prices = (commands.iter())
             .filter_map(|&command| match command {
                 PanelCommand::Build(kind) => Some((command, sim.build_price(player, kind)?)),
+                PanelCommand::Research(tech) => Some((command, BuildPrice::crystals(tech.def().cost))),
                 PanelCommand::UpgradeTunnel => {
                     let tunnel = *recipients(selection, command).first()?;
                     Some((command, BuildPrice::supplies(sim.upgrade_price(tunnel)?)))
@@ -350,8 +375,10 @@ impl Conditions {
         self
     }
 
-    /// What a Build or a Tunnel's Upgrade costs now, in its resource (`Sim::build_price`, `Sim::upgrade_price`): `None`
-    /// for another command, and for the Upgrade of a Tunnel at its top tier.
+    /// What a Build or a Tunnel's Upgrade costs now, in its resource (`Sim::build_price`, `Sim::upgrade_price`), and a
+    /// Temple's Research, its technology's Space Crystals (slice M5-N3; `core/tech_and_research.md > Research > Shared
+    /// Rules` 2: "The cost is deducted when the technology is queued"): `None` for another command, and for the Upgrade
+    /// of a Tunnel at its top tier.
     pub fn price(&self, command: PanelCommand) -> Option<BuildPrice> {
         self.prices.get(&command).copied()
     }
@@ -366,6 +393,25 @@ impl Conditions {
     /// eject queue.
     pub fn network_count(&self, kind: ObjectKind) -> u32 {
         self.network.get(&kind).copied().unwrap_or(0)
+    }
+
+    /// (M5-N3) What the slot of `command` shows now: a Temple's key, which holds its line's Level 1, the line's next
+    /// level, the first of its technologies the gate doesn't refuse as completed (`Reject::Researched`), and "In
+    /// progress" while that one is queued or in progress (`Reject::ResearchUnderWay`: `PanelCommand::Researching`;
+    /// `factions/cults/structures/temple.md > Placeholder stats`: "**Q** Enhanced Constitution (next level)", "its key
+    /// shows "In progress" meanwhile"); nothing once the line is completed (`core/tech_and_research.md > Research >
+    /// Shared Rules` 4: "Once completed, it no longer appears in any research menu"). Any other command itself.
+    pub fn key(&self, command: PanelCommand) -> Option<PanelCommand> {
+        let PanelCommand::Research(tech) = command else {
+            return Some(command);
+        };
+        let research = PanelCommand::Research;
+        let next = (tech.def().line.techs().into_iter())
+            .find(|&tech| self.refusal(research(tech)) != Some(Reject::Researched(tech)))?;
+        Some(match self.refusal(research(next)) {
+            Some(Reject::ResearchUnderWay(_)) => PanelCommand::Researching(next),
+            _ => research(next),
+        })
     }
 
     /// Whether `command` shows in its slot now: the Egress Node's F only while there are Drones for it to select
@@ -394,7 +440,8 @@ impl Conditions {
     /// doesn't: their types, their loads (a Drop Off none of whose recipients carries anything, the gate's
     /// `Reject::NothingToDeliver`), a pool building's free units (a kind button with none of its kind, which every
     /// entry of its KindMenu would want: `Reject::NoRecruit`), an Altar's (a type or state tile with none, said as the
-    /// first state's, Unaugmented, for a type tile), or the gate's refusal.
+    /// first state's, Unaugmented, for a type tile), a Temple's key in progress (`Reject::ResearchUnderWay`, which its
+    /// Research would get), or the gate's refusal.
     pub fn unavailable(&self, selection: &Selection, command: PanelCommand) -> Option<WhyUnavailable> {
         match command {
             PanelCommand::Attack => {
@@ -423,6 +470,7 @@ impl Conditions {
             PanelCommand::AugmentState(unit, state) => {
                 (self.stored_state_count(unit, state) == 0).then_some(WhyUnavailable::Refused(Reject::NoRecruit(state)))
             }
+            PanelCommand::Researching(tech) => Some(WhyUnavailable::Refused(Reject::ResearchUnderWay(tech))),
             _ => self.refusal(command).map(WhyUnavailable::Refused),
         }
     }

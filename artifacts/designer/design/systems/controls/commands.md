@@ -122,4 +122,10 @@ The parameters set by the currently executing command that define the unit's obj
 ## TurretCommandState
 The parameters that define the turret's current objective. Set by the base behavior (not directly by commands). When the base behavior identifies a target, it updates the TurretCommandState. When the base behavior does not specify a target, the turret retains its previous TurretCommandState. If the turret has no assigned target, it falls back to autonomous target scanning.
 
+**When a lock ends** (user, 2026-11-27; Q0137):
+- A turret keeps a lock **while its base is engaging that target**, or otherwise **while it can fire at it**: in range, in its arc, and seen by its owner. When neither holds, it drops the lock and scans for a new target in the same tick.
+- **Commands that set no target leave the lock alone**: a Move keeps a lock set by an earlier Attack, friendly or enemy, for as long as the turret can fire at it (firing on the move).
+- **Stop clears the lock**: "press Stop if you want it to stop targeting the current target". The turret then scans, and may pick the same enemy again.
+- A turret turns only toward a lock its owner sees.
+
 ### LockedTarget - ObjectInstance | None

@@ -40,7 +40,9 @@
 //! M5-N1b: units right-clicked in, its three stages of menus with their counts, an order by keys and the InfoPanel's
 //! queue, a fully augmented unit's Release, X's refund and Eject All): `altar`, on another. The Cathedral (slice M5-N4a:
 //! Recruits right-clicked in, its kinds and its KindMenu's Train Disciple, then the Disciple's panel, its InfoPanel's
-//! energy and its right-click on an enemy, a move): `cathedral`, on another.
+//! energy and its right-click on an enemy, a move): `cathedral`, on another. The Temple (slice M5-N3: Recruits
+//! right-clicked in, Q's research "In progress" then Level 2, an Enhanced Constitution unit's MaxHP rising, A/S/D/F's
+//! releases of one Recruit, Eject All and X's refund): `temple`, on another.
 //!
 //! The Recruit's UI (slice M5-J1: its panel and its two Construct menus, the Assist, Enter and gathering pointers, Tab
 //! over Recruits and Militants, the group's placement with its Shift chain, and a Hall refused at the map's edge; slice
@@ -77,6 +79,7 @@ mod shift_targeting;
 mod supplies;
 mod syndicate_panels;
 mod targeting;
+mod temple;
 mod tunnel_areas;
 mod tunnel_network;
 mod tunnel_upgrade;

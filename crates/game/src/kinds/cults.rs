@@ -9,9 +9,9 @@
 //! M5-J1). Their panels come with the slices that build their commands: the Hall's with slice M5-C, the Recruit's
 //! with M5-J1 and the Armory's with M5-F2; slice M5-G2's buildings have none (the Gunworks, the Machine Shop and the
 //! Scrap Hangar "no panel commands", the others until their slices: the Garrison's came with M5-N2, the Altar's with
-//! M5-N1b, the Cathedral's, the Armory's template, with M5-N4a), its armed units the BasicCombatUnit template, and its
-//! Prayer-mobile none until its ability's slice; the Disciple's, the BasicCombatUnit template with its Shroud held in R,
-//! came with slice M5-N4a.
+//! M5-N1b, the Cathedral's, the Armory's template, with M5-N4a, the Temple's with M5-N3), its armed units the
+//! BasicCombatUnit template, and its Prayer-mobile none until its ability's slice; the Disciple's, the BasicCombatUnit
+//! template with its Shroud held in R, came with slice M5-N4a.
 //!
 //! [`Planned::label`]: crate::command_ui::interface::templates::Planned::label
 

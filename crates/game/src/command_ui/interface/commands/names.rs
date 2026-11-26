@@ -1,7 +1,7 @@
 //! The panel commands' labels and names ([`PanelCommand::label`], [`PanelCommand::name`], [`PanelCommand::name_on`]):
 //! what a button shows, and what the InfoPanel's hint for it says (`crate::hud::info_panel::hint`).
 
-use sc_sim::{AugmentOrder, ObjectKind, RecruitKind};
+use sc_sim::{AugmentOrder, ObjectKind, RecruitKind, Tech};
 
 use super::super::BuildMenu;
 use super::PanelCommand;
@@ -23,7 +23,9 @@ impl PanelCommand {
     /// their counts; its KindMenu's training the unit's tag, as a Train does, its Release "Rel." and its Eject All
     /// "Eject" (slice M5-F2). An Altar's unit type tiles show their type's tag, as an EjectMenu tile does, its state
     /// tiles their kind as the kind buttons do, and its orders the Augmentation they apply, "Const.", "Metab." and
-    /// "Both", for their icons (slice M5-N1b).
+    /// "Both", for their icons (slice M5-N1b). A Temple's keys show their technology, its line's initials and its level,
+    /// "EC L1", "IM L2", a key in progress "InProg" ("its key shows "In progress" meanwhile"), and its releases their
+    /// kind as the kind buttons do, with their counts (slice M5-N3).
     pub fn label(self) -> &'static str {
         match self {
             PanelCommand::Move => "Move",
@@ -67,6 +69,9 @@ impl PanelCommand {
             PanelCommand::EjectAll => "Eject",
             PanelCommand::Assist => "Assist",
             PanelCommand::Repair => "Repair",
+            PanelCommand::Research(tech) => tech_label(tech),
+            PanelCommand::Researching(_) => "InProg",
+            PanelCommand::ReleaseOne(kind) => kind_label(kind),
         }
     }
 
@@ -112,6 +117,9 @@ impl PanelCommand {
             PanelCommand::AugmentState(_, kind) => state_name(kind).into(),
             PanelCommand::Augment(_, _, order) => order_name(order).into(),
             PanelCommand::Assist => "Assist Construction".into(),
+            PanelCommand::Research(tech) => format!("Research {}", tech.def().name),
+            PanelCommand::Researching(tech) => format!("{}: In progress", tech.def().name),
+            PanelCommand::ReleaseOne(kind) => format!("Release one {} Recruit", kind.name()),
             PanelCommand::Move
             | PanelCommand::Attack
             | PanelCommand::Patrol
@@ -152,6 +160,17 @@ fn kind_label(kind: RecruitKind) -> &'static str {
         RecruitKind::Constitution => "Const.",
         RecruitKind::Metabolism => "Metab.",
         RecruitKind::Both => "Both",
+    }
+}
+
+/// (M5-N3) The label of a Temple's key (`PanelCommand::Research`): a placeholder for the icon of its technology
+/// (Q0001), its line's initials and its level.
+fn tech_label(tech: Tech) -> &'static str {
+    match tech {
+        Tech::EnhancedConstitutionL1 => "EC L1",
+        Tech::EnhancedConstitutionL2 => "EC L2",
+        Tech::ImprovedMetabolismL1 => "IM L1",
+        Tech::ImprovedMetabolismL2 => "IM L2",
     }
 }
 

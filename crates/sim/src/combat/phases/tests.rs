@@ -58,6 +58,7 @@ fn object(id: ObjectId, kind: ObjectKind, owner: Option<PlayerId>, pos: Vec2) ->
         lineage: Vec::new(),
         augmentation: Default::default(),
         energy: None,
+        kept_research: None,
     }
 }
 

@@ -101,6 +101,7 @@ pub(crate) static ALTAR: ObjectDef = ObjectDef {
             ],
         }),
         occupants_fire: None,
+        research: None,
     }),
     default_settings: None,
     energy: None,

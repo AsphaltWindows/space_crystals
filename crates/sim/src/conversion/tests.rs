@@ -42,6 +42,7 @@ fn unit(kind: ObjectKind, phase: Option<AttackPhase>) -> Object {
         lineage: Vec::new(),
         augmentation: Default::default(),
         energy: None,
+        kept_research: None,
     }
 }
 
