@@ -19,7 +19,7 @@ use std::collections::BTreeMap;
 use glam::Vec2;
 
 use super::{Reject, Sim};
-use crate::combat::AttackState;
+use crate::combat::{self, AttackState};
 use crate::defs::ObjectKind;
 use crate::events::SimEvent;
 use crate::ids::{ObjectId, PlayerId};
@@ -151,11 +151,18 @@ impl Sim {
 
     /// Plan decision T30: held unit `id` comes back onto the map at `pos`, facing along `facing`, the object it was
     /// (its id, HP, load and modes), without an order. The caller found the spot clear (`Sim::check_unit_fits`; out
-    /// of an exit doorway, `Sim::doorway_spot`, slice M5-F1). Returns whether there was such a held unit.
+    /// of an exit doorway, `Sim::doorway_spot`, slice M5-F1). Returns whether there was such a held unit. (M5-N2) It
+    /// comes out with no attack under way: one that fired from inside (`combat::occupants`, plan decision T72: "A held
+    /// object keeps it, and leaving clears it") drops its target and its sequence, as every unit held had at
+    /// [`Sim::take_off_map`], and a unit without a weapon of its own (a Disciple, which fired its stand-in's) the
+    /// sequence it had inside.
     pub(super) fn put_on_map(&mut self, id: ObjectId, pos: Vec2, facing: Vec2) -> bool {
         let Some(Held { mut object, .. }) = self.held.remove(&id) else {
             return false;
         };
+        if object.attack.is_some() {
+            object.attack = combat::weapon(&object).map(|_| AttackState::default());
+        }
         object.pos = pos;
         object.prev_pos = pos;
         object.facing = math::vector_angle(facing);
