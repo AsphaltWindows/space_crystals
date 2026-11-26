@@ -95,6 +95,13 @@ The player starts with one RecruitmentHall, but additional ones are buildable by
 ### RecruitmentArea
 A 10x10 grid unit area centered on the 4x4 building. **The whole area must lie on the map** (user, 2026-11-26; Q0099): a Hall whose area would leave the map can't be placed (as Tunnels, 0242).
 
+### Recruitment Area display
+(user, 2026-11-26; Q0107, option b; as the Tunnel Area display, factions/syndicate/tunnels.md)
+- **Placing a Hall** shows its 10x10 area: the tiles it would claim, the tiles already claimed by your own Halls, the non-Recruitable tiles, and its Effectiveness in %.
+- **Enemy Halls you can see** count in the preview: the tiles they claim are shown as unclaimable. Enemy Halls you can't see are not counted (no information leak), so the preview may then be optimistic.
+- **A selected own Hall** shows its claimed tiles.
+- Enemy Halls' areas are never drawn as areas of their own.
+
 ### TileClaiming
 A Recruitment Hall claims Recruitable tiles within its Recruitment Area that are not already claimed by another active Recruitment Hall. Tiles are claimed on a first-built basis — the hall that was constructed first has priority. This priority also applies when tiles are freed by the destruction of a competing hall; if multiple halls contest a newly freed tile, the one that was built first claims it.
 
