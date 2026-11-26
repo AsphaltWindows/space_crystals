@@ -1278,8 +1278,9 @@ ticks spent in it. Hashed and serialized like all state.
   target** (`structures::pick`; design change 0298 point 8, `factions/syndicate/structures/laser_turret.md >
   Targeting`: "targets like a unit holding position: BaseAutoTargeting within Range ..., then the closest ... It
   **keeps its target** while the target stays valid and in range"): an enemy's ValidTarget within Range, threatening
-  targets first (`TargetView::threat`, `combat::threat`: an attack that can target the ground), then the smallest
-  gap, then the lowest id; none while auto-targeting is off. Its `facing` snaps to what it fires at
+  targets first (`TargetView::threat`, `combat::threat`: an attack that can target the ground; a manned Garrison's
+  occupants', M5-S2b), then the smallest gap, then the lowest id; none while auto-targeting is off. Its `facing` snaps
+  to what it fires at
   (`structures::face`), for the client's barrel only. Its `AttackState` comes with its kind (`sim/kinds.rs`,
   `Capabilities`), so hashed and saved as a unit's; the goldens, which have no such structure, are as they were.
   **A pop-up fires only while raised** (slice M4-S2, `popup::may_fire`; "It can't fire while rising or retracting"):
@@ -1335,9 +1336,18 @@ ticks spent in it. Hashed and serialized like all state.
   (`Shooter::muzzle`: the target's point clamped into the footprint; a unit's or a structure's own is its centre):
   `SimEvent::Attacked::from`, `Missed::from`, a projectile's start and the side directional armour is hit from.
   A hit's reveal (`vision.reveal`) names the Garrison (`occupants::building_of`), which the victim then sees. **No
-  spells from inside** (Q0115): only the attack runs. The Garrison isn't a threat to the scans (`combat::threat`:
-  it has no attack of its own; a reading, the design is silent). Leaving clears the unit's attack (`Sim::put_on_map`,
-  a Disciple's made one gone). Tests: `combat/occupants/tests.rs` (the weapons, the muzzle) and
+  spells from inside** (Q0115): only the attack runs. **It is a threat while manned** (slice M5-S2b; design change
+  0377, answering Q0139: "enemies' target scans treat the Garrison as a threatening target while any occupant could
+  attack the scanner's domain", `systems/controls/behaviors.md > TurretAutonomousScanning > Target Selection
+  Priority` 1, the Militant stand-in included; "An empty Garrison, or one with no weapon that can reach the scanner's
+  domain, is not a threat"): **`combat::Threats::of(objects, held)`**, one pass over the held units as each snapshot is
+  taken, gives each building in operation whose units inside have an attack there the TargetDomain all of theirs
+  cover (`occupants::domain_inside`: `occupants::weapon`'s, as they fire; Ground with Air makes Universal, which no
+  building's units can mix today), and both snapshots add it to the building's own threat (`World::with_occupants` in
+  5a, `Targets::with_occupants` in 5e), so a scan still reads one `threat` a target (tests:
+  `combat/occupants/tests/threat.rs`, 0377's Verification among them, and `combat/structures/tests.rs`). Leaving clears
+  the unit's attack (`Sim::put_on_map`, a Disciple's made one gone). Tests: `combat/occupants/tests.rs` (the weapons,
+  the muzzle) and
   `tests/garrison/fire.rs`, `tests/garrison/protection.rs` (0319's "A Garrison with 4 Militants fires at range 5":
   4.9 grid units off the footprint hit, 5.1 never; the stand-ins at 4 with an augmented Recruit's blow unchanged;
   the Gunner's band from the edge; no fire while empty; each its own target; no damage inside, a Grenadier's blasts
@@ -1462,8 +1472,10 @@ writes the mover's goal and the target the attack engages, and reads `Mover::sta
   the first), then the smallest gap, then the lowest id. A scan of SightRange skips enemies inside the unit's MinRange
   (design change 0182) and picks one it can hit; the caller may leave out more (`pick`'s `admit`: the AttackMove's
   leash). Enemy structures are ValidTargets too (design change 0103), so units attack enemy bases on their own; the
-  structures that can't attack come after the targets that shoot back. The grid holds candidates by their centres, so a
-  scan looks as far as the unit's longest range with the modifier, plus its own half size and the largest candidate's
+  structures that can't attack come after the targets that shoot back (a Garrison is one that can while a unit inside
+  could attack the scanner's domain: design change 0377, `World::with_occupants`). The grid holds candidates by their
+  centres, so a scan looks as far as the unit's longest range with the modifier, plus its own half size and the largest
+  candidate's
   (`World::candidate_half`): a footprint in reach is found however far its centre lies.
 - **AttackingObject** (`orders/engage.rs`): `close_in` is its core, shared by all fighting. In range (`combat::
   reaches`) the unit stops and phase 5e attacks; out of range it heads for the target with `MoveGoal::Object`,

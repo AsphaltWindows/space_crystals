@@ -2,7 +2,8 @@
 //! its rate (one shot per 24 ticks, 16 damage a second against armour 0) and its Universal domain against a test air
 //! unit (`defs::test_defs`); and its own pick (design change 0298 point 8,
 //! `factions/syndicate/structures/laser_turret.md > Targeting`): threatening targets first, the one it engages kept,
-//! ties by id, nothing of its own side, neutral or while auto-targeting is off; and its barrel. The turret stands in
+//! ties by id, nothing of its own side, neutral or while auto-targeting is off, (M5-S2b) a manned Garrison as a
+//! threat (design change 0377); and its barrel. The turret stands in
 //! its Tunnel's area, where it is active (design change 0360, `crate::popup`): it rises at its first target, 8 ticks
 //! before it aims.
 
@@ -188,6 +189,43 @@ fn it_shoots_what_threatens_it_first() {
     t.run(150);
     let targets: Vec<ObjectId> = shots(&t).into_iter().map(|(_, target)| target).collect();
     assert_eq!(targets[..5], [guard, guard, guard, guard, drone]);
+}
+
+/// (M5-S2b) Design change 0377, answering Q0139 (`factions/cults/structures/garrison.md > Garrisoning`): "enemies'
+/// target scans treat the Garrison as a threatening target while any occupant could attack the scanner's domain", the
+/// turret's own pick among them. Player 2's Garrison stands 1 grid unit south of the turret, and player 2's Drone,
+/// which can't attack, half a grid unit east, auto-targeting off until the Militant of player 2's that may walk in is
+/// inside: the turret first shoots the nearer Drone while the Garrison is empty, and the Garrison with the Militant in
+/// it, which could attack the ground the turret stands on.
+#[test]
+fn it_shoots_a_manned_garrison_before_a_nearer_harmless_unit() {
+    let (drone, garrison, militant) = (ObjectId(2), ObjectId(4), ObjectId(5));
+    for manned in [false, true] {
+        let mut t = field(&[(ObjectKind::Drone, Some(P2), east(ObjectKind::Drone, 0.5))]);
+        // The Garrison covers x 512..640 and y 640..768; its door, side B, faces west, its middle at (512, 704).
+        t.without_auto_targeting().debug_at(
+            1,
+            spawn(ObjectKind::Garrison, Some(P2), SpawnAt::Tile(TilePos::new(8, 10))),
+        );
+        if manned {
+            t.spawn_unit_at(1, ObjectKind::Militant, P2, Vec2::new(460.0, 704.0))
+                .order_at(2, P2, &[militant], OrderKind::Enter(garrison), false);
+        }
+        t.run_until(1);
+        assert_eq!(t.sim().object(garrison).map(|o| o.kind), Some(ObjectKind::Garrison));
+        while manned && t.sim().held_in(garrison).is_empty() {
+            assert!(t.sim().tick() < 100, "the Militant walks in");
+            t.step();
+        }
+        let on = t.sim().tick() + 1;
+        t.debug_at(on, DebugCommand::SetAutoTargeting { on: true }).run(40);
+        let expected = if manned { garrison } else { drone };
+        assert_eq!(
+            shots(&t).first().map(|&(_, target)| target),
+            Some(expected),
+            "manned: {manned}"
+        );
+    }
 }
 
 /// Design change 0298 point 8: "It keeps its target while that target stays valid and in range", whatever comes nearer

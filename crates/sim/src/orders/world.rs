@@ -52,7 +52,7 @@ pub(crate) struct View {
     /// Whether it is a Space Crystals patch (`core/map.md > SpaceCrystalsPatch`), which workers gather.
     pub is_patch: bool,
     /// The TargetDomain of its attack, if it has one: whom it threatens (`systems/controls/behaviors.md >
-    /// TurretAutonomousScanning`, priority 1).
+    /// TurretAutonomousScanning`, priority 1); (M5-S2b) a building's units inside add theirs ([`World::with_occupants`]).
     threat: Option<TargetDomain>,
     /// Whom it is hidden from (`vision::hidden`, plan decision T32), which [`World::sees`] asks.
     hiding: Hiding,
@@ -290,6 +290,15 @@ impl<'a> World<'a> {
     /// top speeds follow. Without this, everyone's levels are "No research".
     pub(crate) fn with_research(mut self, research: Research<'a>) -> Self {
         self.research = research;
+        self
+    }
+
+    /// (M5-S2b) The snapshot with what the units inside the buildings threaten (`combat::Threats`; design change 0377,
+    /// answering Q0139, `systems/controls/behaviors.md > TurretAutonomousScanning > Target Selection Priority` 1): a
+    /// building that fires through its occupants is a threatening target to a scan ([`World::pick`]) while one of
+    /// them could attack the scanner's domain. Without this, no building but one with an attack of its own is.
+    pub(crate) fn with_occupants(mut self, inside: &combat::Threats) -> Self {
+        inside.add_to(&mut self.views, |v| v.id, |v| &mut v.threat);
         self
     }
 
