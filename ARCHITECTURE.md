@@ -45,7 +45,7 @@ pub const DEFAULT_PATCH_AMOUNT: u32 = 1500;
 | `cargo run [-- <flags>]` | Runs the game, the only binary. Flags are listed under *QA mode*. |
 | `cargo test --workspace` | Runs all tests. `cargo test -p sc_sim` tests the sim alone and skips Bevy, but Cargo then resolves the sim's dependencies apart from a `--workspace` build, so the two never share a build of the sim: after an edit, running both compiles it twice. |
 | `cargo test -p sc_sim --test sim holding::` | Runs one test file's tests, here `tests/holding/`'s: the integration tests are modules of a few test programs (*Sim scenarios and tests*), and the filter is the file's module. The client's are `cargo test -p space_crystals --test game commands::`. |
-| `cargo test --release --workspace -- --ignored --test-threads=1` | Runs the ignored tests: the perf tests, soaks, sweeps and measurements (23 at M4's end, all in the sim, about 1 minute on a quiet machine). Run them at a milestone's end, since nothing else does. |
+| `cargo test --release --workspace -- --ignored --test-threads=1 --skip economy_oracle` | Runs the ignored tests: the perf tests, soaks, sweeps and measurements (23 at M4's end, all in the sim, about 1 minute on a quiet machine). Run them at a milestone's end, since nothing else does. `--skip economy_oracle` leaves out the economy oracle, ignored since design change 0401: on demand only, its pins not maintained. |
 | `cargo clippy --workspace --all-targets -- -D warnings` | Runs the lints and turns every warning into an error. |
 | `cargo fmt --all` | Formats the code; add `--check` to verify only. `rustfmt.toml` sets max width 120. |
 
@@ -3292,7 +3292,13 @@ their energy doorway, slice M3-D2: design change 0145, `factions/colonists/struc
   `gate`, `placing`, `saves`). The clean Barracks opening, which slice
   M2-D1 measured there first, is the economy oracle's.
 - **The economy oracle** is `crates/sim/tests/economy_oracle/`, one folder of modules; its measured results are in
-  `docs/economy_oracle.md`. **The Colonists** (slices M3-K1 and M3-K4, `colonists.rs` and `curve.rs`): the
+  `docs/economy_oracle.md`. It runs **on demand only** (design change 0401, which closed the economy checks; their
+  targets stay in the design as reference for playtests): every test is ignored, so the default `cargo test` runs
+  none, and its pins are no longer maintained, so a test may fail; run it with `cargo test --release -p sc_sim --test
+  sim economy_oracle -- --ignored --nocapture`. What it checked along the way has tests of its own that still run:
+  refunds in `construction/refunds.rs` and `production/queue.rs`, the Syndicate's ceiling in `agent_gathering/`,
+  lumps, cycles and the power penalty in `economy_mining.rs` and `construction/timings.rs`; every faction's workers
+  gather in `pairings/`. **The Colonists** (slices M3-K1 and M3-K4, `colonists.rs` and `curve.rs`): the
   reference line on `testing::colonists::reference_field` (one Robo Portal training Drones without a break, every
   6th deploying) and the GDO's reference line measured the same way (what each delivered or mined over the 21 s
   centred on a time) against both columns of the table of `factions/gdo/economy.md > Economy Targets (GDO vs Colonists)`
@@ -3345,7 +3351,11 @@ their energy doorway, slice M3-D2: design change 0145, `factions/colonists/struc
   incomplete layout and one with a Recruit too many, a layout's Hall flush against the map's edge at 70% (slice M5-S4,
   0387), and a layout's units belonging to its first Hall. `pairings/`
   (slice M5-R) starts every ordered pair of the four factions, 16, on every Skirmish Default map and plays it to a win
-  (*Adding a faction*, item 19). The Tunnel Area's rules are unit-tested in `placement/tests/tunnel_area.rs`, Tunnel
+  (*Adding a faction*, item 19). `playtest_map.rs` (slice M5-P3) has `maps/playtest.json`: generated from its
+  editable part and started in the 16 pairings; each slot's field the reference line of `testing::cults::fields`
+  moved, and each of its Storage sites holding the starting Storage or free for a Recruit's Build; the Hall at 100%;
+  the Deployment Center seeing and reaching every patch, the crystal hatch 3 grid units from the line, and the Drones
+  clear of the node and the portal. The Tunnel Area's rules are unit-tested in `placement/tests/tunnel_area.rs`, Tunnel
   Space in `economy/army/tunnel_space.rs`, the geometry in `tunnel/area.rs`; a unit inside the network keeping its
   Tunnel Space in `tests/tunnel_network/enter.rs`.
 - **The building armor rule** (design change 0264, `core/entities.md > Structure Type > Building armor rule`):
@@ -4800,8 +4810,10 @@ unchecked.
 - **Files**: maps live in `maps/` at the repository root (`editor::files::default_maps_dir`), and new maps are saved
   as `maps/<name>.json`. Saves are atomic: `files::save` writes a hidden temporary file next to the target (named
   after the process too, so that two processes writing one file never write into each other's), flushes it and
-  renames it over the target. Replays are written the same way (`files::write_atomically`). `maps/dev_skirmish.json` is the built-in `dev_skirmish` saved by the editor. A
-  test checks that every map in `maps/` is playable and that this one still matches the built-in.
+  renames it over the target. Replays are written the same way (`files::write_atomically`). `maps/dev_skirmish.json` is the built-in `dev_skirmish` saved by the editor. `maps/playtest.json`
+  (slice M5-P3) is the map to playtest on (`docs/playtest/README.md > Starting a pairing`): `dev_skirmish`'s terrain,
+  each base beside the Cults' reference crystal line. A test checks that every map in `maps/` is playable, that the
+  editor saves it unchanged, byte for byte, and that `dev_skirmish.json` still matches the built-in.
 - **Actions**: every change is an `EditorAction` (`editor/actions.rs`), queued in the `EditorActions` resource and
   applied in `EditorSystems::Apply`. The input layer's actions, the UI's buttons, the text fields and the window's
   close button only queue actions. The edits are plain functions (`editor/terrain.rs`, `editor/objects.rs`,

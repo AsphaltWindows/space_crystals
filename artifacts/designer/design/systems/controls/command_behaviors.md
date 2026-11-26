@@ -25,7 +25,7 @@ Base behavior for moving to a static target location.
 6. When stopped: behavior complete
 
 ### GliderMovement exception:
-Final step is Locomotion = Moving(idle circle over TargetLocation), Orientation = Turning(circle path). Behavior does not complete — continues circling until a new command is issued.
+Final step is Locomotion = Moving(idle circle over TargetLocation), Orientation = Turning(circle path). **The behavior completes when the glider first reaches TargetLocation** (user, 2026-11-27; Q0148; replaces "does not complete"): the next queued order then starts; with nothing queued it keeps circling there, as when idle (systems/units.md > GliderMovement).
 
 ### Failure:
 If the unit repeatedly fails to make progress toward TargetLocation, set Locomotion = Stopping. When stopped, behavior complete.

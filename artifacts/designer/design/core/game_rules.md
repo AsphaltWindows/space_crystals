@@ -25,3 +25,8 @@ In a normal game, a player is **defeated when they own no buildings**. This appl
 **Defeated before the end (no team left)** (user, 2026-11-24): a player defeated while the game continues and who has **no undefeated allies** (e.g. in a free-for-all of 3 or more) **leaves to a results screen** and stops watching; the game goes on for the others. (Rejected: watching with only their own map memory, which shows nothing live; full map vision, which could leak information to the remaining players.) Results screen contents: TBD.
 
 **A defeated Syndicate player's units inside the Tunnel Network** (user, 2026-11-25; Q0069) are **destroyed**, not turned neutral: no exit remains.
+
+## Computer players (playtest tool)
+(user, 2026-11-27; Q0147) For now, computer players are a **playtest tool**, not a player-facing feature: started from the command line, taking any player's slot. Their behavior (profiles such as standard, rush and passive; build orders) is the Director's placeholder; the Designer writes a proper design when computer players become a feature.
+- **Fair knowledge**: a computer player sees only what its own objects see and remembers what it has seen, as the fog of war does for a human player (core/vision.md). It also knows the map and every player's starting location. It never sees the whole map.
+- It issues the same commands a player can, under the same rules.

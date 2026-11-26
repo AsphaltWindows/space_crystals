@@ -1,15 +1,16 @@
 # The economy oracle: measured results
 
-The economy oracle (`crates/sim/tests/economy_oracle/`, see `ARCHITECTURE.md > Testing`) plays openings from a real start, the way a player would, through the command gate, and checks them against `factions/gdo/economy.md`, the Syndicate's economy check (`factions/syndicate/units/agent.md > Gathering > Space Crystals`) and the Cults' (`factions/cults/economy.md > Economy check`). This page records what it measured. The tests check these numbers against the design, each within the tolerance named where it is checked, so a change that moves one too far fails there. A change that moves one at all updates this page.
+**On demand only, its pins no longer maintained (design change 0401).** The economy checks are closed: `factions/cults/economy.md > Economy check`, `factions/gdo/economy.md > Economy Targets (GDO vs Colonists)` and the Syndicate's in `factions/syndicate/units/agent.md`. Their targets stay in the design as reference for playtests. The oracle stays as a tool to run on demand: every one of its tests is ignored, so the default `cargo test` runs none of them, and its pins and this page are no longer updated, so a test may fail and a figure here may be out of date. The pairings tests (`crates/sim/tests/pairings/`: every faction's workers gather) still run.
 
-To print every line, run:
+The economy oracle (`crates/sim/tests/economy_oracle/`, see `ARCHITECTURE.md > Testing`) plays openings from a real start, the way a player would, through the command gate, and checks them against `factions/gdo/economy.md`, the Syndicate's economy check (`factions/syndicate/units/agent.md > Gathering > Space Crystals`) and the Cults' (`factions/cults/economy.md > Economy check`). This page records what it measured, last while its pins were maintained. Its tests check these numbers against the design, each within the tolerance named where it is checked.
+
+To run it and print every line:
 
 ```sh
-cargo test -p sc_sim --test sim economy_oracle -- --nocapture
 cargo test --release -p sc_sim --test sim economy_oracle -- --ignored --nocapture
 ```
 
-The second command runs the ignored measurements: the Colonists' lines to 6:00, the saturation curve, the Syndicate's whole table, and the Cults' measurements.
+That runs its checks and its measurements: the Colonists' lines to 6:00, the saturation curve, the Syndicate's whole table, and the Cults' measurements.
 
 ## The GDO (slice M2-J1)
 

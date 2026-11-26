@@ -187,6 +187,7 @@ fn ahead_from(ahead: &[u32], behind: &[u32]) -> Option<Tick> {
 /// 4:00 ("Two Halls may fall behind early, but it should **overtake One Hall by about 4:00**"), by income and by total
 /// mined ([`OVERTAKEN`]).
 #[test]
+#[ignore = "on demand only, its pins not maintained (design change 0401): see docs/economy_oracle.md"]
 fn the_economies_compared_out_to_six_minutes() {
     let Compared { table, ahead_from } = compared();
     println!("line | checkpoint | income/s | total mined | bank | spent");

@@ -100,6 +100,7 @@ const SATURATED: u32 = 24;
 /// within ±15% (design change 0108), and saturation at 24 Drones, 3 per patch: every patch mined without a break,
 /// 32 per second, above the GDO's fully plated 26.67 (target 4).
 #[test]
+#[ignore = "on demand only, its pins not maintained (design change 0401): see docs/economy_oracle.md"]
 fn the_saturation_curve_against_the_design() {
     for (drones, design) in DESIGN {
         let measured = income(drones, true, SHORT);
@@ -130,7 +131,7 @@ fn the_saturation_curve_against_the_design() {
 /// The curve as the module docs give it, printed: the income by the number of Drones, dealt out and sent with one
 /// command, over the soak's 4 minutes 10 seconds.
 #[test]
-#[ignore = "a measurement: prints the saturation curve; run it in release"]
+#[ignore = "on demand only (design change 0401), a measurement: prints the saturation curve; run it in release"]
 fn saturation_curve() {
     for spread in [true, false] {
         println!("8 patches, {}:", if spread { "dealt out" } else { "one command" });
