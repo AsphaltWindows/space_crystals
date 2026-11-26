@@ -17,4 +17,4 @@ The resources available to a Cults player.
 Core resource. Gathered from Space Crystals Patches by Recruits. Spent on buildings, units, and upgrades.
 
 ### Unit Control
-Provided by Recruitment Halls in proportion to the number of Recruitable tiles each hall is actively recruiting from. No hard cap — army size is bounded only by territorial control of Recruitable land. Each Cult unit has a Unit Control cost. The player cannot build units if doing so would exceed the total available Unit Control.
+Provided by Recruitment Halls in proportion to the number of Recruitable tiles each hall is actively recruiting from. No hard cap — army size is bounded only by territorial control of Recruitable land. Each Cult unit has a Unit Control cost. The **global total is for display only** (user, 2026-11-26; Q0101): nothing is checked against it. Production is limited only by each Hall's local capacity, and training costs the Recruits it consumes, which already counted.
