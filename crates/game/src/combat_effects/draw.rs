@@ -1,11 +1,12 @@
 //! The effects' mesh: one vertex-coloured, alpha-blended mesh in the overlays layer, rebuilt every frame while
 //! anything shows, with the death markers at the back, then the blasts on the ground, the tracers, the projectiles in
-//! the air, and the HP bars (placeholders until the art direction, Q0001).
+//! the air, the HP bars and (slice M5-N5) the buffs' marks (placeholders until the art direction, Q0001).
 
 use bevy::prelude::*;
 use sc_sim::Map;
 
 use super::blasts::blast_shape;
+use super::buffs::{buff_marks, mark_shape};
 use super::projectiles::projectile_shape;
 use super::{
     BAR_HEIGHT, CombatEffects, CombatEffectsMesh, DEATH_MARKER_TICKS, DeathMarker, HpBar, ShotStyle, TRACER_TICKS,
@@ -52,8 +53,9 @@ pub(super) fn spawn_effects_mesh(
     ));
 }
 
-/// Rebuilds the effects mesh: death markers at the back, then blasts, tracers, projectiles and HP bars (alpha blending
-/// draws a mesh's triangles in order), each only where the local player sees it. Hidden while nothing shows.
+/// Rebuilds the effects mesh: death markers at the back, then blasts, tracers, projectiles, HP bars and the buffs'
+/// marks (alpha blending draws a mesh's triangles in order), each only where the local player sees it. Hidden while
+/// nothing shows.
 pub(super) fn draw_effects(
     sim: Res<SimRes>,
     alpha: Res<RenderAlpha>,
@@ -91,6 +93,9 @@ pub(super) fn draw_effects(
     let selection = states.selection(sight.player());
     for bar in hp_bars(&sim, &sight, alpha.0, |id| selection.contains(id)) {
         hp_bar_shape(&mut mesh, bar, z);
+    }
+    for mark in buff_marks(&sim, &sight, alpha.0) {
+        mark_shape(&mut mesh, mark, z);
     }
     if mesh.vertex_count() == 0 {
         visibility.set_if_neq(Visibility::Hidden);

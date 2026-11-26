@@ -114,16 +114,20 @@ pub fn recruitment(sim: &Sim, structure: &Object) -> Vec<String> {
 /// (not in the design: the Garrison has no InstanceState)**. (M5-N3) A tech building's staff (`holding::staffed`, the
 /// Temple's: "speed scales with the number of Recruits inside"), those inside that aren't on their way out
 /// (`Sim::staff`), of its capacity, in place of everyone inside, and of each kind, as its A/S/D/F count them:
-/// **Placeholder (not in the design: the Temple has no InstanceState)**. Nothing for a structure that holds none.
+/// **Placeholder (not in the design: the Temple has no InstanceState)**. (M5-N5) A Shrine's, which casts, are its
+/// participants (`factions/cults/structures/shrine.md > ShrineInstanceState`: "ParticipatingRecruits: list of Recruit
+/// references (max 8, placeholder)"), counted alike. Nothing for a structure that holds none.
 pub fn holding(sim: &Sim, structure: &Object) -> Vec<String> {
     let Some(holds) = holding::holds(structure) else {
         return Vec::new();
     };
     let inside = sim.held_in(structure.id);
     let staffed = holding::staffed(structure.kind);
-    let mut lines = vec![match staffed {
-        true => format!("Staff: {} / {}", sim.staff(structure.id), holds.capacity),
-        false => format!("Inside: {} / {}", inside.len(), holds.capacity),
+    let casts = (structure.def().structure.as_ref()).is_some_and(|s| s.abilities.is_some());
+    let mut lines = vec![match (staffed, casts) {
+        (true, true) => format!("Participants: {} / {}", sim.staff(structure.id), holds.capacity),
+        (true, false) => format!("Staff: {} / {}", sim.staff(structure.id), holds.capacity),
+        (false, _) => format!("Inside: {} / {}", inside.len(), holds.capacity),
     }];
     if holding::trains(structure.kind) || staffed {
         let free: Vec<String> = match holds.accepts {
