@@ -621,9 +621,16 @@ Layout validation can't disagree. **Never test a placement rule anywhere else: a
   allowed. It is `WholeProblem::TunnelAreaOverlap`, in every mode: `Mode::Known` judges by what the player knows ("their
   remembered position and their tier as last seen"), `Mode::Arrival` by the truth, so a Tunnel upgraded unseen fails a
   build on arrival.
+- **The Recruitment Area rule** (slice M5-J1, `placement/recruitment_area.rs`; design change 0341 point 1,
+  `factions/cults/structures/recruitment_hall.md > RecruitmentArea`): a kind that recruits (`recruitment::def_of`),
+  the Recruitment Hall, has its whole Recruitment Area (`recruitment::area`, centred on the footprint) on the map, in
+  every mode, as the Tunnel Area's edge rule: `WholeProblem::RecruitmentAreaOffMap`, "The Recruitment Area reaches off
+  the map". A Hall's 10-tile area holds its 4 × 4 footprint with 3 tiles a side, so an origin 3 tiles from the edge is
+  valid and 2 is refused. Map and debug spawns don't take the check: such a Hall's tiles off the map count among its
+  area's and can't be claimed (`recruitment.rs`, a placeholder).
 - **The files** (`placement/`): `site.rs` (`Site`, `Mode`, `Method`, `Occupant`), `problems.rs` (the problems,
   `PlacementCheck`, their texts), `check.rs` (the check), `footprint.rs` (its tiles), `tunnel_area.rs`,
-  `tunnel_overlap.rs`, `build_area.rs` and `onto.rs`. The geometry of Tunnel Areas, their regions and an expansion's
+  `tunnel_overlap.rs`, `recruitment_area.rs`, `build_area.rs` and `onto.rs`. The geometry of Tunnel Areas, their regions and an expansion's
   parent Tunnel is `tunnel/area.rs`, the one place that works them out (Tunnel Space, these rules,
   `Sim::parent_tunnel`).
 - **Methods** (plan decision T16): the `Site` also names how the structure comes to stand (`Method`), and the one
@@ -3360,7 +3367,9 @@ Drones, through one command flow (plan decision T10, slices M2-H1, M2-H2 and M3-
   `Command::Production` pressing it would send (the gate's own predicates, no copy of them: crystals, a full queue,
   nothing to cancel; 0081; never the army cap, which is checked when production starts, 0143); a toggle never is
   (design change 0198: a press is never refused). `command_ui/resolution.rs`
-  has what a click resolves to and the `PointerDisplay` that previews it. A `MapTarget` is what is under the cursor
+  has what a click resolves to, and `resolution/pointer.rs` the `PointerDisplay` that previews it (split off in slice
+  M5-J1); `interface/commands/names.rs` has the commands' labels and names, beside `commands.rs`, the commands and
+  what they give the sim. A `MapTarget` is what is under the cursor
   (`CursorTarget`, from `Selectables::target_at`: a remembered record too, 0139), with the ground point there and,
   for an object, the target as the local player knows it (`aimed`, the sim's `Sim::aimed`). A right-click resolves
   per unit (design changes 0062, 0063), whichever group is active, by the sim's one rule (`unit_right_click` calls
@@ -3559,6 +3568,26 @@ Drones, through one command flow (plan decision T10, slices M2-H1, M2-H2 and M3-
   0348 point 5: the Armory is Ungroupable): every command of a pool building's panel goes to the one Tabbed to, X and C
   too (`is_common`, `holding::trains`), where a Barracks shares them with the others selected (0083); a right-click
   still rallies every selected producer, as each selected object resolves it for itself.
+- **The Recruit's panel** (slice M5-J1; `factions/cults/units/recruit.md > Recruit ObjectInterfaceState`, design
+  changes 0322, 0327 and 0347): `templates/cults/recruit.rs` (`InterfaceTemplate::Recruit`) is Q Move, A and W
+  `PanelCommand::BuildMenu` (named "Basic Construct" and "Advanced Construct", `PanelTemplate::names`), S
+  `PanelCommand::Assist`, D `Planned::Repair` (greyed until slice N8) and X Stop. Recruits are Groupable: every
+  command goes to all the selected Recruits, the one ActiveGroup (Tab stops on them once). **The Construct menus**
+  (`templates/cults/construct_menu.rs`) are the sim's `defs::CONSTRUCT_MENU`, the one table of their fixed slots: a
+  type in the game is its `PanelCommand::Build(kind)`, greyed by the gate (its TechPrerequisite, the bank), one not
+  yet in the game its `Planned` entry, found by name (`Planned::construct`), so a slice that brings a building
+  changes the sim's table only; Z is Back. A Build enters `AwaitingPlacement` with **`Builder::Recruits { queued }`**
+  (`Placing::recruits`): one ghost for the group, judged by `ghost::recruits_check` (`Sim::group_build_check`, the
+  gate's own check as far as the player knows, the group left out of the occupants: design change 0362, a Recruit of
+  the order on the footprint makes the site wait, so no warning). A click gives one `OrderKind::Build` to every
+  Recruit of the group through `OrderOutbox::try_give`, paid once; a Shift-click queues it and placement stays while
+  Shift is held (`end_queued_placement`), each Build its ticket's one lingering ghost. **S** awaits an own site that
+  the recipients build from outside (`resolution::assist_target`) and gives `OrderKind::Assist`. The pointer shows
+  `PointerDisplay::Assist` over such a site (`cursor::ASSIST_COLOR`, a placeholder), on a right-click as while S
+  awaits; `PointerDisplay::Repair` (`cursor::REPAIR_COLOR`) is the hook for slice N8's Repair, which no order gives
+  yet. Enter shows over an own Armory in operation that takes the Recruit in, never over its site (0347 point 4). The
+  right-click is the sim's one rule (`sc_sim::orders::resolution::RULES`). The InfoPanel shows a carrying Recruit's
+  load to its owner, as a Drone's ("Carrying 2 Space Crystals", `info_panel::worker_lines`).
 - **Visuals**: the panel's buttons (`hud/command_panel.rs`) are rebuilt when the panel, the bindings or the surface
   changes; each shows its command's label (`PanelSlot::label`) and its hotkey from the bindings, and an EjectMenu tile
   its count in its bottom-right corner. **Every label keeps
