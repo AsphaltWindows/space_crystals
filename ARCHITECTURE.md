@@ -424,9 +424,10 @@ Units, structures and resources are all `Object`s (`object.rs`, `core/entities.m
     queue and no rally point. **`ExitRule::AtOnce(side)`** is a side doorway (`production::Doorway::of`, the doorway
     of `ExitRule::Side`) through which everyone ready leaves together (`factions/cults/structures/garrison.md >
     Placeholder stats > Leaving`: "on **Eject All** they all come out **at once**, ignoring collision with each other
-    until they are clear of the footprint"): `Sim::step_holding` hands such a building to **`Sim::let_all_out`**, which finds every ready unit's
-    spot first (`Sim::held_spot`, the one `Sim::release_held` serves a unit let out alone by: the door's spot, half
-    inside at the middle of side B, as far out as there is room) and only then puts them all there
+    until they are clear of the footprint"): `Sim::step_holding` hands such a building to **`Sim::let_all_out`**,
+    which finds every ready unit's spot first (`Sim::held_spot`, the one `Sim::release_held` serves a unit let out
+    alone by: the door's spot, half inside at the middle of side B, as far out as there is room) and only then puts
+    them all there
     (`Sim::come_out`), each with its `LeftBuilding`, in the pool's order: all four at one spot, overlapping, in the
     doorway (`Mover::exit`). They walk straight out of the door, idle (no rally point), passing through each other
     (*Movement and collision > Collision exceptions*: units that already overlap), and part once clear, as idle
@@ -1902,9 +1903,9 @@ and the code is `crates/sim/src/movement.rs` and `movement/`, with the unit's st
   --nocapture` prints timings.
 - **Invariants** (`docs/movement.md > 8`, `sc_sim::testing::invariants`): I1 no two units of a layer overlap, except
   (design change 0106, `invariants::overlaps::may_overlap`) two Drones on a Gather job, and two units that already
-  overlapped a tick earlier, until they have been apart (a Drone counts as on its job for the tick in which the job ended
-  without another order: a patch emptied in the economy phase ends it after the movement), and (design change 0349,
-  slice M5-F3) a unit evacuated in the tick with any other (`SimEvent::Evacuated`: it wasn't on the map a tick
+  overlapped a tick earlier, until they have been apart (a Drone counts as on its job for the tick in which the job
+  ended without another order: a patch emptied in the economy phase ends it after the movement), and (design change
+  0349, slice M5-F3) a unit evacuated in the tick with any other (`SimEvent::Evacuated`: it wasn't on the map a tick
   earlier), and (slice M5-N2) two units one building's door let out together in the tick (`SimEvent::LeftBuilding`,
   the Garrison's `ExitRule::AtOnce`). Any other overlap fails,
   the first tick it exists (`tests/invariants_overlap.rs` puts units where they must not be and asks the checker); I2 no
@@ -3874,10 +3875,11 @@ Drones, through one command flow (plan decision T10, slices M2-H1, M2-H2 and M3-
   yet built by the Recruits its `Planned` entry, found by name (`Planned::construct`), so a slice that brings a
   building changes the sim's table only (slice M5-G2 made the Gunworks, the Machine Shop and the Scrap Hangar
   `Build`s, greyed "Requires an Armory", "Requires a Chop Shop" and "Requires an Airstrip" until those stand, and
-  slice M5-N2 the Garrison's D, greyed "Requires an Armory"); Z is Back. A Build enters `AwaitingPlacement` with **`Builder::Recruits { queued }`**
-  (`Placing::recruits`): one ghost for the group, judged by `ghost::recruits_check` (`Sim::group_build_check`, the
-  gate's own check as far as the player knows, the group left out of the occupants: design change 0362, a Recruit of
-  the order on the footprint makes the site wait, so no warning). A click gives one `OrderKind::Build` to every
+  slice M5-N2 the Garrison's D, greyed "Requires an Armory"); Z is Back. A Build enters `AwaitingPlacement` with
+  **`Builder::Recruits { queued }`** (`Placing::recruits`): one ghost for the group, judged by
+  `ghost::recruits_check` (`Sim::group_build_check`, the gate's own check as far as the player knows, the group left
+  out of the occupants: design change 0362, a Recruit of the order on the footprint makes the site wait, so no
+  warning). A click gives one `OrderKind::Build` to every
   Recruit of the group through `OrderOutbox::try_give`, paid once; a Shift-click queues it and placement stays while
   Shift is held (`end_queued_placement`), each Build its ticket's one lingering ghost. **S** awaits an own site that
   the recipients build from outside (`resolution::assist_target`) and gives `OrderKind::Assist`. The pointer shows
@@ -4511,7 +4513,8 @@ The faction's own mechanics come next, each only if it has them (M3's and M4's i
     `sim/workers.rs`), the timed work and the bank credit (`economy/gathering.rs`, `SimEvent::ResourcesDelivered`),
     `StructureDef::drop_off` for the buildings that take loads, and a new drop-off for the workers of one that goes
     (`Sim::reassign_drop_offs`, on the removal path). Units that may overlap go in
-    `invariants::overlaps::may_overlap`. In the client: the pointers, the load marker, the InfoPanel lines and a select-the-workers command.
+    `invariants::overlaps::may_overlap`. In the client: the pointers, the load marker, the InfoPanel lines and a
+    select-the-workers command.
 13. **A movement model** (M3-G, plan decision T25): a `MovementAttrs` variant with its mover in `movement/`
     (`drag.rs` beside `follow.rs`), the movement invariants amended in writing, and `movement_perf` run A/B.
 14. **Orders of its own** (M3-F Deploy): an `OrderKind` with its behaviour in `orders/`, its gate check and its
