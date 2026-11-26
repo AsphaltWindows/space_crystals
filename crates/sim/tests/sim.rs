@@ -68,6 +68,8 @@ mod follow_itself;
 mod game_end;
 #[path = "game_start/main.rs"]
 mod game_start;
+#[path = "garrison/main.rs"]
+mod garrison;
 #[path = "gathering/main.rs"]
 mod gathering;
 mod gathering_pass_through;
