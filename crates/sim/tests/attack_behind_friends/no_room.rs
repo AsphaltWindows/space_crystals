@@ -146,8 +146,13 @@ fn watch(t: &mut TestSim, stories: &mut [Story], until: Tick) -> u32 {
 /// failed moves came after the leg's three attempts at another route (here, at a way round), when it was still
 /// stuck `STUCK_TICKS` after the last of them.
 fn assert_failure_rule(unit: u32, story: &Story) {
+    // (M4-W3) The grace four times over (once until design change 0323): each of the three attempts at another route
+    // and the giving up waits up to `STUCK_GRACE_TICKS` for a unit that touches nobody in the tick it is due, and
+    // each attempt is timed from the one before. A unit shuffling a step along its blocker touched it in every
+    // tick; one that takes a contact step across the corridor, a whole width, has nobody ahead of it for some ticks
+    // of the step (`docs/movement.md > 6.3`). Measured: 117 ticks at most. It still gives up by the Failure rule.
     assert!(
-        story.longest_stall < GIVE_UP_TICKS + STUCK_GRACE_TICKS,
+        story.longest_stall < GIVE_UP_TICKS + 4 * STUCK_GRACE_TICKS,
         "#{unit} went {} ticks without progress: {story:?}",
         story.longest_stall
     );
@@ -188,7 +193,6 @@ fn in_corridor(map: &str, kind: ObjectKind, n: u32, (x, y): (f32, f32), spacing:
 /// Attack completed) and then goes for it again by itself, and gives it up again the same way. The first unit leaves
 /// (it is removed in tick 301): the idle three walk up and fire, with no order, each once its next try has come.
 #[test]
-#[ignore = "M4-W3: fails with design change 0323's contact step (a whole width sideways) built; reported to the Director: what the Peacekeepers behind do in the corridor is no longer what the test expects (no_room.rs, its first assertion on the story)"]
 fn four_peacekeepers_attack_down_a_corridor_and_the_ones_behind_give_up() {
     let mut t = in_corridor(CORRIDOR, PK, 4, (540.0, 224.0), 40.0, OrderKind::Attack(id(1)));
     let mut stories = vec![Story::default(); 4];
@@ -250,13 +254,14 @@ fn four_peacekeepers_attack_down_a_corridor_and_the_ones_behind_give_up() {
 /// the corridor, only sideways across it, and they plan few paths, where the bound is one a second for each of
 /// them. When the first unit leaves (removed in tick 601), the next walks up and fires.
 #[test]
-#[ignore = "M4-W3: fails with design change 0323's contact step (a whole width sideways) built; reported to the Director: the units behind change places across the corridor (tick 219), where they stood in file"]
 fn in_a_corridor_the_units_behind_give_up_the_chase() {
     let order = OrderKind::AttackMove(Vec2::new(280.0, 224.0));
     for (kind, n, x, spacing) in [(GUARD, 3, 560.0, 60.0), (PK, 4, 540.0, 40.0)] {
         let mut t = in_corridor(CORRIDOR, kind, n, (x, 224.0), spacing, order);
         let mut stories = vec![Story::default(); n as usize];
-        watch(&mut t, &mut stories, 200);
+        // (M4-W3) Closed up by tick 240 (200 until design change 0323): the last Peacekeeper crosses the corridor
+        // by its contact step and back before it closes the last 24 su, in tick 219.
+        watch(&mut t, &mut stories, 240);
         let closed_up: Vec<f32> = (FIRST..FIRST + n).map(|unit| t.pos(unit).x).collect();
         let mut planned = 0;
         while t.sim().tick() < 600 {

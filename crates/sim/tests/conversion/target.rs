@@ -151,7 +151,6 @@ fn a_press_on_a_waiting_a_converting_and_a_converted_unit() {
 /// at every tick (one group); once their conversions are over, their forms are too, the Rifle's after an odd count of
 /// presses, the Sabre's after an even one, and they still attack the same Deployment Centers.
 #[test]
-#[ignore = "M4-W3: fails with design change 0323's contact step (a whole width sideways) built; reported to the Director: the Sabres are not all fighting by the tick the test sets up its presses in"]
 fn spam_r_on_a_fighting_group_all_end_in_the_form_of_the_presses_parity() {
     for presses in [[0, 0, 1, 3, 4, 4, 5].as_slice(), [0, 1, 1, 2, 5, 6].as_slice()] {
         let mut builder = ScenarioBuilder::new(&flat(24, 12))
@@ -177,15 +176,20 @@ fn spam_r_on_a_fighting_group_all_end_in_the_form_of_the_presses_parity() {
             builder = builder.spawn(SABRE, Some(P1), point(x, y));
         }
         let mut t = builder.start();
-        t.without_auto_targeting();
         let sabres: Vec<u32> = (3..=8).collect();
         let target = |n: u32| id(if n < 6 { 1 } else { 2 });
         for (i, &n) in sabres.iter().enumerate() {
             t.order_at(2 + i as Tick, P1, &[id(n)], OrderKind::Attack(target(n)), false);
         }
         let struck = |t: &TestSim, n: u32| hits(t).iter().any(|&(_, attacker, _)| attacker == id(n));
+        // (M4-W3) With automatic targeting on, and a longer wait (160 ticks until design change 0323). The
+        // Sabres of one building all head for one point by its corner. The second there is stopped by the first, which
+        // strikes and doesn't yield; its contact step takes it a whole width round it on its near side, away from the
+        // building's face (`docs/movement.md > 6.3`), where it used to shuffle along the first into reach. It then counts
+        // as arrived behind it, out of reach, and its Attack ends (`systems/controls/behaviors.md > AttackingObject >
+        // Failure`); idle, it takes the building up again by itself and gets to it.
         while !sabres.iter().all(|&n| struck(&t, n)) {
-            assert!(t.sim().tick() < 160, "the Sabres should all fight by now");
+            assert!(t.sim().tick() < 240, "the Sabres should all fight by now");
             t.step();
         }
         let first = t.sim().tick() + 1;
@@ -206,8 +210,11 @@ fn spam_r_on_a_fighting_group_all_end_in_the_form_of_the_presses_parity() {
         let form = if presses.len() % 2 == 1 { RIFLE } else { SABRE };
         assert_eq!(forms(t.sim(), &sabres), [form; 6], "{} presses", presses.len());
         assert_eq!(kinds(t.sim(), &sabres), [form; 6], "{} presses", presses.len());
+        // Under its Attack order still, or, for one whose Attack ended behind another Sabre (above), by itself.
         for &n in &sabres {
-            assert_eq!(current(t.sim(), n), Some(OrderKind::Attack(target(n))), "Sabre {n}");
+            let engaged = object(t.sim(), n).attack.as_ref().and_then(|attack| attack.target);
+            let ordered = current(t.sim(), n) == Some(OrderKind::Attack(target(n)));
+            assert!(ordered || engaged == Some(target(n)), "Sabre {n}");
         }
     }
 }

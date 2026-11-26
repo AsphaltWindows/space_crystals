@@ -137,7 +137,6 @@ fn a_rifle_sent_a_convert_while_firing_converts_after_its_cooldown() {
 /// change 0198), so one group; those that aren't mid-swing have their rifles 4 ticks after it, each of the others as
 /// many ticks later as it had Firing and Cooldown ticks left (1 to 4: a Sabre fires 3, cools down 1).
 #[test]
-#[ignore = "M4-W3: fails with design change 0323's contact step (a whole width sideways) built; reported to the Director: the ten Sabres are not all fighting by the tick the test sets up its press in"]
 fn ten_sabres_fighting_all_convert_on_one_press_the_mid_swing_ones_a_little_later() {
     // Two Deployment Centers (1, 2) on tiles (4, 4) to (7, 7) and (14, 4) to (17, 7); five Sabres by each, a step
     // from its sides.
@@ -169,15 +168,20 @@ fn ten_sabres_fighting_all_convert_on_one_press_the_mid_swing_ones_a_little_late
         builder = builder.spawn(SABRE, Some(P1), point(x, y));
     }
     let mut t = builder.start();
-    t.without_auto_targeting();
     let sabres: Vec<u32> = (3..=12).collect();
     for (i, &n) in sabres.iter().enumerate() {
         let target = if i < 5 { 1 } else { 2 };
         t.order_at(2 + i as Tick, P1, &[id(n)], OrderKind::Attack(id(target)), false);
     }
     let struck = |t: &TestSim, n: u32| hits(t).iter().any(|&(_, attacker, _)| attacker == id(n));
+    // (M4-W3) With automatic targeting on, and a longer wait (160 ticks until design change 0323). The
+    // Sabres of one building all head for one point by its corner. The second there is stopped by the first, which
+    // strikes and doesn't yield; its contact step takes it a whole width round it on its near side, away from the
+    // building's face (`docs/movement.md > 6.3`), where it used to shuffle along the first into reach. It then counts
+    // as arrived behind it, out of reach, and its Attack ends (`systems/controls/behaviors.md > AttackingObject >
+    // Failure`); idle, it takes the building up again by itself and gets to it.
     while !sabres.iter().all(|&n| struck(&t, n)) {
-        assert!(t.sim().tick() < 160, "the Sabres should all fight by now");
+        assert!(t.sim().tick() < 240, "the Sabres should all fight by now");
         t.step();
     }
     let mid_swing = |t: &TestSim| -> Vec<u32> {

@@ -494,18 +494,21 @@ every tick a waypoint within one step is passed, so a unit rounds a corner witho
          blocker's middle the side never changes as the unit steps). `avoid_side`, Right at first, decides dead
          in the middle. At a blocker that moves the sides are chosen as before: the lean, `avoid_side` head-on,
          the pass behind.
-       - **Measured against the other choices** (30 layouts of the Agents' grid, the sim's test suite): with the
-         lean choosing every step, 11 layouts had an Agent a minute without a load; with the commitment 7; with
-         the commitment and the near side 6, and no layout to the hatch's side stops for good.
-       - **What it costs** (`docs/playtest/m4.md > Known issues`): units that converge on an occupied point, or
-         crowd a doorway or a patch's face, step a whole width round the unit in their way where they used to
-         shuffle a step, and settle later and elsewhere. The tests that held them to the old outcome are ignored,
-         each with what it sees now.
-       - **A new path ends it** (a repath, a re-aimed chase, a detour round a row: 6.5), and so does a new leg or
-         a stop: the unit has another way to go.
-       - **Lane seeking is unchanged**, and still comes first for a unit that isn't taking a step: its step
-         towards a lane, forward and sideways at once, is no contact step. Two units that meet head-on in the
-         open shift to their lanes before they touch, as before.
+       - **Measured against the other choices of side** at a standing blocker (the Agents' 30 layouts; each
+         with the commitment): the lean when the unit leans and Right first head-on, as before 0323, leaves the
+         hatch locked up at 1 grid unit to its side (1.2, 0.0 and 4.2 Space Crystals per second with 4, 5 and 6
+         Agents); so does the lean with the near side head-on (1.3, 0.0, 0.3). The near side when the unit leans
+         with Right first head-on takes in 11.2 or more everywhere, and so does the near side throughout (10.7 or
+         more). Of the sim's tests as they stood before 0323, 15 failed with the near side throughout and 17 with
+         the lean and Right first. Without the commitment, 11 layouts had an Agent a minute without a load where 7
+         and 6 do.
+       - **What it costs** (`docs/playtest/m4.md > Known issues and accepted behaviour`): units that converge on an
+         occupied point, or crowd a doorway or a patch's face, step a whole width round the unit in their way where
+         they used to shuffle a step, and settle later and elsewhere; a unit stopped by a standing unit beside the
+         thing it heads for goes round on its near side even where that leads away from it.
+       - **A worker on its site** (`orders/build.rs`, design change 0117: "stopped by a blocker on the way while
+         already overlapping the footprint, it starts deploying from where it stands"): beginning a contact step
+         there counts as stopped, since the step would take it off the footprint.
      Every candidate is taken only if it is wholly free.
   5. **All fail**: advance to contact or stay; `blocked_ticks += 1`. **(D)** A whole step along a face (no
      progress) counts as blocked too, so units dancing in a corridor count as stationary after 12 ticks.

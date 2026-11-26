@@ -76,10 +76,15 @@ pub(super) fn begin(site: &Placement, unit: &mut Unit, tick: Tick) -> SiteWalk {
 /// (`MoveStatus::Arrived`), or given up (`Failed`); the arrival then sees whether the worker overlaps the footprint
 /// ([`on_site`]). It is also over when the worker, still on its way, is "stopped by a blocker on the way while already
 /// overlapping the footprint" (design change 0117): it found no way forward for [`JAMMED_TICKS`] in a row, the
-/// movement's own notion of a unit at a standstill (`docs/movement.md > 6.3`). Never complete (module docs).
+/// movement's own notion of a unit at a standstill (`docs/movement.md > 6.3`), or (M4-W3) it began the contact step
+/// of design change 0323 round a unit in its way (`Mover::step_aside`), which would take it a whole width off the
+/// footprint: until 0323 a blocked worker shuffled a step and stood. Never complete (module docs).
 pub(super) fn run(site: &Placement, state: &mut SiteWalk, unit: &mut Unit) -> bool {
     let ended = unit.mover.status != MoveStatus::Moving;
-    let stuck_on_site = || unit.mover.blocked_ticks >= JAMMED_TICKS && on_site(unit.kind, unit.pos, site);
+    // (M4-W3) Or it began a contact step (design change 0323): a blocker stopped it, and the step, a whole width
+    // sideways, would take it off the footprint it overlaps.
+    let stopped = unit.mover.blocked_ticks >= JAMMED_TICKS || unit.mover.step_aside.is_some();
+    let stuck_on_site = || stopped && on_site(unit.kind, unit.pos, site);
     if ended || stuck_on_site() {
         state.arrived = true;
     }

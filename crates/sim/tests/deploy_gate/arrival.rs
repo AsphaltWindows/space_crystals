@@ -128,7 +128,6 @@ fn a_drone_walled_off_from_its_site_fails_and_idles() {
 /// left edge, just outside it, their boxes touching it; Drone 2 stands in the corner they leave, overlapping its
 /// top-left tile by 8 × 8 space units. It can't get on, and deploys from there, onto the site. Auto-targeting is off.
 #[test]
-#[ignore = "M4-W3: fails with design change 0323's contact step (a whole width sideways) built; reported to the Director: the Drone, stopped, is not over its site as the test sets it up, and its deploy is refused"]
 fn a_drone_stopped_while_overlapping_its_site_deploys_from_there() {
     let site = deploy::site(at(14, 10));
     // The site spans x 896 to 1024 and y 640 to 768; a Peacekeeper's box is 24 across, a Drone's 36.

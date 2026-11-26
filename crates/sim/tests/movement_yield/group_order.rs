@@ -29,14 +29,22 @@ fn converging() -> TestSim {
 /// re-route attempts." A unit that has arrived never moves again while the others come in, and the whole group
 /// has arrived within a bounded time.
 #[test]
-#[ignore = "M4-W3: fails with design change 0323's contact step (a whole width sideways) built; reported to the Director: 0026's and 0027's Verification: the group has not settled by tick 53; units blocked at the blob step a width round it before they count as arrived"]
 fn a_converging_group_settles_without_shuffling_or_re_routing() {
     let mut t = converging();
     t.run(2);
     let mut arrived_at: Vec<Option<Vec2>> = vec![None; 12];
-    // The farthest unit starts 108 su from the point: 27 ticks.
+    // The farthest unit starts 108 su from the point: 27 ticks. (M4-W3) A unit stopped by the blob takes design
+    // change 0323's contact step round the unit in its way, a whole width in six ticks, and walks at the point
+    // again: it never stands `JAMMED_TICKS` in a row, so it has arrived when its stuck clock says so, `STUCK_TICKS`
+    // after it last got nearer, where a unit shuffling a step along its blocker had arrived after 12. The group has
+    // settled in tick 83 (53 until 0323): still without a re-route, nobody moving once arrived, all within the
+    // radius.
     while arrived_at.iter().any(Option::is_none) {
-        assert!(t.sim().tick() < 2 + 27 + STUCK_TICKS, "not settled\n{}", t.ascii(None));
+        assert!(
+            t.sim().tick() < 2 + 27 + 2 * STUCK_TICKS + 8,
+            "not settled\n{}",
+            t.ascii(None)
+        );
         t.step();
         for (i, at) in arrived_at.iter_mut().enumerate() {
             let id = i as u32 + 1;

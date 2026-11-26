@@ -7,7 +7,8 @@
 //! blocked Agent leaves its lane by a whole width where it used to shuffle a step along the Agent in its way, and the
 //! pocket below opens. In none of the 30 layouts does the income stop any more
 //! ([`the_income_never_stops_and_no_agent_goes_a_minute_without_delivering`]). In six an Agent still goes a minute
-//! without a load ([`WAITS`]), and none of those is a lock-up:
+//! without a load ([`WAITS`]): none of those is a lock-up, and design change 0336 accepts them (an oversaturated
+//! hatch is the player's job; steps 2 and 3 of design change 0324 are dropped):
 //! - **facing the hatch at 1 grid unit** (4, 5 and 6 Agents): two Agents mine and unload from one place each,
 //!   between the patch and the hatch square, and keep the hatch at 10.7 to 12.5 Space Crystals per second; the others
 //!   stand loaded behind them, 40 to 70 su from the hatch and out of its reach, so they aren't in its line (0255) and
@@ -72,8 +73,13 @@ const LONGEST_GAP: Tick = 60 * 16;
 type Layout = (bool, i32, u32);
 
 /// The layouts in which some Agent still goes a minute or more without a load **with design change 0323's contact
-/// step built** (module docs): in none of them does the income stop, and none is to be fixed by step 1 of design
-/// change 0324. Until 0323 they were 20 of the 30, nine of them with the income stopped for a minute or more.
+/// step built** (module docs): an oversaturated hatch, where the Tunnel's income never stops and extra Agents wait
+/// without a turn. **Accepted** (design change 0336, answering question Q0127 with its option (a); `factions/syndicate/
+/// units/agent.md > Gathering`): sorting it out is the player's job, as with Recruits (design change 0320). Until 0323
+/// they were 20 of the 30, nine of them with the income stopped for a minute or more.
+/// The least an oversaturated hatch takes in, Space Crystals per second ([`WAITS`]): 85% of its full rate of 12.5.
+const OVERSATURATED: f32 = 10.6;
+
 const WAITS: [Layout; 6] = [
     (false, 1, 4),
     (false, 1, 5),
@@ -176,7 +182,10 @@ fn four_agents_coming_along_the_wall_keep_delivering() {
 /// without delivering, against 20/30 now"), and slice M4-W's acceptance, in every layout of the measurements:
 /// - **the income never stops for 60 seconds**, in all 30 (the longest stretch is 19 seconds: at 5 grid units to the side, the walk to the first
 ///   load at 5 grid units to the side; until 0323 it stopped in nine);
-/// - **no Agent goes 60 seconds without delivering** (0315's Verification), in every layout but [`WAITS`].
+/// - **no Agent goes 60 seconds without delivering** (0315's Verification), in every layout but [`WAITS`];
+/// - **in the layouts of [`WAITS`]** (design change 0336: accepted, the player's job): the income stays near the
+///   hatch's full rate of 12.5 Space Crystals per second, [`OVERSATURATED`] at least (10.7 to 12.5 measured), and no
+///   limit is set on an extra Agent's wait.
 ///
 /// It prints the measurements of `docs/playtest/m4.md > Known issues`.
 #[test]
@@ -193,7 +202,13 @@ fn the_income_never_stops_and_no_agent_goes_a_minute_without_delivering() {
         if measured.longest > LONGEST_GAP {
             stops.push((layout, measured.longest));
         }
-        if measured.worst_agent > LONGEST_GAP && !WAITS.contains(&layout) {
+        if WAITS.contains(&layout) {
+            assert!(
+                measured.income >= OVERSATURATED,
+                "{layout:?}: {:.2} per second",
+                measured.income
+            );
+        } else if measured.worst_agent > LONGEST_GAP {
             waits.push((layout, measured.worst_agent));
         }
     }
@@ -202,51 +217,5 @@ fn the_income_never_stops_and_no_agent_goes_a_minute_without_delivering() {
         waits,
         [],
         "((sideways, grid units, Agents), an Agent's longest gap in ticks)"
-    );
-}
-
-/// Design change 0315's Verification, "no Agent should go 60 s without delivering", in the layouts of [`WAITS`].
-/// Ignored: it fails in each of them with design change 0323's contact step built, step 1 of design change 0324
-/// ("Bring the measurements back, as a new question, if step 1 isn't enough"; module docs). It prints, for each
-/// layout, every Agent's loads and its longest wait, and where it is at the end.
-#[test]
-#[ignore = "M4-W3: fails with design change 0323 built: an Agent waits a minute or more for its turn (design change 0324, step 1)"]
-fn no_agent_goes_a_minute_without_delivering_where_one_still_waits() {
-    let mut waits = Vec::new();
-    for layout in WAITS {
-        let (sideways, distance, count) = layout;
-        let mut t = if sideways {
-            north_west(count, distance)
-        } else {
-            field(count, distance).start()
-        };
-        gather(&mut t, 1, &agents(count), 2);
-        t.run(TEN_MINUTES);
-        println!("{layout:?}: {:.2} per second", income(&t, 960, TEN_MINUTES));
-        for n in agents(count) {
-            let mine: Vec<Tick> = (deliveries(&t).iter()).filter(|d| d.1 == n).map(|d| d.0).collect();
-            let ticks: Vec<Tick> = [0]
-                .into_iter()
-                .chain(mine.iter().copied())
-                .chain([TEN_MINUTES])
-                .collect();
-            let longest = ticks.windows(2).map(|pair| pair[1] - pair[0]).max().unwrap_or(0);
-            println!(
-                "  #{n}: {} loads, longest wait {longest} ticks; at the end {:?} at {:?}, {:.0} su from the hatch, load {}",
-                mine.len(),
-                phase(&t, n),
-                object(&t, n).pos,
-                gap_to_hatch(&t, n, 1),
-                load(&t, n)
-            );
-            if longest > LONGEST_GAP {
-                waits.push((layout, n, longest));
-            }
-        }
-    }
-    assert_eq!(
-        waits,
-        [],
-        "((sideways, grid units, Agents), the Agent, its longest wait in ticks)"
     );
 }

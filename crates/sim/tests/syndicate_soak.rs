@@ -157,7 +157,8 @@ struct Players {
 }
 
 impl Players {
-    fn new() -> Self {
+    /// The players, with `more` Agents trained beyond the line's [`AGENTS`], all on crystals.
+    fn new(more: usize) -> Self {
         let gdo = BuildOrder::new(GDO).track(
             [
                 Order::new(ExtractionFacility, ExtractionPlate),
@@ -168,7 +169,7 @@ impl Players {
             .into_iter()
             .chain([Order::new(Barracks, Peacekeeper); PEACEKEEPERS]),
         );
-        let line = BuildOrder::new(SYNDICATE).track(vec![Order::new(Hideout, Agent); AGENTS]);
+        let line = BuildOrder::new(SYNDICATE).track(vec![Order::new(Hideout, Agent); AGENTS + more]);
         let syndicate = Syndicate::new(line)
             .gather(PATCH)
             .rally(Target::Object(PATCH))
@@ -642,6 +643,9 @@ fn label(sim: &Sim, current: &ActiveOrder) -> (String, Tick) {
 /// What the soak watches, tick by tick (module docs).
 #[derive(Default)]
 struct Watch {
+    /// Whether the checks that nothing is stuck are off: the variants with more Agents than the game is played with
+    /// ([`more_crystal_agents_never_stop_the_first_tunnel`]), whose Agents wait longer for their turn at the hatch.
+    lenient: bool,
     /// What each unit is doing, and since when.
     doing: BTreeMap<ObjectId, (Doing, Tick)>,
     /// Each Agent that waits at a patch nobody mines (or that is gone), or at a station with Supplies, since when.
@@ -715,7 +719,11 @@ impl Watch {
             if age > longest.0 {
                 *longest = (age, o.id, tick);
             }
-            assert!(age <= bound, "{}", stuck(o, &format!("{name} for {age} ticks")));
+            assert!(
+                self.lenient || age <= bound,
+                "{}",
+                stuck(o, &format!("{name} for {age} ticks"))
+            );
             let Behaviour::Gather(gather) = &c.state else { continue };
             // It waits at a patch nobody mines, or at a station with Supplies: it gathers in the next tick, or it
             // waits short of it and tries again at its next look (or looks round, if the patch is gone).
@@ -727,7 +735,7 @@ impl Watch {
                 idle.insert(o.id, since);
                 let age = tick - since;
                 assert!(
-                    age <= RECHECK_TICKS,
+                    self.lenient || age <= RECHECK_TICKS,
                     "{}",
                     stuck(
                         o,
@@ -803,12 +811,17 @@ struct Run {
     books_stopped: Option<Tick>,
 }
 
-fn play() -> Run {
+/// The game, with `more` Agents on crystals than it is played with (4); the checks that nothing is stuck are for the
+/// game as played.
+fn play(more: usize) -> Run {
     let scenario = skirmish::scenario();
     let config = scenario.setup.config;
     let mut t = TestSim::with_config(scenario, config);
-    let mut players = Players::new();
-    let mut watch = Watch::default();
+    let mut players = Players::new(more);
+    let mut watch = Watch {
+        lenient: more > 0,
+        ..Watch::default()
+    };
     let mut hashes = vec![(0, t.sim().state_hash())];
     let mut books_stopped = None;
     while t.sim().tick() < END {
@@ -881,7 +894,7 @@ fn census(sim: &Sim) -> BTreeMap<(u8, ObjectKind), usize> {
 #[test]
 #[ignore = "a soak of two 10-minute games: run it in release"]
 fn ten_minutes_of_the_syndicate_against_the_gdo() {
-    let run = play();
+    let run = play(0);
     let (sim, w) = (run.t.sim(), &run.watch);
     let fallen: Vec<(Tick, ObjectKind, u32)> = (run.t.events().iter())
         .filter_map(|(tick, e)| match *e {
@@ -924,7 +937,54 @@ fn ten_minutes_of_the_syndicate_against_the_gdo() {
     }
 
     // Deterministic: the same game again, and the replay of the first.
-    let again = play();
+    let again = play(0);
     assert_eq!(again.hashes, run.hashes, "a second run");
     assert_eq!(run.t.replay().run().state_hash(), sim.state_hash(), "the replay");
+}
+
+/// The first Tunnel's crystal income of `run`: Space Crystals per second after the first minute, and the longest
+/// stretch without a delivery (ticks; from the start, between two, and to the end).
+fn first_tunnel_income(run: &Run) -> (f32, Tick) {
+    let mut tunnel = None;
+    let mut loads: Vec<(Tick, u32)> = Vec::new();
+    for (tick, e) in run.t.events() {
+        if let SimEvent::ResourcesDelivered { drop_off, amount, .. } = *e
+            && *tunnel.get_or_insert(drop_off) == drop_off
+        {
+            loads.push((*tick, amount));
+        }
+    }
+    let minute = 60 * TICKS_PER_SECOND;
+    let amount: u32 = loads.iter().filter(|load| load.0 > minute).map(|load| load.1).sum();
+    let ticks: Vec<Tick> = [0]
+        .into_iter()
+        .chain(loads.iter().map(|load| load.0))
+        .chain([END])
+        .collect();
+    let longest = ticks.windows(2).map(|pair| pair[1] - pair[0]).max().unwrap_or(END);
+    (amount as f32 * TICKS_PER_SECOND as f32 / (END - minute) as f32, longest)
+}
+
+/// Design change 0324's Verification: "The `dev_skirmish` soak, with 4 and 6 Agents: no Tunnel stops for good." The
+/// game with 4 Agents on crystals (as played), 5 and 6 (one and two more trained): the first Tunnel never goes a
+/// minute without a delivery. It prints the soak's rows of `docs/playtest/m4.md > Known issues`. With more Agents than
+/// played, the soak's own stuck checks are off: six Agents at one hatch wait longer for their turn than they allow.
+///
+/// Ignored: three games of 9 600 ticks. `cargo test -p sc_sim --release --test syndicate_soak -- --ignored --nocapture`.
+#[test]
+#[ignore = "a soak of three 10-minute games: run it in release"]
+fn more_crystal_agents_never_stop_the_first_tunnel() {
+    for more in 0..=2 {
+        let run = play(more);
+        let (income, longest) = first_tunnel_income(&run);
+        println!(
+            "{} Agents on crystals: {income:.1} Space Crystals per second after the first minute, longest gap {longest} ticks",
+            4 + more
+        );
+        assert!(
+            longest < 60 * TICKS_PER_SECOND,
+            "{} Agents: no delivery for {longest} ticks",
+            4 + more
+        );
+    }
 }
