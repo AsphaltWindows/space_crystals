@@ -25,7 +25,7 @@ GDO primary construction structure. Constructs buildings one at a time, which mu
 - Extraction Facility: 200 Space Crystals, 320 frames (20 seconds)
 - Supply Tower: cost/time TBD. Requires: player owns at least one Radar Station.
 - Arsenal: cost/time TBD. Requires: player owns at least one Barracks.
-- Career Campus: cost/time TBD. Requires: player owns at least one Barracks.
+- Career Campus: 150 Space Crystals, 320 frames (20 seconds) (placeholder). Requires: player owns at least one Barracks.
 - Factory: cost/time TBD. Requires: player owns at least one Barracks.
 - Radar Station: cost/time TBD. Requires: player owns at least one Generator.
 - Advanced Mechanics: cost/time TBD. Requires: player owns at least one Factory.

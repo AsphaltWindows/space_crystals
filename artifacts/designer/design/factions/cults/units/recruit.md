@@ -49,7 +49,7 @@ Recruits gather Space Crystals and deliver them to Storage.
 - Patch sharing: any number of Recruits may mine the same Space Crystals patch at the same time (unlike Drones, see Colonists > Drone > Patch Occupancy).
 
 ## Repair
-(user, 2026-11-26) Recruits can **repair** own **buildings and vehicles**. Repair **costs Space Crystals**. **Repair rules shared by every repairer** (user, 2026-11-26): several repairers on one target repair **faster, scaling linearly** (2 repairers = twice the rate), as construction does. **Placeholder rate and cost** (designer, 2026-11-26): repairing from 0 to full HP takes **half the target's build time** with one repairer, and costs **half its price** in the resource it was bought with, paid gradually as HP is restored (exceptions below). Panel letter: **D** (Q0095).
+(user, 2026-11-26) Recruits can **repair** own **buildings and vehicles**. Repair **costs Space Crystals**. **Repair rules shared by every repairer** (user, 2026-11-26): several repairers on one target repair **faster, scaling linearly** (2 repairers = twice the rate), as construction does. **Placeholder rate and cost** (designer, 2026-11-26): repairing from 0 to full HP takes **half the target's build time** with one repairer, and costs **half its price** in the resource it was bought with, paid gradually as HP is restored (exceptions below). A vehicle's price for this counts its **Space Crystals only**, not the Recruits it consumed (Jackal: 37.5 SC from 0 to full; Q0124). Panel letter: **D** (Q0095).
 
 ## Building
 
@@ -98,7 +98,8 @@ Recruits can enter an Armory to join its internal StoredRecruits pool (up to Int
 - **Enter Cathedral** — right-click own Cathedral
 - **Enter Temple** (staff research) — right-click own Temple
 - **Enter Shrine** (join the ritual) — right-click own Shrine
-- **Enter Gunworks** / **Enter Machine Shop** (staff research) — right-click own Gunworks / Machine Shop
+- **Enter Garrison** — right-click own Garrison
+- Gunworks / Machine Shop: **not enterable until their research is designed** (0319); a right-click on them is a Move
 - **Gather** — right-click Space Crystal patch
 - **Drop Off Resources** — right-click own Storage (when carrying Space Crystals)
 - **Construct** — via panel buttons A (Basic) and W (Advanced)
@@ -113,7 +114,8 @@ Recruits can enter an Armory to join its internal StoredRecruits pool (up to Int
 - Own Cathedral → Enter Cathedral
 - Own Temple → Enter Temple (staff research)
 - Own Shrine → Enter Shrine (join the ritual)
-- Own Gunworks / Machine Shop → Enter (staff research)
+- Own Garrison → Enter Garrison
+- Own Gunworks / Machine Shop → Move (not enterable until their research is designed, 0319)
 - In-progress own building → Assist Construction
 - Damaged own building or vehicle (completed) → Repair, **unless the building can be entered** by the selection: then **Enter** wins (user, 2026-11-26). Repair those with **D: Repair**.
 - Enemy unit/building → Attack (melee)

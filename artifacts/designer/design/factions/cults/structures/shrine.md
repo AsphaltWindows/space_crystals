@@ -22,8 +22,8 @@ The effect is a **buff applied to units at the moment of casting**: qualifying u
 
 | Ability | Affects | Effect | Energy cost | Area | Duration |
 |---|---|---|---|---|---|
-| Health regeneration (name TBD) | Own Cults infantry | Grants health regeneration (rate TBD) for the duration — Cults infantry have no natural regeneration | TBD | TBD | TBD |
-| Energy regeneration (name TBD) | Own Disciples | Increases Disciple energy regeneration (amount TBD) for the duration | TBD | TBD | TBD |
+| Health regeneration (name TBD) | Own Cults infantry | Grants health regeneration (+2 HP/s, placeholder) for the duration — Cults infantry have no natural regeneration | 75 | radius 4 grid units | 15 s |
+| Energy regeneration (name TBD) | Own Disciples | Increases Disciple energy regeneration (+1/s, placeholder) for the duration | 50 | radius 4 grid units | 20 s |
 
 Cooldowns: none. Energy costs, areas, durations and rates: see Placeholder stats below.
 
