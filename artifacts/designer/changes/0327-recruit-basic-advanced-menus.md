@@ -20,5 +20,5 @@ The split and slots are designer placeholders: every building has a fixed key an
 This replaces the single "A: Construct" menu, and the interim (b) layout if it was built.
 
 ## Verification
-- Recruits: A then E places an Armory.
+- Recruits: A then A places an Armory.
 - W then A places a Chop Shop (greyed without an Armory).
