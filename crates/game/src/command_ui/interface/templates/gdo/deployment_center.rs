@@ -23,16 +23,18 @@ pub const GRID: [Option<PanelCommand>; 12] = {
     ]
 };
 
-/// `> BuildMenu[Basic]`, slot by slot: Q Generator, W Barracks, E Extraction Facility (design change 0104). Its R
-/// Supply Tower, A Radar Station, S Arsenal, D Career Campus and F Defense System aren't in the game yet (their costs
-/// and times are TBD: M2 plan 1.2), so their slots stay hidden: "The other slots can show greyed placeholders, or be
-/// hidden until those buildings exist". Z is Back and X the constructor's Cancel (`super::super::state_grid`).
+/// `> BuildMenu[Basic]`, slot by slot: Q Generator, W Barracks, E Extraction Facility (design change 0104), and "**[D]
+/// Career Campus**" (slice M5-N9, design change 0328), greyed while the player owns no Barracks (its TechPrerequisite:
+/// the gate's `Reject::Requires`, "Requires a Barracks"). Its R Supply Tower, A Radar Station, S Arsenal and F Defense
+/// System aren't in the game yet (their slices bring them), so their slots stay hidden: "The other slots can show
+/// greyed placeholders, or be hidden until those buildings exist". Z is Back and X the constructor's Cancel
+/// (`super::super::state_grid`).
 #[rustfmt::skip]
 const BASIC_MENU: [Option<ObjectKind>; 12] = {
-    use ObjectKind::{Barracks, ExtractionFacility, Generator};
+    use ObjectKind::{Barracks, CareerCampus, ExtractionFacility, Generator};
     [
         Some(Generator), Some(Barracks), Some(ExtractionFacility), None,
-        None,            None,           None,                     None,
+        None,            None,           Some(CareerCampus),       None,
         None,            None,           None,                     None,
     ]
 };
@@ -41,10 +43,12 @@ const BASIC_MENU: [Option<ObjectKind>; 12] = {
 /// Powerplant, none of which is in the game yet: every slot hidden, and the menu unavailable (`super::super::offers`).
 const ADVANCED_MENU: [Option<ObjectKind>; 12] = [None; 12];
 
-/// The entries of the build menu `menu`, slot by slot (`CommandSlot::all` order): the buildings it constructs.
+/// The entries of the build menu `menu`, slot by slot (`CommandSlot::all` order): the buildings it constructs. None for
+/// the Field Engineer's Construct menu, which the Deployment Center hasn't.
 pub fn menu(menu: BuildMenu) -> &'static [Option<ObjectKind>; 12] {
     match menu {
         BuildMenu::Basic => &BASIC_MENU,
         BuildMenu::Advanced => &ADVANCED_MENU,
+        BuildMenu::Construct => &[None; 12],
     }
 }

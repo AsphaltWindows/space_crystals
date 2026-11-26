@@ -29,6 +29,7 @@ fn a_ready_generator_is_placed_where_the_ghost_is_green() {
             (q(), c(PlaceReady(GENERATOR)), Common, "Place"),
             (w(), c(Construct(BARRACKS_KIND)), Disabled, "BR"),
             (e(), c(Construct(EXTRACTION_FACILITY)), Disabled, "EF"),
+            (d(), c(Construct(CAREER_CAMPUS)), Disabled, "CC"),
             (CommandSlot::BACK, PanelButton::Back, Back, "Back"),
             (X, c(CancelReady), Common, "Cancel"),
         ]

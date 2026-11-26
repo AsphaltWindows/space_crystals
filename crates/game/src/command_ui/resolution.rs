@@ -227,13 +227,16 @@ pub fn object_right_click(object: UnitCapabilities, target: &MapTarget) -> Optio
         // A unit's default command, by the sim's one rule: the BasicCombatUnit's table, the Drone's own
         // (`factions/colonists/units/drone.md > Right-Click Resolution`; slices M3-R and M3-J2) and the Agent's
         // (`factions/syndicate/units/agent.md > Right-Click Resolution`, slice M4-J1) and the Recruit's
-        // (`factions/cults/units/recruit.md > Right-Click Resolution`, slice M5-J1). Without a template, an object
-        // that transforms, which resolves nothing (`unit_right_click`: it has no abilities then).
+        // (`factions/cults/units/recruit.md > Right-Click Resolution`, slice M5-J1), and the Field Engineer's
+        // (`factions/gdo/units/field_engineer.md > Placeholder stats`: "Right-click a damaged own building or vehicle:
+        // Repair", slice M5-N9). Without a template, an object that transforms, which resolves nothing
+        // (`unit_right_click`: it has no abilities then).
         Some(
             InterfaceTemplate::BasicCombatUnit
             | InterfaceTemplate::Drone
             | InterfaceTemplate::Agent
-            | InterfaceTemplate::Recruit,
+            | InterfaceTemplate::Recruit
+            | InterfaceTemplate::FieldEngineer,
         )
         | None => unit_right_click(object, target).map(Resolved::Order),
     }

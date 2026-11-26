@@ -171,6 +171,11 @@ kind_registry! {
     HandOfHeaven => cults::units::hand_of_heaven::HAND_OF_HEAVEN,
     /// `factions/cults/units/prayer_mobile.md` (design changes 0364 and 0365)
     PrayerMobile => cults::units::prayer_mobile::PRAYER_MOBILE,
+    /// `factions/gdo/structures/career_campus.md` (slice M5-N9: design change 0328's two placeholders, the Field
+    /// Engineer's prerequisite first)
+    CareerCampus => gdo::structures::career_campus::CAREER_CAMPUS,
+    /// `factions/gdo/units/field_engineer.md`
+    FieldEngineer => gdo::units::field_engineer::FIELD_ENGINEER,
 }
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]

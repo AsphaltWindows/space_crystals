@@ -103,14 +103,14 @@ pub(crate) static RECRUIT: ObjectDef = ObjectDef {
                 ObjectKind::ScrapHangar,
             ],
             shares_builds: true,
-            // `> Repair` (slice M5-N8): "Recruits can **repair** own **buildings and vehicles**. Repair **costs Space
-            // Crystals**".
-            repairs: Some(RepairDef {
-                targets: RepairTargets::OwnBuildingsAndVehicles,
-            }),
         }),
         // (M5-N1a) `factions/cults/augmentation.md > Increments`: "Unarmed units ... currently only the Recruit".
         augmentable: Some(Augmentable { unarmed: true }),
+        // `> Repair` (slice M5-N8): "Recruits can **repair** own **buildings and vehicles**. Repair **costs Space
+        // Crystals**".
+        repairs: Some(RepairDef {
+            targets: RepairTargets::OwnBuildingsAndVehicles,
+        }),
     }),
     structure: None,
     default_settings: None,

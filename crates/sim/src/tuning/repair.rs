@@ -1,5 +1,5 @@
 //! Repair (slice M5-N8, plan decision T83; `crate::repair`): how a repair's time and price follow from what built its
-//! target. Who repairs what, and whether they pay, is each repairer's def (`defs::WorkerDef::repairs`).
+//! target. Who repairs what, and whether they pay, is each repairer's def (`defs::UnitDef::repairs`).
 
 /// "**Placeholder rate and cost** (designer, 2026-11-26): repairing from 0 to full HP takes **half the target's build
 /// time** with one repairer" (`factions/cults/units/recruit.md > Repair`, `factions/syndicate/units/agent.md >

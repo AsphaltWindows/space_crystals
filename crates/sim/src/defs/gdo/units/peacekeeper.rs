@@ -106,6 +106,7 @@ const PEACEKEEPER_UNIT: UnitDef = UnitDef {
     deploy: None,
     worker: None,
     augmentable: None,
+    repairs: None,
 };
 
 #[cfg(test)]
@@ -185,6 +186,6 @@ mod tests {
         );
         let barracks = K::Barracks.def().structure.as_ref().unwrap().production.unwrap();
         let trained: Vec<ObjectKind> = barracks.recipes.iter().map(|recipe| recipe.kind).collect();
-        assert_eq!(trained, [K::Peacekeeper]);
+        assert!(trained.contains(&K::Peacekeeper) && !trained.contains(&K::PeacekeeperShielded));
     }
 }

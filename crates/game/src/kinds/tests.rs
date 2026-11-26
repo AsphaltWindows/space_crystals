@@ -12,7 +12,8 @@ use crate::command_ui::interface::templates::Planned;
 /// Slice M5-A: the Cults' RT, MT, GU, RH, SE and AY, by `Planned::label`'s rules, but for the Gunner's GU (its first
 /// and last letters are the Grenadier's GR). Slice M5-G2: the Cults' buildings with their Construct menus' entries'
 /// labels (`kinds::cults`), and the Disciple's DE, the Seeker's SKR, the Sparrow's SW, the Hand of Heaven's HOH and the
-/// Prayer-mobile's PM.
+/// Prayer-mobile's PM. Slice M5-N9: the Career Campus's CC and the Field Engineer's FEN (FE is the Forge's), and the
+/// Field Engineer's Construct menu's Bunker, BKR (BR is the Barracks'), and First Aid Tent, FAT.
 #[test]
 fn every_label_is_its_own() {
     let in_game = |planned: &Planned| ObjectKind::ALL.iter().any(|kind| kind.def().name == planned.name());
@@ -77,6 +78,14 @@ fn every_label_is_its_own() {
         ObjectKind::PrayerMobile,
     ];
     assert_eq!(units.map(short_label), ["DE", "SKR", "SW", "HOH", "PM"]);
+    assert_eq!(
+        [ObjectKind::CareerCampus, ObjectKind::FieldEngineer].map(short_label),
+        ["CC", "FEN"]
+    );
+    assert_eq!(
+        [Planned::Bunker, Planned::FirstAidTent].map(|p| p.label()),
+        ["BKR", "FAT"]
+    );
     assert_eq!([0, 1, 2, 3, 4].map(tier_label), ["T1", "T1", "T2", "T3", "T1"]);
     let tier = |tier| object_label(ObjectKind::Tunnel, Some(TunnelState::at(tier)));
     assert_eq!((tier(3), object_label(ObjectKind::Agent, None)), ("T3", "AG"));

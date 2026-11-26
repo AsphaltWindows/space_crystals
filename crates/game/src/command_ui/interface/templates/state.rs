@@ -7,7 +7,7 @@ use sc_sim::ObjectKind;
 use sc_sim::construction::{self, Constructor};
 
 use super::{
-    ATTACK_SLOT, BuildMenu, InterfaceState, InterfaceTemplate, PanelCommand, colonists, cults, grid, hides_attack,
+    ATTACK_SLOT, BuildMenu, InterfaceState, InterfaceTemplate, PanelCommand, colonists, cults, gdo, grid, hides_attack,
     slot_index, syndicate,
 };
 use crate::command_ui::interface::Builder;
@@ -22,12 +22,15 @@ pub(super) fn constructs(kind: ObjectKind) -> bool {
 /// The entries of a `kind` object's build menu `menu`, slot by slot (`CommandSlot::all` order): a Beacon's Warp In
 /// menu (`factions/colonists/economy.md > Beacon > Beacon ObjectInterfaceState`: every building of the design's
 /// menu, those not in the game unavailable), a Recruit's Construct menu (slice M5-J1, the same:
-/// `cults::construct_menu`), else the Deployment Center's menu, its buildings to construct.
+/// `cults::construct_menu`), a Field Engineer's (slice M5-N9, its buildings not in the game yet:
+/// `gdo::field_engineer::menu`), else the Deployment Center's menu, its buildings to construct.
 pub fn menu_grid(kind: ObjectKind, menu: BuildMenu) -> [Option<PanelCommand>; 12] {
     if colonists::warps_in(kind) {
         colonists::beacon::warp_in_menu(menu)
     } else if InterfaceTemplate::of(kind) == Some(InterfaceTemplate::Recruit) {
         cults::construct_menu::grid(menu)
+    } else if InterfaceTemplate::of(kind) == Some(InterfaceTemplate::FieldEngineer) {
+        gdo::field_engineer::menu(menu)
     } else {
         menu.entries().map(|entry| entry.map(PanelCommand::Construct))
     }
