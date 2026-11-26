@@ -2317,3 +2317,4 @@ Answered Q0069–Q0071 (0258–0267): losing-Tunnel edges, Syndicate economy che
 2026-11-26 — Preview counts remembered Halls. Entry 0352.
 2026-11-26 — Q0119. Entry 0353.
 2026-11-26 — Q0120 Sparrow flight. Entry 0354.
+2026-11-26 — Sparrow grip 0.5. Entry 0355.

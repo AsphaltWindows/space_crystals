@@ -21,9 +21,9 @@
 
 **Placeholder stats** (designer, 2026-11-26, at the user's request: provisional numbers so the Director can implement; tune in the numbers pass):
 - Silhouette 40x40 space units; MaxHP 50; PointArmor 0, FullArmor 0; SightRange 6 grid units; Groupable true.
-- GliderMovement: IdleSpeed 4 su/frame; MaxSpeed 10 su/frame; Acceleration 0.5 su/frame²; Deceleration 0.5 su/frame²; MaxCentripetalAcceleration 1 su/frame² (turn radius about 100 su at full speed).
+- GliderMovement: IdleSpeed 4 su/frame; MaxSpeed 10 su/frame; Acceleration 0.5 su/frame²; Deceleration 0.5 su/frame²; MaxCentripetalAcceleration **0.5 su/frame²** (was 1, "too much grip", user 2026-11-26; tightest turn radius = speed² / 0.5: **200 su (about 3 GU) at full speed**, a full loop in about 8 s; 32 su at IdleSpeed).
 - SeparationRadius 32 space units (Q0120).
-- **Idle circle**: radius **1 grid unit (64 su)** at IdleSpeed (placeholder; Q0120: at its full centripetal limit an idle circle would be only 16 su, nearly a spin).
+- **Idle circle**: radius **1 grid unit (64 su)** at IdleSpeed (placeholder; Q0120: at its centripetal limit an idle circle would be only 32 su, nearly a spin, so idle circling uses a gentler turn).
 - **Flight rules** (user, 2026-11-26; Q0120):
   - **Map edge**: it may overshoot the edge as far as its turn needs (no extra cap).
   - **Takeoff**: it appears over the runway's B end facing C at IdleSpeed and speeds up along the runway.
