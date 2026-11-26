@@ -19,7 +19,9 @@
 //! - `edge`: circling near the map's edge takes it past the edge, where it stays visible and attackable as at the
 //!   nearest edge tile; a click past the edge sends it to the edge (`systems/units.md > Air Collision`);
 //! - `separation`: six Sparrows sent to one point circle it without stacking (`systems/units.md > Air Collision`:
-//!   SeparationRadius);
+//!   SeparationRadius); (M5-H2) design change 0405's Verification: pushed by a quarter of a HoverCraft's push ("Gliders
+//!   push apart slowly"), they drift apart while they circle it and end 48 su apart, and two Sparrows strafing one
+//!   target stay on their lines;
 //! - `shroud`: Shroud doesn't protect air units: a Sparrow under a cloud takes an anti-air attack's hits in full
 //!   (`factions/cults/units/disciple.md > Spells > Shroud`: "not air units").
 //!
@@ -48,9 +50,9 @@ const IDLE_SPEED: f32 = 4.0;
 const MAX_SPEED: f32 = 10.0;
 /// The idle circle's radius: 1 grid unit (design change 0354).
 const IDLE_RADIUS: f32 = 64.0;
-/// The Sparrow's Range, 3 grid units, and its SeparationRadius (design change 0328).
+/// The Sparrow's Range, 3 grid units (design change 0328), and its SeparationRadius (design change 0405: was 32).
 const RANGE: f32 = 192.0;
-const SEPARATION: f32 = 32.0;
+const SEPARATION: f32 = 48.0;
 
 fn point(x: f32, y: f32) -> SpawnAt {
     SpawnAt::Point(Vec2::new(x, y))

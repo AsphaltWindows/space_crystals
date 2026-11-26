@@ -79,8 +79,11 @@ pub(crate) static SPARROW: ObjectDef = ObjectDef {
         augmentable: None,
         repairs: None,
         spells: &[],
-        // "SeparationRadius 32 space units (Q0120)" (design change 0328).
-        separation_radius: Some(32.0),
+        // "SeparationRadius **48** space units (Q0120; raised from 32, 2026-11-27, Q0148: it must exceed the 40 su
+        // Silhouette). Gliders push apart slowly (systems/units.md > Air Collision)." (design change 0405, answering
+        // Q0148 part 3; was 32, design change 0328). How slowly is its Glider base's
+        // (`UnitBaseDef::separation_strength`).
+        separation_radius: Some(48.0),
     }),
     structure: None,
     default_settings: None,
@@ -98,7 +101,8 @@ mod tests {
     /// A 40×40 Glider, in the air, MaxHP 50, no armour, SightRange 8 (design change 0403: was 6), Groupable;
     /// GliderMovement from an idle 4 su a frame to 10, with a MaxCentripetalAcceleration of 0.5 (design change 0355); a
     /// turret of a 45° cone turning 8° a frame; a machine gun that can't miss, at air and ground, 3 damage up to 3 grid
-    /// units, a shot every 4 frames; Unit Control 1, the Recruit it is made of; (M5-H1) a SeparationRadius of 32 su.
+    /// units, a shot every 4 frames; Unit Control 1, the Recruit it is made of; a SeparationRadius of 48 su, more than
+    /// its Silhouette (design change 0405: was 32).
     #[test]
     fn the_sparrow_follows_the_design() {
         let def = ObjectKind::Sparrow.def();
@@ -141,10 +145,10 @@ mod tests {
         );
         assert_eq!(timings(&attack), ((1, 1, 1, 1), 4), "12 damage a second");
         assert_eq!((unit.rugged_terrain_defense_bonus, unit.worker), (None, None));
-        // (M5-H1) "SeparationRadius 32 space units (Q0120)": just over its half-diagonal of 28 su, so its circle
-        // holds its whole Silhouette ("Must be larger than the unit's Silhouette").
-        assert_eq!(unit.separation_radius, Some(32.0));
-        assert!(32.0 > (20.0f32 * 20.0 + 20.0 * 20.0).sqrt());
+        // "SeparationRadius **48** space units (Q0120; raised from 32, 2026-11-27, Q0148: it must exceed the 40 su
+        // Silhouette)" (design change 0405).
+        assert_eq!(unit.separation_radius, Some(48.0), "design change 0405: 48, was 32");
+        assert!(48.0 > def.silhouette().unwrap().max_element());
         assert_eq!(
             (
                 unit.unit_control_cost,

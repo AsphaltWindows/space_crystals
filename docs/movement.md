@@ -72,11 +72,13 @@
   the amendments of I3, I5 and I7. Its changes are marked **(H1)**. The code is `crates/sim/src/movement/glider.rs`,
   `movement/air.rs`, `mover/flight.rs` (`Mover::orbit`, `Mover::strafe`), `tuning/air.rs`, `Object::map_pos` and the
   gate's clamp of an order's point onto the map (`sim/gate/orders.rs`).
-- **The Sparrow sees 8 grid units, and a Glider's Move completes on arrival** (slice M5-H2; design changes 0403 and
-  0404, answering Q0148 parts 1 and 2): a lone Sparrow's loops keep a small target in its own sight, so its Attack
-  goes on pass after pass (the tests of 8), and a Move ends where 6.9's Glider arrives, so the orders queued after it
-  start. Its changes are marked **(M5-H2)**. The code is the Sparrow's def
-  (`crates/sim/src/defs/cults/units/sparrow.rs`) and `crates/sim/src/orders/run.rs`.
+- **The Sparrow sees 8 grid units, a Glider's Move completes on arrival, and Gliders push apart slowly** (slice
+  M5-H2; design changes 0403, 0404 and 0405, answering Q0148): a lone Sparrow's loops keep a small target in its own
+  sight, so its Attack goes on pass after pass (the tests of 8); a Move ends where 6.9's Glider arrives, so the orders
+  queued after it start; and 6.10's push is a base's own, a Glider's a quarter of a HoverCraft's, with the Sparrow's
+  SeparationRadius at 48 su. Its changes are marked **(M5-H2)**. The code is the Sparrow's def
+  (`crates/sim/src/defs/cults/units/sparrow.rs`), `crates/sim/src/orders/run.rs`, the unit bases
+  (`defs/units/bases.rs`, `UnitBaseDef::separation_strength`) and `movement/air.rs`.
 
 Design references are `path/file.md > Section`, with paths relative to `artifacts/designer/design/`.
 Every number marked *(placeholder)* becomes a named const tagged with the question that covers it (section 2).
@@ -892,9 +894,17 @@ the cell of its centre), taken in id order; the pushes are summed from where the
 together, so no push depends on another's, and nothing blocks them. Two units on one point part along the x axis.
 A Glider may be pushed past the edge; a HoverCraft is clamped onto the map by its half extents (design change 0045).
 A push is no part of the unit's own move: its velocity and momentum stay its movement's, and a unit at rest stays
-at rest. Units spawned in this tick are pushed against but not pushed. Six Sparrows sent to one point come within
+at rest. Units spawned in this tick are pushed against but not pushed. Six Sparrows sent to one point came within
 1 % of 32 su of each other within 10 s and within 0.001 su from 20 s: a soft push leaves a pair at the radius, and
-each tick's flight may bring it a hair nearer before the next.
+each tick's flight may bring it a hair nearer before the next. **(M5-H2)** Design change 0405 ("**Gliders push
+apart slowly** [...] with a **much weaker** repulsion than other air units (placeholder: a quarter of the HoverCraft
+strength)"; the Sparrow's SeparationRadius 48 su, above its 40 su Silhouette): each unit takes its base's share of
+each push and of the cap (`UnitBaseDef::separation_strength`), a HoverCraft all of it, a Glider a quarter, half a
+space unit a tick at most. Six Sparrows sent to one point, 4.4 su apart at closest as they arrive at 2.5 s, are
+within 10 % of 48 su of each other from 13.4 s, within 1 % from 20 s and within 0.01 su from 29 s (at the full push:
+3.4, 9.8 and 17.2 s). Two Sparrows strafing one target from side by side, which meet over it at every pass, land
+their hits as a lone Sparrow does, each pass within 6 su of the target's centre, pushed across their heading by 28 su
+over the first pass and 4 su at most over each later one (at the full push: 62 and 13 su).
 
 ## 7. Numbers: f32, not fixed point
 
@@ -943,10 +953,11 @@ each tick's flight may bring it a hair nearer before the next.
   - **I1** is unchanged: DragMovement adds no way for two boxes to come to overlap (every position is committed
     through `World::is_free`), and a separating pair is covered by "already overlapped a tick earlier".
   **(H1)** Amended for Gliders and the soft separation (`testing/invariants/gliders.rs`), and one more:
-  - **I3**: an air unit with a SeparationRadius may move `SEPARATION_PUSH_SU` more than its speed in a tick.
+  - **I3**: an air unit with a SeparationRadius may move `SEPARATION_PUSH_SU` more than its speed in a tick
+    (**(M5-H2)** its base's share of it: a Glider half a space unit).
   - **I5 and I7**: a Glider moves, and has momentum, without a goal and after it arrived; an air unit with a
-    SeparationRadius may move without a goal by at most `SEPARATION_PUSH_SU`, while another such unit is near enough
-    to have pushed it.
+    SeparationRadius may move without a goal by at most `SEPARATION_PUSH_SU` (**(M5-H2)** its base's share), while
+    another such unit is near enough to have pushed it.
   - **G1**: every Glider that was in the game a tick earlier flies (Locomotion Moving) at a speed between its
     IdleSpeed and its MaxSpeed, its velocity its momentum (its own flight; the push comes on top), and its
     `Object::map_pos` is on the map. One stopped after its flight in the tick (its Attack's target died in 5e) shows
@@ -1000,9 +1011,11 @@ each tick's flight may bring it a hair nearer before the next.
   **(M5-H2)** a lone Sparrow, with no spotter, until its target dies, each loop 497 to 502 su from a 24-su target,
   within its sight; a click past the edge circles the edge's point; circling by
   the edge takes it off the map, where it is seen and hit as at the edge's tile; six Sparrows on one point keep 32 su
-  apart; under a Shroud cloud an anti-air attack's hits land in full. Separation: only pairs within the radius, a
-  HoverCraft kept on the map, ground units never pushed. The soak (`robustness.rs`) spawns Sparrows and gives them
-  orders, and checks G1.
+  apart (**(M5-H2)** drift apart while circling, to 48 su, and two Sparrows strafing one target stay on their lines:
+  design change 0405's Verification); under a Shroud cloud an anti-air attack's hits land in full. Separation: only
+  pairs within the radius, a HoverCraft kept on the map, ground units never pushed, (M5-H2) a unit of the Glider base
+  pushed by a quarter of a HoverCraft's push, and each unit of a pair by its own base's share. The soak
+  (`robustness.rs`) spawns Sparrows and gives them orders, and checks G1.
 - **Oscillation**: distance travelled ≤ 1.5 × path length + c; reversals of velocity along the path ≤ a small bound.
 - **Determinism**: same run twice, per-tick hashes equal; replay round trip; **save at tick k, load, continue**:
   hashes equal (catches hidden unserialized state); **golden hashes** for three scenarios as committed constants.

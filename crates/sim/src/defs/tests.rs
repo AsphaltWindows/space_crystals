@@ -483,8 +483,10 @@ fn only_a_plate_and_a_patch_may_overlap() {
 }
 
 /// (M5-H1) `systems/units.md > Air Collision > SeparationRadius`: "per unit type, circular, the distance at which
-/// air-to-air repulsion activates. Must be larger than the unit's Silhouette": every air unit has one, whose circle
-/// holds its whole Silhouette (it is longer than the Silhouette's half-diagonal), and no other unit has one.
+/// air-to-air repulsion activates. Must be larger than the unit's Silhouette": every air unit has one, and no other
+/// unit has one. (M5-H2) It is larger than the Silhouette's longer side, as design change 0405 reads the rule ("it must
+/// exceed the 40 su Silhouette", the Sparrow's raised from 32 to 48 su); slice M5-H1 had read it as a circle that holds
+/// the Silhouette, longer than its half-diagonal, which 32 su was.
 #[test]
 fn air_units_keep_apart_by_a_circle_round_their_silhouette() {
     for &kind in ObjectKind::ALL {
@@ -493,10 +495,10 @@ fn air_units_keep_apart_by_a_circle_round_their_silhouette() {
             continue;
         };
         let air = unit.base_def().domain == Domain::Air;
-        let half = def.half_extents().expect("a unit has a Silhouette");
+        let silhouette = def.silhouette().expect("a unit has a Silhouette");
         match unit.separation_radius {
             Some(radius) => assert!(
-                air && radius.is_finite() && radius > half.length(),
+                air && radius.is_finite() && radius > silhouette.max_element(),
                 "{kind:?}: a SeparationRadius of {radius} su"
             ),
             None => assert!(!air, "{kind:?}: an air unit without a SeparationRadius"),

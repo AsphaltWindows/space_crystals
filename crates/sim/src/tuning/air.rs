@@ -14,7 +14,9 @@ pub const IDLE_CIRCLE_GU: f32 = 1.0;
 /// Plan decision T81: "Each pair of air units within the larger SeparationRadius is pushed apart, by at most 2 su a
 /// tick each". Read as a cap on each unit's whole push in a tick, whatever the number of pairs it is in, so that a unit
 /// never moves more than its speed and this in a tick (invariant I3, `docs/movement.md > 8`). Space units per tick.
-/// Placeholder (Q0120 point 1: the design gives the radius, not the strength of the push).
+/// Placeholder (Q0120 point 1: the design gives the radius, not the strength of the push). (M5-H2) It is the full push,
+/// a HoverCraft's: each air base takes its share of it (`UnitBaseDef::separation_strength`), a Glider a quarter (design
+/// change 0405: "placeholder: a quarter of the HoverCraft strength"), half a space unit a tick.
 pub const SEPARATION_PUSH_SU: f32 = 2.0;
 
 /// How strongly a Glider flying onto its circle turns in toward it, per radius of distance off it

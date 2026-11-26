@@ -276,7 +276,8 @@ impl Invariants {
             // slows the unit only weakens its thrust, and the speed it has decays. (M5-N3) In a tick that changed the
             // research levels after the movement step, the larger of its MaxSpeeds before and after: it moved at the
             // one before, and moves at the one after from the next tick (`Sim::complete_research`). (M5-H1) An air unit
-            // that keeps apart from others may be pushed by at most `SEPARATION_PUSH_SU` on top (`gliders`).
+            // that keeps apart from others may be pushed by at most `SEPARATION_PUSH_SU` on top (`gliders`), (M5-H2)
+            // its base's share of it (a Glider's a quarter, design change 0405).
             let drag = unit.movement.model() == MovementModel::Drag;
             let glides = gliders::glides(o);
             let max_speed = o.max_speed(sim.research());

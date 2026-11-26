@@ -1,6 +1,7 @@
 //! The soft separation of air units (`movement::air`) in a sim: test air units (a Peacekeeper given a HoverCraft base
-//! and the Sparrow's SeparationRadius of 32 su: no HoverCraft type of the game has one yet) and Sparrows. The scenario
-//! tests in `crates/sim/tests/air/` cover a crowd of Sparrows.
+//! and a SeparationRadius of 32 su, the Sparrow's in slice M5-H1: no HoverCraft type of the game has one yet; (M5-H2) a
+//! Guard given the Glider base, which stands where it is pushed, unlike a Glider in flight) and Sparrows. The scenario
+//! tests in `crates/sim/tests/air/` cover a crowd of Sparrows and two Sparrows strafing one target.
 
 use glam::Vec2;
 
@@ -20,10 +21,24 @@ fn hovercraft() -> TestDef {
     })
 }
 
+/// (M5-H2) A Guard built on the Glider base, keeping 32 su apart from other air units: it takes a Glider's share of
+/// each push (`UnitBaseDef::separation_strength`), and stands where it is pushed, its movement still a Guard's.
+fn glider_based() -> TestDef {
+    TestDef::unit(ObjectKind::Guard, |unit| {
+        unit.base = UnitBase::Glider;
+        unit.separation_radius = Some(32.0);
+    })
+}
+
 /// 16 × 16 open tiles with units of `kind` of player 1 at `points`.
 fn field(kind: ObjectKind, points: &[Vec2]) -> TestSim {
+    field_of(&points.iter().map(|&p| (kind, p)).collect::<Vec<_>>())
+}
+
+/// 16 × 16 open tiles with player 1's `units`, each of its kind at its point.
+fn field_of(units: &[(ObjectKind, Vec2)]) -> TestSim {
     let mut builder = ScenarioBuilder::new(&"................\n".repeat(16));
-    for &p in points {
+    for &(kind, p) in units {
         builder = builder.spawn(kind, Some(P1), crate::scenario::SpawnAt::Point(p));
     }
     let mut t = builder.start();
@@ -54,6 +69,46 @@ fn two_idle_air_units_part_by_at_most_2_su_a_tick_each_to_their_separation_radiu
     assert_eq!(gaps, want, "{gaps:?}");
     assert_eq!(t.pos(1).x + t.pos(2).x, 1010.0, "each by as much");
     assert_eq!(SEPARATION_PUSH_SU, 2.0);
+}
+
+/// (M5-H2) Design change 0405: "**Gliders push apart slowly** [...] with a **much weaker** repulsion than other air
+/// units (placeholder: a quarter of the HoverCraft strength)". Two idle units of the Glider base 10 su apart part by a
+/// quarter of what two HoverCraft would: half a space unit a tick each while the pair lacks 4 su or more, then a
+/// quarter of half of what it lacks, so that the last few su close by a quarter each tick and the pair comes ever
+/// nearer its SeparationRadius without a last step onto it.
+#[test]
+fn two_idle_units_of_the_glider_base_part_by_a_quarter_of_the_push() {
+    let _glider = glider_based();
+    let mut t = field(ObjectKind::Guard, &[Vec2::new(500.0, 500.0), Vec2::new(510.0, 500.0)]);
+    let mut gaps = Vec::new();
+    for _ in 0..21 {
+        t.step();
+        gaps.push(t.pos(2).x - t.pos(1).x);
+        assert_eq!(t.mover(1).velocity, Vec2::ZERO);
+    }
+    let mut want: Vec<f32> = (11..=29).map(|gap| gap as f32).collect();
+    want.extend([29.75, 30.3125]);
+    assert_eq!(gaps, want, "{gaps:?}");
+    assert_eq!(t.pos(1).x + t.pos(2).x, 1010.0, "each by as much");
+    t.run(40);
+    let gap = t.pos(2).x - t.pos(1).x;
+    assert!((31.99..=32.0).contains(&gap), "{gap}");
+}
+
+/// (M5-H2) Each unit of a pair takes its own base's share of the push: a HoverCraft and a unit of the Glider base 10 su
+/// apart part by 2 su a tick and half a space unit, until the pair lacks less than 4 su.
+#[test]
+fn a_hovercraft_and_a_glider_take_each_its_own_share_of_the_push() {
+    let (_air, _glider) = (hovercraft(), glider_based());
+    let mut t = field_of(&[
+        (ObjectKind::Peacekeeper, Vec2::new(500.0, 500.0)),
+        (ObjectKind::Guard, Vec2::new(510.0, 500.0)),
+    ]);
+    for n in 1..=7 {
+        t.step();
+        let n = n as f32;
+        assert_eq!((t.pos(1).x, t.pos(2).x), (500.0 - 2.0 * n, 510.0 + 0.5 * n));
+    }
 }
 
 /// Units on the very same point part along the x axis, the lower id to the west (`movement::air`'s module docs).

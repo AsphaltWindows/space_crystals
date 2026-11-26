@@ -10,7 +10,8 @@
 //!
 //! It also holds the exemptions the Gliders and the soft separation need from I3, I5 and I7 (`super::check_units`):
 //! a Glider moves, and has momentum, without a goal, and an air unit is pushed apart from another by at most
-//! [`SEPARATION_PUSH_SU`] a tick, beyond its own move.
+//! [`SEPARATION_PUSH_SU`] a tick, beyond its own move ((M5-H2) its base's share of it,
+//! `UnitBaseDef::separation_strength`: a Glider's is a quarter, design change 0405).
 
 use std::collections::BTreeMap;
 
@@ -86,32 +87,39 @@ pub(super) fn glides(o: &Object) -> bool {
     (o.def().unit.as_ref()).is_some_and(UnitDef::glides)
 }
 
-/// The SeparationRadius of `o` if it is an air unit that keeps apart from others (`movement::air`).
-fn separation_radius(o: &Object) -> Option<f32> {
+/// If `o` is an air unit that keeps apart from others (`movement::air`): its SeparationRadius, and the most the soft
+/// separation pushes it in a tick, (M5-H2) its base's share of [`SEPARATION_PUSH_SU`]
+/// (`UnitBaseDef::separation_strength`), space units.
+fn separation(o: &Object) -> Option<(f32, f32)> {
     let unit = o.def().unit.as_ref()?;
-    (unit.base_def().domain == Domain::Air && o.mover.is_some()).then_some(unit.separation_radius?)
+    let base = unit.base_def();
+    if base.domain != Domain::Air || o.mover.is_none() {
+        return None;
+    }
+    Some((unit.separation_radius?, SEPARATION_PUSH_SU * base.separation_strength?))
 }
 
-/// How far the soft separation may push `o` in a tick beyond its own move, space units: [`SEPARATION_PUSH_SU`] for an
-/// air unit with a SeparationRadius, 0 for any other unit (I3).
+/// How far the soft separation may push `o` in a tick beyond its own move, space units: the most it pushes an air unit
+/// with a SeparationRadius ([`separation`]), 0 for any other unit (I3).
 pub(super) fn push_allowance(o: &Object) -> f32 {
-    separation_radius(o).map_or(0.0, |_| SEPARATION_PUSH_SU)
+    separation(o).map_or(0.0, |(_, push)| push)
 }
 
 /// Whether `o`, which moved without a goal of its own, may have been pushed by the soft separation (I5, I7): it is an
-/// air unit with a SeparationRadius, it moved by at most [`SEPARATION_PUSH_SU`], and another such unit is near enough
-/// to have pushed it: within the larger of their two radii of where `o` was before the push (its last position),
-/// give or take the other's own push.
+/// air unit with a SeparationRadius, it moved by at most the most the separation pushes it ([`separation`]), and
+/// another such unit is near enough to have pushed it: within the larger of their two radii of where `o` was before
+/// the push (its last position), give or take the other's own push.
 pub(super) fn pushed(sim: &Sim, o: &Object) -> bool {
-    let Some(radius) = separation_radius(o) else {
+    let Some((radius, push)) = separation(o) else {
         return false;
     };
     let moved = o.pos.distance(o.prev_pos);
-    moved <= SEPARATION_PUSH_SU * (1.0 + SPEED_TOLERANCE) + SPEED_TOLERANCE
+    moved <= push * (1.0 + SPEED_TOLERANCE) + SPEED_TOLERANCE
         && sim.objects().any(|other| {
             other.id != o.id
-                && separation_radius(other)
-                    .is_some_and(|r| other.pos.distance(o.prev_pos) < radius.max(r) + SEPARATION_PUSH_SU)
+                && separation(other).is_some_and(|(r, other_push)| {
+                    other.pos.distance(o.prev_pos) < radius.max(r) + other_push * (1.0 + SPEED_TOLERANCE)
+                })
         })
 }
 

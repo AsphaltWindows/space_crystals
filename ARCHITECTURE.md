@@ -1902,7 +1902,8 @@ magic box did, **(Y)** where friendly yielding and the answers to Q0008 did, **(
 the hardening of crowds and nav performance did, **(H2)** where gathering Drones passing through each other did,
 **(M3-G)** where DragMovement and idle units moving apart did, **(M3-G2)** where a queueing unit going round
 the row in its way did, **(M3-G3)** where one with no way round giving up did, **(H1)** where Gliders and the soft
-separation of air units did, **(M5-H2)** where a Glider's Move completing on arrival did), and the code is
+separation of air units did, **(M5-H2)** where a Glider's Move completing on arrival and Gliders pushing apart slowly
+did), and the code is
 `crates/sim/src/movement.rs` and `movement/`, with the unit's state in
 `mover.rs`.
 
@@ -2120,12 +2121,14 @@ separation of air units did, **(M5-H2)** where a Glider's Move completing on arr
   the same.
 - **Air units keep apart softly** (`movement/air.rs`, `air::separate`; slice M5-H1, plan decision T81, design change
   0328; `docs/movement.md > 6.10`): after every unit has moved and yielded in 5d, each pair of air units with a
-  SeparationRadius (`UnitDef::separation_radius`: the Sparrow's 32 su) nearer than the larger radius is pushed apart,
-  each by half of what the pair lacks, a unit's whole push in a tick capped at `tuning::air::SEPARATION_PUSH_SU`
-  (2 su, a placeholder). The pairs come from a `space::Layer` of the air units, in id order, and the pushes are summed
-  and applied together; nothing blocks them. A HoverCraft is kept on the map (design change 0045), a Glider isn't. A
-  push is no part of the unit's own move: `velocity` and `momentum` stay its movement's, and a unit at rest stays at
-  rest. Units spawned in the tick are pushed against but not pushed.
+  SeparationRadius (`UnitDef::separation_radius`: the Sparrow's 48 su, (slice M5-H2) design change 0405, was 32)
+  nearer than the larger radius is pushed apart, each by half of what the pair lacks, a unit's whole push in a tick
+  capped at `tuning::air::SEPARATION_PUSH_SU` (2 su, a placeholder). (M5-H2) Each unit takes its own base's share of
+  its pushes and of the cap (`UnitBaseDef::separation_strength`): a HoverCraft all of it, a Glider a quarter (design
+  change 0405: "Gliders push apart slowly"). The pairs come from a `space::Layer` of the air units, in id order, and
+  the pushes are summed and applied together; nothing blocks them. A HoverCraft is kept on the map (design change
+  0045), a Glider isn't. A push is no part of the unit's own move: `velocity` and `momentum` stay its movement's, and
+  a unit at rest stays at rest. Units spawned in the tick are pushed against but not pushed.
 - **Idle units that overlap move apart** (`movement/separate.rs`; design change 0126, which amends 0106's "nothing
   is pushed apart"): in its turn, a unit that yields (`yielding::can_yield`: no command at all) and is at rest
   takes a step off the lowest-id unit its box overlaps, along the axis it is out soonest, at
@@ -2161,10 +2164,10 @@ separation of air units did, **(M5-H2)** where a Glider's Move completing on arr
   before; no other model may ever have momentum), and an idle unit that overlapped another a tick earlier, or was
   evacuated in the tick, moving off it (design changes 0126 and 0349), and (M5-H1) a Glider, which flies and has
   momentum without a goal, and an air unit with a SeparationRadius pushed off another, by at most
-  `SEPARATION_PUSH_SU` (which I3 allows it beyond its speed too). (M5-H1) G1 (`gliders`): every Glider that was in the
-  game a tick earlier flies at a speed between its IdleSpeed and MaxSpeed, its velocity its momentum, and its
-  `map_pos` is on the map; one stopped after its flight (its Attack's target died in phase 5e) shows no move until
-  its next, and keeps its speed. K1 (`paths`): each player's known grids are
+  `SEPARATION_PUSH_SU` ((M5-H2) its base's share of it; which I3 allows it beyond its speed too). (M5-H1) G1
+  (`gliders`): every Glider that was in the game a tick earlier flies at a speed between its IdleSpeed and MaxSpeed,
+  its velocity its momentum, and its `map_pos` is on the map; one stopped after its flight (its Attack's target died
+  in phase 5e) shows no move until its next, and keeps its speed. K1 (`paths`): each player's known grids are
   those a fresh build
   from the state gives. P1 (`projectiles`, slice M4-O, plan decision T42): every projectile in flight lands after the
   tick just played, between finite points. O1 (`operations`, slice M4-F): a Tunnel's operation and its site name each

@@ -219,7 +219,8 @@ fn random_command(rng: &mut Rng, sim: &Sim) -> PlayerCommand {
 
 /// Every object stays where the sim's rules allow it. Units (`docs/movement.md > 8`): I2, a ground unit's box
 /// overlaps no blocked tile and stays inside the map; I3, no unit moves more than its top speed in a tick, (M5-H1) an
-/// air unit that keeps apart from others more than that and the push of their soft separation (`SEPARATION_PUSH_SU`).
+/// air unit that keeps apart from others more than that and the push of their soft separation (`SEPARATION_PUSH_SU`,
+/// (M5-H2) its base's share of it, `UnitBaseDef::separation_strength`).
 /// A Glider may fly past the map's edge, and counts as being at the nearest edge tile (`Object::map_pos`): that is on
 /// the map. (M5-M1) And the invariants of the game's rules hold, whatever the input (`Invariants::check_rules`: P1, O1,
 /// R1, and H1, B1 and A1, the HP, the banks and the Augmentations, (M5-N4a) E1, the energy, and (M5-H1) G1, the
@@ -262,8 +263,9 @@ fn check_invariants(sim: &Sim, inputs: &TickInputs, rules: &mut Invariants) {
                 assert!(clear, "I2 in tick {tick}: {o:?}");
             }
             let moved = o.pos.distance(o.prev_pos);
-            let push = match (unit.base_def().domain, unit.separation_radius) {
-                (Domain::Air, Some(_)) => SEPARATION_PUSH_SU,
+            let base = unit.base_def();
+            let push = match (base.domain, unit.separation_radius, base.separation_strength) {
+                (Domain::Air, Some(_), Some(strength)) => SEPARATION_PUSH_SU * strength,
                 _ => 0.0,
             };
             assert!(
