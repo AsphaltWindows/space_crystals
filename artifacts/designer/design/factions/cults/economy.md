@@ -99,7 +99,7 @@ A 10x10 grid unit area centered on the 4x4 building. **The whole area must lie o
 (user, 2026-11-26; Q0107, option b; as the Tunnel Area display, factions/syndicate/tunnels.md)
 - **Placing a Hall** shows its 10x10 area: the tiles it would claim, the tiles already claimed by your own Halls, the non-Recruitable tiles, and its Effectiveness in %.
 - **Your own Halls under construction and placed ghosts** (not yet started) also show the tiles they **would** claim (user, 2026-11-26), marked as taken by them, even though a Hall claims nothing until it is complete (Claiming details).
-- **Enemy Halls you can see** count in the preview: the tiles they claim are shown as unclaimable. Enemy Halls you can't see are not counted (no information leak), so the preview may then be optimistic.
+- **Enemy Halls you can see, or remember** (seen before and now in fog, shown in their last-known state; core/vision.md > Explored) count in the preview: the tiles they claim are shown as unclaimable (user, 2026-11-26). A remembered Hall is assumed to still be there, so the estimate can be wrong (it may be gone). Enemy Halls you have never seen are not counted (no information leak), so the preview may then be optimistic.
 - **A selected own Hall** shows its claimed tiles.
 - Enemy Halls' areas are never drawn as areas of their own.
 
