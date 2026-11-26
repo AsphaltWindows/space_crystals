@@ -24,7 +24,7 @@
 //!   `factions/syndicate/structures/laser_turret.md > Construction`: "On successful completion, the Agent emerges on
 //!   the surface adjacent to the finished structure"): "at the **first clear spot next to the turret**, searched in a
 //!   fixed order starting from the side it came from; if none is clear, it waits inside until one is" (design change
-//!   0298 point 7; [`Sim::spot_beside`], [`Sim::step_beside`]).
+//!   0298 point 7; [`Sim::step_beside`], by the spots around a footprint, plan decision T62: `Sim::spot_around`).
 //! - **Cancel** ([`Sim::cancel_site`], `ConstructionCommand::CancelConstruction` on the site: "It does nothing but
 //!   Cancel"): the site goes, refunded at the current top price (design changes 0233 and 0284: "construction and
 //!   upgrade cancels refund the current top price"), a Laser Turret's at 75% of its price, rounded down, like an
@@ -52,41 +52,11 @@ use crate::defs::{BuilderGoes, ObjectKind};
 use crate::economy::RATIO_ONE;
 use crate::events::SimEvent;
 use crate::ids::ObjectId;
-use crate::math::{self, PI};
-use crate::network::{Place, WALL_CLEARANCE};
+use crate::math;
+use crate::network::Place;
 use crate::object::Placement;
+use crate::placement::Round;
 use crate::transform::follow_max;
-use crate::units::SU_PER_GU;
-
-/// The eight directions out of a footprint, its sides and its corners, by index, clockwise on screen from the east
-/// (`math::facing_vector`: +y is south): the spots beside it where a worker comes out ([`Sim::spot_beside`]).
-const BESIDE: [(f32, f32); 8] = [
-    (1.0, 0.0),
-    (1.0, 1.0),
-    (0.0, 1.0),
-    (-1.0, 1.0),
-    (-1.0, 0.0),
-    (-1.0, -1.0),
-    (0.0, -1.0),
-    (1.0, -1.0),
-];
-
-/// The order [`BESIDE`]'s directions are tried in, from the one nearest `came_from` (a direction): it, then those
-/// further and further round from it, of two equally far the one with the lower index, and the opposite one last.
-fn beside_order(came_from: Vec2) -> [usize; 8] {
-    let eighths = math::vector_angle(came_from) / (PI / 4.0);
-    // An eighth of a turn from -4 to 4: the nearest direction, by index (4 and -4 are both the west).
-    let start = (eighths.round() as i32).rem_euclid(8);
-    let mut order = [0; 8];
-    order[0] = start as usize;
-    for k in 1..4 {
-        let (a, b) = ((start + k).rem_euclid(8), (start - k).rem_euclid(8));
-        order[2 * k as usize - 1] = a.min(b) as usize;
-        order[2 * k as usize] = a.max(b) as usize;
-    }
-    order[7] = (start + 4).rem_euclid(8) as usize;
-    order
-}
 
 impl Sim {
     /// Worker `worker`, on its site, starts building a `kind` there (module docs): the structure comes into the game
@@ -145,9 +115,15 @@ impl Sim {
 
     /// The workers held in the structures they finished, waiting to come out beside them (`BuilderGoes::Beside`: a
     /// Laser Turret's Agent), in id order: each comes out at the first clear spot next to its structure's footprint
-    /// ([`Sim::spot_beside`]), facing away from it, idle, with what it carries, with a `SimEvent::LeftSite`; with no
+    /// (`factions/syndicate/structures/laser_turret.md > Construction`: "the Agent emerges on the surface adjacent to
+    /// the finished structure"), facing away from it, idle, with what it carries, with a `SimEvent::LeftSite`; with no
     /// spot clear, "it waits inside until one is" (design change 0298 point 7), a later tick. In the economy phase, as
     /// an ejected unit: it never moves in the tick it appears, and phase 5f sees it.
+    ///
+    /// The spot is the first clear one of the ring against the footprint (plan decision T62, [`Sim::spot_around`]; for
+    /// an Agent beside a turret, the eight directions out of it, a side's middle or a corner), "searched in a fixed
+    /// order starting from the side it came from" (0298 point 7; `Round::BothWays`: that side first, then round both
+    /// ways, of two equally far the lower number first).
     fn step_beside(&mut self) {
         if self.held.is_empty() {
             return;
@@ -157,7 +133,7 @@ impl Sim {
                 Place::Site(site) => (self.objects.get(&site))
                     .is_some_and(|o| !o.is_site())
                     .then_some((worker, site)),
-                Place::Network => None,
+                Place::Network | Place::Building(_) => None,
             })
             .collect();
         for (worker, structure) in waiting {
@@ -169,7 +145,7 @@ impl Sim {
             let Some(placement) = self.objects.get(&structure).and_then(|o| o.placement) else {
                 continue;
             };
-            let Some((spot, outward)) = self.spot_beside(kind, &placement, came_from) else {
+            let Some((spot, outward)) = self.spot_around(kind, &placement, 0..=0, came_from, Round::BothWays) else {
                 continue;
             };
             if self.put_on_map(worker, spot, outward) {
@@ -179,24 +155,6 @@ impl Sim {
                 });
             }
         }
-    }
-
-    /// Where a unit of `kind` that came onto the footprint `placement` from the direction `came_from` comes out beside
-    /// it, and the direction out to there (`factions/syndicate/structures/laser_turret.md > Construction`: "the Agent
-    /// emerges on the surface adjacent to the finished structure"): of the eight spots next to the footprint, its box
-    /// against a side or a corner ([`BESIDE`]), the first clear one (`Sim::check_unit_fits`, the rule of every unit put
-    /// on the map), "searched in a fixed order starting from the side it came from" (design change 0298 point 7;
-    /// [`beside_order`]: its side first, then round both ways, ties by direction index). `None` if none is.
-    fn spot_beside(&self, kind: ObjectKind, placement: &Placement, came_from: Vec2) -> Option<(Vec2, Vec2)> {
-        let half = kind.def().half_extents()?;
-        let footprint = Vec2::new(placement.w as f32, placement.h as f32) * (SU_PER_GU / 2.0);
-        let reach = footprint + half + Vec2::splat(WALL_CLEARANCE);
-        beside_order(came_from).into_iter().find_map(|i| {
-            let direction = Vec2::from(BESIDE[i]);
-            let spot = placement.center() + direction * reach;
-            (self.map.contains_point(spot) && self.check_unit_fits(kind, spot, None).is_ok())
-                .then(|| (spot, direction.normalize()))
-        })
     }
 
     /// Site `id` is complete (module docs): it is the structure it was building, in operation from now on, and its
@@ -303,31 +261,6 @@ impl Sim {
             if self.put_on_map(worker, centre, facing) {
                 self.events.push(SimEvent::LeftSite { worker, site });
             }
-        }
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    /// Design change 0298 point 7: the spots beside a footprint are tried "in a fixed order starting from the side it
-    /// came from", then further and further round, of two equally far the lower index first, and the opposite side
-    /// last; a direction between two goes to the nearer. Each order tries all eight.
-    #[test]
-    fn the_spots_beside_are_tried_from_the_side_it_came_from() {
-        assert_eq!(beside_order(Vec2::new(1.0, 0.0)), [0, 1, 7, 2, 6, 3, 5, 4]);
-        assert_eq!(beside_order(Vec2::new(-1.0, 1.0)), [3, 2, 4, 1, 5, 0, 6, 7]);
-        assert_eq!(beside_order(Vec2::new(0.0, -1.0)), [6, 5, 7, 0, 4, 1, 3, 2]);
-        assert_eq!(beside_order(Vec2::new(-1.0, 0.0)), [4, 3, 5, 2, 6, 1, 7, 0]);
-        assert_eq!(beside_order(Vec2::new(-1.0, -0.0)), [4, 3, 5, 2, 6, 1, 7, 0]);
-        assert_eq!(beside_order(Vec2::new(1.0, 0.3))[0], 0);
-        assert_eq!(beside_order(Vec2::new(1.0, 0.5))[0], 1);
-        for i in 0..8 {
-            let mut order = beside_order(math::facing_vector(i as f32 * PI / 4.0 + 0.1));
-            assert_eq!(order[0], i);
-            order.sort_unstable();
-            assert_eq!(order, [0, 1, 2, 3, 4, 5, 6, 7]);
         }
     }
 }

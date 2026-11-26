@@ -40,7 +40,9 @@ pub enum SimEvent {
     /// An attack took effect: `attacker`'s Firing phase ended on `target` (`systems/combat.md > Firing`). The
     /// positions of both, space units, for drawing the shot. Its damage follows as a [`SimEvent::Hit`]. A single-target
     /// attack's only: a projectile's launch and its blast have events of their own ([`SimEvent::ProjectileLaunched`],
-    /// [`SimEvent::Blast`]).
+    /// [`SimEvent::Blast`]). (M5-O3) A TailDisjointed shot's `to` is the location it locked, not where `target` stands
+    /// (`systems/combat.md > TailDisjointed`): `target` is whatever was there at the end of Firing, the object it was
+    /// aimed at or another in its place (`crate::combat`); one that hit nothing is a [`SimEvent::Missed`].
     Attacked {
         attacker: ObjectId,
         target: ObjectId,
@@ -222,14 +224,39 @@ pub enum SimEvent {
         unit: ObjectId,
         tunnel: ObjectId,
     },
-    /// `unit`'s Enter order on `tunnel` ended without it going in (`factions/syndicate/tunnels.md > Tunnel Network >
-    /// Walking in`: "if the Tunnel a unit is heading for is destroyed, or its tier doesn't suit the unit, the Enter
-    /// order ends and the unit idles"; "if the way is genuinely blocked, the normal Failure rule applies"): its walk
-    /// ended short of the entry path, or the Tunnel no longer suits it. For the feedback line, and for counting those
-    /// that give up.
+    /// `unit`'s Enter order on `target`, a Tunnel or a building that holds units, ended without it going in
+    /// (`factions/syndicate/tunnels.md > Tunnel Network > Walking in`: "if the Tunnel a unit is heading for is
+    /// destroyed, or its tier doesn't suit the unit, the Enter order ends and the unit idles"; "if the way is genuinely
+    /// blocked, the normal Failure rule applies"): its walk ended short of the entry path, or the target no longer
+    /// suits it, or (`full`) the unit got to a building's entry path with no room in its pool (slice M5-F1;
+    /// Placeholder (Q0104 point 2): "The Enter ends and it idles beside the Armory (the normal Failure rule)"). For the
+    /// feedback line, and for counting those that give up.
     EnterFailed {
         unit: ObjectId,
-        tunnel: ObjectId,
+        target: ObjectId,
+        full: bool,
+    },
+    /// (M5-F1) `unit` walked into `building`'s entry path and went inside, into its pool (`crate::holding`;
+    /// `systems/controls/commands.md > Enter`: "The unit walks to the structure's entrance side and goes inside"). It
+    /// keeps its id, and is held off the map (`network::Place::Building`), as in a Tunnel Network: no `Removed`
+    /// follows.
+    EnteredBuilding {
+        unit: ObjectId,
+        building: ObjectId,
+    },
+    /// (M5-F1) `unit`, ejected (`HoldCommand::EjectAll`), came out of `building` into its exit doorway, and is among
+    /// the sim's objects again, with the id it had (`factions/cults/structures/armory.md > Eject All`;
+    /// `Sim::step_holding`). No `Spawned` comes with it.
+    LeftBuilding {
+        unit: ObjectId,
+        building: ObjectId,
+    },
+    /// (M5-F1) `unit` was inside `building` as the building left the game, and came out alive beside its footprint,
+    /// idle (`factions/cults/economy.md > Cults Building Mechanics > Evacuation on Destruction`: "Everyone inside is
+    /// evacuated alive"; `Sim::evacuate`). It follows the building's `Removed`, in the same tick, with the id it had.
+    Evacuated {
+        unit: ObjectId,
+        building: ObjectId,
     },
     /// `unit`'s Attack order on `target` failed: the target is inside the unit's MinRange and the unit can't move to
     /// back off (`systems/controls/behaviors.md > AttackingObject > Target inside MinRange`, design change 0182: "the
@@ -362,5 +389,26 @@ pub enum SimEvent {
     Blast {
         at: Vec2,
         radius: f32,
+    },
+    /// (M5-O3) `attacker`'s TailDisjointed attack took effect on nothing: its Firing phase ended with no object at
+    /// `to`, the location locked at the end of its Aiming (`systems/combat.md > TailDisjointed`: "Targets can dodge by
+    /// moving out of the locked location"; `systems/combat.md > CanMiss`), and its damage is lost. `from` is its
+    /// centre, for drawing the shot as an [`SimEvent::Attacked`]'s is drawn, to the spot (design change 0304:
+    /// "Visually still an instant gunshot"). `target`: the object it was aimed at, while it is in the game; none for a
+    /// shot at the ground (Attack Ground).
+    Missed {
+        attacker: ObjectId,
+        target: Option<ObjectId>,
+        from: Vec2,
+        to: Vec2,
+    },
+    /// (M5-O3) `unit`'s Attack Ground order on the location `at` failed as a [`SimEvent::TargetTooClose`] Attack does:
+    /// the location is inside the unit's MinRange and the unit can't move to back off, or can't back off further
+    /// (`systems/controls/behaviors.md > AttackingLocation`, as `systems/controls/behaviors.md > AttackingObject >
+    /// Target inside MinRange`; `Sim::step_too_close`). The client's feedback line says "Target too close" for both.
+    /// The unit stands, with its next queued order, if any, from the next tick.
+    LocationTooClose {
+        unit: ObjectId,
+        at: Vec2,
     },
 }

@@ -215,6 +215,10 @@ impl Sim {
         // that a unit a Hideout finished in this tick with a surface rally comes out in it; after 5d, so that a unit
         // never moves in the tick it appears; before 5f, so that it is seen in it.
         self.step_network();
+        // The buildings that hold units (slice M5-F1, `sim/holding.rs`): each lets the next unit Eject All took out
+        // into its exit doorway if the doorway is free. After the producers, as a producer's finished unit, and for the
+        // same reasons: after 5d, before 5f.
+        self.step_holding();
         // The defeat check ends the economy phase (plan decisions T5 and T8, slice M2-F2): after every way a
         // structure leaves the game; before 5f, so that the units a defeat makes neutral are no one's eyes in its
         // own tick.

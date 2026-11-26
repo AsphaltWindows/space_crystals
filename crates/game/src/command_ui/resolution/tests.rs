@@ -26,6 +26,7 @@ fn on(target: CursorTarget, destructible: bool, domain: Domain) -> MapTarget {
             station: false,
             drop_off: false,
             transit: &[],
+            accepts: &[],
         }),
     }
 }
@@ -71,6 +72,7 @@ const fn combat_unit(attack: Option<TargetDomain>, may_attack: bool) -> UnitCapa
     UnitCapabilities {
         template: Some(InterfaceTemplate::BasicCombatUnit),
         abilities: Some(Abilities {
+            kind: ObjectKind::Guard,
             attack,
             may_attack,
             worker: false,
@@ -93,6 +95,7 @@ const UNIVERSAL: UnitCapabilities = combat_unit(Some(TargetDomain::Universal), t
 const DRONE: UnitCapabilities = UnitCapabilities {
     template: Some(InterfaceTemplate::Drone),
     abilities: Some(Abilities {
+        kind: ObjectKind::Drone,
         attack: None,
         may_attack: true,
         worker: true,
@@ -104,6 +107,7 @@ const DRONE: UnitCapabilities = UnitCapabilities {
 const LOADED_DRONE: UnitCapabilities = UnitCapabilities {
     template: Some(InterfaceTemplate::Drone),
     abilities: Some(Abilities {
+        kind: ObjectKind::Drone,
         attack: None,
         may_attack: true,
         worker: true,

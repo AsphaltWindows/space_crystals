@@ -158,6 +158,7 @@ impl UnitCapabilities {
             abilities: (kind.def().unit.as_ref())
                 .filter(|_| !transforming)
                 .map(|unit| Abilities {
+                    kind,
                     attack: unit.attack.map(|attack| attack.target_domain),
                     may_attack: modes.can_attack(id),
                     worker: unit.worker.is_some(),

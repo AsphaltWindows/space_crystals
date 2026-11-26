@@ -22,6 +22,7 @@
 **Placeholder stats** (designer, 2026-11-26, at the user's request: provisional numbers so the Director can implement; tune in the numbers pass):
 - Silhouette 40x40 space units; MaxHP 50; PointArmor 0, FullArmor 0; SightRange 6 grid units; Groupable true.
 - GliderMovement: IdleSpeed 4 su/frame; MaxSpeed 10 su/frame; Acceleration 0.5 su/frame²; Deceleration 0.5 su/frame²; MaxCentripetalAcceleration 1 su/frame² (turn radius about 100 su at full speed).
+- SeparationRadius 32 space units (Q0120).
 - Turret: TurnAngle 45° (total), TurnRate 8°/frame.
 - Attack: Damage 3; Range 3 grid units; MinRange 0; Aim 1, Firing 1, Cooldown 1, Reload 1 frames (12 damage per second before armor).
 - Cost: Airstrip, 1 Recruit, 75 Space Crystals, 320 frames.

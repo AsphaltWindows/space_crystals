@@ -2,6 +2,7 @@
 //! location engaged in place of a target (slice M4-O), and its hash while no location is set.
 
 use super::*;
+use crate::hash::{StateHash, StateHasher};
 
 fn state(target: Option<u32>, phase: Option<AttackPhase>) -> AttackState {
     AttackState {

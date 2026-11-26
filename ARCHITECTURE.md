@@ -252,8 +252,9 @@ Units, structures and resources are all `Object`s (`object.rs`, `core/entities.m
   Hall is gone stays: it is an orphaned point, and a Cults unit without an entry is orphaned whole (Placeholder
   (Q0101 point 2)); `testing::references` doesn't check it as a reference for that reason. The Gunner is the first
   kind with a MinRange, which M3-L2's code serves (*Behaviours*; M5-A gave a unit that can't back off its "Target too
-  close", design change 0204 point 3), and the first TailDisjointed attack, which hits as a FullyConnected one until
-  slice M5-O3 (*Combat*). The Storage, 1/6 on its 2x2 as written, is the building armour test's one exception
+  close", design change 0204 point 3; M5-O3 took the back-off on to the middle of the band, question Q0054, and gave
+  an Attack Ground's location the same rule), and the first TailDisjointed attack (slice M5-O3, *Combat > TailDisjointed
+  attacks*), which can miss. The Storage, 1/6 on its 2x2 as written, is the building armour test's one exception
   (`tests/building_armor.rs`, Placeholder (Q0094)). The Cults stay the faction not implemented yet
   (`StartingConditions::of`) until slice M5-B.
 - **Units off the map: the held store** (`network.rs`, `sim/network.rs`; slice M4-C, plan decision T30;
@@ -268,7 +269,8 @@ Units, structures and resources are all `Object`s (`object.rs`, `core/entities.m
   slice M4-H's stranded-unit rule calls too), the state hash and the saves, `testing::dangling_references`, the
   client's control groups (`ControlState::retain_on_map`). `Place` is where: `Network`, or `Site(site)`, a worker
   inside the site it builds (slice M4-E, *Sites* below: not in the network, so no Eject brings it out, and it doesn't
-  regenerate); match it exhaustively and never assume a held unit's place is on the map (a transport's passengers
+  regenerate), or `Building(building)`, a unit inside a building that holds units (slice M5-F1, *Buildings that hold
+  units* below); match it exhaustively and never assume a held unit's place is on the map (a transport's passengers
   will be held at a carrier that may itself be held). `Sim::take_off_map(id, place, entered)` and `Sim::put_on_map(id,
   pos, facing)` are the only ways off and back: the first ends every reference to the unit as a removal does, without
   a death's effects (no `Died`, no `Removed`), and clears the unit's own orders (a Build among them refunded,
@@ -296,6 +298,56 @@ Units, structures and resources are all `Object`s (`object.rs`, `core/entities.m
   seen as any structure; the worker inside, held, is not. A Laser Turret's site is no different (slice M4-S1, design
   change 0297 point 6: "An Agent's site is visible ... (the Agent inside is not)"), and it holds its fire until
   complete (*Combat > Structures that attack*).
+- **Buildings that hold units** (`holding.rs`, `sim/holding.rs`, `sim/holding/evacuation.rs`; slice M5-F1, plan
+  decision T60; `factions/cults/structures/armory.md`, `factions/cults/economy.md > Cults Building Mechanics >
+  Evacuation on Destruction`, `systems/controls/commands.md > Enter` with design change 0319's TargetObject): **one
+  capability, data on the def**, `StructureDef::holds: Option<HoldsDef { entrance, exit, capacity, accepts }>`: the
+  side lettered `entrance` is the way in, `exit` the `ExitRule` of the way out (`ExitRule::Side` only, for now; the
+  defs test checks it, and that a type that also produces has the same rule in both), `capacity` bounds the pool,
+  `accepts` the kinds let in. The Armory is the one so far (B in, C out, 10, Recruits). The units inside are in the
+  held store at `Place::Building(building)` (`Sim::held_in`: longest inside first, by `Held::since` then id), so
+  everything the store does for a Tunnel's (references, the hash, the saves, a defeat) holds for them too.
+  - **In**: M4-C's Enter order, generalized, not forked. `network::admits(target, kind)` asks `holding::admits` of a
+    building that holds units (placed, owned, `Object::is_operational`: a site refuses, `Reject::UnderConstruction`
+    at the gate, Placeholder (Q0104 point 4); `accepts` names the kind, else `NoTransit::NotAccepted`,
+    `Reject::NotAccepted` when none of the units is let in). The walk ends at `network::EntryPath` (`outward`, `spot`;
+    `stand(half)`, `reached(pos, half)`), `EntryPath::of_object`: a Tunnel's from `Paths::entry_path`, a holder's
+    the middle of its entrance side (`holding::entry_path`, Placeholder (Q0104 point 1)). A Tunnel's units walk up
+    against the wall (M4-C, unchanged); a holder's stop `holding::ENTRY_STANDOFF_SU` (4 su, within the reach) clear
+    of it (`EntryPath::standoff`): against it, a Recruit pressed along the wall by the crowd coming round the corner of
+    the entrance side slid ever more slowly towards a spot it couldn't get round the corner to, and gave up with the
+    one behind it (`entering.rs`, the QA run's game). **The room is judged on
+    arrival** (`Sim::room`: capacity less the pool, Placeholder (Q0104 points 2 and 5)), not at the gate: a unit that
+    gets there with no room loses its order and idles (`SimEvent::EnterFailed { full: true }`, the client's "No room
+    inside" line). The right-click resolves an own operational holder that takes the unit's kind to Enter
+    (`Aimed::accepts`, `Abilities::kind`; "Own Armory → Enter Armory").
+  - **Out by Eject All** (`Command::Holding { objects, command: HoldCommand::EjectAll }`, gate `Sim::check_holding`:
+    `Reject::NoHolders`, `Reject::NothingInside`): it marks the pool `Held::ejected` (hashed and saved only while
+    set), and `Sim::step_holding`, in the economy phase right after `Sim::step_network`, lets the marked unit longest
+    inside out of each building in id order through its exit doorway (`Sim::release_held`, a producer's release:
+    `doorway_spot`, `Mover::exit`, one at a time, only once the doorway is free; of several doors, the first free one
+    in `Doorway::order`, slice M5-C's rule; `SimEvent::LeftBuilding`). A unit that goes in meanwhile isn't marked,
+    and stays. With no order (the RallyPoint is slice M5-F2's), the unit walks
+    straight out and idles. `production::exit_rule` gives a building's doorway its rule: production's, else the
+    holder's.
+  - **Out by destruction**: in `Sim::remove_objects`, `Sim::evacuations` reads each going holder's units first
+    (before the refunds, for slice M5-F2's reserved and training units, Placeholder (Q0106 point 2)), and
+    `Sim::evacuate` puts them on the map once the building has left the game and every reference to it is gone: each
+    at `Sim::spot_around` over every ring on the map, clockwise from the exit side's middle (Placeholder (Q0106
+    point 1)), unchanged and idle (point 4), with a `SimEvent::Evacuated` after the building's `Removed`; so before
+    the defeat check of the tick, and a defeated player's evacuees turn neutral on the map with its other units. One
+    with no spot on the whole map leaves the game (`Sim::remove_held`; Placeholder, not in the design).
+  - **Measured** (`tests/holding_perf.rs`, ignored, release): 8 Armories with 10 Recruits each cycling through Enter
+    and Eject All, a mean of 0.028 ms and a p99 of 0.071 ms a whole sim tick (the economy phase, `step_holding`
+    with the rest, 0.001 ms); the tick that removes all 8 with 80 inside, 0.22 ms. `agents_perf` (the Tunnels'
+    Enter) and `recruits_perf` ran A/B against master unchanged: the same games, the same timings (load average 3.9).
+  - **Not yet**: the pool is every unit inside (`Sim::pool`, slice M5-F2 leaves the reserved ones out of it), and no
+    interface (the panel is M5-F2's, the Enter pointer M5-J1's). Design change 0319's other holders fit the def as
+    it is (the Chop Shop, Cathedral, Altar and Airstrip with sides and capacities; the Temple and Shrine, AAAA, take
+    the first side lettered A clockwise from the top). The Garrison's "units leave through any side, at the first
+    clear spot next to the footprint" is either slice M5-C's `ExitRule::Sides` (a door on every side, the first free
+    one, which `Sim::release_held` already serves; the defs test allows holders `ExitRule::Side` only, for now) or a
+    rule of its own served by `Sim::spot_around`.
 - **Expansions and a Tunnel's operation** (`sim/expansions.rs`, `tunnel/operation.rs`; slice M4-F;
   `factions/syndicate/tunnels.md > ExpandMenu`, `factions/syndicate/tunnels.md > AwaitingPlacement (Expansion)`,
   `factions/syndicate/tunnels.md > Expansions under construction`; design changes 0240, 0254, 0290, 0291): a Tunnel
@@ -591,6 +643,21 @@ Layout validation can't disagree. **Never test a placement rule anywhere else: a
 - **Not placement rules**: debug spawns bypass them (they keep the map's rules and apart from other footprints, see
   *Commands, events and replays*), and starting units follow the unit-start rule (`paths::misplaced`, see *Sim
   scenarios and tests*).
+- **Spots around a footprint** (`placement/spots.rs`, `sim/spots.rs`; slice M5-F1, plan decision T62): **the one
+  search for where a unit put on the map beside a building stands**, so that every such rule is predictable and the
+  same (`systems/controls/behaviors.md > Core principle: predictable, not optimal`). `Spots::around(placement, half)`
+  gives rings of unit-sized spots: ring 0's boxes against the footprint (a margin of `WALL_CLEARANCE` so they overlap
+  none of it), each later ring a box further out; a ring's spots are its four corners, its four side middles, and as
+  many more along each side as fit a box apart between middle and corner (a ring with no room between is the eight
+  directions out of it). They are numbered clockwise on screen from the east side's middle. `Spots::first(rings,
+  towards, round, fits)` tries ring after ring, each from its spot in the one of the eight directions nearest
+  `towards`, `Round::BothWays` (that spot, then further and further round both ways, of two equally far the
+  lower-numbered first) or `Round::Clockwise`. `Sim::spot_around(kind, placement, rings, towards, round)` is the
+  sim's: each spot on the map that `Sim::check_unit_fits` takes, against what stands there, the units placed before
+  it in the same search included; `Sim::rings_on_map` is every ring that can still have a spot on the map. Users: the
+  Laser Turret's Agent (ring 0, both ways from the side it came from, *Economy*) and the evacuation of a destroyed
+  building that holds units (every ring, clockwise from its exit side, *Object model > Buildings that hold units*).
+  **A new rule that puts units beside a footprint calls `Sim::spot_around`; it never writes its own search.**
 - **Tests**: `src/placement/tests/` (each rule on the pure check), `placement/build_area.rs`'s (the 28 × 28 area,
   each kind's extension, the runs), `tests/placement.rs` (the verification points of design changes 0004 and 0091 to
   0097 in games and layouts, determinism, a save), `tests/warp_in/` (the Warp In method, see *Economy > Warp In*),
@@ -640,12 +707,16 @@ Layout validation can't disagree. **Never test a placement rule anywhere else: a
      and whose box is within `ENTRY_REACH_SU` of its Tunnel's entry spot leaves the map for the network
      (`Sim::take_off_map`, `SimEvent::EnteredNetwork`), on its way or at the end of its walk alike: no hold between
      units (design change 0246). An Enter whose Tunnel is gone or no longer suits the unit, or whose walk ended short
-     of the path (the normal Failure rule, 0247), ends (`SimEvent::EnterFailed`). Before 5b to 5f, so that no grid,
-     collision, shot or sight of the tick includes a unit that has gone in.
+     of the path (the normal Failure rule, 0247), ends (`SimEvent::EnterFailed`). Into a building that holds units
+     (slice M5-F1, *Object model > Buildings that hold units*) the same, at its entry spot, if its pool has room then
+     (`SimEvent::EnteredBuilding`); with none the Enter ends there. Before 5b to 5f, so that no grid, collision, shot
+     or sight of the tick includes a unit that has gone in.
    - Attacks on a target too close, `Sim::step_too_close` (slice M3-L2, design change 0182): part of 5a, right after
      the deployments, in id order. Each unit that can't move, or can't back off further (design change 0204 point
      3), whose Attack order 5a found with its target inside its MinRange (`AttackOrder::too_close`) ends the order,
-     and its next queued one starts in the next tick, with `SimEvent::TargetTooClose`.
+     and its next queued one starts in the next tick, with `SimEvent::TargetTooClose`; and so does each whose Attack
+     Ground 5a found with its location inside (`AttackGround::too_close`, slice M5-O3), with
+     `SimEvent::LocationTooClose`.
    - 5b `paths::sync`: if the blocking footprints changed, rebuild the true navigation grids and bump
      `nav_version`.
    - 5c `paths::serve`: first each unit's staggered path checks, in the ticks where `(tick + id) % 4 == 0` (after
@@ -717,6 +788,11 @@ Layout validation can't disagree. **Never test a placement rule anywhere else: a
      unit finished in the tick with a surface rally comes out in it; after 5d, so that it never moves in the tick it
      appears; before 5f, which sees it. **Old ids come back** (plan decision T35): nothing after this step may take
      `first_new` for "everything that arrived this tick".
+   - Buildings that hold units, `Sim::step_holding` (slice M5-F1, `sim/holding.rs`): part of the economy phase,
+     right after the Tunnel Network. Each building with units Eject All marked, in id order, lets the one longest
+     inside out into its exit doorway if the doorway is free (`Sim::release_held`, `SimEvent::LeftBuilding`): one a
+     tick at most, and none while the last is still in the doorway. For the same reasons, after the producers (whose
+     trained units share the doorway, slice M5-F2) and 5d, before 5f.
    - Defeat, `economy::defeat::step` (slice M2-F2, plan decision T8, see *Economy > Defeat and the end of the
      game*): the economy phase's last step, run by `step` after the producers, so that every way a structure left
      the game in the tick counts (the commands' removals, 5e's deaths). Before 5f, so that the units a defeat makes
@@ -877,7 +953,9 @@ ticks spent in it. Hashed and serialized like all state.
   `testing::dangling_references` checks that nothing else names a removed object. A Tunnel taken, whatever took it,
   leaves its expansions neutral, destroys its unfinished ones and strands the network units no remaining Tunnel lets
   out, once everything of the call has gone (`Sim::lost_tunnels` before, `Sim::lose_tunnels` after; slice M4-H,
-  *Object model > Losing Tunnels*).
+  *Object model > Losing Tunnels*). The units inside a building that holds units come out alive around its footprint
+  in the same way (`Sim::evacuations` first, before the refunds, `Sim::evacuate` once the building and every
+  reference to it are gone; slice M5-F1, *Object model > Buildings that hold units*).
 - **Riot Shield** (`riot_shield.rs`; `factions/gdo/units/peacekeeper.md > Riot Shield (toggled ability)`, slice
   M3-S): shield down and shield up are two unit types, `Peacekeeper` and `PeacekeeperShielded` (design change 0173),
   which carry the same `RiotShieldDef`, naming both; the Barracks trains the first, and the Unit Control, a sum over
@@ -911,7 +989,7 @@ ticks spent in it. Hashed and serialized like all state.
   DoublyDisjointed`): a DoublyDisjointed attack (`Shooter::locks`) locks its target's position at the end of Aiming
   (`AttackPhase::FiringAt { at, target }`) and at the end of Firing launches a `Projectile` into `Sim::projectiles`, in
   launch order: its shooter and the shooter's owner, the object it was locked on (cleared when that object leaves:
-  `projectiles::forget`; a slot for the HeadDisjointed and TailDisjointed attacks to come), its start, the locked
+  `projectiles::forget`; a slot for the HeadDisjointed attack to come), its start, the locked
   point, its arrival tick (`flight_ticks`: the distance over the attack's ProjectileSpeed, rounded up: 32 ticks for 4
   GU at 8 su per tick), and the attack's Damage, AoE radius and TargetDomain, copied at launch. The unit goes on into
   Cooldown and Reloading, its base free from the launch (`base_is_free`). In 5e, after every attacker has acted, the
@@ -922,6 +1000,19 @@ ticks spent in it. Hashed and serialized like all state.
   (`combat/projectiles/golden.rs`, see *Replays and golden hashes*), and so is the ignored `projectiles_perf` (200 in
   flight). The game's thrower is the Grenadier (slice M4-U, `defs/syndicate/units/grenadier.rs`), played with its
   own numbers in `tests/grenadier.rs`; the mechanics' tests keep their test throwers, whose numbers stay put.
+- **TailDisjointed attacks** (`combat/phases.rs`, slice M5-O3; `systems/combat.md > TailDisjointed`, the Cults'
+  Gunner's, design change 0304): locked as a DoublyDisjointed attack is (`Shooter::locks`, `AttackPhase::FiringAt`),
+  at an object or a location, with no projectile. At the end of Firing it strikes the locked spot (`phases::strike`):
+  a single-target attack hits what stands there then (`phases::at_the_spot`: a destructible object whose shape, a
+  Silhouette or a footprint, covers the point, in a domain the attack can target, whoever owns it, seen or not), with
+  its single-target hit and a `SimEvent::Attacked` drawn to the spot; with nothing there it misses
+  (`SimEvent::Missed`), so a target that has left the spot dodges. Placeholder (not in the design): of two objects at
+  the spot, the one aimed at while it covers it, else the first in id order. An area one (the Artillery Rig's, not
+  built) blasts the spot as a landing projectile does. The base stays held through Firing and Cooldown, as for a
+  FullyConnected attack. No unit walks off the spot in the Gunner's two frames of Firing: each one's Silhouette
+  reaches further from its centre than it moves in two frames (the nearest, the Drone's: 18 su against 16). So its
+  tests move the target with a debug teleport (`tests/gunner.rs`), and the dodge on foot is tested with a longer
+  Firing (`combat/phases/tests/tail_disjointed.rs`).
 - **Area damage** (`combat/area.rs`, plan decision T46; `systems/combat.md > AoEDamage`): the one path of every area
   attack, a blast's hits. A blast takes every object whose domain its TargetDomain hits (`hits_domain`: Ground hits
   ground and underground objects, Air the air, Universal all; design change 0262: underground and hidden ones too),
@@ -934,8 +1025,11 @@ ticks spent in it. Hashed and serialized like all state.
   the damage lands: a dodged grenade reveals nothing (design change 0293, point 2).
 - **Attack Ground** (`orders/attack_ground.rs`, plan decision T47; `systems/controls/behaviors.md > AttackingLocation`):
   `OrderKind::AttackGround(point)` sets `AttackState::location`; 5e aims at a point in reach (`reaches_point`, from
-  the unit's shape) and fires. The behaviour walks the unit into range and backs it off a point inside its MinRange.
-  **It keeps firing** (design change 0293, answering Q0083 point 3): the location stays engaged after each launch, so
+  the unit's shape) and fires. The behaviour walks the unit into range, and backs it off a point inside its MinRange
+  by an Attack's own rule and code (`engage::too_close`, slice M5-O3; *Behaviours*), letting go of the location while
+  it does; a unit that can't back off gives the order up with `SimEvent::LocationTooClose` ("Target too close").
+  **It keeps firing** (design change 0293, answering Q0083 point 3): the location stays engaged after each shot (a
+  launch, or a TailDisjointed strike: the Gunner's, slice M5-O3), so
   the attack cycles at it until another order or a Stop, and the orders queued behind it never start on their own;
   only the Failure rule, or a weapon that can no longer attack the location, ends it. The gate takes it only for units
   whose weapon can target the ground (`combat::can_target_ground`, `Reject::CannotTargetGround`).
@@ -958,8 +1052,8 @@ ticks spent in it. Hashed and serialized like all state.
   reload runs on). Its armour is `Object::armor()`, the underground one while fully lowered (*Object model > The
   pop-up form*).
 - **Not yet**: units' turrets (their TurretAttributes: a turret faces its target at once, `TODO(turrets)` in
-  `combat/phases.rs`); the HeadDisjointed and TailDisjointed attacks, which hit as a FullyConnected one does and drop a
-  location (TODOs in `combat/phases.rs`).
+  `combat/phases.rs`); the HeadDisjointed attack, which hits as a FullyConnected one does (a TODO in
+  `combat/phases.rs`).
 
 ## Vision
 
@@ -1087,10 +1181,16 @@ writes the mover's goal and the target the attack engages, and reads `Mover::sta
   The removal path leaves such an order alone (*Combat > Removal path*).
   **A target inside MinRange** (`engage::too_close`, design change 0182): a unit that can move backs straight away
   from it, to where the gap would be the middle of the band from MinRange to Range (`AttackOrder::backing_off`), and
-  attacks once out of MinRange; one that can't (`Mover::can_move`) fails the order (`AttackOrder::too_close`,
+  attacks once the back-off ends: it goes on while the target is within Range, until the move ends there or where
+  the unit is blocked (question Q0054: "not just past MinRange"; slice M5-O3 fixed M5-A's back-off, which stopped
+  as soon as the target was out of MinRange). The unit engages nothing meanwhile, so that 5e doesn't aim from just
+  past MinRange and hold it there, and engages the target again as the back-off ends, or as the target leaves its
+  Range. One that can't move (`Mover::can_move`) fails the order (`AttackOrder::too_close`,
   `Sim::step_too_close`, `SimEvent::TargetTooClose`; the client's feedback line says "Target too close"), and so
   does one whose back-off ended with the target still inside and where it was: it can't back off ("cornered, or
-  blocked behind", design change 0204 point 3; slice M5-A, which gave it the feedback).
+  blocked behind", design change 0204 point 3; slice M5-A, which gave it the feedback). An Attack Ground's location
+  takes the same rule through the same code (slice M5-O3: `TooNear` is what the unit backs off from, `BackOff` the
+  order's parts the rule works on), and fails with `SimEvent::LocationTooClose`.
 - **Idle units** (`engage::idle`): scan their SightRange every tick; the acquired enemy is engaged with `close_in`
   from the IdleOrigin, where the unit stood. Farther than `IDLE_LEASH_GU` (4) from it the unit disengages and walks
   back without scanning; a target destroyed or out of SightRange leaves it idle where it is.
@@ -1454,12 +1554,13 @@ and the code is `crates/sim/src/movement.rs` and `movement/`, with the unit's st
   must add it to `testing::invariants::may_overlap` too, or I1 fails.
 - **The exit doorway** (`core/entities.md > Structure Type > Exit Doorway`, design change 0080; a portal's energy
   doorway, design change 0145; `production/exit.rs`, `production::ExitDoor`) is the one exception against tiles,
-  and the one case in which a unit's box overlaps a structure. A unit a producer released has `Mover::exit`, the
-  building's id, while its box still overlaps that footprint. For that unit alone, `World::door_free` replaces the
-  tile tests of `tiles_free`, `is_free_for` and `along_axis`: the building's own tiles don't block it, every other
-  blocked tile does (`ExitDoor::box_clear`), and it may only come out (`ExitDoor::allows`: out of a side doorway,
-  never deeper in, and inside only within the exit side's span, so it leaves through that side and no other; out
-  of an energy doorway, never closer to the footprint's centre). Units still block it and it blocks them, as ever.
+  and the one case in which a unit's box overlaps a structure. A unit a producer released (or a building that holds
+  units let out, `Sim::release_held`, slice M5-F1) has `Mover::exit`, the building's id, while its box still
+  overlaps that footprint. For that unit alone, `World::door_free` replaces the tile tests of `tiles_free`,
+  `is_free_for` and `along_axis`: the building's own tiles don't block it, every other blocked tile does
+  (`ExitDoor::box_clear`), and it may only come out (`ExitDoor::allows`: out of a side doorway, never deeper in, and
+  inside only within the exit side's span, so it leaves through that side and no other; out of an energy doorway,
+  never closer to the footprint's centre). Units still block it and it blocks them, as ever.
   Phase 5d clears `exit` (and `Mover::exit_heading` with it) in the tick the box is clear of the footprint (or the
   building is gone, or a teleport took the unit away), and nothing ever sets it again: a unit that is out can't
   re-enter.
@@ -1476,8 +1577,9 @@ and the code is `crates/sim/src/movement.rs` and `movement/`, with the unit's st
     its speed out of the footprint, and the next step is `follow`'s. It asks its owner's idle units in the way to
     step aside and tries again every tick; with a path its stuck clock runs, so a move that can't begin fails, and
     the unit stays where it got to, "half out at the edge of the footprint, as a normal unit" (0145 point 4).
-  **Never set `Mover::exit` anywhere but where a producer releases a unit, and never test a doorway unit's tiles
-  anywhere but through `World::door_free`.**
+  **Never set `Mover::exit` anywhere but where a producer releases a unit (`Sim::release_unit`) or a building that
+  holds units lets one out (`Sim::release_held`), and never test a doorway unit's tiles anywhere but through
+  `World::door_free`.**
 - **Held by its attack**: a unit whose attack sequence holds its base (`combat::may_move` or `may_turn` false: see
   *Combat*) stands for the tick and keeps its goal, path and stuck clock (`wait`), like a unit waiting for its path.
 - **Stuck and recovery** (`stuck.rs`; the numbers, in `mover/schedule.rs`, are the design's placeholders of changes
@@ -1815,12 +1917,13 @@ section of its own.
   (`BuildPrice::cancelled`, `Refund::Expansion`; 0297 point 5); the gate refuses `Reject::InsufficientCrystals`, and
   counts only the refunds in the new order's resource. It requires an Optics Lab (*Object model > Tech
   prerequisites*), checked at the order only. It completes after 320 frames and its Agent comes out **beside it**
-  (`BuilderGoes::Beside`, `Sim::step_beside`; 0298 point 7): at the first spot of the eight against the footprint's
-  sides and corners where it fits (`Sim::check_unit_fits`), tried from the side it came from (`beside_order`: the
-  opposite of its facing as it walked in), then round both ways, ties by direction index; with none clear it waits
-  inside, held at `Place::Site`, and comes out in a later tick, or at the centre if the turret goes meanwhile
-  (`Sim::site_builders`). No Tunnel's operation slot is taken (0298 point 9), and a turret counts for defeat as any
-  structure. Until slice M4-S2 it stands upright also inside an own Tunnel Area.
+  (`BuilderGoes::Beside`, `Sim::step_beside`; 0298 point 7): at the first spot of ring 0 around the footprint where
+  it fits (*Placement and the build area > Spots around a footprint*, plan decision T62: beside the 1x1 turret, the
+  eight against its sides and corners, M4-S1's), tried from the side it came from (the opposite of its facing as it
+  walked in), then round both ways (`Round::BothWays`), of two equally far the lower-numbered first; with none clear
+  it waits inside, held at `Place::Site`, and comes out in a later tick, or at the centre if the turret goes
+  meanwhile (`Sim::site_builders`). No Tunnel's operation slot is taken (0298 point 9), and a turret counts for
+  defeat as any structure. Until slice M4-S2 it stands upright also inside an own Tunnel Area.
 - **Adding to the economy** (slices M2-D2, M2-F): put the new step into `economy::step` at its numbered place, advance
   progress by `PowerSummary::speed` from the tick the command applies (*Recipe timing*), take costs with
   `spend_crystals` when the command applies, and give refunds through `Refund`; `construction.rs` is the pattern.
@@ -2132,6 +2235,10 @@ their energy doorway, slice M3-D2: design change 0145, `factions/colonists/struc
   The queue can't be cancelled, and goes with its Tunnel, its units staying in the network. **`Upgrade`** (slice
   M4-G): `Sim::can_upgrade` (*Tunnel upgrades*); **`Cancel`** ends the Tunnel's operation, an expansion or an
   upgrade (`NoOperation`).
+- **`Command::Holding { objects, command }`** (slice M5-F1, `HoldCommand`; *Object model > Buildings that hold
+  units*): the player's buildings among `objects` that hold units take it, the player's other objects are ignored
+  (`NotOwned` for another's, `NoHolders` if none is left). **`EjectAll`** (`factions/cults/structures/armory.md >
+  Eject All`): those whose pool has a unit (`NothingInside` if none has) mark their pool for Eject All.
 - **Default orders** (`orders/resolution.rs`; `systems/controls/selection_and_hud.md > RightClickResolution`, design
   changes 0062, 0063, 0074 and 0136): `resolve(Abilities, Aim)` is the one rule for what a unit does against a target
   by default: the ground gives Move; a worker on a patch it can gather Gather, on its owner's drop-off Drop Off while
@@ -2175,23 +2282,32 @@ their energy doorway, slice M3-D2: design change 0145, `factions/colonists/struc
   `PatchDepleted`, `ProductionQueued`, `ProductionRefused`, `ProductionCancelled`, `ProductionWaiting`, `UnitProduced`,
   `ConstructionCompleted`, `ConstructionCancelled`, `StructurePlaced`, `PlacementRefused`, `PlayerDefeated`,
   `GameOver`, `KindChanged`, `TransformCompleted`, `TransformCancelled`, `ResourcesDelivered`, `DeployFailed`,
-  `TargetTooClose`, `SupplyStationEmpty`, `ProjectileLaunched`, `Blast`, …) are output only, for effects, sounds and
+  `TargetTooClose`, `SupplyStationEmpty`, `ProjectileLaunched`, `Blast`, `Missed`, `LocationTooClose`, …) are output
+  only, for effects,
+  sounds and
   UI. The sim never reads them, and tells each to every player; the client shows a player only what they may
   perceive of it (*Client architecture > Viewer events*). `ProjectileLaunched { shooter, target, from, to, lands_at }`
   and `Blast { at, radius }` (slice M4-O) are a projectile leaving and landing; a blast's damage follows as a `Hit`
   for each object it took, which the client draws nothing of, and `Died` (see *Client architecture > Visuals*,
-  Combat effects). `DeployFailed { drone, origin, problems }` (slice M3-F) is a Deploy that failed on arrival; the
+  Combat effects). A TailDisjointed shot (slice M5-O3) is an `Attacked` on what it struck, its `to` the spot it
+  locked, or a `Missed { attacker, target, from, to }` when nothing was there: `target` is what it was aimed at, none
+  for the ground. `DeployFailed { drone, origin, problems }` (slice M3-F) is a Deploy that failed on arrival; the
   client's feedback line says why (`command_ui/feedback.rs`). `TargetTooClose { unit, target }` (slice M3-L2, design
   change 0182) is an Attack order that failed because its target is inside the MinRange of a unit that can't move,
-  or can't back off further (design change 0204 point 3); the feedback line says "Target too close".
+  or can't back off further (design change 0204 point 3); the feedback line says "Target too close". So does it for
+  `LocationTooClose { unit, at }` (slice M5-O3), the same failure of an Attack Ground at the location `at`.
   `SupplyStationEmpty { station, owner }` (slice M4-I, design change 0256 point 3) is a station whose last Supply was
   picked up, for each player gathering there; the client's notice says so (`hud/notices.rs`).
   `EnteredNetwork { unit, tunnel }` and `LeftNetwork { unit, tunnel }` (slice M4-C) are a unit leaving the map
   for a Tunnel Network and coming back with its id: no `Removed` and no `Spawned` go with them. `EnterFailed { unit,
-  tunnel }` is an Enter that ended without the unit going in. `BuildFailed { worker, kind, origin, orientation,
-  problems }`, `BuildRefunded { worker, kind, refund }`, `SiteStarted { worker, site }`, `SiteCompleted { site,
-  worker }`, `SiteCancelled { site, kind, refund }` and `LeftSite { worker, site }` (slice M4-E) are a Build that
-  failed on arrival, a Build refunded, and a site's life; `LeftSite` is its worker back on the map with its id.
+  target, full }` is an Enter that ended without the unit going in, `full` when a building that holds units had no
+  room for it (the feedback line says "No room inside"). `EnteredBuilding { unit, building }`, `LeftBuilding { unit,
+  building }` and `Evacuated { unit, building }` (slice M5-F1) are the same for a building that holds units: in, out
+  of its doorway by Eject All, and out around its footprint as it is destroyed, after its `Removed`. `BuildFailed {
+  worker, kind, origin, orientation, problems }`, `BuildRefunded { worker, kind, refund }`, `SiteStarted { worker,
+  site }`, `SiteCompleted { site, worker }`, `SiteCancelled { site, kind, refund }` and `LeftSite { worker, site }`
+  (slice M4-E) are a Build that failed on arrival, a Build refunded, and a site's life; `LeftSite` is its worker back
+  on the map with its id.
   `UpgradeStarted { tunnel, to, price }`, `UpgradeCompleted { tunnel, tier }` and `UpgradeCancelled { tunnel, to,
   refund }` (slice M4-G) are a Tunnel upgrade's life; one destroyed mid-upgrade has no event of its own.
   `ProductionWaiting { producer, reason }` (slice M3-P, design change 0143) is a producer whose unit at the front
@@ -2476,7 +2592,7 @@ their energy doorway, slice M3-D2: design change 0145, `factions/colonists/struc
   target form, design change 0198: 4 Sabres and 6 Rifles, a press on a unit waiting, converting and converted, fast
   presses ending in their parity). The resolution's cases are unit-tested in `combat/damage.rs`, the regeneration
   in `shields.rs`, the conversion's pieces in `conversion/tests.rs`, a change waiting for the Cooldown's end and a
-  second press dropping it in `sim/modes/tests.rs` (0153, 0198). In the client: `tests/combat.rs` (the shield bar),
+  second press dropping it in `sim/modes/tests.rs` (0153, 0198). In the client: `tests/combat/` (the shield bar),
   `tests/commands/convert.rs` (R: the type and the group switched at the press, a deferred unit's too, the drawn
   form, design change 0198), `tests/commands/riot_shield/` (`groups.rs`: the groups at the press; `target.rs`: 0198's
   and 0202's Verifications through the panel and the mouse) and the InfoPanel's Shields line in `hud/info_panel`.
@@ -2521,6 +2637,18 @@ their energy doorway, slice M3-D2: design change 0145, `factions/colonists/struc
   through `take_off_map` and `put_on_map`, and a defeated player's network. In the client:
   `tests/commands/tunnel_network.rs` (a right-click on an own Tunnel is Enter; units that go in leave the selection
   and stay in their control groups, whose recall selects those on the map).
+- **Holding tests** (slice M5-F1) are `crates/sim/tests/holding/` (`entering.rs`: ten Recruits filing in, timed, from
+  a block and from every side, the eleventh's Enter failing for want of room, the QA run's ejected ten going round
+  to side B and back in, the gate, the right-click, an Enter whose Armory goes; `eject.rs`: Eject All streaming the
+  pool out of side C one at a time, a Recruit that goes in during the stream, the gate; `evacuation.rs`: ten
+  evacuated alive in the fixed order at exact spots, the free spots around a Storage, an enemy and a unit in the
+  doorway, the evacuees of a defeated player; `loads.rs`: a load kept inside and out by real gathering, and through an
+  evacuation; `saves.rs`: saves at every stage and a replay; `control.rs`: a Hall's Recruit inside an Armory still
+  in its Hall's usage, inside and evacuated, and an orphaned point once its Hall is gone), each tick checking
+  `testing::dangling_references`. `holding/tests.rs` has the entry path in every orientation and the kinds let in;
+  `sim/holding/tests.rs` an Armory under construction (no Cults site exists before slice M5-E) and the Eject All mark
+  hashed and saved only while set; `placement/spots/tests.rs` the rings and both rounds. The ignored
+  `holding_perf.rs` times eight Armories cycling, then evacuated (*Object model > Buildings that hold units*).
 - **Beacon Deployment tests** (slice M3-F) are `crates/sim/tests/deploy/` (the walk to the footprint's centre and the
   start on arrival, the 48 frames, the HP from 20 to 120 and damage carried through (0110), Beacon Capacity 10/10 to
   9/10 to 9/15 and a cancel to 11/10 (0112), the cancel's fractions of HP and Shields and its place (0109, 0111), the
@@ -2725,7 +2853,8 @@ these.
   layer, and a frame around each unit in the colour of its move's status (`status_color`: green moving, amber held
   up, red failed, blue arrived; placeholder colours). Its one mesh is rebuilt every frame while it is shown.
 - **Combat effects** (`combat_effects.rs`, its mesh in `combat_effects/draw.rs`; placeholders until Q0001): a tracer for
-  each `SimEvent::Attacked` (`TRACER_TICKS`), drawn only along the parts of its path over the local player's Visible
+  each `SimEvent::Attacked` and each `SimEvent::Missed` (`TRACER_TICKS`; a TailDisjointed shot's, the Gunner's, to the
+  spot it locked, hit or miss, `Tracer::target` none for a miss: slice M5-O3), drawn only along the parts of its path over the local player's Visible
   tiles (`shot_spans`, through `visible_spans`, which cuts it at every tile edge it crosses; design change 0177: a shot
   from the fog shows from the fog edge, one all in the fog not at all; its attacker is revealed by the sim), **with no
   exception** (design change 0293, answering Q0083 point 4: every shot, tracer or projectile, whoever fires it and at
@@ -3287,8 +3416,8 @@ Drones, through one command flow (plan decision T10, slices M2-H1, M2-H2 and M3-
   whose unit begins to wait for room (its InfoPanel shows "Waiting for Unit Control", "Waiting for Beacon Capacity"
   or "Waiting for Tunnel Space" while it does, `hud/info_panel/activity.rs`); a placement's (`placement_text`, the
   check's first problem, the Tunnel Area's three rules included): an
-  `InvalidPlacement` or the sim's `PlacementRefused`; and `TARGET_TOO_CLOSE_TEXT` after the sim's `TargetTooClose`
-  for a local player's unit (design change 0182).
+  `InvalidPlacement` or the sim's `PlacementRefused`; and `TARGET_TOO_CLOSE_TEXT` after the sim's `TargetTooClose`,
+  or `LocationTooClose` (slice M5-O3), for a local player's unit (design change 0182).
 - **Placement visuals** (`placement.rs`, `placement/`): while the local player places a building (`placing_now`: a
   game mode, AwaitingPlacement, a commandable selection). `PlacementGhost` holds the `Ghost` under the cursor (the
   footprint as turned, the `PlacementCheck` there now, the side letters of `sc_sim::sides`), worked out every frame;

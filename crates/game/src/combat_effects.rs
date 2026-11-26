@@ -1,6 +1,8 @@
 //! Placeholder combat feedback (`systems/combat.md`; the art waits on Q0001): a short tracer from the attacker to its
 //! target for each attack that takes effect (`SimEvent::Attacked`), a Syndicate laser's red ([`ShotStyle`], design
-//! change 0207), HP bars over damaged and selected objects, with a
+//! change 0207); a TailDisjointed shot's to the spot it locked, whether it struck something there or missed
+//! (`SimEvent::Missed`, slice M5-O3: the Gunner's, "Visually still an instant gunshot"); HP bars over damaged and
+//! selected objects, with a
 //! shield bar above the HP bar of an object that has Shields (`systems/combat.md > Shields > Display`, slice M3-B,
 //! design change 0148: "a shield bar sits directly above the HP bar"; its styling waits for the HUD pass), and a
 //! fading marker where an object died (`SimEvent::Died`). Slice M4-O adds the projectiles in flight
@@ -61,7 +63,8 @@ const BAR_HEIGHT: f32 = 4.0;
 const BAR_GAP: f32 = 9.0;
 const BAR_MIN_WIDTH: f32 = 24.0;
 
-/// An attack that took effect in `tick` (`SimEvent::Attacked`), from and to the ground points of both units then.
+/// An attack that took effect in `tick` (`SimEvent::Attacked`), from and to the ground points of both units then; a
+/// TailDisjointed one's to the spot it locked, where it struck or missed (`SimEvent::Missed`, slice M5-O3).
 #[derive(Clone, Debug, PartialEq)]
 pub struct Tracer {
     pub tick: Tick,
@@ -72,8 +75,8 @@ pub struct Tracer {
     /// shot), whose weapon the shot is drawn as ([`ShotStyle::of`]).
     pub weapon: Option<ObjectKind>,
     pub owner: Option<PlayerId>,
-    /// The object hit.
-    pub target: ObjectId,
+    /// The object hit; none for a shot that hit nothing.
+    pub target: Option<ObjectId>,
     pub from: Vec2,
     pub to: Vec2,
     /// Whom it reaches, and how: along its path, over each viewer's Visible tiles (`crate::viewer_events`,
@@ -297,25 +300,31 @@ fn collect_effects(sim: Res<SimRes>, events: Res<ViewerEvents>, mut effects: Res
         None => fallen(id),
     };
     for (tick, event, seen) in events.sightings() {
-        match *event {
+        // A shot: a hit, or a TailDisjointed one's miss (slice M5-O3), drawn alike, to the spot.
+        let shot = match *event {
             SimEvent::Attacked {
                 attacker,
                 target,
                 from,
                 to,
-            } => {
-                let shooter = shooter_of(attacker);
-                effects.tracers.push(Tracer {
-                    tick,
-                    attacker,
-                    weapon: shooter.map(|(form, _)| form),
-                    owner: shooter.and_then(|(_, owner)| owner),
-                    target,
-                    from,
-                    to,
-                    seen,
-                });
-            }
+            } => Some((attacker, Some(target), from, to)),
+            SimEvent::Missed { attacker, from, to, .. } => Some((attacker, None, from, to)),
+            _ => None,
+        };
+        if let Some((attacker, target, from, to)) = shot {
+            let shooter = shooter_of(attacker);
+            effects.tracers.push(Tracer {
+                tick,
+                attacker,
+                weapon: shooter.map(|(form, _)| form),
+                owner: shooter.and_then(|(_, owner)| owner),
+                target,
+                from,
+                to,
+                seen,
+            });
+        }
+        match *event {
             SimEvent::ProjectileLaunched {
                 shooter,
                 target,

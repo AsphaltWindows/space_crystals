@@ -53,6 +53,7 @@ pub(crate) static OPTICS_LAB: ObjectDef = ObjectDef {
         requires: &[], // TechPrerequisite - None
         attack: None,
         popup: None,
+        holds: None,
     }),
     default_settings: None,
 };

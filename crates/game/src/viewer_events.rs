@@ -379,10 +379,12 @@ impl<'a> Arrival<'a> {
             SimEvent::SupplyStationEmpty { owner, .. } => Audience::Owner(Some(owner)),
             SimEvent::MoveFailed { unit }
             | SimEvent::EnterFailed { unit, .. }
-            | SimEvent::TargetTooClose { unit, .. } => self.owner(unit),
-            SimEvent::Attacked { from, to, .. } | SimEvent::ProjectileLaunched { from, to, .. } => {
-                Audience::Seen(Sighting::path(from, to))
-            }
+            | SimEvent::TargetTooClose { unit, .. }
+            | SimEvent::LocationTooClose { unit, .. } => self.owner(unit),
+            // A TailDisjointed shot that hit nothing is a shot as well (slice M5-O3).
+            SimEvent::Attacked { from, to, .. }
+            | SimEvent::Missed { from, to, .. }
+            | SimEvent::ProjectileLaunched { from, to, .. } => Audience::Seen(Sighting::path(from, to)),
             // A blast's damage too: what it hit underground shows nothing (plan decision T52).
             SimEvent::Hit { target, .. } => self.object(target),
             SimEvent::Died { owner, pos, hiding, .. } => Audience::Seen(Sighting::object_at(owner, hiding, pos)),
@@ -404,9 +406,15 @@ impl<'a> Arrival<'a> {
             | SimEvent::BuildRefunded { worker, .. } => self.owner(worker),
             SimEvent::TransformCancelled { id, .. } => self.owner(id),
             SimEvent::DeployFailed { drone, .. } => self.owner(drone),
-            // The unit walks into the Tunnel, and is off the map from then on.
-            SimEvent::EnteredNetwork { tunnel, .. } => self.object(tunnel),
-            SimEvent::LeftNetwork { unit, .. } | SimEvent::LeftSite { worker: unit, .. } => self.object(unit),
+            // The unit walks into the Tunnel, or the building that holds it (slice M5-F1), and is off the map from then
+            // on.
+            SimEvent::EnteredNetwork { tunnel: into, .. } | SimEvent::EnteredBuilding { building: into, .. } => {
+                self.object(into)
+            }
+            SimEvent::LeftNetwork { unit, .. }
+            | SimEvent::LeftSite { worker: unit, .. }
+            | SimEvent::LeftBuilding { unit, .. }
+            | SimEvent::Evacuated { unit, .. } => self.object(unit),
             // An expansion's site is hidden as the expansion is (`SimEvent::ExpansionStarted`).
             SimEvent::SiteStarted { site, .. }
             | SimEvent::SiteCompleted { site, .. }

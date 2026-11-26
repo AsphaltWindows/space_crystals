@@ -40,6 +40,6 @@ Numbers: see Placeholder stats below.
 ## TurretAttributes - None
 ## AttackAttributes - None (placeholder: no weapon; for Augmentation it is **armed**, i.e. it gets only the MaxHP and speed parts of increments. To confirm with the user.)
 ## Energy - MaxEnergy 200; starts at 50; regenerates 0.5 per second
-## Shroud numbers - cloud radius **3 grid units** around the Disciple; drains **5 energy per second** (40 s from full); needs at least **10 energy** to start; hotkey **Q** (Q starts the channel; Stop or another order cancels it)
+## Shroud numbers - cloud radius **3 grid units** around the Disciple; drains **5 energy per second** (40 s from full); needs at least **10 energy** to start; hotkey **R** (R starts the channel; Stop or another order cancels it; Q0112: R, as the other units that add an ability to the combat panel; Q stays Move)
 ## Cost - Cathedral: 1 Recruit, 75 Space Crystals, 320 frames
-## ObjectInterfaceState: BasicCombatUnitInterfaceState, plus **Q: Shroud**
+## ObjectInterfaceState: BasicCombatUnitInterfaceState, plus **R: Shroud**

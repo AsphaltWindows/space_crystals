@@ -43,13 +43,21 @@ pub(crate) struct Request {
 }
 
 /// `systems/combat.md > AttackPhase`: whether `o` is in an attack sequence that keeps it busy: Aiming, Firing or in
-/// Cooldown. While Reloading it is free to do other things. (For a unit that attacks from its base this is
-/// `!combat::may_move`; a turret unit attacking from where it stands is busy too, design change 0023.)
+/// Cooldown, a disjointed attack's at a location as well (`AttackPhase::AimingAt`, `AttackPhase::FiringAt`: the
+/// Gunner's TailDisjointed shot at a unit is one, slice M5-O3). While Reloading it is free to do other things. (For a
+/// unit that attacks from its base this is `!combat::may_move`, but for a DoublyDisjointed attack's Cooldown; a turret
+/// unit attacking from where it stands is busy too, design change 0023.)
 fn in_attack_sequence(o: &Object) -> bool {
     let phase = o.attack.as_ref().and_then(|attack| attack.phase);
     matches!(
         phase,
-        Some(AttackPhase::Aiming { .. } | AttackPhase::Firing { .. } | AttackPhase::Cooldown)
+        Some(
+            AttackPhase::Aiming { .. }
+                | AttackPhase::AimingAt { .. }
+                | AttackPhase::Firing { .. }
+                | AttackPhase::FiringAt { .. }
+                | AttackPhase::Cooldown
+        )
     )
 }
 
@@ -367,7 +375,15 @@ mod tests {
 
         for (phase, busy) in [
             (AttackPhase::Aiming { target: ObjectId(9) }, true),
+            (AttackPhase::AimingAt { at: Vec2::ONE }, true),
             (AttackPhase::Firing { target: None }, true),
+            (
+                AttackPhase::FiringAt {
+                    at: Vec2::ONE,
+                    target: Some(ObjectId(9)),
+                },
+                true,
+            ),
             (AttackPhase::Cooldown, true),
             (AttackPhase::Reloading, false),
         ] {

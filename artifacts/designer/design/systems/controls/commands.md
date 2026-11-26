@@ -100,7 +100,7 @@ Order the unit to enter an own structure that can hold units. The unit walks to 
 - **Syndicate — Tunnel**: any Syndicate unit, when the target Tunnel's tier is sufficient for the unit's base category. The unit walks to Side A and enters the Tunnel Network.
 - **Cults — Altar**: any Cults infantry (Recruit, Militant, Gunner, Disciple), up to the Altar's InternalUnitCapacity.
 - **Cults — Armory, Cathedral**: Recruits only (to be trained), up to the building's internal capacity.
-- **Cults — Temple, Gunworks, Machine Shop**: Recruits only (to staff research).
+- **Cults — Temple, Gunworks, Machine Shop**: Recruits only (to staff research). (Gunworks and Machine Shop: not enterable until their research is designed; 0319)
 - **Cults — Shrine**: Recruits only (to join the ritual).
 - **Cults — Garrison**: Recruits, Militants, Gunners, and Disciples (up to 4; Recruits and Disciples fire as Militants; Militants and Gunners get +1 range).
 - **GDO — Bunker**: all GDO infantry (up to 4; fire their own weapons, no range bonus).

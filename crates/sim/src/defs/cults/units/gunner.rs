@@ -11,9 +11,10 @@ use crate::player::Faction;
 /// nearer than 2 grid units is too close to fire at (`systems/controls/behaviors.md > AttackingObject > Target inside
 /// MinRange`, slice M3-L2's code, `crate::orders`). Its training comes with slice M5-F2, behind a Gunworks.
 ///
-/// Its attack is TailDisjointed, which the combat code doesn't build yet (`crate::combat::phases`): until slice M5-O3
-/// it hits as a FullyConnected attack does, and lets go of a location given by an Attack Ground (the miss, the Attack
-/// Ground and the "Target too close" for a location are M5-O3's).
+/// Its attack is TailDisjointed (slice M5-O3, `crate::combat::phases`): "the target's position is locked at the end of
+/// Aiming and the shot lands there at the end of Firing, so a target that moves during the Firing phase is missed,
+/// and whatever unit stands at the spot then is hit instead (any owner)". It may attack the ground
+/// (`crate::orders::attack_ground`), and keeps firing there until another order.
 pub(crate) static GUNNER: ObjectDef = ObjectDef {
     kind: ObjectKind::Gunner,
     name: "Gunner",

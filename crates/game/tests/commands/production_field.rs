@@ -99,6 +99,7 @@ pub(crate) fn productions(app: &App) -> Vec<(PlayerId, Vec<u32>, ProductionComma
             | Command::Ability { .. }
             | Command::Construction { .. }
             | Command::Tunnel { .. }
+            | Command::Holding { .. }
             | Command::Debug(_) => None,
         })
         .collect()

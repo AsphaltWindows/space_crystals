@@ -19,7 +19,7 @@ use crate::mover::{MoveGoal, MoveStatus};
 use crate::tuning::orders::{GIVE_UP_RETRY_TICKS, IDLE_LEASH_GU};
 use crate::units::{SU_PER_GU, gu};
 
-use super::state::{AttackOrder, Auto, Pursuit};
+use super::state::{AttackGround, AttackOrder, Auto, Pursuit};
 use super::travel::{approach, walk_to_remembered};
 use super::world::{Known, Scan, Unit, View, World};
 
@@ -109,8 +109,8 @@ pub(super) fn close_in(unit: &mut Unit, chasing: &mut bool, target: &View, world
 ///   Move to it would ([`approach`]: it follows a unit, and goes up to anything else and waits there), and the
 ///   order never completes for it; once the shield is down the unit engages the target again. Leaving sight ends it
 ///   as above.
-/// - **A target inside the unit's MinRange** (design change 0182): the unit backs off, or the order fails
-///   ([`too_close`]).
+/// - **A target inside the unit's MinRange** (design change 0182): the unit backs off to the middle of the band
+///   between MinRange and Range, engaging nothing meanwhile, or the order fails ([`too_close`]).
 /// - `> Failure`: the approach gave up ([`Closing::GaveUp`]), and the order completes (design change 0223). **The
 ///   target it gave up waits for the idle unit too** (`auto`; design change 0181, `> BaseAutoTargeting > Unreachable
 ///   auto-targets`: "gives up by the give-up rule, and retries after 32 ticks"; question Q0057: the idle unit "takes
@@ -145,18 +145,25 @@ pub(super) fn attack(unit: &mut Unit, id: ObjectId, state: &mut AttackOrder, aut
     if std::mem::take(&mut state.remembered) | state.on_hold.take().is_some() {
         unit.engage(Some(id));
     }
-    if !unit.attack.as_ref().is_some_and(|attack| attack.target == Some(id)) {
-        if state.chasing || state.backing_off.is_some() {
+    // A unit backing off engages nothing (`too_close`).
+    let engaged = unit.attack.as_ref().is_some_and(|attack| attack.target == Some(id));
+    if !engaged && state.backing_off.is_none() {
+        if state.chasing {
             unit.mover.stop();
         }
         return true;
     }
-    if let Some(attrs) = unit.attrs()
-        && inside_min_range(attrs, unit.shape().gap(&target.shape))
-    {
-        return too_close(unit, attrs, state, target, world);
+    if let Some(attrs) = unit.attrs() {
+        let from = TooNear {
+            target: Some(id),
+            pos: target.pos,
+            gap: unit.shape().gap(&target.shape),
+            elevation: target.elevation,
+        };
+        if let Some(complete) = too_close(unit, attrs, state.back_off(), from, world) {
+            return complete;
+        }
     }
-    state.backing_off = None;
     match close_in(unit, &mut state.chasing, target, world) {
         Closing::InRange | Closing::Approaching => false,
         Closing::GaveUp => {
@@ -169,70 +176,150 @@ pub(super) fn attack(unit: &mut Unit, id: ObjectId, state: &mut AttackOrder, aut
     }
 }
 
-/// `> AttackingObject > Target inside MinRange` (design change 0182): one tick of an Attack order whose target is
-/// inside the unit's MinRange, too close to hit. Returns whether the order is complete.
+/// The parts of an order's state that [`too_close`] works on: an Attack's ([`AttackOrder::back_off`]), or an Attack
+/// Ground's ([`AttackGround::back_off`], slice M5-O3).
+pub(super) struct BackOff<'a> {
+    /// The unit's current move is the order's approach to its target: an Attack's chase ([`close_in`]), an Attack
+    /// Ground's walk into range.
+    pub approaching: &'a mut bool,
+    /// The unit's current move is its back-off from the target, which stood at this point as it began; the unit
+    /// engages nothing meanwhile ([`AttackOrder::backing_off`]).
+    pub backing_off: &'a mut Option<Vec2>,
+    /// The order can't be carried out ([`AttackOrder::too_close`]).
+    pub too_close: &'a mut bool,
+}
+
+impl AttackOrder {
+    /// Its parts that [`too_close`] works on.
+    pub(super) fn back_off(&mut self) -> BackOff<'_> {
+        BackOff {
+            approaching: &mut self.chasing,
+            backing_off: &mut self.backing_off,
+            too_close: &mut self.too_close,
+        }
+    }
+}
+
+impl AttackGround {
+    /// (M5-O3) Its parts that [`too_close`] works on.
+    pub(super) fn back_off(&mut self) -> BackOff<'_> {
+        BackOff {
+            approaching: &mut self.moving,
+            backing_off: &mut self.backing_off,
+            too_close: &mut self.too_close,
+        }
+    }
+}
+
+/// What a unit backs off from ([`too_close`]): an Attack's target object, or an Attack Ground's location (slice M5-O3).
+#[derive(Copy, Clone, Debug)]
+pub(super) struct TooNear {
+    /// The object, or `None` for a location.
+    pub target: Option<ObjectId>,
+    /// Where it is: the object's centre, or the location itself.
+    pub pos: Vec2,
+    /// The gap from the unit's edge to it (`systems/combat.md > Range Measurement`): to the object's shape, or to the
+    /// point.
+    pub gap: f32,
+    /// The elevation there, for the ElevationModifier on the Range.
+    pub elevation: Elevation,
+}
+
+impl TooNear {
+    /// The unit engages it again, the back-off over: the object, or the location.
+    fn engage(&self, unit: &mut Unit) {
+        match self.target {
+            Some(id) => unit.engage(Some(id)),
+            None => unit.engage_ground(self.pos),
+        }
+    }
+}
+
+/// `> AttackingObject > Target inside MinRange` (design change 0182): one tick of an Attack order ([`attack`]) whose
+/// target, `from`, is inside the unit's MinRange, too close to hit, or which is backing off from it; and of an Attack
+/// Ground's, alike (`orders::attack_ground`, slice M5-O3: `> AttackingLocation` is "Same as AttackingObject", with the
+/// location for the target). `state` is the order's ([`BackOff`]). Returns `None` when the rule has nothing to do this
+/// tick: the target is beyond MinRange and no back-off goes on, and the order attacks as ever, its target engaged.
+/// Else, whether the order is complete.
 /// - **A unit that can move backs off** "until the target is outside MinRange, then attacks": it walks straight away
-///   from the target ([`back_off_spot`]) once its attack sequence lets it move (`combat::may_move`), and [`attack`]
-///   goes on as ever once the target is outside MinRange ([`close_in`] stops it in range). A back-off that ended
-///   with the target still inside starts again from where the unit stands if the target moved meanwhile (it follows
-///   the unit); if it didn't, the unit is as far as it gets from it: backed against a cliff, say. **A unit that
-///   can't back off** ("cornered, or blocked behind": design change 0204 point 3) "gives up the order with the same
-///   "Target too close" feedback, like an immobile unit": it fails as below (slice M5-A; it gave the order up
-///   without the feedback before).
+///   from the target ([`back_off_spot`]) once its attack sequence lets it move (`combat::may_move`), "to the **middle
+///   of the band** between MinRange and Range, not just past MinRange, so a target that keeps stepping closer doesn't
+///   make it stop and start on every step" (question Q0054). The back-off goes on while the target is within Range,
+///   until the move ends, there or where the unit is blocked; then the unit attacks from where it stands. (Slice
+///   M5-O3: slice M5-A's stopped as soon as the target was past MinRange.) **Meanwhile it engages nothing**, so that
+///   phase 5e doesn't aim at the target the moment it is in the band, holding the unit there; it engages it again as
+///   the back-off ends, or as the target leaves its Range (it walked off: the order goes after it, [`close_in`]).
+/// - A back-off that ended with the target still inside starts again from where the unit stands if the target moved
+///   meanwhile (it follows the unit); if it didn't, the unit is as far as it gets from it: backed against a cliff,
+///   say (and a location never moves). **A unit that can't back off** ("cornered, or blocked behind": design change
+///   0204 point 3) "gives up the order with the same "Target too close" feedback, like an immobile unit": it fails as
+///   below (slice M5-A; it gave the order up without the feedback before).
 /// - **A unit that can't move** (`Mover::can_move`: a deployed Artillery Rig, when there is one; a unit converting
 ///   its weapon too, while it does, though none has a MinRange) "can't carry it out: the order fails with feedback
 ///   ("Target too close"; same channel as other refusals)". Behaviours don't report: it marks the order
-///   ([`AttackOrder::too_close`]), and the step right after this phase ends it with a `SimEvent::TargetTooClose`
-///   (`Sim::step_too_close`).
-fn too_close(unit: &mut Unit, attrs: &AttackAttrs, state: &mut AttackOrder, target: &View, world: &World) -> bool {
+///   ([`BackOff::too_close`]), and the step right after this phase ends it with a `SimEvent::TargetTooClose`, or a
+///   `SimEvent::LocationTooClose` for a location (`Sim::step_too_close`).
+pub(super) fn too_close(
+    unit: &mut Unit,
+    attrs: &AttackAttrs,
+    state: BackOff,
+    from: TooNear,
+    world: &World,
+) -> Option<bool> {
+    if !inside_min_range(attrs, from.gap) {
+        if state.backing_off.is_none() {
+            return None;
+        }
+        let within = from.gap <= max_range(attrs, world.elevation(unit), from.elevation);
+        if within && unit.mover.status == MoveStatus::Moving {
+            // Q0054: on to the middle of the band.
+            return Some(false);
+        }
+        *state.backing_off = None;
+        from.engage(unit);
+        return None;
+    }
     let max_speed = unit.unit_def().map_or(0.0, |def| def.movement.max_speed());
     if !unit.mover.can_move(max_speed) {
+        *state.backing_off = None;
         unit.engage(None);
         unit.halt();
-        state.chasing = false;
-        state.too_close = true;
-        return false;
+        *state.approaching = false;
+        *state.too_close = true;
+        return Some(false);
     }
-    if std::mem::take(&mut state.chasing) {
+    if std::mem::take(state.approaching) {
         // It came too close while the unit went for it.
         unit.mover.stop();
     }
-    if let Some(from) = state.backing_off {
+    if let Some(stood) = *state.backing_off {
         if unit.mover.status == MoveStatus::Moving {
-            return false;
+            return Some(false);
         }
-        if target.pos == from {
+        if from.pos == stood {
             // It can't back off (design change 0204 point 3): it fails as a unit that can't move does.
-            state.backing_off = None;
+            *state.backing_off = None;
             unit.engage(None);
             unit.halt();
-            state.too_close = true;
-            return false;
+            *state.too_close = true;
+            return Some(false);
         }
     }
     if unit.may_move() {
-        let gap = unit.shape().gap(&target.shape);
-        let spot = back_off_spot(unit, attrs, target.pos, gap, target.elevation, world);
+        let spot = back_off_spot(unit, attrs, from.pos, from.gap, from.elevation, world);
         unit.mover.go_to(MoveGoal::Point(spot), None, world.tick);
-        state.backing_off = Some(target.pos);
+        *state.backing_off = Some(from.pos);
+        unit.engage(None);
     }
-    false
+    Some(false)
 }
 
-/// Where a unit backs off to from a target at `from` inside its MinRange, `gap` space units from it ([`too_close`];
-/// a location's too, `orders::attack_ground`): straight away from it (straight back from one right on top of it), as
-/// far as to bring the gap between them to the middle of the band from MinRange to Range (against a target at
-/// `elevation`), so that whatever the shapes make of the distance walked the unit passes through the band, where
-/// [`close_in`] stops it. Within the map; the path ends as near as the unit gets (`> MovingToLocation > Unreachable
-/// target location`).
-pub(super) fn back_off_spot(
-    unit: &Unit,
-    attrs: &AttackAttrs,
-    from: Vec2,
-    gap: f32,
-    elevation: Elevation,
-    world: &World,
-) -> Vec2 {
+/// Where a unit backs off to from a target at `from` inside its MinRange, `gap` space units from it ([`too_close`],
+/// for an object or a location): straight away from it (straight back from one right on top of it), as far as to
+/// bring the gap between them to the middle of the band from MinRange to Range (against a target at `elevation`;
+/// question Q0054), where the unit attacks once its back-off ends. Within the map; the path ends as near as the unit
+/// gets (`> MovingToLocation > Unreachable target location`).
+fn back_off_spot(unit: &Unit, attrs: &AttackAttrs, from: Vec2, gap: f32, elevation: Elevation, world: &World) -> Vec2 {
     let near = gu(attrs.min_range);
     let far = max_range(attrs, world.elevation(unit), elevation).max(near);
     let away = (unit.pos - from)

@@ -18,7 +18,7 @@ use crate::ids::{ObjectId, PlayerId};
 use crate::map::Map;
 use crate::math;
 use crate::mover::Mover;
-use crate::network::Paths;
+use crate::network::EntryPath;
 use crate::object::{Object, ResourceState};
 use crate::paths::NavState;
 use crate::paths::knowledge::PathKnowledge;
@@ -197,8 +197,9 @@ pub(crate) struct World<'a> {
     /// What each player knows of the obstacles, for the versions ([`planning`]).
     knowledge: Option<&'a PathKnowledge>,
     nav_version: u32,
-    /// Side A's paths of every Tunnel, in id order (`crate::network::Paths`): where an Enter order walks to.
-    tunnels: Vec<(ObjectId, Paths)>,
+    /// The entry path of every Tunnel and every building that holds units, in id order (`crate::network::EntryPath`):
+    /// where an Enter order walks to.
+    entries: Vec<(ObjectId, EntryPath)>,
 }
 
 impl<'a> World<'a> {
@@ -246,8 +247,8 @@ impl<'a> World<'a> {
             gathering: Gathering::new(objects),
             knowledge: None,
             nav_version: 0,
-            tunnels: (objects.values())
-                .filter_map(|o| Some((o.id, Paths::of_object(o)?)))
+            entries: (objects.values())
+                .filter_map(|o| Some((o.id, EntryPath::of_object(o)?)))
                 .collect(),
         };
         // A counting sort by cell keeps the id order within each cell.
@@ -280,10 +281,11 @@ impl<'a> World<'a> {
         (self.cell_coord(p.y, self.cells_high) * self.cells_wide + self.cell_coord(p.x, self.cells_wide)) as usize
     }
 
-    /// Side A's paths of Tunnel `id` (`crate::network::Paths`); `None` for anything else.
-    pub(crate) fn tunnel_paths(&self, id: ObjectId) -> Option<Paths> {
-        let i = self.tunnels.binary_search_by_key(&id, |&(tunnel, _)| tunnel).ok()?;
-        self.tunnels.get(i).map(|&(_, paths)| paths)
+    /// The entry path of object `id` (`crate::network::EntryPath`): a Tunnel's on Side A, a building's that holds units
+    /// on its entrance side; `None` for anything else.
+    pub(crate) fn entry_path(&self, id: ObjectId) -> Option<EntryPath> {
+        let i = self.entries.binary_search_by_key(&id, |&(target, _)| target).ok()?;
+        self.entries.get(i).map(|&(_, path)| path)
     }
 
     /// The object `id`, if it exists.

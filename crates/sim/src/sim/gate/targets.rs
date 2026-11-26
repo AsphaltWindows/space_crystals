@@ -15,6 +15,7 @@ use crate::combat::object_domain;
 use crate::defs::{Domain, ObjectKind};
 use crate::economy::gathering::{gatherable, is_drop_off};
 use crate::economy::stations::is_station;
+use crate::holding;
 use crate::ids::{ObjectId, PlayerId};
 use crate::network;
 use crate::object::Object;
@@ -58,6 +59,10 @@ impl Sim {
                     transit: crate::tunnel::tier_def(o)
                         .filter(|_| o.owner == Some(player) && network::is_exit(o))
                         .map_or(&[], |row| row.transit),
+                    // An own building that holds units, in operation (slice M5-F1, `crate::holding`).
+                    accepts: holding::holds(o)
+                        .filter(|_| o.owner == Some(player) && o.placement.is_some() && o.is_operational())
+                        .map_or(&[], |holds| holds.accepts),
                 })
             }
             TargetView::Remembered { .. } => {
@@ -72,6 +77,7 @@ impl Sim {
                     station: is_station(record.kind),
                     drop_off: false,
                     transit: &[],
+                    accepts: &[],
                 })
             }
             TargetView::Gone => None,

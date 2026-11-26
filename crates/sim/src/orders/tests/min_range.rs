@@ -1,7 +1,8 @@
 //! Design change 0182's Verification (`systems/controls/behaviors.md > BaseAutoTargeting > Targets inside MinRange`,
 //! `> AttackingObject > Target inside MinRange`), with a Peacekeeper given a MinRange of 2 grid units (Range 4), and
 //! for the deployed Artillery Rig, which doesn't exist yet, one that can't move either (`defs::test_defs`); and the
-//! Gunner, the first kind with a MinRange of its own (slice M5-A), as one that can't move.
+//! Gunner, the first kind with a MinRange of its own (slice M5-A), as one that can't move, at a target and at a location
+//! (slice M5-O3).
 
 use glam::Vec2;
 
@@ -244,5 +245,49 @@ fn a_gunner_that_cant_move_fails_its_attack_on_a_target_too_close() {
     assert_eq!(current(&t, UNIT), None, "the order ended");
     t.run_until(40);
     assert_eq!(attacks(&t, UNIT, NEAR), [] as [Tick; 0]);
+    assert_eq!(t.pos(1), at, "it never moved");
+}
+
+/// Slice M5-O3: the same at a location (`systems/controls/behaviors.md > AttackingLocation`, "Same as
+/// AttackingObject"). The Gunner that can't move is ordered to attack the ground 40 su off its edge, inside its MinRange,
+/// with an Attack Ground 3 grid units off queued after it. The first order fails in its first tick with a
+/// `SimEvent::LocationTooClose` (the client's "Target too close" as well), and the queued one starts in the next tick:
+/// the unit never fires at the near location, and fires at the far one.
+#[test]
+fn a_gunner_that_cant_move_fails_its_attack_ground_on_a_location_too_close() {
+    let _rooted = TestDef::unit(ObjectKind::Gunner, |unit| {
+        if let MovementAttrs::TurnRate { max_speed, .. } = &mut unit.movement {
+            *max_speed = 0.0;
+        }
+    });
+    let at = Vec2::new(400.0, 320.0);
+    let near = at + Vec2::new(12.0 + 40.0, 0.0);
+    let far = at + Vec2::new(12.0 + gu(3.0), 0.0);
+    let mut t = ScenarioBuilder::new(&open()).start();
+    t.without_auto_targeting()
+        .spawn_unit_at(1, ObjectKind::Gunner, P1, at)
+        .order_at(2, P1, &[UNIT], OrderKind::AttackGround(near), false)
+        .order_at(2, P1, &[UNIT], OrderKind::AttackGround(far), true)
+        .run_until(2);
+    let failed: Vec<&(Tick, SimEvent)> = (t.events().iter())
+        .filter(|(_, e)| matches!(e, SimEvent::TargetTooClose { .. } | SimEvent::LocationTooClose { .. }))
+        .collect();
+    let too_close = SimEvent::LocationTooClose { unit: UNIT, at: near };
+    assert_eq!(failed, [&(2, too_close)]);
+    assert_eq!(current(&t, UNIT), None, "the order ended");
+    t.run_until(3);
+    assert_eq!(
+        current(&t, UNIT),
+        Some(OrderKind::AttackGround(far)),
+        "the queued one goes on"
+    );
+    t.run_until(40);
+    let shots_at = |spot: Vec2| {
+        (t.events().iter())
+            .filter(|(_, e)| matches!(*e, SimEvent::Missed { attacker, to, .. } if attacker == UNIT && to == spot))
+            .count()
+    };
+    assert_eq!(shots_at(near), 0);
+    assert!(shots_at(far) > 0);
     assert_eq!(t.pos(1), at, "it never moved");
 }

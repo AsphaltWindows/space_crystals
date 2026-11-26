@@ -55,6 +55,15 @@ pub enum Command {
     /// ObjectInterfaceState`, plan decision T36; `crate::network`). Rejected if it doesn't exist, belongs to someone
     /// else, isn't a Tunnel in operation, or can't carry the command out.
     Tunnel { tunnel: ObjectId, command: TunnelCommand },
+    /// (M5-F1) The player's buildings that hold units among `objects` take `command` (`crate::holding`;
+    /// `factions/cults/structures/armory.md > ObjectInterfaceState[Armory]`: "A: Eject All"). Every one of the
+    /// selection receives it (`systems/controls/selection_and_hud.md > SelectionGroup > No smart-casting`). Ids that no
+    /// longer exist, repeated ids and the player's objects that hold no units are dropped; the command is rejected if
+    /// none of the rest can carry it out, or one of the objects belongs to someone else.
+    Holding {
+        objects: Vec<ObjectId>,
+        command: HoldCommand,
+    },
     /// Development / QA only — never offered to players in a real match.
     Debug(DebugCommand),
 }
@@ -88,6 +97,17 @@ pub enum TunnelCommand {
     /// the current top price (slice M4-G, design changes 0232 and 0284: "Cancel Upgrade refunds the current top
     /// price").
     Cancel,
+}
+
+/// A command to buildings that hold units ([`Command::Holding`], slice M5-F1).
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub enum HoldCommand {
+    /// `factions/cults/structures/armory.md > Eject All`: "Immediate command that ejects all stored Recruits from the
+    /// exit side in a rapid stream, one after another. Ejected Recruits are unchanged — they return to the field as
+    /// normal Recruits. This only affects StoredRecruits (the unreserved pool)": every unit of each building's pool
+    /// comes out through its exit doorway, one at a time (`sim/holding.rs`). "Only available if StoredRecruits is not
+    /// empty" (`factions/cults/structures/armory.md > ObjectInterfaceState[Armory]`).
+    EjectAll,
 }
 
 /// An ability a unit uses at once ([`Command::Ability`]).

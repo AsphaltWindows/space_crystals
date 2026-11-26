@@ -1,8 +1,10 @@
 //! The exit doorways — `core/entities.md > Structure Type > Exit Doorway` (design change 0080) and the portals' energy
 //! doorway (design change 0145, `factions/colonists/structures/README.md > Portals > Portal Exits (energy doorway)`):
-//! where a producing structure releases its units, and the one case in which a unit's box may overlap a structure.
+//! where a producing structure releases its units and a building that holds units lets them out (slice M5-F1), and
+//! the one case in which a unit's box may overlap a structure.
 //!
-//! A building's exit rule (`ProductionDef::exits`) gives it one of two kinds of doorway ([`ExitDoor::of`]):
+//! A building's exit rule ([`exit_rule`]: `ProductionDef::exits`, or `HoldsDef::exit` for a building that holds units
+//! and produces nothing) gives it one of two kinds of doorway ([`ExitDoor::of`]):
 //! - **A side doorway** ([`Doorway`], `ExitRule::Side`, plan decision T19): the middle of its exit side ([`Door`]),
 //!   the side lettered as the rule says (the Barracks' B) wherever it faces once the building is placed
 //!   (`crate::sides::sides`). The unit "appears half inside the building": its centre on the exit side
@@ -20,10 +22,10 @@
 //!   out of an energy doorway: never closer to the centre). Every other blocked tile blocks it as ever. Once its box
 //!   is clear of the footprint the exception ends for good ("once the unit is fully out, it can't re-enter").
 //! - **Occupied**: a doorway is occupied while a unit the building released is still in it; the next finished unit
-//!   waits inside meanwhile (`Sim::release_unit`). With several exit sides, a door is occupied while such a unit is in
-//!   it, and the building waits only while every door is (`core/entities.md > Structure Type > Exit Doorway`: "a side
-//!   whose doorway is occupied counts as blocked, and the building pauses only when every eligible doorway is
-//!   occupied"); at most one unit is in each door.
+//!   waits inside meanwhile (`Sim::release_unit`), and so does the next unit Eject All lets out (`Sim::release_held`).
+//!   With several exit sides, a door is occupied while such a unit is in it, and the building waits only while every
+//!   door is (`core/entities.md > Structure Type > Exit Doorway`: "a side whose doorway is occupied counts as blocked,
+//!   and the building pauses only when every eligible doorway is occupied"); at most one unit is in each door.
 //!
 //! **Reading of the design, to confirm** (reported to the Director): point 1 says the unit appears half inside and
 //! that "nothing else can overlap a building", and the verification has a unit appear although an enemy unit, or
@@ -35,7 +37,7 @@ mod energy;
 
 use glam::Vec2;
 
-use crate::defs::ExitRule;
+use crate::defs::{ExitRule, StructureDef};
 use crate::nav::NavGrid;
 use crate::object::{Object, Placement};
 use crate::paths::boxes_overlap;
@@ -168,14 +170,24 @@ pub struct Door {
     sign: f32,
 }
 
+/// How a `structure` type releases units: by its production's exit rule (`ProductionDef::exits`), or, if it produces
+/// none, by the exit of the units it holds (`HoldsDef::exit`, slice M5-F1: an Armory's Eject All, "Trained units and
+/// ejected Recruits exit through the exit side, one at a time through the exit doorway",
+/// `factions/cults/structures/armory.md > ExitSide - opposite short side (C)`). The two agree for a type with both
+/// (`defs_are_consistent`). `None` for a type that releases none.
+pub fn exit_rule(structure: &StructureDef) -> Option<ExitRule> {
+    match &structure.production {
+        Some(production) => Some(production.exits),
+        None => structure.holds.map(|holds| holds.exit),
+    }
+}
+
 impl Doorway {
     /// The doorway of `building`: `None` for anything but a placed structure that releases units through exit sides
-    /// (a portal's energy doorway is [`EnergyDoorway`]).
+    /// ([`exit_rule`]: a producer's, or a building's that holds units; a portal's energy doorway is [`EnergyDoorway`]).
     pub fn of(building: &Object) -> Option<Doorway> {
         let placement = building.placement.as_ref()?;
-        let (ExitRule::Side(exit) | ExitRule::Sides(exit)) =
-            building.def().structure.as_ref()?.production.as_ref()?.exits
-        else {
+        let (ExitRule::Side(exit) | ExitRule::Sides(exit)) = exit_rule(building.def().structure.as_ref()?)? else {
             return None;
         };
         let letters = sides(building.kind, placement.orientation())?;

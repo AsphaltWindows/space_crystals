@@ -49,7 +49,7 @@ Recruits gather Space Crystals and deliver them to Storage.
 - Patch sharing: any number of Recruits may mine the same Space Crystals patch at the same time (unlike Drones, see Colonists > Drone > Patch Occupancy).
 
 ## Repair
-(user, 2026-11-26) Recruits can **repair** own **buildings and vehicles**. Repair **costs Space Crystals**. **Repair rules shared by every repairer** (user, 2026-11-26): several repairers on one target repair **faster, scaling linearly** (2 repairers = twice the rate), as construction does. **Placeholder rate and cost** (designer, 2026-11-26): repairing from 0 to full HP takes **half the target's build time** with one repairer, and costs **half its price** in the resource it was bought with, paid gradually as HP is restored (exceptions below). Panel letter: **D** (Q0095).
+(user, 2026-11-26) Recruits can **repair** own **buildings and vehicles**. Repair **costs Space Crystals**. **Repair rules shared by every repairer** (user, 2026-11-26): several repairers on one target repair **faster, scaling linearly** (2 repairers = twice the rate), as construction does. **Placeholder rate and cost** (designer, 2026-11-26): repairing from 0 to full HP takes **half the target's build time** with one repairer, and costs **half its price** in the resource it was bought with, paid gradually as HP is restored (exceptions below). A vehicle's price for this counts its **Space Crystals only**, not the Recruits it consumed (Jackal: 37.5 SC from 0 to full; Q0124). Panel letter: **D** (Q0095). **When repair ends** (user, 2026-11-26; Q0124): repairers **stop once the target is at full HP**; if the player **runs out of Space Crystals** mid-repair, the order **ends** (they stop; a free Tunnel repair never runs out). **Gliders can't be repaired** (they can't stop; user, 2026-11-26).
 
 ## Building
 
@@ -77,9 +77,14 @@ Recruits can enter an Armory to join its internal StoredRecruits pool (up to Int
 ## Recruit ObjectInterfaceState
 
 ### DefaultState commands:
-(Letters: user, 2026-11-26; Q0095. Same layout as the Agent's panel.)
+(Letters: user, 2026-11-26; Q0095/Q0096. Same layout as the Agent's panel, plus W for the second build menu.)
 - **Q: Move** — as in BasicCombatUnitInterfaceState.
-- **A: Construct** — enters BuildMenu (StateOnlyTransition). Multi-stage: select a building type, then place it on the ground (ghost preview, same placement flow as the Build Command).
+- **A: Basic Construct** — enters BuildMenu[Basic] (StateOnlyTransition). Multi-stage: select a building type, then place it on the ground (ghost preview, same placement flow as the Build Command).
+- **W: Advanced Construct** — enters BuildMenu[Advanced] (StateOnlyTransition), same flow.
+
+  Two build menus (user, 2026-11-26; Q0096, "basic and advanced", as the GDO's Deployment Center). Fixed slots: every building keeps its key and is greyed until its TechPrerequisite is met, so no hotkey ever moves. Rows follow the branches: top row shared base, **A S D F row Tech/Weaponry, X C V row Mystical**; **Z** returns to DefaultState. (Split and slots: designer placeholder, 2026-11-26.)
+  - **BuildMenu[Basic]**: **Q** Recruitment Hall, **W** Storage; **A** Armory, **S** Gunworks, **D** Garrison; **X** Altar.
+  - **BuildMenu[Advanced]**: **A** Chop Shop, **S** Machine Shop, **D** Airstrip, **F** Scrap Hangar; **X** Temple, **C** Cathedral, **V** Shrine.
 - **S: Assist Construction** — targeted command (StateOnlyTransition). Left-click an in-progress own building to join construction.
 - **D: Repair** — targeted command (StateOnlyTransition). Left-click a damaged own building or vehicle to repair it (see Repair).
 - **X: Stop** — as in BasicCombatUnitInterfaceState.
@@ -93,10 +98,11 @@ Recruits can enter an Armory to join its internal StoredRecruits pool (up to Int
 - **Enter Cathedral** — right-click own Cathedral
 - **Enter Temple** (staff research) — right-click own Temple
 - **Enter Shrine** (join the ritual) — right-click own Shrine
-- **Enter Gunworks** / **Enter Machine Shop** (staff research) — right-click own Gunworks / Machine Shop
+- **Enter Garrison** — right-click own Garrison
+- Gunworks / Machine Shop: **not enterable until their research is designed** (0319); a right-click on them is a Move
 - **Gather** — right-click Space Crystal patch
 - **Drop Off Resources** — right-click own Storage (when carrying Space Crystals)
-- **Construct** — via panel button A
+- **Construct** — via panel buttons A (Basic) and W (Advanced)
 - **Assist Construction** — via panel button S, or right-click
 - **Repair** — via panel button D, or right-click
 
@@ -108,7 +114,8 @@ Recruits can enter an Armory to join its internal StoredRecruits pool (up to Int
 - Own Cathedral → Enter Cathedral
 - Own Temple → Enter Temple (staff research)
 - Own Shrine → Enter Shrine (join the ritual)
-- Own Gunworks / Machine Shop → Enter (staff research)
+- Own Garrison → Enter Garrison
+- Own Gunworks / Machine Shop → Move (not enterable until their research is designed, 0319)
 - In-progress own building → Assist Construction
 - Damaged own building or vehicle (completed) → Repair, **unless the building can be entered** by the selection: then **Enter** wins (user, 2026-11-26). Repair those with **D: Repair**.
 - Enemy unit/building → Attack (melee)

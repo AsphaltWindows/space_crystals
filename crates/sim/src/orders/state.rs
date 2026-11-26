@@ -64,8 +64,10 @@ pub struct AttackOrder {
     /// it may.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub on_hold: Option<Approach>,
-    /// Design change 0182 (`> AttackingObject > Target inside MinRange`): the target is inside the unit's MinRange,
-    /// and the unit's current move is its back-off from it (`orders::engage`), given when the target stood here.
+    /// Design change 0182 (`> AttackingObject > Target inside MinRange`): the target came inside the unit's MinRange,
+    /// and the unit's current move is its back-off from it (`orders::engage::too_close`), given when the target stood
+    /// here, to the middle of the band between MinRange and Range (question Q0054). The unit engages nothing
+    /// meanwhile, and engages the target again as the back-off ends (slice M5-O3).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub backing_off: Option<Vec2>,
     /// Design change 0182: the target is inside the unit's MinRange and the unit can't move to back off, or can't
@@ -262,11 +264,24 @@ pub struct Enter {
 }
 
 /// (M4-O) The state of an Attack Ground order (`orders::attack_ground`).
-#[derive(Copy, Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+///
+/// The fields slice M5-O3 added (`backing_off`, `too_close`) are left out of files while they are unset, and out of
+/// the hash ([`hash`]), as [`AttackOrder`]'s, so that states saved before they existed still load.
+#[derive(Copy, Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
 pub struct AttackGround {
-    /// The unit's current move is this order's: its walk into range, or away from a location inside its MinRange
-    /// (design change 0182). While it is, the mover's status is the move's outcome.
+    /// The unit's current move is this order's walk into range. While it is, the mover's status is the move's
+    /// outcome.
     pub moving: bool,
+    /// (M5-O3) Design change 0182, for a location (`> AttackingLocation`, as `> AttackingObject > Target inside
+    /// MinRange`): as [`AttackOrder::backing_off`], the location came inside the unit's MinRange, and the unit's
+    /// current move is its back-off from it (`orders::engage::too_close`, an Attack's own), the location itself.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub backing_off: Option<Vec2>,
+    /// (M5-O3) As [`AttackOrder::too_close`], for a location: it is inside the unit's MinRange and the unit can't move
+    /// to back off, or can't back off further (design change 0204 point 3), so it can't carry the order out. The step
+    /// right after phase 5a ends the order, with the "Target too close" feedback (`Sim::step_too_close`).
+    #[serde(default, skip_serializing_if = "is_false")]
+    pub too_close: bool,
 }
 
 /// The state of the current order's behaviour.

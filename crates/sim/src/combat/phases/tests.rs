@@ -199,3 +199,5 @@ fn only_targets_the_owner_sees_are_attacked() {
     assert_eq!(state.target, Some(FOE));
     assert!(volley.hits.is_empty());
 }
+
+mod tail_disjointed;

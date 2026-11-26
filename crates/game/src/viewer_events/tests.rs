@@ -145,7 +145,10 @@ fn every_kind_of_event_reaches_whom_the_table_says() {
         let audience = arrival.audience(event);
         let perceived = viewers.map(|viewer| audience.perceived_by(&sim, &viewer));
         assert_eq!(perceived.map(Seen::of), *expected, "{event:?}: {audience:?}");
-        if let SimEvent::Attacked { from, to, .. } | SimEvent::ProjectileLaunched { from, to, .. } = *event {
+        if let SimEvent::Attacked { from, to, .. }
+        | SimEvent::Missed { from, to, .. }
+        | SimEvent::ProjectileLaunched { from, to, .. } = *event
+        {
             assert_eq!(perceived[0], Perception::Clipped { from, to }, "its own path");
         }
     }

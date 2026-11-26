@@ -48,6 +48,11 @@
 //!   after the projectile spawns"). The projectile lands after its flight, in this phase, ahead of the tick's new hits.
 //!   The attack may target a location as well as an object ([`AttackState::location`]: an Attack Ground's, plan
 //!   decision T47): aimed at, locked and fired at the same way, again and again while the location stays engaged.
+//! - **TailDisjointed attacks** (slice M5-O3; `systems/combat.md > TailDisjointed`, the Cults' Gunner's, design change
+//!   0304): aimed at an object or a location and locked as a DoublyDisjointed attack is, with no projectile. At the end
+//!   of Firing the effect strikes the locked spot (`phases`): whatever stands there then, whoever owns it, so a target
+//!   that has left it is missed (`SimEvent::Missed`). The base stays held through Firing and Cooldown, as for a
+//!   FullyConnected attack.
 //! - **Area damage** (`systems/combat.md > AoEDamage`, plan decision T46): a landing projectile's blast hits whatever
 //!   stands in its circle, whoever owns it, by the exact overlap of each object's shape ([`area`]), the one path of
 //!   every area attack. Each object hit takes its share as a [`Hit`] on the tick's list; each one damaged reveals the
@@ -59,10 +64,11 @@
 //!   same phases and deals the same damage as a unit, from its footprint, with no turn rate (it fires in any
 //!   direction) and no orders: it picks its own target in this phase, once it is complete (`Object::is_operational`).
 //!
-//! Not built yet: units' turrets, and the HeadDisjointed and TailDisjointed attacks.
+//! Not built yet: units' turrets, and the HeadDisjointed attack.
 
 mod area;
 mod damage;
+mod hash;
 mod phases;
 pub mod projectiles;
 mod structures;
@@ -78,7 +84,6 @@ use serde::{Deserialize, Serialize};
 use crate::conversion;
 use crate::defs::{AttackAttrs, AttackType, ObjectKind, TargetDomain};
 use crate::events::SimEvent;
-use crate::hash::{StateHash, StateHasher};
 use crate::ids::ObjectId;
 use crate::map::Map;
 use crate::movement;
@@ -119,10 +124,11 @@ pub enum AttackPhase {
     /// [`AttackState::location`]): the unit turns to face it. Interruptible, as Aiming at an object: a different command
     /// cancels it, and so does the location leaving the unit's range.
     AimingAt { at: Vec2 },
-    /// `systems/combat.md > Firing` of a disjointed attack (`systems/combat.md > DoublyDisjointed`): not interruptible.
-    /// At its end the
-    /// projectile launches to `at`, the location locked at the end of Aiming: where the target was then, or the
-    /// location aimed at (`projectiles`). `target`: the object aimed at, while it is in the game; none for a location.
+    /// `systems/combat.md > Firing` of a disjointed attack: not interruptible. `at` is the location locked at the end
+    /// of Aiming: where the target was then, or the location aimed at. At the end of the phase a DoublyDisjointed
+    /// attack's projectile launches there (`systems/combat.md > DoublyDisjointed`, `projectiles`), and a TailDisjointed
+    /// attack strikes whatever stands there (`systems/combat.md > TailDisjointed`, slice M5-O3). `target`: the object
+    /// aimed at, while it is in the game; none for a location.
     FiringAt { at: Vec2, target: Option<ObjectId> },
 }
 
@@ -239,7 +245,8 @@ impl AttackState {
             Some(AttackPhase::Firing { target: Some(target) }) if is_gone(target) => {
                 self.phase = Some(AttackPhase::Firing { target: None });
             }
-            // The projectile still launches to the location locked (`systems/combat.md > DoublyDisjointed`).
+            // The shot still goes to the location locked, a projectile or a TailDisjointed strike
+            // (`systems/combat.md > DoublyDisjointed`, `systems/combat.md > TailDisjointed`).
             Some(AttackPhase::FiringAt {
                 at,
                 target: Some(target),
@@ -404,52 +411,6 @@ pub(crate) fn step(
         }
     }
     dead
-}
-
-impl StateHash for AttackPhase {
-    fn hash(&self, h: &mut StateHasher) {
-        match self {
-            AttackPhase::Aiming { target } => {
-                h.tag(0);
-                target.hash(h);
-            }
-            AttackPhase::Firing { target } => {
-                h.tag(1);
-                target.hash(h);
-            }
-            AttackPhase::Cooldown => h.tag(2),
-            AttackPhase::Reloading => h.tag(3),
-            AttackPhase::AimingAt { at } => {
-                h.tag(4);
-                at.hash(h);
-            }
-            AttackPhase::FiringAt { at, target } => {
-                h.tag(5);
-                at.hash(h);
-                target.hash(h);
-            }
-        }
-    }
-}
-
-impl StateHash for AttackState {
-    fn hash(&self, h: &mut StateHasher) {
-        let AttackState {
-            target,
-            phase,
-            elapsed,
-            location,
-        } = self;
-        target.hash(h);
-        phase.hash(h);
-        elapsed.hash(h);
-        // (M4-O) Only while set, under a tag of its own, as `Mover::momentum` (`mover/hash.rs`): an attack that never
-        // engaged a location hashes as it did before the field existed, so the goldens stand.
-        if let Some(at) = location {
-            h.tag(1);
-            at.hash(h);
-        }
-    }
 }
 
 #[cfg(test)]

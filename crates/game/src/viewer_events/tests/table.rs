@@ -276,14 +276,54 @@ pub(super) fn table(sim: &Sim) -> Vec<(SimEvent, [Seen; 4])> {
         (
             SimEvent::EnterFailed {
                 unit: UNIT,
-                tunnel: TUNNEL,
+                target: TUNNEL,
+                full: false,
             },
             [W, N, N, N],
+        ),
+        // (M5-F1) A building that holds units, as the Tunnel stands for one here: its pool full, the unit going in,
+        // coming out of its doorway, and evacuated as it goes.
+        (
+            SimEvent::EnterFailed {
+                unit: UNIT,
+                target: TUNNEL,
+                full: true,
+            },
+            [W, N, N, N],
+        ),
+        (
+            SimEvent::EnteredBuilding {
+                unit: HELD,
+                building: TUNNEL,
+            },
+            [W, W, N, W],
+        ),
+        (
+            SimEvent::LeftBuilding {
+                unit: UNIT,
+                building: TUNNEL,
+            },
+            [W, W, N, W],
+        ),
+        (
+            SimEvent::Evacuated {
+                unit: UNIT,
+                building: GONE,
+            },
+            [W, W, N, W],
         ),
         (
             SimEvent::TargetTooClose {
                 unit: UNIT,
                 target: WATCHER,
+            },
+            [W, N, N, N],
+        ),
+        // Slice M5-O3: an Attack Ground's location inside the MinRange of a unit that can't back off.
+        (
+            SimEvent::LocationTooClose {
+                unit: UNIT,
+                at: watcher,
             },
             [W, N, N, N],
         ),
@@ -391,5 +431,25 @@ pub(super) fn table(sim: &Sim) -> Vec<(SimEvent, [Seen; 4])> {
             [P, P, P, W],
         ),
         (SimEvent::Blast { at: unit, radius: 40.0 }, [W, W, N, W]),
+        // A TailDisjointed shot that hit nothing (slice M5-O3), aimed at an object or at the ground: a shot as any
+        // other.
+        (
+            SimEvent::Missed {
+                attacker: UNIT,
+                target: Some(WATCHER),
+                from: unit,
+                to: watcher,
+            },
+            [P, P, P, W],
+        ),
+        (
+            SimEvent::Missed {
+                attacker: UNIT,
+                target: None,
+                from: unit,
+                to: watcher,
+            },
+            [P, P, P, W],
+        ),
     ]
 }

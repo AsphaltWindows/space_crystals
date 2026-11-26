@@ -336,8 +336,13 @@ fn fuzz_run(seed: u64) -> Run {
                 | SimEvent::EnteredNetwork { .. }
                 | SimEvent::LeftNetwork { .. }
                 | SimEvent::EnterFailed { .. }
+                | SimEvent::EnteredBuilding { .. }
+                | SimEvent::LeftBuilding { .. }
+                | SimEvent::Evacuated { .. }
                 | SimEvent::ProjectileLaunched { .. }
                 | SimEvent::Blast { .. }
+                | SimEvent::Missed { .. }
+                | SimEvent::LocationTooClose { .. }
                 | SimEvent::BuildFailed { .. }
                 | SimEvent::BuildRefunded { .. }
                 | SimEvent::SiteStarted { .. }

@@ -22,7 +22,11 @@
 //!   Syndicate unit, when the target Tunnel's tier is sufficient for the unit's base category";
 //!   `factions/syndicate/units/agent.md > Right-Click Resolution`: "Own Tunnel (not carrying resources) → Enter";
 //!   slice M4-C, `crate::network`), after a worker's Drop Off there ("Own Tunnel (carrying resources) → Drop off
-//!   resources").
+//!   resources"). So does **an own building that holds units** of the unit's kind, in operation (slice M5-F1,
+//!   `crate::holding`; `factions/cults/units/recruit.md > Right-Click Resolution`: "Own Armory → Enter Armory";
+//!   `systems/controls/commands.md > Enter`: "Cults — Armory, Cathedral: Recruits only"), whether or not its pool has
+//!   room, which the unit finds out as it gets there (Placeholder (Q0104 point 2)); one under construction is a Move
+//!   to it here ("In-progress own building → Assist Construction" is slice M5-E's).
 //! - **An enemy** (another player's object) that the unit can attack gives Attack: it has an attack whose
 //!   TargetDomain allows the object's domain (`systems/combat.md > ValidTarget` 3), and the object is destructible.
 //! - **Everything else** gives a Move to the object (`systems/controls/behaviors.md > MovingToObject`), which follows
@@ -40,7 +44,7 @@
 use glam::Vec2;
 
 use crate::combat::domain_allows;
-use crate::defs::{Domain, TargetDomain, Transit};
+use crate::defs::{Domain, ObjectKind, TargetDomain, Transit};
 use crate::economy::gathering::worker_def;
 use crate::ids::ObjectId;
 use crate::network;
@@ -51,6 +55,8 @@ use crate::riot_shield;
 /// What a unit can do, as its default command reads it.
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub struct Abilities {
+    /// Its type: what a building that holds units takes in (`Aimed::accepts`).
+    pub kind: ObjectKind,
     /// The TargetDomain of its attack (`systems/combat.md > AttackAttributes`); `None` for a unit without one.
     pub attack: Option<TargetDomain>,
     /// Its type takes Attack orders: not a Peacekeeper (Shielded), whose shield is up or on its way up
@@ -73,6 +79,7 @@ impl Abilities {
     pub fn of(o: &Object) -> Option<Self> {
         o.orders.as_ref()?;
         Some(Self {
+            kind: o.kind,
             transit: Transit::of(o.def().unit.as_ref()?.base),
             attack: o
                 .def()
@@ -112,6 +119,9 @@ pub struct Aimed {
     /// The classes of unit it lets into the Tunnel Network: its tier's Transit if it is a Tunnel of the unit's owner's
     /// in operation (`network::is_exit`), none for anything else.
     pub transit: &'static [Transit],
+    /// The kinds of unit it takes in: its type's (`HoldsDef::accepts`) if it is a building of the unit's owner's that
+    /// holds units, in operation (`holding::admits`; slice M5-F1), none for anything else.
+    pub accepts: &'static [ObjectKind],
 }
 
 /// What a unit's default command is resolved against.
@@ -138,7 +148,7 @@ pub fn resolve(unit: Abilities, aim: Aim) -> OrderKind {
     if unit.worker && unit.carrying && target.drop_off {
         return OrderKind::DropOff(target.id);
     }
-    if network::passes(target.transit, unit.transit) {
+    if network::passes(target.transit, unit.transit) || target.accepts.contains(&unit.kind) {
         return OrderKind::Enter(target.id);
     }
     let can_attack = target.destructible && unit.attack.is_some_and(|domain| domain_allows(domain, target.domain));
