@@ -2001,6 +2001,23 @@ Approach: thin vertical slices the user can run and see, each verified by tests 
   - **The Director's finding:** the gap is in the AI's economy, not balance. Its new Tunnels go toward staging, and no Agents work their hatches, so income stays at one hatch's 12.5 SC/s. The design says the Syndicate "grows by adding Tunnels ... rather than by saturating one field" (`tunnel_area_and_space.md > Crystal intake and stacked Tunnels`). The fix is A2d's part 2.
   - **Perf:** `think` averages 15 µs over 624,744 calls. Its worst, 0.8–3 ms, depends on the machine's load.
   - 2455 tests passed, 57 ignored. No golden moved, and the sim is untouched.
+- **A2c The Colonists' computer player** (Opus; merged in `157d6c28`):
+  - **What it plays:**
+    - Drones up to three per patch of its field;
+    - Drones from the Robo Portal deploy into Beacons when Beacon Capacity, counting Beacons on their way, falls short of the queued units plus one of each portal's next. Every deploy is checked with `View::deploy_check`. Sites keep a free ring and stay off the field and the staging point. A Deploy stuck for 20 s is stopped, and that Drone and site are skipped for a minute;
+    - warp-ins, checked with `View::warp_in_check`: a Bio Portal on the first Beacon, two more at 12 and 18 Drones, and the Egress Node or Robo Portal again if lost;
+    - Sabres without pause, with Weapon Conversion turning every other one into a Rifle, since Sabres alone stalemated the mirror;
+    - the army layer's default waves, 8 and then 32.
+  - **Shared-layer change:** `build::Occupied`, `Occupied::of` and `Occupied::free` became `pub(crate)`. No sim or View change.
+  - **Results:**
+    - The GDO-vs-GDO rows are unchanged, and the Syndicate rows are as A2b left them.
+    - In the Colonists mirror, standard beats passive in 6:38–12:21.
+    - The GDO's standard beats the Colonists in 4:44–5:10.
+    - The Colonists' standard beats the Syndicate's passive from both slots, in 6:04–8:59.
+    - **The Colonists' standard can't beat the GDO's passive** (no winner at 20:00, 137 units trained to 253). A2c tried Rifle shares, a second Robo Portal and larger waves, and none changed it.
+  - **The Director's call:** with one Robo Portal, Beacon Capacity sits at its cap from about 3:00, with 882 SC banked at 3:00 on `playtest.json`. A computer player that sits on its money is a weak opponent, so A2d's part 3 makes the Colonists spend it. Two Robo Portals did keep capacity ahead in A2c's trials, but the mirror then stalled against passive, so A2d must also find what breaks a passive Colonists defender.
+  - **Perf:** `think` averages 8–44 µs on the Colonists' rows.
+  - 2457 tests passed, 57 ignored. No golden moved, and the sim is untouched.
 
     | Map | Standard as P1 vs passive | Passive vs standard as P2 | Standard vs standard |
     |---|---|---|---|
@@ -2017,10 +2034,11 @@ Approach: thin vertical slices the user can run and see, each verified by tests 
 
 ## In progress
 - **Running:**
-  - **A2a and A2c Computer players for the Cults and the Colonists** (Opus, in parallel; brief `scratchpad/briefs/a2-ai-factions.md`). A2b, the Syndicate's, is merged (`73da4292`). See Computer opponents below.
+  - **A2a The Cults' computer player** (Opus; brief `scratchpad/briefs/a2-ai-factions.md`). A2b, the Syndicate's, and A2c, the Colonists', are merged (`73da4292`, `157d6c28`). See Computer opponents below.
   - **M5-V1 Oriented silhouettes** (Opus; brief `scratchpad/briefs/m5v1-oriented-silhouettes.md`), launched in A2b's slot, since it heads M5's critical path.
+  - **M5-N7 The Airstrip and the Sparrow** (Opus; brief `scratchpad/briefs/m5n7-airstrip-sparrow.md`, with 0408, 0410, 0411's test and 0412 folded in), launched in A2c's slot.
   - **M6-P, M6's planning spike** (Opus, read-only, no builds; brief `scratchpad/briefs/m6-planning.md`): drafts the plan for 0366–0369 in `scratchpad/m6/m6-plan.md`.
-- **Next, as slots free:** N7 (brief `scratchpad/briefs/m5n7-airstrip-sparrow.md`, with 0408, 0410, 0411's test and 0412 folded in) and K (brief `scratchpad/briefs/m5k-rocketman-arsenal.md`, with HeadDisjointed, Target Lock and 0407's Verification test) (V1 is running), then A2d and V2 → N6 → N10, N11, then X1 → X2 → M.
+- **Next, as slots free:** K (brief `scratchpad/briefs/m5k-rocketman-arsenal.md`, with HeadDisjointed, Target Lock and 0407's Verification test) (V1 and N7 are running), then A2d and V2 → N6 → N10, N11, then X1 → X2 → M.
 - **Queued for the playtest:**
   - **Computer opponents.** The user asked for them for the next playtest (2026-11-26). 0402 answered Q0147: a playtest tool with fair knowledge (`core/game_rules.md > Computer players (playtest tool)`), built as planned. **A1 is merged** (`168dadc0`). It launched on 2026-11-26, taking the user's answer to Q0147 as the go-ahead: (a), "built as above", which 0402 records as "Build as planned". The user was told and can stop it. **A2a–c are running** (brief `scratchpad/briefs/a2-ai-factions.md`, launched 2026-11-26).
     - **Architecture** (the Director's):
@@ -2035,7 +2053,7 @@ Approach: thin vertical slices the user can run and see, each verified by tests 
     - **Slices:**
       - **A1 The framework and the GDO** (Opus): all of the above, and the GDO's standard and passive profiles: the `gdo_opening` line, Barracks, and Peacekeepers in waves.
       - **A2a–c The Cults, the Syndicate, the Colonists** (Opus, in parallel once A1 lands): each faction's opening, made robust from the pairings openings, its production, and the shared army layer. Each keeps the GDO's games unchanged and reports its pairings against the GDO. The rush profile moved to A2d, so the three stay disjoint.
-      - **A2d The rush profile for all four factions, and the Syndicate grows by Tunnels** (Opus, after A2a–c; brief `scratchpad/briefs/a2d-rush-and-syndicate-tunnels.md`).
+      - **A2d The rush profile for all four factions, the Syndicate grows by Tunnels, and the Colonists spend their bank** (Opus, after A2a–c; brief `scratchpad/briefs/a2d-rush-and-syndicate-tunnels.md`).
       - **A3, later, from playtests:** defense, expansions, tech, spells and difficulty.
 - **Next**:
   - **M4 is complete** (M4-M, `4e3fdd4a`; the strays, M4-Z, `95b4bc6e`; the hatch jam fixed by M4-W3's contact step, `5305c2f3`). The jam's history: M4-W diagnosed it (`189d0162`), M4-W2 built 0315's first step (`b81b2089`), which didn't fix it, and 0324 planned the 90° contact step, which did. 0336 accepted the oversaturated hatch and dropped 0324's steps 2 and 3.
@@ -2812,7 +2830,7 @@ Last triaged: 0282.
 | 0399 **A shows whenever any selected group can attack**, whichever group is in focus, and is hidden only when no selected unit can attack (replaces 0398's hidden A) | done (**M5-S5**, `d6d1a1a2`) | Verification: Drones and Militants with the Drones in focus show A; Drones alone don't |
 | 0400 **Right-click in multi-stage menus** does the selection's normal right-click and leaves the menu open (BuildMenu, ExpandMenu, EjectMenu, KindMenu, AugmentMenu). In AwaitingTarget and AwaitingPlacement it cancels straight to DefaultState, and a ready building stays ready. Escape and Z still go back one step | done (**M5-S5**, `d6d1a1a2`) | Verification: Recruits in Basic Construct, right-click ground, they move and the menu stays; right-click in placement goes to DefaultState; Escape in placement goes back to the build menu |
 | 0401 **The Economy check is closed** (answers Q0146, a): the Cults', GDO's and Syndicate's economy targets stay in the docs as reference for playtests, and the Director measures nothing more against them. The oracle stays as an on-demand tool whose pins aren't maintained, and the pairings tests stay | done (**M5-P3**, `8eaf316e`): the oracle's tests are ignored and its docs cite 0401 | — |
-| 0402 **Computer players are a playtest tool, with fair knowledge** (answers Q0147: fair, a). They see only what their own objects see, remember what they have seen, and know the map and the start locations. They use a player's commands and rules, and their behavior is the Director's placeholder (`core/game_rules.md > Computer players (playtest tool)`) | GDO done (**A1**, `168dadc0`) and the Syndicate (**A2b**, `73da4292`); its Verification is checked every tick in `crates/ai/tests/games.rs`. The Cults and the Colonists are in progress (**A2a**, **A2c**) | Verification: in an AI-vs-AI game, an AI doesn't attack a building it has never seen or scouted, apart from the known start locations |
+| 0402 **Computer players are a playtest tool, with fair knowledge** (answers Q0147: fair, a). They see only what their own objects see, remember what they have seen, and know the map and the start locations. They use a player's commands and rules, and their behavior is the Director's placeholder (`core/game_rules.md > Computer players (playtest tool)`) | GDO done (**A1**, `168dadc0`), the Syndicate (**A2b**, `73da4292`) and the Colonists (**A2c**, `157d6c28`); its Verification is checked every tick in `crates/ai/tests/games.rs`. The Cults are in progress (**A2a**) | Verification: in an AI-vs-AI game, an AI doesn't attack a building it has never seen or scouted, apart from the known start locations |
 | 0403 **The Sparrow's SightRange is 8 GU** (answers Q0148 part 1), so a lone Sparrow keeps its target in sight through its loop. Attack Move is unchanged, and what Attack Move means for units that can't stop stays an open design question | done (**M5-H2**, `b825b923`) for targets up to a Peacekeeper's size. Bigger targets are lost after 1–4 passes: Q0149 | Verification: a lone Sparrow ordered to Attack a stationary target, with no spotter, makes repeated passes until it dies |
 | 0404 **A glider's Move completes when it first reaches its point** (answers Q0148 part 2). The next queued order starts; with none, it circles there as when idle | done (**M5-H2**, `b825b923`) | Verification: Shift-queue Move A then Move B for a Sparrow: it passes A, flies on to B and circles at B |
 | 0405 **Gliders push apart slowly, at a quarter of the HoverCraft strength, and their SeparationRadius exceeds their silhouette** (answers Q0148 part 3): Sparrow and Dragonfly 48, Specter 64 | done (**M5-H2**, `b825b923`): gliders at a quarter, and the Sparrow's radius is 48. The Dragonfly's and the Specter's radii wait for their defs (0366, 0367). The drift takes 11–17 s, not "a few seconds": Q0152 | Verification: six Sparrows sent to one point drift apart while circling and end about 48 su apart; two Sparrows passing on one target stay on their lines |
