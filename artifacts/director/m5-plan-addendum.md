@@ -146,6 +146,9 @@
 >     - Goldens may move if one has an Agent-built or upright turret.
 >   - **J1** builds no Agent Construct menu (0326 is superseded). **S1** shows every player the defeat notice
 >     (0357), and the playtest notes name the Colonists' anti-air gap (0356).
+> - **J1 is split:** the Recruitment Area display (0350–0352, and Q0107's "a selected own Hall shows its claims")
+>   becomes **J2** (Opus, after J1, the same placement files). J1 keeps the panel, the menus, placement, the
+>   right-click and the pointers, plus 0341 point 1.
 > - **The waves after these additions** (a sketch; the binding rule is each slice's "after"):
 >   - W4: J1, Y and F3;
 >   - W5: L, U1 and G2;
