@@ -110,7 +110,7 @@ The pointer reflects the pending command and whether the current CursorTarget is
 - AwaitingTarget[Repair] over a damaged own building or vehicle the selection can repair: **Repair**; elsewhere: **Inactive**
 
 #### AwaitingPlacement:
-No pointer display type — the building ghost preview serves as the cursor.
+No pointer display type — the building ghost preview serves as the cursor. The ghost shows **entrance and exit arrows** at its doorways (core/entities.md > Structure Type > Entrance and exit, Arrows on the ghost).
 
 ## CommandIndicators
 Visual markers displayed at command targets for selected units. Indicators are only visible when a unit or building with that active command is part of the current Selection. All active command indicators in the selection are shown simultaneously. Indicators are removed when the unit is deselected or the command completes.

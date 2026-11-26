@@ -75,7 +75,7 @@ pub const SELECTED_CLAIMS: (Color, Color) = (OWN_FILL, OWN_EDGE);
 pub const RECRUITMENT_AREA_Z: f32 = AREA_Z + 0.002;
 /// The Effectiveness label (**Placeholder (not in the design: where and how the Effectiveness shows)**): its z over the
 /// overlays' band base (the ghost's letters', `super::ghost`), its text height in space units, its colour, and how far
-/// north of the footprint its centre stands, in tiles.
+/// north of the footprint its centre stands, in tiles (or south of it, at the map's north edge: [`label_ground`]).
 const LABEL_Z: f32 = -1.0;
 const LABEL_SU: f32 = 20.0;
 const LABEL_COLOR: Color = Color::srgba(1.0, 1.0, 1.0, 0.95);
@@ -382,15 +382,24 @@ pub(super) fn draw_overlay(
     }
 }
 
-/// Where the Effectiveness label of a Hall's ghost on `footprint` stands (Bevy world coordinates): north of the
-/// footprint, between it and the area's edge, over every map object.
+/// Where the Effectiveness label of a Hall's ghost on `footprint` stands (Bevy world coordinates): over
+/// [`label_ground`], over every map object.
 fn label_at(map: &Map, footprint: &Placement) -> Vec3 {
-    let ground = Vec2::new(
-        footprint.center().x,
-        (footprint.origin.y as f32 - LABEL_NORTH_GU) * SU_PER_GU,
-    );
+    let ground = label_ground(footprint);
     let at = view_to_world(drawn_at_height(ground, map.height_at(ground)));
     at.extend(DrawLayer::Overlays.base_z() + LABEL_Z)
+}
+
+/// The point of the ground under the Effectiveness label of a Hall's ghost on `footprint` (space units): north of the
+/// footprint, between it and the area's edge; south of it, as far, where that point would be off the map, which the
+/// view never shows (the camera stays over the map, `crate::camera`): a Hall flush against the north edge or a tile
+/// from it, which design change 0387 lets be placed (slice M5-S4). **Placeholder (not in the design: where the
+/// Effectiveness shows)**, as [`LABEL_NORTH_GU`].
+fn label_ground(footprint: &Placement) -> Vec2 {
+    let center = footprint.center();
+    let north = (footprint.origin.y as f32 - LABEL_NORTH_GU) * SU_PER_GU;
+    let y = if north >= 0.0 { north } else { 2.0 * center.y - north };
+    Vec2::new(center.x, y)
 }
 
 #[cfg(test)]

@@ -220,11 +220,18 @@ fn completed_halls_split_their_tiles_by_the_tie_rule() {
     assert_eq!(game.claims().tiles(ObjectId(1)), 80);
 }
 
-/// The tiles of the area off the map count among its tiles, and can't be claimed (`super::super::area`: placement
-/// refuses such a Hall, design change 0341 point 1, but its ghost may stand there): in the corner, 49 of 100.
+/// The tiles of the area off the map count among its tiles, and can't be claimed (design change 0387: "The preview's
+/// Effectiveness counts off-map tiles as 0"), and 0387's Verification, "The preview shows Effectiveness ≤ 70%": flush
+/// against the east edge, 3 of the area's 10 columns off the map, 70 of 100 ("a Hall against the edge has 3 of its 10
+/// rows off the map, so at most 70%"); in the corner, both edges cutting it, 49 of 100.
 #[test]
 fn off_map_tiles_count_and_cannot_be_claimed() {
     let map = map(20, 20, &[]);
+    let flush = Preview::of(HALL, at(16, 8), &[], &map, everywhere).expect("a Hall");
+    assert_eq!(flush.tiles.len(), 100);
+    assert_eq!(found(&flush, 19, 5), PreviewTile::Claimable);
+    assert_eq!(found(&flush, 20, 5), PreviewTile::NotRecruitable);
+    assert_eq!((flush.claimed(), flush.effectiveness_percent()), (70, 70));
     let preview = Preview::of(HALL, at(0, 0), &[], &map, everywhere).expect("a Hall");
     assert_eq!(preview.tiles.len(), 100);
     assert_eq!(found(&preview, -3, -3), PreviewTile::NotRecruitable);

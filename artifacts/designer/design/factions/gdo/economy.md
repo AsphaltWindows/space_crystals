@@ -111,6 +111,7 @@ DefaultState (idle — no CurrentConstruction, no ReadyToPlace):
 - **Q: Build Extraction Plate**: deducts 75 Space Crystals, starts construction (CommandIssuingTransition). Only available if player has sufficient Space Crystals.
 
 DefaultState (constructing — CurrentConstruction is set):
+- **Q: Place Plate**, greyed out, with a **running progress bar** on the button showing the plate's construction (user, 2026-11-27); it lights up when the plate is ready.
 - **X: Cancel Construction**: refunds full cost, clears CurrentConstruction (CommandIssuingTransition)
 
 DefaultState (ready to place — ReadyToPlace is set):

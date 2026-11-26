@@ -107,12 +107,6 @@ pub enum WholeProblem {
     /// constructed within a Tunnel's Tunnel Area"), as a layout's Extraction Plates must lie in the build area of its
     /// Deployment Center ([`super::check_layout`]).
     OutsideTunnelArea,
-    /// (M5-J1) A tile of the Recruitment Area that the Recruitment Hall would have lies past the map's edge (design
-    /// change 0341 point 1, `factions/cults/structures/recruitment_hall.md > RecruitmentArea`: "**The whole area must
-    /// lie on the map** ...: a Hall whose area would leave the map can't be placed (as Tunnels, 0242)"). The map's edge
-    /// is known: this counts on ground never explored too ([`super::Mode::Known`]). The rule is in
-    /// `placement/recruitment_area.rs`.
-    RecruitmentAreaOffMap,
 }
 
 /// Everything that keeps a placement from being valid ([`super::check`]): nothing, if it is.
@@ -196,9 +190,6 @@ impl fmt::Display for WholeProblem {
                 "the Tunnel Area overlaps another Tunnel's: Tunnel Areas never overlap, whoever owns them"
             }
             WholeProblem::OutsideTunnelArea => "an expansion lies wholly inside a Tunnel's Tunnel Area",
-            WholeProblem::RecruitmentAreaOffMap => {
-                "the Recruitment Area reaches off the map: a Recruitment Hall's whole area must be on the map"
-            }
         })
     }
 }

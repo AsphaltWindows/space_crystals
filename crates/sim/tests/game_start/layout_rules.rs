@@ -61,7 +61,8 @@ fn each_layout_follows_its_factions_placement_rules_without_sight() {
     assert_eq!(s.map.validate(), [blocked]);
     gdo(&mut s).pop();
     // Another faction's layout over the GDO's: the Cults' Hall on its Deployment Center, which needs no build area,
-    // from (3, 3) to (6, 6), its Recruitment Area on the map (design change 0341 point 1).
+    // from (3, 3) to (6, 6), its Recruitment Area on the map, so that none of it is lost (design change 0387: "The part
+    // of its 10x10 area beyond the map edge yields **no Recruitable tiles**").
     *s.map.slots[0].layouts.get_mut(Faction::Cults) = vec![laid(HALL, 3, 3)];
     assert_eq!(s.validate(), []);
 

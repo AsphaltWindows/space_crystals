@@ -11,7 +11,8 @@
 //!   layout's expansions inside their Tunnel's area;
 //! - `expansion`: the expansion method (slice M4-F): inside the Tunnel's area, on Drillable ground, with no flatness
 //!   and no sight;
-//! - `recruitment_area`: a Recruitment Hall's whole Recruitment Area on the map (slice M5-J1, design change 0341).
+//! - `recruitment_area`: a Recruitment Hall right up to the map's edge and in its corners, its area reaching off the
+//!   map, in every mode (slice M5-S4, design change 0387, in place of slice M5-J1's whole area on the map).
 
 mod expansion;
 mod footprint;

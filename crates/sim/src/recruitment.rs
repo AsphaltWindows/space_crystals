@@ -7,10 +7,13 @@
 //!
 //! - **The Recruitment Area** ([`area`], `factions/cults/structures/recruitment_hall.md > RecruitmentArea`: "A 10x10
 //!   grid unit area centered on the 4x4 building"): the square of `RecruitmentDef::area` tiles a side centred on the
-//!   footprint. The whole area lies on the map (design change 0341 point 1: "a Hall whose area would leave the map
-//!   can't be placed"): the placement check refuses a Hall whose area would leave it (`placement/recruitment_area.rs`).
-//!   A Hall that takes no placement check, a debug spawn's, may still have tiles of its area off the map: they count
-//!   among its area's tiles, and can't be claimed (**Placeholder (not in the design: 0341 rules such a Hall out)**).
+//!   footprint. "**The area may extend past the map edge**" (design change 0387, slice M5-S4, which replaced 0341 point
+//!   1's "The whole 10x10 area must lie on the map"): a Hall stands wherever its footprint fits (`crate::placement`
+//!   has no rule of its area), and "The part of its area that lies **off the map yields no Recruitable tiles**"
+//!   ([`recruitable`]), while those tiles count among the area's all the same
+//!   (`factions/cults/structures/recruitment_hall.md > Effectiveness`: "The total is always the full 10x10 = 100,
+//!   **off-map tiles included**"): a Hall flush against the edge, 3 of its 10 rows off the map, has 70% at most (0387:
+//!   "so at most 70%"), one in a corner 49%.
 //! - **The claims** ([`Claims`], `factions/cults/structures/recruitment_hall.md > TileClaiming`, whose Claiming details
 //!   design change 0341 wrote): each Recruitable tile of an area goes to the first of the Halls whose area has it, in
 //!   the order they were completed ("**Priority** goes to the Hall **completed first**"); of Halls completed in the
@@ -78,7 +81,9 @@ pub(crate) fn area_square(placement: &Placement, def: &RecruitmentDef) -> (TileP
 }
 
 /// Whether `tile` is Recruitable on `map` (`TilePreset::recruitable`): "Buildings do not affect recruitability"
-/// (`factions/cults/structures/recruitment_hall.md > Effectiveness`), and a tile off the map is none.
+/// (`factions/cults/structures/recruitment_hall.md > Effectiveness`), and a tile off the map is none
+/// (`factions/cults/structures/recruitment_hall.md > RecruitmentArea`: "The part of its area that lies **off the map
+/// yields no Recruitable tiles**", design change 0387).
 pub fn recruitable(map: &Map, tile: TilePos) -> bool {
     map.tile_preset(tile).is_some_and(|preset| preset.recruitable)
 }

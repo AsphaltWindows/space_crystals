@@ -782,16 +782,15 @@ Layout validation can't disagree. **Never test a placement rule anywhere else: a
   allowed. It is `WholeProblem::TunnelAreaOverlap`, in every mode: `Mode::Known` judges by what the player knows ("their
   remembered position and their tier as last seen"), `Mode::Arrival` by the truth, so a Tunnel upgraded unseen fails a
   build on arrival.
-- **The Recruitment Area rule** (slice M5-J1, `placement/recruitment_area.rs`; design change 0341 point 1,
-  `factions/cults/structures/recruitment_hall.md > RecruitmentArea`): a kind that recruits (`recruitment::def_of`),
-  the Recruitment Hall, has its whole Recruitment Area (`recruitment::area`, centred on the footprint) on the map, in
-  every mode, as the Tunnel Area's edge rule: `WholeProblem::RecruitmentAreaOffMap`, "The Recruitment Area reaches off
-  the map". A Hall's 10-tile area holds its 4 × 4 footprint with 3 tiles a side, so an origin 3 tiles from the edge is
-  valid and 2 is refused. Map and debug spawns don't take the check: such a Hall's tiles off the map count among its
-  area's and can't be claimed (`recruitment.rs`, a placeholder).
+- **No Recruitment Area rule** (slice M5-S4; design change 0387, `factions/cults/structures/recruitment_hall.md >
+  RecruitmentArea`: "a Hall can be placed anywhere its 4x4 footprint fits on the map, including right at the edge"):
+  a Recruitment Hall takes its footprint's rules alone, in every mode, right up to the map's edge and into its
+  corners. Slice M5-J1's rule, its whole area on the map (design change 0341 point 1,
+  `WholeProblem::RecruitmentAreaOffMap`), is gone. The tiles of its area off the map count among its 100 and are
+  never Recruitable (*Production > The Recruitment Halls*). Tunnel Areas keep their own edge rule (0242).
 - **The files** (`placement/`): `site.rs` (`Site`, `Mode`, `Method`, `Occupant`), `problems.rs` (the problems,
   `PlacementCheck`, their texts), `check.rs` (the check), `footprint.rs` (its tiles), `tunnel_area.rs`,
-  `tunnel_overlap.rs`, `recruitment_area.rs`, `build_area.rs` and `onto.rs`. The geometry of Tunnel Areas, their regions and an expansion's
+  `tunnel_overlap.rs`, `build_area.rs` and `onto.rs`. The geometry of Tunnel Areas, their regions and an expansion's
   parent Tunnel is `tunnel/area.rs`, the one place that works them out (Tunnel Space, these rules,
   `Sim::parent_tunnel`).
 - **Methods** (plan decision T16): the `Site` also names how the structure comes to stand (`Method`), and the one
@@ -2548,11 +2547,11 @@ their energy doorway, slice M3-D2: design change 0145, `factions/colonists/struc
   default preset but Water) of a Hall's 10 × 10 area centred on its footprint goes to the first completed Hall whose
   area has it, by `Production::completed_at`, and of Halls completed in the same tick the one whose centre is nearer
   the tile, then the lower id (design change 0341 point 3), whoever owns it (0341 point 5); buildings never matter;
-  the whole area lies on the map, the placement check refusing a Hall whose area would leave it (0341 point 1, slice
-  M5-J1: `WholeProblem::RecruitmentAreaOffMap`, `placement/recruitment_area.rs`), and a debug spawn's tiles off the
-  map count among its 100 and can't be claimed (Placeholder (not in the design: 0341 rules such a Hall out)); a Hall
-  under construction claims nothing (0341 point 4, `Object::is_operational`). **One rule of claiming** (slice M5-J2,
-  `recruitment::winners`): each competitor (`Contender`) ranked, every Recruitable tile of the areas to the least by
+  the area may reach past the map's edge (design change 0387, slice M5-S4, in place of 0341 point 1's whole area on
+  the map, which the placement check no longer asks): its tiles off the map count among its 100 and are never
+  Recruitable (`recruitment::recruitable`), so a Hall flush against an edge has 70% at most, one in a corner 49%; a
+  Hall under construction claims nothing (0341 point 4, `Object::is_operational`). **One rule of claiming** (slice
+  M5-J2, `recruitment::winners`): each competitor (`Contender`) ranked, every Recruitable tile of the areas to the least by
   (rank, distance² from its centre in half tiles, id); the game's claims rank the completed Halls by `completed_at`
   (`Claims::of`, `claimed_tiles` for a selected Hall: `Sim::claimed_tiles`), and **the placement preview**
   (`recruitment::preview`, `factions/cults/structures/recruitment_hall.md > Recruitment Area display`, design changes
@@ -2749,9 +2748,10 @@ their energy doorway, slice M3-D2: design change 0145, `factions/colonists/struc
   (slice M5-C: the area, the exact capacity, the claims and their order, the lineages' points),
   `recruitment/preview/tests.rs` (slice M5-J2: the preview's claimants in their order, completed before pending,
   0351's placement order, 0341's tie rule as the game's claims split it, the Effectiveness rounded down, off-map tiles,
-  known Water and unexplored ground; in the client, `placement/recruitment_areas/tests.rs`, the pending Halls' order
-  and the mesh, and `crates/game/tests/commands/recruitment_areas.rs`, with the fog on: 0350's, 0351's and 0352's
-  Verifications, a Hall never seen, the label, a selected Hall's claims and an enemy's none),
+  known Water and unexplored ground, a Hall flush against the edge at 70% (0387); in the client,
+  `placement/recruitment_areas/tests.rs`, the pending Halls' order, the mesh and the label's place, and
+  `crates/game/tests/commands/recruitment_areas.rs`, with the fog on: 0350's, 0351's and 0352's Verifications, a Hall
+  never seen, the label, a selected Hall's claims and an enemy's none, 0387's at the edge and in the corner),
   `tests/recruitment/` (slice M5-C: a full Hall's 6 → 20 in 2688 ticks then none, 50 tiles' 10 at 384 ticks,
   buildings in the area, Halls sharing tiles and one lost in a tick, a destroyed Hall's Recruits and capacity, a lost
   Recruit restarting a full Hall, orphans, X, a `Train`, the rally on the ground and on a patch, a game replayed and
@@ -3305,7 +3305,8 @@ their energy doorway, slice M3-D2: design change 0145, `factions/colonists/struc
   Control 6/20, the camera on the Hall), the Hall's seventh Recruit started at once and out of its bottom door at tick
   192, `dev_skirmish`'s layout as the design asks for it (the Hall's area on the map, Recruitable and uncontested; the
   Storage a 1-tile gap from the patches; the Recruits beside it, clear of the doors), the 16 faction combinations, an
-  incomplete layout and one with a Recruit too many, and a layout's units belonging to its first Hall. `pairings/`
+  incomplete layout and one with a Recruit too many, a layout's Hall flush against the map's edge at 70% (slice M5-S4,
+  0387), and a layout's units belonging to its first Hall. `pairings/`
   (slice M5-R) starts every ordered pair of the four factions, 16, on every Skirmish Default map and plays it to a win
   (*Adding a faction*, item 19). The Tunnel Area's rules are unit-tested in `placement/tests/tunnel_area.rs`, Tunnel
   Space in `economy/army/tunnel_space.rs`, the geometry in `tunnel/area.rs`; a unit inside the network keeping its
@@ -3447,8 +3448,10 @@ their energy doorway, slice M3-D2: design change 0145, `factions/colonists/struc
   site waiting for one walking off its middle, an enemy and an own Recruit not on the order each failing it, refunded
   once, a Recruit holding it queued holding it back until it walks off, and 0372's Verification, a Hall Shift-placed
   over a builder's spot at a Storage; `gate.rs`: the Armory's Storage, Shift-clicks each
-  paid, Assist's refusals; `crowds.rs`: twenty-four on a Storage; `hall.rs`: a built Hall's lineage, gatherers taken
-  off and back), each tick checking a frame per builder at work. `sim/spot_work/tests.rs` (test defs): the wall full
+  paid, Assist's refusals, a Hall flush against the edge and in a corner taken (slice M5-S4, 0387); `crowds.rs`:
+  twenty-four on a Storage; `hall.rs`: a built Hall's lineage, Halls built flush against the edge (70%: 14 Recruits,
+  275 ticks each) and in a corner (49%: 9, 392 ticks), gatherers taken off and back), each tick checking a frame per
+  builder at work. `sim/spot_work/tests.rs` (test defs): the wall full
   and those waiting further out moving in, oblong ABAC footprints, 2 × 3 and 2 × 4, at four rotations, and a walk
   ended on the footprint looking again (0362); `placement/wall/tests.rs` the wall, its search and the way round;
   `spot_work/tests.rs` the claim and the reach.
@@ -4478,9 +4481,11 @@ Drones, through one command flow (plan decision T10, slices M2-H1, M2-H2 and M3-
   `placement/recruitment_areas.rs`; `factions/cults/structures/recruitment_hall.md > Recruitment Area display`,
   design changes 0350, 0351 and 0352, answering Q0107) shows, in the game modes, never an enemy's area:
   - **the preview of a Hall placed** (`ghost_preview`, the sim's `Preview::of`, after `ghost::update_ghost`): its 10 ×
-    10 area tinted tile by tile by what the preview finds (`fill_of`) within its outline, and its Effectiveness as a
-    `Text2d` north of the ghost (`EffectivenessLabel`, always visible and emptied rather than hidden, as the ghost's
-    letters; "Effectiveness: 60%"). The claimants (`known_claimants`) are what the local player knows, never the hidden
+    10 area tinted tile by tile by what the preview finds (`fill_of`) within its outline, on the map's tiles only (a
+    Hall may stand right at the edge, design change 0387: its tiles off the map are not Recruitable, counted among the
+    100, neither tinted nor outlined), and its Effectiveness as a `Text2d` north of the ghost (`EffectivenessLabel`,
+    always visible and emptied rather than hidden, as the ghost's letters; "Effectiveness: 60%"), or south of it where
+    north would be off the map and out of the view (`label_ground`, slice M5-S4, a placeholder). The claimants (`known_claimants`) are what the local player knows, never the hidden
     truth: their own completed Halls; the other players' completed Halls they see (`Sight::sees`) or remember
     (`Sight::remembered`, as last seen: a Hall destroyed unseen counts until its place is seen, one never seen doesn't,
     a site claims nothing), ranked as completed at tick 0 (Placeholder (not in the design: what the player knows holds

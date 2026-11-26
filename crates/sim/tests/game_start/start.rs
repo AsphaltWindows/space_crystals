@@ -30,8 +30,9 @@ fn a_game_starts_with_each_players_starting_conditions() {
         laid(PLATE, 22, 2),               // 12
     ];
     // A Custom map's layouts may hold any objects (`core/map_editor.md > Map Types > Custom`), the Cults' here a
-    // Recruit and its Hall, whose Recruitment Area, (6, 0) to (15, 9), lies on the map (design change 0341 point 1);
-    // nobody plays the Cults.
+    // Recruit and its Hall, whose Recruitment Area, (6, 0) to (15, 9), lies on the map, so that none of it is lost
+    // (design change 0387: "The part of its 10x10 area beyond the map edge yields **no Recruitable tiles**"); nobody
+    // plays the Cults.
     *s.map.slots[0].layouts.get_mut(Faction::Cults) = vec![
         unit_at(RECRUIT, point(12.0, 8.0)),
         laid(HALL, 9, 3), // (9, 3) to (12, 6)

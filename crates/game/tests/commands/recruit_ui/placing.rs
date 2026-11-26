@@ -2,9 +2,8 @@
 //! places its building for the whole group, paid once (design changes 0072 and 0327); a Shift chain of two, one
 //! lingering ghost each (design change 0072, `systems/controls/interface.md > AwaitingTarget > Shift while
 //! placing`); a Storage's ghost, 3x2, turning between two orientations (design change 0380); and a Recruitment Hall
-//! whose Recruitment Area would leave the map, refused with its reason (design change 0341 point 1).
+//! flush against the map's edge, its Recruitment Area reaching off the map, placed (design change 0387).
 
-use sc_sim::{PlacementProblem, WholeProblem};
 use space_crystals::command_ui::feedback::placement_text;
 use space_crystals::command_ui::{Builder, Placing};
 
@@ -124,14 +123,13 @@ fn a_storage_ghost_is_3x2_and_turns_between_two_orientations() {
     assert_eq!(shown(&app), turned);
 }
 
-/// Design change 0341 point 1 (`factions/cults/structures/recruitment_hall.md > RecruitmentArea`): "The whole 10x10
-/// area must lie on the map. A Hall that would leave it can't be placed", with design change 0371's correction of
-/// 0341's Verification: "A Hall 3 tiles from the edge is accepted; one 2 tiles from the edge is refused". 2 tiles from
-/// the edge, its area, 3 tiles beyond its footprint, would reach a tile past it: its ghost is red there, and a click
-/// says why and sends nothing, placement going on; 3 tiles from the edge, its area just on the map, the ghost is
-/// green, and the click sends the Build.
+/// Design change 0387's Verification: "Place a Hall flush against the map edge: it is accepted"
+/// (`factions/cults/structures/recruitment_hall.md > RecruitmentArea`: "a Hall can be placed anywhere its 4x4 footprint
+/// fits on the map, including right at the edge"), where slice M5-J1 refused one 2 tiles from it (design change 0341
+/// point 1). Flush against the north edge, 3 rows of its Recruitment Area off the map, the Hall's ghost is green, and a
+/// click sends the group the Build and ends placement.
 #[test]
-fn a_hall_whose_area_leaves_the_map_is_refused_with_its_reason() {
+fn a_hall_flush_against_the_map_edge_is_placed() {
     let mut app = recruit_game(300);
     select_units(&mut app, &RECRUITS);
     tap(&mut app, &[], KeyA);
@@ -140,25 +138,13 @@ fn a_hall_whose_area_leaves_the_map_is_refused_with_its_reason() {
         interface(&app),
         InterfaceState::AwaitingPlacement(Placing::recruits(HALL_KIND))
     );
-    let (refused, valid) = (TilePos::new(2, 20), TilePos::new(3, 20));
-    look_at(&mut app, middle(refused, (4, 4)));
-    pointer_over(&mut app, middle(refused, (4, 4)));
+    let flush = TilePos::new(20, 0);
+    look_at(&mut app, middle(flush, (4, 4)));
+    pointer_over(&mut app, middle(flush, (4, 4)));
     let shown = ghost(&app).expect("a ghost");
-    assert_eq!((shown.kind, shown.origin), (HALL_KIND, refused));
-    assert_eq!(shown.check.whole, [WholeProblem::RecruitmentAreaOffMap]);
-    assert!(!shown.is_valid());
-    click(&mut app, middle(refused, (4, 4)), &[]);
-    let problem = Some(PlacementProblem::Whole(WholeProblem::RecruitmentAreaOffMap));
-    assert_eq!(said(&app), Some(placement_text(problem)));
-    assert_eq!(said(&app), Some("The Recruitment Area reaches off the map"));
-    assert_eq!(builds(&app), []);
-    assert!(matches!(interface(&app), InterfaceState::AwaitingPlacement(_)));
-
-    pointer_over(&mut app, middle(valid, (4, 4)));
-    let shown = ghost(&app).expect("a ghost");
-    assert_eq!(shown.origin, valid);
+    assert_eq!((shown.kind, shown.origin), (HALL_KIND, flush));
     assert!(shown.is_valid(), "{:?}", shown.check);
-    click(&mut app, middle(valid, (4, 4)), &[]);
-    assert_eq!(builds(&app), [given(&RECRUITS, build_at(HALL_KIND, valid), false)]);
+    click(&mut app, middle(flush, (4, 4)), &[]);
+    assert_eq!(builds(&app), [given(&RECRUITS, build_at(HALL_KIND, flush), false)]);
     assert_eq!(interface(&app), InterfaceState::DefaultState);
 }
