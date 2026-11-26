@@ -2,7 +2,8 @@
 //! buildings"): point 5, "**Capacity counts everyone inside**, reserved units included: the queue can never hold more
 //! orders than the building's capacity allows (e.g. the Armory: 10 Recruits inside in all, so at most 10 queued
 //! orders)"; point 3, "a Recruit carrying Space Crystals **keeps its load** inside and comes out with it; a Recruit
-//! consumed by training loses it".
+//! consumed by training loses it". (M5-S2b) And design change 0378: a right-click on a full damaged Armory, its
+//! reserved Recruits counted, is a Repair.
 
 use sc_sim::SpawnSettings;
 
@@ -65,6 +66,48 @@ fn an_armory_with_ten_inside_and_ten_queued_refuses_an_eleventh_recruit() {
     run_checked(&mut t, again);
     fill(&mut t, A1, 10);
     assert!(inside(&t, A1).contains(&eleventh));
+}
+
+/// (M5-S2b) Design change 0378, answering Q0140 (`factions/cults/structures/README.md > Entering pool buildings`:
+/// "**Right-click on a full building** [...]: if it is also damaged, Recruits' right-click resolves to **Repair**
+/// instead of Enter"; 0378: "fullness, counting reserved units, is checked at click time", "This applies to every
+/// building that holds units"): player 2's Militant damages the Armory, ten Recruits inside, and ten Militants queued
+/// reserve them all. Nothing is left in its pool, yet it is full: an eleventh Recruit's right-click on it is a Repair.
+/// Once the first Militant is out there is room for one, and the right-click enters (design change 0325: "**Enter**
+/// wins").
+#[test]
+fn a_full_damaged_armory_is_repaired_on_a_right_click_its_reserved_recruits_counted() {
+    let (mut t, _) = filled(10);
+    let raider = id(next_id(&t));
+    let now = t.sim().tick() + 1;
+    t.spawn_unit_at(now, MILITANT, P2, Vec2::new(864.0, 820.0));
+    t.order_at(now + 1, P2, &[raider], OrderKind::Attack(A1), false);
+    let max = t.sim().object(A1).and_then(|o| o.max_hp()).expect("it has HP");
+    while t.sim().object(A1).and_then(|o| o.hp) == Some(max) {
+        assert!(t.sim().tick() < now + 100, "the raider hits it");
+        step_checked(&mut t);
+    }
+    let start = t.sim().tick() + 1;
+    t.debug_at(start, DebugCommand::Remove { id: raider });
+    for _ in 0..10 {
+        t.at(start, P1, train(&[A1], RecruitKind::Plain));
+    }
+    let eleventh = id(next_id(&t));
+    t.spawn_unit_at(start, RECRUIT, P1, Vec2::new(1060.0, 704.0));
+    run_checked(&mut t, start);
+    let right_click = |t: &TestSim| t.sim().default_order(eleventh, Target::Object(A1));
+    assert_eq!(reserved(&t, A1).len(), 10);
+    assert_eq!(
+        (t.sim().pool(A1).len(), t.sim().room(A1)),
+        (0, 0),
+        "all reserved, and full"
+    );
+    assert_eq!(right_click(&t), Some(OrderKind::Repair(A1)));
+    run_checked(&mut t, start + 31);
+    assert_eq!(produced(&t).len(), 1);
+    assert_eq!(t.sim().room(A1), 1);
+    assert!(t.sim().object(A1).and_then(|o| o.hp) < Some(max), "still damaged");
+    assert_eq!(right_click(&t), Some(OrderKind::Enter(A1)));
 }
 
 /// A Recruit that mines a full load (`factions/cults/units/recruit.md > Gathering`: CarryCapacity 2) and goes in

@@ -8,7 +8,8 @@
 //!   stands, and the Gunners queued as the last Gunworks is lost complete (slice M5-G2);
 //! - `release`: a Release lets a Recruit of a kind out unchanged, 4 ticks after it is queued (0337's Verification);
 //! - `eject`: Eject All leaves the reserved Recruits inside;
-//! - `capacity`: the capacity counts the reserved Recruits too, and a trained unit drops its load (0347);
+//! - `capacity`: the capacity counts the reserved Recruits too, and a trained unit drops its load (0347); a right-click
+//!   on a full damaged Armory is a Repair (0378);
 //! - `destruction`: an Armory destroyed mid-training lets its Recruits out as Recruits and refunds every entry, but a
 //!   Militant trained and waiting for the doorway comes out a Militant, unrefunded (design change 0349);
 //! - `control`: the Unit Control a Militant uses is its Recruit's, an orphan's if the Recruit's Hall is gone;

@@ -48,6 +48,10 @@ impl Sim {
         match self.target_view(player, id) {
             TargetView::Visible => {
                 let o = self.objects.get(&id)?;
+                // An own building that holds units, in operation (slice M5-F1, `crate::holding`).
+                let accepts = holding::holds(o)
+                    .filter(|_| o.owner == Some(player) && o.placement.is_some() && o.is_operational())
+                    .map_or(&[][..], |holds| holds.accepts);
                 Some(Aimed {
                     id,
                     enemy: enemy(o.owner),
@@ -60,10 +64,9 @@ impl Sim {
                     transit: crate::tunnel::tier_def(o)
                         .filter(|_| o.owner == Some(player) && network::is_exit(o))
                         .map_or(&[], |row| row.transit),
-                    // An own building that holds units, in operation (slice M5-F1, `crate::holding`).
-                    accepts: holding::holds(o)
-                        .filter(|_| o.owner == Some(player) && o.placement.is_some() && o.is_operational())
-                        .map_or(&[], |holds| holds.accepts),
+                    accepts,
+                    // (M5-S2b) With no room left now, everyone inside counted (design change 0378).
+                    full: !accepts.is_empty() && self.room(id) == 0,
                     // (M5-E) An own site built from outside, which the units that assist it Assist.
                     site: (o.owner == Some(player) && o.is_built_from_outside()).then_some(o.kind),
                     // (M5-N8) A damaged own object, complete, which the units that repair its kind Repair.
@@ -83,6 +86,7 @@ impl Sim {
                     drop_off: false,
                     transit: &[],
                     accepts: &[],
+                    full: false,
                     site: None,
                     repair: None,
                 })

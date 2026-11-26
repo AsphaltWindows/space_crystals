@@ -4,7 +4,7 @@
 use std::collections::BTreeMap;
 
 use super::{AttackPhase, Projectile, damage};
-use super::{occupants, phases, projectiles, structures, targeting, weapon_ref};
+use super::{Threats, occupants, phases, projectiles, structures, targeting, weapon_ref};
 use crate::augmentation::Research;
 use crate::conversion;
 use crate::events::SimEvent;
@@ -71,7 +71,7 @@ pub(crate) fn step(
     if projectiles.is_empty() && inside.is_empty() && !releases && !objects.range(..first_new).any(|(_, o)| busy(o)) {
         return Vec::new();
     }
-    let targets = targeting::Targets::snapshot(map, objects);
+    let targets = targeting::Targets::snapshot(map, objects).with_occupants(&Threats::of(objects, held));
     // (M5-N4b) Where each attack leaves from, kept only while there is a cloud to absorb its hits.
     let shrouded = !clouds.list().is_empty();
     let mut volley = phases::Volley::new(tick, shrouded);

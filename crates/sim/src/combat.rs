@@ -98,6 +98,7 @@ use crate::object::Object;
 
 pub use area::{hits_domain, overlap};
 pub use damage::{Hit, Taken, directional_multiplier, hit_damage, pre_armor_multiplier, resolve};
+pub(crate) use occupants::Threats;
 pub use projectiles::{Projectile, flight_ticks};
 pub(crate) use step::step;
 pub use targeting::{
@@ -197,10 +198,11 @@ pub(crate) fn weapon_of(form: ObjectKind) -> Option<&'static AttackAttrs> {
     }
 }
 
-/// The domain `o` threatens: its weapon's TargetDomain ([`weapon`]), if it has an attack it can use: a unit that
-/// attacks, a structure that attacks once complete (`Object::is_operational`: a site does nothing but cancel). What the
-/// auto-targeting scans rank first (`systems/controls/behaviors.md > BaseAutoTargeting > Target Selection Priority`:
-/// "threatening targets first"): the behaviours' (`orders::world`), and a structure's own pick ([`structures`]).
+/// The domain `o`'s own attack threatens: its weapon's TargetDomain ([`weapon`]), if it has an attack it can use: a unit
+/// that attacks, a structure that attacks once complete (`Object::is_operational`: a site does nothing but cancel). What
+/// the auto-targeting scans rank first (`systems/controls/behaviors.md > BaseAutoTargeting > Target Selection Priority`:
+/// "threatening targets first"): the behaviours' (`orders::world`), and a structure's own pick ([`structures`]), whose
+/// snapshots add (M5-S2b) what a building's units inside threaten ([`Threats`], design change 0377).
 pub(crate) fn threat(o: &Object) -> Option<TargetDomain> {
     weapon_in_hand(o)
         .filter(|_| o.attack.is_some() && o.is_operational())

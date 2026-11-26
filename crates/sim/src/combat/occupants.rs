@@ -26,6 +26,9 @@
 //!   grid unit of Range**"). "**No spells from inside**": an attack is all they use.
 //! - **Revealed** (`core/vision.md > Attacks from outside vision`): a unit inside that hits an object of a player who
 //!   doesn't see it reveals the building it fires from ([`building_of`]), where its shots come from.
+//! - **Seen as a threat** ([`Threats`]; slice M5-S2b, design change 0377, answering Q0139): "enemies' target scans treat
+//!   the Garrison as a threatening target while any occupant could attack the scanner's domain", so the building
+//!   threatens what its occupants' attacks, as fired from inside, could attack, and nothing while none is inside.
 
 use std::collections::BTreeMap;
 
@@ -34,7 +37,7 @@ use super::phases::{self, Shooter, Volley};
 use super::structures;
 use super::targeting::Targets;
 use crate::augmentation::Research;
-use crate::defs::{AttackAttrs, OccupantFire};
+use crate::defs::{AttackAttrs, OccupantFire, TargetDomain};
 use crate::events::SimEvent;
 use crate::ids::ObjectId;
 use crate::map::Map;
@@ -81,6 +84,97 @@ pub(super) fn weapon(fire: &OccupantFire, o: &Object, research: Research) -> Opt
     };
     attrs.range += fire.range_bonus(o.kind);
     Some(attrs)
+}
+
+/// The TargetDomain of the attack unit `o` fires from a building whose occupants fire by `fire` ([`weapon`]): the
+/// stand-in type's, else its own. Read at no research: an Augmentation changes Damage and FiringDuration only
+/// (`augmentation::augmented`), so the domain is the same at every level.
+fn domain_inside(fire: &OccupantFire, o: &Object) -> Option<TargetDomain> {
+    weapon(fire, o, Research::NONE).map(|attrs| attrs.target_domain)
+}
+
+/// (M5-S2b) What the units inside threaten, building by building, as the target scans rank their targets
+/// (`systems/controls/behaviors.md > TurretAutonomousScanning > Target Selection Priority` 1, design change 0377,
+/// answering Q0139: "**Buildings that fire through their occupants** (e.g. the Cults Garrison [...]) count as
+/// threatening while **any occupant's weapon** (as fired from inside, e.g. a Recruit's Militant stand-in) could attack
+/// this unit's domain"; `factions/cults/structures/garrison.md > Garrisoning`: "**Seen as a threat**"): for each
+/// building whose occupants fire ([`fire_of`]: in operation) with a unit inside that has an attack there
+/// ([`domain_inside`]), the TargetDomain all their attacks cover ([`covering`]), in id order. An empty building isn't
+/// among them, nor one whose units inside have no attack there: it threatens nobody (0377: "An empty Garrison, or one
+/// with no weapon that can reach the scanner's domain, is not a threat").
+///
+/// Both target snapshots, the behaviours' in phase 5a and phase 5e's, add it to the threat each object's own attack
+/// makes (`super::threat`; [`Threats::add_to`]: `orders::world::World::with_occupants`,
+/// `super::targeting::Targets::with_occupants`), each as it is taken (units go in after 5a): one pass over the held
+/// units, each building looked up once, so a scan still reads one value a target.
+#[derive(Debug)]
+pub(crate) struct Threats(Vec<(ObjectId, TargetDomain)>);
+
+impl Threats {
+    /// What the units of `held` threaten from inside the buildings among `objects` (the type's docs).
+    pub(crate) fn of(objects: &BTreeMap<ObjectId, Object>, held: &BTreeMap<ObjectId, Held>) -> Self {
+        // Each building looked up once, at its first unit: its fire, and what its units threaten so far. Units that
+        // went in together have ids in a row, so the building found last is tried first.
+        let mut buildings: Vec<(ObjectId, Option<&'static OccupantFire>, Option<TargetDomain>)> = Vec::new();
+        for held in held.values() {
+            let Place::Building(id) = held.place else {
+                continue;
+            };
+            let i = match buildings.iter().rposition(|&(building, ..)| building == id) {
+                Some(i) => i,
+                None => {
+                    buildings.push((id, objects.get(&id).and_then(fire_of), None));
+                    buildings.len() - 1
+                }
+            };
+            let (_, fire, threat) = &mut buildings[i];
+            // Universal covers every domain: the building's other units add nothing to it.
+            if *threat == Some(TargetDomain::Universal) {
+                continue;
+            }
+            if let Some(domain) = fire.and_then(|fire| domain_inside(fire, &held.object)) {
+                *threat = Some(threat.map_or(domain, |threat| covering(threat, domain)));
+            }
+        }
+        buildings.sort_unstable_by_key(|&(id, ..)| id);
+        Self(
+            (buildings.into_iter())
+                .filter_map(|(id, _, threat)| Some((id, threat?)))
+                .collect(),
+        )
+    }
+
+    /// Adds what the units inside threaten to the threat of each building among a snapshot's `views`, which are in id
+    /// order and each threaten what their own attack does (`super::threat`): `id` and `threat` are a view's id and its
+    /// threat.
+    pub(crate) fn add_to<V>(
+        &self,
+        views: &mut [V],
+        id: impl Fn(&V) -> ObjectId,
+        threat: impl Fn(&mut V) -> &mut Option<TargetDomain>,
+    ) {
+        for &(building, inside) in &self.0 {
+            if let Ok(i) = views.binary_search_by_key(&building, &id) {
+                let threat = threat(&mut views[i]);
+                *threat = Some(threat.map_or(inside, |own| covering(own, inside)));
+            }
+        }
+    }
+
+    /// What the units inside `building` threaten, if it is one of them.
+    #[cfg(test)]
+    pub(crate) fn get(&self, building: ObjectId) -> Option<TargetDomain> {
+        let i = self.0.binary_search_by_key(&building, |&(id, _)| id).ok()?;
+        Some(self.0[i].1)
+    }
+}
+
+/// The TargetDomain that covers both `a` and `b`: theirs if they are the same, else Universal, which covers either.
+/// Technical: Ground with Air comes out Universal, which also covers the Underground that neither does
+/// (`super::domain_allows`). No building takes in both a Ground-only and an Air-only attack (the Garrison's are the
+/// Militant's, Universal, and the Gunner's, Ground), so no scan tells the two apart.
+fn covering(a: TargetDomain, b: TargetDomain) -> TargetDomain {
+    if a == b { a } else { TargetDomain::Universal }
 }
 
 /// Phase 5e's fire of the units `firing` ([`firing`]) from the buildings they are in (module docs), after every
