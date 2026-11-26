@@ -164,10 +164,23 @@ pub fn mid_attack(o: &Object) -> bool {
 /// its type is the form it works toward, its form the one whose weapon it has; `ARCHITECTURE.md > Object model > Type
 /// and form`), with (M5-N1a) its Augmentations' effects at its owner's levels in `research`
 /// (`augmentation::augmented`: an unarmed unit's Damage and FiringDuration), a copy. The one source of a unit's attack
-/// attributes for what it does in the world: phase 5e and the behaviours (`orders::world::Unit::attrs`). `None` for an
-/// object without an attack.
+/// attributes for what it does in the world: phase 5e and the behaviours (`orders::world::Unit::attrs`), which read it
+/// by reference ([`weapon_ref`]). `None` for an object without an attack.
+#[inline]
 pub fn weapon(o: &Object, research: Research) -> Option<AttackAttrs> {
-    weapon_in_hand(o).map(|attrs| augmentation::augmented(o, attrs, research))
+    weapon_ref(o, research, &mut None).copied()
+}
+
+/// (M5-N1a) [`weapon`] by reference: the weapon in hand without an Augmentation, else made in `slot`. The read of the
+/// behaviours' and phase 5e's loops over every unit, with nothing copied for a unit without one (inlined into them, as
+/// the other accessors are: `augmentation/stats.rs`).
+#[inline]
+pub fn weapon_ref<'a>(o: &Object, research: Research, slot: &'a mut Option<AttackAttrs>) -> Option<&'a AttackAttrs> {
+    let attrs = weapon_in_hand(o)?;
+    if o.augmentation.is_none() {
+        return Some(attrs);
+    }
+    Some(slot.insert(augmentation::augmented(o, attrs, research)))
 }
 
 /// The weapon `o` holds as its form's type has it, before its Augmentations ([`weapon`]): for what they leave as it is,
@@ -388,7 +401,8 @@ pub(crate) fn step(
         // The weapon in hand: the form's, which a Legionnaire whose conversion waits still fights with (design change
         // 0198); its shape and its turn rate are its type's, the same in either form. A structure's is its type's.
         // (M5-N1a) With its Augmentations' effects.
-        let Some(attrs) = weapon(o, research) else {
+        let mut augmented = None;
+        let Some(attrs) = weapon_ref(o, research, &mut augmented) else {
             continue;
         };
         if o.attack.is_none() {
@@ -404,7 +418,7 @@ pub(crate) fn step(
         // retracting"; lowered, it is underground).
         let may_fire = popup::may_fire(o);
         let sight = o.owner.and_then(|owner| vision.player(owner));
-        let shooter = phases::Shooter::new(map, o, &attrs, sight, turns.angle(o.id));
+        let shooter = phases::Shooter::new(map, o, attrs, sight, turns.angle(o.id));
         let Some(state) = &mut o.attack else {
             continue;
         };

@@ -1,8 +1,8 @@
 //! The guard on the accessors (slice M5-N1a; `ARCHITECTURE.md > Object model > Augmented stats`): a unit's MaxHP, its
 //! speed and its weapon are read through those that apply its Augmentations (`Object::max_hp_with`,
-//! `Object::movement`, `Object::max_speed`, `combat::weapon`), never past them. This test scans the sim's and the
-//! client's code for the reads past them, outside the definitions (`defs/`), the accessors (`augmentation/`) and the
-//! tests:
+//! `Object::movement` or `movement_ref`, `Object::max_speed`, `combat::weapon` or `weapon_ref`), never past them.
+//! This test scans the sim's and the client's code for the reads past them, outside the definitions (`defs/`), the
+//! accessors (`augmentation/`) and the tests:
 //! - `.max_hp()`: `Object::max_hp`, the MaxHP before the Augmentations (and `LastKnown::max_hp`, a record's);
 //! - `.movement` that isn't a call: a `UnitDef`'s movement numbers, before them;
 //! - `weapon_of(`: a kind's weapon (`combat::weapon_of`), before them.

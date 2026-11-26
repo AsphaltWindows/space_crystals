@@ -63,38 +63,83 @@ pub fn is_augmentable(kind: ObjectKind) -> bool {
     augmentable(kind).is_some()
 }
 
+// The loops of phases 5a, 5d and 5e read every unit's stats: a unit without an Augmentation costs them a branch, its
+// kind's numbers read by reference ([`Object::movement_ref`], `combat::weapon_ref`), and an augmented unit's amounts are
+// worked out out of line ([`augmented_increments`]). The hints keep the release build's split into codegen units from
+// leaving the calls out of line (`ARCHITECTURE.md > Object model > Augmented stats`).
 impl Object {
     /// (M5-N1a) Its net increments ([`Increments`]): its Augmentations' at its owner's current levels
     /// (`Research::levels`), none for a kind that can't be augmented.
+    #[inline]
     pub fn increments(&self, research: Research) -> Increments {
-        if self.augmentation.is_none() || !is_augmentable(self.kind) {
-            return Increments::NONE;
+        match self.augmentation.is_none() {
+            true => Increments::NONE,
+            false => augmented_increments(self, research),
         }
-        self.augmentation.increments(research.levels(self.owner))
     }
 
     /// (M5-N1a) Its MaxHP: [`Object::max_hp`]'s with its Augmentations' ([`max_hp_of`]). The MaxHP that a unit's HP
     /// stays within and that its HP bar and panel show. `None` for an indestructible object.
+    #[inline]
     pub fn max_hp_with(&self, research: Research) -> Option<f32> {
         Some(max_hp_of(self.max_hp()?, self.increments(research)))
     }
 
-    /// (M5-N1a) Its movement numbers: its kind's with its Augmentations' top speed ([`movement_of`]). What phase 5d
-    /// moves it by. `None` for an object that isn't a unit.
+    /// (M5-N1a) Its movement numbers: its kind's with its Augmentations' top speed ([`movement_of`]). `None` for an
+    /// object that isn't a unit.
+    #[inline]
     pub fn movement(&self, research: Research) -> Option<MovementAttrs> {
-        let movement = self.def().unit.as_ref()?.movement;
-        Some(movement_of(movement, self.increments(research)))
+        self.movement_ref(research, &mut None).copied()
+    }
+
+    /// (M5-N1a) Its movement numbers ([`Object::movement`]) by reference: its kind's own without an Augmentation, else
+    /// made in `slot`. What phase 5d moves it by, with nothing copied for a unit without one.
+    #[inline]
+    pub fn movement_ref<'a>(
+        &self,
+        research: Research,
+        slot: &'a mut Option<MovementAttrs>,
+    ) -> Option<&'a MovementAttrs> {
+        let movement = &self.def().unit.as_ref()?.movement;
+        match self.augmentation.is_none() {
+            true => Some(movement),
+            false => Some(augmented_movement(self, movement, research, slot)),
+        }
     }
 
     /// (M5-N1a) Its top speed, space units per tick, before its mode's `Mover::speed_factor` ([`Object::movement`]'s
     /// `MovementAttrs::max_speed`); 0 for an object that isn't a unit.
+    #[inline]
     pub fn max_speed(&self, research: Research) -> f32 {
-        self.movement(research).map_or(0.0, |movement| movement.max_speed())
+        (self.movement_ref(research, &mut None)).map_or(0.0, |movement| movement.max_speed())
+    }
+}
+
+/// The movement numbers of `o`, which has an Augmentation, from its kind's `movement`, made in `slot`
+/// ([`Object::movement_ref`]).
+#[inline(never)]
+fn augmented_movement<'a>(
+    o: &Object,
+    movement: &MovementAttrs,
+    research: Research,
+    slot: &'a mut Option<MovementAttrs>,
+) -> &'a MovementAttrs {
+    slot.insert(movement_of(*movement, o.increments(research)))
+}
+
+/// The net increments of `o`, which has an Augmentation ([`Object::increments`]): none for a kind that can't be
+/// augmented.
+#[inline(never)]
+fn augmented_increments(o: &Object, research: Research) -> Increments {
+    match is_augmentable(o.kind) {
+        true => o.augmentation.increments(research.levels(o.owner)),
+        false => Increments::NONE,
     }
 }
 
 /// The MaxHP `max` of an augmentable unit with net `increments`: "+10 MaxHP" per Constitution increment
 /// (`factions/cults/augmentation.md > Increments`, armed or not). `max` itself with none.
+#[inline]
 pub(crate) fn max_hp_of(max: f32, increments: Increments) -> f32 {
     match increments.constitution {
         0 => max,
@@ -105,6 +150,7 @@ pub(crate) fn max_hp_of(max: f32, increments: Increments) -> f32 {
 /// The movement numbers `movement` of an augmentable unit with net `increments`: "+0.5 space units/frame MaxSpeed"
 /// per Metabolism increment (`factions/cults/augmentation.md > Increments`, armed or not), before its mode's
 /// `Mover::speed_factor` (plan decision T73). `movement` itself with none.
+#[inline]
 pub(crate) fn movement_of(movement: MovementAttrs, increments: Increments) -> MovementAttrs {
     match increments.metabolism {
         0 => movement,
@@ -116,6 +162,7 @@ pub(crate) fn movement_of(movement: MovementAttrs, increments: Increments) -> Mo
 /// augmentable kind moves by turn rate (`augmentation/tests.rs`). For the others, **Placeholder (not in the design: no
 /// such kind can be augmented)**: the field that is their MaxSpeed, the forward one alone for a fixed turn radius, and
 /// for a model with momentum the thrust that balances its drag at the new top speed.
+#[inline(never)]
 fn faster(movement: MovementAttrs, extra: f32) -> MovementAttrs {
     let mut movement = movement;
     match &mut movement {

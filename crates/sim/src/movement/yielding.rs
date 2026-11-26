@@ -309,10 +309,11 @@ pub(super) fn apply(
         let Some(o) = objects.get_mut(&bodies[request.yielder].id) else {
             continue;
         };
-        let Some(movement) = o.movement(research) else {
+        let mut augmented = None;
+        let Some(movement) = o.movement_ref(research, &mut augmented) else {
             continue;
         };
-        let free = o.mover.as_ref().is_some_and(|mover| can_yield(o, mover, &movement));
+        let free = o.mover.as_ref().is_some_and(|mover| can_yield(o, mover, movement));
         if let Some(mover) = o.mover.as_mut().filter(|_| free) {
             let speed = movement.max_speed() * mover.speed_factor;
             mover.sidestep = Some(Sidestep::new(

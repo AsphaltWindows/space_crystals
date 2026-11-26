@@ -57,6 +57,7 @@ impl Augmentation {
     };
 
     /// Whether it has neither (`Object::augmentation`: left out of files and the hash then).
+    #[inline]
     pub fn is_none(&self) -> bool {
         *self == Augmentation::NONE
     }

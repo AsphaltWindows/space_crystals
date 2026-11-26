@@ -598,7 +598,8 @@ Units, structures and resources are all `Object`s (`object.rs`, `core/entities.m
   `augmentation.rs`, `augmentation/stats.rs`, `augmentation/levels.rs`; `factions/cults/augmentation.md > Increments`):
   a unit's MaxHP, top speed and weapon are read through accessors that apply its Augmentations, and only through them:
   `Object::max_hp_with(research)`, `Object::movement(research)` and `Object::max_speed(research)` (before the mode's
-  `Mover::speed_factor`), and `combat::weapon(o, research) -> Option<AttackAttrs>`, a copy. The kind's numbers
+  `Mover::speed_factor`), and `combat::weapon(o, research) -> Option<AttackAttrs>`, a copy; by reference,
+  `Object::movement_ref` and `combat::weapon_ref` (below). The kind's numbers
   (`ObjectDef::max_hp`, `UnitDef::movement`, `UnitDef::attack`) and `Object::max_hp` (a tier's, a site's, a
   transformation's) are the values before them. The effects table is data (`defs/cults/augmentation.rs`), and which
   kinds take Augmentations, armed or not, is `UnitDef::augmentable` (the four Cults infantry types, the Recruit alone
@@ -611,9 +612,12 @@ Units, structures and resources are all `Object`s (`object.rs`, `core/entities.m
   - **Why this shape.** The systems that hold the objects mutably (phases 5a, 5d and 5e, the network's regeneration)
     take a `Research` beside them, a borrow of the players alone, which a `Sim` method couldn't be; code that has the
     `Sim` asks `Sim::research()`. Stats stored on the object would go stale when a level completes or a def changes
-    (T73's rejected alternative). A unit without an Augmentation costs a branch (`Augmentation::is_none`) and a copy
-    of its kind's numbers; an augmented one looks its owner up among the few players. The behaviours keep a unit's
-    increments (`orders::world::Unit::increments`) and work out its top speed only where they need it.
+    (T73's rejected alternative). A unit without an Augmentation costs a branch (`Augmentation::is_none`): the loops
+    over every unit (phases 5a, 5d and 5e) borrow its kind's numbers (`Object::movement_ref`, `combat::weapon_ref`,
+    which make an augmented unit's in a slot of the caller's), through accessors inlined into them, their augmented
+    paths out of line (`augmented_increments`, `augmented_movement`); an augmented unit looks its owner up among the
+    few players. The behaviours keep a unit's increments (`orders::world::Unit::increments`) and work out its top
+    speed only where they need it.
   - **HP restored** goes up to `max_hp_with`: the repair's (`repair::damage`, whose MaxHP also sets its rate and its
     price's steps, slice M5-N8) and the regeneration's (`crate::regeneration`). No repairer repairs infantry yet.
   - **HP when MaxHP changes** (design changes 0330 and 0331): `augmentation::follow_max`, applied by
