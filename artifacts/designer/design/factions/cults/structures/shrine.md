@@ -38,4 +38,4 @@ Cooldowns: none. Energy costs, areas, durations and rates: see Placeholder stats
 - **Health regeneration** (hotkey Q): 75 energy; circle of radius 4 grid units; **+2 HP per second for 15 seconds**.
 - **Energy regeneration** (hotkey W): 50 energy; circle of radius 4 grid units; affected Disciples' energy regeneration is **+1 per second for 20 seconds**.
 - **In the circle** (user, 2026-11-26; Q0118): a unit is affected when its **centre** is inside. **Recasting** on units that already have the effect **restarts its duration**; effects of the same ability **don't stack**.
-- No cooldowns. Targeting: AwaitingTarget, left-click a point in vision. **A: Eject All** (participants leave).
+- No cooldowns. Targeting: AwaitingTarget, left-click a point in vision. **A/S/D/F** release one Recruit of a kind, **V: Eject All** (participants leave; README > Choosing Recruits, Release and Eject All).

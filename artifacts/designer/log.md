@@ -2299,3 +2299,4 @@ Answered Q0069–Q0071 (0258–0267): losing-Tunnel edges, Syndicate economy che
 2026-11-26 — Shroud rules, Disciple ungroupable. Entry 0334.
 2026-11-26 — Garrison, entrances, Temple, prereqs, Shrine. Entry 0335.
 2026-11-26 — Retroactive augment research; Shrine sides; Q0127 accept. Entry 0336.
+2026-11-26 — Kinds, Release, Eject All; Q0128.1. Entry 0337.

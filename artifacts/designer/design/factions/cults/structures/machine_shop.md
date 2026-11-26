@@ -15,3 +15,4 @@ Vehicle upgrades and air upgrades (list, costs, BaseResearchTimes TBD). Research
 - Size 2x2; SymmetryType ABAC, **EntranceSide B, ExitSide C** (like the Armory; user rule 2026-11-26, Q0116: research buildings have an entrance and an exit, and staff leave one at a time); MaxHP 300; PointArmor 1, FullArmor 4; SightRange 4 grid units; Groupable true.
 - Cost and time: Recruit > Constructs (150 SC, 480 frames).
 - Recruit staffing capacity 4; research queue 5. Until its research is designed it has no panel commands and Recruits can't enter it.
+- Once enterable: **A/S/D/F** release one Recruit of a kind, **V: Eject All** (README > Choosing Recruits, Release and Eject All).
