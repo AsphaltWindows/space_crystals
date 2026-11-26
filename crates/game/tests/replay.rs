@@ -1,5 +1,6 @@
 //! Recording games and playing them back (`ARCHITECTURE.md > Replays and golden hashes`). Headless, one tick per
-//! update at the normal speed, as in `client.rs`; the first update only starts the clock.
+//! update at the normal speed, as in `client.rs`; the first update only starts the clock. The computer players' games
+//! (slice A1): `computers`.
 
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
@@ -29,6 +30,8 @@ use space_crystals::sim_driver::{
 use space_crystals::{AppConfig, build_app};
 
 use crate::hud::notes;
+
+mod computers;
 
 const P1: PlayerId = PlayerId(1);
 const P2: PlayerId = PlayerId(2);

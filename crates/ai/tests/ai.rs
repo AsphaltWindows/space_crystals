@@ -8,4 +8,5 @@
 //! - **One file's tests**: filter by its module, `cargo test -p sc_ai --test ai seam::`.
 //! - **One process**: the tests of every file run on the threads of one process, as the sim's do.
 
+mod games;
 mod seam;

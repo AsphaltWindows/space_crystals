@@ -39,6 +39,7 @@ pub const DEFAULT_PATCH_AMOUNT: u32 = 1500;
 |---|---|---|
 | `crates/sim` | `sc_sim` (library) | The deterministic game simulation. Engine-free: it never depends on Bevy. |
 | `crates/game` | `space_crystals` (binary) | The Bevy client: draws the sim, handles input, the HUD and QA mode. |
+| `crates/ai` | `sc_ai` (library) | The computer players (slice A1, see *Computer players*): deterministic, on the sim alone, never on Bevy. The client runs them. |
 
 | Command | Use |
 |---|---|
@@ -81,7 +82,9 @@ every run and every machine. Replays, reproducible bugs and a possible lockstep 
 `crates/sim/clippy.toml` enforces the mechanical rules below as disallowed methods and types. Never `#[allow]` them.
 There is one exception: an `#[ignore]` perf test under `crates/sim/tests/` may read the clock in a single timing helper marked
 `#[expect(clippy::disallowed_methods)]`, as `nav_perf/` does, and so may one that needs the sim's test defs and so is a
-unit test (`combat/projectiles/perf.rs`, slice M4-O). Its timings are printed and never asserted.
+unit test (`combat/projectiles/perf.rs`, slice M4-O), and the computer players' game harness, which times
+`Ai::think` (`crates/ai/tests/games/harness.rs`, slice A1). Its timings are printed and never asserted. The computer
+players keep the same rules (`crates/ai/clippy.toml`, *Computer players*).
 
 - **Order**: iterate objects in `ObjectId` order. `Sim` keeps them in a `BTreeMap<ObjectId, Object>`, and ids are
   allocated in increasing order and never reused. Break ties between candidates by `ObjectId` (`Iterator::min_by`
@@ -4700,6 +4703,7 @@ Pass the flags with `cargo run -- <flags>`; `cargo run -- --help` lists them. Th
 | `--replay <file.json>` | Plays a recorded game back (see Replays and golden hashes) with its own map, players and game options: not with `--scenario`, `--map`, `--factions`, `--editor`, `--no-debug` or `--commands`. Pauses at the end, so no tick of the other flags may come after it. The other QA flags work with it. |
 | `--record <file.json>` | Records the game to that file. A game is recorded to `replays/` anyway; a QA run only with this flag. Not with `--editor` or `--replay`. |
 | `--no-record` | Doesn't record the game. |
+| `--ai <n>[:<profile>],...` | Computer players play players `n`, … (slice A1, see *Computer players*), each with a profile, `standard` (the default) or `passive`: `--ai 2`, `--ai 1,2:passive`. Their factions must have one (the GDO, so far). Not with `--editor` or `--replay` (a replay records their commands). The client gives a computer's player no command; F2 still switches to it. |
 
 Taking a screenshot (no window appears; about one second plus `tick / 16` seconds, or add `--fast`):
 
@@ -5016,6 +5020,89 @@ cargo run -- --editor maps/dev_skirmish.json --editor-script /path/to/edits.json
   player slot colours, the overlay, locked-part, slope tint, dimmed-layout and build-area colours, the scrollbar's,
   UI sizes, `NEW_MAP_SIZE`, `MAX_DESCRIPTION_CHARS` and the sim's creation limits are placeholders.
 
+## Computer players
+
+A computer player plays one player's slot (slice A1; `core/game_rules.md > Computer players (playtest tool)`): a
+playtest tool, started from the command line (`--ai`, see *QA mode*), whose behaviour is the Director's placeholder
+(design change 0402, answering Q0147). It lives in `crates/ai`, `sc_ai`, which depends on the sim and never on Bevy.
+
+### The crate
+
+- **`Ai`** plays one player with a `Profile`: `standard`, or `passive` (the same but never attacks). `Ai::think(&sim)`
+  runs once a tick before the step: it reads the game as the last tick left it and returns the player's commands for
+  the next tick. They are the same `PlayerCommand`s a client sends, through the same gate, and the replay records
+  them. It gives none once its player is defeated or the game is over.
+- **Layers**:
+  - `view`: what the player knows (below);
+  - `turn`: one tick's commands. The gate checks each one (`View::validate`) before it is kept. The gate sees the
+    game only as the last tick left it, so the turn counts what the tick's commands spend from the bank and the
+    footprints they place;
+  - `build`: where a building goes, the nearest spot the placement check takes, with a free ring around it;
+  - `army`, shared by every faction: the staging point, the waves and the defense;
+  - `factions`: one module per faction behind `FactionAi`. It decides what to build and train, which units fight and
+    which buildings rally.
+- **Numbers**: all placeholders, in `sc_ai::tuning` (*Tunables*).
+- **A faction's computer player** (slices A2a to A2c): its module, `factions/<faction>.rs`, sets its `HOOK` (`None`
+  until then). The command line then accepts `--ai` for its players, and `ai_games` plays it (*Adding a faction*,
+  item 20).
+
+### The View
+
+`View` is the crate's only way to read the game: the `Sim` is private to it. It gives fair knowledge (design change
+0402: "Its knowledge must go through the same vision and fog layer a player's client uses"):
+- the player's own objects, banks, Power, army cap and build area, as they are;
+- other players' objects only while the player sees them (`PlayerVision::sees`, as the client draws them). A
+  structure out of sight shows as the player remembers it (`vision::LastKnown`), and a unit out of sight never shows
+  (`View::known`);
+- the map: its terrain, the neutral objects the map placed (known from the start), and every player's start
+  (`Start::all`, from the scenario's slots, which the sim doesn't keep);
+- the gate's checks a client asks (placements, casts, `View::validate`). They answer as the client's ghosts do: a tile
+  the player doesn't see reports only "NotVisible".
+
+### Determinism
+
+A computer player gives the same commands in the same game on every machine, so that its games repeat exactly: the
+tests', and a bug's. (A replay's playback runs no computer players: it plays the commands they recorded.) The sim's
+rules hold (*Determinism*):
+- `BTreeMap`s, ties broken by `ObjectId`, floats compared with `total_cmp`;
+- no clock and no randomness of its own;
+- `crates/ai/clippy.toml` bans the sim's banned methods and types.
+
+It never panics, whatever the game's state: an assumption that fails skips the action.
+
+### The client
+
+`crates/game/src/ai_players.rs` holds the client's side:
+- **The flag**: `--ai <n>[:<profile>],...` (`cli/ai.rs`) adds one `Ai` per player to `AiPlayers`. The command line
+  checks each against the game (`sc_ai::can_play`) and refuses `--ai` with `--editor` or `--replay`.
+- **Thinking**: in `FixedUpdate`, `think` runs after QA's `--commands` and before `StepSim`, once for each tick the
+  sim steps (none while it is paused or held). It writes into `PendingCommands`, and the step records the commands
+  with every other.
+- **Input**: while the local player is a computer's, the command flow's input (`CommandUiSystems::Input`) doesn't
+  run. Selecting and looking still work, F2 still switches the player, and the top bar's note says "(AI)"
+  (`hud::TopBarNote::Computer`).
+
+### Tests
+
+- **The View's fog rule**: `crates/ai/src/view/tests.rs`. **The seam** (a computer player only for a faction that has
+  one): `crates/ai/tests/seam.rs`.
+- **AI against AI, headless**: `crates/ai/tests/games.rs`, on `games/harness.rs`. After every step the harness checks
+  the invariants, that the gate takes every command, and design change 0402's Verification ("an AI doesn't attack a
+  building it has never seen or scouted, apart from the known start locations"): each Attack and Attack Move must aim
+  at a building the player knew of, a start, a patch or a point of its own. The tests:
+  - the default run: standard against passive on `dev_skirmish` for 6 minutes, every invariant checked;
+  - 0402's check on a game to a defeat, and on a planted target;
+  - determinism: the same game twice gives the same hash;
+  - the ignored `ai_games`, `cargo test -p sc_ai --release --test ai games::ai_games -- --ignored --nocapture`. It
+    plays every pairing of factions that have a computer player on every Skirmish Default map. Standard must beat
+    passive within 15 minutes from either slot, and standard against standard must end in a defeat. It prints who
+    won, when, the units trained, the waves sent and what `Ai::think` cost.
+- **The client**:
+  - `cli/ai/tests.rs`: the flags;
+  - `tests/commands/computer.rs`: the input drop;
+  - `tests/replay/computers.rs`: a QA run of two computer players is recorded, and the sim and the client both play it
+    back to the same hash.
+
 ## Adding a unit or structure
 
 One kind (plan decision T54, slices M4-R1 and M4-R2): its own files, and one line in each registry.
@@ -5223,6 +5310,9 @@ The faction's own mechanics come next, each only if it has them (M3's and M4's i
       client's `tests/pairings.rs` starts each pair from `--factions`. A faction without a line plays idle;
     - a scripted walkthrough of the first playable (`--factions` with `--input-script`, see *QA mode*), and its
       playtest notes in `docs/playtest/`, listed in `docs/playtest/README.md`.
+20. **A computer player** (slices A1, A2): its module in `crates/ai/src/factions/<faction>.rs` and its `HOOK`
+    (*Computer players > The crate*). `--ai` then takes its players, and `ai_games` plays it against every faction
+    that has one.
 
 ## Tunables
 
@@ -5242,6 +5332,10 @@ belongs to one object goes in its def instead (*Adding a unit or structure*).
   `feedback.rs` (how long an order's flash, a refused command's message, a tracer, a death marker and a HUD notice
   show). Each kept its name, and the module it came from re-exports it (`pub use crate::tuning::...`) or imports it,
   so the code that uses it still names it there.
+- **The computer players'** (`crates/ai/src/tuning.rs`, slice A1): `army` (the staging point, the waves, the
+  defense), `build` (where a building goes) and one module per faction with a computer player (`gdo`: the opening,
+  the Barracks, the queues). Each is "Placeholder (Q0147 point N)" (2: how it plays; 3: build orders) or
+  "Placeholder (not in the design: why)": the behaviour is the Director's placeholder (*Computer players*).
 - Each constant has a doc comment: a design citation, or "Placeholder (not in the design)" and, where there is one,
   why it has its value.
 - Colours and drawing sizes stay with the drawing code. Technical constants stay where they are used: the sim's

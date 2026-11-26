@@ -1,7 +1,7 @@
 # Playtesting
 
-How to start a game of any two factions, play both sides of it, and report what you find. What to try in each
-milestone is in its own notes:
+How to start a game of any two factions, play both sides of it or against the computer, and report what you find.
+What to try in each milestone is in its own notes:
 
 - [M2](m2.md): a GDO base, an army, a winner.
 - [M3](m3.md): the Colonists from the UI.
@@ -10,9 +10,9 @@ milestone is in its own notes:
 
 ## Starting a pairing
 
-The first playtest is **hot-seat**: one person plays both sides, switching with F2. There is no AI opponent. A game
-starts from the command line, `cargo run -- --factions <a>,<b>` with `--map` or `--scenario`. There is no start
-screen.
+The first playtest is **hot-seat**: one person plays both sides, switching with F2. A computer can also play a side
+(*Playing against the computer*). A game starts from the command line, `cargo run -- --factions <a>,<b>` with `--map`
+or `--scenario`. There is no start screen.
 
 - `--factions <a>,<b>`: player 1 plays `a` in slot 1, player 2 plays `b` in slot 2. The factions are `gdo`,
   `syndicate`, `cults` and `colonists` (any case).
@@ -66,6 +66,44 @@ removes player 2's buildings and checks that player 1 wins.
 - **The end**: a player is defeated when they own no buildings, every structure counting
   (`core/game_rules.md > Defeat Condition`), and the last one standing wins. The game stops and shows VICTORY or
   DEFEAT; F2 shows the other side's.
+
+## Playing against the computer
+
+A computer player can take any player's slot: `--ai <n>[:<profile>],...`. It is a playtest tool
+(`core/game_rules.md > Computer players (playtest tool)`), and so far only the GDO has one: `--ai` refuses a player of
+another faction.
+
+- **standard** (the default) opens Plate, Generator, Generator, Barracks. It plates its whole field, builds a second
+  Barracks and trains Peacekeepers without pause, gathering them at a staging point between its base and the map's
+  centre. It attacks with a first wave of 8, then waves of 32, on the nearest building of yours it knows of, or else
+  your start. When you attack its base, the units at home defend it.
+- **passive** does the same but never attacks: an economy to race.
+- It knows only what its fog of war shows, as you do, and gives only the commands you could.
+- How it plays is a placeholder, every number in `crates/ai/src/tuning.rs`. Report what plays badly to the Director.
+
+You on player 1, against the GDO on the playtest map:
+
+```sh
+cargo run -- --factions gdo,gdo --ai 2 --map maps/playtest.json
+cargo run -- --factions syndicate,gdo --ai 2 --map maps/playtest.json
+cargo run -- --factions cults,gdo --ai 2 --map maps/playtest.json
+cargo run -- --factions colonists,gdo --ai 2 --map maps/playtest.json
+```
+
+- `--ai 2:passive` gives you a passive opponent.
+- The computer on player 1 and you on player 2: `cargo run -- --factions gdo,cults --ai 1 --player 2 --map
+  maps/playtest.json`.
+- F2 switches to the computer's side to watch it. Its top bar says "(AI)", and you can select its units but not
+  command them. F3 shows the whole map.
+
+Two computers against each other, to the end (add `--fast` to watch it at full speed):
+
+```sh
+cargo run -- --factions gdo,gdo --ai 1,2 --map maps/playtest.json
+cargo run -- --factions gdo,gdo --ai 1,2:passive --map maps/playtest.json
+```
+
+The replay records the computers' commands with yours.
 
 ## Replays
 
