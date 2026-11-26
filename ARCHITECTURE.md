@@ -622,8 +622,9 @@ Units, structures and resources are all `Object`s (`object.rs`, `core/entities.m
     and after (a Constitution Recruit's 60 is a Militant's 60).
   - **What they don't change** reads the weapon before them (`combat::weapon_in_hand`): the threat a unit is to the
     scans (`combat::threat`, its TargetDomain) and `can_attack_now` (its ranges); and the TurnRate. A weapon borrowed
-    from a kind (the Garrison's occupants', slice M5-N2) is that kind's (`combat::weapon_of`), which no unit's
-    Augmentations change.
+    from another kind (a Recruit's in the Garrison, the Militant's, slice M5-N2) is that kind's: the effects apply to
+    a unit's own attack only (`augmentation::augmented`; `factions/cults/structures/garrison.md`: "Augmentations don't
+    change the borrowed attack").
   - **The guard**: `tests/augmentation/raw_reads.rs` scans the sim's and the client's code, outside the defs, the
     accessors and the tests, for the reads past the accessors (`.max_hp()`, a `.movement` field, `weapon_of(`), and
     fails on any its list doesn't allow with a reason (a structure's MaxHP, a turn rate, a kind's weapon). A new read

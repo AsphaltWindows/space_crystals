@@ -138,9 +138,15 @@ fn faster(movement: MovementAttrs, extra: f32) -> MovementAttrs {
 /// frame"), "never below 2 frames"; no other floor (design change 0331: "**No floors** on the results", so an Improved
 /// Metabolism Level 2 Recruit's Damage is 0, and each hit does the minimum). An armed unit's is its kind's ("Armed
 /// infantry (Militant, Gunner) receive only the MaxHP part of Constitution increments and only the movement-speed part
-/// of Metabolism increments"), as is that of every unit without an Augmentation.
+/// of Metabolism increments"), as is that of every unit without an Augmentation. So is a weapon borrowed from another
+/// kind (`factions/cults/structures/garrison.md`: "Augmentations don't change the borrowed attack"; slice M5-N2):
+/// only the unit's own attack, its kind's, takes the effects.
 pub(crate) fn augmented(o: &Object, attrs: &AttackAttrs, research: Research) -> AttackAttrs {
     if o.augmentation.is_none() || !augmentable(o.kind).is_some_and(|how| how.unarmed) {
+        return *attrs;
+    }
+    let own = o.def().unit.as_ref().and_then(|unit| unit.attack.as_ref());
+    if own != Some(attrs) {
         return *attrs;
     }
     unarmed_weapon(attrs, o.increments(research))

@@ -214,3 +214,20 @@ fn research_reads_each_owner_s_levels() {
     assert_eq!(research.levels(None), Levels::NONE);
     assert_eq!(research.levels(Some(crate::ids::PlayerId(99))), Levels::NONE);
 }
+
+/// `factions/cults/structures/garrison.md`: "Augmentations don't change the borrowed attack": a Recruit with both
+/// Augmentations strikes with its own attack as they make it, and fires a Militant's (slice M5-N2's Garrison) as it is.
+#[test]
+fn a_borrowed_weapon_is_left_as_it_is() {
+    let builder = crate::testing::ScenarioBuilder::new("....\n....").spawn(
+        ObjectKind::Recruit,
+        Some(crate::ids::PlayerId(1)),
+        crate::scenario::SpawnAt::Point(glam::Vec2::new(64.0, 64.0)),
+    );
+    let mut o = crate::sim::Sim::new(&builder.build()).objects().next().unwrap().clone();
+    o.augmentation = Augmentation::of(RecruitKind::Both);
+    let weapon = |kind: ObjectKind| kind.def().unit.as_ref().unwrap().attack.unwrap();
+    let (own, militant) = (weapon(ObjectKind::Recruit), weapon(ObjectKind::Militant));
+    assert_eq!(augmented(&o, &own, Research::NONE).damage, 4.0, "its own, +1");
+    assert_eq!(augmented(&o, &militant, Research::NONE), militant);
+}
