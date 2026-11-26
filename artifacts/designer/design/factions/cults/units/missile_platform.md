@@ -15,6 +15,7 @@
 - TargetType: **area damage** (AoE, systems/combat.md > AoEDamage; friendly fire applies, as for every area hit).
 - **Can't be shot down** in flight (user, 2026-11-27; unless something to shoot down projectiles is introduced later).
 - Phase profile (user): **long AimDuration**, **slow missile (long flight)**, **short CooldownDuration**, **long ReloadDuration**.
-- TargetDomain: Ground (designer's reading for a semi-ballistic missile; to confirm).
+- TargetDomain: **Ground** only (user, 2026-11-27).
+- MinRange: **yes** (user, 2026-11-27): enemies closer than MinRange can't be targeted (systems/controls/behaviors.md > AttackingObject > Target inside MinRange); value: placeholder to follow.
 
-TBD: name; MinRange; whether it reveals itself on launch beyond the shared reveal-on-damage rule; numbers (placeholders to follow).
+TBD: name (user is choosing; theme: righteous help from the sky); whether it reveals itself on launch beyond the shared reveal-on-damage rule; numbers (placeholders to follow).
