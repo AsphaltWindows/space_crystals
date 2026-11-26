@@ -25,6 +25,6 @@
 - FixedTurnRadiusMovement as the Seeker, but ForwardMaxSpeed **6 su/frame**.
 - Energy: MaxEnergy 200; starts at 50; regenerates 0.5 per second.
 - **Inspire** (hotkey **R**, instant, no target): 75 energy; every own infantry unit within **4 grid units** of the vehicle gets **+1.5 su/frame MaxSpeed** for **10 s**; Recruits also attack **25% faster** (their attack cycle × 0.75) for the same time.
-- **Suppress** (hotkey **F**, instant, no target): 100 energy; an arc of **90° total** in front of the vehicle's current facing, **5 grid units** long; units whose centre is inside can't attack for **4 s**. The driver aims it by pointing the vehicle.
+- **Suppress** (hotkey **F**, instant, no target): 100 energy; an arc of **90° total** in front of the vehicle's current facing, **5 grid units** long; units whose centre is inside can't attack for **4 s**. The driver aims it by pointing the vehicle (user, 2026-11-27: "for now"; the alternative, clicking a direction, may be revisited).
 - Cost: Chop Shop, 2 Recruits, **125 Space Crystals, 400 frames (25 s)**; requires a Temple.
 - ObjectInterfaceState: BasicCombatUnitInterfaceState without attack commands, plus **R: Inspire** and **F: Suppress**.
