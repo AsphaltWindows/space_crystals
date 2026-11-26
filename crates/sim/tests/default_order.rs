@@ -200,6 +200,7 @@ fn the_rule_on_abilities_and_targets() {
         transit: &[],
         accepts: &[],
         site: None,
+        repair: None,
     };
     let follow = OrderKind::Move(Target::Object(ObjectId(5)));
     let attack = OrderKind::Attack(ObjectId(5));
@@ -330,5 +331,63 @@ fn the_rule_on_abilities_and_targets() {
             assert_eq!(resolve(drone(carrying), Aim::Object(site)), follow, "{kind:?}");
         }
         assert_eq!(resolve(armed(TargetDomain::Ground), Aim::Object(site)), follow);
+    }
+    // (M5-N8) A damaged own building or vehicle, complete, that the unit's type repairs (`factions/cults/units/
+    // recruit.md > Right-Click Resolution`: "Damaged own building or vehicle (completed) → Repair, **unless the
+    // building can be entered** by the selection: then **Enter** wins"; `factions/syndicate/units/agent.md >
+    // Right-Click Resolution`: "Own Tunnel (not carrying resources) → Enter (also when damaged: Enter wins over
+    // Repair)", "Damaged own Laser Turret → Repair"): Repair, loaded or not; a Move to it for any other unit.
+    let repair = OrderKind::Repair(ObjectId(5));
+    let damaged = |kind| Aimed {
+        repair: Some(kind),
+        ..object(false, true, Domain::Ground, false, false)
+    };
+    for carrying in [false, true] {
+        let recruit = Abilities {
+            kind: ObjectKind::Recruit,
+            attack: Some(TargetDomain::Ground),
+            transit: Transit::Infantry,
+            ..drone(carrying)
+        };
+        let agent = Abilities {
+            kind: ObjectKind::Agent,
+            attack: Some(TargetDomain::Ground),
+            gathers_supplies: true,
+            transit: Transit::Infantry,
+            ..drone(carrying)
+        };
+        for kind in [ObjectKind::Storage, ObjectKind::RecruitmentHall, ObjectKind::Gunworks] {
+            assert_eq!(resolve(recruit, Aim::Object(damaged(kind))), repair, "{kind:?}");
+            assert_eq!(resolve(agent, Aim::Object(damaged(kind))), follow, "{kind:?}");
+        }
+        // The Armory takes Recruits in: Enter wins.
+        let armory = Aimed {
+            accepts: &[ObjectKind::Recruit],
+            ..damaged(ObjectKind::Armory)
+        };
+        assert_eq!(resolve(recruit, Aim::Object(armory)), enter);
+        assert_eq!(resolve(agent, Aim::Object(damaged(ObjectKind::LaserTurret))), repair);
+        // No one repairs a Tunnel's expansion: it regenerates.
+        assert_eq!(resolve(agent, Aim::Object(damaged(ObjectKind::Hideout))), follow);
+        // A damaged Tunnel in operation lets the Agent in: Enter wins; a loaded Agent drops off there first.
+        let tunnel = Aimed {
+            transit: tier_1,
+            drop_off: true,
+            ..damaged(ObjectKind::Tunnel)
+        };
+        let expected = if carrying {
+            OrderKind::DropOff(ObjectId(5))
+        } else {
+            enter
+        };
+        assert_eq!(resolve(agent, Aim::Object(tunnel)), expected);
+    }
+    for kind in [ObjectKind::Storage, ObjectKind::LaserTurret, ObjectKind::Tunnel] {
+        assert_eq!(resolve(drone(false), Aim::Object(damaged(kind))), follow, "{kind:?}");
+        assert_eq!(
+            resolve(armed(TargetDomain::Ground), Aim::Object(damaged(kind))),
+            follow,
+            "{kind:?}"
+        );
     }
 }

@@ -39,6 +39,8 @@ pub mod popup;
 pub mod production;
 pub mod progress;
 pub mod recruitment;
+pub(crate) mod regeneration;
+pub mod repair;
 pub mod replay;
 pub mod riot_shield;
 pub mod rng;

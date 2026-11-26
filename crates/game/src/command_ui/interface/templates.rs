@@ -77,9 +77,9 @@ pub enum InterfaceTemplate {
     /// produces no units.
     Tunnel,
     /// `factions/syndicate/units/agent.md > Agent ObjectInterfaceState` (design changes 0257 and 0359, slice M4-J1): Q
-    /// Move, A Build Tunnel, S Drop Off, D Repair (greyed until slice N8), X Stop ([`syndicate::agent`]). Its right-click
-    /// (`factions/syndicate/units/agent.md > Right-Click Resolution`: Gather, Drop Off, Enter, Attack, Move) is the
-    /// sim's one rule, as every unit's.
+    /// Move, A Build Tunnel, S Drop Off, D Repair (slice M5-N8), X Stop ([`syndicate::agent`]). Its right-click
+    /// (`factions/syndicate/units/agent.md > Right-Click Resolution`: Gather, Drop Off, Enter, Repair, Attack, Move) is
+    /// the sim's one rule, as every unit's.
     Agent,
     /// A pool building's panel (design change 0337, `factions/cults/structures/README.md > Choosing Recruits, Release
     /// and Eject All`; slice M5-F2), built from its `ProductionDef`: the Armory's ([`cults::armory`]). Its DefaultState
@@ -87,10 +87,10 @@ pub enum InterfaceTemplate {
     /// right-click sets the rally point (`factions/cults/structures/armory.md > ObjectInterfaceState[Armory]`).
     PoolProducer,
     /// (M5-J1) `factions/cults/units/recruit.md > Recruit ObjectInterfaceState` (design changes 0322 and 0327): Q Move,
-    /// W Advanced Construct, A Basic Construct, S Assist Construction, D Repair (greyed until slice N8), X Stop
+    /// W Advanced Construct, A Basic Construct, S Assist Construction, D Repair (slice M5-N8), X Stop
     /// ([`cults::recruit`]); its Construct menus' entries enter the group's placement ([`cults::construct_menu`]). Its
     /// right-click (`factions/cults/units/recruit.md > Right-Click Resolution`: Gather, Drop Off, Enter, Assist,
-    /// Attack, Move) is the sim's one rule, as every unit's.
+    /// Repair, Attack, Move) is the sim's one rule, as every unit's.
     Recruit,
     /// (M5-N2) `factions/cults/structures/garrison.md > Placeholder stats > Panel`: "**A: Eject All** (everyone inside
     /// leaves); **X: Cancel construction** while being built" ([`cults::garrison`]; X is its site's, [`SITE_GRID`]).

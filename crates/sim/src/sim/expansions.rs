@@ -31,6 +31,10 @@
 //!   path's reference cleanup, `sim/removal.rs`), with no refund. **Its Tunnel destroyed mid-build**: "the
 //!   unfinished expansion is destroyed, no refund", in the same removal (`sim/tunnels.rs`, slice M4-H).
 //! - **Eject** goes on meanwhile: "Eject still works (it isn't an operation)".
+//! - **Regeneration** ([`Sim::regenerate_expansions`], slice M5-N8): "**Not repaired; they regenerate** ... a completed
+//!   expansion **regenerates HP gradually** while it is part of a Tunnel system (its Tunnel is alive). Placeholder rate
+//!   (designer): **1% of MaxHP per second**, always on, **including during combat**"
+//!   (`factions/syndicate/structures/README.md > Tunnel Expansions`, design changes 0329 and 0330).
 
 use super::Sim;
 use super::gate::{Checked, Reject};
@@ -46,9 +50,11 @@ use crate::object::{Object, Placement};
 use crate::orders::build::footprint;
 use crate::popup::{self, PopUp};
 use crate::progress::Progress;
+use crate::regeneration;
 use crate::scenario::BuildingOrientation;
 use crate::tech;
-use crate::tunnel::Operation;
+use crate::tuning::tunnel::EXPANSION_REGEN_PER_SECOND;
+use crate::tunnel::{self, Operation};
 use crate::units::TilePos;
 
 impl Sim {
@@ -242,6 +248,34 @@ impl Sim {
                 orientation,
                 problems,
             });
+        }
+    }
+
+    /// (M5-N8) The expansions' regeneration (module docs), in the economy phase beside the decay: each complete
+    /// underground expansion (`StructureDef::underground`; a Laser Turret, which Agents repair, is none) with a parent
+    /// Tunnel (`tunnel::area::parent`: its owner's Tunnel in operation whose area contains it) regains
+    /// `tuning::tunnel::EXPANSION_REGEN_PER_SECOND` of its MaxHP a second, up to it (`crate::regeneration`), in id
+    /// order. A neutral one, its Tunnel lost, decays instead (`sim/tunnels.rs`).
+    pub(super) fn regenerate_expansions(&mut self) {
+        let damaged = |o: &Object| {
+            let underground = o.def().structure.as_ref().is_some_and(|s| s.underground);
+            underground
+                && o.owner.is_some()
+                && o.is_operational()
+                && o.hp.zip(o.max_hp()).is_some_and(|(hp, max)| hp < max)
+        };
+        if !self.objects.values().any(damaged) {
+            return;
+        }
+        let tunnels: Vec<&Object> = self.objects.values().filter(|o| o.tunnel.is_some()).collect();
+        let regenerating: Vec<ObjectId> = (self.objects.values())
+            .filter(|o| damaged(o) && tunnel::area::parent(o, tunnels.iter().copied()).is_some())
+            .map(|o| o.id)
+            .collect();
+        for id in regenerating {
+            if let Some(o) = self.objects.get_mut(&id) {
+                regeneration::regenerate(o, EXPANSION_REGEN_PER_SECOND);
+            }
         }
     }
 }

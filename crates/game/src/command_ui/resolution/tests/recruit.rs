@@ -81,8 +81,8 @@ fn a_recruit_assists_a_site_enters_an_armory_and_gathers() {
 /// `> Recruit ObjectInterfaceState > DefaultState commands`: "**S: Assist Construction** — targeted command
 /// (StateOnlyTransition). Left-click an in-progress own building to join construction": a click on an own site gives
 /// the recipients an Assist, under the Assist pointer; anything else is an invalid target (design change 0065), and
-/// the pointer is Inactive there. Repair has its pointer's hook (design change 0322), which no order gives before
-/// slice N8.
+/// the pointer is Inactive there. No right-click here is a Repair: nothing is damaged (the Repair's are
+/// `super::repair`'s, slice M5-N8).
 #[test]
 fn assist_construction_takes_an_own_site() {
     use PointerDisplay as D;

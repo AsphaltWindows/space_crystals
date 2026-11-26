@@ -17,6 +17,8 @@
 //!   (`crate::construction::site`), or a Recruit's walk to its own spot beside a group's site (slice M5-E);
 //! - [`assist`]: a Recruit building a site from outside, from its own spot beside it (slice M5-E,
 //!   `crate::spot_work`);
+//! - [`repair`]: a repairer at a damaged own building, from its own spot beside it, or with a damaged own vehicle,
+//!   which it follows (slice M5-N8, `crate::repair`);
 //! - [`enter`]: a unit's walk into a Tunnel's entry path (`crate::network`);
 //! - [`attack_ground`]: AttackingLocation, an Attack Ground's walk into range and its shots, until another order
 //!   (slice M4-O; design change 0293).
@@ -35,6 +37,7 @@ mod enter;
 pub(crate) mod gather;
 mod hash;
 pub(crate) mod reach;
+mod repair;
 pub mod resolution;
 mod run;
 pub mod state;
@@ -128,6 +131,12 @@ pub enum OrderKind {
     /// footprint's edge ([`assist`], `crate::spot_work`), until the site is complete or gone. Each Build of a group's
     /// becomes one as its site starts (plan decision T59, `sim/builds/shared.rs`).
     Assist(ObjectId),
+    /// (M5-N8) `factions/cults/units/recruit.md > Recruit ObjectInterfaceState > DefaultState commands`: "**D: Repair**
+    /// — targeted command (StateOnlyTransition). Left-click a damaged own building or vehicle to repair it" (the Agent's
+    /// D: "a damaged own Tunnel or Laser Turret"). The unit repairs this object (`crate::repair`): from its own spot
+    /// beside a building's footprint, as an Assist, or within reach of a vehicle, which it follows ([`repair`]), until
+    /// the object is at full HP, gone or no longer its owner's, or its owner runs out of Space Crystals for it.
+    Repair(ObjectId),
 }
 
 impl OrderKind {
@@ -139,7 +148,8 @@ impl OrderKind {
             | OrderKind::Gather(id)
             | OrderKind::DropOff(id)
             | OrderKind::Enter(id)
-            | OrderKind::Assist(id) => Some(id),
+            | OrderKind::Assist(id)
+            | OrderKind::Repair(id) => Some(id),
             OrderKind::Move(Target::Point(_)) | OrderKind::AttackMove(_) | OrderKind::Patrol(_) => None,
             OrderKind::Hold | OrderKind::Stop | OrderKind::Deploy { .. } | OrderKind::Build { .. } => None,
             OrderKind::AttackGround(_) => None,
@@ -167,8 +177,8 @@ impl Order {
             }
             OrderKind::Move(Target::Object(_)) | OrderKind::Attack(_) | OrderKind::Hold | OrderKind::Stop => None,
             OrderKind::Gather(_) | OrderKind::DropOff(_) | OrderKind::Deploy { .. } => None,
-            // Its spot is the spots' step's (`crate::spot_work`), not the order's.
-            OrderKind::Build { .. } | OrderKind::Assist(_) => None,
+            // Its spot is the spots' step's (`crate::spot_work`), not the order's; a vehicle's repairer follows it.
+            OrderKind::Build { .. } | OrderKind::Assist(_) | OrderKind::Repair(_) => None,
             // The unit goes only as near the location as its attack needs (`attack_ground`).
             OrderKind::Enter(_) | OrderKind::AttackGround(_) => None,
         }

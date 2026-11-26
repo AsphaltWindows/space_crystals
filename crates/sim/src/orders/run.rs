@@ -10,7 +10,8 @@ use super::reach::Reach;
 use super::state::{Approach, AttackGround, AttackOrder, Auto, Behaviour, Leg, Patrol};
 use super::world::{Unit, World};
 use super::{
-    ActiveOrder, Order, OrderKind, Orders, Target, assist, attack_ground, build, engage, enter, gather, travel, turret,
+    ActiveOrder, Order, OrderKind, Orders, Target, assist, attack_ground, build, engage, enter, gather, repair, travel,
+    turret,
 };
 use crate::deploy;
 use crate::ids::ObjectId;
@@ -133,7 +134,7 @@ pub(super) fn start(order: &Order, unit: &mut Unit, world: &World) -> Behaviour 
         }
         OrderKind::Gather(_) | OrderKind::DropOff(_) | OrderKind::Deploy { .. } | OrderKind::Enter(_) => {}
         OrderKind::AttackGround(_) => {}
-        OrderKind::Build { .. } | OrderKind::Assist(_) => {}
+        OrderKind::Build { .. } | OrderKind::Assist(_) | OrderKind::Repair(_) => {}
     }
     unit.mover.stop();
     match order.kind {
@@ -172,6 +173,8 @@ pub(super) fn start(order: &Order, unit: &mut Unit, world: &World) -> Behaviour 
         // (M5-E) `factions/cults/economy.md > Assist Construction Command`: to its own spot beside the site, which the
         // spots' step gives it (`crate::spot_work`).
         OrderKind::Assist(_) => Behaviour::Assist(assist::begin()),
+        // (M5-N8) `factions/cults/units/recruit.md > Repair`: to its own spot beside a building, or after a vehicle.
+        OrderKind::Repair(target) => Behaviour::Repair(repair::begin(target, world)),
     }
 }
 
@@ -225,10 +228,12 @@ fn run(
         (OrderKind::AttackGround(at), Behaviour::AttackGround(state)) => attack_ground::run(unit, at, state, world),
         // (M5-E) Building from its spot; the site's completion or removal ends the order (`assist`).
         (OrderKind::Assist(_), Behaviour::Assist(state)) => assist::run(state),
+        // (M5-N8) Repairing from its spot, or following its vehicle; the repairs' step ends the order (`repair`).
+        (OrderKind::Repair(target), Behaviour::Repair(state)) => repair::run(unit, target, state, world),
         // A state that isn't its order's (a save edited by hand): the order ends.
         (OrderKind::Hold | OrderKind::Attack(_) | OrderKind::AttackMove(_) | OrderKind::Patrol(_), _)
         | (OrderKind::Move(Target::Object(_)) | OrderKind::Gather(_) | OrderKind::DropOff(_), _)
         | (OrderKind::Deploy { .. } | OrderKind::Enter(_) | OrderKind::AttackGround(_), _)
-        | (OrderKind::Build { .. } | OrderKind::Assist(_), _) => true,
+        | (OrderKind::Build { .. } | OrderKind::Assist(_) | OrderKind::Repair(_), _) => true,
     }
 }

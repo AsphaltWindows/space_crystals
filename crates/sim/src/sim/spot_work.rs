@@ -145,9 +145,9 @@ impl Sim {
         match work.at {
             WorkAt::Footprint(at) => Some(at),
             WorkAt::Object(target) => {
-                let owner = self.objects.get(&id)?.owner;
+                let unit = self.objects.get(&id)?;
                 (self.objects.get(&target))
-                    .filter(|target| suits(work.order, owner, target))
+                    .filter(|target| suits(work.order, unit, target))
                     .and_then(|target| target.placement)
             }
         }
@@ -346,7 +346,7 @@ impl Sim {
 
     /// Unit `id`'s current order ends; its queued orders go on from its next turn in 5a, and a walk it leaves ends
     /// there too (`orders::engage::idle`, or its next order's start).
-    fn end_work(&mut self, id: ObjectId) {
+    pub(super) fn end_work(&mut self, id: ObjectId) {
         if let Some(orders) = self.objects.get_mut(&id).and_then(|o| o.orders.as_mut()) {
             orders.current = None;
         }

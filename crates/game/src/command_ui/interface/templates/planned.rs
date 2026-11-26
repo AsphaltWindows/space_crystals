@@ -11,17 +11,16 @@
 //! The Cults' buildings of the Recruits' Construct menus that the Recruits don't build yet hold their slots (slice
 //! M5-J1, design change 0327: "every building greyed until available, including ones not in the build yet"), each
 //! until its slice; slice M5-G2 made the Gunworks, the Machine Shop and the Scrap Hangar live, and the Armory's Gunner,
-//! which had held its slot of the Armory's kind menus (slice M5-F2) until its Gunworks; slice M5-N2 the Garrison. So
-//! does the Recruit's Repair, until slice N8 (design change 0322), the Agent's too (slice M5-Y, design change 0359).
+//! which had held its slot of the Armory's kind menus (slice M5-F2) until its Gunworks; slice M5-N2 the Garrison. The
+//! Recruit's Repair and the Agent's held theirs until slice M5-N8 (`super::super::PanelCommand::Repair`).
 
 /// A panel entry that isn't in the game yet (module docs). The Colonists' are a building of the Beacon's Warp In menus
 /// or a unit of a portal's panel: a building's cost and WarpInTime are TBD (`factions/colonists/economy.md > Warp In >
 /// Constructs List`), and so is the rest of it (Q0043); a unit's stats, cost and time are TBD
 /// (`factions/colonists/units/scout.md`, `factions/colonists/units/lancer.md`; the psionic unit has no section yet).
 /// The Syndicate's are the ExpandMenu's entries that aren't in the game yet (slice M4-F:
-/// `sc_sim::defs::ExpandEntry::Planned`, by name): its expansions, and the Agent's Repair. The Cults' are the Construct
-/// menus' buildings the Recruits don't build yet (slice M5-J1: `sc_sim::defs::ConstructEntry::Planned`, by name) and
-/// the Recruit's Repair.
+/// `sc_sim::defs::ExpandEntry::Planned`, by name): its expansions. The Cults' are the Construct menus' buildings the
+/// Recruits don't build yet (slice M5-J1: `sc_sim::defs::ConstructEntry::Planned`, by name).
 #[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum Planned {
     AlloyFurnace,
@@ -64,18 +63,11 @@ pub enum Planned {
     Temple,
     Cathedral,
     Shrine,
-    /// (M5-J1) The Recruit's D (`factions/cults/units/recruit.md > Recruit ObjectInterfaceState > DefaultState
-    /// commands`, design change 0322): "**D: Repair** — targeted command (StateOnlyTransition). Left-click a damaged
-    /// own building or vehicle to repair it", which slice N8 brings. (M5-Y) The Agent's D too
-    /// (`factions/syndicate/units/agent.md > Agent ObjectInterfaceState > DefaultState commands`, design change 0359):
-    /// "**D: Repair** — targeted command (StateOnlyTransition). Left-click a damaged own Tunnel or Laser Turret to
-    /// repair it".
-    Repair,
 }
 
 impl Planned {
     /// Every one, in declaration order.
-    pub const ALL: [Planned; 27] = [
+    pub const ALL: [Planned; 26] = [
         Planned::AlloyFurnace,
         Planned::EssenceRefinery,
         Planned::FluxReactor,
@@ -102,7 +94,6 @@ impl Planned {
         Planned::Temple,
         Planned::Cathedral,
         Planned::Shrine,
-        Planned::Repair,
     ];
 
     /// The ExpandMenu's entry not in the game yet that the sim names `name` (`sc_sim::defs::ExpandEntry::Planned`): an
@@ -150,7 +141,6 @@ impl Planned {
             Planned::Temple => "Temple",
             Planned::Cathedral => "Cathedral",
             Planned::Shrine => "Shrine",
-            Planned::Repair => "Repair",
         }
     }
 
@@ -161,8 +151,7 @@ impl Planned {
     /// last letters, as the Scout's ("VT" Vault, "FE" Forge). A Cults building's alike ("CS" Chop Shop, "TE" Temple),
     /// but for the Shrine's "SR", "SE" being the Storage's. An entry's type takes its label with it into the game (the
     /// Optics Lab's "OL", the Chemical Plant's "CP", the Grenadier's "GR", the Gunworks' "GS", the Garrison's "GA",
-    /// `crate::kinds`), and a command its own: the Tunnel's Upgrade's "Upgr." (slice M4-G); the Recruit's and the
-    /// Agent's Repair is labelled by its name, as the commands are.
+    /// `crate::kinds`), and a command its own: the Tunnel's Upgrade's "Upgr." (slice M4-G).
     pub fn label(self) -> &'static str {
         match self {
             Planned::AlloyFurnace => "AF",
@@ -191,12 +180,11 @@ impl Planned {
             Planned::Temple => "TE",
             Planned::Cathedral => "CL",
             Planned::Shrine => "SR",
-            Planned::Repair => "Repair",
         }
     }
 
     /// Whether it is a unit, of a production panel; else a building, of the Beacon's Warp In menus, the Tunnel's
-    /// ExpandMenu or the Recruits' Construct menus, or the Recruit's and the Agent's Repair.
+    /// ExpandMenu or the Recruits' Construct menus.
     pub fn is_unit(self) -> bool {
         matches!(self, Planned::Scout | Planned::Lancer | Planned::PsionicUnit)
     }
@@ -229,12 +217,9 @@ impl Planned {
 
     /// The full name of its button (`PanelCommand::name`): the command it will be, "Train Scout", "Warp In Alloy
     /// Furnace" or "Build Vault", as a unit in the game is trained, a building warped in and an expansion built
-    /// (`PanelCommand::Expand`); "Build Altar", as the Recruits build a building (`PanelCommand::Build`); and
-    /// "Repair".
+    /// (`PanelCommand::Expand`); "Build Altar", as the Recruits build a building (`PanelCommand::Build`).
     pub fn command_name(self) -> String {
-        if self == Planned::Repair {
-            self.name().into()
-        } else if self.is_unit() {
+        if self.is_unit() {
             format!("Train {}", self.name())
         } else if self.is_expansion() || self.is_construct() {
             format!("Build {}", self.name())

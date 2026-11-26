@@ -2,7 +2,7 @@
 //! with its unit's facing, with its label, "RT", on it. Its melee blow is drawn as a tracer, as the Sabre
 //! Legionnaire's is (placeholder, Q0001). Its panel (`> Recruit ObjectInterfaceState`, slice M5-J1:
 //! `crate::command_ui::interface::templates::cults::recruit`): Move, the two Construct menus, Assist Construction,
-//! Repair (greyed until slice N8) and Stop.
+//! Repair (slice M5-N8) and Stop.
 
 use crate::combat_effects::ShotStyle;
 use crate::command_ui::interface::templates::cults;

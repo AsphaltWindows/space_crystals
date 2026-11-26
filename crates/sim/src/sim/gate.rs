@@ -199,6 +199,9 @@ pub enum Reject {
     /// unit's Unit Control cost of them, one for a Release (`Refusal::NoRecruit`; `factions/cults/structures/README.md
     /// > Choosing Recruits, Release and Eject All`: a kind's button "is greyed if there are none").
     NoRecruit(RecruitKind),
+    /// (M5-N8) None of the units of a Repair can repair its target now (`Sim::can_repair`, `crate::repair`): it is
+    /// no damaged own object, complete, of a kind their types repair.
+    CantRepair(ObjectId),
 }
 
 impl fmt::Display for Reject {
@@ -265,6 +268,7 @@ impl fmt::Display for Reject {
             Reject::NothingInside => write!(f, "nothing is inside"),
             Reject::NotASite(id) => write!(f, "object {} is no building of the player's under construction", id.0),
             Reject::NoRecruit(kind) => write!(f, "no {} Recruit is free inside", kind.name()),
+            Reject::CantRepair(id) => write!(f, "none of the units can repair object {} now", id.0),
         }
     }
 }

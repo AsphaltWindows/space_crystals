@@ -206,8 +206,8 @@ mod tests {
 
     /// Slice M4-J1: the Agent's buttons by name (`factions/syndicate/units/agent.md > Agent ObjectInterfaceState`), its
     /// Build with the price the sim would charge (design change 0233: "the price shown on the Build button is the next
-    /// Tunnel's", the hint standing in for its tooltip), greyed or not; its D, Repair, greyed until slice N8 (design
-    /// change 0359), with no price; and a site's one button. (A price in Space Crystals, a Cults building's, is
+    /// Tunnel's", the hint standing in for its tooltip), greyed or not; its D, Repair (design change 0359, slice M5-N8),
+    /// with no price; and a site's one button. (A price in Space Crystals, a Cults building's, is
     /// `tests/commands/recruit_ui.rs`'s.)
     #[test]
     fn the_hint_names_the_agents_buttons_and_their_prices() {
