@@ -3,6 +3,7 @@
 
 use std::path::PathBuf;
 
+use sc_sim::testing::invariants::{self, Invariants};
 use sc_sim::{PlayerCommand, Replay, SU_PER_GU, Scenario, Sim, Tick, TickInputs, Vec2};
 
 /// A golden replay notes the state hash every this many ticks (2 s), at tick 0 and at its end.
@@ -34,7 +35,8 @@ pub(crate) trait Script {
 }
 
 /// Plays `game` and records it: the replay with its checkpoints, and the game at its end. A `script` gives its
-/// commands before each step.
+/// commands before each step. (M5-M1) After every step it checks the invariants, as a `TestSim` does
+/// (`sc_sim::testing::invariants`), and panics on the first one broken, with a picture of the map.
 fn record(game: &Game, mut script: Option<Box<dyn Script>>) -> (Replay, Sim) {
     let mut inputs = vec![TickInputs::default(); game.end as usize];
     for (tick, command) in &game.commands {
@@ -42,12 +44,21 @@ fn record(game: &Game, mut script: Option<Box<dyn Script>>) -> (Replay, Sim) {
     }
     let mut replay = Replay::new(game.scenario.clone());
     let mut sim = Sim::new(&game.scenario);
+    let mut invariants = Invariants::new(&sim);
     replay.checkpoint(&sim);
     for mut step in inputs {
         if let Some(script) = &mut script {
             step.commands.extend(script.commands(&sim));
         }
         sim.step(&step);
+        if let Err(violation) = invariants.check(&sim, &step) {
+            let picture = invariants::ascii(&sim, Some(violation.at));
+            let (tick, message) = (sim.tick(), violation.message);
+            panic!(
+                "invariant {} broken in tick {tick}: {message}\n{picture}",
+                violation.invariant
+            );
+        }
         replay.record(step);
         (game.during)(sim.tick(), &sim);
         if sim.tick().is_multiple_of(EVERY) || sim.tick() == game.end {

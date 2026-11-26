@@ -9,6 +9,7 @@
 //! game then ends, the tick after it checks that the gate refuses every command and that they change nothing, and the
 //! stream goes on in a new game ([`fuzz_run`]; [`SEED`] says why).
 
+use sc_sim::testing::invariants::Invariants;
 use sc_sim::testing::{self, ScenarioBuilder};
 use sc_sim::{
     Ability, BuildingOrientation, Command, DebugCommand, ExitDoor, ObjectId, ObjectKind, OrderKind, PlayerCommand,
@@ -213,10 +214,16 @@ fn random_command(rng: &mut Rng, sim: &Sim) -> PlayerCommand {
 }
 
 /// Every object stays where the sim's rules allow it. Units (`docs/movement.md > 8`): I2, a ground unit's box
-/// overlaps no blocked tile and stays inside the map; I3, no unit moves more than its top speed in a tick. Each
-/// message begins with what broke and the tick, so that [`seed_sweep`]'s list reads at a glance.
-fn check_invariants(sim: &Sim) {
+/// overlaps no blocked tile and stays inside the map; I3, no unit moves more than its top speed in a tick. (M5-M1) And
+/// the invariants of the game's rules hold, whatever the input (`Invariants::check_rules`: P1, O1, R1, and H1, B1 and
+/// A1, the HP, the banks and the Augmentations, and (M5-N4a) E1, the energy), `rules` having seen the tick before the
+/// step that applied `inputs`.
+/// Each message begins with what broke and the tick, so that [`seed_sweep`]'s list reads at a glance.
+fn check_invariants(sim: &Sim, inputs: &TickInputs, rules: &mut Invariants) {
     let (map, tick) = (sim.map(), sim.tick());
+    if let Err(violation) = rules.check_rules(sim, inputs) {
+        panic!("{} in tick {tick}: {}", violation.invariant, violation.message);
+    }
     for o in sim.objects() {
         assert!(
             o.pos.is_finite() && o.prev_pos.is_finite(),
@@ -310,6 +317,7 @@ fn check_refused(sim: &Sim, inputs: &TickInputs) {
 fn fuzz_run(seed: u64) -> Run {
     let scenario = scenario(SimConfig::DEBUG);
     let mut sim = Sim::new(&scenario);
+    let mut rules = Invariants::new(&sim);
     let mut replay = Replay::new(scenario.clone());
     let mut games = Vec::new();
     let mut rng = Rng::from_seed(seed);
@@ -324,8 +332,8 @@ fn fuzz_run(seed: u64) -> Run {
             check_refused(&sim, &inputs);
         }
         sim.step(&inputs);
+        check_invariants(&sim, &inputs, &mut rules);
         replay.record(inputs);
-        check_invariants(&sim);
         for e in sim.events() {
             match e {
                 SimEvent::Spawned(_) => spawned += 1,
@@ -390,6 +398,7 @@ fn fuzz_run(seed: u64) -> Run {
         hashes.push(sim.state_hash());
         if over {
             let end = std::mem::replace(&mut sim, Sim::new(&scenario));
+            rules = Invariants::new(&sim);
             let replay = std::mem::replace(&mut replay, Replay::new(scenario.clone()));
             games.push(Game { replay, end });
         }
@@ -498,6 +507,7 @@ fn rejected_commands_change_nothing() {
     for config in [SimConfig::DEBUG, SimConfig::default()] {
         let scenario = scenario(config);
         let mut sim = Sim::new(&scenario);
+        let mut rules = Invariants::new(&sim);
         let mut rng = Rng::from_seed(0x9a7e);
         let (mut accepted, mut rejected) = (0, 0);
         for _ in 0..TICKS {
@@ -505,9 +515,10 @@ fn rejected_commands_change_nothing() {
             let verdict = sim.validate(&cmd);
             let mut without = sim.clone();
             without.step(&TickInputs::default());
-            sim.step(&TickInputs {
+            let inputs = TickInputs {
                 commands: vec![cmd.clone()],
-            });
+            };
+            sim.step(&inputs);
             match verdict {
                 Ok(()) => accepted += 1,
                 Err(reason) => {
@@ -516,7 +527,7 @@ fn rejected_commands_change_nothing() {
                     assert_eq!(sim, without, "{cmd:?}: {reason}");
                 }
             }
-            check_invariants(&sim);
+            check_invariants(&sim, &inputs, &mut rules);
         }
         if config.debug {
             assert!(

@@ -20,6 +20,7 @@ use crate::player::Faction;
 use crate::replay::Replay;
 use crate::scenario::SpawnAt;
 use crate::testing::ScenarioBuilder;
+use crate::testing::invariants::{self, Invariants};
 use crate::units::{Tick, TilePos};
 
 const P1: PlayerId = PlayerId(1);
@@ -76,6 +77,8 @@ fn record() -> Replay {
     ];
     let mut replay = Replay::new(scenario);
     let mut sim = replay.start();
+    // (M5-M1) Under the invariants, as the units' goldens are (`tests/golden/harness.rs`).
+    let mut invariants = Invariants::new(&sim);
     replay.checkpoint(&sim);
     for tick in 1..=END {
         let commands = commands.iter().filter(|(t, _)| *t == tick).map(|(_, c)| c.clone());
@@ -83,6 +86,13 @@ fn record() -> Replay {
             commands: commands.collect(),
         };
         sim.step(&inputs);
+        if let Err(violation) = invariants.check(&sim, &inputs) {
+            let picture = invariants::ascii(&sim, Some(violation.at));
+            panic!(
+                "invariant {} broken in tick {tick}: {}\n{picture}",
+                violation.invariant, violation.message
+            );
+        }
         replay.record(inputs);
         if tick.is_multiple_of(EVERY) || tick == END {
             replay.checkpoint(&sim);

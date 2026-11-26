@@ -7,13 +7,21 @@
 //! from the state gives: `paths`), the projectile invariant P1 (every projectile lands by its arrival tick:
 //! `projectiles`), the operation invariant O1 (a Tunnel's operation and its site name each other: `operations`), the
 //! reservation invariant R1 (a building that trains the units inside it reserves them as its queue has them:
-//! `reservations`, slice M5-F2), the energy invariant E1 (an object has energy exactly when its type has a pool, and at
-//! most its maximum: `energy`, slice M5-N4a), and an ASCII picture of the map with its units for readable failures.
+//! `reservations`, slice M5-F2), (M5-M1) the hit-point invariant H1 (every object's HP is above 0 and at most its MaxHP
+//! with its Augmentations, its Shields within 0 and its MaxShields: `hit_points`), the bank invariant B1 (no bank goes
+//! below 0 or past its top: `banks`) and the augmentation invariant A1 (only a kind that can be augmented has an
+//! Augmentation: `augmentations`), H1 and A1 over the held units too, the energy invariant E1 (an object has energy
+//! exactly when its type has a pool, and at most its maximum, held units too: `energy`, slice M5-N4a), and an ASCII
+//! picture of the map with its units for readable failures.
 //!
 //! [`super::TestSim`] checks them after every tick (on by default). A test that steps a bare [`Sim`] keeps its own
-//! [`Invariants`] and calls [`Invariants::check`] after each step.
+//! [`Invariants`] and calls [`Invariants::check`] after each step, as the golden games do (slice M5-M1); the fuzz's
+//! games call [`Invariants::check_rules`], the invariants of the game's rules alone.
 
+mod augmentations;
+mod banks;
 mod energy;
+mod hit_points;
 mod operations;
 mod overlaps;
 mod picture;
@@ -50,7 +58,7 @@ pub use picture::ascii;
 /// A broken invariant.
 #[derive(Clone, Debug, PartialEq)]
 pub struct Violation {
-    /// "I1" … "I7", "V1", "K1", "P1", "O1", "R1", "E1".
+    /// "I1" … "I7", "V1", "K1", "P1", "O1", "R1", "H1", "B1", "A1", "E1".
     pub invariant: &'static str,
     pub message: String,
     /// Where on the map to look.
@@ -73,10 +81,13 @@ struct Seen {
     momentum: Vec2,
 }
 
-/// Checks I1–I7 between ticks. It remembers each unit's state of the tick before, so check after **every** step.
+/// Checks the invariants between ticks (module docs). It remembers each unit's state, and each player's banks, of the
+/// tick before, so check after **every** step.
 #[derive(Clone, Debug)]
 pub struct Invariants {
     seen: BTreeMap<ObjectId, Seen>,
+    /// (M5-M1) Each player's banks of the tick before, for B1.
+    books: banks::Books,
 }
 
 fn leg_of(o: &Object) -> Option<Tick> {
@@ -102,7 +113,10 @@ impl Invariants {
             .objects()
             .filter_map(|o| Some((o.id, seen(o, o.mover.as_ref()?))))
             .collect();
-        Self { seen }
+        Self {
+            seen,
+            books: banks::Books::of(sim),
+        }
     }
 
     /// Checks the state after a step that applied `inputs` (teleports are read from them: a teleported unit may
@@ -129,12 +143,30 @@ impl Invariants {
             .and_then(|()| overlaps::no_overlaps(sim, &self.seen, &arrivals))
             .and_then(|()| vision(sim))
             .and_then(|()| path_knowledge(sim))
-            .and_then(|()| projectiles::projectiles(sim))
+            .and_then(|()| self.rules(sim, inputs));
+        *self = Self::new(sim);
+        result
+    }
+
+    /// (M5-M1) Of [`Invariants::check`]'s invariants, those of the game's rules alone: P1, O1, R1, H1, B1, A1 and E1
+    /// (slice M5-N4a), which hold whatever the input and cost little. Not the movement invariants, whose I6 bounds how
+    /// far a scenario may fall behind, nor V1 and K1, which rebuild every player's vision and planning grids and make
+    /// most of a check's cost. For a harness of many games of random input: `tests/robustness.rs`, whose seed sweep V1
+    /// and K1 would take from 5 s to 26 s.
+    pub fn check_rules(&mut self, sim: &Sim, inputs: &TickInputs) -> Result<(), Violation> {
+        let result = self.rules(sim, inputs);
+        *self = Self::new(sim);
+        result
+    }
+
+    fn rules(&self, sim: &Sim, inputs: &TickInputs) -> Result<(), Violation> {
+        projectiles::projectiles(sim)
             .and_then(|()| operations::operations(sim))
             .and_then(|()| reservations::reservations(sim))
-            .and_then(|()| energy::energy(sim));
-        self.seen = Self::new(sim).seen;
-        result
+            .and_then(|()| hit_points::hit_points(sim))
+            .and_then(|()| self.books.check(sim, inputs))
+            .and_then(|()| augmentations::augmentations(sim))
+            .and_then(|()| energy::energy(sim))
     }
 
     fn check_units(&self, sim: &Sim, teleported: &[ObjectId], evacuated: &[ObjectId]) -> Result<(), Violation> {
@@ -351,6 +383,13 @@ fn path_knowledge(sim: &Sim) -> Result<(), Violation> {
         message,
         at: Vec2::ZERO,
     })
+}
+
+/// (M5-M1) Every object in the game, each with whether it is held: those on the map in id order, then the units held off
+/// it (`Sim::held`: in the Tunnel Network or a building), which H1 and A1 check as well.
+fn every_object(sim: &Sim) -> impl Iterator<Item = (&Object, bool)> + '_ {
+    let held = sim.held().map(|held| (&held.object, true));
+    sim.objects().map(|o| (o, false)).chain(held)
 }
 
 fn floats_finite(o: &Object) -> bool {

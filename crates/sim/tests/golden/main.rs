@@ -1,8 +1,9 @@
 //! Golden hashes (`ARCHITECTURE.md > Replays and golden hashes`): fifteen small games, defined below and in
 //! `colonists.rs`, `syndicate.rs`, `cults.rs` and the others and recorded as replays in `tests/golden/`, each with the
 //! state hash at tick 0, every 32 ticks and at its end (`harness.rs`). A run must give the blessed hashes: a change
-//! that alters how any of these games plays out fails here, at the first checkpoint that differs. The replays play in
-//! the client too (`cargo run -- --replay crates/sim/tests/golden/<name>.json`).
+//! that alters how any of these games plays out fails here, at the first checkpoint that differs. (M5-M1) Each game is
+//! checked by the invariants after every step, as a `TestSim` game is (`sc_sim::testing::invariants`). The replays
+//! play in the client too (`cargo run -- --replay crates/sim/tests/golden/<name>.json`).
 //!
 //! When the change is intended, re-bless the files and review the diff (the checkpoint hashes) before committing:
 //!

@@ -2001,10 +2001,17 @@ and the code is `crates/sim/src/movement.rs` and `movement/`, with the unit's st
   from the state gives. P1 (`projectiles`, slice M4-O, plan decision T42): every projectile in flight lands after the
   tick just played, between finite points. O1 (`operations`, slice M4-F): a Tunnel's operation and its site name each
   other (`TunnelState::operation`, `Builder::Tunnel`); an upgrading Tunnel is in operation, a tier below its target,
-  over its target tier's frames (slice M4-G). A `TestSim` checks them after every tick and panics with a picture of
+  over its target tier's frames (slice M4-G). R1 (`reservations`, slice M5-F2) is under *Production > Pool buildings*.
+  (M5-M1) H1 (`hit_points`): every object, on the map or held, has HP exactly when it has a MaxHP, above 0 and at most
+  its MaxHP with its Augmentations (`Object::max_hp_with`), and Shields within 0 and its MaxShields; B1 (`banks`): no
+  bank wraps below 0 or past its top in a tick (it changes by less than half its range, but by a `SetResources` of the
+  tick); A1 (`augmentations`): only an augmentable kind has an Augmentation. A `TestSim` checks them after every tick
+  and panics with a picture of
   the map (`TestSim::ascii`: units as letters, with a legend). The check is on by default; `check_invariants(false)`
   turns it off for timing runs. A test that steps a bare `Sim` keeps its own `Invariants` and calls `check` after each
-  step.
+  step, as the golden games do (`tests/golden/harness.rs`). The fuzz's games (`tests/robustness.rs`, the seed sweep's)
+  check the rules' invariants alone, `Invariants::check_rules` (P1, O1, R1, H1, B1, A1): V1 and K1, which rebuild the
+  vision and the planning grids, would take the sweep from 5 s to 26 s.
 
 ## Economy
 
