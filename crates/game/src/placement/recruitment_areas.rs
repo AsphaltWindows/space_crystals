@@ -14,16 +14,17 @@
 //!     sight (`crate::fog::Sight::remembered`) and the objects it shows them (`Sight::sees`);
 //!   - their own Halls not completed yet, "under construction and placed ghosts", in their order of placement
 //!     (design change 0351): the sites in the order they started, before the ghosts in the order they were placed
-//!     (`sc_sim::PendingBuild::group`). A reading: the sim keeps no time of placement for a site, and a site started
-//!     before every ghost still pending. Without Shift, the click replaces the orders of the Recruits placing, whose
-//!     ghosts then don't count, as in their placement check (`sc_sim::Sim::group_build_check`).
+//!     (`sc_sim::PendingBuild::group`). **Placeholder (not in the design: the sim keeps no time of placement for a
+//!     site, so the sites, already started, rank before every ghost still pending).** Without Shift, the click
+//!     replaces the orders of the Recruits placing, whose ghosts then don't count, as in their placement check
+//!     (`sc_sim::Sim::group_build_check`).
 //! - **The claims of a selected own Hall** ([`selected_claims`]): "**A selected own Hall** shows its claimed tiles",
 //!   the ones it claims in the game (`Sim::claimed_tiles`), which its InfoPanel's Effectiveness counts
 //!   (`crate::hud::info_panel`); a site claims none (design change 0341: "A Hall under construction claims nothing").
 //! - **Never an enemy's area**: "Enemy Halls' areas are never drawn as areas of their own"; their claims show only as
 //!   the tiles taken from the Hall placed.
 //!
-//! It shows in the game modes only. **The look**, placeholders until the art (Q0001), its colours and z in one place
+//! It shows in the game modes only. **The look**, **Placeholder (Q0001)** until the art, its colours and z in one place
 //! (below), consistent with the Tunnel Area display's: the tiles tinted on the terrain's surface, by what the preview
 //! finds on them, within the area's outline; a selected Hall's claimed tiles in a selected Tunnel's violet, outlined;
 //! not on the tiles the player hasn't explored, which stay black (`core/vision.md > Unexplored`), nor off the map. One
@@ -54,10 +55,10 @@ use crate::map_render::MapView;
 use crate::selection::{ControlStates, Selection};
 use crate::shapes::ColorMesh;
 
-/// The tints of the previewed area's tiles (placeholder colours): those the Hall would claim green, as a valid ghost
-/// area; those an own completed Hall has in a selected Tunnel's violet ([`OWN_FILL`]), brighter; those an own Hall not
-/// completed yet has in the lingering ghosts' blue (`super::lingering`); those another player's Hall has red, as a
-/// Tunnel ring's blocked cells ([`BLOCKED_FILL`]: "shown as unclaimable"); the non-Recruitable ones dark.
+/// The tints of the previewed area's tiles (**Placeholder (Q0001)**): those the Hall would claim green, as a valid
+/// ghost area; those an own completed Hall has in a selected Tunnel's violet ([`OWN_FILL`]), brighter; those an own
+/// Hall not completed yet has in the lingering ghosts' blue (`super::lingering`); those another player's Hall has red,
+/// as a Tunnel ring's blocked cells ([`BLOCKED_FILL`]: "shown as unclaimable"); the non-Recruitable ones dark.
 pub const CLAIMABLE_FILL: Color = Color::srgba(0.25, 0.95, 0.35, 0.26);
 pub const OWN_TAKEN_FILL: Color = Color::srgba(0.70, 0.45, 1.0, 0.34);
 pub const PENDING_TAKEN_FILL: Color = Color::srgba(0.55, 0.85, 1.0, 0.30);
@@ -70,8 +71,9 @@ pub const SELECTED_CLAIMS: (Color, Color) = (OWN_FILL, OWN_EDGE);
 /// The overlay's z above the terrain entity's: in front of the Tunnel Area overlay's ([`AREA_Z`]), under the Tunnel
 /// ghost's area and the lingering ghosts' (`super::ghost_area`, `super::lingering`).
 pub const RECRUITMENT_AREA_Z: f32 = AREA_Z + 0.002;
-/// The Effectiveness label: its z over the overlays' band base (the ghost's letters', `super::ghost`), its text height
-/// in space units, its colour, and how far north of the footprint its centre stands, in tiles.
+/// The Effectiveness label (**Placeholder (not in the design: where and how the Effectiveness shows)**): its z over the
+/// overlays' band base (the ghost's letters', `super::ghost`), its text height in space units, its colour, and how far
+/// north of the footprint its centre stands, in tiles.
 const LABEL_Z: f32 = -1.0;
 const LABEL_SU: f32 = 20.0;
 const LABEL_COLOR: Color = Color::srgba(1.0, 1.0, 1.0, 0.95);
@@ -99,7 +101,8 @@ pub struct ShownPreview {
 }
 
 impl ShownPreview {
-    /// The Effectiveness label's text (placeholder wording).
+    /// The Effectiveness label's text. **Placeholder (not in the design: it asks for "its Effectiveness in %", not the
+    /// wording; the InfoPanel's, `activity::recruitment`, without the tiles).**
     pub fn label(&self) -> String {
         format!("Effectiveness: {}%", self.preview.effectiveness_percent())
     }

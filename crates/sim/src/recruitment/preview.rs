@@ -85,9 +85,9 @@ pub struct Preview {
 
 impl Preview {
     /// The preview of a Hall of `kind` at `placement` on `map`, among `claimants` (module docs): `known` says where the
-    /// player knows the ground. A tile whose ground they don't know (one they never explored) is taken to be Recruitable,
-    /// as the placement checks let such ground pass (`crate::placement::Mode::Known`; design change 0120: "Never-explored
-    /// tiles pass"). `None` if `kind` has no Recruitment Area.
+    /// player knows the ground. A tile whose ground they don't know (one they never explored) is taken to be
+    /// Recruitable, as the placement checks let such ground pass (`crate::placement::Mode::Known`; design change 0120:
+    /// "Never-explored tiles pass"). `None` if `kind` has no Recruitment Area.
     pub fn of(
         kind: ObjectKind,
         placement: Placement,

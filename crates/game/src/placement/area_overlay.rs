@@ -1,12 +1,12 @@
 //! What the area displays share (slice M5-J2): the Tunnel Area display's (`super::tunnel_areas`) and the Recruitment
-//! Area display's (`super::recruitment_areas`), the second built as the first (`factions/cults/structures/
-//! recruitment_hall.md > Recruitment Area display`: "as the Tunnel Area display").
+//! Area display's (`super::recruitment_areas`), the second built as the first
+//! (`factions/cults/structures/recruitment_hall.md > Recruitment Area display`: "as the Tunnel Area display").
 //!
 //! - **One mesh under one handle** ([`spawn_area_mesh`]), in the terrain's z band like the build area overlay
 //!   (`super::overlay::AREA_Z`): the terrain in front hides it and objects stand on it. The mesh asset arrives with the
 //!   first area to draw, as the renderer warns about empty meshes.
-//! - **Rebuilt in place only when what it shows changed** ([`AreaMesh::is_stale`]): what it shows, the tiles among it the
-//!   player hasn't explored ([`unexplored`]: those stay black, `core/vision.md > Unexplored`), or the map
+//! - **Rebuilt in place only when what it shows changed** ([`AreaMesh::is_stale`]): what it shows, the tiles among it
+//!   the player hasn't explored ([`unexplored`]: those stay black, `core/vision.md > Unexplored`), or the map
 //!   (`MapView::builds`), never every frame; hidden while it has nothing to show ([`show`]).
 //! - **The selection's own objects** ([`selected_own`]): "Selecting one of your Tunnels", "A selected own Hall"; never
 //!   another player's.

@@ -93,10 +93,10 @@ pub(crate) struct Contender<R, I> {
     pub def: &'static RecruitmentDef,
 }
 
-/// Which of `contenders` claims each tile of their areas that is `recruitable`, in tile order (`TilePos`'s): the one of the
-/// least (rank, distance from its centre, id) whose area has it (module docs, design change 0341: "each contested tile
-/// goes to the Hall whose centre is nearer; at exactly equal distance, to the Hall with the lower object id"). The one
-/// rule of claiming: the game's ranks the completed Halls by the tick they were completed ([`Claims::of`]), the
+/// Which of `contenders` claims each tile of their areas that is `recruitable`, in tile order (`TilePos`'s): the one of
+/// the least (rank, distance from its centre, id) whose area has it (module docs, design change 0341: "each contested
+/// tile goes to the Hall whose centre is nearer; at exactly equal distance, to the Hall with the lower object id"). The
+/// one rule of claiming: the game's ranks the completed Halls by the tick they were completed ([`Claims::of`]), the
 /// placement preview the Halls its player knows of ([`preview::Preview::of`]).
 pub(crate) fn winners<R: Ord + Copy, I: Ord + Copy>(
     contenders: impl IntoIterator<Item = Contender<R, I>>,
@@ -125,9 +125,10 @@ fn completed<'a>(objects: impl IntoIterator<Item = &'a Object>) -> impl Iterator
     })
 }
 
-/// The tiles `hall` claims among `objects` on `map` ([`Claims::of`]'s rule), in tile order: none for an object that isn't
-/// a completed Hall. What a selected own Hall shows (`factions/cults/structures/recruitment_hall.md > Recruitment Area
-/// display`: "A selected own Hall shows its claimed tiles"; slice M5-J2).
+/// The tiles `hall` claims among `objects` on `map` ([`Claims::of`]'s rule), in tile order: none for an object that
+/// isn't a completed Hall. What a selected own Hall shows
+/// (`factions/cults/structures/recruitment_hall.md > Recruitment Area display`: "A selected own Hall shows its claimed
+/// tiles"; slice M5-J2).
 pub fn claimed_tiles<'a>(objects: impl IntoIterator<Item = &'a Object>, map: &Map, hall: ObjectId) -> Vec<TilePos> {
     (winners(completed(objects), |tile| recruitable(map, tile)))
         .filter_map(|(tile, id)| (id == hall).then_some(tile))

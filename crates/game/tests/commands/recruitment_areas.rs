@@ -90,8 +90,8 @@ fn look_at(app: &mut App, view: Vec2) {
     app.update();
 }
 
-/// Selects player 1's four Recruits and enters their Recruitment Hall's placement: A then Q (`factions/cults/units/
-/// recruit.md > Recruit ObjectInterfaceState`, slice M5-J1).
+/// Selects player 1's four Recruits and enters their Recruitment Hall's placement: A then Q
+/// (`factions/cults/units/recruit.md > Recruit ObjectInterfaceState`, slice M5-J1).
 fn place_a_hall(app: &mut App) {
     look_at(app, pos(app, RECRUITS[1]));
     select_units(app, &RECRUITS);

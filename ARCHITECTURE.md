@@ -2130,7 +2130,19 @@ their energy doorway, slice M3-D2: design change 0145, `factions/colonists/struc
   the whole area lies on the map, the placement check refusing a Hall whose area would leave it (0341 point 1, slice
   M5-J1: `WholeProblem::RecruitmentAreaOffMap`, `placement/recruitment_area.rs`), and a debug spawn's tiles off the
   map count among its 100 and can't be claimed (Placeholder (not in the design: 0341 rules such a Hall out)); a Hall
-  under construction claims nothing (0341 point 4, `Object::is_operational`). `completed_at` is the tick
+  under construction claims nothing (0341 point 4, `Object::is_operational`). **One rule of claiming** (slice M5-J2,
+  `recruitment::winners`): each competitor (`Contender`) ranked, every Recruitable tile of the areas to the least by
+  (rank, distance² from its centre in half tiles, id); the game's claims rank the completed Halls by `completed_at`
+  (`Claims::of`, `claimed_tiles` for a selected Hall: `Sim::claimed_tiles`), and **the placement preview**
+  (`recruitment::preview`, `factions/cults/structures/recruitment_hall.md > Recruitment Area display`, design changes
+  0350 to 0352) ranks an explicit list of `Claimant`s, a pure function: `Rank::Completed(tick)` first, then
+  `Rank::Pending(n)` (own sites and ghosts in their order of placement, 0351), then the Hall placed;
+  `Preview::of` gives each tile of the placed area `Claimable`, `Taken { claimer: Own | OwnPending | Other, by }` or
+  `NotRecruitable` (known non-Recruitable ground, off the map; ground the player never explored passes, as in
+  `Mode::Known`), and `effectiveness_percent`, rounded down (`recruitment::effectiveness_percent`, shared with
+  `HallState`). Who the claimants are is the caller's: the client gathers what its player knows
+  (`placement::recruitment_areas::known_claimants`). `PendingBuild::group`, its order's `OrderGroup`, gives the order
+  the ghosts were placed in; `Sim::pending_without` is public for the display. `completed_at` is the tick
   `Capabilities::fresh` gives the producer, so a spawn's
   insertion tick, 0 for a map's, and the tick `Sim::start_functions` completes a site (slice M5-E). **The start**
   (`Sim::start_recruits`, first in the producers' step): a completed Hall with an owner and an empty queue queues its
@@ -2250,6 +2262,11 @@ their energy doorway, slice M3-D2: design change 0145, `factions/colonists/struc
 - **Tests**: `src/production.rs` and `production/exit/tests.rs` (the queue, the Barracks' door in all 8
   orientations and its rule, the room before a door, the Hall's four doors and their order), `recruitment/tests.rs`
   (slice M5-C: the area, the exact capacity, the claims and their order, the lineages' points),
+  `recruitment/preview/tests.rs` (slice M5-J2: the preview's claimants in their order, completed before pending,
+  0351's placement order, 0341's tie rule as the game's claims split it, the Effectiveness rounded down, off-map tiles,
+  known Water and unexplored ground; in the client, `placement/recruitment_areas/tests.rs`, the pending Halls' order
+  and the mesh, and `crates/game/tests/commands/recruitment_areas.rs`, with the fog on: 0350's, 0351's and 0352's
+  Verifications, a Hall never seen, the label, a selected Hall's claims and an enemy's none),
   `tests/recruitment/` (slice M5-C: a full Hall's 6 → 20 in 2688 ticks then none, 50 tiles' 10 at 384 ticks,
   buildings in the area, Halls sharing tiles and one lost in a tick, a destroyed Hall's Recruits and capacity, a lost
   Recruit restarting a full Hall, orphans, X, a `Train`, the rally on the ground and on a patch, a game replayed and
@@ -3719,6 +3736,30 @@ Drones, through one command flow (plan decision T10, slices M2-H1, M2-H2 and M3-
     tiles and off the map, rebuilt only when the areas, the rings (as the ghost moves to another tile: it runs after
     `ghost::update_ghost`), their unexplored tiles or the map changed (`TunnelAreaOverlay::builds`); no view-mode
     toggles.
+
+  **What the area displays share** (slice M5-J2, `placement/area_overlay.rs`), written once: the entity of one
+  blended mesh under a reserved handle in the terrain's z band (`spawn_area_mesh`), its state (`AreaMesh`: rebuilt
+  only when `is_stale`, what it shows or the map changed; `drawn` for its visibility, `show`), the unexplored tiles left
+  out (`unexplored`), and the selection's own objects (`selected_own`). The tiles are drawn by `overlay::tint_tiles`
+  (a tint per tile) and `overlay::outline` (an edge where the area ends), which `overlay::tint_area` combines. A new
+  area display uses them rather than a copy. **The Recruitment Area display** (`RecruitmentAreaOverlay`,
+  `placement/recruitment_areas.rs`; `factions/cults/structures/recruitment_hall.md > Recruitment Area display`,
+  design changes 0350, 0351 and 0352, answering Q0107) shows, in the game modes, never an enemy's area:
+  - **the preview of a Hall placed** (`ghost_preview`, the sim's `Preview::of`, after `ghost::update_ghost`): its 10 ×
+    10 area tinted tile by tile by what the preview finds (`fill_of`) within its outline, and its Effectiveness as a
+    `Text2d` north of the ghost (`EffectivenessLabel`, always visible and emptied rather than hidden, as the ghost's
+    letters; "Effectiveness: 60%"). The claimants (`known_claimants`) are what the local player knows, never the hidden
+    truth: their own completed Halls; the other players' completed Halls they see (`Sight::sees`) or remember
+    (`Sight::remembered`, as last seen: a Hall destroyed unseen counts until its place is seen, one never seen doesn't,
+    a site claims nothing), ranked as completed at tick 0 (Placeholder (not in the design: what the player knows holds
+    no completion tick)); their own sites by id, then their pending Hall Builds by `PendingBuild::group` (Placeholder
+    (not in the design: the sim keeps no placement time for a site, so the sites rank first)). Without Shift, the
+    ghosts the placing Recruits alone hold (`command_ui::interface::recipients`) don't count, as in
+    `Sim::group_build_check`;
+  - **a selected own Hall's claims** (`selected_claims`): the tiles it claims in the game (`Sim::claimed_tiles`, what
+    its InfoPanel's Effectiveness counts), in a selected Tunnel's violet; a site claims none;
+  - its colours and z are its own constants in one place (`RECRUITMENT_AREA_Z`, just in front of the Tunnel Area
+    overlay), its look the Tunnel display's.
 - The design leaves some things open (labels, colours, the flash, the cursor's shapes and the Mixed look, the
   invalid-target and insufficient-resources feedbacks' form and duration, the targeting click allowance's value, when
   Shift counts for a targeting click, Shift with a rally point; the ghost's and the overlay's looks, the placement
