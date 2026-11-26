@@ -83,10 +83,16 @@ The Cults' starting structure. Automatically produces Recruits from the surround
 The player starts with one RecruitmentHall, but additional ones are buildable by Recruits like any other Cults structure. Space Crystals cost and construction time are listed under the Recruit's Constructs list (see Recruit > Building).
 
 ### RecruitmentArea
-A 10x10 grid unit area centered on the 4x4 building.
+A 10x10 grid unit area centered on the 4x4 building. **The whole area must lie on the map** (user, 2026-11-26; Q0099): a Hall whose area would leave the map can't be placed (as Tunnels, 0242).
 
 ### TileClaiming
 A Recruitment Hall claims Recruitable tiles within its Recruitment Area that are not already claimed by another active Recruitment Hall. Tiles are claimed on a first-built basis — the hall that was constructed first has priority. This priority also applies when tiles are freed by the destruction of a competing hall; if multiple halls contest a newly freed tile, the one that was built first claims it.
+
+**Claiming details** (user, 2026-11-26; Q0099):
+- **Priority** goes to the Hall **completed first**. A Hall under construction claims nothing, provides no capacity and produces nothing until it is complete.
+- **Ties** (completed in the same frame, e.g. the starting Halls): the contested tiles are split **contiguously** by a simple rule: each contested tile goes to the Hall whose **centre is nearer**; at exactly equal distance, to the Hall with the lower object id (designer's naive rule, as the user asked for "some naive way").
+- **Across players**: Halls of **different players compete** for tiles the same way as a player's own Halls.
+- **Rounding**: LocalUnitControlCapacity is **rounded down** everywhere (production and HUD): 33 claimed tiles of 100 gives 6.6, so 6.
 
 ### Effectiveness
 Effectiveness = (number of claimed Recruitable tiles in Recruitment Area) / (total number of tiles in Recruitment Area).
