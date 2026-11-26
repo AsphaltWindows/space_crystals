@@ -112,10 +112,9 @@ impl Sim {
     /// tiles and blocking footprints and inside the map, and overlaps no other unit of its layer (`moving` is the
     /// unit itself, when it is teleported). Other kinds pass.
     ///
-    /// The tiles are its grid's (slice M5-Z2, `paths`, *Which grids*): a unit's own, and a debug spawn's the gate
-    /// builds before checking it (`Sim::apply_command`); when the gate is only asked (`Sim::validate`) about the first
-    /// unit of its class, a grid built for the answer, of the footprints of the true grids, the one the command would
-    /// build.
+    /// The tiles are its grid's (slice M5-Z2, `paths`, *Which grids*); for a spawn of the first unit of its class,
+    /// whose grid the game builds only once it is in (`Sim::apply_command`), the grid it will build, made for the
+    /// answer: of the footprints of the true grids, which the gate checks on.
     pub(in crate::sim) fn check_unit_fits(
         &self,
         kind: ObjectKind,

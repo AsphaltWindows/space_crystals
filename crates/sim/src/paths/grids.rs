@@ -13,6 +13,9 @@ use crate::map::Map;
 use crate::nav::{self, Nav, NavClass, NavGrid, TileRect};
 use crate::object::Object;
 
+#[cfg(test)]
+mod tests;
+
 /// The `(class, size class)` of the grid a unit of `kind` walks on (`docs/movement.md > 5.2`); `None` for a kind that
 /// walks on none: not a unit, or an air unit (question Q0011, gap G14).
 pub(crate) fn key_of(kind: ObjectKind) -> Option<(NavClass, u8)> {
@@ -149,4 +152,11 @@ pub(super) fn walkers(objects: &BTreeMap<ObjectId, Object>) -> Vec<PlayerId> {
     walkers.sort_unstable();
     walkers.dedup();
     walkers
+}
+
+/// The keys of every unit type in the registry: the grids every game had before slice M5-Z2, for the tests that
+/// compare grids built late with grids built from the start.
+#[cfg(test)]
+pub(crate) fn every_key() -> Vec<(NavClass, u8)> {
+    ObjectKind::ALL.iter().filter_map(|&kind| key_of(kind)).collect()
 }

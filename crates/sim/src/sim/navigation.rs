@@ -51,10 +51,17 @@ impl Sim {
     }
 
     /// The grid a unit of `kind` walks on, built now if it is missing (slice M5-Z2, `NavState::cover`): for a unit
-    /// that comes into the game, or comes to walk on another grid, before the next grid sync, whose grid is read
-    /// meanwhile (a debug spawn's gate check, `Sim::apply_command`; a change of kind, `Sim::change_kind`).
+    /// that comes into the game, or comes to walk on another grid, between two grid syncs, whose grid may be read
+    /// meanwhile (a debug spawn, `Sim::apply_command`; a change of kind, `Sim::change_kind`).
     pub(in crate::sim) fn cover_kind(&mut self, kind: ObjectKind) {
         self.nav.cover(&self.map, paths::key_of(kind));
+    }
+
+    /// The grids of every unit type there is, as every game had them before slice M5-Z2, built now: for the tests
+    /// that compare grids built late with grids built from the start.
+    #[cfg(test)]
+    pub(crate) fn build_every_grid(&mut self) {
+        self.nav.cover(&self.map, paths::every_key());
     }
 
     /// The true navigation grids (`docs/movement.md > 5.2`): derived from the map and every blocking footprint,

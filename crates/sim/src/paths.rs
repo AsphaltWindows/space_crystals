@@ -54,6 +54,8 @@ use crate::popup;
 use crate::units::SU_PER_GU;
 use crate::vision::Vision;
 
+#[cfg(test)]
+pub(crate) use grids::every_key;
 use grids::{grid_of, navs, stamped, walkers};
 pub(crate) use grids::{key_of, unit_grid, walking_keys};
 use knowledge::{PathKnowledge, known_blockers, own_blockers};
