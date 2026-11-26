@@ -72,13 +72,13 @@ fn a_game_with_augmentation_orders_goes_on_alike_after_a_save_and_in_a_replay() 
     game.t.at(start + 2, P1, cancel(&[A1]));
     game.step();
     game.save(); // Four orders reserving their units.
-    game.until(100, "augmenting", |t| t.sim().tick() == start + 100);
+    game.until(100, "augmenting", |t| t.sim().tick() == start + 50);
     game.save(); // Mid-order, one cancelled.
     game.until(400, "the Recruit out", |t| !produced(t).is_empty());
     game.save(); // Augmented and out.
     game.until(40, "the Gunner out", |t| !exits(t).is_empty());
     game.save(); // Released.
-    game.until(100, "the Disciple under way", |t| t.sim().tick() == start + 400);
+    game.until(100, "the Disciple under way", |t| t.sim().tick() == start + 120);
     let gone = game.t.sim().tick() + 1;
     remove_at(&mut game.t, gone, A1);
     game.step();

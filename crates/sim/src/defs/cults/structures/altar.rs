@@ -52,23 +52,24 @@ pub(crate) static ALTAR: ObjectDef = ObjectDef {
             recipes: &[],
             recruitment: None,
             // "Cost and time per order type (placeholder, designer 2026-11-26): **Enhanced Constitution** and
-            // **Improved Metabolism**: 25 Space Crystals, 160 frames (10 s) each; **Both**: the sum, 50 Space
-            // Crystals, 320 frames", in the order of `> Augmentation Orders`' "Order types".
+            // **Improved Metabolism**: 25 Space Crystals, **48 frames (3 s)** each; **Both**: the sum, 50 Space
+            // Crystals, **96 frames (6 s)** (user, 2026-11-27: "much faster to complete"; was 160 / 320 frames;
+            // numbers placeholder)" (design change 0391), in the order of `> Augmentation Orders`' "Order types".
             augment: &[
                 AugmentRecipe {
                     order: AugmentOrder::EnhancedConstitution,
                     cost: 25,
-                    frames: 160,
+                    frames: 48,
                 },
                 AugmentRecipe {
                     order: AugmentOrder::ImprovedMetabolism,
                     cost: 25,
-                    frames: 160,
+                    frames: 48,
                 },
                 AugmentRecipe {
                     order: AugmentOrder::Both,
                     cost: 50,
-                    frames: 320,
+                    frames: 96,
                 },
             ],
         }),
@@ -128,9 +129,9 @@ mod tests {
     /// 2 tall and 3 wide, ABAC, MaxHP 300, PointArmor 1, FullArmor 6 (the building armour rule's n = 1), SightRange 4,
     /// not Groupable (design change 0348), behind a Storage. The four Cults infantry types walk in at its short side B
     /// and come out of the opposite one, C, and it holds 10 of them. Its orders come out of C too: Enhanced
-    /// Constitution and Improved Metabolism, 25 Space Crystals and 160 frames each, and Both, 50 and 320; it trains no
-    /// unit and recruits none (slice M5-N1b). Recruits build it from outside for 150 Space Crystals in 480 frames with
-    /// one of them, from 10% HP.
+    /// Constitution and Improved Metabolism, 25 Space Crystals and 48 frames each, and Both, 50 and 96 (design change
+    /// 0391; slice M5-N1b's were 160 and 320); it trains no unit and recruits none (slice M5-N1b). Recruits build it
+    /// from outside for 150 Space Crystals in 480 frames with one of them, from 10% HP.
     #[test]
     fn the_altar_follows_the_design() {
         let structure = assert_structure(
@@ -149,9 +150,9 @@ mod tests {
         assert_eq!(production.exits, ExitRule::Side(SideLetter::C));
         assert_eq!((production.recipes, production.recruitment), (&[][..], None));
         let recipe = |order| production.augment_recipe(order).map(|r| (r.cost, r.frames));
-        assert_eq!(recipe(AugmentOrder::EnhancedConstitution), Some((25, 160)));
-        assert_eq!(recipe(AugmentOrder::ImprovedMetabolism), Some((25, 160)));
-        assert_eq!(recipe(AugmentOrder::Both), Some((50, 320)), "the sum");
+        assert_eq!(recipe(AugmentOrder::EnhancedConstitution), Some((25, 48)), "3 s");
+        assert_eq!(recipe(AugmentOrder::ImprovedMetabolism), Some((25, 48)), "3 s");
+        assert_eq!(recipe(AugmentOrder::Both), Some((50, 96)), "the sum, 6 s");
         let orders: Vec<AugmentOrder> = production.augment.iter().map(|r| r.order).collect();
         assert_eq!(orders, AugmentOrder::ALL);
         let holds = structure.holds.expect("the Altar holds Cults infantry");

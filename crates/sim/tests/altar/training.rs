@@ -19,8 +19,8 @@ fn a_recruit_augmented_here_and_trained_at_the_armory_keeps_its_augmentation() {
     t.at(start, P1, rally(&[A1], Vec2::new(600.0, 704.0)));
     let enhanced = AugmentOrder::EnhancedConstitution;
     t.at(start, P1, augment(&[A1], RECRUIT, RecruitKind::Plain, enhanced));
-    run_checked(&mut t, start + 159);
-    assert_eq!(produced(&t), [(start + 159, A1, recruit)]);
+    run_checked(&mut t, start + 47);
+    assert_eq!(produced(&t), [(start + 47, A1, recruit)], "48 ticks");
     assert_eq!(augmentation(&t, recruit), Augmentation::of(RecruitKind::Constitution));
     assert_eq!(hp(&t, recruit), (60.0, 60.0));
     let now = t.sim().tick() + 1;

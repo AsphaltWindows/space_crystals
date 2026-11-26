@@ -2,8 +2,9 @@
 //! deducts its Space Crystals cost and reserves one unit of the selected type and AugmentationState from StoredUnits
 //! [...]. When an order finishes, the unit's AugmentationState is updated [...], and the unit **automatically exits**
 //! from the exit side and moves to the RallyPoint"; "**Enhanced Constitution** and **Improved Metabolism**: 25 Space
-//! Crystals, 160 frames (10 s) each; **Both**: the sum, 50 Space Crystals, 320 frames"), the unit's HP as its MaxHP
-//! changes (`factions/cults/augmentation.md > Increments`), and which unit an order takes (design change 0332).
+//! Crystals, **48 frames (3 s)** each; **Both**: the sum, 50 Space Crystals, **96 frames (6 s)**", design change
+//! 0391's), the unit's HP as its MaxHP changes (`factions/cults/augmentation.md > Increments`), and which unit an order
+//! takes (design change 0332).
 
 use sc_sim::combat;
 
@@ -29,16 +30,17 @@ fn augmented(t: &TestSim) -> Vec<(Tick, ObjectId)> {
 }
 
 /// The plan's acceptance (slice M5-N1b): "With three Militants inside, W, Q, Q queues Enhanced Constitution for one: 25
-/// SC and 160 frames. The Militant leaves through C with MaxHP 60." (W, Q, Q, AugmentMenu\[Militant, Unaugmented\]'s
-/// Q, is the client's: `crates/game/tests/commands/altar.rs`.) The Militant that entered first is reserved at once
-/// (design change 0332), the pool counting two Plain Militants; 160 ticks later, the command's tick counting as a
-/// producer's, it comes out into the doorway of side C, the same unit (`SimEvent::UnitProduced`, no kind change), with
-/// Enhanced Constitution, "+2 Constitution / −1 Metabolism" at no research (`> Augmentation Effects`): MaxHP 60, full
-/// as it was full; its Damage 4 and its FiringDuration 2 kept, an armed unit's ("Armed infantry (Militant, Gunner)
-/// receive only the MaxHP part of Constitution increments and only the movement-speed part of Metabolism
-/// increments"); MaxSpeed 3.5. It walks to the rally point; the two others stay inside, Plain.
+/// SC and 160 frames. The Militant leaves through C with MaxHP 60." (W, Q, Q, AugmentMenu\[Militant, Unaugmented\]'s Q,
+/// is the client's: `crates/game/tests/commands/altar.rs`; the frames are 48 since design change 0391.) The Militant
+/// that entered first is reserved at once (design change 0332), the pool counting two Plain Militants; 48 ticks (3 s)
+/// later, the command's tick counting as a producer's, it comes out into the doorway of side C, the same unit
+/// (`SimEvent::UnitProduced`, no kind change), with Enhanced Constitution, "+2 Constitution / −1 Metabolism" at no
+/// research (`> Augmentation Effects`): MaxHP 60, full as it was full; its Damage 4 and its FiringDuration 2 kept, an
+/// armed unit's ("Armed infantry (Militant, Gunner) receive only the MaxHP part of Constitution increments and only the
+/// movement-speed part of Metabolism increments"); MaxSpeed 3.5. It walks to the rally point; the two others stay
+/// inside, Plain.
 #[test]
-fn w_q_q_gives_the_first_militant_in_enhanced_constitution_for_25_space_crystals_in_160_ticks() {
+fn w_q_q_gives_the_first_militant_in_enhanced_constitution_for_25_space_crystals_in_48_ticks() {
     let (mut t, order) = filled(&[MILITANT; 3], &[]);
     let start = t.sim().tick() + 1;
     t.at(start, P1, rally(&[A1], RALLY));
@@ -56,14 +58,14 @@ fn w_q_q_gives_the_first_militant_in_enhanced_constitution_for_25_space_crystals
         order: constitution,
     };
     assert!(t.events().iter().any(|(tick, e)| *tick == start && *e == queued));
-    run_checked(&mut t, start + 158);
+    run_checked(&mut t, start + 46);
     assert_eq!(produced(&t), [], "augmenting");
     assert_eq!(augmentation(&t, order[0]), Augmentation::default(), "not yet");
     step_checked(&mut t);
     assert_eq!(
         produced(&t),
-        [(start + 159, A1, order[0])],
-        "160 ticks, the command's first"
+        [(start + 47, A1, order[0])],
+        "48 ticks, the command's first"
     );
     let militant = t.sim().object(order[0]).expect("out");
     assert_eq!(
@@ -99,15 +101,16 @@ fn a_hurt_militant_keeps_the_damage_it_took() {
     let start = t.sim().tick() + 1;
     let constitution = AugmentOrder::EnhancedConstitution;
     t.at(start, P1, augment(&[A1], MILITANT, RecruitKind::Plain, constitution));
-    run_checked(&mut t, start + 159);
-    assert_eq!(augmented(&t), [(start + 159, units[0])]);
+    run_checked(&mut t, start + 47);
+    assert_eq!(augmented(&t), [(start + 47, units[0])]);
     assert_eq!(hp(&t, units[0]), (left + 20.0, 60.0), "the damage stays");
 }
 
 /// The brief's acceptance: "Both, on a Recruit: 50 SC and 320 frames. Result: MaxHP 50, Damage 4, speed 4.5,
 /// FiringDuration 7" (`> Augmentation Effects`: "Both at no research: +1 Constitution / +1 Metabolism"; a Plain
 /// Recruit's are 40, 3, 4 and 8, and the Recruit is unarmed: "+1 melee Damage", "−1 frame of FiringDuration"). One
-/// order, "a single order that applies both", for the Recruit that entered first: out after 320 ticks, full.
+/// order, "a single order that applies both", for the Recruit that entered first: out after 96 ticks (6 s, design
+/// change 0391), full.
 #[test]
 fn both_gives_a_recruit_50_max_hp_4_damage_a_speed_of_4_5_and_7_frames_of_firing_for_50_space_crystals() {
     let (mut t, order) = filled(&[RECRUIT; 2], &[]);
@@ -120,10 +123,10 @@ fn both_gives_a_recruit_50_max_hp_4_damage_a_speed_of_4_5_and_7_frames_of_firing
     run_checked(&mut t, start);
     assert_eq!(bank(&t, P1), BANK - 50);
     assert_eq!(reserved(&t, A1), [[order[0]]]);
-    run_checked(&mut t, start + 318);
+    run_checked(&mut t, start + 94);
     assert_eq!(produced(&t), [], "augmenting");
     step_checked(&mut t);
-    assert_eq!(augmented(&t), [(start + 319, order[0])], "320 ticks");
+    assert_eq!(augmented(&t), [(start + 95, order[0])], "96 ticks");
     let recruit = t.sim().object(order[0]).expect("out");
     assert_eq!(
         (recruit.kind, recruit.augmentation),
@@ -157,8 +160,8 @@ fn improved_metabolism_caps_a_hurt_recruit_s_hp_and_never_kills() {
     t.at(start, P1, augment(&[A1], RECRUIT, RecruitKind::Plain, metabolism));
     run_checked(&mut t, start);
     assert_eq!(reserved(&t, A1), [[scratched], [wounded]]);
-    run_checked(&mut t, start + 319);
-    assert_eq!(augmented(&t), [(start + 159, scratched), (start + 319, wounded)]);
+    run_checked(&mut t, start + 95);
+    assert_eq!(augmented(&t), [(start + 47, scratched), (start + 95, wounded)]);
     assert_eq!(hp(&t, scratched), (30.0, 30.0), "capped");
     assert_eq!(hp(&t, wounded), (below, 30.0), "unchanged");
     for unit in [scratched, wounded] {
@@ -197,13 +200,13 @@ fn the_unit_of_the_type_and_state_that_entered_first_is_augmented_first() {
     assert_eq!(reserved(&t, A1), [[plain[0]], [constitution[0]], [plain[1]]]);
     assert_eq!(t.sim().free_units_of(A1, MILITANT, RecruitKind::Plain), [plain[2]]);
     assert_eq!(t.sim().pool_counts_of(A1, RECRUIT), [2, 0, 0, 0]);
-    run_for(&mut t, 490);
+    run_for(&mut t, 150);
     assert_eq!(
         augmented(&t),
         [
-            (start + 159, plain[0]),
-            (start + 319, constitution[0]),
-            (start + 479, plain[1])
+            (start + 47, plain[0]),
+            (start + 95, constitution[0]),
+            (start + 143, plain[1])
         ]
     );
     let out = [plain[0], constitution[0], plain[1]];

@@ -99,7 +99,7 @@ fn eject_all_leaves_the_unit_an_order_reserved_inside() {
     let enhanced = AugmentOrder::EnhancedConstitution;
     t.at(start, P1, augment(&[A1], GUNNER, RecruitKind::Plain, enhanced));
     t.at(start + 1, P1, eject_all(&[A1]));
-    run_checked(&mut t, start + 60);
+    run_checked(&mut t, start + 46);
     let out: Vec<ObjectId> = exits(&t).iter().map(|&(_, unit)| unit).collect();
     let others: Vec<ObjectId> = order.iter().copied().filter(|&unit| unit != gunner).collect();
     assert_eq!(out, others);
@@ -107,7 +107,7 @@ fn eject_all_leaves_the_unit_an_order_reserved_inside() {
         assert_eq!(augmentation(&t, unit), Augmentation::default(), "{unit:?} unchanged");
     }
     assert_eq!((inside(&t, A1), reserved(&t, A1)), (vec![gunner], vec![vec![gunner]]));
-    run_checked(&mut t, start + 159);
-    assert_eq!(produced(&t), [(start + 159, A1, gunner)]);
+    run_checked(&mut t, start + 47);
+    assert_eq!(produced(&t), [(start + 47, A1, gunner)], "its 48 ticks");
     assert_eq!(augmentation(&t, gunner), Augmentation::of(RecruitKind::Constitution));
 }

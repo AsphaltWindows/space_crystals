@@ -50,12 +50,12 @@ fn idle_on_the_footprint(t: &TestSim, unit: ObjectId) {
     assert!(o.orders.as_ref().unwrap().is_idle(), "{unit:?} idle");
 }
 
-/// The brief's acceptance: "Destruction: evacuates everyone, unaugmented if mid-augmentation, and refunds every
-/// order." Both for a Recruit, under way, Enhanced Constitution for a Militant and a Release of a Gunner behind it, and
-/// a free Disciple: the Altar goes 100 ticks into the first order, and the four come out on its footprint, all in the
-/// tick it goes, longest inside first, as they went in, the Recruit without the Augmentations it was receiving; the 75
-/// Space Crystals come back, each entry with its cancellation event, in the queue's order. Nothing is augmented, no
-/// one dies, no one is left inside.
+/// The brief's acceptance: "Destruction: evacuates everyone, unaugmented if mid-augmentation, and refunds every order."
+/// Both for a Recruit, under way, Enhanced Constitution for a Militant and a Release of a Gunner behind it, and a free
+/// Disciple: the Altar goes 50 ticks into the first order (of 96, design change 0391), and the four come out on its
+/// footprint, all in the tick it goes, longest inside first, as they went in, the Recruit without the Augmentations it
+/// was receiving; the 75 Space Crystals come back, each entry with its cancellation event, in the queue's order.
+/// Nothing is augmented, no one dies, no one is left inside.
 #[test]
 fn an_altar_destroyed_mid_augmentation_lets_everyone_out_unaugmented_and_refunds_every_order() {
     let (mut t, units) = spawned_on(with_a_storage(base()), &[RECRUIT, MILITANT, GUNNER, DISCIPLE]);
@@ -71,7 +71,7 @@ fn an_altar_destroyed_mid_augmentation_lets_everyone_out_unaugmented_and_refunds
     run_checked(&mut t, start);
     assert_eq!(bank(&t, P1), BANK - 75);
     assert_eq!(reserved(&t, A1), [[recruit], [militant], [gunner]]);
-    let gone = start + 100;
+    let gone = start + 50;
     remove_at(&mut t, gone, A1);
     run_checked(&mut t, gone);
     assert_eq!(

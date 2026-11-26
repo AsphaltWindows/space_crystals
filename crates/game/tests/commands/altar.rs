@@ -72,6 +72,41 @@ fn altar_game() -> App {
     app
 }
 
+/// Design change 0391's Verification: "Queue Enhanced Constitution on a Recruit in the Altar: it exits augmented about
+/// 3 s later." A Recruit right-clicked into the Altar; with the Altar selected, Q, Q, Q (AugmentMenu\[Recruit\], its
+/// Unaugmented tile, Enhanced Constitution) queues the order for 25 Space Crystals, and the Recruit comes out 48 frames
+/// later, 3 s at 16 a second, with Enhanced Constitution, at 60 MaxHP and full (`factions/cults/augmentation.md >
+/// Constitution and Metabolism`).
+#[test]
+fn q_q_q_gives_a_recruit_enhanced_constitution_3_s_later() {
+    const RECRUIT_ID: u32 = 2;
+    let builder = ScenarioBuilder::new(&vec![".".repeat(64); 48].join("\n"))
+        .faction(P1, Faction::Cults)
+        .spawn(ALTAR_KIND, Some(P1), SpawnAt::Tile(TilePos::new(16, 12)))
+        .spawn(RECRUIT, Some(P1), SpawnAt::Point(Vec2::new(1300.0, 832.0)));
+    let mut app = game_of(builder.build());
+    set_crystals(&mut app, 1000);
+    select_units(&mut app, &[RECRUIT_ID]);
+    right_click(&mut app, ALTAR_AT, &[]);
+    until(&mut app, 300, |app| inside(app, ALTAR) == [RECRUIT_ID]);
+    click(&mut app, ALTAR_AT, &[]);
+    tap(&mut app, &[], KeyQ);
+    tap(&mut app, &[], KeyQ);
+    assert_eq!(interface(&app), InterfaceState::AugmentStateMenu(RECRUIT, Plain));
+
+    input(&mut app).tap_key(KeyQ);
+    let mut frames = 0;
+    while !on_map(&app, RECRUIT_ID) {
+        assert!(frames < 100, "out within 100 frames");
+        app.update();
+        frames += 1;
+    }
+    assert_eq!(frames, 1 + 48, "the press's frame, which sends it, then 3 s");
+    assert_eq!(bank(&app), 1000 - 25);
+    let augmented = Augmentation::of(Constitution);
+    assert_eq!(out(&app, RECRUIT_ID), (RECRUIT, augmented, Some(60.0), Some(60.0)));
+}
+
 /// Whether the Altar's rally point is [`RALLY_AT`], give or take the cursor's rounding.
 fn rallied(app: &App) -> bool {
     let sim = app.world().resource::<SimRes>();
@@ -87,14 +122,14 @@ fn out(app: &App, id: u32) -> (ObjectKind, Augmentation, Option<f32>, Option<f32
 }
 
 /// The acceptance's one augmentation (`> Altar > Augmentation Orders`: "Cost and time per order type (placeholder,
-/// designer 2026-11-26): **Enhanced Constitution** and **Improved Metabolism**: 25 Space Crystals, 160 frames (10 s)
-/// each"), by keys: the DefaultState shows each type with its count, the Recruit's and the Gunner's greyed, saying so,
-/// and X greyed with nothing to cancel; W opens AugmentMenu\[Militant\], its Unaugmented tile 3 and the others 0; Q
-/// opens AugmentMenu\[Militant, Unaugmented\]: Q Enhanced Constitution, W Improved Metabolism, E Both, A Release, Z
-/// Back. Q queues one order for 25 Space Crystals, the menu staying open, and the InfoPanel shows it under way and the
-/// queue; the Militant that went in first comes out of side C 160 frames later with Enhanced Constitution, MaxHP 60
-/// (`factions/cults/augmentation.md > Constitution and Metabolism`), and walks to the rally point the right-click set.
-/// Z goes back a stage at a time, the counts following.
+/// designer 2026-11-26): **Enhanced Constitution** and **Improved Metabolism**: 25 Space Crystals, **48 frames (3 s)**
+/// each", design change 0391), by keys: the DefaultState shows each type with its count, the Recruit's and the Gunner's
+/// greyed, saying so, and X greyed with nothing to cancel; W opens AugmentMenu\[Militant\], its Unaugmented tile 3 and
+/// the others 0; Q opens AugmentMenu\[Militant, Unaugmented\]: Q Enhanced Constitution, W Improved Metabolism, E Both,
+/// A Release, Z Back. Q queues one order for 25 Space Crystals, the menu staying open, and the InfoPanel shows it under
+/// way and the queue; the Militant that went in first comes out of side C 48 frames later with Enhanced Constitution,
+/// MaxHP 60 (`factions/cults/augmentation.md > Constitution and Metabolism`), and walks to the rally point the
+/// right-click set. Z goes back a stage at a time, the counts following.
 #[test]
 fn w_q_q_augments_a_militant_which_walks_to_the_rally_point() {
     use ButtonLook::{Back, Common, Disabled};
@@ -188,7 +223,7 @@ fn w_q_q_augments_a_militant_which_walks_to_the_rally_point() {
             let lines = [
                 "Inside: 4 / 10",
                 "Free: Recruit 0, Militant 2, Gunner 0, Disciple 1",
-                "Augmenting Militant (Enhanced Constitution): 0%",
+                "Augmenting Militant (Enhanced Constitution): 2%", // 1 frame of 48
                 "Queue: Enhanced Constitution (1 / 10)",
                 "Rally point: ground",
             ];
@@ -213,13 +248,13 @@ fn w_q_q_augments_a_militant_which_walks_to_the_rally_point() {
     let produced = (events.iter()).find_map(|(at, e)| (*e == produced).then_some(*at));
     assert_eq!(
         produced.zip(queued).map(|(out, queued)| out - queued),
-        Some(159),
-        "out in the 160th tick of its order: 10 s"
+        Some(47),
+        "out in the 48th tick of its order: 3 s"
     );
     assert_eq!(
         frames,
-        1 + 160,
-        "the press's frame, which sends it, then the order's 160 frames"
+        1 + 48,
+        "the press's frame, which sends it, then the order's 48 frames"
     );
     let augmented = Augmentation::of(Constitution);
     assert_eq!(out(&app, first_in), (MILITANT, augmented, Some(60.0), Some(60.0)));

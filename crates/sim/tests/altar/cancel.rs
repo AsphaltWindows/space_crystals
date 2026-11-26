@@ -6,8 +6,8 @@ use super::*;
 
 /// The brief's acceptance: "Cancel: X refunds the last order and returns its unit." Enhanced Constitution for a Recruit
 /// and Both for a Militant: X takes the Both back, its 50 Space Crystals and its Militant free again
-/// (`SimEvent::AugmentCancelled`); a second X the order under way, its progress lost. All 75 back, every unit free and
-/// as it went in, nothing comes out; a third X has nothing to take.
+/// (`SimEvent::AugmentCancelled`); a second X the order under way, 30 of its 48 ticks in (design change 0391), its
+/// progress lost. All 75 back, every unit free and as it went in, nothing comes out; a third X has nothing to take.
 #[test]
 fn x_refunds_the_last_order_and_returns_its_unit() {
     let (mut t, order) = filled(&[RECRUIT, RECRUIT, MILITANT], &[]);
@@ -40,8 +40,8 @@ fn x_refunds_the_last_order_and_returns_its_unit() {
         refund: 50,
     };
     assert_eq!(cancelled_in(&t, start + 10), [last]);
-    t.at(start + 100, P1, cancel(&[A1]));
-    run_checked(&mut t, start + 100);
+    t.at(start + 30, P1, cancel(&[A1]));
+    run_checked(&mut t, start + 30);
     assert_eq!(bank(&t, P1), BANK);
     assert_eq!(reserved(&t, A1), Vec::<Vec<ObjectId>>::new());
     let under_way = SimEvent::AugmentCancelled {
@@ -50,7 +50,7 @@ fn x_refunds_the_last_order_and_returns_its_unit() {
         order: enhanced,
         refund: 25,
     };
-    assert_eq!(cancelled_in(&t, start + 100), [under_way]);
+    assert_eq!(cancelled_in(&t, start + 30), [under_way]);
     assert_eq!(validate(&t, cancel(&[A1])), Err(Reject::NothingQueued));
     run_for(&mut t, 200);
     assert_eq!((produced(&t), inside(&t, A1)), (Vec::new(), order));

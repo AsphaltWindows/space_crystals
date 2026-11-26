@@ -2644,7 +2644,7 @@ their energy doorway, slice M3-D2: design change 0145, `factions/colonists/struc
   0332, 0336, 0337 and 0348; `augmentation/orders.rs`, `sim/producers/pool.rs`, `sim/producers/queuing.rs`): a pool
   building as data (`defs/cults/structures/altar.rs`: the four Cults infantry types in at B, 10 of them, out at C), no
   recipe, its entries the orders of `ProductionDef::augment` (`AugmentRecipe { order, cost, frames }`: 25 Space Crystals
-  and 160 frames each for Enhanced Constitution and Improved Metabolism, 50 and 320 for Both, placeholders) and
+  and 48 frames each for Enhanced Constitution and Improved Metabolism, 50 and 96 for Both, placeholders, 0391) and
   Releases. **An order**, `QueueEntry::Augment { order }` (`AugmentOrder`: `fits(kind)`, "missing every Augmentation
   the order applies", and `onto(before)`), is paid and reserves its unit when queued, as a training does: the free
   unit of the type and the kind that went in first (`Sim::free_units_of`, design change 0332), the queue bounded by
@@ -4769,7 +4769,7 @@ unchecked.
   (`during`, every tick); one brings it down, and the four come out alive and unhurt and kill the rest (a Storage
   keeps player 1 in the game). In `cults_altar` (to 1:00, on a test map, debug commands on for the Cults' 100 Space
   Crystals) three Militants go into an Altar, which queues one order of each type: they come out at their orders'
-  ticks with MaxHP 60, 30 and 50 at full HP (`during`), and kill two Agents; the Improved Metabolism one falls. In
+  ticks with MaxHP 60, 30 and 50 at full HP (`during`), and kill two Agents; none falls. In
   `cults_temple` (to 0:25, on a test map, debug commands on for the research's 100 Space Crystals) six Recruits staff
   a Temple, which queues Enhanced Constitution Level 1 at tick 80 and completes it 160 frames on, in tick 239, while
   three Enhanced Constitution Militants fight three Agents: every Militant has 80 MaxHP from that tick and 20 HP
