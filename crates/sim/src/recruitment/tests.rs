@@ -73,10 +73,10 @@ fn a_capacity_is_rounded_down_everywhere() {
 }
 
 /// `factions/cults/structures/recruitment_hall.md > TileClaiming` and `factions/cults/structures/recruitment_hall.md >
-/// Effectiveness`: a lone Hall on Plane claims its whole area; Water isn't Recruitable, the map's edge cuts the area
-/// of a Hall spawned where none can be placed short (design change 0341 point 1 refuses its placement; **Placeholder
-/// (not in the design: 0341 rules such a Hall out)**: the tiles off the map count among the 100 and can't be
-/// claimed), and buildings, its own footprint and another player's, take nothing from it ("Buildings do not affect
+/// Effectiveness`: a lone Hall on Plane claims its whole area; Water isn't Recruitable, the map's edges cut the area of
+/// a Hall in the corner short (design change 0387: "The part of its 10x10 area beyond the map edge yields **no
+/// Recruitable tiles**. Effectiveness still divides by the full 100, so off-map tiles count as non-Recruitable": 49 of
+/// 100), and buildings, its own footprint and another player's, take nothing from it ("Buildings do not affect
 /// recruitability").
 #[test]
 fn a_hall_claims_the_recruitable_tiles_of_its_area() {

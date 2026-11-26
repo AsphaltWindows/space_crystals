@@ -1,9 +1,9 @@
-//! The Recruit's UI in the client (slice M5-J1; design changes 0322, 0327, 0341 and 0347, and 0072's Verifications):
+//! The Recruit's UI in the client (slice M5-J1; design changes 0322, 0327, 0347 and 0387, and 0072's Verifications):
 //! its panel's letters; its two Construct menus, each building in its fixed slot and greyed until it can be built; the
 //! Assist pointer over a site, which no one enters, and S Assist Construction; the Enter pointer over an Armory, the
 //! gathering pointers and a load carried; and Tab, which stops once on the Recruits. A Construct menu's placement for
-//! the whole group, the Shift chain and a Hall refused at the map's edge are [`placing`]'s; the Repair pointer, D
-//! Repair and the right-click on a damaged building [`repairing`]'s (slice M5-N8).
+//! the whole group, the Shift chain and a Hall placed flush against the map's edge (slice M5-S4) are [`placing`]'s;
+//! the Repair pointer, D Repair and the right-click on a damaged building [`repairing`]'s (slice M5-N8).
 
 mod placing;
 mod repairing;

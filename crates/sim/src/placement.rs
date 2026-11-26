@@ -61,15 +61,18 @@
 //!   no other Tunnel's area at its tier, whoever owns it, a site included (slice M4-E;
 //!   `factions/syndicate/tunnel_area_and_space.md > Tunnel Area Non-Overlap Rule`, design change 0237:
 //!   [`WholeProblem::TunnelAreaOverlap`], `placement/tunnel_overlap.rs`), [`Mode::Known`] judging other players'
-//!   Tunnels by what the player knows of them; for a Recruitment Hall (any kind that recruits), its whole Recruitment
-//!   Area on the map (slice M5-J1; `factions/cults/structures/recruitment_hall.md > RecruitmentArea`, design change
-//!   0341 point 1: [`WholeProblem::RecruitmentAreaOffMap`], `placement/recruitment_area.rs`), in every mode, as the
-//!   Tunnel Area's edge. Map and debug spawns don't take the check, so they are exempt.
+//!   Tunnels by what the player knows of them. Map and debug spawns don't take the check, so they are exempt.
+//!
+//! **A Recruitment Hall's area has no rule** (slice M5-S4; design change 0387, which replaced slice M5-J1's rule, 0341
+//! point 1's "The whole 10x10 area must lie on the map"; `factions/cults/structures/recruitment_hall.md >
+//! RecruitmentArea`: "a Hall can be placed anywhere its 4x4 footprint fits on the map, including right at the edge"):
+//! its footprint's rules alone, in every mode. "The part of its area that lies **off the map yields no Recruitable
+//! tiles**" (`crate::recruitment`); "(Tunnel Areas keep their own on-map rule, 0242.)"
 //!
 //! **The files**: [`Site`], [`Mode`], [`Method`] and [`Occupant`] in `site.rs`; the problems in `problems.rs`; the
 //! check in `check.rs`, its footprint's tiles in `footprint.rs`; the Tunnel Area's rules in `tunnel_area.rs` and
-//! `tunnel_overlap.rs`, on the geometry of `crate::tunnel::area`; the Recruitment Area's in `recruitment_area.rs`, on
-//! that of `crate::recruitment::area`; the build area in `build_area.rs` and [`Onto`] in `onto.rs`.
+//! `tunnel_overlap.rs`, on the geometry of `crate::tunnel::area`; the build area in `build_area.rs` and [`Onto`] in
+//! `onto.rs`.
 //!
 //! **The build area** ([`BuildArea`], [`Sim::build_area`]): the union of the parts each of the player's GDO
 //! buildings adds, its footprint grown by its BuildRadiusExtension, square (design change 0091). It is derived from
@@ -91,7 +94,6 @@ mod check;
 mod footprint;
 mod onto;
 mod problems;
-mod recruitment_area;
 mod site;
 #[cfg(test)]
 mod tests;
