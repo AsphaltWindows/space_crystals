@@ -60,6 +60,7 @@ impl Sim {
             Checked::Production { player, plan } => self.apply_production(player, plan),
             Checked::Construction { player, resolved } => self.apply_construction(player, resolved),
             Checked::Holding { buildings, command } => self.apply_holding(&buildings, command),
+            Checked::Cast { caster, ability, at } => self.cast(caster, ability, at),
             Checked::SetAugmentation { id, augmentation } => {
                 // (M5-N1a) Its HP follows its MaxHP (`augmentation::set`).
                 let research = Research::new(&self.players);

@@ -100,6 +100,7 @@ pub(crate) fn productions(app: &App) -> Vec<(PlayerId, Vec<u32>, ProductionComma
             | Command::Construction { .. }
             | Command::Tunnel { .. }
             | Command::Holding { .. }
+            | Command::Cast { .. }
             | Command::Debug(_) => None,
         })
         .collect()

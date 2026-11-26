@@ -141,6 +141,8 @@ mod scenario_files;
 mod scenario_problems;
 mod scenarios;
 mod shields;
+#[path = "shrine/main.rs"]
+mod shrine;
 #[path = "shroud/main.rs"]
 mod shroud;
 mod skirmish_soak;

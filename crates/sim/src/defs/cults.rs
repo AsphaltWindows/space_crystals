@@ -16,6 +16,7 @@
 //! plan decision T56). The faction's own rule so far: the Recruits' two Construct menus ([`CONSTRUCT_MENU`], slice
 //! M5-J1), which the client's panel reads.
 
+pub(crate) mod abilities;
 pub(crate) mod augmentation;
 pub(crate) mod research;
 pub(crate) mod structures;
@@ -94,7 +95,7 @@ const fn slot(menu: ConstructMenu, row: u8, column: u8, entry: ConstructEntry) -
 /// DefaultState": "**BuildMenu[Basic]**: **Q** Recruitment Hall, **W** Storage; **A** Armory, **S** Gunworks, **D**
 /// Garrison; **X** Altar", and "**BuildMenu[Advanced]**: **A** Chop Shop, **S** Machine Shop, **D** Airstrip, **F**
 /// Scrap Hangar; **X** Temple, **C** Cathedral, **V** Shrine". The buildings the Recruits don't build yet are
-/// [`ConstructEntry::Planned`]: since slices M5-N1b, M5-N3 and M5-N4a, the three whose slices come later. Tests
+/// [`ConstructEntry::Planned`]: since slices M5-N1b, M5-N3, M5-N4a and M5-N5, the two whose slices come later. Tests
 /// check it against the design's lines, and that it lists every type the Recruits build, once.
 pub const CONSTRUCT_MENU: &[ConstructSlot] = {
     use ConstructEntry::{Kind, Planned};
@@ -112,6 +113,6 @@ pub const CONSTRUCT_MENU: &[ConstructSlot] = {
         slot(Advanced, 1, 3, Kind(ObjectKind::ScrapHangar)),  // F
         slot(Advanced, 2, 1, Kind(ObjectKind::Temple)),       // X
         slot(Advanced, 2, 2, Kind(ObjectKind::Cathedral)),    // C
-        slot(Advanced, 2, 3, Planned("Shrine")),              // V
+        slot(Advanced, 2, 3, Kind(ObjectKind::Shrine)),       // V
     ]
 };

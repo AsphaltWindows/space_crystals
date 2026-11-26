@@ -13,8 +13,9 @@
 //! The GDO's Field Engineer repairs, and its Construct menu holds its buildings' slots (slice M5-N9). The Cults' Altar
 //! picks a unit type, then a state, then the orders (slice M5-N1b); their Cathedral is a pool building as the Armory
 //! is, and their Disciple's panel the BasicCombatUnit's, its spell's slot held in R (slice M5-N4a); their Temple
-//! researches each line's next level and lets its staff out (slice M5-N3). An entry not in the game yet holds its
-//! slot, unavailable ([`Planned`]).
+//! researches each line's next level and lets its staff out (slice M5-N3), and their Shrine casts its two area
+//! abilities and lets its participants out (slice M5-N5). An entry not in the game yet holds its slot, unavailable
+//! ([`Planned`]).
 
 pub mod colonists;
 pub mod cults;
@@ -116,6 +117,10 @@ pub enum InterfaceTemplate {
     /// leave), **X: Cancel** (last research)" ([`cults::temple`]), its keys showing their line's next level
     /// (`super::Conditions::key`). No right-click: it has no rally point.
     Temple,
+    /// (M5-N5) `factions/cults/structures/shrine.md > Placeholder stats`: "**Health regeneration** (hotkey Q)",
+    /// "**Energy regeneration** (hotkey W)"; "Targeting: AwaitingTarget, left-click a point in vision. **A/S/D/F**
+    /// release one Recruit of a kind, **V: Eject All**" ([`cults::shrine`]). No right-click: it has no rally point.
+    Shrine,
 }
 
 /// The Deployment Center's build menus (`factions/gdo/structures/deployment_center.md >
@@ -250,6 +255,7 @@ impl InterfaceTemplate {
             InterfaceTemplate::FieldEngineer => gdo::field_engineer::GRID,
             InterfaceTemplate::Altar => cults::altar::GRID,
             InterfaceTemplate::Temple => cults::temple::GRID,
+            InterfaceTemplate::Shrine => cults::shrine::GRID,
         }
     }
 }

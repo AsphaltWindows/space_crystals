@@ -10,7 +10,8 @@
 //! ([`projectiles`], from `SimEvent::ProjectileLaunched`, plan decision T52), each in its thrower's style (the
 //! Grenadier's grenade, slice M4-U), and the blasts where they land ([`blasts`], `SimEvent::Blast`). (M5-N2) The shots
 //! of the units inside a Garrison leave from its footprint's edge nearest their targets, where the sim says they do
-//! (`SimEvent::Attacked::from`), each in the style of the weapon it fires there ([`occupant_form`]).
+//! (`SimEvent::Attacked::from`), each in the style of the weapon it fires there ([`occupant_form`]). (M5-N5) Beside
+//! the HP bar's place of each unit with a buff, a mark of each of its buffs ([`buffs`]).
 //!
 //! Everything is one vertex-coloured, alpha-blended mesh in the overlays layer, rebuilt every frame while anything
 //! shows. Effects age by the sim's ticks plus the render alpha, so a QA screenshot of a tick (alpha 1) always shows
@@ -43,6 +44,7 @@
 //! look.
 
 pub mod blasts;
+pub mod buffs;
 mod draw;
 pub mod projectiles;
 

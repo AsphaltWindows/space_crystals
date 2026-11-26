@@ -7,6 +7,7 @@ mod cults;
 mod expansions;
 mod gathering;
 mod recruit;
+mod shrine;
 mod syndicate;
 mod temple;
 

@@ -61,6 +61,7 @@ fn object(id: u32, kind: ObjectKind, owner: Option<PlayerId>, pos: Vec2) -> Obje
         augmentation: Default::default(),
         energy: None,
         kept_research: None,
+        buffs: Vec::new(),
     }
 }
 

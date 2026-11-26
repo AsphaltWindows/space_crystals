@@ -36,6 +36,7 @@ fn unit(id: u32, kind: ObjectKind, owner: Option<PlayerId>, pos: Vec2) -> Object
         augmentation: Default::default(),
         energy: None,
         kept_research: None,
+        buffs: Vec::new(),
     }
 }
 

@@ -404,7 +404,8 @@ fn fuzz_run(seed: u64) -> Run {
                 | SimEvent::ResearchCompleted { .. }
                 | SimEvent::ShroudStarted { .. }
                 | SimEvent::ShroudEnded { .. }
-                | SimEvent::ShroudReleased { .. } => {}
+                | SimEvent::ShroudReleased { .. }
+                | SimEvent::Cast { .. } => {}
             }
         }
         unit_steps += sim

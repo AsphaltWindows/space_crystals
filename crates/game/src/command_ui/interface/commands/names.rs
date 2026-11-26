@@ -1,7 +1,7 @@
 //! The panel commands' labels and names ([`PanelCommand::label`], [`PanelCommand::name`], [`PanelCommand::name_on`]):
 //! what a button shows, and what the InfoPanel's hint for it says (`crate::hud::info_panel::hint`).
 
-use sc_sim::{AugmentOrder, ObjectKind, RecruitKind, Tech};
+use sc_sim::{AreaAbility, AugmentOrder, ObjectKind, RecruitKind, Tech};
 
 use super::super::BuildMenu;
 use super::PanelCommand;
@@ -26,7 +26,8 @@ impl PanelCommand {
     /// "Both", for their icons (slice M5-N1b). A Temple's keys show their technology, its line's initials and its level,
     /// "EC L1", "IM L2", a key in progress "InProg" ("its key shows "In progress" meanwhile"), and its releases their
     /// kind as the kind buttons do, with their counts (slice M5-N3). A Disciple's spell is its name, "Shroud", whole
-    /// (6 letters, as "AtkGnd"; slice M5-N4b).
+    /// (6 letters, as "AtkGnd"; slice M5-N4b). A Shrine's casts are their names' first words, "Health" and "Energy"
+    /// (slice M5-N5; the names are TBD, `factions/cults/structures/shrine.md > Abilities`).
     pub fn label(self) -> &'static str {
         match self {
             PanelCommand::Move => "Move",
@@ -74,6 +75,8 @@ impl PanelCommand {
             PanelCommand::Researching(_) => "InProg",
             PanelCommand::ReleaseOne(kind) => kind_label(kind),
             PanelCommand::Shroud => "Shroud",
+            PanelCommand::Cast(AreaAbility::HealthRegeneration) => "Health",
+            PanelCommand::Cast(AreaAbility::EnergyRegeneration) => "Energy",
         }
     }
 
@@ -122,6 +125,7 @@ impl PanelCommand {
             PanelCommand::Research(tech) => format!("Research {}", tech.def().name),
             PanelCommand::Researching(tech) => format!("{}: In progress", tech.def().name),
             PanelCommand::ReleaseOne(kind) => format!("Release one {} Recruit", kind.name()),
+            PanelCommand::Cast(ability) => ability.def().name.into(),
             PanelCommand::Move
             | PanelCommand::Attack
             | PanelCommand::Patrol

@@ -409,6 +409,7 @@ impl Sim {
             // (M5-N4a) Its type's start (`crate::energy`).
             energy: crate::energy::start(kind),
             kept_research: None,
+            buffs: Vec::new(),
         }
     }
 
@@ -452,6 +453,7 @@ impl Sim {
 }
 
 mod builds;
+mod casts;
 mod commands;
 mod construction;
 mod deploy;

@@ -58,13 +58,16 @@ pub fn trains(kind: ObjectKind) -> bool {
 
 /// (M5-N3) Whether objects of `kind` are staffed by the units inside them: tech buildings
 /// (`factions/cults/structures/README.md > Choosing Recruits, Release and Eject All`: "**Tech buildings** (Temple,
-/// Gunworks, Machine Shop, Shrine)"), the types that hold units and research (`StructureDef::research`). The Temple
-/// so far; the other three hold no one yet. Such a building researches only while Recruits are inside, as fast as
-/// their number (`core/tech_and_research.md > Research > Faction Exceptions > Cults — research is staffed by
-/// Recruits`; `Sim::staff`), and its **A/S/D/F** let one unit of a kind out at once (`HoldCommand::ReleaseOne`), where a
-/// pool building ([`trains`]) releases by its queue.
+/// Gunworks, Machine Shop, Shrine)"), the types that hold units and research (`StructureDef::research`) or (M5-N5) cast
+/// (`StructureDef::abilities`). The Temple and the Shrine so far; the other two hold no one yet. A research building
+/// researches only while Recruits are inside, as fast as their number (`core/tech_and_research.md > Research >
+/// Faction Exceptions > Cults — research is staffed by Recruits`; `Sim::staff`), the Shrine's energy regenerates by
+/// them (`crate::energy`), and the **A/S/D/F** of either let one unit of a kind out at once
+/// (`HoldCommand::ReleaseOne`; "Research and abilities keep the top row"), where a pool building ([`trains`]) releases
+/// by its queue.
 pub fn staffed(kind: ObjectKind) -> bool {
-    (kind.def().structure.as_ref()).is_some_and(|s| s.holds.is_some() && s.research.is_some())
+    (kind.def().structure.as_ref())
+        .is_some_and(|s| s.holds.is_some() && (s.research.is_some() || s.abilities.is_some()))
 }
 
 /// Whether `building` takes a unit of `kind` in (`systems/controls/commands.md > Enter`: "an own structure that can

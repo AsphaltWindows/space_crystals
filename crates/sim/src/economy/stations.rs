@@ -119,6 +119,7 @@ mod tests {
             augmentation: Default::default(),
             energy: None,
             kept_research: None,
+            buffs: Vec::new(),
         }
     }
 

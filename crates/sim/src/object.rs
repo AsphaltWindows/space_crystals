@@ -8,6 +8,7 @@ use glam::Vec2;
 use serde::{Deserialize, Serialize};
 
 use crate::augmentation::Augmentation;
+use crate::buffs::Buff;
 use crate::combat::AttackState;
 use crate::construction::Constructor;
 use crate::construction::site::Construction;
@@ -163,6 +164,15 @@ pub struct Object {
     /// hashed only while set, so that states saved before it existed load and those without one hash as they did.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub kept_research: Option<PlayerId>,
+    /// (M5-N5) The buffs a unit holds (plan decision T75, `crate::buffs`): each an area ability's effect until its
+    /// end (`factions/cults/structures/shrine.md > Abilities`: "qualifying units inside the area when the ability is
+    /// cast receive the buff for its duration and keep it even if they leave the area"), at most one of each ability
+    /// ("effects of the same ability **don't stack**"), in the abilities' order. It stays with the unit inside a
+    /// building, and through a change of kind while the ability affects the new kind (`Sim::change_kind`). Empty for
+    /// every other object. Optional in files and left out of them while empty, and hashed only then, so that states
+    /// saved before it existed load and those without one hash as they did.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub buffs: Vec<Buff>,
 }
 
 impl Object {

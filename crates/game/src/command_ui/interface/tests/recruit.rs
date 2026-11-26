@@ -22,6 +22,7 @@ const SCRAP_HANGAR: ObjectKind = ObjectKind::ScrapHangar;
 const ALTAR: ObjectKind = ObjectKind::Altar;
 const CATHEDRAL: ObjectKind = ObjectKind::Cathedral;
 const TEMPLE: ObjectKind = ObjectKind::Temple;
+const SHRINE: ObjectKind = ObjectKind::Shrine;
 const BASIC: InterfaceState = InterfaceState::BuildMenu(BuildMenu::Basic);
 const ADVANCED: InterfaceState = InterfaceState::BuildMenu(BuildMenu::Advanced);
 const P1: PlayerId = PlayerId(1);
@@ -204,12 +205,13 @@ fn the_basic_menu_keeps_its_slots_greying_what_cant_be_built() {
 /// `factions/cults/units/recruit.md > Recruit ObjectInterfaceState > DefaultState commands`, BuildMenu[Advanced]
 /// (design change 0327): A Chop Shop, S Machine Shop, D Airstrip, F Scrap Hangar; X Temple, C Cathedral, V Shrine; and
 /// Z back, every label its own. The Machine Shop and the Scrap Hangar are built since slice M5-G2, the Temple since
-/// slice M5-N3 and the Cathedral since slice M5-N4a, each greyed by the gate while its TechPrerequisite isn't met
-/// (`factions/cults/units/recruit.md > Constructs`: "Machine Shop [...] Requires: Chop Shop", "Scrap Hangar [...]
-/// Requires: Airstrip", "Temple: 200 Space Crystals [...] Requires: Altar.", "Cathedral [...] Requires: Temple"); the
-/// three the Recruits don't build yet are greyed, "Not available yet" (0327's Verification: "W then A places a Chop
-/// Shop (greyed without an Armory)": its Build comes with its slice). Read from a game with 1000 Space Crystals; once a
-/// Chop Shop, an Airstrip, an Altar and a Temple stand (spawned), S, F, X and C enter their buildings' placements.
+/// slice M5-N3, the Cathedral since slice M5-N4a and the Shrine since slice M5-N5, each greyed by the gate while its
+/// TechPrerequisite isn't met (`factions/cults/units/recruit.md > Constructs`: "Machine Shop [...] Requires: Chop
+/// Shop", "Scrap Hangar [...] Requires: Airstrip", "Temple: 200 Space Crystals [...] Requires: Altar.", "Cathedral
+/// [...] Requires: Temple", "Shrine: 200 Space Crystals [...] Requires: Temple."); the two the Recruits don't build yet
+/// are greyed, "Not available yet" (0327's Verification: "W then A places a Chop Shop (greyed without an Armory)": its
+/// Build comes with its slice). Read from a game with 1000 Space Crystals; once a Chop Shop, an Airstrip, an Altar and a
+/// Temple stand (spawned), S, F, X, C and V enter their buildings' placements.
 #[test]
 fn the_advanced_menu_greys_what_cant_be_built() {
     use ButtonLook::{Back, Common, Disabled, Unavailable};
@@ -236,7 +238,7 @@ fn the_advanced_menu_greys_what_cant_be_built() {
         (slot(1, 3), Build(SCRAP_HANGAR), Disabled, "SH", "Build Scrap Hangar"),
         (slot(2, 1), Build(TEMPLE), Disabled, "TE", "Build Temple"),
         (slot(2, 2), Build(CATHEDRAL), Disabled, "CL", "Build Cathedral"),
-        (slot(2, 3), P(Planned::Shrine), Unavailable, "SR", "Build Shrine"),
+        (slot(2, 3), Build(SHRINE), Disabled, "SR", "Build Shrine"),
     ];
     // Z, Back, comes in slot order: after the A row, before the X row.
     let mut expected: Vec<_> = (entries.iter())
@@ -249,15 +251,16 @@ fn the_advanced_menu_greys_what_cant_be_built() {
         .collect();
     named.insert(4, ("Back", "Back".to_string()));
     assert_eq!(labels_and_names(&menu), named);
-    let (s, f, x, c) = (slot(1, 1), slot(1, 3), slot(2, 1), slot(2, 2));
+    let (s, f, x, c, v) = (slot(1, 1), slot(1, 3), slot(2, 1), slot(2, 2), slot(2, 3));
     assert_eq!(why_text(&menu, s), Some("Requires a Chop Shop"));
     assert_eq!(why_text(&menu, f), Some("Requires an Airstrip"));
     assert_eq!(why_text(&menu, x), Some("Requires an Altar"));
     assert_eq!(why_text(&menu, c), Some("Requires a Temple"));
+    assert_eq!(why_text(&menu, v), Some("Requires a Temple"));
     let price = |at| menu.get(at).and_then(|shown| shown.price);
     assert_eq!(
-        [s, f, x, c].map(price),
-        [150, 200, 200, 250].map(|crystals| Some(BuildPrice::crystals(crystals)))
+        [s, f, x, c, v].map(price),
+        [150, 200, 200, 250, 200].map(|crystals| Some(BuildPrice::crystals(crystals)))
     );
     for (at, entry, ..) in entries {
         if matches!(entry, P(_)) {
@@ -285,7 +288,13 @@ fn the_advanced_menu_greys_what_cant_be_built() {
     }
     t.run(1);
     let menu = panel(&selection, ADVANCED, &Conditions::of(t.sim(), P1, &selection));
-    for (at, building) in [(s, MACHINE_SHOP), (f, SCRAP_HANGAR), (x, TEMPLE), (c, CATHEDRAL)] {
+    for (at, building) in [
+        (s, MACHINE_SHOP),
+        (f, SCRAP_HANGAR),
+        (x, TEMPLE),
+        (c, CATHEDRAL),
+        (v, SHRINE),
+    ] {
         assert_eq!(menu.get(at).map(|shown| (shown.look, shown.why)), Some((Common, None)));
         assert_eq!(press(&menu, at), SlotPress::AwaitBuild(building));
         assert_eq!(menu_of(RECRUIT, building), Some(BuildMenu::Advanced));
@@ -346,8 +355,9 @@ fn a_construct_entry_places_its_building_for_the_whole_group() {
 /// The Builds a Recruit offers are its Construct menus' buildings it builds, and no other (the Agent's Tunnel and
 /// Laser Turret are not, nor the Cults' buildings whose slices come later, which hold their slots as `Planned`
 /// entries), each in one menu: slice M5-A's three, the Gunworks, the Garrison (slice M5-N2) and the Altar (slice
-/// M5-N1b) in the Basic one, the Machine Shop and the Scrap Hangar (slice M5-G2), the Temple (slice M5-N3) and the
-/// Cathedral (slice M5-N4a) in the Advanced one; the panel's other commands are those of its grid.
+/// M5-N1b) in the Basic one, the Machine Shop and the Scrap Hangar (slice M5-G2), the Temple (slice M5-N3), the
+/// Cathedral (slice M5-N4a) and the Shrine (slice M5-N5) in the Advanced one; the panel's other commands are those of
+/// its grid.
 #[test]
 fn a_recruit_builds_what_its_menus_hold() {
     let mut builds: Vec<ObjectKind> = (commands(RECRUIT).into_iter())
@@ -358,7 +368,7 @@ fn a_recruit_builds_what_its_menus_hold() {
         .collect();
     builds.sort_unstable();
     let basic = [HALL, STORAGE, ARMORY, GUNWORKS, GARRISON, ALTAR];
-    let advanced = [MACHINE_SHOP, SCRAP_HANGAR, TEMPLE, CATHEDRAL];
+    let advanced = [MACHINE_SHOP, SCRAP_HANGAR, TEMPLE, CATHEDRAL, SHRINE];
     let mut expected = [&basic[..], &advanced[..]].concat();
     expected.sort_unstable();
     assert_eq!(builds, expected);

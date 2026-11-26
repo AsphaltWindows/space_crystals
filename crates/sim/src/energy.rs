@@ -119,7 +119,8 @@ fn inside(held: &BTreeMap<ObjectId, Held>) -> BTreeMap<ObjectId, u32> {
 }
 
 /// One tick of `o`'s regeneration, if it has energy: its type's rate, by the units inside it for a pool that
-/// regenerates by them (`inside`, asked only then).
+/// regenerates by them (`inside`, asked only then), and (M5-N5) its buffs' (`crate::buffs::energy_bonus`: a Disciple's
+/// Energy regeneration, "+1 per second for 20 seconds", `factions/cults/structures/shrine.md > Placeholder stats`).
 fn regenerate_object(o: &mut Object, inside: impl FnOnce(ObjectId) -> u32) {
     let (Some(energy), Some(EnergyDef { max, regen, .. })) = (o.energy, o.def().energy) else {
         return;
@@ -128,6 +129,7 @@ fn regenerate_object(o: &mut Object, inside: impl FnOnce(ObjectId) -> u32) {
         EnergyRegen::PerSecond(rate) => per_tick(rate),
         EnergyRegen::PerUnitInside(rate) => per_tick(rate).saturating_mul(inside(o.id)),
     };
+    let gain = gain.saturating_add(crate::buffs::energy_bonus(o));
     o.energy = Some(regenerate(energy, gain, units(max)));
 }
 

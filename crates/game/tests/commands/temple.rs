@@ -79,7 +79,7 @@ fn temple_game() -> App {
 }
 
 /// The lines of the InfoPanel's `area` (its body, or the activity area of an own structure), while it shows them.
-fn lines_of(app: &mut App, area: InfoText) -> Vec<String> {
+pub(super) fn lines_of(app: &mut App, area: InfoText) -> Vec<String> {
     let mut texts = app.world_mut().query::<(&InfoText, &Text, &Node)>();
     (texts.iter(app.world()))
         .find(|(which, _, node)| **which == area && node.display != Display::None)
@@ -88,17 +88,17 @@ fn lines_of(app: &mut App, area: InfoText) -> Vec<String> {
 }
 
 /// The InfoPanel's body lines.
-fn info_lines(app: &mut App) -> Vec<String> {
+pub(super) fn info_lines(app: &mut App) -> Vec<String> {
     lines_of(app, InfoText::Body)
 }
 
 /// The InfoPanel's activity lines: what an own structure is doing.
-fn activity_lines(app: &mut App) -> Vec<String> {
+pub(super) fn activity_lines(app: &mut App) -> Vec<String> {
     lines_of(app, InfoText::Activity)
 }
 
 /// The feedback message that shows.
-fn said(app: &App) -> Option<&'static str> {
+pub(super) fn said(app: &App) -> Option<&'static str> {
     let feedback = app.world().resource::<TargetFeedback>();
     feedback.since.map(|_| feedback.text)
 }

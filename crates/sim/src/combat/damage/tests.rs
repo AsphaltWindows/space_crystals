@@ -125,6 +125,7 @@ fn target(kind: crate::defs::ObjectKind, shields: f32) -> Object {
         augmentation: Default::default(),
         energy: None,
         kept_research: None,
+        buffs: Vec::new(),
     }
 }
 

@@ -215,8 +215,14 @@ pub enum Reject {
     /// (M5-N4b) None of the units of a spell's order that cast it has the energy it needs to start
     /// (`defs::SpellDef::needs`, `energy::has`): Shroud's "needs at least **10 energy** to start"
     /// (`factions/cults/units/disciple.md > Placeholder stats > Shroud numbers`). The spells' one refusal for want of
-    /// energy (`crate::energy`).
+    /// energy (`crate::energy`), and (M5-N5) the casts': none of the casters of a `Command::Cast` that cast its ability
+    /// has the energy it costs (`factions/cults/structures/shrine.md > Abilities`: "spend Shrine energy"; plan decision
+    /// T76), what greys the Shrine's Q and W.
     NotEnoughEnergy,
+    /// (M5-N5) A cast's point isn't in the issuing player's vision now, as the last tick left it
+    /// (`factions/cults/structures/shrine.md > Abilities`: "cast on an area anywhere the player currently has vision";
+    /// plan decision T76).
+    OutOfSight,
 }
 
 impl fmt::Display for Reject {
@@ -292,6 +298,7 @@ impl fmt::Display for Reject {
             Reject::ResearchUnderWay(tech) => write!(f, "{} is being researched already", tech.def().name),
             Reject::RequiresTech(tech) => write!(f, "it requires {}", tech.def().name),
             Reject::NotEnoughEnergy => write!(f, "none of the units has the energy the spell needs"),
+            Reject::OutOfSight => write!(f, "the point is out of sight"),
         }
     }
 }

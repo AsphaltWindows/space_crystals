@@ -408,6 +408,16 @@ pub(super) fn table(sim: &Sim) -> Vec<(SimEvent, [Seen; 4])> {
             [P, P, P, W],
         ),
         (SimEvent::Blast { at: unit, radius: 40.0 }, [W, W, N, W]),
+        // (M5-N5) A Shrine's cast, at a point player 1 sees (the gate's rule): where it was cast, as a blast, to whoever
+        // sees the point. The caster stands for a Shrine of player 1's: the point is what counts.
+        (
+            SimEvent::Cast {
+                caster: TUNNEL,
+                ability: sc_sim::AreaAbility::HealthRegeneration,
+                at: unit,
+            },
+            [W, W, N, W],
+        ),
         // A TailDisjointed shot that hit nothing (slice M5-O3), aimed at an object or at the ground: a shot as any
         // other.
         (
