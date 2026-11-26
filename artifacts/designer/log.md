@@ -2320,3 +2320,4 @@ Answered Q0069–Q0071 (0258–0267): losing-Tunnel edges, Syndicate economy che
 2026-11-26 — Sparrow grip 0.5. Entry 0355.
 2026-11-26 — Q0122: Rocketman/Arsenal placeholders. Entry 0356.
 2026-11-26 — Q0090. Entry 0357.
+2026-11-27 — Q0091 pop-up turret details. Entry 0358.

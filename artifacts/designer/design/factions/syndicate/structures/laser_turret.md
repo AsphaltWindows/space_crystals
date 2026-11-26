@@ -11,7 +11,8 @@ Syndicate defensive structure capable of attacking both ground and air units. It
 ## Upright vs Pop-up (by location)
 - **Upright turret** (outside every own Tunnel Area): a normal surface structure, always visible. Costs no Tunnel Space.
 - **Pop-up turret** (inside an own Tunnel Area, whoever built it):
-  - Occupies 1 grid unit of that Tunnel's tunnel-region, like an expansion, so it reduces Tunnel Space (¼ Tunnel Space, subject to the rounding rule in Tunnel Space).
+  - Occupies 1 grid unit of that Tunnel's tunnel-region, like an expansion, so it reduces Tunnel Space (¼ Tunnel Space, subject to the rounding rule in Tunnel Space). **A turret site takes its Tunnel Space from the start of construction**, whether a Tunnel or an Agent builds it (user, 2026-11-26; Q0091).
+  - **Built from a Tunnel's ExpandMenu**: on ground that is **Buildable, flat and Drillable** (it must be able to stand upright later), and from **Tier 1** (no Tier Requirement) (user, 2026-11-26; Q0091).
   - While it has no target it stays **underground**, hidden like an expansion (invisible to enemies without detection).
   - It notices enemies the same way an upright turret does. When an enemy comes into range it rises to the surface **already facing the target** and fires; it retracts once it has no target. Rise and retract timing: see placeholder stats below.
   - It **can be attacked while underground** (by enemies that can see it), but it has **much higher armor while underground** than when raised (values in the placeholder stats below).
@@ -26,6 +27,7 @@ Syndicate defensive structure capable of attacking both ground and air units. It
 The form updates automatically whenever Tunnel Areas change:
 - A new Tunnel, or a Tunnel upgrade, whose Tunnel Area now covers an upright turret converts it into a pop-up turret (it starts occupying that Tunnel's tunnel-region).
 - When a Tunnel is destroyed, the pop-up turrets in its Tunnel Area become upright turrets (their tunnel-region is lost along with the Tunnel).
+  - **Visible at once** (user, 2026-11-26; Q0091): like every expansion building of a destroyed Tunnel, a lowered pop-up becomes **visible to everyone** immediately. If a unit stands over it, it **stays down**, keeping its **high underground armor**, neither blocking nor firing, until the spot is clear; then it rises as an upright turret.
 - If a conversion pushes Tunnel Space below the player's current usage, the over-capacity rule applies (existing units unaffected; production waits — see Tunnel Space).
 
 ## Construction
@@ -42,7 +44,7 @@ The form updates automatically whenever Tunnel Areas change:
 - HP: 300. SightRange: 6 grid units.
 - Armor (building armor rule, 1x1): raised PointArmor 1, FullArmor 1; underground (pop-up) PointArmor 6, FullArmor 6.
 - AttackAttributes: FullyConnected red laser (instant, cannot miss); TargetDomain Universal; SingleTarget; Damage 24; Range 5 grid units; MinRange 0; Aim 4, Firing 1, Cooldown 3, Reload 16 frames (one shot per 24 frames, 16 damage per second).
-- Pop-up: rises in 8 frames (already facing its target); retracts after 32 frames with no target, taking 8 frames. It can't fire while rising or retracting.
+- Pop-up: rises in 8 frames (already facing its target); retracts after 32 frames with no target, taking 8 frames; **a new target during retracting doesn't interrupt it**: it finishes retracting, then rises (user, 2026-11-26; Q0091). It can't fire while rising or retracting.
 - Hotkey: Agent **D** (Q0068); in the Tunnel's ExpandMenu it takes the next slot after the expansions.
 
 **Targeting** (user, 2026-11-26; Q0084): the turret has no commands and targets like a unit holding position: BaseAutoTargeting within Range (systems/controls/behaviors.md), then the closest, ties broken deterministically. It **keeps its target** while the target stays valid and in range.

@@ -21,7 +21,7 @@ The Tunnel Network is the collective of all Tunnels owned by a Syndicate player.
 
 ### Losing Tunnels
 - **Expansions become neutral**: when a Tunnel is destroyed, every expansion in its Tunnel Area becomes neutral — no longer owned by the Syndicate player.
-  - Neutral expansions are **no longer hidden** (visible to everyone, no detection needed).
+  - Neutral expansions are **no longer hidden** (visible to everyone, no detection needed). This holds for **every expansion building of the destroyed Tunnel**, its lowered pop-up turrets included, which become visible at once (user, 2026-11-26; Q0091).
   - They **slowly lose HP** until destroyed. **Decay is a percentage of MaxHP per second** (user, 2026-11-25; Q0069): **1% per second, placeholder** (a Hideout lasts 100 s); the number is to be tuned.
   - **Attacking them** (Q0069): only with an **explicit Attack** order; right-click never attacks a neutral object and auto-targeting ignores them.
   - **Reclaiming happens** the moment the covering Tunnel, or its upgrade, **finishes**; a Tunnel under construction reclaims nothing (Q0069).
