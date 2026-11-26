@@ -91,9 +91,10 @@ impl Frame {
     /// once the building is gone: the ground a holder's evacuation puts its units on too (`nav::box_on_terrain`,
     /// slice M5-F3). (Slice M5-Z1: seed 155 of the fuzz left a Recruit on a Cliff that a debug-spawned Hall had
     /// covered; a map's custom presets can make Buildable ground that isn't Traversible, `core/map.md > Tile`: "Any
-    /// combination of properties is valid".) **Placeholder (not in the design: ground under a footprint that its
-    /// units can't stand on)**: the design's buildings stand on Buildable ground, and its default presets make it all
-    /// Traversible.
+    /// combination of properties is valid".) Design change 0374 (answering Q0134; the same section, point 6): "a
+    /// leaving unit may overlap its building, but is never released onto ground under it that it couldn't stand on
+    /// (e.g. a custom tile that is Buildable but not Traversible). Such a building **holds its finished unit**
+    /// indefinitely, as an occupied doorway. Placement doesn't prevent it".
     fn blocks(&self, grid: &NavGrid, t: TilePos) -> bool {
         if self.covers(t) {
             grid.is_terrain_solid(t)

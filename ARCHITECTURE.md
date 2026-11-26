@@ -1895,7 +1895,9 @@ and the code is `crates/sim/src/movement.rs` and `movement/`, with the unit's st
   `is_free_for` and `along_axis`: the building's own tiles don't block it, but for ground under them that the unit
   can't stand on (slice M5-Z1, `Frame::blocks`, `NavGrid::is_terrain_solid`: the building lets the unit overlap the
   building, not that ground, so that the unit never stands there once the building is gone; a debug spawn or a map's
-  object may cover any terrain, and a custom preset may be Buildable and not Traversible), every other blocked tile
+  object may cover any terrain, and a custom preset may be Buildable and not Traversible; design change 0374,
+  answering Q0134, `core/entities.md > Structure Type > Exit Doorway` point 6: "never released onto ground under it
+  that it couldn't stand on ... Such a building **holds its finished unit** indefinitely"), every other blocked tile
   does (`ExitDoor::box_clear`), and it may only come out (`ExitDoor::allows`: out of a side doorway, never deeper in,
   and inside only within the exit side's span, so it leaves through that side and no other; out of an energy
   doorway, never closer to the footprint's centre). A door whose every spot lies over such ground has none
