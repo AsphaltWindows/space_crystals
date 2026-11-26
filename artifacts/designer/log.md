@@ -2336,3 +2336,4 @@ Answered Q0069–Q0071 (0258–0267): losing-Tunnel edges, Syndicate economy che
 2026-11-27 — Doc reorg (user request): split selection_and_hud, behaviors, syndicate/tunnels; moved Cults Recruitment Hall and Storage to structures/ (restoring the lost RecruitmentHall heading). Content verified line-for-line; refs and index updated. Entry 0370.
 2026-11-27 — Q0131–Q0142 arrived; Q0132/Q0138/Q0141 answered from docs (0371).
 2026-11-27 — Q0131 (a). Entry 0372.
+2026-11-27 — Q0133 (a). Entry 0373.
