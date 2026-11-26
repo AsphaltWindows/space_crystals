@@ -197,7 +197,9 @@ impl Leg {
 ///
 /// 1. MovingToLocation towards the leg's destination.
 /// 2. While moving, the unit scans for ValidTarget enemies within SightRange ([`World::pick`]) and switches to
-///    AttackingObject on the one it acquires ([`close_in`]), **but only if it is a chase the unit can finish**
+///    AttackingObject on the one it acquires ([`close_in`]); (M5-U1) a unit with a turret locks it on that enemy
+///    ("For turret units: set TurretCommandState.LockedTarget = CurrentTarget"). **But only if it is a chase the unit
+///    can finish**
 ///    (design change 0230, the reach rule, [`acquire`]): an enemy within weapon range is always taken; one out of
 ///    range only if the path to a firing position stays within the leash of the PathReference and keeps the target
 ///    within the unit's SightRange ([`reach::judge`]). Otherwise the unit doesn't take it and walks on.
@@ -255,6 +257,7 @@ pub(super) fn march(
     };
     if let Some((view, chase)) = acquire(unit, attrs, leg, world, reach) {
         unit.engage(Some(view.id));
+        unit.lock(Some(view.id));
         let mut pursuit = Pursuit {
             target: view.id,
             chasing: false,

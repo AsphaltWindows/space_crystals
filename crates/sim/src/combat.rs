@@ -63,8 +63,12 @@
 //!   (`factions/syndicate/structures/laser_turret.md`), whose attack is its def's (`StructureDef::attack`). It runs the
 //!   same phases and deals the same damage as a unit, from its footprint, with no turn rate (it fires in any
 //!   direction) and no orders: it picks its own target in this phase, once it is complete (`Object::is_operational`).
+//! - **Units' turrets** (slice M5-U1, plan decision T80; [`turret`]): a unit with TurretAttributes attacks from its
+//!   turret, which has a facing of its own on the base's and engages its LockedTarget ([`AttackState::turret`]). In
+//!   this phase it turns toward it first, at its own TurnRate and within its arc, and its sequence runs as a base's,
+//!   at a target within the arc and once the turret faces it; its base is free to move and turn all the while.
 //!
-//! Not built yet: units' turrets, and the HeadDisjointed attack.
+//! Not built yet: the HeadDisjointed attack.
 
 mod area;
 mod damage;
@@ -75,6 +79,7 @@ mod structures;
 mod targeting;
 #[cfg(test)]
 pub(crate) mod testing;
+pub(crate) mod turret;
 
 use std::collections::BTreeMap;
 
@@ -100,6 +105,7 @@ pub use targeting::{
     can_attack_now, can_target_ground, domain_allows, inside_min_range, max_range, object_box, object_domain, reaches,
     reaches_point, within_range,
 };
+pub use turret::{TurretState, turret_facing};
 
 /// `systems/combat.md > AttackPhase`, one value of the design's BaseAttackChannel
 /// (`systems/controls/action_channels.md > BaseAttackChannel`). The phases run in this order; after Reloading the
@@ -199,6 +205,12 @@ pub struct AttackState {
     /// before it existed load and hash as they did.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub location: Option<Vec2>,
+    /// (M5-U1) A unit's turret, its facing and its LockedTarget ([`turret`], plan decision T80): for a unit with
+    /// TurretAttributes, from the first time its turret locks or turns. Its attack sequence runs at the LockedTarget,
+    /// not at [`AttackState::target`], which stays what its base's behaviour engages. Left out of files while unset,
+    /// and out of the hash, as the location.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub turret: Option<TurretState>,
 }
 
 impl AttackState {
@@ -208,7 +220,8 @@ impl AttackState {
     /// (`systems/combat.md > Reloading`).
     pub fn engage(&mut self, target: Option<ObjectId>) {
         let interrupted = match self.phase {
-            Some(AttackPhase::Aiming { target: aimed }) => Some(aimed) != target,
+            // (M5-U1) A turret aims at its LockedTarget, which the base's target leaves as it is (`AttackState::lock`).
+            Some(AttackPhase::Aiming { target: aimed }) => self.turret.is_none() && Some(aimed) != target,
             Some(AttackPhase::AimingAt { .. }) => true,
             _ => false,
         };
@@ -235,11 +248,17 @@ impl AttackState {
     }
 
     /// The removal path (`Sim::remove_objects`): the objects `gone` (sorted by id) left the game. The unit no longer
-    /// engages them; an attack aimed at one is cancelled, and one being fired at one hits nothing.
+    /// engages them, nor does its turret lock them; an attack aimed at one is cancelled, and one being fired at one
+    /// hits nothing.
     pub fn forget(&mut self, gone: &[ObjectId]) {
         let is_gone = |id: ObjectId| gone.binary_search(&id).is_ok();
         if self.target.is_some_and(is_gone) {
             self.target = None;
+        }
+        if let Some(turret) = &mut self.turret
+            && turret.locked.is_some_and(is_gone)
+        {
+            turret.locked = None;
         }
         match self.phase {
             Some(AttackPhase::Aiming { target }) if is_gone(target) => self.cancel(),
@@ -333,11 +352,16 @@ pub(crate) fn step(
     auto_targeting: bool,
     events: &mut Vec<SimEvent>,
 ) -> Vec<ObjectId> {
-    // A structure that attacks is always busy: it looks for its targets in this phase.
+    // A structure that attacks is always busy: it looks for its targets in this phase. So is a turret with a target
+    // locked, which it turns toward.
     let busy = |o: &Object| {
-        o.attack
-            .as_ref()
-            .is_some_and(|a| a.target.is_some() || a.location.is_some() || a.phase.is_some() || o.placement.is_some())
+        o.attack.as_ref().is_some_and(|a| {
+            a.target.is_some()
+                || a.location.is_some()
+                || a.phase.is_some()
+                || a.locked().is_some()
+                || o.placement.is_some()
+        })
     };
     if projectiles.is_empty() && !objects.range(..first_new).any(|(_, o)| busy(o)) {
         return Vec::new();
@@ -375,6 +399,7 @@ pub(crate) fn step(
         };
         if !may_attack {
             state.engage(None);
+            state.lock(None);
         }
         if structure {
             structures::pick(state, &shooter, &targets, auto_targeting);

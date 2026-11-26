@@ -1,10 +1,10 @@
-//! Design change 0179's steps of rotation (`orders::world::rotation_step`); the picks themselves are tested through
+//! Design change 0179's steps of rotation (`orders::world::scan::rotation_step`); the picks themselves are tested through
 //! the game in `tests/target_priority.rs`.
 
 use glam::Vec2;
 
 use crate::math;
-use crate::orders::world::rotation_step;
+use crate::orders::world::scan::rotation_step;
 use crate::tuning::orders::ROTATION_STEP;
 
 /// "Required rotation (0–180°, either direction) is bucketed into 45° steps": a step reaches up to its upper bound

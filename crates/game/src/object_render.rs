@@ -31,8 +31,9 @@
 //! tinted towards a pale sand, braced by a scaffold, and shows its progress ([`site`], slice M4-J1), and so does its
 //! record, at the progress last seen (slice M4-I2). A structure that attacks (the Laser Turret, slice M4-S1) has a head
 //! on its roof and a barrel that turns to face what it fires at, and is an underground outline while it is a pop-up
-//! fully lowered, as it always is once neutral ([`turret`], design change 0360). The map resources have shapes of
-//! their own ([`resources`]).
+//! fully lowered, as it always is once neutral ([`turret`], design change 0360); a unit with a turret (slice M5-U1)
+//! carries the same barrel on its body, turned to its turret's facing ([`TurretTrack`]). The map resources have shapes
+//! of their own ([`resources`]).
 //!
 //! The fog of war hides the visuals of the objects the local player doesn't see (`crate::fog`); Explored tiles show
 //! the records of what it remembers instead, as visuals of their own ([`remembered`]).
@@ -80,7 +81,7 @@ pub use look::{Look, UnitShape};
 pub use remembered::{RememberedVisual, RememberedVisuals};
 pub use site::SiteProgress;
 pub use structures::{StructureTag, underground};
-pub use turret::TurretBarrel;
+pub use turret::{TurretBarrel, TurretTrack};
 pub use units::UnitTag;
 
 /// What the mesh of an object's visual depends on ([`MeshKey::of`]).
