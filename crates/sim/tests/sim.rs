@@ -64,6 +64,8 @@ mod economy_oracle;
 mod economy_resources;
 #[path = "expansions/main.rs"]
 mod expansions;
+#[path = "field_engineer/main.rs"]
+mod field_engineer;
 mod fog_delay;
 mod follow_itself;
 #[path = "game_end/main.rs"]
