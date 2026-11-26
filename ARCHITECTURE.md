@@ -258,7 +258,23 @@ Units, structures and resources are all `Object`s (`object.rs`, `core/entities.m
   point, and so is each point of a Cults unit's cost that no entry stands for (`recruitment::Lineages::of`: the cost
   less the entries), so a unit without an entry is orphaned whole (design change 0344: "Recruits no Hall produced
   (custom maps, debug) are orphans from the start"); `testing::references` doesn't check an entry as a reference for
-  that reason. **The Augmentations** (slice M5-F2; `augmentation.rs`, `factions/cults/augmentation.md >
+  that reason. **Every other Cults kind** (slice M5-G2, plan decision T69: the last slice of M5 that adds a kind)
+  follows, in the tech tree's order, then design changes 0361 to 0365's two vehicles: the Gunworks, the Garrison, the
+  Chop Shop, the Machine Shop, the Airstrip, the Scrap Hangar, the Altar (`factions/cults/augmentation.md > Altar`),
+  the Temple, the Cathedral and the Shrine; the Disciple, the Seeker (design change 0364, once the Jackal), the
+  Sparrow, the Hand of Heaven and the Prayer-mobile; one def module each, with its design file's "Placeholder stats",
+  its `site` and its `requires`. `defs/cults/tests.rs` lists them and checks the list against the design folder (every
+  structure of `factions/cults/structures/README.md > Tech Tree Overview`, every file of `factions/cults/units/`). Each
+  of the others' slices adds its behaviour: the Chop Shop, the Airstrip and the Cathedral hold 10 Recruits already
+  (`HoldsDef`, design change 0347 point 5: an editor-placed one can be entered, with no panel yet, so no Eject All),
+  and the Recruits build none of the seven until their slices (the Construct menus hold their slots, *Client
+  architecture > The Recruit's panel*). The units' `MovementAttrs` (the Seeker's and the Prayer-mobile's
+  `FixedTurnRadius`, the Hand of Heaven's `SpeedTurnRadius`, the Sparrow's `Glider`) and `TurretAttrs` are data that
+  nothing reads yet: a model the movement doesn't build steps without a turn limit (*Movement and collision >
+  Movement models*), and nothing produces those units before their buildings' slices. The wheeled and tracked
+  vehicles don't cross Rugged terrain, so every game's set of grids holds a `(Ground, 1)` grid beside
+  `(GroundRugged, 1)` (*Navigation*); the Sparrow is the first air unit kind (`nav_class` `None`: it crosses every
+  tile). **The Augmentations** (slice M5-F2; `augmentation.rs`, `factions/cults/augmentation.md >
   AugmentationState (per unit instance)`): `Object::augmentation: Augmentation { constitution, metabolism }`, hashed (a
   tag) and saved only while one is set, so the states without one, the goldens among them, are as they were; its
   `RecruitKind` (Plain, Constitution, Metabolism or Both, design change 0337) is what a pool building's orders choose
@@ -266,8 +282,9 @@ Units, structures and resources are all `Object`s (`object.rs`, `core/entities.m
   kind with a MinRange, which M3-L2's code serves (*Behaviours*; M5-A gave a unit that can't back off its "Target too
   close", design change 0204 point 3; M5-O3 took the back-off on to the middle of the band, question Q0054, and gave
   an Attack Ground's location the same rule), and the first TailDisjointed attack (slice M5-O3, *Combat > TailDisjointed
-  attacks*), which can miss. The Storage, 1/6 on its 2x2 as written, is the building armour test's one exception
-  (`tests/building_armor.rs`, Placeholder (Q0094)). The Cults start a game since slice M5-B (plan decision T63;
+  attacks*), which can miss; the Armory trains it for a player who owns a Gunworks (slice M5-G2, `Recipe::requires`,
+  *Tech prerequisites*). The Storage is 1/4 on its 2x2 since slice M5-G2 (Q0094 a), so the building armour test has
+  no exception left. The Cults start a game since slice M5-B (plan decision T63;
   `tests/cults_start.rs`, *Sim scenarios and tests*): no faction is "not implemented" any more.
 - **Units off the map: the held store** (`network.rs`, `sim/network.rs`; slice M4-C, plan decision T30;
   `factions/syndicate/tunnels.md > Tunnel Network`): a unit inside a Tunnel Network is **not among the objects**. It
@@ -392,8 +409,10 @@ Units, structures and resources are all `Object`s (`object.rs`, `core/entities.m
   - **The pool** (`Sim::pool`, the Armory's StoredRecruits) is the units inside that no entry of the building's queue
     reserves and that aren't on their way out (slice M5-F2); `Sim::held_in` is everyone inside. The client's Enter
     pointer is slice M5-J1's (*Client architecture*, *The Recruit's panel*). Design change 0319's other holders fit
-    the def as it is (the Chop Shop, Cathedral, Altar and Airstrip with sides and capacities; the Temple and Shrine,
-    AAAA, take the first side lettered A clockwise from the top). The Garrison's "units leave through any side, at the
+    the def as it is: the Chop Shop, the Cathedral and the Airstrip have their `HoldsDef` since slice M5-G2 (in at B,
+    out at C, 10 Recruits), the Altar, the Temple and the Shrine (all ABAC now) get theirs with their slices, and the
+    Gunworks and the Machine Shop (ABAC too) hold no one until their research is designed (design change 0328), so a
+    right-click on one with Recruits is a Move. The Garrison's "units leave through any side, at the
     first clear spot next to the footprint" is either slice M5-C's `ExitRule::Sides` (a door on every side, the first
     free one, which `Sim::release_held` already serves; the defs test allows holders `ExitRule::Side` only, for now)
     or, as slice N2 will build it, the evacuation's (`Sim::evacuate`, *Out by destruction* above).
@@ -1532,9 +1551,14 @@ The module is pure: it takes the `Map` and tile rectangles and knows nothing of 
     `Mover::repath`, since the unit's path was planned on other grids.
   - Measured (`tests/nav_perf/`, ignored, release; 4 players, 412 units and 160 patches on 256 × 256): the tick
     in which ten Generators go in sight of all four players rebuilds 5 sets of grids and takes 1.0 ms; the worst
-    tick after it, with the units' path checks, 1.3 ms. A set holds one grid, `(GroundRugged, 1)`: every unit
-    type built so far crosses Rugged terrain and is at most a tile wide, the Drone included (a HoverVehicle,
-    design change 0039; on its stand-in mover it had a grid of its own, which doubled every set).
+    tick after it, with the units' path checks, 1.3 ms. A set held one grid, `(GroundRugged, 1)`, until slice
+    M5-G2: every unit type crossed Rugged terrain and was at most a tile wide, the Drone included (a HoverVehicle,
+    design change 0039; on its stand-in mover it had a grid of its own, which doubled every set). The Cults'
+    wheeled and tracked vehicles (slice M5-G2) don't cross it, so a set holds `(Ground, 1)` too, whether or not one
+    is in the game (`paths::grid_keys`, every unit type's): A/B against master, interleaved, the rebuild tick went
+    from 1.12 and 1.14 ms to 1.81 and 1.72 ms, the ticks around it unchanged (0.31 and 0.345 ms), and
+    `structures_perf`'s whole tick from 0.349 and 0.344 ms to 0.360 and 0.356 (p99 0.66 to 0.71) (load average 2.9
+    to 4.8). Building a grid only once a unit of its class is in the game would take that back.
 - **Group destinations** (`orders/destinations.rs`, `docs/movement.md > 6.4`, the design's magic box): a location
   order (Move to a point, AttackMove, Patrol) to several units looks at the bounding box of their silhouettes
   (design change 0028). A click inside it sends every unit to the click; outside, each unit goes to the click plus
@@ -2018,8 +2042,10 @@ section of its own.
 - **Cults construction** (`sim/builds/shared.rs`, `crate::spot_work`, `sim/spot_work.rs`, `orders/assist.rs`,
   `sim/sites.rs`, `placement/wall.rs`; slice M5-E, plan decisions T59 and T62; `factions/cults/economy.md > Cults
   Building Mechanics`, design changes 0071, 0072, 0339 and 0340): Recruits build together, from outside. The Recruit's `WorkerDef::builds` (Hall,
-  Storage, Armory) and each structure's `SiteDef` (price, frames, `BuilderGoes::Outside`) are data, so a further Cults
-  building is a def alone; `WorkerDef::shares_builds` is what makes a worker's Builds shared.
+  Storage, Armory, and since slice M5-G2 the Gunworks, the Machine Shop and the Scrap Hangar,
+  `tests/cults_construction/tech.rs`) and each structure's `SiteDef` (price, frames, `BuilderGoes::Outside`) are data,
+  so a further Cults building is a def alone: every Cults structure has its site since slice M5-G2, and its slice adds
+  it to `builds`; `WorkerDef::shares_builds` is what makes a worker's Builds shared.
   - **The ticket** (T59, `Ticket`): a Build given to several such workers is one order they each hold, current or
     queued, by its owner, kind, origin and orientation, derived from the orders: one ghost, one structure for the
     price, paid once as it is given (`Sim::give_shared_build`), refunded once when its last holder drops it before its
@@ -2190,8 +2216,9 @@ their energy doorway, slice M3-D2: design change 0145, `factions/colonists/struc
   building that leaves the game refunds every entry but a finished one, whose unit comes out as the trained unit
   (design change 0349 point 3, slice M5-F3), its other units evacuated as they are (*Object model > Buildings that
   hold units*). **Invariant R1** (`testing/invariants/reservations.rs`): only a pool building reserves, an entry
-  each, each of its units held in its building and reserved once, and only the front's first may be leaving. **Not
-  yet**: the Gunner's Gunworks (slice M5-G2).
+  each, each of its units held in its building and reserved once, and only the front's first may be leaving. The
+  Gunner's recipe requires a Gunworks (slice M5-G2), checked as it is queued and never again
+  (`tests/armory/gunner.rs`: losing the last Gunworks keeps the Gunners queued and in training).
 - **The exit doorways** (`production::ExitDoor`, the one geometry for the release, the movement step and the
   invariants; `ExitDoor::of` reads the building's `ProductionDef::exits`, an `ExitRule`, against its sides as
   placed, `sides`). Two kinds:
@@ -3624,9 +3651,10 @@ Drones, through one command flow (plan decision T10, slices M2-H1, M2-H2 and M3-
   free Recruits (`PanelSlot::count`, `Conditions::pool_count` from `Sim::pool_counts`) and is greyed at 0 (the gate's
   `Reject::NoRecruit`, "No free Recruit of that kind"); it enters `InterfaceState::KindMenu(kind)`
   (`SlotPress::OpenKindMenu`), whose grid (`armory::kind_menu`) is a `PanelCommand::TrainFrom(unit, kind)` per recipe
-  from Q (`ProductionCommand::TrainFrom`), the units not in the game yet in their slots (the Gunner's W,
-  `Planned::Gunner`, greyed "Requires a Gunworks": `WhyUnavailable::Placeholder`), A `PanelCommand::Release(kind)` and Z
-  Back; the menu stays open while its entries are used (`still_valid`), greyed by the gate. Eject All is a
+  from Q (`ProductionCommand::TrainFrom`: the Armory's Q Militant and W Gunner, the Gunner greyed "Requires a
+  Gunworks" by the gate's `Reject::Requires` while its player owns none, slice M5-G2), a unit not in the game yet in
+  its slot (`PanelTemplate::planned`, none today), A `PanelCommand::Release(kind)` and Z Back; the menu stays open while
+  its entries are used (`still_valid`), greyed by the gate. Eject All is a
   `Command::Holding` (`SlotPress::Hold`, `OrderOutbox::hold`), greyed by the gate ("No free Recruit inside"). The
   right-click sets the rally point, as a producer's (`object_right_click`). **One building at a time** (design change
   0348 point 5: the Armory is Ungroupable): every command of a pool building's panel goes to the one Tabbed to, X and C
@@ -3639,8 +3667,10 @@ Drones, through one command flow (plan decision T10, slices M2-H1, M2-H2 and M3-
   command goes to all the selected Recruits, the one ActiveGroup (Tab stops on them once). **The Construct menus**
   (`templates/cults/construct_menu.rs`) are the sim's `defs::CONSTRUCT_MENU`, the one table of their fixed slots: a
   type in the game is its `PanelCommand::Build(kind)`, greyed by the gate (its TechPrerequisite, the bank), one not
-  yet in the game its `Planned` entry, found by name (`Planned::construct`), so a slice that brings a building
-  changes the sim's table only; Z is Back. A Build enters `AwaitingPlacement` with **`Builder::Recruits { queued }`**
+  yet built by the Recruits its `Planned` entry, found by name (`Planned::construct`), so a slice that brings a
+  building changes the sim's table only (slice M5-G2 made the Gunworks, the Machine Shop and the Scrap Hangar
+  `Build`s, greyed "Requires an Armory", "Requires a Chop Shop" and "Requires an Airstrip" until those stand); Z is
+  Back. A Build enters `AwaitingPlacement` with **`Builder::Recruits { queued }`**
   (`Placing::recruits`): one ghost for the group, judged by `ghost::recruits_check` (`Sim::group_build_check`, the
   gate's own check as far as the player knows, the group left out of the occupants: design change 0362, a Recruit of
   the order on the footprint makes the site wait, so no warning). A click gives one `OrderKind::Build` to every
