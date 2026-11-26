@@ -27,7 +27,6 @@
 - Game will be rebuilt from scratch → docs must stand alone as the complete spec. Old prototype stays at `artifacts/developer/` as reference; Director decides with user where new code lives.
 
 ## Open Director Questions
-- Q0134 Buildable-not-Traversible ground under exits (nb)
 - Q0135 Cults economy check: 5 misses; realistic opening ~0.5-0.6 of others (nb, big)
 - Q0136 tie between equidistant Storages (nb)
 - Q0137 when a turret drops its lock; does Move clear it (nb)
