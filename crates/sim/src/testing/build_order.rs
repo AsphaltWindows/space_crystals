@@ -27,7 +27,7 @@
 //! patches under them, not off the bank) and what the workers delivered (the step's `SimEvent::ResourcesDelivered` of
 //! Space Crystals, plan decision T27: "books that count drop-offs"; a delivery of Supplies goes to another bank), less
 //! what the step's orders paid, plus the refunds in Space Crystals the step's events report ([`refund_in`]: those of
-//! a Laser Turret's Build and site, slice M4-S1, and of an expansion, slice M4-F, among them; a Tunnel's are in
+//! a Cults building's Build and site, slice M5-E, and of an expansion, slice M4-F, among them; a Tunnel's are in
 //! Supplies, `syndicate::SupplyBooks`).
 
 use std::collections::{BTreeMap, BTreeSet};
@@ -308,7 +308,7 @@ pub(crate) fn owned(sim: &Sim, player: PlayerId) -> BTreeSet<ObjectId> {
 /// reports a refund for one of them: a construction's, a production's or a Warp In's (`economy::Refund`), and an
 /// expansion's, by its Tunnel (design change 0254), in Space Crystals; a Build order's that went before its site
 /// started, and a cancelled site's, in the resource of its price (`construction::site::BuildPrice`: a Tunnel's
-/// Supplies, design change 0233; a Laser Turret's Space Crystals, slice M4-S1); an upgrade's, in Supplies (design
+/// Supplies, design change 0233; a Cults building's Space Crystals, slice M5-E); an upgrade's, in Supplies (design
 /// change 0232).
 pub(crate) fn refund_in(e: &SimEvent, resource: Resource, own: &BTreeSet<ObjectId>) -> Option<u32> {
     let (by, paid_in, refund) = match *e {
@@ -363,7 +363,7 @@ pub struct Entry {
     /// What the player's commands paid.
     pub spent: u32,
     /// What came back: the refunds in Space Crystals of the step's events for the player's objects ([`refund_in`]),
-    /// their buildings' cancels, a Laser Turret's Build and site, an expansion.
+    /// their buildings' cancels, a Cults building's Build and site, an expansion.
     pub refunded: u32,
 }
 

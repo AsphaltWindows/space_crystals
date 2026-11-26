@@ -308,7 +308,11 @@ mod tests {
                 assert_eq!(after, PopUp::LOWERED, "{state:?}, target {target}");
             }
         }
-        assert_eq!(tick(PopUp::LOWERED, true), PopUp::Rising(Progress::new(8)), "active again");
+        assert_eq!(
+            tick(PopUp::LOWERED, true),
+            PopUp::Rising(Progress::new(8)),
+            "active again"
+        );
     }
 
     /// Each phase hashes apart, and its progress counts.

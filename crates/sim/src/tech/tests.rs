@@ -326,8 +326,8 @@ fn a_warp_in_requires_a_complete_building() {
     assert_eq!(gate(&t, P1, warp_in(1, ObjectKind::RoboPortal)), Ok(()));
 }
 
-/// A worker's building (`StructureDef::requires` wherever it is built; the Laser Turret's comes with slice M4-S1): a
-/// test TechPrerequisite, the Tunnel requiring a Hideout, refuses an Agent's Build order as it is given, until player 1
+/// A worker's building (`StructureDef::requires` wherever it is built, by a worker as by a Tunnel): a test
+/// TechPrerequisite, the Tunnel requiring a Hideout, refuses an Agent's Build order as it is given, until player 1
 /// owns a Hideout.
 #[test]
 fn a_workers_build_requires_its_buildings_prerequisite() {

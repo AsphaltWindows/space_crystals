@@ -13,7 +13,8 @@
 //!   (design change 0359);
 //! - `active`: active only inside its Tunnel's area (design change 0360): one outside its owner's areas stays down, and
 //!   an area that comes to cover it makes it active; its Tunnel lost, it drops, neutral and seen by everyone, never
-//!   fires and decays, until a new Tunnel takes it back, active again.
+//!   fires and decays, until a new Tunnel takes it back, active again; lost under an enemy, it shows at once, at its
+//!   underground armour, and stays down once clear (design change 0358's verification, its point 1 now 0360's).
 //!
 //! Every test runs under the invariants of `TestSim`: I2 among them (no ground box overlaps a blocked tile), which a
 //! turret rising under a unit would break in the tick it did.

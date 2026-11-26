@@ -340,9 +340,10 @@ impl Sim {
             },
             method: Method::Expansion { area },
         };
-        // (M4-S2) The owner's pending worker builds reserve their sites (design change 0125). Design change 0290 found
-        // "No ghost check is needed", since no Tunnel ghost lies inside another Tunnel's area; an Agent's Laser Turret
-        // ghost may (slice M4-S1), so the reservation applies here as to every other placement of the player's.
+        // (M4-S2) The owner's pending worker builds reserve their sites (design change 0125), here as in every other
+        // placement of the player's. Design change 0290 found "No ghost check is needed", since no Tunnel ghost lies
+        // inside another Tunnel's area, and an Agent builds nothing else since design change 0359 (slice M4-S1's
+        // Agent-built Laser Turret, whose ghost could, is gone): the one rule stays, for every placement.
         let reserved = self.reserved_sites(player, &[]);
         Some(match known {
             true => check_reserving(

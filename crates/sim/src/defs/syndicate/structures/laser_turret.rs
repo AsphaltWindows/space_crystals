@@ -189,6 +189,9 @@ mod tests {
         assert_eq!(per_second, 16.0, "16 damage per second");
         assert_eq!(structure.site, None, "only Tunnels build it");
         let agent = ObjectKind::Agent.def().unit.as_ref().unwrap().worker.unwrap();
-        assert!(!agent.builds.contains(&ObjectKind::LaserTurret), "Agents no longer build it");
+        assert!(
+            !agent.builds.contains(&ObjectKind::LaserTurret),
+            "Agents no longer build it"
+        );
     }
 }

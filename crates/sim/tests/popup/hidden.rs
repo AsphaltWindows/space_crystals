@@ -85,7 +85,11 @@ fn its_armour_is_the_underground_one_only_while_fully_lowered() {
     let (raised, underground) = (Armor { point: 1.0, full: 1.0 }, Armor { point: 6.0, full: 6.0 });
     let mut t = with_turret().start();
     for tick in 0..10 {
-        assert_eq!(object(&t, POPUP).armor(), underground, "tick {tick}: lowered from the start");
+        assert_eq!(
+            object(&t, POPUP).armor(),
+            underground,
+            "tick {tick}: lowered from the start"
+        );
         t.step();
     }
     next_debug(&mut t, spawn(GUARD, P2, east(4.0)));

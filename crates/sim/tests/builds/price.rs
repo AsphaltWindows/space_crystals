@@ -180,23 +180,9 @@ const CANDIDATES: [(i32, i32); 15] = [
     (26, 14),
 ];
 
-/// The tiles where [`the_books_balance_whatever_the_orders`]' Agents build a Laser Turret (slice M4-S1): five in the
-/// open, one in Tunnel 1's area, where it completes a pop-up (slice M4-S2), and two on the footprints of the
-/// [`CANDIDATES`] (14, 10) and (22, 18), refused or failing while a Tunnel or a turret stands in the other's way.
-const TURRET_CANDIDATES: [(i32, i32); 8] = [
-    (11, 16),
-    (19, 15),
-    (10, 4),
-    (34, 15),
-    (27, 22),
-    (6, 13),
-    (16, 12),
-    (24, 20),
-];
-
 /// The expansions Tunnel 1 builds in [`the_books_balance_whatever_the_orders`] (slices M4-F and M4-S2), each a kind and
 /// the top-left tile of its footprint, in its area clear of it and the Optics Lab: three Laser Turrets and three
-/// Hideouts, the last over the turret candidate (6, 13).
+/// Hideouts.
 const EXPANSIONS: [(ObjectKind, (i32, i32)); 6] = [
     (TURRET, (6, 6)),
     (TURRET, (9, 7)),
@@ -226,10 +212,10 @@ fn owned(sim: &Sim, player: PlayerId) -> u32 {
     u32::try_from(standing + ordered).expect("a few")
 }
 
-/// What player 1's `command`, which the gate takes, pays as it applies: (Space Crystals, Supplies). A Build pays its
-/// price once the Builds it replaces, its Agent's own, have gone (`Sim::give_order`; the gate refuses one with Shift to
-/// an Agent that has one): a Tunnel's the count of what player 1 has, its Agent's Builds of a Tunnel left out; a Laser
-/// Turret's 100 Space Crystals, whatever it replaces. An Expand pays its expansion's cost (design change 0254).
+/// What player 1's `command`, which the gate takes, pays as it applies: (Space Crystals, Supplies). A Build, of a
+/// Tunnel (an Agent builds nothing else, design change 0359), pays its price once the Builds it replaces, its Agent's
+/// own, have gone (`Sim::give_order`; the gate refuses one with Shift to an Agent that has one): the count of what
+/// player 1 has, its Agent's Builds of a Tunnel left out. An Expand pays its expansion's cost (design change 0254).
 fn pays(sim: &Sim, command: &Command) -> (u32, u32) {
     match command {
         Command::Order {
@@ -238,14 +224,10 @@ fn pays(sim: &Sim, command: &Command) -> (u32, u32) {
             ..
         } => {
             let price = sim.build_price(P1, *kind).expect("an Agent builds it");
-            match price.resource {
-                Resource::Crystals => (price.amount, 0),
-                Resource::Supplies => {
-                    let agent = sim.object(units[0]).expect("the Agent");
-                    let replaced = u32::try_from(tunnel_builds(agent)).expect("a few");
-                    (0, price.amount - replaced)
-                }
-            }
+            assert_eq!(price.resource, Resource::Supplies, "a Tunnel's price");
+            let agent = sim.object(units[0]).expect("the Agent");
+            let replaced = u32::try_from(tunnel_builds(agent)).expect("a few");
+            (0, price.amount - replaced)
         }
         Command::Tunnel {
             command: TunnelCommand::Expand { kind, .. },
@@ -263,10 +245,9 @@ fn total(n: u32) -> i64 {
 }
 
 /// A random command of player 1's for [`the_books_balance_whatever_the_orders`], or none when what it drew has nothing to
-/// go to: a Build of a Tunnel at one of the [`CANDIDATES`], or of a Laser Turret at one of the [`TURRET_CANDIDATES`], to
-/// one Agent, with Shift or without; a Stop; a Move, with Shift or without; Cancel Construction on a site, an Agent's
-/// or an expansion; an Eject from a Tunnel in operation; an Enter into Tunnel 1, with Shift or without; or one of the
-/// [`EXPANSIONS`] by Tunnel 1, or its X.
+/// go to: a Build of a Tunnel at one of the [`CANDIDATES`] to one Agent, with Shift or without; a Stop; a Move, with
+/// Shift or without; Cancel Construction on a site, an Agent's or an expansion; an Eject from a Tunnel in operation; an
+/// Enter into Tunnel 1, with Shift or without; or one of the [`EXPANSIONS`] by Tunnel 1, or its X.
 fn random_command(t: &TestSim, rng: &mut Rng) -> Option<Command> {
     let sim = t.sim();
     let mine = |o: &&Object| o.owner == Some(P1);
@@ -279,7 +260,7 @@ fn random_command(t: &TestSim, rng: &mut Rng) -> Option<Command> {
         .map(|o| o.id)
         .collect();
     let sites = sites(t);
-    let draw = rng.below(22);
+    let draw = rng.below(19);
     let shift = rng.below(2) == 1;
     let mut pick = |len: usize| (len > 0).then(|| rng.below(u32::try_from(len).expect("a few")) as usize);
     let agent = pick(agents.len()).map(|i| agents[i]);
@@ -297,16 +278,7 @@ fn random_command(t: &TestSim, rng: &mut Rng) -> Option<Command> {
         11..=12 => cancel(&[sites[pick(sites.len())?]]),
         13..=14 => eject(tunnels[pick(tunnels.len())?]),
         15 => order(&[agent?], OrderKind::Enter(T1), shift),
-        16..=18 => {
-            let (x, y) = TURRET_CANDIDATES[pick(TURRET_CANDIDATES.len())?];
-            let kind = OrderKind::Build {
-                kind: TURRET,
-                origin: at(x, y),
-                orientation,
-            };
-            order(&[agent?], kind, shift)
-        }
-        19..=20 => {
+        16..=17 => {
             let (kind, (x, y)) = EXPANSIONS[pick(EXPANSIONS.len())?];
             let origin = at(x, y);
             let command = TunnelCommand::Expand {
@@ -326,7 +298,7 @@ fn random_command(t: &TestSim, rng: &mut Rng) -> Option<Command> {
 /// [`the_books_balance_whatever_the_orders`]' map: 48 × 24, flat but for Water at (43, 15), in the area of the
 /// candidate (38, 10), which a Build there finds on arrival, until an Agent explored it; player 1's Tunnel 1 on tiles
 /// (4, 8) to (7, 11), four Agents of theirs, 2 to 5, south of it, and their Optics Lab (6) in its area, on tiles (2, 6)
-/// to (3, 7), which the Laser Turret requires.
+/// to (3, 7), which the Tunnel's Laser Turret requires.
 fn books_field() -> TestSim {
     let mut rows: Vec<String> = (0..24).map(|_| ".".repeat(48)).collect();
     rows[15].replace_range(43..44, "~");
@@ -350,10 +322,7 @@ struct Coverage {
     failed: u32,
     cancelled: u32,
     completed: u32,
-    /// A Laser Turret's Build orders that went before their sites started (cancelled or replaced), and its sites
-    /// cancelled; the expansions cancelled (slice M4-Z).
-    turret_refunded: u32,
-    turret_cancelled: u32,
+    /// The expansions cancelled (slice M4-Z), Hideouts and Laser Turrets.
     expansion_cancelled: u32,
 }
 
@@ -364,9 +333,9 @@ struct Coverage {
 /// ([`random_command`]), a random wait of up to 4 seconds after each: some the gate refuses (the price, a busy Agent,
 /// an area over another), which changes nothing; Agents complete Tunnels and are ejected again. After every tick the
 /// Supplies spent less those refunded equal the formula's total for what player 1 has, over the Tunnel it started with,
-/// and the price is the count of what it has. Among the commands, Laser Turrets that Agents build for Space Crystals
-/// and Tunnel 1's expansions (slice M4-Z), their orders replaced and their sites cancelled, refunded in Space Crystals
-/// (design changes 0297 points 4 and 5, and 0254): both of player 1's banks balance every tick, by
+/// and the price is the count of what it has. Among the commands, Tunnel 1's expansions, Hideouts and Laser Turrets
+/// (slices M4-Z and M4-S2), their sites cancelled and refunded in Space Crystals (design change 0254): both of player
+/// 1's banks balance every tick, by
 /// `testing::build_order::Books` and `testing::syndicate::SupplyBooks`, each with what the tick's command paid in its
 /// resource ([`pays`]).
 #[test]
@@ -430,11 +399,9 @@ fn the_books_balance_whatever_the_orders() {
         for (_, e) in t.events() {
             match e {
                 SimEvent::BuildRefunded { kind: TUNNEL, .. } => seen.refunded += 1,
-                SimEvent::BuildRefunded { kind: TURRET, .. } => seen.turret_refunded += 1,
                 SimEvent::SiteStarted { .. } => seen.started += 1,
                 SimEvent::BuildFailed { .. } => seen.failed += 1,
                 SimEvent::SiteCancelled { kind: TUNNEL, .. } => seen.cancelled += 1,
-                SimEvent::SiteCancelled { kind: TURRET, .. } => seen.turret_cancelled += 1,
                 SimEvent::ExpansionCancelled { .. } => seen.expansion_cancelled += 1,
                 SimEvent::SiteCompleted { .. } => seen.completed += 1,
                 _ => {}
@@ -450,8 +417,6 @@ fn the_books_balance_whatever_the_orders() {
         failed,
         cancelled,
         completed,
-        turret_refunded,
-        turret_cancelled,
         expansion_cancelled,
     } = seen;
     let all = [
@@ -463,8 +428,6 @@ fn the_books_balance_whatever_the_orders() {
         failed,
         cancelled,
         completed,
-        turret_refunded,
-        turret_cancelled,
         expansion_cancelled,
     ];
     assert!(

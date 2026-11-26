@@ -6,9 +6,8 @@
 //!   the [`BUILDER`]th, who then gathers Supplies, and the first Tunnel's Optics Lab); then two pop-up Laser Turrets in
 //!   the forward Tunnel's area ([`POPUPS`]) and a Chemical Plant in the first's ([`CHEMICAL_PLANT_SITE`]), the first
 //!   Tunnel's upgrade to Tier 2, and [`GUARDS`] Guards, [`GRENADIERS`] Grenadiers and [`RESERVES`] more Guards behind
-//!   their prerequisites.
-//! - **An upright Laser Turret**, which its [`TURRET_BUILDER`]th Agent builds at the front ([`UPRIGHT_SITE`], outside
-//!   every Tunnel Area) once the Optics Lab stands, and then goes back to the crystals.
+//!   their prerequisites. (Slice M4-S1's upright Laser Turret, which an Agent built at the front, outside every Tunnel
+//!   Area, went with design changes 0359 and 0360: only a Tunnel builds a turret, inside its area.)
 //! - **The front** is the foot of the plateau's west ramp, below the forward Tunnel. Its units go in and out by the
 //!   forward Tunnel while it is in operation, else by the first. The first [`GUARDS_OUT`] Guards out hold
 //!   [`GUARD_POST`]; one below half its MaxHP walks back in, heals in the network (`network::Held::regenerate`), and
@@ -24,10 +23,11 @@
 //! - `TestSim`'s invariants: the movement invariants, V1, K1, O1, and P1, "every projectile lands within its flight
 //!   time" (`testing::invariants`, the brief's acceptance);
 //! - the network's ([`check_network`]): no held unit on the map, nor named there, and every held unit idle; each
-//!   unit held at a site builds it (or waits inside its finished Laser Turret) and each site's builder is held there;
-//!   each eject queue holds its owner's units in the network; no two Tunnel Areas overlap (the reserved ones: an
-//!   upgrade's future area included); each owned expansion lies in one of its owner's Tunnel Areas, and only a neutral
-//!   expansion decays; each finished Laser Turret's pop-up state matches its form (`popup::in_area`);
+//!   unit held at a site builds it and each site's builder is held there; each eject queue holds its owner's units in
+//!   the network; no two Tunnel Areas overlap (the reserved ones: an upgrade's future area included); each owned
+//!   expansion, a Laser Turret among them, lies in one of its owner's Tunnel Areas, and only a neutral expansion decays;
+//!   every Laser Turret has its pop-up state, lowered while it isn't active (`Sim::is_active_turret`, design change
+//!   0360);
 //! - that nothing names a removed object (`testing::dangling_references`);
 //! - that the gate takes every command the players give, and that the books balance: both players' Space Crystals
 //!   (`testing::build_order::Books`; the GDO's only while no patch under its plates could run out in the step) and
@@ -37,15 +37,9 @@
 //!   another Agent mines, at an empty station, or for at most [`RECHECK_TICKS`];
 //!
 //! at the end, that the game went on all along with what it is meant to have in it (grenades at a target and at the
-//! ground, blasts, pop-ups rising and firing, an upright turret firing, units in and out of the network, deaths on
-//! either side); and over the whole game, that it is deterministic: a second run gives the same hash at every
-//! checkpoint, and the first run's replay gives its last hash.
-//!
-//! **The books and the Laser Turret's refunds.** `Books` counts no `SimEvent::BuildRefunded`, and `SupplyBooks`
-//! counts every one as Supplies, so neither follows an Agent's turret refunded in Space Crystals (nor its site's
-//! cancel, nor a cancelled expansion's refund in `Books`). The players never cancel, and the turret's Agent gets no
-//! other order before it is out, so a refund here would mean it died on its way: [`no_turret_refunds`] then says so
-//! rather than leave the books to fail.
+//! ground, blasts, pop-ups rising and firing, units in and out of the network, deaths on either side); and over the
+//! whole game, that it is deterministic: a second run gives the same hash at every checkpoint, and the first run's
+//! replay gives its last hash.
 //!
 //! Ignored: two games of 9 600 ticks.
 //! `cargo test -p sc_sim --release --test sim syndicate_soak -- --ignored --nocapture`.
@@ -56,9 +50,8 @@ use std::mem::{Discriminant, discriminant};
 use sc_sim::network::Place;
 use sc_sim::orders::state::GatherPhase;
 use sc_sim::orders::{ActiveOrder, Behaviour, OrderGroup};
-use sc_sim::popup::{self, PopUp};
+use sc_sim::popup::PopUp;
 use sc_sim::production::ProductionCommand;
-use sc_sim::scenario::BuildingOrientation;
 use sc_sim::testing::build_order::{Books, BuildOrder, Order};
 use sc_sim::testing::syndicate::skirmish::{
     self, AGENTS, BUILDER, GDO, GDO_STAGING, GUARDS, GUARDS_OUT, OPTICS_LAB_SITE, PATCH, STATION, SYNDICATE,
@@ -106,25 +99,13 @@ const POPUPS: [TilePos; 2] = [TilePos::new(24, 19), TilePos::new(23, 21)];
 /// The Chemical Plant's top-left tile, in the south-west corner of the first Tunnel's area ((4, 4) to (11, 11)), off
 /// the Agents' way to the field (north-west) and the Tunnel's doorway (south).
 const CHEMICAL_PLANT_SITE: TilePos = TilePos::new(4, 10);
-/// The upright turret's tile: south of the forward Tunnel's area, west of the Guards, on level ground where the
-/// Peacekeepers come off the ramp (ElevationModifier: it would see one grid unit less of them on the slope).
-const UPRIGHT_SITE: TilePos = TilePos::new(20, 23);
-/// The Agent that builds it, by its place among the player's (`Syndicate::agents`): the first one trained. Once out it
-/// goes back to the crystals, the fourth Agent on one crystal hatch, one more than saturate it (design change 0294).
-///
-/// **(M4-W3) Restored with design change 0323's contact step.** Until then the four gridlocked beside the hatch for
-/// good (slice M4-M; questions Q0109 and Q0111), at 6:53 with design change 0315 built, once the patches west of the
-/// hatch were gone and the Agents came from (3, 3), north-west of it; so this Agent gathered Supplies instead. With
-/// 0323 the first Tunnel never stops, with four, five or six Agents on crystals: 12.2 Space Crystals per second after
-/// the first minute and no stretch without a delivery after the walk to the first (`docs/playtest/m4.md`).
-const TURRET_BUILDER: usize = 1;
 /// Where the Guards stand: west of the ramp's foot (the golden game's hold its top, `skirmish::GUARD_POST`).
 const GUARD_POST: TilePos = TilePos::new(22, 22);
 /// The Guards that replace the fallen, trained after the Grenadiers, and kept in the network until needed.
 const RESERVES: usize = 6;
 /// The Grenadiers, behind the Chemical Plant.
 const GRENADIERS: usize = 8;
-/// Where they stand: beside the upright turret, west of the ramp's foot.
+/// Where they stand: west of the ramp's foot, east of the Guards.
 const GRENADIER_POST: TilePos = TilePos::new(23, 23);
 /// The Grenadiers shell the GDO unit nearest their post within this of it, space units: one step past their Range of
 /// 4 grid units.
@@ -145,10 +126,6 @@ struct Players {
     gdo: BuildOrder,
     /// Whether the Hideout's rally point was cleared for the Guards.
     cleared: bool,
-    /// The upright turret's Agent, once it has its Build order.
-    turret_builder: Option<ObjectId>,
-    /// What the soak's own commands paid, in Space Crystals, by tick: the upright turret.
-    paid: Vec<(Tick, u32)>,
     /// Whether player 2's Barracks has its rally point.
     rallied: bool,
     /// Player 2's Peacekeepers sent with a wave.
@@ -188,8 +165,6 @@ impl Players {
             syndicate,
             gdo,
             cleared: false,
-            turret_builder: None,
-            paid: Vec::new(),
             rallied: false,
             sent: BTreeSet::new(),
             last_wave: None,
@@ -199,11 +174,7 @@ impl Players {
     /// What `player`'s commands of the step to tick `tick` paid in Space Crystals.
     fn spent_in(&self, player: PlayerId, tick: Tick) -> u32 {
         if player == SYNDICATE {
-            let own: u32 = (self.paid.iter())
-                .filter(|&&(t, _)| t == tick)
-                .map(|&(_, paid)| paid)
-                .sum();
-            return self.syndicate.spent_in(tick) + own;
+            return self.syndicate.spent_in(tick);
         }
         (self.gdo.issued().iter())
             .filter(|i| i.tick == tick)
@@ -217,10 +188,6 @@ impl Players {
         let plays = |player| sim.outcome().is_none() && sim.player(player).is_some_and(|p| !p.is_defeated());
         let mut commands = self.syndicate.commands(sim);
         if plays(SYNDICATE) {
-            // What the line's commands leave in the bank for the soak's own.
-            let bank = sim.player(SYNDICATE).map_or(0, |p| p.crystals);
-            let budget = bank.saturating_sub(self.syndicate.spent_in(tick));
-            self.upright_turret(sim, tick, budget, &mut commands);
             // The Tunnel the front's units go in and out by: the forward one while it is in operation, else the first.
             let tunnels = || {
                 sim.objects()
@@ -236,50 +203,6 @@ impl Players {
             self.peacekeepers(sim, &mut commands);
         }
         commands
-    }
-
-    /// The upright turret (module docs): ordered once the player owns a finished Optics Lab and the budget covers its
-    /// price, and its Agent sent back to the crystals once it is out ([`TURRET_BUILDER`]).
-    fn upright_turret(&mut self, sim: &Sim, tick: Tick, budget: u32, commands: &mut Vec<PlayerCommand>) {
-        let command = |command| PlayerCommand {
-            player: SYNDICATE,
-            command,
-        };
-        if let Some(agent) = self.turret_builder {
-            let out = (sim.events().iter()).any(|e| matches!(*e, SimEvent::LeftSite { worker, .. } if worker == agent));
-            if out && sim.object(agent).is_some() {
-                commands.push(command(Command::Order {
-                    units: vec![agent],
-                    kind: OrderKind::Gather(PATCH),
-                    queue: false,
-                }));
-            }
-            return;
-        }
-        let lab = (sim.objects()).any(|o| o.owner == Some(SYNDICATE) && o.kind == OpticsLab && !o.is_site());
-        let Some(agent) = (self.syndicate.agents().get(TURRET_BUILDER).copied()).filter(|&a| sim.object(a).is_some())
-        else {
-            return;
-        };
-        let orientation = BuildingOrientation::default();
-        let price = sim
-            .build_price(SYNDICATE, LaserTurret)
-            .map_or(u32::MAX, |price| price.amount);
-        let valid = (sim.build_check(agent, LaserTurret, UPRIGHT_SITE, orientation, false))
-            .is_some_and(|check| check.is_valid());
-        if lab && price <= budget && valid {
-            commands.push(command(Command::Order {
-                units: vec![agent],
-                kind: OrderKind::Build {
-                    kind: LaserTurret,
-                    origin: UPRIGHT_SITE,
-                    orientation,
-                },
-                queue: false,
-            }));
-            self.paid.push((tick, price));
-            self.turret_builder = Some(agent);
-        }
     }
 
     /// Player 1's Guards (module docs): the Hideout's rally point cleared as the first is ordered, so that they stay
@@ -493,11 +416,10 @@ fn check_network(sim: &Sim) {
         if let Place::Site(site) = held.place {
             let o = (sim.object(site)).unwrap_or_else(|| panic!("tick {tick}: {unit:?} is held at {site:?}, gone"));
             assert_eq!(o.owner, held.object.owner, "tick {tick}: {unit:?} is held at {site:?}");
-            // A Laser Turret's Agent waits inside it once it is finished, until a spot beside it is clear.
-            let waiting = o.kind == LaserTurret && !o.is_site();
             let builder = o.construction.and_then(|c| c.builder.unit());
-            assert!(
-                waiting || builder == Some(unit),
+            assert_eq!(
+                builder,
+                Some(unit),
                 "tick {tick}: {unit:?} is held at {site:?}, which it doesn't build"
             );
         }
@@ -521,8 +443,7 @@ fn check_network(sim: &Sim) {
                 entry.unit
             );
         }
-        let structure = o.kind.def().structure.as_ref();
-        let expansion = structure.is_some_and(|s| s.underground && s.expansion.is_some());
+        let expansion = sc_sim::tunnel::is_expansion(o.kind);
         assert_eq!(
             o.decay.is_some(),
             expansion && o.owner.is_none(),
@@ -538,18 +459,12 @@ fn check_network(sim: &Sim) {
                 o.id
             );
         }
-        if o.kind == LaserTurret && !o.is_site() {
-            // A pop-up always has its state. An upright turret has none once it stands: one that lost its Tunnel while
-            // it wasn't up rises, and its state goes in the step after its rise ends (`popup::step`), so it is raised
-            // for that tick only, with no idle tick counted.
-            let form = popup::in_area(o, tunnels.iter().copied());
-            let ok = match o.popup {
-                None => !form,
-                Some(PopUp::Raised { idle }) => form || idle.elapsed == 0,
-                Some(_) => true,
-            };
-            let form = if form { "a pop-up" } else { "upright" };
-            assert!(ok, "tick {tick}: turret {:?} ({form}) is {:?}", o.id, o.popup);
+        if o.kind == LaserTurret {
+            // Every turret has its state from its first tick, and one that isn't active (a site, a neutral one) is
+            // down: an inactive turret is lowered at once (`sc_sim::popup`).
+            let active = sim.is_active_turret(o);
+            let ok = o.popup.is_some() && (active || o.popup == Some(PopUp::LOWERED));
+            assert!(ok, "tick {tick}: turret {:?} (active: {active}) is {:?}", o.id, o.popup);
         }
     }
     for (i, a) in tunnels.iter().enumerate() {
@@ -564,25 +479,6 @@ fn check_network(sim: &Sim) {
                 b.id
             );
         }
-    }
-}
-
-/// The shared books can't follow a Laser Turret's refund in Space Crystals (module docs): the soak stops with what
-/// happened rather than with books that don't balance.
-fn no_turret_refunds(sim: &Sim) {
-    for e in sim.events() {
-        let refund = matches!(
-            *e,
-            SimEvent::BuildRefunded { kind: LaserTurret, .. }
-                | SimEvent::SiteCancelled { kind: LaserTurret, .. }
-                | SimEvent::ExpansionCancelled { .. }
-        );
-        assert!(
-            !refund,
-            "tick {}: {e:?}, which the shared books don't count; the tick's events: {:?}",
-            sim.tick(),
-            sim.events()
-        );
     }
 }
 
@@ -761,8 +657,7 @@ impl Watch {
                 SimEvent::ProjectileLaunched { .. } => "grenades at a target",
                 SimEvent::Blast { .. } => "blasts",
                 SimEvent::Attacked { attacker, .. } => match sim.object(attacker) {
-                    Some(o) if o.kind == LaserTurret && o.popup.is_some() => "pop-up shots",
-                    Some(o) if o.kind == LaserTurret => "upright shots",
+                    Some(o) if o.kind == LaserTurret => "pop-up shots",
                     _ => continue,
                 },
                 SimEvent::EnteredNetwork { .. } => "entered the network",
@@ -861,7 +756,6 @@ fn play(more: usize) -> Run {
             t.at(tick, c.player, c.command);
         }
         t.step();
-        no_turret_refunds(t.sim());
         for (books, spent) in books {
             books.close(t.sim(), spent);
         }
@@ -919,7 +813,7 @@ fn ten_minutes_of_the_syndicate_against_the_gdo() {
         println!("  {name:<24} {ticks:>5} (#{} at tick {at})", id.0);
     }
 
-    // The game went on all along, with grenades, both turrets' forms and the network in it.
+    // The game went on all along, with grenades, the pop-up turrets and the network in it.
     assert!(sim.outcome().is_none(), "the game ended: {:?}", sim.outcome());
     let count = |what| w.counts.get(what).copied().unwrap_or(0);
     for what in [
@@ -928,7 +822,6 @@ fn ten_minutes_of_the_syndicate_against_the_gdo() {
         "blasts",
         "pop-up rises",
         "pop-up shots",
-        "upright shots",
         "entered the network",
         "left the network",
         "player 1's losses",

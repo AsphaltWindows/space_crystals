@@ -31,8 +31,8 @@ impl SupplyBooks {
     /// Closes the books after the step in which the player's commands paid `spent` Supplies, and returns the bank.
     /// Panics unless it changed by what the player's Agents delivered (their `SimEvent::ResourcesDelivered` of
     /// Supplies), less `spent`, plus the refunds in Supplies (`build_order::refund_in`): a Tunnel's Build and site
-    /// (`SimEvent::BuildRefunded` and `SimEvent::SiteCancelled`, design change 0233; a Laser Turret's are in Space
-    /// Crystals, slice M4-S1) and an upgrade's (`SimEvent::UpgradeCancelled`, design changes 0232 and 0284).
+    /// (`SimEvent::BuildRefunded` and `SimEvent::SiteCancelled`, design change 0233) and an upgrade's
+    /// (`SimEvent::UpgradeCancelled`, design changes 0232 and 0284).
     pub fn close(self, sim: &Sim, spent: u32) -> u32 {
         let delivered: u32 = (sim.events().iter())
             .filter_map(|e| match *e {

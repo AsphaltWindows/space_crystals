@@ -6,17 +6,16 @@
 //!   the defeat);
 //! - `price`: the price and its refunds (0233), and the books, a property test over random orders;
 //! - `rules`: where a Tunnel may stand: the overlap rule (0237), the Drillable area (0242), the hidden expansions
-//!   (0240), a unit on the site, and the lingering ghosts' reservations (design change 0289 point 2);
-//! - `turret`: the Laser Turret an Agent builds by the same flow (slice M4-S1,
-//!   `factions/syndicate/structures/laser_turret.md > Construction`): its prerequisite, its price in Space Crystals,
-//!   and its Agent coming out beside it.
+//!   (0240), a unit on the site, and the lingering ghosts' reservations (design change 0289 point 2).
+//!
+//! (An Agent builds Tunnels alone since design change 0359: slice M4-S1's Laser Turret by an Agent is gone, and with it
+//! this binary's `turret`. The Tunnel's turret is `tests/popup`'s.)
 //!
 //! Every test runs under the invariants of `TestSim`, and the sites' ([`check_sites`]) after each tick it steps.
 
 mod flow;
 mod price;
 mod rules;
-mod turret;
 
 use sc_sim::network::Place;
 use sc_sim::testing::{ScenarioBuilder, TestSim, dangling_references, referenced_ids};
@@ -232,11 +231,6 @@ fn check_sites(t: &TestSim) {
             let o = sim
                 .object(site)
                 .unwrap_or_else(|| panic!("unit {unit:?} is held at {site:?}, gone"));
-            // A Laser Turret's Agent waits inside it once it is finished, until a spot beside it is clear (slice
-            // M4-S1).
-            if o.kind == TURRET && !o.is_site() {
-                continue;
-            }
             let builder = o.construction.and_then(|c| c.builder.unit());
             assert_eq!(
                 builder,

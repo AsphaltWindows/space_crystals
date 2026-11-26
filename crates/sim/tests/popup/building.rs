@@ -207,7 +207,11 @@ fn four_popups_take_one_tunnel_space() {
     next_debug(&mut t, turret(9, 11));
     assert_eq!(tunnel_space(&t, P1), (0, 9), "the fifth: 39 cells");
     next_debug(&mut t, turret(12, 8));
-    assert_eq!(tunnel_space(&t, P1), (0, 9), "a turret outside the area costs no Tunnel Space");
+    assert_eq!(
+        tunnel_space(&t, P1),
+        (0, 9),
+        "a turret outside the area costs no Tunnel Space"
+    );
     assert!(!t.sim().is_active_turret(object(&t, newest(&t))));
 }
 

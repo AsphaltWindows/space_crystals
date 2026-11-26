@@ -68,8 +68,8 @@ fn the_expand_menu_follows_the_tech_tree() {
     assert_eq!(names[..9], table);
     assert_eq!(names[9..], ["Laser Turret"], "the tenth slot");
     assert_eq!(EXPAND_MENU[0], ExpandEntry::Kind(ObjectKind::Hideout));
-    // A type a Tunnel builds is listed by its kind. The Laser Turret is in the game from slice M4-S1, an Agent's; its
-    // slot waits for the Tunnel's build, slice M4-S2's.
+    // A type a Tunnel builds is listed by its kind: the Laser Turret's slot since slice M4-S2, a Tunnel's build (the
+    // only one since design change 0359).
     for entry in EXPAND_MENU {
         if let ExpandEntry::Planned(name) = entry {
             let built = (ObjectKind::ALL.iter()).find(|kind| {

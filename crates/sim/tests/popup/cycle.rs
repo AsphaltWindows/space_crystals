@@ -101,7 +101,11 @@ fn a_target_seen_while_it_retracts_waits_for_it_to_go_down_and_come_up_again() {
     t.run_until(retracting + 2);
     next_debug(&mut t, spawn(GUARD, P2, east(4.0)));
     let second = newest(&t);
-    assert_eq!(popup(&t, POPUP), Some(PopUp::Retracting(frames(3, 8))), "it goes on down");
+    assert_eq!(
+        popup(&t, POPUP),
+        Some(PopUp::Retracting(frames(3, 8))),
+        "it goes on down"
+    );
     next(&mut t, P2, order(second, OrderKind::Hold));
     t.run_until(retracting + 7);
     assert_eq!(popup(&t, POPUP), Some(PopUp::Retracting(frames(7, 8))));
@@ -120,7 +124,11 @@ fn a_target_seen_while_it_retracts_waits_for_it_to_go_down_and_come_up_again() {
     );
     assert!(blocked(&t), "its footprint blocks all along");
     t.run_until(rose + 12);
-    assert_eq!(shots(&t, POPUP), Vec::<Tick>::new(), "nothing at the first Guard either");
+    assert_eq!(
+        shots(&t, POPUP),
+        Vec::<Tick>::new(),
+        "nothing at the first Guard either"
+    );
     t.step();
     assert_eq!(shots(&t, POPUP), [rose + 13]);
 }

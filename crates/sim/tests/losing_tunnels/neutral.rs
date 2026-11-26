@@ -1,7 +1,8 @@
 //! A Tunnel destroyed leaves its expansions neutral (`factions/syndicate/tunnels.md > Losing Tunnels`): visible to
-//! everyone and remembered, decaying at 1% of their MaxHP a second (design change 0258 point 1), their work in progress
-//! lost and their queue refunded; the Syndicate is defeated with its last structure, and its network goes with it
-//! (design change 0258 point 5). An expansion it was building is destroyed with it, unrefunded (design change 0254).
+//! everyone and remembered, every kind of them from that tick, its Laser Turrets too (design change 0360), decaying at
+//! 1% of their MaxHP a second (design change 0258 point 1), their work in progress lost and their queue refunded; the
+//! Syndicate is defeated with its last structure, a turret no longer keeping it in the game, and its network goes with
+//! it (design change 0258 point 5). An expansion it was building is destroyed with it, unrefunded (design change 0254).
 
 use sc_sim::targets::TargetView;
 use sc_sim::tunnel::Operation;
@@ -203,4 +204,87 @@ fn a_hideout_under_construction_falls_with_its_tunnel_with_no_refund() {
     let cancelled = (t.events().iter()).any(|(_, e)| matches!(e, SimEvent::ExpansionCancelled { .. }));
     assert!(!cancelled);
     assert_eq!(owner(&t, H1), None, "the finished Hideout turns neutral");
+}
+
+/// Design change 0360 (`factions/syndicate/tunnels.md > Losing Tunnels`: "Neutral expansions are **no longer hidden**
+/// (visible to everyone, no detection needed). This holds for **every expansion building of the destroyed Tunnel**,
+/// its lowered pop-up turrets included, which become visible at once"): [`base`]'s Tunnel with one of each expansion
+/// kind of the game in its area (`sc_sim::tunnel::is_expansion`): the Hideout, an Optics Lab, a Chemical Plant and a
+/// Laser Turret, lowered; player 1's second Tunnel (3), far east, keeps it in the game. Player 2's two Guards see all
+/// their tiles, and none of them while player 1 owns them. In the tick the Tunnel falls every one of them is neutral,
+/// hidden from nobody, seen by both players and remembered by both, neutral: player 1 by the sight its lost Tunnel
+/// leaves over them in that tick.
+#[test]
+fn every_expansion_of_a_lost_tunnel_is_seen_by_every_player_at_once() {
+    let mut t = base()
+        .spawn(TUNNEL, Some(P1), tile(30, 8)) // 3
+        .spawn(ObjectKind::OpticsLab, Some(P1), tile(2, 6)) // 4
+        .spawn(ObjectKind::ChemicalPlant, Some(P1), tile(2, 12)) // 5
+        .spawn(ObjectKind::LaserTurret, Some(P1), tile(9, 12)) // 6
+        .spawn(GUARD, Some(P2), point(1, 9)) // 7
+        .spawn(GUARD, Some(P2), point(11, 10)) // 8
+        .start();
+    t.without_auto_targeting();
+    run_until(&mut t, sc_sim::tuning::vision::FOG_DELAY_TICKS + 1);
+    let expansions = [H1, id(4), id(5), id(6)];
+    let mut kinds: Vec<ObjectKind> = expansions.iter().map(|&e| object(&t, e).kind).collect();
+    kinds.sort();
+    let every: Vec<ObjectKind> = (ObjectKind::ALL.iter().copied())
+        .filter(|&kind| sc_sim::tunnel::is_expansion(kind))
+        .collect();
+    assert_eq!(kinds, every, "one of each expansion kind");
+    for &e in &expansions {
+        let o = object(&t, e);
+        let origin = o.placement.expect("placed").origin;
+        assert_eq!(
+            t.sim().visibility(P2, origin),
+            sc_sim::vision::VisibilityState::Visible,
+            "{:?}",
+            o.kind
+        );
+        assert!(t.sim().hidden_from(o, P2) && !t.sim().is_visible(P2, o), "{:?}", o.kind);
+    }
+    assert_eq!(object(&t, id(6)).popup, Some(sc_sim::popup::PopUp::LOWERED));
+
+    next(&mut t, P1, remove(T1));
+    assert!(!t.sim().player(P1).expect("in the game").is_defeated());
+    for &e in &expansions {
+        let o = object(&t, e);
+        assert_eq!(o.owner, None, "{:?}", o.kind);
+        for player in [P1, P2] {
+            assert!(!t.sim().hidden_from(o, player), "{:?}, from {player:?}", o.kind);
+            assert!(t.sim().is_visible(player, o), "{:?}, by {player:?}", o.kind);
+            let record = t.sim().vision().player(player).and_then(|v| v.record(e));
+            assert_eq!(
+                record.map(|r| (r.kind, r.owner)),
+                Some((o.kind, None)),
+                "{:?}, {player:?}'s record",
+                o.kind
+            );
+        }
+    }
+}
+
+/// Design change 0360 (`factions/syndicate/tunnels.md > Losing Tunnels`: "Since turrets and expansions go neutral with
+/// their Tunnel, **losing its last Tunnel defeats the Syndicate** unless it owns some other structure"): player 1's
+/// only structures are its Tunnel and a Laser Turret in its area, which kept it in the game before (slice M4-S1's
+/// upright turret). The Tunnel destroyed, the turret turns neutral with it, and player 1 is defeated in that tick:
+/// player 2 wins.
+#[test]
+fn a_turret_keeps_no_syndicate_player_in_the_game() {
+    let mut t = ScenarioBuilder::new(&flat(48, 24))
+        .faction(P1, Faction::Syndicate)
+        .faction(P2, Faction::Syndicate)
+        .spawn(TUNNEL, Some(P1), tile(4, 8)) // 1
+        .spawn(ObjectKind::LaserTurret, Some(P1), tile(9, 10)) // 2
+        .spawn(GUARD, Some(P2), point(30, 20)) // 3
+        .start();
+    step(&mut t);
+    assert!(t.sim().is_active_turret(object(&t, id(2))));
+    next(&mut t, P1, remove(T1));
+    let fell = t.sim().tick();
+    assert_eq!(owner(&t, id(2)), None, "the turret turns neutral");
+    assert!(t.sim().player(P1).expect("in the game").is_defeated());
+    assert!(events_of(&t, fell).contains(&SimEvent::PlayerDefeated { player: P1 }));
+    assert_eq!(t.sim().outcome().map(|o| o.winners.clone()), Some(vec![P2]));
 }
