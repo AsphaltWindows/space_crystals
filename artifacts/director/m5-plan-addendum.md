@@ -24,6 +24,12 @@
 >     - Shroud is on **R** (N4a and N4b).
 >     - The Sparrow's SeparationRadius of 32 su is now the design's (H1).
 >     - **N8:** a Tunnel repairs at its 480-frame rate at every Tier, and a vehicle's repair price is crystals only.
+> - **0329 and 0330** (answer Q0124, and points of Q0114 and Q0121):
+>   - **N8:** a repair ends at full HP, or when the bank is empty (replacing T83's wait at the step's top). Gliders
+>     aren't repaired, and Agents don't repair Tunnel expansions. Instead **N8 builds the expansions' regeneration:**
+>     1% of MaxHP a second while their Tunnel lives, in combat too.
+>   - **N1a:** on a MaxHP change, HP is capped at the new maximum, with no floor (replacing T73's floor at 1 HP).
+>   - **N6 and N7:** products come out at full HP, as T71 planned.
 > - **The waves (§C) stand,** but the playtest's timing is the user's call: the full Cults at the end of W12, or a
 >   first playtest of the infantry core at the end of W9 (§F), put to the user on 2026-11-25.
 
