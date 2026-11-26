@@ -64,6 +64,7 @@ pub(crate) static DISCIPLE: ObjectDef = ObjectDef {
             drain: 5.0,
             needs: 10.0,
         })],
+        separation_radius: None,
     }),
     structure: None,
     default_settings: None,

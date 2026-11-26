@@ -187,6 +187,15 @@ fn state_hash_covers_every_field() {
         ("sidestep", |s| {
             mover(s, 3).sidestep = Some(crate::mover::Sidestep::new(Vec2::X, 24.0, 4.0, 0, None));
         }),
+        // (M5-H1) A Glider's flight (`mover::flight`).
+        ("orbit", |s| mover(s, 3).orbit = Some(Vec2::new(64.0, 64.0))),
+        ("strafe", |s| mover(s, 3).strafe(192.0)),
+        ("strafe pass", |s| {
+            mover(s, 3).strafe = Some(crate::mover::Strafe {
+                range: 192.0,
+                pass: crate::mover::Pass::On,
+            });
+        }),
         ("attack none", |s| obj(s, 3).attack = None),
         ("attack target", |s| attack(s, 3).target = Some(ObjectId(1))),
         ("attack target none", |s| attack(s, 3).target = None),

@@ -12,6 +12,10 @@
 //! and sets its turret's LockedTarget where the design says to (its TurretCommandState is "Set by the base
 //! behavior"), which is what its attack sequence fires at; its turret looks after itself the rest of the time
 //! (`orders::turret`).
+//!
+//! (M5-H1) A Glider never stands in range: its [`close_in`] is a strafing run ([`strafe`]), and so every behaviour
+//! that closes in on a target (an Attack, an idle unit's engagement, an AttackMove's and a Patrol's fights) strafes
+//! it. Hold Position doesn't move a unit, and a Glider circles where it was put on Hold (`movement::glider`).
 
 use glam::Vec2;
 
@@ -53,10 +57,14 @@ pub(super) enum Closing {
 ///
 /// `chasing` says whether the unit's current move is this approach; while it is, the mover's status is its outcome.
 /// A move that failed, or ended as near as the unit gets to a target that hasn't moved since, gives the target up.
+/// (M5-H1) A Glider strafes the target instead ([`strafe`]).
 pub(super) fn close_in(unit: &mut Unit, chasing: &mut bool, target: &View, world: &World) -> Closing {
     let Some(attrs) = unit.attrs() else {
         return Closing::GaveUp;
     };
+    if unit.glides() {
+        return strafe(unit, attrs, chasing, target.id, target.elevation, world);
+    }
     if reaches(
         attrs,
         &unit.shape(),
@@ -88,6 +96,34 @@ pub(super) fn close_in(unit: &mut Unit, chasing: &mut bool, target: &View, world
             reach: 0.0,
         };
         unit.mover.go_to(goal, None, world.tick);
+        *chasing = true;
+    }
+    Closing::Approaching
+}
+
+/// (M5-H1) `> AttackingObject`, GliderMovement exception: "Gliders cannot stop. Instead of stopping when in range, the
+/// Glider performs strafing runs: 1. Fly toward TargetObject 2. When in range and turret arc: fire while passing
+/// through 3. Continue past the target 4. Loop around for another pass 5. Repeat until target is destroyed or a new
+/// command is issued". One tick of a Glider's [`close_in`] on the object `id`, which stands at `elevation`, attacking
+/// with `attrs`: its turret, if it has one, locks the target for the whole run, so that it turns toward it (and
+/// phase 5e fires while the target is within Range and the turret's arc, `combat::turret`), and its move is a
+/// strafing run at the target (`Mover::strafe`, `movement::glider`) out to its attack's Range: through the target, on
+/// until it is out of range, and back at full speed (`factions/cults/units/sparrow.md > Flight rules`). The run goes
+/// on, never stopping nor giving up, until the behaviour that runs it ends: `chasing` says whether the unit's current
+/// move is this run.
+fn strafe(
+    unit: &mut Unit,
+    attrs: &AttackAttrs,
+    chasing: &mut bool,
+    id: ObjectId,
+    elevation: Elevation,
+    world: &World,
+) -> Closing {
+    unit.lock(Some(id));
+    let goal = MoveGoal::Object { id, reach: 0.0 };
+    if !*chasing || unit.mover.goal != goal || unit.mover.strafe.is_none() {
+        unit.mover.go_to(goal, None, world.tick);
+        unit.mover.strafe(max_range(attrs, world.elevation(unit), elevation));
         *chasing = true;
     }
     Closing::Approaching
@@ -164,7 +200,9 @@ pub(super) fn attack(unit: &mut Unit, id: ObjectId, state: &mut AttackOrder, aut
         }
         return true;
     }
-    if let Some(attrs) = unit.attrs() {
+    // (M5-H1) A Glider can't back off: its passes carry it through and away. Placeholder (not in the design: a
+    // Glider's target inside its MinRange; the Sparrow has none).
+    if let Some(attrs) = unit.attrs().filter(|_| !unit.glides()) {
         let from = TooNear {
             target: Some(id),
             pos: target.pos,

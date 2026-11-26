@@ -9,10 +9,10 @@ use crate::math::PI;
 use crate::player::Faction;
 
 /// `factions/cults/units/sparrow.md`: "A **small glider** built at the Airstrip, with a **machine-gun-style** attack
-/// that hits **both air and ground**". Its numbers only (slice M5-G2, plan decision T69), its movement and its turret
-/// as data: nothing reads its gliding nor its turret's arc and rate yet (slice H1 flies gliders; its SeparationRadius
-/// and its flight rules come with it), and its production at the Airstrip comes with that building's slice, so no
-/// building makes it yet. Its numbers are the design's "Placeholder stats".
+/// that hits **both air and ground**". Its numbers (slice M5-G2, plan decision T69): (M5-H1) it flies by them
+/// (`movement::glider`, its flight rules in `orders`), keeps apart from other air units by its SeparationRadius
+/// (`movement::air`), and fires from its turret (slice M5-U1). Its production at the Airstrip comes with that
+/// building's slice, so no building makes it yet. Its numbers are the design's "Placeholder stats".
 pub(crate) static SPARROW: ObjectDef = ObjectDef {
     kind: ObjectKind::Sparrow,
     name: "Sparrow",
@@ -76,6 +76,8 @@ pub(crate) static SPARROW: ObjectDef = ObjectDef {
         augmentable: None,
         repairs: None,
         spells: &[],
+        // "SeparationRadius 32 space units (Q0120)" (design change 0328).
+        separation_radius: Some(32.0),
     }),
     structure: None,
     default_settings: None,
@@ -93,7 +95,7 @@ mod tests {
     /// A 40×40 Glider, in the air, MaxHP 50, no armour, SightRange 6, Groupable; GliderMovement from an idle 4 su a
     /// frame to 10, with a MaxCentripetalAcceleration of 0.5 (design change 0355); a turret of a 45° cone turning 8° a
     /// frame; a machine gun that can't miss, at air and ground, 3 damage up to 3 grid units, a shot every 4 frames;
-    /// Unit Control 1, the Recruit it is made of.
+    /// Unit Control 1, the Recruit it is made of; (M5-H1) a SeparationRadius of 32 su.
     #[test]
     fn the_sparrow_follows_the_design() {
         let def = ObjectKind::Sparrow.def();
@@ -135,6 +137,10 @@ mod tests {
         );
         assert_eq!(timings(&attack), ((1, 1, 1, 1), 4), "12 damage a second");
         assert_eq!((unit.rugged_terrain_defense_bonus, unit.worker), (None, None));
+        // (M5-H1) "SeparationRadius 32 space units (Q0120)": just over its half-diagonal of 28 su, so its circle
+        // holds its whole Silhouette ("Must be larger than the unit's Silhouette").
+        assert_eq!(unit.separation_radius, Some(32.0));
+        assert!(32.0 > (20.0f32 * 20.0 + 20.0 * 20.0).sqrt());
         assert_eq!(
             (
                 unit.unit_control_cost,

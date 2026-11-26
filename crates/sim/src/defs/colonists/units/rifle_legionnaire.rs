@@ -63,6 +63,7 @@ pub(crate) static RIFLE_LEGIONNAIRE: ObjectDef = ObjectDef {
         augmentable: None,
         repairs: None,
         spells: &[],
+        separation_radius: None,
     }),
     structure: None,
     default_settings: None,

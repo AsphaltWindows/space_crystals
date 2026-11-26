@@ -48,6 +48,9 @@ pub(crate) fn update(
         let weapon = combat::weapon_ref(o, world.research, &mut augmented);
         let increments = o.increments(world.research);
         let converting = conversion::is_converting(o);
+        // (M5-H1) Where it counts as being, as the snapshot has the others (`World::new`): a Glider past the map's edge
+        // at the nearest edge tile. Its flight reads its true position (`movement::glider`).
+        let pos = o.map_pos(world.map);
         let (Some(orders), Some(mover)) = (&mut o.orders, &mut o.mover) else {
             continue;
         };
@@ -55,7 +58,7 @@ pub(crate) fn update(
             id: o.id,
             owner: o.owner,
             kind: o.kind,
-            pos: o.pos,
+            pos,
             facing: o.facing,
             mover,
             weapon,
@@ -217,8 +220,10 @@ fn run(
     let order = &mut active.order;
     match (order.kind, &mut active.state) {
         // `systems/controls/command_behaviors.md > MovingToLocation`: complete when stopped at the target, or after
-        // failing to make progress (`systems/controls/command_behaviors.md > Failure`).
-        (OrderKind::Move(Target::Point(_)), _) => unit.mover.status != MoveStatus::Moving,
+        // failing to make progress (`systems/controls/command_behaviors.md > Failure`). (M5-H1) A Glider's never
+        // completes (GliderMovement exception: "Behavior does not complete — continues circling until a new command is
+        // issued"): from its arrival it circles the point (`movement::glider`), and orders queued behind it wait.
+        (OrderKind::Move(Target::Point(_)), _) => !unit.glides() && unit.mover.status != MoveStatus::Moving,
         // `systems/controls/command_behaviors.md > StoppingBehavior`: complete when stopped, at once with infinite
         // deceleration.
         (OrderKind::Stop, _) => true,

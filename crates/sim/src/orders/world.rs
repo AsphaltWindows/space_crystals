@@ -142,6 +142,13 @@ impl<'a> Unit<'a> {
         }
     }
 
+    /// (M5-H1) Whether it moves by GliderMovement (`systems/units.md > GliderMovement`, `movement::glider`): it can't
+    /// stop, and its behaviours fly it where another unit would stand (the GliderMovement exceptions of
+    /// `systems/controls/command_behaviors.md`).
+    pub fn glides(&self) -> bool {
+        self.unit_def().is_some_and(UnitDef::glides)
+    }
+
     /// (M5-U1) Its TurretAttributes, if it has a turret (`UnitDef::turret`, design change 0154): its attack comes
     /// from the turret (`combat::turret`).
     pub fn turret(&self) -> Option<TurretAttrs> {
@@ -232,8 +239,9 @@ impl<'a> World<'a> {
                 id: o.id,
                 kind: o.kind,
                 owner: o.owner,
-                pos: o.pos,
-                shape: Shape::of(o),
+                // (M5-H1) Where it counts as being: a Glider past the map's edge at the nearest edge tile.
+                pos: o.map_pos(map),
+                shape: Shape::on_map(o, map),
                 domain: object_domain(o),
                 elevation: Elevation::of_object(map, o),
                 destructible: o.hp.is_some(),

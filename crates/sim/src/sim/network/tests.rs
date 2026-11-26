@@ -33,7 +33,7 @@ fn validate(t: &TestSim, command: Command) -> Result<(), Reject> {
 }
 
 /// The Director's decision for slice M4-C, and the plan's acceptance: "An air test unit is refused at every tier,
-/// since M4 has no air doors." No air unit exists yet, so a Peacekeeper on a Hover Craft base stands in.
+/// since M4 has no air doors." The Syndicate has no air unit yet, so a Peacekeeper on a Hover Craft base stands in.
 #[test]
 fn an_air_unit_is_refused_at_every_tier() {
     let _flyer = TestDef::unit(ObjectKind::Peacekeeper, |unit| unit.base = UnitBase::HoverCraft);

@@ -18,6 +18,7 @@
 //! - `hash`: the state hash of the mover and its parts.
 
 mod aside;
+mod flight;
 mod hash;
 mod schedule;
 mod sidestep;
@@ -35,6 +36,7 @@ use crate::units::{Tick, TilePos};
 /// A tunable of `tuning::movement`, re-exported here for the client, whose tests read it by this path.
 pub use crate::tuning::movement::OCCUPIED_ARRIVAL_GU;
 pub use aside::StepAside;
+pub use flight::{Pass, Strafe};
 pub use sidestep::Sidestep;
 
 /// `docs/movement.md > 3`: at most this many `avoid_tiles` (a technical cap).
@@ -139,7 +141,8 @@ pub struct Mover {
     /// them.
     pub locomotion: Locomotion,
     pub orientation: Orientation,
-    /// This tick's displacement, space units per tick; zero when the unit stood still or arrived.
+    /// This tick's displacement, space units per tick; zero when the unit stood still or arrived. (M5-H1) Its own move's:
+    /// not the soft separation of air units that follows it (`movement::air`).
     pub velocity: Vec2,
     /// MaxSpeed is multiplied by this. The unit's modes set it when they change: 0.5 from the moment its Riot Shield
     /// starts going up until it is all the way down again (`riot_shield`, `factions/gdo/units/peacekeeper.md`).
@@ -225,6 +228,19 @@ pub struct Mover {
     /// path ends it ([`Mover::follow`], a detour of [`Mover::go_round`]), and so does a new leg or a stop. Left out of files and of the hash while `None` (`mover/hash.rs`).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub step_aside: Option<StepAside>,
+    /// (M5-H1) The point a Glider circles while it has no goal (`movement::glider`; `systems/units.md >
+    /// GliderMovement`: "When idle, the unit circles at a low speed in tight loops"): its goal's point once it arrived
+    /// (`systems/controls/command_behaviors.md > MovingToLocation`, GliderMovement exception: "Final step is Locomotion
+    /// = Moving(idle circle over TargetLocation)"), else the point of the map nearest to where it was when its goal
+    /// ended or it was stopped (`factions/cults/units/sparrow.md > Flight rules`: "Stop: it circles where it is"),
+    /// which the movement step notes in its next turn. A new leg and a stop clear it. Always `None` for the other
+    /// models. Left out of files and of the hash while `None` (`mover/hash.rs`).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub orbit: Option<Vec2>,
+    /// (M5-H1) A Glider's strafing run at its goal ([`Strafe`], [`Mover::strafe`]). A new leg and a stop end it. Left
+    /// out of files and of the hash while `None` (`mover/hash.rs`).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub strafe: Option<Strafe>,
 }
 
 fn is_zero(v: &Vec2) -> bool {
@@ -271,6 +287,8 @@ impl Default for Mover {
             detour_end: 0,
             presses_on: false,
             step_aside: None,
+            orbit: None,
+            strafe: None,
         }
     }
 }
@@ -294,6 +312,8 @@ impl Mover {
         self.avoid_until = tick;
         self.sidestep = None;
         self.presses_on = false;
+        self.orbit = None;
+        self.strafe = None;
     }
 
     /// Design change 0315: the leg that just began ([`Mover::go_to`]) never counts as arrived behind standing units
@@ -305,9 +325,12 @@ impl Mover {
     /// No goal: the unit stops where it is (instantly, with infinite deceleration) and stands still. `status`
     /// becomes `Idle`. A sidestep ends too: every order stops or sends the unit, and a unit with an order doesn't
     /// yield (design change 0023). A unit with [`Mover::momentum`] keeps it: from its next turn in phase 5d it
-    /// brakes to a stop (`movement::drag`), and only then is at rest.
+    /// brakes to a stop (`movement::drag`), and only then is at rest. (M5-H1) A Glider, which can't stop, circles
+    /// where it is from its next turn on (`movement::glider`): its [`Mover::orbit`] and its strafing run end.
     pub fn stop(&mut self) {
         self.sidestep = None;
+        self.orbit = None;
+        self.strafe = None;
         self.goal = MoveGoal::None;
         self.status = MoveStatus::Idle;
         self.clear_path();

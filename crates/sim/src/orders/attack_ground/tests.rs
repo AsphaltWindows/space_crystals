@@ -116,7 +116,9 @@ fn it_walks_into_range_and_keeps_shelling_until_stop() {
 
 /// `systems/controls/commands.md > AttackGround`: "Only available to units whose AttackType has CanTargetGround". The
 /// gate refuses the order for a Peacekeeper (FullyConnected) with `Reject::CannotTargetGround`, and nothing changes;
-/// a group with a thrower in it gives the order to the thrower alone. A point off the map is refused.
+/// a group with a thrower in it gives the order to the thrower alone. (M5-H1) A point off the map is taken onto it,
+/// to the nearest point of the nearest edge tile (plan decision T81, `Sim::check_order`); one that isn't finite is
+/// refused.
 #[test]
 fn it_is_refused_for_units_that_cant_target_the_ground() {
     let _grenadier = grenadier(GRENADE);
@@ -147,7 +149,17 @@ fn it_is_refused_for_units_that_cant_target_the_ground() {
     );
     assert_eq!(t.sim().validate(&order(&[THROWER, peacekeeper], at)), Ok(()));
     let off = Vec2::new(-10.0, 320.0);
-    assert_eq!(t.sim().validate(&order(&[THROWER], off)), Err(Reject::OffMap));
+    assert_eq!(t.sim().validate(&order(&[THROWER], off)), Ok(()));
+    assert_eq!(
+        t.sim().validate(&order(&[THROWER], Vec2::new(f32::NAN, 320.0))),
+        Err(Reject::OffMap)
+    );
+    let mut edge = twin(Some((vec![THROWER], off)));
+    edge.run(1);
+    assert_eq!(
+        current(&edge, THROWER),
+        Some(OrderKind::AttackGround(Vec2::new(0.0, 320.0)))
+    );
     let (mut refused, mut nothing) = (twin(Some((vec![peacekeeper], at))), twin(None));
     refused.run(5);
     nothing.run(5);

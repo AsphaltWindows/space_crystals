@@ -32,6 +32,8 @@ GDO's early game is bounded by two build queues that should not sit idle: the De
 **Second Extraction Facility.** Every Extraction Facility can place plates anywhere in the current build area, so a second one on the same base doubles plating speed. A second Extraction Facility costs ~275 Space Crystals' worth (200 plus about three-quarters of a Generator for its −15 power) and 20 seconds of Deployment Center time. Built around 1:00, it loses value on the 8-patch reference base, is marginal at ~9 patches, pays off from ~10 patches, and is close to standard on mains with 12 or more. This is intended: small mains reward one Extraction Facility, big mains reward two.
 
 ### Economy Targets (GDO vs Colonists)
+**Closed** (user, 2026-11-27; Q0146): automated economy testing is wrapped up ("so much of it has to do with build orders and optimizations and that would be more effectively tested by me"). These targets stay as **reference for playtests**; the Director measures nothing more against them.
+
 The Colonists are the apt one-base comparison for GDO (Cults must balance Recruits' other jobs; the Syndicate should have the lowest one-base saturation income and expand fast, gated by Supplies). Comparing one Extraction Facility against one Robo Portal on the same patches, the intended shape is:
 
 1. **Early on, the Colonists lead**: from the start to about 1:40 (restated 2026-11-25, Q0055/Q0072: the Colonists start slightly higher, ≈6.9 vs 6.7, so "grows faster up to 2 Drones per patch" no longer measures cleanly).

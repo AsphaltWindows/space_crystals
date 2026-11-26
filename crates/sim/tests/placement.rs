@@ -152,7 +152,8 @@ fn without_a_deployment_center_the_other_buildings_areas_still_count() {
 }
 
 /// Design change 0094: a ground unit of any player on a footprint tile makes that tile invalid; units are never
-/// pushed aside, so the placement waits until they move away. (Air units never block, but none exists yet.)
+/// pushed aside, so the placement waits until they move away. (Air units never block: `placement::check` counts
+/// ground units only.)
 #[test]
 fn ground_units_of_any_player_block_until_they_move_away() {
     let mut t = base().start();

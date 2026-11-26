@@ -35,9 +35,13 @@
 //! carries the same barrel on its body, turned to its turret's facing ([`TurretTrack`]). The map resources have shapes
 //! of their own ([`resources`]).
 //!
+//! (M5-H1) An air unit flies: its body is drawn raised, in the air layer, and its shadow on the ground under it, at
+//! its position even past the map's edge ([`flight`]).
+//!
 //! The fog of war hides the visuals of the objects the local player doesn't see (`crate::fog`); Explored tiles show
 //! the records of what it remembers instead, as visuals of their own ([`remembered`]).
 
+mod flight;
 mod load;
 mod look;
 mod remembered;
@@ -76,6 +80,7 @@ pub struct FacingTick(pub ObjectId);
 #[derive(Component, Copy, Clone, Debug, PartialEq, Eq)]
 pub struct RiotShieldVisual(pub ObjectId);
 
+pub use flight::{FLIGHT_LIFT_LEVELS, FlightShadow, body_height, flies, flight_lift};
 pub use load::{LoadMarker, carries};
 pub use look::{Look, UnitShape};
 pub use remembered::{RememberedVisual, RememberedVisuals};
@@ -177,6 +182,8 @@ pub struct ObjectVisualAssets {
     site_fill: Option<Handle<Mesh>>,
     /// A turret's barrel ([`turret`]).
     barrel: Option<Handle<Mesh>>,
+    /// (M5-H1) An air unit's shadow ([`flight`]).
+    shadows: BTreeMap<ObjectKind, Handle<Mesh>>,
 }
 
 /// The visual entity of each object.
@@ -200,7 +207,7 @@ impl Plugin for ObjectRenderPlugin {
             .add_systems(
                 Update,
                 (
-                    (place_object_visuals, units::upright_tags).chain(),
+                    (place_object_visuals, (units::upright_tags, flight::place_shadows)).chain(),
                     place_riot_shields,
                     load::place_load_markers,
                     site::place_site_progress,
@@ -222,10 +229,12 @@ pub fn object_height(map: &Map, pos: Vec2, placement: Option<&Placement>) -> f32
 
 /// The layer the visuals of objects of `kind` are drawn in: a unit's above every tile-based object's
 /// ([`DrawLayer::GroundUnits`]), so that a unit is never hidden under a structure, also while it crosses one's
-/// footprint (a unit walking out of a portal's energy doorway, slice M3-D2); structures and map resources y-sorted
-/// among themselves ([`DrawLayer::GroundObjects`]), a plate over the patch it covers (`structures`).
+/// footprint (a unit walking out of a portal's energy doorway, slice M3-D2), and (M5-H1) an air unit's above every
+/// ground unit's ([`DrawLayer::Air`], [`flight`]); structures and map resources y-sorted among themselves
+/// ([`DrawLayer::GroundObjects`]), a plate over the patch it covers (`structures`).
 pub fn draw_layer(kind: ObjectKind) -> DrawLayer {
     match kind.def().category {
+        Category::Unit if flies(kind) => DrawLayer::Air,
         Category::Unit => DrawLayer::GroundUnits,
         Category::Structure | Category::Resource => DrawLayer::GroundObjects,
     }

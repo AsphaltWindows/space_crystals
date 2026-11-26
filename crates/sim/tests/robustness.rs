@@ -9,8 +9,10 @@
 //! game then ends, the tick after it checks that the gate refuses every command and that they change nothing, and the
 //! stream goes on in a new game ([`fuzz_run`]; [`SEED`] says why).
 
+use sc_sim::defs::Domain;
 use sc_sim::testing::invariants::Invariants;
 use sc_sim::testing::{self, ScenarioBuilder};
+use sc_sim::tuning::air::SEPARATION_PUSH_SU;
 use sc_sim::{
     Ability, BuildingOrientation, Command, DebugCommand, ExitDoor, ObjectId, ObjectKind, OrderKind, PlayerCommand,
     PlayerId, Reject, Replay, Rng, Rotation, SU_PER_GU, Scenario, Sim, SimConfig, SimEvent, Spawn, SpawnAt,
@@ -163,9 +165,10 @@ fn random_command(rng: &mut Rng, sim: &Sim) -> PlayerCommand {
     }
     let command = match rng.below(3) {
         0 => {
-            // A unit half the time, so that the stream keeps units moving; else any kind, structures included.
+            // A unit half the time, so that the stream keeps units moving, (M5-H1) a Sparrow among them, so that its
+            // orders fly Gliders; else any kind, structures included.
             let kind = if rng.below(2) == 0 {
-                [ObjectKind::Peacekeeper, ObjectKind::Guard][rng.below(2) as usize]
+                [ObjectKind::Peacekeeper, ObjectKind::Guard, ObjectKind::Sparrow][rng.below(3) as usize]
             } else {
                 ObjectKind::ALL[rng.below(ObjectKind::ALL.len() as u32) as usize]
             };
@@ -215,10 +218,12 @@ fn random_command(rng: &mut Rng, sim: &Sim) -> PlayerCommand {
 }
 
 /// Every object stays where the sim's rules allow it. Units (`docs/movement.md > 8`): I2, a ground unit's box
-/// overlaps no blocked tile and stays inside the map; I3, no unit moves more than its top speed in a tick. (M5-M1) And
-/// the invariants of the game's rules hold, whatever the input (`Invariants::check_rules`: P1, O1, R1, and H1, B1 and
-/// A1, the HP, the banks and the Augmentations, and (M5-N4a) E1, the energy), `rules` having seen the tick before the
-/// step that applied `inputs`.
+/// overlaps no blocked tile and stays inside the map; I3, no unit moves more than its top speed in a tick, (M5-H1) an
+/// air unit that keeps apart from others more than that and the push of their soft separation (`SEPARATION_PUSH_SU`).
+/// A Glider may fly past the map's edge, and counts as being at the nearest edge tile (`Object::map_pos`): that is on
+/// the map. (M5-M1) And the invariants of the game's rules hold, whatever the input (`Invariants::check_rules`: P1, O1,
+/// R1, and H1, B1 and A1, the HP, the banks and the Augmentations, (M5-N4a) E1, the energy, and (M5-H1) G1, the
+/// Gliders' flight), `rules` having seen the tick before the step that applied `inputs`.
 /// Each message begins with what broke and the tick, so that [`seed_sweep`]'s list reads at a glance.
 fn check_invariants(sim: &Sim, inputs: &TickInputs, rules: &mut Invariants) {
     let (map, tick) = (sim.map(), sim.tick());
@@ -235,7 +240,7 @@ fn check_invariants(sim: &Sim, inputs: &TickInputs, rules: &mut Invariants) {
                 p.tiles().all(|t| map.in_bounds(t)),
                 "a footprint off the map in tick {tick}: {o:?}"
             ),
-            None => assert!(map.contains_point(o.pos), "off the map in tick {tick}: {o:?}"),
+            None => assert!(map.contains_point(o.map_pos(map)), "off the map in tick {tick}: {o:?}"),
         }
         let def = o.def();
         if let (Some(unit), Some(silhouette)) = (&def.unit, def.silhouette()) {
@@ -257,8 +262,12 @@ fn check_invariants(sim: &Sim, inputs: &TickInputs, rules: &mut Invariants) {
                 assert!(clear, "I2 in tick {tick}: {o:?}");
             }
             let moved = o.pos.distance(o.prev_pos);
+            let push = match (unit.base_def().domain, unit.separation_radius) {
+                (Domain::Air, Some(_)) => SEPARATION_PUSH_SU,
+                _ => 0.0,
+            };
             assert!(
-                moved <= o.max_speed(sim.research()) + 1e-3,
+                moved <= o.max_speed(sim.research()) + push + 1e-3,
                 "I3 in tick {tick}: {moved} su: {o:?}"
             );
             let mover = o.mover.as_ref().expect("units move");

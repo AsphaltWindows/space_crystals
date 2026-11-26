@@ -15,6 +15,8 @@
 mod agent_gathering;
 #[path = "agent_supplies/main.rs"]
 mod agent_supplies;
+#[path = "air/main.rs"]
+mod air;
 #[path = "altar/main.rs"]
 mod altar;
 #[path = "armory/main.rs"]

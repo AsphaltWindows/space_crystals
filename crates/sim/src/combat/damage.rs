@@ -267,7 +267,7 @@ impl Origins {
 /// cloud, single-target and area alike, is **absorbed and redistributed**", and "It affects every ground object under
 /// it ... **not air units**"; "Underground objects are affected (user, 2026-11-26; Q0113) ... protected like ground
 /// objects": a target that a Ground area attack hits (`area::hits_domain`), whose hits only an anti-ground attack makes,
-/// a Ground or a Universal one. No air unit is in the game yet: slice M5-H1 tests that its hits aren't absorbed.
+/// a Ground or a Universal one. (M5-H1) Hits on a Sparrow under a cloud land in full (`tests/air/shroud.rs`).
 /// `targets` is phase 5e's snapshot, where the hits found them. Returns the hits absorbed, in their order, whose
 /// attackers their targets' owners still learn of (`super::step`; design change 0386: "An absorbed hit ... counts as
 /// landing on the object it was aimed at").

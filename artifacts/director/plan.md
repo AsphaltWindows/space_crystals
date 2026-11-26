@@ -1900,6 +1900,7 @@ Approach: thin vertical slices the user can run and see, each verified by tests 
     - 0392's Extraction Facility half: Q: Place Plate, with progress.
     - 0395: Halls are groupable.
     - 0391: augmentations take 48 frames each, 96 for Both.
+    - 0400, folded in: right-click in menus does the normal right-click and keeps the menu open, and in targeting or placement it goes straight to DefaultState.
 - **Queued for the playtest:**
   - **M5-S6 Overlays and rally points** (Opus):
     - 0390 and 0394: door arrows on ghosts and on selected buildings.
@@ -2688,4 +2689,5 @@ Last triaged: 0282.
 | 0397 **Attack is always A, and goes to every selected unit**: attackers Attack or Attack Move, others Move (0398). "Common command" means the same command wherever its button sits | queued: **M5-S5** | Verification: Militants and a Prayer-mobile, A on ground: the Militants Attack Move and the Prayer-mobile moves with them |
 | 0398 **Worker panels**: Recruit Q Move, W Basic Construct, E Advanced Construct, A Attack, S Assist, D Repair, X Stop; Agent W Build Tunnel, A Attack; Field Engineer W Construct; Drone W Deploy. Units that can't attack treat Attack and Attack Move as Move | queued: **M5-S5** | Verification: Recruits W, E and A; Drones with Militants, A on ground: the Militants Attack Move and the Drones move |
 | 0399 **A shows whenever any selected group can attack**, whichever group is in focus, and is hidden only when no selected unit can attack (replaces 0398's hidden A) | queued: **M5-S5** | Verification: Drones and Militants with the Drones in focus show A; Drones alone don't |
+| 0400 **Right-click in multi-stage menus** does the selection's normal right-click and leaves the menu open (BuildMenu, ExpandMenu, EjectMenu, KindMenu, AugmentMenu). In AwaitingTarget and AwaitingPlacement it cancels straight to DefaultState, and a ready building stays ready. Escape and Z still go back one step | in progress (**M5-S5**, folded in as item 5) | Verification: Recruits in Basic Construct, right-click ground, they move and the menu stays; right-click in placement goes to DefaultState; Escape in placement goes back to the build menu |
 | 0014 GDO Airfield and aircraft | queued (Later: air) | |

@@ -14,7 +14,7 @@ use crate::combat::object_box;
 use crate::hash::{StateHash, StateHasher};
 use crate::ids::{ObjectId, PlayerId};
 use crate::object::Object;
-use crate::units::{SU_PER_GU, Tick, TilePos};
+use crate::units::{SU_PER_GU, Tick, TilePos, clamp_to_map};
 
 /// One tile per bit, row-major.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -179,10 +179,20 @@ impl PlayerVision {
     }
 
     /// How the player sees `object` ([`PlayerVision::object_box_state`] of the box its silhouette (a unit) or its
-    /// footprint (a structure or resource) makes, `combat::object_box`, and of whom it is hidden from now).
+    /// footprint (a structure or resource) makes, `combat::object_box`, and of whom it is hidden from now). (M5-H1)
+    /// The box is where the object counts as being ([`PlayerVision::map_box`]).
     pub fn object_state(&self, object: &Object) -> VisibilityState {
-        let (lo, hi) = object_box(object);
+        let (lo, hi) = self.map_box(object);
         self.object_box_state(object.id, lo, hi, Hiding::of(object))
+    }
+
+    /// (M5-H1) The box of `object` (`combat::object_box`) where it counts as being (`Object::map_pos`): a Glider past
+    /// the map's edge "stays visible [...] as if it were at the nearest edge tile" (`systems/units.md > Air
+    /// Collision`), its box moved with its centre to the point of the map nearest to it.
+    pub(super) fn map_box(&self, object: &Object) -> (Vec2, Vec2) {
+        let (lo, hi) = object_box(object);
+        let shift = clamp_to_map(object.pos, self.width, self.height) - object.pos;
+        (lo + shift, hi + shift)
     }
 
     /// How the player sees the object `id` whose box is `lo..hi` (space units, `combat::object_box`), hidden from the

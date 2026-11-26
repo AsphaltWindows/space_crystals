@@ -97,7 +97,7 @@ pub enum VisibilityState {
 struct Eye {
     /// Index of the owner in [`Vision`]'s players.
     player: usize,
-    /// The object's centre, space units.
+    /// The object's centre, space units, (M5-H1) where it counts as being (`Object::map_pos`).
     at: Vec2,
     /// Its type's SightRange, grid units; above 0.
     sight: f32,
@@ -203,7 +203,7 @@ impl Vision {
         }
         Some(Eye {
             player: self.players.iter().position(|p| p.id == owner)?,
-            at: o.pos,
+            at: o.map_pos(map),
             sight,
             elevation: Elevation::of_object(map, o),
         })

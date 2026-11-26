@@ -87,3 +87,13 @@ impl CornerPos {
         Vec2::new(self.x as f32 * SU_PER_GU, self.y as f32 * SU_PER_GU)
     }
 }
+
+/// (M5-H1) The point of a map of `width × height` tiles nearest to `p`: `p` itself on the map, else the nearest point
+/// of the nearest edge tile, a hair inside the map on its east and south edges, which belong to no tile (tile `(x, y)`
+/// covers `[x*64, (x+1)*64)`). What a Glider past the map's edge counts as for vision, targeting and the grids
+/// (`Object::map_pos`), and where the gate puts an order's point past the edge (plan decision T81). A NaN coordinate
+/// stays NaN.
+pub fn clamp_to_map(p: Vec2, width: u32, height: u32) -> Vec2 {
+    let end = |tiles: u32| (tiles as f32 * SU_PER_GU).next_down().max(0.0);
+    Vec2::new(p.x.clamp(0.0, end(width)), p.y.clamp(0.0, end(height)))
+}

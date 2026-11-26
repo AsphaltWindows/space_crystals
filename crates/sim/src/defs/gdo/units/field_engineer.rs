@@ -53,6 +53,7 @@ pub(crate) static FIELD_ENGINEER: ObjectDef = ObjectDef {
             targets: RepairTargets::OwnBuildingsAndVehicles,
         }),
         spells: &[],
+        separation_radius: None,
     }),
     structure: None,
     default_settings: None,

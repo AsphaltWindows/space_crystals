@@ -11,6 +11,7 @@ use super::checks::{chase_check, staggered_check};
 use super::knowledge::PathKnowledge;
 use crate::events::SimEvent;
 use crate::ids::{ObjectId, PlayerId};
+use crate::map::Map;
 use crate::mover::{MoveGoal, MoveStatus, PathState};
 use crate::nav::{self, PathFail, PathRequest};
 use crate::object::Object;
@@ -80,9 +81,15 @@ enum Direct {
 /// **Object goals** (`MoveGoal::Object`): the path is planned to the point nearest the object's centre that the
 /// unit can stand on (`nav::reachable_point`: right at the wall of a structure or map resource, which blocks its
 /// own tiles), and `Mover::planned_target` notes where the object was. [`chase_check`] keeps the path up to date
-/// as the object moves.
+/// as the object moves. (M5-H1) An object is where it counts as being on `map` (`Object::map_pos`): a Glider past the
+/// map's edge at the nearest edge tile.
+#[expect(
+    clippy::too_many_arguments,
+    reason = "phase 5c's state, in the parts of the sim it reads and writes"
+)]
 pub(crate) fn serve(
     state: &mut NavState,
+    map: &Map,
     objects: &mut BTreeMap<ObjectId, Object>,
     first_new: ObjectId,
     knowledge: &PathKnowledge,
@@ -104,7 +111,7 @@ pub(crate) fn serve(
             let MoveGoal::Object { id, .. } = mover.goal else {
                 return None;
             };
-            Some((o.id, objects.get(&id).filter(|_| staggered(o.id))?.pos))
+            Some((o.id, objects.get(&id).filter(|_| staggered(o.id))?.map_pos(map)))
         })
         .collect();
     for o in objects.range_mut(..first_new).map(|(_, o)| o) {
@@ -169,13 +176,14 @@ pub(crate) fn serve(
             MoveGoal::Point(p) => p,
             MoveGoal::Object { id, .. } => match objects.get(&id) {
                 Some(target) => {
-                    aimed_at.push((o.id, target.pos));
+                    let at = target.map_pos(map);
+                    aimed_at.push((o.id, at));
                     // The nearest point to it the unit can stand on: a structure's own tiles are blocked.
                     plan.and_then(|(_, grid)| {
                         let component = grid.component(grid.tile_of(start))?;
-                        nav::reachable_point(grid, component, silhouette / 2.0, target.pos)
+                        nav::reachable_point(grid, component, silhouette / 2.0, at)
                     })
-                    .unwrap_or(target.pos)
+                    .unwrap_or(at)
                 }
                 None => {
                     direct.push((o.id, Direct::TargetLost));

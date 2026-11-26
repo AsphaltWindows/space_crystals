@@ -4,9 +4,9 @@
 use bevy::prelude::*;
 
 use super::{
-    FacingTick, LoadMarker, Look, MeshKey, ObjectVisual, ObjectVisualAssets, ObjectVisuals, RiotShieldVisual,
-    SiteProgress, TurretBarrel, body_turns, drawn_kind, has_tick, load, object_height, object_transform, site,
-    structures, turret, units, visual_mesh,
+    FacingTick, FlightShadow, LoadMarker, Look, MeshKey, ObjectVisual, ObjectVisualAssets, ObjectVisuals,
+    RiotShieldVisual, SiteProgress, TurretBarrel, body_height, body_turns, drawn_kind, flies, flight, has_tick, load,
+    object_transform, site, structures, turret, units, visual_mesh,
 };
 use crate::coords::{facing_to_rotation, lerp_facing};
 use crate::kinds::object_label;
@@ -15,8 +15,9 @@ use crate::sim_driver::{RenderAlpha, SimRes};
 
 /// Spawns a visual for every object without one and despawns visuals whose object is gone, or is drawn otherwise
 /// now ([`MeshKey`]: its kind, owner, size or tint changed), which then get a new one, children included (tag, tick,
-/// Riot Shield, load marker, a finished turret's barrel; a pop-up turret's as it leaves the ground or is down again). A replaced sim (new generation) starts from scratch, because
-/// its ids may repeat the old ones.
+/// Riot Shield, load marker, a finished turret's barrel; a pop-up turret's as it leaves the ground or is down again;
+/// (M5-H1) an air unit's shadow, [`flight`]). A replaced sim (new generation) starts from scratch, because its ids may
+/// repeat the old ones.
 pub(super) fn sync_object_visuals(
     mut commands: Commands,
     sim: Res<SimRes>,
@@ -70,7 +71,7 @@ pub(super) fn sync_object_visuals(
             .entry(key)
             .or_insert_with(|| meshes.add(visual_mesh(key)))
             .clone();
-        let height = object_height(sim.map(), object.pos, object.placement.as_ref());
+        let height = body_height(sim.map(), drawn, object.pos, object.placement.as_ref());
         let facing = if body_turns(drawn) { object.facing } else { 0.0 };
         let body = if key.underground() { &blended } else { &material };
         let entity = commands
@@ -102,6 +103,21 @@ pub(super) fn sync_object_visuals(
         }
         if units::tagged(drawn) {
             commands.spawn((units::tag(object.id, drawn), ChildOf(entity)));
+        }
+        if flies(drawn) {
+            let shadow = assets
+                .shadows
+                .entry(drawn)
+                .or_insert_with(|| meshes.add(flight::shadow_mesh(drawn)))
+                .clone();
+            commands.spawn((
+                Name::new("Flight shadow"),
+                FlightShadow(object.id),
+                Mesh2d(shadow),
+                MeshMaterial2d(blended.clone()),
+                flight::shadow_transform(facing_to_rotation(facing)),
+                ChildOf(entity),
+            ));
         }
         // (M5-U1) A unit's turret too, turned to its own facing on its body's (`turret::TurretTrack`).
         let unit_turret = (sc_sim::combat::turret_facing(object)).filter(|_| turret::on_unit(drawn));
@@ -189,7 +205,7 @@ pub(super) fn place_object_visuals(
         let drawn = drawn_kind(object);
         let pos = object.prev_pos.lerp(object.pos, alpha.0);
         let facing = lerp_facing(object.prev_facing, object.facing, alpha.0);
-        let height = object_height(sim.map(), pos, object.placement.as_ref());
+        let height = body_height(sim.map(), drawn, pos, object.placement.as_ref());
         let facing = if body_turns(drawn) { facing } else { 0.0 };
         transform.set_if_neq(object_transform(drawn, pos, height, facing));
     }

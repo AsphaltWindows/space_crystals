@@ -1,9 +1,10 @@
-//! What the local player can select and where it is drawn (`ARCHITECTURE.md > Client architecture > Visuals`):
-//! picking by click and by box (`systems/controls/selection.md > MapClickSelection`, `> BoxSelection`) in
-//! view space, against each object's box as it is drawn this frame, lifted by its terrain height. The live objects
-//! the player sees count, and on Explored tiles the records shown in their place (`fog::Sight::remembered`). What a
-//! click may target takes in the records the player may not select too (design change 0139: remembered structures
-//! and objects "can be targeted [...] but are still not selectable", [`Selectables::target_at`]).
+//! What the local player can select and where it is drawn (`ARCHITECTURE.md > Client architecture > Visuals`): picking
+//! by click and by box (`systems/controls/selection.md > MapClickSelection`, `> BoxSelection`) in view space, against
+//! each object's box as it is drawn this frame, lifted by its terrain height ((M5-H1) and an air unit's by its flight,
+//! `crate::object_render::body_height`). The live objects the player sees count, and on Explored tiles the records
+//! shown in their place (`fog::Sight::remembered`). What a click may target takes in the records the player may not
+//! select too (design change 0139: remembered structures and objects "can be targeted [...] but are still not
+//! selectable", [`Selectables::target_at`]).
 
 use bevy::math::{Rect, Vec2};
 use sc_sim::vision::LastKnown;
@@ -12,7 +13,7 @@ use sc_sim::{Category, Map, Object, ObjectId, ObjectKind, Placement, PlayerId, S
 use super::GroupType;
 use crate::coords::drawn_at_height;
 use crate::fog::Sight;
-use crate::object_render::{draw_layer, object_height};
+use crate::object_render::{body_height, draw_layer, object_height};
 
 pub use crate::tuning::input::PICK_SLOP_SU;
 
@@ -94,7 +95,7 @@ impl Selectable {
             };
         }
         let half = object.def().half_extents().unwrap_or(Vec2::splat(SU_PER_GU / 4.0));
-        let drawn = drawn_at_height(pos, object_height(map, pos, None));
+        let drawn = drawn_at_height(pos, body_height(map, object.kind, pos, None));
         Self {
             id: object.id,
             kind: object.kind,
@@ -432,5 +433,32 @@ mod tests {
         ]);
         let visible = Rect::new(0.0, 0.0, 400.0, 300.0);
         assert_eq!(objects.own_units_on_screen(pk, visible), [ObjectId(1), ObjectId(2)]);
+    }
+
+    /// (M5-H1) An air unit is picked where its body is drawn, 48 su above its ground point
+    /// (`crate::object_render::flight_lift`), in front of a ground unit there, and not at its shadow; past the map's
+    /// edge too, where it flies (its own position, not the edge's).
+    #[test]
+    fn an_air_unit_is_picked_at_its_raised_body_past_the_edge_too() {
+        use sc_sim::SpawnAt;
+        use sc_sim::testing::ScenarioBuilder;
+
+        let me = PlayerId(1);
+        let scenario = ScenarioBuilder::new(&vec![".".repeat(10); 8].join("\n"))
+            .spawn(ObjectKind::Sparrow, Some(me), SpawnAt::Point(Vec2::new(200.0, 248.0)))
+            .spawn(ObjectKind::Militant, Some(me), SpawnAt::Point(Vec2::new(200.0, 200.0)))
+            .build();
+        let sim = Sim::new(&scenario);
+        let objects = Selectables::new(&sim, &Sight::new(&sim, me, true), 1.0);
+        assert_eq!(
+            objects.at(Vec2::new(200.0, 200.0)).map(|o| o.id),
+            Some(ObjectId(1)),
+            "its body"
+        );
+        assert_eq!(objects.at(Vec2::new(200.0, 248.0)), None, "its shadow");
+        let mut past = sim.objects().next().cloned().unwrap();
+        past.pos = Vec2::new(-40.0, 248.0);
+        let drawn = Selectable::of(&past, me, sim.map(), past.pos);
+        assert_eq!(drawn.drawn, Vec2::new(-40.0, 200.0));
     }
 }

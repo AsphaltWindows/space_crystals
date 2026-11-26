@@ -60,6 +60,7 @@ pub(crate) static PRAYER_MOBILE: ObjectDef = ObjectDef {
         augmentable: None,
         repairs: None,
         spells: &[],
+        separation_radius: None,
     }),
     structure: None,
     default_settings: None,

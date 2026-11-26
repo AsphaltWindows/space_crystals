@@ -107,9 +107,10 @@ pub(super) fn draw_effects(
     visibility.set_if_neq(Visibility::Inherited);
 }
 
-/// Where a shot leaves or reaches a unit standing at `ground`, in Bevy world space.
-fn muzzle(map: &Map, ground: Vec2) -> Vec2 {
-    view_to_world(drawn_at_height(ground, map.height_at(ground)) - Vec2::new(0.0, MUZZLE_LIFT))
+/// Where a shot leaves or reaches a unit standing at `ground`, in Bevy world space; (M5-H1) one in flight, `lift`
+/// levels above it (`Tracer::lift`).
+fn muzzle(map: &Map, ground: Vec2, lift: f32) -> Vec2 {
+    view_to_world(drawn_at_height(ground, map.height_at(ground) + lift) - Vec2::new(0.0, MUZZLE_LIFT))
 }
 
 /// A bright core inside a glow, both fading out, in the shot's style ([`ShotStyle`]: the glow in the shooter's colour,
@@ -117,7 +118,10 @@ fn muzzle(map: &Map, ground: Vec2) -> Vec2 {
 /// fractions of the way).
 fn tracer_line(mesh: &mut ColorMesh, map: &Map, tracer: &Tracer, span: (f32, f32), fade: f32, z: f32) {
     let fade = fade.clamp(0.0, 1.0);
-    let (muzzle_from, muzzle_to) = (muzzle(map, tracer.from), muzzle(map, tracer.to));
+    let (muzzle_from, muzzle_to) = (
+        muzzle(map, tracer.from, tracer.lift.0),
+        muzzle(map, tracer.to, tracer.lift.1),
+    );
     let (from, to) = (muzzle_from.lerp(muzzle_to, span.0), muzzle_from.lerp(muzzle_to, span.1));
     let (glow, core) = match ShotStyle::of(tracer.weapon) {
         // A grenade takes effect by its blast, never as a shot: drawn as a tracer, were it one.

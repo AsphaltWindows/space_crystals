@@ -15,8 +15,9 @@
 //! research invariant T1 (techs come only from completed research, each queued at one structure that offers it:
 //! `research`), (M5-N4b) the cloud invariant C1 (Shroud's clouds are the channels under way, each connected:
 //! `clouds`), (M5-N5) the buff invariant F1 (no unit holds two buffs of an ability, each ends within its ability's
-//! duration and only a kind the ability affects holds it, held units too: `buffs`), and an ASCII picture of the map
-//! with its units for readable failures.
+//! duration and only a kind the ability affects holds it, held units too: `buffs`), (M5-H1) the Glider invariant G1 (a
+//! Glider in flight never stops, keeps within its IdleSpeed and MaxSpeed, and counts as being on the map: `gliders`),
+//! and an ASCII picture of the map with its units for readable failures.
 //!
 //! [`super::TestSim`] checks them after every tick (on by default). A test that steps a bare [`Sim`] keeps its own
 //! [`Invariants`] and calls [`Invariants::check`] after each step, as the golden games do (slice M5-M1); the fuzz's
@@ -27,6 +28,7 @@ mod banks;
 mod buffs;
 mod clouds;
 mod energy;
+mod gliders;
 mod hit_points;
 mod operations;
 mod overlaps;
@@ -66,7 +68,7 @@ pub use picture::ascii;
 /// A broken invariant.
 #[derive(Clone, Debug, PartialEq)]
 pub struct Violation {
-    /// "I1" … "I7", "V1", "K1", "P1", "O1", "R1", "H1", "B1", "A1", "E1", "T1", "C1", "F1".
+    /// "I1" … "I7", "V1", "K1", "P1", "O1", "R1", "H1", "B1", "A1", "E1", "T1", "C1", "F1", "G1".
     pub invariant: &'static str,
     pub message: String,
     /// Where on the map to look.
@@ -161,9 +163,10 @@ impl Invariants {
     }
 
     /// (M5-M1) Of [`Invariants::check`]'s invariants, those of the game's rules alone: P1, O1, R1, H1, B1, A1, E1
-    /// (slice M5-N4a), T1 (slice M5-N3), C1 (slice M5-N4b) and F1 (slice M5-N5), which hold whatever the input and cost
-    /// little. Not the movement invariants, whose I6 bounds how far a scenario may fall behind, nor V1 and K1, which
-    /// rebuild every player's vision and planning grids and make most of a check's cost. For a harness of many games of random input:
+    /// (slice M5-N4a), T1 (slice M5-N3), C1 (slice M5-N4b), F1 (slice M5-N5) and G1 (slice M5-H1), which hold whatever
+    /// the input and cost little. Not the movement invariants, whose I6 bounds how far a scenario may fall behind, nor
+    /// V1 and K1, which rebuild every player's vision and planning grids and make most of a check's cost. For a harness
+    /// of many games of random input:
     /// `tests/robustness.rs`, whose seed sweep V1 and K1 would take from 5 s to 26 s.
     pub fn check_rules(&mut self, sim: &Sim, inputs: &TickInputs) -> Result<(), Violation> {
         let result = self.rules(sim, inputs);
@@ -182,6 +185,7 @@ impl Invariants {
             .and_then(|()| research::research(sim))
             .and_then(|()| clouds::clouds(sim))
             .and_then(|()| buffs::buffs(sim))
+            .and_then(|()| gliders::gliders(sim, &self.seen))
     }
 
     fn check_units(&self, sim: &Sim, teleported: &[ObjectId], evacuated: &[ObjectId]) -> Result<(), Violation> {
@@ -271,14 +275,16 @@ impl Invariants {
             // with momentum that is its model's maximum, where thrust and drag balance on open ground: a mode that
             // slows the unit only weakens its thrust, and the speed it has decays. (M5-N3) In a tick that changed the
             // research levels after the movement step, the larger of its MaxSpeeds before and after: it moved at the
-            // one before, and moves at the one after from the next tick (`Sim::complete_research`).
+            // one before, and moves at the one after from the next tick (`Sim::complete_research`). (M5-H1) An air unit
+            // that keeps apart from others may be pushed by at most `SEPARATION_PUSH_SU` on top (`gliders`).
             let drag = unit.movement.model() == MovementModel::Drag;
+            let glides = gliders::glides(o);
             let max_speed = o.max_speed(sim.research());
             let max_speed = match before {
                 Some(b) if levels_changed => b.max_speed.max(max_speed),
                 _ => max_speed,
             };
-            let step = max_speed * if drag { 1.0 } else { mover.speed_factor };
+            let step = max_speed * if drag { 1.0 } else { mover.speed_factor } + gliders::push_allowance(o);
             let moved = o.pos.distance(o.prev_pos);
             if moved > step * 1.0001 + 1e-3 {
                 return fail("I3", format!("moved {moved} su in one tick, more than its {step}"));
@@ -307,9 +313,10 @@ impl Invariants {
             let new_leg = mover.repaths_left == MAX_REPATHS && mover.last_repath == tick;
             let began = order_started || new_leg;
             // (M3-G) A DragMovement unit that still had momentum brakes to a stop, moving meanwhile
-            // (`movement::drag`, `docs/movement.md > 6.7`). No other model has momentum, ever.
+            // (`movement::drag`, `docs/movement.md > 6.7`). (M5-H1) A Glider's is its speed, and it never stops (G1).
+            // No other model has momentum, ever.
             let had_momentum = before.is_some_and(|b| b.momentum != Vec2::ZERO);
-            if mover.momentum != Vec2::ZERO && !drag {
+            if mover.momentum != Vec2::ZERO && !drag && !glides {
                 return fail(
                     "I5/I7",
                     format!("has momentum, which its movement model has none of: {mover:?}"),
@@ -321,6 +328,9 @@ impl Invariants {
             // (`may_overlap`'s exception 3).
             let separating = (overlapped.contains(&o.id) || evacuated.contains(&o.id))
                 && o.orders.as_ref().is_some_and(|orders| orders.is_idle());
+            // (M5-H1) A Glider flies whether or not it has a goal (G1), and an air unit near another may be pushed off
+            // it (`movement::air`).
+            let flying = glides || gliders::pushed(sim, o);
             if o.pos != o.prev_pos
                 && mover.goal == MoveGoal::None
                 && !had_goal
@@ -329,6 +339,7 @@ impl Invariants {
                 && !leaving
                 && !coasting
                 && !separating
+                && !flying
             {
                 return fail(
                     "I5/I7",
@@ -349,7 +360,12 @@ impl Invariants {
                 && (mover.velocity == mover.momentum || mover.momentum == Vec2::ZERO)
                 && before.is_some_and(|b| mover.velocity.length_squared() < b.momentum.length_squared());
             if mover.goal == MoveGoal::None
-                && ((mover.sidestep.is_none() && mover.exit.is_none() && !at_rest && !braking && !separating)
+                && ((mover.sidestep.is_none()
+                    && mover.exit.is_none()
+                    && !at_rest
+                    && !braking
+                    && !separating
+                    && !glides)
                     || mover.path_state != PathState::None)
             {
                 return fail("I7", format!("has no goal but isn't at rest: {mover:?}"));
@@ -437,6 +453,8 @@ fn floats_finite(o: &Object) -> bool {
             && m.planned_target.is_finite()
             && m.best_remaining.is_finite()
             && m.sidestep.is_none_or(|s| s.dir.is_finite() && s.left.is_finite())
+            && m.orbit.is_none_or(Vec2::is_finite)
+            && m.strafe.is_none_or(|s| s.range.is_finite())
             && m.path.iter().all(|p| p.is_finite())
     });
     let orders = o.orders.as_ref().is_none_or(|orders| {
