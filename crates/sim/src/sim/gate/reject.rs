@@ -212,6 +212,11 @@ pub enum Reject {
     /// (`core/tech_and_research.md > Tech Prerequisites > Research Prerequisites`: "A next level can only be queued
     /// once the previous level has **completed**").
     RequiresTech(Tech),
+    /// (M5-N4b) None of the units of a spell's order that cast it has the energy it needs to start
+    /// (`defs::SpellDef::needs`, `energy::has`): Shroud's "needs at least **10 energy** to start"
+    /// (`factions/cults/units/disciple.md > Placeholder stats > Shroud numbers`). The spells' one refusal for want of
+    /// energy (`crate::energy`).
+    NotEnoughEnergy,
 }
 
 impl fmt::Display for Reject {
@@ -286,6 +291,7 @@ impl fmt::Display for Reject {
             Reject::Researched(tech) => write!(f, "{} is researched already", tech.def().name),
             Reject::ResearchUnderWay(tech) => write!(f, "{} is being researched already", tech.def().name),
             Reject::RequiresTech(tech) => write!(f, "it requires {}", tech.def().name),
+            Reject::NotEnoughEnergy => write!(f, "none of the units has the energy the spell needs"),
         }
     }
 }

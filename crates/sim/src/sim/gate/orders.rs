@@ -5,6 +5,8 @@
 use super::Checked;
 use crate::command::Ability;
 use crate::construction::site::assists;
+use crate::defs::SpellDef;
+use crate::energy;
 use crate::ids::{ObjectId, PlayerId};
 use crate::object::Object;
 use crate::orders::{OrderKind, Target};
@@ -100,6 +102,9 @@ impl Sim {
             // (M5-N8) `factions/cults/units/recruit.md > Repair` (`crate::repair`): the units that can repair the object
             // take it, the others ignore it.
             OrderKind::Repair(target) => ordered = self.check_repair(player, ordered, target)?,
+            // (M5-N4b) `factions/cults/units/disciple.md > Spells > Shroud` (`orders::shroud`): the units whose type
+            // casts it, with the energy it needs to start, take it; the others ignore it.
+            OrderKind::Shroud => ordered = self.check_spell(ordered, |spell| matches!(spell, SpellDef::Shroud(_)))?,
         }
         Ok(Checked::Order {
             units: ordered,
@@ -143,6 +148,30 @@ impl Sim {
             return Err(Reject::CantRepair(target));
         }
         Ok(repairing)
+    }
+
+    /// (M5-N4b) The gate for a spell's order: the units of `units` whose type casts the spell (the one of their type's
+    /// `UnitDef::spells` that `is_spell` picks) take it, else [`Reject::LacksAbility`]; and of them only those with the
+    /// energy it needs to start (`defs::SpellDef::needs`, `energy::has`), else [`Reject::NotEnoughEnergy`]: Shroud's
+    /// "needs at least **10 energy** to start" (`factions/cults/units/disciple.md > Placeholder stats > Shroud
+    /// numbers`). The check of every spell, the Prayer-mobile's to come too (`factions/cults/units/prayer_mobile.md`).
+    fn check_spell(&self, units: Vec<ObjectId>, is_spell: impl Fn(&SpellDef) -> bool) -> Result<Vec<ObjectId>, Reject> {
+        let spell_of = |o: &Object| (o.def().unit.as_ref()).and_then(|unit| unit.spells.iter().find(|s| is_spell(s)));
+        let casters: Vec<(&Object, &SpellDef)> = (units.iter())
+            .filter_map(|id| self.objects.get(id))
+            .filter_map(|o| Some((o, spell_of(o)?)))
+            .collect();
+        if casters.is_empty() {
+            return Err(Reject::LacksAbility);
+        }
+        let ready: Vec<ObjectId> = (casters.into_iter())
+            .filter(|(o, spell)| energy::has(o, spell.needs()))
+            .map(|(o, _)| o.id)
+            .collect();
+        if ready.is_empty() {
+            return Err(Reject::NotEnoughEnergy);
+        }
+        Ok(ready)
     }
 
     /// [`Command::Ability`](crate::Command::Ability): the player's own units that have the ability. Ids that no

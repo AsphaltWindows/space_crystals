@@ -28,7 +28,9 @@
 //! - **A removal** ([`Audience::Removal`]): to whoever was shown the object where it went, but never to a player who
 //!   remembers it out of sight, whose record of it stays as last seen (`core/vision.md > Explored`).
 //! - **Everyone** ([`Audience::Everyone`]): a defeat, and the end of the game (`core/game_rules.md > End of Game`:
-//!   "Every player sees Victory or Defeat").
+//!   "Every player sees Victory or Defeat"); (M5-N4b) and a Shroud's release, which happens to a cloud every player
+//!   sees over their Visible tiles, and which the drawing keeps to them (`factions/cults/units/disciple.md > Spells >
+//!   Shroud`: "the cloud is shown to **every player**, over the tiles that are Visible to them").
 //!
 //! With the fog off (`fog::FogOfWar`), everything that happens on the map reaches every viewer whole, as if each tile
 //! were Visible; a player's own business stays theirs.
@@ -441,6 +443,13 @@ impl<'a> Arrival<'a> {
             | SimEvent::UpgradeCompleted { tunnel, .. }
             | SimEvent::UpgradeCancelled { tunnel, .. } => self.owner(tunnel),
             SimEvent::Blast { at, .. } => Audience::Seen(Sighting::at(at)),
+            // (M5-N4b) A Disciple's channel starting or ending happens to the Disciple. A release happens to the cloud,
+            // which every player sees over their Visible tiles (`factions/cults/units/disciple.md > Spells > Shroud`:
+            // "the cloud is shown to **every player**, over the tiles that are Visible to them, so its edge can be seen
+            // even when the Disciple can't"): to every player, whose drawing keeps it to those tiles, as the cloud's
+            // (`crate::shroud_view`).
+            SimEvent::ShroudStarted { disciple, .. } | SimEvent::ShroudEnded { disciple } => self.object(disciple),
+            SimEvent::ShroudReleased { .. } => Audience::Everyone,
         }
     }
 }

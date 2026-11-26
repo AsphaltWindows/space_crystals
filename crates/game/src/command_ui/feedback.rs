@@ -152,6 +152,10 @@ pub const IN_PROGRESS_TEXT: &str = "In progress";
 /// Research > Shared Rules` 4: "Once completed, it no longer appears in any research menu"), which the panel never
 /// shows. Placeholder wording.
 pub const RESEARCHED_TEXT: &str = "Already researched";
+/// (M5-N4b) The message of a spell pressed while none of its casters has the energy it needs (`Reject::NotEnoughEnergy`;
+/// `factions/cults/units/disciple.md > Placeholder stats > Shroud numbers`: "needs at least **10 energy** to start").
+/// Placeholder wording.
+pub const NOT_ENOUGH_ENERGY_TEXT: &str = "Not enough energy";
 /// The message of a Drop Off pressed while none of its workers carries a load (`Reject::NothingToDeliver`;
 /// `factions/syndicate/units/agent.md > Agent ObjectInterfaceState`: "greyed out when Agent is not carrying
 /// resources"). Placeholder wording.
@@ -340,6 +344,7 @@ pub fn reject_text(reject: Reject) -> &'static str {
         Reject::ResearchUnderWay(_) => IN_PROGRESS_TEXT,
         Reject::Researched(_) => RESEARCHED_TEXT,
         Reject::RequiresTech(tech) => requires_tech_text(tech),
+        Reject::NotEnoughEnergy => NOT_ENOUGH_ENERGY_TEXT,
         _ => CANNOT_DO_TEXT,
     }
 }

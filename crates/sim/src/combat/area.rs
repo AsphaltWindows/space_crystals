@@ -20,7 +20,7 @@
 use glam::Vec2;
 
 use super::damage::{Hit, directional_multiplier};
-use super::targeting::Targets;
+use super::targeting::{TargetView, Targets};
 use crate::defs::{Domain, TargetDomain};
 use crate::ids::ObjectId;
 use crate::math::{self, PI};
@@ -138,21 +138,46 @@ pub(super) fn strike(blast: &Blast, targets: &Targets, hits: &mut Vec<Hit>) {
         if inside <= 0.0 || total <= 0.0 {
             continue;
         }
-        let fraction = inside / total;
         let directional = if t.directional_armor {
             directional_multiplier(t.facing, blast.at - t.pos)
         } else {
             1.0
         };
-        hits.push(Hit {
-            attacker: blast.attacker,
-            target: t.id,
-            damage: blast.damage * (inside / circle),
-            pre_armor: t.pre_armor,
-            armor: t.full_armor * fraction,
+        hits.push(share(
+            blast.attacker,
+            t,
+            blast.damage,
+            inside,
+            total,
+            circle,
             directional,
-            minimum: MINIMUM_DAMAGE * fraction,
-        });
+        ));
+    }
+}
+
+/// `systems/combat.md > AoEDamage`: the hit on `t` of `attacker`'s area attack of `damage` over an area `area`, `inside`
+/// of which lies inside `t`'s shape, whose own area is `total` (`inside` > 0, `total` > 0): its damage share `damage ×
+/// inside / area`, its effective FullArmor `FullArmor × inside / total`, its minimum `MinimumDamage × inside / total`,
+/// and the DirectionalArmor multiplier `directional`. The one place these rules are written: [`strike`]'s, for a
+/// circle, and (M5-N4b) a Shroud's release, over its cloud (`crate::shroud`).
+pub(super) fn share(
+    attacker: ObjectId,
+    t: &TargetView,
+    damage: f32,
+    inside: f32,
+    total: f32,
+    area: f32,
+    directional: f32,
+) -> Hit {
+    let fraction = inside / total;
+    Hit {
+        attacker,
+        target: t.id,
+        damage: damage * (inside / area),
+        pre_armor: t.pre_armor,
+        armor: t.full_armor * fraction,
+        directional,
+        minimum: MINIMUM_DAMAGE * fraction,
     }
 }
 

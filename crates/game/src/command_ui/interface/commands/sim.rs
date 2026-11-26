@@ -6,11 +6,13 @@ use sc_sim::{Ability, ConstructionCommand, HoldCommand, ObjectKind, OrderKind, P
 use super::PanelCommand;
 
 impl PanelCommand {
-    /// The order of a unit command that needs no target.
+    /// The order of a unit command that needs no target: Hold Position's, Stop's, and (M5-N4b) a Disciple's Shroud,
+    /// channelled where it stands.
     pub fn immediate_order(self) -> Option<OrderKind> {
         match self {
             PanelCommand::HoldPosition => Some(OrderKind::Hold),
             PanelCommand::Stop => Some(OrderKind::Stop),
+            PanelCommand::Shroud => Some(OrderKind::Shroud),
             _ => None,
         }
     }

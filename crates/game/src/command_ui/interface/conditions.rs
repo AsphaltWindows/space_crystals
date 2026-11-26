@@ -74,6 +74,10 @@
 //! while the bank can't pay, with their price in the hint. Its releases of one Recruit of a kind count the staff of the
 //! kind and are greyed while there are none, as the gate would refuse them (`Reject::NoRecruit`: "it is greyed if
 //! there are none").
+//!
+//! (M5-N4b) A Disciple's R, Shroud (`factions/cults/units/disciple.md > Placeholder stats`), asks the gate for its
+//! Shroud order, unqueued, to the one Disciple of the ActiveGroup: it is greyed below 10 energy
+//! (`Reject::NotEnoughEnergy`: "needs at least **10 energy** to start").
 
 mod modes;
 
@@ -171,7 +175,7 @@ impl Conditions {
     /// building's Eject All asks for its `Command::Holding`, and its kind buttons count its free units. (M5-N3) A
     /// Temple's Research asks for its `Command::Production` of each technology the Temple offers, its key showing the
     /// answers ([`Conditions::key`]), priced at the technology's cost; its releases ask for their `Command::Holding` and
-    /// count its staff.
+    /// count its staff. (M5-N4b) A Disciple's Shroud asks for its `Command::Order`, unqueued.
     pub fn of(sim: &Sim, player: PlayerId, selection: &Selection) -> Self {
         let commands = selection
             .active()
@@ -249,6 +253,12 @@ impl Conditions {
                     }
                 } else if let PanelCommand::Build(kind) = command {
                     build_probe(objects, kind)
+                } else if command == PanelCommand::Shroud {
+                    Command::Order {
+                        units: objects,
+                        kind: OrderKind::Shroud,
+                        queue: false,
+                    }
                 } else {
                     Command::Ability {
                         units: objects,

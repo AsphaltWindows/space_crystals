@@ -17,5 +17,6 @@ pub mod paths;
 pub mod production;
 pub mod repair;
 pub mod shields;
+pub mod spells;
 pub mod tunnel;
 pub mod vision;

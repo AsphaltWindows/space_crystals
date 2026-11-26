@@ -65,6 +65,7 @@ pub(crate) static SABRE_LEGIONNAIRE: ObjectDef = ObjectDef {
         worker: None,
         augmentable: None,
         repairs: None,
+        spells: &[],
     }),
     structure: None,
     default_settings: None,

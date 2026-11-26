@@ -22,7 +22,8 @@
 //!   energy step: the tick after for a unit the economy trains, that tick for a unit trained as its building is
 //!   destroyed (the evacuation, in 5e's deaths or a debug removal), which ends it a tick's regeneration above its start.
 //! - **Spending** is the spells' (Shroud's drain, slice M5-N4b; the Shrine's casts, slice M5-N5), each from its own
-//!   order or command.
+//!   order or command, through [`spend`]: all of a cost or nothing, never below 0. What a spell needs to start, [`has`]
+//!   tells (`defs::SpellDef::needs`).
 
 use std::collections::BTreeMap;
 
@@ -80,6 +81,30 @@ pub(crate) fn after_change(energy: Option<u32>, kind: ObjectKind) -> Option<u32>
 /// What energy at `energy` comes to after a tick that adds `gain`, with a maximum of `max`: never above it.
 pub fn regenerate(energy: u32, gain: u32, max: u32) -> u32 {
     energy.saturating_add(gain).min(max)
+}
+
+/// (M5-N4b) Whether `o` has at least `points` of energy ([`enough`]): what a spell needs to start
+/// (`defs::SpellDef::needs`; the gate's `Reject::NotEnoughEnergy`). An object without an energy pool has none.
+pub fn has(o: &Object, points: f32) -> bool {
+    o.energy.is_some_and(|energy| enough(energy, points))
+}
+
+/// (M5-N4b) Whether `energy` (`Object::energy`'s units) is at least `points`: the one check of what a spell needs to
+/// start ([`has`]; Shroud's start, `orders::shroud`).
+pub fn enough(energy: u32, points: f32) -> bool {
+    energy >= units(points)
+}
+
+/// (M5-N4b) Spends `cost` of `energy` (`Object::energy`'s units), if it has that much, and says whether it did: a
+/// spell's spending, all of it or nothing (Shroud's drain, a tick's, `orders::shroud`). The one way energy goes down.
+pub fn spend(energy: &mut u32, cost: u32) -> bool {
+    match energy.checked_sub(cost) {
+        Some(left) => {
+            *energy = left;
+            true
+        }
+        None => false,
+    }
 }
 
 /// How many units each building holds (`Place::Building`), whether reserved for an order, on their way out or not.

@@ -1,4 +1,4 @@
-//! Golden hashes (`ARCHITECTURE.md > Replays and golden hashes`): sixteen small games, defined below and in
+//! Golden hashes (`ARCHITECTURE.md > Replays and golden hashes`): seventeen small games, defined below and in
 //! `colonists.rs`, `syndicate.rs`, `cults.rs` and the others and recorded as replays in `tests/golden/`, each with the
 //! state hash at tick 0, every 32 ticks and at its end (`harness.rs`). A run must give the blessed hashes: a change
 //! that alters how any of these games plays out fails here, at the first checkpoint that differs. (M5-M1) Each game is
@@ -15,8 +15,9 @@
 //! group move through a choke, a patrol and a chase into the fog), `gdo.rs` (the GDO opening on `dev_skirmish`),
 //! `colonists.rs` (the Colonists' two), `syndicate.rs` (the Syndicate's two), `cults.rs` (the Cults' two),
 //! `garrison.rs` (a Garrison's four against Agents and Grenadiers), `altar.rs` (three Militants augmented at an Altar,
-//! against Agents), `temple.rs` (a Temple's research completing while Militants fight Agents) and below (the Riot
-//! Shield game), and every test is below.
+//! against Agents), `temple.rs` (a Temple's research completing while Militants fight Agents), `shroud.rs` (three
+//! Disciples' clouds over Militants under fire, joining and splitting) and below (the Riot Shield game), and every
+//! test is below.
 
 mod altar;
 mod colonists;
@@ -24,6 +25,7 @@ mod cults;
 mod garrison;
 mod gdo;
 mod harness;
+mod shroud;
 mod syndicate;
 mod temple;
 mod units;
@@ -220,4 +222,9 @@ fn golden_cults_altar() {
 #[test]
 fn golden_cults_temple() {
     golden("cults_temple", temple::cults_temple);
+}
+
+#[test]
+fn golden_cults_shroud() {
+    golden("cults_shroud", shroud::cults_shroud);
 }

@@ -26,7 +26,7 @@
 
 use glam::Vec2;
 
-use super::damage::Hit;
+use super::damage::{Hit, Origins};
 use super::projectiles::Projectile;
 use super::targeting::{TargetView, Targets, domain_allows, reaches, reaches_point};
 use super::turret::{self, Source, TurretState};
@@ -49,18 +49,22 @@ mod effects;
 use effects::{fire, launch, strike};
 
 /// What one tick of attack sequences puts out (`super::step`): the hits of single-target attacks, for the tick's list,
-/// and the projectiles launched, for the store (plan decision T48).
+/// and the projectiles launched, for the store (plan decision T48); (M5-N4b) where each attack with hits leaves from,
+/// while there is a cloud (`super::damage::Origins`).
 pub(super) struct Volley {
     pub tick: Tick,
     pub hits: Vec<Hit>,
+    pub origins: Origins,
     pub launched: Vec<Projectile>,
 }
 
 impl Volley {
-    pub(super) fn new(tick: Tick) -> Self {
+    /// `origins`: whether to keep where the attacks leave from (`super::damage::Origins::new`).
+    pub(super) fn new(tick: Tick, origins: bool) -> Self {
         Self {
             tick,
             hits: Vec::new(),
+            origins: Origins::new(origins),
             launched: Vec::new(),
         }
     }
@@ -399,13 +403,17 @@ fn end(
         AttackPhase::AimingAt { at } => Some(AttackPhase::FiringAt { at, target: None }),
         AttackPhase::Firing { target } => {
             if let Some(t) = target.and_then(|id| targets.get(id)) {
+                volley.origins.mark(volley.hits.len(), shooter.muzzle(t.pos));
                 fire(shooter, t, &mut volley.hits, events);
             }
             Some(AttackPhase::Cooldown)
         }
         AttackPhase::FiringAt { at, target } => {
             match shooter.attrs.attack_type {
-                AttackType::TailDisjointed => strike(shooter, at, target, targets, &mut volley.hits, events),
+                AttackType::TailDisjointed => {
+                    volley.origins.mark(volley.hits.len(), shooter.muzzle(at));
+                    strike(shooter, at, target, targets, &mut volley.hits, events);
+                }
                 _ => launch(shooter, at, target, volley, events),
             }
             Some(AttackPhase::Cooldown)

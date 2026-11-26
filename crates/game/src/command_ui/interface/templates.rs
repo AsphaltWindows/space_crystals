@@ -159,7 +159,8 @@ pub struct PanelTemplate {
     /// The units of a producing structure's panel that aren't in the game yet ([`Planned`]), each with its slot
     /// (`CommandSlot::all` order), which [`production_grid`] adds to its recipes: a portal's (design change 0124); and
     /// the commands of a combat unit's panel that aren't in the game yet, which the BasicCombatUnit grid adds to its
-    /// own ([`basic_combat_unit_grid`]): the Disciple's Shroud in R (slice M5-N4a, [`cults::disciple`]).
+    /// own ([`basic_combat_unit_grid`]): none now, the Disciple's Shroud having held R from slice M5-N4a until slice
+    /// M5-N4b brought it ([`SHROUD_SLOT`]).
     pub planned: &'static [(usize, Planned)],
     /// (M5-N9) The units of a producing structure's panel that the design puts in a slot of their own, each with its
     /// slot (`CommandSlot::all` order), where [`production_grid`] puts their Train, the others going in order into the
@@ -213,6 +214,11 @@ const ATTACK_SLOT: usize = 4;
 /// R: Convert to Rifle Legionnaire", and the Rifle Legionnaire's "R: Convert to Sabre Legionnaire".
 const CONVERT_SLOT: usize = 3;
 
+/// (M5-N4b) `factions/cults/units/disciple.md > Placeholder stats`: "ObjectInterfaceState:
+/// BasicCombatUnitInterfaceState, plus **R: Shroud**" ("Q0112: R, as the other units that add an ability to the combat
+/// panel; Q stays Move").
+const SHROUD_SLOT: usize = 3;
+
 impl InterfaceTemplate {
     /// The template of `kind`'s ObjectInterfaceState, its module's (`crate::kinds`); none for types without commands:
     /// the map resources, and the structures that have none (the Generator, the Extraction Plate). The Legionnaires'
@@ -249,8 +255,7 @@ impl InterfaceTemplate {
 }
 
 /// A `kind` unit's BasicCombatUnit DefaultState ([`BASIC_COMBAT_UNIT_GRID`]), with its commands not in the game yet in
-/// their slots ([`PanelTemplate::planned`]): the Disciple's Shroud in R (slice M5-N4a, [`cults::disciple`]: "**R:
-/// Shroud**", slice M5-N4b's spell).
+/// their slots ([`PanelTemplate::planned`]), none now (the Disciple's Shroud held R in slice M5-N4a).
 fn basic_combat_unit_grid(kind: ObjectKind) -> [Option<PanelCommand>; 12] {
     let mut grid = BASIC_COMBAT_UNIT_GRID;
     for &(slot, planned) in kinds::of(kind).template.planned {
@@ -268,7 +273,8 @@ pub use sc_sim::combat::can_target_ground;
 /// (`factions/gdo/units/peacekeeper.md > Riot Shield > Two unit types`, design change 0173: "The Peacekeeper's
 /// panel shows **Raise Shield**; Peacekeeper (Shielded)'s shows **Lower Shield**": [`PanelCommand::RaiseShield`] or
 /// [`PanelCommand::LowerShield`]); a unit with another form, a Legionnaire, the Convert to that form in R
-/// ([`PanelCommand::Convert`]: "R: Convert to Rifle Legionnaire" on the Sabre's panel). These
+/// ([`PanelCommand::Convert`]: "R: Convert to Rifle Legionnaire" on the Sabre's panel); (M5-N4b) a unit that casts
+/// Shroud, the Disciple, the spell in R ([`PanelCommand::Shroud`], `sc_sim::defs::UnitDef::shroud`). These
 /// are the commands the type offers ([`offers`]); its panel may show fewer (the Peacekeeper (Shielded)'s no Attack:
 /// [`hides_attack`]), and a constructor's follows its state ([`state_grid`]).
 pub fn grid(kind: ObjectKind) -> [Option<PanelCommand>; 12] {
@@ -284,6 +290,9 @@ pub fn grid(kind: ObjectKind) -> [Option<PanelCommand>; 12] {
     }
     if let Some(other) = conversion::converts_to(kind) {
         grid[CONVERT_SLOT] = Some(PanelCommand::Convert(other));
+    }
+    if kind.def().unit.as_ref().and_then(|unit| unit.shroud()).is_some() {
+        grid[SHROUD_SLOT] = Some(PanelCommand::Shroud);
     }
     grid
 }

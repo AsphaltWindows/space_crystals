@@ -92,7 +92,7 @@ fn hit_ticks(attrs: &AttackAttrs, bearing: f32, turn_rate: f32, ticks: u32) -> (
     let mut facing = 0.0;
     let mut landed = Vec::new();
     for tick in 1..=ticks {
-        let mut volley = Volley::new(tick);
+        let mut volley = Volley::new(tick, false);
         run(
             &mut state,
             &mut facing,
@@ -155,7 +155,7 @@ fn aiming_turns_only_by_what_the_move_left_of_the_turn_rate() {
         let (mut facing, mut facings, mut landed) = (0.0, Vec::new(), None);
         for tick in 1..=8 {
             shooter.turn_left = if tick == 1 { 0.5 - spent_by_the_move } else { 0.5 };
-            let mut volley = Volley::new(tick);
+            let mut volley = Volley::new(tick, false);
             run(
                 &mut state,
                 &mut facing,
@@ -189,7 +189,7 @@ fn only_targets_the_owner_sees_are_attacked() {
     let ownerless = Shooter::new(&map, &me(None), &attrs, None, 0.0);
     let mut state = AttackState::default();
     state.engage(Some(FOE));
-    let (mut facing, mut volley) = (0.0, Volley::new(0));
+    let (mut facing, mut volley) = (0.0, Volley::new(0, false));
     for shooter in [&doesnt, &ownerless, &doesnt] {
         run(&mut state, &mut facing, shooter, &targets, &mut volley, &mut Vec::new());
         assert_eq!(state.phase, None, "no sequence starts");

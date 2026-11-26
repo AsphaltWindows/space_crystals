@@ -115,6 +115,7 @@ pub(crate) static RECRUIT: ObjectDef = ObjectDef {
         repairs: Some(RepairDef {
             targets: RepairTargets::OwnBuildingsAndVehicles,
         }),
+        spells: &[],
     }),
     structure: None,
     default_settings: None,

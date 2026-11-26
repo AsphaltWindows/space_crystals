@@ -95,6 +95,8 @@ pub(crate) struct Unit<'a> {
     pub converting: bool,
     /// A worker's load, patch and drop-off (`economy::gathering`).
     pub worker: Option<&'a mut Worker>,
+    /// (M5-N4b) Its energy pool (`Object::energy`), which a channel drains (`super::shroud`).
+    pub energy: Option<&'a mut u32>,
 }
 
 impl<'a> Unit<'a> {

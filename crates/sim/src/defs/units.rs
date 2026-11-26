@@ -14,7 +14,7 @@ pub use bases::{ContactStep, Domain, MovementModel, UnitBase, UnitBaseDef};
 
 use serde::{Deserialize, Serialize};
 
-use super::{ObjectKind, Recipe};
+use super::{ObjectKind, Recipe, ShroudDef, SpellDef};
 use crate::units::SU_PER_GU;
 
 /// `systems/units.md > Unit > UnitBaseAttributes[UnitBase]`: a unit type's movement numbers, one variant per
@@ -403,6 +403,11 @@ pub struct UnitDef {
     /// (`factions/gdo/units/field_engineer.md > Abilities`). Optional in files: none.
     #[serde(default)]
     pub repairs: Option<RepairDef>,
+    /// (M5-N4b) The spells it casts on its energy pool (`ObjectDef::energy`, `crate::energy`), in its panel's order:
+    /// the Disciple's Shroud (`factions/cults/units/disciple.md > Spells > Shroud`, `crate::shroud`). Empty for a type
+    /// that casts none. Optional in files: none.
+    #[serde(default, deserialize_with = "super::leak::slice")]
+    pub spells: &'static [SpellDef],
 }
 
 /// (M5-N1a) How an augmentable unit type takes its Augmentations' increments (`UnitDef::augmentable`,
@@ -426,6 +431,11 @@ impl UnitDef {
     /// source is then the turret, otherwise its base (`systems/combat.md > AttackAttributes`).
     pub fn has_turret(&self) -> bool {
         self.turret.is_some()
+    }
+
+    /// (M5-N4b) Its Shroud's numbers, if it casts Shroud ([`UnitDef::spells`]).
+    pub fn shroud(&self) -> Option<&'static ShroudDef> {
+        self.spells.iter().find_map(SpellDef::shroud)
     }
 }
 

@@ -2,16 +2,16 @@
 //! (`factions/cults/structures/cathedral.md > Placeholder stats`: "Panel like the Armory's (choose a kind with Q/W/E/R
 //! first, then; README > Choosing Recruits, Release and Eject All): **Q: Train Disciple**, **A: Release** in the kind
 //! menu; **A: Eject All**, **C: Set Rally Point**, **X: Cancel Production**"); the Disciple's the BasicCombatUnit's,
-//! its attack commands greyed for want of a weapon, and its R, Shroud, holding its slot until its slice
-//! (`factions/cults/units/disciple.md > Placeholder stats`: "ObjectInterfaceState: BasicCombatUnitInterfaceState, plus
-//! **R: Shroud**"). Both in a game: `crates/game/tests/commands/cathedral.rs`.
+//! its attack commands greyed for want of a weapon, and its R, Shroud (`factions/cults/units/disciple.md > Placeholder
+//! stats`: "ObjectInterfaceState: BasicCombatUnitInterfaceState, plus **R: Shroud**"; slice M5-N4b). Both in a game:
+//! `crates/game/tests/commands/cathedral.rs`.
 
 use sc_sim::testing::ScenarioBuilder;
 use sc_sim::{Faction, PlayerId, RecruitKind, SpawnAt};
 
 use super::cults::counted;
 use super::*;
-use crate::command_ui::feedback::{NOT_FOR_TYPE_TEXT, NOT_YET_TEXT, SHIELDS_UP_TEXT, unavailable_text};
+use crate::command_ui::feedback::{NOT_ENOUGH_ENERGY_TEXT, NOT_FOR_TYPE_TEXT, SHIELDS_UP_TEXT, unavailable_text};
 use crate::command_ui::resolution::{UnitCapabilities, unit_target_order};
 
 const CATHEDRAL: ObjectKind = ObjectKind::Cathedral;
@@ -81,18 +81,21 @@ fn the_cathedral_trains_disciples_from_its_kind_menus() {
 }
 
 /// `factions/cults/units/disciple.md > Placeholder stats`: "ObjectInterfaceState: BasicCombatUnitInterfaceState, plus
-/// **R: Shroud**", read from a game with a Disciple. Q Move, E Hold Position, S Patrol and X Stop are its own; W Reverse
-/// and D Attack Ground are unavailable, as an infantry's without a ground attack are; A Attack is greyed, "Not
+/// **R: Shroud**", read from a game with two Disciples. Q Move, E Hold Position, S Patrol and X Stop are its own; W
+/// Reverse and D Attack Ground are unavailable, as an infantry's without a ground attack are; A Attack is greyed, "Not
 /// available for this unit": it has no weapon ("AttackAttributes - None"), and the gate refuses its Attack
-/// (`sc_sim::combat::takes_attack_orders`, plan decision T10); R holds Shroud's slot, "Not available yet" (slice
-/// M5-N4b's spell), labelled with its name. The Disciple is Ungroupable ("Groupable - false"): two are two groups, and a
-/// common command goes to both.
+/// (`sc_sim::combat::takes_attack_orders`, plan decision T10). R is Shroud (slice M5-N4b), labelled with its name, a
+/// Shroud order at once. The Disciple is Ungroupable ("Groupable - false (user, 2026-11-26; Q0112: each R press starts
+/// one Disciple's channel; Tab to the next)"): two are two groups, a common command goes to both, and R to the one of
+/// the ActiveGroup alone. Below 10 energy R is greyed, "Not enough energy", as the gate refuses it
+/// (`sc_sim::Reject::NotEnoughEnergy`: "needs at least **10 energy** to start"): after a channel that ran the
+/// Disciple's 50 dry.
 #[test]
-fn the_disciple_greys_its_attack_commands_and_holds_shroud_in_r() {
-    use ButtonLook::{Common, Disabled, Unavailable};
-    use PanelCommand::{Attack, AttackGround, HoldPosition, Move, Patrol, Planned as P, Reverse, Stop};
+fn the_disciple_greys_its_attack_commands_and_shrouds_with_r() {
+    use ButtonLook::{Common, Disabled, Group, Unavailable};
+    use PanelCommand::{Attack, AttackGround, HoldPosition, Move, Patrol, Reverse, Shroud, Stop};
     let player = PlayerId(1);
-    let t = ScenarioBuilder::new(&vec![".".repeat(16); 16].join("\n"))
+    let mut t = ScenarioBuilder::new(&vec![".".repeat(16); 16].join("\n"))
         .faction(player, Faction::Cults)
         .spawn(
             DISCIPLE,
@@ -102,7 +105,7 @@ fn the_disciple_greys_its_attack_commands_and_holds_shroud_in_r() {
         .spawn(
             DISCIPLE,
             Some(player),
-            SpawnAt::Point(bevy::math::Vec2::new(400.0, 300.0)),
+            SpawnAt::Point(bevy::math::Vec2::new(700.0, 300.0)),
         )
         .start();
     let one = Selection::new([(id(1), DISCIPLE)]);
@@ -115,27 +118,52 @@ fn the_disciple_greys_its_attack_commands_and_holds_shroud_in_r() {
             (slot(0, 0), c(Move), Common),
             (slot(0, 1), c(Reverse), Unavailable),
             (slot(0, 2), c(HoldPosition), Common),
-            (slot(0, 3), c(P(Planned::Shroud)), Unavailable),
+            (slot(0, 3), c(Shroud), Common),
             (slot(1, 0), c(Attack), Disabled),
             (slot(1, 1), c(Patrol), Common),
             (slot(1, 2), c(AttackGround), Unavailable),
             (slot(2, 1), c(Stop), Common),
         ]
     );
-    let why = |at| default.get(at).and_then(|shown| shown.why).map(unavailable_text);
-    assert_eq!(why(slot(1, 0)), Some(NOT_FOR_TYPE_TEXT), "Attack, without a weapon");
-    assert_eq!(why(slot(1, 2)), Some(NOT_FOR_TYPE_TEXT), "Attack Ground");
-    assert_eq!(why(slot(0, 3)), Some(NOT_YET_TEXT), "Shroud, slice M5-N4b's");
+    let why = |panel: &Panel, at| panel.get(at).and_then(|shown| shown.why).map(unavailable_text);
+    assert_eq!(
+        why(&default, slot(1, 0)),
+        Some(NOT_FOR_TYPE_TEXT),
+        "Attack, without a weapon"
+    );
+    assert_eq!(why(&default, slot(1, 2)), Some(NOT_FOR_TYPE_TEXT), "Attack Ground");
+    assert_eq!(why(&default, slot(0, 3)), None, "Shroud, with its 50 energy");
     let shroud = default.get(slot(0, 3)).unwrap();
     assert_eq!(shroud.label(), "Shroud");
     assert_eq!(default.name(slot(0, 3)).as_deref(), Some("Shroud"));
     assert_eq!(press(&default, slot(1, 0)), SlotPress::Nothing);
-    assert_eq!(press(&default, slot(0, 3)), SlotPress::Nothing);
+    assert_eq!(press(&default, slot(0, 3)), SlotPress::Issue(Shroud, OrderKind::Shroud));
     assert_eq!(press(&default, slot(1, 1)), SlotPress::AwaitTarget(Patrol));
+    assert!(Shroud.queues() && Shroud.instance_only() && !Shroud.needs_target());
     let two = Selection::new([(id(1), DISCIPLE), (id(2), DISCIPLE)]);
     assert_eq!(two.groups().len(), 2, "Ungroupable");
     assert!(is_common(&two, Move));
     assert_eq!(recipients(&two, Stop), [id(1), id(2)]);
+    assert!(!is_common(&two, Shroud));
+    assert_eq!(recipients(&two, Shroud), [id(1)], "one Disciple a press");
+    let both = panel(
+        &two,
+        InterfaceState::DefaultState,
+        &Conditions::of(t.sim(), player, &two),
+    );
+    assert_eq!(both.get(slot(0, 3)).map(|shown| shown.look), Some(Group));
+    let mut tabbed = two.clone();
+    tabbed.cycle(true);
+    assert_eq!(recipients(&tabbed, Shroud), [id(2)], "Tab to the next");
+    t.order_at(1, player, &[id(1)], OrderKind::Shroud, false);
+    t.run(180);
+    let dry = Conditions::of(t.sim(), player, &one);
+    let default = panel(&one, InterfaceState::DefaultState, &dry);
+    assert_eq!(default.get(slot(0, 3)).map(|shown| shown.look), Some(Disabled));
+    assert_eq!(why(&default, slot(0, 3)), Some(NOT_ENOUGH_ENERGY_TEXT));
+    assert_eq!(press(&default, slot(0, 3)), SlotPress::Nothing);
+    let other = Conditions::of(t.sim(), player, &tabbed);
+    assert_eq!(other.unavailable(&tabbed, Shroud), None, "the other one has its energy");
 }
 
 /// A Disciple among armed units (design change 0075's rule for the units that take no Attack, `unit_target_order`):

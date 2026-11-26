@@ -99,6 +99,8 @@ impl Sim {
             // (M5-E) Each walks to its own spot beside the site (`crate::spot_work`); (M5-N8) a Repair's beside its
             // building, or after its vehicle.
             OrderKind::Assist(_) | OrderKind::Repair(_) => vec![None; units.len()],
+            // (M5-N4b) Each channels where it stands.
+            OrderKind::Shroud => vec![None; units.len()],
         };
         if self.gives_shared_build(units, kind) {
             return self.give_shared_build(units, kind, queue, group);

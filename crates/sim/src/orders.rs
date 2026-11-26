@@ -22,7 +22,9 @@
 //! - [`enter`]: a unit's walk into the entry path of the structure being entered, a Tunnel or a building that holds
 //!   units (`crate::network`, `crate::holding`);
 //! - [`attack_ground`]: AttackingLocation, an Attack Ground's walk into range and its shots, until another order
-//!   (slice M4-O; design change 0293).
+//!   (slice M4-O; design change 0293);
+//! - [`shroud`]: a Disciple channelling Shroud where it stands, its energy drained each tick (slice M5-N4b); the
+//!   phase lists the units that channel as it ends, for their clouds (`crate::shroud`).
 //!
 //! What a unit does by default against a target, a right-click's and a rally point's order, is [`resolution`]'s.
 //!
@@ -41,6 +43,7 @@ pub(crate) mod reach;
 mod repair;
 pub mod resolution;
 mod run;
+pub(crate) mod shroud;
 pub mod state;
 mod travel;
 mod turret;
@@ -140,6 +143,13 @@ pub enum OrderKind {
     /// beside a building's footprint, as an Assist, or within reach of a vehicle, which it follows ([`repair`]), until
     /// the object is at full HP, gone or no longer its owner's, or its owner runs out of Space Crystals for it.
     Repair(ObjectId),
+    /// (M5-N4b) `factions/cults/units/disciple.md > Spells > Shroud`: "A **channeling** spell: while the Disciple
+    /// channels it, its energy **drains gradually**, and it creates a **cloud**" (plan decision T76: an order, so that
+    /// "a **cancel** command (Stop or any other order)" ends it, and Shift-queued orders wait behind it). The unit
+    /// stands ("The Disciple **can't move while channeling**") and pays its drain each tick until another order
+    /// replaces it or its energy can't pay a tick's drain ([`shroud`]); its cloud is `crate::shroud`'s. Only a unit
+    /// whose type casts Shroud takes it (`UnitDef::spells`), with the energy it needs to start (the gate).
+    Shroud,
 }
 
 impl OrderKind {
@@ -155,7 +165,7 @@ impl OrderKind {
             | OrderKind::Repair(id) => Some(id),
             OrderKind::Move(Target::Point(_)) | OrderKind::AttackMove(_) | OrderKind::Patrol(_) => None,
             OrderKind::Hold | OrderKind::Stop | OrderKind::Deploy { .. } | OrderKind::Build { .. } => None,
-            OrderKind::AttackGround(_) => None,
+            OrderKind::AttackGround(_) | OrderKind::Shroud => None,
         }
     }
 }
@@ -184,6 +194,8 @@ impl Order {
             OrderKind::Build { .. } | OrderKind::Assist(_) | OrderKind::Repair(_) => None,
             // The unit goes only as near the location as its attack needs (`attack_ground`).
             OrderKind::Enter(_) | OrderKind::AttackGround(_) => None,
+            // (M5-N4b) A channel holds the unit where it stands.
+            OrderKind::Shroud => None,
         }
     }
 

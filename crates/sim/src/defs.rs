@@ -13,6 +13,7 @@ mod cults;
 mod gdo;
 mod leak;
 mod map;
+mod spells;
 mod structures;
 mod syndicate;
 #[cfg(test)]
@@ -35,6 +36,7 @@ pub use gdo::UNIT_CONTROL_CAP;
 pub use gdo::units::peacekeeper::RIOT_SHIELD_TOGGLE_TICKS;
 pub use map::crystal_patch::DEFAULT_STARTING_AMOUNT;
 pub use map::supply_delivery_station::{DEFAULT_DELIVERY_INTERVAL, DEFAULT_DELIVERY_SIZE, DEFAULT_STARTING_SUPPLIES};
+pub use spells::{ShroudDef, SpellDef};
 pub use structures::{
     AugmentRecipe, BuilderGoes, DropOff, ExitRule, ExpansionDef, HoldsDef, MiningDef, OccupantFire, PopUpDef,
     ProductionDef, Recipe, RecruitmentDef, ResearchDef, SiteDef, SitePrice, StructureDef, SymmetryType, TierDef,

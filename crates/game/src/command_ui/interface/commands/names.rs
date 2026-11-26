@@ -25,7 +25,8 @@ impl PanelCommand {
     /// tiles their kind as the kind buttons do, and its orders the Augmentation they apply, "Const.", "Metab." and
     /// "Both", for their icons (slice M5-N1b). A Temple's keys show their technology, its line's initials and its level,
     /// "EC L1", "IM L2", a key in progress "InProg" ("its key shows "In progress" meanwhile"), and its releases their
-    /// kind as the kind buttons do, with their counts (slice M5-N3).
+    /// kind as the kind buttons do, with their counts (slice M5-N3). A Disciple's spell is its name, "Shroud", whole
+    /// (6 letters, as "AtkGnd"; slice M5-N4b).
     pub fn label(self) -> &'static str {
         match self {
             PanelCommand::Move => "Move",
@@ -72,6 +73,7 @@ impl PanelCommand {
             PanelCommand::Research(tech) => tech_label(tech),
             PanelCommand::Researching(_) => "InProg",
             PanelCommand::ReleaseOne(kind) => kind_label(kind),
+            PanelCommand::Shroud => "Shroud",
         }
     }
 
@@ -126,7 +128,8 @@ impl PanelCommand {
             | PanelCommand::Stop
             | PanelCommand::Deploy
             | PanelCommand::EjectMenu
-            | PanelCommand::Repair => self.label().into(),
+            | PanelCommand::Repair
+            | PanelCommand::Shroud => self.label().into(),
         }
     }
 
