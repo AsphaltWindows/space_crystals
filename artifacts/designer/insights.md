@@ -27,8 +27,6 @@
 - Game will be rebuilt from scratch → docs must stand alone as the complete spec. Old prototype stays at `artifacts/developer/` as reference; Director decides with user where new code lives.
 
 ## Open Director Questions
-- **Q0151** (non-blocking): 2 box-select several Halls. (Part 3 answered from docs, 0407.)
-- **Q0152** (non-blocking): quarter-strength glider push takes 11–17 s to spread; keep / half / full / strength by order.
 
 Order of work (placeholder passes done, 0366/0367): finish Cults units → Colonists units → techs → detection → numbers review.
 ## Loose Ends
