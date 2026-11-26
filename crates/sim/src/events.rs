@@ -230,8 +230,9 @@ pub enum SimEvent {
     /// (`factions/syndicate/tunnels.md > Tunnel Network > Walking in`: "if the Tunnel a unit is heading for is
     /// destroyed, or its tier doesn't suit the unit, the Enter order ends and the unit idles"; "if the way is genuinely
     /// blocked, the normal Failure rule applies"): its walk ended short of the entry path, or the target no longer
-    /// suits it, or (`full`) the unit got to a building's entry path with no room in its pool (slice M5-F1;
-    /// Placeholder (Q0104 point 2): "The Enter ends and it idles beside the Armory (the normal Failure rule)"). For the
+    /// suits it, or (`full`) the unit got to a building's entry path with no room in its pool (slice M5-F1; design
+    /// change 0347 point 2, `factions/cults/structures/README.md > Entering pool buildings`: "a unit arriving when the
+    /// building is full has its Enter **end** and idles beside the building (the normal Failure rule)"). For the
     /// feedback line, and for counting those that give up.
     EnterFailed {
         unit: ObjectId,
@@ -253,9 +254,11 @@ pub enum SimEvent {
         unit: ObjectId,
         building: ObjectId,
     },
-    /// (M5-F1) `unit` was inside `building` as the building left the game, and came out alive beside its footprint,
-    /// idle (`factions/cults/economy.md > Cults Building Mechanics > Evacuation on Destruction`: "Everyone inside is
-    /// evacuated alive"; `Sim::evacuate`). It follows the building's `Removed`, in the same tick, with the id it had.
+    /// (M5-F1) `unit` was inside `building` as the building left the game, and came out alive inside its former
+    /// footprint, idle (`factions/cults/economy.md > Cults Building Mechanics > Evacuation on Destruction`: "Everyone
+    /// inside is evacuated alive"; design change 0349, slice M5-F3: they "all appear at the same time inside its former
+    /// footprint"; `Sim::evacuate`), a unit whose training had finished as its new type, after its `KindChanged`. It
+    /// follows the building's `Removed`, in the same tick, with the id it had.
     Evacuated {
         unit: ObjectId,
         building: ObjectId,

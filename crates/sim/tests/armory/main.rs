@@ -7,7 +7,8 @@
 //! - `release`: a Release lets a Recruit of a kind out unchanged, 4 ticks after it is queued (0337's Verification);
 //! - `eject`: Eject All leaves the reserved Recruits inside;
 //! - `capacity`: the capacity counts the reserved Recruits too, and a trained unit drops its load (0347);
-//! - `destruction`: an Armory destroyed mid-training lets its Recruits out as Recruits and refunds every entry;
+//! - `destruction`: an Armory destroyed mid-training lets its Recruits out as Recruits and refunds every entry, but a
+//!   Militant trained and waiting for the doorway comes out a Militant, unrefunded (design change 0349);
 //! - `control`: the Unit Control a Militant uses is its Recruit's, an orphan's if the Recruit's Hall is gone;
 //! - `saves`: a game with training under way goes on alike after a save and in a replay.
 //!

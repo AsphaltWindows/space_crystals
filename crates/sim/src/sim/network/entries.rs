@@ -7,7 +7,9 @@
 //! hold time per unit": a unit goes in in the tick it gets there, however many went before it, so "an army files in
 //! about as fast as it can walk in single file". An order whose target is gone or no longer suits the unit ends, and
 //! so does one whose walk ended short of the path ("the normal Failure rule applies", design change 0247), or that got
-//! to a building's path with its pool full (Placeholder (Q0104 point 2)), with a `SimEvent::EnterFailed`.
+//! to a building's path with its pool full (design change 0347 point 2, `factions/cults/structures/README.md >
+//! Entering pool buildings`: "a unit arriving when the building is full has its Enter **end** and idles beside the
+//! building (the normal Failure rule)"), with a `SimEvent::EnterFailed`.
 
 use crate::events::SimEvent;
 use crate::holding;
@@ -22,11 +24,11 @@ impl Sim {
     /// structure that can hold units"), given `units`, the player's units that take orders. The target is the player's
     /// ([`Reject::NotOwned`]), and a Tunnel in operation ([`Reject::NotATunnel`]: "any Syndicate unit, when the target
     /// Tunnel's tier is sufficient for the unit's base category"), or a building that holds units and isn't under
-    /// construction ([`Reject::UnderConstruction`]; Placeholder (Q0104 point 4); slice M5-F1). The units it lets in
-    /// take the order ([`network::admits`]), the others ignore it; none is [`Reject::NoTransit`] at a Tunnel and
-    /// [`Reject::NotAccepted`] at a building. A building's room is judged as a unit gets there, not here
-    /// (Placeholder (Q0104 point 2)). Any unit of the target's owner may enter, whatever faction its type belongs to:
-    /// only a debug game has others.
+    /// construction ([`Reject::UnderConstruction`]; design change 0347 point 4: "a building under construction
+    /// **can't be entered**"; slice M5-F1). The units it lets in take the order ([`network::admits`]), the others
+    /// ignore it; none is [`Reject::NoTransit`] at a Tunnel and [`Reject::NotAccepted`] at a building. A building's
+    /// room is judged as a unit gets there, not here (0347 point 2). Any unit of the target's owner may enter, whatever
+    /// faction its type belongs to: only a debug game has others.
     pub(in crate::sim) fn check_enter(
         &self,
         player: PlayerId,
@@ -80,11 +82,12 @@ impl Sim {
     ///   has walked into the entry path** ([`EntryPath::reached`]): it goes into the network
     ///   (`SimEvent::EnteredNetwork`), or into the building's pool (`SimEvent::EnteredBuilding`) if the pool has room
     ///   ([`Sim::room`]), on its way or at the end of its walk alike, so a line never pauses. With no room, the order
-    ///   ends as below, `full` (Placeholder (Q0104 point 2)).
-    /// - **The target doesn't suit it** (`> Walking in > Target Tunnel gone or unsuitable`), **or its walk ended short
-    ///   of the path** (the normal Failure rule, design change 0247; the occupied-target rule's arrival behind
-    ///   standing units is such an end too): "the Enter order ends and the unit idles" (`SimEvent::EnterFailed`). Its
-    ///   queued orders go on from the next tick, as after any order that ends.
+    ///   ends as below, `full` (design change 0347 point 2).
+    /// - **The target doesn't suit it** (`factions/syndicate/tunnels.md > Tunnel Network > Walking in > Target Tunnel
+    ///   gone or unsuitable`), **or its walk ended short of the path** (the normal Failure rule, design change 0247;
+    ///   the occupied-target rule's arrival behind standing units is such an end too): "the Enter order ends and the
+    ///   unit idles" (`SimEvent::EnterFailed`). Its queued orders go on from the next tick, as after any order that
+    ///   ends.
     /// - Otherwise it walks on.
     fn arrive_at_entry(&mut self, unit: ObjectId, target: ObjectId, walked: bool) {
         let Some(o) = self.objects.get(&unit) else {

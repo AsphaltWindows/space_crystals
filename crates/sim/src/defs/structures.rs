@@ -114,10 +114,9 @@ pub struct HoldsDef {
     /// structure releases units. Only an exit side is built (M5-F1, `defs_are_consistent`): the units come out "one
     /// at a time through the exit doorway" in its middle (`factions/cults/structures/armory.md > ExitSide - opposite
     /// short side (C)`; `core/entities.md > Structure Type > Exit Doorway`; `production::Doorway`). A type that also
-    /// produces releases by the same rule (`ProductionDef::exits`). A Garrison's "Units leave through any side, at
-    /// the first clear spot next to the footprint (like Evacuation on Destruction)"
-    /// (`factions/cults/structures/garrison.md`) will be a rule of its own, by the same search as an evacuation
-    /// (`Sim::spot_around`).
+    /// produces releases by the same rule (`ProductionDef::exits`). A Garrison's "one door (entrance and exit)",
+    /// which everyone inside leaves by at once on Eject All (`factions/cults/structures/garrison.md`;
+    /// `core/entities.md > Entrance and exit (production and research buildings)`), will be a rule of its own.
     pub exit: ExitRule,
     /// How many units it holds (`factions/cults/structures/armory.md > InternalRecruitCapacity - 10`), those a queued
     /// order reserved and the one in training counted (design change 0347 point 5: "Capacity counts reserved units:
