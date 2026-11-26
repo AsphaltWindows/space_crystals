@@ -65,7 +65,7 @@ impl Sim {
     /// resolved here, at the click, and kept in the unit's order (design change 0030); a Shift-queued one builds the
     /// box where the units' earlier orders leave them (design change 0029). Orders only fill queues here; phase 5a
     /// starts them. An order given without Shift replaces the unit's, a Build among them refunded, and a Build is paid
-    /// for as it is given (`sim/builds.rs`).
+    /// for as it is given (`sim/builds.rs`). (M5-E) A group's Build is one order, paid once (`sim/builds/shared.rs`).
     pub(super) fn give_order(&mut self, units: &[ObjectId], kind: OrderKind, queue: bool) {
         let group = OrderGroup(self.next_group);
         self.next_group = self.next_group.wrapping_add(1);
@@ -85,7 +85,12 @@ impl Sim {
             OrderKind::Enter(_) | OrderKind::Build { .. } => vec![None; units.len()],
             // Each unit fires at the point clicked (plan decision T47: no magic box).
             OrderKind::AttackGround(_) => vec![None; units.len()],
+            // (M5-E) Each walks to its own spot beside the site (`crate::spot_work`).
+            OrderKind::Assist(_) => vec![None; units.len()],
         };
+        if self.gives_shared_build(units, kind) {
+            return self.give_shared_build(units, kind, queue, group);
+        }
         for (id, slot) in units.iter().zip(slots) {
             if !queue {
                 self.drop_orders(*id);

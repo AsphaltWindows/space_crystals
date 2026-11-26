@@ -25,8 +25,10 @@
 //!   resources"). So does **an own building that holds units** of the unit's kind, in operation (slice M5-F1,
 //!   `crate::holding`; `factions/cults/units/recruit.md > Right-Click Resolution`: "Own Armory → Enter Armory";
 //!   `systems/controls/commands.md > Enter`: "Cults — Armory, Cathedral: Recruits only"), whether or not its pool has
-//!   room, which the unit finds out as it gets there (Placeholder (Q0104 point 2)); one under construction is a Move
-//!   to it here ("In-progress own building → Assist Construction" is slice M5-E's).
+//!   room, which the unit finds out as it gets there (Placeholder (Q0104 point 2)).
+//! - **An own building under construction** that the unit's type builds from outside gives Assist (slice M5-E;
+//!   `factions/cults/units/recruit.md > Right-Click Resolution`: "In-progress own building → Assist Construction";
+//!   `OrderKind::Assist`), after Enter: an Armory under construction takes no one in.
 //! - **An enemy** (another player's object) that the unit can attack gives Attack: it has an attack whose
 //!   TargetDomain allows the object's domain (`systems/combat.md > ValidTarget` 3), and the object is destructible.
 //! - **Everything else** gives a Move to the object (`systems/controls/behaviors.md > MovingToObject`), which follows
@@ -44,6 +46,7 @@
 use glam::Vec2;
 
 use crate::combat::domain_allows;
+use crate::construction::site::assists;
 use crate::defs::{Domain, ObjectKind, TargetDomain, Transit};
 use crate::economy::gathering::worker_def;
 use crate::ids::ObjectId;
@@ -122,6 +125,10 @@ pub struct Aimed {
     /// The kinds of unit it takes in: its type's (`HoldsDef::accepts`) if it is a building of the unit's owner's that
     /// holds units, in operation (`holding::admits`; slice M5-F1), none for anything else.
     pub accepts: &'static [ObjectKind],
+    /// (M5-E) Its kind, if it is a site of the unit's owner's that its builders build from outside
+    /// (`Object::is_built_from_outside`): a Cults building under construction, which the units that assist it take an
+    /// Assist on (`construction::site::assists`). `None` for anything else.
+    pub site: Option<ObjectKind>,
 }
 
 /// What a unit's default command is resolved against.
@@ -150,6 +157,9 @@ pub fn resolve(unit: Abilities, aim: Aim) -> OrderKind {
     }
     if network::passes(target.transit, unit.transit) || target.accepts.contains(&unit.kind) {
         return OrderKind::Enter(target.id);
+    }
+    if target.site.is_some_and(|kind| assists(unit.kind, kind)) {
+        return OrderKind::Assist(target.id);
     }
     let can_attack = target.destructible && unit.attack.is_some_and(|domain| domain_allows(domain, target.domain));
     if target.enemy && can_attack && unit.may_attack {

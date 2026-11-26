@@ -199,6 +199,7 @@ fn the_rule_on_abilities_and_targets() {
         drop_off,
         transit: &[],
         accepts: &[],
+        site: None,
     };
     let follow = OrderKind::Move(Target::Object(ObjectId(5)));
     let attack = OrderKind::Attack(ObjectId(5));
@@ -309,4 +310,25 @@ fn the_rule_on_abilities_and_targets() {
         assert_eq!(resolve(recruit, Aim::Object(armory)), enter);
     }
     assert_eq!(resolve(armed(TargetDomain::Ground), Aim::Object(armory)), follow);
+    // (M5-E) An own building under construction that Recruits build from outside (`factions/cults/units/recruit.md >
+    // Right-Click Resolution`: "In-progress own building → Assist Construction"): Assist for a unit that builds its
+    // kind, loaded or not; a Move to it for any other. An Armory under construction takes no one in, so a Recruit
+    // assists it.
+    let assist = OrderKind::Assist(ObjectId(5));
+    for kind in [ObjectKind::Storage, ObjectKind::Armory, ObjectKind::RecruitmentHall] {
+        let site = Aimed {
+            site: Some(kind),
+            ..object(false, true, Domain::Ground, false, false)
+        };
+        for carrying in [false, true] {
+            let recruit = Abilities {
+                kind: ObjectKind::Recruit,
+                attack: Some(TargetDomain::Ground),
+                ..drone(carrying)
+            };
+            assert_eq!(resolve(recruit, Aim::Object(site)), assist, "{kind:?}");
+            assert_eq!(resolve(drone(carrying), Aim::Object(site)), follow, "{kind:?}");
+        }
+        assert_eq!(resolve(armed(TargetDomain::Ground), Aim::Object(site)), follow);
+    }
 }

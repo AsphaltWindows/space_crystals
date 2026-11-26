@@ -1,11 +1,12 @@
 //! The Storage — `factions/cults/economy.md > Storage`.
 
-use crate::defs::structures::{DropOff, StructureDef, SymmetryType};
+use crate::defs::structures::{BuilderGoes, DropOff, SiteDef, SitePrice, StructureDef, SymmetryType};
 use crate::defs::{Armor, Category, Footprint, ObjectDef, ObjectKind};
 use crate::player::Faction;
 
 /// `factions/cults/economy.md > Storage`: "Drop-off point for Space Crystals collected by Recruits", and the Armory's
-/// TechPrerequisite (`factions/cults/structures/armory.md`). Its construction by Recruits comes with slice M5-E, and the starting one with slice M5-B. "ObjectInterfaceState: None (info display only)".
+/// TechPrerequisite (`factions/cults/structures/armory.md`). Recruits build it from outside ([`STORAGE_SITE`], slice
+/// M5-E), and the starting one comes with slice M5-B. "ObjectInterfaceState: None (info display only)".
 pub(crate) static STORAGE: ObjectDef = ObjectDef {
     kind: ObjectKind::Storage,
     name: "Storage",
@@ -41,7 +42,7 @@ pub(crate) static STORAGE: ObjectDef = ObjectDef {
         drop_off: Some(DropOff::Anywhere),
         underground: false,
         tunnel: None,
-        site: None, // built by Recruits: slice M5-E
+        site: Some(STORAGE_SITE),
         expansion: None,
         requires: &[], // TechPrerequisite - None
         attack: None,
@@ -51,14 +52,27 @@ pub(crate) static STORAGE: ObjectDef = ObjectDef {
     default_settings: None,
 };
 
+/// The Storage's construction by Recruits (`StructureDef::site`, slice M5-E; `factions/cults/economy.md > Cults
+/// Building Mechanics`: "Space Crystals cost and construction time for each buildable structure are defined in the
+/// Recruit's Constructs list").
+pub(crate) const STORAGE_SITE: SiteDef = SiteDef {
+    // `factions/cults/units/recruit.md > Constructs`: "Storage: 100 Space Crystals, 320 frames (20 seconds)
+    // BaseConstructionTime (with 1 Recruit)", paid once as the order is given (`factions/cults/economy.md > Build
+    // Command`: "the building's Space Crystals cost is deducted as soon as the build order is given").
+    price: SitePrice::Crystals(100),
+    frames: 320,
+    start_hp: 0.1, // `> Storage > ConstructionHP Rule - applies`: "start at 10% of their maximum HP"
+    builder_goes: BuilderGoes::Outside,
+};
+
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::defs::cults::tests::assert_structure;
 
     /// 2×2, AAAA, MaxHP 250, PointArmor 1, FullArmor 6 (Placeholder (Q0094): the rule's would be 4), SightRange 3,
-    /// Groupable, no TechPrerequisite; Recruits drop off anywhere at it, any number at once. Its site comes with
-    /// slice M5-E.
+    /// Groupable, no TechPrerequisite; Recruits drop off anywhere at it, any number at once. Recruits build it from
+    /// outside for 100 Space Crystals in 320 frames with one of them, from 10% HP (slice M5-E).
     #[test]
     fn the_storage_follows_the_design() {
         let structure = assert_structure(
@@ -73,9 +87,14 @@ mod tests {
         assert_eq!(ObjectKind::Storage.def().name, "Storage");
         assert_eq!(structure.requires, &[][..]);
         assert_eq!(
-            (structure.production, structure.drop_off, structure.site),
-            (None, Some(DropOff::Anywhere), None),
-            "its site: slice M5-E"
+            (structure.production, structure.drop_off),
+            (None, Some(DropOff::Anywhere))
         );
+        let site = structure.site.expect("Recruits build it");
+        assert_eq!(
+            (site.price, site.frames, site.start_hp),
+            (SitePrice::Crystals(100), 320, 0.1)
+        );
+        assert_eq!(site.builder_goes, BuilderGoes::Outside);
     }
 }

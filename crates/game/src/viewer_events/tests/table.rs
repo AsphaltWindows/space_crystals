@@ -359,6 +359,7 @@ pub(super) fn table(sim: &Sim) -> Vec<(SimEvent, [Seen; 4])> {
             },
             [W, W, N, W],
         ),
+        (SimEvent::SiteBuilt { site: TUNNEL }, [W, W, N, W]),
         (
             SimEvent::SiteCancelled {
                 site: GONE,

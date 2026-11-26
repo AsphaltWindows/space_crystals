@@ -44,6 +44,8 @@
 //! the Agent builds it, not the Tunnel" (design change 0298 point 9: `tunnel::Operation` is a Tunnel's own). Until
 //! slice M4-S2 a turret finished inside an own Tunnel Area stands upright, as outside.
 
+use std::collections::BTreeMap;
+
 use glam::Vec2;
 
 use super::Sim;
@@ -54,8 +56,10 @@ use crate::events::SimEvent;
 use crate::ids::ObjectId;
 use crate::math;
 use crate::network::Place;
-use crate::object::Placement;
+use crate::object::{Object, Placement};
+use crate::orders::OrderKind;
 use crate::placement::Round;
+use crate::spot_work;
 use crate::transform::follow_max;
 
 impl Sim {
@@ -88,17 +92,31 @@ impl Sim {
     /// tick (`first_new`), in id order, does a frame, its HP following its maximum up; a site whose frames are done is
     /// complete ([`Sim::complete_site`]). Then the workers who come out beside what they finished do, if they can
     /// ([`Sim::step_beside`]).
+    ///
+    /// (M5-E) A site built from outside (`Builder::Recruits`) does a frame for each of its builders within reach of its
+    /// footprint in the tick (`spot_work::counts`: the units on an Assist of it there), so that n of them build n times
+    /// as fast (`factions/cults/economy.md > BaseConstructionTime Scaling`: "2 Recruits halve it, 3 Recruits reduce it
+    /// to a third, and so on"), and none with none: "If all Recruits are pulled off a site, progress stalls at its
+    /// current value (no decay)" (`factions/cults/economy.md > Cults Building Mechanics`), its HP as it was.
     pub(super) fn step_sites(&mut self, first_new: ObjectId) {
+        let builders = match self.objects.values().any(Object::is_built_from_outside) {
+            true => spot_work::counts(&self.objects, spot_work::assisted),
+            false => BTreeMap::new(),
+        };
         let mut completed = Vec::new();
         for o in self.objects.range_mut(..first_new).map(|(_, o)| o) {
-            if !o.is_site() {
+            let Some(site) = o.construction else {
+                continue;
+            };
+            let speed = match site.builder {
+                Builder::Recruits => RATIO_ONE.saturating_mul(builders.get(&o.id).copied().unwrap_or(0)),
+                Builder::Held(_) | Builder::Tunnel(_) => RATIO_ONE,
+            };
+            if speed == 0 {
                 continue;
             }
             let before = o.max_hp();
-            let done = o
-                .construction
-                .as_mut()
-                .is_some_and(|site| site.progress.step(RATIO_ONE));
+            let done = o.construction.as_mut().is_some_and(|site| site.progress.step(speed));
             let after = o.max_hp();
             if let (Some(hp), Some(before), Some(after)) = (&mut o.hp, before, after) {
                 *hp = follow_max(*hp, before, after);
@@ -172,6 +190,8 @@ impl Sim {
             Builder::Held(worker) => worker,
             // A Tunnel's expansion (slice M4-F).
             Builder::Tunnel(tunnel) => return self.complete_expansion(id, tunnel),
+            // (M5-E) A Cults building, built from outside.
+            Builder::Recruits => return self.complete_from_outside(id),
         };
         let tick = self.tick;
         let goes = site_def(kind).map_or(BuilderGoes::Network, |def| def.builder_goes);
@@ -183,13 +203,31 @@ impl Sim {
                     held.entered = false;
                 }
                 // Out beside the structure, by the step after the completions (`Sim::step_beside`), not into the
-                // network (plan decision T51).
-                BuilderGoes::Beside => {}
+                // network (plan decision T51). (M5-E) A site built from outside holds no one.
+                BuilderGoes::Beside | BuilderGoes::Outside => {}
             }
         }
         self.events.push(SimEvent::SiteCompleted { site: id, worker });
         // A Tunnel that finishes takes back the neutral expansions it covers (slice M4-H, `sim/tunnels.rs`).
         self.reclaim(id);
+    }
+
+    /// (M5-E) Site `id`, built from outside, is complete (`Builder::Recruits`; module docs): what its kind does starts,
+    /// as a transformation's does at its completion (`Sim::start_functions`: a Recruitment Hall's production, with the
+    /// tick it is complete in, from which its claims count, `Production::completed_at`), and the Assists of it end,
+    /// current and queued, so that its builders go on to their next orders from the next tick, a Shift chain's next
+    /// building among them, or idle (`factions/cults/economy.md > Cults Building Mechanics`: "On completion, all
+    /// Recruits that participated remain on the field as ordinary Recruits, free to be issued new orders"); a
+    /// `SimEvent::SiteBuilt`.
+    fn complete_from_outside(&mut self, id: ObjectId) {
+        self.start_functions(id);
+        for orders in self.objects.values_mut().filter_map(|o| o.orders.as_mut()) {
+            if (orders.current.as_ref()).is_some_and(|active| active.order.kind == OrderKind::Assist(id)) {
+                orders.current = None;
+            }
+            orders.queue.retain(|order| order.kind != OrderKind::Assist(id));
+        }
+        self.events.push(SimEvent::SiteBuilt { site: id });
     }
 
     /// Cancel Construction on site `site` (module docs): it leaves the game, its worker comes out at the centre of its

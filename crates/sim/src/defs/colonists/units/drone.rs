@@ -73,6 +73,7 @@ pub(crate) static DRONE: ObjectDef = ObjectDef {
             pass_through: true, // > Gathering Drones pass through each other (design change 0106)
             // It deploys instead (`deploy`, plan decision T51).
             builds: &[],
+            shares_builds: false,
         }),
     }),
     structure: None,

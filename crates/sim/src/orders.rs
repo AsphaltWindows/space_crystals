@@ -14,7 +14,9 @@
 //! - Move to a point, and Stop, need only the mover's status;
 //! - [`gather`]: a worker's job, the Gather and Drop Off orders of `factions/colonists/units/drone.md`;
 //! - [`build`]: a worker's walk to the site of what it builds, a Drone's Beacon (`crate::deploy`) or an Agent's Tunnel
-//!   (`crate::construction::site`);
+//!   (`crate::construction::site`), or a Recruit's walk to its own spot beside a group's site (slice M5-E);
+//! - [`assist`]: a Recruit building a site from outside, from its own spot beside it (slice M5-E,
+//!   `crate::spot_work`);
 //! - [`enter`]: a unit's walk into a Tunnel's entry path (`crate::network`);
 //! - [`attack_ground`]: AttackingLocation, an Attack Ground's walk into range and its shots, until another order
 //!   (slice M4-O; design change 0293).
@@ -24,6 +26,7 @@
 //! Their working state ([`state`], the design's BaseBehaviorState) is part of the order, or of the unit while it
 //! has none ([`Orders::auto`]).
 
+mod assist;
 mod attack_ground;
 pub mod build;
 pub(crate) mod destinations;
@@ -118,6 +121,12 @@ pub enum OrderKind {
         #[serde(default, skip_serializing_if = "BuildingOrientation::is_default")]
         orientation: BuildingOrientation,
     },
+    /// `factions/cults/economy.md > Assist Construction Command` (slice M5-E): "Left Click on an in-progress building";
+    /// "Once the selected Recruits reach the building they join construction from outside, increasing build speed".
+    /// The unit walks to its own spot beside this site's footprint and builds it while it stands within reach of the
+    /// footprint's edge ([`assist`], `crate::spot_work`), until the site is complete or gone. Each Build of a group's
+    /// becomes one as its site starts (plan decision T59, `sim/builds/shared.rs`).
+    Assist(ObjectId),
 }
 
 impl OrderKind {
@@ -128,7 +137,8 @@ impl OrderKind {
             | OrderKind::Attack(id)
             | OrderKind::Gather(id)
             | OrderKind::DropOff(id)
-            | OrderKind::Enter(id) => Some(id),
+            | OrderKind::Enter(id)
+            | OrderKind::Assist(id) => Some(id),
             OrderKind::Move(Target::Point(_)) | OrderKind::AttackMove(_) | OrderKind::Patrol(_) => None,
             OrderKind::Hold | OrderKind::Stop | OrderKind::Deploy { .. } | OrderKind::Build { .. } => None,
             OrderKind::AttackGround(_) => None,
@@ -156,7 +166,8 @@ impl Order {
             }
             OrderKind::Move(Target::Object(_)) | OrderKind::Attack(_) | OrderKind::Hold | OrderKind::Stop => None,
             OrderKind::Gather(_) | OrderKind::DropOff(_) | OrderKind::Deploy { .. } => None,
-            OrderKind::Build { .. } => None,
+            // Its spot is the spots' step's (`crate::spot_work`), not the order's.
+            OrderKind::Build { .. } | OrderKind::Assist(_) => None,
             // The unit goes only as near the location as its attack needs (`attack_ground`).
             OrderKind::Enter(_) | OrderKind::AttackGround(_) => None,
         }

@@ -294,6 +294,14 @@ pub struct WorkerDef {
     /// Empty for a worker that builds nothing so: the Drone deploys instead (`UnitDef::deploy`).
     #[serde(deserialize_with = "super::leak::slice")]
     pub builds: &'static [ObjectKind],
+    /// Plan decision T59 (slice M5-E): workers of this type **share a build**. A Build order given to several of them
+    /// is one order, paid once, and they build its one site together from outside it, each from its own spot beside
+    /// the footprint (`factions/cults/economy.md > Build Command`: "All selected Recruits walk to the location and
+    /// begin construction from outside the site"; `factions/cults/units/recruit.md > Building`; `crate::spot_work`):
+    /// the Recruit. A worker of another type builds alone, one to a Build, from inside its site (the Agent:
+    /// `Reject::SeveralConstructors`). Optional in files: false.
+    #[serde(default)]
+    pub shares_builds: bool,
 }
 
 impl WorkerDef {

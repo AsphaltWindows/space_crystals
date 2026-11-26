@@ -1,6 +1,8 @@
 //! The Recruitment Hall — `factions/cults/economy.md > RecruitmentHall`.
 
-use crate::defs::structures::{ExitRule, ProductionDef, Recipe, RecruitmentDef, StructureDef, SymmetryType};
+use crate::defs::structures::{
+    BuilderGoes, ExitRule, ProductionDef, Recipe, RecruitmentDef, SiteDef, SitePrice, StructureDef, SymmetryType,
+};
 use crate::defs::{Armor, Category, Footprint, ObjectDef, ObjectKind};
 use crate::player::Faction;
 use crate::sides::SideLetter;
@@ -8,8 +10,8 @@ use crate::sides::SideLetter;
 /// `factions/cults/economy.md > RecruitmentHall`: "The Cults' starting structure. Automatically produces Recruits from
 /// the surrounding population of Recruitable terrain." Its production, its Recruitment Area and its Unit Control
 /// (`> RecruitmentHall > RecruitmentArea`, `> RecruitmentHall > Production Behavior`, `> RecruitmentHall > Unit
-/// Control Tracking`) are slice M5-C's (`crate::recruitment`), its construction by Recruits slice M5-E's, and the
-/// starting one slice M5-B's.
+/// Control Tracking`) are slice M5-C's (`crate::recruitment`), its construction by Recruits slice M5-E's
+/// ([`RECRUITMENT_HALL_SITE`]), and the starting one slice M5-B's.
 pub(crate) static RECRUITMENT_HALL: ObjectDef = ObjectDef {
     kind: ObjectKind::RecruitmentHall,
     name: "Recruitment Hall",
@@ -59,7 +61,7 @@ pub(crate) static RECRUITMENT_HALL: ObjectDef = ObjectDef {
         drop_off: None,
         underground: false,
         tunnel: None,
-        site: None, // built by Recruits: slice M5-E
+        site: Some(RECRUITMENT_HALL_SITE),
         expansion: None,
         requires: &[], // TechPrerequisite - None
         attack: None,
@@ -69,6 +71,21 @@ pub(crate) static RECRUITMENT_HALL: ObjectDef = ObjectDef {
     default_settings: None,
 };
 
+/// The Recruitment Hall's construction by Recruits (`StructureDef::site`, slice M5-E; `factions/cults/economy.md > Cults
+/// Building Mechanics`: "Space Crystals cost and construction time for each buildable structure are defined in the
+/// Recruit's Constructs list"). Its production starts once it is complete (`Sim::start_functions`), so it claims its
+/// tiles from that tick (`Production::completed_at`; `> RecruitmentHall > TileClaiming`: "the hall that was constructed
+/// first has priority").
+pub(crate) const RECRUITMENT_HALL_SITE: SiteDef = SiteDef {
+    // `factions/cults/units/recruit.md > Constructs`: "RecruitmentHall: 300 Space Crystals, 1440 frames (90 seconds)
+    // BaseConstructionTime (with 1 Recruit)", paid once as the order is given (`factions/cults/economy.md > Build
+    // Command`).
+    price: SitePrice::Crystals(300),
+    frames: 1440,
+    start_hp: 0.1, // `> RecruitmentHall > ConstructionHP Rule - applies`: "start at 10% of their maximum HP"
+    builder_goes: BuilderGoes::Outside,
+};
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -76,7 +93,8 @@ mod tests {
 
     /// 4×4, AAAA, MaxHP 1000, PointArmor 1, FullArmor 16 (the building armour rule's n = 1), SightRange 6, not
     /// Groupable, no TechPrerequisite. It recruits Recruits for free, 192 frames each at 100% effectiveness, out of
-    /// its four sides, with a 10x10 Recruitment Area and a capacity of 20 (slice M5-C). Its site comes with slice M5-E.
+    /// its four sides, with a 10x10 Recruitment Area and a capacity of 20 (slice M5-C). Recruits build it from outside
+    /// for 300 Space Crystals in 1440 frames with one of them, from 10% HP (slice M5-E).
     #[test]
     fn the_recruitment_hall_follows_the_design() {
         let structure = assert_structure(
@@ -100,6 +118,12 @@ mod tests {
             (recruitment.area, recruitment.capacity, recruitment.tiles()),
             (10, 20, 100)
         );
-        assert_eq!((structure.drop_off, structure.site), (None, None), "slice M5-E");
+        assert_eq!(structure.drop_off, None);
+        let site = structure.site.expect("Recruits build it");
+        assert_eq!(
+            (site.price, site.frames, site.start_hp),
+            (SitePrice::Crystals(300), 1440, 0.1)
+        );
+        assert_eq!(site.builder_goes, BuilderGoes::Outside);
     }
 }

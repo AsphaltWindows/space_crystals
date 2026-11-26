@@ -107,7 +107,7 @@ fn footprint(o: &Object) -> Option<TileRect> {
 /// site (`Builder::Tunnel`, slice M4-F: `sim/expansions.rs`) is, built by `tunnel`.
 fn built_by(builder: Builder, tunnel: ObjectId) -> bool {
     match builder {
-        Builder::Held(_) => false,
+        Builder::Held(_) | Builder::Recruits => false,
         Builder::Tunnel(by) => by == tunnel,
     }
 }

@@ -173,7 +173,7 @@ impl Sim {
             method: Method::WarpIn { beacon: placement },
         };
         let others = self.objects().filter(|o| o.id != beacon).map(Occupant::of);
-        let reserved = self.reserved_sites(player, None);
+        let reserved = self.reserved_sites(player, &[]);
         Some(check_reserving(&site, others, &reserved, kind, origin, orientation))
     }
 
@@ -208,6 +208,32 @@ impl Sim {
         self.worker_check(o, kind, origin, orientation, queued)
     }
 
+    /// (M5-E) [`Sim::build_check`] for a group's Build (plan decision T59, `sim/builds/shared.rs`): everything that
+    /// keeps `workers`, workers of one player's that build `kind` together, from being ordered to build it with the
+    /// top-left tile of its footprint at `origin`, turned by `orientation`, as far as their owner knows. Every one of
+    /// them is left out of the occupants, as one worker is (design change 0118: "the building worker itself ...
+    /// doesn't count"): they build from outside, and walk off the footprint before the site starts. Without Shift
+    /// (`queued`), the ghosts their orders alone hold reserve nothing: the new order replaces them. `None` if `workers`
+    /// is empty, or holds an object that is no unit of that player's that builds `kind`.
+    pub fn group_build_check(
+        &self,
+        workers: &[ObjectId],
+        kind: ObjectKind,
+        origin: TilePos,
+        orientation: BuildingOrientation,
+        queued: bool,
+    ) -> Option<PlacementCheck> {
+        let player = self.object(*workers.first()?)?.owner?;
+        let builder = |id: &ObjectId| {
+            self.object(*id)
+                .is_some_and(|o| o.owner == Some(player) && builds(o.kind, kind))
+        };
+        if !workers.iter().all(builder) {
+            return None;
+        }
+        self.workers_check(player, workers, (kind, origin, orientation), queued)
+    }
+
     /// The check of a worker build's order, worker `o` building a `kind` at `origin` turned by `orientation`, as far as
     /// its owner knows ([`check_reserving`] with [`Method::WorkerBuilt`] in [`Mode::Known`]; design change 0120: "it
     /// is green if, as far as the player knows, nothing blocks the footprint"). The occupants are the owner's
@@ -224,7 +250,18 @@ impl Sim {
         orientation: BuildingOrientation,
         queued: bool,
     ) -> Option<PlacementCheck> {
-        let (worker, player) = (o.id, o.owner?);
+        self.workers_check(o.owner?, &[o.id], (kind, origin, orientation), queued)
+    }
+
+    /// [`Sim::worker_check`] for the workers `workers` of `player`'s, one or a group (slice M5-E), all left out of the
+    /// occupants; the ghosts their orders alone hold reserve nothing unless the order is `queued`.
+    fn workers_check(
+        &self,
+        player: PlayerId,
+        workers: &[ObjectId],
+        (kind, origin, orientation): (ObjectKind, TilePos, BuildingOrientation),
+        queued: bool,
+    ) -> Option<PlacementCheck> {
         let area = BuildArea::default();
         let site = Site {
             map: self.map(),
@@ -235,8 +272,8 @@ impl Sim {
             },
             method: Method::WorkerBuilt,
         };
-        let others = self.known_occupants(player).filter(|&(id, _)| id != Some(worker));
-        let reserved = self.reserved_sites(player, (!queued).then_some(worker));
+        let others = (self.known_occupants(player)).filter(|&(id, _)| !id.is_some_and(|id| workers.contains(&id)));
+        let reserved = self.reserved_sites(player, if queued { &[] } else { workers });
         Some(check_reserving(
             &site,
             others.map(|(_, occupant)| occupant),
@@ -303,7 +340,7 @@ impl Sim {
         // (M4-S2) The owner's pending worker builds reserve their sites (design change 0125). Design change 0290 found
         // "No ghost check is needed", since no Tunnel ghost lies inside another Tunnel's area; an Agent's Laser Turret
         // ghost may (slice M4-S1), so the reservation applies here as to every other placement of the player's.
-        let reserved = self.reserved_sites(player, None);
+        let reserved = self.reserved_sites(player, &[]);
         Some(match known {
             true => check_reserving(
                 &site,
@@ -354,13 +391,12 @@ impl Sim {
         seen.chain(remembered)
     }
 
-    /// The sites `player`'s pending worker builds reserve ([`Sim::pending_builds`], design change 0125), but those of
-    /// `except`'s orders: each the structure it will be, on its footprint, a Tunnel at the tier it starts at
-    /// ([`check_reserving`]).
-    fn reserved_sites(&self, player: PlayerId, except: Option<ObjectId>) -> Vec<Occupant> {
-        self.pending_builds(player)
+    /// The sites `player`'s pending worker builds reserve ([`Sim::pending_builds`], design change 0125), but those
+    /// that only the orders of the units `except` hold, which are about to go (`Sim::pending_without`): each the
+    /// structure it will be, on its footprint, a Tunnel at the tier it starts at ([`check_reserving`]).
+    fn reserved_sites(&self, player: PlayerId, except: &[ObjectId]) -> Vec<Occupant> {
+        self.pending_without(player, except)
             .into_iter()
-            .filter(|pending| Some(pending.worker) != except)
             .map(|pending| Occupant {
                 kind: pending.kind,
                 pos: pending.site.center(),

@@ -1,14 +1,14 @@
 //! The Armory — `factions/cults/structures/armory.md`.
 
-use crate::defs::structures::{ExitRule, HoldsDef, StructureDef, SymmetryType};
+use crate::defs::structures::{BuilderGoes, ExitRule, HoldsDef, SiteDef, SitePrice, StructureDef, SymmetryType};
 use crate::defs::{Armor, Category, Footprint, ObjectDef, ObjectKind};
 use crate::player::Faction;
 use crate::sides::SideLetter;
 
 /// `factions/cults/structures/armory.md`: the "Training building where Recruits are converted into combat units".
 /// Its pool of Recruits (`> InternalRecruitCapacity - 10`, `> Eject All`) is its `holds` (slice M5-F1,
-/// `crate::holding`), its training (`> Training`) comes with slice M5-F2, and its construction by Recruits with slice
-/// M5-E, which checks its TechPrerequisite: until then, `requires` is data only.
+/// `crate::holding`), its training (`> Training`) comes with slice M5-F2, and Recruits build it from outside
+/// ([`ARMORY_SITE`], slice M5-E), its TechPrerequisite checked as the Build is given (`Sim::check_build`).
 pub(crate) static ARMORY: ObjectDef = ObjectDef {
     kind: ObjectKind::Armory,
     name: "Armory",
@@ -44,7 +44,7 @@ pub(crate) static ARMORY: ObjectDef = ObjectDef {
         drop_off: None,
         underground: false,
         tunnel: None,
-        site: None, // built by Recruits: slice M5-E
+        site: Some(ARMORY_SITE),
         expansion: None,
         // TechPrerequisite - player owns at least one Storage
         requires: &[ObjectKind::Storage],
@@ -62,6 +62,19 @@ pub(crate) static ARMORY: ObjectDef = ObjectDef {
     default_settings: None,
 };
 
+/// The Armory's construction by Recruits (`StructureDef::site`, slice M5-E; `factions/cults/economy.md > Cults Building
+/// Mechanics`: "Space Crystals cost and construction time for each buildable structure are defined in the Recruit's
+/// Constructs list").
+pub(crate) const ARMORY_SITE: SiteDef = SiteDef {
+    // `factions/cults/units/recruit.md > Constructs`: "Armory: 200 Space Crystals, 480 frames (30 seconds)
+    // BaseConstructionTime (with 1 Recruit). Requires: Storage.", paid once as the order is given
+    // (`factions/cults/economy.md > Build Command`).
+    price: SitePrice::Crystals(200),
+    frames: 480,
+    start_hp: 0.1, // `> ConstructionHP Rule - applies`: "start at 10% of their maximum HP"
+    builder_goes: BuilderGoes::Outside,
+};
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -69,7 +82,8 @@ mod tests {
 
     /// 2 tall and 3 wide, ABAC, MaxHP 300, PointArmor 1, FullArmor 6 (the building armour rule's n = 1), SightRange 4,
     /// Groupable, behind a Storage. Recruits walk in at its short side B and come out of the opposite one, C, and its
-    /// pool holds 10 of them. Its training and its site come with slices M5-F2 and M5-E.
+    /// pool holds 10 of them. Recruits build it from outside for 200 Space Crystals in 480 frames with one of them, from
+    /// 10% HP (slice M5-E). Its training comes with slice M5-F2.
     #[test]
     fn the_armory_follows_the_design() {
         let structure = assert_structure(
@@ -83,11 +97,13 @@ mod tests {
         );
         assert_eq!(ObjectKind::Armory.def().name, "Armory");
         assert_eq!(structure.requires, [ObjectKind::Storage], "TechPrerequisite: a Storage");
+        assert_eq!((structure.production, structure.drop_off), (None, None), "slice M5-F2");
+        let site = structure.site.expect("Recruits build it");
         assert_eq!(
-            (structure.production, structure.drop_off, structure.site),
-            (None, None, None),
-            "slices M5-F2 and M5-E"
+            (site.price, site.frames, site.start_hp),
+            (SitePrice::Crystals(200), 480, 0.1)
         );
+        assert_eq!(site.builder_goes, BuilderGoes::Outside);
         let holds = structure.holds.expect("the Armory holds Recruits");
         assert_eq!(
             (holds.entrance, holds.exit),

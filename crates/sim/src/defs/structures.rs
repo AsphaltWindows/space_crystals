@@ -205,6 +205,12 @@ pub enum BuilderGoes {
     /// clear spot next to the turret**, searched in a fixed order starting from the side it came from; if none is
     /// clear, it waits inside until one is" (design change 0298 point 7; `sim/sites.rs`).
     Beside,
+    /// Nowhere: its builders build it from outside and stay on the field (plan decision T59, slice M5-E;
+    /// `factions/cults/economy.md > Cults Building Mechanics`: "Assigned Recruits are not consumed — they remain on the
+    /// field near the site for the duration of construction"; "On completion, all Recruits that participated remain on
+    /// the field as ordinary Recruits, free to be issued new orders"). Its site's builder is
+    /// `construction::site::Builder::Recruits`.
+    Outside,
 }
 
 /// Where a structure type takes workers' loads (`StructureDef::drop_off`; plan decision T34: "the drop-off rule comes

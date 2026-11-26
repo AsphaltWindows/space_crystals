@@ -187,6 +187,10 @@ pub enum Reject {
     /// (`factions/cults/structures/armory.md > ObjectInterfaceState[Armory]`: "Only available if StoredRecruits is not
     /// empty").
     NothingInside,
+    /// (M5-E) The target of an Assist is no site of the player's that its builders build from outside
+    /// (`factions/cults/economy.md > Assist Construction Command`: "Left Click on an in-progress building";
+    /// **Placeholder (Q0097 point 7)**: "Only a building under construction", not a pending ghost).
+    NotASite(ObjectId),
 }
 
 impl fmt::Display for Reject {
@@ -251,6 +255,7 @@ impl fmt::Display for Reject {
             Reject::NotAccepted(id) => write!(f, "building {} takes none of the units in", id.0),
             Reject::NoHolders => write!(f, "none of the objects holds units"),
             Reject::NothingInside => write!(f, "nothing is inside"),
+            Reject::NotASite(id) => write!(f, "object {} is no building of the player's under construction", id.0),
         }
     }
 }
