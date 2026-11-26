@@ -27,16 +27,23 @@
 //!   `systems/controls/commands.md > Enter`: "Cults — Armory, Cathedral: Recruits only"), whether or not its pool has
 //!   room, which the unit finds out as it gets there (design change 0347 point 2,
 //!   `factions/cults/structures/README.md > Entering pool buildings`: "a unit arriving when the building is full has
-//!   its Enter **end** and idles beside the building").
+//!   its Enter **end** and idles beside the building"; design change 0378: "If the building fills up later while the
+//!   Recruits are walking over, the normal Full-building rule applies"), but for one full and damaged that the unit's
+//!   type repairs, which it Repairs (below).
 //! - **An own building under construction** that the unit's type builds from outside gives Assist (slice M5-E;
 //!   `factions/cults/units/recruit.md > Right-Click Resolution`: "In-progress own building → Assist Construction";
 //!   `OrderKind::Assist`), after Enter: an Armory under construction takes no one in (design change 0347 point 4:
 //!   "a building under construction **can't be entered**; a right-click on it Assists").
 //! - **A damaged own building or vehicle** that the unit's type repairs gives Repair (slice M5-N8, `crate::repair`;
 //!   `factions/cults/units/recruit.md > Right-Click Resolution`: "Damaged own building or vehicle (completed) → Repair,
-//!   **unless the building can be entered** by the selection: then **Enter** wins"; `factions/syndicate/units/agent.md
-//!   > Right-Click Resolution`: "Own Tunnel (not carrying resources) → Enter (also when damaged: Enter wins over
-//!   Repair)", "Damaged own Laser Turret → Repair"; `OrderKind::Repair`), after Enter and Assist.
+//!   **unless the building can be entered** by the selection: then **Enter** wins";
+//!   `factions/syndicate/units/agent.md > Right-Click Resolution`: "Own Tunnel (not carrying resources) → Enter (also
+//!   when damaged: Enter wins over Repair)", "Damaged own Laser Turret → Repair"; `OrderKind::Repair`), after Enter and
+//!   Assist. (M5-S2b) **Unless it is full**: Enter gives way to it on a building that holds units with no room left at
+//!   the moment of the click ([`Aimed::full`]; design change 0378, answering Q0140, `factions/cults/units/recruit.md >
+//!   Right-Click Resolution`: "**Except when it is full** [...]: a damaged enterable building that is **full at the
+//!   moment of the click** resolves to **Repair** (the pointer shows Repair). This applies to every building that
+//!   holds units").
 //! - **An enemy** (another player's object) that the unit can attack gives Attack: it has an attack whose
 //!   TargetDomain allows the object's domain (`systems/combat.md > ValidTarget` 3), and the object is destructible.
 //! - **Everything else** gives a Move to the object (`systems/controls/command_behaviors.md > MovingToObject`), which
@@ -136,6 +143,10 @@ pub struct Aimed {
     /// The kinds of unit it takes in: its type's (`HoldsDef::accepts`) if it is a building of the unit's owner's that
     /// holds units, in operation (`holding::admits`; slice M5-F1), none for anything else.
     pub accepts: &'static [ObjectKind],
+    /// (M5-S2b) It is such a building ([`Aimed::accepts`]) with no room left now: its capacity taken by everyone
+    /// inside, reserved units included, as its pool counts it at the door (`Sim::room`; design change 0378, answering
+    /// Q0140: "fullness, counting reserved units, is checked at click time"). `false` for anything else.
+    pub full: bool,
     /// (M5-E) Its kind, if it is a site of the unit's owner's that its builders build from outside
     /// (`Object::is_built_from_outside`): a Cults building under construction, which the units that assist it take an
     /// Assist on (`construction::site::assists`). `None` for anything else.
@@ -178,6 +189,7 @@ pub enum Rule {
     /// A worker that carries a load on its owner's drop-off: Drop Off.
     DropOff,
     /// An own Tunnel whose tier lets the unit through, or an own building in operation that takes its kind in: Enter.
+    /// (M5-S2b) Not a full building that [`Rule::Repair`] would give the unit, damaged (design change 0378).
     Enter,
     /// An own site that the unit's type builds from outside: Assist.
     Assist,
@@ -191,7 +203,8 @@ pub enum Rule {
 /// gives the order, and a Move to the object if none does (module docs). A new default order is a row in its place:
 /// slice M5-N8's Repair, after [`Rule::Enter`] and [`Rule::Assist`] and before [`Rule::Attack`], in the design's order
 /// (`factions/cults/units/recruit.md > Right-Click Resolution`, design change 0325: "Damaged own building or vehicle
-/// (completed) → Repair, **unless the building can be entered** by the selection: then **Enter** wins").
+/// (completed) → Repair, **unless the building can be entered** by the selection: then **Enter** wins"), which (M5-S2b)
+/// a full building's Enter lets through to it ([`Rule::Enter`], design change 0378).
 pub const RULES: &[Rule] = &[
     Rule::Gather,
     Rule::GatherSupplies,
@@ -210,8 +223,13 @@ impl Rule {
             Rule::Gather => (unit.worker && target.gatherable).then_some(OrderKind::Gather(id)),
             Rule::GatherSupplies => (unit.gathers_supplies && target.station).then_some(OrderKind::Gather(id)),
             Rule::DropOff => (unit.worker && unit.carrying && target.drop_off).then_some(OrderKind::DropOff(id)),
-            Rule::Enter => (network::passes(target.transit, unit.transit) || target.accepts.contains(&unit.kind))
-                .then_some(OrderKind::Enter(id)),
+            Rule::Enter => {
+                // Design change 0378: "An Enter certain to fail is a wasted click", so a full building goes to the
+                // Repair it would get. The Tunnel Network takes everyone the tier lets through.
+                let repairs_instead = target.full && Rule::Repair.order(unit, target).is_some();
+                let pool = target.accepts.contains(&unit.kind) && !repairs_instead;
+                (network::passes(target.transit, unit.transit) || pool).then_some(OrderKind::Enter(id))
+            }
             Rule::Assist => (target.site.is_some_and(|kind| assists(unit.kind, kind))).then_some(OrderKind::Assist(id)),
             Rule::Repair => {
                 (target.repair.is_some_and(|kind| repairs(unit.kind, kind))).then_some(OrderKind::Repair(id))

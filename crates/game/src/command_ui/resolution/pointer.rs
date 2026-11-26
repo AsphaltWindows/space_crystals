@@ -29,7 +29,8 @@ pub enum PointerDisplay {
     /// The Recruits' too, over an own building in operation that takes them in, the Armory (slice M5-J1;
     /// `factions/cults/units/recruit.md > Right-Click Resolution`: "Own Armory → Enter Armory"), and never over its
     /// site (design change 0347 point 4); and the Garrison's four kinds' over an own Garrison (slice M5-N2: "Own
-    /// Garrison → Enter Garrison").
+    /// Garrison → Enter Garrison"). (M5-S2b) Not the Recruits' over one full and damaged, which they repair (design
+    /// change 0378).
     Enter,
     /// `systems/controls/hud.md > Mixed Right-Click Preview` (design change 0063): the selected units
     /// would do different things on a right-click.
@@ -41,7 +42,9 @@ pub enum PointerDisplay {
     Assist,
     /// (M5-J1) The Recruits' Repair (design change 0322, a placeholder look): over a damaged own building or vehicle
     /// the selection can repair, and the Agents' over a damaged own Tunnel or Laser Turret (slice M5-N8,
-    /// `sc_sim::OrderKind::Repair`), on a right-click and while D awaits its target.
+    /// `sc_sim::OrderKind::Repair`), on a right-click and while D awaits its target. On a right-click, over a building
+    /// the selection could enter only while it is full (slice M5-S2b; design change 0378: "a damaged enterable
+    /// building that is **full at the moment of the click** resolves to **Repair** (the pointer shows Repair)").
     Repair,
 }
 

@@ -458,8 +458,8 @@ Units, structures and resources are all `Object`s (`object.rs`, `core/entities.m
     (`economy/army/cults.rs` counts the held units). A unit comes out with no attack under way
     (`Sim::put_on_map`: T72, "leaving clears it"). Right-click: the four kinds' on an own Garrison in operation is
     an Enter by `RULES`'s one Enter row (an own building in operation that takes the kind in, before N8's Repair, so a
-    damaged Garrison is entered, design change 0325; its room is not asked, as at the Armory), so no row of its
-    own.
+    damaged Garrison is entered, design change 0325; (M5-S2b) but a full one, damaged, is the Recruits' to repair,
+    as at every building that holds units, design change 0378: `Aimed::full`), so no row of its own.
 - **Expansions and a Tunnel's operation** (`sim/expansions.rs`, `tunnel/operation.rs`; slice M4-F;
   `factions/syndicate/tunnel_menus.md > ExpandMenu`, `factions/syndicate/tunnel_menus.md > AwaitingPlacement
   (Expansion)`, `factions/syndicate/tunnel_menus.md > Expansions under construction`; design changes 0240, 0254, 0290,
@@ -2833,7 +2833,12 @@ their energy doorway, slice M3-D2: design change 0145, `factions/colonists/struc
   `RULES`, a list of `Rule`s tried in order (Gather, GatherSupplies, DropOff, Enter, Assist, Repair, Attack), the
   first that applies (`Rule::order`) giving the order; a new default order is a `Rule` in its place in the list
   (slice M5-N8's Repair is after Enter and Assist, design changes 0322 and 0325: a damaged own building that the unit
-  can enter is entered; `Aimed::repair` against `repair::repairs`, *Economy > Repair*).
+  can enter is entered; `Aimed::repair` against `repair::repairs`, *Economy > Repair*). (M5-S2b) **Unless it is
+  full**: the Enter row lets a building that holds units through to the Repair row while it has no room at the moment
+  of the click (`Aimed::full`: `Sim::room` is 0, everyone inside counted, reserved units included; design change
+  0378, answering Q0140: "a damaged enterable building that is **full at the moment of the click** resolves to
+  **Repair**"). A unit whose type repairs nothing keeps the Enter, which ends at the door if the building is still
+  full (the normal Full-building rule), as does an Enter given while it had room.
 - **Debug spawns and teleports of units** keep the unit invariants: a box on blocked ground or across the map's edge
   is `Reject::Blocked`, one overlapping another unit of its layer `Reject::Occupied(id)`, and so is a blocking
   footprint spawned onto a ground unit. Touching is allowed. A teleported unit plans its path again.
@@ -4188,7 +4193,9 @@ Drones, through one command flow (plan decision T10, slices M2-H1, M2-H2 and M3-
   pointer shows `PointerDisplay::Repair` (`cursor::REPAIR_COLOR`, a placeholder) where the right-click gives a Repair,
   and while D awaits over an object that a selected type repairs (`resolution::repaired_by`,
   `sc_sim::repair::repairs`), else Inactive, where a click sends `InvalidTarget` and targeting goes on. A damaged own
-  Armory that takes the Recruit in is entered by a right-click, repaired by D (Enter wins, 0325). Enter shows over an
+  Armory that takes the Recruit in is entered by a right-click, repaired by D (Enter wins, 0325), and repaired by a
+  right-click too while it is full, under the Repair pointer (slice M5-S2b, 0378; `tests/commands/recruit_ui/
+  repairing.rs` plays 0378's Verification on a Garrison). Enter shows over an
   own Armory in operation that takes the Recruit in, never over its site (0347 point 4). The right-click is the sim's
   one rule (`sc_sim::orders::resolution::RULES`). The InfoPanel shows a carrying Recruit's load to its owner, as a
   Drone's ("Carrying 2 Space Crystals", `info_panel::worker_lines`).

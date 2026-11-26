@@ -32,6 +32,7 @@ fn on(target: CursorTarget, destructible: bool, domain: Domain) -> MapTarget {
             drop_off: false,
             transit: &[],
             accepts: &[],
+            full: false,
             site: None,
             repair: None,
         }),

@@ -198,46 +198,77 @@ fn a_garrison_site_cant_be_entered_and_a_right_click_on_it_assists() {
     assert_eq!(inside(&t, site), [militant]);
 }
 
-/// Design change 0325 (`factions/cults/units/recruit.md > Right-Click Resolution`: "Damaged own building or vehicle
-/// (completed) → Repair, **unless the building can be entered** by the selection: then **Enter** wins"), with slice
-/// M5-N8's Repair: player 2's Militant damages player 1's Garrison, which four Militants fill. The Recruits repair it
-/// (the gate takes a Recruit's Repair on it: `OrderKind::Repair`, its panel's D), yet the right-click of each of the
-/// four kinds on it is an Enter, the Recruit's too: `RULES` tries the Enter before the Repair, and the Enter takes
-/// the building's type, not its room, as at the Armory (a unit that finds it full at the door idles there, design
-/// change 0347 point 2).
+/// Design change 0378, answering Q0140 (`factions/cults/units/recruit.md > Right-Click Resolution`: "Damaged own
+/// building or vehicle (completed) → Repair, **unless the building can be entered** by the selection: then **Enter**
+/// wins [...]. **Except when it is full** [...]: a damaged enterable building that is **full at the moment of the
+/// click** resolves to **Repair**"), its Verification: "Fill a Garrison (4 inside) and damage it. Right-click it with
+/// Recruits: [...] they repair it", and "With a free slot, the same right-click enters". Player 2's Militant damages
+/// player 1's Garrison, three Militants inside: with its free slot, the right-click of each kind it takes in is an
+/// Enter, the Recruits' too (design change 0325). A fourth Militant fills it: the Recruits' right-click is now a
+/// Repair, and they restore it to its MaxHP; the Gunner and the Disciple, whose types repair nothing, still get the
+/// Enter (it would end at the door: the normal Full-building rule). Repaired, the full Garrison is the Recruits' to
+/// enter again, with nothing to repair.
 #[test]
-fn a_damaged_garrison_is_entered_on_a_right_click_not_repaired() {
+fn a_full_damaged_garrison_is_repaired_on_a_right_click_and_one_with_room_entered() {
     let mut t = base().start();
     t.without_auto_targeting();
-    fill(&mut t, &[MILITANT; 4]);
+    let bank = DebugCommand::SetResources {
+        player: P1,
+        crystals: 1000,
+        supplies: 0,
+        alloys: 0,
+        essence: 0,
+        flux: 0,
+    };
+    t.debug_at(1, bank);
+    fill(&mut t, &[MILITANT; 3]);
     let raider = id(next_id(&t));
     let now = t.sim().tick() + 1;
     t.spawn_unit_at(now, MILITANT, P2, Vec2::new(HI.x + GU, DOOR.y));
     t.order_at(now + 1, P2, &[raider], OrderKind::Attack(G1), false);
     let max = t.sim().object(G1).and_then(|o| o.max_hp()).expect("it has HP");
-    while t.sim().object(G1).and_then(|o| o.hp) == Some(max) {
+    let hp = |t: &TestSim| t.sim().object(G1).and_then(|o| o.hp);
+    while hp(&t) == Some(max) {
         assert!(t.sim().tick() < now + 100, "the raider hits it");
         step_checked(&mut t);
     }
     let gone = t.sim().tick() + 1;
     t.debug_at(gone, DebugCommand::Remove { id: raider });
-    let units = column(
-        &mut t,
-        gone,
-        &[RECRUIT, MILITANT, GUNNER, DISCIPLE],
-        Vec2::new(600.0, 900.0),
-    );
+    let kinds = [RECRUIT, RECRUIT, GUNNER, DISCIPLE, MILITANT];
+    let units = column(&mut t, gone, &kinds, Vec2::new(600.0, 900.0));
     run_checked(&mut t, gone + 1);
-    assert!(t.sim().object(G1).and_then(|o| o.hp) < Some(max), "damaged");
-    assert_eq!(inside(&t, G1).len(), 4, "full");
-    let repair = Command::Order {
-        units: vec![units[0]],
-        kind: OrderKind::Repair(G1),
-        queue: false,
-    };
-    assert_eq!(validate(&t, repair), Ok(()), "the Recruits repair it");
+    assert!(hp(&t) < Some(max), "damaged");
+    let right_click = |t: &TestSim, unit| t.sim().default_order(unit, Target::Object(G1));
     for &unit in &units {
-        let order = t.sim().default_order(unit, Target::Object(G1));
-        assert_eq!(order, Some(OrderKind::Enter(G1)), "{unit:?}");
+        assert_eq!(
+            right_click(&t, unit),
+            Some(OrderKind::Enter(G1)),
+            "{unit:?}: a free slot"
+        );
     }
+    let now = t.sim().tick() + 1;
+    t.at(now, P1, enter(&units[4..], G1));
+    while inside(&t, G1).len() < 4 {
+        assert!(t.sim().tick() < now + 300, "the fourth walks in");
+        step_checked(&mut t);
+    }
+    let (recruits, others) = units[..4].split_at(2);
+    for &unit in recruits {
+        assert_eq!(right_click(&t, unit), Some(OrderKind::Repair(G1)), "{unit:?}: full");
+    }
+    for &unit in others {
+        assert_eq!(right_click(&t, unit), Some(OrderKind::Enter(G1)), "{unit:?}");
+    }
+    let clicked = right_click(&t, recruits[0]).expect("an order");
+    let now = t.sim().tick() + 1;
+    t.order_at(now, P1, recruits, clicked, false);
+    while hp(&t) < Some(max) {
+        assert!(t.sim().tick() < now + 600, "the Recruits repair it");
+        step_checked(&mut t);
+    }
+    assert_eq!(inside(&t, G1).len(), 4);
+    for &unit in recruits {
+        assert_eq!(right_click(&t, unit), Some(OrderKind::Enter(G1)), "{unit:?}: repaired");
+    }
+    assert_eq!(failed(&t), []);
 }

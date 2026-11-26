@@ -1,7 +1,8 @@
 //! The Garrison (slice M5-N2, plan decision T72; `factions/cults/structures/garrison.md`), through the gate, one test
 //! binary:
 //! - `entering`: Recruits, Militants, Gunners and Disciples go in through the door on side B, up to four; the fifth's
-//!   Enter ends and it idles; a site can't be entered; the right-click; Unit Control;
+//!   Enter ends and it idles; a site can't be entered; the right-click, a Repair on a full damaged Garrison (design
+//!   change 0378); Unit Control;
 //! - `eject`: Eject All lets everyone out through the door at once, passing through each other until they are clear of
 //!   the footprint, idle; the empty Garrison refuses it;
 //! - `fire`: the occupants fire from the footprint: 0319's verification, the stand-in's attack, the Gunner's MinRange,
