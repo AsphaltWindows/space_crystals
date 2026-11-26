@@ -162,7 +162,7 @@
 >   - **0364 renames the Jackal to the Seeker.** Read "Jackal" in these plans as the Seeker.
 >   - **N10 and N11 add about one wave,** so the full-Cults playtest moves to about the end of W14.
 > - **The waves after these additions** (a sketch; the binding rule is each slice's "after"):
->   - W4: J1, Y and F3;
+>   - W4: J1, Y and F3, then **J2** in J1's slot (2026-11-26);
 >   - W5: L, U1 and G2;
 >   - W6: V1, N8 and N1a;
 >   - W7: N2, V2 and N1b;
