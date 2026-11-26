@@ -28,7 +28,6 @@
 
 ## Open Director Questions
 - Q0135 Cults economy check: 5 misses; realistic opening ~0.5-0.6 of others (nb, big)
-- Q0136 tie between equidistant Storages (nb)
 - Q0137 when a turret drops its lock; does Move clear it (nb)
 - Q0139 Garrison with occupants counts as a threat? (nb)
 - Q0140 right-click on full damaged enterable building: Enter or Repair (nb)
