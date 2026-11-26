@@ -1,5 +1,5 @@
-//! The spots around a footprint (plan decision T62): M4-S1's eight for the Laser Turret's Agent, unchanged, and the
-//! rings that hold more.
+//! The spots around a footprint (plan decision T62): the eight directions out of a small one, and the rings that hold
+//! more.
 
 use super::*;
 use crate::paths::boxes_overlap;
@@ -14,7 +14,7 @@ fn footprint(w: u32, h: u32) -> Placement {
     }
 }
 
-/// M4-S1's eight directions out of a footprint, clockwise on screen from the east.
+/// The eight directions out of a footprint, clockwise on screen from the east.
 const BESIDE: [(f32, f32); 8] = [
     (1.0, 0.0),
     (1.0, 1.0),
@@ -26,32 +26,26 @@ const BESIDE: [(f32, f32); 8] = [
     (1.0, -1.0),
 ];
 
-/// Design change 0298 point 7 (M4-S1's test, moved here): the spots beside a footprint are tried "in a fixed order
-/// starting from the side it came from", then further and further round, of two equally far the lower number first,
-/// and the opposite side last; a direction between two goes to the nearer. Each order tries all eight.
+/// A search starts from the one of the eight directions nearest the direction given: each of them for itself, and a
+/// direction between two the nearer, half away from zero (`-0.0` as `0.0`).
 #[test]
-fn the_spots_beside_are_tried_from_the_side_it_came_from() {
-    let beside_order = |came_from: Vec2| Round::BothWays.order(8, eighth(came_from));
-    assert_eq!(beside_order(Vec2::new(1.0, 0.0)), [0, 1, 7, 2, 6, 3, 5, 4]);
-    assert_eq!(beside_order(Vec2::new(-1.0, 1.0)), [3, 2, 4, 1, 5, 0, 6, 7]);
-    assert_eq!(beside_order(Vec2::new(0.0, -1.0)), [6, 5, 7, 0, 4, 1, 3, 2]);
-    assert_eq!(beside_order(Vec2::new(-1.0, 0.0)), [4, 3, 5, 2, 6, 1, 7, 0]);
-    assert_eq!(beside_order(Vec2::new(-1.0, -0.0)), [4, 3, 5, 2, 6, 1, 7, 0]);
-    assert_eq!(beside_order(Vec2::new(1.0, 0.3))[0], 0);
-    assert_eq!(beside_order(Vec2::new(1.0, 0.5))[0], 1);
+fn the_first_spot_is_in_the_nearest_of_the_eight_directions() {
+    assert_eq!(eighth(Vec2::new(1.0, 0.0)), 0);
+    assert_eq!(eighth(Vec2::new(-1.0, 1.0)), 3);
+    assert_eq!(eighth(Vec2::new(0.0, -1.0)), 6);
+    assert_eq!(eighth(Vec2::new(-1.0, 0.0)), 4);
+    assert_eq!(eighth(Vec2::new(-1.0, -0.0)), 4);
+    assert_eq!(eighth(Vec2::new(1.0, 0.3)), 0);
+    assert_eq!(eighth(Vec2::new(1.0, 0.5)), 1);
     for i in 0..8 {
-        let mut order = beside_order(math::facing_vector(i as f32 * PI / 4.0 + 0.1));
-        assert_eq!(order[0], i);
-        order.sort_unstable();
-        assert_eq!(order, [0, 1, 2, 3, 4, 5, 6, 7]);
+        assert_eq!(eighth(math::facing_vector(i as f32 * PI / 4.0 + 0.1)), i);
     }
 }
 
-/// The Laser Turret's Agent (a 1 × 1 footprint, a 36 × 36 box): ring 0 has no room between a side's middle and its
-/// corners, so it is M4-S1's eight spots exactly, each against the footprint, numbered as before, and facing out the
-/// same way.
+/// A 1 × 1 footprint and a 36 × 36 box (an Agent's): ring 0 has no room between a side's middle and its corners, so it
+/// is the eight directions out of it exactly, each against the footprint, and facing out the same way.
 #[test]
-fn a_turret_ring_is_the_eight_directions_out_of_it() {
+fn a_one_tile_ring_is_the_eight_directions_out_of_it() {
     let placement = footprint(1, 1);
     let half = Vec2::splat(18.0);
     let ring = Spots::around(&placement, half).ring(0);
@@ -119,16 +113,11 @@ fn the_next_ring_is_a_box_further_out() {
     }
 }
 
-/// Clockwise from the first spot, once round; both ways round from it, the opposite last.
+/// Clockwise from the first spot, once round.
 #[test]
-fn the_rounds_try_every_spot_once() {
+fn the_round_tries_every_spot_once() {
     assert_eq!(Round::Clockwise.order(5, 3), [3, 4, 0, 1, 2]);
-    assert_eq!(
-        Round::BothWays.order(5, 3),
-        [3, 2, 4, 0, 1],
-        "of two equally far, the lower number first"
-    );
-    assert_eq!(Round::BothWays.order(1, 0), [0]);
+    assert_eq!(Round::Clockwise.order(1, 0), [0]);
     assert_eq!(Round::Clockwise.order(0, 0), Vec::<usize>::new());
 }
 

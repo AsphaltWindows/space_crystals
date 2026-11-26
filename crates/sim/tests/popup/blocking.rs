@@ -1,8 +1,8 @@
-//! Design change 0296 point 3 (`factions/syndicate/structures/laser_turret.md > Pop-up rules`): "**Blocking**: an
-//! **upright** turret blocks movement like any building, and so does a **raised** pop-up. A lowered pop-up never blocks
-//! (units walk over it like an expansion). **Rising needs a clear footprint**: it can't rise while any unit stands over
-//! it. The **owner's own idle units** over it are pushed off by the idle push ... Any other unit over it (an enemy, or
-//! an own unit with an order) keeps it **underground** until the spot is clear."
+//! Design change 0296 point 3 (`factions/syndicate/structures/laser_turret.md > Pop-up rules`): "**Blocking**: a
+//! **raised** turret blocks movement like any building. A lowered one never blocks (units walk over it like an
+//! expansion). **Rising needs a clear footprint**: it can't rise while any unit stands over it. The **owner's own idle
+//! units** over it are pushed off by the idle push ... Any other unit over it (an enemy, or an own unit with an order)
+//! keeps it **underground** until the spot is clear."
 //!
 //! The reading built (`sc_sim::popup`): the footprint blocks from the tick the turret starts to rise until it is fully
 //! lowered again.
@@ -31,7 +31,7 @@ fn walk_south(t: &mut TestSim, walker: ObjectId) -> (bool, u32) {
     panic!("the walker never arrived:\n{}", t.ascii(Some(CENTRE)));
 }
 
-/// "A lowered pop-up never blocks (units walk over it like an expansion)": its tile is open on the true grids, and
+/// "A lowered one never blocks (units walk over it like an expansion)": its tile is open on the true grids, and
 /// its owner's Agent walks straight across it, 320 space units at 6 a tick. The turret stays down: its own units are
 /// no targets.
 #[test]
@@ -45,9 +45,9 @@ fn a_lowered_popup_is_walked_over() {
     assert_eq!(popup(&t, POPUP), Some(PopUp::LOWERED));
 }
 
-/// "... and so does a **raised** pop-up": with an enemy in its range the turret is up, its tile blocked on the true
-/// grids, and the same walk goes round it: the Agent's box never overlaps the tile (invariant I2 checks it every tick
-/// too), and it takes longer.
+/// "A **raised** turret blocks movement like any building": with an enemy in its range the turret is up, its tile
+/// blocked on the true grids, and the same walk goes round it: the Agent's box never overlaps the tile (invariant I2
+/// checks it every tick too), and it takes longer.
 #[test]
 fn a_raised_popup_blocks_a_walker() {
     let mut t = lowered(with_turret().spawn(AGENT, Some(P1), SpawnAt::Point(NORTH)));

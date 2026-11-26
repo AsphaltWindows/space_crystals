@@ -1,25 +1,28 @@
-//! The pop-up form (plan decision T50, slice M4-S2): the Laser Turret inside an own Tunnel Area —
-//! `factions/syndicate/structures/laser_turret.md`.
+//! The pop-up turret (plan decision T50, slice M4-S2; slice M5-Y, design changes 0358 to 0360): the Laser Turret —
+//! `factions/syndicate/structures/laser_turret.md`: "it is always a hidden **pop-up turret**, and is **only active
+//! inside its Tunnel's area** ... There is no upright form any more".
 //!
-//! - **The form is derived, never stored** (`> Upright vs Pop-up`, `> Conversion`: "The form updates automatically
-//!   whenever Tunnel Areas change"): a structure of a type with a pop-up form (`StructureDef::popup`) is a pop-up while
-//!   its footprint lies inside the current Tunnel Area of one of its owner's Tunnels in operation ([`in_area`]:
-//!   `tunnel::area::parent`, an expansion's parent rule), and upright otherwise. So a new Tunnel, an upgrade and a
-//!   Tunnel's loss convert it with no event: each only changes the areas. **A reading**: "operational", as for
-//!   reclaiming (design change 0258): a Tunnel still a site has no pop-up, and an upgrading Tunnel's area is its
-//!   current tier's until the upgrade completes (design change 0249).
-//! - **What is stored** is where the turret is between underground and the surface: [`PopUp`], `Object::popup`.
-//!   `None` is a turret standing upright with nothing counting, which every turret outside an area is, so the state is
-//!   hashed and saved only for a pop-up (and for a turret that lost its Tunnel while down, until it is up).
+//! - **Every turret is a pop-up**: an object of a type with a pop-up form (`StructureDef::popup`) has a [`PopUp`]
+//!   state (`Object::popup`) from its first tick, lowered (`Sim::new_object`): its site too, which only a Tunnel builds
+//!   (`> Construction`: "The **site is hidden** like an expansion under construction"), and so it completes lowered.
+//!   The state is hashed and saved only while set, so the games without a turret are as they were.
+//! - **Active only inside its Tunnel's area** ([`is_active`]): a turret in operation is active while it has a parent
+//!   Tunnel (`tunnel::area::parent`, the expansions' rule: an own Tunnel in operation whose current Tunnel Area fully
+//!   contains it). **A reading**: "in operation", as for reclaiming (design change 0258): an upgrading Tunnel's area is
+//!   its current tier's until the upgrade completes (design change 0249). An inactive turret is **lowered at once** and
+//!   stays down whatever it sees ([`step`]), so it never fires: a neutral one (`> When its Tunnel is lost`: "keeps its
+//!   **high underground armor** (a raised turret retracts at once; it never fires again while neutral)",
+//!   `sim/tunnels.rs`), and one that a map or a debug spawn stands outside every own Tunnel Area. **A reading** of
+//!   "retracts at once": down in the tick, with no retract frames, so that its armour is the underground one from that
+//!   tick (the high armour it "keeps"). A turret a Tunnel takes back is active again from the next step.
 //! - **The cycle** ([`step`], once a tick, right after phase 5e: `Sim::step_popups`): [`PopUp::Lowered`] while it has
 //!   no target; with one, [`PopUp::Rising`] for the def's rise frames, then [`PopUp::Raised`], where it fires; after
 //!   the def's idle frames with no target, [`PopUp::Retracting`] for its retract frames, then lowered again ("rises
 //!   in 8 frames (already facing its target); retracts after 32 frames with no target, taking 8 frames. It can't fire
 //!   while rising or retracting"). A phase that starts in tick `t` does its first frame in `t + 1`, as a site does:
 //!   a turret that picks a target in tick `t` is raised at the end of `t + 8` and aims from `t + 9`. Each phase runs
-//!   its full length: a turret that gets a target while it retracts goes all the way down and rises again at once
-//!   (Placeholder (Q0091 point 2), in [`step`]: the simplest predictable rule, design change 0223; the design doesn't
-//!   say).
+//!   its full length (design change 0358 point 2: "**a new target during retracting doesn't interrupt it**: it
+//!   finishes retracting, then rises"): it rises again in the tick it is down.
 //! - **Rising needs a clear footprint** (design change 0296 point 3, `> Pop-up rules`: "it can't rise while any unit
 //!   stands over it"): a lowered turret that wants up while a ground unit's box overlaps its footprint stays down,
 //!   keeping its target, and notes it ([`PopUp::Lowered::blocked`]); the movement step then asks its owner's idle
@@ -29,22 +32,17 @@
 //! - **What reads the state**, each through one function here: hiding and the underground armour only while fully
 //!   lowered ([`is_lowered`], `vision::hidden`, [`Object::armor`]; design change 0296 point 1: "While rising, raised
 //!   and retracting it is visible and has its raised armor"); blocking ([`blocks`]); firing ([`may_fire`]).
-//! - **Blocking, a reading of 0296 point 3** ("an upright turret blocks movement like any building, and so does a
-//!   raised pop-up. A lowered pop-up never blocks"): the footprint blocks from the tick the turret starts to rise until
-//!   it is fully lowered again, so rising and retracting count as raised. Otherwise a unit could step onto the
-//!   footprint during the rise, and the raised turret would stand under it.
-//! - **A turret that loses its Tunnel while it isn't up** is upright by its form, and comes up by the same rule: it
-//!   wants up whatever it sees, waits for a clear footprint as a pop-up does, hidden and armoured as lowered until it
-//!   rises (Placeholder (Q0091 point 1), in [`step`]), and its state goes once it stands.
-//! - **A Tunnel's turret site** is lowered from its first frame (`Sim::start_expansion`; design change 0297 point 6: "A
-//!   Tunnel's site is hidden like an expansion under construction"), and so is the turret as it completes; an Agent's
-//!   site stands on the surface, and its turret retracts once complete inside an area.
+//! - **Blocking, a reading of 0296 point 3** (`> Pop-up rules`: "a **raised** turret blocks movement like any
+//!   building. A lowered one never blocks"): the footprint blocks from the tick the turret starts to rise until it is
+//!   fully lowered again, so rising and retracting count as raised. Otherwise a unit could step onto the footprint
+//!   during the rise, and the raised turret would stand under it.
 
 use serde::{Deserialize, Serialize};
 
 use crate::defs::{Armor, ObjectKind, PopUpDef};
 use crate::economy::RATIO_ONE;
 use crate::hash::{StateHash, StateHasher};
+use crate::ids::PlayerId;
 use crate::nav::TileRect;
 use crate::object::Object;
 use crate::progress::Progress;
@@ -68,7 +66,7 @@ pub enum PopUp {
 }
 
 impl PopUp {
-    /// Lowered, with nothing in its way noted: how a Tunnel's turret starts.
+    /// Lowered, with nothing in its way noted: how every turret starts, and where an inactive one is.
     pub const LOWERED: PopUp = PopUp::Lowered { blocked: false };
 
     /// Just raised: no idle tick counted.
@@ -100,14 +98,22 @@ pub fn is_lowered(o: &Object) -> bool {
     matches!(o.popup, Some(PopUp::Lowered { .. }))
 }
 
+/// Whether a record of an object of `kind` that `owner` owned when last seen (`vision::LastKnown`) is of a turret
+/// fully lowered: a neutral turret's, which is always down (module docs: an inactive turret). A record of an owned
+/// turret is of one seen, so not lowered: lowered, it is hidden from the other players, and none remembers what is
+/// hidden from it (`vision::memory`). What a player's planning grids (`paths::knowledge`) and the client draw of it.
+pub fn remembered_lowered(kind: ObjectKind, owner: Option<PlayerId>) -> bool {
+    owner.is_none() && def_of(kind).is_some()
+}
+
 /// Whether `o`'s footprint blocks movement as far as its pop-up state goes (module docs, the reading of 0296 point
 /// 3): always, but while it is fully lowered.
 pub fn blocks(o: &Object) -> bool {
     !is_lowered(o)
 }
 
-/// Whether `o` may run its attack sequence: an upright turret, and a pop-up while raised ("It can't fire while rising
-/// or retracting"; lowered, it is underground).
+/// Whether `o` may run its attack sequence: an object without a pop-up state (a unit), and a turret while raised ("It
+/// can't fire while rising or retracting"; lowered, it is underground).
 pub fn may_fire(o: &Object) -> bool {
     matches!(o.popup, None | Some(PopUp::Raised { .. }))
 }
@@ -117,14 +123,16 @@ pub fn is_blocked(o: &Object) -> bool {
     matches!(o.popup, Some(PopUp::Lowered { blocked: true }))
 }
 
-/// Whether `o` is a pop-up by its form (module docs): a structure in operation of a type with a pop-up form, whose
-/// footprint lies inside the current Tunnel Area of one of its owner's Tunnels in operation, among `tunnels`.
-pub fn in_area<'a>(o: &Object, tunnels: impl IntoIterator<Item = &'a Object>) -> bool {
-    def_of(o.kind).is_some() && tunnel::area::parent(o, tunnels).is_some()
+/// Whether `o` is an active turret (module docs): a structure in operation of a type with a pop-up form that has a
+/// parent Tunnel among `tunnels` (`tunnel::area::parent`: one of its owner's Tunnels in operation whose current Tunnel
+/// Area fully contains its footprint). A neutral turret never is.
+pub fn is_active<'a>(o: &Object, tunnels: impl IntoIterator<Item = &'a Object>) -> bool {
+    def_of(o.kind).is_some() && o.is_operational() && tunnel::area::parent(o, tunnels).is_some()
 }
 
-/// [`in_area`] against the Tunnel Areas `areas`, each with its owner: those of the Tunnels in operation.
-pub(crate) fn in_areas(o: &Object, areas: &[(crate::ids::PlayerId, TileRect)]) -> bool {
+/// [`is_active`] for a turret in operation, against the Tunnel Areas `areas`, each with its owner: those of the
+/// Tunnels in operation.
+pub(crate) fn active_in(o: &Object, areas: &[(PlayerId, TileRect)]) -> bool {
     let (Some(owner), Some(p)) = (o.owner, o.placement) else {
         return false;
     };
@@ -146,51 +154,38 @@ impl Object {
     }
 }
 
-/// One tick of a turret's pop-up state (module docs), from `state` to the state it leaves. `pop_up`: its form now
-/// ([`in_area`]); `target`: it engages one; `clear`: no unit stands over its footprint, asked only when it would
+/// One tick of a turret's pop-up state (module docs), from `state` to the state it leaves. `active`: it is active now
+/// ([`is_active`]); `target`: it engages one; `clear`: no unit stands over its footprint, asked only when it would
 /// start to rise.
-pub(crate) fn step(
-    state: Option<PopUp>,
-    def: &PopUpDef,
-    pop_up: bool,
-    target: bool,
-    clear: impl FnOnce() -> bool,
-) -> Option<PopUp> {
-    // An upright turret always stands; a pop-up comes up for a target.
-    let wants_up = !pop_up || target;
+pub(crate) fn step(state: PopUp, def: &PopUpDef, active: bool, target: bool, clear: impl FnOnce() -> bool) -> PopUp {
+    // Inactive (neutral, or outside every own Tunnel Area): down at once, and it stays down.
+    if !active {
+        return PopUp::LOWERED;
+    }
     let rise = |clear: bool| match clear {
         true => PopUp::Rising(Progress::new(def.rise_frames)),
         false => PopUp::Lowered { blocked: true },
     };
-    let state = match state {
-        // Upright, and an area now covers it: it stands raised, and retracts once it has had no target for long enough.
-        None if pop_up => PopUp::raised(def),
-        None => return None,
-        Some(state) => state,
-    };
     match state {
-        // Placeholder (Q0091 point 1): one whose Tunnel is gone, upright by its form, waits for a clear footprint as a
-        // pop-up does, lowered: hidden, and at its underground armour.
-        PopUp::Lowered { .. } if wants_up => Some(rise(clear())),
-        PopUp::Lowered { .. } => Some(PopUp::LOWERED),
-        PopUp::Rising(mut progress) => Some(match progress.step(RATIO_ONE) {
+        PopUp::Lowered { .. } if target => rise(clear()),
+        PopUp::Lowered { .. } => PopUp::LOWERED,
+        PopUp::Rising(mut progress) => match progress.step(RATIO_ONE) {
             true => PopUp::raised(def),
             false => PopUp::Rising(progress),
-        }),
-        // Its Tunnel is gone: it stands upright.
-        PopUp::Raised { .. } if !pop_up => None,
-        PopUp::Raised { .. } if target => Some(PopUp::raised(def)),
-        PopUp::Raised { mut idle } => Some(match idle.step(RATIO_ONE) {
+        },
+        PopUp::Raised { .. } if target => PopUp::raised(def),
+        PopUp::Raised { mut idle } => match idle.step(RATIO_ONE) {
             true => PopUp::Retracting(Progress::new(def.retract_frames)),
             false => PopUp::Raised { idle },
-        }),
-        // Placeholder (Q0091 point 2): a target doesn't turn it back; it goes all the way down first.
-        PopUp::Retracting(mut progress) => Some(match progress.step(RATIO_ONE) {
-            // Down; one that wants up again rises at once: nothing came onto its footprint, which blocked until now.
-            true if wants_up => rise(true),
+        },
+        // Design change 0358 point 2: "a new target during retracting doesn't interrupt it: it finishes retracting,
+        // then rises".
+        PopUp::Retracting(mut progress) => match progress.step(RATIO_ONE) {
+            // Down; one with a target rises at once: nothing came onto its footprint, which blocked until now.
+            true if target => rise(true),
             true => PopUp::LOWERED,
             false => PopUp::Retracting(progress),
-        }),
+        },
     }
 }
 
@@ -225,8 +220,8 @@ mod tests {
         def_of(ObjectKind::LaserTurret).expect("the Laser Turret has a pop-up form")
     }
 
-    /// One tick of a pop-up (`pop_up` true) with a clear footprint.
-    fn tick(state: Option<PopUp>, target: bool) -> Option<PopUp> {
+    /// One tick of an active turret with a clear footprint.
+    fn tick(state: PopUp, target: bool) -> PopUp {
         step(state, def(), true, target, || true)
     }
 
@@ -235,95 +230,85 @@ mod tests {
     /// last target in tick `t`, it starts to retract in `t + 32` and is down at the end of `t + 40`.
     #[test]
     fn a_popup_rises_in_8_frames_and_retracts_32_frames_after_its_last_target_in_8() {
-        let mut state = tick(Some(PopUp::LOWERED), true);
-        assert_eq!(state, Some(PopUp::Rising(Progress::new(8))));
+        let mut state = tick(PopUp::LOWERED, true);
+        assert_eq!(state, PopUp::Rising(Progress::new(8)));
         for frame in 1..=8 {
-            assert!(matches!(state, Some(PopUp::Rising(_))), "frame {frame}");
+            assert!(matches!(state, PopUp::Rising(_)), "frame {frame}");
             state = tick(state, true);
         }
-        assert_eq!(state, Some(PopUp::raised(def())));
+        assert_eq!(state, PopUp::raised(def()));
         // While it has a target nothing counts.
         for _ in 0..100 {
             state = tick(state, true);
         }
-        assert_eq!(state, Some(PopUp::raised(def())));
+        assert_eq!(state, PopUp::raised(def()));
         for idle in 1..=32 {
-            assert!(matches!(state, Some(PopUp::Raised { .. })), "idle tick {idle}");
+            assert!(matches!(state, PopUp::Raised { .. }), "idle tick {idle}");
             state = tick(state, false);
         }
-        assert_eq!(state, Some(PopUp::Retracting(Progress::new(8))));
+        assert_eq!(state, PopUp::Retracting(Progress::new(8)));
         for frame in 1..=8 {
-            assert!(matches!(state, Some(PopUp::Retracting(_))), "frame {frame}");
+            assert!(matches!(state, PopUp::Retracting(_)), "frame {frame}");
             state = tick(state, false);
         }
-        assert_eq!(state, Some(PopUp::LOWERED));
-        assert_eq!(tick(state, false), Some(PopUp::LOWERED));
+        assert_eq!(state, PopUp::LOWERED);
+        assert_eq!(tick(state, false), PopUp::LOWERED);
     }
 
-    /// A target seen again resets the idle count; one seen while the turret retracts doesn't turn it back: it goes
-    /// down, and rises again in the tick it is down, its footprint never open in between.
+    /// A target seen again resets the idle count; design change 0358 point 2: one seen while the turret retracts
+    /// doesn't interrupt it: it goes down, and rises again in the tick it is down, its footprint never open in between.
     #[test]
     fn a_target_resets_the_idle_count_and_a_retracting_turret_goes_down_first() {
-        let mut state = Some(PopUp::raised(def()));
+        let mut state = PopUp::raised(def());
         for _ in 0..31 {
             state = tick(state, false);
         }
         state = tick(state, true);
-        assert_eq!(state, Some(PopUp::raised(def())));
+        assert_eq!(state, PopUp::raised(def()));
         for _ in 0..32 {
             state = tick(state, false);
         }
-        assert!(matches!(state, Some(PopUp::Retracting(_))));
+        assert!(matches!(state, PopUp::Retracting(_)));
         for _ in 0..7 {
             state = tick(state, true);
-            assert!(matches!(state, Some(PopUp::Retracting(_))));
+            assert!(matches!(state, PopUp::Retracting(_)));
         }
         // No unit can be over it: the footprint blocked all along, so `clear` isn't asked.
         let risen = step(state, def(), true, true, || unreachable!("blocked until now"));
-        assert_eq!(risen, Some(PopUp::Rising(Progress::new(8))));
+        assert_eq!(risen, PopUp::Rising(Progress::new(8)));
     }
 
     /// Design change 0296 point 3: "it can't rise while any unit stands over it": it stays lowered, noting it, and
     /// rises in the tick the footprint is clear; with no target it forgets the note.
     #[test]
     fn a_unit_over_it_keeps_it_down() {
-        let blocked = step(Some(PopUp::LOWERED), def(), true, true, || false);
-        assert_eq!(blocked, Some(PopUp::Lowered { blocked: true }));
+        let blocked = step(PopUp::LOWERED, def(), true, true, || false);
+        assert_eq!(blocked, PopUp::Lowered { blocked: true });
         assert_eq!(step(blocked, def(), true, true, || false), blocked);
-        assert_eq!(tick(blocked, false), Some(PopUp::LOWERED));
-        assert_eq!(tick(blocked, true), Some(PopUp::Rising(Progress::new(8))));
+        assert_eq!(tick(blocked, false), PopUp::LOWERED);
+        assert_eq!(tick(blocked, true), PopUp::Rising(Progress::new(8)));
     }
 
-    /// `> Conversion`: an upright turret an area comes to cover stands raised as a pop-up, and retracts; a raised
-    /// pop-up whose Tunnel is lost is upright at once; one that is down, rising or retracting comes up by the pop-up's
-    /// own rules, whatever it sees, and is upright once it stands.
+    /// Design change 0360 (module docs): an inactive turret is down at once from every state, whatever it sees, and
+    /// stays down, asking nothing of its footprint; active again, it follows its cycle from there.
     #[test]
-    fn the_state_follows_the_form() {
-        let upright = |state, target| step(state, def(), false, target, || true);
-        assert_eq!(upright(None, false), None);
-        assert_eq!(upright(None, true), None);
-        assert_eq!(tick(None, true), Some(PopUp::raised(def())));
-        // With no target its first idle tick counts at once.
-        let mut idle = Progress::new(32);
-        idle.step(RATIO_ONE);
-        assert_eq!(tick(None, false), Some(PopUp::Raised { idle }));
-        assert_eq!(upright(Some(PopUp::raised(def())), false), None);
-        let mut state = upright(Some(PopUp::LOWERED), false);
-        assert_eq!(state, Some(PopUp::Rising(Progress::new(8))));
-        for _ in 0..8 {
-            state = upright(state, false);
+    fn an_inactive_turret_is_down_at_once_and_stays_down() {
+        let mut rising = Progress::new(8);
+        rising.step(RATIO_ONE);
+        let states = [
+            PopUp::LOWERED,
+            PopUp::Lowered { blocked: true },
+            PopUp::Rising(rising),
+            PopUp::raised(def()),
+            PopUp::Retracting(Progress::new(8)),
+        ];
+        for state in states {
+            for target in [false, true] {
+                let after = step(state, def(), false, target, || unreachable!("it never rises"));
+                assert_eq!(after, PopUp::LOWERED, "{state:?}, target {target}");
+            }
         }
-        assert_eq!(state, Some(PopUp::raised(def())));
-        assert_eq!(upright(state, false), None);
-        // Kept down by a unit, as a pop-up is.
-        let held = step(Some(PopUp::LOWERED), def(), false, false, || false);
-        assert_eq!(held, Some(PopUp::Lowered { blocked: true }));
-        // Retracting when its Tunnel falls: down, then up at once.
-        let mut state = Some(PopUp::Retracting(Progress::new(8)));
-        for _ in 0..8 {
-            state = upright(state, false);
-        }
-        assert_eq!(state, Some(PopUp::Rising(Progress::new(8))));
+        assert_eq!(tick(PopUp::LOWERED, true), PopUp::Rising(Progress::new(8)), "active again");
     }
 
     /// Each phase hashes apart, and its progress counts.

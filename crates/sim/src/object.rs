@@ -111,10 +111,9 @@ pub struct Object {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub decay: Option<Progress>,
     /// A turret with a pop-up form: where it is between underground and the surface
-    /// (`factions/syndicate/structures/laser_turret.md > Upright vs Pop-up`, plan decision T50, slice M4-S2;
-    /// `popup`). `None` for everything else, and for a turret standing upright: its form is derived from the Tunnel
-    /// Areas, never stored. Optional in files, and left out of them while `None`, so that states saved before it existed
-    /// still load and those without a pop-up are as they were.
+    /// (`factions/syndicate/structures/laser_turret.md > Pop-up turret`, plan decision T50, slices M4-S2 and M5-Y;
+    /// `popup`), set from its first tick, lowered. `None` for everything else. Optional in files, and left out of them
+    /// while `None`, so that states saved before it existed still load and those without a turret are as they were.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub popup: Option<PopUp>,
     /// A Cults unit's lineage (plan decision T56, slice M5-A), one entry per Recruit the unit embodies (the Director's

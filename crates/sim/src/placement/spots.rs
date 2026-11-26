@@ -1,20 +1,18 @@
 //! Spots around a footprint (plan decision T62, slice M5-F1): where a unit put on the map beside a building stands, by
 //! one predictable search (`systems/controls/behaviors.md > Core principle: predictable, not optimal`, design change
-//! 0223). A Laser Turret's Agent comes out "at the **first clear spot next to the turret**, searched in a fixed order
-//! starting from the side it came from" (design change 0298 point 7, `sim/sites.rs`); the units inside a building that
-//! is destroyed are evacuated to them (`factions/cults/economy.md > Cults Building Mechanics > Evacuation on
-//! Destruction`: "evacuated units appear around the building's footprint wherever there is open space",
-//! `sim/holding.rs`).
+//! 0223). The units inside a building that is destroyed are evacuated to them (`factions/cults/economy.md > Cults
+//! Building Mechanics > Evacuation on Destruction`: "evacuated units appear around the building's footprint wherever
+//! there is open space", `sim/holding.rs`). (A Laser Turret's Agent came out at one until design change 0359 had only
+//! Tunnels build turrets.)
 //!
 //! - **The spots** ([`Spots`], [`Ring`]): rings of unit-sized spots around the footprint. Ring 0's boxes stand against
 //!   it, each further ring one box further out. A ring's spots are its four corners, the middles of its four sides,
 //!   and as many more along each side as fit between its middle and its corners, a box apart, as many on each half.
 //!   They are numbered clockwise on screen (+y is south) from the middle of the east side. A ring with no room between
-//!   (a unit at least as wide as half the footprint's side) is the eight directions out of it, east first: the Laser
-//!   Turret's for its Agent, as M4-S1 had them.
+//!   (a unit at least as wide as half the footprint's side) is the eight directions out of it, east first.
 //! - **The order** ([`Round`]): each ring from its spot in the one of the eight directions (a side's middle or a
-//!   corner) nearest a direction given, then round both ways alternately (0298 point 7) or clockwise (Placeholder
-//!   (Q0106 point 1), the evacuation's), ring after ring.
+//!   corner) nearest a direction given, then clockwise (Placeholder (Q0106 point 1), the evacuation's), ring after
+//!   ring.
 //! - **The check** is the caller's (`Sim::spot_around`): each spot in that order until one takes the unit, by
 //!   `Sim::check_unit_fits`, the rule of every unit put on the map, against what stands there, the units placed before
 //!   it included.
@@ -37,13 +35,10 @@ const SIDES: [(Vec2, Vec2); 4] = [
     (Vec2::new(0.0, -1.0), Vec2::new(1.0, 0.0)),
 ];
 
-/// How a search goes round a ring from its first spot (module docs).
+/// How a search goes round a ring from its first spot (module docs): the one way so far, the evacuation's. (Design
+/// change 0359 took away the other, both ways round, which the Laser Turret's Agent came out by.)
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub enum Round {
-    /// Further and further round from the first spot, both ways alternately, of two equally far the one numbered lower
-    /// first, and the opposite one last: "searched in a fixed order starting from the side it came from" (design
-    /// change 0298 point 7: the Laser Turret's Agent).
-    BothWays,
     /// Clockwise from the first spot: Placeholder (Q0106 point 1), "each ring clockwise from the middle of the exit
     /// side" (the evacuation's).
     Clockwise,
@@ -58,26 +53,13 @@ impl Round {
         let first = first % n;
         match self {
             Round::Clockwise => (0..n).map(|i| (first + i) % n).collect(),
-            Round::BothWays => {
-                let mut order = Vec::with_capacity(n);
-                order.push(first);
-                for d in 1..=n / 2 {
-                    let (a, b) = ((first + d) % n, (first + n - d) % n);
-                    if a == b {
-                        order.push(a);
-                    } else {
-                        order.extend([a.min(b), a.max(b)]);
-                    }
-                }
-                order
-            }
         }
     }
 }
 
 /// The one of the eight directions out of a footprint nearest `direction`, numbered clockwise on screen from the east
 /// (east 0, south-east 1, ..., north-east 7): its angle in eighths of a turn, rounded to the nearest (half away from
-/// zero, as M4-S1's).
+/// zero).
 fn eighth(direction: Vec2) -> usize {
     let eighths = math::vector_angle(direction) / (PI / 4.0);
     (eighths.round() as i32).rem_euclid(8) as usize

@@ -1,6 +1,6 @@
 //! T62's search in a game (`placement::spots`, slice M5-F1): the first spot around a footprint where a unit fits now.
-//! One function for every unit put on the map beside a building: a Laser Turret's Agent as the turret completes
-//! (`sim/sites.rs`), and the units evacuated from a building that holds them (`sim/holding.rs`).
+//! One function for every unit put on the map beside a building: the units evacuated from a building that holds them
+//! (`sim/holding.rs`) so far.
 
 use std::ops::RangeInclusive;
 

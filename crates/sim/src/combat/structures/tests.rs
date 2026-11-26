@@ -2,7 +2,9 @@
 //! its rate (one shot per 24 ticks, 16 damage a second against armour 0) and its Universal domain against a test air
 //! unit (`defs::test_defs`); and its own pick (design change 0298 point 8,
 //! `factions/syndicate/structures/laser_turret.md > Targeting`): threatening targets first, the one it engages kept,
-//! ties by id, nothing of its own side, neutral or while auto-targeting is off; and its barrel.
+//! ties by id, nothing of its own side, neutral or while auto-targeting is off; and its barrel. The turret stands in
+//! its Tunnel's area, where it is active (design change 0360, `crate::popup`): it rises at its first target, 8 ticks
+//! before it aims.
 
 use glam::Vec2;
 
@@ -21,41 +23,50 @@ const P1: PlayerId = PlayerId(1);
 const P2: PlayerId = PlayerId(2);
 /// Player 1's Laser Turret, on [`TILE`].
 const TURRET: ObjectId = ObjectId(1);
-/// The turret's tile: its footprint spans x 128 to 192 and y 256 to 320, around (160, 288).
-const TILE: TilePos = TilePos::new(2, 4);
-const CENTRE: Vec2 = Vec2::new(160.0, 288.0);
+/// The turret's tile: its footprint spans x and y 512 to 576, around (544, 544).
+const TILE: TilePos = TilePos::new(8, 8);
+const CENTRE: Vec2 = Vec2::new(544.0, 544.0);
+/// The turret's footprint's edges: west and north, east and south.
+const NEAR_EDGE: f32 = 512.0;
+const FAR_EDGE: f32 = 576.0;
+/// Where player 1's Tunnel stands in [`field`]: tiles (3, 3) to (6, 6), north-west of the turret, whose tile is the
+/// south-east corner of the Tunnel's Tier 1 area, (1, 1) to (8, 8).
+const TUNNEL_AT: TilePos = TilePos::new(3, 3);
 
-/// 16 × 10 open tiles.
+/// 24 × 16 open tiles.
 fn open() -> String {
-    "................\n".repeat(10)
+    "........................\n".repeat(16)
 }
 
 /// Where a unit of `kind` stands `gap` grid units east of the turret's footprint, level with it.
 fn east(kind: ObjectKind, gap: f32) -> Vec2 {
     let half = kind.def().half_extents().expect("a unit");
-    Vec2::new(192.0 + gu(gap) + half.x, CENTRE.y)
+    Vec2::new(FAR_EDGE + gu(gap) + half.x, CENTRE.y)
 }
 
 /// Where a unit of `kind` stands `gap` grid units south of the turret's footprint, below it.
 fn south(kind: ObjectKind, gap: f32) -> Vec2 {
     let half = kind.def().half_extents().expect("a unit");
-    Vec2::new(CENTRE.x, 320.0 + gu(gap) + half.y)
+    Vec2::new(CENTRE.x, FAR_EDGE + gu(gap) + half.y)
 }
 
-/// Player 1's Laser Turret (1) on [`TILE`], and `units`, ids 2 on, each of its owner's at its position, all spawned in
-/// tick 1; those of player 2 hold their positions from tick 2, so that none closes in or shoots back from beyond its
-/// own Range.
+/// A debug spawn of a `kind` of `owner`'s at `at`.
+fn spawn(kind: ObjectKind, owner: Option<PlayerId>, at: SpawnAt) -> DebugCommand {
+    let orientation = Default::default();
+    DebugCommand::Spawn {
+        kind,
+        owner,
+        at,
+        orientation,
+    }
+}
+
+/// Player 1's Laser Turret (1) on [`TILE`], and `units`, ids 2 on, each of its owner's at its position, then player
+/// 1's Tunnel at [`TUNNEL_AT`] (the next id), whose area makes the turret active, all spawned in tick 1; those of player
+/// 2 hold their positions from tick 2, so that none closes in or shoots back from beyond its own Range.
 fn field(units: &[(ObjectKind, Option<PlayerId>, Vec2)]) -> TestSim {
     let mut t = ScenarioBuilder::new(&open()).start();
-    t.debug_at(
-        1,
-        DebugCommand::Spawn {
-            kind: ObjectKind::LaserTurret,
-            owner: Some(P1),
-            at: SpawnAt::Tile(TILE),
-            orientation: Default::default(),
-        },
-    );
+    t.debug_at(1, spawn(ObjectKind::LaserTurret, Some(P1), SpawnAt::Tile(TILE)));
     for &(kind, owner, pos) in units {
         let at = SpawnAt::Point(pos);
         let orientation = Default::default();
@@ -69,6 +80,7 @@ fn field(units: &[(ObjectKind, Option<PlayerId>, Vec2)]) -> TestSim {
             },
         );
     }
+    t.debug_at(1, spawn(ObjectKind::Tunnel, Some(P1), SpawnAt::Tile(TUNNEL_AT)));
     let held: Vec<ObjectId> = (units.iter().zip(2..))
         .filter(|((_, owner, _), _)| *owner == Some(P2))
         .map(|(_, id)| ObjectId(id))
@@ -180,18 +192,18 @@ fn it_shoots_what_threatens_it_first() {
 
 /// Design change 0298 point 8: "It keeps its target while that target stays valid and in range", whatever comes nearer
 /// meanwhile; of two alike at the same gap, the lower id first ("ties broken deterministically"). Guards 2 and 3 stand
-/// 4 grid units east and south; Guard 4, spawned later half a grid unit north of the turret (where it shoots back),
-/// waits its turn, and then goes before Guard 3.
+/// 4 grid units east and south; Guard 5 (after the Tunnel, 4), spawned later half a grid unit north of the turret
+/// (where it shoots back), waits its turn, and then goes before Guard 3.
 #[test]
 fn it_keeps_its_target_and_breaks_ties_by_id() {
-    let (east_guard, south_guard, late) = (ObjectId(2), ObjectId(3), ObjectId(4));
+    let (east_guard, south_guard, late) = (ObjectId(2), ObjectId(3), ObjectId(5));
     let mut t = field(&[
         (ObjectKind::Guard, Some(P2), east(ObjectKind::Guard, 4.0)),
         (ObjectKind::Guard, Some(P2), south(ObjectKind::Guard, 4.0)),
     ]);
     t.run(20);
     assert_eq!(shots(&t).first().map(|&(_, target)| target), Some(east_guard));
-    let near = Vec2::new(CENTRE.x, 256.0 - gu(0.5) - 18.0);
+    let near = Vec2::new(CENTRE.x, NEAR_EDGE - gu(0.5) - 18.0);
     t.spawn_unit_at(21, ObjectKind::Guard, P2, near)
         .order_at(22, P2, &[late], OrderKind::Hold, false);
     t.run(300);
@@ -218,11 +230,12 @@ fn it_shoots_neither_friends_nor_neutrals_nor_without_auto_targeting() {
 }
 
 /// Plan decision T49: "A structure has no turn rate (it fires in any direction)". Its barrel, the facing the client
-/// draws, points at what it fires at: south at a Guard south of it.
+/// draws, points at what it fires at: south at a Guard south of it. (It rises from tick 2, aims from tick 11 and fires
+/// in tick 15.)
 #[test]
 fn its_barrel_faces_its_target() {
     let mut t = field(&[(ObjectKind::Guard, Some(P2), south(ObjectKind::Guard, 2.0))]);
-    t.run(10);
+    t.run(20);
     assert_eq!(shots(&t).len(), 1);
     let facing = t.sim().object(TURRET).expect("standing").facing;
     assert!((facing - PI / 2.0).abs() < 1e-6, "{facing}");

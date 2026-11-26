@@ -12,14 +12,15 @@
 //!   non-Drillable cases of design changes 0238 and 0241 are void). Only a map or debug spawn can stand a Tunnel by
 //!   Water or the edge, and its region counts whole all the same.
 //! - **Unused** is a region cell under no structure that occupies tunnel-region ([`occupies_tunnel_region`]): an
-//!   underground structure of the player's or a neutral one (design change 0258 point 4: "A neutral expansion partly
-//!   inside an own Tunnel Area still blocks its cells and counts as occupied for Tunnel Space"), counted cell by cell,
-//!   so that one partly inside takes only its cells inside. And the pop-up Laser Turret, slice M4-S2
-//!   (`factions/syndicate/structures/laser_turret.md > Upright vs Pop-up`: it "Occupies 1 grid unit of that Tunnel's
-//!   tunnel-region, like an expansion"). Another player's expansion is never counted: areas never overlap (design
-//!   change 0237) and expansions lie in their own Tunnel's area, and counting it would leak a hidden structure through
-//!   the HUD. An expansion takes its cells from its first frame, construction starting at once (design changes 0254
-//!   point 4 and 0255).
+//!   expansion building of the player's or a neutral one (`tunnel::is_expansion`; design change 0258 point 4: "A
+//!   neutral expansion partly inside an own Tunnel Area still blocks its cells and counts as occupied for Tunnel
+//!   Space"), counted cell by cell, so that one partly inside takes only its cells inside. The Laser Turret is one
+//!   (slice M4-S2; `factions/syndicate/structures/laser_turret.md > Pop-up turret`: it "Occupies 1 grid unit of that
+//!   Tunnel's tunnel-region, like an expansion"). Another player's expansion is never counted: areas never overlap
+//!   (design change 0237) and expansions lie in their own Tunnel's area, and counting it would leak a hidden structure
+//!   through the HUD. An expansion takes its cells from its first frame, construction starting at once (design changes
+//!   0254 point 4 and 0255), a turret too (design change 0358 point 5: "**A turret site takes its Tunnel Space from the
+//!   start of construction**").
 //! - **Over capacity** (`factions/syndicate/tunnels.md > Tunnel Space`: "existing units are unaffected — usage is
 //!   simply displayed over capacity (e.g. 12/10) and no further units can be produced until usage drops back within
 //!   capacity"): being derived, the figure needs no rule of its own, as for Beacon Capacity (`super`).
@@ -31,7 +32,6 @@ use crate::defs::{CELLS_PER_TUNNEL_SPACE, TUNNEL_SPACE_CAP};
 use crate::ids::PlayerId;
 use crate::nav::TileRect;
 use crate::object::Object;
-use crate::popup;
 use crate::tunnel;
 
 /// Whether `o` gives its owner Tunnel Space: every Tunnel in operation (module docs; `Object::is_operational`: a
@@ -40,21 +40,13 @@ pub(crate) fn gives_tunnel_space(o: &Object) -> bool {
     tunnel::def_of(o.kind).is_some() && o.is_operational()
 }
 
-/// Whether `o` occupies tunnel-region for the Tunnels of `player`: an underground structure (`StructureDef::
-/// underground`, plan decision T32) of theirs, or a neutral one (design change 0258 point 4); and a pop-up turret of
-/// theirs (slice M4-S2; `factions/syndicate/structures/laser_turret.md > Upright vs Pop-up`: it "Occupies 1 grid unit
-/// of that Tunnel's tunnel-region, like an expansion, so it reduces Tunnel Space (¼ Tunnel Space, subject to the
-/// rounding rule in Tunnel Space)"). The one predicate of what makes a region cell used (module docs).
+/// Whether `o` occupies tunnel-region for the Tunnels of `player`: an expansion building (`tunnel::is_expansion`: an
+/// underground structure, plan decision T32, or a Laser Turret, "¼ Tunnel Space, subject to the rounding rule in
+/// Tunnel Space", `factions/syndicate/structures/laser_turret.md > Pop-up turret`) of theirs, or a neutral one (design
+/// change 0258 point 4), its site from its first frame (design change 0358 point 5). The one predicate of what makes a
+/// region cell used (module docs).
 pub(crate) fn occupies_tunnel_region(o: &Object, player: PlayerId) -> bool {
-    let underground = (o.def().structure.as_ref()).is_some_and(|structure| structure.underground);
-    // (M4-S2) A turret of the player's with a pop-up form: one in operation, which inside an own Tunnel Area is a
-    // pop-up (only cells of a region are counted, so an upright one outside every area takes none), and a Tunnel's
-    // turret under construction, underground from its first frame as an expansion is (`popup`). An Agent's site
-    // stands on the surface until it completes ("If built inside a Tunnel Area, it is a pop-up turret on completion").
-    // Placeholder (Q0091 point 5): so a Tunnel's site takes its ¼ from its first frame, an Agent's at completion.
-    let turret =
-        popup::def_of(o.kind).is_some() && o.owner == Some(player) && (o.is_operational() || o.popup.is_some());
-    turret || underground && (o.owner == Some(player) || o.owner.is_none())
+    tunnel::is_expansion(o.kind) && (o.owner == Some(player) || o.owner.is_none())
 }
 
 /// What a player's Tunnel Space is worked out from, gathered object by object ([`TunnelSpace::see`]): their Tunnels,

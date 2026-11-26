@@ -376,7 +376,8 @@ impl Sim {
             tunnel,
             construction: None,
             decay: None,
-            popup: None,
+            // A turret is a pop-up from its first tick, lowered (`crate::popup`, design change 0360).
+            popup: crate::popup::def_of(kind).map(|_| crate::popup::PopUp::LOWERED),
             lineage: Vec::new(),
         }
     }

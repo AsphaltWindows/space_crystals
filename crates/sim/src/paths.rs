@@ -410,12 +410,25 @@ fn blockers(objects: &BTreeMap<ObjectId, Object>, rules: NavRules) -> impl Itera
 }
 
 /// The footprint of the object `o` if it blocks surface units now: [`blocking_footprint`] by its kind, but for a
-/// pop-up turret while it is fully lowered (slice M4-S2, `popup::blocks`; design change 0296 point 3: "A lowered pop-up
-/// never blocks (units walk over it like an expansion)"). The one test of a live object's footprint: the true grids,
-/// what its owner knows to block (`knowledge::own_blockers`) and the gate's spawn and teleport checks ask it. A record
-/// of a turret is of one seen, so not lowered, and blocks by its kind.
+/// pop-up turret while it is fully lowered (slice M4-S2, `popup::blocks`; `factions/syndicate/structures/laser_turret.md
+/// > Pop-up rules`: "A lowered one never blocks (units walk over it like an expansion)"). The one test of a live
+/// object's footprint: the true grids, what its owner knows to block (`knowledge::own_blockers`) and the gate's spawn
+/// and teleport checks ask it. A record's is [`remembered_blocking`].
 pub(crate) fn blocking(o: &Object, rules: NavRules) -> Option<TileRect> {
     blocking_footprint(o.kind, o.placement.as_ref()?, rules).filter(|_| popup::blocks(o))
+}
+
+/// The footprint of a record of an object of `kind`, `owner`'s when last seen, at `placement`, if it blocks surface
+/// units by what the player who remembers it knows: [`blocking_footprint`] by its kind, but for a neutral turret's,
+/// which is always lowered (design change 0360; `popup::remembered_lowered`). A record of an owned turret is of one
+/// seen, so not lowered, and blocks by its kind.
+pub(crate) fn remembered_blocking(
+    kind: ObjectKind,
+    owner: Option<PlayerId>,
+    placement: &Placement,
+    rules: NavRules,
+) -> Option<TileRect> {
+    blocking_footprint(kind, placement, rules).filter(|_| !popup::remembered_lowered(kind, owner))
 }
 
 /// Whether a box centred on `pos` with half extents `half` overlaps the tiles of `rect`. Touching is free.

@@ -11,8 +11,9 @@
 //! - **A lowered pop-up turret** (slice M4-S2, `crate::popup`; `factions/syndicate/structures/laser_turret.md > Pop-up
 //!   rules`, design change 0296 point 1: "**Hidden only while fully lowered**: that is when it is invisible to enemies
 //!   without detection"): hidden the same way while it is fully lowered, and seen like any structure while it rises,
-//!   stands raised or retracts. [`Hiding::of`] reads its state; [`Hiding::of_kind`], which has only a kind, never
-//!   hides a turret.
+//!   stands raised or retracts; a neutral one, always lowered, is hidden from nobody, as a neutral expansion
+//!   (`factions/syndicate/tunnels.md > Losing Tunnels`: "its lowered pop-up turrets included, which become visible at
+//!   once"). [`Hiding::of`] reads its state; [`Hiding::of_kind`], which has only a kind, never hides a turret.
 //! - **Who asks it**: whether a player sees an object ([`PlayerVision::object_box_state`]: never Visible while hidden
 //!   from the player), which every question of the kind comes to: the targets of the behaviours
 //!   (`orders::world::World::sees`), of combat (`combat::phases`: `systems/combat.md > ValidTarget` 2) and of the
@@ -61,8 +62,8 @@ impl Hiding {
     /// (M4-O) Whom an object of `kind` that `owner` owns is hidden from, by the same rule, the one [`Hiding::of`]
     /// applies to a type and an owner. What outlives the object takes [`Hiding::of`] with it instead, as its death does
     /// (`SimEvent::Died::hiding`, slice M4-V), so that an arm of the rule that asks more of the object than its type,
-    /// as a pop-up turret's while fully lowered will
-    /// (`factions/syndicate/structures/laser_turret.md > Upright vs Pop-up (by location)`), holds there too.
+    /// as a pop-up turret's while fully lowered does (`factions/syndicate/structures/laser_turret.md > Pop-up rules`),
+    /// holds there too.
     pub fn of_kind(kind: ObjectKind, owner: Option<PlayerId>) -> Self {
         let underground = (kind.def().structure.as_ref()).is_some_and(|structure| structure.underground);
         Self {

@@ -1,26 +1,19 @@
 //! The pop-up's cycle (`factions/syndicate/structures/laser_turret.md`'s placeholder stats: "Pop-up: rises in 8 frames
-//! (already facing its target); retracts after 32 frames with no target, taking 8 frames. It can't fire while rising
-//! or retracting"; `> Upright vs Pop-up`: "While it has no target it stays **underground** ... When an enemy comes into
-//! range it rises to the surface **already facing the target** and fires; it retracts once it has no target").
+//! (already facing its target); retracts after 32 frames with no target, taking 8 frames; **a new target during
+//! retracting doesn't interrupt it**: it finishes retracting, then rises ... It can't fire while rising or
+//! retracting"; `> Pop-up turret`: "While it has no target it stays **underground** ... When an enemy comes into range
+//! it rises to the surface **already facing the target** and fires; it retracts once it has no target").
 
 use super::*;
 
-/// A turret that a game starts with inside an own Tunnel Area stands raised as a pop-up, with nothing to shoot at: its
-/// idle frames count from tick 1, it starts to retract in tick 32 and is down at the end of tick 40. From then on it
-/// stays underground.
+/// A turret that a game starts with inside its owner's Tunnel Area is lowered from its first tick (design change 0360:
+/// "always a hidden **pop-up turret**", with no upright form): with nothing to shoot at it stays underground, and
+/// never fires.
 #[test]
-fn with_no_target_it_goes_underground_and_stays_there() {
+fn it_is_underground_from_the_start_and_stays_there_with_no_target() {
     let mut t = with_turret().start();
-    assert_eq!(popup(&t, POPUP), None, "as the game starts");
-    assert!(t.sim().is_popup(object(&t, POPUP)), "its form is derived from the area");
-    t.run_until(31);
-    assert_eq!(popup(&t, POPUP), Some(PopUp::Raised { idle: frames(31, 32) }));
-    t.step();
-    assert_eq!(popup(&t, POPUP), Some(PopUp::Retracting(frames(0, 8))));
-    t.run_until(39);
-    assert_eq!(popup(&t, POPUP), Some(PopUp::Retracting(frames(7, 8))));
-    t.step();
-    assert_eq!(popup(&t, POPUP), Some(PopUp::LOWERED));
+    assert_eq!(popup(&t, POPUP), Some(PopUp::LOWERED), "as the game starts");
+    assert!(t.sim().is_active_turret(object(&t, POPUP)), "inside its Tunnel's area");
     t.run(200);
     assert_eq!(popup(&t, POPUP), Some(PopUp::LOWERED));
     assert_eq!(shots(&t, POPUP), Vec::<Tick>::new());
@@ -29,7 +22,7 @@ fn with_no_target_it_goes_underground_and_stays_there() {
 /// Plan §3.3 S2's acceptance: "It rises 8 ticks after an enemy enters range 5, and fires. It retracts 32 ticks after
 /// its last target, over 8 ticks, firing at nothing meanwhile."
 ///
-/// Player 2's Guard appears 4 grid units from the lowered turret in tick 41 (`g`). The turret, which sees 6 grid units
+/// Player 2's Guard appears 4 grid units from the lowered turret in tick 2 (`g`). The turret, which sees 6 grid units
 /// while lowered (design change 0296 point 2), picks it in that tick and starts to rise, facing it; it is raised at the
 /// end of `g + 8`, aims in the four ticks from `g + 9` and fires in `g + 13`, then every 24 ticks. The Guard (80 HP)
 /// dies of its fourth shot (24 − 1 each), in `g + 85`: the turret's last tick with a target was the one before. It
@@ -40,7 +33,7 @@ fn it_rises_in_8_ticks_at_an_enemy_in_range_fires_and_retracts_32_ticks_after_it
     // Due south of it, 4 grid units from its tile, edge to edge.
     next_debug(&mut t, spawn(GUARD, P2, CENTRE + Vec2::new(0.0, 32.0 + 256.0 + 18.0)));
     let (g, guard) = (t.sim().tick(), newest(&t));
-    assert_eq!(g, 41);
+    assert_eq!(g, 2);
     assert_eq!(popup(&t, POPUP), Some(PopUp::Rising(frames(0, 8))), "it starts at once");
     let south = std::f32::consts::FRAC_PI_2;
     assert!(
@@ -84,35 +77,50 @@ fn it_rises_in_8_ticks_at_an_enemy_in_range_fires_and_retracts_32_ticks_after_it
     assert_eq!(shots(&t, POPUP), fired, "it fired at nothing meanwhile");
 }
 
-/// "It can't fire while rising or retracting", and each phase runs its full length (the simplest predictable rule,
-/// design change 0223; the design doesn't say what a retracting turret does about a new target): an enemy that comes
-/// in range while the turret retracts doesn't turn it back. It goes all the way down, starts to rise in the tick it is
-/// down, never lowered in between, so its footprint stays blocked, and fires 13 ticks after that.
+/// Design change 0358 point 2: "**a new target during retracting doesn't interrupt it**: it finishes retracting, then
+/// rises"; "It can't fire while rising or retracting". Player 2's first Guard brings the turret up and is taken off
+/// the map (a debug removal) before it fires: from that tick the turret has no target, and 32 ticks later it
+/// retracts. A second Guard comes in range three frames into the retraction: the turret goes all the way down, starts
+/// to rise in the tick it is down, never lowered in between, so that its footprint blocks all along, and fires 13
+/// ticks after that.
 #[test]
 fn a_target_seen_while_it_retracts_waits_for_it_to_go_down_and_come_up_again() {
-    let mut t = with_turret().start();
-    t.run_until(35);
-    assert_eq!(popup(&t, POPUP), Some(PopUp::Retracting(frames(3, 8))));
+    let mut t = lowered(with_turret());
     next_debug(&mut t, spawn(GUARD, P2, east(4.0)));
-    let guard = newest(&t);
-    next(&mut t, P2, order(guard, OrderKind::Hold));
-    t.run_until(39);
+    let first = newest(&t);
+    next(&mut t, P2, order(first, OrderKind::Hold));
+    t.run(7);
+    assert_eq!(popup(&t, POPUP), Some(PopUp::Raised { idle: frames(0, 32) }));
+    next_debug(&mut t, DebugCommand::Remove { id: first });
+    let gone = t.sim().tick();
+    t.run_until(gone + 30);
+    assert_eq!(popup(&t, POPUP), Some(PopUp::Raised { idle: frames(31, 32) }));
+    t.step();
+    let retracting = t.sim().tick();
+    assert_eq!(popup(&t, POPUP), Some(PopUp::Retracting(frames(0, 8))));
+    t.run_until(retracting + 2);
+    next_debug(&mut t, spawn(GUARD, P2, east(4.0)));
+    let second = newest(&t);
+    assert_eq!(popup(&t, POPUP), Some(PopUp::Retracting(frames(3, 8))), "it goes on down");
+    next(&mut t, P2, order(second, OrderKind::Hold));
+    t.run_until(retracting + 7);
     assert_eq!(popup(&t, POPUP), Some(PopUp::Retracting(frames(7, 8))));
     assert!(
         object(&t, POPUP)
             .attack
             .as_ref()
-            .is_some_and(|a| a.target == Some(guard))
+            .is_some_and(|a| a.target == Some(second))
     );
     t.step();
+    let rose = t.sim().tick();
     assert_eq!(
         popup(&t, POPUP),
         Some(PopUp::Rising(frames(0, 8))),
-        "down and up again in tick 40"
+        "down and up again in one tick"
     );
     assert!(blocked(&t), "its footprint blocks all along");
-    t.run_until(52);
-    assert_eq!(shots(&t, POPUP), Vec::<Tick>::new());
+    t.run_until(rose + 12);
+    assert_eq!(shots(&t, POPUP), Vec::<Tick>::new(), "nothing at the first Guard either");
     t.step();
-    assert_eq!(shots(&t, POPUP), [40 + 13]);
+    assert_eq!(shots(&t, POPUP), [rose + 13]);
 }

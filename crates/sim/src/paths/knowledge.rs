@@ -7,7 +7,8 @@
 //! 2. **What it has seen** of the others': the footprint of every record of its vision's memory
 //!    (`core/vision.md > Explored`, `vision::LastKnown`): a structure or resource it sees, or saw and hasn't seen
 //!    gone. So a seen structure in the fog is a wall at its last-known position, destroyed or not, until the player
-//!    sees the place without it; one it never saw is open ground.
+//!    sees the place without it; one it never saw is open ground. A neutral Laser Turret, always lowered, is walked
+//!    over (design change 0360: `paths::remembered_blocking`).
 //! 3. **The map's neutral objects** (crystal patches, Supply Delivery Stations, every neutral object the map maker
 //!    placed), known from the start like terrain (0042; design change 0159: "pathing and memory"): each player has a
 //!    record of every one of them from the start (`Vision::seed`), so part 2 takes them in. A record goes once the
@@ -37,7 +38,7 @@ use std::collections::BTreeMap;
 
 use serde::{Deserialize, Serialize};
 
-use super::{blocking, blocking_footprint};
+use super::{blocking, remembered_blocking};
 use crate::hash::{StateHash, StateHasher};
 use crate::ids::{ObjectId, PlayerId};
 use crate::map::Map;
@@ -226,7 +227,7 @@ pub(super) fn known_blockers(
         out.extend(
             sight
                 .records()
-                .filter_map(|record| blocking_footprint(record.kind, &record.placement, rules)),
+                .filter_map(|record| remembered_blocking(record.kind, record.owner, &record.placement, rules)),
         );
     }
     out.extend(known.assumed.iter().map(|a| a.footprint));

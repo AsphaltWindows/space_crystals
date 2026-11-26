@@ -9,13 +9,18 @@
 //!     (`factions/syndicate/tunnels.md > Expansions under construction`, design change 0254: "**Its Tunnel destroyed
 //!     mid-build**: the unfinished expansion is destroyed, no refund");
 //!   - its **completed expansions** become neutral ([`Sim::neutralise`]): "when a Tunnel is destroyed, every expansion
-//!     in its Tunnel Area becomes neutral — no longer owned by the Syndicate player". They are its owner's underground
-//!     structures, sites aside, that lie wholly inside its area at its current tier ([`area::of`], [`area::encloses`]):
-//!     those whose parent it was (`tunnel::area::parent`; an owner's Tunnel Areas never overlap). A Tunnel that was
-//!     still a site has none. "**In-progress work is destroyed**": the unit in production
-//!     (`Production::in_production`, begun or finished inside) is lost. "**Queued work is refunded**": the units not
-//!     yet begun, their full cost to the owner, each with a `SimEvent::ProductionCancelled` (the lost one's with a
-//!     refund of 0). The rally point is cleared, and the decay starts.
+//!     in its Tunnel Area becomes neutral — no longer owned by the Syndicate player". They are its owner's expansion
+//!     buildings (`tunnel::is_expansion`: the underground structures and, since design change 0360, the Laser Turrets:
+//!     "**Laser Turrets go neutral too** ... a destroyed Tunnel's turrets behave like its other expansions"), sites
+//!     aside, that lie wholly inside its area at its current tier ([`area::of`], [`area::encloses`]): those whose
+//!     parent it was (`tunnel::area::parent`; an owner's Tunnel Areas never overlap). A Tunnel that was still a site
+//!     has none. "**In-progress work is destroyed**": the unit in production (`Production::in_production`, begun or
+//!     finished inside) is lost. "**Queued work is refunded**": the units not yet begun, their full cost to the owner,
+//!     each with a `SimEvent::ProductionCancelled` (the lost one's with a refund of 0). The rally point is cleared, and
+//!     the decay starts. A turret is **lowered at once** and its attack dropped: it "keeps its **high underground
+//!     armor** (a raised turret retracts at once; it never fires again while neutral)"
+//!     (`factions/syndicate/structures/laser_turret.md > When its Tunnel is lost`; `crate::popup`: an inactive turret
+//!     stays down), and walked over, and the grids follow with the Tunnel's own going (`paths::sync`).
 //!
 //!   Then the **stranded units** ([`Sim::strand`]), after all of the call's removals: "whenever a Tunnel is destroyed,
 //!   any unit inside the Tunnel Network that can no longer exit through any remaining Tunnel (no remaining Tunnel's
@@ -25,9 +30,11 @@
 //!   its current (pre-upgrade) tier"). Each leaves the game with a `SimEvent::Removed` (`Sim::remove_held`). A unit
 //!   held at a site (`network::Place::Site`) isn't in the network, and stays.
 //! - **Neutral expansions** are everyone's (`factions/syndicate/tunnels.md > Losing Tunnels`):
-//!   - "no longer hidden (visible to everyone, no detection needed)": the hidden predicate's neutral arm
-//!     (`vision::hidden`, plan decision T32), so whoever sees their tiles sees them and remembers them
-//!     (`vision::memory`), their former owner included;
+//!   - "no longer hidden (visible to everyone, no detection needed). This holds for **every expansion building of the
+//!     destroyed Tunnel**, its lowered pop-up turrets included, which become visible at once": the hidden predicate's
+//!     neutral arm (`vision::hidden`, plan decision T32, a lowered turret's as an expansion's), from the tick the
+//!     Tunnel falls, so whoever sees their tiles sees them and remembers them (`vision::memory`), their former owner
+//!     included;
 //!   - "**Attacking them**: only with an **explicit Attack** order; right-click never attacks a neutral object and
 //!     auto-targeting ignores them" (`systems/controls/commands.md > Attack`): the rules of every neutral object
 //!     already (the default command, `orders::resolution`; auto-targeting, `combat`);
@@ -40,9 +47,10 @@
 //!   decay at 1% a second, a tick taking `DECAY_PERCENT_PER_SECOND` of them. Its HP follows the share of the MaxHP the
 //!   decay has left, falling by as much as it does each tick, and never above it ([`decayed`]), so that an expansion
 //!   at full HP lasts exactly the decay's length whatever the rounding: from full HP, a Hideout dies in its 1600th
-//!   tick of decay (100 s at 16 ticks a second), the first being the tick its Tunnel fell, as the first frame of a
-//!   transformation is the tick that starts it (`crate::transform`). It dies as in combat, its HP at 0, with a
-//!   `SimEvent::Died` (owner `None`) before it goes, and the grids follow (`paths::sync`).
+//!   tick of decay (100 s at 16 ticks a second; a Laser Turret too, losing 3 HP a second of its 300), the first being
+//!   the tick its Tunnel fell, as the first frame of a transformation is the tick that starts it (`crate::transform`).
+//!   It dies as in combat, its HP at 0, with a `SimEvent::Died` (owner `None`) before it goes, and the grids follow
+//!   (`paths::sync`).
 //! - **Reclaiming** ([`Sim::reclaim`]): "if a Tunnel is built whose Tunnel Area fully covers a neutral expansion, and
 //!   that Tunnel's tier meets the expansion's Tier Requirement, the expansion becomes owned by that Tunnel's owner —
 //!   the original Syndicate player or an enemy Syndicate player — and stops decaying"; "**Reclaiming happens** the
@@ -51,16 +59,20 @@
 //!   covered, or above the tier, stays neutral and keeps decaying. A reclaimed expansion is hidden again: from the
 //!   other players (`vision::hidden`), whose records of it go once they see its tiles (`vision::memory`), and from
 //!   its new owner's memory at once ([`Vision::forget_own`]: a player never remembers its own objects). No event
-//!   says so: none would be any player's but the new owner's business, and the owner sees it as its own.
-//! - **Defeat** follows the shared rule (`economy::defeat`, `factions/syndicate/tunnels.md > Losing Tunnels`:
-//!   "Losing the last Tunnel therefore defeats the Syndicate only if they own no Laser Turrets"): the expansions a
-//!   lost Tunnel leaves neutral no longer count, and a defeated player's units in the network are destroyed
-//!   (`core/game_rules.md > On Defeat`, design change 0258 point 5: `Sim::clear_defeated_networks`). A player who
-//!   lives on with no Tunnel rebuilds for nothing (`factions/syndicate/tunnels.md > Cost Scaling`: `Sim::build_price`).
+//!   says so: none would be any player's but the new owner's business, and the owner sees it as its own. A Laser
+//!   Turret's Tier Requirement is 1 ("Tier 1 suffices", design change 0360), and a turret taken back is active again
+//!   (`crate::popup`).
+//! - **Defeat** follows the shared rule (`economy::defeat`, `factions/syndicate/tunnels.md > Losing Tunnels`: "Since
+//!   turrets and expansions go neutral with their Tunnel, **losing its last Tunnel defeats the Syndicate** unless it
+//!   owns some other structure"): the expansions and turrets a lost Tunnel leaves neutral no longer count, and a
+//!   defeated player's units in the network are destroyed (`core/game_rules.md > On Defeat`, design change 0258 point
+//!   5: `Sim::clear_defeated_networks`). A player who lives on with no Tunnel rebuilds for nothing
+//!   (`factions/syndicate/tunnels.md > Cost Scaling`: `Sim::build_price`).
 //!
 //! [`Vision::forget_own`]: crate::vision::Vision::forget_own
 
 use super::Sim;
+use crate::combat::AttackState;
 use crate::construction::site::{Builder, expansion_def};
 use crate::defs::ObjectKind;
 use crate::economy::{RATIO_ONE, Refund};
@@ -70,9 +82,10 @@ use crate::nav::TileRect;
 use crate::network;
 use crate::object::Object;
 use crate::paths;
+use crate::popup::{self, PopUp};
 use crate::progress::Progress;
 use crate::tuning::tunnel::DECAY_PERCENT_PER_SECOND;
-use crate::tunnel::{BASE_TIER, area};
+use crate::tunnel::{self, BASE_TIER, area};
 use crate::units::TICKS_PER_SECOND;
 use crate::vision::Hiding;
 
@@ -91,10 +104,10 @@ pub(super) struct LostTunnel {
     area: Option<TileRect>,
 }
 
-/// Whether `o` is an expansion (`factions/syndicate/structures/README.md > Tunnel Expansions`): an underground
-/// structure (`StructureDef::underground`, plan decision T32), the Hideout so far.
+/// Whether `o` is one of a Tunnel's expansion buildings (`tunnel::is_expansion`): an underground structure, or a Laser
+/// Turret.
 fn is_expansion(o: &Object) -> bool {
-    o.def().structure.as_ref().is_some_and(|s| s.underground)
+    tunnel::is_expansion(o.kind)
 }
 
 /// The footprint of `o`, if it has one.
@@ -115,7 +128,7 @@ fn built_by(builder: Builder, tunnel: ObjectId) -> bool {
 /// `factions/syndicate/structures/README.md > Expansion Requirements`: the Tier Requirement of an expansion of `kind`,
 /// the lowest tier of a Tunnel that may reclaim it (module docs), its def's as a Tunnel builds it
 /// (`ExpansionDef::tier`, slice M4-F: the Hideout's 1, `factions/syndicate/structures/hideout.md > Tier Requirement -
-/// 1`); the base tier for a kind no Tunnel builds.
+/// 1`; the Laser Turret's 1, design change 0358 point 4); the base tier for a kind no Tunnel builds.
 fn tier_requirement(kind: ObjectKind) -> u8 {
     expansion_def(kind).map_or(BASE_TIER, |def| def.tier)
 }
@@ -191,12 +204,19 @@ impl Sim {
     }
 
     /// Expansion `id` becomes neutral (module docs): its work in progress lost, its queue refunded, its rally point
-    /// cleared; it starts to decay.
+    /// cleared; it starts to decay. A turret is down at once, and its attack goes: no target, and no shot or reload
+    /// under way, so that it never fires again while neutral (`crate::popup`).
     fn neutralise(&mut self, id: ObjectId) {
         self.abandon_work(id);
         if let Some(o) = self.objects.get_mut(&id) {
             o.owner = None;
             o.decay = Some(Progress::new(DECAY_TICKS));
+            if popup::def_of(o.kind).is_some() {
+                o.popup = Some(PopUp::LOWERED);
+            }
+            if let Some(attack) = &mut o.attack {
+                *attack = AttackState::default();
+            }
         }
     }
 
@@ -323,11 +343,13 @@ mod tests {
     use super::*;
     use crate::defs::test_defs::TestDef;
 
-    /// The Tier Requirement a reclaiming Tunnel must meet is the expansion's def's (slice M4-F): the Hideout's 1, a
-    /// test kind's 2, and the base tier for a kind no Tunnel builds.
+    /// The Tier Requirement a reclaiming Tunnel must meet is the expansion's def's (slice M4-F): the Hideout's 1, the
+    /// Laser Turret's 1 ("Tier 1 suffices", design change 0360), a test kind's 2, and the base tier for a kind no
+    /// Tunnel builds.
     #[test]
     fn the_tier_requirement_is_the_expansions_def() {
         assert_eq!(tier_requirement(ObjectKind::Hideout), 1);
+        assert_eq!(tier_requirement(ObjectKind::LaserTurret), 1);
         assert_eq!(tier_requirement(ObjectKind::Tunnel), BASE_TIER);
         let mut def = *expansion_def(ObjectKind::Hideout).expect("a Tunnel builds the Hideout");
         def.tier = 2;

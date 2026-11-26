@@ -24,7 +24,7 @@
 //!   predicate, for every function that waits for completion: the exits and the Enter target (`network::is_exit`),
 //!   the drop-offs (`orders::world`, `Sim::nearest_drop_off`, the gate) and Tunnel Space (`economy::army`).
 //! - **The order, the price and the steps** are the game's: `sim/builds.rs` and `sim/sites.rs`. A price is in its
-//!   def's resource ([`BuildPrice`]): Supplies for a Tunnel, Space Crystals for a Laser Turret (slice M4-S1).
+//!   def's resource ([`BuildPrice`]): Supplies for a Tunnel, Space Crystals for a Cults building (slice M5-E).
 
 use serde::{Deserialize, Serialize};
 
@@ -38,8 +38,8 @@ use crate::progress::Progress;
 
 /// What a worker's Build of a type costs now (`SiteDef::price`, `Sim::build_price`): an amount of one resource,
 /// Supplies for a Tunnel (`factions/syndicate/tunnels.md > Cost Scaling > Construction Cost`), Space Crystals for a
-/// Laser Turret (`factions/syndicate/structures/laser_turret.md`: "Cost: 100 Space Crystals (no Supplies)"). Paid as
-/// the order is given, and given back in the same resource.
+/// Cults building (`factions/cults/economy.md > Build Command`: "the building's Space Crystals cost is deducted as soon
+/// as the build order is given"). Paid as the order is given, and given back in the same resource.
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub struct BuildPrice {
     pub resource: Resource,
@@ -100,9 +100,9 @@ impl BuildPrice {
 
     /// What cancelling a site gives back, `self` being the price of the next one once the site has gone
     /// (`Sim::build_price`) and `rule` its type's (`SiteDef::price`): a Tunnel's all of it, "the current top price"
-    /// (design changes 0233 and 0284); a Laser Turret's 75%, rounded down, "like an expansion" (design change 0297
-    /// point 5, `factions/syndicate/structures/laser_turret.md > Construction`: "Cancelling a site: 75% refund for
-    /// both, Agent-built or Tunnel-built"; `Refund::Expansion`).
+    /// (design changes 0233 and 0284); a Cults building's 75%, rounded down (`factions/cults/economy.md > Cancel
+    /// Construction`: "refunds 75% of the building's Space Crystals cost (rounded down)"; `Refund::Expansion`, an
+    /// expansion's share).
     pub fn cancelled(self, rule: SitePrice) -> Self {
         let amount = match rule {
             SitePrice::SuppliesPerOwned => self.amount,
@@ -202,9 +202,8 @@ impl Construction {
 
 /// The ConstructionHP Rule's maximum for a site of `kind`'s seen at `progress`, whose structure has `full` MaxHP once
 /// built: what a player who saw it remembers (`vision::LastKnown::max_hp`), not knowing who builds it. Its kind tells
-/// the share it starts at: a worker's site's ([`site_def`]) or a Tunnel's expansion's ([`expansion_def`]); a kind built
-/// both ways, the Laser Turret (slice M4-S2), starts at the same share either way (a test holds every kind to it).
-/// `None` for a kind no one builds on a site.
+/// the share it starts at: a worker's site's ([`site_def`]) or a Tunnel's expansion's ([`expansion_def`]), no kind
+/// being built both ways (a test holds every kind to it). `None` for a kind no one builds on a site.
 pub fn max_hp_seen(kind: ObjectKind, progress: &Progress, full: f32) -> Option<f32> {
     let start_hp = match (site_def(kind), expansion_def(kind)) {
         (Some(def), _) => def.start_hp,
@@ -367,8 +366,8 @@ mod tests {
 
     /// A record of a site keeps its progress, not who builds it (slice M4-I2): its maximum takes the share it started
     /// at by its kind, as its builder's def gave it, a Tunnel site's halfway 330 of 600 and a Hideout's 220 of 400.
-    /// For every kind built on a site the same as the site's own, whichever way it is built; none for a kind never
-    /// built so.
+    /// No kind is built both ways (since design change 0359, which took the Laser Turret from the Agents), so its kind
+    /// tells its builder; none for a kind never built so.
     #[test]
     fn a_record_takes_the_rule_by_its_kind() {
         let halfway = |frames: u32| Progress {
@@ -395,25 +394,24 @@ mod tests {
         }
         for &kind in ObjectKind::ALL {
             let built = site_def(kind).is_some() || expansion_def(kind).is_some();
-            // A kind built both ways starts at one share, so its record needn't know its builder: the Laser Turret.
-            if let (Some(site), Some(expansion)) = (site_def(kind), expansion_def(kind)) {
-                assert_eq!(site.start_hp, expansion.start_hp, "{kind:?}: built both ways");
-                assert_eq!(kind, ObjectKind::LaserTurret);
-            }
+            assert!(
+                site_def(kind).is_none() || expansion_def(kind).is_none(),
+                "{kind:?}: built both ways"
+            );
             assert_eq!(max_hp_seen(kind, &halfway(100), 100.0).is_some(), built, "{kind:?}");
         }
     }
 
-    /// The Agent builds the Tunnel and the Laser Turret (slice M4-S1), alone; the Recruit the Recruitment Hall, the
-    /// Storage and the Armory (slice M5-E), a group sharing the build, and assists them; nothing else builds anything
-    /// (the Drone deploys).
+    /// The Agent builds the Tunnel, alone (the Laser Turret no more: design change 0359); the Recruit the Recruitment
+    /// Hall, the Storage and the Armory (slice M5-E), a group sharing the build, and assists them; nothing else builds
+    /// anything (the Drone deploys).
     #[test]
     fn the_agent_and_the_recruit_build_their_own() {
         let cults = [ObjectKind::RecruitmentHall, ObjectKind::Storage, ObjectKind::Armory];
         for &builder in ObjectKind::ALL {
             for &kind in ObjectKind::ALL {
                 let expected = match builder {
-                    ObjectKind::Agent => [ObjectKind::Tunnel, ObjectKind::LaserTurret].contains(&kind),
+                    ObjectKind::Agent => kind == ObjectKind::Tunnel,
                     ObjectKind::Recruit => cults.contains(&kind),
                     _ => false,
                 };
@@ -427,19 +425,19 @@ mod tests {
         }
     }
 
-    /// A price in its def's resource (`SiteDef::price`): a Tunnel's one Supply for each owned, a Laser Turret's 100
-    /// Space Crystals however many stand. A cancelled site gives back a Tunnel's whole "current top price" (design
-    /// changes 0233 and 0284), a Laser Turret's 75%, rounded down, like an expansion's (design change 0297 point 5).
+    /// A price in its def's resource (`SiteDef::price`): a Tunnel's one Supply for each owned, a Storage's 100 Space
+    /// Crystals however many stand. A cancelled site gives back a Tunnel's whole "current top price" (design changes
+    /// 0233 and 0284), a Cults building's 75%, rounded down (`factions/cults/economy.md > Cancel Construction`).
     #[test]
-    fn a_cancelled_turret_site_gives_back_three_quarters() {
+    fn a_cancelled_crystals_site_gives_back_three_quarters() {
         let (supplies, crystals) = (BuildPrice::supplies, BuildPrice::crystals);
-        let (tunnel, turret) = (SitePrice::SuppliesPerOwned, SitePrice::Crystals(100));
+        let (tunnel, storage) = (SitePrice::SuppliesPerOwned, SitePrice::Crystals(100));
         assert_eq!(
-            (BuildPrice::of(tunnel, 3), BuildPrice::of(turret, 3)),
+            (BuildPrice::of(tunnel, 3), BuildPrice::of(storage, 3)),
             (supplies(3), crystals(100))
         );
         assert_eq!(supplies(3).cancelled(tunnel), supplies(3));
-        assert_eq!(crystals(100).cancelled(turret), crystals(75));
-        assert_eq!(crystals(1).cancelled(turret), crystals(0));
+        assert_eq!(crystals(100).cancelled(storage), crystals(75));
+        assert_eq!(crystals(1).cancelled(storage), crystals(0));
     }
 }
