@@ -35,6 +35,7 @@ use crate::ids::ObjectId;
 use crate::math;
 use crate::nav;
 use crate::object::Placement;
+use crate::paths;
 use crate::sim::Sim;
 use crate::units::{SU_PER_GU, TilePos};
 
@@ -176,8 +177,7 @@ impl Sim {
             false => middle[axis],
         };
         let spot = Vec2::new(inside(0), inside(1));
-        let grid =
-            (unit.base_def().nav_class()).and_then(|class| self.nav.nav().grid(class, nav::size_class(half * 2.0)));
+        let grid = paths::unit_grid(self.nav.nav(), unit.base_def(), half * 2.0);
         grid.is_none_or(|grid| nav::box_on_terrain(grid, half, spot))
             .then_some(spot)
     }

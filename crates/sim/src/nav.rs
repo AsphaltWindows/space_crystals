@@ -164,6 +164,18 @@ impl Nav {
         }
     }
 
+    /// Adds `grid`, built with this `Nav`'s rules, as the grid of its `(class, size class)`, in key order; one this
+    /// `Nav` has of that key is replaced. For a caller that builds the grids of its keys as it comes to need them
+    /// (`paths::NavState::cover`, slice M5-Z2): stamped with the footprints of the grids beside it, it is what
+    /// [`Nav::build`] would have made with that key among the others.
+    pub fn insert(&mut self, grid: NavGrid) {
+        let key = (grid.class(), grid.size());
+        match self.grids.binary_search_by_key(&key, |g| (g.class(), g.size())) {
+            Ok(i) => self.grids[i] = grid,
+            Err(i) => self.grids.insert(i, grid),
+        }
+    }
+
     pub fn rules(&self) -> NavRules {
         self.rules
     }

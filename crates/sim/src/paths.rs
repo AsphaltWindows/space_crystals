@@ -17,12 +17,21 @@
 //! A unit without an owner (neutral; a defeated player's units, design change 0101) has nobody's knowledge to plan
 //! on and sees nothing, so it plans on the true grids, with `nav_version` as its version.
 //!
+//! **Which grids** (slice M5-Z2, [`grids`]): a set holds a grid for each `(class, size class)` that a unit in the game
+//! walks on, or one about to come into it ([`walking_keys`]: on the map, held off it, or queued at a producer). A
+//! grid is built with the first such unit ([`NavState::cover`]) and never dropped: `Sim::cover_grids` in phase 5b and
+//! at the end of the tick, a debug spawn's gate check (`Sim::apply_command`), a change of kind (`Sim::change_kind`),
+//! and [`NavState::build`] at the start and on a load. Built late, a grid is what it would have been from the start,
+//! so which grids a game has is never seen in its play; a missing grid for a unit is a bug, loud in debug builds
+//! ([`unit_grid`]).
+//!
 //! Invariant: between ticks the true grids match the objects, and each player's match what it knows, so a loaded
 //! save plans exactly like the running game. A phase after 5b that adds or removes a blocking footprint must call
 //! [`sync`] again, and nothing may change the objects or the vision after [`sync_known`] (`Sim::step` checks both
 //! in debug builds).
 
 mod checks;
+mod grids;
 pub mod knowledge;
 mod misplaced;
 mod serve;
@@ -38,13 +47,15 @@ use crate::defs::{Category, ObjectKind};
 use crate::ids::{ObjectId, PlayerId};
 use crate::map::Map;
 use crate::movement;
-use crate::nav::{self, BlockerKind, Nav, NavClass, NavCounters, NavGrid, NavRules, Search, TileRect};
+use crate::nav::{BlockerKind, Nav, NavClass, NavCounters, NavGrid, NavRules, Search, TileRect};
 use crate::object::{Object, Placement};
 use crate::orders::reach::Reach;
 use crate::popup;
 use crate::units::SU_PER_GU;
 use crate::vision::Vision;
 
+use grids::{grid_of, navs, stamped, walkers};
+pub(crate) use grids::{key_of, unit_grid, walking_keys};
 use knowledge::{PathKnowledge, known_blockers, own_blockers};
 pub(crate) use misplaced::misplaced;
 pub(crate) use serve::serve;
@@ -98,17 +109,18 @@ impl NavState {
         }
     }
 
-    /// The grids of every unit type's class and size class: the true ones for `map` and the footprints of
+    /// The grids of `keys`, the units' in the game ([`walking_keys`]): the true ones for `map` and the footprints of
     /// `objects`, and those of what each player of `knowledge` knows.
     pub(crate) fn build(
         map: &Map,
         objects: &BTreeMap<ObjectId, Object>,
+        keys: &[(NavClass, u8)],
         vision: &Vision,
         knowledge: &PathKnowledge,
     ) -> Self {
         let rules = NavRules::default();
         let blockers: Vec<TileRect> = blockers(objects, rules).collect();
-        let nav = Nav::build(map, &blockers, &grid_keys(), rules);
+        let nav = Nav::build(map, &blockers, keys, rules);
         let own = own_blockers(objects, rules);
         let walkers = walkers(objects);
         let known = knowledge
@@ -167,7 +179,8 @@ impl NavState {
 
     /// The index into [`navs`] of the grids a unit of `owner` at `pos` plans on, and its grid there.
     /// A unit standing on a tile that its owner's knowledge blocks (possible only by a debug teleport onto a
-    /// remembered footprint that is gone) plans on the true grid until it has seen where it stands.
+    /// remembered footprint that is gone) plans on the true grid until it has seen where it stands. A unit's grid
+    /// is in every set ([`NavState::cover`]): a debug build fails on one that isn't ([`unit_grid`]).
     pub(crate) fn plan_grid(
         &self,
         owner: Option<PlayerId>,
@@ -175,7 +188,7 @@ impl NavState {
         size: u8,
         pos: Vec2,
     ) -> Option<(usize, &NavGrid)> {
-        let truth = (0, self.nav.grid(class, size)?);
+        let truth = (0, grid_of(&self.nav, class, size)?);
         let Some(player) = owner else {
             return Some(truth);
         };
@@ -186,7 +199,7 @@ impl NavState {
             };
             index += 1;
             if known.player == player {
-                let grid = nav.grid(class, size)?;
+                let grid = grid_of(nav, class, size)?;
                 return Some(if grid.is_blocked(grid.tile_of(pos)) {
                     truth
                 } else {
@@ -331,57 +344,12 @@ impl fmt::Debug for NavState {
     }
 }
 
-/// The `(class, size class)` of every unit type that walks on a grid (`docs/movement.md > 5.2`), from the type
-/// definitions, so the grids don't depend on which units exist.
-fn grid_keys() -> Vec<(NavClass, u8)> {
-    ObjectKind::ALL
-        .iter()
-        .filter_map(|kind| {
-            let def = kind.def();
-            let class = def.unit.as_ref()?.base_def().nav_class()?;
-            Some((class, nav::size_class(def.silhouette()?)))
-        })
-        .collect()
-}
-
-/// Every set of grids: the true ones first, then each player's that is built, in player order.
-fn navs<'a>(truth: &'a Nav, known: &'a [Known]) -> Vec<&'a Nav> {
-    std::iter::once(truth)
-        .chain(known.iter().filter_map(|k| k.nav.as_ref()))
-        .collect()
-}
-
 /// `listed` sorted, each footprint once: equal for equal sets of footprints, however they came to be known.
 fn canonical(listed: &[TileRect]) -> Vec<TileRect> {
     let mut blockers = listed.to_vec();
     blockers.sort_unstable_by_key(|r| (r.origin.y, r.origin.x, r.w, r.h));
     blockers.dedup();
     blockers
-}
-
-/// The grids of `truth`'s map under `blockers` instead of its own.
-fn stamped(truth: &Nav, blockers: &[TileRect]) -> Nav {
-    let mut nav = truth.clone();
-    nav.restamp(blockers);
-    nav
-}
-
-/// The players with a unit that walks on a grid, ascending: those whose known grids are built.
-fn walkers(objects: &BTreeMap<ObjectId, Object>) -> Vec<PlayerId> {
-    let mut walkers: Vec<PlayerId> = objects
-        .values()
-        .filter(|o| {
-            o.mover.is_some()
-                && o.def()
-                    .unit
-                    .as_ref()
-                    .is_some_and(|unit| unit.base_def().nav_class().is_some())
-        })
-        .filter_map(|o| o.owner)
-        .collect();
-    walkers.sort_unstable();
-    walkers.dedup();
-    walkers
 }
 
 /// The footprint of an object of `kind` placed at `placement`, if it blocks surface units

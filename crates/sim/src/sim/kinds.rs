@@ -154,6 +154,9 @@ impl Sim {
             placement.is_some(),
             "a tile-based kind has a placement, a unit none: {kind:?}"
         );
+        // A unit walks on the new kind's grid from the change on, and a behaviour or a command may read it before
+        // the next grid sync: it is built here if the unit is the first on it (slice M5-Z2, `paths`).
+        self.cover_kind(kind);
         let production_of = |def: &ObjectDef| def.structure.as_ref().and_then(|s| s.production);
         let keeps_production = production_of(old) == production_of(new);
         let keeps_constructor = construction::recipes(from) == construction::recipes(kind);

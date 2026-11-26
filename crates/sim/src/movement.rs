@@ -52,9 +52,10 @@ use crate::map::Map;
 #[cfg(test)]
 use crate::math;
 use crate::mover::{Locomotion, MoveGoal, MoveStatus, Mover, Orientation, PathState};
-use crate::nav::{self, Nav};
+use crate::nav::Nav;
 use crate::object::Object;
 use crate::orders::gather;
+use crate::paths;
 use crate::popup;
 use crate::production::ExitDoor;
 use crate::shape::Shape;
@@ -291,9 +292,7 @@ pub(crate) fn step(
             mover.exit_heading = None;
         }
         let mut world = World {
-            grid: base
-                .nav_class()
-                .and_then(|class| nav.grid(class, nav::size_class(half * 2.0))),
+            grid: paths::unit_grid(nav, base, half * 2.0),
             layer: layer.map(|l| &scratch.layers[l]),
             bodies: &scratch.bodies,
             me,

@@ -161,10 +161,12 @@ impl Invariants {
             // tick it only comes out (`ExitDoor::allows`). (M3-D2) Out of a portal's energy doorway (design change
             // 0145) it never stands off the open arc: its centre lies in an open direction from the portal's,
             // within a rounding tolerance (`EnergyDoorway::margin`).
-            let grid = unit
-                .base_def()
-                .nav_class()
-                .and_then(|class| sim.nav().grid(class, nav::size_class(half * 2.0)));
+            // Every unit in the game has the grid it walks on (slice M5-Z2, `paths`): a missing one would let it pass.
+            let class = unit.base_def().nav_class();
+            let grid = class.and_then(|class| sim.nav().grid(class, nav::size_class(half * 2.0)));
+            if let (Some(class), None) = (class, grid) {
+                return fail("I2", format!("walks on {class:?} grids, but its grid isn't built"));
+            }
             match mover.exit {
                 None => {
                     if grid.is_some_and(|grid| !nav::box_clear(grid, half, o.pos)) {

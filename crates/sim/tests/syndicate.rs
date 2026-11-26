@@ -85,13 +85,12 @@ fn set_tier(id: u32, tier: u8) -> DebugCommand {
     DebugCommand::SetTier { id: ObjectId(id), tier }
 }
 
-/// Whether tile `(x, y)` is blocked in every ground grid (`NavClass::Ground` and `GroundRugged`, every size class),
-/// or in none.
+/// Whether tile `(x, y)` is blocked in every ground grid (`NavClass::Ground` and `GroundRugged`, of size class 1, every
+/// unit type's), or in none: the game's, or those its first unit of the class would build (slice M5-Z2: a game builds
+/// the grids of the units in it).
 fn ground_blocked(t: &TestSim, x: i32, y: i32) -> Option<bool> {
-    let grids = t.sim().nav().grids().iter();
-    let ground = grids.filter(|grid| matches!(grid.class(), NavClass::Ground | NavClass::GroundRugged));
-    let blocked: Vec<bool> = ground.map(|grid| grid.is_blocked(TilePos::new(x, y))).collect();
-    assert!(!blocked.is_empty(), "ground grids");
+    let ground = [NavClass::Ground, NavClass::GroundRugged].map(|class| t.sim().true_grid(class, 1));
+    let blocked = ground.map(|grid| grid.is_blocked(TilePos::new(x, y)));
     (blocked.iter().all(|&b| b) || blocked.iter().all(|&b| !b)).then(|| blocked[0])
 }
 
@@ -153,8 +152,8 @@ fn the_tunnel_blocks_the_ground_and_sees_5() {
             }
         }
     }
-    let grid = t.sim().nav().grid(NavClass::GroundRugged, 1).unwrap();
-    assert!(!grid.is_blocked(TilePos::new(8, 8)) && !grid.is_blocked(TilePos::new(13, 11)));
+    assert_eq!(ground_blocked(&t, 8, 8), Some(false));
+    assert_eq!(ground_blocked(&t, 13, 11), Some(false));
     let at = object(&t, 1).pos;
     let expected: Vec<TilePos> = (0..20)
         .flat_map(|y| (0..24).map(move |x| TilePos::new(x, y)))

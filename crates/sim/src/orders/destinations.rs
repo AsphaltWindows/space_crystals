@@ -31,6 +31,7 @@ use crate::ids::ObjectId;
 use crate::map::Map;
 use crate::nav::{self, Nav};
 use crate::object::Object;
+use crate::paths;
 use crate::units::SU_PER_GU;
 
 /// The destination of each of `units` (unique, existing units) for a location order to `click`, in the order of
@@ -126,12 +127,8 @@ fn reachable(nav: &Nav, map_size: Vec2, o: &Object, dest: Vec2) -> Vec2 {
     let def = o.def();
     let half = def.half_extents().unwrap_or(Vec2::ZERO);
     let dest = dest.max(half).min((map_size - half).max(half));
-    let grid = def
-        .unit
-        .as_ref()
-        .and_then(|unit| unit.base_def().nav_class())
-        .zip(def.silhouette())
-        .and_then(|(class, silhouette)| nav.grid(class, nav::size_class(silhouette)));
+    let grid = (def.unit.as_ref().zip(def.silhouette()))
+        .and_then(|(unit, silhouette)| paths::unit_grid(nav, unit.base_def(), silhouette));
     let Some(grid) = grid else {
         return dest;
     };
