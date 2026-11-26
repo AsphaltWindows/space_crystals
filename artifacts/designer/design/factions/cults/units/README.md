@@ -7,6 +7,6 @@
 - `militant.md` — **Militant**: Basic combat infantry
 - `gunner.md` — **Gunner**: Heavier-hitting infantry
 - `recruit.md` — **Recruit**: Worker: gathering, building, Armory entry
-- `jackal.md` — **Jackal**: Light wheeled vehicle, 360° machine-gun turret (Chop Shop)
+- `seeker.md` — **Seeker**: Light wheeled vehicle, 360° machine-gun turret (Chop Shop)
 - `hand_of_heaven.md` — **Hand of Heaven**: Long-range shoot-and-scoot missile vehicle (Chop Shop, 3 Recruits)
 - `sparrow.md` — **Sparrow**: Small glider, machine gun, air+ground (Airstrip)
