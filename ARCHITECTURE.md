@@ -310,11 +310,12 @@ Units, structures and resources are all `Object`s (`object.rs`, `core/entities.m
   kind)` are what the interface reads. Hashed and saved **only while non-empty** (`#[serde(default,
   skip_serializing_if)]`, a tag in `Sim::state_hash`), as a Tunnel's eject queue is (`TunnelState::eject`), so the
   states without a held unit, the goldens among them, are as they were. Inside, a unit regenerates 1% of its MaxHP
-  a second (`TunnelDef::regen_per_second`, placeholder, 0249) and may leave `TRANSIT_DELAY_TICKS` (32, placeholder,
-  0245) after it walked in, a unit produced inside at once (0246; `Held::may_exit`). **Measured**
-  (`tests/agents_perf.rs`, ignored, release; slice M4-M): 4 Tunnels with 4 Agents each on two shared fields and 60
-  Guards cycling through Enter and Eject, a mean of 0.043 ms and a p99 of 0.067 ms a whole sim tick; then 40
-  Grenadiers shelling a Tunnel field, 0.070 and 0.090 ms (load average 0.3 to 0.6).
+  a second (`TunnelDef::regen_per_second`, placeholder, 0249; `crate::regeneration`, the rule of the expansions'
+  regeneration too since slice M5-N8) and may leave `TRANSIT_DELAY_TICKS` (32, placeholder, 0245) after it walked in, a
+  unit produced inside at once (0246; `Held::may_exit`). **Measured** (`tests/agents_perf.rs`, ignored, release; slice
+  M4-M): 4 Tunnels with 4 Agents each on two shared fields and 60 Guards cycling through Enter and Eject, a mean of
+  0.043 ms and a p99 of 0.067 ms a whole sim tick; then 40 Grenadiers shelling a Tunnel field, 0.070 and 0.090 ms (load
+  average 0.3 to 0.6).
 - **Sites** (`construction/site.rs`, `sim/sites.rs`; slice M4-E, plan decision T31; `factions/syndicate/units/agent.md
   > Building > Tunnel Construction Flow`, design change 0234): a structure a worker builds where it stands is, from its
   first frame, the object it will be, with `Object::construction: Option<Construction { progress, builder }>` while it
@@ -514,7 +515,8 @@ Units, structures and resources are all `Object`s (`object.rs`, `core/entities.m
   **`Object::decay: Option<Progress>`**, hashed (a tag) and saved only while set, steps
   `tuning::tunnel::DECAY_PERCENT_PER_SECOND` (1%, placeholder) of a 100-second decay a tick, and its HP follows the
   share of its MaxHP the decay has left (`decayed`, computed from the whole ticks in 64 bits, so that a full Hideout
-  dies in its 1600th tick of decay, the first being its Tunnel's last; a turret loses 3 HP a second of its 300).
+  dies in its 1600th tick of decay, the first being its Tunnel's last; a turret loses 3 HP a second of its 300). An
+  owned one under its Tunnel regenerates instead (slice M5-N8, *Economy > Expansions' regeneration*).
   **Reclaiming** is `Sim::reclaim(tunnel)`, which a site's completion calls (`Sim::complete_site`) and an upgrade's
   (slice M4-G): every neutral expansion wholly inside the finished Tunnel's area, at or below its tier (the Tier
   Requirement, `ExpansionDef::tier`: 1 for the Hideout and the turret), becomes the Tunnel owner's, stops decaying and
@@ -787,11 +789,11 @@ Layout validation can't disagree. **Never test a placement rule anywhere else: a
      the events that a behaviour may not make.
    - Spots, `Sim::step_spots` (slice M5-E, `sim/spot_work.rs`; *Economy > Cults construction*): part of 5a, right
      after the deployments, in id order. Each unit whose current order works at a footprint from a spot beside it (a
-     group's Build, an Assist) and has no spot gets one and walks there, round the footprint, a unit on its way
-     heading on at each corner (`Sim::head_on`); an order on a structure that no longer suits it ends; every
-     `RESPOT_TICKS`, a unit whose walk is over keeps where it stands within reach, or looks again along the builders'
-     wall, and one whose walk ended on the footprint itself looks again as far out as needed (slice M5-J1: its site
-     waits for it, design change 0362). Before 5b, so that its walks get their paths in the tick.
+     group's Build, an Assist, a building's Repair) and has no spot gets one and walks there, round the footprint, a
+     unit on its way heading on at each corner (`Sim::head_on`); an order on a structure that no longer suits it ends;
+     every `RESPOT_TICKS`, a unit whose walk is over keeps where it stands within reach, or looks again along the
+     builders' wall, and one whose walk ended on the footprint itself looks again as far out as needed (slice M5-J1: its
+     site waits for it, design change 0362). Before 5b, so that its walks get their paths in the tick.
    - Entries, `Sim::step_entries` (slice M4-C, `sim/network.rs`; `factions/syndicate/tunnels.md > Tunnel Network >
      Walking in`): part of 5a, right after the deployments, in id order. Each unit whose current order is an Enter
      and whose box is within `ENTRY_REACH_SU` of its Tunnel's entry spot leaves the map for the network
@@ -841,8 +843,12 @@ Layout validation can't disagree. **Never test a placement rule anywhere else: a
      mining, the workers' timed work (`gathering::step`, slice M3-H: mining takes its load from the patch, a
      drop-off pays the bank). `economy::step` returns the patches the workers emptied, and `step` takes them out
      through `Sim::remove_objects` and syncs the grids again, as after 5e's deaths.
+   - Expansions' regeneration, `Sim::regenerate_expansions` (slice M5-N8, `sim/expansions.rs`; *Economy >
+     Expansions' regeneration*): part of the economy phase, right after `economy::step` and its removals, before the
+     transformations, the sites, the upgrades and the decay, so that an expansion completed or reclaimed in the tick
+     regenerates from the next one, keeping in this one the damage it was built with or that its decay left it.
    - Transformations, `Sim::step_transforms` (slice M3-E, see *Economy > Warp In*): part of the economy phase, run
-     right after `economy::step` and its removals, before the producers: each transformation advances one frame,
+     right after the expansions' regeneration, before the producers: each transformation advances one frame,
      its interpolated maxima and its HP follow, and a complete one turns its functions on, so a portal takes a Train
      from the next tick's commands. It changes no footprint: a Warp In and a cancel change theirs in the commands
      phase, before 5b.
@@ -853,7 +859,12 @@ Layout validation can't disagree. **Never test a placement rule anywhere else: a
      and completes at the end of `t + frames`. A Tunnel that completes reclaims the neutral expansions it covers
      (`Sim::reclaim`, slice M4-H). (Slice M4-S1's Laser Turret's Agent, which came out beside the turret it
      finished, went with design change 0359.)
-   - Upgrades, `Sim::step_upgrades` (slice M4-G, `sim/upgrades.rs`): right after the sites. Each Tunnel from before
+   - Repairs, `Sim::step_repairs` (slice M5-N8, `sim/repairs.rs`; *Economy > Repair*): right after the sites, whose
+     builders its repairers are counted as (`spot_work::at_work`), and after 5e, so that the HP an object lost in the
+     tick is what its repairers restore. Each object that repairers are at work on, in id order, regains its HP, its
+     owner paying for it; the Repairs that are over end (`Sim::end_work`), their queued orders starting in the next
+     tick's 5a. A site completed in the tick has no repairers yet.
+   - Upgrades, `Sim::step_upgrades` (slice M4-G, `sim/upgrades.rs`): right after the repairs. Each Tunnel from before
      the tick that upgrades does a frame, in id order: the Tunnel exists already, so an upgrade ordered in tick `t`
      completes at the end of `t + frames - 1`, as a recipe; then it reclaims, before the decay.
    - Decay, `Sim::step_decay` (slice M4-H, `sim/tunnels.rs`): part of the economy phase, right after the sites, so
@@ -2105,9 +2116,54 @@ section of its own.
     standoff) from the others' (`Claim::keeps`); with the wall full, it waits on a row from the third out (row 1 kept
     free, the way round) and doesn't count. It walks round the footprint and the others' rooms: along the row outside
     its spot's, by that row's corners, and in from there (`Sim::leg`); walks press on (`Mover::press_on`). The count
-    of those at work and the claim are written over an order and its target, for slice N8's Repair.
+    of those at work and the claim are written over an order and its target, and slice M5-N8's Repair reuses both
+    (*Repair* below).
   - **Assist** (`OrderKind::Assist(site)`, `orders/assist.rs`): of an own site built from outside, by its builders
     (`Reject::NotASite`, `Reject::NoWorkers`); the right-click on such a site (`orders::resolution`).
+- **Repair** (`crate::repair`, `orders/repair.rs`, `sim/repairs.rs`, `tuning/repair.rs`; slice M5-N8, plan decision
+  T83; `factions/cults/units/recruit.md > Repair`, `factions/syndicate/units/agent.md > Repair`, design changes 0321,
+  0322, 0325, 0328, 0329 and 0360): one mechanism for every repairer, its rules in `crate::repair`'s docs.
+  - **Who repairs what** is data, `WorkerDef::repairs` (`RepairDef`): the Recruit
+    `RepairTargets::OwnBuildingsAndVehicles`, paid; the Agent `RepairTargets::Kinds`, the Tunnel free and the Laser
+    Turret paid (`RepairPayment`); the Drone nothing, and slice N9's Field Engineer is a def. A vehicle
+    (`repair::is_vehicle`) is a unit of neither infantry base that isn't a glider, by its movement; a building is a
+    structure but for the underground expansions, which no one repairs (they regenerate, below).
+    `repair::payment(repairer, target)` is the one rule, `repair::repairs` its answer.
+  - **The terms** (`repair::terms`): from what built the kind, its site (`SiteDef`: a Cults building's; the Tunnel's
+    480 frames at every tier, 0328), its expansion's build (`ExpansionDef`: the Laser Turret's) or else the first
+    `Recipe` that makes it in the registry's order (a vehicle's Space Crystals only), shared out by
+    `REPAIR_TIME_SHARE` and `REPAIR_COST_SHARE` (half and half, placeholders): MaxHP / frames a tick per repairer. A
+    repairer that pays pays Space Crystals, so a price in another resource (the Tunnel's Supplies) is repaired for free
+    or not at all (placeholder).
+  - **The target** (`repair::can_repair`, `Sim::can_repair`): another object of the repairer's owner's, complete (no
+    site, nothing transforming) and below its MaxHP (`repair::damage`, repair's one read of `Object::max_hp`), of a kind
+    its type repairs. The gate (`Sim::check_repair`) keeps the units that can, else `Reject::CantRepair(target)`;
+    `Sim::aimed` gives the kind as `Aimed::repair` for the right-click (*Commands, events and replays > Default
+    orders*).
+  - **The order** (`OrderKind::Repair(target)`, `RepairWork`): at a building the repairer works from its own spot beside
+    the footprint (`RepairWork::Spot`: the spots' step, as an Assist's, *Cults construction*), a Tunnel and a lowered
+    Laser Turret alike, which nothing of a repair raises; at a vehicle it follows it (`RepairWork::Follow`,
+    `travel::approach` within `PROXIMITY_SU`, inside `BUILD_REACH_SU`).
+  - **The step** (`Sim::step_repairs`, *Tick pipeline*): each unit whose current Repair's target it can still repair,
+    within reach of its edge with its walk over (`spot_work::at_work`: a footprint, or a vehicle's Silhouette),
+    restores its share, so that n repairers give n times the rate; the free ones first, then those that pay, in whole
+    crystals as the HP enters each step of the price (`repair::step_of`, ceil(HP × price / MaxHP), and `top_of_step`),
+    with no state of its own, a bank short of one stopping the HP at the top of the last step paid. The Repairs end
+    (`Sim::end_work`, the queued orders going on): all of a target's at full HP, all its paid ones when the bank runs
+    out (those on their way too, placeholder), any whose target no longer suits it (not its owner's: a neutral turret,
+    0360; at full HP; no longer complete), and on the removal path any whose target left the game.
+  - **Measured** (`tests/repairs_perf.rs`, ignored, release): 40 Recruits repairing 10 Armories from 1 HP, 12 rounds,
+    a mean of 0.025 ms and a p99 of 0.09 ms a whole tick, the economy phase's 0.003 ms (load average 1.4 to 4.4).
+    `structures_perf` (no repair in it) pays the repairs' and the regeneration's walks of every object: 3 µs more in
+    the economy phase, 0.355 to 0.360 ms a whole tick (+1.3%, 8 interleaved rounds against slice M5-U1's build).
+- **Expansions' regeneration** (`Sim::regenerate_expansions` in `sim/expansions.rs`, `crate::regeneration`,
+  `tuning::tunnel::EXPANSION_REGEN_PER_SECOND`; slice M5-N8; `factions/syndicate/structures/README.md > Tunnel
+  Expansions`, design changes 0329 and 0330): "Not repaired; they regenerate". Each complete underground expansion of
+  its owner's with a parent Tunnel (`tunnel::area::parent`: one of its owner's in operation whose area contains it)
+  regains 1% of its MaxHP a second (placeholder), always on, under fire too; a neutral one decays instead (*Object
+  model > Losing Tunnels*); the Laser Turret, which isn't underground, regenerates nothing (Agents repair it,
+  placeholder). `regeneration::regenerate` is the one rule of HP regained as a share of MaxHP a second, the network's
+  held units' too (`network::Held::regenerate`).
 - **Adding to the economy** (slices M2-D2, M2-F): put the new step into `economy::step` at its numbered place, advance
   progress by `PowerSummary::speed` from the tick the command applies (*Recipe timing*), take costs with
   `spend_crystals` when the command applies, and give refunds through `Refund`; `construction.rs` is the pattern.
@@ -2488,13 +2544,15 @@ their energy doorway, slice M3-D2: design change 0145, `factions/colonists/struc
   TargetDomain, the target
   destructible, its mode letting it attack) Attack; anything else a Move to the object, which follows a unit (an
   unarmed Drone follows an enemy, a shielded Peacekeeper too). `Sim::aimed(player, id)` is the target as the player
-  knows it (`Aimed`: enemy, destructible, domain, gatherable, drop-off; a remembered one by its record) and
-  `Sim::default_order(unit, target)` the sim's answer; the rally points use it (*Production > Rally points*), and the
-  client's right-click calls `resolve` itself on what it shows (*Client architecture > Command UI*).
+  knows it (`Aimed`: enemy, destructible, domain, gatherable, drop-off, and since slice M5-N8 `repair`, the kind of a
+  damaged own object; a remembered one by its record) and `Sim::default_order(unit, target)` the sim's answer; the rally
+  points use it (*Production > Rally points*), and the client's right-click calls `resolve` itself on what it shows
+  (*Client architecture > Command UI*).
   `tests/default_order.rs` has the table of unit kinds against targets. The rules on an object are data (slice M5-J1):
-  `RULES`, a list of `Rule`s tried in order (Gather, GatherSupplies, DropOff, Enter, Assist, Attack), the first that
-  applies (`Rule::order`) giving the order; a new default order is a `Rule` in its place in the list (slice N8's
-  Repair goes after Enter, design change 0322).
+  `RULES`, a list of `Rule`s tried in order (Gather, GatherSupplies, DropOff, Enter, Assist, Repair, Attack), the
+  first that applies (`Rule::order`) giving the order; a new default order is a `Rule` in its place in the list
+  (slice M5-N8's Repair is after Enter and Assist, design changes 0322 and 0325: a damaged own building that the unit
+  can enter is entered; `Aimed::repair` against `repair::repairs`, *Economy > Repair*).
 - **Debug spawns and teleports of units** keep the unit invariants: a box on blocked ground or across the map's edge
   is `Reject::Blocked`, one overlapping another unit of its layer `Reject::Occupied(id)`, and so is a blocking
   footprint spawned onto a ground unit. Touching is allowed. A teleported unit plans its path again.
@@ -2967,6 +3025,16 @@ their energy doorway, slice M3-D2: design change 0145, `factions/colonists/struc
   and those waiting further out moving in, oblong ABAC footprints, 2 × 3 and 2 × 4, at four rotations, and a walk
   ended on the footprint looking again (0362); `placement/wall/tests.rs` the wall, its search and the way round;
   `spot_work/tests.rs` the claim and the reach.
+- **Repair tests** (slice M5-N8) are `crates/sim/tests/repair/` (`rates`: one to four Recruits on an Armory, linear, a
+  crystal every 3 HP, each object by its own terms; `bank`: the bank running out, the queued orders going on, a Repair
+  given with no crystals; `agents`: a Tunnel for free at Tiers 1 and 2, a Laser Turret lowered and raised, one left
+  neutral; `refusals`: the gate's; `regeneration`: a Hideout to full in 100 s, under AoE fire, none once its Tunnel is
+  gone, none for a turret), `sim/repairs/tests.rs` (test defs: a vehicle followed as it drives off, a glider refused by
+  its movement), `repair/tests.rs` (the terms, who repairs what, the payment's steps) and `tests/default_order.rs`'s
+  Repair rows. In the client: `command_ui/resolution/tests/repair.rs` (the right-click and D as data),
+  `tests/commands/recruit_ui/repairing.rs` (a Storage repaired by a right-click, an Armory entered by one and repaired
+  by D, D Inactive at full HP) and `tests/commands/agent_ui/repairing.rs` (a turret repaired, a Tunnel entered by a
+  right-click and repaired by D, an expansion refused).
 - **Beacon Deployment tests** (slice M3-F) are `crates/sim/tests/deploy/` (the walk to the footprint's centre and the
   start on arrival, the 48 frames, the HP from 20 to 120 and damage carried through (0110), Beacon Capacity 10/10 to
   9/10 to 9/15 and a cancel to 11/10 (0112), the cancel's fractions of HP and Shields and its place (0109, 0111), the
@@ -3680,8 +3748,8 @@ Drones, through one command flow (plan decision T10, slices M2-H1, M2-H2 and M3-
   Tier 2: 25%" (slice M4-G, placeholder wording; `activity::operation`), which its X cancels either way.
 - **The Agent's panel** (slice M4-J1; `factions/syndicate/units/agent.md > Agent ObjectInterfaceState`; design changes
   0233, 0237, 0257 and 0359): `templates/syndicate/agent.rs` (`InterfaceTemplate::Agent`) is Q Move, A
-  `PanelCommand::Build(Tunnel)`, S `PanelCommand::DropOff`, D `Planned::Repair` (the Recruit's D, greyed "Not available
-  yet" until slice N8) and X Stop, with no Build of a Laser Turret (slice M4-S1's D, which 0359 took away: a turret is
+  `PanelCommand::Build(Tunnel)`, S `PanelCommand::DropOff`, D `PanelCommand::Repair` (slice M5-N8, as the Recruit's D)
+  and X Stop, with no Build of a Laser Turret (slice M4-S1's D, which 0359 took away: a turret is
   the ExpandMenu's alone); its right-click is the sim's one rule (*Gathering* above). **A Build** is an instance command
   (`SlotPress::AwaitBuild`): `AwaitingPlacement` with `Builder::Agent` for the ActiveGroup's one Agent (Agents are
   Ungroupable: Tab picks the next one). It is greyed exactly when the gate refuses an unqueued Build of that Agent's
@@ -3693,8 +3761,9 @@ Drones, through one command flow (plan decision T10, slices M2-H1, M2-H2 and M3-
   queued with Shift, ends it ("each Agent takes exactly one placement"). The client counts no Build still in
   `PendingCommands` in a price or a ghost. **S** awaits an own drop-off in operation (`drop_off_target`), greyed while
   none of its recipients carries a load (`Reject::NothingToDeliver`, "Not carrying resources"). A right-click that
-  enters a Tunnel shows `PointerDisplay::Enter` (`cursor::ENTER_COLOR`, a placeholder); a carrying Agent's on its
-  Tunnel ReturnResources; on a site, Move. **A site's panel** (`templates/site.rs`, `SITE_GRID`) is X
+  enters a Tunnel shows `PointerDisplay::Enter` (`cursor::ENTER_COLOR`, a placeholder), a damaged one too (Enter wins
+  over Repair, design change 0325); on a damaged own Laser Turret, Repair; a carrying Agent's on its Tunnel
+  ReturnResources; on a site, Move. **A site's panel** (`templates/site.rs`, `SITE_GRID`) is X
   `CancelConstruction` alone, for any site (`Conditions::site`: `Object::is_site`, never its kind), which slice M4-F
   reuses, a turret's site among its expansions': an unfinished `GroupType` offers both Cancels (`offers::UNFINISHED`),
   and the gate takes the one that fits.
@@ -3717,7 +3786,7 @@ Drones, through one command flow (plan decision T10, slices M2-H1, M2-H2 and M3-
 - **The Recruit's panel** (slice M5-J1; `factions/cults/units/recruit.md > Recruit ObjectInterfaceState`, design
   changes 0322, 0327 and 0347): `templates/cults/recruit.rs` (`InterfaceTemplate::Recruit`) is Q Move, A and W
   `PanelCommand::BuildMenu` (named "Basic Construct" and "Advanced Construct", `PanelTemplate::names`), S
-  `PanelCommand::Assist`, D `Planned::Repair` (greyed until slice N8) and X Stop. Recruits are Groupable: every
+  `PanelCommand::Assist`, D `PanelCommand::Repair` (slice M5-N8) and X Stop. Recruits are Groupable: every
   command goes to all the selected Recruits, the one ActiveGroup (Tab stops on them once). **The Construct menus**
   (`templates/cults/construct_menu.rs`) are the sim's `defs::CONSTRUCT_MENU`, the one table of their fixed slots: a
   type in the game is its `PanelCommand::Build(kind)`, greyed by the gate (its TechPrerequisite, the bank), one not
@@ -3732,10 +3801,16 @@ Drones, through one command flow (plan decision T10, slices M2-H1, M2-H2 and M3-
   Shift is held (`end_queued_placement`), each Build its ticket's one lingering ghost. **S** awaits an own site that
   the recipients build from outside (`resolution::assist_target`) and gives `OrderKind::Assist`. The pointer shows
   `PointerDisplay::Assist` over such a site (`cursor::ASSIST_COLOR`, a placeholder), on a right-click as while S
-  awaits; `PointerDisplay::Repair` (`cursor::REPAIR_COLOR`) is the hook for slice N8's Repair, which no order gives
-  yet. Enter shows over an own Armory in operation that takes the Recruit in, never over its site (0347 point 4). The
-  right-click is the sim's one rule (`sc_sim::orders::resolution::RULES`). The InfoPanel shows a carrying Recruit's
-  load to its owner, as a Drone's ("Carrying 2 Space Crystals", `info_panel::worker_lines`).
+  awaits. **D** (slice M5-N8, design changes 0322 and 0325) awaits a damaged own object that a recipient repairs
+  (`resolution::repair_target`: `Aimed::repair`) and gives `OrderKind::Repair`, which the gate gives to the recipients
+  that can repair it (`Reject::CantRepair`); it is never greyed, there being no target to judge before the click. The
+  pointer shows `PointerDisplay::Repair` (`cursor::REPAIR_COLOR`, a placeholder) where the right-click gives a Repair,
+  and while D awaits over an object that a selected type repairs (`resolution::repaired_by`,
+  `sc_sim::repair::repairs`), else Inactive, where a click sends `InvalidTarget` and targeting goes on. A damaged own
+  Armory that takes the Recruit in is entered by a right-click, repaired by D (Enter wins, 0325). Enter shows over an
+  own Armory in operation that takes the Recruit in, never over its site (0347 point 4). The right-click is the sim's
+  one rule (`sc_sim::orders::resolution::RULES`). The InfoPanel shows a carrying Recruit's load to its owner, as a
+  Drone's ("Carrying 2 Space Crystals", `info_panel::worker_lines`).
 - **Visuals**: the panel's buttons (`hud/command_panel.rs`) are rebuilt when the panel, the bindings or the surface
   changes; each shows its command's label (`PanelSlot::label`) and its hotkey from the bindings, and an EjectMenu tile
   its count in its bottom-right corner. **Every label keeps
@@ -4411,9 +4486,9 @@ each module can later become one loaded struct (the data files come at playtest,
 belongs to one object goes in its def instead (*Adding a unit or structure*).
 
 - **The sim's** (`crates/sim/src/tuning/`, slice M4-R1): one module per system, `combat.rs`, `construction.rs`,
-  `gathering.rs`, `movement.rs`, `orders.rs`, `paths.rs`, `production.rs`, `shields.rs`, `tunnel.rs` and `vision.rs`,
-  each mapping one to one onto the struct a data file will load at playtest prep. The code imports its constants from
-  there (`use crate::tuning::movement::{JAMMED_TICKS, MAX_REPATHS};`). A faction's own rule is in its
+  `gathering.rs`, `movement.rs`, `orders.rs`, `paths.rs`, `production.rs`, `repair.rs`, `shields.rs`, `tunnel.rs` and
+  `vision.rs`, each mapping one to one onto the struct a data file will load at playtest prep. The code imports its
+  constants from there (`use crate::tuning::movement::{JAMMED_TICKS, MAX_REPATHS};`). A faction's own rule is in its
   `defs/<faction>.rs`.
 - **The client's feel** (`crates/game/src/tuning/`, slice M4-R2): `camera.rs` (the view's width, the pan speed, the
   edge-pan margin, the editor's zoom), `input.rs` (the drag threshold, double-click and double-tap times, the
