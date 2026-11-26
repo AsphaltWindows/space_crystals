@@ -12,7 +12,9 @@
 //! M5-J1, design change 0327: "every building greyed until available, including ones not in the build yet"), each
 //! until its slice; slice M5-G2 made the Gunworks, the Machine Shop and the Scrap Hangar live, and the Armory's Gunner,
 //! which had held its slot of the Armory's kind menus (slice M5-F2) until its Gunworks; slice M5-N2 the Garrison. The
-//! Recruit's Repair and the Agent's held theirs until slice M5-N8 (`super::super::PanelCommand::Repair`).
+//! Recruit's Repair and the Agent's held theirs until slice M5-N8 (`super::super::PanelCommand::Repair`). The Field
+//! Engineer's Construct menu holds its two buildings' slots (slice M5-N9, `factions/gdo/units/field_engineer.md >
+//! Placeholder stats`: "both greyed until designed").
 
 /// A panel entry that isn't in the game yet (module docs). The Colonists' are a building of the Beacon's Warp In menus
 /// or a unit of a portal's panel: a building's cost and WarpInTime are TBD (`factions/colonists/economy.md > Warp In >
@@ -63,11 +65,16 @@ pub enum Planned {
     Temple,
     Cathedral,
     Shrine,
+    /// (M5-N9) The Field Engineer's Construct menu's buildings (`factions/gdo/units/field_engineer.md > Placeholder
+    /// stats`: "**A** Construct (a menu: **Q** Bunker, **W** First Aid Tent, both greyed until designed; **Z** back)"),
+    /// in its order (`super::gdo::field_engineer::CONSTRUCT_MENU`).
+    Bunker,
+    FirstAidTent,
 }
 
 impl Planned {
     /// Every one, in declaration order.
-    pub const ALL: [Planned; 26] = [
+    pub const ALL: [Planned; 28] = [
         Planned::AlloyFurnace,
         Planned::EssenceRefinery,
         Planned::FluxReactor,
@@ -94,6 +101,8 @@ impl Planned {
         Planned::Temple,
         Planned::Cathedral,
         Planned::Shrine,
+        Planned::Bunker,
+        Planned::FirstAidTent,
     ];
 
     /// The ExpandMenu's entry not in the game yet that the sim names `name` (`sc_sim::defs::ExpandEntry::Planned`): an
@@ -141,6 +150,8 @@ impl Planned {
             Planned::Temple => "Temple",
             Planned::Cathedral => "Cathedral",
             Planned::Shrine => "Shrine",
+            Planned::Bunker => "Bunker",
+            Planned::FirstAidTent => "First Aid Tent",
         }
     }
 
@@ -149,7 +160,8 @@ impl Planned {
     /// "ST", as the Guard's and the Beacon's are, since "SC" is the crystal patch's (slice M3-J3: every label its own,
     /// `crate::kinds::short_label`). An expansion's is its initials, as a building's, a one-word name's its first and
     /// last letters, as the Scout's ("VT" Vault, "FE" Forge). A Cults building's alike ("CS" Chop Shop, "TE" Temple),
-    /// but for the Shrine's "SR", "SE" being the Storage's. An entry's type takes its label with it into the game (the
+    /// but for the Shrine's "SR", "SE" being the Storage's. The Field Engineer's: "FAT" the First Aid Tent, and "BKR"
+    /// the Bunker, as the Seeker's "SKR", its first and last letters, "BR", being the Barracks'. An entry's type takes its label with it into the game (the
     /// Optics Lab's "OL", the Chemical Plant's "CP", the Grenadier's "GR", the Gunworks' "GS", the Garrison's "GA",
     /// `crate::kinds`), and a command its own: the Tunnel's Upgrade's "Upgr." (slice M4-G).
     pub fn label(self) -> &'static str {
@@ -180,11 +192,13 @@ impl Planned {
             Planned::Temple => "TE",
             Planned::Cathedral => "CL",
             Planned::Shrine => "SR",
+            Planned::Bunker => "BKR",
+            Planned::FirstAidTent => "FAT",
         }
     }
 
     /// Whether it is a unit, of a production panel; else a building, of the Beacon's Warp In menus, the Tunnel's
-    /// ExpandMenu or the Recruits' Construct menus.
+    /// ExpandMenu, the Recruits' Construct menus or the Field Engineer's.
     pub fn is_unit(self) -> bool {
         matches!(self, Planned::Scout | Planned::Lancer | Planned::PsionicUnit)
     }
@@ -217,9 +231,15 @@ impl Planned {
 
     /// The full name of its button (`PanelCommand::name`): the command it will be, "Train Scout", "Warp In Alloy
     /// Furnace" or "Build Vault", as a unit in the game is trained, a building warped in and an expansion built
-    /// (`PanelCommand::Expand`); "Build Altar", as the Recruits build a building (`PanelCommand::Build`).
+    /// (`PanelCommand::Expand`); "Build Altar", as the Recruits build a building (`PanelCommand::Build`). The Field
+    /// Engineer's as the design names its abilities (`factions/gdo/units/field_engineer.md > Abilities`): "**Build
+    /// Bunker**", "**Set up First Aid Tent**".
     pub fn command_name(self) -> String {
-        if self.is_unit() {
+        if self == Planned::FirstAidTent {
+            format!("Set up {}", self.name())
+        } else if self == Planned::Bunker {
+            format!("Build {}", self.name())
+        } else if self.is_unit() {
             format!("Train {}", self.name())
         } else if self.is_expansion() || self.is_construct() {
             format!("Build {}", self.name())

@@ -7,7 +7,7 @@ use super::*;
 /// `factions/gdo/structures/deployment_center.md > ObjectInterfaceState[DeploymentCenter]` (design change 0104): a
 /// selected Deployment Center shows Q Basic Construction, and W Advanced Construction unavailable while none of its
 /// buildings is in the game. Q, or a click on its button, opens BuildMenu[Basic]: Q Generator, W Barracks, E Extraction
-/// Facility, the other slots hidden, and Z Back. Back, Esc and a right-click return to DefaultState
+/// Facility, D Career Campus (slice M5-N9; greyed: "Requires a Barracks"), the other slots hidden, and Z Back. Back, Esc and a right-click return to DefaultState
 /// (`factions/gdo/structures/deployment_center.md > BuildMenu (instance idle)`: "Escape/right-click: returns to
 /// DefaultState"), and a left-click on the map selects as ever. Beside an Extraction Facility, recalled together from a
 /// control group (design change 0048's verification: "Select two own Ungroupable buildings (e.g. via control group):
@@ -15,7 +15,7 @@ use super::*;
 /// plate there, at the Extraction Facility only.
 #[test]
 fn the_deployment_center_opens_its_basic_build_menu() {
-    use ButtonLook::{Back, Common, Group, Unavailable};
+    use ButtonLook::{Back, Common, Disabled, Group, Unavailable};
     use PanelCommand::{BuildMenu as Menu, Construct};
     let mut app = construction_game(1000);
     select(&mut app, DC);
@@ -43,6 +43,7 @@ fn the_deployment_center_opens_its_basic_build_menu() {
             (q(), c(Construct(GENERATOR)), Common, "GN"),
             (w(), c(Construct(BARRACKS_KIND)), Common, "BR"),
             (e(), c(Construct(EXTRACTION_FACILITY)), Common, "EF"),
+            (d(), c(Construct(CAREER_CAMPUS)), Disabled, "CC"),
             (CommandSlot::BACK, PanelButton::Back, Back, "Back"),
         ]
     );
@@ -142,6 +143,7 @@ fn a_construction_is_cancelled_with_a_full_refund() {
             (q(), c(Construct(GENERATOR)), Disabled, "GN"),
             (w(), c(Construct(BARRACKS_KIND)), Disabled, "BR"),
             (e(), c(Construct(EXTRACTION_FACILITY)), Disabled, "EF"),
+            (d(), c(Construct(CAREER_CAMPUS)), Disabled, "CC"),
             (CommandSlot::BACK, PanelButton::Back, Back, "Back"),
             (X, c(CancelConstruction), Common, "Cancel"),
         ]

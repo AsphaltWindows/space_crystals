@@ -43,7 +43,7 @@ fn a_repair_takes_half_the_build_time_and_costs_half_the_price() {
     assert_eq!(of(ObjectKind::Seeker), Some((160.0, Some(37.5))));
 }
 
-/// Who repairs what (`WorkerDef::repairs`): the Recruit its owner's buildings and vehicles, for Space Crystals; the
+/// Who repairs what (`UnitDef::repairs`): the Recruit its owner's buildings and vehicles, for Space Crystals; the
 /// Agent its Tunnels for free and its Laser Turrets for Space Crystals; no one a Tunnel's expansions, a unit of an
 /// infantry base or a glider.
 #[test]

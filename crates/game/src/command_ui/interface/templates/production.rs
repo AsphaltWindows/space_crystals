@@ -12,13 +12,14 @@ use crate::kinds;
 const TRAIN_SLOTS: usize = 8;
 
 /// A producing structure's DefaultState commands (plan decision T23): Train each of the units of its `ProductionDef`,
-/// in the design's order, from Q on (Q, W, E, R, then A, S, D, F); X Cancel Production and C Set Rally Point
+/// in the design's order, from Q on (Q, W, E, R, then A, S, D, F), but for a unit the design puts in a slot of its own,
+/// which takes that slot first ([`PanelTemplate::trains`], slice M5-N9); X Cancel Production and C Set Rally Point
 /// (`> Standard Slot Assignments`); Z is Back while a target is awaited.
 ///
-/// - The Barracks: Q Build Peacekeeper, X, C (`factions/gdo/structures/barracks.md >
-///   ObjectInterfaceState[Barracks]`). "W: Build Rocketman (hotkey tentative)" stays empty: the Rocketman isn't in
-///   the game yet (its cost and time are TBD, and so is its Arsenal; M2 plan § 1.2), so it isn't among the recipes
-///   and its button is hidden.
+/// - The Barracks: Q Build Peacekeeper, E Build Field Engineer, X, C (`factions/gdo/structures/barracks.md >
+///   ObjectInterfaceState[Barracks]`: "**E: Build Field Engineer** (placeholder letter)"). "W: Build Rocketman (hotkey
+///   tentative)" stays empty: the Rocketman isn't in the game yet (plan slice K brings it, and its Arsenal), so it
+///   isn't among the recipes and its button is hidden.
 /// - The Robo Portal: Q Drone, W Scout, X, C; the Bio Portal: Q Sabre Legionnaire, W Lancer, E psionic unit, X, C
 ///   (`factions/colonists/structures/robo_portal.md > Robo Portal ObjectInterfaceState`,
 ///   `factions/colonists/structures/bio_portal.md > Bio Portal ObjectInterfaceState`, design change 0124). The Scout,
@@ -38,10 +39,19 @@ pub(super) fn production_grid(kind: ObjectKind) -> [Option<PanelCommand>; 12] {
         recipes.len() <= TRAIN_SLOTS,
         "{kind:?} trains more units than its panel has slots"
     );
-    for (slot, recipe) in grid.iter_mut().zip(recipes.iter().take(TRAIN_SLOTS)) {
-        *slot = Some(PanelCommand::Train(recipe.kind));
+    let template = kinds::of(kind).template;
+    let slot_of = |unit| (template.trains.iter()).find_map(|&(slot, placed)| (placed == unit).then_some(slot));
+    for recipe in recipes {
+        if let Some(slot) = slot_of(recipe.kind) {
+            grid[slot] = Some(PanelCommand::Train(recipe.kind));
+        }
     }
-    for &(slot, planned) in kinds::of(kind).template.planned {
+    for recipe in recipes.iter().filter(|recipe| slot_of(recipe.kind).is_none()) {
+        if let Some(slot) = (0..TRAIN_SLOTS).find(|&slot| grid[slot].is_none()) {
+            grid[slot] = Some(PanelCommand::Train(recipe.kind));
+        }
+    }
+    for &(slot, planned) in template.planned {
         grid[slot] = grid[slot].or(Some(PanelCommand::Planned(planned)));
     }
     if trains.is_some() {

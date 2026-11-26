@@ -55,6 +55,7 @@ pub(crate) static DISCIPLE: ObjectDef = ObjectDef {
         worker: None,
         // (M5-N1a) `factions/cults/units/disciple.md > AttackAttributes`: "for Augmentation it is **armed**".
         augmentable: Some(Augmentable { unarmed: false }),
+        repairs: None,
     }),
     structure: None,
     default_settings: None,

@@ -33,8 +33,10 @@ pub(crate) static DEPLOYMENT_CENTER: ObjectDef = ObjectDef {
         production: None,
         mining: None,
         onto: None,
-        // Constructs: the three buildings with a cost and a time. The design's others (Supply Tower, Arsenal, …) have
-        // none yet (TBD); their Requires clauses (`core/tech_and_research.md > Tech Prerequisites`) come with them.
+        // Constructs: the buildings in the game, each with its cost and time: the three of the start, and the Career
+        // Campus (slice M5-N9, design change 0328), whose "Requires: player owns at least one Barracks" is its type's
+        // TechPrerequisite (`StructureDef::requires`). The design's others (Supply Tower, Arsenal, …) come with their
+        // slices, their Requires clauses (`core/tech_and_research.md > Tech Prerequisites`) with them.
         constructs: &[
             Recipe {
                 kind: ObjectKind::Generator,
@@ -53,6 +55,12 @@ pub(crate) static DEPLOYMENT_CENTER: ObjectDef = ObjectDef {
                 cost: 200,   // Extraction Facility: 200 Space Crystals,
                 frames: 320, // 320 frames (20 seconds)
                 requires: &[],
+            },
+            Recipe {
+                kind: ObjectKind::CareerCampus,
+                cost: 150,     // Career Campus: 150 Space Crystals,
+                frames: 320,   // 320 frames (20 seconds) (placeholder).
+                requires: &[], // Requires: player owns at least one Barracks (the Career Campus's own)
             },
         ],
         warp_in: &[],
@@ -74,8 +82,10 @@ pub(crate) static DEPLOYMENT_CENTER: ObjectDef = ObjectDef {
 mod tests {
     use super::*;
 
-    /// The stat block, and `> Constructs`: the three buildings with each one's cost and time. It and the Extraction
-    /// Facility (`factions/gdo/economy.md > ExtractionFacility > Constructs`) are the two constructors.
+    /// The stat block, and `> Constructs`: the four buildings in the game with each one's cost and time, the Career
+    /// Campus requiring a Barracks (its own TechPrerequisite, which `tech::recipe_requires` adds to its entry's). It
+    /// and the Extraction Facility (`factions/gdo/economy.md > ExtractionFacility > Constructs`) are the two
+    /// constructors.
     #[test]
     fn the_deployment_center_follows_the_design() {
         let structure = super::super::assert_stat_block(
@@ -101,7 +111,13 @@ mod tests {
                 recipe(ObjectKind::Generator, 100, 240),
                 recipe(ObjectKind::Barracks, 200, 160),
                 recipe(ObjectKind::ExtractionFacility, 200, 320),
+                recipe(ObjectKind::CareerCampus, 150, 320),
             ]
+        );
+        let campus = &structure.constructs[3];
+        assert_eq!(
+            crate::tech::recipe_requires(campus).collect::<Vec<_>>(),
+            [ObjectKind::Barracks]
         );
         for &kind in ObjectKind::ALL {
             let constructs = kind.def().structure.as_ref().is_some_and(|s| !s.constructs.is_empty());

@@ -10,7 +10,8 @@
 //! its EjectMenu ([`syndicate`], slice M4-J2), and its Agent builds Tunnels (slice M4-J1). The Cults' pool buildings,
 //! the Armory first, open a menu per kind of Recruit ([`cults`], slice M5-F2), and the Recruit two Construct menus
 //! built the same way, their entries the group's Builds (slice M5-J1); the Garrison lets everyone out (slice M5-N2).
-//! An entry not in the game yet holds its slot, unavailable ([`Planned`]).
+//! The GDO's Field Engineer repairs, and its Construct menu holds its buildings' slots (slice M5-N9). An entry not in
+//! the game yet holds its slot, unavailable ([`Planned`]).
 
 pub mod colonists;
 pub mod cults;
@@ -96,6 +97,12 @@ pub enum InterfaceTemplate {
     /// leaves); **X: Cancel construction** while being built" ([`cults::garrison`]; X is its site's, [`SITE_GRID`]).
     /// "Right-click resolution: none (it has no rally point)".
     Garrison,
+    /// (M5-N9) `factions/gdo/units/field_engineer.md > Placeholder stats` (design change 0328): "**Q** Move; **A**
+    /// Construct (a menu: **Q** Bunker, **W** First Aid Tent, both greyed until designed; **Z** back); **D** Repair
+    /// (targeted: a damaged own building or vehicle); **X** Stop" ([`gdo::field_engineer`]). Its right-click ("a
+    /// damaged own building or vehicle: Repair (Enter wins on a building it can enter, as for Recruits)") is the
+    /// sim's one rule, as every unit's.
+    FieldEngineer,
 }
 
 /// The Deployment Center's build menus (`factions/gdo/structures/deployment_center.md >
@@ -133,6 +140,10 @@ pub struct PanelTemplate {
     /// The units of a producing structure's panel that aren't in the game yet ([`Planned`]), each with its slot
     /// (`CommandSlot::all` order), which [`production_grid`] adds to its recipes: a portal's (design change 0124).
     pub planned: &'static [(usize, Planned)],
+    /// (M5-N9) The units of a producing structure's panel that the design puts in a slot of their own, each with its
+    /// slot (`CommandSlot::all` order), where [`production_grid`] puts their Train, the others going in order into the
+    /// slots left: the Barracks' Field Engineer in E, its W being the Rocketman's ([`gdo::barracks`]).
+    pub trains: &'static [(usize, ObjectKind)],
     /// The commands the design names after the object whose panel shows them, with their names
     /// (`PanelCommand::name_on`).
     pub names: &'static [(PanelCommand, &'static str)],
@@ -143,6 +154,7 @@ impl PanelTemplate {
     pub const NONE: PanelTemplate = PanelTemplate {
         interface: None,
         planned: &[],
+        trains: &[],
         names: &[],
     };
 
@@ -208,6 +220,7 @@ impl InterfaceTemplate {
             InterfaceTemplate::PoolProducer => cults::armory::GRID,
             InterfaceTemplate::Recruit => cults::recruit::GRID,
             InterfaceTemplate::Garrison => cults::garrison::GRID,
+            InterfaceTemplate::FieldEngineer => gdo::field_engineer::GRID,
         }
     }
 }

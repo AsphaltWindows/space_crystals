@@ -27,8 +27,8 @@ fn busy(kind: ObjectKind, constructor: Constructor) -> Conditions {
 
 /// `factions/gdo/structures/deployment_center.md > ObjectInterfaceState[DeploymentCenter]` (design change 0104):
 /// DefaultState opens BuildMenu[Basic] (Q) and BuildMenu[Advanced] (W, unavailable: none of its buildings is in the
-/// game yet); the idle Basic menu constructs a Generator (Q), a Barracks (W) or an Extraction Facility (E), its other
-/// slots hidden; Z is Back; X shows only while something is constructed or ready.
+/// game yet); the idle Basic menu constructs a Generator (Q), a Barracks (W), an Extraction Facility (E) or a Career
+/// Campus (D, slice M5-N9), its other slots hidden; Z is Back; X shows only while something is constructed or ready.
 #[test]
 fn the_deployment_center_opens_its_build_menus() {
     use ButtonLook::{Back, Common, Disabled, Group, Unavailable};
@@ -57,10 +57,12 @@ fn the_deployment_center_opens_its_build_menus() {
             (q, command(Construct(GENERATOR)), Common),
             (w, command(Construct(BARRACKS)), Common),
             (e, command(Construct(EF)), Common),
+            (slot(1, 2), command(Construct(ObjectKind::CareerCampus)), Common),
             (CommandSlot::BACK, PanelButton::Back, Back),
         ]
     );
     assert_eq!([q, w, e].map(|s| menu.get(s).unwrap().label()), ["GN", "BR", "EF"]);
+    assert_eq!(menu.get(slot(1, 2)).map(|s| s.label()), Some("CC"));
     assert_eq!(
         press(&menu, q),
         SlotPress::Construct(Construct(GENERATOR), ConstructionCommand::Construct(GENERATOR))

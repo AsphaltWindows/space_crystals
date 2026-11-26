@@ -301,14 +301,20 @@ fn only_tail_and_doubly_disjointed_attacks_target_the_ground() {
 }
 
 /// `factions/gdo/structures/barracks.md > ObjectInterfaceState[Barracks]` with `systems/controls/interface.md >
-/// Standard Slot Assignments`: Q trains a Peacekeeper and X cancels the last unit queued, both at once; C awaits the
-/// rally point's target, with Z Back and the other commands waiting meanwhile. W, the Rocketman's, stays empty until it
-/// is in the game.
+/// Standard Slot Assignments`: Q trains a Peacekeeper, E a Field Engineer ("**E: Build Field Engineer** (placeholder
+/// letter)", slice M5-N9), and X cancels the last unit queued, all at once; C awaits the rally point's target, with Z
+/// Back and the other commands waiting meanwhile. W, the Rocketman's, stays empty until it is in the game.
 #[test]
 fn a_barracks_trains_in_q_cancels_in_x_and_rallies_in_c() {
     use ButtonLook::{Back, Common, Disabled, Pending};
     use PanelCommand::{CancelProduction, SetRallyPoint, Train};
-    let (q, x, c) = (slot(0, 0), CommandSlot::CANCEL_PRODUCTION, CommandSlot::RALLY_POINT);
+    const FE: ObjectKind = ObjectKind::FieldEngineer;
+    let (q, e, x, c) = (
+        slot(0, 0),
+        slot(0, 2),
+        CommandSlot::CANCEL_PRODUCTION,
+        CommandSlot::RALLY_POINT,
+    );
     let barracks = Selection::new([(id(4), BARRACKS)]);
     let default = panel(&barracks, InterfaceState::DefaultState, &Conditions::default());
     let command = PanelButton::Command;
@@ -316,15 +322,20 @@ fn a_barracks_trains_in_q_cancels_in_x_and_rallies_in_c() {
         shown(&default),
         [
             (q, command(Train(PK)), Common),
+            (e, command(Train(FE)), Common),
             (x, command(CancelProduction), Common),
             (c, command(SetRallyPoint), Common),
         ]
     );
-    let labels = [q, x, c].map(|slot| default.get(slot).unwrap().label());
-    assert_eq!(labels, ["PK", "Cancel", "Rally"]);
+    let labels = [q, e, x, c].map(|slot| default.get(slot).unwrap().label());
+    assert_eq!(labels, ["PK", "FEN", "Cancel", "Rally"]);
     assert_eq!(
         press(&default, q),
         SlotPress::Produce(Train(PK), ProductionCommand::Train(PK))
+    );
+    assert_eq!(
+        press(&default, e),
+        SlotPress::Produce(Train(FE), ProductionCommand::Train(FE))
     );
     assert_eq!(
         press(&default, x),
@@ -339,6 +350,7 @@ fn a_barracks_trains_in_q_cancels_in_x_and_rallies_in_c() {
         shown(&awaiting),
         [
             (q, command(Train(PK)), Disabled),
+            (e, command(Train(FE)), Disabled),
             (CommandSlot::BACK, PanelButton::Back, Back),
             (x, command(CancelProduction), Disabled),
             (c, command(SetRallyPoint), Pending),
@@ -360,7 +372,8 @@ fn a_barracks_trains_in_q_cancels_in_x_and_rallies_in_c() {
 /// Plan decision T23: every type that produces units has the Production template, its grid built from its
 /// `ProductionDef`: its units in Q, W and on, X Cancel Production and C Set Rally Point; but a pool building, which
 /// trains the units it holds, has the PoolProducer template (slice M5-F2, `cults`). The Barracks' is the grid of
-/// `factions/gdo/structures/barracks.md > ObjectInterfaceState[Barracks]`; the Robo Portal trains the Drone in Q, the
+/// `factions/gdo/structures/barracks.md > ObjectInterfaceState[Barracks]`, the Field Engineer in E, the slot the design
+/// gives it, and W, the Rocketman's, empty (slice M5-N9, `PanelTemplate::trains`); the Robo Portal trains the Drone in Q, the
 /// Bio Portal the Sabre Legionnaire, and their units not in the game yet hold their slots (design change 0124: the Robo
 /// Portal's W Scout, the Bio Portal's W Lancer and E psionic unit; `gathering` has their panel).
 #[test]
@@ -388,7 +401,9 @@ fn every_producer_gets_the_production_panel_of_its_recipes() {
         grid[slot_index(CommandSlot::RALLY_POINT)] = Some(SetRallyPoint);
         grid
     };
-    assert_eq!(grid(BARRACKS), produces(PK, &[]));
+    let mut barracks = produces(PK, &[]);
+    barracks[2] = Some(Train(ObjectKind::FieldEngineer));
+    assert_eq!(grid(BARRACKS), barracks);
     assert_eq!(
         grid(ObjectKind::RoboPortal),
         produces(ObjectKind::Drone, &[Planned::Scout])

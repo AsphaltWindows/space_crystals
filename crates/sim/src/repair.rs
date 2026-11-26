@@ -3,11 +3,12 @@
 //! (2 repairers = twice the rate), as construction does" (`factions/cults/units/recruit.md > Repair`,
 //! `factions/syndicate/units/agent.md > Repair`). One mechanism for every repairer, whose rules are here:
 //!
-//! - **Who repairs what** is the repairer's def (`WorkerDef::repairs`, [`payment`]): the Recruit its owner's buildings
+//! - **Who repairs what** is the repairer's def (`UnitDef::repairs`, [`payment`]): the Recruit its owner's buildings
 //!   and vehicles, for Space Crystals ("Recruits can **repair** own **buildings and vehicles**. Repair **costs Space
-//!   Crystals**"); the Agent its owner's Tunnels, for free, and Laser Turrets, for Space Crystals ("Agents can
-//!   **repair** own **Tunnels** and **Laser Turrets**, but **not expansions** ... **Laser Turrets cost Space Crystals
-//!   to repair; Tunnels are repaired for free**"). A vehicle ([`is_vehicle`]) is a unit of neither infantry base that
+//!   Crystals**"), and so does the Field Engineer (slice M5-N9, `factions/gdo/units/field_engineer.md > Abilities`:
+//!   "repairs buildings and vehicles. Repair costs Space Crystals (not free)"); the Agent its owner's Tunnels, for
+//!   free, and Laser Turrets, for Space Crystals ("Agents can **repair** own **Tunnels** and **Laser Turrets**, but
+//!   **not expansions** ... **Laser Turrets cost Space Crystals to repair; Tunnels are repaired for free**"). A vehicle ([`is_vehicle`]) is a unit of neither infantry base that
 //!   isn't a glider: "**Gliders can't be repaired** (they can't stop)", told by its movement, not its name. No one
 //!   repairs a Tunnel's expansions, the underground structures (`factions/syndicate/structures/README.md > Tunnel
 //!   Expansions`: "**Not repaired; they regenerate**"; their regeneration is `sim/expansions.rs`'s).
@@ -44,7 +45,6 @@ pub(crate) mod tests;
 
 use crate::augmentation::Research;
 use crate::defs::{Category, MovementModel, ObjectKind, Recipe, RepairPayment, RepairTargets, SitePrice};
-use crate::economy::gathering::worker_def;
 use crate::object::Object;
 use crate::tuning::repair::{REPAIR_COST_SHARE, REPAIR_TIME_SHARE};
 
@@ -113,7 +113,7 @@ fn is_building(kind: ObjectKind) -> bool {
 /// the kind, and the kind has terms ([`terms`]) that it can pay by: a price in Space Crystals for a repairer that
 /// pays. `None` if it doesn't repair it.
 pub fn payment(repairer: ObjectKind, target: ObjectKind) -> Option<RepairPayment> {
-    let payment = match worker_def(repairer)?.repairs?.targets {
+    let payment = match repairer.def().unit.as_ref()?.repairs?.targets {
         RepairTargets::OwnBuildingsAndVehicles => {
             (is_building(target) || is_vehicle(target)).then_some(RepairPayment::Paid)?
         }

@@ -80,6 +80,7 @@ pub(crate) static GUNNER: ObjectDef = ObjectDef {
         worker: None,
         // (M5-N1a) `factions/cults/augmentation.md > Increments`: "Armed infantry (Militant, Gunner)".
         augmentable: Some(Augmentable { unarmed: false }),
+        repairs: None,
     }),
     structure: None,
     default_settings: None,
