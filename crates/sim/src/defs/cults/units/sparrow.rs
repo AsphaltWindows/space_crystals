@@ -74,6 +74,7 @@ pub(crate) static SPARROW: ObjectDef = ObjectDef {
         deploy: None,
         worker: None,
         augmentable: None,
+        repairs: None,
     }),
     structure: None,
     default_settings: None,

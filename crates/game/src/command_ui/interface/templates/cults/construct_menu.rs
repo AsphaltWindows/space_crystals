@@ -21,18 +21,19 @@ pub fn command(entry: ConstructEntry) -> Option<PanelCommand> {
     }
 }
 
-/// The sim's Construct menu that the panel's `menu` is.
-pub fn of(menu: BuildMenu) -> ConstructMenu {
+/// The sim's Construct menu that the panel's `menu` is; none for the Field Engineer's, which a Recruit hasn't.
+pub fn of(menu: BuildMenu) -> Option<ConstructMenu> {
     match menu {
-        BuildMenu::Basic => ConstructMenu::Basic,
-        BuildMenu::Advanced => ConstructMenu::Advanced,
+        BuildMenu::Basic => Some(ConstructMenu::Basic),
+        BuildMenu::Advanced => Some(ConstructMenu::Advanced),
+        BuildMenu::Construct => None,
     }
 }
 
 /// The Construct menu `menu`, slot by slot (`CommandSlot::all` order): each entry of the sim's table in its slot.
 pub fn grid(menu: BuildMenu) -> [Option<PanelCommand>; 12] {
     let mut grid = [None; 12];
-    for slot in CONSTRUCT_MENU.iter().filter(|slot| slot.menu == of(menu)) {
+    for slot in CONSTRUCT_MENU.iter().filter(|slot| Some(slot.menu) == of(menu)) {
         if let Some(at) = CommandSlot::new(slot.row, slot.column) {
             grid[slot_index(at)] = command(slot.entry);
         }

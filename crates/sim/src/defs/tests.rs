@@ -81,6 +81,9 @@ fn every_kind_keeps_its_place_and_name() {
         "Sparrow",
         "HandOfHeaven",
         "PrayerMobile",
+        // Slice M5-N9 (design change 0328).
+        "CareerCampus",
+        "FieldEngineer",
     ];
     assert_eq!(names[..expected.len()], expected.map(|name| format!("\"{name}\"")));
     for (index, &kind) in ObjectKind::ALL.iter().enumerate() {

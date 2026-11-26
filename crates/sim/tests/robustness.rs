@@ -599,7 +599,9 @@ fn any_spawn_settings_are_handled() {
                 | ObjectKind::Seeker
                 | ObjectKind::Sparrow
                 | ObjectKind::HandOfHeaven
-                | ObjectKind::PrayerMobile => None,
+                | ObjectKind::PrayerMobile
+                | ObjectKind::CareerCampus
+                | ObjectKind::FieldEngineer => None,
             });
             let mut spawn = Spawn::new(kind, None, SpawnAt::Tile(TilePos::new(i * 6, 0)));
             spawn.settings = settings;

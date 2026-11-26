@@ -66,10 +66,11 @@ const WARP_IN_ADVANCED: [Option<PanelCommand>; 12] = {
 };
 
 /// A Beacon's Warp In menu `menu`, slot by slot: every building of the design's menu shows, the ones not in the game
-/// unavailable (`PanelCommand::Planned`).
+/// unavailable (`PanelCommand::Planned`). None for the Field Engineer's Construct menu, which a Beacon hasn't.
 pub fn warp_in_menu(menu: BuildMenu) -> [Option<PanelCommand>; 12] {
     match menu {
         BuildMenu::Basic => WARP_IN_BASIC,
         BuildMenu::Advanced => WARP_IN_ADVANCED,
+        BuildMenu::Construct => [None; 12],
     }
 }

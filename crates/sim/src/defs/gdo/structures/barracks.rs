@@ -32,12 +32,24 @@ pub(crate) static BARRACKS: ObjectDef = ObjectDef {
         seeds_build_area: false,
         production: Some(ProductionDef {
             exits: ExitRule::Side(SideLetter::B), // "Units exit from one of the short sides (B side ...)"
-            recipes: &[Recipe {
-                kind: ObjectKind::Peacekeeper, // Produces: "Peacekeeper: 50 Space Crystals, 80 frames (5 seconds)"
-                cost: 50,
-                frames: 80,
-                requires: &[],
-            }],
+            // Produces: the Peacekeeper and the Field Engineer (slice M5-N9). The Rocketman and the Drone Operator have
+            // no unit yet; each joins with the slice that makes it (plan decision T69).
+            recipes: &[
+                Recipe {
+                    kind: ObjectKind::Peacekeeper, // "Peacekeeper: 50 Space Crystals, 80 frames (5 seconds)"
+                    cost: 50,
+                    frames: 80,
+                    requires: &[],
+                },
+                Recipe {
+                    // "Field Engineer: 75 Space Crystals, 160 frames (10 seconds) (placeholder). Requires: player owns
+                    // at least one Career Campus." (design change 0328)
+                    kind: ObjectKind::FieldEngineer,
+                    cost: 75,
+                    frames: 160,
+                    requires: &[ObjectKind::CareerCampus],
+                },
+            ],
             recruitment: None,
             augment: &[],
         }),

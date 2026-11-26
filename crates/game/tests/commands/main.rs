@@ -42,6 +42,10 @@
 //! over Recruits and Militants, the group's placement with its Shift chain, and a Hall refused at the map's edge; slice
 //! M5-N8: the Repair pointer, D Repair and the right-click on a damaged building): `recruit_ui`, on a Cults field. The Recruitment Area display (slice M5-J2: a Hall's preview among the Halls the
 //! player knows of, its Effectiveness, and a selected Hall's claims): `recruitment_areas`, with the fog of war on.
+//!
+//! The GDO's Field Engineer (slice M5-N9: its panel and its Construct menu, greyed, the Repair pointer and the
+//! right-click on a damaged Barracks): `field_engineer_ui`, on a GDO field. The Barracks' E, the Field Engineer, is
+//! `production`'s, and the Deployment Center's D, the Career Campus, `construction`'s.
 
 mod agent_ui;
 mod armory;
@@ -50,6 +54,7 @@ mod colonists;
 mod construction;
 mod convert;
 mod expansions;
+mod field_engineer_ui;
 mod indicators;
 mod panel;
 mod portals;

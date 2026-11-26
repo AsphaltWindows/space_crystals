@@ -7,15 +7,15 @@ use super::*;
 /// `factions/gdo/structures/deployment_center.md > ObjectInterfaceState[DeploymentCenter]` (design change 0104): a
 /// selected Deployment Center shows Q Basic Construction, and W Advanced Construction unavailable while none of its
 /// buildings is in the game. Q, or a click on its button, opens BuildMenu[Basic]: Q Generator, W Barracks, E Extraction
-/// Facility, the other slots hidden, and Z Back. Back, Esc and a right-click return to DefaultState
-/// (`factions/gdo/structures/deployment_center.md > BuildMenu (instance idle)`: "Escape/right-click: returns to
-/// DefaultState"), and a left-click on the map selects as ever. Beside an Extraction Facility, recalled together from a
-/// control group (design change 0048's verification: "Select two own Ungroupable buildings (e.g. via control group):
-/// Tab switches the command panel between them"), Tab makes that the active group: the menu closes, and Q builds a
-/// plate there, at the Extraction Facility only.
+/// Facility, D Career Campus (slice M5-N9; greyed: "Requires a Barracks"), the other slots hidden, and Z Back. Back,
+/// Esc and a right-click return to DefaultState (`factions/gdo/structures/deployment_center.md > BuildMenu (instance
+/// idle)`: "Escape/right-click: returns to DefaultState"), and a left-click on the map selects as ever. Beside an
+/// Extraction Facility, recalled together from a control group (design change 0048's verification: "Select two own
+/// Ungroupable buildings (e.g. via control group): Tab switches the command panel between them"), Tab makes that the
+/// active group: the menu closes, and Q builds a plate there, at the Extraction Facility only.
 #[test]
 fn the_deployment_center_opens_its_basic_build_menu() {
-    use ButtonLook::{Back, Common, Group, Unavailable};
+    use ButtonLook::{Back, Common, Disabled, Group, Unavailable};
     use PanelCommand::{BuildMenu as Menu, Construct};
     let mut app = construction_game(1000);
     select(&mut app, DC);
@@ -43,6 +43,7 @@ fn the_deployment_center_opens_its_basic_build_menu() {
             (q(), c(Construct(GENERATOR)), Common, "GN"),
             (w(), c(Construct(BARRACKS_KIND)), Common, "BR"),
             (e(), c(Construct(EXTRACTION_FACILITY)), Common, "EF"),
+            (d(), c(Construct(CAREER_CAMPUS)), Disabled, "CC"),
             (CommandSlot::BACK, PanelButton::Back, Back, "Back"),
         ]
     );
@@ -142,6 +143,7 @@ fn a_construction_is_cancelled_with_a_full_refund() {
             (q(), c(Construct(GENERATOR)), Disabled, "GN"),
             (w(), c(Construct(BARRACKS_KIND)), Disabled, "BR"),
             (e(), c(Construct(EXTRACTION_FACILITY)), Disabled, "EF"),
+            (d(), c(Construct(CAREER_CAMPUS)), Disabled, "CC"),
             (CommandSlot::BACK, PanelButton::Back, Back, "Back"),
             (X, c(CancelConstruction), Common, "Cancel"),
         ]
@@ -152,4 +154,41 @@ fn a_construction_is_cancelled_with_a_full_refund() {
     assert_eq!(constructions(&app).last(), Some(&(P1, vec![DC], cancel)));
     assert_eq!(interface(&app), InterfaceState::DefaultState);
     assert_eq!((bank(&app), constructor(&app, DC)), (1000, Constructor::Idle));
+}
+
+/// `factions/gdo/structures/deployment_center.md > Constructs`: "Career Campus: 150 Space Crystals, 320 frames (20
+/// seconds) (placeholder). Requires: player owns at least one Barracks", BuildMenu[Basic]'s D (design change 0328;
+/// slice M5-N9). Without a Barracks, D is greyed, says "Requires a Barracks" when pressed and sends nothing; with one
+/// (a debug spawn), D constructs a Career Campus for 150 Space Crystals, and the menu closes.
+#[test]
+fn d_constructs_a_career_campus_once_a_barracks_stands() {
+    use ButtonLook::{Common, Disabled};
+    let mut app = construction_game(1000);
+    select(&mut app, DC);
+    tap(&mut app, &[], KeyQ);
+    let construct = PanelButton::Command(PanelCommand::Construct(CAREER_CAMPUS));
+    let shown = |app: &mut App| buttons(app).into_iter().find(|b| b.0 == d());
+    assert_eq!(shown(&mut app), Some((d(), construct, Disabled, "CC")));
+    tap(&mut app, &[], KeyD);
+    assert_eq!(feedback(&app), Some("Requires a Barracks"));
+    assert_eq!(constructions(&app), []);
+
+    let spawn = DebugCommand::Spawn {
+        kind: BARRACKS_KIND,
+        owner: Some(P1),
+        at: SpawnAt::Tile(TilePos::new(27, 17)),
+        orientation: BuildingOrientation::default(),
+    };
+    submit(&mut app, P1, Command::Debug(spawn));
+    updates(&mut app, 2);
+    assert!(structure_at(&app, BARRACKS_KIND, TilePos::new(27, 17)).is_some());
+    assert_eq!(interface(&app), InterfaceState::BuildMenu(BuildMenu::Basic));
+    assert_eq!(shown(&mut app), Some((d(), construct, Common, "CC")));
+    tap(&mut app, &[], KeyD);
+    let campus = ConstructionCommand::Construct(CAREER_CAMPUS);
+    assert_eq!(constructions(&app), [(P1, vec![DC], campus)]);
+    assert_eq!(interface(&app), InterfaceState::DefaultState);
+    updates(&mut app, 1);
+    assert_eq!(bank(&app), 1000 - 150);
+    assert_eq!(constructor(&app, DC).current(), Some(CAREER_CAMPUS));
 }

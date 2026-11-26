@@ -303,16 +303,12 @@ pub struct WorkerDef {
     /// `Reject::SeveralConstructors`). Optional in files: false.
     #[serde(default)]
     pub shares_builds: bool,
-    /// (M5-N8) What it repairs (plan decision T83, `crate::repair`): the Recruit its owner's buildings and vehicles,
-    /// the Agent its owner's Tunnels and Laser Turrets. `None` for a worker that repairs nothing: the Drone. Optional
-    /// in files: none.
-    #[serde(default)]
-    pub repairs: Option<RepairDef>,
 }
 
-/// (M5-N8) What a worker type repairs (`WorkerDef::repairs`, plan decision T83; `crate::repair`): "**Repair rules
+/// (M5-N8) What a unit type repairs (`UnitDef::repairs`, plan decision T83; `crate::repair`): "**Repair rules
 /// shared by every repairer**" (`factions/cults/units/recruit.md > Repair`, `factions/syndicate/units/agent.md >
-/// Repair`). Only its owner's objects, and only those whose repair has terms (`repair::terms`).
+/// Repair`, `factions/gdo/units/field_engineer.md > Abilities`). Only its owner's objects, and only those whose repair
+/// has terms (`repair::terms`).
 #[derive(Copy, Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct RepairDef {
     pub targets: RepairTargets,
@@ -391,6 +387,12 @@ pub struct UnitDef {
     /// `crate::augmentation`.
     #[serde(default)]
     pub augmentable: Option<Augmentable>,
+    /// (M5-N8) What it repairs (plan decision T83, `crate::repair`): the Recruit and the Field Engineer their owner's
+    /// buildings and vehicles, the Agent its owner's Tunnels and Laser Turrets. `None` for a type that repairs
+    /// nothing. A unit's, not a worker's (slice M5-N9): the Field Engineer repairs but gathers nothing
+    /// (`factions/gdo/units/field_engineer.md > Abilities`). Optional in files: none.
+    #[serde(default)]
+    pub repairs: Option<RepairDef>,
 }
 
 /// (M5-N1a) How an augmentable unit type takes its Augmentations' increments (`UnitDef::augmentable`,

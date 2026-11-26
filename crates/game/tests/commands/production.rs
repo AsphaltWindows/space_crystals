@@ -13,7 +13,7 @@ use space_crystals::hud::command_panel::CommandButton;
 use space_crystals::hud::info_panel::InfoText;
 
 use super::*;
-use KeyCode::{KeyQ, KeyX, ShiftLeft};
+use KeyCode::{KeyE, KeyQ, KeyX, ShiftLeft};
 
 const P1: PlayerId = PlayerId(1);
 const PK: ObjectKind = ObjectKind::Peacekeeper;
@@ -52,8 +52,9 @@ fn given_since(app: &App, from: usize) -> Vec<(PlayerId, Vec<u32>, ProductionCom
 }
 
 /// `> ObjectInterfaceState[Barracks]` and `systems/controls/interface.md > CommandPanel > Standard Slot
-/// Assignments`: a selected Barracks shows Train Peacekeeper in Q, Cancel Production in X and Set Rally Point in C (W,
-/// the Rocketman's, stays empty until it is in the game). Q pays 50 Space Crystals and queues a Peacekeeper, by hotkey
+/// Assignments`: a selected Barracks shows Train Peacekeeper in Q, Train Field Engineer in E (slice M5-N9; greyed: its
+/// owner has no Career Campus), Cancel Production in X and Set Rally Point in C (W, the Rocketman's, stays empty until
+/// it is in the game). Q pays 50 Space Crystals and queues a Peacekeeper, by hotkey
 /// or by button; X takes the last one off the queue and refunds it; Shift queues neither. Cancel Production is disabled
 /// while nothing is queued.
 #[test]
@@ -68,6 +69,7 @@ fn q_trains_and_x_cancels_by_hotkey_and_by_button() {
         buttons(&mut app),
         [
             (q(), c(Train(PK)), Common, "PK"),
+            (slot(0, 2), c(Train(ObjectKind::FieldEngineer)), Disabled, "FEN"),
             (CommandSlot::CANCEL_PRODUCTION, c(CancelProduction), Disabled, "Cancel"),
             (CommandSlot::RALLY_POINT, c(SetRallyPoint), Common, "Rally"),
         ]
@@ -219,6 +221,51 @@ fn q_stays_available_at_the_unit_control_cap() {
     assert_eq!(([queued(&app, 15), queued(&app, 16)], bank(&app)), ([2, 1], 850));
     assert_eq!(waiting(&app, 16), Some(ArmyResource::UnitControl));
     assert_eq!(unit_control(&app), UNIT_CONTROL_CAP);
+}
+
+/// `> ObjectInterfaceState[Barracks]`: "E: Build Field Engineer [...] Only available if the player owns at least one
+/// Career Campus" (design change 0328; slice M5-N9). Without one, E is greyed, says "Requires a Career Campus" when
+/// pressed and sends nothing; with a Career Campus (a debug spawn) it queues a Field Engineer for 75 Space Crystals.
+/// The Career Campus lost, E is greyed again, and the Field Engineer stays queued (`core/tech_and_research.md > Tech
+/// Prerequisites > Unit Prerequisites`: "units already queued or in production continue and complete normally"; these
+/// Barracks have no power, so it never comes out here: the sim's `field_engineer` tests have it come out).
+#[test]
+fn e_trains_a_field_engineer_once_a_career_campus_stands() {
+    use ButtonLook::{Common, Disabled};
+    const FIELD_ENGINEER: ObjectKind = ObjectKind::FieldEngineer;
+    let e = slot(0, 2);
+    let mut app = production_game(0, 1000);
+    click(&mut app, barracks_at(15), &[]);
+    assert_eq!(look(&mut app, e), Some(Disabled), "no Career Campus");
+    tap(&mut app, &[], KeyE);
+    assert_eq!(feedback(&app), Some("Requires a Career Campus"));
+    assert_eq!(productions(&app), []);
+
+    let spawn = DebugCommand::Spawn {
+        kind: ObjectKind::CareerCampus,
+        owner: Some(P1),
+        at: SpawnAt::Tile(TilePos::new(40, 30)),
+        orientation: Default::default(),
+    };
+    submit(&mut app, P1, Command::Debug(spawn));
+    updates(&mut app, 2);
+    let sim = app.world().resource::<SimRes>();
+    let campus = (sim.objects()).find(|o| o.kind == ObjectKind::CareerCampus);
+    let campus = campus.expect("spawned").id;
+    assert_eq!(look(&mut app, e), Some(Common));
+    tap(&mut app, &[], KeyE);
+    let train = ProductionCommand::Train(FIELD_ENGINEER);
+    assert_eq!(productions(&app), [(P1, vec![15], train)]);
+    updates(&mut app, 2);
+    assert_eq!((queued(&app, 15), bank(&app)), (1, 925));
+
+    submit(&mut app, P1, Command::Debug(DebugCommand::Remove { id: campus }));
+    updates(&mut app, 2);
+    assert_eq!(look(&mut app, e), Some(Disabled), "greyed again");
+    tap(&mut app, &[], KeyE);
+    assert_eq!(feedback(&app), Some("Requires a Career Campus"));
+    assert_eq!(productions(&app).len(), 1, "nothing more sent");
+    assert_eq!((queued(&app, 15), bank(&app)), (1, 925), "still queued, not refunded");
 }
 
 /// The InfoPanel's activity area, while it shows.
