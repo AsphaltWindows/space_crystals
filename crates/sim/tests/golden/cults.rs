@@ -33,14 +33,14 @@ use ObjectKind::{
     Storage, Tunnel,
 };
 
-/// [`opening`]'s last tick, 2:45: the fourth Militant came out of the Armory at 2:40.62, and the four make for their
+/// [`opening`]'s last tick, 2:45: the fourth Militant came out of the Armory at 2:21.38, and the four wait at their
 /// rally point.
 const OPENING_END: Tick = 2640;
-/// [`versus_syndicate`]'s last tick, 2:58.31: the game's end, as player 2's Tunnel falls and it is defeated. A replay
+/// [`versus_syndicate`]'s last tick, 2:55: the game's end, as player 2's Tunnel falls and it is defeated. A replay
 /// plays back in the client to where its game ended (`ARCHITECTURE.md > Replays and golden hashes`, "Playback"), so the
 /// golden game ends there too, with its last checkpoint. A change that moves the end fails [`versus_syndicate`]'s
 /// `expect`: set this to the tick it names.
-const VERSUS_END: Tick = 2853;
+const VERSUS_END: Tick = 2800;
 /// [`opening`]'s camera starts over this tile: player 1's base, between its Halls.
 const OPENING_CAMERA: TilePos = TilePos::new(14, 12);
 /// [`versus_syndicate`]'s: player 2's Tunnel, where the Militants and Gunners fight.

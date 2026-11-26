@@ -34,10 +34,12 @@
 //!   own Recruits stand on the footprint, and the site waits, checked again each tick, as they walk off to their spots
 //!   beside it, the quickest way (`Sim::leg`). One whose walk ended on the footprint, short of its spot, looks for one
 //!   again (`Sim::step_spots`), so the site never waits on a Recruit standing still. A holder of the order counts
-//!   whether it holds it current or queued (**Placeholder (not in the design: a Recruit that holds the order queued,
-//!   behind another)**: the ghost leaves the whole group out, `group_build_check`, and the Recruit is one of the
-//!   order's): the site waits for it as long as its current order keeps it on the footprint, an Assist of the
-//!   building beside it until that is built, then it walks off to build this one. The site comes into the game on the
+//!   whether it holds it current or queued: design change 0372 (answering Q0131, the same section): "**A Recruit
+//!   holding this Build queued** behind another order (a Shift chain) counts as one of the order's own Recruits ...:
+//!   the site waits until it steps off, e.g. once it has finished the earlier building and walks over". So the site
+//!   waits for it as long as its current order keeps it on the footprint, an Assist of the building beside it until
+//!   that is built, then it walks off to build this one (the ghost leaves the whole group out too,
+//!   `group_build_check`). The site comes into the game on the
 //!   footprint, with its owner, at the ConstructionHP Rule's 10%, its production held back until it is complete, as a
 //!   transformation's (`Sim::start_functions`); every holder's Build of the ticket, current or queued, becomes an
 //!   Assist of the site (`OrderKind::Assist`, `orders::assist`), the current ones keeping their spots and walks. A

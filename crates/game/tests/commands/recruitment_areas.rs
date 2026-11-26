@@ -277,8 +277,9 @@ fn a_ghost_hall_placed_takes_its_tiles_from_the_next() {
 }
 
 /// `factions/cults/structures/recruitment_hall.md > Recruitment Area display`: "A selected own Hall shows its claimed
-/// tiles", those it claims in the game, which its InfoPanel's Effectiveness counts: player 1's Hall alone claims its
-/// whole area. A selected enemy Hall shows nothing: "Enemy Halls' areas are never drawn as areas of their own".
+/// tiles: its **true** claims, matching its InfoPanel's Effectiveness and what it produces" (design change 0373,
+/// answering Q0133), those it claims in the game: player 1's Hall alone claims its whole area. A selected enemy Hall
+/// shows nothing: "Enemy Halls' areas are never drawn as areas of their own".
 #[test]
 fn a_selected_own_hall_shows_its_claimed_tiles_and_an_enemy_none() {
     let mut app = field();

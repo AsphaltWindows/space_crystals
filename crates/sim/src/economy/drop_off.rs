@@ -15,11 +15,12 @@
 //! taken at the Supplies hatch on Side D (design change 0248; slice M4-I).
 //!
 //! **Which drop-off** ([`nearest`]): the nearest is measured to its crystal point, whatever the load: a Tunnel's
-//! crystal hatch (`factions/syndicate/units/agent.md > Gathering rules`: "straight line to its crystal hatch"), an
-//! Egress Node's centre. A worker carrying Supplies picks its Tunnel by the same measure, and delivers at the Supplies
-//! hatch all the same (design change 0292 point 2: "'nearest Tunnel' for Supplies is measured to the crystal hatch,
-//! the same measure as for crystals"; `factions/syndicate/units/agent.md > Gathering > Supplies`: "even though Supplies
-//! are delivered at Side D").
+//! crystal hatch (`factions/syndicate/units/agent.md > Gathering rules`, design change 0375: "the own operational
+//! Tunnel whose crystal hatch is **nearest to the Agent itself** (straight line)"), an Egress Node's centre. A worker
+//! carrying Supplies picks its Tunnel by the same measure, and delivers at the Supplies hatch all the same (design
+//! change 0292 point 2: "'nearest Tunnel' for Supplies is measured to the crystal hatch, the same measure as for
+//! crystals"; `factions/syndicate/units/agent.md > Gathering > Supplies`: "even though Supplies are delivered at
+//! Side D").
 
 use glam::Vec2;
 
@@ -126,8 +127,9 @@ pub fn crystal_point_of(o: &Object) -> Option<DropPoint> {
 
 /// The nearest to `pos` of `drop_offs`, each given with its [`crystal_point`], for a load of either resource (module
 /// docs, design change 0292 point 2): by the straight line to that point's centre, the first among equals, so the
-/// lowest id of drop-offs given in id order. The one rule of the return leg's choice (`orders::gather`) and of the
-/// removal path's (`Sim::reassign_drop_offs`).
+/// lowest id of drop-offs given in id order. The one rule of the Drone's and the Agent's return leg's choice
+/// (`orders::gather`; the Recruit's is edge to edge, design change 0375) and of the removal path's
+/// (`Sim::reassign_drop_offs`).
 pub fn nearest<T>(pos: Vec2, drop_offs: impl IntoIterator<Item = (T, DropPoint)>) -> Option<T> {
     (drop_offs.into_iter())
         .map(|(drop_off, crystals)| (drop_off, crystals.centre.distance_squared(pos)))

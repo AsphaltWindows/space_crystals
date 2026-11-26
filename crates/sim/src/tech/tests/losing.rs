@@ -316,7 +316,7 @@ const CULTS: [Case; 4] = [
     },
 ];
 
-/// A flat 40 × 30 map on which both players play the Cults: player 1's Storage (1) on tiles (2, 2) to (3, 3), their
+/// A flat 40 × 30 map on which both players play the Cults: player 1's Storage (1) on tiles (2, 2) to (4, 3), their
 /// Armory (2) on tiles (4, 20) to (6, 21), its entrance facing east, four Recruits of theirs ([`GROUP`]) 150 su off
 /// each side of [`SITE`], so that they get there together, and a fifth (7) east of the Armory.
 fn cults() -> TestSim {

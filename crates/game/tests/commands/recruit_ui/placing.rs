@@ -1,18 +1,18 @@
 //! The Recruits' placement (slice M5-J1, `space_crystals::command_ui::Builder::Recruits`): a Construct menu's entry
 //! places its building for the whole group, paid once (design changes 0072 and 0327); a Shift chain of two, one
 //! lingering ghost each (design change 0072, `systems/controls/interface.md > AwaitingTarget > Shift while
-//! placing`); and a Recruitment Hall whose Recruitment Area would leave the map, refused with its reason (design
-//! change 0341 point 1).
+//! placing`); a Storage's ghost, 3x2, turning between two orientations (design change 0380); and a Recruitment Hall
+//! whose Recruitment Area would leave the map, refused with its reason (design change 0341 point 1).
 
 use sc_sim::{PlacementProblem, WholeProblem};
 use space_crystals::command_ui::feedback::placement_text;
 use space_crystals::command_ui::{Builder, Placing};
 
 use super::*;
-use KeyCode::{KeyQ, ShiftLeft};
+use KeyCode::{KeyQ, KeyR, ShiftLeft};
 
 /// Where the Recruits build in these tests, in the north of the world view, a few seconds' walk away: an Armory's
-/// site (3 × 2), and two Storages' (2 × 2), side by side.
+/// site (3 × 2), and two Storages' (3 × 2 since design change 0380), side by side.
 const ARMORY_SITE: TilePos = TilePos::new(20, 9);
 const STORAGE_SITES: [TilePos; 2] = [TilePos::new(22, 9), TilePos::new(25, 9)];
 
@@ -66,16 +66,16 @@ fn shift_chains_the_groups_buildings_one_ghost_each() {
         builder: Builder::Recruits { queued: true },
         ..Placing::recruits(STORAGE_KIND)
     };
-    click(&mut app, middle(STORAGE_SITES[0], (2, 2)), &[]);
+    click(&mut app, middle(STORAGE_SITES[0], (3, 2)), &[]);
     assert_eq!(interface(&app), InterfaceState::AwaitingPlacement(chained));
-    let over_first = middle(STORAGE_SITES[0], (2, 2));
+    let over_first = middle(STORAGE_SITES[0], (3, 2));
     pointer_over(&mut app, over_first);
     let shown = ghost(&app).expect("a ghost");
     assert!(!shown.is_valid(), "the first site is reserved");
     click(&mut app, over_first, &[]);
     assert_eq!(said(&app), Some(placement_text(shown.check.first_problem())));
     assert_eq!(builds(&app).len(), 1);
-    click(&mut app, middle(STORAGE_SITES[1], (2, 2)), &[]);
+    click(&mut app, middle(STORAGE_SITES[1], (3, 2)), &[]);
     assert_eq!(interface(&app), InterfaceState::AwaitingPlacement(chained));
     release_keys(&mut app, &[ShiftLeft]);
     app.update();
@@ -88,14 +88,48 @@ fn shift_chains_the_groups_buildings_one_ghost_each() {
     assert_eq!(builds(&app), chain);
     updates(&mut app, 2);
     assert_eq!(crystals(&app), 0, "100 each");
-    assert_eq!(lingering(&app), STORAGE_SITES.map(|site| (site, 2, 2)));
+    assert_eq!(lingering(&app), STORAGE_SITES.map(|site| (site, 3, 2)));
+}
+
+/// Design change 0380's Verification: "A Storage ghost is 3x2 and rotates between two orientations"
+/// (`factions/cults/structures/storage.md`: "Size - 3x2 grid units", "SymmetryType - ABAB (long sides alike, short
+/// sides alike)"). The Storage's ghost is 3 tiles across and 2 down; R turns it a quarter, 2 across and 3 down, its
+/// sides turned with it; a second R shows it as it was at first, footprint and sides, a half turn of ABAB being the
+/// same, and a third the turned one again.
+#[test]
+fn a_storage_ghost_is_3x2_and_turns_between_two_orientations() {
+    let mut app = recruit_game(100);
+    select_units(&mut app, &RECRUITS);
+    tap(&mut app, &[], KeyA);
+    tap(&mut app, &[], KeyW);
+    assert_eq!(
+        interface(&app),
+        InterfaceState::AwaitingPlacement(Placing::recruits(STORAGE_KIND))
+    );
+    pointer_over(&mut app, middle(STORAGE_SITES[0], (3, 2)));
+    let shown = |app: &App| {
+        let ghost = ghost(app).expect("a ghost");
+        assert_eq!(ghost.kind, STORAGE_KIND);
+        (ghost.size, ghost.sides)
+    };
+    let first = shown(&app);
+    assert_eq!(first.0, (3, 2), "3 across, 2 down");
+    tap(&mut app, &[], KeyR);
+    let turned = shown(&app);
+    assert_eq!(turned.0, (2, 3), "a quarter turn");
+    assert_ne!(turned.1, first.1, "its sides turned with it");
+    tap(&mut app, &[], KeyR);
+    assert_eq!(shown(&app), first, "a half turn: as at first");
+    tap(&mut app, &[], KeyR);
+    assert_eq!(shown(&app), turned);
 }
 
 /// Design change 0341 point 1 (`factions/cults/structures/recruitment_hall.md > RecruitmentArea`): "The whole 10x10
-/// area must lie on the map. A Hall that would leave it can't be placed" (0341's Verification: "Placing a Hall 3
-/// tiles from the edge is refused", the footprint on the map's third tile: its area, 3 tiles beyond it, would reach a
-/// tile past the edge). Its ghost is red there, and a click says why and sends nothing, placement going on; a tile
-/// further in, its area just on the map, the ghost is green, and the click sends the Build.
+/// area must lie on the map. A Hall that would leave it can't be placed", with design change 0371's correction of
+/// 0341's Verification: "A Hall 3 tiles from the edge is accepted; one 2 tiles from the edge is refused". 2 tiles from
+/// the edge, its area, 3 tiles beyond its footprint, would reach a tile past it: its ghost is red there, and a click
+/// says why and sends nothing, placement going on; 3 tiles from the edge, its area just on the map, the ghost is
+/// green, and the click sends the Build.
 #[test]
 fn a_hall_whose_area_leaves_the_map_is_refused_with_its_reason() {
     let mut app = recruit_game(300);

@@ -2,7 +2,7 @@
 
 use crate::defs::units::{
     AttackAttrs, AttackType, Augmentable, DropOffChoice, FullyConnectedSubtype, LoadDef, MELEE_CONTACT_GU,
-    MovementAttrs, RepairDef, RepairTargets, TargetDomain, TargetType, UnitBase, UnitDef, WorkerDef,
+    MovementAttrs, Nearest, RepairDef, RepairTargets, TargetDomain, TargetType, UnitBase, UnitDef, WorkerDef,
 };
 use crate::defs::{Armor, Category, Footprint, ObjectDef, ObjectKind};
 use crate::math::PI;
@@ -77,9 +77,9 @@ pub(crate) static RECRUIT: ObjectDef = ObjectDef {
             },
             supplies: None,
             shares_patches: true, // Patch sharing: any number of Recruits may mine the same patch
-            // Design change 0345 (answering Q0102; `> Gathering`, Which Storage): the nearest own completed Storage,
-            // edge to edge from the patch, chosen at every return.
-            drop_off: DropOffChoice::EachReturn,
+            // Design changes 0345 and 0375 (answering Q0102 and Q0136; `> Gathering`, Which Storage): the own
+            // completed Storage nearest to the Recruit itself, edge to edge, when it finishes mining, at every return.
+            drop_off: DropOffChoice::EachReturn(Nearest::EdgeToEdge),
             // Placeholder (not in the design: the Recruit's sections name no search radius for a patch that runs
             // out; the Drone's and the Agent's 6 grid units, themselves placeholders, design changes 0123 and 0295).
             search_radius: 6.0,
@@ -131,7 +131,7 @@ mod tests {
     /// MaxSpeed 4, with its melee attack "for basic self-defense": FullyConnected Melee, ground only, single target, 3
     /// damage at contact, one blow every 12 frames (Aim 2, Fire 8, Cooldown 1, Reload 1); Unit Control 1.
     /// `> Gathering`: 2 a load, 8 frames of mining and 2 of unloading, reaches of 8 su, shared patches, normal
-    /// collision (design change 0106), no Supplies; the Storage nearest its patch at every return (design change
+    /// collision (design change 0106), no Supplies; the Storage nearest to it at each return (design changes 0375 and
     /// 0345). `> Building` (slice M5-E): it builds the Recruitment Hall, the Storage and the Armory, the Gunworks,
     /// the Machine Shop and the Scrap Hangar (slice M5-G2), the Garrison (slice M5-N2), the Altar (slice M5-N1b) and
     /// the Temple (slice M5-N3) and the Cathedral (slice M5-N4a), a group sharing one build.
@@ -165,8 +165,8 @@ mod tests {
         assert!(worker.shares_patches && !worker.pass_through);
         assert_eq!(
             worker.drop_off,
-            DropOffChoice::EachReturn,
-            "design change 0345: the nearest to the patch, at every return"
+            DropOffChoice::EachReturn(Nearest::EdgeToEdge),
+            "design change 0375: the nearest to the Recruit, at every return"
         );
         assert_eq!(worker.search_radius, 6.0, "a placeholder: the other workers' radius");
         // `> Building`, `> Constructs` (slice M5-E): the three buildings of plan slice M5-A, slice M5-G2's three,

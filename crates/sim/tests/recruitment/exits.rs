@@ -102,9 +102,11 @@ fn the_hall_pauses_while_its_doorway_is_occupied() {
 /// the Cliff outside; fully inside, the one under the Hall, and the doorway lets a unit overlap the building, not ground
 /// under it that it can't stand on (`ExitDoor::box_clear`; `core/entities.md > Structure Type > Exit Doorway`, point 1:
 /// "Only the releasing building lets a unit overlap its footprint this way"). So the Hall holds its finished Recruit
-/// as behind an occupied doorway (point 3), and its removal leaves nobody on the Cliffs. Before the fix the Recruit
-/// came out fully inside, stuck in the doorway over the Cliff, and stood on it once the Hall was gone: `TestSim`'s I2
-/// failed in the removal's tick, as the fuzz's did.
+/// as behind an occupied doorway (point 3), and its removal leaves nobody on the Cliffs: point 6, design change 0374
+/// (answering Q0134): "never released onto ground under it that it couldn't stand on ... Such a building **holds its
+/// finished unit** indefinitely, as an occupied doorway". Before the fix the Recruit came out fully inside, stuck in
+/// the doorway over the Cliff, and stood on it once the Hall was gone: `TestSim`'s I2 failed in the removal's tick,
+/// as the fuzz's did.
 #[test]
 fn no_recruit_comes_out_over_ground_it_cant_stand_on_under_its_hall() {
     // Cliffs on tiles (7, 9) and (7, 10), against side B's middle, and on (8, 9) and (8, 10), under it. Player 1

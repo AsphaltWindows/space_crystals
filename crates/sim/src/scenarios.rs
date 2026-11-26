@@ -251,17 +251,18 @@ pub fn dev_skirmish_map() -> MapDef {
         },
     ];
     // The first slot's Cults Starting Layout (`factions/cults/economy.md > Starting Conditions`; slice M5-B, the second
-    // slot's is its image). The Storage on (5, 4) to (6, 5), a 1-tile gap from five of the field's patches, (3, 3) and
-    // the northern row (`factions/cults/structures/storage.md`: "The best layout leaves a 1-tile gap between patch and
-    // Storage"), and 2 tiles from the western column. The Recruitment Hall on (8, 8) to (11, 11), from the slot's start,
-    // off the Storage and the field: its Recruitment Area, (5, 5) to (14, 14), is all on the map, Plane (Recruitable,
-    // `factions/cults/structures/recruitment_hall.md > Effectiveness`: "balancing starts from the assumption that the
-    // whole map is Recruitable") and far from the other slot's, so the Hall starts at 100% effectiveness. The six
-    // Recruits beside the Storage, south of it, in two rows of three 1 grid unit apart around (6, 7.5) grid units,
-    // clear of the Hall and of the door in the middle of its side B, the west side, which its Recruits come out of
-    // (design change 0342: "the exit on B"), with open ground in front of it as far as the field's western column.
-    // They stand on the unit-start rule's open ground (`docs/movement.md > 3`). No camera start: the camera starts on
-    // the Hall (`core/camera.md > Starting Position`: "Cults: starting Recruitment Hall").
+    // slot's is its image). The Storage unturned on (5, 4) to (7, 5) (design change 0380: 3x2, its long sides north
+    // and south), a 1-tile gap from five of the field's patches, (3, 3) and the northern row, its long north side
+    // facing (5, 2) to (7, 2) (`factions/cults/structures/storage.md`: "The best layout leaves a 1-tile gap between
+    // patch and Storage"), and 2 tiles from the western column. The Recruitment Hall on (8, 8) to (11, 11), from the
+    // slot's start, off the Storage and the field: its Recruitment Area, (5, 5) to (14, 14), is all on the map, Plane
+    // (Recruitable, `factions/cults/structures/recruitment_hall.md > Effectiveness`: "balancing starts from the
+    // assumption that the whole map is Recruitable") and far from the other slot's, so the Hall starts at 100%
+    // effectiveness. The six Recruits beside the Storage, south of it, in two rows of three 1 grid unit apart around
+    // (6, 7.5) grid units, clear of the Hall and of the door in the middle of its side B, the west side, which its
+    // Recruits come out of (design change 0342: "the exit on B"), with open ground in front of it as far as the
+    // field's western column. They stand on the unit-start rule's open ground (`docs/movement.md > 3`). No camera
+    // start: the camera starts on the Hall (`core/camera.md > Starting Position`: "Cults: starting Recruitment Hall").
     let recruit = |x: f32, y: f32| LayoutObject {
         kind: ObjectKind::Recruit,
         at: SpawnAt::Point(glam::Vec2::new(x, y) * SU_PER_GU),

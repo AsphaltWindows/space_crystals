@@ -25,7 +25,7 @@ use super::{act, doc, editor, sim, status, temp_maps, tools};
 const S1: SlotId = SlotId(1);
 const S2: SlotId = SlotId(2);
 const HALL: ObjectKind = ObjectKind::RecruitmentHall; // 4 × 4 tiles
-const STORAGE: ObjectKind = ObjectKind::Storage; // 2 × 2
+const STORAGE: ObjectKind = ObjectKind::Storage; // 3 × 2 (design change 0380)
 const RECRUIT: ObjectKind = ObjectKind::Recruit;
 const UNTURNED: BuildingOrientation = BuildingOrientation {
     rotation: Rotation::R0,
@@ -59,7 +59,7 @@ fn recruit(x: f32, y: f32) -> LayoutObject {
 
 /// A Cults Starting Layout for slot 1 of the 32 × 24 maps of the layout tests, clear of their other layouts: the
 /// Recruitment Hall on (3, 10) to (6, 13), its 10 × 10 area, (0, 7) to (9, 16), wholly on the map (a Hall short of
-/// tiles provides less Unit Control); the Storage on (8, 10) to (9, 11); and the six [`RECRUITS`]. All of it is
+/// tiles provides less Unit Control); the Storage on (8, 10) to (10, 11); and the six [`RECRUITS`]. All of it is
 /// clear of the Water of the Syndicate's layout test (x = 2).
 fn cults_base() -> Vec<LayoutObject> {
     let mut base = vec![laid(HALL, 3, 10, UNTURNED), laid(STORAGE, 8, 10, UNTURNED)];
@@ -123,7 +123,7 @@ fn the_cults_layout_lists_its_missing_recruits_until_complete() {
     assert_eq!(tools(&app).layout_kind, HALL);
     click(&mut app, spot(3, 10, 4, 4));
     assert_eq!(tools(&app).layout_kind, STORAGE, "on to the next kind the layout lacks");
-    click(&mut app, spot(8, 10, 2, 2));
+    click(&mut app, spot(8, 10, 3, 2));
     assert_eq!(tools(&app).layout_kind, RECRUIT);
     for (x, y) in &RECRUITS[..4] {
         click(&mut app, point(*x, *y));
@@ -154,7 +154,7 @@ fn the_cults_layout_lists_its_missing_recruits_until_complete() {
         rotation: Rotation::R180,
         ..UNTURNED
     };
-    let mut image = vec![laid(HALL, 25, 10, half), laid(STORAGE, 22, 12, half)];
+    let mut image = vec![laid(HALL, 25, 10, half), laid(STORAGE, 21, 12, half)];
     image.extend(RECRUITS.map(|(x, y)| recruit(32.0 - x, 24.0 - y)));
     assert_eq!(cults(&app, S2), image);
     let panel = texts_under::<LayoutPanel>(&mut app);

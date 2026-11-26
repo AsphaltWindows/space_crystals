@@ -18,9 +18,11 @@
 //!     site, so the sites, already started, rank before every ghost still pending).** Without Shift, the click
 //!     replaces the orders of the Recruits placing, whose ghosts then don't count, as in their placement check
 //!     (`sc_sim::Sim::group_build_check`).
-//! - **The claims of a selected own Hall** ([`selected_claims`]): "**A selected own Hall** shows its claimed tiles",
-//!   the ones it claims in the game (`Sim::claimed_tiles`), which its InfoPanel's Effectiveness counts
-//!   (`crate::hud::info_panel`); a site claims none (design change 0341: "A Hall under construction claims nothing").
+//! - **The claims of a selected own Hall** ([`selected_claims`]), design change 0373 (answering Q0133): "**A selected
+//!   own Hall** shows its claimed tiles: its **true** claims, matching its InfoPanel's Effectiveness and what it
+//!   produces", the ones it claims in the game (`Sim::claimed_tiles`), which its InfoPanel's Effectiveness counts
+//!   (`crate::hud::info_panel`); "Unlike the placement preview, it may reveal where an unseen enemy Hall took tiles".
+//!   A site claims none (design change 0341: "A Hall under construction claims nothing").
 //! - **Never an enemy's area**: "Enemy Halls' areas are never drawn as areas of their own"; their claims show only as
 //!   the tiles taken from the Hall placed.
 //!

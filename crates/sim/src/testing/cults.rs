@@ -9,13 +9,17 @@
 //! 1. **Dealing** ([`Cults::deal`]): the line's seats, in groups, in order: each a patch and how many Recruits it seats.
 //!    Every idle Recruit of the player's (no order at all: the starting ones at the start, each one a Hall makes as it
 //!    comes out, a builder with no seat once its building is up) is sent to gather a patch: in the first group with a
-//!    free seat, the patch with the fewest Recruits, the earlier one among equals. A Recruit's seat is the patch of its
-//!    first Gather, current or queued, so a builder keeps its seat. With no seat free the Recruit stays where it is,
-//!    spare. The seats keep the layouts within the design's 4–5 Recruits a 2-tile face (design change 0320, answering
-//!    Q0110: "The reference layouts and the Cults economy check should stay within the design's 4–5 Recruits per
-//!    face"; `factions/cults/units/recruit.md > Gathering`: "The player's answer is more Storages"). Nothing is dealt
-//!    while the player has no completed Storage to deliver to (`factions/cults/units/recruit.md > Gathering`: "With
-//!    no completed Storage, the Recruit idles holding its load").
+//!    free seat, the patch with the fewest Recruits, the earlier one among equals. A Recruit's seat is the patch the
+//!    line dealt it to, until it is idle again: a builder keeps its seat, and so does a Recruit the game sends on to
+//!    another patch (design change 0141: a patch it can't get within reach of is treated as occupied), so that the
+//!    seats bound how many Recruits the line has gathering (slice M5-S2a; until then a seat went with the Recruit's
+//!    Gather, and a Recruit sent on left a seat free behind it). With no seat free the Recruit stays where it is,
+//!    spare. The seats are the line's to choose; the economy check's keep near what the design says a face holds
+//!    (design change 0320, answering Q0110: "The reference layouts and the Cults economy check should stay within the
+//!    design's 4–5 Recruits per face", for the 2x2 Storage; since design change 0380 "about 2 Recruits per tile of
+//!    face length"; `factions/cults/units/recruit.md > Gathering`: "The player's answer is more Storages"). Nothing is
+//!    dealt while the player has no completed Storage to deliver to (`factions/cults/units/recruit.md > Gathering`:
+//!    "With no completed Storage, the Recruit idles holding its load").
 //! 2. **Building** ([`Cults::build`]): the line's buildings, in order, each once the one before it is complete, the
 //!    bank covers its price (`Sim::build_price`) and the gate takes the Build from its crew ([`Crew`]): one order to
 //!    the whole crew, a group's Build, paid once (`factions/cults/economy.md > Cults Building Mechanics > Group
@@ -35,8 +39,9 @@
 //! [`Books`](super::build_order::Books) balance a Cults player's bank as they do the others', counting the Recruits'
 //! deliveries. A Hall's Recruits cost nothing (`factions/cults/structures/recruitment_hall.md > Production Behavior`).
 //!
-//! [`reference_field`], [`crowd_field`] and [`face_field`] are the check's layouts (`fields.rs`); [`skirmish`] plays
-//! `dev_skirmish` with a Cults line, alone or against a Syndicate one, for the golden games.
+//! [`reference_field`], [`crowd_field`] and [`face_field`] are the check's layouts, and [`adjacent_field`] the one its
+//! field's free columns are measured against (`fields.rs`); [`skirmish`] plays `dev_skirmish` with a Cults line,
+//! alone or against a Syndicate one, for the golden games.
 
 mod armory;
 mod fields;
@@ -57,8 +62,8 @@ use crate::sim::Sim;
 use crate::units::{SU_PER_GU, Tick, TilePos};
 
 pub use fields::{
-    FIELD_PAIRS, FIELD_PLAYER, FIELD_RESERVE, FIELD_STORAGES, SECOND_HALL, START_PAIR, crowd_field, face_field,
-    reference_field,
+    FIELD_FACES, FIELD_PLAYER, FIELD_RESERVE, FIELD_STORAGES, SECOND_HALL, START_FACE, Side, adjacent_field,
+    crowd_field, face_field, reference_field,
 };
 
 /// The gap a Recruit mines at the design's best rate, edge to edge between its patch and the Storage: one tile
@@ -157,6 +162,8 @@ pub struct Cults {
     trained: usize,
     gunners_trained: usize,
     rallied: BTreeSet<ObjectId>,
+    /// Each Recruit the line dealt, with its seat (module docs, 1).
+    seated: BTreeMap<ObjectId, ObjectId>,
     done: Vec<(Tick, Done)>,
     /// What the line's commands paid, by tick.
     paid: Vec<(Tick, u32)>,
@@ -177,6 +184,7 @@ impl Cults {
             trained: 0,
             gunners_trained: 0,
             rallied: BTreeSet::new(),
+            seated: BTreeMap::new(),
             done: Vec::new(),
             paid: Vec::new(),
         }
@@ -257,10 +265,19 @@ impl Cults {
             command: Command::Order { units, kind, queue },
         };
 
-        // The seats taken, by the Recruits' orders.
+        // The seats taken: the Recruits the line dealt that are still the player's Recruits, but for the idle ones,
+        // whose Gather is over.
+        let is_recruit = |id: ObjectId| {
+            sim.object(id)
+                .is_some_and(|o| o.owner == Some(player) && o.kind == ObjectKind::Recruit)
+        };
+        self.seated.retain(|&recruit, _| is_recruit(recruit));
+        for o in recruits.iter().filter(|o| is_idle(o)) {
+            self.seated.remove(&o.id);
+        }
         let mut taken: BTreeMap<ObjectId, u32> = (self.groups.iter().flatten()).map(|&(patch, _)| (patch, 0)).collect();
-        for patch in recruits.iter().filter_map(|o| seat_of(o)) {
-            if let Some(n) = taken.get_mut(&patch) {
+        for patch in self.seated.values() {
+            if let Some(n) = taken.get_mut(patch) {
                 *n += 1;
             }
         }
@@ -284,6 +301,7 @@ impl Cults {
             };
             commands.push(order(vec![o.id], OrderKind::Gather(patch), false));
             self.done.push((tick, Done::Dealt { recruit: o.id, patch }));
+            self.seated.insert(o.id, patch);
             given.insert(o.id);
         }
 
@@ -306,7 +324,7 @@ impl Cults {
                 // Each builder's Gather back to its seat, after the building.
                 let mut back: BTreeMap<ObjectId, Vec<ObjectId>> = BTreeMap::new();
                 for o in recruits.iter().filter(|o| crew.contains(&o.id)) {
-                    if let Some(patch) = seat_of(o) {
+                    if let Some(&patch) = self.seated.get(&o.id) {
                         back.entry(patch).or_default().push(o.id);
                     }
                 }
@@ -408,8 +426,8 @@ impl Cults {
         let free = recruits.iter().filter(|o| !given.contains(&o.id));
         match build.crew {
             Crew::Far => free
-                .filter(|o| match seat_of(o) {
-                    Some(patch) => (sim.object(patch).map(Shape::of))
+                .filter(|o| match self.seated.get(&o.id) {
+                    Some(&patch) => (sim.object(patch).map(Shape::of))
                         .is_some_and(|patch| storages.iter().all(|s| s.gap(&patch) > IDEAL_GAP)),
                     None => is_idle(o),
                 })
@@ -437,15 +455,4 @@ fn is_idle(o: &Object) -> bool {
 fn gathers(o: &Object) -> bool {
     let current = o.orders.as_ref().and_then(|orders| orders.current.as_ref());
     current.is_some_and(|active| matches!(active.order.kind, OrderKind::Gather(_)))
-}
-
-/// A Recruit's seat (module docs, 1): the patch of its first Gather, current or queued.
-fn seat_of(o: &Object) -> Option<ObjectId> {
-    let orders = o.orders.as_ref()?;
-    let current = orders.current.iter().map(|active| active.order.kind);
-    let mut kinds = current.chain(orders.queue.iter().map(|order| order.kind));
-    kinds.find_map(|kind| match kind {
-        OrderKind::Gather(patch) => Some(patch),
-        _ => None,
-    })
 }

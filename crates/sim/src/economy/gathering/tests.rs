@@ -87,7 +87,7 @@ fn a_worker_forgets_what_is_gone() {
 /// (slice M5-D; `factions/cults/units/recruit.md > Gathering`, whose numbers the Recruit's def test pins).
 #[test]
 fn the_drone_the_agent_and_the_recruit_are_the_workers() {
-    use crate::defs::{DropOffChoice, LoadDef};
+    use crate::defs::{DropOffChoice, LoadDef, Nearest};
     for kind in ObjectKind::ALL.iter().copied() {
         let worker = matches!(kind, ObjectKind::Drone | ObjectKind::Agent | ObjectKind::Recruit);
         assert_eq!(worker_def(kind).is_some(), worker, "{kind:?}");
@@ -132,5 +132,7 @@ fn the_drone_the_agent_and_the_recruit_are_the_workers() {
         (def.load(Resource::Crystals), def.load(Resource::Supplies)),
         (Some(crystals), Some(supplies))
     );
-    assert!(def.shares_patches && def.drop_off == DropOffChoice::FirstReturn && !def.pass_through);
+    assert!(
+        def.shares_patches && def.drop_off == DropOffChoice::EachReturn(Nearest::StraightLine) && !def.pass_through
+    );
 }
