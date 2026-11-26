@@ -78,23 +78,23 @@ Recruits can enter an Armory to join its internal StoredRecruits pool (up to Int
 ## Recruit ObjectInterfaceState
 
 ### DefaultState commands:
-(Letters: user, 2026-11-26; Q0095/Q0096. Same layout as the Agent's panel, plus W for the second build menu.)
+(Letters: user, 2026-11-26; Q0095/Q0096; rearranged 2026-11-27 (user, 2026-11-27: A is Attack on every unit, systems/controls/interface.md > CommandPanel > Standard Slot Assignments): **Q** Move, **W** Basic Construct, **E** Advanced Construct, **A** Attack, **S** Assist, **D** Repair, **X** Stop. Building is on W on every worker.)
 - **Q: Move** — as in BasicCombatUnitInterfaceState.
-- **A: Basic Construct** — enters BuildMenu[Basic] (StateOnlyTransition). Multi-stage: select a building type, then place it on the ground (ghost preview, same placement flow as the Build Command).
-- **W: Advanced Construct** — enters BuildMenu[Advanced] (StateOnlyTransition), same flow.
+- **W: Basic Construct** — enters BuildMenu[Basic] (StateOnlyTransition). Multi-stage: select a building type, then place it on the ground (ghost preview, same placement flow as the Build Command).
+- **E: Advanced Construct** — enters BuildMenu[Advanced] (StateOnlyTransition), same flow.
 
   Two build menus (user, 2026-11-26; Q0096, "basic and advanced", as the GDO's Deployment Center). Fixed slots: every building keeps its key and is greyed until its TechPrerequisite is met, so no hotkey ever moves. Rows follow the branches: top row shared base, **A S D F row Tech/Weaponry, X C V row Mystical**; **Z** returns to DefaultState. (Split and slots: designer placeholder, 2026-11-26.)
   - **BuildMenu[Basic]**: **Q** Recruitment Hall, **W** Storage; **A** Armory, **S** Gunworks, **D** Garrison; **X** Altar.
   - **BuildMenu[Advanced]**: **A** Chop Shop, **S** Machine Shop, **D** Airstrip, **F** Scrap Hangar; **X** Temple, **C** Cathedral, **V** Shrine.
 - **S: Assist Construction** — targeted command (StateOnlyTransition). Left-click an in-progress own building to join construction.
 - **D: Repair** — targeted command (StateOnlyTransition). Left-click a damaged own building or vehicle to repair it (see Repair).
-- **E: Attack** (user, 2026-11-27: "recruits should be able to attack (melee attack)"; letter: designer placeholder, E as no other slot is free on the left) — as BasicCombatUnitInterfaceState's Attack: enters AwaitingTarget[Attack]; left-click an enemy to attack it in melee, or ground to Attack Move.
+- **A: Attack** (user, 2026-11-27: "recruits should be able to attack (melee attack)"; on A like every unit) — as BasicCombatUnitInterfaceState's Attack: enters AwaitingTarget[Attack]; left-click an enemy to attack it in melee, or ground to Attack Move.
 - **X: Stop** — as in BasicCombatUnitInterfaceState.
 
 ### Unit Commands:
 - **Move** — right-click ground
 - **Stop** — panel button X
-- **Attack** — right-click enemy unit/building (melee), or panel button E (also Attack Move on ground)
+- **Attack** — right-click enemy unit/building (melee), or panel button A (also Attack Move on ground)
 - **Enter Armory** — right-click own Armory
 - **Enter Altar** — right-click own Altar
 - **Enter Cathedral** — right-click own Cathedral
