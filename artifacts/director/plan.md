@@ -1878,6 +1878,26 @@ Approach: thin vertical slices the user can run and see, each verified by tests 
     - The table went to the Designer in Q0146.
   - **0386:** its citation replaces N4b's placeholder. `tests/shroud/reveals.rs` tests the reveal by a direct shot and by an area hit, and that the release reveals nobody.
   - **The economy oracle is wrapped up** (user, 2026-11-26): "So much of it has to do with build orders and optimizations and that would be more effectively tested by me." There will be no more comparisons. Its tests become on-demand measurements, a task folded into M5-P3, and the pairings tests still check that every faction's workers gather.
+- **M5-H1 Gliders and air** (Opus, the trial; merged in `e9ed2c37`):
+  - **The sim:** glider movement (`movement/glider.rs`, `movement/air.rs`):
+    - gliders spawn at IdleSpeed and idle on a 1 GU circle;
+    - strafing flies on past the target and loops back at full speed, and Stop and Hold circle;
+    - a glider may overshoot the map edge, and `Object::map_pos` places it at the nearest edge tile for sight and attacks;
+    - air separation (`UnitDef::separation_radius`) is a soft, capped push;
+    - HoverCraft are kept on the map by their half extents.
+  - **Invariant G1:** the fuzz games give Sparrows orders and check G1 every tick.
+  - **Tests:** `tests/air/`, covering flight, orders, strafing, Attack Move, the edge, separation and Shroud. An air unit under a Shroud cloud isn't protected.
+  - **The client:** 3 flight lift levels and shadows, both placeholders (Q0001).
+  - **Perf:**
+    - `air_perf`, with 40 Sparrows: a whole tick takes 0.063 ms on average, 0.116 at p99.
+    - `movement_perf` against 25edd170: about +2% in quiet rounds, with identical counters.
+  - **One deviation:** six gliders sent to one point are 31.8 su apart at 10 s instead of at least 32, since the push is soft and capped. They are at least 31.999 su apart from 20 s.
+  - **Placeholders:** clockwise circling, slowing for a point inside the turn, CIRCLE_PULL 0.5, SEPARATION_PUSH_SU 2, and no MinRange back-off for gliders.
+  - **Sent to the Designer as Q0148:**
+    - a lone Sparrow makes one pass, since its loop takes it out of sight and past Attack Move's leash;
+    - a glider's Move never completes, so queued orders wait;
+    - SeparationRadius 32 is under the 40 su Silhouette.
+  - 2409 tests passed, 37 ignored. The goldens are unchanged.
 
     Whether enemies see buff marks went out as **Q0145**.
   - **Perf** (`movement_perf`, 6 pairs, load 8.7–10.3): 0.610 against 0.623 ms a tick, within the noise.
@@ -1885,11 +1905,6 @@ Approach: thin vertical slices the user can run and see, each verified by tests 
 
 ## In progress
 - **Running:**
-  - **M5-H1 Gliders and air** (**Opus, as a trial**; the user agreed on 2026-11-26; brief `scratchpad/briefs/m5h1-gliders.md`). H1 of the addendum, with T81, as amended by 0328 and 0354/0355:
-    - the idle circle is a fixed 1 GU; strafing flies on out of range and loops back; Stop circles in place and Hold circles without chasing; the edge overshoot has no cap.
-    - The Sparrow's turn radius at full speed is 200 su (MaxCentripetalAcceleration 0.5).
-    - The Shroud air test that N4b left is part of it.
-    - **The trial:** the first movement slice on Opus. A movement problem that resists two serious attempts is left as an `#[ignore]`d test and reported, and only that goes to Fable. Judge it on the tokens and time (from the task notification), what review finds, and anything escalated, against the earlier Fable movement slices.
   - **M5-P3 A playtest map** (Opus; the user said yes; brief `scratchpad/briefs/m5p3-playtest-map.md`):
     - `maps/playtest.json` is a copy of `dev_skirmish` in which each base gets `testing::cults::line_field`'s two-sided line of 8 patches, away from the edges. Every faction's start layout is redone for it, and `dev_skirmish` and its goldens stay.
     - It also wraps up the oracle: its tests become ignored, on-demand measurements.
@@ -1925,7 +1940,7 @@ Approach: thin vertical slices the user can run and see, each verified by tests 
   - **M4 is complete** (M4-M, `4e3fdd4a`; the strays, M4-Z, `95b4bc6e`; the hatch jam fixed by M4-W3's contact step, `5305c2f3`). The jam's history: M4-W diagnosed it (`189d0162`), M4-W2 built 0315's first step (`b81b2089`), which didn't fix it, and 0324 planned the 90° contact step, which did. 0336 accepted the oversaturated hatch and dropped 0324's steps 2 and 3.
   - **M5 wave 1 is done:** A (`ed23874e`) and R (`afd9c152`).
   - **M5 wave 2 is done:** D (`36a06de4`), C (`afd9b366`) and F1 (`e0444eab`), and O3, pulled forward from W4 (`e64cf8d2`).
-  - **0319** put every designed Cults building and unit in M5, with placeholder numbers. The gated slices N1–N6 and G are now in scope. M5-P2's addendum plans them: 31 slices in all, with the playtest at the end of W12, or a first playtest of the Cults' infantry core at the end of W9 (the choice is with the user, 2026-11-25). The addendum is adopted as `artifacts/director/m5-plan-addendum.md`, with T69–T83, and its 14 question drafts are filed as Q0112–Q0125. Wave 3: B (`98dfe65a`) and E (`62dd3e7f`) have landed. **M5-T, build speed**, has landed (`4ecfc18a`). **F2, Armory training,** has landed (`d9492a69`). **J1, Recruit UI,** has landed (`2286859e`). **F3, holding,** has landed (`da08f46d`). **M5-Y, Syndicate turrets,** has landed (`c65cc1b0`). **J2, the Recruitment Area display,** has landed (`e548e6ca`). **Z1, a fuzz bug,** has landed (`4d99074c`). **L, the Cults oracle and goldens,** has landed (`d729a418`), and **G2, the remaining Cults kinds and the Gunner** (`9b7986e4`). **U1, unit turrets,** has landed (`54b9c2fe`), **N8, Repair** (`26501427`), **N2, the Garrison** (`b706f6c0`), **N1a, augmented stats** (`698fbe78`), **Z2, lazy nav grids** (`31997e9e`), **N9, the Field Engineer and the Career Campus** (`1cfb889c`), **S1, the first answer sweep** (`09940dab`), **N1b, the Altar** (`8cd9020f`), **M1, soak invariants** (`d0326c27`), **N4a, the Cathedral, the Disciple and energy** (`aa220af2`), and **N3, the Temple and research** (`63003d0c`). **H1** (gliders and air, on Opus as a trial the user agreed to), **S3** (the economy rerun, 0385, and Shroud's reveal test, 0386) and **S4** (a Hall at the map edge, 0387) are running. **N5**, the Shrine, is merged (`3197d711`). The user is playtesting what is built. **Z3**, the fog texture after a map size change, is merged (`29f2ee8e`). Merged since: **S2b**, answers 0376–0378 (`49dc4b1a`); **N4b, Shroud** (`c0ca0956`); and **S2a**, answers 0372–0375 and 0380–0384 (`1801cf59`), whose economy comparison is **Q0144**. **Every other full-path slice now waits for a Fable slice** (N6 for V2, N7 and K for H1, N10 for V1, N11 for N6 and K), so the user's playtest decision is what unblocks them. V1 and V2 wait for the user's playtest decision and for H1's trial, which decides their model. **Next:** by the user's playtest decision. The infantry-core playtest needs only X1, X2 and M. N3, N4b and N5 belong to the full one, which also needs V1, V2, H1 and the rest. **New since:** **M5-K, GDO anti-air** (0356: the Rocketman and the Arsenal), after H1. **The Field Engineer is in M5 now** (0328): slice N9, after N8 and before X1.
+  - **0319** put every designed Cults building and unit in M5, with placeholder numbers. The gated slices N1–N6 and G are now in scope. M5-P2's addendum plans them: 31 slices in all, with the playtest at the end of W12, or a first playtest of the Cults' infantry core at the end of W9 (the choice is with the user, 2026-11-25). The addendum is adopted as `artifacts/director/m5-plan-addendum.md`, with T69–T83, and its 14 question drafts are filed as Q0112–Q0125. Wave 3: B (`98dfe65a`) and E (`62dd3e7f`) have landed. **M5-T, build speed**, has landed (`4ecfc18a`). **F2, Armory training,** has landed (`d9492a69`). **J1, Recruit UI,** has landed (`2286859e`). **F3, holding,** has landed (`da08f46d`). **M5-Y, Syndicate turrets,** has landed (`c65cc1b0`). **J2, the Recruitment Area display,** has landed (`e548e6ca`). **Z1, a fuzz bug,** has landed (`4d99074c`). **L, the Cults oracle and goldens,** has landed (`d729a418`), and **G2, the remaining Cults kinds and the Gunner** (`9b7986e4`). **U1, unit turrets,** has landed (`54b9c2fe`), **N8, Repair** (`26501427`), **N2, the Garrison** (`b706f6c0`), **N1a, augmented stats** (`698fbe78`), **Z2, lazy nav grids** (`31997e9e`), **N9, the Field Engineer and the Career Campus** (`1cfb889c`), **S1, the first answer sweep** (`09940dab`), **N1b, the Altar** (`8cd9020f`), **M1, soak invariants** (`d0326c27`), **N4a, the Cathedral, the Disciple and energy** (`aa220af2`), and **N3, the Temple and research** (`63003d0c`). **H1**, gliders and air, is merged (`e9ed2c37`). Its Opus trial passed, so V1 and V2 run on Opus too. **S3**, the economy rerun (0385) and Shroud's reveal test (0386), is merged (`318234db`), and so is **S4**, a Hall at the map edge (0387, `cce50b54`). **N5**, the Shrine, is merged (`3197d711`). The user is playtesting what is built. **Z3**, the fog texture after a map size change, is merged (`29f2ee8e`). Merged since: **S2b**, answers 0376–0378 (`49dc4b1a`); **N4b, Shroud** (`c0ca0956`); and **S2a**, answers 0372–0375 and 0380–0384 (`1801cf59`), whose economy comparison is **Q0144**. **The other full-path slices wait on movement slices:** N6 on V2, N10 on V1, and N11 on N6 and K. N7 and K waited on H1, which has landed. All of them wait for the user's playtest decision. **Next:** by the user's playtest decision. The infantry-core playtest needs only X1, X2 and M. N3, N4b and N5 belong to the full one, which also needs V1, V2, H1 and the rest. **New since:** **M5-K, GDO anti-air** (0356: the Rocketman and the Arsenal), after H1. **The Field Engineer is in M5 now** (0328): slice N9, after N8 and before X1.
   - **Playtest:** the user plays once all four factions are built, in hot-seat from the command line (2026-11-25). The kit is `docs/playtest/` (m2–m4 and M5's README). This replaces separate M1–M4 playtests.
 
 ## M1 plan (from the movement spike; the approved design is in `docs/movement.md`)
@@ -2143,7 +2158,7 @@ The user keeps feeding unit and other designs to the Designer, so expect increme
       8. M (QA), then the user's playtest.
     - **Data files (T66):** JSON merge patches over the built-in Rust rules, swapped in at a tick boundary through a recorded command, and reloaded live in dev builds.
     - **Questions:** Q0092–Q0108 are filed; none blocks.
-    - **The user decided (2026-11-25):** the playtest is **hot-seat** (both sides, switching with F2), and it starts from the **command line**. No AI and no start screen in M5.
+    - **The user decided (2026-11-25):** the playtest is **hot-seat** (both sides, switching with F2), and it starts from the **command line**. No AI and no start screen in M5. (2026-11-26: the user now wants basic computer opponents for the next playtest; see In progress.)
     - **M5 starts** after M4-M lands.
   - Recruits are Groupable: every selected Recruit builds (0072).
   - Shift-placement queues build orders while Shift is held, with the cost paid per order (0071).
@@ -2313,8 +2328,9 @@ The user keeps feeding unit and other designs to the Designer, so expect increme
 | Q0143 | Shroud: does an attack absorbed by a cloud reveal its attacker? (`core/vision.md > Attacks from outside vision`, `disciple.md > Spells > Shroud`) (M5) | no | answered by 0386 (a): as built in N4b |
 | Q0144 | The economies compared to 6:00: the realistic opening never overtakes ideal mining on one 8-patch field, and ideal mining is still about 0.9 by 2:48. What targets now? (`factions/cults/economy.md > Economy check`) (M5) | no | answered in part by 0385: the economy is rerun on a two-sided 8-patch line, One Hall against Two Halls (M5-S3, queued); the 2:48 target waits for the new figures |
 | Q0145 | Does a player see the Shrine's buffs on enemy units? (`factions/cults/structures/shrine.md`) (M5) | no | answered by 0393 (a): as built |
-| Q0146 | The economy oracle is wrapped up (user, 2026-11-26): its last figures, and closing the Economy check (`factions/cults/economy.md > Economy check`) (M5) | no | open |
+| Q0146 | The economy oracle is wrapped up (user, 2026-11-26): its last figures, and closing the Economy check (`factions/cults/economy.md > Economy check`) (M5) | no | answered by 0401 (a): closed, and the targets stay as playtest reference |
 | Q0147 | Basic computer opponents for playtesting: what they know and how they play. The design has no computer players yet | no | open. Planned on (a): a playtest tool with placeholder behaviors |
+| Q0148 | Gliders: a lone Sparrow makes one pass; a glider's Move never completes; SeparationRadius under the Silhouette (`sparrow.md`, `systems/units.md`) (M5-H1) | no | open; built literally |
 
 ## Design change entries
 Last triaged: 0282.
@@ -2690,4 +2706,5 @@ Last triaged: 0282.
 | 0398 **Worker panels**: Recruit Q Move, W Basic Construct, E Advanced Construct, A Attack, S Assist, D Repair, X Stop; Agent W Build Tunnel, A Attack; Field Engineer W Construct; Drone W Deploy. Units that can't attack treat Attack and Attack Move as Move | queued: **M5-S5** | Verification: Recruits W, E and A; Drones with Militants, A on ground: the Militants Attack Move and the Drones move |
 | 0399 **A shows whenever any selected group can attack**, whichever group is in focus, and is hidden only when no selected unit can attack (replaces 0398's hidden A) | queued: **M5-S5** | Verification: Drones and Militants with the Drones in focus show A; Drones alone don't |
 | 0400 **Right-click in multi-stage menus** does the selection's normal right-click and leaves the menu open (BuildMenu, ExpandMenu, EjectMenu, KindMenu, AugmentMenu). In AwaitingTarget and AwaitingPlacement it cancels straight to DefaultState, and a ready building stays ready. Escape and Z still go back one step | in progress (**M5-S5**, folded in as item 5) | Verification: Recruits in Basic Construct, right-click ground, they move and the menu stays; right-click in placement goes to DefaultState; Escape in placement goes back to the build menu |
+| 0401 **The Economy check is closed** (answers Q0146, a): the Cults', GDO's and Syndicate's economy targets stay in the docs as reference for playtests, and the Director measures nothing more against them. The oracle stays as an on-demand tool whose pins aren't maintained, and the pairings tests stay | in progress (**M5-P3**'s wrap-up commit, which cites it) | — |
 | 0014 GDO Airfield and aircraft | queued (Later: air) | |

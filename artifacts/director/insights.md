@@ -60,6 +60,11 @@
   - Until H1 there was no side-by-side comparison. In M1, the one recorded comparison, a Fable slice used about 1.5x the tokens of a similar-length Opus slice, at 2x the price.
   - The rule for the trial: a movement problem that resists two serious attempts becomes an `#[ignore]`d test and a precise report, and only that goes to Fable.
   - If H1 goes well, V1 and V2 run on Opus too.
+  - **The result (2026-11-26): passed.**
+    - H1 met every acceptance point on Opus, in 617 tool uses over 2 h 14 min.
+    - One movement problem took a second attempt (six Sparrows converging; CIRCLE_PULL from 1 to 0.5), and nothing went to Fable.
+    - Review found only design questions (Q0148).
+    - **V1 and V2 run on Opus.** Fable stays for a problem that resists two serious attempts.
 - **Ultracode/workflows: off for now.** Suggest a workflow per task when it fits (milestone review with verification, batches of independent units or sprites); the user opts in with "use a workflow".
 - **Parallel coding agents use `isolation: "worktree"`**. They seed `target/` with a reflink copy (btrfs; a cold Bevy build takes ~7 min), commit on their own branch, and the Director reviews and merges.
 - **Push frequently** (user, 2026-11-25): "Don't forget to commit and push frequently!"
