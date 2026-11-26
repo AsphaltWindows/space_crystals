@@ -1557,8 +1557,9 @@ The module is pure: it takes the `Map` and tile rectangles and knows nothing of 
     wheeled and tracked vehicles (slice M5-G2) don't cross it, so a set holds `(Ground, 1)` too, whether or not one
     is in the game (`paths::grid_keys`, every unit type's): A/B against master, interleaved, the rebuild tick went
     from 1.12 and 1.14 ms to 1.81 and 1.72 ms, the ticks around it unchanged (0.31 and 0.345 ms), and
-    `structures_perf`'s whole tick from 0.349 and 0.344 ms to 0.360 and 0.356 (p99 0.66 to 0.71) (load average 2.9
-    to 4.8). Building a grid only once a unit of its class is in the game would take that back.
+    `structures_perf`'s whole tick from 0.349 and 0.344 ms to 0.360 and 0.356 (p99 0.66 to 0.71), its grid syncs'
+    p99 about doubled and its other phases within noise (load average 2.9 to 6.5). Building a grid only once a unit
+    of its class is in the game would take that back.
 - **Group destinations** (`orders/destinations.rs`, `docs/movement.md > 6.4`, the design's magic box): a location
   order (Move to a point, AttackMove, Patrol) to several units looks at the bounding box of their silhouettes
   (design change 0028). A click inside it sends every unit to the click; outside, each unit goes to the click plus
