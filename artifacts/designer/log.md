@@ -2357,3 +2357,5 @@ Answered Q0069–Q0071 (0258–0267): losing-Tunnel edges, Syndicate economy che
 2026-11-27 — Faster augmentations (3 s / 6 s). Entry 0391.
 2026-11-27 — EF/DS Place progress (0392); Q0145 (a) (0393); arrows on selected (0394); Hall groupable (0395); rally on unfinished (0396).
 2026-11-27 — Attack always A; Attack issued to all (non-attackers move/follow). Entry 0397.
+2026-11-27 — Worker panels W build / A attack; unarmed hide A, Attack = Move. Entry 0398.
+2026-11-27 — A shown if any selected group can attack. Entry 0399.

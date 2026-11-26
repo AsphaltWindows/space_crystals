@@ -269,7 +269,8 @@ impl Origins {
 /// objects": a target that a Ground area attack hits (`area::hits_domain`), whose hits only an anti-ground attack makes,
 /// a Ground or a Universal one. No air unit is in the game yet: slice M5-H1 tests that its hits aren't absorbed.
 /// `targets` is phase 5e's snapshot, where the hits found them. Returns the hits absorbed, in their order, whose
-/// attackers their targets' owners still learn of (`super::step`).
+/// attackers their targets' owners still learn of (`super::step`; design change 0386: "An absorbed hit ... counts as
+/// landing on the object it was aimed at").
 pub(super) fn absorb(
     clouds: &mut Clouds,
     hits: &mut Vec<Hit>,
@@ -312,7 +313,8 @@ pub(super) fn absorb(
 /// armor and minimum damage apply as always (systems/combat.md > DamageModifierOrder), but **not directional armor**:
 /// a release has no direction (user, 2026-11-26; Q0113)". The areas are counted on the lattice (plan decision T77,
 /// `shroud::lattice`). Each release is a [`SimEvent::ShroudReleased`] ahead of its hits, whose attacker is the cloud's
-/// first member: none of the releases reveals anyone (`super::step`).
+/// first member: none of the releases reveals anyone (`super::step`; design change 0386: "The cloud's later release
+/// reveals nobody").
 pub(super) fn release(
     clouds: &mut Clouds,
     targets: &Targets,

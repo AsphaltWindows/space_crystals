@@ -26,7 +26,7 @@ When visible, commands available to all objects in the Selection are visually di
 
 **Attack goes to everyone** (user, 2026-11-27): an Attack (A) is issued to **every selected unit**, even when some can't attack:
 - Units that can attack carry it out: Attack on a target, or Attack Move on ground.
-- Units that can't attack (e.g. a Prayer-mobile, Shadebringer, Disciple or Drone) do the closest thing: on ground they **Move** to the spot (keeping the group's formation, as for Attack Move); on a target they **follow** it.
+- Units that can't attack (e.g. a Prayer-mobile, Shadebringer, Disciple or Drone) treat an Attack or an Attack Move as a **Move** (user, 2026-11-27): on ground they move to the spot (with the group, as for Attack Move); on a target they move to it (as a Move on that object).
 - So an attack-move with casters in the army brings the casters along.
 
 **Pressing an unavailable command** (user, 2026-11-24): a greyed-out command (e.g. Train with too few Space Crystals, or a full queue) can still be pressed or its hotkey used; nothing is issued, and the player gets the **same feedback as when an order is refused**, naming the reason (e.g. "Not enough Space Crystals", "Queue is full"). Same channel as invalid target clicks (AwaitingTarget > Invalid target clicks; exact form TBD with the notification system).
@@ -50,7 +50,7 @@ Certain slots have standardized functions across all object types that use them.
 - **X (bottom row, 2nd slot)**: Cancel Production / Cancel Upgrade. In production buildings, cancels the last queued item and refunds cost. In structures with upgrades, cancels the in-progress upgrade and refunds cost.
 - **C (bottom row, 3rd slot)**: Set Rally Point. In unit-producing structures, enters AwaitingTarget[SetRallyPoint]. Left-click ground or object sets the rally point (CommandIssuingTransition, returns to DefaultState). Clicking the **producing building itself** clears the rally point (RallyPoint = None; user, 2026-11-24).
 - **V (bottom row, 4th slot / bottom-right)**: no standard function; free for object-specific commands.
-- **A: Attack, on every unit** (user, 2026-11-27): Attack is always in slot **A**, whichever group is in focus, so the key never changes. No unit puts another command on A (worker panels are being rearranged accordingly).
+- **A: Attack, on every unit** (user, 2026-11-27): Attack is always in slot **A**, whichever group is in focus, so the key never changes. No unit puts another command on A; workers build from **W** (Recruit, Agent, Field Engineer, Drone; 2026-11-27). **A is shown whenever at least one selected group can attack** (user, 2026-11-27), whichever group is in focus, and issues the Attack to the whole selection. Only when **no** selected unit can attack is A not shown.
 
 ### Production Building Default Right-Click
 For all unit-producing structures, right-click from DefaultState sets the rally point:
