@@ -40,7 +40,7 @@
     - `core/camera.md > Starting Position`;
     - `core/game_rules.md`;
     - `core/map_editor.md > Starting Layouts`;
-    - `systems/controls/selection_and_hud.md` (No smart-casting, Groupable, unfinished buildings, Shift while
+    - `systems/controls/selection.md` (No smart-casting, Groupable, unfinished buildings, Shift while
       placing, PointerDisplayType, BasicCombatUnitInterfaceState);
     - `systems/controls/commands.md > Enter`;
     - `factions/colonists/units/drone.md > Gathering Drones pass through each other`;
@@ -80,7 +80,7 @@
 >   - **The tasks:**
 >     - build the TailDisjointed attack (today it hits as FullyConnected does: the TODO in `combat/phases.rs`);
 >     - give the Gunner Attack Ground, on its panel (every attack that can miss has it);
->     - take the Technical follow-up **"Target too close" for a location** (`systems/controls/behaviors.md > Target
+>     - take the Technical follow-up **"Target too close" for a location** (`systems/controls/command_behaviors.md > Target
 >       inside MinRange`), since the Gunner has MinRange 2. That supersedes §1.2's last-but-one row.
 >   - It comes before G, which makes Gunners trainable.
 > - **The user decided (2026-11-25):**
@@ -94,7 +94,7 @@
 >   - 0313 sketches the Cults' light vehicle, a buggy from the Chop Shop: gated N6, with the vehicles;
 >   - 0314–0318 name it the Jackal and add the Sparrow glider. The Chop Shop and the Airstrip work like the Armory;
 >   - **0319 gives placeholder numbers to every designed Cults building and unit** (it answers Q0092–Q0094 and Q0108 point 1), **so the gated slices and G are in M5.** Planning spike M5-P2 drafts their slices and the waves from W5, as an addendum to this plan;
->   - **T56 amended (the Director, 2026-11-25):** `Object::lineage` is one entry per Recruit a unit embodies (`Vec<ObjectId>`), not an `Option`. The Jackal consumes 2 Recruits, and "each point of cost [is] attributed to the originating hall of the respective Recruit" (`factions/cults/economy.md > Unit Control Tracking`). C builds it, and F2 concatenates the consumed Recruits' entries.
+>   - **T56 amended (the Director, 2026-11-25):** `Object::lineage` is one entry per Recruit a unit embodies (`Vec<ObjectId>`), not an `Option`. The Jackal consumes 2 Recruits, and "each point of cost [is] attributed to the originating hall of the respective Recruit" (`factions/cults/structures/recruitment_hall.md > Unit Control Tracking`). C builds it, and F2 concatenates the consumed Recruits' entries.
 > - **The addendum, `artifacts/director/m5-plan-addendum.md`** (planning spike M5-P2, adopted 2026-11-25), plans 0319's content: it replaces §3.3's G and the gated N1–N6 with 15 slices and §3.2's waves from W5, and continues §4 from T69 and §5 from D18. Its own header lists the Director's amendments.
 > - **M5 starts** after M4-M merges.
 
@@ -183,9 +183,9 @@
 |---|---|---|
 | Recruit | Unit, LightInfantry, 24x24, HP 40, armour 0/0, sight 5, Groupable (0072), 4 su per frame, 180° per frame, Rugged bonus 50%. Melee: FullyConnected, Ground, 3 damage, Aim 2 / Fire 8 / Cooldown 1 / Reload 1, contact reach 8 su (0149). Unit Control cost 1. | `factions/cults/units/recruit.md` |
 | Recruit gathering | Carry 2; mining 8 frames; drop-off 2 frames; both reaches 8 su. Any number of Recruits to a patch. Normal collision while mining (0106). About 1.45 SC/s at a 1-tile gap. The Storage: **Placeholder (Q0102)**. | `recruit.md > Gathering`; `factions/colonists/units/drone.md > Gathering Drones pass through each other` |
-| Recruitment Hall | 4x4, AAAA, HP 1000, 1/16, sight 6, Groupable false; 300 SC and 1440 frames to build. A 10x10 area; first-built tile claims; effectiveness; capacity 20 and 192 frames per Recruit, both scaled. Free, automatic production; lineage; the HUD aggregation; what its destruction does. Panel: X Cancel Production, C rally, right-click rally. **Placeholders (Q0099, Q0100, Q0101).** | `factions/cults/economy.md > RecruitmentHall`; `recruit.md > Constructs` |
+| Recruitment Hall | 4x4, AAAA, HP 1000, 1/16, sight 6, Groupable false; 300 SC and 1440 frames to build. A 10x10 area; first-built tile claims; effectiveness; capacity 20 and 192 frames per Recruit, both scaled. Free, automatic production; lineage; the HUD aggregation; what its destruction does. Panel: X Cancel Production, C rally, right-click rally. **Placeholders (Q0099, Q0100, Q0101).** | `factions/cults/structures/recruitment_hall.md`; `recruit.md > Constructs` |
 | Storage | 2x2, AAAA, HP 250, **1/6** (**Placeholder (Q0094)**), sight 3, Groupable; 100 SC and 320 frames. Many Recruits drop off at once. Info only. | `economy.md > Storage` |
-| Cults construction | Groups build from outside, at a speed in proportion to the builders; a stalled site keeps its progress. Paid at the order, once for the group (0072). A full refund before the start; X refunds 75%. Assist; Shift chains (0071, 0072); lingering ghosts; ConstructionHP. **Placeholders (Q0097, Q0098).** | `economy.md > Cults Building Mechanics`; `core/entities.md > ConstructionHP Rule`, `> Worker-Built Structures`, `> Lingering build ghosts`; `systems/controls/selection_and_hud.md > Shift while placing` |
+| Cults construction | Groups build from outside, at a speed in proportion to the builders; a stalled site keeps its progress. Paid at the order, once for the group (0072). A full refund before the start; X refunds 75%. Assist; Shift chains (0071, 0072); lingering ghosts; ConstructionHP. **Placeholders (Q0097, Q0098).** | `economy.md > Cults Building Mechanics`; `core/entities.md > ConstructionHP Rule`, `> Worker-Built Structures`, `> Lingering build ghosts`; `systems/controls/interface.md > Shift while placing` |
 | Armory | 2x3, ABAC, HP 300, 1/6, sight 4, Groupable; needs a Storage; 200 SC and 480 frames. Entrance B, exit C, pool 10. Serial training, paid and a Recruit reserved at queue; a queue of 20. Eject All; X; C; Q Train Militant; W Train Gunner. **Placeholders (Q0104, Q0105).** | `factions/cults/structures/armory.md`; `core/entities.md > Exit Doorway` |
 | Evacuation | Everyone inside a destroyed Armory comes out alive, unchanged, around its footprint, and its orders are refunded in full. Built once, for every future building that holds units. **Placeholder (Q0106).** | `economy.md > Evacuation on Destruction` |
 | Militant | As the Recruit's body. FullyConnected, Universal, 4 damage, range 4, Aim 2 / Fire 2 / Cooldown 1 / Reload 3. 20 SC and 32 frames at the Armory. BasicCombatUnit panel. | `factions/cults/units/militant.md` |
@@ -195,7 +195,7 @@
 | Unit Control | Per hall, by lineage. A trained unit costs one per Recruit consumed. Orphans count. The HUD shows (Σ usage + orphans) / Σ capacity. | `economy.md > Unit Control Tracking`, `> Cults Unit Control HUD Display`; `overview.md` |
 | Start | A Hall, a Storage and six Recruits belonging to the Hall; 0 SC. The camera starts on the Hall. | `economy.md > Starting Conditions`; `core/camera.md > Starting Position` |
 | Layouts | Cults layouts on every Skirmish Default map, and no faction left "not implemented" (T63) | `core/map_editor.md > Starting Layouts` |
-| HUD and panels | Space Crystals; Unit Control used / available. The Recruit's panel (**Placeholder (Q0095)**) and the Construct menu (**Placeholder (Q0096)**). The Hall's and the Armory's panels; the Storage's InfoPanel; the site's Cancel. The Enter, GatherResources and ReturnResources pointers. The Recruitment Area display (**Placeholder (Q0107)**). | `overview.md > DisplayHud`; the panels in each doc; `selection_and_hud.md > PointerDisplayType` |
+| HUD and panels | Space Crystals; Unit Control used / available. The Recruit's panel (**Placeholder (Q0095)**) and the Construct menu (**Placeholder (Q0096)**). The Hall's and the Armory's panels; the Storage's InfoPanel; the site's Cancel. The Enter, GatherResources and ReturnResources pointers. The Recruitment Area display (**Placeholder (Q0107)**). | `overview.md > DisplayHud`; the panels in each doc; `hud.md > PointerDisplayType` |
 | Building armour | The Hall (1/16) and the Armory (1/6) follow the rule; the Storage is listed as the exception. | `core/entities.md > Building armor rule` |
 | QA | A Cults oracle (**Placeholder (Q0103)**), goldens, perf, and a soak over every pairing | `economy.md > RecruitmentHall` (rationale), `> Storage` (rationale); `recruit.md > Gathering` |
 | Playtest readiness | Every pairing from `--factions` on every map; the controls; the placeholders; a way to report findings | the user's goal (the brief) |
@@ -379,7 +379,7 @@ Screenshots show the bank rising, Unit Control 6/20 → 12/20, and the pool coun
 | B | Cults start | Starting Conditions (total), and the Recruits' lineage to the starting Hall. Layouts on every Skirmish Default map; the editor; `--factions cults`; the tests that used the Cults as unimplemented, rewritten (T63). | `economy.md > Starting Conditions`; `core/camera.md`; `core/map_editor.md > Starting Layouts` | A | Opus |
 | E | Cults construction | A group Build, paid once, as a derived ticket. The site starts at the first arrival. Builders count at their spots, adding n frames a tick; a site with none stalls. Assist (a new order); Shift chains; refunds; the 75% cancel; the Recruit's `builds`; the sites' defs. | `economy.md > Cults Building Mechanics`; `recruit.md > Constructs`; 0071, 0072 | A, F1 | Opus |
 | F2 | Armory training | `Production` with reservations; completion by `change_kind`, keeping the lineage; release from the held store through side C; the rally; X; group training. The Armory's panel and InfoPanel. | `armory.md > Training`, `> ObjectInterfaceState[Armory]` | C, F1 | Opus |
-| J1 | Recruit UI | Panel; Construct menu with fixed slots; `Builder::Recruits` with Shift; Assist targeting; right-click; pointers; the Recruitment Area display; group ghosts | `recruit.md > Recruit ObjectInterfaceState`; `selection_and_hud.md` | C, D, E, F1 | Opus |
+| J1 | Recruit UI | Panel; Construct menu with fixed slots; `Builder::Recruits` with Shift; Assist targeting; right-click; pointers; the Recruitment Area display; group ghosts | `recruit.md > Recruit ObjectInterfaceState`; `interface.md`, `hud.md` | C, D, E, F1 | Opus |
 | L | Cults oracle and goldens | Throughput by gap, Hall fill time, second-Hall timing, the comparison with the GDO and the Colonists; `cults_opening`, `cults_vs_syndicate`; the Cults' scripted opening in R's test | `economy.md` (rationales); `recruit.md > Gathering` | B, C, D, E, F2 | Opus |
 | G | Gunworks (if D1 and D2) | Placeholder stats; the Gunner's recipe behind it; the menu entry made live | `structures/gunworks.md`; `armory.md` | F2, J1 | Opus |
 | S1, S2 | Answer sweeps | Answers whose slices have merged, each at most about 3 h | the answers | as needed | Opus |
@@ -776,7 +776,7 @@ Cults Garrison"):
   - "**Units come out unchanged**: a Recruit mid-training comes out as a Recruit";
   - "**Placement**: evacuated units appear around the building's footprint wherever there is open space, unharmed.";
   - "**Orders are cancelled with a full refund**".
-- `recruit.md > Right-Click Resolution`: "Own Armory → Enter Armory". `selection_and_hud.md > PointerDisplayType`:
+- `recruit.md > Right-Click Resolution`: "Own Armory → Enter Armory". `hud.md > PointerDisplayType`:
   "Cursor over own enterable Cults building that accepts the selected unit (see Enter): **Enter**".
 - `core/entities.md > Exit Doorway`, points 1–5.
 
@@ -897,7 +897,7 @@ editor, and `--factions cults`. After B, no faction is "not implemented".
 - `recruit.md > Constructs`: "RecruitmentHall: 300 Space Crystals, 1440 frames (90 seconds) BaseConstructionTime (with
   1 Recruit)"; "Storage: 100 Space Crystals, 320 frames (20 seconds)"; "Armory: 200 Space Crystals, 480 frames (30
   seconds) ... Requires: Storage." Each structure: "ConstructionHP Rule - applies".
-- 0072: "The cost is paid once per building, when the order is given." `selection_and_hud.md > Shift while placing`:
+- 0072: "The cost is paid once per building, when the order is given." `interface.md > Shift while placing`:
   "Cults Recruits (the whole selected group) build one and walk together to the next (each order's cost is paid when
   it is given ...)".
 - `core/entities.md > Worker-Built Structures`: "a ground unit of any player on the footprint makes the site invalid;
@@ -1054,10 +1054,10 @@ the right-click as the design gives it; and the Recruitment Areas shown.
 - "Recruits are Groupable: all selected Recruits form one SelectionGroup, and both right-click and panel commands
   (Construct, Assist Construction) are issued to all of them. ... To build with a single Recruit, select it alone
   first (e.g. click its portrait)."
-- `selection_and_hud.md`:
-  - `> Shift while placing` (quoted in E);
-  - `> PointerDisplayType`: Enter, GatherResources, ReturnResources;
-  - "**Unfinished buildings form their own group**".
+- `systems/controls/` (split by design change 0370):
+  - `interface.md > Shift while placing` (quoted in E);
+  - `hud.md > PointerDisplayType`: Enter, GatherResources, ReturnResources;
+  - `selection.md`: "**Unfinished buildings form their own group**".
 - 0291 (the precedent for fixed slots): "Unavailable ones are greyed, including ones not in the build yet."
 
 **Placeholders**
@@ -1634,7 +1634,7 @@ Proposed: (a).
 
 - **Date**: DATE
 - **Blocking**: no — proceeding on assumption: 1/6 as written, listed as an exception in the armour test.
-- **Docs**: `factions/cults/economy.md > Storage`; `core/entities.md > Building armor rule`
+- **Docs**: `factions/cults/structures/storage.md`; `core/entities.md > Building armor rule`
 
 ## Question
 The Storage is 2x2 with PointArmor 1 and FullArmor 6. The building armour rule gives 1/4 for a 2x2 building with n = 1. Is 1/6 an intended exception, or a leftover from the Storage's earlier size?
@@ -1656,7 +1656,7 @@ Proposed: (a). The build uses (b) until the answer comes, since that is what the
 
 - **Date**: DATE
 - **Blocking**: no — proceeding on assumption: Q Move, A Construct, S Assist Construction, X Stop; a new Assist pointer.
-- **Docs**: `factions/cults/units/recruit.md > Recruit ObjectInterfaceState`; `systems/controls/selection_and_hud.md > CommandPanel` (the grid), `> PointerDisplayType`; `factions/syndicate/units/agent.md > Agent ObjectInterfaceState` (0257)
+- **Docs**: `factions/cults/units/recruit.md > Recruit ObjectInterfaceState`; `systems/controls/interface.md > CommandPanel` (the grid), `> PointerDisplayType`; `factions/syndicate/units/agent.md > Agent ObjectInterfaceState` (0257)
 
 ## Question
 1. The Recruit's panel gives "**B: Assist Construction**", but B isn't a slot of the 12-key grid (Q W E R / A S D F / Z X C V). Which letter does Assist take?
@@ -1681,7 +1681,7 @@ Proposed: Q Move, A Construct, S Assist Construction, X Stop; a new Assist point
 
 - **Date**: DATE
 - **Blocking**: no — proceeding on assumption: (b), the base buildings in Q and W, and one sub-menu per branch.
-- **Docs**: `factions/cults/units/recruit.md > Constructs`, `> Recruit ObjectInterfaceState` (A: Construct); `factions/cults/structures/README.md > Tech Tree Overview`; `factions/gdo/structures/deployment_center.md` (BuildMenu[Basic] and [Advanced]); `factions/syndicate/tunnels.md > ExpandMenu` (0291)
+- **Docs**: `factions/cults/units/recruit.md > Constructs`, `> Recruit ObjectInterfaceState` (A: Construct); `factions/cults/structures/README.md > Tech Tree Overview`; `factions/gdo/structures/deployment_center.md` (BuildMenu[Basic] and [Advanced]); `factions/syndicate/tunnel_menus.md > ExpandMenu` (0291)
 
 ## Question
 "A: Construct — enters BuildMenu". The Recruit constructs 13 buildings, but a menu has 11 slots (Z is Back). Which slots do the buildings take?
@@ -1740,7 +1740,7 @@ Proposed: (a) for each.
 
 - **Date**: DATE
 - **Blocking**: no — proceeding on assumption: the proposal under each point.
-- **Docs**: `factions/cults/economy.md > Build Command`, `> Cancel Construction`; `systems/controls/selection_and_hud.md > Shift while placing`; 0072; 0289 point 1 (the Syndicate's precedent)
+- **Docs**: `factions/cults/economy.md > Build Command`, `> Cancel Construction`; `systems/controls/interface.md > Shift while placing`; 0072; 0289 point 1 (the Syndicate's precedent)
 
 ## Question
 1. **Partly re-ordered.** "the full Space Crystals cost is refunded" if the order is cancelled before the start because "the Recruits are given another order before arriving". If only some of the group are re-ordered, is anything refunded?
@@ -1767,7 +1767,7 @@ Proposed: (a) for each.
 
 - **Date**: DATE
 - **Blocking**: no — proceeding on assumption: the proposal under each point.
-- **Docs**: `factions/cults/economy.md > RecruitmentHall` (RecruitmentArea, TileClaiming, Effectiveness, RecruitmentHallInstanceState, Cults Unit Control HUD Display)
+- **Docs**: `factions/cults/structures/recruitment_hall.md` (RecruitmentArea, TileClaiming, Effectiveness, RecruitmentHallInstanceState, Cults Unit Control HUD Display)
 
 ## Question
 1. **Off-map tiles.** Near the map's edge, part of the 10x10 area is off the map. Do those tiles count in "the total number of tiles in Recruitment Area"? If they do, a Hall at the edge is weaker.
@@ -1796,7 +1796,7 @@ Proposed: (a) for each. 2(a) keeps the exact rule: production runs while 100 × 
 
 - **Date**: DATE
 - **Blocking**: no — proceeding on assumption: the proposal under each point.
-- **Docs**: `factions/cults/economy.md > RecruitmentHall > Production Behavior`, `> ObjectInterfaceState[RecruitmentHall]`; `core/entities.md > Exit Doorway`; `factions/gdo/overview.md > Unit Control` (0143, "Reserved when production starts")
+- **Docs**: `factions/cults/structures/recruitment_hall.md > Production Behavior`, `> ObjectInterfaceState[RecruitmentHall]`; `core/entities.md > Exit Doorway`; `factions/gdo/overview.md > Unit Control` (0143, "Reserved when production starts")
 
 ## Question
 1. **The exit side.** "Produced Recruits spawn at the hall and move to its rally point." The Hall is AAAA, so every side is eligible. Which side do Recruits come out of?
@@ -1823,7 +1823,7 @@ Proposed: (a) for each.
 
 - **Date**: DATE
 - **Blocking**: no — proceeding on assumption: (a) for each point.
-- **Docs**: `factions/cults/overview.md > CultsResources > Unit Control`; `factions/cults/economy.md > Unit Control Tracking`, `> Cults Unit Control HUD Display`, `> Starting Conditions`
+- **Docs**: `factions/cults/overview.md > CultsResources > Unit Control`; `factions/cults/structures/recruitment_hall.md > Unit Control Tracking`, `> Cults Unit Control HUD Display`, `> Starting Conditions`
 
 ## Question
 1. **The global rule.** "The player cannot build units if doing so would exceed the total available Unit Control." Halls produce by their local count, and training costs one per Recruit consumed, which already counted. So nothing the design has would ever be stopped by the global total. Is the global figure for display only?
@@ -1846,7 +1846,7 @@ Proposed: (a) and (a).
 
 - **Date**: DATE
 - **Blocking**: no — proceeding on assumption: (a).
-- **Docs**: `factions/cults/units/recruit.md > Gathering`; `factions/cults/economy.md > Storage`; `factions/syndicate/units/agent.md > Gathering` (0255, the Agent's rule)
+- **Docs**: `factions/cults/units/recruit.md > Gathering`; `factions/cults/structures/storage.md`; `factions/syndicate/units/agent.md > Gathering` (0255, the Agent's rule)
 
 ## Question
 With several Storages, which one does a gathering Recruit take its load to? And what does it do when it owns no completed Storage?
@@ -1869,7 +1869,7 @@ Proposed: (a). It is the same as (b) while the Storages don't change, and it fol
 
 - **Date**: DATE
 - **Blocking**: no — the oracle is built anyway; only its pass or fail waits.
-- **Docs**: `factions/cults/economy.md > RecruitmentHall` (rationale), `> Storage` (rationale); `factions/cults/units/recruit.md > Gathering`; 0259 and 0303 (the Syndicate's precedent)
+- **Docs**: `factions/cults/structures/recruitment_hall.md` (rationale), `> Storage` (rationale); `factions/cults/units/recruit.md > Gathering`; 0259 and 0303 (the Syndicate's precedent)
 
 ## Question
 Which Cults figures does the economy check hold the build to, measured how, and within what tolerance?
@@ -1985,7 +1985,7 @@ Proposed: (a) for each.
 
 - **Date**: DATE
 - **Blocking**: no — proceeding on assumption: (a).
-- **Docs**: `factions/cults/economy.md > RecruitmentHall > RecruitmentArea`, `> TileClaiming`; `factions/syndicate/tunnels.md > Tunnel Area display` (0299, 0300, the precedent)
+- **Docs**: `factions/cults/structures/recruitment_hall.md > RecruitmentArea`, `> TileClaiming`; `factions/syndicate/tunnel_area_and_space.md > Tunnel Area display` (0299, 0300, the precedent)
 
 ## Question
 Where shown, and how, is a Recruitment Area and the tiles a Hall claims?

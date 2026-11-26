@@ -324,7 +324,7 @@ and O3, which every slice below may assume.
   owns at least one Gunworks (TechPrerequisite)". `factions/cults/units/gunner.md`: 40 SC, 32 frames.
 - **`core/tech_and_research.md > Unit Prerequisites`:** "Check Timing: checked only when the unit is queued"; "units
   already queued or in production continue and complete normally".
-- **`factions/cults/economy.md > Storage`** (FullArmor 4, Q0094 a); **`core/entities.md > Building armor rule`**.
+- **`factions/cults/structures/storage.md`** (FullArmor 4, Q0094 a); **`core/entities.md > Building armor rule`**.
 - **The other kinds' "Placeholder stats":**
   - `garrison.md`, `chop_shop.md`, `airstrip.md`, `temple.md`, `cathedral.md` and `shrine.md`;
   - `factions/cults/augmentation.md > Altar`;
@@ -499,9 +499,9 @@ It takes the W4 slot that O3 left.
   turning needs forward motion)".
 - **Reversing:**
   - `systems/controls/commands.md > Reverse`;
-  - `systems/controls/behaviors.md > ReversingToLocation`: "Identical to MovingToLocation except the plan uses
+  - `systems/controls/command_behaviors.md > ReversingToLocation`: "Identical to MovingToLocation except the plan uses
     Reversing locomotion instead of Moving.";
-  - `systems/controls/selection_and_hud.md > BasicCombatUnitInterfaceState`: "[W] Reverse*"; "W (Reverse) only
+  - `systems/controls/interface.md > BasicCombatUnitInterfaceState`: "[W] Reverse*"; "W (Reverse) only
     available if UnitBase has CanReverse = true."
 - **`systems/units.md > Ground Collision`:** "Vehicles' version (turning to graze around obstacles) is designed with
   vehicle movement." **0323** settles it: "**WheeledVehicles** turn and graze around the obstacle instead" of
@@ -713,7 +713,7 @@ Air units keep apart softly.
 - **Entering:**
   - `systems/controls/commands.md > Enter`: "**Cults — Altar**: any Cults infantry (Recruit, Militant, Gunner,
     Disciple)";
-  - `systems/controls/selection_and_hud.md > BaseCommandState[UnitBase] > RightClickResolution`: "Cursor over own
+  - `systems/controls/interface.md > BasicCombatUnitInterfaceState > RightClickResolution`: "Cursor over own
     Altar (Cults infantry only — Militant, Gunner, Disciple): issues Enter";
   - `factions/cults/units/recruit.md`: "Own Altar → Enter Altar".
 - **`factions/cults/economy.md > Evacuation on Destruction`:** "a unit mid-augmentation does not receive the
@@ -777,7 +777,7 @@ Air units keep apart softly.
     resolution: none (it has no rally point).";
   - "(Whether an Disciple can also cast spells from inside: TBD.)"
 - **`systems/controls/commands.md > Enter`:** "**Cults — Garrison**: Recruits, Militants, Gunners, and Disciples (up
-  to 4 ...)". `selection_and_hud.md > RightClickResolution`: "Cursor over own Garrison (Cults infantry only —
+  to 4 ...)". `interface.md > RightClickResolution`: "Cursor over own Garrison (Cults infantry only —
   Militant, Gunner, Disciple): issues Enter".
 - **0319's verification:** "A Garrison with 4 Militants fires at range 5."
 - **The weapons:**
@@ -1125,7 +1125,7 @@ goes into a shared buffer, which is released every 8 frames as one area hit over
   - "consumes **2 Recruits**; Unit Control cost **2**";
   - "Attack: Damage 3; Range 4 grid units; MinRange 0; Aim 1, Firing 1, Cooldown 1, Reload 1 frames";
   - "ObjectInterfaceState: BasicCombatUnitInterfaceState".
-- **`factions/cults/economy.md > Unit Control Tracking`:** "A trained unit's Unit Control cost equals the number of
+- **`factions/cults/structures/recruitment_hall.md > Unit Control Tracking`:** "A trained unit's Unit Control cost equals the number of
   Recruits consumed to produce it, with each point of cost attributed to the originating hall of the respective
   Recruit."
 - **`factions/cults/augmentation.md > Persistence > Vehicles`** (quoted in N1a).
@@ -1259,7 +1259,7 @@ goes into a shared buffer, which is released every 8 frames as one area hit over
   - `> Right-Click Resolution`: "Damaged own building or vehicle (completed) → Repair";
   - 0322's open point: "right-clicking a damaged building that can also be entered (Armory, Tunnel, …) is
     unresolved ... Until then, keep **Enter** for enterable buildings".
-- **`systems/controls/selection_and_hud.md > PointerDisplayType`:**
+- **`systems/controls/hud.md > PointerDisplayType`:**
   - "Repair — Unit will repair this damaged own building or vehicle (Recruits, Agents, Field Engineers ...).
     Placeholder look.";
   - DefaultState: "Cursor over damaged own building or vehicle that the selection can repair: **Repair**";
@@ -1956,7 +1956,7 @@ W12 M (after everything)                              -> the user's first playte
 
 - **Date**: DATE
 - **Blocking**: no — proceeding on assumption: (a) and (c): R casts Shroud, Q stays Move; the Disciple stays Groupable and every selected Disciple with 10 energy channels.
-- **Docs**: `factions/cults/units/disciple.md > ObjectInterfaceState`, `> Placeholder stats`; `systems/controls/selection_and_hud.md > BasicCombatUnitInterfaceState`, `> SelectionGroup`; `core/entities.md > Groupable`; `factions/gdo/units/peacekeeper.md` (Hotkey: R); `factions/colonists/units/sabre_legionnaire.md` (R: Convert)
+- **Docs**: `factions/cults/units/disciple.md > ObjectInterfaceState`, `> Placeholder stats`; `systems/controls/interface.md > BasicCombatUnitInterfaceState`, `> SelectionGroup`; `core/entities.md > Groupable`; `factions/gdo/units/peacekeeper.md` (Hotkey: R); `factions/colonists/units/sabre_legionnaire.md` (R: Convert)
 
 ## Question
 Two points of the Disciple's panel:
@@ -2136,7 +2136,7 @@ Proposed: 1(a), 2(a).
 
 - **Date**: DATE
 - **Blocking**: no — proceeding on assumption: (a) on all three.
-- **Docs**: `factions/cults/structures/shrine.md > Abilities`, `> Placeholder stats`; `systems/controls/selection_and_hud.md > SelectionGroup`
+- **Docs**: `factions/cults/structures/shrine.md > Abilities`, `> Placeholder stats`; `systems/controls/selection.md > SelectionGroup`
 
 ## Question
 1. **Inside the area.** Is a unit inside when its centre is in the circle, or when any part of it overlaps?
@@ -2162,7 +2162,7 @@ Proposed: (a) on all three.
 
 - **Date**: DATE
 - **Blocking**: no — proceeding on assumption: (a) on all three.
-- **Docs**: `systems/units.md > Ground Collision`, `> Collision Response (Un-sticking)`, `> FixedTurnRadiusMovement`; `systems/controls/behaviors.md > MovingToLocation`, `> ReversingToLocation`; entry 0323
+- **Docs**: `systems/units.md > Ground Collision`, `> Collision Response (Un-sticking)`, `> FixedTurnRadiusMovement`; `systems/controls/command_behaviors.md > MovingToLocation`, `> ReversingToLocation`; entry 0323
 
 ## Question
 The Jackal is the game's first vehicle. 0323 settles how a moving one gets round a blocker: "**WheeledVehicles** turn and graze around the obstacle instead" of stepping sideways. Three points remain:
