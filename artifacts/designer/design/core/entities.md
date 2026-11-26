@@ -72,6 +72,8 @@ Applies to structures that release units through an **exit side** (e.g. GDO Barr
 4. Own idle units outside step aside for the unit walking out (systems/units.md > Ground Collision, friendly yielding), so they don't cause stalls.
 5. **Exits may be blocked by buildings and terrain** (allowed for now, user): placement does not keep exits clear. A building or cliff right against the exit side leaves the first unit stuck in the doorway and the building effectively stalled; that is the player's own mistake.
 
+6. **Ground the unit can't stand on** (user, 2026-11-27; Q0134): a leaving unit may overlap its building, but is never released onto ground under it that it couldn't stand on (e.g. a custom tile that is Buildable but not Traversible). Such a building **holds its finished unit** indefinitely, as an occupied doorway. Placement doesn't prevent it; map makers are advised not to make such tiles (core/map.md > Tile).
+
 Buildings with **several exit-eligible sides** choose the side by their own rules; a side whose doorway is occupied counts as blocked, and the building pauses only when every eligible doorway is occupied. **Colonists portals** don't use exit sides: units emerge from an energy doorway at the centre (factions/colonists/structures/README.md > Portals > Portal Exits).
 
 Aircraft and units released underground (e.g. Syndicate Tunnels) are not covered by this rule.

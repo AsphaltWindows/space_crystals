@@ -44,8 +44,8 @@ Recruits gather Space Crystals and deliver them to Storage.
 - MiningReach: 8 space units — a Recruit can mine once its Silhouette is within 8 su of the patch's edge.
 - DropOffReach: 8 space units — a Recruit can drop off once its Silhouette is within 8 su of the Storage's edge.
 (Reach is a per-unit stat; 8 su is a placeholder currently shared by all workers.)
-- Expected throughput: buildings snap to whole tiles, so a patch can't touch a Storage with room for Recruits to work; the best layout leaves a 1-tile (64 su) gap. With a 24 su Silhouette and 8 su reach on each side, a Recruit walks 24 su (6 frames) each way, so a round trip is 22 frames (6 + 8 mining + 6 + 2 drop-off) ≈ 1.45 SC/s per Recruit. A 64 su gap fits two Recruits side by side (one lane in, one lane out).
-- **Which Storage** (user, 2026-11-26; Q0102): at **every return** the Recruit takes its load to the **nearest own completed Storage, edge to edge from its patch**, so a new Storage is used at once. If the Storage is lost **during** a return, the replacement is the one nearest **the Recruit** (the shared drop-off rule, 0170); the next return chooses from the patch again. With **no** completed Storage, the Recruit **idles holding its load**.
+- Expected throughput: buildings snap to whole tiles, so a patch can't touch a Storage with room for Recruits to work; the best layout leaves a 1-tile (64 su) gap. With a 24 su Silhouette and 8 su reach on each side, a Recruit walks 24 su (6 frames) each way, so a round trip is 22 frames (6 + 8 mining + 6 + 2 drop-off) ≈ 1.45 SC/s per Recruit. A 64 su gap fits two Recruits side by side (one lane in, one lane out). The Storage is 3x2 (2026-11-27), so its long faces are 3 tiles and its short faces 2.
+- **Which Storage** (user, 2026-11-26; Q0102): at **every return** the Recruit takes its load to the own completed Storage **nearest to the Recruit itself** (edge to edge) **when it finishes mining**, so a new Storage is used at once (user, 2026-11-27; Q0136; replaces "nearest from its patch"). **Tie**: the Storage with the **earlier id** (built first). If the Storage is lost **during** a return, the replacement is again the one nearest **the Recruit** (the shared drop-off rule, 0170). With **no** completed Storage, the Recruit **idles holding its load**.
 - **Crowding** (user, 2026-11-26; Q0110): Recruits keep normal collision while gathering, and nobody gives way. If more Recruits work one face than it has lanes, they can block each other head-on for a long time. **The player's answer is more Storages** (and spreading Recruits over patches): add Storages when you want more Recruits mining at once. A Recruitment Hall's rally on a patch sends every new Recruit there, so it is the player's job to redistribute them.
 - Patch sharing: any number of Recruits may mine the same Space Crystals patch at the same time (unlike Drones, see Colonists > Drone > Patch Occupancy).
 
@@ -118,7 +118,7 @@ Recruits can enter an Armory to join its internal StoredRecruits pool (up to Int
 - Own Garrison → Enter Garrison
 - Own Gunworks / Machine Shop → Move (not enterable until their research is designed, 0319)
 - In-progress own building → Assist Construction
-- Damaged own building or vehicle (completed) → Repair, **unless the building can be entered** by the selection: then **Enter** wins (user, 2026-11-26). Repair those with **D: Repair**.
+- Damaged own building or vehicle (completed) → Repair, **unless the building can be entered** by the selection: then **Enter** wins (user, 2026-11-26). Repair those with **D: Repair**. **Except when it is full** (user, 2026-11-27; Q0140): a damaged enterable building that is **full at the moment of the click** resolves to **Repair** (the pointer shows Repair). This applies to every building that holds units.
 - Enemy unit/building → Attack (melee)
 - Ground → Move
 

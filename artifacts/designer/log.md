@@ -2337,3 +2337,10 @@ Answered Q0069–Q0071 (0258–0267): losing-Tunnel edges, Syndicate economy che
 2026-11-27 — Q0131–Q0142 arrived; Q0132/Q0138/Q0141 answered from docs (0371).
 2026-11-27 — Q0131 (a). Entry 0372.
 2026-11-27 — Q0133 (a). Entry 0373.
+2026-11-27 — Q0134 (a) + guideline. Entry 0374.
+2026-11-27 — Q0136: drop-off nearest the worker at end of mining, tie earlier id. Entry 0375.
+2026-11-27 — Q0137 (a), Stop clears the lock. Entry 0376.
+2026-11-27 — Q0139 (b). Entry 0377.
+2026-11-27 — Q0140 (b). Entry 0378.
+2026-11-27 — Q0142 (b). Entry 0379.
+2026-11-27 — Q0135 partial: Storage back to 3x2. Entry 0380.

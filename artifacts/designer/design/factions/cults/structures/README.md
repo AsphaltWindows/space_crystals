@@ -61,6 +61,7 @@ Every Cults unit, including vehicles and aircraft, is made from Recruits. Vehicl
 
 **Entering pool buildings** (user, 2026-11-26; Q0104):
 - Units go in at the **entrance doorway** (middle of the entrance side; core/entities.md > Entrance and exit).
+- **Right-click on a full building** (user, 2026-11-27; Q0140): if it is also damaged, Recruits' right-click resolves to **Repair** instead of Enter (factions/cults/units/recruit.md > Right-Click Resolution).
 - **Full building**: a unit arriving when the building is full has its Enter **end** and idles beside the building (the normal Failure rule).
 - **Loads**: a Recruit carrying Space Crystals **keeps its load** inside and comes out with it; a Recruit consumed by training loses it.
 - **Under construction**: a building under construction **can't be entered**; a right-click on it Assists.
