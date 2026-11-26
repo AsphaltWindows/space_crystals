@@ -268,8 +268,8 @@ fn e_trains_a_field_engineer_once_a_career_campus_stands() {
     assert_eq!((queued(&app, 15), bank(&app)), (1, 925), "still queued, not refunded");
 }
 
-/// The InfoPanel's activity area, while it shows.
-fn activity(app: &mut App) -> Option<String> {
+/// The InfoPanel's activity area, while it shows (the Altar's tests' too, `super::altar`).
+pub(super) fn activity(app: &mut App) -> Option<String> {
     let mut texts = app.world_mut().query::<(&InfoText, &Text, &Node)>();
     texts
         .iter(app.world())

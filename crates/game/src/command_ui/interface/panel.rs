@@ -65,7 +65,8 @@ pub struct PanelSlot {
     /// An EjectMenu tile's count (`factions/syndicate/tunnel_menus.md > EjectMenu`: "Each tile shows the unit type icon
     /// and a count of how many of that type are in the network"): those not reserved on an eject queue
     /// ([`Conditions::network_count`]); a pool building's kind button's (design change 0337: "the count inside
-    /// (unreserved)", [`Conditions::pool_count`]); none on the other buttons.
+    /// (unreserved)", [`Conditions::pool_count`]); an Altar's type and state tiles' (slice M5-N1b,
+    /// [`Conditions::stored_count`]); none on the other buttons.
     pub count: Option<u32>,
     /// What a Build costs now, in its resource ([`Conditions::price`], design change 0233: "the price shown on the
     /// Build button is the next Tunnel's"; a Cults building's Space Crystals, slice M5-J1), and a Tunnel's Upgrade,

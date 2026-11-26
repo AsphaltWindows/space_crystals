@@ -104,7 +104,10 @@ pub fn recruitment(sim: &Sim, structure: &Object) -> Vec<String> {
 /// ArmoryInstanceState`: "StoredRecruits: list of Recruit references (max 10)"): how many are inside, the reserved ones
 /// included, of its capacity (design change 0347 point 5: "**Capacity counts everyone inside**"), and a pool building's
 /// free ones of each kind (design change 0337: "the count inside (unreserved)", `Sim::pool_counts`; slice M5-F2), every
-/// kind's. (M5-N2) Another's occupants, the Garrison's (plan §N2: "the occupants in the InfoPanel"), each kind it takes
+/// kind's; one that takes in several types, the Altar, its free ones of each type, every type's, as its type tiles count
+/// them (slice M5-N1b, `Sim::pool_counts_of`: **Placeholder**, `factions/cults/augmentation.md > Altar >
+/// AltarInstanceState` lists its StoredUnits, not how they show). (M5-N2) Another's occupants, the Garrison's (plan
+/// §N2: "the occupants in the InfoPanel"), each kind it takes
 /// in that is inside, in the order it lists them (`sc_sim::defs::HoldsDef::accepts`), with how many: **Placeholder
 /// (not in the design: the Garrison has no InstanceState)**. Nothing for a structure that holds none.
 pub fn holding(sim: &Sim, structure: &Object) -> Vec<String> {
@@ -114,11 +117,21 @@ pub fn holding(sim: &Sim, structure: &Object) -> Vec<String> {
     let inside = sim.held_in(structure.id);
     let mut lines = vec![format!("Inside: {} / {}", inside.len(), holds.capacity)];
     if holding::trains(structure.kind) {
-        let counts = sim.pool_counts(structure.id);
-        let kinds: Vec<String> = (RecruitKind::ALL.iter())
-            .map(|&kind| format!("{} {}", kind.name(), counts[kind as usize]))
-            .collect();
-        lines.push(format!("Free: {}", kinds.join(", ")));
+        let free: Vec<String> = match holds.accepts {
+            [_] => {
+                let counts = sim.pool_counts(structure.id);
+                (RecruitKind::ALL.iter())
+                    .map(|&kind| format!("{} {}", kind.name(), counts[kind as usize]))
+                    .collect()
+            }
+            types => (types.iter())
+                .map(|&unit| {
+                    let free: u32 = sim.pool_counts_of(structure.id, unit).iter().sum();
+                    format!("{} {free}", unit.def().name)
+                })
+                .collect(),
+        };
+        lines.push(format!("Free: {}", free.join(", ")));
     } else if !inside.is_empty() {
         let count = |kind| inside.iter().filter(|held| held.object.kind == kind).count();
         let kinds: Vec<String> = (holds.accepts.iter())
