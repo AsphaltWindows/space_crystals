@@ -11,7 +11,9 @@
 ## Energy - has an energy pool for its abilities (values TBD)
 
 ## Abilities
-- **Inspire**: buffs nearby own infantry with **increased movement speed**, and **Recruits** also with **increased attack speed**. How it is used (cast or toggled aura), area, size of the buff and duration: being settled.
-- **Suppress**: a screech in an **arc in front of it**. Affected units **temporarily can't attack**. Who it affects, arc size, duration and cost: being settled.
+- **Inspire**: buffs nearby own infantry with **increased movement speed**, and **Recruits** also with **increased attack speed**. **A cast** (user, 2026-11-27): it spends energy and buffs the infantry around it at that moment for a set duration. Area, size of the buff and duration: placeholders to follow.
+- **Suppress**: a screech in an **arc in front of it**. Affected units **temporarily can't attack**. - **Affects every unit in the arc, enemies and own alike** (user, 2026-11-27), like friendly fire. **Not buildings**: attacking structures (turrets, Garrisons) are unaffected.
+  - **What it stops** (user, 2026-11-27): **weapon attacks** and **abilities that use a weapon**. A Rocketman's **Target Lock can be maintained**, but no missile can be fired while suppressed. Other abilities (e.g. a Disciple's Shroud) are unaffected.
+  - Arc size, duration and cost: placeholders to follow.
 
 TBD: name; the details above; numbers; hotkeys.
