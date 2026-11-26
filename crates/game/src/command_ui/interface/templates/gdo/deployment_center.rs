@@ -43,10 +43,12 @@ const BASIC_MENU: [Option<ObjectKind>; 12] = {
 /// Powerplant, none of which is in the game yet: every slot hidden, and the menu unavailable (`super::super::offers`).
 const ADVANCED_MENU: [Option<ObjectKind>; 12] = [None; 12];
 
-/// The entries of the build menu `menu`, slot by slot (`CommandSlot::all` order): the buildings it constructs.
+/// The entries of the build menu `menu`, slot by slot (`CommandSlot::all` order): the buildings it constructs. None for
+/// the Field Engineer's Construct menu, which the Deployment Center hasn't.
 pub fn menu(menu: BuildMenu) -> &'static [Option<ObjectKind>; 12] {
     match menu {
         BuildMenu::Basic => &BASIC_MENU,
         BuildMenu::Advanced => &ADVANCED_MENU,
+        BuildMenu::Construct => &[None; 12],
     }
 }

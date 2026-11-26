@@ -111,17 +111,23 @@ pub enum InterfaceTemplate {
 /// has two Warp In menus "like the Deployment Center's two build menus" (`factions/colonists/economy.md > Beacon >
 /// Beacon ObjectInterfaceState`): Warp In (Basic) and Warp In (Advanced), whose entries are its own ([`menu_grid`]).
 /// So has the Cults' Recruit: BuildMenu\[Basic\] and BuildMenu\[Advanced\] (`factions/cults/units/recruit.md > Recruit
-/// ObjectInterfaceState`, design change 0327), the Construct menus ([`cults::construct_menu`]).
+/// ObjectInterfaceState`, design change 0327), the Construct menus ([`cults::construct_menu`]). The GDO's Field
+/// Engineer has one, its Construct menu ([`gdo::field_engineer`]).
 #[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum BuildMenu {
     /// BuildMenu\[Basic\], "Q: Basic Construction".
     Basic,
     /// BuildMenu\[Advanced\], "W: Advanced Construction": the Factory and everything after it.
     Advanced,
+    /// (M5-N9) The Field Engineer's one build menu, its A: "**A** Construct (a menu: **Q** Bunker, **W** First Aid
+    /// Tent, both greyed until designed; **Z** back)" (`factions/gdo/units/field_engineer.md > Placeholder stats`). A
+    /// menu of its own, named Construct, since a panel with one build menu has no Basic or Advanced one. No other type
+    /// has it.
+    Construct,
 }
 
 impl BuildMenu {
-    pub const ALL: [BuildMenu; 2] = [BuildMenu::Basic, BuildMenu::Advanced];
+    pub const ALL: [BuildMenu; 3] = [BuildMenu::Basic, BuildMenu::Advanced, BuildMenu::Construct];
 
     /// The Deployment Center's entries, slot by slot (`CommandSlot::all` order): the buildings it constructs
     /// ([`gdo::deployment_center::menu`]).

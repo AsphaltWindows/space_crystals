@@ -3969,10 +3969,11 @@ Drones, through one command flow (plan decision T10, slices M2-H1, M2-H2 and M3-
   one rule (`sc_sim::orders::resolution::RULES`). The InfoPanel shows a carrying Recruit's load to its owner, as a
   Drone's ("Carrying 2 Space Crystals", `info_panel::worker_lines`).
 - **The Field Engineer's panel** (slice M5-N9; `factions/gdo/units/field_engineer.md`, design change 0328):
-  `templates/gdo/field_engineer.rs` (`InterfaceTemplate::FieldEngineer`) is Q Move, A Construct, D Repair and X Stop.
-  A is `PanelCommand::BuildMenu(BuildMenu::Basic)`, named "Construct" (`PanelTemplate::names`) and labelled as every
-  Basic menu; its menu (`field_engineer::menu`, by `menu_grid`) is Q Bunker and W First Aid Tent, both `Planned`
-  until designed, and Z Back. D is the Recruit's Repair, and the right-click the sim's one rule
+  `templates/gdo/field_engineer.rs` (`InterfaceTemplate::FieldEngineer`) is Q Move, A Construct, D Repair and X Stop. A
+  is `PanelCommand::BuildMenu(BuildMenu::Construct)`, a build menu of its own that no other type has, labelled "Constr"
+  (six letters, the most a label keeps its size with) and named "Construct" in its hint; the Recruit's and the
+  Deployment Center's stay Basic and Advanced. Its menu (`field_engineer::menu`, by `menu_grid`) is Q Bunker and W First
+  Aid Tent, both `Planned` until designed, and Z Back. D is the Recruit's Repair, and the right-click the sim's one rule
   (`object_right_click`, as the BasicCombatUnit's): Repair on a damaged own building or vehicle, under
   `PointerDisplay::Repair`. The Barracks' panel is the Production template with the Field Engineer in E
   (`templates/gdo/barracks.rs`). The Career Campus, the Deployment Center's BuildMenu[Basic] D (greyed "Requires a

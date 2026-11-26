@@ -1,7 +1,8 @@
 //! The Field Engineer's UI in the client (slice M5-N9; design change 0328, `factions/gdo/units/field_engineer.md`):
-//! its panel, Q Move, A Construct, D Repair and X Stop, each hint naming it; A's menu, Q Bunker and W First Aid Tent
-//! greyed as not in the game yet, and Z back; and the Repair pointer over a damaged own Barracks, whose right-click
-//! repairs it for Space Crystals until it is full. The Barracks' E, which trains it once a Career Campus stands, is
+//! its panel, Q Move, A Construct, D Repair and X Stop, each hint naming it; A's menu, a build menu of its own whose
+//! button reads "Constr" (the Recruit's still read "Basic" and "Adv."), with Q Bunker and W First Aid Tent greyed as
+//! not in the game yet, and Z back; and the Repair pointer over a damaged own Barracks, whose right-click repairs it
+//! for Space Crystals until it is full. The Barracks' E, which trains it once a Career Campus stands, is
 //! `production`'s; the Deployment Center's D, the Career Campus, `construction`'s.
 
 use sc_sim::testing::ScenarioBuilder;
@@ -16,8 +17,11 @@ use KeyCode::{KeyA, KeyD, KeyQ, KeyW, KeyZ};
 const P1: PlayerId = PlayerId(1);
 const P2: PlayerId = PlayerId(2);
 
-// The objects of [`field_engineer_game`], by id: 1 player 1's Deployment Center on tiles (12, 9) to (15, 12), 2 their
-// Generator on tiles (18, 9) to (19, 10), 3 and 4 below, 5 player 2's Deployment Center far off.
+// The objects of [`field_engineer_game`], by id: 1 below, 2 player 1's Generator on tiles (18, 9) to (19, 10), 3 to 5
+// below, 6 player 2's Deployment Center far off.
+/// Player 1's Deployment Center, on tiles (12, 9) to (15, 12).
+const DC: u32 = 1;
+const DC_AT: Vec2 = Vec2::new(896.0, 704.0);
 /// Player 1's Barracks, on tiles (22, 10) to (24, 11).
 const BARRACKS: u32 = 3;
 const BARRACKS_AT: TilePos = TilePos::new(22, 10);
@@ -102,10 +106,9 @@ fn z() -> CommandSlot {
 
 /// `factions/gdo/units/field_engineer.md > Placeholder stats`: "Panel: **Q** Move; **A** Construct (a menu: **Q**
 /// Bunker, **W** First Aid Tent, both greyed until designed; **Z** back); **D** Repair [...]; **X** Stop". The
-/// selected Field Engineers show those four, A's hint naming it Construct, its label the Basic one of every Construct
-/// menu (`PanelCommand::BuildMenu`); A opens the menu, whose Q Build Bunker and W Set up First Aid Tent are greyed as
-/// not in the game yet and say so when pressed, the menu staying open, and Z goes back. D awaits its target and gives
-/// no order until it has one.
+/// selected Field Engineers show those four, A labelled "Constr" and its hint naming it Construct; A opens the menu,
+/// whose Q Build Bunker and W Set up First Aid Tent are greyed as not in the game yet and say so when pressed, the menu
+/// staying open, and Z goes back. D awaits its target and gives no order until it has one.
 #[test]
 fn the_field_engineers_panel_and_its_construct_menu() {
     use ButtonLook::{Back, Common, Unavailable};
@@ -116,7 +119,12 @@ fn the_field_engineers_panel_and_its_construct_menu() {
         buttons(&mut app),
         [
             (q(), cmd(PanelCommand::Move), Common, "Move"),
-            (a(), cmd(PanelCommand::BuildMenu(BuildMenu::Basic)), Common, "Basic"),
+            (
+                a(),
+                cmd(PanelCommand::BuildMenu(BuildMenu::Construct)),
+                Common,
+                "Constr"
+            ),
             (d(), cmd(PanelCommand::Repair), Common, "Repair"),
             (x(), cmd(PanelCommand::Stop), Common, "Stop"),
         ]
@@ -132,7 +140,7 @@ fn the_field_engineers_panel_and_its_construct_menu() {
     }
 
     tap(&mut app, &[], KeyA);
-    let menu = InterfaceState::BuildMenu(BuildMenu::Basic);
+    let menu = InterfaceState::BuildMenu(BuildMenu::Construct);
     assert_eq!(interface(&app), menu);
     let planned = |entry| cmd(PanelCommand::Planned(entry));
     assert_eq!(
@@ -162,6 +170,28 @@ fn the_field_engineers_panel_and_its_construct_menu() {
     tap(&mut app, &[], KeyD);
     assert_eq!(interface(&app), InterfaceState::awaiting(PanelCommand::Repair));
     assert_eq!(orders(&app), []);
+}
+
+/// The Field Engineer's A opens a build menu of its own (`BuildMenu::Construct`), which no other type has: its button
+/// reads "Constr", the six letters a label keeps its size with (slice M3-K2a), and its hint "A: Construct". A Recruit
+/// of player 1's (a debug spawn) still shows "Basic" in A and "Adv." in W, its two Construct menus, and the
+/// Deployment Center the same in Q and W, its two build menus.
+#[test]
+fn the_field_engineers_a_reads_constr_and_the_recruits_basic() {
+    let mut app = field_engineer_game();
+    let recruit = spawn(&mut app, ObjectKind::Recruit, Some(P1), Vec2::new(1700.0, 1000.0));
+    let shown = |app: &mut App, at: CommandSlot| (buttons(app).into_iter()).find(|b| b.0 == at).map(|b| (b.1, b.3));
+    let menu = |menu| PanelButton::Command(PanelCommand::BuildMenu(menu));
+    select_units(&mut app, &ENGINEERS);
+    assert_eq!(shown(&mut app, a()), Some((menu(BuildMenu::Construct), "Constr")));
+    assert_eq!(hint_over(&mut app, a()).as_deref(), Some("A: Construct"));
+    select_units(&mut app, &[recruit]);
+    assert_eq!(shown(&mut app, a()), Some((menu(BuildMenu::Basic), "Basic")));
+    assert_eq!(shown(&mut app, w()), Some((menu(BuildMenu::Advanced), "Adv.")));
+    click(&mut app, DC_AT, &[]);
+    assert_eq!(selected(&app), [DC]);
+    assert_eq!(shown(&mut app, q()), Some((menu(BuildMenu::Basic), "Basic")));
+    assert_eq!(shown(&mut app, w()), Some((menu(BuildMenu::Advanced), "Adv.")));
 }
 
 /// `factions/gdo/units/field_engineer.md > Placeholder stats`: "Right-click a damaged own building or vehicle: Repair"
