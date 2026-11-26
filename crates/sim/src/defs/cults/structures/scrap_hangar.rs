@@ -50,6 +50,7 @@ pub(crate) static SCRAP_HANGAR: ObjectDef = ObjectDef {
         holds: None,
         occupants_fire: None,
         research: None,
+        abilities: None,
     }),
     default_settings: None,
     energy: None,

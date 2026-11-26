@@ -221,6 +221,7 @@ impl Sim {
             energy,
             // Kept: whose research applies to it doesn't depend on its kind.
             kept_research: _,
+            buffs,
         } = o;
         *object_kind = kind;
         if let Some(placement) = &placement {
@@ -235,6 +236,9 @@ impl Sim {
             .map(|max| shields.map_or(max, |shields| shields.min(max)));
         // (M5-N4a) Kept at most the new maximum, or the new type's start, as Shields (`crate::energy::after_change`).
         *energy = crate::energy::after_change(*energy, kind);
+        // (M5-N5) Kept while their ability affects the new kind (`crate::buffs`): a Recruit's Health regeneration in
+        // the Militant it is trained into, not in a Seeker.
+        buffs.retain(|buff| buff.ability.affects(kind));
         *resource = None;
         let unit_of = |def: &'static ObjectDef| def.unit.as_ref();
         let keeps_shield = unit_of(old).map(|u| u.riot_shield) == unit_of(new).map(|u| u.riot_shield);

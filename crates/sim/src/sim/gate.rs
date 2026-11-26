@@ -5,7 +5,8 @@
 //! resolved ([`Checked`]), the dispatch by command ([`Sim::check`]) and the lookups of the objects a command names.
 //! Each family of commands has its own checks (plan decision T28): orders and abilities in `gate/orders.rs`, debug
 //! commands in `gate/debug.rs`, production in `sim/producers.rs`, construction in `sim/construction.rs`, the Tunnels'
-//! in `sim/network.rs` and the buildings that hold units' (slice M5-F1) in `sim/holding.rs`.
+//! in `sim/network.rs`, the buildings that hold units' (slice M5-F1) in `sim/holding.rs` and the casts (slice M5-N5) in
+//! `sim/casts.rs`.
 
 mod debug;
 mod orders;
@@ -21,7 +22,7 @@ use super::construction::Resolved;
 use super::producers::ProductionPlan;
 use crate::augmentation::Augmentation;
 use crate::command::{Ability, Command, HoldCommand, PlayerCommand};
-use crate::defs::ObjectKind;
+use crate::defs::{AreaAbility, ObjectKind};
 use crate::ids::{ObjectId, PlayerId};
 use crate::object::{Object, Placement};
 use crate::orders::{MAX_ORDER_UNITS, OrderKind};
@@ -106,6 +107,13 @@ pub(super) enum Checked {
         id: ObjectId,
         augmentation: Augmentation,
     },
+    /// (M5-N5) `caster`: the player's, in operation, casting `ability`, with the energy for it; `at`: a point the
+    /// player sees (`sim/casts.rs`).
+    Cast {
+        caster: ObjectId,
+        ability: AreaAbility,
+        at: Vec2,
+    },
 }
 
 impl Sim {
@@ -128,7 +136,7 @@ impl Sim {
     ///    or the transforming objects a cancel goes to (`sim/transform.rs`); a spawn's owner and placement (a
     ///    footprint apart from the others but for a plate on its patch, [`Reject::Overlaps`]), a teleport to a unit
     ///    and onto the map, a unit's box clear of blocked ground and of the units of its layer, and the player whose
-    ///    banks a debug command sets.
+    ///    banks a debug command sets; (M5-N5) a cast's caster, its energy and its point (`sim/casts.rs`).
     pub fn validate(&self, cmd: &PlayerCommand) -> Result<(), Reject> {
         self.check(cmd).map(|_| ())
     }
@@ -152,6 +160,7 @@ impl Sim {
             Command::Construction { objects, command } => self.check_construction(cmd.player, objects, *command),
             Command::Tunnel { tunnel, command } => self.check_tunnel(cmd.player, *tunnel, *command),
             Command::Holding { objects, command } => self.check_holding(cmd.player, objects, *command),
+            Command::Cast { casters, ability, at } => self.check_cast(cmd.player, casters, *ability, *at),
             Command::Debug(debug) => {
                 if !self.config.debug {
                     return Err(Reject::DebugDisabled);

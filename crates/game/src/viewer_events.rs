@@ -441,6 +441,9 @@ impl<'a> Arrival<'a> {
             | SimEvent::UpgradeCompleted { tunnel, .. }
             | SimEvent::UpgradeCancelled { tunnel, .. } => self.owner(tunnel),
             SimEvent::Blast { at, .. } => Audience::Seen(Sighting::at(at)),
+            // (M5-N5) A Shrine's cast shows where it was cast, as a blast: to its owner, who sees the point
+            // (`Sim::can_cast`), and to anyone else who does.
+            SimEvent::Cast { at, .. } => Audience::Seen(Sighting::at(at)),
         }
     }
 }

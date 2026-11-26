@@ -14,3 +14,10 @@ pub(super) fn str<'de, D: Deserializer<'de>>(deserializer: D) -> Result<&'static
 pub(super) fn slice<'de, D: Deserializer<'de>, T: Deserialize<'de>>(deserializer: D) -> Result<&'static [T], D::Error> {
     Vec::<T>::deserialize(deserializer).map(|list| &*list.leak())
 }
+
+/// An `Option<&'static [T]>` field: a list a type may not have, such as a structure's abilities.
+pub(super) fn option_slice<'de, D: Deserializer<'de>, T: Deserialize<'de>>(
+    deserializer: D,
+) -> Result<Option<&'static [T]>, D::Error> {
+    Option::<Vec<T>>::deserialize(deserializer).map(|list| list.map(|list| &*list.leak()))
+}

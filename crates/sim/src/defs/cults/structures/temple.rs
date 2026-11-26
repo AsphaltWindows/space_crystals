@@ -76,6 +76,7 @@ pub(crate) static TEMPLE: ObjectDef = ObjectDef {
             techs: &Tech::ALL,
             queue: 5,
         }),
+        abilities: None,
     }),
     default_settings: None,
     energy: None,

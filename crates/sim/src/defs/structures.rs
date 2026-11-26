@@ -3,7 +3,7 @@
 
 use serde::{Deserialize, Serialize};
 
-use crate::defs::{Armor, AttackAttrs, ObjectKind, Resource, UnitBase};
+use crate::defs::{AreaAbility, Armor, AttackAttrs, ObjectKind, Resource, UnitBase};
 use crate::sides::SideLetter;
 use crate::units::Tick;
 
@@ -115,6 +115,11 @@ pub struct StructureDef {
     /// for every other structure. Optional in files.
     #[serde(default)]
     pub research: Option<ResearchDef>,
+    /// (M5-N5) The area abilities the type casts (plan decisions T75 and T76, `crate::defs::AreaAbility`, each with its
+    /// numbers; `factions/cults/structures/shrine.md > Abilities`), each paid from its energy (`ObjectDef::energy`) by a
+    /// `Command::Cast`: the Shrine's two, in the order of its keys. `None` for every other structure. Optional in files.
+    #[serde(default, deserialize_with = "crate::defs::leak::option_slice")]
+    pub abilities: Option<&'static [AreaAbility]>,
 }
 
 /// A structure type that holds units inside (`StructureDef::holds`, plan decision T60; `crate::holding`): one

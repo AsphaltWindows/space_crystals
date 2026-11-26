@@ -212,6 +212,14 @@ pub enum Reject {
     /// (`core/tech_and_research.md > Tech Prerequisites > Research Prerequisites`: "A next level can only be queued
     /// once the previous level has **completed**").
     RequiresTech(Tech),
+    /// (M5-N5) None of the casters of a `Command::Cast` that cast its ability has the energy it costs
+    /// (`factions/cults/structures/shrine.md > Abilities`: "spend Shrine energy"; plan decision T76): what greys the
+    /// Shrine's Q and W.
+    NotEnoughEnergy,
+    /// (M5-N5) A cast's point isn't in the issuing player's vision now, as the last tick left it
+    /// (`factions/cults/structures/shrine.md > Abilities`: "cast on an area anywhere the player currently has vision";
+    /// plan decision T76).
+    OutOfSight,
 }
 
 impl fmt::Display for Reject {
@@ -286,6 +294,8 @@ impl fmt::Display for Reject {
             Reject::Researched(tech) => write!(f, "{} is researched already", tech.def().name),
             Reject::ResearchUnderWay(tech) => write!(f, "{} is being researched already", tech.def().name),
             Reject::RequiresTech(tech) => write!(f, "it requires {}", tech.def().name),
+            Reject::NotEnoughEnergy => write!(f, "not enough energy"),
+            Reject::OutOfSight => write!(f, "the point is out of sight"),
         }
     }
 }

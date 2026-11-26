@@ -55,6 +55,7 @@ pub(crate) static MACHINE_SHOP: ObjectDef = ObjectDef {
         holds: None,
         occupants_fire: None,
         research: None,
+        abilities: None,
     }),
     default_settings: None,
     energy: None,

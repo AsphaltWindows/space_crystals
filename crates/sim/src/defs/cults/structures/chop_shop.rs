@@ -64,6 +64,7 @@ pub(crate) static CHOP_SHOP: ObjectDef = ObjectDef {
         }),
         occupants_fire: None,
         research: None,
+        abilities: None,
     }),
     default_settings: None,
     energy: None,

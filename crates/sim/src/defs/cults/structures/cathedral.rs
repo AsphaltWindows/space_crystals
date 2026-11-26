@@ -89,6 +89,7 @@ pub(crate) static CATHEDRAL: ObjectDef = ObjectDef {
         }),
         occupants_fire: None,
         research: None,
+        abilities: None,
     }),
     default_settings: None,
     energy: None,

@@ -46,6 +46,7 @@ fn unit(kind: ObjectKind, up: u32) -> Object {
         augmentation: Default::default(),
         energy: None,
         kept_research: None,
+        buffs: Vec::new(),
     }
 }
 

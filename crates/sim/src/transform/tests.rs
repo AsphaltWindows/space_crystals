@@ -54,6 +54,7 @@ fn object(kind: ObjectKind, transform: Option<Transform>) -> Object {
         augmentation: Default::default(),
         energy: None,
         kept_research: None,
+        buffs: Vec::new(),
     }
 }
 

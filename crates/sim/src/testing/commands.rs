@@ -5,16 +5,16 @@ use glam::Vec2;
 
 use crate::command::{Ability, Command, DebugCommand, HoldCommand, TunnelCommand};
 use crate::construction::ConstructionCommand;
-use crate::defs::ObjectKind;
+use crate::defs::{AreaAbility, ObjectKind};
 use crate::ids::{ObjectId, PlayerId};
 use crate::orders::{OrderKind, Target};
 use crate::production::ProductionCommand;
 use crate::scenario::SpawnAt;
 
 /// One command of every kind: every variant of [`Command`], [`OrderKind`], [`Target`], [`Ability`],
-/// [`ProductionCommand`], [`ConstructionCommand`], [`DebugCommand`] and [`SpawnAt`], queued and not, for tests that
-/// a replay file keeps everything a player did (`ARCHITECTURE.md > Replays and golden hashes`). The ids needn't
-/// exist. The match below stops compiling when a variant is added, as a reminder to add it here.
+/// [`ProductionCommand`], [`ConstructionCommand`], [`DebugCommand`], [`SpawnAt`] and [`AreaAbility`], queued and not,
+/// for tests that a replay file keeps everything a player did (`ARCHITECTURE.md > Replays and golden hashes`). The ids
+/// needn't exist. The match below stops compiling when a variant is added, as a reminder to add it here.
 pub fn every_command() -> Vec<Command> {
     let units = vec![ObjectId(1), ObjectId(2)];
     let point = Vec2::new(48.5, 80.25);
@@ -217,6 +217,11 @@ pub fn every_command() -> Vec<Command> {
             command,
         }),
     );
+    commands.extend(AreaAbility::ALL.map(|ability| Command::Cast {
+        casters: units.clone(),
+        ability,
+        at: point,
+    }));
     for command in &commands {
         match command {
             Command::Order { kind, .. } => match kind {
@@ -267,6 +272,10 @@ pub fn every_command() -> Vec<Command> {
             } => {}
             Command::Holding {
                 command: HoldCommand::EjectAll | HoldCommand::ReleaseOne(_),
+                ..
+            } => {}
+            Command::Cast {
+                ability: AreaAbility::HealthRegeneration | AreaAbility::EnergyRegeneration,
                 ..
             } => {}
             Command::Debug(

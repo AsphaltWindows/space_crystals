@@ -56,6 +56,7 @@ pub(crate) static OPTICS_LAB: ObjectDef = ObjectDef {
         holds: None,
         occupants_fire: None,
         research: None,
+        abilities: None,
     }),
     default_settings: None,
     energy: None,

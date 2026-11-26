@@ -10,7 +10,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::augmentation::{Augmentation, RecruitKind};
 use crate::construction::ConstructionCommand;
-use crate::defs::ObjectKind;
+use crate::defs::{AreaAbility, ObjectKind};
 use crate::ids::{ObjectId, PlayerId};
 use crate::orders::OrderKind;
 use crate::production::ProductionCommand;
@@ -64,6 +64,17 @@ pub enum Command {
     Holding {
         objects: Vec<ObjectId>,
         command: HoldCommand,
+    },
+    /// (M5-N5) One of the player's `casters` casts the area ability `ability` at `at`, space units (plan decision T76:
+    /// a command, not an order, as a structure has no order queue; `factions/cults/structures/shrine.md > Abilities`:
+    /// "Both abilities are cast on an area anywhere the player currently has vision, and spend Shrine energy";
+    /// `crate::buffs`). The first of them in id order that casts it now does (`Sim::can_cast`): "each press casts from
+    /// one Shrine" (Q0118). Ids that no longer exist and repeated ids are dropped; the command is rejected if none of
+    /// the rest can cast it, one of them belongs to someone else, or the player doesn't see `at` now.
+    Cast {
+        casters: Vec<ObjectId>,
+        ability: AreaAbility,
+        at: Vec2,
     },
     /// Development / QA only — never offered to players in a real match.
     Debug(DebugCommand),

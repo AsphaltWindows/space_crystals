@@ -332,6 +332,7 @@ impl StateHash for Object {
             augmentation,
             energy,
             kept_research,
+            buffs,
         } = self;
         id.hash(h);
         kind.hash(h);
@@ -401,6 +402,11 @@ impl StateHash for Object {
         if let Some(player) = kept_research {
             h.tag(8);
             player.hash(h);
+        }
+        // (M5-N5) The same for a unit's buffs (`crate::buffs`), under a tag of its own: only while it has one.
+        if !buffs.is_empty() {
+            h.tag(9);
+            buffs.hash(h);
         }
     }
 }

@@ -5,7 +5,7 @@ use glam::Vec2;
 use serde::{Deserialize, Serialize};
 
 use crate::augmentation::AugmentOrder;
-use crate::defs::{ObjectKind, Resource, Tech};
+use crate::defs::{AreaAbility, ObjectKind, Resource, Tech};
 use crate::economy::ArmyResource;
 use crate::ids::{ObjectId, PlayerId};
 use crate::placement::PlacementCheck;
@@ -474,5 +474,13 @@ pub enum SimEvent {
     ResearchCompleted {
         producer: ObjectId,
         tech: Tech,
+    },
+    /// (M5-N5) `caster`, a Shrine, cast `ability` at `at`, space units, and paid its energy (`Command::Cast`): its
+    /// owner's units in the circle hold its buff from this tick on (`crate::buffs`). Seen where it was cast, as a
+    /// blast is.
+    Cast {
+        caster: ObjectId,
+        ability: AreaAbility,
+        at: Vec2,
     },
 }
