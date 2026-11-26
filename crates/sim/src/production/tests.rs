@@ -17,6 +17,7 @@ const BARRACKS: ProductionDef = ProductionDef {
         requires: &[],
     }],
     recruitment: None,
+    augment: &[],
 };
 
 fn queued(n: usize) -> Production {
@@ -225,6 +226,7 @@ const ARMORY: ProductionDef = ProductionDef {
         requires: &[],
     }],
     recruitment: None,
+    augment: &[],
 };
 
 /// (M5-F2) A pool building's entries each come with the units they reserve, which the queue hands back with the entry

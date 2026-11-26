@@ -22,9 +22,12 @@
 //!   overlap as a unit's turn begins don't block each other (`movement::space`), and each idle one steps off another
 //!   until they are apart (`movement::separate`), from the first movement phase after the removal on.
 //! - **As what**: as they are, the units an entry reserved too, as Recruits (the refunds of `Sim::remove_objects`
-//!   come between: "Orders are cancelled with a full refund"; "a Recruit mid-training comes out as a Recruit"); the
-//!   unit a finished training was letting out as its new type ([`Sim::evacuate`], `Sim::train`); each where it
-//!   stands, facing as it did, idle, with a `SimEvent::Evacuated`.
+//!   come between: "Orders are cancelled with a full refund"; "a Recruit mid-training comes out as a Recruit"; "a unit
+//!   mid-augmentation does not receive the Augmentation"); the unit a finished training was letting out as its new
+//!   type ([`Sim::evacuate`], `Sim::train`), and the one a finished augmentation order was letting out augmented
+//!   (slice M5-N1b, `Sim::augment`): **Placeholder (not in the design: an augmentation finished and waiting for the
+//!   doorway as its building goes)**, read as a training is ("its training was complete"), unrefunded. Each stands
+//!   where it is put, facing as it did, idle, with a `SimEvent::Evacuated`.
 
 use glam::Vec2;
 
@@ -36,6 +39,7 @@ use crate::math;
 use crate::nav;
 use crate::object::Placement;
 use crate::paths;
+use crate::production::QueueEntry;
 use crate::sim::Sim;
 use crate::units::{SU_PER_GU, TilePos};
 
@@ -45,19 +49,20 @@ pub(in crate::sim) struct Evacuation {
     building: ObjectId,
     placement: Placement,
     /// Its units, longest inside first (`Sim::held_in`), in the order they take the footprint's tiles, but for those
-    /// its finished entry consumes ([`Trained::consumed`]).
+    /// its finished entry consumes ([`Finished::consumed`]).
     units: Vec<ObjectId>,
-    /// Its front entry's training, if that was finished.
-    trained: Option<Trained>,
+    /// Its front entry, if that was finished.
+    finished: Option<Finished>,
 }
 
-/// The training a building's front entry had finished as the building went (design change 0349 point 3:
-/// "comes out as the trained unit, with no refund"): its first reserved unit, waiting for the doorway
-/// (`Sim::ready_to_leave`), comes out as a `kind`, and the others it reserved go into it (`Sim::train`).
+/// The entry a building's front had finished as the building went (design change 0349 point 3: "comes out as the
+/// trained unit, with no refund"): its first reserved unit, waiting for the doorway (`Sim::ready_to_leave`), comes out
+/// as the entry makes it (`Sim::complete`): a training's as the unit it trains, the others it reserved going into it
+/// (`Sim::train`), an augmentation order's augmented (slice M5-N1b), a Release's as it is.
 #[derive(Clone, Debug, PartialEq)]
-struct Trained {
+struct Finished {
     unit: ObjectId,
-    kind: ObjectKind,
+    entry: QueueEntry,
     consumed: Vec<ObjectId>,
 }
 
@@ -66,7 +71,7 @@ impl Sim {
     /// of the buildings, each building's longest inside first: the units its queue's entries reserved and the ones
     /// ejected and not out yet among them (`factions/cults/economy.md > Cults Building Mechanics > Evacuation on
     /// Destruction`: "units in the internal pool, units reserved by queued orders, the unit currently being trained").
-    /// A pool producer's front entry, if finished, leaves its queue here, unrefunded ([`Sim::finished_training`]);
+    /// A pool producer's front entry, if finished, leaves its queue here, unrefunded ([`Sim::finished_entry`]);
     /// `Sim::remove_objects` refunds the others after this, in full, and their units come out as they went in.
     pub(in crate::sim) fn evacuations(&mut self, gone: &[ObjectId]) -> Vec<Evacuation> {
         if self.held.is_empty() {
@@ -80,8 +85,8 @@ impl Sim {
             else {
                 continue;
             };
-            let trained = self.finished_training(id);
-            let consumed = trained.as_ref().map_or(&[][..], |trained| &trained.consumed[..]);
+            let finished = self.finished_entry(id);
+            let consumed = finished.as_ref().map_or(&[][..], |finished| &finished.consumed[..]);
             let units: Vec<ObjectId> = (self.held_in(id).into_iter())
                 .map(|held| held.object.id)
                 .filter(|unit| !consumed.contains(unit))
@@ -91,7 +96,7 @@ impl Sim {
                     building: id,
                     placement,
                     units,
-                    trained,
+                    finished,
                 });
             }
         }
@@ -100,9 +105,9 @@ impl Sim {
 
     /// Pool producer `building`'s front entry, if it is finished, its unit waiting for the doorway (the producers'
     /// step, `sim/producers/pool.rs`), leaves its queue without a refund: "its training was complete" (design change
-    /// 0349 point 3). A training's is returned; a Release's unit comes out as it is, as it was leaving. `None` for an
-    /// entry not finished (`Sim::refund_production` refunds it), and for any other building.
-    fn finished_training(&mut self, building: ObjectId) -> Option<Trained> {
+    /// 0349 point 3), and so was an augmentation order (module docs); a Release's unit comes out as it is, as it was
+    /// leaving. `None` for an entry not finished (`Sim::refund_production` refunds it), and for any other building.
+    fn finished_entry(&mut self, building: ObjectId) -> Option<Finished> {
         let o = self.objects.get_mut(&building)?;
         let def = o.def().structure.as_ref()?.production.as_ref()?;
         let production = o.production.as_mut()?;
@@ -111,9 +116,9 @@ impl Sim {
         }
         let (entry, reserved) = production.release()?;
         let (&unit, consumed) = reserved.split_first()?;
-        Some(Trained {
+        Some(Finished {
             unit,
-            kind: entry.unit()?,
+            entry,
             consumed: consumed.to_vec(),
         })
     }
@@ -121,8 +126,8 @@ impl Sim {
     /// The units of `evacuations` come out inside their buildings' former footprints, which have left the game,
     /// building by building, all in this call (module docs): each at the first tile from the next one in the
     /// footprint's order where it stands as what it comes out as ([`Sim::footprint_spot`]), facing as it did, idle, a
-    /// finished training's unit trained into its new type there (`Sim::train`, a `SimEvent::KindChanged`), each with
-    /// a `SimEvent::Evacuated`. **Placeholder (not in the design: a footprint none of whose tiles a unit can stand on,
+    /// finished training's unit trained into its new type there (`Sim::train`, a `SimEvent::KindChanged`), a finished
+    /// augmentation order's augmented (`Sim::augment`), each with a `SimEvent::Evacuated`. **Placeholder (not in the design: a footprint none of whose tiles a unit can stand on,
     /// whose terrain was buildable but isn't passable for it)**: the unit leaves the game (`Sim::remove_held`), with
     /// the units it would have consumed.
     pub(in crate::sim) fn evacuate(&mut self, evacuations: &[Evacuation]) {
@@ -134,15 +139,17 @@ impl Sim {
                 let Some(held) = self.held.get(&unit) else {
                     continue;
                 };
-                let trained = evacuation.trained.as_ref().filter(|trained| trained.unit == unit);
-                let kind = trained.map_or(held.object.kind, |trained| trained.kind);
+                let finished = evacuation.finished.as_ref().filter(|finished| finished.unit == unit);
+                let kind = finished
+                    .and_then(|finished| finished.entry.unit())
+                    .unwrap_or(held.object.kind);
                 let facing = math::facing_vector(held.object.facing);
                 let spot = (0..tiles.len()).map(|i| (next + i) % tiles.len()).find_map(|i| {
                     let spot = self.footprint_spot(kind, &evacuation.placement, tiles[i])?;
                     Some((i, spot))
                 });
                 let Some((tile, pos)) = spot else {
-                    let consumed = trained.map_or(&[][..], |trained| &trained.consumed[..]);
+                    let consumed = finished.map_or(&[][..], |finished| &finished.consumed[..]);
                     self.remove_held(&[&[unit][..], consumed].concat());
                     continue;
                 };
@@ -150,8 +157,8 @@ impl Sim {
                 if !self.put_on_map(unit, pos, facing) {
                     continue;
                 }
-                if let Some(trained) = trained {
-                    self.train(unit, trained.kind, &trained.consumed);
+                if let Some(finished) = finished {
+                    self.complete(unit, finished.entry, &finished.consumed);
                 }
                 self.events.push(SimEvent::Evacuated { unit, building });
             }

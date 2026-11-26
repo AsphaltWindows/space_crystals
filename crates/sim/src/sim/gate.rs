@@ -18,7 +18,7 @@ use glam::Vec2;
 use super::Sim;
 use super::construction::Resolved;
 use super::producers::ProductionPlan;
-use crate::augmentation::{Augmentation, RecruitKind};
+use crate::augmentation::{AugmentOrder, Augmentation, RecruitKind};
 use crate::command::{Ability, Command, HoldCommand, PlayerCommand};
 use crate::defs::ObjectKind;
 use crate::ids::{ObjectId, PlayerId};
@@ -206,6 +206,12 @@ pub enum Reject {
     /// (`factions/cults/augmentation.md > Eligibility`: "Only Cults infantry can be augmented";
     /// `augmentation::is_augmentable`).
     NotAugmentable(ObjectId),
+    /// (M5-N1b) None of the producers of an Augment takes the order (`ProductionDef::augment`: only an Altar does).
+    CannotAugment(AugmentOrder),
+    /// (M5-N1b) An Augment for units of this kind, which have an Augmentation the order applies
+    /// (`factions/cults/augmentation.md > Altar > Augmentation Orders`: "An order can only target a unit that is missing
+    /// every Augmentation the order applies"; `AugmentOrder::fits`).
+    AlreadyAugmented(RecruitKind),
 }
 
 impl fmt::Display for Reject {
@@ -274,6 +280,8 @@ impl fmt::Display for Reject {
             Reject::NoRecruit(kind) => write!(f, "no {} Recruit is free inside", kind.name()),
             Reject::CantRepair(id) => write!(f, "none of the units can repair object {} now", id.0),
             Reject::NotAugmentable(id) => write!(f, "object {} can't be augmented", id.0),
+            Reject::CannotAugment(order) => write!(f, "none of the producers applies {}", order.name()),
+            Reject::AlreadyAugmented(kind) => write!(f, "a {} unit has an Augmentation the order applies", kind.name()),
         }
     }
 }

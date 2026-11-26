@@ -1,6 +1,8 @@
 //! The types that hold units (plan decision T60, `crate::holding`): their holds (slice M5-F1), their entrance and their
-//! exit (slice M5-F3), the fire of the units inside (slice M5-N2).
+//! exit (slice M5-F3), the fire of the units inside (slice M5-N2), the augmentation orders of the units inside (slice
+//! M5-N1b).
 
+use crate::augmentation;
 use crate::combat;
 use crate::defs::{ExitRule, ObjectDef, ObjectKind, StructureDef};
 
@@ -17,8 +19,26 @@ use crate::defs::{ExitRule, ObjectDef, ObjectKind, StructureDef};
 /// (M5-N2) The units inside fire only from a building that holds them, has no attack of its own and takes them in:
 /// every kind it takes in fires, its own attack or its stand-in's, and the kinds its rules name are kinds it takes in
 /// (`OccupantFire`: the Garrison's "Without units inside, the Garrison does not attack").
+///
+/// (M5-N1b) Augmentation orders are of the units inside (`ProductionDef::augment`, `factions/cults/augmentation.md >
+/// Altar > Augmentation Orders`): a producer that takes them holds units, of kinds it can augment, and lists each order
+/// once, each taking time.
 pub(super) fn holds_are_consistent(def: &ObjectDef, structure: &StructureDef) {
     let name = def.name;
+    if let Some(production) = structure.production.as_ref().filter(|p| !p.augment.is_empty()) {
+        let holds = (structure.holds.as_ref()).unwrap_or_else(|| panic!("{name}: augments, holds none"));
+        for &kind in holds.accepts {
+            assert!(
+                augmentation::is_augmentable(kind),
+                "{name}: takes in {kind:?}, which it can't augment"
+            );
+        }
+        for (i, recipe) in production.augment.iter().enumerate() {
+            assert!(recipe.frames > 0, "{name}: {recipe:?}");
+            let twice = production.augment[..i].iter().any(|r| r.order == recipe.order);
+            assert!(!twice, "{name} lists {:?} twice", recipe.order);
+        }
+    }
     if let Some(fire) = &structure.occupants_fire {
         let holds = structure
             .holds

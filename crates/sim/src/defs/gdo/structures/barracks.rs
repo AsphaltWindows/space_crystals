@@ -39,6 +39,7 @@ pub(crate) static BARRACKS: ObjectDef = ObjectDef {
                 requires: &[],
             }],
             recruitment: None,
+            augment: &[],
         }),
         mining: None,
         onto: None,

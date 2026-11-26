@@ -1,8 +1,11 @@
-//! The rows of the filter's table (`every_kind_of_event_reaches_whom_the_table_says`), in the world of `super::world`.
+//! The rows of the filter's table (`every_kind_of_event_reaches_whom_the_table_says`), in the world of `super::world`;
+//! those of the buildings that hold units in `table/holding.rs`.
 
 use sc_sim::{ArmyResource, BuildingOrientation, PlacementCheck, Refusal};
 
 use super::*;
+
+mod holding;
 
 /// One event of every kind, a few kinds more than once, each with what four viewers perceive of it: player 1, the
 /// owner of what it is about (or the shooter's owner); player 2, an enemy who sees where it is; player 3, an enemy in
@@ -27,7 +30,7 @@ pub(super) fn table(sim: &Sim) -> Vec<(SimEvent, [Seen; 4])> {
     let orientation = BuildingOrientation::default();
     let problems = PlacementCheck::default();
     let (kind, refund) = (ObjectKind::Hideout, 75);
-    vec![
+    let mut rows = vec![
         (SimEvent::Spawned(UNIT), [W, W, N, W]),
         (SimEvent::Spawned(HIDEOUT), [W, N, N, W]),
         (SimEvent::Removed(DEAD), [W, W, N, W]),
@@ -284,37 +287,6 @@ pub(super) fn table(sim: &Sim) -> Vec<(SimEvent, [Seen; 4])> {
             },
             [W, N, N, N],
         ),
-        // (M5-F1) A building that holds units, as the Tunnel stands for one here: its pool full, the unit going in,
-        // coming out of its doorway, and evacuated as it goes.
-        (
-            SimEvent::EnterFailed {
-                unit: UNIT,
-                target: TUNNEL,
-                full: true,
-            },
-            [W, N, N, N],
-        ),
-        (
-            SimEvent::EnteredBuilding {
-                unit: HELD,
-                building: TUNNEL,
-            },
-            [W, W, N, W],
-        ),
-        (
-            SimEvent::LeftBuilding {
-                unit: UNIT,
-                building: TUNNEL,
-            },
-            [W, W, N, W],
-        ),
-        (
-            SimEvent::Evacuated {
-                unit: UNIT,
-                building: GONE,
-            },
-            [W, W, N, W],
-        ),
         (
             SimEvent::TargetTooClose {
                 unit: UNIT,
@@ -455,20 +427,7 @@ pub(super) fn table(sim: &Sim) -> Vec<(SimEvent, [Seen; 4])> {
             },
             [P, P, P, W],
         ),
-        // (M5-F2) A pool building's Release, queued and taken back: its owner's, as its production's news.
-        (
-            SimEvent::ReleaseQueued {
-                producer: TUNNEL,
-                unit: UNIT,
-            },
-            [W, N, N, N],
-        ),
-        (
-            SimEvent::ReleaseCancelled {
-                producer: TUNNEL,
-                unit: UNIT,
-            },
-            [W, N, N, N],
-        ),
-    ]
+    ];
+    rows.extend(holding::rows());
+    rows
 }

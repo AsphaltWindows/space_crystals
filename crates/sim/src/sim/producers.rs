@@ -41,13 +41,20 @@ fn producer(o: &Object) -> Option<(&Production, &'static ProductionDef)> {
 
 /// The event of `producer`'s entry `entry` leaving its queue unmade, with `refund` Space Crystals back (X, or the
 /// producer leaving the game): a unit's `SimEvent::ProductionCancelled`, a Release's `SimEvent::ReleaseCancelled`
-/// (slice M5-F2), which names the unit it had reserved, `reserved`'s first.
+/// (slice M5-F2) and an augmentation order's `SimEvent::AugmentCancelled` (slice M5-N1b), which name the unit they had
+/// reserved, `reserved`'s first.
 pub(super) fn cancelled(producer: ObjectId, entry: QueueEntry, reserved: &[ObjectId], refund: u32) -> Option<SimEvent> {
     match entry {
         QueueEntry::Unit(kind) => Some(SimEvent::ProductionCancelled { producer, kind, refund }),
         QueueEntry::Release => Some(SimEvent::ReleaseCancelled {
             producer,
             unit: *reserved.first()?,
+        }),
+        QueueEntry::Augment { order } => Some(SimEvent::AugmentCancelled {
+            producer,
+            unit: *reserved.first()?,
+            order,
+            refund,
         }),
     }
 }
@@ -80,10 +87,17 @@ impl Sim {
                     let event = match (entry, units.first()) {
                         (QueueEntry::Unit(kind), _) => SimEvent::ProductionQueued { producer: id, kind },
                         (QueueEntry::Release, Some(&unit)) => SimEvent::ReleaseQueued { producer: id, unit },
-                        (QueueEntry::Release, None) => continue,
+                        (QueueEntry::Augment { order }, Some(&unit)) => SimEvent::AugmentQueued {
+                            producer: id,
+                            unit,
+                            order,
+                        },
+                        (QueueEntry::Release | QueueEntry::Augment { .. }, None) => continue,
                     };
                     // "deducts 50 Space Crystals from player, adds Peacekeeper to BuildQueue" (the gate checked
-                    // the bank, each producer after what the ones before it took); a Release is free.
+                    // the bank, each producer after what the ones before it took); a Release is free, an
+                    // augmentation order paid as a unit is ("Queuing an order immediately deducts its Space Crystals
+                    // cost").
                     let paid = self
                         .players
                         .iter_mut()

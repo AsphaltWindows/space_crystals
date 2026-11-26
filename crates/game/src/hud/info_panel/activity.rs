@@ -142,7 +142,9 @@ pub fn holding(sim: &Sim, structure: &Object) -> Vec<String> {
 /// "Recruiting", and the Hall shows no queue: it makes one Recruit at a time, by itself (slice M5-C). A pool building's
 /// TrainingQueue (`factions/cults/structures/armory.md > ArmoryInstanceState`) shows its entries by name, a Release as
 /// "Release", of its capacity, which bounds it (design change 0347 point 5); a Release under way is "Releasing" its unit
-/// (slice M5-F2).
+/// (slice M5-F2). An Altar's AugmentationQueue (`factions/cults/augmentation.md > Altar > AltarInstanceState`) shows its
+/// orders by name, "Enhanced Constitution", "Improved Metabolism" and "Both", and the one under way is "Augmenting" its
+/// unit, with the order: "Augmenting Militant (Enhanced Constitution): 45%" (slice M5-N1b; placeholder wording).
 pub fn production(sim: &Sim, sight: &Sight, structure: &Object) -> Vec<String> {
     let Some(production) = &structure.production else {
         return Vec::new();
@@ -156,12 +158,12 @@ pub fn production(sim: &Sim, sight: &Sight, structure: &Object) -> Vec<String> {
             total => u64::from(status.progress) * 100 / u64::from(total),
         };
         let doing = if recruits { "Recruiting" } else { "Training" };
+        let unit = (production.reserved_by_current().first()).and_then(|&unit| sim.held_unit(unit));
+        let unit = unit.map_or("", |held| held.object.def().name);
         let name = match status.entry {
             QueueEntry::Unit(kind) => format!("{doing} {}", kind.def().name),
-            QueueEntry::Release => {
-                let unit = (production.reserved_by_current().first()).and_then(|&unit| sim.held_unit(unit));
-                format!("Releasing {}", unit.map_or("", |held| held.object.def().name))
-            }
+            QueueEntry::Release => format!("Releasing {unit}"),
+            QueueEntry::Augment { order } => format!("Augmenting {unit} ({})", order.name()),
         };
         lines.push(format!("{}: {percent}%", name.trim_end()));
         if let Some(cap) = status.blocked {
@@ -170,7 +172,11 @@ pub fn production(sim: &Sim, sight: &Sight, structure: &Object) -> Vec<String> {
         match holding::holds(structure).filter(|_| holding::trains(structure.kind)) {
             Some(holds) => {
                 let entries: Vec<&str> = (production.queue.iter())
-                    .map(|entry| entry.unit().map_or("Release", |kind| kind.def().name))
+                    .map(|entry| match *entry {
+                        QueueEntry::Unit(kind) => kind.def().name,
+                        QueueEntry::Release => "Release",
+                        QueueEntry::Augment { order } => order.name(),
+                    })
                     .collect();
                 let (queued, capacity) = (production.queue.len(), holds.capacity);
                 lines.push(format!("Queue: {} ({queued} / {capacity})", entries.join(", ")));

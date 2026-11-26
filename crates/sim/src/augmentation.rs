@@ -15,11 +15,15 @@
 //! - **The effects** (slice M5-N1a, plan decision T73; `stats.rs`): a unit's MaxHP, speed and weapon are read through
 //!   accessors that apply its net increments ([`Increments`]): `Object::max_hp_with`, `Object::movement`,
 //!   `Object::max_speed` and `combat::weapon`. Its HP follows its MaxHP when its Augmentations change ([`follow_max`]):
-//!   `DebugCommand::SetAugmentation` sets them for tests and QA runs until the Altar does (slice M5-N1b).
+//!   the Altar sets them as its orders complete (slice M5-N1b, `Sim::augment`), and `DebugCommand::SetAugmentation`
+//!   for tests and QA runs.
 //!   `tests/augmentation/raw_reads.rs` keeps the stats' raw reads out of the code outside the accessors
 //!   (`ARCHITECTURE.md > Object model > Augmented stats`).
+//! - **The Altar's orders** (slice M5-N1b, `orders.rs`): Enhanced Constitution, Improved Metabolism or Both
+//!   ([`AugmentOrder`]), each for a unit missing every Augmentation it applies.
 
 mod levels;
+mod orders;
 mod stats;
 #[cfg(test)]
 mod tests;
@@ -29,6 +33,7 @@ use serde::{Deserialize, Serialize};
 use crate::hash::{StateHash, StateHasher};
 
 pub use levels::{Level, Levels, Research};
+pub use orders::AugmentOrder;
 pub use stats::{Increments, follow_max, is_augmentable};
 pub(crate) use stats::{augmented, max_hp_of, movement_of, set};
 
