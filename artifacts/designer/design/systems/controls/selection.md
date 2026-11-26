@@ -66,17 +66,17 @@ When the player drags a selection box, the objects captured are filtered by a 5-
 
 **Allied objects** (once teams exist) are other players' objects and are never multi-selected (user, 2026-11-23). For the priority tiers they are treated like enemy objects (placeholder until teams are designed).
 
-Only tier 1 (own units) produces a multi-selection. All other tiers select exactly one object — the one closest to the center of the box.
+Only tier 1 (own units) produces a multi-selection. All other tiers select exactly one object — the one closest to the center of the box. This holds for **groupable buildings** too (user, 2026-11-26; Q0151): a box over several Recruitment Halls selects one; select several with Shift-click, Ctrl-click or double-click (MapClickSelection), or Shift + box.
 
 ### Shift + box (add)
 Holding **Shift** while dragging a box **adds** the box's result (after the priority tiers) to the current selection. The current selection **always stays selected**: Shift + box never removes anything, unlike Shift-click, which toggles (user, 2026-11-23). Objects that can't be added under Selection > Constraints (e.g. an enemy, neutral object or other player's object when own objects are selected) are not added, and the selection stays unchanged.
 
-**Adding to a non-owned selection** (user, 2026-11-23): when the current selection is a single enemy, neutral or other player's object, any add input (Shift + box, Shift-click, Ctrl+Shift-click on own units) does **nothing**: the inspected object stays selected. Use a plain click or box to select own units instead.
+**Adding to a non-owned selection** (user, 2026-11-23): when the current selection is a single enemy, neutral or other player's object, any add input (Shift + box, Shift-click, Ctrl+Shift-click on own objects) does **nothing**: the inspected object stays selected. Use a plain click or box to select own objects instead.
 
 ### Empty clicks and boxes (user, 2026-11-23)
 - A plain click on empty ground, or a plain box that captures nothing, **clears** the selection.
 - Shift-click or Ctrl-click on empty ground does **nothing** (selection kept).
-- Ctrl+Shift-click on empty ground also does nothing. (Ctrl+Shift-click on an own unit: see MapClickSelection.)
+- Ctrl+Shift-click on empty ground also does nothing. (Ctrl+Shift-click on an own object: see MapClickSelection.)
 
 ## MapClickSelection
 Selection by clicking objects on the map (as opposed to portraits in the SelectionPanel). Default inputs (user, 2026-11-23):
@@ -84,10 +84,12 @@ Selection by clicking objects on the map (as opposed to portraits in the Selecti
 | Input | Effect |
 |-------|--------|
 | Left-click object | Replace selection with that object |
-| Shift-click own unit | Toggle that unit in the selection: add it if not selected, remove it if selected |
-| Ctrl-click own unit | Select all own units of that type currently on screen |
-| Double-click own unit | Same as Ctrl-click |
-| Ctrl+Shift-click own unit | **Add** all own units of that type currently on screen to the current selection (never removes; user, 2026-11-23) |
+| Shift-click own object | Toggle that object in the selection: add it if not selected, remove it if selected |
+| Ctrl-click own object | Select all own objects of that type currently on screen |
+| Double-click own object | Same as Ctrl-click |
+| Ctrl+Shift-click own object | **Add** all own objects of that type currently on screen to the current selection (never removes; user, 2026-11-23) |
+
+**Own buildings too** (user, 2026-11-26; Q0151): the modifier clicks above work on **own buildings** as on own units (they were units only). Shift-click adds or removes any own building; Ctrl-click, double-click and Ctrl+Shift-click take every own building of that type on screen. Ungroupable buildings selected this way each form their own SelectionGroup (Constraints above). "Of that type" follows the SelectionGroup rule: an **unfinished** building counts as another type from finished ones (SelectionGroup > No smart-casting, "Unfinished buildings form their own group"), so Ctrl-click on a finished Hall takes the finished Halls on screen.
 
 The Selection Constraints above still apply (e.g. an enemy or neutral object is always selected alone).
 
