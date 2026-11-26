@@ -37,6 +37,7 @@ use crate::ids::ObjectId;
 use crate::object::Object;
 use crate::production::QueueEntry;
 use crate::recruitment::{self, Capacity, Claims, HallState, Lineages};
+use crate::units::TilePos;
 
 impl Sim {
     /// Every object of the game: the map's and the units held off it (`Sim::held`), whose lineages count as theirs.
@@ -47,6 +48,13 @@ impl Sim {
     /// The tiles each completed Hall claims at the end of the latest tick (`crate::recruitment::Claims`).
     pub fn claims(&self) -> Claims {
         Claims::of(self.objects.values(), &self.map)
+    }
+
+    /// (M5-J2) The tiles `hall` claims at the end of the latest tick, row by row (`crate::recruitment::claimed_tiles`):
+    /// what a selected own Hall shows (`factions/cults/structures/recruitment_hall.md > Recruitment Area display`);
+    /// none for an object that isn't a completed Hall.
+    pub fn claimed_tiles(&self, hall: ObjectId) -> Vec<TilePos> {
+        recruitment::claimed_tiles(self.objects.values(), &self.map, hall)
     }
 
     /// What Hall `id`'s state shows at the end of the latest tick (`factions/cults/structures/recruitment_hall.md >

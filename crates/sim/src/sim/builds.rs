@@ -132,8 +132,10 @@ impl Sim {
     }
 
     /// `player`'s pending worker builds ([`Sim::pending_builds`]) as they will be once the units `except` have dropped
-    /// their orders: a ghost goes only with its last holder.
-    pub(crate) fn pending_without(&self, player: PlayerId, except: &[ObjectId]) -> Vec<PendingBuild> {
+    /// their orders: a ghost goes only with its last holder. (M5-J2) Public for the Recruitment Area display
+    /// (`factions/cults/structures/recruitment_hall.md > Recruitment Area display`): a click without Shift replaces the
+    /// orders of the Recruits placing, whose ghosts then don't count, as in their placement check.
+    pub fn pending_without(&self, player: PlayerId, except: &[ObjectId]) -> Vec<PendingBuild> {
         let mut pending = Vec::new();
         let mut tickets = Vec::new();
         for o in (self.objects.values()).filter(|o| o.owner == Some(player) && !except.contains(&o.id)) {
@@ -147,8 +149,13 @@ impl Sim {
                     }
                     tickets.push(ticket);
                 }
-                let worker = o.id;
-                pending.push(PendingBuild { worker, kind, site });
+                let (worker, group) = (o.id, order.group);
+                pending.push(PendingBuild {
+                    worker,
+                    kind,
+                    site,
+                    group,
+                });
             }
         }
         pending

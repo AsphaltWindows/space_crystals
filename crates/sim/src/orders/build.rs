@@ -22,9 +22,9 @@ use crate::scenario::BuildingOrientation;
 use crate::tuning::movement::JAMMED_TICKS;
 use crate::units::{Tick, TilePos};
 
-use super::OrderKind;
 use super::state::SiteWalk;
 use super::world::Unit;
+use super::{OrderGroup, OrderKind};
 
 /// A lingering build ghost (`core/entities.md > Placement Validation > Lingering build ghosts`): a worker's order to
 /// build, current or queued, until the construction starts or the order goes. A group's Build is one ghost, however
@@ -37,6 +37,10 @@ pub struct PendingBuild {
     pub kind: ObjectKind,
     /// Its footprint, turned as ordered.
     pub site: Placement,
+    /// (M5-J2) Its order's group (`super::Order::group`): its command's, a new one with each command
+    /// (`Sim::give_order`), so the order the ghosts were placed in (design change 0351: "in their order of placement",
+    /// `crate::recruitment::preview`), until the counter wraps after 2³² commands.
+    pub group: OrderGroup,
 }
 
 /// What a worker-build order puts down, and its footprint: a Deploy's Beacon ([`deploy::site`]), a Build's structure

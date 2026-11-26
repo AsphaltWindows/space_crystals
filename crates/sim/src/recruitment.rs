@@ -22,7 +22,8 @@
 //!   are Recruitable (`TilePreset::recruitable`):
 //!   "Buildings do not affect recruitability". Being derived, the tiles a destroyed Hall claimed go to the next Halls
 //!   in the order in the tick it is gone ("if multiple halls contest a newly freed tile, the one that was built first
-//!   claims it"), and their capacity rises with them.
+//!   claims it"), and their capacity rises with them. One rule claims for the game and for the placement preview
+//!   ([`winners`], [`preview`]; slice M5-J2): each competitor ranked, a tile to the least by (rank, distance, id).
 //! - **Effectiveness and capacity** ([`Capacity`], `factions/cults/structures/recruitment_hall.md > Effectiveness`,
 //!   `factions/cults/structures/recruitment_hall.md > BaseUnitControlCapacity - 20`): the claimed tiles over the
 //!   area's, and BaseUnitControlCapacity times that, rounded down everywhere (design change 0341 point 2; the Claiming
@@ -37,6 +38,11 @@
 //!   unit without a lineage, a map's or a debug spawn's (design change 0344: "Recruits no Hall produced [...] are
 //!   orphans from the start"). A player's used Unit Control is their Halls' usage plus their orphaned points
 //!   (`factions/cults/structures/recruitment_hall.md > Cults Unit Control HUD Display`, `economy::army`).
+//! - **The placement preview** ([`preview`], slice M5-J2; `factions/cults/structures/recruitment_hall.md > Recruitment
+//!   Area display`): the tiles of a Hall being placed as the Halls its player knows of would leave them, and the
+//!   Effectiveness it would have.
+
+pub mod preview;
 
 use std::collections::{BTreeMap, BTreeSet};
 
@@ -56,13 +62,76 @@ pub fn def_of(kind: ObjectKind) -> Option<&'static RecruitmentDef> {
 /// docs): the square of `def.area` tiles a side centred on the footprint. Where the two can't be centred exactly, the
 /// odd tile is on the far side (east or south); the Hall's 10 and 4 centre exactly, 3 tiles on every side.
 pub fn area(placement: &Placement, def: &RecruitmentDef) -> impl Iterator<Item = TilePos> + use<> {
+    let (TilePos { x: x0, y: y0 }, side) = area_square(placement, def);
+    (0..side).flat_map(move |dy| (0..side).map(move |dx| TilePos::new(x0 + dx, y0 + dy)))
+}
+
+/// The north-west tile of the Recruitment Area of a Hall of `def` at `placement` ([`area`]), and its side in tiles.
+pub(crate) fn area_square(placement: &Placement, def: &RecruitmentDef) -> (TilePos, i32) {
     let side = i32::try_from(def.area).unwrap_or(i32::MAX);
     let start = |origin: i32, size: u32| origin - (side - i32::try_from(size).unwrap_or(side)).div_euclid(2);
-    let (x0, y0) = (
+    let origin = TilePos::new(
         start(placement.origin.x, placement.w),
         start(placement.origin.y, placement.h),
     );
-    (0..side).flat_map(move |dy| (0..side).map(move |dx| TilePos::new(x0 + dx, y0 + dy)))
+    (origin, side)
+}
+
+/// Whether `tile` is Recruitable on `map` (`TilePreset::recruitable`): "Buildings do not affect recruitability"
+/// (`factions/cults/structures/recruitment_hall.md > Effectiveness`), and a tile off the map is none.
+pub fn recruitable(map: &Map, tile: TilePos) -> bool {
+    map.tile_preset(tile).is_some_and(|preset| preset.recruitable)
+}
+
+/// A Hall competing for the tiles of its area ([`winners`]): its rank, the least claiming first, the identity that
+/// ends a tie, where it stands, and its def.
+#[derive(Copy, Clone, Debug)]
+pub(crate) struct Contender<R, I> {
+    pub rank: R,
+    pub id: I,
+    pub placement: Placement,
+    pub def: &'static RecruitmentDef,
+}
+
+/// Which of `contenders` claims each tile of their areas that is `recruitable`, tile by tile row by row: the one of the
+/// least (rank, distance from its centre, id) whose area has it (module docs, design change 0341: "each contested tile
+/// goes to the Hall whose centre is nearer; at exactly equal distance, to the Hall with the lower object id"). The one
+/// rule of claiming: the game's ranks the completed Halls by the tick they were completed ([`Claims::of`]), the
+/// placement preview the Halls its player knows of ([`preview::Preview::of`]).
+pub(crate) fn winners<R: Ord + Copy, I: Ord + Copy>(
+    contenders: impl IntoIterator<Item = Contender<R, I>>,
+    recruitable: impl Fn(TilePos) -> bool,
+) -> impl Iterator<Item = (TilePos, I)> {
+    let mut first: BTreeMap<TilePos, (R, u64, I)> = BTreeMap::new();
+    for c in contenders {
+        for tile in area(&c.placement, c.def).filter(|&tile| recruitable(tile)) {
+            let key = (c.rank, distance_squared(&c.placement, tile), c.id);
+            first.entry(tile).and_modify(|k| *k = (*k).min(key)).or_insert(key);
+        }
+    }
+    first.into_iter().map(|(tile, (_, _, id))| (tile, id))
+}
+
+/// The completed Halls among `objects` as they compete for tiles (module docs): each ranked by the tick it was
+/// completed, its id ending a tie. "A Hall under construction claims nothing" (`Object::is_operational`).
+fn completed<'a>(objects: impl IntoIterator<Item = &'a Object>) -> impl Iterator<Item = Contender<Tick, ObjectId>> {
+    (objects.into_iter().filter(|o| o.is_operational())).filter_map(|o| {
+        Some(Contender {
+            rank: o.production.as_ref()?.completed_at,
+            id: o.id,
+            placement: o.placement?,
+            def: def_of(o.kind)?,
+        })
+    })
+}
+
+/// The tiles `hall` claims among `objects` on `map` ([`Claims::of`]'s rule), row by row: none for an object that isn't
+/// a completed Hall. What a selected own Hall shows (`factions/cults/structures/recruitment_hall.md > Recruitment Area
+/// display`: "A selected own Hall shows its claimed tiles"; slice M5-J2).
+pub fn claimed_tiles<'a>(objects: impl IntoIterator<Item = &'a Object>, map: &Map, hall: ObjectId) -> Vec<TilePos> {
+    (winners(completed(objects), |tile| recruitable(map, tile)))
+        .filter_map(|(tile, id)| (id == hall).then_some(tile))
+        .collect()
 }
 
 /// The tiles each completed Hall claims (module docs, `factions/cults/structures/recruitment_hall.md > TileClaiming`):
@@ -75,21 +144,9 @@ impl Claims {
     /// Hall of the least (completion tick, distance from its centre, id) whose area has it (module docs, design change
     /// 0341).
     pub fn of<'a>(objects: impl IntoIterator<Item = &'a Object>, map: &Map) -> Claims {
-        let mut claims = BTreeMap::new();
-        let mut first: BTreeMap<TilePos, (Tick, u64, ObjectId)> = BTreeMap::new();
-        for o in objects.into_iter().filter(|o| o.is_operational()) {
-            let (Some(production), Some(placement), Some(def)) = (&o.production, &o.placement, def_of(o.kind)) else {
-                continue;
-            };
-            claims.insert(o.id, 0u32);
-            for tile in area(placement, def) {
-                if map.tile_preset(tile).is_some_and(|preset| preset.recruitable) {
-                    let key = (production.completed_at, distance_squared(placement, tile), o.id);
-                    first.entry(tile).and_modify(|k| *k = (*k).min(key)).or_insert(key);
-                }
-            }
-        }
-        for (_, _, hall) in first.into_values() {
+        let halls: Vec<_> = completed(objects).collect();
+        let mut claims: BTreeMap<ObjectId, u32> = halls.iter().map(|hall| (hall.id, 0)).collect();
+        for (_, hall) in winners(halls, |tile| recruitable(map, tile)) {
             *claims.entry(hall).or_default() += 1;
         }
         Claims(claims)
@@ -191,9 +248,17 @@ pub struct HallState {
 impl HallState {
     /// Its Effectiveness in whole percent, rounded down: 100% only with every tile of its area claimed.
     pub fn effectiveness_percent(&self) -> u32 {
-        let percent = u64::from(self.claimed) * 100 / u64::from(self.tiles.max(1));
-        u32::try_from(percent).unwrap_or(u32::MAX)
+        effectiveness_percent(self.claimed, self.tiles)
     }
+}
+
+/// The Effectiveness of a Hall that claims `claimed` of its area's `tiles`, in whole percent, rounded down
+/// (`factions/cults/structures/recruitment_hall.md > Effectiveness`: "(number of claimed Recruitable tiles in
+/// Recruitment Area) / (total number of tiles in Recruitment Area)"; rounded down as its capacity is, design change
+/// 0341 point 2).
+pub fn effectiveness_percent(claimed: u32, tiles: u32) -> u32 {
+    let percent = u64::from(claimed) * 100 / u64::from(tiles.max(1));
+    u32::try_from(percent).unwrap_or(u32::MAX)
 }
 
 /// The Unit Control the units' lineages use (module docs; `factions/cults/structures/recruitment_hall.md > Unit Control
