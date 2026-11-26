@@ -24,23 +24,23 @@
 //! selected Tunnel's in violet, the rings in theirs ([`rings::RING_COLORS`]); not on the tiles the player hasn't
 //! explored, which stay black (`core/vision.md > Unexplored`), nor off the map. One mesh, under one handle, rebuilt in
 //! place only when what it shows, the unexplored tiles among it or the map changed: while a Tunnel is placed, when the
-//! ghost moves to another tile or a ring's red cells change, never every frame.
+//! ghost moves to another tile or a ring's red cells change, never every frame (`super::area_overlay`, shared with the
+//! Recruitment Area display).
 
 pub mod rings;
 
 use std::collections::HashSet;
 
 use bevy::prelude::*;
-use bevy::sprite_render::AlphaMode2d;
 use sc_sim::nav::TileRect;
 use sc_sim::{Map, ObjectId, PlayerId, Sim, TilePos, VisibilityState, tunnel};
 
+use super::area_overlay::{AreaMesh, selected_own, show, spawn_area_mesh, unexplored};
 use super::ghost::{Ghost, PlacementGhost};
 use super::overlay::{AREA_Z, tint_area};
 use super::placing_now;
 use crate::ClientMode;
 use crate::command_ui::Builder;
-use crate::coords::DrawLayer;
 use crate::fog::LocalSight;
 use crate::input::{ActionState, InputAction};
 use crate::map_render::MapView;
@@ -66,16 +66,15 @@ pub struct TunnelArea {
 /// The areas of `player`'s own Tunnels in `selection`, sites included, each at its tier now (module docs), in id
 /// order; none of another player's Tunnel.
 pub fn selected_areas(sim: &Sim, player: PlayerId, selection: &Selection) -> Vec<TunnelArea> {
-    let objects = selection.ids().filter_map(|id| sim.object(id));
-    let own = objects.filter(|o| o.owner == Some(player));
-    own.filter_map(|o| {
-        Some(TunnelArea {
-            tunnel: o.id,
-            tier: o.tunnel.as_ref()?.tier,
-            area: tunnel::area::of(o)?,
+    selected_own(sim, player, selection)
+        .filter_map(|o| {
+            Some(TunnelArea {
+                tunnel: o.id,
+                tier: o.tunnel.as_ref()?.tier,
+                area: tunnel::area::of(o)?,
+            })
         })
-    })
-    .collect()
+        .collect()
 }
 
 /// The rings of `player`'s Tunnel ghost `ghost` ([`rings::rings`]), none for another kind's: red where they would block
@@ -121,10 +120,8 @@ pub struct TunnelAreaOverlay {
     /// The tiles of those areas and rings on the map it left out, in their order: those the local player hadn't
     /// explored.
     pub unexplored: Vec<TilePos>,
-    /// Whether that mesh has anything to show.
-    drawn: bool,
-    /// The map meshes' build count (`MapView::builds`) when it was: a new map redraws it.
-    map_builds: u32,
+    /// Its mesh's state.
+    mesh: AreaMesh,
     /// Whether it shows now: something to show, in part on explored tiles at least.
     pub visible: bool,
     /// How many times its mesh was built.
@@ -145,21 +142,8 @@ pub(super) fn spawn_overlay(
     meshes: Res<Assets<Mesh>>,
     mut materials: ResMut<Assets<ColorMaterial>>,
 ) {
-    // The mesh asset arrives with the first areas to draw: the renderer warns about empty meshes.
-    let mesh = meshes.reserve_handle();
-    let material = ColorMaterial {
-        color: Color::WHITE,
-        alpha_mode: AlphaMode2d::Blend,
-        ..default()
-    };
-    commands.spawn((
-        Name::new("Tunnel Area overlay"),
-        TunnelAreaMesh,
-        Mesh2d(mesh.clone()),
-        MeshMaterial2d(materials.add(material)),
-        Transform::from_xyz(0.0, 0.0, DrawLayer::Terrain.base_z() + AREA_Z),
-        Visibility::Hidden,
-    ));
+    let assets = (meshes.as_ref(), materials.as_mut());
+    let mesh = spawn_area_mesh(&mut commands, assets, "Tunnel Area overlay", TunnelAreaMesh, AREA_Z);
     commands.insert_resource(TunnelAreaAssets { mesh });
 }
 
@@ -191,40 +175,27 @@ pub(super) fn draw_overlay(
     };
     let cells =
         (selected.iter().flat_map(|shown| tunnel::area::cells(shown.area))).chain(rings.iter().flat_map(Ring::cells));
-    let unexplored: Vec<TilePos> = cells
-        .filter(|&t| sim.map().in_bounds(t) && sight.tile(t) == VisibilityState::Unexplored)
-        .collect();
+    let unexplored = unexplored(sim.map(), &sight, cells);
     let changed = overlay.selected != selected || overlay.rings != rings || overlay.unexplored != unexplored;
-    if changed || overlay.map_builds != view.builds {
-        overlay.drawn = false;
-        if !selected.is_empty() || !rings.is_empty() {
-            let hidden: HashSet<TilePos> = unexplored.iter().copied().collect();
-            let mesh = overlay_mesh(sim.map(), &selected, &rings, |t| !hidden.contains(&t));
-            overlay.drawn = mesh.vertex_count() > 0;
-            if overlay.drawn
-                && let Err(error) = meshes.insert(&assets.mesh, mesh.into_mesh())
-            {
-                error!("Tunnel Area overlay mesh: {error}");
-            }
+    let build = || {
+        let hidden: HashSet<TilePos> = unexplored.iter().copied().collect();
+        let any = !selected.is_empty() || !rings.is_empty();
+        any.then(|| overlay_mesh(sim.map(), &selected, &rings, |t| !hidden.contains(&t)))
+    };
+    if overlay.mesh.is_stale(changed, &view) {
+        let target = (meshes.as_mut(), &assets.mesh);
+        if overlay.mesh.redraw(&view, target, "Tunnel Area overlay", build) {
             overlay.builds += 1;
         }
         overlay.selected = selected;
         overlay.rings = rings;
         overlay.unexplored = unexplored;
-        overlay.map_builds = view.builds;
     }
-    let visible = overlay.drawn;
+    let visible = overlay.mesh.drawn();
     if overlay.visible != visible {
         overlay.visible = visible;
     }
-    let visibility = if visible {
-        Visibility::Inherited
-    } else {
-        Visibility::Hidden
-    };
-    for mut mesh in &mut shown {
-        mesh.set_if_neq(visibility);
-    }
+    show(&mut shown, visible);
 }
 
 #[cfg(test)]

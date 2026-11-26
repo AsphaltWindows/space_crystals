@@ -20,16 +20,22 @@
 //! - [`tunnel_areas`]: the Tunnel Area display (slices M4-J2 and M4-J3; `factions/syndicate/tunnel_area_and_space.md >
 //!   Tunnel Area display`, design changes 0299 and 0300): the areas of the player's own Tunnels they select, and while
 //!   they place a Tunnel the Tier 2 and Tier 3 rings of its ghost, red where they would block an upgrade; never an
-//!   enemy's area.
+//!   enemy's area;
+//! - [`recruitment_areas`]: the Recruitment Area display (slice M5-J2; `factions/cults/structures/recruitment_hall.md >
+//!   Recruitment Area display`, design changes 0350 to 0352): the tiles the player's own Halls they select claim, and
+//!   while they place a Hall its area as the Halls they know of would leave it, with its Effectiveness; never an
+//!   enemy's area. The two displays share their mechanics ([`area_overlay`]).
 //!
 //! The ghost and the overlay show only while the local player places a building ([`placing_now`]): in a game mode,
 //! in AwaitingPlacement, with a selection they may command (never once the game is over or they are defeated:
 //! `core/game_rules.md > End of Game`, design change 0101).
 
+pub mod area_overlay;
 pub mod ghost;
 pub mod ghost_area;
 pub mod lingering;
 pub mod overlay;
+pub mod recruitment_areas;
 pub mod tunnel_areas;
 
 use bevy::prelude::*;
@@ -39,6 +45,7 @@ pub use ghost::{Ghost, PlacementGhost};
 pub use ghost_area::GhostArea;
 pub use lingering::LingeringGhosts;
 pub use overlay::BuildAreaOverlay;
+pub use recruitment_areas::RecruitmentAreaOverlay;
 pub use tunnel_areas::TunnelAreaOverlay;
 
 use crate::command_ui::Placing;
@@ -63,6 +70,7 @@ impl Plugin for PlacementPlugin {
             .init_resource::<BuildAreaOverlay>()
             .init_resource::<LingeringGhosts>()
             .init_resource::<TunnelAreaOverlay>()
+            .init_resource::<RecruitmentAreaOverlay>()
             .add_systems(
                 Startup,
                 (
@@ -71,6 +79,7 @@ impl Plugin for PlacementPlugin {
                     overlay::spawn_overlay,
                     lingering::spawn_lingering,
                     tunnel_areas::spawn_overlay,
+                    recruitment_areas::spawn_overlay,
                 ),
             )
             .add_systems(
@@ -80,6 +89,7 @@ impl Plugin for PlacementPlugin {
                     overlay::draw_overlay,
                     lingering::draw_lingering,
                     tunnel_areas::draw_overlay.after(ghost::update_ghost),
+                    recruitment_areas::draw_overlay.after(ghost::update_ghost),
                 )
                     .in_set(ClientSystems::Present),
             );

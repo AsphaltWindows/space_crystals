@@ -153,9 +153,9 @@ pub fn area_mesh(map: &Map, area: &BuildArea, drawn: impl Fn(TilePos) -> bool) -
     mesh
 }
 
-/// Adds the area of the tiles `area` to `mesh`, as [`area_mesh`] draws one: each of its tiles that is `drawn` tinted
-/// `fill` on `map`'s surface (a quad if it is flat, else four triangles around its centre), and a line of `edge_color`
-/// along each of their edges where the area ends. Shared with the Tunnel Area overlay (`super::tunnel_areas`).
+/// Adds the area of the tiles `area` to `mesh`, as [`area_mesh`] draws one: its tiles that are `drawn` tinted `fill`
+/// ([`tint_tiles`]), and its [`outline`] in `edge_color`. Shared with the Tunnel Area overlay (`super::tunnel_areas`)
+/// and the Recruitment Area display (`super::recruitment_areas`).
 pub fn tint_area(
     mesh: &mut ColorMesh,
     map: &Map,
@@ -164,9 +164,20 @@ pub fn tint_area(
     (fill, edge_color): (Color, Color),
 ) {
     let area: Vec<TilePos> = area.into_iter().collect();
-    let inside: HashSet<TilePos> = area.iter().copied().collect();
-    let tiles: Vec<TilePos> = area.into_iter().filter(|&t| drawn(t)).collect();
-    for &t in &tiles {
+    tint_tiles(mesh, map, area.iter().copied(), &drawn, fill);
+    outline(mesh, map, area, drawn, edge_color);
+}
+
+/// Adds each of the tiles `tiles` that is `drawn` to `mesh`, tinted `fill` on `map`'s surface: a quad if it is flat,
+/// else four triangles around its centre.
+pub fn tint_tiles(
+    mesh: &mut ColorMesh,
+    map: &Map,
+    tiles: impl IntoIterator<Item = TilePos>,
+    drawn: impl Fn(TilePos) -> bool,
+    fill: Color,
+) {
+    for t in tiles.into_iter().filter(|&t| drawn(t)) {
         let surface = tile_surface(map, t);
         let [nw, ne, se, sw, center] = surface.map(|(ground, height)| surface_vertex(ground, height, SURFACE_LIFT_Z));
         if surface[..4].iter().all(|&(_, height)| height == surface[0].1) {
@@ -177,7 +188,20 @@ pub fn tint_area(
             }
         }
     }
-    for &t in &tiles {
+}
+
+/// Adds the outline of the tiles `area` to `mesh`: a line of `edge_color` along each edge of a tile of it that is
+/// `drawn` where the area ends, none where it goes on into a tile not drawn.
+pub fn outline(
+    mesh: &mut ColorMesh,
+    map: &Map,
+    area: impl IntoIterator<Item = TilePos>,
+    drawn: impl Fn(TilePos) -> bool,
+    edge_color: Color,
+) {
+    let area: Vec<TilePos> = area.into_iter().collect();
+    let inside: HashSet<TilePos> = area.iter().copied().collect();
+    for t in area.into_iter().filter(|&t| drawn(t)) {
         let [nw, ne, se, sw, _] =
             tile_surface(map, t).map(|(ground, height)| surface_vertex(ground, height, SURFACE_LIFT_Z));
         let sides = [
