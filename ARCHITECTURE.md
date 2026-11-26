@@ -1239,6 +1239,13 @@ ticks spent in it. Hashed and serialized like all state.
   4.9 grid units off the footprint hit, 5.1 never; the stand-ins at 4 with an augmented Recruit's blow unchanged;
   the Gunner's band from the edge; no fire while empty; each its own target; no damage inside, a Grenadier's blasts
   on the footprint included).
+  - **Measured** (`tests/garrisons_perf.rs`, ignored, release): ten full Garrisons, forty inside, under ten waves of
+    30 Peacekeepers walking down the lane between their rows (all 300 killed, 5430 shots from inside): a mean of
+    0.064 ms and a p99 of 0.12 ms a whole tick, the combat phase's 0.018 ms (0.007 ms and 0.003 ms with nothing in
+    range) (load average 1.7). `structures_perf` and `holding_perf` (no Garrison in them) ran A/B against master
+    (slice M5-N8's build), 12 interleaved rounds: the same games, the same timings within noise (medians:
+    `structures_perf` 0.371 and 0.374 ms a whole tick, its combat phase 0.026 ms on either side; `holding_perf`
+    cycling 0.036 and 0.037 ms, the evacuation's one tick 0.134 and 0.140 ms) (load average 1.5 to 2.6).
 - **Not yet**: the HeadDisjointed attack, which hits as a FullyConnected one does (a TODO in `combat/phases.rs`).
 
 ## Vision
@@ -3058,7 +3065,8 @@ their energy doorway, slice M3-D2: design change 0145, `factions/colonists/struc
   design change 0335's "Eject All releases all four together from side B", through each other, apart once clear,
   units let out at once still blocked by another's, the gate on an empty one; `fire.rs` and `protection.rs`, *Combat >
   Units that fire from inside a building*), each tick checking `testing::dangling_references`; `defs/tests/holds.rs`
-  checks the one door and the occupants' fire of every def (`holds_are_consistent`).
+  checks the one door and the occupants' fire of every def (`holds_are_consistent`). The ignored `garrisons_perf.rs`
+  times ten full Garrisons firing (*Combat > Units that fire from inside a building*).
 - **Armory tests** (slice M5-F2) are `crates/sim/tests/armory/` (`training.rs`: Q pays 20 and a Militant comes out
   of side C 32 ticks later toward the rally point, first in first trained, X's refund, the gate, Q to three Armories;
   `release.rs`: design change 0337's Verification, X taking a Release back, a Release queued like any order;
