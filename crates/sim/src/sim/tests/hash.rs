@@ -2,12 +2,14 @@
 
 use super::*;
 use crate::augmentation::{Augmentation, RecruitKind};
+use crate::combat::TurretState;
 
 /// A named change to one field.
 type Mutation = (&'static str, fn(&mut Sim));
 
-/// Gives unit `id` a current order, a queued one, a path, an attack being aimed and a Riot Shield on its way up, so
-/// every field of its orders, mover, attack and shield has a value.
+/// Gives unit `id` a current order, a queued one, a path, an attack being aimed, a turret turned and locked (any unit
+/// may hold one here) and a Riot Shield on its way up, so every field of its orders, mover, attack and shield has a
+/// value.
 fn make_busy(sim: &mut Sim, id: u32) {
     let order = Order {
         kind: OrderKind::Move(Target::Point(Vec2::new(40.0, 50.0))),
@@ -31,7 +33,10 @@ fn make_busy(sim: &mut Sim, id: u32) {
         phase: Some(AttackPhase::Aiming { target: ObjectId(2) }),
         elapsed: 1,
         location: None,
-        turret: None,
+        turret: Some(TurretState {
+            facing: 0.25,
+            locked: Some(ObjectId(2)),
+        }),
     });
     obj(sim, id).riot_shield = Some(RiotShield { up: 4 });
 }
@@ -220,6 +225,15 @@ fn state_hash_covers_every_field() {
                 target: Some(ObjectId(2)),
             });
         }),
+        // (M5-U1) A unit's turret (`combat::turret`), each of its fields.
+        ("turret none", |s| attack(s, 3).turret = None),
+        ("turret facing", |s| attack(s, 3).turret.as_mut().unwrap().facing = -0.5),
+        ("turret locked", |s| {
+            attack(s, 3).turret.as_mut().unwrap().locked = Some(ObjectId(1))
+        }),
+        ("turret locked none", |s| {
+            attack(s, 3).turret.as_mut().unwrap().locked = None
+        }),
         ("a projectile", |s| s.projectiles.push(projectile())),
         ("riot_shield none", |s| obj(s, 3).riot_shield = None),
         ("riot_shield down", |s| {
@@ -349,6 +363,44 @@ fn an_augmentation_is_hashed_and_saved_only_while_it_is_set() {
         );
         let loaded: crate::object::Object = serde_json::from_value(json).unwrap();
         assert_eq!(&loaded, object, "{kind:?}");
+    }
+}
+
+/// (M5-U1) A unit's turret (`AttackState::turret`, `combat::turret`) is part of the state from the first time it locks
+/// a target or turns: hashed, its facing and its LockedTarget, and saved. While it has none, nothing of it is hashed,
+/// and an attack's file has no `turret` key and loads with none, so that the states and the files without one are as
+/// they were before turrets existed (the goldens stand).
+#[test]
+fn a_turret_is_hashed_and_saved_only_while_it_is_set() {
+    let mut base = small_sim();
+    insert_unit(&mut base, Vec2::new(100.0, 100.0)); // id 3
+    let with = |turret: Option<TurretState>| {
+        let mut sim = base.clone();
+        attack(&mut sim, 3).turret = turret;
+        sim
+    };
+    assert_eq!(with(None).state_hash(), base.state_hash());
+    let turrets = [
+        None,
+        Some(TurretState::default()),
+        Some(TurretState {
+            facing: 0.5,
+            locked: None,
+        }),
+        Some(TurretState {
+            facing: 0.0,
+            locked: Some(ObjectId(1)),
+        }),
+    ];
+    let hashes: std::collections::BTreeSet<u64> = turrets.iter().map(|&turret| with(turret).state_hash()).collect();
+    assert_eq!(hashes.len(), turrets.len(), "each its own");
+    for turret in turrets {
+        let sim = with(turret);
+        let attack = sim.objects[&ObjectId(3)].attack.as_ref().unwrap();
+        let json = serde_json::to_value(attack).unwrap();
+        assert_eq!(json.get("turret").is_some(), turret.is_some(), "{turret:?}");
+        let loaded: AttackState = serde_json::from_value(json).unwrap();
+        assert_eq!(&loaded, attack, "{turret:?}");
     }
 }
 

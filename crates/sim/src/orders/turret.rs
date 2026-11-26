@@ -65,3 +65,6 @@ fn fireable(unit: &Unit, attrs: &AttackAttrs, turret: &TurretAttrs, target: &Vie
         && world.within(unit, attrs, Scan::Weapon, target)
         && turret::in_arc(turret, unit.facing, unit.pos, target.pos)
 }
+
+#[cfg(test)]
+mod tests;
