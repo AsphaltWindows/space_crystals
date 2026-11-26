@@ -17,7 +17,10 @@
 //!   dead have left the game, so that they never regenerate, and before the economy, whose new units start at their
 //!   start in their first tick. Up to the maximum, whoever owns the object, as the Shields. Wherever the unit is: a
 //!   unit inside a building (a Disciple in a Garrison) regenerates too. Placeholder (not in the design: "It
-//!   regenerates naturally over time" names no exception).
+//!   regenerates naturally over time" names no exception). An object that comes into the game in a tick regenerates
+//!   from the next, wherever in the tick it came; one that gets its pool by a change of kind regenerates from the next
+//!   energy step: the tick after for a unit the economy trains, that tick for a unit trained as its building is
+//!   destroyed (the evacuation, in 5e's deaths or a debug removal), which ends it a tick's regeneration above its start.
 //! - **Spending** is the spells' (Shroud's drain, slice M5-N4b; the Shrine's casts, slice M5-N5), each from its own
 //!   order or command.
 

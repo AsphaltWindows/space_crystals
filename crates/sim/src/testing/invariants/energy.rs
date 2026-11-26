@@ -9,8 +9,7 @@ use crate::sim::Sim;
 
 /// E1: every object's energy, and every held unit's, is within its type's pool (module docs).
 pub(super) fn energy(sim: &Sim) -> Result<(), Violation> {
-    let objects = sim.objects().chain(sim.held().map(|held| &held.object));
-    objects.map(within_its_pool).collect()
+    (sim.objects().chain(sim.held().map(|held| &held.object))).try_for_each(within_its_pool)
 }
 
 /// E1 for one object.
@@ -49,7 +48,10 @@ mod tests {
             .spawn(ObjectKind::Disciple, Some(P1), SpawnAt::Point(Vec2::new(100.0, 100.0)))
             .spawn(ObjectKind::Recruit, Some(P1), SpawnAt::Point(Vec2::new(300.0, 100.0)));
         let sim = Sim::new(&builder.build());
-        assert_eq!(sim.object(crate::ids::ObjectId(1)).unwrap().energy, energy::start(ObjectKind::Disciple));
+        assert_eq!(
+            sim.object(crate::ids::ObjectId(1)).unwrap().energy,
+            energy::start(ObjectKind::Disciple)
+        );
         serde_json::to_value(&sim).expect("a state serializes")
     }
 

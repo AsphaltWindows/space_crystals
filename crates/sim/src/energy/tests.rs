@@ -25,7 +25,10 @@ const P1: PlayerId = PlayerId(1);
 fn the_design_s_rates_and_amounts_are_exact() {
     assert_eq!(ONE, 65_536);
     assert_eq!([0.25, 0.5, 1.0, 5.0].map(per_tick), [1024, 2048, 4096, 20_480]);
-    assert_eq!([10.0, 50.0, 75.0, 200.0].map(units), [655_360, 3_276_800, 4_915_200, 13_107_200]);
+    assert_eq!(
+        [10.0, 50.0, 75.0, 200.0].map(units),
+        [655_360, 3_276_800, 4_915_200, 13_107_200]
+    );
     assert_eq!(points(units(50.0)), 50.0);
     assert_eq!(points(3_276_800 + 2048), 50.031_25, "a tick at 0.5 a second");
     assert_eq!(units(-1.0), 0, "none below 0");
@@ -68,7 +71,11 @@ fn energy_regenerates_up_to_the_maximum() {
 #[test]
 fn a_change_of_kind_keeps_the_energy_within_the_new_pool() {
     let disciple = ObjectKind::Disciple;
-    assert_eq!(after_change(None, disciple), Some(units(50.0)), "a Recruit trained: the start");
+    assert_eq!(
+        after_change(None, disciple),
+        Some(units(50.0)),
+        "a Recruit trained: the start"
+    );
     assert_eq!(after_change(Some(units(120.0)), disciple), Some(units(120.0)));
     assert_eq!(after_change(Some(units(250.0)), disciple), Some(units(200.0)));
     assert_eq!(after_change(Some(units(120.0)), ObjectKind::Recruit), None);
@@ -111,7 +118,13 @@ fn a_pool_that_regenerates_by_the_units_inside_counts_them_each_tick() {
         kind: OrderKind::Enter(armory),
         queue: false,
     };
-    step(&mut sim, vec![PlayerCommand { player: P1, command: enter }]);
+    step(
+        &mut sim,
+        vec![PlayerCommand {
+            player: P1,
+            command: enter,
+        }],
+    );
     let mut gains = Vec::new();
     for _ in 0..80 {
         let before = energy(&sim).unwrap();
@@ -127,7 +140,13 @@ fn a_pool_that_regenerates_by_the_units_inside_counts_them_each_tick() {
         objects: vec![armory],
         command: crate::command::HoldCommand::EjectAll,
     };
-    step(&mut sim, vec![PlayerCommand { player: P1, command: eject }]);
+    step(
+        &mut sim,
+        vec![PlayerCommand {
+            player: P1,
+            command: eject,
+        }],
+    );
     for _ in 0..40 {
         step(&mut sim, Vec::new());
     }
