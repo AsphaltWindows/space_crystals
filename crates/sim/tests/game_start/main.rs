@@ -107,12 +107,13 @@ fn west_syndicate() -> Vec<LayoutObject> {
 }
 
 /// A Cults base in the north-west of a map (`factions/cults/economy.md > Starting Conditions`, slice M5-B): the
-/// Recruitment Hall from (1, 1) to (4, 4), the Storage from (6, 1) to (7, 2), and six Recruits in a row on the centres
-/// of tiles (1, 6) to (6, 6).
+/// Recruitment Hall from (3, 3) to (6, 6), whose Recruitment Area, (0, 0) to (9, 9), lies on the map (design change
+/// 0341 point 1, `factions/cults/economy.md > RecruitmentHall > RecruitmentArea`: "**The whole area must lie on the
+/// map**"), the Storage from (6, 1) to (7, 2), and six Recruits in a row on the centres of tiles (1, 7) to (6, 7).
 fn west_cults() -> Vec<LayoutObject> {
-    let mut base = vec![laid(HALL, 1, 1), laid(ObjectKind::Storage, 6, 1)];
+    let mut base = vec![laid(HALL, 3, 3), laid(ObjectKind::Storage, 6, 1)];
     for x in 1..=6 {
-        base.push(unit_at(RECRUIT, TilePos::new(x, 6).center()));
+        base.push(unit_at(RECRUIT, TilePos::new(x, 7).center()));
     }
     base
 }

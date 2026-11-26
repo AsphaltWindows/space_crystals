@@ -30,10 +30,11 @@ fn a_game_starts_with_each_players_starting_conditions() {
         laid(PLATE, 22, 2),               // 12
     ];
     // A Custom map's layouts may hold any objects (`core/map_editor.md > Map Types > Custom`), the Cults' here a
-    // Recruit and its Hall; nobody plays the Cults.
+    // Recruit and its Hall, whose Recruitment Area, (6, 0) to (15, 9), lies on the map (design change 0341 point 1);
+    // nobody plays the Cults.
     *s.map.slots[0].layouts.get_mut(Faction::Cults) = vec![
-        unit_at(RECRUIT, point(12.0, 6.0)),
-        laid(HALL, 9, 1), // (9, 1) to (12, 4)
+        unit_at(RECRUIT, point(12.0, 8.0)),
+        laid(HALL, 9, 3), // (9, 3) to (12, 6)
     ];
     let sim = Sim::try_new(&s).unwrap();
     let owned: Vec<_> = sim
@@ -82,8 +83,8 @@ fn a_game_starts_with_each_players_starting_conditions() {
     assert_eq!(
         p1,
         [
-            (5, RECRUIT, point(12.0, 6.0), vec![ObjectId(6)]),
-            (6, HALL, point(11.0, 3.0), vec![]),
+            (5, RECRUIT, point(12.0, 8.0), vec![ObjectId(6)]),
+            (6, HALL, point(11.0, 5.0), vec![]),
         ]
     );
     assert_eq!(banks(&sim), [(0, 0), (100, 0)]);
