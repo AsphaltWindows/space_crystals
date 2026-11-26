@@ -36,8 +36,10 @@
 //!   design change 0293: "you see only the visible part of its projectiles"); **a blast** only while the tile under
 //!   its centre is Visible ([`shows_blast`]).
 //!
-//! Placeholder (Q0090; the look waits on Q0001): a tracer's glow and a projectile's body are in the colour of their
-//! shooter's owner, whom the viewer may not see: the design is silent on what a shot shows of its shooter.
+//! A tracer's glow and a projectile's body are in the colour of their shooter's owner, even one the viewer doesn't see
+//! (`core/vision.md > Attacks from outside vision`: "a shot is always drawn in the **shooter's player colour**, even
+//! when the viewer doesn't see the shooter", design change 0357, answering Q0090 as built). Placeholder (Q0001): the
+//! look.
 
 pub mod blasts;
 mod draw;

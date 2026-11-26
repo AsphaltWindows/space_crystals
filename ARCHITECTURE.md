@@ -3231,7 +3231,8 @@ their energy doorway, slice M3-D2: design change 0145, `factions/colonists/struc
   modules by topic: `defeat`, `on_defeat`, `end_of_game`, `saves`) and,
   in the client, `crates/game/tests/game_end/` (`outcome`: the banners, Draw for everyone, the stop; `recording`:
   the saved recording, QA's end; `results`: the results screen of 0164 in a three-player game, under the debug
-  player switch and in a replay, the draw seen from it, the spectator's fog) with the unit tests of `hud/results.rs`
+  player switch and in a replay, the draw seen from it, the spectator's fog; `notice`: the defeat notice of 0357,
+  every other player told, under the debug player switch) with the unit tests of `hud/results.rs`
   (who leaves, allies included, which the sim can't make yet). The fuzz games of `robustness.rs` give each player a
   base the stream never removes, so that a debug removal doesn't end them; a fight still can (a Grenadier, or a Laser
   Turret in its owner's Tunnel Area, takes a base), and then the tick after the end checks that every command is refused
@@ -3528,7 +3529,10 @@ available (`Sim::army_cap`: their Halls' usage and orphaned points over their Ha
 capacity after a Hall is lost, not in red: the design gives the figure no warning). Under the top bar, a placeholder
 notice (`hud/notices.rs`, `STATION_EMPTY_TEXT` for `NOTICE_TICKS` sim ticks) tells the local player that a Supply
 Delivery Station where their Agents gather is empty (`SimEvent::SupplyStationEmpty`, design change 0256 point 3: "the
-owner gets a notification", notifications not designed yet). At the end of the game a banner across the world view
+owner gets a notification", notifications not designed yet). A second, under it, tells every player who hasn't left
+the game (below) of each other player defeated while it goes on, a line each (`DefeatNotice`, `defeat_text`, for
+`NOTICE_TICKS` from the defeat; `core/game_rules.md > On Defeat`: "**all players** are told", design change 0357); the
+defeat that ends the game the banner tells. At the end of the game a banner across the world view
 (`hud/outcome.rs`, placeholder look and wording) shows the local player's `Banner`: VICTORY for the winners, DEFEAT for
 everyone else, DRAW for everyone when nobody won (design change 0163), and DEFEATED with a spectating line while a
 defeated player watches the game go on beside an ally (0102; never yet: the sim has no teams). A player defeated while
