@@ -1,4 +1,6 @@
-# Megaphone caster (name TBD)
+# Prayer-mobile
+
+(Name: user, 2026-11-27.)
 
 (user, 2026-11-27) A Cults **energy-based caster vehicle**: a wheeled vehicle carrying a **megaphone**, with **no weapon** (a pure caster). It boosts nearby Cults infantry and silences enemies in front of it.
 
@@ -18,4 +20,4 @@
   - **What it stops** (user, 2026-11-27): **weapon attacks** and **abilities that use a weapon**. A Rocketman's **Target Lock can be maintained**, but no missile can be fired while suppressed. Other abilities (e.g. a Disciple's Shroud) are unaffected.
   - Arc size, duration and cost: placeholders to follow.
 
-TBD: name; the details above; numbers; hotkeys.
+TBD: the details above; numbers; hotkeys.
