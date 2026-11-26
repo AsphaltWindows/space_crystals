@@ -1,19 +1,22 @@
-//! AI against AI, headless (slice A1; `ARCHITECTURE.md > Computer players > Tests`): the GDO against the GDO, A1's
-//! only faction with a computer player, each game played and checked by `harness` after every step (the invariants,
-//! the gate, design change 0402's Verification).
+//! AI against AI, headless (slices A1 and A2; `ARCHITECTURE.md > Computer players > Tests`): each faction with a
+//! computer player against itself and the others, each game played and checked by `harness` after every step (the
+//! invariants, the gate, design change 0402's Verification).
 //!
-//! - **The default run** ([`a_standard_computer_attacks_a_passive_one`]): standard against passive on `dev_skirmish`
-//!   for [`DEFAULT_RUN`] of game time, with every invariant. At the end, the standard player's waves have gone out and
-//!   fought.
+//! - **The default run** ([`a_standard_computer_attacks_a_passive_one`], and each faction's own, as
+//!   [`a_standard_syndicate_computer_attacks_a_passive_one`]): standard against passive of one faction on
+//!   `dev_skirmish` for [`DEFAULT_RUN`] of game time, with every invariant. At the end, the standard player's waves
+//!   have gone out and fought.
 //! - **0402's Verification** ([`computers_attack_only_buildings_they_know`]): standard against standard, where both
 //!   attack, to a defeat; and the check itself, on a planted target ([`an_attack_on_a_building_never_seen_is_caught`]).
-//! - **Determinism** ([`the_same_game_ends_the_same`]): the same game twice ends with the same state hash.
+//! - **Determinism** ([`the_same_game_ends_the_same`], and each faction's own, as
+//!   [`the_same_syndicate_game_ends_the_same`]): the same game twice ends with the same state hash.
 //! - **`ai_games`** (ignored, a report, in release): every pairing whose factions both have a computer player, on every
-//!   Skirmish Default map, each profile against each that attacks, to a defeat or [`LIMIT`]. In each faction's
-//!   mirror, standard must beat passive within [`STANDARD_BEATS_PASSIVE`] from either slot, and standard against
-//!   standard must end in a defeat; between two factions the table only reports. It prints a table of who won, when,
-//!   and how many units each side trained, and what `Ai::think` cost:
-//!   `cargo test -p sc_ai --release --test ai games::ai_games -- --ignored --nocapture`.
+//!   Skirmish Default map, each profile against each that attacks, to a defeat or [`LIMIT`]: standard must beat its own
+//!   faction's passive within [`STANDARD_BEATS_PASSIVE`] from either slot, and standard against standard must end in a
+//!   defeat. Standard beating another faction's passive within [`LIMIT`] is wanted, not required (the A2 brief's
+//!   "Wanted"): the report lists whether it did. It prints a table of who won, when, and how many units each side
+//!   trained, and what `Ai::think` cost: `cargo test -p sc_ai --release --test ai games::ai_games -- --ignored
+//!   --nocapture`.
 //! - **The Colonists** (slice A2c, [`colonists`]): their default run and determinism.
 
 mod colonists;
@@ -65,6 +68,18 @@ fn a_standard_computer_attacks_a_passive_one() {
         standard.trained >= 8 && passive.trained >= 8,
         "both trained a wave's worth: {report:?}"
     );
+    assert!(passive.lost >= 1 && standard.lost >= 1, "the wave fought: {report:?}");
+}
+
+/// The Syndicate's default run (slice A2b): its first wave, of 20 Guards (`sc_ai::tuning::syndicate::WAVE_SIZE`),
+/// leaves at about 4:55 and fights the passive player's army at its staging point half a minute later.
+#[test]
+fn a_standard_syndicate_computer_attacks_a_passive_one() {
+    let scenario = with_factions(scenarios::dev_skirmish(), [Faction::Syndicate; 2]);
+    let report = play(&scenario, &[(P1, Standard), (P2, Passive)], DEFAULT_RUN, Checks::All);
+    let (standard, passive) = (report.side(P1), report.side(P2));
+    assert!(standard.waves >= 1, "the standard player sent no wave: {report:?}");
+    assert_eq!(passive.waves, 0, "the passive player never attacks: {report:?}");
     assert!(passive.lost >= 1 && standard.lost >= 1, "the wave fought: {report:?}");
 }
 
@@ -150,6 +165,17 @@ fn the_same_game_ends_the_same() {
     assert!(first.sides.iter().all(|s| s.waves >= 1), "both attacked: {first:?}");
 }
 
+/// Determinism with the Syndicate (slice A2b): its mirror, both standard, to the first waves.
+#[test]
+fn the_same_syndicate_game_ends_the_same() {
+    let scenario = with_factions(scenarios::dev_skirmish(), [Faction::Syndicate; 2]);
+    let game = || play(&scenario, &[(P1, Standard), (P2, Standard)], DEFAULT_RUN, Checks::Rules);
+    let (first, second) = (game(), game());
+    assert_eq!(first.hash, second.hash);
+    assert_eq!(first.sides, second.sides);
+    assert!(first.sides.iter().all(|s| s.waves >= 1), "both attacked: {first:?}");
+}
+
 #[test]
 #[ignore = "a report, in release: cargo test -p sc_ai --release --test ai games::ai_games -- --ignored --nocapture"]
 fn ai_games() {
@@ -181,22 +207,29 @@ fn ai_games() {
         think.mean(),
         think.worst
     );
-    // Required of each faction against itself; between two factions the table reports the balance, which the user
-    // judges (the A2 slices' brief).
-    for row in rows.iter().filter(|row| row.factions[0] == row.factions[1]) {
-        let standard = row
-            .profiles
-            .iter()
-            .position(|&p| p == Standard)
-            .map(|i| PlayerId(i as u8 + 1));
+    let wanted: Vec<String> = (rows.iter())
+        .filter(|row| row.factions[0] != row.factions[1] && row.profiles != [Standard, Standard])
+        .map(|row| {
+            let met = if row.standard_won() { "yes" } else { "no" };
+            format!("  {}: {met}", row.label())
+        })
+        .collect();
+    if !wanted.is_empty() {
+        println!(
+            "Wanted, not required: standard beats another faction's passive within 20 minutes\n{}",
+            wanted.join("\n")
+        );
+    }
+    for row in &rows {
         let ended = row.report.winner().is_some();
         match row.profiles {
             [Standard, Standard] => assert!(ended, "{}: standard against standard ends in a defeat", row.label()),
-            _ => assert!(
-                row.report.winner() == standard && row.report.ticks <= STANDARD_BEATS_PASSIVE,
+            _ if row.factions[0] == row.factions[1] => assert!(
+                row.standard_won() && row.report.ticks <= STANDARD_BEATS_PASSIVE,
                 "{}: standard beats passive within 15 minutes",
                 row.label()
             ),
+            _ => {}
         }
     }
 }
@@ -210,6 +243,14 @@ struct Row {
 }
 
 impl Row {
+    /// Whether the standard player won, against a passive one.
+    fn standard_won(&self) -> bool {
+        let standard = (self.profiles.iter())
+            .position(|&p| p == Standard)
+            .map(|i| PlayerId(i as u8 + 1));
+        standard.is_some() && self.report.winner() == standard
+    }
+
     fn label(&self) -> String {
         let [a, b] = self.factions.map(|f| format!("{f:?}").to_lowercase());
         let [x, y] = self.profiles.map(|p| p.name());

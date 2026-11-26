@@ -18,6 +18,7 @@ use std::fmt;
 
 use sc_sim::{Faction, Object};
 
+use crate::army::Waves;
 use crate::{Profile, Turn, View};
 
 /// What makes a faction's computer player for the player whose View it is given (the game as it starts, or as it is
@@ -38,6 +39,11 @@ pub trait FactionAi: fmt::Debug + Send + Sync {
 
     /// Whether `building`, one of its player's own, rallies the units it makes to the staging point.
     fn rallies(&self, building: &Object) -> bool;
+
+    /// The waves its army sends: their sizes and its patience (`crate::tuning::army`'s by default).
+    fn waves(&self) -> Waves {
+        Waves::default()
+    }
 }
 
 /// Each faction's computer player, from its module; `None` for a faction that has none yet.

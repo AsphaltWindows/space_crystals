@@ -28,7 +28,7 @@
   - **Map edge**: it may overshoot the edge as far as its turn needs (no extra cap).
   - **Takeoff**: it appears over the runway's B end facing C at IdleSpeed and speeds up along the runway.
   - **No rally point**: it circles 2 grid units past the runway's C end.
-  - **Strafing**: after a pass it flies on until the target is out of range, then loops back at full speed.
+  - **Strafing**: after a pass it flies on until the target's **centre** is out of range (user, 2026-11-26; Q0149; systems/controls/command_behaviors.md > GliderMovement exception), then loops back at full speed. The loop is therefore the same size for every target, and SightRange 8 keeps even buildings in sight for a lone Sparrow.
   - **Stop**: it circles where it is. **Hold Position**: it circles there and fires only at what comes into range, without chasing.
 - Turret: TurnAngle 45° (total), TurnRate 8°/frame.
 - Attack: Damage 3; Range 3 grid units; MinRange 0; Aim 1, Firing 1, Cooldown 1, Reload 1 frames (12 damage per second before armor).
