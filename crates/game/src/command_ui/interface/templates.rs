@@ -76,8 +76,8 @@ pub enum InterfaceTemplate {
     /// W Expand, E Eject, which opens the EjectMenu, and X Cancel ([`syndicate::tunnel`]). No right-click: the Tunnel
     /// produces no units.
     Tunnel,
-    /// `factions/syndicate/units/agent.md > Agent ObjectInterfaceState` (design change 0257, slice M4-J1): Q Move, A
-    /// Build Tunnel, S Drop Off, D Build Laser Turret, X Stop ([`syndicate::agent`]). Its right-click
+    /// `factions/syndicate/units/agent.md > Agent ObjectInterfaceState` (design changes 0257 and 0359, slice M4-J1): Q
+    /// Move, A Build Tunnel, S Drop Off, D Repair (greyed until slice N8), X Stop ([`syndicate::agent`]). Its right-click
     /// (`factions/syndicate/units/agent.md > Right-Click Resolution`: Gather, Drop Off, Enter, Attack, Move) is the
     /// sim's one rule, as every unit's.
     Agent,

@@ -1,6 +1,7 @@
-//! The Laser Turret (`factions/syndicate/structures/laser_turret.md`, design change 0260; slice M4-S1): upright, a
-//! structure's footprint with a barrel on it that turns to face what it fires at (`crate::object_render`'s turret
-//! look). Its laser is red: design change 0207 (`factions/syndicate/units/README.md`): "every Syndicate laser-shooting
+//! The Laser Turret (`factions/syndicate/structures/laser_turret.md`, design change 0260; slices M4-S1 and M4-S2), a
+//! pop-up and nothing else since design change 0360: raised, a structure's footprint with a barrel on it that turns
+//! to face what it fires at, and lowered, an underground outline (`crate::object_render`'s turret look). Its laser is
+//! red: design change 0207 (`factions/syndicate/units/README.md`): "every Syndicate laser-shooting
 //! unit and structure (Guard, Laser Battery, Laser Turret) fires a **red** laser". "The turret has no commands"
 //! (`factions/syndicate/structures/laser_turret.md > Targeting`), so no panel: a selected one shows its InfoPanel
 //! alone, and its site the site's Cancel (`crate::command_ui::interface::templates::SITE_GRID`). Its label is its

@@ -118,8 +118,9 @@ fn a_guards_square_stays_axis_aligned_and_only_its_tick_turns() {
 /// Slice M4-S1: a Laser Turret, a structure that attacks (plan decision T49), is drawn as a structure is, its 1 × 1
 /// footprint unturned with its tag ("LT"), with a head on its roof and a barrel of its own (`TurretBarrel`,
 /// `object_render::turret`; placeholders until Q0001) that turns with the turret's facing, which the sim turns at once
-/// to what it fires at (design change 0298 point 8: it picks its own target). Player 2's Peacekeeper, holding
-/// south-east of player 1's turret within its Range, draws its fire, and the barrel points at it.
+/// to what it fires at (design change 0298 point 8: it picks its own target). Player 1's turret stands in its Tunnel's
+/// area, where alone it is active (design change 0360); player 2's Peacekeeper, holding south-east of it within its
+/// Range, draws its fire: the turret rises, and the barrel points at it.
 #[test]
 fn a_laser_turrets_barrel_turns_to_its_target() {
     let mut app = headless_app(scenarios::empty(16, 12));
@@ -133,6 +134,11 @@ fn a_laser_turrets_barrel_turns_to_its_target() {
         })
     };
     let pending = |app: &mut App, command| app.world_mut().resource_mut::<PendingCommands>().0.push(command);
+    // The Tunnel's Tier 1 area, (0, 4) to (7, 11), takes in the turret's tile.
+    pending(
+        &mut app,
+        spawn(ObjectKind::Tunnel, 1, SpawnAt::Tile(TilePos::new(2, 6))),
+    );
     let turret_at = SpawnAt::Tile(TilePos::new(5, 5)); // centred on (352, 352)
     pending(&mut app, spawn(ObjectKind::LaserTurret, 1, turret_at));
     pending(
@@ -183,11 +189,12 @@ fn a_laser_turrets_barrel_turns_to_its_target() {
     assert!(front.distance(facing) < 1e-3, "the barrel points at it: {front}");
 }
 
-/// Slice M4-S2: a pop-up Laser Turret (`factions/syndicate/structures/laser_turret.md > Upright vs Pop-up`,
-/// `object_render::turret`; placeholders until Q0001). Inside its owner's Tunnel Area with no target it goes
-/// underground: its visual is made anew as an outline with its tag and no barrel. When player 2's Peacekeeper appears
-/// in its Range it rises: the upright body again, from its first rising frame, with a barrel that already points at
-/// the target and grows to its whole length over the rise.
+/// Slice M4-S2: a pop-up Laser Turret (`factions/syndicate/structures/laser_turret.md > Pop-up turret`,
+/// `object_render::turret`; placeholders until Q0001), always one (design change 0360: "There is no upright form any
+/// more"). Inside its owner's Tunnel Area with no target it is underground from its first tick: its visual is an
+/// outline with its tag and no barrel. When player 2's Peacekeeper appears in its Range it rises: a visual made anew,
+/// the raised body, from its first rising frame, with a barrel that already points at the target and grows to its
+/// whole length over the rise.
 #[test]
 fn a_popup_turret_is_an_outline_while_lowered_and_its_barrel_comes_out_as_it_rises() {
     let mut app = headless_app(scenarios::empty(24, 16));
@@ -221,13 +228,12 @@ fn a_popup_turret_is_an_outline_while_lowered_and_its_barrel_comes_out_as_it_ris
         (barrels.iter(app.world())).map(|(barrel, t)| (barrel.0, *t)).collect()
     };
     let state = |app: &App| app.world().resource::<SimRes>().object(turret).unwrap().popup;
-    assert_eq!(barrels(&mut app).len(), 1, "standing as the game finds it");
-    let standing = app.world().resource::<ObjectVisuals>().by_id[&turret];
+    assert_eq!(state(&app), Some(sc_sim::popup::PopUp::LOWERED), "as the game finds it");
+    assert_eq!(barrels(&mut app), [], "no barrel underground");
     updates(&mut app, 45);
     assert_eq!(state(&app), Some(sc_sim::popup::PopUp::LOWERED));
     let lowered = app.world().resource::<ObjectVisuals>().by_id[&turret];
-    assert_ne!(lowered, standing, "a new visual: the outline");
-    assert_eq!(barrels(&mut app), [], "no barrel underground");
+    assert_eq!(barrels(&mut app), [], "still none");
     assert_eq!(tags(&app, lowered), [(turret, "LT".to_string())]);
     // An enemy 3 tiles east of it.
     pending(
@@ -245,7 +251,7 @@ fn a_popup_turret_is_an_outline_while_lowered_and_its_barrel_comes_out_as_it_ris
         state(&app)
     );
     let rising = app.world().resource::<ObjectVisuals>().by_id[&turret];
-    assert_ne!(rising, lowered, "the upright body again");
+    assert_ne!(rising, lowered, "the raised body, a new visual");
     let [(of, transform)] = barrels(&mut app)[..] else {
         panic!("one barrel");
     };

@@ -1,40 +1,40 @@
-//! The Agent's panel and a site's as plain data (slice M4-J1; design changes 0233, 0237 and 0257): the Agent's letters,
-//! its Build Tunnel greyed while the bank can't pay with its price, its Drop Off greyed while it carries nothing, its
-//! Build Laser Turret greyed with the gate's reason until the player owns an Optics Lab and can pay (slice M4-S1), and
-//! a site's X Cancel Construction alone, a Laser Turret's too.
+//! The Agent's panel and a site's as plain data (slice M4-J1; design changes 0233, 0237, 0257 and 0359): the Agent's
+//! letters, its Build Tunnel greyed while the bank can't pay with its price, its Drop Off greyed while it carries
+//! nothing, its D Repair greyed until slice N8 and no Build Laser Turret (slice M5-Y), and a site's X Cancel
+//! Construction alone, a Laser Turret's too.
 
 use sc_sim::ConstructionCommand;
 use sc_sim::construction::site::BuildPrice;
 
 use super::*;
-use crate::command_ui::feedback::unavailable_text;
+use crate::command_ui::feedback::{NOT_YET_TEXT, unavailable_text};
 use crate::selection::GroupType;
 
 const AGENT: ObjectKind = ObjectKind::Agent;
 const TUNNEL: ObjectKind = ObjectKind::Tunnel;
 const BUILD: PanelCommand = PanelCommand::Build(TUNNEL);
 const TURRET: ObjectKind = ObjectKind::LaserTurret;
-const BUILD_TURRET: PanelCommand = PanelCommand::Build(TURRET);
+const REPAIR: PanelCommand = PanelCommand::Planned(Planned::Repair);
 
 /// What the panel's `slot` says when pressed greyed out, if it is.
 fn why_text(panel: &Panel, slot: CommandSlot) -> Option<&'static str> {
     panel.get(slot)?.why.map(unavailable_text)
 }
 
-/// `factions/syndicate/units/agent.md > Agent ObjectInterfaceState > Panel letters` (design change 0257): "**Q** Move,
-/// **A** Build Tunnel, **S** Drop Off Resources, **D** Build Laser Turret (greyed until available), **X** Stop. No
-/// Attack, Hold Position, Patrol or AttackMove buttons". D, "Visible but greyed out until the player owns an Optics
-/// Lab" (`factions/syndicate/units/agent.md > DefaultState commands`), says why as the gate does ("Requires an Optics
-/// Lab"), and pressing it does nothing; A enters the Tunnel's placement for the one Agent of the ActiveGroup. Each
-/// Build shows its price in its resource, the Tunnel's Supplies and the Laser Turret's Space Crystals, greyed or not.
+/// `factions/syndicate/units/agent.md > Agent ObjectInterfaceState` (design changes 0257 and 0359): "**Q** Move, **A**
+/// Build Tunnel (user, 2026-11-26: Agents no longer build Laser Turrets, so the Construct menu of 0326 is reverted),
+/// **S** Drop Off Resources, **D** Repair (2026-11-26, matching the Recruit's panel), **X** Stop. No Attack, Hold
+/// Position, Patrol or AttackMove buttons". D, which slice N8 brings, holds its slot greyed: pressed, it says "Not
+/// available yet" and does nothing. A enters the Tunnel's placement for the one Agent of the ActiveGroup, its price in
+/// Supplies shown, and no other button has a price. Design change 0359's verification, "The Agent panel shows A: Build
+/// Tunnel with no turret option": the Agent offers no Build of a Laser Turret, in any state (the Tunnel's ExpandMenu
+/// does, `super::expansions`).
 #[test]
-fn the_agent_has_q_move_a_build_s_drop_off_d_laser_turret_and_x_stop() {
-    use ButtonLook::{Common, Disabled};
+fn the_agent_has_q_move_a_build_tunnel_s_drop_off_d_repair_and_x_stop() {
+    use ButtonLook::{Common, Disabled, Unavailable};
     use PanelCommand::{DropOff, Move, Stop};
     let agent = Selection::new([(id(1), AGENT)]);
-    let conditions = (Conditions::default().pricing(BUILD, BuildPrice::supplies(0)))
-        .pricing(BUILD_TURRET, BuildPrice::crystals(100))
-        .refusing(BUILD_TURRET, Reject::Requires(ObjectKind::OpticsLab));
+    let conditions = Conditions::default().pricing(BUILD, BuildPrice::supplies(0));
     let shown_panel = panel(&agent, InterfaceState::DefaultState, &conditions);
     let c = PanelButton::Command;
     assert_eq!(
@@ -43,24 +43,35 @@ fn the_agent_has_q_move_a_build_s_drop_off_d_laser_turret_and_x_stop() {
             (slot(0, 0), c(Move), Common),
             (slot(1, 0), c(BUILD), Common),
             (slot(1, 1), c(DropOff), Disabled),
-            (slot(1, 2), c(BUILD_TURRET), Disabled),
+            (slot(1, 2), c(REPAIR), Unavailable),
             (slot(2, 1), c(Stop), Common),
         ]
     );
     let labels: Vec<&str> = shown_panel.slots().filter_map(|(_, s)| s.map(|s| s.label())).collect();
-    assert_eq!(labels, ["Move", "T1", "Drop", "LT", "Stop"]);
-    assert_eq!(why_text(&shown_panel, slot(1, 2)), Some("Requires an Optics Lab"));
+    assert_eq!(labels, ["Move", "T1", "Drop", "Repair", "Stop"]);
+    assert_eq!(shown_panel.name(slot(1, 0)).as_deref(), Some("Build Tunnel"));
+    assert_eq!(shown_panel.name(slot(1, 2)).as_deref(), Some("Repair"));
+    assert_eq!(why_text(&shown_panel, slot(1, 2)), Some(NOT_YET_TEXT));
     assert_eq!(press(&shown_panel, slot(1, 2)), SlotPress::Nothing);
     assert_eq!(why_text(&shown_panel, slot(1, 1)), Some("Not carrying resources"));
     assert_eq!(press(&shown_panel, slot(1, 1)), SlotPress::Nothing);
     assert_eq!(press(&shown_panel, slot(1, 0)), SlotPress::AwaitBuild(TUNNEL));
     let price = |at| shown_panel.get(at).and_then(|s| s.price);
     assert_eq!(price(slot(1, 0)), Some(BuildPrice::supplies(0)));
-    assert_eq!(price(slot(1, 2)), Some(BuildPrice::crystals(100)));
-    assert_eq!(price(slot(0, 0)), None);
-    for command in [PanelCommand::Attack, PanelCommand::HoldPosition, PanelCommand::Patrol] {
+    assert_eq!([slot(0, 0), slot(1, 2)].map(price), [None, None]);
+    for command in [
+        PanelCommand::Attack,
+        PanelCommand::HoldPosition,
+        PanelCommand::Patrol,
+        PanelCommand::Build(TURRET),
+    ] {
         assert!(!offers(AGENT, command), "{command:?}");
     }
+    let builds: Vec<PanelCommand> = (commands(AGENT).into_iter())
+        .filter(|command| matches!(command, PanelCommand::Build(_)))
+        .collect();
+    assert_eq!(builds, [BUILD], "the Tunnel alone");
+    assert!(offers(TUNNEL, PanelCommand::Expand(TURRET)));
     assert_eq!(recipients(&agent, BUILD), [id(1)]);
 }
 
@@ -79,28 +90,6 @@ fn build_tunnel_is_greyed_while_the_bank_cant_pay() {
     assert_eq!(build.price, Some(BuildPrice::supplies(2)));
     assert_eq!(why_text(&shown_panel, slot(1, 0)), Some("Not enough Supplies"));
     assert_eq!(press(&shown_panel, slot(1, 0)), SlotPress::Nothing);
-}
-
-/// Slice M4-S1: once the player owns an Optics Lab, D is the Laser Turret's Build, which enters its placement for the
-/// Agent Tabbed to as A does the Tunnel's; while the bank holds less than its 100 Space Crystals it is greyed, "Not
-/// enough Space Crystals" (design change 0233: "a Build order that can't be paid is refused"), its price still shown.
-#[test]
-fn build_laser_turret_places_one_once_it_is_available() {
-    let agent = Selection::new([(id(1), AGENT)]);
-    let priced = Conditions::default().pricing(BUILD_TURRET, BuildPrice::crystals(100));
-    let shown_panel = panel(&agent, InterfaceState::DefaultState, &priced);
-    assert_eq!(shown_panel.get(slot(1, 2)).unwrap().look, ButtonLook::Common);
-    assert_eq!(press(&shown_panel, slot(1, 2)), SlotPress::AwaitBuild(TURRET));
-    assert_eq!(recipients(&agent, BUILD_TURRET), [id(1)]);
-    let short = priced.refusing(BUILD_TURRET, Reject::InsufficientCrystals);
-    let shown_panel = panel(&agent, InterfaceState::DefaultState, &short);
-    let build = shown_panel.get(slot(1, 2)).unwrap();
-    assert_eq!(
-        (build.look, build.price),
-        (ButtonLook::Disabled, Some(BuildPrice::crystals(100)))
-    );
-    assert_eq!(why_text(&shown_panel, slot(1, 2)), Some("Not enough Space Crystals"));
-    assert_eq!(press(&shown_panel, slot(1, 2)), SlotPress::Nothing);
 }
 
 /// `factions/syndicate/units/agent.md > DefaultState commands`: Drop Off is "Always visible, greyed out when Agent is

@@ -36,8 +36,8 @@
 //! **Hidden objects** are `sc_sim::vision::Hiding`'s alone: a live one's through [`Sight::sees`] (the sim's vision asks
 //! it), a dead one's through the `Hiding` its death carries, and a removed one's through the filter's snapshot of the
 //! objects ([`Sighting::of`]). So a new arm of the rule in `Hiding::of`, such as the pop-up turret's, hidden while
-//! fully lowered (`factions/syndicate/structures/laser_turret.md > Upright vs Pop-up (by location)`), holds for all
-//! three at once.
+//! fully lowered (`factions/syndicate/structures/laser_turret.md > Pop-up rules`: "**Hidden only while fully
+//! lowered**"), holds for all three at once.
 //!
 //! Open, the design being silent (Q0090): each keeps the client's behaviour before this filter, marked where it
 //! applies.

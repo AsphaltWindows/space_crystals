@@ -16,7 +16,7 @@ use sc_sim::tunnel::TunnelState;
 use sc_sim::vision::LastKnown;
 use sc_sim::{ObjectId, ObjectKind, Placement, PlayerId, Progress};
 
-use super::{MeshKey, ObjectVisualAssets, object_height, object_transform, site, structures, underground, visual_mesh};
+use super::{MeshKey, ObjectVisualAssets, object_height, object_transform, site, structures, visual_mesh};
 use crate::fog::{EXPLORED_ALPHA, LocalSight, Revision};
 use crate::kinds::object_label;
 use crate::sim_driver::SimRes;
@@ -113,16 +113,17 @@ pub(super) fn sync_remembered_visuals(
         if by_id.contains_key(&id) {
             continue;
         }
-        // An underground structure's record (a neutral one's: none is taken of a hidden one) blends, as it does live.
-        let material = match underground(record.kind) {
+        // Records are of structures, in their owner's colour, and resources.
+        let key = MeshKey::of_record(record);
+        // An underground structure's record (a neutral one's: none is taken of a hidden one) blends, as it does live,
+        // and so does a neutral turret's, lowered for good (`MeshKey::lowered`, design change 0360).
+        let material = match key.underground() {
             true => assets
                 .underground_dimmed
                 .get_or_insert_with(|| materials.add(structures::underground_material(KEPT))),
             false => assets.dimmed.get_or_insert_with(|| materials.add(dimmed_material())),
         }
         .clone();
-        // Records are of structures, in their owner's colour, and resources.
-        let key = MeshKey::of_record(record);
         let mesh = assets
             .meshes
             .entry(key)

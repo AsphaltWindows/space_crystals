@@ -10,7 +10,7 @@
 //! tier last seen, a site's at the progress last seen), `station` (the remembered SupplyDeliveryStation: who may select it, its frame and its InfoPanel),
 //! `shots` (a shot from the fog), `markers` (the markers on a remembered target), `area_attacks` (slice M4-O:
 //! projectiles and blasts in the fog, and a hidden victim) and `neutral` (slice M4-H: a neutral expansion, seen by
-//! everyone).
+//! everyone; slice M5-Y: a neutral Laser Turret, drawn lowered, and its record too).
 
 mod area_attacks;
 mod markers;

@@ -3,15 +3,18 @@
 //! head on its roof ([`draw_head`]) and a barrel ([`TurretBarrel`]) that turns with the turret's facing, which the sim
 //! turns at once to face what it fires at (plan decision T49: "A structure has no turn rate (it fires in any
 //! direction)"; `sc_sim::combat`), interpolated between ticks as a unit's facing tick is ([`place_barrels`]). A site
-//! has neither (`super::site`); a record of a turret has its head and no barrel (`super::remembered`: where the barrel
-//! pointed isn't remembered).
+//! has neither (`super::site`); a record of a turret seen raised has its head and no barrel (`super::remembered`:
+//! where the barrel pointed isn't remembered).
 //!
-//! **The pop-up form** (slice M4-S2, plan decision T50; `factions/syndicate/structures/laser_turret.md > Upright vs
-//! Pop-up`, `sc_sim::popup`): fully lowered, the turret is drawn as an underground structure's outline, as an expansion
-//! (`super::MeshKey::lowered`), with neither head nor barrel: its owner sees the ground and the units over it, and
-//! the fog's `Sight` shows it to nobody else (`sc_sim::vision::hidden`). From its first rising frame it is the upright
-//! turret's body, its barrel already facing its target and coming out as it rises, and going back in as it retracts
-//! ([`place_barrels`]). Placeholders all.
+//! **Always a pop-up** (slices M4-S2 and M5-Y, plan decision T50; `factions/syndicate/structures/laser_turret.md >
+//! Pop-up turret`, design change 0360: "There is no upright form any more"; `sc_sim::popup`): fully lowered, the
+//! turret is drawn as an underground structure's outline, as an expansion (`super::MeshKey::lowered`), with neither
+//! head nor barrel: its owner sees the ground and the units over it, and the fog's `Sight` shows it to nobody else
+//! (`sc_sim::vision::hidden`). From its first rising frame it is the raised turret's body, its barrel already facing
+//! its target and coming out as it rises, and going back in as it retracts ([`place_barrels`]). A neutral one, which
+//! its lost Tunnel left (`factions/syndicate/structures/laser_turret.md > When its Tunnel is lost`), is down for good
+//! and seen by everyone: its outline in the neutral colour, and so is a record of one
+//! (`sc_sim::popup::remembered_lowered`). Placeholders all.
 
 use bevy::prelude::*;
 use sc_sim::ObjectId;

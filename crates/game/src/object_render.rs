@@ -30,8 +30,9 @@
 //! towards a pale cyan until it is complete ([`transforming_color`]); a site under construction (`Object::is_site`) is
 //! tinted towards a pale sand, braced by a scaffold, and shows its progress ([`site`], slice M4-J1), and so does its
 //! record, at the progress last seen (slice M4-I2). A structure that attacks (the Laser Turret, slice M4-S1) has a head
-//! on its roof and a barrel that turns to face what it fires at ([`turret`]). The map resources have shapes of their
-//! own ([`resources`]).
+//! on its roof and a barrel that turns to face what it fires at, and is an underground outline while it is a pop-up
+//! fully lowered, as it always is once neutral ([`turret`], design change 0360). The map resources have shapes of
+//! their own ([`resources`]).
 //!
 //! The fog of war hides the visuals of the objects the local player doesn't see (`crate::fog`); Explored tiles show
 //! the records of what it remembers instead, as visuals of their own ([`remembered`]).
@@ -99,7 +100,9 @@ struct MeshKey {
     tunnel: Option<TunnelLook>,
     /// Whether the object is a pop-up turret fully lowered (`sc_sim::popup::is_lowered`, slice M4-S2), drawn as an
     /// underground structure's outline, as an expansion: its owner sees the ground and the units over it, and nobody
-    /// else sees it (`sc_sim::vision::hidden`). A record never is: only a turret seen, so not lowered, is remembered.
+    /// else sees it (`sc_sim::vision::hidden`). A record is when it is neutral (`sc_sim::popup::remembered_lowered`,
+    /// design change 0360: a turret that lost its Tunnel is down for good, and seen by everyone); an owned turret is
+    /// seen by others only while it isn't lowered, and so remembered.
     lowered: bool,
 }
 
@@ -140,10 +143,11 @@ impl MeshKey {
         }
     }
 
-    /// The object of `record` as last seen (`remembered`): a site if it was one then.
+    /// The object of `record` as last seen (`remembered`): a site if it was one then, and a neutral turret lowered.
     fn of_record(record: &LastKnown) -> Self {
         Self {
             site: record.site.is_some(),
+            lowered: sc_sim::popup::remembered_lowered(record.kind, record.owner),
             ..Self::of(
                 record.kind,
                 record.owner,

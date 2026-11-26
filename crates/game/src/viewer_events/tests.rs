@@ -20,7 +20,8 @@ const P3: PlayerId = PlayerId(3);
 
 /// The objects of [`world`], by id: player 1's unit, its Tunnel and its Hideout (hidden from the others), player 2's
 /// unit, which sees them where they are, player 3's, far off in the east, which sees none of them, and player 1's
-/// Laser Turret, a structure that shoots (slice M4-S1), which player 2 sees too.
+/// Laser Turret, a structure that shoots (slice M4-S1), lowered in its Tunnel's area with no target (design change
+/// 0360: always a pop-up), so hidden from player 2 as the Hideout is.
 const UNIT: ObjectId = ObjectId(1);
 const TUNNEL: ObjectId = ObjectId(2);
 const HIDEOUT: ObjectId = ObjectId(3);
@@ -46,7 +47,7 @@ fn centre(x: i32, y: i32) -> Vec2 {
 /// A flat 40 × 10 map with three players, player 1 the Syndicate, auto-targeting off, the objects of [`UNIT`] to
 /// [`TURRET`] spawned in the first tick: player 1's Peacekeeper on (4, 5), its Tunnel on (6, 1)–(9, 4) and its Hideout
 /// on (6, 6)–(7, 7); player 2's Peacekeeper on (8, 5), whose SightRange of 5 takes in all three; player 3's on
-/// (35, 5); player 1's Laser Turret on (4, 3), in player 2's sight too.
+/// (35, 5); player 1's Laser Turret on (4, 3), in the Tunnel's area and in player 2's sight too.
 fn world() -> Sim {
     let mut scenario = scenarios::empty(40, 10);
     scenario.map.slots.push(Slot::new(TilePos::new(35, 5)));
@@ -117,15 +118,17 @@ fn every_kind_of_event_reaches_whom_the_table_says() {
     let (p2, p3) = (sight(P2, true), sight(P3, true));
     let object = |id| sim.object(id).unwrap();
     assert!(
-        p2.sees(object(UNIT)) && p2.sees(object(TUNNEL)) && p2.sees(object(TURRET)),
+        p2.sees(object(UNIT)) && p2.sees(object(TUNNEL)),
         "player 2 sees player 1's objects"
     );
-    assert!(!p2.sees(object(HIDEOUT)), "but not the Hideout, hidden from it");
-    assert_eq!(
-        p2.at(object(HIDEOUT).pos),
-        VisibilityState::Visible,
-        "though it sees its tiles"
-    );
+    for hidden in [HIDEOUT, TURRET] {
+        assert!(!p2.sees(object(hidden)), "but not {hidden:?}, hidden from it");
+        assert_eq!(
+            p2.at(object(hidden).pos),
+            VisibilityState::Visible,
+            "though it sees its tiles"
+        );
+    }
     assert!(
         !p3.sees(object(UNIT)) && !p3.sees(object(TUNNEL)) && !p3.sees(object(TURRET)),
         "player 3 sees none of it"
