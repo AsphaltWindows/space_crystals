@@ -22,6 +22,9 @@ If the player loses their last qualifying prerequisite structure:
 - Constructions already started (including GDO buildings in progress or ReadyToPlace) continue and can be completed/placed normally.
 - New constructions that require it cannot be started until the player again owns a qualifying (fully constructed) prerequisite structure.
 
+### Research Prerequisites
+(user, 2026-11-26; Q0117) A technology's prerequisites (previous level, required structures) follow the same rules: **checked only when it is queued**; losing a prerequisite structure afterwards **never cancels** research already queued or in progress. A next level can only be queued once the previous level has **completed**. The general principle: **losing a prerequisite never cancels or disables anything already started or finished**, for structures, units and research alike.
+
 ### Unit Prerequisites
 A unit type's production option may also declare a TechPrerequisite: the structure(s) the player must own before that unit can be queued at its production building (e.g. the Cults Gunner, trained at the Armory, requires a Gunworks; Cults advanced aircraft, built at the Airstrip, require a Scrap Hangar). The unit is still produced at its normal production building — the prerequisite structure only unlocks the option. The same rules apply as for structures:
 - **Counting Rule**: identical to the structure counting rule above.
@@ -46,10 +49,9 @@ A structure type may offer **Research**: technologies that a player pays for onc
 
 The Colonists have no exceptions: they follow the shared rules exactly.
 
-#### Cults — stat upgrades are not retroactive
-For the Cults, research that improves unit stats applies only to units that receive their stats **after** the research completes. Units that already exist are unaffected. The moment that counts depends on how the stat is applied:
-- **Augmentation improvements** (Temple): the moment the unit's augmentation finishes at the Altar (see factions/cults/augmentation.md > Augmentation > Level Locking).
-- **Other stat upgrades** (not yet designed): the moment the unit finishes training.
+#### Cults — stat upgrades are not retroactive (except augmentation)
+- **Augmentation improvements** (Temple) **are retroactive** (user, 2026-11-26): they apply at once to every unit with that Augmentation (factions/cults/augmentation.md > Research applies to everyone).
+- **Other stat upgrades** (not yet designed): as written so far, they apply only to units that finish training after the research completes. Whether these become retroactive too: being asked.
 
 #### Cults — research is staffed by Recruits
 A Cults research building only makes research progress while Recruits are inside it. Only Recruits can staff research (other Cults infantry cannot), mirroring the rule that only Recruits build.

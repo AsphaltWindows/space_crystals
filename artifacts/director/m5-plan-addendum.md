@@ -13,6 +13,55 @@
 >   - **0326:** the Agent's panel is Q Move, A Construct (Q Tunnel, W Laser Turret, Z Back), S Drop Off, D Repair,
 >     X Stop. **J1** builds the Agent's Construct menu beside the Recruit's, with D `Planned`. **N8** makes the Agent's
 >     **D** live, not F as §B's N8 says.
+> - **0327 and 0328 arrived next:**
+>   - **0327** (answers Q0096): the Recruit has two build menus, **A** Basic and **W** Advanced, with fixed slots by
+>     branch. **J1** builds both, with every building not yet built greyed. This replaces the single
+>     `CONSTRUCT_MENU` of the J1 note in §C.
+>   - **0328** (answers Q0123, Q0125, and points of Q0112, Q0120 and Q0124):
+>     - **New slice N9: the Field Engineer and the Career Campus** (Opus, about 2 h; after N8, before X1). It covers
+>       their defs, the Barracks' E recipe, the Deployment Center's Construct entry, the Field Engineer's panel
+>       (A Construct with Bunker and First Aid Tent greyed; D Repair), and its `repairs` data on N8's mechanism.
+>     - Shroud is on **R** (N4a and N4b).
+>     - The Sparrow's SeparationRadius of 32 su is now the design's (H1).
+>     - **N8:** a Tunnel repairs at its 480-frame rate at every Tier, and a vehicle's repair price is crystals only.
+> - **0329 and 0330** (answer Q0124, and points of Q0114 and Q0121):
+>   - **N8:** a repair ends at full HP, or when the bank is empty (replacing T83's wait at the step's top). Gliders
+>     aren't repaired, and Agents don't repair Tunnel expansions. Instead **N8 builds the expansions' regeneration:**
+>     1% of MaxHP a second while their Tunnel lives, in combat too.
+>   - **N1a (0330, refined by 0331):** when MaxHP goes up, HP goes up by the same amount, so the damage is kept; when it
+>     goes down, HP is capped at the new maximum, with no floor. This replaces T73's floor at 1 HP.
+>   - **N6 and N7:** products come out at full HP, as T71 planned.
+> - **0332–0334:**
+>   - **0332:** every pool building reserves in order of entry, and trained infantry keep the Recruit's damage (T71's
+>     placeholders confirmed, for F2, N1b, N4a, N6 and N7).
+>   - **0333:** the Gunner's FiringDuration is 4 and its CooldownDuration 6. F2 makes the change.
+>   - **0334, T77 amended for N4b:**
+>     - each connected cloud has its own timer, releasing 8 frames after the first hit it absorbs, replacing the
+>       global clock;
+>     - clouds that join release their buffers at once and start a fresh joint buffer, replacing the summed buffers;
+>     - releases ignore directional armour;
+>     - underground objects are affected;
+>     - the Disciple's regeneration continues while channelling;
+>     - every player sees the cloud over their Visible tiles;
+>     - an object is under a cloud when its centre is.
+>
+>     **N4a:** the Disciple is Ungroupable.
+> - **0335** (answers Q0115–Q0118):
+>   - **N2, T72 amended.** The Garrison has one door, on side B (AAAB). Eject All lets everyone out at once through
+>     that door, passing through each other until clear, which replaces `ExitRule::AnySide` with T62's spots.
+>     Evacuation is unchanged. Each occupant picks its own target, Range is measured from the Garrison's edge, there
+>     are no spells from inside, and augmentation doesn't change the borrowed Militant attack.
+>   - **G2:** the Gunworks and Machine Shop become ABAC (in at B, out at C). They still can't be entered until their
+>     research exists (0328). The tech gate follows 0335's general rule: losing the Gunworks never cancels Gunners
+>     already queued or in training, and W greys again for new orders. Test it.
+>   - **N3:** the Temple is ABAC (in at B, out at C), and staff leave one at a time. T72's nearest-side entrance stays
+>     only for the Shrine, until its entrance is decided. Level 2 waits for Level 1 to complete, and the Cathedral is
+>     checked at queue only (T74, confirmed).
+>   - **N5:** a unit is in the circle by its centre; a recast restarts the duration, with no stacking; Shrines are
+>     Ungroupable.
+>   - **S1:** sweep the factions already built for 0335's general rule. Nothing already started or finished may be
+>     cancelled or disabled when a prerequisite is lost. Report what happens to an order given but not yet started,
+>     such as a builder still walking to its site.
 > - **The waves (§C) stand,** but the playtest's timing is the user's call: the full Cults at the end of W12, or a
 >   first playtest of the infantry core at the end of W9 (§F), put to the user on 2026-11-25.
 

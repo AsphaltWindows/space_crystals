@@ -2291,3 +2291,11 @@ Answered Q0069–Q0071 (0258–0267): losing-Tunnel edges, Syndicate economy che
 2026-11-26 — Agent Construct menu. Entry 0326.
 2026-11-26 — Q0096 Basic/Advanced. Entry 0327.
 2026-11-26 — Q0096 Basic/Advanced (0327); placeholder+cleanup batch (0328: Q0123, Q0125, Q0112.1, Q0120.1, Q0124.5-6).
+2026-11-26 — Q0124.1-4: repair ends; gliders no; expansions regen. Entry 0329.
+2026-11-26 — Q0114.1/.3, Q0121.2, regen in combat. Entry 0330.
+2026-11-26 — MaxHP up keeps damage. Entry 0331.
+2026-11-26 — First in first trained; keep damage. Entry 0332.
+2026-11-26 — Gunner firing 4 frames. Entry 0333.
+2026-11-26 — Shroud rules, Disciple ungroupable. Entry 0334.
+2026-11-26 — Garrison, entrances, Temple, prereqs, Shrine. Entry 0335.
+2026-11-26 — Retroactive augment research; Shrine sides; Q0127 accept. Entry 0336.

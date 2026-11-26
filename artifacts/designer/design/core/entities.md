@@ -61,6 +61,9 @@ It has one of 7 symmetry types from the perspective of how relevant the building
 
 **Side lettering convention** (user, 2026-11-24): the letters name the building's four sides **clockwise starting from the top edge**, in the building's **default orientation** (rotation 0, unflipped): 1st letter = top, 2nd = right, 3rd = bottom, 4th = left. Size (Height x Width) is also given for the default orientation. Example: the GDO Barracks is 2x3 (2 tall, 3 wide) with ABAC: top A, right B (short side), bottom A, left C (short side). Rotating or flipping the building carries the sides with it.
 
+### Entrance and exit (production and research buildings)
+(user, 2026-11-26; Q0116) **Every production and research building has an entrance side and an exit side.** Units go in by the entrance and come out of the exit **one at a time** (Exit Doorway below, a little like leaving a Tunnel), whether trained, ejected or leaving research. The **Garrison** is the exception: it has **one door** (entrance and exit), and on Eject All everyone inside comes out **at once** through it, ignoring collision with each other until they are out (factions/cults/structures/garrison.md).
+
 ### Exit Doorway
 Applies to structures that release units through an **exit side** (e.g. GDO Barracks side B, Cults Armory exit side C). Decided by the user, 2026-11-24:
 1. **Spawning in the doorway**: a produced or released unit appears **half inside the building**, at the middle of the exit side. Only the releasing building lets a unit overlap its footprint this way; nothing else can overlap a building. Since the spot is partly inside the footprint, no other unit can stand on it, so **the spawn spot can't be blocked from outside**.
