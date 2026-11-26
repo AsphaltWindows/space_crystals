@@ -19,4 +19,4 @@ Available unit types:
 - Cost and time: Recruit > Constructs (250 SC, 640 frames).
 - InternalRecruitCapacity 10; training queue 20.
 - **Disciple**: 1 Recruit, 75 Space Crystals, 320 frames (20 seconds).
-- Panel like the Armory's: **Q: Train Disciple**, **A: Eject All**, **C: Set Rally Point**, **X: Cancel Production**.
+- Panel like the Armory's (choose a kind with Q/W/E/R first, then; README > Choosing Recruits, Release and Eject All): **Q: Train Disciple**, **A: Release** in the kind menu; **A: Eject All**, **C: Set Rally Point**, **X: Cancel Production**.

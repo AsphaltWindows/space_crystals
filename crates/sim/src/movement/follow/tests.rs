@@ -61,6 +61,7 @@ fn a_drone_creeping_along_a_wall_makes_progress_and_never_gives_up() {
             layer: None,
             bodies: &bodies,
             me: 0,
+            contact: crate::defs::ContactStep::Sideways,
             door: None,
             lanes: &mut Vec::new(),
             counters: &mut counters,

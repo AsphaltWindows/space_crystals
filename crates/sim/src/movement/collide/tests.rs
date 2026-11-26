@@ -58,6 +58,8 @@ fn a_unit_going_round_on_its_lean_side_never_steps_back() {
             layer: Some(&layer),
             bodies: &bodies,
             me: 0,
+            // The lean chooses for a base that steps as before design change 0323; the others go by the near side.
+            contact: crate::defs::ContactStep::Diagonal,
             door: None,
             lanes: &mut lanes,
             counters: &mut counters,
@@ -107,6 +109,7 @@ fn a_unit_inside_another_walks_out_unhindered_and_is_blocked_once_apart() {
             layer: Some(&layer),
             bodies: &bodies,
             me: 0,
+            contact: crate::defs::ContactStep::Sideways,
             door: None,
             lanes: &mut lanes,
             counters: &mut counters,

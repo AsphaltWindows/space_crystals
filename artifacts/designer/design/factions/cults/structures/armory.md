@@ -57,6 +57,8 @@ Immediate commands (CommandIssuingTransition):
 Target commands (StateOnlyTransition):
 - **C: Set Rally Point**: enters AwaitingTarget[SetRallyPoint]. Left-click ground or object sets the rally point (CommandIssuingTransition, returns to DefaultState).
 
-Production commands (CommandIssuingTransition):
+Kinds and Release (user, 2026-11-26): **Q/W/E/R choose a kind of Recruit first** (Plain, Constitution, Metabolism, Both), then **Q: Train Militant**, **W: Train Gunner** or **A: Release** (factions/cults/structures/README.md > Choosing Recruits, Release and Eject All). The commands below act on Recruits of the chosen kind.
+
+Production commands (CommandIssuingTransition, in KindMenu[kind]):
 - **Q: Train Militant**: deducts Militant's Space Crystals cost from the player, moves one Recruit from StoredRecruits into a new TrainingQueue entry. Only available if StoredRecruits is not empty, TrainingQueue has fewer than 20 entries, and player has sufficient Space Crystals.
 - **W: Train Gunner**: deducts Gunner's Space Crystals cost from the player, moves one Recruit from StoredRecruits into a new TrainingQueue entry. Only available if StoredRecruits is not empty, TrainingQueue has fewer than 20 entries, player has sufficient Space Crystals, and the player owns at least one Gunworks (TechPrerequisite).

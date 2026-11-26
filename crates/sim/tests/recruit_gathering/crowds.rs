@@ -9,13 +9,21 @@ use super::*;
 /// One Recruit alone at a gap of 1 and of 2 tiles (`trips`): Space Crystals per second.
 const ALONE: [f32; 2] = [32.0 / 24.0, 32.0 / 56.0];
 
-/// Five minutes of `t`: the income once settled, and the jam check for every one of `recruits`.
-fn five_minutes(mut t: TestSim, recruits: &[u32], what: &str) -> f32 {
+/// (M4-W3) The longest a Recruit of a crowd goes without a load where five share one face a tile from the Storage,
+/// or ten a field, with design change 0323's contact step: 20 seconds, twice [`JAM`]. A Recruit blocked on the face
+/// leaves it by a whole width (`docs/movement.md > 6.3`) and comes back, where it shuffled a step: measured, 205 and
+/// 267 ticks at most (under [`JAM`] until 0323). Nobody stops for good; crowding a face is the player's to sort out
+/// (design change 0320).
+const CROWD_WAIT: Tick = 2 * JAM;
+
+/// Five minutes of `t`: the income once settled, and the jam check for every one of `recruits`: none goes `wait`
+/// ticks without a load.
+fn five_minutes(mut t: TestSim, recruits: &[u32], what: &str, wait: Tick) -> f32 {
     t.run_until(FIVE_MINUTES);
     let (longest, who) = longest_gap(&t, recruits, SETTLED, FIVE_MINUTES);
     let income = income(&t, SETTLED, FIVE_MINUTES);
     assert!(
-        longest < JAM,
+        longest < wait,
         "{what}: Recruit {who} delivered nothing for {longest} ticks; {income:.2} Space Crystals per second"
     );
     income
@@ -32,10 +40,18 @@ fn four_and_five_recruits_on_one_two_tile_face_work_without_a_jam() {
     for gap in [1, 2] {
         for count in [4, 5] {
             let (t, recruits) = face_at_work(count, gap, 2, 0);
-            let income = five_minutes(t, &recruits, &format!("{count} Recruits, {gap} tiles"));
+            let wait = if (count, gap) == (5, 1) { CROWD_WAIT } else { JAM };
+            let income = five_minutes(t, &recruits, &format!("{count} Recruits, {gap} tiles"), wait);
             let full = count as f32 * ALONE[gap as usize - 1];
             println!("{count} Recruits, a gap of {gap}: {income:.2} of {full:.2} Space Crystals per second");
-            let least = if count == 4 { 0.97 } else { 0.90 };
+            // (M4-W3) Five at 1 tile bring 82% of five alone, 5.46 (92%, 6.10, until design change 0323); four at 2
+            // tiles 96.6%, 2.21 (97.6%, 2.23).
+            let least = match (count, gap) {
+                (4, 1) => 0.97,
+                (4, _) => 0.96,
+                (5, 1) => 0.80,
+                _ => 0.90,
+            };
             assert!(
                 income >= least * full && income <= 1.01 * full,
                 "{count} Recruits, {gap} tiles: {income} of {full}"
@@ -60,8 +76,12 @@ fn ten_recruits_work_an_eight_patch_field_with_three_storages_for_five_minutes()
     let (longest, who) = longest_gap(&t, &recruits, SETTLED, FIVE_MINUTES);
     let income = income(&t, SETTLED, FIVE_MINUTES);
     println!("10 Recruits, 8 patches, 3 Storages: {income:.2} Space Crystals per second, longest gap {longest}");
-    assert!(longest < JAM, "Recruit {who} delivered nothing for {longest} ticks");
-    assert!(income >= 0.95 * 10.0 * ALONE[0], "{income}");
+    assert!(
+        longest < CROWD_WAIT,
+        "Recruit {who} delivered nothing for {longest} ticks"
+    );
+    // (M4-W3) 12.6 per second, 94.5% of ten alone (12.9 and 97% until design change 0323).
+    assert!(income >= 0.93 * 10.0 * ALONE[0], "{income}");
     for storage in 9..=11 {
         assert!(deliveries(&t).iter().any(|d| d.2 == storage), "Storage {storage}");
     }

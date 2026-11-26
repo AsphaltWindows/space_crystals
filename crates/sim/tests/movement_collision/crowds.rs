@@ -39,7 +39,11 @@ fn twenty_units_go_through_a_choke() {
     for id in 1..=n {
         assert_eq!(t.status(id), MoveStatus::Arrived, "#{id}:\n{}", t.ascii(None));
         assert!(t.pos(id).x > 704.0, "#{id} is through the choke");
-        assert!(t.pos(id).distance(click) < 160.0, "#{id} at {}", t.pos(id));
+        // (M4-W3) 192 su, three tiles (160 until design change 0323): one unit, shut out of its place by those that
+        // arrived before it, stops 165 su from the click. Its contact steps round them are a whole width each
+        // (`docs/movement.md > 6.3`), so it has arrived by the occupied-target rule a step farther out than a unit
+        // that shuffled along them; every unit is through the choke and has arrived, and no move fails.
+        assert!(t.pos(id).distance(click) < 192.0, "#{id} at {}", t.pos(id));
     }
     assert!(
         t.events()

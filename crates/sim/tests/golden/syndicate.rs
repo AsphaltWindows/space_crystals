@@ -36,7 +36,7 @@ const OPENING_END: Tick = 2160;
 /// plays back in the client to where its game ended (`ARCHITECTURE.md > Replays and golden hashes`, "Playback"), so the
 /// golden game ends there too, with its last checkpoint. A change that moves the end fails [`versus_gdo`]'s `expect`:
 /// set this to the tick it names.
-const VERSUS_END: Tick = 2998;
+const VERSUS_END: Tick = 3060;
 /// [`opening`]'s camera starts over this tile: player 1's base and its second Tunnel.
 const OPENING_CAMERA: TilePos = TilePos::new(13, 11);
 /// [`versus_gdo`]'s: player 1's two Tunnels and the plateau's west ramp, where the Guards fight.

@@ -31,6 +31,22 @@ Rationale — why structures cost both crystals and build time: crystals are the
 - **Payment**: the building's Space Crystals cost is deducted as soon as the build order is given (the order requires enough Space Crystals at that moment), not when the Recruits arrive. Players who want to expand before they can afford it simply move Recruits toward the site ahead of time and issue the build order once the crystals are available.
 - **Order cancelled before construction starts**: if the build order is cancelled before the building is placed (the Recruits are given another order before arriving, or placement fails validation on arrival), the full Space Crystals cost is refunded. Once construction has started, the order can no longer be cancelled through the Recruits — re-ordering them just removes them from the site (progress stalls, see above), and the building can only be cancelled through its own Cancel Construction command (75% refund, see Cancel Construction below).
 
+### Group construction rules
+(user, 2026-11-26; Q0097)
+- **Where builders work**: each Recruit walks to the **part of the footprint closest to it**; if that part is taken (blocked), it **wall-hugs** along the footprint until it reaches a part where it can work, and builds from there (within its 8 su reach of the edge, as for mining).
+- **Start**: the site starts **as soon as the first Recruit of the order arrives** (placement is checked then).
+- **Blocked site**: units on the footprint at that moment, **including Recruits of the same order**, block it, and **the whole order fails** (refunded once in full; Payment and Order cancelled before construction starts above). Designer's note: a group-order special case; nothing retries.
+- **Speed counts only Recruits actively building**: a building needs a fixed number of **Recruit-frames** (BaseConstructionTime with 1 Recruit). Every frame, each Recruit that is building during that frame adds 1. Recruits still walking, waiting for a spot or doing anything else add nothing. There is no cap other than room around the site.
+- **Under attack**: builders **keep building** (as gatherers keep gathering).
+- **Assist** targets only a building **already under construction**, not a ghost whose order hasn't started.
+
+### Group construction refunds
+(user, 2026-11-26; Q0098)
+- **Partly re-ordered group**: the cost is refunded only once **no Recruit of the group still holds the order** (before construction starts).
+- **All builders killed** before the start: **full refund** (as the Agent's order, 0289).
+- **Shift chains**: each queued building is refunded in full when its **last holder drops it** before its construction starts.
+- **After Cancel Construction**: Recruits with more orders queued (e.g. Shift-queued buildings) **go on to them**; with none, they go idle.
+
 ### Assist Construction Command
 - Select one or more Recruits
 - Select the Assist Construction option
@@ -49,13 +65,21 @@ Applies to every Cults building that can hold units inside (Armory, Altar, Templ
 - **Placement**: evacuated units appear around the building's footprint wherever there is open space, unharmed.
 - **Orders are cancelled with a full refund**: every in-progress and queued training, augmentation, and research order is cancelled and its full Space Crystals cost refunded (consistent with core/tech_and_research.md > Research shared rule 7).
 
-## RecruitmentHall
+## Economy check
+(user, 2026-11-26; Q0103) The figures the build is measured against (the Director's economy oracle):
+- **Distance** is measured **edge to edge**, patch to Storage, in whole tiles (as for Agents).
+- **Tolerance ±15%**: a measured figure passes if it is within 15% of its target either way (e.g. 1.45 SC/s per Recruit passes anywhere from about 1.23 to 1.67).
+- **Targets**: ≈ 1.45 SC/s per Recruit at a 1-tile gap (≈ 0.59 at 2, ≈ 0.37 at 3); 4–5 Recruits per 2-tile face at full efficiency; a starting Hall fills from 6 to 20 in 168 s (2:48); the earliest second Hall at ~0:55–1:15; roughly level with the GDO and the Colonists until ~1:30 and slightly ahead by 2:48.
+- **Two scenarios, on an 8-patch field:**
+  1. **Ideal mining**: one Storage per face, all Recruits mining (the "level until 1:30, ahead by 2:48" comparison was made this way: pure mining, best case).
+  2. **Realistic opening** (user's build line): start with the one starting Storage; **save for a second Recruitment Hall without building any extra Storages**, spreading new Recruits to patches farther from the starting Storage; **build the second Hall with all the non-optimal Recruits** (those on the far patches); then **build Storages around the patches**, one per face. Measured against the GDO and the Colonists at 1:30 and 2:48 and reported (the docs have no target for it yet; it tells whether the Cults stay level when they expand early).
+
 
 The Cults' starting structure. Automatically produces Recruits from the surrounding population of Recruitable terrain. Each Recruitment Hall operates independently with its own local capacity and production rate.
 
 ### Faction - TheCults
 ### Size - 4x4 grid units
-### SymmetryType - AAAA
+### SymmetryType - AAAB (user, 2026-11-26; Q0100: **one exit side, B**; side placeholder; Recruits come out of it one at a time through the Exit Doorway, core/entities.md)
 ### MaxHP - 1000
 ### PointArmor - 1
 ### FullArmor - 16
@@ -67,10 +91,16 @@ The Cults' starting structure. Automatically produces Recruits from the surround
 The player starts with one RecruitmentHall, but additional ones are buildable by Recruits like any other Cults structure. Space Crystals cost and construction time are listed under the Recruit's Constructs list (see Recruit > Building).
 
 ### RecruitmentArea
-A 10x10 grid unit area centered on the 4x4 building.
+A 10x10 grid unit area centered on the 4x4 building. **The whole area must lie on the map** (user, 2026-11-26; Q0099): a Hall whose area would leave the map can't be placed (as Tunnels, 0242).
 
 ### TileClaiming
 A Recruitment Hall claims Recruitable tiles within its Recruitment Area that are not already claimed by another active Recruitment Hall. Tiles are claimed on a first-built basis — the hall that was constructed first has priority. This priority also applies when tiles are freed by the destruction of a competing hall; if multiple halls contest a newly freed tile, the one that was built first claims it.
+
+**Claiming details** (user, 2026-11-26; Q0099):
+- **Priority** goes to the Hall **completed first**. A Hall under construction claims nothing, provides no capacity and produces nothing until it is complete.
+- **Ties** (completed in the same frame, e.g. the starting Halls): the contested tiles are split **contiguously** by a simple rule: each contested tile goes to the Hall whose **centre is nearer**; at exactly equal distance, to the Hall with the lower object id (designer's naive rule, as the user asked for "some naive way").
+- **Across players**: Halls of **different players compete** for tiles the same way as a player's own Halls.
+- **Rounding**: LocalUnitControlCapacity is **rounded down** everywhere (production and HUD): 33 claimed tiles of 100 gives 6.6, so 6.
 
 ### Effectiveness
 Effectiveness = (number of claimed Recruitable tiles in Recruitment Area) / (total number of tiles in Recruitment Area).
@@ -98,10 +128,10 @@ Rationale: every Cults unit (miners, builders, staff and army) counts against it
 - RallyPoint: Coordinates | ObjectInstance | None
 
 ### Production Behavior
-The Recruitment Hall automatically and continuously produces Recruits at no resource cost until LocalUnitControlUsage reaches LocalUnitControlCapacity. Produced Recruits spawn at the hall and move to its rally point. Production logic is entirely local — global Unit Control state does not affect production decisions.
+The Recruitment Hall automatically and continuously produces Recruits at no resource cost until LocalUnitControlUsage reaches LocalUnitControlCapacity. Produced Recruits come out of the **exit side (B)** and move to its rally point. **Production can't be cancelled** (user, 2026-11-26; Q0100). **Unit Control**: the Recruit in production **counts toward LocalUnitControlUsage from the start of its production** (as other factions, 0143). When the Hall is at capacity nothing is in production; when capacity frees up (a unit dies), the next Recruit **starts from 0**. Production logic is entirely local — global Unit Control state does not affect production decisions.
 
 ### Unit Control Tracking
-Each Recruit tracks which Recruitment Hall produced it. This lineage persists when a Recruit is trained into another unit. A trained unit's Unit Control cost equals the number of Recruits consumed to produce it, with each point of cost attributed to the originating hall of the respective Recruit. When a unit is destroyed, LocalUnitControlUsage decreases at the originating hall(s).
+Each Recruit tracks which Recruitment Hall produced it. **Recruits no Hall produced** (placed by a custom map or spawned by a debug command; user, 2026-11-26; Q0101) are **orphans** from the start: they count in the global display only, against no Hall. This lineage persists when a Recruit is trained into another unit. A trained unit's Unit Control cost equals the number of Recruits consumed to produce it, with each point of cost attributed to the originating hall of the respective Recruit. When a unit is destroyed, LocalUnitControlUsage decreases at the originating hall(s).
 
 ### Cults Unit Control HUD Display
 Displays: (sum of all LocalUnitControlUsage across all active Recruitment Halls and orphaned units) / (sum of all LocalUnitControlCapacity across all active Recruitment Halls). This is a global aggregation for display purposes only.
@@ -121,8 +151,7 @@ Right-click resolution:
 - Right-click Ground: issues SetRallyPoint command to that location
 - Right-click Object: issues SetRallyPoint command to that object
 
-Immediate commands (CommandIssuingTransition):
-- **X: Cancel Production**: cancels the current Recruit in production, resetting ProductionProgress. Only available if ProductionProgress is not None.
+(No cancel: Recruit production can't be cancelled; user, 2026-11-26; Q0100.)
 
 Target commands (StateOnlyTransition):
 - **C: Set Rally Point**: enters AwaitingTarget[SetRallyPoint]. Left-click ground or object sets the rally point (CommandIssuingTransition, returns to DefaultState).

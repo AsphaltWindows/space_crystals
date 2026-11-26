@@ -83,8 +83,10 @@ fn two_own_units_head_on_in_a_corridor_both_give_up() {
         .spawn_unit_at(1, GUARD, P1, east)
         .order_at(2, P1, &[ObjectId(1)], move_to(east), false)
         .order_at(2, P1, &[ObjectId(2)], move_to(west), false);
-    // They meet after (832 − 36) / (2 × 5) = 80 ticks.
-    let done = run_until_done(&mut t, &ids(1..=2), 2 + 80 + GIVE_UP_TICKS + 8);
+    // They meet after (832 − 36) / (2 × 5) = 80 ticks. (M4-W3) Their contact steps (design change 0323) take them
+    // from wall to wall across the corridor's middle, which with their closing up is once more half a step nearer:
+    // their clocks stand from 16 ticks after they met.
+    let done = run_until_done(&mut t, &ids(1..=2), 2 + 80 + GIVE_UP_TICKS + 8 + 16);
     assert!(done > 82 + STUCK_TICKS, "they met first");
     assert_eq!((t.status(1), t.status(2)), (MoveStatus::Failed, MoveStatus::Failed));
     let (a, b) = (t.pos(1), t.pos(2));

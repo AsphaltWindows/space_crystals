@@ -8,7 +8,7 @@
 //!   Tunnel's upgrade to Tier 2, and [`GUARDS`] Guards, [`GRENADIERS`] Grenadiers and [`RESERVES`] more Guards behind
 //!   their prerequisites.
 //! - **An upright Laser Turret**, which its [`TURRET_BUILDER`]th Agent builds at the front ([`UPRIGHT_SITE`], outside
-//!   every Tunnel Area) once the Optics Lab stands, and then gathers Supplies.
+//!   every Tunnel Area) once the Optics Lab stands, and then goes back to the crystals.
 //! - **The front** is the foot of the plateau's west ramp, below the forward Tunnel. Its units go in and out by the
 //!   forward Tunnel while it is in operation, else by the first. The first [`GUARDS_OUT`] Guards out hold
 //!   [`GUARD_POST`]; one below half its MaxHP walks back in, heals in the network (`network::Held::regenerate`), and
@@ -109,17 +109,13 @@ const CHEMICAL_PLANT_SITE: TilePos = TilePos::new(4, 10);
 /// Peacekeepers come off the ramp (ElevationModifier: it would see one grid unit less of them on the slope).
 const UPRIGHT_SITE: TilePos = TilePos::new(20, 23);
 /// The Agent that builds it, by its place among the player's (`Syndicate::agents`): the first one trained. Once out it
-/// gathers Supplies, not crystals. Back on the patch it would make four Agents for one crystal hatch, one more than
-/// saturate it (design change 0294), and they gridlock on its side for good (slice M4-M, reported; question Q0109):
-/// the one that has delivered can't get out past the three coming to it, and none of them makes way. In this game
-/// that happens at 6:53, once the patches west of the hatch are gone and the Agents come from (3, 3), north-west of
-/// it: an Agent's leg to the hatch never ends, and the income stops.
+/// goes back to the crystals, the fourth Agent on one crystal hatch, one more than saturate it (design change 0294).
 ///
-/// **Still so with design change 0315 built** (slice M4-W2: the Agents coming to the hatch press on where they stood
-/// and tried again, `orders::gather::legs::return_leg`). Measured with this Agent back on crystals, and with one and
-/// two more Agents trained: four stop for good at 6:53 (7:05 before 0315), five never stop for a minute but one
-/// goes 93 seconds without a load, six stop for good at 4:59 (`docs/playtest/m4.md > Known issues`). So the fourth
-/// Agent stays off the crystals until Q0109's follow-up is answered.
+/// **(M4-W3) Restored with design change 0323's contact step.** Until then the four gridlocked beside the hatch for
+/// good (slice M4-M; questions Q0109 and Q0111), at 6:53 with design change 0315 built, once the patches west of the
+/// hatch were gone and the Agents came from (3, 3), north-west of it; so this Agent gathered Supplies instead. With
+/// 0323 the first Tunnel never stops, with four, five or six Agents on crystals: 12.2 Space Crystals per second after
+/// the first minute and no stretch without a delivery after the walk to the first (`docs/playtest/m4.md`).
 const TURRET_BUILDER: usize = 1;
 /// Where the Guards stand: west of the ramp's foot (the golden game's hold its top, `skirmish::GUARD_POST`).
 const GUARD_POST: TilePos = TilePos::new(22, 22);
@@ -150,10 +146,6 @@ struct Players {
     cleared: bool,
     /// The upright turret's Agent, once it has its Build order.
     turret_builder: Option<ObjectId>,
-    /// The Agents that finished a Tunnel, to come out of it and gather Supplies, each with its Tunnel ([`builders`]).
-    ///
-    /// [`builders`]: Players::builders
-    builders: Vec<(ObjectId, ObjectId)>,
     /// What the soak's own commands paid, in Space Crystals, by tick: the upright turret.
     paid: Vec<(Tick, u32)>,
     /// Whether player 2's Barracks has its rally point.
@@ -165,7 +157,8 @@ struct Players {
 }
 
 impl Players {
-    fn new() -> Self {
+    /// The players, with `more` Agents trained beyond the line's [`AGENTS`], all on crystals.
+    fn new(more: usize) -> Self {
         let gdo = BuildOrder::new(GDO).track(
             [
                 Order::new(ExtractionFacility, ExtractionPlate),
@@ -176,11 +169,12 @@ impl Players {
             .into_iter()
             .chain([Order::new(Barracks, Peacekeeper); PEACEKEEPERS]),
         );
-        let line = BuildOrder::new(SYNDICATE).track(vec![Order::new(Hideout, Agent); AGENTS]);
+        let line = BuildOrder::new(SYNDICATE).track(vec![Order::new(Hideout, Agent); AGENTS + more]);
         let syndicate = Syndicate::new(line)
             .gather(PATCH)
             .rally(Target::Object(PATCH))
             .job(BUILDER, Job::Tunnel(TUNNEL_SITE, TURNED))
+            .eject_builders(Job::Supplies(STATION))
             .expand(0, OpticsLab, OPTICS_LAB_SITE)
             .expand(1, LaserTurret, POPUPS[0])
             .expand(0, ChemicalPlant, CHEMICAL_PLANT_SITE)
@@ -194,7 +188,6 @@ impl Players {
             gdo,
             cleared: false,
             turret_builder: None,
-            builders: Vec::new(),
             paid: Vec::new(),
             rallied: false,
             sent: BTreeSet::new(),
@@ -226,7 +219,6 @@ impl Players {
             // What the line's commands leave in the bank for the soak's own.
             let bank = sim.player(SYNDICATE).map_or(0, |p| p.crystals);
             let budget = bank.saturating_sub(self.syndicate.spent_in(tick));
-            self.builders(sim, &mut commands);
             self.upright_turret(sim, tick, budget, &mut commands);
             // The Tunnel the front's units go in and out by: the forward one while it is in operation, else the first.
             let tunnels = || {
@@ -245,44 +237,8 @@ impl Players {
         commands
     }
 
-    /// The golden line's `Syndicate::eject_builders(Job::Supplies(STATION))`, for a Tunnel only: an Agent that finishes
-    /// one is ejected by it at once (design change 0301), and gathers Supplies at [`STATION`] once out. The line's own
-    /// takes every finished site of the player's for a Tunnel, an Agent's Laser Turret included, whose Eject the gate
-    /// refuses (`Reject::NotATunnel`).
-    fn builders(&mut self, sim: &Sim, commands: &mut Vec<PlayerCommand>) {
-        let command = |command| PlayerCommand {
-            player: SYNDICATE,
-            command,
-        };
-        for e in sim.events() {
-            if let SimEvent::SiteCompleted { site, worker } = *e
-                && sim
-                    .object(site)
-                    .is_some_and(|o| o.owner == Some(SYNDICATE) && o.kind == Tunnel)
-            {
-                commands.push(command(Command::Tunnel {
-                    tunnel: site,
-                    command: TunnelCommand::Eject { kind: Agent },
-                }));
-                self.builders.push((site, worker));
-            }
-        }
-        let out: Vec<ObjectId> = (self.builders.iter())
-            .filter(|&&(_, worker)| sim.object(worker).is_some())
-            .map(|&(_, worker)| worker)
-            .collect();
-        self.builders.retain(|(_, worker)| !out.contains(worker));
-        if !out.is_empty() {
-            commands.push(command(Command::Order {
-                units: out,
-                kind: OrderKind::Gather(STATION),
-                queue: false,
-            }));
-        }
-    }
-
     /// The upright turret (module docs): ordered once the player owns a finished Optics Lab and the budget covers its
-    /// price, and its Agent sent to gather Supplies once it is out ([`TURRET_BUILDER`]).
+    /// price, and its Agent sent back to the crystals once it is out ([`TURRET_BUILDER`]).
     fn upright_turret(&mut self, sim: &Sim, tick: Tick, budget: u32, commands: &mut Vec<PlayerCommand>) {
         let command = |command| PlayerCommand {
             player: SYNDICATE,
@@ -293,7 +249,7 @@ impl Players {
             if out && sim.object(agent).is_some() {
                 commands.push(command(Command::Order {
                     units: vec![agent],
-                    kind: OrderKind::Gather(STATION),
+                    kind: OrderKind::Gather(PATCH),
                     queue: false,
                 }));
             }
@@ -687,6 +643,9 @@ fn label(sim: &Sim, current: &ActiveOrder) -> (String, Tick) {
 /// What the soak watches, tick by tick (module docs).
 #[derive(Default)]
 struct Watch {
+    /// Whether the checks that nothing is stuck are off: the variants with more Agents than the game is played with
+    /// ([`more_crystal_agents_never_stop_the_first_tunnel`]), whose Agents wait longer for their turn at the hatch.
+    lenient: bool,
     /// What each unit is doing, and since when.
     doing: BTreeMap<ObjectId, (Doing, Tick)>,
     /// Each Agent that waits at a patch nobody mines (or that is gone), or at a station with Supplies, since when.
@@ -760,7 +719,11 @@ impl Watch {
             if age > longest.0 {
                 *longest = (age, o.id, tick);
             }
-            assert!(age <= bound, "{}", stuck(o, &format!("{name} for {age} ticks")));
+            assert!(
+                self.lenient || age <= bound,
+                "{}",
+                stuck(o, &format!("{name} for {age} ticks"))
+            );
             let Behaviour::Gather(gather) = &c.state else { continue };
             // It waits at a patch nobody mines, or at a station with Supplies: it gathers in the next tick, or it
             // waits short of it and tries again at its next look (or looks round, if the patch is gone).
@@ -772,7 +735,7 @@ impl Watch {
                 idle.insert(o.id, since);
                 let age = tick - since;
                 assert!(
-                    age <= RECHECK_TICKS,
+                    self.lenient || age <= RECHECK_TICKS,
                     "{}",
                     stuck(
                         o,
@@ -848,12 +811,17 @@ struct Run {
     books_stopped: Option<Tick>,
 }
 
-fn play() -> Run {
+/// The game, with `more` Agents on crystals than it is played with (4); the checks that nothing is stuck are for the
+/// game as played.
+fn play(more: usize) -> Run {
     let scenario = skirmish::scenario();
     let config = scenario.setup.config;
     let mut t = TestSim::with_config(scenario, config);
-    let mut players = Players::new();
-    let mut watch = Watch::default();
+    let mut players = Players::new(more);
+    let mut watch = Watch {
+        lenient: more > 0,
+        ..Watch::default()
+    };
     let mut hashes = vec![(0, t.sim().state_hash())];
     let mut books_stopped = None;
     while t.sim().tick() < END {
@@ -926,7 +894,7 @@ fn census(sim: &Sim) -> BTreeMap<(u8, ObjectKind), usize> {
 #[test]
 #[ignore = "a soak of two 10-minute games: run it in release"]
 fn ten_minutes_of_the_syndicate_against_the_gdo() {
-    let run = play();
+    let run = play(0);
     let (sim, w) = (run.t.sim(), &run.watch);
     let fallen: Vec<(Tick, ObjectKind, u32)> = (run.t.events().iter())
         .filter_map(|(tick, e)| match *e {
@@ -969,7 +937,54 @@ fn ten_minutes_of_the_syndicate_against_the_gdo() {
     }
 
     // Deterministic: the same game again, and the replay of the first.
-    let again = play();
+    let again = play(0);
     assert_eq!(again.hashes, run.hashes, "a second run");
     assert_eq!(run.t.replay().run().state_hash(), sim.state_hash(), "the replay");
+}
+
+/// The first Tunnel's crystal income of `run`: Space Crystals per second after the first minute, and the longest
+/// stretch without a delivery (ticks; from the start, between two, and to the end).
+fn first_tunnel_income(run: &Run) -> (f32, Tick) {
+    let mut tunnel = None;
+    let mut loads: Vec<(Tick, u32)> = Vec::new();
+    for (tick, e) in run.t.events() {
+        if let SimEvent::ResourcesDelivered { drop_off, amount, .. } = *e
+            && *tunnel.get_or_insert(drop_off) == drop_off
+        {
+            loads.push((*tick, amount));
+        }
+    }
+    let minute = 60 * TICKS_PER_SECOND;
+    let amount: u32 = loads.iter().filter(|load| load.0 > minute).map(|load| load.1).sum();
+    let ticks: Vec<Tick> = [0]
+        .into_iter()
+        .chain(loads.iter().map(|load| load.0))
+        .chain([END])
+        .collect();
+    let longest = ticks.windows(2).map(|pair| pair[1] - pair[0]).max().unwrap_or(END);
+    (amount as f32 * TICKS_PER_SECOND as f32 / (END - minute) as f32, longest)
+}
+
+/// Design change 0324's Verification: "The `dev_skirmish` soak, with 4 and 6 Agents: no Tunnel stops for good." The
+/// game with 4 Agents on crystals (as played), 5 and 6 (one and two more trained): the first Tunnel never goes a
+/// minute without a delivery. It prints the soak's rows of `docs/playtest/m4.md > Known issues`. With more Agents than
+/// played, the soak's own stuck checks are off: six Agents at one hatch wait longer for their turn than they allow.
+///
+/// Ignored: three games of 9 600 ticks. `cargo test -p sc_sim --release --test syndicate_soak -- --ignored --nocapture`.
+#[test]
+#[ignore = "a soak of three 10-minute games: run it in release"]
+fn more_crystal_agents_never_stop_the_first_tunnel() {
+    for more in 0..=2 {
+        let run = play(more);
+        let (income, longest) = first_tunnel_income(&run);
+        println!(
+            "{} Agents on crystals: {income:.1} Space Crystals per second after the first minute, longest gap {longest} ticks",
+            4 + more
+        );
+        assert!(
+            longest < 60 * TICKS_PER_SECOND,
+            "{} Agents: no delivery for {longest} ticks",
+            4 + more
+        );
+    }
 }

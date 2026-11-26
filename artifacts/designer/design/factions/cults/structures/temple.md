@@ -1,6 +1,6 @@
 # Temple
 
-Tier 2 of the Mystical/Human Enhancement branch. Researches technologies for the Cults. Research follows the shared rules in core/tech_and_research.md > Research, including the Cults exceptions: stat upgrades are not retroactive, and research only progresses while Recruits are staffing the building (speed scales with the number of Recruits inside).
+Tier 2 of the Mystical/Human Enhancement branch. Researches technologies for the Cults. Research follows the shared rules in core/tech_and_research.md > Research, including the Cults exception: research only progresses while Recruits are staffing the building (speed scales with the number of Recruits inside).
 
 ## Faction - TheCults
 ## Constructed by - Recruit
@@ -32,4 +32,4 @@ Recruits enter the Temple to staff its research (right-click own Temple with Rec
 - Recruit staffing capacity 6; research queue 5.
 - **Levels** (user, 2026-11-26; Q0117): a Level 2 can't be queued until its Level 1 has **completed** (its key shows "In progress" meanwhile). Level 2's Cathedral prerequisite is checked only when it is queued; losing the Cathedral later doesn't cancel it.
 - Research (BaseResearchTime = with 1 Recruit): Enhanced Constitution L1 and Improved Metabolism L1: **100 SC, 960 frames (60 s)** each; L2 of each: **150 SC, 1440 frames (90 s)**.
-- Panel: **Q** Enhanced Constitution (next level), **W** Improved Metabolism (next level), **A: Eject All** (staff leave), **X: Cancel** (last research). Recruits enter by right-click.
+- Panel: **Q** Enhanced Constitution (next level), **W** Improved Metabolism (next level), **A/S/D/F** release one Recruit of a kind (README > Choosing Recruits, Release and Eject All), **V: Eject All** (staff leave), **X: Cancel** (last research). Recruits enter by right-click.

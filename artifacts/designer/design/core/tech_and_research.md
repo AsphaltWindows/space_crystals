@@ -49,9 +49,8 @@ A structure type may offer **Research**: technologies that a player pays for onc
 
 The Colonists have no exceptions: they follow the shared rules exactly.
 
-#### Cults — stat upgrades are not retroactive (except augmentation)
-- **Augmentation improvements** (Temple) **are retroactive** (user, 2026-11-26): they apply at once to every unit with that Augmentation (factions/cults/augmentation.md > Research applies to everyone).
-- **Other stat upgrades** (not yet designed): as written so far, they apply only to units that finish training after the research completes. Whether these become retroactive too: being asked.
+#### Cults — no exception for retroactivity
+(user, 2026-11-26; replaces "Cults stat upgrades are not retroactive") **All Cults stat upgrades apply to existing units**, as for every faction (shared rule 1), including augmentation improvements (factions/cults/augmentation.md > Research applies to everyone).
 
 #### Cults — research is staffed by Recruits
 A Cults research building only makes research progress while Recruits are inside it. Only Recruits can staff research (other Cults infantry cannot), mirroring the rule that only Recruits build.

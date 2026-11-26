@@ -62,6 +62,31 @@
 >   - **S1:** sweep the factions already built for 0335's general rule. Nothing already started or finished may be
 >     cancelled or disabled when a prerequisite is lost. Report what happens to an order given but not yet started,
 >     such as a builder still walking to its site.
+> - **0336** (answers Q0127):
+>   - **Augment research is retroactive, and Level Locking is removed.** AugmentationState becomes two booleans
+>     (T73: `Augmentation { constitution: bool, metabolism: bool }`), and the amounts are read from the owner's current
+>     Temple levels (T74's techs).
+>   - When a level completes, every unit with that augmentation changes at once, with HP by 0331: an increase keeps
+>     the damage, and a decrease caps HP.
+>   - N1a builds the accessors on the owner's levels (none until N3, so L0 amounts), and N3 applies the HP rule as a
+>     level completes.
+>   - **N5:** the Shrine is ABAC, in at B and out at C, one at a time. T72's nearest-side entrance is no longer used.
+> - **0337** (kinds and Release; `factions/cults/structures/README.md > Choosing Recruits, Release and Eject All`):
+>   - **F2 builds** the kinds (Plain, Constitution, Metabolism, Both), the two-step panel and the `Release` order. T70's
+>     `QueueEntry` enum (`Unit`, `Release`) moves into F2, so N1b adds only `Augment`, and N3 `Research`. T73's
+>     `Object::augmentation` (two booleans) also moves into F2, without effects, since the kinds need it; N1a adds the
+>     accessors.
+>   - **Reservations** take the first in within the order's kind. Eject All skips reserved units.
+>   - **N4a, N6 and N7** reuse the kind pick: the Chop Shop and Airstrip pick a kind too, and a Jackal takes 2 Recruits
+>     of it. **N1b:** Release in every Altar menu, and the "Fully augmented" tile is enabled with Release only.
+>     **N3, G2 and N5:** A/S/D/F each send out one Recruit of a kind at once, with no queue, and V is Eject All.
+> - **0338:** every Cults stat upgrade applies to existing units. T67's "locked levels" go, so G2, N3 and the Machine
+>   Shop's research keep no "trained after" bookkeeping. The DrillUnit steps sideways (M4-W3 built it).
+> - **0339 and 0340** answer Q0097 and Q0098 and are folded into E, which is running. **N8's Repair** reuses E's
+>   Recruit-frame count and its closest-part spots.
+> - **0341** answers Q0099. F2 takes points 2–5 (capacity rounded down; same-tick ties by the nearer Hall centre).
+>   **J1** takes point 1: a Hall whose area would leave the map can't be placed, in the sim, on the ghost, and in the
+>   editor's layout check.
 > - **The waves (§C) stand,** but the playtest's timing is the user's call: the full Cults at the end of W12, or a
 >   first playtest of the infantry core at the end of W9 (§F), put to the user on 2026-11-25.
 
