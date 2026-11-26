@@ -141,7 +141,7 @@ impl Counts {
 }
 
 /// The Colonists' reference line played: the game, the line, and player 1's books and counts.
-struct Line {
+pub(super) struct Line {
     t: TestSim,
     line: Colonists,
     /// Player 1's books: `books[i]` is the step to tick `i + 1`'s.
@@ -154,7 +154,7 @@ impl Line {
     /// The reference line (module docs) played to `until`; with `deal`, each Drone is dealt to a patch of its own
     /// instead ([`Colonists::deal`]). Every command the line gives is one the gate takes, and player 1's books balance
     /// every step.
-    fn play(until: Tick, deal: bool) -> Self {
+    pub(super) fn play(until: Tick, deal: bool) -> Self {
         let mut t = TestSim::with_config(reference_field(4), SimConfig::default());
         let line = Colonists::new(BuildOrder::new(P1).track(vec![Order::new(RoboPortal, Drone); 40]))
             .rally(RoboPortal, Target::Object(FIELD_MIDDLE))
@@ -182,7 +182,7 @@ impl Line {
     }
 
     /// What player 1's Drones delivered from tick `from + 1` to tick `to`.
-    fn delivered(&self, from: Tick, to: Tick) -> u32 {
+    pub(super) fn delivered(&self, from: Tick, to: Tick) -> u32 {
         self.books[from as usize..to as usize].iter().map(|e| e.delivered).sum()
     }
 
