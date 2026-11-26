@@ -2613,11 +2613,12 @@ their energy doorway, slice M3-D2: design change 0145, `factions/colonists/struc
   pool out of side C one at a time, a Recruit that goes in during the stream, the gate; `evacuation.rs`: ten
   evacuated alive in the fixed order at exact spots, the free spots around a Storage, an enemy and a unit in the
   doorway, the evacuees of a defeated player; `loads.rs`: a load kept inside and out by real gathering, and through an
-  evacuation; `saves.rs`: saves at every stage and a replay), each tick checking `testing::dangling_references`.
-  `holding/tests.rs` has the entry path in every orientation and the kinds let in; `sim/holding/tests.rs` an Armory
-  under construction (no Cults site exists before slice M5-E) and the Eject All mark hashed and saved only while set;
-  `placement/spots/tests.rs` the rings and both rounds. The ignored `holding_perf.rs` times eight Armories cycling,
-  then evacuated (*Object model > Buildings that hold units*).
+  evacuation; `saves.rs`: saves at every stage and a replay; `control.rs`: a Hall's Recruit inside an Armory still
+  in its Hall's usage, inside and evacuated, and an orphaned point once its Hall is gone), each tick checking
+  `testing::dangling_references`. `holding/tests.rs` has the entry path in every orientation and the kinds let in;
+  `sim/holding/tests.rs` an Armory under construction (no Cults site exists before slice M5-E) and the Eject All mark
+  hashed and saved only while set; `placement/spots/tests.rs` the rings and both rounds. The ignored
+  `holding_perf.rs` times eight Armories cycling, then evacuated (*Object model > Buildings that hold units*).
 - **Beacon Deployment tests** (slice M3-F) are `crates/sim/tests/deploy/` (the walk to the footprint's centre and the
   start on arrival, the 48 frames, the HP from 20 to 120 and damage carried through (0110), Beacon Capacity 10/10 to
   9/10 to 9/15 and a cancel to 11/10 (0112), the cancel's fractions of HP and Shields and its place (0109, 0111), the

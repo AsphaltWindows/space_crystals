@@ -8,11 +8,14 @@
 //! - `eject`: Eject All streams the pool out of side C, one at a time;
 //! - `evacuation`: everyone inside comes out alive around the footprint, in a fixed order;
 //! - `loads`: a Recruit keeps what it carries inside, and out again;
-//! - `saves`: a game with units inside replayed, saved and loaded, and the hash.
+//! - `saves`: a game with units inside replayed, saved and loaded, and the hash;
+//! - `control`: a Recruit inside still uses its Recruitment Hall's Unit Control, and is an orphaned point once its
+//!   Hall is gone (slice M5-C's lineages).
 //!
 //! Every test runs under the invariants of `TestSim` (no two units overlap, none stands in a footprint but a unit in
 //! the doorway its building let it into), and checks that no reference to a unit that went inside is left behind.
 
+mod control;
 mod eject;
 mod entering;
 mod evacuation;
