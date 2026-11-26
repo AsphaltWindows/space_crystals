@@ -3,7 +3,7 @@
 //! - [`opening`]: player 1 alone. Its Recruits are dealt to the field, the patches a tile from the starting Storage
 //!   first; two of them build a second Storage for the field's western column, three a second Recruitment Hall east
 //!   of the hill, which claims its whole area, and three an Armory, into which four new Recruits go to come out as
-//!   Militants and wait south-east of the base.
+//!   Militants and make for their rally point south-east of the base.
 //! - [`versus_syndicate`]: player 1 builds the Armory first and trains eight Militants of the Recruits it has no seat
 //!   for; six set off together for player 2's Tunnel, then the two others. Player 2's Syndicate gathers, trains two
 //!   Agents, expands an Optics Lab and a Laser Turret and trains four Guards, which wait at its patch. The turret,
@@ -30,7 +30,8 @@ use ObjectKind::{
     Agent, Armory, Guard, Hideout, LaserTurret, Militant, OpticsLab, Recruit, RecruitmentHall, Storage, Tunnel,
 };
 
-/// [`opening`]'s last tick, 2:45: the fourth Militant has come out of the Armory and reached its rally point.
+/// [`opening`]'s last tick, 2:45: the fourth Militant came out of the Armory at 2:40.62, and the four make for their
+/// rally point.
 const OPENING_END: Tick = 2640;
 /// [`versus_syndicate`]'s last tick, 3:40.56: the game's end, as player 2's Tunnel falls and it is defeated. A replay
 /// plays back in the client to where its game ended (`ARCHITECTURE.md > Replays and golden hashes`, "Playback"), so the
