@@ -8,7 +8,7 @@
 ## Groupable - true (assumed)
 
 ## TurretAttributes:
-- TurnAngle: narrow (value TBD)
+- TurnAngle: narrow (placeholder below)
 
 ## AttackAttributes:
 - AttackType: DoublyDisjointed (mortar; slow projectile to the target's position at the end of Aiming; can be dodged)
@@ -17,6 +17,11 @@
 - Range: slightly longer than the Grenadier's
 - CanTargetGround: true (derived)
 
-All numbers (HP, armor, sight, speed, turn radius, turret turn angle and rate, TunnelSpaceCost, damage, AoE radius, range, projectile speed, timings, cost, build time): TBD.
+**Placeholder stats** (designer, 2026-11-27, user's standing permission; tune in the numbers pass):
+- Silhouette 56x32 space units; MaxHP 100; PointArmor 1, FullArmor 1; SightRange 7 grid units; TunnelSpaceCost 2.
+- FixedTurnRadiusMovement: MinimumTurnRadius **128 su** (wide for its speed); ForwardMaxSpeed **12 su/frame** (the fastest wheeled vehicle); ForwardAcceleration 1; ReverseMaxSpeed 3; ReverseAcceleration 0.5; Deceleration 1.
+- Turret: TurnAngle **40°** total; TurnRate 8°/frame.
+- Mortar: Damage 120 total over the circle; AoERadius 48 su; Range **5 grid units** (Grenadier: 4); MinRange 0; ProjectileSpeed 8 su/frame; Aim 8, Firing 2, Cooldown 4, Reload 34 frames (one round per 48 frames).
+- Cost: Vehicle Assembly, 125 Space Crystals, 240 frames.
 
 ## ObjectInterfaceState: BasicCombatUnitInterfaceState

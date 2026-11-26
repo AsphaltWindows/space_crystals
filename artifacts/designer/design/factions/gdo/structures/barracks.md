@@ -28,7 +28,7 @@ When a unit finishes production and spawns, if RallyPoint is set, it is issued i
 ## Produces:
 - Peacekeeper: 50 Space Crystals, 80 frames (5 seconds)
 - Rocketman: 100 Space Crystals, 160 frames (10 seconds) (placeholder). Requires: player owns at least one Arsenal.
-- Drone Operator: cost/time TBD. Requires: player owns at least one Career Campus.
+- Drone Operator: 100 Space Crystals, 160 frames (10 seconds) (placeholder). Requires: player owns at least one Career Campus.
 - Field Engineer: 75 Space Crystals, 160 frames (10 seconds) (placeholder). Requires: player owns at least one Career Campus.
 
 ## ObjectInterfaceState[Barracks]:

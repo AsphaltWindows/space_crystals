@@ -5,7 +5,7 @@ A shielded dome that works like a Faraday cage against imprinting, so crystal-ba
 Distinct from the Syndicate's physical augmentation: Syndicate infantry are Heavy Infantry because of mechanical exoskeleton-style assistance, which involves no crystals. The Null Chamber is about **consumption**: its effects are subtle and mental (heightened awareness), unlike the Cults' morphological Altar augmentation and unlike Colonists psionics.
 
 ## Null Chamber Exit Buff
-**Throughput limits** (user, 2026-11-25, to be designed): the re-buff should probably be **limited**: only so many units buffed at a time (per Null Chamber), and each buff takes time to apply. How that combines with "every unit that exits receives the buff" is TBD.
+**Throughput limits** (user, 2026-11-25, to be designed): the re-buff should probably be **limited**: only so many units buffed at a time (per Null Chamber), and each buff takes time to apply. How that combines with "every unit that exits receives the buff": placeholder below (to confirm).
 
 While the player owns at least one Null Chamber anywhere in the Tunnel Network, every **manned** Syndicate unit that exits the Tunnel Network through any Tunnel receives a temporary buff that wears off over time.
 - **Manned units**: all Syndicate units except satellites (infantry, vehicles, and crewed aircraft).
@@ -16,10 +16,12 @@ While the player owns at least one Null Chamber anywhere in the Tunnel Network, 
 - **Refresh**: exiting the Tunnel Network again instantly resets the buff to full duration (no cooldown, for now).
 - **Lore**: occupants consume crystals inside the Null Chamber, shielded from imprinting; the effect fades once they are on the surface.
 
-TBD: duration; SightRange bonus; damage-reduction percentage; whether the buff ends abruptly or decays gradually; whether the buff (or which of its effects) must first be unlocked by research at the Null Chamber, and any further Null Chamber upgrades to the buff.
+Placeholders below for: duration; SightRange bonus; damage-reduction percentage; whether the buff ends abruptly or decays gradually; whether the buff (or which of its effects) must first be unlocked by research at the Null Chamber, and any further Null Chamber upgrades to the buff.
 
 ## Entity Type - Structure Type (Underground)
 ## Tier Requirement - 2
 ## TechPrerequisite - player owns at least one Hideout (anywhere in the Tunnel Network)
 
-(Full stats TBD)
+**Placeholder stats** (designer, 2026-11-27, user's standing permission; tune in the numbers pass):
+- Size 2x2; MaxHP 400; PointArmor 6, FullArmor 24 (underground expansion, n = 6); Cost 200 Space Crystals; Build Time 480 frames (30 seconds).
+- Exit buff: duration **20 s**; **+2 grid units SightRange**; **20%** damage-taken reduction; ends abruptly; no research needed. Throughput: each Null Chamber buffs **4 units at a time**, each buff taking **2 s** inside before the unit can leave buffed; a unit that leaves before its turn leaves unbuffed.
