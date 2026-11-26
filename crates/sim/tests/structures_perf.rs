@@ -3,7 +3,7 @@
 //! Ignored by default:
 //!
 //! ```sh
-//! cargo test -p sc_sim --release --test structures_perf -- --ignored --nocapture
+//! cargo test -p sc_sim --release --test perf structures_perf -- --ignored --nocapture
 //! ```
 //!
 //! Two battles on a flat 256 × 256 map: in the north player 1's 130 Peacekeepers against player 2's 70, in the south

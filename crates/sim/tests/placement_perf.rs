@@ -3,7 +3,7 @@
 //! 101 buildings of player 1's. Ignored by default:
 //!
 //! ```sh
-//! cargo test -p sc_sim --release --test placement_perf -- --ignored --nocapture
+//! cargo test -p sc_sim --release --test perf placement_perf -- --ignored --nocapture
 //! ```
 //!
 //! The assertions are on the results, never on wall time.

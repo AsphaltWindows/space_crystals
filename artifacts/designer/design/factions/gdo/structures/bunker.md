@@ -19,4 +19,7 @@ Works like the Cults Garrison (factions/cults/structures/garrison.md), except as
 - Units inside are not consumed and still count toward Unit Control.
 - **No abilities from inside**: units inside the Bunker cannot use their abilities (e.g. a Drone Operator cannot launch drones, a Rocketman cannot use Target Lock, a Peacekeeper cannot raise its Riot Shield). They only fire their normal weapons.
 
-TBD: SightRange effect, cost, build time, Size, SymmetryType, MaxHP, armor, SightRange, ObjectInterfaceState (incl. eject commands).
+**Placeholder stats** (designer, 2026-11-27, user's standing permission; tune in the numbers pass):
+- Size 2x2; SymmetryType AAAB with **one door on side B** (as the Cults Garrison); MaxHP 500; PointArmor 2, FullArmor 8; SightRange 6 grid units; Groupable true; Power 0.
+- Cost: Field Engineer, 100 Space Crystals, 320 frames (20 seconds).
+- Units inside see with the Bunker's SightRange (as the Garrison; to confirm). Panel: **A: Eject All** (everyone out at once through the door); **X: Cancel construction** while being built.

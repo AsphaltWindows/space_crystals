@@ -445,7 +445,7 @@ fn check(seed: u64, run: &Outcome) {
 
 /// The soak over seeds 1 to 40, each run on its own, its outcome printed: which seeds fail, and how; it fails if any
 /// does. Ignored: about ten times the soak's own time.
-/// `cargo test -p sc_sim --release --test behaviours_soak -- --ignored --nocapture`.
+/// `cargo test -p sc_sim --release --test sim behaviours_soak -- --ignored --nocapture`.
 #[test]
 #[ignore = "a sweep of 40 seeds: run it in release"]
 fn soak_sweep() {

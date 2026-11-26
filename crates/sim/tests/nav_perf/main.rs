@@ -1,7 +1,7 @@
 //! Timings of the navigation library on the 256×256 cases of `docs/movement.md > 5.8`. Ignored by default:
 //!
 //! ```sh
-//! cargo test -p sc_sim --release --test nav_perf -- --ignored --nocapture
+//! cargo test -p sc_sim --release --test perf nav_perf -- --ignored --nocapture
 //! ```
 //!
 //! The assertions are on the deterministic counters only, never on wall time.

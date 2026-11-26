@@ -4,7 +4,7 @@
 //! default:
 //!
 //! ```sh
-//! cargo test -p sc_sim --release --test drones_perf -- --ignored --nocapture
+//! cargo test -p sc_sim --release --test perf drones_perf -- --ignored --nocapture
 //! ```
 //!
 //! On a flat 128 × 48 map each player has a field at its end: 16 patches in two rows of 8, with the Egress Node

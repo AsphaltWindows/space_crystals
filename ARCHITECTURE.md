@@ -16,7 +16,7 @@ the code or the design, stop and tell the Director. Don't pick one of them on yo
   path under the repository's `docs/`); a relative `` `> Section` `` may stand only in a module whose doc (its leading
   `//!` lines) cites exactly one `.md` file; no code span may begin with a design file's bare name. Its ignored test
   reports the cited sections that aren't headings of their file (a report, not a gate: the design names many sections
-  by bold paragraphs): `cargo test -p sc_sim --test design_citations -- --ignored --nocapture`.
+  by bold paragraphs): `cargo test -p sc_sim --test sim design_citations -- --ignored --nocapture`.
 - A number the design doesn't give becomes a **named const**. Its comment names the open Director question
   (`artifacts/director/questions/QNNNN-*.md`), so that the answer later changes one line. A tunable goes in a tuning
   module (see *Tunables*).
@@ -43,7 +43,8 @@ pub const DEFAULT_PATCH_AMOUNT: u32 = 1500;
 | Command | Use |
 |---|---|
 | `cargo run [-- <flags>]` | Runs the game, the only binary. Flags are listed under *QA mode*. |
-| `cargo test --workspace` | Runs all tests. `cargo test -p sc_sim` tests the sim alone, which is fast and skips Bevy. |
+| `cargo test --workspace` | Runs all tests. `cargo test -p sc_sim` tests the sim alone and skips Bevy, but Cargo then resolves the sim's dependencies apart from a `--workspace` build, so the two never share a build of the sim: after an edit, running both compiles it twice. |
+| `cargo test -p sc_sim --test sim holding::` | Runs one test file's tests, here `tests/holding/`'s: the integration tests are modules of a few test programs (*Sim scenarios and tests*), and the filter is the file's module. The client's are `cargo test -p space_crystals --test game commands::`. |
 | `cargo test --release --workspace -- --ignored --test-threads=1` | Runs the ignored tests: the perf tests, soaks, sweeps and measurements (23 at M4's end, all in the sim, about 1 minute on a quiet machine). Run them at a milestone's end, since nothing else does. |
 | `cargo clippy --workspace --all-targets -- -D warnings` | Runs the lints and turns every warning into an error. |
 | `cargo fmt --all` | Formats the code; add `--check` to verify only. `rustfmt.toml` sets max width 120. |
@@ -57,7 +58,11 @@ pub const DEFAULT_PATCH_AMOUNT: u32 = 1500;
   is Bevy's `Vec2`) and is built with its `libm` feature.
 - **Ask the Director before adding a Bevy feature or any new dependency.** `serde_json` is pre-approved for the client.
 - The dev profile optimizes dependencies at `opt-level = 3` and builds our crates at `opt-level = 1`. Integer overflow
-  checks stay on in dev and test builds.
+  checks stay on in dev and test builds. Its debug info (slice M5-T) is line tables for our crates and none for the
+  dependencies, which took the client's test program and binary from 1.7 GB each to under 0.25 GB: a backtrace
+  still gives each frame of ours its file and line, with its function's bare name (`pos` for `TestSim::pos`), and
+  `split-debuginfo = "unpacked"` measured no faster. For a debugger, `CARGO_PROFILE_DEV_DEBUG=true` gives our
+  crates full debug info, in a build of their own; the dependencies' builds stay as they are.
 
 ## Definition of done
 
@@ -1495,8 +1500,9 @@ The module is pure: it takes the `Map` and tile rectangles and knows nothing of 
   teleports against the sim's grids; scenario validation and the editor check pre-placed and layout units with
   `paths::misplaced` (terrain-only grids of the classes present, plus the footprints).
 - `f32::mul_add` is a disallowed method (`docs/movement.md > 7`): write `a * b + c`.
-- Timings: `cargo test -p sc_sim --release --test nav_perf -- --ignored --nocapture --test-threads=1`, like every
-  `*_perf.rs` test (each reads the clock in its one timing helper, see *Determinism*). Measure on a quiet machine:
+- Timings: `cargo test -p sc_sim --release --test perf nav_perf -- --ignored --nocapture --test-threads=1`, like
+  every `*_perf` test, all in the test program `perf` (each reads the clock in its one timing helper, see
+  *Determinism*). Measure on a quiet machine:
   note the load average (`uptime`) with the numbers.
 
 ## Movement and collision
@@ -1698,7 +1704,7 @@ and the code is `crates/sim/src/movement.rs` and `movement/`, with the unit's st
   The step goes through `World::shuffle`, so it never enters a unit it doesn't already overlap; `n` units stacked
   on one point are apart within `18 × (n − 1)` ticks for Drones.
 - **Counters**: `Sim::move_counters()` (sweeps, box tests and lane tests of the latest tick) and `Sim::nav_counters()` are
-  output, not state. Tests assert them; `cargo test -p sc_sim --release --test movement_perf -- --ignored
+  output, not state. Tests assert them; `cargo test -p sc_sim --release --test perf movement_perf -- --ignored
   --nocapture` prints timings.
 - **Invariants** (`docs/movement.md > 8`, `sc_sim::testing::invariants`): I1 no two units of a layer overlap, except
   (design change 0106, `invariants::may_overlap`) two Drones on a Gather job, and two units that already overlapped
@@ -2461,7 +2467,20 @@ their energy doorway, slice M3-D2: design change 0145, `factions/colonists/struc
   patch in each base, slot 2's Barracks turned 90°); and `empty`, a flat 32×24 Custom map without symmetry.
   `scenarios::empty(w, h)` builds an empty scenario of any size, `empty_map(w, h)` its map.
 - Unit tests sit in their module (`#[cfg(test)] mod tests`). Scenario and integration tests go in `crates/sim/tests/`
-  and use only the public API.
+  (the client's in `crates/game/tests/`) and use only the public API.
+- **Test programs** (slice M5-T): each crate's integration tests are modules of a few test programs, the `[[test]]`
+  targets of its `Cargo.toml` (with `autotests = false`), so that an edit links one program rather than one for each
+  file: the sim's `sim` (`tests/sim.rs`) and `perf` (`tests/perf.rs`, the `*_perf` timings, so that their release
+  build compiles nothing else), the client's `game` (`tests/game.rs`). A new test file `tests/foo.rs` is a line
+  `mod foo;` in its program's root, a folder `tests/foo/` (its root `main.rs`) is `#[path = "foo/main.rs"] mod foo;`,
+  in name order; `crates/sim/tests/test_programs.rs` fails for any test file of either crate that no program
+  includes, naming it and that line. One file's tests run by its module: `cargo test -p sc_sim --test sim holding::`
+  (a filter matches any part of a test's path, so `gathering::` runs `agent_gathering::` too). The tests of all the
+  files share one process and its threads: none changes the current folder or an environment variable, exits the
+  process or keeps global state, and each writes files only in a folder of its own (the temp folder, a name of its
+  own and the process id). serde_json is in scope in every module once one uses it, so an `assert_eq!` of a vector
+  of numbers against `[]` names the type (`Vec::<Tick>::new()`). A module reaches its folder's root by `super::`:
+  `crate::` is the program's root.
 - **Test-only defs** (`defs/test_defs.rs`, slice M3-L2): a sim unit test can give a kind other numbers through the
   whole sim, on its own thread, while the guard `TestDef::set(def)` or `TestDef::unit(kind, change)` returns lives
   (`ObjectKind::def` reads them first): a MinRange, an artillery's Range, a unit that can't move, which no type of
@@ -2583,7 +2602,7 @@ their energy doorway, slice M3-D2: design change 0145, `factions/colonists/struc
   debug removal and in combat, a fuzz of the gate, a save and a replay; in modules by topic: `timings`, `refunds`,
   `gate`, `placing`, `saves`). The clean Barracks opening, which slice
   M2-D1 measured there first, is the economy oracle's.
-- **The economy oracle** is `crates/sim/tests/economy_oracle/`, one binary in modules; its measured results are in
+- **The economy oracle** is `crates/sim/tests/economy_oracle/`, one folder of modules; its measured results are in
   `docs/economy_oracle.md`. **The Colonists** (slices M3-K1 and M3-K4, `colonists.rs` and `curve.rs`): the
   reference line on `testing::colonists::reference_field` (one Robo Portal training Drones without a break, every
   6th deploying) and the GDO's reference line measured the same way (what each delivered or mined over the 21 s
@@ -2660,13 +2679,13 @@ their energy doorway, slice M3-D2: design change 0145, `factions/colonists/struc
   `tests/commands/convert.rs` (R: the type and the group switched at the press, a deferred unit's too, the drawn
   form, design change 0198), `tests/commands/riot_shield/` (`groups.rs`: the groups at the press; `target.rs`: 0198's
   and 0202's Verifications through the panel and the mouse) and the InfoPanel's Shields line in `hud/info_panel`.
-- **Gathering tests** are `crates/sim/tests/gathering/` (slices M3-H and M3-H3, one binary in modules by topic,
+- **Gathering tests** are `crates/sim/tests/gathering/` (slices M3-H and M3-H3, one folder of modules by topic,
   split by slice M3-K2: one Drone's trip, pinned at 81
   ticks; two Drones arriving together; waiting, the lowest id mining next; an enemy Drone on the patch; Set
   Drop-off Location in the middle of mining and of a return; depletion and the Drones going on at another patch,
   or delivering and idling when no patch is left; the Drop Off order and the idling at the node; a lost Egress
   Node; interrupted mining; every invalid worker command refused and changing nothing; a Drone rallied on a patch;
-  a game replayed and saved in its middle), `gathering_rules/` (slice M3-H3, one binary: a test per Verification
+  a game replayed and saved in its middle), `gathering_rules/` (slice M3-H3, one folder: a test per Verification
   point of design changes 0123 and 0127 to 0141 that `gathering/` doesn't cover, in modules by topic: `ends`,
   `loads`, `waiting`, `reach`, `knowledge`, `drop_offs`, and slice M3-R's `remembered`: a Gather on a patch out of
   sight, scouted or known from the start, one gone unseen, one placed later and unknown) and
@@ -3705,7 +3724,7 @@ unchecked.
   movement invariants and the books every tick, no dangling id, no order stuck in one step beyond a bound (a waiting
   Drone re-checks within 16 ticks once its patch is free), the field's 12000 crystals all delivered, no game end, and
   the hash every 64 ticks equal over both runs and the replay
-  (`cargo test -p sc_sim --release --test skirmish_soak -- --ignored --nocapture` prints what it saw: the longest
+  (`cargo test -p sc_sim --release --test sim skirmish_soak -- --ignored --nocapture` prints what it saw: the longest
   step of each order, each Drone's longest gap between deliveries, the losses). Any change to the sim's rules or
   state changes the hashes:
   when the change is intended, re-bless and commit the files with it:

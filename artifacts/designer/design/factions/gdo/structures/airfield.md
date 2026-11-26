@@ -6,8 +6,8 @@ GDO aircraft production structure. Constructs aircraft and provides a landing/re
 ## TechPrerequisite - player owns at least one Advanced Mechanics
 
 ## Produces (so far):
-- Hornet: cost/time TBD.
-- Dragonfly: cost/time TBD. Requires: player owns at least one Propulsion Labs.
+- Hornet: 150 Space Crystals, 320 frames (20 seconds) (placeholder).
+- Dragonfly: 175 Space Crystals, 320 frames (20 seconds) (placeholder). Requires: player owns at least one Propulsion Labs.
 
 ## Aircraft Support
 - **Limited ammo**: GDO aircraft carry limited ammo and **rearm at an Airfield** (the Airfield is their landing and reloading zone). Ammo per unit is on each aircraft (factions/gdo/units/README.md); return/rearm flow below.
@@ -31,12 +31,14 @@ An Airfield has **4 landing slots**, one per possible assignment, so all of its 
 ### Returning and rearming
 - **Automatic return**: when an aircraft runs out of ammo, it automatically flies back to its assigned Airfield, lands and rearms.
 - The automatic return **can be interrupted** by giving the aircraft any other order (e.g. to fly elsewhere). It then stays out of ammo until it returns.
-- **Return to Base** command: sends the aircraft to its assigned Airfield to land and rearm (hotkey TBD). Right-clicking its own Airfield does the same.
+- **Return to Base** command: sends the aircraft to its assigned Airfield to land and rearm (hotkey **F**, placeholder). Right-clicking its own Airfield does the same.
 - After rearming, the aircraft **stays landed** at the Airfield. It doesn't go back to where it was unless ordered.
 - An unassigned aircraft has no base: it doesn't return automatically, and Return to Base is unavailable until it is reassigned.
 - **Rearm time is per unit of ammo**, and the value differs per aircraft type (RearmTimePerAmmo on each aircraft, factions/gdo/units/README.md). Rearming an aircraft takes RearmTimePerAmmo × missing ammo (user, 2026-11-23).
 - **Landed aircraft are ground targets** (user, 2026-11-23): while parked on the Airfield, an aircraft can be hit only by anti-ground weapons (TargetDomain Ground or Universal, systems/combat.md). Air-only weapons (TargetDomain Air) can't hit it. Once it takes off it is an air target again.
 
-TBD: RearmTimePerAmmo values; landing/take-off time; Return to Base hotkey/slot.
+Landing and take-off: **16 frames (1 s)** each (placeholder). RearmTimePerAmmo: on each aircraft.
 
-(Full stats TBD)
+**Placeholder stats** (designer, 2026-11-27, user's standing permission; tune in the numbers pass):
+- Size 3x3; SymmetryType AAAA; MaxHP 500; PointArmor 1, FullArmor 9; SightRange 5 grid units; Groupable true; Power -30; BuildRadiusExtension 2 grid units.
+- Panel: **Q** Hornet, **W** Dragonfly (greyed without Propulsion Labs), **X** Cancel Production, **C** Set Rally Point.
