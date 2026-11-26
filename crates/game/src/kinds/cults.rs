@@ -11,7 +11,7 @@
 //! Scrap Hangar "no panel commands", the others until their slices: the Garrison's came with M5-N2, the Altar's with
 //! M5-N1b, the Cathedral's, the Armory's template, with M5-N4a, the Temple's with M5-N3), its armed units the
 //! BasicCombatUnit template, and its Prayer-mobile none until its ability's slice; the Disciple's, the BasicCombatUnit
-//! template with its Shroud held in R, came with slice M5-N4a.
+//! template with its Shroud held in R, came with slice M5-N4a, and its Shroud with M5-N4b.
 //!
 //! [`Planned::label`]: crate::command_ui::interface::templates::Planned::label
 

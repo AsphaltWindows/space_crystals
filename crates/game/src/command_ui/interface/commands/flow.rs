@@ -8,7 +8,8 @@ impl PanelCommand {
     /// Whether the command awaits a target (a StateOnlyTransition to AwaitingTarget): the target commands of
     /// `> BasicCombatUnitInterfaceState > DefaultState commands`, Set Rally Point, the Drone's Set Drop-off, the
     /// Agent's Drop Off, the Recruits' Assist Construction and the Recruits' and the Agent's Repair (slice M5-N8). The
-    /// others are issued at once: HoldPosition and Stop, Raise and Lower Shield, Convert, a producer's Train and Cancel
+    /// others are issued at once: HoldPosition and Stop, a Disciple's Shroud, Raise and Lower Shield, Convert, a
+    /// producer's Train and Cancel
     /// Production, a constructor's Construct and Cancels, a Tunnel's Eject and Cancel; or they enter a state of their
     /// own: a build menu, the EjectMenu, the ExpandMenu, AwaitingPlacement (an Agent's Build, a Tunnel's expansion and
     /// a Recruits' Construct menu entry too); or they change the selection (the Egress Node's F).
@@ -58,7 +59,8 @@ impl PanelCommand {
             | PanelCommand::ReleaseOf(..)
             | PanelCommand::Research(_)
             | PanelCommand::Researching(_)
-            | PanelCommand::ReleaseOne(_) => false,
+            | PanelCommand::ReleaseOne(_)
+            | PanelCommand::Shroud => false,
         }
     }
 
@@ -85,7 +87,10 @@ impl PanelCommand {
     /// release of one Recruit of a kind, which reads and changes its own staff (slice M5-N3), to every Temple of the
     /// ActiveGroup, the Temple being Groupable (`factions/cults/structures/temple.md > Placeholder stats`: "Groupable
     /// true"); not its Research, which goes to every Temple of the selection that offers it, one of them taking it
-    /// (`sc_sim::ProductionCommand::Research`), as a Train goes to every Barracks (design change 0083).
+    /// (`sc_sim::ProductionCommand::Research`), as a Train goes to every Barracks (design change 0083). So does a
+    /// Disciple's Shroud (slice M5-N4b): "each R press starts one Disciple's channel; Tab to the next"
+    /// (`factions/cults/units/disciple.md > Placeholder stats`), the Disciple being Ungroupable, so that the
+    /// ActiveGroup is the one Disciple Tabbed to.
     pub fn instance_only(self) -> bool {
         matches!(
             self,
@@ -115,6 +120,7 @@ impl PanelCommand {
                 | PanelCommand::Augment(..)
                 | PanelCommand::ReleaseOf(..)
                 | PanelCommand::ReleaseOne(_)
+                | PanelCommand::Shroud
         )
     }
 
@@ -132,7 +138,10 @@ impl PanelCommand {
     /// updates AssignedDropOff": a Shift-click sets it and ends the targeting like a plain click, as a rally point's
     /// (the same placeholder reading). The Agent's Drop Off is a unit's order (`factions/syndicate/units/agent.md >
     /// Unit Commands`), and so is its Build, which Shift queues as it is placed (`> Shift while placing`); so are the
-    /// Recruits' Build and Assist (`factions/cults/units/recruit.md > Unit Commands`), and a Repair (slice M5-N8).
+    /// Recruits' Build and Assist (`factions/cults/units/recruit.md > Unit Commands`), and a Repair (slice M5-N8). So
+    /// is a Disciple's Shroud, an order (`sc_sim::OrderKind::Shroud`), which Shift queues behind the Disciple's others:
+    /// **Placeholder (not in the design: Shift's meaning for a spell)**, as for any unit order
+    /// (`systems/controls/commands.md > Unit Command`).
     pub fn queues(self) -> bool {
         match self {
             PanelCommand::Move
@@ -146,7 +155,8 @@ impl PanelCommand {
             | PanelCommand::Build(_)
             | PanelCommand::DropOff
             | PanelCommand::Assist
-            | PanelCommand::Repair => true,
+            | PanelCommand::Repair
+            | PanelCommand::Shroud => true,
             PanelCommand::RaiseShield
             | PanelCommand::LowerShield
             | PanelCommand::Convert(_)

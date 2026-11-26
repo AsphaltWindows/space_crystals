@@ -3,8 +3,8 @@
 //! All): **Q: Train Disciple**, **A: Release** in the kind menu"): Recruits right-clicked into it, a kind of Recruit
 //! first, with the count of its free Recruits inside, then KindMenu\[kind\], whose Q trains a Disciple, the menu staying
 //! open; and the Disciple that comes out: its panel (`factions/cults/units/disciple.md > Placeholder stats`:
-//! "BasicCombatUnitInterfaceState, plus **R: Shroud**"), its InfoPanel's energy, and its right-click on an enemy, a
-//! move, as it has no weapon. The panels as plain data are the unit tests' (`command_ui/interface/tests/cathedral.rs`),
+//! "BasicCombatUnitInterfaceState, plus **R: Shroud**"), whose R gives it a Shroud order (slice M5-N4b), its
+//! InfoPanel's energy, and its right-click on an enemy, a move, as it has no weapon. The panels as plain data are the unit tests' (`command_ui/interface/tests/cathedral.rs`),
 //! the training itself the sim's (`crates/sim/tests/cathedral`), the energy bar `combat`'s.
 
 use bevy::prelude::*;
@@ -12,8 +12,8 @@ use sc_sim::testing::ScenarioBuilder;
 use sc_sim::{
     Faction, ObjectId, ObjectKind, OrderKind, PlayerId, ProductionCommand, RecruitKind, SpawnAt, Target, TilePos,
 };
-use space_crystals::command_ui::feedback::{NOT_FOR_TYPE_TEXT, NOT_YET_TEXT};
-use space_crystals::command_ui::{ButtonLook, InterfaceState, PanelButton, PanelCommand, Planned, PointerDisplay};
+use space_crystals::command_ui::feedback::NOT_FOR_TYPE_TEXT;
+use space_crystals::command_ui::{ButtonLook, InterfaceState, PanelButton, PanelCommand, PointerDisplay};
 use space_crystals::hud::info_panel::InfoText;
 
 use super::armory::{buttons, feedback, inside, until};
@@ -127,7 +127,7 @@ fn q_q_trains_a_disciple_that_comes_out_with_its_energy() {
     assert_eq!(sc_sim::energy::of(&out), Some((50.0, 200.0)));
     assert_eq!(inside(&app, CATHEDRAL).len(), 1, "the other Recruit stays");
 
-    // The Disciple: BasicCombatUnitInterfaceState, A greyed for want of a weapon, R holding Shroud's slot.
+    // The Disciple: BasicCombatUnitInterfaceState, A greyed for want of a weapon, R its Shroud.
     select_units(&mut app, &[first_in]);
     assert_eq!(
         buttons(&mut app),
@@ -135,7 +135,7 @@ fn q_q_trains_a_disciple_that_comes_out_with_its_energy() {
             (slot(0, 0), c(Move), Common, None),
             (slot(0, 1), c(Reverse), Unavailable, None),
             (slot(0, 2), c(HoldPosition), Common, None),
-            (slot(0, 3), c(PanelCommand::Planned(Planned::Shroud)), Unavailable, None),
+            (slot(0, 3), c(PanelCommand::Shroud), Common, None),
             (slot(1, 0), c(Attack), Disabled, None),
             (slot(1, 1), c(Patrol), Common, None),
             (slot(1, 2), c(AttackGround), Unavailable, None),
@@ -145,10 +145,27 @@ fn q_q_trains_a_disciple_that_comes_out_with_its_energy() {
     tap(&mut app, &[], KeyA);
     assert_eq!(feedback(&app), Some(NOT_FOR_TYPE_TEXT));
     assert_eq!(interface(&app), InterfaceState::DefaultState, "no target awaited");
-    tap(&mut app, &[], KeyR);
-    assert_eq!(feedback(&app), Some(NOT_YET_TEXT));
     let lines = info_lines(&mut app);
     assert_eq!(lines[1..], ["HP 40 / 40", "Energy 50 / 200"], "{lines:?}");
+    tap(&mut app, &[], KeyR);
+    assert_eq!(orders(&app).last(), Some(&given(&[first_in], OrderKind::Shroud, false)));
+    assert_eq!(interface(&app), InterfaceState::DefaultState, "at once");
+    until(&mut app, 20, |app| {
+        !app.world().resource::<SimRes>().clouds().is_empty()
+    });
+    let channelling = app.world().resource::<SimRes>().clouds().list()[0].members[0].id;
+    assert_eq!(channelling, ObjectId(first_in));
+    tap(&mut app, &[KeyCode::ShiftLeft], KeyR);
+    assert_eq!(
+        orders(&app).last(),
+        Some(&given(&[first_in], OrderKind::Shroud, true)),
+        "Shift queues it"
+    );
+    let lines = info_lines(&mut app);
+    assert!(
+        lines[2].starts_with("Energy ") && lines[2] != "Energy 50 / 200",
+        "the channel drains it: {lines:?}"
+    );
 }
 
 /// `factions/cults/units/disciple.md > Placeholder stats`: "AttackAttributes - None". A Disciple never attacks: over an

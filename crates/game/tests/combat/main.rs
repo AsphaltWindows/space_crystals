@@ -2,9 +2,10 @@
 //! (with shield bars over those that have Shields) and a marker where a unit died, each kept for its number of
 //! ticks. Headless, one tick per update, as in
 //! `client.rs`. How the fog of war hides them is tested in `fog.rs`. The Gunner's shots, which can miss, are in
-//! [`gunner`].
+//! [`gunner`]; (M5-N4b) the Shroud clouds and their releases in [`shroud`].
 
 mod gunner;
+mod shroud;
 
 use bevy::prelude::*;
 use bevy::time::TimeUpdateStrategy;
