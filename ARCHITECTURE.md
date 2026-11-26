@@ -3988,11 +3988,11 @@ unchecked.
   every step, and player 1's Supplies too (`testing::syndicate::SupplyBooks`). The Cults' games play `dev_skirmish`
   with player 1 as the Cults, by `testing::cults::skirmish`: in `cults_opening` (to 2:45) its Recruits are dealt to
   the field, and the line builds a second Storage, a second Hall east of the hill (100% Effectiveness) and an Armory,
-  and trains four Militants; in `cults_vs_syndicate` (to 3:40.56, where it ends) it builds the Armory first and trains
-  eight Militants of the Recruits it has no seat for, which attack-move in a wave to player 2's Tunnel, while player 2
-  plays the Syndicate: two Agents, an Optics Lab, a Laser Turret from the Tunnel's ExpandMenu (slice M5-Y) and four
-  Guards at its patch. The turret kills six Militants before they destroy it, and the last two destroy the Tunnel,
-  which defeats player 2. Both players' books balance every step, player 2's Supplies too. The ignored
+  and trains four Militants; in `cults_vs_syndicate` (to 2:58.31, where it ends) it builds the Armory first, then a
+  Gunworks, and trains eight Militants and three Gunners (slice M5-N1a's first step) of the Recruits it has no seat
+  for, which attack-move in a wave to player 2's Tunnel, while player 2 plays the Syndicate: two Agents, an Optics Lab,
+  a Laser Turret from the Tunnel's ExpandMenu (slice M5-Y) and four Guards at its patch. The turret kills four
+  Militants before it is destroyed, and then the Tunnel falls, which defeats player 2. Both players' books balance every step, player 2's Supplies too. The ignored
   `tests/skirmish_soak.rs`
   (slice M3-K2) plays the Colonists' two players for 10 minutes, twice, until player 1's field runs out: the
   movement invariants and the books every tick, no dangling id, no order stuck in one step beyond a bound (a waiting

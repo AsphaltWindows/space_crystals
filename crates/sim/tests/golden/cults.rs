@@ -4,11 +4,12 @@
 //!   first; two of them build a second Storage for the field's western column, three a second Recruitment Hall east
 //!   of the hill, which claims its whole area, and three an Armory, into which four new Recruits go to come out as
 //!   Militants and make for their rally point south-east of the base.
-//! - [`versus_syndicate`]: player 1 builds the Armory first and trains eight Militants of the Recruits it has no seat
-//!   for; six set off together for player 2's Tunnel, then the two others. Player 2's Syndicate gathers, trains two
-//!   Agents, expands an Optics Lab and a Laser Turret and trains four Guards, which wait at its patch. The turret,
-//!   popping up, kills six Militants before they destroy it; the last two destroy the Tunnel, which defeats player 2:
-//!   the game is the Cults'.
+//! - [`versus_syndicate`]: player 1 builds the Armory first, then a Gunworks north of it, and trains eight Militants
+//!   and three Gunners of the Recruits it has no seat for, the Gunners as soon as the Gunworks stands (slice M5-N1a's
+//!   first step, the addendum's "G2 adds Gunners"); six, four Militants and two Gunners, set off together for player
+//!   2's Tunnel, then the others one by one. Player 2's Syndicate gathers, trains two Agents, expands an Optics Lab and
+//!   a Laser Turret and trains four Guards, which wait at its patch. The turret, popping up, kills four Militants
+//!   before it is destroyed, and the Tunnel falls, which defeats player 2: the game is the Cults'.
 //!
 //! Both players' books balance every step: their Space Crystals, the workers' deliveries included
 //! (`sc_sim::testing::build_order::Books`), and player 2's Supplies (`sc_sim::testing::syndicate::SupplyBooks`). Every
@@ -18,7 +19,8 @@ use std::collections::BTreeMap;
 
 use sc_sim::testing::build_order::Books;
 use sc_sim::testing::cults::skirmish::{
-    self, ARMORY_SITE, CULTS, GUARDS, HALL_SITE, MILITANTS, OPENING_MILITANTS, SYNDICATE, Skirmish,
+    self, ARMORY_SITE, CULTS, GUARDS, GUNNERS, GUNWORKS_SITE, HALL_SITE, MILITANTS, OPENING_MILITANTS, SYNDICATE,
+    Skirmish,
 };
 use sc_sim::testing::syndicate::SupplyBooks;
 use sc_sim::{ObjectKind, PlayerCommand, PlayerId, Scenario, Sim, SimEvent, Tick, TilePos};
@@ -27,20 +29,21 @@ use super::harness::{Game, Script};
 use super::units_of;
 
 use ObjectKind::{
-    Agent, Armory, Guard, Hideout, LaserTurret, Militant, OpticsLab, Recruit, RecruitmentHall, Storage, Tunnel,
+    Agent, Armory, Guard, Gunner, Gunworks, Hideout, LaserTurret, Militant, OpticsLab, Recruit, RecruitmentHall,
+    Storage, Tunnel,
 };
 
 /// [`opening`]'s last tick, 2:45: the fourth Militant came out of the Armory at 2:40.62, and the four make for their
 /// rally point.
 const OPENING_END: Tick = 2640;
-/// [`versus_syndicate`]'s last tick, 3:40.56: the game's end, as player 2's Tunnel falls and it is defeated. A replay
+/// [`versus_syndicate`]'s last tick, 2:58.31: the game's end, as player 2's Tunnel falls and it is defeated. A replay
 /// plays back in the client to where its game ended (`ARCHITECTURE.md > Replays and golden hashes`, "Playback"), so the
 /// golden game ends there too, with its last checkpoint. A change that moves the end fails [`versus_syndicate`]'s
 /// `expect`: set this to the tick it names.
-const VERSUS_END: Tick = 3529;
+const VERSUS_END: Tick = 2853;
 /// [`opening`]'s camera starts over this tile: player 1's base, between its Halls.
 const OPENING_CAMERA: TilePos = TilePos::new(14, 12);
-/// [`versus_syndicate`]'s: player 2's Tunnel, where the Militants fight.
+/// [`versus_syndicate`]'s: player 2's Tunnel, where the Militants and Gunners fight.
 const VERSUS_CAMERA: TilePos = TilePos::new(52, 38);
 
 /// `skirmish::scenario`, with player 1's camera over `camera`, where the game plays out, for watching it in the
@@ -251,7 +254,16 @@ impl Script for Players {
             assert_eq!(self.died, BTreeMap::new(), "nothing died");
             return;
         }
-        assert_eq!(made(CULTS, Militant), MILITANTS, "the Armory trained the Militants");
+        assert_eq!(
+            (made(CULTS, Militant), made(CULTS, Gunner)),
+            (MILITANTS, GUNNERS),
+            "the Armory trained the Militants and the Gunners"
+        );
+        let gunworks = sim
+            .objects()
+            .find(|o| o.placement.is_some_and(|p| p.origin == GUNWORKS_SITE));
+        assert_eq!(gunworks.map(|o| o.kind), Some(Gunworks), "the Gunworks on its site");
+        assert_eq!(built(CULTS, Gunworks), 1, "player 1 built the Gunworks");
         assert_eq!(
             (made(SYNDICATE, Agent), made(SYNDICATE, Guard)),
             (skirmish::AGENTS, GUARDS),
@@ -266,7 +278,7 @@ impl Script for Players {
         assert_eq!(
             (died(SYNDICATE, LaserTurret), died(SYNDICATE, Tunnel)),
             (1, 1),
-            "the Militants destroyed the turret and the Tunnel"
+            "the Militants and Gunners destroyed the turret and the Tunnel"
         );
         assert_eq!(
             self.defeated,
