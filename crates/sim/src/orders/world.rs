@@ -1,22 +1,23 @@
 //! What the behaviours see of the game in phase 5a — a snapshot of every object, taken before any unit's behaviour
 //! runs, so that every unit decides on the same world: the positions the last tick left and the vision its phase 5f
 //! computed (`docs/movement.md > 4`). Also the scan for targets of `systems/controls/behaviors.md >
-//! BaseAutoTargeting` and `systems/combat.md > ValidTarget`, and what the workers' scans read ([`gathering`]).
+//! BaseAutoTargeting` and `systems/combat.md > ValidTarget` ([`scan`]), and what the workers' scans read
+//! ([`gathering`]).
 
 mod gathering;
 mod planning;
+pub(super) mod scan;
 
 use std::collections::BTreeMap;
 
 use glam::Vec2;
 
-use crate::combat::{self, AttackState, domain_allows, inside_min_range, object_domain, within_range};
-use crate::defs::{AttackAttrs, Domain, ObjectKind, TargetDomain, UnitDef};
+use crate::combat::{self, AttackState, domain_allows, object_domain};
+use crate::defs::{AttackAttrs, Domain, ObjectKind, TargetDomain, TurretAttrs, UnitDef};
 use crate::economy::Worker;
-use crate::elevation::{self, Elevation};
+use crate::elevation::Elevation;
 use crate::ids::{ObjectId, PlayerId};
 use crate::map::Map;
-use crate::math;
 use crate::mover::Mover;
 use crate::network::EntryPath;
 use crate::object::{Object, ResourceState};
@@ -24,14 +25,12 @@ use crate::paths::NavState;
 use crate::paths::knowledge::PathKnowledge;
 use crate::shape::Shape;
 use crate::targets::{self, Live, TargetView};
-use crate::tuning::combat::FACING_TOLERANCE;
-use crate::tuning::orders::ROTATION_STEP;
-use crate::tuning::vision::ELEVATION_MODIFIER;
-use crate::units::{SU_PER_GU, Tick, gu};
+use crate::units::{SU_PER_GU, Tick};
 use crate::vision::{Hiding, Vision};
 
 use gathering::Gathering;
 pub(crate) use gathering::{KnownPatch, KnownStation};
+pub(crate) use scan::{Candidate, Scan};
 
 /// An object as the behaviours see it this tick.
 #[derive(Copy, Clone, Debug)]
@@ -131,6 +130,36 @@ impl Unit<'_> {
         }
     }
 
+    /// (M5-U1) Its TurretAttributes, if it has a turret (`UnitDef::turret`, design change 0154): its attack comes
+    /// from the turret (`combat::turret`).
+    pub fn turret(&self) -> Option<TurretAttrs> {
+        self.unit_def()?.turret
+    }
+
+    /// (M5-U1) The direction its attack faces, from which a scan measures the rotation a target needs
+    /// (`systems/controls/behaviors.md > BaseAutoTargeting > Target Selection Priority`: "unit facing for infantry,
+    /// turret angle for turret units"): its turret's, on its own facing (`combat::turret::aim_facing`), else its own.
+    pub fn aim_facing(&self) -> f32 {
+        let turret = self.attack.as_ref().and_then(|attack| attack.turret);
+        combat::turret::aim_facing(turret, self.facing)
+    }
+
+    /// (M5-U1) Whether the point `at` is within its turret's arc (`combat::turret::in_arc`); always for a unit
+    /// without a turret.
+    pub fn in_arc(&self, at: Vec2) -> bool {
+        (self.turret()).is_none_or(|turret| combat::turret::in_arc(&turret, self.facing, self.pos, at))
+    }
+
+    /// (M5-U1) Its turret, if it has one, locks `target`, or nothing (`AttackState::lock`): what the design calls
+    /// setting TurretCommandState.LockedTarget (`systems/controls/commands.md > TurretCommandState`).
+    pub fn lock(&mut self, target: Option<ObjectId>) {
+        if self.turret().is_some()
+            && let Some(attack) = &mut self.attack
+        {
+            attack.lock(target);
+        }
+    }
+
     /// The mover stops if it has a goal; a unit standing anyway is left alone (it may be stepping aside for
     /// another, `docs/movement.md > 6.6`).
     pub fn halt(&mut self) {
@@ -138,38 +167,6 @@ impl Unit<'_> {
             self.mover.stop();
         }
     }
-}
-
-/// Which enemies a scan takes. Never one inside the unit's MinRange (`systems/controls/behaviors.md >
-/// BaseAutoTargeting > Targets inside MinRange`, design change 0182: auto-targeting "skips enemies inside the weapon's
-/// MinRange and picks one it can hit").
-#[derive(Copy, Clone, Debug, PartialEq, Eq)]
-pub(crate) enum Scan {
-    /// `systems/controls/behaviors.md > BaseAutoTargeting > Active during Idle`,
-    /// `systems/controls/command_behaviors.md > AttackMovingToLocation` 2: ValidTargets within the unit's SightRange,
-    /// beyond its MinRange.
-    Sight,
-    /// `systems/controls/command_behaviors.md > HoldingPosition` 3: ValidTargets within weapon range (Range, beyond
-    /// MinRange).
-    Weapon,
-}
-
-/// A ValidTarget within the reach of a scan, as the scan's own filter sees it ([`World::pick`]).
-pub(crate) struct Candidate<'v> {
-    pub view: &'v View,
-    /// The unit's attack reaches it from where the unit stands: within Range, beyond MinRange
-    /// (`combat::within_range`).
-    pub in_range: bool,
-}
-
-/// The 45° step ([`ROTATION_STEP`]) of a rotation of `rotation` radians, 0 to π (either direction): 0 for 0° to 45°,
-/// 1 for over 45° to 90°, 2 for over 90° to 135°, 3 for over 135° to 180°. Targets in one step count as needing
-/// equal rotation. **The bounds**: the design's steps ("0–45°, 45–90°, 90–135°, 135–180°") share their bounds; a
-/// placeholder reading takes each step up to its upper bound, so a target exactly 45° off is in the first step, with
-/// those dead ahead.
-pub(crate) fn rotation_step(rotation: f32) -> u8 {
-    let bounds = [ROTATION_STEP, 2.0 * ROTATION_STEP, 3.0 * ROTATION_STEP];
-    bounds.iter().filter(|&&bound| rotation > bound).count() as u8
 }
 
 /// The snapshot (module docs).
@@ -352,128 +349,5 @@ impl<'a> World<'a> {
             && view.destructible
             && domain_allows(attrs.target_domain, view.domain)
             && self.sees(unit.owner, view)
-    }
-
-    /// Whether `view` is within the reach of `scan` from `unit`, the gap between their shapes
-    /// (`systems/combat.md > Range Measurement`).
-    /// - [`Scan::Sight`]: within the unit's SightRange, with the ElevationModifier (`core/vision.md >
-    ///   ElevationModifier`), and beyond its MinRange (design change 0182). The design doesn't say how "within
-    ///   SightRange" is measured for a scan; a placeholder reading: edge to edge, like Range.
-    /// - [`Scan::Weapon`]: within Range and beyond MinRange (`combat::within_range`).
-    pub(crate) fn within(&self, unit: &Unit, attrs: &AttackAttrs, scan: Scan, view: &View) -> bool {
-        let gap = unit.shape().gap(&view.shape);
-        Self::gap_within(unit.kind, attrs, scan, gap, self.elevation(unit), view)
-    }
-
-    /// [`World::within`] for a unit of `kind` on `source`, `gap` away from `view`.
-    fn gap_within(kind: ObjectKind, attrs: &AttackAttrs, scan: Scan, gap: f32, source: Elevation, view: &View) -> bool {
-        match scan {
-            Scan::Sight => {
-                !inside_min_range(attrs, gap)
-                    && gap <= gu(elevation::sight_range(kind.def().sight_range, source, view.elevation))
-            }
-            Scan::Weapon => within_range(attrs, gap, source, view.elevation),
-        }
-    }
-
-    /// The angle `unit` would turn to face `view`, radians, 0 to π: from the unit's own facing, the turret's being the
-    /// unit's while turrets have no state of their own (design change 0179: "unit facing for infantry").
-    fn rotation(unit: &Unit, view: &View) -> f32 {
-        let to = view.pos - unit.pos;
-        if to == Vec2::ZERO {
-            return 0.0;
-        }
-        math::wrap_angle(math::vector_angle(to) - unit.facing).abs()
-    }
-
-    /// `systems/controls/behaviors.md > BaseAutoTargeting > Target Selection Priority`
-    /// (`systems/controls/behaviors.md > TurretAutonomousScanning`): the best ValidTarget within the reach of `scan`,
-    /// if any, among those `admit` lets through:
-    /// 1. **threatening** targets first, those whose own attack can target this unit's domain;
-    /// 2. then the **least rotation** from the unit's facing (the turret's, once turrets have state), in 45° steps
-    ///    (design change 0179, [`rotation_step`]): targets in one step count as needing equal rotation;
-    /// 3. then the **closest** (the gap between the shapes); then the lowest id, the fixed order of the remaining
-    ///    ties.
-    ///
-    /// Enemy structures are ValidTargets too (`systems/combat.md > ValidTarget`, design change 0103), so units
-    /// attack enemy buildings on their own; those that can't attack (all but a complete Laser Turret, slice M4-S1:
-    /// `combat::threat`) are non-threatening, and come after the targets that can shoot back. An enemy inside the
-    /// unit's MinRange is never picked (design change 0182, [`Scan`]).
-    ///
-    /// Nothing while auto-targeting is off (`DebugCommand::SetAutoTargeting`).
-    ///
-    /// `facing_only`: a non-turret unit that can't turn in place engages only what it already faces
-    /// (`systems/controls/command_behaviors.md > HoldingPosition` 4, within `tuning::combat::FACING_TOLERANCE`, the
-    /// exact angle).
-    // Inlined into each caller, whose `admit` it specializes on: the behaviours' hottest scan. Without the hint, how
-    // the release build splits the crate into codegen units can leave a call to it out of line (slice M4-S1: the one
-    // in `travel::march`, 3% of `behaviours_perf`'s battle, though nothing on the path had changed).
-    #[inline]
-    pub(crate) fn pick(
-        &self,
-        unit: &Unit,
-        scan: Scan,
-        facing_only: bool,
-        admit: impl Fn(&Candidate) -> bool,
-    ) -> Option<ObjectId> {
-        let attrs = unit.attrs().filter(|_| self.auto_targeting)?;
-        unit.owner?;
-        let my_domain = unit.unit_def()?.base_def().domain;
-        // Everything a scan can reach lies within the unit's longest range, plus the modifier, of the unit's shape:
-        // its centre lies within that and the two half shapes along each axis, in the cells this box touches.
-        let longest = unit.kind.def().sight_range.max(attrs.range) + ELEVATION_MODIFIER;
-        let own_half = unit.kind.def().half_extents().unwrap_or(Vec2::ZERO).max_element();
-        let radius = gu(longest) + own_half + self.candidate_half;
-        let (x0, x1) = (
-            self.cell_coord(unit.pos.x - radius, self.cells_wide),
-            self.cell_coord(unit.pos.x + radius, self.cells_wide),
-        );
-        let (y0, y1) = (
-            self.cell_coord(unit.pos.y - radius, self.cells_high),
-            self.cell_coord(unit.pos.y + radius, self.cells_high),
-        );
-        let (shape, source) = (unit.shape(), self.elevation(unit));
-        let mut best: Option<(bool, u8, f32, ObjectId)> = None;
-        for y in y0..=y1 {
-            for x in x0..=x1 {
-                let cell = (y * self.cells_wide + x) as usize;
-                let range = self.cell_starts[cell] as usize..self.cell_starts[cell + 1] as usize;
-                for &index in &self.candidates[range] {
-                    let view = &self.views[index as usize];
-                    // The cheap tests first: most candidates are the unit's own side.
-                    if view.owner == unit.owner {
-                        continue;
-                    }
-                    let gap = shape.gap(&view.shape);
-                    if !Self::gap_within(unit.kind, attrs, scan, gap, source, view)
-                        || !self.valid_target(unit, attrs, view)
-                    {
-                        continue;
-                    }
-                    let rotation = Self::rotation(unit, view);
-                    if facing_only && rotation > FACING_TOLERANCE {
-                        continue;
-                    }
-                    let in_range = within_range(attrs, gap, source, view.elevation);
-                    if !admit(&Candidate { view, in_range }) {
-                        continue;
-                    }
-                    let harmless = !view.threat.is_some_and(|threat| domain_allows(threat, my_domain));
-                    let key = (harmless, rotation_step(rotation), gap, view.id);
-                    let better = best.is_none_or(|b| {
-                        key.0
-                            .cmp(&b.0)
-                            .then(key.1.cmp(&b.1))
-                            .then(key.2.total_cmp(&b.2))
-                            .then(key.3.cmp(&b.3))
-                            .is_lt()
-                    });
-                    if better {
-                        best = Some(key);
-                    }
-                }
-            }
-        }
-        best.map(|(.., id)| id)
     }
 }

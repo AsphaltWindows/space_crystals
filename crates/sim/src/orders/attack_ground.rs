@@ -6,7 +6,10 @@
 //! - **Engaged** (`AttackState::location`): from the order's start (`orders::run::start`) for as long as it runs, but
 //!   while the unit backs off from it (below). No one needs to see the location.
 //! - **In range** (`combat::reaches_point`: from the unit's shape to the point, `systems/combat.md > Range
-//!   Measurement`): the unit stops, and phase 5e aims and fires.
+//!   Measurement`), and (M5-U1) for a unit with a turret within its arc ("Range/arc check is against the target
+//!   location", `combat::turret::in_arc`): the unit stops, and phase 5e aims and fires. Its turret's LockedTarget
+//!   stays as it was ("TurretCommandState.LockedTarget is not set (turret fires at location, not a unit)"): the
+//!   turret aims at the location while the order runs (`combat::turret::step`).
 //! - **Out of range**: MovingToLocation, to the point itself; the walk ends in range, where this behaviour stops it.
 //!   It starts once the attack sequence lets the unit move (`combat::may_move`), as an Attack's approach does. A walk
 //!   that ends out of range gives up, and the order completes (`systems/controls/command_behaviors.md > Failure`).
@@ -60,7 +63,7 @@ pub(super) fn run(unit: &mut Unit, at: Vec2, state: &mut AttackGround, world: &W
     if let Some(complete) = too_close(unit, attrs, state.back_off(), from, world) {
         return complete;
     }
-    if reaches_point(attrs, &shape, world.elevation(unit), at, ground) {
+    if reaches_point(attrs, &shape, world.elevation(unit), at, ground) && unit.in_arc(at) {
         unit.halt();
         state.moving = false;
         return false;

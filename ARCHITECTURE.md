@@ -269,9 +269,10 @@ Units, structures and resources are all `Object`s (`object.rs`, `core/entities.m
   (`HoldsDef`, design change 0347 point 5: an editor-placed one can be entered, with no panel yet, so no Eject All),
   and the Recruits build none of the seven until their slices (the Construct menus hold their slots, *Client
   architecture > The Recruit's panel*). The units' `MovementAttrs` (the Seeker's and the Prayer-mobile's
-  `FixedTurnRadius`, the Hand of Heaven's `SpeedTurnRadius`, the Sparrow's `Glider`) and `TurretAttrs` are data that
-  nothing reads yet: a model the movement doesn't build steps without a turn limit (*Movement and collision >
-  Movement models*), and nothing produces those units before their buildings' slices. The wheeled and tracked
+  `FixedTurnRadius`, the Hand of Heaven's `SpeedTurnRadius`, the Sparrow's `Glider`) are data that nothing reads yet:
+  a model the movement doesn't build steps without a turn limit (*Movement and collision > Movement models*), and
+  nothing produces those units before their buildings' slices. Their `TurretAttrs` are their turrets' since slice
+  M5-U1 (*Combat > Units' turrets*). The wheeled and tracked
   vehicles don't cross Rugged terrain, so every game's set of grids holds a `(Ground, 1)` grid beside
   `(GroundRugged, 1)` (*Navigation*); the Sparrow is the first air unit kind (`nav_class` `None`: it crosses every
   tile). **The Augmentations** (slice M5-F2; `augmentation.rs`, `factions/cults/augmentation.md >
@@ -774,7 +775,8 @@ Layout validation can't disagree. **Never test a placement rule anywhere else: a
      behaviours, the movement and the combat of the tick all see the form it leaves.
    - 5a `orders::update`: a unit's finished order completes and its next one starts, until one is in progress, so
      legs follow each other without an idle tick; then that order's behaviour runs for the tick, or the idle one
-     (see *Behaviours*). They write goals (`Mover::go_to`, `stop`) and the target the attack engages. Everything
+     (see *Behaviours*), and a turret's own after it (slice M5-U1). They write goals (`Mover::go_to`, `stop`), the
+     target the attack engages and a turret's LockedTarget (*Combat > Units' turrets*). Everything
      they read of other objects comes from one snapshot taken first (`orders::world::World`): the positions and the
      vision the last tick left.
    - Arrivals, `Sim::step_deployments` (slices M3-F and M4-E, `sim/builds.rs`; see *Economy > Beacon Deployment* and
@@ -816,7 +818,8 @@ Layout validation can't disagree. **Never test a placement rule anywhere else: a
    - 5d `movement::step`: steering and hard collision, the only code that writes a unit's `pos` besides a teleport
      (see Movement and collision). Units move one after another in id order and never come to overlap, gathering
      Drones apart (design change 0106).
-   - 5e `combat::step`: attack phases and launches, the projectiles due landing in launch order, the tick's list of
+   - 5e `combat::step`: attack phases (a unit's turret turning first) and launches, the projectiles due landing in
+     launch order, the tick's list of
      hits applied together (the blasts' first), deaths (see *Combat*). The dead
      leave through `Sim::remove_objects`, then `paths::sync` runs again in case a footprint went with them.
    - Pop-ups, `Sim::step_popups` (slice M4-S2, `sim/popups.rs`; *Object model > The pop-up form*): right after 5e
@@ -1144,9 +1147,37 @@ ticks spent in it. Hashed and serialized like all state.
   reload runs on); **and only while active**, inside its Tunnel's area (design change 0360): an inactive one, a
   neutral one among them, stays down and never fires. Its armour is `Object::armor()`, the underground one while
   fully lowered (*Object model > The pop-up form*).
-- **Not yet**: units' turrets (their TurretAttributes: a turret faces its target at once, `TODO(turrets)` in
-  `combat/phases.rs`); the HeadDisjointed attack, which hits as a FullyConnected one does (a TODO in
-  `combat/phases.rs`).
+- **Units' turrets** (`combat/turret.rs`, `orders/turret.rs`; slice M5-U1, plan decision T80; `systems/combat.md >
+  TurretSource`, `systems/controls/commands.md > TurretCommandState`): a unit whose type has TurretAttributes
+  (`UnitDef::turret`) attacks from its turret (`turret::Source`). **`AttackState::turret: Option<TurretState
+  { facing, locked }>`**: its facing relative to the base's, within ±TurnAngle/2, and its LockedTarget; none until it
+  first locks or turns (a default one is a turret centred with nothing locked), so it is saved and hashed (a tag) only
+  while set, and every state without one, the goldens', is as it was. `AttackState::target` stays what the base's
+  behaviour engages; the turret's sequence runs at `locked` (`Shooter::aimed`). **In 5e**, before the phases
+  (`turret::step`): a lock its attack can't target at all is let go, then the turret turns toward an Attack Ground's
+  location or its LockedTarget, the latter only while its owner sees it (a placeholder: turning to an unseen one
+  would show the player where it is), by its TurnRate, a full circle (`turret::full_turn`, within `FACING_TOLERANCE`
+  of 360°) the shorter way, a limited arc only within it, to its edge toward a point outside; not when the tick
+  starts in Firing or Cooldown (their TurretSourceActions are None). A sequence starts at a seen lock in range and
+  in the arc (`turret::in_arc`, bounds included), Aiming lasts until the turret faces it too and is cancelled when
+  it leaves the arc, and an Attack Ground's location takes the same arc. The base turns only in 5d: `base_is_free`
+  holds throughout. **In 5a**, right after the base's behaviour, the turret's own (`orders/turret.rs::run`): it keeps
+  a lock its base engages; any other it keeps only while it could fire at it from where it stands (`fireable`: seen,
+  a valid domain, Range and MinRange, the arc; a placeholder, as the design never says when a turret lets go), else
+  lets it go; with nothing locked it scans (`World::turret_pick`: `World::pick` with `Scan::Weapon` and the arc as
+  `admit`, a Move's tick included) and locks the best. The rotation a scan measures, the base's
+  (`BaseAutoTargeting`) and the turret's alike, is from the turret's facing (`Unit::aim_facing`, design change
+  0179). **Who sets the lock**: `close_in` once the target is in range and in the arc (out of the arc the approach
+  goes on, the move turning the base), the idle and the AttackMove acquisitions; a Hold's base engages nothing and
+  leaves it to the turret's scan; a Stop clears it (`orders::run::start`); every other order leaves it ("When the
+  base behavior does not specify a target, the turret retains its previous TurretCommandState"); the removal path
+  clears it (`AttackState::forget`); a kind change keeps it only for a type with a turret (`sim/kinds.rs`). **Not
+  shared with the Laser Turret** (*Structures that attack*), which has no arc and no turn rate, snaps its facing and
+  picks by the gap in 5e: its code and its golden (`cults_vs_syndicate`) are as they were. Tests on test turret units
+  (`combat/turret/testing.rs`: the Guard on a Mech's base, a 90°, 45° or 360° turret, a fixed gun), in
+  `combat/turret/tests.rs` and `orders/turret/tests.rs`; the ignored `turrets_perf` (`combat/turret/perf.rs`, 96
+  turret units passing each other) runs as `projectiles_perf` does.
+- **Not yet**: the HeadDisjointed attack, which hits as a FullyConnected one does (a TODO in `combat/phases.rs`).
 
 ## Vision
 
@@ -1290,7 +1321,11 @@ writes the mover's goal and the target the attack engages, and reads `Mover::sta
   from the IdleOrigin, where the unit stood. Farther than `IDLE_LEASH_GU` (4) from it the unit disengages and walks
   back without scanning; a target destroyed or out of SightRange leaves it idle where it is.
 - **Hold Position** (`engage::hold`): scans its weapon's range only, never moves, and disengages the moment the
-  target leaves that range.
+  target leaves that range. A unit with a turret engages nothing from its base: its turret scans and fires on its own
+  (slice M5-U1, *Combat > Units' turrets*).
+- **A turret's behaviour** (`orders/turret.rs`, slice M5-U1): runs for every unit with a turret right after its
+  base's behaviour, whatever that is, a Move's included; it locks and lets go of the turret's target and never moves
+  the unit (*Combat > Units' turrets*).
 - **Move to an object** (`orders/travel.rs::approach`; design changes 0032 and 0033): proximity is a gap of at most
   `PROXIMITY_SU` (8). A static object completes the order there (also at the nearest point the unit can reach, or
   stuck within 3 GU of it behind units that won't move). **A unit is followed**: the order never completes by
@@ -3138,6 +3173,10 @@ these.
   and growing to its length with `PopUp::height`, and shrinking as it retracts. A neutral one, down for good, shows to
   everyone as its outline in the neutral colour, and so does its record (`MeshKey::of_record`,
   `popup::remembered_lowered`), blended as an underground structure's record is (`object_render/remembered.rs`).
+  **A unit with a turret** (slice M5-U1) carries the same `TurretBarrel` on its body, with no head, turned to its
+  turret's facing (`sc_sim::combat::turret_facing`); the sim keeps no turret facing of the tick before, so the
+  barrel's `TurretTrack` remembers the last two ticks it saw and interpolates between them, and on a round body,
+  which turns with the unit, the barrel turns by the turret's facing less the body's.
 - **Path overlay** (`path_overlay.rs`, P or `--show-paths`): each unit's remaining path (`Mover::remaining_path`) as
   a thin line from where the unit is drawn, cut into short pieces lifted by the terrain's height, in the overlays
   layer, and a frame around each unit in the colour of its move's status (`status_color`: green moving, amber held

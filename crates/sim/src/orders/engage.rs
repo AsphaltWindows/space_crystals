@@ -7,6 +7,11 @@
 //! target its owner only remembers (design change 0139) and its wait behind a raised Riot Shield (design change
 //! 0150); idle units ([`idle`]) and AttackMove (`travel`) run it on the enemies they acquire themselves; Hold
 //! Position ([`hold`]) never moves.
+//!
+//! (M5-U1) A unit with a turret (`combat::turret`) fights from it: its base engages the target as any unit's does,
+//! and sets its turret's LockedTarget where the design says to (its TurretCommandState is "Set by the base
+//! behavior"), which is what its attack sequence fires at; its turret looks after itself the rest of the time
+//! (`orders::turret`).
 
 use glam::Vec2;
 
@@ -36,8 +41,12 @@ pub(super) enum Closing {
 }
 
 /// `> AttackingObject`, steps 1 to 4, one tick, against `target`, which the unit's owner sees.
-/// - **In range** (`combat::reaches`: within Range and beyond MinRange, edge to edge): Locomotion = Stopping. The
-///   unit stops its move; phase 5e aims and fires (`combat::phases`).
+/// - **In range** (`combat::reaches`: within Range and beyond MinRange, edge to edge), and (M5-U1) for a unit with a
+///   turret within its arc (`combat::turret::in_arc`; step 2: "within turret arc (turret units)"): Locomotion =
+///   Stopping. The unit stops its move; phase 5e aims and fires (`combat::phases`). A unit with a turret locks it on
+///   the target (step 3: "set TurretCommandState.LockedTarget = TargetObject (turret units)"). Out of its arc, it
+///   goes on as out of range (step 4: "If target moves out of range or arc: resume MovingToObject"), its move turning
+///   it toward the target.
 /// - **Out of range**: MovingToObject towards the target (`MoveGoal::Object`; phase 5c re-aims the path as the
 ///   target moves). The approach starts only while the attack sequence leaves the base free (`combat::may_move`):
 ///   infantry finishes Firing and Cooldown first.
@@ -54,9 +63,11 @@ pub(super) fn close_in(unit: &mut Unit, chasing: &mut bool, target: &View, world
         world.elevation(unit),
         &target.shape,
         target.elevation,
-    ) {
+    ) && unit.in_arc(target.pos)
+    {
         unit.halt();
         *chasing = false;
+        unit.lock(Some(target.id));
         return Closing::InRange;
     }
     if *chasing {
@@ -332,9 +343,18 @@ fn back_off_spot(unit: &Unit, attrs: &AttackAttrs, from: Vec2, gap: f32, elevati
 /// `> HoldingPosition`, `> BaseAutoTargeting > Active during HoldPosition`: one tick. Locomotion stays Stationary:
 /// the unit never moves. It engages the best ValidTarget within weapon range ([`World::pick`]) and disengages at
 /// once when that target leaves range (or is no longer valid). A non-turret unit that can't turn in place engages
-/// only what it already faces. Turrets have no state of their own yet, so a turret unit holds like the others. A
-/// unit that can't attack now (its Riot Shield is up) holds without a target.
+/// only what it already faces. A unit that can't attack now (its Riot Shield is up) holds without a target.
+///
+/// (M5-U1) **A unit with a turret** engages nothing from its base: "For turret units: TurretCommandState is unchanged
+/// — turret continues autonomous scanning and engaging targets within range and arc" (`> HoldingPosition` 2), which
+/// its turret's own behaviour does (`orders::turret`).
 pub(super) fn hold(unit: &mut Unit, target: &mut Option<ObjectId>, world: &World) {
+    if unit.turret().is_some() {
+        if target.take().is_some() {
+            unit.engage(None);
+        }
+        return;
+    }
     let Some(attrs) = unit.attrs() else {
         if target.take().is_some() {
             unit.engage(None);
@@ -365,7 +385,8 @@ pub(super) fn hold(unit: &mut Unit, target: &mut Option<ObjectId>, world: &World
 /// `> BaseAutoTargeting > Active during Idle`: one tick of a unit with no order at all.
 /// - **Watching**: it scans for ValidTarget enemies within SightRange and acquires the best
 ///   ([`World::pick`]); where it stands then is its IdleOrigin. A move or a target left over from an order that
-///   ended (its target died, say) ends here too.
+///   ended (its target died, say) ends here too. (M5-U1) A unit with a turret locks it on the enemy it acquires
+///   (`> BaseAutoTargeting`: "For turret units, the base sets TurretCommandState.LockedTarget").
 /// - **Engaging**: AttackingObject on the acquired enemy ([`close_in`]). Farther than IdleLeashDistance from the
 ///   IdleOrigin, it disengages and returns there (MovingToLocation). If the target is destroyed or leaves SightRange
 ///   (or is no longer a ValidTarget, or comes inside the unit's MinRange: design change 0182, `Scan::Sight`), the
@@ -388,6 +409,7 @@ pub(super) fn idle(unit: &mut Unit, auto: &mut Auto, world: &World) {
                     return;
                 };
                 unit.engage(Some(target));
+                unit.lock(Some(target));
                 *auto = Auto::Engaging {
                     pursuit: Pursuit { target, chasing: false },
                     origin: unit.pos,

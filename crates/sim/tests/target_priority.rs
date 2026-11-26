@@ -59,7 +59,7 @@ fn the_closest_target_within_the_least_step_of_rotation_comes_first() {
     assert_eq!(pick(&[c, a]), Some(ObjectId(3)), "A, whichever id it has");
 }
 
-/// The first step reaches up to 45° (`orders::world::rotation_step`, a placeholder reading of the shared bounds): an
+/// The first step reaches up to 45° (`orders::world::scan::rotation_step`, a placeholder reading of the shared bounds): an
 /// adjacent enemy exactly 45° off comes before one at max range dead ahead; one a little more than 45° off doesn't.
 #[test]
 fn an_enemy_exactly_45_degrees_off_is_in_the_first_step() {

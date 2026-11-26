@@ -231,7 +231,12 @@ impl Sim {
             }
         }
         *attack = match (attack.take(), fresh.attack) {
-            (Some(old), Some(_)) if keeps_weapon => Some(old),
+            // (M5-U1) A turret goes with its type (`combat::turret`): a type without one has none; with a new weapon,
+            // the new type's starts centred with nothing locked.
+            (Some(old), Some(_)) if keeps_weapon => Some(AttackState {
+                turret: old.turret.filter(|_| combat::turret::attrs_of(kind).is_some()),
+                ..old
+            }),
             (Some(old), Some(fresh)) => Some(AttackState {
                 target: old.target,
                 location: old.location,

@@ -39,6 +39,7 @@ pub mod resolution;
 mod run;
 pub mod state;
 mod travel;
+mod turret;
 pub(crate) mod world;
 
 use std::collections::VecDeque;
