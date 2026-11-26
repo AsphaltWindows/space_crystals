@@ -22,4 +22,10 @@
 - Like every attack that can miss, it can **Attack Ground** (systems/combat.md > AttackType > CanTargetGround).
 - TargetDomain: **Ground only** (user, 2026-11-25).
 
-TBD: re-arming time and the Vault's throughput limit; the lift-off/landing transition; all numbers.
+**Placeholder stats** (designer, 2026-11-27, user's standing permission; tune in the numbers pass):
+- Silhouette 56x56 space units; MaxHP 140; PointArmor 1, FullArmor 1; SightRange 6 grid units; TunnelSpaceCost 3.
+- GliderMovement: IdleSpeed 6, MaxSpeed 11 su/frame, Acceleration 0.5, Deceleration 0.5, MaxCentripetalAcceleration 0.5; idle circle radius 1 grid unit; SeparationRadius 40 su.
+- **Lift-off and landing**: vertical, **24 frames** each at the air door (to confirm: it can be hit during both, as an air unit).
+- Turret: TurnAngle 20° total. Bomb: Damage **400** total over the circle; AoERadius 80 su; Range 1 grid unit; a fixed **24-frame fall** (the dodge window); Aim 4, Firing 2, Cooldown 4.
+- **Re-arming**: 160 frames inside the network with a Vault (Vault > Throughput).
+- Cost: Aerospace Assembly, 200 Space Crystals, 400 frames.

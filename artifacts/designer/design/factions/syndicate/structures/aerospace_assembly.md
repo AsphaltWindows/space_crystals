@@ -10,4 +10,7 @@ Syndicate production building that assembles Syndicate aviation and orbital forc
 
 Produces (2026-11-25): **Phantom** (requires an Optics Lab), **Specter** (bomber) (factions/syndicate/units/README.md). **Prisms** (satellites) require an **Orbital Command**, the final Syndicate tech building (user, 2026-11-25; design in progress).
 
-(Full stats TBD)
+**Placeholder stats** (designer, 2026-11-27, user's standing permission; tune in the numbers pass):
+- Size 3x3; MaxHP 600; PointArmor 6, FullArmor 54 (underground expansion, n = 6); Cost 300 Space Crystals; Build Time 640 frames (40 seconds).
+- Produces (cost, time, TunnelSpaceCost): **Phantom** 175 SC, 320 f, 2; **Specter** 200 SC, 400 f, 3; **Prism** 250 SC, 480 f, 2.
+- Panel: **Q** Phantom, **W** Specter, **E** Prism, **X** Cancel Production, **C** Set Rally Point.
