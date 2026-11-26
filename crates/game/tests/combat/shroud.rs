@@ -1,9 +1,12 @@
 //! (M5-N4b) The Shroud clouds in the client (`shroud_view`; `factions/cults/units/disciple.md > Spells > Shroud`: "the
 //! cloud is shown to **every player**, over the tiles that are Visible to them, so its edge can be seen even when the
-//! Disciple can't"), and the flash of a release. The texels themselves are the unit tests' (`shroud_view/tests.rs`).
+//! Disciple can't"), and the flash of a release; a box of another size is a new texture that the layer shows (slice
+//! M5-Z3). The texels themselves are the unit tests' (`shroud_view/tests.rs`).
+
+use std::collections::BTreeMap;
 
 use sc_sim::VisibilityState;
-use space_crystals::shroud_view::{RELEASE_TICKS, ShroudLayer, ShroudView};
+use space_crystals::shroud_view::{RELEASE_TICKS, ShroudAssets, ShroudLayer, ShroudView, TEXELS_PER_TILE};
 
 use super::*;
 
@@ -19,6 +22,37 @@ fn shown_tiles(app: &App) -> Vec<TilePos> {
 fn layer_visible(app: &mut App) -> bool {
     let mut query = app.world_mut().query_filtered::<&Visibility, With<ShroudLayer>>();
     *query.single(app.world()).unwrap() != Visibility::Hidden
+}
+
+/// The size of the image the layer's material shows, which must be the texture the layer writes and never have
+/// changed size (`sizes`: each image's first size). Bevy 0.20 keeps the GPU texture a 2D material was prepared with,
+/// so an image resized under its handle stays on screen at its old size (`ARCHITECTURE.md > Bevy 0.20: verify, don't
+/// recall`; slice M5-Z3).
+fn shown_size(app: &mut App, sizes: &mut BTreeMap<AssetId<Image>, UVec2>) -> UVec2 {
+    let mut layer = app
+        .world_mut()
+        .query_filtered::<&MeshMaterial2d<ColorMaterial>, With<ShroudLayer>>();
+    let material = layer.single(app.world()).unwrap().0.clone();
+    let world = app.world();
+    let texture = world
+        .resource::<Assets<ColorMaterial>>()
+        .get(&material)
+        .unwrap()
+        .texture
+        .clone();
+    let texture = texture.expect("the layer's material has a texture");
+    assert_eq!(
+        texture,
+        world.resource::<ShroudAssets>().texture,
+        "it shows the texture written"
+    );
+    let size = world.resource::<Assets<Image>>().get(&texture).unwrap().size();
+    assert_eq!(
+        *sizes.entry(texture.id()).or_insert(size),
+        size,
+        "an image the layer shows changed size"
+    );
+    size
 }
 
 fn sight_of(app: &App, player: PlayerId) -> Vec<TilePos> {
@@ -45,6 +79,9 @@ fn a_cloud_shows_over_each_player_s_visible_tiles_and_a_release_flashes() {
     );
     app.update();
     assert!(!layer_visible(&mut app), "no cloud");
+    let mut sizes = BTreeMap::new();
+    let tile = TEXELS_PER_TILE as u32;
+    assert_eq!(shown_size(&mut app, &mut sizes), UVec2::splat(tile), "the stand-in");
     let centre = TilePos::new(5, 6).center();
     spawn(&mut app, ObjectKind::Disciple, P1, centre);
     spawn(
@@ -70,6 +107,11 @@ fn a_cloud_shows_over_each_player_s_visible_tiles_and_a_release_flashes() {
         "the tiles of its circle, its box but the corners: {own:?}"
     );
     assert_eq!(sight_of(&app, P1), own, "all Visible to player 1");
+    assert_eq!(
+        shown_size(&mut app, &mut sizes),
+        UVec2::splat(7 * tile),
+        "a new texture for its box"
+    );
 
     app.world_mut().resource_mut::<LocalPlayer>().0 = P2;
     app.update();

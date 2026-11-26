@@ -3689,7 +3689,10 @@ these.
   the command indicators ask it too. The fog layer (`fog/layer.rs`) is one mesh that follows the terrain's surface tile
   by tile, in the terrain's z band `FOG_Z` in front of it (so no cliff stratum shows through), and one texture of
   one black texel per tile (`UNEXPLORED_ALPHA`, `EXPLORED_ALPHA`, clear when Visible), sampled linearly. The texture
-  is written only when `Sight::revision`, the local player or the sim changes, the mesh only with the map.
+  is written only when `Sight::revision`, the local player or the sim changes, the mesh only with the map, and a new
+  texture, which the material is pointed at, is made only when the map's size changes (slice M5-Z3; *Bevy 0.20:
+  verify, don't recall*): from the 1 × 1 stand-in in the first frame the fog applies after frames it didn't (an editor
+  play-test, F3 after `--no-fog`), and between play-tests of maps of different sizes.
   A `Sight` looks through the union of the visions it watches (`Sight::watching`): a tile in the best state any of
   them gives it, an object out of sight of all of them as the latest record any of them keeps. A player watches
   their own vision, and a defeated one their allies' too (`Sight::new`, `Sim::allies`; design change 0102: never a
@@ -4464,8 +4467,12 @@ ls ~/.cargo/registry/src/*/bevy-0.20.1/examples/          # 2d/, ui/, time/, cam
 Found so (slice M5-N4b): `Assets::get_mut` returns an `AssetMut`, which marks the asset changed only when it is
 dereferenced mutably. A 2D material keeps the GPU texture it was prepared with: an image replaced by one of another
 size is a new texture, which a material shows only once the material itself changes, so point the material at a new
-image then (`shroud_view`), or keep the size and write `image.data` in place, which the `GpuImage` takes into the
-same texture (`fog/layer.rs`).
+image then (`shroud_view`, `fog/layer.rs`), or keep the size and write `image.data` in place, which the `GpuImage`
+takes into the same texture. Never resize under the same handle, not even while touching the material: nothing orders
+a 2D material's preparation after its images', so the material may bind the old texture still, whereas it waits for a
+new image until that is ready. Slice M5-Z3 found the fog layer resizing under its handle: a play-test begun after an
+editor frame drew the map all black (the 1 × 1 stand-in), a later one at another size the last one's fog. The fog's
+and the Shroud's tests check that the image a layer's material shows never changes size.
 
 ## QA mode
 

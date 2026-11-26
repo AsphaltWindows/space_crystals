@@ -1,6 +1,7 @@
 //! The fog layer (`core/vision.md`): one mesh over the whole map and one texture of one texel per tile, its mesh
-//! rebuilt with the map and its texture written only when what it shows changes; and how each tile's state looks
-//! (placeholders, the design being silent: the Explored dimming and the soft edges).
+//! rebuilt with the map and its texture written only when what it shows changes, a new texture only when the map's
+//! size does; and how each tile's state looks (placeholders, the design being silent: the Explored dimming and the
+//! soft edges).
 
 use bevy::asset::RenderAssetUsages;
 use bevy::image::ImageSampler;
@@ -30,11 +31,17 @@ pub const FOG_SOFT_EDGES: bool = true;
 /// front of it.
 pub const FOG_Z: f32 = 0.06;
 
-/// The fog layer's handles: one mesh, one texture, one material, created once and rebuilt in place.
+/// The fog layer's handles: one mesh, rebuilt in place; one texture, written in place while the map keeps its size,
+/// and replaced by a new one when the size changes, which the material is pointed at (slice M5-Z3): a 2D material
+/// keeps the GPU texture it was prepared with, and an image of another size is a new texture on the GPU
+/// (`ARCHITECTURE.md > Bevy 0.20: verify, don't recall`). The size changes from the 1 × 1 stand-in at the first
+/// frame the fog applies after one it didn't (an editor play-test, F3 after `--no-fog`) and with the map between
+/// play-tests.
 #[derive(Resource)]
 pub struct FogAssets {
     pub mesh: Handle<Mesh>,
     pub texture: Handle<Image>,
+    pub material: Handle<ColorMaterial>,
 }
 
 /// The fog layer's entity.
@@ -174,26 +181,32 @@ pub(super) fn spawn_fog(
         Name::new("Fog of war"),
         FogLayer,
         Mesh2d(mesh.clone()),
-        MeshMaterial2d(material),
+        MeshMaterial2d(material.clone()),
         Transform::from_xyz(0.0, 0.0, DrawLayer::Terrain.base_z() + FOG_Z),
         Visibility::Hidden,
     ));
-    commands.insert_resource(FogAssets { mesh, texture });
+    commands.insert_resource(FogAssets {
+        mesh,
+        texture,
+        material,
+    });
 }
 
 /// Builds the mesh when the map changed (in the first frame too: `MapView::builds` counts the terrain's builds),
-/// writes the texture when what it shows changed, resizing it with the map, and shows the layer while the fog
-/// applies.
+/// writes the texture when what it shows changed, in place while the map keeps its size, else as a new texture that
+/// the material is pointed at ([`FogAssets`]), and shows the layer while the fog applies.
+#[expect(clippy::too_many_arguments, reason = "a system's parameters")]
 pub(super) fn update_fog_layer(
     sight: LocalSight,
     map_view: Res<MapView>,
-    assets: Option<Res<FogAssets>>,
+    assets: Option<ResMut<FogAssets>>,
     mut view: ResMut<FogView>,
     mut meshes: ResMut<Assets<Mesh>>,
     mut images: ResMut<Assets<Image>>,
+    mut materials: ResMut<Assets<ColorMaterial>>,
     mut layer: Query<&mut Visibility, With<FogLayer>>,
 ) {
-    let Some(assets) = assets else {
+    let Some(mut assets) = assets else {
         return;
     };
     let seen = sight.get();
@@ -228,15 +241,19 @@ pub(super) fn update_fog_layer(
         return;
     }
     let texels = fog_texels(&seen, map.width(), map.height());
-    let resized = images
-        .get(&assets.texture)
-        .is_none_or(|image| image.width() != map.width().max(1) || image.height() != map.height().max(1));
-    if resized {
-        if let Err(error) = images.insert(&assets.texture, fog_image(texels, map.width(), map.height())) {
-            error!("fog texture rebuild failed: {error}");
+    let size = UVec2::new(map.width(), map.height()).max(UVec2::ONE);
+    let same_size = images.get(&assets.texture).is_some_and(|image| image.size() == size);
+    if same_size {
+        if let Some(mut image) = images.get_mut(&assets.texture) {
+            image.data = Some(texels);
         }
-    } else if let Some(mut image) = images.get_mut(&assets.texture) {
-        image.data = Some(texels);
+    } else {
+        let texture = images.add(fog_image(texels, map.width(), map.height()));
+        if let Some(mut material) = materials.get_mut(&assets.material) {
+            material.texture = Some(texture.clone());
+        }
+        // The old texture goes with its last handle.
+        assets.texture = texture;
     }
     view.shown = Some(key);
     view.texture_writes += 1;
