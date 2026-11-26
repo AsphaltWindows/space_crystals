@@ -6,6 +6,7 @@ mod construction;
 mod cults;
 mod expansions;
 mod gathering;
+mod place_buttons;
 mod recruit;
 mod shrine;
 mod syndicate;

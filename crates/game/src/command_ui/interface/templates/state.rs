@@ -1,7 +1,8 @@
 //! A panel that follows its constructor's state and the build menu that is open ([`state_grid`]): the Deployment
-//! Center's build menus, a Beacon's Warp In menus, and a constructor's building ready to place and its Cancels
-//! (`factions/gdo/structures/deployment_center.md > ObjectInterfaceState[DeploymentCenter]`; a constructor is alone in
-//! its SelectionGroup: `systems/controls/selection.md > SelectionGroup`).
+//! Center's build menus, a Beacon's Warp In menus, and a constructor's building under construction or ready to place,
+//! its Place buttons and its Cancels (`factions/gdo/structures/deployment_center.md >
+//! ObjectInterfaceState[DeploymentCenter]`; a constructor is alone in its SelectionGroup:
+//! `systems/controls/selection.md > SelectionGroup`).
 
 use sc_sim::ObjectKind;
 use sc_sim::construction::{self, Constructor};
@@ -36,6 +37,14 @@ pub fn menu_grid(kind: ObjectKind, menu: BuildMenu) -> [Option<PanelCommand>; 12
     }
 }
 
+/// The slot of a `kind` constructor's DefaultState Place button, if its type has one: the Deployment Center's E
+/// (`gdo::deployment_center::PLACE_SLOT`, design change 0388), whose buildings are in its build menus. The Extraction
+/// Facility's Place Plate takes its plate's slot, Q, instead ([`state_grid`]).
+pub(super) fn place_slot(kind: ObjectKind) -> Option<usize> {
+    (InterfaceTemplate::of(kind) == Some(InterfaceTemplate::DeploymentCenter))
+        .then_some(gdo::deployment_center::PLACE_SLOT)
+}
+
 /// The build menu of a `kind` object whose `building` is placed (the Deployment Center's, holding it ready; a
 /// Beacon's, warping it in; a Recruit's, building it), if it has one.
 pub fn menu_of(kind: ObjectKind, building: ObjectKind) -> Option<BuildMenu> {
@@ -55,8 +64,9 @@ pub fn menu_of(kind: ObjectKind, building: ObjectKind) -> Option<BuildMenu> {
 /// - DefaultState and AwaitingTarget: its DefaultState grid ([`grid`]), its A the selection's ([`attack_slot`]:
 ///   Attack while one of the selected units can attack, `attackers`, whichever group is in focus);
 /// - a build menu: the menu's entries ([`menu_grid`]); AwaitingPlacement: those of the state it goes back to
-///   (`InterfaceState::back`): the Deployment Center's menu of the building, a Beacon's Warp In menu of it, the
-///   Extraction Facility's and the Drone's DefaultState;
+///   (`InterfaceState::back`): the Deployment Center's menu of the building (its DefaultState for a placement entered
+///   with E: Place, `super::Placing::shortcut`), a Beacon's Warp In menu of it, the Extraction Facility's and the
+///   Drone's DefaultState;
 /// - the EjectMenu: its tiles (`syndicate::eject_menu`), on a type whose DefaultState opens it, the Tunnel; the
 ///   ExpandMenu alike, its entries (`syndicate::expand_menu`), and in an expansion's AwaitingPlacement, which goes
 ///   back to it; a KindMenu its entries (`cults::armory::kind_menu`), on a pool building; an AugmentMenu its tiles or
@@ -68,10 +78,16 @@ pub fn menu_of(kind: ObjectKind, building: ObjectKind) -> Option<BuildMenu> {
 ///   set", "Only visible when ReadyToPlace is set");
 /// - a build menu shows its other entries while the constructor is busy, unavailable
 ///   (`factions/gdo/structures/deployment_center.md > BuildMenu (instance constructing)`: "Other build options
-///   unavailable": [`super::Conditions`] disables them), but the Extraction Facility's DefaultState lists only X while
-///   it constructs and only Q Place Plate and X while its plate is ready (`factions/gdo/economy.md >
-///   ExtractionFacility > ObjectInterfaceState[ExtractionFacility]`), so a building to construct in a DefaultState grid
-///   shows only while the constructor is idle.
+///   unavailable": [`super::Conditions`] disables them), but the Extraction Facility's DefaultState lists only Q Place
+///   Plate and X while it constructs its plate or holds it ready (`factions/gdo/economy.md > ExtractionFacility >
+///   ObjectInterfaceState[ExtractionFacility]`; design change 0392: "while a plate is under construction, **Q: Place
+///   Plate** is shown greyed out, with a running progress bar"), so a building to construct in a DefaultState grid
+///   shows only while the constructor is idle, and the one it constructs or holds ready as its Place
+///   (`PanelCommand::PlaceReady`, greyed by [`super::Conditions`] until it is ready);
+/// - the DefaultState of a constructor whose buildings are in its build menus, the Deployment Center, shows the
+///   building it constructs or holds ready in its Place slot ([`place_slot`], `PanelCommand::Place`; design change
+///   0388: "Shown whenever CurrentConstruction or ReadyToPlace is set", "Hidden when the Deployment Center is idle"),
+///   and the build menus keep their slot of it.
 pub fn state_grid(
     kind: ObjectKind,
     interface: InterfaceState,
@@ -105,8 +121,9 @@ pub fn state_grid(
         InterfaceState::BuildMenu(menu) => {
             Some(menu).filter(|&menu| grid(kind).contains(&Some(PanelCommand::BuildMenu(menu))))
         }
-        InterfaceState::AwaitingPlacement(placing) => menu_of(kind, placing.kind),
-        InterfaceState::DefaultState
+        InterfaceState::AwaitingPlacement(placing) if !placing.shortcut => menu_of(kind, placing.kind),
+        InterfaceState::AwaitingPlacement(_)
+        | InterfaceState::DefaultState
         | InterfaceState::AwaitingTarget { .. }
         | InterfaceState::EjectMenu
         | InterfaceState::ExpandMenu
@@ -124,21 +141,27 @@ pub fn state_grid(
     let Some(constructor) = constructor.filter(|_| constructs(kind)) else {
         return commands;
     };
-    if let Some(ready) = constructor.ready() {
-        for command in commands
-            .iter_mut()
-            .filter(|c| **c == Some(PanelCommand::Construct(ready)))
-        {
-            *command = Some(PanelCommand::PlaceReady(ready));
-        }
+    // The building it constructs or holds ready.
+    let building = constructor.current().or(constructor.ready());
+    for command in &mut commands {
+        let Some(PanelCommand::Construct(entry)) = *command else {
+            continue;
+        };
+        *command = if constructor.ready() == Some(entry) {
+            Some(PanelCommand::PlaceReady(entry))
+        } else if menu.is_some() || constructor.is_idle() {
+            *command
+        } else if building == Some(entry) {
+            Some(PanelCommand::PlaceReady(entry))
+        } else {
+            None
+        };
     }
-    if menu.is_none() && !constructor.is_idle() {
-        for command in commands
-            .iter_mut()
-            .filter(|c| matches!(c, Some(PanelCommand::Construct(_))))
-        {
-            *command = None;
-        }
+    if menu.is_none()
+        && let Some(slot) = place_slot(kind)
+        && let Some(building) = building
+    {
+        commands[slot] = Some(PanelCommand::Place(building));
     }
     commands[slot_index(CommandSlot::CANCEL_PRODUCTION)] = match constructor {
         Constructor::Constructing { .. } => Some(PanelCommand::CancelConstruction),

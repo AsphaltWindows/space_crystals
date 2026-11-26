@@ -92,15 +92,32 @@ pub struct Placing {
     /// click places it with. Unturned as placement starts (placeholder: the design doesn't say whether the last
     /// orientation is kept).
     pub orientation: BuildingOrientation,
+    /// Whether it was entered with the Deployment Center's E: Place, from DefaultState
+    /// (`factions/gdo/structures/deployment_center.md > ObjectInterfaceState[DeploymentCenter] > DefaultState
+    /// commands`, design change 0388: "a shortcut so the player doesn't need to open the build menu to place"), rather
+    /// than with the building's slot in its build menu: the panel shows DefaultState meanwhile, E lit
+    /// ([`Placing::command`]), and Escape returns there ("Escape/right-click from there returns to DefaultState";
+    /// `super::InterfaceState::back`). False for every other placement.
+    pub shortcut: bool,
 }
 
 impl Placing {
-    /// The placement of `constructor`'s ready `kind`, unturned.
+    /// The placement of `constructor`'s ready `kind`, unturned: from its slot, in a build menu or in the Extraction
+    /// Facility's DefaultState.
     pub fn new(constructor: ObjectId, kind: ObjectKind) -> Self {
         Self {
             builder: Builder::Constructor(constructor),
             kind,
             orientation: BuildingOrientation::default(),
+            shortcut: false,
+        }
+    }
+
+    /// The same, entered with the Deployment Center's E: Place ([`Placing::shortcut`]).
+    pub fn by_shortcut(constructor: ObjectId, kind: ObjectKind) -> Self {
+        Self {
+            shortcut: true,
+            ..Self::new(constructor, kind)
         }
     }
 
@@ -111,6 +128,7 @@ impl Placing {
             builder: Builder::Drones { queued: false },
             kind: deploy::BEACON_DEPLOYMENT.kind,
             orientation: BuildingOrientation::default(),
+            shortcut: false,
         }
     }
 
@@ -121,6 +139,7 @@ impl Placing {
             builder: Builder::Beacon(beacon),
             kind,
             orientation: BuildingOrientation::default(),
+            shortcut: false,
         }
     }
 
@@ -131,6 +150,7 @@ impl Placing {
             builder: Builder::Agent(agent),
             kind,
             orientation: BuildingOrientation::default(),
+            shortcut: false,
         }
     }
 
@@ -142,6 +162,7 @@ impl Placing {
             builder: Builder::Recruits { queued: false },
             kind,
             orientation: BuildingOrientation::default(),
+            shortcut: false,
         }
     }
 
@@ -152,14 +173,16 @@ impl Placing {
             builder: Builder::Tunnel(tunnel),
             kind,
             orientation: BuildingOrientation::default(),
+            shortcut: false,
         }
     }
 
     /// The panel command whose slot the placement belongs to, which the panel marks while it lasts: the ready
-    /// building's, the Deploy, the menu entry of the building warped in or of the expansion built, the Agent's Build,
-    /// the Recruits' Construct menu entry.
+    /// building's (the Deployment Center's E: Place for a placement entered with it), the Deploy, the menu entry of
+    /// the building warped in or of the expansion built, the Agent's Build, the Recruits' Construct menu entry.
     pub fn command(self) -> PanelCommand {
         match self.builder {
+            Builder::Constructor(_) if self.shortcut => PanelCommand::Place(self.kind),
             Builder::Constructor(_) => PanelCommand::PlaceReady(self.kind),
             Builder::Drones { .. } => PanelCommand::Deploy,
             Builder::Beacon(_) => PanelCommand::WarpIn(self.kind),

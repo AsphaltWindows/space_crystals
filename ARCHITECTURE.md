@@ -4179,20 +4179,30 @@ Drones, through one command flow (plan decision T10, slices M2-H1, M2-H2 and M3-
   Deployment Center's Q Basic and W Advanced, unavailable while none of its buildings is in the game),
   `Construct(kind)`, `CancelConstruction` and `CancelReady` (X), and `PlaceReady(kind)`, "Select completed building",
   which takes its building's slot once it is ready. `InterfaceState` adds `BuildMenu(menu)` and
-  `AwaitingPlacement(Placing { builder, kind, orientation })`, the builder a constructor's `Builder::Constructor(id)`. A
-  constructor's panel follows its state (`state_grid`, from `Conditions::constructor`, the ActiveGroup's one instance's
-  `Constructor`), and its commands are that instance's own (`PanelCommand::instance_only`): they go to the active
-  constructor only, never to the other selected ones. A construction command is one `Command::Construction`
-  (`OrderOutbox::construct`, validated like the others), and Construct and the Cancels return to DefaultState. Back, Esc
-  and a right-click go back one state (`InterfaceState::back`): from AwaitingPlacement to the Deployment Center's build
-  menu or the Extraction Facility's DefaultState, from a build menu to DefaultState. While placing, the placement keys
-  turn the ghost (`turn_ghost`, see Input), and a left-click on the map places it if `Sim::placement_check` allows it
-  now: one Place at the footprint centred under the cursor (`Placing::origin_under`), as turned, and back to
-  DefaultState; a Shift-click the same (0071); elsewhere nothing is sent, placing goes on, and an `InvalidPlacement`
-  message says why. A Place the sim refuses as it applies it (`SimEvent::PlacementRefused`) leaves the building ready
-  and the player in DefaultState. A build menu leaves the map's clicks to the selection; AwaitingPlacement takes them
-  (`InterfaceState::takes_map_clicks`). `Validate` ends a build menu the ActiveGroup doesn't have, a placement whose
-  constructor isn't active or holds the building no more, and both when the selection isn't commandable.
+  `AwaitingPlacement(Placing { builder, kind, orientation, shortcut })`, the builder a constructor's
+  `Builder::Constructor(id)`. A constructor's panel follows its state (`state_grid`, from `Conditions::constructor`, the
+  ActiveGroup's one instance's `Constructor`), and its commands are that instance's own (`PanelCommand::instance_only`):
+  they go to the active constructor only, never to the other selected ones. A construction command is one
+  `Command::Construction` (`OrderOutbox::construct`, validated like the others), and Construct and the Cancels return to
+  DefaultState. Back, Esc and a right-click go back one state (`InterfaceState::back`): from AwaitingPlacement to the
+  Deployment Center's build menu (its DefaultState from E's) or the Extraction Facility's DefaultState, from a build
+  menu to DefaultState. While placing, the placement keys turn the ghost (`turn_ghost`, see Input), and a left-click on
+  the map places it if `Sim::placement_check` allows it now: one Place at the footprint centred under the cursor
+  (`Placing::origin_under`), as turned, and back to DefaultState; a Shift-click the same (0071); elsewhere nothing is
+  sent, placing goes on, and an `InvalidPlacement` message says why. A Place the sim refuses as it applies it
+  (`SimEvent::PlacementRefused`) leaves the building ready and the player in DefaultState. A build menu leaves the map's
+  clicks to the selection; AwaitingPlacement takes them (`InterfaceState::takes_map_clicks`). `Validate` ends a build
+  menu the ActiveGroup doesn't have, a placement whose constructor isn't active or holds the building no more, and both
+  when the selection isn't commandable. **Place buttons** (design changes 0388 and 0392): the Deployment Center's
+  DefaultState shows `Place(kind)` in E (its template's `PLACE_SLOT`, labelled with the building's tag for its icon)
+  while it constructs or holds a building ready, and the Extraction Facility's Q is `PlaceReady(plate)` from the start
+  of the plate's construction; both are greyed until the building is ready (`WhyUnavailable::UnderConstruction`) and
+  carry the construction's progress meanwhile (`PanelSlot::progress`, a `sc_sim::Progress` of the sim's
+  `Constructor::Constructing` progress over the recipe's frames, never kept by the client), which the HUD draws as a bar
+  (`hud/progress_bar.rs`, the one bar piece; `hud/command_panel.rs` moves it on in place while nothing else of the panel
+  changes, `Panel::same_but_progress`). E enters the placement as the menu's slot does, marked `Placing::shortcut`: the
+  panel shows DefaultState meanwhile, E lit, and Back, Esc and a right-click return there. The build menus keep their
+  slot of the building.
 - **Warp In and Deploy** (slice M3-J1; `factions/colonists/economy.md > Beacon > Beacon ObjectInterfaceState`,
   `factions/colonists/units/drone.md > Drone ObjectInterfaceState`; design changes 0116, 0119 to 0122, 0124, 0125):
   `command_ui/interface/templates/colonists/` has the Colonists' panels, one file per object (the portals' have

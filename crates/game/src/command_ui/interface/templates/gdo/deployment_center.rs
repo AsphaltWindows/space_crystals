@@ -1,7 +1,8 @@
 //! The Deployment Center's panel (`factions/gdo/structures/deployment_center.md >
 //! ObjectInterfaceState[DeploymentCenter]`): its DefaultState opens the build menus ([`BuildMenu`], design change
 //! 0104), whose entries construct; once a building is ready, its entry enters AwaitingPlacement
-//! (`super::super::state_grid`). It produces no units and has no right-click.
+//! (`super::super::state_grid`), and so does its DefaultState's E: Place ([`PLACE_SLOT`], design change 0388). It
+//! produces no units and has no right-click.
 
 use sc_sim::ObjectKind;
 
@@ -11,8 +12,9 @@ use super::super::{BuildMenu, InterfaceTemplate, PanelCommand, PanelTemplate};
 pub const TEMPLATE: PanelTemplate = PanelTemplate::of(InterfaceTemplate::DeploymentCenter);
 
 /// `> ObjectInterfaceState[DeploymentCenter] > DefaultState commands` (design change 0104): "Q: Basic Construction"
-/// and "W: Advanced Construction", which open the build menus. Its X, Cancel Construction or Cancel Ready Building,
-/// shows only while it constructs or holds a building ready (`super::super::state_grid`).
+/// and "W: Advanced Construction", which open the build menus. Its E, Place ([`PLACE_SLOT`]), and its X, Cancel
+/// Construction or Cancel Ready Building, show only while it constructs or holds a building ready
+/// (`super::super::state_grid`).
 #[rustfmt::skip]
 pub const GRID: [Option<PanelCommand>; 12] = {
     use PanelCommand::BuildMenu as Menu;
@@ -22,6 +24,11 @@ pub const GRID: [Option<PanelCommand>; 12] = {
         None,                         None,                            None, None,
     ]
 };
+
+/// `> ObjectInterfaceState[DeploymentCenter] > DefaultState commands` (design change 0388): "**E: Place** (user,
+/// 2026-11-27; letter: designer placeholder) [...] Shown whenever CurrentConstruction or ReadyToPlace is set, with the
+/// building's icon" (`PanelCommand::Place`), the index of its slot in [`GRID`].
+pub const PLACE_SLOT: usize = 2;
 
 /// `> BuildMenu[Basic]`, slot by slot: Q Generator, W Barracks, E Extraction Facility (design change 0104), and "**[D]
 /// Career Campus**" (slice M5-N9, design change 0328), greyed while the player owns no Barracks (its TechPrerequisite:

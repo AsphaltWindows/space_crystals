@@ -76,8 +76,17 @@ pub enum PanelCommand {
     /// down), clears ReadyToPlace", at once.
     CancelReady,
     /// The ready building's own slot, "Select completed building" (design change 0104), the Extraction Facility's
-    /// "Q: Place Plate": enters AwaitingPlacement for it (a StateOnlyTransition), where a click places it.
+    /// "Q: Place Plate": enters AwaitingPlacement for it (a StateOnlyTransition), where a click places it. The
+    /// Extraction Facility's shows while its plate is constructed too, greyed, with the construction's progress
+    /// (`factions/gdo/economy.md > ExtractionFacility > ObjectInterfaceState[ExtractionFacility]`, design change 0392:
+    /// "greyed out, with a running progress bar").
     PlaceReady(ObjectKind),
+    /// The Deployment Center's DefaultState "E: Place" (`factions/gdo/structures/deployment_center.md >
+    /// ObjectInterfaceState[DeploymentCenter] > DefaultState commands`, design change 0388): the building it constructs
+    /// or holds ready, by its icon, greyed with the construction's progress while it is constructed, and once it is
+    /// ready entering AwaitingPlacement for it "exactly as the building's slot in the build menu does", from which
+    /// Escape returns to DefaultState (`super::Placing::shortcut`). Hidden while the Deployment Center is idle.
+    Place(ObjectKind),
     /// A Beacon's Warp In menu entry for a building of its Constructs List (`factions/colonists/economy.md > Beacon >
     /// Beacon ObjectInterfaceState`: "Choosing a building enters placement"; `factions/colonists/economy.md > Warp In >
     /// Warp In Command`): enters AwaitingPlacement of the building on the Beacon (a StateOnlyTransition), where a click

@@ -37,7 +37,7 @@ pub use site::SITE_GRID;
 pub use state::{menu_grid, menu_of, state_grid};
 
 use production::production_grid;
-use state::constructs;
+use state::{constructs, place_slot};
 
 use super::{InterfaceState, PanelCommand};
 use crate::input::CommandSlot;

@@ -95,15 +95,16 @@ fn the_deployment_center_opens_its_basic_build_menu() {
 }
 
 /// `factions/gdo/structures/deployment_center.md > BuildMenu (instance idle)`: Q pays 100 Space Crystals for a
-/// Generator and returns to DefaultState, which then shows X, Cancel Construction ("Only visible when
-/// CurrentConstruction is set"). In the build menu the entries are unavailable while it is constructed
-/// (`factions/gdo/structures/deployment_center.md > BuildMenu (instance constructing)`), and X cancels from there too,
-/// by hotkey or by button: a full refund (`factions/gdo/structures/deployment_center.md > Cancellation`), and back to
-/// DefaultState. The InfoPanel shows the construction and its progress (design change 0105).
+/// Generator and returns to DefaultState, which then shows E, Place, greyed (design change 0388: the `place_button`
+/// tests), and X, Cancel Construction ("Only visible when CurrentConstruction is set"). In the build menu the entries
+/// are unavailable while it is constructed (`factions/gdo/structures/deployment_center.md > BuildMenu (instance
+/// constructing)`), and X cancels from there too, by hotkey or by button: a full refund
+/// (`factions/gdo/structures/deployment_center.md > Cancellation`), and back to DefaultState. The InfoPanel shows the
+/// construction and its progress (design change 0105).
 #[test]
 fn a_construction_is_cancelled_with_a_full_refund() {
     use ButtonLook::{Back, Common, Disabled, Unavailable};
-    use PanelCommand::{BuildMenu as Menu, CancelConstruction, Construct};
+    use PanelCommand::{BuildMenu as Menu, CancelConstruction, Construct, Place};
     let mut app = construction_game(1000);
     select(&mut app, DC);
     tap(&mut app, &[], KeyQ);
@@ -119,6 +120,7 @@ fn a_construction_is_cancelled_with_a_full_refund() {
         [
             (q(), c(Menu(BuildMenu::Basic)), Common, "Basic"),
             (w(), c(Menu(BuildMenu::Advanced)), Unavailable, "Adv."),
+            (e(), c(Place(GENERATOR)), Disabled, "GN"),
             (X, c(CancelConstruction), Common, "Cancel"),
         ]
     );

@@ -120,6 +120,9 @@ pub enum WhyUnavailable {
     /// It isn't in the game yet: a building or a unit whose costs are TBD (design change 0124), a build menu none of
     /// whose buildings is, an order the sim has none of (Reverse).
     NotYet,
+    /// A Place button's building is still under construction (design changes 0388 and 0392: "greyed out, with a
+    /// running progress bar"; "it lights up when the plate is ready").
+    UnderConstruction,
 }
 
 /// What the game allows a selection's commands now: its units' [`Modes`], the ActiveGroup's constructor state, and
@@ -412,7 +415,8 @@ impl Conditions {
     /// `Reject::NothingToDeliver`), a pool building's free units (a kind button with none of its kind, which every
     /// entry of its KindMenu would want: `Reject::NoRecruit`), an Altar's (a type or state tile with none, said as the
     /// first state's, Unaugmented, for a type tile), a Temple's key in progress (`Reject::ResearchUnderWay`, which its
-    /// Research would get), or the gate's refusal.
+    /// Research would get), a Place button's building while the constructor doesn't hold it ready (design changes
+    /// 0388 and 0392), or the gate's refusal.
     pub fn unavailable(&self, selection: &Selection, command: PanelCommand) -> Option<WhyUnavailable> {
         match command {
             PanelCommand::Attack => {
@@ -442,6 +446,10 @@ impl Conditions {
                 (self.stored_state_count(unit, state) == 0).then_some(WhyUnavailable::Refused(Reject::NoRecruit(state)))
             }
             PanelCommand::Researching(tech) => Some(WhyUnavailable::Refused(Reject::ResearchUnderWay(tech))),
+            PanelCommand::Place(building) | PanelCommand::PlaceReady(building) => {
+                let ready = self.constructor.and_then(|c| c.ready());
+                (ready != Some(building)).then_some(WhyUnavailable::UnderConstruction)
+            }
             _ => self.refusal(command).map(WhyUnavailable::Refused),
         }
     }

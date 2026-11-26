@@ -2,7 +2,9 @@
 //! 4 × 3 grid (`crate::command_ui::interface::panel`), shown while everything selected is the local player's.
 //!
 //! Placeholder buttons until the art exists (Q0001): a short label in the middle and the slot's hotkey, from the
-//! bindings, in the top-left corner; an EjectMenu tile's count in the bottom-right one (slice M4-J2). Every label
+//! bindings, in the top-left corner; an EjectMenu tile's count in the bottom-right one (slice M4-J2); a Place
+//! button's progress bar along the bottom while its building is constructed (`super::progress_bar`, design changes
+//! 0388 and 0392), which moves on in place, the buttons rebuilt only when something else changes. Every label
 //! keeps the label size at 720p (slice M3-K2a: six characters at most, `crate::command_ui::PanelCommand::label`); a
 //! label never wraps, and one too long for its button at the label size (on a surface too small for it) is drawn
 //! smaller, to fit on one line ([`label_px`]). Each look has its colours:
@@ -17,6 +19,7 @@ use bevy::ecs::system::SystemParam;
 use bevy::prelude::*;
 
 use super::layout::{CommandGrid, SECTION_BORDER_PX, section_rect};
+use super::progress_bar::{self, ProgressFill};
 use super::{HudSection, SectionLabel, show_node, text};
 use crate::ClientMode;
 use crate::command_ui::interface::{commandable, panel, slot_index};
@@ -56,6 +59,8 @@ pub struct CommandPanelView {
     /// The surface size the buttons were placed for.
     surface: Option<Vec2>,
     entities: Vec<Entity>,
+    /// The fills of the buttons' progress bars, by slot.
+    bars: Vec<(CommandSlot, Entity)>,
 }
 
 /// The label of `slot`'s hotkey: its first key binding, e.g. "Q" (`> CommandPanel > Grid Layout`, rebindable).
@@ -110,18 +115,29 @@ impl PanelSource<'_> {
     }
 }
 
-/// Rebuilds the buttons when the panel, the bindings or the surface size changes.
+/// Rebuilds the buttons when the panel, the bindings or the surface size changes, but for the progress its bars show,
+/// which they show in place.
 pub(super) fn update_command_panel(
     mut commands: Commands,
     source: PanelSource,
     mut view: ResMut<CommandPanelView>,
     sections: Query<(Entity, &HudSection)>,
     mut labels: Query<(&SectionLabel, &mut Node)>,
+    mut fills: Query<(&mut ProgressFill, &mut Node), Without<SectionLabel>>,
 ) {
     let surface = source.size.logical();
     let shown = source.panel();
     let rebound = source.bindings.is_changed() || view.hotkeys.is_empty();
-    if !rebound && shown == view.panel && view.surface == Some(surface) {
+    if !rebound && shown.same_but_progress(&view.panel) && view.surface == Some(surface) {
+        if shown != view.panel {
+            for &(slot, fill) in &view.bars {
+                let progress = shown.get(slot).and_then(|button| button.progress);
+                if let (Some(progress), Ok((mut fill, mut node))) = (progress, fills.get_mut(fill)) {
+                    progress_bar::show(&mut fill, &mut node, progress.ratio());
+                }
+            }
+            view.panel = shown;
+        }
         return;
     }
     let Some((section, _)) = sections.iter().find(|(_, s)| **s == HudSection::CommandPanel) else {
@@ -144,6 +160,7 @@ pub(super) fn update_command_panel(
     let grid = CommandGrid::on(surface);
     let origin = section_rect(HudSection::CommandPanel, surface).min + Vec2::splat(SECTION_BORDER_PX);
     let mut entities = Vec::new();
+    let mut bars = Vec::new();
     for (slot, button) in shown.slots() {
         let Some(button) = button else {
             continue;
@@ -160,9 +177,13 @@ pub(super) fn update_command_panel(
         let hotkey = view.hotkeys.get(slot_index(slot)).cloned().unwrap_or_default();
         let label_size = label_px(button.label(), rect.width(), surface);
         spawn_button_content(&mut commands, entity, button, label_size, hotkey);
+        if let Some(progress) = button.progress {
+            bars.push((slot, progress_bar::spawn(&mut commands, entity, progress.ratio())));
+        }
         entities.push(entity);
     }
     view.entities = entities;
+    view.bars = bars;
     view.panel = shown;
     view.surface = Some(surface);
 }
@@ -284,6 +305,7 @@ mod tests {
                 why: None,
                 count: None,
                 price: None,
+                progress: None,
             }
             .label()
         };

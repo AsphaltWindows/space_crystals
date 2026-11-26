@@ -55,8 +55,9 @@ pub(in crate::command_ui) fn cancel_on_escape(actions: Res<ActionState>, mut con
 /// Lower Shield, Convert) switches the type of the units it goes to at the press, and their merged group becomes the
 /// ActiveGroup (design change 0198, `crate::selection::ControlState::toggle`), so that the next press, the next frame
 /// or even before the sim's next tick, reaches them all. A constructor's enter its build menu
-/// (`InterfaceState::BuildMenu`) or the placement of its building ready to place (`InterfaceState::AwaitingPlacement`),
-/// or give its one constructor a construction command and return to DefaultState ("CommandIssuingTransition, returns to
+/// (`InterfaceState::BuildMenu`) or the placement of its building ready to place (`InterfaceState::AwaitingPlacement`;
+/// from the Deployment Center's E: Place, a placement that Escape leaves for DefaultState: `Placing::shortcut`), or
+/// give its one constructor a construction command and return to DefaultState ("CommandIssuingTransition, returns to
 /// DefaultState"). A Beacon's enter its Warp In menus and a Warp In's placement on it (`factions/colonists/economy.md >
 /// Beacon > Beacon ObjectInterfaceState`, design change 0122: the Beacon Tabbed to), the Drones' W the placement of a
 /// Beacon (design change 0125), an Egress Node's F selects its returning Drones instead
@@ -137,6 +138,12 @@ pub(in crate::command_ui) fn press_command_slots(
                 // The one constructor of the ActiveGroup, which holds the building ready.
                 if let [constructor] = recipients(&state.selection, PanelCommand::PlaceReady(kind))[..] {
                     let placing = Placing::new(constructor, kind);
+                    control.update(|state| state.interface = InterfaceState::AwaitingPlacement(placing));
+                }
+            }
+            SlotPress::AwaitShortcutPlacement(kind) => {
+                if let [constructor] = recipients(&state.selection, PanelCommand::Place(kind))[..] {
+                    let placing = Placing::by_shortcut(constructor, kind);
                     control.update(|state| state.interface = InterfaceState::AwaitingPlacement(placing));
                 }
             }

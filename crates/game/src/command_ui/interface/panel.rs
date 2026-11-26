@@ -3,8 +3,8 @@
 
 use sc_sim::construction::site::BuildPrice;
 use sc_sim::{
-    Ability, ConstructionCommand, HoldCommand, ObjectId, ObjectKind, OrderKind, PlayerId, ProductionCommand,
-    RecruitKind, Sim, TunnelCommand, holding,
+    Ability, ConstructionCommand, Constructor, HoldCommand, ObjectId, ObjectKind, OrderKind, PlayerId,
+    ProductionCommand, Progress, RecruitKind, Sim, TunnelCommand, construction, holding,
 };
 
 use super::templates::attack_slot;
@@ -74,6 +74,10 @@ pub struct PanelSlot {
     /// in Supplies (slice M4-G), which the InfoPanel's hint for the button shows (`crate::hud::info_panel::hint`); none
     /// on the other buttons.
     pub price: Option<BuildPrice>,
+    /// The progress a Place button shows on its bar while its building is constructed ([`progress`]; design changes
+    /// 0388 and 0392: "a running progress bar on the button showing the construction's progress"), the sim's; none on
+    /// the other buttons, and on a Place button once its building is ready.
+    pub progress: Option<Progress>,
 }
 
 impl PanelSlot {
@@ -131,6 +135,18 @@ impl Panel {
 
     fn set(&mut self, slot: CommandSlot, shown: PanelSlot) {
         self.slots[slot_index(slot)] = Some(shown);
+    }
+
+    /// Whether it shows what `other` shows, but for how far its progress bars have come ([`PanelSlot::progress`]):
+    /// the same buttons, the same of them with a bar.
+    pub fn same_but_progress(&self, other: &Panel) -> bool {
+        let unfilled = |slot: &Option<PanelSlot>| {
+            slot.map(|shown| PanelSlot {
+                progress: shown.progress.map(|_| Progress::default()),
+                ..shown
+            })
+        };
+        self.active == other.active && (self.slots.iter().map(unfilled)).eq(other.slots.iter().map(unfilled))
     }
 }
 
@@ -233,6 +249,7 @@ pub fn panel(selection: &Selection, interface: InterfaceState, conditions: &Cond
                 why,
                 count,
                 price: conditions.price(command),
+                progress: progress(active.kind, command, conditions.constructor),
             },
         );
     }
@@ -243,10 +260,35 @@ pub fn panel(selection: &Selection, interface: InterfaceState, conditions: &Cond
             why: None,
             count: None,
             price: None,
+            progress: None,
         };
         panel.set(CommandSlot::BACK, back);
     }
     panel
+}
+
+/// The progress the Place button of a `kind` constructor's `command` shows while the constructor, in state
+/// `constructor`, constructs its building (design changes 0388 and 0392): its ConstructionProgress of its recipe's
+/// frames (`construction::recipe`), as the sim counts it (`Constructor::Constructing`), never kept by the client.
+/// None for another command, or while the building isn't under construction.
+fn progress(kind: ObjectKind, command: PanelCommand, constructor: Option<Constructor>) -> Option<Progress> {
+    let Some(Constructor::Constructing {
+        kind: building,
+        progress,
+    }) = constructor
+    else {
+        return None;
+    };
+    let (PanelCommand::Place(placed) | PanelCommand::PlaceReady(placed)) = command else {
+        return None;
+    };
+    let total = construction::recipe(kind, building)
+        .filter(|_| placed == building)?
+        .frames;
+    Some(Progress {
+        elapsed: progress,
+        total,
+    })
 }
 
 /// Why a command the ActiveGroup's type doesn't offer is unavailable ([`offers`]): Reverse and AttackGround are the
@@ -279,6 +321,9 @@ pub enum SlotPress {
     OpenMenu(BuildMenu),
     /// A StateOnlyTransition to AwaitingPlacement of the ready building, a `kind`.
     AwaitPlacement(ObjectKind),
+    /// The same, from the Deployment Center's E: Place (design change 0388), which Escape leaves for DefaultState
+    /// (`super::Placing::shortcut`).
+    AwaitShortcutPlacement(ObjectKind),
     /// A StateOnlyTransition to AwaitingPlacement of a `kind` that the active Beacon warps in.
     AwaitWarpIn(ObjectKind),
     /// A StateOnlyTransition to AwaitingPlacement of the Beacon one of the active Drones deploys into.
@@ -359,6 +404,8 @@ pub fn press(panel: &Panel, slot: CommandSlot) -> SlotPress {
                 SlotPress::OpenMenu(menu)
             } else if let PanelCommand::PlaceReady(kind) = command {
                 SlotPress::AwaitPlacement(kind)
+            } else if let PanelCommand::Place(kind) = command {
+                SlotPress::AwaitShortcutPlacement(kind)
             } else if let PanelCommand::WarpIn(kind) = command {
                 SlotPress::AwaitWarpIn(kind)
             } else if command == PanelCommand::Deploy {

@@ -39,6 +39,7 @@ impl PanelCommand {
             | PanelCommand::CancelConstruction
             | PanelCommand::CancelReady
             | PanelCommand::PlaceReady(_)
+            | PanelCommand::Place(_)
             | PanelCommand::WarpIn(_)
             | PanelCommand::Planned(_)
             | PanelCommand::Deploy
@@ -103,6 +104,7 @@ impl PanelCommand {
                 | PanelCommand::CancelConstruction
                 | PanelCommand::CancelReady
                 | PanelCommand::PlaceReady(_)
+                | PanelCommand::Place(_)
                 | PanelCommand::WarpIn(_)
                 | PanelCommand::Planned(_)
                 | PanelCommand::Deploy
@@ -175,6 +177,7 @@ impl PanelCommand {
             | PanelCommand::CancelConstruction
             | PanelCommand::CancelReady
             | PanelCommand::PlaceReady(_)
+            | PanelCommand::Place(_)
             | PanelCommand::WarpIn(_)
             | PanelCommand::Planned(_)
             | PanelCommand::CancelTransform

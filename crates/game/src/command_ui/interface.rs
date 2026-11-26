@@ -254,7 +254,9 @@ impl InterfaceState {
     /// ExpandMenu, EjectMenu, AwaitingTarget, AwaitingPlacement), Z returns to the previous state
     /// (StateOnlyTransition). Equivalent to Escape or right-click cancel."): from AwaitingPlacement of a Deployment
     /// Center's building, its build menu (`factions/gdo/structures/deployment_center.md > AwaitingPlacement`:
-    /// "Escape/right-click: returns to BuildMenu"), and from a Beacon's Warp In the Warp In menu its building was
+    /// "Escape/right-click: returns to BuildMenu"), but DefaultState from one entered with its E: Place
+    /// (`Placing::shortcut`, design change 0388: "Escape/right-click from there returns to DefaultState"), and from a
+    /// Beacon's Warp In the Warp In menu its building was
     /// chosen in (the menus are "like the Deployment Center's two build menus": `factions/colonists/economy.md >
     /// Beacon > Beacon ObjectInterfaceState`), and from an expansion's the Tunnel's ExpandMenu
     /// (`factions/syndicate/tunnel_menus.md > Expansions under construction`: "**Z**: returns to ExpandMenu"); from
@@ -272,6 +274,7 @@ impl InterfaceState {
                 builder: Builder::Tunnel(_),
                 ..
             }) => InterfaceState::ExpandMenu,
+            InterfaceState::AwaitingPlacement(placing) if placing.shortcut => InterfaceState::DefaultState,
             InterfaceState::AwaitingPlacement(placing) => selection
                 .active()
                 .and_then(|active| menu_of(active.kind, placing.kind))
