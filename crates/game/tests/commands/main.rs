@@ -34,6 +34,10 @@
 //! `expansions`, on another. Its Upgrade (slice M4-G: Q with its price and its reasons, the progress, X's refund, the
 //! larger area): `tunnel_upgrade`. The Tunnel Area display (slice M4-J3: a selected Tunnel's area, never an enemy's,
 //! and a Tunnel ghost's Tier 2 and Tier 3 rings with their red cells): `tunnel_areas`.
+//!
+//! The Recruit's UI (slice M5-J1: its panel and its two Construct menus, the Assist, Enter and gathering pointers, Tab
+//! over Recruits and Militants, the group's placement with its Shift chain, and a Hall refused at the map's edge):
+//! `recruit_ui`, on a Cults field.
 
 mod agent_ui;
 mod click_allowance;
@@ -47,6 +51,7 @@ mod portals;
 mod production;
 mod production_field;
 mod rally;
+mod recruit_ui;
 mod remembered;
 mod right_click;
 mod riot_shield;

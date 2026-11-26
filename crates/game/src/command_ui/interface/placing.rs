@@ -7,7 +7,8 @@
 //! keys turn it ([`Placing::turned`]). A Deploy given to a group of Drones goes to one of them ([`deploy_recipient`],
 //! design change 0125). An Agent's Build Tunnel places the Tunnel its Agent walks to and builds
 //! (`factions/syndicate/units/agent.md > Agent ObjectInterfaceState > A: Build Tunnel`, slice M4-J1), a Tunnel's
-//! ExpandMenu the expansion it builds in its Tunnel Area (slice M4-F). The ghost and the overlays that show it are
+//! ExpandMenu the expansion it builds in its Tunnel Area (slice M4-F), and the Recruits' Construct menus the building
+//! they all build together (slice M5-J1, [`Builder::Recruits`]). The ghost and the overlays that show it are
 //! `crate::placement`'s.
 //!
 //! The placement keys are the ones the map editor turns its structures with, one definition for both: the shared
@@ -64,6 +65,20 @@ pub enum Builder {
     /// snapped to the grid"; [`Placing::origin`]): `Sim::expansion_check`, as far as the player knows, then
     /// `TunnelCommand::Expand`, which the sim checks by the truth (design change 0240).
     Tunnel(ObjectId),
+    /// (M5-J1) The Cults' Recruits of the ActiveGroup (Groupable: every selected Recruit), which all build the one
+    /// building together (`factions/cults/units/recruit.md > Recruit ObjectInterfaceState`: "Construct sends every
+    /// selected Recruit to build the **same** building together"; `factions/cults/economy.md > Build Command`): the
+    /// ghost under the cursor, `Sim::group_build_check` (`crate::placement::ghost::recruits_check`), and one
+    /// `OrderKind::Build` to the whole group, paid once. A plain click sends it and ends placement; a Shift-click
+    /// queues it and placement stays for the next building, the Recruits being builders that "can carry out more
+    /// queued buildings" (`systems/controls/selection_and_hud.md > AwaitingTarget > Shift while placing`: "e.g. Cults
+    /// Recruits (the whole selected group) build one and walk together to the next").
+    Recruits {
+        /// A Shift-click has queued a Build: placement stays while Shift is held, and letting go of it ends placement
+        /// (`systems/controls/selection_and_hud.md > Shift while placing`: "releasing Shift ends placement"), as for
+        /// the Drones.
+        queued: bool,
+    },
 }
 
 /// `systems/controls/selection_and_hud.md > AwaitingPlacement`: the building that the local player is placing, and who
@@ -119,6 +134,17 @@ impl Placing {
         }
     }
 
+    /// The placement of the `kind` that the Recruits of the ActiveGroup build together
+    /// (`factions/cults/units/recruit.md > Recruit ObjectInterfaceState`: a Construct menu's entry), unturned, no Build
+    /// sent yet.
+    pub fn recruits(kind: ObjectKind) -> Self {
+        Self {
+            builder: Builder::Recruits { queued: false },
+            kind,
+            orientation: BuildingOrientation::default(),
+        }
+    }
+
     /// The placement of the expansion `kind` that Tunnel `tunnel` builds (`factions/syndicate/tunnels.md > ExpandMenu`:
     /// "Click an expansion type: [...] enters AwaitingPlacement for that expansion"), unturned.
     pub fn expansion(tunnel: ObjectId, kind: ObjectKind) -> Self {
@@ -130,13 +156,14 @@ impl Placing {
     }
 
     /// The panel command whose slot the placement belongs to, which the panel marks while it lasts: the ready
-    /// building's, the Deploy, the menu entry of the building warped in or of the expansion built, the Agent's Build.
+    /// building's, the Deploy, the menu entry of the building warped in or of the expansion built, the Agent's Build,
+    /// the Recruits' Construct menu entry.
     pub fn command(self) -> PanelCommand {
         match self.builder {
             Builder::Constructor(_) => PanelCommand::PlaceReady(self.kind),
             Builder::Drones { .. } => PanelCommand::Deploy,
             Builder::Beacon(_) => PanelCommand::WarpIn(self.kind),
-            Builder::Agent(_) => PanelCommand::Build(self.kind),
+            Builder::Agent(_) | Builder::Recruits { .. } => PanelCommand::Build(self.kind),
             Builder::Tunnel(_) => PanelCommand::Expand(self.kind),
         }
     }
@@ -183,7 +210,9 @@ impl Placing {
                 let area = tunnel::area::of(sim.object(id)?)?;
                 Some(within(self.origin_under(ground?)?, self.size()?, area))
             }
-            Builder::Constructor(_) | Builder::Drones { .. } | Builder::Agent(_) => self.origin_under(ground?),
+            Builder::Constructor(_) | Builder::Drones { .. } | Builder::Agent(_) | Builder::Recruits { .. } => {
+                self.origin_under(ground?)
+            }
         }
     }
 
@@ -191,7 +220,8 @@ impl Placing {
     /// degrees counter-clockwise. [...] F flips the ghost horizontally, Shift+F flips vertically", as seen on the
     /// map, whichever way it is turned already; a Warp In's about the Beacon's centre (design change 0121,
     /// [`Placing::origin`]). A Deploy's Beacon isn't turned: the order has no orientation (`sc_sim::deploy::site`),
-    /// and its sides are all alike (AAAA).
+    /// and its sides are all alike (AAAA). The Recruits' building turns as any other (design change 0342: the
+    /// Recruitment Hall's AAAB, its exit on B).
     pub fn turned(self, turn: Turn) -> Self {
         if matches!(self.builder, Builder::Drones { .. }) {
             return self;

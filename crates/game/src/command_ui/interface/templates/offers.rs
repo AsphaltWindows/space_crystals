@@ -3,7 +3,7 @@
 
 use sc_sim::{construction, transform};
 
-use super::{PanelCommand, can_target_ground, constructs, grid, menu_grid, syndicate};
+use super::{BuildMenu, PanelCommand, can_target_ground, constructs, grid, menu_grid, syndicate};
 use crate::selection::GroupType;
 
 /// The commands of an unfinished building, the Cancels of its two panels ([`TRANSFORMING_GRID`], [`SITE_GRID`]), in
@@ -14,7 +14,8 @@ const UNFINISHED: [PanelCommand; 2] = [PanelCommand::CancelConstruction, PanelCo
 /// unfinished building's Cancel alone, the Cancel of a transformation ([`TRANSFORMING_GRID`], design change 0185) or
 /// of a site's construction ([`SITE_GRID`], design change 0237), whichever it is; a finished type's DefaultState
 /// grid, and a constructor's buildings to construct and to place, and its two Cancels; a Beacon's buildings to warp
-/// in; a Tunnel's EjectMenu tiles and the expansions of its ExpandMenu. In order, each once.
+/// in; a Tunnel's EjectMenu tiles and the expansions of its ExpandMenu; a Recruit's buildings of its Construct menus
+/// (slice M5-J1: [`menu_builds`]). In order, each once.
 pub fn commands(ty: impl Into<GroupType>) -> Vec<PanelCommand> {
     let GroupType { kind, unfinished } = ty.into();
     if unfinished {
@@ -45,6 +46,7 @@ pub fn commands(ty: impl Into<GroupType>) -> Vec<PanelCommand> {
     if expands(kind) {
         commands.extend(syndicate::expand_menu::kinds().map(PanelCommand::Expand));
     }
+    commands.extend(menu_builds(kind));
     commands.sort_unstable();
     commands.dedup();
     commands
@@ -63,7 +65,9 @@ pub fn commands(ty: impl Into<GroupType>) -> Vec<PanelCommand> {
 /// unavailable: none of its buildings exists yet, and they are hidden (design change 0104: "greyed placeholders"); the
 /// Beacon's Warp In (Advanced) opens, on its unavailable buildings. A type whose DefaultState opens the EjectMenu, the
 /// Tunnel, offers its tiles, and one that opens the ExpandMenu, the Tunnel, the expansions in the game
-/// (`sc_sim::defs::EXPAND_MENU`), each a type a Tunnel builds (`StructureDef::expansion`).
+/// (`sc_sim::defs::EXPAND_MENU`), each a type a Tunnel builds (`StructureDef::expansion`). A worker offers the Build
+/// its grid has (the Agent's) and those of the build menus it opens (the Recruit's Construct menus, slice M5-J1:
+/// [`menu_builds`]).
 pub fn offers(ty: impl Into<GroupType>, command: PanelCommand) -> bool {
     let GroupType { kind, unfinished } = ty.into();
     if unfinished {
@@ -83,6 +87,7 @@ pub fn offers(ty: impl Into<GroupType>, command: PanelCommand) -> bool {
             return expands(kind) && syndicate::expand_menu::kinds().any(|kind| kind == building);
         }
         PanelCommand::Planned(_) | PanelCommand::CancelTransform => return false,
+        PanelCommand::Build(_) if menu_builds(kind).any(|build| build == command) => return true,
         _ => {}
     }
     if !grid(kind).contains(&Some(command)) {
@@ -96,6 +101,18 @@ pub fn offers(ty: impl Into<GroupType>, command: PanelCommand) -> bool {
             .is_some_and(|attack| can_target_ground(attack.attack_type)),
         _ => true,
     }
+}
+
+/// The Builds of the build menus objects of `kind` open, in their slots' order: a Recruit's Construct menus' buildings
+/// in the game (slice M5-J1, `super::cults::construct_menu`). None for another type: the Deployment Center's menus
+/// construct, a Beacon's warp in.
+fn menu_builds(kind: sc_sim::ObjectKind) -> impl Iterator<Item = PanelCommand> {
+    let opens = grid(kind);
+    BuildMenu::ALL
+        .into_iter()
+        .filter(move |&menu| opens.contains(&Some(PanelCommand::BuildMenu(menu))))
+        .flat_map(move |menu| menu_grid(kind, menu).into_iter().flatten())
+        .filter(|command| matches!(command, PanelCommand::Build(_)))
 }
 
 /// Whether objects of `kind` open the EjectMenu: the Tunnel (slice M4-J2).

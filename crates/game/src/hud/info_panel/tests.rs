@@ -163,6 +163,31 @@ fn an_own_agent_shows_the_supply_it_carries() {
     assert_eq!(body.last().map(String::as_str), Some("Carrying 1 Supply"), "{body:?}");
 }
 
+/// Slice M5-J1: a Recruit carrying Space Crystals says so, as a Drone does (`factions/cults/units/recruit.md >
+/// Gathering`: "CarryCapacity: 2 Space Crystals per load"), to its owner only. Placeholder wording.
+#[test]
+fn an_own_recruit_shows_the_crystals_it_carries() {
+    let t = ScenarioBuilder::new(&vec![".".repeat(16); 8].join("\n"))
+        .faction(P1, sc_sim::Faction::Cults)
+        .spawn(ObjectKind::Recruit, Some(P1), SpawnAt::Point(Vec2::new(544.0, 160.0)))
+        .start();
+    let idle = panel(t.sim(), P1, 1).body;
+    let mut state = serde_json::to_value(t.sim()).unwrap();
+    let objects = state["objects"].as_array_mut().unwrap();
+    let recruit = objects.iter_mut().find(|o| o["id"] == 1).unwrap();
+    recruit["worker"] = serde_json::json!({ "load": 2 });
+    let sim: Sim = serde_json::from_value(state).unwrap();
+    let body = panel(&sim, P1, 1).body;
+    assert_eq!(
+        body.last().map(String::as_str),
+        Some("Carrying 2 Space Crystals"),
+        "{body:?}"
+    );
+    assert_eq!(body.len(), idle.len() + 1, "{idle:?}");
+    let seen = panel(&sim, P2, 1).body;
+    assert!(!seen.iter().any(|line| line.starts_with("Carrying")), "{seen:?}");
+}
+
 /// Slice M3-E: an object being warped in shows its new type, and its HP out of its MaxHP now, interpolated
 /// (`factions/colonists/economy.md > Warp In > HP/Shields Interpolation`): player 1's Beacon (1) warping in a Robo
 /// Portal, 288 of its 640 frames done, has 120 + (600 - 120) × 0.45 = 336 of 336, and Shields 10 + (20 - 10) ×

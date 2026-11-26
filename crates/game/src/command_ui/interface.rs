@@ -6,14 +6,14 @@
 //!   (plan decision T10), and what each gives the sim: an order, an ability, a production or a construction command;
 //! - [`templates`]: the ObjectInterfaceState templates ([`InterfaceTemplate`]): which commands a type offers, in
 //!   which slots, and how a constructor's follow its state and its build menus ([`state_grid`]), the Beacon's its
-//!   Warp In menus ([`menu_grid`]);
+//!   Warp In menus and the Recruit's its Construct menus ([`menu_grid`]);
 //! - [`conditions`]: what the game allows the selection's commands now ([`Conditions`]): the units' modes, the
 //!   ActiveGroup's constructor state, and the command gate's answer to each production and construction command,
 //!   with why a button is greyed out ([`WhyUnavailable`]);
 //! - [`panel`](mod@panel): the panel a selection gets, what pressing a slot does, and who receives a command;
-//! - [`placing`]: AwaitingPlacement's building and who builds it ([`Placing`], [`Builder`]: a constructor, the
-//!   Drones, a Beacon, a Tunnel), where its ghost stands and how the placement keys turn it, and which Drone a Deploy
-//!   goes to ([`deploy_recipient`]);
+//! - [`placing`]: AwaitingPlacement's building and who builds it ([`Placing`], [`Builder`]: a constructor, the Drones,
+//!   a Beacon, an Agent, a Tunnel, the Recruits), where its ghost stands and how the placement keys turn it, and which
+//!   Drone a Deploy goes to ([`deploy_recipient`]);
 //! - here: the ObjectInterfaceState itself ([`InterfaceState`]), and whether it still holds ([`still_valid`]).
 //!
 //! The Peacekeeper's Riot Shield (`factions/gdo/units/peacekeeper.md > Riot Shield (toggled ability)`): shield
@@ -85,6 +85,16 @@
 //! 0233; the Laser Turret's Optics Lab not owned); a click sends that Agent its Build and returns to DefaultState,
 //! Shift held or not. S awaits the Tunnel to drop off at, greyed while no Agent carries a load. A site under
 //! construction, of any type, shows X Cancel Construction alone ([`SITE_GRID`], design change 0237).
+//!
+//! The Cults' Recruit (`factions/cults/units/recruit.md > Recruit ObjectInterfaceState`, design changes 0322 and 0327;
+//! slice M5-J1) has Q Move, A Basic Construct, W Advanced Construct, S Assist Construction, D Repair (greyed until
+//! slice N8) and X Stop. A and W open the two Construct menus, fixed slots from the sim's table
+//! (`sc_sim::defs::CONSTRUCT_MENU`), every building in its slot, greyed with why until it can be built (its
+//! TechPrerequisite, the bank, or not in the game yet); Z goes back. An entry enters AwaitingPlacement of the building
+//! that all the selected Recruits build together ([`Builder::Recruits`]: Groupable, they are one ActiveGroup, and the
+//! group's Build is paid once); a click sends it and returns to DefaultState, a Shift-click queues it and placement
+//! stays while Shift is held, for a chain of buildings. S awaits an own site under construction, which the Recruits
+//! assist (`sc_sim::OrderKind::Assist`).
 //!
 //! A greyed-out button, or its hotkey, can still be pressed: nothing is issued, and the player is told why
 //! ([`PanelSlot::why`], design change 0162).
@@ -233,13 +243,15 @@ impl InterfaceState {
 /// game is not):
 /// - AwaitingTarget while its ActiveGroup still offers the PendingCommand, which the game still allows
 ///   (`conditions`: an Attack while some recipient can attack);
-/// - a build menu while the ActiveGroup is a Deployment Center, or a Beacon that isn't being deployed: the menu stays
-///   open while its state changes (a construction that completes shows its building ready in the menu);
+/// - a build menu while the ActiveGroup is a Deployment Center, a Beacon that isn't being deployed, or Recruits (slice
+///   M5-J1): the menu stays open while its state changes (a construction that completes shows its building ready in the
+///   menu);
 /// - AwaitingPlacement while the ActiveGroup is the constructor, which still holds the building ready
 ///   (`conditions`: its state); while it is Drones; while it is the Beacon, which isn't being deployed (the bank is
 ///   the click's to check: `crate::command_ui::feedback` says why it is refused); while it is the Agent placing, the
 ///   bank the click's to check as well (slice M4-J1); while it is the Tunnel, whose type builds the expansion (its
-///   operation, its tier and the bank are the click's to check, as a Warp In's bank; slice M4-F);
+///   operation, its tier and the bank are the click's to check, as a Warp In's bank; slice M4-F); while it is
+///   Recruits, whose type builds the building (the bank and the ground are the click's to check; slice M5-J1);
 /// - the EjectMenu and the ExpandMenu while the ActiveGroup is a Tunnel: the menu stays open while the network's
 ///   contents or the Tunnel's operation change, its entries greyed while they can't be used.
 ///
@@ -293,6 +305,9 @@ pub fn still_valid(
                                 .active()
                                 .is_some_and(|active| offers(active.group_type(), PanelCommand::Expand(placing.kind)))
                     }
+                    Builder::Recruits { .. } => selection
+                        .active()
+                        .is_some_and(|active| offers(active.group_type(), PanelCommand::Build(placing.kind))),
                 }
         }
         InterfaceState::EjectMenu | InterfaceState::ExpandMenu => {

@@ -33,13 +33,13 @@ use bevy::camera::visibility::NoFrustumCulling;
 use bevy::prelude::*;
 use bevy::sprite_render::AlphaMode2d;
 use sc_sim::{
-    BuildingOrientation, CornerPos, Map, ObjectKind, PlacementCheck, PlayerCommand, PlayerId, SU_PER_GU, SideLetter,
-    Sim, TilePos, sides,
+    BuildingOrientation, CornerPos, Map, ObjectId, ObjectKind, PlacementCheck, PlayerCommand, PlayerId, SU_PER_GU,
+    SideLetter, Sim, TilePos, sides,
 };
 
 use super::placing_now;
 use crate::ClientMode;
-use crate::command_ui::interface::{deploy_recipient, deploying};
+use crate::command_ui::interface::{deploy_recipient, deploying, recipients};
 use crate::command_ui::{Builder, Placing};
 use crate::coords::{DrawLayer, drawn_at_height, view_to_world};
 use crate::input::{ActionState, InputAction};
@@ -277,9 +277,11 @@ pub(super) fn update_ghost(
 /// - a Tunnel's expansion: `Sim::expansion_check`, as far as the player knows (slice M4-F, design change 0240): its
 ///   footprint within the Tunnel's area as it is now, on tiles Drillable as far as the player knows, clear of the
 ///   structures and resources the player knows of (ground units don't block it, design change 0290). The Tunnel's
-///   operation, tier and bank are its ExpandMenu entry's to grey and the click's to refuse.
+///   operation, tier and bank are its ExpandMenu entry's to grey and the click's to refuse;
+/// - the Recruits' building: their group's check ([`recruits_check`], slice M5-J1), for the Recruits the click's Build
+///   would go to (the ActiveGroup's, `recipients`).
 ///
-/// `None` when the builder is gone, or the ActiveGroup no longer has a Drone.
+/// `None` when the builder is gone, or the ActiveGroup no longer has a Drone or a Recruit.
 pub fn check_now(
     sim: &Sim,
     player: PlayerId,
@@ -300,7 +302,33 @@ pub fn check_now(
         }
         Builder::Agent(agent) => sim.build_check(agent, placing.kind, origin, placing.orientation, queue),
         Builder::Tunnel(tunnel) => sim.expansion_check(tunnel, placing.kind, origin, placing.orientation),
+        Builder::Recruits { .. } => {
+            let recruits = recipients(selection, placing.command());
+            recruits_check(sim, &recruits, placing.kind, origin, placing.orientation, queue)
+        }
     }
+}
+
+/// (M5-J1) The check of the Build that the Recruits `recruits` would all be given together, of a `kind` at `origin`
+/// turned by `orientation` (`queue`: Shift held), which both their ghost and their click face
+/// (`crate::command_ui::interface::Builder::Recruits`): `Sim::group_build_check`, the gate's site check, as far as
+/// the player knows (`factions/cults/economy.md > Cults Building Mechanics > Group construction rules`): the
+/// footprint's tiles, the player's other sites and lingering ghosts reserved (a plain click's order replaces the
+/// group's own), and a Recruitment Hall's whole Recruitment Area on the map (design change 0341 point 1). The group is
+/// left out of the occupants: a Recruit of the order standing on the footprint doesn't make the ghost red, as it
+/// doesn't fail the order (design change 0362, answering Q0130: "the site **waits** for Recruits of the same order who
+/// stand on the footprint to step off, then starts"; `sc_sim`'s `sim/builds/shared.rs`), so no warning is needed. The
+/// one place the ghost judges the Recruits' placement, so that a warning for them would go here. `None` without a
+/// Recruit that builds the kind.
+pub fn recruits_check(
+    sim: &Sim,
+    recruits: &[ObjectId],
+    kind: ObjectKind,
+    origin: TilePos,
+    orientation: BuildingOrientation,
+    queue: bool,
+) -> Option<PlacementCheck> {
+    sim.group_build_check(recruits, kind, origin, orientation, queue)
 }
 
 /// Draws the ghost when what it shows changed: its mesh rebuilt in place, its labels moved and rewritten (a label

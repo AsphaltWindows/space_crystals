@@ -209,7 +209,8 @@ impl Conditions {
     /// unturned, and leaves
     /// out the placement's refusal (`Reject::Unplaceable`, the gate's last check): the player turns the ghost before it
     /// is placed, and the ghost shows each tile's problem. An Agent's Build asks for its Build order, unqueued, the
-    /// same way ([`build_probe`]). A Tunnel's EjectMenu tile and its Cancel ask for their `Command::Tunnel`, and the
+    /// same way ([`build_probe`]), and so does a Recruits' Construct menu entry, for the whole ActiveGroup (slice
+    /// M5-J1: a group's Build, paid once, its TechPrerequisite and the bank the gate's). A Tunnel's EjectMenu tile and its Cancel ask for their `Command::Tunnel`, and the
     /// network's counts are the player's while the ActiveGroup opens the EjectMenu. An ExpandMenu entry asks
     /// `Sim::can_expand`, the gate's Expand short of its placement, for the same reason as a Warp In's.
     pub fn of(sim: &Sim, player: PlayerId, selection: &Selection) -> Self {
@@ -414,9 +415,10 @@ impl Conditions {
     }
 }
 
-/// The Build order an Agent's A would send (`PanelCommand::Build`), to ask the gate whether the button is available:
-/// unqueued, unturned, at the map's north-west corner. Where it stands matters only to the placement's check, the
-/// gate's last (`Reject::Unplaceable`), which the panel leaves out: the ghost judges each spot as it is placed.
+/// The Build order an Agent's A or a Recruits' Construct menu entry would send (`PanelCommand::Build`, to the command's
+/// recipients), to ask the gate whether the button is available: unqueued, unturned, at the map's north-west corner.
+/// Where it stands matters only to the placement's check, the gate's last (`Reject::Unplaceable`), which the panel
+/// leaves out: the ghost judges each spot as it is placed.
 fn build_probe(units: Vec<ObjectId>, kind: ObjectKind) -> Command {
     let kind = OrderKind::Build {
         kind,

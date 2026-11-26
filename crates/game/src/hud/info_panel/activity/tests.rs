@@ -288,10 +288,12 @@ fn a_tunnel_shows_the_tier_it_upgrades_to_and_its_progress() {
 }
 
 /// Slice M5-C (placeholder wording; `factions/cults/economy.md > RecruitmentHall > RecruitmentHallInstanceState`):
-/// player 1's Recruitment Hall in the map's corner claims the 49 tiles of its area on the map (**Placeholder (Q0099
-/// point 1)**), so 49% and a capacity of 9.8, shown as 9 (**Placeholder (Q0099 point 2)**). From its first step its
-/// Recruit is in production at 49 tiles a frame, out at 392 frames (192 × 100 / 49, rounded up); then the Hall's usage
-/// is 1, and its next Recruit starts at once. No queue line: a Hall has none to fill.
+/// player 1's Recruitment Hall in the map's corner, a map spawn, which takes no placement check, claims the 49 tiles of
+/// its area on the map (**Placeholder (not in the design: 0341 rules such a Hall out)**: design change 0341 point 1,
+/// "The whole 10x10 area must lie on the map"), so 49% and a capacity of 9.8, shown as 9
+/// (**Placeholder (Q0099 point 2)**). From its first step its Recruit is in production at 49 tiles a frame, out at 392
+/// frames (192 × 100 / 49, rounded up); then the Hall's usage is 1, and its next Recruit starts at once. No queue
+/// line: a Hall has none to fill.
 #[test]
 fn a_recruitment_hall_shows_its_effectiveness_unit_control_and_recruit() {
     let hall = ObjectId(1);

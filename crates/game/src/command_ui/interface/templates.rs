@@ -7,10 +7,12 @@
 //! (`factions/gdo/economy.md > ExtractionFacility > ObjectInterfaceState[ExtractionFacility]`). The Colonists' Beacon
 //! has two Warp In menus built the same way, the Drone its Deploy and its Set Drop-off, the Egress Node its F, and an
 //! object that transforms shows only its Cancel ([`colonists`], slices M3-J1 and M3-J2). The Syndicate's Tunnel opens
-//! its EjectMenu ([`syndicate`], slice M4-J2), and its Agent builds Tunnels (slice M4-J1). An entry not in the game yet
-//! holds its slot, unavailable ([`Planned`]).
+//! its EjectMenu ([`syndicate`], slice M4-J2), and its Agent builds Tunnels (slice M4-J1). The Cults' Recruit opens two
+//! Construct menus built the same way, their entries the group's Builds ([`cults`], slice M5-J1). An entry not in the
+//! game yet holds its slot, unavailable ([`Planned`]).
 
 pub mod colonists;
+pub mod cults;
 pub mod gdo;
 mod offers;
 mod planned;
@@ -78,6 +80,12 @@ pub enum InterfaceTemplate {
     /// (`factions/syndicate/units/agent.md > Right-Click Resolution`: Gather, Drop Off, Enter, Attack, Move) is the
     /// sim's one rule, as every unit's.
     Agent,
+    /// (M5-J1) `factions/cults/units/recruit.md > Recruit ObjectInterfaceState` (design changes 0322 and 0327): Q Move,
+    /// W Advanced Construct, A Basic Construct, S Assist Construction, D Repair (greyed until slice N8), X Stop
+    /// ([`cults::recruit`]); its Construct menus' entries enter the group's placement ([`cults::construct_menu`]). Its
+    /// right-click (`factions/cults/units/recruit.md > Right-Click Resolution`: Gather, Drop Off, Enter, Assist,
+    /// Attack, Move) is the sim's one rule, as every unit's.
+    Recruit,
 }
 
 /// The Deployment Center's build menus (`factions/gdo/structures/deployment_center.md >
@@ -85,6 +93,8 @@ pub enum InterfaceTemplate {
 /// they are split"). Their idle, constructing and ready states work the same ([`state_grid`]). The Colonists' Beacon
 /// has two Warp In menus "like the Deployment Center's two build menus" (`factions/colonists/economy.md > Beacon >
 /// Beacon ObjectInterfaceState`): Warp In (Basic) and Warp In (Advanced), whose entries are its own ([`menu_grid`]).
+/// So has the Cults' Recruit: BuildMenu\[Basic\] and BuildMenu\[Advanced\] (`factions/cults/units/recruit.md > Recruit
+/// ObjectInterfaceState`, design change 0327), the Construct menus ([`cults::construct_menu`]).
 #[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum BuildMenu {
     /// BuildMenu\[Basic\], "Q: Basic Construction".
@@ -185,6 +195,7 @@ impl InterfaceTemplate {
             InterfaceTemplate::EgressNode => colonists::egress_node::GRID,
             InterfaceTemplate::Tunnel => syndicate::tunnel::GRID,
             InterfaceTemplate::Agent => syndicate::agent::GRID,
+            InterfaceTemplate::Recruit => cults::recruit::GRID,
         }
     }
 }

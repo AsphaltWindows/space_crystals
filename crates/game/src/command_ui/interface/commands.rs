@@ -5,7 +5,8 @@
 use sc_sim::{Ability, ConstructionCommand, ObjectKind, OrderKind, ProductionCommand, TunnelCommand};
 
 use super::{BuildMenu, Planned};
-use crate::kinds::{self, short_label};
+
+mod names;
 
 /// A command of the command panel: the unit commands of `systems/controls/commands.md`, as `>
 /// BasicCombatUnitInterfaceState` lists them, those of the producing structures (`factions/gdo/structures/barracks.md >
@@ -145,15 +146,23 @@ pub enum PanelCommand {
     /// M4-G), greyed with the gate's reason (`sc_sim::Sim::can_upgrade`) and priced in its hint
     /// (`sc_sim::Sim::upgrade_price`).
     UpgradeTunnel,
+    /// (M5-J1) `factions/cults/units/recruit.md > Recruit ObjectInterfaceState > DefaultState commands`: "**S: Assist
+    /// Construction** — targeted command (StateOnlyTransition). Left-click an in-progress own building to join
+    /// construction": awaits its site, where a left-click on an own site that the recipients build from outside gives
+    /// them an Assist order (`sc_sim::OrderKind::Assist`, `factions/cults/economy.md > Assist Construction Command`):
+    /// every selected Recruit ("both right-click and panel commands (Construct, Assist Construction, Repair) are issued
+    /// to all of them").
+    Assist,
 }
 
 impl PanelCommand {
     /// Whether the command awaits a target (a StateOnlyTransition to AwaitingTarget): the target commands of
-    /// `> BasicCombatUnitInterfaceState > DefaultState commands`, Set Rally Point, the Drone's Set Drop-off and the
-    /// Agent's Drop Off. The others are issued at once: HoldPosition and Stop, Raise and Lower Shield, Convert, a
-    /// producer's Train and Cancel Production, a constructor's Construct and Cancels, a Tunnel's Eject and Cancel; or
-    /// they enter a state of their own: a build menu, the EjectMenu, the ExpandMenu, AwaitingPlacement (an Agent's
-    /// Build and a Tunnel's expansion too); or they change the selection (the Egress Node's F).
+    /// `> BasicCombatUnitInterfaceState > DefaultState commands`, Set Rally Point, the Drone's Set Drop-off, the
+    /// Agent's Drop Off and the Recruits' Assist Construction. The others are issued at once: HoldPosition and Stop,
+    /// Raise and Lower Shield, Convert, a producer's Train and Cancel Production, a constructor's Construct and
+    /// Cancels, a Tunnel's Eject and Cancel; or they enter a state of their own: a build menu, the EjectMenu, the
+    /// ExpandMenu, AwaitingPlacement (an Agent's Build, a Tunnel's expansion and a Recruits' Construct menu entry
+    /// too); or they change the selection (the Egress Node's F).
     pub fn needs_target(self) -> bool {
         match self {
             PanelCommand::Move
@@ -163,7 +172,8 @@ impl PanelCommand {
             | PanelCommand::AttackGround
             | PanelCommand::SetRallyPoint
             | PanelCommand::SetDropOff
-            | PanelCommand::DropOff => true,
+            | PanelCommand::DropOff
+            | PanelCommand::Assist => true,
             PanelCommand::HoldPosition
             | PanelCommand::Stop
             | PanelCommand::RaiseShield
@@ -256,31 +266,34 @@ impl PanelCommand {
     }
 
     /// The building it constructs, places, warps in or builds: a build menu's entry, a ready building's slot, an
-    /// ExpandMenu entry.
+    /// ExpandMenu entry, a worker's Build (an Agent's, a Recruit's Construct menu entry: slice M5-J1).
     pub fn building(self) -> Option<ObjectKind> {
         match self {
             PanelCommand::Construct(kind)
             | PanelCommand::PlaceReady(kind)
             | PanelCommand::WarpIn(kind)
-            | PanelCommand::Expand(kind) => Some(kind),
+            | PanelCommand::Expand(kind)
+            | PanelCommand::Build(kind) => Some(kind),
             _ => None,
         }
     }
 
     /// Whether it belongs to one instance's own state: a constructor's commands, which read and change what that one
     /// Deployment Center or Extraction Facility constructs (`> SelectionGroup`: for an Ungroupable type "the
-    /// ObjectInterfaceState can reliably read that instance's specific game state"; design change 0071: "a Build
-    /// order from the panel goes only to the active Recruit"), and a Beacon's Warp In (design change 0122: "Warp In
-    /// applies to the Beacon the player has Tabbed to"). Such a command goes to the ActiveGroup only, never to the
-    /// other selected instances of its type (`super::recipients`). So do a Deploy, which one Drone of the ActiveGroup
-    /// takes (design change 0125), the Cancel of the objects that transform, whose panel shows it, and the Egress
-    /// Node's F, which selects the Drones of "this Egress Node" (Ungroupable: the one Tabbed to). So do a Tunnel's
-    /// EjectMenu and its tiles, which eject "from this Tunnel's Side A" (`factions/syndicate/tunnels.md > EjectMenu`;
-    /// Ungroupable too: the one Tabbed to), and its ExpandMenu, its entries, its Upgrade and its Cancel, which read and
-    /// change this Tunnel's one operation (`factions/syndicate/tunnels.md > ExpandMenu`: "**this** Tunnel's tier").
-    /// So does an Agent's Build: "each Agent takes exactly one placement", and "Placement never moves on to another
-    /// selected worker" (`systems/controls/selection_and_hud.md > AwaitingTarget > Shift while placing`: "to place
-    /// with the next Agent, the player presses Tab").
+    /// ObjectInterfaceState can reliably read that instance's specific game state"), and a Beacon's Warp In (design
+    /// change 0122: "Warp In applies to the Beacon the player has Tabbed to"). Such a command goes to the ActiveGroup
+    /// only, never to the other selected instances of its type (`super::recipients`). So do a Deploy, which one Drone
+    /// of the ActiveGroup takes (design change 0125), the Cancel of the objects that transform, whose panel shows it,
+    /// and the Egress Node's F, which selects the Drones of "this Egress Node" (Ungroupable: the one Tabbed to). So do
+    /// a Tunnel's EjectMenu and its tiles, which eject "from this Tunnel's Side A" (`factions/syndicate/tunnels.md >
+    /// EjectMenu`; Ungroupable too: the one Tabbed to), and its ExpandMenu, its entries, its Upgrade and its Cancel,
+    /// which read and change this Tunnel's one operation (`factions/syndicate/tunnels.md > ExpandMenu`: "**this**
+    /// Tunnel's tier"). So does an Agent's Build: "each Agent takes exactly one placement", and "Placement never moves
+    /// on to another selected worker" (`systems/controls/selection_and_hud.md > AwaitingTarget > Shift while placing`:
+    /// "to place with the next Agent, the player presses Tab"). A Recruits' Build goes to the ActiveGroup too, which is
+    /// every selected Recruit, the Recruit being Groupable (slice M5-J1; `factions/cults/units/recruit.md > Recruit
+    /// ObjectInterfaceState`: "Construct sends every selected Recruit to build the **same** building together", design
+    /// change 0072), and never to the other types' units.
     pub fn instance_only(self) -> bool {
         matches!(
             self,
@@ -317,7 +330,8 @@ impl PanelCommand {
     /// (`> Shift while placing > Exception, Drones`, design change 0125). Set Drop-off is an ability, which "only
     /// updates AssignedDropOff": a Shift-click sets it and ends the targeting like a plain click, as a rally point's
     /// (the same placeholder reading). The Agent's Drop Off is a unit's order (`factions/syndicate/units/agent.md >
-    /// Unit Commands`), and so is its Build, which Shift queues as it is placed (`> Shift while placing`).
+    /// Unit Commands`), and so is its Build, which Shift queues as it is placed (`> Shift while placing`); so are the
+    /// Recruits' Build and Assist (`factions/cults/units/recruit.md > Unit Commands`).
     pub fn queues(self) -> bool {
         match self {
             PanelCommand::Move
@@ -329,7 +343,8 @@ impl PanelCommand {
             | PanelCommand::Stop
             | PanelCommand::Deploy
             | PanelCommand::Build(_)
-            | PanelCommand::DropOff => true,
+            | PanelCommand::DropOff
+            | PanelCommand::Assist => true,
             PanelCommand::RaiseShield
             | PanelCommand::LowerShield
             | PanelCommand::Convert(_)
@@ -352,116 +367,6 @@ impl PanelCommand {
             | PanelCommand::Expand(_)
             | PanelCommand::CancelOperation
             | PanelCommand::UpgradeTunnel => false,
-        }
-    }
-
-    /// The button's label: a placeholder for its icon (Q0001), short enough to keep the label size on its button
-    /// at 720p (slice M3-K2a: six characters at most, `crate::hud::command_panel`), its full name being
-    /// [`Self::name_on`]'s, in the InfoPanel's hint for the button under the pointer (`crate::hud::info_panel::hint`).
-    /// What a button makes, a unit to train or a building to construct, warp in or build on its site (one that isn't
-    /// in the game yet too), it shows as an icon would: by its type's tag, as the map and the portraits show it
-    /// ([`short_label`]: an Agent's Build Tunnel "T1", the tier a Tunnel starts at). A ready building's slot is
-    /// "Place", and every Cancel "Cancel". The others are the command's name or its first word ("Hold", "Rally",
-    /// "Raise", "Lower", "Drop" for Set Drop-off Location and for the Agent's Drop Off, "Drones" for Select Returning
-    /// Drones), or a shortening of it ("Rev.", "AtkGnd", "Conv.", "Adv.", the Tunnel's "Upgr." for Upgrade Tunnel). An
-    /// EjectMenu tile shows its unit type's tag, as a unit trained does, and its count (`super::PanelSlot::count`); an
-    /// ExpandMenu entry its expansion's, as a building constructed does.
-    pub fn label(self) -> &'static str {
-        match self {
-            PanelCommand::Move => "Move",
-            PanelCommand::Reverse => "Rev.",
-            PanelCommand::HoldPosition => "Hold",
-            PanelCommand::Attack => "Attack",
-            PanelCommand::Patrol => "Patrol",
-            PanelCommand::AttackGround => "AtkGnd",
-            PanelCommand::Stop => "Stop",
-            PanelCommand::RaiseShield => "Raise",
-            PanelCommand::LowerShield => "Lower",
-            PanelCommand::Convert(_) => "Conv.",
-            PanelCommand::Train(kind)
-            | PanelCommand::Construct(kind)
-            | PanelCommand::WarpIn(kind)
-            | PanelCommand::Eject(kind)
-            | PanelCommand::Build(kind)
-            | PanelCommand::Expand(kind) => short_label(kind),
-            PanelCommand::Planned(planned) => planned.label(),
-            PanelCommand::CancelProduction
-            | PanelCommand::CancelConstruction
-            | PanelCommand::CancelReady
-            | PanelCommand::CancelTransform
-            | PanelCommand::CancelOperation => "Cancel",
-            PanelCommand::SetRallyPoint => "Rally",
-            PanelCommand::BuildMenu(BuildMenu::Basic) => "Basic",
-            PanelCommand::BuildMenu(BuildMenu::Advanced) => "Adv.",
-            PanelCommand::PlaceReady(_) => "Place",
-            PanelCommand::Deploy => "Deploy",
-            PanelCommand::SetDropOff | PanelCommand::DropOff => "Drop",
-            PanelCommand::SelectReturningDrones => "Drones",
-            PanelCommand::EjectMenu => "Eject",
-            PanelCommand::ExpandMenu => "Expand",
-            PanelCommand::UpgradeTunnel => "Upgr.",
-        }
-    }
-
-    /// The command's full name, which its button's label shortens ([`Self::label`]), as the design names it. Where
-    /// the design names a command after the object whose panel shows it, the panel names it so ([`Self::name_on`]):
-    /// this is the name of the others, and the generic one of those.
-    pub fn name(self) -> String {
-        let named = |verb: &str, kind: ObjectKind| format!("{verb} {}", kind.def().name);
-        match self {
-            PanelCommand::Reverse => "Reverse".into(),
-            PanelCommand::HoldPosition => "Hold Position".into(),
-            PanelCommand::AttackGround => "Attack Ground".into(),
-            PanelCommand::RaiseShield => "Raise Shield".into(),
-            PanelCommand::LowerShield => "Lower Shield".into(),
-            PanelCommand::Convert(kind) => named("Convert to", kind),
-            PanelCommand::Train(kind) => named("Train", kind),
-            PanelCommand::CancelProduction => "Cancel Production".into(),
-            PanelCommand::SetRallyPoint => "Set Rally Point".into(),
-            PanelCommand::BuildMenu(BuildMenu::Basic) => "Basic Construction".into(),
-            PanelCommand::BuildMenu(BuildMenu::Advanced) => "Advanced Construction".into(),
-            PanelCommand::Construct(kind) => named("Build", kind),
-            PanelCommand::CancelConstruction => "Cancel Construction".into(),
-            PanelCommand::CancelReady => "Cancel Ready Building".into(),
-            PanelCommand::PlaceReady(kind) => named("Place", kind),
-            PanelCommand::WarpIn(kind) => named("Warp In", kind),
-            PanelCommand::Planned(planned) => planned.command_name(),
-            PanelCommand::CancelTransform => "Cancel".into(),
-            PanelCommand::SetDropOff => "Set Drop-off Location".into(),
-            PanelCommand::SelectReturningDrones => "Select Returning Drones".into(),
-            PanelCommand::Eject(kind) => named("Eject", kind),
-            PanelCommand::Build(kind) => named("Build", kind),
-            PanelCommand::DropOff => "Drop Off Resources".into(),
-            PanelCommand::ExpandMenu => "Expand Tunnel".into(),
-            PanelCommand::Expand(kind) => named("Build", kind),
-            PanelCommand::CancelOperation => "Cancel Operation".into(),
-            PanelCommand::UpgradeTunnel => "Upgrade Tunnel".into(),
-            PanelCommand::Move
-            | PanelCommand::Attack
-            | PanelCommand::Patrol
-            | PanelCommand::Stop
-            | PanelCommand::Deploy
-            | PanelCommand::EjectMenu => self.label().into(),
-        }
-    }
-
-    /// The command's full name on the panel of a `kind` ActiveGroup, which the InfoPanel's hint shows
-    /// (`super::Panel::name`): [`Self::name`], but for the commands the design names after the object whose panel
-    /// shows them, from its panel template (`super::templates::PanelTemplate::names`):
-    /// - a Beacon's menus: "Q: Warp In (Basic)", "W: Warp In (Advanced)" (`factions/colonists/economy.md > Beacon >
-    ///   Beacon ObjectInterfaceState`), the Deployment Center's being "Basic Construction" and "Advanced
-    ///   Construction";
-    /// - the Cancel of an object that transforms (`factions/colonists/economy.md > Beacon Deployment > While
-    ///   transforming: only Cancel`: "Cancel Deployment / Cancel Warp In"): a Beacon's under deployment, any other
-    ///   building's under Warp In (the object is the building from the first frame, `sc_sim::transform`);
-    /// - the Extraction Facility's "X: Cancel Ready Plate" (`factions/gdo/economy.md > ExtractionFacility >
-    ///   ObjectInterfaceState[ExtractionFacility]`).
-    pub fn name_on(self, kind: ObjectKind) -> String {
-        let names = kinds::of(kind).template.names;
-        match names.iter().find(|&&(command, _)| command == self) {
-            Some(&(_, name)) => name.into(),
-            None if self == PanelCommand::CancelTransform => "Cancel Warp In".into(),
-            None => self.name(),
         }
     }
 }

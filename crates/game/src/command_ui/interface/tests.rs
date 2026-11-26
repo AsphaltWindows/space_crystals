@@ -4,6 +4,7 @@ mod construction;
 mod cults;
 mod expansions;
 mod gathering;
+mod recruit;
 mod syndicate;
 
 use sc_sim::defs::AttackType;

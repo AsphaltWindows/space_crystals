@@ -7,7 +7,8 @@ use sc_sim::ObjectKind;
 use sc_sim::construction::{self, Constructor};
 
 use super::{
-    ATTACK_SLOT, BuildMenu, InterfaceState, PanelCommand, colonists, grid, hides_attack, slot_index, syndicate,
+    ATTACK_SLOT, BuildMenu, InterfaceState, InterfaceTemplate, PanelCommand, colonists, cults, grid, hides_attack,
+    slot_index, syndicate,
 };
 use crate::command_ui::interface::Builder;
 use crate::input::CommandSlot;
@@ -20,17 +21,20 @@ pub(super) fn constructs(kind: ObjectKind) -> bool {
 
 /// The entries of a `kind` object's build menu `menu`, slot by slot (`CommandSlot::all` order): a Beacon's Warp In
 /// menu (`factions/colonists/economy.md > Beacon > Beacon ObjectInterfaceState`: every building of the design's
-/// menu, those not in the game unavailable), else the Deployment Center's menu, its buildings to construct.
+/// menu, those not in the game unavailable), a Recruit's Construct menu (slice M5-J1, the same:
+/// `cults::construct_menu`), else the Deployment Center's menu, its buildings to construct.
 pub fn menu_grid(kind: ObjectKind, menu: BuildMenu) -> [Option<PanelCommand>; 12] {
     if colonists::warps_in(kind) {
         colonists::beacon::warp_in_menu(menu)
+    } else if InterfaceTemplate::of(kind) == Some(InterfaceTemplate::Recruit) {
+        cults::construct_menu::grid(menu)
     } else {
         menu.entries().map(|entry| entry.map(PanelCommand::Construct))
     }
 }
 
 /// The build menu of a `kind` object whose `building` is placed (the Deployment Center's, holding it ready; a
-/// Beacon's, warping it in), if it has one.
+/// Beacon's, warping it in; a Recruit's, building it), if it has one.
 pub fn menu_of(kind: ObjectKind, building: ObjectKind) -> Option<BuildMenu> {
     BuildMenu::ALL.into_iter().find(|&menu| {
         grid(kind).contains(&Some(PanelCommand::BuildMenu(menu)))
