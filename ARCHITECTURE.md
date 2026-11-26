@@ -4605,11 +4605,11 @@ unchecked.
   every step, and player 1's Supplies too (`testing::syndicate::SupplyBooks`). The Cults' games play `dev_skirmish`
   with player 1 as the Cults, by `testing::cults::skirmish`: in `cults_opening` (to 2:45) its Recruits are dealt to
   the field, and the line builds a second Storage, a second Hall east of the hill (100% Effectiveness) and an Armory,
-  and trains four Militants; in `cults_vs_syndicate` (to 2:58.31, where it ends) it builds the Armory first, then a
+  and trains four Militants; in `cults_vs_syndicate` (to 2:55, where it ends) it builds the Armory first, then a
   Gunworks, and trains eight Militants and three Gunners (slice M5-N1a's first step) of the Recruits it has no seat
   for, which attack-move in a wave to player 2's Tunnel, while player 2 plays the Syndicate: two Agents, an Optics Lab,
-  a Laser Turret from the Tunnel's ExpandMenu (slice M5-Y) and four Guards at its patch. The turret kills four
-  Militants before it is destroyed, and then the Tunnel falls, which defeats player 2. Both players' books balance
+  a Laser Turret from the Tunnel's ExpandMenu (slice M5-Y) and four Guards at its patch. Three Militants die
+  before the turret is destroyed, and then the Tunnel falls, which defeats player 2. Both players' books balance
   every step, player 2's Supplies too. In `cults_garrison` (to 0:40, on a test map) three Militants and a Gunner go
   into a Garrison through its door, and four Agents and two Grenadiers attack-move onto it: the four fire from the
   footprint, farther than either, and kill an Agent; the Grenadiers' blasts land on it and hurt no one inside
