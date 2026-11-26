@@ -1,6 +1,8 @@
-//! The gate's checks of a group's Build and of an Assist (`sim/gate/orders.rs`), and the ghosts.
+//! The gate's checks of a group's Build and of an Assist (`sim/gate/orders.rs`), the ghosts, and the Recruitment Area's
+//! placement rule (slice M5-J1, design change 0341 point 1).
 
 use super::*;
+use sc_sim::{PlacementProblem, WholeProblem};
 
 /// Four Recruits of player 1's, ids 1 to 4, where [`start_of`] puts them, on [`cults`]' map with no Storage, and a
 /// bank of [`BANK`] Space Crystals.
@@ -87,4 +89,27 @@ fn an_assist_is_of_an_own_site_by_its_builders() {
     assert_eq!(gate(&t, P1, assist(&[2], S1)), Err(Reject::NotASite(S1)));
     assert_eq!(gate(&t, P1, assist(&[militant.0], site)), Err(Reject::NoWorkers));
     assert_eq!(gate(&t, P1, assist(&[2, militant.0], site)), Ok(()));
+}
+
+/// Design change 0341 point 1 (`factions/cults/economy.md > RecruitmentHall > RecruitmentArea`: "a Hall whose area
+/// would leave the map can't be placed"): the gate refuses the Build of a Recruitment Hall 2 tiles from the north edge
+/// (`Reject::Unplaceable`) for that reason alone, as the site check of the ghost does, and takes one 3 tiles from it,
+/// its area just on the map.
+#[test]
+fn the_gate_refuses_a_hall_whose_area_leaves_the_map() {
+    let mut t = world(4);
+    run(&mut t, 2);
+    let group = recruits(4);
+    let near = TilePos::new(20, 2);
+    let off_map = PlacementProblem::Whole(WholeProblem::RecruitmentAreaOffMap);
+    assert_eq!(
+        gate(&t, P1, build(&group, HALL, near, false)),
+        Err(Reject::Unplaceable(off_map))
+    );
+    let workers: Vec<ObjectId> = group.iter().map(|&n| id(n)).collect();
+    let check = (t.sim())
+        .group_build_check(&workers, HALL, near, BuildingOrientation::default(), false)
+        .expect("Recruits build Halls");
+    assert_eq!(check.whole, [WholeProblem::RecruitmentAreaOffMap]);
+    assert_eq!(gate(&t, P1, build(&group, HALL, TilePos::new(20, 3), false)), Ok(()));
 }

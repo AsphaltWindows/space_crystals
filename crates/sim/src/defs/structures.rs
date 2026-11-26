@@ -379,7 +379,9 @@ pub struct RecruitmentDef {
 
 impl RecruitmentDef {
     /// "The total number of tiles in Recruitment Area" (`factions/cults/economy.md > RecruitmentHall > Effectiveness`):
-    /// the area's side squared, those off the map included (**Placeholder (Q0099 point 1)**).
+    /// the area's side squared. The whole area lies on the map (design change 0341 point 1, `crate::placement`), but
+    /// for a Hall that takes no placement check, a debug spawn's, whose tiles off the map count among these
+    /// (**Placeholder (not in the design: 0341 rules such a Hall out)**).
     pub fn tiles(&self) -> u32 {
         self.area.saturating_mul(self.area)
     }

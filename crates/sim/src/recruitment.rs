@@ -7,7 +7,10 @@
 //!
 //! - **The Recruitment Area** ([`area`], `factions/cults/economy.md > RecruitmentHall > RecruitmentArea`: "A 10x10 grid
 //!   unit area centered on the 4x4 building"): the square of `RecruitmentDef::area` tiles a side centred on the
-//!   footprint. Its tiles off the map count among its tiles, and can't be claimed (**Placeholder (Q0099 point 1)**).
+//!   footprint. The whole area lies on the map (design change 0341 point 1: "a Hall whose area would leave the map
+//!   can't be placed"): the placement check refuses a Hall whose area would leave it (`placement/recruitment_area.rs`).
+//!   A Hall that takes no placement check, a debug spawn's, may still have tiles of its area off the map: they count
+//!   among its area's tiles, and can't be claimed (**Placeholder (not in the design: 0341 rules such a Hall out)**).
 //! - **The claims** ([`Claims`], `factions/cults/economy.md > RecruitmentHall > TileClaiming`): each Recruitable tile
 //!   of an area goes to the first of the Halls whose area has it, in the order they were completed, ties by id
 //!   (**Placeholder (Q0099 point 3)**: "constructed first" is completed first, and two Halls completed in the same tick

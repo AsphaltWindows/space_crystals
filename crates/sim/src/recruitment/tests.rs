@@ -76,8 +76,10 @@ fn a_capacity_is_exact_and_shown_rounded_down() {
 
 /// `factions/cults/economy.md > RecruitmentHall > TileClaiming` and `factions/cults/economy.md > RecruitmentHall >
 /// Effectiveness`: a lone Hall on Plane claims its whole area; Water isn't Recruitable, the map's edge cuts the area
-/// short (**Placeholder (Q0099 point 1)**: the tiles off the map count among the 100 and can't be claimed), and
-/// buildings, its own footprint and another player's, take nothing from it ("Buildings do not affect recruitability").
+/// of a Hall spawned where none can be placed short (design change 0341 point 1 refuses its placement; **Placeholder
+/// (not in the design: 0341 rules such a Hall out)**: the tiles off the map count among the 100 and can't be
+/// claimed), and buildings, its own footprint and another player's, take nothing from it ("Buildings do not affect
+/// recruitability").
 #[test]
 fn a_hall_claims_the_recruitable_tiles_of_its_area() {
     let lone = sim(&plane(20, 20), &[(ObjectKind::RecruitmentHall, Some(P1), 8, 8)]);

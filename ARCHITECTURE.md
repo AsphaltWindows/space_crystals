@@ -2055,9 +2055,11 @@ their energy doorway, slice M3-D2: design change 0145, `factions/colonists/struc
   (`recruitment::Claims`, derived each time, never stored): each Recruitable tile (`TilePreset::recruitable`: every
   default preset but Water) of a Hall's 10 × 10 area centred on its footprint goes to the first completed Hall whose
   area has it, by `Production::completed_at` and then id (Placeholder (Q0099 point 3)), whoever owns it (Placeholder
-  (Q0099 point 5)); buildings never matter; the area's tiles off the map count among its 100 and can't be claimed
-  (Placeholder (Q0099 point 1)); a Hall under construction claims nothing (Placeholder (Q0099 point 4),
-  `Object::is_operational`). `completed_at` is the tick `Capabilities::fresh` gives the producer, so a spawn's
+  (Q0099 point 5)); buildings never matter; the whole area lies on the map, the placement check refusing a Hall whose
+  area would leave it (design change 0341 point 1, slice M5-J1: `WholeProblem::RecruitmentAreaOffMap`,
+  `placement/recruitment_area.rs`), and a debug spawn's tiles off the map count among its 100 and can't be claimed
+  (Placeholder (not in the design: 0341 rules such a Hall out)); a Hall under construction claims nothing
+  (Placeholder (Q0099 point 4), `Object::is_operational`). `completed_at` is the tick `Capabilities::fresh` gives the producer, so a spawn's
   insertion tick, 0 for a map's, and the tick `Sim::start_functions` completes a site (slice M5-E). **The start**
   (`Sim::start_recruits`, first in the producers' step): a completed Hall with an owner and an empty queue queues its
   recipe's Recruit, free, while its usage (`recruitment::Lineages`) is below its capacity, BaseUnitControlCapacity ×
@@ -2297,7 +2299,10 @@ their energy doorway, slice M3-D2: design change 0145, `factions/colonists/struc
   knows it (`Aimed`: enemy, destructible, domain, gatherable, drop-off; a remembered one by its record) and
   `Sim::default_order(unit, target)` the sim's answer; the rally points use it (*Production > Rally points*), and the
   client's right-click calls `resolve` itself on what it shows (*Client architecture > Command UI*).
-  `tests/default_order.rs` has the table of unit kinds against targets.
+  `tests/default_order.rs` has the table of unit kinds against targets. The rules on an object are data (slice M5-J1):
+  `RULES`, a list of `Rule`s tried in order (Gather, GatherSupplies, DropOff, Enter, Assist, Attack), the first that
+  applies (`Rule::order`) giving the order; a new default order is a `Rule` in its place in the list (slice N8's
+  Repair goes after Enter, design change 0322).
 - **Debug spawns and teleports of units** keep the unit invariants: a box on blocked ground or across the map's edge
   is `Reject::Blocked`, one overlapping another unit of its layer `Reject::Occupied(id)`, and so is a blocking
   footprint spawned onto a ground unit. Touching is allowed. A teleported unit plans its path again.

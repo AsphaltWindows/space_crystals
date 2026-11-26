@@ -1,8 +1,13 @@
-//! What the Cults' stat blocks share, for their modules' tests (`units/`, `structures/`), and the faction's Unit
-//! Control costs (plan decision T55). The rules every kind follows are in `defs_are_consistent` (`defs/tests.rs`).
+//! What the Cults' stat blocks share, for their modules' tests (`units/`, `structures/`), the faction's Unit Control
+//! costs (plan decision T55) and the Recruits' Construct menus (slice M5-J1, design change 0327). The rules every kind
+//! follows are in `defs_are_consistent` (`defs/tests.rs`).
+
+use std::collections::BTreeSet;
 
 use glam::Vec2;
 
+use super::{CONSTRUCT_MENU, ConstructEntry, ConstructMenu};
+use crate::construction::site::builds;
 use crate::defs::units::{AttackAttrs, MovementAttrs, UnitBase};
 use crate::defs::{Armor, Category, MiningDef, ObjectKind, StructureDef, SymmetryType};
 use crate::math::PI;
@@ -190,4 +195,74 @@ fn the_cults_kinds_are_the_six_designed_ones() {
             (ObjectKind::Armory, "Armory"),
         ]
     );
+}
+
+/// The keys of the panel's grid, row by row (`systems/controls/selection_and_hud.md > CommandPanel`).
+const KEYS: [char; 12] = ['Q', 'W', 'E', 'R', 'A', 'S', 'D', 'F', 'Z', 'X', 'C', 'V'];
+
+/// The line of a Construct menu in `factions/cults/units/recruit.md > Recruit ObjectInterfaceState > DefaultState
+/// commands`, read from the design ("**BuildMenu[Basic]**: **Q** Recruitment Hall, **W** Storage; ..."): its keys and
+/// their buildings' names, in the line's order.
+fn designed_menu(menu: &str) -> Vec<(char, String)> {
+    let path = concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/../../artifacts/designer/design/factions/cults/units/recruit.md"
+    );
+    let text = std::fs::read_to_string(path).unwrap_or_else(|e| panic!("{path}: {e}"));
+    let marker = format!("- **BuildMenu[{menu}]**:");
+    let line = (text.lines())
+        .find(|line| line.trim_start().starts_with(&marker))
+        .unwrap_or_else(|| panic!("{marker} in {path}"));
+    // "  - ", "BuildMenu[Basic]", ": ", "Q", " Recruitment Hall, ", "W", " Storage; ", ...
+    let parts: Vec<&str> = line.split("**").skip(3).collect();
+    (parts.chunks(2))
+        .map(|pair| {
+            let key = pair[0].chars().next().expect("a key");
+            let name = pair
+                .get(1)
+                .map_or("", |name| name.trim().trim_end_matches([',', ';', '.']));
+            (key, name.to_owned())
+        })
+        .collect()
+}
+
+/// Design change 0327 (`factions/cults/units/recruit.md > Recruit ObjectInterfaceState > DefaultState commands`): each
+/// Construct menu holds the design's buildings in the design's keys, and nothing else; no entry takes Z, which returns
+/// to DefaultState, and none shares a slot.
+#[test]
+fn the_construct_menus_follow_the_design() {
+    for (menu, name) in [(ConstructMenu::Basic, "Basic"), (ConstructMenu::Advanced, "Advanced")] {
+        let listed: Vec<(char, String)> = (CONSTRUCT_MENU.iter())
+            .filter(|slot| slot.menu == menu)
+            .map(|slot| {
+                assert!(slot.row < 3 && slot.column < 4, "{slot:?}");
+                let key = KEYS[usize::from(slot.row) * 4 + usize::from(slot.column)];
+                (key, slot.entry.name().to_owned())
+            })
+            .collect();
+        assert_eq!(listed, designed_menu(name), "BuildMenu[{name}]");
+        assert!(listed.iter().all(|&(key, _)| key != 'Z'), "Z returns");
+    }
+    let slots: BTreeSet<_> = (CONSTRUCT_MENU.iter())
+        .map(|slot| (slot.menu, slot.row, slot.column))
+        .collect();
+    assert_eq!(slots.len(), CONSTRUCT_MENU.len(), "a slot each");
+}
+
+/// Every type the Recruits build (`construction::site::builds`) has its entry, once, and every entry's type is one they
+/// build; a building not in the game is a `Planned` entry, and one in it is listed by its kind.
+#[test]
+fn the_construct_menus_list_every_recruit_build_once() {
+    let builds: BTreeSet<ObjectKind> = (ObjectKind::ALL.iter().copied())
+        .filter(|&kind| builds(ObjectKind::Recruit, kind))
+        .collect();
+    let kinds: Vec<ObjectKind> = CONSTRUCT_MENU.iter().filter_map(|slot| slot.entry.kind()).collect();
+    assert_eq!(kinds.len(), builds.len(), "each once: {kinds:?}");
+    assert_eq!(kinds.into_iter().collect::<BTreeSet<_>>(), builds);
+    for slot in CONSTRUCT_MENU {
+        if let ConstructEntry::Planned(name) = slot.entry {
+            let kind = ObjectKind::ALL.iter().find(|kind| kind.def().name == name);
+            assert_eq!(kind, None, "the {name} is in the game: list it by its kind");
+        }
+    }
 }

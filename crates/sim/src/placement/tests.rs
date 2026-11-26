@@ -10,12 +10,14 @@
 //! - `tunnel_area`: the Tunnel Area's rules (slice M4-B): on the map and Drillable (design change 0242), and a
 //!   layout's expansions inside their Tunnel's area;
 //! - `expansion`: the expansion method (slice M4-F): inside the Tunnel's area, on Drillable ground, with no flatness
-//!   and no sight.
+//!   and no sight;
+//! - `recruitment_area`: a Recruitment Hall's whole Recruitment Area on the map (slice M5-J1, design change 0341).
 
 mod expansion;
 mod footprint;
 mod ground;
 mod occupants;
+mod recruitment_area;
 mod tunnel_area;
 
 use glam::Vec2;
