@@ -65,7 +65,7 @@ fn every_pairing_plays_the_first_map() {
 
 /// Every pairing on every Skirmish Default map, for 3 minutes of game time.
 #[test]
-#[ignore = "every map for 3 minutes: cargo test -p sc_sim --release --test pairings -- --ignored --nocapture"]
+#[ignore = "every map for 3 minutes: cargo test -p sc_sim --release --test sim pairings:: -- --ignored --nocapture"]
 fn every_pairing_plays_every_map() {
     run(&maps(), LONG);
 }

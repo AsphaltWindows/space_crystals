@@ -2,7 +2,7 @@
 //! `docs/movement.md > 5.8`. Ignored by default:
 //!
 //! ```sh
-//! cargo test -p sc_sim --release --test movement_perf -- --ignored --nocapture
+//! cargo test -p sc_sim --release --test perf movement_perf -- --ignored --nocapture
 //! ```
 //!
 //! The assertions are on the deterministic counters only, never on wall time; `movement_collision/` asserts the

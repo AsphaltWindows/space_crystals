@@ -27,9 +27,10 @@
 //! - **Out of tolerance** figures are brought to the designer with the measured table (design change 0108) and pinned
 //!   meanwhile ([`OUT_OF_TOLERANCE`]): a change that moves one in or out of the tolerance fails here.
 //!
-//! `cargo test -p sc_sim --test economy_oracle syndicate -- --nocapture` prints the table from 3 grid units, the
-//! stacked Tunnels and the opening; `cargo test -p sc_sim --release --test economy_oracle syndicate_table -- --ignored
-//! --nocapture` the whole table. The results are in `docs/economy_oracle.md`.
+//! `cargo test -p sc_sim --test sim economy_oracle::syndicate -- --nocapture` prints the table from 3 grid units,
+//! the stacked Tunnels and the opening; `cargo test -p sc_sim --release --test sim
+//! economy_oracle::syndicate::syndicate_table -- --ignored --nocapture` the whole table. The results are in
+//! `docs/economy_oracle.md`.
 
 use sc_sim::testing::TestSim;
 use sc_sim::testing::build_order::{Books, BuildOrder, Order};

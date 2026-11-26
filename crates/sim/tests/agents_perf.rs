@@ -4,7 +4,7 @@
 //! Ignored by default:
 //!
 //! ```sh
-//! cargo test -p sc_sim --release --test agents_perf -- --ignored --nocapture --test-threads=1
+//! cargo test -p sc_sim --release --test perf agents_perf -- --ignored --nocapture --test-threads=1
 //! ```
 //!
 //! On a flat 60 × 32 map player 1 has two fields side by side, each the stacked layout of the Syndicate economy check

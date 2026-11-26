@@ -5,6 +5,8 @@ version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
 publish.workspace = true
+# The integration tests are modules of the test programs below (slice M5-T): `tests/sim.rs` says how to add one.
+autotests = false
 
 [dependencies]
 serde.workspace = true
@@ -17,3 +19,12 @@ workspace = true
 [dev-dependencies]
 # JSON round-trip tests of scenario files, saves and replays (approved for tests only).
 serde_json = "1"
+
+[[test]]
+name = "sim"
+path = "tests/sim.rs"
+
+# The `*_perf` timings, apart, so that a release build for them compiles nothing else.
+[[test]]
+name = "perf"
+path = "tests/perf.rs"

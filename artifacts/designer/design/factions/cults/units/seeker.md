@@ -1,4 +1,6 @@
-# Jackal
+# Seeker
+
+(Renamed from Jackal: user, 2026-11-27, a name in the same religious vein as the Prayer-mobile: a seeker wandering the desert for religious reasons.)
 
 (user, 2026-11-26; named by the user) The Cults' **light vehicle**: a wheeled ATV/buggy built at the Chop Shop, with a **machine-gun turret** that fires **low damage at a high rate**, **cannot miss**, and **rotates 360°**.
 

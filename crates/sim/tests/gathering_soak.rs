@@ -46,7 +46,7 @@
 //!   another 0.5 with 20 and 24 Drones (`tuning::gathering::RECHECK_TICKS`).
 //!
 //! ```sh
-//! cargo test -p sc_sim --release --test gathering_soak -- --ignored --nocapture --test-threads=1 saturation_curve
+//! cargo test -p sc_sim --release --test sim gathering_soak::saturation_curve -- --ignored --nocapture --test-threads=1
 //! ```
 
 use std::time::Duration;

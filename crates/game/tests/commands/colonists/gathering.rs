@@ -19,7 +19,7 @@ use space_crystals::hud::info_panel::InfoText;
 use space_crystals::object_render::LoadMarker;
 
 use super::*;
-use crate::indicators::drawn_vertices;
+use crate::commands::indicators::drawn_vertices;
 
 // The objects of [`gathering_game`], by id, beside the Egress Nodes of [`colonists_game`]: player 1's, 1, and player
 // 2's, 2, far off screen.

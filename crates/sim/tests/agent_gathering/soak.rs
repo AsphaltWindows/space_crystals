@@ -5,7 +5,7 @@
 //! default:
 //!
 //! ```sh
-//! cargo test -p sc_sim --release --test agent_gathering -- --ignored --nocapture
+//! cargo test -p sc_sim --release --test sim agent_gathering::soak -- --ignored --nocapture
 //! ```
 
 use super::*;

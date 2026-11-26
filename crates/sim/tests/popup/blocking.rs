@@ -118,7 +118,7 @@ fn an_enemy_standing_over_it_keeps_it_down_and_isnt_shot() {
         assert_eq!(object(&t, guard).pos, CENTRE, "nothing pushes an enemy");
         t.step();
     }
-    assert_eq!(shots(&t, POPUP), []);
+    assert_eq!(shots(&t, POPUP), Vec::<Tick>::new());
     assert_eq!(object(&t, guard).hp, Some(80.0));
     next(
         &mut t,
@@ -156,7 +156,7 @@ fn an_own_unit_with_an_order_keeps_it_down() {
         assert_eq!(object(&t, agent).pos, CENTRE, "a unit with an order is never pushed");
         t.step();
     }
-    assert_eq!(shots(&t, POPUP), []);
+    assert_eq!(shots(&t, POPUP), Vec::<Tick>::new());
     next(&mut t, P1, order(agent, OrderKind::Stop));
     t.run(20);
     assert!(!over_the_turret(&t, agent));

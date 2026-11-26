@@ -23,7 +23,7 @@ fn with_no_target_it_goes_underground_and_stays_there() {
     assert_eq!(popup(&t, POPUP), Some(PopUp::LOWERED));
     t.run(200);
     assert_eq!(popup(&t, POPUP), Some(PopUp::LOWERED));
-    assert_eq!(shots(&t, POPUP), []);
+    assert_eq!(shots(&t, POPUP), Vec::<Tick>::new());
 }
 
 /// Plan §3.3 S2's acceptance: "It rises 8 ticks after an enemy enters range 5, and fires. It retracts 32 ticks after
@@ -59,9 +59,9 @@ fn it_rises_in_8_ticks_at_an_enemy_in_range_fires_and_retracts_32_ticks_after_it
     }
     assert_eq!(t.sim().tick(), g + 8);
     assert_eq!(popup(&t, POPUP), Some(PopUp::Raised { idle: frames(0, 32) }));
-    assert_eq!(shots(&t, POPUP), [], "it can't fire while rising");
+    assert_eq!(shots(&t, POPUP), Vec::<Tick>::new(), "it can't fire while rising");
     t.run_until(g + 12);
-    assert_eq!(shots(&t, POPUP), [], "Aim 4");
+    assert_eq!(shots(&t, POPUP), Vec::<Tick>::new(), "Aim 4");
     t.step();
     assert_eq!(shots(&t, POPUP), [g + 13]);
     let dies = g + 13 + 3 * 24;
@@ -112,7 +112,7 @@ fn a_target_seen_while_it_retracts_waits_for_it_to_go_down_and_come_up_again() {
     );
     assert!(blocked(&t), "its footprint blocks all along");
     t.run_until(52);
-    assert_eq!(shots(&t, POPUP), []);
+    assert_eq!(shots(&t, POPUP), Vec::<Tick>::new());
     t.step();
     assert_eq!(shots(&t, POPUP), [40 + 13]);
 }

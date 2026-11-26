@@ -16,7 +16,7 @@
 //! - **The sections** after a path (`core/map.md > Elevation > Map resources only on flat terrain`) are not checked:
 //!   the design names many of them by bold paragraphs, not headings. The ignored
 //!   `report_cited_sections_that_are_not_headings` lists the ones that aren't headings of the file they cite:
-//!   `cargo test -p sc_sim --test design_citations -- --ignored --nocapture`.
+//!   `cargo test -p sc_sim --test sim design_citations -- --ignored --nocapture`.
 //!
 //! It runs in the sim crate, in the fast `cargo test -p sc_sim` loop, without Bevy.
 
@@ -322,7 +322,7 @@ fn names(heading: &str, cited: &str) -> bool {
 /// A report, not a gate: each cited section that isn't a heading of the file it cites, marked "nowhere" when its
 /// name isn't in the file at all (renamed, or gone), else named by a bold paragraph or in a line of the text.
 #[test]
-#[ignore = "a report: cargo test -p sc_sim --test design_citations -- --ignored --nocapture"]
+#[ignore = "a report: cargo test -p sc_sim --test sim design_citations -- --ignored --nocapture"]
 fn report_cited_sections_that_are_not_headings() {
     let root = root();
     let prefixes = Prefixes::of(&root);

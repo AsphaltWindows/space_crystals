@@ -3,7 +3,7 @@
 //! tick with everyone inside. Ignored by default:
 //!
 //! ```sh
-//! cargo test -p sc_sim --release --test holding_perf -- --ignored --nocapture --test-threads=1
+//! cargo test -p sc_sim --release --test perf holding_perf -- --ignored --nocapture --test-threads=1
 //! ```
 //!
 //! On a flat 48 × 40 map player 1 has two rows of four Armories, ten tiles apart, a block of ten Recruits east of each

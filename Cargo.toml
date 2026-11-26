@@ -24,9 +24,13 @@ unsafe_code = "forbid"
 dbg_macro = "warn"
 todo = "warn"
 
-# Bevy is slow unoptimized: optimize all dependencies, keep our own code quick to compile.
+# Bevy is slow unoptimized: optimize all dependencies, keep our own code quick to compile. Debug info (slice M5-T):
+# line tables for our crates, enough for a backtrace's files and lines, and none for the dependencies, which made
+# every program linking Bevy 1.7 GB (ARCHITECTURE.md > Layout, toolchain and commands).
 [profile.dev]
 opt-level = 1
+debug = "line-tables-only"
 
 [profile.dev.package."*"]
 opt-level = 3
+debug = false

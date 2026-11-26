@@ -103,8 +103,9 @@ Index of the design docs. Paths are relative to this folder.
 | `factions/cults/units/militant.md` | Basic combat infantry |
 | `factions/cults/units/gunner.md` | Heavier-hitting infantry |
 | `factions/cults/units/disciple.md` | Spell caster (Cathedral) |
-| `factions/cults/units/jackal.md` | Light wheeled vehicle, 360° machine-gun turret, ground+air (Chop Shop, 2 Recruits) |
-| `factions/cults/units/missile_platform.md` | Long-range shoot-and-scoot missile vehicle, tracked, area damage (Chop Shop, 3 Recruits); name TBD |
+| `factions/cults/units/seeker.md` | Light wheeled vehicle, 360° machine-gun turret, ground+air (Chop Shop, 2 Recruits) |
+| `factions/cults/units/hand_of_heaven.md` | Long-range shoot-and-scoot missile vehicle, tracked, area damage (Chop Shop, 3 Recruits) |
+| `factions/cults/units/prayer_mobile.md` | Wheeled caster vehicle with a megaphone, Inspire and Suppress (Chop Shop, 2 Recruits, Temple) |
 | `factions/cults/units/sparrow.md` | Small glider, 45° MG turret, air+ground, never lands (Airstrip, 1 Recruit) |
 | `factions/colonists/overview.md` | Colonists identity and resources (Space Crystals, Alloys, Essence, Flux, Beacon Capacity) |
 | `factions/colonists/economy.md` | Beacon Deployment, Beacon, Warp In, Starting Conditions, Egress Node, refining (Alloy Furnace, Essence Refinery, Flux Reactor) |

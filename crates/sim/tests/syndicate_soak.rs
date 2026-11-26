@@ -47,7 +47,8 @@
 //! other order before it is out, so a refund here would mean it died on its way: [`no_turret_refunds`] then says so
 //! rather than leave the books to fail.
 //!
-//! Ignored: two games of 9 600 ticks. `cargo test -p sc_sim --release --test syndicate_soak -- --ignored --nocapture`.
+//! Ignored: two games of 9 600 ticks.
+//! `cargo test -p sc_sim --release --test sim syndicate_soak -- --ignored --nocapture`.
 
 use std::collections::{BTreeMap, BTreeSet};
 use std::mem::{Discriminant, discriminant};
@@ -970,7 +971,8 @@ fn first_tunnel_income(run: &Run) -> (f32, Tick) {
 /// minute without a delivery. It prints the soak's rows of `docs/playtest/m4.md > Known issues`. With more Agents than
 /// played, the soak's own stuck checks are off: six Agents at one hatch wait longer for their turn than they allow.
 ///
-/// Ignored: three games of 9 600 ticks. `cargo test -p sc_sim --release --test syndicate_soak -- --ignored --nocapture`.
+/// Ignored: three games of 9 600 ticks.
+/// `cargo test -p sc_sim --release --test sim syndicate_soak -- --ignored --nocapture`.
 #[test]
 #[ignore = "a soak of three 10-minute games: run it in release"]
 fn more_crystal_agents_never_stop_the_first_tunnel() {

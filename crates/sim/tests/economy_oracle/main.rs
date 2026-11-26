@@ -32,9 +32,9 @@
 //!
 //! **The Colonists' line** and how it is measured: `colonists.rs`.
 //!
-//! `cargo test -p sc_sim --test economy_oracle -- --nocapture` prints each line's timeline (when each order started,
-//! finished and was placed, and the bank, income and power at the line's checkpoints) and the Colonists' table. The
-//! measured results, both factions', are in `docs/economy_oracle.md`: a change that moves one updates it.
+//! `cargo test -p sc_sim --test sim economy_oracle -- --nocapture` prints each line's timeline (when each order
+//! started, finished and was placed, and the bank, income and power at the line's checkpoints) and the Colonists'
+//! table. The measured results, both factions', are in `docs/economy_oracle.md`: a change that moves one updates it.
 
 mod colonists;
 mod curve;

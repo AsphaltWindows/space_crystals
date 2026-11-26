@@ -5,7 +5,7 @@
 //! sight, "to be revisited if too expensive"). Ignored by default:
 //!
 //! ```sh
-//! cargo test -p sc_sim --release --test attack_move_perf -- --ignored --nocapture --test-threads=1
+//! cargo test -p sc_sim --release --test perf attack_move_perf -- --ignored --nocapture --test-threads=1
 //! ```
 //!
 //! Two maps: the river from edge to edge (the far bank is another component: every judged path ends on the near
