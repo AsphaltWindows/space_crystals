@@ -20,9 +20,9 @@ fn shrine() -> MapTarget {
 }
 
 /// `factions/cults/structures/shrine.md > Placeholder stats`: "Targeting: AwaitingTarget, left-click a point in
-/// vision"; `> Abilities`: "cast on an area anywhere the player currently has vision". A click on a point the player
-/// sees casts there: on the ground, and on the ground under an object, own or enemy, which the cast doesn't aim at
-/// (**Placeholder**: "a point"); the pointer shows Cast. On a point the player doesn't see now, nothing (an invalid
+/// vision"; `factions/cults/structures/shrine.md > Abilities`: "cast on an area anywhere the player currently has
+/// vision". A click on a point the player sees casts there: on the ground, and on the ground under an object, own or
+/// enemy, which the cast doesn't aim at (**Placeholder**: "a point"); the pointer shows Cast. On a point the player doesn't see now, nothing (an invalid
 /// target: plan §N5's "a click outside vision gives "invalid target" feedback"), under the Inactive pointer. Each of the
 /// two casts its own ability.
 #[test]

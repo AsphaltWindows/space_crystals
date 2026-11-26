@@ -429,10 +429,11 @@ Units, structures and resources are all `Object`s (`object.rs`, `core/entities.m
     reserves and that aren't on their way out (slice M5-F2); `Sim::held_in` is everyone inside. The client's Enter
     pointer is slice M5-J1's (*Client architecture*, *The Recruit's panel*). Design change 0319's other holders fit
     the def as it is: the Chop Shop, the Cathedral and the Airstrip have their `HoldsDef` since slice M5-G2 (in at B,
-    out at C, 10 Recruits), the Altar (slice M5-N1b) and the Temple (slice M5-N3: in at B, out at C, 6 Recruits, its
-    staff, *Production > Research*) have theirs, the Shrine (ABAC) gets its with its slice, and the Gunworks and the
-    Machine Shop (ABAC too) hold no one until their research is designed (design change 0328), so a right-click on one
-    with Recruits is a Move.
+    out at C, 10 Recruits), the Altar (slice M5-N1b), the Temple (slice M5-N3: in at B, out at C, 6 Recruits, its
+    staff, *Production > Research*) and the Shrine (slice M5-N5: in at B, out at C one at a time, 8 Recruits, its
+    participants, staffed as the Temple's are, `holding::staffed`; they charge its energy, *Combat > Energy*) have
+    theirs, and the Gunworks and the Machine Shop (ABAC, as the Shrine) hold no one until their research is designed
+    (design change 0328), so a right-click on one with Recruits is a Move.
   - **The Garrison** (slice M5-N2, plan decision T72 as design change 0335 amended it;
     `factions/cults/structures/garrison.md`): `HoldsDef { entrance: B, exit: ExitRule::AtOnce(B), capacity: 4,
     accepts: Recruit, Militant, Gunner, Disciple }`, SymmetryType AAAB: "**the door on side B** (one door, entrance and
@@ -871,7 +872,8 @@ Layout validation can't disagree. **Never test a placement rule anywhere else: a
    and note who owns a structure as the tick starts (`economy::defeat::structure_owners`, for the defeat check).
 4. **Commands**: apply each `PlayerCommand` in `TickInputs` order (`apply_command`). Each passes the gate against
    the state the commands before it left, so a cost is paid from the bank as they left it and a Place is checked
-   with the footprints they placed (see *Economy > Construction*).
+   with the footprints they placed (see *Economy > Construction*). (M5-N5) A `Command::Cast` pays its energy and gives
+   its buffs here, to the units where the last tick left them (plan decision T76; *Combat > Buffs*).
 5. **Systems**, each walking the objects in id order, one function per module (`docs/movement.md > 4`):
    - Modes, `Sim::step_modes` (`sim/modes.rs`, beside `Sim::use_ability`, which applies the ability commands and
      switches a toggled unit's type at the press): each unit's form goes a step toward its type (*Object model >
@@ -954,7 +956,13 @@ Layout validation can't disagree. **Never test a placement rule anywhere else: a
      its MaxEnergy: after 5e's removals, so that the dead regenerate nothing; before the economy, so that a unit it
      trains has its type's start at the end of its first tick. An object created in the tick (`first_new` on)
      regenerates from the next; a unit trained as its building is destroyed (the evacuation, in 5e) gets its pool
-     before this step, and ends its tick a tick's regeneration above its start.
+     before this step, and ends its tick a tick's regeneration above its start. (M5-N5) An Energy regeneration buff
+     adds its rate here (`buffs::energy_bonus`), from the tick of its cast.
+   - Buffs, `buffs::step` (slice M5-N5, plan decision T75, see *Combat > Buffs*): right after the energy. Every
+     object's buffs, on the map and then held, in id order: a Health regeneration adds its HP, up to the unit's MaxHP
+     with its Augmentations, and each buff whose last tick this was ends. After 5e's removals, so that the dead never
+     heal and a hit's tick ends with the heal on top of it; an object created in the tick (`first_new` on) has its
+     effects from the next.
    - Economy, `economy::step` (plan decision T5, see *Economy*): after 5e's removals and their `paths::sync`, so
      that a building destroyed in the tick counts for nothing in it; before 5f, so that what it brings into the game
      is seen in its own tick. In order: every player's power (the structures this tick's commands placed included),
@@ -1142,7 +1150,8 @@ ticks spent in it. Hashed and serialized like all state.
   keeps their fraction, with no minimum (0111, `transform::keep_fraction`). The vision's records keep no Shields.
 - **Energy** (`energy.rs`; slice M5-N4a, plan decision T75; `factions/cults/units/disciple.md > Energy`): an object
   whose kind has an energy pool (`ObjectDef::energy`, an `EnergyDef` in points as the design gives them: its maximum,
-  its start and its regeneration, `EnergyRegen::PerSecond` or, for the Shrine to come, `PerUnitInside`) has
+  its start and its regeneration, `EnergyRegen::PerSecond` or, for the Shrine (slice M5-N5), `PerUnitInside`: so
+  many a second for each unit inside, everyone held counted, those on their way out too, a Placeholder) has
   `Object::energy`, a whole number of `energy::ONE`s (`RATIO_ONE`) a point, so that the design's rates add up exactly
   (0.5 a second is 2048 a tick, `energy::per_tick`: 50 to 200 in 4800 ticks, 300 s to the tick) and a spell's
   threshold compares exactly. It has its type's start as it comes into the game (`energy::start`, `Sim::new_object`)
@@ -1152,6 +1161,20 @@ ticks spent in it. Hashed and serialized like all state.
   a pool hashes as it did. Spending is the spells' (Shroud's drain, slice M5-N4b; the Shrine's casts, M5-N5). The
   client reads it in points (`energy::of`): the energy bar and the InfoPanel's line. E1 (*Movement and collision >
   Invariants*) holds it within the pool.
+- **Buffs** (`buffs.rs`, `defs/cults/abilities.rs`, `sim/casts.rs`; slice M5-N5, plan decisions T75 and T76;
+  `factions/cults/structures/shrine.md > Abilities`): an area ability (`AreaAbility`, the Shrine's two, Q Health
+  regeneration and W Energy regeneration; its numbers an `AbilityDef`: cost, radius, duration, the kinds it affects,
+  its `BuffEffect`) is cast by a structure whose type lists it (`StructureDef::abilities`), at a point
+  (`Command::Cast`, *Commands, events and replays*), and every unit of the caster's owner on the map whose centre is
+  in its circle as the last tick left it (`buffs::in_circle`, the edge included: a Placeholder), of a kind it affects,
+  gets its `Buff` until the cast's tick plus its duration (`Object::buffs`: one of an ability at most, a recast
+  restarting it, so that effects never stack). It works every tick from its cast's on (*Tick pipeline*: Health
+  regeneration's 0.125 HP a tick in the Buffs step, up to `Object::max_hp_with`; Energy regeneration's 4096 in the
+  energy step, up to the MaxEnergy), wherever the unit goes, into a building too (a Placeholder), and the unit keeps it
+  through a change of kind its ability still affects. Units inside a building or a Tunnel Network aren't in the area,
+  and the buff stays when its caster is gone (a Placeholder). Hashed (tag 9) and saved only while a unit has one.
+  F1 (*Movement and collision > Invariants*) checks them. The client marks each buff a seen unit has beside its HP
+  bar's place (`combat_effects/buffs.rs`, *Client architecture*).
 - **Weapon Conversion** (`conversion.rs`, `sim/modes.rs`; `factions/colonists/units/weapon_conversion.md`, plan
   decision T26, design change 0198): `Ability::Convert` flips the target form of each Legionnaire it goes to, a
   Sabre's to the Rifle Legionnaire and a Rifle's to the Sabre (`conversion::converts_to`): its type switches at the
@@ -2120,13 +2143,15 @@ and the code is `crates/sim/src/movement.rs` and `movement/`, with the unit's st
   (`StructureDef::research`), at a structure with an owner who has its previous level; (M5-N4b) C1 (`clouds`): every
   cloud member is a live unit channelling Shroud in the channel it names, each unit that channels is in exactly one
   cloud, a cloud's circles are connected and two clouds never touch, and a buffer is never below 0, its timer running
-  while it holds anything and never past due. A `TestSim` checks them after
+  while it holds anything and never past due; (M5-N5) F1 (`buffs`): no object, on the map or held, holds two buffs of
+  an ability, each ends within its ability's duration from now, and only a kind the ability affects holds it. A
+  `TestSim` checks them after
   every tick
   and panics with a picture of
   the map (`TestSim::ascii`: units as letters, with a legend). The check is on by default; `check_invariants(false)`
   turns it off for timing runs. A test that steps a bare `Sim` keeps its own `Invariants` and calls `check` after each
   step, as the golden games do (`tests/golden/harness.rs`). The fuzz's games (`tests/robustness.rs`, the seed sweep's)
-  check the rules' invariants alone, `Invariants::check_rules` (P1, O1, R1, H1, B1, A1, E1, T1, C1): V1 and K1, which
+  check the rules' invariants alone, `Invariants::check_rules` (P1, O1, R1, H1, B1, A1, E1, T1, C1, F1): V1 and K1, which
   rebuild the vision and the planning grids, would take the sweep from 5 s to 26 s.
 
 ## Economy
@@ -2876,6 +2901,14 @@ their energy doorway, slice M3-D2: design change 0145, `factions/colonists/struc
   Eject All`): those whose pool has a unit (`NothingInside` if none has) mark their pool for Eject All.
   **`ReleaseOne(kind)`** (slice M5-N3): the staffed ones among them (`NoHolders` if none) with a free unit of the kind
   (`NoRecruit(kind)` if none has) each mark the one that went in first (*Object model > Buildings that hold units*).
+- **`Command::Cast { casters, ability, at }`** (slice M5-N5, plan decision T76; `sim/casts.rs`, *Combat > Buffs*):
+  of the player's `casters` that cast the ability (`LacksAbility` if none), in operation (`UnderConstruction` if
+  none), the first in id order with the energy it costs (`NotEnoughEnergy` if none; one Shrine casts, Q0118's "each
+  press casts from one Shrine", a command naming several being a Placeholder) casts at `at`, on the map (`OffMap`)
+  and on a tile Visible to the player now, as the last tick left their vision (`OutOfSight`: "anywhere the player
+  currently has vision"; `Sim::sees_point`, which the client's cast cursor and its click use too). `Sim::can_cast` is
+  the checks but the point's, what the panel greys Q and W by. "No cooldowns": the Shrine casts again as soon as it
+  has the energy. `SimEvent::Cast` says where it went.
 - **Default orders** (`orders/resolution.rs`; `systems/controls/interface.md > RightClickResolution`, design
   changes 0062, 0063, 0074 and 0136): `resolve(Abilities, Aim)` is the one rule for what a unit does against a target
   by default: the ground gives Move; a worker on a patch it can gather Gather, on its owner's drop-off Drop Off while
@@ -3650,8 +3683,11 @@ these.
   shield bar right above for an object that has Shields (`systems/combat.md > Shields > Display`, design change 0148;
   `SHIELD_FILL`, a placeholder colour), shown too while only its Shields are down, and (slice M5-N4a) an energy bar
   right under it for an object that has an energy pool (`HpBar::energy`, from `sc_sim::energy::of`; `ENERGY_FILL`, a
-  placeholder violet), shown with the HP bar alone, energy short of its maximum being no damage (Placeholder), and a
-  fading marker for each
+  placeholder violet), shown with the HP bar alone, energy short of its maximum being no damage (Placeholder),
+  (slice M5-N5) a mark of each buff a unit the local player sees has, a cross in a dark rim right of its HP bar's
+  place, whether the bar shows or not, green for Health regeneration and violet for Energy regeneration, in
+  `AreaAbility::ALL`'s order (`combat_effects/buffs.rs`, `buff_marks`; who sees a buff and its look are
+  Placeholders, Q0001), and a fading marker for each
   `SimEvent::Died` (`DEATH_MARKER_TICKS`), never for an object that was hidden from the local player
   (`shows_death`, the `Hiding` its death carries; plan decision T52: "nothing is drawn for a hidden victim", as a
   Hideout under a blast; no hit is drawn for any victim). Each effect keeps its event's `Sighting` (*Viewer events*):
@@ -3777,7 +3813,9 @@ Metabolism 0, Both 0", one that takes in several types, the Altar, by type, "Fre
 Disciple 1" (slice M5-N1b, a placeholder; another, the Garrison, slice M5-N2, the kinds inside with their counts, in
 its `accepts` order,
 "Occupants: Militant 2, Gunner 1": a placeholder, the design has no GarrisonInstanceState; a Temple, slice M5-N3, its
-staff, "Staff: 3 / 6", those not on their way out, `Sim::staff`, and their kinds as the pool's, a placeholder too); its
+staff, "Staff: 3 / 6", those not on their way out, `Sim::staff`, and their kinds as the pool's, a placeholder too; a
+Shrine, slice M5-N5, its participants alike, "Participants: 8 / 8", a placeholder, beside its energy, "Energy 40 / 200",
+the body's line of any pool); its
 queue line names the entries, "Queue: Militant, Release (2 / 10)", of its capacity, and a
 Release under way is "Releasing Recruit: 50%", an Altar's order "Augmenting Militant (Enhanced Constitution): 45%",
 its queue line naming its orders, a Temple's research "Researching Enhanced Constitution Level 1: 45%", its queue
@@ -3969,7 +4007,7 @@ local player orders their units, their producing structures and their constructo
 Drones, through one command flow (plan decision T10, slices M2-H1, M2-H2 and M3-J1).
 - **Rules** (pure and unit tested): `command_ui/interface.rs` and its children (`commands.rs`, `templates.rs` with
   its `production.rs`, `state.rs` and `offers.rs` and an object's own panel in `templates/<faction>/<object>.rs`,
-  `conditions.rs`, `panel.rs`) have the `PanelCommand`s (the units' and the producers' commands), the `InterfaceState`
+  `conditions.rs` with its probes of the gate in `conditions/probes.rs`, `panel.rs`) have the `PanelCommand`s (the units' and the producers' commands), the `InterfaceState`
   (DefaultState, or AwaitingTarget of a command, `queued` once a Shift-click has queued it: design change 0070) in
   each `ControlState`, the ActiveGroup's `InterfaceTemplate` (the Peacekeeper's and the Guard's BasicCombatUnit grid;
   every producer's Production grid, built from its `ProductionDef` (plan decision T23): its units' Train from Q on,
@@ -4264,6 +4302,23 @@ Drones, through one command flow (plan decision T10, slices M2-H1, M2-H2 and M3-
   right-click
   (`object_right_click`: `None`); a Recruit's right-click on it is the sim's Enter, under `PointerDisplay::Enter`.
   The Recruit's Advanced Construct X is its Build, greyed "Requires an Altar" until one stands.
+- **The Shrine's panel and its casts** (slice M5-N5; `factions/cults/structures/shrine.md > Placeholder stats`:
+  "**Health regeneration** (hotkey Q)", "**Energy regeneration** (hotkey W)"; "Targeting: AwaitingTarget, left-click
+  a point in vision. **A/S/D/F** release one Recruit of a kind, **V: Eject All**"): `templates/cults/shrine.rs`
+  (`InterfaceTemplate::Shrine`) is Q and W `PanelCommand::Cast(ability)`, labelled "Health" and "Energy" and named
+  after the abilities, A, S, D and F `ReleaseOne(kind)` as the Temple's, and V `EjectAll`; no C (no rally point, a
+  Placeholder) and no right-click of its own. A cast is greyed while the gate would refuse it but for its point
+  (`Sim::can_cast`, "Not enough energy"; `conditions/probes.rs` holds the panel's probes of the gate). It is Ungroupable
+  ("Groupable **false** [...] each press casts from one Shrine"): an instance command (`PanelCommand::instance_only`),
+  so each press goes to the one Shrine Tabbed to. It awaits a point (AwaitingTarget; Shift casts it as a plain click
+  does and ends the targeting, a Placeholder: a structure has no queue): `MapTarget::seen` is `Sim::sees_point` at
+  the ground under the cursor, and a click there resolves to `Resolved::Cast(ability, ground)` whatever stands there
+  ("a point": a Placeholder), sent as one `Command::Cast` (`OrderOutbox::cast`); on a point out of vision it is an
+  invalid target ("Invalid target", the targeting kept). The pointer is `PointerDisplay::Cast` (`cursor::CAST_COLOR`,
+  a placeholder pink) where it would cast, Inactive where not, and the indicators draw the cast's circle at the
+  cursor while it is awaited (`indicators/cast.rs`: a faint disc and a ring of its radius on the terrain's surface,
+  in the Cast colour over a point in vision, grey out of it; a placeholder look). The Recruit's Advanced Construct V
+  is its Build, greyed "Requires a Temple" until one stands.
 - **The Recruit's panel** (slice M5-J1; `factions/cults/units/recruit.md > Recruit ObjectInterfaceState`, design
   changes 0322, 0327 and 0347): `templates/cults/recruit.rs` (`InterfaceTemplate::Recruit`) is Q Move, A and W
   `PanelCommand::BuildMenu` (named "Basic Construct" and "Advanced Construct", `PanelTemplate::names`), S
@@ -4568,8 +4623,8 @@ unchecked.
   playback keys), `--windowed` and `--headless` work with it; a windowless playback ends at the replay's end unless
   told otherwise. To check a replay quickly: `cargo run -- --replay <file> --headless --fast`.
 - **Golden hashes** (`crates/sim/tests/golden/`: the games in `units.rs`, `gdo.rs`, `colonists.rs`, `syndicate.rs`,
-  `cults.rs`, `garrison.rs`, `altar.rs`, `temple.rs`, `shroud.rs` and `main.rs`, the recording and the comparison in
-  `harness.rs`): seventeen games, a 3v3
+  `cults.rs`, `garrison.rs`, `altar.rs`, `temple.rs`, `shroud.rs`, `shrine.rs` and `main.rs`, the recording and the
+  comparison in `harness.rs`): eighteen games, a 3v3
   duel, a 40-unit
   AttackMove battle, a 12-unit group move through a choke, a patrol that meets an enemy, a chase lost in the fog, three
   Peacekeepers that raise their Riot Shields (`Command::Ability`; one turns back half-way), walk up to a Guard under
@@ -4578,8 +4633,8 @@ unchecked.
   plates, while player 2 plates its field and builds Generators), the Colonists' `colonists_opening` and
   `colonists_vs_gdo` (slice M3-K1, below), the Syndicate's `syndicate_opening` and `syndicate_vs_gdo` (slice
   M4-L, below), the Cults' `cults_opening` and `cults_vs_syndicate` (slice M5-L, below), `cults_garrison` (slice
-  M5-N2, below), `cults_altar` (slice M5-N1b, below), `cults_temple` (slice M5-N3, below) and `cults_shroud` (slice
-  M5-N4b, below), are blessed as replays
+  M5-N2, below), `cults_altar` (slice M5-N1b, below), `cults_temple` (slice M5-N3, below), `cults_shroud` (slice
+  M5-N4b, below) and `cults_shrine` (slice M5-N5, below), are blessed as replays
   with a checkpoint every 32 ticks and at the end, in `crates/sim/tests/golden/<name>.json`. Another, `area_attacks` (slice M4-O), is a unit test
   (`combat/projectiles/golden.rs`), as it plays test throwers (`combat::testing`): grenades in flight, blasts over a
   hidden Hideout and a group, an Attack Ground. Its file is `tests/golden/test_defs/area_attacks.json`, out of the
@@ -4635,7 +4690,13 @@ unchecked.
   run dry at 178, the middle one at 292. While a
   unit is under a cloud every hit on it is a release, and at each of those ticks every buffer goes at once
   (`during`). Two Guards fall while the clouds are up, and no unit of player 1's; in the open the three Militants in
-  front fall, and the rest kill the last Guard and the Grenadier. The
+  front fall, and the rest kill the last Guard and the Grenadier. In `cults_shrine` (to 1:28, on a test map) eight
+  Recruits go into a Shrine at tick 1 and charge it 2 energy a second once all are in; three Agents attack-move onto
+  three Militants at tick 520, and the middle ones of both sides fall together; at tick 680 the Shrine casts Health
+  regeneration over the two Militants left, both wounded: each heals 0.125 HP a tick after the tick's hits for 240
+  ticks, up to its MaxHP, the Agents in the circle get nothing, and the two kill the Agents; at tick 1072 it casts
+  Energy regeneration on a Disciple, whose energy rises 1.5 a second for 320 ticks (`during`, every tick, with the
+  Shrine's energy). The
   ignored
   `tests/skirmish_soak.rs`
   (slice M3-K2) plays the Colonists' two players for 10 minutes, twice, until player 1's field runs out: the
@@ -4951,7 +5012,11 @@ The faction's own mechanics come next, each only if it has them (M3's and M4's i
 11. **Shields** (M3-B): `max_shields` in the def; `Object::shields` absorbs in `combat/damage.rs::resolve` and
     regenerates in `Phase::Shields`; the client draws the bar and the InfoPanel line. **Energy** (M5-N4a) likewise:
     `energy` in the def (an `EnergyDef`); `Object::energy` regenerates in `Phase::Energy`, and E1 bounds it; the
-    client draws its bar and line from `energy::of`.
+    client draws its bar and line from `energy::of`. **Area abilities** (M5-N5): an `AreaAbility` with its
+    `AbilityDef` (`defs/cults/abilities.rs`), listed in its caster's `StructureDef::abilities`; `Command::Cast` and
+    its gate (`sim/casts.rs`), `Object::buffs` in `Phase::Buffs` (`buffs.rs`), and F1 bounds them; the client's
+    `PanelCommand::Cast` in the caster's template, the cast's circle (`indicators/cast.rs`) and the buffs' marks
+    (`combat_effects/buffs.rs`).
 12. **Workers** (M3-H, M3-H2, M3-H3, M3-K2a): a `WorkerDef` (its carry capacity, mining and drop-off times and
     reaches, search radius and `pass_through`), the Gather and Drop Off orders (`orders/gather.rs`, the gate in
     `sim/workers.rs`), the timed work and the bank credit (`economy/gathering.rs`, `SimEvent::ResourcesDelivered`),
