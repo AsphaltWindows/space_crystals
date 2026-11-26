@@ -72,9 +72,11 @@
   the amendments of I3, I5 and I7. Its changes are marked **(H1)**. The code is `crates/sim/src/movement/glider.rs`,
   `movement/air.rs`, `mover/flight.rs` (`Mover::orbit`, `Mover::strafe`), `tuning/air.rs`, `Object::map_pos` and the
   gate's clamp of an order's point onto the map (`sim/gate/orders.rs`).
-- **The Sparrow sees 8 grid units** (slice M5-H2; design change 0403, answering Q0148 part 1): a lone Sparrow's loops
-  keep a small target in its own sight, so its Attack goes on pass after pass (the tests of 8). Its changes are
-  marked **(M5-H2)**. The code is the Sparrow's def (`crates/sim/src/defs/cults/units/sparrow.rs`).
+- **The Sparrow sees 8 grid units, and a Glider's Move completes on arrival** (slice M5-H2; design changes 0403 and
+  0404, answering Q0148 parts 1 and 2): a lone Sparrow's loops keep a small target in its own sight, so its Attack
+  goes on pass after pass (the tests of 8), and a Move ends where 6.9's Glider arrives, so the orders queued after it
+  start. Its changes are marked **(M5-H2)**. The code is the Sparrow's def
+  (`crates/sim/src/defs/cults/units/sparrow.rs`) and `crates/sim/src/orders/run.rs`.
 
 Design references are `path/file.md > Section`, with paths relative to `artifacts/designer/design/`.
 Every number marked *(placeholder)* becomes a named const tagged with the question that covers it (section 2).
@@ -860,9 +862,10 @@ of 6.3's), and its unit tests are `movement/glider/tests.rs`.
   the circle by its distance off it (`CIRCLE_PULL`, *placeholder*). An orbit is set when a goal ends, or at the first
   tick without one: the point of the map nearest to where the Glider is. A Stop and a Hold Position circle where the
   Glider was when it got them (0354 point 7); a Move to a point arrives within the circle's radius and circles the
-  point for as long as the order lasts, which is until another replaces it
-  (`systems/controls/command_behaviors.md > MovingToLocation`: "Behavior does not complete"), so a Shift-queued
-  order after it waits.
+  point from then on. **(M5-H2)** The Move completes there, in the next tick's phase 5a (design change 0404,
+  `systems/controls/command_behaviors.md > MovingToLocation`: "The behavior completes when the glider first reaches
+  TargetLocation", replacing "does not complete"): a Shift-queued order after it starts there, and with none the
+  Glider circles the point, idle. A queued Stop or Hold circles where the Glider is as it starts, short of the point.
 - **Strafing**: an Attack gives the Glider an object goal on its target, an Attack Ground a point goal, and either a
   strafing run (`Mover::strafe`, the run's range its attack's): it flies at the target at MaxSpeed, passes over it,
   holds its course until the gap is more than the range, then turns back at MaxSpeed on its tightest turn (0354 point
@@ -986,7 +989,9 @@ each tick's flight may bring it a hair nearer before the next.
   moves off alone, one on Hold stays, stacks of 2 to 8 on one point and in a corner come apart within the bound.
   **(H1)** Gliders (`crates/sim/tests/air/`, `movement/glider/tests.rs`, `movement/air/tests.rs`, the Sparrow's
   numbers): 4 su a tick to 10 in 12 ticks; a 180° turn at full speed on a 200 su radius, within 1 %; a Move's point
-  circled on 64 su at IdleSpeed for ever, a queued order waiting; idle, Stop and Hold circle where the Sparrow was,
+  circled on 64 su at IdleSpeed for ever (**(M5-H2)** the Move complete on arrival, the Sparrow idle; a Shift-queued
+  Move flies on past the first point to the second and circles it, a queued AttackMove starts there, a queued Stop
+  or Hold circles where the Sparrow reached the point); idle, Stop and Hold circle where the Sparrow was,
   and on Hold it shoots what the circle brings into range and arc, never chasing; an AttackMove strafes what it meets
   and ends circling its destination (its loop swings past the leash, which lets the target go; **(M5-H2)** with its
   SightRange of 8 grid units the target is still in sight as it resumes its way, and it takes it again: two takes of

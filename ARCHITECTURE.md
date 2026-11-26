@@ -1902,7 +1902,8 @@ magic box did, **(Y)** where friendly yielding and the answers to Q0008 did, **(
 the hardening of crowds and nav performance did, **(H2)** where gathering Drones passing through each other did,
 **(M3-G)** where DragMovement and idle units moving apart did, **(M3-G2)** where a queueing unit going round
 the row in its way did, **(M3-G3)** where one with no way round giving up did, **(H1)** where Gliders and the soft
-separation of air units did), and the code is `crates/sim/src/movement.rs` and `movement/`, with the unit's state in
+separation of air units did, **(M5-H2)** where a Glider's Move completing on arrival did), and the code is
+`crates/sim/src/movement.rs` and `movement/`, with the unit's state in
 `mover.rs`.
 
 - **One pipeline, sequential commit** (`movement::step`, phase 5d): the step builds one spatial grid per collision
@@ -2100,12 +2101,13 @@ separation of air units did), and the code is `crates/sim/src/movement.rs` and `
   Glider (the Sparrow) flies instead of following a path, and collides with nothing. Its speed is `Mover::momentum`'s
   length, always between IdleSpeed and MaxSpeed, its turn in a tick at most `MaxCentripetalAcceleration / v`, and its
   Locomotion always Moving. Without a goal it circles its `Mover::orbit` at IdleSpeed on 1 grid unit
-  (`tuning::air::IDLE_CIRCLE_GU`); with a point it arrives within that circle and circles the point for as long as the
-  order lasts; an Attack or an Attack Ground makes a strafing run (`Mover::strafe`, `Pass`: toward the target, over it,
+  (`tuning::air::IDLE_CIRCLE_GU`); with a point it arrives within that circle and circles the point from then on;
+  an Attack or an Attack Ground makes a strafing run (`Mover::strafe`, `Pass`: toward the target, over it,
   on until out of range, back at full speed), set by `orders::engage::close_in` and `orders::attack_ground`. Ask
   `UnitDef::glides` (or a behaviour's `orders::world::Unit::glides`) whether a unit is a Glider. **Never make a Glider
   stand**: `Mover::stop` and `finish` clear its goal, orbit and run, and it circles where it is from its next flight;
-  the behaviours never wait on its arrival (a Move's order never completes, so a queued order after it waits). The
+  (slice M5-H2, design change 0404) a Move's order completes as it arrives, and the next queued order starts there
+  (`orders::run`; with none it circles the point, idle). The
   ground units' back-off from a target inside MinRange is skipped for it. Its base gets no turn budget in phase 5e
   (`movement::turn_rate` is 0 for it): only its turret aims.
 - **Where an object counts as being: `Object::map_pos`** (slice M5-H1; `systems/units.md > Air Collision`: a Glider

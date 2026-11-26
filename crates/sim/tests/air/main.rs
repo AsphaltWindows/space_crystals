@@ -1,8 +1,12 @@
 //! Gliders and air units (slice M5-H1, plan decision T81): Sparrows (`factions/cults/units/sparrow.md`) played through
 //! the gate, one test binary:
 //! - `flight`: the Glider's flight (`systems/units.md > GliderMovement`): it speeds up by its Acceleration to MaxSpeed
-//!   on orders, its full-speed 180° turn has a radius of v² / a = 200 su, and at its goal it circles the point at
-//!   IdleSpeed on the idle circle of 1 grid unit (design change 0354), for ever: its Move never completes;
+//!   on orders, its full-speed 180° turn has a radius of v² / a = 200 su, and idle it circles where it came into the
+//!   game;
+//! - `moves`: (M5-H2) a Move completes as the Sparrow arrives within the idle circle's radius of its point (design
+//!   change 0404): alone, it circles the point, idle, at IdleSpeed on the idle circle of 1 grid unit (design change
+//!   0354); a Shift-queued Move or AttackMove starts there, and the Sparrow flies on
+//!   (`systems/controls/command_behaviors.md > MovingToLocation`, GliderMovement exception);
 //! - `strafing`: an Attack makes pass after pass over a stationary target, firing only while the target is within the
 //!   turret's 45° cone and the Range of 3 grid units, flying on until out of range and looping back at full speed
 //!   (`systems/controls/command_behaviors.md > AttackingObject`, GliderMovement exception; Q0120); (M5-H2) a lone
@@ -27,6 +31,7 @@
 mod attack_move;
 mod edge;
 mod flight;
+mod moves;
 mod orders;
 mod separation;
 mod shroud;

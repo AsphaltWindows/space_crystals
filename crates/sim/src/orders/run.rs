@@ -220,10 +220,12 @@ fn run(
     let order = &mut active.order;
     match (order.kind, &mut active.state) {
         // `systems/controls/command_behaviors.md > MovingToLocation`: complete when stopped at the target, or after
-        // failing to make progress (`systems/controls/command_behaviors.md > Failure`). (M5-H1) A Glider's never
-        // completes (GliderMovement exception: "Behavior does not complete — continues circling until a new command is
-        // issued"): from its arrival it circles the point (`movement::glider`), and orders queued behind it wait.
-        (OrderKind::Move(Target::Point(_)), _) => !unit.glides() && unit.mover.status != MoveStatus::Moving,
+        // failing to make progress (`systems/controls/command_behaviors.md > Failure`). (M5-H2) A Glider's completes
+        // as it arrives, within the idle circle's radius of the point, where it circles the point from then on
+        // (`movement::glider`): GliderMovement exception, design change 0404: "**The behavior completes when the
+        // glider first reaches TargetLocation** [...]: the next queued order then starts; with nothing queued it keeps
+        // circling there, as when idle". (It never completed before 0404, so the orders queued behind it waited.)
+        (OrderKind::Move(Target::Point(_)), _) => unit.mover.status != MoveStatus::Moving,
         // `systems/controls/command_behaviors.md > StoppingBehavior`: complete when stopped, at once with infinite
         // deceleration.
         (OrderKind::Stop, _) => true,

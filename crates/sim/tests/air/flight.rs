@@ -46,36 +46,6 @@ fn its_full_speed_turn_has_a_radius_of_200_su() {
     assert!(near(widest / 2.0, 200.0, 2.0), "{widest}");
 }
 
-/// `systems/controls/command_behaviors.md > MovingToLocation`, GliderMovement exception: "Final step is Locomotion =
-/// Moving(idle circle over TargetLocation), Orientation = Turning(circle path). Behavior does not complete — continues
-/// circling until a new command is issued". A Sparrow sent to a point circles it from its arrival, clockwise, at
-/// IdleSpeed, on the idle circle's radius of 1 grid unit (design change 0354), lap after lap; its Move is still its
-/// order a minute later, and a Move queued behind it never starts.
-#[test]
-fn at_its_goal_it_circles_the_point_for_ever() {
-    let goal = Vec2::new(1600.0, 640.0);
-    let mut t = quiet(flat(40, 20).spawn(SPARROW, Some(P1), point(300.0, 640.0)).start());
-    order(&mut t, 1, P1, &[1], move_to(goal.x, goal.y));
-    t.order_at(2, P1, &[ObjectId(1)], move_to(300.0, 300.0), true);
-    t.run(16 * 20);
-    let mut last = t.pos(1);
-    for _ in 0..16 * 40 {
-        t.step();
-        assert!(
-            near(t.pos(1).distance(goal), IDLE_RADIUS, 1.0),
-            "{}",
-            t.pos(1).distance(goal)
-        );
-        assert!(near(speed(&t, 1), IDLE_SPEED, 1e-3));
-        assert!(t.pos(1) != last, "it never stops");
-        last = t.pos(1);
-    }
-    assert_eq!(current(&t, 1), Some(move_to(goal.x, goal.y)));
-    let queued = &t.sim().object(ObjectId(1)).unwrap().orders.as_ref().unwrap().queue;
-    assert_eq!(queued.len(), 1, "the queued Move waits");
-    assert_eq!(t.mover(1).orbit, Some(goal));
-}
-
 /// "When idle, the unit circles at a low speed in tight loops": a Sparrow that has had no order circles the point
 /// where it came into the game, at IdleSpeed, 64 su from it, and never stops.
 #[test]

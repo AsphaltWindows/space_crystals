@@ -231,10 +231,11 @@ pub struct Mover {
     /// (M5-H1) The point a Glider circles while it has no goal (`movement::glider`; `systems/units.md >
     /// GliderMovement`: "When idle, the unit circles at a low speed in tight loops"): its goal's point once it arrived
     /// (`systems/controls/command_behaviors.md > MovingToLocation`, GliderMovement exception: "Final step is Locomotion
-    /// = Moving(idle circle over TargetLocation)"), else the point of the map nearest to where it was when its goal
-    /// ended or it was stopped (`factions/cults/units/sparrow.md > Flight rules`: "Stop: it circles where it is"),
-    /// which the movement step notes in its next turn. A new leg and a stop clear it. Always `None` for the other
-    /// models. Left out of files and of the hash while `None` (`mover/hash.rs`).
+    /// = Moving(idle circle over TargetLocation)"; (M5-H2) a Move completes there, and with nothing queued the Glider
+    /// "keeps circling there, as when idle", design change 0404), else the point of the map nearest to where it was
+    /// when its goal ended or it was stopped (`factions/cults/units/sparrow.md > Flight rules`: "Stop: it circles where
+    /// it is"), which the movement step notes in its next turn. A new leg and a stop clear it. Always `None` for the
+    /// other models. Left out of files and of the hash while `None` (`mover/hash.rs`).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub orbit: Option<Vec2>,
     /// (M5-H1) A Glider's strafing run at its goal ([`Strafe`], [`Mover::strafe`]). A new leg and a stop end it. Left

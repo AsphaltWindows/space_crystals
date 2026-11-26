@@ -30,10 +30,12 @@
 //!   arrived (`MoveStatus::Arrived`) once within the idle circle's radius of a point, or within the goal's reach of an
 //!   object (its gap, edge to edge, as the other models measure it), and circles the goal's point from then on
 //!   (`systems/controls/command_behaviors.md > MovingToLocation`, GliderMovement exception: "Final step is Locomotion
-//!   = Moving(idle circle over TargetLocation), Orientation = Turning(circle path)"). An object that is gone ends the
-//!   goal as `TargetLost`. A point inside its turn at the speed it has, which it would circle without ever reaching, it
-//!   slows down for, to IdleSpeed, until it can turn onto it: **Placeholder (not in the design: how a Glider reaches a
-//!   point just beside it)**.
+//!   = Moving(idle circle over TargetLocation), Orientation = Turning(circle path)"). (M5-H2) That arrival is where a
+//!   Move "first reaches TargetLocation" and completes (design change 0404, `orders::run`): the next queued order
+//!   starts in the next tick's phase 5a, and with none the Glider circles the point, idle. An object that is gone ends
+//!   the goal as `TargetLost`. A point inside its turn at the speed it has, which it would circle without ever
+//!   reaching, it slows down for, to IdleSpeed, until it can turn onto it: **Placeholder (not in the design: how a
+//!   Glider reaches a point just beside it)**.
 //! - **A strafing run** (`Mover::strafe`, [`Pass`]): it flies at its goal at MaxSpeed and never arrives. Once the
 //!   goal is behind it (more than 90° off its heading) it has passed it, and holds its course until the gap to the goal
 //!   is more than the run's range; then it turns back toward the goal at MaxSpeed, its tightest turn at that speed,
