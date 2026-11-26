@@ -14,19 +14,21 @@
 //!   the nearest building it knows of too: it reinforces. A wave whose building is
 //!   gone (the player saw it go) retargets at once; one that comes to rest retargets too, giving up a building it
 //!   still knows of there. With no building known and every enemy start reached, it searches the patches near them
-//!   (a GDO's last buildings are often plates); with nothing left to search, it goes home and its units are at home
-//!   again.
+//!   (a GDO's last buildings are often plates), then the ground around them ([`search_points`]: a Cults player's
+//!   Halls stand on open land, away from the patches); with nothing left to search, it goes home and its units are at
+//!   home again.
 //! - **Defense**: when one of the player's buildings loses HP, the units at home (not in a wave) Attack Move to it, and
 //!   go back to staging [`DEFENSE_TICKS`] after the last damage. No wave forms meanwhile.
 //!
-//! Every target is a building the player knows of, a start location, a patch of the map (all three known by the rules
-//! of fair knowledge), or a point of its own: design change 0402's Verification, "an AI doesn't attack a building it
-//! has never seen or scouted, apart from the known start locations".
+//! Every target is a building the player knows of, a start location, a patch of the map, a point of the ground around
+//! a start (all four known by the rules of fair knowledge), or a point of its own: design change 0402's Verification,
+//! "an AI doesn't attack a building it has never seen or scouted, apart from the known start locations".
 
 mod waves;
 
 use std::collections::BTreeMap;
 
+use sc_sim::Map;
 use sc_sim::orders::state::Auto;
 use sc_sim::{
     Category, Command, Object, ObjectId, OrderKind, PlayerId, ProductionCommand, Rally, SU_PER_GU, Target, Tick,
@@ -36,8 +38,8 @@ use sc_sim::{
 use crate::build::open;
 use crate::factions::FactionAi;
 use crate::tuning::army::{
-    DEFENSE_MOVE_GU, DEFENSE_TICKS, FIRST_WAVE_SIZE, GATHER_RETRY_TICKS, STAGING_DISTANCE_GU, STAGING_RADIUS_GU,
-    STAGING_SHARE, WAVE_PATIENCE_TICKS, WAVE_SIZE,
+    DEFENSE_MOVE_GU, DEFENSE_TICKS, FIRST_WAVE_SIZE, GATHER_RETRY_TICKS, SEARCH_RADIUS_GU, SEARCH_STEP_GU,
+    STAGING_DISTANCE_GU, STAGING_RADIUS_GU, STAGING_SHARE, WAVE_PATIENCE_TICKS, WAVE_SIZE,
 };
 use crate::{Turn, View};
 use waves::Wave;
@@ -295,13 +297,37 @@ pub fn staging_point(view: &View<'_>) -> Option<Vec2> {
     } else {
         home
     };
-    Some(open_near(view, point))
+    Some(open_near(map, point))
+}
+
+/// The points a wave searches around an enemy's start at `start` once it knows of nothing to attack and has searched
+/// the patches there (`waves`; slice A2a): a square grid of [`SEARCH_STEP_GU`] centred on it, the points within
+/// [`SEARCH_RADIUS_GU`] of it, each moved to the tile of open ground nearest it ([`open_near`]), row by row from the
+/// north and the west, without repeats. They depend only on the map and the start, both known from the start of the
+/// game (`core/game_rules.md > Computer players (playtest tool)`: "It also knows the map and every player's starting
+/// location").
+pub fn search_points(map: &Map, start: Vec2) -> Vec<Vec2> {
+    let steps = (SEARCH_RADIUS_GU / SEARCH_STEP_GU).floor() as i32;
+    let radius = gu(SEARCH_RADIUS_GU) * gu(SEARCH_RADIUS_GU);
+    let mut points = Vec::new();
+    for dy in -steps..=steps {
+        for dx in -steps..=steps {
+            let offset = Vec2::new(dx as f32, dy as f32) * gu(SEARCH_STEP_GU);
+            if offset.length_squared() > radius {
+                continue;
+            }
+            let point = open_near(map, start + offset);
+            if !points.contains(&point) {
+                points.push(point);
+            }
+        }
+    }
+    points
 }
 
 /// The centre of the tile of open ground nearest `point` within 8 tiles of it (ties to the north, then the west), or
 /// `point` on the map if there is none.
-fn open_near(view: &View<'_>, point: Vec2) -> Vec2 {
-    let map = view.map();
+fn open_near(map: &Map, point: Vec2) -> Vec2 {
     let point = map.clamp_point(point);
     let tile = TilePos::containing(point);
     let mut best: Option<(f32, TilePos)> = None;
