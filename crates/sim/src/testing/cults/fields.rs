@@ -6,10 +6,12 @@
 //! **The field**: 8 patches in four pairs, A to D from the west, a free column between pairs, each pair a 2-tile face
 //! with its own Storage a 1-tile gap south of it (`factions/cults/structures/storage.md`: "The best layout leaves a
 //! 1-tile gap between patch and Storage; each 2-tile face supports roughly 4–5 Recruits"; "3–4 for an 8-patch
-//! field"). The free columns keep the faces apart: on 8 adjacent patches a patch at the end of one face lies a tile
-//! from the next face's Storage too, edge to edge, as near as its own, and the Recruit takes the Storage of the lower
-//! id among equals (`orders::gather::deliver`), so that faces share their loads and crowd one another
-//! (`docs/economy_oracle.md > The Cults` has the measurement).
+//! field"). The free columns keep the faces apart. They were laid out under design change 0345's rule, "edge to edge
+//! from its patch": on 8 adjacent patches a patch at the end of one face lies a tile from the next face's Storage too,
+//! as near as its own, and the Recruit took the Storage of the lower id, so that faces shared their loads and crowded
+//! one another. Design change 0375 measures from the Recruit instead (`orders::gather::deliver`), which keeps a Recruit
+//! that mines in front of its own face's Storage with it. [`adjacent_field`] is the field without the free columns;
+//! `docs/economy_oracle.md > The Cults` has the measurements under both rules.
 
 use glam::Vec2;
 
@@ -125,11 +127,34 @@ pub fn crowd_field(recruits: u32) -> Scenario {
     for at in FIELD_STORAGES {
         builder = builder.spawn(ObjectKind::Storage, Some(FIELD_PLAYER), tile(at));
     }
+    crowd(builder, recruits).build()
+}
+
+/// The layout the free columns are measured against (module docs; `docs/economy_oracle.md > The Cults`): the 8
+/// patches side by side on tiles (10, 8) to (17, 8), ids 1 to 8, in pairs A to D from the west as [`FIELD_PAIRS`]
+/// numbers them; each pair's Storage (ids 9 to 12) a 1-tile gap south of it, on tiles (x, 10) to (x + 1, 11) under its
+/// pair, or with `alternate` B's and D's a 1-tile gap north of theirs, on (x, 5) to (x + 1, 6); and `recruits`
+/// Recruits that no Hall made (ids 13 on), where [`crowd_field`] has them.
+pub fn adjacent_field(recruits: u32, alternate: bool) -> Scenario {
+    let mut builder = flat(WIDTH, HEIGHT);
+    for x in 10..18 {
+        builder = builder.spawn_with(patch(), tile(TilePos::new(x, 8)));
+    }
+    for (pair, x) in [10, 12, 14, 16].into_iter().enumerate() {
+        let y = if alternate && pair % 2 == 1 { 5 } else { 10 };
+        builder = builder.spawn(ObjectKind::Storage, Some(FIELD_PLAYER), tile(TilePos::new(x, y)));
+    }
+    crowd(builder, recruits).build()
+}
+
+/// `recruits` Recruits that no Hall made, in rows of ten south of the field's Storages from (10.5, 13.5) grid units,
+/// half a grid unit apart.
+fn crowd(mut builder: ScenarioBuilder, recruits: u32) -> ScenarioBuilder {
     for i in 0..recruits {
         let at = Vec2::new(10.5 + (i % 10) as f32, 13.5 + 0.5 * (i / 10) as f32) * SU_PER_GU;
         builder = builder.spawn(ObjectKind::Recruit, Some(FIELD_PLAYER), SpawnAt::Point(at));
     }
-    builder.build()
+    builder
 }
 
 /// One 2-tile face: two patches (ids 1 and 2) on tiles (8, 4) and (9, 4), their Storage (id 3) `gap` tiles south of

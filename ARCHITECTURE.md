@@ -1544,16 +1544,22 @@ writes the mover's goal and the target the attack engages, and reads `Mover::sta
     mine one patch together); with `WorkerDef::drop_off` (`DropOffChoice`) `FirstReturn` and not `Assigned` (the
     Drone's) a Gather begins with no AssignedDropOff and takes the nearest
     drop-off as its first return starts, keeping it for that Gather (there is no Set Drop-off for the type: the gate's
-    `Sim::sets_drop_off`). "Nearest" is by the centre of the crystal point, whatever the load
-    (`economy::drop_off::nearest`, the one rule of the return leg and of the removal path): a Tunnel's crystal hatch
-    (design change 0292 point 2: "the same measure as for crystals"), an Egress Node's own centre.
+    `Sim::sets_drop_off`). "Nearest" is from the worker's own centre where it finished mining (design change 0375,
+    answering Q0136: "nearest to the Agent itself (straight line) when it finishes mining", the earlier id among
+    equals), to the centre of the crystal point, whatever the load (`economy::drop_off::nearest`, the one rule of the
+    Drone's and the Agent's return leg and of the removal path): a Tunnel's crystal hatch (design change 0292 point 2:
+    "the same measure as for crystals"), an Egress Node's own centre.
   - **Recruits** (M5-D, plan decision T58; `factions/cults/units/recruit.md > Gathering`,
     `factions/cults/structures/storage.md`): data again. `shares_patches`, no `pass_through` (design change 0106:
     Recruits collide while they gather), the Storage's `DropOff::Anywhere`, and
-    `DropOffChoice::EachReturn` (design change 0345, answering Q0102): as each return starts (`state::Gather::node` is
-    `None`) the Recruit takes the own completed Storage nearest to its patch, **edge to edge**
-    (`deliver::nearest_to_patch`), and with none it idles holding its load. One lost on the way is replaced by
-    the removal path as any worker's is. Within what the design says a face holds (4 to 5 Recruits a 2-tile face)
+    `DropOffChoice::EachReturn` (design changes 0345 and 0375, answering Q0102 and Q0136): as each return starts
+    (`state::Gather::node` is `None`) the Recruit takes the own completed Storage nearest to itself, **edge to edge**,
+    where it finished mining (`deliver::nearest_to_worker`; 0375 replaces 0345's "edge to edge from its patch"), the
+    earlier id among equals, and with none it idles holding its load. One lost on the way is replaced by the removal
+    path as any worker's is. Where two Storages stand side by side under a row of patches, a Recruit whose Silhouette
+    reaches over both is as near to both and takes the earlier, whichever face its patch is on (the literal reading,
+    reported by slice M5-S2a; `docs/economy_oracle.md > The Cults` measures the adjacent patches).
+    Within what the design says a face holds (4 to 5 Recruits a 2-tile face)
     nothing jams; with more Recruits than lanes they stand head-on and starve one another, which the design accepts
     (design change 0320, answering Q0110: no give-way rule, more Storages are the player's answer;
     `tests/recruit_gathering/jam.rs`, ignored).

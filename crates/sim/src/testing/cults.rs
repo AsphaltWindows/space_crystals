@@ -35,8 +35,9 @@
 //! [`Books`](super::build_order::Books) balance a Cults player's bank as they do the others', counting the Recruits'
 //! deliveries. A Hall's Recruits cost nothing (`factions/cults/structures/recruitment_hall.md > Production Behavior`).
 //!
-//! [`reference_field`], [`crowd_field`] and [`face_field`] are the check's layouts (`fields.rs`); [`skirmish`] plays
-//! `dev_skirmish` with a Cults line, alone or against a Syndicate one, for the golden games.
+//! [`reference_field`], [`crowd_field`] and [`face_field`] are the check's layouts, and [`adjacent_field`] the one its
+//! field's free columns are measured against (`fields.rs`); [`skirmish`] plays `dev_skirmish` with a Cults line,
+//! alone or against a Syndicate one, for the golden games.
 
 mod armory;
 mod fields;
@@ -57,8 +58,8 @@ use crate::sim::Sim;
 use crate::units::{SU_PER_GU, Tick, TilePos};
 
 pub use fields::{
-    FIELD_PAIRS, FIELD_PLAYER, FIELD_RESERVE, FIELD_STORAGES, SECOND_HALL, START_PAIR, crowd_field, face_field,
-    reference_field,
+    FIELD_PAIRS, FIELD_PLAYER, FIELD_RESERVE, FIELD_STORAGES, SECOND_HALL, START_PAIR, adjacent_field, crowd_field,
+    face_field, reference_field,
 };
 
 /// The gap a Recruit mines at the design's best rate, edge to edge between its patch and the Storage: one tile

@@ -32,9 +32,9 @@ fn a_hall_the_recruits_build_makes_recruits_of_its_lineage() {
 }
 
 /// Four Recruits gathering from a patch for Storage 1 are taken off by a Build of a Storage nearer to the patch, and
-/// sent back by a Gather once it is complete: they gather on by slice M5-D's rules, each load to the nearest
-/// complete Storage (design change 0345), now the one they built; the loads they carried while
-/// building are delivered, not lost.
+/// sent back by a Gather once it is complete: they gather on by slice M5-D's rules, each load to the complete Storage
+/// nearest to the Recruit (design changes 0345 and 0375), now the one they built, on the side of the patch they come
+/// back to; the loads they carried while building are delivered, not lost.
 #[test]
 fn gatherers_taken_off_to_build_and_sent_back_gather_on() {
     // Storage 1 on tiles (2, 2) to (3, 3); the patch 2 on (7, 2), 192 su from it; the Recruits 3 to 6 beside the

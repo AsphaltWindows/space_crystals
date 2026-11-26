@@ -1,9 +1,41 @@
 //! Which Tunnel an Agent delivers to (`factions/syndicate/units/agent.md > Gathering rules > Which Tunnel`, design
-//! change 0255): "the nearest own operational Tunnel (straight line to its crystal hatch), regardless of how many
-//! other Agents already use it; no load balancing. It is chosen when the Gather's first return starts and kept for
-//! that Gather (a new Gather picks again; a lost Tunnel means picking the nearest again)."
+//! changes 0255 and 0375): "the own operational Tunnel whose crystal hatch is **nearest to the Agent itself**
+//! (straight line) **when it finishes mining** (user, 2026-11-27; Q0136); a tie goes to the Tunnel with the **earlier
+//! id**. This is chosen **regardless of how many other Agents already use it**; no load balancing. It is chosen when
+//! the Gather's first return starts and kept for that Gather (a new Gather picks again; a lost Tunnel means picking
+//! the nearest again)."
 
 use super::*;
+
+/// Design change 0375: "nearest to the Agent itself (straight line) when it finishes mining", not to its patch. Patch
+/// 2 on tile (14, 8) lies midway between the crystal hatches of Tunnel 1, unturned at (6, 6) to (9, 9), hatch (9, 8),
+/// and Tunnel 3, flipped left and right at (19, 6) to (22, 9), hatch (19, 8). Agent 4 mines it from the west and
+/// Agent 5 from the east, and each delivers to the Tunnel on its side; from the patch both would take Tunnel 1, the
+/// earlier.
+#[test]
+fn the_tunnel_is_the_one_nearest_to_the_agent_when_it_finishes_mining() {
+    let scenario = flat(30, 20)
+        .spawn(TUNNEL, Some(P1), tile(6, 6))
+        .spawn_with(patch_of(1_000_000), tile(14, 8))
+        .spawn(TUNNEL, Some(P1), tile(19, 6))
+        .spawn(AGENT, Some(P1), centre(12, 8))
+        .spawn(AGENT, Some(P1), centre(16, 8))
+        .build();
+    let mut t = TestSim::new(turned(scenario, 2, Rotation::R0, true));
+    let patch = object(&t, 2).pos;
+    let hatch = |x: i32| TilePos::new(x, 8).center();
+    assert_eq!(
+        patch.distance(hatch(9)),
+        patch.distance(hatch(19)),
+        "the patch is midway"
+    );
+    gather(&mut t, 1, &[4, 5], 2);
+    run_to(&mut t, 400, "each delivers", |t| {
+        [4, 5].iter().all(|&n| deliveries(t).iter().any(|d| d.1 == n))
+    });
+    let first = |n: u32| deliveries(&t).iter().find(|d| d.1 == n).map(|d| d.2);
+    assert_eq!((first(4), first(5)), (Some(1), Some(3)));
+}
 
 /// Two Tunnels facing each other across 9 tiles, each with its crystal hatch towards the other: Tunnel 1 unturned at
 /// tiles (6, 6) to (9, 9), hatch (9, 8); Tunnel 4 flipped left and right at (19, 6) to (22, 9), hatch (19, 8). Patch

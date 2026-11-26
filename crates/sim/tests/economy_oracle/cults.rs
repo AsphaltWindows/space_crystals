@@ -50,8 +50,8 @@ use std::collections::BTreeMap;
 use sc_sim::testing::TestSim;
 use sc_sim::testing::build_order::{Books, Entry};
 use sc_sim::testing::cults::{
-    Build, Crew, Cults, Done, FIELD_PAIRS, FIELD_PLAYER, FIELD_STORAGES, SECOND_HALL, crowd_field, face_field,
-    reference_field,
+    Build, Crew, Cults, Done, FIELD_PAIRS, FIELD_PLAYER, FIELD_STORAGES, SECOND_HALL, adjacent_field, crowd_field,
+    face_field, reference_field,
 };
 use sc_sim::{ObjectId, ObjectKind, Scenario, SimConfig, SimEvent, Tick};
 
@@ -384,13 +384,6 @@ fn cults_measurements() {
             face(gap, recruits)
         );
     }
-    for recruits in [16, 20] {
-        let game = Game::play(crowd_field(recruits), ideal(), at(5, 0));
-        println!(
-            "the field, {recruits} Recruits: {:.2} SC/s",
-            game.income(at(0, 20), at(5, 0))
-        );
-    }
     for builders in [1, 2, 4, 6] {
         let build = Build::new(ObjectKind::RecruitmentHall, SECOND_HALL, Crew::Nearest(builders));
         let game = Game::play(reference_field(&[0, 1, 2, 3]), ideal().build(build), at(3, 0));
@@ -456,5 +449,45 @@ fn cults_measurements() {
             game.delivered(0, at(1, 30)),
             game.delivered(0, end)
         );
+    }
+}
+
+/// The free columns (`docs/economy_oracle.md > The Cults`, "Why the free columns"): the field's income over 0:20 to
+/// 5:00 with 16 and 20 Recruits dealt as in scenario 1, its faces a free column apart ([`crowd_field`]) and side by
+/// side ([`adjacent_field`]), the Storages under the row or on alternate sides; and the loads each Storage took then,
+/// by pair from the west.
+#[test]
+#[ignore = "the measurements for docs/economy_oracle.md: run it in release with --ignored --nocapture"]
+fn cults_free_columns() {
+    /// A layout with a number of Recruits.
+    type Layout = fn(u32) -> Scenario;
+    let layouts: [(&str, Layout); 3] = [
+        ("the faces a free column apart", crowd_field),
+        ("8 adjacent patches, the Storages under the row", |n| {
+            adjacent_field(n, false)
+        }),
+        ("8 adjacent patches, the Storages on alternate sides", |n| {
+            adjacent_field(n, true)
+        }),
+    ];
+    let (from, to) = (at(0, 20), at(5, 0));
+    for (name, layout) in layouts {
+        for recruits in [16, 20] {
+            let game = Game::play(layout(recruits), ideal(), to);
+            let storages = (game.t.sim().objects()).filter(|o| o.kind == ObjectKind::Storage);
+            let mut loads: BTreeMap<ObjectId, u32> = storages.map(|o| (o.id, 0)).collect();
+            for (tick, e) in game.t.events() {
+                if let SimEvent::ResourcesDelivered { drop_off, .. } = e
+                    && (from + 1..=to).contains(tick)
+                {
+                    *loads.entry(*drop_off).or_default() += 1;
+                }
+            }
+            println!(
+                "{name}, {recruits} Recruits: {:.2} SC/s, loads by Storage {:?}",
+                game.income(from, to),
+                loads.values().collect::<Vec<_>>()
+            );
+        }
     }
 }

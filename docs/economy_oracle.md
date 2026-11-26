@@ -210,7 +210,21 @@ The oracle checks every figure from 3 GU at ±15% (0294: "the table from 3 GU ou
 
 The Cults' economy check (`factions/cults/economy.md > Economy check`, design change 0346, answering Q0103) is measured edge to edge, patch to Storage, in whole tiles, at ±15%, in two scenarios on an 8-patch field (`sc_sim::testing::cults::reference_field`). The field is four pairs of patches, A to D from the west, with a free column between pairs. Each pair is a 2-tile face with its own Storage a 1-tile gap south of it: "one Storage per face for the ideal comparison". The Cults start there as from their Starting Conditions: a Recruitment Hall turned to face the field, pair B's Storage, six Recruits of the Hall's and 0 SC. The scripted line (`sc_sim::testing::cults::Cults`) plays through the gate and deals every new Recruit to a seat, at most 5 to a face (design change 0320). Recruits keep their collision.
 
-**Why the free columns.** On 8 adjacent patches with a Storage under each pair, the patch at the end of a face lies a tile from the next face's Storage too, as near as its own. 0345's rule, "the nearest own completed Storage, edge to edge from its patch", then takes the one with the lower id. So faces shared their loads and crowded one another. Measured with a prototype while choosing the layout: four Storages under the row took in 14.44 SC/s with 16 Recruits and 13.47 with 20 (15.85 and 14.28 with the Storages on alternate sides). With the faces apart the same field takes in 20.49 and 21.97.
+**Why the free columns.** On 8 adjacent patches with a Storage under each pair, the patch at the end of a face lies a tile from the next face's Storage too, as near as its own. 0345's rule, "the nearest own completed Storage, edge to edge from its patch", took the one with the lower id, so faces shared their loads and crowded one another, and the field was laid out with its faces apart. Design change 0375 (answering Q0136) measures from the Recruit when it finishes mining instead: "the own completed Storage **nearest to the Recruit itself** (edge to edge)" (`factions/cults/units/recruit.md > Gathering`). Slice M5-S2a re-measured the field without its free columns under both rules (`sc_sim::testing::cults::adjacent_field`: the 8 patches side by side, each pair's Storage a 1-tile gap from it; scenario 1's dealing; the income over 0:20 to 5:00, in SC/s; `cults_free_columns`):
+
+| Layout | 0345's rule, 16 / 20 Recruits | 0375's rule, 16 / 20 Recruits | Loads by Storage, A to D, 16 Recruits: 0345 / 0375 |
+|---|---|---|---|
+| The faces a free column apart (the reference field's) | 20.49 / 21.97 | 20.49 / 21.97 | 742, 748, 818, 561 / the same |
+| 8 adjacent patches, the Storages under the row | 15.74 / 12.93 | 21.12 / 18.69 | 805, 474, 513, 411 / 740, 743, 730, 744 |
+| 8 adjacent patches, B's and D's Storages north of the row | 15.09 / 14.27 | 12.27 / 10.86 | 703, 518, 522, 369 / 826, 0, 892, 0 |
+
+M5-L's prototype, laid out a little differently, had measured 14.44 and 13.47 under the row, and 15.85 and 14.28 on alternate sides.
+
+- **Under the row** each face now keeps its loads. With 4 Recruits a face the adjacent patches take in slightly more than the faces apart, and with 5 a face 15% less.
+- **On alternate sides** the Recruits, which come from the south, mine every patch from the lane south of the row, where the two Storages south of it are the nearer. So those north of the row take nothing, and the two south of it take every face's loads.
+- **A tie at the end of a face.** A Recruit whose Silhouette reaches over the next face's Storage is exactly as near to both, edge to edge, and the earlier Storage takes its load. This happens to a Recruit that came along the lane from that face and stopped as it came within MiningReach (`tests/recruit_gathering/storages.rs`), so a few loads still cross between faces.
+
+The reference field keeps its free columns, and none of its figures moved with 0375.
 
 ### Scenario 1: ideal mining
 
