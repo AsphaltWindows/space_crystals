@@ -2,10 +2,10 @@
 //! Starting Conditions`), the banks and the objects of their faction's Starting Layout at their slot, exactly where
 //! the map puts them (design change 0008). The rules of the layouts (`core/map_editor.md > Starting Layouts`): each
 //! one valid on its own with its faction's placement rules minus sight (0097); on a Skirmish Default map exactly the
-//! Starting Conditions, complete at every start (0009, 0012), for the factions implemented so far (plan decision
-//! T11; the Cults stand for a faction not implemented yet since slice M4-B implemented the Syndicate's); derived
-//! "outdated" flags. And `dev_skirmish`'s GDO bases (0095; plan risk R13). The Starting Conditions table is
-//! unit-tested in `scenario/starting.rs`, the camera's start in the client.
+//! Starting Conditions, complete at every start (0009, 0012), for every faction (plan decision T63: the Cults' too
+//! since slice M5-B); derived "outdated" flags. And `dev_skirmish`'s GDO bases (0095; plan risk R13). The Starting
+//! Conditions table is unit-tested in `scenario/starting.rs`, a Cults player's start in `cults_start.rs`, the camera's
+//! start in the client.
 //!
 //! One test binary:
 //! - `start`: each player's Starting Conditions at the start of a game (0008), and `dev_skirmish`'s GDO bases;
@@ -32,6 +32,8 @@ const EF: ObjectKind = ObjectKind::ExtractionFacility;
 const PLATE: ObjectKind = ObjectKind::ExtractionPlate;
 const PATCH: ObjectKind = ObjectKind::CrystalPatch;
 const PK: ObjectKind = ObjectKind::Peacekeeper;
+const HALL: ObjectKind = ObjectKind::RecruitmentHall;
+const RECRUIT: ObjectKind = ObjectKind::Recruit;
 
 fn flat(w: usize, h: usize) -> String {
     vec![".".repeat(w); h].join("\n")
@@ -102,4 +104,15 @@ fn west_syndicate() -> Vec<LayoutObject> {
         laid(ObjectKind::Hideout, 7, 3),
         unit_at(ObjectKind::Agent, point(5.5, 9.5)),
     ]
+}
+
+/// A Cults base in the north-west of a map (`factions/cults/economy.md > Starting Conditions`, slice M5-B): the
+/// Recruitment Hall from (1, 1) to (4, 4), the Storage from (6, 1) to (7, 2), and six Recruits in a row on the centres
+/// of tiles (1, 6) to (6, 6).
+fn west_cults() -> Vec<LayoutObject> {
+    let mut base = vec![laid(HALL, 1, 1), laid(ObjectKind::Storage, 6, 1)];
+    for x in 1..=6 {
+        base.push(unit_at(RECRUIT, TilePos::new(x, 6).center()));
+    }
+    base
 }

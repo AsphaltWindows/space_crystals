@@ -166,38 +166,41 @@ mod tests {
             .collect()
     }
 
-    /// A new Skirmish Default map: one line per edited layout of an implemented faction (the GDO's, the Syndicate's
-    /// and the Colonists', plan decision T24, slice M4-B), saying exactly what to add, with its images folded in.
+    /// A new Skirmish Default map: one line per edited layout of each faction (plan decision T63: the Cults' too since
+    /// slice M5-B), saying exactly what to add, with its images folded in.
     #[test]
     fn a_new_map_says_what_to_add_where() {
         let map = new_map(2, Symmetry::Rotate180);
-        assert_eq!(map.validate().len(), 18, "3 kinds missing per faction at 2 slots");
+        assert_eq!(map.validate().len(), 24, "3 kinds missing per faction at 2 slots");
         assert_eq!(
             texts(&map),
             [
                 "S1 GDO layout: add Deployment Center, Extraction Facility, Extraction Plate x2 (Layout tool, T); S2 follows",
                 "S1 Syndicate layout: add Tunnel, Hideout, Agent (Layout tool, T); S2 follows",
+                "S1 Cults layout: add Recruitment Hall, Storage, Recruit x6 (Layout tool, T); S2 follows",
                 "S1 Colonists layout: add Egress Node, Robo Portal, Drone x4 (Layout tool, T); S2 follows"
             ]
         );
         let four = new_map(8, Symmetry::MirrorBothAxes);
         let lines = texts(&four);
-        assert_eq!(lines.len(), 6, "{lines:?}");
+        assert_eq!(lines.len(), 8, "{lines:?}");
         for (line, start, follow) in [
             (0, "S1 GDO", "S2, S3, S4"),
             (1, "S1 Syndicate", "S2, S3, S4"),
-            (2, "S1 Colonists", "S2, S3, S4"),
-            (3, "S5 GDO", "S6, S7, S8"),
-            (4, "S5 Syndicate", "S6, S7, S8"),
-            (5, "S5 Colonists", "S6, S7, S8"),
+            (2, "S1 Cults", "S2, S3, S4"),
+            (3, "S1 Colonists", "S2, S3, S4"),
+            (4, "S5 GDO", "S6, S7, S8"),
+            (5, "S5 Syndicate", "S6, S7, S8"),
+            (6, "S5 Cults", "S6, S7, S8"),
+            (7, "S5 Colonists", "S6, S7, S8"),
         ] {
             let text = &lines[line];
             assert!(text.starts_with(&format!("{start} layout: add ")), "{text}");
             assert!(text.ends_with(&format!("; {follow} follow")), "{text}");
         }
-        // A click on a line focuses its first problem: 9 to a slot, 3 to a layout.
+        // A click on a line focuses its first problem: 12 to a slot, 3 to a layout.
         let indices: Vec<usize> = problem_lines(&four, &four.validate()).iter().map(|l| l.index).collect();
-        assert_eq!(indices, [0, 3, 6, 36, 39, 42]);
+        assert_eq!(indices, [0, 3, 6, 9, 48, 51, 54, 57]);
     }
 
     /// An object that breaks a rule is named with its layout and the rule.

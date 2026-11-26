@@ -169,7 +169,8 @@ mod tests {
 
     /// The map the editor starts with is the creation dialog's default: a 64x48 Skirmish Default map for two with
     /// 180 degree symmetry. Its Starting Layouts start empty (design change 0009), so all it lacks to be played is
-    /// the GDO's, the Syndicate's and the Colonists' at each start (0012; plan decision T24; slice M4-B).
+    /// every faction's at each start: the GDO's, the Syndicate's, the Cults' and the Colonists' (0012; plan decisions
+    /// T24 and T63; slices M4-B and M5-B).
     #[test]
     fn a_new_map_has_the_default_settings() {
         let map = new_map(" ");
@@ -198,7 +199,8 @@ mod tests {
         );
         let (node, portal, drone) = (ObjectKind::EgressNode, ObjectKind::RoboPortal, ObjectKind::Drone);
         let (tunnel, hideout, agent) = (ObjectKind::Tunnel, ObjectKind::Hideout, ObjectKind::Agent);
-        let (gdo, syndicate, colonists) = (Faction::Gdo, Faction::Syndicate, Faction::Colonists);
+        let (hall, storage, recruit) = (ObjectKind::RecruitmentHall, ObjectKind::Storage, ObjectKind::Recruit);
+        let (gdo, syndicate, cults, colonists) = (Faction::Gdo, Faction::Syndicate, Faction::Cults, Faction::Colonists);
         assert_eq!(
             missing,
             [
@@ -208,6 +210,9 @@ mod tests {
                 (1, syndicate, tunnel),
                 (1, syndicate, hideout),
                 (1, syndicate, agent),
+                (1, cults, hall),
+                (1, cults, storage),
+                (1, cults, recruit),
                 (1, colonists, node),
                 (1, colonists, portal),
                 (1, colonists, drone),
@@ -217,6 +222,9 @@ mod tests {
                 (2, syndicate, tunnel),
                 (2, syndicate, hideout),
                 (2, syndicate, agent),
+                (2, cults, hall),
+                (2, cults, storage),
+                (2, cults, recruit),
                 (2, colonists, node),
                 (2, colonists, portal),
                 (2, colonists, drone)

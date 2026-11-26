@@ -32,8 +32,9 @@ fn the_camera_starts_at_the_players_camera_start() {
 }
 
 /// `core/camera.md > Starting Position`: without a camera start, the camera starts on the player's primary starting
-/// structure, the GDO's Deployment Center, where their Starting Layout puts it. A camera start comes first, and a
-/// player of a faction whose Starting Conditions aren't implemented yet starts at their slot's start position.
+/// structure, the GDO's Deployment Center, where their Starting Layout puts it. A camera start comes first. A Cults
+/// player's is their Recruitment Hall ("Cults: starting Recruitment Hall", slice M5-B), and one whose layout holds none
+/// (a Custom map's may) starts at their slot's start position.
 #[test]
 fn the_camera_starts_on_the_players_deployment_center() {
     let mut scenario = scenarios::empty(64, 48);
@@ -60,8 +61,15 @@ fn the_camera_starts_on_the_players_deployment_center() {
     scenario.setup.players[1].faction = Faction::Cults;
     assert_eq!(
         start_center(&scenario, PlayerId(2), &map),
-        TilePos::new(47, 35).center()
+        TilePos::new(47, 35).center(),
+        "no Hall in the layout"
     );
+    *scenario.map.slots[1].layouts.get_mut(Faction::Cults) = vec![LayoutObject {
+        kind: ObjectKind::RecruitmentHall,
+        at: SpawnAt::Tile(TilePos::new(40, 30)), // (40, 30) to (43, 33)
+        orientation: Default::default(),
+    }];
+    assert_eq!(start_center(&scenario, PlayerId(2), &map), Vec2::new(42.0, 32.0) * 64.0);
 }
 
 #[test]

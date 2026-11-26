@@ -30,6 +30,7 @@ use space_crystals::editor::ui::lists::ProblemList;
 use space_crystals::editor::ui::starting::LayoutPanel;
 
 use super::colonists::with_colonists;
+use super::cults::with_cults;
 use super::syndicate::with_syndicate;
 use super::{
     act, assert_warned, at, created, doc, editor, patch, problems, selection, sim, status, tap, temp_maps, tools,

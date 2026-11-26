@@ -24,8 +24,6 @@ use crate::editor::tools::{EditorTools, Tool};
 /// Why an object can't go where the Layout tool would put it.
 #[derive(Clone, Debug, PartialEq)]
 pub enum LayoutRefusal {
-    /// The faction has no Starting Conditions yet (plan decision T11): its layouts stay empty.
-    NotImplemented(Faction),
     /// `> Skirmish Default restriction`: the kind isn't one of the faction's Starting Conditions.
     NotStarting { kind: ObjectKind, faction: Faction },
     /// `> Skirmish Default restriction`: the layout already holds the `count` objects of the kind that the Starting
@@ -48,14 +46,8 @@ impl LayoutRefusal {
     pub fn message(&self, kind: ObjectKind) -> String {
         let name = kind.def().name;
         match self {
-            LayoutRefusal::NotImplemented(faction) => format!(
-                "{}: not implemented yet, its layouts stay empty",
-                faction_name(*faction)
-            ),
             LayoutRefusal::NotStarting { faction, .. } => {
-                let start = StartingConditions::of(*faction)
-                    .map(|s| super::missing_text(s.objects))
-                    .unwrap_or_default();
+                let start = super::missing_text(StartingConditions::of(*faction).objects);
                 format!(
                     "A Skirmish Default {} layout holds only its Starting Conditions ({start}): no {name}",
                     faction_name(*faction)
@@ -186,10 +178,10 @@ pub fn concerns(problem: &ScenarioProblem, slot: SlotId, faction: Faction, index
 }
 
 /// Whether `object` may be object `index` of the layout of `faction` at `slot`: in place of that object when the
-/// layout has one (a move), else as a new object at its end. Checked in this order: the faction has Starting
-/// Conditions; on a Skirmish Default map they hold the kind, and a new object leaves the layout within their count;
-/// the object lies in the editable part and not across an axis; and, the layout changed so, the sim's validation
-/// finds nothing wrong with it.
+/// layout has one (a move), else as a new object at its end. Checked in this order: on a Skirmish Default map the
+/// faction's Starting Conditions hold the kind, and a new object leaves the layout within their count; the object
+/// lies in the editable part and not across an axis; and, the layout changed so, the sim's validation finds nothing
+/// wrong with it.
 pub fn check_object(
     map: &MapDef,
     slot: SlotId,
@@ -197,15 +189,12 @@ pub fn check_object(
     index: usize,
     object: &LayoutObject,
 ) -> Result<(), LayoutRefusal> {
-    let Some(start) = StartingConditions::of(faction) else {
-        return Err(LayoutRefusal::NotImplemented(faction));
-    };
     let Some(layout) = map.slot(slot).map(|s| s.layouts.get(faction)) else {
         return Err(LayoutRefusal::Rules(Vec::new()));
     };
     let kind = object.kind;
     if map.map_type == MapType::SkirmishDefault {
-        let count = start.count(kind);
+        let count = StartingConditions::of(faction).count(kind);
         if count == 0 {
             return Err(LayoutRefusal::NotStarting { kind, faction });
         }
