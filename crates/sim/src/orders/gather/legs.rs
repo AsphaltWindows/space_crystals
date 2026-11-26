@@ -148,7 +148,7 @@ pub(super) fn leg_to(state: &mut Gather, unit: &mut Unit, to: Vec2, world: &Worl
 ///   begun in every tick would only be a path request in every tick.
 ///
 /// Only the leg to a hatch: a Drone's and a Recruit's return (`hatch_reach` `None`) are as they were (0315 is the
-/// Agent's rule; the Recruits' jam is question Q0110).
+/// Agent's rule; the Recruits' jam is the design's behaviour, design change 0320, answering question Q0110).
 pub(super) fn return_leg(state: &mut Gather, unit: &mut Unit, target: &Shape, hatch_reach: Option<f32>, world: &World) {
     let presses_on = hatch_reach.is_some();
     if state.moving && unit.mover.status != MoveStatus::Moving {

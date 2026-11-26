@@ -285,7 +285,7 @@ pub enum RepairWork {
 #[derive(Copy, Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Enter {
     /// The unit's walk to the entry path is over, wherever it ended: the step right after phase 5a takes the unit
-    /// into the network if it got there, and ends the order if it didn't (`Sim::step_entries`).
+    /// into the structure being entered if it got there, and ends the order if it didn't (`Sim::step_entries`).
     pub walked: bool,
 }
 
@@ -328,7 +328,8 @@ pub enum Behaviour {
     Gather(Gather),
     /// A Drone on its way to deploy (`factions/colonists/economy.md > Beacon Deployment > Deploy Command`).
     Deploy(SiteWalk),
-    /// A unit on its way into a Tunnel (`systems/controls/commands.md > Enter`).
+    /// A unit on its way into the structure being entered, a Tunnel or a building that holds units
+    /// (`systems/controls/commands.md > Enter`).
     Enter(Enter),
     /// (M4-O) A unit attacking a location (`systems/controls/command_behaviors.md > AttackingLocation`).
     AttackGround(AttackGround),

@@ -3,7 +3,8 @@
 //! Peacekeeper) and building's (a TechPrerequisite on the Barracks), a Colonists building's (on the Robo Portal), a
 //! Syndicate expansion's (the Vault's kind, on the Chemical Plant) and a worker-built one's (on the Tunnel). The
 //! design's own, the Optics Lab and the Guard, and the Chemical Plant and the Grenadier (slice M4-U, whose recipe
-//! replaced the stand-in this module had), are played in `crates/sim/tests/prerequisites/`.
+//! replaced the stand-in this module had), are played in `crates/sim/tests/prerequisites/`. [`losing`] is the table of
+//! what losing one leaves going, for every faction, with test prerequisites and the design's (design change 0335).
 
 use crate::command::{Command, DebugCommand, PlayerCommand, TunnelCommand};
 use crate::construction::ConstructionCommand;
@@ -17,6 +18,8 @@ use crate::scenario::{BuildingOrientation, SpawnAt};
 use crate::sim::Reject;
 use crate::testing::{ScenarioBuilder, TestSim};
 use crate::units::TilePos;
+
+mod losing;
 
 const P1: PlayerId = PlayerId(1);
 const P2: PlayerId = PlayerId(2);

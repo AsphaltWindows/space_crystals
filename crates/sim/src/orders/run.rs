@@ -170,8 +170,8 @@ pub(super) fn start(order: &Order, unit: &mut Unit, world: &World) -> Behaviour 
             Some((_, site)) => Behaviour::Build(build::begin(&site, unit, tick)),
             None => Behaviour::Plain,
         },
-        // `systems/controls/commands.md > Enter`: to the Tunnel's entry path.
-        OrderKind::Enter(tunnel) => Behaviour::Enter(enter::begin(tunnel, unit, world)),
+        // `systems/controls/commands.md > Enter`: to the entry path of the structure being entered.
+        OrderKind::Enter(target) => Behaviour::Enter(enter::begin(target, unit, world)),
         // `systems/controls/command_behaviors.md > AttackingLocation`: from a standstill, as an Attack.
         OrderKind::AttackGround(_) => Behaviour::AttackGround(AttackGround::default()),
         // (M5-E) `factions/cults/economy.md > Assist Construction Command`: to its own spot beside the site, which the

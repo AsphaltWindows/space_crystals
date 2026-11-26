@@ -39,13 +39,19 @@
 //! fully lowered (`factions/syndicate/structures/laser_turret.md > Pop-up rules`: "**Hidden only while fully
 //! lowered**"), holds for all three at once.
 //!
-//! Open, the design being silent (Q0090): each keeps the client's behaviour before this filter, marked where it
-//! applies.
-//! - A shot or a projectile at an object hidden from the viewer shows over the viewer's Visible tiles all the same, up
-//!   to where the object is (`Placeholder (Q0090)` at [`Sighting::path`]).
+//! Q0090's points, answered as built (design change 0357):
 //! - A shot's glow and a projectile's body are in the colour of their shooter's owner, whom the viewer may not see
-//!   (`combat_effects`).
-//! - A defeat before the end of the game reaches every player, as the end does (at `SimEvent::PlayerDefeated` below).
+//!   (`combat_effects`; `core/vision.md > Attacks from outside vision`: "a shot is always drawn in the **shooter's
+//!   player colour**, even when the viewer doesn't see the shooter").
+//! - A defeat before the end of the game reaches every player, as the end does (`core/game_rules.md > On Defeat`:
+//!   "when a player is defeated while the game goes on, **all players** are told"), which the defeat notice tells them
+//!   (`hud::notices`, slice M5-S1).
+//! - A death marker or a blast mark shows wherever the viewer's tile is Visible during its fade, as it is drawn
+//!   (`core/vision.md > Attacks from outside vision`: "a death marker or blast mark is shown on any of the viewer's
+//!   Visible tiles while it is still fading, even if the viewer didn't see the event itself").
+//!
+//! Open, the design being silent: a shot or a projectile at an object hidden from the viewer shows over the viewer's
+//! Visible tiles all the same, up to where the object is (the `Placeholder` at [`Sighting::path`]).
 
 #[cfg(test)]
 mod tests;
@@ -188,8 +194,8 @@ impl Sighting {
     /// A shot's or a projectile's path from `from` to `to` (ground points), drawn to every viewer only over their
     /// Visible tiles, its shooter's owner included (`core/vision.md > Attacks from outside vision`, design change 0293:
     /// "every shot, tracer or projectile, whoever fires it and at whatever, is drawn only over your Visible tiles").
-    /// Placeholder (Q0090): one at an object hidden from the viewer shows over their Visible tiles all the same, up to
-    /// where the object is (the design's "at whatever"; it says nothing of hidden targets).
+    /// Placeholder (not in the design: it says nothing of hidden targets): one at an object hidden from the viewer shows
+    /// over their Visible tiles all the same, up to where the object is (the design's "at whatever").
     pub fn path(from: Vec2, to: Vec2) -> Self {
         Self {
             whole_to: None,
@@ -402,8 +408,9 @@ impl<'a> Arrival<'a> {
             | SimEvent::ConstructionCancelled { constructor, .. }
             | SimEvent::PlacementRefused { constructor, .. } => self.owner(constructor),
             SimEvent::StructurePlaced { structure, .. } => self.object(structure),
-            // Placeholder (Q0090): the design has every player see the end of the game (`core/game_rules.md > End of
-            // Game`), but doesn't say who learns of a defeat before it; nothing shows one yet.
+            // Every player sees the end of the game (`core/game_rules.md > End of Game`), and is told of a defeat
+            // before it (`core/game_rules.md > On Defeat`: "**Everyone learns of it**", design change 0357), in the
+            // defeat notice (`hud::notices`).
             SimEvent::PlayerDefeated { .. } | SimEvent::GameOver { .. } => Audience::Everyone,
             SimEvent::ResourcesDelivered { worker, .. }
             | SimEvent::BuildFailed { worker, .. }
