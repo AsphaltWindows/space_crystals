@@ -23,7 +23,9 @@
 mod tests;
 
 use std::cell::OnceCell;
+use std::collections::BTreeMap;
 
+use sc_sim::construction::site::BuildPrice;
 use sc_sim::economy::{ArmyCap, PowerSummary};
 use sc_sim::network::Held;
 use sc_sim::vision::{LastKnown, PlayerVision, VisibilityState};
@@ -211,6 +213,13 @@ impl<'a> View<'a> {
         self.sim.held().filter(move |h| h.object.owner == Some(player))
     }
 
+    /// What the player's EjectMenu shows (`Sim::network_counts`, `factions/syndicate/tunnel_menus.md > EjectMenu`):
+    /// how many of the player's units of each kind are in their Tunnel Network and not reserved on an eject queue, by
+    /// kind.
+    pub fn network_counts(&self) -> BTreeMap<ObjectKind, u32> {
+        self.sim.network_counts(self.player)
+    }
+
     /// One of the player's own objects on the map; `None` for another player's, or one gone.
     pub fn own_object(&self, id: ObjectId) -> Option<&'a Object> {
         self.sim.object(id).filter(|o| o.owner == Some(self.player))
@@ -313,6 +322,13 @@ impl<'a> View<'a> {
     ) -> Option<PlacementCheck> {
         self.own_object(worker)?;
         self.sim.build_check(worker, kind, origin, orientation, queued)
+    }
+
+    /// The price of the player's next worker Build of `kind` now (`Sim::build_price`, the client's tooltip): a Tunnel's
+    /// in Supplies (`factions/syndicate/tunnels.md > Cost Scaling > Construction Cost`). `None` for a kind no worker
+    /// builds.
+    pub fn build_price(&self, kind: ObjectKind) -> Option<BuildPrice> {
+        self.sim.build_price(self.player, kind)
     }
 
     /// An expansion's check, for one of the player's Tunnels (`Sim::expansion_check`).

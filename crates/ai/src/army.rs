@@ -11,7 +11,8 @@
 //!   they Attack Move together ([`waves`]) to the nearest enemy building the player knows of, seen or remembered (the
 //!   View: "Fair knowledge"), else to the nearest start of an enemy still in the game that no wave has reached. Later
 //!   units form the next wave, of [`WAVE_SIZE`] (or however many have waited [`WAVE_PATIENCE_TICKS`]), which goes to
-//!   the nearest building it knows of too: it reinforces. A wave whose building is
+//!   the nearest building it knows of too: it reinforces. A faction may send waves of other sizes, or wait for them
+//!   otherwise long (`FactionAi::waves`, [`Waves`]). A wave whose building is
 //!   gone (the player saw it go) retargets at once; one that comes to rest retargets too, giving up a building it
 //!   still knows of there. With no building known and every enemy start reached, it searches the patches near them
 //!   (a GDO's last buildings are often plates); with nothing left to search, it goes home and its units are at home
@@ -58,6 +59,26 @@ pub struct Army {
     buildings: BTreeMap<ObjectId, f32>,
     /// The enemies whose start a wave has reached since the player last knew of nothing to attack.
     visited: Vec<PlayerId>,
+}
+
+/// The waves a faction's army sends (`FactionAi::waves`): how many units at staging the first wave and each later one
+/// wait for, and how long units wait there before they go however few they are. Its default is
+/// `crate::tuning::army`'s: [`FIRST_WAVE_SIZE`], [`WAVE_SIZE`] and [`WAVE_PATIENCE_TICKS`].
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+pub struct Waves {
+    pub first: usize,
+    pub later: usize,
+    pub patience: Tick,
+}
+
+impl Default for Waves {
+    fn default() -> Self {
+        Self {
+            first: FIRST_WAVE_SIZE,
+            later: WAVE_SIZE,
+            patience: WAVE_PATIENCE_TICKS,
+        }
+    }
 }
 
 /// What one of the army's units does.
@@ -111,7 +132,7 @@ impl Army {
         }
         self.defend(turn, now);
         if turn.profile().attacks() && self.alarm.is_none() {
-            self.form_wave(turn, &units, now);
+            self.form_wave(turn, &units, now, faction.waves());
         }
         self.lead_waves(turn, &units, now);
         if self.alarm.is_none() {
@@ -195,9 +216,9 @@ impl Army {
     }
 
     /// Sends the units at home that wait at staging as a wave once there are as many as it waits for
-    /// ([`Army::wave_size`]), or however many once units have waited for [`WAVE_PATIENCE_TICKS`], if it knows of
-    /// something to attack or to search.
-    fn form_wave(&mut self, turn: &mut Turn<'_, '_>, units: &[&Object], now: Tick) {
+    /// ([`Army::wave_size`]), or however many once units have waited for its faction's patience ([`Waves::patience`]),
+    /// if it knows of something to attack or to search.
+    fn form_wave(&mut self, turn: &mut Turn<'_, '_>, units: &[&Object], now: Tick, waves: Waves) {
         let Some(staging) = self.staging else {
             return;
         };
@@ -212,7 +233,7 @@ impl Army {
             return;
         }
         let since = *self.waiting.get_or_insert(now);
-        if waiting.len() < self.wave_size() && now < since + WAVE_PATIENCE_TICKS {
+        if waiting.len() < self.wave_size(waves) && now < since + waves.patience {
             return;
         }
         let goal = self.choose(turn.view(), staging, &waves::Done::default(), true);
@@ -249,9 +270,10 @@ impl Army {
         }
     }
 
-    /// How many units the next wave waits for: [`FIRST_WAVE_SIZE`] for the first, [`WAVE_SIZE`] for each one after.
-    pub fn wave_size(&self) -> usize {
-        if self.sent == 0 { FIRST_WAVE_SIZE } else { WAVE_SIZE }
+    /// How many units the next wave of a faction sending `waves` waits for: [`Waves::first`] for the first,
+    /// [`Waves::later`] for each one after.
+    pub fn wave_size(&self, waves: Waves) -> usize {
+        if self.sent == 0 { waves.first } else { waves.later }
     }
 
     /// The units whose duty `which` picks, by id.
