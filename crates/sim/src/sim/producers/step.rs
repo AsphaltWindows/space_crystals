@@ -110,11 +110,11 @@ impl Sim {
     }
 
     /// Design change 0143's start check of producer `id`, before the step advances it: whether the unit at its front
-    /// may get on. One in production always may; one at 0% while there is room for it under its owner's army cap,
-    /// or always under a cap that reserves nothing, the Cults' Unit Control (`ArmyResource::reserves`; **Placeholder
-    /// (Q0101 point 1)**: a Recruitment Hall's Recruit starts by the Hall's own rule, `sim/recruitment.rs`). Without
-    /// room the producer waits (`Production::blocked`), and in the tick its wait begins it raises a
-    /// `SimEvent::ProductionWaiting`, once (module docs).
+    /// may get on. One in production always may; one at 0% while there is room for it under its owner's army cap, or
+    /// always under a cap that reserves nothing, the Cults' Unit Control (`ArmyResource::reserves`; design change 0344:
+    /// "Global total is for display only"; a Recruitment Hall's Recruit starts by the Hall's own rule,
+    /// `sim/recruitment.rs`). Without room the producer waits (`Production::blocked`), and in the tick its wait begins
+    /// it raises a `SimEvent::ProductionWaiting`, once (module docs).
     fn may_start(&mut self, id: ObjectId, room: &mut Room) -> bool {
         let Some(o) = self.objects.get(&id) else {
             return false;

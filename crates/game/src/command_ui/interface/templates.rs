@@ -46,9 +46,9 @@ pub enum InterfaceTemplate {
     /// Barracks' (`factions/gdo/structures/barracks.md > ObjectInterfaceState[Barracks]`) and the Colonists' portals'
     /// (`factions/colonists/structures/robo_portal.md > Robo Portal ObjectInterfaceState`,
     /// `factions/colonists/structures/bio_portal.md > Bio Portal ObjectInterfaceState`, design change 0124: "Standard
-    /// production panel, same conventions as GDO's Barracks"), the Hideout's and the Recruitment Hall's, whose X and C
-    /// are its whole panel (`factions/cults/economy.md > RecruitmentHall > ObjectInterfaceState[RecruitmentHall]`,
-    /// slice M5-C). Its right-click sets the rally point (`systems/controls/selection_and_hud.md > CommandPanel >
+    /// production panel, same conventions as GDO's Barracks"), the Hideout's and the Recruitment Hall's, whose C is its
+    /// whole panel (`factions/cults/economy.md > RecruitmentHall > ObjectInterfaceState[RecruitmentHall]`, slice M5-C;
+    /// design change 0342 removed its X). Its right-click sets the rally point (`systems/controls/selection_and_hud.md > CommandPanel >
     /// Production Building Default Right-Click`; the Hall's own: "Right-click Ground: issues SetRallyPoint command to
     /// that location").
     Production,

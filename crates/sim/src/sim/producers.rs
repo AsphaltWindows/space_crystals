@@ -78,7 +78,8 @@ impl Sim {
     ///   Design change 0083: the producers are served by the work they have queued, least first, ties by id, each
     ///   check counting what the ones before it in this command took, **until the crystal check fails** (0143: 0083
     ///   no longer considers the army cap); a full queue is passed over.
-    /// - **CancelProduction**: a producer has something queued, else [`Reject::NothingQueued`].
+    /// - **CancelProduction**: a producer has something queued, else [`Reject::NothingQueued`]; never a Recruitment
+    ///   Hall, whose Recruit can't be cancelled (design change 0342).
     /// - **SetRally**: a point on the map ([`Reject::OffMap`]), or an object that exists and that the player sees,
     ///   as for an order's target ([`Sim::check_target_seen`]). The producer itself is always a target: it clears
     ///   the rally (design change 0086).
@@ -99,13 +100,12 @@ impl Sim {
         let plan = match command {
             ProductionCommand::Train(kind) => self.plan_training(player, &producers, kind)?,
             ProductionCommand::CancelProduction => {
+                // A Recruitment Hall's Recruit can't be cancelled (design change 0342: "Recruits can't be cancelled").
                 let queued: Vec<ObjectId> = producers
                     .into_iter()
                     .filter(|id| {
-                        self.objects[id]
-                            .production
-                            .as_ref()
-                            .is_some_and(|p| !p.queue.is_empty())
+                        producer(&self.objects[id])
+                            .is_some_and(|(p, def)| def.recruitment.is_none() && !p.queue.is_empty())
                     })
                     .collect();
                 if queued.is_empty() {
@@ -310,7 +310,7 @@ impl Sim {
     /// centre, facing the heading it leaves along (design change 0145: `production::EnergyDoorway::release`, which
     /// draws from the sim's Rng only with no rally point and two or more ways out to choose from). A building with
     /// several exit sides releases it through the first door in its order whose doorway is free and has a spot for it
-    /// (`production::Doorway::order`, **Placeholder (Q0100 point 1)**), and holds it while none has. A Recruitment
+    /// (`production::Doorway::order`), and holds it while none has. A Recruitment
     /// Hall's Recruit is of its lineage (`Object::lineage`, plan decision T56: "Each Recruit tracks which Recruitment
     /// Hall produced it", `factions/cults/economy.md > RecruitmentHall > Unit Control Tracking`).
     fn release_unit(&mut self, producer: ObjectId) {

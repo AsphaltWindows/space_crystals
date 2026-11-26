@@ -13,12 +13,12 @@ const HALL: ObjectId = ObjectId(1);
 /// Its Armory.
 const ARMORY_2: ObjectId = ObjectId(2);
 
-/// Player 1's Recruitment Hall (1) at tiles (4, 4) to (7, 7), its bottom door's middle at (384, 512), and an Armory
-/// (2) at tiles (1, 9) to (3, 10), its entrance, B, facing east at (256, 640), on a 30 × 22 map; and a Storage (3),
-/// which keeps player 1 in the game when the others go. The Hall's first Recruit comes out of its bottom door
-/// (**Placeholder (Q0100 point 1)**: "the bottom when there is none" of a rally point) and is ordered into the Armory
-/// in the next tick; this returns it once it is inside, within 80 ticks, still the Hall's only Recruit (the next one
-/// comes 192 ticks after the first).
+/// Player 1's Recruitment Hall (1) at tiles (4, 4) to (7, 7), its exit, B, the west side, its door's middle at (256,
+/// 384), and an Armory (2) at tiles (1, 9) to (3, 10), its entrance, B, facing east at (256, 640), on a 30 × 22 map;
+/// and a Storage (3), which keeps player 1 in the game when the others go. The Hall's first Recruit comes out of side
+/// B (design change 0342: "It becomes AAAB with the exit on B") and is ordered into the Armory in the next tick; this
+/// returns it once it is inside, within 80 ticks, still the Hall's only Recruit (the next one comes 192 ticks after
+/// the first, and is in production meanwhile).
 fn hall_and_armory() -> (TestSim, ObjectId) {
     let mut t = cults(&flat(30, 22))
         .spawn(ObjectKind::RecruitmentHall, Some(P1), tile(4, 4))
@@ -64,24 +64,26 @@ fn usage(t: &TestSim) -> u32 {
 }
 
 /// A Recruit inside an Armory still uses its Hall's Unit Control, and still does once it is evacuated, its lineage
-/// unchanged.
+/// unchanged; the Hall's next Recruit, in production, counts as well (design change 0342: "The Recruit in production
+/// counts toward LocalUnitControlUsage from the start of its production").
 #[test]
 fn a_recruit_inside_an_armory_still_counts_in_its_halls_usage() {
     let (mut t, recruit) = hall_and_armory();
     assert!(t.sim().object(recruit).is_none(), "off the map");
-    assert_eq!(usage(&t), 1);
-    assert_eq!(unit_control(&t, P1), (1, 20));
+    assert_eq!(usage(&t), 2, "it and the next in production");
+    assert_eq!(unit_control(&t, P1), (2, 20));
     let gone = t.sim().tick() + 1;
     remove_at(&mut t, gone, ARMORY_2);
     run_checked(&mut t, gone);
     let o = t.sim().object(recruit).expect("evacuated");
     assert_eq!(o.lineage, [HALL]);
-    assert_eq!(usage(&t), 1);
-    assert_eq!(unit_control(&t, P1), (1, 20));
+    assert_eq!(usage(&t), 2);
+    assert_eq!(unit_control(&t, P1), (2, 20));
 }
 
-/// Its Hall destroyed while it is inside, the Recruit is an orphaned point: the Hall's capacity leaves the sum, its
-/// usage stays in it, and stays there once the Armory goes too and it is evacuated.
+/// Its Hall destroyed while it is inside, the Recruit is an orphaned point: the Hall's capacity leaves the sum, and
+/// its Recruit in production with it; the Recruit's usage stays in it, and stays there once the Armory goes too and it
+/// is evacuated.
 #[test]
 fn a_recruit_inside_when_its_hall_goes_counts_as_an_orphan() {
     let (mut t, recruit) = hall_and_armory();

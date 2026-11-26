@@ -8,10 +8,11 @@
 //! - **A side doorway** ([`Doorway`], `ExitRule::Side`, plan decision T19): the middle of its exit side ([`Door`]),
 //!   the side lettered as the rule says (the Barracks' B) wherever it faces once the building is placed
 //!   (`crate::sides::sides`). The unit "appears half inside the building": its centre on the exit side
-//!   ([`Door::spot`]). A building with several exit sides (`ExitRule::Sides`, the Recruitment Hall's four, slice M5-C)
-//!   has a door in the middle of each, and releases each unit through the first free one in its order
-//!   ([`Doorway::order`]: the one facing the rally point, the bottom one without a rally point, then clockwise;
-//!   **Placeholder (Q0100 point 1)**). A unit in the doorway is in the door whose side it is nearest
+//!   ([`Door::spot`]). A building with several exit sides (`ExitRule::Sides`, slice M5-C's; no type since design
+//!   change 0342 gave the Recruitment Hall one exit side, B) has a door in the middle of each, and releases each unit
+//!   through the first free one in its order ([`Doorway::order`]: the one facing the rally point, the bottom one
+//!   without a rally point, then clockwise; **Placeholder (not in the design: no building has several exit sides
+//!   now)**). A unit in the doorway is in the door whose side it is nearest
 //!   ([`Doorway::door_at`]), and leaves through that side alone.
 //! - **An energy doorway** ([`EnergyDoorway`], `ExitRule::Centre`, `energy.rs`): the unit materializes at the centre
 //!   and moves straight out along a heading that leaves through an open side.
@@ -208,9 +209,9 @@ impl Doorway {
     }
 
     /// The doors in the order a unit tries them (`Sim::release_unit`), the first free one taking it: the one facing
-    /// `toward`, the direction from the building's centre to its rally point, then the next ones clockwise
-    /// (**Placeholder (Q0100 point 1)**: "the side facing the rally point (the bottom when there is none), then the next
-    /// free side clockwise"). With no direction (no rally point, or one right at the centre) the first is the one
+    /// `toward`, the direction from the building's centre to its rally point, then the next ones clockwise (slice
+    /// M5-C's rule for the Hall's four sides before design change 0342; **Placeholder (not in the design: no building
+    /// has several exit sides now)**). With no direction (no rally point, or one right at the centre) the first is the one
     /// facing south, the bottom side. The door facing `toward` is the one at the smallest angle from it, and of two at
     /// the same angle, a rally point exactly on a diagonal, the clockwise one. With one exit side, its door alone.
     pub fn order(&self, toward: Option<Vec2>) -> impl Iterator<Item = Door> + '_ {

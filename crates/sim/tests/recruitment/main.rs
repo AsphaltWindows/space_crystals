@@ -1,13 +1,14 @@
 //! The Recruitment Halls (slice M5-C, plan decisions T56 and T57; `factions/cults/economy.md > RecruitmentHall`):
 //! the tiles they claim, the Recruits they make for nothing up to their capacity, the Unit Control of their lineages,
 //! and the HUD's figures. One test binary, in modules by topic:
-//! - `timing`: a Hall at 100% fills 6 → 20 in 2688 ticks and then makes none; at 50 tiles, capacity 10 and 384 ticks
-//!   a Recruit; Water lowers the effectiveness, buildings don't;
+//! - `timing`: a Hall at 100% fills 6 → 20 in 2688 ticks and then makes none, its Recruit in production counted from
+//!   the start (design change 0342); at 50 tiles, capacity 10 and 384 ticks a Recruit; at 33, 6 and no more (design
+//!   change 0341); Water lowers the effectiveness, buildings don't;
 //! - `claims`: overlapping Halls, the freed tiles taken in the tick the first Hall is gone, the units of a destroyed
-//!   Hall still used and its capacity gone, a unit's death restarting production, the HUD's figures;
-//! - `commands`: X, a `Train`, the rally point (a patch makes the new Recruits gather), a game replayed and saved;
-//! - `exits`: the side a Recruit leaves by (**Placeholder (Q0100 point 1)**), and the pause when every side is
-//!   occupied.
+//!   Hall still used and its capacity gone, a unit's death restarting production from 0, the HUD's figures;
+//! - `commands`: no X (design change 0342), a `Train`, the rally point (a patch makes the new Recruits gather), a game
+//!   replayed and saved;
+//! - `exits`: the one exit side, B (design change 0342), and the pause while its doorway is occupied.
 //!
 //! Every test runs under the invariants of `TestSim`.
 

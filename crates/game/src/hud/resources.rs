@@ -28,11 +28,12 @@
 //! - **The Cults** (`factions/cults/overview.md > DisplayHud`; slice M5-C), left to right:
 //!   - Space Crystals, the bank;
 //!   - Unit Control as used / available (`Sim::army_cap`, plan decision T56): the usage of their Recruitment Halls
-//!     and their orphaned units over the sum of their Halls' capacities, rounded down (`factions/cults/economy.md >
-//!     RecruitmentHall > Cults Unit Control HUD Display`; **Placeholder (Q0099 point 2)**). A Recruit counts once it
-//!     exists, not while in production (**Placeholder (Q0100 point 3)**). Over capacity, after a Hall is lost, it
-//!     reads so, as Beacon Capacity does, but not in red: the design gives the Cults' figure no warning ("for display
-//!     purposes only").
+//!     and their orphaned units over the sum of their Halls' capacities, each rounded down (`factions/cults/economy.md
+//!     > RecruitmentHall > Cults Unit Control HUD Display`; design change 0341: "Capacity is rounded down
+//!     everywhere"). A Hall's Recruit counts from the start of its production (design change 0342: "At 19/20 with a
+//!     Recruit in production, the HUD shows 20/20"). Over capacity, after a Hall is lost, it reads so, as Beacon
+//!     Capacity does, but not in red: the design gives the Cults' figure no warning ("for display purposes only";
+//!     design change 0344: "Global total is for display only").
 //! - A local player who isn't in the game shows no resources.
 //!
 //! Placeholder look, the design giving none: one ASCII text per figure (the UI font has no other glyphs), with the

@@ -288,16 +288,17 @@ fn a_tunnel_shows_the_tier_it_upgrades_to_and_its_progress() {
 }
 
 /// Slice M5-C (placeholder wording; `factions/cults/economy.md > RecruitmentHall > RecruitmentHallInstanceState`):
-/// player 1's Recruitment Hall in the map's corner claims the 49 tiles of its area on the map (**Placeholder (Q0099
-/// point 1)**), so 49% and a capacity of 9.8, shown as 9 (**Placeholder (Q0099 point 2)**). From its first step its
-/// Recruit is in production at 49 tiles a frame, out at 392 frames (192 × 100 / 49, rounded up); then the Hall's usage
-/// is 1, and its next Recruit starts at once. No queue line: a Hall has none to fill.
+/// player 1's Recruitment Hall in the map's top right corner, its side B open, claims the 49 tiles of its area on the
+/// map (**Placeholder (Q0099 point 1)**), so 49% and a capacity of 9.8, 9 (design change 0341: "Capacity is rounded
+/// down everywhere"). From its first step its Recruit is in production at 49 tiles a frame, and counts (design change
+/// 0342); out at 392 frames (192 × 100 / 49, rounded up), when its next Recruit starts at once: the Hall's usage is 2.
+/// No queue line: a Hall has none to fill.
 #[test]
 fn a_recruitment_hall_shows_its_effectiveness_unit_control_and_recruit() {
     let hall = ObjectId(1);
     let mut t = ScenarioBuilder::new(&vec![".".repeat(24); 24].join("\n"))
         .faction(P1, Faction::Cults)
-        .spawn(ObjectKind::RecruitmentHall, Some(P1), tile(0, 0))
+        .spawn(ObjectKind::RecruitmentHall, Some(P1), tile(20, 0))
         .start();
     let shown = |sim: &Sim| lines_of(sim, hall);
     assert_eq!(
@@ -309,7 +310,7 @@ fn a_recruitment_hall_shows_its_effectiveness_unit_control_and_recruit() {
         shown(t.sim()),
         [
             "Effectiveness: 49% (49/100 tiles)",
-            "Unit Control: 0 / 9",
+            "Unit Control: 1 / 9",
             "Recruiting Recruit: 50%"
         ]
     );
@@ -327,7 +328,7 @@ fn a_recruitment_hall_shows_its_effectiveness_unit_control_and_recruit() {
         shown(t.sim()),
         [
             "Effectiveness: 49% (49/100 tiles)",
-            "Unit Control: 1 / 9",
+            "Unit Control: 2 / 9",
             "Recruiting Recruit: 0%",
             "Rally point: ground"
         ]

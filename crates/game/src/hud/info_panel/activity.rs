@@ -78,9 +78,10 @@ pub fn construction(structure: &Object) -> Vec<String> {
 
 /// A Recruitment Hall's lines (`factions/cults/economy.md > RecruitmentHall > RecruitmentHallInstanceState`, slice
 /// M5-C; `Sim::hall_state`): its Effectiveness in whole percent rounded down, with the Recruitable tiles it claims of
-/// its area's, and its Unit Control, LocalUnitControlUsage over LocalUnitControlCapacity rounded down (**Placeholder
-/// (Q0099 point 2)**). A Hall under construction claims nothing (**Placeholder (Q0099 point 4)**). Nothing for another
-/// structure. Its ProductionProgress is [`production`]'s line.
+/// its area's, and its Unit Control, LocalUnitControlUsage, its Recruit in production included (design change 0342),
+/// over LocalUnitControlCapacity rounded down (design change 0341: "Capacity is rounded down everywhere"). A Hall under
+/// construction claims nothing (design change 0341: "A Hall under construction does nothing until it is complete").
+/// Nothing for another structure. Its ProductionProgress is [`production`]'s line.
 pub fn recruitment(sim: &Sim, structure: &Object) -> Vec<String> {
     let Some(hall) = sim.hall_state(structure.id) else {
         return Vec::new();

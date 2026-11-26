@@ -31,9 +31,10 @@
 //! production starts": the HUD's "used" count "includes in-production units, not merely queued ones";
 //! `factions/colonists/overview.md > Beacon Capacity > Reserved when production starts` alike). A unit takes its cost
 //! from the tick its producer begins progress on it (`Production::in_production`) for as long as it lives; a unit only
-//! queued takes none, nor does one waiting at 0% for room. The Cults reserve nothing ([`ArmyResource::reserves`]): a
-//! Hall's Recruit counts from the tick it exists (**Placeholder (Q0100 point 3)**), as LocalUnitControlUsage counts
-//! the units there are, and so does every Cults unit.
+//! queued takes none, nor does one waiting at 0% for room. The Cults' Unit Control reserves nothing at production
+//! starts ([`ArmyResource::reserves`]): a Hall counts its own Recruit in production in its LocalUnitControlUsage, from
+//! the start of its production (design change 0342, `crate::recruitment::Lineages`), and every other Cults unit counts
+//! the Recruits it was made of, which counted as they were.
 //!
 //! **The check** is made when production starts, not when a unit is queued (0143, which replaces design change 0082's
 //! reservation at queue time and with it M2's and M3-C's refusal of a `Train`): the unit at the front of a queue
@@ -41,9 +42,9 @@
 //! by itself once there is room (`sim/producers/step.rs`, `Production::blocked`). A unit whose cost is 0 always starts,
 //! even over capacity (design change 0176 point 3). The client names the faction's resource in the wait's line and
 //! feedback ([`ArmyResource::name`]). The Cults' Unit Control is never checked: it is for display only, each Hall
-//! producing by its own usage and capacity (**Placeholder (Q0101 point 1)**; `factions/cults/economy.md >
-//! RecruitmentHall > Production Behavior`: "Production logic is entirely local — global Unit Control state does not
-//! affect production decisions").
+//! producing by its own usage and capacity (design change 0344: "Global total is for display only";
+//! `factions/cults/economy.md > RecruitmentHall > Production Behavior`: "Production logic is entirely local — global
+//! Unit Control state does not affect production decisions").
 //!
 //! **Over capacity** (`factions/colonists/overview.md > Beacon Capacity > Over capacity`, design change 0112 as 0143
 //! amends it): when a Colonists building is lost, or a Beacon's deployment is cancelled, more can be used than is
@@ -129,10 +130,9 @@ impl ArmyResource {
 
     /// Whether a unit takes its cost from the start of its production, and its start waits for room (design change
     /// 0143, "Reserved when production starts"; module docs): the GDO's, the Colonists' and the Syndicate's. Not the
-    /// Cults' Unit Control, which counts the units there are (`factions/cults/economy.md > RecruitmentHall >
-    /// RecruitmentHallInstanceState`: "LocalUnitControlUsage: number (current usage against this hall)"; **Placeholder
-    /// (Q0100 point 3)**: the Recruit in production counts once it exists) and makes no production wait
-    /// (**Placeholder (Q0101 point 1)**).
+    /// Cults' Unit Control, whose Halls count their Recruits in production themselves (design change 0342,
+    /// `crate::recruitment::Lineages`) and which makes no production wait (design change 0344: "Global total is for
+    /// display only").
     pub fn reserves(self) -> bool {
         self != ArmyResource::CultsUnitControl
     }
@@ -312,8 +312,8 @@ mod tests {
 
     /// The Director's decision (slice M5-C; module docs): a unit costs only in its own faction's resource, both ways. A
     /// GDO player's Recruit takes none of their Unit Control, and a Cults player's Peacekeeper none of theirs, though
-    /// both have a UnitControlCost; each player's own unit takes its 1 (the Recruit as an orphan: **Placeholder (Q0101
-    /// point 2)**).
+    /// both have a UnitControlCost; each player's own unit takes its 1 (the Recruit as an orphan: design change 0344,
+    /// "Recruits no Hall produced [...] are orphans from the start").
     #[test]
     fn another_factions_unit_costs_nothing_in_either_direction() {
         use crate::ids::PlayerId;

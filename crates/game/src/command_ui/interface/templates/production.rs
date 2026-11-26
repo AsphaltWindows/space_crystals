@@ -25,10 +25,10 @@ const TRAIN_SLOTS: usize = 8;
 ///   the Lancer and the psionic unit aren't in the game (their stats, cost and time are TBD), so they aren't among the
 ///   recipes: 0124 has them show in their slot, unavailable ([`PanelCommand::Planned`], [`PanelTemplate::planned`];
 ///   slice M3-J2).
-/// - The Recruitment Hall: X and C alone (`factions/cults/economy.md > RecruitmentHall >
+/// - The Recruitment Hall: C alone (`factions/cults/economy.md > RecruitmentHall >
 ///   ObjectInterfaceState[RecruitmentHall]`, slice M5-C). It recruits by itself (`ProductionDef::recruitment`), so its
-///   recipe, the Recruit, has no Train; its X is available only while a Recruit is in production ("Only available if
-///   ProductionProgress is not None": the gate's `Reject::NothingQueued` otherwise).
+///   recipe, the Recruit, has no Train, and it has no X (design change 0342: "Recruits can't be cancelled. The X button
+///   is removed").
 pub(super) fn production_grid(kind: ObjectKind) -> [Option<PanelCommand>; 12] {
     let mut grid = [None; 12];
     let production = kind.def().structure.as_ref().and_then(|s| s.production.as_ref());
@@ -44,7 +44,9 @@ pub(super) fn production_grid(kind: ObjectKind) -> [Option<PanelCommand>; 12] {
     for &(slot, planned) in kinds::of(kind).template.planned {
         grid[slot] = grid[slot].or(Some(PanelCommand::Planned(planned)));
     }
-    grid[slot_index(CommandSlot::CANCEL_PRODUCTION)] = Some(PanelCommand::CancelProduction);
+    if trains.is_some() {
+        grid[slot_index(CommandSlot::CANCEL_PRODUCTION)] = Some(PanelCommand::CancelProduction);
+    }
     grid[slot_index(CommandSlot::RALLY_POINT)] = Some(PanelCommand::SetRallyPoint);
     grid
 }

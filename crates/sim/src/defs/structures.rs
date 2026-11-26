@@ -392,8 +392,9 @@ pub enum ExitRule {
     /// by their own rules; a side whose doorway is occupied counts as blocked, and the building pauses only when every
     /// eligible doorway is occupied"): a unit leaves through the one facing its producer's rally point, the bottom one
     /// without a rally point, or the next free one clockwise from it while that one's doorway is occupied
-    /// (**Placeholder (Q0100 point 1)**; `crate::production::Doorway::order`). The Recruitment Hall's four A sides
-    /// (slice M5-C, plan decision T57).
+    /// (`crate::production::Doorway::order`; slice M5-C's rule for the Recruitment Hall's four A sides, which design
+    /// change 0342 replaced with one exit side, B). No type has it now: **Placeholder (not in the design: the order of
+    /// several exit sides, for a building that will have them)**.
     Sides(SideLetter),
     /// An energy doorway at the centre (design change 0145, `factions/colonists/structures/README.md > Portals > Portal
     /// Exits (energy doorway)`: "Portals don't use exit sides"): a unit materializes at the centre and leaves in any
