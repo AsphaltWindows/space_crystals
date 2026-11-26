@@ -1,14 +1,19 @@
 //! The Temple — `factions/cults/structures/temple.md`.
 
-use crate::defs::structures::{BuilderGoes, SiteDef, SitePrice, StructureDef, SymmetryType};
-use crate::defs::{Armor, Category, Footprint, ObjectDef, ObjectKind};
+use crate::defs::structures::{
+    BuilderGoes, ExitRule, HoldsDef, ProductionDef, ResearchDef, SiteDef, SitePrice, StructureDef, SymmetryType,
+};
+use crate::defs::{Armor, Category, Footprint, ObjectDef, ObjectKind, Tech};
 use crate::player::Faction;
+use crate::sides::SideLetter;
 
 /// `factions/cults/structures/temple.md`: "Tier 2 of the Mystical/Human Enhancement branch. Researches technologies for
-/// the Cults", staffed by Recruits. Its numbers and its site only (slice M5-G2, plan decision T69): its research (`>
-/// Research (first set)`) and its staff (`> Recruit Staffing`) come with its slice (plan decision T70), which adds it to
-/// the Recruits' builds, so it holds no one and Recruits don't build it yet. Its numbers are the design's "Placeholder
-/// stats".
+/// the Cults. Research follows the shared rules in core/tech_and_research.md > Research, including the Cults exception:
+/// research only progresses while Recruits are staffing the building (speed scales with the number of Recruits
+/// inside)". Its numbers and its site are slice M5-G2's (plan decision T69), and its design's "Placeholder stats"; its
+/// research (`> Research (first set)`, `StructureDef::research`) runs on its queue (`production`, plan decision T70),
+/// staffed by the Recruits it holds (`holds`, `> Recruit Staffing`; slice M5-N3, `sim/producers/research.rs`). Recruits
+/// build it from outside ([`TEMPLE_SITE`]).
 pub(crate) static TEMPLE: ObjectDef = ObjectDef {
     kind: ObjectKind::Temple,
     name: "Temple",
@@ -36,7 +41,14 @@ pub(crate) static TEMPLE: ObjectDef = ObjectDef {
         build_radius_extension: 0,
         power: 0,
         seeds_build_area: false,
-        production: None,
+        // Its research queue (plan decision T70: "one queue engine"), which produces no unit: `research` says what it
+        // takes. Its staff come out of the exit side as the units of a building that holds units do (`holds`).
+        production: Some(ProductionDef {
+            exits: ExitRule::Side(SideLetter::C),
+            recipes: &[],
+            recruitment: None,
+            augment: &[],
+        }),
         mining: None,
         onto: None,
         constructs: &[],
@@ -49,9 +61,21 @@ pub(crate) static TEMPLE: ObjectDef = ObjectDef {
         requires: &[ObjectKind::Altar], // TechPrerequisite - player owns at least one Altar
         attack: None,
         popup: None,
-        // "Recruit staffing capacity 6; research queue 5": with its research's slice.
-        holds: None,
+        // `> Recruit Staffing`: "Recruits enter the Temple to staff its research (right-click own Temple with Recruits
+        // selected → Enter Temple). Only Recruits can staff research"; "Recruit staffing capacity 6"; "EntranceSide B,
+        // ExitSide C", "staff leave one at a time".
+        holds: Some(HoldsDef {
+            entrance: SideLetter::B,
+            exit: ExitRule::Side(SideLetter::C),
+            capacity: 6,
+            accepts: &[ObjectKind::Recruit],
+        }),
         occupants_fire: None,
+        // `> Research (first set)`, the four of its table in its order; "research queue 5".
+        research: Some(ResearchDef {
+            techs: &Tech::ALL,
+            queue: 5,
+        }),
     }),
     default_settings: None,
 };
@@ -77,8 +101,9 @@ mod tests {
     use crate::defs::cults::tests::assert_structure;
 
     /// 3×3, ABAC, MaxHP 450, PointArmor 1, FullArmor 9 (the building armour rule's n = 1), SightRange 4, Groupable,
-    /// behind an Altar; it holds no one and researches nothing yet. Recruits will build it from outside for 200 Space
-    /// Crystals in 640 frames with one of them, from 10% HP.
+    /// behind an Altar. Six Recruits staff it, walking in at B and out of C; it researches the four technologies of
+    /// its table, five of them queued at most, and trains no unit (slice M5-N3). Recruits build it from outside for 200
+    /// Space Crystals in 640 frames with one of them, from 10% HP.
     #[test]
     fn the_temple_follows_the_design() {
         let structure = assert_structure(
@@ -92,10 +117,22 @@ mod tests {
         );
         assert_eq!(ObjectKind::Temple.def().name, "Temple");
         assert_eq!(structure.requires, [ObjectKind::Altar], "TechPrerequisite: an Altar");
+        assert_eq!(structure.drop_off, None);
+        let holds = structure.holds.expect("Recruits staff it");
         assert_eq!(
-            (structure.production, structure.drop_off, structure.holds),
-            (None, None, None)
+            (holds.entrance, holds.exit, holds.capacity, holds.accepts),
+            (
+                SideLetter::B,
+                ExitRule::Side(SideLetter::C),
+                6,
+                &[ObjectKind::Recruit][..]
+            )
         );
+        let research = structure.research.expect("it researches");
+        assert_eq!((research.techs, research.queue), (&Tech::ALL[..], 5));
+        let production = structure.production.expect("on its queue");
+        assert!(production.recipes.is_empty() && production.augment.is_empty() && production.recruitment.is_none());
+        assert_eq!(production.exits, ExitRule::Side(SideLetter::C));
         let site = structure.site.expect("Recruits build it");
         assert_eq!(
             (site.price, site.frames, site.start_hp, site.builder_goes),

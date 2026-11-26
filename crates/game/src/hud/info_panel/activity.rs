@@ -13,10 +13,12 @@
 //! - recruitment (a Recruitment Hall's, slice M5-C, [`recruitment`]): its Effectiveness, by the tiles it claims, and
 //!   its LocalUnitControlUsage over its LocalUnitControlCapacity;
 //! - holding (a building that holds units, slice M5-F2, [`holding`]): how many are inside of its capacity, and a pool
-//!   building's free ones of each kind, another's occupants by kind (the Garrison's, slice M5-N2);
+//!   building's free ones of each kind, another's occupants by kind (the Garrison's, slice M5-N2), a Temple's staff and
+//!   their kinds (slice M5-N3);
 //! - production (the production capability of slice M2-D2, [`production`]): the unit in production and its
 //!   progress, the wait for room under the army cap (design change 0143), the queue length (not a Hall's, which has
-//!   no queue to fill; a pool building's entries by name, of its capacity), and the rally point;
+//!   no queue to fill; a pool building's entries by name, of its capacity; a Temple's research, of its research
+//!   queue), and the rally point;
 //! - a Tunnel's operation (slice M4-F, [`operation`]): the expansion it builds and its progress, or the tier it
 //!   upgrades to and its progress (slice M4-G).
 //!
@@ -109,14 +111,21 @@ pub fn recruitment(sim: &Sim, structure: &Object) -> Vec<String> {
 /// AltarInstanceState` lists its StoredUnits, not how they show). (M5-N2) Another's occupants, the Garrison's (plan
 /// §N2: "the occupants in the InfoPanel"), each kind it takes
 /// in that is inside, in the order it lists them (`sc_sim::defs::HoldsDef::accepts`), with how many: **Placeholder
-/// (not in the design: the Garrison has no InstanceState)**. Nothing for a structure that holds none.
+/// (not in the design: the Garrison has no InstanceState)**. (M5-N3) A tech building's staff (`holding::staffed`, the
+/// Temple's: "speed scales with the number of Recruits inside"), those inside that aren't on their way out
+/// (`Sim::staff`), of its capacity, in place of everyone inside, and of each kind, as its A/S/D/F count them:
+/// **Placeholder (not in the design: the Temple has no InstanceState)**. Nothing for a structure that holds none.
 pub fn holding(sim: &Sim, structure: &Object) -> Vec<String> {
     let Some(holds) = holding::holds(structure) else {
         return Vec::new();
     };
     let inside = sim.held_in(structure.id);
-    let mut lines = vec![format!("Inside: {} / {}", inside.len(), holds.capacity)];
-    if holding::trains(structure.kind) {
+    let staffed = holding::staffed(structure.kind);
+    let mut lines = vec![match staffed {
+        true => format!("Staff: {} / {}", sim.staff(structure.id), holds.capacity),
+        false => format!("Inside: {} / {}", inside.len(), holds.capacity),
+    }];
+    if holding::trains(structure.kind) || staffed {
         let free: Vec<String> = match holds.accepts {
             [_] => {
                 let counts = sim.pool_counts(structure.id);
@@ -157,7 +166,10 @@ pub fn holding(sim: &Sim, structure: &Object) -> Vec<String> {
 /// "Release", of its capacity, which bounds it (design change 0347 point 5); a Release under way is "Releasing" its unit
 /// (slice M5-F2). An Altar's AugmentationQueue (`factions/cults/augmentation.md > Altar > AltarInstanceState`) shows its
 /// orders by name, "Enhanced Constitution", "Improved Metabolism" and "Both", and the one under way is "Augmenting" its
-/// unit, with the order: "Augmenting Militant (Enhanced Constitution): 45%" (slice M5-N1b; placeholder wording).
+/// unit, with the order: "Augmenting Militant (Enhanced Constitution): 45%" (slice M5-N1b; placeholder wording). A
+/// Temple's research queue (slice M5-N3; `core/tech_and_research.md > Research > Shared Rules` 3) shows its
+/// technologies by name, of the most it queues (`ResearchDef::queue`: "research queue 5"), and the one in progress is
+/// "Researching" it: "Researching Enhanced Constitution Level 1: 45%" (placeholder wording); it has no rally point.
 pub fn production(sim: &Sim, sight: &Sight, structure: &Object) -> Vec<String> {
     let Some(production) = &structure.production else {
         return Vec::new();
@@ -177,25 +189,32 @@ pub fn production(sim: &Sim, sight: &Sight, structure: &Object) -> Vec<String> {
             QueueEntry::Unit(kind) => format!("{doing} {}", kind.def().name),
             QueueEntry::Release => format!("Releasing {unit}"),
             QueueEntry::Augment { order } => format!("Augmenting {unit} ({})", order.name()),
+            QueueEntry::Research { tech } => format!("Researching {}", tech.def().name),
         };
         lines.push(format!("{}: {percent}%", name.trim_end()));
         if let Some(cap) = status.blocked {
             lines.push(format!("Waiting for {}", cap.name()));
         }
+        let entries = || {
+            let names: Vec<&str> = (production.queue.iter())
+                .map(|entry| match *entry {
+                    QueueEntry::Unit(kind) => kind.def().name,
+                    QueueEntry::Release => "Release",
+                    QueueEntry::Augment { order } => order.name(),
+                    QueueEntry::Research { tech } => tech.def().name,
+                })
+                .collect();
+            names.join(", ")
+        };
+        let queued = production.queue.len();
+        let research = structure.def().structure.as_ref().and_then(|s| s.research.as_ref());
         match holding::holds(structure).filter(|_| holding::trains(structure.kind)) {
-            Some(holds) => {
-                let entries: Vec<&str> = (production.queue.iter())
-                    .map(|entry| match *entry {
-                        QueueEntry::Unit(kind) => kind.def().name,
-                        QueueEntry::Release => "Release",
-                        QueueEntry::Augment { order } => order.name(),
-                    })
-                    .collect();
-                let (queued, capacity) = (production.queue.len(), holds.capacity);
-                lines.push(format!("Queue: {} ({queued} / {capacity})", entries.join(", ")));
-            }
-            None if !recruits => lines.push(format!("Queue: {} / {QUEUE_LIMIT}", production.queue.len())),
-            None => {}
+            Some(holds) => lines.push(format!("Queue: {} ({queued} / {})", entries(), holds.capacity)),
+            None => match research {
+                Some(research) => lines.push(format!("Queue: {} ({queued} / {})", entries(), research.queue)),
+                None if !recruits => lines.push(format!("Queue: {queued} / {QUEUE_LIMIT}")),
+                None => {}
+            },
         }
     }
     if let Some(rally) = production.rally {

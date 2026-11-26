@@ -175,6 +175,7 @@ pub fn every_command() -> Vec<Command> {
                 kind: ObjectKind::Disciple,
                 from: crate::augmentation::RecruitKind::Plain,
             },
+            ProductionCommand::Research(crate::defs::Tech::EnhancedConstitutionL2),
         ]
         .map(|command| Command::Production {
             objects: units.clone(),
@@ -206,10 +207,16 @@ pub fn every_command() -> Vec<Command> {
             command,
         }),
     );
-    commands.push(Command::Holding {
-        objects: units.clone(),
-        command: HoldCommand::EjectAll,
-    });
+    commands.extend(
+        [
+            HoldCommand::EjectAll,
+            HoldCommand::ReleaseOne(crate::augmentation::RecruitKind::Metabolism),
+        ]
+        .map(|command| Command::Holding {
+            objects: units.clone(),
+            command,
+        }),
+    );
     for command in &commands {
         match command {
             Command::Order { kind, .. } => match kind {
@@ -239,7 +246,8 @@ pub fn every_command() -> Vec<Command> {
                 | ProductionCommand::TrainFrom { .. }
                 | ProductionCommand::Release(_)
                 | ProductionCommand::Augment { .. }
-                | ProductionCommand::ReleaseOf { .. } => {}
+                | ProductionCommand::ReleaseOf { .. }
+                | ProductionCommand::Research(_) => {}
             },
             Command::Construction { command, .. } => match command {
                 ConstructionCommand::Construct(_)
@@ -258,7 +266,7 @@ pub fn every_command() -> Vec<Command> {
                 ..
             } => {}
             Command::Holding {
-                command: HoldCommand::EjectAll,
+                command: HoldCommand::EjectAll | HoldCommand::ReleaseOne(_),
                 ..
             } => {}
             Command::Debug(

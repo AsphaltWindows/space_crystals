@@ -17,6 +17,7 @@
 //! M5-J1), which the client's panel reads.
 
 pub(crate) mod augmentation;
+pub(crate) mod research;
 pub(crate) mod structures;
 pub(crate) mod units;
 
@@ -93,7 +94,7 @@ const fn slot(menu: ConstructMenu, row: u8, column: u8, entry: ConstructEntry) -
 /// DefaultState": "**BuildMenu[Basic]**: **Q** Recruitment Hall, **W** Storage; **A** Armory, **S** Gunworks, **D**
 /// Garrison; **X** Altar", and "**BuildMenu[Advanced]**: **A** Chop Shop, **S** Machine Shop, **D** Airstrip, **F**
 /// Scrap Hangar; **X** Temple, **C** Cathedral, **V** Shrine". The buildings the Recruits don't build yet are
-/// [`ConstructEntry::Planned`]: since slice M5-N1b, the five whose slices come later. Tests check it against the
+/// [`ConstructEntry::Planned`]: since slice M5-N3, the four whose slices come later. Tests check it against the
 /// design's lines, and that it lists every type the Recruits build, once.
 pub const CONSTRUCT_MENU: &[ConstructSlot] = {
     use ConstructEntry::{Kind, Planned};
@@ -109,7 +110,7 @@ pub const CONSTRUCT_MENU: &[ConstructSlot] = {
         slot(Advanced, 1, 1, Kind(ObjectKind::MachineShop)),  // S
         slot(Advanced, 1, 2, Planned("Airstrip")),            // D
         slot(Advanced, 1, 3, Kind(ObjectKind::ScrapHangar)),  // F
-        slot(Advanced, 2, 1, Planned("Temple")),              // X
+        slot(Advanced, 2, 1, Kind(ObjectKind::Temple)),       // X
         slot(Advanced, 2, 2, Planned("Cathedral")),           // C
         slot(Advanced, 2, 3, Planned("Shrine")),              // V
     ]

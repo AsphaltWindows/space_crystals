@@ -132,6 +132,7 @@ pub(crate) static TUNNEL: ObjectDef = ObjectDef {
         popup: None,
         holds: None,
         occupants_fire: None,
+        research: None,
     }),
     default_settings: None,
 };
@@ -206,6 +207,7 @@ mod tests {
             popup: None,
             holds: None,
             occupants_fire: None,
+            research: None,
         };
         assert_eq!(structure, &expected);
     }

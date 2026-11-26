@@ -387,7 +387,10 @@ fn fuzz_run(seed: u64) -> Run {
                 | SimEvent::ReleaseQueued { .. }
                 | SimEvent::ReleaseCancelled { .. }
                 | SimEvent::AugmentQueued { .. }
-                | SimEvent::AugmentCancelled { .. } => {}
+                | SimEvent::AugmentCancelled { .. }
+                | SimEvent::ResearchQueued { .. }
+                | SimEvent::ResearchCancelled { .. }
+                | SimEvent::ResearchCompleted { .. } => {}
             }
         }
         unit_steps += sim

@@ -6,6 +6,8 @@ use ::serde::de::value::{Error as ValueError, U32Deserializer};
 /// (M5-F3) The types that hold units: every exit opposite its entrance (design change 0347 point 1), and what
 /// `defs_are_consistent` checks of their holds and their occupants' fire (M5-F1, M5-N2).
 mod holds;
+/// (M5-N3) The types that research: what `defs_are_consistent` checks of them.
+mod research;
 /// The defs as plain data: every def through JSON and back (plan decision T54).
 mod serde;
 
@@ -302,6 +304,7 @@ fn structure_is_consistent(def: &ObjectDef, structure: &StructureDef) {
         }
     }
     holds::holds_are_consistent(def, structure);
+    research::research_is_consistent(def, structure);
 }
 
 /// `defs_are_consistent` for the attack of a unit type or of a structure type named `name` (`StructureDef::attack`,

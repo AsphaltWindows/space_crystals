@@ -404,7 +404,8 @@ mod tests {
 
     /// The Agent builds the Tunnel, alone (the Laser Turret no more: design change 0359); the Recruit the Recruitment
     /// Hall, the Storage and the Armory (slice M5-E), the Gunworks, the Machine Shop and the Scrap Hangar (slice
-    /// M5-G2), the Garrison (slice M5-N2) and the Altar (slice M5-N1b), a group sharing the build, and assists them;
+    /// M5-G2), the Garrison (slice M5-N2), the Altar (slice M5-N1b) and the Temple (slice M5-N3), a group sharing the
+    /// build, and assists them;
     /// nothing else builds anything (the Drone deploys). The Cults' other buildings have their sites, but no one builds
     /// them until their slices.
     #[test]
@@ -414,6 +415,7 @@ mod tests {
             ObjectKind::Storage,
             ObjectKind::Armory,
             ObjectKind::Altar,
+            ObjectKind::Temple,
             ObjectKind::Garrison,
             ObjectKind::Gunworks,
             ObjectKind::MachineShop,

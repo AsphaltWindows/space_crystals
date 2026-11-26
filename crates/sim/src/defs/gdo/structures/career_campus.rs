@@ -47,6 +47,7 @@ pub(crate) static CAREER_CAMPUS: ObjectDef = ObjectDef {
         popup: None,
         holds: None,
         occupants_fire: None,
+        research: None,
     }),
     default_settings: None,
 };

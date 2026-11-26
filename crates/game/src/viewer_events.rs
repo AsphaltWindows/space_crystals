@@ -402,7 +402,10 @@ impl<'a> Arrival<'a> {
             | SimEvent::ReleaseQueued { producer, .. }
             | SimEvent::ReleaseCancelled { producer, .. }
             | SimEvent::AugmentQueued { producer, .. }
-            | SimEvent::AugmentCancelled { producer, .. } => self.owner(producer),
+            | SimEvent::AugmentCancelled { producer, .. }
+            | SimEvent::ResearchQueued { producer, .. }
+            | SimEvent::ResearchCancelled { producer, .. }
+            | SimEvent::ResearchCompleted { producer, .. } => self.owner(producer),
             SimEvent::UnitProduced { unit, .. } => self.object(unit),
             SimEvent::ConstructionCompleted { constructor, .. }
             | SimEvent::ConstructionCancelled { constructor, .. }

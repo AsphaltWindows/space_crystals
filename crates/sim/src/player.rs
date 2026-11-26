@@ -1,7 +1,10 @@
 //! Factions and players — `core/entities.md > Faction`, `> Player`.
 
+use std::collections::BTreeSet;
+
 use serde::{Deserialize, Serialize};
 
+use crate::defs::Tech;
 use crate::ids::PlayerId;
 use crate::scenario::StartingConditions;
 use crate::units::Tick;
@@ -65,6 +68,15 @@ pub struct Player {
     /// before it existed still load.
     #[serde(default)]
     pub defeated_at: Option<Tick>,
+    /// (M5-N3) The technologies the player has completed (`core/tech_and_research.md > Research > Shared Rules` 1: "a
+    /// technology is researched once [...] and on completion applies to all of that player's eligible objects"; plan
+    /// decision T74): the Temple's (`crate::defs::Tech`), whose levels the amounts of the Augmentations follow
+    /// (`augmentation::Levels::of`). Empty as a game starts; a research that completes adds its technology
+    /// (`Sim::complete_research`) and nothing takes one away (Shared Rules 8: "completed research is permanent.
+    /// Losing the structure afterward does not revoke it"). Optional in files and left out of them while empty, so that
+    /// states saved before it existed still load, and hashed only while not empty (`crate::hash`).
+    #[serde(default, skip_serializing_if = "BTreeSet::is_empty")]
+    pub techs: BTreeSet<Tech>,
 }
 
 /// A player's five banks at once: what `DebugCommand::SetResources` sets ([`Player::set_banks`]).
@@ -95,6 +107,7 @@ impl Player {
             essence: 0,
             flux: 0,
             defeated_at: None,
+            techs: BTreeSet::new(),
         }
     }
 
@@ -120,6 +133,11 @@ impl Player {
         } = banks;
         (self.crystals, self.supplies) = (crystals, supplies);
         (self.alloys, self.essence, self.flux) = (alloys, essence, flux);
+    }
+
+    /// (M5-N3) Whether the player has completed `tech` ([`Player::techs`]).
+    pub fn has(&self, tech: Tech) -> bool {
+        self.techs.contains(&tech)
     }
 
     /// Whether the player has been defeated ([`Player::defeated_at`]): the gate refuses all their commands.

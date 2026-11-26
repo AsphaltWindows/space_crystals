@@ -100,7 +100,8 @@ pub enum ExitRule {
     /// (M5-N2) One door, the only side its SymmetryType letters so, with its doorway in its middle as
     /// [`ExitRule::Side`] has, which is the building's entrance too: the Garrison's B
     /// (`factions/cults/structures/garrison.md`: "SymmetryType AAAB, **the door on side B** (one door, entrance and
-    /// exit"). Everyone it lets out leaves **at once** (`> Placeholder stats > Leaving`: "units leave **through the
+    /// exit"). Everyone it lets out leaves **at once** (`factions/cults/structures/garrison.md > Placeholder stats >
+    /// Leaving`: "units leave **through the
     /// door**; on **Eject All** they all come out **at once**, ignoring collision with each other until they are clear
     /// of the footprint"; `Sim::step_holding`). Only for a building that holds units and produces none
     /// (`defs_are_consistent`).

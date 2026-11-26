@@ -9,9 +9,11 @@ use crate::units::Tick;
 
 mod occupants;
 mod production;
+mod research;
 
 pub use occupants::OccupantFire;
 pub use production::{AugmentRecipe, ExitRule, ProductionDef, Recipe, RecruitmentDef};
+pub use research::ResearchDef;
 
 /// A structure type's own attributes; the attributes every object type has, armour included, are on its
 /// `ObjectDef`.
@@ -108,6 +110,11 @@ pub struct StructureDef {
     /// other structure. Optional in files.
     #[serde(default)]
     pub occupants_fire: Option<OccupantFire>,
+    /// (M5-N3) The technologies the type researches (plan decision T74, `crate::defs::Tech`;
+    /// `core/tech_and_research.md > Research`), on its production queue (`QueueEntry::Research`): the Temple's. `None`
+    /// for every other structure. Optional in files.
+    #[serde(default)]
+    pub research: Option<ResearchDef>,
 }
 
 /// A structure type that holds units inside (`StructureDef::holds`, plan decision T60; `crate::holding`): one

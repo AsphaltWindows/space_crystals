@@ -2,11 +2,13 @@
 //! `Command::Production`, whose gate is `producers/queuing.rs`, the producers' step of the economy phase
 //! (`producers/step.rs`, with the start check of design change 0143), the release of a finished unit
 //! (`producers/release.rs`), and the refund when a producer leaves the game. A producer that holds units makes them
-//! of its units inside (`producers/pool.rs`, slice M5-F2).
+//! of its units inside (`producers/pool.rs`, slice M5-F2). A Temple researches on its queue, staffed by the units
+//! inside (`producers/research.rs`, slice M5-N3).
 
 pub(super) mod pool;
 mod queuing;
 mod release;
+mod research;
 mod step;
 
 use super::Sim;
@@ -42,7 +44,7 @@ fn producer(o: &Object) -> Option<(&Production, &'static ProductionDef)> {
 /// The event of `producer`'s entry `entry` leaving its queue unmade, with `refund` Space Crystals back (X, or the
 /// producer leaving the game): a unit's `SimEvent::ProductionCancelled`, a Release's `SimEvent::ReleaseCancelled`
 /// (slice M5-F2) and an augmentation order's `SimEvent::AugmentCancelled` (slice M5-N1b), which name the unit they had
-/// reserved, `reserved`'s first.
+/// reserved, `reserved`'s first, and a research's `SimEvent::ResearchCancelled` (slice M5-N3).
 pub(super) fn cancelled(producer: ObjectId, entry: QueueEntry, reserved: &[ObjectId], refund: u32) -> Option<SimEvent> {
     match entry {
         QueueEntry::Unit(kind) => Some(SimEvent::ProductionCancelled { producer, kind, refund }),
@@ -56,6 +58,7 @@ pub(super) fn cancelled(producer: ObjectId, entry: QueueEntry, reserved: &[Objec
             order,
             refund,
         }),
+        QueueEntry::Research { tech } => Some(SimEvent::ResearchCancelled { producer, tech, refund }),
     }
 }
 
@@ -92,6 +95,7 @@ impl Sim {
                             unit,
                             order,
                         },
+                        (QueueEntry::Research { tech }, _) => SimEvent::ResearchQueued { producer: id, tech },
                         (QueueEntry::Release | QueueEntry::Augment { .. }, None) => continue,
                     };
                     // "deducts 50 Space Crystals from player, adds Peacekeeper to BuildQueue" (the gate checked

@@ -4,7 +4,7 @@
 use std::fmt;
 
 use crate::augmentation::{AugmentOrder, RecruitKind};
-use crate::defs::ObjectKind;
+use crate::defs::{ObjectKind, Tech};
 use crate::ids::{ObjectId, PlayerId};
 use crate::orders::MAX_ORDER_UNITS;
 use crate::placement::PlacementProblem;
@@ -167,7 +167,9 @@ pub enum Reject {
     /// Armory, Cathedral: Recruits only"; `HoldsDef::accepts`).
     NotAccepted(ObjectId),
     /// (M5-F1) None of the objects a holding command, or a Release (slice M5-F2), names holds units (or exists any
-    /// more): `crate::holding`.
+    /// more): `crate::holding`. (M5-N3) Or none of those that do takes it: a Release at buildings none of which trains
+    /// the units inside (`holding::trains`), a `HoldCommand::ReleaseOne` at buildings none of which is a tech building
+    /// (`holding::staffed`).
     NoHolders,
     /// (M5-F1) An Eject All to buildings none of which has a unit in its pool
     /// (`factions/cults/structures/armory.md > ObjectInterfaceState[Armory]`: "Only available if StoredRecruits is not
@@ -192,9 +194,23 @@ pub enum Reject {
     /// (M5-N1b) None of the producers of an Augment takes the order (`ProductionDef::augment`: only an Altar does).
     CannotAugment(AugmentOrder),
     /// (M5-N1b) An Augment for units of this kind, which have an Augmentation the order applies
-    /// (`factions/cults/augmentation.md > Altar > Augmentation Orders`: "An order can only target a unit that is missing
-    /// every Augmentation the order applies"; `AugmentOrder::fits`).
+    /// (`factions/cults/augmentation.md > Altar > Augmentation Orders`: "An order can only target a unit that is
+    /// missing every Augmentation the order applies"; `AugmentOrder::fits`).
     AlreadyAugmented(RecruitKind),
+    /// (M5-N3) None of the structures of a Research offers the technology (`StructureDef::research`: only a Temple
+    /// does).
+    CannotResearch(Tech),
+    /// (M5-N3) The player has completed the technology (`core/tech_and_research.md > Research > Shared Rules` 4: "Once
+    /// completed, it no longer appears in any research menu").
+    Researched(Tech),
+    /// (M5-N3) The technology is queued or in progress at a structure of the player's (`core/tech_and_research.md >
+    /// Research > Shared Rules` 4: "a technology cannot be queued or in progress at more than one structure at the same
+    /// time"): what the Temple's key shows as "In progress".
+    ResearchUnderWay(Tech),
+    /// (M5-N3) The player hasn't completed this technology, the previous level of the one a Research names
+    /// (`core/tech_and_research.md > Tech Prerequisites > Research Prerequisites`: "A next level can only be queued
+    /// once the previous level has **completed**").
+    RequiresTech(Tech),
 }
 
 impl fmt::Display for Reject {
@@ -265,6 +281,10 @@ impl fmt::Display for Reject {
             Reject::NotAugmentable(id) => write!(f, "object {} can't be augmented", id.0),
             Reject::CannotAugment(order) => write!(f, "none of the producers applies {}", order.name()),
             Reject::AlreadyAugmented(kind) => write!(f, "a {} unit has an Augmentation the order applies", kind.name()),
+            Reject::CannotResearch(tech) => write!(f, "none of the structures researches {}", tech.def().name),
+            Reject::Researched(tech) => write!(f, "{} is researched already", tech.def().name),
+            Reject::ResearchUnderWay(tech) => write!(f, "{} is being researched already", tech.def().name),
+            Reject::RequiresTech(tech) => write!(f, "it requires {}", tech.def().name),
         }
     }
 }
