@@ -29,7 +29,8 @@
 //! - an Attack whose unit can't move, or can't back off further (design change 0204 point 3), and whose target is
 //!   inside its MinRange (`SimEvent::TargetTooClose`; `systems/controls/behaviors.md > AttackingObject > Target
 //!   inside MinRange`, design change 0182: "the order fails with feedback ("Target too close"; same channel as other
-//!   refusals)"): [`TARGET_TOO_CLOSE_TEXT`];
+//!   refusals)"): [`TARGET_TOO_CLOSE_TEXT`]; and an Attack Ground whose location is (`SimEvent::LocationTooClose`,
+//!   slice M5-O3; `systems/controls/behaviors.md > AttackingLocation`, as AttackingObject), the same;
 //! - a greyed-out button pressed, or its hotkey (`systems/controls/selection_and_hud.md > CommandPanel > Pressing an
 //!   unavailable command`, design change 0162: "nothing is issued, and the player gets the same feedback as when an
 //!   order is refused, naming the reason (e.g. "Not enough Space Crystals", "Queue is full")"), and a Warp In whose
@@ -119,7 +120,8 @@ pub const TIER_TOO_LOW_TEXT: &str = "This Tunnel's tier is too low";
 /// operation"). Placeholder wording.
 pub const OPERATION_UNDER_WAY_TEXT: &str = "This Tunnel is busy";
 /// The message of an Attack its unit can't carry out, the target inside its MinRange and the unit unable to move
-/// (`SimEvent::TargetTooClose`). The design's wording (design change 0182).
+/// (`SimEvent::TargetTooClose`), and of an Attack Ground whose location is (`SimEvent::LocationTooClose`, slice M5-O3).
+/// The design's wording (design change 0182).
 pub const TARGET_TOO_CLOSE_TEXT: &str = "Target too close";
 /// The message of a Drop Off pressed while none of its workers carries a load (`Reject::NothingToDeliver`;
 /// `factions/syndicate/units/agent.md > Agent ObjectInterfaceState`: "greyed out when Agent is not carrying
@@ -366,7 +368,7 @@ fn show_feedback(
         SimEvent::DeployFailed { problems, .. } | SimEvent::BuildFailed { problems, .. } => {
             Some((tick, deploy_failed_text(problems)))
         }
-        SimEvent::TargetTooClose { .. } => Some((tick, TARGET_TOO_CLOSE_TEXT)),
+        SimEvent::TargetTooClose { .. } | SimEvent::LocationTooClose { .. } => Some((tick, TARGET_TOO_CLOSE_TEXT)),
         _ => None,
     });
     let latest = clicks

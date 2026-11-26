@@ -253,9 +253,22 @@ impl StateHash for Behaviour {
                 h.tag(8);
                 walked.hash(h);
             }
-            Behaviour::AttackGround(AttackGround { moving }) => {
+            Behaviour::AttackGround(AttackGround {
+                moving,
+                backing_off,
+                too_close,
+            }) => {
                 h.tag(9);
                 moving.hash(h);
+                // (M5-O3) Only while set, as `AttackOrder`'s: an Attack Ground that never had its location inside the
+                // unit's MinRange hashes as it did before they existed.
+                if let Some(from) = backing_off {
+                    h.tag(1);
+                    from.hash(h);
+                }
+                if *too_close {
+                    h.tag(2);
+                }
             }
             Behaviour::Build(SiteWalk { arrived }) => {
                 h.tag(10);

@@ -379,7 +379,8 @@ impl<'a> Arrival<'a> {
             SimEvent::SupplyStationEmpty { owner, .. } => Audience::Owner(Some(owner)),
             SimEvent::MoveFailed { unit }
             | SimEvent::EnterFailed { unit, .. }
-            | SimEvent::TargetTooClose { unit, .. } => self.owner(unit),
+            | SimEvent::TargetTooClose { unit, .. }
+            | SimEvent::LocationTooClose { unit, .. } => self.owner(unit),
             // A TailDisjointed shot that hit nothing is a shot as well (slice M5-O3).
             SimEvent::Attacked { from, to, .. }
             | SimEvent::Missed { from, to, .. }

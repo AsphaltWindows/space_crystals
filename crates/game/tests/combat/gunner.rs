@@ -1,6 +1,7 @@
 //! The Gunner's shots (slice M5-O3; `factions/cults/units/gunner.md > AttackAttributes`, design change 0304: "Visually
 //! still an instant gunshot"): tracers, each drawn to the spot its TailDisjointed attack locked (`SimEvent::Attacked`,
-//! `SimEvent::Missed`), so that a miss shows where the shot went.
+//! `SimEvent::Missed`), so that a miss shows where the shot went; and the "Target too close" of an Attack Ground it
+//! can't carry out (`SimEvent::LocationTooClose`).
 
 use sc_sim::AttackPhase;
 
@@ -62,4 +63,43 @@ fn a_gunners_miss_is_drawn_to_the_spot_it_locked() {
     }
     let hit = effects(&app).tracers.iter().find(|t| t.target.is_some()).unwrap();
     assert_eq!((hit.target, hit.from, hit.to), (Some(target), from, away));
+}
+
+/// Slice M5-O3: an Attack Ground that its Gunner can't carry out fails with the feedback an Attack's does
+/// (`SimEvent::LocationTooClose`; `systems/controls/behaviors.md > AttackingObject > Target inside MinRange`: "the same
+/// "Target too close" feedback"), through the sim. Player 1's Gunner, its back to the map's west edge, is ordered to
+/// attack the ground 8 su off its edge, inside its MinRange: it backs off as far as the edge lets it, gives the order
+/// up, and the feedback band says "Target too close".
+#[test]
+fn a_cornered_gunners_attack_ground_shows_target_too_close() {
+    let gunner = ObjectId(1);
+    let mut app = headless_app();
+    app.update();
+    let from = Vec2::new(16.0, 300.0);
+    spawn(&mut app, ObjectKind::Gunner, P1, from);
+    app.update();
+    let at = from + Vec2::new(12.0 + 8.0, 0.0);
+    let kind = OrderKind::AttackGround(at);
+    let order = Command::Order {
+        units: vec![gunner],
+        kind,
+        queue: false,
+    };
+    submit(&mut app, P1, order);
+    let ordered = tick(&app);
+    let current = |app: &App| {
+        let o = app.world().resource::<SimRes>().object(gunner).expect("spawned");
+        let orders = o.orders.as_ref().expect("a unit");
+        orders.current.as_ref().map(|active| active.order.kind)
+    };
+    while current(&app) != Some(kind) {
+        assert!(tick(&app) < ordered + 10, "the order never started");
+        app.update();
+    }
+    while feedback(&app).is_none() {
+        assert!(tick(&app) < ordered + 120, "it never gave up");
+        app.update();
+    }
+    assert_eq!(feedback(&app), Some(TARGET_TOO_CLOSE_TEXT));
+    assert_eq!(current(&app), None, "the order ended");
 }

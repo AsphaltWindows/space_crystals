@@ -248,7 +248,8 @@ Units, structures and resources are all `Object`s (`object.rs`, `core/entities.m
   set, kept by `Sim::change_kind`, and set by nothing yet (by the Hall at spawn, slice M5-C, and by the layout at a
   game's start, M5-B); a Cults unit without one is an orphan (Placeholder (Q0101 point 2)). The Gunner is the first
   kind with a MinRange, which M3-L2's code serves (*Behaviours*; M5-A gave a unit that can't back off its "Target too
-  close", design change 0204 point 3), and the first TailDisjointed attack (slice M5-O3, *Combat > TailDisjointed
+  close", design change 0204 point 3; M5-O3 took the back-off on to the middle of the band, question Q0054, and gave
+  an Attack Ground's location the same rule), and the first TailDisjointed attack (slice M5-O3, *Combat > TailDisjointed
   attacks*), which can miss. The Storage, 1/6 on its 2x2 as written, is the building armour test's one exception
   (`tests/building_armor.rs`, Placeholder (Q0094)). The Cults stay the faction not implemented yet
   (`StartingConditions::of`) until slice M5-B.
@@ -641,7 +642,9 @@ Layout validation can't disagree. **Never test a placement rule anywhere else: a
    - Attacks on a target too close, `Sim::step_too_close` (slice M3-L2, design change 0182): part of 5a, right after
      the deployments, in id order. Each unit that can't move, or can't back off further (design change 0204 point
      3), whose Attack order 5a found with its target inside its MinRange (`AttackOrder::too_close`) ends the order,
-     and its next queued one starts in the next tick, with `SimEvent::TargetTooClose`.
+     and its next queued one starts in the next tick, with `SimEvent::TargetTooClose`; and so does each whose Attack
+     Ground 5a found with its location inside (`AttackGround::too_close`, slice M5-O3), with
+     `SimEvent::LocationTooClose`.
    - 5b `paths::sync`: if the blocking footprints changed, rebuild the true navigation grids and bump
      `nav_version`.
    - 5c `paths::serve`: first each unit's staggered path checks, in the ticks where `(tick + id) % 4 == 0` (after
@@ -941,7 +944,9 @@ ticks spent in it. Hashed and serialized like all state.
   the damage lands: a dodged grenade reveals nothing (design change 0293, point 2).
 - **Attack Ground** (`orders/attack_ground.rs`, plan decision T47; `systems/controls/behaviors.md > AttackingLocation`):
   `OrderKind::AttackGround(point)` sets `AttackState::location`; 5e aims at a point in reach (`reaches_point`, from
-  the unit's shape) and fires. The behaviour walks the unit into range and backs it off a point inside its MinRange.
+  the unit's shape) and fires. The behaviour walks the unit into range, and backs it off a point inside its MinRange
+  by an Attack's own rule and code (`engage::too_close`, slice M5-O3; *Behaviours*), letting go of the location while
+  it does; a unit that can't back off gives the order up with `SimEvent::LocationTooClose` ("Target too close").
   **It keeps firing** (design change 0293, answering Q0083 point 3): the location stays engaged after each shot (a
   launch, or a TailDisjointed strike: the Gunner's, slice M5-O3), so
   the attack cycles at it until another order or a Stop, and the orders queued behind it never start on their own;
@@ -1095,10 +1100,16 @@ writes the mover's goal and the target the attack engages, and reads `Mover::sta
   The removal path leaves such an order alone (*Combat > Removal path*).
   **A target inside MinRange** (`engage::too_close`, design change 0182): a unit that can move backs straight away
   from it, to where the gap would be the middle of the band from MinRange to Range (`AttackOrder::backing_off`), and
-  attacks once out of MinRange; one that can't (`Mover::can_move`) fails the order (`AttackOrder::too_close`,
+  attacks once the back-off ends: it goes on while the target is within Range, until the move ends there or where
+  the unit is blocked (question Q0054: "not just past MinRange"; slice M5-O3 fixed M5-A's back-off, which stopped
+  as soon as the target was out of MinRange). The unit engages nothing meanwhile, so that 5e doesn't aim from just
+  past MinRange and hold it there, and engages the target again as the back-off ends, or as the target leaves its
+  Range. One that can't move (`Mover::can_move`) fails the order (`AttackOrder::too_close`,
   `Sim::step_too_close`, `SimEvent::TargetTooClose`; the client's feedback line says "Target too close"), and so
   does one whose back-off ended with the target still inside and where it was: it can't back off ("cornered, or
-  blocked behind", design change 0204 point 3; slice M5-A, which gave it the feedback).
+  blocked behind", design change 0204 point 3; slice M5-A, which gave it the feedback). An Attack Ground's location
+  takes the same rule through the same code (slice M5-O3: `TooNear` is what the unit backs off from, `BackOff` the
+  order's parts the rule works on), and fails with `SimEvent::LocationTooClose`.
 - **Idle units** (`engage::idle`): scan their SightRange every tick; the acquired enemy is engaged with `close_in`
   from the IdleOrigin, where the unit stood. Farther than `IDLE_LEASH_GU` (4) from it the unit disengages and walks
   back without scanning; a target destroyed or out of SightRange leaves it idle where it is.
@@ -2134,7 +2145,8 @@ their energy doorway, slice M3-D2: design change 0145, `factions/colonists/struc
   `PatchDepleted`, `ProductionQueued`, `ProductionRefused`, `ProductionCancelled`, `ProductionWaiting`, `UnitProduced`,
   `ConstructionCompleted`, `ConstructionCancelled`, `StructurePlaced`, `PlacementRefused`, `PlayerDefeated`,
   `GameOver`, `KindChanged`, `TransformCompleted`, `TransformCancelled`, `ResourcesDelivered`, `DeployFailed`,
-  `TargetTooClose`, `SupplyStationEmpty`, `ProjectileLaunched`, `Blast`, `Missed`, …) are output only, for effects,
+  `TargetTooClose`, `SupplyStationEmpty`, `ProjectileLaunched`, `Blast`, `Missed`, `LocationTooClose`, …) are output
+  only, for effects,
   sounds and
   UI. The sim never reads them, and tells each to every player; the client shows a player only what they may
   perceive of it (*Client architecture > Viewer events*). `ProjectileLaunched { shooter, target, from, to, lands_at }`
@@ -2145,7 +2157,8 @@ their energy doorway, slice M3-D2: design change 0145, `factions/colonists/struc
   for the ground. `DeployFailed { drone, origin, problems }` (slice M3-F) is a Deploy that failed on arrival; the
   client's feedback line says why (`command_ui/feedback.rs`). `TargetTooClose { unit, target }` (slice M3-L2, design
   change 0182) is an Attack order that failed because its target is inside the MinRange of a unit that can't move,
-  or can't back off further (design change 0204 point 3); the feedback line says "Target too close".
+  or can't back off further (design change 0204 point 3); the feedback line says "Target too close". So does it for
+  `LocationTooClose { unit, at }` (slice M5-O3), the same failure of an Attack Ground at the location `at`.
   `SupplyStationEmpty { station, owner }` (slice M4-I, design change 0256 point 3) is a station whose last Supply was
   picked up, for each player gathering there; the client's notice says so (`hud/notices.rs`).
   `EnteredNetwork { unit, tunnel }` and `LeftNetwork { unit, tunnel }` (slice M4-C) are a unit leaving the map
@@ -3245,8 +3258,8 @@ Drones, through one command flow (plan decision T10, slices M2-H1, M2-H2 and M3-
   whose unit begins to wait for room (its InfoPanel shows "Waiting for Unit Control", "Waiting for Beacon Capacity"
   or "Waiting for Tunnel Space" while it does, `hud/info_panel/activity.rs`); a placement's (`placement_text`, the
   check's first problem, the Tunnel Area's three rules included): an
-  `InvalidPlacement` or the sim's `PlacementRefused`; and `TARGET_TOO_CLOSE_TEXT` after the sim's `TargetTooClose`
-  for a local player's unit (design change 0182).
+  `InvalidPlacement` or the sim's `PlacementRefused`; and `TARGET_TOO_CLOSE_TEXT` after the sim's `TargetTooClose`,
+  or `LocationTooClose` (slice M5-O3), for a local player's unit (design change 0182).
 - **Placement visuals** (`placement.rs`, `placement/`): while the local player places a building (`placing_now`: a
   game mode, AwaitingPlacement, a commandable selection). `PlacementGhost` holds the `Ghost` under the cursor (the
   footprint as turned, the `PlacementCheck` there now, the side letters of `sc_sim::sides`), worked out every frame;

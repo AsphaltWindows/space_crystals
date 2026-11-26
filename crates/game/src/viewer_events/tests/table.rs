@@ -287,6 +287,14 @@ pub(super) fn table(sim: &Sim) -> Vec<(SimEvent, [Seen; 4])> {
             },
             [W, N, N, N],
         ),
+        // Slice M5-O3: an Attack Ground's location inside the MinRange of a unit that can't back off.
+        (
+            SimEvent::LocationTooClose {
+                unit: UNIT,
+                at: watcher,
+            },
+            [W, N, N, N],
+        ),
         (
             SimEvent::BuildFailed {
                 worker: UNIT,

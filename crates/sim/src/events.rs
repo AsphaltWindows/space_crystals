@@ -377,4 +377,13 @@ pub enum SimEvent {
         from: Vec2,
         to: Vec2,
     },
+    /// (M5-O3) `unit`'s Attack Ground order on the location `at` failed as a [`SimEvent::TargetTooClose`] Attack does:
+    /// the location is inside the unit's MinRange and the unit can't move to back off, or can't back off further
+    /// (`systems/controls/behaviors.md > AttackingLocation`, as `systems/controls/behaviors.md > AttackingObject >
+    /// Target inside MinRange`; `Sim::step_too_close`). The client's feedback line says "Target too close" for both.
+    /// The unit stands, with its next queued order, if any, from the next tick.
+    LocationTooClose {
+        unit: ObjectId,
+        at: Vec2,
+    },
 }

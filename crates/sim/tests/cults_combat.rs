@@ -3,9 +3,11 @@
 //! (`factions/cults/units/gunner.md`), the first kind of the design with a MinRange, never fires at a target nearer
 //! than 2 grid units (`systems/controls/behaviors.md > AttackingObject > Target inside MinRange`,
 //! `systems/controls/behaviors.md > BaseAutoTargeting > Targets inside MinRange`; slice M3-L2's code: plan decision
-//! T55). It backs off from such a target, and fails its Attack with a `SimEvent::TargetTooClose` once it can't back
-//! off further (design change 0204 point 3, which slice M5-A added to that code). A Gunner that can't move at all
-//! fails at once: `sc_sim::orders`' test, since none can yet, so it needs a test def.
+//! T55). It backs off from such a target, to the middle of the band between its MinRange and Range (question Q0054,
+//! slice M5-O3), and fails its Attack with a `SimEvent::TargetTooClose` once it can't back off further (design change
+//! 0204 point 3, which slice M5-A added to that code). So it does from a location it is ordered to attack (slice M5-O3,
+//! `systems/controls/behaviors.md > AttackingLocation`), failing with a `SimEvent::LocationTooClose`. A Gunner that
+//! can't move at all fails at once: `sc_sim::orders`' tests, since none can yet, so it needs a test def.
 //!
 //! Every test runs under the invariants of `TestSim`.
 
@@ -20,6 +22,9 @@ const HALF: f32 = 12.0;
 const RANGE_GU: f32 = 5.0;
 /// `factions/cults/units/gunner.md > AttackAttributes`: "MinRange: 2".
 const MIN_RANGE_GU: f32 = 2.0;
+/// `systems/controls/behaviors.md > AttackingObject > Target inside MinRange` (question Q0054): a unit backs off "to
+/// the middle of the band between MinRange and Range": 3.5 grid units for the Gunner.
+const MIDDLE_GU: f32 = (MIN_RANGE_GU + RANGE_GU) / 2.0;
 
 /// 16 × 10 open tiles.
 fn open() -> String {
@@ -102,7 +107,8 @@ fn a_militant_fights_a_peacekeeper_to_a_result() {
 /// move **backs off** until the target is outside MinRange, then attacks": it
 /// walks straight away from the Peacekeeper, never firing while it is within 2 grid units, its Attack order running
 /// all the while; then it stops within its Range and fires, and its shot takes 16 less the Peacekeeper's PointArmor 1.
-/// It stands while it attacks.
+/// It stands while it attacks. It fires from the middle of the band, 3.5 grid units off, "not just past MinRange"
+/// (question Q0054; slice M5-O3, which fixed slice M5-A's back-off: it stopped 2 grid units off).
 #[test]
 fn a_gunner_backs_off_from_a_target_inside_its_min_range_then_fires() {
     let (gunner, target) = (ObjectId(1), ObjectId(2));
@@ -138,6 +144,10 @@ fn a_gunner_backs_off_from_a_target_inside_its_min_range_then_fires() {
     assert!(
         (gu(MIN_RANGE_GU)..=gu(RANGE_GU)).contains(&fired),
         "fired across a gap of {fired}"
+    );
+    assert!(
+        (fired - gu(MIDDLE_GU)).abs() < 1.0,
+        "from the middle of the band, not just past MinRange: {fired}"
     );
     let stood = t.sim().object(gunner).unwrap().pos;
     assert!(stood.x < start.x && stood.y == start.y, "straight back: {stood}");
@@ -216,4 +226,113 @@ fn an_idle_gunner_skips_an_enemy_inside_its_min_range() {
     assert_eq!(engaged, Some(far));
     assert_eq!(attacks(&t, gunner, near), [] as [Tick; 0]);
     assert!(!attacks(&t, gunner, far).is_empty());
+}
+
+/// The ticks of `attacker`'s shots at the ground at `at` so far: its TailDisjointed shots there that found nothing at
+/// the spot (`SimEvent::Missed`, aimed at no object).
+fn shots_at_the_ground(t: &TestSim, attacker: ObjectId, at: Vec2) -> Vec<Tick> {
+    let shot = |(tick, e): &(Tick, SimEvent)| match *e {
+        SimEvent::Missed {
+            attacker: a,
+            target: None,
+            to,
+            ..
+        } if a == attacker && to == at => Some(*tick),
+        _ => None,
+    };
+    t.events().iter().filter_map(shot).collect()
+}
+
+/// The gap from a unit's edge to the point `at` (`systems/combat.md > Range Measurement`: "Ground-location targets
+/// ...: measured from the attacker's shape to the target point"), both on a row.
+fn reach(t: &TestSim, id: ObjectId, at: Vec2) -> f32 {
+    at.distance(t.sim().object(id).expect("alive").pos) - HALF
+}
+
+/// Slice M5-O3: `systems/controls/behaviors.md > AttackingLocation` is "Same as AttackingObject", MinRange included
+/// (`systems/controls/behaviors.md > AttackingObject > Target inside MinRange`, an Attack's own code). The Gunner
+/// ordered to attack the ground 40 su off its edge walks straight away from the point, never firing while it does, its
+/// order running all the while; then it fires at the point from the middle of the band, 3.5 grid units off (question
+/// Q0054), and stands there firing again and again.
+#[test]
+fn a_gunner_backs_off_from_a_location_inside_its_min_range_then_fires() {
+    let gunner = ObjectId(1);
+    let start = Vec2::new(400.0, 320.0);
+    let at = start + Vec2::new(HALF + 40.0, 0.0);
+    let mut t = ScenarioBuilder::new(&open()).start();
+    t.spawn_unit_at(1, ObjectKind::Gunner, P1, start)
+        .order_at(2, P1, &[gunner], OrderKind::AttackGround(at), false)
+        .run_until(2);
+    assert!(reach(&t, gunner, at) < gu(MIN_RANGE_GU));
+    let mut x = start.x;
+    while shots_at_the_ground(&t, gunner, at).is_empty() {
+        assert!(t.sim().tick() < 120, "it never fired\n{}", t.ascii(None));
+        t.step();
+        assert_eq!(
+            current(&t, gunner),
+            Some(OrderKind::AttackGround(at)),
+            "tick {}",
+            t.sim().tick()
+        );
+        let now = t.sim().object(gunner).unwrap().pos.x;
+        assert!(now <= x, "tick {}: away from the point", t.sim().tick());
+        x = now;
+    }
+    let fired = reach(&t, gunner, at);
+    assert!(
+        (fired - gu(MIDDLE_GU)).abs() < 1.0,
+        "from the middle of the band, not just past MinRange: {fired}"
+    );
+    let stood = t.sim().object(gunner).unwrap().pos;
+    assert!(stood.x < start.x && stood.y == start.y, "straight back: {stood}");
+    t.run(60);
+    assert_eq!(t.sim().object(gunner).unwrap().pos, stood, "it stands while it fires");
+    assert!(shots_at_the_ground(&t, gunner, at).len() >= 3);
+    assert_eq!(current(&t, gunner), Some(OrderKind::AttackGround(at)));
+}
+
+/// Slice M5-O3, `systems/controls/behaviors.md > AttackingObject > Target inside MinRange` for a location: "A unit that
+/// can't back off (cornered, or blocked behind): it gives up the order with the same "Target too close" feedback". The
+/// Gunner stands with its back to the map's west edge, and is ordered to attack the ground 8 su off its edge. It backs
+/// off as far as the edge lets it, and gives the order up there with a `SimEvent::LocationTooClose`, its one feedback;
+/// it never fires, and stays where it stopped.
+#[test]
+fn a_cornered_gunner_gives_up_its_attack_ground_with_target_too_close() {
+    let gunner = ObjectId(1);
+    let start = Vec2::new(HALF + 4.0, 320.0);
+    let at = start + Vec2::new(HALF + 8.0, 0.0);
+    let mut t = ScenarioBuilder::new(&open()).start();
+    t.spawn_unit_at(1, ObjectKind::Gunner, P1, start)
+        .order_at(2, P1, &[gunner], OrderKind::AttackGround(at), false)
+        .run_until(2);
+    let too_close = |t: &TestSim| -> Vec<(Tick, SimEvent)> {
+        let failed = |(_, e): &&(Tick, SimEvent)| {
+            matches!(e, SimEvent::TargetTooClose { .. } | SimEvent::LocationTooClose { .. })
+        };
+        t.events().iter().filter(failed).cloned().collect()
+    };
+    while too_close(&t).is_empty() {
+        assert!(t.sim().tick() < 200, "it never gave up\n{}", t.ascii(None));
+        assert_eq!(
+            current(&t, gunner),
+            Some(OrderKind::AttackGround(at)),
+            "tick {}",
+            t.sim().tick()
+        );
+        t.step();
+    }
+    let failed = too_close(&t);
+    assert_eq!(failed.len(), 1, "{failed:?}");
+    assert_eq!(failed[0].1, SimEvent::LocationTooClose { unit: gunner, at });
+    assert_eq!(current(&t, gunner), None, "the order ended");
+    assert!(reach(&t, gunner, at) < gu(MIN_RANGE_GU));
+    let stood = t.sim().object(gunner).unwrap().pos;
+    assert!(
+        stood.x < start.x && stood.y == start.y,
+        "it backed straight off: {stood}"
+    );
+    t.run(40);
+    assert_eq!(shots_at_the_ground(&t, gunner, at), [] as [Tick; 0]);
+    assert_eq!(t.sim().object(gunner).unwrap().pos, stood);
+    assert_eq!(too_close(&t).len(), 1);
 }
