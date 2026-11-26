@@ -2303,3 +2303,4 @@ Answered Q0069–Q0071 (0258–0267): losing-Tunnel edges, Syndicate economy che
 2026-11-26 — All Cults upgrades retroactive; DrillUnit sidestep. Entry 0338.
 2026-11-26 — Q0097 group construction. Entry 0339.
 2026-11-26 — Q0098 refunds. Entry 0340.
+2026-11-26 — Q0099 Recruitment Area. Entry 0341.
