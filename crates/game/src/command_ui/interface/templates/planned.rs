@@ -161,9 +161,10 @@ impl Planned {
     /// `crate::kinds::short_label`). An expansion's is its initials, as a building's, a one-word name's its first and
     /// last letters, as the Scout's ("VT" Vault, "FE" Forge). A Cults building's alike ("CS" Chop Shop, "TE" Temple),
     /// but for the Shrine's "SR", "SE" being the Storage's. The Field Engineer's: "FAT" the First Aid Tent, and "BKR"
-    /// the Bunker, as the Seeker's "SKR", its first and last letters, "BR", being the Barracks'. An entry's type takes its label with it into the game (the
-    /// Optics Lab's "OL", the Chemical Plant's "CP", the Grenadier's "GR", the Gunworks' "GS", the Garrison's "GA",
-    /// `crate::kinds`), and a command its own: the Tunnel's Upgrade's "Upgr." (slice M4-G).
+    /// the Bunker, as the Seeker's "SKR", its first and last letters, "BR", being the Barracks'. An entry's type takes
+    /// its label with it into the game (the Optics Lab's "OL", the Chemical Plant's "CP", the Grenadier's "GR", the
+    /// Gunworks' "GS", the Garrison's "GA", `crate::kinds`), and a command its own: the Tunnel's Upgrade's "Upgr."
+    /// (slice M4-G).
     pub fn label(self) -> &'static str {
         match self {
             Planned::AlloyFurnace => "AF",

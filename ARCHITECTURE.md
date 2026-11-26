@@ -210,7 +210,11 @@ Units, structures and resources are all `Object`s (`object.rs`, `core/entities.m
   `StructureDef::constructs`, see *Economy*) and a tile footprint, `ObjectDef::tile_size` as unturned;
   its `Placement` holds it as placed, `w` and `h` swapped by a quarter turn, with the orientation it was placed in
   (`Placement::orientation`). It has HP, armour and a SightRange, and no orders, mover or attack, so behaviours,
-  movement and combat pass it by.
+  movement and combat pass it by. The Career Campus and the Field Engineer (slice M5-N9, design change 0328's
+  placeholders) come last, after the Cults' kinds: the Career Campus one of the Deployment Center's `Constructs`
+  (requires a Barracks), which only counts so far (its research is to come), the Field Engineer one of the
+  Barracks' recipes (`Recipe::requires` a Career Campus), unarmed infantry that repairs (`UnitDef::repairs`, *Repair*)
+  and gathers nothing.
 - **The Colonists** (`defs/colonists/`; `factions/colonists/units/`, `factions/colonists/economy.md`, slice M3-A):
   the Drone, the Beacon, the Egress Node, the Robo Portal, the Bio Portal and the Sabre and Rifle Legionnaires, after
   the M2 kinds. Three def fields came before their slices: `ObjectDef::max_shields` (MaxShields, set for exactly
@@ -527,7 +531,9 @@ Units, structures and resources are all `Object`s (`object.rs`, `core/entities.m
   (`core/tech_and_research.md > Tech Prerequisites > Losing a Prerequisite`). Today the Hideout's Guard and the Laser
   Turret (slice M4-S1; the ExpandMenu's alone since design change 0359) require the Optics Lab, and the Hideout's
   Grenadier the Chemical Plant (slice M4-U); the Optics Lab and the Chemical Plant are placeholder expansions (2 × 2,
-  150 Space Crystals, 400 frames, HP 400, 6 / 24) that only count. `sim/tech/tests.rs` tests the rule with test defs (a
+  150 Space Crystals, 400 frames, HP 400, 6 / 24) that only count. The GDO's Career Campus requires a Barracks, and
+  the Barracks' Field Engineer the Career Campus (slice M5-N9, `tests/field_engineer/prerequisites.rs`).
+  `sim/tech/tests.rs` tests the rule with test defs (a
   GDO unit and building, a Colonists Warp In, a worker's Build, an expansion), `tests/prerequisites/` with the design's
   own types. The client shows `Reject::Requires` as "Requires a/an <name>" (`feedback::requires_text`), every faction's
   entries alike (*The Syndicate's panels*).
@@ -2247,9 +2253,10 @@ section of its own.
 - **Repair** (`crate::repair`, `orders/repair.rs`, `sim/repairs.rs`, `tuning/repair.rs`; slice M5-N8, plan decision
   T83; `factions/cults/units/recruit.md > Repair`, `factions/syndicate/units/agent.md > Repair`, design changes 0321,
   0322, 0325, 0328, 0329 and 0360): one mechanism for every repairer, its rules in `crate::repair`'s docs.
-  - **Who repairs what** is data, `WorkerDef::repairs` (`RepairDef`): the Recruit
-    `RepairTargets::OwnBuildingsAndVehicles`, paid; the Agent `RepairTargets::Kinds`, the Tunnel free and the Laser
-    Turret paid (`RepairPayment`); the Drone nothing, and slice N9's Field Engineer is a def. A vehicle
+  - **Who repairs what** is data, `UnitDef::repairs` (`RepairDef`, `None` for a type that repairs nothing; a unit's,
+    not a worker's, since slice M5-N9: the Field Engineer repairs but gathers nothing): the Recruit and the Field
+    Engineer `RepairTargets::OwnBuildingsAndVehicles`, paid; the Agent `RepairTargets::Kinds`, the Tunnel free and
+    the Laser Turret paid (`RepairPayment`); the Drone and every other type nothing. A vehicle
     (`repair::is_vehicle`) is a unit of neither infantry base that isn't a glider, by its movement; a building is a
     structure but for the underground expansions, which no one repairs (they regenerate, below).
     `repair::payment(repairer, target)` is the one rule, `repair::repairs` its answer.
@@ -3690,9 +3697,11 @@ Drones, through one command flow (plan decision T10, slices M2-H1, M2-H2 and M3-
   each `ControlState`, the ActiveGroup's `InterfaceTemplate` (the Peacekeeper's and the Guard's BasicCombatUnit grid;
   every producer's Production grid, built from its `ProductionDef` (plan decision T23): its units' Train from Q on,
   Cancel Production in X, Set Rally Point in C, so the Barracks trains the Peacekeeper in Q, the Robo Portal the
-  Drone and the Bio Portal the Sabre Legionnaire, design change 0124; the Rocketman, not in the game yet, has no
-  button, while the portals' units not in the game yet hold their slots unavailable, 0124's "W Scout" and "W Lancer,
-  E psionic unit", as `PanelCommand::Planned`, slice M3-J2),
+  Drone and the Bio Portal the Sabre Legionnaire, design change 0124; a unit its design gives a slot of its own
+  takes it (`PanelTemplate::trains`, placed before the others fill Q, W and on: the Barracks' Field Engineer in E,
+  greyed "Requires a Career Campus" until one stands, slice M5-N9); the Rocketman, not in the game yet, has no
+  button, its W empty, while the portals' units not in the game yet hold their slots unavailable, 0124's "W Scout"
+  and "W Lancer, E psionic unit", as `PanelCommand::Planned`, slice M3-J2),
   the `Panel` a selection gets (common, group, pending, disabled and unavailable buttons; Back in Z while a target is
   awaited) and who receives a command (`recipients`: a common one the whole selection, a group one the whole
   ActiveGroup, by hotkey or button; never some of them, no smart-casting, 0071, apart from the units that can't carry
@@ -3959,6 +3968,15 @@ Drones, through one command flow (plan decision T10, slices M2-H1, M2-H2 and M3-
   own Armory in operation that takes the Recruit in, never over its site (0347 point 4). The right-click is the sim's
   one rule (`sc_sim::orders::resolution::RULES`). The InfoPanel shows a carrying Recruit's load to its owner, as a
   Drone's ("Carrying 2 Space Crystals", `info_panel::worker_lines`).
+- **The Field Engineer's panel** (slice M5-N9; `factions/gdo/units/field_engineer.md`, design change 0328):
+  `templates/gdo/field_engineer.rs` (`InterfaceTemplate::FieldEngineer`) is Q Move, A Construct, D Repair and X Stop.
+  A is `PanelCommand::BuildMenu(BuildMenu::Basic)`, named "Construct" (`PanelTemplate::names`) and labelled as every
+  Basic menu; its menu (`field_engineer::menu`, by `menu_grid`) is Q Bunker and W First Aid Tent, both `Planned`
+  until designed, and Z Back. D is the Recruit's Repair, and the right-click the sim's one rule
+  (`object_right_click`, as the BasicCombatUnit's): Repair on a damaged own building or vehicle, under
+  `PointerDisplay::Repair`. The Barracks' panel is the Production template with the Field Engineer in E
+  (`templates/gdo/barracks.rs`). The Career Campus, the Deployment Center's BuildMenu[Basic] D (greyed "Requires a
+  Barracks" until one stands), has no panel yet (`PanelTemplate::NONE`).
 - **Visuals**: the panel's buttons (`hud/command_panel.rs`) are rebuilt when the panel, the bindings or the surface
   changes; each shows its command's label (`PanelSlot::label`) and its hotkey from the bindings, and an EjectMenu tile
   its count in its bottom-right corner. **Every label keeps
@@ -4475,8 +4493,9 @@ One kind (plan decision T54, slices M4-R1 and M4-R2): its own files, and one lin
 3. **A panel of its own**, `crates/game/src/command_ui/interface/templates/<faction>/<object>.rs`: its `TEMPLATE`, its
    grid and menus, and its `InterfaceTemplate` variant, with its arms in `InterfaceTemplate::grid` and in the
    right-click (`command_ui/resolution.rs`). A unit or building of its panel that isn't in the game yet holds its slot
-   (`PanelTemplate::planned`, `PanelCommand::Planned`, with the type it will require in `Planned::requires`), and a
-   command the design names after the object has its name there (`PanelTemplate::names`). A menu whose entries
+   (`PanelTemplate::planned`, `PanelCommand::Planned`, with the type it will require in `Planned::requires`), a
+   producer's unit the design puts in a slot of its own is placed there (`PanelTemplate::trains`), and a command the
+   design names after the object has its name there (`PanelTemplate::names`). A menu whose entries
    follow a design list in grid order takes the list from the sim's data (`sc_sim::defs::EJECT_MENU_ORDER`, and the
    ExpandMenu's `EXPAND_MENU`), so a new unit or expansion joins it there. A builder also needs its `Builder`
    (*Adding a faction*, step 7). Of M4's eight kinds, three have a module here: the Tunnel, the Agent, and the

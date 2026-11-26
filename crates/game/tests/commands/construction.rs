@@ -38,7 +38,7 @@ use space_crystals::placement::{BuildAreaOverlay, Ghost, PlacementGhost};
 use space_crystals::sim_driver::{PendingCommands, SimRes};
 
 use super::*;
-use KeyCode::{ControlLeft, Digit1, Escape, KeyE, KeyF, KeyQ, KeyR, KeyW, KeyX, KeyZ, ShiftLeft, Tab};
+use KeyCode::{ControlLeft, Digit1, Escape, KeyD, KeyE, KeyF, KeyQ, KeyR, KeyW, KeyX, KeyZ, ShiftLeft, Tab};
 
 const P1: PlayerId = PlayerId(1);
 const GENERATOR: ObjectKind = ObjectKind::Generator;

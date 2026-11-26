@@ -373,9 +373,9 @@ fn a_barracks_trains_in_q_cancels_in_x_and_rallies_in_c() {
 /// `ProductionDef`: its units in Q, W and on, X Cancel Production and C Set Rally Point; but a pool building, which
 /// trains the units it holds, has the PoolProducer template (slice M5-F2, `cults`). The Barracks' is the grid of
 /// `factions/gdo/structures/barracks.md > ObjectInterfaceState[Barracks]`, the Field Engineer in E, the slot the design
-/// gives it, and W, the Rocketman's, empty (slice M5-N9, `PanelTemplate::trains`); the Robo Portal trains the Drone in Q, the
-/// Bio Portal the Sabre Legionnaire, and their units not in the game yet hold their slots (design change 0124: the Robo
-/// Portal's W Scout, the Bio Portal's W Lancer and E psionic unit; `gathering` has their panel).
+/// gives it, and W, the Rocketman's, empty (slice M5-N9, `PanelTemplate::trains`); the Robo Portal trains the Drone in
+/// Q, the Bio Portal the Sabre Legionnaire, and their units not in the game yet hold their slots (design change 0124:
+/// the Robo Portal's W Scout, the Bio Portal's W Lancer and E psionic unit; `gathering` has their panel).
 #[test]
 fn every_producer_gets_the_production_panel_of_its_recipes() {
     use PanelCommand::{CancelProduction, Planned as P, SetRallyPoint, Train};

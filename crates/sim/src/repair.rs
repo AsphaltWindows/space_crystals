@@ -8,10 +8,11 @@
 //!   Crystals**"), and so does the Field Engineer (slice M5-N9, `factions/gdo/units/field_engineer.md > Abilities`:
 //!   "repairs buildings and vehicles. Repair costs Space Crystals (not free)"); the Agent its owner's Tunnels, for
 //!   free, and Laser Turrets, for Space Crystals ("Agents can **repair** own **Tunnels** and **Laser Turrets**, but
-//!   **not expansions** ... **Laser Turrets cost Space Crystals to repair; Tunnels are repaired for free**"). A vehicle ([`is_vehicle`]) is a unit of neither infantry base that
-//!   isn't a glider: "**Gliders can't be repaired** (they can't stop)", told by its movement, not its name. No one
-//!   repairs a Tunnel's expansions, the underground structures (`factions/syndicate/structures/README.md > Tunnel
-//!   Expansions`: "**Not repaired; they regenerate**"; their regeneration is `sim/expansions.rs`'s).
+//!   **not expansions** ... **Laser Turrets cost Space Crystals to repair; Tunnels are repaired for free**"). A vehicle
+//!   ([`is_vehicle`]) is a unit of neither infantry base that isn't a glider: "**Gliders can't be repaired** (they
+//!   can't stop)", told by its movement, not its name. No one repairs a Tunnel's expansions, the underground structures
+//!   (`factions/syndicate/structures/README.md > Tunnel Expansions`: "**Not repaired; they regenerate**"; their
+//!   regeneration is `sim/expansions.rs`'s).
 //! - **The terms** ([`terms`]) follow from what built the target: "**Placeholder rate and cost** (designer,
 //!   2026-11-26): repairing from 0 to full HP takes **half the target's build time** with one repairer, and costs
 //!   **half its price** in the resource it was bought with, paid gradually as HP is restored" (`tuning::repair`). The
