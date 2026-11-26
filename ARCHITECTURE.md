@@ -279,7 +279,8 @@ Units, structures and resources are all `Object`s (`object.rs`, `core/entities.m
   AugmentationState (per unit instance)`): `Object::augmentation: Augmentation { constitution, metabolism }`, hashed (a
   tag) and saved only while one is set, so the states without one, the goldens among them, are as they were; its
   `RecruitKind` (Plain, Constitution, Metabolism or Both, design change 0337) is what a pool building's orders choose
-  by. Nothing gives one yet but `DebugCommand::SetAugmentation` (the Altar's is a later slice). The Gunner is the first
+  by. Nothing gives one yet but `DebugCommand::SetAugmentation` (the Altar's is a later slice); their effects are
+  read through accessors since slice M5-N1a (*Augmented stats* below). The Gunner is the first
   kind with a MinRange, which M3-L2's code serves (*Behaviours*; M5-A gave a unit that can't back off its "Target too
   close", design change 0204 point 3; M5-O3 took the back-off on to the middle of the band, question Q0054, and gave
   an Attack Ground's location the same rule), and the first TailDisjointed attack (slice M5-O3, *Combat > TailDisjointed
@@ -591,6 +592,42 @@ Units, structures and resources are all `Object`s (`object.rs`, `core/entities.m
   takes follows its type from the press, carrying them out waits for its form (design change 0202:
   `riot_shield::takes_attack_orders(kind)` for the first, `allows_attack(o)` for the second). A Legionnaire's two
   forms share everything but the weapon, so its shape, sight and speed are its type's and its form's alike.
+- **Augmented stats** (slice M5-N1a, plan decision T73 as design changes 0330, 0331, 0336 and 0338 amend it;
+  `augmentation.rs`, `augmentation/stats.rs`, `augmentation/levels.rs`; `factions/cults/augmentation.md > Increments`):
+  a unit's MaxHP, top speed and weapon are read through accessors that apply its Augmentations, and only through them:
+  `Object::max_hp_with(research)`, `Object::movement(research)` and `Object::max_speed(research)` (before the mode's
+  `Mover::speed_factor`), and `combat::weapon(o, research) -> Option<AttackAttrs>`, a copy. The kind's numbers
+  (`ObjectDef::max_hp`, `UnitDef::movement`, `UnitDef::attack`) and `Object::max_hp` (a tier's, a site's, a
+  transformation's) are the values before them. The effects table is data (`defs/cults/augmentation.rs`), and which
+  kinds take Augmentations, armed or not, is `UnitDef::augmentable` (the four Cults infantry types, the Recruit alone
+  unarmed).
+  - **The amounts follow the owner's current levels**, read whenever a stat is (design change 0336: research is
+    retroactive; 0338: every Cults stat upgrade applies to the units that exist). A unit stores which Augmentations it
+    has, never their amounts or a level. `Research<'a>` is a view of the players' research: `Levels::of(player)` is the
+    one place a player's levels come from, "No research" until the Temple (slice M5-N3 fills it, and applies the HP
+    rule below to the units it changes), and `Research::at(levels)` puts everyone at given levels, for tests.
+  - **Why this shape.** The systems that hold the objects mutably (phases 5a, 5d and 5e, the network's regeneration)
+    take a `Research` beside them, a borrow of the players alone, which a `Sim` method couldn't be; code that has the
+    `Sim` asks `Sim::research()`. Stats stored on the object would go stale when a level completes or a def changes
+    (T73's rejected alternative). A unit without an Augmentation costs one branch (`Augmentation::is_none`), so the
+    movement and combat loops are as fast as before; an augmented one looks its owner up among the few players.
+  - **HP when MaxHP changes** (design changes 0330 and 0331): `augmentation::follow_max`, applied by
+    `augmentation::set` (`DebugCommand::SetAugmentation` now, the Altar and the research later). Up, the HP rises as
+    much: `transform::follow_max`'s rule, the damage staying. Down, the HP stays unless it is above the new MaxHP:
+    there the two rules part, as a transformation's keeps the damage (design change 0110). No floor; an augmentation
+    never kills.
+  - **Kind changes** (`Sim::change_kind`): a unit keeps its Augmentations as a kind that can have them, loses them as
+    any other, its HP within the new kind's MaxHP with those it keeps; `Sim::train` follows the MaxHP with them before
+    and after (a Constitution Recruit's 60 is a Militant's 60).
+  - **What they don't change** reads the weapon before them (`combat::weapon_in_hand`): the threat a unit is to the
+    scans (`combat::threat`, its TargetDomain) and `can_attack_now` (its ranges); and the TurnRate. A weapon borrowed
+    from a kind (the Garrison's occupants', slice M5-N2) is that kind's (`combat::weapon_of`), which no unit's
+    Augmentations change.
+  - **The guard**: `tests/augmentation/raw_reads.rs` scans the sim's and the client's code, outside the defs, the
+    accessors and the tests, for the reads past the accessors (`.max_hp()`, a `.movement` field, `weapon_of(`), and
+    fails on any its list doesn't allow with a reason (a structure's MaxHP, a turn rate, a kind's weapon). A new read
+    goes through the accessor, or joins the list with its reason. A test rather than unreachable fields: the defs are
+    public data that their own tests and the client's panels read, and `Object::max_hp` stays the structures' MaxHP.
 - **Mechanics implemented once** (plan decision T54, slice M4-R1): `Progress` (`progress.rs`), ticks done of a total
   in the fixed point of plan decision T6, so that a tick at part speed counts its share of a tick; a transformation
   counts its frames with one (`Transform`). The toggle rule (`toggle.rs`, design change 0198, see *Type and form*):
@@ -2509,7 +2546,9 @@ their energy doorway, slice M3-D2: design change 0145, `factions/colonists/struc
   *Behaviours*), `SetResources` (any player's banks, see *Economy*; the gate checks that the player it names is in
   the game, `UnknownPlayer`) and `SetTier` (a Tunnel's tier, `NoSuchTier` for a tier it has no row for or an object
   without tiers; *Object model > The Syndicate*), and `SetAugmentation { id, augmentation }` (slice M5-F2: a unit's on
-  the map, until the Altar gives them; *Object model > The Cults*), for development and QA. `Spawn`
+  the map, until the Altar gives them; *Object model > The Cults*; since slice M5-N1a its HP follows its MaxHP, and
+  `NotAugmentable` refuses Augmentations to a unit that can't have them, *Object model > Augmented stats*), for
+  development and QA. `Spawn`
   places a tile-based object in an
   `orientation`
   (`BuildingOrientation`), which files may leave out: unturned is the default and isn't written, so replays from
