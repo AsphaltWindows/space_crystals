@@ -1933,6 +1933,27 @@ Approach: thin vertical slices the user can run and see, each verified by tests 
     - At 4:3 a long bar clips the end of a note.
   - **To the Designer:** Q0150, the Colonists doc's "no rally point" while warping in.
   - 2413 tests passed, 56 ignored. The goldens are unchanged.
+- **M5-S5 Panels and Attack** (Opus; merged in `d6d1a1a2`):
+  - **Attack (0397–0399, 0389):**
+    - A is Attack whenever any selected unit can attack, whichever group is in focus.
+    - It goes to every selected unit. Units that can't attack move to an explicit Attack's target, and an Attack Move takes everyone as one group.
+    - The worker panels put their building on W:
+      - Recruit: Q Move, W Basic, E Advanced, A Attack, S Assist, D Repair, X Stop;
+      - Agent: W Build Tunnel;
+      - Field Engineer: W Construct;
+      - Drone: W Deploy.
+  - **Place buttons (0388, and 0392's Extraction Facility half):**
+    - The DC's E: Place shows while a building is under construction or ready to place: greyed with a progress bar, then lit.
+    - The EF's Q: Place Plate works the same way.
+    - The bar is a placeholder.
+  - **Halls are groupable (0395).** A box still selects only one building (Q0151).
+  - **Augmentations (0391)** take 48, 48 and 96 frames. The golden `cults_altar` was re-blessed: its Militants come out at ticks 147, 195 and 291, and none falls.
+  - **Right-click (0400):**
+    - In menus it does the DefaultState right-click, and the menu stays open.
+    - In targeting and placement it goes straight to DefaultState.
+    - Esc and Z still go back a step.
+  - **To the Designer:** Q0151 asks about shielded Peacekeepers in an explicit Attack, box-selecting Halls, and A on a building's panel.
+  - 2430 tests passed, 56 ignored. Only the golden cults_altar moved.
 
     Whether enemies see buff marks went out as **Q0145**.
   - **Perf** (`movement_perf`, 6 pairs, load 8.7–10.3): 0.610 against 0.623 ms a tick, within the noise.
@@ -1940,14 +1961,6 @@ Approach: thin vertical slices the user can run and see, each verified by tests 
 
 ## In progress
 - **Running:**
-  - **M5-S5 Panels and Attack** (Opus; brief `scratchpad/briefs/m5s5-panels-attack.md`):
-    - 0397–0399: A is Attack on every unit panel and goes to the whole selection. Units that can't attack Move instead, and A shows whenever any selected group can attack.
-    - 0398's worker panels, with 0389's Recruit Attack now on A.
-    - 0388: the DC's E: Place, with progress.
-    - 0392's Extraction Facility half: Q: Place Plate, with progress.
-    - 0395: Halls are groupable.
-    - 0391: augmentations take 48 frames each, 96 for Both.
-    - 0400, folded in: right-click in menus does the normal right-click and keeps the menu open, and in targeting or placement it goes straight to DefaultState.
   - **M5-H2 Glider follow-ups** (Opus, small; brief `scratchpad/briefs/m5h2-glider-followups.md`):
     - 0403: the Sparrow's SightRange is 8 GU, so a lone Sparrow keeps strafing on Attack;
     - 0404: a glider's Move completes on arrival, so queued orders start;
@@ -2365,6 +2378,7 @@ The user keeps feeding unit and other designs to the Designer, so expect increme
 | Q0148 | Gliders: a lone Sparrow makes one pass; a glider's Move never completes; SeparationRadius under the Silhouette (`sparrow.md`, `systems/units.md`) (M5-H1) | no | answered: part 1 by 0403 (sight 8), part 2 by 0404 (Moves complete), part 3 by 0405 (slow separation, radii above silhouettes) |
 | Q0149 | With sight 8, a lone Sparrow still loses bigger targets, since its loop grows with the target's size (`sparrow.md`) (M5-H2) | no | open; built as 0403 says |
 | Q0150 | The Colonists doc says a building under Warp In has no rally point, against 0396 (`factions/colonists/economy.md > Beacon Deployment > While transforming: only Cancel`) (M5-S6) | no | open; built per 0396 |
+| Q0151 | After "Attack goes to everyone": shielded Peacekeepers in an explicit Attack, box-selecting groupable Halls, and A on a building's panel (`peacekeeper.md`, `selection.md > BoxSelection`) (M5-S5) | no | open; built as (a) in each part |
 
 ## Design change entries
 Last triaged: 0282.
@@ -2727,19 +2741,19 @@ Last triaged: 0282.
 | 0385 **The Cults economy rerun** (answers Q0144 in part): an 8-patch line mined from both long sides, seating about 32 Recruits; One Hall against Two Halls, both starting with one Storage and adding Storages as needed; the same table to 6:00, with the GDO and the Colonists | done (**M5-S3**, `318234db`). Its table went to the Designer as Q0146, and the oracle is wrapped up (user, 2026-11-26) | Verification: One Hall levels off at 20 mining; Two Halls reaches about 32 and builds about 5–6 Storages |
 | 0386 **A hit absorbed by Shroud reveals its attacker** to the targeted object's owner for 1.5 s; the release reveals nobody (answers Q0143) | done as built (N4b, `c0ca0956`). M5-S3 (`318234db`) cites it and tests its Verification (`tests/shroud/reveals.rs`) | — |
 | 0387 **A Recruitment Hall can be placed at the map edge**; the area beyond the edge counts as non-Recruitable, out of 100 (at most 70% against an edge). Replaces 0341 point 1 | done (**M5-S4**, `cce50b54`) | Verification: a Hall flush against the edge is accepted, and the preview shows ≤ 70% |
-| 0388 **The Deployment Center gets E: Place** in DefaultState: greyed with a filling progress bar while it constructs, lit once ready (enters AwaitingPlacement), hidden while idle. Whether the Defense System gets it too is still being asked | in progress (**M5-S5**) | Verification: order a Generator, E shows it greyed and filling; when done, E then a click places it |
-| 0389 **Recruits get E: Attack** (BasicCombatUnitInterfaceState's Attack: an enemy, force-attack on own or neutral, Attack Move on ground). Recruits already have their melee attack (Damage 3) and right-click Attack | in progress (**M5-S5**). 0398 moves the Attack from E to A | Verification: E on an enemy, they hit it for 3 a swing; E on ground, they Attack Move |
+| 0388 **The Deployment Center gets E: Place** in DefaultState: greyed with a filling progress bar while it constructs, lit once ready (enters AwaitingPlacement), hidden while idle. Whether the Defense System gets it too is still being asked | done (**M5-S5**, `d6d1a1a2`) | Verification: order a Generator, E shows it greyed and filling; when done, E then a click places it |
+| 0389 **Recruits get E: Attack** (BasicCombatUnitInterfaceState's Attack: an enemy, force-attack on own or neutral, Attack Move on ground). Recruits already have their melee attack (Damage 3) and right-click Attack | done (**M5-S5**, `d6d1a1a2`) | Verification: E on an enemy, they hit it for 3 a swing; E on ground, they Attack Move |
 | 0390 **Door arrows on building ghosts**: in at an entrance, out at an exit, and two-way at a shared door (Garrison, Bunker). They turn and flip with the ghost, for every faction | done (**M5-S6**, `5c0cc4e5`) | Verification: an Armory ghost shows in on B and out on C, and rotating turns them; a Garrison ghost shows one two-way arrow |
-| 0391 **Faster Cults augmentations**: Enhanced Constitution and Improved Metabolism take 48 frames each, 96 for Both. Costs are unchanged | queued: **M5-S5** | Verification: Enhanced Constitution queued in the Altar, the Recruit exits augmented about 3 s later |
-| 0392 **Place buttons with progress**: the Extraction Facility's Q: Place Plate is greyed with a filling bar while the plate is built. The Defense System gets the one-slot flow (Q Build or Place Missile Turret, X Cancel), replacing 0366's "constructs like the Deployment Center" | EF half queued: **M5-S5**. The Defense System half goes with 0366, since it isn't built | Verification: order a plate, Q fills then lights; the same for a Missile Turret |
+| 0391 **Faster Cults augmentations**: Enhanced Constitution and Improved Metabolism take 48 frames each, 96 for Both. Costs are unchanged | done (**M5-S5**, `d6d1a1a2`) | Verification: Enhanced Constitution queued in the Altar, the Recruit exits augmented about 3 s later |
+| 0392 **Place buttons with progress**: the Extraction Facility's Q: Place Plate is greyed with a filling bar while the plate is built. The Defense System gets the one-slot flow (Q Build or Place Missile Turret, X Cancel), replacing 0366's "constructs like the Deployment Center" | EF half done (**M5-S5**, `d6d1a1a2`). The Defense System half goes with 0366, since it isn't built | Verification: order a plate, Q fills then lights; the same for a Missile Turret |
 | 0393 **Shrine buff marks show to everyone** who sees the unit, enemies included (answers Q0145, a) | done as built (M5-N5, `3197d711`) | — |
 | 0394 **Door arrows on a selected building**, as on ghosts | done (**M5-S6**, `5c0cc4e5`) | Verification: a selected Armory shows in on its entrance and out on its exit |
-| 0395 **Recruitment Halls are groupable**: selected Halls form one SelectionGroup, and their commands, Set Rally Point among them, go to all of them. The other Cults production buildings stay ungroupable (Q0105) | queued: **M5-S5** | Verification: box-select 2 Halls and set a rally point, and both send new Recruits there |
+| 0395 **Recruitment Halls are groupable**: selected Halls form one SelectionGroup, and their commands, Set Rally Point among them, go to all of them. The other Cults production buildings stay ungroupable (Q0105) | done (**M5-S5**, `d6d1a1a2`) | Verification: box-select 2 Halls and set a rally point, and both send new Recruits there |
 | 0396 **Rally points on unfinished buildings**, for every faction: C: Set Rally Point next to Cancel, and a right-click sets it. RallyPoint exists from the start of construction and is kept on completion | done (**M5-S6**, `5c0cc4e5`). The Colonists doc still says "no rally point" while warping in: Q0150 | Verification: start an Armory, select it under construction and right-click ground: a marker shows, and trained units go there after completion |
-| 0397 **Attack is always A, and goes to every selected unit**: attackers Attack or Attack Move, others Move (0398). "Common command" means the same command wherever its button sits | queued: **M5-S5** | Verification: Militants and a Prayer-mobile, A on ground: the Militants Attack Move and the Prayer-mobile moves with them |
-| 0398 **Worker panels**: Recruit Q Move, W Basic Construct, E Advanced Construct, A Attack, S Assist, D Repair, X Stop; Agent W Build Tunnel, A Attack; Field Engineer W Construct; Drone W Deploy. Units that can't attack treat Attack and Attack Move as Move | queued: **M5-S5** | Verification: Recruits W, E and A; Drones with Militants, A on ground: the Militants Attack Move and the Drones move |
-| 0399 **A shows whenever any selected group can attack**, whichever group is in focus, and is hidden only when no selected unit can attack (replaces 0398's hidden A) | queued: **M5-S5** | Verification: Drones and Militants with the Drones in focus show A; Drones alone don't |
-| 0400 **Right-click in multi-stage menus** does the selection's normal right-click and leaves the menu open (BuildMenu, ExpandMenu, EjectMenu, KindMenu, AugmentMenu). In AwaitingTarget and AwaitingPlacement it cancels straight to DefaultState, and a ready building stays ready. Escape and Z still go back one step | in progress (**M5-S5**, folded in as item 5) | Verification: Recruits in Basic Construct, right-click ground, they move and the menu stays; right-click in placement goes to DefaultState; Escape in placement goes back to the build menu |
+| 0397 **Attack is always A, and goes to every selected unit**: attackers Attack or Attack Move, others Move (0398). "Common command" means the same command wherever its button sits | done (**M5-S5**, `d6d1a1a2`) | Verification: Militants and a Prayer-mobile, A on ground: the Militants Attack Move and the Prayer-mobile moves with them |
+| 0398 **Worker panels**: Recruit Q Move, W Basic Construct, E Advanced Construct, A Attack, S Assist, D Repair, X Stop; Agent W Build Tunnel, A Attack; Field Engineer W Construct; Drone W Deploy. Units that can't attack treat Attack and Attack Move as Move | done (**M5-S5**, `d6d1a1a2`) | Verification: Recruits W, E and A; Drones with Militants, A on ground: the Militants Attack Move and the Drones move |
+| 0399 **A shows whenever any selected group can attack**, whichever group is in focus, and is hidden only when no selected unit can attack (replaces 0398's hidden A) | done (**M5-S5**, `d6d1a1a2`) | Verification: Drones and Militants with the Drones in focus show A; Drones alone don't |
+| 0400 **Right-click in multi-stage menus** does the selection's normal right-click and leaves the menu open (BuildMenu, ExpandMenu, EjectMenu, KindMenu, AugmentMenu). In AwaitingTarget and AwaitingPlacement it cancels straight to DefaultState, and a ready building stays ready. Escape and Z still go back one step | done (**M5-S5**, `d6d1a1a2`) | Verification: Recruits in Basic Construct, right-click ground, they move and the menu stays; right-click in placement goes to DefaultState; Escape in placement goes back to the build menu |
 | 0401 **The Economy check is closed** (answers Q0146, a): the Cults', GDO's and Syndicate's economy targets stay in the docs as reference for playtests, and the Director measures nothing more against them. The oracle stays as an on-demand tool whose pins aren't maintained, and the pairings tests stay | done (**M5-P3**, `8eaf316e`): the oracle's tests are ignored and its docs cite 0401 | — |
 | 0402 **Computer players are a playtest tool, with fair knowledge** (answers Q0147: fair, a). They see only what their own objects see, remember what they have seen, and know the map and the start locations. They use a player's commands and rules, and their behavior is the Director's placeholder (`core/game_rules.md > Computer players (playtest tool)`) | in progress (**A1**, whose brief quotes it and tests its Verification) | Verification: in an AI-vs-AI game, an AI doesn't attack a building it has never seen or scouted, apart from the known start locations |
 | 0403 **The Sparrow's SightRange is 8 GU** (answers Q0148 part 1), so a lone Sparrow keeps its target in sight through its loop. Attack Move is unchanged, and what Attack Move means for units that can't stop stays an open design question | in progress (**M5-H2**) | Verification: a lone Sparrow ordered to Attack a stationary target, with no spotter, makes repeated passes until it dies |
