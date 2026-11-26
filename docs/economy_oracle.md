@@ -185,14 +185,14 @@ The oracle checks every figure from 3 GU at ±15% (0294: "the table from 3 GU ou
 | GU | Trip (s) | Per Agent | Payback (s) | To saturate | 2 Agents | 3 Agents | 4 Agents | |
 |---|---|---|---|---|---|---|---|---|
 | 0 | 8.00 / 8.0 (+0.0%) | 6.25 / 6.25 (+0.0%) | 16.0 / 16 (+0.0%) | 2.00 / 2.00 (+0.0%) | 6.17 / 12.5 (−50.7%) | 6.17 / 12.5 (−50.7%) | 12.50 / 12.5 (+0.0%) | recorded |
-| 1 | 8.38 / 9.3 (−9.9%) | 5.97 / 5.36 (+11.4%) | 16.8 / 19 (−11.8%) | 2.09 / 2.33 (−10.1%) | 12.00 / 10.7 (+12.1%) | 9.83 / 12.5 (−21.3%) | 5.83 / 12.5 (−53.3%) | recorded |
-| 2 | 9.75 / 10.7 (−8.9%) | 5.13 / 4.69 (+9.3%) | 19.5 / 21 (−7.1%) | 2.44 / 2.67 (−8.7%) | 10.17 / 9.4 (+8.2%) | 11.50 / 12.5 (−8.0%) | 10.83 / 12.5 (−13.3%) | recorded |
-| 3 | 11.00 / 12.0 (−8.3%) | 4.55 / 4.17 (+9.0%) | 22.0 / 24 (−8.3%) | 2.75 / 3.00 (−8.3%) | 9.00 / 8.3 (+8.4%) | 11.83 / 12.5 (−5.3%) | 12.17 / 12.5 (−2.7%) | pass |
-| 4 | 12.38 / 13.3 (−7.0%) | 4.04 / 3.75 (+7.7%) | 24.8 / 27 (−8.3%) | 3.09 / 3.33 (−7.1%) | 8.00 / 7.5 (+6.7%) | 11.00 / 11.3 (−2.7%) | 12.00 / 12.5 (−4.0%) | pass |
+| 1 | 8.38 / 9.3 (−9.9%) | 5.97 / 5.36 (+11.4%) | 16.8 / 19 (−11.8%) | 2.09 / 2.33 (−10.1%) | 12.00 / 10.7 (+12.1%) | 12.00 / 12.5 (−4.0%) | 10.50 / 12.5 (−16.0%) | recorded |
+| 2 | 9.75 / 10.7 (−8.9%) | 5.13 / 4.69 (+9.3%) | 19.5 / 21 (−7.1%) | 2.44 / 2.67 (−8.7%) | 10.33 / 9.4 (+9.9%) | 12.17 / 12.5 (−2.7%) | 12.50 / 12.5 (+0.0%) | recorded |
+| 3 | 11.00 / 12.0 (−8.3%) | 4.55 / 4.17 (+9.0%) | 22.0 / 24 (−8.3%) | 2.75 / 3.00 (−8.3%) | 9.00 / 8.3 (+8.4%) | 12.17 / 12.5 (−2.7%) | 12.50 / 12.5 (+0.0%) | pass |
+| 4 | 12.38 / 13.3 (−7.0%) | 4.04 / 3.75 (+7.7%) | 24.8 / 27 (−8.3%) | 3.09 / 3.33 (−7.1%) | 8.17 / 7.5 (+8.9%) | 11.33 / 11.3 (+0.3%) | 12.00 / 12.5 (−4.0%) | pass |
 | 5 | 13.75 / 14.7 (−6.5%) | 3.64 / 3.41 (+6.6%) | 27.5 / 29 (−5.2%) | 3.44 / 3.67 (−6.3%) | 7.17 / 6.8 (+5.4%) | 10.50 / 10.2 (+2.9%) | 12.50 / 12.5 (+0.0%) | pass |
-| 6 | 15.00 / 16.0 (−6.2%) | 3.33 / 3.12 (+6.8%) | 30.0 / 32 (−6.2%) | 3.75 / 4.00 (−6.2%) | 6.50 / 6.2 (+4.8%) | 9.67 / 9.4 (+2.8%) | 12.50 / 12.5 (+0.0%) | pass |
+| 6 | 15.00 / 16.0 (−6.2%) | 3.33 / 3.12 (+6.8%) | 30.0 / 32 (−6.2%) | 3.75 / 4.00 (−6.2%) | 6.67 / 6.2 (+7.5%) | 9.83 / 9.4 (+4.6%) | 12.50 / 12.5 (+0.0%) | pass |
 
-0294's Verification, "At 3 GU, 3 Agents reach about 12.5 SC/s; at 4 GU about 11.3; at 6 GU, 4 Agents saturate": 11.83 (−5.3%), 11.00 and 12.50.
+0294's Verification, "At 3 GU, 3 Agents reach about 12.5 SC/s; at 4 GU about 11.3; at 6 GU, 4 Agents saturate": 12.17 (−2.7%), 11.33 and 12.50 (re-measured by slice M5-S2a; the table had been left behind by earlier slices, and design change 0384 moves none of it).
 
 - **Trips** are shorter than the table's, which walks the whole distance both ways. The Agent's own 36 su and the two 8 su reaches come off. So the Agents' incomes run above the table, and the saturating counts below it.
 - **3 Agents at 3 GU** fall short of the hatch's ceiling although their trips (176 ticks) are shorter than three drop-offs (192). Near the hatch they get in each other's way, and the hatch stands free at times while a loaded Agent finds its way past the others. (Before design change 0315 that cost more, 10.67: an Agent whose leg ended behind another stood for 2 s before it tried again.)
@@ -200,7 +200,7 @@ The oracle checks every figure from 3 GU at ±15% (0294: "the table from 3 GU ou
 
 **The ceiling** held exactly in every game: no two deliveries at a Tunnel came less than 64 ticks apart. Four Agents at 5 and 6 GU reach exactly 12.50.
 
-**Stacked Tunnels** at 3 GU (`stacked_field`): two Tunnels on opposite sides of the field, each hatch 3 GU from its own patch, the two patches a free column apart, four Agents for each Tunnel. With the patches side by side, the ends of their north and south faces lie as near either hatch, and some Agents delivered at the other Tunnel. The Tunnels take in 12.00 and 11.83, 23.83 SC/s in all: −4.7% against twice the ceiling, and −2.1% against twice one Tunnel's 12.17 with four Agents at 3 GU (11.83 and 11.50 before design change 0315). Every Agent delivered at its own Tunnel. Pass.
+**Stacked Tunnels** at 3 GU (`stacked_field`): two Tunnels on opposite sides of the field, each hatch 3 GU from its own patch, the two patches a free column apart, four Agents for each Tunnel. With the patches side by side, the ends of their north and south faces lie as near either hatch, and some Agents delivered at the other Tunnel. Since design change 0384 an Agent takes the Tunnel nearest to it at every return: a few Agents go on at the other side's patch (on its first way back an Agent may step round another, `docs/movement.md > 6.3`), and deliver at that side's Tunnel, so over the game five Agents deliver at one Tunnel and three at the other, every one throughout. The Tunnels take in 12.50 and 12.17, 24.67 SC/s in all (12.50 and 12.33, 24.83, with each Agent's Tunnel kept for its Gather): −1.3% against twice the ceiling, and −1.3% against twice one Tunnel's 12.50 with four Agents at 3 GU. Pass.
 
 **The opening** at 3 GU (`opening_field`) is played from the Syndicate's Starting Conditions on the reference layout: the Tunnel, the Hideout in its area, one Agent, 100 SC and 1 Supply. The Agent is sent to the patch, the Hideout is rallied on it, and the Hideout trains an Agent whenever it is free and the bank covers it. The second Agent starts in tick 1 ("the second Agent can start immediately"). The third is paid for at 0:24.6 and comes out to gather at 0:39.56, against 0:34–0:46: pass. The check reads "saturated (3 Agents, 12.5 Space Crystals per second) around 0:40" as the third Agent at work. Three Agents at 3 GU take in 11.83 at best, so the Tunnel never takes in 12.5 without a break with three; from 1:00 to 1:30 it takes in 11.67 SC/s (10.00 before design change 0315).
 

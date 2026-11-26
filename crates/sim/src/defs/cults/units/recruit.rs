@@ -2,7 +2,7 @@
 
 use crate::defs::units::{
     AttackAttrs, AttackType, Augmentable, DropOffChoice, FullyConnectedSubtype, LoadDef, MELEE_CONTACT_GU,
-    MovementAttrs, RepairDef, RepairTargets, TargetDomain, TargetType, UnitBase, UnitDef, WorkerDef,
+    MovementAttrs, Nearest, RepairDef, RepairTargets, TargetDomain, TargetType, UnitBase, UnitDef, WorkerDef,
 };
 use crate::defs::{Armor, Category, Footprint, ObjectDef, ObjectKind};
 use crate::math::PI;
@@ -79,7 +79,7 @@ pub(crate) static RECRUIT: ObjectDef = ObjectDef {
             shares_patches: true, // Patch sharing: any number of Recruits may mine the same patch
             // Design changes 0345 and 0375 (answering Q0102 and Q0136; `> Gathering`, Which Storage): the own
             // completed Storage nearest to the Recruit itself, edge to edge, when it finishes mining, at every return.
-            drop_off: DropOffChoice::EachReturn,
+            drop_off: DropOffChoice::EachReturn(Nearest::EdgeToEdge),
             // Placeholder (not in the design: the Recruit's sections name no search radius for a patch that runs
             // out; the Drone's and the Agent's 6 grid units, themselves placeholders, design changes 0123 and 0295).
             search_radius: 6.0,
@@ -164,7 +164,7 @@ mod tests {
         assert!(worker.shares_patches && !worker.pass_through);
         assert_eq!(
             worker.drop_off,
-            DropOffChoice::EachReturn,
+            DropOffChoice::EachReturn(Nearest::EdgeToEdge),
             "design change 0375: the nearest to the Recruit, at every return"
         );
         assert_eq!(worker.search_radius, 6.0, "a placeholder: the other workers' radius");

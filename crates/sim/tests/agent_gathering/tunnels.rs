@@ -1,9 +1,9 @@
 //! Which Tunnel an Agent delivers to (`factions/syndicate/units/agent.md > Gathering rules > Which Tunnel`, design
-//! changes 0255 and 0375): "the own operational Tunnel whose crystal hatch is **nearest to the Agent itself**
+//! changes 0255, 0375 and 0384): "the own operational Tunnel whose crystal hatch is **nearest to the Agent itself**
 //! (straight line) **when it finishes mining** (user, 2026-11-27; Q0136); a tie goes to the Tunnel with the **earlier
-//! id**. This is chosen **regardless of how many other Agents already use it**; no load balancing. It is chosen when
-//! the Gather's first return starts and kept for that Gather (a new Gather picks again; a lost Tunnel means picking
-//! the nearest again)."
+//! id**. This is chosen **regardless of how many other Agents already use it**; no load balancing. It is chosen **at
+//! every return**, like the Recruit's Storage (user, 2026-11-27; replaces "chosen at the first return and kept for that
+//! Gather"), so a new Tunnel is used at once; a Tunnel lost during a return means picking the nearest again."
 
 use super::*;
 
@@ -51,12 +51,12 @@ fn two_tunnels(first: u32) -> TestSim {
     TestSim::new(turned(scenario, 3, Rotation::R0, true))
 }
 
-/// Slice D's acceptance: "Each Agent keeps its Tunnel for the whole Gather, even when it ends up nearer the other
-/// one". The Agent's first load empties patch 2, by Tunnel 1; the Gather goes on at patch 3 (the Drone's rule,
-/// `factions/colonists/units/drone.md > A patch that runs out`), by Tunnel 4, and still delivers to Tunnel 1. A new
-/// Gather picks again: Tunnel 4.
+/// Design change 0384: "It is chosen **at every return**, like the Recruit's Storage", in place of slice D's "Each
+/// Agent keeps its Tunnel for the whole Gather, even when it ends up nearer the other one". The Agent's first load
+/// empties patch 2, by Tunnel 1, and goes there; the Gather goes on at patch 3 (the Drone's rule,
+/// `factions/colonists/units/drone.md > A patch that runs out`), by Tunnel 4, and its next loads go to Tunnel 4.
 #[test]
-fn an_agent_keeps_its_tunnel_for_the_gather_and_a_new_gather_picks_again() {
+fn an_agents_tunnel_is_chosen_again_at_every_return() {
     let mut t = two_tunnels(LOAD);
     gather(&mut t, 1, &[5], 2);
     run_to(&mut t, 400, "the first load is in", |t| deliveries(t).len() == 1);
@@ -68,16 +68,72 @@ fn an_agent_keeps_its_tunnel_for_the_gather_and_a_new_gather_picks_again() {
     );
     run_to(&mut t, 1500, "three more loads", |t| deliveries(t).len() == 4);
     let at: Vec<u32> = deliveries(&t).iter().map(|d| d.2).collect();
-    assert_eq!(at, [1, 1, 1, 1], "its Tunnel, though the other is nearer now");
-    assert_eq!(object(&t, 5).worker.unwrap().drop_off, Some(id(1)));
-    // The same patch, ordered anew.
+    assert_eq!(at, [1, 4, 4, 4], "the nearest at every return");
+    assert_eq!(object(&t, 5).worker.unwrap().drop_off, Some(id(4)));
+}
+
+/// Design change 0384's Verification: "Agents gather to Tunnel A. Finish Tunnel B nearer their patch. From their next
+/// return on, they deliver to B without a new order." Tunnel A (1) unturned on tiles (6, 6) to (9, 9), its crystal
+/// hatch (9, 8); patch 2 on tile (14, 8); Agents 3 and 4 south of it. Once each has delivered at A, Tunnel B comes into
+/// the game flipped left and right on tiles (16, 6) to (19, 9), its hatch (16, 8) across a free column from the
+/// patch: nearer to an Agent at any face of the patch. Each return that starts after that goes to B, with the same
+/// Gather; only a return already under way then ends at A.
+#[test]
+fn a_tunnel_finished_nearer_the_patch_takes_the_next_returns() {
+    let mut t = flat(30, 20)
+        .spawn(TUNNEL, Some(P1), tile(6, 6))
+        .spawn_with(patch_of(1_000_000), tile(14, 8))
+        .spawn(AGENT, Some(P1), centre(13, 10))
+        .spawn(AGENT, Some(P1), centre(15, 10))
+        .start();
+    gather(&mut t, 1, &[3, 4], 2);
+    run_to(&mut t, 600, "each delivers at A", |t| {
+        [3, 4].iter().all(|&n| deliveries(t).iter().any(|d| d.1 == n))
+    });
+    assert!(deliveries(&t).iter().all(|d| d.2 == 1), "at A");
     let now = t.sim().tick();
-    gather(&mut t, now + 1, &[5], 3);
+    let orientation = BuildingOrientation {
+        rotation: Rotation::R0,
+        flip_h: true,
+        flip_v: false,
+    };
+    let spawn = DebugCommand::Spawn {
+        kind: TUNNEL,
+        owner: Some(P1),
+        at: tile(16, 6),
+        orientation,
+    };
+    t.debug_at(now + 1, spawn);
     t.step();
-    assert_eq!(object(&t, 5).worker.unwrap().drop_off, None, "a new Gather picks again");
-    run_to(&mut t, 1000, "two more loads", |t| deliveries(t).len() == 6);
-    let at: Vec<u32> = deliveries(&t)[4..].iter().map(|d| d.2).collect();
-    assert_eq!(at, [4, 4], "the nearest as its first return starts");
+    let b = t.sim().objects().last().expect("objects").id.0;
+    assert_eq!(object(&t, b).kind, TUNNEL, "B is in");
+    let before = deliveries(&t).len();
+    // The Agents whose return is under way, headed for A.
+    let heading = |n: u32| match object(&t, n).orders.as_ref()?.current.as_ref()?.state {
+        Behaviour::Gather(gather) => gather.node,
+        _ => None,
+    };
+    let under_way: Vec<bool> = [3, 4].iter().map(|&n| heading(n) == Some(id(1))).collect();
+    run_to(&mut t, 1500, "three more loads each", |t| {
+        let after = &deliveries(t)[before..];
+        [3, 4].iter().all(|&n| after.iter().filter(|d| d.1 == n).count() >= 3)
+    });
+    for (n, under_way) in [3, 4].into_iter().zip(under_way) {
+        let at: Vec<u32> = (deliveries(&t)[before..].iter())
+            .filter(|d| d.1 == n)
+            .map(|d| d.2)
+            .collect();
+        let next = usize::from(under_way);
+        assert!(
+            at[..next].iter().all(|&at| at == 1),
+            "Agent {n}, its return under way: {at:?}"
+        );
+        assert!(
+            at[next..].iter().all(|&at| at == b),
+            "Agent {n}, from its next return on: {at:?}"
+        );
+        assert_eq!(order(&t, n), Some(OrderKind::Gather(id(2))), "the same Gather");
+    }
 }
 
 /// "Straight line to its crystal hatch": Tunnel 1's hatch faces the Agent; Tunnel 2 is nearer centre to centre,

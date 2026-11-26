@@ -15,11 +15,12 @@
 //! below says "Drone" where the Drone's sections are quoted; it holds for the Agent but for:
 //! - **patches are shared**: an Agent neither occupies a patch nor takes one for occupied (`search::taken`), so it
 //!   mines on arrival, and waits only short of a patch it can't get to (0141);
-//! - **which Tunnel** (design change 0375, answering Q0136): "the own operational Tunnel whose crystal hatch is
-//!   **nearest to the Agent itself** (straight line) **when it finishes mining** [...]. It is chosen when the Gather's
-//!   first return starts and kept for that Gather (a new Gather picks again; a lost Tunnel means picking the nearest
-//!   again)": a Gather begins without an AssignedDropOff ([`begin`]) and the return takes the one nearest to the Agent
-//!   as it starts (`deliver::nearest_drop_off`), by its crystal hatch whatever the load (design change 0292 point 2);
+//! - **which Tunnel** (design changes 0375 and 0384, answering Q0136): "the own operational Tunnel whose crystal hatch
+//!   is **nearest to the Agent itself** (straight line) **when it finishes mining** [...]. It is chosen **at every
+//!   return**, like the Recruit's Storage [...], so a new Tunnel is used at once; a Tunnel lost during a return means
+//!   picking the nearest again": a Gather begins without an AssignedDropOff ([`begin`]) and each return takes the one
+//!   nearest to the Agent as it starts (`DropOffChoice::EachReturn(Nearest::StraightLine)`,
+//!   `deliver::nearest_drop_off`), by its crystal hatch whatever the load (design change 0292 point 2);
 //! - **the hatch** (`deliver::at_hatch`, phase **AtHatch**): DropOffReach is measured to the 1-square hatch, which
 //!   takes one Agent at a time; those within reach wait in the order they came. One that isn't within reach doesn't
 //!   wait: its leg presses on, exempt from the occupied-target rule, and begins again at once when the mover gives
@@ -141,11 +142,11 @@ pub(crate) fn on_gather_job(o: &Object) -> bool {
 /// - `factions/colonists/units/drone.md > Gather while carrying a load` (design change 0128): a worker that carries a
 ///   load "goes straight to the new pick-up point" all the same.
 /// - `factions/colonists/units/drone.md > Drop Off order` (design change 0127): straight to the order's drop-off.
-/// - `factions/syndicate/units/agent.md > Gathering rules` (design change 0255), for a worker without a lasting
-///   AssignedDropOff (`DropOffChoice::FirstReturn`): the Tunnel "is chosen when the Gather's first return starts and
-///   kept for that Gather (a new Gather picks again)". The Gather begins without one, and its first return takes the
-///   one nearest to the worker (`deliver::to_drop_off`, design change 0375). So does a Recruit's, which picks again as
-///   every return starts (`DropOffChoice::EachReturn`, design changes 0345 and 0375).
+/// - For a worker without a lasting AssignedDropOff, that chooses at every return (`DropOffChoice::EachReturn`): the
+///   Gather begins without one, and each return takes the one nearest to the worker as it starts
+///   (`deliver::to_drop_off`): the Agent's Tunnel (design changes 0375 and 0384; `factions/syndicate/units/agent.md >
+///   Gathering rules`: "It is chosen **at every return**, like the Recruit's Storage") and the Recruit's Storage
+///   (design changes 0345 and 0375).
 pub(super) fn begin(kind: OrderKind, unit: &mut Unit, world: &World) -> Gather {
     let (pos, owner) = (unit.pos, unit.owner);
     let keeps =

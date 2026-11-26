@@ -3,7 +3,7 @@
 
 use glam::Vec2;
 
-use crate::defs::{DropOffChoice, WorkerDef};
+use crate::defs::{DropOffChoice, Nearest, WorkerDef};
 use crate::economy::drop_off::{self, DropPoint};
 use crate::economy::gathering::is_drop_off;
 use crate::ids::{ObjectId, PlayerId};
@@ -25,8 +25,9 @@ use super::{Claims, Flow};
 /// **when it finishes mining** [...]; a tie goes to the Tunnel with the **earlier id**. This is chosen **regardless of
 /// how many other Agents already use it**"; design change 0292 point 2: "'nearest Tunnel' for Supplies is measured to
 /// the crystal hatch, the same measure as for crystals"); the lowest id among equals (`economy::drop_off::nearest`, as
-/// `Sim::nearest_drop_off`). The Agent's `pos` is its own centre as its first return starts, where it finished mining
-/// ([`to_drop_off`]); a Drone's, where it is as it gets its Gather (`super::begin`) or as a return starts without one.
+/// `Sim::nearest_drop_off`). The Agent's `pos` is its own centre as each of its returns starts, where it finished
+/// mining (design change 0384: "It is chosen **at every return**, like the Recruit's Storage", [`to_drop_off`]); a
+/// Drone's, where it is as it gets its Gather (`super::begin`) or as a return starts without one.
 pub(super) fn nearest_drop_off<'a>(world: &'a World, pos: Vec2, owner: Option<PlayerId>) -> Option<&'a View> {
     owner?;
     let own = (world.drop_offs()).filter(|(node, _)| node.owner == owner);
@@ -34,11 +35,11 @@ pub(super) fn nearest_drop_off<'a>(world: &'a World, pos: Vec2, owner: Option<Pl
 }
 
 /// Design change 0375 (answering Q0136; `factions/cults/units/recruit.md > Gathering`, Which Storage), for a worker
-/// that chooses at each return (`DropOffChoice::EachReturn`: the Recruit): "the own completed Storage **nearest to the
-/// Recruit itself** (edge to edge) **when it finishes mining**", `worker` being its shape as its return starts
-/// ([`to_drop_off`]), the gap measured to where the drop-off takes Space Crystals; "**Tie**: the Storage with the
-/// **earlier id** (built first)", the first of equals in id order. It replaces design change 0345's "edge to edge from
-/// its patch". Only those that take loads now are looked at (`World::drop_offs`: a completed Storage).
+/// that chooses at each return edge to edge (`Nearest::EdgeToEdge`: the Recruit): "the own completed Storage
+/// **nearest to the Recruit itself** (edge to edge) **when it finishes mining**", `worker` being its shape as its
+/// return starts ([`to_drop_off`]), the gap measured to where the drop-off takes Space Crystals; "**Tie**: the Storage
+/// with the **earlier id** (built first)", the first of equals in id order. It replaces design change 0345's "edge to
+/// edge from its patch". Only those that take loads now are looked at (`World::drop_offs`: a completed Storage).
 ///
 /// **At the end of a face**, 0375 has "A Recruit mining an end patch from its own face's side is nearer that face's
 /// Storage, so it stays with its face": so it is while its Silhouette stands wholly over its own face's Storage. Of two
@@ -74,12 +75,22 @@ pub(super) fn to_drop_off(
     {
         return find_another(kind, state, unit, def, world, claims);
     }
-    // Design change 0375: the Recruit's return starts (it has read no drop-off yet), and takes the Storage nearest to
-    // the Recruit itself, edge to edge, where it finished mining (or turned round with the load it brought, design
-    // change 0128). One lost on the way was replaced by the removal path, as any worker's is (design change 0170).
-    let starts = def.drop_off == DropOffChoice::EachReturn && state.node.is_none();
-    let chosen = (starts && matches!(*kind, OrderKind::Gather(_)))
-        .then(|| nearest_to_worker(world, &unit.shape(), unit.owner).map(|node| node.id));
+    // Design changes 0375 and 0384: the return of a worker that chooses at every return starts (it has read no
+    // drop-off yet), and it takes the one nearest to itself where it finished mining (or turned round with the load it
+    // brought, design change 0128): the Recruit the Storage nearest edge to edge, the Agent the Tunnel whose crystal
+    // hatch is nearest in a straight line. One lost on the way was replaced by the removal path, as any worker's is
+    // (design change 0170).
+    let starts = state.node.is_none() && matches!(*kind, OrderKind::Gather(_));
+    let chosen = match def.drop_off {
+        DropOffChoice::EachReturn(Nearest::EdgeToEdge) if starts => {
+            Some(nearest_to_worker(world, &unit.shape(), unit.owner))
+        }
+        DropOffChoice::EachReturn(Nearest::StraightLine) if starts => {
+            Some(nearest_drop_off(world, unit.pos, unit.owner))
+        }
+        _ => None,
+    }
+    .map(|node| node.map(|node| node.id));
     let (pos, owner) = (unit.pos, unit.owner);
     let Some(worker) = unit.worker.as_deref_mut() else {
         return Flow::Done;
@@ -102,9 +113,9 @@ pub(super) fn to_drop_off(
         // AssignedDropOff". Design change 0135 (`factions/colonists/units/drone.md > Drop-off gone`): without one as
         // the trip starts, the nearest own Egress Node becomes it; with none, the worker idles holding its load. One
         // destroyed on the way was replaced as it went, or left none (design change 0170, `Sim::reassign_drop_offs`):
-        // the leg takes the one it reads. An Agent's Gather begins without one (`super::begin`), so it takes the
-        // Tunnel nearest to itself here, as its first return starts, where it finished mining, and keeps it (design
-        // changes 0255 and 0375, [`nearest_drop_off`]).
+        // the leg takes the one it reads. An Agent's or a Recruit's Gather begins without one (`super::begin`), and
+        // each of its returns takes the nearest as it starts (above; design change 0384 replaces the Agent's Tunnel
+        // "chosen at the first return and kept for that Gather", design change 0255).
         _ => {
             let nearest = || nearest_drop_off(world, pos, owner).map(|node| node.id);
             if let Some(chosen) = chosen {

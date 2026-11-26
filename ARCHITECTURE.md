@@ -1556,12 +1556,13 @@ writes the mover's goal and the target the attack engages, and reads `Mover::sta
   between the Drone and the Agent is data: the worker's `WorkerDef` and the drop-off's `StructureDef::drop_off`.
   - **Agents** (M4-D): `WorkerDef::shares_patches` takes a type out of the occupancy below altogether (it neither
     occupies, waits for nor claims a patch, and isn't in `World::patch_mined` or `waited_at`, so a Drone and an Agent
-    mine one patch together); with `WorkerDef::drop_off` (`DropOffChoice`) `FirstReturn` and not `Assigned` (the
-    Drone's) a Gather begins with no AssignedDropOff and takes the nearest
-    drop-off as its first return starts, keeping it for that Gather (there is no Set Drop-off for the type: the gate's
-    `Sim::sets_drop_off`). "Nearest" is from the worker's own centre where it finished mining (design change 0375,
-    answering Q0136: "nearest to the Agent itself (straight line) when it finishes mining", the earlier id among
-    equals), to the centre of the crystal point, whatever the load (`economy::drop_off::nearest`, the one rule of the
+    mine one patch together); with `WorkerDef::drop_off` (`DropOffChoice`) `EachReturn(Nearest::StraightLine)` and
+    not `Assigned` (the Drone's) a Gather begins with no AssignedDropOff and each return takes the nearest drop-off as
+    it starts (design change 0384: "It is chosen **at every return**, like the Recruit's Storage", replacing 0255's
+    choice kept for the Gather; there is no Set Drop-off for the type: the gate's `Sim::sets_drop_off`). "Nearest" is
+    from the worker's own centre where it finished mining (design change 0375, answering Q0136: "nearest to the Agent
+    itself (straight line) when it finishes mining", the earlier id among equals), to the centre of the crystal point,
+    whatever the load (`economy::drop_off::nearest`, the one rule of the
     Drone's and the Agent's return leg and of the removal path): a Tunnel's crystal hatch (design change 0292 point 2:
     "the same measure as for crystals"), an Egress Node's own centre.
   - **Recruits** (M5-D, plan decision T58; `factions/cults/units/recruit.md > Gathering`,
@@ -2164,7 +2165,8 @@ section of its own.
   **Worker types and drop-offs are data** (slice M4-D, plan decision T34): a `WorkerDef` has a `LoadDef` per
   resource (`crystals`, and `supplies`, the Agent's since slice M4-I: 1 a trip, 48 frames to pick up and 48 to unload,
   reaches of 8 su, `WorkerDef::load(Resource)`), `shares_patches`, `drop_off` (`DropOffChoice`: `Assigned`, the
-  Drone; `FirstReturn`, the Agent; `EachReturn`, the Recruit, slice M5-D), `search_radius`
+  Drone; `EachReturn(Nearest)`, chosen as each return starts, `StraightLine` for the Agent, design change 0384, and
+  `EdgeToEdge` for the Recruit, slice M5-D and design change 0375), `search_radius`
   and `pass_through`; `StructureDef::drop_off` is `None`, `DropOff::Anywhere` (the Egress Node, the Storage) or
   `DropOff::Hatches { crystals, supplies }` (the Tunnel: Sides B and D, design change 0248; `DropOff::hatch`).
   `Worker::resource` (`defs::Resource`, Crystals by default) is what the load is, kept in saves and hashed only while
