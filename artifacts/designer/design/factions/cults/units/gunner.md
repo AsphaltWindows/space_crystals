@@ -32,8 +32,8 @@ The Gunner is the Cults' heavier-hitting combat infantry, trained from a Recruit
 - Range: 5 grid units
 - MinRange: 2
 - AimDuration: 4 frames
-- FiringDuration: 2 frames
-- CooldownDuration: 8 frames
+- FiringDuration: 4 frames (user, 2026-11-26; Q0126: was 2, too short for anything to leave the spot; at 4 a walking infantry unit can step off it)
+- CooldownDuration: 6 frames (was 8, shortened by the same 2 frames so the rate of fire is unchanged; designer placeholder)
 - ReloadDuration: 8 frames
 
 ## ObjectInterfaceState: BasicCombatUnitInterfaceState

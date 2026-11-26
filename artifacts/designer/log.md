@@ -2295,3 +2295,4 @@ Answered Q0069–Q0071 (0258–0267): losing-Tunnel edges, Syndicate economy che
 2026-11-26 — Q0114.1/.3, Q0121.2, regen in combat. Entry 0330.
 2026-11-26 — MaxHP up keeps damage. Entry 0331.
 2026-11-26 — First in first trained; keep damage. Entry 0332.
+2026-11-26 — Gunner firing 4 frames. Entry 0333.
