@@ -98,10 +98,11 @@ pub(crate) fn in_arc(attrs: &TurretAttrs, facing: f32, from: Vec2, at: Vec2) -> 
     full_turn(attrs) || relative(facing, from, at).is_none_or(|angle| angle.abs() <= attrs.turn_angle / 2.0)
 }
 
-/// The direction a turret in `turret` faces on a base facing `facing`, radians in `(-PI, PI]`; the base's own for a
-/// turret with no state yet, which is centred (module docs).
+/// The direction a turret in `turret` faces on a base facing `facing`, radians in `(-PI, PI]`; the base's own, as it
+/// is, for a turret with no state yet, which is centred (module docs), and for a unit without a turret: the scans ask
+/// it of every unit, every tick (`orders::world::scan`).
 pub(crate) fn aim_facing(turret: Option<TurretState>, facing: f32) -> f32 {
-    math::wrap_angle(facing + turret.map_or(0.0, |turret| turret.facing))
+    turret.map_or(facing, |turret| math::wrap_angle(facing + turret.facing))
 }
 
 /// The direction the turret of `object` faces, radians in `(-PI, PI]`, if its type has a turret ([`aim_facing`]): for
