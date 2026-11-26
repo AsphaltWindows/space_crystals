@@ -31,6 +31,15 @@ Rationale — why structures cost both crystals and build time: crystals are the
 - **Payment**: the building's Space Crystals cost is deducted as soon as the build order is given (the order requires enough Space Crystals at that moment), not when the Recruits arrive. Players who want to expand before they can afford it simply move Recruits toward the site ahead of time and issue the build order once the crystals are available.
 - **Order cancelled before construction starts**: if the build order is cancelled before the building is placed (the Recruits are given another order before arriving, or placement fails validation on arrival), the full Space Crystals cost is refunded. Once construction has started, the order can no longer be cancelled through the Recruits — re-ordering them just removes them from the site (progress stalls, see above), and the building can only be cancelled through its own Cancel Construction command (75% refund, see Cancel Construction below).
 
+### Group construction rules
+(user, 2026-11-26; Q0097)
+- **Where builders work**: each Recruit walks to the **part of the footprint closest to it**; if that part is taken (blocked), it **wall-hugs** along the footprint until it reaches a part where it can work, and builds from there (within its 8 su reach of the edge, as for mining).
+- **Start**: the site starts **as soon as the first Recruit of the order arrives** (placement is checked then).
+- **Blocked site**: units on the footprint at that moment, **including Recruits of the same order**, block it, and **the whole order fails** (refunded once in full; Payment and Order cancelled before construction starts above). Designer's note: a group-order special case; nothing retries.
+- **Speed counts only Recruits actively building**: a building needs a fixed number of **Recruit-frames** (BaseConstructionTime with 1 Recruit). Every frame, each Recruit that is building during that frame adds 1. Recruits still walking, waiting for a spot or doing anything else add nothing. There is no cap other than room around the site.
+- **Under attack**: builders **keep building** (as gatherers keep gathering).
+- **Assist** targets only a building **already under construction**, not a ghost whose order hasn't started.
+
 ### Assist Construction Command
 - Select one or more Recruits
 - Select the Assist Construction option
