@@ -26,4 +26,5 @@ pub(crate) static CRYSTAL_PATCH: ObjectDef = ObjectDef {
     default_settings: Some(SpawnSettings::CrystalPatch {
         starting_amount: DEFAULT_STARTING_AMOUNT,
     }),
+    energy: None,
 };

@@ -49,6 +49,7 @@ pub(crate) static CAREER_CAMPUS: ObjectDef = ObjectDef {
         occupants_fire: None,
     }),
     default_settings: None,
+    energy: None,
 };
 
 #[cfg(test)]

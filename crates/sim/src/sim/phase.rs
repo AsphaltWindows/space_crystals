@@ -6,7 +6,7 @@ use crate::augmentation::Research;
 use crate::command::TickInputs;
 use crate::economy::defeat;
 use crate::ids::ObjectId;
-use crate::{combat, economy, movement, orders, paths, shields};
+use crate::{combat, economy, energy, movement, orders, paths, shields};
 
 /// The parts of a tick, in the order [`Sim::step`](super::Sim::step) runs them (`ARCHITECTURE.md > Tick pipeline`):
 /// [`Sim::step_observed`](super::Sim::step_observed) marks each as it starts, then [`Phase::End`] when the tick is
@@ -36,6 +36,8 @@ pub enum Phase {
     PopUps,
     /// The Shields regenerate (`shields`, slice M3-B).
     Shields,
+    /// (M5-N4a) The energy pools regenerate (`energy`).
+    Energy,
     /// The economy: construction, mining, the workers, the transformations, then the producers (plan decision T5).
     Economy,
     /// The defeat check's second walk, which ends the economy phase.
@@ -50,7 +52,7 @@ pub enum Phase {
 
 impl Phase {
     /// Every phase, in order, [`Phase::End`] last.
-    pub const ALL: [Phase; 16] = [
+    pub const ALL: [Phase; 17] = [
         Phase::Start,
         Phase::DefeatOwners,
         Phase::Commands,
@@ -62,6 +64,7 @@ impl Phase {
         Phase::Deaths,
         Phase::PopUps,
         Phase::Shields,
+        Phase::Energy,
         Phase::Economy,
         Phase::Defeat,
         Phase::Vision,
@@ -196,6 +199,11 @@ impl Sim {
         // never do; before the economy, whose transformations then raise them with their maxima.
         observe(Phase::Shields);
         shields::step(&mut self.objects, first_new);
+        // (M5-N4a) The energy pools regenerate (plan decision T75), right after the Shields and for the same reasons:
+        // the dead never do, and the units the economy brings into the game start at their start in their first tick
+        // (a Disciple trained as it leaves its Cathedral, `Sim::step_holding`).
+        observe(Phase::Energy);
+        energy::step(&mut self.objects, &mut self.held, first_new);
         // The economy (plan decision T5): after 5e, so that the buildings destroyed this tick count for nothing in
         // it; before 5f, so that what it brings into the game is seen in its own tick.
         observe(Phase::Economy);

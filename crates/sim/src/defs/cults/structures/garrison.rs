@@ -85,6 +85,7 @@ pub(crate) static GARRISON: ObjectDef = ObjectDef {
         }),
     }),
     default_settings: None,
+    energy: None,
 };
 
 /// The Garrison's construction by Recruits (`StructureDef::site`, slice M5-E's; "Space Crystals cost and construction

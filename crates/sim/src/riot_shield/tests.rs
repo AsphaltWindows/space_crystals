@@ -44,6 +44,7 @@ fn unit(kind: ObjectKind, up: u32) -> Object {
         popup: None,
         lineage: Vec::new(),
         augmentation: Default::default(),
+        energy: None,
     }
 }
 

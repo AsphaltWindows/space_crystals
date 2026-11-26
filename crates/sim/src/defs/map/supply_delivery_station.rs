@@ -33,4 +33,5 @@ pub(crate) static SUPPLY_DELIVERY_STATION: ObjectDef = ObjectDef {
         delivery_size: DEFAULT_DELIVERY_SIZE,
         delivery_interval: DEFAULT_DELIVERY_INTERVAL,
     }),
+    energy: None,
 };

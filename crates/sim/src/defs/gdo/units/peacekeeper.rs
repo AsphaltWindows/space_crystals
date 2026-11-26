@@ -69,6 +69,7 @@ const PEACEKEEPER_DEF: ObjectDef = ObjectDef {
     unit: Some(PEACEKEEPER_UNIT),
     structure: None,
     default_settings: None,
+    energy: None,
 };
 
 /// `factions/gdo/units/peacekeeper.md`: its unit attributes, the Shielded type's but for its MaxSpeed.

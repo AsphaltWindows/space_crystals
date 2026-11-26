@@ -78,6 +78,7 @@ pub(crate) static SPARROW: ObjectDef = ObjectDef {
     }),
     structure: None,
     default_settings: None,
+    energy: None,
 };
 
 #[cfg(test)]

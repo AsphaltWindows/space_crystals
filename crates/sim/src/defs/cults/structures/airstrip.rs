@@ -70,6 +70,7 @@ pub(crate) static AIRSTRIP: ObjectDef = ObjectDef {
         occupants_fire: None,
     }),
     default_settings: None,
+    energy: None,
 };
 
 /// The Airstrip's construction by Recruits (`StructureDef::site`, slice M5-E's; "Space Crystals cost and construction

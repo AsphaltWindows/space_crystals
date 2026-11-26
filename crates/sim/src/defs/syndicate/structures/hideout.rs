@@ -85,6 +85,7 @@ pub(crate) static HIDEOUT: ObjectDef = ObjectDef {
         occupants_fire: None,
     }),
     default_settings: None,
+    energy: None,
 };
 
 /// The Hideout's construction by a Tunnel (`StructureDef::expansion`, slice M4-F): "Additional Hideouts can be

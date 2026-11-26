@@ -59,6 +59,7 @@ pub(crate) static ROBO_PORTAL: ObjectDef = ObjectDef {
         occupants_fire: None,
     }),
     default_settings: None,
+    energy: None,
 };
 
 #[cfg(test)]

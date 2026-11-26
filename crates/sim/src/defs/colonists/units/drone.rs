@@ -81,6 +81,7 @@ pub(crate) static DRONE: ObjectDef = ObjectDef {
     }),
     structure: None,
     default_settings: None,
+    energy: None,
 };
 
 #[cfg(test)]

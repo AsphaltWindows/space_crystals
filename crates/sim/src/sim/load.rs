@@ -88,6 +88,10 @@ impl TryFrom<SimState> for Sim {
             if o.shields.is_none() {
                 o.shields = o.max_shields();
             }
+            // (M5-N4a) One saved before it had energy (`Object::energy`) has its type's start.
+            if o.energy.is_none() {
+                o.energy = crate::energy::start(o.kind);
+            }
             if o.id.0 >= next_id {
                 return Err(format!("object id {} is not below next_id {next_id}", o.id.0));
             }
@@ -98,7 +102,11 @@ impl TryFrom<SimState> for Sim {
         // The held units share the objects' ids (plan decision T30): each below the next id, none twice, none an
         // object's.
         let mut held = BTreeMap::new();
-        for unit in held_list {
+        for mut unit in held_list {
+            // (M5-N4a) The same for a held unit.
+            if unit.object.energy.is_none() {
+                unit.object.energy = crate::energy::start(unit.object.kind);
+            }
             let id = unit.object.id;
             if id.0 >= next_id {
                 return Err(format!("held unit id {} is not below next_id {next_id}", id.0));

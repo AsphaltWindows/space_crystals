@@ -66,6 +66,7 @@ pub(crate) static LASER_TURRET: ObjectDef = ObjectDef {
         occupants_fire: None,
     }),
     default_settings: None,
+    energy: None,
 };
 
 /// `factions/syndicate/structures/laser_turret.md`'s placeholder AttackAttributes: "FullyConnected red laser (instant,

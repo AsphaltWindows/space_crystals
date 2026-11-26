@@ -70,6 +70,7 @@ pub(crate) static MILITANT: ObjectDef = ObjectDef {
     }),
     structure: None,
     default_settings: None,
+    energy: None,
 };
 
 #[cfg(test)]

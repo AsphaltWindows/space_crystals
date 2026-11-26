@@ -314,6 +314,7 @@ impl StateHash for Object {
             popup,
             lineage,
             augmentation,
+            energy,
         } = self;
         id.hash(h);
         kind.hash(h);
@@ -371,6 +372,12 @@ impl StateHash for Object {
         if !augmentation.is_none() {
             h.tag(6);
             augmentation.hash(h);
+        }
+        // (M5-N4a) The same for an object's energy (`crate::energy`), under a tag of its own: only while it has an
+        // energy pool.
+        if let Some(energy) = energy {
+            h.tag(7);
+            energy.hash(h);
         }
     }
 }

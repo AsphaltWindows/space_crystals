@@ -114,6 +114,7 @@ pub(crate) static RECRUIT: ObjectDef = ObjectDef {
     }),
     structure: None,
     default_settings: None,
+    energy: None,
 };
 
 #[cfg(test)]

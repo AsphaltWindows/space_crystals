@@ -85,6 +85,7 @@ pub(crate) static HAND_OF_HEAVEN: ObjectDef = ObjectDef {
     }),
     structure: None,
     default_settings: None,
+    energy: None,
 };
 
 #[cfg(test)]

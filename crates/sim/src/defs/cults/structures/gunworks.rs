@@ -57,6 +57,7 @@ pub(crate) static GUNWORKS: ObjectDef = ObjectDef {
         occupants_fire: None,
     }),
     default_settings: None,
+    energy: None,
 };
 
 /// The Gunworks' construction by Recruits (`StructureDef::site`, slice M5-E's; "Space Crystals cost and construction

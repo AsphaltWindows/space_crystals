@@ -1,15 +1,18 @@
 //! The Cathedral — `factions/cults/structures/cathedral.md`.
 
-use crate::defs::structures::{BuilderGoes, ExitRule, HoldsDef, SiteDef, SitePrice, StructureDef, SymmetryType};
+use crate::defs::structures::{
+    BuilderGoes, ExitRule, HoldsDef, ProductionDef, Recipe, SiteDef, SitePrice, StructureDef, SymmetryType,
+};
 use crate::defs::{Armor, Category, Footprint, ObjectDef, ObjectKind};
 use crate::player::Faction;
 use crate::sides::SideLetter;
 
 /// `factions/cults/structures/cathedral.md`: the "Tier 3 and last building of the Mystical/Human Enhancement branch.
-/// Trains Recruits into Disciples, the Cults' spell caster". Its numbers, its site and its pool's capacity only (slice
-/// M5-G2, plan decision T69): its training (`> Training`: it "Works like the Armory's Training"; the Disciple, "consumes
-/// 1 Recruit; SpaceCrystalsCost: 75, TrainingTime: 320 frames") comes with its slice, which adds it to the Recruits'
-/// builds, so it trains nothing and Recruits don't build it yet. Its numbers are the design's "Placeholder stats".
+/// Trains Recruits into Disciples, the Cults' spell caster". Its numbers, its site and its pool (slice M5-G2, plan
+/// decision T69), and since slice M5-N4a its training (`> Training`: it "Works like the Armory's Training"), the
+/// Armory's pool path as data (plan decision T71, `sim/producers/pool.rs`): Recruits walk into its pool (`holds`), and
+/// it trains them into Disciples (`production`); Recruits build it from outside ([`CATHEDRAL_SITE`]) while their player
+/// owns a Temple, as the Build is given (`Sim::check_build`). Its numbers are the design's "Placeholder stats".
 pub(crate) static CATHEDRAL: ObjectDef = ObjectDef {
     kind: ObjectKind::Cathedral,
     name: "Cathedral",
@@ -40,8 +43,27 @@ pub(crate) static CATHEDRAL: ObjectDef = ObjectDef {
         build_radius_extension: 0,
         power: 0,
         seeds_build_area: false,
-        // Its Disciples: with its training's slice.
-        production: None,
+        // `> Training`: "Works like the Armory's Training: Recruits enter the Cathedral and join an internal pool;
+        // training orders are queueable and serial; queuing an order deducts its Space Crystals cost and reserves one
+        // Recruit; when the order finishes, the Recruit is consumed and the trained unit exits to the RallyPoint", out of
+        // its exit side ("ExitSide C (like the Armory)"), as the units it holds do (`holds`). Of the Recruits inside
+        // (`sim/producers/pool.rs`), so it recruits nothing; its queue is bounded by its capacity ("so at most 10 orders
+        // queued").
+        production: Some(ProductionDef {
+            exits: ExitRule::Side(SideLetter::C),
+            recipes: &[
+                // "**Disciple**: 1 Recruit, 75 Space Crystals, 320 frames (20 seconds)", the one unit it trains ("Panel
+                // like the Armory's [...]: **Q: Train Disciple**"). The Disciple has no TechPrerequisite of its own: the
+                // Cathedral's Temple is required to build it, not to train in it.
+                Recipe {
+                    kind: ObjectKind::Disciple,
+                    cost: 75,
+                    frames: 320,
+                    requires: &[],
+                },
+            ],
+            recruitment: None,
+        }),
         mining: None,
         onto: None,
         constructs: &[],
@@ -67,6 +89,7 @@ pub(crate) static CATHEDRAL: ObjectDef = ObjectDef {
         occupants_fire: None,
     }),
     default_settings: None,
+    energy: None,
 };
 
 /// The Cathedral's construction by Recruits (`StructureDef::site`, slice M5-E's; "Space Crystals cost and construction
@@ -91,7 +114,8 @@ mod tests {
 
     /// 2 tall and 3 wide, ABAC, MaxHP 400, PointArmor 1, FullArmor 6 (the building armour rule's n = 1), SightRange 4,
     /// not Groupable (design change 0348), behind a Temple. Its pool: Recruits walk in at side B and come out of side
-    /// C, 10 of them, reserved ones counted; it trains nothing yet. Recruits will build it from outside for 250 Space
+    /// C, 10 of them, reserved ones counted; (M5-N4a) it trains them into Disciples, for 75 Space Crystals in 320
+    /// frames each, out of side C, the recipe behind no other building. Recruits build it from outside for 250 Space
     /// Crystals in 640 frames with one of them, from 10% HP.
     #[test]
     fn the_cathedral_follows_the_design() {
@@ -106,7 +130,14 @@ mod tests {
         );
         assert_eq!(ObjectKind::Cathedral.def().name, "Cathedral");
         assert_eq!(structure.requires, [ObjectKind::Temple], "TechPrerequisite: a Temple");
-        assert_eq!((structure.production, structure.drop_off), (None, None));
+        assert_eq!(structure.drop_off, None);
+        let production = structure.production.expect("it trains");
+        assert_eq!(production.exits, ExitRule::Side(SideLetter::C));
+        let recipes: Vec<_> = (production.recipes.iter())
+            .map(|r| (r.kind, r.cost, r.frames, r.requires))
+            .collect();
+        assert_eq!(recipes, [(ObjectKind::Disciple, 75, 320, &[][..])]);
+        assert_eq!(production.recruitment, None);
         let holds = structure.holds.expect("its pool");
         assert_eq!(
             (holds.entrance, holds.exit),

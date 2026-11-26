@@ -69,6 +69,7 @@ pub(crate) static BARRACKS: ObjectDef = ObjectDef {
         occupants_fire: None,
     }),
     default_settings: None,
+    energy: None,
 };
 
 #[cfg(test)]

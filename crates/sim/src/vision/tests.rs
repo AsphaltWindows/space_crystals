@@ -34,6 +34,7 @@ fn unit(id: u32, kind: ObjectKind, owner: Option<PlayerId>, pos: Vec2) -> Object
         popup: None,
         lineage: Vec::new(),
         augmentation: Default::default(),
+        energy: None,
     }
 }
 

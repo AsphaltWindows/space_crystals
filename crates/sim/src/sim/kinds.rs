@@ -218,6 +218,7 @@ impl Sim {
             lineage: _,
             // Kept or lost above, with the kind.
             augmentation: _,
+            energy,
         } = o;
         *object_kind = kind;
         if let Some(placement) = &placement {
@@ -230,6 +231,8 @@ impl Sim {
         *shields = new
             .max_shields
             .map(|max| shields.map_or(max, |shields| shields.min(max)));
+        // (M5-N4a) Kept at most the new maximum, or the new type's start, as Shields (`crate::energy::after_change`).
+        *energy = crate::energy::after_change(*energy, kind);
         *resource = None;
         let unit_of = |def: &'static ObjectDef| def.unit.as_ref();
         let keeps_shield = unit_of(old).map(|u| u.riot_shield) == unit_of(new).map(|u| u.riot_shield);

@@ -232,6 +232,11 @@ pub struct ObjectDef {
     /// Values`; the map editor, debug spawns: `SpawnSettings::defaults`): the map resources'; `None` for the types
     /// without such values.
     pub default_settings: Option<SpawnSettings>,
+    /// (M5-N4a) Its energy pool, which its spells spend (plan decision T75): the Disciple's
+    /// (`factions/cults/units/disciple.md > Energy`); `None` for the types without one. A unit's or a structure's alike,
+    /// as `max_shields`. The current energy is `Object::energy` (`crate::energy`). Optional in files.
+    #[serde(default)]
+    pub energy: Option<EnergyDef>,
 }
 
 /// An object type's armour: `systems/units.md > Unit > PointArmor`, `systems/units.md > FullArmor` for units, and the
@@ -248,6 +253,31 @@ pub struct Armor {
 impl Armor {
     /// No armour: map resources, which are indestructible anyway.
     pub const NONE: Armor = Armor { point: 0.0, full: 0.0 };
+}
+
+/// (M5-N4a) An object type's energy pool (plan decision T75, `ObjectDef::energy`), in points, as the design gives them
+/// (the Disciple's "Energy - MaxEnergy 200; starts at 50; regenerates 0.5 per second": `factions/cults/units/disciple.md
+/// > Placeholder stats`). The sim counts it in integers (`crate::energy`), each number here converting exactly.
+#[derive(Copy, Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct EnergyDef {
+    /// MaxEnergy: what it regenerates up to.
+    pub max: f32,
+    /// What an object of the type has as it comes into the game, or becomes of the type.
+    pub start: f32,
+    /// How it regenerates.
+    pub regen: EnergyRegen,
+}
+
+/// (M5-N4a) How an energy pool regenerates (plan decision T75): every tick, up to its maximum (`crate::energy::step`).
+#[derive(Copy, Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub enum EnergyRegen {
+    /// So many points a second: the Disciple's 0.5 (`factions/cults/units/disciple.md > Energy`: "It regenerates
+    /// naturally over time").
+    PerSecond(f32),
+    /// So many points a second for each unit inside the structure, none with none inside: the Shrine's 0.25 a Recruit
+    /// (`factions/cults/structures/shrine.md > Energy`: "proportional to the number of Recruits inside [...] With no
+    /// Recruits inside, the Shrine does not regenerate energy"), whose slice gives it its pool (M5-N5).
+    PerUnitInside(f32),
 }
 
 impl ObjectDef {

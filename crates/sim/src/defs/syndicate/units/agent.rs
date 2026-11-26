@@ -111,6 +111,7 @@ pub(crate) static AGENT: ObjectDef = ObjectDef {
     }),
     structure: None,
     default_settings: None,
+    energy: None,
 };
 
 #[cfg(test)]

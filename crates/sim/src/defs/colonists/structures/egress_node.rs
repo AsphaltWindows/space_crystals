@@ -46,6 +46,7 @@ pub(crate) static EGRESS_NODE: ObjectDef = ObjectDef {
         occupants_fire: None,
     }),
     default_settings: None,
+    energy: None,
 };
 
 #[cfg(test)]
