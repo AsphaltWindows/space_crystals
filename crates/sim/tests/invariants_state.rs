@@ -32,8 +32,8 @@ const CONSTITUTION: u32 = 5;
 const METABOLISM: u32 = 6;
 
 /// Player 1 plays the Cults, player 2 the Colonists, on 30 × 22 open tiles; auto-targeting is off. The Recruit east of
-/// the Armory's entrance (side B) walks in, and the two others get their Augmentations, in tick 1. Returns the game a
-/// tick before and at the tick after the Recruit is inside.
+/// the Armory's entrance (side B) walks in, and the two others get their Augmentations, in tick 1. Returns the game as
+/// the tick the Recruit went in left it, and a tick later.
 fn game() -> (Sim, Sim) {
     let point = |x: f32, y: f32| SpawnAt::Point(Vec2::new(x, y));
     let mut t: TestSim = ScenarioBuilder::new(&vec![".".repeat(30); 22].join("\n"))
