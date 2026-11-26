@@ -71,11 +71,11 @@ pub enum Builder {
     /// ghost under the cursor, `Sim::group_build_check` (`crate::placement::ghost::recruits_check`), and one
     /// `OrderKind::Build` to the whole group, paid once. A plain click sends it and ends placement; a Shift-click
     /// queues it and placement stays for the next building, the Recruits being builders that "can carry out more
-    /// queued buildings" (`systems/controls/selection_and_hud.md > AwaitingTarget > Shift while placing`: "e.g. Cults
+    /// queued buildings" (`systems/controls/interface.md > AwaitingTarget > Shift while placing`: "e.g. Cults
     /// Recruits (the whole selected group) build one and walk together to the next").
     Recruits {
         /// A Shift-click has queued a Build: placement stays while Shift is held, and letting go of it ends placement
-        /// (`systems/controls/selection_and_hud.md > Shift while placing`: "releasing Shift ends placement"), as for
+        /// (`systems/controls/interface.md > Shift while placing`: "releasing Shift ends placement"), as for
         /// the Drones.
         queued: bool,
     },

@@ -393,7 +393,7 @@ fn object_kind(app: &App, id: u32) -> ObjectKind {
 }
 
 /// `factions/cults/units/recruit.md > Right-Click Resolution` under the pointer
-/// (`systems/controls/selection_and_hud.md > PointerDisplayType`): "Space Crystal patch → Gather" shows
+/// (`systems/controls/hud.md > PointerDisplayType`): "Space Crystal patch → Gather" shows
 /// GatherResources; "Own Storage (carrying Space Crystals) → Drop off resources" shows ReturnResources for Recruit 3
 /// with its load (which shows on its body, the crystal shard), whose right-click sends it there, and a Move to it for
 /// the others, so Mixed for all four;

@@ -1,7 +1,7 @@
 //! The placement rule of the Recruitment Area (slice M5-J1), on the geometry of `crate::recruitment::area`: design
-//! change 0341 point 1 (`factions/cults/economy.md > RecruitmentHall > RecruitmentArea`): "**The whole area must lie on
-//! the map** (user, 2026-11-26; Q0099): a Hall whose area would leave the map can't be placed (as Tunnels, 0242)". It
-//! is checked for every kind that recruits (`crate::recruitment::def_of`), on the area its footprint would have, in
+//! change 0341 point 1 (`factions/cults/structures/recruitment_hall.md > RecruitmentArea`): "**The whole area must lie
+//! on the map** (user, 2026-11-26; Q0099): a Hall whose area would leave the map can't be placed (as Tunnels, 0242)".
+//! It is checked for every kind that recruits (`crate::recruitment::def_of`), on the area its footprint would have, in
 //! every [`super::Mode`], as the Tunnel Area's edge rule is (`placement/tunnel_area.rs`): the map's edge is known, so
 //! the Recruits' ghost ([`super::Mode::Known`]), the gate, the check on arrival and the Starting Layouts
 //! ([`super::Mode::Layout`], `core/map_editor.md > Starting Layouts > Layout validation`) share it. Map spawns and

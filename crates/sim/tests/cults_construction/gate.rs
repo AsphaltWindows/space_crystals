@@ -91,7 +91,7 @@ fn an_assist_is_of_an_own_site_by_its_builders() {
     assert_eq!(gate(&t, P1, assist(&[2, militant.0], site)), Ok(()));
 }
 
-/// Design change 0341 point 1 (`factions/cults/economy.md > RecruitmentHall > RecruitmentArea`: "a Hall whose area
+/// Design change 0341 point 1 (`factions/cults/structures/recruitment_hall.md > RecruitmentArea`: "a Hall whose area
 /// would leave the map can't be placed"): the gate refuses the Build of a Recruitment Hall 2 tiles from the north edge
 /// (`Reject::Unplaceable`) for that reason alone, as the site check of the ghost does, and takes one 3 tiles from it,
 /// its area just on the map.

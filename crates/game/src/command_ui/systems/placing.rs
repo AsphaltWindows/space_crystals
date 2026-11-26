@@ -103,7 +103,7 @@ pub(in crate::command_ui) fn end_queued_placement(actions: Res<ActionState>, mut
 ///   `OrderKind::Build` to every Recruit of the ActiveGroup (`recipients`: "Construct sends every selected Recruit
 ///   to build the **same** building together"), paid once as it is given, the gate refusing one the bank can't pay
 ///   (said as a Warp In's, [`CommandRefused`]). A plain click returns to DefaultState; a Shift-click queues it and
-///   placement stays while Shift is held (`systems/controls/selection_and_hud.md > AwaitingTarget > Shift while
+///   placement stays while Shift is held (`systems/controls/interface.md > AwaitingTarget > Shift while
 ///   placing`: "e.g. Cults Recruits (the whole selected group) build one and walk together to the next"), until it is
 ///   let go ([`end_queued_placement`]).
 ///

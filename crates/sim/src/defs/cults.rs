@@ -60,7 +60,7 @@ impl ConstructEntry {
 }
 
 /// A slot of a Construct menu: the menu, the entry, and where the entry stands on the panel's grid of 3 rows of 4
-/// (`systems/controls/selection_and_hud.md > CommandPanel`): the Q W E R row is row 0, the A S D F row 1 and the
+/// (`systems/controls/interface.md > CommandPanel`): the Q W E R row is row 0, the A S D F row 1 and the
 /// Z X C V row 2, each from column 0.
 #[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct ConstructSlot {

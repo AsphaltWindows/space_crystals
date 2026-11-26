@@ -61,7 +61,7 @@
 //!   whoever owns it, a site included (slice M4-E; `factions/syndicate/tunnels.md > Tunnel Area Non-Overlap Rule`,
 //!   design change 0237: [`WholeProblem::TunnelAreaOverlap`], `placement/tunnel_overlap.rs`), [`Mode::Known`] judging
 //!   other players' Tunnels by what the player knows of them; for a Recruitment Hall (any kind that recruits), its
-//!   whole Recruitment Area on the map (slice M5-J1; `factions/cults/economy.md > RecruitmentHall >
+//!   whole Recruitment Area on the map (slice M5-J1; `factions/cults/structures/recruitment_hall.md >
 //!   RecruitmentArea`, design change 0341 point 1: [`WholeProblem::RecruitmentAreaOffMap`],
 //!   `placement/recruitment_area.rs`), in every mode, as the Tunnel Area's edge. Map and debug spawns don't take the
 //!   check, so they are exempt.

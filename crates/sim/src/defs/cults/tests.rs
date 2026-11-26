@@ -197,7 +197,7 @@ fn the_cults_kinds_are_the_six_designed_ones() {
     );
 }
 
-/// The keys of the panel's grid, row by row (`systems/controls/selection_and_hud.md > CommandPanel`).
+/// The keys of the panel's grid, row by row (`systems/controls/interface.md > CommandPanel`).
 const KEYS: [char; 12] = ['Q', 'W', 'E', 'R', 'A', 'S', 'D', 'F', 'Z', 'X', 'C', 'V'];
 
 /// The line of a Construct menu in `factions/cults/units/recruit.md > Recruit ObjectInterfaceState > DefaultState

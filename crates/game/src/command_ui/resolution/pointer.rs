@@ -1,4 +1,4 @@
-//! The pointer's preview of a click (`systems/controls/selection_and_hud.md > PointerDisplayType`): in DefaultState the
+//! The pointer's preview of a click (`systems/controls/hud.md > PointerDisplayType`): in DefaultState the
 //! one thing the selected objects would all do on a right-click, or Mixed when they would do different things; while a
 //! target is awaited, the pending command's look over a valid target, else Inactive ([`pointer_display`]). Split
 //! from `super` (the resolution of the clicks themselves), whose rules it previews.
@@ -10,7 +10,7 @@ use sc_sim::{Ability, OrderKind};
 use super::{CursorTarget, MapTarget, Resolved, UnitCapabilities, object_right_click, target_resolution};
 use crate::command_ui::interface::{InterfaceState, PanelCommand};
 
-/// `systems/controls/selection_and_hud.md > PointerDisplayType > Types` that the game can show so far.
+/// `systems/controls/hud.md > PointerDisplayType > Types` that the game can show so far.
 #[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum PointerDisplay {
     /// Nothing will happen on a click.
@@ -30,7 +30,7 @@ pub enum PointerDisplay {
     /// `factions/cults/units/recruit.md > Right-Click Resolution`: "Own Armory → Enter Armory"), and never over its
     /// site (design change 0347 point 4).
     Enter,
-    /// `systems/controls/selection_and_hud.md > Mixed Right-Click Preview` (design change 0063): the selected units
+    /// `systems/controls/hud.md > Mixed Right-Click Preview` (design change 0063): the selected units
     /// would do different things on a right-click.
     Mixed,
     /// (M5-J1) The Recruits' Assist Construction (design change 0322, a placeholder look: `crate::command_ui::cursor`):
@@ -46,7 +46,7 @@ pub enum PointerDisplay {
 
 impl PointerDisplay {
     /// The PointerDisplayType of an order a click gives: Attack for an AttackMove too
-    /// (`systems/controls/selection_and_hud.md > Resolution Rules > AwaitingTarget[CommandType]`: Attack over ground
+    /// (`systems/controls/hud.md > Resolution Rules > AwaitingTarget[CommandType]`: Attack over ground
     /// "will issue AttackMove"); GatherResources for a Gather ("Cursor over resource (resource gatherer selected)"),
     /// ReturnResources for a Drop Off ("Cursor over drop-off point (resource gatherer carrying resources)"), Enter for
     /// an Enter ("Cursor over own Tunnel (Syndicate unit, tier sufficient)"), Assist for an Assist (design change
@@ -67,8 +67,8 @@ impl PointerDisplay {
     }
 
     /// The PointerDisplayType of what a click gives an object: its order's, or Move for a rally point
-    /// (`systems/controls/selection_and_hud.md > Resolution Rules > DefaultState`: "Selection is a production building:
-    /// Move (rally point)"; `systems/controls/selection_and_hud.md > AwaitingTarget[CommandType]`:
+    /// (`systems/controls/hud.md > Resolution Rules > DefaultState`: "Selection is a production building:
+    /// Move (rally point)"; `systems/controls/hud.md > Resolution Rules > AwaitingTarget[CommandType]`:
     /// "AwaitingTarget\[SetRallyPoint\] over ground or object: Move"). Set Drop-off over a drop-off shows
     /// ReturnResources: **placeholder**, the rules have no AwaitingTarget\[SetDropOffLocation\] row, and its target is
     /// the drop-off point the loads will return to.
@@ -82,8 +82,8 @@ impl PointerDisplay {
     }
 }
 
-/// `systems/controls/selection_and_hud.md > PointerDisplayType > Resolution Rules` over `target`, for the selected
-/// `units` (none: nothing commandable is selected, `systems/controls/selection_and_hud.md > CommandPanel`). In a build
+/// `systems/controls/hud.md > PointerDisplayType > Resolution Rules` over `target`, for the selected
+/// `units` (none: nothing commandable is selected, `systems/controls/interface.md > CommandPanel`). In a build
 /// menu, or a Tunnel's EjectMenu or ExpandMenu, a right-click only goes back: Inactive (placeholder: the rules list no
 /// menu). AwaitingPlacement has "No pointer display type — the building ghost preview serves as the cursor"
 /// (`crate::command_ui::cursor` shows none): Inactive here.
@@ -101,8 +101,8 @@ pub fn pointer_display(interface: InterfaceState, units: &[UnitCapabilities], ta
     }
 }
 
-/// `systems/controls/selection_and_hud.md > Resolution Rules > DefaultState` and
-/// `systems/controls/selection_and_hud.md > Mixed Right-Click Preview` (design change 0063): the right-click preview,
+/// `systems/controls/hud.md > Resolution Rules > DefaultState` and
+/// `systems/controls/hud.md > Mixed Right-Click Preview` (design change 0063): the right-click preview,
 /// from the action each of `units` would take ([`object_right_click`]). One action shows its pointer, more than one
 /// Mixed, none Inactive. An action is a PointerDisplayType, so a Move to the location, a Follow and a rally point are
 /// all Move.
@@ -120,7 +120,7 @@ pub fn right_click_display(units: &[UnitCapabilities], target: &MapTarget) -> Po
     }
 }
 
-/// `systems/controls/selection_and_hud.md > Resolution Rules > AwaitingTarget[CommandType]`: the pending command's look
+/// `systems/controls/hud.md > Resolution Rules > AwaitingTarget[CommandType]`: the pending command's look
 /// over a target it can use, else Inactive. Reverse, which has no order yet, by the design's row for the ground.
 fn awaiting_display(pending: PanelCommand, target: &MapTarget) -> PointerDisplay {
     match (pending, target.target) {

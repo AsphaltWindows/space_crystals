@@ -329,7 +329,7 @@ fn an_incomplete_cults_layout_lists_what_it_lacks() {
     );
 }
 
-/// Design change 0341 point 1 (`factions/cults/economy.md > RecruitmentHall > RecruitmentArea`: "a Hall whose area
+/// Design change 0341 point 1 (`factions/cults/structures/recruitment_hall.md > RecruitmentArea`: "a Hall whose area
 /// would leave the map can't be placed") in the map's validation (`core/map_editor.md > Starting Layouts > Layout
 /// validation`, slice M5-J1): `dev_skirmish`'s starting Hall moved to (12, 1), its area reaching 2 rows past the north
 /// edge, is refused as a whole in slot 1 and in its image (`ScenarioProblem::LayoutPlacement`), and no game starts.

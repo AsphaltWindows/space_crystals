@@ -279,21 +279,22 @@ impl PanelCommand {
     }
 
     /// Whether it belongs to one instance's own state: a constructor's commands, which read and change what that one
-    /// Deployment Center or Extraction Facility constructs (`> SelectionGroup`: for an Ungroupable type "the
-    /// ObjectInterfaceState can reliably read that instance's specific game state"), and a Beacon's Warp In (design
-    /// change 0122: "Warp In applies to the Beacon the player has Tabbed to"). Such a command goes to the ActiveGroup
-    /// only, never to the other selected instances of its type (`super::recipients`). So do a Deploy, which one Drone
-    /// of the ActiveGroup takes (design change 0125), the Cancel of the objects that transform, whose panel shows it,
-    /// and the Egress Node's F, which selects the Drones of "this Egress Node" (Ungroupable: the one Tabbed to). So do
-    /// a Tunnel's EjectMenu and its tiles, which eject "from this Tunnel's Side A" (`factions/syndicate/tunnels.md >
-    /// EjectMenu`; Ungroupable too: the one Tabbed to), and its ExpandMenu, its entries, its Upgrade and its Cancel,
-    /// which read and change this Tunnel's one operation (`factions/syndicate/tunnels.md > ExpandMenu`: "**this**
-    /// Tunnel's tier"). So does an Agent's Build: "each Agent takes exactly one placement", and "Placement never moves
-    /// on to another selected worker" (`systems/controls/selection_and_hud.md > AwaitingTarget > Shift while placing`:
-    /// "to place with the next Agent, the player presses Tab"). A Recruits' Build goes to the ActiveGroup too, which is
-    /// every selected Recruit, the Recruit being Groupable (slice M5-J1; `factions/cults/units/recruit.md > Recruit
-    /// ObjectInterfaceState`: "Construct sends every selected Recruit to build the **same** building together", design
-    /// change 0072), and never to the other types' units.
+    /// Deployment Center or Extraction Facility constructs (`systems/controls/selection.md > SelectionGroup`: for an
+    /// Ungroupable type "the ObjectInterfaceState can reliably read that instance's specific game state"), and a
+    /// Beacon's Warp In (design change 0122: "Warp In applies to the Beacon the player has Tabbed to"). Such a command
+    /// goes to the ActiveGroup only, never to the other selected instances of its type (`super::recipients`). So do a
+    /// Deploy, which one Drone of the ActiveGroup takes (design change 0125), the Cancel of the objects that transform,
+    /// whose panel shows it, and the Egress Node's F, which selects the Drones of "this Egress Node" (Ungroupable: the
+    /// one Tabbed to). So do a Tunnel's EjectMenu and its tiles, which eject "from this Tunnel's Side A"
+    /// (`factions/syndicate/tunnel_menus.md > EjectMenu`; Ungroupable too: the one Tabbed to), and its ExpandMenu, its
+    /// entries, its Upgrade and its Cancel, which read and change this Tunnel's one operation
+    /// (`factions/syndicate/tunnel_menus.md > ExpandMenu`: "**this** Tunnel's tier"). So does an Agent's Build: "each
+    /// Agent takes exactly one placement", and "Placement never moves on to another selected worker"
+    /// (`systems/controls/interface.md > AwaitingTarget > Shift while placing`: "to place with the next Agent, the
+    /// player presses Tab"). A Recruits' Build goes to the ActiveGroup too, which is every selected Recruit, the
+    /// Recruit being Groupable (slice M5-J1; `factions/cults/units/recruit.md > Recruit ObjectInterfaceState`:
+    /// "Construct sends every selected Recruit to build the **same** building together", design change 0072), and
+    /// never to the other types' units.
     pub fn instance_only(self) -> bool {
         matches!(
             self,

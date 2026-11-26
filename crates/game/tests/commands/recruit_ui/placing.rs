@@ -1,6 +1,6 @@
 //! The Recruits' placement (slice M5-J1, `space_crystals::command_ui::Builder::Recruits`): a Construct menu's entry
 //! places its building for the whole group, paid once (design changes 0072 and 0327); a Shift chain of two, one
-//! lingering ghost each (design change 0072, `systems/controls/selection_and_hud.md > AwaitingTarget > Shift while
+//! lingering ghost each (design change 0072, `systems/controls/interface.md > AwaitingTarget > Shift while
 //! placing`); and a Recruitment Hall whose Recruitment Area would leave the map, refused with its reason (design
 //! change 0341 point 1).
 
@@ -50,7 +50,7 @@ fn a_then_a_places_an_armory_for_the_whole_group() {
 }
 
 /// Design change 0072's Verification 2: "With 4 Recruits selected, hold Shift and place 2 buildings. The group builds
-/// the first one together, then moves to the second" (`systems/controls/selection_and_hud.md > AwaitingTarget > Shift
+/// the first one together, then moves to the second" (`systems/controls/interface.md > AwaitingTarget > Shift
 /// while placing`: "e.g. Cults Recruits (the whole selected group) build one and walk together to the next"). With
 /// Shift held, each click queues a Storage's Build for the four and placement stays; the second ghost is red over the
 /// first one's site, reserved, and a click there says so and sends nothing. Letting go of Shift ends placement. Two
@@ -91,7 +91,7 @@ fn shift_chains_the_groups_buildings_one_ghost_each() {
     assert_eq!(lingering(&app), STORAGE_SITES.map(|site| (site, 2, 2)));
 }
 
-/// Design change 0341 point 1 (`factions/cults/economy.md > RecruitmentHall > RecruitmentArea`): "The whole 10x10
+/// Design change 0341 point 1 (`factions/cults/structures/recruitment_hall.md > RecruitmentArea`): "The whole 10x10
 /// area must lie on the map. A Hall that would leave it can't be placed" (0341's Verification: "Placing a Hall 3
 /// tiles from the edge is refused", the footprint on the map's third tile: its area, 3 tiles beyond it, would reach a
 /// tile past the edge). Its ghost is red there, and a click says why and sends nothing, placement going on; a tile
