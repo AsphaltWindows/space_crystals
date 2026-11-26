@@ -70,14 +70,18 @@ removes player 2's buildings and checks that player 1 wins.
 ## Playing against the computer
 
 A computer player can take any player's slot: `--ai <n>[:<profile>],...`. It is a playtest tool
-(`core/game_rules.md > Computer players (playtest tool)`), and so far only the GDO has one: `--ai` refuses a player of
-another faction.
+(`core/game_rules.md > Computer players (playtest tool)`). The GDO and the Colonists have one; `--ai` refuses a player
+of another faction.
 
 - **standard** (the default) opens Plate, Generator, Generator, Barracks. It plates its whole field, builds a second
   Barracks and trains Peacekeepers without pause, gathering them at a staging point between its base and the map's
   centre. It attacks with a first wave of 8, then waves of 32, on the nearest building of yours it knows of, or else
   your start. When you attack its base, the units at home defend it.
 - **passive** does the same but never attacks: an economy to race.
+- **The Colonists' computer** fills its field with Drones, 3 to a patch, and the Drones its Robo Portal releases deploy
+  into Beacons to keep Beacon Capacity ahead of its army. It warps in a Bio Portal on its first Beacon and two more
+  as its Drones grow, and trains Sabre Legionnaires without pause, converting every other one into a Rifle
+  Legionnaire. Its staging point, waves and defense are the GDO's, and so are its profiles.
 - It knows only what its fog of war shows, as you do, and gives only the commands you could.
 - How it plays is a placeholder, every number in `crates/ai/src/tuning.rs`. Report what plays badly to the Director.
 
@@ -88,6 +92,13 @@ cargo run -- --factions gdo,gdo --ai 2 --map maps/playtest.json
 cargo run -- --factions syndicate,gdo --ai 2 --map maps/playtest.json
 cargo run -- --factions cults,gdo --ai 2 --map maps/playtest.json
 cargo run -- --factions colonists,gdo --ai 2 --map maps/playtest.json
+```
+
+Against the Colonists:
+
+```sh
+cargo run -- --factions gdo,colonists --ai 2 --map maps/playtest.json
+cargo run -- --factions colonists,colonists --ai 2 --map maps/playtest.json
 ```
 
 - `--ai 2:passive` gives you a passive opponent.
@@ -101,6 +112,8 @@ Two computers against each other, to the end (add `--fast` to watch it at full s
 ```sh
 cargo run -- --factions gdo,gdo --ai 1,2 --map maps/playtest.json
 cargo run -- --factions gdo,gdo --ai 1,2:passive --map maps/playtest.json
+cargo run -- --factions colonists,colonists --ai 1,2 --map maps/playtest.json
+cargo run -- --factions colonists,gdo --ai 1,2 --map maps/playtest.json
 ```
 
 The replay records the computers' commands with yours.

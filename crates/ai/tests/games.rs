@@ -9,11 +9,14 @@
 //!   attack, to a defeat; and the check itself, on a planted target ([`an_attack_on_a_building_never_seen_is_caught`]).
 //! - **Determinism** ([`the_same_game_ends_the_same`]): the same game twice ends with the same state hash.
 //! - **`ai_games`** (ignored, a report, in release): every pairing whose factions both have a computer player, on every
-//!   Skirmish Default map, each profile against each that attacks, to a defeat or [`LIMIT`]: standard must beat passive
-//!   within [`STANDARD_BEATS_PASSIVE`] from either slot, and standard against standard must end in a defeat. It
-//!   prints a table of who won, when, and how many units each side trained, and what `Ai::think` cost:
+//!   Skirmish Default map, each profile against each that attacks, to a defeat or [`LIMIT`]. In each faction's
+//!   mirror, standard must beat passive within [`STANDARD_BEATS_PASSIVE`] from either slot, and standard against
+//!   standard must end in a defeat; between two factions the table only reports. It prints a table of who won, when,
+//!   and how many units each side trained, and what `Ai::think` cost:
 //!   `cargo test -p sc_ai --release --test ai games::ai_games -- --ignored --nocapture`.
+//! - **The Colonists** (slice A2c, [`colonists`]): their default run and determinism.
 
+mod colonists;
 mod harness;
 
 use std::fs;
@@ -178,7 +181,9 @@ fn ai_games() {
         think.mean(),
         think.worst
     );
-    for row in &rows {
+    // Required of each faction against itself; between two factions the table reports the balance, which the user
+    // judges (the A2 slices' brief).
+    for row in rows.iter().filter(|row| row.factions[0] == row.factions[1]) {
         let standard = row
             .profiles
             .iter()
