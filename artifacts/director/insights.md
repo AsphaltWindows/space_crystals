@@ -55,6 +55,11 @@
 ## Working style agreed with the user
 - **This session is for discussion, planning, triage and short checks.** All hands-on work (code, docs, builds, debugging, reviews) goes to background sub-agents with self-contained briefs that return short reports (≤15–20 lines). Never pull build logs or whole files into this session; grep and tail instead.
 - **Models**: sub-agents run on Opus by default. Use Fable for the hardest pieces (M1 pathfinding/movement/collision, stubborn bugs); it costs ~2× Opus per token and runs slower. The user may override.
+- **The Opus movement trial** (user, 2026-11-26): H1 (gliders) runs on Opus to test whether movement slices need Fable.
+  - Opus does the routine work (scenario scripts, QA runs, screenshots) equally well. Any difference is in designing movement rules and diagnosing stuck units.
+  - Until H1 there was no side-by-side comparison. In M1, the one recorded comparison, a Fable slice used about 1.5x the tokens of a similar-length Opus slice, at 2x the price.
+  - The rule for the trial: a movement problem that resists two serious attempts becomes an `#[ignore]`d test and a precise report, and only that goes to Fable.
+  - If H1 goes well, V1 and V2 run on Opus too.
 - **Ultracode/workflows: off for now.** Suggest a workflow per task when it fits (milestone review with verification, batches of independent units or sprites); the user opts in with "use a workflow".
 - **Parallel coding agents use `isolation: "worktree"`**. They seed `target/` with a reflink copy (btrfs; a cold Bevy build takes ~7 min), commit on their own branch, and the Director reviews and merges.
 - **Push frequently** (user, 2026-11-25): "Don't forget to commit and push frequently!"

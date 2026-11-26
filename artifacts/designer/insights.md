@@ -27,6 +27,8 @@
 - Game will be rebuilt from scratch → docs must stand alone as the complete spec. Old prototype stays at `artifacts/developer/` as reference; Director decides with user where new code lives.
 
 ## Open Director Questions
+- Q0143 does an absorbed Shroud hit reveal its attacker? (nb)
+- Q0144 economy table to 6:00: realistic opening never overtakes on one field; ideal ~0.9 at 2:48; further targets? (nb)
 
 Order of work (placeholder passes done, 0366/0367): finish Cults units → Colonists units → techs → detection → numbers review.
 ## Loose Ends
