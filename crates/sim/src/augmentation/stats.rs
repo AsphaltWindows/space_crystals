@@ -113,7 +113,8 @@ pub(crate) fn movement_of(movement: MovementAttrs, increments: Increments) -> Mo
 }
 
 /// `movement` with its top speed raised by `extra` space units per tick (lowered for a negative one). Every
-/// augmentable kind moves by turn rate (`augmentation/tests.rs`); for the others, the field that is their MaxSpeed, and
+/// augmentable kind moves by turn rate (`augmentation/tests.rs`). For the others, **Placeholder (not in the design: no
+/// such kind can be augmented)**: the field that is their MaxSpeed, the forward one alone for a fixed turn radius, and
 /// for a model with momentum the thrust that balances its drag at the new top speed.
 fn faster(movement: MovementAttrs, extra: f32) -> MovementAttrs {
     let mut movement = movement;
@@ -182,7 +183,9 @@ pub fn follow_max(hp: f32, before: f32, after: f32) -> f32 {
 }
 
 /// (M5-N1a) `o`'s Augmentations become `augmentation` (`Object::augmentation`), its HP following its MaxHP by the
-/// rule ([`follow_max`]); none for a kind that can't be augmented, which keeps none.
+/// rule ([`follow_max`]); none for a kind that can't be augmented, which keeps none. The debug command can take one
+/// away, which the game never does: **Placeholder (not in the design: "A unit cannot receive an Augmentation it already
+/// has", and none is lost but with the unit or into a vehicle)**, its MaxHP then going up or down by the same rule.
 pub(crate) fn set(o: &mut Object, augmentation: Augmentation, research: Research) {
     if !is_augmentable(o.kind) {
         return;
