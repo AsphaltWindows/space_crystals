@@ -47,8 +47,10 @@ fn two_guards_head_on_in_a_corridor_both_fail() {
         .spawn_unit_at(1, GUARD, P2, east)
         .order_at(2, P1, &[ObjectId(1)], move_to(east), false)
         .order_at(2, P2, &[ObjectId(2)], move_to(west), false);
-    // They meet after (832 − 36) / (2 × 5) = 80 ticks.
-    let done = run_until_done(&mut t, &ids(1..=2), 2 + 80 + GIVE_UP_TICKS + 8);
+    // They meet after (832 − 36) / (2 × 5) = 80 ticks. (M4-W3) Their contact steps (design change 0323) take them
+    // from wall to wall across the corridor's middle, which with their closing up is once more half a step nearer:
+    // their clocks stand from 16 ticks after they met (202 in all).
+    let done = run_until_done(&mut t, &ids(1..=2), 2 + 80 + GIVE_UP_TICKS + 8 + 16);
     assert_eq!((t.status(1), t.status(2)), (MoveStatus::Failed, MoveStatus::Failed));
     let failed: Vec<&SimEvent> = t.events().iter().map(|(_, e)| e).collect();
     for unit in ids(1..=2) {
@@ -91,4 +93,61 @@ fn an_idle_unit_in_the_way_steps_aside_if_it_is_the_movers_own() {
     assert_eq!(t.sim().object(ObjectId(2)).unwrap().facing, 0.0);
     assert_eq!(t.mover(2).sidestep, None);
     assert!(done >= 177);
+}
+
+/// `systems/units.md > UnitCollision > Ground Collision`, "The contact step" (design change 0323): "the step is at
+/// **90°** to its heading (straight sideways), and its length is **the unit's own width** [...] so it clears the lane
+/// it was in". An Agent (36 su wide, 6 su a tick) walks east at an enemy's Agent, which stands and never yields:
+/// in contact it steps straight south, its Right, for six ticks, 36 su in all and not a step forward, then walks on
+/// past it and arrives.
+#[test]
+fn a_blocked_agent_steps_fully_sideways_by_its_own_width() {
+    let mut t = ScenarioBuilder::new(OPEN).start();
+    t.without_auto_targeting();
+    let (start, goal) = (v(100.0, 300.0), v(700.0, 300.0));
+    t.spawn_unit_at(1, AGENT, P1, start)
+        .spawn_unit_at(1, AGENT, P2, v(400.0, 300.0))
+        .order_at(2, P1, &[ObjectId(1)], move_to(goal), false);
+    let mut aside = Vec::new();
+    t.run_until(3);
+    while t.status(1) == MoveStatus::Moving {
+        assert!(t.sim().tick() < 2 + 100 + 30, "still moving:\n{}", t.ascii(None));
+        let from = t.pos(1);
+        t.step();
+        let step = t.pos(1) - from;
+        if step.x == 0.0 && step.y != 0.0 {
+            aside.push(step.y);
+        }
+    }
+    assert_eq!(aside, [6.0; 6], "straight south, its own width in all");
+    assert_eq!((t.pos(1), t.status(1)), (goal, MoveStatus::Arrived));
+    assert_eq!(t.pos(2), v(400.0, 300.0), "the enemy's Agent never moved");
+}
+
+/// Design change 0323's Verification: "Two Agents meeting head-on in a lane with room to the side [...] both pass";
+/// `systems/units.md > UnitCollision > Ground Collision`: "Two units meeting head-on in the open pass each other
+/// almost without delay". In a lane two tiles wide and in the open, each keeps to its right and both arrive, within
+/// a second of the time the walk alone takes.
+#[test]
+fn two_agents_meeting_head_on_pass_each_other() {
+    let lane = "
+        ~~~~~~~~~~~~~~~~
+        ................
+        ................
+        ~~~~~~~~~~~~~~~~
+    ";
+    for (map, y) in [(lane, 128.0), (OPEN, 300.0)] {
+        let mut t = ScenarioBuilder::new(map).start();
+        t.without_auto_targeting();
+        let (west, east) = (v(96.0, y), v(928.0, y));
+        t.spawn_unit_at(1, AGENT, P1, west)
+            .spawn_unit_at(1, AGENT, P2, east)
+            .order_at(2, P1, &[ObjectId(1)], move_to(east), false)
+            .order_at(2, P2, &[ObjectId(2)], move_to(west), false);
+        // 832 su at 6 su per tick is 139 ticks.
+        let done = run_until_done(&mut t, &ids(1..=2), 2 + 139 + 16);
+        assert_eq!((t.pos(1), t.status(1)), (east, MoveStatus::Arrived));
+        assert_eq!((t.pos(2), t.status(2)), (west, MoveStatus::Arrived));
+        println!("two Agents head-on: both arrived by tick {done}");
+    }
 }

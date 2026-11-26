@@ -302,6 +302,7 @@ mod tests {
             layer: Some(&layer),
             bodies,
             me: 0,
+            contact: crate::defs::ContactStep::Sideways,
             lanes: &mut lanes,
             counters: &mut counters,
         };
@@ -349,6 +350,7 @@ mod tests {
             layer: Some(&layer),
             bodies: &bodies,
             me: 0,
+            contact: crate::defs::ContactStep::Sideways,
             lanes: &mut lanes,
             counters: &mut counters,
         };

@@ -51,6 +51,7 @@ fn turning_tick(
         layer: None,
         bodies: &bodies,
         me: 0,
+        contact: crate::defs::ContactStep::Sideways,
         door: None,
         lanes: &mut Vec::new(),
         counters: &mut counters,

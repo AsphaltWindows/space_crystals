@@ -109,6 +109,8 @@ pub(super) fn step_unit_on(
 ///   object was when it was planned (phase 5c keeps it up to date, `paths::chase_check`): at its end the unit has
 ///   `Arrived` too if the object is still there (it stands on the reachable point nearest to it, design change
 ///   0025), and plans again if the object has moved on. An object that is gone ends the move `TargetLost`.
+/// - **A contact step under way** (`Mover::step_aside`, design change 0323) comes before everything below: the
+///   unit takes its next part ([`World::step_aside`]) and nothing else.
 /// - Otherwise it moves `step = MaxSpeed × speed_factor` towards the target: a step towards a lane clear of the
 ///   units it has to pass, if there are some ahead ([`World::lane_step`]), else by the rules of
 ///   [`World::resolve`]. It asks the idle units of its owner in its way to step aside ([`yielding::ask`], and
@@ -190,7 +192,9 @@ fn follow(
     touched.clear();
     // (G) First a step towards a lane clear of the units it has to pass, if there are some ahead; else the rules
     // after the sweep (`docs/movement.md > 6.3`). The idle units it is about to walk into are asked to part.
-    let (shift, lane) = if arriving {
+    // (0323) A unit taking a contact step takes its next part, and nothing else, until the step is made.
+    let stepping = world.step_aside(*pos, d, reach, mover, touched);
+    let (shift, lane) = if arriving || stepping.is_some() {
         (None, None)
     } else {
         // The end of its way, if it is steering at it.
@@ -204,11 +208,12 @@ fn follow(
     if let Some(shift) = shift {
         yielding::ask_ahead(world, d, shift, mover, requests);
     }
-    let moved = lane.unwrap_or_else(|| {
+    let moved = stepping.or(lane).unwrap_or_else(|| {
         touched.clear();
         // A unit with momentum goes round a standing unit on the near side (`World::around`).
         let near_side = model.is_some();
-        world.resolve_for(*pos, d, arriving.then_some(target), mover, tick, touched, near_side)
+        let snap = arriving.then_some(target);
+        world.resolve_for(*pos, d, reach, snap, mover, tick, touched, near_side)
     });
     let from = *pos;
     // The unit it heads for isn't in its way: it is where the unit is going.
@@ -230,6 +235,12 @@ fn follow(
         None => moved,
     };
     *pos = moved.pos;
+    // (0323) The contact step is made once the unit is on its end, or past it.
+    if let Some(aside) = mover.step_aside
+        && aside.is_done(from[aside.axis()], pos[aside.axis()])
+    {
+        mover.step_aside = None;
+    }
     if arriving && moved.pos == target {
         // It landed at a speed that one tick of braking takes away (`Drag::approach`): it is at rest.
         mover.momentum = Vec2::ZERO;

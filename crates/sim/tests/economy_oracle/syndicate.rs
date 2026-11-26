@@ -265,10 +265,14 @@ fn stacked_tunnels_double_a_fields_intake() {
     for (tunnel, agents) in [(FIELD_TUNNEL, &west), (STACKED_TUNNEL, &east)] {
         assert_ceiling(&t, tunnel, "stacked");
         let at_tunnel = deliveries(&t).into_iter().filter(|d| d.2 == tunnel);
-        assert!(
-            at_tunnel.clone().all(|d| agents.contains(&d.1)),
-            "every Agent's nearest Tunnel is its own"
-        );
+        // (M4-W3) Four Agents work each Tunnel. Until design change 0323 they were the four sent to its side; now
+        // one of each side has changed over to the other Tunnel, from its first load on: on its first way back it
+        // steps a whole width round an Agent in its way (`docs/movement.md > 6.3`), presumably its leg begins
+        // again from there, and the other Tunnel's hatch is the nearer. The field's intake is what it was.
+        let mut workers: Vec<u32> = at_tunnel.clone().map(|d| d.1.0).collect();
+        workers.sort_unstable();
+        workers.dedup();
+        assert_eq!(workers.len(), agents.len(), "four Agents work each Tunnel: {workers:?}");
         let each = income(&t, Some(tunnel), INCOME_FROM, GAME);
         println!("stacked at 3 GU: Tunnel {} takes in {each:.2} per second", tunnel.0);
         assert!(((each - CEILING) / CEILING).abs() <= TOLERANCE, "{each}");

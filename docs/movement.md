@@ -415,6 +415,11 @@ every tick a waypoint within one step is passed, so a unit rounds a corner witho
     (14 before; 18 with two owners). Over 192 layouts of two blocks (Peacekeepers and Guards, three shapes, gaps
     of 8 to 24 su, four offsets, one and two owners) 1.4 % of the units fail, 8 of 50 at worst, where 22 % did,
     and 40 of 50 at worst. The soak's failed moves fall from 223 to 81 of about 1 080.
+  - **(M4-W3) With the contact step of design change 0323** (rule 4 below; lane seeking itself is unchanged): 18 v
+    18 Peacekeepers 0 of 36 fail, done in tick 234 where it was 190; over the 192 layouts 2 of 5,856 units fail
+    where 7 did (0.03 %; 1 at worst in a layout); 5 × 5 Guard blocks 16 su apart lose none (1). The soak's failed
+    moves are 9, 0 and 2 for its three seeds where they were 68, 2 and 56, with 134, 394 and 400 moves arrived
+    (181, 506 and 476).
   - **Known limits**: in a passage too narrow for two lanes nothing changes: head-on movers fail there, by
     design. **(G)** Blocks of Guards lost a few units, but never in the crossing: none of the sweep's failures
     has an oncoming unit near it. The crossing reorders a block, and its late units find their places walled
@@ -432,15 +437,13 @@ every tick a waypoint within one step is passed, so a unit rounds a corner witho
      blocker's face: `d` turned 90° leans into the blocker whenever `d` isn't square to the face, and is then never
      free. `d` splits into a part straight at the face and a part along it, its lean:
      - *Glance* (the lean is at least half of `d`, squared): slide along the face, the lean alone.
-     - *Leaning* (the lean is at least 30 % of `d`): go around on the side the unit leans to: `d` turned 45° that
-       way, else a whole step along the face that way. Never a step back along the face. **(M)** The side taken
-       becomes `avoid_side`. The unit's own step along the face can drop its lean below 30 %, and head-on with
+     - *Leaning* (the lean is at least 30 % of `d`): go around on the side the unit leans to, by the **contact
+       step** that way (below). Never a step back along the face. **(M)** The side taken becomes `avoid_side`. The unit's own step along the face can drop its lean below 30 %, and head-on with
        the other `avoid_side` then stepped it straight back, for good: a unit pressed against an idle Guard by the
        crossing lanes of two magic-box groups failed so.
-     - *Head-on*: `d` turned 45° towards `avoid_side`, else a whole step along the face that way. `avoid_side`
-       starts **Right** for everyone on every leg, so head-on units pass like traffic with no randomness. Switch
-       side only if both candidates fail and `avoid_until` has passed; a switch commits for 16 ticks (no left-right
-       flutter). A blocker that itself moves along its face is passed *behind*: once `avoid_until` has passed, the
+     - *Head-on*: the **contact step** towards `avoid_side`. `avoid_side` starts **Right** for everyone on every
+       leg, so head-on units pass like traffic with no randomness. Switch side only if the step that way can't
+       begin and `avoid_until` has passed; a switch commits for 16 ticks (no left-right flutter). A blocker that itself moves along its face is passed *behind*: once `avoid_until` has passed, the
        side switches to the one the blocker comes from. Without this an eastbound unit and a crossing or
        side-stepping one walked side by side to the map's edge.
      - **(M3-G) The near side, for a unit with momentum at a blocker that stands**: it goes round on the side of
@@ -452,10 +455,64 @@ every tick a waypoint within one step is passed, so a unit rounds a corner witho
        a few steps by the lean rule (and the goldens of M1 and M2 hold it to that rule), one with momentum lost
        all its speed at every turn and delivered one load a minute. Now it delivers 9 to 11 where the free
        strip gives 12, wherever the Drone is parked (`tests/gathering_pass_through.rs`).
+     - **(M4-W3) The contact step** (design change 0323, `systems/units.md > UnitCollision > Ground Collision`:
+       "for **infantry (LightInfantry, HeavyInfantry), hover vehicles (HoverVehicle, HoverCraft) and
+       TrackedVehicles**, the step is at **90°** to its heading (straight sideways), and its length is **the
+       unit's own width** (the size of its Silhouette across its heading), so it clears the lane it was in";
+       `movement/collide/contact.rs`). Until 0323 the step was `d` turned 45°, which got the unit on, else one
+       tick's step along the face. Which step a base takes is data on its def (`UnitBaseDef::contact_step`):
+       `Sideways` for the bases 0323 names and for the Mech (0325; its turn to the side first isn't built, there
+       is no Mech) and for the DrillUnit (0338); `Diagonal`, the step as it was, for the WheeledVehicle until slice
+       M5-V2 builds its "turn and graze". The technical decisions, each the simplest
+       predictable rule (0223):
+       - **Straight sideways is along the blocker's face**, as every sidestep here: for a unit that meets the face
+         squarely that is 90° to its heading; the quarter turn of a leaning heading leans into the blocker on one
+         side and is never free there. **Its own width** is its box's extent along that face. (Slice M5-V1's
+         oriented Silhouettes will measure both across the heading itself.)
+       - **Over several ticks** (`Mover::step_aside`: the axis, and the coordinate the step ends on, fixed when it
+         begins; hashed and saved only while set). Each tick the unit moves its speed towards that coordinate,
+         the last part exactly onto it, and nothing else: no step forward and no lane seeking, even if the way
+         ahead comes free meanwhile. An Agent takes 6 ticks over its 36 su, a Peacekeeper 6 over its 24, a Guard 8,
+         a Recruit 6. A unit with momentum thrusts towards each part (6.7) and has made the step once it is on the
+         coordinate or past it.
+       - **It begins only if its first part is wholly free**, as every candidate of this rule; else that side is
+         shut, and the sides are tried as they were (Right first, the other once `avoid_until` has passed).
+       - **Partly blocked, it ends there**: a part that isn't wholly free is taken as far as tiles and units allow,
+         and the step is over. From the next tick the unit steers as ever, and a contact begins a new step.
+       - **It is a step aside** like the one it replaces: it doesn't get the unit on, `blocked_ticks` counts its
+         ticks (rule 5; not for a unit with momentum that moves), and the stuck clock runs (6.5). The unit still
+         in the way ahead, if there is one, stays the unit's blocker for the stuck rules, and is asked to yield
+         (6.6).
+       - **A step commits its side** for 16 ticks, as a switch of sides always did: it becomes `avoid_side`, and
+         until `avoid_until` the unit takes its next step to the same side whatever its lean ("to its right first,
+         switching sides after 1 s"). A step of a whole width can leave the unit just short of clear of a blocker
+         that stands a little to that side, leaning back the way it came; by its lean it then stepped straight
+         back, to and fro for good (a Guard between two of its firing line). A step that began is finished whatever
+         `avoid_until` says.
+       - **At a blocker that stands, the near side** (the rule below, which slice M3-G made for the units with
+         momentum, now for every base that takes the contact step, for the reason given there: seen from the
+         blocker's middle the side never changes as the unit steps). `avoid_side`, Right at first, decides dead
+         in the middle. At a blocker that moves the sides are chosen as before: the lean, `avoid_side` head-on,
+         the pass behind.
+       - **Measured against the other choices of side** at a standing blocker (the Agents' 30 layouts; each
+         with the commitment): the lean when the unit leans and Right first head-on, as before 0323, leaves the
+         hatch locked up at 1 grid unit to its side (1.2, 0.0 and 4.2 Space Crystals per second with 4, 5 and 6
+         Agents); so does the lean with the near side head-on (1.3, 0.0, 0.3). The near side when the unit leans
+         with Right first head-on takes in 11.2 or more everywhere, and so does the near side throughout (10.7 or
+         more). Of the sim's tests as they stood before 0323, 15 failed with the near side throughout and 17 with
+         the lean and Right first. Without the commitment, 11 layouts had an Agent a minute without a load where 7
+         and 6 do.
+       - **What it costs** (`docs/playtest/m4.md > Known issues and accepted behaviour`): units that converge on an
+         occupied point, or crowd a doorway or a patch's face, step a whole width round the unit in their way where
+         they used to shuffle a step, and settle later and elsewhere; a unit stopped by a standing unit beside the
+         thing it heads for goes round on its near side even where that leads away from it.
+       - **A worker on its site** (`orders/build.rs`, design change 0117: "stopped by a blocker on the way while
+         already overlapping the footprint, it starts deploying from where it stands"): beginning a contact step
+         there counts as stopped, since the step would take it off the footprint.
      Every candidate is taken only if it is wholly free.
   5. **All fail**: advance to contact or stay; `blocked_ticks += 1`. **(D)** A whole step along a face (no
      progress) counts as blocked too, so units dancing in a corridor count as stationary after 12 ticks.
-- Rotations use constants (`(x, y) → (−y, x)`, and `(x − y, x + y) × FRAC_1_SQRT_2`), no trigonometry. Facing follows
+- Rotations use constants (`(x, y) → (−y, x)`, and `(x − y, x + y) × FRAC_1_SQRT_2` for the `Diagonal` step), no trigonometry. Facing follows
   the path direction, not the sidestep, turning by at most TurnRate; when the turn completes within the tick (all M1
   units) velocity is `d` itself. **(G)** TurnRate is one budget per tick: the aim in phase 5e turns a unit only by
   what this turn left of it (`movement::Turns`), so a unit that moved never turns more than its TurnRate in a tick. Other movement models replace only this "desired direction → velocity and facing"
@@ -618,6 +675,15 @@ remaining path length, measured afresh from when it came to rest. A unit is **st
   waiting their turn and failed. **(H2)** Only the clock of a unit that has got on since its leg began is taken
   over (`stuck::leads`): a new leg sets a unit's own clock and is no progress, so a blocked unit sent again and
   again no longer keeps those behind it from looking for a way round.
+  **(M4-W3) What it lets through, and a correction that wasn't kept.** The first measure on every new path sets
+  `best_remaining` afresh, so a unit whose legs begin again and again (a worker trying its patch, 6.5 rule 1's
+  pressing leg) makes half a step of "progress" on each by regaining ground it stepped back from; from its first
+  such step it leads, and those blocked by it take its clock over and never look for another route (slice M4-W2
+  saw five Agents stand so for five minutes). Measured on top of design change 0323's contact step: sharing the
+  clock only with a blocker that heads the same way as the unit (waiting *behind* it, not against it) left 8 of
+  the Agents' 30 layouts with an Agent a minute without a load where 0323 alone leaves 6, and cost the crowds (5 of
+  5,856 units fail in the two-block layouts where 2 do, the soak's failed moves 17, 1 and 10 where 9, 0 and 2). With
+  0323 the hatch no longer locks up, so the rule stays as it was.
 - **A new path is no progress.** Its first measure only sets `best_remaining`; **(Y)** and nothing else restarts
   the stuck clock (5.6).
 - **Grace.** A unit due for a repath or for giving up that touches no unit in that tick (it just stepped around

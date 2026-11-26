@@ -28,6 +28,7 @@ const P1: PlayerId = PlayerId(1);
 const P2: PlayerId = PlayerId(2);
 const PK: ObjectKind = ObjectKind::Peacekeeper; // 24 × 24 su, 4 su per tick
 const GUARD: ObjectKind = ObjectKind::Guard; // 36 × 36 su, 5 su per tick
+const AGENT: ObjectKind = ObjectKind::Agent; // 36 × 36 su, 6 su per tick
 
 /// A corridor one tile (64 su) wide and 16 long, y from 64 to 128.
 const CORRIDOR: &str = "

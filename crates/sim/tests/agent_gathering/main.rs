@@ -12,8 +12,8 @@
 //! - `tunnels`: which Tunnel (the nearest by its hatch, kept for the Gather, picked again by a new one, a lost one);
 //! - `rules`: the Drone's job rules on the Agent, patch sharing, the Drop Off order, the gate and the default order;
 //! - `soak`: six Agents on two stacked Tunnels for ten minutes (ignored).
-//! - `jam`: the jam at the hatch of four or more Agents that come along the wall (slice M4-W: diagnosed, not fixed;
-//!   ignored, they fail as built).
+//! - `jam`: the jam at the hatch of four or more Agents that come along the wall (slices M4-W and M4-W2), ended by
+//!   design change 0323's contact step (slice M4-W3): the 30 layouts of the measurements.
 
 mod jam;
 mod line;

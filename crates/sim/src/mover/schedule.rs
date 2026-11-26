@@ -66,6 +66,8 @@ impl Mover {
             self.next = 1;
             self.best_remaining = f32::MAX;
             self.blocked_ticks = 0;
+            // (0323) The detour is the unit's way round now: a contact step it was taking ends.
+            self.step_aside = None;
         }
         true
     }
