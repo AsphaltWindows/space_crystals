@@ -10,7 +10,9 @@ use crate::command_ui::interface::templates::Planned;
 /// placeholders' labels before them; slice M4-U the Grenadier's GR, its Hideout placeholder's. Slice M4-S1: the Laser
 /// Turret's LT, which its placeholder entry still in the ExpandMenu (until slice M4-S2) shares, being the same type's.
 /// Slice M5-A: the Cults' RT, MT, GU, RH, SE and AY, by `Planned::label`'s rules, but for the Gunner's GU (its first
-/// and last letters are the Grenadier's GR).
+/// and last letters are the Grenadier's GR). Slice M5-G2: the Cults' buildings with their Construct menus' entries'
+/// labels (`kinds::cults`), and the Disciple's DE, the Seeker's SKR, the Sparrow's SW, the Hand of Heaven's HOH and the
+/// Prayer-mobile's PM.
 #[test]
 fn every_label_is_its_own() {
     let in_game = |planned: &Planned| ObjectKind::ALL.iter().any(|kind| kind.def().name == planned.name());
@@ -50,6 +52,31 @@ fn every_label_is_its_own() {
         ObjectKind::Armory,
     ];
     assert_eq!(cults.map(short_label), ["RT", "MT", "GU", "RH", "SE", "AY"]);
+    let buildings = [
+        ObjectKind::Gunworks,
+        ObjectKind::Garrison,
+        ObjectKind::ChopShop,
+        ObjectKind::MachineShop,
+        ObjectKind::Airstrip,
+        ObjectKind::ScrapHangar,
+        ObjectKind::Altar,
+        ObjectKind::Temple,
+        ObjectKind::Cathedral,
+        ObjectKind::Shrine,
+    ];
+    assert_eq!(
+        buildings.map(short_label),
+        ["GS", "GA", "CS", "MS", "AP", "SH", "AR", "TE", "CL", "SR"],
+        "slice M5-G2's buildings, each with its Construct menus' entry's label"
+    );
+    let units = [
+        ObjectKind::Disciple,
+        ObjectKind::Seeker,
+        ObjectKind::Sparrow,
+        ObjectKind::HandOfHeaven,
+        ObjectKind::PrayerMobile,
+    ];
+    assert_eq!(units.map(short_label), ["DE", "SKR", "SW", "HOH", "PM"]);
     assert_eq!([0, 1, 2, 3, 4].map(tier_label), ["T1", "T1", "T2", "T3", "T1"]);
     let tier = |tier| object_label(ObjectKind::Tunnel, Some(TunnelState::at(tier)));
     assert_eq!((tier(3), object_label(ObjectKind::Agent, None)), ("T3", "AG"));

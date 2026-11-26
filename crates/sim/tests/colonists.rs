@@ -67,9 +67,12 @@ fn seen(t: &TestSim, player: PlayerId) -> Vec<TilePos> {
 /// Each of the seven kinds spawns for player 1 from the scenario and for player 2 by a debug spawn, turned a quarter
 /// clockwise: its owner, its MaxHP, a structure's footprint at its centre and its sides, and the capabilities its
 /// kind has. A unit takes orders and moves; a Legionnaire has its weapon, the Drone none; a portal produces. Every
-/// structure blocks its tiles on every ground grid. There is one: the Drone, a HoverVehicle, crosses Rugged terrain
+/// structure blocks its tiles on every ground grid. There are two: the Drone, a HoverVehicle, crosses Rugged terrain
 /// (design change 0039) and so shares `(GroundRugged, 1)` with the infantry, as in M2 (slice M3-G; on the stand-in
-/// it had a grid of its own, `(Ground, 1)`, which doubled every set of grids).
+/// it had a grid of its own, `(Ground, 1)`, which doubled every set of grids); the Cults' wheeled and tracked vehicles
+/// (slice M5-G2), which don't cross it (`systems/units.md > WheeledVehicle`, `systems/units.md > TrackedVehicle`), have
+/// `(Ground, 1)`, the grids being built for every unit type's class and size class (`paths.rs`), whether or not one
+/// is in the game.
 #[test]
 fn each_kind_spawns_for_two_owners() {
     let mut builder = ScenarioBuilder::new(&flat(44, 14));
@@ -94,7 +97,7 @@ fn each_kind_spawns_for_two_owners() {
     assert_eq!(t.sim().objects().count(), 14);
     let grids = t.sim().nav().grids();
     let keys: Vec<(NavClass, u8)> = grids.iter().map(|g| (g.class(), g.size())).collect();
-    assert_eq!(keys, [(NavClass::GroundRugged, 1)]);
+    assert_eq!(keys, [(NavClass::Ground, 1), (NavClass::GroundRugged, 1)]);
     for o in t.sim().objects() {
         let (owner, i) = if o.id.0 <= 7 {
             (P1, o.id.0 as usize - 1)

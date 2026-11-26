@@ -44,15 +44,25 @@ pub(crate) static ARMORY: ObjectDef = ObjectDef {
         // (`holds`). Of the Recruits inside (slice M5-F2, `sim/producers/pool.rs`), so it recruits nothing.
         production: Some(ProductionDef {
             exits: ExitRule::Side(SideLetter::C),
-            // "**Militant** (SpaceCrystalsCost: 20, TrainingTime: 32 frames)"
-            recipes: &[Recipe {
-                kind: ObjectKind::Militant,
-                cost: 20,
-                frames: 32,
-                requires: &[],
-            }],
-            // The Gunner's ("SpaceCrystalsCost: 40, TrainingTime: 32 frames. TechPrerequisite: player owns at least one
-            // Gunworks") comes with its Gunworks (slice M5-G2).
+            // In the KindMenus' order (`> ObjectInterfaceState[Armory]`: "**Q: Train Militant**, **W: Train Gunner**").
+            recipes: &[
+                // "**Militant** (SpaceCrystalsCost: 20, TrainingTime: 32 frames)"
+                Recipe {
+                    kind: ObjectKind::Militant,
+                    cost: 20,
+                    frames: 32,
+                    requires: &[],
+                },
+                // "**Gunner** (SpaceCrystalsCost: 40, TrainingTime: 32 frames). TechPrerequisite: player owns at least
+                // one Gunworks", checked as it is queued and never again (`core/tech_and_research.md > Tech
+                // Prerequisites > Unit Prerequisites`, `crate::tech`; slice M5-G2).
+                Recipe {
+                    kind: ObjectKind::Gunner,
+                    cost: 40,
+                    frames: 32,
+                    requires: &[ObjectKind::Gunworks],
+                },
+            ],
             recruitment: None,
         }),
         mining: None,
@@ -101,8 +111,9 @@ mod tests {
     /// 2 tall and 3 wide, ABAC, MaxHP 300, PointArmor 1, FullArmor 6 (the building armour rule's n = 1), SightRange 4,
     /// not Groupable (design change 0348), behind a Storage. Recruits walk in at its short side B and come out of the
     /// opposite one, C, and it holds 10 of them. It trains Militants of them, 20 Space Crystals and 32 frames each, out
-    /// of C too (slice M5-F2), the Gunner waiting for its Gunworks. Recruits build it from outside for 200 Space
-    /// Crystals in 480 frames with one of them, from 10% HP (slice M5-E).
+    /// of C too (slice M5-F2), and Gunners, 40 Space Crystals and 32 frames each, for a player who owns a Gunworks
+    /// (slice M5-G2). Recruits build it from outside for 200 Space Crystals in 480 frames with one of them, from 10% HP
+    /// (slice M5-E).
     #[test]
     fn the_armory_follows_the_design() {
         let structure = assert_structure(
@@ -121,7 +132,14 @@ mod tests {
         assert_eq!(production.exits, ExitRule::Side(SideLetter::C));
         let recipe = |kind| production.recipe(kind).map(|r| (r.cost, r.frames, r.requires));
         assert_eq!(recipe(ObjectKind::Militant), Some((20, 32, &[][..])));
-        assert_eq!((production.recipes.len(), production.recruitment), (1, None));
+        assert_eq!(
+            recipe(ObjectKind::Gunner),
+            Some((40, 32, &[ObjectKind::Gunworks][..])),
+            "TechPrerequisite: a Gunworks"
+        );
+        let kinds: Vec<ObjectKind> = production.recipes.iter().map(|r| r.kind).collect();
+        assert_eq!(kinds, [ObjectKind::Militant, ObjectKind::Gunner], "Q, then W");
+        assert_eq!(production.recruitment, None);
         let site = structure.site.expect("Recruits build it");
         assert_eq!(
             (site.price, site.frames, site.start_hp),

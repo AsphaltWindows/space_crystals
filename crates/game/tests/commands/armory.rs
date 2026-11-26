@@ -3,8 +3,11 @@
 //! count of its free Recruits inside, then KindMenu\[kind\], whose Q trains a Militant and A releases a Recruit, the
 //! menu staying open (design change 0337's verification); A ejects every free Recruit; a right-click sets the rally
 //! point; and two Armories selected show one panel at a time, each command going to the one Tabbed to (design change
-//! 0348's verification). The panel as plain data is the unit tests' (`command_ui/interface/tests/cults.rs`), the
-//! training itself the sim's (`crates/sim/tests/armory`).
+//! 0348's verification). Its W, Train Gunner, live once a Gunworks stands (slice M5-G2), is [`gunner`]'s. The panel as
+//! plain data is the unit tests' (`command_ui/interface/tests/cults.rs`), the training itself the sim's
+//! (`crates/sim/tests/armory`).
+
+mod gunner;
 
 use bevy::prelude::*;
 use sc_sim::testing::ScenarioBuilder;
@@ -13,7 +16,6 @@ use sc_sim::{
     ProductionCommand, Rally, RecruitKind, SimEvent, SpawnAt, Tick, TilePos,
 };
 use space_crystals::command_ui::feedback::TargetFeedback;
-use space_crystals::command_ui::interface::templates::Planned;
 use space_crystals::command_ui::{ButtonLook, InterfaceState, PanelButton, PanelCommand};
 use space_crystals::hud::command_panel::CommandButton;
 
@@ -25,6 +27,7 @@ const P1: PlayerId = PlayerId(1);
 const ARMORY: ObjectKind = ObjectKind::Armory;
 const RECRUIT: ObjectKind = ObjectKind::Recruit;
 const MILITANT: ObjectKind = ObjectKind::Militant;
+const GUNNER: ObjectKind = ObjectKind::Gunner;
 
 /// The objects of [`armory_game`], by id, and where they are drawn (the map is flat). Each Armory, unturned, has its
 /// entrance, side B, to the east and its exit, side C, to the west.
@@ -175,13 +178,14 @@ fn tick(app: &App) -> Tick {
 /// queues one Release; the second press is greyed. The Constitution Recruit walks out after ¼ s." The DefaultState
 /// shows each kind with its count (`factions/cults/structures/README.md > Choosing Recruits, Release and Eject All`: "it
 /// is greyed if there are none"), E and R greyed, saying why; X is greyed with nothing to cancel. W opens
-/// KindMenu\[Constitution\]: Q Train Militant, W the Gunner, greyed ("Requires a Gunworks"), A Release, Z Back. The
+/// KindMenu\[Constitution\]: Q Train Militant, W Train Gunner, greyed with no Gunworks ("Requires a Gunworks", the
+/// gate's refusal), A Release, Z Back. The
 /// first A sends one Release, free, the menu staying open; the second finds no Constitution Recruit left and says so,
 /// sending nothing. The Recruit comes out in the fourth tick of its Release (4 frames, ¼ s at 16 a second), unchanged,
 /// and walks to the rally point C set; Z goes back.
 #[test]
 fn w_shows_one_and_a_releases_the_constitution_recruit_after_a_quarter_second() {
-    use ButtonLook::{Back, Common, Disabled, Unavailable};
+    use ButtonLook::{Back, Common, Disabled};
     use PanelCommand::{CancelProduction, EjectAll, KindMenu, Release, SetRallyPoint, TrainFrom};
     let mut app = armory_game();
     click(&mut app, ARMORY_1_AT, &[]);
@@ -220,7 +224,7 @@ fn w_shows_one_and_a_releases_the_constitution_recruit_after_a_quarter_second() 
         buttons(&mut app),
         [
             (slot(0, 0), c(TrainFrom(MILITANT, Constitution)), Common, None),
-            (slot(0, 1), c(PanelCommand::Planned(Planned::Gunner)), Unavailable, None),
+            (slot(0, 1), c(TrainFrom(GUNNER, Constitution)), Disabled, None),
             (slot(1, 0), c(Release(Constitution)), Common, None),
             (CommandSlot::BACK, PanelButton::Back, Back, None),
         ]

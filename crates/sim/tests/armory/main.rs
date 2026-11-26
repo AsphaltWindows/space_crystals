@@ -4,6 +4,8 @@
 //! binary:
 //! - `training`: Q pays 20 Space Crystals and reserves the Recruit that entered first, a Militant comes out of side C
 //!   32 ticks later toward the rally point, X gives the Recruit and the Space Crystals back, and the refusals;
+//! - `gunner`: W, refused while its player owns no Gunworks, trains a Gunner for 40 Space Crystals in 32 ticks once one
+//!   stands, and the Gunners queued as the last Gunworks is lost complete (slice M5-G2);
 //! - `release`: a Release lets a Recruit of a kind out unchanged, 4 ticks after it is queued (0337's Verification);
 //! - `eject`: Eject All leaves the reserved Recruits inside;
 //! - `capacity`: the capacity counts the reserved Recruits too, and a trained unit drops its load (0347);
@@ -21,6 +23,7 @@ mod capacity;
 mod control;
 mod destruction;
 mod eject;
+mod gunner;
 mod release;
 mod saves;
 mod training;

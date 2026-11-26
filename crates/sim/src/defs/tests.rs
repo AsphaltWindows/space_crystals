@@ -64,6 +64,22 @@ fn every_kind_keeps_its_place_and_name() {
         "RecruitmentHall",
         "Storage",
         "Armory",
+        // Slice M5-G2 (plan decision T69): the Cults' other kinds.
+        "Gunworks",
+        "Garrison",
+        "ChopShop",
+        "MachineShop",
+        "Airstrip",
+        "ScrapHangar",
+        "Altar",
+        "Temple",
+        "Cathedral",
+        "Shrine",
+        "Disciple",
+        "Seeker",
+        "Sparrow",
+        "HandOfHeaven",
+        "PrayerMobile",
     ];
     assert_eq!(names[..expected.len()], expected.map(|name| format!("\"{name}\"")));
     for (index, &kind) in ObjectKind::ALL.iter().enumerate() {

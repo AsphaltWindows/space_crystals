@@ -7,11 +7,12 @@ use sc_sim::testing::ScenarioBuilder;
 use sc_sim::{Faction, HoldCommand, PlayerId, RecruitKind, SpawnAt, TilePos};
 
 use super::*;
-use crate::command_ui::feedback::REQUIRES_GUNWORKS_TEXT;
+use crate::command_ui::feedback::unavailable_text;
 
 const HALL: ObjectKind = ObjectKind::RecruitmentHall;
 const ARMORY: ObjectKind = ObjectKind::Armory;
 const MILITANT: ObjectKind = ObjectKind::Militant;
+const GUNNER: ObjectKind = ObjectKind::Gunner;
 
 /// The buttons of `panel` with their counts.
 fn counted(panel: &Panel) -> Vec<(CommandSlot, PanelButton, ButtonLook, Option<u32>)> {
@@ -110,17 +111,20 @@ fn the_armory_picks_a_kind_of_recruit_first() {
 
 /// Design change 0337: KindMenu[kind] has "the building's production options, using Recruits of that kind (e.g.
 /// Armory: **Q** Train Militant, **W** Train Gunner [...]), plus **A: Release**; **Z** back. Clicks stay in the menu so
-/// they can be repeated." Q trains a Militant of a Recruit of the kind and A releases one, both at once; the Gunner, not
-/// in the game yet, holds W, greyed: it "Requires a Gunworks" (`factions/cults/structures/armory.md > Training`). The
-/// menu stays open while no Recruit of its kind is left (its entries greyed by the gate then), and Z goes back to
+/// they can be repeated." Q trains a Militant of a Recruit of the kind and A releases one, both at once; W trains a
+/// Gunner (slice M5-G2), greyed while the gate refuses it for want of a Gunworks
+/// (`factions/cults/structures/armory.md > ObjectInterfaceState[Armory]`: "**W: Train Gunner** [...] and the player
+/// owns at least one Gunworks (TechPrerequisite)": `Reject::Requires`), saying so: "Requires a Gunworks". The menu
+/// stays open while no Recruit of its kind is left (its entries greyed by the gate then), and Z goes back to
 /// DefaultState.
 #[test]
 fn a_kind_menu_trains_and_releases_recruits_of_its_kind() {
-    use ButtonLook::{Back, Common, Disabled, Unavailable};
-    use PanelCommand::{Planned as P, Release, TrainFrom};
+    use ButtonLook::{Back, Common, Disabled};
+    use PanelCommand::{Release, TrainFrom};
     use RecruitKind::Metabolism;
     let armory = Selection::new([(id(1), ARMORY)]);
-    let conditions = Conditions::default().with_pool([0, 0, 1, 0]);
+    let conditions = (Conditions::default().with_pool([0, 0, 1, 0]))
+        .refusing(TrainFrom(GUNNER, Metabolism), Reject::Requires(ObjectKind::Gunworks));
     let menu = InterfaceState::KindMenu(Metabolism);
     let shown_menu = panel(&armory, menu, &conditions);
     let command = PanelButton::Command;
@@ -128,13 +132,14 @@ fn a_kind_menu_trains_and_releases_recruits_of_its_kind() {
         shown(&shown_menu),
         [
             (slot(0, 0), command(TrainFrom(MILITANT, Metabolism)), Common),
-            (slot(0, 1), command(P(Planned::Gunner)), Unavailable),
+            (slot(0, 1), command(TrainFrom(GUNNER, Metabolism)), Disabled),
             (slot(1, 0), command(Release(Metabolism)), Common),
             (CommandSlot::BACK, PanelButton::Back, Back),
         ]
     );
     let labels = [slot(0, 0), slot(0, 1), slot(1, 0)].map(|slot| shown_menu.get(slot).unwrap().label());
     assert_eq!(labels, ["MT", "GU", "Rel."]);
+    assert_eq!(shown_menu.name(slot(0, 1)).as_deref(), Some("Train Gunner"));
     assert_eq!(
         press(&shown_menu, slot(0, 0)),
         SlotPress::Produce(
@@ -151,9 +156,29 @@ fn a_kind_menu_trains_and_releases_recruits_of_its_kind() {
     );
     assert_eq!(press(&shown_menu, slot(0, 1)), SlotPress::Nothing);
     let why = shown_menu.get(slot(0, 1)).and_then(|shown| shown.why);
-    assert_eq!(why, Some(WhyUnavailable::Placeholder(REQUIRES_GUNWORKS_TEXT)));
+    assert_eq!(
+        why,
+        Some(WhyUnavailable::Refused(Reject::Requires(ObjectKind::Gunworks)))
+    );
+    assert_eq!(why.map(unavailable_text), Some("Requires a Gunworks"));
     assert_eq!(press(&shown_menu, CommandSlot::BACK), SlotPress::Back);
     assert_eq!(menu.back(&armory), InterfaceState::DefaultState);
+
+    // A Gunworks owned: W trains a Gunner of a Recruit of the kind.
+    let gunworks = Conditions::default().with_pool([0, 0, 1, 0]);
+    let with_gunworks = panel(&armory, menu, &gunworks);
+    let w = with_gunworks.get(slot(0, 1)).map(|s| (s.button, s.look, s.why));
+    assert_eq!(w, Some((command(TrainFrom(GUNNER, Metabolism)), Common, None)));
+    assert_eq!(
+        press(&with_gunworks, slot(0, 1)),
+        SlotPress::Produce(
+            TrainFrom(GUNNER, Metabolism),
+            ProductionCommand::TrainFrom {
+                kind: GUNNER,
+                from: Metabolism
+            }
+        )
+    );
 
     // Its last Recruit of the kind used: the menu holds, its entries greyed by the gate.
     let used = (Conditions::default())

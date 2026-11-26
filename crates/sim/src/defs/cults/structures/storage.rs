@@ -19,11 +19,9 @@ pub(crate) static STORAGE: ObjectDef = ObjectDef {
     sight_range: 3.0,                           // SightRange - 3 grid units
     max_hp: Some(250.0),                        // MaxHP - 250
     max_shields: None,
-    // PointArmor - 1, FullArmor - 6, as written. **Placeholder (Q0094)**: the building armour rule
-    // (`core/entities.md > Structure Type > Building armor rule`) gives a 2x2 building 1 / 4 at n = 1; 1 / 6 is a
-    // 3x2's, the Storage's size before it went "2x2 (down from 3x2)". The armour test lists it as an exception until
-    // the answer.
-    armor: Armor { point: 1.0, full: 6.0 },
+    // PointArmor - 1, FullArmor - 4 (building armor rule; was 6, a leftover from the old 3x2 size; Q0094): the rule's
+    // 1 / 4 for a 2x2 at n = 1 (`core/entities.md > Structure Type > Building armor rule`; slice M5-G2).
+    armor: Armor { point: 1.0, full: 4.0 },
     needs_flat_ground: true, // `core/map.md > Elevation > Structures only on flat terrain`
     unit: None,
     structure: Some(StructureDef {
@@ -70,7 +68,7 @@ mod tests {
     use super::*;
     use crate::defs::cults::tests::assert_structure;
 
-    /// 2×2, AAAA, MaxHP 250, PointArmor 1, FullArmor 6 (Placeholder (Q0094): the rule's would be 4), SightRange 3,
+    /// 2×2, AAAA, MaxHP 250, PointArmor 1, FullArmor 4 (the building armour rule's n = 1, Q0094), SightRange 3,
     /// Groupable, no TechPrerequisite; Recruits drop off anywhere at it, any number at once. Recruits build it from
     /// outside for 100 Space Crystals in 320 frames with one of them, from 10% HP (slice M5-E).
     #[test]
@@ -80,7 +78,7 @@ mod tests {
             (2, 2),
             SymmetryType::AAAA,
             250.0,
-            (1.0, 6.0),
+            (1.0, 4.0),
             3.0,
             true,
         );

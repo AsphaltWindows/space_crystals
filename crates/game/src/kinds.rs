@@ -68,6 +68,21 @@ pub fn of(kind: ObjectKind) -> &'static ClientKind {
         ObjectKind::RecruitmentHall => &cults::recruitment_hall::KIND,
         ObjectKind::Storage => &cults::storage::KIND,
         ObjectKind::Armory => &cults::armory::KIND,
+        ObjectKind::Gunworks => &cults::gunworks::KIND,
+        ObjectKind::Garrison => &cults::garrison::KIND,
+        ObjectKind::ChopShop => &cults::chop_shop::KIND,
+        ObjectKind::MachineShop => &cults::machine_shop::KIND,
+        ObjectKind::Airstrip => &cults::airstrip::KIND,
+        ObjectKind::ScrapHangar => &cults::scrap_hangar::KIND,
+        ObjectKind::Altar => &cults::altar::KIND,
+        ObjectKind::Temple => &cults::temple::KIND,
+        ObjectKind::Cathedral => &cults::cathedral::KIND,
+        ObjectKind::Shrine => &cults::shrine::KIND,
+        ObjectKind::Disciple => &cults::disciple::KIND,
+        ObjectKind::Seeker => &cults::seeker::KIND,
+        ObjectKind::Sparrow => &cults::sparrow::KIND,
+        ObjectKind::HandOfHeaven => &cults::hand_of_heaven::KIND,
+        ObjectKind::PrayerMobile => &cults::prayer_mobile::KIND,
     }
 }
 
