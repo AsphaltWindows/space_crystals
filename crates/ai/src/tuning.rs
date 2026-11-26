@@ -141,3 +141,53 @@ pub mod cults {
     /// its builders sent back to work, so that nothing waits for good, M3-G3), ticks (40 seconds).
     pub const BUILD_PATIENCE_TICKS: Tick = 640;
 }
+
+/// The Syndicate's computer player (`crate::factions::syndicate`).
+pub mod syndicate {
+    use sc_sim::{ObjectKind, Tick};
+
+    /// Placeholder (Q0147 point 2: "workers up to what its field seats"; design change 0294: "3 Agents saturate out to
+    /// about 3 GU", the distance from a starting Tunnel's crystal hatch to its nearest patches on every Skirmish
+    /// Default map): the Agents that gather Space Crystals for each Tunnel on a field ([`FIELD_REACH_GU`]).
+    pub const AGENTS_PER_HATCH: usize = 3;
+    /// Placeholder (not in the design: a Tunnel is on a field while a patch it knows, with crystals left, lies this
+    /// near its crystal hatch, centre to centre), grid units. A Skirmish Default map's starting field lies within 6.
+    pub const FIELD_REACH_GU: f32 = 8.0;
+    /// Placeholder (not in the design: the Agents that gather Supplies at a Supply Delivery Station and build the
+    /// Tunnels, `factions/syndicate/overview.md > SyndicateResources > Supplies`: "Spent on Tunnel construction").
+    pub const RUNNERS: usize = 1;
+    /// Placeholder (not in the design: the Tunnels it owns at most; `factions/syndicate/overview.md > TheSyndicate`:
+    /// "building more Tunnels/upgrades grows" Tunnel Space, its army cap).
+    pub const TUNNELS: usize = 6;
+    /// Placeholder (Q0147 point 3: the Syndicate's line, `testing::syndicate::skirmish`: a Hideout's Guards behind "an
+    /// Optics Lab"): the expansions it keeps, one of each, in order (`factions/syndicate/structures/hideout.md >
+    /// Produces`: the Guard's "Unit Prerequisite: player owns at least one Optics Lab"). No Chemical Plant, so no
+    /// Grenadiers: with one fighter in 3, 4 or 5 a Grenadier, standard beat passive later in the mirror than with
+    /// Guards alone, or not within 15 minutes (`crates/ai/tests/games.rs`, `ai_games`).
+    pub const EXPANSIONS: [ObjectKind; 2] = [ObjectKind::Hideout, ObjectKind::OpticsLab];
+    /// Placeholder (Q0147 point 2: "training its basic units without pause"): the units each Hideout keeps queued.
+    pub const TRAIN_QUEUE: usize = 2;
+    /// Placeholder (Q0147 point 2: "attacks in waves of about 8 units"): the Guards waiting at staging that make each of
+    /// its waves, the first too (`FactionAi::waves`). More than 8: a wave meets the enemy's whole army at its staging
+    /// point, beside the Tunnel its Guards come out of. The army layer's waves (`crate::tuning::army`: 8, then 32, or
+    /// after 2 minutes) beat a passive player on `maps/dev_skirmish.json` only after 16 minutes from slot 1 and 18 from
+    /// slot 2; waves of 20 beat it within 11 minutes on every Skirmish Default map, from either slot
+    /// (`crates/ai/tests/games.rs`, `ai_games`).
+    pub const WAVE_SIZE: usize = 20;
+    /// Placeholder (not in the design: as `crate::tuning::army::WAVE_PATIENCE_TICKS`, once Guards have waited at
+    /// staging this long, they go as a wave however few they are), ticks (4 minutes; at a crystal hatch's 12.5 Space
+    /// Crystals a second, design change 0294, a wave of 20 Guards takes about 3 and a half).
+    pub const WAVE_PATIENCE_TICKS: Tick = 3840;
+    /// Placeholder (not in the design: an Agent standing idle is given a job again at most this often), ticks (2
+    /// seconds).
+    pub const JOB_RETRY_TICKS: Tick = 32;
+    /// Placeholder (not in the design: a new Tunnel's site lies within this distance of where it is wanted), grid
+    /// units.
+    pub const SITE_REACH_GU: f32 = 16.0;
+    /// Placeholder (not in the design: the most build checks one search for a Tunnel's site makes, so that it costs
+    /// little).
+    pub const SITE_CHECKS: usize = 400;
+    /// Placeholder (not in the design: after a search for a Tunnel's site finds none, the next waits this long), ticks
+    /// (10 seconds).
+    pub const SITE_RETRY_TICKS: Tick = 160;
+}
