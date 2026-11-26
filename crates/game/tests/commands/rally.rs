@@ -4,7 +4,10 @@
 //! Barracks itself either clears it (design change 0086). In a mixed selection each object does its own (design changes
 //! 0062 and 0063). While the Barracks is selected its rally point shows: a marker and a line from the building (design
 //! change 0087), red on an enemy until the sim turns it into a ground rally point where the enemy was last seen (design
-//! change 0088).
+//! change 0088). Two Recruitment Halls selected together are one group, which C gives one rally point (design change
+//! 0395): [`halls`].
+
+mod halls;
 
 use bevy::prelude::*;
 use sc_sim::{Command, ObjectId, OrderKind, PlayerId, ProductionCommand, Rally, Target};
