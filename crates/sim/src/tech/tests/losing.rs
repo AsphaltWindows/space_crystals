@@ -10,10 +10,11 @@
 //! its site or a Build queued behind another order, goes on as work started (the plan's reading, `Sim::check_build`:
 //! a worker's Build is checked as it is ordered, which is when it is paid; its arrival doesn't check again).
 //!
-//! The cases tested elsewhere are left out: the GDO's building in progress and units in production ([`super`]), the
-//! Hideout's queued Guards and Grenadiers (`crates/sim/tests/prerequisites/`), the Armory's Gunners
-//! (`crates/sim/tests/armory/gunner.rs`). The GDO and the Colonists have no prerequisite of the design's among the
-//! types built so far, so their cases have test ones (`defs::test_defs`), as does the Agent's.
+//! The cases tested elsewhere are left out: the GDO's building in progress and units in production ([`super`]), and
+//! the Field Engineers queued as the Career Campus is lost (`crates/sim/tests/field_engineer/prerequisites.rs`); the
+//! Hideout's queued Guards and Grenadiers (`crates/sim/tests/prerequisites/`); the Armory's Gunners
+//! (`crates/sim/tests/armory/gunner.rs`). The Colonists have no prerequisite of the design's among the types built so
+//! far, so their case has a test one (`defs::test_defs`), as does the Agent's.
 
 use glam::Vec2;
 
@@ -24,7 +25,7 @@ use crate::object::Object;
 use crate::orders::Target;
 use crate::units::Tick;
 
-const BARRACKS: ObjectKind = ObjectKind::Barracks;
+const CAREER_CAMPUS: ObjectKind = ObjectKind::CareerCampus;
 const ROBO_PORTAL: ObjectKind = ObjectKind::RoboPortal;
 const TUNNEL: ObjectKind = ObjectKind::Tunnel;
 const LASER_TURRET: ObjectKind = ObjectKind::LaserTurret;
@@ -157,64 +158,32 @@ fn build(units: &[u32], kind: ObjectKind, origin: TilePos, queue: bool) -> Comma
     order(units, kind, queue)
 }
 
-/// The GDO's, behind a Generator of player 1's: none of the design's prerequisites is on a type built yet
-/// (`factions/gdo/structures/barracks.md > Produces`: the Rocketman's Arsenal, the Field Engineer's Career Campus).
-const GDO: [Case; 2] = [
-    Case {
-        name: "GDO: a building ReadyToPlace at its Deployment Center, placed after the loss",
-        game: gdo_construction,
-        lost_when: |t| object(t, 1).constructor.and_then(|c| c.ready()).is_some(),
-        then: |_| {
-            let orientation = BuildingOrientation::default();
-            let origin = TilePos::new(6, 2);
-            vec![construction(1, ConstructionCommand::Place { origin, orientation })]
-        },
-        done: |t| count(t, BARRACKS) == 1,
+/// The GDO's: the Career Campus's Barracks (`factions/gdo/structures/career_campus.md`: "TechPrerequisite - player owns
+/// at least one Barracks"; slice M5-N9).
+const GDO: [Case; 1] = [Case {
+    name: "GDO: a Career Campus ReadyToPlace at its Deployment Center, placed after the loss",
+    game: gdo_construction,
+    lost_when: |t| object(t, 1).constructor.and_then(|c| c.ready()).is_some(),
+    then: |_| {
+        let orientation = BuildingOrientation::default();
+        let origin = TilePos::new(6, 2);
+        vec![construction(1, ConstructionCommand::Place { origin, orientation })]
     },
-    Case {
-        name: "GDO: the Barracks' queue, one unit in production and one behind it",
-        game: gdo_queue,
-        lost_when: |t| object(t, 2).production.as_ref().map(|p| p.queue.len()) == Some(2),
-        then: none,
-        done: |t| units(t, ObjectKind::Peacekeeper) == 2,
-    },
-];
+    done: |t| count(t, CAREER_CAMPUS) == 1,
+}];
 
-/// Player 1's Deployment Center (1) building a Barracks, which a test TechPrerequisite has require their Generator
-/// (2).
+/// Player 1's Deployment Center (1) building a Career Campus, behind their Barracks (2).
 fn gdo_construction() -> Game {
-    let defs = vec![TestDef::structure(BARRACKS, |s| s.requires = &[GENERATOR])];
     let scenario = ScenarioBuilder::new(&flat(40, 24))
         .spawn(ObjectKind::DeploymentCenter, Some(P1), tile(2, 2)) // 1
-        .spawn(GENERATOR, Some(P1), tile(10, 2)); // 2
+        .spawn(ObjectKind::Barracks, Some(P1), tile(10, 2)); // 2
     let mut t = started(scenario, 1000);
-    next(&mut t, P1, construction(1, ConstructionCommand::Construct(BARRACKS)));
-    Game(t, ObjectId(2), defs)
-}
-
-/// Player 1's Barracks (2) with two Peacekeepers queued, which a test recipe has require their Generator (3); their
-/// Deployment Center (1) powers the Barracks.
-fn gdo_queue() -> Game {
-    let mut barracks = BARRACKS.def().clone();
-    let production = barracks.structure.as_mut().and_then(|s| s.production.as_mut()).unwrap();
-    let peacekeeper = Recipe {
-        requires: &[GENERATOR],
-        ..production.recipes[0]
-    };
-    production.recipes = Box::leak(Box::new([peacekeeper]));
-    let defs = vec![TestDef::set(barracks)];
-    let scenario = ScenarioBuilder::new(&flat(40, 24))
-        .spawn(ObjectKind::DeploymentCenter, Some(P1), tile(2, 2)) // 1
-        .spawn(BARRACKS, Some(P1), tile(10, 2)) // 2
-        .spawn(GENERATOR, Some(P1), tile(10, 8)); // 3
-    let mut t = started(scenario, 1000);
-    let train = Command::Production {
-        objects: vec![ObjectId(2)],
-        command: ProductionCommand::Train(ObjectKind::Peacekeeper),
-    };
-    next(&mut t, P1, train.clone());
-    next(&mut t, P1, train);
-    Game(t, ObjectId(3), defs)
+    next(
+        &mut t,
+        P1,
+        construction(1, ConstructionCommand::Construct(CAREER_CAMPUS)),
+    );
+    Game(t, ObjectId(2), Vec::new())
 }
 
 /// The Colonists', behind an Egress Node of player 1's: only their defensive structures have a TechPrerequisite in the
