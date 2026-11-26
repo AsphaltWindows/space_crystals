@@ -914,6 +914,10 @@ Layout validation can't disagree. **Never test a placement rule anywhere else: a
      and its next queued one starts in the next tick, with `SimEvent::TargetTooClose`; and so does each whose Attack
      Ground 5a found with its location inside (`AttackGround::too_close`, slice M5-O3), with
      `SimEvent::LocationTooClose`.
+   - Clouds, `Clouds::update` (slice M5-N4b, `shroud.rs`; *Combat > Shroud*): the end of 5a, after the attacks on a
+     target too close. The clouds follow the channels as 5a leaves them (`orders::update` returns the units that
+     channel): a channel started in the tick protects in its 5e, and a cloud that an ended channel, a split or a join
+     changed releases its buffer there.
    - 5b `paths::sync`: if the blocking footprints changed, rebuild the true navigation grids and bump
      `nav_version`. Then `Sim::cover_grids` builds the grids of a class whose first unit came into the game, or into
      a producer's queue, since the last tick (*Navigation > Which grids*).
@@ -929,7 +933,8 @@ Layout validation can't disagree. **Never test a placement rule anywhere else: a
    - 5e `combat::step`: attack phases (a unit's turret turning first) and launches, then those of the units that
      fire from inside a building (slice M5-N2, `combat::occupants`), the projectiles due landing in launch order, the
      tick's list of
-     hits applied together (the blasts' first), deaths (see *Combat*). The dead
+     hits applied together (the blasts' first; slice M5-N4b: less the hits a cloud absorbs, plus the releases due,
+     *Combat > Shroud*), deaths (see *Combat*). The dead
      leave through `Sim::remove_objects`, then `paths::sync` runs again in case a footprint went with them.
    - Pop-ups, `Sim::step_popups` (slice M4-S2, `sim/popups.rs`; *Object model > The pop-up form*): right after 5e
      and its removals. Each turret in operation from before the tick goes one tick through its cycle, in id order: by
@@ -1015,6 +1020,9 @@ Layout validation can't disagree. **Never test a placement rule anywhere else: a
      game*): the economy phase's last step, run by `step` after the producers, so that every way a structure left
      the game in the tick counts (the commands' removals, 5e's deaths). Before 5f, so that the units a defeat makes
      neutral are nobody's eyes in its own tick.
+   - Clouds again, `Clouds::settle` (slice M5-N4b): after the defeat and its networks, the clouds of the channels
+     that ended after 5a, by a death in 5e or a defeat's cleared orders. Their buffers wait for the next tick's 5e
+     (Placeholder: the design says "released immediately").
    - 5f `Vision::update`: every player's sight from the objects as the tick leaves them, those this tick's commands
      spawned included, then the fog delays and the reveals that end (see Vision). Combat in 5e reads the vision of
      the tick before, and its hits reveal their attackers on top of it.
@@ -1359,6 +1367,40 @@ ticks spent in it. Hashed and serialized like all state.
     (slice M5-N8's build), 12 interleaved rounds: the same games, the same timings within noise (medians:
     `structures_perf` 0.371 and 0.374 ms a whole tick, its combat phase 0.026 ms on either side; `holding_perf`
     cycling 0.036 and 0.037 ms, the evacuation's one tick 0.134 and 0.140 ms) (load average 1.5 to 2.6).
+- **Shroud** (`shroud.rs`, `orders/shroud.rs`, `combat/damage.rs`; slice M5-N4b, plan decisions T76 and T77 as design
+  change 0334 amends them; `factions/cults/units/disciple.md > Spells > Shroud`): the Disciple's channel is its order,
+  **`OrderKind::Shroud`**, which the units whose type casts the spell take (`UnitDef::spells`, `SpellDef::Shroud`, its
+  `ShroudDef`: the radius, the drain, the 10 energy it needs to start, which the gate checks, and the start of a
+  queued one again: below it the order ends at once). The unit stands; each tick it pays the drain from its pool, its
+  regeneration going on, and the channel ends when the pool can't pay, at a Stop or any other order, or with the unit
+  (`SimEvent::ShroudStarted`, `ShroudEnded`). **`Sim::clouds`** (`shroud::Clouds`) keeps the clouds: each a connected
+  component of the channelling units' circles (touching or overlapping), with its buffer and its timer, updated at the
+  end of 5a and again at the end of the tick (*Tick pipeline*). A cloud whose members change (a channel's end, a
+  split, a join, a new channel joining it) releases its buffer over its own circles as they were, and the clouds that
+  follow start empty. In 5e, while there is a cloud, **`damage::absorb`** takes off the tick's list each hit on an
+  object whose centre is under a cloud, by an anti-ground attack (`hits_domain(Ground)`: ground and underground
+  targets; an air unit's hits stay, slice M5-H1's to test), whose attack doesn't leave from under the same cloud
+  (`damage::Origins`, where each attack left, kept only while there is a cloud; Placeholder: a projectile's launch
+  point, judged as it lands), into the cloud's buffer at its raw damage; the first starts the 8-tick timer
+  (`tuning::spells::RELEASE_DELAY`). An absorbed hit still reveals its attacker (Placeholder). Then
+  **`damage::release`** turns each buffer due into one area hit: `SimEvent::ShroudReleased`, which every player is
+  told of, then a `Hit` for each object under the cloud by its overlap share of the cloud's area (counted on a
+  lattice, `shroud::lattice`), under the AoE rules (`area::share`) but without directional armour; the share over
+  empty cloud is lost, and a release reveals no one (its attacker is the cloud's first member). Hashed under tag 3 of
+  `Sim::state_hash` and saved only while there is a cloud or a buffer waiting, so that a game without Shroud hashes
+  as before; C1 (*Movement and collision > Invariants*) holds the clouds to the channels. Without a cloud none of it
+  runs. Tests: `tests/shroud/` (absorption, the clouds, the channel, their state through splits and joins, a replay
+  and a save) and the golden `cults_shroud` (*Replays and golden hashes*); a 3x3 building wholly under a circle,
+  which no Disciple can stand in, is a unit test's (`combat/damage/tests.rs`). The client draws the clouds
+  (`shroud_view`, *Client architecture > Visuals*) and puts the spell in the Disciple's R.
+  - **Measured** (`tests/shroud_perf.rs`, ignored, release): eight Disciples, four clouds of two circles, over sixty
+    Militants under the fire of forty (711 ticks, 236 releases, 3540 hits, none killed): over six runs, a mean of
+    0.032 to 0.047 ms and a p99 of 0.067 to 0.10 ms a whole tick, the combat phase's 0.010 to 0.014 ms (p99 0.04 to
+    0.06 ms); the same game without the clouds 0.014 ms (p99 0.045 ms), its combat phase 0.002 ms (load average 0.8 to
+    1.0). Without a cloud there is nothing to measure: `structures_perf` and `movement_perf` ran A/B against master
+    (slice M5-S2b's build), interleaved, 12 and 8 rounds: medians of 0.358 and 0.360 ms a whole tick for
+    `structures_perf` (its combat phase 0.026 ms on either side), 0.475 and 0.472 ms for `movement_perf` (load
+    average 0.9 to 1.0).
 - **Not yet**: the HeadDisjointed attack, which hits as a FullyConnected one does (a TODO in `combat/phases.rs`).
 
 ## Vision
@@ -2065,13 +2107,16 @@ and the code is `crates/sim/src/movement.rs` and `movement/`, with the unit's st
   on the map or held, has energy exactly when its kind has a pool, at most its maximum; (M5-N3) T1 (`research`):
   techs come only from completed research: a player holds a technology only with its previous level, none is both
   completed and queued, nor queued twice or at two structures, and each queued one is offered by its structure's type
-  (`StructureDef::research`), at a structure with an owner who has its previous level. A `TestSim` checks them after
+  (`StructureDef::research`), at a structure with an owner who has its previous level; (M5-N4b) C1 (`clouds`): every
+  cloud member is a live unit channelling Shroud in the channel it names, each unit that channels is in exactly one
+  cloud, a cloud's circles are connected and two clouds never touch, and a buffer is never below 0, its timer running
+  while it holds anything and never past due. A `TestSim` checks them after
   every tick
   and panics with a picture of
   the map (`TestSim::ascii`: units as letters, with a legend). The check is on by default; `check_invariants(false)`
   turns it off for timing runs. A test that steps a bare `Sim` keeps its own `Invariants` and calls `check` after each
   step, as the golden games do (`tests/golden/harness.rs`). The fuzz's games (`tests/robustness.rs`, the seed sweep's)
-  check the rules' invariants alone, `Invariants::check_rules` (P1, O1, R1, H1, B1, A1, E1, T1): V1 and K1, which
+  check the rules' invariants alone, `Invariants::check_rules` (P1, O1, R1, H1, B1, A1, E1, T1, C1): V1 and K1, which
   rebuild the vision and the planning grids, would take the sweep from 5 s to 26 s.
 
 ## Economy
@@ -2717,7 +2762,9 @@ their energy doorway, slice M3-D2: design change 0145, `factions/colonists/struc
 - **`Command::Order { units, kind, queue }`** (`systems/controls/commands.md > Unit Command`, `docs/movement.md > 3`):
   `OrderKind` is `Move(Target)` (a point or an object), `Attack(id)`, `AttackMove(point)`, `Patrol(point)`, `Hold`,
   `Stop`, `AttackGround(point)` (slice M4-O, for the units that can target the ground: `CannotTargetGround` if none
-  can; see *Combat > Attack Ground*), and for workers `Gather(patch)` and `DropOff(node)` (`factions/colonists/units/drone.md > Unit
+  can; see *Combat > Attack Ground*), `Shroud` (slice M5-N4b, the Disciple's channel: the units whose type casts it,
+  `LacksAbility` if none, and of them those with the energy it needs to start, `NotEnoughEnergy` if none; see *Combat
+  > Shroud*), and for workers `Gather(patch)` and `DropOff(node)` (`factions/colonists/units/drone.md > Unit
   Commands`). The gate takes an order whole or not at all, but tolerates stale selections: at most `MAX_ORDER_UNITS`
   ids (`TooManyUnits`), repeated ids count once, ids of objects that are gone and objects that take no orders are
   dropped, and nothing left is `NoUnits`; any id of another player's object rejects it (`NotOwned`). Points must be
@@ -2875,7 +2922,8 @@ their energy doorway, slice M3-D2: design change 0145, `factions/colonists/struc
   `PatchDepleted`, `ProductionQueued`, `ProductionRefused`, `ProductionCancelled`, `ProductionWaiting`, `UnitProduced`,
   `ConstructionCompleted`, `ConstructionCancelled`, `StructurePlaced`, `PlacementRefused`, `PlayerDefeated`,
   `GameOver`, `KindChanged`, `TransformCompleted`, `TransformCancelled`, `ResourcesDelivered`, `DeployFailed`,
-  `TargetTooClose`, `SupplyStationEmpty`, `ProjectileLaunched`, `Blast`, `Missed`, `LocationTooClose`, …) are output
+  `TargetTooClose`, `SupplyStationEmpty`, `ProjectileLaunched`, `Blast`, `Missed`, `LocationTooClose`,
+  `ShroudStarted`, `ShroudEnded`, `ShroudReleased`, …) are output
   only, for effects,
   sounds and
   UI. The sim never reads them, and tells each to every player; the client shows a player only what they may
@@ -3298,6 +3346,16 @@ their energy doorway, slice M3-D2: design change 0145, `factions/colonists/struc
   Units that fire from inside a building*), each tick checking `testing::dangling_references`; `defs/tests/holds.rs`
   checks the one door and the occupants' fire of every def (`holds_are_consistent`). The ignored `garrisons_perf.rs`
   times ten full Garrisons firing (*Combat > Units that fire from inside a building*).
+- **Shroud tests** (slice M5-N4b) are `crates/sim/tests/shroud/` (`absorption.rs`: a Militant shot once from outside
+  taking the area minimum 8 ticks later, fire from under the same cloud in full, a grenade judged by where it was
+  thrown from, a release without direction, a lowered turret protected and taking its share; `clouds.rs`: two
+  Disciples 5 grid units apart sharing a buffer and a third 8 away not, a channel between two clouds releasing both,
+  a Stop releasing a joined pair's buffer over both circles; `channel.rs`: damage not ending a channel and a new
+  order ending it, a full pool running dry 711 ticks on and the 10 energy to start again, a queued Shroud ending at
+  once below 10; `state.rs`: clouds splitting and merging phase by phase in a replay that reproduces its hash, the
+  clouds saved and loaded and left out while there are none), each tick checking the invariants, C1 among them. The
+  golden `cults_shroud` is a battle under the clouds, and the ignored `shroud_perf.rs` times eight Disciples over
+  sixty units under fire (*Combat > Shroud*).
 - **Armory tests** (slice M5-F2) are `crates/sim/tests/armory/` (`training.rs`: Q pays 20 and a Militant comes out
   of side C 32 ticks later toward the rally point, first in first trained, X's refund, the gate, Q to three Armories;
   `release.rs`: design change 0337's Verification, X taking a Release back, a Release queued like any order;
@@ -3588,6 +3646,18 @@ these.
   blasts (`combat_effects/blasts.rs`, from `SimEvent::Blast`, `BLAST_TICKS`): a ring the size of the area, shown
   while the tile under its centre is Visible (`shows_blast`). One alpha-blended mesh in the overlays layer, rebuilt every frame while
   anything shows; effects age by the sim's tick and the render alpha, so screenshots stay deterministic.
+- **Shroud's clouds** (`shroud_view.rs`, slice M5-N4b; `factions/cults/units/disciple.md > Spells > Shroud`: "the
+  cloud is shown to **every player**, over the tiles that are Visible to them, so its edge can be seen even when the
+  Disciple can't"): a pale haze over each cloud's circles, one haze where they overlap, and a release's flash
+  (`SimEvent::ShroudReleased`) over the circles it went over for `RELEASE_TICKS`, fading; both only over the local
+  player's Visible tiles (`shroud_view::texels`), so an enemy who sees a cloud's edge sees that edge. One mesh over the
+  box of tiles the clouds and the flashes cover (`shroud_view::Area`), on the terrain's surface as the fog layer's
+  is, under the air units and over the ground units (Shroud protects the ground), and one texture of
+  `TEXELS_PER_TILE` texels to a tile's edge, each as opaque as the circles cover it, so the edges are smooth. The
+  mesh is rebuilt when the box changes, the texture written in place when what it shows changes, and a new texture
+  made only when the box's size changes (*Bevy 0.20: verify, don't recall*); hidden, with nothing computed, while no
+  cloud or flash shows. Colours and lengths are placeholders (Q0001). Tests: `shroud_view/tests.rs` (the texels),
+  `tests/combat/shroud.rs` (each player's Visible tiles, the release's flash).
 - **Fog of war** (`fog.rs`, `core/vision.md`): `Sight` (`fog/sight.rs`) says what the local player is shown: its own
   objects, and everything on its Visible tiles (`Sight::sees`); on Explored tiles the terrain and the player's records
   of the structures and resources it saw there, in their last-known state, never the live objects (`Sight::remembered`,
@@ -3621,7 +3691,8 @@ these.
     shows where its centre is Visible; a death shows to its owner and where it is Visible, never to a player it was
     hidden from;
   - `Removal`, whoever was shown the object where it went, never a player who remembers it out of sight;
-  - `Everyone`: defeats and the end of the game.
+  - `Everyone`: defeats and the end of the game, and (slice M5-N4b) Shroud's releases, which the drawing keeps to the
+    viewer's Visible tiles, as the clouds (`shroud_view`).
 
   The fog off shows everything but a player's own business. Whom an object is hidden from is `Hiding::of`'s alone
   (the hook, *Vision > Hidden objects*). A new `SimEvent` doesn't compile until `Arrival::audience` has its rule, and
@@ -4121,9 +4192,12 @@ Drones, through one command flow (plan decision T10, slices M2-H1, M2-H2 and M3-
   stats`: "Panel like the Armory's [...]: **Q: Train Disciple**, **A: Release** in the kind menu";
   `factions/cults/units/disciple.md > Placeholder stats`: "BasicCombatUnitInterfaceState, plus **R: Shroud**"): the
   Cathedral's is the Armory's `TEMPLATE` (`kinds/cults/cathedral.rs`), its KindMenus' Q its one recipe. The Disciple's
-  (`templates/cults/disciple.rs`) is the BasicCombatUnit's with R holding Shroud's slot, `Planned::Shroud`, until slice
-  M5-N4b: the BasicCombatUnit grid places a type's `PanelTemplate::planned` in its free slots
-  (`templates::basic_combat_unit_grid`); A is greyed for want of a weapon (`Modes`, above). The Recruit's Advanced
+  (`templates/cults/disciple.rs`) is the BasicCombatUnit's with Shroud in R (slice M5-N4b: `templates::grid` puts
+  `PanelCommand::Shroud` in the R of a type that casts it, `UnitDef::shroud`). It is an instance command
+  (`PanelCommand::instance_only`), so each press starts the channel of the one Disciple Tabbed to ("each R press
+  starts one Disciple's channel; Tab to the next"), Shift queues it (Placeholder), and it is live while the gate would
+  take it (`Conditions::of` asks `Sim::validate`: below 10 energy it greys, "Not enough energy"); A is greyed for
+  want of a weapon (`Modes`, above). The Recruit's Advanced
   Construct C is the Cathedral's Build, greyed "Requires a Temple" until one stands.
 - **The Altar's panel** (slice M5-N1b; `factions/cults/augmentation.md > Altar > ObjectInterfaceState[Altar]`: "a
   three-stage selection: **unit type → current AugmentationState → Augmentation to apply**"): `templates/cults/altar.rs`
@@ -4365,6 +4439,12 @@ ls -d ~/.cargo/registry/src/*/bevy_*-0.20.1/              # one crate per subsys
 grep -rn 'pub fn overstep_fraction' ~/.cargo/registry/src/*/bevy_time-0.20.1/src
 ls ~/.cargo/registry/src/*/bevy-0.20.1/examples/          # 2d/, ui/, time/, camera/, input/, …
 ```
+
+Found so (slice M5-N4b): `Assets::get_mut` returns an `AssetMut`, which marks the asset changed only when it is
+dereferenced mutably. A 2D material keeps the GPU texture it was prepared with: an image replaced by one of another
+size is a new texture, which a material shows only once the material itself changes, so point the material at a new
+image then (`shroud_view`), or keep the size and write `image.data` in place, which the `GpuImage` takes into the
+same texture (`fog/layer.rs`).
 
 ## QA mode
 

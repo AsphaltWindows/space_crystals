@@ -43,9 +43,10 @@ pub const TEXELS_PER_TILE: i32 = 4;
 pub const RELEASE_TICKS: Tick = 6;
 /// The haze: a pale violet, under half opaque, so that the units under it show (placeholder, Q0001).
 const CLOUD: [u8; 4] = [190, 178, 226, 100];
-/// A release's flash: near white, up to this opacity as it starts (placeholder, Q0001).
+/// A release's flash: near white, up to this opacity as it starts, under which the units still show (placeholder,
+/// Q0001).
 const FLASH: [u8; 3] = [255, 246, 255];
-const FLASH_ALPHA: f32 = 210.0;
+const FLASH_ALPHA: f32 = 170.0;
 /// How far under the air units' z band the layer lies: over every ground unit's z (`DrawLayer::GroundUnits`, its
 /// depth offsets under 66 for any map), under the air units'.
 const UNDER_AIR_Z: f32 = 20.0;
