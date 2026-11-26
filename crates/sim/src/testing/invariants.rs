@@ -34,6 +34,7 @@ use std::collections::BTreeMap;
 
 use glam::Vec2;
 
+use crate::augmentation::Research;
 use crate::command::{Command, DebugCommand, TickInputs};
 use crate::defs::MovementModel;
 use crate::events::SimEvent;
@@ -81,6 +82,8 @@ struct Seen {
     gathering: bool,
     /// The velocity it carried into the next tick (`Mover::momentum`, slice M3-G).
     momentum: Vec2,
+    /// (M5-N3) Its MaxSpeed at its owner's research levels (`Object::max_speed`), for I3 in a tick that changes them.
+    max_speed: f32,
 }
 
 /// Checks the invariants between ticks (module docs). It remembers each unit's state, and each player's banks, of the
@@ -96,7 +99,7 @@ fn leg_of(o: &Object) -> Option<Tick> {
     o.orders.as_ref()?.current.as_ref().map(|active| active.since)
 }
 
-fn seen(o: &Object, mover: &Mover) -> Seen {
+fn seen(o: &Object, mover: &Mover, research: Research) -> Seen {
     Seen {
         pos: o.pos,
         had_goal: mover.goal != MoveGoal::None,
@@ -105,15 +108,17 @@ fn seen(o: &Object, mover: &Mover) -> Seen {
         exit: mover.exit,
         gathering: gather::on_gather_job(o),
         momentum: mover.momentum,
+        max_speed: o.max_speed(research),
     }
 }
 
 impl Invariants {
     /// Starts from the sim's current state.
     pub fn new(sim: &Sim) -> Self {
+        let research = sim.research();
         let seen = sim
             .objects()
-            .filter_map(|o| Some((o.id, seen(o, o.mover.as_ref()?))))
+            .filter_map(|o| Some((o.id, seen(o, o.mover.as_ref()?, research))))
             .collect();
         Self {
             seen,
@@ -175,6 +180,11 @@ impl Invariants {
     fn check_units(&self, sim: &Sim, teleported: &[ObjectId], evacuated: &[ObjectId]) -> Result<(), Violation> {
         let tick = sim.tick();
         let overlapped = overlaps::overlapped_before(sim, &self.seen);
+        // (M5-N3) The research levels changed after the movement step of this tick: a level completed in the economy
+        // phase (`SimEvent::ResearchCompleted`), or a player defeated at its end, whose units turned neutral with no
+        // one's levels (`economy::defeat`). The units moved at the MaxSpeeds of the levels before (I3).
+        let levels_changed = (sim.events().iter())
+            .any(|e| matches!(e, SimEvent::ResearchCompleted { .. } | SimEvent::PlayerDefeated { .. }));
         for o in sim.objects() {
             let fail = |invariant, message: String| {
                 Err(Violation {
@@ -253,9 +263,16 @@ impl Invariants {
             }
             // I3: a unit moves at most its speed per tick, (M5-N1a) its Augmentations' included. (M3-G) For a unit
             // with momentum that is its model's maximum, where thrust and drag balance on open ground: a mode that
-            // slows the unit only weakens its thrust, and the speed it has decays.
+            // slows the unit only weakens its thrust, and the speed it has decays. (M5-N3) In a tick that changed the
+            // research levels after the movement step, the larger of its MaxSpeeds before and after: it moved at the
+            // one before, and moves at the one after from the next tick (`Sim::complete_research`).
             let drag = unit.movement.model() == MovementModel::Drag;
-            let step = o.max_speed(sim.research()) * if drag { 1.0 } else { mover.speed_factor };
+            let max_speed = o.max_speed(sim.research());
+            let max_speed = match before {
+                Some(b) if levels_changed => b.max_speed.max(max_speed),
+                _ => max_speed,
+            };
+            let step = max_speed * if drag { 1.0 } else { mover.speed_factor };
             let moved = o.pos.distance(o.prev_pos);
             if moved > step * 1.0001 + 1e-3 {
                 return fail("I3", format!("moved {moved} su in one tick, more than its {step}"));

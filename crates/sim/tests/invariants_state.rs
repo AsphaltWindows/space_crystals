@@ -1,12 +1,15 @@
-//! The invariants H1, B1 and A1 (slice M5-M1, `testing::invariants`): **negative tests**. Every game keeps them
-//! (`TestSim` checks them after every tick, as it does the rest), so no game can show the checker failing. These tests
-//! break each one by editing a saved state, as `invariants_overlap.rs` does, and ask the checker, which last saw the
-//! state a tick before the edited one:
+//! The invariants H1, B1, A1 (slice M5-M1) and T1 (slice M5-N3) of `testing::invariants`: **negative tests**. Every
+//! game keeps them (`TestSim` checks them after every tick, as it does the rest), so no game can show the checker
+//! failing. These tests break each one by editing a saved state, as `invariants_overlap.rs` does, and ask the checker,
+//! which last saw the state a tick before the edited one:
 //! - H1 (`invariants/hit_points.rs`): HP above the MaxHP with the unit's Augmentations, on the map or held; HP at 0,
 //!   a dead object still in the game; HP missing; Shields out of 0 to the MaxShields;
 //! - B1 (`invariants/banks.rs`): a bank that wrapped below 0 or past its top, unless a `DebugCommand::SetResources` of
 //!   the tick set the player's banks;
-//! - A1 (`invariants/augmentations.rs`): an Augmentation on a kind that can't have it, on the map or held.
+//! - A1 (`invariants/augmentations.rs`): an Augmentation on a kind that can't have it, on the map or held;
+//! - T1 (`invariants/research.rs`): a technology held without its previous level, queued before it, queued once
+//!   completed, queued twice, at two structures or at one, at a structure whose type doesn't research it, or for no
+//!   player.
 //!
 //! The check of the rules' invariants alone (`Invariants::check_rules`, which the seed sweep's games run) finds the same.
 
@@ -22,14 +25,16 @@ const P1: PlayerId = PlayerId(1);
 const P2: PlayerId = PlayerId(2);
 
 /// The objects of [`game`]: player 1's Armory and the Recruit inside it, a Peacekeeper and a Drone (MaxShields 10) of
-/// player 2's, and two Recruits of player 1's, one with Enhanced Constitution (MaxHP 40 + 20) and one with Improved
-/// Metabolism (MaxHP 40 − 10).
+/// player 2's, two Recruits of player 1's, one with Enhanced Constitution (MaxHP 40 + 20) and one with Improved
+/// Metabolism (MaxHP 40 − 10), and two Temples of player 1's (slice M5-N3), nothing queued.
 const ARMORY: u32 = 1;
 const HELD: u32 = 2;
 const PEACEKEEPER: u32 = 3;
 const DRONE: u32 = 4;
 const CONSTITUTION: u32 = 5;
 const METABOLISM: u32 = 6;
+const TEMPLE: u32 = 7;
+const TEMPLE_2: u32 = 8;
 
 /// Player 1 plays the Cults, player 2 the Colonists, on 30 × 22 open tiles; auto-targeting is off. The Recruit east of
 /// the Armory's entrance (side B) walks in, and the two others get their Augmentations, in tick 1. Returns the game as
@@ -45,6 +50,8 @@ fn game() -> (Sim, Sim) {
         .spawn(ObjectKind::Drone, Some(P2), point(300.0, 400.0))
         .spawn(ObjectKind::Recruit, Some(P1), point(1150.0, 1000.0))
         .spawn(ObjectKind::Recruit, Some(P1), point(1150.0, 1100.0))
+        .spawn(ObjectKind::Temple, Some(P1), SpawnAt::Tile(TilePos::new(22, 1)))
+        .spawn(ObjectKind::Temple, Some(P1), SpawnAt::Tile(TilePos::new(22, 17)))
         .start();
     t.without_auto_targeting();
     t.order_at(1, P1, &[id(HELD)], OrderKind::Enter(id(ARMORY)), false);
@@ -234,4 +241,77 @@ fn an_augmentation_on_a_kind_that_cant_have_one_breaks_a1() {
         o["augmentation"] = constitution;
     });
     assert_eq!(broken_alone(&before, &held), Some("A1"));
+}
+
+/// T1: a player's technologies come only from completed research, each level after the one before it, and each
+/// technology queued is one its structure's type researches, for its owner, once, and only before it is completed
+/// (`core/tech_and_research.md > Research > Shared Rules` 4 and 5; `core/tech_and_research.md > Tech Prerequisites >
+/// Research Prerequisites`: "A next level can only be queued once the previous level has **completed**").
+#[test]
+fn research_out_of_its_rules_breaks_t1() {
+    let (before, after) = game();
+    assert_eq!(broken_alone(&before, &after), None, "the game itself keeps them");
+    let (ec1, ec2, im1) = (
+        json!({ "tech": "EnhancedConstitutionL1" }),
+        json!({ "tech": "EnhancedConstitutionL2" }),
+        json!({ "tech": "ImprovedMetabolismL1" }),
+    );
+    // The game with player 1's technologies `techs` and the queues of `queues`, by object.
+    let state = |techs: Value, queues: &[(u32, Value)]| {
+        edited(&after, |json| {
+            player(json, P1)["techs"] = techs;
+            for (n, queue) in queues {
+                object(json, *n)["production"]["queue"] = queue.clone();
+            }
+        })
+    };
+    let none = json!([]);
+    // A level with the one before it keeps T1; Level 2 alone breaks it.
+    let both = json!(["EnhancedConstitutionL1", "EnhancedConstitutionL2"]);
+    assert_eq!(broken_alone(&before, &state(both, &[])), None);
+    let alone = json!(["EnhancedConstitutionL2"]);
+    assert_eq!(broken_alone(&before, &state(alone, &[])), Some("T1"));
+    // A Temple researching Level 1, or Level 2 once Level 1 is completed, keeps it; Level 2 before Level 1 breaks it.
+    let level_1 = json!([ec1.clone()]);
+    assert_eq!(
+        broken_alone(&before, &state(none.clone(), &[(TEMPLE, level_1.clone())])),
+        None
+    );
+    let completed = json!(["EnhancedConstitutionL1"]);
+    let level_2 = json!([ec2]);
+    assert_eq!(
+        broken_alone(&before, &state(completed.clone(), &[(TEMPLE, level_2.clone())])),
+        None
+    );
+    assert_eq!(
+        broken_alone(&before, &state(none.clone(), &[(TEMPLE, level_2)])),
+        Some("T1")
+    );
+    // Completed and queued.
+    assert_eq!(
+        broken_alone(&before, &state(completed, &[(TEMPLE, level_1.clone())])),
+        Some("T1")
+    );
+    // Each line at a Temple of its own keeps it; one technology at two Temples, or twice at one, breaks it.
+    let other = json!([im1.clone()]);
+    let apart = [(TEMPLE, level_1.clone()), (TEMPLE_2, other)];
+    assert_eq!(broken_alone(&before, &state(none.clone(), &apart)), None);
+    let two = [(TEMPLE, level_1.clone()), (TEMPLE_2, level_1.clone())];
+    assert_eq!(broken_alone(&before, &state(none.clone(), &two)), Some("T1"));
+    let twice = json!([ec1.clone(), im1, ec1.clone()]);
+    assert_eq!(broken_alone(&before, &state(none, &[(TEMPLE, twice)])), Some("T1"));
+    // Research at the Armory, which trains (its entry reserving no one, as R1 has it).
+    let at_the_armory = edited(&after, |json| {
+        let production = &mut object(json, ARMORY)["production"];
+        production["queue"] = json!([ec1]);
+        production["reserved"] = json!([[]]);
+    });
+    assert_eq!(broken_alone(&before, &at_the_armory), Some("T1"));
+    // A Temple of no one's.
+    let neutral = edited(&after, |json| {
+        let temple = object(json, TEMPLE);
+        temple["owner"] = Value::Null;
+        temple["production"]["queue"] = level_1;
+    });
+    assert_eq!(broken_alone(&before, &neutral), Some("T1"));
 }
