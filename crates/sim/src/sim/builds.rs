@@ -29,10 +29,17 @@
 //!   defeated player's orders go unrefunded: their bank counts for nothing any more (`economy::defeat`).
 //! - **The arrivals** ([`Sim::step_deployments`]): right after phase 5a, each worker whose walk to its site is over
 //!   (`orders::build`) starts building there, or its order fails.
+//! - **A group's Build** (plan decision T59, slice M5-E; [`shared`]): the workers that share builds (the Recruits) take
+//!   a Build together, one order paid once, and build it from outside its site; its refunds go by its ticket, once,
+//!   when its last holder drops it.
+
+mod shared;
+
+pub(super) use shared::Ticket;
 
 use super::Sim;
 use super::gate::Reject;
-use crate::construction::site::{self, BuildPrice, site_def};
+use crate::construction::site::{self, BuildPrice, shares_builds, site_def};
 use crate::defs::{ObjectKind, Resource};
 use crate::deploy::on_site;
 use crate::events::SimEvent;
@@ -55,6 +62,9 @@ pub(super) struct Dropped {
     pub owner: PlayerId,
     /// What it would have built.
     pub kind: ObjectKind,
+    /// (M5-E) A group's Build (plan decision T59): its ticket, which is refunded once, when no unit holds it any more
+    /// ([`Sim::refund_builds`]). `None` for one worker's.
+    pub ticket: Option<Ticket>,
 }
 
 /// A unit's orders, its current one first, then its queue's in order.
@@ -63,21 +73,24 @@ fn orders_of(orders: &Orders) -> impl Iterator<Item = &Order> + '_ {
     current.chain(&orders.queue)
 }
 
-/// The kinds of the Build orders among `orders`, the priced ones (a Deploy costs nothing), in order.
-fn builds_in(orders: &Orders) -> impl Iterator<Item = ObjectKind> + '_ {
-    orders_of(orders).filter_map(|order| match order.kind {
-        OrderKind::Build { kind, .. } => Some(kind),
-        _ => None,
-    })
-}
-
-/// The Build orders of `o` as [`Dropped`]: none for an object without an owner or orders.
+/// The Build orders of `o` as [`Dropped`], the priced ones (a Deploy costs nothing), in order, a group's with its
+/// ticket: none for an object without an owner or orders.
 pub(super) fn dropped_of(o: &Object) -> Vec<Dropped> {
     let (Some(owner), Some(orders)) = (o.owner, &o.orders) else {
         return Vec::new();
     };
     let worker = o.id;
-    builds_in(orders).map(|kind| Dropped { worker, owner, kind }).collect()
+    orders_of(orders)
+        .filter_map(|order| match order.kind {
+            OrderKind::Build { kind, .. } => Some(Dropped {
+                worker,
+                owner,
+                kind,
+                ticket: Ticket::of(o, order.kind),
+            }),
+            _ => None,
+        })
+        .collect()
 }
 
 /// The price of a structure of `kind` by its def's rule, `owned` being how many of them the player has for it
@@ -111,32 +124,58 @@ impl Sim {
     /// them for their owner; they reserve their sites against the owner's further placements ([`Sim::deploy_check`],
     /// [`Sim::build_check`], [`Sim::warp_in_check`]), a Tunnel's its whole Tier 1 area against further Tunnels too
     /// (design change 0289 point 2), and block no one.
+    ///
+    /// (M5-E) A group's Build is one ghost, however many workers hold it (plan decision T59: one ghost per ticket), at
+    /// the place of its holder with the lowest id.
     pub fn pending_builds(&self, player: PlayerId) -> Vec<PendingBuild> {
-        self.objects
-            .values()
-            .filter(|o| o.owner == Some(player))
-            .flat_map(|o| {
-                let orders = o.orders.iter().flat_map(orders_of);
-                orders.filter_map(move |order| {
-                    let (kind, site) = build_site(order.kind)?;
-                    let worker = o.id;
-                    Some(PendingBuild { worker, kind, site })
-                })
-            })
-            .collect()
+        self.pending_without(player, &[])
+    }
+
+    /// `player`'s pending worker builds ([`Sim::pending_builds`]) as they will be once the units `except` have dropped
+    /// their orders: a ghost goes only with its last holder.
+    pub(crate) fn pending_without(&self, player: PlayerId, except: &[ObjectId]) -> Vec<PendingBuild> {
+        let mut pending = Vec::new();
+        let mut tickets = Vec::new();
+        for o in (self.objects.values()).filter(|o| o.owner == Some(player) && !except.contains(&o.id)) {
+            for order in o.orders.iter().flat_map(orders_of) {
+                let Some((kind, site)) = build_site(order.kind) else {
+                    continue;
+                };
+                if let Some(ticket) = Ticket::of(o, order.kind) {
+                    if tickets.contains(&ticket) {
+                        continue;
+                    }
+                    tickets.push(ticket);
+                }
+                let worker = o.id;
+                pending.push(PendingBuild { worker, kind, site });
+            }
+        }
+        pending
     }
 
     /// How many structures of `kind` `player` has for its price (`factions/syndicate/tunnels.md > Cost Scaling >
     /// Construction Cost`): those it owns, "all tiers count", "a Tunnel under construction" included, and the
-    /// "Lingering Tunnel ghosts": its Build orders of the kind, current or queued.
+    /// "Lingering Tunnel ghosts": its Build orders of the kind, current or queued, a group's once (its ticket).
     fn owned_for_price(&self, player: PlayerId, kind: ObjectKind) -> u32 {
         let mine = self.objects.values().filter(|o| o.owner == Some(player));
         let standing = mine.clone().filter(|o| o.kind == kind).count();
-        let ordered = mine
-            .filter_map(|o| o.orders.as_ref())
-            .flat_map(builds_in)
-            .filter(|&ordered| ordered == kind)
-            .count();
+        let mut tickets = Vec::new();
+        let mut ordered = 0_usize;
+        for o in mine {
+            for order in o.orders.iter().flat_map(orders_of) {
+                if !matches!(order.kind, OrderKind::Build { kind: ordered, .. } if ordered == kind) {
+                    continue;
+                }
+                if let Some(ticket) = Ticket::of(o, order.kind) {
+                    if tickets.contains(&ticket) {
+                        continue;
+                    }
+                    tickets.push(ticket);
+                }
+                ordered += 1;
+            }
+        }
         u32::try_from(standing + ordered).unwrap_or(u32::MAX)
     }
 
@@ -171,6 +210,8 @@ impl Sim {
     ///   the first problem.
     ///
     /// Not reported by an event, as a Deploy isn't: the client checks the same before it sends the order.
+    ///
+    /// (M5-E) Builders that share builds (the Recruits) take it together ([`Sim::check_shared_build`]).
     pub(super) fn check_build(
         &self,
         units: Vec<ObjectId>,
@@ -181,6 +222,9 @@ impl Sim {
             .filter_map(|id| self.objects.get(id))
             .filter(|o| site::builds(o.kind, kind))
             .collect();
+        if !builders.is_empty() && builders.iter().all(|o| shares_builds(o.kind)) {
+            return self.check_shared_build(&builders, (kind, origin, orientation), queued);
+        }
         let builder = match builders[..] {
             [] => return Err(Reject::NoWorkers),
             [builder] => builder,
@@ -267,11 +311,16 @@ impl Sim {
     /// `SimEvent::BuildRefunded`. They went one at a time in order, so each of those after one still counted when it
     /// went. A Laser Turret's is its whole price, which has no scaling (design change 0297 point 4: "with the same
     /// refunds" as an Agent's Tunnel).
+    ///
+    /// (M5-E) A group's Build once, by the first of its holders among `dropped`, and only once none holds it any more
+    /// ([`Sim::refundable`]): design change 0340 (`factions/cults/economy.md > Cults Building Mechanics > Group
+    /// construction refunds`), "the cost is refunded only once **no Recruit of the group still holds the order**".
     pub(super) fn refund_builds(&mut self, dropped: &[Dropped]) {
+        let dropped = self.refundable(dropped, &[]);
         for (i, d) in dropped.iter().enumerate() {
             let owned = self
                 .owned_for_price(d.owner, d.kind)
-                .saturating_add(later_alike(dropped, i));
+                .saturating_add(later_alike(&dropped, i));
             let Some(refund) = price_at(d.kind, owned) else {
                 continue;
             };
@@ -289,7 +338,8 @@ impl Sim {
     /// The arrivals' step, right after phase 5a and before 5b (`orders::build`; `ARCHITECTURE.md > Tick pipeline`):
     /// each worker from before this tick (`first_new`) whose walk to its site is over (its behaviour's `arrived`, set
     /// by phase 5a), in id order: a Drone deploys there or fails its order (`Sim::arrive`, slice M3-F), and so does a
-    /// worker's Build (`Sim::arrive_to_build`).
+    /// worker's Build (`Sim::arrive_to_build`). (M5-E) Then each group's Build with such a worker, once, in the order
+    /// of its first such holder: its site starts, it fails, or it waits for its others ([`Sim::arrive_together`]).
     pub(super) fn step_deployments(&mut self, first_new: ObjectId) {
         let arrived: Vec<(ObjectId, OrderKind)> = self
             .objects
@@ -307,16 +357,26 @@ impl Sim {
                 }
             })
             .collect();
+        let mut tickets = Vec::new();
         for (worker, order) in arrived {
-            match order {
-                OrderKind::Deploy { origin } => self.arrive(worker, origin),
-                OrderKind::Build {
-                    kind,
-                    origin,
-                    orientation,
-                } => self.arrive_to_build(worker, (kind, origin, orientation)),
+            let ticket = self.objects.get(&worker).and_then(|o| Ticket::of(o, order));
+            match (order, ticket) {
+                (_, Some(ticket)) if !tickets.contains(&ticket) => tickets.push(ticket),
+                (_, Some(_)) => {}
+                (OrderKind::Deploy { origin }, None) => self.arrive(worker, origin),
+                (
+                    OrderKind::Build {
+                        kind,
+                        origin,
+                        orientation,
+                    },
+                    None,
+                ) => self.arrive_to_build(worker, (kind, origin, orientation)),
                 _ => {}
             }
+        }
+        for ticket in tickets {
+            self.arrive_together(ticket);
         }
     }
 
@@ -346,7 +406,7 @@ impl Sim {
         // Check Timing`, "checked only at the moment construction is **started** (queued at the constructor, ...)",
         // which for a worker's Build is the order, paid as it is given (`Sim::check_build`).
         let problems = match reached {
-            Some(_) => self.arrival_check(worker, kind, origin, orientation),
+            Some(_) => self.arrival_check(Some(worker), kind, origin, orientation),
             None => PlacementCheck::default(),
         };
         if let Some((_, site)) = reached
@@ -374,7 +434,13 @@ impl Sim {
             problems,
         });
         if let Some(owner) = owner {
-            self.refund_builds(&[Dropped { worker, owner, kind }]);
+            let ticket = None;
+            self.refund_builds(&[Dropped {
+                worker,
+                owner,
+                kind,
+                ticket,
+            }]);
         }
     }
 }

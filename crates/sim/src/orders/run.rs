@@ -9,7 +9,9 @@ use glam::Vec2;
 use super::reach::Reach;
 use super::state::{Approach, AttackGround, AttackOrder, Auto, Behaviour, Leg, Patrol};
 use super::world::{Unit, World};
-use super::{ActiveOrder, Order, OrderKind, Orders, Target, attack_ground, build, engage, enter, gather, travel};
+use super::{
+    ActiveOrder, Order, OrderKind, Orders, Target, assist, attack_ground, build, engage, enter, gather, travel,
+};
 use crate::deploy;
 use crate::ids::ObjectId;
 use crate::mover::{MoveGoal, MoveStatus};
@@ -120,7 +122,7 @@ pub(super) fn start(order: &Order, unit: &mut Unit, world: &World) -> Behaviour 
         }
         OrderKind::Gather(_) | OrderKind::DropOff(_) | OrderKind::Deploy { .. } | OrderKind::Enter(_) => {}
         OrderKind::AttackGround(_) => {}
-        OrderKind::Build { .. } => {}
+        OrderKind::Build { .. } | OrderKind::Assist(_) => {}
     }
     unit.mover.stop();
     match order.kind {
@@ -156,6 +158,9 @@ pub(super) fn start(order: &Order, unit: &mut Unit, world: &World) -> Behaviour 
         OrderKind::Enter(tunnel) => Behaviour::Enter(enter::begin(tunnel, unit, world)),
         // `systems/controls/behaviors.md > AttackingLocation`: from a standstill, as an Attack.
         OrderKind::AttackGround(_) => Behaviour::AttackGround(AttackGround::default()),
+        // (M5-E) `factions/cults/economy.md > Assist Construction Command`: to its own spot beside the site, which the
+        // spots' step gives it (`crate::spot_work`).
+        OrderKind::Assist(_) => Behaviour::Assist(assist::begin()),
     }
 }
 
@@ -207,10 +212,12 @@ fn run(
         (OrderKind::Enter(_), Behaviour::Enter(state)) => enter::run(state, unit),
         // (M4-O) The walk into range and the shots, until another order (design change 0293).
         (OrderKind::AttackGround(at), Behaviour::AttackGround(state)) => attack_ground::run(unit, at, state, world),
+        // (M5-E) Building from its spot; the site's completion or removal ends the order (`assist`).
+        (OrderKind::Assist(_), Behaviour::Assist(state)) => assist::run(state),
         // A state that isn't its order's (a save edited by hand): the order ends.
         (OrderKind::Hold | OrderKind::Attack(_) | OrderKind::AttackMove(_) | OrderKind::Patrol(_), _)
         | (OrderKind::Move(Target::Object(_)) | OrderKind::Gather(_) | OrderKind::DropOff(_), _)
         | (OrderKind::Deploy { .. } | OrderKind::Enter(_) | OrderKind::AttackGround(_), _)
-        | (OrderKind::Build { .. }, _) => true,
+        | (OrderKind::Build { .. } | OrderKind::Assist(_), _) => true,
     }
 }

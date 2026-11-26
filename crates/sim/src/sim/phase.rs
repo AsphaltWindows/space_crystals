@@ -119,6 +119,9 @@ impl Sim {
         // The workers that got to their sites in 5a deploy or start their sites, or their orders fail
         // (`sim/builds.rs`); before 5b claims the footprints.
         self.step_deployments(first_new);
+        // (M5-E) The units that work at a footprint from a spot beside it get their spots and walk there
+        // (`sim/spot_work.rs`): after the arrivals, which may have started their site; before 5c serves their paths.
+        self.step_spots(first_new);
         // The units that walked into a Tunnel's entry path in 5a leave the map for the network, and the Enter orders
         // that can't go on end (`sim/network.rs`). Here, as the deployments: before 5b to 5f, so that no grid,
         // collision, shot or sight of this tick includes a unit that has gone in.

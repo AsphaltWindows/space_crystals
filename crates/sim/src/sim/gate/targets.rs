@@ -63,6 +63,8 @@ impl Sim {
                     accepts: holding::holds(o)
                         .filter(|_| o.owner == Some(player) && o.placement.is_some() && o.is_operational())
                         .map_or(&[], |holds| holds.accepts),
+                    // (M5-E) An own site built from outside, which the units that assist it Assist.
+                    site: (o.owner == Some(player) && o.is_built_from_outside()).then_some(o.kind),
                 })
             }
             TargetView::Remembered { .. } => {
@@ -78,6 +80,7 @@ impl Sim {
                     drop_off: false,
                     transit: &[],
                     accepts: &[],
+                    site: None,
                 })
             }
             TargetView::Gone => None,

@@ -347,6 +347,7 @@ fn fuzz_run(seed: u64) -> Run {
                 | SimEvent::BuildRefunded { .. }
                 | SimEvent::SiteStarted { .. }
                 | SimEvent::SiteCompleted { .. }
+                | SimEvent::SiteBuilt { .. }
                 | SimEvent::SiteCancelled { .. }
                 | SimEvent::LeftSite { .. }
                 | SimEvent::ExpansionStarted { .. }

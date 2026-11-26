@@ -105,6 +105,8 @@ fn planned_end(orders: &Orders) -> Option<Vec2> {
             // An Enter leaves no unit on the map to go on, nor a Build (the worker goes into its site); an Attack Ground
             // ends wherever the unit got in range.
             OrderKind::Enter(_) | OrderKind::Build { .. } | OrderKind::AttackGround(_) => return None,
+            // (M5-E) An Assist ends wherever its spot beside the site was.
+            OrderKind::Assist(_) => return None,
         }
     }
     None

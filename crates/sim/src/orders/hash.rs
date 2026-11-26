@@ -83,6 +83,11 @@ impl StateHash for OrderKind {
                 flip_h.hash(h);
                 flip_v.hash(h);
             }
+            // (M5-E) A new tag, hashed only while a unit carries the order.
+            OrderKind::Assist(site) => {
+                h.tag(12);
+                site.hash(h);
+            }
         }
     }
 }

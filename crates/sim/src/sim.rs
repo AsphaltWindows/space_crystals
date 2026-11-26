@@ -440,6 +440,7 @@ mod recruitment;
 mod removal;
 mod resources;
 mod sites;
+mod spot_work;
 mod spots;
 #[cfg(test)]
 mod tests;
