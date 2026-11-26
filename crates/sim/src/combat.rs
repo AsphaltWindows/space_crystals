@@ -67,12 +67,17 @@
 //!   turret, which has a facing of its own on the base's and engages its LockedTarget ([`AttackState::turret`]). In
 //!   this phase it turns toward it first, at its own TurnRate and within its arc, and its sequence runs as a base's,
 //!   at a target within the arc and once the turret faces it; its base is free to move and turn all the while.
+//! - **Occupants that fire** (slice M5-N2, plan decision T72; `occupants`): the units inside a Garrison
+//!   (`StructureDef::occupants_fire`, `factions/cults/structures/garrison.md`) fire from it, held off the map, right
+//!   after every object's own attack: each its own sequence, from the footprint, with its target picked as a
+//!   structure's and its weapon or its stand-in's, its Range bonus added.
 //!
 //! Not built yet: the HeadDisjointed attack.
 
 mod area;
 mod damage;
 mod hash;
+mod occupants;
 mod phases;
 pub mod projectiles;
 mod structures;
@@ -92,6 +97,7 @@ use crate::events::SimEvent;
 use crate::ids::ObjectId;
 use crate::map::Map;
 use crate::movement;
+use crate::network::Held;
 use crate::object::Object;
 use crate::popup;
 use crate::riot_shield;
@@ -343,6 +349,7 @@ pub(crate) fn base_is_free(kind: ObjectKind, state: Option<&AttackState>) -> boo
 )]
 pub(crate) fn step(
     objects: &mut BTreeMap<ObjectId, Object>,
+    held: &mut BTreeMap<ObjectId, Held>,
     map: &Map,
     vision: &mut Vision,
     projectiles: &mut Vec<Projectile>,
@@ -363,7 +370,9 @@ pub(crate) fn step(
                 || o.placement.is_some()
         })
     };
-    if projectiles.is_empty() && !objects.range(..first_new).any(|(_, o)| busy(o)) {
+    // (M5-N2) So is a unit inside a building whose occupants fire (`occupants`).
+    let inside = occupants::firing(objects, held, first_new);
+    if projectiles.is_empty() && inside.is_empty() && !objects.range(..first_new).any(|(_, o)| busy(o)) {
         return Vec::new();
     }
     let targets = targeting::Targets::snapshot(map, objects);
@@ -420,6 +429,17 @@ pub(crate) fn step(
         }
         phases::run(state, &mut o.facing, &shooter, &targets, &mut volley, events);
     }
+    occupants::step(
+        &inside,
+        objects,
+        held,
+        map,
+        vision,
+        &targets,
+        auto_targeting,
+        &mut volley,
+        events,
+    );
     projectiles.append(&mut volley.launched);
     // The blasts first: due projectiles land before this tick's new hits are applied (plan decision T45).
     let mut hits = Vec::new();
@@ -430,10 +450,12 @@ pub(crate) fn step(
     // attacker as a shot does, here, when its damage lands, not at the throw; only to the owners of the objects it
     // damaged (every hit takes something, its minimum at least, so a blast that hits nothing, a dodged grenade,
     // reveals nobody); and only if the attacker is still alive: one that died during the flight is out of the game
-    // (plan decision T45). One killed in this tick, by its own blast too, leaves with the tick's dead, unseen.
+    // (plan decision T45). One killed in this tick, by its own blast too, leaves with the tick's dead, unseen. (M5-N2) A
+    // unit firing from inside a building reveals the building (`occupants::building_of`).
     for hit in &hits {
         let victim = objects.get(&hit.target).and_then(|o| o.owner);
-        if let (Some(victim), Some(attacker)) = (victim, objects.get(&hit.attacker)) {
+        let attacker = (objects.get(&hit.attacker)).or_else(|| occupants::building_of(objects, held, hit.attacker));
+        if let (Some(victim), Some(attacker)) = (victim, attacker) {
             vision.reveal(victim, attacker, tick);
         }
     }

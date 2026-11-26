@@ -1,3 +1,4 @@
+mod garrison;
 mod gathering;
 mod recruit;
 mod repair;

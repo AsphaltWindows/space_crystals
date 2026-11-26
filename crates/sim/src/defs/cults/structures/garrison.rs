@@ -1,13 +1,17 @@
 //! The Garrison — `factions/cults/structures/garrison.md`.
 
-use crate::defs::structures::{BuilderGoes, SiteDef, SitePrice, StructureDef, SymmetryType};
+use crate::defs::structures::{
+    BuilderGoes, ExitRule, HoldsDef, OccupantFire, SiteDef, SitePrice, StructureDef, SymmetryType,
+};
 use crate::defs::{Armor, Category, Footprint, ObjectDef, ObjectKind};
 use crate::player::Faction;
+use crate::sides::SideLetter;
 
 /// `factions/cults/structures/garrison.md`: "The Cults' defensive structure. Infantry enter the Garrison and fire from
-/// inside it". Its numbers and its site only (slice M5-G2, plan decision T69): its garrisoning (`> Garrisoning`,
-/// `> GarrisonCapacity - 4 units`), its door and its Eject All come with their own slice, so it holds no one yet, and
-/// Recruits don't build it yet (it holds its slot of the Construct menu, `defs::cults::CONSTRUCT_MENU`). Its numbers
+/// inside it: Recruits and Disciples fire **as if they were Militants** [...], while Militants and Gunners fire their
+/// own weapons. Without units inside, the Garrison does not attack." Its numbers and its site came with slice M5-G2
+/// (plan decision T69), its garrisoning with slice M5-N2 (plan decision T72): who may enter, through its one door
+/// (`StructureDef::holds`), and how they fire from it (`StructureDef::occupants_fire`, `combat::occupants`). Its numbers
 /// are the design's "Placeholder stats".
 pub(crate) static GARRISON: ObjectDef = ObjectDef {
     kind: ObjectKind::Garrison,
@@ -51,8 +55,34 @@ pub(crate) static GARRISON: ObjectDef = ObjectDef {
         // Its occupants fire, not the building (`> Garrisoning`: "Without units inside, the Garrison does not attack").
         attack: None,
         popup: None,
-        // `> GarrisonCapacity - 4 units`, its door and who may enter: with its garrisoning's slice.
-        holds: None,
+        holds: Some(HoldsDef {
+            // "the door on side B (one door, entrance and exit)": units walk in at its middle, as at every entrance
+            // (`core/entities.md > Entrance and exit (production and research buildings)`, `holding::entry_path`).
+            entrance: SideLetter::B,
+            // "units leave **through the door**; on **Eject All** they all come out **at once**, ignoring collision
+            // with each other until they are clear of the footprint".
+            exit: ExitRule::AtOnce(SideLetter::B),
+            capacity: 4, // GarrisonCapacity - 4 units
+            // `> Garrisoning > Who can enter`: "Recruits, Militants, Gunners, and Disciples".
+            accepts: &[
+                ObjectKind::Recruit,
+                ObjectKind::Militant,
+                ObjectKind::Gunner,
+                ObjectKind::Disciple,
+            ],
+        }),
+        occupants_fire: Some(OccupantFire {
+            // `> Garrisoning > Weapons`: "a Recruit or Disciple inside attacks with the Militant's AttackAttributes
+            // (see Militant); Militants and Gunners use their own AttackAttributes".
+            stand_in: &[
+                (ObjectKind::Recruit, ObjectKind::Militant),
+                (ObjectKind::Disciple, ObjectKind::Militant),
+            ],
+            // `> Garrisoning > Range bonus`: "**Militants and Gunners** inside get **+1 grid unit of Range** on their
+            // attack".
+            range_bonus_gu: 1.0,
+            bonus_for: &[ObjectKind::Militant, ObjectKind::Gunner],
+        }),
     }),
     default_settings: None,
 };
@@ -78,8 +108,10 @@ mod tests {
     use crate::defs::cults::tests::assert_structure;
 
     /// 2×2, AAAB, MaxHP 400, PointArmor 2, FullArmor 8 (the building armour rule's n = 2), SightRange 6, Groupable,
-    /// behind an Armory; it holds no one yet. Recruits will build it from outside for 150 Space Crystals in 400 frames
-    /// with one of them, from 10% HP.
+    /// behind an Armory, with no attack of its own. Recruits build it from outside for 150 Space Crystals in 400 frames
+    /// with one of them, from 10% HP. It holds 4 Recruits, Militants, Gunners and Disciples, in and out at its one
+    /// door, B, everyone out at once; Recruits and Disciples inside fire the Militant's attack, Militants and Gunners
+    /// their own with +1 grid unit of Range.
     #[test]
     fn the_garrison_follows_the_design() {
         let structure = assert_structure(
@@ -94,8 +126,33 @@ mod tests {
         assert_eq!(ObjectKind::Garrison.def().name, "Garrison");
         assert_eq!(structure.requires, [ObjectKind::Armory], "TechPrerequisite: an Armory");
         assert_eq!(
-            (structure.production, structure.drop_off, structure.holds),
+            (structure.production, structure.drop_off, structure.attack),
             (None, None, None)
+        );
+        let holds = structure.holds.expect("Infantry enter the Garrison");
+        assert_eq!(
+            (holds.entrance, holds.exit, holds.capacity),
+            (SideLetter::B, ExitRule::AtOnce(SideLetter::B), 4),
+            "one door, entrance and exit, on side B; GarrisonCapacity - 4 units"
+        );
+        let infantry = [
+            ObjectKind::Recruit,
+            ObjectKind::Militant,
+            ObjectKind::Gunner,
+            ObjectKind::Disciple,
+        ];
+        assert_eq!(holds.accepts, infantry);
+        let fire = structure.occupants_fire.expect("its occupants fire");
+        let weapons = infantry.map(|kind| (fire.weapon_kind(kind), fire.range_bonus(kind)));
+        assert_eq!(
+            weapons,
+            [
+                (ObjectKind::Militant, 0.0),
+                (ObjectKind::Militant, 1.0),
+                (ObjectKind::Gunner, 1.0),
+                (ObjectKind::Militant, 0.0)
+            ],
+            "Recruits and Disciples fire as Militants, without the bonus"
         );
         let site = structure.site.expect("Recruits build it");
         assert_eq!(

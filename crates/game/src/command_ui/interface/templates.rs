@@ -9,8 +9,8 @@
 //! object that transforms shows only its Cancel ([`colonists`], slices M3-J1 and M3-J2). The Syndicate's Tunnel opens
 //! its EjectMenu ([`syndicate`], slice M4-J2), and its Agent builds Tunnels (slice M4-J1). The Cults' pool buildings,
 //! the Armory first, open a menu per kind of Recruit ([`cults`], slice M5-F2), and the Recruit two Construct menus
-//! built the same way, their entries the group's Builds (slice M5-J1). An entry not in the game yet holds its slot,
-//! unavailable ([`Planned`]).
+//! built the same way, their entries the group's Builds (slice M5-J1); the Garrison lets everyone out (slice M5-N2).
+//! An entry not in the game yet holds its slot, unavailable ([`Planned`]).
 
 pub mod colonists;
 pub mod cults;
@@ -92,6 +92,10 @@ pub enum InterfaceTemplate {
     /// right-click (`factions/cults/units/recruit.md > Right-Click Resolution`: Gather, Drop Off, Enter, Assist,
     /// Repair, Attack, Move) is the sim's one rule, as every unit's.
     Recruit,
+    /// (M5-N2) `factions/cults/structures/garrison.md > Placeholder stats > Panel`: "**A: Eject All** (everyone inside
+    /// leaves); **X: Cancel construction** while being built" ([`cults::garrison`]; X is its site's, [`SITE_GRID`]).
+    /// "Right-click resolution: none (it has no rally point)".
+    Garrison,
 }
 
 /// The Deployment Center's build menus (`factions/gdo/structures/deployment_center.md >
@@ -203,6 +207,7 @@ impl InterfaceTemplate {
             InterfaceTemplate::Agent => syndicate::agent::GRID,
             InterfaceTemplate::PoolProducer => cults::armory::GRID,
             InterfaceTemplate::Recruit => cults::recruit::GRID,
+            InterfaceTemplate::Garrison => cults::garrison::GRID,
         }
     }
 }

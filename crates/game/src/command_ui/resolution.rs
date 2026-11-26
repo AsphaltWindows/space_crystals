@@ -213,13 +213,16 @@ pub fn object_right_click(object: UnitCapabilities, target: &MapTarget) -> Optio
         Some(InterfaceTemplate::Production | InterfaceTemplate::PoolProducer) => {
             Some(Resolved::Rally(rally_target(target)))
         }
-        // A constructor produces no units, and the Beacon, the Egress Node and the Tunnel have no right-click.
+        // A constructor produces no units, and the Beacon, the Egress Node and the Tunnel have no right-click, nor has
+        // the Garrison (`factions/cults/structures/garrison.md > Placeholder stats > Panel`: "Right-click resolution:
+        // none (it has no rally point)", slice M5-N2).
         Some(
             InterfaceTemplate::DeploymentCenter
             | InterfaceTemplate::ExtractionFacility
             | InterfaceTemplate::Beacon
             | InterfaceTemplate::EgressNode
-            | InterfaceTemplate::Tunnel,
+            | InterfaceTemplate::Tunnel
+            | InterfaceTemplate::Garrison,
         ) => None,
         // A unit's default command, by the sim's one rule: the BasicCombatUnit's table, the Drone's own
         // (`factions/colonists/units/drone.md > Right-Click Resolution`; slices M3-R and M3-J2) and the Agent's

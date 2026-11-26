@@ -7,6 +7,7 @@ mod agents_perf;
 mod attack_move_perf;
 mod behaviours_perf;
 mod drones_perf;
+mod garrisons_perf;
 mod holding_perf;
 mod movement_perf;
 #[path = "nav_perf/main.rs"]

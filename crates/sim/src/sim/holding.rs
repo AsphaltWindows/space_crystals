@@ -18,6 +18,10 @@
 //!   (`Sim::train`), and each goes to the building's RallyPoint ("ejected and released units walk **to the
 //!   RallyPoint**, like trained units"), or straight out of the exit side without one (`core/entities.md > Structure
 //!   Type > Exit Doorway` 2).
+//! - **At once** (slice M5-N2; `factions/cults/structures/garrison.md > Placeholder stats > Leaving`: "units leave
+//!   **through the door**; on **Eject All** they all come out **at once**, ignoring collision with each other until
+//!   they are clear of the footprint"): a building with one door (`ExitRule::AtOnce`, the Garrison's) lets every unit
+//!   ready to leave out together, once its doorway is free ([`Sim::let_all_out`]).
 
 mod evacuation;
 
@@ -28,7 +32,7 @@ use glam::Vec2;
 use super::Sim;
 use super::gate::Checked;
 use crate::command::HoldCommand;
-use crate::defs::ObjectKind;
+use crate::defs::{ExitRule, ObjectKind};
 use crate::events::SimEvent;
 use crate::holding;
 use crate::ids::{ObjectId, PlayerId};
@@ -129,9 +133,9 @@ impl Sim {
     /// The buildings' step of the economy phase (`sim/phase.rs`): each building with units ready to leave inside
     /// (`Held::leaving`: ejected, or the unit of a finished entry, `Sim::ready_to_leave`), in id order, lets the one
     /// ready first out into its exit doorway if the doorway is free ([`Sim::let_out`]): "in the order they are ready"
-    /// (design change 0348), ties by the longest inside, then by id. After the producers, whose finished entries make
-    /// their units ready in the same tick, and after 5d, so that a unit never moves in the tick it appears; before 5f,
-    /// so that it is seen in it.
+    /// (design change 0348), ties by the longest inside, then by id; a building with one door lets them all out at
+    /// once ([`Sim::let_all_out`]). After the producers, whose finished entries make their units ready in the same
+    /// tick, and after 5d, so that a unit never moves in the tick it appears; before 5f, so that it is seen in it.
     pub(in crate::sim) fn step_holding(&mut self) {
         if self.held.is_empty() {
             return;
@@ -144,7 +148,37 @@ impl Sim {
             }
         }
         for (building, (.., unit)) in first {
-            self.let_out(building, unit);
+            // A building with one door produces nothing (`defs_are_consistent`): its exit is its holding's.
+            match self.objects.get(&building).and_then(holding::holds) {
+                Some(holds) if matches!(holds.exit, ExitRule::AtOnce(_)) => self.let_all_out(building),
+                _ => self.let_out(building, unit),
+            }
+        }
+    }
+
+    /// (M5-N2) Every unit ready to leave `building`, a building with one door (`ExitRule::AtOnce`, the Garrison's),
+    /// comes out at once (module docs), as it is, each with a `SimEvent::LeftBuilding`, in the order of the pool
+    /// (`Sim::held_in`): once the doorway is free, each at the spot the doorway has for it, as one unit let out alone
+    /// would be ([`Sim::release_held`]), all spots found before any of them appears, so that they don't see each
+    /// other. They stand there together, overlapping, and pass through each other as they walk straight out of the
+    /// door (`systems/units.md > UnitCollision > Units that already overlap`: they ignore each other until
+    /// separated; `core/entities.md > Structure Type > Exit Doorway` 2, with no rally point: the Garrison has none),
+    /// idle; out of the footprint, they part as idle units that overlap do (`movement::separate`). A unit the doorway
+    /// has no spot for stays inside, ready, until the doorway is free again. **Reading of the design**: "through the
+    /// door" is the one spot an exit doorway puts a unit at, "half inside the building, at the middle of the exit side"
+    /// (`core/entities.md > Structure Type > Exit Doorway` 1), for all of them.
+    fn let_all_out(&mut self, building: ObjectId) {
+        let ready: Vec<ObjectId> = (self.held_in(building).into_iter())
+            .filter(|held| held.leaving.is_some())
+            .map(|held| held.object.id)
+            .collect();
+        let spots: Vec<(ObjectId, Spot)> = (ready.into_iter())
+            .filter_map(|unit| Some((unit, self.held_spot(building, unit, None, None)?)))
+            .collect();
+        for (unit, spot) in spots {
+            if self.come_out(building, unit, spot) {
+                self.events.push(SimEvent::LeftBuilding { unit, building });
+            }
         }
     }
 
@@ -202,18 +236,28 @@ impl Sim {
         becomes: Option<ObjectKind>,
         rally: Option<Rally>,
     ) -> bool {
-        let Some(o) = self.objects.get(&building) else {
-            return false;
-        };
+        self.held_spot(building, unit, becomes, rally)
+            .is_some_and(|spot| self.come_out(building, unit, spot))
+    }
+
+    /// Where unit `unit`, held in `building`, would come out now ([`Sim::release_held`]): the spot of the first door
+    /// in their order toward `rally` that is free and has one, for a unit of kind `becomes` if it comes out as one.
+    /// `None` while there is none: it waits inside.
+    fn held_spot(
+        &self,
+        building: ObjectId,
+        unit: ObjectId,
+        becomes: Option<ObjectKind>,
+        rally: Option<Rally>,
+    ) -> Option<Spot> {
+        let o = self.objects.get(&building)?;
         let (Some(ExitDoor::Side(doorway)), centre) = (ExitDoor::of(o), o.pos) else {
-            return false;
+            return None;
         };
-        let Some(held) = (self.held.get(&unit)).filter(|held| held.place == Place::Building(building)) else {
-            return false;
-        };
+        let held = (self.held.get(&unit)).filter(|held| held.place == Place::Building(building))?;
         let def = becomes.unwrap_or(held.object.kind).def();
         let (Some(unit_def), Some(half)) = (&def.unit, def.half_extents()) else {
-            return false;
+            return None;
         };
         // The units this building let out that are still in its doorway, each keeping its door occupied.
         let released: Vec<Vec2> = (self.objects.values())
@@ -223,17 +267,35 @@ impl Sim {
         let free = |door: &Door| released.iter().all(|&pos| doorway.door_at(pos) != *door);
         let toward = rally.map(|rally| rally.point() - centre);
         let mut doors = doorway.order(toward).filter(free);
-        let Some((door, pos)) = doors.find_map(|door| Some((door, self.doorway_spot(&door, unit_def, half)?))) else {
-            return false;
-        };
-        if !self.put_on_map(unit, pos, door.outward()) {
+        let (door, pos) = doors.find_map(|door| Some((door, self.doorway_spot(&door, unit_def, half)?)))?;
+        Some(Spot {
+            pos,
+            outward: door.outward(),
+            in_doorway: doorway.holds(pos, half),
+        })
+    }
+
+    /// Unit `unit`, held in `building`, comes out at `spot`, facing out of its door, in the doorway's exception while it
+    /// overlaps the footprint (`Mover::exit`). Returns whether it came out.
+    fn come_out(&mut self, building: ObjectId, unit: ObjectId, spot: Spot) -> bool {
+        if !self.put_on_map(unit, spot.pos, spot.outward) {
             return false;
         }
         if let Some(mover) = self.objects.get_mut(&unit).and_then(|o| o.mover.as_mut()) {
-            mover.exit = doorway.holds(pos, half).then_some(building);
+            mover.exit = spot.in_doorway.then_some(building);
         }
         true
     }
+}
+
+/// Where a held unit comes out of its building's exit doorway ([`Sim::release_held`]).
+#[derive(Copy, Clone, Debug, PartialEq)]
+struct Spot {
+    pos: Vec2,
+    /// Out of its door, which it faces.
+    outward: Vec2,
+    /// Its box overlaps the footprint there: it is in the doorway.
+    in_doorway: bool,
 }
 
 #[cfg(test)]

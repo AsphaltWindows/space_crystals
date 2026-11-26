@@ -55,6 +55,7 @@ pub(crate) static CHEMICAL_PLANT: ObjectDef = ObjectDef {
         attack: None,
         popup: None,
         holds: None,
+        occupants_fire: None,
     }),
     default_settings: None,
 };

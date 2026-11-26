@@ -63,6 +63,7 @@ pub(crate) static LASER_TURRET: ObjectDef = ObjectDef {
         attack: Some(LASER_TURRET_ATTACK),
         popup: Some(LASER_TURRET_POPUP),
         holds: None,
+        occupants_fire: None,
     }),
     default_settings: None,
 };

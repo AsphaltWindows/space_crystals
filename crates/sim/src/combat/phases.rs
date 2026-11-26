@@ -87,6 +87,9 @@ pub(super) struct Shooter<'a> {
     source: Source,
     /// Its owner's vision as of the end of the last tick; `None` for a unit without an owner, which sees nothing.
     sight: Option<&'a PlayerVision>,
+    /// (M5-N2) It is a unit firing from inside a building (`super::occupants`): its shots leave from the footprint's
+    /// edge ([`Shooter::muzzle`]).
+    inside: bool,
 }
 
 impl<'a> Shooter<'a> {
@@ -112,6 +115,46 @@ impl<'a> Shooter<'a> {
             turn_left: unit.map_or(f32::INFINITY, |unit| movement::turn_rate(&unit.movement) - turned),
             source: Source::of(unit),
             sight,
+            inside: false,
+        }
+    }
+
+    /// (M5-N2) Unit `id`, held inside `building`, firing from it with `attrs` (`super::occupants`, plan decision T72:
+    /// "Its `Shooter` is built from the Garrison: its footprint shape, elevation, owner and vision"): `building`'s
+    /// footprint and elevation, its owner and its owner's vision `sight`, firing in any direction as a structure does.
+    /// Its hits and its events name the unit.
+    pub(super) fn occupant(
+        map: &'a Map,
+        building: &Object,
+        id: ObjectId,
+        attrs: &'a AttackAttrs,
+        sight: Option<&'a PlayerVision>,
+    ) -> Self {
+        Self {
+            id,
+            owner: building.owner,
+            pos: building.pos,
+            shape: Shape::of(building),
+            elevation: Elevation::of_object(map, building),
+            map,
+            attrs,
+            turn_left: f32::INFINITY,
+            source: Source::Structure,
+            sight,
+            inside: true,
+        }
+    }
+
+    /// Where its shot at the point `at` leaves from: its centre (`Shooter::pos`), the Laser Turret's too; (M5-N2) for a
+    /// unit firing from inside a building, the point of the footprint's edge nearest `at` (plan decision T72: "shots
+    /// start from the footprint's edge nearest the target"). Its drawn path starts there (`SimEvent::Attacked::from`),
+    /// a projectile's flight too, and the side of a target with directional armour it hits is the one facing it.
+    pub(super) fn muzzle(&self, at: Vec2) -> Vec2 {
+        if self.inside {
+            let (lo, hi) = self.shape.bounds();
+            at.clamp(lo, hi)
+        } else {
+            self.pos
         }
     }
 
