@@ -149,6 +149,18 @@
 > - **J1 is split:** the Recruitment Area display (0350–0352, and Q0107's "a selected own Hall shows its claims")
 >   becomes **J2** (Opus, after J1, the same placement files). J1 keeps the panel, the menus, placement, the
 >   right-click and the pointers, plus 0341 point 1.
+> - **0362–0365:**
+>   - **J1** folds in 0362: the site waits for its own Recruits to step off the footprint.
+>   - **New slice N10, the Hand of Heaven** (Opus, after N6 and V1), with 0363's numbers. It is the tracked missile
+>     platform of 0361: a narrow turret (20° at 4°/f), a DoublyDisjointed area missile with the siege profile,
+>     MinRange 4, 3 Recruits from the Chop Shop's pool, and a reveal on landing.
+>   - **New slice N11, the Prayer-mobile** (Opus, after N6, V2, N3 and K), with 0365's numbers. It is a wheeled caster
+>     with N4a's energy pool:
+>     - **Inspire,** a timed buff to speed and attack speed that stacks with augmentation;
+>     - **Suppress,** an attack-disable status in a 90° arc along its facing. It blocks firing under K's Target Lock
+>       without breaking the lock.
+>   - **0364 renames the Jackal to the Seeker.** Read "Jackal" in these plans as the Seeker.
+>   - **N10 and N11 add about one wave,** so the full-Cults playtest moves to about the end of W14.
 > - **The waves after these additions** (a sketch; the binding rule is each slice's "after"):
 >   - W4: J1, Y and F3;
 >   - W5: L, U1 and G2;
