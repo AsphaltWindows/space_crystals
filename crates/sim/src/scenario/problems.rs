@@ -7,7 +7,6 @@ use glam::Vec2;
 use super::create::MAX_SLOTS;
 use super::generate::Asymmetry;
 use super::settings::SettingsProblem;
-use super::starting::StartingConditions;
 use crate::defs::ObjectKind;
 use crate::ids::{PlayerId, SlotId};
 use crate::placement::{PlacementCheck, TileProblem, WholeProblem};
@@ -77,8 +76,8 @@ pub enum ScenarioProblem {
     },
     /// `core/map_editor.md > Skirmish Default restriction` (design changes 0009, 0012): on a Skirmish Default map,
     /// object `index` of a slot's layout for `faction` is beyond the faction's Starting Conditions, which hold
-    /// `allowed` objects of its kind: 0 for a kind they don't hold, and for a faction whose Starting Conditions aren't
-    /// implemented yet (plan decision T11). Of more objects of a kind than allowed, the later ones are reported.
+    /// `allowed` objects of its kind: 0 for a kind they don't hold. Of more objects of a kind than allowed, the later
+    /// ones are reported.
     LayoutExtra {
         slot: SlotId,
         faction: Faction,
@@ -88,7 +87,7 @@ pub enum ScenarioProblem {
     },
     /// `core/map_editor.md > Skirmish Default restriction`: on a Skirmish Default map, a slot's layout for `faction`
     /// lacks `missing` objects of `kind` of the faction's Starting Conditions, and the map can't be played until it is
-    /// complete. Only implemented factions' layouts are checked (plan decision T11).
+    /// complete. Every faction's layouts are checked (plan decision T63).
     LayoutMissing {
         slot: SlotId,
         faction: Faction,
@@ -291,17 +290,12 @@ impl fmt::Display for ScenarioProblem {
                 allowed,
             } => {
                 write!(f, "slot {} {faction:?} layout object {index} ({kind:?}): ", slot.0)?;
-                match (StartingConditions::of(*faction), allowed) {
-                    (None, _) => write!(
-                        f,
-                        "the {faction:?} Starting Conditions aren't implemented yet: a Skirmish Default layout of \
-                         the faction stays empty"
-                    ),
-                    (Some(_), 0) => write!(
+                match allowed {
+                    0 => write!(
                         f,
                         "not in the {faction:?} Starting Conditions: a Skirmish Default layout holds only those"
                     ),
-                    (Some(_), n) => write!(
+                    n => write!(
                         f,
                         "beyond the {n} of the {faction:?} Starting Conditions: a Skirmish Default layout holds only \
                          those"

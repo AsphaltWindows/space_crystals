@@ -72,7 +72,7 @@ Index of the design docs. Paths are relative to this folder.
 | `factions/syndicate/structures/null_chamber.md` | Exit buff for manned units |
 | `factions/syndicate/structures/aerospace_assembly.md` | Aircraft and satellite production (Tier 3) |
 | `factions/syndicate/structures/orbital_command.md` | Orbital coordination; Prism prerequisite (Tier 3) |
-| `factions/syndicate/structures/laser_turret.md` | Upright / pop-up defensive turret |
+| `factions/syndicate/structures/laser_turret.md` | Pop-up defensive turret, built by Tunnels; goes neutral with its Tunnel |
 | `factions/syndicate/units/README.md` | Shared rules (red lasers); index of Syndicate units |
 | `factions/syndicate/units/agent.md` | Worker: pistol, crystal/Supplies gathering, building (Tunnel Construction Flow) |
 | `factions/syndicate/units/guard.md` | Basic laser infantry, ground+air (Optics Lab) |

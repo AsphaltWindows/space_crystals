@@ -71,6 +71,60 @@
 >   - N1a builds the accessors on the owner's levels (none until N3, so L0 amounts), and N3 applies the HP rule as a
 >     level completes.
 >   - **N5:** the Shrine is ABAC, in at B and out at C, one at a time. T72's nearest-side entrance is no longer used.
+> - **0337** (kinds and Release; `factions/cults/structures/README.md > Choosing Recruits, Release and Eject All`):
+>   - **F2 builds** the kinds (Plain, Constitution, Metabolism, Both), the two-step panel and the `Release` order. T70's
+>     `QueueEntry` enum (`Unit`, `Release`) moves into F2, so N1b adds only `Augment`, and N3 `Research`. T73's
+>     `Object::augmentation` (two booleans) also moves into F2, without effects, since the kinds need it; N1a adds the
+>     accessors.
+>   - **Reservations** take the first in within the order's kind. Eject All skips reserved units.
+>   - **N4a, N6 and N7** reuse the kind pick: the Chop Shop and Airstrip pick a kind too, and a Jackal takes 2 Recruits
+>     of it. **N1b:** Release in every Altar menu, and the "Fully augmented" tile is enabled with Release only.
+>     **N3, G2 and N5:** A/S/D/F each send out one Recruit of a kind at once, with no queue, and V is Eject All.
+> - **0338:** every Cults stat upgrade applies to existing units. T67's "locked levels" go, so G2, N3 and the Machine
+>   Shop's research keep no "trained after" bookkeeping. The DrillUnit steps sideways (M4-W3 built it).
+> - **0339 and 0340** answer Q0097 and Q0098 and are folded into E, which is running. **N8's Repair** reuses E's
+>   Recruit-frame count and its closest-part spots.
+> - **0341** answers Q0099. F2 takes points 2–5 (capacity rounded down; same-tick ties by the nearer Hall centre).
+>   **J1** takes point 1: a Hall whose area would leave the map can't be placed, in the sim, on the ghost, and in the
+>   editor's layout check.
+> - **0342** answers Q0100: the Hall is AAAB with its exit on B, has no X, counts the Recruit in production toward
+>   local usage, and restarts production from 0. F2 makes the change. **J1** rotates the Hall's ghost at placement.
+> - **0343** answers Q0129 with (a), as built. **0344** (Q0101): the global figure is display only (F2 drops the
+>   marks).
+> - **0345 and 0346, for L:**
+>   - **0345** (Q0102): the Storage rule is as D built it. L drops the marks and tests the Verification.
+>   - **0346** (Q0103): L's oracle compares edge to edge, at ±15%, with one Storage per face for the ideal.
+>   - **0346's second scenario** is the user's build line: one Storage; save for a second Hall with no extra Storages,
+>     sending the new Recruits to farther patches; build the Hall with every non-optimal Recruit; then a Storage per
+>     face. It is measured against the GDO and the Colonists at 1:30 and 2:48.
+>   - L reports the second scenario's numbers without a target, and chooses the second Hall's place and the far
+>     Recruits' patches.
+> - **0347–0349, entering, leaving and evacuation (Q0104–Q0106):**
+>   - **F2 takes 0347 point 5:** the capacity counts reserved units, so a pool building's queue never exceeds its
+>     capacity. The Armory's separate 20 goes, and T70's per-def limits for the pool buildings with it. F2 also takes
+>     the load lost on training (point 3) and 0348 (the Armory Ungroupable; the rally and ready order confirmed).
+>   - **New slice F3, holding (Opus, after F2, before N2):** it builds 0347 points 1, 2 and 4 and 0349 once, for every
+>     building that holds units:
+>     - a dedicated entrance doorway at the middle of the entrance side, replacing F1's whole-side entry;
+>     - a full building ends the Enter, and the unit idles beside it;
+>     - sites can't be entered;
+>     - **evacuation inside the footprint:** everyone appears at once on the former footprint and the overlap rule
+>       separates them (`systems/units.md`, units that already overlap); a finished unit comes out trained, with no
+>       refund; they idle. This replaces F1's ring search (T62) for evacuation, though the spots stay for
+>       everything else.
+>   - **N2's Garrison** reuses F3's evacuation. **N1b, N4a, N6 and N7** set Groupable false (0348).
+> - **0350–0352 (Q0107), for J1:** the Hall's placement preview shows the area, the claimable, own-claimed and
+>   non-Recruitable tiles, and the Effectiveness %. The claims of enemy Halls that are visible or remembered (the
+>   player's memory, never the true state) count as unclaimable. Own Halls under construction and placed ghosts are
+>   claimants in placement order (display only). A selected own Hall shows its claims.
+> - **0353 (Q0119), for V2 and N6:** an idle vehicle doesn't yield; own idle infantry yield to vehicles; vehicles reverse
+>   only on W; a point inside the turning circle is reached by a forward loop.
+> - **0354 and 0355 (Q0120), for H1 and N7:**
+>   - **H1:** no cap on overshooting the map edge; strafing flies on out of range, then loops back at full speed;
+>     Stop circles in place, and Hold circles without chasing; the idle circle is a fixed 1 GU at IdleSpeed²/64.
+>   - **N7:** takeoff at IdleSpeed, speeding up along the runway; with no rally, the Sparrow circles 2 GU past the
+>     C end.
+>   - **G2 (or H1):** the Sparrow's MaxCentripetalAcceleration is 0.5 su/frame².
 > - **The waves (§C) stand,** but the playtest's timing is the user's call: the full Cults at the end of W12, or a
 >   first playtest of the infantry core at the end of W9 (§F), put to the user on 2026-11-25.
 

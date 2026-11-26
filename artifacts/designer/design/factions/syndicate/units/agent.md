@@ -103,13 +103,10 @@ Rationale (user, 2026-11-26; replaces the 5 s mining rationale): the drop-off ti
 
 ## Agent ObjectInterfaceState
 
-**Panel letters (4x3 grid)** (user, 2026-11-25; Q0068, "fine for now"): **Q** Move, **A** Construct (a menu: Tunnel or Laser Turret; user, 2026-11-26), **S** Drop Off Resources, **D** Repair (2026-11-26, matching the Recruit's panel), **X** Stop. No Attack, Hold Position, Patrol or AttackMove buttons; the Agent attacks by right-click. These letters replace the older ones listed below where they differ.
+**Panel letters (4x3 grid)** (user, 2026-11-25; Q0068, "fine for now"): **Q** Move, **A** Build Tunnel (user, 2026-11-26: Agents no longer build Laser Turrets, so the Construct menu of 0326 is reverted), **S** Drop Off Resources, **D** Repair (2026-11-26, matching the Recruit's panel), **X** Stop. No Attack, Hold Position, Patrol or AttackMove buttons; the Agent attacks by right-click. These letters replace the older ones listed below where they differ.
 
 ### DefaultState commands:
-- **A: Construct** — enters ConstructMenu (StateOnlyTransition; user, 2026-11-26, a separate construct menu as for Recruits):
-  - **Q: Tunnel** — enters AwaitingPlacement for a Tunnel (StateOnlyTransition). Ghost preview follows cursor, snapped to grid. Tinted green when valid, red when invalid. R rotates 90° clockwise, Shift+R counter-clockwise. F flips horizontally, Shift+F flips vertically. Left-click valid location confirms placement and dispatches the Agent (CommandIssuingTransition, returns to DefaultState). Escape/right-click cancels back to DefaultState.
-  - **W: Laser Turret** — enters AwaitingPlacement for a Laser Turret (StateOnlyTransition), same placement flow as Tunnel. Left-click a valid location confirms placement and dispatches the Agent (CommandIssuingTransition, returns to DefaultState). Visible but greyed out until the player owns an Optics Lab. Greyed until available.
-  - **Z**: back to DefaultState.
+- **A: Build Tunnel** — enters AwaitingPlacement for a Tunnel (StateOnlyTransition). Ghost preview follows cursor, snapped to grid. Tinted green when valid, red when invalid. R rotates 90° clockwise, Shift+R counter-clockwise. F flips horizontally, Shift+F flips vertically. Left-click valid location confirms placement and dispatches the Agent (CommandIssuingTransition, returns to DefaultState). Escape/right-click cancels back to DefaultState.
 - **S: Drop Off Resources** (letters per Panel letters above) — targeted command (CommandIssuingTransition). Requires clicking an own Tunnel. Agent walks to the appropriate side automatically (Side B for crystals, Side D for supplies). Always visible, greyed out when Agent is not carrying resources.
 - **D: Repair** — targeted command (StateOnlyTransition). Left-click a damaged own Tunnel or Laser Turret to repair it (see Repair).
 
@@ -120,7 +117,7 @@ Rationale (user, 2026-11-26; replaces the 5 s mining rationale): the drop-off ti
 - **Enter** — right-click own Tunnel (when not carrying resources)
 - **Gather** — right-click Space Crystals patch or Supply Delivery Station
 - **Drop Off Resources** — right-click own Tunnel (when carrying resources), or via panel button S
-- **Build Tunnel / Build Laser Turret** — via panel button A (Construct), then Q / W
+- **Build Tunnel** — via panel button A
 
 ### Right-Click Resolution:
 - Space Crystals patch → Gather crystals

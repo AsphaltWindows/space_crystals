@@ -99,10 +99,10 @@ impl Plugin for GameCameraPlugin {
 }
 
 /// `core/camera.md > Starting Position`: the map's starting camera position for the local player's slot, else the
-/// player's primary starting structure (the GDO's Deployment Center), where their Starting Layout places it
-/// ([`Scenario::primary_structure`]). A player without one (a faction whose Starting Conditions aren't implemented
-/// yet, or a layout without it) starts at their slot's start position, and a player the setup doesn't have (or
-/// whose slot the map lacks) at the map center. A ground point: the camera centers on its [`start_view`].
+/// player's primary starting structure (the GDO's Deployment Center, the Syndicate's Tunnel, the Cults' Recruitment
+/// Hall, the Colonists' Robo Portal), where their Starting Layout places it ([`Scenario::primary_structure`]). A player
+/// whose layout lacks it (a Custom map's may) starts at their slot's start position, and a player the setup doesn't
+/// have (or whose slot the map lacks) at the map center. A ground point: the camera centers on its [`start_view`].
 pub fn start_center(scenario: &Scenario, player: PlayerId, map: &Map) -> Vec2 {
     let slot = scenario.setup.player(player).and_then(|p| scenario.map.slot(p.slot));
     match (slot.and_then(|s| s.camera_start), scenario.primary_structure(player)) {

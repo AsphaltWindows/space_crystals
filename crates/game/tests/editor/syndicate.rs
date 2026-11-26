@@ -17,6 +17,7 @@ use space_crystals::editor::ui::lists::ProblemList;
 use space_crystals::editor::ui::starting::LayoutPanel;
 
 use super::colonists::with_colonists;
+use super::cults::with_cults;
 use super::layouts::{click, laid, skirmish, spot, texts_under, with_patches};
 use super::{act, assert_warned, doc, editor, sim, temp_maps, tools};
 
@@ -63,12 +64,13 @@ pub(super) fn with_syndicate(mut map: MapDef) -> MapDef {
 }
 
 /// The map of the Colonists' layout test (a 32 × 24 Skirmish Default map turned 180°, patches on (3, 3) and (4, 3)),
-/// the GDO's and the Colonists' layouts done, and a column of Water on x = 2 from y = 12 to 20, with their images.
+/// the GDO's, the Colonists' and the Cults' layouts done, and a column of Water on x = 2 from y = 12 to 20, with
+/// their images.
 fn syndicate_test_map() -> MapDef {
-    let mut map = with_colonists(with_patches(
+    let mut map = with_cults(with_colonists(with_patches(
         skirmish(32, 24, 2, Symmetry::Rotate180),
         &[(3, 3), (4, 3)],
-    ));
+    )));
     *map.slot_mut(S1).unwrap().layouts.get_mut(Faction::Gdo) = vec![
         laid(ObjectKind::DeploymentCenter, 2, 6, UNTURNED),
         laid(ObjectKind::ExtractionFacility, 7, 6, UNTURNED),

@@ -118,12 +118,13 @@ pub fn dev_skirmish() -> Scenario {
 /// top-left and bottom-right corners, each with an 8-patch crystal field (`factions/gdo/economy.md > Reference
 /// starting base`) between the start and the map edge, a GDO Starting Layout (Deployment Center, Extraction
 /// Facility and two plates) whose Deployment Center sees and reaches the whole field, a Colonists one (Egress
-/// Node, Robo Portal and four Drones) whose Egress Node stands within the field's arc, and a Syndicate one (Tunnel,
-/// Hideout and Agent) whose Tunnel's crystal hatch faces the field. Terrain (`core/map.md > Elevation`): a lake and a
-/// mountain
-/// massif on each side, rugged ground on the flanks, a gentle hill of slopes only on each side, and a central
-/// plateau 3 levels up ringed by cliffs, reached only by a slope through a 2-tile gap in the west and in the east
-/// (the chokepoints). A Supply Delivery Station stands on the plateau, in the middle of the map.
+/// Node, Robo Portal and four Drones) whose Egress Node stands within the field's arc, a Syndicate one (Tunnel,
+/// Hideout and Agent) whose Tunnel's crystal hatch faces the field, and a Cults one (Recruitment Hall, Storage and six
+/// Recruits) whose Storage stands a tile from the field and whose Hall's area is wholly its own. Terrain
+/// (`core/map.md > Elevation`): a lake and a mountain massif on each side, rugged ground on the flanks, a gentle hill
+/// of slopes only on each side, and a central plateau 3 levels up ringed by cliffs, reached only by a slope through a
+/// 2-tile gap in the west and in the east (the chokepoints). A Supply Delivery Station stands on the plateau, in the
+/// middle of the map.
 pub fn dev_skirmish_map() -> MapDef {
     let (w, h) = (64, 48);
     let mut map = Map::new(w, h);
@@ -248,6 +249,33 @@ pub fn dev_skirmish_map() -> MapDef {
             at: SpawnAt::Point(glam::Vec2::new(8.0, 11.5) * SU_PER_GU),
             orientation: BuildingOrientation::default(),
         },
+    ];
+    // The first slot's Cults Starting Layout (`factions/cults/economy.md > Starting Conditions`; slice M5-B, the second
+    // slot's is its image). The Storage on (5, 4) to (6, 5), a 1-tile gap from five of the field's patches, (3, 3) and
+    // the northern row (`factions/cults/economy.md > Storage`: "The best layout leaves a 1-tile gap between patch and
+    // Storage"), and 2 tiles from the western column. The Recruitment Hall on (8, 8) to (11, 11), from the slot's start,
+    // off the Storage and the field: its Recruitment Area, (5, 5) to (14, 14), is all on the map, Plane (Recruitable,
+    // `factions/cults/economy.md > RecruitmentHall > Effectiveness`: "balancing starts from the assumption that the
+    // whole map is Recruitable") and far from the other slot's, so the Hall starts at 100% effectiveness. The six
+    // Recruits beside the Storage, south of it, in two rows of three 1 grid unit apart around (6, 7.5) grid units,
+    // clear of the Hall and of the door in the middle of its side B, the west side, which its Recruits come out of
+    // (design change 0342: "the exit on B"), with open ground in front of it as far as the field's western column.
+    // They stand on the unit-start rule's open ground (`docs/movement.md > 3`). No camera start: the camera starts on
+    // the Hall (`core/camera.md > Starting Position`: "Cults: starting Recruitment Hall").
+    let recruit = |x: f32, y: f32| LayoutObject {
+        kind: ObjectKind::Recruit,
+        at: SpawnAt::Point(glam::Vec2::new(x, y) * SU_PER_GU),
+        orientation: BuildingOrientation::default(),
+    };
+    *slot.layouts.get_mut(Faction::Cults) = vec![
+        laid(ObjectKind::RecruitmentHall, 8, 8),
+        laid(ObjectKind::Storage, 5, 4),
+        recruit(5.0, 7.0),
+        recruit(6.0, 7.0),
+        recruit(7.0, 7.0),
+        recruit(5.0, 8.0),
+        recruit(6.0, 8.0),
+        recruit(7.0, 8.0),
     ];
 
     let mut dev = MapDef {

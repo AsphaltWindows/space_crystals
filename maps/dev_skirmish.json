@@ -188,7 +188,80 @@
             }
           }
         ],
-        "Cults": [],
+        "Cults": [
+          {
+            "kind": "RecruitmentHall",
+            "at": {
+              "Tile": {
+                "x": 8,
+                "y": 8
+              }
+            }
+          },
+          {
+            "kind": "Storage",
+            "at": {
+              "Tile": {
+                "x": 5,
+                "y": 4
+              }
+            }
+          },
+          {
+            "kind": "Recruit",
+            "at": {
+              "Point": [
+                320.0,
+                448.0
+              ]
+            }
+          },
+          {
+            "kind": "Recruit",
+            "at": {
+              "Point": [
+                384.0,
+                448.0
+              ]
+            }
+          },
+          {
+            "kind": "Recruit",
+            "at": {
+              "Point": [
+                448.0,
+                448.0
+              ]
+            }
+          },
+          {
+            "kind": "Recruit",
+            "at": {
+              "Point": [
+                320.0,
+                512.0
+              ]
+            }
+          },
+          {
+            "kind": "Recruit",
+            "at": {
+              "Point": [
+                384.0,
+                512.0
+              ]
+            }
+          },
+          {
+            "kind": "Recruit",
+            "at": {
+              "Point": [
+                448.0,
+                512.0
+              ]
+            }
+          }
+        ],
         "Colonists": [
           {
             "kind": "EgressNode",
@@ -346,7 +419,90 @@
             }
           }
         ],
-        "Cults": [],
+        "Cults": [
+          {
+            "kind": "RecruitmentHall",
+            "at": {
+              "Tile": {
+                "x": 52,
+                "y": 36
+              }
+            },
+            "orientation": {
+              "rotation": "R180",
+              "flip_h": false,
+              "flip_v": false
+            }
+          },
+          {
+            "kind": "Storage",
+            "at": {
+              "Tile": {
+                "x": 57,
+                "y": 42
+              }
+            },
+            "orientation": {
+              "rotation": "R180",
+              "flip_h": false,
+              "flip_v": false
+            }
+          },
+          {
+            "kind": "Recruit",
+            "at": {
+              "Point": [
+                3776.0,
+                2624.0
+              ]
+            }
+          },
+          {
+            "kind": "Recruit",
+            "at": {
+              "Point": [
+                3712.0,
+                2624.0
+              ]
+            }
+          },
+          {
+            "kind": "Recruit",
+            "at": {
+              "Point": [
+                3648.0,
+                2624.0
+              ]
+            }
+          },
+          {
+            "kind": "Recruit",
+            "at": {
+              "Point": [
+                3776.0,
+                2560.0
+              ]
+            }
+          },
+          {
+            "kind": "Recruit",
+            "at": {
+              "Point": [
+                3712.0,
+                2560.0
+              ]
+            }
+          },
+          {
+            "kind": "Recruit",
+            "at": {
+              "Point": [
+                3648.0,
+                2560.0
+              ]
+            }
+          }
+        ],
         "Colonists": [
           {
             "kind": "EgressNode",

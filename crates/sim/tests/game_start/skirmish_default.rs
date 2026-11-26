@@ -5,10 +5,10 @@
 use super::*;
 
 /// Design changes 0009 and 0012 (`core/map_editor.md > Starting Layouts > Skirmish Default restriction`): a new
-/// Skirmish Default map's layouts are empty, and it can't be played until the GDO's, the Syndicate's (slice M4-B) and
-/// the Colonists' (slice M3-C, plan decision T24) are complete at every start; the 180° symmetry mirrors a layout onto
-/// the opposite start, turning its buildings; a third plate, a Barracks, or anything in the layout of a faction not
-/// implemented yet (T11: the Cults), is beyond the Starting Conditions; an owned object outside the layouts is
+/// Skirmish Default map's layouts are empty, and it can't be played until the GDO's, the Syndicate's (slice M4-B), the
+/// Cults' (slice M5-B, plan decision T63) and the Colonists' (slice M3-C, plan decision T24) are complete at every
+/// start; the 180° symmetry mirrors a layout onto the opposite start, turning its buildings; a third plate, a Barracks,
+/// or a Peacekeeper in the Cults' layout is beyond the Starting Conditions; an owned object outside the layouts is
 /// refused. A Custom map has no such restriction.
 #[test]
 fn skirmish_default_layouts_hold_exactly_the_starting_conditions() {
@@ -43,13 +43,23 @@ fn skirmish_default_layouts_hold_exactly_the_starting_conditions() {
         ]
         .map(|(kind, n)| lacks(slot, Faction::Syndicate, kind, n))
     };
-    // Each slot's layouts in the order of `Faction::ALL`: the GDO's, the Syndicate's, the Colonists'.
+    let cults = |slot| {
+        [
+            (ObjectKind::RecruitmentHall, 1),
+            (ObjectKind::Storage, 1),
+            (ObjectKind::Recruit, 6),
+        ]
+        .map(|(kind, n)| lacks(slot, Faction::Cults, kind, n))
+    };
+    // Each slot's layouts in the order of `Faction::ALL`: the GDO's, the Syndicate's, the Cults', the Colonists'.
     let empty: Vec<ScenarioProblem> = [missing(1, DC, 1), missing(1, EF, 1), missing(1, PLATE, 2)]
         .into_iter()
         .chain(syndicate(1))
+        .chain(cults(1))
         .chain(colonists(1))
         .chain([missing(2, DC, 1), missing(2, EF, 1), missing(2, PLATE, 2)])
         .chain(syndicate(2))
+        .chain(cults(2))
         .chain(colonists(2))
         .collect();
     assert_eq!(map.validate(), empty);
@@ -66,10 +76,21 @@ fn skirmish_default_layouts_hold_exactly_the_starting_conditions() {
     map.regenerate();
     assert_eq!(
         map.validate(),
-        [syndicate(1), colonists(1), syndicate(2), colonists(2)].concat()
+        [
+            &syndicate(1)[..],
+            &cults(1),
+            &colonists(1),
+            &syndicate(2),
+            &cults(2),
+            &colonists(2)
+        ]
+        .concat()
     );
     *map.slots[0].layouts.get_mut(Faction::Colonists) = west_colonists();
     *map.slots[0].layouts.get_mut(Faction::Syndicate) = west_syndicate();
+    map.regenerate();
+    assert_eq!(map.validate(), [cults(1), cults(2)].concat());
+    *map.slots[0].layouts.get_mut(Faction::Cults) = west_cults();
     map.regenerate();
     assert_eq!(map.validate(), []);
     let r180 = |kind, x, y| turned(kind, x, y, Rotation::R180);
@@ -103,7 +124,8 @@ fn skirmish_default_layouts_hold_exactly_the_starting_conditions() {
     let gdo = extra.slots[0].layouts.get_mut(Faction::Gdo);
     gdo.push(laid(PLATE, 3, 8));
     gdo.push(laid(ObjectKind::Barracks, 6, 5)); // (6, 5) to (8, 6)
-    *extra.slots[0].layouts.get_mut(Faction::Cults) = vec![unit_at(PK, point(9.5, 7.5))];
+    let cults = extra.slots[0].layouts.get_mut(Faction::Cults);
+    cults.push(unit_at(PK, point(9.5, 7.5)));
     extra.regenerate();
     let beyond = |slot, faction, index, kind, allowed| ScenarioProblem::LayoutExtra {
         slot: SlotId(slot),
@@ -116,10 +138,10 @@ fn skirmish_default_layouts_hold_exactly_the_starting_conditions() {
     let expected = vec![
         beyond(1, gdo, 4, PLATE, 2),
         beyond(1, gdo, 5, ObjectKind::Barracks, 0),
-        beyond(1, cults, 0, PK, 0),
+        beyond(1, cults, 8, PK, 0),
         beyond(2, gdo, 4, PLATE, 2),
         beyond(2, gdo, 5, ObjectKind::Barracks, 0),
-        beyond(2, cults, 0, PK, 0),
+        beyond(2, cults, 8, PK, 0),
     ];
     assert_eq!(extra.validate(), expected);
     let messages: Vec<_> = expected[..3].iter().map(ToString::to_string).collect();
@@ -130,8 +152,8 @@ fn skirmish_default_layouts_hold_exactly_the_starting_conditions() {
              Default layout holds only those",
             "slot 1 Gdo layout object 5 (Barracks): not in the Gdo Starting Conditions: a Skirmish Default layout \
              holds only those",
-            "slot 1 Cults layout object 0 (Peacekeeper): the Cults Starting Conditions aren't implemented yet: a \
-             Skirmish Default layout of the faction stays empty",
+            "slot 1 Cults layout object 8 (Peacekeeper): not in the Cults Starting Conditions: a Skirmish Default \
+             layout holds only those",
         ]
     );
     extra.map_type = MapType::Custom;
@@ -159,21 +181,26 @@ fn skirmish_default_layouts_hold_exactly_the_starting_conditions() {
 }
 
 /// `core/map_editor.md > Starting Layouts > Outdated layouts`, derived (T11): a layout that holds objects but not
-/// exactly its faction's Starting Conditions is flagged, an empty one isn't, nor one of a faction not implemented
-/// yet. A flag only: on a Custom map, whose layouts may hold anything, it is no problem. (A layout made for other
-/// Starting Conditions is in `scenario/starting.rs`.)
+/// exactly its faction's Starting Conditions is flagged, the Cults' as any (plan decision T63), and an empty one isn't.
+/// A flag only: on a Custom map, whose layouts may hold anything, it is no problem. (A layout made for other Starting
+/// Conditions is in `scenario/starting.rs`.)
 #[test]
 fn layouts_that_dont_match_the_starting_conditions_are_flagged_as_outdated() {
     let mut map = scenarios::empty_map(24, 12);
     map.spawns = vec![patch(1, 8), patch(2, 8)];
     *map.slots[0].layouts.get_mut(Faction::Gdo) = west_base();
-    *map.slots[0].layouts.get_mut(Faction::Cults) = vec![laid(DC, 15, 2)];
+    *map.slots[0].layouts.get_mut(Faction::Cults) = west_cults();
     assert_eq!(map.outdated_layouts(), []);
     *map.slots[1].layouts.get_mut(Faction::Gdo) = vec![laid(DC, 15, 2)];
     map.slots[0].layouts.get_mut(Faction::Gdo).pop();
+    map.slots[0].layouts.get_mut(Faction::Cults).pop(); // a Recruit short
     assert_eq!(
         map.outdated_layouts(),
-        [(SlotId(1), Faction::Gdo), (SlotId(2), Faction::Gdo)]
+        [
+            (SlotId(1), Faction::Gdo),
+            (SlotId(1), Faction::Cults),
+            (SlotId(2), Faction::Gdo)
+        ]
     );
     assert_eq!(map.validate(), []);
 }

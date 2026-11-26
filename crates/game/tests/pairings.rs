@@ -1,7 +1,8 @@
 //! Playtest pairings in the client (slice M5-R, `artifacts/director/m5-plan.md > R: Playtest pairings`): every ordered
-//! pair of the factions that have Starting Conditions starts from the start options on every Skirmish Default map, as
-//! `cargo run -- --factions a,b --headless --exit-at-tick 64` starts it, with `--scenario <name>` for a built-in map
-//! and `--map <file>` for one of `maps/` (`docs/playtest/README.md`).
+//! pair of the four factions (16 a map: every faction has its Starting Conditions since slice M5-B, plan decision T63)
+//! starts from the start options on every Skirmish Default map, as `cargo run -- --factions a,b --headless
+//! --exit-at-tick 64` starts it, with `--scenario <name>` for a built-in map and `--map <file>` for one of `maps/`
+//! (`docs/playtest/README.md`).
 //!
 //! The flags take the client's own path, `cli::parse`, `cli::into_config` and `build_app`, as its `main` does, and the
 //! game runs one tick an update (`TimeUpdateStrategy::FixedTimesteps`), never by the clock, until the flags' exit.
@@ -29,13 +30,11 @@ const EXIT_AT: Tick = 64;
 
 #[test]
 fn every_pairing_starts_from_the_start_options() {
-    let factions: Vec<Faction> = (Faction::ALL.iter().copied())
-        .filter(|&faction| starting(faction).is_some())
-        .collect();
+    let maps = maps();
     let mut pairings = Vec::new();
-    for map in maps() {
-        for &a in &factions {
-            for &b in &factions {
+    for map in &maps {
+        for &a in Faction::ALL {
+            for &b in Faction::ALL {
                 let names = [a, b].map(|faction| faction_name(faction).to_lowercase());
                 let mut flags = vec!["--factions".to_owned(), names.join(",")];
                 flags.extend([
@@ -49,7 +48,12 @@ fn every_pairing_starts_from_the_start_options() {
             }
         }
     }
-    assert!(!pairings.is_empty(), "no pairings");
+    assert!(!maps.is_empty(), "no Skirmish Default map");
+    assert_eq!(
+        pairings.len(),
+        16 * maps.len(),
+        "the 16 pairings of the four factions on each map"
+    );
     let failed: Vec<String> = thread::scope(|s| {
         let threads: Vec<_> = (pairings.iter())
             .map(|(name, flags, factions)| {
@@ -72,17 +76,6 @@ fn every_pairing_starts_from_the_start_options() {
         pairings.len(),
         failed.join("\n")
     );
-}
-
-/// `faction`'s Starting Conditions, if it has them.
-fn starting(faction: Faction) -> Option<&'static StartingConditions> {
-    given(StartingConditions::of(faction))
-}
-
-/// What `StartingConditions::of` gave, through `Into<Option<_>>`, so that this reads it as it is now, an `Option` (none
-/// for the Cults, until slice M5-B), and as plan decision T63 makes it, total.
-fn given<'a>(conditions: impl Into<Option<&'a StartingConditions>>) -> Option<&'a StartingConditions> {
-    conditions.into()
 }
 
 /// A Skirmish Default map, by the flags that start it.
@@ -148,7 +141,7 @@ fn start(flags: &[String], factions: [Faction; 2]) {
     assert!(sim.config().debug, "debug commands are off: F2 can't switch players");
     for p in sim.players() {
         assert!(!p.is_defeated(), "player {} is defeated", p.id.0);
-        for &(kind, n) in starting(p.faction).map_or(&[][..], |start| start.objects) {
+        for &(kind, n) in StartingConditions::of(p.faction).objects {
             let owned = (sim.objects())
                 .filter(|o| o.owner == Some(p.id) && o.kind == kind)
                 .count();

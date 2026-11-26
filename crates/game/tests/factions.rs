@@ -2,7 +2,8 @@
 //! faction (plan decision T24); the camera starts on the Colonists' Robo Portal (`core/camera.md > Starting
 //! Position`); the resource bar shows the faction's DisplayHud, and the debug player switch (F2) the other player's
 //! (`factions/colonists/overview.md > DisplayHud`, plan decision T23); a Train refused for the army cap names Beacon
-//! Capacity (T20); a recorded game keeps its factions, and its playback reproduces them.
+//! Capacity (T20); a recorded game keeps its factions, and its playback reproduces them. A Cults start too (slice
+//! M5-B, plan decision T63): the camera on their Recruitment Hall, and their bar.
 
 use std::path::{Path, PathBuf};
 
@@ -36,6 +37,10 @@ const COLONISTS_BAR: [&str; 5] = [
     "Beacon Capacity 4/10",
 ];
 const GDO_BAR: [&str; 4] = ["Space Crystals 100", "Supplies 0", "Power 21/30", "Unit Control 0/200"];
+/// The Cults' bar from the first tick on: the six starting Recruits, and the Hall's seventh, in production from then and
+/// counted (design change 0342: "the Recruit in production counts toward LocalUnitControlUsage from the start of its
+/// production").
+const CULTS_BAR: [&str; 2] = ["Space Crystals 0", "Unit Control 7/20"];
 
 fn headless(mut config: AppConfig) -> App {
     config.display = DisplayMode::Headless;
@@ -134,6 +139,45 @@ fn a_colonists_game_starts_on_the_robo_portal_with_their_bar() {
     assert_eq!(camera_start(&app, P2), Vec2::new(64.0, 48.0) * SU_PER_GU - portal);
     run_until(&mut app, 1);
     assert_eq!(bar(&mut app), COLONISTS_BAR);
+}
+
+/// Slice M5-B's acceptance (plan decision T63): "`cargo run -- --factions cults,gdo` starts with the Hall, the Storage
+/// and six Recruits, at 0 Space Crystals and Unit Control 6/20, with the camera on the Hall". The Cults play slot 1 of
+/// `dev_skirmish` with their Starting Conditions' objects (`factions/cults/economy.md > Starting Conditions`); the
+/// camera starts on their Recruitment Hall, on tiles (8, 8) to (11, 11) (`core/camera.md > Starting Position`: "Cults:
+/// starting Recruitment Hall"); and the bar reads their figures (`factions/cults/overview.md > DisplayHud`), 7/20 from
+/// the first tick, the Hall's seventh Recruit then in production (design change 0342). F2 shows the GDO's, and back. In
+/// slot 2, the camera starts on the image of that Hall.
+#[test]
+fn a_cults_game_starts_on_the_recruitment_hall_with_their_bar() {
+    let owned = |app: &App, player| -> Vec<ObjectKind> {
+        let sim = app.world().resource::<SimRes>();
+        sim.objects()
+            .filter(|o| o.owner == Some(player))
+            .map(|o| o.kind)
+            .collect()
+    };
+    let mut base = vec![ObjectKind::RecruitmentHall, ObjectKind::Storage];
+    base.extend([ObjectKind::Recruit; 6]);
+    let mut app = game("--factions cults,gdo --no-record");
+    assert_eq!(factions(&app), [Faction::Cults, Faction::Gdo]);
+    assert_eq!(owned(&app, P1), base);
+    let hall = TilePos::new(8, 8).corner() + Vec2::splat(2.0 * SU_PER_GU);
+    assert_eq!(camera_start(&app, P1), hall);
+    run_until(&mut app, 1);
+    let shown = bar(&mut app);
+    assert_eq!(shown, CULTS_BAR);
+    assert!(shown.iter().all(|text| text.is_ascii()));
+    tap(&mut app, KeyCode::F2);
+    assert_eq!(bar(&mut app), GDO_BAR);
+    tap(&mut app, KeyCode::F2);
+    assert_eq!(bar(&mut app), CULTS_BAR);
+
+    let mut app = game("--scenario dev_skirmish --factions gdo,cults --player 2 --no-record");
+    assert_eq!(owned(&app, P2), base);
+    assert_eq!(camera_start(&app, P2), Vec2::new(64.0, 48.0) * SU_PER_GU - hall);
+    run_until(&mut app, 1);
+    assert_eq!(bar(&mut app), CULTS_BAR);
 }
 
 /// Where the camera of `player`, the local player, starts: the ground point [`start_center`] picks, which the view

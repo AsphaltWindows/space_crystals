@@ -19,13 +19,13 @@
 //! - **Overlay editing** (`core/map_editor.md > Overlay editing`, 0008): while the Layout tool is on, the editor's
 //!   preview gives every slot a player of the edited faction ([`preview_scenario`]), so the sim shows that faction's
 //!   layouts; the other factions' layouts of the edited slot are drawn dimmed over them (`super::overlay`).
-//! - **Factions not implemented yet** (plan decision T11): the GDO, the Colonists (slice M3-C) and the Syndicate
-//!   (slice M4-B) have Starting Conditions so far, the Colonists' palette offering their Egress Node, Robo Portal and
-//!   four Drones, placed as units at the point clicked, and the Syndicate's their Tunnel, Hideout and Agent
-//!   (`factions/syndicate/tunnels.md > Tunnel > Starting Conditions`). A Syndicate layout's Tunnel goes only where its
-//!   whole Tier 1 Tunnel Area is on the map and Drillable (design change 0242), and its Hideout only wholly inside that
-//!   area: [`check`] refuses the rest with the rule's text. The Cults' layouts can be picked but take no objects
-//!   ("not implemented yet").
+//! - **Every faction** has Starting Conditions (plan decision T63, slice M5-B): the GDO's palette offers their
+//!   Deployment Center, Extraction Facility and two plates; the Colonists' (slice M3-C) their Egress Node, Robo Portal
+//!   and four Drones, placed as units at the point clicked; the Syndicate's (slice M4-B) their Tunnel, Hideout and
+//!   Agent (`factions/syndicate/tunnels.md > Tunnel > Starting Conditions`); the Cults' their Recruitment Hall,
+//!   Storage and six Recruits (`factions/cults/economy.md > Starting Conditions`). A Syndicate layout's Tunnel goes
+//!   only where its whole Tier 1 Tunnel Area is on the map and Drillable (design change 0242), and its Hideout only
+//!   wholly inside that area: [`check`] refuses the rest with the rule's text.
 
 pub mod check;
 pub mod problems;
@@ -93,15 +93,11 @@ impl PaletteEntry {
 /// What the Layout tool offers for the layout of `faction` at `slot`. On a Skirmish Default map, only the faction's
 /// Starting Conditions (`core/map_editor.md > Skirmish Default restriction`: "may contain only the objects in that
 /// faction's standard Starting Conditions"), each with how many more the layout may take; on a Custom map, which has
-/// "no such restriction", every type a player may own (map resources never are, `core/map.md > Resource`). Nothing for
-/// a faction not implemented yet (plan decision T11).
+/// "no such restriction", every type a player may own (map resources never are, `core/map.md > Resource`).
 pub fn palette(map: &MapDef, slot: SlotId, faction: Faction) -> Vec<PaletteEntry> {
-    let Some(start) = StartingConditions::of(faction) else {
-        return Vec::new();
-    };
     if map.map_type == MapType::SkirmishDefault {
         let objects = layout(map, slot, faction);
-        return start
+        return StartingConditions::of(faction)
             .objects
             .iter()
             .map(|&(kind, n)| {
@@ -149,12 +145,6 @@ pub fn layout_state(
     faction: Faction,
 ) -> (String, bool) {
     let name = layout_name(slot, faction);
-    let Some(start) = StartingConditions::of(faction) else {
-        return (
-            format!("{}: not implemented yet, its layouts stay empty", faction_name(faction)),
-            true,
-        );
-    };
     let objects = layout(map, slot, faction);
     let broken = problems
         .iter()
@@ -168,7 +158,7 @@ pub fn layout_state(
         let fine = broken.is_empty();
         return (format!("{name}: {} object(s){broken}", objects.len()), fine);
     }
-    let missing = start.missing(objects);
+    let missing = StartingConditions::of(faction).missing(objects);
     if missing.is_empty() {
         let fine = broken.is_empty();
         return (format!("{name}: complete{broken}"), fine);
@@ -231,13 +221,6 @@ impl Editor<'_> {
         self.tools.tool = Tool::Layout;
         let slot = self.tools.slot;
         let map = self.doc.map();
-        if StartingConditions::of(faction).is_none() {
-            self.status.info(format!(
-                "{}: not implemented yet, its layouts stay empty",
-                faction_name(faction)
-            ));
-            return;
-        }
         let (state, _) = layout_state(map, &self.problems.0, slot, faction);
         self.status.info(format!("Editing the {state}"));
     }
@@ -255,7 +238,7 @@ impl Editor<'_> {
             return;
         }
         let offered = palette(map, self.tools.slot, faction).iter().any(|e| e.kind == kind);
-        if !offered && StartingConditions::of(faction).is_some() {
+        if !offered {
             let refusal = check::LayoutRefusal::NotStarting { kind, faction };
             self.status.warn(refusal.message(kind));
             return;
@@ -390,10 +373,10 @@ impl Editor<'_> {
     /// "; complete". Nothing on a Custom map.
     fn layout_progress(&self, slot: SlotId, faction: Faction) -> String {
         let map = self.doc.map();
-        let Some(start) = StartingConditions::of(faction).filter(|_| map.map_type == MapType::SkirmishDefault) else {
+        if map.map_type != MapType::SkirmishDefault {
             return String::new();
-        };
-        let missing = start.missing(layout(map, slot, faction));
+        }
+        let missing = StartingConditions::of(faction).missing(layout(map, slot, faction));
         if missing.is_empty() {
             "; complete".into()
         } else {
