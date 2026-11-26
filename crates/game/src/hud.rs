@@ -5,9 +5,10 @@
 //! of the surface height (`vh`), so the HUD scales with the window and the world view between the bars keeps its
 //! shape at every resolution. The top bar shows the player, their resources as their faction's DisplayHud lists them
 //! ([`resources`]) and the tick, and while a replay plays back (`crate::replay::playback`) its last tick, speed and
-//! state, and a desync; a note says while the fog of war is off ([`TopBarNote`]). The sections are placed at the
-//! rectangles of [`layout`], which also find the portrait or the command button under a click. Two panels show the
-//! selection: the InfoPanel ([`info_panel`]) and the SelectionPanel ([`selection_panel`]); the CommandPanel
+//! state, and a desync; notes say while the fog of war is off and in the map editor's play-test ([`TopBarNote`]). The
+//! sections are placed at the rectangles of [`layout`], which also find the portrait or the command button under a
+//! click. Two panels show the selection: the InfoPanel ([`info_panel`]) and the SelectionPanel ([`selection_panel`]);
+//! the CommandPanel
 //! ([`command_panel`]) shows the commands for it (`crate::command_ui`). The others show their names, and so do these
 //! three while they have nothing to show. At the end of the game a banner shows Victory, Defeat or Draw, and a
 //! defeated player gives no more commands ([`outcome`]); one defeated with no ally left while the game goes on
@@ -142,6 +143,11 @@ pub enum TopBarNote {
     /// F3, the debug key next to F2's player switch), in games and replays alike: the user, switching sides with F2 in
     /// a hot-seat game, hit F3 and took the revealed map for a bug.
     FogOff,
+    /// "Play-test (F5)", on the right before the tick, where a replay's note is (a play-test is never a replay), in the
+    /// map editor's play-test (`ClientMode::PlayTest`), which F5 started and ends, as the editor's "Play-test (F5)"
+    /// button says. It replaces the banner the editor laid over the top bar, which covered its figures (found by slice
+    /// M5-Z3).
+    PlayTest,
 }
 
 impl TopBarNote {
@@ -149,13 +155,15 @@ impl TopBarNote {
     pub fn text(self) -> &'static str {
         match self {
             TopBarNote::FogOff => "Fog off (F3)",
+            TopBarNote::PlayTest => "Play-test (F5)",
         }
     }
 
-    /// Whether the note shows, with the fog of war `fog`.
-    pub fn applies(self, fog: FogOfWar) -> bool {
+    /// Whether the note shows, with the fog of war `fog`, in `mode`.
+    pub fn applies(self, fog: FogOfWar, mode: ClientMode) -> bool {
         match self {
             TopBarNote::FogOff => !fog.enabled,
+            TopBarNote::PlayTest => mode == ClientMode::PlayTest,
         }
     }
 }
@@ -311,6 +319,7 @@ fn spawn_hud(mut commands: Commands, size: Res<SurfaceSize>) {
                         ..default()
                     },
                 ));
+                spawn_note(right, TopBarNote::PlayTest);
                 right.spawn((TickText, fixed_text("")));
             });
         });
@@ -434,13 +443,14 @@ fn update_replay_note(
     color.set_if_neq(TextColor(shown));
 }
 
-/// Shows each of the top bar's notes while it applies ([`TopBarNote::applies`]): when the fog of war is switched.
-fn update_top_bar_notes(fog: Res<FogOfWar>, mut notes: Query<(&TopBarNote, &mut Node)>) {
-    if !fog.is_changed() {
+/// Shows each of the top bar's notes while it applies ([`TopBarNote::applies`]): when the fog of war is switched, and
+/// when the mode changes (a play-test starts or ends).
+fn update_top_bar_notes(fog: Res<FogOfWar>, mode: Res<ClientMode>, mut notes: Query<(&TopBarNote, &mut Node)>) {
+    if !fog.is_changed() && !mode.is_changed() {
         return;
     }
     for (note, mut node) in &mut notes {
-        show_node(&mut node, note.applies(*fog));
+        show_node(&mut node, note.applies(*fog, *mode));
     }
 }
 

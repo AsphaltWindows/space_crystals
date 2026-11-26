@@ -3927,11 +3927,15 @@ capacity after a Hall is lost, not in red: the design gives the figure no warnin
 shares of the width the resources leave, which keeps them centred; what doesn't fit in a share is clipped there, never
 drawn over the resources. (M5-S6) **Notes** (`TopBarNote`, placeholders) say how this client shows the game while it
 applies, in amber, in the bar's row: "Fog off (F3)" after the name while `FogOfWar` is off, in games and replays alike
-(the user took the map revealed by F3 for a bug). A note takes room of its own, so it never covers a figure, and gives
+(the user took the map revealed by F3 for a bug), and "Play-test (F5)" before the tick in the map editor's play-test,
+where a replay's note would be (a play-test is never a replay), in place of the banner the editor laid over the bar's
+figures (found by slice M5-Z3). A note takes room of its own, so it never covers a figure, and gives
 it up first: short of room, it shrinks, clipped at its end, while the name, the figures and the tick keep their size
-(`spawn_note`). The bar is laid out in `vh`, so what fits depends on the window's shape, not its size: at 16:9 and
-16:10 every faction's bar fits its notes; at 4:3 a long bar (the Colonists', the GDO's in the game) clips them. Tests:
-`tests/hud.rs` (F3 and `--no-fog`), `tests/replay.rs` (a playback). Under the top bar, a placeholder
+(`spawn_note`). The bar is laid out in `vh`, so what fits depends on the window's shape, not its size (the client sets
+no smallest size): at 16:9 and 16:10 every faction's bar fits its notes; at 4:3 a long bar (the Colonists', the GDO's
+later in a game) clips their ends. Headless tests have no UI layout to measure, so QA screenshots check it. Tests:
+`tests/hud.rs` (F3 and `--no-fog`), `tests/replay.rs` (a playback), `tests/editor/session.rs` (a play-test's note,
+in the bar's row). Under the top bar, a placeholder
 notice (`hud/notices.rs`, `STATION_EMPTY_TEXT` for `NOTICE_TICKS` sim ticks) tells the local player that a Supply
 Delivery Station where their Agents gather is empty (`SimEvent::SupplyStationEmpty`, design change 0256 point 3: "the
 owner gets a notification", notifications not designed yet). A second, under it, tells every player who hasn't left
@@ -4924,8 +4928,8 @@ unchecked.
   takes the game's bindings in a play-test, the editor's in the editor) look at it. F5 starts a play-test of the
   document with the play-test setup (`PlayTestSetup`, the Play-test panel): each slot's faction, which slot you play,
   the seed, and debug commands on. It is not part of the map. `Sim::try_new` must accept the map; the game runs at
-  the game's zoom. Only F5 returns (Esc is the game's Cancel), to the editor with the document, its history and the
-  view unchanged.
+  the game's zoom, and its top bar says "Play-test (F5)" (`hud::TopBarNote::PlayTest`, slice M5-S6). Only F5 returns
+  (Esc is the game's Cancel), to the editor with the document, its history and the view unchanged.
 - **Unsaved changes**: New, Open, Quit and the window's close button (`WindowCloseRequested`, through
   `editor/input.rs::close_requests`; `platform::ConfirmClose` keeps the platform from exiting by itself) ask once with
   a status warning and go ahead when asked again, also during a play-test.

@@ -1,7 +1,6 @@
 //! The editor UI's fixed structure, spawned once. Lists and texts that follow the document are filled in by
 //! [`super::lists`] and [`super::texts`], and the text fields by [`super::fields::refresh_fields`].
 
-use bevy::picking::Pickable;
 use bevy::prelude::*;
 use bevy::ui_widgets::{ControlOrientation, ScrollArea, Scrollbar, ScrollbarThumb};
 
@@ -14,13 +13,12 @@ use super::starting::{self, turn_row};
 use super::texts::{HelpOverlay, PanelText, StatusText, help_text};
 use super::{
     BORDER, DIM_TEXT, GAP_VH, LEFT_PANEL_VH, PANEL_BACKGROUND, RIGHT_PANEL_VH, SMALL_VH, STATUS_VH, ShownIn, TEXT,
-    TEXT_VH, TOOLBAR_VH, WARN_TEXT, button, header, label, row,
+    TEXT_VH, TOOLBAR_VH, button, header, label, row,
 };
 use crate::ClientMode;
 use crate::editor::actions::EditorAction;
 use crate::editor::objects::palette_groups;
 use crate::editor::tools::{BRUSH_SIZES, ElevationMode, Tool};
-use crate::hud::TOP_BAR_HEIGHT_VH;
 
 pub fn spawn_editor_ui(mut commands: Commands) {
     spawn_toolbar(&mut commands);
@@ -339,7 +337,8 @@ fn spawn_status_line(commands: &mut Commands) {
     ));
 }
 
-/// The F1 help and the play-test banner.
+/// The F1 help. (M5-S6) A play-test says so in the game's top bar (`crate::hud::TopBarNote::PlayTest`), in place of
+/// the banner laid over it here, which covered its figures.
 fn spawn_overlays(commands: &mut Commands) {
     commands.spawn((
         Name::new("Editor help"),
@@ -367,23 +366,5 @@ fn spawn_overlays(commands: &mut Commands) {
             BorderColor::all(BORDER),
             children![label(help_text(), TEXT_VH, TEXT)],
         )],
-    ));
-    commands.spawn((
-        Name::new("Play-test banner"),
-        ShownIn(ClientMode::PlayTest),
-        Node {
-            position_type: PositionType::Absolute,
-            top: px(0),
-            left: px(0),
-            width: percent(100),
-            height: vh(TOP_BAR_HEIGHT_VH),
-            justify_content: JustifyContent::Center,
-            align_items: AlignItems::Center,
-            ..default()
-        },
-        Pickable::IGNORE,
-        GlobalZIndex(5),
-        Visibility::Hidden,
-        children![label("PLAY-TEST: F5 returns to the editor", 2.0, WARN_TEXT)],
     ));
 }
