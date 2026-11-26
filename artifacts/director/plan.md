@@ -2000,7 +2000,7 @@ Approach: thin vertical slices the user can run and see, each verified by tests 
 - **Running:**
   - **A2a–c Computer players for the Cults, the Syndicate and the Colonists** (Opus, in parallel; brief `scratchpad/briefs/a2-ai-factions.md`). See Computer opponents below.
   - **M6-P, M6's planning spike** (Opus, read-only, no builds; brief `scratchpad/briefs/m6-planning.md`): drafts the plan for 0366–0369 in `scratchpad/m6/m6-plan.md`.
-- **Next, as slots free:** N7 (brief `scratchpad/briefs/m5n7-airstrip-sparrow.md`) and K (brief `scratchpad/briefs/m5k-rocketman-arsenal.md`, with HeadDisjointed, Target Lock and 0407's Verification test), then A2d, then V1 → V2 → N6 → N10, N11, then X1 → X2 → M.
+- **Next, as slots free:** N7 (brief `scratchpad/briefs/m5n7-airstrip-sparrow.md`) and K (brief `scratchpad/briefs/m5k-rocketman-arsenal.md`, with HeadDisjointed, Target Lock and 0407's Verification test) and V1 (brief `scratchpad/briefs/m5v1-oriented-silhouettes.md`, on Opus since the H1 trial passed; it heads M5's critical path), then A2d and V2 → N6 → N10, N11, then X1 → X2 → M.
 - **Queued for the playtest:**
   - **Computer opponents.** The user asked for them for the next playtest (2026-11-26). 0402 answered Q0147: a playtest tool with fair knowledge (`core/game_rules.md > Computer players (playtest tool)`), built as planned. **A1 is merged** (`168dadc0`). It launched on 2026-11-26, taking the user's answer to Q0147 as the go-ahead: (a), "built as above", which 0402 records as "Build as planned". The user was told and can stop it. **A2a–c are running** (brief `scratchpad/briefs/a2-ai-factions.md`, launched 2026-11-26).
     - **Architecture** (the Director's):
