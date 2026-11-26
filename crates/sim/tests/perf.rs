@@ -16,5 +16,6 @@ mod placement_perf;
 mod popup_perf;
 mod recruits_perf;
 mod repairs_perf;
+mod shroud_perf;
 mod structures_perf;
 mod vision_perf;
