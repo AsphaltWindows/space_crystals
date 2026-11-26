@@ -13,17 +13,23 @@
 //! Firing it launches a projectile there (`super::projectiles`), which lands where it was locked, whatever the target
 //! did since. A location stays engaged after the launch, so its sequences follow one another as an attack on a target
 //! that never dies does: an Attack Ground keeps firing until another order (design change 0293, answering Q0083
-//! point 3; `orders::attack_ground`). TODO(attack types): the HeadDisjointed and TailDisjointed attacks aren't built
-//! (plan §3.3 O: no M4 kind has one). They hit as a FullyConnected attack does, and a TailDisjointed one, which may be
-//! given an Attack Ground ([`can_target_ground`]), lets go of its location.
+//! point 3; `orders::attack_ground`).
+//!
+//! (M5-O3) A TailDisjointed attack (`systems/combat.md > TailDisjointed`: the Cults' Gunner's, design change 0304)
+//! aims, locks and stays engaged at a location the same way, with no projectile: "The effect applies to whatever units
+//! are at the target location at the end of the Firing phase" ([`strike`]). A target that has left the spot by then
+//! is missed ("Targets can dodge by moving out of the locked location"), and whatever stands there is hit in its
+//! place, whoever owns it. TODO(attack types): the HeadDisjointed attack isn't built (no kind has one): it hits as a
+//! FullyConnected attack does.
 
 use glam::Vec2;
 
+use super::area::{self, Blast};
 use super::damage::{Hit, directional_multiplier};
 use super::projectiles::Projectile;
 use super::targeting::{TargetView, Targets, domain_allows, reaches, reaches_point};
 use super::{AttackPhase, AttackState};
-use crate::defs::{AttackAttrs, AttackType};
+use crate::defs::{AttackAttrs, AttackType, TargetType};
 use crate::elevation::Elevation;
 use crate::events::SimEvent;
 use crate::ids::{ObjectId, PlayerId};
@@ -33,7 +39,7 @@ use crate::movement;
 use crate::object::Object;
 use crate::shape::Shape;
 use crate::tuning::combat::FACING_TOLERANCE;
-use crate::units::Tick;
+use crate::units::{Tick, gu};
 use crate::vision::PlayerVision;
 
 /// What one tick of attack sequences puts out (`super::step`): the hits of single-target attacks, for the tick's list,
@@ -125,10 +131,15 @@ impl<'a> Shooter<'a> {
         t.id != self.id && domain_allows(self.attrs.target_domain, t.domain)
     }
 
-    /// (M4-O) Whether its attack locks a location at the end of Aiming and launches a projectile there, and may aim
-    /// at a location: a DoublyDisjointed one (module docs).
+    /// (M4-O, M5-O3) Whether its attack locks a location at the end of Aiming, where its effect lands, and may aim at
+    /// a location: a DoublyDisjointed one, which launches a projectile there, and a TailDisjointed one, which strikes
+    /// there at the end of Firing (module docs). They are the attacks that can target the ground
+    /// (`super::can_target_ground`).
     fn locks(&self) -> bool {
-        matches!(self.attrs.attack_type, AttackType::DoublyDisjointed)
+        matches!(
+            self.attrs.attack_type,
+            AttackType::DoublyDisjointed | AttackType::TailDisjointed
+        )
     }
 
     /// `systems/combat.md > ValidTarget` 2: whether its owner sees `t` (`PlayerVision::object_box_state`: `t` isn't
@@ -315,7 +326,10 @@ fn end(
             Some(AttackPhase::Cooldown)
         }
         AttackPhase::FiringAt { at, target } => {
-            launch(shooter, at, target, volley, events);
+            match shooter.attrs.attack_type {
+                AttackType::TailDisjointed => strike(shooter, at, target, targets, &mut volley.hits, events),
+                _ => launch(shooter, at, target, volley, events),
+            }
             Some(AttackPhase::Cooldown)
         }
         AttackPhase::Cooldown => Some(AttackPhase::Reloading),
@@ -330,6 +344,18 @@ fn end(
 /// TODO(attack types): a HeadDisjointed attack launches a projectile that tracks its target instead (`>
 /// HeadDisjointed`); no unit has one, and it lands like this, as one single-target hit.
 fn fire(shooter: &Shooter, t: &TargetView, hits: &mut Vec<Hit>, events: &mut Vec<SimEvent>) {
+    hit(shooter, t, hits);
+    events.push(SimEvent::Attacked {
+        attacker: shooter.id,
+        target: t.id,
+        from: shooter.pos,
+        to: t.pos,
+    });
+}
+
+/// The single-target hit of `shooter`'s attack on `t` (`systems/combat.md > SingleTargetDamage`): its Damage against
+/// `t`'s PointArmor, from the side the shooter stands on (`systems/units.md > UnitBase > DirectionalArmor`).
+fn hit(shooter: &Shooter, t: &TargetView, hits: &mut Vec<Hit>) {
     let directional = if t.directional_armor {
         directional_multiplier(t.facing, shooter.pos - t.pos)
     } else {
@@ -343,12 +369,80 @@ fn fire(shooter: &Shooter, t: &TargetView, hits: &mut Vec<Hit>, events: &mut Vec
         t.point_armor,
         directional,
     ));
-    events.push(SimEvent::Attacked {
-        attacker: shooter.id,
-        target: t.id,
-        from: shooter.pos,
-        to: t.pos,
-    });
+}
+
+/// (M5-O3) `systems/combat.md > TailDisjointed`: "The animation and effect are applied to that location ... The effect
+/// applies to whatever units are at the target location at the end of the Firing phase": at the end of Firing, at
+/// `at`, the location locked at the end of Aiming, where the object aimed at (`target`, while it is in the game) stood
+/// then, or the location aimed at. Nothing asks whether the shooter's owner sees what is there.
+/// - **A single-target attack** (the Gunner's) hits the object at the spot ([`at_the_spot`]) with its single-target
+///   hit: an `Attacked` on it, its path drawn to the spot. With nothing there it misses (`systems/combat.md >
+///   CanMiss`), its damage lost: a `Missed`, drawn to the spot as well (design change 0304: "Visually still an
+///   instant gunshot").
+/// - **An area attack** (no kind has one yet: the GDO's Artillery Rig, `factions/gdo/units/artillery_rig.md >
+///   AttackAttributes`, "the blast lands there at the end of Firing (no tracking projectile)") blasts the spot, as a
+///   projectile that lands does (`super::area`: everything in the circle, whoever owns it).
+fn strike(
+    shooter: &Shooter,
+    at: Vec2,
+    target: Option<ObjectId>,
+    targets: &Targets,
+    hits: &mut Vec<Hit>,
+    events: &mut Vec<SimEvent>,
+) {
+    if let TargetType::AoE { radius } = shooter.attrs.target_type {
+        let blast = Blast {
+            attacker: shooter.id,
+            at,
+            radius: gu(radius),
+            damage: shooter.attrs.damage,
+            domain: shooter.attrs.target_domain,
+        };
+        events.push(SimEvent::Blast {
+            at,
+            radius: blast.radius,
+        });
+        area::strike(&blast, targets, hits);
+        return;
+    }
+    let (from, to) = (shooter.pos, at);
+    match at_the_spot(shooter, at, target, targets) {
+        Some(t) => {
+            hit(shooter, t, hits);
+            events.push(SimEvent::Attacked {
+                attacker: shooter.id,
+                target: t.id,
+                from,
+                to,
+            });
+        }
+        None => events.push(SimEvent::Missed {
+            attacker: shooter.id,
+            target,
+            from,
+            to,
+        }),
+    }
+}
+
+/// (M5-O3) What a single-target TailDisjointed shot at the spot `at` strikes ([`strike`]): an object whose shape covers
+/// the point (`Shape::distance_to` is 0 inside it and on its edge), a unit's Silhouette or a structure's footprint (a
+/// Gunner may be ordered to attack a structure), that the attack can target at all (`systems/combat.md >
+/// ValidTarget` 3: its TargetDomain allows it; not the shooter itself), whoever owns it (design change 0304: "whatever
+/// unit stands at the spot then is hit instead (any owner)"), the shooter's owner's own included. None: it misses.
+///
+/// Placeholder (not in the design: it doesn't say which of two objects at the spot a single-target shot hits, and two
+/// can be there, their edges touching across the point): the one it was aimed at, `target`, while it covers the spot,
+/// so that a target that stands still is always hit; else the first in id order.
+fn at_the_spot<'t>(
+    shooter: &Shooter,
+    at: Vec2,
+    target: Option<ObjectId>,
+    targets: &'t Targets,
+) -> Option<&'t TargetView> {
+    let covers = |t: &&TargetView| shooter.can_target(t) && t.shape.distance_to(at) == 0.0;
+    let aimed = target.and_then(|id| targets.get(id)).filter(covers);
+    aimed.or_else(|| targets.all().iter().find(covers))
 }
 
 /// (M4-O) `systems/combat.md > DoublyDisjointed`: "The Firing phase is short and spawns a projectile which travels to

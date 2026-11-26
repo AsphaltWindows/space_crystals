@@ -338,6 +338,7 @@ fn fuzz_run(seed: u64) -> Run {
                 | SimEvent::EnterFailed { .. }
                 | SimEvent::ProjectileLaunched { .. }
                 | SimEvent::Blast { .. }
+                | SimEvent::Missed { .. }
                 | SimEvent::BuildFailed { .. }
                 | SimEvent::BuildRefunded { .. }
                 | SimEvent::SiteStarted { .. }

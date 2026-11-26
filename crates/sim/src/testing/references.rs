@@ -23,7 +23,14 @@ pub fn referenced_ids(o: &Object) -> Vec<ObjectId> {
     }
     if let Some(attack) = &o.attack {
         ids.extend(attack.target);
-        if let Some(AttackPhase::Aiming { target } | AttackPhase::Firing { target: Some(target) }) = attack.phase {
+        if let Some(
+            AttackPhase::Aiming { target }
+            | AttackPhase::Firing { target: Some(target) }
+            | AttackPhase::FiringAt {
+                target: Some(target), ..
+            },
+        ) = attack.phase
+        {
             ids.push(target);
         }
     }

@@ -1,7 +1,10 @@
 //! Combat feedback in the client (`combat_effects`): a tracer for each shot, HP bars over damaged and selected units
 //! (with shield bars over those that have Shields) and a marker where a unit died, each kept for its number of
 //! ticks. Headless, one tick per update, as in
-//! `client.rs`. How the fog of war hides them is tested in `fog.rs`.
+//! `client.rs`. How the fog of war hides them is tested in `fog.rs`. The Gunner's shots, which can miss, are in
+//! [`gunner`].
+
+mod gunner;
 
 use bevy::prelude::*;
 use bevy::time::TimeUpdateStrategy;

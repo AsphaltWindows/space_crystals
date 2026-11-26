@@ -391,5 +391,25 @@ pub(super) fn table(sim: &Sim) -> Vec<(SimEvent, [Seen; 4])> {
             [P, P, P, W],
         ),
         (SimEvent::Blast { at: unit, radius: 40.0 }, [W, W, N, W]),
+        // A TailDisjointed shot that hit nothing (slice M5-O3), aimed at an object or at the ground: a shot as any
+        // other.
+        (
+            SimEvent::Missed {
+                attacker: UNIT,
+                target: Some(WATCHER),
+                from: unit,
+                to: watcher,
+            },
+            [P, P, P, W],
+        ),
+        (
+            SimEvent::Missed {
+                attacker: UNIT,
+                target: None,
+                from: unit,
+                to: watcher,
+            },
+            [P, P, P, W],
+        ),
     ]
 }

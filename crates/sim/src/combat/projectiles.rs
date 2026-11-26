@@ -6,15 +6,16 @@
 //! - **The store**: `Sim::projectiles`, every projectile in flight in launch order. A projectile is not an object: it
 //!   can't be seen, selected or targeted, and it is hashed and serialized only while the store holds any
 //!   (`Sim::state_hash`), so that the states of games without one are as they were before it existed.
-//! - **A launch** ([`Projectile::launch`]), at the end of a disjointed attack's Firing (`super::phases`): from the
+//! - **A launch** ([`Projectile::launch`]), at the end of a DoublyDisjointed attack's Firing (`super::phases`): from the
 //!   shooter's centre to the locked point, with its attack's parameters copied, so that a projectile whose shooter has
 //!   died lands with them all the same, and its arrival tick ([`flight_ticks`]). There is no path and no collision in
 //!   flight: the design has none.
 //! - **A landing** ([`land`]), in phase 5e of its arrival tick, in launch order: an area attack's blast where it lands
 //!   (`super::area`), whose hits go on the tick's list ahead of the tick's new hits. A single-target projectile isn't in
 //!   the design (`// TODO(attack types)`): it lands as a blast of radius 0, which hits nothing.
-//! - **Not built** (not in M4): HeadDisjointed projectiles, which track their target, and TailDisjointed attacks. The
-//!   store keeps a slot for a unit target ([`Projectile::target`]), so that they come cheaply.
+//! - **Not built**: HeadDisjointed projectiles, which track their target. The store keeps a slot for a unit target
+//!   ([`Projectile::target`]), so that they come cheaply. A TailDisjointed attack has no projectile: it strikes the
+//!   spot it locked at the end of its Firing (`super::phases`, slice M5-O3).
 
 use glam::Vec2;
 use serde::{Deserialize, Serialize};

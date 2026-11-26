@@ -380,9 +380,10 @@ impl<'a> Arrival<'a> {
             SimEvent::MoveFailed { unit }
             | SimEvent::EnterFailed { unit, .. }
             | SimEvent::TargetTooClose { unit, .. } => self.owner(unit),
-            SimEvent::Attacked { from, to, .. } | SimEvent::ProjectileLaunched { from, to, .. } => {
-                Audience::Seen(Sighting::path(from, to))
-            }
+            // A TailDisjointed shot that hit nothing is a shot as well (slice M5-O3).
+            SimEvent::Attacked { from, to, .. }
+            | SimEvent::Missed { from, to, .. }
+            | SimEvent::ProjectileLaunched { from, to, .. } => Audience::Seen(Sighting::path(from, to)),
             // A blast's damage too: what it hit underground shows nothing (plan decision T52).
             SimEvent::Hit { target, .. } => self.object(target),
             SimEvent::Died { owner, pos, hiding, .. } => Audience::Seen(Sighting::object_at(owner, hiding, pos)),

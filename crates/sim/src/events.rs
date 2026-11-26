@@ -40,7 +40,9 @@ pub enum SimEvent {
     /// An attack took effect: `attacker`'s Firing phase ended on `target` (`systems/combat.md > Firing`). The
     /// positions of both, space units, for drawing the shot. Its damage follows as a [`SimEvent::Hit`]. A single-target
     /// attack's only: a projectile's launch and its blast have events of their own ([`SimEvent::ProjectileLaunched`],
-    /// [`SimEvent::Blast`]).
+    /// [`SimEvent::Blast`]). (M5-O3) A TailDisjointed shot's `to` is the location it locked, not where `target` stands
+    /// (`systems/combat.md > TailDisjointed`): `target` is whatever was there at the end of Firing, the object it was
+    /// aimed at or another in its place (`crate::combat`); one that hit nothing is a [`SimEvent::Missed`].
     Attacked {
         attacker: ObjectId,
         target: ObjectId,
@@ -362,5 +364,17 @@ pub enum SimEvent {
     Blast {
         at: Vec2,
         radius: f32,
+    },
+    /// (M5-O3) `attacker`'s TailDisjointed attack took effect on nothing: its Firing phase ended with no object at
+    /// `to`, the location locked at the end of its Aiming (`systems/combat.md > TailDisjointed`: "Targets can dodge by
+    /// moving out of the locked location"; `systems/combat.md > CanMiss`), and its damage is lost. `from` is its
+    /// centre, for drawing the shot as an [`SimEvent::Attacked`]'s is drawn, to the spot (design change 0304:
+    /// "Visually still an instant gunshot"). `target`: the object it was aimed at, while it is in the game; none for a
+    /// shot at the ground (Attack Ground).
+    Missed {
+        attacker: ObjectId,
+        target: Option<ObjectId>,
+        from: Vec2,
+        to: Vec2,
     },
 }

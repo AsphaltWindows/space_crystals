@@ -71,7 +71,7 @@ fn a_shot_from_the_fog_reveals_the_shooter_and_shows_only_from_the_fog_edge() {
         let world = app.world();
         let sim = world.resource::<SimRes>();
         let tracer = &world.resource::<CombatEffects>().tracers[0];
-        assert_eq!((tracer.target, tracer.tick), (target, shot));
+        assert_eq!((tracer.target, tracer.tick), (Some(target), shot));
         assert!(Sight::new(sim, P1, true).reveals(attacker), "revealed by the shot");
         let spans = |player, fog| shot_spans(sim, &Sight::new(sim, player, fog), tracer);
         assert_eq!(
@@ -151,7 +151,7 @@ fn a_shot_from_an_attacker_not_revealed_shows_from_the_fog_edge() {
     let world = app.world();
     let sim = world.resource::<SimRes>();
     let tracer = &world.resource::<CombatEffects>().tracers[0];
-    assert_eq!((tracer.attacker, tracer.target), (attacker, target));
+    assert_eq!((tracer.attacker, tracer.target), (attacker, Some(target)));
     let sight = Sight::new(sim, P1, true);
     assert!(
         !sight.reveals(attacker),
@@ -179,7 +179,7 @@ fn shoot(app: &mut App, player: PlayerId, attacker: ObjectId, target: ObjectId) 
         app.update();
         assert!(tick(app) < ordered + 30, "{attacker:?} never fired at {target:?}");
         let tracers = &app.world().resource::<CombatEffects>().tracers;
-        let shot = |t: &&Tracer| t.attacker == attacker && t.target == target && t.tick > ordered;
+        let shot = |t: &&Tracer| t.attacker == attacker && t.target == Some(target) && t.tick > ordered;
         if let Some(tracer) = tracers.iter().find(shot) {
             return tracer.clone();
         }

@@ -248,8 +248,8 @@ Units, structures and resources are all `Object`s (`object.rs`, `core/entities.m
   set, kept by `Sim::change_kind`, and set by nothing yet (by the Hall at spawn, slice M5-C, and by the layout at a
   game's start, M5-B); a Cults unit without one is an orphan (Placeholder (Q0101 point 2)). The Gunner is the first
   kind with a MinRange, which M3-L2's code serves (*Behaviours*; M5-A gave a unit that can't back off its "Target too
-  close", design change 0204 point 3), and the first TailDisjointed attack, which hits as a FullyConnected one until
-  slice M5-O3 (*Combat*). The Storage, 1/6 on its 2x2 as written, is the building armour test's one exception
+  close", design change 0204 point 3), and the first TailDisjointed attack (slice M5-O3, *Combat > TailDisjointed
+  attacks*), which can miss. The Storage, 1/6 on its 2x2 as written, is the building armour test's one exception
   (`tests/building_armor.rs`, Placeholder (Q0094)). The Cults stay the faction not implemented yet
   (`StartingConditions::of`) until slice M5-B.
 - **Units off the map: the held store** (`network.rs`, `sim/network.rs`; slice M4-C, plan decision T30;
@@ -905,7 +905,7 @@ ticks spent in it. Hashed and serialized like all state.
   DoublyDisjointed`): a DoublyDisjointed attack (`Shooter::locks`) locks its target's position at the end of Aiming
   (`AttackPhase::FiringAt { at, target }`) and at the end of Firing launches a `Projectile` into `Sim::projectiles`, in
   launch order: its shooter and the shooter's owner, the object it was locked on (cleared when that object leaves:
-  `projectiles::forget`; a slot for the HeadDisjointed and TailDisjointed attacks to come), its start, the locked
+  `projectiles::forget`; a slot for the HeadDisjointed attack to come), its start, the locked
   point, its arrival tick (`flight_ticks`: the distance over the attack's ProjectileSpeed, rounded up: 32 ticks for 4
   GU at 8 su per tick), and the attack's Damage, AoE radius and TargetDomain, copied at launch. The unit goes on into
   Cooldown and Reloading, its base free from the launch (`base_is_free`). In 5e, after every attacker has acted, the
@@ -916,6 +916,19 @@ ticks spent in it. Hashed and serialized like all state.
   (`combat/projectiles/golden.rs`, see *Replays and golden hashes*), and so is the ignored `projectiles_perf` (200 in
   flight). The game's thrower is the Grenadier (slice M4-U, `defs/syndicate/units/grenadier.rs`), played with its
   own numbers in `tests/grenadier.rs`; the mechanics' tests keep their test throwers, whose numbers stay put.
+- **TailDisjointed attacks** (`combat/phases.rs`, slice M5-O3; `systems/combat.md > TailDisjointed`, the Cults'
+  Gunner's, design change 0304): locked as a DoublyDisjointed attack is (`Shooter::locks`, `AttackPhase::FiringAt`),
+  at an object or a location, with no projectile. At the end of Firing it strikes the locked spot (`phases::strike`):
+  a single-target attack hits what stands there then (`phases::at_the_spot`: a destructible object whose shape, a
+  Silhouette or a footprint, covers the point, in a domain the attack can target, whoever owns it, seen or not), with
+  its single-target hit and a `SimEvent::Attacked` drawn to the spot; with nothing there it misses
+  (`SimEvent::Missed`), so a target that has left the spot dodges. Placeholder (not in the design): of two objects at
+  the spot, the one aimed at while it covers it, else the first in id order. An area one (the Artillery Rig's, not
+  built) blasts the spot as a landing projectile does. The base stays held through Firing and Cooldown, as for a
+  FullyConnected attack. No unit walks off the spot in the Gunner's two frames of Firing: each one's Silhouette
+  reaches further from its centre than it moves in two frames (the nearest, the Drone's: 18 su against 16). So its
+  tests move the target with a debug teleport (`tests/gunner.rs`), and the dodge on foot is tested with a longer
+  Firing (`combat/phases/tests/tail_disjointed.rs`).
 - **Area damage** (`combat/area.rs`, plan decision T46; `systems/combat.md > AoEDamage`): the one path of every area
   attack, a blast's hits. A blast takes every object whose domain its TargetDomain hits (`hits_domain`: Ground hits
   ground and underground objects, Air the air, Universal all; design change 0262: underground and hidden ones too),
@@ -929,7 +942,8 @@ ticks spent in it. Hashed and serialized like all state.
 - **Attack Ground** (`orders/attack_ground.rs`, plan decision T47; `systems/controls/behaviors.md > AttackingLocation`):
   `OrderKind::AttackGround(point)` sets `AttackState::location`; 5e aims at a point in reach (`reaches_point`, from
   the unit's shape) and fires. The behaviour walks the unit into range and backs it off a point inside its MinRange.
-  **It keeps firing** (design change 0293, answering Q0083 point 3): the location stays engaged after each launch, so
+  **It keeps firing** (design change 0293, answering Q0083 point 3): the location stays engaged after each shot (a
+  launch, or a TailDisjointed strike: the Gunner's, slice M5-O3), so
   the attack cycles at it until another order or a Stop, and the orders queued behind it never start on their own;
   only the Failure rule, or a weapon that can no longer attack the location, ends it. The gate takes it only for units
   whose weapon can target the ground (`combat::can_target_ground`, `Reject::CannotTargetGround`).
@@ -952,8 +966,8 @@ ticks spent in it. Hashed and serialized like all state.
   reload runs on). Its armour is `Object::armor()`, the underground one while fully lowered (*Object model > The
   pop-up form*).
 - **Not yet**: units' turrets (their TurretAttributes: a turret faces its target at once, `TODO(turrets)` in
-  `combat/phases.rs`); the HeadDisjointed and TailDisjointed attacks, which hit as a FullyConnected one does and drop a
-  location (TODOs in `combat/phases.rs`).
+  `combat/phases.rs`); the HeadDisjointed attack, which hits as a FullyConnected one does (a TODO in
+  `combat/phases.rs`).
 
 ## Vision
 
@@ -2120,12 +2134,15 @@ their energy doorway, slice M3-D2: design change 0145, `factions/colonists/struc
   `PatchDepleted`, `ProductionQueued`, `ProductionRefused`, `ProductionCancelled`, `ProductionWaiting`, `UnitProduced`,
   `ConstructionCompleted`, `ConstructionCancelled`, `StructurePlaced`, `PlacementRefused`, `PlayerDefeated`,
   `GameOver`, `KindChanged`, `TransformCompleted`, `TransformCancelled`, `ResourcesDelivered`, `DeployFailed`,
-  `TargetTooClose`, `SupplyStationEmpty`, `ProjectileLaunched`, `Blast`, …) are output only, for effects, sounds and
+  `TargetTooClose`, `SupplyStationEmpty`, `ProjectileLaunched`, `Blast`, `Missed`, …) are output only, for effects,
+  sounds and
   UI. The sim never reads them, and tells each to every player; the client shows a player only what they may
   perceive of it (*Client architecture > Viewer events*). `ProjectileLaunched { shooter, target, from, to, lands_at }`
   and `Blast { at, radius }` (slice M4-O) are a projectile leaving and landing; a blast's damage follows as a `Hit`
   for each object it took, which the client draws nothing of, and `Died` (see *Client architecture > Visuals*,
-  Combat effects). `DeployFailed { drone, origin, problems }` (slice M3-F) is a Deploy that failed on arrival; the
+  Combat effects). A TailDisjointed shot (slice M5-O3) is an `Attacked` on what it struck, its `to` the spot it
+  locked, or a `Missed { attacker, target, from, to }` when nothing was there: `target` is what it was aimed at, none
+  for the ground. `DeployFailed { drone, origin, problems }` (slice M3-F) is a Deploy that failed on arrival; the
   client's feedback line says why (`command_ui/feedback.rs`). `TargetTooClose { unit, target }` (slice M3-L2, design
   change 0182) is an Attack order that failed because its target is inside the MinRange of a unit that can't move,
   or can't back off further (design change 0204 point 3); the feedback line says "Target too close".
@@ -2421,7 +2438,7 @@ their energy doorway, slice M3-D2: design change 0145, `factions/colonists/struc
   target form, design change 0198: 4 Sabres and 6 Rifles, a press on a unit waiting, converting and converted, fast
   presses ending in their parity). The resolution's cases are unit-tested in `combat/damage.rs`, the regeneration
   in `shields.rs`, the conversion's pieces in `conversion/tests.rs`, a change waiting for the Cooldown's end and a
-  second press dropping it in `sim/modes/tests.rs` (0153, 0198). In the client: `tests/combat.rs` (the shield bar),
+  second press dropping it in `sim/modes/tests.rs` (0153, 0198). In the client: `tests/combat/` (the shield bar),
   `tests/commands/convert.rs` (R: the type and the group switched at the press, a deferred unit's too, the drawn
   form, design change 0198), `tests/commands/riot_shield/` (`groups.rs`: the groups at the press; `target.rs`: 0198's
   and 0202's Verifications through the panel and the mouse) and the InfoPanel's Shields line in `hud/info_panel`.
@@ -2670,7 +2687,8 @@ these.
   layer, and a frame around each unit in the colour of its move's status (`status_color`: green moving, amber held
   up, red failed, blue arrived; placeholder colours). Its one mesh is rebuilt every frame while it is shown.
 - **Combat effects** (`combat_effects.rs`, its mesh in `combat_effects/draw.rs`; placeholders until Q0001): a tracer for
-  each `SimEvent::Attacked` (`TRACER_TICKS`), drawn only along the parts of its path over the local player's Visible
+  each `SimEvent::Attacked` and each `SimEvent::Missed` (`TRACER_TICKS`; a TailDisjointed shot's, the Gunner's, to the
+  spot it locked, hit or miss, `Tracer::target` none for a miss: slice M5-O3), drawn only along the parts of its path over the local player's Visible
   tiles (`shot_spans`, through `visible_spans`, which cuts it at every tile edge it crosses; design change 0177: a shot
   from the fog shows from the fog edge, one all in the fog not at all; its attacker is revealed by the sim), **with no
   exception** (design change 0293, answering Q0083 point 4: every shot, tracer or projectile, whoever fires it and at
