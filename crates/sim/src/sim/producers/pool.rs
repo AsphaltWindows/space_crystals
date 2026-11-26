@@ -6,7 +6,8 @@
 //! - **The units an order uses** ([`Sim::free_units`]): those of its kind (design change 0337, `crate::augmentation`:
 //!   Plain, Constitution, Metabolism or Both) in the pool, neither reserved nor on their way out (`Sim::pool`), those
 //!   that entered first (`factions/cults/structures/armory.md > Training`: "an order reserves the matching unit(s)
-//!   that **entered the building first** (first in, first trained)").
+//!   that **entered the building first** (first in, first trained)"); at the Altar, which holds four types, of its type
+//!   too ([`Sim::free_units_of`], slice M5-N1b).
 //! - **Queuing** (`ProductionCommand::TrainFrom`, `ProductionCommand::Release`; the gate is `sim/producers.rs`'s): an
 //!   order pays its Space Crystals, a Release nothing, and reserves its units at once (`Production::reserved`): as
 //!   many as the unit's Unit Control cost (`QueueEntry::units_reserved`), one for a Release. Without enough free units
@@ -18,17 +19,21 @@
 //!   entry waits at 100% while units ready before it go first.
 //! - **Leaving** (`Sim::step_holding`, `sim/holding.rs`): the building lets its ready units out one at a time through
 //!   its exit doorway, in the order they are ready (design change 0348), a training's unit coming out as the unit it
-//!   trains ([`Sim::train`]), a Release's unchanged; the entry then leaves the queue, and the next starts in the next
-//!   tick, as at any producer.
+//!   trains ([`Sim::train`]), an augmentation order's augmented ([`Sim::augment`], slice M5-N1b), a Release's
+//!   unchanged ([`Sim::complete`]); the entry then leaves the queue, and the next starts in the next tick, as at any
+//!   producer.
 //! - **X and the refunds** (`Sim::apply_production`, `Sim::refund_production`): an entry's Space Crystals go back to
 //!   the player in full, and its units to the pool ([`Sim::unreserve`]): "returns its reserved Recruit to
 //!   StoredRecruits" (`factions/cults/structures/armory.md > ObjectInterfaceState[Armory]`). A building that leaves the
 //!   game refunds every entry but a finished one, whose unit comes out as the unit it trained, unrefunded (design
-//!   change 0349 point 3), and the others' units come out as they are, Recruits (`sim/holding/evacuation.rs`).
+//!   change 0349 point 3), or augmented, and the others' units come out as they are, Recruits
+//!   (`sim/holding/evacuation.rs`).
 
-use crate::augmentation::{Augmentation, RecruitKind, Research};
+use crate::augmentation::{self, AugmentOrder, Augmentation, RecruitKind, Research};
 use crate::defs::ObjectKind;
 use crate::ids::ObjectId;
+use crate::object::Object;
+use crate::production::QueueEntry;
 use crate::sim::Sim;
 use crate::transform;
 
@@ -43,8 +48,19 @@ impl Sim {
     /// The free units of kind `kind` in `building`'s pool, longest inside first (module docs): those an order of that
     /// kind takes, in that order. None for anything but a building that holds units.
     pub fn free_units(&self, building: ObjectId, kind: RecruitKind) -> Vec<ObjectId> {
+        self.free_where(building, |o| o.augmentation.kind() == kind)
+    }
+
+    /// (M5-N1b) The free units of type `unit` and kind `kind` in `building`'s pool, longest inside first: those an
+    /// Altar's order or Release for them takes, in that order (`factions/cults/augmentation.md > Altar > Augmentation
+    /// Orders`: "reserves one unit of the selected type and AugmentationState from StoredUnits").
+    pub fn free_units_of(&self, building: ObjectId, unit: ObjectKind, kind: RecruitKind) -> Vec<ObjectId> {
+        self.free_where(building, |o| o.kind == unit && o.augmentation.kind() == kind)
+    }
+
+    fn free_where(&self, building: ObjectId, keep: impl Fn(&Object) -> bool) -> Vec<ObjectId> {
         (self.pool(building).into_iter())
-            .filter(|held| held.object.augmentation.kind() == kind)
+            .filter(|held| keep(&held.object))
             .map(|held| held.object.id)
             .collect()
     }
@@ -53,8 +69,20 @@ impl Sim {
     /// kind buttons count (design change 0337: "Each kind's button shows [...] the count inside (unreserved); it is
     /// greyed if there are none").
     pub fn pool_counts(&self, building: ObjectId) -> [u32; 4] {
+        self.counts_where(building, |_| true)
+    }
+
+    /// (M5-N1b) How many free units of type `unit` of each kind `building`'s pool has, in `RecruitKind::ALL`'s order:
+    /// what an Altar's AugmentMenu\[UnitType\] counts (`factions/cults/augmentation.md > Altar >
+    /// ObjectInterfaceState[Altar]`: "Each tile shows the count of unreserved units of that type and state in
+    /// StoredUnits; disabled if there are none"), and their sum its DefaultState's tile of the type.
+    pub fn pool_counts_of(&self, building: ObjectId, unit: ObjectKind) -> [u32; 4] {
+        self.counts_where(building, |o| o.kind == unit)
+    }
+
+    fn counts_where(&self, building: ObjectId, keep: impl Fn(&Object) -> bool) -> [u32; 4] {
         let mut counts = [0; 4];
-        for held in self.pool(building) {
+        for held in self.pool(building).into_iter().filter(|held| keep(&held.object)) {
             counts[held.object.augmentation.kind() as usize] += 1;
         }
         counts
@@ -67,6 +95,18 @@ impl Sim {
             if let Some(held) = self.held.get_mut(unit) {
                 held.leaving = None;
             }
+        }
+    }
+
+    /// What a finished entry `entry` does to its first unit, `unit`, as the unit comes out of the building, let out
+    /// (`Sim::let_out`) or evacuated (`Sim::evacuate`): a training's becomes the unit it trains, of the units `consumed`
+    /// too ([`Sim::train`]), an augmentation order's gains its Augmentations ([`Sim::augment`], slice M5-N1b), and a
+    /// Release's stays as it is.
+    pub(in crate::sim) fn complete(&mut self, unit: ObjectId, entry: QueueEntry, consumed: &[ObjectId]) {
+        match entry {
+            QueueEntry::Unit(kind) => self.train(unit, kind, consumed),
+            QueueEntry::Augment { order } => self.augment(unit, order),
+            QueueEntry::Release => {}
         }
     }
 
@@ -123,6 +163,20 @@ impl Sim {
         };
         if let Some(worker) = &mut o.worker {
             worker.load = 0;
+        }
+    }
+
+    /// (M5-N1b) `factions/cults/augmentation.md > Altar > Augmentation Orders`: "When an order finishes, the unit's
+    /// AugmentationState is updated (its amounts follow the current research level; see Augmentation > Research
+    /// applies to everyone)". Unit `unit`, just out ([`Sim::complete`]), gains the Augmentations `order` applies
+    /// (`AugmentOrder::onto`), its HP following its MaxHP (`augmentation::set`, design changes 0330 and 0331: a rise
+    /// keeps its damage, a fall caps its HP). Its owner's levels are read whenever its stats are, so none is stamped
+    /// on it (design change 0336: "Temple research is **retroactive**").
+    pub(in crate::sim) fn augment(&mut self, unit: ObjectId, order: AugmentOrder) {
+        let research = Research::new(&self.players);
+        if let Some(o) = self.objects.get_mut(&unit) {
+            let augmentation = order.onto(o.augmentation);
+            augmentation::set(o, augmentation, research);
         }
     }
 }

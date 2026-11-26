@@ -104,7 +104,10 @@ pub fn recruitment(sim: &Sim, structure: &Object) -> Vec<String> {
 /// ArmoryInstanceState`: "StoredRecruits: list of Recruit references (max 10)"): how many are inside, the reserved ones
 /// included, of its capacity (design change 0347 point 5: "**Capacity counts everyone inside**"), and a pool building's
 /// free ones of each kind (design change 0337: "the count inside (unreserved)", `Sim::pool_counts`; slice M5-F2), every
-/// kind's. (M5-N2) Another's occupants, the Garrison's (plan §N2: "the occupants in the InfoPanel"), each kind it takes
+/// kind's; one that takes in several types, the Altar, its free ones of each type, every type's, as its type tiles count
+/// them (slice M5-N1b, `Sim::pool_counts_of`: **Placeholder**, `factions/cults/augmentation.md > Altar >
+/// AltarInstanceState` lists its StoredUnits, not how they show). (M5-N2) Another's occupants, the Garrison's (plan
+/// §N2: "the occupants in the InfoPanel"), each kind it takes
 /// in that is inside, in the order it lists them (`sc_sim::defs::HoldsDef::accepts`), with how many: **Placeholder
 /// (not in the design: the Garrison has no InstanceState)**. Nothing for a structure that holds none.
 pub fn holding(sim: &Sim, structure: &Object) -> Vec<String> {
@@ -114,11 +117,21 @@ pub fn holding(sim: &Sim, structure: &Object) -> Vec<String> {
     let inside = sim.held_in(structure.id);
     let mut lines = vec![format!("Inside: {} / {}", inside.len(), holds.capacity)];
     if holding::trains(structure.kind) {
-        let counts = sim.pool_counts(structure.id);
-        let kinds: Vec<String> = (RecruitKind::ALL.iter())
-            .map(|&kind| format!("{} {}", kind.name(), counts[kind as usize]))
-            .collect();
-        lines.push(format!("Free: {}", kinds.join(", ")));
+        let free: Vec<String> = match holds.accepts {
+            [_] => {
+                let counts = sim.pool_counts(structure.id);
+                (RecruitKind::ALL.iter())
+                    .map(|&kind| format!("{} {}", kind.name(), counts[kind as usize]))
+                    .collect()
+            }
+            types => (types.iter())
+                .map(|&unit| {
+                    let free: u32 = sim.pool_counts_of(structure.id, unit).iter().sum();
+                    format!("{} {free}", unit.def().name)
+                })
+                .collect(),
+        };
+        lines.push(format!("Free: {}", free.join(", ")));
     } else if !inside.is_empty() {
         let count = |kind| inside.iter().filter(|held| held.object.kind == kind).count();
         let kinds: Vec<String> = (holds.accepts.iter())
@@ -142,7 +155,9 @@ pub fn holding(sim: &Sim, structure: &Object) -> Vec<String> {
 /// "Recruiting", and the Hall shows no queue: it makes one Recruit at a time, by itself (slice M5-C). A pool building's
 /// TrainingQueue (`factions/cults/structures/armory.md > ArmoryInstanceState`) shows its entries by name, a Release as
 /// "Release", of its capacity, which bounds it (design change 0347 point 5); a Release under way is "Releasing" its unit
-/// (slice M5-F2).
+/// (slice M5-F2). An Altar's AugmentationQueue (`factions/cults/augmentation.md > Altar > AltarInstanceState`) shows its
+/// orders by name, "Enhanced Constitution", "Improved Metabolism" and "Both", and the one under way is "Augmenting" its
+/// unit, with the order: "Augmenting Militant (Enhanced Constitution): 45%" (slice M5-N1b; placeholder wording).
 pub fn production(sim: &Sim, sight: &Sight, structure: &Object) -> Vec<String> {
     let Some(production) = &structure.production else {
         return Vec::new();
@@ -156,12 +171,12 @@ pub fn production(sim: &Sim, sight: &Sight, structure: &Object) -> Vec<String> {
             total => u64::from(status.progress) * 100 / u64::from(total),
         };
         let doing = if recruits { "Recruiting" } else { "Training" };
+        let unit = (production.reserved_by_current().first()).and_then(|&unit| sim.held_unit(unit));
+        let unit = unit.map_or("", |held| held.object.def().name);
         let name = match status.entry {
             QueueEntry::Unit(kind) => format!("{doing} {}", kind.def().name),
-            QueueEntry::Release => {
-                let unit = (production.reserved_by_current().first()).and_then(|&unit| sim.held_unit(unit));
-                format!("Releasing {}", unit.map_or("", |held| held.object.def().name))
-            }
+            QueueEntry::Release => format!("Releasing {unit}"),
+            QueueEntry::Augment { order } => format!("Augmenting {unit} ({})", order.name()),
         };
         lines.push(format!("{}: {percent}%", name.trim_end()));
         if let Some(cap) = status.blocked {
@@ -170,7 +185,11 @@ pub fn production(sim: &Sim, sight: &Sight, structure: &Object) -> Vec<String> {
         match holding::holds(structure).filter(|_| holding::trains(structure.kind)) {
             Some(holds) => {
                 let entries: Vec<&str> = (production.queue.iter())
-                    .map(|entry| entry.unit().map_or("Release", |kind| kind.def().name))
+                    .map(|entry| match *entry {
+                        QueueEntry::Unit(kind) => kind.def().name,
+                        QueueEntry::Release => "Release",
+                        QueueEntry::Augment { order } => order.name(),
+                    })
                     .collect();
                 let (queued, capacity) = (production.queue.len(), holds.capacity);
                 lines.push(format!("Queue: {} ({queued} / {capacity})", entries.join(", ")));

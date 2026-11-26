@@ -9,7 +9,8 @@
 //!   What a type produces, at what cost and through which sides, is its `ProductionDef`
 //!   (`StructureDef::production`).
 //! - **Commands** ([`ProductionCommand`], sent as `Command::Production`; the gate and their application are in
-//!   `sim/producers.rs`): `Train`, `CancelProduction`, `SetRally`.
+//!   `sim/producers.rs`): `Train`, `CancelProduction`, `SetRally`; a pool building's `TrainFrom` and `Release` (slice
+//!   M5-F2), and an Altar's `Augment` and `ReleaseOf` (slice M5-N1b).
 //! - **Costs** (plan decision T7): a unit's Space Crystals are paid when it is queued, and only they and room in the
 //!   queue are checked then. Its army cost (the GDO's Unit Control, the Colonists' Beacon Capacity: `economy::army`)
 //!   is taken when production starts (design change 0143, which replaces 0082's reservation at queue time, for every
@@ -26,8 +27,9 @@
 //!   TrainingQueue reserves units of the pool as it is queued ([`Production::reserved`]): as many as the product's
 //!   Unit Control cost ("a trained unit's Unit Control cost equals the number of Recruits consumed",
 //!   `factions/cults/structures/README.md > Cults Vehicles`), or one for a Release ([`QueueEntry::Release`], design
-//!   change 0337). Its queue is bounded by its capacity alone, the reserved units being inside (design change 0347
-//!   point 5: "Queues are limited by capacity, not by a separate 20"), so [`QUEUE_LIMIT`] isn't its.
+//!   change 0337) or an Altar's augmentation order ([`QueueEntry::Augment`], slice M5-N1b). Its queue is bounded by its
+//!   capacity alone, the reserved units being inside (design change 0347 point 5: "Queues are limited by capacity, not
+//!   by a separate 20"), so [`QUEUE_LIMIT`] isn't its.
 //! - **The step** (`Sim::step_production`, in the economy phase): a unit at 0% starts if there is room for it, or
 //!   waits (0143); then the unit in production advances by its owner's power ratio (design change 0089). When it is
 //!   complete it is released into the building's doorway (`exit.rs`): half inside the middle of an exit side
@@ -41,7 +43,7 @@ pub mod rally;
 
 use serde::{Deserialize, Serialize};
 
-use crate::augmentation::RecruitKind;
+use crate::augmentation::{AugmentOrder, RecruitKind};
 use crate::defs::{ObjectKind, ProductionDef};
 use crate::economy::{ArmyResource, RATIO_ONE};
 use crate::hash::{StateHash, StateHasher};
@@ -77,6 +79,21 @@ pub enum ProductionCommand {
     /// (M5-F2) "**A: Release**" in KindMenu\[kind\] (design change 0337): queue a Release, free, which reserves the
     /// unit of this kind inside that entered first, and lets it out unchanged once it completes.
     Release(RecruitKind),
+    /// (M5-N1b) An Altar's order, from AugmentMenu\[UnitType, State\] (`factions/cults/augmentation.md > Altar >
+    /// ObjectInterfaceState[Altar]`: "Each click queues one order"): pay for `order` and add it to the
+    /// AugmentationQueue, reserving the unit of type `kind` and kind `from` inside that entered first ("an order
+    /// reserves the matching unit(s) that **entered the building first**"), which must be missing every Augmentation
+    /// the order applies.
+    Augment {
+        kind: ObjectKind,
+        from: RecruitKind,
+        order: AugmentOrder,
+    },
+    /// (M5-N1b) "**A: Release**" in an Altar's AugmentMenu\[UnitType, State\] ("In every state: **A: Release** (free
+    /// no-op, 4 frames, placeholder; the unit walks out unchanged"): a Release, as [`ProductionCommand::Release`]'s, of
+    /// the unit of type `kind` and kind `from` inside that entered first. The Armory's names the kind alone: it holds
+    /// Recruits only.
+    ReleaseOf { kind: ObjectKind, from: RecruitKind },
 }
 
 /// Why a producer that received a `Train` didn't queue the unit, while others of the same command did

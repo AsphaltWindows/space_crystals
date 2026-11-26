@@ -89,14 +89,15 @@ pub(crate) static RECRUIT: ObjectDef = ObjectDef {
             // `> Building`: "Recruits construct Cults buildings from outside the site and can assist in-progress
             // construction"; `> Constructs`, the buildings of plan slice M5-A (slice M5-E), and the Gunworks, the
             // Machine Shop and the Scrap Hangar (slice M5-G2), which only unlock, research nothing yet and hold no one,
-            // and the Garrison (slice M5-N2), before the Gunworks as the list has it; each other building joins with
-            // the slice that makes it work (plan decision T69). A group shares one build (`factions/cults/economy.md >
+            // the Garrison (slice M5-N2), before the Gunworks as the list has it, and the Altar (slice M5-N1b), after
+            // the Armory; each other building joins with the slice that makes it work (plan decision T69). A group shares one build (`factions/cults/economy.md >
             // Build Command`: "All selected Recruits walk to the location and begin construction from outside the
             // site"; plan decision T59).
             builds: &[
                 ObjectKind::RecruitmentHall,
                 ObjectKind::Storage,
                 ObjectKind::Armory,
+                ObjectKind::Altar,
                 ObjectKind::Garrison,
                 ObjectKind::Gunworks,
                 ObjectKind::MachineShop,
@@ -127,7 +128,8 @@ mod tests {
     /// `> Gathering`: 2 a load, 8 frames of mining and 2 of unloading, reaches of 8 su, shared patches, normal
     /// collision (design change 0106), no Supplies; the Storage nearest its patch at every return (design change
     /// 0345). `> Building` (slice M5-E): it builds the Recruitment Hall, the Storage and the Armory, the Gunworks,
-    /// the Machine Shop and the Scrap Hangar (slice M5-G2), and the Garrison (slice M5-N2), a group sharing one build.
+    /// the Machine Shop and the Scrap Hangar (slice M5-G2), the Garrison (slice M5-N2) and the Altar (slice M5-N1b), a
+    /// group sharing one build.
     #[test]
     fn the_recruit_follows_the_design() {
         let attack = assert_infantry(ObjectKind::Recruit);
@@ -162,14 +164,15 @@ mod tests {
             "design change 0345: the nearest to the patch, at every return"
         );
         assert_eq!(worker.search_radius, 6.0, "a placeholder: the other workers' radius");
-        // `> Building`, `> Constructs` (slice M5-E): the three buildings of plan slice M5-A, slice M5-G2's three and
-        // slice M5-N2's Garrison, as one group's build.
+        // `> Building`, `> Constructs` (slice M5-E): the three buildings of plan slice M5-A, slice M5-G2's three,
+        // slice M5-N2's Garrison and slice M5-N1b's Altar, as one group's build.
         assert_eq!(
             worker.builds,
             [
                 ObjectKind::RecruitmentHall,
                 ObjectKind::Storage,
                 ObjectKind::Armory,
+                ObjectKind::Altar,
                 ObjectKind::Garrison,
                 ObjectKind::Gunworks,
                 ObjectKind::MachineShop,

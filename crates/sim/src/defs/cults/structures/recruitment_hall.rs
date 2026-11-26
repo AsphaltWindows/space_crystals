@@ -55,6 +55,7 @@ pub(crate) static RECRUITMENT_HALL: ObjectDef = ObjectDef {
                 area: 10,     // RecruitmentArea: "A 10x10 grid unit area centered on the 4x4 building"
                 capacity: 20, // BaseUnitControlCapacity - 20
             }),
+            augment: &[],
         }),
         mining: None,
         onto: None,

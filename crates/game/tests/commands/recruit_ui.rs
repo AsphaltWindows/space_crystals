@@ -272,8 +272,9 @@ fn the_recruits_panel_shows_every_letter() {
 /// BuildMenu[Basic] and BuildMenu[Advanced]: "Fixed slots: every building keeps its key and is greyed until its
 /// TechPrerequisite is met, so no hotkey ever moves"; "**Z** returns to DefaultState"). With 250 Space Crystals: A
 /// opens the Basic menu, Q Recruitment Hall greyed for the bank, W Storage, A Armory (a Storage stands), S Gunworks
-/// (an Armory stands; slice M5-G2) and D Garrison (an Armory stands; slice M5-N2), X Altar greyed as not in the game
-/// yet, which says so when pressed, the menu staying open; each Build's hint names its price. Z goes back; W opens the Advanced menu: S Machine Shop and
+/// (an Armory stands; slice M5-G2), D Garrison (an Armory stands; slice M5-N2) and X Altar (a Storage stands; slice
+/// M5-N1b), whose placement X enters and Z leaves for the menu; each Build's hint names its price. Z goes back; W opens
+/// the Advanced menu: S Machine Shop and
 /// F Scrap Hangar (slice M5-G2) greyed by the gate for their TechPrerequisites, a Chop Shop and an Airstrip, which
 /// they name when pressed; A Chop Shop, D Airstrip, X Temple, C Cathedral and V Shrine greyed as not in the game yet
 /// (0327's Verification: "W then A places a Chop Shop (greyed without an Armory)": its Build comes with its slice).
@@ -296,7 +297,7 @@ fn the_construct_menus_keep_their_slots_greying_what_cant_be_built() {
             (s(), cmd(Build(ObjectKind::Gunworks)), Common, "GS"),
             (d(), cmd(Build(ObjectKind::Garrison)), Common, "GA"),
             (z(), PanelButton::Back, Back, "Back"),
-            (x(), planned(Planned::Altar), Unavailable, "AR"),
+            (x(), cmd(Build(ObjectKind::Altar)), Common, "AR"),
         ]
     );
     let hints = [
@@ -305,13 +306,15 @@ fn the_construct_menus_keep_their_slots_greying_what_cant_be_built() {
         (a(), "A: Build Armory (200 Space Crystals)"),
         (s(), "S: Build Gunworks (150 Space Crystals)"),
         (d(), "D: Build Garrison (150 Space Crystals)"),
-        (x(), "X: Build Altar"),
+        (x(), "X: Build Altar (150 Space Crystals)"),
     ];
     for (at, hint) in hints {
         assert_eq!(hint_over(&mut app, at).as_deref(), Some(hint));
     }
     tap(&mut app, &[], KeyX);
-    assert_eq!(said(&app), Some(NOT_YET_TEXT));
+    let placing = interface(&app).placing().map(|placing| placing.kind);
+    assert_eq!(placing, Some(ObjectKind::Altar));
+    tap(&mut app, &[], KeyZ);
     assert_eq!(interface(&app), InterfaceState::BuildMenu(BuildMenu::Basic));
     tap(&mut app, &[], KeyZ);
     assert_eq!(interface(&app), InterfaceState::DefaultState);

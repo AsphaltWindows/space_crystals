@@ -100,6 +100,8 @@ pub fn pointer_display(interface: InterfaceState, units: &[UnitCapabilities], ta
         | InterfaceState::EjectMenu
         | InterfaceState::ExpandMenu
         | InterfaceState::KindMenu(_)
+        | InterfaceState::AugmentMenu(_)
+        | InterfaceState::AugmentStateMenu(..)
         | InterfaceState::AwaitingPlacement(_) => PointerDisplay::Inactive,
     }
 }
