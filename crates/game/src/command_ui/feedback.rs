@@ -105,6 +105,9 @@ pub const NOT_FOR_TYPE_TEXT: &str = "Not available for this unit";
 /// The message of a command or building that isn't in the game yet (design change 0124: "shown but unavailable
 /// until defined"). Placeholder wording.
 pub const NOT_YET_TEXT: &str = "Not available yet";
+/// The message of a Place button pressed while its building is under construction, greyed (design changes 0388 and
+/// 0392). Placeholder wording.
+pub const UNDER_CONSTRUCTION_TEXT: &str = "Still under construction";
 /// The message of a refusal the others don't name. Placeholder wording.
 pub const CANNOT_DO_TEXT: &str = "Cannot do that now";
 /// The message of an Eject of a unit type none of which is in the Tunnel Network free to leave
@@ -298,7 +301,8 @@ pub fn placement_text(problem: Option<PlacementProblem>) -> &'static str {
 }
 
 /// The message of a greyed-out button pressed (design change 0162), by why it is greyed out: the gate's refusal
-/// ([`reject_text`]), the Riot Shields, a command awaiting its target, the type, or that it isn't in the game yet.
+/// ([`reject_text`]), the Riot Shields, a command awaiting its target, the type, that it isn't in the game yet, or a
+/// Place button's building under construction.
 pub fn unavailable_text(why: WhyUnavailable) -> &'static str {
     match why {
         WhyUnavailable::Refused(reject) => reject_text(reject),
@@ -306,6 +310,7 @@ pub fn unavailable_text(why: WhyUnavailable) -> &'static str {
         WhyUnavailable::Waiting => CANCEL_FIRST_TEXT,
         WhyUnavailable::NotForThisType => NOT_FOR_TYPE_TEXT,
         WhyUnavailable::NotYet => NOT_YET_TEXT,
+        WhyUnavailable::UnderConstruction => UNDER_CONSTRUCTION_TEXT,
     }
 }
 

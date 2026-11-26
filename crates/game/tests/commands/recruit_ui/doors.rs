@@ -17,16 +17,16 @@ fn ways(arrows: &[DoorArrow]) -> Vec<(Way, Vec2, Vec2)> {
 }
 
 /// Design change 0390's Verification: "Place a Cults Armory: an inward arrow shows on side B and an outward arrow on
-/// side C. Rotating the ghost turns the arrows with it." The Recruits' A then A puts an Armory's ghost under the
-/// cursor, unturned (3 × 2, ABAC: B east, C west): an arrow in at the middle of its east side, its entrance, and one
-/// out at the middle of its west side, its exit. F flips it as seen on the map (B west, C east), and R then turns it
-/// a quarter clockwise (2 × 3: B north, C south), the arrows with it, each at the middle of its side; the ghost's mesh
-/// is built again each time.
+/// side C. Rotating the ghost turns the arrows with it." The Recruits' W then A (design change 0398) puts an Armory's
+/// ghost under the cursor, unturned (3 × 2, ABAC: B east, C west): an arrow in at the middle of its east side, its
+/// entrance, and one out at the middle of its west side, its exit. F flips it as seen on the map (B west, C east), and
+/// R then turns it a quarter clockwise (2 × 3: B north, C south), the arrows with it, each at the middle of its side;
+/// the ghost's mesh is built again each time.
 #[test]
 fn the_armory_ghosts_arrows_turn_and_flip_with_it() {
     let mut app = recruit_game(300);
     select_units(&mut app, &RECRUITS);
-    tap(&mut app, &[], KeyA);
+    tap(&mut app, &[], KeyW);
     tap(&mut app, &[], KeyA);
     let site = TilePos::new(20, 9);
     pointer_over(&mut app, middle(site, (3, 2)));

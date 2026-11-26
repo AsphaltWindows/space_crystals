@@ -43,26 +43,29 @@ fn labels_and_names(panel: &Panel) -> Vec<(&'static str, String)> {
     panel.slots().filter_map(named).collect()
 }
 
-/// `factions/cults/units/recruit.md > Recruit ObjectInterfaceState > DefaultState commands` (design changes 0322 and
-/// 0327; 0322's Verification: "Select Recruits: the panel shows Q, A, S, D and X", and W since 0327): Q Move, W
-/// Advanced Construct, A Basic Construct, S Assist Construction, D Repair, X Stop, each named as the design names it.
-/// Q, S and D (slice M5-N8) await their targets, A and W open their menus, X stops at once. No Attack, Hold Position or
-/// Patrol button ("Same layout as the Agent's panel"). Every command goes to all four ("both right-click and panel
-/// commands (Construct, Assist Construction, Repair) are issued to all of them").
+/// `factions/cults/units/recruit.md > Recruit ObjectInterfaceState > DefaultState commands` (design changes 0322, 0327
+/// and 0398): "**Q** Move, **W** Basic Construct, **E** Advanced Construct, **A** Attack, **S** Assist, **D** Repair,
+/// **X** Stop", each named as the design names it. 0398's Verification: "Recruits: W opens Basic Construct, E opens
+/// Advanced Construct, A attacks": A awaits the target of an Attack, "as BasicCombatUnitInterfaceState's Attack"
+/// (design change 0389's E, moved to A). Q, S and D (slice M5-N8) await their targets too, and X stops at once. No Hold
+/// Position or Patrol button. Every command goes to all four ("both right-click and panel commands (Construct, Assist
+/// Construction, Repair) are issued to all of them").
 #[test]
-fn the_recruit_has_q_move_a_and_w_construct_s_assist_d_repair_and_x_stop() {
+fn the_recruit_has_q_move_w_and_e_construct_a_attack_s_assist_d_repair_and_x_stop() {
     use ButtonLook::Common;
-    use PanelCommand::{Assist, BuildMenu as Menu, Move, Repair, Stop};
+    use PanelCommand::{Assist, Attack, BuildMenu as Menu, Move, Repair, Stop};
     let selection = recruits();
     let shown_panel = panel(&selection, InterfaceState::DefaultState, &Conditions::default());
     let c = PanelButton::Command;
-    let (q, w, a, s, d, x) = (slot(0, 0), slot(0, 1), slot(1, 0), slot(1, 1), slot(1, 2), slot(2, 1));
+    let (q, w, e) = (slot(0, 0), slot(0, 1), slot(0, 2));
+    let (a, s, d, x) = (slot(1, 0), slot(1, 1), slot(1, 2), slot(2, 1));
     assert_eq!(
         shown(&shown_panel),
         [
             (q, c(Move), Common),
-            (w, c(Menu(BuildMenu::Advanced)), Common),
-            (a, c(Menu(BuildMenu::Basic)), Common),
+            (w, c(Menu(BuildMenu::Basic)), Common),
+            (e, c(Menu(BuildMenu::Advanced)), Common),
+            (a, c(Attack), Common),
             (s, c(Assist), Common),
             (d, c(Repair), Common),
             (x, c(Stop), Common),
@@ -70,25 +73,27 @@ fn the_recruit_has_q_move_a_and_w_construct_s_assist_d_repair_and_x_stop() {
     );
     let named = [
         ("Move", "Move"),
-        ("Adv.", "Advanced Construct"),
         ("Basic", "Basic Construct"),
+        ("Adv.", "Advanced Construct"),
+        ("Attack", "Attack"),
         ("Assist", "Assist Construction"),
         ("Repair", "Repair"),
         ("Stop", "Stop"),
     ];
     assert_eq!(labels_and_names(&shown_panel), named.map(|(l, n)| (l, n.to_string())));
     assert_eq!(press(&shown_panel, q), SlotPress::AwaitTarget(Move));
-    assert_eq!(press(&shown_panel, w), SlotPress::OpenMenu(BuildMenu::Advanced));
-    assert_eq!(press(&shown_panel, a), SlotPress::OpenMenu(BuildMenu::Basic));
+    assert_eq!(press(&shown_panel, w), SlotPress::OpenMenu(BuildMenu::Basic));
+    assert_eq!(press(&shown_panel, e), SlotPress::OpenMenu(BuildMenu::Advanced));
+    assert_eq!(press(&shown_panel, a), SlotPress::AwaitTarget(Attack));
     assert_eq!(press(&shown_panel, s), SlotPress::AwaitTarget(Assist));
     assert_eq!(press(&shown_panel, x), SlotPress::Issue(Stop, OrderKind::Stop));
     assert_eq!(press(&shown_panel, d), SlotPress::AwaitTarget(Repair));
     assert_eq!(why_text(&shown_panel, d), None);
-    for absent in [PanelCommand::Attack, PanelCommand::HoldPosition, PanelCommand::Patrol] {
+    for absent in [PanelCommand::HoldPosition, PanelCommand::Patrol] {
         assert!(!offers(RECRUIT, absent), "{absent:?}");
     }
     let all: Vec<ObjectId> = (1..=4).map(id).collect();
-    for command in [Move, Assist, Repair, Stop, PanelCommand::Build(STORAGE)] {
+    for command in [Move, Attack, Assist, Repair, Stop, PanelCommand::Build(STORAGE)] {
         assert_eq!(recipients(&selection, command), all, "{command:?}");
     }
     assert!(still_valid(
@@ -346,7 +351,8 @@ fn a_construct_entry_places_its_building_for_the_whole_group() {
     }
     let shown_mixed = panel(&mixed, InterfaceState::DefaultState, &conditions);
     let look = |at| shown_mixed.get(at).map(|shown| shown.look);
-    assert_eq!(look(slot(1, 0)), Some(Group), "Basic Construct");
+    assert_eq!(look(slot(0, 1)), Some(Group), "Basic Construct");
+    assert_eq!(look(slot(1, 0)), Some(ButtonLook::Common), "Attack, to all four");
     assert_eq!(look(slot(1, 1)), Some(Group), "Assist Construction");
     assert_eq!(recipients(&mixed, Build(STORAGE)), [id(1), id(2)]);
     assert!(still_valid(placement, &mixed, true, &conditions));

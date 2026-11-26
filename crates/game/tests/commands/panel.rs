@@ -1,6 +1,9 @@
 //! The CommandPanel (`systems/controls/interface.md > CommandPanel`): its layout for the M1 units, its hotkeys
 //! and buttons, who receives its commands (no smart-casting: all of them, design change 0071), and that only the local
-//! player's units do.
+//! player's units do. A: Attack, shown while one of the selected units can attack and given to the whole selection
+//! (design changes 0397 and 0399), is [`attack`]'s.
+
+mod attack;
 
 use bevy::prelude::*;
 use sc_sim::defs::RIOT_SHIELD_TOGGLE_TICKS;

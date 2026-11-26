@@ -104,12 +104,12 @@ fn a_warp_in_the_bank_cannot_pay_for_says_why() {
     );
 }
 
-/// `factions/colonists/units/drone.md > Drone ObjectInterfaceState` (design change 0124): Q Move, A Deploy, S Set
-/// Drop-off (`gathering`), X Stop. A enters AwaitingPlacement for a Beacon (a StateOnlyTransition), the Deploy marked
-/// and Back in Z, which returns to DefaultState; the placement holds while the ActiveGroup is Drones. The Beacon
-/// doesn't turn.
+/// `factions/colonists/units/drone.md > Drone ObjectInterfaceState` (design changes 0124 and 0398): Q Move, W
+/// Deploy, S Set Drop-off (`gathering`), X Stop, and no A, the Drones alone (no selected unit can attack: design change
+/// 0399). W enters AwaitingPlacement for a Beacon (a StateOnlyTransition), the Deploy marked and Back in Z, which
+/// returns to DefaultState; the placement holds while the ActiveGroup is Drones. The Beacon doesn't turn.
 #[test]
-fn the_drone_deploys_with_a() {
+fn the_drone_deploys_with_w() {
     use ButtonLook::Common;
     use PanelCommand::{Deploy, Move, SetDropOff, Stop};
     let drones = Selection::new([(id(1), DRONE), (id(2), DRONE)]);
@@ -120,17 +120,18 @@ fn the_drone_deploys_with_a() {
         shown(&default),
         [
             (slot(0, 0), c(Move), Common),
-            (slot(1, 0), c(Deploy), Common),
+            (slot(0, 1), c(Deploy), Common),
             (slot(1, 1), c(SetDropOff), Common),
             (X, c(Stop), Common)
         ]
     );
-    assert_eq!(press(&default, slot(1, 0)), SlotPress::AwaitDeploy);
+    assert_eq!(press(&default, slot(0, 1)), SlotPress::AwaitDeploy);
+    assert_eq!(press(&default, slot(1, 0)), SlotPress::Nothing, "no A");
     assert_eq!(press(&default, X), SlotPress::Issue(Stop, OrderKind::Stop));
 
     let placing = InterfaceState::AwaitingPlacement(Placing::deploy());
     let placed = panel(&drones, placing, &conditions);
-    assert_eq!(placed.get(slot(1, 0)).map(|s| s.look), Some(ButtonLook::Pending));
+    assert_eq!(placed.get(slot(0, 1)).map(|s| s.look), Some(ButtonLook::Pending));
     assert_eq!(placed.get(CommandSlot::BACK).map(|s| s.look), Some(ButtonLook::Back));
     assert_eq!(placing.back(&drones), InterfaceState::DefaultState);
     assert!(still_valid(placing, &drones, true, &conditions));

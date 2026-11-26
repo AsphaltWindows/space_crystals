@@ -4,7 +4,7 @@
 use sc_sim::production::takes_rally;
 use sc_sim::{RecruitKind, ResearchDef, construction, transform};
 
-use super::{BuildMenu, PanelCommand, can_target_ground, constructs, cults, grid, menu_grid, syndicate};
+use super::{BuildMenu, PanelCommand, can_target_ground, constructs, cults, grid, menu_grid, place_slot, syndicate};
 use crate::selection::GroupType;
 
 /// The commands of an unfinished building, the Cancels of its two panels ([`TRANSFORMING_GRID`], [`SITE_GRID`]), and
@@ -24,8 +24,9 @@ fn unfinished_offers(kind: sc_sim::ObjectKind, command: PanelCommand) -> bool {
 /// Every command objects of type `ty` (a kind: a finished one) may show, in any state ([`state_grid`]): an
 /// unfinished building's Cancel, the Cancel of a transformation ([`TRANSFORMING_GRID`], design change 0185) or of a
 /// site's construction ([`SITE_GRID`], design change 0237), whichever it is, and (M5-S6) the C of one that will produce
-/// or release units (design change 0396); a finished type's DefaultState
-/// grid, and a constructor's buildings to construct and to place, and its two Cancels; a Beacon's buildings to warp
+/// or release units (design change 0396); a finished type's DefaultState grid, and a constructor's buildings to
+/// construct and to place (from its Place slot too, the Deployment Center's E: design change 0388), and its two
+/// Cancels; a Beacon's buildings to warp
 /// in; a Tunnel's EjectMenu tiles and the expansions of its ExpandMenu; a pool building's KindMenus' entries, every
 /// kind's; an Altar's AugmentMenus' tiles and entries, every type's and state's (slice M5-N1b); a Recruit's buildings
 /// of its Construct menus (slice M5-J1: [`menu_builds`]); a research structure's keys, each of its technologies' and
@@ -49,6 +50,7 @@ pub fn commands(ty: impl Into<GroupType>) -> Vec<PanelCommand> {
                 PanelCommand::Construct(recipe.kind),
                 PanelCommand::PlaceReady(recipe.kind),
             ]);
+            commands.extend(place_slot(kind).map(|_| PanelCommand::Place(recipe.kind)));
         }
         commands.extend([PanelCommand::CancelConstruction, PanelCommand::CancelReady]);
     }
@@ -86,7 +88,8 @@ pub fn commands(ty: impl Into<GroupType>) -> Vec<PanelCommand> {
 /// but its C if it will produce or release units (design change 0396: [`unfinished_offers`]). A finished one offers
 /// what its grid has ([`grid`]), and a conditional command only when the type can (`> BasicCombatUnitInterfaceState`:
 /// Reverse with the UnitBase's CanReverse, AttackGround with the AttackType's CanTargetGround). A constructor offers
-/// its own buildings (its `Constructs` list) and its Cancels, a Beacon the buildings of its Constructs List; a
+/// its own buildings (its `Constructs` list), from its Place slot too if it has one (the Deployment Center's E:
+/// `super::place_slot`), and its Cancels, a Beacon the buildings of its Constructs List; a
 /// building or a unit that isn't in the game is offered by no one (design change 0124: "shown but unavailable"). A
 /// build menu is offered while it shows something, so the Deployment Center's W, Advanced Construction, shows
 /// unavailable: none of its buildings exists yet, and they are hidden (design change 0104: "greyed placeholders"); the
@@ -106,6 +109,9 @@ pub fn offers(ty: impl Into<GroupType>, command: PanelCommand) -> bool {
     match command {
         PanelCommand::Construct(building) | PanelCommand::PlaceReady(building) => {
             return construction::recipe(kind, building).is_some();
+        }
+        PanelCommand::Place(building) => {
+            return place_slot(kind).is_some() && construction::recipe(kind, building).is_some();
         }
         PanelCommand::CancelConstruction | PanelCommand::CancelReady => return constructs(kind),
         PanelCommand::BuildMenu(menu) => {

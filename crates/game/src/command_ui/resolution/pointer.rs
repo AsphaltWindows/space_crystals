@@ -97,23 +97,24 @@ impl PointerDisplay {
 
 /// `systems/controls/hud.md > PointerDisplayType > Resolution Rules` over `target`, for the selected
 /// `units` (none: nothing commandable is selected, `systems/controls/interface.md > CommandPanel`). In a build
-/// menu, a Tunnel's EjectMenu or ExpandMenu, or a pool building's KindMenu, a right-click only goes back: Inactive
-/// (placeholder: the rules list no menu). AwaitingPlacement has "No pointer display type — the building ghost preview
-/// serves as the cursor" (`crate::command_ui::cursor` shows none): Inactive here.
+/// menu, a Tunnel's EjectMenu or ExpandMenu, a pool building's KindMenu or an Altar's AugmentMenus the right-click
+/// previewed as in DefaultState, since it does its normal right-click there (design change 0400; **reading**: the
+/// rules list no menu). AwaitingPlacement has "No pointer display type — the building ghost preview serves as the
+/// cursor" (`crate::command_ui::cursor` shows none): Inactive here.
 pub fn pointer_display(interface: InterfaceState, units: &[UnitCapabilities], target: &MapTarget) -> PointerDisplay {
     if units.is_empty() {
         return PointerDisplay::Inactive;
     }
     match interface {
-        InterfaceState::DefaultState => right_click_display(units, target),
-        InterfaceState::AwaitingTarget { pending, .. } => awaiting_display(pending, units, target),
-        InterfaceState::BuildMenu(_)
+        InterfaceState::DefaultState
+        | InterfaceState::BuildMenu(_)
         | InterfaceState::EjectMenu
         | InterfaceState::ExpandMenu
         | InterfaceState::KindMenu(_)
         | InterfaceState::AugmentMenu(_)
-        | InterfaceState::AugmentStateMenu(..)
-        | InterfaceState::AwaitingPlacement(_) => PointerDisplay::Inactive,
+        | InterfaceState::AugmentStateMenu(..) => right_click_display(units, target),
+        InterfaceState::AwaitingTarget { pending, .. } => awaiting_display(pending, units, target),
+        InterfaceState::AwaitingPlacement(_) => PointerDisplay::Inactive,
     }
 }
 

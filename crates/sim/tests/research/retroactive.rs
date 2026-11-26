@@ -179,7 +179,8 @@ fn held_units_take_the_new_amounts_too() {
 }
 
 /// "along with units augmented later": after Enhanced Constitution Level 1, an Altar's Enhanced Constitution order (25
-/// Space Crystals, 160 frames) on a Plain Recruit at full HP gives it +4 Constitution: it comes out at 80/80.
+/// Space Crystals, 48 frames since design change 0391) on a Plain Recruit at full HP gives it +4 Constitution: it comes
+/// out at 80/80.
 #[test]
 fn a_unit_augmented_after_level_1_gets_its_amounts() {
     let altar = id(3);
@@ -213,8 +214,9 @@ fn a_unit_augmented_after_level_1_gets_its_amounts() {
 
 /// The Director's note on the same tick (plan decision T74: "the research level in effect at that moment" includes
 /// research finishing that frame; with fixed amounts either order gives the same): an Altar's Enhanced Constitution
-/// order on a hurt Plain Recruit (h/40) and Enhanced Constitution Level 1, both queued in one tick, finish in the same
-/// one, 160 ticks on: the Recruit comes out with +4 Constitution, at 80 MaxHP, its HP 40 up.
+/// order on a hurt Plain Recruit (h/40) and Enhanced Constitution Level 1 finish in the same tick, 160 ticks after the
+/// research is queued: the order, 48 ticks long (design change 0391), is queued 112 ticks after it. The Recruit comes
+/// out with +4 Constitution, at 80 MaxHP, its HP 40 up.
 #[test]
 fn an_augmentation_finishing_in_the_tick_level_1_completes_gets_level_1() {
     let altar = id(3);
@@ -235,7 +237,7 @@ fn an_augmentation_finishing_in_the_tick_level_1_completes_gets_level_1() {
     };
     let start = t.sim().tick() + 1;
     t.at(start, P1, research(&[T1], EC1));
-    t.at(start, P1, production(&[altar], order));
+    t.at(start + 112, P1, production(&[altar], order));
     run_checked(&mut t, start + 158);
     assert!(
         t.sim().object(recruit).is_none() && completed(&t).is_empty(),

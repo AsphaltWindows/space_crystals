@@ -20,7 +20,7 @@ pub(crate) static RECRUITMENT_HALL: ObjectDef = ObjectDef {
     footprint: Footprint::Tiles { w: 4, h: 4 }, // Size - 4x4 grid units
     selectable: true,                           // `core/entities.md > Object Type > Selectable - true`
     destructible: true,                         // Destructible - true
-    groupable: false,                           // Groupable - false
+    groupable: true,                            // Groupable - true (user, 2026-11-27; design change 0395, was false)
     sight_range: 6.0,                           // SightRange - 6 grid units
     max_hp: Some(1000.0),                       // MaxHP - 1000
     max_shields: None,
@@ -99,10 +99,10 @@ mod tests {
     use crate::defs::cults::tests::assert_structure;
 
     /// 4×4, AAAB (design change 0342), MaxHP 1000, PointArmor 1, FullArmor 16 (the building armour rule's n = 1),
-    /// SightRange 6, not Groupable, no TechPrerequisite. It recruits Recruits for free, 192 frames each at 100%
-    /// effectiveness, out of its one exit side, B (0342), with a 10x10 Recruitment Area and a capacity of 20 (slice
-    /// M5-C). Recruits build it from outside for 300 Space Crystals in 1440 frames with one of them, from 10% HP (slice
-    /// M5-E).
+    /// SightRange 6, Groupable (design change 0395: "selected Halls form one group"), no TechPrerequisite. It recruits
+    /// Recruits for free, 192 frames each at 100% effectiveness, out of its one exit side, B (0342), with a 10x10
+    /// Recruitment Area and a capacity of 20 (slice M5-C). Recruits build it from outside for 300 Space Crystals in
+    /// 1440 frames with one of them, from 10% HP (slice M5-E).
     #[test]
     fn the_recruitment_hall_follows_the_design() {
         let structure = assert_structure(
@@ -112,7 +112,7 @@ mod tests {
             1000.0,
             (1.0, 16.0),
             6.0,
-            false,
+            true,
         );
         assert_eq!(ObjectKind::RecruitmentHall.def().name, "Recruitment Hall");
         assert_eq!(structure.requires, &[][..]);

@@ -9,13 +9,15 @@
 //!
 //! By topic: the build menu, Construct and Cancel Construction (`build_menu`); the ghost, its tiles, its letters
 //! turned by R and F, and the overlay (`ghost_and_overlay`); a ready building placed, or not, and placement left
-//! (`ready_building`); the Extraction Facility's plate (`extraction_facility`); and nothing once the game is over
-//! or the player defeated (`game_over`).
+//! (`ready_building`); the Extraction Facility's plate (`extraction_facility`); the Place buttons with their progress
+//! bars, the Deployment Center's E and the Extraction Facility's Q (`place_button`, design changes 0388 and 0392); and
+//! nothing once the game is over or the player defeated (`game_over`).
 
 mod build_menu;
 mod extraction_facility;
 mod game_over;
 mod ghost_and_overlay;
+mod place_button;
 mod ready_building;
 
 use bevy::camera::visibility::NoFrustumCulling;

@@ -1237,7 +1237,8 @@ ticks spent in it. Hashed and serialized like all state.
   type (design change 0202, `riot_shield::takes_attack_orders(kind)`, which `combat::takes_attack_orders(kind)` joins
   to the weapon: the gate, the default command and the client's panel and right-click ask the latter): a Peacekeeper
   (Shielded) takes no Attack (the gate drops it from new Attack orders, `Reject::CannotAttack` when none is left;
-  design change 0075), and a right-click on an enemy makes it follow (0074); so (slice M5-N4a) does a type without a
+  design change 0075; the client's Attack gives it a Move on its target instead, design change 0397), and a
+  right-click on an enemy makes it follow (0074); so (slice M5-N4a) does a type without a
   weapon (`UnitDef::attack` none, the Disciple: "AttackAttributes - None"), which has no `attack` capability and so
   never auto-targets;
   a Peacekeeper whose shield is on its way down takes one, "accepted and held", and attacks once the shield is down.
@@ -2650,7 +2651,7 @@ their energy doorway, slice M3-D2: design change 0145, `factions/colonists/struc
   0332, 0336, 0337 and 0348; `augmentation/orders.rs`, `sim/producers/pool.rs`, `sim/producers/queuing.rs`): a pool
   building as data (`defs/cults/structures/altar.rs`: the four Cults infantry types in at B, 10 of them, out at C), no
   recipe, its entries the orders of `ProductionDef::augment` (`AugmentRecipe { order, cost, frames }`: 25 Space Crystals
-  and 160 frames each for Enhanced Constitution and Improved Metabolism, 50 and 320 for Both, placeholders) and
+  and 48 frames each for Enhanced Constitution and Improved Metabolism, 50 and 96 for Both, placeholders, 0391) and
   Releases. **An order**, `QueueEntry::Augment { order }` (`AugmentOrder`: `fits(kind)`, "missing every Augmentation
   the order applies", and `onto(before)`), is paid and reserves its unit when queued, as a training does: the free
   unit of the type and the kind that went in first (`Sim::free_units_of`, design change 0332), the queue bounded by
@@ -3501,7 +3502,8 @@ their energy doorway, slice M3-D2: design change 0145, `factions/colonists/struc
   data, their counts from a game, one Altar Tabbed to). The Cathedral's (slice M5-N4a): `tests/commands/cathedral.rs`
   (Recruits right-clicked in, Q,Q's Disciple out with its energy, its panel and InfoPanel, its right-click on an enemy
   a move), `command_ui/interface/tests/cathedral.rs` (the Cathedral's and the Disciple's panels as data, an Attack
-  leaving the Disciple out), `tests/combat/` (the energy bar) and `hud/info_panel/tests.rs` (the energy line). The
+  sending the Disciple to its target), `tests/combat/` (the energy bar) and `hud/info_panel/tests.rs` (the energy
+  line). The
   Temple's (slice M5-N3): `tests/commands/temple.rs` (Recruits right-clicked in, Q's research "In progress" then
   Level 2 greyed "Requires a Cathedral", an Enhanced Constitution Militant's MaxHP 60 to 80 at once, A/S/D/F's one
   Recruit out of C, Eject All, X's refund), `command_ui/interface/tests/temple.rs` (the grid, the keys following the
@@ -4120,22 +4122,30 @@ Drones, through one command flow (plan decision T10, slices M2-H1, M2-H2 and M3-
   the `Panel` a selection gets (common, group, pending, disabled and unavailable buttons; Back in Z while a target is
   awaited) and who receives a command (`recipients`: a common one the whole selection, a group one the whole
   ActiveGroup, by hotkey or button; never some of them, no smart-casting, 0071, apart from the units that can't carry
-  it out, which the resolution leaves out). A type's grid is its template's plus its own commands (`grid`: in R,
+  it out, which the resolution leaves out; Attack every selected unit, common whichever group is in focus,
+  `to_every_unit`: design change 0397, "Attack goes to everyone"). A type's grid is its template's plus its own
+  commands (`grid`: in R,
   Raise Shield for the Peacekeeper and Lower Shield for the Peacekeeper (Shielded), design changes 0173 and 0174;
   Convert to Rifle Legionnaire for the Sabre and Convert to Sabre Legionnaire for the Rifle, `PanelCommand::Convert`
   of the target form, design change 0198: "It goes only to the ActiveGroup"; each its type's own, so in a selection
-  of both it goes to the ActiveGroup). The Peacekeeper (Shielded)'s panel leaves out the Attack its type
-  still offers (`hides_attack`, in `state_grid`; 0173: "no Attack"), so that Attack stays common in a selection with
-  other units: an Attack on an object leaves the shielded units out (0075), an AttackMove takes them along (0076). A
+  of both it goes to the ActiveGroup). **A is the selection's** (`attack_slot`, in `state_grid` and on a site's or
+  a transforming object's panel; design changes 0397 to 0399: "A: Attack, on every unit", "A is shown whenever at
+  least one selected group can attack"): Attack while one of the selected units can attack (`Conditions::attacks`),
+  whichever group is in focus, and empty while none can, so that the Peacekeeper (Shielded)'s panel (0173: "no
+  Attack"), the Disciple's and the unarmed workers' show none on their own. A building's own A stays (a pool
+  building's Eject All), and a building's empty A shows the selection's Attack (a reading: the design names units).
+  An Attack on an object sends the units that can't attack to it, a Move on it (0397 and 0398, where 0075 left the
+  shielded units out), and an AttackMove takes them along (0076). A
   toggle's press switches its units' type, and group, at once (`ControlState::toggle`, by `Ability::switched_kind`,
   before the sim's tick has it; design change 0198): the group they join becomes the ActiveGroup, in its
   DefaultState (design change 0199), so the next press goes to every unit the last one reached. `Modes` holds the
-  selected units' modes: Attack is disabled while none of its recipients takes one, by its type from the press
-  (design change 0202, `riot_shield::takes_attack_orders`: a Peacekeeper whose shield is on its way down takes it and
-  attacks once the shield is down), and (slice M5-N4a) the selected units whose type takes none at all
-  (`Modes::held`, `combat::takes_attack_orders`: without a weapon, the Disciple, or Shielded), so that an explicit
-  Attack leaves them out (`unit_target_order`) and Attack is greyed "Lower the Riot Shield first" while a recipient is
-  shielded, else "Not available for this unit" (`WhyUnavailable::NotForThisType`). An Attack sent in the frame of a Lower Shield, before the sim's tick, goes too:
+  selected units' modes: whether a unit takes an Attack, by its type from the press (design change 0202,
+  `riot_shield::takes_attack_orders`: a Peacekeeper whose shield is on its way down takes it and attacks once the
+  shield is down), and (slice M5-N4a) the selected units whose type takes none at all (`Modes::held`,
+  `combat::takes_attack_orders`: without a weapon, the Disciple, or Shielded), so that an explicit Attack sends them
+  to its target instead (`unit_target_order`) and A shows while one selected unit takes one (were it pressed with
+  none, it would say "Lower the Riot Shield first" while a recipient is shielded, else "Not available for this unit",
+  `WhyUnavailable::NotForThisType`). An Attack sent in the frame of a Lower Shield, before the sim's tick, goes too:
   the gate refuses it only because the unit is still a Peacekeeper (Shielded), and the tick applies the Lower first
   (`OrderOutbox::give`, `attack_once_toggled`). `Conditions` holds the `Modes` and what
   the command gate refuses: a production command is disabled exactly when `Sim::validate` refuses the
@@ -4163,13 +4173,18 @@ Drones, through one command flow (plan decision T10, slices M2-H1, M2-H2 and M3-
   for a rally point. `group_orders` makes one order per distinct order, so units
   sent to one location go as one group (the magic box). A left-click while a target is awaited gives `target_order`:
   Attack takes any destructible object, own and neutral ones too (force-attack, 0059, 0064), never an indestructible
-  one; a right-click never attacks them. `unit_target_order` is the targeting click's shield rule, per unit: an
-  explicit Attack on an object leaves out a Peacekeeper (Shielded), which keeps its orders (0075, 0202; all of them
-  shielded: nothing is given, and Attack is disabled anyway); an AttackMove goes to every unit, shielded ones too,
-  which the sim walks on without engaging (0076: the sim's gate drops shielded units from Attack only). The pointer
+  one; a right-click never attacks them. `unit_target_order` is the targeting click's rule for the units that can't
+  attack, per unit: an explicit Attack on an object is a Move on it for them, a Peacekeeper (Shielded), a Disciple or
+  a worker without a weapon (design change 0398: "on a target they move to it (as a Move on that object)", where 0075
+  left the shielded units on their orders; 0202); an AttackMove goes to every unit, shielded and unarmed ones too,
+  which the sim walks on without engaging (0076, `systems/controls/commands.md > AttackMove > Units that can't
+  attack`: the sim's gate drops the units that can't attack from Attack only). The pointer
   previews the set of per-unit right-click actions: one shows its pointer, several show `Mixed` (0063); while a target
-  is awaited, the pending command's look over a target it can use, else Inactive. Nothing is commandable unless the
-  whole selection is the player's, nor once the game is over (`commandable`).
+  is awaited, the pending command's look over a target it can use, else Inactive. In a menu (a build menu, the
+  EjectMenu and the ExpandMenu, a KindMenu, the AugmentMenus) the right-click is DefaultState's, previewed as there,
+  and the menu stays open; in AwaitingTarget and AwaitingPlacement it goes straight back to DefaultState, a building
+  ready to place staying ready (design change 0400, `right_click_orders`). Nothing is commandable unless the whole
+  selection is the player's, nor once the game is over (`commandable`).
 - **Systems** (`CommandUiSystems`): `Validate` (in `SyncSim`, after the selection's sync) ends an AwaitingTarget that
   no longer holds. `Input` (in `Actions`, after the selection's input) turns Esc, the command hotkeys
   (`InputAction::CommandSlot`), clicks on the panel (found by `CommandGrid`), left-clicks on the map while a target is
@@ -4202,20 +4217,31 @@ Drones, through one command flow (plan decision T10, slices M2-H1, M2-H2 and M3-
   Deployment Center's Q Basic and W Advanced, unavailable while none of its buildings is in the game),
   `Construct(kind)`, `CancelConstruction` and `CancelReady` (X), and `PlaceReady(kind)`, "Select completed building",
   which takes its building's slot once it is ready. `InterfaceState` adds `BuildMenu(menu)` and
-  `AwaitingPlacement(Placing { builder, kind, orientation })`, the builder a constructor's `Builder::Constructor(id)`. A
-  constructor's panel follows its state (`state_grid`, from `Conditions::constructor`, the ActiveGroup's one instance's
-  `Constructor`), and its commands are that instance's own (`PanelCommand::instance_only`): they go to the active
-  constructor only, never to the other selected ones. A construction command is one `Command::Construction`
-  (`OrderOutbox::construct`, validated like the others), and Construct and the Cancels return to DefaultState. Back, Esc
-  and a right-click go back one state (`InterfaceState::back`): from AwaitingPlacement to the Deployment Center's build
-  menu or the Extraction Facility's DefaultState, from a build menu to DefaultState. While placing, the placement keys
-  turn the ghost (`turn_ghost`, see Input), and a left-click on the map places it if `Sim::placement_check` allows it
-  now: one Place at the footprint centred under the cursor (`Placing::origin_under`), as turned, and back to
-  DefaultState; a Shift-click the same (0071); elsewhere nothing is sent, placing goes on, and an `InvalidPlacement`
-  message says why. A Place the sim refuses as it applies it (`SimEvent::PlacementRefused`) leaves the building ready
-  and the player in DefaultState. A build menu leaves the map's clicks to the selection; AwaitingPlacement takes them
-  (`InterfaceState::takes_map_clicks`). `Validate` ends a build menu the ActiveGroup doesn't have, a placement whose
-  constructor isn't active or holds the building no more, and both when the selection isn't commandable.
+  `AwaitingPlacement(Placing { builder, kind, orientation, shortcut })`, the builder a constructor's
+  `Builder::Constructor(id)`. A constructor's panel follows its state (`state_grid`, from `Conditions::constructor`, the
+  ActiveGroup's one instance's `Constructor`), and its commands are that instance's own (`PanelCommand::instance_only`):
+  they go to the active constructor only, never to the other selected ones. A construction command is one
+  `Command::Construction` (`OrderOutbox::construct`, validated like the others), and Construct and the Cancels return to
+  DefaultState. Back and Esc go back one state (`InterfaceState::back`): from AwaitingPlacement to the Deployment
+  Center's build menu (its DefaultState from E's) or the Extraction Facility's DefaultState, from a build menu to
+  DefaultState; a right-click leaves a placement for DefaultState, and a build menu open (0400). While placing, the
+  placement keys turn the ghost (`turn_ghost`, see Input), and a left-click on
+  the map places it if `Sim::placement_check` allows it now: one Place at the footprint centred under the cursor
+  (`Placing::origin_under`), as turned, and back to DefaultState; a Shift-click the same (0071); elsewhere nothing is
+  sent, placing goes on, and an `InvalidPlacement` message says why. A Place the sim refuses as it applies it
+  (`SimEvent::PlacementRefused`) leaves the building ready and the player in DefaultState. A build menu leaves the map's
+  clicks to the selection; AwaitingPlacement takes them (`InterfaceState::takes_map_clicks`). `Validate` ends a build
+  menu the ActiveGroup doesn't have, a placement whose constructor isn't active or holds the building no more, and both
+  when the selection isn't commandable. **Place buttons** (design changes 0388 and 0392): the Deployment Center's
+  DefaultState shows `Place(kind)` in E (its template's `PLACE_SLOT`, labelled with the building's tag for its icon)
+  while it constructs or holds a building ready, and the Extraction Facility's Q is `PlaceReady(plate)` from the start
+  of the plate's construction; both are greyed until the building is ready (`WhyUnavailable::UnderConstruction`) and
+  carry the construction's progress meanwhile (`PanelSlot::progress`, a `sc_sim::Progress` of the sim's
+  `Constructor::Constructing` progress over the recipe's frames, never kept by the client), which the HUD draws as a bar
+  (`hud/progress_bar.rs`, the one bar piece; `hud/command_panel.rs` moves it on in place while nothing else of the panel
+  changes, `Panel::same_but_progress`). E enters the placement as the menu's slot does, marked `Placing::shortcut`: the
+  panel shows DefaultState meanwhile, E lit, and Back, Esc and a right-click return there. The build menus keep their
+  slot of the building.
 - **Warp In and Deploy** (slice M3-J1; `factions/colonists/economy.md > Beacon > Beacon ObjectInterfaceState`,
   `factions/colonists/units/drone.md > Drone ObjectInterfaceState`; design changes 0116, 0119 to 0122, 0124, 0125):
   `command_ui/interface/templates/colonists/` has the Colonists' panels, one file per object (the portals' have
@@ -4229,8 +4255,9 @@ Drones, through one command flow (plan decision T10, slices M2-H1, M2-H2 and M3-
   `ConstructionCommand::WarpIn` if `Sim::warp_in_check` allows it (`OrderOutbox::try_construct`; a gate refusal,
   the bank short since the entry was pressed, says why and placement goes on), and Back returns to its menu. A
   menu entry is greyed out by the gate's answer to its Warp In unturned, `Unplaceable` left out: the ghost shows
-  where it can't stand. The Drone's grid (`InterfaceTemplate::Drone`) is Q Move, A Deploy, S Set Drop-off, X Stop (S
-  and the right-click: Gathering below); A enters `AwaitingPlacement` with `Builder::Drones { queued }`: the ghost
+  where it can't stand. The Drone's grid (`InterfaceTemplate::Drone`) is Q Move, W Deploy (design change 0398), S Set
+  Drop-off, X Stop (S and the right-click: Gathering below); W enters `AwaitingPlacement` with
+  `Builder::Drones { queued }`: the ghost
   under the cursor, checked by `Sim::deploy_check` for the Drone the click would go to (`deploy_recipient`: a plain
   click's the ActiveGroup's first Drone in portrait order, whose orders the Deploy replaces; a Shift-click's the
   first with no Deploy, among `Sim::pending_builds` and the Deploys still in `PendingCommands`, `deploying`). A
@@ -4287,7 +4314,7 @@ Drones, through one command flow (plan decision T10, slices M2-H1, M2-H2 and M3-
   `Sim::network_counts`, so the count drops at the press); a kind with none inside keeps its tile, 0 and greyed (design
   change 0299, answering Q0086 point 2; the order is 0285's, point 1). A tile sends `TunnelCommand::Eject` to the Tunnel
   Tabbed to (Tunnels are Ungroupable; `SlotPress::Tunnel`, `OrderOutbox::tunnel`) and the menu stays open (0300, point
-  3); Z, Escape and a right-click go back. Held units leave the selection and stay in their control groups
+  3); Z and Escape go back, not a right-click (0400). Held units leave the selection and stay in their control groups
   (`ControlState::retain_on_map`); a recall selects the members on the map, and a group with none on the map recalls as
   an empty one does: nothing changes (`ControlState::recall_group`; 0299, point 5). A Hideout's rally pointer and marker
   on an own Tunnel or Hideout are every producer's (Move, a green Object marker); the sim decides what the unit does
@@ -4312,14 +4339,14 @@ Drones, through one command flow (plan decision T10, slices M2-H1, M2-H2 and M3-
   bar of `object_render/site.rs`. The Tunnel's InfoPanel shows its operation, "Building Hideout: 25%" or "Upgrading to
   Tier 2: 25%" (slice M4-G, placeholder wording; `activity::operation`), which its X cancels either way.
 - **The Agent's panel** (slice M4-J1; `factions/syndicate/units/agent.md > Agent ObjectInterfaceState`; design changes
-  0233, 0237, 0257 and 0359): `templates/syndicate/agent.rs` (`InterfaceTemplate::Agent`) is Q Move, A
-  `PanelCommand::Build(Tunnel)`, S `PanelCommand::DropOff`, D `PanelCommand::Repair` (slice M5-N8, as the Recruit's D)
-  and X Stop, with no Build of a Laser Turret (slice M4-S1's D, which 0359 took away: a turret is
-  the ExpandMenu's alone); its right-click is the sim's one rule (*Gathering* above). **A Build** is an instance command
+  0233, 0237, 0257, 0359 and 0398): `templates/syndicate/agent.rs` (`InterfaceTemplate::Agent`) is Q Move, W
+  `PanelCommand::Build(Tunnel)`, A Attack, S `PanelCommand::DropOff`, D `PanelCommand::Repair` (slice M5-N8, as the
+  Recruit's D) and X Stop, with no Build of a Laser Turret (slice M4-S1's D, which 0359 took away: a turret is
+  the ExpandMenu's alone); its right-click is the sim's one rule (*Gathering* above). **W Build** is an instance command
   (`SlotPress::AwaitBuild`): `AwaitingPlacement` with `Builder::Agent` for the ActiveGroup's one Agent (Agents are
   Ungroupable: Tab picks the next one). It is greyed exactly when the gate refuses an unqueued Build of that Agent's
   (`conditions::build_probe`), the placement's own refusal left out; its price (`Sim::build_price`, a `BuildPrice` in
-  its resource) is `PanelSlot::price`, which the hint names ("A: Build Tunnel (2 Supplies)"; a Recruit's "W: Build
+  its resource) is `PanelSlot::price`, which the hint names ("W: Build Tunnel (2 Supplies)"; a Recruit's "W: Build
   Storage (100 Space Crystals)"). A click checks the ghost (`Sim::build_check`; a red one sends `InvalidPlacement`),
   then gives the order through `OrderOutbox::try_give`, which returns the gate's `Reject`: a refused one (the bank,
   "Already building" for a second Build queued to an Agent) sends `CommandRefused` and placement goes on; a sent one,
@@ -4366,8 +4393,8 @@ Drones, through one command flow (plan decision T10, slices M2-H1, M2-H2 and M3-
   `PanelCommand::Shroud` in the R of a type that casts it, `UnitDef::shroud`). It is an instance command
   (`PanelCommand::instance_only`), so each press starts the channel of the one Disciple Tabbed to ("each R press
   starts one Disciple's channel; Tab to the next"), Shift queues it (Placeholder), and it is live while the gate would
-  take it (`Conditions::of` asks `Sim::validate`: below 10 energy it greys, "Not enough energy"); A is greyed for
-  want of a weapon (`Modes`, above). The Recruit's Advanced
+  take it (`Conditions::of` asks `Sim::validate`: below 10 energy it greys, "Not enough energy"); its A is empty for
+  want of a weapon, unless an armed unit is selected with it (`attack_slot`, above). The Recruit's Advanced
   Construct C is the Cathedral's Build, greyed "Requires a Temple" until one stands.
 - **The Altar's panel** (slice M5-N1b; `factions/cults/augmentation.md > Altar > ObjectInterfaceState[Altar]`: "a
   three-stage selection: **unit type → current AugmentationState → Augmentation to apply**"): `templates/cults/altar.rs`
@@ -4430,8 +4457,8 @@ Drones, through one command flow (plan decision T10, slices M2-H1, M2-H2 and M3-
   in the Cast colour over a point in vision, grey out of it; a placeholder look). The Recruit's Advanced Construct V
   is its Build, greyed "Requires a Temple" until one stands.
 - **The Recruit's panel** (slice M5-J1; `factions/cults/units/recruit.md > Recruit ObjectInterfaceState`, design
-  changes 0322, 0327 and 0347): `templates/cults/recruit.rs` (`InterfaceTemplate::Recruit`) is Q Move, A and W
-  `PanelCommand::BuildMenu` (named "Basic Construct" and "Advanced Construct", `PanelTemplate::names`), S
+  changes 0322, 0327, 0347 and 0398): `templates/cults/recruit.rs` (`InterfaceTemplate::Recruit`) is Q Move, W and E
+  `PanelCommand::BuildMenu` (named "Basic Construct" and "Advanced Construct", `PanelTemplate::names`), A Attack, S
   `PanelCommand::Assist`, D `PanelCommand::Repair` (slice M5-N8) and X Stop. Recruits are Groupable: every
   command goes to all the selected Recruits, the one ActiveGroup (Tab stops on them once). **The Construct menus**
   (`templates/cults/construct_menu.rs`) are the sim's `defs::CONSTRUCT_MENU`, the one table of their fixed slots: a
@@ -4460,8 +4487,9 @@ Drones, through one command flow (plan decision T10, slices M2-H1, M2-H2 and M3-
   own Armory in operation that takes the Recruit in, never over its site (0347 point 4). The right-click is the sim's
   one rule (`sc_sim::orders::resolution::RULES`). The InfoPanel shows a carrying Recruit's load to its owner, as a
   Drone's ("Carrying 2 Space Crystals", `info_panel::worker_lines`).
-- **The Field Engineer's panel** (slice M5-N9; `factions/gdo/units/field_engineer.md`, design change 0328):
-  `templates/gdo/field_engineer.rs` (`InterfaceTemplate::FieldEngineer`) is Q Move, A Construct, D Repair and X Stop. A
+- **The Field Engineer's panel** (slice M5-N9; `factions/gdo/units/field_engineer.md`, design changes 0328 and
+  0398): `templates/gdo/field_engineer.rs` (`InterfaceTemplate::FieldEngineer`) is Q Move, W Construct, D Repair and X
+  Stop, its A empty, unarmed (the selection's Attack when an armed unit is selected with it). W
   is `PanelCommand::BuildMenu(BuildMenu::Construct)`, a build menu of its own that no other type has, labelled "Constr"
   (six letters, the most a label keeps its size with) and named "Construct" in its hint; the Recruit's and the
   Deployment Center's stay Basic and Advanced. Its menu (`field_engineer::menu`, by `menu_grid`) is Q Bunker and W First
@@ -4482,7 +4510,7 @@ Drones, through one command flow (plan decision T10, slices M2-H1, M2-H2 and M3-
   "R: Raise Shield", "Q: Train Peacekeeper"; the client has no tooltips; slices M3-S and M3-K2a), after the
   ActiveGroup's type where the design names a command so (`PanelCommand::name_on`: a Beacon's "Warp In (Basic)",
   "Cancel Deployment" and "Cancel Warp In"; a Convert names its target form, "Convert to Rifle Legionnaire"), and with
-  a Build's price, the sim's (`PanelSlot::price`: "A: Build Tunnel (1 Supply)", slice M4-J1). A label never wraps
+  a Build's price, the sim's (`PanelSlot::price`: "W: Build Tunnel (1 Supply)", slice M4-J1). A label never wraps
   (`TextLayout::no_wrap`): one too long for its button at `LABEL_VH` (on a surface too small for it) is drawn smaller
   to fit on one line inside a lit button's thicker border (`label_px`, from the default font's fixed advance, 0.6 em,
   which a unit test checks against the font), so a label keeps its size when its button lights up. The indicators
@@ -4794,7 +4822,7 @@ unchecked.
   (`during`, every tick); one brings it down, and the four come out alive and unhurt and kill the rest (a Storage
   keeps player 1 in the game). In `cults_altar` (to 1:00, on a test map, debug commands on for the Cults' 100 Space
   Crystals) three Militants go into an Altar, which queues one order of each type: they come out at their orders'
-  ticks with MaxHP 60, 30 and 50 at full HP (`during`), and kill two Agents; the Improved Metabolism one falls. In
+  ticks with MaxHP 60, 30 and 50 at full HP (`during`), and kill two Agents; none falls. In
   `cults_temple` (to 0:25, on a test map, debug commands on for the research's 100 Space Crystals) six Recruits staff
   a Temple, which queues Enhanced Constitution Level 1 at tick 80 and completes it 160 frames on, in tick 239, while
   three Enhanced Constitution Militants fight three Agents: every Militant has 80 MaxHP from that tick and 20 HP

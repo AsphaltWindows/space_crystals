@@ -91,12 +91,14 @@ impl PanelCommand {
         !matches!(self, PanelCommand::Reverse | PanelCommand::Planned(_))
     }
 
-    /// The building it constructs, places, warps in or builds: a build menu's entry, a ready building's slot, an
-    /// ExpandMenu entry, a worker's Build (an Agent's, a Recruit's Construct menu entry: slice M5-J1).
+    /// The building it constructs, places, warps in or builds: a build menu's entry, a ready building's slot, the
+    /// Deployment Center's E: Place (design change 0388), an ExpandMenu entry, a worker's Build (an Agent's, a
+    /// Recruit's Construct menu entry: slice M5-J1).
     pub fn building(self) -> Option<ObjectKind> {
         match self {
             PanelCommand::Construct(kind)
             | PanelCommand::PlaceReady(kind)
+            | PanelCommand::Place(kind)
             | PanelCommand::WarpIn(kind)
             | PanelCommand::Expand(kind)
             | PanelCommand::Build(kind) => Some(kind),

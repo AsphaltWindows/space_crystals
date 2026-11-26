@@ -176,11 +176,12 @@ fn a_constructing_or_ready_deployment_center_cancels_in_x_and_places_its_buildin
 }
 
 /// `factions/gdo/economy.md > ExtractionFacility > ObjectInterfaceState[ExtractionFacility]`: DefaultState builds the
-/// plate (Q); while it is constructed only X (Cancel Construction) shows; once it is ready Q places it and X cancels
-/// it. Placement goes back to DefaultState.
+/// plate (Q); while it is constructed Q is Place Plate, greyed (design change 0392; its bar is
+/// `super::place_buttons`'), and X cancels it; once it is ready Q places it and X cancels it. Placement goes back to
+/// DefaultState.
 #[test]
 fn the_extraction_facility_builds_then_places_its_plate() {
-    use ButtonLook::Common;
+    use ButtonLook::{Common, Disabled};
     use PanelCommand::{CancelConstruction, CancelReady, Construct, PlaceReady};
     let ef = Selection::new([(id(3), EF)]);
     let command = PanelButton::Command;
@@ -194,7 +195,14 @@ fn the_extraction_facility_builds_then_places_its_plate() {
         SlotPress::Construct(Construct(PLATE), ConstructionCommand::Construct(PLATE))
     );
     let building = panel(&ef, InterfaceState::DefaultState, &busy(EF, constructing(PLATE)));
-    assert_eq!(shown(&building), [(x, command(CancelConstruction), Common)]);
+    assert_eq!(
+        shown(&building),
+        [
+            (q, command(PlaceReady(PLATE)), Disabled),
+            (x, command(CancelConstruction), Common),
+        ]
+    );
+    assert_eq!(press(&building, q), SlotPress::Nothing, "not ready");
     let ready = busy(EF, Constructor::Ready { kind: PLATE });
     let place = panel(&ef, InterfaceState::DefaultState, &ready);
     assert_eq!(

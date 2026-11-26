@@ -1,7 +1,8 @@
 //! A ready building (`factions/gdo/structures/deployment_center.md > BuildMenu (building ready)`,
 //! `factions/gdo/structures/deployment_center.md > AwaitingPlacement`): placed with a left-click where the ghost is
 //! green, once with Shift (design change 0071), refused by the sim when the game no longer allows it (plan decision
-//! T4), and placement left with Esc, a right-click or Back.
+//! T4), and placement left with Esc or Back for the build menu, with a right-click for DefaultState (design change
+//! 0400).
 
 use super::*;
 
@@ -64,13 +65,14 @@ fn a_ready_generator_is_placed_where_the_ghost_is_green() {
     assert_eq!(activity(&mut app), None);
 }
 
-/// `factions/gdo/structures/deployment_center.md > AwaitingPlacement`: "Escape/right-click: returns to BuildMenu
-/// (StateOnlyTransition), building remains ready to place", and so does Back (Z); the ghost, the overlay and the
-/// placement keys go with the placement. From the build menu, X Cancel Ready Building refunds 75% of the cost, rounded
-/// down (`factions/gdo/structures/deployment_center.md > BuildMenu (building ready)`), and returns to DefaultState.
-/// Then R is a command slot again: the Peacekeeper's Riot Shield.
+/// `factions/gdo/structures/deployment_center.md > AwaitingPlacement`: "Escape: returns to BuildMenu
+/// (StateOnlyTransition); right-click: returns to DefaultState (user, 2026-11-27). The building remains ready to place
+/// either way.", and Back (Z) as Escape (design change 0400: "Escape and Z still go back one step"); the ghost, the
+/// overlay and the placement keys go with the placement. From the build menu, X Cancel Ready Building refunds 75% of
+/// the cost, rounded down (`factions/gdo/structures/deployment_center.md > BuildMenu (building ready)`), and returns to
+/// DefaultState. Then R is a command slot again: the Peacekeeper's Riot Shield.
 #[test]
-fn escape_right_click_and_back_leave_placement_for_the_build_menu() {
+fn escape_and_back_leave_placement_for_the_build_menu_and_a_right_click_for_default_state() {
     let mut app = construction_game(1000);
     select(&mut app, DC);
     construct_and_place(&mut app, KeyQ, GENERATOR);
@@ -86,9 +88,14 @@ fn escape_right_click_and_back_leave_placement_for_the_build_menu() {
     tap(&mut app, &[], KeyQ);
     assert!(placing(&app).is_some());
     right_click(&mut app, middle(OPEN, (2, 2)), &[]);
-    assert_eq!((interface(&app), constructor(&app, DC)), (menu, ready));
+    let default = InterfaceState::DefaultState;
+    assert_eq!((interface(&app), constructor(&app, DC)), (default, ready));
     assert_eq!(orders(&app), [], "the right-click ordered nothing");
+    assert_eq!(ghost(&app), None);
     tap(&mut app, &[], KeyQ);
+    assert_eq!(interface(&app), menu);
+    tap(&mut app, &[], KeyQ);
+    assert!(placing(&app).is_some());
     tap(&mut app, &[], KeyZ);
     assert_eq!((interface(&app), constructor(&app, DC)), (menu, ready));
 

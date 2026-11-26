@@ -1,12 +1,12 @@
 //! AwaitingPlacement's building (`factions/gdo/structures/deployment_center.md >
 //! ObjectInterfaceState[DeploymentCenter] > AwaitingPlacement`, `factions/gdo/economy.md > ExtractionFacility >
 //! ObjectInterfaceState[ExtractionFacility] > AwaitingPlacement`, `factions/colonists/units/drone.md > Drone
-//! ObjectInterfaceState > A: Deploy`, `factions/colonists/economy.md > Warp In > Warp In Command`,
+//! ObjectInterfaceState > W: Deploy`, `factions/colonists/economy.md > Warp In > Warp In Command`,
 //! `factions/syndicate/tunnel_menus.md > AwaitingPlacement (Expansion)`): which one is placed and who builds it
 //! ([`Placing`], [`Builder`]; plan decision T23), where its ghost stands ([`Placing::origin`]), and how the placement
 //! keys turn it ([`Placing::turned`]). A Deploy given to a group of Drones goes to one of them ([`deploy_recipient`],
 //! design change 0125). An Agent's Build Tunnel places the Tunnel its Agent walks to and builds
-//! (`factions/syndicate/units/agent.md > Agent ObjectInterfaceState > A: Build Tunnel`, slice M4-J1), a Tunnel's
+//! (`factions/syndicate/units/agent.md > Agent ObjectInterfaceState > W: Build Tunnel`, slice M4-J1), a Tunnel's
 //! ExpandMenu the expansion it builds in its Tunnel Area (slice M4-F), and the Recruits' Construct menus the building
 //! they all build together (slice M5-J1, [`Builder::Recruits`]). The ghost and the overlays that show it are
 //! `crate::placement`'s.
@@ -54,7 +54,7 @@ pub enum Builder {
     /// 0121: "No cursor snapping"), wherever the cursor is; `Sim::warp_in_check`, `ConstructionCommand::WarpIn`.
     Beacon(ObjectId),
     /// The Syndicate's Agent of the ActiveGroup (Ungroupable: the one Tabbed to), which walks to the site and builds
-    /// the building there (`factions/syndicate/units/agent.md > Agent ObjectInterfaceState > A: Build Tunnel`, slice
+    /// the building there (`factions/syndicate/units/agent.md > Agent ObjectInterfaceState > W: Build Tunnel`, slice
     /// M4-J1; `core/entities.md > Worker-Built Structures`): the ghost under the cursor, `Sim::build_check`,
     /// `OrderKind::Build`. "Each Agent takes exactly one placement": a click, Shift held or not, sends the Build and
     /// ends placement, which never moves on to another Agent (`systems/controls/interface.md > AwaitingTarget
@@ -92,25 +92,43 @@ pub struct Placing {
     /// click places it with. Unturned as placement starts (placeholder: the design doesn't say whether the last
     /// orientation is kept).
     pub orientation: BuildingOrientation,
+    /// Whether it was entered with the Deployment Center's E: Place, from DefaultState
+    /// (`factions/gdo/structures/deployment_center.md > ObjectInterfaceState[DeploymentCenter] > DefaultState
+    /// commands`, design change 0388: "a shortcut so the player doesn't need to open the build menu to place"), rather
+    /// than with the building's slot in its build menu: the panel shows DefaultState meanwhile, E lit
+    /// ([`Placing::command`]), and Escape returns there ("Escape/right-click from there returns to DefaultState";
+    /// `super::InterfaceState::back`). False for every other placement.
+    pub shortcut: bool,
 }
 
 impl Placing {
-    /// The placement of `constructor`'s ready `kind`, unturned.
+    /// The placement of `constructor`'s ready `kind`, unturned: from its slot, in a build menu or in the Extraction
+    /// Facility's DefaultState.
     pub fn new(constructor: ObjectId, kind: ObjectKind) -> Self {
         Self {
             builder: Builder::Constructor(constructor),
             kind,
             orientation: BuildingOrientation::default(),
+            shortcut: false,
+        }
+    }
+
+    /// The same, entered with the Deployment Center's E: Place ([`Placing::shortcut`]).
+    pub fn by_shortcut(constructor: ObjectId, kind: ObjectKind) -> Self {
+        Self {
+            shortcut: true,
+            ..Self::new(constructor, kind)
         }
     }
 
     /// The placement of the Beacon a Drone of the ActiveGroup deploys into (`factions/colonists/units/drone.md > Drone
-    /// ObjectInterfaceState > A: Deploy`), no Deploy sent yet.
+    /// ObjectInterfaceState > W: Deploy`), no Deploy sent yet.
     pub fn deploy() -> Self {
         Self {
             builder: Builder::Drones { queued: false },
             kind: deploy::BEACON_DEPLOYMENT.kind,
             orientation: BuildingOrientation::default(),
+            shortcut: false,
         }
     }
 
@@ -121,16 +139,18 @@ impl Placing {
             builder: Builder::Beacon(beacon),
             kind,
             orientation: BuildingOrientation::default(),
+            shortcut: false,
         }
     }
 
     /// The placement of the `kind` that Agent `agent` builds (`factions/syndicate/units/agent.md > Agent
-    /// ObjectInterfaceState > A: Build Tunnel`), unturned.
+    /// ObjectInterfaceState > W: Build Tunnel`), unturned.
     pub fn build(agent: ObjectId, kind: ObjectKind) -> Self {
         Self {
             builder: Builder::Agent(agent),
             kind,
             orientation: BuildingOrientation::default(),
+            shortcut: false,
         }
     }
 
@@ -142,6 +162,7 @@ impl Placing {
             builder: Builder::Recruits { queued: false },
             kind,
             orientation: BuildingOrientation::default(),
+            shortcut: false,
         }
     }
 
@@ -152,14 +173,16 @@ impl Placing {
             builder: Builder::Tunnel(tunnel),
             kind,
             orientation: BuildingOrientation::default(),
+            shortcut: false,
         }
     }
 
     /// The panel command whose slot the placement belongs to, which the panel marks while it lasts: the ready
-    /// building's, the Deploy, the menu entry of the building warped in or of the expansion built, the Agent's Build,
-    /// the Recruits' Construct menu entry.
+    /// building's (the Deployment Center's E: Place for a placement entered with it), the Deploy, the menu entry of
+    /// the building warped in or of the expansion built, the Agent's Build, the Recruits' Construct menu entry.
     pub fn command(self) -> PanelCommand {
         match self.builder {
+            Builder::Constructor(_) if self.shortcut => PanelCommand::Place(self.kind),
             Builder::Constructor(_) => PanelCommand::PlaceReady(self.kind),
             Builder::Drones { .. } => PanelCommand::Deploy,
             Builder::Beacon(_) => PanelCommand::WarpIn(self.kind),

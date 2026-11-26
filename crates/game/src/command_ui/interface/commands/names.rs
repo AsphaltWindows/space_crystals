@@ -11,23 +11,24 @@ impl PanelCommand {
     /// The button's label: a placeholder for its icon (Q0001), short enough to keep the label size on its button
     /// at 720p (slice M3-K2a: six characters at most, `crate::hud::command_panel`), its full name being
     /// [`Self::name_on`]'s, in the InfoPanel's hint for the button under the pointer (`crate::hud::info_panel::hint`).
-    /// What a button makes, a unit to train or a building to construct, warp in or build on its site (one that isn't
-    /// in the game yet too), it shows as an icon would: by its type's tag, as the map and the portraits show it
-    /// ([`short_label`]: an Agent's Build Tunnel "T1", the tier a Tunnel starts at). A ready building's slot is
-    /// "Place", and every Cancel "Cancel". The others are the command's name or its first word ("Hold", "Rally",
-    /// "Raise", "Lower", "Drop" for Set Drop-off Location and for the Agent's Drop Off, "Drones" for Select Returning
-    /// Drones), or a shortening of it ("Rev.", "AtkGnd", "Conv.", "Adv.", the Tunnel's "Upgr." for Upgrade Tunnel). An
-    /// EjectMenu tile shows its unit type's tag, as a unit trained does, and its count
-    /// (`super::super::PanelSlot::count`); an ExpandMenu entry its expansion's, as a building constructed does. A pool
-    /// building's kind buttons show their kind for the icon of its augments, "Plain", "Const.", "Metab.", "Both", with
-    /// their counts; its KindMenu's training the unit's tag, as a Train does, its Release "Rel." and its Eject All
-    /// "Eject" (slice M5-F2). An Altar's unit type tiles show their type's tag, as an EjectMenu tile does, its state
-    /// tiles their kind as the kind buttons do, and its orders the Augmentation they apply, "Const.", "Metab." and
-    /// "Both", for their icons (slice M5-N1b). A Temple's keys show their technology, its line's initials and its level,
-    /// "EC L1", "IM L2", a key in progress "InProg" ("its key shows "In progress" meanwhile"), and its releases their
-    /// kind as the kind buttons do, with their counts (slice M5-N3). A Disciple's spell is its name, "Shroud", whole
-    /// (6 letters, as "AtkGnd"; slice M5-N4b). A Shrine's casts are their names' first words, "Health" and "Energy"
-    /// (slice M5-N5; the names are TBD, `factions/cults/structures/shrine.md > Abilities`).
+    /// What a button makes, a unit to train or a building to construct, warp in or build on its site (one that isn't in
+    /// the game yet too), it shows as an icon would: by its type's tag, as the map and the portraits show it
+    /// ([`short_label`]: an Agent's Build Tunnel "T1", the tier a Tunnel starts at), and so does the Deployment
+    /// Center's E: Place, "with the building's icon" (design change 0388). A ready building's slot is "Place", and
+    /// every Cancel "Cancel". The others are the command's name or its first word ("Hold", "Rally", "Raise", "Lower",
+    /// "Drop" for Set Drop-off Location and for the Agent's Drop Off, "Drones" for Select Returning Drones), or a
+    /// shortening of it ("Rev.", "AtkGnd", "Conv.", "Adv.", the Tunnel's "Upgr." for Upgrade Tunnel). An EjectMenu tile
+    /// shows its unit type's tag, as a unit trained does, and its count (`super::super::PanelSlot::count`); an
+    /// ExpandMenu entry its expansion's, as a building constructed does. A pool building's kind buttons show their kind
+    /// for the icon of its augments, "Plain", "Const.", "Metab.", "Both", with their counts; its KindMenu's training
+    /// the unit's tag, as a Train does, its Release "Rel." and its Eject All "Eject" (slice M5-F2). An Altar's unit
+    /// type tiles show their type's tag, as an EjectMenu tile does, its state tiles their kind as the kind buttons do,
+    /// and its orders the Augmentation they apply, "Const.", "Metab." and "Both", for their icons (slice M5-N1b). A
+    /// Temple's keys show their technology, its line's initials and its level, "EC L1", "IM L2", a key in progress
+    /// "InProg" ("its key shows "In progress" meanwhile"), and its releases their kind as the kind buttons do, with
+    /// their counts (slice M5-N3). A Disciple's spell is its name, "Shroud", whole (6 letters, as "AtkGnd"; slice
+    /// M5-N4b). A Shrine's casts are their names' first words, "Health" and "Energy" (slice M5-N5; the names are TBD,
+    /// `factions/cults/structures/shrine.md > Abilities`).
     pub fn label(self) -> &'static str {
         match self {
             PanelCommand::Move => "Move",
@@ -47,7 +48,8 @@ impl PanelCommand {
             | PanelCommand::WarpIn(kind)
             | PanelCommand::Eject(kind)
             | PanelCommand::Build(kind)
-            | PanelCommand::Expand(kind) => short_label(kind),
+            | PanelCommand::Expand(kind)
+            | PanelCommand::Place(kind) => short_label(kind),
             PanelCommand::Planned(planned) => planned.label(),
             PanelCommand::CancelProduction
             | PanelCommand::CancelConstruction
@@ -101,7 +103,7 @@ impl PanelCommand {
             PanelCommand::Construct(kind) => named("Build", kind),
             PanelCommand::CancelConstruction => "Cancel Construction".into(),
             PanelCommand::CancelReady => "Cancel Ready Building".into(),
-            PanelCommand::PlaceReady(kind) => named("Place", kind),
+            PanelCommand::PlaceReady(kind) | PanelCommand::Place(kind) => named("Place", kind),
             PanelCommand::WarpIn(kind) => named("Warp In", kind),
             PanelCommand::Planned(planned) => planned.command_name(),
             PanelCommand::CancelTransform => "Cancel".into(),

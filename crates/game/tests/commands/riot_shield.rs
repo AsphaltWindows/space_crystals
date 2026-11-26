@@ -3,8 +3,9 @@
 //! change 0173), which form separate SelectionGroups. The Peacekeeper's button in R raises the shields, the Peacekeeper
 //! (Shielded)'s lowers them (design change 0174: R, a placeholder), each going to the ActiveGroup; the units switch
 //! type at the press, and their group with it (design change 0198). The Peacekeeper (Shielded)'s panel shows no
-//! Attack; a right-click on an enemy has the shielded units follow it (design change 0074) and an Attack leaves them
-//! out (0075), while the other units of the selection attack it. A shield that isn't down is drawn in front of its
+//! Attack unless another selected group can attack (design change 0399); a right-click on an enemy has the shielded
+//! units follow it (design change 0074), and so does an Attack on it (design change 0397, where 0075 left them out),
+//! while the other units of the selection attack it. A shield that isn't down is drawn in front of its
 //! unit. The buttons' labels are short; the InfoPanel names the command under the pointer in full. The two types in a
 //! selection, and the groups the units change at the press: `groups`; a press as a target state, and the orders a
 //! unit takes while its shield turns (design change 0202): `target`.
@@ -283,11 +284,14 @@ fn toggling_the_shield_keeps_the_orders_shift_or_not() {
     );
 }
 
-/// In a selection whose Guards can attack, Attack stays: with the Guards active (Tab: the shielded Peacekeepers'
-/// group, active once they raised their shields, shows none), a click on an enemy in AwaitingTarget[Attack] sends the
-/// Guards to attack it and leaves the shielded Peacekeepers out (design change 0075); a right-click on one sends the
-/// Guards to attack it and has the Peacekeepers follow it (0074). Each click gives one order per distinct order, in
-/// the order of the units' ids: the Peacekeepers' Follow first.
+/// In a selection whose Guards can attack, A shows whichever group is in focus (design change 0399: "A: Attack is
+/// **shown** on the panel whenever at least one selected group can attack, whichever group is in focus"): the shielded
+/// Peacekeepers' group, active once they raised their shields, shows it, and so does the Guards' (Tab). Pressed with
+/// the shielded Peacekeepers in focus, a click on an enemy in AwaitingTarget[Attack] sends the Guards to attack it and
+/// the Peacekeepers to it, a Move on it (design changes 0397 and 0398: units that can't attack, "on a target they move
+/// to it (as a Move on that object)", where 0075 left them out); a right-click on one sends the Guards to attack it
+/// and has the Peacekeepers follow it (0074). Each click gives one order per distinct order, in the order of the
+/// units' ids: the Peacekeepers' Follow first.
 #[test]
 fn a_mixed_selection_attacks_with_the_units_that_can() {
     let mut app = game();
@@ -295,9 +299,12 @@ fn a_mixed_selection_attacks_with_the_units_that_can() {
     tap(&mut app, &[], KeyR);
     toggle_time(&mut app);
     assert_eq!(active_type(&app), Some(SHIELDED));
-    assert_eq!(button(&mut app, a()), None);
+    let attack_button = Some((PanelCommand::Attack, ButtonLook::Common));
+    assert_eq!(command(&mut app, a()), attack_button);
     tap(&mut app, &[], Tab);
-    assert_eq!(command(&mut app, a()), Some((PanelCommand::Attack, ButtonLook::Common)));
+    assert_eq!(command(&mut app, a()), attack_button);
+    tap(&mut app, &[], Tab);
+    assert_eq!(active_type(&app), Some(SHIELDED));
     tap(&mut app, &[], KeyA);
     assert_eq!(interface(&app), InterfaceState::awaiting(PanelCommand::Attack));
     click(&mut app, at(ENEMY_PK), &[]);
@@ -309,6 +316,7 @@ fn a_mixed_selection_attacks_with_the_units_that_can() {
     assert_eq!(
         orders(&app),
         [
+            given(&[1, 2], follow(ENEMY_PK), false),
             given(&[3, 4], attack(ENEMY_PK), false),
             given(&[1, 2], follow(ENEMY_GUARD), false),
             given(&[3, 4], attack(ENEMY_GUARD), false),

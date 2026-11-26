@@ -38,7 +38,7 @@ pub use site::{SITE_GRID, unfinished_grid};
 pub use state::{menu_grid, menu_of, state_grid};
 
 use production::production_grid;
-use state::constructs;
+use state::{constructs, place_slot};
 
 use super::{InterfaceState, PanelCommand};
 use crate::input::CommandSlot;
@@ -48,7 +48,8 @@ use crate::kinds;
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub enum InterfaceTemplate {
     /// `systems/controls/interface.md > BasicCombatUnitInterfaceState`: the Peacekeeper's
-    /// (`factions/gdo/units/peacekeeper.md`), and its shielded type's less Attack (design change 0173), and the Guard's
+    /// (`factions/gdo/units/peacekeeper.md`), and its shielded type's, whose A shows only while another selected unit
+    /// can attack (design changes 0173 and 0399, [`attack_slot`]), and the Guard's
     /// (`factions/syndicate/units/guard.md`).
     BasicCombatUnit,
     /// A producing structure's panel (plan decision T23), built from its `ProductionDef` ([`production_grid`]): the
@@ -71,7 +72,7 @@ pub enum InterfaceTemplate {
     /// `factions/colonists/economy.md > Beacon > Beacon ObjectInterfaceState` (design change 0124): its DefaultState
     /// opens the two Warp In menus, whose entries enter the Warp In's placement on the Beacon. No right-click.
     Beacon,
-    /// `factions/colonists/units/drone.md > Drone ObjectInterfaceState`: Q Move, A Deploy, S Set Drop-off, X Stop. Its
+    /// `factions/colonists/units/drone.md > Drone ObjectInterfaceState`: Q Move, W Deploy, S Set Drop-off, X Stop. Its
     /// right-click (`factions/colonists/units/drone.md > Right-Click Resolution`: Gather, Drop Off, Move, Follow) is
     /// the sim's one rule, as every unit's (`crate::command_ui::resolution::unit_right_click`, slice M3-R).
     Drone,
@@ -82,8 +83,9 @@ pub enum InterfaceTemplate {
     /// W Expand, E Eject, which opens the EjectMenu, and X Cancel ([`syndicate::tunnel`]). No right-click: the Tunnel
     /// produces no units.
     Tunnel,
-    /// `factions/syndicate/units/agent.md > Agent ObjectInterfaceState` (design changes 0257 and 0359, slice M4-J1): Q
-    /// Move, A Build Tunnel, S Drop Off, D Repair (slice M5-N8), X Stop ([`syndicate::agent`]). Its right-click
+    /// `factions/syndicate/units/agent.md > Agent ObjectInterfaceState` (design changes 0257, 0359 and 0398, slice
+    /// M4-J1): Q Move, W Build Tunnel, A Attack, S Drop Off, D Repair (slice M5-N8), X Stop ([`syndicate::agent`]). Its
+    /// right-click
     /// (`factions/syndicate/units/agent.md > Right-Click Resolution`: Gather, Drop Off, Enter, Repair, Attack, Move) is
     /// the sim's one rule, as every unit's.
     Agent,
@@ -92,8 +94,8 @@ pub enum InterfaceTemplate {
     /// picks a kind of Recruit, each opening its KindMenu, whose entries train or release one of that kind. Its
     /// right-click sets the rally point (`factions/cults/structures/armory.md > ObjectInterfaceState[Armory]`).
     PoolProducer,
-    /// (M5-J1) `factions/cults/units/recruit.md > Recruit ObjectInterfaceState` (design changes 0322 and 0327): Q Move,
-    /// W Advanced Construct, A Basic Construct, S Assist Construction, D Repair (slice M5-N8), X Stop
+    /// (M5-J1) `factions/cults/units/recruit.md > Recruit ObjectInterfaceState` (design changes 0322, 0327 and 0398): Q
+    /// Move, W Basic Construct, E Advanced Construct, A Attack, S Assist Construction, D Repair (slice M5-N8), X Stop
     /// ([`cults::recruit`]); its Construct menus' entries enter the group's placement ([`cults::construct_menu`]). Its
     /// right-click (`factions/cults/units/recruit.md > Right-Click Resolution`: Gather, Drop Off, Enter, Assist,
     /// Repair, Attack, Move) is the sim's one rule, as every unit's.
@@ -102,11 +104,11 @@ pub enum InterfaceTemplate {
     /// leaves); **X: Cancel construction** while being built" ([`cults::garrison`]; X is its site's, [`SITE_GRID`]).
     /// "Right-click resolution: none (it has no rally point)".
     Garrison,
-    /// (M5-N9) `factions/gdo/units/field_engineer.md > Placeholder stats` (design change 0328): "**Q** Move; **A**
-    /// Construct (a menu: **Q** Bunker, **W** First Aid Tent, both greyed until designed; **Z** back); **D** Repair
-    /// (targeted: a damaged own building or vehicle); **X** Stop" ([`gdo::field_engineer`]). Its right-click ("a
-    /// damaged own building or vehicle: Repair (Enter wins on a building it can enter, as for Recruits)") is the
-    /// sim's one rule, as every unit's.
+    /// (M5-N9) `factions/gdo/units/field_engineer.md > Placeholder stats` (design changes 0328 and 0398): "**Q** Move;
+    /// **W** Construct (a menu: **Q** Bunker, **W** First Aid Tent, both greyed until designed; **Z** back); **D**
+    /// Repair (targeted: a damaged own building or vehicle); **X** Stop" ([`gdo::field_engineer`]). Its right-click ("a
+    /// damaged own building or vehicle: Repair (Enter wins on a building it can enter, as for Recruits)") is the sim's
+    /// one rule, as every unit's.
     FieldEngineer,
     /// (M5-N1b) `factions/cults/augmentation.md > Altar > ObjectInterfaceState[Altar]`: "a three-stage selection: **unit
     /// type → current AugmentationState → Augmentation to apply**" ([`cults::altar`]), its orders those of its
@@ -138,7 +140,7 @@ pub enum BuildMenu {
     Basic,
     /// BuildMenu\[Advanced\], "W: Advanced Construction": the Factory and everything after it.
     Advanced,
-    /// (M5-N9) The Field Engineer's one build menu, its A: "**A** Construct (a menu: **Q** Bunker, **W** First Aid
+    /// (M5-N9) The Field Engineer's one build menu, its W: "**W** Construct (a menu: **Q** Bunker, **W** First Aid
     /// Tent, both greyed until designed; **Z** back)" (`factions/gdo/units/field_engineer.md > Placeholder stats`). A
     /// menu of its own, named Construct, since a panel with one build menu has no Basic or Advanced one. No other type
     /// has it.
@@ -212,8 +214,9 @@ const BASIC_COMBAT_UNIT_GRID: [Option<PanelCommand>; 12] = {
 /// grid leaves free, where the Colonists' Legionnaires have their own command ([`CONVERT_SLOT`]).
 const RIOT_SHIELD_SLOT: usize = 3;
 
-/// `systems/controls/interface.md > BasicCombatUnitInterfaceState > DefaultState commands`: Attack's slot, A,
-/// which the Peacekeeper (Shielded)'s panel leaves empty ([`hides_attack`]).
+/// `systems/controls/interface.md > BasicCombatUnitInterfaceState > DefaultState commands`: Attack's slot, A, every
+/// unit's (`systems/controls/interface.md > CommandPanel > Standard Slot Assignments`: "Attack is always in slot
+/// **A**"), which the panel fills as the selection has it ([`attack_slot`]).
 const ATTACK_SLOT: usize = 4;
 
 /// `factions/colonists/units/sabre_legionnaire.md > ObjectInterfaceState`: "BasicCombatUnitInterfaceState, plus:
@@ -283,8 +286,8 @@ pub use sc_sim::combat::can_target_ground;
 /// [`PanelCommand::LowerShield`]); a unit with another form, a Legionnaire, the Convert to that form in R
 /// ([`PanelCommand::Convert`]: "R: Convert to Rifle Legionnaire" on the Sabre's panel); (M5-N4b) a unit that casts
 /// Shroud, the Disciple, the spell in R ([`PanelCommand::Shroud`], `sc_sim::defs::UnitDef::shroud`). These
-/// are the commands the type offers ([`offers`]); its panel may show fewer (the Peacekeeper (Shielded)'s no Attack:
-/// [`hides_attack`]), and a constructor's follows its state ([`state_grid`]).
+/// are the commands the type offers ([`offers`]); its panel's A is the selection's ([`attack_slot`]), and a
+/// constructor's panel follows its state ([`state_grid`]).
 pub fn grid(kind: ObjectKind) -> [Option<PanelCommand>; 12] {
     let Some(template) = InterfaceTemplate::of(kind) else {
         return [None; 12];
@@ -305,16 +308,21 @@ pub fn grid(kind: ObjectKind) -> [Option<PanelCommand>; 12] {
     grid
 }
 
-/// Whether the panel of a `kind` ActiveGroup leaves out its Attack: the Peacekeeper (Shielded)'s
-/// (`factions/gdo/units/peacekeeper.md > Riot Shield > Two unit types`, design change 0173: its panel "shows Lower
-/// Shield and no Attack"). The type still offers Attack ([`offers`]), so that in a selection with other units,
-/// Attack, a common command, goes to them too: an Attack on an object leaves them out (design change 0075,
-/// `super::super::resolution::unit_target_order`), and an AttackMove takes them along, walking (0076: "shielded
-/// Peacekeepers take part and simply move"), as with their shields up before the two types. A selection of them
-/// alone has no Attack, as it had none to use before (its button was disabled).
-pub fn hides_attack(kind: ObjectKind) -> bool {
-    let shield = kind.def().unit.as_ref().and_then(|unit| unit.riot_shield);
-    shield.is_some_and(|shield| kind == shield.raised)
+/// `systems/controls/interface.md > CommandPanel > Standard Slot Assignments` (design changes 0397 and 0399): "**A:
+/// Attack, on every unit** (user, 2026-11-27): Attack is always in slot **A**, whichever group is in focus, so the
+/// key never changes. No unit puts another command on A [...]. **A is shown whenever at least one selected group can
+/// attack** (user, 2026-11-27), whichever group is in focus, and issues the Attack to the whole selection. Only when
+/// **no** selected unit can attack is A not shown." A DefaultState grid's A, `commands`'s, as the selection has it:
+/// Attack while one of the selected units can attack (`attackers`: `super::Conditions::attacks`), on an unarmed unit's
+/// panel too (a Drone's, a Field Engineer's), and nothing while none can (a Peacekeeper (Shielded)'s panel, which
+/// "shows Lower Shield and no Attack" alone, design change 0173; a Disciple's, which has no weapon). On a building's
+/// panel its A stays its own where it has one (a pool building's Eject All), and is the selection's Attack where it is
+/// free: **reading**, the rule says "whichever group is in focus" and names the units' panels only ("No unit puts
+/// another command on A").
+pub fn attack_slot(commands: &mut [Option<PanelCommand>; 12], attackers: bool) {
+    if matches!(commands[ATTACK_SLOT], None | Some(PanelCommand::Attack)) {
+        commands[ATTACK_SLOT] = attackers.then_some(PanelCommand::Attack);
+    }
 }
 
 /// A slot's position in `CommandSlot::all` order.

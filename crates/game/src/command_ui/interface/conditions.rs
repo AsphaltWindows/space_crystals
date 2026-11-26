@@ -39,7 +39,7 @@
 //! a Warp In. A placeholder entry whose prerequisite is in the game says it the same way while the player owns none,
 //! and that it isn't in the game yet once they own one ([`Conditions::planned`]).
 //!
-//! The Agent's A, Build Tunnel (`factions/syndicate/units/agent.md > Agent ObjectInterfaceState`, slice M4-J1), asks
+//! The Agent's W, Build Tunnel (`factions/syndicate/units/agent.md > Agent ObjectInterfaceState`, slice M4-J1), asks
 //! for its Build order where it would stand anywhere, and leaves out the placement's refusal as a Warp In does: it is
 //! greyed while the bank can't pay the Tunnel's price ([`Conditions::price`], `Sim::build_price`; design change 0233:
 //! "a Build order that can't be paid is refused"). (Slice M4-S1's D, Build Laser Turret, is gone with design change
@@ -91,7 +91,7 @@ mod probes;
 
 use std::collections::BTreeMap;
 
-use sc_sim::{Constructor, ObjectId, ObjectKind, PlayerId, RecruitKind, Reject, Sim};
+use sc_sim::{Constructor, ObjectId, ObjectKind, PlayerId, RecruitKind, Reject, Sim, combat};
 
 use sc_sim::construction::site::BuildPrice;
 
@@ -121,6 +121,9 @@ pub enum WhyUnavailable {
     /// It isn't in the game yet: a building or a unit whose costs are TBD (design change 0124), a build menu none of
     /// whose buildings is, an order the sim has none of (Reverse).
     NotYet,
+    /// A Place button's building is still under construction (design changes 0388 and 0392: "greyed out, with a
+    /// running progress bar"; "it lights up when the plate is ready").
+    UnderConstruction,
 }
 
 /// What the game allows a selection's commands now: its units' [`Modes`], the ActiveGroup's constructor state, and
@@ -392,11 +395,19 @@ impl Conditions {
         self.refused.get(&command).copied()
     }
 
-    /// Whether the game lets `command` go to its recipients in `selection` now: Attack while one of them takes it
-    /// (`factions/gdo/units/peacekeeper.md > Riot Shield`: "the player must lower the shield before ordering an
-    /// attack"; design change 0202: a Peacekeeper whose shield is on its way down takes it; (M5-N4a) a unit without a
-    /// weapon, a Disciple, takes none: `sc_sim::combat::takes_attack_orders`, the gate's rule), a production or
-    /// construction command, a Warp In or a toggle while the gate would take it, anything else always.
+    /// Whether one of `selection`'s units can attack now (`systems/controls/interface.md > CommandPanel > Standard
+    /// Slot Assignments`, design change 0399: "**A is shown whenever at least one selected group can attack**"): its
+    /// type takes an Attack (`sc_sim::combat::takes_attack_orders`, the gate's rule: a weapon, and no Riot Shield up,
+    /// `factions/gdo/units/peacekeeper.md > Riot Shield`: "the player must lower the shield before ordering an
+    /// attack"; (M5-N4a) a Disciple has no weapon) and its mode lets it ([`Modes::can_attack`]: design change 0202, a
+    /// Peacekeeper whose shield is on its way down takes one).
+    pub fn attacks(&self, selection: &Selection) -> bool {
+        (selection.members()).any(|(id, kind)| combat::takes_attack_orders(kind) && self.modes.can_attack(id))
+    }
+
+    /// Whether the game lets `command` go to its recipients in `selection` now: Attack while one of the selected units
+    /// can attack ([`Conditions::attacks`]; the panel shows no Attack otherwise, `super::templates::attack_slot`), a
+    /// production or construction command, a Warp In or a toggle while the gate would take it, anything else always.
     pub fn allows(&self, selection: &Selection, command: PanelCommand) -> bool {
         self.unavailable(selection, command).is_none()
     }
@@ -406,12 +417,13 @@ impl Conditions {
     /// `Reject::NothingToDeliver`), a pool building's free units (a kind button with none of its kind, which every
     /// entry of its KindMenu would want: `Reject::NoRecruit`), an Altar's (a type or state tile with none, said as the
     /// first state's, Unaugmented, for a type tile), a Temple's key in progress (`Reject::ResearchUnderWay`, which its
-    /// Research would get), or the gate's refusal.
+    /// Research would get), a Place button's building while the constructor doesn't hold it ready (design changes
+    /// 0388 and 0392), or the gate's refusal.
     pub fn unavailable(&self, selection: &Selection, command: PanelCommand) -> Option<WhyUnavailable> {
         match command {
             PanelCommand::Attack => {
                 let recipients = recipients(selection, command);
-                if recipients.iter().any(|&id| self.modes.can_attack(id)) {
+                if self.attacks(selection) {
                     None
                 } else if recipients.iter().any(|&id| self.modes.shielded(id)) {
                     Some(WhyUnavailable::ShieldsUp)
@@ -436,6 +448,10 @@ impl Conditions {
                 (self.stored_state_count(unit, state) == 0).then_some(WhyUnavailable::Refused(Reject::NoRecruit(state)))
             }
             PanelCommand::Researching(tech) => Some(WhyUnavailable::Refused(Reject::ResearchUnderWay(tech))),
+            PanelCommand::Place(building) | PanelCommand::PlaceReady(building) => {
+                let ready = self.constructor.and_then(|c| c.ready());
+                (ready != Some(building)).then_some(WhyUnavailable::UnderConstruction)
+            }
             _ => self.refusal(command).map(WhyUnavailable::Refused),
         }
     }

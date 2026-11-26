@@ -2,9 +2,9 @@
 //! `factions/cults/structures/README.md > Choosing Recruits, Release and Eject All`, `factions/cults/economy.md > Cults
 //! Building Mechanics > Evacuation on Destruction`; design changes 0332, 0336, 0337 and 0348): Cults infantry go in and
 //! are augmented there, by a serial queue paid as it is queued, through the gate, one test binary:
-//! - `orders`: Enhanced Constitution on a Militant, 25 Space Crystals and 160 ticks, out of side C at 60 MaxHP with its
-//!   damage; Both on a Recruit, 50 and 320; Improved Metabolism on a hurt Recruit; the unit of the type and state
-//!   that entered first first;
+//! - `orders`: Enhanced Constitution on a Militant, 25 Space Crystals and 48 ticks (design change 0391), out of side C
+//!   at 60 MaxHP with its damage; Both on a Recruit, 50 and 96; Improved Metabolism on a hurt Recruit; the unit of the
+//!   type and state that entered first first;
 //! - `refusals`: an Augmentation the unit has, no such unit, a full queue, too few Space Crystals, a building that
 //!   takes no order;
 //! - `release`: a Release, free, lets a unit of a type and a state out unchanged 4 ticks later, a fully augmented one

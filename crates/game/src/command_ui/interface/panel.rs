@@ -3,11 +3,11 @@
 
 use sc_sim::construction::site::BuildPrice;
 use sc_sim::{
-    Ability, ConstructionCommand, HoldCommand, ObjectId, ObjectKind, OrderKind, PlayerId, ProductionCommand,
-    RecruitKind, Sim, TunnelCommand, holding,
+    Ability, ConstructionCommand, Constructor, HoldCommand, ObjectId, ObjectKind, OrderKind, PlayerId,
+    ProductionCommand, Progress, RecruitKind, Sim, TunnelCommand, construction, holding,
 };
 
-use super::templates::unfinished_grid;
+use super::templates::{attack_slot, unfinished_grid};
 use super::{BuildMenu, Conditions, InterfaceState, PanelCommand, WhyUnavailable, offers, slot_index, state_grid};
 use crate::input::CommandSlot;
 use crate::selection::{GroupType, Selection};
@@ -34,7 +34,7 @@ pub enum ButtonLook {
     Pending,
     /// Offered, but not now ([`Conditions::allows`]): the other commands while one awaits its target (`>
     /// AwaitingTarget > Other commands while targeting`, design change 0066: unavailable until the player cancels) or
-    /// while a building is placed, Attack while none of its recipients can attack, a production or construction command
+    /// while a building is placed, a production or construction command
     /// the command gate would refuse (Train with the BuildQueue full, or too few Space Crystals, the army cap being
     /// checked when production starts, design change 0143; Cancel Production with nothing queued:
     /// `factions/gdo/structures/barracks.md > ObjectInterfaceState[Barracks]`, "Only available if"; a building to
@@ -71,6 +71,10 @@ pub struct PanelSlot {
     /// in Supplies (slice M4-G), which the InfoPanel's hint for the button shows (`crate::hud::info_panel::hint`); none
     /// on the other buttons.
     pub price: Option<BuildPrice>,
+    /// The progress a Place button shows on its bar while its building is constructed ([`progress`]; design changes
+    /// 0388 and 0392: "a running progress bar on the button showing the construction's progress"), the sim's; none on
+    /// the other buttons, and on a Place button once its building is ready.
+    pub progress: Option<Progress>,
 }
 
 impl PanelSlot {
@@ -129,6 +133,18 @@ impl Panel {
     fn set(&mut self, slot: CommandSlot, shown: PanelSlot) {
         self.slots[slot_index(slot)] = Some(shown);
     }
+
+    /// Whether it shows what `other` shows, but for how far its progress bars have come ([`PanelSlot::progress`]):
+    /// the same buttons, the same of them with a bar.
+    pub fn same_but_progress(&self, other: &Panel) -> bool {
+        let unfilled = |slot: &Option<PanelSlot>| {
+            slot.map(|shown| PanelSlot {
+                progress: shown.progress.map(|_| Progress::default()),
+                ..shown
+            })
+        };
+        self.active == other.active && (self.slots.iter().map(unfilled)).eq(other.slots.iter().map(unfilled))
+    }
 }
 
 /// `> CommandPanel`: whether commands can be given to `selection`: something is selected, and all of it is
@@ -151,9 +167,11 @@ pub fn commandable(sim: &Sim, player: PlayerId, selection: &Selection) -> bool {
 /// different; in AwaitingTarget the
 /// PendingCommand is marked and the others wait, in AwaitingPlacement the building being placed is marked
 /// (`super::Placing::command`) and the others wait, and in every state but DefaultState Z is Back (`> Standard Slot
-/// Assignments`). What the game allows now ([`Conditions`]) disables a command it doesn't let go to its recipients
-/// (Attack while none of them may attack, a Train, a Cancel Production, a constructor's command, a Warp In or a
-/// Convert the gate would refuse). Each greyed-out button says why ([`PanelSlot::why`]). The
+/// Assignments`). A is Attack while one of the selected units can attack, whichever group is in focus, and empty
+/// while none can (design changes 0397 and 0399: [`attack_slot`], [`Conditions::attacks`]); it goes to every selected
+/// unit, a common command ([`recipients`]). What the game allows now ([`Conditions`]) disables a command it doesn't let
+/// go to its recipients (a Train, a Cancel Production, a constructor's command, a Warp In or a Convert the gate would
+/// refuse). Each greyed-out button says why ([`PanelSlot::why`]). The
 /// Egress Node's F shows only while it has Drones to select ([`Conditions::shows`]). The Tunnel's EjectMenu works as a
 /// build menu does, its tiles greyed while the gate would refuse their Eject, each with its count, and so does its
 /// ExpandMenu, its entries greyed while the gate would refuse their Expand (`sc_sim::Sim::can_expand`). A site under
@@ -169,17 +187,22 @@ pub fn panel(selection: &Selection, interface: InterfaceState, conditions: &Cond
         return panel;
     };
     panel.active = Some(active.group_type());
+    let attackers = conditions.attacks(selection);
     let grid = if active.unfinished {
-        unfinished_grid(active.kind, conditions.site)
+        let mut grid = unfinished_grid(active.kind, conditions.site);
+        attack_slot(&mut grid, attackers);
+        grid
     } else {
-        state_grid(active.kind, interface, conditions.constructor)
+        state_grid(active.kind, interface, conditions.constructor, attackers)
     };
     for (slot, command) in CommandSlot::all().zip(grid) {
         let shown = command.and_then(|command| conditions.key(command));
         let Some(command) = shown.filter(|&command| conditions.shows(command)) else {
             continue;
         };
-        let (look, why) = if !offers(active.group_type(), command) {
+        // The selection's Attack, which an unarmed type's panel shows too (design change 0399).
+        let offered = to_every_unit(command) || offers(active.group_type(), command);
+        let (look, why) = if !offered {
             (ButtonLook::Unavailable, Some(not_offered(command, conditions)))
         } else {
             match interface {
@@ -226,6 +249,7 @@ pub fn panel(selection: &Selection, interface: InterfaceState, conditions: &Cond
                 why,
                 count,
                 price: conditions.price(command),
+                progress: progress(active.kind, command, conditions.constructor),
             },
         );
     }
@@ -236,10 +260,35 @@ pub fn panel(selection: &Selection, interface: InterfaceState, conditions: &Cond
             why: None,
             count: None,
             price: None,
+            progress: None,
         };
         panel.set(CommandSlot::BACK, back);
     }
     panel
+}
+
+/// The progress the Place button of a `kind` constructor's `command` shows while the constructor, in state
+/// `constructor`, constructs its building (design changes 0388 and 0392): its ConstructionProgress of its recipe's
+/// frames (`construction::recipe`), as the sim counts it (`Constructor::Constructing`), never kept by the client.
+/// None for another command, or while the building isn't under construction.
+fn progress(kind: ObjectKind, command: PanelCommand, constructor: Option<Constructor>) -> Option<Progress> {
+    let Some(Constructor::Constructing {
+        kind: building,
+        progress,
+    }) = constructor
+    else {
+        return None;
+    };
+    let (PanelCommand::Place(placed) | PanelCommand::PlaceReady(placed)) = command else {
+        return None;
+    };
+    let total = construction::recipe(kind, building)
+        .filter(|_| placed == building)?
+        .frames;
+    Some(Progress {
+        elapsed: progress,
+        total,
+    })
 }
 
 /// Why a command the ActiveGroup's type doesn't offer is unavailable ([`offers`]): Reverse and AttackGround are the
@@ -272,12 +321,15 @@ pub enum SlotPress {
     OpenMenu(BuildMenu),
     /// A StateOnlyTransition to AwaitingPlacement of the ready building, a `kind`.
     AwaitPlacement(ObjectKind),
+    /// The same, from the Deployment Center's E: Place (design change 0388), which Escape leaves for DefaultState
+    /// (`super::Placing::shortcut`).
+    AwaitShortcutPlacement(ObjectKind),
     /// A StateOnlyTransition to AwaitingPlacement of a `kind` that the active Beacon warps in.
     AwaitWarpIn(ObjectKind),
     /// A StateOnlyTransition to AwaitingPlacement of the Beacon one of the active Drones deploys into.
     AwaitDeploy,
     /// A StateOnlyTransition to AwaitingPlacement of a `kind` that the active Agent builds
-    /// (`factions/syndicate/units/agent.md > Agent ObjectInterfaceState`: "A: Build Tunnel — enters AwaitingPlacement
+    /// (`factions/syndicate/units/agent.md > Agent ObjectInterfaceState`: "W: Build Tunnel — enters AwaitingPlacement
     /// for a Tunnel (StateOnlyTransition)").
     AwaitBuild(ObjectKind),
     /// A StateOnlyTransition to the Tunnel's EjectMenu (`InterfaceState::EjectMenu`).
@@ -352,6 +404,8 @@ pub fn press(panel: &Panel, slot: CommandSlot) -> SlotPress {
                 SlotPress::OpenMenu(menu)
             } else if let PanelCommand::PlaceReady(kind) = command {
                 SlotPress::AwaitPlacement(kind)
+            } else if let PanelCommand::Place(kind) = command {
+                SlotPress::AwaitShortcutPlacement(kind)
             } else if let PanelCommand::WarpIn(kind) = command {
                 SlotPress::AwaitWarpIn(kind)
             } else if command == PanelCommand::Deploy {
@@ -379,8 +433,11 @@ pub fn press(panel: &Panel, slot: CommandSlot) -> SlotPress {
 /// the ActiveGroup (design change 0348 point 5, `factions/cults/structures/README.md > Choosing Recruits, Release and
 /// Eject All`: "Cults production buildings (Armory, Altar, Cathedral, Chop Shop, Airstrip) are Ungroupable: a command
 /// goes to one building"), its X and C, which a Barracks shares with the others of its selection (design change 0083),
-/// too.
+/// too. Attack is always common: it goes to every selected unit ([`to_every_unit`]).
 pub fn is_common(selection: &Selection, command: PanelCommand) -> bool {
+    if to_every_unit(command) {
+        return true;
+    }
     selection.member_types().all(|(id, ty)| {
         let one = command.instance_only() || one_building(ty);
         offers(ty, command) && (!one || selection.in_active_group(id))
@@ -397,9 +454,9 @@ fn one_building(ty: GroupType) -> bool {
 /// `> CommandPanel`: who a panel command goes to: "Clicking a common command issues it to all selected objects.
 /// Clicking a group-specific command issues it only to objects in the ActiveGroup." `> SelectionGroup > No
 /// smart-casting` (design changes 0071 and 0075): every one of them, the whole Selection or the whole ActiveGroup,
-/// never a single member picked out; only a unit that can't carry the command out is left out of it (a Peacekeeper
-/// (Shielded) under an explicit Attack on an object, design change 0202, and a Disciple, which has no weapon, slice
-/// M5-N4a: `super::super::resolution::unit_target_order`).
+/// never a single member picked out. An Attack goes to every selected unit, whichever group is in focus
+/// ([`to_every_unit`], design change 0397: "An Attack is issued to **every selected unit**"), each unit that can't
+/// attack moving instead (`super::super::resolution::unit_target_order`, design change 0398).
 /// Raise Shield and Lower Shield are each one type's, and so is each form's Convert, so in a selection of both types
 /// they go to the ActiveGroup (`factions/gdo/units/peacekeeper.md > Riot Shield > Two unit types`: "the shield
 /// command goes to the ActiveGroup"; design change 0198: "Only the ActiveGroup receives the press"). Every panel
@@ -410,10 +467,24 @@ fn one_building(ty: GroupType) -> bool {
 /// command goes to the ActiveGroup, the one
 /// Deployment Center or Extraction Facility whose state the panel shows ([`is_common`]).
 pub fn recipients(selection: &Selection, command: PanelCommand) -> Vec<ObjectId> {
+    if to_every_unit(command) {
+        return (selection.member_types())
+            .filter(|&(_, ty)| !ty.unfinished && ty.kind.def().unit.is_some())
+            .map(|(id, _)| id)
+            .collect();
+    }
     let common = is_common(selection, command);
     selection
         .member_types()
         .filter(|&(id, ty)| offers(ty, command) && (common || selection.in_active_group(id)))
         .map(|(id, _)| id)
         .collect()
+}
+
+/// Whether `command` goes to every selected unit, whatever their types and whichever group is in focus: Attack
+/// (`systems/controls/interface.md > CommandPanel`, design change 0397: "**Attack goes to everyone** (user,
+/// 2026-11-27): an Attack (A) is issued to **every selected unit**, even when some can't attack"), which the panel
+/// shows in A while one of them can attack ([`attack_slot`], design change 0399).
+fn to_every_unit(command: PanelCommand) -> bool {
+    command == PanelCommand::Attack
 }

@@ -35,10 +35,11 @@ pub(in crate::command_ui) fn validate_interface(mut control: LocalControl) {
 }
 
 /// `systems/controls/interface.md > AwaitingTarget`: "Escape or right-click cancels via a StateOnlyTransition
-/// back to DefaultState"; in the other multi-stage states Esc goes back one state (`InterfaceState::back`): from
-/// AwaitingPlacement to the Deployment Center's build menu, the Beacon's Warp In menu, or the Extraction Facility's or
-/// the Drones' DefaultState, from a build menu to DefaultState. Esc is the Cancel action; right-click is
-/// [`super::right_click_orders`], Back (Z) [`press_command_slots`].
+/// back to DefaultState"; in the other multi-stage states Esc goes back one state (`InterfaceState::back`, design
+/// change 0400: "Escape and Z still go back one step"): from AwaitingPlacement to the Deployment Center's build menu,
+/// the Beacon's Warp In menu, or the Extraction Facility's or the Drones' DefaultState, from a build menu to
+/// DefaultState. Esc is the Cancel action; right-click is [`super::right_click_orders`] (straight to DefaultState from
+/// a target or a placement, the normal right-click in a menu), Back (Z) [`press_command_slots`].
 pub(in crate::command_ui) fn cancel_on_escape(actions: Res<ActionState>, mut control: LocalControl) {
     let state = control.state();
     if actions.just_pressed(InputAction::Cancel) && state.interface != InterfaceState::DefaultState {
@@ -55,10 +56,11 @@ pub(in crate::command_ui) fn cancel_on_escape(actions: Res<ActionState>, mut con
 /// Lower Shield, Convert) switches the type of the units it goes to at the press, and their merged group becomes the
 /// ActiveGroup (design change 0198, `crate::selection::ControlState::toggle`), so that the next press, the next frame
 /// or even before the sim's next tick, reaches them all. A constructor's enter its build menu
-/// (`InterfaceState::BuildMenu`) or the placement of its building ready to place (`InterfaceState::AwaitingPlacement`),
-/// or give its one constructor a construction command and return to DefaultState ("CommandIssuingTransition, returns to
+/// (`InterfaceState::BuildMenu`) or the placement of its building ready to place (`InterfaceState::AwaitingPlacement`;
+/// from the Deployment Center's E: Place, a placement that Escape leaves for DefaultState: `Placing::shortcut`), or
+/// give its one constructor a construction command and return to DefaultState ("CommandIssuingTransition, returns to
 /// DefaultState"). A Beacon's enter its Warp In menus and a Warp In's placement on it (`factions/colonists/economy.md >
-/// Beacon > Beacon ObjectInterfaceState`, design change 0122: the Beacon Tabbed to), the Drones' A the placement of a
+/// Beacon > Beacon ObjectInterfaceState`, design change 0122: the Beacon Tabbed to), the Drones' W the placement of a
 /// Beacon (design change 0125), an Egress Node's F selects its returning Drones instead
 /// (`factions/colonists/economy.md > Egress Node > Egress Node ObjectInterfaceState`, slice M3-J2), and the X of
 /// whatever transforms cancels it (design change 0116). A Tunnel's E opens its EjectMenu, whose tiles each send the
@@ -137,6 +139,12 @@ pub(in crate::command_ui) fn press_command_slots(
                 // The one constructor of the ActiveGroup, which holds the building ready.
                 if let [constructor] = recipients(&state.selection, PanelCommand::PlaceReady(kind))[..] {
                     let placing = Placing::new(constructor, kind);
+                    control.update(|state| state.interface = InterfaceState::AwaitingPlacement(placing));
+                }
+            }
+            SlotPress::AwaitShortcutPlacement(kind) => {
+                if let [constructor] = recipients(&state.selection, PanelCommand::Place(kind))[..] {
+                    let placing = Placing::by_shortcut(constructor, kind);
                     control.update(|state| state.interface = InterfaceState::AwaitingPlacement(placing));
                 }
             }

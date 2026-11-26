@@ -1,9 +1,10 @@
 //! What a raised Riot Shield does to the orders a Peacekeeper takes (`factions/gdo/units/peacekeeper.md > Riot
 //! Shield`): a right-click on an enemy has it follow a unit or move to a structure instead of attacking (design
-//! change 0074) while the others of the selection attack; an explicit Attack on an object leaves it out, on its
-//! orders (0075); an AttackMove takes it along, walking on without firing (0076). A Peacekeeper with its shield up is
-//! a Peacekeeper (Shielded) (design change 0173), whose own panel shows no Attack. Guards stand in for the design's
-//! Rocketmen and tanks, which M1 doesn't have.
+//! change 0074) while the others of the selection attack; so does an explicit Attack on an object, which goes to every
+//! selected unit (design changes 0397 and 0398: those that can't attack "move to it (as a Move on that object)"; 0075
+//! left it out, on its orders); an AttackMove takes it along, walking on without firing (0076). A Peacekeeper with its
+//! shield up is a Peacekeeper (Shielded) (design change 0173), whose panel shows no A when no selected unit can attack
+//! (design change 0399). Guards stand in for the design's Rocketmen and tanks, which M1 doesn't have.
 
 use bevy::prelude::*;
 use sc_sim::defs::RIOT_SHIELD_TOGGLE_TICKS;
@@ -207,11 +208,14 @@ fn lowered_shields_attack_on_a_right_click_again() {
     assert!(!fired(&events, &[1, 2]).is_empty(), "they attack");
 }
 
-/// 0075 Verification 1: four shielded Peacekeepers and four Guards walk somewhere; Attack (A) and a click on an
-/// enemy send the Guards to attack it. The Peacekeepers are left out: they carry on with their move, the same
-/// order, and get where it sends them.
+/// 0075 Verification 1, as design changes 0397 and 0398 have it since: four shielded Peacekeepers and four Guards walk
+/// somewhere; Attack (A) and a click on an enemy send the Guards to attack it, and the Peacekeepers, who can't, to it
+/// ("Attack goes to everyone": units that can't attack, "on a target they move to it (as a Move on that object)", where
+/// 0075 left them out, on their move; `factions/gdo/units/peacekeeper.md > Riot Shield`'s "left out" cites the
+/// CommandPanel rule 0397 replaced). They follow it, half a tile closer at least, where the Guards' crowd may stop them
+/// (`systems/controls/command_behaviors.md > MovingToObject > Blocked near the target`), and never fire; the Guards do.
 #[test]
-fn an_attack_leaves_shielded_peacekeepers_on_their_way() {
+fn an_attack_sends_shielded_peacekeepers_to_the_target() {
     let enemy = [(ObjectKind::Peacekeeper, Vec2::new(1250.0, 680.0))];
     let mut app = game_of(field(
         square(Vec2::new(1000.0, 760.0), 50.0),
@@ -226,31 +230,39 @@ fn an_attack_leaves_shielded_peacekeepers_on_their_way() {
     assert_eq!(given_orders.len(), 1);
     assert_eq!(given_orders[0].units, OWN);
     assert!(near(point_of(given_orders[0].kind), somewhere));
-    let moves = PKS.map(|id| object_orders(&app, id).current.expect("walking").order);
 
     tap(&mut app, &[], KeyA);
     let enemy_at = pos(&app, ENEMY);
     click(&mut app, enemy_at, &[]);
     assert_eq!(interface(&app), InterfaceState::DefaultState);
-    assert_eq!(orders(&app)[1..], [given(&GUARDS, attack(ENEMY), false)]);
-    for (id, walk) in PKS.iter().zip(&moves) {
-        assert_eq!(&object_orders(&app, *id).current.expect("walking").order, walk, "{id}");
+    assert_eq!(
+        orders(&app)[1..],
+        [given(&PKS, follow(ENEMY), false), given(&GUARDS, attack(ENEMY), false)]
+    );
+    updates(&mut app, 2);
+    for id in PKS {
+        let following = object_orders(&app, id).current.expect("following").order.kind;
+        assert_eq!(following, follow(ENEMY), "{id}");
     }
-
-    let events = run_collecting(&mut app, 300);
-    for (id, walk) in PKS.iter().zip(&moves) {
-        assert_eq!(object_orders(&app, *id).current, None, "{id} arrived");
-        let distance = pos(&app, *id).distance(walk.destination().unwrap());
-        assert!(distance < 30.0, "{id} where its move sent it: {distance}");
+    let before = PKS.map(|id| pos(&app, id).distance(enemy_at));
+    let events = run_collecting(&mut app, 120);
+    for (id, before) in PKS.into_iter().zip(before) {
+        let distance = pos(&app, id).distance(enemy_at);
+        assert!(
+            distance < before - 32.0,
+            "Peacekeeper {id} went to it: {before} to {distance}"
+        );
     }
     assert!(!fired(&events, &GUARDS).is_empty(), "the Guards attack");
+    assert!(fired(&events, &PKS).is_empty(), "the Peacekeepers never fire");
 }
 
-/// 0075 Verifications 2 and 3: of four Peacekeepers, two shielded, Attack (A) and a click on an enemy send only
-/// the other two to attack it. With only shielded Peacekeepers selected, Attack is unavailable: the Peacekeeper
-/// (Shielded)'s panel shows none (design change 0173), and its hotkey does nothing.
+/// 0075 Verifications 2 and 3, as design changes 0397 and 0399 have them since: of four Peacekeepers, two shielded,
+/// Attack (A) and a click on an enemy send only the other two to attack it, the shielded two to it, a Move on it. With
+/// only shielded Peacekeepers selected, Attack is unavailable: no selected unit can attack, so the panel shows no A
+/// (0399: "It is hidden only when no selected unit can attack"; design change 0173), and its hotkey does nothing.
 #[test]
-fn an_attack_goes_to_the_unshielded_peacekeepers_alone() {
+fn only_the_unshielded_peacekeepers_carry_out_an_attack() {
     let mut app = game();
     let fourth = spawn(
         &mut app,
@@ -264,13 +276,19 @@ fn an_attack_goes_to_the_unshielded_peacekeepers_alone() {
     tap(&mut app, &[], KeyA);
     assert_eq!(interface(&app), InterfaceState::awaiting(PanelCommand::Attack));
     click(&mut app, at(ENEMY_PK), &[]);
-    assert_eq!(orders(&app), [given(&[5, fourth], attack(ENEMY_PK), false)]);
+    assert_eq!(
+        orders(&app),
+        [
+            given(&[1, 2], follow(ENEMY_PK), false),
+            given(&[5, fourth], attack(ENEMY_PK), false)
+        ]
+    );
 
     select_box(&mut app, &[1, 2]);
     assert_eq!(attack_button(&mut app), None);
     tap(&mut app, &[], KeyA);
     assert_eq!(interface(&app), InterfaceState::DefaultState);
-    assert_eq!(orders(&app).len(), 1);
+    assert_eq!(orders(&app).len(), 2);
 }
 
 /// 0076 Verification 1: four shielded Peacekeepers and four Guards, auto-targeting on; Attack (A) and a click on the

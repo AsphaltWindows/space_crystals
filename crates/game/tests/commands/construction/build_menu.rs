@@ -7,9 +7,11 @@ use super::*;
 /// `factions/gdo/structures/deployment_center.md > ObjectInterfaceState[DeploymentCenter]` (design change 0104): a
 /// selected Deployment Center shows Q Basic Construction, and W Advanced Construction unavailable while none of its
 /// buildings is in the game. Q, or a click on its button, opens BuildMenu[Basic]: Q Generator, W Barracks, E Extraction
-/// Facility, D Career Campus (slice M5-N9; greyed: "Requires a Barracks"), the other slots hidden, and Z Back. Back,
-/// Esc and a right-click return to DefaultState (`factions/gdo/structures/deployment_center.md > BuildMenu (instance
-/// idle)`: "Escape/right-click: returns to DefaultState"), and a left-click on the map selects as ever. Beside an
+/// Facility, D Career Campus (slice M5-N9; greyed: "Requires a Barracks"), the other slots hidden, and Z Back. Back
+/// and Esc return to DefaultState (`factions/gdo/structures/deployment_center.md > BuildMenu (instance idle)`:
+/// "Escape: returns to DefaultState (StateOnlyTransition). Right-click does its normal right-click and the menu stays
+/// open", design change 0400): a right-click on the ground does the Deployment Center's, nothing, and the menu stays
+/// open. A left-click on the map selects as ever. Beside an
 /// Extraction Facility, recalled together from a control group (design change 0048's verification: "Select two own
 /// Ungroupable buildings (e.g. via control group): Tab switches the command panel between them"), Tab makes that the
 /// active group: the menu closes, and Q builds a plate there, at the Extraction Facility only.
@@ -58,12 +60,11 @@ fn the_deployment_center_opens_its_basic_build_menu() {
     assert_eq!(interface(&app), InterfaceState::DefaultState);
     tap(&mut app, &[], KeyQ);
     right_click(&mut app, middle(OPEN, (2, 2)), &[]);
-    assert_eq!(interface(&app), InterfaceState::DefaultState);
+    assert_eq!(interface(&app), menu, "a right-click doesn't reset the menu");
     assert_eq!(constructions(&app), []);
     assert_eq!(orders(&app), []);
 
     // The menu leaves the map's left-clicks to the selection: a click on the Peacekeeper selects it.
-    tap(&mut app, &[], KeyQ);
     select(&mut app, PK);
     assert_eq!(interface(&app), InterfaceState::DefaultState);
 
@@ -95,15 +96,16 @@ fn the_deployment_center_opens_its_basic_build_menu() {
 }
 
 /// `factions/gdo/structures/deployment_center.md > BuildMenu (instance idle)`: Q pays 100 Space Crystals for a
-/// Generator and returns to DefaultState, which then shows X, Cancel Construction ("Only visible when
-/// CurrentConstruction is set"). In the build menu the entries are unavailable while it is constructed
-/// (`factions/gdo/structures/deployment_center.md > BuildMenu (instance constructing)`), and X cancels from there too,
-/// by hotkey or by button: a full refund (`factions/gdo/structures/deployment_center.md > Cancellation`), and back to
-/// DefaultState. The InfoPanel shows the construction and its progress (design change 0105).
+/// Generator and returns to DefaultState, which then shows E, Place, greyed (design change 0388: the `place_button`
+/// tests), and X, Cancel Construction ("Only visible when CurrentConstruction is set"). In the build menu the entries
+/// are unavailable while it is constructed (`factions/gdo/structures/deployment_center.md > BuildMenu (instance
+/// constructing)`), and X cancels from there too, by hotkey or by button: a full refund
+/// (`factions/gdo/structures/deployment_center.md > Cancellation`), and back to DefaultState. The InfoPanel shows the
+/// construction and its progress (design change 0105).
 #[test]
 fn a_construction_is_cancelled_with_a_full_refund() {
     use ButtonLook::{Back, Common, Disabled, Unavailable};
-    use PanelCommand::{BuildMenu as Menu, CancelConstruction, Construct};
+    use PanelCommand::{BuildMenu as Menu, CancelConstruction, Construct, Place};
     let mut app = construction_game(1000);
     select(&mut app, DC);
     tap(&mut app, &[], KeyQ);
@@ -119,6 +121,7 @@ fn a_construction_is_cancelled_with_a_full_refund() {
         [
             (q(), c(Menu(BuildMenu::Basic)), Common, "Basic"),
             (w(), c(Menu(BuildMenu::Advanced)), Unavailable, "Adv."),
+            (e(), c(Place(GENERATOR)), Disabled, "GN"),
             (X, c(CancelConstruction), Common, "Cancel"),
         ]
     );

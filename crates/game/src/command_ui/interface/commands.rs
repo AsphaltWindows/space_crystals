@@ -76,8 +76,17 @@ pub enum PanelCommand {
     /// down), clears ReadyToPlace", at once.
     CancelReady,
     /// The ready building's own slot, "Select completed building" (design change 0104), the Extraction Facility's
-    /// "Q: Place Plate": enters AwaitingPlacement for it (a StateOnlyTransition), where a click places it.
+    /// "Q: Place Plate": enters AwaitingPlacement for it (a StateOnlyTransition), where a click places it. The
+    /// Extraction Facility's shows while its plate is constructed too, greyed, with the construction's progress
+    /// (`factions/gdo/economy.md > ExtractionFacility > ObjectInterfaceState[ExtractionFacility]`, design change 0392:
+    /// "greyed out, with a running progress bar").
     PlaceReady(ObjectKind),
+    /// The Deployment Center's DefaultState "E: Place" (`factions/gdo/structures/deployment_center.md >
+    /// ObjectInterfaceState[DeploymentCenter] > DefaultState commands`, design change 0388): the building it constructs
+    /// or holds ready, by its icon, greyed with the construction's progress while it is constructed, and once it is
+    /// ready entering AwaitingPlacement for it "exactly as the building's slot in the build menu does", from which
+    /// Escape returns to DefaultState (`super::Placing::shortcut`). Hidden while the Deployment Center is idle.
+    Place(ObjectKind),
     /// A Beacon's Warp In menu entry for a building of its Constructs List (`factions/colonists/economy.md > Beacon >
     /// Beacon ObjectInterfaceState`: "Choosing a building enters placement"; `factions/colonists/economy.md > Warp In >
     /// Warp In Command`): enters AwaitingPlacement of the building on the Beacon (a StateOnlyTransition), where a click
@@ -86,7 +95,7 @@ pub enum PanelCommand {
     /// A Warp In menu's building, or a portal's unit, that isn't in the game yet (design change 0124: "Buildings and
     /// units whose costs are TBD show in their slot, unavailable"): it holds its slot and does nothing.
     Planned(Planned),
-    /// `factions/colonists/units/drone.md > Drone ObjectInterfaceState > A: Deploy`: "enters AwaitingPlacement for a
+    /// `factions/colonists/units/drone.md > Drone ObjectInterfaceState > W: Deploy`: "enters AwaitingPlacement for a
     /// Beacon (StateOnlyTransition)", where a click sends one Drone of the group to deploy there (design change 0125,
     /// `sc_sim::OrderKind::Deploy`).
     Deploy,
@@ -122,7 +131,7 @@ pub enum PanelCommand {
     /// (`factions/cults/augmentation.md`).
     Eject(ObjectKind),
     /// A worker's build of a structure on its site (`factions/syndicate/units/agent.md > Agent ObjectInterfaceState >
-    /// DefaultState commands`: "**A: Build Tunnel** — enters AwaitingPlacement for a Tunnel (StateOnlyTransition)";
+    /// DefaultState commands`: "**W: Build Tunnel** — enters AwaitingPlacement for a Tunnel (StateOnlyTransition)";
     /// slice M4-J1), where a left-click on a valid location "confirms placement and dispatches the Agent
     /// (CommandIssuingTransition, returns to DefaultState)": a Build order (`sc_sim::OrderKind::Build`, plan decision
     /// T31) to the one Agent of the ActiveGroup, paid as it is given (design change 0233).

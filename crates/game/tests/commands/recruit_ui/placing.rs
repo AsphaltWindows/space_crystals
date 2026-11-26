@@ -15,15 +15,16 @@ use KeyCode::{KeyQ, KeyR, ShiftLeft};
 const ARMORY_SITE: TilePos = TilePos::new(20, 9);
 const STORAGE_SITES: [TilePos; 2] = [TilePos::new(22, 9), TilePos::new(25, 9)];
 
-/// Design change 0327's Verification: "Recruits: A then A places an Armory", and 0072's Verification 1: "Select 4
-/// Recruits, press A (Construct), choose a building and place it. [...] The cost is deducted once." A then A enters
-/// the Armory's placement for the four, its ghost green on clear ground; a click sends them one Build, together, and
-/// ends placement; its 200 Space Crystals are paid once, and it lingers as one ghost.
+/// Design change 0327's Verification: "Recruits: A then A places an Armory", W then A since design change 0398 (W
+/// Basic Construct), and 0072's Verification 1: "Select 4 Recruits, press A (Construct), choose a building and place
+/// it. [...] The cost is deducted once." W then A enters the Armory's placement for the four, its ghost green on clear
+/// ground; a click sends them one Build, together, and ends placement; its 200 Space Crystals are paid once, and it
+/// lingers as one ghost.
 #[test]
-fn a_then_a_places_an_armory_for_the_whole_group() {
+fn w_then_a_places_an_armory_for_the_whole_group() {
     let mut app = recruit_game(300);
     select_units(&mut app, &RECRUITS);
-    tap(&mut app, &[], KeyA);
+    tap(&mut app, &[], KeyW);
     tap(&mut app, &[], KeyA);
     assert_eq!(
         interface(&app),
@@ -58,7 +59,7 @@ fn a_then_a_places_an_armory_for_the_whole_group() {
 fn shift_chains_the_groups_buildings_one_ghost_each() {
     let mut app = recruit_game(200);
     select_units(&mut app, &RECRUITS);
-    tap(&mut app, &[], KeyA);
+    tap(&mut app, &[], KeyW);
     tap(&mut app, &[], KeyW);
     press_keys(&mut app, &[ShiftLeft]);
     let chained = Placing {
@@ -99,7 +100,7 @@ fn shift_chains_the_groups_buildings_one_ghost_each() {
 fn a_storage_ghost_is_3x2_and_turns_between_two_orientations() {
     let mut app = recruit_game(100);
     select_units(&mut app, &RECRUITS);
-    tap(&mut app, &[], KeyA);
+    tap(&mut app, &[], KeyW);
     tap(&mut app, &[], KeyW);
     assert_eq!(
         interface(&app),
@@ -132,7 +133,7 @@ fn a_storage_ghost_is_3x2_and_turns_between_two_orientations() {
 fn a_hall_flush_against_the_map_edge_is_placed() {
     let mut app = recruit_game(300);
     select_units(&mut app, &RECRUITS);
-    tap(&mut app, &[], KeyA);
+    tap(&mut app, &[], KeyW);
     tap(&mut app, &[], KeyQ);
     assert_eq!(
         interface(&app),

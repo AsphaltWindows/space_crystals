@@ -8,8 +8,8 @@
 //! state, and a desync; notes say while the fog of war is off and in the map editor's play-test ([`TopBarNote`]). The
 //! sections are placed at the rectangles of [`layout`], which also find the portrait or the command button under a
 //! click. Two panels show the selection: the InfoPanel ([`info_panel`]) and the SelectionPanel ([`selection_panel`]);
-//! the CommandPanel
-//! ([`command_panel`]) shows the commands for it (`crate::command_ui`). The others show their names, and so do these
+//! the CommandPanel ([`command_panel`]) shows the commands for it (`crate::command_ui`), a Place button with its
+//! building's progress ([`progress_bar`]). The others show their names, and so do these
 //! three while they have nothing to show. At the end of the game a banner shows Victory, Defeat or Draw, and a
 //! defeated player gives no more commands ([`outcome`]); one defeated with no ally left while the game goes on
 //! leaves for the results screen ([`results`]), over everything below the top bar. Under the top bar, a placeholder
@@ -23,6 +23,7 @@ pub mod info_panel;
 pub mod layout;
 pub mod notices;
 pub mod outcome;
+pub mod progress_bar;
 pub mod resources;
 pub mod results;
 pub mod selection_panel;
