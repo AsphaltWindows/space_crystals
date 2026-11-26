@@ -28,7 +28,6 @@
 
 ## Open Director Questions
 - Q0135 Cults economy check: 5 misses; realistic opening ~0.5-0.6 of others (nb, big)
-- Q0142 neutral (defeated) units keep research amounts? (nb)
 
 Order of work (placeholder passes done, 0366/0367): finish Cults units → Colonists units → techs → detection → numbers review.
 ## Loose Ends
