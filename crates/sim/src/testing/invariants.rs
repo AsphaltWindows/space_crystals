@@ -14,7 +14,8 @@
 //! for readable failures.
 //!
 //! [`super::TestSim`] checks them after every tick (on by default). A test that steps a bare [`Sim`] keeps its own
-//! [`Invariants`] and calls [`Invariants::check`] after each step.
+//! [`Invariants`] and calls [`Invariants::check`] after each step, as the golden games do (slice M5-M1); the fuzz's
+//! games call [`Invariants::check_rules`], the invariants of the game's rules alone.
 
 mod augmentations;
 mod banks;
