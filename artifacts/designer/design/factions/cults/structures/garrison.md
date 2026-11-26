@@ -9,7 +9,7 @@ The Cults' defensive structure. Infantry enter the Garrison and fire from inside
 
 ## Garrisoning
 - **Who can enter**: Recruits, Militants, Gunners, and Disciples. Units enter with the Enter command (right-click own Garrison with eligible infantry selected), up to 4 units total.
-- **Weapons**: a Recruit or Disciple inside attacks with the Militant's AttackAttributes (see Militant); Militants and Gunners use their own AttackAttributes. (Whether an Disciple can also cast spells from inside: TBD.)
+- **Weapons**: a Recruit or Disciple inside attacks with the Militant's AttackAttributes (see Militant); Militants and Gunners use their own AttackAttributes. (Whether a Disciple can also cast spells from inside: TBD.)
 - **Range bonus**: **Militants and Gunners** inside get **+1 grid unit of Range** on their attack. Recruits and Disciples (firing with the Militant's attack) do not get the bonus — they fire at the Militant's normal Range.
 - Units inside are not consumed and still count toward Unit Control.
 - Evacuation on Destruction applies: when the Garrison is destroyed, everyone inside comes out alive around its footprint.

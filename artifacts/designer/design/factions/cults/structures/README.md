@@ -47,7 +47,7 @@ Storage → Altar → Temple ─┬→ Cathedral
 
 ### Cults Vehicles
 
-Every Cults unit, including vehicles and aircraft, is made from Recruits. Vehicles (not yet designed) are produced at the Chop Shop and consume multiple Recruits each. Aircraft (not yet designed) are produced at the Airstrip; the number of Recruits per aircraft is TBD per aircraft type. Because a trained unit's Unit Control cost equals the number of Recruits consumed (see RecruitmentHall > Unit Control Tracking), vehicles cost one Unit Control per Recruit consumed. The exact number of Recruits per vehicle is set per vehicle type.
+Every Cults unit, including vehicles and aircraft, is made from Recruits. Vehicles (the Jackal so far) are produced at the Chop Shop and consume multiple Recruits each. Aircraft (the Sparrow so far) are produced at the Airstrip; the number of Recruits per aircraft is TBD per aircraft type. Because a trained unit's Unit Control cost equals the number of Recruits consumed (see RecruitmentHall > Unit Control Tracking), vehicles cost one Unit Control per Recruit consumed. The exact number of Recruits per vehicle is set per vehicle type.
 
 ## Files
 

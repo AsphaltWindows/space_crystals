@@ -13,4 +13,8 @@ GDO specialist infantry, trained at the Barracks once the player owns a Career C
 
 The Field Engineer carries **no weapon**.
 
-TBD: stats, cost, build time, hotkeys, ObjectInterfaceState.
+**Placeholder stats** (designer, 2026-11-26, user's standing permission; tune in the numbers pass):
+- UnitBase LightInfantry; Silhouette 24x24 space units; MaxHP 50; PointArmor 0, FullArmor 0; SightRange 5 grid units; Groupable true; UnitControlCost 1.
+- Movement as the Peacekeeper (MaxSpeed 4 space units/frame).
+- Cost: Barracks, 75 Space Crystals, 160 frames (10 seconds).
+- Panel: **Q** Move; **A** Construct (a menu: **Q** Bunker, **W** First Aid Tent, both greyed until designed; **Z** back); **D** Repair (targeted: a damaged own building or vehicle); **X** Stop. Right-click a damaged own building or vehicle: Repair (Enter wins on a building it can enter, as for Recruits). Repair works through the same shared rules as the Recruit's.
