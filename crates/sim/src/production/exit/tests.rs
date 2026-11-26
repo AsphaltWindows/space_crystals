@@ -115,6 +115,33 @@ fn a_unit_in_the_doorway_may_only_come_out() {
     }
 }
 
+/// (M5-Z1) The exception's tiles (`Frame::blocks`): a released unit's box may overlap its building's tiles, but not
+/// ground under them that it can't stand on, and no solid tile outside. A map's object or a debug spawn may stand on
+/// any flat ground: here a Barracks over a Cliff, whose doorway then has no spot over it, half inside or fully, while
+/// its open tiles stay open to the unit.
+#[test]
+fn a_released_unit_overlaps_its_building_but_not_ground_under_it_it_cant_stand_on() {
+    // The Barracks unturned at tile (2, 1): x 128..320, y 64..192, its door the middle of the east side, (320, 128).
+    // A Cliff under it on tile (4, 1), x 256..320 and y 64..128, and one outside on tile (6, 3).
+    let t = ScenarioBuilder::new("........\n....c...\n........\n......c.")
+        .spawn(ObjectKind::Barracks, None, SpawnAt::Tile(TilePos::new(2, 1)))
+        .start();
+    let door = ExitDoor::of(t.sim().objects().next().unwrap()).unwrap();
+    let side = side_b(Rotation::R0, false);
+    let peacekeeper = ObjectKind::Peacekeeper.def().unit.as_ref().unwrap().base_def();
+    let size = crate::nav::size_class(HALF * 2.0);
+    let grid = t.sim().nav().grid(peacekeeper.nav_class().unwrap(), size).unwrap();
+    assert!(grid.is_solid(TilePos::new(3, 1)) && !grid.is_terrain_solid(TilePos::new(3, 1)));
+    let clear = |p: Vec2| door.box_clear(grid, HALF, p);
+    // Half inside on the door's middle the box covers tiles (4, 1) to (5, 2), fully inside (4, 1) and (4, 2).
+    assert!(!clear(side.spot(0.0)), "half inside, over the Cliff");
+    assert!(!clear(side.spot(-12.0)), "fully inside, over the Cliff");
+    // Off the Cliff: on the building's open tiles (4, 2) and (3, 2), and on (5, 2) outside.
+    assert!(clear(Vec2::new(308.0, 160.0)) && clear(Vec2::new(256.0, 160.0)) && clear(Vec2::new(332.0, 160.0)));
+    // A solid tile outside blocks it as ever: the box at x 372..396, y 180..204 overlaps the Cliff (6, 3).
+    assert!(!clear(Vec2::new(384.0, 192.0)));
+}
+
 /// The ways out: straight ahead first, then in front of each tile of the exit side.
 #[test]
 fn the_ways_out_touch_the_exit_side_from_outside() {

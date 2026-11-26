@@ -469,8 +469,9 @@ impl Sim {
     /// Where a unit with half extents `half` appears in `door`: "half inside the building, at the middle of the
     /// exit side", or as far out as there is room when another unit or a blocked tile is right in front of the
     /// doorway (fully inside, against the exit side, at most: see `production::exit` for this reading of the
-    /// design). Its box overlaps no unit of its layer and no blocked tile but the building's own. `None` if there
-    /// is no such spot.
+    /// design). Its box overlaps no unit of its layer and no blocked tile but the building's own, nor ground under
+    /// those that the unit can't stand on (`production::ExitDoor::box_clear`, slice M5-Z1). `None` if there is no
+    /// such spot: the unit waits inside, as behind an occupied doorway.
     pub(super) fn doorway_spot(&self, door: &Door, unit: &UnitDef, half: Vec2) -> Option<Vec2> {
         let base = unit.base_def();
         let grid = base

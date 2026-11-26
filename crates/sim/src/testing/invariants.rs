@@ -156,9 +156,11 @@ impl Invariants {
             // I2: a ground box overlaps no blocked tile and stays on the map. The one exception (design change
             // 0080, `core/entities.md > Structure Type > Exit Doorway`): a unit that a producer released, while
             // its box still overlaps that building's footprint (`Mover::exit`), overlaps that footprint's tiles
-            // and no other blocked tile; and from tick to tick it only comes out (`ExitDoor::allows`). (M3-D2) Out
-            // of a portal's energy doorway (design change 0145) it never stands off the open arc: its centre lies
-            // in an open direction from the portal's, within a rounding tolerance (`EnergyDoorway::margin`).
+            // and no other blocked tile, nor ground under the footprint that it can't stand on (slice M5-Z1:
+            // `ExitDoor::box_clear`, so that it stands on open ground once the building is gone); and from tick to
+            // tick it only comes out (`ExitDoor::allows`). (M3-D2) Out of a portal's energy doorway (design change
+            // 0145) it never stands off the open arc: its centre lies in an open direction from the portal's,
+            // within a rounding tolerance (`EnergyDoorway::margin`).
             let grid = unit
                 .base_def()
                 .nav_class()
