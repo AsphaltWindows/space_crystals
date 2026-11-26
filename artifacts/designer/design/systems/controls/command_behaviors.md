@@ -94,7 +94,7 @@ Base behavior for attacking a destructible object instance. The unit moves towar
 Gliders cannot stop. Instead of stopping when in range, the Glider performs strafing runs:
 1. Fly toward TargetObject
 2. When in range and turret arc: fire while passing through
-3. Continue past the target
+3. Continue past the target until the target's **centre** is out of weapon range (user, 2026-11-26; Q0149: measured from the glider's edge to the target's centre, not edge to edge as range usually is, so the loop is the same size whatever the target's size and a lone glider's sight covers it; firing itself still uses normal edge-to-edge range)
 4. Loop around for another pass
 5. Repeat until target is destroyed or a new command is issued
 
