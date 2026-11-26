@@ -50,7 +50,7 @@ impl Sim {
         Claims::of(self.objects.values(), &self.map)
     }
 
-    /// (M5-J2) The tiles `hall` claims at the end of the latest tick, row by row (`crate::recruitment::claimed_tiles`):
+    /// (M5-J2) The tiles `hall` claims at the end of the latest tick, in tile order (`crate::recruitment::claimed_tiles`):
     /// what a selected own Hall shows (`factions/cults/structures/recruitment_hall.md > Recruitment Area display`);
     /// none for an object that isn't a completed Hall.
     pub fn claimed_tiles(&self, hall: ObjectId) -> Vec<TilePos> {

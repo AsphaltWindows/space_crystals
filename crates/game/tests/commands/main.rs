@@ -40,7 +40,8 @@
 //!
 //! The Recruit's UI (slice M5-J1: its panel and its two Construct menus, the Assist, Enter and gathering pointers, Tab
 //! over Recruits and Militants, the group's placement with its Shift chain, and a Hall refused at the map's edge):
-//! `recruit_ui`, on a Cults field.
+//! `recruit_ui`, on a Cults field. The Recruitment Area display (slice M5-J2: a Hall's preview among the Halls the
+//! player knows of, its Effectiveness, and a selected Hall's claims): `recruitment_areas`, with the fog of war on.
 
 mod agent_ui;
 mod armory;
@@ -56,6 +57,7 @@ mod production;
 mod production_field;
 mod rally;
 mod recruit_ui;
+mod recruitment_areas;
 mod remembered;
 mod right_click;
 mod riot_shield;

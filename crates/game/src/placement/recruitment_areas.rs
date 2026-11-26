@@ -109,7 +109,7 @@ impl ShownPreview {
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct SelectedClaims {
     pub hall: ObjectId,
-    /// Row by row (`Sim::claimed_tiles`).
+    /// In tile order (`Sim::claimed_tiles`).
     pub tiles: Vec<TilePos>,
 }
 
