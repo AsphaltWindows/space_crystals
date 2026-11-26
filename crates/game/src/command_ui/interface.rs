@@ -81,7 +81,8 @@
 //! The Cults' Armory (`factions/cults/structures/armory.md > ObjectInterfaceState[Armory]`, design change 0337; slice
 //! M5-F2) picks a kind of Recruit first: Q Plain, W Constitution, E Metabolism and R Both, each with the count of its
 //! free Recruits inside and greyed while there are none, open KindMenu\[kind\], whose Q trains a Militant of a Recruit
-//! of the kind and A releases one, the menu staying open, Z going back; the Gunner holds W, "Requires a Gunworks". Its
+//! of the kind and W a Gunner, greyed while the player owns no Gunworks (slice M5-G2: "Requires a Gunworks", the
+//! gate's `Reject::Requires`), and A releases one, the menu staying open, Z going back. Its
 //! A ejects every free Recruit, X cancels the last entry and C awaits its rally point. Every command goes to the
 //! Armory Tabbed to (design change 0348 point 5, `factions/cults/structures/README.md > Choosing Recruits, Release and
 //! Eject All`: "a command goes to one building").

@@ -15,6 +15,9 @@ const MILITANT: ObjectKind = ObjectKind::Militant;
 const HALL: ObjectKind = ObjectKind::RecruitmentHall;
 const STORAGE: ObjectKind = ObjectKind::Storage;
 const ARMORY: ObjectKind = ObjectKind::Armory;
+const GUNWORKS: ObjectKind = ObjectKind::Gunworks;
+const MACHINE_SHOP: ObjectKind = ObjectKind::MachineShop;
+const SCRAP_HANGAR: ObjectKind = ObjectKind::ScrapHangar;
 const BASIC: InterfaceState = InterfaceState::BuildMenu(BuildMenu::Basic);
 const ADVANCED: InterfaceState = InterfaceState::BuildMenu(BuildMenu::Advanced);
 const P1: PlayerId = PlayerId(1);
@@ -96,10 +99,11 @@ fn the_recruit_has_q_move_a_and_w_construct_s_assist_d_repair_and_x_stop() {
 /// `factions/cults/units/recruit.md > Recruit ObjectInterfaceState > DefaultState commands`, BuildMenu[Basic] (design
 /// change 0327: "Fixed slots: every building keeps its key and is greyed until its TechPrerequisite is met, so no
 /// hotkey ever moves"): Q Recruitment Hall, W Storage, A Armory, S Gunworks, D Garrison, X Altar, and Z back. Read from
-/// a game with 250 Space Crystals: the Hall, 300, is greyed for the bank, the Armory for its TechPrerequisite
-/// ("Requires: Storage"), the three not in the game yet as such; the Storage enters its placement. Each Build shows its
-/// price. Once a Storage stands and the bank holds 300, A enters the Armory's placement (0327's Verification:
-/// "Recruits: A then A places an Armory"), and so does Q the Hall's.
+/// a game with 250 Space Crystals: the Hall, 300, is greyed for the bank, the Armory and the Gunworks (slice M5-G2) for
+/// their TechPrerequisites ("Requires: Storage", "Requires: Armory"), the two the Recruits don't build yet as not in the
+/// game; the Storage enters its placement. Each Build shows its price. Once a Storage stands and the bank holds 300, A
+/// enters the Armory's placement (0327's Verification: "Recruits: A then A places an Armory"), and so does Q the
+/// Hall's; once an Armory stands too, S enters the Gunworks'.
 #[test]
 fn the_basic_menu_keeps_its_slots_greying_what_cant_be_built() {
     use ButtonLook::{Back, Common, Disabled, Unavailable};
@@ -130,7 +134,7 @@ fn the_basic_menu_keeps_its_slots_greying_what_cant_be_built() {
             (q, c(Build(HALL)), Disabled),
             (w, c(Build(STORAGE)), Common),
             (a, c(Build(ARMORY)), Disabled),
-            (s, c(P(Planned::Gunworks)), Unavailable),
+            (s, c(Build(GUNWORKS)), Disabled),
             (d, c(P(Planned::Garrison)), Unavailable),
             (CommandSlot::BACK, PanelButton::Back, Back),
             (x, c(P(Planned::Altar)), Unavailable),
@@ -148,12 +152,13 @@ fn the_basic_menu_keeps_its_slots_greying_what_cant_be_built() {
     assert_eq!(labels_and_names(&menu), named.map(|(l, n)| (l, n.to_string())));
     let price = |at| menu.get(at).and_then(|shown| shown.price);
     assert_eq!(
-        [q, w, a].map(price),
-        [300, 100, 200].map(|crystals| Some(BuildPrice::crystals(crystals)))
+        [q, w, a, s].map(price),
+        [300, 100, 200, 150].map(|crystals| Some(BuildPrice::crystals(crystals)))
     );
     assert_eq!(why_text(&menu, q), Some("Not enough Space Crystals"));
     assert_eq!(why_text(&menu, a), Some(requires_text(STORAGE)));
-    assert_eq!(why_text(&menu, s), Some(NOT_YET_TEXT));
+    assert_eq!(why_text(&menu, s), Some("Requires an Armory"));
+    assert_eq!(why_text(&menu, d), Some(NOT_YET_TEXT));
     for greyed in [q, a, s, d, x] {
         assert_eq!(press(&menu, greyed), SlotPress::Nothing, "{greyed:?}");
     }
@@ -172,45 +177,102 @@ fn the_basic_menu_keeps_its_slots_greying_what_cant_be_built() {
     assert_eq!(press(&menu, a), SlotPress::AwaitBuild(ARMORY), "A then A");
     assert_eq!(press(&menu, q), SlotPress::AwaitBuild(HALL));
     assert_eq!(menu_of(RECRUIT, ARMORY), Some(BuildMenu::Basic));
+    assert_eq!(why_text(&menu, s), Some("Requires an Armory"));
+
+    let armory = DebugCommand::Spawn {
+        kind: ARMORY,
+        owner: Some(P1),
+        at: SpawnAt::Tile(TilePos::new(24, 4)),
+        orientation: Default::default(),
+    };
+    t.debug_at(3, armory).run(1);
+    let menu = panel(&selection, BASIC, &Conditions::of(t.sim(), P1, &selection));
+    assert_eq!(menu.get(s).map(|shown| (shown.look, shown.why)), Some((Common, None)));
+    assert_eq!(press(&menu, s), SlotPress::AwaitBuild(GUNWORKS), "A then S");
+    assert_eq!(menu_of(RECRUIT, GUNWORKS), Some(BuildMenu::Basic));
 }
 
 /// `factions/cults/units/recruit.md > Recruit ObjectInterfaceState > DefaultState commands`, BuildMenu[Advanced]
 /// (design change 0327): A Chop Shop, S Machine Shop, D Airstrip, F Scrap Hangar; X Temple, C Cathedral, V Shrine; and
-/// Z back. W opens it though none of them is in the game yet, each in its slot and greyed, "Not available yet" (0327's
-/// Verification: "W then A places a Chop Shop (greyed without an Armory)": its Build comes with its slice), every label
-/// its own.
+/// Z back, every label its own. The Machine Shop and the Scrap Hangar are built since slice M5-G2, each greyed by the
+/// gate while its TechPrerequisite isn't met (`factions/cults/units/recruit.md > Constructs`: "Machine Shop [...]
+/// Requires: Chop Shop", "Scrap Hangar [...] Requires: Airstrip"); the five the Recruits don't build yet are greyed,
+/// "Not available yet" (0327's Verification: "W then A places a Chop Shop (greyed without an Armory)": its Build comes
+/// with its slice). Read from a game with 1000 Space Crystals; once a Chop Shop and an Airstrip stand (spawned: the
+/// Recruits don't build them yet), S and F enter their buildings' placements.
 #[test]
-fn the_advanced_menu_shows_its_buildings_greyed_until_they_are_in_the_game() {
-    use ButtonLook::{Back, Unavailable};
-    let selection = recruits();
-    let menu = panel(&selection, ADVANCED, &Conditions::default());
-    let planned = [
-        (slot(1, 0), Planned::ChopShop, "CS", "Build Chop Shop"),
-        (slot(1, 1), Planned::MachineShop, "MS", "Build Machine Shop"),
-        (slot(1, 2), Planned::Airstrip, "AP", "Build Airstrip"),
-        (slot(1, 3), Planned::ScrapHangar, "SH", "Build Scrap Hangar"),
-        (slot(2, 1), Planned::Temple, "TE", "Build Temple"),
-        (slot(2, 2), Planned::Cathedral, "CL", "Build Cathedral"),
-        (slot(2, 3), Planned::Shrine, "SR", "Build Shrine"),
+fn the_advanced_menu_greys_what_cant_be_built() {
+    use ButtonLook::{Back, Common, Disabled, Unavailable};
+    use PanelCommand::{Build, Planned as P};
+    let mut t = ScenarioBuilder::new(&vec![".".repeat(32); 24].join("\n"))
+        .faction(P1, Faction::Cults)
+        .spawn(RECRUIT, Some(P1), SpawnAt::Point(TilePos::new(14, 12).center()))
+        .start();
+    let bank = DebugCommand::SetResources {
+        player: P1,
+        crystals: 1000,
+        supplies: 0,
+        alloys: 0,
+        essence: 0,
+        flux: 0,
+    };
+    t.debug_at(1, bank).run(1);
+    let selection = Selection::new([(id(1), RECRUIT)]);
+    let menu = panel(&selection, ADVANCED, &Conditions::of(t.sim(), P1, &selection));
+    let entries = [
+        (slot(1, 0), P(Planned::ChopShop), Unavailable, "CS", "Build Chop Shop"),
+        (slot(1, 1), Build(MACHINE_SHOP), Disabled, "MS", "Build Machine Shop"),
+        (slot(1, 2), P(Planned::Airstrip), Unavailable, "AP", "Build Airstrip"),
+        (slot(1, 3), Build(SCRAP_HANGAR), Disabled, "SH", "Build Scrap Hangar"),
+        (slot(2, 1), P(Planned::Temple), Unavailable, "TE", "Build Temple"),
+        (slot(2, 2), P(Planned::Cathedral), Unavailable, "CL", "Build Cathedral"),
+        (slot(2, 3), P(Planned::Shrine), Unavailable, "SR", "Build Shrine"),
     ];
     // Z, Back, comes in slot order: after the A row, before the X row.
-    let mut expected: Vec<_> = (planned.iter())
-        .map(|&(at, entry, ..)| (at, PanelButton::Command(PanelCommand::Planned(entry)), Unavailable))
+    let mut expected: Vec<_> = (entries.iter())
+        .map(|&(at, entry, look, ..)| (at, PanelButton::Command(entry), look))
         .collect();
     expected.insert(4, (CommandSlot::BACK, PanelButton::Back, Back));
     assert_eq!(shown(&menu), expected);
-    let mut named: Vec<_> = (planned.iter())
+    let mut named: Vec<_> = (entries.iter())
         .map(|&(.., label, name)| (label, name.to_string()))
         .collect();
     named.insert(4, ("Back", "Back".to_string()));
     assert_eq!(labels_and_names(&menu), named);
-    for (at, ..) in planned {
-        assert_eq!(why_text(&menu, at), Some(NOT_YET_TEXT));
-        assert_eq!(press(&menu, at), SlotPress::Nothing);
+    let (s, f) = (slot(1, 1), slot(1, 3));
+    assert_eq!(why_text(&menu, s), Some("Requires a Chop Shop"));
+    assert_eq!(why_text(&menu, f), Some("Requires an Airstrip"));
+    let price = |at| menu.get(at).and_then(|shown| shown.price);
+    assert_eq!(
+        [s, f].map(price),
+        [150, 200].map(|crystals| Some(BuildPrice::crystals(crystals)))
+    );
+    for (at, entry, ..) in entries {
+        if matches!(entry, P(_)) {
+            assert_eq!(why_text(&menu, at), Some(NOT_YET_TEXT), "{entry:?}");
+        }
+        assert_eq!(press(&menu, at), SlotPress::Nothing, "{entry:?}");
     }
     assert!(offers(RECRUIT, PanelCommand::BuildMenu(BuildMenu::Advanced)));
     assert!(still_valid(ADVANCED, &selection, true, &Conditions::default()));
     assert_eq!(ADVANCED.back(&selection), InterfaceState::DefaultState);
+
+    for (kind, x) in [(ObjectKind::ChopShop, 2), (ObjectKind::Airstrip, 8)] {
+        let spawn = DebugCommand::Spawn {
+            kind,
+            owner: Some(P1),
+            at: SpawnAt::Tile(TilePos::new(x, 2)),
+            orientation: Default::default(),
+        };
+        t.debug_at(2, spawn);
+    }
+    t.run(1);
+    let menu = panel(&selection, ADVANCED, &Conditions::of(t.sim(), P1, &selection));
+    for (at, building) in [(s, MACHINE_SHOP), (f, SCRAP_HANGAR)] {
+        assert_eq!(menu.get(at).map(|shown| (shown.look, shown.why)), Some((Common, None)));
+        assert_eq!(press(&menu, at), SlotPress::AwaitBuild(building));
+        assert_eq!(menu_of(RECRUIT, building), Some(BuildMenu::Advanced));
+    }
 }
 
 /// A Construct menu's entry places its building for the whole ActiveGroup (`factions/cults/units/recruit.md > Recruit
@@ -264,8 +326,10 @@ fn a_construct_entry_places_its_building_for_the_whole_group() {
     assert!(still_valid(placement, &mixed, true, &conditions));
 }
 
-/// The Builds a Recruit offers are its Construct menus' buildings in the game, and no other (the Agent's Tunnel and
-/// Laser Turret are not), each in one menu; the panel's other commands are those of its grid.
+/// The Builds a Recruit offers are its Construct menus' buildings it builds, and no other (the Agent's Tunnel and
+/// Laser Turret are not, nor the Cults' buildings whose slices come later, which hold their slots as `Planned`
+/// entries), each in one menu: slice M5-A's three and the Gunworks in the Basic one, the Machine Shop and the Scrap
+/// Hangar in the Advanced one (slice M5-G2); the panel's other commands are those of its grid.
 #[test]
 fn a_recruit_builds_what_its_menus_hold() {
     let mut builds: Vec<ObjectKind> = (commands(RECRUIT).into_iter())
@@ -275,15 +339,23 @@ fn a_recruit_builds_what_its_menus_hold() {
         })
         .collect();
     builds.sort_unstable();
-    let mut expected = vec![HALL, STORAGE, ARMORY];
+    let mut expected = vec![HALL, STORAGE, ARMORY, GUNWORKS, MACHINE_SHOP, SCRAP_HANGAR];
     expected.sort_unstable();
     assert_eq!(builds, expected);
-    for kind in [ObjectKind::Tunnel, ObjectKind::LaserTurret] {
+    for kind in [
+        ObjectKind::Tunnel,
+        ObjectKind::LaserTurret,
+        ObjectKind::Garrison,
+        ObjectKind::ChopShop,
+    ] {
         assert!(!offers(RECRUIT, PanelCommand::Build(kind)), "{kind:?}");
     }
     assert!(!offers(ObjectKind::Agent, PanelCommand::Build(STORAGE)));
-    for kind in [HALL, STORAGE, ARMORY] {
+    for kind in [HALL, STORAGE, ARMORY, GUNWORKS] {
         assert_eq!(menu_of(RECRUIT, kind), Some(BuildMenu::Basic), "{kind:?}");
+    }
+    for kind in [MACHINE_SHOP, SCRAP_HANGAR] {
+        assert_eq!(menu_of(RECRUIT, kind), Some(BuildMenu::Advanced), "{kind:?}");
     }
     assert_eq!(InterfaceTemplate::of(RECRUIT), Some(InterfaceTemplate::Recruit));
 }

@@ -9,13 +9,11 @@
 use sc_sim::{Category, Footprint, ObjectKind};
 
 /// The buildings that break the rule on purpose, each with the design's reason ("There may be exceptions"); a building
-/// listed here that follows the rule fails the test, so that the list never goes stale. The Cults' Storage (slice M5-A),
-/// a 2x2 at 1 / 6 as `factions/cults/structures/storage.md` gives it, where the rule gives 1 / 4: **Placeholder
-/// (Q0094)**, until the answer says whether 1 / 6 is meant or a leftover of its earlier 3x2 size.
-const EXCEPTIONS: &[(ObjectKind, &str)] = &[(
-    ObjectKind::Storage,
-    "Q0094: PointArmor 1, FullArmor 6 as written, a 3x2's; the rule gives a 2x2 1 / 4",
-)];
+/// listed here that follows the rule fails the test, so that the list never goes stale. None today: the Cults' Storage,
+/// the one there was (slice M5-A, 1 / 6 on its 2x2), is 1 / 4 since slice M5-G2
+/// (`factions/cults/structures/storage.md`: "FullArmor - 4 (building armor rule; was 6, a leftover from the old 3x2
+/// size; Q0094)").
+const EXCEPTIONS: &[(ObjectKind, &str)] = &[];
 
 /// The PointArmor n that expansions have, the placeholder of `factions/syndicate/structures/README.md > High armor
 /// underground`.
@@ -45,12 +43,12 @@ fn follows_the_rule(kind: ObjectKind, squares: u32) -> bool {
     armor.full == armor.point * squares as f32
 }
 
-/// 0264: every building follows the rule but the listed exceptions, and no listed exception follows it. Today 16 of
-/// the 17 do: the GDO's Deployment Center 1/16, Generator 1/4, Barracks 1/6, Extraction Facility 1/9 and Extraction
-/// Plate 2/2; the Colonists' Beacon 0/0, Egress Node 0/0, Robo Portal 1/16 and Bio Portal 1/9; the Syndicate's Tunnel
-/// 1/16, Hideout 6/24, Optics Lab 6/24 and Chemical Plant 6/24 (slice M4-K), and its Laser Turret, raised, 1/1 (slice
-/// M4-S1; `factions/syndicate/structures/laser_turret.md`: "building armor rule, 1x1"); the Cults' Recruitment Hall
-/// 1/16 and Armory 1/6 (slice M5-A). The Cults' Storage, 1/6 on its 2x2, is the one exception (Q0094).
+/// 0264: every building follows the rule but the listed exceptions, and no listed exception follows it. Today all 27
+/// do: the GDO's Deployment Center 1/16, Generator 1/4, Barracks 1/6, Extraction Facility 1/9 and Extraction Plate
+/// 2/2; the Colonists' Beacon 0/0, Egress Node 0/0, Robo Portal 1/16 and Bio Portal 1/9; the Syndicate's Tunnel 1/16,
+/// Hideout 6/24, Optics Lab 6/24 and Chemical Plant 6/24 (slice M4-K), and its Laser Turret, raised, 1/1 (slice M4-S1;
+/// `factions/syndicate/structures/laser_turret.md`: "building armor rule, 1x1"); the Cults' thirteen
+/// ([`the_cults_buildings_follow_the_rule`]).
 #[test]
 fn every_building_has_full_armor_n_times_its_size() {
     let all = buildings();
@@ -75,25 +73,71 @@ fn every_building_has_full_armor_n_times_its_size() {
     let mut kinds: Vec<ObjectKind> = all.iter().map(|b| b.0).collect();
     kinds.sort_by_key(|k| k.def().name);
     let expected = [
+        ObjectKind::Airstrip,
+        ObjectKind::Altar,
         ObjectKind::Armory,
         ObjectKind::Barracks,
         ObjectKind::Beacon,
         ObjectKind::BioPortal,
+        ObjectKind::Cathedral,
         ObjectKind::ChemicalPlant,
+        ObjectKind::ChopShop,
         ObjectKind::DeploymentCenter,
         ObjectKind::EgressNode,
         ObjectKind::ExtractionFacility,
         ObjectKind::ExtractionPlate,
+        ObjectKind::Garrison,
         ObjectKind::Generator,
+        ObjectKind::Gunworks,
         ObjectKind::Hideout,
         ObjectKind::LaserTurret,
+        ObjectKind::MachineShop,
         ObjectKind::OpticsLab,
         ObjectKind::RecruitmentHall,
         ObjectKind::RoboPortal,
+        ObjectKind::ScrapHangar,
+        ObjectKind::Shrine,
         ObjectKind::Storage,
+        ObjectKind::Temple,
         ObjectKind::Tunnel,
     ];
-    assert_eq!(kinds, expected, "the 17 buildings of today");
+    assert_eq!(kinds, expected, "the 27 buildings of today");
+}
+
+/// The plan addendum's G2 acceptance: "Every Cults building follows the rule (n = 2 for the Garrison) with no exception
+/// left". Each of the faction's thirteen at its design file's PointArmor and FullArmor: the Recruitment Hall 1/16 on its
+/// 4x4, the Storage 1/4 on its 2x2 (Q0094), the Armory 1/6 on its 2x3; the Gunworks 1/4, the Garrison 2/8 ("building
+/// armor rule, n = 2: sturdier as a defense", `factions/cults/structures/garrison.md`), the Chop Shop 1/9, the Machine
+/// Shop 1/4, the Airstrip 1/8 on its runway's 2x4 and the Scrap Hangar 1/9; the Altar 1/6
+/// (`factions/cults/augmentation.md > Altar`), the Temple 1/9, the Cathedral 1/6 and the Shrine 1/4.
+#[test]
+fn the_cults_buildings_follow_the_rule() {
+    let rows = [
+        (ObjectKind::RecruitmentHall, 1.0, 16.0),
+        (ObjectKind::Storage, 1.0, 4.0),
+        (ObjectKind::Armory, 1.0, 6.0),
+        (ObjectKind::Gunworks, 1.0, 4.0),
+        (ObjectKind::Garrison, 2.0, 8.0),
+        (ObjectKind::ChopShop, 1.0, 9.0),
+        (ObjectKind::MachineShop, 1.0, 4.0),
+        (ObjectKind::Airstrip, 1.0, 8.0),
+        (ObjectKind::ScrapHangar, 1.0, 9.0),
+        (ObjectKind::Altar, 1.0, 6.0),
+        (ObjectKind::Temple, 1.0, 9.0),
+        (ObjectKind::Cathedral, 1.0, 6.0),
+        (ObjectKind::Shrine, 1.0, 4.0),
+    ];
+    let cults: Vec<(ObjectKind, f32, f32)> = (buildings().into_iter())
+        .filter(|&(kind, _, _)| kind.def().faction == Some(sc_sim::Faction::Cults))
+        .map(|(kind, _, _)| (kind, kind.def().armor.point, kind.def().armor.full))
+        .collect();
+    assert_eq!(cults, rows, "every Cults building, in the registry's order");
+    for (kind, squares, _) in buildings() {
+        if kind.def().faction == Some(sc_sim::Faction::Cults) {
+            assert!(follows_the_rule(kind, squares), "{kind:?}");
+            assert!(!EXCEPTIONS.iter().any(|e| e.0 == kind), "{kind:?}: no exception left");
+        }
+    }
 }
 
 /// Plan §3.3 S2's acceptance, "B's armour test gains the turret's two forms": a structure with a pop-up form has two

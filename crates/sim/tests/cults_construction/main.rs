@@ -17,7 +17,9 @@
 //! - `crowds`: more Recruits than the builders' wall holds wait further out; the builders never stand on the
 //!   footprint;
 //! - `hall`: a Recruitment Hall the Recruits build makes Recruits of its own lineage; gatherers taken off to build and
-//!   sent back keep gathering by slice M5-D's rules; a game saved and replayed.
+//!   sent back keep gathering by slice M5-D's rules; a game saved and replayed;
+//! - `tech`: the Gunworks, the Machine Shop and the Scrap Hangar (slice M5-G2), each at its price and in its time,
+//!   behind its TechPrerequisite; the Gunworks unlocking the Gunner once complete; a right-click on one a Move.
 //!
 //! Every test runs under the invariants of `TestSim` (no unit stands on a footprint, so no builder does), and [`step`]
 //! checks after each tick that a site built from outside gained exactly one frame for each builder at work: on an
@@ -29,6 +31,7 @@ mod footprint;
 mod gate;
 mod hall;
 mod refunds;
+mod tech;
 
 use sc_sim::orders::state::Behaviour;
 use sc_sim::testing::{ScenarioBuilder, TestSim};

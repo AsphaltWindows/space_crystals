@@ -153,14 +153,23 @@ pub(super) fn assert_structure(
 /// Control cost equals the number of Recruits consumed to produce it"; `factions/cults/overview.md > TheCults`: "one
 /// per Recruit consumed"): every Cults unit's Unit Control cost is the Recruits it takes. A Recruit is one; the
 /// Militant and the Gunner are each trained from one (`factions/cults/structures/armory.md > Training`: an order
-/// "reserves one Recruit", and "its reserved Recruit is consumed"). The table lists every Cults unit, so a new one
-/// fails here until it is given its Recruits; slice M5-F2 checks it against the Armory's recipes once they exist.
+/// "reserves one Recruit", and "its reserved Recruit is consumed"), and so are the Disciple (its design file's
+/// "consumes 1 Recruit; Unit Control cost 1", `factions/cults/units/disciple.md`) and the Sparrow ("consumes **1
+/// Recruit**", `factions/cults/units/sparrow.md`); a Seeker takes two (`factions/cults/units/seeker.md`), a Hand of
+/// Heaven three (`factions/cults/units/hand_of_heaven.md`) and a Prayer-mobile two
+/// (`factions/cults/units/prayer_mobile.md`). The table lists every Cults unit, so a new one fails here until it is
+/// given its Recruits; slice M5-F2 checks it against the Armory's recipes.
 #[test]
 fn every_cults_unit_costs_the_recruits_it_takes() {
     let recruits = [
         (ObjectKind::Recruit, 1),
         (ObjectKind::Militant, 1),
         (ObjectKind::Gunner, 1),
+        (ObjectKind::Disciple, 1),
+        (ObjectKind::Seeker, 2),
+        (ObjectKind::Sparrow, 1),
+        (ObjectKind::HandOfHeaven, 3),
+        (ObjectKind::PrayerMobile, 2),
     ];
     let units: Vec<ObjectKind> = (ObjectKind::ALL.iter().copied())
         .filter(|kind| kind.def().faction == Some(Faction::Cults) && kind.def().unit.is_some())
@@ -176,10 +185,16 @@ fn every_cults_unit_costs_the_recruits_it_takes() {
     }
 }
 
-/// The faction's six designed kinds, after the M4 kinds, in the order plan §3.3 A gives them: Recruit, Militant, Gunner,
-/// Recruitment Hall, Storage, Armory (each a stored name: `every_kind_keeps_its_place_and_name`).
+/// Every kind of the faction's design, after the M4 kinds (each a stored name: `every_kind_keeps_its_place_and_name`):
+/// slice M5-A's six, in the order plan §3.3 A gives them, Recruit, Militant, Gunner, Recruitment Hall, Storage, Armory;
+/// then slice M5-G2's (plan decision T69), the structures in the tech tree's order, the Tech/Weaponry branch, then the
+/// Mystical one (`factions/cults/structures/README.md > Tech Tree Overview`), the Disciple, the Seeker (design change
+/// 0364, once the Jackal) and the Sparrow, then the two vehicles of design changes 0361 to 0365, the Hand of Heaven and
+/// the Prayer-mobile. The list is complete: every structure of the Tech Tree Overview's table, the Altar
+/// (`factions/cults/augmentation.md > Altar`) among them, and every unit of `factions/cults/units/` has its kind, and
+/// no other Cults kind exists.
 #[test]
-fn the_cults_kinds_are_the_six_designed_ones() {
+fn the_cults_kinds_are_every_designed_one() {
     let cults: Vec<(ObjectKind, &str)> = (ObjectKind::ALL.iter())
         .filter(|kind| kind.def().faction == Some(Faction::Cults))
         .map(|&kind| (kind, kind.def().name))
@@ -193,8 +208,83 @@ fn the_cults_kinds_are_the_six_designed_ones() {
             (ObjectKind::RecruitmentHall, "Recruitment Hall"),
             (ObjectKind::Storage, "Storage"),
             (ObjectKind::Armory, "Armory"),
+            (ObjectKind::Gunworks, "Gunworks"),
+            (ObjectKind::Garrison, "Garrison"),
+            (ObjectKind::ChopShop, "Chop Shop"),
+            (ObjectKind::MachineShop, "Machine Shop"),
+            (ObjectKind::Airstrip, "Airstrip"),
+            (ObjectKind::ScrapHangar, "Scrap Hangar"),
+            (ObjectKind::Altar, "Altar"),
+            (ObjectKind::Temple, "Temple"),
+            (ObjectKind::Cathedral, "Cathedral"),
+            (ObjectKind::Shrine, "Shrine"),
+            (ObjectKind::Disciple, "Disciple"),
+            (ObjectKind::Seeker, "Seeker"),
+            (ObjectKind::Sparrow, "Sparrow"),
+            (ObjectKind::HandOfHeaven, "Hand of Heaven"),
+            (ObjectKind::PrayerMobile, "Prayer-mobile"),
         ]
     );
+    let named = |category: Category| -> BTreeSet<String> {
+        (ObjectKind::ALL.iter())
+            .filter(|kind| kind.def().faction == Some(Faction::Cults) && kind.def().category == category)
+            .map(|kind| kind.def().name.to_owned())
+            .collect()
+    };
+    assert_eq!(
+        named(Category::Structure),
+        designed_structures(),
+        "the Tech Tree Overview's"
+    );
+    assert_eq!(
+        named(Category::Unit),
+        designed_units(),
+        "the units of factions/cults/units/"
+    );
+}
+
+/// The design folder of the Cults, from this crate.
+const CULTS_DESIGN: &str = concat!(
+    env!("CARGO_MANIFEST_DIR"),
+    "/../../artifacts/designer/design/factions/cults"
+);
+
+/// The structures of `factions/cults/structures/README.md > Tech Tree Overview`, by their names in its table (its
+/// first column, "RecruitmentHall" being the Recruitment Hall).
+fn designed_structures() -> BTreeSet<String> {
+    let path = format!("{CULTS_DESIGN}/structures/README.md");
+    let text = std::fs::read_to_string(&path).unwrap_or_else(|e| panic!("{path}: {e}"));
+    let table = (text.lines())
+        .skip_while(|line| !line.starts_with("| Structure |"))
+        .skip(2)
+        .take_while(|line| line.starts_with('|'));
+    let names: BTreeSet<String> = table
+        .map(|row| match row.split('|').nth(1).expect("a first column").trim() {
+            "RecruitmentHall" => "Recruitment Hall".to_owned(),
+            name => name.to_owned(),
+        })
+        .collect();
+    assert!(names.len() > 1, "the Tech Tree Overview's table in {path}");
+    names
+}
+
+/// The units of `factions/cults/units/`, one design file each, by their files' titles ("# Hand of Heaven").
+fn designed_units() -> BTreeSet<String> {
+    let folder = format!("{CULTS_DESIGN}/units");
+    let files = std::fs::read_dir(&folder).unwrap_or_else(|e| panic!("{folder}: {e}"));
+    let mut names = BTreeSet::new();
+    for file in files {
+        let path = file.expect("a design file").path();
+        if path.file_name().is_some_and(|name| name == "README.md") {
+            continue;
+        }
+        let text = std::fs::read_to_string(&path).unwrap_or_else(|e| panic!("{}: {e}", path.display()));
+        let title = (text.lines().next())
+            .and_then(|line| line.strip_prefix("# "))
+            .unwrap_or_else(|| panic!("{}: a title", path.display()));
+        names.insert(title.trim().to_owned());
+    }
+    names
 }
 
 /// The keys of the panel's grid, row by row (`systems/controls/interface.md > CommandPanel`).
@@ -250,7 +340,9 @@ fn the_construct_menus_follow_the_design() {
 }
 
 /// Every type the Recruits build (`construction::site::builds`) has its entry, once, and every entry's type is one they
-/// build; a building not in the game is a `Planned` entry, and one in it is listed by its kind.
+/// build; a building they don't build yet is a `Planned` entry, by the name of its type, a Cults structure with its
+/// site (every one is in the game's model since slice M5-G2, plan decision T69). Slice M5-G2 makes three of them live:
+/// the Gunworks, the Machine Shop and the Scrap Hangar.
 #[test]
 fn the_construct_menus_list_every_recruit_build_once() {
     let builds: BTreeSet<ObjectKind> = (ObjectKind::ALL.iter().copied())
@@ -259,10 +351,35 @@ fn the_construct_menus_list_every_recruit_build_once() {
     let kinds: Vec<ObjectKind> = CONSTRUCT_MENU.iter().filter_map(|slot| slot.entry.kind()).collect();
     assert_eq!(kinds.len(), builds.len(), "each once: {kinds:?}");
     assert_eq!(kinds.into_iter().collect::<BTreeSet<_>>(), builds);
+    let mut planned = Vec::new();
     for slot in CONSTRUCT_MENU {
         if let ConstructEntry::Planned(name) = slot.entry {
-            let kind = ObjectKind::ALL.iter().find(|kind| kind.def().name == name);
-            assert_eq!(kind, None, "the {name} is in the game: list it by its kind");
+            let kind = (ObjectKind::ALL.iter().copied())
+                .find(|kind| kind.def().name == name)
+                .unwrap_or_else(|| panic!("the {name}: no type of that name"));
+            let def = kind.def();
+            assert_eq!(def.faction, Some(Faction::Cults), "{name}");
+            assert!(
+                crate::construction::site::site_def(kind).is_some(),
+                "the {name} has its site"
+            );
+            assert!(
+                !builds.contains(&kind),
+                "the Recruits build the {name}: list it by its kind"
+            );
+            planned.push(kind);
         }
     }
+    let later = [
+        ObjectKind::Garrison,
+        ObjectKind::Altar,
+        ObjectKind::ChopShop,
+        ObjectKind::Airstrip,
+        ObjectKind::Temple,
+        ObjectKind::Cathedral,
+        ObjectKind::Shrine,
+    ];
+    assert_eq!(planned, later, "the buildings whose slices come later");
+    let live = [ObjectKind::Gunworks, ObjectKind::MachineShop, ObjectKind::ScrapHangar];
+    assert!(live.iter().all(|kind| builds.contains(kind)), "slice M5-G2's three");
 }

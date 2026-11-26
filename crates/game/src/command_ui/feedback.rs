@@ -139,10 +139,6 @@ pub const NO_RECRUIT_TEXT: &str = "No free Recruit of that kind";
 /// `factions/cults/structures/armory.md > ObjectInterfaceState[Armory]`: "Only available if StoredRecruits is not
 /// empty"). Placeholder wording.
 pub const NOTHING_INSIDE_TEXT: &str = "No free Recruit inside";
-/// The message of the Armory's Gunner pressed (`factions/cults/structures/armory.md > Training`: "TechPrerequisite:
-/// player owns at least one Gunworks"), the Gunworks not in the game yet (slice M5-F2). The wording of
-/// [`requires_text`], which will say it once the Gunworks is in the game.
-pub const REQUIRES_GUNWORKS_TEXT: &str = "Requires a Gunworks";
 /// The message of a Drop Off pressed while none of its workers carries a load (`Reject::NothingToDeliver`;
 /// `factions/syndicate/units/agent.md > Agent ObjectInterfaceState`: "greyed out when Agent is not carrying
 /// resources"). Placeholder wording.
@@ -286,8 +282,7 @@ pub fn placement_text(problem: Option<PlacementProblem>) -> &'static str {
 }
 
 /// The message of a greyed-out button pressed (design change 0162), by why it is greyed out: the gate's refusal
-/// ([`reject_text`]), the Riot Shields, a command awaiting its target, the type, that it isn't in the game yet, or a
-/// placeholder entry's own reason.
+/// ([`reject_text`]), the Riot Shields, a command awaiting its target, the type, or that it isn't in the game yet.
 pub fn unavailable_text(why: WhyUnavailable) -> &'static str {
     match why {
         WhyUnavailable::Refused(reject) => reject_text(reject),
@@ -295,7 +290,6 @@ pub fn unavailable_text(why: WhyUnavailable) -> &'static str {
         WhyUnavailable::Waiting => CANCEL_FIRST_TEXT,
         WhyUnavailable::NotForThisType => NOT_FOR_TYPE_TEXT,
         WhyUnavailable::NotYet => NOT_YET_TEXT,
-        WhyUnavailable::Placeholder(text) => text,
     }
 }
 

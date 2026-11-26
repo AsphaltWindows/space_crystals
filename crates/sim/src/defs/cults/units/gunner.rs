@@ -9,7 +9,8 @@ use crate::player::Faction;
 /// Armory", which "Shares the Militant's physical profile but trades air targeting and attack speed for a longer-range,
 /// harder-hitting ground attack that **can miss**" (design change 0304). The first kind with a MinRange: a target
 /// nearer than 2 grid units is too close to fire at (`systems/controls/command_behaviors.md > AttackingObject > Target
-/// inside MinRange`, slice M3-L2's code, `crate::orders`). Its training comes with slice M5-F2, behind a Gunworks.
+/// inside MinRange`, slice M3-L2's code, `crate::orders`). The Armory trains it of a Recruit (slice M5-F2's pool
+/// training) for a player who owns a Gunworks (slice M5-G2: the Armory's recipe requires one).
 ///
 /// Its attack is TailDisjointed (slice M5-O3, `crate::combat::phases`): "the target's position is locked at the end of
 /// Aiming and the shot lands there at the end of Firing, so a target that moves during the Firing phase is missed,

@@ -1,11 +1,16 @@
 //! The Cults — `factions/cults/`: its own rules, and one module per unit (`units/`, `factions/cults/units/*.md`) and
-//! per structure (`structures/`: the buildings of `factions/cults/structures/*.md`, the Recruitment Hall, the Storage
-//! and the Armory so far).
+//! per structure (`structures/`: the buildings of `factions/cults/structures/*.md`, and the Altar of
+//! `factions/cults/augmentation.md`).
 //!
-//! Slice M5-A put the faction's six designed kinds in the game's model with their numbers (plan decision T55): the
-//! Recruit, the Militant, the Gunner, the Recruitment Hall, the Storage and the Armory. Each system's slice adds its
-//! own field to their defs (plan §3.2, "one field per slice"): the Recruit's gathering and building, the Hall's
-//! production, the Armory's pool and training, and every structure's site. A Cults unit's Unit Control cost is the
+//! Slice M5-A put the faction's first six kinds in the game's model with their numbers (plan decision T55): the
+//! Recruit, the Militant, the Gunner, the Recruitment Hall, the Storage and the Armory. Slice M5-G2 put in the fifteen
+//! others, every kind the design has (plan decision T69: "No later M5 slice adds a kind"), with their numbers, each
+//! structure's site and TechPrerequisite, and the pool buildings' capacities, so that each slice after it only adds
+//! behaviour: a building joins the Recruits' builds, and its Construct menu entry becomes its kind, with the slice that
+//! makes it work (the Gunworks, the Machine Shop and the Scrap Hangar with slice M5-G2), and a unit is made once its
+//! building's slice gives it a recipe. Each system's slice adds its own field to their defs (plan §3.2, "one field per
+//! slice"): the Recruit's gathering and building, the Hall's production, the Armory's pool and training, and every
+//! structure's site. A Cults unit's Unit Control cost is the
 //! Recruits consumed to make it (`factions/cults/structures/recruitment_hall.md > Unit Control Tracking`), kept in
 //! `UnitDef::unit_control_cost`; each point of it counts against the Hall its Recruit came from (`Object::lineage`,
 //! plan decision T56). The faction's own rule so far: the Recruits' two Construct menus ([`CONSTRUCT_MENU`], slice
@@ -35,9 +40,10 @@ pub enum ConstructMenu {
 pub enum ConstructEntry {
     /// A type the Recruits build (their `WorkerDef::builds`).
     Kind(ObjectKind),
-    /// A building of `factions/cults/structures/README.md > Tech Tree Overview` not in the game, by its name in the
-    /// design. It holds its slot, greyed (design change 0327: "every building greyed until available, including ones
-    /// not in the build yet"). The slice that brings the building turns it into its `Kind`.
+    /// A building of `factions/cults/structures/README.md > Tech Tree Overview` that the Recruits don't build yet, by
+    /// its name, its type's (every one is in the game's model since slice M5-G2, plan decision T69). It holds its slot,
+    /// greyed (design change 0327: "every building greyed until available, including ones not in the build yet"). The
+    /// slice that makes the building work adds it to the Recruits' builds and turns this entry into its `Kind`.
     Planned(&'static str),
 }
 
@@ -50,7 +56,7 @@ impl ConstructEntry {
         }
     }
 
-    /// The type it builds, if it is in the game.
+    /// The type it builds, if the Recruits build it.
     pub fn kind(self) -> Option<ObjectKind> {
         match self {
             ConstructEntry::Kind(kind) => Some(kind),
@@ -85,9 +91,9 @@ const fn slot(menu: ConstructMenu, row: u8, column: u8, entry: ConstructEntry) -
 /// follow the branches: top row shared base, **A S D F row Tech/Weaponry, X C V row Mystical**; **Z** returns to
 /// DefaultState": "**BuildMenu[Basic]**: **Q** Recruitment Hall, **W** Storage; **A** Armory, **S** Gunworks, **D**
 /// Garrison; **X** Altar", and "**BuildMenu[Advanced]**: **A** Chop Shop, **S** Machine Shop, **D** Airstrip, **F**
-/// Scrap Hangar; **X** Temple, **C** Cathedral, **V** Shrine". The buildings not in the game are
-/// [`ConstructEntry::Planned`]. Tests check it against the design's lines, and that it lists every type the Recruits
-/// build, once.
+/// Scrap Hangar; **X** Temple, **C** Cathedral, **V** Shrine". The buildings the Recruits don't build yet are
+/// [`ConstructEntry::Planned`]: since slice M5-G2, the seven whose slices come later. Tests check it against the
+/// design's lines, and that it lists every type the Recruits build, once.
 pub const CONSTRUCT_MENU: &[ConstructSlot] = {
     use ConstructEntry::{Kind, Planned};
     use ConstructMenu::{Advanced, Basic};
@@ -95,13 +101,13 @@ pub const CONSTRUCT_MENU: &[ConstructSlot] = {
         slot(Basic, 0, 0, Kind(ObjectKind::RecruitmentHall)), // Q
         slot(Basic, 0, 1, Kind(ObjectKind::Storage)),         // W
         slot(Basic, 1, 0, Kind(ObjectKind::Armory)),          // A
-        slot(Basic, 1, 1, Planned("Gunworks")),               // S
+        slot(Basic, 1, 1, Kind(ObjectKind::Gunworks)),        // S
         slot(Basic, 1, 2, Planned("Garrison")),               // D
         slot(Basic, 2, 1, Planned("Altar")),                  // X
         slot(Advanced, 1, 0, Planned("Chop Shop")),           // A
-        slot(Advanced, 1, 1, Planned("Machine Shop")),        // S
+        slot(Advanced, 1, 1, Kind(ObjectKind::MachineShop)),  // S
         slot(Advanced, 1, 2, Planned("Airstrip")),            // D
-        slot(Advanced, 1, 3, Planned("Scrap Hangar")),        // F
+        slot(Advanced, 1, 3, Kind(ObjectKind::ScrapHangar)),  // F
         slot(Advanced, 2, 1, Planned("Temple")),              // X
         slot(Advanced, 2, 2, Planned("Cathedral")),           // C
         slot(Advanced, 2, 3, Planned("Shrine")),              // V

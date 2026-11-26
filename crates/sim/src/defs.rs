@@ -139,6 +139,37 @@ kind_registry! {
     Storage => cults::structures::storage::STORAGE,
     /// `factions/cults/structures/armory.md`
     Armory => cults::structures::armory::ARMORY,
+    /// `factions/cults/structures/gunworks.md` (slice M5-G2: the Cults' other kinds, in the tech tree's order, then
+    /// design changes 0361 to 0365's two vehicles; plan decision T69)
+    Gunworks => cults::structures::gunworks::GUNWORKS,
+    /// `factions/cults/structures/garrison.md`
+    Garrison => cults::structures::garrison::GARRISON,
+    /// `factions/cults/structures/chop_shop.md`
+    ChopShop => cults::structures::chop_shop::CHOP_SHOP,
+    /// `factions/cults/structures/machine_shop.md`
+    MachineShop => cults::structures::machine_shop::MACHINE_SHOP,
+    /// `factions/cults/structures/airstrip.md`
+    Airstrip => cults::structures::airstrip::AIRSTRIP,
+    /// `factions/cults/structures/scrap_hangar.md`
+    ScrapHangar => cults::structures::scrap_hangar::SCRAP_HANGAR,
+    /// `factions/cults/augmentation.md > Altar`
+    Altar => cults::structures::altar::ALTAR,
+    /// `factions/cults/structures/temple.md`
+    Temple => cults::structures::temple::TEMPLE,
+    /// `factions/cults/structures/cathedral.md`
+    Cathedral => cults::structures::cathedral::CATHEDRAL,
+    /// `factions/cults/structures/shrine.md`
+    Shrine => cults::structures::shrine::SHRINE,
+    /// `factions/cults/units/disciple.md`
+    Disciple => cults::units::disciple::DISCIPLE,
+    /// `factions/cults/units/seeker.md` (design change 0364: the Jackal renamed)
+    Seeker => cults::units::seeker::SEEKER,
+    /// `factions/cults/units/sparrow.md`
+    Sparrow => cults::units::sparrow::SPARROW,
+    /// `factions/cults/units/hand_of_heaven.md` (design changes 0361 and 0363)
+    HandOfHeaven => cults::units::hand_of_heaven::HAND_OF_HEAVEN,
+    /// `factions/cults/units/prayer_mobile.md` (design changes 0364 and 0365)
+    PrayerMobile => cults::units::prayer_mobile::PRAYER_MOBILE,
 }
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]

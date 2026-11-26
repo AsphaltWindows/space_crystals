@@ -55,8 +55,8 @@
 //! `Sim::pool_counts`), and are greyed while there are none of the kind, as the gate would refuse every entry of its
 //! KindMenu (`Reject::NoRecruit`); a KindMenu's training and Release ask the gate (a Release with no free unit of the
 //! kind left: "the second press is greyed"), and so does its Eject All (`Command::Holding`: nothing in the pool, "Only
-//! available if StoredRecruits is not empty"). The Armory's Gunner, not in the game yet, "Requires a Gunworks"
-//! ([`Conditions::planned`]; slice M5-F2).
+//! available if StoredRecruits is not empty"). Its W, Train Gunner, asks the gate too, which refuses it while the player
+//! owns no Gunworks (`Reject::Requires`, "Requires a Gunworks"; slice M5-G2).
 
 mod modes;
 
@@ -72,7 +72,6 @@ use sc_sim::construction::site::BuildPrice;
 pub use modes::Modes;
 
 use super::{PanelCommand, Planned, commands, recipients};
-use crate::command_ui::feedback::REQUIRES_GUNWORKS_TEXT;
 use crate::selection::Selection;
 
 /// Why a button is greyed out (design change 0162, `systems/controls/interface.md > CommandPanel > Pressing
@@ -95,10 +94,6 @@ pub enum WhyUnavailable {
     /// It isn't in the game yet: a building or a unit whose costs are TBD (design change 0124), a build menu none of
     /// whose buildings is, an order the sim has none of (Reverse).
     NotYet,
-    /// A placeholder entry's own reason, the message the gate's refusal will give once its command is in the game
-    /// (`Conditions::planned`, slice M5-F2): the Armory's Gunner "Requires a Gunworks", a type the game doesn't have
-    /// yet (`sc_sim::Reject::Requires` names a type of the game).
-    Placeholder(&'static str),
 }
 
 /// What the game allows a selection's commands now: its units' [`Modes`], the ActiveGroup's constructor state, and
@@ -291,15 +286,11 @@ impl Conditions {
         self
     }
 
-    /// Why placeholder entry `planned` is greyed (design change 0162): it isn't in the game yet; the Armory's Gunner
-    /// "Requires a Gunworks" (`factions/cults/structures/armory.md > Training`: "TechPrerequisite: player owns at
-    /// least one Gunworks"), a type no player can own yet. (The ExpandMenu's Laser Turret, which said its prerequisite
-    /// the same way, is in the game since slice M4-S2, greyed by its gate.)
-    pub fn planned(&self, planned: Planned) -> WhyUnavailable {
-        match planned {
-            Planned::Gunner => WhyUnavailable::Placeholder(REQUIRES_GUNWORKS_TEXT),
-            _ => WhyUnavailable::NotYet,
-        }
+    /// Why placeholder entry `planned` is greyed (design change 0162): it isn't in the game yet. (The ExpandMenu's
+    /// Laser Turret and the Armory's Gunner, which said their prerequisites, are in the game since slices M4-S2 and
+    /// M5-G2, greyed by their gate: `Reject::Requires`.)
+    pub fn planned(&self, _planned: Planned) -> WhyUnavailable {
+        WhyUnavailable::NotYet
     }
 
     /// The same, with `counts` the active pool building's free units by kind: for the unit tests.

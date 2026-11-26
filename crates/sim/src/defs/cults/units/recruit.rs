@@ -87,10 +87,19 @@ pub(crate) static RECRUIT: ObjectDef = ObjectDef {
             // factions' workers (e.g. Cults Recruits) keep normal collision while mining" (design change 0106).
             pass_through: false,
             // `> Building`: "Recruits construct Cults buildings from outside the site and can assist in-progress
-            // construction"; `> Constructs`, the buildings of plan slice M5-A (slice M5-E). A group shares one build
+            // construction"; `> Constructs`, the buildings of plan slice M5-A (slice M5-E), and the Gunworks, the
+            // Machine Shop and the Scrap Hangar (slice M5-G2), which only unlock, research nothing yet and hold no one;
+            // each other building joins with the slice that makes it work (plan decision T69). A group shares one build
             // (`factions/cults/economy.md > Build Command`: "All selected Recruits walk to the location and begin
             // construction from outside the site"; plan decision T59).
-            builds: &[ObjectKind::RecruitmentHall, ObjectKind::Storage, ObjectKind::Armory],
+            builds: &[
+                ObjectKind::RecruitmentHall,
+                ObjectKind::Storage,
+                ObjectKind::Armory,
+                ObjectKind::Gunworks,
+                ObjectKind::MachineShop,
+                ObjectKind::ScrapHangar,
+            ],
             shares_builds: true,
         }),
     }),
@@ -107,8 +116,9 @@ mod tests {
     /// MaxSpeed 4, with its melee attack "for basic self-defense": FullyConnected Melee, ground only, single target, 3
     /// damage at contact, one blow every 12 frames (Aim 2, Fire 8, Cooldown 1, Reload 1); Unit Control 1.
     /// `> Gathering`: 2 a load, 8 frames of mining and 2 of unloading, reaches of 8 su, shared patches, normal
-    /// collision (design change 0106), no Supplies; the Storage nearest its patch at every return (design change 0345). `> Building` (slice M5-E): it
-    /// builds the Recruitment Hall, the Storage and the Armory, a group sharing one build.
+    /// collision (design change 0106), no Supplies; the Storage nearest its patch at every return (design change
+    /// 0345). `> Building` (slice M5-E): it builds the Recruitment Hall, the Storage and the Armory, and the Gunworks,
+    /// the Machine Shop and the Scrap Hangar (slice M5-G2), a group sharing one build.
     #[test]
     fn the_recruit_follows_the_design() {
         let attack = assert_infantry(ObjectKind::Recruit);
@@ -143,10 +153,18 @@ mod tests {
             "design change 0345: the nearest to the patch, at every return"
         );
         assert_eq!(worker.search_radius, 6.0, "a placeholder: the other workers' radius");
-        // `> Building`, `> Constructs` (slice M5-E): the three buildings of plan slice M5-A, as one group's build.
+        // `> Building`, `> Constructs` (slice M5-E): the three buildings of plan slice M5-A, and slice M5-G2's three,
+        // as one group's build.
         assert_eq!(
             worker.builds,
-            [ObjectKind::RecruitmentHall, ObjectKind::Storage, ObjectKind::Armory]
+            [
+                ObjectKind::RecruitmentHall,
+                ObjectKind::Storage,
+                ObjectKind::Armory,
+                ObjectKind::Gunworks,
+                ObjectKind::MachineShop,
+                ObjectKind::ScrapHangar
+            ]
         );
         assert!(worker.shares_builds, "a group shares one build (plan decision T59)");
     }
