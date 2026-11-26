@@ -37,7 +37,7 @@ Brings it back to its above-ground mode. **It can't surface on top of a building
 - Silhouette 72x48 space units; MaxHP 300; PointArmor 3, FullArmor 3; SightRange 5 grid units; TunnelSpaceCost 3.
 - Above ground as a TrackedVehicle: MaxSpeed 4.5 su/frame; underground MaxSpeed 3.5.
 - **Burrow and Surface: 48 frames** each.
-- **Capacity 8**, counted in passengers' **TunnelSpaceCost** (8 Guards; to confirm).
-- **Loading** (to confirm): right-click the transport with infantry selected (Enter); it must be above ground. **Unloading**: **F: Unload All** (above ground only; they come out around it).
+- **Capacity 4** infantry (user, 2026-11-27: **4 heavy infantry, e.g. 4 Guards**; Syndicate infantry are Heavy Infantry).
+- **Loading**: right-click the transport with infantry selected (Enter); it must be above ground. **Unloading**: **F: Unload All** (above ground only; they come out around it).
 - Panel: Q Move, X Stop, **R: Burrow / Surface**, **F: Unload All**.
 - Cost: Vehicle Assembly, 200 Space Crystals, 400 frames.

@@ -38,10 +38,10 @@ While on, the Shadebringer leaves a **stack/wall of smoke** in its wake. Each pi
 **Placeholder stats** (designer, 2026-11-27, user's standing permission; tune in the numbers pass):
 - Silhouette 56x40 space units; MaxHP 160; PointArmor 2, FullArmor 2; SightRange 6 grid units; TunnelSpaceCost 2.
 - FixedTurnRadiusMovement: MinimumTurnRadius 80 su; ForwardMaxSpeed 8 su/frame; ForwardAcceleration 1; ReverseMaxSpeed 3; ReverseAcceleration 0.5; Deceleration 1.
-- **Sludge**: each patch lasts **X = 10 s**; units are slowed by **Y = 40%** for **Z = 2 s** after leaving it, and the slow **refreshes while they stay in it** (to confirm); trail width 48 su.
+- **Sludge**: each patch lasts **X = 10 s**; units are slowed by **Y = 40%** for **Z = 2 s** after leaving it, and the slow **refreshes while they stay in it**; trail width 48 su.
 - **Cover**: each piece of smoke lasts **12 s**; the wall is **64 su (1 grid unit)** wide and blocks sight at any height except satellites'.
-- **Tanks**: 100 each; drain **10 per second** while on (10 s of use from full); refill **5 per second** inside the network with a Vault; a toggle can be switched on with **at least 10** in its tank (to confirm).
-- Toggles follow the mode-switch rule (keep orders, not queueable; to confirm). Hotkeys: **R** Sludge, **F** Cover.
+- **Tanks**: 100 each; drain **10 per second** while on (10 s of use from full); refill **5 per second** inside the network with a Vault; a toggle can be switched on with **any charge** left in its tank (user, 2026-11-27).
+- Toggles follow the mode-switch rule (keep orders, not queueable). Hotkeys: **R** Sludge, **F** Cover.
 - Cost: Vehicle Assembly, 150 Space Crystals, 320 frames.
 
 ## ObjectInterfaceState

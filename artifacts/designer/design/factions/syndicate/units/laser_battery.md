@@ -97,5 +97,5 @@ Ranges (placeholders below):
 - Range **8 grid units**; AimDuration 8 frames.
 - **Deploy and undeploy: 48 frames** each.
 - **Relay**: Battery-to-Prism range 8 grid units; Prism-to-Prism link range 8 grid units; an armed Prism's attack Range 6 grid units.
-- **Amplify**: hotkey **F**; usable mobile and deployed; an instant command, not queueable (to confirm).
+- **Amplify** (hotkey **F**): pressing it **marks the next attack**: the next surge uses the entire battery (user, 2026-11-27). Usable mobile and deployed; not queueable.
 - Cost: Vehicle Assembly, 200 Space Crystals, 400 frames.
