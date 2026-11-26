@@ -1954,6 +1954,18 @@ Approach: thin vertical slices the user can run and see, each verified by tests 
     - Esc and Z still go back a step.
   - **To the Designer:** Q0151 asks about shielded Peacekeepers in an explicit Attack, box-selecting Halls, and A on a building's panel.
   - 2430 tests passed, 56 ignored. Only the golden cults_altar moved.
+- **M5-H2 Glider follow-ups** (Opus; merged in `b825b923`):
+  - **0403:** the Sparrow's SightRange is 8 GU. A lone Sparrow keeps strafing targets up to a Peacekeeper's size until they die. It loses bigger ones after 1–4 passes, since its loop grows with the target's size (Q0149).
+  - **0404:** a glider's Move completes when it first reaches its point. The next queued order starts; with none, it circles there.
+  - **0405:**
+    - `UnitBaseDef::separation_strength` is 1.0 for HoverCraft, 0.25 for Glider (a placeholder citing 0405), and None for ground bases.
+    - Each unit's push and the 2 su/tick cap scale by its base's share, so a Sparrow is pushed at most 0.5 su a tick. The invariants and the soak allow each unit its own share.
+    - The Sparrow's SeparationRadius is 48. The Dragonfly's 48 and the Specter's 64 wait for their defs (0366, 0367).
+  - **Measured:**
+    - Six Sparrows sent to one point are within 10% of 48 su at 13.4 s and within 1% at 20 s, against 3.4 s and 9.8 s at full strength. That's slower than 0405's "a few seconds" (Q0152).
+    - Two Sparrows on one target still make 7 passes in 60 s, as a lone one does, and every pass lands within 5.1 su of the centre.
+  - **Perf:** air_perf's whole tick went from 0.0555 to 0.058 ms mean; movement_perf is unchanged.
+  - 2438 tests passed, 56 ignored. No golden moved.
 
     Whether enemies see buff marks went out as **Q0145**.
   - **Perf** (`movement_perf`, 6 pairs, load 8.7–10.3): 0.610 against 0.623 ms a tick, within the noise.
@@ -1961,11 +1973,7 @@ Approach: thin vertical slices the user can run and see, each verified by tests 
 
 ## In progress
 - **Running:**
-  - **M5-H2 Glider follow-ups** (Opus, small; brief `scratchpad/briefs/m5h2-glider-followups.md`):
-    - 0403: the Sparrow's SightRange is 8 GU, so a lone Sparrow keeps strafing on Attack;
-    - 0404: a glider's Move completes on arrival, so queued orders start;
-    - 0405, folded in as item 3 when it arrived: gliders separate at a quarter of the HoverCraft strength, and the Sparrow's SeparationRadius is 48.
-    - H2 found that with sight 8 a lone Sparrow keeps small targets but loses bigger ones after 1–4 passes, since its loop grows with the target's size. That went to the Designer as Q0149.
+  - **A1 Computer players: the framework and the GDO** (Opus; brief `scratchpad/briefs/a1-ai-framework-gdo.md`). See Computer opponents below.
 - **Queued for the playtest:**
   - **Computer opponents.** The user asked for them for the next playtest (2026-11-26). 0402 answered Q0147: a playtest tool with fair knowledge (`core/game_rules.md > Computer players (playtest tool)`), built as planned. **A1 is running** (brief `scratchpad/briefs/a1-ai-framework-gdo.md`). It launched on 2026-11-26, taking the user's answer to Q0147 as the go-ahead: (a), "built as above", which 0402 records as "Build as planned". The user was told and can stop it.
     - **Architecture** (the Director's):
@@ -2379,6 +2387,7 @@ The user keeps feeding unit and other designs to the Designer, so expect increme
 | Q0149 | With sight 8, a lone Sparrow still loses bigger targets, since its loop grows with the target's size (`sparrow.md`) (M5-H2) | no | open; built as 0403 says |
 | Q0150 | The Colonists doc says a building under Warp In has no rally point, against 0396 (`factions/colonists/economy.md > Beacon Deployment > While transforming: only Cancel`) (M5-S6) | no | open; built per 0396 |
 | Q0151 | After "Attack goes to everyone": shielded Peacekeepers in an explicit Attack, box-selecting groupable Halls, and A on a building's panel (`peacekeeper.md`, `selection.md > BoxSelection`) (M5-S5) | no | open; built as (a) in each part |
+| Q0152 | At a quarter strength, gliders take 11–17 s to drift apart, not 0405's "a few seconds" (`systems/units.md > Air Collision`) (M5-H2) | no | open; built at a quarter |
 
 ## Design change entries
 Last triaged: 0282.
@@ -2756,7 +2765,7 @@ Last triaged: 0282.
 | 0400 **Right-click in multi-stage menus** does the selection's normal right-click and leaves the menu open (BuildMenu, ExpandMenu, EjectMenu, KindMenu, AugmentMenu). In AwaitingTarget and AwaitingPlacement it cancels straight to DefaultState, and a ready building stays ready. Escape and Z still go back one step | done (**M5-S5**, `d6d1a1a2`) | Verification: Recruits in Basic Construct, right-click ground, they move and the menu stays; right-click in placement goes to DefaultState; Escape in placement goes back to the build menu |
 | 0401 **The Economy check is closed** (answers Q0146, a): the Cults', GDO's and Syndicate's economy targets stay in the docs as reference for playtests, and the Director measures nothing more against them. The oracle stays as an on-demand tool whose pins aren't maintained, and the pairings tests stay | done (**M5-P3**, `8eaf316e`): the oracle's tests are ignored and its docs cite 0401 | — |
 | 0402 **Computer players are a playtest tool, with fair knowledge** (answers Q0147: fair, a). They see only what their own objects see, remember what they have seen, and know the map and the start locations. They use a player's commands and rules, and their behavior is the Director's placeholder (`core/game_rules.md > Computer players (playtest tool)`) | in progress (**A1**, whose brief quotes it and tests its Verification) | Verification: in an AI-vs-AI game, an AI doesn't attack a building it has never seen or scouted, apart from the known start locations |
-| 0403 **The Sparrow's SightRange is 8 GU** (answers Q0148 part 1), so a lone Sparrow keeps its target in sight through its loop. Attack Move is unchanged, and what Attack Move means for units that can't stop stays an open design question | in progress (**M5-H2**) | Verification: a lone Sparrow ordered to Attack a stationary target, with no spotter, makes repeated passes until it dies |
-| 0404 **A glider's Move completes when it first reaches its point** (answers Q0148 part 2). The next queued order starts; with none, it circles there as when idle | in progress (**M5-H2**) | Verification: Shift-queue Move A then Move B for a Sparrow: it passes A, flies on to B and circles at B |
-| 0405 **Gliders push apart slowly, at a quarter of the HoverCraft strength, and their SeparationRadius exceeds their silhouette** (answers Q0148 part 3): Sparrow and Dragonfly 48, Specter 64 | in progress (**M5-H2**, item 3) | Verification: six Sparrows sent to one point drift apart while circling and end about 48 su apart; two Sparrows passing on one target stay on their lines |
+| 0403 **The Sparrow's SightRange is 8 GU** (answers Q0148 part 1), so a lone Sparrow keeps its target in sight through its loop. Attack Move is unchanged, and what Attack Move means for units that can't stop stays an open design question | done (**M5-H2**, `b825b923`) for targets up to a Peacekeeper's size. Bigger targets are lost after 1–4 passes: Q0149 | Verification: a lone Sparrow ordered to Attack a stationary target, with no spotter, makes repeated passes until it dies |
+| 0404 **A glider's Move completes when it first reaches its point** (answers Q0148 part 2). The next queued order starts; with none, it circles there as when idle | done (**M5-H2**, `b825b923`) | Verification: Shift-queue Move A then Move B for a Sparrow: it passes A, flies on to B and circles at B |
+| 0405 **Gliders push apart slowly, at a quarter of the HoverCraft strength, and their SeparationRadius exceeds their silhouette** (answers Q0148 part 3): Sparrow and Dragonfly 48, Specter 64 | done (**M5-H2**, `b825b923`): gliders at a quarter, and the Sparrow's radius is 48. The Dragonfly's and the Specter's radii wait for their defs (0366, 0367). The drift takes 11–17 s, not "a few seconds": Q0152 | Verification: six Sparrows sent to one point drift apart while circling and end about 48 su apart; two Sparrows passing on one target stay on their lines |
 | 0014 GDO Airfield and aircraft | queued (Later: air) | |
