@@ -395,7 +395,8 @@ fn one_building(ty: GroupType) -> bool {
 /// Clicking a group-specific command issues it only to objects in the ActiveGroup." `> SelectionGroup > No
 /// smart-casting` (design changes 0071 and 0075): every one of them, the whole Selection or the whole ActiveGroup,
 /// never a single member picked out; only a unit that can't carry the command out is left out of it (a Peacekeeper
-/// (Shielded) under an explicit Attack on an object, design change 0202: `super::super::resolution::unit_target_order`).
+/// (Shielded) under an explicit Attack on an object, design change 0202, and a Disciple, which has no weapon, slice
+/// M5-N4a: `super::super::resolution::unit_target_order`).
 /// Raise Shield and Lower Shield are each one type's, and so is each form's Convert, so in a selection of both types
 /// they go to the ActiveGroup (`factions/gdo/units/peacekeeper.md > Riot Shield > Two unit types`: "the shield
 /// command goes to the ActiveGroup"; design change 0198: "Only the ActiveGroup receives the press"). Every panel

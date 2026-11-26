@@ -4,8 +4,9 @@
 //! (`SimEvent::Missed`, slice M5-O3: the Gunner's, "Visually still an instant gunshot"); HP bars over damaged and
 //! selected objects, with a
 //! shield bar above the HP bar of an object that has Shields (`systems/combat.md > Shields > Display`, slice M3-B,
-//! design change 0148: "a shield bar sits directly above the HP bar"; its styling waits for the HUD pass), and a
-//! fading marker where an object died (`SimEvent::Died`). Slice M4-O adds the projectiles in flight
+//! design change 0148: "a shield bar sits directly above the HP bar"; its styling waits for the HUD pass) and (slice
+//! M5-N4a) an energy bar under it of an object that has an energy pool (a Disciple's, [`hp_bars`]), and a fading marker
+//! where an object died (`SimEvent::Died`). Slice M4-O adds the projectiles in flight
 //! ([`projectiles`], from `SimEvent::ProjectileLaunched`, plan decision T52), each in its thrower's style (the
 //! Grenadier's grenade, slice M4-U), and the blasts where they land ([`blasts`], `SimEvent::Blast`). (M5-N2) The shots
 //! of the units inside a Garrison leave from its footprint's edge nearest their targets, where the sim says they do
@@ -142,7 +143,8 @@ pub struct CombatEffects {
 }
 
 /// An HP bar: centred on `center` (view space), `width` su wide, `fraction` of it full; with a shield bar above it,
-/// `shields` of it full, for an object that has Shields.
+/// `shields` of it full, for an object that has Shields, and an energy bar under it, `energy` of it full, for one that
+/// has an energy pool.
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub struct HpBar {
     pub center: Vec2,
@@ -150,6 +152,9 @@ pub struct HpBar {
     pub fraction: f32,
     /// The share of its MaxShields its Shields fill (`Object::shields`), if it has Shields.
     pub shields: Option<f32>,
+    /// (M5-N4a) The share of its maximum its energy fills (`sc_sim::energy::of`), if it has an energy pool: a
+    /// Disciple's.
+    pub energy: Option<f32>,
 }
 
 /// The entity holding the effects mesh.
@@ -184,7 +189,9 @@ fn shows(sim: &Sim, tick: Tick, ticks: u32) -> bool {
 /// The HP bars to draw: one over each object that is damaged (its HP or its Shields short of their maximum) or
 /// `selected`, at its interpolated position, among those `sight` sees. Out of its MaxHP and MaxShields now: a
 /// transforming object's interpolated ones (`Object::max_hp`, `Object::max_shields`), (slice M5-N1a) an augmented
-/// unit's with its Augmentations (`Object::max_hp_with`).
+/// unit's with its Augmentations (`Object::max_hp_with`). (M5-N4a) An object with an energy pool has its energy bar
+/// with its HP bar: Placeholder (not in the design, which says nothing of energy's display: the plan's "an energy bar
+/// under the HP bar"), so shown when the HP bar is, energy short of its maximum not counting as damage.
 pub fn hp_bars(sim: &Sim, sight: &Sight, alpha: f32, selected: impl Fn(ObjectId) -> bool) -> Vec<HpBar> {
     let research = sim.research();
     sim.objects()
@@ -194,7 +201,8 @@ pub fn hp_bars(sim: &Sim, sight: &Sight, alpha: f32, selected: impl Fn(ObjectId)
             let shields = o.shields.zip(o.max_shields()).filter(|&(_, max)| max > 0.0);
             let damaged = hp < max_hp || shields.is_some_and(|(shields, max)| shields < max);
             let shields = shields.map(|(shields, max)| shields / max);
-            (damaged || selected(o.id)).then(|| hp_bar(sim.map(), o, alpha, hp / max_hp, shields))
+            let energy = sc_sim::energy::of(o).map(|(energy, max)| energy / max);
+            (damaged || selected(o.id)).then(|| hp_bar(sim.map(), o, alpha, hp / max_hp, (shields, energy)))
         })
         .collect()
 }
@@ -256,10 +264,11 @@ pub fn shows_death(sight: &Sight, death: &DeathMarker) -> bool {
     death.seen.perceived_by(sight) == Perception::Whole
 }
 
-/// The bars of `o`: over a unit, clear of its silhouette's corners however it turns, as wide as the silhouette; over a
-/// tile-based object, along the top edge of its footprint, as wide as the footprint (slice M3-K2: before, a
-/// structure's bars were a unit's, inside it).
-fn hp_bar(map: &Map, o: &Object, alpha: f32, fraction: f32, shields: Option<f32>) -> HpBar {
+/// The bars of `o`, its HP `fraction` full and its Shields and its energy as `(shields, energy)` have them: over a
+/// unit, clear of its silhouette's corners however it turns, as wide as the silhouette; over a tile-based object,
+/// along the top edge of its footprint, as wide as the footprint (slice M3-K2: before, a structure's bars were a
+/// unit's, inside it).
+fn hp_bar(map: &Map, o: &Object, alpha: f32, fraction: f32, (shields, energy): (Option<f32>, Option<f32>)) -> HpBar {
     let pos = o.prev_pos.lerp(o.pos, alpha);
     let (half, above) = match (o.def().half_extents(), o.placement.as_ref()) {
         (Some(half), _) => (half, half.length()),
@@ -278,6 +287,7 @@ fn hp_bar(map: &Map, o: &Object, alpha: f32, fraction: f32, shields: Option<f32>
         width: (half.x * 2.0).max(BAR_MIN_WIDTH),
         fraction: fraction.clamp(0.0, 1.0),
         shields: shields.map(|shields| shields.clamp(0.0, 1.0)),
+        energy: energy.map(|energy| energy.clamp(0.0, 1.0)),
     }
 }
 

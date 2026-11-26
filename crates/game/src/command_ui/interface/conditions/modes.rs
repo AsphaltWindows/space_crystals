@@ -2,25 +2,28 @@
 
 use std::collections::BTreeSet;
 
-use sc_sim::{ObjectId, ShieldMode, Sim, riot_shield};
+use sc_sim::{ObjectId, ShieldMode, Sim, combat, riot_shield};
 
 use crate::selection::Selection;
 
 /// What the selected units' modes let them do now: which of them take no Attack (`factions/gdo/units/peacekeeper.md >
 /// Riot Shield > During the toggle`, design change 0202: "which orders a unit accepts follows its new type from the
 /// press": a Peacekeeper (Shielded), whose shield is up, on its way up or waiting for its shot to go up, but not a
-/// Peacekeeper whose shield is on its way down, which takes an Attack and holds it until its shield is down), by the
-/// type it groups as in the selection (the type from the press, `crate::selection::ControlState::toggle`) and the sim's
-/// own query (`sc_sim::riot_shield::takes_attack_orders`, so that the panel and the right-click never judge a type
-/// otherwise than the gate), which of the workers carry a load, which a right-click on a drop-off reads
-/// (`factions/colonists/units/drone.md > Right-Click Resolution`: "Own Egress Node (carrying resources)") and the
-/// Agent's Drop Off, and which of the selected objects aren't in operation yet (`sc_sim::Object::is_operational`: one
-/// that transforms, or a site under construction). Which way a shield goes is its unit's type (design change 0173),
-/// whose panel offers the command that turns it.
+/// Peacekeeper whose shield is on its way down, which takes an Attack and holds it until its shield is down; (M5-N4a)
+/// and a unit without a weapon, a Disciple), by the type it groups as in the selection (the type from the press,
+/// `crate::selection::ControlState::toggle`) and the sim's own query (`sc_sim::combat::takes_attack_orders`, so that
+/// the panel and the right-click never judge a type otherwise than the gate), which of the workers carry a load, which
+/// a right-click on a drop-off reads (`factions/colonists/units/drone.md > Right-Click Resolution`: "Own Egress Node
+/// (carrying resources)") and the Agent's Drop Off, and which of the selected objects aren't in operation yet
+/// (`sc_sim::Object::is_operational`: one that transforms, or a site under construction). Which way a shield goes is
+/// its unit's type (design change 0173), whose panel offers the command that turns it.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct Modes {
-    /// The units whose type takes no Attack.
+    /// The units whose type takes no Attack: a Peacekeeper (Shielded), or a unit without a weapon.
     held: BTreeSet<ObjectId>,
+    /// (M5-N4a) Of them, those whose Riot Shield holds them back (`sc_sim::riot_shield::takes_attack_orders`): the
+    /// Peacekeepers (Shielded), which would take an Attack with their shields lowered (`super::WhyUnavailable::ShieldsUp`).
+    shielded: BTreeSet<ObjectId>,
     loaded: BTreeSet<ObjectId>,
     transforming: BTreeSet<ObjectId>,
 }
@@ -30,6 +33,10 @@ impl Modes {
     pub fn of(sim: &Sim, selection: &Selection) -> Self {
         Self {
             held: (selection.members())
+                .filter(|&(_, kind)| kind.def().unit.is_some() && !combat::takes_attack_orders(kind))
+                .map(|(id, _)| id)
+                .collect(),
+            shielded: (selection.members())
                 .filter(|&(_, kind)| !riot_shield::takes_attack_orders(kind))
                 .map(|(id, _)| id)
                 .collect(),
@@ -60,6 +67,12 @@ impl Modes {
         self
     }
 
+    /// The same, with `ids` units without a weapon (a Disciple's): for the unit tests.
+    pub fn with_unarmed(mut self, ids: impl IntoIterator<Item = ObjectId>) -> Self {
+        self.held.extend(ids);
+        self
+    }
+
     /// Whether `id` isn't in operation yet: a Beacon under deployment, a building under Warp In
     /// (`factions/colonists/economy.md > Beacon Deployment > While transforming: only Cancel`, design change 0116:
     /// "no rally point, no other commands"), a site under construction (`factions/syndicate/units/agent.md > While the
@@ -68,9 +81,15 @@ impl Modes {
         self.transforming.contains(&id)
     }
 
-    /// Whether `id` takes an Attack: not a Peacekeeper (Shielded) (`sc_sim::riot_shield::takes_attack_orders`).
+    /// Whether `id` takes an Attack: not a Peacekeeper (Shielded), nor a unit without a weapon
+    /// (`sc_sim::combat::takes_attack_orders`). True for an object that isn't a unit, which an Attack never goes to.
     pub fn can_attack(&self, id: ObjectId) -> bool {
         !self.held.contains(&id)
+    }
+
+    /// Whether `id` takes no Attack for its Riot Shield, up: a Peacekeeper (Shielded).
+    pub fn shielded(&self, id: ObjectId) -> bool {
+        self.shielded.contains(&id)
     }
 }
 
@@ -79,11 +98,13 @@ impl Modes {
 /// (Shielded)'s, which takes none (design change 0202, `sc_sim::riot_shield::takes_attack_orders`).
 impl FromIterator<(ObjectId, ShieldMode)> for Modes {
     fn from_iter<I: IntoIterator<Item = (ObjectId, ShieldMode)>>(shields: I) -> Self {
+        let held: BTreeSet<ObjectId> = (shields.into_iter())
+            .filter(|&(_, mode)| !matches!(mode, ShieldMode::Lowered | ShieldMode::Lowering { .. }))
+            .map(|(id, _)| id)
+            .collect();
         Self {
-            held: (shields.into_iter())
-                .filter(|&(_, mode)| !matches!(mode, ShieldMode::Lowered | ShieldMode::Lowering { .. }))
-                .map(|(id, _)| id)
-                .collect(),
+            shielded: held.clone(),
+            held,
             loaded: BTreeSet::new(),
             transforming: BTreeSet::new(),
         }

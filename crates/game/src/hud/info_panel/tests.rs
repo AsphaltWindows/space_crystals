@@ -254,3 +254,26 @@ fn an_object_with_shields_shows_them_under_its_hp() {
     assert_eq!(panel(&sim, P1, 1).body, ["Player 1", "HP 70 / 70", "Shields 3 / 10"]);
     assert_eq!(panel(&sim, P1, 2).body, ["Player 2", "HP 50 / 50"]);
 }
+
+/// (M5-N4a) `factions/cults/units/disciple.md > Placeholder stats`: "Energy - MaxEnergy 200; starts at 50; regenerates
+/// 0.5 per second". A unit with an energy pool shows it on the line after its HP, "Energy 50 / 200", rounded down, to
+/// every player who sees it (Placeholder, module docs); one without (a Militant) shows none. Player 1's Disciple (1)
+/// comes into the game with 50, and after 31 ticks has 50.97, still "50"; the 32nd makes it 51.
+#[test]
+fn a_unit_with_an_energy_pool_shows_its_energy_under_its_hp() {
+    let mut t = ScenarioBuilder::new(&vec![".".repeat(16); 8].join("\n"))
+        .spawn(ObjectKind::Disciple, Some(P1), SpawnAt::Point(Vec2::new(160.0, 160.0)))
+        .spawn(ObjectKind::Militant, Some(P2), SpawnAt::Point(Vec2::new(544.0, 160.0)))
+        .start();
+    let energy = |sim: &Sim| (sim.object(ObjectId(1))).and_then(sc_sim::energy::of);
+    assert_eq!(energy(t.sim()), Some((50.0, 200.0)));
+    let disciple = ["Player 1", "HP 40 / 40", "Energy 50 / 200"];
+    assert_eq!(panel(t.sim(), P1, 1).body, disciple);
+    assert_eq!(panel(t.sim(), P2, 1).body, disciple);
+    assert_eq!(panel(t.sim(), P1, 2).body, ["Player 2", "HP 40 / 40"]);
+    t.run(31);
+    assert_eq!(energy(t.sim()), Some((50.0 + 31.0 / 32.0, 200.0)));
+    assert_eq!(panel(t.sim(), P1, 1).body[2], "Energy 50 / 200");
+    t.run(1);
+    assert_eq!(panel(t.sim(), P1, 1).body[2], "Energy 51 / 200");
+}

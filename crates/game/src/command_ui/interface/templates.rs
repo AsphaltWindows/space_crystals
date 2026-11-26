@@ -11,8 +11,9 @@
 //! the Armory first, open a menu per kind of Recruit ([`cults`], slice M5-F2), and the Recruit two Construct menus
 //! built the same way, their entries the group's Builds (slice M5-J1); the Garrison lets everyone out (slice M5-N2).
 //! The GDO's Field Engineer repairs, and its Construct menu holds its buildings' slots (slice M5-N9). The Cults' Altar
-//! picks a unit type, then a state, then the orders (slice M5-N1b). An entry not in the game yet holds its slot,
-//! unavailable ([`Planned`]).
+//! picks a unit type, then a state, then the orders (slice M5-N1b); their Cathedral is a pool building as the Armory
+//! is, and their Disciple's panel the BasicCombatUnit's, its spell's slot held in R (slice M5-N4a). An entry not in the
+//! game yet holds its slot, unavailable ([`Planned`]).
 
 pub mod colonists;
 pub mod cults;
@@ -150,7 +151,9 @@ pub struct PanelTemplate {
     /// Its ObjectInterfaceState template ([`InterfaceTemplate::of`]); none for a type without commands.
     pub interface: Option<InterfaceTemplate>,
     /// The units of a producing structure's panel that aren't in the game yet ([`Planned`]), each with its slot
-    /// (`CommandSlot::all` order), which [`production_grid`] adds to its recipes: a portal's (design change 0124).
+    /// (`CommandSlot::all` order), which [`production_grid`] adds to its recipes: a portal's (design change 0124); and
+    /// the commands of a combat unit's panel that aren't in the game yet, which the BasicCombatUnit grid adds to its
+    /// own ([`basic_combat_unit_grid`]): the Disciple's Shroud in R (slice M5-N4a, [`cults::disciple`]).
     pub planned: &'static [(usize, Planned)],
     /// (M5-N9) The units of a producing structure's panel that the design puts in a slot of their own, each with its
     /// slot (`CommandSlot::all` order), where [`production_grid`] puts their Train, the others going in order into the
@@ -220,7 +223,7 @@ impl InterfaceTemplate {
     /// template's come from the type's `ProductionDef` ([`production_grid`]), an object's own from its module.
     pub fn grid(self, kind: ObjectKind) -> [Option<PanelCommand>; 12] {
         match self {
-            InterfaceTemplate::BasicCombatUnit => BASIC_COMBAT_UNIT_GRID,
+            InterfaceTemplate::BasicCombatUnit => basic_combat_unit_grid(kind),
             InterfaceTemplate::Production => production_grid(kind),
             InterfaceTemplate::DeploymentCenter => gdo::deployment_center::GRID,
             InterfaceTemplate::ExtractionFacility => gdo::extraction_facility::GRID,
@@ -236,6 +239,17 @@ impl InterfaceTemplate {
             InterfaceTemplate::Altar => cults::altar::GRID,
         }
     }
+}
+
+/// A `kind` unit's BasicCombatUnit DefaultState ([`BASIC_COMBAT_UNIT_GRID`]), with its commands not in the game yet in
+/// their slots ([`PanelTemplate::planned`]): the Disciple's Shroud in R (slice M5-N4a, [`cults::disciple`]: "**R:
+/// Shroud**", slice M5-N4b's spell).
+fn basic_combat_unit_grid(kind: ObjectKind) -> [Option<PanelCommand>; 12] {
+    let mut grid = BASIC_COMBAT_UNIT_GRID;
+    for &(slot, planned) in kinds::of(kind).template.planned {
+        grid[slot] = grid[slot].or(Some(PanelCommand::Planned(planned)));
+    }
+    grid
 }
 
 /// `systems/combat.md > AttackType > CanTargetGround`, derived from the AttackType: the sim's rule, which its gate
