@@ -2374,3 +2374,4 @@ Answered Q0069–Q0071 (0258–0267): losing-Tunnel edges, Syndicate economy che
 - Q0151 part 1 (user: a): shielded Peacekeepers follow an explicit Attack's target; peacekeeper.md updated (0409).
 - User: Shift-/Ctrl-/double-click now work on own buildings too (0410).
 - Q0151 part 2 (user: a): box still selects one building; Halls are multi-selected by modifier clicks (0411). Q0151 closed.
+- Q0152 (user): glider push a third of HoverCraft strength, spreading ~10 s+ (0412). All questions through Q0152 answered.
