@@ -280,6 +280,7 @@ pub fn every_command() -> Vec<Command> {
                 flip_v: true,
             },
         },
+        OrderKind::Assist(ObjectId(7)),
     ];
     let mut commands: Vec<Command> = kinds
         .into_iter()
@@ -439,7 +440,8 @@ pub fn every_command() -> Vec<Command> {
                 | OrderKind::Deploy { .. }
                 | OrderKind::Enter(_)
                 | OrderKind::AttackGround(_)
-                | OrderKind::Build { .. } => {}
+                | OrderKind::Build { .. }
+                | OrderKind::Assist(_) => {}
             },
             Command::Ability {
                 ability: Ability::RiotShield { .. } | Ability::SetDropOff(_) | Ability::Convert,

@@ -96,6 +96,9 @@ pub(crate) static AGENT: ObjectDef = ObjectDef {
             // Turret (slice M4-S1; `factions/syndicate/structures/laser_turret.md > Constructed by`: "Agent
             // (anywhere)").
             builds: &[ObjectKind::Tunnel, ObjectKind::LaserTurret],
+            // `> Tunnel Construction Flow`: one Agent builds a site, from inside it ("the partially-built Tunnel
+            // appears at the location with the Agent inside it").
+            shares_builds: false,
         }),
     }),
     structure: None,

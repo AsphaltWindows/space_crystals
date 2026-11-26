@@ -375,6 +375,8 @@ impl PointerDisplay {
             // No click gives a Deploy (slice M3-J1 places it), nor a Build.
             OrderKind::Move(_) | OrderKind::Deploy { .. } | OrderKind::Build { .. } => PointerDisplay::Move,
             OrderKind::Enter(_) => PointerDisplay::Enter,
+            // (M5-E) A right-click on an own site built from outside: placeholder, a Move's (slice M5-J1's).
+            OrderKind::Assist(_) => PointerDisplay::Move,
             OrderKind::Gather(_) => PointerDisplay::GatherResources,
             OrderKind::DropOff(_) => PointerDisplay::ReturnResources,
             OrderKind::Attack(_) | OrderKind::AttackMove(_) => PointerDisplay::Attack,

@@ -418,6 +418,7 @@ impl<'a> Arrival<'a> {
             // An expansion's site is hidden as the expansion is (`SimEvent::ExpansionStarted`).
             SimEvent::SiteStarted { site, .. }
             | SimEvent::SiteCompleted { site, .. }
+            | SimEvent::SiteBuilt { site }
             | SimEvent::ExpansionStarted { site, .. }
             | SimEvent::ExpansionCompleted { site, .. } => self.object(site),
             SimEvent::SiteCancelled { site, .. } => self.owner(site),

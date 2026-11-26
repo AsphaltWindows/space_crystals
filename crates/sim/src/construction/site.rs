@@ -5,8 +5,11 @@
 //!
 //! - **The state** ([`Construction`], `Object::construction`): its progress, the shared [`Progress`] over its def's
 //!   frames (`SiteDef::frames`, a Tunnel's expansion `ExpansionDef::frames`), and its [`Builder`]: the unit held
-//!   inside it (`network::Place::Site`), or the Tunnel whose operation it is (`tunnel::Operation::Building`). Hashed
-//!   only while set, and left out of files while `None`, so that the states of games without a site are as they were.
+//!   inside it (`network::Place::Site`), the Tunnel whose operation it is (`tunnel::Operation::Building`), or the
+//!   group that builds it from outside, of which nothing is stored (`Builder::Recruits`, plan decision T59, slice
+//!   M5-E: the Cults' buildings, `factions/cults/economy.md > Cults Building Mechanics`; a frame for each builder
+//!   within reach in each tick, `sim/sites.rs`). Hashed only while set, and left out of files while `None`, so that
+//!   the states of games without a site are as they were.
 //! - **HP** (`core/entities.md > ConstructionHP Rule`, design changes 0234 and 0254): the rule gives the **maximum**,
 //!   [`Construction::max_hp`]: "MaxHP x (10% + 90% x construction_progress)", the share it starts at being its
 //!   builder's def's (`SiteDef::start_hp`, `ExpansionDef::start_hp`: [`Construction::max_hp_of`]). The current HP
@@ -130,21 +133,27 @@ pub enum Builder {
     /// `tunnel::Operation::Building`; `factions/syndicate/tunnels.md > Expansions under construction`). It stays on the
     /// map, and its Eject still works ("it isn't an operation").
     Tunnel(ObjectId),
+    /// The workers that build it from outside, a group sharing its build (plan decision T59, slice M5-E;
+    /// `factions/cults/economy.md > Cults Building Mechanics`: "Cults buildings are constructed on-site by Recruits
+    /// working from outside the structure"; `BuilderGoes::Outside`). Nothing of them is stored: they are the units on
+    /// an Assist of it within reach of its footprint's edge, their walk over, derived each tick (`crate::spot_work`),
+    /// and none of them leaves the map.
+    Recruits,
 }
 
 impl Builder {
-    /// The unit that builds, held inside the site; `None` for a Tunnel's expansion.
+    /// The unit that builds, held inside the site; `None` for a Tunnel's expansion and a site built from outside.
     pub fn unit(self) -> Option<ObjectId> {
         match self {
             Builder::Held(unit) => Some(unit),
-            Builder::Tunnel(_) => None,
+            Builder::Tunnel(_) | Builder::Recruits => None,
         }
     }
 
     /// The Tunnel that builds, for its expansion; `None` for a worker's site.
     pub fn tunnel(self) -> Option<ObjectId> {
         match self {
-            Builder::Held(_) => None,
+            Builder::Held(_) | Builder::Recruits => None,
             Builder::Tunnel(tunnel) => Some(tunnel),
         }
     }
@@ -179,7 +188,7 @@ impl Construction {
     /// progress)"). `None` for a kind its builder doesn't build.
     pub fn max_hp_of(&self, kind: ObjectKind, full: f32) -> Option<f32> {
         let start_hp = match self.builder {
-            Builder::Held(_) => site_def(kind)?.start_hp,
+            Builder::Held(_) | Builder::Recruits => site_def(kind)?.start_hp,
             Builder::Tunnel(_) => expansion_def(kind)?.start_hp,
         };
         Some(self.max_hp_from(start_hp, full))
@@ -234,10 +243,29 @@ pub fn builds_any(builder: ObjectKind) -> bool {
     worker.is_some_and(|worker| worker.builds.iter().any(|&kind| site_def(kind).is_some()))
 }
 
+/// Whether workers of `kind` share a build (`WorkerDef::shares_builds`, plan decision T59): the Recruit.
+pub fn shares_builds(kind: ObjectKind) -> bool {
+    let worker = kind.def().unit.as_ref().and_then(|unit| unit.worker);
+    worker.is_some_and(|worker| worker.shares_builds)
+}
+
+/// Whether a unit of `builder` assists the construction of a site of `kind` (`OrderKind::Assist`;
+/// `factions/cults/economy.md > Assist Construction Command`): it builds the kind ([`builds`]) with the others, sharing
+/// the build ([`shares_builds`]). The Recruit assists every building it constructs.
+pub fn assists(builder: ObjectKind, kind: ObjectKind) -> bool {
+    shares_builds(builder) && builds(builder, kind)
+}
+
 impl Object {
     /// Whether it is a site, a structure under construction (module docs).
     pub fn is_site(&self) -> bool {
         self.construction.is_some()
+    }
+
+    /// Whether it is a site its builders build from outside (`Builder::Recruits`, slice M5-E): the one target of an
+    /// Assist (`OrderKind::Assist`).
+    pub fn is_built_from_outside(&self) -> bool {
+        self.construction.is_some_and(|site| site.builder == Builder::Recruits)
     }
 
     /// Whether it does what its type does (module docs): it is neither a site (design change 0234: "It does nothing
@@ -259,6 +287,7 @@ impl StateHash for Builder {
                 h.tag(1);
                 tunnel.hash(h);
             }
+            Builder::Recruits => h.tag(2),
         }
     }
 }
@@ -312,7 +341,8 @@ mod tests {
         assert_eq!((site.builder.unit(), site.builder.tunnel()), (None, Some(ObjectId(3))));
     }
 
-    /// The two builders hash apart, by their tags.
+    /// The three builders hash apart, by their tags. A site built from outside starts at its def's share, as a held
+    /// builder's does (slice M5-E: a Storage's 25 of 250).
     #[test]
     fn the_builders_hash_apart() {
         let hash = |builder: Builder| {
@@ -320,7 +350,19 @@ mod tests {
             builder.hash(&mut h);
             h.finish()
         };
-        assert_ne!(hash(Builder::Held(ObjectId(5))), hash(Builder::Tunnel(ObjectId(5))));
+        let builders = [
+            Builder::Held(ObjectId(5)),
+            Builder::Tunnel(ObjectId(5)),
+            Builder::Recruits,
+        ];
+        for (i, a) in builders.iter().enumerate() {
+            for b in &builders[i + 1..] {
+                assert_ne!(hash(*a), hash(*b), "{a:?} {b:?}");
+            }
+        }
+        let storage = Construction::new(site_def(ObjectKind::Storage).unwrap(), Builder::Recruits);
+        assert_eq!(storage.max_hp_of(ObjectKind::Storage, 250.0), Some(25.0));
+        assert_eq!((Builder::Recruits.unit(), Builder::Recruits.tunnel()), (None, None));
     }
 
     /// A record of a site keeps its progress, not who builds it (slice M4-I2): its maximum takes the share it started
@@ -362,17 +404,26 @@ mod tests {
         }
     }
 
-    /// The Agent builds the Tunnel and the Laser Turret (slice M4-S1); nothing else builds anything (the Drone
-    /// deploys).
+    /// The Agent builds the Tunnel and the Laser Turret (slice M4-S1), alone; the Recruit the Recruitment Hall, the
+    /// Storage and the Armory (slice M5-E), a group sharing the build, and assists them; nothing else builds anything
+    /// (the Drone deploys).
     #[test]
-    fn only_the_agent_builds_tunnels_and_turrets() {
+    fn the_agent_and_the_recruit_build_their_own() {
+        let cults = [ObjectKind::RecruitmentHall, ObjectKind::Storage, ObjectKind::Armory];
         for &builder in ObjectKind::ALL {
             for &kind in ObjectKind::ALL {
-                let built = [ObjectKind::Tunnel, ObjectKind::LaserTurret].contains(&kind);
-                let expected = builder == ObjectKind::Agent && built;
+                let expected = match builder {
+                    ObjectKind::Agent => [ObjectKind::Tunnel, ObjectKind::LaserTurret].contains(&kind),
+                    ObjectKind::Recruit => cults.contains(&kind),
+                    _ => false,
+                };
                 assert_eq!(builds(builder, kind), expected, "{builder:?} {kind:?}");
+                let assisted = builder == ObjectKind::Recruit && expected;
+                assert_eq!(assists(builder, kind), assisted, "{builder:?} {kind:?}");
             }
-            assert_eq!(builds_any(builder), builder == ObjectKind::Agent, "{builder:?}");
+            let builders = [ObjectKind::Agent, ObjectKind::Recruit];
+            assert_eq!(builds_any(builder), builders.contains(&builder), "{builder:?}");
+            assert_eq!(shares_builds(builder), builder == ObjectKind::Recruit, "{builder:?}");
         }
     }
 

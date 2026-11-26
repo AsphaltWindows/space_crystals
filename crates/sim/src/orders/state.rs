@@ -248,11 +248,27 @@ impl Gather {
 
 /// The state of a worker's walk to its site (`orders::build`): a Deploy order's (`crate::deploy`) and a Build order's
 /// (`crate::construction::site`).
-#[derive(Copy, Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+///
+/// Its `spot` (slice M5-E) is left out of files while unset, and out of the hash, as [`AttackOrder`]'s later fields.
+#[derive(Copy, Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
 pub struct SiteWalk {
     /// The worker's walk to its site is over (design change 0117): the step right after phase 5a starts its deployment
     /// or its site, or fails the order (`Sim::step_deployments`).
     pub arrived: bool,
+    /// (M5-E) A worker that shares builds (`WorkerDef::shares_builds`, the Recruit): its own spot beside the footprint,
+    /// where its walk goes, once the spots' step gave it one (`crate::spot_work`, plan decision T62). `None` for a
+    /// worker that walks to the footprint's centre (a Drone, an Agent). Optional in files.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub spot: Option<Vec2>,
+}
+
+/// (M5-E) The state of an order a unit carries out from its own spot beside a footprint (`crate::spot_work`): an
+/// Assist's (`orders::assist`).
+#[derive(Copy, Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
+pub struct SpotWork {
+    /// Its spot beside the footprint, where it walks, once the spots' step gave it one (plan decision T62): one that no
+    /// other unit working there claims.
+    pub spot: Option<Vec2>,
 }
 
 /// The state of an Enter order (`orders::enter`, `crate::network`).
@@ -308,6 +324,9 @@ pub enum Behaviour {
     AttackGround(AttackGround),
     /// A worker on its way to build (`core/entities.md > Placement Validation > Worker-Built Structures`, slice M4-E).
     Build(SiteWalk),
+    /// (M5-E) A worker building a site from outside, from its own spot beside it (`factions/cults/economy.md > Assist
+    /// Construction Command`).
+    Assist(SpotWork),
 }
 
 impl Leg {
@@ -345,6 +364,7 @@ impl Behaviour {
             Behaviour::Hold { target } => target.iter().copied().collect(),
             Behaviour::Gather(gather) => gather.node.iter().copied().collect(),
             Behaviour::Deploy(_) | Behaviour::Enter(_) | Behaviour::Build(_) | Behaviour::AttackGround(_) => Vec::new(),
+            Behaviour::Assist(_) => Vec::new(),
         }
     }
 
@@ -353,7 +373,7 @@ impl Behaviour {
     pub(crate) fn forget(&mut self, is_gone: &impl Fn(ObjectId) -> bool) {
         match self {
             Behaviour::Plain | Behaviour::Attack(_) | Behaviour::Approach(_) | Behaviour::Deploy(_) => {}
-            Behaviour::Enter(_) | Behaviour::Build(_) | Behaviour::AttackGround(_) => {}
+            Behaviour::Enter(_) | Behaviour::Build(_) | Behaviour::AttackGround(_) | Behaviour::Assist(_) => {}
             Behaviour::AttackMove(leg) => leg.forget(is_gone),
             Behaviour::Patrol(patrol) => patrol.leg.forget(is_gone),
             Behaviour::Hold { target } => {

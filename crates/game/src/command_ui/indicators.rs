@@ -148,7 +148,8 @@ pub fn order_color(kind: OrderKind) -> Option<Color> {
         // beside its ghost (slice M3-J1); a Build too (slice M4-E).
         OrderKind::Move(_) | OrderKind::Deploy { .. } | OrderKind::Build { .. } => Some(MOVE_COLOR),
         // `> Indicator assignments`: "Enter | Object | Green", the Move's green (slice M4-C; its look is M4-J1's).
-        OrderKind::Enter(_) => Some(MOVE_COLOR),
+        // (M5-E) No row for an Assist either: placeholder, the Enter's (its look is slice M5-J1's).
+        OrderKind::Enter(_) | OrderKind::Assist(_) => Some(MOVE_COLOR),
         // Design change 0201: the gathering markers' own colours.
         OrderKind::Gather(_) => Some(GATHER_COLOR),
         OrderKind::DropOff(_) => Some(RETURN_COLOR),
@@ -176,7 +177,9 @@ pub fn indicator(sim: &Sim, sight: &Sight, kind: OrderKind) -> Option<Indicator>
             let at = targets::shown_at(sim, sight, id)?;
             Some(Indicator::Location { at, color })
         }
-        OrderKind::Attack(id) | OrderKind::Enter(id) => known(id).then_some(Indicator::Object { id, color }),
+        OrderKind::Attack(id) | OrderKind::Enter(id) | OrderKind::Assist(id) => {
+            known(id).then_some(Indicator::Object { id, color })
+        }
         OrderKind::Gather(id) => known(id).then_some(Indicator::Gathering {
             id,
             marker: GatheringMarker::Gather,

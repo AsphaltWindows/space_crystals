@@ -27,6 +27,7 @@ fn on(target: CursorTarget, destructible: bool, domain: Domain) -> MapTarget {
             drop_off: false,
             transit: &[],
             accepts: &[],
+            site: None,
         }),
     }
 }

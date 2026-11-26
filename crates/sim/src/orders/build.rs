@@ -11,6 +11,7 @@
 //! Validation > Lingering build ghosts`; [`PendingBuild`], `Sim::pending_builds`): [`build_site`] says what an order
 //! puts down, and where.
 
+use crate::construction::site::shares_builds;
 use crate::defs::ObjectKind;
 use crate::deploy::{self, BEACON_DEPLOYMENT, on_site};
 use crate::ids::ObjectId;
@@ -26,10 +27,11 @@ use super::state::SiteWalk;
 use super::world::Unit;
 
 /// A lingering build ghost (`core/entities.md > Placement Validation > Lingering build ghosts`): a worker's order to
-/// build, current or queued, until the construction starts or the order goes.
+/// build, current or queued, until the construction starts or the order goes. A group's Build is one ghost, however
+/// many workers share it (plan decision T59, slice M5-E: "`pending_builds` gives one ghost per ticket").
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub struct PendingBuild {
-    /// The worker ordered to build it.
+    /// The worker ordered to build it: of a group's Build, the one with the lowest id that holds it.
     pub worker: ObjectId,
     /// What it will be: a Drone's Beacon, an Agent's Tunnel.
     pub kind: ObjectKind,
@@ -65,9 +67,15 @@ pub fn footprint(kind: ObjectKind, origin: TilePos, orientation: BuildingOrienta
     })
 }
 
-/// A worker-build order to `site` starts (`orders::start`): `unit` heads for the footprint's centre.
+/// A worker-build order to `site` starts (`orders::start`): `unit` heads for the footprint's centre. A worker that
+/// shares builds (`WorkerDef::shares_builds`, the Recruit; slice M5-E) stands instead, until the spots' step right
+/// after this phase gives it its own spot beside the footprint and sends it there (`crate::spot_work`, plan decisions
+/// T59 and T62: "each builder walks to its own spot", "so a group doesn't converge on one point"; design change 0339:
+/// the part of the footprint closest to it, or the nearest free part along the wall).
 pub(super) fn begin(site: &Placement, unit: &mut Unit, tick: Tick) -> SiteWalk {
-    unit.mover.go_to(MoveGoal::Point(site.center()), None, tick);
+    if !shares_builds(unit.kind) {
+        unit.mover.go_to(MoveGoal::Point(site.center()), None, tick);
+    }
     SiteWalk::default()
 }
 
@@ -79,8 +87,16 @@ pub(super) fn begin(site: &Placement, unit: &mut Unit, tick: Tick) -> SiteWalk {
 /// movement's own notion of a unit at a standstill (`docs/movement.md > 6.3`), or (M4-W3) it began the contact step
 /// of design change 0323 round a unit in its way (`Mover::step_aside`), which would take it a whole width off the
 /// footprint: until 0323 a blocked worker shuffled a step and stood. Never complete (module docs).
+///
+/// (M5-E) A worker that shares builds walks to its own spot, and its walk is over while it has one and its move there
+/// has ended, whatever the outcome: the arrivals' step sees whether it stands within reach of the footprint's edge
+/// (`sim/builds/shared.rs`), and the spots' step may send it on again (`crate::spot_work`).
 pub(super) fn run(site: &Placement, state: &mut SiteWalk, unit: &mut Unit) -> bool {
     let ended = unit.mover.status != MoveStatus::Moving;
+    if shares_builds(unit.kind) {
+        state.arrived = state.spot.is_some() && ended;
+        return false;
+    }
     // (M4-W3) Or it began a contact step (design change 0323): a blocker stopped it, and the step, a whole width
     // sideways, would take it off the footprint it overlaps.
     let stopped = unit.mover.blocked_ticks >= JAMMED_TICKS || unit.mover.step_aside.is_some();

@@ -245,9 +245,9 @@ impl StateHash for Behaviour {
                 h.tag(6);
                 gather.hash(h);
             }
-            Behaviour::Deploy(SiteWalk { arrived }) => {
+            Behaviour::Deploy(walk) => {
                 h.tag(7);
-                arrived.hash(h);
+                walk.hash(h);
             }
             Behaviour::Enter(Enter { walked }) => {
                 h.tag(8);
@@ -270,10 +270,27 @@ impl StateHash for Behaviour {
                     h.tag(2);
                 }
             }
-            Behaviour::Build(SiteWalk { arrived }) => {
+            Behaviour::Build(walk) => {
                 h.tag(10);
-                arrived.hash(h);
+                walk.hash(h);
             }
+            // (M5-E) A new tag, hashed only while a unit carries an Assist.
+            Behaviour::Assist(SpotWork { spot }) => {
+                h.tag(11);
+                spot.hash(h);
+            }
+        }
+    }
+}
+
+impl StateHash for SiteWalk {
+    fn hash(&self, h: &mut StateHasher) {
+        let SiteWalk { arrived, spot } = self;
+        arrived.hash(h);
+        // (M5-E) Only while set, as `AttackOrder`'s later fields: a walk to the footprint's centre hashes as it did.
+        if let Some(spot) = spot {
+            h.tag(1);
+            spot.hash(h);
         }
     }
 }

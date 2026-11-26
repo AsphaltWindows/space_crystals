@@ -72,7 +72,7 @@ Index of the design docs. Paths are relative to this folder.
 | `factions/syndicate/structures/null_chamber.md` | Exit buff for manned units |
 | `factions/syndicate/structures/aerospace_assembly.md` | Aircraft and satellite production (Tier 3) |
 | `factions/syndicate/structures/orbital_command.md` | Orbital coordination; Prism prerequisite (Tier 3) |
-| `factions/syndicate/structures/laser_turret.md` | Upright / pop-up defensive turret |
+| `factions/syndicate/structures/laser_turret.md` | Pop-up defensive turret, built by Tunnels; goes neutral with its Tunnel |
 | `factions/syndicate/units/README.md` | Shared rules (red lasers); index of Syndicate units |
 | `factions/syndicate/units/agent.md` | Worker: pistol, crystal/Supplies gathering, building (Tunnel Construction Flow) |
 | `factions/syndicate/units/guard.md` | Basic laser infantry, ground+air (Optics Lab) |
@@ -103,7 +103,9 @@ Index of the design docs. Paths are relative to this folder.
 | `factions/cults/units/militant.md` | Basic combat infantry |
 | `factions/cults/units/gunner.md` | Heavier-hitting infantry |
 | `factions/cults/units/disciple.md` | Spell caster (Cathedral) |
-| `factions/cults/units/jackal.md` | Light wheeled vehicle, 360° machine-gun turret, ground+air (Chop Shop, 2 Recruits) |
+| `factions/cults/units/seeker.md` | Light wheeled vehicle, 360° machine-gun turret, ground+air (Chop Shop, 2 Recruits) |
+| `factions/cults/units/hand_of_heaven.md` | Long-range shoot-and-scoot missile vehicle, tracked, area damage (Chop Shop, 3 Recruits) |
+| `factions/cults/units/prayer_mobile.md` | Wheeled caster vehicle with a megaphone, Inspire and Suppress (Chop Shop, 2 Recruits, Temple) |
 | `factions/cults/units/sparrow.md` | Small glider, 45° MG turret, air+ground, never lands (Airstrip, 1 Recruit) |
 | `factions/colonists/overview.md` | Colonists identity and resources (Space Crystals, Alloys, Essence, Flux, Beacon Capacity) |
 | `factions/colonists/economy.md` | Beacon Deployment, Beacon, Warp In, Starting Conditions, Egress Node, refining (Alloy Furnace, Essence Refinery, Flux Reactor) |

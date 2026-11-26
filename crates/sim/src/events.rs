@@ -293,6 +293,10 @@ pub enum SimEvent {
     /// (`factions/syndicate/units/agent.md > Building > Tunnel Construction Flow`: "the partially-built Tunnel appears
     /// at the location with the Agent inside it"; `sim/sites.rs`). The worker keeps its id and is held off the map
     /// (`network::Place::Site`): no `Removed` follows. A `Spawned` comes with the site.
+    ///
+    /// (M5-E) Or `site`, a Cults building, came into the game under construction as a group's Build began there, which
+    /// its Recruits build from outside, staying on the map (`factions/cults/economy.md > Cults Building Mechanics`;
+    /// `sim/builds/shared.rs`): `worker` is the first of them within reach of its footprint.
     SiteStarted {
         worker: ObjectId,
         site: ObjectId,
@@ -304,6 +308,13 @@ pub enum SimEvent {
     SiteCompleted {
         site: ObjectId,
         worker: ObjectId,
+    },
+    /// (M5-E) `site`, a Cults building that Recruits built from outside, is complete, a structure in operation from
+    /// now on, and its builders are free for their next orders (`factions/cults/economy.md > Cults Building
+    /// Mechanics`: "On completion, all Recruits that participated remain on the field as ordinary Recruits, free to be
+    /// issued new orders"; `sim/sites.rs`).
+    SiteBuilt {
+        site: ObjectId,
     },
     /// `site`, a `kind` under construction, was cancelled (`ConstructionCommand::CancelConstruction`), and its owner
     /// got `refund` back in the resource of its price: a Tunnel's Supplies, the current top price (design change 0233),
