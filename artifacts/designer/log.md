@@ -2324,3 +2324,4 @@ Answered Q0069–Q0071 (0258–0267): losing-Tunnel edges, Syndicate economy che
 2026-11-27 — Turrets Tunnel-only; Agent panel reverted. Entry 0359.
 2026-11-27 — Turrets neutral with Tunnel. Entry 0360.
 2026-11-27 — Missile platform concept. Entry 0361.
+2026-11-27 — Q0130 (d). Entry 0362.

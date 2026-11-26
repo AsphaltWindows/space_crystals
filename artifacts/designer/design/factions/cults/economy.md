@@ -35,7 +35,8 @@ Rationale — why structures cost both crystals and build time: crystals are the
 (user, 2026-11-26; Q0097)
 - **Where builders work**: each Recruit walks to the **part of the footprint closest to it**; if that part is taken (blocked), it **wall-hugs** along the footprint until it reaches a part where it can work, and builds from there (within its 8 su reach of the edge, as for mining).
 - **Start**: the site starts **as soon as the first Recruit of the order arrives** (placement is checked then).
-- **Blocked site**: units on the footprint at that moment, **including Recruits of the same order**, block it, and **the whole order fails** (refunded once in full; Payment and Order cancelled before construction starts above). Designer's note: a group-order special case; nothing retries.
+- **Blocked site**: other units on the footprint at that moment block it, and **the whole order fails** (refunded once in full; Payment and Order cancelled before construction starts above). Designer's note: a group-order special case; nothing retries.
+- **The order's own Recruits** (user, 2026-11-27; Q0130; replaces "including Recruits of the same order"): the site **waits** for Recruits of the same order who stand on the footprint to step off, then starts. Only other units fail it. (If (d) proves hard to build, the fallback is (a): the ghost is red while a selected Recruit stands on the footprint.)
 - **Speed counts only Recruits actively building**: a building needs a fixed number of **Recruit-frames** (BaseConstructionTime with 1 Recruit). Every frame, each Recruit that is building during that frame adds 1. Recruits still walking, waiting for a spot or doing anything else add nothing. There is no cap other than room around the site.
 - **Under attack**: builders **keep building** (as gatherers keep gathering).
 - **Assist** targets only a building **already under construction**, not a ghost whose order hasn't started.
