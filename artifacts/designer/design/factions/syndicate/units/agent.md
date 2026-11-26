@@ -71,7 +71,7 @@ Because a Tunnel's crystal side accepts one drop-off at a time, a Tunnel takes i
 | 5 | 14.7 s | 3.41 | 29 s | 3.67 | 6.8 | 10.2 | 12.5 |
 | 6 | 16.0 s | 3.12 | 32 s | 4.00 | 6.2 | 9.4 | 12.5 |
 
-**Syndicate economy check** (user, 2026-11-25; Q0070):
+**Syndicate economy check** (user, 2026-11-25; Q0070). **Closed** (user, 2026-11-27; Q0146): automated economy testing is wrapped up ("so much of it has to do with build orders and optimizations and that would be more effectively tested by me"). These targets stay as **reference for playtests**; the Director measures nothing more against them.
 - **Distance** in the table is measured **edge to edge**, from the patch's edge to the Tunnel's **crystal hatch** (the 1-square hatch on Side B), as for Drones (0107).
 - **Tolerance**: ±15% on every figure, except the **12.5 Space Crystals per second ceiling per Tunnel**, which must hold exactly (hard rule: one drop-off per 4 s).
 - **Targets**: the opening (the **third Agent is at work** around 0:40, i.e. 0:34–0:46, with the patch **3 GU** from the hatch; user, 2026-11-26, moved from 1 GU; Q0089: the Tunnel needn't actually reach 12.5 then); the table **from 3 GU outward** (closer rows are theoretical: with collision, Agents may need the player's help there, see Close patches below); stacked Tunnels double a field's intake; the Syndicate's one-base saturation income is the lowest of the measured factions.

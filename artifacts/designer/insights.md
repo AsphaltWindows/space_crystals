@@ -27,12 +27,11 @@
 - Game will be rebuilt from scratch → docs must stand alone as the complete spec. Old prototype stays at `artifacts/developer/` as reference; Director decides with user where new code lives.
 
 ## Open Director Questions
-- Q0146 close the Economy check (user wrapped up automated economy testing)? (nb)
 - Q0147 basic computer opponents for playtesting: knowledge, profiles; tool vs feature (nb)
 
 Order of work (placeholder passes done, 0366/0367): finish Cults units → Colonists units → techs → detection → numbers review.
 ## Loose Ends
-- **Cults economy (Q0144, 0385)**: rerun ordered: one 8-patch line mined from both sides (~32 seats), One Hall vs Two Halls, both starting with 1 Storage and adding Storages as needed. Open after the rerun: is ~0.9 of GDO/Colonists at 2:48 OK; further 4:00–6:00 targets; Cults one-base income ceiling vs GDO 26.7 / Colonists 32.
+- **Economy**: automated testing closed (Q0146); targets are playtest reference. Open for playtests: Cults One Hall ~0.85 of GDO/Colonists at 2:48.
 - **Cults identity check (2026-11-27), open tensions for the user**: no front-line tank (are infantry masses the tank?); thin, short-range anti-air and no Cults AA building; detection later; Mystical branch has only the Disciple as a new unit (user: fine).
 - **Next Cults work**: Scrap Hangar aircraft (paratrooper plane, airship), maybe more vehicles, more Disciple spells. Then Colonists units (incl. salvo concept for Lancer/Skylance).
 - **Supply Chopper transport rules** (load/unload, capacity, destroyed with passengers): still TBD, the last GDO design gap.
@@ -111,6 +110,7 @@ New standing decisions worth remembering: Drones Groupable + lingering build gho
 - **Colonists faction — econ loop plus first combat units now defined**: Drone, Beacon, Warp In mechanic, Egress Node, Roboport, Bioport, Starting Conditions, and the first two combat units (Sabre Legionnaire, Rifle Legionnaire) are all fully stated (see colonists_objects.md summary in TOC above). Still open: Beacon's own ObjectInterfaceState (should expose Warp In as a command — never formalized which panel button/flow triggers it), Roboport's and Bioport's full ObjectInterfaceState (which panel button queues a unit into BuildQueue, how RallyPoint is set via panel — explicitly deferred by user across multiple sessions, not yet resumed), and Shield regen upgrades (still a placeholder noted in combat.md, "discuss later"). Colonists now have combat capability but still only one unit line (two forms of the same Legionnaire) — no Vehicle/Mech/Air combat units yet, unlike the analogous gaps already tracked for GDO/Syndicate. If/when new Colonists buildings are added, remember to also add their row to the Constructs List table in the Warp In section (colonists_objects.md) — cost/time is easy to forget since it lives in a separate section from the building's own stat block.
 
 ## Insights
+- **The user tests economy/build orders by playtesting** (2026-11-27, Q0146): don't ask the Director for more scripted economy comparisons.
 - **Fill provisional stats for every designed unit/building** (user, 2026-11-26) so the Director can implement; mark as placeholders; mechanics still go to the user. **User trusts me to decide ALL placeholder stats without asking** (2026-11-26); they'll be reviewed together after all units and techs are done. Don't present stat choices for approval; just report them.
 - **Agent economy rule of thumb (2026-11-26)**: 2 Agents saturate only if mining+walk <= drop-off; 3 saturate if mining+walk <= 2x drop-off. Mining 4 s = drop-off 4 s. Patches (1500 SC) last ~2 min at full intake, so near-patch figures are transient. User accepts some player intervention for Agent traffic; map makers set Tunnel-to-crystal distance.
 - **Doc layout (2026-11-25, 0282)**: one file per unit/structure: `factions/<f>/units/<slug>.md`, `factions/<f>/structures/<slug>.md`; shared rules + index in each folder's README.md. New units/buildings get their own file and an index line in both the folder README and design/README.md. Title `# Name`, sections `##`.

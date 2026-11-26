@@ -69,7 +69,12 @@ Applies to every Cults building that can hold units inside (Armory, Altar, Templ
 - **Orders are cancelled with a full refund**: every in-progress and queued training, augmentation, and research order is cancelled and its full Space Crystals cost refunded (consistent with core/tech_and_research.md > Research shared rule 7).
 
 ## Economy check
-(user, 2026-11-26; Q0103) The figures the build is measured against (the Director's economy oracle):
+(user, 2026-11-26; Q0103) The figures the build was measured against (the Director's economy oracle).
+
+**Closed** (user, 2026-11-27; Q0146): automated economy testing is wrapped up ("so much of it has to do with build orders and optimizations and that would be more effectively tested by me"). These targets stay as **reference for playtests**; the Director measures nothing more against them.
+
+**Last measurement** (Q0146, two-sided 8-patch line, nothing tuned): the line seats ~32 Recruits (income peaks at ~39 SC/s). At 6:00: One Hall 26.4 SC/s, 7338 mined; Two Halls 38.8 SC/s, 9150 mined; GDO 26.7 (average), 7790; Colonists 32.0, 8224. Two Halls overtakes One Hall on income at 2:34 and on total mined at 3:08 (the 4:00 target is met). One Hall at 2:48 is 0.87 of the GDO and 0.84 of the Colonists ("slightly ahead" not met; left to playtests).
+
 - **Distance** is measured **edge to edge**, patch to Storage, in whole tiles (as for Agents).
 - **Tolerance ±15%**: a measured figure passes if it is within 15% of its target either way (e.g. 1.45 SC/s per Recruit passes anywhere from about 1.23 to 1.67).
 - **Targets**: ≈ 1.45 SC/s per Recruit at a 1-tile gap (≈ 0.59 at 2, ≈ 0.37 at 3); full efficiency at about **2 Recruits per tile of face length** (designer's estimate for the 3x2 Storage, 2026-11-27: ~6 on a 3-tile face, ~4 on a 2-tile face; was "4–5 per 2-tile face" for the 2x2 Storage; re-measure); a starting Hall fills from 6 to 20 in 168 s (2:48); the earliest second Hall at ~0:55–1:15; roughly level with the GDO and the Colonists until ~1:30 and slightly ahead by 2:48.
@@ -86,7 +91,7 @@ Applies to every Cults building that can hold units inside (Armory, Altar, Templ
     4. **Total spent on economy**: Space Crystals paid so far, refunds subtracted.
   - **Everything built in these runs is economy** (user, 2026-11-27): the scenarios build nothing but economy, so "spent on economy" is simply **everything spent**, Generators included (e.g. Cults Halls and Storages; GDO Extraction Facilities, Plates and Generators; Colonists Drones and Egress Nodes). If a scenario ever needs a non-economy building, report it separately.
   - **Earlier measurements** (Q0135, Q0144): on a field mined from one side only, the line capped at ~16 Recruits (~21 SC/s), and "ideal mining" was given its Storages for free at the start. Both are superseded by the above.
-  - **Still open**: whether ~0.9 of the GDO and the Colonists by 2:48 is acceptable, to be decided on the new figures.
+  - **Left to playtests** (Q0146): whether ~0.85–0.9 of the GDO and the Colonists by 2:48 is acceptable.
 
 ## Buildings
 The Recruitment Hall and the Storage have their own files (moved from here, 2026-11-27): `factions/cults/structures/recruitment_hall.md`, `factions/cults/structures/storage.md`.
