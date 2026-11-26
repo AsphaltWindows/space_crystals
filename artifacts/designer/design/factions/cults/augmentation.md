@@ -15,7 +15,11 @@ Augmentation effects are expressed in two kinds of increments:
 
 Increments can be negative. A negative increment applies the opposite effect (e.g. −1 Constitution increment = −10 MaxHP, and −1 melee Damage for unarmed units).
 
-**HP when MaxHP changes** (user, 2026-11-26; Q0114): if a unit's HP is above its new MaxHP, HP becomes the new MaxHP; otherwise HP is unchanged. An augmentation therefore never kills. **No floors** on the results (user, 2026-11-26; Q0114): e.g. an Improved Metabolism Level 2 Recruit (MaxHP 10, melee Damage 0, so each hit does the minimum) is fine as written.
+**HP when MaxHP changes** (user, 2026-11-26; Q0114):
+- **MaxHP goes up**: HP goes up **by the same amount**, so the damage taken stays the same (a full unit stays full; 25/40 → 45/60).
+- **MaxHP goes down**: HP is **unchanged**, unless it is now above the new MaxHP, in which case it becomes the new MaxHP (40/40 → 10/10; 8/40 → 8/10).
+- An augmentation therefore never kills.
+ **No floors** on the results (user, 2026-11-26; Q0114): e.g. an Improved Metabolism Level 2 Recruit (MaxHP 10, melee Damage 0, so each hit does the minimum) is fine as written.
 
 **Unarmed units** are infantry whose attack is an unarmed melee attack — currently only the Recruit. Armed infantry (Militant, Gunner) receive only the MaxHP part of Constitution increments and only the movement-speed part of Metabolism increments.
 
