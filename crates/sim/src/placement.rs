@@ -94,6 +94,7 @@ mod spots;
 mod tests;
 mod tunnel_area;
 mod tunnel_overlap;
+mod wall;
 
 pub use build_area::{BuildArea, seeds_build_area};
 pub use check::{check, check_layout, check_reserving, footprint_size};
@@ -101,6 +102,7 @@ pub use onto::Onto;
 pub use problems::{PlacementCheck, PlacementProblem, TileProblem, WholeProblem};
 pub use site::{Method, Mode, Occupant, Site};
 pub use spots::{Ring, Round, Spots};
+pub use wall::{Wall, crosses};
 
 use crate::construction::site::builds;
 use crate::defs::ObjectKind;

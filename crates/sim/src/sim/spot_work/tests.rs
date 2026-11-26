@@ -1,7 +1,8 @@
 //! The spots' step in a game, with test defs (`defs::test_defs`) for what the design's types can't show: a site that
-//! lasts as long as a test needs, for the Recruits waiting further out and moving in as room frees (**Placeholder
-//! (Q0097 point 8)**), and the oblong footprints with ABAC lettering, 2 × 3 and 2 × 4, at all four rotations (the
-//! Director's note 2 of slice M5-E: the ten Cults buildings to come are data alone).
+//! lasts as long as a test needs, for the Recruits waiting further out and moving in as room frees (design change
+//! 0339: "Recruits still walking, waiting for a spot or doing anything else add nothing"), and the oblong footprints
+//! with ABAC lettering, 2 × 3 and 2 × 4, at all four rotations (the Director's note 2 of slice M5-E: the ten Cults
+//! buildings to come are data alone).
 
 use glam::Vec2;
 
@@ -105,16 +106,17 @@ fn site(t: &TestSim) -> Option<&Object> {
     t.sim().objects().find(|o| o.is_site())
 }
 
-/// The builders of `site`: the units on an Assist of it within reach of its footprint.
+/// The builders at work on `site`: the units on an Assist of it within reach of its footprint, their walk over.
 fn builders(t: &TestSim, site: &Object) -> Vec<ObjectId> {
     let footprint = Shape::footprint(&site.placement.expect("placed"));
+    let standing = |o: &Object| o.mover.as_ref().is_none_or(|m| m.status != Moving);
     (t.sim().objects())
-        .filter(|o| assisting(o) == Some(site.id) && Shape::of(o).gap(&footprint) <= BUILD_REACH_SU)
+        .filter(|o| assisting(o) == Some(site.id) && Shape::of(o).gap(&footprint) <= BUILD_REACH_SU && standing(o))
         .map(|o| o.id)
         .collect()
 }
 
-/// One tick, and the rule of a site built from outside: it gained one frame for each builder within reach.
+/// One tick, and the rule of a site built from outside: it gained one frame for each builder at work.
 fn step(t: &mut TestSim) {
     let before = site(t).map(|o| (o.id, o.construction.expect("a site").progress.ticks_done()));
     t.step();
@@ -147,23 +149,26 @@ fn run_to(t: &mut TestSim, limit: Tick, what: &str, done: impl Fn(&TestSim) -> b
     panic!("{what}: not within {limit} ticks");
 }
 
-/// Sixteen Recruits on a Storage that lasts: twelve build, each on its own spot of ring 0 (the corners left free),
-/// and four wait out of reach further out (ring 1 left free), their Assist kept. Two builders gone, two of those
-/// waiting move in, within the re-check (`RESPOT_TICKS`) and a walk.
+/// The builders' wall round a Storage holds twenty Recruits, a room of 32 su each along its 640 su.
+const ROOM_ROUND: usize = 20;
+
+/// Twenty-four Recruits on a Storage that lasts: twenty build, each on its own spot of the builders' wall, and four
+/// wait out of reach further out (the row next to the builders left free), their Assist kept. Two builders gone, two
+/// of those waiting move in, within the re-check (`RESPOT_TICKS`) and a walk.
 #[test]
 fn those_who_wait_further_out_move_in_as_room_frees() {
     let _slow = slow_storage();
-    let mut t = recruits(16);
-    build(&mut t, 16, Rotation::R0);
+    let mut t = recruits(24);
+    build(&mut t, 24, Rotation::R0);
     run_to(&mut t, 400, "the site starts", |t| site(t).is_some());
-    let full = |t: &TestSim| builders(t, site(t).unwrap()).len() == 12;
-    run_to(&mut t, 600, "ring 0 is full", full);
+    let full = |t: &TestSim| builders(t, site(t).unwrap()).len() == ROOM_ROUND;
+    run_to(&mut t, 900, "the wall is full", full);
     let settled = |t: &TestSim| (t.sim().objects()).all(|o| o.mover.as_ref().is_none_or(|m| m.status != Moving));
     run_to(&mut t, 600, "everyone stands", settled);
     let s = site(&t).unwrap().clone();
     let builders_now = builders(&t, &s);
-    assert_eq!(builders_now.len(), 12);
-    let waiting: Vec<ObjectId> = (1..=16).map(ObjectId).filter(|id| !builders_now.contains(id)).collect();
+    assert_eq!(builders_now.len(), ROOM_ROUND);
+    let waiting: Vec<ObjectId> = (1..=24).map(ObjectId).filter(|id| !builders_now.contains(id)).collect();
     let footprint = Shape::footprint(&s.placement.unwrap());
     for &id in &waiting {
         let o = t.sim().object(id).unwrap();
@@ -175,10 +180,10 @@ fn those_who_wait_further_out_move_in_as_room_frees() {
         t.debug_at(tick + 1, DebugCommand::Remove { id });
     }
     step(&mut t);
-    assert_eq!(builders(&t, &s).len(), 10);
+    assert_eq!(builders(&t, &s).len(), ROOM_ROUND - 2);
     let start = t.sim().tick();
     run_to(&mut t, RESPOT_TICKS + 60, "two move in", full);
-    println!("ring 0 full again {} ticks after", t.sim().tick() - start);
+    println!("the wall full again {} ticks after", t.sim().tick() - start);
     let moved_in = builders(&t, &s).iter().filter(|id| waiting.contains(id)).count();
     assert_eq!(moved_in, 2);
 }

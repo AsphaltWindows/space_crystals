@@ -188,8 +188,9 @@ pub enum Reject {
     /// empty").
     NothingInside,
     /// (M5-E) The target of an Assist is no site of the player's that its builders build from outside
-    /// (`factions/cults/economy.md > Assist Construction Command`: "Left Click on an in-progress building";
-    /// **Placeholder (Q0097 point 7)**: "Only a building under construction", not a pending ghost).
+    /// (`factions/cults/economy.md > Assist Construction Command`: "Left Click on an in-progress building"; design
+    /// change 0339, `factions/cults/economy.md > Cults Building Mechanics > Group construction rules`: "**Assist**
+    /// targets only a building **already under construction**, not a ghost whose order hasn't started").
     NotASite(ObjectId),
 }
 

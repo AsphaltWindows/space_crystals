@@ -1,27 +1,30 @@
-//! Work at a footprint from a spot beside it (plan decisions T59 and T62, slice M5-E): what a unit does that builds a
-//! site from outside — `factions/cults/economy.md > Cults Building Mechanics` ("Cults buildings are constructed on-site
-//! by Recruits working from outside the structure"; "Construction speed scales proportionally with the number of
-//! Recruits currently assigned"), `factions/cults/economy.md > Assist Construction Command` ("Once the selected Recruits
-//! reach the building they join construction from outside"). Two rules, each written once over an order and its
-//! target, not for one order alone, so that every order worked so reuses them (a group's Build and an Assist today;
-//! the Repair of slice N8, whose "repairers stack linearly", design change 0321):
+//! Work at a footprint from a spot beside it (plan decisions T59 and T62, design change 0339, slice M5-E): what a unit
+//! does that builds a site from outside — `factions/cults/economy.md > Cults Building Mechanics` ("Cults buildings are
+//! constructed on-site by Recruits working from outside the structure"; "Construction speed scales proportionally with
+//! the number of Recruits currently assigned"), `factions/cults/economy.md > Cults Building Mechanics > Group
+//! construction rules` (design change 0339), `factions/cults/economy.md > Assist Construction Command` ("Once the
+//! selected Recruits reach the building they join construction from outside"). Two rules, each written once over an
+//! order and its target, not for one order alone, so that every order worked so reuses them (a group's Build and an
+//! Assist today; the Repair of slice N8, whose "repairers stack linearly", design change 0321):
 //!
 //! - **The claim of a spot** ([`work_of`], [`Claim`]): each unit working at a footprint walks to its own spot beside
 //!   it, which its order's state holds (`orders::state::SiteWalk::spot`, `orders::state::SpotWork::spot`) and which no
 //!   other unit of its owner working at the same footprint may take: the claims are derived from the orders, never
 //!   stored apart. The spots' step (`Sim::step_spots`) gives each unit without one, those nearest the footprint first,
-//!   the first free spot among T62's (`placement::Spots`; **Placeholder (Q0097 point 1)**: "each builder at its own
-//!   spot within 8 su of the footprint's edge, the spots searched in a fixed order around it"): those of a box
-//!   `tuning::construction::BUILD_STANDOFF_SU` bigger than the unit's, so that builders stand a little off the wall
-//!   and each other; beside the footprint's sides only, so that its corners stay free for those walking round; ring 0
-//!   first, nearest the unit first, and once it is full a ring from the second on, where a unit waits and doesn't
-//!   count (**Placeholder (Q0097 point 8)**: "others wait further out and don't count"), ring 1 left free as the way
-//!   round the builders. Every `tuning::construction::RESPOT_TICKS`, a unit whose walk is over within reach takes the
-//!   place where it stands as its spot, and one whose walk is over out of reach looks again on ring 0 and walks to the
-//!   free spot it finds.
-//! - **The count within reach** ([`counts`]): the units whose current order works at a target, standing within
-//!   `tuning::construction::BUILD_REACH_SU` of its footprint's edge (**Placeholder (Q0097 point 5)**: "Only those at
-//!   the site"), derived in each tick, so that n of them give exactly n times one's rate. A site built from outside
+//!   the first free spot of 0339's search (`placement::Wall`): "each Recruit walks to the **part of the footprint
+//!   closest to it**; if that part is taken (blocked), it **wall-hugs** along the footprint until it reaches a part
+//!   where it can work". The search runs along the builders' wall, `tuning::construction::BUILD_STANDOFF_SU` off the
+//!   footprint, so that builders stand a little off it and off each other; once that wall is full, along a wall
+//!   further out, where a unit waits and doesn't count (0339: "Recruits still walking, waiting for a spot or doing
+//!   anything else add nothing"), the row next to the builders left free as the way round them. A unit walks round the
+//!   footprint to its spot, never over it. Every `tuning::construction::RESPOT_TICKS`, a unit whose walk is over within
+//!   reach takes the place where it stands as its spot, and one whose walk is over out of reach looks again along the
+//!   builders' wall and walks to the free spot it finds.
+//! - **The count of those at work** ([`counts`]): the units whose current order works at a target, standing within
+//!   `tuning::construction::BUILD_REACH_SU` of its footprint's edge with their walk over (0339: "a building needs a
+//!   fixed number of **Recruit-frames** (BaseConstructionTime with 1 Recruit). Every frame, each Recruit that is
+//!   building during that frame adds 1. Recruits still walking, waiting for a spot or doing anything else add
+//!   nothing"), derived in each tick, so that n of them give exactly n times one's rate. A site built from outside
 //!   gains a frame for each (`sim/sites.rs`).
 //!
 //! Where a unit works ([`WorkAt`]) is a footprint: a group's Build's, before its site starts (its ticket's,
@@ -34,6 +37,7 @@ use glam::Vec2;
 
 use crate::construction::site::shares_builds;
 use crate::ids::{ObjectId, PlayerId};
+use crate::mover::MoveStatus;
 use crate::object::{Object, Placement};
 use crate::orders::OrderKind;
 use crate::orders::build::build_site;
@@ -88,8 +92,10 @@ pub(crate) fn spot_mut(o: &mut Object) -> Option<&mut Option<Vec2>> {
 }
 
 /// Whether `order`, carried by a unit of `owner`'s, works at `target` (module docs): an Assist at a site of the same
-/// owner's that its builders build from outside (`Object::is_built_from_outside`; **Placeholder (Q0097 point 7)**:
-/// "Assist goes only to a site that has started"). The orders that work at no structure suit none.
+/// owner's that its builders build from outside (`Object::is_built_from_outside`; design change 0339,
+/// `factions/cults/economy.md > Cults Building Mechanics > Group construction rules`: "**Assist** targets only a
+/// building **already under construction**, not a ghost whose order hasn't started"). The orders that work at no
+/// structure suit none.
 pub fn suits(order: OrderKind, owner: Option<PlayerId>, target: &Object) -> bool {
     match order {
         OrderKind::Assist(_) => owner.is_some() && target.owner == owner && target.is_built_from_outside(),
@@ -111,26 +117,28 @@ pub struct Claim {
     /// The footprint it works at.
     pub at: Placement,
     pub spot: Vec2,
-    /// The unit's half extents, its box at the spot.
-    pub half: Vec2,
+    /// Half the room it keeps clear at the spot along each axis: its box, and `tuning::construction::BUILD_STANDOFF_SU`
+    /// round it.
+    pub room: Vec2,
 }
 
 impl Claim {
-    /// Whether this claim keeps a unit of `owner`'s working at the footprint `at`, whose box has half extents `half`,
-    /// from the spot `spot`: the two boxes would overlap (touching is clear), and the claim is another unit's of the
+    /// Whether this claim keeps a unit of `owner`'s working at the footprint `at`, whose room has half extents `room`,
+    /// from the spot `spot`: the two rooms would overlap (touching is clear), and the claim is another unit's of the
     /// same owner at the same footprint. Another player's units claim nothing against it: where they stand is the
     /// placement check's (`Sim::check_unit_fits`), so no claim tells a player of another's work.
-    pub fn keeps(&self, unit: ObjectId, owner: Option<PlayerId>, at: &Placement, spot: Vec2, half: Vec2) -> bool {
+    pub fn keeps(&self, unit: ObjectId, owner: Option<PlayerId>, at: &Placement, spot: Vec2, room: Vec2) -> bool {
         self.unit != unit
             && self.owner == owner
             && self.at == *at
-            && (self.spot - spot).abs().cmplt(self.half + half).all()
+            && (self.spot - spot).abs().cmplt(self.room + room).all()
     }
 }
 
-/// The count within reach (module docs): for each target, the units of `objects` whose current order `target_of` maps
-/// to it, which it suits ([`suits`]), standing within reach of its footprint's edge ([`within_reach`]). Builders of a
-/// site built from outside by `target_of` = an Assist's site.
+/// The count of those at work (module docs): for each target, the units of `objects` whose current order `target_of`
+/// maps to it, which it suits ([`suits`]), standing within reach of its footprint's edge ([`within_reach`]), their
+/// walk over (no move on its way, `MoveStatus::Moving`). Builders of a site built from outside by `target_of` = an
+/// Assist's site.
 pub fn counts(
     objects: &BTreeMap<ObjectId, Object>,
     target_of: impl Fn(OrderKind) -> Option<ObjectId>,
@@ -146,7 +154,8 @@ pub fn counts(
         let Some(t) = objects.get(&target).filter(|t| suits(active.order.kind, o.owner, t)) else {
             continue;
         };
-        if t.placement.is_some_and(|at| within_reach(&Shape::of(o), &at)) {
+        let walking = o.mover.as_ref().is_some_and(|mover| mover.status == MoveStatus::Moving);
+        if !walking && t.placement.is_some_and(|at| within_reach(&Shape::of(o), &at)) {
             *counts.entry(target).or_insert(0) += 1;
         }
     }

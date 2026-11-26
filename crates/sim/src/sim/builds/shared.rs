@@ -15,35 +15,33 @@
 //!   are checked as for one worker's, its site with the whole group left out ([`Sim::group_build_check`]).
 //! - **The refunds** (`Sim::refund_builds`): in full, once, when its last holder drops it before its site starts:
 //!   re-ordered, killed, gone into a building, or failed together (`factions/cults/economy.md > Build Command`: "if
-//!   the build order is cancelled
-//!   before the building is placed (the Recruits are given another order before arriving, or placement fails
-//!   validation on arrival), the full Space Crystals cost is refunded"). **Placeholder (Q0098 point 1)**: "A refund
-//!   only when no Recruit of the group still holds the order"; **(point 2)**: if they are all killed, "Refunded in
-//!   full, as the Agent's order is (0289)"; **(point 3)**: "Each queued building is refunded in full when its last
-//!   holder drops it before its start".
-//! - **The walk**: each holder walks to its own spot beside the footprint (`crate::spot_work`, plan decision T62), the
-//!   spots' step's, not to the footprint's centre (`orders::build`).
+//!   the build order is cancelled before the building is placed (the Recruits are given another order before arriving,
+//!   or placement fails validation on arrival), the full Space Crystals cost is refunded"). Design change 0340
+//!   (`factions/cults/economy.md > Cults Building Mechanics > Group construction refunds`): "the cost is refunded only
+//!   once **no Recruit of the group still holds the order**"; "**All builders killed** before the start: **full
+//!   refund**"; "each queued building is refunded in full when its **last holder drops it** before its construction
+//!   starts".
+//! - **The walk**: each holder walks to its own spot beside the footprint, round it (`crate::spot_work`, design change
+//!   0339's wall-hug), the spots' step's, not to the footprint's centre (`orders::build`).
 //! - **The start** ([`Sim::arrive_together`], from the arrivals' step right after phase 5a): at the first holder that
-//!   ends its walk within reach of the footprint (**Placeholder (Q0097 point 2)**: "At the first arrival, as the
-//!   Agent's site does"), once no holder still on its way stands on the footprint, by the check on arrival on the truth
-//!   with nobody left out (`core/entities.md > Placement Validation > Worker-Built Structures`: "validates on
-//!   arrival"). Q0097 point 3 proposes that the group's Recruits on the footprint be "pushed off, as the owner's idle
-//!   units are pushed off a rising pop-up turret, although they have an order, and then walk to their spots": here they
-//!   walk off it to their spots on their own, and the site waits for them; one whose walk ended on the footprint, which
-//!   could not get off it, blocks it as any unit does (option (b)). The site comes into the game on the footprint,
-//!   with its owner, at the ConstructionHP Rule's 10%, its production held back until it is complete, as a
-//!   transformation's (`Sim::start_functions`); every holder's Build of the ticket, current or queued, becomes an
-//!   Assist of the site (`OrderKind::Assist`, `orders::assist`), the current ones keeping their spots and walks. A
-//!   `SimEvent::SiteStarted` names the first arrival.
+//!   ends its walk within reach of the footprint, by the check on arrival on the truth with nobody left out
+//!   (`core/entities.md > Placement Validation > Worker-Built Structures`: "validates on arrival"); design change 0339
+//!   (`factions/cults/economy.md > Cults Building Mechanics > Group construction rules`): "the site starts **as soon as
+//!   the first Recruit of the order arrives** (placement is checked then)", and "units on the footprint at that
+//!   moment, **including Recruits of the same order**, block it": a holder still on its way over the footprint fails
+//!   it as any unit does, and nothing pushes it off. The site comes into the game on the footprint, with its owner, at
+//!   the ConstructionHP Rule's 10%, its production held back until it is complete, as a transformation's
+//!   (`Sim::start_functions`); every holder's Build of the ticket, current or queued, becomes an Assist of the site
+//!   (`OrderKind::Assist`, `orders::assist`), the current ones keeping their spots and walks. A `SimEvent::SiteStarted`
+//!   names the first arrival.
 //! - **The failure**: a check on arrival that fails, or every holder's walk over and none within reach, fails the
-//!   whole order (**Placeholder (Q0097 point 4)**: "The whole order fails, and is refunded once"): it goes from every
+//!   whole order (0339: "the whole order fails (refunded once in full ...)", "nothing retries"): it goes from every
 //!   holder, current and queued, the current ones stop, a `SimEvent::BuildFailed` names the first arrival (or the
 //!   holder with the lowest id), and the ticket is refunded once.
 
 use super::{Dropped, orders_of, short_of};
 use crate::construction::site::{Builder, Construction, shares_builds, site_def};
 use crate::defs::ObjectKind;
-use crate::deploy::on_site;
 use crate::events::SimEvent;
 use crate::ids::{ObjectId, PlayerId};
 use crate::object::{Object, Placement};
@@ -110,8 +108,6 @@ struct Walks {
     in_reach: Option<ObjectId>,
     /// Whether every holder's walk is over.
     all_over: bool,
-    /// Whether a holder still on its way stands on the footprint.
-    on_footprint: bool,
 }
 
 impl Sim {
@@ -214,9 +210,9 @@ impl Sim {
     }
 
     /// The arrivals of `ticket` (module docs), from the arrivals' step, which found a holder whose walk is over: its
-    /// site starts at the first holder within reach of the footprint once no holder on its way stands on it, if the
-    /// check on arrival allows it; the order fails if that check doesn't, or if every holder's walk is over and none is
-    /// within reach. Otherwise it waits for the holders on their way.
+    /// site starts at the first holder within reach of the footprint if the check on arrival allows it, the order's
+    /// own Recruits on the footprint counting as any unit does; the order fails if that check doesn't, or if every
+    /// holder's walk is over and none is within reach. Otherwise it waits for the holders on their way.
     pub(in crate::sim) fn arrive_together(&mut self, ticket: Ticket) {
         let Some(site) = ticket.site() else {
             return;
@@ -226,9 +222,8 @@ impl Sim {
             return;
         };
         match walks.in_reach {
-            Some(_) if walks.on_footprint => {}
             Some(arrived) => {
-                // Nobody left out: the group's Recruits are off the footprint, and any other unit on it blocks it.
+                // Nobody left out: any unit on the footprint blocks it, a Recruit of the order too (design change 0339).
                 let problems = self.arrival_check(None, ticket.kind, ticket.origin, ticket.orientation);
                 if problems.is_valid() && self.next_id < u32::MAX {
                     self.start_shared_site(ticket, arrived, site);
@@ -260,7 +255,6 @@ impl Sim {
             walks.first.get_or_insert(o.id);
             if !walk.arrived {
                 walks.all_over = false;
-                walks.on_footprint |= on_site(o.kind, o.pos, site);
             } else if walks.in_reach.is_none() && within_reach(&Shape::of(o), site) {
                 walks.in_reach = Some(o.id);
             }

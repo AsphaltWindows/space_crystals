@@ -313,8 +313,8 @@ impl Sim {
     /// refunds" as an Agent's Tunnel).
     ///
     /// (M5-E) A group's Build once, by the first of its holders among `dropped`, and only once none holds it any more
-    /// ([`Sim::refundable`]): **Placeholder (Q0098 point 1)**, "A refund only when no Recruit of the group still holds
-    /// the order".
+    /// ([`Sim::refundable`]): design change 0340 (`factions/cults/economy.md > Cults Building Mechanics > Group
+    /// construction refunds`), "the cost is refunded only once **no Recruit of the group still holds the order**".
     pub(super) fn refund_builds(&mut self, dropped: &[Dropped]) {
         let dropped = self.refundable(dropped, &[]);
         for (i, d) in dropped.iter().enumerate() {
