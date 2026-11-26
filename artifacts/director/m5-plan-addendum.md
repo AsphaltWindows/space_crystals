@@ -46,6 +46,22 @@
 >     - an object is under a cloud when its centre is.
 >
 >     **N4a:** the Disciple is Ungroupable.
+> - **0335** (answers Q0115–Q0118):
+>   - **N2, T72 amended.** The Garrison has one door, on side B (AAAB). Eject All lets everyone out at once through
+>     that door, passing through each other until clear, which replaces `ExitRule::AnySide` with T62's spots.
+>     Evacuation is unchanged. Each occupant picks its own target, Range is measured from the Garrison's edge, there
+>     are no spells from inside, and augmentation doesn't change the borrowed Militant attack.
+>   - **G2:** the Gunworks and Machine Shop become ABAC (in at B, out at C). They still can't be entered until their
+>     research exists (0328). The tech gate follows 0335's general rule: losing the Gunworks never cancels Gunners
+>     already queued or in training, and W greys again for new orders. Test it.
+>   - **N3:** the Temple is ABAC (in at B, out at C), and staff leave one at a time. T72's nearest-side entrance stays
+>     only for the Shrine, until its entrance is decided. Level 2 waits for Level 1 to complete, and the Cathedral is
+>     checked at queue only (T74, confirmed).
+>   - **N5:** a unit is in the circle by its centre; a recast restarts the duration, with no stacking; Shrines are
+>     Ungroupable.
+>   - **S1:** sweep the factions already built for 0335's general rule. Nothing already started or finished may be
+>     cancelled or disabled when a prerequisite is lost. Report what happens to an order given but not yet started,
+>     such as a builder still walking to its site.
 > - **The waves (§C) stand,** but the playtest's timing is the user's call: the full Cults at the end of W12, or a
 >   first playtest of the infantry core at the end of W9 (§F), put to the user on 2026-11-25.
 
