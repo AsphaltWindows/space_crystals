@@ -40,6 +40,13 @@ Rationale — why structures cost both crystals and build time: crystals are the
 - **Under attack**: builders **keep building** (as gatherers keep gathering).
 - **Assist** targets only a building **already under construction**, not a ghost whose order hasn't started.
 
+### Group construction refunds
+(user, 2026-11-26; Q0098)
+- **Partly re-ordered group**: the cost is refunded only once **no Recruit of the group still holds the order** (before construction starts).
+- **All builders killed** before the start: **full refund** (as the Agent's order, 0289).
+- **Shift chains**: each queued building is refunded in full when its **last holder drops it** before its construction starts.
+- **After Cancel Construction**: Recruits with more orders queued (e.g. Shift-queued buildings) **go on to them**; with none, they go idle.
+
 ### Assist Construction Command
 - Select one or more Recruits
 - Select the Assist Construction option
