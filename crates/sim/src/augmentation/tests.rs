@@ -215,19 +215,40 @@ fn research_reads_each_owner_s_levels() {
     assert_eq!(research.levels(Some(crate::ids::PlayerId(99))), Levels::NONE);
 }
 
-/// `factions/cults/structures/garrison.md`: "Augmentations don't change the borrowed attack": a Recruit with both
-/// Augmentations strikes with its own attack as they make it, and fires a Militant's (slice M5-N2's Garrison) as it is.
-#[test]
-fn a_borrowed_weapon_is_left_as_it_is() {
+/// A Recruit of player 1's with the Augmentations of `kind`, out of a game.
+fn recruit(kind: RecruitKind) -> crate::object::Object {
     let builder = crate::testing::ScenarioBuilder::new("....\n....").spawn(
         ObjectKind::Recruit,
         Some(crate::ids::PlayerId(1)),
         crate::scenario::SpawnAt::Point(glam::Vec2::new(64.0, 64.0)),
     );
     let mut o = crate::sim::Sim::new(&builder.build()).objects().next().unwrap().clone();
-    o.augmentation = Augmentation::of(RecruitKind::Both);
+    o.augmentation = Augmentation::of(kind);
+    o
+}
+
+/// `factions/cults/structures/garrison.md`: "Augmentations don't change the borrowed attack": a Recruit with both
+/// Augmentations strikes with its own attack as they make it, and fires a Militant's (slice M5-N2's Garrison) as it is.
+#[test]
+fn a_borrowed_weapon_is_left_as_it_is() {
+    let o = recruit(RecruitKind::Both);
     let weapon = |kind: ObjectKind| kind.def().unit.as_ref().unwrap().attack.unwrap();
     let (own, militant) = (weapon(ObjectKind::Recruit), weapon(ObjectKind::Militant));
     assert_eq!(augmented(&o, &own, Research::NONE).damage, 4.0, "its own, +1");
     assert_eq!(augmented(&o, &militant, Research::NONE), militant);
+}
+
+/// HP restored goes up to the MaxHP with the Augmentations: a Constitution Recruit at 50 HP, above the kind's 40, is
+/// below its own 60 to a repair (`repair::damage`, slice M5-N8: what it may restore, and the MaxHP of its rate and its
+/// price; no repairer repairs infantry yet) and regenerates up to 60 (`crate::regeneration`, the Tunnel Network's).
+#[test]
+fn restored_hp_goes_up_to_the_max_hp_with_the_augmentations() {
+    let mut o = recruit(RecruitKind::Constitution);
+    o.hp = Some(50.0);
+    assert_eq!(crate::repair::damage(&o, Research::NONE), Some((50.0, 60.0)));
+    for _ in 0..100 {
+        crate::regeneration::regenerate(&mut o, 0.5, Research::NONE);
+    }
+    assert_eq!(o.hp, Some(60.0));
+    assert_eq!(crate::repair::damage(&o, Research::NONE), None, "full");
 }
