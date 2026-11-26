@@ -1,6 +1,6 @@
 # The economy oracle: measured results
 
-The economy oracle (`crates/sim/tests/economy_oracle/`, see `ARCHITECTURE.md > Testing`) plays openings from a real start, the way a player would, through the command gate, and checks them against `factions/gdo/economy.md` and the Syndicate's economy check (`factions/syndicate/units/agent.md > Gathering > Space Crystals`). This page records what it measured. The tests check these numbers against the design, each within the tolerance named where it is checked, so a change that moves one too far fails there. A change that moves one at all updates this page.
+The economy oracle (`crates/sim/tests/economy_oracle/`, see `ARCHITECTURE.md > Testing`) plays openings from a real start, the way a player would, through the command gate, and checks them against `factions/gdo/economy.md`, the Syndicate's economy check (`factions/syndicate/units/agent.md > Gathering > Space Crystals`) and the Cults' (`factions/cults/economy.md > Economy check`). This page records what it measured. The tests check these numbers against the design, each within the tolerance named where it is checked, so a change that moves one too far fails there. A change that moves one at all updates this page.
 
 To print every line, run:
 
@@ -9,7 +9,7 @@ cargo test -p sc_sim --test sim economy_oracle -- --nocapture
 cargo test --release -p sc_sim --test sim economy_oracle -- --ignored --nocapture
 ```
 
-The second command runs the ignored measurements: the Colonists' lines to 6:00, the saturation curve, and the Syndicate's whole table.
+The second command runs the ignored measurements: the Colonists' lines to 6:00, the saturation curve, the Syndicate's whole table, and the Cults' measurements.
 
 ## The GDO (slice M2-J1)
 
@@ -205,3 +205,56 @@ The oracle checks every figure from 3 GU at ±15% (0294: "the table from 3 GU ou
 **The opening** at 3 GU (`opening_field`) is played from the Syndicate's Starting Conditions on the reference layout: the Tunnel, the Hideout in its area, one Agent, 100 SC and 1 Supply. The Agent is sent to the patch, the Hideout is rallied on it, and the Hideout trains an Agent whenever it is free and the bank covers it. The second Agent starts in tick 1 ("the second Agent can start immediately"). The third is paid for at 0:24.6 and comes out to gather at 0:39.56, against 0:34–0:46: pass. The check reads "saturated (3 Agents, 12.5 Space Crystals per second) around 0:40" as the third Agent at work. Three Agents at 3 GU take in 11.83 at best, so the Tunnel never takes in 12.5 without a break with three; from 1:00 to 1:30 it takes in 11.67 SC/s (10.00 before design change 0315).
 
 **The lowest one-base saturation**: one Tunnel takes in at most 12.50 SC/s, against the GDO's 26.67 fully plated and the Colonists' 32 (31.62 measured, above). Pass.
+
+## The Cults (slice M5-L)
+
+The Cults' economy check (`factions/cults/economy.md > Economy check`, design change 0346, answering Q0103) is measured edge to edge, patch to Storage, in whole tiles, at ±15%, in two scenarios on an 8-patch field (`sc_sim::testing::cults::reference_field`). The field is four pairs of patches, A to D from the west, with a free column between pairs. Each pair is a 2-tile face with its own Storage a 1-tile gap south of it: "one Storage per face for the ideal comparison". The Cults start there as from their Starting Conditions: a Recruitment Hall turned to face the field, pair B's Storage, six Recruits of the Hall's and 0 SC. The scripted line (`sc_sim::testing::cults::Cults`) plays through the gate and deals every new Recruit to a seat, at most 5 to a face (design change 0320). Recruits keep their collision.
+
+**Why the free columns.** On 8 adjacent patches with a Storage under each pair, the patch at the end of a face lies a tile from the next face's Storage too, as near as its own. 0345's rule, "the nearest own completed Storage, edge to edge from its patch", then takes the one with the lower id. So faces shared their loads and crowded one another. Measured with a prototype while choosing the layout: four Storages under the row took in 14.44 SC/s with 16 Recruits and 13.47 with 20 (15.85 and 14.28 with the Storages on alternate sides). With the faces apart the same field takes in 20.49 and 21.97.
+
+### Scenario 1: ideal mining
+
+Every target of the check. "Level" is a ratio of 1 within the tolerance; "slightly ahead" is above 1 by at most 15%. A figure out of tolerance is pinned in `economy_oracle/cults.rs` (`OUT_OF_TOLERANCE`) and brought to the designer; the setup is not changed to pass it.
+
+| Figure | Measured | Target | |
+|---|---|---|---|
+| SC/s per Recruit at a 1-tile gap | 1.33 (a 24-tick trip) | ≈ 1.45 | −8.0%, pass |
+| at a 2-tile gap | 0.57 (56 ticks) | ≈ 0.59 | −3.1%, pass |
+| at a 3-tile gap | 0.36 (88 ticks) | ≈ 0.37 | −1.7%, pass |
+| 4 Recruits on a face, each against its rate alone | 1.00 (5.33 SC/s) | full efficiency | pass |
+| 5 Recruits on a face | 0.82 (5.49 SC/s) | full efficiency | −17.7%, out |
+| SC/s per Recruit gained, 2-tile gap to 1 | 0.76 | ~0.86 | −11.4%, pass |
+| SC/s per face gained, 2-tile gap to 1 (4 Recruits: 5.33 against 2.29) | 3.04 | ~+4 | −23.9%, out |
+| A Storage's payback (100 SC over that gain) | 32.9 s | ~25 s | +31.5%, out |
+| The starting Hall from 6 Recruits to 20 | 168.0 s | 168 s | pass |
+| The earliest second Hall, complete | 1:07.62 | ~0:55–1:15 | pass |
+| Crystals by 1:30, against the GDO's | 952 / 980 = 0.97 | level | pass |
+| against the Colonists' | 952 / 1032 = 0.92 | level | pass |
+| Crystals by 2:48, against the GDO's | 2408 / 2670 = 0.90 | slightly ahead | out |
+| against the Colonists' | 2408 / 2744 = 0.88 | slightly ahead | out |
+
+- **The trip** is 24 ticks at a 1-tile gap, not the design's 22 frames. A Recruit stops at the first 4 su step that brings it within reach, so it walks 28 su each way, not 24 (`tests/recruit_gathering/trips.rs`). That is all of the 8% under 1.45, and the reason every income below runs under the design's.
+- **A face** holds 4 Recruits at full efficiency, at a 1- and a 2-tile gap. A fifth adds only 0.16 SC/s at a 1-tile gap: the face has two lanes, and five Recruits wait for them (0.95 of full efficiency at a 2-tile gap, 2.71 SC/s, where the trips are longer). The whole field takes in 20.49 SC/s with 16 Recruits (0.96 each) and 21.97 with 20 (0.82).
+- **The gain per face** is the design's per-Recruit gain over 4 Recruits, at the measured trips: 0.76 × 4 = 3.04, not "~+4" (which is 0.86 times 4.65). So the payback runs longer than "~25 s".
+- **The earliest second Hall** is ordered the moment the bank holds 300 SC, at 0:39.88, and built by the 4 Recruits nearest its site. Built by 6 it is complete at 1:01.50, by 2 at 1:28.94 (out), by 1 at 2:13.50.
+- **Level, then behind.** Scenario 1 stays level with both until 1:30, then falls behind: 202, 538, 952, 1456, 2026 and 2408 SC by 0:30, 1:00, 1:30, 2:00, 2:30 and 2:48, against the GDO's 210, 540, 980, 1530, 2200 and 2670 and the Colonists' 208, 568, 1032, 1616, 2304 and 2744. Two things put it behind: the 24-tick trip, 8% under the design's rate all along, and from 2:06, when the field holds 16 Recruits (4 a face), the fifth Recruit of each face, which adds little.
+
+### Scenario 2: the realistic opening
+
+The user's build line, with no target ("the docs have no target for it yet; it tells whether the Cults stay level when they expand early"). The line starts with the one starting Storage, B's. It deals the Recruits face by face outward: B's first, then C's and A's together, then D's, 5 to a face, and leaves a Recruit without a seat idle. It saves for a second Hall without building any Storage. That Hall stands east of pair D across three free columns, turned so that its exit faces the field (`SECOND_HALL`): the nearest site with its whole Recruitment Area on the map and its own, so its Effectiveness is 100%. It is built by every Recruit whose patch has no own Storage a tile from it ("all the non-optimal Recruits"). Then the Storages of C, A and D follow in turn, each built by the Recruits still on such patches.
+
+- The second Hall is ordered at 0:57.62 by 4 Recruits and complete at 1:33.94. The Storages are complete at 1:41.50 (C's, by 8), 1:52.25 (A's, by 4) and 2:14.62 (D's, by 1). At 2:48 one Recruit is idle.
+
+| By | GDO | Colonists | Cults, ideal | Cults, realistic | Realistic against the GDO | against the Colonists |
+|---|---|---|---|---|---|---|
+| 0:30 | 210 | 208 | 202 | 116 | 0.55 | 0.56 |
+| 1:00 | 540 | 568 | 538 | 308 | 0.57 | 0.54 |
+| 1:30 | 980 | 1032 | 952 | 504 | 0.51 | 0.49 |
+| 2:00 | 1530 | 1616 | 1456 | 764 | 0.50 | 0.47 |
+| 2:30 | 2200 | 2304 | 2026 | 1280 | 0.58 | 0.56 |
+| 2:48 | 2670 | 2744 | 2408 | 1668 | 0.62 | 0.61 |
+
+Crystals gathered since 0:00: the GDO's mined by its reference line, the Colonists' delivered by theirs, each on its own reference field.
+
+- The realistic opening is far from level: half the GDO's and the Colonists' crystals by 1:30, 0.6 by 2:48. Until its Storages stand, every Recruit off B's face walks to B's Storage from 90 to 324 su away, and those Recruits crowd it. A Recruit that cannot reach its patch through the crowd takes another one (design change 0141), so the line's faces mix.
+- The other dealing orders and crews tried (`cults_measurements`) gather less: 438 to 504 SC by 1:30 and 1266 to 1668 by 2:48. Dealing the nearest patches first (C's and A's 90 su patches, then their 143 su ones) does worse than face by face.

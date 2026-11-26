@@ -32,15 +32,15 @@
 //!   line mined (`played::plates_first`) and the Colonists' delivered (`colonists::Line`), each on its own reference
 //!   field. Level is a ratio of 1, within the tolerance; slightly ahead, above 1 by at most 15%.
 //!
-//! **Scenario 2's line** (0346: "start with the one starting Storage; save for a second Recruitment Hall without
+//! **Scenario 2's line** (the check: "start with the one starting Storage; save for a second Recruitment Hall without
 //! building any extra Storages, spreading new Recruits to patches farther from the starting Storage; build the second
 //! Hall with all the non-optimal Recruits (those on the far patches); then build Storages around the patches, one per
-//! face"; where the Hall goes and how far Recruits are dealt is "your choice"): the Recruits dealt face by face outward
-//! (B's, the starting Storage's, first, then C's and A's together, then D's), 5 to a face, a Recruit without a free
-//! seat left idle; the second Hall at [`SECOND_HALL`] once the bank holds 300, by every Recruit whose patch has no own
-//! Storage a tile from it ([`Crew::Far`]); then the Storages of C, A and D in turn, each by the Recruits still on such
-//! patches. Other dealing orders and crews move its totals by up to a fifth, and none of them nears the others'
-//! ([`cults_measurements`]).
+//! face"; design change 0346: "Where the second Hall goes, and how the far Recruits are assigned, is your choice
+//! within the description"): the Recruits dealt face by face outward (B's, the starting Storage's, first, then C's and
+//! A's together, then D's), 5 to a face, a Recruit without a free seat left idle; the second Hall at [`SECOND_HALL`]
+//! once the bank holds 300, by every Recruit whose patch has no own Storage a tile from it ([`Crew::Far`]); then the
+//! Storages of C, A and D in turn, each by the Recruits still on such patches. The other dealing orders and crews that
+//! [`cults_measurements`] tries gather less, and none nears the GDO or the Colonists.
 //!
 //! `cargo test -p sc_sim --release --test sim economy_oracle::cults -- --ignored --nocapture` prints the
 //! measurements behind `docs/economy_oracle.md > The Cults`.
@@ -393,9 +393,9 @@ fn cults_measurements() {
     }
     for builders in [1, 2, 4, 6] {
         let build = Build::new(ObjectKind::RecruitmentHall, SECOND_HALL, Crew::Nearest(builders));
-        let game = Game::play(reference_field(&[0, 1, 2, 3]), ideal().build(build), at(2, 0));
+        let game = Game::play(reference_field(&[0, 1, 2, 3]), ideal().build(build), at(3, 0));
         let [(ordered, built, _)] = game.built(ObjectKind::RecruitmentHall)[..] else {
-            panic!()
+            panic!("the second Hall by {builders}, not complete by 3:00")
         };
         println!(
             "the second Hall by {builders}: ordered {}, complete {}",
