@@ -30,7 +30,9 @@ impl Sim {
     ///
     /// A producer's whole queue is refunded as if cancelled, a finished unit waiting inside for the doorway included
     /// (design changes 0084 and 0085, `Sim::refund_production`); of the army cap it frees what its unit in production
-    /// took, the only one of the queue that took any (design change 0143).
+    /// took, the only one of the queue that took any (design change 0143). But a building that trains the units inside
+    /// it lets its finished one out trained, unrefunded (design change 0349 point 3: "comes out as the trained unit,
+    /// with no refund"; `Sim::evacuations`, before the refunds).
     /// A rally point on a removed object resets to None, and a unit in the doorway of a removed building is an
     /// ordinary unit from then on.
     ///
@@ -59,9 +61,10 @@ impl Sim {
     /// Tunnel can let out (`factions/syndicate/tunnels.md > Losing Tunnels`, slice M4-H: `sim/tunnels.rs`), once it
     /// and everything else of `ids` has gone.
     ///
-    /// Everyone inside a building that holds units comes out alive around its footprint, once it and everything else
-    /// of `ids` has gone, in the same call, so always before the defeat check (`factions/cults/economy.md > Cults
-    /// Building Mechanics > Evacuation on Destruction`; slice M5-F1, `sim/holding/evacuation.rs`).
+    /// Everyone inside a building that holds units comes out alive inside its former footprint, all at once, once it
+    /// and everything else of `ids` has gone, in the same call, so always before the defeat check
+    /// (`factions/cults/economy.md > Cults Building Mechanics > Evacuation on Destruction`; slice M5-F1, design change
+    /// 0349; `sim/holding/evacuation.rs`).
     ///
     /// The grids aren't touched: phase 5b catches up with a footprint that went away, and a removal after it must
     /// sync them (`paths::sync`).
@@ -73,8 +76,8 @@ impl Sim {
         );
         gone.sort_unstable();
         gone.dedup();
-        // The units inside the buildings that go, in the order they come out (`sim/holding/evacuation.rs`): first,
-        // while the queues still say which units their orders reserved (slice M5-F2), before the refunds below.
+        // The units inside the buildings that go (`sim/holding/evacuation.rs`): first, with a finished training taken
+        // off its queue unrefunded (design change 0349 point 3), before the refunds below.
         let evacuations = self.evacuations(&gone);
         // The workers gathering at a patch that goes, while it is still there to say where it was
         // (`Sim::keep_gatherers_on_spots`), and those on their way back to a drop-off that goes
@@ -99,7 +102,7 @@ impl Sim {
         }
         self.events.extend(gone.iter().map(|&id| SimEvent::Removed(id)));
         self.forget_references(&gone);
-        // Everyone inside comes out alive around the footprints, now clear of them (slice M5-F1).
+        // Everyone inside comes out alive inside the footprints, which have gone (slice M5-F1, design change 0349).
         self.evacuate(&evacuations);
         // What the Tunnels leave behind (`factions/syndicate/tunnels.md > Losing Tunnels`, `sim/tunnels.rs`): their
         // expansions neutral, their unfinished ones destroyed, and the network units stranded.

@@ -1,6 +1,7 @@
-//! The movement invariants I1–I7 of `docs/movement.md > 8` (I1 with its two exceptions of design change 0106,
-//! [`may_overlap`]; I2 with its one exception, the exit doorway of design change 0080, and of a portal design change
-//! 0145's energy doorway), checked from outside through the sim's public state,
+//! The movement invariants I1–I7 of `docs/movement.md > 8` (I1 with its two exceptions of design change 0106 and
+//! the evacuation's of design change 0349, [`may_overlap`]; I2 with its one exception, the exit doorway of design
+//! change 0080, and of a portal design change 0145's energy doorway), checked from outside through the sim's
+//! public state,
 //! the vision invariant V1 (the vision kept up tick by tick is the one a fresh build gives, and every Visible tile
 //! is Explored: `vision`), the path knowledge invariant K1 (each player's planning grids are those a fresh build
 //! from the state gives: `paths`), the projectile invariant P1 (every projectile lands by its arrival tick:
@@ -22,6 +23,7 @@ use glam::Vec2;
 
 use crate::command::{Command, DebugCommand, TickInputs};
 use crate::defs::{Domain, MovementModel};
+use crate::events::SimEvent;
 use crate::ids::ObjectId;
 use crate::mover::{Locomotion, MoveGoal, MoveStatus, Mover, PathState};
 use crate::nav;
@@ -112,9 +114,16 @@ impl Invariants {
                 _ => None,
             })
             .collect();
+        // (M5-F3) The units evacuated in this tick (design change 0349), which came onto the map overlapping.
+        let evacuated: Vec<ObjectId> = (sim.events().iter())
+            .filter_map(|e| match *e {
+                SimEvent::Evacuated { unit, .. } => Some(unit),
+                _ => None,
+            })
+            .collect();
         let result = self
-            .check_units(sim, &teleported)
-            .and_then(|()| no_overlaps(sim, &self.seen))
+            .check_units(sim, &teleported, &evacuated)
+            .and_then(|()| no_overlaps(sim, &self.seen, &evacuated))
             .and_then(|()| vision(sim))
             .and_then(|()| path_knowledge(sim))
             .and_then(|()| projectiles::projectiles(sim))
@@ -124,7 +133,7 @@ impl Invariants {
         result
     }
 
-    fn check_units(&self, sim: &Sim, teleported: &[ObjectId]) -> Result<(), Violation> {
+    fn check_units(&self, sim: &Sim, teleported: &[ObjectId], evacuated: &[ObjectId]) -> Result<(), Violation> {
         let tick = sim.tick();
         let overlapped = overlapped_before(sim, &self.seen);
         for o in sim.objects() {
@@ -241,8 +250,11 @@ impl Invariants {
                 );
             }
             let coasting = drag && had_momentum;
-            // An idle unit that overlapped another moves off it (design change 0126, `movement::separate`).
-            let separating = overlapped.contains(&o.id) && o.orders.as_ref().is_some_and(|orders| orders.is_idle());
+            // An idle unit that overlapped another moves off it (design change 0126, `movement::separate`), and so does
+            // one evacuated in this tick, which may have come out in its commands phase, before the movement
+            // (`may_overlap`'s exception 3).
+            let separating = (overlapped.contains(&o.id) || evacuated.contains(&o.id))
+                && o.orders.as_ref().is_some_and(|orders| orders.is_idle());
             if o.pos != o.prev_pos
                 && mover.goal == MoveGoal::None
                 && !had_goal
@@ -334,8 +346,9 @@ fn path_knowledge(sim: &Sim) -> Result<(), Violation> {
 }
 
 /// I1: no two units of a layer with hard collision overlap. Touching is free.
-/// I1's two exceptions (design change 0106): whether the units `a` and `b` of one layer, whose boxes overlap as
-/// the tick ends, may. `before` is what the checker saw of the units a tick earlier.
+/// I1's exceptions (design changes 0106 and 0349): whether the units `a` and `b` of one layer, whose boxes overlap as
+/// the tick ends, may. `before` is what the checker saw of the units a tick earlier, `evacuated` the units evacuated
+/// in this tick.
 ///
 /// 1. **Gathering Drones** (`factions/colonists/units/drone.md > Gathering Drones pass through each other`):
 ///    both are Drones on a Gather job. The movement step saw a unit so if it is on one now, or was a tick earlier
@@ -346,12 +359,17 @@ fn path_knowledge(sim: &Sim) -> Result<(), Violation> {
 /// 2. **Units that already overlap** (`systems/units.md > UnitCollision > Units that already overlap`): the two
 ///    overlapped a tick earlier too. They ignore each other until they have separated, so the pair may move in
 ///    any way meanwhile; once apart it is held to I1 again, like every pair that never overlapped.
+/// 3. **Evacuated units** (slice M5-F3; `factions/cults/economy.md > Cults Building Mechanics > Evacuation on
+///    Destruction`, design change 0349: "evacuated units **all appear at the same time inside its former footprint**
+///    [...]. Units that overlap ignore each other until separated"): one of the two came out of a destroyed building
+///    in this tick (`SimEvent::Evacuated`), overlapping another that came out with it, or a unit still in the
+///    building's doorway. From the next tick on the pair is exception 2's.
 ///
 /// Everything else fails: two units that come to overlap, unless both are gathering Drones. (M3-D2) A portal's
 /// energy doorway (design change 0145) takes no exception here: its unit appears at the centre only where its box is
 /// clear of every unit and walks out only up to contact, so it overlaps no unit (`tests/production/portal_stalls.rs`
 /// has the negative test).
-fn may_overlap(a: &Object, b: &Object, before: &BTreeMap<ObjectId, Seen>) -> bool {
+fn may_overlap(a: &Object, b: &Object, before: &BTreeMap<ObjectId, Seen>, evacuated: &[ObjectId]) -> bool {
     let gathered = |o: &Object| {
         let idle = o.orders.as_ref().is_some_and(|orders| orders.current.is_none());
         gather::on_gather_job(o) || (idle && before.get(&o.id).is_some_and(|seen| seen.gathering))
@@ -365,7 +383,7 @@ fn may_overlap(a: &Object, b: &Object, before: &BTreeMap<ObjectId, Seen>) -> boo
         };
         boxes_overlap(was_a.pos, a_half, was_b.pos, b_half)
     };
-    (gathered(a) && gathered(b)) || overlapped()
+    (gathered(a) && gathered(b)) || overlapped() || evacuated.contains(&a.id) || evacuated.contains(&b.id)
 }
 
 /// The units whose box overlapped another unit's of their layer a tick earlier, by what the checker saw then: those
@@ -399,8 +417,8 @@ fn overlapped_before(sim: &Sim, before: &BTreeMap<ObjectId, Seen>) -> Vec<Object
     found
 }
 
-/// I1: no two units of a layer overlap, but for the two exceptions of [`may_overlap`].
-fn no_overlaps(sim: &Sim, before: &BTreeMap<ObjectId, Seen>) -> Result<(), Violation> {
+/// I1: no two units of a layer overlap, but for the exceptions of [`may_overlap`].
+fn no_overlaps(sim: &Sim, before: &BTreeMap<ObjectId, Seen>, evacuated: &[ObjectId]) -> Result<(), Violation> {
     for domain in [Domain::Ground, Domain::Underground] {
         // (low x, position, half extents, the unit), by low x: a unit only meets those starting before its high x.
         let mut boxes: Vec<(f32, Vec2, Vec2, &Object)> = sim
@@ -417,7 +435,7 @@ fn no_overlaps(sim: &Sim, before: &BTreeMap<ObjectId, Seen>) -> Result<(), Viola
                 if low >= a.x + a_half.x {
                     break;
                 }
-                if boxes_overlap(a, a_half, b, b_half) && !may_overlap(a_unit, b_unit, before) {
+                if boxes_overlap(a, a_half, b, b_half) && !may_overlap(a_unit, b_unit, before, evacuated) {
                     return Err(Violation {
                         invariant: "I1",
                         message: format!("#{} at {a} and #{} at {b} overlap", a_unit.id.0, b_unit.id.0),

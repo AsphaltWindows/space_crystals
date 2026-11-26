@@ -292,6 +292,12 @@ impl NavGrid {
         self.index(t).is_none_or(|i| self.solid[i as usize])
     }
 
+    /// (M5-F3) The terrain's part of [`NavGrid::is_solid`]: whether tile `t` is impassable for the class whatever
+    /// stands on it, no footprint counted. Outside the map: yes.
+    pub fn is_terrain_solid(&self, t: TilePos) -> bool {
+        self.index(t).is_none_or(|i| self.terrain[i as usize])
+    }
+
     /// The component label of a passable tile; `None` for a blocked one. Two tiles have a path between them
     /// exactly when their labels are equal.
     pub fn component(&self, t: TilePos) -> Option<u32> {

@@ -108,6 +108,18 @@ pub fn segment_avoids(a: Vec2, b: Vec2, tiles: &[TilePos]) -> bool {
 
 /// Whether a box with half extents `half` centred on `p` overlaps no solid tile and lies inside the map.
 pub fn box_clear(grid: &NavGrid, half: Vec2, p: Vec2) -> bool {
+    box_over(grid, half, p, |t| !grid.is_solid(t))
+}
+
+/// (M5-F3) [`box_clear`] by the terrain alone (`NavGrid::is_terrain_solid`): whether a box with half extents `half`
+/// centred on `p` lies inside the map, on tiles the grid's class may stand on whatever stands on them. For a unit put
+/// on the map where a footprint has just gone, before the grids catch up with it (`Sim::evacuate`).
+pub fn box_on_terrain(grid: &NavGrid, half: Vec2, p: Vec2) -> bool {
+    box_over(grid, half, p, |t| !grid.is_terrain_solid(t))
+}
+
+/// Whether a box with half extents `half` centred on `p` lies inside the map, and every tile it overlaps is `free`.
+fn box_over(grid: &NavGrid, half: Vec2, p: Vec2, free: impl Fn(TilePos) -> bool) -> bool {
     if !p.is_finite() {
         return false;
     }
@@ -122,7 +134,7 @@ pub fn box_clear(grid: &NavGrid, half: Vec2, p: Vec2) -> bool {
     if !grid.in_bounds(first) || !grid.in_bounds(last) {
         return false;
     }
-    (first.y..=last.y).all(|y| (first.x..=last.x).all(|x| !grid.is_solid(TilePos::new(x, y))))
+    (first.y..=last.y).all(|y| (first.x..=last.x).all(|x| free(TilePos::new(x, y))))
 }
 
 /// The point nearest to `p` inside passable tile `tile` where the box is clear of the tile's solid neighbours,

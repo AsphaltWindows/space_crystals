@@ -13,23 +13,26 @@
 //! - **Entering** (`systems/controls/commands.md > Enter`: "The unit walks to the structure's entrance side and goes
 //!   inside"; "Cults — Armory, Cathedral: Recruits only (to be trained), up to the building's internal capacity"; its
 //!   TargetObject "the structure being entered", design change 0319, answering Q0108 point 1): M4-C's Enter order and
-//!   entry path, one rule with the Tunnel's (`network::EntryPath`, `network::admits`). The entry path is the middle
-//!   of the entrance side ([`entry_path`]; Placeholder (Q0104 point 1): "The middle of side B, as the Tunnel's Side
-//!   A"). The building takes a unit of a kind it accepts ([`admits`]) once it is in operation (Placeholder (Q0104
-//!   point 4): an Armory under construction can't be entered; "A right-click on one Assists", slice M5-E). A unit
-//!   that reaches the entry path goes in if the building has room (`Sim::room`: every unit inside counts, those its
-//!   orders reserved included; design change 0347 point 5: "Capacity counts reserved units: the queue can never
-//!   exceed the capacity"); with none, "the Enter ends and it idles beside the Armory (the normal Failure rule)"
-//!   (Placeholder (Q0104 point 2)).
+//!   entry path, one rule with the Tunnel's (`network::EntryPath`, `network::admits`). The entry path is the doorway
+//!   at the middle of the entrance side ([`entry_path`]; design change 0347 point 1, `core/entities.md > Entrance and
+//!   exit (production and research buildings)`: "The entrance is a dedicated doorway at the middle of the entrance side
+//!   (like the Exit Doorway): units walk to it and go in there"): a unit goes in once its box is within reach of that
+//!   middle (`EntryPath::reached`), and nowhere else along the side. The building takes a unit of a kind it accepts
+//!   ([`admits`]) once it is in operation (0347 point 4, `factions/cults/structures/README.md > Entering pool
+//!   buildings`: "a building under construction **can't be entered**; a right-click on it Assists", slice M5-E's
+//!   Assist). A unit that reaches the entry path goes in if the building has room (`Sim::room`: every unit inside
+//!   counts, those its orders reserved included; 0347 point 5: "Capacity counts reserved units: the queue can never
+//!   exceed the capacity"); with none, "a unit arriving when the building is full has its Enter **end** and idles
+//!   beside the building (the normal Failure rule)" (0347 point 2).
 //! - **Eject All** (`factions/cults/structures/armory.md > Eject All`: "ejects all stored Recruits from the exit side
 //!   in a rapid stream, one after another"): the pool comes out through the building's exit doorway, one at a time
 //!   (`core/entities.md > Structure Type > Exit Doorway`, M2's `production::Doorway`), each once the one before it is
 //!   out of the doorway, and walks to the building's rally point, straight out of it without one (design change 0348:
 //!   "ejected and released units walk **to the RallyPoint**"; `sim/holding.rs`).
 //! - **Evacuation** (`factions/cults/economy.md > Cults Building Mechanics > Evacuation on Destruction`: "Everyone
-//!   inside is evacuated alive"; "evacuated units appear around the building's footprint wherever there is open
-//!   space, unharmed"): as the building leaves the game, every unit inside it comes out at the spots around its
-//!   footprint (plan decision T62, `placement::spots`), idle (`sim/holding/evacuation.rs`).
+//!   inside is evacuated alive"; design change 0349: "evacuated units **all appear at the same time inside its former
+//!   footprint**, unharmed, spread over it"): as the building leaves the game, every unit inside it comes out on the
+//!   footprint's tiles, idle, the units that overlap parted by the movement (`sim/holding/evacuation.rs`).
 
 use glam::Vec2;
 
@@ -55,8 +58,9 @@ pub fn trains(kind: ObjectKind) -> bool {
 
 /// Whether `building` takes a unit of `kind` in (`systems/controls/commands.md > Enter`: "an own structure that can
 /// hold units"): it is a building that holds units, placed, with an owner, in operation (`Object::is_operational`;
-/// Placeholder (Q0104 point 4): "an Armory under construction can't be entered"), and its type accepts the kind
-/// (`HoldsDef::accepts`). Whose units may go in, and whether its pool has room, are the sim's (`Sim::step_entries`).
+/// design change 0347 point 4, `factions/cults/structures/README.md > Entering pool buildings`: "a building under
+/// construction **can't be entered**"), and its type accepts the kind (`HoldsDef::accepts`). Whose units may go in,
+/// and whether its pool has room, are the sim's (`Sim::step_entries`).
 pub fn admits(building: &Object, kind: ObjectKind) -> Result<(), NoTransit> {
     let holds = holds(building).ok_or(NoTransit::NotATunnel)?;
     if building.placement.is_none() || building.owner.is_none() || !building.is_operational() {
@@ -78,9 +82,10 @@ pub fn admits(building: &Object, kind: ObjectKind) -> Result<(), NoTransit> {
 /// round an Armory to side B).
 pub(crate) const ENTRY_STANDOFF_SU: f32 = ENTRY_REACH_SU / 2.0;
 
-/// The entry path of `building`, a placed building that holds units: the middle of its entrance side
-/// (`HoldsDef::entrance`), facing out of it (Placeholder (Q0104 point 1): "The middle of side B, as the Tunnel's Side
-/// A"), walked to [`ENTRY_STANDOFF_SU`] clear of the wall. `None` for anything else.
+/// The entry path of `building`, a placed building that holds units: the doorway at the middle of its entrance side
+/// (`HoldsDef::entrance`), facing out of it (design change 0347 point 1, `core/entities.md > Entrance and exit
+/// (production and research buildings)`: "The entrance is a dedicated doorway at the middle of the entrance side"),
+/// walked to [`ENTRY_STANDOFF_SU`] clear of the wall. `None` for anything else.
 pub fn entry_path(building: &Object) -> Option<EntryPath> {
     let holds = holds(building)?;
     let placement = building.placement.as_ref()?;

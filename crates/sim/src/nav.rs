@@ -32,7 +32,7 @@ use crate::units::{SU_PER_GU, TilePos};
 
 pub use grid::NavGrid;
 pub(crate) use los::segment_enters_box;
-pub use los::{box_clear, los, reachable_point, segment_avoids, smooth, smooth_avoiding};
+pub use los::{box_clear, box_on_terrain, los, reachable_point, segment_avoids, smooth, smooth_avoiding};
 pub use search::{Search, TilePath};
 pub use serve::{
     Path, PathFail, PathGroup, PathRequest, ServeOutput, Served, find_path, find_path_within, serve, serve_on,
