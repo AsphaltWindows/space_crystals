@@ -181,6 +181,11 @@ impl Line {
         Self { t, line, books, counts }
     }
 
+    /// Player 1's books: `books()[i]` is the step to tick `i + 1`'s.
+    pub(super) fn books(&self) -> &[Entry] {
+        &self.books
+    }
+
     /// What player 1's Drones delivered from tick `from + 1` to tick `to`.
     pub(super) fn delivered(&self, from: Tick, to: Tick) -> u32 {
         self.books[from as usize..to as usize].iter().map(|e| e.delivered).sum()

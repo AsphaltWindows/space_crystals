@@ -3084,13 +3084,16 @@ their energy doorway, slice M3-D2: design change 0145, `factions/colonists/struc
   the Syndicate economy check's reference layouts (design changes 0259 and 0294), and `syndicate::skirmish` plays
   `dev_skirmish` with a Syndicate line, alone or against the GDO's (the Syndicate's golden games).
   `testing::cults` (slice M5-L) plays a Cults player the same way: a `Cults` line deals each idle Recruit to a seat
-  (a patch, in groups, at most a face's 4 to 5, design change 0320) once the player has a completed Storage, orders
-  its buildings in turn, each as one group Build from its crew (the Recruits on patches with no own Storage a tile
-  away, or the `n` nearest the site) with each builder's Gather queued back after it, sends idle Recruits into its
-  first Armory and trains Militants of them (`ProductionCommand::TrainFrom`), and records what it pays by tick for
-  `Books`. `reference_field(faces)`, `crowd_field(recruits)` and `face_field(gap, recruits)` are the Cults economy
-  check's layouts (design change 0346), and `cults::skirmish` plays `dev_skirmish` with a Cults line, alone or against
-  a Syndicate one (the Cults' golden games).
+  (a patch, in groups, near what the design says a face holds: 4 to 5 a 2-tile face, design change 0320, and since
+  0380 about 2 Recruits a tile of face length) once the player has a completed Storage, and keeps the seat it dealt
+  until the Recruit is idle again (slice M5-S2a), orders its buildings in turn, each as one group Build from its crew
+  (the Recruits on patches with no own Storage a tile away, or the `n` nearest the site) with each builder's Gather
+  queued back after it, sends idle Recruits into its first Armory and trains Militants of them
+  (`ProductionCommand::TrainFrom`), and records what it pays by tick for `Books`. `reference_field(faces)`,
+  `crowd_field(recruits)` and `face_field(side, gap, recruits)` are the Cults economy check's layouts (design change
+  0346; for the 3x2 Storage since slice M5-S2a: three faces of 3, 3 and 2 patches), `adjacent_field` the one its free
+  columns are measured against, and `cults::skirmish` plays `dev_skirmish` with a Cults line, alone or against a
+  Syndicate one (the Cults' golden games).
 - **Movement scenario tests** are `crates/sim/tests/movement_collision/` (passing, head-on, choke, group arrival,
   idle units, repaths, oscillation bounds, save and load in a crowd; in modules by topic: `passing`, `crowds`,
   `paths`), `group_destinations.rs` (the magic box; a
@@ -3187,13 +3190,15 @@ their energy doorway, slice M3-D2: design change 0145, `factions/colonists/struc
   row (rows 0 to 2 are theoretical: the ignored `syndicate_table` measures them for the record); the ceiling, no two
   deliveries at a Tunnel less than 64 ticks apart, in every game; two stacked Tunnels at 3 GU doubling the field's
   intake; the opening at 3 GU from the Starting Conditions, its third Agent out within 0:34–0:46, both books
-  balanced every tick; and the lowest one-base saturation. **The Cults** (slice M5-L, `cults.rs`): the economy check
-  of `factions/cults/economy.md > Economy check` (design change 0346) on `testing::cults`'s layouts, played by a
-  `Cults` line through the gate with the books balanced every tick. Scenario 1, ideal mining (one Storage per face):
-  every target within ±15%, those out of it pinned (`OUT_OF_TOLERANCE`: the fifth Recruit of a face, the gain per face
-  of a Storage a tile closer and its payback, and "slightly ahead by 2:48"). Scenario 2, the user's realistic opening
-  (a second Hall before any other Storage, built by the Recruits on far patches, then a Storage per face): measured
-  against the GDO and the Colonists at 1:30 and 2:48 and reported, with no target.
+  balanced every tick; and the lowest one-base saturation. **The Cults** (slices M5-L and M5-S2a, `cults.rs`): the
+  economy check of `factions/cults/economy.md > Economy check` (design change 0346) on `testing::cults`'s layouts,
+  played by a `Cults` line through the gate with the books balanced every tick. Scenario 1, ideal mining (one Storage
+  per face): every target within ±15%, those out of it pinned (`OUT_OF_TOLERANCE`: "slightly ahead by 2:48" of the
+  GDO and of the Colonists). Scenario 2, the user's realistic opening (a second Hall before any other Storage, built by
+  the Recruits on far patches, then a Storage per face). The comparison (design changes 0381 to 0383): both scenarios,
+  the GDO's reference line and the Colonists' to 6:00, each one's income over the 160 frames before, total mined, bank
+  and spent at 1:30, 2:48, 4:00, 5:00 and 6:00, bank + spent = starting bank + total mined at each, every figure
+  pinned (`COMPARED`), and whether the realistic opening has overtaken ideal mining by 4:00 (`OVERTAKEN`).
 - **Game start tests** are `crates/sim/tests/game_start/` (slice M2-F1: each player's Starting Layout and banks,
   the Skirmish Default restriction and completeness, the layout rules of design change 0097, a layout plate off its
   patch refused by the game's rule, a pre-placed one by the same rule, two players' layouts in each other's way, the

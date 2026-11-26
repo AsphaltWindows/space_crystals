@@ -46,9 +46,11 @@ pub const CULTS: PlayerId = PlayerId(1);
 /// The Syndicate's, in slot 2.
 pub const SYNDICATE: PlayerId = PlayerId(2);
 /// Seats on slot 1's field (`dev_skirmish`'s first spawns, in its order) a tile from the starting Storage on (5, 4)
-/// to (6, 5), edge to edge: the northern row's (4, 2) to (7, 2), patches 5 to 8, two on each of the two straight
-/// above the Storage, and (3, 3), patch 4. Seven seats, within the design's 4–5 Recruits a 2-tile face (design
-/// change 0320) for the Storage's north face and its corner.
+/// to (7, 5), edge to edge: the northern row's (4, 2) to (7, 2), patches 5 to 8, two each on patches 6 and 7 and one
+/// on patch 8, the three straight above the Storage's long north side, and one on patch 5 at its corner; and (3, 3),
+/// patch 4. Seven seats, as slice M5-L set them for the 2x2 Storage of the time (design change 0320's 4–5 Recruits a
+/// 2-tile face, for its north face and its corner); kept with the 3x2 (design change 0380), whose 3-tile side holds
+/// "about 2 Recruits per tile of face length".
 pub const NEAR: [(ObjectId, u32); 5] = [
     (ObjectId(6), 2),
     (ObjectId(7), 2),
