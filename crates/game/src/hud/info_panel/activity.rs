@@ -12,9 +12,11 @@
 //!   and its progress, or the building ready to place;
 //! - recruitment (a Recruitment Hall's, slice M5-C, [`recruitment`]): its Effectiveness, by the tiles it claims, and
 //!   its LocalUnitControlUsage over its LocalUnitControlCapacity;
+//! - holding (a building that holds units, slice M5-F2, [`holding`]): how many are inside of its capacity, and a pool
+//!   building's free ones of each kind;
 //! - production (the production capability of slice M2-D2, [`production`]): the unit in production and its
 //!   progress, the wait for room under the army cap (design change 0143), the queue length (not a Hall's, which has
-//!   no queue to fill), and the rally point;
+//!   no queue to fill; a pool building's entries by name, of its capacity), and the rally point;
 //! - a Tunnel's operation (slice M4-F, [`operation`]): the expansion it builds and its progress, or the tier it
 //!   upgrades to and its progress (slice M4-G).
 //!
@@ -22,9 +24,9 @@
 //! can check them without the UI. Their wording is a placeholder until the panel's layout exists (Q0001).
 
 use sc_sim::construction::recipe;
-use sc_sim::recruitment;
 use sc_sim::tunnel::Operation;
-use sc_sim::{Category, Constructor, Object, PlayerId, QUEUE_LIMIT, Rally, Sim, TargetView};
+use sc_sim::{Category, Constructor, Object, PlayerId, QUEUE_LIMIT, QueueEntry, Rally, RecruitKind, Sim, TargetView};
+use sc_sim::{holding, recruitment};
 
 use crate::fog::Sight;
 use crate::selection::Relation;
@@ -35,6 +37,7 @@ pub fn lines(sim: &Sim, sight: &Sight, structure: &Object) -> Vec<String> {
     let mut lines = transformation(structure);
     lines.extend(construction(structure));
     lines.extend(recruitment(sim, structure));
+    lines.extend(holding(sim, structure));
     lines.extend(production(sim, sight, structure));
     lines.extend(operation(sim, structure));
     lines
@@ -76,11 +79,12 @@ pub fn construction(structure: &Object) -> Vec<String> {
     }
 }
 
-/// A Recruitment Hall's lines (`factions/cults/economy.md > RecruitmentHall > RecruitmentHallInstanceState`, slice
+/// A Recruitment Hall's lines (`factions/cults/structures/recruitment_hall.md > RecruitmentHallInstanceState`, slice
 /// M5-C; `Sim::hall_state`): its Effectiveness in whole percent rounded down, with the Recruitable tiles it claims of
-/// its area's, and its Unit Control, LocalUnitControlUsage over LocalUnitControlCapacity rounded down (**Placeholder
-/// (Q0099 point 2)**). A Hall under construction claims nothing (**Placeholder (Q0099 point 4)**). Nothing for another
-/// structure. Its ProductionProgress is [`production`]'s line.
+/// its area's, and its Unit Control, LocalUnitControlUsage, its Recruit in production included (design change 0342),
+/// over LocalUnitControlCapacity rounded down (design change 0341: "Capacity is rounded down everywhere"). A Hall under
+/// construction claims nothing (design change 0341: "A Hall under construction does nothing until it is complete").
+/// Nothing for another structure. Its ProductionProgress is [`production`]'s line.
 pub fn recruitment(sim: &Sim, structure: &Object) -> Vec<String> {
     let Some(hall) = sim.hall_state(structure.id) else {
         return Vec::new();
@@ -96,6 +100,30 @@ pub fn recruitment(sim: &Sim, structure: &Object) -> Vec<String> {
     ]
 }
 
+/// A building's lines while it holds units (slice M5-F1's buildings; `factions/cults/structures/armory.md >
+/// ArmoryInstanceState`: "StoredRecruits: list of Recruit references (max 10)"): how many are inside, the reserved ones
+/// included, of its capacity (design change 0347 point 5: "**Capacity counts everyone inside**"), and a pool building's
+/// free ones of each kind (design change 0337: "the count inside (unreserved)", `Sim::pool_counts`; slice M5-F2), every
+/// kind's. Nothing for a structure that holds none.
+pub fn holding(sim: &Sim, structure: &Object) -> Vec<String> {
+    let Some(holds) = holding::holds(structure) else {
+        return Vec::new();
+    };
+    let mut lines = vec![format!(
+        "Inside: {} / {}",
+        sim.held_in(structure.id).len(),
+        holds.capacity
+    )];
+    if holding::trains(structure.kind) {
+        let counts = sim.pool_counts(structure.id);
+        let kinds: Vec<String> = (RecruitKind::ALL.iter())
+            .map(|&kind| format!("{} {}", kind.name(), counts[kind as usize]))
+            .collect();
+        lines.push(format!("Free: {}", kinds.join(", ")));
+    }
+    lines
+}
+
 /// A producer's lines (`factions/gdo/structures/barracks.md > BarracksInstanceState`): while it has a BuildQueue,
 /// the unit in production (CurrentBuild) with its progress, and how many units are queued, that one included, of
 /// the most a queue holds (design change 0081); then its RallyPoint, while it has one. A unit that is finished but
@@ -105,7 +133,10 @@ pub fn recruitment(sim: &Sim, structure: &Object) -> Vec<String> {
 /// Capacity": placeholder, with the feedback band's message as the wait begins
 /// (`crate::command_ui::feedback::army_cap_text`), for the notification 0143 leaves to be designed. Nothing for an
 /// idle producer without a rally point, nor for a structure that doesn't produce. A Recruitment Hall's Recruit is
-/// "Recruiting", and the Hall shows no queue: it makes one Recruit at a time, by itself (slice M5-C).
+/// "Recruiting", and the Hall shows no queue: it makes one Recruit at a time, by itself (slice M5-C). A pool building's
+/// TrainingQueue (`factions/cults/structures/armory.md > ArmoryInstanceState`) shows its entries by name, a Release as
+/// "Release", of its capacity, which bounds it (design change 0347 point 5); a Release under way is "Releasing" its unit
+/// (slice M5-F2).
 pub fn production(sim: &Sim, sight: &Sight, structure: &Object) -> Vec<String> {
     let Some(production) = &structure.production else {
         return Vec::new();
@@ -119,12 +150,27 @@ pub fn production(sim: &Sim, sight: &Sight, structure: &Object) -> Vec<String> {
             total => u64::from(status.progress) * 100 / u64::from(total),
         };
         let doing = if recruits { "Recruiting" } else { "Training" };
-        lines.push(format!("{doing} {}: {percent}%", status.kind.def().name));
+        let name = match status.entry {
+            QueueEntry::Unit(kind) => format!("{doing} {}", kind.def().name),
+            QueueEntry::Release => {
+                let unit = (production.reserved_by_current().first()).and_then(|&unit| sim.held_unit(unit));
+                format!("Releasing {}", unit.map_or("", |held| held.object.def().name))
+            }
+        };
+        lines.push(format!("{}: {percent}%", name.trim_end()));
         if let Some(cap) = status.blocked {
             lines.push(format!("Waiting for {}", cap.name()));
         }
-        if !recruits {
-            lines.push(format!("Queue: {} / {QUEUE_LIMIT}", production.queue.len()));
+        match holding::holds(structure).filter(|_| holding::trains(structure.kind)) {
+            Some(holds) => {
+                let entries: Vec<&str> = (production.queue.iter())
+                    .map(|entry| entry.unit().map_or("Release", |kind| kind.def().name))
+                    .collect();
+                let (queued, capacity) = (production.queue.len(), holds.capacity);
+                lines.push(format!("Queue: {} ({queued} / {capacity})", entries.join(", ")));
+            }
+            None if !recruits => lines.push(format!("Queue: {} / {QUEUE_LIMIT}", production.queue.len())),
+            None => {}
         }
     }
     if let Some(rally) = production.rally {
@@ -133,10 +179,10 @@ pub fn production(sim: &Sim, sight: &Sight, structure: &Object) -> Vec<String> {
     lines
 }
 
-/// A Tunnel's line while it performs an operation (`factions/syndicate/tunnels.md > Expansions under construction`:
-/// "**The Tunnel meanwhile** shows the progress"; `Sim::operation_progress`): the expansion it builds, or the tier it
-/// upgrades to (slice M4-G: "Upgrading to Tier 2", placeholder wording), and the progress in whole percent rounded
-/// down, 100% only once complete. Nothing for a Tunnel that performs none, nor for another structure.
+/// A Tunnel's line while it performs an operation (`factions/syndicate/tunnel_menus.md > Expansions under
+/// construction`: "**The Tunnel meanwhile** shows the progress"; `Sim::operation_progress`): the expansion it builds,
+/// or the tier it upgrades to (slice M4-G: "Upgrading to Tier 2", placeholder wording), and the progress in whole
+/// percent rounded down, 100% only once complete. Nothing for a Tunnel that performs none, nor for another structure.
 pub fn operation(sim: &Sim, structure: &Object) -> Vec<String> {
     let Some((operation, progress)) = sim.operation_progress(structure.id) else {
         return Vec::new();

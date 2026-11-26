@@ -18,10 +18,10 @@ use crate::production;
 impl Sim {
     /// Removes the objects `ids` (those that exist), each with a `SimEvent::Removed`, in id order. Then, for every
     /// other object: an order naming one of them completes if it is the current order and is dropped if queued
-    /// (`systems/controls/behaviors.md > AttackingObject` 5: the target destroyed, the behaviour is complete;
-    /// `systems/controls/behaviors.md > MovingToObject > Completion`: a Follow ends when its target dies); a behaviour
-    /// that engaged one by itself drops it (`Orders::forget`); a move towards one ends as `MoveStatus::TargetLost`; an
-    /// attack on one stops (`combat::AttackState::forget`).
+    /// (`systems/controls/command_behaviors.md > AttackingObject` 5: the target destroyed, the behaviour is complete;
+    /// `systems/controls/command_behaviors.md > MovingToObject > Completion`: a Follow ends when its target dies); a
+    /// behaviour that engaged one by itself drops it (`Orders::forget`); a move towards one ends as
+    /// `MoveStatus::TargetLost`; an attack on one stops (`combat::AttackState::forget`).
     ///
     /// A plate takes its patch along if that is depleted, in the same tick (`factions/gdo/economy.md >
     /// ExtractionPlate > On destruction`: "the patch is removed from the map"; a debug removal stands for a

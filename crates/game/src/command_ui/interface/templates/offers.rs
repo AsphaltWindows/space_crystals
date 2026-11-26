@@ -1,9 +1,9 @@
-//! What a type offers (`systems/controls/selection_and_hud.md > ObjectInterfaceState[ObjectEnum]`): every command its
+//! What a type offers (`systems/controls/interface.md > ObjectInterfaceState[ObjectEnum]`): every command its
 //! panel may show ([`commands`]), and whether it offers a command ([`offers`]).
 
-use sc_sim::{construction, transform};
+use sc_sim::{RecruitKind, construction, transform};
 
-use super::{PanelCommand, can_target_ground, constructs, grid, menu_grid, syndicate};
+use super::{PanelCommand, can_target_ground, constructs, cults, grid, menu_grid, syndicate};
 use crate::selection::GroupType;
 
 /// The commands of an unfinished building, the Cancels of its two panels ([`TRANSFORMING_GRID`], [`SITE_GRID`]), in
@@ -14,7 +14,8 @@ const UNFINISHED: [PanelCommand; 2] = [PanelCommand::CancelConstruction, PanelCo
 /// unfinished building's Cancel alone, the Cancel of a transformation ([`TRANSFORMING_GRID`], design change 0185) or
 /// of a site's construction ([`SITE_GRID`], design change 0237), whichever it is; a finished type's DefaultState
 /// grid, and a constructor's buildings to construct and to place, and its two Cancels; a Beacon's buildings to warp
-/// in; a Tunnel's EjectMenu tiles and the expansions of its ExpandMenu. In order, each once.
+/// in; a Tunnel's EjectMenu tiles and the expansions of its ExpandMenu; a pool building's KindMenus' entries, every
+/// kind's. In order, each once.
 pub fn commands(ty: impl Into<GroupType>) -> Vec<PanelCommand> {
     let GroupType { kind, unfinished } = ty.into();
     if unfinished {
@@ -45,6 +46,9 @@ pub fn commands(ty: impl Into<GroupType>) -> Vec<PanelCommand> {
     if expands(kind) {
         commands.extend(syndicate::expand_menu::kinds().map(PanelCommand::Expand));
     }
+    if pools(kind) {
+        commands.extend(cults::armory::kind_menus(kind));
+    }
     commands.sort_unstable();
     commands.dedup();
     commands
@@ -63,7 +67,8 @@ pub fn commands(ty: impl Into<GroupType>) -> Vec<PanelCommand> {
 /// unavailable: none of its buildings exists yet, and they are hidden (design change 0104: "greyed placeholders"); the
 /// Beacon's Warp In (Advanced) opens, on its unavailable buildings. A type whose DefaultState opens the EjectMenu, the
 /// Tunnel, offers its tiles, and one that opens the ExpandMenu, the Tunnel, the expansions in the game
-/// (`sc_sim::defs::EXPAND_MENU`), each a type a Tunnel builds (`StructureDef::expansion`).
+/// (`sc_sim::defs::EXPAND_MENU`), each a type a Tunnel builds (`StructureDef::expansion`). A pool building offers its
+/// KindMenus' trainings and Releases (slice M5-F2).
 pub fn offers(ty: impl Into<GroupType>, command: PanelCommand) -> bool {
     let GroupType { kind, unfinished } = ty.into();
     if unfinished {
@@ -83,6 +88,9 @@ pub fn offers(ty: impl Into<GroupType>, command: PanelCommand) -> bool {
             return expands(kind) && syndicate::expand_menu::kinds().any(|kind| kind == building);
         }
         PanelCommand::Planned(_) | PanelCommand::CancelTransform => return false,
+        PanelCommand::TrainFrom(..) | PanelCommand::Release(_) => {
+            return pools(kind) && cults::armory::kind_menus(kind).any(|entry| entry == command);
+        }
         _ => {}
     }
     if !grid(kind).contains(&Some(command)) {
@@ -106,4 +114,9 @@ fn ejects(kind: sc_sim::ObjectKind) -> bool {
 /// Whether objects of `kind` open the ExpandMenu: the Tunnel (slice M4-F).
 fn expands(kind: sc_sim::ObjectKind) -> bool {
     grid(kind).contains(&Some(PanelCommand::ExpandMenu))
+}
+
+/// Whether objects of `kind` open the KindMenus: the pool buildings, the Armory (slice M5-F2).
+fn pools(kind: sc_sim::ObjectKind) -> bool {
+    grid(kind).contains(&Some(PanelCommand::KindMenu(RecruitKind::Plain)))
 }

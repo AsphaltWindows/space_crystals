@@ -1,5 +1,5 @@
 //! The Syndicate's Tunnel Space available (slice M4-B; plan decision T33 as design changes 0242 and 0258 revised it;
-//! `factions/syndicate/tunnels.md > Tunnel > Tunnel Space`, `factions/syndicate/overview.md > SyndicateResources >
+//! `factions/syndicate/tunnel_area_and_space.md > Tunnel Space`, `factions/syndicate/overview.md > SyndicateResources >
 //! Tunnel Space`): "Tunnel Space = floor((sum of unused tunnel-region grid units across all owned Tunnels) / 4) —
 //! rounded down to a whole number — capped at a hard maximum of 200".
 //!
@@ -21,9 +21,9 @@
 //!   through the HUD. An expansion takes its cells from its first frame, construction starting at once (design changes
 //!   0254 point 4 and 0255), a turret too (design change 0358 point 5: "**A turret site takes its Tunnel Space from the
 //!   start of construction**").
-//! - **Over capacity** (`factions/syndicate/tunnels.md > Tunnel Space`: "existing units are unaffected — usage is
-//!   simply displayed over capacity (e.g. 12/10) and no further units can be produced until usage drops back within
-//!   capacity"): being derived, the figure needs no rule of its own, as for Beacon Capacity (`super`).
+//! - **Over capacity** (`factions/syndicate/tunnel_area_and_space.md > Tunnel Space`: "existing units are unaffected —
+//!   usage is simply displayed over capacity (e.g. 12/10) and no further units can be produced until usage drops back
+//!   within capacity"): being derived, the figure needs no rule of its own, as for Beacon Capacity (`super`).
 //!
 //! The cells are counted per Tunnel and summed, as the formula reads: two Tunnels whose areas overlap, which only
 //! spawns can make (0237), would count their shared cells twice.
@@ -148,9 +148,9 @@ mod tests {
         cap(objects, &Map::new(1, 1), player, Faction::Syndicate)
     }
 
-    /// `factions/syndicate/tunnels.md > Tunnel Space > Tunnel-region` at each tier (`factions/syndicate/tunnels.md >
-    /// Tiers`: radius 2, 3, 4): 48, 84 and 128 unused cells, so 12, 21 and 32 Tunnel Space for a Tunnel alone. The tier
-    /// is the Tunnel's current one.
+    /// `factions/syndicate/tunnel_area_and_space.md > Tunnel Space > Tunnel-region` at each tier
+    /// (`factions/syndicate/tunnels.md > Tiers`: radius 2, 3, 4): 48, 84 and 128 unused cells, so 12, 21 and 32 Tunnel
+    /// Space for a Tunnel alone. The tier is the Tunnel's current one.
     #[test]
     fn each_tier_gives_its_region() {
         let mut objects = objects(syndicate(24, 24).spawn(TUNNEL, Some(P1), tile(10, 10)));
@@ -167,10 +167,11 @@ mod tests {
         );
     }
 
-    /// An own Hideout inside the area takes its 4 cells (`factions/syndicate/tunnels.md > Tunnel Space`: "Building an
-    /// expansion permanently converts part of a Tunnel's unused tunnel-region into occupied space"): 44 cells, 11
-    /// Tunnel Space, as the Starting Conditions have it. Another player's expansion is never counted (slice M4-B: it
-    /// can't lie in an own area, and would leak through the HUD), and nor is an own structure that isn't underground.
+    /// An own Hideout inside the area takes its 4 cells (`factions/syndicate/tunnel_area_and_space.md > Tunnel Space`:
+    /// "Building an expansion permanently converts part of a Tunnel's unused tunnel-region into occupied space"): 44
+    /// cells, 11 Tunnel Space, as the Starting Conditions have it. Another player's expansion is never counted (slice
+    /// M4-B: it can't lie in an own area, and would leak through the HUD), and nor is an own structure that isn't
+    /// underground.
     #[test]
     fn an_own_expansion_takes_its_cells_and_another_players_none() {
         let base = || syndicate(16, 16).spawn(TUNNEL, Some(P1), tile(4, 4));
@@ -184,8 +185,8 @@ mod tests {
 
     /// Design change 0258 point 4: "A neutral expansion partly inside an own Tunnel Area still blocks its cells and
     /// counts as occupied for Tunnel Space": a neutral Hideout with 2 of its 4 cells in the area (x 2 to 9) takes 2.
-    /// With 1 cell in, 47 are left: rounded down, 11 (`factions/syndicate/tunnels.md > Tunnel Space`: "rounded down to
-    /// a whole number").
+    /// With 1 cell in, 47 are left: rounded down, 11 (`factions/syndicate/tunnel_area_and_space.md > Tunnel Space`:
+    /// "rounded down to a whole number").
     #[test]
     fn a_neutral_expansion_takes_its_cells_inside_the_area() {
         let base = || syndicate(16, 16).spawn(TUNNEL, Some(P1), tile(4, 4));
@@ -197,8 +198,8 @@ mod tests {
         assert_eq!(unused(&out, P1), 48);
     }
 
-    /// `factions/syndicate/tunnels.md > Tunnel Space`: "sum of unused tunnel-region grid units across all owned
-    /// Tunnels": two Tunnels give 96 cells, 24 Tunnel Space; another player's Tunnel gives nothing.
+    /// `factions/syndicate/tunnel_area_and_space.md > Tunnel Space`: "sum of unused tunnel-region grid units across all
+    /// owned Tunnels": two Tunnels give 96 cells, 24 Tunnel Space; another player's Tunnel gives nothing.
     #[test]
     fn the_owners_tunnels_add_up() {
         let two = objects(
@@ -243,11 +244,11 @@ mod tests {
         assert_eq!((unused(&lake, P1), tunnel_space(&lake, P1).available), (48, 12));
     }
 
-    /// Used (`factions/syndicate/tunnels.md > Production and Tunnel Space`: "the unit's Tunnel Space counts as used
-    /// from that moment — through production and for as long as the unit lives"): the player's units by their
-    /// TunnelSpaceCost, and their producers' units in production (design change 0143), not those only queued; a unit of
-    /// another faction costs none. No Syndicate building produces yet (slice M4-C), so a Barracks of the player's
-    /// stands in for one.
+    /// Used (`factions/syndicate/tunnel_area_and_space.md > Production and Tunnel Space`: "the unit's Tunnel Space
+    /// counts as used from that moment — through production and for as long as the unit lives"): the player's units by
+    /// their TunnelSpaceCost, and their producers' units in production (design change 0143), not those only queued; a
+    /// unit of another faction costs none. No Syndicate building produces yet (slice M4-C), so a Barracks of the
+    /// player's stands in for one.
     #[test]
     fn used_counts_the_units_and_the_units_in_production() {
         let mut objects = objects(
@@ -269,7 +270,7 @@ mod tests {
         );
         assert_eq!(tunnel_space(&objects, P1).used, 2);
         let production = objects[1].production.as_mut().expect("a producer");
-        production.queue = vec![AGENT, AGENT];
+        production.queue = vec![crate::production::QueueEntry::Unit(AGENT); 2];
         assert_eq!(tunnel_space(&objects, P1).used, 2, "only queued");
         objects[1].production.as_mut().unwrap().progress = 1;
         assert_eq!(tunnel_space(&objects, P1).used, 3, "the first in production");

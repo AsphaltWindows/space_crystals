@@ -1,6 +1,7 @@
-//! The non-overlap rule of Tunnel Areas (slice M4-E), `factions/syndicate/tunnels.md > Tunnel Area Non-Overlap Rule`:
-//! "The non-overlap check uses the **current tier's area**", and "**Every player's Tunnels count**" (design change
-//! 0237). A Tunnel is placed at Tier 1, so its Tier 1 area must overlap no other Tunnel's area at that Tunnel's tier:
+//! The non-overlap rule of Tunnel Areas (slice M4-E), `factions/syndicate/tunnel_area_and_space.md > Tunnel Area
+//! Non-Overlap Rule`: "The non-overlap check uses the **current tier's area**", and "**Every player's Tunnels count**"
+//! (design change 0237). A Tunnel is placed at Tier 1, so its Tier 1 area must overlap no other Tunnel's area at that
+//! Tunnel's tier:
 //!
 //! - **Which Tunnels**: every Tunnel among the occupants, whoever owns it, a site included (design change 0289 point
 //!   3: "A site counts with its whole area for every player from the moment it appears"), at its tier as the check

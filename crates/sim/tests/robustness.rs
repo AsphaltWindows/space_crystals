@@ -355,7 +355,9 @@ fn fuzz_run(seed: u64) -> Run {
                 | SimEvent::ExpansionCancelled { .. }
                 | SimEvent::UpgradeStarted { .. }
                 | SimEvent::UpgradeCompleted { .. }
-                | SimEvent::UpgradeCancelled { .. } => {}
+                | SimEvent::UpgradeCancelled { .. }
+                | SimEvent::ReleaseQueued { .. }
+                | SimEvent::ReleaseCancelled { .. } => {}
             }
         }
         unit_steps += sim

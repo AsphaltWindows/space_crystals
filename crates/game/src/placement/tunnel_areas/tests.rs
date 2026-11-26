@@ -1,5 +1,6 @@
-//! The Tunnel Area display (slices M4-J2 and M4-J3; `factions/syndicate/tunnels.md > Tunnel Area display`, design
-//! changes 0299 and 0300): the selected Tunnels' areas, a Tunnel ghost's rings and their red cells, and the mesh.
+//! The Tunnel Area display (slices M4-J2 and M4-J3; `factions/syndicate/tunnel_area_and_space.md > Tunnel Area
+//! display`, design changes 0299 and 0300): the selected Tunnels' areas, a Tunnel ghost's rings and their red cells,
+//! and the mesh.
 
 use bevy::math::Vec2;
 use sc_sim::testing::{ScenarioBuilder, TestSim};
@@ -61,9 +62,10 @@ fn field() -> TestSim {
     t
 }
 
-/// `factions/syndicate/tunnels.md > Tunnel Area display` (design change 0299): "Selecting one of your Tunnels shows its
-/// Tunnel Area", each own Tunnel in the selection at its tier now; "Enemy Tunnel Areas are never shown", seen or not;
-/// a Guard has none. An own Tunnel that upgrades shows its current area, not the larger one it reserves (slice M4-G).
+/// `factions/syndicate/tunnel_area_and_space.md > Tunnel Area display` (design change 0299): "Selecting one of your
+/// Tunnels shows its Tunnel Area", each own Tunnel in the selection at its tier now; "Enemy Tunnel Areas are never
+/// shown", seen or not; a Guard has none. An own Tunnel that upgrades shows its current area, not the larger one it
+/// reserves (slice M4-G).
 #[test]
 fn the_selection_shows_its_own_tunnels_areas_only() {
     let mut t = field();

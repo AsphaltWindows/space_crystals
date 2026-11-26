@@ -1,4 +1,4 @@
-//! The Storage (`factions/cults/economy.md > Storage`): a structure, labelled with its first and last letters, "SE".
+//! The Storage (`factions/cults/structures/storage.md`): a structure, labelled with its first and last letters, "SE".
 //! "ObjectInterfaceState: None (info display only)".
 
 use crate::command_ui::interface::templates::PanelTemplate;

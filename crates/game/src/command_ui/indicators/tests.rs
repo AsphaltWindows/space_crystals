@@ -1,4 +1,4 @@
-//! The indicators' colours (`systems/controls/selection_and_hud.md > Color language`; design change 0201's gathering
+//! The indicators' colours (`systems/controls/hud.md > Color language`; design change 0201's gathering
 //! markers).
 
 use super::*;
@@ -22,7 +22,7 @@ fn indicator_colours_follow_the_colour_language() {
 }
 
 /// Design change 0201: each gathering marker has a colour none of the others has, the colour language's
-/// (`systems/controls/selection_and_hud.md > Color language`) included; their shapes are the drawing's own
+/// (`systems/controls/hud.md > Color language`) included; their shapes are the drawing's own
 /// (`gathering::draw`).
 #[test]
 fn the_gathering_markers_have_colours_of_their_own() {

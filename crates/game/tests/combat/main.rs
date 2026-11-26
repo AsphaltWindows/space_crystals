@@ -389,9 +389,9 @@ fn sim_event(app: &mut App, event: SimEvent) {
         .write(SimEventMessage { tick, event });
 }
 
-/// Design change 0182 (`systems/controls/behaviors.md > AttackingObject > Target inside MinRange`): an Attack its unit
-/// can't carry out, the target inside the unit's MinRange and the unit unable to move (a deployed Artillery Rig), fails
-/// "with feedback ("Target too close"; same channel as other refusals)": the feedback band shows it, for
+/// Design change 0182 (`systems/controls/command_behaviors.md > AttackingObject > Target inside MinRange`): an Attack
+/// its unit can't carry out, the target inside the unit's MinRange and the unit unable to move (a deployed Artillery
+/// Rig), fails "with feedback ("Target too close"; same channel as other refusals)": the feedback band shows it, for
 /// `FEEDBACK_TICKS`, when it is the local player's unit, and not for another player's. No type has a MinRange yet, so
 /// the sim's event is handed to the client as the sim driver would.
 #[test]

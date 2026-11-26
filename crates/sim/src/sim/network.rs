@@ -51,9 +51,9 @@ impl Sim {
         })
     }
 
-    /// The units reserved on a Tunnel's eject queue (`factions/syndicate/tunnels.md > EjectMenu`: "each click reserves
-    /// a specific unit (the tile's count drops at the click)"; design change 0253: auto-ejected units "don't appear in
-    /// the EjectMenu" while they wait), sorted by id.
+    /// The units reserved on a Tunnel's eject queue (`factions/syndicate/tunnel_menus.md > EjectMenu`: "each click
+    /// reserves a specific unit (the tile's count drops at the click)"; design change 0253: auto-ejected units "don't
+    /// appear in the EjectMenu" while they wait), sorted by id.
     pub fn reserved(&self) -> Vec<ObjectId> {
         let queues = self.objects.values().filter_map(|o| o.tunnel.as_ref());
         let mut reserved: Vec<ObjectId> = queues.flat_map(|t| t.eject.iter().map(|entry| entry.unit)).collect();
@@ -61,9 +61,10 @@ impl Sim {
         reserved
     }
 
-    /// What the EjectMenu shows for `player` (`factions/syndicate/tunnels.md > EjectMenu`: "a grid of unit type tiles
-    /// representing all units currently in the Tunnel Network. Each tile shows the unit type icon and a count"): how
-    /// many units of each kind are in the network and not reserved on an eject queue, by kind in `ObjectKind`'s order.
+    /// What the EjectMenu shows for `player` (`factions/syndicate/tunnel_menus.md > EjectMenu`: "a grid of unit type
+    /// tiles representing all units currently in the Tunnel Network. Each tile shows the unit type icon and a count"):
+    /// how many units of each kind are in the network and not reserved on an eject queue, by kind in `ObjectKind`'s
+    /// order.
     pub fn network_counts(&self, player: PlayerId) -> BTreeMap<ObjectKind, u32> {
         let reserved = self.reserved();
         let mut counts = BTreeMap::new();
@@ -75,7 +76,7 @@ impl Sim {
         counts
     }
 
-    /// The unit an Eject of `kind` would bring out for `player` now (`factions/syndicate/tunnels.md > EjectMenu`,
+    /// The unit an Eject of `kind` would bring out for `player` now (`factions/syndicate/tunnel_menus.md > EjectMenu`,
     /// design change 0251: "of the chosen type, the one that has been inside the network longest"), among those free
     /// to leave: in the network, not reserved, and past the transit delay (design change 0245; a unit produced inside
     /// has none, 0246). Ties by id. Else why not: [`Reject::NotInNetwork`] with no free unit of the kind at all,
@@ -141,7 +142,7 @@ impl Sim {
                 place,
                 since,
                 entered,
-                ejected: false,
+                leaving: None,
             },
         );
         self.forget_references(&[id]);

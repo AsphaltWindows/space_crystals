@@ -1,7 +1,7 @@
 //! (M5-O3) `systems/combat.md > TailDisjointed`: what a shot strikes at the spot it locked ([`at_the_spot`]); and,
-//! through the whole sim with the Gunner given other numbers (`defs::test_defs`) where its own can't show a rule, a
-//! target walking off the spot in a longer Firing, and an area attack's blast at the spot (the GDO's Artillery Rig's,
-//! which isn't built). The Gunner with its own numbers is played in `crates/sim/tests/gunner.rs`.
+//! through the whole sim, a target walking off the spot in the Gunner's Firing of 4 frames (design change 0333), and,
+//! with the Gunner given other numbers (`defs::test_defs`) where its own can't show a rule, an area attack's blast at
+//! the spot (the GDO's Artillery Rig's, which isn't built). The Gunner is played in `crates/sim/tests/gunner.rs`.
 
 use super::*;
 use crate::combat::overlap;
@@ -14,6 +14,8 @@ use crate::units::{SU_PER_GU, Tick, gu};
 
 const P2: PlayerId = PlayerId(2);
 const GUNNER: ObjectId = ObjectId(1);
+/// `factions/cults/units/gunner.md > AttackAttributes`: "FiringDuration: 4 frames" (design change 0333).
+const FIRING: Tick = 4;
 
 /// 16 × 10 open tiles.
 fn open() -> String {
@@ -65,7 +67,7 @@ fn a_shot_strikes_what_stands_at_the_spot_the_object_aimed_at_first() {
     let targets = Targets::snapshot(&map, &objects);
     let attrs = AttackAttrs {
         attack_type: AttackType::TailDisjointed,
-        ..attrs(4, 2, 8, 8)
+        ..attrs(4, 4, 6, 8)
     };
     let shooter = Shooter::new(&map, &objects[&ME], &attrs, None, 0.0);
     let struck = |x: f32, aimed: Option<u32>| {
@@ -89,16 +91,13 @@ fn a_shot_strikes_what_stands_at_the_spot_the_object_aimed_at_first() {
     assert_eq!(struck(0.0, None), None, "nor the shooter itself");
 }
 
-/// `systems/combat.md > TailDisjointed`: "Targets can dodge by moving out of the locked location". The Gunner, given a
-/// Firing of 12 frames, attacks a Peacekeeper of player 2 standing 3 grid units off; in the frame after the spot is
-/// locked, the Peacekeeper sets off north at 4 su a frame. Walking all through Firing, it is 48 su off the spot when
-/// the shot lands, clear of it (its Silhouette reaches 12 su from its centre): a miss. Stopped after two frames, 8 su
-/// off, it still covers the spot, and is hit.
+/// `systems/combat.md > TailDisjointed`: "Targets can dodge by moving out of the locked location". The Gunner, whose
+/// Firing lasts 4 frames (design change 0333: "at 4 a walking infantry unit can step off it"), attacks a Peacekeeper of
+/// player 2 standing 3 grid units off; in the frame after the spot is locked, the Peacekeeper sets off north at 4 su a
+/// frame. Walking all through Firing, it is 16 su off the spot when the shot lands, clear of it (its Silhouette reaches
+/// 12 su from its centre): a miss. Stopped after two frames, 8 su off, it still covers the spot, and is hit.
 #[test]
 fn a_target_that_walks_off_the_spot_during_firing_dodges() {
-    let _slow = TestDef::unit(ObjectKind::Gunner, |unit| {
-        unit.attack.as_mut().unwrap().firing_ticks = 12
-    });
     let peacekeeper = ObjectId(2);
     let run = |walk: Tick| {
         let from = Vec2::new(300.0, 320.0);
@@ -111,10 +110,10 @@ fn a_target_that_walks_off_the_spot_during_firing_dodges() {
         let north = Target::Point(Vec2::new(at.x, 40.0));
         t.order_at(locked + 1, P2, &[peacekeeper], OrderKind::Move(north), false)
             .order_at(locked + 1 + walk, P2, &[peacekeeper], OrderKind::Stop, false)
-            .run_until(locked + 12);
+            .run_until(locked + FIRING);
         let off = at.y - t.sim().object(peacekeeper).unwrap().pos.y;
         let missed = (t.events().iter()).any(|(tick, e)| {
-            *tick == locked + 12
+            *tick == locked + FIRING
                 && *e
                     == SimEvent::Missed {
                         attacker: GUNNER,
@@ -125,7 +124,7 @@ fn a_target_that_walks_off_the_spot_during_firing_dodges() {
         });
         (off, missed, hits_on(&t, peacekeeper))
     };
-    assert_eq!(run(12), (48.0, true, vec![]), "walking all the while: dodged");
+    assert_eq!(run(FIRING), (16.0, true, vec![]), "walking all the while: dodged");
     assert_eq!(run(2), (8.0, false, vec![15.0]), "stopped on the spot: hit");
 }
 
@@ -155,9 +154,9 @@ fn an_area_attack_blasts_the_spot_at_the_end_of_firing() {
         .order_at(2, MINE, &[GUNNER], OrderKind::AttackGround(at), false);
     let (locked, spot) = until_locked(&mut t);
     assert_eq!(spot, at);
-    t.run_until(locked + 2);
+    t.run_until(locked + FIRING);
     let fired: Vec<&SimEvent> = (t.events().iter())
-        .filter(|(tick, _)| *tick == locked + 2)
+        .filter(|(tick, _)| *tick == locked + FIRING)
         .map(|(_, e)| e)
         .filter(|e| !matches!(e, SimEvent::Hit { .. }))
         .collect();

@@ -7,6 +7,7 @@
 use glam::Vec2;
 use serde::{Deserialize, Serialize};
 
+use crate::augmentation::Augmentation;
 use crate::combat::AttackState;
 use crate::construction::Constructor;
 use crate::construction::site::Construction;
@@ -118,20 +119,29 @@ pub struct Object {
     pub popup: Option<PopUp>,
     /// A Cults unit's lineage (plan decision T56, slice M5-A), one entry per Recruit the unit embodies (the Director's
     /// amendment to T56 for design change 0319, slice M5-C): the Recruitment Hall that produced each
-    /// (`factions/cults/economy.md > RecruitmentHall > Unit Control Tracking`: "Each Recruit tracks which Recruitment
+    /// (`factions/cults/structures/recruitment_hall.md > Unit Control Tracking`: "Each Recruit tracks which Recruitment
     /// Hall produced it. This lineage persists when a Recruit is trained into another unit. A trained unit's Unit
     /// Control cost equals the number of Recruits consumed to produce it, with each point of cost attributed to the
-    /// originating hall of the respective Recruit"). A Recruit has one entry, the Hall that made it (`Sim::release_unit`,
-    /// slice M5-C; the starting Hall's for the starting Recruits, slice M5-B); a unit trained from several Recruits, a
-    /// Jackal from two, has one per Recruit consumed, the same Hall perhaps twice (slice M5-F2 joins the consumed
-    /// Recruits' entries). Each entry is a point of Unit Control used at its Hall (`crate::recruitment::Lineages`); an
-    /// entry whose Hall is gone stays, and is an orphaned point, which counts toward the global usage only
-    /// (`factions/cults/economy.md > RecruitmentHall > On Destruction`). Empty for everything else, and for a Cults unit
-    /// that no Hall produced (a map's or a debug spawn's), whose whole cost is orphaned (**Placeholder (Q0101 point
-    /// 2)**). A kind change keeps it (`Sim::change_kind`). Optional in files, and left out of them while empty, so that
-    /// states saved before it existed still load and those without one are as they were.
+    /// originating hall of the respective Recruit"). A Recruit has one entry, the Hall that made it
+    /// (`Sim::release_unit`, slice M5-C; the starting Hall's for the starting Recruits, slice M5-B); a unit trained
+    /// from several Recruits, a Seeker from two, has one per Recruit consumed, the same Hall perhaps twice (slice M5-F2
+    /// joins the consumed Recruits' entries, `Sim::train`). Each entry is a point of Unit Control used at its Hall
+    /// (`crate::recruitment::Lineages`); an entry whose Hall is gone stays, and is an orphaned point, which counts
+    /// toward the global usage only (`factions/cults/structures/recruitment_hall.md > On Destruction`). Empty for
+    /// everything else, and for a Cults unit that no Hall produced (a map's or a debug spawn's), whose whole cost is
+    /// orphaned (design change 0344: "Recruits no Hall produced [...] are orphans from the start"). A kind change keeps
+    /// it (`Sim::change_kind`). Optional in files, and left out of them while empty, so that states saved before it
+    /// existed still load and those without one are as they were.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub lineage: Vec<ObjectId>,
+    /// (M5-F2) A Cults infantry unit's Augmentations (`factions/cults/augmentation.md > AugmentationState (per unit
+    /// instance)`, `crate::augmentation`), by which the buildings that hold it choose it (design change 0337): neither
+    /// for every other unit. It stays with the unit inside a building and when it is trained into infantry, and goes
+    /// when it is trained into a vehicle or an aircraft (`Sim::train`). Optional in files and left out of them while
+    /// it has neither, and hashed only then, so that states saved before it existed load and those without one hash as
+    /// they did.
+    #[serde(default, skip_serializing_if = "Augmentation::is_none")]
+    pub augmentation: Augmentation,
 }
 
 impl Object {

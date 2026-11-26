@@ -46,8 +46,8 @@ pub fn referenced_ids(o: &Object) -> Vec<ObjectId> {
     ids.extend(o.construction.and_then(|site| site.builder.tunnel()));
     // Not a unit's lineage (`Object::lineage`, plan decision T56): its entries name the Halls that produced its
     // Recruits, and they stay when a Hall is gone, the unit's points then being orphaned
-    // (`factions/cults/economy.md > RecruitmentHall > On Destruction`: "Surviving units produced by this hall remain on
-    // the field and continue to count toward the global usage sum"). A lineage naming a Hall that is gone is the
+    // (`factions/cults/structures/recruitment_hall.md > On Destruction`: "Surviving units produced by this hall remain
+    // on the field and continue to count toward the global usage sum"). A lineage naming a Hall that is gone is the
     // design's own state, not a reference the removal path left behind.
     ids
 }

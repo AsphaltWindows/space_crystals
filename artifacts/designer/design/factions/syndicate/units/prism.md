@@ -22,4 +22,10 @@ It is the **only unit that can't get back into the Tunnel Network** (user, 2026-
 ## Sight
 It sees through Shadebringer smoke (Shadebringer > Cover).
 
-TBD: the open relay rules (Laser Battery > Relay); launch and transform timing; thrust charge count and distance; all numbers.
+**Placeholder stats** (designer, 2026-11-27, user's standing permission; tune in the numbers pass):
+- Silhouette 40x40 space units; MaxHP 100; PointArmor 0, FullArmor 0; SightRange 6 grid units; TunnelSpaceCost 2.
+- Very slow drift: MaxSpeed **1 su/frame**.
+- **Launch** 32 frames (straight up) and **transform** 32 frames (vulnerable during both).
+- **Thrust charges: 3**; each moves it **3 grid units** over 1 s in a chosen direction.
+- Relay ranges: Laser Battery > Placeholder stats.
+- Cost: Aerospace Assembly, 250 Space Crystals, 480 frames.

@@ -1,7 +1,7 @@
 //! Leaving the Tunnel Network (`crate::network`, slice M4-C): the gate's rules for a Tunnel's commands, its eject
 //! queue, and the network's step of the economy phase (regeneration, then the eject queues).
 //!
-//! **Ejecting** ([`Sim::step_network`], `factions/syndicate/tunnels.md > EjectMenu`, design changes 0250, 0251 and
+//! **Ejecting** ([`Sim::step_network`], `factions/syndicate/tunnel_menus.md > EjectMenu`, design changes 0250, 0251 and
 //! 0253): each Tunnel's queue lets its first unit out when the exit path's spot is clear: "Each unit appears at the
 //! exit path's spot just outside Side A. If that spot is blocked (by any unit or structure), the next unit waits until
 //! it clears; no other spot is tried." No minimum gap is left between two units (0250 "replaces the earlier 'every 8
@@ -17,8 +17,8 @@ use crate::sim::{Reject, Sim};
 
 impl Sim {
     /// The gate for `Command::Tunnel` (plan decision T36): the Tunnel is the player's ([`Reject::NotOwned`]) and in
-    /// operation ([`Reject::NotATunnel`]). An **Eject** (`factions/syndicate/tunnels.md > EjectMenu`): its tier lets
-    /// units of the kind out ("Unit types whose base category exceeds this Tunnel's tier are [...] disabled":
+    /// operation ([`Reject::NotATunnel`]). An **Eject** (`factions/syndicate/tunnel_menus.md > EjectMenu`): its tier
+    /// lets units of the kind out ("Unit types whose base category exceeds this Tunnel's tier are [...] disabled":
     /// [`Reject::NoTransit`]), and a unit of the kind is free to leave ([`Sim::next_out`]), which the command
     /// reserves. An **Expand**, an **Upgrade** and a **Cancel** are the Tunnel's operation's (`sim/expansions.rs`,
     /// `sim/upgrades.rs`).
@@ -84,7 +84,7 @@ impl Sim {
         }
     }
 
-    /// `factions/syndicate/tunnels.md > EjectMenu` (design change 0250): the first unit of `tunnel`'s eject queue
+    /// `factions/syndicate/tunnel_menus.md > EjectMenu` (design change 0250): the first unit of `tunnel`'s eject queue
     /// comes out, if the exit path's spot is clear for it: its box there overlaps no blocked tile, no blocking
     /// footprint and no unit of its layer (`Sim::check_unit_fits`, the rule of every unit put on the map). Else the
     /// queue waits: "no other spot is tried". The unit appears facing out of Side A (`SimEvent::LeftNetwork`) and

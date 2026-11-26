@@ -313,6 +313,7 @@ impl StateHash for Object {
             decay,
             popup,
             lineage,
+            augmentation,
         } = self;
         id.hash(h);
         kind.hash(h);
@@ -364,6 +365,12 @@ impl StateHash for Object {
         if !lineage.is_empty() {
             h.tag(5);
             lineage.hash(h);
+        }
+        // (M5-F2) The same for a Cults infantry unit's Augmentations (`crate::augmentation`), under a tag of its own:
+        // only while it has one.
+        if !augmentation.is_none() {
+            h.tag(6);
+            augmentation.hash(h);
         }
     }
 }

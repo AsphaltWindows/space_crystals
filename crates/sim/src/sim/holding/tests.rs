@@ -1,5 +1,5 @@
 //! Buildings that hold units, where a test needs the sim's inside: an Armory under construction (no Cults site exists
-//! before slice M5-E), and the mark Eject All leaves on a unit inside.
+//! before slice M5-E), and the mark Eject All leaves on a unit inside (`Held::leaving`, slice M5-F2's).
 
 use glam::Vec2;
 
@@ -61,8 +61,9 @@ fn an_armory_under_construction_refuses_enter() {
     assert_eq!(sim.room(ARMORY), 10, "an empty pool, all the same");
 }
 
-/// The mark Eject All leaves on a unit inside (`Held::ejected`) is part of the state, hashed and saved only while set:
-/// a game that never ejects hashes and saves as it did before the mark existed.
+/// The mark Eject All leaves on a unit inside (`Held::leaving`, the tick it is ready to leave from) is part of the
+/// state, hashed and saved only while set: a game that never ejects hashes and saves as it did before the mark
+/// existed.
 #[test]
 fn the_eject_mark_is_hashed_and_saved_only_while_set() {
     let mut t = base();
@@ -72,15 +73,15 @@ fn the_eject_mark_is_hashed_and_saved_only_while_set() {
     assert_eq!((t.sim().room(ARMORY), t.sim().room(RECRUIT)), (9, 0));
     let unmarked = t.sim().state_hash();
     let json = serde_json::to_value(t.sim()).unwrap();
-    assert!(json["held"][0].get("ejected").is_none(), "{}", json["held"][0]);
+    assert!(json["held"][0].get("leaving").is_none(), "{}", json["held"][0]);
     let mut sim = t.sim().clone();
     sim.apply_holding(&[ARMORY], HoldCommand::EjectAll);
-    assert!(sim.held[&RECRUIT].ejected);
+    assert_eq!(sim.held[&RECRUIT].leaving, Some(sim.tick()));
     assert_ne!(sim.state_hash(), unmarked);
     let json = serde_json::to_value(&sim).unwrap();
-    assert_eq!(json["held"][0]["ejected"], true);
+    assert_eq!(json["held"][0]["leaving"], sim.tick());
     let loaded: crate::sim::Sim = serde_json::from_value(json).unwrap();
     assert_eq!(loaded.state_hash(), sim.state_hash());
-    sim.held.get_mut(&RECRUIT).unwrap().ejected = false;
+    sim.held.get_mut(&RECRUIT).unwrap().leaving = None;
     assert_eq!(sim.state_hash(), unmarked);
 }

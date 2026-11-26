@@ -41,11 +41,11 @@ pub const BASE_TIER: u8 = 1;
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct TunnelState {
     pub tier: u8,
-    /// `factions/syndicate/tunnels.md > EjectMenu` (design changes 0250, 0251 and 0253): the units waiting to come out
-    /// of this Tunnel's exit path, first come, first served: those a player's Eject reserved and those a surface rally
-    /// point sends out by themselves, each held in its owner's network (`crate::network`). It goes with the Tunnel:
-    /// "if the Tunnel is destroyed with a queue, the queued units stay in the network". Left out of files and of the
-    /// hash while empty, so that the states without a queue are as they were.
+    /// `factions/syndicate/tunnel_menus.md > EjectMenu` (design changes 0250, 0251 and 0253): the units waiting to come
+    /// out of this Tunnel's exit path, first come, first served: those a player's Eject reserved and those a surface
+    /// rally point sends out by themselves, each held in its owner's network (`crate::network`). It goes with the
+    /// Tunnel: "if the Tunnel is destroyed with a queue, the queued units stay in the network". Left out of files and
+    /// of the hash while empty, so that the states without a queue are as they were.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub eject: Vec<Eject>,
     /// The operation the Tunnel performs, if any ([`Operation`], slice M4-F): "A Tunnel can only perform one operation
@@ -179,6 +179,7 @@ mod tests {
             decay: None,
             popup: None,
             lineage: Vec::new(),
+            augmentation: Default::default(),
         }
     }
 

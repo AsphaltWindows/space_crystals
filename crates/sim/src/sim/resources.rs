@@ -22,8 +22,8 @@ impl Sim {
     /// checked against when its production would start (`sim/producers/step.rs`), but for the Cults', which is for
     /// display only (`ArmyResource::reserves`). `None` for a player who isn't in the game. The units inside the Tunnel
     /// Network take up theirs as those on the map do (`crate::network`): they are alive, and use Tunnel Space
-    /// (`factions/syndicate/tunnels.md > Tunnel Space`, design change 0265). Tunnel Space's providers and the cells it
-    /// loses are structures, all on the map, and so are the Halls.
+    /// (`factions/syndicate/tunnel_area_and_space.md > Tunnel Space`, design change 0265). Tunnel Space's providers and
+    /// the cells it loses are structures, all on the map, and so are the Halls.
     pub fn army_cap(&self, player: PlayerId) -> Option<ArmyCap> {
         let faction = self.player(player)?.faction;
         // The units held off the map count as those on it (plan decision T30: a unit takes its cost "for as long as

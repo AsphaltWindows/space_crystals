@@ -124,9 +124,10 @@ fn a_kind_costing_150_refunds_112() {
     assert_eq!((crystals(&t), operation(&t), refunds(&t)), (924, None, vec![112, 112]));
 }
 
-/// `factions/syndicate/tunnels.md > ExpandMenu`: "An expansion is available only if (1) its Tier Requirement is at or
-/// below **this** Tunnel's tier": a test kind with Tier Requirement 2 is refused at a Tier 1 Tunnel, by the gate and by
-/// the menu's check ([`crate::sim::Sim::can_expand`], which greys its entry), and taken once the Tunnel is at Tier 2.
+/// `factions/syndicate/tunnel_menus.md > ExpandMenu`: "An expansion is available only if (1) its Tier Requirement is at
+/// or below **this** Tunnel's tier": a test kind with Tier Requirement 2 is refused at a Tier 1 Tunnel, by the gate and
+/// by the menu's check ([`crate::sim::Sim::can_expand`], which greys its entry), and taken once the Tunnel is at
+/// Tier 2.
 #[test]
 fn a_tier_2_kind_is_refused_at_a_tier_1_tunnel() {
     let _tier_2 = hideout_with(|def| def.tier = 2);

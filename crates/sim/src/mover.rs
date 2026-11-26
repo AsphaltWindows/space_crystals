@@ -49,8 +49,8 @@ pub enum MoveGoal {
     /// A point, space units.
     Point(Vec2),
     /// An object, until the gap between the unit's shape and the object's is at most `reach` space units, edge to
-    /// edge (`systems/controls/behaviors.md > MovingToObject > Proximity`; `shape`). The path is kept aimed at the
-    /// object as it moves (`paths::chase_check`). The behaviours' chases and follows (`orders::engage`,
+    /// edge (`systems/controls/command_behaviors.md > MovingToObject > Proximity`; `shape`). The path is kept aimed at
+    /// the object as it moves (`paths::chase_check`). The behaviours' chases and follows (`orders::engage`,
     /// `orders::travel`).
     Object { id: ObjectId, reach: f32 },
 }
@@ -66,7 +66,7 @@ pub enum MoveStatus {
     /// Reached the goal, or the reachable point nearest to it (design change 0025), or stopped within
     /// [`OCCUPIED_ARRIVAL_GU`] of it behind units that won't move (design changes 0026, 0032, 0033 and 0169).
     Arrived,
-    /// Gave up: no path, or stuck with no repath left (`systems/controls/behaviors.md > MovingToLocation >
+    /// Gave up: no path, or stuck with no repath left (`systems/controls/command_behaviors.md > MovingToLocation >
     /// Failure`; the numbers are design change 0024). Two units head-on in a passage too narrow to pass both end here
     /// (design change 0022: moving units never yield or swap).
     Failed,
@@ -74,7 +74,7 @@ pub enum MoveStatus {
     TargetLost,
 }
 
-/// `systems/controls/behaviors.md > LocomotionChannel`.
+/// `systems/controls/action_channels.md > LocomotionChannel`.
 #[derive(Copy, Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub enum Locomotion {
     /// Moving along the path.
@@ -89,7 +89,7 @@ pub enum Locomotion {
     Stationary,
 }
 
-/// `systems/controls/behaviors.md > OrientationChannel`. Not [`crate::Orientation`], the map symmetry type.
+/// `systems/controls/action_channels.md > OrientationChannel`. Not [`crate::Orientation`], the map symmetry type.
 #[derive(Copy, Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
 pub enum Orientation {
     /// Rotating towards a point, at most the base's turn rate per tick.
@@ -135,7 +135,8 @@ impl Side {
 pub struct Mover {
     pub goal: MoveGoal,
     pub status: MoveStatus,
-    /// The design's channels (`systems/controls/behaviors.md > BaseActionChannels`); combat and crushing read them.
+    /// The design's channels (`systems/controls/action_channels.md > BaseActionChannels`); combat and crushing read
+    /// them.
     pub locomotion: Locomotion,
     pub orientation: Orientation,
     /// This tick's displacement, space units per tick; zero when the unit stood still or arrived.

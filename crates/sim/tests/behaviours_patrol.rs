@@ -1,5 +1,5 @@
-//! `systems/controls/behaviors.md > Patrolling`: cycling between the two ends and engaging on the way, the origin of
-//! a queued Patrol (design change 0036) and failed legs (design change 0037).
+//! `systems/controls/command_behaviors.md > Patrolling`: cycling between the two ends and engaging on the way, the
+//! origin of a queued Patrol (design change 0036) and failed legs (design change 0037).
 
 use sc_sim::orders::Behaviour;
 use sc_sim::testing::{ScenarioBuilder, TestSim};

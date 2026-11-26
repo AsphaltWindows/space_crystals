@@ -192,7 +192,7 @@ pub fn check_reserving(
     whole.extend(area_rule(site, kind, footprint.rect()));
     // Design change 0237: and clear of every other Tunnel's area (`super::tunnel_overlap`).
     whole.extend(tunnel_areas.rule(footprint.rect()));
-    // `factions/syndicate/tunnels.md > AwaitingPlacement (Expansion)`: "The expansion must fit entirely within the
+    // `factions/syndicate/tunnel_menus.md > AwaitingPlacement (Expansion)`: "The expansion must fit entirely within the
     // Tunnel Area".
     if let Method::Expansion { area } = site.method
         && !tunnel::area::encloses(area, footprint.rect())

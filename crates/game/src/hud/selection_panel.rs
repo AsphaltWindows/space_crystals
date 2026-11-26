@@ -1,4 +1,4 @@
-//! The SelectionPanel (`systems/controls/selection_and_hud.md > SelectionPanel`): a grid of portraits, one per
+//! The SelectionPanel (`systems/controls/hud.md > SelectionPanel`): a grid of portraits, one per
 //! selected object, shown while at least two objects are selected; the ActiveGroup's portraits are highlighted. A
 //! click on a portrait follows `> SelectionPanel > Interactions` ([`crate::selection::ControlState::click_portrait`]).
 //! Two or more selected objects are always the player's own (design change 0048).

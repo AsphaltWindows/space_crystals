@@ -149,7 +149,8 @@ impl Scenario {
 /// Hall as its cost (`Object::lineage`: one entry per Recruit embodied), so each of the six starting Recruits has
 /// one entry, the Hall. Wherever the layout puts its Hall, before its units or after them, the lineage is the same.
 /// A layout without a Hall (a Custom map's, which may hold anything) gives its units no lineage: no Hall produced
-/// them, and their whole cost is orphaned (**Placeholder (Q0101 point 2)**), as a pre-placed Cults unit's is.
+/// them, and their whole cost is orphaned (design change 0344: "Recruits no Hall produced (custom maps, debug) are
+/// orphans from the start"), as a pre-placed Cults unit's is.
 fn belong_to_their_hall(objects: &mut [StartObject], first: usize) {
     let layout = objects.get_mut(first..).unwrap_or_default();
     let Some(hall) = layout.iter().position(|o| recruitment::def_of(o.kind).is_some()) else {

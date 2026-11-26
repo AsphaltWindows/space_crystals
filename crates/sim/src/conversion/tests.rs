@@ -39,6 +39,7 @@ fn unit(kind: ObjectKind, phase: Option<AttackPhase>) -> Object {
         decay: None,
         popup: None,
         lineage: Vec::new(),
+        augmentation: Default::default(),
     }
 }
 

@@ -1,4 +1,4 @@
-//! The pointer's look (`systems/controls/selection_and_hud.md > PointerDisplayType`), placeholders until the art
+//! The pointer's look (`systems/controls/hud.md > PointerDisplayType`), placeholders until the art
 //! (Q0001).
 //!
 //! [`PointerLook`] is what the pointer shows this frame: the PointerDisplayType over the map, whether a target is

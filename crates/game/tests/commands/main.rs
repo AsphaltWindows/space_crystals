@@ -1,7 +1,7 @@
-//! Headless tests of the command flow (`systems/controls/selection_and_hud.md > CommandPanel`,
-//! `systems/controls/selection_and_hud.md > DefaultState`, `systems/controls/selection_and_hud.md >
-//! RightClickResolution`, `systems/controls/selection_and_hud.md > AwaitingTarget`,
-//! `systems/controls/selection_and_hud.md > PointerDisplayType`, `systems/controls/selection_and_hud.md >
+//! Headless tests of the command flow (`systems/controls/interface.md > CommandPanel`,
+//! `systems/controls/interface.md > DefaultState`, `systems/controls/interface.md >
+//! RightClickResolution`, `systems/controls/interface.md > AwaitingTarget`,
+//! `systems/controls/hud.md > PointerDisplayType`, `systems/controls/hud.md >
 //! CommandIndicators`; `systems/controls/commands.md > Unit Command`). Every input arrives through `InjectedInput`, the
 //! virtual keyboard and mouse, and goes through the input layer's bindings like a player's would; each `App::update` is
 //! one tick and 1/16 s of real time (`ARCHITECTURE.md > Client architecture > Client tests`). The orders given are read
@@ -11,7 +11,7 @@
 //! auto-targeting is off (a debug command), so that nobody fights while the orders are given.
 //!
 //! The production UI of slice M2-H1 (`factions/gdo/structures/barracks.md > ObjectInterfaceState[Barracks]`,
-//! `systems/controls/selection_and_hud.md > Production Building Default Right-Click`) plays on the same field with
+//! `systems/controls/interface.md > Production Building Default Right-Click`) plays on the same field with
 //! player 1's Barracks added ([`production_scenario`]): `production` for Train and Cancel Production, `rally` for the
 //! rally points and their indicators.
 //!
@@ -34,8 +34,12 @@
 //! `expansions`, on another. Its Upgrade (slice M4-G: Q with its price and its reasons, the progress, X's refund, the
 //! larger area): `tunnel_upgrade`. The Tunnel Area display (slice M4-J3: a selected Tunnel's area, never an enemy's,
 //! and a Tunnel ghost's Tier 2 and Tier 3 rings with their red cells): `tunnel_areas`.
+//!
+//! The Cults' Armory (slice M5-F2: its kinds of Recruit with their counts, its KindMenus' training and Release, Eject
+//! All, the rally point, and one panel at a time for two Armories): `armory`, on a Cults field.
 
 mod agent_ui;
+mod armory;
 mod click_allowance;
 mod colonists;
 mod construction;

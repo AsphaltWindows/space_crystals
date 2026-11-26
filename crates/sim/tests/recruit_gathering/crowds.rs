@@ -1,4 +1,4 @@
-//! Crowds under normal collision, within what the design says a layout holds (`factions/cults/economy.md > Storage`:
+//! Crowds under normal collision, within what the design says a layout holds (`factions/cults/structures/storage.md`:
 //! "The best layout leaves a 1-tile gap between patch and Storage; each 2-tile face supports roughly 4–5 Recruits at
 //! full efficiency"; "an efficient crystal field take[s] more Storages (3–4 for an 8-patch field)"). Each runs for 5
 //! minutes with the jam check (plan §3.3 D): no Recruit goes 10 seconds without a delivery. More Recruits than that

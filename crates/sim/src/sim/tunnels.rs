@@ -6,8 +6,8 @@
 //!   Tunnel: combat, a debug removal, a cancelled site). It notes the Tunnels among what goes as they were
 //!   ([`Sim::lost_tunnels`]), and once they are gone ([`Sim::lose_tunnels`]) handles each, in id order:
 //!   - its **unfinished expansions**, the sites it builds ([`built_by`]), are destroyed, with no refund
-//!     (`factions/syndicate/tunnels.md > Expansions under construction`, design change 0254: "**Its Tunnel destroyed
-//!     mid-build**: the unfinished expansion is destroyed, no refund");
+//!     (`factions/syndicate/tunnel_menus.md > Expansions under construction`, design change 0254: "**Its Tunnel
+//!     destroyed mid-build**: the unfinished expansion is destroyed, no refund");
 //!   - its **completed expansions** become neutral ([`Sim::neutralise`]): "when a Tunnel is destroyed, every expansion
 //!     in its Tunnel Area becomes neutral — no longer owned by the Syndicate player". They are its owner's expansion
 //!     buildings (`tunnel::is_expansion`: the underground structures and, since design change 0360, the Laser Turrets:
@@ -237,19 +237,16 @@ impl Sim {
         };
         let begun = production.in_production().is_some();
         production.rally = None;
-        for (i, kind) in production.take_queue().into_iter().enumerate() {
+        for (i, (entry, reserved)) in production.take_queue().into_iter().enumerate() {
             let refund = match i == 0 && begun {
                 true => 0,
-                false => Refund::Full.of(def.recipe(kind).map_or(0, |recipe| recipe.cost)),
+                false => Refund::Full.of(entry.cost(def)),
             };
             if let Some(player) = self.players.iter_mut().find(|p| Some(p.id) == owner) {
                 player.credit_crystals(refund);
             }
-            self.events.push(SimEvent::ProductionCancelled {
-                producer: id,
-                kind,
-                refund,
-            });
+            self.events
+                .extend(super::producers::cancelled(id, entry, &reserved, refund));
         }
     }
 

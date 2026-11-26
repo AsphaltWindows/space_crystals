@@ -1,4 +1,4 @@
-//! What the game allows a selection's commands now, as the sim has it (`systems/controls/selection_and_hud.md >
+//! What the game allows a selection's commands now, as the sim has it (`systems/controls/interface.md >
 //! CommandPanel`: "derived from ControlState and game state each tick"): the selected units' modes ([`Modes`]), the
 //! ActiveGroup's constructor state, and the command gate's answer to each production and construction command the
 //! ActiveGroup offers, and to its toggles ([`Conditions`]).
@@ -21,16 +21,16 @@
 //! shows (design change 0162). The Egress Node's F shows only while the node has Drones to select
 //! (`factions/colonists/economy.md > Egress Node > Egress Node ObjectInterfaceState`, [`Conditions::shows`]).
 //!
-//! A Tunnel's EjectMenu tiles are its Ejects, which the gate answers too (`factions/syndicate/tunnels.md > EjectMenu`,
-//! slice M4-J2): a tile is greyed while no unit of its type is in the network free to leave, while every one of them
-//! only just walked in (design change 0288 point 1), or while this Tunnel's tier doesn't let the type out; and its
-//! count is the network's ([`Conditions::network_count`]). Its ExpandMenu's entries are greyed by the gate's answer to
-//! an Expand short of its placement (`Sim::can_expand`, slice M4-F: an operation under way, a Tier Requirement above
-//! this Tunnel's tier, a prerequisite missing, too few Space Crystals), where the expansion goes being the ghost's to
-//! show; its X while it performs no operation. Its Q, Upgrade Tunnel (slice M4-G), asks the gate for its Upgrade, by
-//! the truth (`Sim::can_upgrade`: already at its top tier, an operation under way, too few Supplies, or something that
-//! blocks the larger area, never said what), and its hint names the price ([`Conditions::price`],
-//! `Sim::upgrade_price`).
+//! A Tunnel's EjectMenu tiles are its Ejects, which the gate answers too (`factions/syndicate/tunnel_menus.md >
+//! EjectMenu`, slice M4-J2): a tile is greyed while no unit of its type is in the network free to leave, while every
+//! one of them only just walked in (design change 0288 point 1), or while this Tunnel's tier doesn't let the type out;
+//! and its count is the network's ([`Conditions::network_count`]). Its ExpandMenu's entries are greyed by the gate's
+//! answer to an Expand short of its placement (`Sim::can_expand`, slice M4-F: an operation under way, a Tier
+//! Requirement above this Tunnel's tier, a prerequisite missing, too few Space Crystals), where the expansion goes
+//! being the ghost's to show; its X while it performs no operation. Its Q, Upgrade Tunnel (slice M4-G), asks the gate
+//! for its Upgrade, by the truth (`Sim::can_upgrade`: already at its top tier, an operation under way, too few
+//! Supplies, or something that blocks the larger area, never said what), and its hint names the price
+//! ([`Conditions::price`], `Sim::upgrade_price`).
 //!
 //! **Prerequisites** (slice M4-K, `core/tech_and_research.md > Tech Prerequisites`: "Options whose TechPrerequisite is
 //! not met are unavailable in the build menu"): every entry the gate refuses for a type the player doesn't own
@@ -48,104 +48,34 @@
 //! while none of its recipients carries a load (`factions/syndicate/units/agent.md > DefaultState commands`: "Always
 //! visible, greyed out when Agent is not carrying resources"), the gate's own test (`Reject::NothingToDeliver`). A
 //! site's panel is its Cancel alone ([`Conditions::site`], design change 0237), an expansion's too.
+//!
+//! A pool building's kind buttons (design change 0337, `factions/cults/structures/README.md > Choosing Recruits,
+//! Release and Eject All`: "Each kind's button shows the unit with an **icon for its augments** and the count inside
+//! (unreserved); it is greyed if there are none") show its free units of each kind ([`Conditions::pool_count`],
+//! `Sim::pool_counts`), and are greyed while there are none of the kind, as the gate would refuse every entry of its
+//! KindMenu (`Reject::NoRecruit`); a KindMenu's training and Release ask the gate (a Release with no free unit of the
+//! kind left: "the second press is greyed"), and so does its Eject All (`Command::Holding`: nothing in the pool, "Only
+//! available if StoredRecruits is not empty"). The Armory's Gunner, not in the game yet, "Requires a Gunworks"
+//! ([`Conditions::planned`]; slice M5-F2).
 
-use std::collections::{BTreeMap, BTreeSet};
+mod modes;
+
+use std::collections::BTreeMap;
 
 use sc_sim::{
     BuildingOrientation, Command, ConstructionCommand, Constructor, ObjectId, ObjectKind, OrderKind, PlayerCommand,
-    PlayerId, Reject, ShieldMode, Sim, TilePos, riot_shield,
+    PlayerId, RecruitKind, Reject, Sim, TilePos,
 };
 
 use sc_sim::construction::site::BuildPrice;
 
+pub use modes::Modes;
+
 use super::{PanelCommand, Planned, commands, recipients};
+use crate::command_ui::feedback::REQUIRES_GUNWORKS_TEXT;
 use crate::selection::Selection;
 
-/// What the selected units' modes let them do now: which of them take no Attack (`factions/gdo/units/peacekeeper.md >
-/// Riot Shield > During the toggle`, design change 0202: "which orders a unit accepts follows its new type from the
-/// press": a Peacekeeper (Shielded), whose shield is up, on its way up or waiting for its shot to go up, but not a
-/// Peacekeeper whose shield is on its way down, which takes an Attack and holds it until its shield is down), by the
-/// type it groups as in the selection (the type from the press, `crate::selection::ControlState::toggle`) and the sim's
-/// own query (`sc_sim::riot_shield::takes_attack_orders`, so that the panel and the right-click never judge a type
-/// otherwise than the gate), which of the workers carry a load, which a right-click on a drop-off reads
-/// (`factions/colonists/units/drone.md > Right-Click Resolution`: "Own Egress Node (carrying resources)") and the
-/// Agent's Drop Off, and which of the selected objects aren't in operation yet (`sc_sim::Object::is_operational`: one
-/// that transforms, or a site under construction). Which way a shield goes is its unit's type (design change 0173),
-/// whose panel offers the command that turns it.
-#[derive(Clone, Debug, Default, PartialEq, Eq)]
-pub struct Modes {
-    /// The units whose type takes no Attack.
-    held: BTreeSet<ObjectId>,
-    loaded: BTreeSet<ObjectId>,
-    transforming: BTreeSet<ObjectId>,
-}
-
-impl Modes {
-    /// The modes of `selection`'s objects in `sim`.
-    pub fn of(sim: &Sim, selection: &Selection) -> Self {
-        Self {
-            held: (selection.members())
-                .filter(|&(_, kind)| !riot_shield::takes_attack_orders(kind))
-                .map(|(id, _)| id)
-                .collect(),
-            loaded: (selection.ids())
-                .filter(|&id| (sim.object(id)).is_some_and(|o| o.worker.is_some_and(|worker| worker.load > 0)))
-                .collect(),
-            transforming: selection
-                .ids()
-                .filter(|&id| sim.object(id).is_some_and(|o| !o.is_operational()))
-                .collect(),
-        }
-    }
-
-    /// Whether `id` is a worker that carries a load.
-    pub fn carries(&self, id: ObjectId) -> bool {
-        self.loaded.contains(&id)
-    }
-
-    /// The same, with `ids` carrying a load: for the unit tests.
-    pub fn with_loaded(mut self, ids: impl IntoIterator<Item = ObjectId>) -> Self {
-        self.loaded.extend(ids);
-        self
-    }
-
-    /// The same, with `ids` transforming: for the unit tests.
-    pub fn with_transforming(mut self, ids: impl IntoIterator<Item = ObjectId>) -> Self {
-        self.transforming.extend(ids);
-        self
-    }
-
-    /// Whether `id` isn't in operation yet: a Beacon under deployment, a building under Warp In
-    /// (`factions/colonists/economy.md > Beacon Deployment > While transforming: only Cancel`, design change 0116:
-    /// "no rally point, no other commands"), a site under construction (`factions/syndicate/units/agent.md > While the
-    /// Tunnel is under construction`: "It does nothing but Cancel"); none of its functions work yet.
-    pub fn transforming(&self, id: ObjectId) -> bool {
-        self.transforming.contains(&id)
-    }
-
-    /// Whether `id` takes an Attack: not a Peacekeeper (Shielded) (`sc_sim::riot_shield::takes_attack_orders`).
-    pub fn can_attack(&self, id: ObjectId) -> bool {
-        !self.held.contains(&id)
-    }
-}
-
-/// The modes of units whose Riot Shields do these, for the unit tests: a shield down or on its way down is a
-/// Peacekeeper's, which takes an Attack; one up, on its way up or waiting for its shot to go up is a Peacekeeper
-/// (Shielded)'s, which takes none (design change 0202, `sc_sim::riot_shield::takes_attack_orders`).
-impl FromIterator<(ObjectId, ShieldMode)> for Modes {
-    fn from_iter<I: IntoIterator<Item = (ObjectId, ShieldMode)>>(shields: I) -> Self {
-        Self {
-            held: (shields.into_iter())
-                .filter(|&(_, mode)| !matches!(mode, ShieldMode::Lowered | ShieldMode::Lowering { .. }))
-                .map(|(id, _)| id)
-                .collect(),
-            loaded: BTreeSet::new(),
-            transforming: BTreeSet::new(),
-        }
-    }
-}
-
-/// Why a button is greyed out (design change 0162, `systems/controls/selection_and_hud.md > CommandPanel > Pressing
+/// Why a button is greyed out (design change 0162, `systems/controls/interface.md > CommandPanel > Pressing
 /// an unavailable command`: "nothing is issued, and the player gets the same feedback as when an order is refused,
 /// naming the reason"), from the check that greys it: what pressing it says (`crate::command_ui::feedback`).
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
@@ -156,15 +86,19 @@ pub enum WhyUnavailable {
     /// Every recipient is a Peacekeeper (Shielded), which takes no Attack (`factions/gdo/units/peacekeeper.md > Riot
     /// Shield`: "the player must lower the shield before ordering an attack"; design change 0202).
     ShieldsUp,
-    /// Another command awaits its target, or a building is placed (`systems/controls/selection_and_hud.md >
+    /// Another command awaits its target, or a building is placed (`systems/controls/interface.md >
     /// AwaitingTarget > Other commands while targeting`, design change 0066: "unavailable until the player cancels").
     Waiting,
-    /// The type can't carry it out (`systems/controls/selection_and_hud.md > BasicCombatUnitInterfaceState`: Reverse
+    /// The type can't carry it out (`systems/controls/interface.md > BasicCombatUnitInterfaceState`: Reverse
     /// without CanReverse, AttackGround without CanTargetGround).
     NotForThisType,
     /// It isn't in the game yet: a building or a unit whose costs are TBD (design change 0124), a build menu none of
     /// whose buildings is, an order the sim has none of (Reverse).
     NotYet,
+    /// A placeholder entry's own reason, the message the gate's refusal will give once its command is in the game
+    /// (`Conditions::planned`, slice M5-F2): the Armory's Gunner "Requires a Gunworks", a type the game doesn't have
+    /// yet (`sc_sim::Reject::Requires` names a type of the game).
+    Placeholder(&'static str),
 }
 
 /// What the game allows a selection's commands now: its units' [`Modes`], the ActiveGroup's constructor state, and
@@ -186,8 +120,8 @@ pub struct Conditions {
     /// ActiveGroup isn't a node that offers F.
     returning: Vec<ObjectId>,
     /// The EjectMenu's counts: the units of each type in the player's Tunnel Network that aren't reserved on an eject
-    /// queue (`sc_sim::Sim::network_counts`; `factions/syndicate/tunnels.md > EjectMenu`: "the tile's count drops at
-    /// the click"); none while the ActiveGroup isn't a Tunnel.
+    /// queue (`sc_sim::Sim::network_counts`; `factions/syndicate/tunnel_menus.md > EjectMenu`: "the tile's count drops
+    /// at the click"); none while the ActiveGroup isn't a Tunnel.
     network: BTreeMap<ObjectKind, u32>,
     /// The price of each Build the ActiveGroup offers (`PanelCommand::Build`), in its resource, as the sim would charge
     /// it now (`Sim::build_price`, design change 0233): a Tunnel's in Supplies, a Laser Turret's in Space Crystals
@@ -198,6 +132,9 @@ pub struct Conditions {
     /// site is a structure that does nothing but Cancel"), whose panel is its X Cancel Construction alone, whatever
     /// its type (`super::templates::SITE_GRID`).
     pub site: bool,
+    /// The free units of each kind in the active pool building (`Sim::pool_counts`, by `RecruitKind as usize`): those
+    /// no order reserves (slice M5-F2); none while the ActiveGroup isn't a pool building.
+    pool: [u32; 4],
 }
 
 impl Conditions {
@@ -211,7 +148,8 @@ impl Conditions {
     /// is placed, and the ghost shows each tile's problem. An Agent's Build asks for its Build order, unqueued, the
     /// same way ([`build_probe`]). A Tunnel's EjectMenu tile and its Cancel ask for their `Command::Tunnel`, and the
     /// network's counts are the player's while the ActiveGroup opens the EjectMenu. An ExpandMenu entry asks
-    /// `Sim::can_expand`, the gate's Expand short of its placement, for the same reason as a Warp In's.
+    /// `Sim::can_expand`, the gate's Expand short of its placement, for the same reason as a Warp In's. A pool
+    /// building's Eject All asks for its `Command::Holding`, and its kind buttons count its free units.
     pub fn of(sim: &Sim, player: PlayerId, selection: &Selection) -> Self {
         let commands = selection
             .active()
@@ -228,6 +166,11 @@ impl Conditions {
         } else {
             BTreeMap::new()
         };
+        let kinds = PanelCommand::KindMenu(RecruitKind::Plain);
+        let pool = (commands.contains(&kinds))
+            .then(|| recipients(selection, kinds))
+            .and_then(|buildings| buildings.first().copied())
+            .map_or([0; 4], |building| sim.pool_counts(building));
         let refused = commands
             .iter()
             .filter_map(|&command| {
@@ -256,6 +199,11 @@ impl Conditions {
                     Command::Tunnel {
                         tunnel: *objects.first()?,
                         command: tunnel,
+                    }
+                } else if let Some(holding) = command.holding() {
+                    Command::Holding {
+                        objects,
+                        command: holding,
                     }
                 } else if let PanelCommand::Build(kind) = command {
                     build_probe(objects, kind)
@@ -295,6 +243,7 @@ impl Conditions {
             network,
             prices,
             site: first.is_some_and(|o| o.is_site()),
+            pool,
         }
     }
 
@@ -308,6 +257,7 @@ impl Conditions {
             network: BTreeMap::new(),
             prices: BTreeMap::new(),
             site: false,
+            pool: [0; 4],
         }
     }
 
@@ -340,11 +290,26 @@ impl Conditions {
         self
     }
 
-    /// Why placeholder entry `_planned` is greyed (design change 0162): it isn't in the game yet. (The one entry that
-    /// said more, the ExpandMenu's Laser Turret with its prerequisite, is in the game since slice M4-S2, greyed by its
-    /// gate.)
-    pub fn planned(&self, _planned: Planned) -> WhyUnavailable {
-        WhyUnavailable::NotYet
+    /// Why placeholder entry `planned` is greyed (design change 0162): it isn't in the game yet; the Armory's Gunner
+    /// "Requires a Gunworks" (`factions/cults/structures/armory.md > Training`: "TechPrerequisite: player owns at
+    /// least one Gunworks"), a type no player can own yet. (The ExpandMenu's Laser Turret, which said its prerequisite
+    /// the same way, is in the game since slice M4-S2, greyed by its gate.)
+    pub fn planned(&self, planned: Planned) -> WhyUnavailable {
+        match planned {
+            Planned::Gunner => WhyUnavailable::Placeholder(REQUIRES_GUNWORKS_TEXT),
+            _ => WhyUnavailable::NotYet,
+        }
+    }
+
+    /// The same, with `counts` the active pool building's free units by kind: for the unit tests.
+    pub fn with_pool(mut self, counts: [u32; 4]) -> Self {
+        self.pool = counts;
+        self
+    }
+
+    /// A kind button's count: the free units of `kind` in the active pool building, those no order reserves.
+    pub fn pool_count(&self, kind: RecruitKind) -> u32 {
+        self.pool[kind as usize]
     }
 
     /// The same, with `command` priced at `price`: for the unit tests.
@@ -394,7 +359,8 @@ impl Conditions {
 
     /// Why the game doesn't let `command` go to its recipients in `selection` now ([`Conditions::allows`]), if it
     /// doesn't: their types, their loads (a Drop Off none of whose recipients carries anything, the gate's
-    /// `Reject::NothingToDeliver`), or the gate's refusal.
+    /// `Reject::NothingToDeliver`), a pool building's free units (a kind button with none of its kind, which every
+    /// entry of its KindMenu would want: `Reject::NoRecruit`), or the gate's refusal.
     pub fn unavailable(&self, selection: &Selection, command: PanelCommand) -> Option<WhyUnavailable> {
         match command {
             PanelCommand::Attack => {
@@ -408,6 +374,9 @@ impl Conditions {
                     .into_iter()
                     .any(|id| self.modes.carries(id));
                 (!loaded).then_some(WhyUnavailable::Refused(Reject::NothingToDeliver))
+            }
+            PanelCommand::KindMenu(kind) => {
+                (self.pool_count(kind) == 0).then_some(WhyUnavailable::Refused(Reject::NoRecruit(kind)))
             }
             _ => self.refusal(command).map(WhyUnavailable::Refused),
         }

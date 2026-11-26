@@ -60,7 +60,7 @@ pub use state::{Auto, Behaviour};
 pub const MAX_QUEUED_ORDERS: usize = 32;
 
 /// Units one order command may name, duplicates included. Technical: selections have no size limit
-/// (`systems/controls/selection_and_hud.md`), so this only bounds the work of one command.
+/// (`systems/controls/selection.md`), so this only bounds the work of one command.
 pub const MAX_ORDER_UNITS: usize = 1024;
 
 /// The units of one order command share it (`docs/movement.md > 3`). Allocated from `Sim::next_group`.

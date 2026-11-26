@@ -1,6 +1,7 @@
-//! Attack Ground — `systems/controls/commands.md > AttackGround`, `systems/controls/behaviors.md > AttackingLocation`
-//! (slice M4-O, plan decision T47): a unit attacks a location, "the same as AttackingObject" with the location for
-//! its target. It walks into range and stands, and phase 5e aims at the location and fires (`combat::phases`).
+//! Attack Ground — `systems/controls/commands.md > AttackGround`, `systems/controls/command_behaviors.md >
+//! AttackingLocation` (slice M4-O, plan decision T47): a unit attacks a location, "the same as AttackingObject" with
+//! the location for its target. It walks into range and stands, and phase 5e aims at the location and fires
+//! (`combat::phases`).
 //!
 //! - **Engaged** (`AttackState::location`): from the order's start (`orders::run::start`) for as long as it runs, but
 //!   while the unit backs off from it (below). No one needs to see the location.
@@ -8,8 +9,8 @@
 //!   Measurement`): the unit stops, and phase 5e aims and fires.
 //! - **Out of range**: MovingToLocation, to the point itself; the walk ends in range, where this behaviour stops it.
 //!   It starts once the attack sequence lets the unit move (`combat::may_move`), as an Attack's approach does. A walk
-//!   that ends out of range gives up, and the order completes (`systems/controls/behaviors.md > Failure`).
-//! - **Inside its MinRange** (design change 0182, as for a target object: `systems/controls/behaviors.md >
+//!   that ends out of range gives up, and the order completes (`systems/controls/command_behaviors.md > Failure`).
+//! - **Inside its MinRange** (design change 0182, as for a target object: `systems/controls/command_behaviors.md >
 //!   AttackingObject > Target inside MinRange`): an Attack's own rule, and code (`engage::too_close`, slice M5-O3).
 //!   The unit backs off straight away from the location to the middle of the band between MinRange and Range, letting
 //!   go of the location meanwhile, and fires from there. One that can't move, or whose back-off ended with the

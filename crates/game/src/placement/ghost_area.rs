@@ -1,12 +1,12 @@
-//! The Tunnel Area of a Tunnel being placed (slice M4-J1; `factions/syndicate/tunnels.md > Tunnel Area Non-Overlap
-//! Rule`, design change 0242: "a Tunnel can only be placed if every cell of its Tunnel Area is on the map and
-//! Drillable"): around the placement ghost (`super::ghost`), the Tier 1 area the Tunnel would have
+//! The Tunnel Area of a Tunnel being placed (slice M4-J1; `factions/syndicate/tunnel_area_and_space.md > Tunnel Area
+//! Non-Overlap Rule`, design change 0242: "a Tunnel can only be placed if every cell of its Tunnel Area is on the map
+//! and Drillable"): around the placement ghost (`super::ghost`), the Tier 1 area the Tunnel would have
 //! (`sc_sim::tunnel::area::base_radius`), green while the check its click would face finds nothing wrong with the
 //! area, red while it does (a cell past the map's edge, on known undrillable ground, or in a Tunnel Area the player
 //! knows of: `WholeProblem::TunnelAreaOffMap`, `TunnelAreaNotDrillable`, `TunnelAreaOverlap`; what is wrong is the
 //! invalid click's message, `crate::command_ui::feedback`). The rings of its Tier 2 and Tier 3 areas show around it
-//! (`super::tunnel_areas::rings`, slice M4-J3; `factions/syndicate/tunnels.md > Tunnel Area display`, design changes
-//! 0299 and 0300), but none of the areas it must keep clear of: "Enemy Tunnel Areas are never shown".
+//! (`super::tunnel_areas::rings`, slice M4-J3; `factions/syndicate/tunnel_area_and_space.md > Tunnel Area display`,
+//! design changes 0299 and 0300), but none of the areas it must keep clear of: "Enemy Tunnel Areas are never shown".
 //!
 //! The look, placeholders until the art (Q0001): the Tunnel Area overlay's (`super::overlay::tint_area`) in the
 //! ghost's green or red, fainter than the ghost's own tiles; not on the tiles the player hasn't explored, which stay

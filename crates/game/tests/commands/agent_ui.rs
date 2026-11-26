@@ -326,7 +326,7 @@ fn a_build_the_bank_cant_pay_says_so_and_sends_nothing() {
     assert!(matches!(interface(&app), InterfaceState::AwaitingPlacement(_)));
 }
 
-/// `systems/controls/selection_and_hud.md > AwaitingTarget > Shift while placing`: "each Agent takes exactly one
+/// `systems/controls/interface.md > AwaitingTarget > Shift while placing`: "each Agent takes exactly one
 /// placement", and placement ends at a Shift-click as at a plain one; to place with the next Agent, the player presses
 /// Tab, then A. Two Shift-clicks with two Agents leave two lingering ghosts with their Tier 1 areas, each paid as it
 /// was given (1, then 2: the first ghost counts, design change 0233). The second Agent's ghost is red where its area
@@ -473,7 +473,7 @@ fn the_owner_sees_the_lingering_ghost_and_the_enemy_doesnt() {
     assert_eq!(lingering(&mut app), ((1, 1), true));
 }
 
-/// `systems/controls/selection_and_hud.md > PointerDisplayType`: "Cursor over own Tunnel (Syndicate unit, tier
+/// `systems/controls/hud.md > PointerDisplayType`: "Cursor over own Tunnel (Syndicate unit, tier
 /// sufficient): **Enter**", for an Agent that carries nothing and for a Guard; an Agent that carries a Supply shows
 /// ReturnResources there instead (`factions/syndicate/units/agent.md > Right-Click Resolution`: "Own Tunnel (carrying
 /// resources) → Drop off resources"), with the Supply's crate on its body and no crystal shard, and its S, no longer

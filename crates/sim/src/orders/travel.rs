@@ -1,4 +1,4 @@
-//! Travelling behaviours — `systems/controls/behaviors.md > MovingToObject` (with Follow), `>
+//! Travelling behaviours — `systems/controls/command_behaviors.md > MovingToObject` (with Follow), `>
 //! AttackMovingToLocation` and `> Patrolling`.
 
 use glam::Vec2;

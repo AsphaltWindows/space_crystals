@@ -1,18 +1,18 @@
-//! A Tunnel's expansions in a game (slice M4-F; `factions/syndicate/tunnels.md > Tunnel ObjectInterfaceState >
-//! ExpandMenu`, `factions/syndicate/tunnels.md > AwaitingPlacement (Expansion)`, `factions/syndicate/tunnels.md >
-//! Expansions under construction`): a Tunnel builds an underground expansion in its Tunnel Area as its one operation
-//! (`tunnel::Operation`), on a site that is the expansion from its first frame (plan decision T31,
-//! `construction::site`).
+//! A Tunnel's expansions in a game (slice M4-F; `factions/syndicate/tunnel_menus.md > Tunnel ObjectInterfaceState >
+//! ExpandMenu`, `factions/syndicate/tunnel_menus.md > AwaitingPlacement (Expansion)`,
+//! `factions/syndicate/tunnel_menus.md > Expansions under construction`): a Tunnel builds an underground expansion in
+//! its Tunnel Area as its one operation (`tunnel::Operation`), on a site that is the expansion from its first frame
+//! (plan decision T31, `construction::site`).
 //!
 //! - **The gate** ([`Sim::check_expand`], `TunnelCommand::Expand`): the Tunnel is its player's and in operation
 //!   (`Sim::check_tunnel`), performs no operation ("A Tunnel can only perform one operation at a time",
 //!   `factions/syndicate/tunnels.md > Construction and Upgrade Rules`), and builds the kind (`StructureDef::expansion`)
-//!   at its tier ("its Tier Requirement is at or below **this** Tunnel's tier", `> ExpandMenu`); its TechPrerequisite
-//!   holds ("satisfied anywhere in the Tunnel Network", `Sim::check_requires`, slice M4-K: [`Reject::Requires`]), and
-//!   the bank pays its cost. These are [`Sim::can_expand`], which the ExpandMenu greys its entries by. Then the
-//!   placement, by the truth (`Sim::expansion_truth`, design change 0240: "judged by the truth; the placement is
-//!   refused"), reported to the player as a Place's is (`SimEvent::PlacementRefused`, plan decision T4), the Tunnel
-//!   its constructor.
+//!   at its tier ("its Tier Requirement is at or below **this** Tunnel's tier", `factions/syndicate/tunnel_menus.md >
+//!   ExpandMenu`); its TechPrerequisite holds ("satisfied anywhere in the Tunnel Network", `Sim::check_requires`, slice
+//!   M4-K: [`Reject::Requires`]), and the bank pays its cost. These are [`Sim::can_expand`], which the ExpandMenu greys
+//!   its entries by. Then the placement, by the truth (`Sim::expansion_truth`, design change 0240: "judged by the
+//!   truth; the placement is refused"), reported to the player as a Place's is (`SimEvent::PlacementRefused`, plan
+//!   decision T4), the Tunnel its constructor.
 //! - **The start** ([`Sim::start_expansion`]): "**Paid when the ghost is placed** ... **Tunnel Space is used once
 //!   construction has started.** Today placing the ghost starts construction at once" (design change 0254): the site
 //!   comes into the game as the command applies, its owner's, which Tunnel Space counts from then on
@@ -52,7 +52,7 @@ use crate::tunnel::Operation;
 use crate::units::TilePos;
 
 impl Sim {
-    /// `factions/syndicate/tunnels.md > ExpandMenu`: whether `player`'s Tunnel `tunnel` may build an expansion of
+    /// `factions/syndicate/tunnel_menus.md > ExpandMenu`: whether `player`'s Tunnel `tunnel` may build an expansion of
     /// `kind` now, wherever it goes: the gate's answer to an Expand short of its placement (module docs), by which the
     /// ExpandMenu greys an entry ("unavailable entries are greyed", design change 0257) and says why. The Tunnel is the
     /// player's ([`Reject::NotOwned`]) and in operation ([`Reject::NotATunnel`]), as for every Tunnel command.
@@ -66,7 +66,7 @@ impl Sim {
 
     /// Tunnel `tunnel`'s operation, if it performs one, with how far it is: an expansion's its site's progress
     /// (`Construction::progress`), an upgrade's its own (slice M4-G). For the Tunnel's InfoPanel: "**The Tunnel
-    /// meanwhile** shows the progress" (`factions/syndicate/tunnels.md > Expansions under construction`).
+    /// meanwhile** shows the progress" (`factions/syndicate/tunnel_menus.md > Expansions under construction`).
     pub fn operation_progress(&self, tunnel: ObjectId) -> Option<(Operation, Progress)> {
         let operation = self.object(tunnel)?.tunnel.as_ref()?.operation?;
         let progress = match operation {
@@ -179,7 +179,7 @@ impl Sim {
         self.events.push(SimEvent::ExpansionCompleted { tunnel, site });
     }
 
-    /// `TunnelCommand::Cancel` on `tunnel` (`factions/syndicate/tunnels.md > Tunnel ObjectInterfaceState`: "**X**
+    /// `TunnelCommand::Cancel` on `tunnel` (`factions/syndicate/tunnel_menus.md > Tunnel ObjectInterfaceState`: "**X**
     /// Cancel (upgrade, construction or the current operation)"): its operation is cancelled, an expansion as by its
     /// own Cancel Construction ([`Sim::cancel_expansion`]), an upgrade refunded at the current top price
     /// (`Sim::cancel_upgrade`, slice M4-G).

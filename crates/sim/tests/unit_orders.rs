@@ -240,7 +240,7 @@ fn an_order_replaces_the_queue_and_a_queued_one_waits_its_turn() {
     }
 }
 
-/// `systems/controls/behaviors.md > StoppingBehavior`: the unit stops at once (infinite deceleration).
+/// `systems/controls/command_behaviors.md > StoppingBehavior`: the unit stops at once (infinite deceleration).
 #[test]
 fn stop_halts_the_unit_where_it_is() {
     let mut t = ScenarioBuilder::new(MAP).start();
@@ -259,7 +259,8 @@ fn stop_halts_the_unit_where_it_is() {
     assert_eq!(unit.mover.as_ref().unwrap().status, MoveStatus::Idle);
 }
 
-/// `systems/controls/behaviors.md > HoldingPosition`: never moves, never completes; orders queued behind it wait.
+/// `systems/controls/command_behaviors.md > HoldingPosition`: never moves, never completes; orders queued behind it
+/// wait.
 #[test]
 fn hold_stays_put_until_a_new_order_replaces_it() {
     let start = v(96.0, 352.0);

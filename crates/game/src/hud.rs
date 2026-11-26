@@ -1,4 +1,4 @@
-//! The game-mode HUD frame (`core/camera.md > HUD Layout`, `systems/controls/selection_and_hud.md > HUD Bar`).
+//! The game-mode HUD frame (`core/camera.md > HUD Layout`, `systems/controls/hud.md > HUD Bar`).
 //!
 //! A top resource bar and, at the bottom, the HUD Bar with its five sections in fixed slots, left to right. All
 //! sections share one height, and a slot stays reserved while its panel has nothing to show. Sizes are in percent
@@ -55,7 +55,7 @@ const DESYNC_COLOR: Color = Color::srgb(1.0, 0.35, 0.3);
 /// Size of a section's name.
 const LABEL_VH: f32 = 1.6;
 
-/// The HUD Bar's sections (`systems/controls/selection_and_hud.md > HUD Bar > Sections`).
+/// The HUD Bar's sections (`systems/controls/hud.md > HUD Bar > Sections`).
 #[derive(Component, Copy, Clone, Debug, PartialEq, Eq)]
 pub enum HudSection {
     Minimap,
@@ -86,7 +86,7 @@ impl HudSection {
     }
 
     /// The slot's width: a fixed size (vh) or a share of the width left over. Both depend only on the surface
-    /// size, never on what the panels show, so the slots never shift (`systems/controls/selection_and_hud.md > HUD
+    /// size, never on what the panels show, so the slots never shift (`systems/controls/hud.md > HUD
     /// Bar > Layout Rules`).
     fn width(self) -> SlotWidth {
         match self {
@@ -94,7 +94,7 @@ impl HudSection {
             HudSection::Portrait => SlotWidth::Fixed(SECTION_HEIGHT_VH * 0.8),
             HudSection::InfoPanel => SlotWidth::Share(1.0),
             HudSection::SelectionPanel => SlotWidth::Share(1.0),
-            // `systems/controls/selection_and_hud.md > CommandPanel > Grid Layout`: 4 × 3 square slots.
+            // `systems/controls/interface.md > CommandPanel > Grid Layout`: 4 × 3 square slots.
             HudSection::CommandPanel => SlotWidth::Fixed(SECTION_HEIGHT_VH * 4.0 / 3.0),
         }
     }
@@ -149,7 +149,7 @@ impl Plugin for HudPlugin {
             .add_systems(Update, (update_top_bar, update_replay_note, show_hud_in_game_modes))
             // After the frame's input, which may switch the local player.
             .add_systems(Update, resources::update_resource_bar.in_set(ClientSystems::Present))
-            // `systems/controls/selection_and_hud.md > SelectionPanel > Interactions`: after the map's clicks and the
+            // `systems/controls/hud.md > SelectionPanel > Interactions`: after the map's clicks and the
             // keys of the same frame.
             .add_systems(
                 Update,

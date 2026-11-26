@@ -1,15 +1,15 @@
-//! The Tunnel's EjectMenu (`factions/syndicate/tunnels.md > Tunnel ObjectInterfaceState`, slice M4-J2): "a grid of unit
-//! type tiles representing all units currently in the Tunnel Network. Each tile shows the unit type icon and a count of
-//! how many of that type are in the network" (`> EjectMenu`). Its tiles take the grid's slots in the order of the sim's
-//! list (design change 0257: "entries take the grid slots in order (Q, W, E, R, A, S, …)", "Agent Q, Guard W, Grenadier
-//! E" in Q0068's words; design change 0285, answering Q0086 point 1: "0257's parenthetical (Agent, Guard, Grenadier, …)
-//! is the intended order"; `sc_sim::defs::EJECT_MENU_ORDER`), every slot but Z's, which is Back. Each type holds its
-//! slot whether or not any of it is inside: one with none shows a count of 0, greyed (design change 0299, answering
-//! Q0086 point 2: "**Every Syndicate unit type keeps its tile** [...]: a type with no units in the network shows a
-//! count of 0, greyed. Letters never move."), and so does one this Tunnel's tier doesn't let out ("visible but greyed
-//! out (disabled)") and one whose every unit only just walked in (design change 0288 point 1: "When every unit of a
-//! type is still in the 2 s transit delay, its tile is greyed and the click is refused; nothing is queued"), each with
-//! the gate's reason (`crate::command_ui::Conditions`).
+//! The Tunnel's EjectMenu (`factions/syndicate/tunnel_menus.md > Tunnel ObjectInterfaceState`, slice M4-J2): "a grid of
+//! unit type tiles representing all units currently in the Tunnel Network. Each tile shows the unit type icon and a
+//! count of how many of that type are in the network" (`> EjectMenu`). Its tiles take the grid's slots in the order of
+//! the sim's list (design change 0257: "entries take the grid slots in order (Q, W, E, R, A, S, …)", "Agent Q, Guard W,
+//! Grenadier E" in Q0068's words; design change 0285, answering Q0086 point 1: "0257's parenthetical (Agent, Guard,
+//! Grenadier, …) is the intended order"; `sc_sim::defs::EJECT_MENU_ORDER`), every slot but Z's, which is Back. Each
+//! type holds its slot whether or not any of it is inside: one with none shows a count of 0, greyed (design change
+//! 0299, answering Q0086 point 2: "**Every Syndicate unit type keeps its tile** [...]: a type with no units in the
+//! network shows a count of 0, greyed. Letters never move."), and so does one this Tunnel's tier doesn't let out
+//! ("visible but greyed out (disabled)") and one whose every unit only just walked in (design change 0288 point 1:
+//! "When every unit of a type is still in the 2 s transit delay, its tile is greyed and the click is refused; nothing
+//! is queued"), each with the gate's reason (`crate::command_ui::Conditions`).
 //!
 //! A unit of a type not in the list is never inside in a game: only a debug game puts another faction's units in the
 //! network (the sim's Enter takes any unit of the Tunnel's owner). Placeholder (not in the design): such a type has no
@@ -22,7 +22,7 @@ use super::super::{PanelCommand, slot_index};
 use crate::input::CommandSlot;
 
 /// The slots the tiles take, in order: Q, W, E, R, A, S, D, F, X, C, V, every slot of the grid but Back's, Z
-/// (`systems/controls/selection_and_hud.md > Standard Slot Assignments > Z`). The ExpandMenu's entries take them alike
+/// (`systems/controls/interface.md > Standard Slot Assignments > Z`). The ExpandMenu's entries take them alike
 /// (`super::expand_menu`, design change 0257: "In the **ExpandMenu** and **EjectMenu**, entries take the grid slots in
 /// order").
 pub(super) fn tile_slots() -> impl Iterator<Item = usize> {

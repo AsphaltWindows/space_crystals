@@ -165,7 +165,7 @@ fn one_of_two_tunnels_falls_its_hideout_turns_neutral_its_work_lost_its_queue_re
     assert_eq!(inside(&t, P1), [id(4)]);
 }
 
-/// Design change 0254 (`factions/syndicate/tunnels.md > Expansions under construction`): "**Its Tunnel destroyed
+/// Design change 0254 (`factions/syndicate/tunnel_menus.md > Expansions under construction`): "**Its Tunnel destroyed
 /// mid-build**: the unfinished expansion is destroyed, no refund" (slice M4-F's site, `Builder::Tunnel`). In
 /// [`two_tunnels`], [`T1`] builds a second Hideout in its area, paying 200 of player 1's 1000 Space Crystals, and falls
 /// halfway: the site leaves the game in that tick with it, as a removal and not a cancel (no

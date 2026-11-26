@@ -13,8 +13,8 @@
 //! grid units away (design change 0294), and 4 Agents for each Tunnel, sent to its patch in tick 1. The 60 Guards stand
 //! north of the second field's western Tunnel and go in by its Side A in tick 1 (`systems/controls/commands.md >
 //! Enter`). Each tick that a Guard inside is free to leave, the Tunnel ejects one, the network's longest inside
-//! (`factions/syndicate/tunnels.md > EjectMenu`). A Guard that came out walks off at once, as a player would clear the
-//! exit, round to the entry's side and in again (16 ticks after a walk in failed, it tries again). So the Guards go
+//! (`factions/syndicate/tunnel_menus.md > EjectMenu`). A Guard that came out walks off at once, as a player would clear
+//! the exit, round to the entry's side and in again (16 ticks after a walk in failed, it tries again). So the Guards go
 //! round all along: the line at the entry path, the transit delay inside, the eject queue, the exit spot.
 //!
 //! The first part times that alone. Then 40 of player 2's Grenadiers appear south of the first field, each already in

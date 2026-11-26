@@ -15,6 +15,8 @@
 mod agent_gathering;
 #[path = "agent_supplies/main.rs"]
 mod agent_supplies;
+#[path = "armory/main.rs"]
+mod armory;
 #[path = "attack_behind_friends/main.rs"]
 mod attack_behind_friends;
 mod attack_move_leash;

@@ -96,8 +96,8 @@ pub(crate) const LASER_TURRET_EXPANSION: ExpansionDef = ExpansionDef {
     tier: 1,
     cost: 100,   // "Cost: 100 Space Crystals (no Supplies)"
     frames: 320, // "Build time: 320 frames (20 s)"
-    // `factions/syndicate/tunnels.md > Expansions under construction` (design change 0254): "the ConstructionHP Rule
-    // applies to every expansion (starts at 10%, grows with progress)".
+    // `factions/syndicate/tunnel_menus.md > Expansions under construction` (design change 0254): "the ConstructionHP
+    // Rule applies to every expansion (starts at 10%, grows with progress)".
     start_hp: 0.1,
 };
 

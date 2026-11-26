@@ -190,7 +190,7 @@ impl Sim {
     /// Worker-Built Structures`, plan decision T51), given `units`, the player's units that take orders:
     /// - **Its builder**: the units among them that build `kind` ([`site::builds`]: the Agents for a Tunnel), exactly
     ///   one, else [`Reject::NoWorkers`] or [`Reject::SeveralConstructors`]. "Each Agent takes exactly one placement"
-    ///   (`systems/controls/selection_and_hud.md > AwaitingTarget > Shift while placing`), as it "goes inside the
+    ///   (`systems/controls/interface.md > AwaitingTarget > Shift while placing`), as it "goes inside the
     ///   structure it builds": a Build `queued` with Shift to one with a Build already, current or queued, is
     ///   [`Reject::ConstructorBusy`] (without Shift, the new one replaces it).
     /// - **Its TechPrerequisite** (slice M4-K, `crate::tech`): the player owns what `kind` requires

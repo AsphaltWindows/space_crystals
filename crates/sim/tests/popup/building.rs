@@ -28,7 +28,7 @@ fn building(t: &TestSim) -> ObjectId {
     }
 }
 
-/// `factions/syndicate/tunnels.md > ExpandMenu`: "The ExpandMenu also offers the **Laser Turret** (once the player
+/// `factions/syndicate/tunnel_menus.md > ExpandMenu`: "The ExpandMenu also offers the **Laser Turret** (once the player
 /// owns an Optics Lab)"; "Cost: 100 Space Crystals (no Supplies)". The gate's answers short of the placement
 /// (`Sim::can_expand`, which the menu greys its tenth slot by), and the placement's: inside the Tunnel's area, on
 /// ground that is "**Buildable, flat and Drillable**" (design change 0358 point 3), clear of every

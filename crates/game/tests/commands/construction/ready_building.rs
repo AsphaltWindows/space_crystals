@@ -105,7 +105,7 @@ fn escape_right_click_and_back_leave_placement_for_the_build_menu() {
     );
 }
 
-/// `systems/controls/selection_and_hud.md > AwaitingTarget > Shift while placing` (design change 0071): a GDO
+/// `systems/controls/interface.md > AwaitingTarget > Shift while placing` (design change 0071): a GDO
 /// constructor has one building ready at most, so a Shift-click places it once and ends placement like a plain click;
 /// the next Shift-click places nothing.
 #[test]

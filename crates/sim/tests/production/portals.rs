@@ -408,7 +408,7 @@ fn a_sabre_takes_160_frames_at_the_bio_portal_and_walks_straight_out() {
     assert_eq!((t.pos(unit.0), t.status(unit.0)), (point, MoveStatus::Arrived));
 }
 
-/// Design change 0136 (`systems/controls/selection_and_hud.md > What a rally point makes a new unit do`): each new unit
+/// Design change 0136 (`systems/controls/interface.md > What a rally point makes a new unit do`): each new unit
 /// gets its own default right-click command on the rally target: the Drone, unarmed, a Move to the enemy structure
 /// (`factions/colonists/units/drone.md > Right-Click Resolution`), the Bio Portal's Sabre an Attack; both head for
 /// where the enemy was seen. The enemy is a GDO Generator east of the portal, which a Drone of player 1 keeps in sight.

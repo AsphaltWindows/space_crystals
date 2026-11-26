@@ -37,7 +37,8 @@ fn two_peacekeepers_pass_each_other_in_a_corridor() {
 }
 
 /// Question Q0007, gap G3 (default): two Guards (36 su) can't pass in a 64 su corridor. Both give up by the
-/// Failure rule (`systems/controls/behaviors.md > MovingToLocation > Failure`), stop, and their orders complete.
+/// Failure rule (`systems/controls/command_behaviors.md > MovingToLocation > Failure`), stop, and their orders
+/// complete.
 #[test]
 fn two_guards_head_on_in_a_corridor_both_fail() {
     let mut t = ScenarioBuilder::new(CORRIDOR).start();

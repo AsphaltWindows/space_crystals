@@ -1,11 +1,14 @@
-//! The command panel's commands (`systems/controls/selection_and_hud.md > CommandPanel`), for units, producing
+//! The command panel's commands (`systems/controls/interface.md > CommandPanel`), for units, producing
 //! structures and constructors alike (plan decision T10: one command flow, not a structure UI beside the unit UI):
 //! [`PanelCommand`], and what pressing each one gives the sim.
 
-use sc_sim::{Ability, ConstructionCommand, ObjectKind, OrderKind, ProductionCommand, TunnelCommand};
+mod names;
+
+use sc_sim::{
+    Ability, ConstructionCommand, HoldCommand, ObjectKind, OrderKind, ProductionCommand, RecruitKind, TunnelCommand,
+};
 
 use super::{BuildMenu, Planned};
-use crate::kinds::{self, short_label};
 
 /// A command of the command panel: the unit commands of `systems/controls/commands.md`, as `>
 /// BasicCombatUnitInterfaceState` lists them, those of the producing structures (`factions/gdo/structures/barracks.md >
@@ -15,9 +18,10 @@ use crate::kinds::{self, short_label};
 /// transforming objects (`factions/colonists/economy.md > Beacon > Beacon ObjectInterfaceState`,
 /// `factions/colonists/units/drone.md > Drone ObjectInterfaceState`, `factions/colonists/economy.md > Egress Node >
 /// Egress Node ObjectInterfaceState`, `factions/colonists/economy.md > Beacon Deployment > While transforming: only
-/// Cancel`; slices M3-J1 and M3-J2, design change 0124), and the Syndicate's Tunnel (`factions/syndicate/tunnels.md >
-/// Tunnel ObjectInterfaceState`, slices M4-J2 and M4-F) and Agent (`factions/syndicate/units/agent.md > Agent
-/// ObjectInterfaceState`, slice M4-J1).
+/// Cancel`; slices M3-J1 and M3-J2, design change 0124), and the Syndicate's Tunnel
+/// (`factions/syndicate/tunnel_menus.md > Tunnel ObjectInterfaceState`, slices M4-J2 and M4-F) and Agent
+/// (`factions/syndicate/units/agent.md > Agent ObjectInterfaceState`, slice M4-J1), and the Cults' pool buildings'
+/// (design change 0337, `factions/cults/structures/README.md > Choosing Recruits, Release and Eject All`; slice M5-F2).
 #[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum PanelCommand {
     Move,
@@ -100,12 +104,12 @@ pub enum PanelCommand {
     /// slice M3-J2). "Only available if at least one such Drone exists": it shows only then
     /// (`super::Conditions::shows`).
     SelectReturningDrones,
-    /// `factions/syndicate/tunnels.md > Tunnel ObjectInterfaceState`: "**E** Eject" (design change 0257), which "enters
-    /// EjectMenu (StateOnlyTransition)" (`super::InterfaceState::EjectMenu`): the unit types of the player's Tunnel
-    /// Network, to eject from this Tunnel (slice M4-J2).
+    /// `factions/syndicate/tunnel_menus.md > Tunnel ObjectInterfaceState`: "**E** Eject" (design change 0257), which
+    /// "enters EjectMenu (StateOnlyTransition)" (`super::InterfaceState::EjectMenu`): the unit types of the player's
+    /// Tunnel Network, to eject from this Tunnel (slice M4-J2).
     EjectMenu,
-    /// An EjectMenu tile (`factions/syndicate/tunnels.md > EjectMenu`): "Click an enabled unit type tile: ejects one
-    /// unit of that type from this Tunnel's Side A (CommandIssuingTransition)", at once
+    /// An EjectMenu tile (`factions/syndicate/tunnel_menus.md > EjectMenu`): "Click an enabled unit type tile: ejects
+    /// one unit of that type from this Tunnel's Side A (CommandIssuingTransition)", at once
     /// (`sc_sim::TunnelCommand::Eject`): of the type, the one inside the network longest, which the click reserves
     /// ("the tile's count drops at the click"). The menu stays open for the next click: a reading, as the design
     /// names no state after the click (a rally's says "CommandIssuingTransition, returns to DefaultState") and goes
@@ -125,11 +129,11 @@ pub enum PanelCommand {
     /// those that carry nothing). "Always visible, greyed out when Agent is not carrying resources"
     /// (`super::Conditions::unavailable`).
     DropOff,
-    /// `factions/syndicate/tunnels.md > Tunnel ObjectInterfaceState`: "**W** Expand Tunnel" (design change 0257), which
-    /// "enters ExpandMenu (StateOnlyTransition)" (`super::InterfaceState::ExpandMenu`): the expansions this Tunnel
-    /// builds (slice M4-F).
+    /// `factions/syndicate/tunnel_menus.md > Tunnel ObjectInterfaceState`: "**W** Expand Tunnel" (design change 0257),
+    /// which "enters ExpandMenu (StateOnlyTransition)" (`super::InterfaceState::ExpandMenu`): the expansions this
+    /// Tunnel builds (slice M4-F).
     ExpandMenu,
-    /// An ExpandMenu entry (`factions/syndicate/tunnels.md > ExpandMenu`): "Click an expansion type: begins
+    /// An ExpandMenu entry (`factions/syndicate/tunnel_menus.md > ExpandMenu`): "Click an expansion type: begins
     /// construction if the Tunnel is not already performing an operation (enters AwaitingPlacement for that
     /// expansion)", a StateOnlyTransition to its placement in this Tunnel's Tunnel Area, where a click builds it
     /// (`sc_sim::TunnelCommand::Expand`).
@@ -137,14 +141,32 @@ pub enum PanelCommand {
     /// The Tunnel's X, "Cancel (upgrade, construction or the current operation)" (design change 0257): `> Expansions
     /// under construction` (design change 0254): "The Tunnel's X cancels whatever operation it is running (an upgrade
     /// or an expansion)", at once (`sc_sim::TunnelCommand::Cancel`). Not an eject queue, which isn't an operation:
-    /// "the queue can't be cancelled" (`factions/syndicate/tunnels.md > EjectMenu`).
+    /// "the queue can't be cancelled" (`factions/syndicate/tunnel_menus.md > EjectMenu`).
     CancelOperation,
-    /// The Tunnel's Q (`factions/syndicate/tunnels.md > Tunnel ObjectInterfaceState`, design change 0257): "Upgrade
-    /// Tunnel — upgrades to next tier (CommandIssuingTransition). Costs Supplies per upgrade cost formula. Unavailable
-    /// if already Tier 3 or if currently performing an operation", at once (`sc_sim::TunnelCommand::Upgrade`, slice
-    /// M4-G), greyed with the gate's reason (`sc_sim::Sim::can_upgrade`) and priced in its hint
-    /// (`sc_sim::Sim::upgrade_price`).
+    /// The Tunnel's Q (`factions/syndicate/tunnel_menus.md > Tunnel ObjectInterfaceState`, design change 0257):
+    /// "Upgrade Tunnel — upgrades to next tier (CommandIssuingTransition). Costs Supplies per upgrade cost formula.
+    /// Unavailable if already Tier 3 or if currently performing an operation", at once
+    /// (`sc_sim::TunnelCommand::Upgrade`, slice M4-G), greyed with the gate's reason (`sc_sim::Sim::can_upgrade`) and
+    /// priced in its hint (`sc_sim::Sim::upgrade_price`).
     UpgradeTunnel,
+    /// A pool building's DefaultState "**Q** Plain, **W** Constitution, **E** Metabolism, **R** Both (each enters
+    /// KindMenu\[kind\])" (`factions/cults/structures/README.md > Choosing Recruits, Release and Eject All`, design
+    /// change 0337): a StateOnlyTransition to `super::InterfaceState::KindMenu`. "Each kind's button shows the unit
+    /// with an **icon for its augments** and the count inside (unreserved); it is greyed if there are none"
+    /// (`super::PanelSlot::count`, `super::Conditions::pool_count`; slice M5-F2).
+    KindMenu(RecruitKind),
+    /// A KindMenu\[kind\]'s production option (`factions/cults/structures/armory.md > ObjectInterfaceState[Armory]`:
+    /// "**Q: Train Militant**: deducts Militant's Space Crystals cost from the player, moves one Recruit from
+    /// StoredRecruits into a new TrainingQueue entry"), of the Recruits of the kind, at once
+    /// (`sc_sim::ProductionCommand::TrainFrom`); "Clicks stay in the menu so they can be repeated".
+    TrainFrom(ObjectKind, RecruitKind),
+    /// A KindMenu\[kind\]'s "**A: Release**": a free entry that lets one Recruit of the kind out unchanged once it
+    /// completes, at once (`sc_sim::ProductionCommand::Release`); the menu stays open, as for a training.
+    Release(RecruitKind),
+    /// `factions/cults/structures/armory.md > ObjectInterfaceState[Armory]`: "**A: Eject All**: ejects all stored
+    /// Recruits from the exit side. Only available if StoredRecruits is not empty", at once
+    /// (`sc_sim::HoldCommand::EjectAll`): every unit inside that no order reserves.
+    EjectAll,
 }
 
 impl PanelCommand {
@@ -187,7 +209,11 @@ impl PanelCommand {
             | PanelCommand::ExpandMenu
             | PanelCommand::Expand(_)
             | PanelCommand::CancelOperation
-            | PanelCommand::UpgradeTunnel => false,
+            | PanelCommand::UpgradeTunnel
+            | PanelCommand::KindMenu(_)
+            | PanelCommand::TrainFrom(..)
+            | PanelCommand::Release(_)
+            | PanelCommand::EjectAll => false,
         }
     }
 
@@ -214,11 +240,23 @@ impl PanelCommand {
     }
 
     /// The production command of a producer's command that needs no target (`sc_sim::Command::Production`): Train
-    /// and Cancel Production. Set Rally Point's waits for its target (`super::super::resolution::target_resolution`).
+    /// and Cancel Production, and a pool building's KindMenu entries, a training of a kind and a Release. Set Rally
+    /// Point's waits for its target (`super::super::resolution::target_resolution`).
     pub fn production(self) -> Option<ProductionCommand> {
         match self {
             PanelCommand::Train(kind) => Some(ProductionCommand::Train(kind)),
             PanelCommand::CancelProduction => Some(ProductionCommand::CancelProduction),
+            PanelCommand::TrainFrom(kind, from) => Some(ProductionCommand::TrainFrom { kind, from }),
+            PanelCommand::Release(from) => Some(ProductionCommand::Release(from)),
+            _ => None,
+        }
+    }
+
+    /// The holding command of a command issued at once to buildings that hold units (`sc_sim::Command::Holding`):
+    /// Eject All.
+    pub fn holding(self) -> Option<HoldCommand> {
+        match self {
+            PanelCommand::EjectAll => Some(HoldCommand::EjectAll),
             _ => None,
         }
     }
@@ -275,12 +313,15 @@ impl PanelCommand {
     /// other selected instances of its type (`super::recipients`). So do a Deploy, which one Drone of the ActiveGroup
     /// takes (design change 0125), the Cancel of the objects that transform, whose panel shows it, and the Egress
     /// Node's F, which selects the Drones of "this Egress Node" (Ungroupable: the one Tabbed to). So do a Tunnel's
-    /// EjectMenu and its tiles, which eject "from this Tunnel's Side A" (`factions/syndicate/tunnels.md > EjectMenu`;
-    /// Ungroupable too: the one Tabbed to), and its ExpandMenu, its entries, its Upgrade and its Cancel, which read and
-    /// change this Tunnel's one operation (`factions/syndicate/tunnels.md > ExpandMenu`: "**this** Tunnel's tier").
-    /// So does an Agent's Build: "each Agent takes exactly one placement", and "Placement never moves on to another
-    /// selected worker" (`systems/controls/selection_and_hud.md > AwaitingTarget > Shift while placing`: "to place
-    /// with the next Agent, the player presses Tab").
+    /// EjectMenu and its tiles, which eject "from this Tunnel's Side A" (`factions/syndicate/tunnel_menus.md >
+    /// EjectMenu`; Ungroupable too: the one Tabbed to), and its ExpandMenu, its entries, its Upgrade and its Cancel,
+    /// which read and change this Tunnel's one operation (`factions/syndicate/tunnel_menus.md > ExpandMenu`: "**this**
+    /// Tunnel's tier"). So does an Agent's Build: "each Agent takes exactly one placement", and "Placement never moves
+    /// on to another selected worker" (`systems/controls/interface.md > AwaitingTarget > Shift while placing`: "to
+    /// place with the next Agent, the player presses Tab"). So do a pool building's kind menus, their entries and its
+    /// Eject All, which read and change its own pool (design change 0337: "the count inside (unreserved)"); and every
+    /// command of a pool building goes to the one Tabbed to, its X and C too (design change 0348 point 5: "a command
+    /// goes to one building"; `super::is_common`).
     pub fn instance_only(self) -> bool {
         matches!(
             self,
@@ -301,6 +342,10 @@ impl PanelCommand {
                 | PanelCommand::Expand(_)
                 | PanelCommand::CancelOperation
                 | PanelCommand::UpgradeTunnel
+                | PanelCommand::KindMenu(_)
+                | PanelCommand::TrainFrom(..)
+                | PanelCommand::Release(_)
+                | PanelCommand::EjectAll
         )
     }
 
@@ -351,117 +396,11 @@ impl PanelCommand {
             | PanelCommand::ExpandMenu
             | PanelCommand::Expand(_)
             | PanelCommand::CancelOperation
-            | PanelCommand::UpgradeTunnel => false,
-        }
-    }
-
-    /// The button's label: a placeholder for its icon (Q0001), short enough to keep the label size on its button
-    /// at 720p (slice M3-K2a: six characters at most, `crate::hud::command_panel`), its full name being
-    /// [`Self::name_on`]'s, in the InfoPanel's hint for the button under the pointer (`crate::hud::info_panel::hint`).
-    /// What a button makes, a unit to train or a building to construct, warp in or build on its site (one that isn't
-    /// in the game yet too), it shows as an icon would: by its type's tag, as the map and the portraits show it
-    /// ([`short_label`]: an Agent's Build Tunnel "T1", the tier a Tunnel starts at). A ready building's slot is
-    /// "Place", and every Cancel "Cancel". The others are the command's name or its first word ("Hold", "Rally",
-    /// "Raise", "Lower", "Drop" for Set Drop-off Location and for the Agent's Drop Off, "Drones" for Select Returning
-    /// Drones), or a shortening of it ("Rev.", "AtkGnd", "Conv.", "Adv.", the Tunnel's "Upgr." for Upgrade Tunnel). An
-    /// EjectMenu tile shows its unit type's tag, as a unit trained does, and its count (`super::PanelSlot::count`); an
-    /// ExpandMenu entry its expansion's, as a building constructed does.
-    pub fn label(self) -> &'static str {
-        match self {
-            PanelCommand::Move => "Move",
-            PanelCommand::Reverse => "Rev.",
-            PanelCommand::HoldPosition => "Hold",
-            PanelCommand::Attack => "Attack",
-            PanelCommand::Patrol => "Patrol",
-            PanelCommand::AttackGround => "AtkGnd",
-            PanelCommand::Stop => "Stop",
-            PanelCommand::RaiseShield => "Raise",
-            PanelCommand::LowerShield => "Lower",
-            PanelCommand::Convert(_) => "Conv.",
-            PanelCommand::Train(kind)
-            | PanelCommand::Construct(kind)
-            | PanelCommand::WarpIn(kind)
-            | PanelCommand::Eject(kind)
-            | PanelCommand::Build(kind)
-            | PanelCommand::Expand(kind) => short_label(kind),
-            PanelCommand::Planned(planned) => planned.label(),
-            PanelCommand::CancelProduction
-            | PanelCommand::CancelConstruction
-            | PanelCommand::CancelReady
-            | PanelCommand::CancelTransform
-            | PanelCommand::CancelOperation => "Cancel",
-            PanelCommand::SetRallyPoint => "Rally",
-            PanelCommand::BuildMenu(BuildMenu::Basic) => "Basic",
-            PanelCommand::BuildMenu(BuildMenu::Advanced) => "Adv.",
-            PanelCommand::PlaceReady(_) => "Place",
-            PanelCommand::Deploy => "Deploy",
-            PanelCommand::SetDropOff | PanelCommand::DropOff => "Drop",
-            PanelCommand::SelectReturningDrones => "Drones",
-            PanelCommand::EjectMenu => "Eject",
-            PanelCommand::ExpandMenu => "Expand",
-            PanelCommand::UpgradeTunnel => "Upgr.",
-        }
-    }
-
-    /// The command's full name, which its button's label shortens ([`Self::label`]), as the design names it. Where
-    /// the design names a command after the object whose panel shows it, the panel names it so ([`Self::name_on`]):
-    /// this is the name of the others, and the generic one of those.
-    pub fn name(self) -> String {
-        let named = |verb: &str, kind: ObjectKind| format!("{verb} {}", kind.def().name);
-        match self {
-            PanelCommand::Reverse => "Reverse".into(),
-            PanelCommand::HoldPosition => "Hold Position".into(),
-            PanelCommand::AttackGround => "Attack Ground".into(),
-            PanelCommand::RaiseShield => "Raise Shield".into(),
-            PanelCommand::LowerShield => "Lower Shield".into(),
-            PanelCommand::Convert(kind) => named("Convert to", kind),
-            PanelCommand::Train(kind) => named("Train", kind),
-            PanelCommand::CancelProduction => "Cancel Production".into(),
-            PanelCommand::SetRallyPoint => "Set Rally Point".into(),
-            PanelCommand::BuildMenu(BuildMenu::Basic) => "Basic Construction".into(),
-            PanelCommand::BuildMenu(BuildMenu::Advanced) => "Advanced Construction".into(),
-            PanelCommand::Construct(kind) => named("Build", kind),
-            PanelCommand::CancelConstruction => "Cancel Construction".into(),
-            PanelCommand::CancelReady => "Cancel Ready Building".into(),
-            PanelCommand::PlaceReady(kind) => named("Place", kind),
-            PanelCommand::WarpIn(kind) => named("Warp In", kind),
-            PanelCommand::Planned(planned) => planned.command_name(),
-            PanelCommand::CancelTransform => "Cancel".into(),
-            PanelCommand::SetDropOff => "Set Drop-off Location".into(),
-            PanelCommand::SelectReturningDrones => "Select Returning Drones".into(),
-            PanelCommand::Eject(kind) => named("Eject", kind),
-            PanelCommand::Build(kind) => named("Build", kind),
-            PanelCommand::DropOff => "Drop Off Resources".into(),
-            PanelCommand::ExpandMenu => "Expand Tunnel".into(),
-            PanelCommand::Expand(kind) => named("Build", kind),
-            PanelCommand::CancelOperation => "Cancel Operation".into(),
-            PanelCommand::UpgradeTunnel => "Upgrade Tunnel".into(),
-            PanelCommand::Move
-            | PanelCommand::Attack
-            | PanelCommand::Patrol
-            | PanelCommand::Stop
-            | PanelCommand::Deploy
-            | PanelCommand::EjectMenu => self.label().into(),
-        }
-    }
-
-    /// The command's full name on the panel of a `kind` ActiveGroup, which the InfoPanel's hint shows
-    /// (`super::Panel::name`): [`Self::name`], but for the commands the design names after the object whose panel
-    /// shows them, from its panel template (`super::templates::PanelTemplate::names`):
-    /// - a Beacon's menus: "Q: Warp In (Basic)", "W: Warp In (Advanced)" (`factions/colonists/economy.md > Beacon >
-    ///   Beacon ObjectInterfaceState`), the Deployment Center's being "Basic Construction" and "Advanced
-    ///   Construction";
-    /// - the Cancel of an object that transforms (`factions/colonists/economy.md > Beacon Deployment > While
-    ///   transforming: only Cancel`: "Cancel Deployment / Cancel Warp In"): a Beacon's under deployment, any other
-    ///   building's under Warp In (the object is the building from the first frame, `sc_sim::transform`);
-    /// - the Extraction Facility's "X: Cancel Ready Plate" (`factions/gdo/economy.md > ExtractionFacility >
-    ///   ObjectInterfaceState[ExtractionFacility]`).
-    pub fn name_on(self, kind: ObjectKind) -> String {
-        let names = kinds::of(kind).template.names;
-        match names.iter().find(|&&(command, _)| command == self) {
-            Some(&(_, name)) => name.into(),
-            None if self == PanelCommand::CancelTransform => "Cancel Warp In".into(),
-            None => self.name(),
+            | PanelCommand::UpgradeTunnel
+            | PanelCommand::KindMenu(_)
+            | PanelCommand::TrainFrom(..)
+            | PanelCommand::Release(_)
+            | PanelCommand::EjectAll => false,
         }
     }
 }

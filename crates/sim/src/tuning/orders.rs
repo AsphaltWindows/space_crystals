@@ -8,17 +8,17 @@ use crate::units::{SU_PER_GU, Tick};
 /// unit farther than this from where it acquired its target disengages and returns.
 pub const IDLE_LEASH_GU: f32 = 4.0;
 
-/// `systems/controls/behaviors.md > AttackMovingToLocation > Global Constant: AttackMoveLeashDistance`: 6 grid
+/// `systems/controls/command_behaviors.md > AttackMovingToLocation > Global Constant: AttackMoveLeashDistance`: 6 grid
 /// units, measured from the leg's PathReference. It limits chasing only (design change 0180): a unit won't move
 /// farther than this from the PathReference to chase a target out of weapon range (`orders::travel::march`).
 pub const ATTACK_MOVE_LEASH_GU: f32 = 6.0;
 
-/// `systems/controls/behaviors.md > MovingToObject > Proximity` (design change 0032): "within proximity" is a gap
-/// of at most 8 space units between the unit's Silhouette and the object's shape, edge to edge.
+/// `systems/controls/command_behaviors.md > MovingToObject > Proximity` (design change 0032): "within proximity" is a
+/// gap of at most 8 space units between the unit's Silhouette and the object's shape, edge to edge.
 pub const PROXIMITY_SU: f32 = 8.0;
 
-/// `systems/controls/behaviors.md > Patrolling > Failed legs` (design change 0037): this many failed legs in a row
-/// end a Patrol.
+/// `systems/controls/command_behaviors.md > Patrolling > Failed legs` (design change 0037): this many failed legs in a
+/// row end a Patrol.
 pub const PATROL_FAILED_LEGS: u8 = 2;
 
 /// An idle unit that acquired an enemy by itself and couldn't get to it doesn't acquire that same enemy again for this

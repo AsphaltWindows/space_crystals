@@ -1,5 +1,5 @@
-//! Unit moves (`systems/controls/behaviors.md > MovingToLocation`, `docs/movement.md > 4–6`): a unit follows its
-//! smoothed path at its top speed, arrives exactly, goes around walls and cliffs, plays queued orders back to back,
+//! Unit moves (`systems/controls/command_behaviors.md > MovingToLocation`, `docs/movement.md > 4–6`): a unit follows
+//! its smoothed path at its top speed, arrives exactly, goes around walls and cliffs, plays queued orders back to back,
 //! sends a group's units to their own destinations, replans when the ground changes, and stays deterministic across
 //! a save and between runs. Units in each other's way are in `movement_collision/`. Every `TestSim` checks the invariants
 //! I1–I7 after each tick (`docs/movement.md > 8`).
@@ -275,7 +275,7 @@ fn a_group_keeps_its_shape_around_the_click() {
     }
 }
 
-/// `systems/controls/behaviors.md > MovingToLocation > Unreachable target location` (design change 0025),
+/// `systems/controls/command_behaviors.md > MovingToLocation > Unreachable target location` (design change 0025),
 /// Verification: "Right-click a plateau with no ramp: the unit goes to the closest reachable spot below it."
 #[test]
 fn a_goal_on_a_plateau_without_a_ramp_ends_at_the_closest_spot_below() {
@@ -321,7 +321,7 @@ fn a_goal_on_a_plateau_without_a_ramp_ends_at_the_closest_spot_below() {
     );
 }
 
-/// `systems/controls/behaviors.md > MovingToLocation > Unreachable target location` (design change 0025),
+/// `systems/controls/command_behaviors.md > MovingToLocation > Unreachable target location` (design change 0025),
 /// Verification: "Right-click the middle of a lake: the unit walks to the nearest shore point and stops."
 /// `docs/movement.md > 5.3`: a goal on blocked ground is moved to the nearest reachable tile; the unit arrives there.
 #[test]

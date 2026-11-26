@@ -1,4 +1,4 @@
-//! Fighting behaviours — `systems/controls/behaviors.md > AttackingObject`, `> BaseAutoTargeting`,
+//! Fighting behaviours — `systems/controls/command_behaviors.md > AttackingObject`, `> BaseAutoTargeting`,
 //! `> HoldingPosition`.
 //!
 //! [`close_in`] is the core of AttackingObject (steps 1 to 4): approach the target until the attack reaches it,

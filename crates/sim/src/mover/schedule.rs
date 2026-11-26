@@ -1,6 +1,6 @@
 //! When a unit on its way counts as stuck, when it looks for another route and when it gives up — design change
-//! 0024 (`systems/controls/behaviors.md > MovingToLocation > Failure`), `docs/movement.md > 5.6`, `docs/movement.md >
-//! 6.5`.
+//! 0024 (`systems/controls/command_behaviors.md > MovingToLocation > Failure`), `docs/movement.md > 5.6`,
+//! `docs/movement.md > 6.5`.
 
 use glam::Vec2;
 
@@ -72,7 +72,7 @@ impl Mover {
         true
     }
 
-    /// `systems/controls/behaviors.md > MovingToLocation > Failure` (design change 0024): whether the unit is
+    /// `systems/controls/command_behaviors.md > MovingToLocation > Failure` (design change 0024): whether the unit is
     /// **stuck** in `tick`: [`STUCK_TICKS`] have passed without it getting any closer.
     pub fn is_stuck(&self, tick: Tick) -> bool {
         tick.saturating_sub(self.last_progress) >= STUCK_TICKS

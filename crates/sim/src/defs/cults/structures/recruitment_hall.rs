@@ -1,4 +1,4 @@
-//! The Recruitment Hall — `factions/cults/economy.md > RecruitmentHall`.
+//! The Recruitment Hall — `factions/cults/structures/recruitment_hall.md`.
 
 use crate::defs::structures::{
     BuilderGoes, ExitRule, ProductionDef, Recipe, RecruitmentDef, SiteDef, SitePrice, StructureDef, SymmetryType,
@@ -7,8 +7,8 @@ use crate::defs::{Armor, Category, Footprint, ObjectDef, ObjectKind};
 use crate::player::Faction;
 use crate::sides::SideLetter;
 
-/// `factions/cults/economy.md > RecruitmentHall`: "The Cults' starting structure. Automatically produces Recruits from
-/// the surrounding population of Recruitable terrain." Its production, its Recruitment Area and its Unit Control
+/// `factions/cults/structures/recruitment_hall.md`: "The Cults' starting structure. Automatically produces Recruits
+/// from the surrounding population of Recruitable terrain." Its production, its Recruitment Area and its Unit Control
 /// (`> RecruitmentHall > RecruitmentArea`, `> RecruitmentHall > Production Behavior`, `> RecruitmentHall > Unit
 /// Control Tracking`) are slice M5-C's (`crate::recruitment`), its construction by Recruits slice M5-E's
 /// ([`RECRUITMENT_HALL_SITE`]), and the starting one slice M5-B's.
@@ -31,7 +31,9 @@ pub(crate) static RECRUITMENT_HALL: ObjectDef = ObjectDef {
     needs_flat_ground: true, // `core/map.md > Elevation > Structures only on flat terrain`
     unit: None,
     structure: Some(StructureDef {
-        symmetry: SymmetryType::AAAA, // SymmetryType - AAAA
+        // SymmetryType - AAAB (design change 0342, answering Q0100: "It becomes AAAB with the exit on B (the side is a
+        // placeholder)").
+        symmetry: SymmetryType::AAAB,
         // The Cults have neither Power nor a build area (`factions/cults/economy.md > Cults Building Mechanics`:
         // "Cults buildings are constructed on-site by Recruits").
         build_radius_extension: 0,
@@ -40,9 +42,9 @@ pub(crate) static RECRUITMENT_HALL: ObjectDef = ObjectDef {
         // `> RecruitmentHall > Production Behavior`: "automatically and continuously produces Recruits at no resource
         // cost until LocalUnitControlUsage reaches LocalUnitControlCapacity" (plan decision T57).
         production: Some(ProductionDef {
-            // "Produced Recruits spawn at the hall and move to its rally point": out of one of its four sides, the one
-            // facing the rally point first (**Placeholder (Q0100 point 1)**).
-            exits: ExitRule::Sides(SideLetter::A),
+            // "Produced Recruits come out of the exit side (B) and move to its rally point" (design change 0342:
+            // "Recruits come out of it one at a time through the Exit Doorway").
+            exits: ExitRule::Side(SideLetter::B),
             recipes: &[Recipe {
                 kind: ObjectKind::Recruit,
                 cost: 0,     // "at no resource cost"
@@ -91,16 +93,17 @@ mod tests {
     use super::*;
     use crate::defs::cults::tests::assert_structure;
 
-    /// 4×4, AAAA, MaxHP 1000, PointArmor 1, FullArmor 16 (the building armour rule's n = 1), SightRange 6, not
-    /// Groupable, no TechPrerequisite. It recruits Recruits for free, 192 frames each at 100% effectiveness, out of
-    /// its four sides, with a 10x10 Recruitment Area and a capacity of 20 (slice M5-C). Recruits build it from outside
-    /// for 300 Space Crystals in 1440 frames with one of them, from 10% HP (slice M5-E).
+    /// 4×4, AAAB (design change 0342), MaxHP 1000, PointArmor 1, FullArmor 16 (the building armour rule's n = 1),
+    /// SightRange 6, not Groupable, no TechPrerequisite. It recruits Recruits for free, 192 frames each at 100%
+    /// effectiveness, out of its one exit side, B (0342), with a 10x10 Recruitment Area and a capacity of 20 (slice
+    /// M5-C). Recruits build it from outside for 300 Space Crystals in 1440 frames with one of them, from 10% HP (slice
+    /// M5-E).
     #[test]
     fn the_recruitment_hall_follows_the_design() {
         let structure = assert_structure(
             ObjectKind::RecruitmentHall,
             (4, 4),
-            SymmetryType::AAAA,
+            SymmetryType::AAAB,
             1000.0,
             (1.0, 16.0),
             6.0,
@@ -109,7 +112,7 @@ mod tests {
         assert_eq!(ObjectKind::RecruitmentHall.def().name, "Recruitment Hall");
         assert_eq!(structure.requires, &[][..]);
         let production = structure.production.expect("it produces");
-        assert_eq!(production.exits, ExitRule::Sides(SideLetter::A));
+        assert_eq!(production.exits, ExitRule::Side(SideLetter::B));
         let recipe = |kind| production.recipe(kind).map(|r| (r.cost, r.frames, r.requires));
         assert_eq!(recipe(ObjectKind::Recruit), Some((0, 192, &[][..])));
         assert_eq!(production.recipes.len(), 1);

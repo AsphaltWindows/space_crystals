@@ -1,9 +1,10 @@
-//! The command panel a selection gets (`systems/controls/selection_and_hud.md > CommandPanel`): what each slot shows
+//! The command panel a selection gets (`systems/controls/interface.md > CommandPanel`): what each slot shows
 //! ([`panel`](fn@panel)), what pressing it does ([`press`]) and who receives its command ([`recipients`]).
 
 use sc_sim::construction::site::BuildPrice;
 use sc_sim::{
-    Ability, ConstructionCommand, ObjectId, ObjectKind, OrderKind, PlayerId, ProductionCommand, Sim, TunnelCommand,
+    Ability, ConstructionCommand, HoldCommand, ObjectId, ObjectKind, OrderKind, PlayerId, ProductionCommand,
+    RecruitKind, Sim, TunnelCommand, holding,
 };
 
 use super::{
@@ -61,9 +62,10 @@ pub struct PanelSlot {
     /// Why a disabled or unavailable button is greyed out, which pressing it says (design change 0162); none for
     /// the others.
     pub why: Option<WhyUnavailable>,
-    /// An EjectMenu tile's count (`factions/syndicate/tunnels.md > EjectMenu`: "Each tile shows the unit type icon and
-    /// a count of how many of that type are in the network"): those not reserved on an eject queue
-    /// ([`Conditions::network_count`]); none on the other buttons.
+    /// An EjectMenu tile's count (`factions/syndicate/tunnel_menus.md > EjectMenu`: "Each tile shows the unit type icon
+    /// and a count of how many of that type are in the network"): those not reserved on an eject queue
+    /// ([`Conditions::network_count`]); a pool building's kind button's (design change 0337: "the count inside
+    /// (unreserved)", [`Conditions::pool_count`]); none on the other buttons.
     pub count: Option<u32>,
     /// What a Build costs now, in its resource ([`Conditions::price`], design change 0233: "the price shown on the
     /// Build button is the next Tunnel's"; a Laser Turret's 100 Space Crystals, slice M4-S1), and a Tunnel's Upgrade,
@@ -155,7 +157,8 @@ pub fn commandable(sim: &Sim, player: PlayerId, selection: &Selection) -> bool {
 /// build menu does, its tiles greyed while the gate would refuse their Eject, each with its count, and so does its
 /// ExpandMenu, its entries greyed while the gate would refuse their Expand (`sc_sim::Sim::can_expand`). A site under
 /// construction shows X Cancel Construction alone ([`SITE_GRID`], design change 0237), whatever its type (an
-/// expansion's too), and an Agent's Build its price ([`PanelSlot::price`]).
+/// expansion's too), and an Agent's Build its price ([`PanelSlot::price`]). A pool building's kind buttons show their
+/// counts, greyed at 0, and its KindMenu works as a build menu does (slice M5-F2).
 pub fn panel(selection: &Selection, interface: InterfaceState, conditions: &Conditions) -> Panel {
     let mut panel = Panel::default();
     let Some(active) = selection.active() else {
@@ -187,7 +190,8 @@ pub fn panel(selection: &Selection, interface: InterfaceState, conditions: &Cond
                 InterfaceState::DefaultState
                 | InterfaceState::BuildMenu(_)
                 | InterfaceState::EjectMenu
-                | InterfaceState::ExpandMenu => {
+                | InterfaceState::ExpandMenu
+                | InterfaceState::KindMenu(_) => {
                     let why = (!command.has_sim_command())
                         .then_some(WhyUnavailable::NotYet)
                         .or_else(|| conditions.unavailable(selection, command));
@@ -204,6 +208,7 @@ pub fn panel(selection: &Selection, interface: InterfaceState, conditions: &Cond
         let button = PanelButton::Command(command);
         let count = match command {
             PanelCommand::Eject(kind) => Some(conditions.network_count(kind)),
+            PanelCommand::KindMenu(kind) => Some(conditions.pool_count(kind)),
             _ => None,
         };
         panel.set(
@@ -280,6 +285,11 @@ pub enum SlotPress {
     /// The Egress Node's F, a StateOnlyTransition: the selection becomes its returning Drones
     /// (`super::Conditions::returning`).
     SelectReturningDrones,
+    /// A StateOnlyTransition to a pool building's KindMenu\[kind\] (`InterfaceState::KindMenu`, slice M5-F2).
+    OpenKindMenu(RecruitKind),
+    /// A CommandIssuingTransition: the command's holding command, at once (`sc_sim::Command::Holding`): a pool
+    /// building's Eject All.
+    Hold(PanelCommand, HoldCommand),
     /// Back to the previous state (`InterfaceState::back`).
     Back,
     /// Nothing: an empty slot, or a button that can't be pressed now (a greyed-out one says why:
@@ -291,7 +301,8 @@ pub enum SlotPress {
 /// commands"; a constructor's enter its build menus and AwaitingPlacement or issue construction commands, a
 /// Beacon's its Warp In menus and a Warp In's placement, a Drone's Deploy its placement, an Egress Node's F selects
 /// its Drones, a Tunnel's E its EjectMenu, whose tiles eject, its W its ExpandMenu, whose entries enter their
-/// placement, and its X cancels its operation; `> Standard Slot Assignments > Z`: Back.
+/// placement, and its X cancels its operation, a pool building's Q, W, E and R its KindMenus, whose entries train and
+/// release, and its A ejects; `> Standard Slot Assignments > Z`: Back.
 pub fn press(panel: &Panel, slot: CommandSlot) -> SlotPress {
     match panel.get(slot) {
         Some(PanelSlot {
@@ -311,6 +322,10 @@ pub fn press(panel: &Panel, slot: CommandSlot) -> SlotPress {
                 SlotPress::Construct(command, construction)
             } else if let Some(tunnel) = command.tunnel() {
                 SlotPress::Tunnel(command, tunnel)
+            } else if let Some(holding) = command.holding() {
+                SlotPress::Hold(command, holding)
+            } else if let PanelCommand::KindMenu(kind) = command {
+                SlotPress::OpenKindMenu(kind)
             } else if command == PanelCommand::EjectMenu {
                 SlotPress::OpenEjectMenu
             } else if command == PanelCommand::ExpandMenu {
@@ -344,11 +359,21 @@ pub fn press(panel: &Panel, slot: CommandSlot) -> SlotPress {
 /// `> CommandPanel`: whether `command` is a common command of `selection`, "available to every object in Selection"
 /// and issued to all of them: every selected object offers it (an unfinished building only its Cancel, design change
 /// 0185), and it isn't one instance's own (`PanelCommand::instance_only`), unless the ActiveGroup is all there is to
-/// it. Otherwise it is a group command.
+/// it. Otherwise it is a group command. A pool building takes no common command but as the ActiveGroup (design change
+/// 0348 point 5, `factions/cults/structures/README.md > Choosing Recruits, Release and Eject All`: "Cults production
+/// buildings (Armory, Altar, Cathedral, Chop Shop, Airstrip) are Ungroupable: a command goes to one building"), its X
+/// and C, which a Barracks shares with the others of its selection (design change 0083), too.
 pub fn is_common(selection: &Selection, command: PanelCommand) -> bool {
-    selection
-        .member_types()
-        .all(|(id, ty)| offers(ty, command) && (!command.instance_only() || selection.in_active_group(id)))
+    selection.member_types().all(|(id, ty)| {
+        let one = command.instance_only() || one_building(ty);
+        offers(ty, command) && (!one || selection.in_active_group(id))
+    })
+}
+
+/// Whether objects of type `ty` take a command one at a time (design change 0348 point 5): the pool buildings
+/// (`sc_sim::holding::trains`).
+fn one_building(ty: GroupType) -> bool {
+    !ty.unfinished && holding::trains(ty.kind)
 }
 
 /// `> CommandPanel`: who a panel command goes to: "Clicking a common command issues it to all selected objects.

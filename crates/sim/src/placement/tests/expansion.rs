@@ -1,4 +1,4 @@
-//! The expansion method (slice M4-F, `Method::Expansion`; `factions/syndicate/tunnels.md > AwaitingPlacement
+//! The expansion method (slice M4-F, `Method::Expansion`; `factions/syndicate/tunnel_menus.md > AwaitingPlacement
 //! (Expansion)`): wholly inside the Tunnel's area, on Drillable ground (design change 0239), with no flatness and no
 //! sight, and every structure (0240) and resource (0241) in its way, but no ground unit (design change 0290). No
 //! lingering ghost can be in its way either (0290: "No ghost check is needed"), so a game reserves none against it

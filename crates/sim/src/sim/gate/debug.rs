@@ -1,6 +1,6 @@
 //! The gate's checks of debug commands (`Command::Debug`, accepted while `SimConfig::debug` is on): a spawn's owner
 //! and placement, a teleport onto the map, a unit's box clear of blocked ground and of the units of its layer
-//! (`docs/movement.md > 3`), and a tier the Tunnel's table has.
+//! (`docs/movement.md > 3`), a tier the Tunnel's table has, and augmentations for a unit (slice M5-F2).
 
 use glam::Vec2;
 
@@ -97,6 +97,13 @@ impl Sim {
                     return Err(Reject::NoSuchTier { id, tier });
                 }
                 Ok(Checked::SetTier { id, tier })
+            }
+            DebugCommand::SetAugmentation { id, augmentation } => {
+                let object = self.referenced(id, anyone)?;
+                if object.def().unit.is_none() {
+                    return Err(Reject::TileObject(id));
+                }
+                Ok(Checked::SetAugmentation { id, augmentation })
             }
         }
     }

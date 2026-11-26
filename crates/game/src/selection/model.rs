@@ -1,4 +1,4 @@
-//! The selection model (`systems/controls/selection_and_hud.md > Selection`, `> SelectionGroup`, `> ControlGroups`):
+//! The selection model (`systems/controls/selection.md > Selection`, `> SelectionGroup`, `> ControlGroups`):
 //! plain data without Bevy systems. Which objects may be selected together (`> Selection > Constraints`) is the rules'
 //! business (`super::rules`), because it depends on who owns them.
 

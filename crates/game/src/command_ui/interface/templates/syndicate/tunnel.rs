@@ -1,5 +1,5 @@
-//! The Tunnel's panel (`factions/syndicate/tunnels.md > Tunnel ObjectInterfaceState`, slice M4-J2). Its panel letters
-//! (design change 0257, answering Q0068): "**Q** Upgrade Tunnel, **W** Expand Tunnel, **E** Eject, **X** Cancel
+//! The Tunnel's panel (`factions/syndicate/tunnel_menus.md > Tunnel ObjectInterfaceState`, slice M4-J2). Its panel
+//! letters (design change 0257, answering Q0068): "**Q** Upgrade Tunnel, **W** Expand Tunnel, **E** Eject, **X** Cancel
 //! (upgrade, construction or the current operation)". Q upgrades the Tunnel at once (slice M4-G), W opens the
 //! ExpandMenu (`super::expand_menu`, slice M4-F), E the EjectMenu (`super::eject_menu`), and X cancels the Tunnel's
 //! operation, an upgrade or an expansion (slice M4-F). No right-click.

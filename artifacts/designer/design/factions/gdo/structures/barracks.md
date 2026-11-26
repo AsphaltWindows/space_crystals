@@ -23,12 +23,12 @@ GDO infantry production structure. Produces infantry units from a build queue. U
 If a Barracks is destroyed, its whole BuildQueue (including the unit in production) is refunded **as if cancelled**: full Space Crystals cost, and Unit Control released for the unit in production. The same applies to every GDO producer and constructor (e.g. an Extraction Facility constructing a plate, an Airfield's queue). Matches research (core/tech_and_research.md > Research > Shared Rules). This includes a unit that is **finished but still fully inside** (production at 100%, waiting because the exit doorway is occupied; core/entities.md > Structure Type > Exit Doorway): it is refunded like the rest of the queue (user, 2026-11-24). A unit already standing in the doorway is a normal unit and is not affected.
 
 ## RallyPoint behavior:
-When a unit finishes production and spawns, if RallyPoint is set, it is issued its own default right-click command resolved against the RallyPoint target (systems/controls/selection_and_hud.md > What a rally point makes a new unit do). E.g. rally on ground -> Move to location, rally on enemy -> Attack. If RallyPoint is None, the unit spawns with no command. If the RallyPoint references an ObjectInstance that no longer exists, the RallyPoint is reset to None. Rally points on enemy objects turn into ground rally points when the enemy leaves sight (systems/controls/selection_and_hud.md > Rally points on enemy objects).
+When a unit finishes production and spawns, if RallyPoint is set, it is issued its own default right-click command resolved against the RallyPoint target (systems/controls/interface.md > CommandPanel > What a rally point makes a new unit do). E.g. rally on ground -> Move to location, rally on enemy -> Attack. If RallyPoint is None, the unit spawns with no command. If the RallyPoint references an ObjectInstance that no longer exists, the RallyPoint is reset to None. Rally points on enemy objects turn into ground rally points when the enemy leaves sight (systems/controls/interface.md > CommandPanel > Rally points on enemy objects).
 
 ## Produces:
 - Peacekeeper: 50 Space Crystals, 80 frames (5 seconds)
 - Rocketman: 100 Space Crystals, 160 frames (10 seconds) (placeholder). Requires: player owns at least one Arsenal.
-- Drone Operator: cost/time TBD. Requires: player owns at least one Career Campus.
+- Drone Operator: 100 Space Crystals, 160 frames (10 seconds) (placeholder). Requires: player owns at least one Career Campus.
 - Field Engineer: 75 Space Crystals, 160 frames (10 seconds) (placeholder). Requires: player owns at least one Career Campus.
 
 ## ObjectInterfaceState[Barracks]:

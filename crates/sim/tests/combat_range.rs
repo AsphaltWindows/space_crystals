@@ -4,7 +4,7 @@
 //! edge of a level.
 //!
 //! Both units stand on Hold Position, so neither moves: the attacker engages what its weapon reaches from where it
-//! stands (`systems/controls/behaviors.md > HoldingPosition`), which is the range check alone.
+//! stands (`systems/controls/command_behaviors.md > HoldingPosition`), which is the range check alone.
 
 use sc_sim::combat;
 use sc_sim::defs::{AttackType, Domain, FullyConnectedSubtype, TargetDomain};
@@ -98,8 +98,8 @@ fn an_attackers_own_size_doesnt_change_its_range() {
     assert_eq!(ticks, [] as [Tick; 0]);
 }
 
-/// `systems/controls/behaviors.md > AttackingObject` 2: the target must be beyond MinRange. No M1 unit has one, so
-/// this checks the rule on a Peacekeeper's attack given a MinRange of 2 grid units. The ElevationModifier changes
+/// `systems/controls/command_behaviors.md > AttackingObject` 2: the target must be beyond MinRange. No M1 unit has one,
+/// so this checks the rule on a Peacekeeper's attack given a MinRange of 2 grid units. The ElevationModifier changes
 /// the Range only.
 #[test]
 fn min_range() {

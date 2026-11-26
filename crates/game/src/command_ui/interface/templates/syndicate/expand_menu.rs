@@ -1,8 +1,8 @@
-//! The Tunnel's ExpandMenu (`factions/syndicate/tunnels.md > Tunnel ObjectInterfaceState > ExpandMenu`, slice M4-F):
-//! "Displays available underground expansion types for this Tunnel's current tier". Its entries take the grid's slots
-//! in the order of the sim's list, the one table of its slots (design change 0257: "entries take the grid slots in
-//! order (Q, W, E, R, A, S, …): expansions in the Tech Tree table's order (Hideout, Optics Lab, Chemical Plant, Vault,
-//! …)"; `sc_sim::defs::EXPAND_MENU`), every slot but Z's, which is Back, as the EjectMenu's tiles do
+//! The Tunnel's ExpandMenu (`factions/syndicate/tunnel_menus.md > Tunnel ObjectInterfaceState > ExpandMenu`, slice
+//! M4-F): "Displays available underground expansion types for this Tunnel's current tier". Its entries take the grid's
+//! slots in the order of the sim's list, the one table of its slots (design change 0257: "entries take the grid slots
+//! in order (Q, W, E, R, A, S, …): expansions in the Tech Tree table's order (Hideout, Optics Lab, Chemical Plant,
+//! Vault, …)"; `sc_sim::defs::EXPAND_MENU`), every slot but Z's, which is Back, as the EjectMenu's tiles do
 //! (`super::eject_menu::tile_slots`). Every expansion of the Tech Tree holds its slot, those not in the game yet too,
 //! greyed (design change 0291, answering Q0081: "every expansion is listed in table order. Unavailable ones are
 //! greyed, including ones not in the build yet"), so that no letter moves as they come: a type in the game is its

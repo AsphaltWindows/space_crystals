@@ -1,9 +1,9 @@
 //! An Agent's Tunnel ghost (slice M4-J1): judged as the sim's placement check judges a Build, by what the player knows
-//! of the map (`sc_sim::Sim::build_check`, slice M4-E; `factions/syndicate/tunnels.md > Tunnel Area Non-Overlap
-//! Rule`, design changes 0237 and 0242), its Tier 1 Tunnel Area drawn around it, and the rings of its later tiers
-//! around that, but no Tunnel's area (slice M4-J3; `factions/syndicate/tunnels.md > Tunnel Area display`, design
-//! changes 0299 and 0300). Its problems are the sim's, and a click on a red ghost says the first of them. An own
-//! Tunnel's upgrade reserves its larger area against it (slice M4-G).
+//! of the map (`sc_sim::Sim::build_check`, slice M4-E; `factions/syndicate/tunnel_area_and_space.md > Tunnel Area
+//! Non-Overlap Rule`, design changes 0237 and 0242), its Tier 1 Tunnel Area drawn around it, and the rings of its later
+//! tiers around that, but no Tunnel's area (slice M4-J3; `factions/syndicate/tunnel_area_and_space.md > Tunnel Area
+//! display`, design changes 0299 and 0300). Its problems are the sim's, and a click on a red ghost says the first of
+//! them. An own Tunnel's upgrade reserves its larger area against it (slice M4-G).
 
 use sc_sim::tuning::vision::FOG_DELAY_TICKS;
 use sc_sim::{PlacementCheck, PlacementProblem, TileProblem, TunnelCommand, WholeProblem};
@@ -121,15 +121,15 @@ fn column(x: i32, y0: i32, y1: i32) -> Vec<TilePos> {
     (y0..=y1).map(|y| TilePos::new(x, y)).collect()
 }
 
-/// Design change 0242 and `factions/syndicate/tunnels.md > Tunnel Area Non-Overlap Rule`: the ghost is red, its area
-/// with it, over the Tier 1 area of player 1's own Tunnel; over the area of player 2's Tunnel "by what the player
-/// knows: their remembered position and their tier as last seen" (red within the Tier 2 area remembered, where the
-/// Tunnel's real Tier 1 area doesn't reach, green past it); with known Water in its area or under it; and with its
-/// area past the map's edge ("no Tunnel near the map edge (closer than its area reaches)"), green a tile further in.
-/// Green over unexplored Water: "never-explored tiles pass on the ghost". While it is placed, the display shows the
-/// rings of its later tiers, but no Tunnel's area (design change 0299: "Enemy Tunnel Areas are never shown"), and the
-/// rings are never red over the remembered enemy area (0300: only "the areas of **your own** other Tunnels"). A click
-/// on a red ghost says why and sends nothing; one on a green ghost sends the Build.
+/// Design change 0242 and `factions/syndicate/tunnel_area_and_space.md > Tunnel Area Non-Overlap Rule`: the ghost is
+/// red, its area with it, over the Tier 1 area of player 1's own Tunnel; over the area of player 2's Tunnel "by what
+/// the player knows: their remembered position and their tier as last seen" (red within the Tier 2 area remembered,
+/// where the Tunnel's real Tier 1 area doesn't reach, green past it); with known Water in its area or under it; and
+/// with its area past the map's edge ("no Tunnel near the map edge (closer than its area reaches)"), green a tile
+/// further in. Green over unexplored Water: "never-explored tiles pass on the ghost". While it is placed, the display
+/// shows the rings of its later tiers, but no Tunnel's area (design change 0299: "Enemy Tunnel Areas are never shown"),
+/// and the rings are never red over the remembered enemy area (0300: only "the areas of **your own** other Tunnels"). A
+/// click on a red ghost says why and sends nothing; one on a green ghost sends the Build.
 #[test]
 fn the_tunnel_ghost_is_judged_by_what_the_player_knows() {
     use WholeProblem::{TunnelAreaNotDrillable, TunnelAreaOffMap, TunnelAreaOverlap};

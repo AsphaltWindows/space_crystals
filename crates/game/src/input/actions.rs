@@ -51,44 +51,44 @@ pub enum InputAction {
     ToggleGrid,
     /// Shows or hides each unit's remaining path (a development view, [`crate::path_overlay`]).
     TogglePaths,
-    /// The primary pointer action: select by clicking (`systems/controls/selection_and_hud.md > MapClickSelection`)
-    /// or by dragging a box (`systems/controls/selection_and_hud.md > BoxSelection`), or pick the target of a pending
-    /// command (`systems/controls/selection_and_hud.md > AwaitingTarget`). Its clicks and boxes arrive as
+    /// The primary pointer action: select by clicking (`systems/controls/selection.md > MapClickSelection`)
+    /// or by dragging a box (`systems/controls/selection.md > BoxSelection`), or pick the target of a pending
+    /// command (`systems/controls/interface.md > AwaitingTarget`). Its clicks and boxes arrive as
     /// [`super::MapClick`]s and [`super::SelectionBox`]es.
     Select,
-    /// The secondary pointer action: the context-sensitive command (`systems/controls/selection_and_hud.md >
-    /// RightClickResolution`), or cancelling a pending one (`systems/controls/selection_and_hud.md > AwaitingTarget`).
+    /// The secondary pointer action: the context-sensitive command (`systems/controls/interface.md >
+    /// RightClickResolution`), or cancelling a pending one (`systems/controls/interface.md > AwaitingTarget`).
     /// Its clicks arrive as [`super::MapClick`]s.
     ContextCommand,
-    /// `systems/controls/selection_and_hud.md > AwaitingTarget`: Escape cancels a pending command.
+    /// `systems/controls/interface.md > AwaitingTarget`: Escape cancels a pending command.
     Cancel,
-    /// `systems/controls/selection_and_hud.md > GroupCycling > Forward`.
+    /// `systems/controls/selection.md > GroupCycling > Forward`.
     NextGroup,
-    /// `systems/controls/selection_and_hud.md > GroupCycling > Backward`.
+    /// `systems/controls/selection.md > GroupCycling > Backward`.
     PreviousGroup,
-    /// `systems/controls/selection_and_hud.md > ControlGroups > Operations > Assign`.
+    /// `systems/controls/selection.md > ControlGroups > Operations > Assign`.
     AssignGroup(ControlGroup),
-    /// `systems/controls/selection_and_hud.md > ControlGroups > Operations > Add`.
+    /// `systems/controls/selection.md > ControlGroups > Operations > Add`.
     AddToGroup(ControlGroup),
-    /// `systems/controls/selection_and_hud.md > ControlGroups > Operations > Recall`.
+    /// `systems/controls/selection.md > ControlGroups > Operations > Recall`.
     RecallGroup(ControlGroup),
-    /// `systems/controls/selection_and_hud.md > ControlGroups > Operations > Recall and Center`.
+    /// `systems/controls/selection.md > ControlGroups > Operations > Recall and Center`.
     RecallAndCenterGroup(ControlGroup),
-    /// `systems/controls/selection_and_hud.md > CommandPanel > Grid Layout`: the hotkey of a command panel slot.
+    /// `systems/controls/interface.md > CommandPanel > Grid Layout`: the hotkey of a command panel slot.
     CommandSlot(CommandSlot),
     /// Modifier: `systems/controls/commands.md > Unit Command`: a command issued while it is held is appended to
     /// the queue instead of replacing it.
     Queue,
     /// Modifier of the selection's add inputs (design changes 0049, 0052 and 0053): a click toggles an own unit in
-    /// the selection (`systems/controls/selection_and_hud.md > MapClickSelection`), a box adds what it selects
-    /// (`systems/controls/selection_and_hud.md > BoxSelection > Shift + box (add)`), and with
+    /// the selection (`systems/controls/selection.md > MapClickSelection`), a box adds what it selects
+    /// (`systems/controls/selection.md > BoxSelection > Shift + box (add)`), and with
     /// [`InputAction::SelectSameType`] a click adds all own units of that type on screen. On a portrait, it removes
-    /// (`systems/controls/selection_and_hud.md > SelectionPanel > Interactions`).
+    /// (`systems/controls/hud.md > SelectionPanel > Interactions`).
     ToggleSelection,
-    /// Modifier: `systems/controls/selection_and_hud.md > MapClickSelection`: a click selects all own units of that
+    /// Modifier: `systems/controls/selection.md > MapClickSelection`: a click selects all own units of that
     /// type on screen.
     SelectSameType,
-    /// Modifier: `systems/controls/selection_and_hud.md > SelectionPanel > Interactions`: a click on a portrait centers
+    /// Modifier: `systems/controls/hud.md > SelectionPanel > Interactions`: a click on a portrait centers
     /// the camera on that unit instead of selecting it.
     CenterOnObject,
     /// Debug only (`ARCHITECTURE.md > Commands, events and replays`, `SimConfig::debug`): the local client acts as the
@@ -209,7 +209,7 @@ pub enum EditorInput {
     FlipVertical,
 }
 
-/// One of the 10 control groups (`systems/controls/selection_and_hud.md > ControlGroups`), numbered 0–9 like their
+/// One of the 10 control groups (`systems/controls/selection.md > ControlGroups`), numbered 0–9 like their
 /// default keys.
 #[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct ControlGroup(u8);
@@ -229,7 +229,7 @@ const DIGIT_KEYS: [KeyCode; ControlGroup::COUNT as usize] = [
 ];
 
 impl ControlGroup {
-    /// `systems/controls/selection_and_hud.md > ControlGroups`: a set of 10 saved selections.
+    /// `systems/controls/selection.md > ControlGroups`: a set of 10 saved selections.
     pub const COUNT: u8 = 10;
 
     /// Group `index`, 0–9.
@@ -247,13 +247,13 @@ impl ControlGroup {
     }
 
     /// The digit key of the group's number, which all its default bindings use
-    /// (`systems/controls/selection_and_hud.md > ControlGroups > Default keys`).
+    /// (`systems/controls/selection.md > ControlGroups > Default keys`).
     pub fn digit_key(self) -> KeyCode {
         DIGIT_KEYS[usize::from(self.0)]
     }
 }
 
-/// A slot of the command panel's 4 × 3 grid (`systems/controls/selection_and_hud.md > CommandPanel > Grid Layout`),
+/// A slot of the command panel's 4 × 3 grid (`systems/controls/interface.md > CommandPanel > Grid Layout`),
 /// by row (0 is the top row) and column (0 is the left column).
 #[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct CommandSlot {
@@ -261,7 +261,7 @@ pub struct CommandSlot {
     column: u8,
 }
 
-/// `systems/controls/selection_and_hud.md > CommandPanel > Grid Layout`: each slot's default hotkey.
+/// `systems/controls/interface.md > CommandPanel > Grid Layout`: each slot's default hotkey.
 const SLOT_HOTKEYS: [[KeyCode; CommandSlot::COLUMNS as usize]; CommandSlot::ROWS as usize] = [
     [KeyCode::KeyQ, KeyCode::KeyW, KeyCode::KeyE, KeyCode::KeyR],
     [KeyCode::KeyA, KeyCode::KeyS, KeyCode::KeyD, KeyCode::KeyF],
@@ -271,13 +271,13 @@ const SLOT_HOTKEYS: [[KeyCode; CommandSlot::COLUMNS as usize]; CommandSlot::ROWS
 impl CommandSlot {
     pub const COLUMNS: u8 = 4;
     pub const ROWS: u8 = 3;
-    /// `systems/controls/selection_and_hud.md > Standard Slot Assignments`: Z, the bottom row's first slot: Back /
+    /// `systems/controls/interface.md > Standard Slot Assignments`: Z, the bottom row's first slot: Back /
     /// Cancel menu.
     pub const BACK: CommandSlot = CommandSlot { row: 2, column: 0 };
-    /// `systems/controls/selection_and_hud.md > Standard Slot Assignments`: X, the bottom row's second slot: Cancel
+    /// `systems/controls/interface.md > Standard Slot Assignments`: X, the bottom row's second slot: Cancel
     /// Production / Cancel Upgrade.
     pub const CANCEL_PRODUCTION: CommandSlot = CommandSlot { row: 2, column: 1 };
-    /// `systems/controls/selection_and_hud.md > Standard Slot Assignments`: C, the bottom row's third slot: Set Rally
+    /// `systems/controls/interface.md > Standard Slot Assignments`: C, the bottom row's third slot: Set Rally
     /// Point. V, the fourth, has no standard function.
     pub const RALLY_POINT: CommandSlot = CommandSlot { row: 2, column: 2 };
 
@@ -298,7 +298,7 @@ impl CommandSlot {
         (0..Self::ROWS).flat_map(|row| (0..Self::COLUMNS).map(move |column| Self { row, column }))
     }
 
-    /// The slot's default hotkey (`systems/controls/selection_and_hud.md > Grid Layout`).
+    /// The slot's default hotkey (`systems/controls/interface.md > Grid Layout`).
     pub fn default_key(self) -> KeyCode {
         SLOT_HOTKEYS[usize::from(self.row)][usize::from(self.column)]
     }

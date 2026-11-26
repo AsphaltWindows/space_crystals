@@ -1,24 +1,27 @@
 //! Production in the sim (slice M2-D2; `crate::production` has the state and the rules it runs): the gate and the
 //! application of `Command::Production`, the producers' step of the economy phase (`producers/step.rs`, with the
 //! start check of design change 0143), the release of a finished unit, and the refund when a producer leaves the
-//! game.
+//! game. A producer that holds units makes them of its units inside (`producers/pool.rs`, slice M5-F2).
 
+pub(super) mod pool;
 mod step;
 
 use glam::Vec2;
 
 use super::gate::Checked;
 use super::{Reject, Sim};
+use crate::augmentation::RecruitKind;
 use crate::defs::{ExitRule, ObjectKind, ProductionDef, UnitDef};
 use crate::economy::{ArmyResource, Refund};
 use crate::events::SimEvent;
+use crate::holding;
 use crate::ids::{ObjectId, PlayerId};
 use crate::math;
 use crate::nav;
 use crate::object::Object;
 use crate::orders::Target;
 use crate::paths::boxes_overlap;
-use crate::production::{Door, ExitDoor, Production, ProductionCommand, ProductionStatus, Rally, Refusal};
+use crate::production::{Door, ExitDoor, Production, ProductionCommand, ProductionStatus, QueueEntry, Rally, Refusal};
 
 /// When something stands right in front of the doorway, the released unit stands this far from it, space units,
 /// so that no rounding makes the two boxes overlap (a technical margin: a sixty-fourth of a space unit).
@@ -26,10 +29,11 @@ const SPOT_CLEARANCE: f32 = 1.0 / 64.0;
 
 /// A `Command::Production` that passed the gate, with what the checks resolved.
 pub(super) enum ProductionPlan {
-    /// `accepted` queue the unit and pay, in this order (design change 0083); `refused` don't.
+    /// `accepted` queue `entry` and pay for it, in this order (design change 0083), each reserving the units listed with
+    /// it (a pool producer's, `producers/pool.rs`; none elsewhere); `refused` don't.
     Train {
-        kind: ObjectKind,
-        accepted: Vec<ObjectId>,
+        entry: QueueEntry,
+        accepted: Vec<(ObjectId, Vec<ObjectId>)>,
         refused: Vec<(ObjectId, Refusal)>,
     },
     /// The producers with something queued, in id order.
@@ -37,6 +41,10 @@ pub(super) enum ProductionPlan {
     /// The producers, in id order, and the target as the gate resolved it.
     SetRally(Vec<ObjectId>, Target),
 }
+
+/// A producer that may take a `Train` or a `TrainFrom` ([`Sim::plan_training`]): the work it has queued, its id, the
+/// unit's cost, why it can't take the unit whatever the bank, and the units the entry would reserve.
+type Candidate = (u64, ObjectId, u32, Option<Refusal>, Vec<ObjectId>);
 
 /// What `o`'s type produces, if anything.
 fn producer_def(o: &Object) -> Option<&'static ProductionDef> {
@@ -47,6 +55,19 @@ fn producer_def(o: &Object) -> Option<&'static ProductionDef> {
 fn producer(o: &Object) -> Option<(&Production, &'static ProductionDef)> {
     let def = o.def().structure.as_ref()?.production.as_ref()?;
     Some((o.production.as_ref()?, def))
+}
+
+/// The event of `producer`'s entry `entry` leaving its queue unmade, with `refund` Space Crystals back (X, or the
+/// producer leaving the game): a unit's `SimEvent::ProductionCancelled`, a Release's `SimEvent::ReleaseCancelled`
+/// (slice M5-F2), which names the unit it had reserved, `reserved`'s first.
+pub(super) fn cancelled(producer: ObjectId, entry: QueueEntry, reserved: &[ObjectId], refund: u32) -> Option<SimEvent> {
+    match entry {
+        QueueEntry::Unit(kind) => Some(SimEvent::ProductionCancelled { producer, kind, refund }),
+        QueueEntry::Release => Some(SimEvent::ReleaseCancelled {
+            producer,
+            unit: *reserved.first()?,
+        }),
+    }
 }
 
 impl Sim {
@@ -77,8 +98,14 @@ impl Sim {
     ///   (`producers/step.rs`).
     ///   Design change 0083: the producers are served by the work they have queued, least first, ties by id, each
     ///   check counting what the ones before it in this command took, **until the crystal check fails** (0143: 0083
-    ///   no longer considers the army cap); a full queue is passed over.
-    /// - **CancelProduction**: a producer has something queued, else [`Reject::NothingQueued`].
+    ///   no longer considers the army cap); a full queue is passed over. A pool producer (`producers/pool.rs`, slice
+    ///   M5-F2) takes no `Train`: its units are of a kind.
+    /// - **TrainFrom** (slice M5-F2): the same, at pool producers alone, each needing the free units of the kind that
+    ///   the unit is made of ([`Reject::NoRecruit`]; passed over like a full queue) but no free queue slot: its
+    ///   capacity bounds its queue (design change 0347 point 5).
+    /// - **Release** (slice M5-F2): a pool producer with a free unit of the kind queues it ([`Sim::plan_release`]).
+    /// - **CancelProduction**: a producer has something queued, else [`Reject::NothingQueued`]; never a Recruitment
+    ///   Hall, whose Recruit can't be cancelled (design change 0342).
     /// - **SetRally**: a point on the map ([`Reject::OffMap`]), or an object that exists and that the player sees,
     ///   as for an order's target ([`Sim::check_target_seen`]). The producer itself is always a target: it clears
     ///   the rally (design change 0086).
@@ -97,15 +124,16 @@ impl Sim {
             return Err(Reject::NoProducers);
         }
         let plan = match command {
-            ProductionCommand::Train(kind) => self.plan_training(player, &producers, kind)?,
+            ProductionCommand::Train(kind) => self.plan_training(player, &producers, kind, None)?,
+            ProductionCommand::TrainFrom { kind, from } => self.plan_training(player, &producers, kind, Some(from))?,
+            ProductionCommand::Release(from) => self.plan_release(&producers, from)?,
             ProductionCommand::CancelProduction => {
+                // A Recruitment Hall's Recruit can't be cancelled (design change 0342: "Recruits can't be cancelled").
                 let queued: Vec<ObjectId> = producers
                     .into_iter()
                     .filter(|id| {
-                        self.objects[id]
-                            .production
-                            .as_ref()
-                            .is_some_and(|p| !p.queue.is_empty())
+                        producer(&self.objects[id])
+                            .is_some_and(|(p, def)| def.recruitment.is_none() && !p.queue.is_empty())
                     })
                     .collect();
                 if queued.is_empty() {
@@ -131,29 +159,49 @@ impl Sim {
         Ok(Checked::Production { player, plan })
     }
 
-    /// Design change 0083 (`systems/controls/selection_and_hud.md > SelectionGroup > No smart-casting > Group
-    /// production with limited resources`): which of `producers` queue a unit of `kind` for `player`.
+    /// Design change 0083 (`systems/controls/selection.md > SelectionGroup > No smart-casting > Group
+    /// production with limited resources`): which of `producers` queue a unit of `kind` for `player`: made of their
+    /// free units of kind `from` at pool producers (`ProductionCommand::TrainFrom`, slice M5-F2, `producers/pool.rs`),
+    /// or at the others with no `from` (`ProductionCommand::Train`), each taking only its own.
     fn plan_training(
         &self,
         player: PlayerId,
         producers: &[ObjectId],
         kind: ObjectKind,
+        from: Option<RecruitKind>,
     ) -> Result<ProductionPlan, Reject> {
-        // (work queued, id, the unit's cost, whether the queue is full), least work first, ties by id. A producer whose
-        // entry requires a type the player doesn't own queues nothing (`core/tech_and_research.md > Tech Prerequisites
-        // > Unit Prerequisites`: "checked only when the unit is queued"; slice M4-K, `crate::tech`).
+        // Least work first, ties by id. A producer whose entry requires a type the player doesn't own queues nothing
+        // (`core/tech_and_research.md > Tech Prerequisites > Unit Prerequisites`: "checked only when the unit is
+        // queued"; slice M4-K, `crate::tech`).
+        let entry = QueueEntry::Unit(kind);
         let mut unmet = None;
-        let mut able: Vec<(u64, ObjectId, u32, bool)> = producers
+        let mut able: Vec<Candidate> = producers
             .iter()
             .filter_map(|&id| {
-                let (production, def) = producer(&self.objects[&id])?;
-                // A Recruitment Hall recruits by itself (`ProductionDef::recruitment`, `sim/recruitment.rs`).
+                let o = &self.objects[&id];
+                let (production, def) = producer(o)?;
+                // A Recruitment Hall recruits by itself (`ProductionDef::recruitment`, `sim/recruitment.rs`); a pool
+                // producer trains of its units, of a kind.
                 let recipe = def.recipe(kind).filter(|_| def.recruitment.is_none())?;
+                if holding::trains(o.kind) != from.is_some() {
+                    return None;
+                }
                 if let Some(missing) = self.unmet_requirement(player, recipe.requires.iter().copied()) {
                     unmet.get_or_insert(missing);
                     return None;
                 }
-                Some((production.remaining_work(def), id, recipe.cost, production.is_full()))
+                let (passed_over, units) = match from {
+                    // Its capacity bounds its queue, not `QUEUE_LIMIT` (design change 0347 point 5).
+                    Some(from) => {
+                        let mut units = self.free_units(id, from);
+                        let needed = entry.units_reserved();
+                        let short = units.len() < needed;
+                        units.truncate(needed);
+                        (short.then_some(Refusal::NoRecruit), units)
+                    }
+                    None => (production.is_full().then_some(Refusal::QueueFull), Vec::new()),
+                };
+                Some((production.remaining_work(def), id, recipe.cost, passed_over, units))
             })
             .collect();
         if able.is_empty() {
@@ -162,10 +210,11 @@ impl Sim {
         able.sort_unstable_by_key(|&(work, id, ..)| (work, id));
         let mut crystals = self.player(player).map_or(0, |p| p.crystals);
         let (mut accepted, mut refused) = (Vec::new(), Vec::new());
-        let mut stopped: Option<Refusal> = None;
-        for (_, id, cost, full) in able {
-            if full {
-                refused.push((id, Refusal::QueueFull));
+        let (mut stopped, mut passed): (Option<Refusal>, Option<Refusal>) = (None, None);
+        for (_, id, cost, passed_over, units) in able {
+            if let Some(reason) = passed_over {
+                passed.get_or_insert(reason);
+                refused.push((id, reason));
                 continue;
             }
             if stopped.is_none() && crystals < cost {
@@ -175,20 +224,47 @@ impl Sim {
                 Some(reason) => refused.push((id, reason)),
                 None => {
                     crystals -= cost;
-                    accepted.push(id);
+                    accepted.push((id, units));
                 }
             }
         }
         if accepted.is_empty() {
-            return Err(match stopped {
+            return Err(match stopped.or(passed) {
                 Some(Refusal::Crystals) => Reject::InsufficientCrystals,
+                Some(Refusal::NoRecruit) => from.map_or(Reject::QueueFull, Reject::NoRecruit),
                 Some(Refusal::QueueFull) | None => Reject::QueueFull,
             });
         }
         Ok(ProductionPlan::Train {
-            kind,
+            entry,
             accepted,
             refused,
+        })
+    }
+
+    /// (M5-F2) Which of `producers` queue a Release of a unit of kind `from` (design change 0337,
+    /// `factions/cults/structures/README.md > Choosing Recruits, Release and Eject All`): every pool producer with a
+    /// free unit of that kind, in id order, each reserving its one that entered first. A Release costs nothing, so
+    /// those without such a unit pass silently: no "insufficient resources" to tell (design change 0083's feedback),
+    /// and the panel sends it to one building, the Ungroupable one Tabbed to (design change 0348 point 5).
+    /// [`Reject::NoHolders`] if none of them holds units, [`Reject::NoRecruit`] if none has such a unit free.
+    fn plan_release(&self, producers: &[ObjectId], from: RecruitKind) -> Result<ProductionPlan, Reject> {
+        let pools: Vec<ObjectId> = (producers.iter().copied())
+            .filter(|id| holding::trains(self.objects[id].kind))
+            .collect();
+        if pools.is_empty() {
+            return Err(Reject::NoHolders);
+        }
+        let accepted: Vec<(ObjectId, Vec<ObjectId>)> = (pools.into_iter())
+            .filter_map(|id| Some((id, vec![*self.free_units(id, from).first()?])))
+            .collect();
+        if accepted.is_empty() {
+            return Err(Reject::NoRecruit(from));
+        }
+        Ok(ProductionPlan::Train {
+            entry: QueueEntry::Release,
+            accepted,
+            refused: Vec::new(),
         })
     }
 
@@ -196,22 +272,21 @@ impl Sim {
     pub(super) fn apply_production(&mut self, player: PlayerId, plan: ProductionPlan) {
         match plan {
             ProductionPlan::Train {
-                kind,
+                entry,
                 accepted,
                 refused,
             } => {
-                for id in accepted {
-                    let Some(cost) = self
-                        .objects
-                        .get(&id)
-                        .and_then(producer)
-                        .and_then(|(_, def)| def.recipe(kind))
-                        .map(|recipe| recipe.cost)
-                    else {
+                for (id, units) in accepted {
+                    let Some(cost) = self.objects.get(&id).and_then(producer).map(|(_, def)| entry.cost(def)) else {
                         continue;
                     };
+                    let event = match (entry, units.first()) {
+                        (QueueEntry::Unit(kind), _) => SimEvent::ProductionQueued { producer: id, kind },
+                        (QueueEntry::Release, Some(&unit)) => SimEvent::ReleaseQueued { producer: id, unit },
+                        (QueueEntry::Release, None) => continue,
+                    };
                     // "deducts 50 Space Crystals from player, adds Peacekeeper to BuildQueue" (the gate checked
-                    // the bank, each producer after what the ones before it took).
+                    // the bank, each producer after what the ones before it took); a Release is free.
                     let paid = self
                         .players
                         .iter_mut()
@@ -221,16 +296,18 @@ impl Sim {
                         continue;
                     }
                     if let Some(production) = self.objects.get_mut(&id).and_then(|o| o.production.as_mut()) {
-                        production.queue.push(kind);
-                        self.events.push(SimEvent::ProductionQueued { producer: id, kind });
+                        production.push(entry, units);
+                        self.events.push(event);
                     }
                 }
-                self.events
-                    .extend(refused.into_iter().map(|(id, reason)| SimEvent::ProductionRefused {
-                        producer: id,
-                        kind,
-                        reason,
-                    }));
+                if let QueueEntry::Unit(kind) = entry {
+                    self.events
+                        .extend(refused.into_iter().map(|(id, reason)| SimEvent::ProductionRefused {
+                            producer: id,
+                            kind,
+                            reason,
+                        }));
+                }
             }
             ProductionPlan::Cancel(producers) => {
                 for id in producers {
@@ -238,22 +315,19 @@ impl Sim {
                         continue;
                     };
                     let def = o.def().structure.as_ref().and_then(|s| s.production.as_ref());
-                    let Some(kind) = o.production.as_mut().and_then(Production::cancel_last) else {
+                    let Some((entry, reserved)) = o.production.as_mut().and_then(Production::cancel_last) else {
                         continue;
                     };
                     // "removes last entry from BuildQueue, refunds full cost to player". The army cost goes with the
                     // unit in production (design change 0143), and a waiting one never took any: "the player can
-                    // still cancel it for a full refund".
-                    let cost = def.and_then(|def| def.recipe(kind)).map_or(0, |recipe| recipe.cost);
-                    let refund = Refund::Full.of(cost);
+                    // still cancel it for a full refund". A pool producer's entry "returns its reserved Recruit to
+                    // StoredRecruits" (`factions/cults/structures/armory.md > ObjectInterfaceState[Armory]`).
+                    let refund = Refund::Full.of(def.map_or(0, |def| entry.cost(def)));
                     if let Some(p) = self.players.iter_mut().find(|p| p.id == player) {
                         p.credit_crystals(refund);
                     }
-                    self.events.push(SimEvent::ProductionCancelled {
-                        producer: id,
-                        kind,
-                        refund,
-                    });
+                    self.unreserve(&reserved);
+                    self.events.extend(cancelled(id, entry, &reserved, refund));
                 }
             }
             ProductionPlan::SetRally(producers, target) => {
@@ -278,7 +352,10 @@ impl Sim {
     /// cancelled", the unit in production and a finished one still waiting inside included: the full Space
     /// Crystals cost of each. Of their army cost (design change 0143) only the unit in production's goes, being
     /// the only one that took any ("Unit Control released for the unit in production"); a producer that waited for
-    /// room frees nothing.
+    /// room frees nothing. A pool producer's entries (slice M5-F2) give their units back to the pool
+    /// (`Sim::unreserve`), which come out as they are, Recruits, when the building leaves the game
+    /// (`factions/cults/economy.md > Cults Building Mechanics > Evacuation on Destruction`: "Orders are cancelled with
+    /// a full refund"; "a Recruit mid-training comes out as a Recruit"; `sim/holding/evacuation.rs`).
     pub(super) fn refund_production(&mut self, id: ObjectId) {
         let Some(o) = self.objects.get_mut(&id) else {
             return;
@@ -288,16 +365,13 @@ impl Sim {
             return;
         };
         let owner = o.owner;
-        for kind in production.take_queue() {
-            let refund = Refund::Full.of(def.recipe(kind).map_or(0, |recipe| recipe.cost));
+        for (entry, reserved) in production.take_queue() {
+            let refund = Refund::Full.of(entry.cost(def));
             if let Some(p) = self.players.iter_mut().find(|p| Some(p.id) == owner) {
                 p.credit_crystals(refund);
             }
-            self.events.push(SimEvent::ProductionCancelled {
-                producer: id,
-                kind,
-                refund,
-            });
+            self.unreserve(&reserved);
+            self.events.extend(cancelled(id, entry, &reserved, refund));
         }
     }
 
@@ -310,9 +384,9 @@ impl Sim {
     /// centre, facing the heading it leaves along (design change 0145: `production::EnergyDoorway::release`, which
     /// draws from the sim's Rng only with no rally point and two or more ways out to choose from). A building with
     /// several exit sides releases it through the first door in its order whose doorway is free and has a spot for it
-    /// (`production::Doorway::order`, **Placeholder (Q0100 point 1)**), and holds it while none has. A Recruitment
+    /// (`production::Doorway::order`), and holds it while none has. A Recruitment
     /// Hall's Recruit is of its lineage (`Object::lineage`, plan decision T56: "Each Recruit tracks which Recruitment
-    /// Hall produced it", `factions/cults/economy.md > RecruitmentHall > Unit Control Tracking`).
+    /// Hall produced it", `factions/cults/structures/recruitment_hall.md > Unit Control Tracking`).
     fn release_unit(&mut self, producer: ObjectId) {
         let Some(building) = self.objects.get(&producer) else {
             return;
@@ -327,7 +401,7 @@ impl Sim {
         let Some(production) = &building.production else {
             return;
         };
-        let (Some(kind), rally) = (production.current(), production.rally) else {
+        let (Some(kind), rally) = (production.current().and_then(QueueEntry::unit), production.rally) else {
             return;
         };
         let def = kind.def();

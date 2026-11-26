@@ -231,9 +231,10 @@ pub(super) fn run(
     if state.location.is_some() && !shooter.locks() {
         state.engage(None);
     }
-    // `systems/controls/behaviors.md > AttackingObject` 3: a sequence begins once the target is in range and no
+    // `systems/controls/command_behaviors.md > AttackingObject` 3: a sequence begins once the target is in range and no
     // sequence runs, and only at a target the unit's owner sees (`systems/combat.md > ValidTarget` 2).
-    // `systems/controls/behaviors.md > AttackingLocation`: the same at a location in range, which no one needs to see.
+    // `systems/controls/command_behaviors.md > AttackingLocation`: the same at a location in range, which no one needs
+    // to see.
     if state.phase.is_none() {
         if let Some(target) = state.target
             && targets
@@ -265,8 +266,8 @@ pub(super) fn run(
                 };
                 Some(t.pos)
             }
-            // (M4-O) The same at a location: still the one engaged, and in range (`systems/controls/behaviors.md >
-            // AttackingLocation`: "range/arc check against location").
+            // (M4-O) The same at a location: still the one engaged, and in range
+            // (`systems/controls/command_behaviors.md > AttackingLocation`: "range/arc check against location").
             AttackPhase::AimingAt { at } => {
                 if state.location != Some(at) || !shooter.reaches_point(at) {
                     state.cancel();

@@ -26,7 +26,7 @@
 //!   It waits as long as it takes; it never gives up").
 //!
 //! **Recruits** (slice M5-D, plan decision T58; `factions/cults/units/recruit.md > Gathering`,
-//! `factions/cults/economy.md > Storage`) are data on the same job: they share patches as Agents do ("any number of
+//! `factions/cults/structures/storage.md`) are data on the same job: they share patches as Agents do ("any number of
 //! Recruits may mine the same Space Crystals patch at the same time"), deliver anywhere at a Storage, any number at
 //! once ("Multiple Recruits can drop off Space Crystals simultaneously"), and keep normal collision (design change
 //! 0106). **Which Storage** is a placeholder (Q0102 point 1, `deliver::nearest_to_patch`): the nearest own completed

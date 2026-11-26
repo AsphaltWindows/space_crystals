@@ -2,8 +2,8 @@
 //! Starting Layout on `dev_skirmish` in either slot, the six Recruits belonging to the starting Recruitment Hall, so
 //! that Unit Control starts at 6/20 and the Hall at once starts its seventh, and the camera's start on the Hall
 //! (`core/camera.md > Starting Position`). `dev_skirmish`'s layout follows the design: the Hall's Recruitment Area on
-//! the map, Recruitable and its own (`factions/cults/economy.md > RecruitmentHall > Effectiveness`), the Storage a
-//! 1-tile gap from the field (`factions/cults/economy.md > Storage`). The map validates in each of the 16 pairings,
+//! the map, Recruitable and its own (`factions/cults/structures/recruitment_hall.md > Effectiveness`), the Storage a
+//! 1-tile gap from the field (`factions/cults/structures/storage.md`). The map validates in each of the 16 pairings,
 //! and an incomplete Cults layout lists what it lacks (`core/map_editor.md > Starting Layouts > Skirmish Default
 //! restriction`; design change 0012: "Leave the Cults layout incomplete: the editor lists the missing Recruits, and
 //! the map can't be started"). The lineage of a layout's units wherever its Hall stands, on a Custom map, and without
@@ -26,7 +26,7 @@ const RECRUIT: ObjectKind = ObjectKind::Recruit;
 const PATCH: ObjectKind = ObjectKind::CrystalPatch;
 const CULTS: Faction = Faction::Cults;
 const GDO: Faction = Faction::Gdo;
-/// `factions/cults/economy.md > RecruitmentHall > BaseRecruitProductionTime - 12 seconds (192 frames) per Recruit`.
+/// `factions/cults/structures/recruitment_hall.md > BaseRecruitProductionTime - 12 seconds (192 frames) per Recruit`.
 const FRAMES: u32 = 192;
 
 /// A point in grid units.
@@ -86,9 +86,9 @@ fn layout_object(kind: ObjectKind, at: SpawnAt) -> LayoutObject {
 /// Crystals**"), with the Recruitment Hall, the Storage and the six Recruits where `dev_skirmish`'s layout puts them,
 /// in either slot (the second slot's layout is the first's 180° image), each Recruit of the Hall's lineage ("all
 /// belonging to the starting Recruitment Hall"). At tick 0 the Hall claims its whole area: 100% effectiveness, its
-/// usage 6 of its 20, and the HUD's Unit Control 6/20 (`factions/cults/economy.md > RecruitmentHall > Cults Unit Control
-/// HUD Display`). The camera starts on the Hall (`core/camera.md > Starting Position`: "Cults: starting Recruitment
-/// Hall"). The GDO beside them starts as ever.
+/// usage 6 of its 20, and the HUD's Unit Control 6/20 (`factions/cults/structures/recruitment_hall.md > Cults Unit
+/// Control HUD Display`). The camera starts on the Hall (`core/camera.md > Starting Position`: "Cults: starting
+/// Recruitment Hall"). The GDO beside them starts as ever.
 #[test]
 fn a_cults_player_starts_with_their_starting_conditions() {
     let scenario = dev_skirmish_as([CULTS, GDO]);
@@ -135,12 +135,14 @@ fn a_cults_player_starts_with_their_starting_conditions() {
     assert_eq!(scenario.primary_structure(P2), Some(point(54.0, 38.0)));
 }
 
-/// The Hall starts its seventh Recruit at once (`factions/cults/economy.md > RecruitmentHall > Production Behavior`:
+/// The Hall starts its seventh Recruit at once (`factions/cults/structures/recruitment_hall.md > Production Behavior`:
 /// "automatically and continuously produces Recruits at no resource cost until LocalUnitControlUsage reaches
-/// LocalUnitControlCapacity"): in production from the first tick, it comes out 192 ticks later
-/// (`factions/cults/economy.md > RecruitmentHall > BaseRecruitProductionTime - 12 seconds (192 frames) per Recruit`),
-/// by the bottom door as the Hall has no rally point, the starting Recruits in no door's way, and the HUD shows 7/20.
-/// Nothing in the bank moves: Recruits cost nothing.
+/// LocalUnitControlCapacity"): in production from the first tick, it counts from then on (design change 0342: "the
+/// Recruit in production counts toward LocalUnitControlUsage from the start of its production"), so the HUD shows 7/20,
+/// and comes out 192 ticks later (`factions/cults/structures/recruitment_hall.md > BaseRecruitProductionTime - 12
+/// seconds (192 frames) per Recruit`), out of side B, the Hall's one exit (0342: "the exit on B"), the west side in the
+/// first slot and the east in its image, the starting Recruits in its way in neither. The eighth is in production at
+/// once: 8/20. Nothing in the bank moves: Recruits cost nothing.
 #[test]
 fn the_starting_hall_starts_its_seventh_recruit_at_once() {
     let mut t = TestSim::new(dev_skirmish_as([CULTS, CULTS]));
@@ -154,24 +156,31 @@ fn the_starting_hall_starts_its_seventh_recruit_at_once() {
     let status = t.sim().production_status(hall).expect("in production");
     assert_eq!(status.progress, 100, "100 tiles a frame");
     t.run_until(FRAMES - 1);
-    assert_eq!(t.sim().army_cap(P1), unit_control(6, 20));
+    assert_eq!(t.sim().army_cap(P1), unit_control(7, 20), "the seventh in production");
     t.run_until(FRAMES);
-    let made: Vec<_> = (t.events().iter())
-        .filter_map(|(tick, e)| match *e {
-            SimEvent::UnitProduced { producer, unit } if producer == hall => Some((*tick, unit)),
-            _ => None,
-        })
-        .collect();
-    assert_eq!(made.len(), 1, "{made:?}");
-    let (tick, seventh) = made[0];
-    assert_eq!(tick, FRAMES);
-    let o = t.sim().object(seventh).unwrap();
-    assert_eq!((o.kind, o.lineage.as_slice()), (RECRUIT, [hall].as_slice()));
-    let doorway = Doorway::of(t.sim().object(hall).unwrap()).unwrap();
-    let bottom = doorway.order(None).next().unwrap();
-    assert_eq!(doorway.door_at(o.pos), bottom, "out of the bottom door");
-    assert_eq!(t.sim().army_cap(P1), unit_control(7, 20));
-    assert_eq!(t.sim().army_cap(P2), unit_control(7, 20), "the other slot's Hall alike");
+    for (player, outward) in [(P1, Vec2::NEG_X), (P2, Vec2::X)] {
+        let hall = ids(t.sim(), player, HALL)[0];
+        let made: Vec<_> = (t.events().iter())
+            .filter_map(|(tick, e)| match *e {
+                SimEvent::UnitProduced { producer, unit } if producer == hall => Some((*tick, unit)),
+                _ => None,
+            })
+            .collect();
+        assert_eq!(made.len(), 1, "{player:?}: {made:?}");
+        let (tick, seventh) = made[0];
+        assert_eq!(tick, FRAMES);
+        let o = t.sim().object(seventh).unwrap();
+        assert_eq!((o.kind, o.lineage.as_slice()), (RECRUIT, [hall].as_slice()));
+        let doorway = Doorway::of(t.sim().object(hall).unwrap()).unwrap();
+        assert_eq!(doorway.doors().count(), 1, "side B alone");
+        let door = doorway.door_at(o.pos);
+        assert_eq!(door.outward(), outward, "{player:?}: out of side B");
+        assert_eq!(
+            t.sim().army_cap(player),
+            unit_control(8, 20),
+            "{player:?}: the eighth in production"
+        );
+    }
     assert_eq!(t.sim().player(P1).unwrap().banks(), Banks::default());
 }
 
@@ -183,14 +192,14 @@ fn gap(a: (i32, i32, i32, i32), b: (i32, i32, i32, i32)) -> i32 {
 }
 
 /// `dev_skirmish`'s Cults layout follows the design, in either slot:
-/// - the Hall's Recruitment Area is all on the map and Recruitable, and no other Hall's (`factions/cults/economy.md >
-///   RecruitmentHall > Effectiveness`, map design guideline: "balancing starts from the assumption that the whole map
-///   is Recruitable"; "A hall on fully Recruitable terrain with no competing halls therefore reaches 100%
-///   effectiveness"), with the Cults in both slots;
-/// - the Storage stands a 1-tile gap from the nearest patches of its field (`factions/cults/economy.md > Storage`: "The
-///   best layout leaves a 1-tile gap between patch and Storage"), five of the eight, and touches none;
+/// - the Hall's Recruitment Area is all on the map and Recruitable, and no other Hall's
+///   (`factions/cults/structures/recruitment_hall.md > Effectiveness`, map design guideline: "balancing starts from the
+///   assumption that the whole map is Recruitable"; "A hall on fully Recruitable terrain with no competing halls
+///   therefore reaches 100% effectiveness"), with the Cults in both slots;
+/// - the Storage stands a 1-tile gap from the nearest patches of its field (`factions/cults/structures/storage.md`:
+///   "The best layout leaves a 1-tile gap between patch and Storage"), five of the eight, and touches none;
 /// - the Recruits stand beside the Storage, within 2 grid units of its footprint, and at least 2 grid units from the
-///   middle of each side of the Hall, the doors its Recruits come out of (`ExitRule::Sides`).
+///   middle of the Hall's side B, the one door its Recruits come out of (design change 0342: "the exit on B").
 #[test]
 fn dev_skirmish_cults_layout_follows_the_design() {
     let sim = Sim::new(&dev_skirmish_as([CULTS, CULTS]));
@@ -223,7 +232,7 @@ fn dev_skirmish_cults_layout_follows_the_design() {
         assert_eq!(field.iter().filter(|&&g| g == 1).count(), 5, "{player:?}: {field:?}");
 
         let doors: Vec<Vec2> = Doorway::of(hall).unwrap().doors().map(|d| d.middle()).collect();
-        assert_eq!(doors.len(), 4);
+        assert_eq!(doors.len(), 1, "side B");
         let (x, y, w, h) = rect(storage);
         let (min, max) = (point(x as f32, y as f32), point((x + w) as f32, (y + h) as f32));
         for id in ids(&sim, player, RECRUIT) {
@@ -332,7 +341,8 @@ fn an_incomplete_cults_layout_lists_what_it_lacks() {
 /// of the first Recruitment Hall of its layout, wherever the layout lists it, before its units or after them; a
 /// second Hall gets none. A unit of another faction has no lineage. A Custom map's layout without a Hall (which a
 /// Custom map allows, `core/map_editor.md > Map Types > Custom`) gives its Recruits none: no Hall made them, and their
-/// cost is orphaned (**Placeholder (Q0101 point 2)**), used Unit Control with none available.
+/// cost is orphaned (design change 0344: "Recruits no Hall produced (custom maps, debug) are orphans from the start"),
+/// used Unit Control with none available.
 #[test]
 fn a_layouts_units_belong_to_its_first_hall() {
     let flat = vec![".".repeat(40); 24].join("\n");

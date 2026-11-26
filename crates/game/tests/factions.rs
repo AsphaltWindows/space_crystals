@@ -37,7 +37,10 @@ const COLONISTS_BAR: [&str; 5] = [
     "Beacon Capacity 4/10",
 ];
 const GDO_BAR: [&str; 4] = ["Space Crystals 100", "Supplies 0", "Power 21/30", "Unit Control 0/200"];
-const CULTS_BAR: [&str; 2] = ["Space Crystals 0", "Unit Control 6/20"];
+/// The Cults' bar from the first tick on: the six starting Recruits, and the Hall's seventh, in production from then and
+/// counted (design change 0342: "the Recruit in production counts toward LocalUnitControlUsage from the start of its
+/// production").
+const CULTS_BAR: [&str; 2] = ["Space Crystals 0", "Unit Control 7/20"];
 
 fn headless(mut config: AppConfig) -> App {
     config.display = DisplayMode::Headless;
@@ -142,8 +145,9 @@ fn a_colonists_game_starts_on_the_robo_portal_with_their_bar() {
 /// and six Recruits, at 0 Space Crystals and Unit Control 6/20, with the camera on the Hall". The Cults play slot 1 of
 /// `dev_skirmish` with their Starting Conditions' objects (`factions/cults/economy.md > Starting Conditions`); the
 /// camera starts on their Recruitment Hall, on tiles (8, 8) to (11, 11) (`core/camera.md > Starting Position`: "Cults:
-/// starting Recruitment Hall"); and the bar reads their figures (`factions/cults/overview.md > DisplayHud`). F2 shows
-/// the GDO's, and back. In slot 2, the camera starts on the image of that Hall.
+/// starting Recruitment Hall"); and the bar reads their figures (`factions/cults/overview.md > DisplayHud`), 7/20 from
+/// the first tick, the Hall's seventh Recruit then in production (design change 0342). F2 shows the GDO's, and back. In
+/// slot 2, the camera starts on the image of that Hall.
 #[test]
 fn a_cults_game_starts_on_the_recruitment_hall_with_their_bar() {
     let owned = |app: &App, player| -> Vec<ObjectKind> {

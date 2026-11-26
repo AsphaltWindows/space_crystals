@@ -1,7 +1,7 @@
 //! A target lost from vision (design change 0200, answering question Q0051; it replaces design change 0034's walk to
-//! the last seen position): `systems/controls/behaviors.md > AttackingObject > Algorithm` 6, "if TargetObject is no
-//! longer visible to the unit's owner (it went into the fog of war), the behavior completes at once, exactly as when
-//! the target is destroyed. The unit stops where it is and is idle, or goes on to its next queued order if it has
+//! the last seen position): `systems/controls/command_behaviors.md > AttackingObject > Algorithm` 6, "if TargetObject
+//! is no longer visible to the unit's owner (it went into the fog of war), the behavior completes at once, exactly as
+//! when the target is destroyed. The unit stops where it is and is idle, or goes on to its next queued order if it has
 //! one"; and `> MovingToObject`, a Follow "same as AttackingObject > Target lost from vision".
 //!
 //! Here: the queued order after an Attack and after a Follow; a structure the fog covers while an Attack on it runs,

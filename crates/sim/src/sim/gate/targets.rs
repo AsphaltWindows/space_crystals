@@ -1,6 +1,6 @@
 //! What a player knows of the objects its orders and rally points target, and what a unit does by default against
 //! one: `core/vision.md > Explored > Targeting remembered objects` (design change 0139, which answers question Q0017
-//! point 2) and `systems/controls/selection_and_hud.md > What a rally point makes a new unit do` (design change
+//! point 2) and `systems/controls/interface.md > What a rally point makes a new unit do` (design change
 //! 0136).
 //!
 //! - [`Sim::target_view`]: the one view of a target (`crate::targets`): Visible, Remembered at its last-known position,
@@ -110,7 +110,7 @@ impl Sim {
         Ok(())
     }
 
-    /// `systems/controls/selection_and_hud.md > RightClickResolution` for one unit (`crate::orders::resolution`): the
+    /// `systems/controls/interface.md > RightClickResolution` for one unit (`crate::orders::resolution`): the
     /// order unit `unit` gets by default against `target`, the target as its owner knows it ([`Sim::aimed`]). `None`
     /// if `unit` is no unit that takes orders, or its owner knows nothing of the object. The client resolves a
     /// right-click with the same rule, on what it shows; a rally point with this (design change 0136).
@@ -128,7 +128,7 @@ impl Sim {
         Some(resolve(Abilities::of(o)?, aim))
     }
 
-    /// Design change 0136 (`systems/controls/selection_and_hud.md > What a rally point makes a new unit do`): the order
+    /// Design change 0136 (`systems/controls/interface.md > What a rally point makes a new unit do`): the order
     /// unit `unit` gets as it leaves its producer, whose rally point is `rally`: "its **own default right-click
     /// command** resolved against the rally target", as the unit's owner knows the target ([`Sim::default_order`]). A
     /// rally on an object its owner knows nothing of any more (a unit gone out of its sight since the end of the last

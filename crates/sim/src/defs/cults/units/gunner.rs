@@ -8,8 +8,8 @@ use crate::player::Faction;
 /// `factions/cults/units/gunner.md`: "the Cults' heavier-hitting combat infantry, trained from a Recruit at the
 /// Armory", which "Shares the Militant's physical profile but trades air targeting and attack speed for a longer-range,
 /// harder-hitting ground attack that **can miss**" (design change 0304). The first kind with a MinRange: a target
-/// nearer than 2 grid units is too close to fire at (`systems/controls/behaviors.md > AttackingObject > Target inside
-/// MinRange`, slice M3-L2's code, `crate::orders`). Its training comes with slice M5-F2, behind a Gunworks.
+/// nearer than 2 grid units is too close to fire at (`systems/controls/command_behaviors.md > AttackingObject > Target
+/// inside MinRange`, slice M3-L2's code, `crate::orders`). Its training comes with slice M5-F2, behind a Gunworks.
 ///
 /// Its attack is TailDisjointed (slice M5-O3, `crate::combat::phases`): "the target's position is locked at the end of
 /// Aiming and the shot lands there at the end of Firing, so a target that moves during the Firing phase is missed,
@@ -56,12 +56,16 @@ pub(crate) static GUNNER: ObjectDef = ObjectDef {
             // No projectile: "Visually still an instant gunshot" (`systems/combat.md > AttackType`: "ProjectileSpeed -
             // number (HeadDisjointed / DoublyDisjointed only)").
             projectile_speed: None,
-            aim_ticks: 4,      // AimDuration: 4 frames
-            firing_ticks: 2,   // FiringDuration: 2 frames
-            cooldown_ticks: 8, // CooldownDuration: 8 frames
-            reload_ticks: 8,   // ReloadDuration: 8 frames
+            aim_ticks: 4, // AimDuration: 4 frames
+            // FiringDuration: 4 frames (design change 0333, answering Q0126: "was 2, too short for anything to leave
+            // the spot; at 4 a walking infantry unit can step off it").
+            firing_ticks: 4,
+            // CooldownDuration: 6 frames (design change 0333: "was 8, shortened by the same 2 frames so the rate of
+            // fire is unchanged; designer placeholder").
+            cooldown_ticks: 6,
+            reload_ticks: 8, // ReloadDuration: 8 frames
         }),
-        // `factions/cults/economy.md > RecruitmentHall > Unit Control Tracking`: "A trained unit's Unit Control cost
+        // `factions/cults/structures/recruitment_hall.md > Unit Control Tracking`: "A trained unit's Unit Control cost
         // equals the number of Recruits consumed to produce it": one, the Recruit an Armory trains it from
         // (`factions/cults/structures/armory.md > Training`; plan decision T55).
         unit_control_cost: Some(1),
@@ -85,7 +89,8 @@ mod tests {
 
     /// The Militant's body (LightInfantry, 24×24, MaxHP 40, no armour, SightRange 5, MaxSpeed 4) with its gun:
     /// TailDisjointed (design change 0304), so it can target the ground, ground only, single target, 16 damage from 2
-    /// to 5 grid units, no projectile, one shot every 22 frames (Aim 4, Fire 2, Cooldown 8, Reload 8); Unit Control 1.
+    /// to 5 grid units, no projectile, one shot every 22 frames (Aim 4, Fire 4, Cooldown 6, Reload 8: design change
+    /// 0333, the rate of fire unchanged); Unit Control 1.
     #[test]
     fn the_gunner_follows_the_design() {
         let attack = assert_infantry(ObjectKind::Gunner);
@@ -101,7 +106,7 @@ mod tests {
             (attack.range, attack.min_range, attack.projectile_speed),
             (5.0, 2.0, None)
         );
-        assert_eq!(timings(&attack), ((4, 2, 8, 8), 22), "one shot every 22 frames");
+        assert_eq!(timings(&attack), ((4, 4, 6, 8), 22), "one shot every 22 frames");
         assert_eq!(ObjectKind::Gunner.def().name, "Gunner");
     }
 

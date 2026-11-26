@@ -1,5 +1,5 @@
-//! Right-clicks (`systems/controls/selection_and_hud.md > RightClickResolution`,
-//! `systems/controls/selection_and_hud.md > BasicCombatUnitInterfaceState > RightClickResolution`) and the
+//! Right-clicks (`systems/controls/interface.md > RightClickResolution`,
+//! `systems/controls/interface.md > BasicCombatUnitInterfaceState > RightClickResolution`) and the
 //! Shift-queue (`systems/controls/commands.md > Unit Command`).
 
 use bevy::prelude::*;
@@ -42,7 +42,7 @@ fn a_right_click_resolves_by_what_is_under_the_cursor() {
     assert_eq!(selected(&app), [1, 2], "a right-click selects nothing");
 }
 
-/// `systems/controls/selection_and_hud.md > CommandPanel`: no right-click resolution without a selection, nor for
+/// `systems/controls/interface.md > CommandPanel`: no right-click resolution without a selection, nor for
 /// another player's or a neutral one.
 #[test]
 fn a_right_click_orders_nothing_without_an_own_selection() {

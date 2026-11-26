@@ -178,8 +178,8 @@ fn ten_sabres_fighting_all_convert_on_one_press_the_mid_swing_ones_a_little_late
     // Sabres of one building all head for one point by its corner. The second there is stopped by the first, which
     // strikes and doesn't yield; its contact step takes it a whole width round it on its near side, away from the
     // building's face (`docs/movement.md > 6.3`), where it used to shuffle along the first into reach. It then counts
-    // as arrived behind it, out of reach, and its Attack ends (`systems/controls/behaviors.md > AttackingObject >
-    // Failure`); idle, it takes the building up again by itself and gets to it.
+    // as arrived behind it, out of reach, and its Attack ends (`systems/controls/command_behaviors.md >
+    // AttackingObject > Failure`); idle, it takes the building up again by itself and gets to it.
     while !sabres.iter().all(|&n| struck(&t, n)) {
         assert!(t.sim().tick() < 240, "the Sabres should all fight by now");
         t.step();

@@ -1,6 +1,7 @@
-//! The Tunnel Area display (slices M4-J2 and M4-J3; `factions/syndicate/tunnels.md > Tunnel Area display`, design
-//! changes 0299 and 0300, answering Q0086 point 4): when the local player is shown a Tunnel Area on the map
-//! (`factions/syndicate/tunnels.md > Tunnel Area`: "a square underground build zone centered on the Tunnel").
+//! The Tunnel Area display (slices M4-J2 and M4-J3; `factions/syndicate/tunnel_area_and_space.md > Tunnel Area
+//! display`, design changes 0299 and 0300, answering Q0086 point 4): when the local player is shown a Tunnel Area on
+//! the map (`factions/syndicate/tunnel_area_and_space.md > Tunnel Area`: "a square underground build zone centered on
+//! the Tunnel").
 //!
 //! - **The selected Tunnels' areas** ([`selected_areas`]): "**Selecting one of your Tunnels** shows its Tunnel Area on
 //!   the map". A reading: the area of each own Tunnel in the selection, the ActiveGroup or not (a Tunnel is
@@ -98,7 +99,7 @@ pub fn ghost_rings(sim: &Sim, player: PlayerId, ghost: &Ghost, builder: Option<B
 /// The overlay's mesh: each of the `selected` areas in the own colours ([`tint_area`]), then the `rings`
 /// ([`rings::draw`]), on their tiles on `map` that are `drawn`, with no edge where an area goes on past the map's edge
 /// or into a tile not drawn. Each area has its own edge, also where two touch (the Tunnel Areas never overlap:
-/// `factions/syndicate/tunnels.md > Tunnel Area Non-Overlap Rule`).
+/// `factions/syndicate/tunnel_area_and_space.md > Tunnel Area Non-Overlap Rule`).
 pub fn overlay_mesh(map: &Map, selected: &[TunnelArea], rings: &[Ring], drawn: impl Fn(TilePos) -> bool) -> ColorMesh {
     let mut mesh = ColorMesh::triangles();
     let on_map = |t: TilePos| map.in_bounds(t) && drawn(t);

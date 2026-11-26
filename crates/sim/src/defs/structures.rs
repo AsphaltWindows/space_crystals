@@ -67,10 +67,11 @@ pub struct StructureDef {
     /// (`UnitDef::deploy`, T51). The Tunnel's (an Agent's) and the Cults' buildings (the Recruits', slice M5-E).
     pub site: Option<SiteDef>,
     /// How a Tunnel builds the type in its Tunnel Area, as its one operation (slice M4-F;
-    /// `factions/syndicate/tunnels.md > Tunnel ObjectInterfaceState > ExpandMenu`, `factions/syndicate/tunnels.md >
-    /// Construction and Upgrade Rules`; `crate::construction::site`): its Tier Requirement, its cost and its build
-    /// time, and the HP its site starts at. `None` for a type no Tunnel builds. The Hideout, the Optics Lab, the
-    /// Chemical Plant and the Laser Turret so far; the ExpandMenu lists the types in its order (`defs::EXPAND_MENU`).
+    /// `factions/syndicate/tunnel_menus.md > Tunnel ObjectInterfaceState > ExpandMenu`,
+    /// `factions/syndicate/tunnels.md > Construction and Upgrade Rules`; `crate::construction::site`): its Tier
+    /// Requirement, its cost and its build time, and the HP its site starts at. `None` for a type no Tunnel builds. The
+    /// Hideout, the Optics Lab, the Chemical Plant and the Laser Turret so far; the ExpandMenu lists the types in its
+    /// order (`defs::EXPAND_MENU`).
     pub expansion: Option<ExpansionDef>,
     /// Its `TechPrerequisite` (`core/tech_and_research.md > Tech Prerequisites`; plan decision T37, slice M4-K): the
     /// structure types its player must own, each at least once, before one can be started, by whichever way it is
@@ -118,8 +119,9 @@ pub struct HoldsDef {
     /// (`factions/cults/structures/garrison.md`) will be a rule of its own, by the same search as an evacuation
     /// (`Sim::spot_around`).
     pub exit: ExitRule,
-    /// How many units its pool holds (`factions/cults/structures/armory.md > InternalRecruitCapacity - 10`), the ones a
-    /// queued order reserved not counted (Placeholder (Q0104 point 5)).
+    /// How many units it holds (`factions/cults/structures/armory.md > InternalRecruitCapacity - 10`), those a queued
+    /// order reserved and the one in training counted (design change 0347 point 5: "Capacity counts reserved units:
+    /// the queue can never exceed the capacity"), so that it bounds the queue of a producer that holds units too.
     pub capacity: u32,
     /// The kinds of unit it takes in (`systems/controls/commands.md > Enter`: "Cults — Armory, Cathedral: Recruits
     /// only").
@@ -145,7 +147,7 @@ pub struct PopUpDef {
 
 /// A Tunnel expansion's construction (`StructureDef::expansion`, slice M4-F): a Tunnel builds it in its Tunnel Area,
 /// on a site that is the expansion from its first frame (plan decision T31, `crate::construction::site`), paid when its
-/// ghost is placed (`factions/syndicate/tunnels.md > Expansions under construction`, design change 0254).
+/// ghost is placed (`factions/syndicate/tunnel_menus.md > Expansions under construction`, design change 0254).
 #[derive(Copy, Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct ExpansionDef {
     /// `Tier Requirement`: the lowest tier of a Tunnel that builds it (`factions/syndicate/structures/README.md >
@@ -266,8 +268,8 @@ pub struct TierDef {
     /// `HP`: the Tunnel's MaxHP at this tier (`Object::max_hp`).
     pub max_hp: f32,
     /// `Tunnel Area Radius`, grid units: how far the Tunnel Area reaches out from the Tunnel's footprint on every side
-    /// (`factions/syndicate/tunnels.md > Tunnel Area`: "a square of (radius + 4 + radius) per side"). Data only until
-    /// the Tunnel Area exists (slices M4-B and M4-F).
+    /// (`factions/syndicate/tunnel_area_and_space.md > Tunnel Area`: "a square of (radius + 4 + radius) per side").
+    /// Data only until the Tunnel Area exists (slices M4-B and M4-F).
     pub area_radius: u32,
     /// `Transit`: the classes of unit that may enter and leave the Tunnel Network through a Tunnel of this tier
     /// (`factions/syndicate/tunnels.md > Tunnel Network > Transit Tier Requirements`). Data only until units enter the
@@ -342,7 +344,7 @@ pub struct ProductionDef {
     /// What it can produce, in the order of the design's list.
     #[serde(deserialize_with = "super::leak::slice")]
     pub recipes: &'static [Recipe],
-    /// A Recruitment Hall's automatic production (`factions/cults/economy.md > RecruitmentHall`; plan decision T57,
+    /// A Recruitment Hall's automatic production (`factions/cults/structures/recruitment_hall.md`; plan decision T57,
     /// slice M5-C; `crate::recruitment`): it trains nothing on command, and produces its first recipe's unit by
     /// itself, for free, while the units of its lineage use less than its capacity. `None` for a producer that trains
     /// what it is told. Optional in files.
@@ -357,22 +359,23 @@ impl ProductionDef {
     }
 }
 
-/// How a Recruitment Hall recruits (`factions/cults/economy.md > RecruitmentHall`; `crate::recruitment`): the size of
+/// How a Recruitment Hall recruits (`factions/cults/structures/recruitment_hall.md`; `crate::recruitment`): the size of
 /// the area it claims tiles in and its capacity at full effectiveness. What it recruits, in how many frames at full
 /// effectiveness and at what cost, is its `ProductionDef`'s recipe.
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct RecruitmentDef {
-    /// The side of its Recruitment Area, in tiles, centred on its footprint (`factions/cults/economy.md >
-    /// RecruitmentHall > RecruitmentArea`: "A 10x10 grid unit area centered on the 4x4 building").
+    /// The side of its Recruitment Area, in tiles, centred on its footprint
+    /// (`factions/cults/structures/recruitment_hall.md > RecruitmentArea`: "A 10x10 grid unit area centered on the 4x4
+    /// building").
     pub area: u32,
-    /// Its LocalUnitControlCapacity at 100% effectiveness (`factions/cults/economy.md > RecruitmentHall >
+    /// Its LocalUnitControlCapacity at 100% effectiveness (`factions/cults/structures/recruitment_hall.md >
     /// BaseUnitControlCapacity - 20`).
     pub capacity: u32,
 }
 
 impl RecruitmentDef {
-    /// "The total number of tiles in Recruitment Area" (`factions/cults/economy.md > RecruitmentHall > Effectiveness`):
-    /// the area's side squared, those off the map included (**Placeholder (Q0099 point 1)**).
+    /// "The total number of tiles in Recruitment Area" (`factions/cults/structures/recruitment_hall.md >
+    /// Effectiveness`): the area's side squared, those off the map included (**Placeholder (Q0099 point 1)**).
     pub fn tiles(&self) -> u32 {
         self.area.saturating_mul(self.area)
     }
@@ -391,8 +394,9 @@ pub enum ExitRule {
     /// by their own rules; a side whose doorway is occupied counts as blocked, and the building pauses only when every
     /// eligible doorway is occupied"): a unit leaves through the one facing its producer's rally point, the bottom one
     /// without a rally point, or the next free one clockwise from it while that one's doorway is occupied
-    /// (**Placeholder (Q0100 point 1)**; `crate::production::Doorway::order`). The Recruitment Hall's four A sides
-    /// (slice M5-C, plan decision T57).
+    /// (`crate::production::Doorway::order`; slice M5-C's rule for the Recruitment Hall's four A sides, which design
+    /// change 0342 replaced with one exit side, B). No type has it now: **Placeholder (not in the design: the order of
+    /// several exit sides, for a building that will have them)**.
     Sides(SideLetter),
     /// An energy doorway at the centre (design change 0145, `factions/colonists/structures/README.md > Portals > Portal
     /// Exits (energy doorway)`: "Portals don't use exit sides"): a unit materializes at the centre and leaves in any

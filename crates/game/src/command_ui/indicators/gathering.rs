@@ -1,11 +1,11 @@
-//! The gathering markers (`systems/controls/selection_and_hud.md > CommandIndicators > Gathering markers`; design
+//! The gathering markers (`systems/controls/hud.md > CommandIndicators > Gathering markers`; design
 //! change 0201 point 4, answering Q0052): "Gather, Drop Off and Set Drop-off each have their **own distinct marker**
 //! on the target object, not the Move marker", and "Like all indicators, they are shown only to the owner while the
 //! unit is selected". Their looks are TBD ("an art choice"): placeholders until the art (Q0001), each with a shape and
 //! a colour of its own ([`GatheringMarker`]), around the target as the player knows it (`super::targets`, slice
 //! M3-K2a: a patch remembered in the fog keeps its marker on its record).
 //!
-//! - The **Gather marker** (`systems/controls/selection_and_hud.md > Indicator assignments`: "Gather (sets the source:
+//! - The **Gather marker** (`systems/controls/hud.md > Indicator assignments`: "Gather (sets the source:
 //!   crystal patch, refinery's output) | Object | Gather marker"): four corner brackets round the source, in the
 //!   GatherResources pointer's cyan, on a worker's current Gather, and on its queued ones while Shift is held. The
 //!   order follows the worker from patch to patch (design change 0132), and the marker with it. No refinery is in the
@@ -39,7 +39,7 @@ use crate::shapes::ColorMesh;
 pub const GATHER_COLOR: Color = Color::srgb(0.36, 0.90, 0.98);
 /// The Return Resources marker's gold: the ReturnResources pointer's, the bank's.
 pub const RETURN_COLOR: Color = Color::srgb(1.0, 0.84, 0.30);
-/// The Set Drop-off marker's violet: none of the colour language's (`systems/controls/selection_and_hud.md > Color
+/// The Set Drop-off marker's violet: none of the colour language's (`systems/controls/hud.md > Color
 /// language`) nor of a pointer's.
 pub const SET_DROP_OFF_COLOR: Color = Color::srgb(0.78, 0.58, 1.0);
 /// A Gather marker's brackets: each arm is this share of its side of the box.

@@ -6,7 +6,7 @@ use crate::ids::ObjectId;
 use crate::network::{self, Held, Place};
 use crate::object::Object;
 use crate::orders::{OrderKind, Target};
-use crate::production::Rally;
+use crate::production::{QueueEntry, Rally};
 use crate::sim::Sim;
 
 impl Sim {
@@ -32,7 +32,11 @@ impl Sim {
         let (Some(owner), Some(production)) = (building.owner, &building.production) else {
             return;
         };
-        let (Some(kind), rally, pos) = (production.current(), production.rally, building.pos) else {
+        let (Some(kind), rally, pos) = (
+            production.current().and_then(QueueEntry::unit),
+            production.rally,
+            building.pos,
+        ) else {
             return;
         };
         if kind.def().unit.is_none() || self.next_id == u32::MAX {
@@ -53,7 +57,7 @@ impl Sim {
                 place: Place::Network,
                 since,
                 entered: false,
-                ejected: false,
+                leaving: None,
             },
         );
         self.events.push(SimEvent::UnitProduced { producer, unit: id });

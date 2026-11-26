@@ -63,6 +63,7 @@ fn insert_unit(sim: &mut Sim, pos: Vec2) -> ObjectId {
         decay: None,
         popup: None,
         lineage: Vec::new(),
+        augmentation: Default::default(),
     };
     sim.objects.insert(id, unit);
     id
@@ -142,9 +143,9 @@ fn a_players_orders_may_only_command_their_own_objects() {
     );
 }
 
-/// `docs/movement.md > 4`, `systems/controls/behaviors.md > MovingToLocation > Failure`: a unit that gets no path
-/// (here `PathFail::StartBlocked`: put on the station directly, which the gate and validation never allow) gives up
-/// with `MoveFailed`, stays where it is, and its order completes.
+/// `docs/movement.md > 4`, `systems/controls/command_behaviors.md > MovingToLocation > Failure`: a unit that gets no
+/// path (here `PathFail::StartBlocked`: put on the station directly, which the gate and validation never allow) gives
+/// up with `MoveFailed`, stays where it is, and its order completes.
 #[test]
 fn a_move_without_a_path_fails_and_its_order_completes() {
     let mut sim = small_sim();

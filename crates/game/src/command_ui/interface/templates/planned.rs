@@ -7,6 +7,8 @@
 //! ExpandMenu's Optics Lab and Chemical Plant, slice M4-G the Tunnel's Upgrade
 //! (`super::super::PanelCommand::UpgradeTunnel`), slice M4-U the Hideout's Grenadier, slice M4-S1 the Agent's Laser
 //! Turret (`super::super::PanelCommand::Build`) and slice M4-S2 the ExpandMenu's (`super::super::PanelCommand::Expand`).
+//! The Cults' Armory trains its Gunner once the Gunworks it requires is in the game (slice M5-G2): until then the
+//! Gunner holds its slot of the Armory's kind menus (slice M5-F2).
 
 /// A panel entry that isn't in the game yet (module docs). The Colonists' are a building of the Beacon's Warp In menus
 /// or a unit of a portal's panel: a building's cost and WarpInTime are TBD (`factions/colonists/economy.md > Warp In >
@@ -45,11 +47,17 @@ pub enum Planned {
     NullChamber,
     AerospaceAssembly,
     OrbitalCommand,
+    /// The Armory's KindMenu\[kind\] "**W** Train Gunner" (design change 0337, `factions/cults/structures/README.md >
+    /// Choosing Recruits, Release and Eject All`): "TechPrerequisite: player owns at least one Gunworks"
+    /// (`factions/cults/structures/armory.md > Training`), a building that isn't in the game yet, so the Armory's
+    /// recipes leave the Gunner out (slice M5-F2), and its slot says what it requires
+    /// (`super::super::Conditions::planned`).
+    Gunner,
 }
 
 impl Planned {
     /// Every one, in declaration order.
-    pub const ALL: [Planned; 20] = [
+    pub const ALL: [Planned; 21] = [
         Planned::AlloyFurnace,
         Planned::EssenceRefinery,
         Planned::FluxReactor,
@@ -70,6 +78,7 @@ impl Planned {
         Planned::NullChamber,
         Planned::AerospaceAssembly,
         Planned::OrbitalCommand,
+        Planned::Gunner,
     ];
 
     /// The ExpandMenu's entry not in the game yet that the sim names `name` (`sc_sim::defs::ExpandEntry::Planned`): an
@@ -103,6 +112,7 @@ impl Planned {
             Planned::NullChamber => "Null Chamber",
             Planned::AerospaceAssembly => "Aerospace Assembly",
             Planned::OrbitalCommand => "Orbital Command",
+            Planned::Gunner => "Gunner",
         }
     }
 
@@ -134,13 +144,18 @@ impl Planned {
             Planned::NullChamber => "NC",
             Planned::AerospaceAssembly => "AA",
             Planned::OrbitalCommand => "OC",
+            // The Gunner's own tag (`crate::kinds::cults::gunner`), which it takes into the Armory's panel.
+            Planned::Gunner => "GU",
         }
     }
 
     /// Whether it is a unit, of a production panel; else a building, of the Beacon's Warp In menus or the Tunnel's
     /// ExpandMenu.
     pub fn is_unit(self) -> bool {
-        matches!(self, Planned::Scout | Planned::Lancer | Planned::PsionicUnit)
+        matches!(
+            self,
+            Planned::Scout | Planned::Lancer | Planned::PsionicUnit | Planned::Gunner
+        )
     }
 
     /// Whether it is an expansion of the Tunnel's ExpandMenu.

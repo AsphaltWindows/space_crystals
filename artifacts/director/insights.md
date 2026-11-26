@@ -69,7 +69,7 @@
   - Keep defs as plain, serde-ready data structs, so that step stays cheap.
 
 ## Lessons learned (process)
-- **Never start a Bash command with a bare `cd`** into another directory, whether a worktree or a docs folder (`cd dir && grep …`). The session's cwd persists, and it slipped nine times (the ninth, 2026-11-25, `cd <worktree> && python3 …` while inspecting a golden in M5-B's worktree: use `( cd $WT && … )` or absolute paths; the eighth, 2026-11-25, `cd …/artifacts/designer/design && grep …` while checking question drafts; the seventh a design-path check, 2026-11-25: check paths with `[ -f artifacts/designer/design/$f ]`, never by cd-ing there). Use a subshell `( cd $WT && … )`, `git -C`, `--manifest-path`, or absolute paths. `cd /home/iv/dev/space_crystals && …` is fine. If it slips, run `cd /home/iv/dev/space_crystals` at once.
+- **Never start a Bash command with a bare `cd`** into another directory, whether a worktree or a docs folder (`cd dir && grep …`). The session's cwd persists, and it slipped ten times (the tenth, 2026-11-26, `cd …/artifacts/designer/design && for f in …; grep` while listing the headings of the files 0370 split: use `grep … artifacts/designer/design/<path>` from the repo root; the ninth, 2026-11-25, `cd <worktree> && python3 …` while inspecting a golden in M5-B's worktree: use `( cd $WT && … )` or absolute paths; the eighth, 2026-11-25, `cd …/artifacts/designer/design && grep …` while checking question drafts; the seventh a design-path check, 2026-11-25: check paths with `[ -f artifacts/designer/design/$f ]`, never by cd-ing there). Use a subshell `( cd $WT && … )`, `git -C`, `--manifest-path`, or absolute paths. `cd /home/iv/dev/space_crystals && …` is fine. If it slips, run `cd /home/iv/dev/space_crystals` at once.
 - **Folding design changes into a running agent with SendMessage works.** M0-D absorbed 0012/0013 and four review findings mid-task. Give exact file:line references and the fix direction.
 - **Parallel agents**: give each the other's areas as a "don't touch" list, and carry cross-cutting state (e.g. the debug switch) through a separate type, so the integration merge stays small.
 - **Typical cost**: an editor-sized task takes about 1 hour and 150–250k agent tokens; a read-only review takes about 25 minutes and 170k.
@@ -98,6 +98,25 @@
 - M4-R runs alone: no other slice beside R1 and R2, since the refactor touches nearly every file. Briefs written after it lands must use its new module layout.
 - The next question number is **Q0131**.
 - **Build timing (2026-11-25, load 13 on 8 cores):** a full check after a change takes about 72 s to compile and link and 41 s to run the 1877 tests; fmt and a warm clippy take seconds. Agents spend 20–35% of a slice in cargo and most of the rest reasoning. rustc 1.100 already links with LLD by default, so mold would gain little; fewer test binaries (116 today) is the bigger lever, best done between waves.
+- **When the Designer moves or splits design files** (0370, 2026-11-26), master's `design_citations` test fails at once.
+  - **Fix it on master yourself,** by script, before any agent merges master:
+    - map each old (file, first section) to its new file, from the new files' headings and bold labels;
+    - hand-map the citations of a whole file;
+    - re-flow any comment line pushed past 120 columns;
+    - check that the words are unchanged and no code line changed.
+  - **Warn the running agents first:** they must not fix other files' citations, and in a conflict they take master's path.
+  - Citations are often wrapped across two comment lines (`economy.md >` then `/// RecruitmentHall > …`), so the script must follow the wrap.
+  - **Re-flowing doc comments:**
+    - Never cut a line so that the next begins with a Markdown marker (`>`, `- `, `#`, `1. `). A line starting with `> ` is a quote, and clippy's `doc_lazy_continuation` fails the build.
+    - A short citation (`` `> Section` ``) is allowed only in a module whose doc names exactly one file (`design_citations::rule`). A split that makes such a module name two files breaks it, so write the path in full.
+    - Master's rustdoc had 121 warning lines before the rewrite, which is the baseline to compare against.
+- **After M5-T (`4ecfc18a`), the test programs and perf:**
+  - The integration tests are modules of three programs: `sim`, `perf` and `game`. One file's tests: `cargo test -p sc_sim --test sim <module>::`.
+  - The guard `test_programs` fails, naming any test file left out.
+  - An edit then `--workspace --no-run` takes about 16 s (sim) or 26 s (client), and the full run about 29 s.
+  - **After every merge, build master's perf binary:** `cargo test -p sc_sim --release --test perf --no-run` in the main checkout, then copy the executable (cargo 1.100 puts it at `target/release/build/sc_sim/<hash>/out/perf-<hash>`) to `target/perf/<sha>`, named by the last code commit: `git log -1 --format=%h master -- crates Cargo.toml Cargo.lock`. Agents use it as side A of an A/B (`m5-common.md`).
+  - **After a slice that changes the profile,** seed the main checkout's `target/` from its worktree (`cp -a --reflink=auto $WT/target/. target/`) before removing the worktree. Agents copy the main cache at launch, so a stale one costs each of them about 14 minutes.
+  - `-p sc_sim` and `--workspace` build the sim with different features, so mixing them compiles it twice.
 - **M5 planning started early (2026-11-26).** M5-P, a read-only planning spike on Opus (brief `scratchpad/briefs/m5-planning.md`), drafts `scratchpad/m5/m5-plan-draft.md` while M4's last slices run. M5 ends at the user's first playtest, so the draft also plans playtest readiness for all four factions, and the user's "data files at playtest" step. Adopted as `artifacts/director/m5-plan.md` (2026-11-25), with the Director's decisions at its top; Q0092–Q0108 filed from its drafts. The user's product decisions (the opponent, a start screen) come before M5 starts.
 
 ## Code layout after M4-R (R1 `8eab2290`, R2 `c60b8d0f`)

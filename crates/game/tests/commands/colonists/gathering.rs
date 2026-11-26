@@ -1,6 +1,6 @@
 //! The Colonists' gathering UI (slice M3-J2) on a field of its own ([`gathering_game`]): a Drone's right-click
 //! (`factions/colonists/units/drone.md > Right-Click Resolution`), each selected unit resolving its own, with the
-//! pointer it shows (`systems/controls/selection_and_hud.md > PointerDisplayType > Resolution Rules`); a load carried,
+//! pointer it shows (`systems/controls/hud.md > PointerDisplayType > Resolution Rules`); a load carried,
 //! on the map and in the InfoPanel; a portal's rally point on a patch; the portals' units not in the game yet (design
 //! change 0124). A Drone's S, Set Drop-off: `drop_off`; the Egress Node's F, Select Returning Drones: `returning`; the
 //! gathering markers (design change 0201): `markers`. A right-click on a patch remembered in the fog (design change
@@ -179,7 +179,7 @@ fn to(id: u32) -> OrderKind {
 }
 
 /// `factions/colonists/units/drone.md > Right-Click Resolution`, "issued to all selected Drones": a patch gives a
-/// Gather, under the GatherResources pointer (`systems/controls/selection_and_hud.md > PointerDisplayType > Resolution
+/// Gather, under the GatherResources pointer (`systems/controls/hud.md > PointerDisplayType > Resolution
 /// Rules`: "Cursor over resource (resource gatherer selected)"); an own node to empty Drones (design change 0140: there
 /// is no empty Drop Off), an enemy structure and an enemy unit "Move to that object's location", the unit followed; the
 /// ground a Move. The last four under the Move pointer.
@@ -216,7 +216,7 @@ fn drones_right_clicked_gather_move_or_follow() {
 /// Resolution`, design changes 0062 and 0063, as for the M2 units): with two Drones and a Sabre Legionnaire selected,
 /// on a patch the Drones gather and the Sabre moves there; on an enemy unit or structure the Sabre attacks it and the
 /// Drones follow the unit or go to the structure; on an own node (the Drones empty) and on the ground all three move.
-/// The pointer shows Mixed where they differ (`systems/controls/selection_and_hud.md > Mixed Right-Click Preview`).
+/// The pointer shows Mixed where they differ (`systems/controls/hud.md > Mixed Right-Click Preview`).
 #[test]
 fn drones_and_a_sabre_each_resolve_their_own_right_click() {
     use PointerDisplay::{Mixed, Move};
@@ -317,7 +317,7 @@ fn a_drone_shows_the_load_it_carries() {
     assert_eq!(info_lines(&mut app), Some(format!("{idle}\nDrop-off: Egress Node")));
 }
 
-/// `systems/controls/selection_and_hud.md > CommandIndicators > Indicator assignments`: "Rally point (own or neutral
+/// `systems/controls/hud.md > CommandIndicators > Indicator assignments`: "Rally point (own or neutral
 /// object) | Object | Green". A Robo Portal right-clicked onto a patch rallies there, under the Move pointer
 /// ("Selection is a production building: Move (rally point)"), and while it is selected a green ring marks the patch,
 /// with its line from the portal. Its Drones gather there (design change 0136): `remembered`.

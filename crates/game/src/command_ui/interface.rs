@@ -1,4 +1,4 @@
-//! The command flow's rules as plain data (`systems/controls/selection_and_hud.md`): the panel's commands, the
+//! The command flow's rules as plain data (`systems/controls/interface.md`): the panel's commands, the
 //! ObjectInterfaceState, the command panel a selection gets and who receives a command. Unit tested here; the
 //! systems apply them to the local player's ControlState. What a click resolves to is [`super::resolution`].
 //!
@@ -67,16 +67,24 @@
 //! 0185, `crate::selection::GroupType`). Warp In applies to the Beacon Tabbed to (Beacons are Ungroupable, design
 //! change 0122).
 //!
-//! The Syndicate's Tunnel (`factions/syndicate/tunnels.md > Tunnel ObjectInterfaceState`, design change 0257; slice
-//! M4-J2) opens its EjectMenu (E): a tile per unit type of the player's Tunnel Network, with its count, in the sim's
-//! order, each ejecting the unit of its type inside the longest, at once, the menu staying open (design change 0300,
-//! answering Q0086 point 3: "The panel stays in the EjectMenu after a click"); Z goes back. Its W
+//! The Syndicate's Tunnel (`factions/syndicate/tunnel_menus.md > Tunnel ObjectInterfaceState`, design change 0257;
+//! slice M4-J2) opens its EjectMenu (E): a tile per unit type of the player's Tunnel Network, with its count, in the
+//! sim's order, each ejecting the unit of its type inside the longest, at once, the menu staying open (design change
+//! 0300, answering Q0086 point 3: "The panel stays in the EjectMenu after a click"); Z goes back. Its W
 //! opens the ExpandMenu (slice M4-F): every expansion of the Tech Tree in its slot, in the sim's order
 //! (`sc_sim::defs::EXPAND_MENU`), greyed with why while this Tunnel can't build it (its operation, its tier, the bank,
 //! or not in the game yet); an entry enters the expansion's placement, its ghost held within the Tunnel Area, where a
 //! click builds it and returns to DefaultState, and Z goes back to the menu. Its X cancels its operation, and its Q
 //! upgrades it (slice M4-G). The Hideout's Q, W and E train the Agent, the Guard and the Grenadier, each greyed with
 //! why while the gate refuses it (slices M4-K and M4-U).
+//!
+//! The Cults' Armory (`factions/cults/structures/armory.md > ObjectInterfaceState[Armory]`, design change 0337; slice
+//! M5-F2) picks a kind of Recruit first: Q Plain, W Constitution, E Metabolism and R Both, each with the count of its
+//! free Recruits inside and greyed while there are none, open KindMenu\[kind\], whose Q trains a Militant of a Recruit
+//! of the kind and A releases one, the menu staying open, Z going back; the Gunner holds W, "Requires a Gunworks". Its
+//! A ejects every free Recruit, X cancels the last entry and C awaits its rally point. Every command goes to the
+//! Armory Tabbed to (design change 0348 point 5, `factions/cults/structures/README.md > Choosing Recruits, Release and
+//! Eject All`: "a command goes to one building").
 //!
 //! The Syndicate's Agent (`factions/syndicate/units/agent.md > Agent ObjectInterfaceState`, design change 0257; slice
 //! M4-J1) has Q Move, A Build Tunnel, S Drop Off, D Build Laser Turret (slice M4-S1) and X Stop. A and D enter
@@ -89,12 +97,12 @@
 //! A greyed-out button, or its hotkey, can still be pressed: nothing is issued, and the player is told why
 //! ([`PanelSlot::why`], design change 0162).
 //!
-//! No smart-casting (`systems/controls/selection_and_hud.md > SelectionGroup > No smart-casting`, design changes 0071
+//! No smart-casting (`systems/controls/selection.md > SelectionGroup > No smart-casting`, design changes 0071
 //! and 0075): a panel command goes to every object it is issued to ([`recipients`]), a Train to every selected
 //! Barracks, whose payments the sim orders (design change 0083).
 //!
 //! While a target is awaited or a building is placed, the other commands are unavailable
-//! (`systems/controls/selection_and_hud.md > AwaitingTarget > Other commands while targeting`, design change 0066): the
+//! (`systems/controls/interface.md > AwaitingTarget > Other commands while targeting`, design change 0066): the
 //! panel shows them disabled, and their hotkeys and buttons do nothing.
 
 pub mod commands;
@@ -114,28 +122,28 @@ pub use templates::{
     menu_of, offers, slot_index, state_grid,
 };
 
-use sc_sim::deploy;
+use sc_sim::{RecruitKind, deploy};
 
 use crate::input::CommandSlot;
 use crate::selection::Selection;
 
-/// `systems/controls/selection_and_hud.md > ObjectInterfaceState[ObjectEnum]`: where the ActiveGroup's command flow
+/// `systems/controls/interface.md > ObjectInterfaceState[ObjectEnum]`: where the ActiveGroup's command flow
 /// stands. It belongs to each player's ControlState (`crate::selection::ControlState::interface`), and goes back to
 /// DefaultState when the Selection or the ActiveGroup changes (`crate::selection::LocalControl::update`), or when it no
 /// longer holds for the game ([`still_valid`]). The production UI needs no state of its own: Set Rally Point awaits its
 /// target like a unit command.
 #[derive(Copy, Clone, Debug, Default, PartialEq, Eq)]
 pub enum InterfaceState {
-    /// `systems/controls/selection_and_hud.md > DefaultState`.
+    /// `systems/controls/interface.md > DefaultState`.
     #[default]
     DefaultState,
-    /// `systems/controls/selection_and_hud.md > AwaitingTarget[CommandType]`: the PendingCommand waits for a left-click
+    /// `systems/controls/interface.md > AwaitingTarget[CommandType]`: the PendingCommand waits for a left-click
     /// on its target: a unit command's, or a producer's rally point (`factions/gdo/structures/barracks.md`: "C: Set
     /// Rally Point: enters AwaitingTarget\[SetRallyPoint\]").
     AwaitingTarget {
         /// The PendingCommand.
         pending: PanelCommand,
-        /// `systems/controls/selection_and_hud.md > AwaitingTarget > Shift while targeting` (design change 0070): a
+        /// `systems/controls/interface.md > AwaitingTarget > Shift while targeting` (design change 0070): a
         /// Shift-click has queued the command since the target began to be awaited. Targeting then ends when Shift is
         /// released; before the first queued click a release of Shift changes nothing (the design's TBD, its proposed
         /// default: "targeting simply continues").
@@ -146,21 +154,26 @@ pub enum InterfaceState {
     /// idle, constructing or holding a building ready; or one of a Beacon's Warp In menus
     /// (`factions/colonists/economy.md > Beacon > Beacon ObjectInterfaceState`).
     BuildMenu(BuildMenu),
-    /// `systems/controls/selection_and_hud.md > AwaitingPlacement`: the ghost of a building ready to place follows the
+    /// `systems/controls/hud.md > AwaitingPlacement`: the ghost of a building ready to place follows the
     /// cursor, and a left-click on a valid spot places it (`crate::placement`); the same for a Drone's Beacon, and a
     /// Beacon's Warp In, whose ghost stands on the Beacon ([`Builder`]).
     AwaitingPlacement(Placing),
-    /// `factions/syndicate/tunnels.md > EjectMenu`: the Tunnel's EjectMenu is open (E, design change 0257): a tile per
-    /// unit type of the player's Tunnel Network, which ejects one from this Tunnel and leaves the menu open
+    /// `factions/syndicate/tunnel_menus.md > EjectMenu`: the Tunnel's EjectMenu is open (E, design change 0257): a tile
+    /// per unit type of the player's Tunnel Network, which ejects one from this Tunnel and leaves the menu open
     /// (`PanelCommand::Eject`; design change 0300: "**The panel stays in the EjectMenu after a click**", so repeated
     /// clicks eject more); "**Z**: returns to DefaultState (StateOnlyTransition)". Like a build menu, it leaves
     /// the map's clicks to the selection (slice M4-J2).
     EjectMenu,
-    /// `factions/syndicate/tunnels.md > ExpandMenu`: the Tunnel's ExpandMenu is open (W, design change 0257): the
+    /// `factions/syndicate/tunnel_menus.md > ExpandMenu`: the Tunnel's ExpandMenu is open (W, design change 0257): the
     /// expansions it may build, each entering its placement in the Tunnel Area (`PanelCommand::Expand`); "**Z**:
     /// returns to DefaultState (StateOnlyTransition)". Like a build menu, it leaves the map's clicks to the selection
     /// (slice M4-F).
     ExpandMenu,
+    /// `factions/cults/structures/README.md > Choosing Recruits, Release and Eject All`: a pool building's
+    /// KindMenu\[kind\] is open (design change 0337: "Q/W/E/R pick a kind"): "the building's production options, using
+    /// Recruits of that kind [...], plus **A: Release**; **Z** back. Clicks stay in the menu so they can be repeated."
+    /// Like a build menu, it leaves the map's clicks to the selection (slice M5-F2).
+    KindMenu(RecruitKind),
 }
 
 impl InterfaceState {
@@ -177,7 +190,8 @@ impl InterfaceState {
             | InterfaceState::BuildMenu(_)
             | InterfaceState::AwaitingPlacement(_)
             | InterfaceState::EjectMenu
-            | InterfaceState::ExpandMenu => None,
+            | InterfaceState::ExpandMenu
+            | InterfaceState::KindMenu(_) => None,
         }
     }
 
@@ -190,7 +204,7 @@ impl InterfaceState {
     }
 
     /// Whether the state takes the left-clicks on the map as its own, a target or a placement, so that they select
-    /// nothing, and a drag on the map does nothing (`systems/controls/selection_and_hud.md > AwaitingTarget > Dragging
+    /// nothing, and a drag on the map does nothing (`systems/controls/interface.md > AwaitingTarget > Dragging
     /// while targeting`, design change 0067; the same for a placement). A build menu leaves the map's clicks to the
     /// selection.
     pub fn takes_map_clicks(self) -> bool {
@@ -201,18 +215,19 @@ impl InterfaceState {
     }
 
     /// The state before this one, which Back (Z), Esc and a right-click return to
-    /// (`systems/controls/selection_and_hud.md > Standard Slot Assignments > Z`: "In any multi-stage menu (BuildMenu,
+    /// (`systems/controls/interface.md > Standard Slot Assignments > Z`: "In any multi-stage menu (BuildMenu,
     /// ExpandMenu, EjectMenu, AwaitingTarget, AwaitingPlacement), Z returns to the previous state
     /// (StateOnlyTransition). Equivalent to Escape or right-click cancel."): from AwaitingPlacement of a Deployment
     /// Center's building, its build menu (`factions/gdo/structures/deployment_center.md > AwaitingPlacement`:
     /// "Escape/right-click: returns to BuildMenu"), and from a Beacon's Warp In the Warp In menu its building was
     /// chosen in (the menus are "like the Deployment Center's two build menus": `factions/colonists/economy.md >
     /// Beacon > Beacon ObjectInterfaceState`), and from an expansion's the Tunnel's ExpandMenu
-    /// (`factions/syndicate/tunnels.md > Expansions under construction`: "**Z**: returns to ExpandMenu"); from anything
-    /// else DefaultState: the Extraction Facility's AwaitingPlacement ("Escape/right-click: returns to DefaultState"),
-    /// the Drones' (A is pressed in their DefaultState), a build menu ("Escape/right-click: returns to DefaultState"),
-    /// AwaitingTarget, and the Tunnel's EjectMenu and ExpandMenu (`factions/syndicate/tunnels.md > EjectMenu`,
-    /// `factions/syndicate/tunnels.md > ExpandMenu`: "**Z**: returns to DefaultState").
+    /// (`factions/syndicate/tunnel_menus.md > Expansions under construction`: "**Z**: returns to ExpandMenu"); from
+    /// anything else DefaultState: the Extraction Facility's AwaitingPlacement ("Escape/right-click: returns to
+    /// DefaultState"), the Drones' (A is pressed in their DefaultState), a build menu ("Escape/right-click: returns to
+    /// DefaultState"), AwaitingTarget, and the Tunnel's EjectMenu and ExpandMenu (`factions/syndicate/tunnel_menus.md >
+    /// EjectMenu`, `factions/syndicate/tunnel_menus.md > ExpandMenu`: "**Z**: returns to DefaultState"), and a pool
+    /// building's KindMenu ("**Z** back").
     pub fn back(self, selection: &Selection) -> InterfaceState {
         match self {
             InterfaceState::AwaitingPlacement(Placing {
@@ -228,7 +243,7 @@ impl InterfaceState {
     }
 }
 
-/// `systems/controls/selection_and_hud.md > ObjectInterfaceState`: whether `interface` still holds for `selection`
+/// `systems/controls/interface.md > ObjectInterfaceState`: whether `interface` still holds for `selection`
 /// (validated every frame), while the selection is commandable (a defeated player's and everyone's after the end of the
 /// game is not):
 /// - AwaitingTarget while its ActiveGroup still offers the PendingCommand, which the game still allows
@@ -241,7 +256,9 @@ impl InterfaceState {
 ///   bank the click's to check as well (slice M4-J1); while it is the Tunnel, whose type builds the expansion (its
 ///   operation, its tier and the bank are the click's to check, as a Warp In's bank; slice M4-F);
 /// - the EjectMenu and the ExpandMenu while the ActiveGroup is a Tunnel: the menu stays open while the network's
-///   contents or the Tunnel's operation change, its entries greyed while they can't be used.
+///   contents or the Tunnel's operation change, its entries greyed while they can't be used;
+/// - a KindMenu while the ActiveGroup is a pool building: the menu stays open while its pool changes, its kind's
+///   last Recruit used or gone out included (its entries greyed then), so that clicks can be repeated.
 ///
 /// A selected object that transforms has the panel of its new type's unfinished group, only its Cancel (design
 /// changes 0116 and 0185): what its old type was doing ends (`crate::selection::ControlState::set_type`), and so does
@@ -295,9 +312,10 @@ pub fn still_valid(
                     }
                 }
         }
-        InterfaceState::EjectMenu | InterfaceState::ExpandMenu => {
+        InterfaceState::EjectMenu | InterfaceState::ExpandMenu | InterfaceState::KindMenu(_) => {
             let menu = match interface {
                 InterfaceState::EjectMenu => PanelCommand::EjectMenu,
+                InterfaceState::KindMenu(kind) => PanelCommand::KindMenu(kind),
                 _ => PanelCommand::ExpandMenu,
             };
             commandable
