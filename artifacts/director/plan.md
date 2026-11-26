@@ -1916,12 +1916,12 @@ Approach: thin vertical slices the user can run and see, each verified by tests 
     - 0395: Halls are groupable.
     - 0391: augmentations take 48 frames each, 96 for Both.
     - 0400, folded in: right-click in menus does the normal right-click and keeps the menu open, and in targeting or placement it goes straight to DefaultState.
-- **Queued for the playtest:**
-  - **M5-S6 Overlays and rally points** (Opus):
+  - **M5-S6 Overlays and rally points** (Opus; brief `scratchpad/briefs/m5s6-arrows-rally-fog.md`):
     - 0390 and 0394: door arrows on ghosts and on selected buildings.
     - 0396: rally points on unfinished buildings, for every faction.
     - A "Fog off (F3)" note in the top bar. The user hit F3 while switching sides.
     - The editor play-test's banner drawn over the top bar's figures (found by Z3).
+- **Queued for the playtest:**
   - **Computer opponents.** The user asked for them for the next playtest (2026-11-26), and Q0147 asks the Designer, non-blocking. **The plan waits for the user's go-ahead.**
     - **Architecture** (the Director's):
       - A new crate, `crates/ai` (`sc_ai`), depends only on `sc_sim`. It has no Bevy and is deterministic like the sim, so an AI-vs-AI game replays from its seed.
@@ -2695,13 +2695,13 @@ Last triaged: 0282.
 | 0387 **A Recruitment Hall can be placed at the map edge**; the area beyond the edge counts as non-Recruitable, out of 100 (at most 70% against an edge). Replaces 0341 point 1 | done (**M5-S4**, `cce50b54`) | Verification: a Hall flush against the edge is accepted, and the preview shows ≤ 70% |
 | 0388 **The Deployment Center gets E: Place** in DefaultState: greyed with a filling progress bar while it constructs, lit once ready (enters AwaitingPlacement), hidden while idle. Whether the Defense System gets it too is still being asked | in progress (**M5-S5**) | Verification: order a Generator, E shows it greyed and filling; when done, E then a click places it |
 | 0389 **Recruits get E: Attack** (BasicCombatUnitInterfaceState's Attack: an enemy, force-attack on own or neutral, Attack Move on ground). Recruits already have their melee attack (Damage 3) and right-click Attack | in progress (**M5-S5**). 0398 moves the Attack from E to A | Verification: E on an enemy, they hit it for 3 a swing; E on ground, they Attack Move |
-| 0390 **Door arrows on building ghosts**: in at an entrance, out at an exit, and two-way at a shared door (Garrison, Bunker). They turn and flip with the ghost, for every faction | queued: **M5-S6** | Verification: an Armory ghost shows in on B and out on C, and rotating turns them; a Garrison ghost shows one two-way arrow |
+| 0390 **Door arrows on building ghosts**: in at an entrance, out at an exit, and two-way at a shared door (Garrison, Bunker). They turn and flip with the ghost, for every faction | in progress (**M5-S6**) | Verification: an Armory ghost shows in on B and out on C, and rotating turns them; a Garrison ghost shows one two-way arrow |
 | 0391 **Faster Cults augmentations**: Enhanced Constitution and Improved Metabolism take 48 frames each, 96 for Both. Costs are unchanged | queued: **M5-S5** | Verification: Enhanced Constitution queued in the Altar, the Recruit exits augmented about 3 s later |
 | 0392 **Place buttons with progress**: the Extraction Facility's Q: Place Plate is greyed with a filling bar while the plate is built. The Defense System gets the one-slot flow (Q Build or Place Missile Turret, X Cancel), replacing 0366's "constructs like the Deployment Center" | EF half queued: **M5-S5**. The Defense System half goes with 0366, since it isn't built | Verification: order a plate, Q fills then lights; the same for a Missile Turret |
 | 0393 **Shrine buff marks show to everyone** who sees the unit, enemies included (answers Q0145, a) | done as built (M5-N5, `3197d711`) | — |
-| 0394 **Door arrows on a selected building**, as on ghosts | queued: **M5-S6** | Verification: a selected Armory shows in on its entrance and out on its exit |
+| 0394 **Door arrows on a selected building**, as on ghosts | in progress (**M5-S6**) | Verification: a selected Armory shows in on its entrance and out on its exit |
 | 0395 **Recruitment Halls are groupable**: selected Halls form one SelectionGroup, and their commands, Set Rally Point among them, go to all of them. The other Cults production buildings stay ungroupable (Q0105) | queued: **M5-S5** | Verification: box-select 2 Halls and set a rally point, and both send new Recruits there |
-| 0396 **Rally points on unfinished buildings**, for every faction: C: Set Rally Point next to Cancel, and a right-click sets it. RallyPoint exists from the start of construction and is kept on completion | queued: **M5-S6** | Verification: start an Armory, select it under construction and right-click ground: a marker shows, and trained units go there after completion |
+| 0396 **Rally points on unfinished buildings**, for every faction: C: Set Rally Point next to Cancel, and a right-click sets it. RallyPoint exists from the start of construction and is kept on completion | in progress (**M5-S6**) | Verification: start an Armory, select it under construction and right-click ground: a marker shows, and trained units go there after completion |
 | 0397 **Attack is always A, and goes to every selected unit**: attackers Attack or Attack Move, others Move (0398). "Common command" means the same command wherever its button sits | queued: **M5-S5** | Verification: Militants and a Prayer-mobile, A on ground: the Militants Attack Move and the Prayer-mobile moves with them |
 | 0398 **Worker panels**: Recruit Q Move, W Basic Construct, E Advanced Construct, A Attack, S Assist, D Repair, X Stop; Agent W Build Tunnel, A Attack; Field Engineer W Construct; Drone W Deploy. Units that can't attack treat Attack and Attack Move as Move | queued: **M5-S5** | Verification: Recruits W, E and A; Drones with Militants, A on ground: the Militants Attack Move and the Drones move |
 | 0399 **A shows whenever any selected group can attack**, whichever group is in focus, and is hidden only when no selected unit can attack (replaces 0398's hidden A) | queued: **M5-S5** | Verification: Drones and Militants with the Drones in focus show A; Drones alone don't |
