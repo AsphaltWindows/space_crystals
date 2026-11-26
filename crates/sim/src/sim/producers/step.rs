@@ -31,17 +31,17 @@
 use std::collections::BTreeMap;
 
 use crate::defs::ObjectKind;
-use crate::economy::{self, ArmyCap};
+use crate::economy::{self, ArmyCap, ArmyResource};
 use crate::events::SimEvent;
 use crate::ids::{ObjectId, PlayerId};
 use crate::sim::Sim;
 
-/// The army caps of the players whose producers have a unit to start in this step (`None` for a faction without one
-/// yet): worked out the first time one is needed, then kept up to date with the units that start, so that the
-/// producers after them in the step see them (design change 0143: "it then counts as used for its production and
-/// life"). Nothing else in the producers' step changes what is used: a release turns a unit in production into a
-/// unit, counted either way; the dead of the tick left before the economy phase (5e), and a Beacon that completed in
-/// this tick provides already (`Sim::step_transforms` comes first).
+/// The army caps of the players whose producers have a unit to start in this step (`None` for one that reserves
+/// nothing, the Cults' Unit Control): worked out the first time one is needed, then kept up to date with the units that
+/// start, so that the producers after them in the step see them (design change 0143: "it then counts as used for its
+/// production and life"). Nothing else in the producers' step changes what is used: a release turns a unit in
+/// production into a unit, counted either way; the dead of the tick left before the economy phase (5e), and a Beacon
+/// that completed in this tick provides already (`Sim::step_transforms` comes first).
 #[derive(Default)]
 struct Room(BTreeMap<PlayerId, Option<ArmyCap>>);
 
@@ -61,7 +61,12 @@ impl Sim {
     /// released through the exit doorway, or held while that is occupied (`Sim::release_unit`). Producers from
     /// `first_new` on were created this tick and wait for the next. The released units are in the game from this
     /// tick, and act from the next (the spawn-tick rule); the next unit in the queue starts in the next tick.
+    ///
+    /// (M5-C) The Recruitment Halls queue their Recruits by themselves first (`Sim::start_recruits`,
+    /// `sim/recruitment.rs`), a Hall's Recruit advances by the tiles the Hall claims, whatever the power (plan decision
+    /// T57), and a Hall that releases one queues the next at once (`Sim::recruit_next`).
     pub(in crate::sim) fn step_production(&mut self, first_new: ObjectId) {
+        let claims = self.start_recruits(first_new);
         let busy: Vec<ObjectId> = self
             .objects
             .range(..first_new)
@@ -84,7 +89,12 @@ impl Sim {
             let (Some(owner), Some(def), Some(production)) = (o.owner, def, &mut o.production) else {
                 continue;
             };
-            let speed = power.get(&owner).copied().unwrap_or_default().speed(o.kind);
+            let recruits = def.recruitment.is_some();
+            let speed = if recruits {
+                claims.tiles(id)
+            } else {
+                power.get(&owner).copied().unwrap_or_default().speed(o.kind)
+            };
             let starting = production.in_production().is_none();
             let finished = production.advance(def, speed);
             if starting && let Some(kind) = production.in_production() {
@@ -92,14 +102,19 @@ impl Sim {
             }
             if finished {
                 self.release_unit(id);
+                if recruits {
+                    self.recruit_next(id, &claims);
+                }
             }
         }
     }
 
     /// Design change 0143's start check of producer `id`, before the step advances it: whether the unit at its front
     /// may get on. One in production always may; one at 0% while there is room for it under its owner's army cap,
-    /// or always for a faction without a cap yet. Without room the producer waits (`Production::blocked`), and in
-    /// the tick its wait begins it raises a `SimEvent::ProductionWaiting`, once (module docs).
+    /// or always under a cap that reserves nothing, the Cults' Unit Control (`ArmyResource::reserves`; **Placeholder
+    /// (Q0101 point 1)**: a Recruitment Hall's Recruit starts by the Hall's own rule, `sim/recruitment.rs`). Without
+    /// room the producer waits (`Production::blocked`), and in the tick its wait begins it raises a
+    /// `SimEvent::ProductionWaiting`, once (module docs).
     fn may_start(&mut self, id: ObjectId, room: &mut Room) -> bool {
         let Some(o) = self.objects.get(&id) else {
             return false;
@@ -113,7 +128,10 @@ impl Sim {
         if production.in_production().is_some() {
             return true;
         }
-        let cap = *room.0.entry(owner).or_insert_with(|| self.army_cap(owner));
+        let cap = *(room.0.entry(owner)).or_insert_with(|| {
+            let reserves = ArmyResource::of(self.player(owner)?.faction).reserves();
+            reserves.then(|| self.army_cap(owner)).flatten()
+        });
         let Some(cap) = cap else {
             return true;
         };

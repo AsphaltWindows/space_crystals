@@ -209,7 +209,7 @@ impl Sim {
         let Some(o) = self.objects.get(&id) else {
             return;
         };
-        let fresh = Capabilities::fresh(&self.objects, o.kind, o.placement.as_ref());
+        let fresh = Capabilities::fresh(&self.objects, o.kind, o.placement.as_ref(), self.tick);
         if let Some(o) = self.objects.get_mut(&id) {
             o.production = fresh.production;
             o.constructor = fresh.constructor;

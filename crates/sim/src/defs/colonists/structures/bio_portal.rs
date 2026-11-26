@@ -42,6 +42,7 @@ pub(crate) static BIO_PORTAL: ObjectDef = ObjectDef {
                 frames: 160,
                 requires: &[],
             }],
+            recruitment: None,
         }),
         mining: None,
         onto: None,

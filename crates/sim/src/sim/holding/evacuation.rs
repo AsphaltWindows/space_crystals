@@ -26,7 +26,8 @@ use crate::sim::Sim;
 pub(in crate::sim) struct Evacuation {
     building: ObjectId,
     placement: Placement,
-    /// The direction out of its exit side, where each ring's search starts (Placeholder (Q0106 point 1)).
+    /// The direction out of its exit side, where each ring's search starts (Placeholder (Q0106 point 1)); of several
+    /// exit sides, the first in the doorway's order without a rally point (`production::Doorway::order`).
     towards: Vec2,
     /// Its units, in the order they come out.
     units: Vec<ObjectId>,
@@ -57,7 +58,8 @@ impl Sim {
                 Some(Evacuation {
                     building: id,
                     placement: building.placement?,
-                    towards: Doorway::of(building).map_or(Vec2::X, |doorway| doorway.door().outward()),
+                    towards: (Doorway::of(building).and_then(|doorway| doorway.order(None).next()))
+                        .map_or(Vec2::X, |door| door.outward()),
                     units,
                 })
             })

@@ -301,7 +301,7 @@ The pointer previews the action that right-click would perform, resolved per uni
 - Cursor over drop-off point (resource gatherer carrying resources): **ReturnResources**
 - While targeting **Set Drop-off** (AwaitingTarget[SetDropOffLocation]), cursor over a valid drop-off point: **ReturnResources** (user, 2026-11-25; Q0052)
 - Cursor over own building under construction (selection can assist construction): **Assist**
-- Cursor over damaged own building or vehicle that the selection can repair: **Repair**
+- Cursor over damaged own building or vehicle that the selection can repair: **Repair**, unless the selection can enter it: then **Enter** (user, 2026-11-26)
 - Selection is a production building: **Move** (rally point)
 - No valid action for current cursor target: **Inactive**
 

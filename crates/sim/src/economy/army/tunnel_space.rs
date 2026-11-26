@@ -112,6 +112,7 @@ mod tests {
     use super::*;
     use crate::defs::ObjectKind;
     use crate::economy::army::{ArmyCap, ArmyResource, cap};
+    use crate::map::Map;
     use crate::player::Faction;
     use crate::scenario::SpawnAt;
     use crate::sim::Sim;
@@ -150,8 +151,9 @@ mod tests {
         space.unused()
     }
 
+    /// `player`'s Tunnel Space among `objects`, on a map it doesn't look at.
     fn tunnel_space(objects: &[Object], player: PlayerId) -> ArmyCap {
-        cap(objects, player, Faction::Syndicate).expect("the Syndicate has Tunnel Space")
+        cap(objects, &Map::new(1, 1), player, Faction::Syndicate)
     }
 
     /// `factions/syndicate/tunnels.md > Tunnel Space > Tunnel-region` at each tier (`factions/syndicate/tunnels.md >

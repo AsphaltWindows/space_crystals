@@ -17,6 +17,10 @@
 //!   on ([`Production::in_production`]); without room the producer waits with it at 0% ([`Production::blocked`]) and
 //!   starts by itself once there is. A cancelled unit is refunded in full (`economy::Refund::Full`), and so is
 //!   everything a producer holds when it leaves the game (design changes 0084 and 0085, `Sim::remove_objects`).
+//! - **Recruiting** (slice M5-C, plan decision T57; `crate::recruitment`, `sim/recruitment.rs`): a Recruitment Hall
+//!   trains nothing on command. It queues its Recruit by itself, for free, while its lineage uses less Unit Control
+//!   than its capacity, and its progress gains the tiles it claims each frame instead of the power ratio
+//!   ([`total_of`]).
 //! - **The step** (`Sim::step_production`, in the economy phase): a unit at 0% starts if there is room for it, or
 //!   waits (0143); then the unit in production advances by its owner's power ratio (design change 0089). When it is
 //!   complete it is released into the building's doorway (`exit.rs`): half inside the middle of an exit side
@@ -35,6 +39,7 @@ use crate::hash::{StateHash, StateHasher};
 use crate::ids::ObjectId;
 use crate::orders::Target;
 use crate::tuning::production::QUEUE_LIMIT;
+use crate::units::Tick;
 
 pub use exit::{Door, Doorway, EnergyDoorway, ExitDoor};
 pub use rally::Rally;
@@ -73,9 +78,9 @@ pub struct Production {
     /// BuildQueue, at most [`QUEUE_LIMIT`] long. Its first entry is CurrentBuild, the unit in production.
     pub queue: Vec<ObjectKind>,
     /// CurrentBuildProgress of the first entry, in [`RATIO_ONE`]s: a frame at full power adds one `RATIO_ONE`, a
-    /// frame at negative power the power ratio. 0 without a queue. At the recipe's `frames × RATIO_ONE` the unit is
-    /// finished; it stays there while the unit waits inside for the doorway (design change 0085: "its production
-    /// shows 100%").
+    /// frame at negative power the power ratio. A Recruitment Hall's in tiles: a frame adds the tiles it claims (plan
+    /// decision T57). 0 without a queue. At the recipe's frames in those units ([`total_of`]) the unit is finished; it
+    /// stays there while the unit waits inside for the doorway (design change 0085: "its production shows 100%").
     pub progress: u32,
     /// RallyPoint.
     pub rally: Option<Rally>,
@@ -90,10 +95,24 @@ pub struct Production {
     /// before it existed (the goldens).
     #[serde(default, skip_serializing_if = "is_false")]
     pub blocked: bool,
+    /// The tick its building was completed, by which a Recruitment Hall claims the tiles it contests with another
+    /// before it or after it (`factions/cults/economy.md > RecruitmentHall > TileClaiming`: "the hall that was
+    /// constructed first has priority"; plan decision T57, `crate::recruitment`): 0 for a Hall in the game from the
+    /// start, and for every producer that recruits nothing, which has no use for it. A Hall that comes into the game
+    /// later has the tick it comes in, complete (a debug spawn's), or the tick its functions start, held back until
+    /// its completion (`Sim::start_functions`; slice M5-E's sites). Optional in files and left out of them while 0;
+    /// hashed only while set, so that the states of games without such a Hall hash as they did before it existed (the
+    /// goldens).
+    #[serde(default, skip_serializing_if = "is_zero")]
+    pub completed_at: Tick,
 }
 
 fn is_false(b: &bool) -> bool {
     !*b
+}
+
+fn is_zero(tick: &Tick) -> bool {
+    *tick == 0
 }
 
 /// What a producer is working on, for the interface ([`Production::status`]).
@@ -101,9 +120,10 @@ fn is_false(b: &bool) -> bool {
 pub struct ProductionStatus {
     /// CurrentBuild.
     pub kind: ObjectKind,
-    /// CurrentBuildProgress, in [`RATIO_ONE`]s.
+    /// CurrentBuildProgress, in [`RATIO_ONE`]s (a Recruitment Hall's in tiles: `total_of`).
     pub progress: u32,
-    /// The progress at which the unit is finished: its recipe's frames, in [`RATIO_ONE`]s.
+    /// The progress at which the unit is finished: its recipe's frames, in [`RATIO_ONE`]s (a Recruitment Hall's in
+    /// tiles, `total_of`).
     pub total: u32,
     /// The unit is finished and waits inside, because the exit doorway is occupied
     /// (`core/entities.md > Structure Type > Exit Doorway`, point 3).
@@ -113,9 +133,14 @@ pub struct ProductionStatus {
     pub blocked: Option<ArmyResource>,
 }
 
-/// The progress at which a unit of `frames` frames is finished.
-pub(crate) fn total_of(frames: u32) -> u32 {
-    frames.saturating_mul(RATIO_ONE)
+/// The progress at which a unit of `frames` frames of a `def` producer is finished: a frame at full power adds one
+/// [`RATIO_ONE`], so `frames × RATIO_ONE`. A Recruitment Hall's frame adds the tiles it claims, so `frames ×` its
+/// area's tiles (plan decision T57): its Recruit takes BaseRecruitProductionTime / Effectiveness frames, rounded up,
+/// exactly at every effectiveness (`factions/cults/economy.md > RecruitmentHall > RecruitmentHallInstanceState`:
+/// "CurrentProductionTime: number (BaseRecruitProductionTime / Effectiveness)"; 384 frames at 50 tiles).
+pub(crate) fn total_of(def: &ProductionDef, frames: u32) -> u32 {
+    let per_frame = def.recruitment.map_or(RATIO_ONE, |recruitment| recruitment.tiles());
+    frames.saturating_mul(per_frame)
 }
 
 impl Production {
@@ -142,7 +167,7 @@ impl Production {
     /// owner's army cap, which a unit at the front that is [`Production::blocked`] waits for.
     pub fn status(&self, def: &ProductionDef, cap: Option<ArmyResource>) -> Option<ProductionStatus> {
         let kind = self.current()?;
-        let total = def.recipe(kind).map_or(0, |recipe| total_of(recipe.frames));
+        let total = def.recipe(kind).map_or(0, |recipe| total_of(def, recipe.frames));
         Some(ProductionStatus {
             kind,
             progress: self.progress.min(total),
@@ -159,7 +184,10 @@ impl Production {
         let queued: u64 = self
             .queue
             .iter()
-            .map(|&kind| def.recipe(kind).map_or(0, |recipe| u64::from(total_of(recipe.frames))))
+            .map(|&kind| {
+                def.recipe(kind)
+                    .map_or(0, |recipe| u64::from(total_of(def, recipe.frames)))
+            })
             .sum();
         queued.saturating_sub(u64::from(self.progress))
     }
@@ -171,7 +199,7 @@ impl Production {
             self.progress = 0;
             return false;
         };
-        let total = def.recipe(kind).map_or(0, |recipe| total_of(recipe.frames));
+        let total = def.recipe(kind).map_or(0, |recipe| total_of(def, recipe.frames));
         self.progress = self.progress.saturating_add(speed).min(total);
         self.progress >= total
     }
@@ -225,6 +253,7 @@ impl StateHash for Production {
             progress,
             rally,
             blocked,
+            completed_at,
         } = self;
         queue.hash(h);
         progress.hash(h);
@@ -233,6 +262,11 @@ impl StateHash for Production {
         // field existed (the goldens stand). A waiting producer differs from the same one not waiting by the tag.
         if *blocked {
             h.tag(1);
+        }
+        // (M5-C) The same for a Recruitment Hall's completion tick, only while it isn't 0, under a tag of its own.
+        if *completed_at != 0 {
+            h.tag(2);
+            completed_at.hash(h);
         }
     }
 }
@@ -252,6 +286,7 @@ mod tests {
             frames: 80,
             requires: &[],
         }],
+        recruitment: None,
     };
 
     fn queued(n: usize) -> Production {
@@ -377,6 +412,42 @@ mod tests {
         assert_eq!(old, idle);
         let saved: Production = serde_json::from_str(&serde_json::to_string(&waiting).unwrap()).unwrap();
         assert_eq!(saved, waiting);
+    }
+
+    /// (M5-C) A Recruitment Hall's completion tick is hashed only while it isn't 0 (the goldens stand), and left out
+    /// of files while it is, so that a state saved before it existed loads. Its Recruit's total is 192 frames of
+    /// its area's 100 tiles: 192 ticks at 100 tiles a frame, 384 at 50 (`factions/cults/economy.md > RecruitmentHall >
+    /// BaseUnitControlCapacity - 20`: "production time = 24 seconds per Recruit").
+    #[test]
+    fn a_completion_tick_is_hashed_and_saved_only_while_it_is_set() {
+        let hash = |p: &Production| {
+            let mut h = StateHasher::new();
+            p.hash(&mut h);
+            h.finish()
+        };
+        let (pre_built, built) = (
+            queued(1),
+            Production {
+                completed_at: 300,
+                ..queued(1)
+            },
+        );
+        assert_ne!(hash(&pre_built), hash(&built));
+        assert!(!serde_json::to_string(&pre_built).unwrap().contains("completed_at"));
+        let saved: Production = serde_json::from_str(&serde_json::to_string(&built).unwrap()).unwrap();
+        assert_eq!(saved, built);
+        let hall = ObjectKind::RecruitmentHall
+            .def()
+            .structure
+            .as_ref()
+            .and_then(|s| s.production.as_ref())
+            .unwrap();
+        assert_eq!(total_of(hall, 192), 19_200);
+        let (mut full, mut half) = (Production::default(), Production::default());
+        full.queue.push(ObjectKind::Recruit);
+        half.queue.push(ObjectKind::Recruit);
+        assert_eq!((1..=192).filter(|_| full.advance(hall, 100)).count(), 1);
+        assert_eq!((1..=384).position(|_| half.advance(hall, 50)), Some(383));
     }
 
     /// Design change 0083: the work queued is the time still ahead, the unit in production counted by what is left

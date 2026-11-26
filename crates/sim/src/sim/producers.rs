@@ -59,7 +59,7 @@ impl Sim {
         let o = self.objects.get(&id)?;
         let (production, def) = producer(o)?;
         let faction = o.owner.and_then(|owner| self.player(owner)).map(|p| p.faction);
-        production.status(def, faction.and_then(ArmyResource::of))
+        production.status(def, faction.map(ArmyResource::of))
     }
 
     /// The gate's rules for `Command::Production` (`factions/gdo/structures/barracks.md >
@@ -67,7 +67,8 @@ impl Sim {
     /// units, as an order's units are found ([`Sim::own_units`]: stale and repeated ids dropped, `NotOwned` for
     /// someone else's); none is [`Reject::NoProducers`]. Then:
     /// - **Train**: at least one producer queues the unit, else why not: [`Reject::CannotProduce`] (no producer
-    ///   has the recipe), [`Reject::Requires`] (the player owns none of a type its entry requires, slice M4-K:
+    ///   has the recipe, or only a Recruitment Hall, which trains nothing on command: `sim/recruitment.rs`),
+    ///   [`Reject::Requires`] (the player owns none of a type its entry requires, slice M4-K:
     ///   `core/tech_and_research.md > Tech Prerequisites > Unit Prerequisites`, `crate::tech`; a unit already queued
     ///   goes on whatever is lost later), [`Reject::InsufficientCrystals`] or [`Reject::QueueFull`]. Queuing "needs
     ///   only its Space Crystals (paid when queued) and a free queue slot; it does **not** check or reserve Unit
@@ -146,7 +147,8 @@ impl Sim {
             .iter()
             .filter_map(|&id| {
                 let (production, def) = producer(&self.objects[&id])?;
-                let recipe = def.recipe(kind)?;
+                // A Recruitment Hall recruits by itself (`ProductionDef::recruitment`, `sim/recruitment.rs`).
+                let recipe = def.recipe(kind).filter(|_| def.recruitment.is_none())?;
                 if let Some(missing) = self.unmet_requirement(player, recipe.requires.iter().copied()) {
                     unmet.get_or_insert(missing);
                     return None;
@@ -306,7 +308,11 @@ impl Sim {
     /// while a unit this building released (`Mover::exit`) is still in it. Out of a side doorway the unit appears half
     /// inside the middle of the exit side, facing out ([`Sim::doorway_spot`]); out of a portal's energy doorway, at the
     /// centre, facing the heading it leaves along (design change 0145: `production::EnergyDoorway::release`, which
-    /// draws from the sim's Rng only with no rally point and two or more ways out to choose from).
+    /// draws from the sim's Rng only with no rally point and two or more ways out to choose from). A building with
+    /// several exit sides releases it through the first door in its order whose doorway is free and has a spot for it
+    /// (`production::Doorway::order`, **Placeholder (Q0100 point 1)**), and holds it while none has. A Recruitment
+    /// Hall's Recruit is of its lineage (`Object::lineage`, plan decision T56: "Each Recruit tracks which Recruitment
+    /// Hall produced it", `factions/cults/economy.md > RecruitmentHall > Unit Control Tracking`).
     fn release_unit(&mut self, producer: ObjectId) {
         let Some(building) = self.objects.get(&producer) else {
             return;
@@ -331,22 +337,25 @@ impl Sim {
         if self.next_id == u32::MAX {
             return;
         }
-        let occupied = self
-            .objects
-            .values()
-            .any(|o| o.mover.as_ref().is_some_and(|mover| mover.exit == Some(producer)));
-        if occupied {
-            return;
-        }
+        // The units this building released that are still in its doorway.
+        let released: Vec<Vec2> = (self.objects.values())
+            .filter(|o| o.mover.as_ref().is_some_and(|mover| mover.exit == Some(producer)))
+            .map(|o| o.pos)
+            .collect();
+        let recruits = producer_def(building).is_some_and(|def| def.recruitment.is_some());
         // Where it appears, which way it faces, and the heading of a unit leaving an energy doorway.
         let (pos, facing, heading) = match doorway {
             ExitDoor::Side(doorway) => {
-                let door = doorway.door();
-                let Some(pos) = self.doorway_spot(&door, unit, half) else {
+                let toward = rally.map(|rally| rally.point() - building.pos);
+                let free = |door: &Door| released.iter().all(|&pos| doorway.door_at(pos) != *door);
+                let mut doors = doorway.order(toward).filter(free);
+                let Some((door, pos)) = doors.find_map(|door| Some((door, self.doorway_spot(&door, unit, half)?)))
+                else {
                     return;
                 };
                 (pos, door.outward(), None)
             }
+            ExitDoor::Centre(_) if !released.is_empty() => return,
             ExitDoor::Centre(portal) => {
                 let grid = unit
                     .base_def()
@@ -365,6 +374,9 @@ impl Sim {
         }
         let id = self.insert_object(kind, Some(owner), pos, None, None);
         if let Some(o) = self.objects.get_mut(&id) {
+            if recruits {
+                o.lineage = vec![producer];
+            }
             o.facing = math::vector_angle(facing);
             o.prev_facing = o.facing;
             if let Some(mover) = &mut o.mover {

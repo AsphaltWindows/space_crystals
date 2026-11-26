@@ -16,6 +16,8 @@ mod evacuation;
 
 use std::collections::BTreeMap;
 
+use glam::Vec2;
+
 use super::Sim;
 use super::gate::Checked;
 use crate::command::HoldCommand;
@@ -23,7 +25,7 @@ use crate::events::SimEvent;
 use crate::holding;
 use crate::ids::{ObjectId, PlayerId};
 use crate::network::{Held, Place};
-use crate::production::ExitDoor;
+use crate::production::{Door, ExitDoor};
 use crate::sim::Reject;
 use crate::units::Tick;
 
@@ -130,18 +132,15 @@ impl Sim {
     /// (`core/entities.md > Structure Type > Exit Doorway` 1: it "appears half inside the building, at the middle of
     /// the exit side"), facing out, as a producer's finished unit does (`Sim::release_unit`): only once the doorway is
     /// free (3: "the next unit can only appear once the doorway is free"; a unit the building let out, `Mover::exit`,
-    /// still stands in it), at the spot the doorway has room for (`Sim::doorway_spot`). It is the object it was, with
-    /// no order, and walks straight out (2: "or straight out of the exit side if there is none"), with a
-    /// `SimEvent::LeftBuilding`. Returns whether it came out. Slice M5-F2 releases its trained units by it too.
+    /// still stands in it), at the spot the doorway has room for (`Sim::doorway_spot`). Of several exit sides, the
+    /// first door in their order that is free and has a spot (`production::Doorway::order`, slice M5-C's rule, here
+    /// without a rally point until slice M5-F2 gives the building one). It is the object it was, with no order, and
+    /// walks straight out (2: "or straight out of the exit side if there is none"), with a `SimEvent::LeftBuilding`.
+    /// Returns whether it came out. Slice M5-F2 releases its trained units by it too.
     pub(in crate::sim) fn release_held(&mut self, building: ObjectId, unit: ObjectId) -> bool {
         let Some(ExitDoor::Side(doorway)) = self.objects.get(&building).and_then(ExitDoor::of) else {
             return false;
         };
-        let occupied =
-            (self.objects.values()).any(|o| o.mover.as_ref().is_some_and(|mover| mover.exit == Some(building)));
-        if occupied {
-            return false;
-        }
         let Some(held) = (self.held.get(&unit)).filter(|held| held.place == Place::Building(building)) else {
             return false;
         };
@@ -149,8 +148,14 @@ impl Sim {
         let (Some(unit_def), Some(half)) = (&def.unit, def.half_extents()) else {
             return false;
         };
-        let door = doorway.door();
-        let Some(pos) = self.doorway_spot(&door, unit_def, half) else {
+        // The units this building let out that are still in its doorway, each keeping its door occupied.
+        let released: Vec<Vec2> = (self.objects.values())
+            .filter(|o| o.mover.as_ref().is_some_and(|mover| mover.exit == Some(building)))
+            .map(|o| o.pos)
+            .collect();
+        let free = |door: &Door| released.iter().all(|&pos| doorway.door_at(pos) != *door);
+        let mut doors = doorway.order(None).filter(free);
+        let Some((door, pos)) = doors.find_map(|door| Some((door, self.doorway_spot(&door, unit_def, half)?))) else {
             return false;
         };
         if !self.put_on_map(unit, pos, door.outward()) {

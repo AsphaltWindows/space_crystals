@@ -64,7 +64,10 @@ fn the_entrance_turns_and_flips_with_the_armory() {
             let b = DIRECTIONS[letters.iter().position(|&l| l == SideLetter::B).unwrap()];
             let path = entry_path(&armory).unwrap();
             assert_eq!(path.outward, Vec2::new(b.0 as f32, b.1 as f32), "{rotation:?} {flip_h}");
-            let door = Doorway::of(&armory).expect("its exit doorway").door();
+            let doors: Vec<_> = Doorway::of(&armory).expect("its exit doorway").doors().collect();
+            let [door] = doors[..] else {
+                panic!("one exit side: {doors:?}");
+            };
             assert_eq!(door.outward(), -path.outward, "{rotation:?} {flip_h}");
             assert_eq!(path.spot + door.middle(), 2.0 * placement.center(), "opposite middles");
         }

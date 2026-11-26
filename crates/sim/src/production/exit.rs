@@ -8,7 +8,11 @@
 //! - **A side doorway** ([`Doorway`], `ExitRule::Side`, plan decision T19): the middle of its exit side ([`Door`]),
 //!   the side lettered as the rule says (the Barracks' B) wherever it faces once the building is placed
 //!   (`crate::sides::sides`). The unit "appears half inside the building": its centre on the exit side
-//!   ([`Door::spot`]).
+//!   ([`Door::spot`]). A building with several exit sides (`ExitRule::Sides`, the Recruitment Hall's four, slice M5-C)
+//!   has a door in the middle of each, and releases each unit through the first free one in its order
+//!   ([`Doorway::order`]: the one facing the rally point, the bottom one without a rally point, then clockwise;
+//!   **Placeholder (Q0100 point 1)**). A unit in the doorway is in the door whose side it is nearest
+//!   ([`Doorway::door_at`]), and leaves through that side alone.
 //! - **An energy doorway** ([`EnergyDoorway`], `ExitRule::Centre`, `energy.rs`): the unit materializes at the centre
 //!   and moves straight out along a heading that leaves through an open side.
 //!
@@ -19,7 +23,9 @@
 //!   is clear of the footprint the exception ends for good ("once the unit is fully out, it can't re-enter").
 //! - **Occupied**: a doorway is occupied while a unit the building released is still in it; the next finished unit
 //!   waits inside meanwhile (`Sim::release_unit`), and so does the next unit Eject All lets out (`Sim::release_held`).
-//!   A building has one doorway, so at most one unit is in it.
+//!   With several exit sides, a door is occupied while such a unit is in it, and the building waits only while every
+//!   door is (`core/entities.md > Structure Type > Exit Doorway`: "a side whose doorway is occupied counts as blocked,
+//!   and the building pauses only when every eligible doorway is occupied"); at most one unit is in each door.
 //!
 //! **Reading of the design, to confirm** (reported to the Director): point 1 says the unit appears half inside and
 //! that "nothing else can overlap a building", and the verification has a unit appear although an enemy unit, or
@@ -145,11 +151,14 @@ impl ExitDoor {
 }
 
 /// A producing structure's exit doorway on its exit side, as it is placed (`ExitRule::Side`): its footprint and the
-/// side its units leave through, the one its SymmetryType letters so (`defs_are_consistent`). The movement step, the
-/// path serving and the invariants ask it about a released unit.
+/// side its units leave through, the one its SymmetryType letters so (`defs_are_consistent`); or on each of its exit
+/// sides (`ExitRule::Sides`, module docs). The movement step, the path serving and the invariants ask it about a
+/// released unit, which is in the door whose side it is nearest ([`Doorway::door_at`]).
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub struct Doorway {
-    door: Door,
+    /// One door per exit side, by the direction it faces, north, east, south and west (`crate::sides::DIRECTIONS`'
+    /// order, clockwise on screen); at least one.
+    doors: [Option<Door>; 4],
 }
 
 /// The exit side of a producing structure, as it is placed: the doorway in its middle.
@@ -174,64 +183,95 @@ pub fn exit_rule(structure: &StructureDef) -> Option<ExitRule> {
 }
 
 impl Doorway {
-    /// The doorway of `building`: `None` for anything but a placed structure that releases units through an exit
-    /// side ([`exit_rule`]; a portal's energy doorway is [`EnergyDoorway`]).
+    /// The doorway of `building`: `None` for anything but a placed structure that releases units through exit sides
+    /// ([`exit_rule`]: a producer's, or a building's that holds units; a portal's energy doorway is [`EnergyDoorway`]).
     pub fn of(building: &Object) -> Option<Doorway> {
         let placement = building.placement.as_ref()?;
-        let ExitRule::Side(exit) = exit_rule(building.def().structure.as_ref()?)? else {
+        let (ExitRule::Side(exit) | ExitRule::Sides(exit)) = exit_rule(building.def().structure.as_ref()?)? else {
             return None;
         };
         let letters = sides(building.kind, placement.orientation())?;
-        let (dx, dy) = DIRECTIONS[letters.iter().position(|&letter| letter == exit)?];
-        Some(Doorway {
-            door: Door {
+        let mut doors = [None; 4];
+        for ((door, letter), (dx, dy)) in doors.iter_mut().zip(letters).zip(DIRECTIONS) {
+            *door = (letter == exit).then(|| Door {
                 frame: Frame::of(placement),
                 axis: usize::from(dx == 0),
                 sign: (dx + dy) as f32,
-            },
-        })
+            });
+        }
+        doors.iter().any(Option::is_some).then_some(Doorway { doors })
     }
 
-    /// The door, in the middle of the exit side.
-    pub fn door(&self) -> Door {
-        self.door
-    }
-
-    /// The doors, one per exit side: the one.
+    /// The doors, one per exit side, clockwise from the one facing north.
     pub fn doors(&self) -> impl Iterator<Item = Door> + '_ {
-        std::iter::once(self.door)
+        self.doors.iter().flatten().copied()
     }
 
-    /// The door a unit centred on `_pos` is in: the one, wherever the unit stands.
-    pub fn door_at(&self, _pos: Vec2) -> Door {
-        self.door
+    /// The doors in the order a unit tries them (`Sim::release_unit`), the first free one taking it: the one facing
+    /// `toward`, the direction from the building's centre to its rally point, then the next ones clockwise
+    /// (**Placeholder (Q0100 point 1)**: "the side facing the rally point (the bottom when there is none), then the next
+    /// free side clockwise"). With no direction (no rally point, or one right at the centre) the first is the one
+    /// facing south, the bottom side. The door facing `toward` is the one at the smallest angle from it, and of two at
+    /// the same angle, a rally point exactly on a diagonal, the clockwise one. With one exit side, its door alone.
+    pub fn order(&self, toward: Option<Vec2>) -> impl Iterator<Item = Door> + '_ {
+        let toward = toward.filter(|t| *t != Vec2::ZERO).unwrap_or(Vec2::Y);
+        // The doors by the direction they face, the first being the one facing `toward`: the greatest cosine, then the
+        // greatest `perp_dot` (clockwise on screen, +y south), as the energy doorway's nearest direction.
+        let first = (0..4)
+            .filter(|&i| self.doors[i].is_some())
+            .max_by(|&a, &b| {
+                let (da, db) = (Self::facing(a), Self::facing(b));
+                (toward.dot(da).total_cmp(&toward.dot(db))).then(toward.perp_dot(da).total_cmp(&toward.perp_dot(db)))
+            })
+            .unwrap_or(0);
+        (0..4).filter_map(move |k| self.doors[(first + k) % 4])
+    }
+
+    /// The direction the side of `DIRECTIONS`' index `i` faces.
+    fn facing(i: usize) -> Vec2 {
+        let (dx, dy) = DIRECTIONS[i];
+        Vec2::new(dx as f32, dy as f32)
+    }
+
+    /// The door a unit centred on `pos` is in: the one whose side it is least inside of, the first clockwise from north
+    /// of two at the same depth. With one exit side, its door, wherever the unit stands.
+    pub fn door_at(&self, pos: Vec2) -> Door {
+        let mut doors = self.doors();
+        let first = doors.next().expect("a doorway has a door");
+        doors.fold(first, |best, door| {
+            if door.out_of(pos) > best.out_of(pos) {
+                door
+            } else {
+                best
+            }
+        })
     }
 
     /// Whether a box at `pos` with half extents `half` overlaps the footprint: a unit the building released is still
     /// in its doorway. Touching is free, as for every box.
     pub fn holds(&self, pos: Vec2, half: Vec2) -> bool {
-        self.door.holds(pos, half)
+        self.door_at(pos).holds(pos, half)
     }
 
-    /// [`Door::allows`].
+    /// [`Door::allows`], for the door the unit is in at `from`.
     pub fn allows(&self, from: Vec2, to: Vec2, half: Vec2) -> bool {
-        self.door.allows(from, to, half)
+        self.door_at(from).allows(from, to, half)
     }
 
-    /// [`Door::outside`].
+    /// [`Door::outside`], for the door the unit is in.
     pub fn outside(&self, pos: Vec2, half: Vec2) -> Vec2 {
-        self.door.outside(pos, half)
+        self.door_at(pos).outside(pos, half)
     }
 
-    /// [`Door::ways_out`].
+    /// [`Door::ways_out`], for the door the unit is in.
     pub fn ways_out(&self, pos: Vec2, half: Vec2) -> Vec<Vec2> {
-        self.door.ways_out(pos, half)
+        self.door_at(pos).ways_out(pos, half)
     }
 
     /// `nav::box_clear` for a released unit: whether a box with half extents `half` centred on `p` lies inside the
     /// map and overlaps no solid tile **other than the footprint's**.
     pub fn box_clear(&self, grid: &NavGrid, half: Vec2, p: Vec2) -> bool {
-        self.door.box_clear(grid, half, p)
+        self.door_at(p).box_clear(grid, half, p)
     }
 }
 

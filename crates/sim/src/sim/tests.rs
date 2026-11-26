@@ -62,7 +62,7 @@ fn insert_unit(sim: &mut Sim, pos: Vec2) -> ObjectId {
         construction: None,
         decay: None,
         popup: None,
-        lineage: None,
+        lineage: Vec::new(),
     };
     sim.objects.insert(id, unit);
     id

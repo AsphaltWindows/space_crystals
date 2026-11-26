@@ -110,7 +110,7 @@ Recruits can enter an Armory to join its internal StoredRecruits pool (up to Int
 - Own Shrine → Enter Shrine (join the ritual)
 - Own Gunworks / Machine Shop → Enter (staff research)
 - In-progress own building → Assist Construction
-- Damaged own building or vehicle (completed) → Repair (for a damaged building that can also be entered, see the open question in Repair)
+- Damaged own building or vehicle (completed) → Repair, **unless the building can be entered** by the selection: then **Enter** wins (user, 2026-11-26). Repair those with **D: Repair**.
 - Enemy unit/building → Attack (melee)
 - Ground → Move
 

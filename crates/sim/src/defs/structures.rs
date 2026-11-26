@@ -343,12 +343,39 @@ pub struct ProductionDef {
     /// What it can produce, in the order of the design's list.
     #[serde(deserialize_with = "super::leak::slice")]
     pub recipes: &'static [Recipe],
+    /// A Recruitment Hall's automatic production (`factions/cults/economy.md > RecruitmentHall`; plan decision T57,
+    /// slice M5-C; `crate::recruitment`): it trains nothing on command, and produces its first recipe's unit by
+    /// itself, for free, while the units of its lineage use less than its capacity. `None` for a producer that trains
+    /// what it is told. Optional in files.
+    #[serde(default)]
+    pub recruitment: Option<RecruitmentDef>,
 }
 
 impl ProductionDef {
     /// The recipe for a unit of `kind`, if the type produces it.
     pub fn recipe(&self, kind: ObjectKind) -> Option<&'static Recipe> {
         self.recipes.iter().find(|recipe| recipe.kind == kind)
+    }
+}
+
+/// How a Recruitment Hall recruits (`factions/cults/economy.md > RecruitmentHall`; `crate::recruitment`): the size of
+/// the area it claims tiles in and its capacity at full effectiveness. What it recruits, in how many frames at full
+/// effectiveness and at what cost, is its `ProductionDef`'s recipe.
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct RecruitmentDef {
+    /// The side of its Recruitment Area, in tiles, centred on its footprint (`factions/cults/economy.md >
+    /// RecruitmentHall > RecruitmentArea`: "A 10x10 grid unit area centered on the 4x4 building").
+    pub area: u32,
+    /// Its LocalUnitControlCapacity at 100% effectiveness (`factions/cults/economy.md > RecruitmentHall >
+    /// BaseUnitControlCapacity - 20`).
+    pub capacity: u32,
+}
+
+impl RecruitmentDef {
+    /// "The total number of tiles in Recruitment Area" (`factions/cults/economy.md > RecruitmentHall > Effectiveness`):
+    /// the area's side squared, those off the map included (**Placeholder (Q0099 point 1)**).
+    pub fn tiles(&self) -> u32 {
+        self.area.saturating_mul(self.area)
     }
 }
 
@@ -360,6 +387,14 @@ pub enum ExitRule {
     /// 0080): the Barracks' B ("Units exit from one of the short sides (B side ...)",
     /// `factions/gdo/structures/barracks.md`).
     Side(SideLetter),
+    /// Several exit sides, every one its SymmetryType letters so, each with an exit doorway in its middle
+    /// (`core/entities.md > Structure Type > Exit Doorway`: "Buildings with several exit-eligible sides choose the side
+    /// by their own rules; a side whose doorway is occupied counts as blocked, and the building pauses only when every
+    /// eligible doorway is occupied"): a unit leaves through the one facing its producer's rally point, the bottom one
+    /// without a rally point, or the next free one clockwise from it while that one's doorway is occupied
+    /// (**Placeholder (Q0100 point 1)**; `crate::production::Doorway::order`). The Recruitment Hall's four A sides
+    /// (slice M5-C, plan decision T57).
+    Sides(SideLetter),
     /// An energy doorway at the centre (design change 0145, `factions/colonists/structures/README.md > Portals > Portal
     /// Exits (energy doorway)`: "Portals don't use exit sides"): a unit materializes at the centre and leaves in any
     /// direction that passes out through a side lettered with one of these, the **open** sides. The portals' A sides;
