@@ -78,6 +78,15 @@ Applies to every Cults building that can hold units inside (Armory, Altar, Templ
   2. **Realistic opening** (user's build line): start with the one starting Storage; **save for a second Recruitment Hall without building any extra Storages**, spreading new Recruits to patches farther from the starting Storage; **build the second Hall with all the non-optimal Recruits** (those on the far patches); then **build Storages around the patches**, one per face. Measured against the GDO and the Colonists at 1:30 and 2:48 and reported.
      - **Target** (user, 2026-11-27; Q0135, option b): expanding early is an **investment**: it may fall behind early, but it should **overtake ideal mining (scenario 1) by about 4:00**.
      - **A longer timeline** (user, 2026-11-27): measure both Cults scenarios, the GDO and the Colonists out to **6:00**, at **1:30, 2:48, 4:00, 5:00 and 6:00**, and report how the economies compare. Further targets may follow from that.
+     - **What to compare at each checkpoint** (user, 2026-11-27), for all four lines:
+       1. **Income per second** at that point (measuring window: the 10 s, 160 frames, before the checkpoint; designer's choice);
+       2. **Total mined**: Space Crystals delivered since 0:00 (the starting bank not included);
+       3. **Bank**: unspent Space Crystals at the checkpoint;
+       4. **Total spent on economy**: Space Crystals paid so far for economy items, refunds subtracted.
+     - **Economy items** (designer's working list; flag borderline cases):
+       - Cults: Recruitment Halls and Storages beyond the starting ones (Recruits themselves are free).
+       - GDO: Extraction Facilities and Extraction Plates. Generators are **not** counted (they power everything); report them on a separate line.
+       - Colonists: Drones and Egress Nodes (refining is not counted).
      - First measurement (Q0135, 2x2 Storage): 0.51 of the GDO by 1:30 and 0.62 by 2:48. The 3x2 Storage (0380) is expected to help.
 
 ## Buildings
