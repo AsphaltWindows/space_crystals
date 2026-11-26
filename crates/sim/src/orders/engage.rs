@@ -290,7 +290,7 @@ pub(super) fn too_close(
         from.engage(unit);
         return None;
     }
-    if !unit.mover.can_move(unit.max_speed) {
+    if !unit.mover.can_move(unit.max_speed()) {
         *state.backing_off = None;
         unit.engage(None);
         unit.halt();

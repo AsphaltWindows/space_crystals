@@ -12,7 +12,7 @@ use std::collections::BTreeMap;
 
 use glam::Vec2;
 
-use crate::augmentation::Research;
+use crate::augmentation::{self, Increments, Research};
 use crate::combat::{self, AttackState, domain_allows, object_domain};
 use crate::defs::{AttackAttrs, Domain, ObjectKind, TargetDomain, TurretAttrs, UnitDef};
 use crate::economy::Worker;
@@ -86,8 +86,9 @@ pub(crate) struct Unit<'a> {
     /// The weapon in hand (`combat::weapon`): its form's, which a Legionnaire whose conversion waits still fights
     /// with (design change 0198), (M5-N1a) as its Augmentations make it.
     pub weapon: Option<&'a AttackAttrs>,
-    /// (M5-N1a) Its top speed, its Augmentations' included (`Object::max_speed`), before its mode's speed factor.
-    pub max_speed: f32,
+    /// (M5-N1a) Its Augmentations' net increments at its owner's levels (`Object::increments`), which its top speed
+    /// follows ([`Unit::max_speed`]).
+    pub increments: Increments,
     /// Whether its mode lets it attack now: not while its Riot Shield is up (`riot_shield::allows_attack`).
     pub may_attack: bool,
     /// Whether it converts its weapon (`conversion::is_converting`): it holds still meanwhile.
@@ -99,6 +100,12 @@ pub(crate) struct Unit<'a> {
 impl<'a> Unit<'a> {
     pub fn unit_def(&self) -> Option<&'static UnitDef> {
         self.kind.def().unit.as_ref()
+    }
+
+    /// (M5-N1a) Its top speed with its Augmentations' (`Object::max_speed`), before its mode's speed factor.
+    pub fn max_speed(&self) -> f32 {
+        let movement = |def: &UnitDef| augmentation::movement_of(def.movement, self.increments);
+        self.unit_def().map_or(0.0, |def| movement(def).max_speed())
     }
 
     /// Its attack, if it has one (`systems/combat.md > AttackAttributes`) and may use it now: the weapon in hand

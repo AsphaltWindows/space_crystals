@@ -105,7 +105,7 @@ pub(crate) fn max_hp_of(max: f32, increments: Increments) -> f32 {
 /// The movement numbers `movement` of an augmentable unit with net `increments`: "+0.5 space units/frame MaxSpeed"
 /// per Metabolism increment (`factions/cults/augmentation.md > Increments`, armed or not), before its mode's
 /// `Mover::speed_factor` (plan decision T73). `movement` itself with none.
-pub(super) fn movement_of(movement: MovementAttrs, increments: Increments) -> MovementAttrs {
+pub(crate) fn movement_of(movement: MovementAttrs, increments: Increments) -> MovementAttrs {
     match increments.metabolism {
         0 => movement,
         metabolism => faster(movement, metabolism as f32 * AUGMENTATION.increments.max_speed),

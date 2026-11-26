@@ -609,8 +609,9 @@ Units, structures and resources are all `Object`s (`object.rs`, `core/entities.m
   - **Why this shape.** The systems that hold the objects mutably (phases 5a, 5d and 5e, the network's regeneration)
     take a `Research` beside them, a borrow of the players alone, which a `Sim` method couldn't be; code that has the
     `Sim` asks `Sim::research()`. Stats stored on the object would go stale when a level completes or a def changes
-    (T73's rejected alternative). A unit without an Augmentation costs one branch (`Augmentation::is_none`), so the
-    movement and combat loops are as fast as before; an augmented one looks its owner up among the few players.
+    (T73's rejected alternative). A unit without an Augmentation costs a branch (`Augmentation::is_none`) and a copy
+    of its kind's numbers; an augmented one looks its owner up among the few players. The behaviours keep a unit's
+    increments (`orders::world::Unit::increments`) and work out its top speed only where they need it.
   - **HP when MaxHP changes** (design changes 0330 and 0331): `augmentation::follow_max`, applied by
     `augmentation::set` (`DebugCommand::SetAugmentation` now, the Altar and the research later). Up, the HP rises as
     much: `transform::follow_max`'s rule, the damage staying. Down, the HP stays unless it is above the new MaxHP:

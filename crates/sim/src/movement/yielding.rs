@@ -26,6 +26,7 @@ use super::collide::{Moved, World};
 use super::space::{Body, Layer};
 use crate::augmentation::Research;
 use crate::combat::AttackPhase;
+use crate::defs::MovementAttrs;
 use crate::ids::{ObjectId, PlayerId};
 use crate::mover::{Locomotion, MoveGoal, Mover, Orientation, Side, Sidestep};
 use crate::object::Object;
@@ -69,18 +70,18 @@ fn in_attack_sequence(o: &Object) -> bool {
 /// - It isn't busy with a stationary task: not in an attack sequence ([`in_attack_sequence`]). Mining and
 ///   constructing will be orders.
 /// - **Unit modes don't matter**, but it must be able to move in its current mode (`Mover::can_move`, the hook for a
-///   deployed Artillery Rig) at `max_speed`, its top speed (`Object::max_speed`).
+///   deployed Artillery Rig) by `movement`, its movement numbers (`Object::movement`).
 /// - It isn't already taking a sidestep: one short sidestep per request.
 /// - (M3-D2) It isn't walking out of a portal's energy doorway (`Mover::exit_heading`, design change 0145): that walk
 ///   is its only move until it is out (`doorway::emerge`).
-pub(super) fn can_yield(o: &Object, mover: &Mover, max_speed: f32) -> bool {
+pub(super) fn can_yield(o: &Object, mover: &Mover, movement: &MovementAttrs) -> bool {
     o.owner.is_some()
         && o.orders.as_ref().is_some_and(|orders| orders.is_idle())
         && mover.goal == MoveGoal::None
         && mover.sidestep.is_none()
         && mover.exit_heading.is_none()
         && !in_attack_sequence(o)
-        && mover.can_move(max_speed)
+        && mover.can_move(movement.max_speed())
 }
 
 /// Whether `other` yields to a moving unit of `owner` that moves under the order group `group`.
@@ -308,12 +309,12 @@ pub(super) fn apply(
         let Some(o) = objects.get_mut(&bodies[request.yielder].id) else {
             continue;
         };
-        let Some(max_speed) = o.movement(research).map(|movement| movement.max_speed()) else {
+        let Some(movement) = o.movement(research) else {
             continue;
         };
-        let free = o.mover.as_ref().is_some_and(|mover| can_yield(o, mover, max_speed));
+        let free = o.mover.as_ref().is_some_and(|mover| can_yield(o, mover, &movement));
         if let Some(mover) = o.mover.as_mut().filter(|_| free) {
-            let speed = max_speed * mover.speed_factor;
+            let speed = movement.max_speed() * mover.speed_factor;
             mover.sidestep = Some(Sidestep::new(
                 request.dir,
                 request.dist,
@@ -347,7 +348,7 @@ mod tests {
         can_yield(
             o,
             o.mover.as_ref().unwrap(),
-            o.max_speed(crate::augmentation::Research::NONE),
+            &o.movement(crate::augmentation::Research::NONE).unwrap(),
         )
     }
 

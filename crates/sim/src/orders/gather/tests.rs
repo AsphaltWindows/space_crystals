@@ -89,7 +89,7 @@ fn with_no_patch_left_a_job_ends_or_delivers_its_load_first() {
             mover: &mut mover,
             attack: None,
             weapon: None,
-            max_speed: ObjectKind::Drone.def().unit.as_ref().unwrap().movement.max_speed(),
+            increments: crate::augmentation::Increments::NONE,
             may_attack: true,
             converting: false,
             worker: Some(&mut worker),

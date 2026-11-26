@@ -181,8 +181,8 @@ fn heading_of(pos: Vec2, mover: &Mover) -> Vec2 {
     target.map_or(Vec2::ZERO, |&target| target - pos)
 }
 
-/// A unit as the others see it this tick; `max_speed`, its top speed (`Object::max_speed`).
-fn body_of(o: &Object, mover: &Mover, max_speed: f32, half: Vec2) -> Body {
+/// A unit as the others see it this tick; `movement`, its movement numbers (`Object::movement`).
+fn body_of(o: &Object, mover: &Mover, movement: &MovementAttrs, half: Vec2) -> Body {
     // Also while it waits for a path: a unit that just planned again is still on its way.
     let on_its_way = mover.goal != MoveGoal::None;
     Body {
@@ -195,7 +195,7 @@ fn body_of(o: &Object, mover: &Mover, max_speed: f32, half: Vec2) -> Body {
         stationary: mover.is_stationary(),
         progress: on_its_way.then_some(mover.last_progress),
         arrived_with: mover.group.filter(|_| mover.status == MoveStatus::Arrived),
-        yields: yielding::can_yield(o, mover, max_speed),
+        yields: yielding::can_yield(o, mover, movement),
         gathers: gather::on_gather_job(o),
         leads: stuck::leads(mover),
         moved: mover.last_progress,
@@ -256,7 +256,7 @@ pub(crate) fn step(
         };
         let mover = o.mover.as_ref().expect("units have movers");
         let index = scratch.bodies.len() as u32;
-        scratch.bodies.push(body_of(o, mover, movement.max_speed(), half));
+        scratch.bodies.push(body_of(o, mover, &movement, half));
         scratch.chased.push(match mover.goal {
             MoveGoal::Object { id, .. } => objects.get(&id).map(|target| Chased {
                 id,
@@ -416,7 +416,7 @@ pub(crate) fn step(
         // Commit: later units see this one where it is now.
         let mover = o.mover.as_ref().expect("units have movers");
         let before = scratch.bodies[me].kinds();
-        scratch.bodies[me] = body_of(o, mover, movement.max_speed(), half);
+        scratch.bodies[me] = body_of(o, mover, &movement, half);
         let kinds = scratch.bodies[me].kinds();
         if let Some(l) = layer {
             if o.pos != from {
