@@ -62,16 +62,26 @@ Available while a Cults building is under construction (not yet complete). Cance
 Applies to every Cults building that can hold units inside (Armory, Altar, Temple, Cathedral, Shrine, Gunworks, Machine Shop, Garrison, and any future such building — e.g. the Chop Shop and Airstrip if their production flow holds Recruits). When the building is destroyed:
 - **Everyone inside is evacuated alive**: units in the internal pool, units reserved by queued orders, the unit currently being trained or augmented, Recruits staffing research, and Recruits powering the Shrine. This includes non-Recruit infantry held by the Altar (Militants, Gunners, Disciples).
 - **Units come out unchanged**: a Recruit mid-training comes out as a Recruit; a unit mid-augmentation does not receive the Augmentation. Existing AugmentationState is kept.
-- **Placement**: evacuated units appear around the building's footprint wherever there is open space, unharmed.
+- **Placement** (user, 2026-11-26; Q0106): the building is simply gone (its destruction is an animation; no debris affects play), and evacuated units **all appear at the same time inside its former footprint**, unharmed, spread over it. Units that overlap ignore each other until separated, and idle ones push apart (systems/units.md > Ground Collision).
+- **A unit that had finished training** and was waiting for the doorway comes out **as the trained unit**, with no refund (its training was complete).
+- **Afterwards** evacuated units **idle**.
 - **Orders are cancelled with a full refund**: every in-progress and queued training, augmentation, and research order is cancelled and its full Space Crystals cost refunded (consistent with core/tech_and_research.md > Research shared rule 7).
 
-## RecruitmentHall
+## Economy check
+(user, 2026-11-26; Q0103) The figures the build is measured against (the Director's economy oracle):
+- **Distance** is measured **edge to edge**, patch to Storage, in whole tiles (as for Agents).
+- **Tolerance ±15%**: a measured figure passes if it is within 15% of its target either way (e.g. 1.45 SC/s per Recruit passes anywhere from about 1.23 to 1.67).
+- **Targets**: ≈ 1.45 SC/s per Recruit at a 1-tile gap (≈ 0.59 at 2, ≈ 0.37 at 3); 4–5 Recruits per 2-tile face at full efficiency; a starting Hall fills from 6 to 20 in 168 s (2:48); the earliest second Hall at ~0:55–1:15; roughly level with the GDO and the Colonists until ~1:30 and slightly ahead by 2:48.
+- **Two scenarios, on an 8-patch field:**
+  1. **Ideal mining**: one Storage per face, all Recruits mining (the "level until 1:30, ahead by 2:48" comparison was made this way: pure mining, best case).
+  2. **Realistic opening** (user's build line): start with the one starting Storage; **save for a second Recruitment Hall without building any extra Storages**, spreading new Recruits to patches farther from the starting Storage; **build the second Hall with all the non-optimal Recruits** (those on the far patches); then **build Storages around the patches**, one per face. Measured against the GDO and the Colonists at 1:30 and 2:48 and reported (the docs have no target for it yet; it tells whether the Cults stay level when they expand early).
+
 
 The Cults' starting structure. Automatically produces Recruits from the surrounding population of Recruitable terrain. Each Recruitment Hall operates independently with its own local capacity and production rate.
 
 ### Faction - TheCults
 ### Size - 4x4 grid units
-### SymmetryType - AAAA
+### SymmetryType - AAAB (user, 2026-11-26; Q0100: **one exit side, B**; side placeholder; Recruits come out of it one at a time through the Exit Doorway, core/entities.md)
 ### MaxHP - 1000
 ### PointArmor - 1
 ### FullArmor - 16
@@ -84,6 +94,14 @@ The player starts with one RecruitmentHall, but additional ones are buildable by
 
 ### RecruitmentArea
 A 10x10 grid unit area centered on the 4x4 building. **The whole area must lie on the map** (user, 2026-11-26; Q0099): a Hall whose area would leave the map can't be placed (as Tunnels, 0242).
+
+### Recruitment Area display
+(user, 2026-11-26; Q0107, option b; as the Tunnel Area display, factions/syndicate/tunnels.md)
+- **Placing a Hall** shows its 10x10 area: the tiles it would claim, the tiles already claimed by your own Halls, the non-Recruitable tiles, and its Effectiveness in %.
+- **Your own Halls under construction and placed ghosts** (not yet started) also show the tiles they **would** claim (user, 2026-11-26), marked as taken by them, even though a Hall claims nothing until it is complete (Claiming details).
+- **Enemy Halls you can see, or remember** (seen before and now in fog, shown in their last-known state; core/vision.md > Explored) count in the preview: the tiles they claim are shown as unclaimable (user, 2026-11-26). A remembered Hall is assumed to still be there, so the estimate can be wrong (it may be gone). Enemy Halls you have never seen are not counted (no information leak), so the preview may then be optimistic.
+- **A selected own Hall** shows its claimed tiles.
+- Enemy Halls' areas are never drawn as areas of their own.
 
 ### TileClaiming
 A Recruitment Hall claims Recruitable tiles within its Recruitment Area that are not already claimed by another active Recruitment Hall. Tiles are claimed on a first-built basis — the hall that was constructed first has priority. This priority also applies when tiles are freed by the destruction of a competing hall; if multiple halls contest a newly freed tile, the one that was built first claims it.
@@ -120,10 +138,10 @@ Rationale: every Cults unit (miners, builders, staff and army) counts against it
 - RallyPoint: Coordinates | ObjectInstance | None
 
 ### Production Behavior
-The Recruitment Hall automatically and continuously produces Recruits at no resource cost until LocalUnitControlUsage reaches LocalUnitControlCapacity. Produced Recruits spawn at the hall and move to its rally point. Production logic is entirely local — global Unit Control state does not affect production decisions.
+The Recruitment Hall automatically and continuously produces Recruits at no resource cost until LocalUnitControlUsage reaches LocalUnitControlCapacity. Produced Recruits come out of the **exit side (B)** and move to its rally point. **Production can't be cancelled** (user, 2026-11-26; Q0100). **Unit Control**: the Recruit in production **counts toward LocalUnitControlUsage from the start of its production** (as other factions, 0143). When the Hall is at capacity nothing is in production; when capacity frees up (a unit dies), the next Recruit **starts from 0**. Production logic is entirely local — global Unit Control state does not affect production decisions.
 
 ### Unit Control Tracking
-Each Recruit tracks which Recruitment Hall produced it. This lineage persists when a Recruit is trained into another unit. A trained unit's Unit Control cost equals the number of Recruits consumed to produce it, with each point of cost attributed to the originating hall of the respective Recruit. When a unit is destroyed, LocalUnitControlUsage decreases at the originating hall(s).
+Each Recruit tracks which Recruitment Hall produced it. **Recruits no Hall produced** (placed by a custom map or spawned by a debug command; user, 2026-11-26; Q0101) are **orphans** from the start: they count in the global display only, against no Hall. This lineage persists when a Recruit is trained into another unit. A trained unit's Unit Control cost equals the number of Recruits consumed to produce it, with each point of cost attributed to the originating hall of the respective Recruit. When a unit is destroyed, LocalUnitControlUsage decreases at the originating hall(s).
 
 ### Cults Unit Control HUD Display
 Displays: (sum of all LocalUnitControlUsage across all active Recruitment Halls and orphaned units) / (sum of all LocalUnitControlCapacity across all active Recruitment Halls). This is a global aggregation for display purposes only.
@@ -143,8 +161,7 @@ Right-click resolution:
 - Right-click Ground: issues SetRallyPoint command to that location
 - Right-click Object: issues SetRallyPoint command to that object
 
-Immediate commands (CommandIssuingTransition):
-- **X: Cancel Production**: cancels the current Recruit in production, resetting ProductionProgress. Only available if ProductionProgress is not None.
+(No cancel: Recruit production can't be cancelled; user, 2026-11-26; Q0100.)
 
 Target commands (StateOnlyTransition):
 - **C: Set Rally Point**: enters AwaitingTarget[SetRallyPoint]. Left-click ground or object sets the rally point (CommandIssuingTransition, returns to DefaultState).

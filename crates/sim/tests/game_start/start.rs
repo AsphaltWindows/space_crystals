@@ -12,8 +12,8 @@ fn banks(sim: &Sim) -> Vec<(u32, u32)> {
 /// Design change 0008 and the plan's acceptance of the game start: each player's objects are exactly where their
 /// faction's layout at their slot puts them, turned as it turns them, and none of another faction's layout comes; a
 /// GDO player has 100 Space Crystals, 0 Supplies (design change 0077) and power +9, 21 used out of 30; the layout's
-/// plates mine their patches from the start, and pay at the end of the first cycle. A player of a faction whose
-/// Starting Conditions aren't implemented yet starts with empty banks (T11).
+/// plates mine their patches from the start, and pay at the end of the first cycle. A Cults player starts with empty
+/// banks, their Starting Conditions' (slice M5-B).
 #[test]
 fn a_game_starts_with_each_players_starting_conditions() {
     let mut s = ScenarioBuilder::new(&flat(24, 12))
@@ -29,9 +29,12 @@ fn a_game_starts_with_each_players_starting_conditions() {
         laid(PLATE, 21, 2),               // 11
         laid(PLATE, 22, 2),               // 12
     ];
-    // A Custom map's layouts may hold any objects (`core/map_editor.md > Map Types > Custom`); nobody plays the
-    // Cults.
-    *s.map.slots[0].layouts.get_mut(Faction::Cults) = vec![unit_at(PK, point(12.0, 6.0))];
+    // A Custom map's layouts may hold any objects (`core/map_editor.md > Map Types > Custom`), the Cults' here a
+    // Recruit and its Hall; nobody plays the Cults.
+    *s.map.slots[0].layouts.get_mut(Faction::Cults) = vec![
+        unit_at(RECRUIT, point(12.0, 6.0)),
+        laid(HALL, 9, 1), // (9, 1) to (12, 4)
+    ];
     let sim = Sim::try_new(&s).unwrap();
     let owned: Vec<_> = sim
         .objects()
@@ -66,15 +69,23 @@ fn a_game_starts_with_each_players_starting_conditions() {
     t.run_until(48);
     assert_eq!(banks(t.sim()), [(120, 0), (120, 0)], "10 from each plate");
 
-    // Player 1 plays the Cults: its layout at slot 1, and no Starting Conditions yet.
+    // Player 1 plays the Cults: their layout at slot 1, its Recruit of its Hall's lineage though listed before it
+    // (`cults_start.rs`), and their Starting Conditions' banks, nothing (`factions/cults/economy.md > Starting
+    // Conditions`: "**0 Space Crystals**").
     s.setup.players[0].faction = Faction::Cults;
     let sim = Sim::try_new(&s).unwrap();
     let p1: Vec<_> = sim
         .objects()
         .filter(|o| o.owner == Some(P1))
-        .map(|o| (o.kind, o.pos))
+        .map(|o| (o.id.0, o.kind, o.pos, o.lineage.clone()))
         .collect();
-    assert_eq!(p1, [(PK, point(12.0, 6.0))]);
+    assert_eq!(
+        p1,
+        [
+            (5, RECRUIT, point(12.0, 6.0), vec![ObjectId(6)]),
+            (6, HALL, point(11.0, 3.0), vec![]),
+        ]
+    );
     assert_eq!(banks(&sim), [(0, 0), (100, 0)]);
 }
 

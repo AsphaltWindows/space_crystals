@@ -7,6 +7,8 @@ In a normal game, a player is **defeated when they own no buildings**. This appl
 - **The Syndicate**: when a Tunnel is destroyed, all of that Tunnel's expansions become neutral (no longer owned by the Syndicate player), but its Laser Turrets stay Syndicate-owned (pop-up turrets become upright). So losing the last Tunnel defeats the Syndicate only if they own no Laser Turrets. See factions/syndicate/tunnels.md > Tunnel Network > Losing Tunnels.
 
 ## On Defeat
+**Everyone learns of it** (user, 2026-11-26; Q0090): when a player is defeated while the game goes on, **all players** are told.
+
 (user, 2026-11-24)
 - **Remaining units become neutral.** When a player is defeated, their remaining units stay on the map but **stop belonging to anyone** (neutral objects, like the Syndicate expansions of a destroyed Tunnel). Their orders are cleared and they stay idle where they are. **Modes are kept as they were** (user, 2026-11-24): e.g. a Peacekeeper with its Riot Shield raised stays shielded (a mode isn't an order); an attack already in its Firing/Cooldown phase finishes.
 - Being neutral, they **never attack** anyone and are **never auto-targeted** (systems/combat.md > ValidTarget; auto-targeting never picks neutral objects). Any player can still destroy them with an explicit Attack order (systems/controls/commands.md > Attack).

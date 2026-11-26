@@ -60,8 +60,8 @@ fn each_layout_follows_its_factions_placement_rules_without_sight() {
     };
     assert_eq!(s.map.validate(), [blocked]);
     gdo(&mut s).pop();
-    // Another faction's layout over the GDO's.
-    *s.map.slots[0].layouts.get_mut(Faction::Cults) = vec![laid(DC, 2, 2)];
+    // Another faction's layout over the GDO's: the Cults' Hall on its Deployment Center, which needs no build area.
+    *s.map.slots[0].layouts.get_mut(Faction::Cults) = vec![laid(HALL, 2, 2)];
     assert_eq!(s.validate(), []);
 
     // Only the area of the layout's own Deployment Center counts.

@@ -15,8 +15,8 @@ Game:
   --scenario <name>           Start a built-in map: {names} (default {DEFAULT_SCENARIO})
   --map <file.json>           Start a map file instead
                               (both with the default setup: a GDO player in every slot, player n in slot n)
-  --factions <f1,f2,...>      The factions of the players in slots 1, 2, ...: gdo or colonists (syndicate
-                              and cults start with nothing until implemented); gdo for the slots not named
+  --factions <f1,f2,...>      The factions of the players in slots 1, 2, ...: gdo, syndicate, cults or
+                              colonists (any case); gdo for the slots not named
   --player <n>                Show player n's view (default 1)
   --window-size <W>x<H>       Window or offscreen image size in pixels (default {w}x{h})
   --fast                      Run as many ticks per frame as possible instead of 16 per second

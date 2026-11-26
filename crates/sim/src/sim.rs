@@ -109,12 +109,18 @@ impl Sim {
     /// wrong with either ([`Scenario::validate`]). The map's pre-placed objects come first, those of slots that no
     /// player takes left out, then each player's Starting Layout for their faction at their slot; objects a slot
     /// owns belong to the player who takes it, and the banks start at their faction's Starting Conditions
-    /// ([`Player::starting`]). Never panics.
+    /// ([`Player::starting`]). A layout's Cults units belong to its Recruitment Hall (`Object::lineage`, slice M5-B).
+    /// Never panics.
     pub fn try_new(scenario: &Scenario) -> Result<Self, Vec<ScenarioProblem>> {
         let objects = scenario.start_objects()?;
         let mut sim = Self::empty(scenario);
-        for o in objects {
-            sim.insert_object(o.kind, o.owner, o.pos, o.placement, o.settings.as_ref());
+        let ids: Vec<ObjectId> = (objects.iter())
+            .map(|o| sim.insert_object(o.kind, o.owner, o.pos, o.placement, o.settings.as_ref()))
+            .collect();
+        for (o, id) in objects.iter().zip(&ids) {
+            if let Some(object) = sim.objects.get_mut(id) {
+                object.lineage = o.lineage.iter().filter_map(|&i| ids.get(i).copied()).collect();
+            }
         }
         sim.settle_start();
         Ok(sim)

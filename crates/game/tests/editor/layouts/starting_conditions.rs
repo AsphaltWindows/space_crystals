@@ -62,15 +62,15 @@ fn skirmish_layouts_take_only_the_starting_conditions() {
 
 /// 0012 and the slice's acceptance: a new Skirmish Default map says what each layout lacks, in the Problems list and
 /// when a play-test is refused, until it is complete; then it saves, opens and play-tests with every player's base.
-/// The images of slot 1's layout in slot 2 follow it, turned half around. (The Colonists' and the Syndicate's layouts
-/// are given here; `colonists.rs` and `syndicate.rs` place them.)
+/// The images of slot 1's layout in slot 2 follow it, turned half around. (The other factions' layouts are given
+/// here; `syndicate.rs`, `cults.rs` and `colonists.rs` place them.)
 #[test]
 fn a_new_skirmish_map_lists_what_its_layouts_lack_until_it_plays() {
     let dir = temp_maps("layout_complete");
-    let map = with_syndicate(with_colonists(with_patches(
+    let map = with_cults(with_syndicate(with_colonists(with_patches(
         skirmish(32, 24, 2, Symmetry::Rotate180),
         &[(3, 3), (4, 3)],
-    )));
+    ))));
     let mut app = editor(map, &dir);
     let missing = "S1 GDO layout: add Deployment Center, Extraction Facility, Extraction Plate x2 (Layout tool, T); \
                    S2 follows";
@@ -159,10 +159,10 @@ fn a_new_skirmish_map_lists_what_its_layouts_lack_until_it_plays() {
 /// GDO no longer has.
 #[test]
 fn outdated_layouts_are_flagged_until_fixed() {
-    let mut map = with_syndicate(with_colonists(with_patches(
+    let mut map = with_cults(with_syndicate(with_colonists(with_patches(
         skirmish(32, 24, 2, Symmetry::Rotate180),
         &[(3, 3), (4, 3)],
-    )));
+    ))));
     *map.slot_mut(S1).unwrap().layouts.get_mut(Faction::Gdo) = vec![
         laid(DC, 2, 6, UNTURNED),
         laid(EF, 7, 6, UNTURNED),

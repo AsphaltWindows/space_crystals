@@ -2304,3 +2304,19 @@ Answered Q0069–Q0071 (0258–0267): losing-Tunnel edges, Syndicate economy che
 2026-11-26 — Q0097 group construction. Entry 0339.
 2026-11-26 — Q0098 refunds. Entry 0340.
 2026-11-26 — Q0099 Recruitment Area. Entry 0341.
+2026-11-26 — Q0100 Hall production. Entry 0342.
+2026-11-26 — Q0129 sidestep side. Entry 0343.
+2026-11-26 — Q0101.1. Entry 0344.
+2026-11-26 — Q0102. Entry 0345.
+2026-11-26 — Q0103 economy check. Entry 0346.
+2026-11-26 — Q0104 entering pool buildings. Entry 0347.
+2026-11-26 — Q0105.3-5. Entry 0348.
+2026-11-26 — Q0106 evacuation. Entry 0349.
+2026-11-26 — Q0107 (b). Entry 0350.
+2026-11-26 — Preview shows own pending Halls. Entry 0351.
+2026-11-26 — Preview counts remembered Halls. Entry 0352.
+2026-11-26 — Q0119. Entry 0353.
+2026-11-26 — Q0120 Sparrow flight. Entry 0354.
+2026-11-26 — Sparrow grip 0.5. Entry 0355.
+2026-11-26 — Q0122: Rocketman/Arsenal placeholders. Entry 0356.
+2026-11-26 — Q0090. Entry 0357.

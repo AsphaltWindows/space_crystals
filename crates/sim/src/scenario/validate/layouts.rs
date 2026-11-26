@@ -34,9 +34,9 @@ impl MapDef {
     ///   structure's placement problem ([`crate::TileProblem::Unit`]), whatever their order, and only that: the
     ///   layout's structures stay out of the unit-start rule, so the unit isn't reported as blocked by it too.
     ///
-    /// Then, on a Skirmish Default map, the kinds the layout of an implemented faction lacks
-    /// ([`ScenarioProblem::LayoutMissing`]). `spots` are where the map's pre-placed objects stand, `None` for those
-    /// that can't be placed; all of them count, whoever owns them.
+    /// Then, on a Skirmish Default map, the kinds the layout lacks ([`ScenarioProblem::LayoutMissing`]). `spots` are
+    /// where the map's pre-placed objects stand, `None` for those that can't be placed; all of them count, whoever
+    /// owns them.
     pub(super) fn check_layouts(&self, spots: &[Option<SpawnSpot>], problems: &mut Vec<ScenarioProblem>) {
         let placed: Vec<(ObjectKind, Vec2, Option<&Placement>)> = self
             .spawns
