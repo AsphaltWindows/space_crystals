@@ -119,6 +119,10 @@ pub(super) fn end_queued_targeting(actions: Res<ActionState>, pressed: Res<Targe
 ///   `Command::Ability` (question Q0040 point 9), and returns to DefaultState ("CommandIssuingTransition"); a
 ///   Shift-click too, like a rally point's. Their orders go on (`sc_sim::Ability::SetDropOff`: "Does not interrupt
 ///   current mining/movement"). Anything else is an invalid target.
+/// - **A Shrine's cast** (slice M5-N5, `factions/cults/structures/shrine.md > Placeholder stats`: "Targeting:
+///   AwaitingTarget, left-click a point in vision"): a click on a point the player sees now casts the ability there
+///   from the one Shrine of the ActiveGroup, as one `Command::Cast`, and returns to DefaultState; a Shift-click too,
+///   like a rally point's (`PanelCommand::queues`). A point out of vision is an invalid target.
 pub(super) fn click_targets(
     actions: Res<ActionState>,
     mut pressed: ResMut<TargetPress>,
@@ -165,8 +169,8 @@ pub(super) fn click_targets(
 
 /// Gives what the targeting click `click` resolves to ([`target_resolution`]) to its command's recipients: an order
 /// to each unit as [`unit_target_order`] has it, queued if it was a Shift-click, the rally point to all the
-/// producers, or the ability to all the units. Whether anything was given: nothing for a target the command can't
-/// use, nor when the sim would take none of it.
+/// producers, the ability to all the units, or (M5-N5) the cast to the Shrine. Whether anything was given: nothing
+/// for a target the command can't use, nor when the sim would take none of it.
 fn give_targeted(control: &LocalControl, outbox: &mut OrderOutbox, click: PressedTarget) -> bool {
     let state = control.state();
     let recipients = recipients(&state.selection, click.pending);
@@ -187,6 +191,7 @@ fn give_targeted(control: &LocalControl, outbox: &mut OrderOutbox, click: Presse
             outbox.produce(control.player(), recipients, ProductionCommand::SetRally(target))
         }
         Some(Resolved::Ability(ability)) => outbox.use_ability(control.player(), recipients, ability),
+        Some(Resolved::Cast(ability, at)) => outbox.cast(control.player(), recipients, ability, at),
     }
 }
 
@@ -243,8 +248,8 @@ pub(super) fn right_click_orders(
                 Some(Resolved::Order(kind)) => orders.push((id, kind)),
                 // Every producer rallies on the same target: what was clicked.
                 Some(Resolved::Rally(on)) => rally.get_or_insert_with(|| (on, Vec::new())).1.push(id),
-                // No right-click uses an ability.
-                Some(Resolved::Ability(_)) | None => {}
+                // No right-click uses an ability, nor casts.
+                Some(Resolved::Ability(_) | Resolved::Cast(..)) | None => {}
             }
         }
         let queue = bindings.holds(InputAction::Queue, click.modifiers);

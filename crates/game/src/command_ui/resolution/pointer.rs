@@ -46,6 +46,13 @@ pub enum PointerDisplay {
     /// the selection could enter only while it is full (slice M5-S2b; design change 0378: "a damaged enterable
     /// building that is **full at the moment of the click** resolves to **Repair** (the pointer shows Repair)").
     Repair,
+    /// (M5-N5) A Shrine's cast (`factions/cults/structures/shrine.md > Placeholder stats`: "Targeting: AwaitingTarget,
+    /// left-click a point in vision"), over a point the player sees now, while Q or W awaits it: **Placeholder (not in
+    /// the design's Types: plan §N5's "the AwaitingTarget cursor, with a 4 GU ring")**, a look of its own
+    /// (`crate::command_ui::cursor`), with the ability's circle on the ground around the point
+    /// (`crate::command_ui::indicators::cast`). Over a point out of vision, Inactive (`> Types`: "hovering over an
+    /// invalid target for the current context").
+    Cast,
 }
 
 impl PointerDisplay {
@@ -76,13 +83,14 @@ impl PointerDisplay {
     /// Move (rally point)"; `systems/controls/hud.md > Resolution Rules > AwaitingTarget[CommandType]`:
     /// "AwaitingTarget\[SetRallyPoint\] over ground or object: Move"). Set Drop-off over a drop-off shows
     /// ReturnResources: **placeholder**, the rules have no AwaitingTarget\[SetDropOffLocation\] row, and its target is
-    /// the drop-off point the loads will return to.
+    /// the drop-off point the loads will return to. (M5-N5) A cast shows Cast.
     pub fn of(resolved: Resolved) -> Self {
         match resolved {
             Resolved::Order(kind) => Self::of_order(kind),
             Resolved::Rally(_) => PointerDisplay::Move,
             Resolved::Ability(Ability::SetDropOff(_)) => PointerDisplay::ReturnResources,
             Resolved::Ability(_) => PointerDisplay::Inactive,
+            Resolved::Cast(..) => PointerDisplay::Cast,
         }
     }
 }

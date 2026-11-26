@@ -7,7 +7,7 @@ mod flow;
 mod names;
 mod sim;
 
-use sc_sim::{AugmentOrder, ObjectKind, RecruitKind, Tech};
+use sc_sim::{AreaAbility, AugmentOrder, ObjectKind, RecruitKind, Tech};
 
 use super::{BuildMenu, Planned};
 
@@ -25,7 +25,8 @@ use super::{BuildMenu, Planned};
 /// (design change 0337, `factions/cults/structures/README.md > Choosing Recruits, Release and Eject All`; slice M5-F2)
 /// and Altar's (`factions/cults/augmentation.md > Altar > ObjectInterfaceState[Altar]`, slice M5-N1b), and Temple's
 /// (`factions/cults/structures/temple.md > Placeholder stats`, slice M5-N3), and the Disciple's spell
-/// (`factions/cults/units/disciple.md > Placeholder stats`, slice M5-N4b).
+/// (`factions/cults/units/disciple.md > Placeholder stats`, slice M5-N4b), and the Shrine's casts
+/// (`factions/cults/structures/shrine.md > Placeholder stats`, slice M5-N5).
 #[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum PanelCommand {
     Move,
@@ -233,4 +234,12 @@ pub enum PanelCommand {
     /// Disciple's channel; Tab to the next)". Greyed while the gate would refuse it, below 10 energy
     /// (`sc_sim::Reject::NotEnoughEnergy`: "needs at least **10 energy** to start").
     Shroud,
+    /// (M5-N5) The Shrine's Q and W (`factions/cults/structures/shrine.md > Placeholder stats`: "**Health
+    /// regeneration** (hotkey Q)", "**Energy regeneration** (hotkey W)"; "Targeting: AwaitingTarget, left-click a point
+    /// in vision"): awaits its point, where a left-click on a point the player sees now casts the ability there
+    /// (`sc_sim::Command::Cast`, plan decision T76), from the one Shrine of the ActiveGroup: "Groupable **false** (user,
+    /// 2026-11-26; Q0118: each press casts from one Shrine)". Greyed while the gate would refuse it wherever it is cast,
+    /// below its cost in energy (`sc_sim::Sim::can_cast`: `sc_sim::Reject::NotEnoughEnergy`); a click on a point out of
+    /// vision is an invalid target (`crate::command_ui::resolution::target_resolution`).
+    Cast(AreaAbility),
 }

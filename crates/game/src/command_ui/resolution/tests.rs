@@ -2,6 +2,7 @@ mod garrison;
 mod gathering;
 mod recruit;
 mod repair;
+mod shrine;
 mod temple;
 
 use sc_sim::defs::TargetDomain;
@@ -36,6 +37,7 @@ fn on(target: CursorTarget, destructible: bool, domain: Domain) -> MapTarget {
             site: None,
             repair: None,
         }),
+        seen: true,
     }
 }
 

@@ -15,6 +15,8 @@
 //!   the queued orders' markers.
 //! - **Rally points** ([`rally`], design change 0087): each selected producer's rally point, a marker with a line
 //!   from the building to it; none while it has no rally point.
+//! - **A cast's circle** ([`cast`], slice M5-N5): while a Shrine's Q or W awaits its point, the circle the cast would
+//!   reach around the point under the pointer, at the back of the mesh.
 //!
 //! Colours follow `> Color language`: green for Move, red for Attack and AttackGround, orange for AttackMove and
 //! Patrol; the gathering
@@ -27,6 +29,7 @@
 //! Flashes age by the sim's ticks and the render alpha, so a QA screenshot of a tick (alpha 1) always shows them
 //! alike.
 
+pub mod cast;
 mod draw;
 pub mod gathering;
 pub mod rally;

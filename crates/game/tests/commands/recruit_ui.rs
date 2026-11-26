@@ -19,7 +19,7 @@ use space_crystals::object_render::LoadMarker;
 use space_crystals::placement::{Ghost, LingeringGhosts, PlacementGhost};
 
 use super::*;
-use KeyCode::{KeyA, KeyC, KeyD, KeyF, KeyS, KeyW, KeyX, KeyZ, Tab};
+use KeyCode::{KeyA, KeyC, KeyD, KeyF, KeyS, KeyV, KeyW, KeyX, KeyZ, Tab};
 
 const P1: PlayerId = PlayerId(1);
 const P2: PlayerId = PlayerId(2);
@@ -274,10 +274,10 @@ fn the_recruits_panel_shows_every_letter() {
 /// opens the Basic menu, Q Recruitment Hall greyed for the bank, W Storage, A Armory (a Storage stands), S Gunworks
 /// (an Armory stands; slice M5-G2), D Garrison (an Armory stands; slice M5-N2) and X Altar (a Storage stands; slice
 /// M5-N1b), whose placement X enters and Z leaves for the menu; each Build's hint names its price. Z goes back; W opens
-/// the Advanced menu: S Machine Shop and F Scrap Hangar (slice M5-G2), X Temple (slice M5-N3) and C Cathedral (slice
-/// M5-N4a) greyed by the gate for their TechPrerequisites, a Chop Shop, an Airstrip, an Altar and a Temple, which they
-/// name when pressed; A Chop Shop, D Airstrip and V Shrine greyed as not in the game yet (0327's Verification: "W then
-/// A places a Chop Shop (greyed without an Armory)": its Build comes with its slice).
+/// the Advanced menu: S Machine Shop and F Scrap Hangar (slice M5-G2), X Temple (slice M5-N3), C Cathedral (slice
+/// M5-N4a) and V Shrine (slice M5-N5) greyed by the gate for their TechPrerequisites, a Chop Shop, an Airstrip, an
+/// Altar and a Temple, which they name when pressed; A Chop Shop and D Airstrip greyed as not in the game yet (0327's
+/// Verification: "W then A places a Chop Shop (greyed without an Armory)": its Build comes with its slice).
 #[test]
 fn the_construct_menus_keep_their_slots_greying_what_cant_be_built() {
     use ButtonLook::{Back, Common, Disabled, Unavailable};
@@ -328,7 +328,7 @@ fn the_construct_menus_keep_their_slots_greying_what_cant_be_built() {
         (f(), cmd(Build(ObjectKind::ScrapHangar)), Disabled, "SH"),
         (x(), cmd(Build(ObjectKind::Temple)), Disabled, "TE"),
         (c(), cmd(Build(ObjectKind::Cathedral)), Disabled, "CL"),
-        (v(), planned(Planned::Shrine), Unavailable, "SR"),
+        (v(), cmd(Build(ObjectKind::Shrine)), Disabled, "SR"),
     ];
     let mut expected = entries.to_vec();
     expected.insert(4, (z(), PanelButton::Back, Back, "Back"));
@@ -339,6 +339,7 @@ fn the_construct_menus_keep_their_slots_greying_what_cant_be_built() {
         (f(), "F: Build Scrap Hangar (200 Space Crystals)"),
         (x(), "X: Build Temple (200 Space Crystals)"),
         (c(), "C: Build Cathedral (250 Space Crystals)"),
+        (v(), "V: Build Shrine (200 Space Crystals)"),
     ];
     for (at, hint) in hints {
         assert_eq!(hint_over(&mut app, at).as_deref(), Some(hint));
@@ -352,6 +353,8 @@ fn the_construct_menus_keep_their_slots_greying_what_cant_be_built() {
     tap(&mut app, &[], KeyX);
     assert_eq!(said(&app), Some("Requires an Altar"));
     tap(&mut app, &[], KeyC);
+    assert_eq!(said(&app), Some("Requires a Temple"));
+    tap(&mut app, &[], KeyV);
     assert_eq!(said(&app), Some("Requires a Temple"));
     assert_eq!(interface(&app), InterfaceState::BuildMenu(BuildMenu::Advanced));
     assert_eq!(orders(&app), []);

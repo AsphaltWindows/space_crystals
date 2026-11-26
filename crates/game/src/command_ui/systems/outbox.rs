@@ -6,7 +6,7 @@ use std::collections::BTreeSet;
 use bevy::ecs::system::SystemParam;
 use bevy::prelude::*;
 use sc_sim::{
-    Ability, Command, ConstructionCommand, HoldCommand, ObjectId, OrderKind, PlayerCommand, PlayerId,
+    Ability, AreaAbility, Command, ConstructionCommand, HoldCommand, ObjectId, OrderKind, PlayerCommand, PlayerId,
     ProductionCommand, Reject, Target, TunnelCommand,
 };
 
@@ -219,6 +219,29 @@ impl OrderOutbox<'_> {
         };
         if let Err(reject) = self.sim.validate(&sent) {
             debug!("holding command {command:?} not given: {reject}");
+            return false;
+        }
+        self.pending.0.push(sent);
+        true
+    }
+
+    /// (M5-N5) `player`'s Shrine among `casters` casts `ability` at `at` (`Command::Cast`), at once: the one Shrine of
+    /// the ActiveGroup (the Shrine is Ungroupable: "each press casts from one Shrine"). Nothing when none of them is the
+    /// player's, for a point that isn't finite (`ARCHITECTURE.md > Commands, events and replays`), or when the sim
+    /// would reject it (`Sim::validate`: a point out of vision, too little energy).
+    pub(super) fn cast(&mut self, player: PlayerId, casters: Vec<ObjectId>, ability: AreaAbility, at: Vec2) -> bool {
+        let casters: Vec<ObjectId> = (casters.into_iter())
+            .filter(|&id| self.sim.object(id).is_some_and(|o| o.owner == Some(player)))
+            .collect();
+        if casters.is_empty() || !at.is_finite() {
+            return false;
+        }
+        let sent = PlayerCommand {
+            player,
+            command: Command::Cast { casters, ability, at },
+        };
+        if let Err(reject) = self.sim.validate(&sent) {
+            debug!("cast {ability:?} not given: {reject}");
             return false;
         }
         self.pending.0.push(sent);

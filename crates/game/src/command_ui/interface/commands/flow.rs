@@ -7,7 +7,8 @@ use super::PanelCommand;
 impl PanelCommand {
     /// Whether the command awaits a target (a StateOnlyTransition to AwaitingTarget): the target commands of
     /// `> BasicCombatUnitInterfaceState > DefaultState commands`, Set Rally Point, the Drone's Set Drop-off, the
-    /// Agent's Drop Off, the Recruits' Assist Construction and the Recruits' and the Agent's Repair (slice M5-N8). The
+    /// Agent's Drop Off, the Recruits' Assist Construction and the Recruits' and the Agent's Repair (slice M5-N8), and
+    /// (M5-N5) a Shrine's casts, on a point ("Targeting: AwaitingTarget, left-click a point in vision"). The
     /// others are issued at once: HoldPosition and Stop, a Disciple's Shroud, Raise and Lower Shield, Convert, a
     /// producer's Train and Cancel
     /// Production, a constructor's Construct and Cancels, a Tunnel's Eject and Cancel; or they enter a state of their
@@ -24,7 +25,8 @@ impl PanelCommand {
             | PanelCommand::SetDropOff
             | PanelCommand::DropOff
             | PanelCommand::Assist
-            | PanelCommand::Repair => true,
+            | PanelCommand::Repair
+            | PanelCommand::Cast(_) => true,
             PanelCommand::HoldPosition
             | PanelCommand::Stop
             | PanelCommand::RaiseShield
@@ -90,7 +92,9 @@ impl PanelCommand {
     /// (`sc_sim::ProductionCommand::Research`), as a Train goes to every Barracks (design change 0083). So does a
     /// Disciple's Shroud (slice M5-N4b): "each R press starts one Disciple's channel; Tab to the next"
     /// (`factions/cults/units/disciple.md > Placeholder stats`), the Disciple being Ungroupable, so that the
-    /// ActiveGroup is the one Disciple Tabbed to.
+    /// ActiveGroup is the one Disciple Tabbed to. So does a Shrine's cast (slice M5-N5), which spends that Shrine's
+    /// energy: "Groupable **false** (user, 2026-11-26; Q0118: each press casts from one Shrine)"
+    /// (`factions/cults/structures/shrine.md > Placeholder stats`).
     pub fn instance_only(self) -> bool {
         matches!(
             self,
@@ -121,6 +125,7 @@ impl PanelCommand {
                 | PanelCommand::ReleaseOf(..)
                 | PanelCommand::ReleaseOne(_)
                 | PanelCommand::Shroud
+                | PanelCommand::Cast(_)
         )
     }
 
@@ -141,7 +146,9 @@ impl PanelCommand {
     /// Recruits' Build and Assist (`factions/cults/units/recruit.md > Unit Commands`), and a Repair (slice M5-N8). So
     /// is a Disciple's Shroud, an order (`sc_sim::OrderKind::Shroud`), which Shift queues behind the Disciple's others:
     /// **Placeholder (not in the design: Shift's meaning for a spell)**, as for any unit order
-    /// (`systems/controls/commands.md > Unit Command`).
+    /// (`systems/controls/commands.md > Unit Command`). A Shrine's cast is no order but a command of a structure, which
+    /// has no order queue (plan decision T76): a Shift-click casts it like a plain click and ends the targeting, as a
+    /// rally point's (**Placeholder (not in the design: Shift's meaning for a cast)**).
     pub fn queues(self) -> bool {
         match self {
             PanelCommand::Move
@@ -189,7 +196,8 @@ impl PanelCommand {
             | PanelCommand::ReleaseOf(..)
             | PanelCommand::Research(_)
             | PanelCommand::Researching(_)
-            | PanelCommand::ReleaseOne(_) => false,
+            | PanelCommand::ReleaseOne(_)
+            | PanelCommand::Cast(_) => false,
         }
     }
 }

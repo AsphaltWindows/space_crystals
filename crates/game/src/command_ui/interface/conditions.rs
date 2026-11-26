@@ -78,15 +78,19 @@
 //! (M5-N4b) A Disciple's R, Shroud (`factions/cults/units/disciple.md > Placeholder stats`), asks the gate for its
 //! Shroud order, unqueued, to the one Disciple of the ActiveGroup: it is greyed below 10 energy
 //! (`Reject::NotEnoughEnergy`: "needs at least **10 energy** to start").
+//!
+//! (M5-N5) A Shrine's Q and W (`factions/cults/structures/shrine.md > Placeholder stats`) ask the gate for their cast
+//! wherever it would be cast (`Sim::can_cast`): greyed while the Shrine hasn't the energy it costs
+//! (`Reject::NotEnoughEnergy`; N5's acceptance: "too little energy greys the command"), or while it is a site. Where
+//! it is cast is the click's (`crate::command_ui::resolution::target_resolution`: a point out of vision is an invalid
+//! target). The commands each button would send are `probes.rs`'.
 
 mod modes;
+mod probes;
 
 use std::collections::BTreeMap;
 
-use sc_sim::{
-    BuildingOrientation, Command, ConstructionCommand, Constructor, ObjectId, ObjectKind, OrderKind, PlayerCommand,
-    PlayerId, RecruitKind, Reject, Sim, TilePos,
-};
+use sc_sim::{Constructor, ObjectId, ObjectKind, PlayerId, RecruitKind, Reject, Sim};
 
 use sc_sim::construction::site::BuildPrice;
 
@@ -162,20 +166,21 @@ pub struct Conditions {
 impl Conditions {
     /// The conditions of `player`'s `selection` in `sim`: the modes, the ActiveGroup's constructor state, and
     /// `Sim::validate`'s answer to the `Command::Production`, `Command::Construction` or `Command::Ability` each such
-    /// command the ActiveGroup may show would send ([`commands`]). Raise and Lower Shield and Convert are never
+    /// command the ActiveGroup may show would send ([`commands`]; `probes::refusal`). Raise and Lower Shield and Convert are never
     /// refused: the gate takes them whenever a recipient has the mode (design change 0198). The modes are those of
     /// the types the selection groups its objects as ([`Modes::of`]). A Warp In menu entry asks for its Warp In
     /// unturned, and leaves
     /// out the placement's refusal (`Reject::Unplaceable`, the gate's last check): the player turns the ghost before it
     /// is placed, and the ghost shows each tile's problem. An Agent's Build asks for its Build order, unqueued, the
-    /// same way ([`build_probe`]), and so does a Recruits' Construct menu entry, for the whole ActiveGroup (slice
+    /// same way (`probes::build_probe`), and so does a Recruits' Construct menu entry, for the whole ActiveGroup (slice
     /// M5-J1: a group's Build, paid once, its TechPrerequisite and the bank the gate's). A Tunnel's EjectMenu tile and its Cancel ask for their `Command::Tunnel`, and the
     /// network's counts are the player's while the ActiveGroup opens the EjectMenu. An ExpandMenu entry asks
     /// `Sim::can_expand`, the gate's Expand short of its placement, for the same reason as a Warp In's. A pool
     /// building's Eject All asks for its `Command::Holding`, and its kind buttons count its free units. (M5-N3) A
     /// Temple's Research asks for its `Command::Production` of each technology the Temple offers, its key showing the
     /// answers ([`Conditions::key`]), priced at the technology's cost; its releases ask for their `Command::Holding` and
-    /// count its staff. (M5-N4b) A Disciple's Shroud asks for its `Command::Order`, unqueued.
+    /// count its staff. (M5-N4b) A Disciple's Shroud asks for its `Command::Order`, unqueued. (M5-N5) A Shrine's cast
+    /// asks `Sim::can_cast`, and its releases count its participants as a Temple's count its staff.
     pub fn of(sim: &Sim, player: PlayerId, selection: &Selection) -> Self {
         let commands = selection
             .active()
@@ -217,60 +222,8 @@ impl Conditions {
                 Some((unit, sim.pool_counts_of(altar, unit)))
             })
             .collect();
-        let refused = commands
-            .iter()
-            .filter_map(|&command| {
-                let objects = recipients(selection, command);
-                if let PanelCommand::Expand(kind) = command {
-                    let reject = sim.can_expand(player, *objects.first()?, kind).err()?;
-                    return Some((command, reject));
-                }
-                let sent = if let Some(production) = command.production() {
-                    Command::Production {
-                        objects,
-                        command: production,
-                    }
-                } else if let Some(construction) = command.construction() {
-                    Command::Construction {
-                        objects,
-                        command: construction,
-                    }
-                } else if let PanelCommand::WarpIn(kind) = command {
-                    let orientation = BuildingOrientation::default();
-                    Command::Construction {
-                        objects,
-                        command: ConstructionCommand::WarpIn { kind, orientation },
-                    }
-                } else if let Some(tunnel) = command.tunnel() {
-                    Command::Tunnel {
-                        tunnel: *objects.first()?,
-                        command: tunnel,
-                    }
-                } else if let Some(holding) = command.holding() {
-                    Command::Holding {
-                        objects,
-                        command: holding,
-                    }
-                } else if let PanelCommand::Build(kind) = command {
-                    build_probe(objects, kind)
-                } else if command == PanelCommand::Shroud {
-                    Command::Order {
-                        units: objects,
-                        kind: OrderKind::Shroud,
-                        queue: false,
-                    }
-                } else {
-                    Command::Ability {
-                        units: objects,
-                        ability: command.ability()?,
-                    }
-                };
-                let sent = PlayerCommand { player, command: sent };
-                let reject = sim.validate(&sent).err()?;
-                let placed = matches!(command, PanelCommand::WarpIn(_) | PanelCommand::Build(_))
-                    && matches!(reject, Reject::Unplaceable(_));
-                (!placed).then_some((command, reject))
-            })
+        let refused = (commands.iter())
+            .filter_map(|&command| Some((command, probes::refusal(sim, player, selection, command)?)))
             .collect();
         let prices = (commands.iter())
             .filter_map(|&command| match command {
@@ -483,22 +436,5 @@ impl Conditions {
             PanelCommand::Researching(tech) => Some(WhyUnavailable::Refused(Reject::ResearchUnderWay(tech))),
             _ => self.refusal(command).map(WhyUnavailable::Refused),
         }
-    }
-}
-
-/// The Build order an Agent's A or a Recruits' Construct menu entry would send (`PanelCommand::Build`, to the command's
-/// recipients), to ask the gate whether the button is available: unqueued, unturned, at the map's north-west corner.
-/// Where it stands matters only to the placement's check, the gate's last (`Reject::Unplaceable`), which the panel
-/// leaves out: the ghost judges each spot as it is placed.
-fn build_probe(units: Vec<ObjectId>, kind: ObjectKind) -> Command {
-    let kind = OrderKind::Build {
-        kind,
-        origin: TilePos::new(0, 0),
-        orientation: BuildingOrientation::default(),
-    };
-    Command::Order {
-        units,
-        kind,
-        queue: false,
     }
 }

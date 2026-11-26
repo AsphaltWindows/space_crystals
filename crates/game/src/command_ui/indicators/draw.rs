@@ -1,6 +1,6 @@
 //! The indicators' mesh: one alpha-blended mesh in the overlays layer, rebuilt every frame while anything shows,
-//! with the routes and the rally lines at the back, then the markers, then the flashes (placeholders until the art,
-//! Q0001).
+//! with a cast's circle (slice M5-N5), the routes and the rally lines at the back, then the markers, then the flashes
+//! (placeholders until the art, Q0001).
 
 use std::f32::consts::TAU;
 
@@ -8,7 +8,7 @@ use bevy::prelude::*;
 use sc_sim::{Map, Object, Sim, Tick};
 
 use super::{
-    CommandIndicators, FLASH_TICKS, Flash, INDICATORS_Z, Indicator, IndicatorMesh, MarkerRing, OrderIssued,
+    CommandIndicators, FLASH_TICKS, Flash, INDICATORS_Z, Indicator, IndicatorMesh, MarkerRing, OrderIssued, cast,
     drop_off_indicators, gathering, indicator, order_color, own_selected, rally, rally_indicators,
     selection_indicators, targets, waypoint,
 };
@@ -88,9 +88,9 @@ fn flash_progress(sim: &Sim, alpha: f32, tick: Tick) -> f32 {
     ((sim.tick().saturating_sub(tick) as f32 + alpha - 1.0) / FLASH_TICKS as f32).clamp(0.0, 1.0)
 }
 
-/// Rebuilds the indicators' mesh: the routes and the rally lines at the back, then the markers (the orders', the
-/// selected workers' drop-offs' and the rally points'), then the flashes. Hidden while nothing shows, and outside the
-/// game modes.
+/// Rebuilds the indicators' mesh: a cast's circle, the routes and the rally lines at the back, then the markers (the
+/// orders', the selected workers' drop-offs' and the rally points'), then the flashes. Hidden while nothing shows, and
+/// outside the game modes.
 #[expect(clippy::too_many_arguments, reason = "a system's parameters")]
 pub(super) fn draw_indicators(
     mode: Res<ClientMode>,
@@ -109,6 +109,14 @@ pub(super) fn draw_indicators(
     if mode.is_game() {
         let (sim, sight) = (local.sim(), local.get());
         let z = DrawLayer::Overlays.base_z() + INDICATORS_Z;
+        // (M5-N5) While a Shrine's cast awaits its point, its circle around the point under the pointer, over the map.
+        let pointer = actions.pointer();
+        if let Some(ability) = cast::awaited(states.of(sight.player()).interface)
+            && let Some(ground) = pointer.ground.filter(|_| !pointer.over_ui)
+        {
+            let seen = sim.sees_point(sight.player(), ground);
+            cast::draw(&mut mesh, sim.map(), ability, ground, seen, z);
+        }
         let queued = actions.held(InputAction::Queue);
         if queued {
             for o in own_selected(sim, &states, sight.player()) {

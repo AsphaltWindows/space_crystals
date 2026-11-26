@@ -30,7 +30,8 @@
 //!   Drones' Set Drop-off an own Egress Node, which becomes the AssignedDropOff of every one of them (an ability,
 //!   `sc_sim::Ability::SetDropOff`; slice M3-J2); the Agents' Drop Off an own Tunnel in operation, a Drop Off order
 //!   (slice M4-J1); the Recruits' Assist Construction an own site built from outside, an Assist order (slice M5-J1);
-//!   the Recruits' and the Agents' Repair a damaged own object that one of them repairs, a Repair order (slice M5-N8).
+//!   the Recruits' and the Agents' Repair a damaged own object that one of them repairs, a Repair order (slice M5-N8);
+//!   (M5-N5) a Shrine's cast a point the player sees now, the ground under the cursor, a cast there.
 //! - **The pointer** ([`pointer_display`]): in DefaultState the one thing the selected objects would all do on a
 //!   right-click, or Mixed when they would do different things (a rally point shows Move:
 //!   `systems/controls/hud.md > Resolution Rules > DefaultState`, "Selection is a production building:
@@ -41,7 +42,7 @@ use bevy::math::Vec2;
 use sc_sim::defs::{Domain, Transit};
 use sc_sim::orders::resolution::{Abilities, Aim, Aimed, resolve};
 use sc_sim::repair::repairs;
-use sc_sim::{Ability, ObjectId, ObjectKind, OrderKind, PlayerId, Sim, Target};
+use sc_sim::{Ability, AreaAbility, ObjectId, ObjectKind, OrderKind, PlayerId, Sim, Target};
 
 use super::interface::{InterfaceTemplate, Modes, PanelCommand};
 use crate::selection::{Relation, Selectables, Selection};
@@ -88,7 +89,7 @@ impl CursorTarget {
 }
 
 /// What a click, or the pointer, is on, as the resolution needs it: the [`CursorTarget`], the ground point under
-/// the cursor, and the object there as the player knows it.
+/// the cursor, the object there as the player knows it, and whether the player sees the point.
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub struct MapTarget {
     pub target: CursorTarget,
@@ -98,6 +99,10 @@ pub struct MapTarget {
     /// by its record (design change 0139). `None` over the ground, and over an object the player knows nothing of,
     /// which only the fog's debug toggle shows.
     pub aimed: Option<Aimed>,
+    /// (M5-N5) Whether the player sees the ground point now, as the gate judges a cast's point (`Sim::sees_point`: on
+    /// the map, on a tile Visible to them as the last tick left their vision; `factions/cults/structures/shrine.md >
+    /// Abilities`: "cast on an area anywhere the player currently has vision").
+    pub seen: bool,
 }
 
 impl MapTarget {
@@ -109,15 +114,17 @@ impl MapTarget {
             target,
             ground,
             aimed: target.object().and_then(|id| sim.aimed(player, id)),
+            seen: sim.sees_point(player, ground),
         }
     }
 
-    /// The ground at `point`.
+    /// The ground at `point`, which the player sees.
     pub fn ground(point: Vec2) -> Self {
         Self {
             target: CursorTarget::Ground(point),
             ground: point,
             aimed: None,
+            seen: true,
         }
     }
 
@@ -200,6 +207,8 @@ pub enum Resolved {
     /// A unit's ability on the target (`Command::Ability`): the Drones' Set Drop-off, on an own Egress Node (slice
     /// M3-J2). No right-click gives one.
     Ability(Ability),
+    /// (M5-N5) A Shrine's cast of the ability at the point (`Command::Cast`). No right-click gives one.
+    Cast(AreaAbility, Vec2),
 }
 
 /// `systems/controls/interface.md > RightClickResolution` for one selected object: a unit's order
@@ -218,7 +227,7 @@ pub fn object_right_click(object: UnitCapabilities, target: &MapTarget) -> Optio
         // A constructor produces no units, and the Beacon, the Egress Node and the Tunnel have no right-click, nor has
         // the Garrison (`factions/cults/structures/garrison.md > Placeholder stats > Panel`: "Right-click resolution:
         // none (it has no rally point)", slice M5-N2), nor the Temple, which researches and has no rally point either
-        // (slice M5-N3; its panel has no C).
+        // (slice M5-N3; its panel has no C), nor (M5-N5) the Shrine, which casts and has none either.
         Some(
             InterfaceTemplate::DeploymentCenter
             | InterfaceTemplate::ExtractionFacility
@@ -226,7 +235,8 @@ pub fn object_right_click(object: UnitCapabilities, target: &MapTarget) -> Optio
             | InterfaceTemplate::EgressNode
             | InterfaceTemplate::Tunnel
             | InterfaceTemplate::Garrison
-            | InterfaceTemplate::Temple,
+            | InterfaceTemplate::Temple
+            | InterfaceTemplate::Shrine,
         ) => None,
         // A unit's default command, by the sim's one rule: the BasicCombatUnit's table, the Drone's own
         // (`factions/colonists/units/drone.md > Right-Click Resolution`; slices M3-R and M3-J2) and the Agent's
@@ -350,11 +360,17 @@ pub fn target_order(pending: PanelCommand, target: &MapTarget) -> Option<OrderKi
 /// `target` gives, if the target is valid. A unit command's order ([`target_order`]); the rally point of Set Rally
 /// Point, which takes the ground and any object (`factions/gdo/structures/barracks.md`: "Left-click ground or object
 /// sets the rally point"; `systems/controls/interface.md > Standard Slot Assignments > C`: the building itself
-/// clears it); the Drones' new drop-off for Set Drop-off ([`drop_off_target`]).
+/// clears it); the Drones' new drop-off for Set Drop-off ([`drop_off_target`]). (M5-N5) A Shrine's cast: the ground
+/// point under the cursor, over an object too, while the player sees it (`factions/cults/structures/shrine.md >
+/// Placeholder stats`: "Targeting: AwaitingTarget, left-click a point in vision"; [`MapTarget::seen`]); a point out of
+/// vision is an invalid target (plan §N5: "a click outside vision gives "invalid target" feedback"). A click over a
+/// unit casts on the ground under it: **Placeholder (not in the design: "a point" read as the ground under the
+/// cursor, whatever stands there)**.
 pub fn target_resolution(pending: PanelCommand, target: &MapTarget) -> Option<Resolved> {
     match pending {
         PanelCommand::SetRallyPoint => Some(Resolved::Rally(rally_target(target))),
         PanelCommand::SetDropOff => drop_off_target(target).map(|node| Resolved::Ability(Ability::SetDropOff(node))),
+        PanelCommand::Cast(ability) => target.seen.then_some(Resolved::Cast(ability, target.ground)),
         _ => target_order(pending, target).map(Resolved::Order),
     }
 }
