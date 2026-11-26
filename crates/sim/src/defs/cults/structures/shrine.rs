@@ -52,6 +52,7 @@ pub(crate) static SHRINE: ObjectDef = ObjectDef {
         popup: None,
         // "Recruit capacity 8": with its ritual's slice.
         holds: None,
+        occupants_fire: None,
     }),
     default_settings: None,
 };

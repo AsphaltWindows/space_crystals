@@ -7,6 +7,10 @@ use crate::defs::{Armor, AttackAttrs, ObjectKind, Resource, UnitBase};
 use crate::sides::SideLetter;
 use crate::units::Tick;
 
+mod occupants;
+
+pub use occupants::OccupantFire;
+
 /// A structure type's own attributes; the attributes every object type has, armour included, are on its
 /// `ObjectDef`.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
@@ -97,6 +101,11 @@ pub struct StructureDef {
     /// many its pool holds, and the kinds it takes. `None` for a type that holds none. Optional in files.
     #[serde(default)]
     pub holds: Option<HoldsDef>,
+    /// (M5-N2) How the units it holds fire from it, for a structure whose occupants fire (plan decision T72,
+    /// `combat::occupants`): the Garrison's (`factions/cults/structures/garrison.md > Garrisoning`). `None` for every
+    /// other structure. Optional in files.
+    #[serde(default)]
+    pub occupants_fire: Option<OccupantFire>,
 }
 
 /// A structure type that holds units inside (`StructureDef::holds`, plan decision T60; `crate::holding`): one
@@ -111,12 +120,13 @@ pub struct HoldsDef {
     /// one letter (AAAA), the first side so lettered clockwise from the top.
     pub entrance: SideLetter,
     /// How the units come out (`ExitSide`): the exit rule of a producing structure, the one vocabulary for how a
-    /// structure releases units. Only an exit side is built (M5-F1, `defs_are_consistent`): the units come out "one
-    /// at a time through the exit doorway" in its middle (`factions/cults/structures/armory.md > ExitSide - opposite
+    /// structure releases units. An exit side (M5-F1, `defs_are_consistent`): the units come out "one at a time
+    /// through the exit doorway" in its middle (`factions/cults/structures/armory.md > ExitSide - opposite
     /// short side (C)`; `core/entities.md > Structure Type > Exit Doorway`; `production::Doorway`). A type that also
-    /// produces releases by the same rule (`ProductionDef::exits`). A Garrison's "one door (entrance and exit)",
+    /// produces releases by the same rule (`ProductionDef::exits`). The Garrison's "one door (entrance and exit)",
     /// which everyone inside leaves by at once on Eject All (`factions/cults/structures/garrison.md`;
-    /// `core/entities.md > Entrance and exit (production and research buildings)`), will be a rule of its own.
+    /// `core/entities.md > Entrance and exit (production and research buildings)`), is a rule of its own
+    /// (`ExitRule::AtOnce`, slice M5-N2), on its entrance side.
     pub exit: ExitRule,
     /// How many units it holds (`factions/cults/structures/armory.md > InternalRecruitCapacity - 10`), those a queued
     /// order reserved and the one in training counted (design change 0347 point 5: "Capacity counts reserved units:
@@ -410,6 +420,14 @@ pub enum ExitRule {
     /// this rule"). It stays in the network, or comes out of the parent Tunnel's exit path for a rally point on the
     /// surface. The Hideout's.
     Network,
+    /// (M5-N2) One door, the only side its SymmetryType letters so, with its doorway in its middle as
+    /// [`ExitRule::Side`] has, which is the building's entrance too: the Garrison's B
+    /// (`factions/cults/structures/garrison.md`: "SymmetryType AAAB, **the door on side B** (one door, entrance and
+    /// exit"). Everyone it lets out leaves **at once** (`> Placeholder stats > Leaving`: "units leave **through the
+    /// door**; on **Eject All** they all come out **at once**, ignoring collision with each other until they are clear
+    /// of the footprint"; `Sim::step_holding`). Only for a building that holds units and produces none
+    /// (`defs_are_consistent`).
+    AtOnce(SideLetter),
 }
 
 /// One entry of a producer's `Produces` list: "Peacekeeper: 50 Space Crystals, 80 frames (5 seconds)"; of a
