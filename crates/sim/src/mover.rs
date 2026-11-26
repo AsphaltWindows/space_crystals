@@ -14,8 +14,10 @@
 //! - `schedule`: when a unit counts as stuck, when it looks for another route and when it gives up (design change
 //!   0024, `docs/movement.md > 5.6`).
 //! - `sidestep`: the one short sidestep of a yielding unit (`docs/movement.md > 6.6`).
+//! - `aside`: the contact step a moving unit is taking (design change 0323, `docs/movement.md > 6.3`).
 //! - `hash`: the state hash of the mover and its parts.
 
+mod aside;
 mod hash;
 mod schedule;
 mod sidestep;
@@ -32,6 +34,7 @@ use crate::units::{Tick, TilePos};
 
 /// A tunable of `tuning::movement`, re-exported here for the client, whose tests read it by this path.
 pub use crate::tuning::movement::OCCUPIED_ARRIVAL_GU;
+pub use aside::StepAside;
 pub use sidestep::Sidestep;
 
 /// `docs/movement.md > 3`: at most this many `avoid_tiles` (a technical cap).
@@ -215,6 +218,12 @@ pub struct Mover {
     /// such a leg are as they were.
     #[serde(default, skip_serializing_if = "is_false")]
     pub presses_on: bool,
+    /// Design change 0323 (`systems/units.md > UnitCollision > Ground Collision`, "The contact step"): the step
+    /// sideways, by its own width, that the unit began at a blocker and is still taking (`docs/movement.md > 6.3`,
+    /// rule 4; `movement::collide::contact`). Until it is made the unit takes no other step. A new
+    /// path ends it ([`Mover::follow`], a detour of [`Mover::go_round`]), and so does a new leg or a stop. Left out of files and of the hash while `None` (`mover/hash.rs`).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub step_aside: Option<StepAside>,
 }
 
 fn is_zero(v: &Vec2) -> bool {
@@ -260,6 +269,7 @@ impl Default for Mover {
             exit_heading: None,
             detour_end: 0,
             presses_on: false,
+            step_aside: None,
         }
     }
 }
@@ -318,6 +328,7 @@ impl Mover {
         // Head for the first waypoint after the start.
         self.next = u16::from(path.len() > 1);
         self.path = path;
+        self.step_aside = None;
         self.detour_end = 0;
         self.path_state = PathState::Ready;
         self.nav_version = nav_version;
@@ -374,5 +385,6 @@ impl Mover {
         self.next = 0;
         self.detour_end = 0;
         self.path_state = PathState::None;
+        self.step_aside = None;
     }
 }

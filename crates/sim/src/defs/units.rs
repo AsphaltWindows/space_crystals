@@ -10,7 +10,7 @@
 
 mod bases;
 
-pub use bases::{Domain, MovementModel, UnitBase, UnitBaseDef};
+pub use bases::{ContactStep, Domain, MovementModel, UnitBase, UnitBaseDef};
 
 use serde::{Deserialize, Serialize};
 

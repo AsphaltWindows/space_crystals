@@ -43,6 +43,19 @@ pub enum MovementModel {
     Glider,
 }
 
+/// `systems/units.md > UnitCollision > Ground Collision`, "The contact step" (design change 0323): the step a moving
+/// unit takes when a standing or oncoming unit blocks it on contact (`docs/movement.md > 6.3`, rule 4;
+/// `movement::collide::contact`). Which one a base takes is data, here.
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub enum ContactStep {
+    /// "the step is at **90°** to its heading (straight sideways), and its length is **the unit's own width** (the
+    /// size of its Silhouette across its heading), so it clears the lane it was in".
+    Sideways,
+    /// The step as built before design change 0323: the move turned 45° to the side, else one tick's step along the
+    /// blocker's face.
+    Diagonal,
+}
+
 /// `systems/units.md > UnitBase`: the nine unit bases.
 #[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 pub enum UnitBase {
@@ -79,6 +92,8 @@ pub struct UnitBaseDef {
     pub can_reverse: bool,
     /// `> MovementModel`.
     pub movement_model: MovementModel,
+    /// `systems/units.md > UnitCollision > Ground Collision`, "The contact step" (design change 0323).
+    pub contact_step: ContactStep,
     /// The class of unit the base belongs to for the Tunnel Network's transit (`factions/syndicate/tunnels.md > Tunnel
     /// Network > Transit Tier Requirements`, as it lists the bases; [`Transit::of`]).
     pub transit: Transit,
@@ -137,7 +152,8 @@ static LIGHT_INFANTRY: UnitBaseDef = UnitBaseDef {
     can_turn_in_place: true,
     can_reverse: false,
     movement_model: MovementModel::TurnRate,
-    transit: Transit::Infantry, // "Tier 1+: Infantry (Light Infantry, Heavy Infantry)"
+    contact_step: ContactStep::Sideways, // 0323: "infantry (LightInfantry, HeavyInfantry)"
+    transit: Transit::Infantry,          // "Tier 1+: Infantry (Light Infantry, Heavy Infantry)"
 };
 
 /// `systems/units.md > HeavyInfantry`.
@@ -151,7 +167,8 @@ static HEAVY_INFANTRY: UnitBaseDef = UnitBaseDef {
     can_turn_in_place: true,
     can_reverse: false,
     movement_model: MovementModel::TurnRate,
-    transit: Transit::Infantry, // "Tier 1+: Infantry (Light Infantry, Heavy Infantry)"
+    contact_step: ContactStep::Sideways, // 0323: "infantry (LightInfantry, HeavyInfantry)"
+    transit: Transit::Infantry,          // "Tier 1+: Infantry (Light Infantry, Heavy Infantry)"
 };
 
 /// `systems/units.md > WheeledVehicle`.
@@ -165,6 +182,9 @@ static WHEELED_VEHICLE: UnitBaseDef = UnitBaseDef {
     can_turn_in_place: false,
     can_reverse: true,
     movement_model: MovementModel::FixedTurnRadius,
+    // TODO(M5-V2): 0323, turn and graze ("WheeledVehicles instead turn and graze around the obstacle"). No wheeled
+    // unit exists yet; until then the base keeps the step as it was built.
+    contact_step: ContactStep::Diagonal,
     transit: Transit::Vehicles, // "Tier 2+: Vehicles (Wheeled, Tracked, Drill, Hover Vehicle, Mech)"
 };
 
@@ -179,7 +199,8 @@ static TRACKED_VEHICLE: UnitBaseDef = UnitBaseDef {
     can_turn_in_place: true,
     can_reverse: true,
     movement_model: MovementModel::SpeedTurnRadius,
-    transit: Transit::Vehicles, // "Tier 2+: Vehicles (Wheeled, Tracked, Drill, Hover Vehicle, Mech)"
+    contact_step: ContactStep::Sideways, // 0323: "and TrackedVehicles"
+    transit: Transit::Vehicles,          // "Tier 2+: Vehicles (Wheeled, Tracked, Drill, Hover Vehicle, Mech)"
 };
 
 /// `systems/units.md > DrillUnit`.
@@ -193,6 +214,8 @@ static DRILL_UNIT: UnitBaseDef = UnitBaseDef {
     can_turn_in_place: true,
     can_reverse: true,
     movement_model: MovementModel::SpeedTurnRadius,
+    // The design names no contact step for the DrillUnit (underground): as it was built.
+    contact_step: ContactStep::Diagonal,
     transit: Transit::Vehicles, // "Tier 2+: Vehicles (Wheeled, Tracked, Drill, Hover Vehicle, Mech)"
 };
 
@@ -210,7 +233,8 @@ static HOVER_VEHICLE: UnitBaseDef = UnitBaseDef {
     can_turn_in_place: true,
     can_reverse: false,
     movement_model: MovementModel::Drag,
-    transit: Transit::Vehicles, // "Tier 2+: Vehicles (Wheeled, Tracked, Drill, Hover Vehicle, Mech)"
+    contact_step: ContactStep::Sideways, // 0323: "hover vehicles (HoverVehicle, HoverCraft)"
+    transit: Transit::Vehicles,          // "Tier 2+: Vehicles (Wheeled, Tracked, Drill, Hover Vehicle, Mech)"
 };
 
 /// `systems/units.md > Mech`.
@@ -224,6 +248,9 @@ static MECH: UnitBaseDef = UnitBaseDef {
     can_turn_in_place: true,
     can_reverse: false,
     movement_model: MovementModel::TurnRate,
+    // Design change 0325: "Mechs turn to face the side, then step sideways the same way". No Mech unit exists; the
+    // turn first isn't built.
+    contact_step: ContactStep::Sideways,
     transit: Transit::Vehicles, // "Tier 2+: Vehicles (Wheeled, Tracked, Drill, Hover Vehicle, Mech)"
 };
 
@@ -238,6 +265,8 @@ static HOVER_CRAFT: UnitBaseDef = UnitBaseDef {
     can_turn_in_place: true,
     can_reverse: false,
     movement_model: MovementModel::Drag,
+    // 0323 names it with the hover vehicles, but it is an air base: ground collision never reaches it.
+    contact_step: ContactStep::Sideways,
     transit: Transit::Air, // "Tier 3+: Air units (Hover Craft, Glider)"
 };
 
@@ -252,5 +281,6 @@ static GLIDER: UnitBaseDef = UnitBaseDef {
     can_turn_in_place: false,
     can_reverse: false,
     movement_model: MovementModel::Glider,
-    transit: Transit::Air, // "Tier 3+: Air units (Hover Craft, Glider)"
+    contact_step: ContactStep::Diagonal, // An air base: ground collision never reaches it.
+    transit: Transit::Air,               // "Tier 3+: Air units (Hover Craft, Glider)"
 };

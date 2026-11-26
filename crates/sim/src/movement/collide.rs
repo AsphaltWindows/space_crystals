@@ -16,6 +16,7 @@ use glam::Vec2;
 
 use super::MoveCounters;
 use super::space::{Body, Contact, Layer, blocks, overlaps, resting, sweep};
+use crate::defs::ContactStep;
 use crate::mover::{Mover, Side};
 use crate::nav::{self, NavGrid};
 use crate::production::ExitDoor;
@@ -34,6 +35,9 @@ pub(super) struct World<'a> {
     pub bodies: &'a [Body],
     /// The moving unit's index in `bodies`.
     pub me: usize,
+    /// The contact step of the moving unit's base (`systems/units.md > UnitCollision > Ground Collision`, design
+    /// change 0323; `contact`).
+    pub contact: ContactStep,
     /// The exit doorway the moving unit is still in, if it is one a producer released and not yet clear of the
     /// footprint (`Mover::exit`; `core/entities.md > Structure Type > Exit Doorway`, design change 0080; a portal's
     /// energy doorway, design change 0145).
@@ -287,11 +291,12 @@ impl World<'_> {
         tick: Tick,
         touched: &mut Vec<usize>,
     ) -> Moved {
-        self.resolve_for(pos, d, snap, mover, tick, touched, false)
+        self.resolve_for(pos, d, d.length(), snap, mover, tick, touched, false)
     }
 
     /// [`World::resolve`] for a unit that goes round a standing unit on the **near side** if `near_side`
-    /// ([`World::around`]): the units with momentum (slice M3-G).
+    /// ([`World::around`]): the units with momentum (slice M3-G). `speed` is how far the unit moves in a tick: `d`
+    /// is shorter next to its steering target, and a contact step isn't.
     #[expect(
         clippy::too_many_arguments,
         reason = "one unit's move, and how its model goes round a blocker"
@@ -300,6 +305,7 @@ impl World<'_> {
         &mut self,
         pos: Vec2,
         d: Vec2,
+        speed: f32,
         snap: Option<Vec2>,
         mover: &mut Mover,
         tick: Tick,
@@ -341,9 +347,9 @@ impl World<'_> {
                 slid: false,
             };
         }
-        if let Some((step, forward)) = self.around(pos, d, hit, mover, tick, touched, near_side) {
+        if let Some((at, forward)) = self.around(pos, d, speed, hit, mover, tick, touched, near_side) {
             return Moved {
-                pos: pos + step,
+                pos: at,
                 forward,
                 blocker,
                 aside: !forward,

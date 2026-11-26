@@ -432,15 +432,13 @@ every tick a waypoint within one step is passed, so a unit rounds a corner witho
      blocker's face: `d` turned 90° leans into the blocker whenever `d` isn't square to the face, and is then never
      free. `d` splits into a part straight at the face and a part along it, its lean:
      - *Glance* (the lean is at least half of `d`, squared): slide along the face, the lean alone.
-     - *Leaning* (the lean is at least 30 % of `d`): go around on the side the unit leans to: `d` turned 45° that
-       way, else a whole step along the face that way. Never a step back along the face. **(M)** The side taken
-       becomes `avoid_side`. The unit's own step along the face can drop its lean below 30 %, and head-on with
+     - *Leaning* (the lean is at least 30 % of `d`): go around on the side the unit leans to, by the **contact
+       step** that way (below). Never a step back along the face. **(M)** The side taken becomes `avoid_side`. The unit's own step along the face can drop its lean below 30 %, and head-on with
        the other `avoid_side` then stepped it straight back, for good: a unit pressed against an idle Guard by the
        crossing lanes of two magic-box groups failed so.
-     - *Head-on*: `d` turned 45° towards `avoid_side`, else a whole step along the face that way. `avoid_side`
-       starts **Right** for everyone on every leg, so head-on units pass like traffic with no randomness. Switch
-       side only if both candidates fail and `avoid_until` has passed; a switch commits for 16 ticks (no left-right
-       flutter). A blocker that itself moves along its face is passed *behind*: once `avoid_until` has passed, the
+     - *Head-on*: the **contact step** towards `avoid_side`. `avoid_side` starts **Right** for everyone on every
+       leg, so head-on units pass like traffic with no randomness. Switch side only if the step that way can't
+       begin and `avoid_until` has passed; a switch commits for 16 ticks (no left-right flutter). A blocker that itself moves along its face is passed *behind*: once `avoid_until` has passed, the
        side switches to the one the blocker comes from. Without this an eastbound unit and a crossing or
        side-stepping one walked side by side to the map's edge.
      - **(M3-G) The near side, for a unit with momentum at a blocker that stands**: it goes round on the side of
@@ -452,10 +450,45 @@ every tick a waypoint within one step is passed, so a unit rounds a corner witho
        a few steps by the lean rule (and the goldens of M1 and M2 hold it to that rule), one with momentum lost
        all its speed at every turn and delivered one load a minute. Now it delivers 9 to 11 where the free
        strip gives 12, wherever the Drone is parked (`tests/gathering_pass_through.rs`).
+     - **(M4-W3) The contact step** (design change 0323, `systems/units.md > UnitCollision > Ground Collision`:
+       "for **infantry (LightInfantry, HeavyInfantry), hover vehicles (HoverVehicle, HoverCraft) and
+       TrackedVehicles**, the step is at **90°** to its heading (straight sideways), and its length is **the
+       unit's own width** (the size of its Silhouette across its heading), so it clears the lane it was in";
+       `movement/collide/contact.rs`). Until 0323 the step was `d` turned 45°, which got the unit on, else one
+       tick's step along the face. Which step a base takes is data on its def (`UnitBaseDef::contact_step`):
+       `Sideways` for the bases 0323 names and for the Mech (0325; its turn to the side first isn't built, there
+       is no Mech); `Diagonal`, the step as it was, for the WheeledVehicle until slice M5-V2 builds its "turn and
+       graze", and for the DrillUnit, which the design doesn't name. The technical decisions, each the simplest
+       predictable rule (0223):
+       - **Straight sideways is along the blocker's face**, as every sidestep here: for a unit that meets the face
+         squarely that is 90° to its heading; the quarter turn of a leaning heading leans into the blocker on one
+         side and is never free there. **Its own width** is its box's extent along that face. (Slice M5-V1's
+         oriented Silhouettes will measure both across the heading itself.)
+       - **Over several ticks** (`Mover::step_aside`: the axis, and the coordinate the step ends on, fixed when it
+         begins; hashed and saved only while set). Each tick the unit moves its speed towards that coordinate,
+         the last part exactly onto it, and nothing else: no step forward and no lane seeking, even if the way
+         ahead comes free meanwhile. An Agent takes 6 ticks over its 36 su, a Peacekeeper 6 over its 24, a Guard 8,
+         a Recruit 6. A unit with momentum thrusts towards each part (6.7) and has made the step once it is on the
+         coordinate or past it.
+       - **It begins only if its first part is wholly free**, as every candidate of this rule; else that side is
+         shut, and the sides are tried as they were (Right first, the other once `avoid_until` has passed).
+       - **Partly blocked, it ends there**: a part that isn't wholly free is taken as far as tiles and units allow,
+         and the step is over. From the next tick the unit steers as ever, and a contact begins a new step.
+       - **It is a step aside** like the one it replaces: it doesn't get the unit on, `blocked_ticks` counts its
+         ticks (rule 5; not for a unit with momentum that moves), and the stuck clock runs (6.5). The unit still
+         in the way ahead, if there is one, stays the unit's blocker for the stuck rules, and is asked to yield
+         (6.6).
+       - **Sides**: unchanged. The lean, `avoid_side`, the pass behind and the near side choose as before; a step
+         that began is finished whatever `avoid_until` says.
+       - **A new path ends it** (a repath, a re-aimed chase, a detour round a row: 6.5), and so does a new leg or
+         a stop: the unit has another way to go.
+       - **Lane seeking is unchanged**, and still comes first for a unit that isn't taking a step: its step
+         towards a lane, forward and sideways at once, is no contact step. Two units that meet head-on in the
+         open shift to their lanes before they touch, as before.
      Every candidate is taken only if it is wholly free.
   5. **All fail**: advance to contact or stay; `blocked_ticks += 1`. **(D)** A whole step along a face (no
      progress) counts as blocked too, so units dancing in a corridor count as stationary after 12 ticks.
-- Rotations use constants (`(x, y) → (−y, x)`, and `(x − y, x + y) × FRAC_1_SQRT_2`), no trigonometry. Facing follows
+- Rotations use constants (`(x, y) → (−y, x)`, and `(x − y, x + y) × FRAC_1_SQRT_2` for the `Diagonal` step), no trigonometry. Facing follows
   the path direction, not the sidestep, turning by at most TurnRate; when the turn completes within the tick (all M1
   units) velocity is `d` itself. **(G)** TurnRate is one budget per tick: the aim in phase 5e turns a unit only by
   what this turn left of it (`movement::Turns`), so a unit that moved never turns more than its TurnRate in a tick. Other movement models replace only this "desired direction → velocity and facing"
