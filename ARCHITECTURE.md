@@ -2426,7 +2426,8 @@ their energy doorway, slice M3-D2: design change 0145, `factions/colonists/struc
   files share one process and its threads: none changes the current folder or an environment variable, exits the
   process or keeps global state, and each writes files only in a folder of its own (the temp folder, a name of its
   own and the process id). serde_json is in scope in every module once one uses it, so an `assert_eq!` of a vector
-  of numbers against `[]` names the type (`Vec::<Tick>::new()`).
+  of numbers against `[]` names the type (`Vec::<Tick>::new()`). A module reaches its folder's root by `super::`:
+  `crate::` is the program's root.
 - **Test-only defs** (`defs/test_defs.rs`, slice M3-L2): a sim unit test can give a kind other numbers through the
   whole sim, on its own thread, while the guard `TestDef::set(def)` or `TestDef::unit(kind, change)` returns lives
   (`ObjectKind::def` reads them first): a MinRange, an artillery's Range, a unit that can't move, which no type of

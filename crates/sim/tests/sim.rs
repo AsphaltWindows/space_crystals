@@ -42,6 +42,7 @@ mod construction;
 #[path = "conversion/main.rs"]
 mod conversion;
 mod cults_combat;
+mod cults_start;
 mod debug_commands;
 mod default_order;
 #[path = "deploy/main.rs"]

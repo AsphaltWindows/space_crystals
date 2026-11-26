@@ -29,7 +29,8 @@
 //!
 //! `cargo test -p sc_sim --test sim economy_oracle::syndicate -- --nocapture` prints the table from 3 grid units,
 //! the stacked Tunnels and the opening; `cargo test -p sc_sim --release --test sim
-//! economy_oracle::syndicate::syndicate_table -- --ignored --nocapture` the whole table. The results are in `docs/economy_oracle.md`.
+//! economy_oracle::syndicate::syndicate_table -- --ignored --nocapture` the whole table. The results are in
+//! `docs/economy_oracle.md`.
 
 use sc_sim::testing::TestSim;
 use sc_sim::testing::build_order::{Books, BuildOrder, Order};
