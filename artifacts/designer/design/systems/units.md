@@ -68,6 +68,7 @@ Applies to all ground units. Overlap caused by the rotation itself (a corner swe
 - Air units do not collide with ground units or structures
 - Air units use soft separation with other air units — a gentle repulsion force that prevents stacking but does not hard-block
 - SeparationRadius — per unit type, circular, the distance at which air-to-air repulsion activates. Must be larger than the unit's Silhouette
+- **Gliders push apart slowly** (user, 2026-11-27; Q0148): gliders do separate, but with a **much weaker** repulsion than other air units (placeholder: a quarter of the HoverCraft strength), so they drift apart gradually, mostly while circling, and their attack runs and loops are barely bent. The SeparationRadius rule above applies to them too.
 
 ### Crushing
 Units whose UnitBase can crush (TrackedVehicle, Mech) crush enemy units whose UnitBase has Crushable = true (Light Infantry).

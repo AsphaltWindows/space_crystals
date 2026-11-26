@@ -1936,11 +1936,11 @@ Approach: thin vertical slices the user can run and see, each verified by tests 
     - 0396: rally points on unfinished buildings, for every faction.
     - A "Fog off (F3)" note in the top bar. The user hit F3 while switching sides.
     - The editor play-test's banner drawn over the top bar's figures (found by Z3).
-- **Queued for the playtest:**
-  - **M5-H2 Glider follow-ups** (Opus, small):
+  - **M5-H2 Glider follow-ups** (Opus, small; brief `scratchpad/briefs/m5h2-glider-followups.md`):
     - 0403: the Sparrow's SightRange is 8 GU, so a lone Sparrow keeps strafing on Attack;
     - 0404: a glider's Move completes on arrival, so queued orders start;
     - Q0148 part 3, SeparationRadius against the Silhouette, once it is answered.
+- **Queued for the playtest:**
   - **Computer opponents.** The user asked for them for the next playtest (2026-11-26). 0402 answered Q0147: a playtest tool with fair knowledge (`core/game_rules.md > Computer players (playtest tool)`), built as planned. **The A1 brief is ready (`scratchpad/briefs/a1-ai-framework-gdo.md`) and waits for the user's go-ahead.**
     - **Architecture** (the Director's):
       - A new crate, `crates/ai` (`sc_ai`), depends only on `sc_sim`. It has no Bevy and is deterministic like the sim, so an AI-vs-AI game replays from its seed.
@@ -2727,6 +2727,6 @@ Last triaged: 0282.
 | 0400 **Right-click in multi-stage menus** does the selection's normal right-click and leaves the menu open (BuildMenu, ExpandMenu, EjectMenu, KindMenu, AugmentMenu). In AwaitingTarget and AwaitingPlacement it cancels straight to DefaultState, and a ready building stays ready. Escape and Z still go back one step | in progress (**M5-S5**, folded in as item 5) | Verification: Recruits in Basic Construct, right-click ground, they move and the menu stays; right-click in placement goes to DefaultState; Escape in placement goes back to the build menu |
 | 0401 **The Economy check is closed** (answers Q0146, a): the Cults', GDO's and Syndicate's economy targets stay in the docs as reference for playtests, and the Director measures nothing more against them. The oracle stays as an on-demand tool whose pins aren't maintained, and the pairings tests stay | done (**M5-P3**, `8eaf316e`): the oracle's tests are ignored and its docs cite 0401 | — |
 | 0402 **Computer players are a playtest tool, with fair knowledge** (answers Q0147: fair, a). They see only what their own objects see, remember what they have seen, and know the map and the start locations. They use a player's commands and rules, and their behavior is the Director's placeholder (`core/game_rules.md > Computer players (playtest tool)`) | queued: **A1**, whose brief quotes it | Verification: in an AI-vs-AI game, an AI doesn't attack a building it has never seen or scouted, apart from the known start locations |
-| 0403 **The Sparrow's SightRange is 8 GU** (answers Q0148 part 1), so a lone Sparrow keeps its target in sight through its loop. Attack Move is unchanged, and what Attack Move means for units that can't stop stays an open design question | queued: **M5-H2** | Verification: a lone Sparrow ordered to Attack a stationary target, with no spotter, makes repeated passes until it dies |
-| 0404 **A glider's Move completes when it first reaches its point** (answers Q0148 part 2). The next queued order starts; with none, it circles there as when idle | queued: **M5-H2** | Verification: Shift-queue Move A then Move B for a Sparrow: it passes A, flies on to B and circles at B |
+| 0403 **The Sparrow's SightRange is 8 GU** (answers Q0148 part 1), so a lone Sparrow keeps its target in sight through its loop. Attack Move is unchanged, and what Attack Move means for units that can't stop stays an open design question | in progress (**M5-H2**) | Verification: a lone Sparrow ordered to Attack a stationary target, with no spotter, makes repeated passes until it dies |
+| 0404 **A glider's Move completes when it first reaches its point** (answers Q0148 part 2). The next queued order starts; with none, it circles there as when idle | in progress (**M5-H2**) | Verification: Shift-queue Move A then Move B for a Sparrow: it passes A, flies on to B and circles at B |
 | 0014 GDO Airfield and aircraft | queued (Later: air) | |
