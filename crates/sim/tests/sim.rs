@@ -115,6 +115,8 @@ mod recruit_gathering;
 #[path = "recruitment/main.rs"]
 mod recruitment;
 mod remembered_targets;
+#[path = "repair/main.rs"]
+mod repair;
 mod resources;
 mod resources_block;
 #[path = "riot_shield/main.rs"]

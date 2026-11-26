@@ -78,8 +78,8 @@ fn the_right_click_repairs_a_damaged_own_object_unless_it_enters() {
 
 /// `factions/cults/units/recruit.md > Recruit ObjectInterfaceState > DefaultState commands`: "**D: Repair** — [...]
 /// Left-click a damaged own building or vehicle to repair it"; the Agent's "a damaged own Tunnel or Laser Turret". A
-/// click on a damaged own object gives a Repair, one the selection may enter too (`> Right-Click Resolution`: "Repair
-/// those with **D: Repair**"), under the Repair pointer while one of the selected units repairs its kind
+/// click on a damaged own object gives a Repair, one the selection may enter too
+/// (`factions/cults/units/recruit.md > Right-Click Resolution`: "Repair those with **D: Repair**"), under the Repair pointer while one of the selected units repairs its kind
 /// (`sc_sim::repair::repairs`), Inactive while none does: the gate would refuse it (`Reject::CantRepair`). Anything
 /// else is an invalid target (design change 0065): an own object at full HP or under construction, an enemy, a patch,
 /// the ground.

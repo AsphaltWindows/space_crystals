@@ -198,7 +198,8 @@ fn click_on(app: &mut App, id: u32) {
 /// Design changes 0257 and 0359 (`factions/syndicate/units/agent.md > Agent ObjectInterfaceState`): Q Move, A Build
 /// Tunnel, S Drop Off Resources, D Repair, X Stop, and no Attack, Hold, Patrol or AttackMove. S, greyed, says why when
 /// pressed (design change 0162), that the Agent carries nothing, and does nothing. D (slice M5-N8) awaits its target:
-/// "Left-click a damaged own Tunnel or Laser Turret to repair it" (`> DefaultState commands`). A's hint names the
+/// "Left-click a damaged own Tunnel or Laser Turret to repair it" (`factions/syndicate/units/agent.md > Agent
+/// ObjectInterfaceState > DefaultState commands`). A's hint names the
 /// Tunnel's price as the sim would charge it (design change 0233: 1 Supply with one Tunnel owned), D's its name alone.
 #[test]
 fn the_agents_panel_has_its_letters_s_greyed_with_its_reason() {

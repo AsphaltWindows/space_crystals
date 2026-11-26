@@ -40,7 +40,7 @@
 //!   isn't entered, the HP stopping at the top of the last one it paid for, and the repairers that pay stop.
 
 #[cfg(test)]
-mod tests;
+pub(crate) mod tests;
 
 use crate::defs::{Category, MovementModel, ObjectKind, Recipe, RepairPayment, RepairTargets, SitePrice};
 use crate::economy::gathering::worker_def;

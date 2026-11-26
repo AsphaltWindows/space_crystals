@@ -10,8 +10,8 @@ fn of(kind: ObjectKind) -> Option<(f32, Option<f32>)> {
 }
 
 /// The Chop Shop with a test recipe for the Seeker, which no building makes until slice N6: 75 Space Crystals and 320
-/// frames.
-fn seeker_recipe() -> TestDef {
+/// frames. `crate::sim::repairs`' tests repair a Seeker by it too.
+pub(crate) fn seeker_recipe() -> TestDef {
     static RECIPES: [Recipe; 1] = [Recipe {
         kind: ObjectKind::Seeker,
         cost: 75,
