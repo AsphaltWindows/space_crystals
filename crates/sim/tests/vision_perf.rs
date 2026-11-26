@@ -2,7 +2,7 @@
 //! map strewn with crystal patches, against the target of slice V: at most about 1 ms per tick. Ignored by default:
 //!
 //! ```sh
-//! cargo test -p sc_sim --release --test vision_perf -- --ignored --nocapture
+//! cargo test -p sc_sim --release --test perf vision_perf -- --ignored --nocapture
 //! ```
 //!
 //! Each tick the test copies the vision the sim had before the step, steps the sim, and times the copy catching up

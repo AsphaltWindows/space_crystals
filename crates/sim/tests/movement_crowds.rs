@@ -247,7 +247,7 @@ const WIDE: &str = "
 /// between the units, blocks of 3 × 6, 5 × 5 and 2 × 9, the second block 0 to 37 su off the first one's line; with
 /// one owner, then two. A unit fails if its move failed or it is still moving in tick 2000. Prints the failures
 /// for each pair of kinds and owner count. A measurement, ignored: run it in release, with
-/// `cargo test --release -p sc_sim --test movement_crowds -- --ignored --nocapture crowd_sweep`.
+/// `cargo test --release -p sc_sim --test sim movement_crowds::crowd_sweep -- --ignored --nocapture`.
 ///
 /// Slice M3-V measured it for 0169 (`OCCUPIED_ARRIVAL_GU` 2 → 3 grid units), of 5856 units for each owner count:
 /// Peacekeepers 8 → 0 failed, Guards 20 → 4, Peacekeepers against Guards 15 → 3; 43 → 7 in all. One owner or two
