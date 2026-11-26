@@ -7,11 +7,13 @@
 //! from the state gives: `paths`), the projectile invariant P1 (every projectile lands by its arrival tick:
 //! `projectiles`), the operation invariant O1 (a Tunnel's operation and its site name each other: `operations`), the
 //! reservation invariant R1 (a building that trains the units inside it reserves them as its queue has them:
-//! `reservations`, slice M5-F2), and an ASCII picture of the map with its units for readable failures.
+//! `reservations`, slice M5-F2), the energy invariant E1 (an object has energy exactly when its type has a pool, and at
+//! most its maximum: `energy`, slice M5-N4a), and an ASCII picture of the map with its units for readable failures.
 //!
 //! [`super::TestSim`] checks them after every tick (on by default). A test that steps a bare [`Sim`] keeps its own
 //! [`Invariants`] and calls [`Invariants::check`] after each step.
 
+mod energy;
 mod operations;
 mod overlaps;
 mod picture;
@@ -48,7 +50,7 @@ pub use picture::ascii;
 /// A broken invariant.
 #[derive(Clone, Debug, PartialEq)]
 pub struct Violation {
-    /// "I1" … "I7", "V1", "K1", "P1", "O1", "R1".
+    /// "I1" … "I7", "V1", "K1", "P1", "O1", "R1", "E1".
     pub invariant: &'static str,
     pub message: String,
     /// Where on the map to look.
@@ -129,7 +131,8 @@ impl Invariants {
             .and_then(|()| path_knowledge(sim))
             .and_then(|()| projectiles::projectiles(sim))
             .and_then(|()| operations::operations(sim))
-            .and_then(|()| reservations::reservations(sim));
+            .and_then(|()| reservations::reservations(sim))
+            .and_then(|()| energy::energy(sim));
         self.seen = Self::new(sim).seen;
         result
     }
