@@ -1,7 +1,7 @@
-//! The Tunnel Area (slice M4-B; `factions/syndicate/tunnels.md > Tunnel > Tunnel Area`): "a square underground build
-//! zone centered on the Tunnel. The radius extends outward from the Tunnel's 4x4 footprint in each direction, forming
-//! a square of (radius + 4 + radius) per side", the radius being the tier's (`factions/syndicate/tunnels.md > Tiers`:
-//! 2, 3 and 4 grid units). This module is the one place that works a Tunnel Area out: Tunnel Space
+//! The Tunnel Area (slice M4-B; `factions/syndicate/tunnel_area_and_space.md > Tunnel Area`): "a square underground
+//! build zone centered on the Tunnel. The radius extends outward from the Tunnel's 4x4 footprint in each direction,
+//! forming a square of (radius + 4 + radius) per side", the radius being the tier's (`factions/syndicate/tunnels.md >
+//! Tiers`: 2, 3 and 4 grid units). This module is the one place that works a Tunnel Area out: Tunnel Space
 //! (`crate::economy::army`, plan decision T33 as design change 0242 revised it), the placement rule of 0242
 //! (`crate::placement`), an expansion's parent Tunnel (`Sim::parent_tunnel`, slice M4-C), and the slices that will
 //! place Tunnels and expansions, keep Tunnel Areas apart and upgrade Tunnels (M4-E, M4-F, M4-G, M4-H, M4-J) all ask it.
@@ -10,14 +10,14 @@
 //!   may reach past the map's edge, as a footprint may. It is never clamped to the map.
 //! - **The parent Tunnel** ([`parent`], plan decision T32): an expansion's owner's Tunnel in operation whose current
 //!   area fully contains it, derived and never stored.
-//! - **The region** ([`region`]): `factions/syndicate/tunnels.md > Tunnel Space > Tunnel-region`, "a Tunnel's Tunnel
-//!   Area, excluding the 4x4 grid units occupied by the Tunnel's own footprint": 48, 84 and 128 cells at Tiers 1, 2
-//!   and 3. It counts every cell, on the map or off it, Drillable or not (0242: "So every tunnel-region cell is
-//!   usable"; the earlier off-map and non-Drillable cases of design changes 0238 and 0241 are void).
-//! - **The breaches** ([`breaches`]): `factions/syndicate/tunnels.md > Tunnel Area Non-Overlap Rule > Drillable area`
-//!   (0242), "a Tunnel can only be placed if every cell of its Tunnel Area is on the map and Drillable (no Water or
-//!   Mountain ...)": the cells that aren't. Drillable is the cell's preset's flag (`core/map.md > Tile`: "Any
-//!   combination of properties is valid"), never its look.
+//! - **The region** ([`region`]): `factions/syndicate/tunnel_area_and_space.md > Tunnel Space > Tunnel-region`, "a
+//!   Tunnel's Tunnel Area, excluding the 4x4 grid units occupied by the Tunnel's own footprint": 48, 84 and 128 cells
+//!   at Tiers 1, 2 and 3. It counts every cell, on the map or off it, Drillable or not (0242: "So every tunnel-region
+//!   cell is usable"; the earlier off-map and non-Drillable cases of design changes 0238 and 0241 are void).
+//! - **The breaches** ([`breaches`]): `factions/syndicate/tunnel_area_and_space.md > Tunnel Area Non-Overlap Rule >
+//!   Drillable area` (0242), "a Tunnel can only be placed if every cell of its Tunnel Area is on the map and Drillable
+//!   (no Water or Mountain ...)": the cells that aren't. Drillable is the cell's preset's flag (`core/map.md > Tile`:
+//!   "Any combination of properties is valid"), never its look.
 
 use crate::defs::ObjectKind;
 use crate::ids::ObjectId;
@@ -117,9 +117,10 @@ pub fn encloses(outer: TileRect, inner: TileRect) -> bool {
         && inside(span(outer.origin.y, outer.h), span(inner.origin.y, inner.h))
 }
 
-/// The region of a Tunnel whose footprint is `footprint`, at the radius `radius` (`factions/syndicate/tunnels.md >
-/// Tunnel Space > Tunnel-region`): the cells of its [`area`] that the footprint doesn't cover, row by row from the
-/// north-west. Every one counts, whatever the map holds there (module docs).
+/// The region of a Tunnel whose footprint is `footprint`, at the radius `radius`
+/// (`factions/syndicate/tunnel_area_and_space.md > Tunnel Space > Tunnel-region`): the cells of its [`area`] that the
+/// footprint doesn't cover, row by row from the north-west. Every one counts, whatever the map holds there (module
+/// docs).
 pub fn region(footprint: TileRect, radius: u32) -> impl Iterator<Item = TilePos> {
     cells(area(footprint, radius)).filter(move |&cell| !contains(footprint, cell))
 }
@@ -159,9 +160,9 @@ mod tests {
         TileRect::new(TilePos::new(x, y), 4, 4)
     }
 
-    /// `factions/syndicate/tunnels.md > Tiers` (radius 2, 3, 4) and `factions/syndicate/tunnels.md > Tunnel Space >
-    /// Tunnel-region`: "a Tier 1 Tunnel has an 8x8 = 64 grid unit Tunnel Area, minus its own 16 grid unit footprint =
-    /// 48 grid units of tunnel-region"; 10x10 less 16 is 84, 12x12 less 16 is 128.
+    /// `factions/syndicate/tunnels.md > Tiers` (radius 2, 3, 4) and `factions/syndicate/tunnel_area_and_space.md >
+    /// Tunnel Space > Tunnel-region`: "a Tier 1 Tunnel has an 8x8 = 64 grid unit Tunnel Area, minus its own 16 grid
+    /// unit footprint = 48 grid units of tunnel-region"; 10x10 less 16 is 84, 12x12 less 16 is 128.
     #[test]
     fn each_tier_has_its_area_and_region() {
         let tiers = def_of(TUNNEL).unwrap().tiers;

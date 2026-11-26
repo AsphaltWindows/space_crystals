@@ -147,7 +147,7 @@ fn stop_completes_at_once_and_hold_never_does() {
     );
 }
 
-/// `systems/controls/behaviors.md > AttackingObject`: an Attack engages its target; a target that doesn't exist
+/// `systems/controls/command_behaviors.md > AttackingObject`: an Attack engages its target; a target that doesn't exist
 /// completes it, and the next order engages its own. Any other order disengages.
 #[test]
 fn attack_engages_its_target_and_another_order_disengages() {

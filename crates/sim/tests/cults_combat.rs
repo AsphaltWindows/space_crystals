@@ -1,13 +1,13 @@
 //! The Cults' units in combat, with their own numbers, through the gate (slice M5-A, plan §3.3 A): a debug-spawned
 //! Militant (`factions/cults/units/militant.md`) fights a Peacekeeper to a result, and the Gunner
 //! (`factions/cults/units/gunner.md`), the first kind of the design with a MinRange, never fires at a target nearer
-//! than 2 grid units (`systems/controls/behaviors.md > AttackingObject > Target inside MinRange`,
+//! than 2 grid units (`systems/controls/command_behaviors.md > AttackingObject > Target inside MinRange`,
 //! `systems/controls/behaviors.md > BaseAutoTargeting > Targets inside MinRange`; slice M3-L2's code: plan decision
 //! T55). It backs off from such a target, to the middle of the band between its MinRange and Range (question Q0054,
 //! slice M5-O3), and fails its Attack with a `SimEvent::TargetTooClose` once it can't back off further (design change
 //! 0204 point 3, which slice M5-A added to that code). So it does from a location it is ordered to attack (slice M5-O3,
-//! `systems/controls/behaviors.md > AttackingLocation`), failing with a `SimEvent::LocationTooClose`. A Gunner that
-//! can't move at all fails at once: `sc_sim::orders`' tests, since none can yet, so it needs a test def.
+//! `systems/controls/command_behaviors.md > AttackingLocation`), failing with a `SimEvent::LocationTooClose`. A Gunner
+//! that can't move at all fails at once: `sc_sim::orders`' tests, since none can yet, so it needs a test def.
 //!
 //! Every test runs under the invariants of `TestSim`.
 
@@ -22,8 +22,8 @@ const HALF: f32 = 12.0;
 const RANGE_GU: f32 = 5.0;
 /// `factions/cults/units/gunner.md > AttackAttributes`: "MinRange: 2".
 const MIN_RANGE_GU: f32 = 2.0;
-/// `systems/controls/behaviors.md > AttackingObject > Target inside MinRange` (question Q0054): a unit backs off "to
-/// the middle of the band between MinRange and Range": 3.5 grid units for the Gunner.
+/// `systems/controls/command_behaviors.md > AttackingObject > Target inside MinRange` (question Q0054): a unit backs
+/// off "to the middle of the band between MinRange and Range": 3.5 grid units for the Gunner.
 const MIDDLE_GU: f32 = (MIN_RANGE_GU + RANGE_GU) / 2.0;
 
 /// 16 × 10 open tiles.
@@ -103,8 +103,8 @@ fn a_militant_fights_a_peacekeeper_to_a_result() {
 }
 
 /// The Gunner ordered to attack a Peacekeeper of player 2 that hugs it, 16 su off (auto-targeting off: the Peacekeeper
-/// doesn't fight back). `systems/controls/behaviors.md > AttackingObject > Target inside MinRange`: "a unit that can
-/// move **backs off** until the target is outside MinRange, then attacks": it
+/// doesn't fight back). `systems/controls/command_behaviors.md > AttackingObject > Target inside MinRange`: "a unit
+/// that can move **backs off** until the target is outside MinRange, then attacks": it
 /// walks straight away from the Peacekeeper, never firing while it is within 2 grid units, its Attack order running
 /// all the while; then it stops within its Range and fires, and its shot takes 16 less the Peacekeeper's PointArmor 1.
 /// It stands while it attacks. It fires from the middle of the band, 3.5 grid units off, "not just past MinRange"
@@ -157,12 +157,12 @@ fn a_gunner_backs_off_from_a_target_inside_its_min_range_then_fires() {
     assert!(attacks(&t, gunner, target).len() >= 2);
 }
 
-/// `systems/controls/behaviors.md > AttackingObject > Target inside MinRange`: "A unit that can't back off (cornered,
-/// or blocked behind): it gives up the order with the same "Target too close" feedback, like an immobile unit" (design
-/// change 0204 point 3). The Gunner stands with its back to the map's west edge, and a Peacekeeper of player 2 hugs
-/// it from the east (auto-targeting off). Ordered to attack it, the Gunner backs off as far as the edge lets it, and
-/// fails the order there with a `SimEvent::TargetTooClose`, its one feedback; it never fires, and stays where it
-/// stopped.
+/// `systems/controls/command_behaviors.md > AttackingObject > Target inside MinRange`: "A unit that can't back off
+/// (cornered, or blocked behind): it gives up the order with the same "Target too close" feedback, like an immobile
+/// unit" (design change 0204 point 3). The Gunner stands with its back to the map's west edge, and a Peacekeeper of
+/// player 2 hugs it from the east (auto-targeting off). Ordered to attack it, the Gunner backs off as far as the edge
+/// lets it, and fails the order there with a `SimEvent::TargetTooClose`, its one feedback; it never fires, and stays
+/// where it stopped.
 #[test]
 fn a_cornered_gunner_fails_its_attack_with_target_too_close() {
     let (gunner, target) = (ObjectId(1), ObjectId(2));
@@ -249,11 +249,11 @@ fn reach(t: &TestSim, id: ObjectId, at: Vec2) -> f32 {
     at.distance(t.sim().object(id).expect("alive").pos) - HALF
 }
 
-/// Slice M5-O3: `systems/controls/behaviors.md > AttackingLocation` is "Same as AttackingObject", MinRange included
-/// (`systems/controls/behaviors.md > AttackingObject > Target inside MinRange`, an Attack's own code). The Gunner
-/// ordered to attack the ground 40 su off its edge walks straight away from the point, never firing while it does, its
-/// order running all the while; then it fires at the point from the middle of the band, 3.5 grid units off (question
-/// Q0054), and stands there firing again and again.
+/// Slice M5-O3: `systems/controls/command_behaviors.md > AttackingLocation` is "Same as AttackingObject", MinRange
+/// included (`systems/controls/command_behaviors.md > AttackingObject > Target inside MinRange`, an Attack's own code).
+/// The Gunner ordered to attack the ground 40 su off its edge walks straight away from the point, never firing while it
+/// does, its order running all the while; then it fires at the point from the middle of the band, 3.5 grid units off
+/// (question Q0054), and stands there firing again and again.
 #[test]
 fn a_gunner_backs_off_from_a_location_inside_its_min_range_then_fires() {
     let gunner = ObjectId(1);
@@ -291,11 +291,11 @@ fn a_gunner_backs_off_from_a_location_inside_its_min_range_then_fires() {
     assert_eq!(current(&t, gunner), Some(OrderKind::AttackGround(at)));
 }
 
-/// Slice M5-O3, `systems/controls/behaviors.md > AttackingObject > Target inside MinRange` for a location: "A unit that
-/// can't back off (cornered, or blocked behind): it gives up the order with the same "Target too close" feedback". The
-/// Gunner stands with its back to the map's west edge, and is ordered to attack the ground 8 su off its edge. It backs
-/// off as far as the edge lets it, and gives the order up there with a `SimEvent::LocationTooClose`, its one feedback;
-/// it never fires, and stays where it stopped.
+/// Slice M5-O3, `systems/controls/command_behaviors.md > AttackingObject > Target inside MinRange` for a location: "A
+/// unit that can't back off (cornered, or blocked behind): it gives up the order with the same "Target too close"
+/// feedback". The Gunner stands with its back to the map's west edge, and is ordered to attack the ground 8 su off its
+/// edge. It backs off as far as the edge lets it, and gives the order up there with a `SimEvent::LocationTooClose`, its
+/// one feedback; it never fires, and stays where it stopped.
 #[test]
 fn a_cornered_gunner_gives_up_its_attack_ground_with_target_too_close() {
     let gunner = ObjectId(1);

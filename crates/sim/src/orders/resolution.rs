@@ -1,6 +1,6 @@
-//! A unit's default command against a target — `systems/controls/selection_and_hud.md > RightClickResolution` (design
+//! A unit's default command against a target — `systems/controls/interface.md > RightClickResolution` (design
 //! changes 0062, 0063 and 0074), the one rule behind both the right-click and the rally point (design change 0136:
-//! `systems/controls/selection_and_hud.md > What a rally point makes a new unit do`: "A unit that spawns with a rally
+//! `systems/controls/interface.md > What a rally point makes a new unit do`: "A unit that spawns with a rally
 //! point set **always** gets its **own default right-click command** resolved against the rally target [...]. No
 //! per-building lists override this").
 //!
@@ -9,7 +9,7 @@
 //! sees or remembers, design change 0139), the client from what it shows (`command_ui::resolution`), so the click,
 //! its pointer and a rally point all come out of the same function.
 //!
-//! - **The ground**: Move there (`systems/controls/selection_and_hud.md > BasicCombatUnitInterfaceState >
+//! - **The ground**: Move there (`systems/controls/interface.md > BasicCombatUnitInterfaceState >
 //!   RightClickResolution`, `factions/colonists/units/drone.md > Right-Click Resolution`: "Ground → Move").
 //! - **A worker** (the Drone, `factions/colonists/units/drone.md > Right-Click Resolution`): a Space Crystals patch it
 //!   can gather gives Gather ("Space Crystal patch → Gather"; a patch under a mining structure is no patch to it,
@@ -31,12 +31,12 @@
 //!   `OrderKind::Assist`), after Enter: an Armory under construction takes no one in.
 //! - **An enemy** (another player's object) that the unit can attack gives Attack: it has an attack whose
 //!   TargetDomain allows the object's domain (`systems/combat.md > ValidTarget` 3), and the object is destructible.
-//! - **Everything else** gives a Move to the object (`systems/controls/behaviors.md > MovingToObject`), which follows
-//!   a unit and moves to anything else: an own or neutral object (design change 0059: "Right-click never" attacks
-//!   them), and an enemy the unit can't attack (design change 0062: "Units that can't carry out the resolved command
-//!   [...] **move to or follow the target instead**"), an unarmed Drone's included ("Enemy or other object → Move
-//!   to it: **Follow** if it is a unit, Move to its location otherwise", design change 0136), or one its type takes
-//!   no Attack order against, a Peacekeeper (Shielded) (design change 0074; design change 0202: "While raising
+//! - **Everything else** gives a Move to the object (`systems/controls/command_behaviors.md > MovingToObject`), which
+//!   follows a unit and moves to anything else: an own or neutral object (design change 0059: "Right-click never"
+//!   attacks them), and an enemy the unit can't attack (design change 0062: "Units that can't carry out the resolved
+//!   command [...] **move to or follow the target instead**"), an unarmed Drone's included ("Enemy or other object →
+//!   Move to it: **Follow** if it is a unit, Move to its location otherwise", design change 0136), or one its type
+//!   takes no Attack order against, a Peacekeeper (Shielded) (design change 0074; design change 0202: "While raising
 //!   (already Shielded): no Attack; a right-click follows"). A Peacekeeper whose shield is on its way down attacks
 //!   ("accepted and held, and the attack starts once the shield is fully down").
 //!
@@ -141,9 +141,9 @@ pub enum Aim {
     Object(Aimed),
 }
 
-/// `systems/controls/selection_and_hud.md > RightClickResolution` for one unit (module docs): the order a unit that can
-/// do `unit` gets against `aim`. Every unit can move, so there is always one: on an object, the order of the first of
-/// the [`RULES`] that applies, else a Move to it.
+/// `systems/controls/interface.md > RightClickResolution` for one unit (module docs): the order a unit that can do
+/// `unit` gets against `aim`. Every unit can move, so there is always one: on an object, the order of the first of the
+/// [`RULES`] that applies, else a Move to it.
 pub fn resolve(unit: Abilities, aim: Aim) -> OrderKind {
     let target = match aim {
         Aim::Ground(point) => return OrderKind::Move(Target::Point(point)),

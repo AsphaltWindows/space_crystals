@@ -116,6 +116,7 @@ mod tests {
             decay: None,
             popup: None,
             lineage: Vec::new(),
+            augmentation: Default::default(),
         }
     }
 

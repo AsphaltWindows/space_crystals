@@ -6,7 +6,7 @@
 /// nearly dead transforming object" survives.
 pub const MIN_HP_AFTER_CANCEL: f32 = 1.0;
 
-/// `factions/syndicate/tunnels.md > Expansions under construction` (design change 0254): "while building, the
+/// `factions/syndicate/tunnel_menus.md > Expansions under construction` (design change 0254): "while building, the
 /// expansion offers only **X Cancel Construction**, refunding **75%** of its cost (rounded down). The Tunnel's X
 /// cancels whatever operation it is running": the share of an expansion's Space Crystals cost that cancelling its
 /// construction gives back, in percent, rounded down (`economy::Refund::Expansion`, slice M4-F).

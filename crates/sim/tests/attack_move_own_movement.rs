@@ -1,4 +1,4 @@
-//! AttackMove's reach rule, re-checked by the unit's own movement (`systems/controls/behaviors.md >
+//! AttackMove's reach rule, re-checked by the unit's own movement (`systems/controls/command_behaviors.md >
 //! AttackMovingToLocation > Algorithm` 2, "Re-checking a rejected enemy"; design change 0243, answering question
 //! Q0074): a rejection by the reach rule is judged again once "the unit itself has moved a meaningful distance since
 //! it judged that enemy (placeholder 1 GU; Q0074, so the same situation always gets the same response)"

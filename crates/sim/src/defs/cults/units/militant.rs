@@ -53,7 +53,7 @@ pub(crate) static MILITANT: ObjectDef = ObjectDef {
             cooldown_ticks: 1,                      // CooldownDuration: 1 frame
             reload_ticks: 3,                        // ReloadDuration: 3 frames
         }),
-        // `factions/cults/economy.md > RecruitmentHall > Unit Control Tracking`: "A trained unit's Unit Control cost
+        // `factions/cults/structures/recruitment_hall.md > Unit Control Tracking`: "A trained unit's Unit Control cost
         // equals the number of Recruits consumed to produce it": one, the Recruit an Armory trains it from
         // (`factions/cults/structures/armory.md > Training`; plan decision T55).
         unit_control_cost: Some(1),

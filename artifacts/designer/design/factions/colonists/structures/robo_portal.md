@@ -23,7 +23,7 @@ Since the Robo Portal is fully symmetric (AAAA), units may leave in any directio
 - CurrentBuildProgress: number (frames elapsed) | None
 
 ## RallyPoint behavior:
-When a unit (Drone or Scout) finishes production and spawns, if RallyPoint is set, it is issued its own default right-click command resolved against the RallyPoint target (systems/controls/selection_and_hud.md > What a rally point makes a new unit do). E.g. a Drone rallied on a patch Gathers it. If RallyPoint is None, the unit spawns with no command. If the RallyPoint references an ObjectInstance that no longer exists, the RallyPoint is reset to None. Rally points on enemy objects turn into ground rally points when the enemy leaves sight (systems/controls/selection_and_hud.md > Rally points on enemy objects). (Same pattern as GDO's Barracks.)
+When a unit (Drone or Scout) finishes production and spawns, if RallyPoint is set, it is issued its own default right-click command resolved against the RallyPoint target (systems/controls/interface.md > CommandPanel > What a rally point makes a new unit do). E.g. a Drone rallied on a patch Gathers it. If RallyPoint is None, the unit spawns with no command. If the RallyPoint references an ObjectInstance that no longer exists, the RallyPoint is reset to None. Rally points on enemy objects turn into ground rally points when the enemy leaves sight (systems/controls/interface.md > CommandPanel > Rally points on enemy objects). (Same pattern as GDO's Barracks.)
 
 ## Produces:
 - Drone: 50 Space Crystals, 160 frames (10 seconds)

@@ -107,9 +107,9 @@ fn a_mobile_unit_backs_off_from_a_target_inside_its_min_range_then_fires() {
 
 /// The back-off is a walk to a point. When its target leaves the game, the removal path ends the order, and the walk
 /// ends at the unit's next turn in 5a (`orders::engage::idle`): "the behavior completes, and the unit stops where it
-/// is" (`systems/controls/behaviors.md > MovingToObject > Completion`). It doesn't walk on to the end of its back-off
-/// without an order, as a walk to a last seen position once did (slice M3-G2, `behaviours_soak`'s seed 17; design
-/// change 0200 removed that walk, and slice M3-L3 the stop M3-G2 gave it in `sim/removal.rs::forget`).
+/// is" (`systems/controls/command_behaviors.md > MovingToObject > Completion`). It doesn't walk on to the end of its
+/// back-off without an order, as a walk to a last seen position once did (slice M3-G2, `behaviours_soak`'s seed 17;
+/// design change 0200 removed that walk, and slice M3-L3 the stop M3-G2 gave it in `sim/removal.rs::forget`).
 #[test]
 fn a_back_off_ends_where_the_unit_is_when_the_target_leaves_the_game() {
     let _pk = min_range_peacekeeper(true);
@@ -248,7 +248,7 @@ fn a_gunner_that_cant_move_fails_its_attack_on_a_target_too_close() {
     assert_eq!(t.pos(1), at, "it never moved");
 }
 
-/// Slice M5-O3: the same at a location (`systems/controls/behaviors.md > AttackingLocation`, "Same as
+/// Slice M5-O3: the same at a location (`systems/controls/command_behaviors.md > AttackingLocation`, "Same as
 /// AttackingObject"). The Gunner that can't move is ordered to attack the ground 40 su off its edge, inside its MinRange,
 /// with an Attack Ground 3 grid units off queued after it. The first order fails in its first tick with a
 /// `SimEvent::LocationTooClose` (the client's "Target too close" as well), and the queued one starts in the next tick:

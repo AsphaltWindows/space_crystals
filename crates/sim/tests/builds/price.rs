@@ -11,7 +11,7 @@ use sc_sim::{Rng, Sim, Target};
 
 /// Design change 0233's verification: "With 3 Supplies and 1 Tunnel, order two Tunnels with Shift. Both ghosts appear
 /// and 1 + 2 Supplies are deducted at once. Cancel one order: 2 come back." With two Agents, one placement each, as the
-/// client sends Shift-placements ("each Agent takes exactly one placement", `systems/controls/selection_and_hud.md >
+/// client sends Shift-placements ("each Agent takes exactly one placement", `systems/controls/interface.md >
 /// AwaitingTarget > Shift while placing`): a second Build Shift-queued to the same Agent is refused, and so is one
 /// naming both.
 #[test]

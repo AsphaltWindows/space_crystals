@@ -1,17 +1,17 @@
 //! The placement rules of the Tunnel Area (slice M4-B), on the geometry of `crate::tunnel::area`:
 //!
-//! - **The area rule** ([`area_rule`]; `factions/syndicate/tunnels.md > Tunnel Area Non-Overlap Rule > Drillable
-//!   area`, design change 0242): "a Tunnel can only be **placed** if every cell of its Tunnel Area is **on the map and
-//!   Drillable** (no Water or Mountain ...). So **no Tunnel near the map edge** (closer than its area reaches)". It
-//!   is checked for every kind with a tier table, at the base tier's radius (a Tunnel is placed at Tier 1), in every
-//!   [`Mode`], so that the Starting Layouts, the editor and the Agent's ghost and arrival check to come (slice M4-E)
-//!   share it. [`Mode::Layout`], [`Mode::Arrival`] and [`Mode::Command`] judge by the truth; [`Mode::Known`] counts an
-//!   undrillable cell only on a tile the player has explored ("terrain is always known to the player as far as
-//!   explored; never-explored tiles pass on the ghost, and the real check happens on arrival"), and a cell off the
-//!   map always, the map's edge being known. Map spawns and debug spawns don't take the placement check, so they stay
-//!   exempt, as from every placement rule but the shared tiles and [`super::Onto`]. A Tunnel 2 tiles from the edge
-//!   breaks nothing, its Tier 1 area just reaching the edge (design change 0283, the rule as written: "a footprint 2
-//!   tiles from the edge is valid, and 1 tile is red"; 0242's Verification calling it red "was a slip").
+//! - **The area rule** ([`area_rule`]; `factions/syndicate/tunnel_area_and_space.md > Tunnel Area Non-Overlap Rule >
+//!   Drillable area`, design change 0242): "a Tunnel can only be **placed** if every cell of its Tunnel Area is **on
+//!   the map and Drillable** (no Water or Mountain ...). So **no Tunnel near the map edge** (closer than its area
+//!   reaches)". It is checked for every kind with a tier table, at the base tier's radius (a Tunnel is placed at Tier
+//!   1), in every [`Mode`], so that the Starting Layouts, the editor and the Agent's ghost and arrival check to come
+//!   (slice M4-E) share it. [`Mode::Layout`], [`Mode::Arrival`] and [`Mode::Command`] judge by the truth;
+//!   [`Mode::Known`] counts an undrillable cell only on a tile the player has explored ("terrain is always known to the
+//!   player as far as explored; never-explored tiles pass on the ghost, and the real check happens on arrival"), and a
+//!   cell off the map always, the map's edge being known. Map spawns and debug spawns don't take the placement check,
+//!   so they stay exempt, as from every placement rule but the shared tiles and [`super::Onto`]. A Tunnel 2 tiles from
+//!   the edge breaks nothing, its Tier 1 area just reaching the edge (design change 0283, the rule as written: "a
+//!   footprint 2 tiles from the edge is valid, and 1 tile is red"; 0242's Verification calling it red "was a slip").
 //! - **The expansion rule of Starting Layouts** ([`layout_method`]): a layout's underground structure lies wholly
 //!   inside the Tier 1 Tunnel Area of a Tunnel of the same layout (`factions/syndicate/tunnels.md > Tunnel > Starting
 //!   Conditions`: "One pre-built **Tier 1 Tunnel** containing one pre-built **Hideout**";

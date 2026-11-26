@@ -1,5 +1,5 @@
-//! AttackMove's reach rule (`systems/controls/behaviors.md > AttackMovingToLocation > Algorithm` 2, design change
-//! 0230, answering question Q0058): "an attack-moving unit fights what it can reach without leaving its route or
+//! AttackMove's reach rule (`systems/controls/command_behaviors.md > AttackMovingToLocation > Algorithm` 2, design
+//! change 0230, answering question Q0058): "an attack-moving unit fights what it can reach without leaving its route or
 //! losing sight of it." An enemy within weapon range is always taken; one out of range only if the path to a firing
 //! position stays within the leash of the PathReference and keeps the target within the unit's SightRange. There is
 //! no memory of the enemies passed over: a rejection only saves judging again while nothing it depends on has

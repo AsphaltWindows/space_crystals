@@ -1,16 +1,16 @@
-//! What refuses an upgrade (`factions/syndicate/tunnels.md > Tunnel Area Non-Overlap Rule`; design changes 0237,
-//! 0242 and 0283), by the truth, and the gate's order: the top tier, an operation under way, the Supplies, then what
-//! blocks the larger area, never said what. And what doesn't: the owner's lingering ghost, whose build then fails on
-//! arrival.
+//! What refuses an upgrade (`factions/syndicate/tunnel_area_and_space.md > Tunnel Area Non-Overlap Rule`; design
+//! changes 0237, 0242 and 0283), by the truth, and the gate's order: the top tier, an operation under way, the
+//! Supplies, then what blocks the larger area, never said what. And what doesn't: the owner's lingering ghost, whose
+//! build then fails on arrival.
 
 use super::*;
 
-/// The plan's Acceptance, "Blocked by an own neighbour within the Tier 2 area" (`factions/syndicate/tunnels.md >
-/// Tunnel Area Non-Overlap Rule`: "upgrading a Tunnel is blocked if the radius increase would cause its Tunnel Area to
-/// overlap with another Tunnel's current area"): player 1's Tunnel 2 on tiles (12, 8) to (15, 11), its Tier 1 area
-/// (10, 6) to (17, 13) touching [`T1`]'s, blocks [`T1`]'s upgrade, and [`T1`] its. A tile further east it leaves room
-/// for either, not both: the first to upgrade reserves its Tier 2 area against the other's ("including other Tunnels'
-/// reserved upgrade areas"), until it is cancelled.
+/// The plan's Acceptance, "Blocked by an own neighbour within the Tier 2 area"
+/// (`factions/syndicate/tunnel_area_and_space.md > Tunnel Area Non-Overlap Rule`: "upgrading a Tunnel is blocked if the
+/// radius increase would cause its Tunnel Area to overlap with another Tunnel's current area"): player 1's Tunnel 2 on
+/// tiles (12, 8) to (15, 11), its Tier 1 area (10, 6) to (17, 13) touching [`T1`]'s, blocks [`T1`]'s upgrade, and
+/// [`T1`] its. A tile further east it leaves room for either, not both: the first to upgrade reserves its Tier 2 area
+/// against the other's ("including other Tunnels' reserved upgrade areas"), until it is cancelled.
 #[test]
 fn an_own_neighbour_within_the_tier_2_area_blocks_it() {
     let t = started(base().spawn(TUNNEL, Some(P1), tile(12, 8)), 20);
@@ -69,10 +69,11 @@ fn an_enemy_tunnel_blocks_it_by_the_truth() {
 }
 
 /// Design change 0242's verification: "Upgrading a Tier 1 Tunnel whose Tier 2 area would reach a Mountain is
-/// unavailable, with feedback" (`factions/syndicate/tunnels.md > Tunnel Area Non-Overlap Rule`: "An **upgrade** is
-/// likewise blocked if the larger area would include a non-Drillable or off-map cell, so a Tier 1 Tunnel by a lake or
-/// a mountain may never be upgradable"): a Mountain tile, or a Water tile, at (10, 10), in [`T1`]'s Tier 2 area but
-/// outside its Tier 1 area. The gate's reason is the panel's feedback. On flat ground the upgrade is taken.
+/// unavailable, with feedback" (`factions/syndicate/tunnel_area_and_space.md > Tunnel Area Non-Overlap Rule`:
+/// "An **upgrade** is likewise blocked if the larger area would include a non-Drillable or off-map cell, so a Tier 1
+/// Tunnel by a lake or a mountain may never be upgradable"): a Mountain tile, or a Water tile, at (10, 10), in [`T1`]'s
+/// Tier 2 area but outside its Tier 1 area. The gate's reason is the panel's feedback. On flat ground the upgrade is
+/// taken.
 #[test]
 fn mountain_or_water_in_the_tier_2_area_blocks_it() {
     for symbol in ["M", "~"] {
@@ -108,10 +109,10 @@ fn from_edge(side: &str, d: i32) -> TilePos {
     }
 }
 
-/// Design change 0283 (`factions/syndicate/tunnels.md > Tunnel Area Non-Overlap Rule`: every cell of the area must be
-/// on the map, so "a Tunnel needs as many tiles to the edge as its area's radius"): "**Upgrades:** 3 tiles for Tier 2,
-/// 4 for Tier 3". By each edge of a 40 × 24 map, the 4 × 4 Tunnel's footprint 2 tiles from it can't upgrade to Tier 2
-/// and 3 tiles from it can; at Tier 2, 3 tiles from it can't upgrade to Tier 3 and 4 tiles from it can.
+/// Design change 0283 (`factions/syndicate/tunnel_area_and_space.md > Tunnel Area Non-Overlap Rule`: every cell of the
+/// area must be on the map, so "a Tunnel needs as many tiles to the edge as its area's radius"): "**Upgrades:** 3 tiles
+/// for Tier 2, 4 for Tier 3". By each edge of a 40 × 24 map, the 4 × 4 Tunnel's footprint 2 tiles from it can't upgrade
+/// to Tier 2 and 3 tiles from it can; at Tier 2, 3 tiles from it can't upgrade to Tier 3 and 4 tiles from it can.
 #[test]
 fn by_every_edge_the_map_blocks_it_3_tiles_off_for_tier_2_and_4_for_tier_3() {
     let blocked = Err(Reject::UpgradeBlocked(T1));
@@ -140,7 +141,7 @@ fn by_every_edge_the_map_blocks_it_3_tiles_off_for_tier_2_and_4_for_tier_3() {
     }
 }
 
-/// `factions/syndicate/tunnels.md > Tunnel ObjectInterfaceState`: "Unavailable if already Tier 3 or if currently
+/// `factions/syndicate/tunnel_menus.md > Tunnel ObjectInterfaceState`: "Unavailable if already Tier 3 or if currently
 /// performing an operation" ("A Tunnel can only perform one operation at a time": an upgrade, or an expansion it
 /// builds), and the Supplies; in the gate's order, the top tier first, then the operation, then the Supplies, then
 /// what blocks the area. The Upgrade is the owner's, of a Tunnel in operation: not of a site, nor a Hideout.
@@ -208,8 +209,8 @@ fn busy_at_the_top_tier_or_short_it_is_refused_in_that_order() {
     assert_eq!(gate(&t, P1, upgrade(T1)), Err(Reject::UpgradeBlocked(T1)));
 }
 
-/// The Director's reading of `factions/syndicate/tunnels.md > Tunnel Area Non-Overlap Rule` (note 3 of slice M4-G's
-/// brief): a lingering Tunnel ghost "reserves its whole Tier 1 area against its **owner's** further Tunnel
+/// The Director's reading of `factions/syndicate/tunnel_area_and_space.md > Tunnel Area Non-Overlap Rule` (note 3 of
+/// slice M4-G's brief): a lingering Tunnel ghost "reserves its whole Tier 1 area against its **owner's** further Tunnel
 /// placements", and "**Upgrades** are blocked by any Tunnel's area": a ghost is no Tunnel, and an upgrade no placement.
 /// So player 1's Agent's pending Build, whose Tier 1 area (10, 6) to (17, 13) reaches into [`T1`]'s Tier 2 area,
 /// doesn't block [`T1`]'s upgrade; the ghost is red over the reserved area from then on, and the Build fails on its

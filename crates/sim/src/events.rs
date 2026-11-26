@@ -33,7 +33,7 @@ pub enum SimEvent {
         owner: PlayerId,
     },
     /// A unit gave up a move: it found no path (`docs/movement.md > 4`,
-    /// `systems/controls/behaviors.md > MovingToLocation > Failure`).
+    /// `systems/controls/command_behaviors.md > MovingToLocation > Failure`).
     MoveFailed {
         unit: ObjectId,
     },
@@ -109,7 +109,9 @@ pub enum SimEvent {
         reason: ArmyResource,
     },
     /// `producer` released `unit` into its exit doorway (`core/entities.md > Structure Type > Exit Doorway`), after
-    /// the unit's `Spawned` event.
+    /// the unit's `Spawned` event; or, at a producer that trains the units inside it (slice M5-F2,
+    /// `sim/producers/pool.rs`), let out `unit`, one of them, trained into its new type, after its `KindChanged`: the
+    /// same object, with no `Spawned`.
     UnitProduced {
         producer: ObjectId,
         unit: ObjectId,
@@ -217,9 +219,9 @@ pub enum SimEvent {
         tunnel: ObjectId,
     },
     /// `unit` came out of the Tunnel Network on `tunnel`'s exit path, and is among the sim's objects again, with the
-    /// id it had (`factions/syndicate/tunnels.md > EjectMenu`; `Sim::step_ejections`): ejected by its player, or sent
-    /// out by a surface rally point (`factions/syndicate/structures/README.md > Rally Point Behavior`). No `Spawned`
-    /// comes with it.
+    /// id it had (`factions/syndicate/tunnel_menus.md > EjectMenu`; `Sim::step_ejections`): ejected by its player, or
+    /// sent out by a surface rally point (`factions/syndicate/structures/README.md > Rally Point Behavior`). No
+    /// `Spawned` comes with it.
     LeftNetwork {
         unit: ObjectId,
         tunnel: ObjectId,
@@ -244,9 +246,9 @@ pub enum SimEvent {
         unit: ObjectId,
         building: ObjectId,
     },
-    /// (M5-F1) `unit`, ejected (`HoldCommand::EjectAll`), came out of `building` into its exit doorway, and is among
-    /// the sim's objects again, with the id it had (`factions/cults/structures/armory.md > Eject All`;
-    /// `Sim::step_holding`). No `Spawned` comes with it.
+    /// (M5-F1) `unit`, ejected (`HoldCommand::EjectAll`) or released (`ProductionCommand::Release`, slice M5-F2), came
+    /// out of `building` into its exit doorway, and is among the sim's objects again, with the id it had
+    /// (`factions/cults/structures/armory.md > Eject All`; `Sim::step_holding`). No `Spawned` comes with it.
     LeftBuilding {
         unit: ObjectId,
         building: ObjectId,
@@ -259,9 +261,9 @@ pub enum SimEvent {
         building: ObjectId,
     },
     /// `unit`'s Attack order on `target` failed: the target is inside the unit's MinRange and the unit can't move to
-    /// back off (`systems/controls/behaviors.md > AttackingObject > Target inside MinRange`, design change 0182: "the
-    /// order fails with feedback ("Target too close"; same channel as other refusals)"; `Sim::step_too_close`). The
-    /// unit stands, with its next queued order, if any, from the next tick.
+    /// back off (`systems/controls/command_behaviors.md > AttackingObject > Target inside MinRange`, design change
+    /// 0182: "the order fails with feedback ("Target too close"; same channel as other refusals)";
+    /// `Sim::step_too_close`). The unit stands, with its next queued order, if any, from the next tick.
     TargetTooClose {
         unit: ObjectId,
         target: ObjectId,
@@ -337,7 +339,7 @@ pub enum SimEvent {
         site: ObjectId,
     },
     /// Tunnel `tunnel` started building the expansion `site`, which came into the game under construction in its
-    /// Tunnel Area as the Tunnel's operation, paid for (`factions/syndicate/tunnels.md > Expansions under
+    /// Tunnel Area as the Tunnel's operation, paid for (`factions/syndicate/tunnel_menus.md > Expansions under
     /// construction`, design change 0254: "Paid when the ghost is placed ... Today placing the ghost starts
     /// construction at once"; `sim/expansions.rs`, slice M4-F). A `Spawned` comes with the site. Hidden from the other
     /// players as the expansion is (`vision::hidden_from`): the client shows it to the owner alone.
@@ -415,11 +417,26 @@ pub enum SimEvent {
     },
     /// (M5-O3) `unit`'s Attack Ground order on the location `at` failed as a [`SimEvent::TargetTooClose`] Attack does:
     /// the location is inside the unit's MinRange and the unit can't move to back off, or can't back off further
-    /// (`systems/controls/behaviors.md > AttackingLocation`, as `systems/controls/behaviors.md > AttackingObject >
-    /// Target inside MinRange`; `Sim::step_too_close`). The client's feedback line says "Target too close" for both.
-    /// The unit stands, with its next queued order, if any, from the next tick.
+    /// (`systems/controls/command_behaviors.md > AttackingLocation`, as `systems/controls/command_behaviors.md >
+    /// AttackingObject > Target inside MinRange`; `Sim::step_too_close`). The client's feedback line says "Target too
+    /// close" for both. The unit stands, with its next queued order, if any, from the next tick.
     LocationTooClose {
         unit: ObjectId,
         at: Vec2,
+    },
+    /// (M5-F2) `producer`, a building that trains the units inside it (`sim/producers/pool.rs`), queued a Release of
+    /// `unit`, one of them, which it reserves from then on (`ProductionCommand::Release`; design change 0337,
+    /// `factions/cults/structures/README.md > Choosing Recruits, Release and Eject All`): free, it lets the unit out
+    /// as it is once it completes, with a [`SimEvent::LeftBuilding`].
+    ReleaseQueued {
+        producer: ObjectId,
+        unit: ObjectId,
+    },
+    /// (M5-F2) `producer`'s Release of `unit` left its queue before the unit came out: X took it off
+    /// (`ProductionCommand::CancelProduction`), or the building left the game. The unit is back in the pool, or comes
+    /// out as the building's units do then (`Sim::evacuate`). A Release is free, so nothing is refunded.
+    ReleaseCancelled {
+        producer: ObjectId,
+        unit: ObjectId,
     },
 }

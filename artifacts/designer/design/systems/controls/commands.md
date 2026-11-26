@@ -9,7 +9,7 @@ An order issued to a unit, produced by a CommandIssuingTransition from the Contr
 When a location-targeted movement order (Move, Attack Move, Patrol) is given to several units at once, each unit's destination is decided by the **magic box** (user, 2026-11-23; StarCraft's model, the user's reference):
 - **The box** is the bounding rectangle around the **full Silhouettes** (collision shapes) of the units receiving the order, not just their centre points, so a click on or between the units of a straight line counts as inside. The group's centre (used for offsets) is the centre of this box (user, 2026-11-23).
 - **Click outside the box: keep the arrangement.** Each unit's destination is the click point plus that unit's current offset from the group's center. The group arrives in the same shape it had (a line stays a line).
-- **Click inside the box: converge.** Every unit's destination is the clicked point itself. The units gather around it, stopping where the crowd blocks them (see systems/controls/behaviors.md > MovingToLocation for when a blocked unit stops).
+- **Click inside the box: converge.** Every unit's destination is the clicked point itself. The units gather around it, stopping where the crowd blocks them (see systems/controls/command_behaviors.md > MovingToLocation for when a blocked unit stops).
 - **Queued (Shift) group orders: the box is built from where the units will be** (user, 2026-11-23). For a Shift-queued order, each unit's position for the box and offsets is the **destination of its last queued movement order** (the place it will be standing when this order starts), not its current position. Example: queue a group to X, then back to the start. The return trip is outside the box around X, so the group returns in formation instead of converging. If the previous queued move was a converge, all planned destinations are one point and the future box is tiny, so the next queued click moves the group on as the blob it will be.
   - This assumes every unit reaches its planned spot. If a unit falls short (blocked, stuck, crowd), it still walks to its pre-computed spot on the next leg and rejoins the shape there.
   - Fallback: a unit with no queued order that ends at a known location (empty queue, or its last queued order targets an object, e.g. Attack a unit or Move to an object) uses its current position.
@@ -18,12 +18,12 @@ When a location-targeted movement order (Move, Attack Move, Patrol) is given to 
 
 Rejected alternative (user): a fresh compact grid of spots around the click point. It felt "a little bit too random from a player's perspective".
 
-An offset destination that is unreachable is handled like any unreachable location: the unit goes to the nearest reachable point (systems/controls/behaviors.md > MovingToLocation > Unreachable target location).
+An offset destination that is unreachable is handled like any unreachable location: the unit goes to the nearest reachable point (systems/controls/command_behaviors.md > MovingToLocation > Unreachable target location).
 
 TBD: whether the box has a size limit (for widely scattered selections the box covers most of the map, so most clicks converge).
 
 ## Move
-Order the unit to move to a target location or object. Moving to a **unit** makes the ordered unit **follow** it until given another order (systems/controls/behaviors.md > MovingToObject > Completion). Right-clicking one of your own units therefore makes the selected units follow it.
+Order the unit to move to a target location or object. Moving to a **unit** makes the ordered unit **follow** it until given another order (systems/controls/command_behaviors.md > MovingToObject > Completion). Right-clicking one of your own units therefore makes the selected units follow it.
 
 **Following itself = Stop** (user, 2026-11-24): if the target unit is itself one of the units receiving the order (e.g. right-clicking one unit of the selection), that unit's order is equivalent to **Stop**: its order ends at once, as if it had arrived (with Shift, as a queued step it ends immediately when reached). The other units follow it as usual.
 
@@ -35,7 +35,7 @@ Order the unit to move to a target location or object. Moving to a **unit** make
 ## Attack
 Order the unit to attack a specific destructible object instance (unit or structure).
 
-**Any destructible target** (user, 2026-11-23): an explicit Attack order (Attack command + click) may target enemy, **own** and **neutral** destructible objects (force-attack). Right-click never does this: it attacks enemies, and moves to or follows own and neutral objects (systems/controls/selection_and_hud.md > RightClickResolution). Auto-targeting never picks own or neutral objects.
+**Any destructible target** (user, 2026-11-23): an explicit Attack order (Attack command + click) may target enemy, **own** and **neutral** destructible objects (force-attack). Right-click never does this: it attacks enemies, and moves to or follows own and neutral objects (systems/controls/interface.md > RightClickResolution). Auto-targeting never picks own or neutral objects.
 
 ### Sets BaseCommandState:
 - CommandType = Attack
@@ -45,7 +45,7 @@ Order the unit to attack a specific destructible object instance (unit or struct
 ## AttackGround
 Order the unit to attack a specific ground location. Only available to units whose AttackType has CanTargetGround = true.
 
-**It keeps firing at the location until given another order** (user, 2026-11-26; Q0083; systems/controls/behaviors.md > AttackingLocation).
+**It keeps firing at the location until given another order** (user, 2026-11-26; Q0083; systems/controls/command_behaviors.md > AttackingLocation).
 
 ### Sets BaseCommandState:
 - CommandType = AttackGround

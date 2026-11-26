@@ -1,9 +1,9 @@
 //! How the local player commands their units, producing structures and constructors
-//! (`systems/controls/selection_and_hud.md > ObjectInterfaceState`, `systems/controls/selection_and_hud.md >
-//! CommandPanel`, `systems/controls/selection_and_hud.md > DefaultState`, `systems/controls/selection_and_hud.md >
-//! RightClickResolution`, `systems/controls/selection_and_hud.md > Production Building Default Right-Click`,
-//! `systems/controls/selection_and_hud.md > AwaitingTarget`, `systems/controls/selection_and_hud.md >
-//! PointerDisplayType`, `systems/controls/selection_and_hud.md > CommandIndicators`; `systems/controls/commands.md >
+//! (`systems/controls/interface.md > ObjectInterfaceState`, `systems/controls/interface.md >
+//! CommandPanel`, `systems/controls/interface.md > DefaultState`, `systems/controls/interface.md >
+//! RightClickResolution`, `systems/controls/interface.md > Production Building Default Right-Click`,
+//! `systems/controls/interface.md > AwaitingTarget`, `systems/controls/hud.md >
+//! PointerDisplayType`, `systems/controls/hud.md > CommandIndicators`; `systems/controls/commands.md >
 //! Unit Command`; `factions/gdo/structures/barracks.md > ObjectInterfaceState[Barracks]`,
 //! `factions/gdo/structures/deployment_center.md > ObjectInterfaceState[DeploymentCenter]`; `factions/gdo/economy.md >
 //! ExtractionFacility > ObjectInterfaceState[ExtractionFacility]`; `factions/colonists/economy.md > Beacon > Beacon
@@ -67,7 +67,7 @@ pub struct OrderIssued {
     pub tick: Tick,
 }
 
-/// `systems/controls/selection_and_hud.md > AwaitingTarget > Invalid target clicks` (design change 0065): a left-click
+/// `systems/controls/interface.md > AwaitingTarget > Invalid target clicks` (design change 0065): a left-click
 /// on a target the pending command can't use, which gave nothing (no order, nor a rally point the sim would take); the
 /// target is still awaited. For the feedback ([`feedback`]).
 #[derive(Message, Copy, Clone, Debug, PartialEq)]
@@ -78,7 +78,7 @@ pub struct InvalidTarget {
     pub tick: Tick,
 }
 
-/// `systems/controls/selection_and_hud.md > AwaitingPlacement`: a left-click where the building can't be placed now,
+/// `systems/controls/hud.md > AwaitingPlacement`: a left-click where the building can't be placed now,
 /// which sent nothing; placement goes on. For the feedback ([`feedback`]).
 #[derive(Message, Copy, Clone, Debug, PartialEq)]
 pub struct InvalidPlacement {
@@ -89,7 +89,7 @@ pub struct InvalidPlacement {
     pub tick: Tick,
 }
 
-/// Design change 0162 (`systems/controls/selection_and_hud.md > CommandPanel > Pressing an unavailable command`): a
+/// Design change 0162 (`systems/controls/interface.md > CommandPanel > Pressing an unavailable command`): a
 /// greyed-out button pressed, or its hotkey, which issued nothing; or a Warp In whose click the sim wouldn't take
 /// (the bank short since its entry was pressed). "The player gets the same feedback as when an order is refused,
 /// naming the reason" ([`feedback`]).

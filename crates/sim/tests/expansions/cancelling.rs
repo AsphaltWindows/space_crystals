@@ -1,4 +1,4 @@
-//! Cancelling an expansion (`factions/syndicate/tunnels.md > Expansions under construction`, design change 0254:
+//! Cancelling an expansion (`factions/syndicate/tunnel_menus.md > Expansions under construction`, design change 0254:
 //! "while building, the expansion offers only **X Cancel Construction**, refunding **75%** of its cost (rounded down).
 //! The Tunnel's X cancels whatever operation it is running"), and the site gone otherwise.
 

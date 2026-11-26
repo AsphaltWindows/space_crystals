@@ -2,12 +2,13 @@
 
 ## Table of Contents — Design Documents
 
-**Restructured 2026-11-22 into directories** — the live index is `design/README.md` (one line per file). Keep README.md updated whenever files are added/renamed. Layout: `core/` (scale, lore, camera, game_rules, entities, map, vision, tech_and_research), `systems/` (units, combat, controls/{selection_and_hud, commands, behaviors}), `factions/{gdo,syndicate,cults,colonists}/` (overview, economy, structures, units; + syndicate/tunnels.md, cults/augmentation.md), `archive/` (designer_notes, to_be_converted — not live). Cross-refs written as `path/file.md > Section`.
+**Restructured 2026-11-22 into directories** — the live index is `design/README.md` (one line per file). Keep README.md updated whenever files are added/renamed. Layout: `core/` (scale, lore, camera, game_rules, entities, map, vision, tech_and_research), `systems/` (units, combat, controls/{selection, interface, hud, commands, behaviors, command_behaviors, action_channels}), `factions/{gdo,syndicate,cults,colonists}/` (overview, economy, structures, units; + syndicate/{tunnels, tunnel_menus, tunnel_area_and_space}.md, cults/augmentation.md; Cults Recruitment Hall and Storage in cults/structures/), `archive/` (designer_notes, to_be_converted — not live). Cross-refs written as `path/file.md > Section`.
 
 **Old → new file map** (older entries below still use old names):
 - entities.md → core/entities.md + core/map.md (tiles, patches, supply stations) + core/vision.md + core/tech_and_research.md
 - factions.md → core/game_rules.md (Defeat Condition) + factions/*/overview.md
 - control_system.md → systems/controls/selection_and_hud.md + commands.md + behaviors.md
+- 2026-11-27 split (0370): selection_and_hud.md → selection.md + interface.md + hud.md; behaviors.md → behaviors.md + command_behaviors.md + action_channels.md; syndicate/tunnels.md → tunnels.md + tunnel_menus.md + tunnel_area_and_space.md; cults/economy.md Recruitment Hall and Storage → cults/structures/recruitment_hall.md, storage.md
 - units.md, combat.md → systems/; scale/lore/camera.md → core/
 - gdo_objects.md → factions/gdo/economy.md (Starting Conditions, Generator, EF, Plate, Supply Tower) + structures.md (DC, Build Area, Barracks, tech, defense) + units.md (Peacekeeper, Supply Chopper)
 - syndicate_objects.md → factions/syndicate/tunnels.md (Tunnel Network, Tunnel) + structures.md (tech tree, expansions, Laser Turret) + units.md (Guard, Agent)
@@ -29,6 +30,10 @@
 
 **None open** (all answered through Q0129, entries 0319–0358, 2026-11-27). Standing TODO: general GDO/Syndicate placeholder pass (Missile Turret, Defense System, Radar Station, etc.). Order of work: finish Cults units → Colonists units → techs → detection → numbers review.
 ## Loose Ends
+- **Cults identity check (2026-11-27), open tensions for the user**: no front-line tank (are infantry masses the tank?); thin, short-range anti-air and no Cults AA building; detection later; Mystical branch has only the Disciple as a new unit (user: fine).
+- **Next Cults work**: Scrap Hangar aircraft (paratrooper plane, airship), maybe more vehicles, more Disciple spells. Then Colonists units (incl. salvo concept for Lancer/Skylance).
+- **Supply Chopper transport rules** (load/unload, capacity, destroyed with passengers): still TBD, the last GDO design gap.
+- **Placeholder passes done** for Cults (0319), GDO (0366), Syndicate (0367); rules confirmed in 0368/0369.
 - **Placeholder review** (after all units + techs): every 'placeholder' number across factions, incl. Disciple having no weapon (0319).
 - **Cults roster IN PROGRESS (2026-11-27)**: Armory: Militant, Gunner (TailDisjointed, Firing 4 f). Cathedral: Disciple (Shroud, Ungroupable). Chop Shop: **Seeker** (ex-Jackal), **Hand of Heaven** (tracked shoot-and-scoot missile, 3 Recruits), **Prayer-mobile** (wheeled caster, Inspire/Suppress, 2 Recruits, Temple). Airstrip: Sparrow. TODO: Scrap Hangar aircraft (paratrooper plane, airship), maybe more vehicles, more Disciple spells. Then Colonists units.
 - **Map view modes with toggles** (user, 2026-11-26, 'later'): e.g. show all own Tunnel Areas; maybe other overlays.

@@ -60,9 +60,9 @@ fn reach(t: &TestSim, at: Vec2) -> f32 {
 
 /// A thrower 600 su from the point clicked walks towards it (MovingToLocation), stops in range (4 grid units from its
 /// edge) and fires at the point itself. Design change 0293's verification, "An Attack Ground keeps shelling until
-/// Stop" (`systems/controls/behaviors.md > AttackingLocation`: "the behavior repeats its attack cycle at the location
-/// until the player gives another order (or Stop)"): it throws again every cycle (Aim 6, Firing 2, Cooldown 4 and
-/// Reload 28 ticks) at the same point, long after its first blast, its order current all along and the Move
+/// Stop" (`systems/controls/command_behaviors.md > AttackingLocation`: "the behavior repeats its attack cycle at the
+/// location until the player gives another order (or Stop)"): it throws again every cycle (Aim 6, Firing 2, Cooldown 4
+/// and Reload 28 ticks) at the same point, long after its first blast, its order current all along and the Move
 /// Shift-queued behind it still waiting ("Queued orders after an Attack Ground therefore never start on their own").
 /// The Stop ends it: no grenade leaves after it, the one in the air lands, and the queued Move never starts.
 #[test]
@@ -158,9 +158,9 @@ fn it_is_refused_for_units_that_cant_target_the_ground() {
     assert_eq!(current(&both, peacekeeper), None, "the Peacekeeper ignores it");
 }
 
-/// Design change 0182, for a location (`systems/controls/behaviors.md > AttackingLocation`: as AttackingObject): a
-/// thrower given a MinRange of 2 grid units, ordered to attack the ground 50 su from its edge, backs off straight away
-/// from the point until it is beyond its MinRange, then fires at it.
+/// Design change 0182, for a location (`systems/controls/command_behaviors.md > AttackingLocation`: as
+/// AttackingObject): a thrower given a MinRange of 2 grid units, ordered to attack the ground 50 su from its edge,
+/// backs off straight away from the point until it is beyond its MinRange, then fires at it.
 #[test]
 fn a_location_inside_the_min_range_is_backed_off_from() {
     let _grenadier = grenadier(AttackAttrs {

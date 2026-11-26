@@ -1,7 +1,7 @@
-//! The Tunnel Area display in the client (slice M4-J3; `factions/syndicate/tunnels.md > Tunnel Area display`, design
-//! changes 0299 and 0300, answering Q0086 point 4): selecting an own Tunnel shows its area, an enemy's never; placing a
-//! Tunnel shows the rings of its ghost's later tiers, red where they would block an upgrade, and rebuilds them only as
-//! the ghost moves to another tile.
+//! The Tunnel Area display in the client (slice M4-J3; `factions/syndicate/tunnel_area_and_space.md > Tunnel Area
+//! display`, design changes 0299 and 0300, answering Q0086 point 4): selecting an own Tunnel shows its area, an enemy's
+//! never; placing a Tunnel shows the rings of its ghost's later tiers, red where they would block an upgrade, and
+//! rebuilds them only as the ghost moves to another tile.
 
 use sc_sim::nav::TileRect;
 use sc_sim::testing::ScenarioBuilder;
@@ -133,8 +133,8 @@ fn selecting_an_own_tunnel_shows_its_area_and_an_enemys_none() {
 /// Design change 0299's Verification: "Place a Tunnel near Water: the T3 ring shows red over the Water". While the
 /// Agent places a Tunnel, the display shows its ghost's Tier 2 and Tier 3 rings, and no Tunnel's area. With the Water
 /// player 1 has seen in the Tier 3 ring, that ring is red over it, and only there: the Water no one of theirs has seen
-/// passes, as on the ghost ("never-explored tiles pass on the ghost", `factions/syndicate/tunnels.md > Tunnel Area
-/// Non-Overlap Rule > Drillable area`), and the Tier 2 ring is clear.
+/// passes, as on the ghost ("never-explored tiles pass on the ghost", `factions/syndicate/tunnel_area_and_space.md >
+/// Tunnel Area Non-Overlap Rule > Drillable area`), and the Tier 2 ring is clear.
 #[test]
 fn placing_a_tunnel_near_water_shows_the_tier_3_ring_red_over_it() {
     let mut app = areas_game();

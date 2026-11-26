@@ -15,7 +15,7 @@ use crate::input::{ActionState, CommandSlot, InputAction};
 use crate::platform::SurfaceSize;
 use crate::selection::LocalControl;
 
-/// `systems/controls/selection_and_hud.md > ObjectInterfaceState`: "Each tick, the ObjectInterfaceState is validated
+/// `systems/controls/interface.md > ObjectInterfaceState`: "Each tick, the ObjectInterfaceState is validated
 /// against the active SelectionGroup's game state": an AwaitingTarget whose command the ActiveGroup no longer offers, a
 /// build menu whose ActiveGroup is no Deployment Center or Beacon, an AwaitingPlacement whose constructor no longer
 /// holds the building ready, whose ActiveGroup is no longer Drones or the Beacon, or one under deployment (design
@@ -34,7 +34,7 @@ pub(in crate::command_ui) fn validate_interface(mut control: LocalControl) {
     }
 }
 
-/// `systems/controls/selection_and_hud.md > AwaitingTarget`: "Escape or right-click cancels via a StateOnlyTransition
+/// `systems/controls/interface.md > AwaitingTarget`: "Escape or right-click cancels via a StateOnlyTransition
 /// back to DefaultState"; in the other multi-stage states Esc goes back one state (`InterfaceState::back`): from
 /// AwaitingPlacement to the Deployment Center's build menu, the Beacon's Warp In menu, or the Extraction Facility's or
 /// the Drones' DefaultState, from a build menu to DefaultState. Esc is the Cancel action; right-click is
@@ -47,10 +47,10 @@ pub(in crate::command_ui) fn cancel_on_escape(actions: Res<ActionState>, mut con
     }
 }
 
-/// `systems/controls/selection_and_hud.md > DefaultState`: a command hotkey (`InputAction::CommandSlot`) or a click on
+/// `systems/controls/interface.md > DefaultState`: a command hotkey (`InputAction::CommandSlot`) or a click on
 /// a panel button (a press of the Select action over the button, found by the panel's geometry like the
 /// SelectionPanel's portraits) enters AwaitingTarget for a command that needs a target, or issues an immediate one: a
-/// common command to the whole selection, a group command to the ActiveGroup (`systems/controls/selection_and_hud.md >
+/// common command to the whole selection, a group command to the ActiveGroup (`systems/controls/interface.md >
 /// CommandPanel`), a Train or a Cancel Production to every producer among them as one command. A mode toggle (Raise and
 /// Lower Shield, Convert) switches the type of the units it goes to at the press, and their merged group becomes the
 /// ActiveGroup (design change 0198, `crate::selection::ControlState::toggle`), so that the next press, the next frame
@@ -62,9 +62,11 @@ pub(in crate::command_ui) fn cancel_on_escape(actions: Res<ActionState>, mut con
 /// Beacon (design change 0125), an Egress Node's F selects its returning Drones instead
 /// (`factions/colonists/economy.md > Egress Node > Egress Node ObjectInterfaceState`, slice M3-J2), and the X of
 /// whatever transforms cancels it (design change 0116). A Tunnel's E opens its EjectMenu, whose tiles each send the
-/// Tunnel an Eject, the menu staying open (`factions/syndicate/tunnels.md > EjectMenu`, slice M4-J2); its W opens its
-/// ExpandMenu, whose entries enter their placement in the Tunnel Area, and its X cancels its operation
-/// (`factions/syndicate/tunnels.md > ExpandMenu`, slice M4-F). Back (Z) returns to the previous state. While a target
+/// Tunnel an Eject, the menu staying open (`factions/syndicate/tunnel_menus.md > EjectMenu`, slice M4-J2); its W opens
+/// its ExpandMenu, whose entries enter their placement in the Tunnel Area, and its X cancels its operation
+/// (`factions/syndicate/tunnel_menus.md > ExpandMenu`, slice M4-F). A pool building's Q, W, E and R open their
+/// KindMenus, whose entries train or release at once, the menu staying open, and its A ejects (slice M5-F2). Back (Z)
+/// returns to the previous state. While a target
 /// is awaited or a building placed the other commands are unavailable (design change 0066), and so is a production or
 /// construction command the gate would refuse (design change 0081; never for the army cap, 0143): [`press`] finds
 /// nothing to do for them, and a greyed-out button says why it is ([`CommandRefused`], design change 0162: "nothing is
@@ -178,6 +180,13 @@ pub(in crate::command_ui) fn press_command_slots(
             SlotPress::Tunnel(command, tunnel) => {
                 let tunnels = recipients(&state.selection, command);
                 outbox.tunnel(player, tunnels, tunnel);
+            }
+            SlotPress::OpenKindMenu(kind) => {
+                control.update(|state| state.interface = InterfaceState::KindMenu(kind));
+            }
+            SlotPress::Hold(command, holding) => {
+                let buildings = recipients(&state.selection, command);
+                outbox.hold(player, buildings, holding);
             }
             SlotPress::SelectReturningDrones => {
                 let objects = control.objects();

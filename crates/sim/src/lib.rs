@@ -11,6 +11,7 @@
 //! - Fixed 16 ticks per second; all durations are counted in ticks.
 //! - Every gameplay number cites its design section (`path/file.md > Section`).
 
+pub mod augmentation;
 pub mod combat;
 pub mod command;
 pub mod construction;
@@ -59,6 +60,7 @@ pub mod tunnel;
 pub mod units;
 pub mod vision;
 
+pub use augmentation::{Augmentation, RecruitKind};
 pub use combat::{AttackPhase, AttackState};
 pub use command::{Ability, Command, DebugCommand, HoldCommand, PlayerCommand, TickInputs, TunnelCommand};
 pub use construction::{ConstructionCommand, Constructor};
@@ -80,7 +82,7 @@ pub use orders::{OrderKind, Orders, Target};
 pub use placement::{BuildArea, PlacementCheck, PlacementProblem, TileProblem, WholeProblem};
 pub use player::{Banks, Faction, Player};
 pub use production::{
-    Door, Doorway, EnergyDoorway, ExitDoor, Production, ProductionCommand, ProductionStatus, Rally, Refusal,
+    Door, Doorway, EnergyDoorway, ExitDoor, Production, ProductionCommand, ProductionStatus, QueueEntry, Rally, Refusal,
 };
 pub use progress::Progress;
 pub use recruitment::{Capacity, Claims, HallState};

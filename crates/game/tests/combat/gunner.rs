@@ -8,7 +8,8 @@ use sc_sim::AttackPhase;
 use super::*;
 
 /// Player 1's Gunner attacks player 2's Peacekeeper, 3 grid units east of its edge. In the first frame of its Firing the
-/// Peacekeeper is taken two tiles south (a debug teleport: no unit walks off the spot in two frames). The shot misses:
+/// Peacekeeper is taken two tiles south (a debug teleport, at once, within its 4 frames of Firing: design change 0333,
+/// whose walk off the spot the sim's `tests/gunner.rs` plays). The shot misses:
 /// a tracer in the Gunner's style from the Gunner to the spot it locked, where the Peacekeeper stood at the end of
 /// Aiming, not to where it is, naming no object hit. Its next shot hits the Peacekeeper where it stands now: a tracer
 /// to it there.
@@ -66,10 +67,10 @@ fn a_gunners_miss_is_drawn_to_the_spot_it_locked() {
 }
 
 /// Slice M5-O3: an Attack Ground that its Gunner can't carry out fails with the feedback an Attack's does
-/// (`SimEvent::LocationTooClose`; `systems/controls/behaviors.md > AttackingObject > Target inside MinRange`: "the same
-/// "Target too close" feedback"), through the sim. Player 1's Gunner, its back to the map's west edge, is ordered to
-/// attack the ground 8 su off its edge, inside its MinRange: it backs off as far as the edge lets it, gives the order
-/// up, and the feedback band says "Target too close".
+/// (`SimEvent::LocationTooClose`; `systems/controls/command_behaviors.md > AttackingObject > Target inside MinRange`:
+/// "the same "Target too close" feedback"), through the sim. Player 1's Gunner, its back to the map's west edge, is
+/// ordered to attack the ground 8 su off its edge, inside its MinRange: it backs off as far as the edge lets it, gives
+/// the order up, and the feedback band says "Target too close".
 #[test]
 fn a_cornered_gunners_attack_ground_shows_target_too_close() {
     let gunner = ObjectId(1);

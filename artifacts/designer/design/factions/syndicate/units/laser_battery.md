@@ -13,7 +13,7 @@
 - **A normal surge draws twice what charges in one surge interval**, so while attacking with charge left the battery drains at a net **1× the charge rate**. Resting refills it.
 - **Empty battery** (user, 2026-11-25): it keeps firing **just as often**, but each surge uses only what charged since the last one (half a normal surge's charge), so by the ^(2/3) rule it deals about **63%** ((½)^(2/3)) of a normal surge's damage. An exhausted Laser Battery still fights at about two-thirds strength.
 - More generally, a surge uses the normal surge charge if the battery holds it, otherwise whatever is left; its damage follows the ^(2/3) rule.
-- TBD: battery size, charge rate (numbers); whether it charges while switching modes (assumed yes: always charging).
+- Battery size and charge rate: placeholders below (it charges while switching modes, as assumed).
 
 ## Attack: constant beam with surges
 - **Animation**: while attacking, a **constant thin red laser** connects the Laser Battery to its target. Periodic **surges** along the beam are what **actually do the damage**.
@@ -22,16 +22,16 @@
 - TargetDomain: Ground (mobile); Air (deployed, below)
 - TargetType: SingleTarget (assumed)
 - Range: fairly long
-- TBD: surge interval, charge used per normal surge, damage constant, range, aiming time.
+- Surge interval, charge per surge, damage constant, range, aiming time: placeholders below.
 
 ## Amplify (ability)
 Converts the **entire remaining battery** into the **next surge**. A single big hit for burst damage, at the cost of efficiency (per the ^(2/3) rule) and of an empty battery afterwards.
 
 **The trade is a tuning dial** (user, 2026-11-25: a reasonable trade; its size depends on the numbers). If a full battery holds N normal surges, an Amplified full battery deals N^(2/3) normal surges' worth of damage instead of N, i.e. N^(−1/3) of the total: N = 4 → ~63%, N = 8 → 50%, N = 27 → ~33%. So the share of the battery a normal surge uses sets how costly Amplify is; choose it in the numbers pass.
-- TBD: hotkey; whether it can be used while deployed; whether it is queueable or a mode-like toggle.
+- Hotkey, use while deployed, queueing: placeholders below (to confirm).
 
 ## TurretAttributes (mobile):
-- TurnAngle: **narrow arc** (user, 2026-11-25): it can only aim within a cone ahead of the hull, so the tank must roughly face its target (like the Assault Bike). Value TBD.
+- TurnAngle: **narrow arc** (user, 2026-11-25): it can only aim within a cone ahead of the hull, so the tank must roughly face its target (like the Assault Bike). Placeholder below.
 
 ## Deploy (ability)
 - **Deployed**: **cannot move**. The turret gets **360° rotation**. It can **only target air units** (no ground targets while deployed).
@@ -45,9 +45,9 @@ Converts the **entire remaining battery** into the **next surge**. A single big 
   - **Not cancellable** (user, 2026-11-25; replaces the earlier wind-back on Stop): once deploying has started it always runs to completion; Stop doesn't interrupt it. Undeploying likewise always completes, and Deploy is available again only once it has (user, 2026-11-25; Q0071).
   - **Orders given while deploying** (user, 2026-11-25): the **last order given** (without Shift; each new one replaces the previous) is **held**, and it is the first thing the unit tries once deployment finishes. Shift-queued orders line up behind it as usual. At that point each order is checked against the deployed unit: one it can't carry out (e.g. **Move**, since a deployed unit can't move) is **dropped** with the usual unavailable-command feedback (user, 2026-11-25; Q0071), and the next one is tried.
   - **Not the same as the Colonists Drone's Deploy** (user, 2026-11-25): a Drone becomes a Beacon **immediately** and the transformation **can be cancelled** (factions/colonists/economy.md > Beacon Deployment).
-  - When the switch makes a group disappear, the group the units joined becomes active (systems/controls/selection_and_hud.md > ActiveGroup > When the ActiveGroup disappears).
+  - When the switch makes a group disappear, the group the units joined becomes active (systems/controls/selection.md > Selection > ActiveGroup > When the ActiveGroup disappears).
 - The battery keeps charging in every mode (Battery: always charging).
-- TBD: deploy/undeploy time.
+- Deploy/undeploy time: placeholder below.
 
 ## Relay (ability, deployed only)
 (user, 2026-11-25) Only a **deployed** Laser Battery can relay; no other laser uses Prisms.
@@ -85,7 +85,17 @@ Converts the **entire remaining battery** into the **next surge**. A single big 
 
 **Chain breaks** (user, 2026-11-25): if the chain breaks (a Prism on it is destroyed or a link goes out of range), the Batteries **stop relaying automatically** and go back to ordinary deployed behavior.
 
-TBD:
+Ranges (placeholders below):
 - link range between Prisms, and Battery-to-Prism range;
 
-All numbers (HP, armor, sight, speed, TunnelSpaceCost, battery, damage, range, timings, cost, build time): TBD.
+**Placeholder stats** (designer, 2026-11-27, user's standing permission; tune in the numbers pass):
+- Silhouette 64x44 space units; MaxHP 220; PointArmor 3, FullArmor 3; SightRange 7 grid units; TunnelSpaceCost 3.
+- SpeedTurnRadiusMovement: MaxSpeed 4.5 su/frame; Acceleration 0.4; Deceleration 1; SpeedToTurnRadiusRatio 8.
+- Turret: mobile TurnAngle **30°** total; deployed 360°; TurnRate 6°/frame.
+- **Battery**: capacity **100**; charge rate **5 per second** (it charges in every mode, including while switching, as assumed); surge interval **16 frames** (1 s); a normal surge uses **10** (twice one interval's charge).
+- **Damage per surge = 4 × charge^(2/3)**: a normal surge deals about 18.6; an empty-battery surge (5) about 11.7; Amplify from full (100) about 86.
+- Range **8 grid units**; AimDuration 8 frames.
+- **Deploy and undeploy: 48 frames** each.
+- **Relay**: Battery-to-Prism range 8 grid units; Prism-to-Prism link range 8 grid units; an armed Prism's attack Range 6 grid units.
+- **Amplify** (hotkey **F**): pressing it **marks the next attack**: the next surge uses the entire battery (user, 2026-11-27). Usable mobile and deployed; not queueable.
+- Cost: Vehicle Assembly, 200 Space Crystals, 400 frames.

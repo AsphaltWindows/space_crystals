@@ -4,7 +4,7 @@
 
 ## Files
 
-Listed in panel order: this is the order used by the Tunnel's EjectMenu (factions/syndicate/tunnels.md > Tunnel ObjectInterfaceState). Agent, Guard, Grenadier, then the vehicles and aircraft in production-building order.
+Listed in panel order: this is the order used by the Tunnel's EjectMenu (factions/syndicate/tunnel_menus.md > Tunnel ObjectInterfaceState). Agent, Guard, Grenadier, then the vehicles and aircraft in production-building order.
 
 - `agent.md` — **Agent**: Worker: pistol, crystal/Supplies gathering, building (Tunnel Construction Flow)
 - `guard.md` — **Guard**: Basic laser infantry, ground+air (Optics Lab)

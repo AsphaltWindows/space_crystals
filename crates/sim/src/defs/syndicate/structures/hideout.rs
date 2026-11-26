@@ -17,7 +17,7 @@ pub(crate) static HIDEOUT: ObjectDef = ObjectDef {
     selectable: true,                           // `core/entities.md > Object Type > Selectable - true`
     // Not listed for the Hideout; a type with MaxHP is destructible (`core/entities.md > Object Instance > HP`).
     destructible: true,
-    // `factions/syndicate/tunnels.md > Tunnel ObjectInterfaceState > Expansions under construction` (design change
+    // `factions/syndicate/tunnel_menus.md > Tunnel ObjectInterfaceState > Expansions under construction` (design change
     // 0254, answering Q0065 points 5 and 6): "Sight: none (underground). Groupable: true."
     groupable: true,
     sight_range: 0.0,
@@ -92,8 +92,8 @@ pub(crate) const HIDEOUT_EXPANSION: ExpansionDef = ExpansionDef {
     tier: 1,     // Tier Requirement - 1
     cost: 200,   // Cost - 200 Space Crystals
     frames: 400, // Build Time - 400 frames (25 seconds)
-    // `factions/syndicate/tunnels.md > Expansions under construction` (design change 0254): "the ConstructionHP Rule
-    // applies to every expansion (starts at 10%, grows with progress)".
+    // `factions/syndicate/tunnel_menus.md > Expansions under construction` (design change 0254): "the ConstructionHP
+    // Rule applies to every expansion (starts at 10%, grows with progress)".
     start_hp: 0.1,
 };
 
@@ -104,7 +104,7 @@ mod tests {
     /// An underground structure ("Structure Type (Underground)"), 2×2, HP 400, which may stand on slopes (design
     /// change 0005) and has no tiers; an expansion's high armor, PointArmor 6 and FullArmor 24
     /// (`factions/syndicate/structures/README.md > Tunnel Expansions > High armor underground`, placeholders of design
-    /// changes 0262 and 0264); no sight and Groupable (`factions/syndicate/tunnels.md > Expansions under
+    /// changes 0262 and 0264); no sight and Groupable (`factions/syndicate/tunnel_menus.md > Expansions under
     /// construction`, design change 0254 answering Q0065 points 5 and 6). Not given, so a placeholder: SymmetryType
     /// AAAA (plan decision T29).
     #[test]
@@ -157,7 +157,7 @@ mod tests {
     }
 
     /// "Tier Requirement - 1", "Cost - 200 Space Crystals", "Build Time - 400 frames (25 seconds)", built by a Tunnel
-    /// from 10% of its HP (`factions/syndicate/tunnels.md > Expansions under construction`, design change 0254).
+    /// from 10% of its HP (`factions/syndicate/tunnel_menus.md > Expansions under construction`, design change 0254).
     #[test]
     fn a_tunnel_builds_it_for_200_crystals_in_400_frames() {
         let structure = ObjectKind::Hideout.def().structure.as_ref().unwrap();

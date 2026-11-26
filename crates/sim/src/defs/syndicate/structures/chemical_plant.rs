@@ -22,8 +22,8 @@ pub(crate) static CHEMICAL_PLANT: ObjectDef = ObjectDef {
     // Not listed; a type with MaxHP is destructible (`core/entities.md > Object Instance > HP`).
     destructible: true,
     groupable: true, // Groupable - true
-    // Not listed: an expansion's, `factions/syndicate/tunnels.md > Expansions under construction` (design change 0254):
-    // "Sight: none (underground)".
+    // Not listed: an expansion's, `factions/syndicate/tunnel_menus.md > Expansions under construction` (design change
+    // 0254): "Sight: none (underground)".
     sight_range: 0.0,
     max_hp: Some(400.0), // HP - 400
     max_shields: None,
@@ -64,8 +64,8 @@ pub(crate) const CHEMICAL_PLANT_EXPANSION: ExpansionDef = ExpansionDef {
     tier: 1,     // Tier Requirement - 1
     cost: 150,   // Cost - 150 Space Crystals (no Supplies)
     frames: 400, // Build Time - 400 frames (25 seconds)
-    // `factions/syndicate/tunnels.md > Expansions under construction` (design change 0254): "the ConstructionHP Rule
-    // applies to every expansion (starts at 10%, grows with progress)".
+    // `factions/syndicate/tunnel_menus.md > Expansions under construction` (design change 0254): "the ConstructionHP
+    // Rule applies to every expansion (starts at 10%, grows with progress)".
     start_hp: 0.1,
 };
 

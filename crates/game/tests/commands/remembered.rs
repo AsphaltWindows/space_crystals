@@ -2,7 +2,7 @@
 //! remembered structures and objects "can be targeted by right-click and by targeted commands (Attack, Gather, Move to
 //! object, rally points), but are still not selectable", and the order goes to their last-known position (design
 //! change 0139, `core/vision.md > Explored > Targeting remembered objects`); a rally point gives a new unit its own
-//! default right-click command on the rally target (design change 0136, `systems/controls/selection_and_hud.md > What
+//! default right-click command on the rally target (design change 0136, `systems/controls/interface.md > What
 //! a rally point makes a new unit do`); and a unit right-clicked among the selected ones stops while the others follow
 //! it (design change 0168, `systems/controls/commands.md > Move`: "Following itself = Stop").
 //!
@@ -275,7 +275,7 @@ fn a_barracks_rallied_on_an_enemy_sends_its_peacekeepers_to_attack_it() {
 
 /// The acceptance of slice M3-R for 0139: "scout a field and leave, then right-click a greyed patch with Drones: they
 /// walk there and mine". Both get a Gather on the patch, which the pointer previews as GatherResources (slice M3-J2,
-/// `systems/controls/selection_and_hud.md > PointerDisplayType > Resolution Rules`: "Cursor over resource (resource
+/// `systems/controls/hud.md > PointerDisplayType > Resolution Rules`: "Cursor over resource (resource
 /// gatherer selected)"); the first there mines it, the other finds it taken and goes on to the next patch of the field
 /// (design change 0132).
 #[test]

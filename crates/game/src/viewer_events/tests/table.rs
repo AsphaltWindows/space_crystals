@@ -452,5 +452,20 @@ pub(super) fn table(sim: &Sim) -> Vec<(SimEvent, [Seen; 4])> {
             },
             [P, P, P, W],
         ),
+        // (M5-F2) A pool building's Release, queued and taken back: its owner's, as its production's news.
+        (
+            SimEvent::ReleaseQueued {
+                producer: TUNNEL,
+                unit: UNIT,
+            },
+            [W, N, N, N],
+        ),
+        (
+            SimEvent::ReleaseCancelled {
+                producer: TUNNEL,
+                unit: UNIT,
+            },
+            [W, N, N, N],
+        ),
     ]
 }

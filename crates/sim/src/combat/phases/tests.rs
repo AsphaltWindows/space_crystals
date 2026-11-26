@@ -56,6 +56,7 @@ fn object(id: ObjectId, kind: ObjectKind, owner: Option<PlayerId>, pos: Vec2) ->
         decay: None,
         popup: None,
         lineage: Vec::new(),
+        augmentation: Default::default(),
     }
 }
 

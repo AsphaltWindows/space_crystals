@@ -166,8 +166,8 @@ fn the_colonists_bar_reads_their_banks_and_beacon_capacity() {
 /// `factions/syndicate/overview.md > DisplayHud` on the Syndicate's starting objects (slice M4-B,
 /// `factions/syndicate/tunnels.md > Tunnel > Starting Conditions`): Space Crystals 100, Supplies 1, and Tunnel
 /// Space 1/11, the Tunnel's 48 tunnel-region cells less the Hideout's 4 over 4, of which the Agent uses 1. Over
-/// capacity (`factions/syndicate/tunnels.md > Tunnel Space`: "usage is simply displayed over capacity (e.g.
-/// 12/10)"): with a second Hideout and 11 more Agents, 12/10, in red.
+/// capacity (`factions/syndicate/tunnel_area_and_space.md > Tunnel Space`: "usage is simply displayed over capacity
+/// (e.g. 12/10)"): with a second Hideout and 11 more Agents, 12/10, in red.
 #[test]
 fn the_syndicate_bar_reads_their_banks_and_tunnel_space() {
     use ResourceFigure::{SpaceCrystals, Supplies, TunnelSpace};
@@ -195,10 +195,11 @@ fn the_syndicate_bar_reads_their_banks_and_tunnel_space() {
 }
 
 /// `factions/cults/overview.md > DisplayHud` (slice M5-C): Space Crystals, and Unit Control as used / available
-/// (`factions/cults/economy.md > RecruitmentHall > Cults Unit Control HUD Display`). A Recruitment Hall on open Plane
-/// provides 20; two map Recruits, no Hall's, are orphaned points (**Placeholder (Q0101 point 2)**), and the Hall's first
-/// Recruit counts once it is out (**Placeholder (Q0100 point 3)**). The Hall lost (a Storage keeps the player in the
-/// game), its capacity goes and its Recruit stays, over capacity and not in red. A player not in the game shows
+/// (`factions/cults/structures/recruitment_hall.md > Cults Unit Control HUD Display`). A Recruitment Hall on open Plane
+/// provides 20; two map Recruits, no Hall's, are orphaned points (design change 0344: "Recruits no Hall produced
+/// (custom maps, debug) are orphans from the start"), and the Hall's Recruits count from the start of their production
+/// (design change 0342). The Hall lost (a Storage keeps the player in the game), its capacity goes, and so does its
+/// Recruit in production, while the one out stays, over capacity and not in red. A player not in the game shows
 /// nothing.
 #[test]
 fn the_cults_bar_reads_their_bank_and_unit_control() {
@@ -218,11 +219,15 @@ fn the_cults_bar_reads_their_bank_and_unit_control() {
     t.run_until(191);
     assert_eq!(
         texts(t.sim(), PlayerId(2))[1],
-        "Unit Control 2/20",
-        "the Recruit in production isn't counted"
+        "Unit Control 3/20",
+        "the Recruit in production counts"
     );
     t.run(1);
-    assert_eq!(texts(t.sim(), PlayerId(2))[1], "Unit Control 3/20");
+    assert_eq!(
+        texts(t.sim(), PlayerId(2))[1],
+        "Unit Control 4/20",
+        "one out, the next in production"
+    );
     t.debug_at(
         193,
         sc_sim::DebugCommand::Remove {
@@ -232,4 +237,30 @@ fn the_cults_bar_reads_their_bank_and_unit_control() {
     t.run(1);
     assert_eq!(texts(t.sim(), PlayerId(2))[1], "Unit Control 3/0");
     assert!(texts(t.sim(), PlayerId(3)).is_empty());
+}
+
+/// Design change 0342's Verification: "At 19/20 with a Recruit in production, the HUD shows 20/20". A Hall on open
+/// Plane has made 19 Recruits by tick 3648, when its 20th starts: the bar reads 20/20, as it does once that one is out.
+#[test]
+fn at_19_with_a_recruit_in_production_the_bar_reads_20_of_20() {
+    let recruits = |t: &sc_sim::testing::TestSim| t.sim().objects().filter(|o| o.kind == ObjectKind::Recruit).count();
+    let mut t = ScenarioBuilder::new(&vec![".".repeat(24); 24].join("\n"))
+        .faction(PlayerId(2), Faction::Cults)
+        .spawn(ObjectKind::RecruitmentHall, Some(PlayerId(2)), tile(10, 8))
+        .start();
+    t.run_until(19 * 192 - 1);
+    assert_eq!(
+        (recruits(&t), texts(t.sim(), PlayerId(2))[1].as_str()),
+        (18, "Unit Control 19/20")
+    );
+    t.run(2);
+    assert_eq!(
+        (recruits(&t), texts(t.sim(), PlayerId(2))[1].as_str()),
+        (19, "Unit Control 20/20")
+    );
+    t.run_until(20 * 192);
+    assert_eq!(
+        (recruits(&t), texts(t.sim(), PlayerId(2))[1].as_str()),
+        (20, "Unit Control 20/20")
+    );
 }

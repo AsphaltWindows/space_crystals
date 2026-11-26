@@ -133,9 +133,9 @@ kind_registry! {
     Militant => cults::units::militant::MILITANT,
     /// `factions/cults/units/gunner.md` (design change 0304)
     Gunner => cults::units::gunner::GUNNER,
-    /// `factions/cults/economy.md > RecruitmentHall`
+    /// `factions/cults/structures/recruitment_hall.md`
     RecruitmentHall => cults::structures::recruitment_hall::RECRUITMENT_HALL,
-    /// `factions/cults/economy.md > Storage`
+    /// `factions/cults/structures/storage.md`
     Storage => cults::structures::storage::STORAGE,
     /// `factions/cults/structures/armory.md`
     Armory => cults::structures::armory::ARMORY,

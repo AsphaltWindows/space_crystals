@@ -1,5 +1,5 @@
 //! The Syndicate's panels in the client (slice M4-J2): the Tunnel's letters and its EjectMenu, with the network's
-//! counts (design change 0257, `factions/syndicate/tunnels.md > EjectMenu`); the Hideout's letters (design change
+//! counts (design change 0257, `factions/syndicate/tunnel_menus.md > EjectMenu`); the Hideout's letters (design change
 //! 0260), its E training Grenadiers behind a Chemical Plant (slice M4-U), and its rallies on a Hideout and on a Tunnel
 //! (design change 0252); a control group whose units are all in the network; and the Tunnel Area overlay while a
 //! Tunnel is selected.
@@ -135,8 +135,8 @@ fn rally_markers(app: &App) -> Vec<RallyIndicator> {
     rally_indicators(sim, &Sight::new(sim, local_player(app), false), states)
 }
 
-/// `factions/syndicate/tunnels.md > Tunnel ObjectInterfaceState` (design change 0257): Q Upgrade Tunnel, greyed while
-/// the bank can't pay it (slice M4-G: `tunnel_upgrade`), W Expand Tunnel, which opens the ExpandMenu (slice M4-F:
+/// `factions/syndicate/tunnel_menus.md > Tunnel ObjectInterfaceState` (design change 0257): Q Upgrade Tunnel, greyed
+/// while the bank can't pay it (slice M4-G: `tunnel_upgrade`), W Expand Tunnel, which opens the ExpandMenu (slice M4-F:
 /// `expansions`), E Eject, X Cancel, greyed while there is no operation to cancel. A greyed button says why. E opens
 /// the EjectMenu, the Agent's, the Guard's and the Grenadier's tiles in that order (design change 0285, answering
 /// Q0086 point 1: "0257's parenthetical (Agent, Guard, Grenadier, …) is the intended order"), each there with a count
@@ -216,8 +216,8 @@ fn the_tunnel_has_its_letters_and_e_opens_the_eject_menu() {
     assert!(!overlay(&app).0, "the overlay hides with the Tunnel's selection");
 }
 
-/// `factions/syndicate/tunnels.md > EjectMenu`: each tile counts the units of its type in the network, the Agents in
-/// Q, the Guards in W and the Grenadiers in E (design change 0257); a type whose every unit only just walked in is
+/// `factions/syndicate/tunnel_menus.md > EjectMenu`: each tile counts the units of its type in the network, the Agents
+/// in Q, the Guards in W and the Grenadiers in E (design change 0257); a type whose every unit only just walked in is
 /// greyed for the transit delay, and its press refused (design change 0288's Verification: "Eject a Guard right after
 /// it entered: its tile is grey for 2 s"; point 1: "its tile is greyed and the click is refused; nothing is queued");
 /// Q ejects the Agent inside the longest, the count dropping at the press, and the menu stays open (plan M4-J2: "Q

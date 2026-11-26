@@ -1,5 +1,5 @@
-//! The ObjectInterfaceState templates (`systems/controls/selection_and_hud.md > ObjectInterfaceState[ObjectEnum]`):
-//! which commands a type offers, in which slots of the 4 × 3 grid (`systems/controls/selection_and_hud.md >
+//! The ObjectInterfaceState templates (`systems/controls/interface.md > ObjectInterfaceState[ObjectEnum]`):
+//! which commands a type offers, in which slots of the 4 × 3 grid (`systems/controls/interface.md >
 //! CommandPanel > Grid Layout`), and how its clicks resolve (`super::super::resolution`). Each type's template is in
 //! its module (`crate::kinds`, [`PanelTemplate`]); a panel of its own, by faction and object: [`gdo`], [`colonists`],
 //! [`syndicate`]. A constructor's panel also follows its state and the menu that is open ([`state_grid`]): the
@@ -7,9 +7,10 @@
 //! (`factions/gdo/economy.md > ExtractionFacility > ObjectInterfaceState[ExtractionFacility]`). The Colonists' Beacon
 //! has two Warp In menus built the same way, the Drone its Deploy and its Set Drop-off, the Egress Node its F, and an
 //! object that transforms shows only its Cancel ([`colonists`], slices M3-J1 and M3-J2). The Syndicate's Tunnel opens
-//! its EjectMenu ([`syndicate`], slice M4-J2), and its Agent builds Tunnels (slice M4-J1). The Cults' Recruit opens two
-//! Construct menus built the same way, their entries the group's Builds ([`cults`], slice M5-J1). An entry not in the
-//! game yet holds its slot, unavailable ([`Planned`]).
+//! its EjectMenu ([`syndicate`], slice M4-J2), and its Agent builds Tunnels (slice M4-J1). The Cults' pool buildings,
+//! the Armory first, open a menu per kind of Recruit ([`cults`], slice M5-F2), and the Recruit two Construct menus
+//! built the same way, their entries the group's Builds (slice M5-J1). An entry not in the game yet holds its slot,
+//! unavailable ([`Planned`]).
 
 pub mod colonists;
 pub mod cults;
@@ -40,7 +41,7 @@ use crate::kinds;
 /// An ObjectInterfaceState template: which commands a type offers, in which slots, and how its clicks resolve.
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub enum InterfaceTemplate {
-    /// `systems/controls/selection_and_hud.md > BasicCombatUnitInterfaceState`: the Peacekeeper's
+    /// `systems/controls/interface.md > BasicCombatUnitInterfaceState`: the Peacekeeper's
     /// (`factions/gdo/units/peacekeeper.md`), and its shielded type's less Attack (design change 0173), and the Guard's
     /// (`factions/syndicate/units/guard.md`).
     BasicCombatUnit,
@@ -48,11 +49,11 @@ pub enum InterfaceTemplate {
     /// Barracks' (`factions/gdo/structures/barracks.md > ObjectInterfaceState[Barracks]`) and the Colonists' portals'
     /// (`factions/colonists/structures/robo_portal.md > Robo Portal ObjectInterfaceState`,
     /// `factions/colonists/structures/bio_portal.md > Bio Portal ObjectInterfaceState`, design change 0124: "Standard
-    /// production panel, same conventions as GDO's Barracks"), the Hideout's and the Recruitment Hall's, whose X and C
-    /// are its whole panel (`factions/cults/economy.md > RecruitmentHall > ObjectInterfaceState[RecruitmentHall]`,
-    /// slice M5-C). Its right-click sets the rally point (`systems/controls/selection_and_hud.md > CommandPanel >
-    /// Production Building Default Right-Click`; the Hall's own: "Right-click Ground: issues SetRallyPoint command to
-    /// that location").
+    /// production panel, same conventions as GDO's Barracks"), the Hideout's and the Recruitment Hall's, whose C is its
+    /// whole panel (`factions/cults/structures/recruitment_hall.md > ObjectInterfaceState[RecruitmentHall]`, slice
+    /// M5-C; design change 0342 removed its X). Its right-click sets the rally point
+    /// (`systems/controls/interface.md > CommandPanel > Production Building Default Right-Click`; the Hall's
+    /// own: "Right-click Ground: issues SetRallyPoint command to that location").
     Production,
     /// `factions/gdo/structures/deployment_center.md > ObjectInterfaceState[DeploymentCenter]`: its DefaultState
     /// opens the build menus, whose entries construct; once a building is ready, its entry enters AwaitingPlacement.
@@ -71,8 +72,8 @@ pub enum InterfaceTemplate {
     /// `factions/colonists/economy.md > Egress Node > Egress Node ObjectInterfaceState`: "F: Select Returning Drones"
     /// (slice M3-J2). No right-click.
     EgressNode,
-    /// `factions/syndicate/tunnels.md > Tunnel ObjectInterfaceState` (design change 0257, slice M4-J2): Q Upgrade, W
-    /// Expand, E Eject, which opens the EjectMenu, and X Cancel ([`syndicate::tunnel`]). No right-click: the Tunnel
+    /// `factions/syndicate/tunnel_menus.md > Tunnel ObjectInterfaceState` (design change 0257, slice M4-J2): Q Upgrade,
+    /// W Expand, E Eject, which opens the EjectMenu, and X Cancel ([`syndicate::tunnel`]). No right-click: the Tunnel
     /// produces no units.
     Tunnel,
     /// `factions/syndicate/units/agent.md > Agent ObjectInterfaceState` (design change 0257, slice M4-J1): Q Move, A
@@ -80,6 +81,11 @@ pub enum InterfaceTemplate {
     /// (`factions/syndicate/units/agent.md > Right-Click Resolution`: Gather, Drop Off, Enter, Attack, Move) is the
     /// sim's one rule, as every unit's.
     Agent,
+    /// A pool building's panel (design change 0337, `factions/cults/structures/README.md > Choosing Recruits, Release
+    /// and Eject All`; slice M5-F2), built from its `ProductionDef`: the Armory's ([`cults::armory`]). Its DefaultState
+    /// picks a kind of Recruit, each opening its KindMenu, whose entries train or release one of that kind. Its
+    /// right-click sets the rally point (`factions/cults/structures/armory.md > ObjectInterfaceState[Armory]`).
+    PoolProducer,
     /// (M5-J1) `factions/cults/units/recruit.md > Recruit ObjectInterfaceState` (design changes 0322 and 0327): Q Move,
     /// W Advanced Construct, A Basic Construct, S Assist Construction, D Repair (greyed until slice N8), X Stop
     /// ([`cults::recruit`]); its Construct menus' entries enter the group's placement ([`cults::construct_menu`]). Its
@@ -145,7 +151,7 @@ impl PanelTemplate {
     }
 }
 
-/// `systems/controls/selection_and_hud.md > BasicCombatUnitInterfaceState > DefaultState commands`, row by row from the
+/// `systems/controls/interface.md > BasicCombatUnitInterfaceState > DefaultState commands`, row by row from the
 /// top left (`CommandSlot::all`).
 #[rustfmt::skip]
 const BASIC_COMBAT_UNIT_GRID: [Option<PanelCommand>; 12] = {
@@ -162,7 +168,7 @@ const BASIC_COMBAT_UNIT_GRID: [Option<PanelCommand>; 12] = {
 /// grid leaves free, where the Colonists' Legionnaires have their own command ([`CONVERT_SLOT`]).
 const RIOT_SHIELD_SLOT: usize = 3;
 
-/// `systems/controls/selection_and_hud.md > BasicCombatUnitInterfaceState > DefaultState commands`: Attack's slot, A,
+/// `systems/controls/interface.md > BasicCombatUnitInterfaceState > DefaultState commands`: Attack's slot, A,
 /// which the Peacekeeper (Shielded)'s panel leaves empty ([`hides_attack`]).
 const ATTACK_SLOT: usize = 4;
 
@@ -195,6 +201,7 @@ impl InterfaceTemplate {
             InterfaceTemplate::EgressNode => colonists::egress_node::GRID,
             InterfaceTemplate::Tunnel => syndicate::tunnel::GRID,
             InterfaceTemplate::Agent => syndicate::agent::GRID,
+            InterfaceTemplate::PoolProducer => cults::armory::GRID,
             InterfaceTemplate::Recruit => cults::recruit::GRID,
         }
     }

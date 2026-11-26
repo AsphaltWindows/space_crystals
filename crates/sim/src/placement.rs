@@ -21,7 +21,7 @@
 //! the player knows ([`Mode::Known`], design change 0120: never-explored tiles pass, units hidden in the fog don't
 //! count, and the structures out of sight are as last seen), a game asking [`Sim::deploy_check`] or
 //! [`Sim::build_check`], and the worker checks its site again on arrival, on the truth ([`Mode::Arrival`]). An
-//! underground expansion ([`Method::Expansion`], slice M4-F; `factions/syndicate/tunnels.md > AwaitingPlacement
+//! underground expansion ([`Method::Expansion`], slice M4-F; `factions/syndicate/tunnel_menus.md > AwaitingPlacement
 //! (Expansion)`) is placed by its Tunnel inside the Tunnel's current area, on Drillable ground (design change 0239)
 //! with no flatness and no sight; any structure blocks it, the Tunnel's own and any player's surface building
 //! included (0240), as do resources; ground units don't, and no lingering ghost can be in its way (design change
@@ -54,17 +54,17 @@
 //!   (`factions/gdo/economy.md > ExtractionFacility > AwaitingPlacement`), which must have no plate yet: a covered
 //!   patch is a tile under a structure. That rule is [`Onto`], which map validation also applies to the map's
 //!   pre-placed objects, the one placement rule they follow besides the shared tiles; for a Tunnel (any kind with a
-//!   tier table), its whole Tier 1 Tunnel Area on the map and Drillable (slice M4-B; `factions/syndicate/tunnels.md >
-//!   Tunnel Area Non-Overlap Rule > Drillable area`, design change 0242: [`WholeProblem::TunnelAreaOffMap`],
-//!   [`WholeProblem::TunnelAreaNotDrillable`]), in every mode, [`Mode::Known`] counting only the undrillable ground
-//!   the player explored (`placement/tunnel_area.rs`); and that area overlapping no other Tunnel's area at its tier,
-//!   whoever owns it, a site included (slice M4-E; `factions/syndicate/tunnels.md > Tunnel Area Non-Overlap Rule`,
-//!   design change 0237: [`WholeProblem::TunnelAreaOverlap`], `placement/tunnel_overlap.rs`), [`Mode::Known`] judging
-//!   other players' Tunnels by what the player knows of them; for a Recruitment Hall (any kind that recruits), its
-//!   whole Recruitment Area on the map (slice M5-J1; `factions/cults/structures/recruitment_hall.md >
-//!   RecruitmentArea`, design change 0341 point 1: [`WholeProblem::RecruitmentAreaOffMap`],
-//!   `placement/recruitment_area.rs`), in every mode, as the Tunnel Area's edge. Map and debug spawns don't take the
-//!   check, so they are exempt.
+//!   tier table), its whole Tier 1 Tunnel Area on the map and Drillable (slice M4-B;
+//!   `factions/syndicate/tunnel_area_and_space.md > Tunnel Area Non-Overlap Rule > Drillable area`, design change 0242:
+//!   [`WholeProblem::TunnelAreaOffMap`], [`WholeProblem::TunnelAreaNotDrillable`]), in every mode, [`Mode::Known`]
+//!   counting only the undrillable ground the player explored (`placement/tunnel_area.rs`); and that area overlapping
+//!   no other Tunnel's area at its tier, whoever owns it, a site included (slice M4-E;
+//!   `factions/syndicate/tunnel_area_and_space.md > Tunnel Area Non-Overlap Rule`, design change 0237:
+//!   [`WholeProblem::TunnelAreaOverlap`], `placement/tunnel_overlap.rs`), [`Mode::Known`] judging other players'
+//!   Tunnels by what the player knows of them; for a Recruitment Hall (any kind that recruits), its whole Recruitment
+//!   Area on the map (slice M5-J1; `factions/cults/structures/recruitment_hall.md > RecruitmentArea`, design change
+//!   0341 point 1: [`WholeProblem::RecruitmentAreaOffMap`], `placement/recruitment_area.rs`), in every mode, as the
+//!   Tunnel Area's edge. Map and debug spawns don't take the check, so they are exempt.
 //!
 //! **The files**: [`Site`], [`Mode`], [`Method`] and [`Occupant`] in `site.rs`; the problems in `problems.rs`; the
 //! check in `check.rs`, its footprint's tiles in `footprint.rs`; the Tunnel Area's rules in `tunnel_area.rs` and
@@ -291,7 +291,7 @@ impl Sim {
         ))
     }
 
-    /// `factions/syndicate/tunnels.md > AwaitingPlacement (Expansion)` (slice M4-F): everything that keeps Tunnel
+    /// `factions/syndicate/tunnel_menus.md > AwaitingPlacement (Expansion)` (slice M4-F): everything that keeps Tunnel
     /// `tunnel` from placing an expansion of `kind` with the top-left tile of its footprint at `origin`, turned by
     /// `orientation`, as far as its owner knows: the ghost's check ([`check`] by [`Method::Expansion`] in the Tunnel's
     /// current area, in [`Mode::Known`]: "The ghost judges by what the player knows", design change 0120), on the

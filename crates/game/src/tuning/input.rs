@@ -7,7 +7,7 @@
 pub const DRAG_THRESHOLD_PX: f32 = 4.0;
 
 /// Two clicks of the same action within this many seconds (from press to press) are a double-click
-/// (`systems/controls/selection_and_hud.md > MapClickSelection`). Placeholder (not in the design): the design gives
+/// (`systems/controls/selection.md > MapClickSelection`). Placeholder (not in the design): the design gives
 /// no time.
 pub const DOUBLE_CLICK_SECONDS: f64 = 0.4;
 
@@ -15,11 +15,11 @@ pub const DOUBLE_CLICK_SECONDS: f64 = 0.4;
 pub const DOUBLE_CLICK_DISTANCE_PX: f32 = 6.0;
 
 /// Two presses of the same chord within this many seconds are a double tap
-/// (`systems/controls/selection_and_hud.md > ControlGroups > Default keys`: "press the same number twice quickly").
+/// (`systems/controls/selection.md > ControlGroups > Default keys`: "press the same number twice quickly").
 /// Placeholder (not in the design): the design gives no time; a double-click's.
 pub const DOUBLE_TAP_SECONDS: f64 = 0.4;
 
-/// `systems/controls/selection_and_hud.md > AwaitingTarget > Dragging while targeting` (design change 0073): while a
+/// `systems/controls/interface.md > AwaitingTarget > Dragging while targeting` (design change 0073): while a
 /// target is awaited, a press of the Select action that moves at most this far (logical pixels) before its release
 /// is a targeting click, at the press point; one that moves further is a drag, which does nothing (0067). The normal
 /// drag threshold ([`DRAG_THRESHOLD_PX`]) applies everywhere else. "16 pixels (placeholder, half a tile)": the one

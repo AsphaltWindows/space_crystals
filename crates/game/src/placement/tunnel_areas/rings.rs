@@ -1,7 +1,7 @@
-//! The rings of a Tunnel ghost (slice M4-J3; `factions/syndicate/tunnels.md > Tunnel Area display`, design changes
-//! 0299 and 0300, answering Q0086 point 4): "**Placing a Tunnel** shows the ghost's Tier 1 area **and the would-be
-//! Tier 2 and Tier 3 areas**. Cells that would stop a later upgrade are highlighted **red**: non-Drillable cells,
-//! off-map cells, and cells overlapping the areas of **your own** other Tunnels [...], since all of these block
+//! The rings of a Tunnel ghost (slice M4-J3; `factions/syndicate/tunnel_area_and_space.md > Tunnel Area display`,
+//! design changes 0299 and 0300, answering Q0086 point 4): "**Placing a Tunnel** shows the ghost's Tier 1 area **and
+//! the would-be Tier 2 and Tier 3 areas**. Cells that would stop a later upgrade are highlighted **red**: non-Drillable
+//! cells, off-map cells, and cells overlapping the areas of **your own** other Tunnels [...], since all of these block
 //! upgrades (Non-Overlap Rule)". The Tier 1 area is the ghost's (`super::super::ghost_area`, green or red by the check
 //! its click faces); these are the rings around it.
 //!
@@ -9,7 +9,7 @@
 //!   for each such tier of the kind's table (`sc_sim::tunnel::def_of`): Tier 2's 36 cells around Tier 1's 8 × 8, Tier
 //!   3's 44 around Tier 2's 10 × 10 (`factions/syndicate/tunnels.md > Tunnel > Tiers`).
 //! - **Its red cells** ([`Ring::blocked`]): those that would keep the Tunnel from upgrading to the ring's tier, by the
-//!   rules of `factions/syndicate/tunnels.md > Tunnel Area Non-Overlap Rule`:
+//!   rules of `factions/syndicate/tunnel_area_and_space.md > Tunnel Area Non-Overlap Rule`:
 //!   - off the map, or not Drillable (design change 0242: "An **upgrade** is likewise blocked if the larger area would
 //!     include a non-Drillable or off-map cell"; `sc_sim::tunnel::area::breaches`), as far as the player knows, as the
 //!     ghost judges its own area: "never-explored tiles pass on the ghost" (`factions/syndicate/tunnels.md > Tunnel

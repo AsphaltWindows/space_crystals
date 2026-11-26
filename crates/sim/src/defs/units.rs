@@ -258,7 +258,7 @@ pub enum DropOffChoice {
     FirstReturn,
     /// **Placeholder (Q0102 point 1)**: the nearest own completed drop-off, edge to edge from the patch, chosen anew
     /// as each return starts; no Set Drop-off command. The Recruit (`factions/cults/units/recruit.md > Gathering`:
-    /// "deliver them to Storage"; `factions/cults/economy.md > Storage` assumes the Storage next to the patch).
+    /// "deliver them to Storage"; `factions/cults/structures/storage.md` assumes the Storage next to the patch).
     EachReturn,
 }
 
@@ -331,7 +331,7 @@ pub struct UnitDef {
     pub attack: Option<AttackAttrs>,
     /// `factions/gdo/overview.md > Unit Control`, a unit's `UnitControlCost`: GDO units, and the Cults' (plan decision
     /// T55), whose Unit Control cost "equals the number of Recruits consumed to produce it"
-    /// (`factions/cults/economy.md > RecruitmentHall > Unit Control Tracking`): 1 for each infantry unit.
+    /// (`factions/cults/structures/recruitment_hall.md > Unit Control Tracking`): 1 for each infantry unit.
     pub unit_control_cost: Option<u32>,
     /// `factions/syndicate/tunnels.md`, a unit's `TunnelSpaceCost`: Syndicate units only.
     pub tunnel_space_cost: Option<u32>,

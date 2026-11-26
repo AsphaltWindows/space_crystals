@@ -28,9 +28,16 @@ Brings it back to its above-ground mode. **It can't surface on top of a building
 (user, 2026-11-25) Burrow and Surface follow the **vehicle deploy model** (factions/gdo/units/artillery_rig.md > Modes): each takes time, is a **queueable order**, **can't be cancelled** once started, and the unit changes mode only when the process completes. The **last order given meanwhile is held** and tried first once it's done; orders the unit can't carry out in its new mode are dropped.
 
 ## Entering the Tunnel Network loaded
-(user, 2026-11-25) It **can drive into a Tunnel with infantry inside**; they travel along inside it and stay aboard. Inside the network the passengers are **still locked inside the transport**: they only come out when the transport unloads (on the surface), and can't be ejected from a Tunnel on their own. **They always keep counting against the Tunnel Space cap** (user, 2026-11-25; Q0071: Tunnel Space is an army limit, factions/syndicate/tunnels.md > Production and Tunnel Space), aboard or not, inside the network or on the surface.
+(user, 2026-11-25) It **can drive into a Tunnel with infantry inside**; they travel along inside it and stay aboard. Inside the network the passengers are **still locked inside the transport**: they only come out when the transport unloads (on the surface), and can't be ejected from a Tunnel on their own. **They always keep counting against the Tunnel Space cap** (user, 2026-11-25; Q0071: Tunnel Space is an army limit, factions/syndicate/tunnel_area_and_space.md > Tunnel Space > Production and Tunnel Space), aboard or not, inside the network or on the surface.
 
 ## Destroyed with passengers
 (user, 2026-11-25) If it is destroyed, **all infantry inside die** with it (above ground or underground).
 
-TBD: capacity (and whether it counts each infantry unit's TunnelSpaceCost); burrow/surface time; load/unload commands and the panel; all numbers.
+**Placeholder stats** (designer, 2026-11-27, user's standing permission; tune in the numbers pass):
+- Silhouette 72x48 space units; MaxHP 300; PointArmor 3, FullArmor 3; SightRange 5 grid units; TunnelSpaceCost 3.
+- Above ground as a TrackedVehicle: MaxSpeed 4.5 su/frame; underground MaxSpeed 3.5.
+- **Burrow and Surface: 48 frames** each.
+- **Capacity 4** infantry (user, 2026-11-27: **4 heavy infantry, e.g. 4 Guards**; Syndicate infantry are Heavy Infantry).
+- **Loading**: right-click the transport with infantry selected (Enter); it must be above ground. **Unloading**: **F: Unload All** (above ground only; they come out around it).
+- Panel: Q Move, X Stop, **R: Burrow / Surface**, **F: Unload All**.
+- Cost: Vehicle Assembly, 200 Space Crystals, 400 frames.

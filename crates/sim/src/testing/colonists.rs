@@ -15,7 +15,7 @@
 //!      orders, the earlier of the line's patches first.
 //! 2. **Rally points**: each portal of a kind the line rallies gets its rally point once it can produce, the starting
 //!    ones at the start and a warped-in one once it is complete. A Drone rallied on a patch gathers it (design change
-//!    0136, `systems/controls/selection_and_hud.md > What a rally point makes a new unit do`).
+//!    0136, `systems/controls/interface.md > What a rally point makes a new unit do`).
 //! 3. **Deploying** (`factions/colonists/units/drone.md`: "With 5 BeaconCapacity per Beacon and the Drone's own 1
 //!    freed when it starts deploying, each Beacon is a net +6: beyond the starting 10 BeaconCapacity, roughly every
 //!    6th Drone must deploy as a Beacon to keep Drone production going"): a Drone a portal releases deploys, at the

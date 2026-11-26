@@ -10,10 +10,10 @@
 //!    Recruit shuttles straight up and down its own lane, and two or three work a patch at the rate of one alone.
 //! 2. With a fourth, two Recruits end up in one lane head-on: one with its load wanting the Storage behind the
 //!    other, the other wanting the patch behind the first, and a working Recruit shuttling on either side, so that
-//!    neither can step round. Their legs end short (`systems/controls/behaviors.md > MovingToLocation > Occupied
-//!    target location`); the loaded one tries again every `tuning::gathering::LEG_RETRY_TICKS`, the other waits at
-//!    "its patch" out of reach and tries again every `tuning::gathering::RECHECK_TICKS` (design change 0141), both
-//!    for the same point, for ever.
+//!    neither can step round. Their legs end short (`systems/controls/command_behaviors.md > MovingToLocation >
+//!    Occupied target location`); the loaded one tries again every `tuning::gathering::LEG_RETRY_TICKS`, the other
+//!    waits at "its patch" out of reach and tries again every `tuning::gathering::RECHECK_TICKS` (design change 0141),
+//!    both for the same point, for ever.
 //! 3. Nobody yields: all four hold an order (`systems/units.md > UnitCollision > Ground Collision > Who yields`:
 //!    "only units with no active command yield"). The two that work go on; the two that stand deliver nothing until
 //!    a neighbour's jitter happens to open a lane, minutes later.

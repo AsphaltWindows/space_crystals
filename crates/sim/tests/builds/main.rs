@@ -1,6 +1,6 @@
 //! Agent-built Tunnels (slice M4-E; `factions/syndicate/units/agent.md > Building > Tunnel Construction Flow`,
-//! `factions/syndicate/tunnels.md > Cost Scaling > Construction Cost`, `factions/syndicate/tunnels.md > Tunnel Area
-//! Non-Overlap Rule`; design changes 0233, 0234, 0237, 0240 and 0242), through the gate, one test binary:
+//! `factions/syndicate/tunnels.md > Cost Scaling > Construction Cost`, `factions/syndicate/tunnel_area_and_space.md >
+//! Tunnel Area Non-Overlap Rule`; design changes 0233, 0234, 0237, 0240 and 0242), through the gate, one test binary:
 //! - `flow`: the order, the walk and the site: the price paid at once, the HP, the completion and the Agent in the
 //!   network; what the site does (nothing but Cancel), what is seen of it, and how it goes (cancelled, destroyed,
 //!   the defeat);

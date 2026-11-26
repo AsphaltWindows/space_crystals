@@ -12,8 +12,8 @@
 //!   played from the Starting Conditions (`factions/syndicate/tunnels.md > Tunnel > Starting Conditions`: "With 100,
 //!   the second Agent can start immediately and a starting Tunnel is saturated (3 Agents, 12.5 Space Crystals per
 //!   second) around 0:40").
-//! - **Stacked Tunnels** "double a field's intake" (`factions/syndicate/tunnels.md > Tunnel Area Non-Overlap Rule >
-//!   Crystal intake and stacked Tunnels`).
+//! - **Stacked Tunnels** "double a field's intake" (`factions/syndicate/tunnel_area_and_space.md > Tunnel Area
+//!   Non-Overlap Rule > Crystal intake and stacked Tunnels`).
 //! - **The lowest one-base saturation**: "the Syndicate's one-base saturation income is the lowest of the measured
 //!   factions" (`factions/gdo/economy.md > Economy Targets (GDO vs Colonists)`: "the Syndicate should have the lowest
 //!   one-base saturation income").

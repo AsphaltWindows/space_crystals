@@ -7,17 +7,19 @@ pub(crate) mod units;
 
 use super::ObjectKind;
 
-/// `factions/syndicate/tunnels.md > Tunnel Space`: "capped at a hard maximum of 200" (`factions/syndicate/overview.md >
-/// DisplayHud`: "Tunnel Space: current used / current available (max 200)"; `economy::army`).
+/// `factions/syndicate/tunnel_area_and_space.md > Tunnel Space`: "capped at a hard maximum of 200"
+/// (`factions/syndicate/overview.md > DisplayHud`: "Tunnel Space: current used / current available (max 200)";
+/// `economy::army`).
 pub const TUNNEL_SPACE_CAP: u32 = 200;
 
-/// `factions/syndicate/tunnels.md > Tunnel Space`: the unused tunnel-region cells that make one Tunnel Space ("... /
+/// `factions/syndicate/tunnel_area_and_space.md > Tunnel Space`: the unused tunnel-region cells that make one Tunnel
+/// Space ("... /
 /// 4) — rounded down to a whole number"; `economy::army`).
 pub const CELLS_PER_TUNNEL_SPACE: u32 = 4;
 
-/// `factions/syndicate/tunnels.md > Tunnel ObjectInterfaceState` (design change 0257, answering Q0068 point 4): the
-/// EjectMenu's unit types, in the order they take the grid's slots: "entries take the grid slots in order (Q, W, E, R,
-/// A, S, …)", the unit types "(Agent, Guard, Grenadier, …)", that is Agent Q, Guard W, Grenadier E (Q0068). That is
+/// `factions/syndicate/tunnel_menus.md > Tunnel ObjectInterfaceState` (design change 0257, answering Q0068 point 4):
+/// the EjectMenu's unit types, in the order they take the grid's slots: "entries take the grid slots in order (Q, W, E,
+/// R, A, S, …)", the unit types "(Agent, Guard, Grenadier, …)", that is Agent Q, Guard W, Grenadier E (Q0068). That is
 /// `factions/syndicate/units/README.md > Files` (design change 0285: "Listed in panel order: this is the order used by
 /// the Tunnel's EjectMenu"), which goes on after the Grenadier (Assault Bike, Shadebringer, …). Each Syndicate unit
 /// joins the list with its kind (the Grenadier third, with slice M4-U), so that the client's menu (slice M4-J2) needs
@@ -56,15 +58,15 @@ impl ExpandEntry {
     }
 }
 
-/// `factions/syndicate/tunnels.md > Tunnel ObjectInterfaceState` (design change 0257): the ExpandMenu's entries, in the
-/// order they take the grid's slots ("entries take the grid slots in order (Q, W, E, R, A, S, …): expansions in the
-/// Tech Tree table's order (Hideout, Optics Lab, Chemical Plant, Vault, …)"), the one table of its slots (the client's
-/// menu reads it). `factions/syndicate/tunnels.md > ExpandMenu` (design change 0291, answering Q0081): "**Fixed
-/// slots** ...: **all nine expansions** are always listed, in the Tech Tree table's order, each holding its slot; ones
-/// not available (tier, prerequisite, or not yet in the build) are greyed. The **Laser Turret is always the tenth
-/// slot**, so no hotkey ever moves": those no Tunnel builds yet are [`ExpandEntry::Planned`], the turret until slice
-/// M4-S2. The Hideout, the Optics Lab and the Chemical Plant are in the game (slices M4-F and M4-K), in Q, W and E.
-/// Tests check it against the table, and that it lists every type a Tunnel builds, once.
+/// `factions/syndicate/tunnel_menus.md > Tunnel ObjectInterfaceState` (design change 0257): the ExpandMenu's entries,
+/// in the order they take the grid's slots ("entries take the grid slots in order (Q, W, E, R, A, S, …): expansions in
+/// the Tech Tree table's order (Hideout, Optics Lab, Chemical Plant, Vault, …)"), the one table of its slots (the
+/// client's menu reads it). `factions/syndicate/tunnel_menus.md > ExpandMenu` (design change 0291, answering Q0081):
+/// "**Fixed slots** ...: **all nine expansions** are always listed, in the Tech Tree table's order, each holding its
+/// slot; ones not available (tier, prerequisite, or not yet in the build) are greyed. The **Laser Turret is always the
+/// tenth slot**, so no hotkey ever moves": those no Tunnel builds yet are [`ExpandEntry::Planned`], the turret until
+/// slice M4-S2. The Hideout, the Optics Lab and the Chemical Plant are in the game (slices M4-F and M4-K), in Q, W and
+/// E. Tests check it against the table, and that it lists every type a Tunnel builds, once.
 pub const EXPAND_MENU: &[ExpandEntry] = &[
     ExpandEntry::Kind(ObjectKind::Hideout),
     ExpandEntry::Kind(ObjectKind::OpticsLab),

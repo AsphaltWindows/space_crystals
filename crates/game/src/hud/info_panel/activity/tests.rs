@@ -1,3 +1,5 @@
+mod armory;
+
 use sc_sim::testing::ScenarioBuilder;
 use sc_sim::{
     BuildingOrientation, Command, ConstructionCommand, DebugCommand, Faction, ObjectId, ObjectKind, PlayerId,
@@ -218,7 +220,7 @@ fn a_warp_in_shows_its_building_and_its_progress() {
     assert_eq!(shown(t.sim()), Vec::<String>::new(), "a Beacon again");
 }
 
-/// Slice M4-F, `factions/syndicate/tunnels.md > Expansions under construction`: "**The Tunnel meanwhile** shows
+/// Slice M4-F, `factions/syndicate/tunnel_menus.md > Expansions under construction`: "**The Tunnel meanwhile** shows
 /// the progress". Player 1's Tunnel (1) builds a Hideout (400 frames) in its area from tick 1: its line names the
 /// expansion and its site's progress, a quarter after 100 frames, until the Tunnel's X cancels it.
 #[test]
@@ -287,19 +289,19 @@ fn a_tunnel_shows_the_tier_it_upgrades_to_and_its_progress() {
     assert_eq!(shown(t.sim()), Vec::<String>::new(), "cancelled");
 }
 
-/// Slice M5-C (placeholder wording; `factions/cults/economy.md > RecruitmentHall > RecruitmentHallInstanceState`):
-/// player 1's Recruitment Hall in the map's corner, a map spawn, which takes no placement check, claims the 49 tiles of
-/// its area on the map (**Placeholder (not in the design: 0341 rules such a Hall out)**: design change 0341 point 1,
-/// "The whole 10x10 area must lie on the map"), so 49% and a capacity of 9.8, shown as 9
-/// (**Placeholder (Q0099 point 2)**). From its first step its Recruit is in production at 49 tiles a frame, out at 392
-/// frames (192 × 100 / 49, rounded up); then the Hall's usage is 1, and its next Recruit starts at once. No queue
-/// line: a Hall has none to fill.
+/// Slice M5-C (placeholder wording; `factions/cults/structures/recruitment_hall.md > RecruitmentHallInstanceState`):
+/// player 1's Recruitment Hall in the map's top right corner, its side B open, a map spawn, which takes no placement
+/// check, claims the 49 tiles of its area on the map (**Placeholder (not in the design: 0341 rules such a Hall out)**:
+/// design change 0341 point 1, "The whole 10x10 area must lie on the map"), so 49% and a capacity of 9.8, 9 (design
+/// change 0341: "Capacity is rounded down everywhere"). From its first step its Recruit is in production at 49 tiles a
+/// frame, and counts (design change 0342); out at 392 frames (192 × 100 / 49, rounded up), when its next Recruit starts
+/// at once: the Hall's usage is 2. No queue line: a Hall has none to fill.
 #[test]
 fn a_recruitment_hall_shows_its_effectiveness_unit_control_and_recruit() {
     let hall = ObjectId(1);
     let mut t = ScenarioBuilder::new(&vec![".".repeat(24); 24].join("\n"))
         .faction(P1, Faction::Cults)
-        .spawn(ObjectKind::RecruitmentHall, Some(P1), tile(0, 0))
+        .spawn(ObjectKind::RecruitmentHall, Some(P1), tile(20, 0))
         .start();
     let shown = |sim: &Sim| lines_of(sim, hall);
     assert_eq!(
@@ -311,7 +313,7 @@ fn a_recruitment_hall_shows_its_effectiveness_unit_control_and_recruit() {
         shown(t.sim()),
         [
             "Effectiveness: 49% (49/100 tiles)",
-            "Unit Control: 0 / 9",
+            "Unit Control: 1 / 9",
             "Recruiting Recruit: 50%"
         ]
     );
@@ -329,7 +331,7 @@ fn a_recruitment_hall_shows_its_effectiveness_unit_control_and_recruit() {
         shown(t.sim()),
         [
             "Effectiveness: 49% (49/100 tiles)",
-            "Unit Control: 1 / 9",
+            "Unit Control: 2 / 9",
             "Recruiting Recruit: 0%",
             "Rally point: ground"
         ]

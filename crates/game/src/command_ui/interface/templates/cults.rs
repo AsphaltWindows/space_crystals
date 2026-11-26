@@ -1,5 +1,8 @@
-//! The Cults' panels (slice M5-J1): the Recruit's ([`recruit`], design change 0322), with its two Construct menus
-//! ([`construct_menu`], design change 0327). The Recruitment Hall's is the Production template (slice M5-C).
+//! The Cults' panels: the pool buildings' ([`armory`], slice M5-F2), the Armory's first, which choose the kind of
+//! Recruit an order uses before the order (design change 0337); the Recruit's ([`recruit`], slice M5-J1, design
+//! change 0322), with its two Construct menus ([`construct_menu`], design change 0327). The Recruitment Hall's is the
+//! Production template (slice M5-C).
 
+pub mod armory;
 pub mod construct_menu;
 pub mod recruit;

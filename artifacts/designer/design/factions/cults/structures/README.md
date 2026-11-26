@@ -47,7 +47,7 @@ Storage → Altar → Temple ─┬→ Cathedral
 
 ### Cults Vehicles
 
-Every Cults unit, including vehicles and aircraft, is made from Recruits. Vehicles (the Seeker so far) are produced at the Chop Shop and consume multiple Recruits each. Aircraft (the Sparrow so far) are produced at the Airstrip; the number of Recruits per aircraft is TBD per aircraft type. Because a trained unit's Unit Control cost equals the number of Recruits consumed (see RecruitmentHall > Unit Control Tracking), vehicles cost one Unit Control per Recruit consumed. The exact number of Recruits per vehicle is set per vehicle type.
+Every Cults unit, including vehicles and aircraft, is made from Recruits. Vehicles (the Seeker so far) are produced at the Chop Shop and consume multiple Recruits each. Aircraft (the Sparrow so far) are produced at the Airstrip; the number of Recruits per aircraft is TBD per aircraft type. Because a trained unit's Unit Control cost equals the number of Recruits consumed (see factions/cults/structures/recruitment_hall.md > Unit Control Tracking), vehicles cost one Unit Control per Recruit consumed. The exact number of Recruits per vehicle is set per vehicle type.
 
 ## Choosing Recruits, Release and Eject All
 (user, 2026-11-26) Buildings that hold Cults units let the player choose **which kind** of unit to use, by its augmentation. The four **kinds** are: **Plain** (unaugmented), **Constitution** (Enhanced Constitution only), **Metabolism** (Improved Metabolism only) and **Both**. Each kind's button shows the unit with an **icon for its augments** and the count inside (unreserved); it is greyed if there are none.
@@ -74,6 +74,8 @@ Every Cults unit, including vehicles and aircraft, is made from Recruits. Vehicl
 
 ## Files
 
+- `recruitment_hall.md` — **RecruitmentHall**: Starting structure; Recruits, Recruitment Area, Unit Control
+- `storage.md` — **Storage**: Space Crystals drop-off
 - `armory.md` — **Armory**: Trains Recruits into combat units
 - `gunworks.md` — **Gunworks**: Tech/Weaponry T2 support
 - `garrison.md` — **Garrison**: Defensive structure

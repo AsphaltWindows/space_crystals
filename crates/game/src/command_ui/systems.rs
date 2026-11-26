@@ -43,7 +43,7 @@ pub(super) use placing::{end_queued_placement, place_on_click, report_placing, t
 
 pub use crate::tuning::input::TARGETING_CLICK_ALLOWANCE_PX;
 
-/// `systems/controls/selection_and_hud.md > AwaitingTarget > Dragging while targeting` (design change 0068): "A
+/// `systems/controls/interface.md > AwaitingTarget > Dragging while targeting` (design change 0068): "A
 /// targeting click counts at the press point". The target found under a press of the Select action that went down on
 /// the map while a target was awaited, as the frame of the press drew the objects; its click, at the release, uses it.
 /// Cleared when the press ends or targeting does.
@@ -75,7 +75,7 @@ impl PressedTarget {
     }
 }
 
-/// `systems/controls/selection_and_hud.md > AwaitingTarget > Shift while targeting` (design change 0070): once a
+/// `systems/controls/interface.md > AwaitingTarget > Shift while targeting` (design change 0070): once a
 /// Shift-click has queued the command (`InterfaceState::AwaitingTarget::queued`), letting go of Shift, the Queue
 /// modifier, ends targeting: back to DefaultState. A targeting press still held goes first: its click counts at its
 /// release, a Shift-click if Shift was held as the button went down ([`TargetPress`]), and targeting ends after it.
@@ -92,7 +92,7 @@ pub(super) fn end_queued_targeting(actions: Res<ActionState>, pressed: Res<Targe
     }
 }
 
-/// `systems/controls/selection_and_hud.md > AwaitingTarget`: a left-click on the map (a press and release of the Select
+/// `systems/controls/interface.md > AwaitingTarget`: a left-click on the map (a press and release of the Select
 /// action) on a valid target gives the PendingCommand's order for what is under it ([`target_order`]) to the command's
 /// recipients ([`recipients`]: the whole selection for a common command, the ActiveGroup for a group one), each as
 /// [`unit_target_order`] has it: an explicit Attack leaves out the Peacekeepers (Shielded) (design changes 0075 and
@@ -190,7 +190,7 @@ fn give_targeted(control: &LocalControl, outbox: &mut OrderOutbox, click: Presse
     }
 }
 
-/// `systems/controls/selection_and_hud.md > RightClickResolution`: a right-click on the map (the ContextCommand
+/// `systems/controls/interface.md > RightClickResolution`: a right-click on the map (the ContextCommand
 /// action's click) in DefaultState. Each selected object resolves it for itself ([`object_right_click`], design changes
 /// 0062 and 0063), whichever group is active: each unit gets its default command on what was clicked, as the player
 /// knows it: an object it sees or one it remembers (design change 0139). The units that can carry out the resolved
@@ -200,11 +200,11 @@ fn give_targeted(control: &LocalControl, outbox: &mut OrderOutbox, click: Presse
 /// A unit right-clicked among the selected ones stops, and the others follow it (design change 0168: "Following
 /// itself = Stop", the sim's). The orders go out
 /// grouped ([`OrderOutbox::give_each`]). The selected producers set their rally point on what was clicked, as one
-/// `Command::Production` (`systems/controls/selection_and_hud.md > Production Building Default Right-Click`; on a
+/// `Command::Production` (`systems/controls/interface.md > Production Building Default Right-Click`; on a
 /// producer itself, which clears its rally point: design change 0086), whatever the Queue modifier. Objects without
-/// commands do nothing. Nothing unless the selection is all the player's (`systems/controls/selection_and_hud.md >
+/// commands do nothing. Nothing unless the selection is all the player's (`systems/controls/interface.md >
 /// CommandPanel`). While a target is awaited, a right-click anywhere, over the HUD too, cancels instead
-/// (`systems/controls/selection_and_hud.md > AwaitingTarget`), and in the other multi-stage states it goes back one
+/// (`systems/controls/interface.md > AwaitingTarget`), and in the other multi-stage states it goes back one
 /// state (`InterfaceState::back`: "Escape/right-click: returns to BuildMenu" from the Deployment Center's
 /// AwaitingPlacement, "returns to DefaultState" from a build menu and from the Extraction Facility's
 /// AwaitingPlacement).

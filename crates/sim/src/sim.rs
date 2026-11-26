@@ -378,6 +378,7 @@ impl Sim {
             decay: None,
             popup: None,
             lineage: Vec::new(),
+            augmentation: Default::default(),
         }
     }
 

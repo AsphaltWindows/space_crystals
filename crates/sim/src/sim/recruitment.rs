@@ -1,31 +1,32 @@
-//! The Recruitment Halls in a game (`crate::recruitment`, plan decision T57, slice M5-C; `factions/cults/economy.md >
-//! RecruitmentHall > Production Behavior`): "The Recruitment Hall automatically and continuously produces Recruits at
-//! no resource cost until LocalUnitControlUsage reaches LocalUnitControlCapacity. Produced Recruits spawn at the hall
-//! and move to its rally point. Production logic is entirely local — global Unit Control state does not affect
-//! production decisions."
+//! The Recruitment Halls in a game (`crate::recruitment`, plan decision T57, slice M5-C;
+//! `factions/cults/structures/recruitment_hall.md > Production Behavior`): "The Recruitment Hall automatically and
+//! continuously produces Recruits at no resource cost until LocalUnitControlUsage reaches LocalUnitControlCapacity.
+//! Produced Recruits come out of the exit side (B) and move to its rally point. Production can't be cancelled [...].
+//! Production logic is entirely local — global Unit Control state does not affect production decisions."
 //!
 //! A Hall's production is `crate::production`'s, in an automatic mode: what the producers' step does for it
 //! (`sim/producers/step.rs`) differs only where its `ProductionDef::recruitment` says so.
 //! - **The start** ([`Sim::start_recruits`], first in the producers' step): a completed Hall with nothing in production
-//!   queues its Recruit while its usage is below its capacity, exactly (**Placeholder (Q0099 point 2)**: `100 ×
-//!   usage < 20 × claimed`), whatever its owner's global Unit Control (**Placeholder (Q0101 point 1)**). The Recruit
-//!   costs nothing and takes nothing until it exists (**Placeholder (Q0100 point 3)**). At capacity no Recruit is in
-//!   production, and production starts again from 0% when a unit of its lineage dies (**Placeholder (Q0100 point
-//!   4)**). A Hall that came into the game in the tick waits for the next, as every producer does. A Hall that
-//!   releases its Recruit queues the next one at once, the released one counted ([`Sim::recruit_next`]): it shows 0%
-//!   until the next tick's step gets it on, as the next unit in any queue does, rather than nothing; "automatically
-//!   and continuously produces Recruits". So the k-th Recruit of a Hall at 100% comes out in tick 192 k.
+//!   queues its Recruit while its usage is below its capacity rounded down (design change 0341 point 2: a Hall with 33
+//!   claimed tiles stops at 6), whatever its owner's global Unit Control (design change 0344: "Global total is for
+//!   display only"). The Recruit costs no Space Crystals, and counts toward the Hall's usage from the start of its
+//!   production (design change 0342: "the Recruit in production counts toward LocalUnitControlUsage from the start of
+//!   its production"), so the Hall at 19 with its 20th in production shows 20/20. At capacity no Recruit is in
+//!   production, and production starts again from 0% when a unit of its lineage dies
+//!   (`factions/cults/structures/recruitment_hall.md > Production Behavior`: "when capacity frees up (a unit dies), the
+//!   next Recruit starts from 0"; 0342 point 4). A Hall that came into the game in the tick waits for the next, as
+//!   every producer does. A Hall that releases its Recruit queues the next one at once, the released one counted
+//!   ([`Sim::recruit_next`]): it shows 0% until the next tick's step gets it on, as the next unit in any queue does,
+//!   rather than nothing; "automatically and continuously produces Recruits". So the k-th Recruit of a Hall at 100%
+//!   comes out in tick 192 k.
 //! - **The progress** gains the tiles the Hall claims each frame, whatever its owner's power; the Recruit is done at
 //!   BaseRecruitProductionTime × the area's tiles (`production::total_of`): 192 frames at 100 tiles, 384 at 50.
-//! - **The release** is every producer's (`Sim::release_unit`): out of the side facing the rally point, the bottom one
-//!   without a rally, or the next free side clockwise (`ExitRule::Sides`, **Placeholder (Q0100 point 1)**); the
-//!   Recruit's lineage is the Hall (`Object::lineage`, plan decision T56), and its order the rally's, the default
-//!   order on what the rally is on (slice M3-R: a patch makes it gather).
-//! - **X** (`ProductionCommand::CancelProduction`, `factions/cults/economy.md > RecruitmentHall >
-//!   ObjectInterfaceState[RecruitmentHall]`: "cancels the current Recruit in production, resetting ProductionProgress.
-//!   Only available if ProductionProgress is not None"): the Recruit leaves the queue for nothing, and the next one
-//!   starts from 0% in the same tick's step (**Placeholder (Q0100 point 2)**: "production restarts at once"). A Hall
-//!   with nothing in production refuses it (`Reject::NothingQueued`), as an empty queue does.
+//! - **The release** is every producer's (`Sim::release_unit`): out of the one exit side, B (`ExitRule::Side`; design
+//!   change 0342: "It becomes AAAB with the exit on B (the side is a placeholder). Recruits come out of it one at a
+//!   time through the Exit Doorway"); the Recruit's lineage is the Hall (`Object::lineage`, plan decision T56), and its
+//!   order the rally's, the default order on what the rally is on (slice M3-R: a patch makes it gather).
+//! - **No X** (design change 0342: "Recruits can't be cancelled"): a `CancelProduction` finds nothing to cancel at a
+//!   Hall (`Reject::NothingQueued`, `Sim::check_production`).
 //! - **A `Train`** is refused: a Hall trains nothing on command (`Reject::CannotProduce`).
 //!
 //! A Hall's ClaimedTiles, Effectiveness, LocalUnitControlUsage and LocalUnitControlCapacity are derived for the
@@ -34,6 +35,7 @@
 use super::Sim;
 use crate::ids::ObjectId;
 use crate::object::Object;
+use crate::production::QueueEntry;
 use crate::recruitment::{self, Capacity, Claims, HallState, Lineages};
 
 impl Sim {
@@ -47,10 +49,10 @@ impl Sim {
         Claims::of(self.objects.values(), &self.map)
     }
 
-    /// What Hall `id`'s state shows at the end of the latest tick (`factions/cults/economy.md > RecruitmentHall >
+    /// What Hall `id`'s state shows at the end of the latest tick (`factions/cults/structures/recruitment_hall.md >
     /// RecruitmentHallInstanceState`): the tiles it claims of its area's, its LocalUnitControlUsage and its
     /// LocalUnitControlCapacity. `None` for an object that isn't a Recruitment Hall. A Hall under construction claims
-    /// nothing (**Placeholder (Q0099 point 4)**).
+    /// nothing (design change 0341: "A Hall under construction does nothing until it is complete").
     pub fn hall_state(&self, id: ObjectId) -> Option<HallState> {
         let def = recruitment::def_of(self.objects.get(&id)?.kind)?;
         let claimed = self.claims().tiles(id);
@@ -95,7 +97,8 @@ impl Sim {
         }
     }
 
-    /// Queues Hall `id`'s Recruit if its usage by `lineages` is below its capacity by `claims`.
+    /// Queues Hall `id`'s Recruit if its usage by `lineages` is below its capacity by `claims`, rounded down
+    /// (`Capacity::has_room`).
     fn queue_recruit(&mut self, id: ObjectId, claims: &Claims, lineages: &Lineages) {
         let Some(o) = self.objects.get_mut(&id) else {
             return;
@@ -108,7 +111,7 @@ impl Sim {
             return;
         };
         if Capacity::of(&recruitment, claims.tiles(id)).has_room(lineages.usage(id)) {
-            production.queue.push(recipe.kind);
+            production.push(QueueEntry::Unit(recipe.kind), Vec::new());
         }
     }
 }

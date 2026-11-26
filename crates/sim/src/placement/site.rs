@@ -45,8 +45,8 @@ impl Occupant {
     /// What object `o`, seen now, is to a placement by another player than its owner ([`Mode::Known`]): as
     /// [`Occupant::of`], but a Tunnel at its tier, whatever it upgrades to (slice M4-G). The design shows no one else a
     /// Tunnel's upgrade ("The ghost judges enemy Tunnels by what the player knows: their remembered position and their
-    /// tier as last seen", `factions/syndicate/tunnels.md > Tunnel Area Non-Overlap Rule`; the InfoPanel shows
-    /// another player's structure with "no production or queue information", `core/entities.md > Object Type >
+    /// tier as last seen", `factions/syndicate/tunnel_area_and_space.md > Tunnel Area Non-Overlap Rule`; the InfoPanel
+    /// shows another player's structure with "no production or queue information", `core/entities.md > Object Type >
     /// InfoPanel`): so the other player's ghost ignores the reserved area, and the build fails on arrival, judged by
     /// the truth ("a build can fail on arrival because an enemy Tunnel was upgraded unseen").
     pub fn as_seen(o: &Object) -> Self {
@@ -117,7 +117,7 @@ pub enum Method {
     /// deploying Drone) doesn't count" (design change 0118): the caller leaves it out of the occupants, as a Warp In's
     /// caller leaves out its Beacon.
     WorkerBuilt,
-    /// `factions/syndicate/tunnels.md > AwaitingPlacement (Expansion)` (slice M4-F, plan decisions T32 and T53;
+    /// `factions/syndicate/tunnel_menus.md > AwaitingPlacement (Expansion)` (slice M4-F, plan decisions T32 and T53;
     /// `core/entities.md > Direct Placement`, "Tunnel underground expansions"): an underground expansion a Tunnel
     /// builds in its Tunnel Area, `area` (the Tunnel's at its current tier, `crate::tunnel::area::of`; a Starting
     /// Layout's Tunnel's at Tier 1). "The expansion must fit entirely within the Tunnel Area"

@@ -1,7 +1,7 @@
-//! Tunnel upgrades (slice M4-G; `factions/syndicate/tunnels.md > Tunnel ObjectInterfaceState`,
-//! `factions/syndicate/tunnels.md > Cost Scaling > Upgrade Costs`, `factions/syndicate/tunnels.md > Tunnel Area
-//! Non-Overlap Rule`; design changes 0229, 0231, 0232, 0237, 0242, 0249, 0283 and 0284), through the gate, one test
-//! binary:
+//! Tunnel upgrades (slice M4-G; `factions/syndicate/tunnel_menus.md > Tunnel ObjectInterfaceState`,
+//! `factions/syndicate/tunnels.md > Cost Scaling > Upgrade Costs`, `factions/syndicate/tunnel_area_and_space.md >
+//! Tunnel Area Non-Overlap Rule`; design changes 0229, 0231, 0232, 0237, 0242, 0249, 0283 and 0284), through the gate,
+//! one test binary:
 //! - `costs`: the prices (2 then 4, 3 then 6, a Tier 3 Tunnel counted in the Tier 2 price, two upgrades started
 //!   together), the refunds at the current top price in either order (0232, 0284), and the books over random orders;
 //! - `blocked`: what refuses an upgrade: an own neighbour's area, an enemy's by the truth (0237), Mountain or Water in

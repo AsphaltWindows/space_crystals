@@ -101,19 +101,20 @@ pub use targeting::{
     reaches_point, within_range,
 };
 
-/// `systems/combat.md > AttackPhase`, one value of the design's BaseAttackChannel (`systems/controls/behaviors.md >
-/// BaseAttackChannel`). The phases run in this order; after Reloading the sequence is over. A disjointed attack's
-/// Aiming at a location and its Firing at the location it locked have values of their own (slice M4-O), tagged after
-/// the others in the hash, so that the states of attacks without them hash as they did.
+/// `systems/combat.md > AttackPhase`, one value of the design's BaseAttackChannel
+/// (`systems/controls/action_channels.md > BaseAttackChannel`). The phases run in this order; after Reloading the
+/// sequence is over. A disjointed attack's Aiming at a location and its Firing at the location it locked have values of
+/// their own (slice M4-O), tagged after the others in the hash, so that the states of attacks without them hash as they
+/// did.
 #[derive(Copy, Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub enum AttackPhase {
-    /// `systems/combat.md > Aiming` (`systems/controls/behaviors.md > BaseAiming`): the unit turns to face `target`, at
-    /// most its TurnRate per tick. Interruptible: a different command, or a target that is no longer valid (gone, or
-    /// out of range), cancels the sequence before anything is fired.
+    /// `systems/combat.md > Aiming` (`systems/controls/action_channels.md > BaseAiming`): the unit turns to face
+    /// `target`, at most its TurnRate per tick. Interruptible: a different command, or a target that is no longer valid
+    /// (gone, or out of range), cancels the sequence before anything is fired.
     Aiming { target: ObjectId },
-    /// `systems/combat.md > Firing` (`systems/controls/behaviors.md > BaseFiring`): not interruptible. The attack's
-    /// effect lands on `target` at the end of the phase. `None`: the target was destroyed meanwhile, and the attack
-    /// hits nothing (a placeholder reading: the design doesn't say).
+    /// `systems/combat.md > Firing` (`systems/controls/action_channels.md > BaseFiring`): not interruptible. The
+    /// attack's effect lands on `target` at the end of the phase. `None`: the target was destroyed meanwhile, and the
+    /// attack hits nothing (a placeholder reading: the design doesn't say).
     Firing { target: Option<ObjectId> },
     /// `systems/combat.md > Cooldown`: not interruptible; the unit is still unresponsive.
     Cooldown,
@@ -218,7 +219,7 @@ impl AttackState {
         self.location = None;
     }
 
-    /// (M4-O) The unit's behaviour engages the ground location `at` (`systems/controls/behaviors.md >
+    /// (M4-O) The unit's behaviour engages the ground location `at` (`systems/controls/command_behaviors.md >
     /// AttackingLocation`), and no object: as [`AttackState::engage`], an aim at anything else is interrupted.
     pub fn engage_ground(&mut self, at: Vec2) {
         let interrupted = match self.phase {
@@ -276,10 +277,11 @@ pub fn may_move(o: &Object) -> bool {
 }
 
 /// `systems/combat.md > AttackPhase > UnitBaseSourceActions`: whether anything but the attack may turn `o`'s base
-/// this tick. Not while Aiming, when the attack turns the base to face its target (`systems/controls/behaviors.md >
-/// BaseAiming`: the orientation is overridden), nor in Firing and Cooldown, when the orientation is locked
-/// (`systems/controls/behaviors.md > BaseFiring`, `systems/controls/behaviors.md > BaseCooldown`). Turret units' bases
-/// are always free (`systems/combat.md > TurretSource`). Nor while it converts its weapon (`conversion`).
+/// this tick. Not while Aiming, when the attack turns the base to face its target
+/// (`systems/controls/action_channels.md > BaseAiming`: the orientation is overridden), nor in Firing and Cooldown,
+/// when the orientation is locked (`systems/controls/action_channels.md > BaseFiring`,
+/// `systems/controls/action_channels.md > BaseCooldown`). Turret units' bases are always free (`systems/combat.md >
+/// TurretSource`). Nor while it converts its weapon (`conversion`).
 pub fn may_turn(o: &Object) -> bool {
     base_is_free(o.kind, o.attack.as_ref()) && !conversion::is_converting(o)
 }

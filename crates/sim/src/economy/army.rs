@@ -12,15 +12,15 @@
 //!   Capacity during deployment`, design change 0112), while the Drone it was costs nothing from the deployment's first
 //!   frame on, being a Beacon.
 //! - **Syndicate: Tunnel Space** (slice M4-B; `factions/syndicate/overview.md > SyndicateResources > Tunnel Space`,
-//!   `factions/syndicate/tunnels.md > Tunnel > Tunnel Space`): "Each Syndicate unit has a Tunnel Space cost", and what
-//!   is available is min(200, ⌊the unused tunnel-region cells of the player's Tunnels / 4⌋), derived from the Tunnels
-//!   and the expansions where they stand (`tunnel_space.rs`).
+//!   `factions/syndicate/tunnel_area_and_space.md > Tunnel Space`): "Each Syndicate unit has a Tunnel Space cost", and
+//!   what is available is min(200, ⌊the unused tunnel-region cells of the player's Tunnels / 4⌋), derived from the
+//!   Tunnels and the expansions where they stand (`tunnel_space.rs`).
 //! - **The Cults: Unit Control** (slice M5-C, plan decision T56; `factions/cults/overview.md > CultsResources > Unit
 //!   Control`: "Provided by Recruitment Halls in proportion to the number of Recruitable tiles each hall is actively
 //!   recruiting from. No hard cap"; `cults.rs`): what is available is the sum of the completed Halls' capacities,
 //!   rounded down, and what is used is the Halls' usage plus the orphaned points, by the units' lineages
-//!   (`factions/cults/economy.md > RecruitmentHall > Cults Unit Control HUD Display`; `crate::recruitment`). It counts
-//!   the units held off the map as the others do.
+//!   (`factions/cults/structures/recruitment_hall.md > Cults Unit Control HUD Display`; `crate::recruitment`). It
+//!   counts the units held off the map as the others do.
 //!
 //! **A unit costs only in its own faction's resource** ([`ArmyResource::cost_of`]; the Director's decision, slice
 //! M5-C): another faction's unit, which only a debug or a Custom game can give a player, takes none of it. So a Cults
@@ -31,9 +31,10 @@
 //! production starts": the HUD's "used" count "includes in-production units, not merely queued ones";
 //! `factions/colonists/overview.md > Beacon Capacity > Reserved when production starts` alike). A unit takes its cost
 //! from the tick its producer begins progress on it (`Production::in_production`) for as long as it lives; a unit only
-//! queued takes none, nor does one waiting at 0% for room. The Cults reserve nothing ([`ArmyResource::reserves`]): a
-//! Hall's Recruit counts from the tick it exists (**Placeholder (Q0100 point 3)**), as LocalUnitControlUsage counts
-//! the units there are, and so does every Cults unit.
+//! queued takes none, nor does one waiting at 0% for room. The Cults' Unit Control reserves nothing at production
+//! starts ([`ArmyResource::reserves`]): a Hall counts its own Recruit in production in its LocalUnitControlUsage, from
+//! the start of its production (design change 0342, `crate::recruitment::Lineages`), and every other Cults unit counts
+//! the Recruits it was made of, which counted as they were.
 //!
 //! **The check** is made when production starts, not when a unit is queued (0143, which replaces design change 0082's
 //! reservation at queue time and with it M2's and M3-C's refusal of a `Train`): the unit at the front of a queue
@@ -41,16 +42,17 @@
 //! by itself once there is room (`sim/producers/step.rs`, `Production::blocked`). A unit whose cost is 0 always starts,
 //! even over capacity (design change 0176 point 3). The client names the faction's resource in the wait's line and
 //! feedback ([`ArmyResource::name`]). The Cults' Unit Control is never checked: it is for display only, each Hall
-//! producing by its own usage and capacity (**Placeholder (Q0101 point 1)**; `factions/cults/economy.md >
-//! RecruitmentHall > Production Behavior`: "Production logic is entirely local — global Unit Control state does not
-//! affect production decisions").
+//! producing by its own usage and capacity (design change 0344: "Global total is for display only";
+//! `factions/cults/structures/recruitment_hall.md > Production Behavior`: "Production logic is entirely local — global
+//! Unit Control state does not affect production decisions").
 //!
 //! **Over capacity** (`factions/colonists/overview.md > Beacon Capacity > Over capacity`, design change 0112 as 0143
 //! amends it): when a Colonists building is lost, or a Beacon's deployment is cancelled, more can be used than is
 //! available. That is allowed: nothing is killed or removed, a unit in production finishes (Q0041 point 2), and the
 //! units after it wait until there is room again. Being derived, the cap needs no rule of its own for it; the client
-//! shows it in red. Tunnel Space alike, when an expansion takes up tunnel-region (`factions/syndicate/tunnels.md >
-//! Tunnel Space`: "usage is simply displayed over capacity (e.g. 12/10)").
+//! shows it in red. Tunnel Space alike, when an expansion takes up tunnel-region
+//! (`factions/syndicate/tunnel_area_and_space.md > Tunnel Space`: "usage is simply displayed over capacity (e.g.
+//! 12/10)").
 //!
 //! **The objects** [`cap`] counts are those it is given: `Sim::army_cap` gives the map's. The units inside the Tunnel
 //! Network and an Agent inside its site are alive and use Tunnel Space (design change 0265: "units count from
@@ -129,22 +131,22 @@ impl ArmyResource {
 
     /// Whether a unit takes its cost from the start of its production, and its start waits for room (design change
     /// 0143, "Reserved when production starts"; module docs): the GDO's, the Colonists' and the Syndicate's. Not the
-    /// Cults' Unit Control, which counts the units there are (`factions/cults/economy.md > RecruitmentHall >
-    /// RecruitmentHallInstanceState`: "LocalUnitControlUsage: number (current usage against this hall)"; **Placeholder
-    /// (Q0100 point 3)**: the Recruit in production counts once it exists) and makes no production wait
-    /// (**Placeholder (Q0101 point 1)**).
+    /// Cults' Unit Control, whose Halls count their Recruits in production themselves (design change 0342,
+    /// `crate::recruitment::Lineages`) and which makes no production wait (design change 0344: "Global total is for
+    /// display only").
     pub fn reserves(self) -> bool {
         self != ArmyResource::CultsUnitControl
     }
 
     /// What `o` takes up of it for its owner: a unit its cost, and a producer its unit in production's if the resource
-    /// [`reserves`](ArmyResource::reserves) (module docs).
+    /// [`reserves`](ArmyResource::reserves) (module docs). Never a producer that holds units (slice M5-F2,
+    /// `sim/producers/pool.rs`): it trains its units of the units inside, which count already.
     fn taken_by(self, o: &Object) -> u32 {
         let in_production = o
             .production
             .as_ref()
             .and_then(Production::in_production)
-            .filter(|_| self.reserves())
+            .filter(|_| self.reserves() && crate::holding::holds(o).is_none())
             .map_or(0, |kind| self.cost_of(kind));
         self.cost_of(o.kind).saturating_add(in_production)
     }
@@ -289,7 +291,8 @@ mod tests {
         assert_eq!(cu.cost_of(ObjectKind::RecruitmentHall), 0);
         assert_eq!(bc.cost_of(ObjectKind::RoboPortal), 0, "a structure costs nothing");
         assert_eq!(ts.cost_of(ObjectKind::Hideout), 0);
-        // `factions/syndicate/tunnels.md > Tunnel Space`: "floor((...) / 4) ... capped at a hard maximum of 200".
+        // `factions/syndicate/tunnel_area_and_space.md > Tunnel Space`: "floor((...) / 4) ... capped at a hard maximum
+        // of 200".
         assert_eq!((TUNNEL_SPACE_CAP, CELLS_PER_TUNNEL_SPACE), (200, 4));
     }
 
@@ -312,8 +315,8 @@ mod tests {
 
     /// The Director's decision (slice M5-C; module docs): a unit costs only in its own faction's resource, both ways. A
     /// GDO player's Recruit takes none of their Unit Control, and a Cults player's Peacekeeper none of theirs, though
-    /// both have a UnitControlCost; each player's own unit takes its 1 (the Recruit as an orphan: **Placeholder (Q0101
-    /// point 2)**).
+    /// both have a UnitControlCost; each player's own unit takes its 1 (the Recruit as an orphan: design change 0344,
+    /// "Recruits no Hall produced [...] are orphans from the start").
     #[test]
     fn another_factions_unit_costs_nothing_in_either_direction() {
         use crate::ids::PlayerId;

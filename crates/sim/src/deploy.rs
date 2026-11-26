@@ -3,7 +3,7 @@
 //!
 //! - **The order** (`OrderKind::Deploy { origin }`, T17): the Beacon's 2 × 2 footprint with its top-left tile at
 //!   `origin` ([`site`]; the Beacon's SymmetryType is AAAA, so it is never turned). It goes to one Drone: a Drone
-//!   becomes the Beacon, so "each takes exactly one placement" (`systems/controls/selection_and_hud.md > Shift while
+//!   becomes the Beacon, so "each takes exactly one placement" (`systems/controls/interface.md > Shift while
 //!   placing`), and with Shift it is queued like any order (`systems/controls/commands.md > Unit Command`).
 //! - **The gate** (`Sim::deploy_check`; T16's `Mode::Known`, design change 0120: "The ghost judges by what the player
 //!   knows"): the placement check of `core/entities.md > Placement Validation > Worker-Built Structures` on what the

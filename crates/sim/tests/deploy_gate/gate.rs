@@ -14,7 +14,7 @@ fn cancel(objects: &[u32]) -> Command {
 
 /// The plan's gate for a Deploy (`Sim::check_deploy`): the units named are the player's (`Reject::NotOwned`); the
 /// Drones among them take it, exactly one ("a Drone becomes the Beacon, so each takes exactly one placement",
-/// `systems/controls/selection_and_hud.md > Shift while placing`; the client picks the one Drone of a group, design
+/// `systems/controls/interface.md > Shift while placing`; the client picks the one Drone of a group, design
 /// change 0125): none is `Reject::NoWorkers`, several `Reject::SeveralConstructors`, and the others named keep what
 /// they were doing; and the footprint is on the map, whatever the origin.
 #[test]

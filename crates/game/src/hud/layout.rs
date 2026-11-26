@@ -17,7 +17,7 @@ pub const PORTRAIT_GAP_VH: f32 = 0.5;
 /// The gap between two CommandPanel buttons (placeholder size).
 pub const COMMAND_GAP_VH: f32 = 0.5;
 
-/// `systems/controls/selection_and_hud.md > HUD Bar > Layout Rules`: the rectangle of `section` on a surface of
+/// `systems/controls/hud.md > HUD Bar > Layout Rules`: the rectangle of `section` on a surface of
 /// `surface` logical pixels. The sections sit side by side in the bottom bar, all as tall as the bar minus its
 /// padding; fixed slots keep their size and the others share the width left over, so a slot depends on the surface
 /// alone, never on what the panels show.
@@ -50,7 +50,7 @@ pub fn section_rect(section: HudSection, surface: Vec2) -> Rect {
     unreachable!("every section is in HudSection::ALL")
 }
 
-/// The grid of portraits inside the SelectionPanel (`systems/controls/selection_and_hud.md > SelectionPanel`): square
+/// The grid of portraits inside the SelectionPanel (`systems/controls/hud.md > SelectionPanel`): square
 /// cells, row by row from the top left of the section's content box.
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub struct PortraitGrid {
@@ -100,7 +100,7 @@ impl PortraitGrid {
     }
 }
 
-/// The CommandPanel's 4 × 3 grid of buttons (`systems/controls/selection_and_hud.md > CommandPanel > Grid Layout`):
+/// The CommandPanel's 4 × 3 grid of buttons (`systems/controls/interface.md > CommandPanel > Grid Layout`):
 /// square cells as large as the section's content box allows, centred in it, row by row from the top left.
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub struct CommandGrid {

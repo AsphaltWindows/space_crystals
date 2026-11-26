@@ -1,6 +1,6 @@
-//! A Recruit's load inside a building (Placeholder (Q0104 point 3): "A unit's load is kept inside and comes out with
-//! it"; `factions/cults/economy.md > Cults Building Mechanics > Evacuation on Destruction`: "Units come out
-//! unchanged"), with real gathering (slice M5-D).
+//! A Recruit's load inside a building (design change 0347 point 3: "Loads: kept inside and carried out; lost if the
+//! Recruit is trained"; `factions/cults/economy.md > Cults Building Mechanics > Evacuation on Destruction`: "Units come
+//! out unchanged"), with real gathering (slice M5-D).
 
 use sc_sim::Target;
 

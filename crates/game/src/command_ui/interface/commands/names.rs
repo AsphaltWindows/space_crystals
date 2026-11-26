@@ -1,8 +1,7 @@
-//! The commands' labels and full names ([`PanelCommand::label`], [`PanelCommand::name`], [`PanelCommand::name_on`]),
-//! which the command panel's buttons and the InfoPanel's hint show: split from `super`, the commands and what they
-//! give the sim.
+//! The panel commands' labels and names ([`PanelCommand::label`], [`PanelCommand::name`], [`PanelCommand::name_on`]):
+//! what a button shows, and what the InfoPanel's hint for it says (`crate::hud::info_panel::hint`).
 
-use sc_sim::ObjectKind;
+use sc_sim::{ObjectKind, RecruitKind};
 
 use super::super::BuildMenu;
 use super::PanelCommand;
@@ -19,7 +18,10 @@ impl PanelCommand {
     /// "Raise", "Lower", "Drop" for Set Drop-off Location and for the Agent's Drop Off, "Drones" for Select Returning
     /// Drones), or a shortening of it ("Rev.", "AtkGnd", "Conv.", "Adv.", the Tunnel's "Upgr." for Upgrade Tunnel). An
     /// EjectMenu tile shows its unit type's tag, as a unit trained does, and its count
-    /// (`super::super::PanelSlot::count`); an ExpandMenu entry its expansion's, as a building constructed does.
+    /// (`super::super::PanelSlot::count`); an ExpandMenu entry its expansion's, as a building constructed does. A pool
+    /// building's kind buttons show their kind for the icon of its augments, "Plain", "Const.", "Metab.", "Both", with
+    /// their counts; its KindMenu's training the unit's tag, as a Train does, its Release "Rel." and its Eject All
+    /// "Eject" (slice M5-F2).
     pub fn label(self) -> &'static str {
         match self {
             PanelCommand::Move => "Move",
@@ -33,6 +35,7 @@ impl PanelCommand {
             PanelCommand::LowerShield => "Lower",
             PanelCommand::Convert(_) => "Conv.",
             PanelCommand::Train(kind)
+            | PanelCommand::TrainFrom(kind, _)
             | PanelCommand::Construct(kind)
             | PanelCommand::WarpIn(kind)
             | PanelCommand::Eject(kind)
@@ -54,6 +57,9 @@ impl PanelCommand {
             PanelCommand::EjectMenu => "Eject",
             PanelCommand::ExpandMenu => "Expand",
             PanelCommand::UpgradeTunnel => "Upgr.",
+            PanelCommand::KindMenu(kind) => kind_label(kind),
+            PanelCommand::Release(_) => "Rel.",
+            PanelCommand::EjectAll => "Eject",
             PanelCommand::Assist => "Assist",
         }
     }
@@ -91,6 +97,10 @@ impl PanelCommand {
             PanelCommand::Expand(kind) => named("Build", kind),
             PanelCommand::CancelOperation => "Cancel Operation".into(),
             PanelCommand::UpgradeTunnel => "Upgrade Tunnel".into(),
+            PanelCommand::KindMenu(kind) => format!("{} Recruits", kind.name()),
+            PanelCommand::TrainFrom(kind, _) => named("Train", kind),
+            PanelCommand::Release(_) => "Release".into(),
+            PanelCommand::EjectAll => "Eject All".into(),
             PanelCommand::Assist => "Assist Construction".into(),
             PanelCommand::Move
             | PanelCommand::Attack
@@ -119,5 +129,16 @@ impl PanelCommand {
             None if self == PanelCommand::CancelTransform => "Cancel Warp In".into(),
             None => self.name(),
         }
+    }
+}
+
+/// The label of a kind's button (`PanelCommand::KindMenu`): a placeholder for the icon of its augments (Q0001,
+/// design change 0337: "Each kind's button shows the unit with an **icon for its augments**").
+fn kind_label(kind: RecruitKind) -> &'static str {
+    match kind {
+        RecruitKind::Plain => "Plain",
+        RecruitKind::Constitution => "Const.",
+        RecruitKind::Metabolism => "Metab.",
+        RecruitKind::Both => "Both",
     }
 }

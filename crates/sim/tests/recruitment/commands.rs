@@ -1,5 +1,5 @@
-//! A Hall's commands (`factions/cults/economy.md > RecruitmentHall > ObjectInterfaceState[RecruitmentHall]`): X, the
-//! rally point, and the `Train` it has no use for; and a game with Halls replayed and saved.
+//! A Hall's commands (`factions/cults/structures/recruitment_hall.md > ObjectInterfaceState[RecruitmentHall]`): the
+//! rally point, and the X and the `Train` it has no use for; and a game with Halls replayed and saved.
 
 use sc_sim::{
     DebugCommand, ObjectId, OrderKind, PlayerCommand, Rally, Reject, Sim, SpawnSettings, Target, TilePos, Vec2,
@@ -19,44 +19,31 @@ fn rally(hall: ObjectId, target: Target) -> Command {
     production(&[hall], ProductionCommand::SetRally(target))
 }
 
-/// Plan acceptance, X: "cancels the current Recruit in production, resetting ProductionProgress"
-/// (`factions/cults/economy.md > RecruitmentHall > ObjectInterfaceState[RecruitmentHall]`), for nothing, as the
-/// Recruit cost nothing; and the next Recruit starts at once (**Placeholder (Q0100 point 2)**): in the tick of the X,
-/// so the Hall shows one frame's progress after it, and the Recruit comes out 191 ticks later. Before the Hall's first
-/// step there is nothing to cancel.
+/// Design change 0342 point 2 (`factions/cults/structures/recruitment_hall.md > ObjectInterfaceState[RecruitmentHall]`:
+/// "No cancel: Recruit production can't be cancelled"): a `CancelProduction` finds nothing to cancel at a Hall, before
+/// its first step or with its Recruit in production, and one sent anyway changes nothing: the Recruit comes out in
+/// tick 192, as without it.
 #[test]
-fn x_resets_the_progress_and_production_restarts_at_once() {
+fn a_hall_refuses_a_cancel() {
     let hall = ObjectId(1);
     let mut t = flat(40, 40).spawn(HALL, Some(P1), tile(18, 18)).start();
     assert_eq!(validate(&t, cancel(hall)), Err(Reject::NothingQueued));
     t.at(100, P1, cancel(hall));
     t.run_until(99);
     assert_eq!(progress(&t, hall), Some(99 * 100));
-    let crystals = t.sim().player(P1).expect("in the game").crystals;
+    assert_eq!(validate(&t, cancel(hall)), Err(Reject::NothingQueued));
     t.run(1);
-    assert_eq!(progress(&t, hall), Some(100), "restarted in the tick of the X");
-    let cancelled: Vec<_> = (t.events().iter())
-        .filter(|(_, e)| matches!(e, SimEvent::ProductionCancelled { .. }))
-        .collect();
-    assert_eq!(
-        cancelled,
-        [&(
-            100,
-            SimEvent::ProductionCancelled {
-                producer: hall,
-                kind: RECRUIT,
-                refund: 0
-            }
-        )]
-    );
-    assert_eq!(t.sim().player(P1).expect("in the game").crystals, crystals);
-    t.run_until(500);
-    assert_eq!(ticks(&t, hall), [100 + FRAMES - 1, 100 + 2 * FRAMES - 1]);
+    assert_eq!(progress(&t, hall), Some(100 * 100), "not cancelled");
+    let cancelled = (t.events().iter()).any(|(_, e)| matches!(e, SimEvent::ProductionCancelled { .. }));
+    assert!(!cancelled);
+    t.run_until(FRAMES);
+    assert_eq!(ticks(&t, hall), [FRAMES]);
 }
 
-/// A Hall trains nothing on command: `factions/cults/economy.md > RecruitmentHall > ObjectInterfaceState[RecruitmentHall]`
-/// has no Train, and the Hall recruits by itself (`factions/cults/economy.md > RecruitmentHall > Production
-/// Behavior`). A `Train` of a Recruit is refused and changes nothing.
+/// A Hall trains nothing on command: `factions/cults/structures/recruitment_hall.md >
+/// ObjectInterfaceState[RecruitmentHall]` has no Train, and the Hall recruits by itself
+/// (`factions/cults/structures/recruitment_hall.md > Production Behavior`). A `Train` of a Recruit is refused and
+/// changes nothing.
 #[test]
 fn a_hall_refuses_a_train() {
     let hall = ObjectId(1);
@@ -74,7 +61,7 @@ fn a_hall_refuses_a_train() {
 }
 
 /// Plan acceptance, the rally point: "Produced Recruits spawn at the hall and move to its rally point"
-/// (`factions/cults/economy.md > RecruitmentHall > Production Behavior`), C setting it as for every producer.
+/// (`factions/cults/structures/recruitment_hall.md > Production Behavior`), C setting it as for every producer.
 #[test]
 fn the_recruits_walk_to_the_rally_point() {
     let hall = ObjectId(1);
@@ -94,12 +81,19 @@ fn the_recruits_walk_to_the_rally_point() {
         orders.queue.front().map(|order| order.kind)
     };
     assert_eq!(order(&t), Some(OrderKind::Move(Target::Point(point))));
-    t.run_until(FRAMES + 400);
+    // Out of side B, the west one, and round the Hall to the east, where it arrives before the next one can.
+    for _ in 0..600 {
+        if t.pos(unit.0) == point {
+            break;
+        }
+        t.step();
+    }
     assert_eq!(t.pos(unit.0), point);
+    assert!(t.sim().tick() < 2 * FRAMES + 300, "in tick {}", t.sim().tick());
 }
 
 /// Plan acceptance (slice M5-D landed first): a rally point on a Space Crystals patch makes each new Recruit gather
-/// from it (`systems/controls/selection_and_hud.md > What a rally point makes a new unit do`: the default right-click
+/// from it (`systems/controls/interface.md > What a rally point makes a new unit do`: the default right-click
 /// command on the target; `factions/cults/units/recruit.md > Gathering`), delivering at the Storage.
 #[test]
 fn a_rally_on_a_patch_makes_new_recruits_gather() {
@@ -140,7 +134,6 @@ fn a_game_with_halls_replays_and_saves() {
             orientation: Default::default(),
         },
     );
-    t.at(100, P1, cancel(first));
     t.at(120, P1, rally(first, Target::Point(Vec2::new(1500.0, 300.0))));
     t.run_until(150);
     assert_eq!(

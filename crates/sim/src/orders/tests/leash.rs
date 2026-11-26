@@ -1,6 +1,6 @@
-//! Design change 0180's Verification (`systems/controls/behaviors.md > AttackMovingToLocation`: "the leash limits
-//! chasing only"), with Ranges no type has yet (`defs::test_defs`). The detour and the PathReference after a fight are
-//! tested with today's units in `tests/attack_move_leash.rs`.
+//! Design change 0180's Verification (`systems/controls/command_behaviors.md > AttackMovingToLocation`: "the leash
+//! limits chasing only"), with Ranges no type has yet (`defs::test_defs`). The detour and the PathReference after a
+//! fight are tested with today's units in `tests/attack_move_leash.rs`.
 
 use glam::Vec2;
 

@@ -1,4 +1,4 @@
-//! The CommandPanel (`systems/controls/selection_and_hud.md > CommandPanel`): its layout for the M1 units, its hotkeys
+//! The CommandPanel (`systems/controls/interface.md > CommandPanel`): its layout for the M1 units, its hotkeys
 //! and buttons, who receives its commands (no smart-casting: all of them, design change 0071), and that only the local
 //! player's units do.
 
@@ -36,8 +36,8 @@ fn texts(app: &mut App) -> Vec<String> {
     query.iter(app.world()).map(|t| t.0.clone()).collect()
 }
 
-/// `systems/controls/selection_and_hud.md > BasicCombatUnitInterfaceState > DefaultState commands` and
-/// `systems/controls/selection_and_hud.md > Standard Slot Assignments` (0002): a selection of Peacekeepers and Guards
+/// `systems/controls/interface.md > BasicCombatUnitInterfaceState > DefaultState commands` and
+/// `systems/controls/interface.md > Standard Slot Assignments` (0002): a selection of Peacekeepers and Guards
 /// shows Move (Q), Hold (E), Attack (A), Patrol (S) and Stop (X), all common to both types; Reverse (W) and
 /// AttackGround (D) unavailable to both; Z, C and V empty. The Peacekeepers, the ActiveGroup, add their Raise Shield in
 /// R, a group command (`factions/gdo/units/peacekeeper.md > Riot Shield`), labelled "Raise" to fit its button at 720p.
@@ -110,7 +110,7 @@ fn the_legionnaires_show_the_basic_combat_unit_grid() {
     assert_eq!(f.iter().flatten().count(), 1);
 }
 
-/// `systems/controls/selection_and_hud.md > CommandPanel`: the panel shows only while every selected object is the
+/// `systems/controls/interface.md > CommandPanel`: the panel shows only while every selected object is the
 /// local player's.
 #[test]
 fn enemy_and_neutral_selections_show_no_commands() {
@@ -124,7 +124,7 @@ fn enemy_and_neutral_selections_show_no_commands() {
     assert!(name_shown(&mut app));
 }
 
-/// `systems/controls/selection_and_hud.md > DefaultState`: HoldPosition (E) and Stop (X) are issued at once, by hotkey
+/// `systems/controls/interface.md > DefaultState`: HoldPosition (E) and Stop (X) are issued at once, by hotkey
 /// or by a click on their button, to the whole selection (common commands); Shift queues them
 /// (`systems/controls/commands.md > Unit Command`).
 #[test]
@@ -153,7 +153,7 @@ fn hotkeys_and_buttons_issue_immediate_commands() {
     assert_eq!(orders(&app).len(), 4);
 }
 
-/// `systems/controls/selection_and_hud.md > CommandPanel`: a common command goes to the whole selection, whichever
+/// `systems/controls/interface.md > CommandPanel`: a common command goes to the whole selection, whichever
 /// group is active. (A group command goes to the ActiveGroup alone: the Peacekeepers' Raise Shield, `riot_shield.rs`.)
 #[test]
 fn common_commands_go_to_the_whole_selection_from_any_active_group() {
@@ -181,8 +181,8 @@ fn bare_ground(app: &App) -> Vec2 {
         .expect("bare ground")
 }
 
-/// `systems/controls/selection_and_hud.md > SelectionGroup > No smart-casting` (design change 0071) with
-/// `systems/controls/selection_and_hud.md > CommandPanel`: every command the panel shows, by its hotkey and by its
+/// `systems/controls/selection.md > SelectionGroup > No smart-casting` (design change 0071) with
+/// `systems/controls/interface.md > CommandPanel`: every command the panel shows, by its hotkey and by its
 /// button, reaches every unit it is issued to, never some of them: a common command the whole selection, a group
 /// command the whole ActiveGroup. For each ActiveGroup of a selection of three Peacekeepers and two Guards (Tab), each
 /// command shown is used: an immediate one is issued, one that awaits a target gets a click on the ground. The orders
@@ -272,7 +272,7 @@ fn the_riot_shield_key_raises_every_selected_peacekeeper() {
     assert_eq!(shields, [shielded; 4]);
 }
 
-/// `systems/controls/selection_and_hud.md > CommandPanel`: "Commands can only be issued to objects owned by the
+/// `systems/controls/interface.md > CommandPanel`: "Commands can only be issued to objects owned by the
 /// player." Another player's selected unit takes no command, by hotkey or right-click; after the debug switch (F2) the
 /// same unit is the local player's and does, in that player's name.
 #[test]

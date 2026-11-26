@@ -46,7 +46,8 @@ pub(crate) struct View {
     pub elevation: Elevation,
     /// `systems/combat.md > ValidTarget` 1.
     pub destructible: bool,
-    /// Whether it is a unit: a Move to it follows it (`systems/controls/behaviors.md > MovingToObject > Completion`).
+    /// Whether it is a unit: a Move to it follows it (`systems/controls/command_behaviors.md > MovingToObject >
+    /// Completion`).
     pub is_unit: bool,
     /// Whether it is a Space Crystals patch (`core/map.md > SpaceCrystalsPatch`), which workers gather.
     pub is_patch: bool,
@@ -144,10 +145,12 @@ impl Unit<'_> {
 /// MinRange and picks one it can hit").
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub(crate) enum Scan {
-    /// `systems/controls/behaviors.md > BaseAutoTargeting > Active during Idle`, `systems/controls/behaviors.md >
-    /// AttackMovingToLocation` 2: ValidTargets within the unit's SightRange, beyond its MinRange.
+    /// `systems/controls/behaviors.md > BaseAutoTargeting > Active during Idle`,
+    /// `systems/controls/command_behaviors.md > AttackMovingToLocation` 2: ValidTargets within the unit's SightRange,
+    /// beyond its MinRange.
     Sight,
-    /// `systems/controls/behaviors.md > HoldingPosition` 3: ValidTargets within weapon range (Range, beyond MinRange).
+    /// `systems/controls/command_behaviors.md > HoldingPosition` 3: ValidTargets within weapon range (Range, beyond
+    /// MinRange).
     Weapon,
 }
 
@@ -400,8 +403,8 @@ impl<'a> World<'a> {
     /// Nothing while auto-targeting is off (`DebugCommand::SetAutoTargeting`).
     ///
     /// `facing_only`: a non-turret unit that can't turn in place engages only what it already faces
-    /// (`systems/controls/behaviors.md > HoldingPosition` 4, within `tuning::combat::FACING_TOLERANCE`, the exact
-    /// angle).
+    /// (`systems/controls/command_behaviors.md > HoldingPosition` 4, within `tuning::combat::FACING_TOLERANCE`, the
+    /// exact angle).
     // Inlined into each caller, whose `admit` it specializes on: the behaviours' hottest scan. Without the hint, how
     // the release build splits the crate into codegen units can leave a call to it out of line (slice M4-S1: the one
     // in `travel::march`, 3% of `behaviours_perf`'s battle, though nothing on the path had changed).

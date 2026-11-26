@@ -1,9 +1,9 @@
-//! Attackers blocked by their own side (`systems/controls/behaviors.md > AttackingObject > Blocked by its own side`,
-//! design change 0223; `docs/movement.md > 6.5`, rule 2). One test binary:
+//! Attackers blocked by their own side (`systems/controls/command_behaviors.md > AttackingObject > Blocked by its own
+//! side`, design change 0223; `docs/movement.md > 6.5`, rule 2). One test binary:
 //! - here, **the way round** (slice M3-G2, `movement::round`): a unit behind its owner's units that stand firing
 //!   gets into range, by `systems/units.md > UnitCollision > Ground Collision`, "Moving units must pathfind around
-//!   occupied space", for a unit that approaches the target of its attack (`systems/controls/behaviors.md >
-//!   AttackingObject`, `systems/controls/behaviors.md > AttackMovingToLocation`);
+//!   occupied space", for a unit that approaches the target of its attack (`systems/controls/command_behaviors.md >
+//!   AttackingObject`, `systems/controls/command_behaviors.md > AttackMovingToLocation`);
 //! - `no_room`, **no way round** (slice M3-G3, design change 0223, answering question Q0057): the Failure rule, with
 //!   no indefinite wait behind the blockers, and 0223's Verification.
 //!

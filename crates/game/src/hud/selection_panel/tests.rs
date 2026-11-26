@@ -53,7 +53,7 @@ fn only_the_active_groups_portraits_are_highlighted() {
     );
 }
 
-/// `systems/controls/selection_and_hud.md > SelectionPanel` (design change 0055): the portraits come group by group,
+/// `systems/controls/hud.md > SelectionPanel` (design change 0055): the portraits come group by group,
 /// and Tab and Shift-Tab make the groups active in that order, wrapping around. Patches stand in for the Ungroupable
 /// own structures that don't exist yet (a resource is never selected with other objects, 0048).
 #[test]

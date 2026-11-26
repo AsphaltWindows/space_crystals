@@ -35,11 +35,11 @@ fn known(sim: &Sim) -> Mode<'_> {
     }
 }
 
-/// `factions/syndicate/tunnels.md > Tunnel Area Non-Overlap Rule > Drillable area` (design change 0242): "a Tunnel can
-/// only be placed if every cell of its Tunnel Area is on the map and Drillable (no Water or Mountain ...)". A Tunnel
-/// at (4, 6) has its 8x8 Tier 1 area from x = 2: a column of Water or Mountain there refuses it as a whole, its own
-/// tiles being fine; Rugged ground or a Cliff there doesn't, being Drillable (`core/map.md > DefaultTilePresets`). A
-/// tile farther east, at (5, 6), the area misses the column.
+/// `factions/syndicate/tunnel_area_and_space.md > Tunnel Area Non-Overlap Rule > Drillable area` (design change 0242):
+/// "a Tunnel can only be placed if every cell of its Tunnel Area is on the map and Drillable (no Water or Mountain
+/// ...)". A Tunnel at (4, 6) has its 8x8 Tier 1 area from x = 2: a column of Water or Mountain there refuses it as a
+/// whole, its own tiles being fine; Rugged ground or a Cliff there doesn't, being Drillable (`core/map.md >
+/// DefaultTilePresets`). A tile farther east, at (5, 6), the area misses the column.
 #[test]
 fn a_tunnels_area_must_be_drillable() {
     let area = BuildArea::default();

@@ -19,7 +19,7 @@ impl Sim {
     /// The gate for `OrderKind::Deploy { origin }` (`factions/colonists/economy.md > Beacon Deployment > Deploy
     /// Command`), given `units`, the player's units that take orders: the units among them that deploy
     /// ([`deploy::deploys`]), exactly one, as a Drone becomes the Beacon ("each takes exactly one placement",
-    /// `systems/controls/selection_and_hud.md > Shift while placing`; the client picks the one Drone of a group, design
+    /// `systems/controls/interface.md > Shift while placing`; the client picks the one Drone of a group, design
     /// change 0125, slice M3-J1): else [`Reject::NoWorkers`] or [`Reject::SeveralConstructors`]. Its site must be
     /// allowed as far as the player knows, the sites of its pending Deploys reserved ([`Sim::deploy_check`], design
     /// changes 0120 and 0125): else [`Reject::Unplaceable`] with the first problem. Not reported by an event: the client

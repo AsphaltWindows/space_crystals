@@ -22,11 +22,12 @@ fn why_text(panel: &Panel, slot: CommandSlot) -> Option<&'static str> {
     panel.get(slot)?.why.map(unavailable_text)
 }
 
-/// `factions/syndicate/tunnels.md > Tunnel ObjectInterfaceState` (design change 0257): Q Upgrade Tunnel, W Expand
+/// `factions/syndicate/tunnel_menus.md > Tunnel ObjectInterfaceState` (design change 0257): Q Upgrade Tunnel, W Expand
 /// Tunnel, E Eject, X Cancel. Q sends the Upgrade (slice M4-G) and names its price; W opens the ExpandMenu (slice
 /// M4-F) and E the EjectMenu; X cancels the Tunnel's operation, greyed while it performs none (`Reject::NoOperation`),
-/// and sends the Cancel once it does (`factions/syndicate/tunnels.md > Expansions under construction`: "The Tunnel's X
-/// cancels whatever operation it is running"), an upgrade's too. A greyed-out button does nothing and says why.
+/// and sends the Cancel once it does (`factions/syndicate/tunnel_menus.md > Expansions under construction`: "The
+/// Tunnel's X cancels whatever operation it is running"), an upgrade's too. A greyed-out button does nothing and says
+/// why.
 #[test]
 fn the_tunnel_has_q_upgrade_w_expand_e_eject_and_x_cancel() {
     use ButtonLook::{Common, Disabled};
@@ -80,10 +81,10 @@ fn the_tunnel_has_q_upgrade_w_expand_e_eject_and_x_cancel() {
 }
 
 /// Slice M4-G: the Tunnel's Q is greyed while the gate refuses its Upgrade (`Sim::can_upgrade`), with the gate's
-/// reason: already at its top tier (`factions/syndicate/tunnels.md > Tunnel ObjectInterfaceState`: "Unavailable if
+/// reason: already at its top tier (`factions/syndicate/tunnel_menus.md > Tunnel ObjectInterfaceState`: "Unavailable if
 /// already Tier 3"), an operation under way, too few Supplies, or something that blocks the larger area, never what
-/// (`factions/syndicate/tunnels.md > Tunnel Area Non-Overlap Rule`: "learns that something blocks it"). Pressed, it
-/// does nothing and says why; its price still shows.
+/// (`factions/syndicate/tunnel_area_and_space.md > Tunnel Area Non-Overlap Rule`: "learns that something blocks it").
+/// Pressed, it does nothing and says why; its price still shows.
 #[test]
 fn the_tunnels_upgrade_is_greyed_with_the_gates_reason() {
     use PanelCommand::UpgradeTunnel;
@@ -110,12 +111,12 @@ fn the_tunnels_upgrade_is_greyed_with_the_gates_reason() {
     }
 }
 
-/// `factions/syndicate/tunnels.md > EjectMenu`: a tile per unit type of the sim's list, in grid order (design change
-/// 0257: Agent Q, Guard W, Grenadier E; 0285, answering Q0086 point 1: "the intended order"), each with its count, one
-/// with none inside there all the same, 0 and greyed (0299, answering Q0086 point 2: "every Syndicate unit type keeps
-/// its EjectMenu tile; types with none inside show 0, greyed"), greyed while the gate refuses its Eject, with the
-/// gate's reason; a tile ejects at once and leaves the menu open (0300, answering Q0086 point 3: "the panel **stays in
-/// the EjectMenu**"); Z goes back to DefaultState.
+/// `factions/syndicate/tunnel_menus.md > EjectMenu`: a tile per unit type of the sim's list, in grid order (design
+/// change 0257: Agent Q, Guard W, Grenadier E; 0285, answering Q0086 point 1: "the intended order"), each with its
+/// count, one with none inside there all the same, 0 and greyed (0299, answering Q0086 point 2: "every Syndicate unit
+/// type keeps its EjectMenu tile; types with none inside show 0, greyed"), greyed while the gate refuses its Eject,
+/// with the gate's reason; a tile ejects at once and leaves the menu open (0300, answering Q0086 point 3: "the
+/// panel **stays in the EjectMenu**"); Z goes back to DefaultState.
 #[test]
 fn the_eject_menu_shows_the_network_in_grid_order_with_counts() {
     use ButtonLook::{Back, Common, Disabled};

@@ -86,15 +86,15 @@ Every number marked *(placeholder)* becomes a named const tagged with the questi
 | Terrain | Non-Traversible tiles block ground units. RuggedTerrain = true bases (infantry, Mech) cross Rugged tiles. Drill units travel on Drillable tiles | `core/map.md > Tile`, `systems/units.md > UnitBase`, `systems/units.md > DrillUnit` |
 | Elevation | Slopes change neither speed nor path cost; cliffs are non-Traversible tiles; corners are shared, so two adjacent Traversible tiles are always connected | `core/map.md > Elevation` |
 | Underground | Expansions are walked over by surface units | `factions/syndicate/structures/README.md > Tunnel Expansions` |
-| Move | To a location or an object; ends with Stopping, complete when stopped; completes "within proximity" of an object; on repeated failure to progress: stop, complete. **(Y)** Stuck after 24 ticks without getting closer, 3 re-route attempts after waits of 8, 16 and 32 ticks, then give up (0024); an unreachable target becomes the nearest reachable point (0025); stuck within 3 GU of the target behind units that aren't moving is arrived (0026; **(V)** 3 GU since 0169, 2 before) | `systems/controls/behaviors.md > MovingToLocation`, `systems/controls/behaviors.md > MovingToObject` |
-| Chase | AttackingObject approaches until the target is within Range, beyond MinRange and in facing; resumes when it leaves range. Infantry (UnitBaseSource) cannot move during Aiming, Firing, Cooldown | `systems/controls/behaviors.md > AttackingObject`, `systems/combat.md > AttackPhase` |
+| Move | To a location or an object; ends with Stopping, complete when stopped; completes "within proximity" of an object; on repeated failure to progress: stop, complete. **(Y)** Stuck after 24 ticks without getting closer, 3 re-route attempts after waits of 8, 16 and 32 ticks, then give up (0024); an unreachable target becomes the nearest reachable point (0025); stuck within 3 GU of the target behind units that aren't moving is arrived (0026; **(V)** 3 GU since 0169, 2 before) | `systems/controls/command_behaviors.md > MovingToLocation`, `systems/controls/command_behaviors.md > MovingToObject` |
+| Chase | AttackingObject approaches until the target is within Range, beyond MinRange and in facing; resumes when it leaves range. Infantry (UnitBaseSource) cannot move during Aiming, Firing, Cooldown | `systems/controls/command_behaviors.md > AttackingObject`, `systems/combat.md > AttackPhase` |
 | Range | ±1 GU by elevation level difference, ground and underground only | `core/vision.md > ElevationModifier` |
-| AttackMove, Patrol | Leash 6 GU perpendicular to the path, recompute the path on resuming; Patrol swaps legs forever | `systems/controls/behaviors.md > AttackMovingToLocation`, `systems/controls/behaviors.md > Patrolling` |
+| AttackMove, Patrol | Leash 6 GU perpendicular to the path, recompute the path on resuming; Patrol swaps legs forever | `systems/controls/command_behaviors.md > AttackMovingToLocation`, `systems/controls/command_behaviors.md > Patrolling` |
 | Idle | Auto-acquire in SightRange, leash 4 GU from IdleOrigin, return to it | `systems/controls/behaviors.md > BaseAutoTargeting` |
-| Hold, Stop | Hold: Locomotion Stationary always, never completes. Stop: Stopping, then no behaviour | `systems/controls/behaviors.md > HoldingPosition`, `systems/controls/behaviors.md > StoppingBehavior` |
+| Hold, Stop | Hold: Locomotion Stationary always, never completes. Stop: Stopping, then no behaviour | `systems/controls/command_behaviors.md > HoldingPosition`, `systems/controls/command_behaviors.md > StoppingBehavior` |
 | Queue | Shift appends, otherwise the command replaces the whole queue; next order starts when the current behaviour completes | `systems/controls/commands.md > Unit Command` |
-| Channels | Locomotion (Moving, Reversing, Stopping, Stationary) and Orientation (Turning, Maintaining) are named state; combat and crushing read them | `systems/controls/behaviors.md > BaseActionChannels`, `systems/combat.md > LocomotionOrientationConstraints` |
-| Group moves | **(M)** The magic box: a location order (Move, AttackMove, Patrol) to several units keeps their arrangement when the click is outside the bounding box of their silhouettes (**(Y)**, 0028; each goes to the click plus its offset from the group's centre) and converges on the click when it is inside. No formation movement. Selection has no size limit | `systems/controls/commands.md > Group Destinations (Magic Box)`, `systems/controls/selection_and_hud.md` |
+| Channels | Locomotion (Moving, Reversing, Stopping, Stationary) and Orientation (Turning, Maintaining) are named state; combat and crushing read them | `systems/controls/action_channels.md > BaseActionChannels`, `systems/combat.md > LocomotionOrientationConstraints` |
+| Group moves | **(M)** The magic box: a location order (Move, AttackMove, Patrol) to several units keeps their arrangement when the click is outside the bounding box of their silhouettes (**(Y)**, 0028; each goes to the click plus its offset from the group's centre) and converges on the click when it is inside. No formation movement. Selection has no size limit | `systems/controls/commands.md > Group Destinations (Magic Box)`, `systems/controls/selection.md` |
 
 ## 2. Design gaps and contradictions
 
@@ -110,7 +110,7 @@ Top five first. Each default is what this design implements until answered.
 | G6 | Does the Silhouette rectangle rotate with facing? All specified ones are square. | **(E) Answered by 0033**: it rotates with the facing. Not built: it waits for the vehicles milestone, with oriented collision. Until then boxes are axis-aligned, and `shape.rs` is the one place that changes |
 | G7 | How are Range and "within proximity" measured for large targets? | **(E) Answered by 0031 and 0032**: edge to edge, the gap between the two shapes (`shape::Shape::gap`), for Range, MinRange and proximity; proximity is a gap of 8 su. The default here was centre to nearest point |
 | G8 | The attack target leaves the attacker's owner's vision during a chase. | **(E) Answered by 0034**, as proposed: go to its last seen position, then the order completes. A Follow of an enemy ends the same way. **(M3-L3) Replaced by 0200** (answering Q0051): the Attack or Follow completes at once, where the unit stands |
-| G9 | Patrol: is the origin the position at issue or when a Shift-queued Patrol starts (`systems/controls/commands.md > Patrol` vs `systems/controls/behaviors.md > Patrolling` step 1)? What if a leg fails? | **(E) Answered by 0036 and 0037**, as proposed: when it starts executing. A failed leg counts as arrived; two failed legs in a row end the Patrol |
+| G9 | Patrol: is the origin the position at issue or when a Shift-queued Patrol starts (`systems/controls/commands.md > Patrol` vs `systems/controls/command_behaviors.md > Patrolling` step 1)? What if a leg fails? | **(E) Answered by 0036 and 0037**, as proposed: when it starts executing. A failed leg counts as arrived; two failed legs in a row end the Patrol |
 | G10 | Do map resources (patch, station) block ground units? "Structures" doesn't name them. | Yes, their footprints block |
 | G11 | RuggedTerrain = false: is a Rugged tile impassable for that base? Implied, never stated. | Yes, impassable |
 | G12 | Do units path with knowledge of structures their owner has never seen? | **(K) Answered by 0040, 0041 and 0042**: no. Paths are planned from what the owner knows: terrain, its own structures, others' structures once seen (a wall at the last-known position until seen otherwise) and the map's resources from the start (5.2, 5.6, 5.7). The default here was the true map |
@@ -296,7 +296,7 @@ moves); at the end of its path if the object is still where the path was planned
 reach: design change 0025); or by rule 1 of 6.5. At the end of a path to an object that has moved on, it plans
 again (not counted). An object that is gone ends the move `TargetLost`.
 
-**(Y)** Timing, as design change 0024 words it (`systems/controls/behaviors.md > MovingToLocation > Failure`). A
+**(Y)** Timing, as design change 0024 words it (`systems/controls/command_behaviors.md > MovingToLocation > Failure`). A
 unit is **stuck** when 24 ticks have passed without progress (`Mover::is_stuck`; nothing restarts that clock but
 progress). A stuck unit waits 8 ticks and tries another route, waits 16 and tries again, waits 32 and tries a third
 time; if it is still stuck 24 ticks after the third attempt, it gives up (`Mover::recovery_due`). So a unit that
@@ -577,9 +577,9 @@ moving (a unit that moved this tick or the last), progress is moving forward at 
 the unit, and the path is re-aimed as it moves, so its length says nothing; towards an object at rest it is the
 remaining path length, measured afresh from when it came to rest. A unit is **stuck** after
 `STUCK_TICKS` = 24 without it. Then, in order:
-1. **(Y) Occupied target** (design change 0026, `systems/controls/behaviors.md > MovingToLocation > Occupied target
-   location`): the goal is a point within `OCCUPIED_ARRIVAL_GU` = 2 GU (**(V)** 3 GU, design change 0169), and the
-   unit in the way is stationary and won't move for this unit → `Arrived`, with no repath. **Yielding comes
+1. **(Y) Occupied target** (design change 0026, `systems/controls/command_behaviors.md > MovingToLocation > Occupied
+   target location`): the goal is a point within `OCCUPIED_ARRIVAL_GU` = 2 GU (**(V)** 3 GU, design change 0169), and
+   the unit in the way is stationary and won't move for this unit → `Arrived`, with no repath. **Yielding comes
    first**: a blocker that yields to this unit (6.6) has been asked to step aside, so the rule is for blockers that
    stay: units that arrived with its own group order, units on Hold, busy units, enemies, units that can't move,
    and a yielding unit that found no room.
@@ -644,13 +644,13 @@ remaining path length, measured afresh from when it came to rest. A unit is **st
      moved after this unit's last attempt (`Body::moved`), so it took the place the unit went for. Each lost
      race is a unit that found its place, so there are at most as many as units.
    - **(M3-G3) No way round** (a corridor, a passage the row fills), or no attempt left: the normal **Failure**
-     rule applies (design change 0223, answering Q0057; `systems/controls/behaviors.md > AttackingObject > Blocked by
-     its own side`: "it does not wait behind the blockers indefinitely"). An attempt that finds no way round counts all
-     the same. Once none is left the unit gives up, still stuck 24 ticks after its last attempt (rule 4): 84 ticks
-     after it was blocked behind a unit with no goal (attempts after 12, 28 and 60), 104 (6.5 s) after its last
+     rule applies (design change 0223, answering Q0057; `systems/controls/command_behaviors.md > AttackingObject >
+     Blocked by its own side`: "it does not wait behind the blockers indefinitely"). An attempt that finds no way round
+     counts all the same. Once none is left the unit gives up, still stuck 24 ticks after its last attempt (rule 4): 84
+     ticks after it was blocked behind a unit with no goal (attempts after 12, 28 and 60), 104 (6.5 s) after its last
      progress otherwise (5.6; the grace below adds up to 8). Meanwhile it steers as any blocked unit (6.3),
      sidesteps included. The
-     behaviour then gives the target up (`systems/controls/behaviors.md > AttackingObject > Failure`): an Attack
+     behaviour then gives the target up (`systems/controls/command_behaviors.md > AttackingObject > Failure`): an Attack
      completes, and the unit, idle, takes targets again by itself (`systems/controls/behaviors.md > BaseAutoTargeting >
      Unreachable auto-targets`). An AttackMove leaves the target alone for 32 ticks and walks on, then takes it again
      (`orders::travel::pursue`, as built), so in a corridor it gives up every 116 ticks and its leg never ends while the
@@ -666,7 +666,7 @@ remaining path length, measured afresh from when it came to rest. A unit is **st
    (`stuck::avoid_group`): the new route goes round the group and comes at the unit's place from its open side,
    where a route round the one blocker led into the next.
 4. Otherwise, 24 ticks after the last repath → `Failed`; the behaviour stops and completes
-   (`systems/controls/behaviors.md > Failure`).
+   (`systems/controls/command_behaviors.md > Failure`).
 
 **(D)** Three refinements, each from a failing scenario:
 - **Waiting behind a unit that is getting on is progress.** A unit blocked by one that has a goal takes over that

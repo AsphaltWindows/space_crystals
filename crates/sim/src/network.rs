@@ -1,8 +1,8 @@
 //! The Tunnel Network — `factions/syndicate/tunnels.md > Tunnel Network`, `factions/syndicate/tunnels.md > Tunnel >
-//! SymmetryType - ABCD` (Side A's paths), `factions/syndicate/tunnels.md > EjectMenu`; `systems/controls/commands.md >
-//! Enter`; slice M4-C. "The Tunnel Network is the collective of all Tunnels owned by a Syndicate player. Units inside
-//! the Tunnel Network can travel between Tunnels freely, but can only enter or exit the network through a Tunnel whose
-//! tier is sufficient for their unit base category."
+//! SymmetryType - ABCD` (Side A's paths), `factions/syndicate/tunnel_menus.md > EjectMenu`;
+//! `systems/controls/commands.md > Enter`; slice M4-C. "The Tunnel Network is the collective of all Tunnels owned by a
+//! Syndicate player. Units inside the Tunnel Network can travel between Tunnels freely, but can only enter or exit the
+//! network through a Tunnel whose tier is sufficient for their unit base category."
 //!
 //! - **Units off the map** (plan decision T30): a unit inside the network is not among the sim's objects. It is
 //!   [`Held`] in one store beside them (`Sim::held`), with its id, at a [`Place`]. So every system that walks the
@@ -83,8 +83,8 @@ pub struct Held {
     /// and means nothing while it is held.
     pub object: Object,
     pub place: Place,
-    /// The tick it came to its place: `factions/syndicate/tunnels.md > EjectMenu`'s "the one that has been inside the
-    /// network longest" comes out first (design change 0251); in a building, the pool's order
+    /// The tick it came to its place: `factions/syndicate/tunnel_menus.md > EjectMenu`'s "the one that has been inside
+    /// the network longest" comes out first (design change 0251); in a building, the pool's order
     /// (`Sim::held_in`).
     pub since: Tick,
     /// Whether it walked in (design change 0245: "Each unit inside stores when it entered"), so that the transit
@@ -93,17 +93,16 @@ pub struct Held {
     /// completes a Tunnel can be ejected at once [...] produced units rallied into the network have no delay
     /// either").
     pub entered: bool,
-    /// (M5-F1) Ejected from the building it is in (`factions/cults/structures/armory.md > Eject All`: "ejects all
-    /// stored Recruits from the exit side in a rapid stream, one after another"): it comes out through the building's
-    /// exit doorway once the doorway is free, after the units ejected before it (`Sim::step_holding`). Inside until
-    /// then. Saved and hashed only while set, so the states of games that never eject hash as they did before the
-    /// field existed.
-    #[serde(default, skip_serializing_if = "is_false")]
-    pub ejected: bool,
-}
-
-fn is_false(b: &bool) -> bool {
-    !*b
+    /// (M5-F1, M5-F2) The tick from which it is ready to leave the building it is in through the building's exit
+    /// doorway: ejected (`factions/cults/structures/armory.md > Eject All`: "ejects all stored Recruits from the exit
+    /// side in a rapid stream, one after another"), or reserved by the entry at the front of the building's queue,
+    /// which finished in that tick (a Release lets it out unchanged, a training trains it as it comes out:
+    /// `sim/producers/pool.rs`). The building lets its ready units out one at a time, "in the order they are ready"
+    /// (design change 0348, `factions/cults/structures/README.md > Choosing Recruits, Release and Eject All`), each
+    /// once its doorway is free (`Sim::step_holding`). Inside until then. Saved and hashed only while set, so the
+    /// states of games in which no unit leaves a building hash as they did before the field existed.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub leaving: Option<Tick>,
 }
 
 impl Held {
@@ -303,7 +302,7 @@ pub fn is_exit(tunnel: &Object) -> bool {
     tunnel.tunnel.is_some() && tunnel.placement.is_some() && tunnel.owner.is_some() && tunnel.is_operational()
 }
 
-/// One entry of a Tunnel's eject queue (`TunnelState::eject`; `factions/syndicate/tunnels.md > EjectMenu`, design
+/// One entry of a Tunnel's eject queue (`TunnelState::eject`; `factions/syndicate/tunnel_menus.md > EjectMenu`, design
 /// change 0251: "each click reserves a specific unit [...]; the queue can't be cancelled").
 #[derive(Copy, Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct Eject {
@@ -340,15 +339,16 @@ impl StateHash for Held {
             place,
             since,
             entered,
-            ejected,
+            leaving,
         } = self;
         object.hash(h);
         place.hash(h);
         since.hash(h);
         entered.hash(h);
         // (M5-F1) Only while set, under a tag of its own: the goldens stand.
-        if *ejected {
+        if let Some(tick) = leaving {
             h.tag(1);
+            tick.hash(h);
         }
     }
 }
@@ -453,7 +453,7 @@ mod tests {
             place: Place::Network,
             since: 10,
             entered,
-            ejected: false,
+            leaving: None,
         };
         assert!(!held(true).may_exit(10) && !held(true).may_exit(41) && held(true).may_exit(42));
         assert!(held(false).may_exit(10));
@@ -467,7 +467,7 @@ mod tests {
             place: Place::Network,
             since: 0,
             entered: true,
-            ejected: false,
+            leaving: None,
         };
         held.object.hp = Some(40.0);
         for _ in 0..160 {

@@ -382,6 +382,13 @@ pub fn every_command() -> Vec<Command> {
                 id: ObjectId(1),
                 tier: 2,
             },
+            DebugCommand::SetAugmentation {
+                id: ObjectId(1),
+                augmentation: crate::augmentation::Augmentation {
+                    constitution: true,
+                    metabolism: false,
+                },
+            },
         ]
         .map(Command::Debug),
     );
@@ -391,6 +398,11 @@ pub fn every_command() -> Vec<Command> {
             ProductionCommand::CancelProduction,
             ProductionCommand::SetRally(Target::Point(point)),
             ProductionCommand::SetRally(Target::Object(ObjectId(3))),
+            ProductionCommand::TrainFrom {
+                kind: ObjectKind::Militant,
+                from: crate::augmentation::RecruitKind::Constitution,
+            },
+            ProductionCommand::Release(crate::augmentation::RecruitKind::Both),
         ]
         .map(|command| Command::Production {
             objects: units.clone(),
@@ -450,7 +462,9 @@ pub fn every_command() -> Vec<Command> {
             Command::Production { command, .. } => match command {
                 ProductionCommand::Train(_)
                 | ProductionCommand::CancelProduction
-                | ProductionCommand::SetRally(Target::Point(_) | Target::Object(_)) => {}
+                | ProductionCommand::SetRally(Target::Point(_) | Target::Object(_))
+                | ProductionCommand::TrainFrom { .. }
+                | ProductionCommand::Release(_) => {}
             },
             Command::Construction { command, .. } => match command {
                 ConstructionCommand::Construct(_)
@@ -481,7 +495,8 @@ pub fn every_command() -> Vec<Command> {
                 | DebugCommand::SetPosition { .. }
                 | DebugCommand::SetAutoTargeting { .. }
                 | DebugCommand::SetResources { .. }
-                | DebugCommand::SetTier { .. },
+                | DebugCommand::SetTier { .. }
+                | DebugCommand::SetAugmentation { .. },
             ) => {}
         }
     }

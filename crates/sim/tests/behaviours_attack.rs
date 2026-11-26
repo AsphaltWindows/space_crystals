@@ -1,5 +1,5 @@
-//! The Attack order (`systems/controls/behaviors.md > AttackingObject`): the approach until the target is in range
-//! (measured edge to edge, design change 0031), the chase when it moves, the stop where the unit stands when the
+//! The Attack order (`systems/controls/command_behaviors.md > AttackingObject`): the approach until the target is in
+//! range (measured edge to edge, design change 0031), the chase when it moves, the stop where the unit stands when the
 //! target goes into the fog (design change 0200; more in `target_lost.rs`), and giving up a target out of reach.
 
 use sc_sim::testing::{ScenarioBuilder, TestSim};
@@ -320,9 +320,9 @@ const CORRIDOR: &str = "
 /// `docs/movement.md > 6.5`, rule 2 (queueing; slice M3-G3, design change 0223): a unit chasing the target of its
 /// attack, blocked by a unit of its owner that stands attacking the same target, looks for a way round the unit
 /// ahead, and a corridor has none. Those attempts are the leg's three, and then it gives up as any stuck unit does
-/// (`systems/controls/behaviors.md > AttackingObject > Blocked by its own side`, `> MovingToLocation > Failure`): its
-/// move fails about 7 s after it was blocked, and its Attack completes. Until 0223 it waited for as long as the
-/// fight lasted. (`tests/attack_behind_friends` has the cases with room, and more without.)
+/// (`systems/controls/command_behaviors.md > AttackingObject > Blocked by its own side`, `> MovingToLocation >
+/// Failure`): its move fails about 7 s after it was blocked, and its Attack completes. Until 0223 it waited for as long
+/// as the fight lasted. (`tests/attack_behind_friends` has the cases with room, and more without.)
 ///
 /// Two Guards attack a Peacekeeper down a corridor; the second can't get into range past the first, which fights for
 /// longer than the 104 ticks after which a stuck move gives up (on Rugged ground the Peacekeeper takes 8 a hit, 18 ×

@@ -70,7 +70,7 @@ The Colonists' foundational structure, created when a Drone deploys into it (see
 ### SightRange - 4 grid units
 ### Destructible - true
 ### Groupable - false
-(user, 2026-11-24) A Beacon is used up by a Warp In, like a worker used up by a build, so each Beacon is its own SelectionGroup (systems/controls/selection_and_hud.md > SelectionGroup). With several Beacons selected, Warp In applies to the Beacon the player has Tabbed to.
+(user, 2026-11-24) A Beacon is used up by a Warp In, like a worker used up by a build, so each Beacon is its own SelectionGroup (systems/controls/selection.md > SelectionGroup). With several Beacons selected, Warp In applies to the Beacon the player has Tabbed to.
 ### BeaconCapacity provided - 5
 ### SymmetryType - AAAA
 

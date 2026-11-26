@@ -68,7 +68,10 @@ fn a_peacekeeper_takes_80_ticks_at_full_power() {
         "50 each, paid when queued"
     );
     let status = t.sim().production_status(BARRACKS).unwrap();
-    assert_eq!((status.kind, status.progress, status.total), (PK, 1 << 16, 80 << 16));
+    assert_eq!(
+        (status.entry, status.progress, status.total),
+        (sc_sim::QueueEntry::Unit(PK), 1 << 16, 80 << 16)
+    );
     t.run_until(79);
     assert_eq!(produced(&t), []);
     t.run_until(200);
@@ -333,7 +336,7 @@ fn group_production_queues_everywhere_when_the_player_can_pay() {
     assert_eq!((queue(tie.sim(), BARRACKS), queue(tie.sim(), ObjectId(3))), (1, 0));
 }
 
-/// Design change 0083 under 0143 ("0083 no longer considers Unit Control"; `systems/controls/selection_and_hud.md >
+/// Design change 0083 under 0143 ("0083 no longer considers Unit Control"; `systems/controls/selection.md >
 /// Group production with limited resources`: "unit capacity is not checked when queuing"): at the cap, a Train to
 /// two Barracks queues at both, paid, the idler first; the room decides only who starts. A full queue is passed over.
 #[test]

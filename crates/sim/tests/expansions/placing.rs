@@ -1,4 +1,4 @@
-//! Where an expansion may go (`factions/syndicate/tunnels.md > AwaitingPlacement (Expansion)`): its ghost
+//! Where an expansion may go (`factions/syndicate/tunnel_menus.md > AwaitingPlacement (Expansion)`): its ghost
 //! (`Sim::expansion_check`, by what the owner knows) and the command (by the truth), in a game.
 
 use sc_sim::WholeProblem;
@@ -204,7 +204,7 @@ fn an_enemy_building_refuses_it_by_the_truth() {
 }
 
 /// "Click an expansion type: begins construction if the Tunnel is not already performing an operation"
-/// (`factions/syndicate/tunnels.md > ExpandMenu`; "A Tunnel can only perform one operation at a time"): while it
+/// (`factions/syndicate/tunnel_menus.md > ExpandMenu`; "A Tunnel can only perform one operation at a time"): while it
 /// builds, another Expand is refused, wherever it goes, and the menu's check says so; once done, it builds again.
 /// (Refused while it upgrades: slice M4-G's upgrade takes the same slot.)
 #[test]

@@ -1,7 +1,8 @@
-//! **No way round** (slice M3-G3; design change 0223, answering question Q0057; `systems/controls/behaviors.md >
-//! AttackingObject > Blocked by its own side`; `docs/movement.md > 6.5`, rule 2). An attacker whose way to its
-//! target is blocked by its own side, with no way round (a corridor, a passage the front rank fills):
-//! - **farther than 3 grid units from the target**, follows the Failure rule (`systems/controls/behaviors.md >
+//! **No way round** (slice M3-G3; design change 0223, answering question Q0057;
+//! `systems/controls/command_behaviors.md > AttackingObject > Blocked by its own side`; `docs/movement.md > 6.5`, rule
+//! 2). An attacker whose way to its target is blocked by its own side, with no way round (a corridor, a passage the
+//! front rank fills):
+//! - **farther than 3 grid units from the target**, follows the Failure rule (`systems/controls/command_behaviors.md >
 //!   MovingToLocation > Failure`): its attempts at a way round are the leg's three, and it gives up when it is still
 //!   stuck `STUCK_TICKS` after the last, about 7 s after its last progress, as any stuck unit does. Until 0223 it
 //!   waited behind the blockers for as long as the target stood. An Attack then completes, and the unit is idle;
@@ -140,7 +141,7 @@ fn watch(t: &mut TestSim, stories: &mut [Story], until: Tick) -> u32 {
     planned
 }
 
-/// `story`'s unit followed the Failure rule (`systems/controls/behaviors.md > MovingToLocation > Failure`), and
+/// `story`'s unit followed the Failure rule (`systems/controls/command_behaviors.md > MovingToLocation > Failure`), and
 /// waited nowhere: it was never on its way for longer than `GIVE_UP_TICKS` without progress (with
 /// `STUCK_GRACE_TICKS` more for a unit not touching its blocker then, `docs/movement.md > 6.5`), and each of its
 /// failed moves came after the leg's three attempts at another route (here, at a way round), when it was still

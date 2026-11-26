@@ -73,8 +73,8 @@ pub fn max_range(attrs: &AttackAttrs, source: Elevation, target: Elevation) -> f
 }
 
 /// Whether a target `distance` space units away (the gap between the two shapes, [`Shape::gap`]) is within the attack's Range and beyond its
-/// MinRange (`systems/controls/behaviors.md > AttackingObject` 2). The ElevationModifier changes the Range only.
-/// Both bounds are inclusive: a placeholder reading, the design doesn't say.
+/// MinRange (`systems/controls/command_behaviors.md > AttackingObject` 2). The ElevationModifier changes the Range
+/// only. Both bounds are inclusive: a placeholder reading, the design doesn't say.
 pub fn within_range(attrs: &AttackAttrs, distance: f32, source: Elevation, target: Elevation) -> bool {
     !inside_min_range(attrs, distance) && distance <= max_range(attrs, source, target)
 }

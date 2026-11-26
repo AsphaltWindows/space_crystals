@@ -17,8 +17,8 @@ pub enum TileProblem {
     /// `core/map.md > DefaultTilePresets`).
     NotBuildable,
     /// An underground expansion's tile isn't Drillable ([`super::Method::Expansion`], slice M4-F;
-    /// `factions/syndicate/tunnels.md > AwaitingPlacement (Expansion)`, design change 0239: "Every tile under it must
-    /// be Drillable (... Plane, Rugged and Cliff yes; Mountain and Water no ...)"), which it needs in place of
+    /// `factions/syndicate/tunnel_menus.md > AwaitingPlacement (Expansion)`, design change 0239: "Every tile under it
+    /// must be Drillable (... Plane, Rugged and Cliff yes; Mountain and Water no ...)"), which it needs in place of
     /// Buildable. The preset's flag, a custom preset's included (`core/map.md > Tile`).
     NotDrillable,
     /// The tile is sloped (`core/map.md > Elevation > Structures only on flat terrain`).
@@ -82,26 +82,26 @@ pub enum WholeProblem {
     /// A patch that has a plate is the [`TileProblem::Structure`] of that plate.
     NotOnPatch,
     /// A cell of the Tunnel Area that the Tunnel would have at Tier 1 lies past the map's edge (slice M4-B;
-    /// `factions/syndicate/tunnels.md > Tunnel Area Non-Overlap Rule > Drillable area`, design change 0242: "a Tunnel
-    /// can only be placed if every cell of its Tunnel Area is on the map and Drillable ... So no Tunnel near the map
-    /// edge (closer than its area reaches)"). The map's edge is known: this counts on ground never explored too
-    /// ([`super::Mode::Known`]). The rule is in `placement/tunnel_area.rs`.
+    /// `factions/syndicate/tunnel_area_and_space.md > Tunnel Area Non-Overlap Rule > Drillable area`, design change
+    /// 0242: "a Tunnel can only be placed if every cell of its Tunnel Area is on the map and Drillable ... So no Tunnel
+    /// near the map edge (closer than its area reaches)"). The map's edge is known: this counts on ground never
+    /// explored too ([`super::Mode::Known`]). The rule is in `placement/tunnel_area.rs`.
     TunnelAreaOffMap,
     /// A cell of that area lies on ground that isn't Drillable (0242: "no Water or Mountain"): a preset without the
     /// flag, a custom one included (`core/map.md > Tile`: "Any combination of properties is valid"). In
     /// [`super::Mode::Known`] only on ground the player has explored ("never-explored tiles pass on the ghost").
     TunnelAreaNotDrillable,
     /// The Tunnel Area that the Tunnel would have at Tier 1 overlaps the Tunnel Area of another Tunnel, any player's, a
-    /// site included, at that Tunnel's tier (slice M4-E; `factions/syndicate/tunnels.md > Tunnel Area Non-Overlap
-    /// Rule`, design change 0237: "Every player's Tunnels count"; design change 0289 point 3), or the Tier 1 area of
-    /// one of the placing player's lingering Tunnel ghosts (0289 point 2). In [`super::Mode::Known`] another
+    /// site included, at that Tunnel's tier (slice M4-E; `factions/syndicate/tunnel_area_and_space.md > Tunnel Area
+    /// Non-Overlap Rule`, design change 0237: "Every player's Tunnels count"; design change 0289 point 3), or the Tier
+    /// 1 area of one of the placing player's lingering Tunnel ghosts (0289 point 2). In [`super::Mode::Known`] another
     /// player's Tunnel counts as the player knows it, "their remembered position and their tier as last seen". The
     /// rule is in `placement/tunnel_overlap.rs`.
     TunnelAreaOverlap,
     /// An underground expansion doesn't lie wholly inside the Tunnel Area it is placed in
-    /// ([`super::Method::Expansion`], slice M4-F; `factions/syndicate/tunnels.md > AwaitingPlacement (Expansion)`: "The
-    /// expansion must fit entirely within the Tunnel Area"): that of the Tunnel building it, at its current tier; for a
-    /// Starting Layout's, the Tier 1 Tunnel Area of a Tunnel of the same layout (slice M4-B;
+    /// ([`super::Method::Expansion`], slice M4-F; `factions/syndicate/tunnel_menus.md > AwaitingPlacement (Expansion)`:
+    /// "The expansion must fit entirely within the Tunnel Area"): that of the Tunnel building it, at its current tier;
+    /// for a Starting Layout's, the Tier 1 Tunnel Area of a Tunnel of the same layout (slice M4-B;
     /// `factions/syndicate/tunnels.md > Tunnel > Starting Conditions`: "One pre-built **Tier 1 Tunnel** containing one
     /// pre-built **Hideout**"; `factions/syndicate/structures/README.md > Tunnel Expansions`: "Underground buildings
     /// constructed within a Tunnel's Tunnel Area"), as a layout's Extraction Plates must lie in the build area of its

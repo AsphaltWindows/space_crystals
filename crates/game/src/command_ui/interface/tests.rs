@@ -32,7 +32,7 @@ fn shown(panel: &Panel) -> Vec<(CommandSlot, PanelButton, ButtonLook)> {
         .collect()
 }
 
-/// `systems/controls/selection_and_hud.md > BasicCombatUnitInterfaceState > DefaultState commands`: the grid of a
+/// `systems/controls/interface.md > BasicCombatUnitInterfaceState > DefaultState commands`: the grid of a
 /// Peacekeeper and Guard selection. Neither can reverse (infantry) nor target the ground (FullyConnected), so W and D
 /// are unavailable; every other command is common to both types. The Peacekeepers, the ActiveGroup, add their Raise
 /// Shield in R, a group command.
@@ -56,7 +56,7 @@ fn a_mixed_infantry_selection_gets_the_basic_combat_unit_grid() {
             (slot(2, 1), c(Stop), Common),
         ]
     );
-    // `systems/controls/selection_and_hud.md > Standard Slot Assignments`: Z, C and V stay free for a unit; X is its
+    // `systems/controls/interface.md > Standard Slot Assignments`: Z, C and V stay free for a unit; X is its
     // Stop.
     for free in [CommandSlot::BACK, CommandSlot::RALLY_POINT, slot(2, 3)] {
         assert_eq!(panel.get(free), None);
@@ -71,7 +71,7 @@ fn a_mixed_infantry_selection_gets_the_basic_combat_unit_grid() {
     assert_eq!(press(&panel, CommandSlot::BACK), SlotPress::Nothing, "empty");
 }
 
-/// `systems/controls/selection_and_hud.md > AwaitingTarget`: the panel marks the PendingCommand, Z is Back, and the
+/// `systems/controls/interface.md > AwaitingTarget`: the panel marks the PendingCommand, Z is Back, and the
 /// other commands wait.
 #[test]
 fn awaiting_a_target_marks_the_pending_command_and_offers_back() {
@@ -107,7 +107,7 @@ fn a_resource_has_no_commands() {
     assert_eq!(InterfaceTemplate::of(ObjectKind::CrystalPatch), None);
 }
 
-/// `systems/controls/selection_and_hud.md > CommandPanel`: a common command goes to the whole selection; a command only
+/// `systems/controls/interface.md > CommandPanel`: a common command goes to the whole selection; a command only
 /// the ActiveGroup's type offers goes to the ActiveGroup. A resource stands in for a type that lacks Attack; the Riot
 /// Shield, which Guards lack, is `the_riot_shield_toggles_in_slot_r`'s. A right-click leaves an object without commands
 /// alone (design change 0062: buildings aren't affected).
@@ -135,7 +135,7 @@ fn common_commands_go_to_the_selection_and_group_commands_to_the_active_group() 
     assert_eq!(moved, [id(1), id(3)]);
 }
 
-/// `systems/controls/selection_and_hud.md > ObjectInterfaceState`: AwaitingTarget holds while its command is still
+/// `systems/controls/interface.md > ObjectInterfaceState`: AwaitingTarget holds while its command is still
 /// offered and the selection commandable.
 #[test]
 fn awaiting_a_target_holds_while_the_active_group_offers_its_command() {
@@ -300,7 +300,7 @@ fn only_tail_and_doubly_disjointed_attacks_target_the_ground() {
     assert!(!offers(PK, PanelCommand::AttackGround) && !offers(GUARD, PanelCommand::Reverse));
 }
 
-/// `factions/gdo/structures/barracks.md > ObjectInterfaceState[Barracks]` with `systems/controls/selection_and_hud.md >
+/// `factions/gdo/structures/barracks.md > ObjectInterfaceState[Barracks]` with `systems/controls/interface.md >
 /// Standard Slot Assignments`: Q trains a Peacekeeper and X cancels the last unit queued, both at once; C awaits the
 /// rally point's target, with Z Back and the other commands waiting meanwhile. W, the Rocketman's, stays empty until it
 /// is in the game.
@@ -358,7 +358,8 @@ fn a_barracks_trains_in_q_cancels_in_x_and_rallies_in_c() {
 }
 
 /// Plan decision T23: every type that produces units has the Production template, its grid built from its
-/// `ProductionDef`: its units in Q, W and on, X Cancel Production and C Set Rally Point. The Barracks' is the grid of
+/// `ProductionDef`: its units in Q, W and on, X Cancel Production and C Set Rally Point; but a pool building, which
+/// trains the units it holds, has the PoolProducer template (slice M5-F2, `cults`). The Barracks' is the grid of
 /// `factions/gdo/structures/barracks.md > ObjectInterfaceState[Barracks]`; the Robo Portal trains the Drone in Q, the
 /// Bio Portal the Sabre Legionnaire, and their units not in the game yet hold their slots (design change 0124: the Robo
 /// Portal's W Scout, the Bio Portal's W Lancer and E psionic unit; `gathering` has their panel).
@@ -367,8 +368,12 @@ fn every_producer_gets_the_production_panel_of_its_recipes() {
     use PanelCommand::{CancelProduction, Planned as P, SetRallyPoint, Train};
     for &kind in ObjectKind::ALL {
         let production = kind.def().structure.as_ref().and_then(|s| s.production.as_ref());
+        let template = match sc_sim::holding::trains(kind) {
+            true => InterfaceTemplate::PoolProducer,
+            false => InterfaceTemplate::Production,
+        };
         assert_eq!(
-            InterfaceTemplate::of(kind) == Some(InterfaceTemplate::Production),
+            InterfaceTemplate::of(kind) == Some(template),
             production.is_some(),
             "{kind:?}"
         );
@@ -422,7 +427,7 @@ fn a_production_command_the_gate_would_refuse_is_disabled() {
     assert_eq!(look(&shown, q), Some(ButtonLook::Common));
 }
 
-/// No smart-casting (`systems/controls/selection_and_hud.md > SelectionGroup > No smart-casting`, design changes 0071
+/// No smart-casting (`systems/controls/selection.md > SelectionGroup > No smart-casting`, design changes 0071
 /// and 0075): three Barracks are one SelectionGroup (Groupable), and each production command goes to all of them, the
 /// sim ordering their payments (0083). Beside Peacekeepers, the Barracks' commands are group commands: they go to the
 /// Barracks while those are the ActiveGroup, and the panel shows the Peacekeepers' while those are.

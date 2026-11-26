@@ -1,4 +1,4 @@
-//! A Tunnel's Upgrade in the client (slice M4-G; `factions/syndicate/tunnels.md > Tunnel ObjectInterfaceState`,
+//! A Tunnel's Upgrade in the client (slice M4-G; `factions/syndicate/tunnel_menus.md > Tunnel ObjectInterfaceState`,
 //! `factions/syndicate/tunnels.md > Cost Scaling > Upgrade Costs`): Q names its price and sends the Upgrade, greyed
 //! with the gate's reason, never what blocks it; the Tunnel's InfoPanel shows the upgrade's progress and its X cancels
 //! it, refunding the price; once complete, the larger area in the overlay.
@@ -141,7 +141,7 @@ fn overlay(app: &App) -> Option<Vec<(u32, u8, TileRect)>> {
     overlay.visible.then(|| shown.collect())
 }
 
-/// `factions/syndicate/tunnels.md > Tunnel ObjectInterfaceState` (design change 0257): "**Q** Upgrade Tunnel", its
+/// `factions/syndicate/tunnel_menus.md > Tunnel ObjectInterfaceState` (design change 0257): "**Q** Upgrade Tunnel", its
 /// hint naming the price (`factions/syndicate/tunnels.md > Cost Scaling > Upgrade Costs`: 2 Supplies to Tier 2 for a
 /// player with no other Tunnel at Tier 2 or above). Q sends the Upgrade and the Supplies go; meanwhile the Tunnel's
 /// InfoPanel shows "Upgrading to Tier 2" and the progress (placeholder wording), Q is greyed ("A Tunnel can only
@@ -233,10 +233,10 @@ fn the_upgrade_completes_and_the_area_grows() {
     assert_eq!(said(&app), Some(TOP_TIER_TEXT));
 }
 
-/// `factions/syndicate/tunnels.md > Tunnel Area Non-Overlap Rule`: "the upgrade check uses the truth; the upgrading
-/// Tunnel's owner learns that something blocks it". Player 2's Tunnel takes the column player 1's Tier 2 area needs:
-/// Q is greyed and says only that something blocks the upgrade (placeholder wording); with the other Tunnel gone it is
-/// back. Without the Supplies it is greyed for them.
+/// `factions/syndicate/tunnel_area_and_space.md > Tunnel Area Non-Overlap Rule`: "the upgrade check uses the truth; the
+/// upgrading Tunnel's owner learns that something blocks it". Player 2's Tunnel takes the column player 1's Tier 2 area
+/// needs: Q is greyed and says only that something blocks the upgrade (placeholder wording); with the other Tunnel gone
+/// it is back. Without the Supplies it is greyed for them.
 #[test]
 fn something_blocks_the_upgrade_and_the_owner_learns_only_that() {
     let mut app = upgrade_game(true);

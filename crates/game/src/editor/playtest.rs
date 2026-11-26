@@ -1,7 +1,7 @@
 //! Play-testing (F5): the edited map runs in game mode, in-process, with the play-test's game setup
 //! ([`PlayTestSetup`]: each slot's faction, the slot you play, the seed); F5 again returns to the editor with the
 //! document, its undo history and the editor's view as they were. (Esc doesn't: in the game it cancels,
-//! `systems/controls/selection_and_hud.md`.)
+//! `systems/controls/interface.md`.)
 //!
 //! The setup is no part of the map: factions are chosen per game (`core/map_editor.md > Map Types > Skirmish
 //! Default`). Play-tests run with debug commands unless the editor was started with `--no-debug`.

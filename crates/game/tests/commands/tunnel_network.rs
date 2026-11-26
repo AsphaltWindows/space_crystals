@@ -1,6 +1,6 @@
 //! The Tunnel Network in the client (slice M4-C, `sc_sim::network`): a right-click on an own Tunnel is Enter, and a
 //! unit that goes in "leaves the selection by entering a building, transport or tunnel"
-//! (`systems/controls/selection_and_hud.md > Selection`) and "stays in its control groups (a recall selects only the
+//! (`systems/controls/selection.md > Selection`) and "stays in its control groups (a recall selects only the
 //! members on the map)" (`factions/syndicate/tunnels.md > Tunnel Network > Walking in`, design change 0249). The
 //! Tunnel's panel and its EjectMenu are slice M4-J2's: the Eject here is submitted as a command.
 

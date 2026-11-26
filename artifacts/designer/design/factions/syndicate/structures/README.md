@@ -28,7 +28,7 @@ Underground buildings constructed within a Tunnel's Tunnel Area. Expansions are 
 
 **No buildings on top of expansions, and no expansions under buildings** (user, 2026-11-25; Q0062): a surface structure and an underground expansion (any player's, including neutral ones) can never share a tile.
 - **Surface buildings over a hidden expansion**: an enemy's placement is refused. A **direct placement** (e.g. a GDO building) shows its ghost **red at once**, which reveals that something is underground there; this is accepted, since GDO is limited by its build area. A Colonists **Warp In** is judged the same way: red at once (user, 2026-11-26; Q0080), since it too starts at the command with no walk. A **worker-built** building's ghost judges by what the player knows (so it stays green), and the order **fails when the worker arrives** (core/entities.md > Placement Validation > Worker-Built Structures).
-- **Expansions under a surface building**: refused (see factions/syndicate/tunnels.md > AwaitingPlacement (Expansion)).
+- **Expansions under a surface building**: refused (see factions/syndicate/tunnel_menus.md > Tunnel ObjectInterfaceState > AwaitingPlacement (Expansion)).
 - Units still walk freely over expansions.
 - **No expansions under resources** (user, 2026-11-25; Q0062): a Space Crystals patch or Supply Delivery Station above blocks an expansion (core/entities.md > Placement Validation > All placement methods: no buildings on resources). All Syndicate units are produced by Tunnel expansions.
 
@@ -50,7 +50,7 @@ Each production expansion can have a rally point set. This determines what happe
 - **Rally point on any own Tunnel** (user, 2026-11-25; Q0064): the unit stays inside the network, like a rally on the parent Tunnel.
 - **Rally point on an expansion** (user, 2026-11-25; Q0064): treated as the **surface location** above it: the unit auto-ejects from the parent Tunnel and walks to stand on top of the expansion.
 - **Auto-ejected units** (those leaving by themselves because of a surface rally point; user, 2026-11-25; Q0064) join the parent Tunnel's **exit queue** in order with manual ejects, first come, first served. While waiting they don't appear in the EjectMenu.
-- **What "moves to the rally point" means** (user, 2026-11-25; Q0064): the unit's default right-click action at the rally target (systems/controls/selection_and_hud.md > What a rally point makes a new unit do), e.g. an Agent rallied on a crystal patch gathers.
+- **What "moves to the rally point" means** (user, 2026-11-25; Q0064): the unit's default right-click action at the rally target (systems/controls/interface.md > CommandPanel > What a rally point makes a new unit do), e.g. an Agent rallied on a crystal patch gathers.
 
 ## Surface Defensive Structures
 

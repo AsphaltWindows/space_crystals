@@ -1,6 +1,6 @@
 //! Rally points — `factions/gdo/structures/barracks.md > RallyPoint behavior`,
-//! `systems/controls/selection_and_hud.md > Production Building Default Right-Click`,
-//! `systems/controls/selection_and_hud.md > Rally points on enemy objects`, `systems/controls/selection_and_hud.md >
+//! `systems/controls/interface.md > Production Building Default Right-Click`,
+//! `systems/controls/interface.md > Rally points on enemy objects`, `systems/controls/interface.md >
 //! What a rally point makes a new unit do` (design changes 0086, 0088, 0136 and 0139).
 //!
 //! - **The new unit's order** (design change 0136): "A unit that spawns with a rally point set **always** gets its
@@ -49,7 +49,7 @@ pub fn is_enemy(player: Option<PlayerId>, target: &Object) -> bool {
     target.owner.is_some() && target.owner != player
 }
 
-/// `systems/controls/selection_and_hud.md > Rally points on enemy objects` (design change 0088), at the end of
+/// `systems/controls/interface.md > Rally points on enemy objects` (design change 0088), at the end of
 /// each tick, on the vision the tick leaves: "A rally point on an enemy object only follows that object while the
 /// owner can see it. As soon as the enemy object leaves the owner's sight, the rally point turns into a ground
 /// rally point at its last-seen position." While the owner sees the object, the rally notes where it is.

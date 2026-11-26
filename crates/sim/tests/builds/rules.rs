@@ -27,12 +27,12 @@ fn tiles(origin: TilePos, w: i32, h: i32) -> Vec<TilePos> {
         .collect()
 }
 
-/// Design change 0237 (`factions/syndicate/tunnels.md > Tunnel Area Non-Overlap Rule`): a Tunnel's Tier 1 area may not
-/// overlap the area of a Tunnel of its owner's, at its current tier ("The non-overlap check uses the current tier's
-/// area"); it may touch it. The ghost shows it as a whole problem (`WholeProblem::TunnelAreaOverlap`), and the gate
-/// refuses the order with it. On arrival the check is the truth: Tunnel 1, upgraded since the order (a debug tier
-/// here, as slice M4-G will), fails it, refunded. A site's area counts as any Tunnel's (design change 0289 point 3: "A
-/// site counts with its whole area for every player from the moment it appears").
+/// Design change 0237 (`factions/syndicate/tunnel_area_and_space.md > Tunnel Area Non-Overlap Rule`): a Tunnel's Tier 1
+/// area may not overlap the area of a Tunnel of its owner's, at its current tier ("The non-overlap check uses the
+/// current tier's area"); it may touch it. The ghost shows it as a whole problem (`WholeProblem::TunnelAreaOverlap`),
+/// and the gate refuses the order with it. On arrival the check is the truth: Tunnel 1, upgraded since the order (a
+/// debug tier here, as slice M4-G will), fails it, refunded. A site's area counts as any Tunnel's (design change 0289
+/// point 3: "A site counts with its whole area for every player from the moment it appears").
 #[test]
 fn an_area_may_not_overlap_an_own_tunnels() {
     let mut t = base()
@@ -107,11 +107,11 @@ fn an_enemy_tunnel_counts_as_last_seen_and_as_it_is_on_arrival() {
     assert!(idle(&t, 3));
 }
 
-/// Design change 0242's verification (`factions/syndicate/tunnels.md > Tunnel Area Non-Overlap Rule > Drillable area`):
-/// "A Tunnel ghost whose 8x8 area touches Water is red"; a Tunnel 1 tile from the map's edge is red, 2 tiles away valid
-/// (design change 0283: "a footprint 2 tiles from the edge is valid, and 1 tile is red"); and "never-explored tiles
-/// pass on the ghost, and the real check happens on arrival". Water at (29, 9), in Agent 2's sight, and at (35, 16),
-/// out of it.
+/// Design change 0242's verification (`factions/syndicate/tunnel_area_and_space.md > Tunnel Area Non-Overlap Rule >
+/// Drillable area`): "A Tunnel ghost whose 8x8 area touches Water is red"; a Tunnel 1 tile from the map's edge is red,
+/// 2 tiles away valid (design change 0283: "a footprint 2 tiles from the edge is valid, and 1 tile is red"); and
+/// "never-explored tiles pass on the ghost, and the real check happens on arrival". Water at (29, 9), in Agent 2's
+/// sight, and at (35, 16), out of it.
 #[test]
 fn a_tunnels_area_lies_on_the_map_on_drillable_ground() {
     let mut rows: Vec<String> = (0..20).map(|_| ".".repeat(40)).collect();

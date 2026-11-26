@@ -33,4 +33,4 @@ GDO specialist infantry, trained at the Barracks once the player owns a Career C
 - **Build Drone** (hotkey **F**): 50 Space Crystals, 160 frames (10 s).
 - **Launch Drone** (hotkey **R**).
 - Drone: Air unit 24x24; MaxHP 30; MaxSpeed 10 su/frame; SightRange 5; **leash range 8 grid units**; **battery 20 s** (320 frames).
-- Explosion: **AoE** (designer's choice, to confirm), Damage **150** total, AoERadius **48 su**, melee range.
+- Explosion: **AoE** (user, 2026-11-27), Damage **150** total, AoERadius **48 su**, melee range.

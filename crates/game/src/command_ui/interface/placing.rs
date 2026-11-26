@@ -2,7 +2,7 @@
 //! ObjectInterfaceState[DeploymentCenter] > AwaitingPlacement`, `factions/gdo/economy.md > ExtractionFacility >
 //! ObjectInterfaceState[ExtractionFacility] > AwaitingPlacement`, `factions/colonists/units/drone.md > Drone
 //! ObjectInterfaceState > A: Deploy`, `factions/colonists/economy.md > Warp In > Warp In Command`,
-//! `factions/syndicate/tunnels.md > AwaitingPlacement (Expansion)`): which one is placed and who builds it
+//! `factions/syndicate/tunnel_menus.md > AwaitingPlacement (Expansion)`): which one is placed and who builds it
 //! ([`Placing`], [`Builder`]; plan decision T23), where its ghost stands ([`Placing::origin`]), and how the placement
 //! keys turn it ([`Placing::turned`]). A Deploy given to a group of Drones goes to one of them ([`deploy_recipient`],
 //! design change 0125). An Agent's Build Tunnel places the Tunnel its Agent walks to and builds
@@ -37,16 +37,16 @@ pub enum Builder {
     /// A GDO constructor holding the building ready: the ActiveGroup's one Deployment Center or Extraction Facility
     /// (`core/entities.md > Placement Validation > Direct Placement`: the ghost under the cursor,
     /// `Sim::placement_check`, `ConstructionCommand::Place`). Placement never moves on to another one
-    /// (`systems/controls/selection_and_hud.md > SelectionGroup > No smart-casting`, design change 0071).
+    /// (`systems/controls/selection.md > SelectionGroup > No smart-casting`, design change 0071).
     Constructor(ObjectId),
     /// The Colonists' Drones of the ActiveGroup, one of which each click sends to deploy into a Beacon
     /// (`core/entities.md > Worker-Built Structures`: the ghost under the cursor, `Sim::deploy_check`,
     /// `OrderKind::Deploy`; [`deploy_recipient`]).
     Drones {
-        /// A Shift-click has sent a Deploy and a Drone of the group has none yet (`systems/controls/selection_and_hud.md
+        /// A Shift-click has sent a Deploy and a Drone of the group has none yet (`systems/controls/interface.md
         /// > AwaitingTarget > Shift while placing > Exception, Drones`, design change 0125): "Shift-placement stays
         /// active and each Shift-click goes to the next Drone", while Shift is held; letting go of it ends placement
-        /// (`systems/controls/selection_and_hud.md > Shift while placing`: "releasing Shift ends placement").
+        /// (`systems/controls/interface.md > Shift while placing`: "releasing Shift ends placement").
         queued: bool,
     },
     /// A Beacon warping the building in on itself (`factions/colonists/economy.md > Warp In`): the ghost is the
@@ -57,10 +57,10 @@ pub enum Builder {
     /// the building there (`factions/syndicate/units/agent.md > Agent ObjectInterfaceState > A: Build Tunnel`, slice
     /// M4-J1; `core/entities.md > Worker-Built Structures`): the ghost under the cursor, `Sim::build_check`,
     /// `OrderKind::Build`. "Each Agent takes exactly one placement": a click, Shift held or not, sends the Build and
-    /// ends placement, which never moves on to another Agent (`systems/controls/selection_and_hud.md > AwaitingTarget
+    /// ends placement, which never moves on to another Agent (`systems/controls/interface.md > AwaitingTarget
     /// > Shift while placing`: "to place with the next Agent, the player presses Tab").
     Agent(ObjectId),
-    /// The ActiveGroup's Tunnel building an expansion in its Tunnel Area (`factions/syndicate/tunnels.md >
+    /// The ActiveGroup's Tunnel building an expansion in its Tunnel Area (`factions/syndicate/tunnel_menus.md >
     /// AwaitingPlacement (Expansion)`: "A ghost preview of the expansion follows the cursor within the Tunnel Area,
     /// snapped to the grid"; [`Placing::origin`]): `Sim::expansion_check`, as far as the player knows, then
     /// `TunnelCommand::Expand`, which the sim checks by the truth (design change 0240).
@@ -81,7 +81,7 @@ pub enum Builder {
     },
 }
 
-/// `systems/controls/selection_and_hud.md > AwaitingPlacement`: the building that the local player is placing, and who
+/// `systems/controls/hud.md > AwaitingPlacement`: the building that the local player is placing, and who
 /// builds it (plan decisions T10, T23).
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub struct Placing {
@@ -145,8 +145,8 @@ impl Placing {
         }
     }
 
-    /// The placement of the expansion `kind` that Tunnel `tunnel` builds (`factions/syndicate/tunnels.md > ExpandMenu`:
-    /// "Click an expansion type: [...] enters AwaitingPlacement for that expansion"), unturned.
+    /// The placement of the expansion `kind` that Tunnel `tunnel` builds (`factions/syndicate/tunnel_menus.md >
+    /// ExpandMenu`: "Click an expansion type: [...] enters AwaitingPlacement for that expansion"), unturned.
     pub fn expansion(tunnel: ObjectId, kind: ObjectKind) -> Self {
         Self {
             builder: Builder::Tunnel(tunnel),
@@ -247,7 +247,7 @@ pub fn within(origin: TilePos, (w, h): (u32, u32), area: TileRect) -> TilePos {
     )
 }
 
-/// Design change 0125 (`systems/controls/selection_and_hud.md > SelectionGroup > Groupable workers used up by a
+/// Design change 0125 (`systems/controls/selection.md > SelectionGroup > Groupable workers used up by a
 /// build`): the Drone of the ActiveGroup that a Deploy goes to, "the first in selection order (the SelectionGroup's
 /// portrait order in the SelectionPanel) that can still take it": for a plain click the first one, whose orders the
 /// Deploy replaces; for a Shift-click (`queue`) "the first Drone that has no Deploy in its queue yet", one not among

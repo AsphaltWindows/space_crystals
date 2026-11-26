@@ -250,7 +250,7 @@ fn a_gdo_entry_whose_prerequisite_is_missing_says_so() {
     assert_eq!(press(&shown, q), SlotPress::Nothing);
 }
 
-/// No smart-casting (`systems/controls/selection_and_hud.md > SelectionGroup > No smart-casting`, design change 0071):
+/// No smart-casting (`systems/controls/selection.md > SelectionGroup > No smart-casting`, design change 0071):
 /// Deployment Centers and Extraction Facilities are Ungroupable, each its own SelectionGroup, and a constructor's
 /// command goes to the one whose state the panel shows, never to the other selected ones.
 #[test]

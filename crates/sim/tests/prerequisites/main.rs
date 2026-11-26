@@ -296,7 +296,7 @@ fn a_lab_left_neutral_by_its_fallen_tunnel_no_longer_counts() {
 /// commands"; `factions/syndicate/structures/chemical_plant.md`), the ExpandMenu's E: it is built as the Optics Lab
 /// is, 150 Space Crystals and no Supply at the click, complete at the end of tick 402 at 400 HP, and from then on it
 /// counts (for the Grenadier it enables: [`the_hideout_trains_grenadiers_once_a_chemical_plant_stands`]). Each
-/// expansion takes a Tunnel Space for good (`factions/syndicate/tunnels.md > Tunnel Space`:
+/// expansion takes a Tunnel Space for good (`factions/syndicate/tunnel_area_and_space.md > Tunnel Space`:
 /// "Tunnel Space = floor((sum of unused tunnel-region grid units across all owned Tunnels) / 4)"; "Building an
 /// expansion permanently converts part of a Tunnel's unused tunnel-region into occupied space"), from the click
 /// (design change 0254): from the start's 1/11, 1/10 with the Chemical Plant, and 1/9 with an Optics Lab beside it.

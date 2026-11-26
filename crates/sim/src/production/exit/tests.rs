@@ -1,7 +1,9 @@
 use super::*;
-use crate::defs::ObjectKind;
+use crate::defs::test_defs::TestDef;
+use crate::defs::{ExitRule, ObjectKind, SymmetryType};
 use crate::object::Rotation;
 use crate::scenario::{BuildingOrientation, SpawnAt};
+use crate::sides::SideLetter;
 use crate::sim::Sim;
 use crate::testing::ScenarioBuilder;
 
@@ -176,12 +178,18 @@ fn only_what_stands_in_front_of_a_door_leaves_less_room() {
     );
 }
 
-/// The Recruitment Hall's four exit sides (`ExitRule::Sides`, slice M5-C; `factions/cults/economy.md >
-/// RecruitmentHall > SymmetryType - AAAA`). At tile (2, 1) it covers x 128..384 and y 64..320, its centre (256, 192):
-/// a door in the middle of each side, tried in **Placeholder (Q0100 point 1)**'s order: the side facing the rally
+/// Several exit sides (`ExitRule::Sides`, slice M5-C's rule, which no type has since design change 0342 gave the
+/// Recruitment Hall one): the Hall given its old four A sides, AAAA. At tile (2, 1) it covers x 128..384 and y
+/// 64..320, its centre (256, 192): a door in the middle of each side, tried in order from the side facing the rally
 /// point, the bottom one without, then clockwise; of two sides facing a diagonal alike, the clockwise one.
 #[test]
-fn a_hall_has_four_doors_tried_from_the_one_facing_the_rally_point() {
+fn four_doors_are_tried_from_the_one_facing_the_rally_point() {
+    let _four = TestDef::structure(ObjectKind::RecruitmentHall, |structure| {
+        structure.symmetry = SymmetryType::AAAA;
+        if let Some(production) = &mut structure.production {
+            production.exits = ExitRule::Sides(SideLetter::A);
+        }
+    });
     let doorway = Doorway::of(&building(ObjectKind::RecruitmentHall, Rotation::R0, false)).unwrap();
     let (n, e, s, w) = (-Vec2::Y, Vec2::X, Vec2::Y, -Vec2::X);
     let outward: Vec<Vec2> = doorway.doors().map(|door| door.outward()).collect();
@@ -212,4 +220,21 @@ fn a_hall_has_four_doors_tried_from_the_one_facing_the_rally_point() {
     let barracks = barracks(Rotation::R0, false);
     assert_eq!(barracks.order(Some(-Vec2::X)).count(), 1);
     assert_eq!(barracks.door_at(Vec2::new(130.0, 70.0)), side_b(Rotation::R0, false));
+}
+
+/// Design change 0342: the Recruitment Hall, AAAB, has one exit side, B, the west side unturned (`crate::sides`: the
+/// letters run clockwise from the top), whose door alone takes its Recruits whatever the rally point: at tile (2, 1),
+/// the middle of its west side, (128, 192), facing west; turned 90° clockwise, the north side's, (256, 64).
+#[test]
+fn a_hall_has_one_door_on_side_b() {
+    let doorway = Doorway::of(&building(ObjectKind::RecruitmentHall, Rotation::R0, false)).unwrap();
+    let doors: Vec<(Vec2, Vec2)> = doorway.doors().map(|door| (door.middle(), door.outward())).collect();
+    assert_eq!(doors, [(Vec2::new(128.0, 192.0), -Vec2::X)]);
+    for toward in [None, Some(Vec2::X), Some(Vec2::Y), Some(-Vec2::Y)] {
+        let order: Vec<Vec2> = doorway.order(toward).map(|door| door.outward()).collect();
+        assert_eq!(order, [-Vec2::X], "rally point {toward:?}");
+    }
+    let turned = Doorway::of(&building(ObjectKind::RecruitmentHall, Rotation::R90, false)).unwrap();
+    let doors: Vec<(Vec2, Vec2)> = turned.doors().map(|door| (door.middle(), door.outward())).collect();
+    assert_eq!(doors, [(Vec2::new(256.0, 64.0), -Vec2::Y)]);
 }

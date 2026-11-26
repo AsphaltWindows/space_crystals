@@ -1,5 +1,5 @@
 //! What the Recruits build works as any other of its kind: a Recruitment Hall claims its tiles and makes Recruits of
-//! its own lineage (`factions/cults/economy.md > RecruitmentHall`, slice M5-C), a Storage takes the loads (slice
+//! its own lineage (`factions/cults/structures/recruitment_hall.md`, slice M5-C), a Storage takes the loads (slice
 //! M5-D); and gatherers taken off to build and sent back keep gathering by M5-D's rules.
 
 use super::*;
