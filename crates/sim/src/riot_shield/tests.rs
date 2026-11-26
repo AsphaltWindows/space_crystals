@@ -45,6 +45,7 @@ fn unit(kind: ObjectKind, up: u32) -> Object {
         lineage: Vec::new(),
         augmentation: Default::default(),
         energy: None,
+        kept_research: None,
     }
 }
 

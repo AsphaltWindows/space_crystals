@@ -83,6 +83,7 @@ pub(crate) static GARRISON: ObjectDef = ObjectDef {
             range_bonus_gu: 1.0,
             bonus_for: &[ObjectKind::Militant, ObjectKind::Gunner],
         }),
+        research: None,
     }),
     default_settings: None,
     energy: None,

@@ -2,6 +2,7 @@
 //! in design change 0083's order, what X takes back, and where a rally point goes. A pool producer's entries reserve
 //! their units here (`producers/pool.rs`, slice M5-F2), an Altar's augmentation orders among them (slice M5-N1b).
 
+use super::research::research_of;
 use super::{ProductionPlan, producer};
 use crate::augmentation::{AugmentOrder, RecruitKind};
 use crate::defs::ObjectKind;
@@ -42,11 +43,18 @@ impl Sim {
     ///   **ReleaseOf** (slice M5-N1b), one with a free unit of the type and the kind.
     /// - **Augment** (slice M5-N1b): an Altar with a free unit of the type and the kind that the order fits, and room
     ///   in its queue, served as a training is ([`Sim::plan_augment`]).
+    /// - **Research** (slice M5-N3): one structure that offers the technology queues it, if T74's checks pass
+    ///   (`producers/research.rs`, `Sim::plan_research`).
     /// - **CancelProduction**: a producer has something queued, else [`Reject::NothingQueued`]; never a Recruitment
-    ///   Hall, whose Recruit can't be cancelled (design change 0342).
+    ///   Hall, whose Recruit can't be cancelled (design change 0342). A Temple's takes back its last research
+    ///   (`factions/cults/structures/temple.md > Placeholder stats`: "**X: Cancel** (last research)").
     /// - **SetRally**: a point on the map ([`Reject::OffMap`]), or an object that exists and that the player sees,
     ///   as for an order's target ([`Sim::check_target_seen`]). The producer itself is always a target: it clears
-    ///   the rally (design change 0086).
+    ///   the rally (design change 0086). (M5-N3) Never a research structure, which has no RallyPoint
+    ///   (`factions/cults/structures/temple.md > Placeholder stats`: its panel has no Set Rally Point), its staff
+    ///   walking straight out of its exit side and stopping there (`core/entities.md > Structure Type > Exit Doorway`
+    ///   2): **Placeholder (not in the design: where a Temple's staff go)**; [`Reject::NoProducers`] if no other is
+    ///   left.
     ///
     ///   **Placeholder** (design change 0088: "Rallying on a remembered (fogged) enemy structure: TBD with
     ///   Director question Q0017 point 2"): an object out of sight that the player remembers becomes a ground
@@ -69,6 +77,7 @@ impl Sim {
             ProductionCommand::Augment { kind, from, order } => {
                 self.plan_augment(player, &producers, kind, from, order)?
             }
+            ProductionCommand::Research(tech) => self.plan_research(player, &producers, tech)?,
             ProductionCommand::CancelProduction => {
                 // A Recruitment Hall's Recruit can't be cancelled (design change 0342: "Recruits can't be cancelled").
                 let queued: Vec<ObjectId> = producers
@@ -83,19 +92,23 @@ impl Sim {
                 }
                 ProductionPlan::Cancel(queued)
             }
-            ProductionCommand::SetRally(Target::Point(p)) => {
-                // `contains_point` also rejects NaN and infinite positions.
-                if !self.map.contains_point(p) {
-                    return Err(Reject::OffMap);
+            ProductionCommand::SetRally(target) => {
+                let producers: Vec<ObjectId> = (producers.into_iter())
+                    .filter(|id| research_of(&self.objects[id]).is_none())
+                    .collect();
+                if producers.is_empty() {
+                    return Err(Reject::NoProducers);
                 }
-                ProductionPlan::SetRally(producers, Target::Point(p))
-            }
-            // Design change 0139: on an object the player sees or remembers (`Sim::check_target_known`).
-            ProductionCommand::SetRally(Target::Object(id)) => {
-                if producers != [id] {
-                    self.check_target_known(player, id)?;
+                match target {
+                    // `contains_point` also rejects NaN and infinite positions.
+                    Target::Point(p) if !self.map.contains_point(p) => return Err(Reject::OffMap),
+                    // Design change 0139: on an object the player sees or remembers (`Sim::check_target_known`).
+                    Target::Object(id) if producers != [id] => {
+                        self.check_target_known(player, id)?;
+                    }
+                    Target::Point(_) | Target::Object(_) => {}
                 }
-                ProductionPlan::SetRally(producers, Target::Object(id))
+                ProductionPlan::SetRally(producers, target)
             }
         };
         Ok(Checked::Production { player, plan })

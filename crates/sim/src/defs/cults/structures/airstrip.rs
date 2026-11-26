@@ -68,6 +68,7 @@ pub(crate) static AIRSTRIP: ObjectDef = ObjectDef {
             accepts: &[ObjectKind::Recruit],
         }),
         occupants_fire: None,
+        research: None,
     }),
     default_settings: None,
     energy: None,

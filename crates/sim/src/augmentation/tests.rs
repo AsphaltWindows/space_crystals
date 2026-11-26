@@ -215,6 +215,33 @@ fn research_reads_each_owner_s_levels() {
     assert_eq!(research.levels(Some(crate::ids::PlayerId(99))), Levels::NONE);
 }
 
+/// (M5-N3) Design change 0379: a neutral unit reads the levels of the defeated player whose research it keeps
+/// (`Object::kept_research`), frozen at their defeat; one that keeps none reads "No research"; an owned one reads its
+/// owner's, whatever it might keep.
+#[test]
+fn a_neutral_unit_reads_the_research_it_keeps() {
+    use crate::defs::Tech;
+    use crate::ids::PlayerId;
+    use crate::player::{Faction, Player};
+    let mut p1 = Player::starting(PlayerId(1), "P1".to_string(), Faction::Cults);
+    p1.techs.insert(Tech::EnhancedConstitutionL1);
+    let players = [p1, Player::starting(PlayerId(2), "P2".to_string(), Faction::Cults)];
+    let research = Research::new(&players);
+    let l1 = levels(Level::L1, Level::NoResearch);
+    let mut o = recruit(RecruitKind::Constitution);
+    assert_eq!((research.levels_of(&o), o.max_hp_with(research)), (l1, Some(80.0)));
+    o.owner = None;
+    assert_eq!(
+        (research.levels_of(&o), o.max_hp_with(research)),
+        (Levels::NONE, Some(60.0))
+    );
+    o.kept_research = Some(PlayerId(1));
+    assert_eq!((research.levels_of(&o), o.max_hp_with(research)), (l1, Some(80.0)));
+    o.owner = Some(PlayerId(2));
+    assert_eq!(research.levels_of(&o), Levels::NONE, "its owner's");
+    assert_eq!(Research::at(l1).levels_of(&o), l1, "everyone's");
+}
+
 /// A Recruit of player 1's with the Augmentations of `kind`, out of a game.
 fn recruit(kind: RecruitKind) -> crate::object::Object {
     let builder = crate::testing::ScenarioBuilder::new("....\n....").spawn(

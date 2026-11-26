@@ -130,6 +130,8 @@ mod recruitment;
 mod remembered_targets;
 #[path = "repair/main.rs"]
 mod repair;
+#[path = "research/main.rs"]
+mod research;
 mod resources;
 mod resources_block;
 #[path = "riot_shield/main.rs"]

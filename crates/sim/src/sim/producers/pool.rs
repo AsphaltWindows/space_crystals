@@ -101,12 +101,12 @@ impl Sim {
     /// What a finished entry `entry` does to its first unit, `unit`, as the unit comes out of the building, let out
     /// (`Sim::let_out`) or evacuated (`Sim::evacuate`): a training's becomes the unit it trains, of the units `consumed`
     /// too ([`Sim::train`]), an augmentation order's gains its Augmentations ([`Sim::augment`], slice M5-N1b), and a
-    /// Release's stays as it is.
+    /// Release's stays as it is. A research lets no unit out (`Sim::complete_research`).
     pub(in crate::sim) fn complete(&mut self, unit: ObjectId, entry: QueueEntry, consumed: &[ObjectId]) {
         match entry {
             QueueEntry::Unit(kind) => self.train(unit, kind, consumed),
             QueueEntry::Augment { order } => self.augment(unit, order),
-            QueueEntry::Release => {}
+            QueueEntry::Release | QueueEntry::Research { .. } => {}
         }
     }
 

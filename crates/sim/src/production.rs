@@ -10,7 +10,10 @@
 //!   (`StructureDef::production`).
 //! - **Commands** ([`ProductionCommand`], sent as `Command::Production`; the gate and their application are in
 //!   `sim/producers.rs`): `Train`, `CancelProduction`, `SetRally`; a pool building's `TrainFrom` and `Release` (slice
-//!   M5-F2), and an Altar's `Augment` and `ReleaseOf` (slice M5-N1b).
+//!   M5-F2), an Altar's `Augment` and `ReleaseOf` (slice M5-N1b), and a Temple's `Research` (slice M5-N3).
+//! - **Research** (slice M5-N3, plan decisions T70 and T74; `sim/producers/research.rs`): a Temple researches on its
+//!   queue ([`QueueEntry::Research`]), paid at queue and refunded as any entry is, its progress gaining a
+//!   [`RATIO_ONE`] a frame for each Recruit staffing it, none without one.
 //! - **Costs** (plan decision T7): a unit's Space Crystals are paid when it is queued, and only they and room in the
 //!   queue are checked then. Its army cost (the GDO's Unit Control, the Colonists' Beacon Capacity: `economy::army`)
 //!   is taken when production starts (design change 0143, which replaces 0082's reservation at queue time, for every
@@ -44,7 +47,7 @@ pub mod rally;
 use serde::{Deserialize, Serialize};
 
 use crate::augmentation::{AugmentOrder, RecruitKind};
-use crate::defs::{ObjectKind, ProductionDef};
+use crate::defs::{ObjectKind, ProductionDef, Tech};
 use crate::economy::{ArmyResource, RATIO_ONE};
 use crate::hash::{StateHash, StateHasher};
 use crate::ids::ObjectId;
@@ -94,6 +97,12 @@ pub enum ProductionCommand {
     /// the unit of type `kind` and kind `from` inside that entered first. The Armory's names the kind alone: it holds
     /// Recruits only.
     ReleaseOf { kind: ObjectKind, from: RecruitKind },
+    /// (M5-N3) A Temple's **Q** and **W** (`factions/cults/structures/temple.md > Placeholder stats`: "**Q** Enhanced
+    /// Constitution (next level), **W** Improved Metabolism (next level)"): pay for `tech` and add it to the research
+    /// queue (`core/tech_and_research.md > Research > Shared Rules` 2 and 3). With several Temples, one takes it, the
+    /// one with the least work queued (design change 0083's order): "a technology cannot be queued or in progress at
+    /// more than one structure at the same time" (4).
+    Research(Tech),
 }
 
 /// Why a producer that received a `Train` didn't queue the unit, while others of the same command did

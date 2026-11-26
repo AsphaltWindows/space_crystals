@@ -30,6 +30,7 @@ pub use colonists::units::drone::BEACON_DEPLOYMENT;
 pub use colonists::units::weapon_conversion::CONVERT_TICKS;
 pub use colonists::{BEACON_CAPACITY_CAP, BEACON_CAPACITY_PER_BUILDING};
 pub use cults::augmentation::{AUGMENTATION, AugmentationTable, IncrementEffects};
+pub use cults::research::{ResearchLine, Tech, TechDef};
 pub use cults::{CONSTRUCT_MENU, ConstructEntry, ConstructMenu, ConstructSlot};
 pub use gdo::UNIT_CONTROL_CAP;
 pub use gdo::units::peacekeeper::RIOT_SHIELD_TOGGLE_TICKS;
@@ -38,8 +39,8 @@ pub use map::supply_delivery_station::{DEFAULT_DELIVERY_INTERVAL, DEFAULT_DELIVE
 pub use spells::{ShroudDef, SpellDef};
 pub use structures::{
     AugmentRecipe, BuilderGoes, DropOff, ExitRule, ExpansionDef, HoldsDef, MiningDef, OccupantFire, PopUpDef,
-    ProductionDef, Recipe, RecruitmentDef, SiteDef, SitePrice, StructureDef, SymmetryType, TierDef, Transit, TunnelDef,
-    UpgradeDef,
+    ProductionDef, Recipe, RecruitmentDef, ResearchDef, SiteDef, SitePrice, StructureDef, SymmetryType, TierDef,
+    Transit, TunnelDef, UpgradeDef,
 };
 pub use syndicate::structures::tunnel::TRANSIT_DELAY_TICKS;
 pub use syndicate::{CELLS_PER_TUNNEL_SPACE, EJECT_MENU_ORDER, EXPAND_MENU, ExpandEntry, TUNNEL_SPACE_CAP};

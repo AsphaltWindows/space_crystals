@@ -11,9 +11,10 @@
 //! with its Augmentations, its Shields within 0 and its MaxShields: `hit_points`), the bank invariant B1 (no bank goes
 //! below 0 or past its top: `banks`) and the augmentation invariant A1 (only a kind that can be augmented has an
 //! Augmentation: `augmentations`), H1 and A1 over the held units too, the energy invariant E1 (an object has energy
-//! exactly when its type has a pool, and at most its maximum, held units too: `energy`, slice M5-N4a), the cloud
-//! invariant C1 (Shroud's clouds are the channels under way, each connected: `clouds`, slice M5-N4b), and an ASCII
-//! picture of the map with its units for readable failures.
+//! exactly when its type has a pool, and at most its maximum, held units too: `energy`, slice M5-N4a), (M5-N3) the
+//! research invariant T1 (techs come only from completed research, each queued at one structure that offers it:
+//! `research`), (M5-N4b) the cloud invariant C1 (Shroud's clouds are the channels under way, each connected:
+//! `clouds`), and an ASCII picture of the map with its units for readable failures.
 //!
 //! [`super::TestSim`] checks them after every tick (on by default). A test that steps a bare [`Sim`] keeps its own
 //! [`Invariants`] and calls [`Invariants::check`] after each step, as the golden games do (slice M5-M1); the fuzz's
@@ -28,12 +29,14 @@ mod operations;
 mod overlaps;
 mod picture;
 mod projectiles;
+mod research;
 mod reservations;
 
 use std::collections::BTreeMap;
 
 use glam::Vec2;
 
+use crate::augmentation::Research;
 use crate::command::{Command, DebugCommand, TickInputs};
 use crate::defs::MovementModel;
 use crate::events::SimEvent;
@@ -60,7 +63,7 @@ pub use picture::ascii;
 /// A broken invariant.
 #[derive(Clone, Debug, PartialEq)]
 pub struct Violation {
-    /// "I1" … "I7", "V1", "K1", "P1", "O1", "R1", "H1", "B1", "A1", "E1", "C1".
+    /// "I1" … "I7", "V1", "K1", "P1", "O1", "R1", "H1", "B1", "A1", "E1", "T1", "C1".
     pub invariant: &'static str,
     pub message: String,
     /// Where on the map to look.
@@ -81,6 +84,8 @@ struct Seen {
     gathering: bool,
     /// The velocity it carried into the next tick (`Mover::momentum`, slice M3-G).
     momentum: Vec2,
+    /// (M5-N3) Its MaxSpeed at its owner's research levels (`Object::max_speed`), for I3 in a tick that changes them.
+    max_speed: f32,
 }
 
 /// Checks the invariants between ticks (module docs). It remembers each unit's state, and each player's banks, of the
@@ -96,7 +101,7 @@ fn leg_of(o: &Object) -> Option<Tick> {
     o.orders.as_ref()?.current.as_ref().map(|active| active.since)
 }
 
-fn seen(o: &Object, mover: &Mover) -> Seen {
+fn seen(o: &Object, mover: &Mover, research: Research) -> Seen {
     Seen {
         pos: o.pos,
         had_goal: mover.goal != MoveGoal::None,
@@ -105,15 +110,17 @@ fn seen(o: &Object, mover: &Mover) -> Seen {
         exit: mover.exit,
         gathering: gather::on_gather_job(o),
         momentum: mover.momentum,
+        max_speed: o.max_speed(research),
     }
 }
 
 impl Invariants {
     /// Starts from the sim's current state.
     pub fn new(sim: &Sim) -> Self {
+        let research = sim.research();
         let seen = sim
             .objects()
-            .filter_map(|o| Some((o.id, seen(o, o.mover.as_ref()?))))
+            .filter_map(|o| Some((o.id, seen(o, o.mover.as_ref()?, research))))
             .collect();
         Self {
             seen,
@@ -151,10 +158,10 @@ impl Invariants {
     }
 
     /// (M5-M1) Of [`Invariants::check`]'s invariants, those of the game's rules alone: P1, O1, R1, H1, B1, A1, E1
-    /// (slice M5-N4a) and C1 (slice M5-N4b), which hold whatever the input and cost little. Not the movement invariants, whose I6 bounds how
-    /// far a scenario may fall behind, nor V1 and K1, which rebuild every player's vision and planning grids and make
-    /// most of a check's cost. For a harness of many games of random input: `tests/robustness.rs`, whose seed sweep V1
-    /// and K1 would take from 5 s to 26 s.
+    /// (slice M5-N4a), T1 (slice M5-N3) and C1 (slice M5-N4b), which hold whatever the input and cost little. Not the movement invariants,
+    /// whose I6 bounds how far a scenario may fall behind, nor V1 and K1, which rebuild every player's vision and
+    /// planning grids and make most of a check's cost. For a harness of many games of random input:
+    /// `tests/robustness.rs`, whose seed sweep V1 and K1 would take from 5 s to 26 s.
     pub fn check_rules(&mut self, sim: &Sim, inputs: &TickInputs) -> Result<(), Violation> {
         let result = self.rules(sim, inputs);
         *self = Self::new(sim);
@@ -169,12 +176,17 @@ impl Invariants {
             .and_then(|()| self.books.check(sim, inputs))
             .and_then(|()| augmentations::augmentations(sim))
             .and_then(|()| energy::energy(sim))
+            .and_then(|()| research::research(sim))
             .and_then(|()| clouds::clouds(sim))
     }
 
     fn check_units(&self, sim: &Sim, teleported: &[ObjectId], evacuated: &[ObjectId]) -> Result<(), Violation> {
         let tick = sim.tick();
         let overlapped = overlaps::overlapped_before(sim, &self.seen);
+        // (M5-N3) The research levels changed after the movement step of this tick: a level completed in the economy
+        // phase (`SimEvent::ResearchCompleted`). The units moved at the MaxSpeeds of the levels before (I3). A defeat
+        // changes none: the units turned neutral keep their research (design change 0379, `Object::kept_research`).
+        let levels_changed = (sim.events().iter()).any(|e| matches!(e, SimEvent::ResearchCompleted { .. }));
         for o in sim.objects() {
             let fail = |invariant, message: String| {
                 Err(Violation {
@@ -253,9 +265,16 @@ impl Invariants {
             }
             // I3: a unit moves at most its speed per tick, (M5-N1a) its Augmentations' included. (M3-G) For a unit
             // with momentum that is its model's maximum, where thrust and drag balance on open ground: a mode that
-            // slows the unit only weakens its thrust, and the speed it has decays.
+            // slows the unit only weakens its thrust, and the speed it has decays. (M5-N3) In a tick that changed the
+            // research levels after the movement step, the larger of its MaxSpeeds before and after: it moved at the
+            // one before, and moves at the one after from the next tick (`Sim::complete_research`).
             let drag = unit.movement.model() == MovementModel::Drag;
-            let step = o.max_speed(sim.research()) * if drag { 1.0 } else { mover.speed_factor };
+            let max_speed = o.max_speed(sim.research());
+            let max_speed = match before {
+                Some(b) if levels_changed => b.max_speed.max(max_speed),
+                _ => max_speed,
+            };
+            let step = max_speed * if drag { 1.0 } else { mover.speed_factor };
             let moved = o.pos.distance(o.prev_pos);
             if moved > step * 1.0001 + 1e-3 {
                 return fail("I3", format!("moved {moved} su in one tick, more than its {step}"));

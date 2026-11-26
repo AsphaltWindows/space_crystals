@@ -274,11 +274,10 @@ fn the_recruits_panel_shows_every_letter() {
 /// opens the Basic menu, Q Recruitment Hall greyed for the bank, W Storage, A Armory (a Storage stands), S Gunworks
 /// (an Armory stands; slice M5-G2), D Garrison (an Armory stands; slice M5-N2) and X Altar (a Storage stands; slice
 /// M5-N1b), whose placement X enters and Z leaves for the menu; each Build's hint names its price. Z goes back; W opens
-/// the Advanced menu: S Machine Shop and
-/// F Scrap Hangar (slice M5-G2) and C Cathedral (slice M5-N4a) greyed by the gate for their TechPrerequisites, a Chop
-/// Shop, an Airstrip and a Temple, which they name when pressed; A Chop Shop, D Airstrip, X Temple and V Shrine greyed
-/// as not in the game yet (0327's Verification: "W then A places a Chop Shop (greyed without an Armory)": its Build
-/// comes with its slice).
+/// the Advanced menu: S Machine Shop and F Scrap Hangar (slice M5-G2), X Temple (slice M5-N3) and C Cathedral (slice
+/// M5-N4a) greyed by the gate for their TechPrerequisites, a Chop Shop, an Airstrip, an Altar and a Temple, which they
+/// name when pressed; A Chop Shop, D Airstrip and V Shrine greyed as not in the game yet (0327's Verification: "W then
+/// A places a Chop Shop (greyed without an Armory)": its Build comes with its slice).
 #[test]
 fn the_construct_menus_keep_their_slots_greying_what_cant_be_built() {
     use ButtonLook::{Back, Common, Disabled, Unavailable};
@@ -327,7 +326,7 @@ fn the_construct_menus_keep_their_slots_greying_what_cant_be_built() {
         (s(), cmd(Build(ObjectKind::MachineShop)), Disabled, "MS"),
         (d(), planned(Planned::Airstrip), Unavailable, "AP"),
         (f(), cmd(Build(ObjectKind::ScrapHangar)), Disabled, "SH"),
-        (x(), planned(Planned::Temple), Unavailable, "TE"),
+        (x(), cmd(Build(ObjectKind::Temple)), Disabled, "TE"),
         (c(), cmd(Build(ObjectKind::Cathedral)), Disabled, "CL"),
         (v(), planned(Planned::Shrine), Unavailable, "SR"),
     ];
@@ -338,6 +337,7 @@ fn the_construct_menus_keep_their_slots_greying_what_cant_be_built() {
     let hints = [
         (s(), "S: Build Machine Shop (150 Space Crystals)"),
         (f(), "F: Build Scrap Hangar (200 Space Crystals)"),
+        (x(), "X: Build Temple (200 Space Crystals)"),
         (c(), "C: Build Cathedral (250 Space Crystals)"),
     ];
     for (at, hint) in hints {
@@ -349,6 +349,8 @@ fn the_construct_menus_keep_their_slots_greying_what_cant_be_built() {
     assert_eq!(said(&app), Some("Requires a Chop Shop"));
     tap(&mut app, &[], KeyF);
     assert_eq!(said(&app), Some("Requires an Airstrip"));
+    tap(&mut app, &[], KeyX);
+    assert_eq!(said(&app), Some("Requires an Altar"));
     tap(&mut app, &[], KeyC);
     assert_eq!(said(&app), Some("Requires a Temple"));
     assert_eq!(interface(&app), InterfaceState::BuildMenu(BuildMenu::Advanced));

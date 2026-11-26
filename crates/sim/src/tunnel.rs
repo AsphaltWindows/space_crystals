@@ -181,6 +181,7 @@ mod tests {
             lineage: Vec::new(),
             augmentation: Default::default(),
             energy: None,
+            kept_research: None,
         }
     }
 

@@ -2335,3 +2335,16 @@ Answered Q0069–Q0071 (0258–0267): losing-Tunnel edges, Syndicate economy che
 2026-11-27 — Session end: all Director questions answered through Q0130; GDO/Syndicate placeholder passes; Cults roster: Hand of Heaven, Prayer-mobile, Seeker rename; turrets Tunnel-only and neutral with Tunnel; Cults identity check given (tensions in insights).
 2026-11-27 — Doc reorg (user request): split selection_and_hud, behaviors, syndicate/tunnels; moved Cults Recruitment Hall and Storage to structures/ (restoring the lost RecruitmentHall heading). Content verified line-for-line; refs and index updated. Entry 0370.
 2026-11-27 — Q0131–Q0142 arrived; Q0132/Q0138/Q0141 answered from docs (0371).
+2026-11-27 — Q0131 (a). Entry 0372.
+2026-11-27 — Q0133 (a). Entry 0373.
+2026-11-27 — Q0134 (a) + guideline. Entry 0374.
+2026-11-27 — Q0136: drop-off nearest the worker at end of mining, tie earlier id. Entry 0375.
+2026-11-27 — Q0137 (a), Stop clears the lock. Entry 0376.
+2026-11-27 — Q0139 (b). Entry 0377.
+2026-11-27 — Q0140 (b). Entry 0378.
+2026-11-27 — Q0142 (b). Entry 0379.
+2026-11-27 — Q0135 partial: Storage back to 3x2. Entry 0380.
+2026-11-27 — Q0135 answered: realistic opening should overtake by ~4:00; longer timeline to 6:00. Entry 0381.
+2026-11-27 — Economy comparison metrics (income/s, mined, bank, spent on economy). Entry 0382.
+2026-11-27 — Economy runs: all spending is economy, Generators included. Entry 0383.
+2026-11-27 — Agents re-pick Tunnel every return. Entry 0384.

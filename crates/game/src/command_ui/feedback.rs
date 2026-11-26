@@ -53,7 +53,7 @@ use std::sync::LazyLock;
 use bevy::picking::Pickable;
 use bevy::prelude::*;
 use sc_sim::{
-    ArmyResource, ObjectKind, PlacementCheck, PlacementProblem, Refusal, Reject, SimEvent, Tick, TileProblem,
+    ArmyResource, ObjectKind, PlacementCheck, PlacementProblem, Refusal, Reject, SimEvent, Tech, Tick, TileProblem,
     WholeProblem,
 };
 
@@ -144,6 +144,14 @@ pub const NOTHING_INSIDE_TEXT: &str = "No free unit inside";
 /// `factions/cults/augmentation.md > Altar > Augmentation Orders`: "An order can only target a unit that is missing
 /// every Augmentation the order applies"), which the panel never shows. Placeholder wording.
 pub const ALREADY_AUGMENTED_TEXT: &str = "Already has that Augmentation";
+/// (M5-N3) The message of a Temple's key while its line's next level is queued or in progress at one of the player's
+/// structures (`Reject::ResearchUnderWay`; `factions/cults/structures/temple.md > Placeholder stats`: "its key shows
+/// "In progress" meanwhile"). The design's words.
+pub const IN_PROGRESS_TEXT: &str = "In progress";
+/// (M5-N3) The message of a technology the player has completed (`Reject::Researched`; `core/tech_and_research.md >
+/// Research > Shared Rules` 4: "Once completed, it no longer appears in any research menu"), which the panel never
+/// shows. Placeholder wording.
+pub const RESEARCHED_TEXT: &str = "Already researched";
 /// (M5-N4b) The message of a spell pressed while none of its casters has the energy it needs (`Reject::NotEnoughEnergy`;
 /// `factions/cults/units/disciple.md > Placeholder stats > Shroud numbers`: "needs at least **10 energy** to start").
 /// Placeholder wording.
@@ -307,7 +315,8 @@ pub fn unavailable_text(why: WhyUnavailable) -> &'static str {
 /// ([`placement_text`]), an EjectMenu tile's (slice M4-J2), an ExpandMenu entry's and the Tunnel's Cancel's (slice
 /// M4-F: its operation, an expansion's Tier Requirement above its tier, nothing to cancel), a prerequisite missing
 /// ([`requires_text`], slice M4-K), the Tunnel's Upgrade's (slice M4-G: its top tier, something blocking it), a pool
-/// building's (slice M5-F2: no free Recruit of the kind, nothing to eject), and placeholders for the others.
+/// building's (slice M5-F2: no free Recruit of the kind, nothing to eject), a Temple's key's (slice M5-N3: in progress,
+/// completed, its previous level missing), and placeholders for the others.
 pub fn reject_text(reject: Reject) -> &'static str {
     match reject {
         Reject::InsufficientCrystals => NO_CRYSTALS_TEXT,
@@ -332,6 +341,9 @@ pub fn reject_text(reject: Reject) -> &'static str {
         Reject::NoRecruit(_) => NO_RECRUIT_TEXT,
         Reject::NothingInside => NOTHING_INSIDE_TEXT,
         Reject::AlreadyAugmented(_) => ALREADY_AUGMENTED_TEXT,
+        Reject::ResearchUnderWay(_) => IN_PROGRESS_TEXT,
+        Reject::Researched(_) => RESEARCHED_TEXT,
+        Reject::RequiresTech(tech) => requires_tech_text(tech),
         Reject::NotEnoughEnergy => NOT_ENOUGH_ENERGY_TEXT,
         _ => CANNOT_DO_TEXT,
     }
@@ -358,6 +370,19 @@ pub fn requires_text(kind: ObjectKind) -> &'static str {
             .collect()
     });
     TEXTS[kind as usize]
+}
+
+/// (M5-N3) The message of a technology whose previous level the player hasn't completed (`Reject::RequiresTech`;
+/// `core/tech_and_research.md > Tech Prerequisites > Research Prerequisites`: "A next level can only be queued once
+/// the previous level has **completed**"), which the panel never shows, as its key shows the previous level until
+/// then: "Requires" and the technology's name, as a building's prerequisite says it ([`requires_text`]).
+pub fn requires_tech_text(tech: Tech) -> &'static str {
+    static TEXTS: LazyLock<Vec<&'static str>> = LazyLock::new(|| {
+        (Tech::ALL.iter())
+            .map(|tech| &*format!("Requires {}", tech.def().name).leak())
+            .collect()
+    });
+    TEXTS[tech as usize]
 }
 
 /// The message of a Deploy or a Build that failed on arrival (`SimEvent::DeployFailed`, `SimEvent::BuildFailed`): the

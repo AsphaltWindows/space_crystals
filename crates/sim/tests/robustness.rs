@@ -389,6 +389,9 @@ fn fuzz_run(seed: u64) -> Run {
                 | SimEvent::ReleaseCancelled { .. }
                 | SimEvent::AugmentQueued { .. }
                 | SimEvent::AugmentCancelled { .. }
+                | SimEvent::ResearchQueued { .. }
+                | SimEvent::ResearchCancelled { .. }
+                | SimEvent::ResearchCompleted { .. }
                 | SimEvent::ShroudStarted { .. }
                 | SimEvent::ShroudEnded { .. }
                 | SimEvent::ShroudReleased { .. } => {}

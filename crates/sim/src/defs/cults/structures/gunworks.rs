@@ -55,6 +55,7 @@ pub(crate) static GUNWORKS: ObjectDef = ObjectDef {
         // "Recruit staffing capacity 4; research queue 5", once it is enterable: none can enter it yet.
         holds: None,
         occupants_fire: None,
+        research: None,
     }),
     default_settings: None,
     energy: None,

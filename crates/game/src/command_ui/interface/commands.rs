@@ -7,7 +7,7 @@ mod flow;
 mod names;
 mod sim;
 
-use sc_sim::{AugmentOrder, ObjectKind, RecruitKind};
+use sc_sim::{AugmentOrder, ObjectKind, RecruitKind, Tech};
 
 use super::{BuildMenu, Planned};
 
@@ -23,7 +23,8 @@ use super::{BuildMenu, Planned};
 /// (`factions/syndicate/tunnel_menus.md > Tunnel ObjectInterfaceState`, slices M4-J2 and M4-F) and Agent
 /// (`factions/syndicate/units/agent.md > Agent ObjectInterfaceState`, slice M4-J1), and the Cults' pool buildings'
 /// (design change 0337, `factions/cults/structures/README.md > Choosing Recruits, Release and Eject All`; slice M5-F2)
-/// and Altar's (`factions/cults/augmentation.md > Altar > ObjectInterfaceState[Altar]`, slice M5-N1b).
+/// and Altar's (`factions/cults/augmentation.md > Altar > ObjectInterfaceState[Altar]`, slice M5-N1b), and Temple's
+/// (`factions/cults/structures/temple.md > Placeholder stats`, slice M5-N3).
 #[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum PanelCommand {
     Move,
@@ -207,4 +208,21 @@ pub enum PanelCommand {
     /// placeholder; the unit walks out unchanged)" (design change 0337), of a unit of the type and the state, at once
     /// (`sc_sim::ProductionCommand::ReleaseOf`); the menu stays open, as for an order.
     ReleaseOf(ObjectKind, RecruitKind),
+    /// (M5-N3) A Temple's "**Q** Enhanced Constitution (next level), **W** Improved Metabolism (next level)"
+    /// (`factions/cults/structures/temple.md > Placeholder stats`): pays for the technology and adds it to the research
+    /// queue, at once (`sc_sim::ProductionCommand::Research`; `core/tech_and_research.md > Research > Shared Rules` 2:
+    /// "The cost is deducted when the technology is queued"). Its slot holds its line's Level 1, which the panel shows
+    /// as the line's next level (`super::Conditions::key`).
+    Research(Tech),
+    /// (M5-N3) The key of a line whose next level is queued or in progress, at any of the player's structures
+    /// (`factions/cults/structures/temple.md > Placeholder stats`: "a Level 2 can't be queued until its Level 1 has
+    /// **completed** (its key shows "In progress" meanwhile)"): greyed, as the gate refuses the level again
+    /// (`sc_sim::Reject::ResearchUnderWay`), and saying so.
+    Researching(Tech),
+    /// (M5-N3) A Temple's "**A/S/D/F** release one Recruit of a kind (README > Choosing Recruits, Release and Eject
+    /// All)" (`factions/cults/structures/README.md > Choosing Recruits, Release and Eject All`: "pressing one sends
+    /// **one** Recruit of that kind out of the exit at once (no queue)"), at once (`sc_sim::HoldCommand::ReleaseOne`):
+    /// the one of the kind that went in first. Its button "shows the unit with an icon for its augments and the count
+    /// inside [...]; it is greyed if there are none" (`super::PanelSlot::count`, `super::Conditions::pool_count`).
+    ReleaseOne(RecruitKind),
 }

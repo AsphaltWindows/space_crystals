@@ -118,6 +118,20 @@ mod tests {
             ];
             conditions.extend(states.map(|state| base.clone().with_constructor(state)));
         }
+        // (M5-N3) A Temple's keys at each level of their lines, and in progress (`Conditions::key`).
+        let research = ty.kind.def().structure.as_ref().and_then(|s| s.research.as_ref());
+        for &tech in research.map_or(&[][..], |research| research.techs) {
+            let researched = |previous| sc_sim::Reject::Researched(previous);
+            let reached = match tech.def().requires {
+                Some(previous) => base
+                    .clone()
+                    .refusing(PanelCommand::Research(previous), researched(previous)),
+                None => base.clone(),
+            };
+            let under_way = sc_sim::Reject::ResearchUnderWay(tech);
+            conditions.push(reached.clone().refusing(PanelCommand::Research(tech), under_way));
+            conditions.push(reached);
+        }
         let commands = grid(ty.kind).into_iter().flatten();
         let mut states = vec![InterfaceState::DefaultState];
         states.extend(BuildMenu::ALL.map(InterfaceState::BuildMenu));

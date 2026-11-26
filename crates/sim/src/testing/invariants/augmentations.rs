@@ -5,15 +5,31 @@
 //! (`Sim::change_kind`, `Sim::train`: "if augmented Recruits are consumed to produce a vehicle, their Augmentations are
 //! lost", `factions/cults/augmentation.md > Persistence`), and gets them only through `augmentation::set`, which gives
 //! none to such a kind: the Altar's orders as the unit comes out (`Sim::augment`, slice M5-N1b), and
-//! `DebugCommand::SetAugmentation`, which refuses such a kind (`Reject::NotAugmentable`).
+//! `DebugCommand::SetAugmentation`, which refuses such a kind (`Reject::NotAugmentable`). (M5-N3) And only a neutral
+//! unit keeps a player's research, a defeated player's (`Object::kept_research`, design change 0379): it is set as a
+//! defeated player's units turn neutral (`economy::defeat`), never otherwise.
 
 use super::{Violation, every_object};
 use crate::augmentation;
 use crate::sim::Sim;
 
-/// A1: no object of a kind that can't be augmented has an Augmentation (module docs).
+/// A1: no object of a kind that can't be augmented has an Augmentation, and only a neutral unit keeps a defeated
+/// player's research (module docs).
 pub(super) fn augmentations(sim: &Sim) -> Result<(), Violation> {
     for (o, held) in every_object(sim) {
+        if let Some(player) = o.kept_research {
+            let defeated = sim.player(player).is_some_and(|p| p.is_defeated());
+            if o.owner.is_some() || !defeated {
+                return Err(Violation {
+                    invariant: "A1",
+                    message: format!(
+                        "#{} ({:?}) of {:?} keeps the research of {player:?}, defeated: {defeated}",
+                        o.id.0, o.kind, o.owner
+                    ),
+                    at: o.pos,
+                });
+            }
+        }
         if !o.augmentation.is_none() && !augmentation::is_augmentable(o.kind) {
             let held = if held { " (held)" } else { "" };
             return Err(Violation {

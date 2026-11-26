@@ -53,6 +53,7 @@ fn object(kind: ObjectKind, transform: Option<Transform>) -> Object {
         lineage: Vec::new(),
         augmentation: Default::default(),
         energy: None,
+        kept_research: None,
     }
 }
 

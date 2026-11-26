@@ -23,7 +23,7 @@ The algorithm the unit's turret executes based on its TurretCommandState. When t
 When the turret has no locked target (TurretCommandState.LockedTarget = None), it autonomously selects the best available target from ValidTarget enemies within weapon range and turret arc.
 
 ### Target Selection Priority:
-1. **Threatening units first**: Prefer ValidTargets whose AttackAttributes.TargetDomain includes this unit's domain (Ground, Air, or Universal). These are units that have the capability to attack this unit.
+1. **Threatening units first**: Prefer ValidTargets whose AttackAttributes.TargetDomain includes this unit's domain (Ground, Air, or Universal). These are units that have the capability to attack this unit. **Buildings that fire through their occupants** (e.g. the Cults Garrison; user, 2026-11-27; Q0139) count as threatening while **any occupant's weapon** (as fired from inside, e.g. a Recruit's Militant stand-in) could attack this unit's domain.
 2. **Least rotation, in coarse steps**: Among equal-priority targets, prefer the target requiring the least turret rotation from the turret's current facing, compared in **45° steps** (user, 2026-11-24; placeholder): the rotation needed (either direction, 0–180°) is grouped as 0–45°, 45–90°, 90–135°, 135–180°, and targets in the same step count as equal rotation.
 3. **Closest distance**: Among targets in the same rotation step, prefer the closest target by distance. (Example: an enemy at max range straight ahead and an adjacent enemy 5° to the side are in the same step, so the adjacent one is chosen.) Remaining ties: a fixed deterministic order.
 
