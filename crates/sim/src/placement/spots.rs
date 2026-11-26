@@ -1,10 +1,9 @@
 //! Spots around a footprint (plan decision T62, slice M5-F1): where a unit put on the map beside a building stands, by
 //! one predictable search (`systems/controls/behaviors.md > Core principle: predictable, not optimal`, design change
 //! 0223). A Laser Turret's Agent comes out "at the **first clear spot next to the turret**, searched in a fixed order
-//! starting from the side it came from" (design change 0298 point 7, `sim/sites.rs`); the units inside a building that
-//! is destroyed are evacuated to them (`factions/cults/economy.md > Cults Building Mechanics > Evacuation on
-//! Destruction`: "evacuated units appear around the building's footprint wherever there is open space",
-//! `sim/holding.rs`).
+//! starting from the side it came from" (design change 0298 point 7, `sim/sites.rs`). (The units inside a destroyed
+//! building came out at them too, each ring searched clockwise and as far out as the map, until design change 0349
+//! put them inside its former footprint, slice M5-F3: `sim/holding/evacuation.rs`.)
 //!
 //! - **The spots** ([`Spots`], [`Ring`]): rings of unit-sized spots around the footprint. Ring 0's boxes stand against
 //!   it, each further ring one box further out. A ring's spots are its four corners, the middles of its four sides,
@@ -13,8 +12,7 @@
 //!   (a unit at least as wide as half the footprint's side) is the eight directions out of it, east first: the Laser
 //!   Turret's for its Agent, as M4-S1 had them.
 //! - **The order** ([`Round`]): each ring from its spot in the one of the eight directions (a side's middle or a
-//!   corner) nearest a direction given, then round both ways alternately (0298 point 7) or clockwise (Placeholder
-//!   (Q0106 point 1), the evacuation's), ring after ring.
+//!   corner) nearest a direction given, then round both ways alternately (0298 point 7), ring after ring.
 //! - **The check** is the caller's (`Sim::spot_around`): each spot in that order until one takes the unit, by
 //!   `Sim::check_unit_fits`, the rule of every unit put on the map, against what stands there, the units placed before
 //!   it included.
@@ -44,9 +42,6 @@ pub enum Round {
     /// first, and the opposite one last: "searched in a fixed order starting from the side it came from" (design
     /// change 0298 point 7: the Laser Turret's Agent).
     BothWays,
-    /// Clockwise from the first spot: Placeholder (Q0106 point 1), "each ring clockwise from the middle of the exit
-    /// side" (the evacuation's).
-    Clockwise,
 }
 
 impl Round {
@@ -57,7 +52,6 @@ impl Round {
         }
         let first = first % n;
         match self {
-            Round::Clockwise => (0..n).map(|i| (first + i) % n).collect(),
             Round::BothWays => {
                 let mut order = Vec::with_capacity(n);
                 order.push(first);
@@ -183,14 +177,6 @@ impl Spots {
             }
         }
         None
-    }
-
-    /// The last ring a search on a map `size` space units wide and high need try: the first whose reach from the
-    /// centre gets to the map's farthest edge along both axes, so that its spots, and every later ring's, are off it.
-    pub fn last_ring(&self, size: Vec2) -> u32 {
-        let farthest = self.centre.max(size - self.centre);
-        let rings = ((farthest - self.reach) / self.step).ceil().max_element();
-        if rings.is_finite() { rings.max(0.0) as u32 } else { 0 }
     }
 }
 

@@ -4,9 +4,10 @@
 //! `factions/cults/structures/armory.md > InternalRecruitCapacity - 10`, `factions/cults/structures/armory.md > Eject
 //! All`; `factions/cults/economy.md > Cults Building Mechanics > Evacuation on Destruction`), on the Armory, through
 //! the gate, one test binary:
-//! - `entering`: ten Recruits file in, the eleventh's Enter fails, the gate, the right-click;
+//! - `entering`: ten Recruits file in, the eleventh's Enter fails, only by the doorway in the middle of side B, not
+//!   into a site, the gate, the right-click;
 //! - `eject`: Eject All streams the pool out of side C, one at a time;
-//! - `evacuation`: everyone inside comes out alive around the footprint, in a fixed order;
+//! - `evacuation`: everyone inside comes out alive on the footprint's tiles, all at once, and they spread;
 //! - `loads`: a Recruit keeps what it carries inside, and out again;
 //! - `saves`: a game with units inside replayed, saved and loaded, and the hash;
 //! - `control`: a Recruit inside still uses its Recruitment Hall's Unit Control, and is an orphaned point once its

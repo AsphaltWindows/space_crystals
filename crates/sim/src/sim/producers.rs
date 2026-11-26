@@ -355,7 +355,9 @@ impl Sim {
     /// room frees nothing. A pool producer's entries (slice M5-F2) give their units back to the pool
     /// (`Sim::unreserve`), which come out as they are, Recruits, when the building leaves the game
     /// (`factions/cults/economy.md > Cults Building Mechanics > Evacuation on Destruction`: "Orders are cancelled with
-    /// a full refund"; "a Recruit mid-training comes out as a Recruit"; `sim/holding/evacuation.rs`).
+    /// a full refund"; "a Recruit mid-training comes out as a Recruit"; `sim/holding/evacuation.rs`): all but a
+    /// finished one, which the evacuation took off the queue first, its unit coming out trained (design change 0349
+    /// point 3).
     pub(super) fn refund_production(&mut self, id: ObjectId) {
         let Some(o) = self.objects.get_mut(&id) else {
             return;

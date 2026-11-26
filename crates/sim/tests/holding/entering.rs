@@ -1,5 +1,11 @@
-//! Entering an Armory: M4-C's Enter order and entry path, at the middle of side B (Placeholder (Q0104 point 1)), up to
-//! its capacity (`factions/cults/structures/armory.md > InternalRecruitCapacity - 10`).
+//! Entering an Armory: M4-C's Enter order and entry path, the doorway at the middle of side B (design change 0347
+//! point 1, `core/entities.md > Entrance and exit (production and research buildings)`: "The entrance is a dedicated
+//! doorway at the middle of the entrance side (like the Exit Doorway): units walk to it and go in there"), up to its
+//! capacity (`factions/cults/structures/armory.md > InternalRecruitCapacity - 10`), once it is built (0347 point 4,
+//! `factions/cults/structures/README.md > Entering pool buildings`: "a building under construction **can't be
+//! entered**; a right-click on it Assists").
+
+use sc_sim::{BuildingOrientation, Target};
 
 use super::*;
 
@@ -132,10 +138,12 @@ fn ejected_recruits_go_round_to_side_b_and_back_in() {
     };
 }
 
-/// The plan's acceptance: "The 11th Recruit's Enter fails, with feedback." Placeholder (Q0104 point 2): "The Enter ends
-/// and it idles beside the Armory (the normal Failure rule)": the one that gets to the entry path with ten inside
-/// stays out, idle, by the entrance, and its owner is told (`SimEvent::EnterFailed` with `full`, the client's feedback
-/// line). Design change 0347 point 5: the capacity counts every unit inside (`tests/armory/`: the reserved ones too).
+/// The plan's acceptance: "The 11th Recruit's Enter fails, with feedback." Design change 0347 point 2
+/// (`factions/cults/structures/README.md > Entering pool buildings`): "a unit arriving when the building is full has
+/// its Enter **end** and idles beside the building (the normal Failure rule)": the one that gets to the entry path with
+/// ten inside stays out, idle, by the entrance, and its owner is told (`SimEvent::EnterFailed` with `full`, the
+/// client's feedback line). Design change 0347 point 5: the capacity counts every unit inside (`tests/armory/`: the
+/// reserved ones too).
 #[test]
 fn the_eleventh_recruits_enter_fails_with_feedback() {
     let mut t = base().start();
@@ -229,4 +237,135 @@ fn an_enter_ends_when_its_armory_goes() {
         "the order went with its target: {:?}",
         failed(&t)
     );
+}
+
+/// [`flat`] with Mountain tiles at (15, 9), (16, 9), (17, 9) and (17, 10): with [`base`]'s Armory west of them, tiles
+/// (15, 10) and (16, 10), against the north half of its side B, are a pocket open only to the south.
+fn pocket_map() -> String {
+    let mut rows: Vec<Vec<u8>> = (0..22).map(|_| vec![b'.'; 30]).collect();
+    for (x, y) in [(15, 9), (16, 9), (17, 9), (17, 10)] {
+        rows[y][x] = b'M';
+    }
+    let rows: Vec<String> = rows.into_iter().map(|row| String::from_utf8(row).unwrap()).collect();
+    rows.join("\n")
+}
+
+/// Design change 0347 point 1 (`core/entities.md > Entrance and exit (production and research buildings)`): "units walk
+/// to it and go in there", at the doorway in the middle of side B (x = 960, y = 704), not anywhere along the side. A
+/// Recruit pressed against the north end of side B (its box 3 su off it, y 640..664) and walled in there, by Mountain
+/// to the north and the east and by a row of its owner's Recruits on Hold to the south (which never yield,
+/// `systems/units.md > Ground Collision > Who yields`), never goes in: its Enter ends, if it does, for want of a way to
+/// the doorway, not of room. Once the row has gone, it walks to the doorway and goes in there, its box within the 8 su
+/// of the entry spot (`network::EntryPath::reached`).
+#[test]
+fn a_recruit_goes_in_only_by_the_doorway_in_the_middle_of_side_b() {
+    let mut t = cults(&pocket_map()).spawn(ARMORY, Some(P1), tile(12, 10)).start();
+    t.without_auto_targeting();
+    let walker = id(next_id(&t));
+    t.spawn_unit_at(1, RECRUIT, P1, Vec2::new(975.0, 652.0));
+    // The row's boxes, touching, from 1 su off side B to 7 su short of the Mountain at x = 1088, y 666..690.
+    let row: Vec<ObjectId> = (0..5).map(|i| id(walker.0 + 1 + i)).collect();
+    for i in 0..5 {
+        t.spawn_unit_at(1, RECRUIT, P1, Vec2::new(973.0 + 24.0 * i as f32, 678.0));
+    }
+    t.order_at(2, P1, &row, OrderKind::Hold, false);
+    t.at(2, P1, enter(&[walker], A1));
+    run_checked(&mut t, 2);
+    for _ in 0..300 {
+        step_checked(&mut t);
+        let pos = t.sim().object(walker).expect("never in").pos;
+        assert!(
+            pos.x - HALF.x >= 960.0 && pos.y + HALF.y <= 666.0,
+            "in the pocket: {pos}"
+        );
+    }
+    assert_eq!((entries(&t), inside(&t, A1)), (vec![], vec![]), "never in");
+    let failures = failed(&t);
+    assert!(
+        failures.iter().all(|&failure| failure == (walker, false)),
+        "{failures:?}"
+    );
+    let open = t.sim().tick() + 1;
+    for &unit in &row {
+        remove_at(&mut t, open, unit);
+    }
+    t.at(open + 1, P1, enter(&[walker], A1));
+    run_checked(&mut t, open + 1);
+    while inside(&t, A1).is_empty() {
+        assert!(t.sim().tick() < open + 200, "walking in\n{}", t.ascii(Some(ENTRY)));
+        step_checked(&mut t);
+    }
+    // Where it went in from, which a unit inside keeps (`Sim::take_off_map`): the doorway, its box within 8 su of the
+    // entry spot on either axis.
+    let at = t.sim().held_unit(walker).expect("inside").object.pos;
+    assert!((at.y - ENTRY.y).abs() - HALF.y <= 8.0, "in the doorway: {at}");
+    assert!(
+        at.x - HALF.x >= ENTRY.x && at.x - HALF.x - ENTRY.x <= 8.0,
+        "against side B: {at}"
+    );
+}
+
+/// Design change 0347 point 4 (`factions/cults/structures/README.md > Entering pool buildings`): "a building under
+/// construction **can't be entered**; a right-click on it Assists". Two Recruits build an Armory (player 1's Storage
+/// is its TechPrerequisite); while it is a site the gate refuses a third Recruit's Enter on it, and its right-click on
+/// it is an Assist. Once it is complete, the right-click is an Enter, and the Recruit goes in.
+#[test]
+fn an_armory_site_cant_be_entered_and_a_right_click_on_it_assists() {
+    let mut t = cults(&flat(30, 22))
+        .spawn(ObjectKind::Storage, Some(P1), tile(2, 2))
+        .start(); // 1
+    t.without_auto_targeting();
+    t.debug_at(
+        1,
+        DebugCommand::SetResources {
+            player: P1,
+            crystals: 1000,
+            supplies: 0,
+            alloys: 0,
+            essence: 0,
+            flux: 0,
+        },
+    );
+    let builders = block(&mut t, 1, 2, 2, Vec2::new(1100.0, 704.0)); // 2, 3
+    let recruit = id(next_id(&t)); // 4
+    t.spawn_unit_at(1, RECRUIT, P1, Vec2::new(1100.0, 900.0));
+    let build = OrderKind::Build {
+        kind: ARMORY,
+        origin: TilePos::new(12, 10),
+        orientation: BuildingOrientation::default(),
+    };
+    t.order_at(2, P1, &builders, build, false);
+    run_checked(&mut t, 2);
+    let armory = |t: &TestSim| {
+        (t.sim().objects())
+            .find(|o| o.kind == ARMORY)
+            .map(|o| (o.id, o.is_site()))
+    };
+    while armory(&t).is_none() {
+        assert!(t.sim().tick() < 200, "the builders on their way");
+        step_checked(&mut t);
+    }
+    let (site, true) = armory(&t).unwrap() else {
+        panic!("a site first");
+    };
+    assert_eq!(
+        validate(&t, enter(&[recruit], site)),
+        Err(Reject::UnderConstruction(site))
+    );
+    let right_click = |t: &TestSim| t.sim().default_order(recruit, Target::Object(site));
+    assert_eq!(right_click(&t), Some(OrderKind::Assist(site)));
+    while armory(&t) == Some((site, true)) {
+        assert!(t.sim().tick() < 1000, "building");
+        step_checked(&mut t);
+        assert_eq!(inside(&t, site), []);
+    }
+    assert_eq!(validate(&t, enter(&[recruit], site)), Ok(()));
+    assert_eq!(right_click(&t), Some(OrderKind::Enter(site)));
+    let now = t.sim().tick() + 1;
+    t.at(now, P1, enter(&[recruit], site));
+    while inside(&t, site).is_empty() {
+        assert!(t.sim().tick() < now + 200, "walking in");
+        step_checked(&mut t);
+    }
+    assert_eq!(inside(&t, site), [recruit]);
 }

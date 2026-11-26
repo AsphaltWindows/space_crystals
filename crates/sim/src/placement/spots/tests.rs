@@ -119,53 +119,38 @@ fn the_next_ring_is_a_box_further_out() {
     }
 }
 
-/// Clockwise from the first spot, once round; both ways round from it, the opposite last.
+/// Both ways round from the first spot, the opposite last, each spot once.
 #[test]
-fn the_rounds_try_every_spot_once() {
-    assert_eq!(Round::Clockwise.order(5, 3), [3, 4, 0, 1, 2]);
+fn the_round_tries_every_spot_once() {
     assert_eq!(
         Round::BothWays.order(5, 3),
         [3, 2, 4, 0, 1],
         "of two equally far, the lower number first"
     );
     assert_eq!(Round::BothWays.order(1, 0), [0]);
-    assert_eq!(Round::Clockwise.order(0, 0), Vec::<usize>::new());
+    assert_eq!(Round::BothWays.order(0, 0), Vec::<usize>::new());
 }
 
 /// A search tries a ring from its spot in the direction given and goes on round, then the next ring: with the west
-/// middle taken, clockwise from it the next spot north of it; with all of ring 0 taken, ring 1's west middle.
+/// middle taken, the next spot round from it, of the two as near the lower numbered (clockwise from the east), south
+/// of it; with all of ring 0 taken, ring 1's west middle.
 #[test]
 fn a_search_goes_round_then_out() {
     let placement = footprint(3, 2);
     let spots = Spots::around(&placement, Vec2::splat(12.0));
     let (inner, outer) = (spots.ring(0), spots.ring(1));
     let west = Vec2::new(-1.0, 0.0);
-    let found = spots.first(0..=3, west, Round::Clockwise, |_| true);
+    let found = spots.first(0..=3, west, Round::BothWays, |_| true);
     assert_eq!(found, Some(inner.spots[14]));
     let taken = inner.spots[14].0;
-    let found = spots.first(0..=3, west, Round::Clockwise, |spot| spot != taken);
-    assert_eq!(found, Some(inner.spots[15]));
-    assert!(found.unwrap().0.y < taken.y, "north of it");
+    let found = spots.first(0..=3, west, Round::BothWays, |spot| spot != taken);
+    assert_eq!(found, Some(inner.spots[13]));
+    assert!(found.unwrap().0.y > taken.y, "south of it");
     let ring_0: Vec<Vec2> = inner.spots.iter().map(|&(spot, _)| spot).collect();
-    let found = spots.first(0..=3, west, Round::Clockwise, |spot| !ring_0.contains(&spot));
+    let found = spots.first(0..=3, west, Round::BothWays, |spot| !ring_0.contains(&spot));
     assert_eq!(found, Some(outer.spots[outer.anchors[4]]));
     assert_eq!(
-        spots.first(0..=0, west, Round::Clockwise, |spot| !ring_0.contains(&spot)),
+        spots.first(0..=0, west, Round::BothWays, |spot| !ring_0.contains(&spot)),
         None
     );
-}
-
-/// Beyond the last ring a search need try, every spot is off the map; the ring before it still has one on it.
-#[test]
-fn the_last_ring_is_the_last_on_the_map() {
-    let placement = footprint(3, 2);
-    let spots = Spots::around(&placement, Vec2::splat(12.0));
-    let size = Vec2::new(20.0, 16.0) * SU_PER_GU;
-    let last = spots.last_ring(size);
-    assert_eq!(last, 35, "(928 - 108) / 24 su east, rounded up");
-    let on_map = |spot: Vec2| spot.cmpge(Vec2::ZERO).all() && spot.cmplt(size).all();
-    assert!(spots.ring(last - 1).spots.iter().any(|&(spot, _)| on_map(spot)));
-    for ring in [last, last + 1] {
-        assert!(spots.ring(ring).spots.iter().all(|&(spot, _)| !on_map(spot)));
-    }
 }

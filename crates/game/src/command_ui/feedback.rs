@@ -32,7 +32,7 @@
 //!   refusals)"): [`TARGET_TOO_CLOSE_TEXT`]; and an Attack Ground whose location is (`SimEvent::LocationTooClose`,
 //!   slice M5-O3; `systems/controls/command_behaviors.md > AttackingLocation`, as AttackingObject), the same;
 //! - an Enter whose unit got to a building's entrance with its pool full (`SimEvent::EnterFailed` with `full`; slice
-//!   M5-F1, Placeholder (Q0104 point 2)): [`BUILDING_FULL_TEXT`];
+//!   M5-F1, design change 0347 point 2): [`BUILDING_FULL_TEXT`];
 //! - a greyed-out button pressed, or its hotkey (`systems/controls/interface.md > CommandPanel > Pressing an
 //!   unavailable command`, design change 0162: "nothing is issued, and the player gets the same feedback as when an
 //!   order is refused, naming the reason (e.g. "Not enough Space Crystals", "Queue is full")"), and a Warp In whose
@@ -127,7 +127,8 @@ pub const OPERATION_UNDER_WAY_TEXT: &str = "This Tunnel is busy";
 /// The design's wording (design change 0182).
 pub const TARGET_TOO_CLOSE_TEXT: &str = "Target too close";
 /// The message of an Enter that ended at a building's entrance with no room in its pool (`SimEvent::EnterFailed` with
-/// `full`; slice M5-F1, Placeholder (Q0104 point 2): "The Enter ends and it idles beside the Armory"). Placeholder
+/// `full`; slice M5-F1; design change 0347 point 2, `factions/cults/structures/README.md > Entering pool buildings`:
+/// "a unit arriving when the building is full has its Enter **end** and idles beside the building"). Placeholder
 /// wording.
 pub const BUILDING_FULL_TEXT: &str = "No room inside";
 /// The message of a pool building's training or Release, or a kind button, pressed while no Recruit of its kind is

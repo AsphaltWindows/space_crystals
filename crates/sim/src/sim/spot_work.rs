@@ -166,7 +166,7 @@ impl Sim {
     }
 
     /// The last row of walls round the footprint `at` for a unit of `kind` with a point on the map ([`Sim::free_spot`],
-    /// `placement::Wall::off_map`): a search "as far out as needed", as T62's is (`Sim::rings_on_map`).
+    /// `placement::Wall::off_map`): a search "as far out as needed".
     fn rows_on_map(&self, kind: ObjectKind, at: &Placement) -> u32 {
         let half = kind.def().half_extents().unwrap_or(Vec2::ZERO);
         let size = Vec2::new(self.map.width() as f32, self.map.height() as f32) * SU_PER_GU;

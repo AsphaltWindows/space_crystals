@@ -3,6 +3,8 @@ use ::serde::Deserialize;
 use ::serde::de::IntoDeserializer;
 use ::serde::de::value::{Error as ValueError, U32Deserializer};
 
+/// (M5-F3) The types that hold units: every exit opposite its entrance (design change 0347 point 1).
+mod holds;
 /// The defs as plain data: every def through JSON and back (plan decision T54).
 mod serde;
 

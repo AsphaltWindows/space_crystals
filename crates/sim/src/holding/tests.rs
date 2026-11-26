@@ -34,8 +34,10 @@ fn armory(rotation: Rotation, flip_h: bool) -> Object {
     armory.expect("the Armory").clone()
 }
 
-/// Placeholder (Q0104 point 1): "The middle of side B, as the Tunnel's Side A". Unturned, the Armory covers tiles 4..7
-/// across and 4..6 down, so its B, the right side, is the line x = 448, its middle at y = 320.
+/// Design change 0347 point 1 (`core/entities.md > Entrance and exit (production and research buildings)`): "The
+/// entrance is a dedicated doorway at the middle of the entrance side". Unturned, the Armory covers tiles 4..7 across
+/// and 4..6 down, so its B, the right side, is the line x = 448, its middle at y = 320. A Recruit against the side
+/// further along it than the doorway's reach is not in it, nor is one against another side.
 #[test]
 fn the_entry_path_is_the_middle_of_side_b() {
     let path = entry_path(&armory(Rotation::R0, false)).unwrap();
@@ -49,6 +51,15 @@ fn the_entry_path_is_the_middle_of_side_b() {
     assert!(path.reached(stand, half));
     assert!(path.reached(Vec2::new(against, 320.0), half));
     assert!(!path.reached(stand + Vec2::new(8.0, 0.0), half), "8 su at most");
+    // Against side B, a box less than 8 su along from the middle is in the doorway (its middle 40 su, for a
+    // Recruit), one further along isn't.
+    let along = |dy: f32| path.reached(Vec2::new(against, 320.0 + dy), half);
+    assert!(along(19.0) && along(-19.0), "in the doorway");
+    assert!(!along(21.0) && !along(-21.0), "past it");
+    assert!(!along(44.0) && !along(-44.0), "towards the corners");
+    // Against side A, at its east end, or side C, at its middle.
+    assert!(!path.reached(Vec2::new(436.0, 256.0 - 12.0 - 1.0), half));
+    assert!(!path.reached(Vec2::new(256.0 - 12.0 - 1.0, 320.0), half));
 }
 
 /// In each orientation the entry path is the middle of the side lettered B, which faces away from the exit doorway's
@@ -74,8 +85,9 @@ fn the_entrance_turns_and_flips_with_the_armory() {
     }
 }
 
-/// `systems/controls/commands.md > Enter`: "Cults — Armory, Cathedral: Recruits only (to be trained)"; Placeholder
-/// (Q0104 point 4): one under construction takes none; and nothing but a building that holds units is one.
+/// `systems/controls/commands.md > Enter`: "Cults — Armory, Cathedral: Recruits only (to be trained)"; design change
+/// 0347 point 4 (`factions/cults/structures/README.md > Entering pool buildings`): "a building under construction
+/// **can't be entered**"; and nothing but a building that holds units is one.
 #[test]
 fn an_armory_in_operation_takes_recruits_only() {
     let mut armory = armory(Rotation::R0, false);

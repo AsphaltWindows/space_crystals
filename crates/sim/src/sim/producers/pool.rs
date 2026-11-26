@@ -23,7 +23,8 @@
 //! - **X and the refunds** (`Sim::apply_production`, `Sim::refund_production`): an entry's Space Crystals go back to
 //!   the player in full, and its units to the pool ([`Sim::unreserve`]): "returns its reserved Recruit to
 //!   StoredRecruits" (`factions/cults/structures/armory.md > ObjectInterfaceState[Armory]`). A building that leaves the
-//!   game refunds every entry, and its units come out as they are, Recruits (`sim/holding/evacuation.rs`).
+//!   game refunds every entry but a finished one, whose unit comes out as the unit it trained, unrefunded (design
+//!   change 0349 point 3), and the others' units come out as they are, Recruits (`sim/holding/evacuation.rs`).
 
 use crate::augmentation::{Augmentation, RecruitKind};
 use crate::defs::{ObjectKind, UnitBase};
