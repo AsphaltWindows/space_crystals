@@ -4,10 +4,10 @@
 //! phase is missed, and whatever unit stands at the spot then is hit instead (any owner)"; and its Attack Ground,
 //! which "keeps firing at the location" until another order (`systems/controls/behaviors.md > AttackingLocation`).
 //!
-//! No unit walks off the spot in the Gunner's two frames of Firing: each one's Silhouette reaches further from its
-//! centre than it moves in two frames (the nearest, the Drone's: 18 su against 16). So these tests take the target off
-//! the spot with a debug teleport; `sc_sim::combat`'s own tests walk one off, given a longer Firing. Its MinRange
-//! against a location is in `tests/cults_combat.rs`.
+//! Its Firing lasts 4 frames (design change 0333, answering Q0126: "at 4 a walking infantry unit can step off it"): a
+//! Peacekeeper walking across the line of fire, 16 su in those frames against its Silhouette's 12 su half-width, is
+//! missed, and a target that stands still is hit by every shot (0333's Verification). The other tests take the target
+//! off the spot at once, with a debug teleport. Its MinRange against a location is in `tests/cults_combat.rs`.
 //!
 //! Every test runs under the invariants of `TestSim`.
 
@@ -23,10 +23,10 @@ const GUNNER: ObjectId = ObjectId(1);
 const TARGET: ObjectId = ObjectId(2);
 /// `factions/cults/units/gunner.md > AttackAttributes`: "Damage: 16".
 const DAMAGE: f32 = 16.0;
-/// `factions/cults/units/gunner.md > AttackAttributes`: "FiringDuration: 2 frames".
-const FIRING: Tick = 2;
-/// `factions/cults/units/gunner.md > AttackAttributes`: one shot every Aim 4 + Firing 2 + Cooldown 8 + Reload 8
-/// frames.
+/// `factions/cults/units/gunner.md > AttackAttributes`: "FiringDuration: 4 frames" (design change 0333).
+const FIRING: Tick = 4;
+/// `factions/cults/units/gunner.md > AttackAttributes`: one shot every Aim 4 + Firing 4 + Cooldown 6 + Reload 8
+/// frames (design change 0333: "so the rate of fire is unchanged").
 const CYCLE: Tick = 22;
 /// Half a LightInfantry's 24 su Silhouette: the Gunner's, the Militant's and the Peacekeeper's.
 const HALF: f32 = 12.0;
@@ -133,7 +133,7 @@ fn duel() -> (TestSim, Vec2) {
 }
 
 /// Acceptance, "a Gunner's shot hits a target that stands still": the spot is locked where the Peacekeeper stands at
-/// the end of Aiming, and the shot lands there at the end of Firing, two frames on, on the Peacekeeper still there:
+/// the end of Aiming, and the shot lands there at the end of Firing, four frames on, on the Peacekeeper still there:
 /// 16 less its PointArmor 1. Its event runs from the Gunner to the spot. One shot a cycle.
 #[test]
 fn a_shot_at_a_target_that_stands_still_hits_it() {
@@ -199,6 +199,70 @@ fn a_target_that_leaves_the_spot_during_firing_is_missed() {
     };
     assert_eq!(shots(&t, Some(TARGET)), [miss, next]);
     assert_eq!(hits_on(&t, TARGET), [(next.tick, DAMAGE - 1.0)]);
+}
+
+/// Design change 0333's Verification, "A Peacekeeper walking across a Gunner's line is sometimes missed: the tracer
+/// ends on empty ground". Player 2's Peacekeeper, 3 grid units east of the Gunner's edge and 3 tiles north of its line
+/// of fire, walks due south across the line, 6 tiles at its 4 su a frame without stopping, while the Gunner attacks it
+/// (within its band of 2 to 5 grid units all the way). Each spot is locked where the Peacekeeper is at the end of
+/// Aiming; in the 4 frames of Firing it walks 16 su on, past its Silhouette's 12 su half-height, so every shot of its
+/// walk lands on empty ground: a `SimEvent::Missed` to the spot, which no object's shape covers then, and no damage.
+#[test]
+fn a_peacekeeper_walking_across_the_line_of_fire_is_missed() {
+    let from = Vec2::new(300.0, 320.0);
+    let x = from.x + 2.0 * HALF + gu(3.0);
+    let (start, end) = (Vec2::new(x, from.y - gu(3.0)), Vec2::new(x, from.y + gu(3.0)));
+    let mut t = ScenarioBuilder::new(&open()).start();
+    t.without_auto_targeting()
+        .spawn_unit_at(1, ObjectKind::Gunner, P1, from)
+        .spawn_unit_at(1, ObjectKind::Peacekeeper, P2, start)
+        .order_at(2, P2, &[TARGET], OrderKind::Move(Target::Point(end)), false)
+        .order_at(2, P1, &[GUNNER], OrderKind::Attack(TARGET), false)
+        .run_until(2);
+    let covered = |t: &TestSim, at: Vec2| {
+        t.sim().objects().any(|o| {
+            let half = o.def().half_extents().expect("units");
+            (at - o.pos).abs().cmple(half).all()
+        })
+    };
+    let mut seen = 0;
+    while t.sim().object(TARGET).expect("alive").pos != end {
+        assert!(t.sim().tick() < 200, "it never arrived\n{}", t.ascii(None));
+        t.step();
+        let all = shots(&t, Some(TARGET));
+        for shot in &all[seen..] {
+            assert_eq!((shot.struck, shot.from), (None, from), "tick {}: a miss", shot.tick);
+            assert!(
+                !covered(&t, shot.to),
+                "tick {}: the spot {} is empty ground",
+                shot.tick,
+                shot.to
+            );
+        }
+        seen = all.len();
+    }
+    assert!(seen >= 3, "it fired {seen} times across the walk");
+    assert!(hits_on(&t, TARGET).is_empty(), "16 damage never dealt");
+    assert_eq!(t.sim().object(TARGET).unwrap().hp, Some(50.0));
+}
+
+/// Design change 0333's Verification, "A standing target is always hit": the Peacekeeper of [`duel`] stands still, and
+/// each of the Gunner's first three shots lands at the spot locked where it stands, on it, a cycle apart: three hits of
+/// 16 less its PointArmor 1, and no miss.
+#[test]
+fn a_standing_target_is_hit_by_every_shot() {
+    let (mut t, there) = duel();
+    let (locked, _) = until_locked(&mut t);
+    let first = locked + FIRING;
+    t.run_until(first + 2 * CYCLE);
+    let struck: Vec<(Tick, Option<ObjectId>, Vec2)> = (shots(&t, Some(TARGET)).iter())
+        .map(|shot| (shot.tick, shot.struck, shot.to))
+        .collect();
+    let hit = |i: Tick| (first + i * CYCLE, Some(TARGET), there);
+    assert_eq!(struck, [hit(0), hit(1), hit(2)]);
+    let taken: Vec<f32> = hits_on(&t, TARGET).iter().map(|&(_, damage)| damage).collect();
+    assert_eq!(taken, [DAMAGE - 1.0; 3]);
+    assert_eq!(t.sim().object(TARGET).unwrap().hp, Some(50.0 - 3.0 * (DAMAGE - 1.0)));
 }
 
 /// Acceptance, "it hits whatever other unit, of any owner, stands on the spot at the end of Firing": in the first frame

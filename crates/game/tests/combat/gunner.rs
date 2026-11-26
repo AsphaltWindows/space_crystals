@@ -8,7 +8,8 @@ use sc_sim::AttackPhase;
 use super::*;
 
 /// Player 1's Gunner attacks player 2's Peacekeeper, 3 grid units east of its edge. In the first frame of its Firing the
-/// Peacekeeper is taken two tiles south (a debug teleport: no unit walks off the spot in two frames). The shot misses:
+/// Peacekeeper is taken two tiles south (a debug teleport, at once, within its 4 frames of Firing: design change 0333,
+/// whose walk off the spot the sim's `tests/gunner.rs` plays). The shot misses:
 /// a tracer in the Gunner's style from the Gunner to the spot it locked, where the Peacekeeper stood at the end of
 /// Aiming, not to where it is, naming no object hit. Its next shot hits the Peacekeeper where it stands now: a tracer
 /// to it there.
