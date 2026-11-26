@@ -74,6 +74,33 @@ fn after_the_start_nothing_comes_back() {
     assert!(object(&t, site).is_site());
 }
 
+/// Design change 0340 (`> Group construction refunds`): "each queued building is refunded in full when its **last
+/// holder drops it** before its construction starts". A Shift chain of two, the group re-ordered once the first site
+/// stands: the second building, still queued, comes back in full, once, as the last of them drops it; the first,
+/// started, stays paid.
+#[test]
+fn a_queued_building_dropped_by_its_last_holder_is_refunded_in_full() {
+    let mut t = world(3);
+    let group = recruits(3);
+    t.at(2, P1, build(&group, STORAGE, SITE, false));
+    t.at(3, P1, build(&group, STORAGE, SITE_2, true));
+    run_to(&mut t, WALK, "the first site starts", |t| !sites(t).is_empty());
+    let now = t.sim().tick() + 1;
+    t.at(now, P1, move_to(&group[..2], Vec2::new(900.0, 700.0)));
+    run(&mut t, 2);
+    assert!(refunds(&t).is_empty(), "the third still holds the queued one");
+    let now = t.sim().tick() + 1;
+    t.at(now, P1, move_to(&group[2..], Vec2::new(900.0, 1300.0)));
+    run(&mut t, 2);
+    assert_eq!(
+        refunds(&t),
+        [(now, (id(4), STORAGE_PRICE))],
+        "the queued one, in full, once"
+    );
+    assert_eq!(crystals(&t), BANK - STORAGE_PRICE, "the started one stays paid");
+    assert!(t.sim().pending_builds(P1).is_empty());
+}
+
 /// `> Cancel Construction`: X on the site refunds 75% of its price, 75 of a Storage's 100; the site goes, and its
 /// builders are idle.
 #[test]
@@ -95,8 +122,8 @@ fn cancelling_the_site_refunds_75_of_100() {
 }
 
 /// Design change 0340 (`factions/cults/economy.md > Cults Building Mechanics > Group construction refunds`): "After
-/// Cancel Construction: Recruits with more orders queued (e.g. Shift-queued buildings) **go on to them**". X on the first site of a Shift chain of two: the group builds
-/// the second, paid as it was given and never refunded.
+/// Cancel Construction: Recruits with more orders queued (e.g. Shift-queued buildings) **go on to them**". X on the
+/// first site of a Shift chain of two: the group builds the second, paid as it was given and never refunded.
 #[test]
 fn after_a_cancel_the_group_goes_on_to_its_queued_building() {
     let mut t = world(4);

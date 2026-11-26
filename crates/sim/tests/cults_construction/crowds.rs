@@ -14,8 +14,8 @@ const WEST_SIDE: usize = 6;
 
 /// Twenty-four Recruits build a Storage, coming from one side: never more than the wall holds at work at a time, and
 /// at least the side they come from; those not at work add nothing, each site frame being a builder's at work
-/// ([`step`]); nobody stands on the footprint (`TestSim`); the Storage is complete, paid once, and they are all free for
-/// new orders.
+/// ([`step`]); nobody stands on the footprint (`TestSim`); the Storage is complete, paid once, and they are all free
+/// for new orders.
 #[test]
 fn twenty_four_recruits_build_a_storage_as_many_at_once_as_there_is_room_for() {
     let mut t = world(24);
