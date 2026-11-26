@@ -12,8 +12,7 @@
 //! M5-J1, design change 0327: "every building greyed until available, including ones not in the build yet"), each
 //! until its slice; slice M5-G2 made the Gunworks, the Machine Shop and the Scrap Hangar live, and the Armory's Gunner,
 //! which had held its slot of the Armory's kind menus (slice M5-F2) until its Gunworks; slice M5-N2 the Garrison;
-//! slice M5-N1b the Altar; slice M5-N4a the Cathedral. The
-//! Recruit's Repair and the Agent's held theirs until slice M5-N8 (`super::super::PanelCommand::Repair`). The Field
+//! slice M5-N1b the Altar; slice M5-N4a the Cathedral; slice M5-N3 the Temple. The Recruit's Repair and the Agent's held theirs until slice M5-N8 (`super::super::PanelCommand::Repair`). The Field
 //! Engineer's Construct menu holds its two buildings' slots (slice M5-N9, `factions/gdo/units/field_engineer.md >
 //! Placeholder stats`: "both greyed until designed"). The Disciple's R holds its spell's, Shroud, until slice M5-N4b
 //! (slice M5-N4a, [`Planned::Shroud`]).
@@ -60,10 +59,10 @@ pub enum Planned {
     /// Tree Overview`; design change 0327), in the menus' order: the sim's `sc_sim::defs::CONSTRUCT_MENU` names them
     /// ([`Planned::construct`]). Their types are in the game's model since slice M5-G2, each with its label
     /// (`crate::kinds::cults`), and their slices make them live, as slice M5-G2 did the Gunworks, the Machine Shop and
-    /// the Scrap Hangar, slice M5-N2 the Garrison, slice M5-N1b the Altar and slice M5-N4a the Cathedral.
+    /// the Scrap Hangar, slice M5-N2 the Garrison, slice M5-N1b the Altar, slice M5-N4a the Cathedral and slice M5-N3
+    /// the Temple.
     ChopShop,
     Airstrip,
-    Temple,
     Shrine,
     /// (M5-N9) The Field Engineer's Construct menu's buildings (`factions/gdo/units/field_engineer.md > Placeholder
     /// stats`: "**A** Construct (a menu: **Q** Bunker, **W** First Aid Tent, both greyed until designed; **Z** back)"),
@@ -78,7 +77,7 @@ pub enum Planned {
 
 impl Planned {
     /// Every one, in declaration order.
-    pub const ALL: [Planned; 27] = [
+    pub const ALL: [Planned; 26] = [
         Planned::AlloyFurnace,
         Planned::EssenceRefinery,
         Planned::FluxReactor,
@@ -101,7 +100,6 @@ impl Planned {
         Planned::OrbitalCommand,
         Planned::ChopShop,
         Planned::Airstrip,
-        Planned::Temple,
         Planned::Shrine,
         Planned::Bunker,
         Planned::FirstAidTent,
@@ -149,7 +147,6 @@ impl Planned {
             Planned::OrbitalCommand => "Orbital Command",
             Planned::ChopShop => "Chop Shop",
             Planned::Airstrip => "Airstrip",
-            Planned::Temple => "Temple",
             Planned::Shrine => "Shrine",
             Planned::Bunker => "Bunker",
             Planned::FirstAidTent => "First Aid Tent",
@@ -161,7 +158,7 @@ impl Planned {
     /// unit trained are labelled by their type's tag (`PanelCommand::label`); the Scout's its first and last letters,
     /// "ST", as the Guard's and the Beacon's are, since "SC" is the crystal patch's (slice M3-J3: every label its own,
     /// `crate::kinds::short_label`). An expansion's is its initials, as a building's, a one-word name's its first and
-    /// last letters, as the Scout's ("VT" Vault, "FE" Forge). A Cults building's alike ("CS" Chop Shop, "TE" Temple),
+    /// last letters, as the Scout's ("VT" Vault, "FE" Forge). A Cults building's alike ("CS" Chop Shop, "AP" Airstrip),
     /// but for the Shrine's "SR", "SE" being the Storage's. The Field Engineer's: "FAT" the First Aid Tent, and "BKR"
     /// the Bunker, as the Seeker's "SKR", its first and last letters, "BR", being the Barracks'. An entry's type takes
     /// its label with it into the game (the Optics Lab's "OL", the Chemical Plant's "CP", the Grenadier's "GR", the
@@ -191,7 +188,6 @@ impl Planned {
             Planned::OrbitalCommand => "OC",
             Planned::ChopShop => "CS",
             Planned::Airstrip => "AP",
-            Planned::Temple => "TE",
             Planned::Shrine => "SR",
             Planned::Bunker => "BKR",
             Planned::FirstAidTent => "FAT",
@@ -220,15 +216,12 @@ impl Planned {
 
     /// Whether it is a building of the Recruits' Construct menus.
     pub fn is_construct(self) -> bool {
-        matches!(
-            self,
-            Planned::ChopShop | Planned::Airstrip | Planned::Temple | Planned::Shrine
-        )
+        matches!(self, Planned::ChopShop | Planned::Airstrip | Planned::Shrine)
     }
 
     /// The full name of its button (`PanelCommand::name`): the command it will be, "Train Scout", "Warp In Alloy
     /// Furnace" or "Build Vault", as a unit in the game is trained, a building warped in and an expansion built
-    /// (`PanelCommand::Expand`); "Build Temple", as the Recruits build a building (`PanelCommand::Build`). The Field
+    /// (`PanelCommand::Expand`); "Build Shrine", as the Recruits build a building (`PanelCommand::Build`). The Field
     /// Engineer's as the design names its abilities (`factions/gdo/units/field_engineer.md > Abilities`): "**Build
     /// Bunker**", "**Set up First Aid Tent**"; the Disciple's spell by its name, as the design names it ("**R:
     /// Shroud**").

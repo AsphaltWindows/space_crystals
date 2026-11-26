@@ -160,7 +160,8 @@ pub fn commandable(sim: &Sim, player: PlayerId, selection: &Selection) -> bool {
 /// construction shows X Cancel Construction alone ([`SITE_GRID`], design change 0237), whatever its type (an
 /// expansion's too), and an Agent's Build its price ([`PanelSlot::price`]). A pool building's kind buttons show their
 /// counts, greyed at 0, and its KindMenu works as a build menu does (slice M5-F2); an Altar's type and state tiles
-/// alike, and its AugmentMenus (slice M5-N1b).
+/// alike, and its AugmentMenus (slice M5-N1b). A Temple's keys show their line's next level, or that it is in progress
+/// ([`Conditions::key`]), and its releases their counts, greyed at 0 (slice M5-N3).
 pub fn panel(selection: &Selection, interface: InterfaceState, conditions: &Conditions) -> Panel {
     let mut panel = Panel::default();
     let Some(active) = selection.active() else {
@@ -175,7 +176,8 @@ pub fn panel(selection: &Selection, interface: InterfaceState, conditions: &Cond
         state_grid(active.kind, interface, conditions.constructor)
     };
     for (slot, command) in CommandSlot::all().zip(grid) {
-        let Some(command) = command.filter(|&command| conditions.shows(command)) else {
+        let shown = command.and_then(|command| conditions.key(command));
+        let Some(command) = shown.filter(|&command| conditions.shows(command)) else {
             continue;
         };
         let (look, why) = if !offers(active.group_type(), command) {
@@ -212,7 +214,7 @@ pub fn panel(selection: &Selection, interface: InterfaceState, conditions: &Cond
         let button = PanelButton::Command(command);
         let count = match command {
             PanelCommand::Eject(kind) => Some(conditions.network_count(kind)),
-            PanelCommand::KindMenu(kind) => Some(conditions.pool_count(kind)),
+            PanelCommand::KindMenu(kind) | PanelCommand::ReleaseOne(kind) => Some(conditions.pool_count(kind)),
             PanelCommand::AugmentMenu(unit) => Some(conditions.stored_count(unit)),
             PanelCommand::AugmentState(unit, state) => Some(conditions.stored_state_count(unit, state)),
             _ => None,
@@ -298,7 +300,7 @@ pub enum SlotPress {
     /// A StateOnlyTransition to an Altar's AugmentMenu\[UnitType, State\] (`InterfaceState::AugmentStateMenu`).
     OpenAugmentStateMenu(ObjectKind, RecruitKind),
     /// A CommandIssuingTransition: the command's holding command, at once (`sc_sim::Command::Holding`): a pool
-    /// building's Eject All.
+    /// building's Eject All, a Temple's release of one Recruit of a kind (slice M5-N3).
     Hold(PanelCommand, HoldCommand),
     /// Back to the previous state (`InterfaceState::back`).
     Back,

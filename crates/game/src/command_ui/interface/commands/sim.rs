@@ -30,8 +30,9 @@ impl PanelCommand {
 
     /// The production command of a producer's command that needs no target (`sc_sim::Command::Production`): Train
     /// and Cancel Production, a pool building's KindMenu entries, a training of a kind and a Release, and an Altar's
-    /// AugmentMenu\[UnitType, State\] entries, an order and a Release of the type and the state (slice M5-N1b). Set
-    /// Rally Point's waits for its target (`crate::command_ui::resolution::target_resolution`).
+    /// AugmentMenu\[UnitType, State\] entries, an order and a Release of the type and the state (slice M5-N1b), and a
+    /// Temple's Research (slice M5-N3). Set Rally Point's waits for its target
+    /// (`crate::command_ui::resolution::target_resolution`).
     pub fn production(self) -> Option<ProductionCommand> {
         match self {
             PanelCommand::Train(kind) => Some(ProductionCommand::Train(kind)),
@@ -40,15 +41,17 @@ impl PanelCommand {
             PanelCommand::Release(from) => Some(ProductionCommand::Release(from)),
             PanelCommand::Augment(kind, from, order) => Some(ProductionCommand::Augment { kind, from, order }),
             PanelCommand::ReleaseOf(kind, from) => Some(ProductionCommand::ReleaseOf { kind, from }),
+            PanelCommand::Research(tech) => Some(ProductionCommand::Research(tech)),
             _ => None,
         }
     }
 
     /// The holding command of a command issued at once to buildings that hold units (`sc_sim::Command::Holding`):
-    /// Eject All.
+    /// Eject All, and (M5-N3) a Temple's release of one Recruit of a kind.
     pub fn holding(self) -> Option<HoldCommand> {
         match self {
             PanelCommand::EjectAll => Some(HoldCommand::EjectAll),
+            PanelCommand::ReleaseOne(kind) => Some(HoldCommand::ReleaseOne(kind)),
             _ => None,
         }
     }
@@ -80,7 +83,8 @@ impl PanelCommand {
 
     /// Whether the sim has a command for it yet: Reverse has no order (`sc_sim::OrderKind`; AttackGround has had one
     /// since slice M4-O), and a building or a unit that isn't in the game has none at all. A StateOnlyTransition needs
-    /// none (a build menu, the Egress Node's F).
+    /// none (a build menu, the Egress Node's F). A Temple's key in progress has its line's Research, which the gate
+    /// refuses meanwhile (`PanelCommand::Researching`).
     pub fn has_sim_command(self) -> bool {
         !matches!(self, PanelCommand::Reverse | PanelCommand::Planned(_))
     }
