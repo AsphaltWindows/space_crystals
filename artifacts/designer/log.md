@@ -2373,3 +2373,4 @@ Answered Q0069–Q0071 (0258–0267): losing-Tunnel edges, Syndicate economy che
 - Q0149 answered (user: c): a glider's pass ends when the target's centre is out of range; loop no longer grows with target size (0408).
 - Q0151 part 1 (user: a): shielded Peacekeepers follow an explicit Attack's target; peacekeeper.md updated (0409).
 - User: Shift-/Ctrl-/double-click now work on own buildings too (0410).
+- Q0151 part 2 (user: a): box still selects one building; Halls are multi-selected by modifier clicks (0411). Q0151 closed.

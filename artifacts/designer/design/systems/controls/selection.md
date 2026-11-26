@@ -66,7 +66,7 @@ When the player drags a selection box, the objects captured are filtered by a 5-
 
 **Allied objects** (once teams exist) are other players' objects and are never multi-selected (user, 2026-11-23). For the priority tiers they are treated like enemy objects (placeholder until teams are designed).
 
-Only tier 1 (own units) produces a multi-selection. All other tiers select exactly one object — the one closest to the center of the box.
+Only tier 1 (own units) produces a multi-selection. All other tiers select exactly one object — the one closest to the center of the box. This holds for **groupable buildings** too (user, 2026-11-26; Q0151): a box over several Recruitment Halls selects one; select several with Shift-click, Ctrl-click or double-click (MapClickSelection), or Shift + box.
 
 ### Shift + box (add)
 Holding **Shift** while dragging a box **adds** the box's result (after the priority tiers) to the current selection. The current selection **always stays selected**: Shift + box never removes anything, unlike Shift-click, which toggles (user, 2026-11-23). Objects that can't be added under Selection > Constraints (e.g. an enemy, neutral object or other player's object when own objects are selected) are not added, and the selection stays unchanged.
