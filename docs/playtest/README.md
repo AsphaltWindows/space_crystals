@@ -15,29 +15,37 @@ starts from the command line, `cargo run -- --factions <a>,<b>` with `--map` or 
 screen.
 
 - `--factions <a>,<b>`: player 1 plays `a` in slot 1, player 2 plays `b` in slot 2. The factions are `gdo`,
-  `syndicate` and `colonists` (any case). The Cults can't be played yet: they get their start in slice M5-B.
+  `syndicate`, `cults` and `colonists` (any case).
 - `--scenario <name>` starts a built-in map, `dev_skirmish` by default; `--map <file.json>` starts a map file, such as
   `maps/dev_skirmish.json` (the same map). On `dev_skirmish` player 1 starts top left and player 2 bottom right.
 - `--player 2` starts on player 2's side. `cargo run -- --help` lists every flag.
 
-Every pairing on `dev_skirmish` (for the map file, put `--map maps/dev_skirmish.json` in place of
+Every pairing on `dev_skirmish`, all 16 (for the map file, put `--map maps/dev_skirmish.json` in place of
 `--scenario dev_skirmish`):
 
 ```sh
 cargo run -- --factions gdo,gdo --scenario dev_skirmish
 cargo run -- --factions gdo,syndicate --scenario dev_skirmish
+cargo run -- --factions gdo,cults --scenario dev_skirmish
 cargo run -- --factions gdo,colonists --scenario dev_skirmish
 cargo run -- --factions syndicate,gdo --scenario dev_skirmish
 cargo run -- --factions syndicate,syndicate --scenario dev_skirmish
+cargo run -- --factions syndicate,cults --scenario dev_skirmish
 cargo run -- --factions syndicate,colonists --scenario dev_skirmish
+cargo run -- --factions cults,gdo --scenario dev_skirmish
+cargo run -- --factions cults,syndicate --scenario dev_skirmish
+cargo run -- --factions cults,cults --scenario dev_skirmish
+cargo run -- --factions cults,colonists --scenario dev_skirmish
 cargo run -- --factions colonists,gdo --scenario dev_skirmish
 cargo run -- --factions colonists,syndicate --scenario dev_skirmish
+cargo run -- --factions colonists,cults --scenario dev_skirmish
 cargo run -- --factions colonists,colonists --scenario dev_skirmish
 ```
 
 Two tests keep these working: `crates/game/tests/pairings.rs` starts each from its flags on every map, and
 `crates/sim/tests/pairings/` plays each with a scripted opening (on every map in its ignored run), then removes player
-2's buildings and checks that player 1 wins.
+2's buildings and checks that player 1 wins. The Cults have no scripted opening yet (slice M5-L adds it): their player
+stays idle there.
 
 ## Playing both sides
 
