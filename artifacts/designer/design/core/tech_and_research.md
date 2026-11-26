@@ -22,6 +22,9 @@ If the player loses their last qualifying prerequisite structure:
 - Constructions already started (including GDO buildings in progress or ReadyToPlace) continue and can be completed/placed normally.
 - New constructions that require it cannot be started until the player again owns a qualifying (fully constructed) prerequisite structure.
 
+### Research Prerequisites
+(user, 2026-11-26; Q0117) A technology's prerequisites (previous level, required structures) follow the same rules: **checked only when it is queued**; losing a prerequisite structure afterwards **never cancels** research already queued or in progress. A next level can only be queued once the previous level has **completed**. The general principle: **losing a prerequisite never cancels or disables anything already started or finished**, for structures, units and research alike.
+
 ### Unit Prerequisites
 A unit type's production option may also declare a TechPrerequisite: the structure(s) the player must own before that unit can be queued at its production building (e.g. the Cults Gunner, trained at the Armory, requires a Gunworks; Cults advanced aircraft, built at the Airstrip, require a Scrap Hangar). The unit is still produced at its normal production building — the prerequisite structure only unlocks the option. The same rules apply as for structures:
 - **Counting Rule**: identical to the structure counting rule above.
