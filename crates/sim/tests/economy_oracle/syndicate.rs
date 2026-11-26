@@ -222,21 +222,25 @@ fn check_row(distance: i32) {
 }
 
 #[test]
+#[ignore = "on demand only, its pins not maintained (design change 0401): see docs/economy_oracle.md"]
 fn syndicate_row_at_3_gu() {
     check_row(3);
 }
 
 #[test]
+#[ignore = "on demand only, its pins not maintained (design change 0401): see docs/economy_oracle.md"]
 fn syndicate_row_at_4_gu() {
     check_row(4);
 }
 
 #[test]
+#[ignore = "on demand only, its pins not maintained (design change 0401): see docs/economy_oracle.md"]
 fn syndicate_row_at_5_gu() {
     check_row(5);
 }
 
 #[test]
+#[ignore = "on demand only, its pins not maintained (design change 0401): see docs/economy_oracle.md"]
 fn syndicate_row_at_6_gu() {
     check_row(6);
 }
@@ -244,7 +248,7 @@ fn syndicate_row_at_6_gu() {
 /// The whole table, rows 0 to 2 included, for the record (design change 0294: "Rows 0–2 are theoretical, since
 /// collision can cost income there"): nothing is checked but the ceiling.
 #[test]
-#[ignore = "the whole table, for docs/economy_oracle.md: run with --release --ignored --nocapture"]
+#[ignore = "on demand only (design change 0401), the whole table for docs/economy_oracle.md: run in release"]
 fn syndicate_table() {
     println!("distance | trip | per Agent | payback | to saturate | 2 Agents | 3 Agents | 4 Agents");
     for distance in 0..=6 {
@@ -261,6 +265,7 @@ fn syndicate_table() {
 /// patch (Agents 8 and 12 from their first loads, 10 later). Each takes the Tunnel nearest to it at every return,
 /// that of the patch it mines, so over the game more than four Agents deliver at one Tunnel.
 #[test]
+#[ignore = "on demand only, its pins not maintained (design change 0401): see docs/economy_oracle.md"]
 fn stacked_tunnels_double_a_fields_intake() {
     let mut t = TestSim::new(stacked_field(3, 4));
     let (west, east) = stacked_agents(4);
@@ -300,6 +305,7 @@ fn stacked_tunnels_double_a_fields_intake() {
 /// commands through the gate, `Syndicate`); the books balance every tick. The second Agent starts at once, in tick 1,
 /// and the Tunnel has its third Agent when that Agent comes out of the Tunnel to gather: within 0:34–0:46.
 #[test]
+#[ignore = "on demand only, its pins not maintained (design change 0401): see docs/economy_oracle.md"]
 fn the_opening_saturates_a_tunnel_around_0_40() {
     let line = BuildOrder::new(FIELD_PLAYER).track([Order::new(ObjectKind::Hideout, ObjectKind::Agent); 2]);
     let mut syndicate = Syndicate::new(line)

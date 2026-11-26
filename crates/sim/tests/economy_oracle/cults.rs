@@ -374,6 +374,7 @@ fn print_storages<'a>(line: &str, storages: &'a [(String, Tick, Tick, usize)]) -
 }
 
 #[test]
+#[ignore = "on demand only, its pins not maintained (design change 0401): see docs/economy_oracle.md"]
 fn cults_trips_and_faces() {
     let [one, two, three] = [alone(1), alone(2), alone(3)];
     let (near, far) = (face(Side::Long, 1, 6), face(Side::Long, 2, 6));
@@ -403,6 +404,7 @@ fn cults_trips_and_faces() {
 
 /// The reference field's seats (module docs): 16 Recruits a side, two to a patch, against 32 Recruits' alone.
 #[test]
+#[ignore = "on demand only, its pins not maintained (design change 0401): see docs/economy_oracle.md"]
 fn cults_the_line_seats_32() {
     let one = alone(1);
     let income = line_income(16, 16);
@@ -417,6 +419,7 @@ fn cults_the_line_seats_32() {
 /// Verification: "One Hall levels off at 20 Recruits mining, below the field's ~32 seats"), and its crystals against the
 /// GDO's and the Colonists'.
 #[test]
+#[ignore = "on demand only, its pins not maintained (design change 0401): see docs/economy_oracle.md"]
 fn cults_one_hall() {
     let end = at(4, 0);
     let game = Game::play(line_field(), one_hall(), end);
@@ -451,6 +454,7 @@ fn cults_one_hall() {
 /// a loss, complete as the earliest second Hall, its whole Recruitment Area its own; the Storages it builds; and
 /// design change 0385's Verification: "Two Halls reaches ~32 mining, and builds roughly 5–6 Storages along both sides".
 #[test]
+#[ignore = "on demand only, its pins not maintained (design change 0401): see docs/economy_oracle.md"]
 fn cults_two_halls() {
     let end = at(6, 0);
     let game = Game::play(line_field(), two_halls(), end);
@@ -491,7 +495,7 @@ fn cults_two_halls() {
 }
 
 #[test]
-#[ignore = "the measurements for docs/economy_oracle.md: run it in release with --ignored --nocapture"]
+#[ignore = "on demand only (design change 0401), the measurements for docs/economy_oracle.md: run in release"]
 fn cults_measurements() {
     for (side, gap, recruits) in [
         (Side::Long, 1, 5),

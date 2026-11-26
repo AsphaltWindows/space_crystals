@@ -16,36 +16,41 @@ screen.
 
 - `--factions <a>,<b>`: player 1 plays `a` in slot 1, player 2 plays `b` in slot 2. The factions are `gdo`,
   `syndicate`, `cults` and `colonists` (any case).
-- `--scenario <name>` starts a built-in map, `dev_skirmish` by default; `--map <file.json>` starts a map file, such as
-  `maps/dev_skirmish.json` (the same map). On `dev_skirmish` player 1 starts top left and player 2 bottom right.
+- `--map <file.json>` starts a map file; `--scenario <name>` starts a built-in map, `dev_skirmish` by default.
 - `--player 2` starts on player 2's side. `cargo run -- --help` lists every flag.
 
-Every pairing on `dev_skirmish`, all 16 (for the map file, put `--map maps/dev_skirmish.json` in place of
-`--scenario dev_skirmish`):
+**Playtest on `maps/playtest.json`.** It has `dev_skirmish`'s terrain: player 1 starts top left, player 2 bottom
+right, and a plateau with two ramps lies between them. Each base stands beside an 8-patch crystal line, the reference
+field of `factions/cults/economy.md > Economy check`, with room for three Storages on each long side of it, a 1-tile
+gap from the line, and a way round both ends. Every faction's Starting Layout faces the line, and the camera starts
+with both in view. `dev_skirmish` (`--scenario dev_skirmish`, or its file `maps/dev_skirmish.json`) keeps its own
+fields, in the corners.
+
+Every pairing on the playtest map, all 16 (for `dev_skirmish`, put `--scenario dev_skirmish` in place of
+`--map maps/playtest.json`):
 
 ```sh
-cargo run -- --factions gdo,gdo --scenario dev_skirmish
-cargo run -- --factions gdo,syndicate --scenario dev_skirmish
-cargo run -- --factions gdo,cults --scenario dev_skirmish
-cargo run -- --factions gdo,colonists --scenario dev_skirmish
-cargo run -- --factions syndicate,gdo --scenario dev_skirmish
-cargo run -- --factions syndicate,syndicate --scenario dev_skirmish
-cargo run -- --factions syndicate,cults --scenario dev_skirmish
-cargo run -- --factions syndicate,colonists --scenario dev_skirmish
-cargo run -- --factions cults,gdo --scenario dev_skirmish
-cargo run -- --factions cults,syndicate --scenario dev_skirmish
-cargo run -- --factions cults,cults --scenario dev_skirmish
-cargo run -- --factions cults,colonists --scenario dev_skirmish
-cargo run -- --factions colonists,gdo --scenario dev_skirmish
-cargo run -- --factions colonists,syndicate --scenario dev_skirmish
-cargo run -- --factions colonists,cults --scenario dev_skirmish
-cargo run -- --factions colonists,colonists --scenario dev_skirmish
+cargo run -- --factions gdo,gdo --map maps/playtest.json
+cargo run -- --factions gdo,syndicate --map maps/playtest.json
+cargo run -- --factions gdo,cults --map maps/playtest.json
+cargo run -- --factions gdo,colonists --map maps/playtest.json
+cargo run -- --factions syndicate,gdo --map maps/playtest.json
+cargo run -- --factions syndicate,syndicate --map maps/playtest.json
+cargo run -- --factions syndicate,cults --map maps/playtest.json
+cargo run -- --factions syndicate,colonists --map maps/playtest.json
+cargo run -- --factions cults,gdo --map maps/playtest.json
+cargo run -- --factions cults,syndicate --map maps/playtest.json
+cargo run -- --factions cults,cults --map maps/playtest.json
+cargo run -- --factions cults,colonists --map maps/playtest.json
+cargo run -- --factions colonists,gdo --map maps/playtest.json
+cargo run -- --factions colonists,syndicate --map maps/playtest.json
+cargo run -- --factions colonists,cults --map maps/playtest.json
+cargo run -- --factions colonists,colonists --map maps/playtest.json
 ```
 
 Two tests keep these working: `crates/game/tests/pairings.rs` starts each from its flags on every map, and
-`crates/sim/tests/pairings/` plays each with a scripted opening (on every map in its ignored run), then removes player
-2's buildings and checks that player 1 wins. The Cults have no scripted opening yet (slice M5-L adds it): their player
-stays idle there.
+`crates/sim/tests/pairings/` plays each with every faction's scripted opening (on every map in its ignored run), then
+removes player 2's buildings and checks that player 1 wins.
 
 ## Playing both sides
 

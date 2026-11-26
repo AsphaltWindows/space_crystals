@@ -294,15 +294,23 @@ fn zoom_reaches_the_whole_map_and_stays_in_range() {
     assert!(app.world().resource::<CameraZoom>().0.is_finite());
 }
 
+/// Every map in `maps/` validates and starts, and the editor saves it unchanged, byte for byte (slice M5-P3: the
+/// playtest map is made with the editor's own tools, and a map edited in the editor shows only its edits in a diff).
 #[test]
 fn the_maps_in_the_repository_are_playable() {
     let maps = files::list_maps(&files::default_maps_dir());
     assert!(!maps.is_empty(), "maps/ has at least dev_skirmish.json");
+    let dir = temp_maps("repository");
     for path in &maps {
         let map = files::load(path).unwrap();
         assert_eq!(map.validate(), vec![], "{}", path.display());
-        assert!(Sim::try_new(&Scenario::new(map)).is_ok());
+        assert!(Sim::try_new(&Scenario::new(map.clone())).is_ok());
+        let saved = dir.join(path.file_name().unwrap());
+        files::save(&saved, &map).unwrap();
+        let (before, after) = (std::fs::read(path).unwrap(), std::fs::read(&saved).unwrap());
+        assert!(before == after, "the editor doesn't save {} unchanged", path.display());
     }
+    std::fs::remove_dir_all(&dir).unwrap();
     let skirmish = files::load(&files::default_maps_dir().join("dev_skirmish.json")).unwrap();
     assert_eq!(
         skirmish,

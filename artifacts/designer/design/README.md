@@ -11,7 +11,7 @@ Index of the design docs. Paths are relative to this folder.
 | `core/lore.md` | Space Crystals lore, faction lore |
 | `core/camera.md` | Zoom, panning, starting position, HUD layout |
 | `core/art_direction.md` | 2.5D pixel art: square grid + 3/4 view, sprites pre-rendered from 3D models, 32 px per tile, building orientations, unit facings (16/32), elevation display |
-| `core/game_rules.md` | Defeat Condition (shared across factions) |
+| `core/game_rules.md` | Defeat Condition (shared across factions); computer players (playtest tool) |
 | `core/entities.md` | Entity hierarchy: Faction, Player, Object Type, Structure Type, Placement Validation (incl. Worker-Built Structures), instances |
 | `core/map.md` | Tiles, tile presets (Buildable/Traversible/Rugged/Drillable/Recruitable), Elevation (corner heights, slopes, flat-only building), Space Crystals patches, Supply Delivery Stations |
 | `core/map_editor.md` | Map editor: map creation settings, map types (Skirmish Default / Custom), per-object resource values, per-faction Starting Layouts (overlay, Skirmish Default restriction, outdated flags), Symmetry (chosen at creation, generated), custom tile presets |

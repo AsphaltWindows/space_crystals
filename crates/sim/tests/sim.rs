@@ -118,6 +118,7 @@ mod pairings;
 #[path = "path_knowledge/main.rs"]
 mod path_knowledge;
 mod placement;
+mod playtest_map;
 #[path = "popup/main.rs"]
 mod popup;
 #[path = "prerequisites/main.rs"]
