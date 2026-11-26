@@ -3344,7 +3344,11 @@ their energy doorway, slice M3-D2: design change 0145, `factions/colonists/struc
   incomplete layout and one with a Recruit too many, a layout's Hall flush against the map's edge at 70% (slice M5-S4,
   0387), and a layout's units belonging to its first Hall. `pairings/`
   (slice M5-R) starts every ordered pair of the four factions, 16, on every Skirmish Default map and plays it to a win
-  (*Adding a faction*, item 19). The Tunnel Area's rules are unit-tested in `placement/tests/tunnel_area.rs`, Tunnel
+  (*Adding a faction*, item 19). `playtest_map.rs` (slice M5-P3) has `maps/playtest.json`: generated from its
+  editable part and started in the 16 pairings; each slot's field the reference line of `testing::cults::fields`
+  moved, and each of its Storage sites holding the starting Storage or free for a Recruit's Build; the Hall at 100%;
+  the Deployment Center seeing and reaching every patch, the crystal hatch 3 grid units from the line, and the Drones
+  clear of the node and the portal. The Tunnel Area's rules are unit-tested in `placement/tests/tunnel_area.rs`, Tunnel
   Space in `economy/army/tunnel_space.rs`, the geometry in `tunnel/area.rs`; a unit inside the network keeping its
   Tunnel Space in `tests/tunnel_network/enter.rs`.
 - **The building armor rule** (design change 0264, `core/entities.md > Structure Type > Building armor rule`):
@@ -4786,8 +4790,10 @@ unchecked.
 - **Files**: maps live in `maps/` at the repository root (`editor::files::default_maps_dir`), and new maps are saved
   as `maps/<name>.json`. Saves are atomic: `files::save` writes a hidden temporary file next to the target (named
   after the process too, so that two processes writing one file never write into each other's), flushes it and
-  renames it over the target. Replays are written the same way (`files::write_atomically`). `maps/dev_skirmish.json` is the built-in `dev_skirmish` saved by the editor. A
-  test checks that every map in `maps/` is playable and that this one still matches the built-in.
+  renames it over the target. Replays are written the same way (`files::write_atomically`). `maps/dev_skirmish.json` is the built-in `dev_skirmish` saved by the editor. `maps/playtest.json`
+  (slice M5-P3) is the map to playtest on (`docs/playtest/README.md > Starting a pairing`): `dev_skirmish`'s terrain,
+  each base beside the Cults' reference crystal line. A test checks that every map in `maps/` is playable, that the
+  editor saves it unchanged, byte for byte, and that `dev_skirmish.json` still matches the built-in.
 - **Actions**: every change is an `EditorAction` (`editor/actions.rs`), queued in the `EditorActions` resource and
   applied in `EditorSystems::Apply`. The input layer's actions, the UI's buttons, the text fields and the window's
   close button only queue actions. The edits are plain functions (`editor/terrain.rs`, `editor/objects.rs`,
