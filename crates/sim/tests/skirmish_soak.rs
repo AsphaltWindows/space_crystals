@@ -28,7 +28,7 @@
 //! So how long a Drone went without delivering is printed, not checked, with the longest each order and each step of
 //! a Gather lasted.
 //!
-//! Ignored: two games of 9 600 ticks. `cargo test -p sc_sim --release --test skirmish_soak -- --ignored --nocapture`.
+//! Ignored: two games of 9 600 ticks. `cargo test -p sc_sim --release --test sim skirmish_soak -- --ignored --nocapture`.
 
 use std::collections::{BTreeMap, BTreeSet};
 use std::mem::{Discriminant, discriminant};

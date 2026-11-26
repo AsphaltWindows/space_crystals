@@ -3,7 +3,7 @@
 //! (`Sim::step_observed`). Ignored by default:
 //!
 //! ```sh
-//! cargo test -p sc_sim --release --test recruits_perf -- --ignored --nocapture --test-threads=1
+//! cargo test -p sc_sim --release --test perf recruits_perf -- --ignored --nocapture --test-threads=1
 //! ```
 //!
 //! On a flat 48 × 40 map player 1 has a field of 22 patches in two rows of 11, 4 tiles apart, with four Storages

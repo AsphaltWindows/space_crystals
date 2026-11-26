@@ -5,8 +5,8 @@ The economy oracle (`crates/sim/tests/economy_oracle/`, see `ARCHITECTURE.md > T
 To print every line, run:
 
 ```sh
-cargo test -p sc_sim --test economy_oracle -- --nocapture
-cargo test --release -p sc_sim --test economy_oracle -- --ignored --nocapture
+cargo test -p sc_sim --test sim economy_oracle -- --nocapture
+cargo test --release -p sc_sim --test sim economy_oracle -- --ignored --nocapture
 ```
 
 The second command runs the ignored measurements: the Colonists' lines to 6:00, the saturation curve, and the Syndicate's whole table.

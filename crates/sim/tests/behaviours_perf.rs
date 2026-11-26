@@ -2,7 +2,7 @@
 //! `docs/movement.md > 5.8` (whole tick ≤ 10 ms worst). Ignored by default:
 //!
 //! ```sh
-//! cargo test -p sc_sim --release --test behaviours_perf -- --ignored --nocapture
+//! cargo test -p sc_sim --release --test perf behaviours_perf -- --ignored --nocapture
 //! ```
 //!
 //! Three loads: 500 idle units with nobody in sight (every one scans every tick); two armies of 250 on Hold

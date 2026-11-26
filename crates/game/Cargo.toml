@@ -5,6 +5,8 @@ version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
 publish.workspace = true
+# The integration tests are modules of one test program (slice M5-T): `tests/game.rs` says how to add one.
+autotests = false
 
 [dependencies]
 sc_sim.workspace = true
@@ -36,3 +38,7 @@ features = [
 
 [lints]
 workspace = true
+
+[[test]]
+name = "game"
+path = "tests/game.rs"

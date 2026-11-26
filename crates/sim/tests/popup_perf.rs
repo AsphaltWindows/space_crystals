@@ -2,7 +2,7 @@
 //! costs as a dynamic obstacle. Ignored by default:
 //!
 //! ```sh
-//! cargo test -p sc_sim --release --test popup_perf -- --ignored --nocapture --test-threads=1
+//! cargo test -p sc_sim --release --test perf popup_perf -- --ignored --nocapture --test-threads=1
 //! ```
 //!
 //! Three Tunnels of player 1 in a row, each with four turrets inside its area, and 200 Guards of player 1 walking
