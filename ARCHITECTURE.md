@@ -643,7 +643,9 @@ Units, structures and resources are all `Object`s (`object.rs`, `core/entities.m
     which make an augmented unit's in a slot of the caller's), through accessors inlined into them, their augmented
     paths out of line (`augmented_increments`, `augmented_movement`); an augmented unit looks its owner up among the
     few players. The behaviours keep a unit's increments (`orders::world::Unit::increments`) and work out its top
-    speed only where they need it.
+    speed only where they need it. Measured (release, 10 interleaved rounds against slice M5-N2's build, load average
+    1.5 to 2.2): `movement_perf` 0.481 ms and `recruits_perf` 0.078 ms a whole tick on both sides; a first version
+    that copied the numbers out (`Object::movement`, `combat::weapon` in the loops) ran `movement_perf` 2% slower.
   - **HP restored** goes up to `max_hp_with`: the repair's (`repair::damage`, whose MaxHP also sets its rate and its
     price's steps, slice M5-N8) and the regeneration's (`crate::regeneration`). No repairer repairs infantry yet.
   - **HP when MaxHP changes** (design changes 0330 and 0331): `augmentation::follow_max`, applied by
