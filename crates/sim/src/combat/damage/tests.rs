@@ -156,3 +156,74 @@ fn the_second_hit_of_a_tick_meets_the_shields_the_first_left() {
     assert_eq!(took(&events), [(0.0, 10.0)]);
     assert!(matches!(events[1], SimEvent::Died { id: ObjectId(2), .. }));
 }
+
+/// (M5-N4b) The plan's acceptance, "A 3x3 building wholly under a cloud takes about 32% of the absorbed damage, before
+/// armour": a release of 600 over one 3-GU circle that holds a Scrap Hangar's whole footprint (2,304 of the circle's
+/// 7,232 lattice points here: `crate::shroud::lattice`) puts 31.9% of it on the hangar, with its whole FullArmor, 9, and
+/// the minimum of 0.5, as an area hit (`systems/combat.md > AoEDamage`), and no direction (design change 0334). A game
+/// can't put a 3x3 building wholly under one circle, whose Disciple would stand inside it: the circle is the cloud's
+/// data alone here. A unit beyond the circle takes nothing.
+#[test]
+fn a_3x3_building_wholly_under_one_circle_takes_about_32_percent_of_a_release() {
+    use crate::defs::ObjectKind;
+    use crate::ids::PlayerId;
+    use crate::scenario::SpawnAt;
+    use crate::shroud::Member;
+    use crate::sim::Sim;
+    use crate::testing::ScenarioBuilder;
+    let builder = ScenarioBuilder::new(&"..............................\n".repeat(16))
+        .spawn(
+            ObjectKind::ScrapHangar,
+            Some(PlayerId(1)),
+            SpawnAt::Tile(TilePos::new(4, 4)),
+        )
+        .spawn(
+            ObjectKind::Militant,
+            Some(PlayerId(2)),
+            SpawnAt::Point(Vec2::new(1000.0, 400.0)),
+        );
+    let sim = Sim::new(&builder.build());
+    let mut objects: BTreeMap<ObjectId, Object> = sim.objects().map(|o| (o.id, o.clone())).collect();
+    let hangar = objects[&ObjectId(1)].pos;
+    let targets = Targets::snapshot(sim.map(), &objects);
+    let (mut clouds, mut events) = (Clouds::default(), Vec::new());
+    let member = Member {
+        id: ObjectId(9),
+        since: 0,
+        at: hangar,
+        radius: 192.0,
+    };
+    clouds.update(vec![member], &mut events);
+    clouds.absorb(0, 600.0, 3);
+    let mut hits = Vec::new();
+    release(&mut clouds, &targets, 10, &mut hits, &mut events);
+    assert!(hits.is_empty(), "not due before tick 11");
+    release(&mut clouds, &targets, 11, &mut hits, &mut events);
+    let points = Union::of(&[member]).count() as f32;
+    assert!((points - 7_238.2).abs() < 72.0, "within 1% of its exact area: {points}");
+    let share = 600.0 * (2_304.0 / points);
+    assert_eq!(hits.len(), 1, "the hangar alone: {hits:?}");
+    let hit = hits[0];
+    assert_eq!((hit.attacker, hit.target), (ObjectId(9), ObjectId(1)));
+    assert_eq!(
+        (hit.damage, hit.armor, hit.directional, hit.minimum),
+        (share, 9.0, 1.0, MINIMUM_DAMAGE)
+    );
+    assert!(
+        (hit.damage / 600.0 - 0.32).abs() < 0.003,
+        "about 32%: {}",
+        hit.damage / 600.0
+    );
+    let released = SimEvent::ShroudReleased {
+        circles: vec![(hangar, 192.0)],
+        damage: 600.0,
+    };
+    assert!(events.contains(&released), "{events:?}");
+    let before = objects[&ObjectId(1)].hp.unwrap();
+    apply(&mut objects, &hits, &mut events);
+    assert_eq!(objects[&ObjectId(1)].hp, Some(before - (share - 9.0)));
+    assert!(
+        clouds.list()[0].buffer == 0.0 && !clouds.due(12),
+        "empty, and waiting for its next hit"
+    );
+}

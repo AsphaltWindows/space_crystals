@@ -144,6 +144,10 @@ pub const NOTHING_INSIDE_TEXT: &str = "No free unit inside";
 /// `factions/cults/augmentation.md > Altar > Augmentation Orders`: "An order can only target a unit that is missing
 /// every Augmentation the order applies"), which the panel never shows. Placeholder wording.
 pub const ALREADY_AUGMENTED_TEXT: &str = "Already has that Augmentation";
+/// (M5-N4b) The message of a spell pressed while none of its casters has the energy it needs (`Reject::NotEnoughEnergy`;
+/// `factions/cults/units/disciple.md > Placeholder stats > Shroud numbers`: "needs at least **10 energy** to start").
+/// Placeholder wording.
+pub const NOT_ENOUGH_ENERGY_TEXT: &str = "Not enough energy";
 /// The message of a Drop Off pressed while none of its workers carries a load (`Reject::NothingToDeliver`;
 /// `factions/syndicate/units/agent.md > Agent ObjectInterfaceState`: "greyed out when Agent is not carrying
 /// resources"). Placeholder wording.
@@ -328,6 +332,7 @@ pub fn reject_text(reject: Reject) -> &'static str {
         Reject::NoRecruit(_) => NO_RECRUIT_TEXT,
         Reject::NothingInside => NOTHING_INSIDE_TEXT,
         Reject::AlreadyAugmented(_) => ALREADY_AUGMENTED_TEXT,
+        Reject::NotEnoughEnergy => NOT_ENOUGH_ENERGY_TEXT,
         _ => CANNOT_DO_TEXT,
     }
 }

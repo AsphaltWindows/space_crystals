@@ -214,6 +214,11 @@ pub enum Reject {
     /// (`factions/cults/augmentation.md > Altar > Augmentation Orders`: "An order can only target a unit that is missing
     /// every Augmentation the order applies"; `AugmentOrder::fits`).
     AlreadyAugmented(RecruitKind),
+    /// (M5-N4b) None of the units of a spell's order that cast it has the energy it needs to start
+    /// (`defs::SpellDef::needs`, `energy::has`): Shroud's "needs at least **10 energy** to start"
+    /// (`factions/cults/units/disciple.md > Placeholder stats > Shroud numbers`). The spells' one refusal for want of
+    /// energy (`crate::energy`).
+    NotEnoughEnergy,
 }
 
 impl fmt::Display for Reject {
@@ -284,6 +289,7 @@ impl fmt::Display for Reject {
             Reject::NotAugmentable(id) => write!(f, "object {} can't be augmented", id.0),
             Reject::CannotAugment(order) => write!(f, "none of the producers applies {}", order.name()),
             Reject::AlreadyAugmented(kind) => write!(f, "a {} unit has an Augmentation the order applies", kind.name()),
+            Reject::NotEnoughEnergy => write!(f, "none of the units has the energy the spell needs"),
         }
     }
 }
@@ -382,7 +388,9 @@ impl Sim {
     ///    (`docs/movement.md > 3`);
     /// 4. the command's own rules hold: an order's size and target (which the player must see,
     ///    [`Reject::NotVisible`]), and for an Attack, units that can attack now ([`Reject::CannotAttack`]), for an
-    ///    Attack Ground, a point on the map and units that can target the ground ([`Reject::CannotTargetGround`]); the units
+    ///    Attack Ground, a point on the map and units that can target the ground ([`Reject::CannotTargetGround`]), (M5-N4b)
+    ///    for a Shroud, units that cast it ([`Reject::LacksAbility`]) with the energy it needs to start
+    ///    ([`Reject::NotEnoughEnergy`]); the units
     ///    of an ability that have it ([`Reject::LacksAbility`]); the producers of a production command and what they
     ///    can queue (`sim/producers.rs`); the constructors of a construction command that can carry it out, the bank
     ///    that pays and the placement check of a Place (`sim/construction.rs`), and the same of a Warp In's Beacon,

@@ -78,6 +78,7 @@ pub(crate) static DRONE: ObjectDef = ObjectDef {
         augmentable: None,
         // It repairs nothing (slice M5-N8): no Colonists repair is in the design.
         repairs: None,
+        spells: &[],
     }),
     structure: None,
     default_settings: None,

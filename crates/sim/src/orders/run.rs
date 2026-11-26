@@ -7,6 +7,7 @@ use std::collections::BTreeMap;
 use glam::Vec2;
 
 use super::reach::Reach;
+use super::shroud as channel;
 use super::state::{Approach, AttackGround, AttackOrder, Auto, Behaviour, Leg, Patrol};
 use super::world::{Unit, World};
 use super::{
@@ -18,6 +19,7 @@ use crate::ids::ObjectId;
 use crate::mover::{MoveGoal, MoveStatus};
 use crate::nav::PathGroup;
 use crate::object::Object;
+use crate::shroud::{self, Member};
 use crate::units::Tick;
 use crate::{combat, conversion, riot_shield};
 
@@ -27,9 +29,16 @@ use crate::{combat, conversion, riot_shield};
 /// unit's goal (`Mover::goal`), the target its attack engages (`AttackState::target`) and its turret's LockedTarget,
 /// and read `Mover::status`, which phase 5d set last tick. Everything they read of other objects comes from one
 /// snapshot, `world`, taken from `objects` just before: the positions the last tick left and the vision of its phase
-/// 5f.
-pub(crate) fn update(objects: &mut BTreeMap<ObjectId, Object>, first_new: ObjectId, world: &World, reach: &mut Reach) {
+/// 5f. (M5-N4b) Returns the units that channel Shroud as the phase leaves them, in id order, for their clouds
+/// (`crate::shroud::Clouds::update`).
+pub(crate) fn update(
+    objects: &mut BTreeMap<ObjectId, Object>,
+    first_new: ObjectId,
+    world: &World,
+    reach: &mut Reach,
+) -> Vec<Member> {
     reach.begin_tick();
+    let mut channelling = Vec::new();
     // `factions/colonists/units/drone.md > Patch Occupancy (one Drone per patch)`: in id order within the tick.
     let mut claims = gather::Claims::default();
     for o in objects.range_mut(..first_new).map(|(_, o)| o) {
@@ -55,11 +64,14 @@ pub(crate) fn update(objects: &mut BTreeMap<ObjectId, Object>, first_new: Object
             may_attack,
             converting,
             worker: o.worker.as_mut(),
+            energy: o.energy.as_mut(),
         };
         reach.begin_unit();
         update_unit(orders, &mut unit, world, &mut claims, reach);
         turret::run(&mut unit, world);
+        channelling.extend(shroud::member(o));
     }
+    channelling
 }
 
 pub(super) fn update_unit(
@@ -139,6 +151,8 @@ pub(super) fn start(order: &Order, unit: &mut Unit, world: &World) -> Behaviour 
         OrderKind::Gather(_) | OrderKind::DropOff(_) | OrderKind::Deploy { .. } | OrderKind::Enter(_) => {}
         OrderKind::AttackGround(_) => {}
         OrderKind::Build { .. } | OrderKind::Assist(_) | OrderKind::Repair(_) => {}
+        // (M5-N4b) A channel holds the unit where it stands (`super::shroud`).
+        OrderKind::Shroud => {}
     }
     unit.mover.stop();
     match order.kind {
@@ -179,6 +193,9 @@ pub(super) fn start(order: &Order, unit: &mut Unit, world: &World) -> Behaviour 
         OrderKind::Assist(_) => Behaviour::Assist(assist::begin()),
         // (M5-N8) `factions/cults/units/recruit.md > Repair`: to its own spot beside a building, or after a vehicle.
         OrderKind::Repair(target) => Behaviour::Repair(repair::begin(target, world)),
+        // (M5-N4b) `factions/cults/units/disciple.md > Spells > Shroud`: nothing to keep from tick to tick but the
+        // order's start (`ActiveOrder::since`).
+        OrderKind::Shroud => Behaviour::Plain,
     }
 }
 
@@ -193,6 +210,7 @@ fn run(
     claims: &mut gather::Claims,
     reach: &mut Reach,
 ) -> bool {
+    let first = active.since == world.tick;
     let order = &mut active.order;
     match (order.kind, &mut active.state) {
         // `systems/controls/command_behaviors.md > MovingToLocation`: complete when stopped at the target, or after
@@ -234,6 +252,9 @@ fn run(
         (OrderKind::Assist(_), Behaviour::Assist(state)) => assist::run(state),
         // (M5-N8) Repairing from its spot, or following its vehicle; the repairs' step ends the order (`repair`).
         (OrderKind::Repair(target), Behaviour::Repair(state)) => repair::run(unit, target, state, world),
+        // (M5-N4b) Channelling where it stands, its energy drained, until another order or its energy can't pay a
+        // tick's drain (`super::shroud`). Its state, the plain one, is any.
+        (OrderKind::Shroud, _) => channel::run(unit, first),
         // A state that isn't its order's (a save edited by hand): the order ends.
         (OrderKind::Hold | OrderKind::Attack(_) | OrderKind::AttackMove(_) | OrderKind::Patrol(_), _)
         | (OrderKind::Move(Target::Object(_)) | OrderKind::Gather(_) | OrderKind::DropOff(_), _)

@@ -457,4 +457,23 @@ pub enum SimEvent {
         order: AugmentOrder,
         refund: u32,
     },
+    /// (M5-N4b) `disciple` channels Shroud, standing at `at`, from this tick on: its circle is part of a cloud
+    /// (`factions/cults/units/disciple.md > Spells > Shroud`, `crate::shroud`).
+    ShroudStarted {
+        disciple: ObjectId,
+        at: Vec2,
+    },
+    /// (M5-N4b) `disciple`'s channel ended in this tick ("only the Disciple's **death**, a **cancel** command (Stop or any
+    /// other order), or running **out of energy**", or its player's defeat): its circle is no cloud's any more.
+    ShroudEnded {
+        disciple: ObjectId,
+    },
+    /// (M5-N4b) A cloud's buffer, `damage`, was released "as **one area hit over the whole connected cloud**" over the
+    /// circles `circles` (centres and radii, space units; as the cloud was, for one that ended). Its shares follow as
+    /// [`SimEvent::Hit`]s. Every player sees it over their Visible tiles, as the cloud ("the cloud is shown to **every
+    /// player**, over the tiles that are Visible to them").
+    ShroudReleased {
+        circles: Vec<(Vec2, f32)>,
+        damage: f32,
+    },
 }

@@ -66,6 +66,32 @@ fn energy_regenerates_up_to_the_maximum() {
     assert_eq!(regenerate(u32::MAX - 1, 2048, u32::MAX), u32::MAX, "no overflow");
 }
 
+/// (M5-N4b) A spell spends all of a cost or nothing, never below 0, and needs what it needs exactly: 10 points is
+/// 655,360 units, and one unit less isn't enough.
+#[test]
+fn spending_is_all_or_nothing_and_the_need_compares_exactly() {
+    let mut energy = units(10.0);
+    assert!(spend(&mut energy, per_tick(5.0)));
+    assert_eq!(energy, units(10.0) - 20_480);
+    let mut short = 20_479;
+    assert!(!spend(&mut short, 20_480), "a tick's drain it can't pay");
+    assert_eq!(short, 20_479, "nothing spent");
+    let mut exact = 20_480;
+    assert!(spend(&mut exact, 20_480) && exact == 0);
+    let builder = ScenarioBuilder::new(&"..........\n".repeat(4)).spawn(
+        ObjectKind::Disciple,
+        Some(P1),
+        SpawnAt::Point(Vec2::new(100.0, 100.0)),
+    );
+    let mut disciple = Sim::new(&builder.build()).objects().next().unwrap().clone();
+    for (energy, has_ten) in [(units(10.0), true), (units(10.0) - 1, false), (units(200.0), true)] {
+        disciple.energy = Some(energy);
+        assert_eq!(has(&disciple, 10.0), has_ten, "{energy}");
+    }
+    disciple.energy = None;
+    assert!(!has(&disciple, 0.0), "no pool, no energy");
+}
+
 /// A change of kind (`Sim::change_kind`): into a type with a pool, the energy kept at most its maximum, or its start;
 /// into a type without one, none.
 #[test]

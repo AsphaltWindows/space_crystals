@@ -22,6 +22,7 @@ use crate::paths::knowledge::PathKnowledge;
 use crate::player::Player;
 use crate::rng::Rng;
 use crate::scenario::{Scenario, ScenarioProblem, SpawnSettings};
+use crate::shroud::Clouds;
 use crate::units::{Tick, TilePos};
 use crate::vision::{VisibilityState, Vision};
 
@@ -70,6 +71,11 @@ pub struct Sim {
     /// they were before the store existed.
     #[serde(skip_serializing_if = "Vec::is_empty")]
     projectiles: Vec<Projectile>,
+    /// (M5-N4b) Shroud's clouds and their buffers (`crate::shroud`, plan decision T77): history, hashed and serialized;
+    /// left out of the hash and of files while there is no cloud and no buffer waiting for its release, so that the
+    /// states without one are as they were before Shroud.
+    #[serde(skip_serializing_if = "Clouds::is_empty")]
+    clouds: Clouds,
     next_id: u32,
     /// The only source of randomness (`ARCHITECTURE.md > Determinism`), seeded from
     /// `GameSetup::seed`.
@@ -146,6 +152,7 @@ impl Sim {
             objects: BTreeMap::new(),
             held: BTreeMap::new(),
             projectiles: Vec::new(),
+            clouds: Clouds::default(),
             next_id: 1,
             rng: Rng::from_seed(scenario.setup.seed),
             config: scenario.setup.config,
@@ -223,6 +230,12 @@ impl Sim {
         &self.projectiles
     }
 
+    /// (M5-N4b) Shroud's clouds as the latest tick left them (`crate::shroud`), with the buffers of those that ended
+    /// since its phase 5e, which the next one releases (`Clouds::ended`).
+    pub fn clouds(&self) -> &Clouds {
+        &self.clouds
+    }
+
     /// Every player's vision at the end of the latest tick (`core/vision.md`): tile states, which objects each
     /// player sees, and a revision per player that changes with its tiles.
     pub fn vision(&self) -> &Vision {
@@ -248,8 +261,8 @@ impl Sim {
 
     /// FNV-1a 64 hash of the whole state: tick, map, players, the outcome, objects in id order, next id,
     /// PRNG state, config, next order group, nav version, each player's Explored tiles and records and its path
-    /// knowledge, the held units and the projectiles in flight while there are any (`f32` by its bits; encoding in
-    /// `hash.rs`). Events are output, and the grids and the Visible tiles
+    /// knowledge, the held units, the projectiles in flight and (M5-N4b) the clouds while there are any (`f32` by its
+    /// bits; encoding in `hash.rs`). Events are output, and the grids and the Visible tiles
     /// derived data, so they are left out. Equal states give equal hashes on every machine, so
     /// comparing hashes checks determinism.
     pub fn state_hash(&self) -> u64 {
@@ -262,6 +275,7 @@ impl Sim {
             objects,
             held,
             projectiles,
+            clouds,
             next_id,
             rng,
             config,
@@ -306,6 +320,11 @@ impl Sim {
             for p in projectiles {
                 p.hash(&mut h);
             }
+        }
+        // (M5-N4b) The clouds and the buffers waiting for their release, the same way, under a tag of their own.
+        if !clouds.is_empty() {
+            h.tag(3);
+            clouds.hash(&mut h);
         }
         h.finish()
     }
