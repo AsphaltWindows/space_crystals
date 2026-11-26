@@ -88,12 +88,13 @@ Recruits can enter an Armory to join its internal StoredRecruits pool (up to Int
   - **BuildMenu[Advanced]**: **A** Chop Shop, **S** Machine Shop, **D** Airstrip, **F** Scrap Hangar; **X** Temple, **C** Cathedral, **V** Shrine.
 - **S: Assist Construction** — targeted command (StateOnlyTransition). Left-click an in-progress own building to join construction.
 - **D: Repair** — targeted command (StateOnlyTransition). Left-click a damaged own building or vehicle to repair it (see Repair).
+- **E: Attack** (user, 2026-11-27: "recruits should be able to attack (melee attack)"; letter: designer placeholder, E as no other slot is free on the left) — as BasicCombatUnitInterfaceState's Attack: enters AwaitingTarget[Attack]; left-click an enemy to attack it in melee, or ground to Attack Move.
 - **X: Stop** — as in BasicCombatUnitInterfaceState.
 
 ### Unit Commands:
 - **Move** — right-click ground
 - **Stop** — panel button X
-- **Attack** — right-click enemy unit/building (melee)
+- **Attack** — right-click enemy unit/building (melee), or panel button E (also Attack Move on ground)
 - **Enter Armory** — right-click own Armory
 - **Enter Altar** — right-click own Altar
 - **Enter Cathedral** — right-click own Cathedral
