@@ -69,7 +69,7 @@
   - Keep defs as plain, serde-ready data structs, so that step stays cheap.
 
 ## Lessons learned (process)
-- **Never start a Bash command with a bare `cd`** into another directory, whether a worktree or a docs folder (`cd dir && grep …`). The session's cwd persists, and it slipped seven times (the seventh a design-path check, 2026-11-25: check paths with `[ -f artifacts/designer/design/$f ]`, never by cd-ing there). Use a subshell `( cd $WT && … )`, `git -C`, `--manifest-path`, or absolute paths. `cd /home/iv/dev/space_crystals && …` is fine. If it slips, run `cd /home/iv/dev/space_crystals` at once.
+- **Never start a Bash command with a bare `cd`** into another directory, whether a worktree or a docs folder (`cd dir && grep …`). The session's cwd persists, and it slipped eight times (the eighth, 2026-11-25, `cd …/artifacts/designer/design && grep …` while checking question drafts; the seventh a design-path check, 2026-11-25: check paths with `[ -f artifacts/designer/design/$f ]`, never by cd-ing there). Use a subshell `( cd $WT && … )`, `git -C`, `--manifest-path`, or absolute paths. `cd /home/iv/dev/space_crystals && …` is fine. If it slips, run `cd /home/iv/dev/space_crystals` at once.
 - **Folding design changes into a running agent with SendMessage works.** M0-D absorbed 0012/0013 and four review findings mid-task. Give exact file:line references and the fix direction.
 - **Parallel agents**: give each the other's areas as a "don't touch" list, and carry cross-cutting state (e.g. the debug switch) through a separate type, so the integration merge stays small.
 - **Typical cost**: an editor-sized task takes about 1 hour and 150–250k agent tokens; a read-only review takes about 25 minutes and 170k.
@@ -96,7 +96,8 @@
 - `artifacts/director/m4-plan.md` is the planner's revision 2, which folds in 0229–0282. It adds R1 and R2 (code organization), O (combat spike), U (Grenadier), and S1 and S2 (Laser Turrets). The waves and the critical path are in `plan.md`'s M4 entry.
 - The common brief, `scratchpad/briefs/m4-common.md`, now binds T29–T54, cites the per-object design paths (0282) and the code-organization rules (T54). Update it whenever the plan's structure changes.
 - M4-R runs alone: no other slice beside R1 and R2, since the refactor touches nearly every file. Briefs written after it lands must use its new module layout.
-- The next question number is **Q0112**.
+- The next question number is **Q0126**.
+- **Build timing (2026-11-25, load 13 on 8 cores):** a full check after a change takes about 72 s to compile and link and 41 s to run the 1877 tests; fmt and a warm clippy take seconds. Agents spend 20–35% of a slice in cargo and most of the rest reasoning. rustc 1.100 already links with LLD by default, so mold would gain little; fewer test binaries (116 today) is the bigger lever, best done between waves.
 - **M5 planning started early (2026-11-26).** M5-P, a read-only planning spike on Opus (brief `scratchpad/briefs/m5-planning.md`), drafts `scratchpad/m5/m5-plan-draft.md` while M4's last slices run. M5 ends at the user's first playtest, so the draft also plans playtest readiness for all four factions, and the user's "data files at playtest" step. Adopted as `artifacts/director/m5-plan.md` (2026-11-25), with the Director's decisions at its top; Q0092–Q0108 filed from its drafts. The user's product decisions (the opponent, a start screen) come before M5 starts.
 
 ## Code layout after M4-R (R1 `8eab2290`, R2 `c60b8d0f`)
