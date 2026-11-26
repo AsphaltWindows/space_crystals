@@ -19,7 +19,8 @@
 //!   `crate::spot_work`);
 //! - [`repair`]: a repairer at a damaged own building, from its own spot beside it, or with a damaged own vehicle,
 //!   which it follows (slice M5-N8, `crate::repair`);
-//! - [`enter`]: a unit's walk into a Tunnel's entry path (`crate::network`);
+//! - [`enter`]: a unit's walk into the entry path of the structure being entered, a Tunnel or a building that holds
+//!   units (`crate::network`, `crate::holding`);
 //! - [`attack_ground`]: AttackingLocation, an Attack Ground's walk into range and its shots, until another order
 //!   (slice M4-O; design change 0293).
 //!
@@ -106,9 +107,11 @@ pub enum OrderKind {
     /// `factions/colonists/economy.md > Beacon Deployment > Deploy Command`: a Drone walks to the site of a Beacon
     /// whose footprint's top-left tile is `origin` and deploys into it there (`crate::deploy`, [`build`]).
     Deploy { origin: TilePos },
-    /// `systems/controls/commands.md > Enter`: "The unit walks to Side A and enters the Tunnel Network"
-    /// (`factions/syndicate/tunnels.md > Tunnel Network > Walking in`; [`enter`], `crate::network`): this Tunnel of its
-    /// owner's, through its entry path.
+    /// `systems/controls/commands.md > Enter`: "Order the unit to enter an own structure that can hold units", its
+    /// TargetObject "the structure being entered" (design change 0319): this structure of its owner's, through its
+    /// entry path ([`enter`]). A Tunnel takes the unit into the network ("The unit walks to Side A and enters the
+    /// Tunnel Network", `factions/syndicate/tunnels.md > Tunnel Network > Walking in`; `crate::network`), a building
+    /// that holds units into its pool (slice M5-F1, `crate::holding`).
     Enter(ObjectId),
     /// (M4-O) `systems/controls/commands.md > AttackGround`: "Attack a specific ground location", the point clicked,
     /// space units, with no snapping (plan decision T47). Only units whose attack can target the ground take it

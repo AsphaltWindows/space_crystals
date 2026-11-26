@@ -2591,10 +2591,12 @@ their energy doorway, slice M3-D2: design change 0145, `factions/colonists/struc
   (`NothingToDeliver` if none does, design change 0140). `Deploy { origin }` (slice M3-F, see *Economy >
   Beacon Deployment*) goes to the one Drone among the units (`NoWorkers` if none, `SeveralConstructors` if more: the
   client picks one, design change 0125), with a site allowed as far as the player knows, its pending sites reserved
-  (`Unplaceable(PlacementProblem)`, not reported: `Sim::deploy_check`). `Enter(tunnel)` (slice M4-C,
-  `systems/controls/commands.md > Enter`, `Sim::check_enter`) names a Tunnel of the player's own in operation
-  (`NotOwned`, `NotATunnel`), and goes to the units its tier lets in (`network::admits`; `NoTransit` if none: any
-  unit of the Tunnel's owner may enter, whatever its type's faction). `Build { kind, origin, orientation }` (slice
+  (`Unplaceable(PlacementProblem)`, not reported: `Sim::deploy_check`). `Enter(target)` (slice M4-C,
+  `systems/controls/commands.md > Enter`, `Sim::check_enter`) names the structure being entered (design change 0319),
+  the player's own (`NotOwned`): a Tunnel in operation, and goes to the units its tier lets in (`network::admits`;
+  `NoTransit` if none), or a building that holds units, not a site (`UnderConstruction`; slice M5-F1), and goes to
+  the units of the kinds it takes in (`NotAccepted` if none); anything else is `NotATunnel`. Any unit of the target's
+  owner may enter, whatever its type's faction. `Build { kind, origin, orientation }` (slice
   M4-E, `Sim::check_build`) goes to the one unit among them that builds `kind` (`NoWorkers`, `SeveralConstructors`),
   Shift-queued only to a unit with no Build yet (`ConstructorBusy`: each Agent takes one placement), and is paid for as
   it is given (`InsufficientSupplies`), its site allowed as far as the player knows (`Unplaceable`, not reported:
@@ -2674,7 +2676,8 @@ their energy doorway, slice M3-D2: design change 0145, `factions/colonists/struc
   changes 0062, 0063, 0074 and 0136): `resolve(Abilities, Aim)` is the one rule for what a unit does against a target
   by default: the ground gives Move; a worker on a patch it can gather Gather, on its owner's drop-off Drop Off while
   it carries a load (else a Move there, 0140); an own Tunnel whose tier lets the unit through Enter (slice M4-C:
-  `Abilities::transit` against `Aimed::transit`, `network::passes`); an enemy it can attack (its attack's
+  `Abilities::transit` against `Aimed::transit`, `network::passes`), and so does an own building in operation that
+  takes the unit's kind in (slice M5-F1: `Aimed::accepts`, `Abilities::kind`); an enemy it can attack (its attack's
   TargetDomain, the target
   destructible, its mode letting it attack) Attack; anything else a Move to the object, which follows a unit (an
   unarmed Drone follows an enemy, a shielded Peacekeeper too). `Sim::aimed(player, id)` is the target as the player
