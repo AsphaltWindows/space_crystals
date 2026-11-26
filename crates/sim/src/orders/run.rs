@@ -10,7 +10,7 @@ use super::reach::Reach;
 use super::state::{Approach, AttackGround, AttackOrder, Auto, Behaviour, Leg, Patrol};
 use super::world::{Unit, World};
 use super::{
-    ActiveOrder, Order, OrderKind, Orders, Target, assist, attack_ground, build, engage, enter, gather, travel,
+    ActiveOrder, Order, OrderKind, Orders, Target, assist, attack_ground, build, engage, enter, gather, travel, turret,
 };
 use crate::deploy;
 use crate::ids::ObjectId;
@@ -22,10 +22,11 @@ use crate::{combat, conversion, riot_shield};
 
 /// Phase 5a (`docs/movement.md > 4`): for every unit before `first_new`, in id order, complete the current order
 /// if its behaviour is done, start queued orders until one is still running, and run that behaviour, or the idle
-/// one, for the tick. The behaviours write the unit's goal (`Mover::goal`) and the target its attack engages
-/// (`AttackState::target`), and read `Mover::status`, which phase 5d set last tick. Everything they read of other
-/// objects comes from one snapshot, `world`, taken from `objects` just before: the positions the last tick left and
-/// the vision of its phase 5f.
+/// one, for the tick; then (M5-U1) its turret's behaviour, if it has a turret (`turret`). The behaviours write the
+/// unit's goal (`Mover::goal`), the target its attack engages (`AttackState::target`) and its turret's LockedTarget,
+/// and read `Mover::status`, which phase 5d set last tick. Everything they read of other objects comes from one
+/// snapshot, `world`, taken from `objects` just before: the positions the last tick left and the vision of its phase
+/// 5f.
 pub(crate) fn update(objects: &mut BTreeMap<ObjectId, Object>, first_new: ObjectId, world: &World, reach: &mut Reach) {
     reach.begin_tick();
     // `factions/colonists/units/drone.md > Patch Occupancy (one Drone per patch)`: in id order within the tick.
@@ -52,6 +53,7 @@ pub(crate) fn update(objects: &mut BTreeMap<ObjectId, Object>, first_new: Object
         };
         reach.begin_unit();
         update_unit(orders, &mut unit, world, &mut claims, reach);
+        turret::run(&mut unit, world);
     }
 }
 
@@ -102,9 +104,17 @@ pub(super) fn start(order: &Order, unit: &mut Unit, world: &World) -> Behaviour 
     // acquired by itself.
     // (M4-O) An Attack Ground engages its location instead (`systems/controls/command_behaviors.md >
     // AttackingLocation`).
+    // (M5-U1) A Stop also clears the turret's LockedTarget (`systems/controls/command_behaviors.md >
+    // StoppingBehavior` 2: "Clear TurretCommandState.LockedTarget (turret falls back to autonomous scanning)"); every
+    // other order leaves it as it is (`systems/controls/commands.md > TurretCommandState`: "When the base behavior does
+    // not specify a target, the turret retains its previous TurretCommandState").
     match order.kind {
         OrderKind::AttackGround(at) => unit.engage_ground(at),
         OrderKind::Attack(id) => unit.engage(Some(id)),
+        OrderKind::Stop => {
+            unit.engage(None);
+            unit.lock(None);
+        }
         _ => unit.engage(None),
     }
     match order.kind {

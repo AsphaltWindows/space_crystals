@@ -13,7 +13,7 @@ use std::collections::BTreeMap;
 use glam::Vec2;
 
 use crate::combat::{self, AttackState, domain_allows, object_domain};
-use crate::defs::{AttackAttrs, Domain, ObjectKind, TargetDomain, UnitDef};
+use crate::defs::{AttackAttrs, Domain, ObjectKind, TargetDomain, TurretAttrs, UnitDef};
 use crate::economy::Worker;
 use crate::elevation::Elevation;
 use crate::ids::{ObjectId, PlayerId};
@@ -127,6 +127,36 @@ impl Unit<'_> {
     pub fn engage_ground(&mut self, at: Vec2) {
         if let Some(attack) = &mut self.attack {
             attack.engage_ground(at);
+        }
+    }
+
+    /// (M5-U1) Its TurretAttributes, if it has a turret (`UnitDef::turret`, design change 0154): its attack comes
+    /// from the turret (`combat::turret`).
+    pub fn turret(&self) -> Option<TurretAttrs> {
+        self.unit_def()?.turret
+    }
+
+    /// (M5-U1) The direction its attack faces, from which a scan measures the rotation a target needs
+    /// (`systems/controls/behaviors.md > BaseAutoTargeting > Target Selection Priority`: "unit facing for infantry,
+    /// turret angle for turret units"): its turret's, on its own facing (`combat::turret::aim_facing`), else its own.
+    pub fn aim_facing(&self) -> f32 {
+        let turret = self.attack.as_ref().and_then(|attack| attack.turret);
+        combat::turret::aim_facing(turret, self.facing)
+    }
+
+    /// (M5-U1) Whether the point `at` is within its turret's arc (`combat::turret::in_arc`); always for a unit
+    /// without a turret.
+    pub fn in_arc(&self, at: Vec2) -> bool {
+        (self.turret()).is_none_or(|turret| combat::turret::in_arc(&turret, self.facing, self.pos, at))
+    }
+
+    /// (M5-U1) Its turret, if it has one, locks `target`, or nothing (`AttackState::lock`): what the design calls
+    /// setting TurretCommandState.LockedTarget (`systems/controls/commands.md > TurretCommandState`).
+    pub fn lock(&mut self, target: Option<ObjectId>) {
+        if self.turret().is_some()
+            && let Some(attack) = &mut self.attack
+        {
+            attack.lock(target);
         }
     }
 

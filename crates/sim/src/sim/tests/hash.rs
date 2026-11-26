@@ -31,6 +31,7 @@ fn make_busy(sim: &mut Sim, id: u32) {
         phase: Some(AttackPhase::Aiming { target: ObjectId(2) }),
         elapsed: 1,
         location: None,
+        turret: None,
     });
     obj(sim, id).riot_shield = Some(RiotShield { up: 4 });
 }

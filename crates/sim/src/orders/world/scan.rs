@@ -6,8 +6,8 @@
 use glam::Vec2;
 
 use super::{Unit, View, World};
-use crate::combat::{domain_allows, inside_min_range, within_range};
-use crate::defs::{AttackAttrs, ObjectKind};
+use crate::combat::{domain_allows, inside_min_range, turret, within_range};
+use crate::defs::{AttackAttrs, ObjectKind, TurretAttrs};
 use crate::elevation::{self, Elevation};
 use crate::ids::ObjectId;
 use crate::math;
@@ -71,22 +71,24 @@ impl World<'_> {
         }
     }
 
-    /// The angle `unit` would turn to face `view`, radians, 0 to π: from the unit's own facing, the turret's being the
-    /// unit's while turrets have no state of their own (design change 0179: "unit facing for infantry").
-    fn rotation(unit: &Unit, view: &View) -> f32 {
-        let to = view.pos - unit.pos;
+    /// The angle a unit at `pos` whose attack faces `facing` ([`Unit::aim_facing`]: its own facing, or its turret's)
+    /// would turn to face `view`, radians, 0 to π (design change 0179: "unit facing for infantry, turret angle for
+    /// turret units").
+    fn rotation(pos: Vec2, facing: f32, view: &View) -> f32 {
+        let to = view.pos - pos;
         if to == Vec2::ZERO {
             return 0.0;
         }
-        math::wrap_angle(math::vector_angle(to) - unit.facing).abs()
+        math::wrap_angle(math::vector_angle(to) - facing).abs()
     }
 
     /// `systems/controls/behaviors.md > BaseAutoTargeting > Target Selection Priority`
     /// (`systems/controls/behaviors.md > TurretAutonomousScanning`): the best ValidTarget within the reach of `scan`,
     /// if any, among those `admit` lets through:
     /// 1. **threatening** targets first, those whose own attack can target this unit's domain;
-    /// 2. then the **least rotation** from the unit's facing (the turret's, once turrets have state), in 45° steps
-    ///    (design change 0179, [`rotation_step`]): targets in one step count as needing equal rotation;
+    /// 2. then the **least rotation** from the unit's facing, or its turret's for a unit with a turret (slice M5-U1,
+    ///    [`Unit::aim_facing`]), in 45° steps (design change 0179, [`rotation_step`]): targets in one step count as
+    ///    needing equal rotation;
     /// 3. then the **closest** (the gap between the shapes); then the lowest id, the fixed order of the remaining
     ///    ties.
     ///
@@ -127,7 +129,7 @@ impl World<'_> {
             self.cell_coord(unit.pos.y - radius, self.cells_high),
             self.cell_coord(unit.pos.y + radius, self.cells_high),
         );
-        let (shape, source) = (unit.shape(), self.elevation(unit));
+        let (shape, source, facing) = (unit.shape(), self.elevation(unit), unit.aim_facing());
         let mut best: Option<(bool, u8, f32, ObjectId)> = None;
         for y in y0..=y1 {
             for x in x0..=x1 {
@@ -145,7 +147,7 @@ impl World<'_> {
                     {
                         continue;
                     }
-                    let rotation = Self::rotation(unit, view);
+                    let rotation = Self::rotation(unit.pos, facing, view);
                     if facing_only && rotation > FACING_TOLERANCE {
                         continue;
                     }
@@ -170,5 +172,20 @@ impl World<'_> {
             }
         }
         best.map(|(.., id)| id)
+    }
+
+    /// (M5-U1) `systems/controls/behaviors.md > TurretAutonomousScanning`: the target the turret `turret` of `unit`
+    /// locks when it has none ("selects the best available target from ValidTarget enemies within weapon range and
+    /// turret arc", Algorithm steps 1 to 3): the best by [`World::pick`]'s priority (threatening first, then the
+    /// least rotation from the turret's facing in 45° steps, then the closest) among the enemies within Range and
+    /// within the arc (`combat::turret::in_arc`), never one inside MinRange ([`Scan::Weapon`];
+    /// `systems/controls/behaviors.md > BaseAutoTargeting > Targets inside MinRange`: auto-targeting "skips enemies
+    /// inside the weapon's MinRange and picks one it can hit; with none, it does nothing"). None: the turret stays
+    /// inactive (step 5).
+    pub(crate) fn turret_pick(&self, unit: &Unit, turret: &TurretAttrs) -> Option<ObjectId> {
+        let (pos, facing) = (unit.pos, unit.facing);
+        self.pick(unit, Scan::Weapon, false, |c| {
+            turret::in_arc(turret, facing, pos, c.view.pos)
+        })
     }
 }
