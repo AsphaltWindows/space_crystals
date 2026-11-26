@@ -13,7 +13,7 @@
 //!   that becomes of the type (`Sim::change_kind`: the Recruit a Cathedral trains into a Disciple, `Sim::train`); one
 //!   that changes from a type with a pool into another keeps its energy, at most the new maximum, and into a type
 //!   without one has none. Hashed and saved only while set.
-//! - **Regeneration** ([`step`]): every tick, right after the Shields' (`ARCHITECTURE.md > Tick pipeline`): after 5e's
+//! - **Regeneration** (`step`): every tick, right after the Shields' (`ARCHITECTURE.md > Tick pipeline`): after 5e's
 //!   dead have left the game, so that they never regenerate, and before the economy, whose new units start at their
 //!   start in their first tick. Up to the maximum, whoever owns the object, as the Shields. Wherever the unit is: a
 //!   unit inside a building (a Disciple in a Garrison) regenerates too. Placeholder (not in the design: "It
