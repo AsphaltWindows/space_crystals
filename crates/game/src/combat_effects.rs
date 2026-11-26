@@ -7,7 +7,9 @@
 //! design change 0148: "a shield bar sits directly above the HP bar"; its styling waits for the HUD pass), and a
 //! fading marker where an object died (`SimEvent::Died`). Slice M4-O adds the projectiles in flight
 //! ([`projectiles`], from `SimEvent::ProjectileLaunched`, plan decision T52), each in its thrower's style (the
-//! Grenadier's grenade, slice M4-U), and the blasts where they land ([`blasts`], `SimEvent::Blast`).
+//! Grenadier's grenade, slice M4-U), and the blasts where they land ([`blasts`], `SimEvent::Blast`). (M5-N2) The shots
+//! of the units inside a Garrison leave from its footprint's edge nearest their targets, where the sim says they do
+//! (`SimEvent::Attacked::from`), each in the style of the weapon it fires there ([`occupant_form`]).
 //!
 //! Everything is one vertex-coloured, alpha-blended mesh in the overlays layer, rebuilt every frame while anything
 //! shows. Effects age by the sim's ticks plus the render alpha, so a QA screenshot of a tick (alpha 1) always shows
@@ -42,6 +44,7 @@ mod draw;
 pub mod projectiles;
 
 use bevy::prelude::*;
+use sc_sim::network::{Held, Place};
 use sc_sim::{Map, Object, ObjectId, ObjectKind, PlayerId, SU_PER_GU, Sim, SimEvent, Tick, VisibilityState};
 
 use crate::ClientSystems;
@@ -276,6 +279,19 @@ fn hp_bar(map: &Map, o: &Object, alpha: f32, fraction: f32, shields: Option<f32>
     }
 }
 
+/// (M5-N2) The form whose weapon unit `held` fires from inside its building: in a building whose occupants fire, the
+/// one it fires there (`sc_sim::defs::OccupantFire::weapon_kind`: the Garrison's Recruits and Disciples fire the
+/// Militant's), else its own.
+pub fn occupant_form(sim: &Sim, held: &Held) -> ObjectKind {
+    let Place::Building(building) = held.place else {
+        return held.object.kind;
+    };
+    let fire = sim
+        .object(building)
+        .and_then(|b| b.def().structure.as_ref()?.occupants_fire.as_ref());
+    fire.map_or(held.object.kind, |fire| fire.weapon_kind(held.object.kind))
+}
+
 /// Takes the new shots, deaths, projectiles and blasts from the frame's events, each with its sighting
 /// (`ViewerEvents::sightings`), and drops the effects that have faded and the projectiles that have landed. A replaced
 /// sim starts from none.
@@ -296,10 +312,12 @@ fn collect_effects(sim: Res<SimRes>, events: Res<ViewerEvents>, mut effects: Res
             _ => None,
         })
     };
-    // The form a shooter fired in (`sc_sim::conversion::form`), whose weapon it was, and its owner.
-    let shooter_of = |id: ObjectId| match sim.object(id) {
-        Some(o) => Some((sc_sim::conversion::form(o), o.owner)),
-        None => fallen(id),
+    // The form a shooter fired in (`sc_sim::conversion::form`), whose weapon it was, and its owner; (M5-N2) a unit's
+    // inside a building, from which it fires ([`occupant_form`]).
+    let shooter_of = |id: ObjectId| match (sim.object(id), sim.held_unit(id)) {
+        (Some(o), _) => Some((sc_sim::conversion::form(o), o.owner)),
+        (None, Some(held)) => Some((occupant_form(&sim, held), held.object.owner)),
+        (None, None) => fallen(id),
     };
     for (tick, event, seen) in events.sightings() {
         // A shot: a hit, or a TailDisjointed one's miss (slice M5-O3), drawn alike, to the spot.

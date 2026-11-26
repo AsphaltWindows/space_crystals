@@ -51,6 +51,7 @@ pub(crate) static TEMPLE: ObjectDef = ObjectDef {
         popup: None,
         // "Recruit staffing capacity 6; research queue 5": with its research's slice.
         holds: None,
+        occupants_fire: None,
     }),
     default_settings: None,
 };

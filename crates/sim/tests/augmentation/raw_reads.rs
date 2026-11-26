@@ -34,6 +34,12 @@ const ALLOWED: &[(&str, &str, usize, &str)] = &[
         "the accessor's own: its definition, and the weapon in hand",
     ),
     (
+        "crates/sim/src/combat/occupants.rs",
+        WEAPON_OF,
+        1,
+        "a stand-in's attack, which an occupant borrows and no Augmentation changes (`garrison.md`)",
+    ),
+    (
         "crates/sim/src/combat/phases.rs",
         MOVEMENT,
         1,

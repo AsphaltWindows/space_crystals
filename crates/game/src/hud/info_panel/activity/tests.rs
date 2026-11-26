@@ -1,4 +1,5 @@
 mod armory;
+mod garrison;
 
 use sc_sim::testing::ScenarioBuilder;
 use sc_sim::{

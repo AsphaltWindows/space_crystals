@@ -1,6 +1,82 @@
-//! The types that hold units (plan decision T60, `crate::holding`): their entrance and their exit (slice M5-F3).
+//! The types that hold units (plan decision T60, `crate::holding`): their holds (slice M5-F1), their entrance and their
+//! exit (slice M5-F3), the fire of the units inside (slice M5-N2).
 
-use crate::defs::{ExitRule, ObjectKind};
+use crate::combat;
+use crate::defs::{ExitRule, ObjectDef, ObjectKind, StructureDef};
+
+/// `defs_are_consistent` for the holds of a structure type (`StructureDef::holds`) and its occupants' fire
+/// (`StructureDef::occupants_fire`).
+///
+/// (M5-F1) A building that holds units (plan decision T60, `crate::holding`): an entrance side and an exit side its
+/// SymmetryType letters once each, apart; a pool that holds some; units of its own faction, each listed once. One that
+/// also produces releases through the same doorway, on its exit side (`factions/cults/structures/armory.md > ExitSide
+/// - opposite short side (C)`: "Trained units and ejected Recruits exit through the exit side, one at a time through
+/// the exit doorway"). (M5-N2) A building with one door lets everyone out at once through its entrance
+/// (`ExitRule::AtOnce`, the Garrison's: "one door, entrance and exit"), and produces nothing.
+///
+/// (M5-N2) The units inside fire only from a building that holds them, has no attack of its own and takes them in:
+/// every kind it takes in fires, its own attack or its stand-in's, and the kinds its rules name are kinds it takes in
+/// (`OccupantFire`: the Garrison's "Without units inside, the Garrison does not attack").
+pub(super) fn holds_are_consistent(def: &ObjectDef, structure: &StructureDef) {
+    let name = def.name;
+    if let Some(fire) = &structure.occupants_fire {
+        let holds = structure
+            .holds
+            .as_ref()
+            .unwrap_or_else(|| panic!("{name}: its occupants fire, none inside"));
+        assert!(structure.attack.is_none(), "{name}: fires itself and its occupants");
+        for &kind in holds.accepts {
+            let weapon = combat::weapon_of(fire.weapon_kind(kind));
+            assert!(weapon.is_some(), "{name}: {kind:?} inside has nothing to fire");
+        }
+        let named = (fire.stand_in.iter())
+            .map(|&(unit, _)| unit)
+            .chain(fire.bonus_for.iter().copied());
+        for kind in named {
+            assert!(
+                holds.accepts.contains(&kind),
+                "{name}: its fire names {kind:?}, which it doesn't take in"
+            );
+        }
+        assert!(
+            fire.range_bonus_gu >= 0.0,
+            "{name}: a range bonus of {}",
+            fire.range_bonus_gu
+        );
+    }
+    let Some(holds) = &structure.holds else {
+        return;
+    };
+    let letters = structure.symmetry.letters();
+    let count = |letter| letters.iter().filter(|&&l| l == letter).count();
+    let (exit, one_door) = match holds.exit {
+        ExitRule::Side(exit) => (exit, false),
+        ExitRule::AtOnce(door) => (door, true),
+        _ => panic!("{name}: only an exit side or one door is built for a building that holds units"),
+    };
+    for letter in [holds.entrance, exit] {
+        assert_eq!(count(letter), 1, "{name}: side {letter:?} of its holds");
+    }
+    if one_door {
+        assert_eq!(holds.entrance, exit, "{name}: one door, entrance and exit");
+        assert!(structure.production.is_none(), "{name}: produces out of its one door");
+    } else {
+        assert_ne!(holds.entrance, exit, "{name}: in and out at one side");
+    }
+    assert!(holds.capacity > 0, "{name}: holds none");
+    assert!(!holds.accepts.is_empty(), "{name}: takes no unit in");
+    for (i, &kind) in holds.accepts.iter().enumerate() {
+        let unit = kind.def();
+        assert!(
+            unit.unit.is_some() && unit.faction == def.faction,
+            "{name} takes {kind:?}"
+        );
+        assert!(!holds.accepts[..i].contains(&kind), "{name} lists {kind:?} twice");
+    }
+    if let Some(production) = &structure.production {
+        assert_eq!(production.exits, holds.exit, "{name}: one exit doorway");
+    }
+}
 
 /// Design change 0347 point 1 (`core/entities.md > Entrance and exit (production and research buildings)`): "For
 /// training, augmentation and unit-producing buildings the exit is the side opposite the entrance". Every type that
@@ -25,7 +101,8 @@ fn every_exit_is_opposite_its_entrance() {
         let entrance = side(holds.entrance).unwrap_or_else(|| panic!("{kind:?}: no side {:?}", holds.entrance));
         let exits = std::iter::once(holds.exit).chain(structure.production.map(|production| production.exits));
         for exit in exits {
-            // An exit by no side has no side to be opposite.
+            // An exit by no side has no side to be opposite, and one door (`ExitRule::AtOnce`, the Garrison's) is the
+            // entrance itself (`defs_are_consistent`).
             let ExitRule::Side(exit) = exit else {
                 continue;
             };

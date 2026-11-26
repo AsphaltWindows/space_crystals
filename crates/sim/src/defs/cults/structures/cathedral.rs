@@ -64,6 +64,7 @@ pub(crate) static CATHEDRAL: ObjectDef = ObjectDef {
             capacity: 10,
             accepts: &[ObjectKind::Recruit],
         }),
+        occupants_fire: None,
     }),
     default_settings: None,
 };

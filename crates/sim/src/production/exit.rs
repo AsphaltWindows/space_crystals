@@ -13,7 +13,8 @@
 //!   through the first free one in its order ([`Doorway::order`]: the one facing the rally point, the bottom one
 //!   without a rally point, then clockwise; **Placeholder (not in the design: no building has several exit sides
 //!   now)**). A unit in the doorway is in the door whose side it is nearest
-//!   ([`Doorway::door_at`]), and leaves through that side alone.
+//!   ([`Doorway::door_at`]), and leaves through that side alone. (M5-N2) The Garrison's one door (`ExitRule::AtOnce`)
+//!   is a side doorway too, which everyone it lets out comes out of at once (`Sim::step_holding`).
 //! - **An energy doorway** ([`EnergyDoorway`], `ExitRule::Centre`, `energy.rs`): the unit materializes at the centre
 //!   and moves straight out along a heading that leaves through an open side.
 //!
@@ -206,7 +207,9 @@ impl Doorway {
     /// ([`exit_rule`]: a producer's, or a building's that holds units; a portal's energy doorway is [`EnergyDoorway`]).
     pub fn of(building: &Object) -> Option<Doorway> {
         let placement = building.placement.as_ref()?;
-        let (ExitRule::Side(exit) | ExitRule::Sides(exit)) = exit_rule(building.def().structure.as_ref()?)? else {
+        let (ExitRule::Side(exit) | ExitRule::Sides(exit) | ExitRule::AtOnce(exit)) =
+            exit_rule(building.def().structure.as_ref()?)?
+        else {
             return None;
         };
         let letters = sides(building.kind, placement.orientation())?;

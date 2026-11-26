@@ -342,7 +342,7 @@ fn the_construct_menus_follow_the_design() {
 /// Every type the Recruits build (`construction::site::builds`) has its entry, once, and every entry's type is one they
 /// build; a building they don't build yet is a `Planned` entry, by the name of its type, a Cults structure with its
 /// site (every one is in the game's model since slice M5-G2, plan decision T69). Slice M5-G2 makes three of them live:
-/// the Gunworks, the Machine Shop and the Scrap Hangar.
+/// the Gunworks, the Machine Shop and the Scrap Hangar; slice M5-N2 the Garrison.
 #[test]
 fn the_construct_menus_list_every_recruit_build_once() {
     let builds: BTreeSet<ObjectKind> = (ObjectKind::ALL.iter().copied())
@@ -371,7 +371,6 @@ fn the_construct_menus_list_every_recruit_build_once() {
         }
     }
     let later = [
-        ObjectKind::Garrison,
         ObjectKind::Altar,
         ObjectKind::ChopShop,
         ObjectKind::Airstrip,
@@ -380,6 +379,14 @@ fn the_construct_menus_list_every_recruit_build_once() {
         ObjectKind::Shrine,
     ];
     assert_eq!(planned, later, "the buildings whose slices come later");
-    let live = [ObjectKind::Gunworks, ObjectKind::MachineShop, ObjectKind::ScrapHangar];
-    assert!(live.iter().all(|kind| builds.contains(kind)), "slice M5-G2's three");
+    let live = [
+        ObjectKind::Gunworks,
+        ObjectKind::MachineShop,
+        ObjectKind::ScrapHangar,
+        ObjectKind::Garrison,
+    ];
+    assert!(
+        live.iter().all(|kind| builds.contains(kind)),
+        "slice M5-G2's three and M5-N2's"
+    );
 }

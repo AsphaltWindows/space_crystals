@@ -267,8 +267,9 @@ Units, structures and resources are all `Object`s (`object.rs`, `core/entities.m
   structure of `factions/cults/structures/README.md > Tech Tree Overview`, every file of `factions/cults/units/`). Each
   of the others' slices adds its behaviour: the Chop Shop, the Airstrip and the Cathedral hold 10 Recruits already
   (`HoldsDef`, design change 0347 point 5: an editor-placed one can be entered, with no panel yet, so no Eject All),
-  and the Recruits build none of the seven until their slices (the Construct menus hold their slots, *Client
-  architecture > The Recruit's panel*). The units' `MovementAttrs` (the Seeker's and the Prayer-mobile's
+  and the Recruits build none of the six left until their slices (the Construct menus hold their slots, *Client
+  architecture > The Recruit's panel*); slice M5-N2 made the Garrison live (*Object model > Buildings that hold units
+  > The Garrison*). The units' `MovementAttrs` (the Seeker's and the Prayer-mobile's
   `FixedTurnRadius`, the Hand of Heaven's `SpeedTurnRadius`, the Sparrow's `Glider`) are data that nothing reads yet:
   a model the movement doesn't build steps without a turn limit (*Movement and collision > Movement models*), and
   nothing produces those units before their buildings' slices. Their `TurretAttrs` are their turrets' since slice
@@ -388,8 +389,8 @@ Units, structures and resources are all `Object`s (`object.rs`, `core/entities.m
     there (`Sim::train`, its `KindChanged`), the others are as they were; each faces as it did, idles (0349 point 4)
     and has a `SimEvent::Evacuated` after the building's `Removed`; so before the defeat check of the tick, and a
     defeated player's evacuees turn neutral on the map with its other units. They overlap, which I1 allows in the
-    tick they come out (`invariants::may_overlap`, *Movement and collision > Collision exceptions*), and part by the
-    movement's own rules: overlapping units ignore each other (`space::blocks`), idle ones step apart
+    tick they come out (`invariants::overlaps::may_overlap`, *Movement and collision > Collision exceptions*), and
+    part by the movement's own rules: overlapping units ignore each other (`space::blocks`), idle ones step apart
     (`movement/separate.rs`), from the movement of the same tick on (ten Recruits in an Armory are apart within 5
     ticks). Neutral ones don't: no unit yields that has no owner (`yielding::can_yield`), so a defeated player's
     stay as they came out. One for which no tile of the footprint is ground it can stand on (buildable terrain it
@@ -415,10 +416,35 @@ Units, structures and resources are all `Object`s (`object.rs`, `core/entities.m
     the def as it is: the Chop Shop, the Cathedral and the Airstrip have their `HoldsDef` since slice M5-G2 (in at B,
     out at C, 10 Recruits), the Altar, the Temple and the Shrine (all ABAC now) get theirs with their slices, and the
     Gunworks and the Machine Shop (ABAC too) hold no one until their research is designed (design change 0328), so a
-    right-click on one with Recruits is a Move. The Garrison's "units leave through any side, at the
-    first clear spot next to the footprint" is either slice M5-C's `ExitRule::Sides` (a door on every side, the first
-    free one, which `Sim::release_held` already serves; the defs test allows holders `ExitRule::Side` only, for now)
-    or, as slice N2 will build it, the evacuation's (`Sim::evacuate`, *Out by destruction* above).
+    right-click on one with Recruits is a Move.
+  - **The Garrison** (slice M5-N2, plan decision T72 as design change 0335 amended it;
+    `factions/cults/structures/garrison.md`): `HoldsDef { entrance: B, exit: ExitRule::AtOnce(B), capacity: 4,
+    accepts: Recruit, Militant, Gunner, Disciple }`, SymmetryType AAAB: "**the door on side B** (one door, entrance and
+    exit)", entered at its middle as every entrance is (F3's `holding::entry_path`; plan decision D22's nearest side
+    went with 0335). It produces nothing (`defs_are_consistent`: one door only for a building that doesn't), has no
+    queue and no rally point. **`ExitRule::AtOnce(side)`** is a side doorway (`production::Doorway::of`, the doorway
+    of `ExitRule::Side`) through which everyone ready leaves together (`factions/cults/structures/garrison.md >
+    Placeholder stats > Leaving`: "on **Eject All** they all come out **at once**, ignoring collision with each other
+    until they are clear of the footprint"): `Sim::step_holding` hands such a building to **`Sim::let_all_out`**,
+    which finds every ready unit's spot first (`Sim::held_spot`, the one `Sim::release_held` serves a unit let out
+    alone by: the door's spot, half inside at the middle of side B, as far out as there is room) and only then puts
+    them all there
+    (`Sim::come_out`), each with its `LeftBuilding`, in the pool's order: all four at one spot, overlapping, in the
+    doorway (`Mover::exit`). They walk straight out of the door, idle (no rally point), passing through each other
+    (*Movement and collision > Collision exceptions*: units that already overlap), and part once clear, as idle
+    units that overlap do (four Militants are clear of the footprint in 3 ticks and apart 29 later,
+    `tests/garrison/eject.rs`); a unit of another's still blocks them, so they wait in the doorway behind it. While
+    the doorway holds units it let out, the next Eject All waits, as a door does (T62's spots, which plan §N2's
+    `ExitRule::AnySide` would have used, are not brought back: 0335). **Its destruction** evacuates everyone alive
+    inside its former footprint, `Sim::evacuate` unchanged (*Out by destruction* above). **Its occupants fire**
+    (`StructureDef::occupants_fire`, *Combat > Units that fire from inside a building*); held off the map, they can't
+    be targeted or hit, a blast over the Garrison included (T72: "protection by construction"), see with the
+    Garrison's SightRange (its owner's vision: no source of their own) and count toward Unit Control as on the map
+    (`economy/army/cults.rs` counts the held units). A unit comes out with no attack under way
+    (`Sim::put_on_map`: T72, "leaving clears it"). Right-click: the four kinds' on an own Garrison in operation is
+    an Enter by `RULES`'s one Enter row (an own building in operation that takes the kind in, before N8's Repair, so a
+    damaged Garrison is entered, design change 0325; its room is not asked, as at the Armory), so no row of its
+    own.
 - **Expansions and a Tunnel's operation** (`sim/expansions.rs`, `tunnel/operation.rs`; slice M4-F;
   `factions/syndicate/tunnel_menus.md > ExpandMenu`, `factions/syndicate/tunnel_menus.md > AwaitingPlacement
   (Expansion)`, `factions/syndicate/tunnel_menus.md > Expansions under construction`; design changes 0240, 0254, 0290,
@@ -630,9 +656,10 @@ Units, structures and resources are all `Object`s (`object.rs`, `core/entities.m
     and after (a Constitution Recruit's 60 is a Militant's 60).
   - **What they don't change** reads the weapon before them (`combat::weapon_in_hand`): the threat a unit is to the
     scans (`combat::threat`, its TargetDomain) and `can_attack_now` (its ranges); and the TurnRate. A weapon borrowed
-    from another kind (a Recruit's in the Garrison, the Militant's, slice M5-N2) is that kind's: the effects apply to
-    a unit's own attack only (`augmentation::augmented`; `factions/cults/structures/garrison.md`: "Augmentations don't
-    change the borrowed attack").
+    from another kind (a Recruit's or a Disciple's in the Garrison, the Militant's, slice M5-N2) is that kind's, read
+    from its def (`combat::occupants::weapon`, `weapon_of`), and the effects apply to a unit's own attack only
+    (`augmentation::augmented`; `factions/cults/structures/garrison.md`: "Augmentations don't change the borrowed
+    attack"); a Militant or a Gunner inside fires its own through `combat::weapon`.
   - **The guard**: `tests/augmentation/raw_reads.rs` scans the sim's and the client's code, outside the defs, the
     accessors and the tests, for the reads past the accessors (`.max_hp()`, a `.movement` field, `weapon_of(`), and
     fails on any its list doesn't allow with a reason (a structure's MaxHP, a turn rate, a kind's weapon). A new read
@@ -785,8 +812,9 @@ Layout validation can't disagree. **Never test a placement rule anywhere else: a
   (Slice M5-F1's spots around a footprint, plan decision T62's one search for a unit put on the map beside a building,
   `placement::Spots` and `Sim::spot_around`, went once nothing used them: the units of a destroyed building that holds
   units appear inside its former footprint since design change 0349, slice M5-F3, `Sim::evacuate`, and the Laser
-  Turret's Agent, which came out beside the turret it finished, went with design change 0359, slice M5-Y. Slice N2's
-  Garrison will reuse the evacuation: *Object model > Buildings that hold units*.)
+  Turret's Agent, which came out beside the turret it finished, went with design change 0359, slice M5-Y. The
+  Garrison's units leave through its door, all at once, and its destruction is the evacuation's: *Object model >
+  Buildings that hold units > The Garrison*, slice M5-N2.)
 - **Tests**: `src/placement/tests/` (each rule on the pure check), `placement/build_area.rs`'s (the 28 × 28 area,
   each kind's extension, the runs), `tests/placement.rs` (the verification points of design changes 0004 and 0091 to
   0097 in games and layouts, determinism, a save), `tests/warp_in/` (the Warp In method, see *Economy > Warp In*),
@@ -865,8 +893,9 @@ Layout validation can't disagree. **Never test a placement rule anywhere else: a
    - 5d `movement::step`: steering and hard collision, the only code that writes a unit's `pos` besides a teleport
      (see Movement and collision). Units move one after another in id order and never come to overlap, gathering
      Drones apart (design change 0106).
-   - 5e `combat::step`: attack phases (a unit's turret turning first) and launches, the projectiles due landing in
-     launch order, the tick's list of
+   - 5e `combat::step`: attack phases (a unit's turret turning first) and launches, then those of the units that
+     fire from inside a building (slice M5-N2, `combat::occupants`), the projectiles due landing in launch order, the
+     tick's list of
      hits applied together (the blasts' first), deaths (see *Combat*). The dead
      leave through `Sim::remove_objects`, then `paths::sync` runs again in case a footprint went with them.
    - Pop-ups, `Sim::step_popups` (slice M4-S2, `sim/popups.rs`; *Object model > The pop-up form*): right after 5e
@@ -1233,6 +1262,37 @@ ticks spent in it. Hashed and serialized like all state.
   (`combat/turret/testing.rs`: the Guard on a Mech's base, a 90°, 45° or 360° turret, a fixed gun), in
   `combat/turret/tests.rs` and `orders/turret/tests.rs`; the ignored `turrets_perf` (`combat/turret/perf.rs`, 96
   turret units passing each other) runs as `projectiles_perf` does.
+- **Units that fire from inside a building** (`combat/occupants.rs`, plan decision T72; slice M5-N2, the Garrison,
+  `factions/cults/structures/garrison.md > Garrisoning`): **`StructureDef::occupants_fire: Option<OccupantFire {
+  stand_in, range_bonus_gu, bonus_for }>`**, the Garrison's: the Recruit and the Disciple fire the Militant's
+  AttackAttributes, the Militant and the Gunner their own (`combat::weapon`) with **+1 grid unit of Range**
+  (`OccupantFire::weapon_kind`, `range_bonus`; `occupants::weapon` returns the attack as fired, owned, so the
+  stand-in's is the Militant's def as it is: "Augmentations don't change the borrowed attack"). In 5e, after every
+  object's own attack (`occupants::firing`, then `occupants::step`, a Garrison in operation from before the tick, its
+  units by `(building, since, id)`), each unit inside runs its own `AttackState` (it keeps the one it had, the
+  Disciple, whose type has none, one made for it) with a **`Shooter::occupant`**: the Garrison's footprint, elevation,
+  owner and vision, firing any way as a structure does, its id the unit's (its hits and events name the unit). Its
+  target is **picked as a structure's** (`structures::pick`, T49's rule reused: kept while valid and in range,
+  threatening first, then the smallest gap, then the id; none while auto-targeting is off), so each picks its own.
+  Range and MinRange are measured from the footprint, as a structure's are (`targeting::reaches` on its shape), so a
+  Gunner's MinRange of 2 counts from the edge. **Its shots leave from the footprint's edge nearest the target**
+  (`Shooter::muzzle`: the target's point clamped into the footprint; a unit's or a structure's own is its centre):
+  `SimEvent::Attacked::from`, `Missed::from`, a projectile's start and the side directional armour is hit from.
+  A hit's reveal (`vision.reveal`) names the Garrison (`occupants::building_of`), which the victim then sees. **No
+  spells from inside** (Q0115): only the attack runs. The Garrison isn't a threat to the scans (`combat::threat`:
+  it has no attack of its own; a reading, the design is silent). Leaving clears the unit's attack (`Sim::put_on_map`,
+  a Disciple's made one gone). Tests: `combat/occupants/tests.rs` (the weapons, the muzzle) and
+  `tests/garrison/fire.rs`, `tests/garrison/protection.rs` (0319's "A Garrison with 4 Militants fires at range 5":
+  4.9 grid units off the footprint hit, 5.1 never; the stand-ins at 4 with an augmented Recruit's blow unchanged;
+  the Gunner's band from the edge; no fire while empty; each its own target; no damage inside, a Grenadier's blasts
+  on the footprint included).
+  - **Measured** (`tests/garrisons_perf.rs`, ignored, release): ten full Garrisons, forty inside, under ten waves of
+    30 Peacekeepers walking down the lane between their rows (all 300 killed, 5430 shots from inside): a mean of
+    0.064 ms and a p99 of 0.12 ms a whole tick, the combat phase's 0.018 ms (0.007 ms and 0.003 ms with nothing in
+    range) (load average 1.7). `structures_perf` and `holding_perf` (no Garrison in them) ran A/B against master
+    (slice M5-N8's build), 12 interleaved rounds: the same games, the same timings within noise (medians:
+    `structures_perf` 0.371 and 0.374 ms a whole tick, its combat phase 0.026 ms on either side; `holding_perf`
+    cycling 0.036 and 0.037 ms, the evacuation's one tick 0.134 and 0.140 ms) (load average 1.5 to 2.6).
 - **Not yet**: the HeadDisjointed attack, which hits as a FullyConnected one does (a TODO in `combat/phases.rs`).
 
 ## Vision
@@ -1746,12 +1806,13 @@ and the code is `crates/sim/src/movement.rs` and `movement/`, with the unit's st
     the mover's turn begins don't block each other. `space::overlaps` is I1's own predicate, so the pair is ignored
     exactly while I1 would name it, and normal collision is back the moment the boxes are apart (touching is apart).
     Nothing pushes them apart, and either may move any way meanwhile; an idle one moves off by itself (design
-    change 0126, below). Only the first exception and an evacuation ever bring two boxes to overlap (design change
-    0349, slice M5-F3: everyone inside a destroyed building appears inside its former footprint at once), so in
-    today's game such a pair is two Drones of which one left its job, or two evacuees; the rule itself asks nothing
-    about the units' kinds.
+    change 0126, below). Only the first exception, an evacuation and the Garrison's door ever bring two boxes to
+    overlap (design change 0349, slice M5-F3: everyone inside a destroyed building appears inside its former
+    footprint at once; slice M5-N2: an Eject All lets everyone out of the Garrison's door at once, at one spot), so in
+    today's game such a pair is two Drones of which one left its job, two evacuees, or two units out of a Garrison;
+    the rule itself asks nothing about the units' kinds.
   A later exception (crushing) is one more clause there. A slice that adds a way for two boxes to come to overlap
-  must add it to `testing::invariants::may_overlap` too, or I1 fails.
+  must add it to `testing::invariants::overlaps::may_overlap` too, or I1 fails.
 - **The exit doorway** (`core/entities.md > Structure Type > Exit Doorway`, design change 0080; a portal's energy
   doorway, design change 0145; `production/exit.rs`, `production::ExitDoor`) is the one exception against tiles,
   and the one case in which a unit's box overlaps a structure. A unit a producer released (or a building that holds
@@ -1887,11 +1948,12 @@ and the code is `crates/sim/src/movement.rs` and `movement/`, with the unit's st
   output, not state. Tests assert them; `cargo test -p sc_sim --release --test perf movement_perf -- --ignored
   --nocapture` prints timings.
 - **Invariants** (`docs/movement.md > 8`, `sc_sim::testing::invariants`): I1 no two units of a layer overlap, except
-  (design change 0106, `invariants::may_overlap`) two Drones on a Gather job, and two units that already overlapped
-  a tick earlier, until they have been apart (a Drone counts as on its job for the tick in which the job ended
-  without another order: a patch emptied in the economy phase ends it after the movement), and (design change 0349,
-  slice M5-F3) a unit evacuated in the tick with any other (`SimEvent::Evacuated`: it wasn't on the map a tick
-  earlier). Any other overlap fails,
+  (design change 0106, `invariants::overlaps::may_overlap`) two Drones on a Gather job, and two units that already
+  overlapped a tick earlier, until they have been apart (a Drone counts as on its job for the tick in which the job
+  ended without another order: a patch emptied in the economy phase ends it after the movement), and (design change
+  0349, slice M5-F3) a unit evacuated in the tick with any other (`SimEvent::Evacuated`: it wasn't on the map a tick
+  earlier), and (slice M5-N2) two units one building's door let out together in the tick (`SimEvent::LeftBuilding`,
+  the Garrison's `ExitRule::AtOnce`). Any other overlap fails,
   the first tick it exists (`tests/invariants_overlap.rs` puts units where they must not be and asks the checker); I2 no
   ground box overlaps a blocked tile or leaves the map, except a unit in an exit doorway (`Mover::exit`), which
   overlaps the tiles of the building that released it and no other blocked tile, nor ground under them it can't
@@ -3046,6 +3108,14 @@ their energy doorway, slice M3-D2: design change 0145, `factions/colonists/struc
   the Eject All mark hashed and saved only while set; `defs/tests/holds.rs` every exit opposite its entrance (0347
   point 1). The ignored `holding_perf.rs` times eight Armories
   cycling, then evacuated (*Object model > Buildings that hold units*).
+- **Garrison tests** (slice M5-N2) are `crates/sim/tests/garrison/` (`entering.rs`: the four kinds going in through
+  the door on B, the fifth finding it full and idling, Unit Control unchanged inside, the right-click, a site that
+  can't be entered and a right-click on it that assists, a damaged Garrison entered, not repaired; `eject.rs`:
+  design change 0335's "Eject All releases all four together from side B", through each other, apart once clear,
+  units let out at once still blocked by another's, the gate on an empty one; `fire.rs` and `protection.rs`, *Combat >
+  Units that fire from inside a building*), each tick checking `testing::dangling_references`; `defs/tests/holds.rs`
+  checks the one door and the occupants' fire of every def (`holds_are_consistent`). The ignored `garrisons_perf.rs`
+  times ten full Garrisons firing (*Combat > Units that fire from inside a building*).
 - **Armory tests** (slice M5-F2) are `crates/sim/tests/armory/` (`training.rs`: Q pays 20 and a Militant comes out
   of side C 32 ticks later toward the rally point, first in first trained, X's refund, the gate, Q to three Armories;
   `release.rs`: design change 0337's Verification, X taking a Release back, a Release queued like any order;
@@ -3411,7 +3481,9 @@ its recipe's, whole percent rounded down), or the building ready to place. A Rec
 49% (49/100 tiles)", and its "Unit Control: usage / capacity" rounded down, before its production's "Recruiting Recruit:
 50%" and rally point, with no queue line. A building that holds units (`activity::holding`, slice M5-F2) shows "Inside:
 3 / 10", everyone inside of its capacity, and a pool building its free units by kind, "Free: Plain 2, Constitution 1,
-Metabolism 0, Both 0"; its queue line names the entries, "Queue: Militant, Release (2 / 10)", of its capacity, and a
+Metabolism 0, Both 0" (another, the Garrison, slice M5-N2, the kinds inside with their counts, in its `accepts` order,
+"Occupants: Militant 2, Gunner 1": a placeholder, the design has no GarrisonInstanceState); its queue line names the
+entries, "Queue: Militant, Release (2 / 10)", of its capacity, and a
 Release under way is "Releasing Recruit: 50%". A transforming structure's
 (`activity::transformation`, first; slice M3-E) is the building it becomes and its progress, "Warping in: Robo Portal
 45%" ("Deploying" from a unit, slice M3-F), and its HP is out of its interpolated MaxHP (`Object::max_hp`), as its HP
@@ -3830,6 +3902,17 @@ Drones, through one command flow (plan decision T10, slices M2-H1, M2-H2 and M3-
   0348 point 5: the Armory is Ungroupable): every command of a pool building's panel goes to the one Tabbed to, X and C
   too (`is_common`, `holding::trains`), where a Barracks shares them with the others selected (0083); a right-click
   still rallies every selected producer, as each selected object resolves it for itself.
+- **The Garrison's panel** (slice M5-N2; `factions/cults/structures/garrison.md > Placeholder stats > Panel`: "**A:
+  Eject All** (everyone inside leaves); **X: Cancel construction** while being built. Right-click resolution: none"):
+  `templates/cults/garrison.rs` (`InterfaceTemplate::Garrison`) is A `EjectAll` alone, in the Armory's slot for it,
+  greyed by the gate while empty (`Reject::NothingInside`); its site's panel is every site's X (`SITE_GRID`). It is
+  Groupable and trains nothing, so Eject All is a common command, to every selected Garrison (`is_common`). It
+  resolves no right-click (`object_right_click`: `None`, with the Beacon's and the Tunnel's); the right-click of the
+  four kinds it takes in on it is the sim's Enter, under `PointerDisplay::Enter` (the Recruit's, the Militant's and
+  the Gunner's BasicCombatUnit template and the Disciple's none all resolve by the sim's one rule). Its occupants'
+  shots are drawn from where the sim says they leave, the footprint's edge (`SimEvent::Attacked::from`), in the
+  style of the weapon they fire there and their owner's colour (`combat_effects::occupant_form`, from
+  `Sim::held_unit`: a held attacker is neither on the map nor dead).
 - **The Recruit's panel** (slice M5-J1; `factions/cults/units/recruit.md > Recruit ObjectInterfaceState`, design
   changes 0322, 0327 and 0347): `templates/cults/recruit.rs` (`InterfaceTemplate::Recruit`) is Q Move, A and W
   `PanelCommand::BuildMenu` (named "Basic Construct" and "Advanced Construct", `PanelTemplate::names`), S
@@ -3839,11 +3922,12 @@ Drones, through one command flow (plan decision T10, slices M2-H1, M2-H2 and M3-
   type in the game is its `PanelCommand::Build(kind)`, greyed by the gate (its TechPrerequisite, the bank), one not
   yet built by the Recruits its `Planned` entry, found by name (`Planned::construct`), so a slice that brings a
   building changes the sim's table only (slice M5-G2 made the Gunworks, the Machine Shop and the Scrap Hangar
-  `Build`s, greyed "Requires an Armory", "Requires a Chop Shop" and "Requires an Airstrip" until those stand); Z is
-  Back. A Build enters `AwaitingPlacement` with **`Builder::Recruits { queued }`**
-  (`Placing::recruits`): one ghost for the group, judged by `ghost::recruits_check` (`Sim::group_build_check`, the
-  gate's own check as far as the player knows, the group left out of the occupants: design change 0362, a Recruit of
-  the order on the footprint makes the site wait, so no warning). A click gives one `OrderKind::Build` to every
+  `Build`s, greyed "Requires an Armory", "Requires a Chop Shop" and "Requires an Airstrip" until those stand, and
+  slice M5-N2 the Garrison's D, greyed "Requires an Armory"); Z is Back. A Build enters `AwaitingPlacement` with
+  **`Builder::Recruits { queued }`** (`Placing::recruits`): one ghost for the group, judged by
+  `ghost::recruits_check` (`Sim::group_build_check`, the gate's own check as far as the player knows, the group left
+  out of the occupants: design change 0362, a Recruit of the order on the footprint makes the site wait, so no
+  warning). A click gives one `OrderKind::Build` to every
   Recruit of the group through `OrderOutbox::try_give`, paid once; a Shift-click queues it and placement stays while
   Shift is held (`end_queued_placement`), each Build its ticket's one lingering ghost. **S** awaits an own site that
   the recipients build from outside (`resolution::assist_target`) and gives `OrderKind::Assist`. The pointer shows
@@ -4109,14 +4193,16 @@ unchecked.
   playback keys), `--windowed` and `--headless` work with it; a windowless playback ends at the replay's end unless
   told otherwise. To check a replay quickly: `cargo run -- --replay <file> --headless --fast`.
 - **Golden hashes** (`crates/sim/tests/golden/`: the games in `units.rs`, `gdo.rs`, `colonists.rs`, `syndicate.rs`,
-  `cults.rs` and `main.rs`, the recording and the comparison in `harness.rs`): thirteen games, a 3v3 duel, a 40-unit
+  `cults.rs`, `garrison.rs` and `main.rs`, the recording and the comparison in `harness.rs`): fourteen games, a 3v3
+  duel, a 40-unit
   AttackMove battle, a 12-unit group move through a choke, a patrol that meets an enemy, a chase lost in the fog, three
   Peacekeepers that raise their Riot Shields (`Command::Ability`; one turns back half-way), walk up to a Guard under
   fire and lower them to kill it, and `gdo_opening` (slice M2-J1: `dev_skirmish` from its real start, to 2:45; player 1
   plays the fastest clean Barracks and rallies ten Peacekeepers to player 2's crystal field, where they destroy four
   plates, while player 2 plates its field and builds Generators), the Colonists' `colonists_opening` and
   `colonists_vs_gdo` (slice M3-K1, below), the Syndicate's `syndicate_opening` and `syndicate_vs_gdo` (slice
-  M4-L, below) and the Cults' `cults_opening` and `cults_vs_syndicate` (slice M5-L, below), are blessed as replays
+  M4-L, below), the Cults' `cults_opening` and `cults_vs_syndicate` (slice M5-L, below) and `cults_garrison` (slice
+  M5-N2, below), are blessed as replays
   with a checkpoint every 32 ticks and at the end, in `crates/sim/tests/golden/<name>.json`. A tenth, `area_attacks` (slice M4-O), is a unit test
   (`combat/projectiles/golden.rs`), as it plays test throwers (`combat::testing`): grenades in flight, blasts over a
   hidden Hideout and a group, an Attack Ground. Its file is `tests/golden/test_defs/area_attacks.json`, out of the
@@ -4153,7 +4239,12 @@ unchecked.
   Gunworks, and trains eight Militants and three Gunners (slice M5-N1a's first step) of the Recruits it has no seat
   for, which attack-move in a wave to player 2's Tunnel, while player 2 plays the Syndicate: two Agents, an Optics Lab,
   a Laser Turret from the Tunnel's ExpandMenu (slice M5-Y) and four Guards at its patch. The turret kills four
-  Militants before it is destroyed, and then the Tunnel falls, which defeats player 2. Both players' books balance every step, player 2's Supplies too. The ignored
+  Militants before it is destroyed, and then the Tunnel falls, which defeats player 2. Both players' books balance
+  every step, player 2's Supplies too. In `cults_garrison` (to 0:40, on a test map) three Militants and a Gunner go
+  into a Garrison through its door, and four Agents and two Grenadiers attack-move onto it: the four fire from the
+  footprint, farther than either, and kill an Agent; the Grenadiers' blasts land on it and hurt no one inside
+  (`during`, every tick); one brings it down, and the four come out alive and unhurt and kill the rest (a Storage
+  keeps player 1 in the game). The ignored
   `tests/skirmish_soak.rs`
   (slice M3-K2) plays the Colonists' two players for 10 minutes, twice, until player 1's field runs out: the
   movement invariants and the books every tick, no dangling id, no order stuck in one step beyond a bound (a waiting
@@ -4470,8 +4561,9 @@ The faction's own mechanics come next, each only if it has them (M3's and M4's i
     reaches, search radius and `pass_through`), the Gather and Drop Off orders (`orders/gather.rs`, the gate in
     `sim/workers.rs`), the timed work and the bank credit (`economy/gathering.rs`, `SimEvent::ResourcesDelivered`),
     `StructureDef::drop_off` for the buildings that take loads, and a new drop-off for the workers of one that goes
-    (`Sim::reassign_drop_offs`, on the removal path). Units that may overlap go in `invariants::may_overlap`. In
-    the client: the pointers, the load marker, the InfoPanel lines and a select-the-workers command.
+    (`Sim::reassign_drop_offs`, on the removal path). Units that may overlap go in
+    `invariants::overlaps::may_overlap`. In the client: the pointers, the load marker, the InfoPanel lines and a
+    select-the-workers command.
 13. **A movement model** (M3-G, plan decision T25): a `MovementAttrs` variant with its mover in `movement/`
     (`drag.rs` beside `follow.rs`), the movement invariants amended in writing, and `movement_perf` run A/B.
 14. **Orders of its own** (M3-F Deploy): an `OrderKind` with its behaviour in `orders/`, its gate check and its

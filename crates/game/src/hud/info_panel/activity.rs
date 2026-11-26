@@ -13,7 +13,7 @@
 //! - recruitment (a Recruitment Hall's, slice M5-C, [`recruitment`]): its Effectiveness, by the tiles it claims, and
 //!   its LocalUnitControlUsage over its LocalUnitControlCapacity;
 //! - holding (a building that holds units, slice M5-F2, [`holding`]): how many are inside of its capacity, and a pool
-//!   building's free ones of each kind;
+//!   building's free ones of each kind, another's occupants by kind (the Garrison's, slice M5-N2);
 //! - production (the production capability of slice M2-D2, [`production`]): the unit in production and its
 //!   progress, the wait for room under the army cap (design change 0143), the queue length (not a Hall's, which has
 //!   no queue to fill; a pool building's entries by name, of its capacity), and the rally point;
@@ -104,22 +104,28 @@ pub fn recruitment(sim: &Sim, structure: &Object) -> Vec<String> {
 /// ArmoryInstanceState`: "StoredRecruits: list of Recruit references (max 10)"): how many are inside, the reserved ones
 /// included, of its capacity (design change 0347 point 5: "**Capacity counts everyone inside**"), and a pool building's
 /// free ones of each kind (design change 0337: "the count inside (unreserved)", `Sim::pool_counts`; slice M5-F2), every
-/// kind's. Nothing for a structure that holds none.
+/// kind's. (M5-N2) Another's occupants, the Garrison's (plan §N2: "the occupants in the InfoPanel"), each kind it takes
+/// in that is inside, in the order it lists them (`sc_sim::defs::HoldsDef::accepts`), with how many: **Placeholder
+/// (not in the design: the Garrison has no InstanceState)**. Nothing for a structure that holds none.
 pub fn holding(sim: &Sim, structure: &Object) -> Vec<String> {
     let Some(holds) = holding::holds(structure) else {
         return Vec::new();
     };
-    let mut lines = vec![format!(
-        "Inside: {} / {}",
-        sim.held_in(structure.id).len(),
-        holds.capacity
-    )];
+    let inside = sim.held_in(structure.id);
+    let mut lines = vec![format!("Inside: {} / {}", inside.len(), holds.capacity)];
     if holding::trains(structure.kind) {
         let counts = sim.pool_counts(structure.id);
         let kinds: Vec<String> = (RecruitKind::ALL.iter())
             .map(|&kind| format!("{} {}", kind.name(), counts[kind as usize]))
             .collect();
         lines.push(format!("Free: {}", kinds.join(", ")));
+    } else if !inside.is_empty() {
+        let count = |kind| inside.iter().filter(|held| held.object.kind == kind).count();
+        let kinds: Vec<String> = (holds.accepts.iter())
+            .filter(|&&kind| count(kind) > 0)
+            .map(|&kind| format!("{} {}", kind.def().name, count(kind)))
+            .collect();
+        lines.push(format!("Occupants: {}", kinds.join(", ")));
     }
     lines
 }

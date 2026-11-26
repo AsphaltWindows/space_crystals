@@ -43,6 +43,7 @@ pub(crate) static EGRESS_NODE: ObjectDef = ObjectDef {
         attack: None,
         popup: None,
         holds: None,
+        occupants_fire: None,
     }),
     default_settings: None,
 };

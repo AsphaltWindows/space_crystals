@@ -55,6 +55,7 @@ pub(crate) static ALTAR: ObjectDef = ObjectDef {
         popup: None,
         // Its pool of Cults infantry: with its slice.
         holds: None,
+        occupants_fire: None,
     }),
     default_settings: None,
 };

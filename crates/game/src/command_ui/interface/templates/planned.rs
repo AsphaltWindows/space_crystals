@@ -11,8 +11,8 @@
 //! The Cults' buildings of the Recruits' Construct menus that the Recruits don't build yet hold their slots (slice
 //! M5-J1, design change 0327: "every building greyed until available, including ones not in the build yet"), each
 //! until its slice; slice M5-G2 made the Gunworks, the Machine Shop and the Scrap Hangar live, and the Armory's Gunner,
-//! which had held its slot of the Armory's kind menus (slice M5-F2) until its Gunworks. The Recruit's Repair and the
-//! Agent's held theirs until slice M5-N8 (`super::super::PanelCommand::Repair`).
+//! which had held its slot of the Armory's kind menus (slice M5-F2) until its Gunworks; slice M5-N2 the Garrison. The
+//! Recruit's Repair and the Agent's held theirs until slice M5-N8 (`super::super::PanelCommand::Repair`).
 
 /// A panel entry that isn't in the game yet (module docs). The Colonists' are a building of the Beacon's Warp In menus
 /// or a unit of a portal's panel: a building's cost and WarpInTime are TBD (`factions/colonists/economy.md > Warp In >
@@ -56,8 +56,7 @@ pub enum Planned {
     /// Tree Overview`; design change 0327), in the menus' order: the sim's `sc_sim::defs::CONSTRUCT_MENU` names them
     /// ([`Planned::construct`]). Their types are in the game's model since slice M5-G2, each with its label
     /// (`crate::kinds::cults`), and their slices make them live, as slice M5-G2 did the Gunworks, the Machine Shop and
-    /// the Scrap Hangar.
-    Garrison,
+    /// the Scrap Hangar, and slice M5-N2 the Garrison.
     Altar,
     ChopShop,
     Airstrip,
@@ -68,7 +67,7 @@ pub enum Planned {
 
 impl Planned {
     /// Every one, in declaration order.
-    pub const ALL: [Planned; 27] = [
+    pub const ALL: [Planned; 26] = [
         Planned::AlloyFurnace,
         Planned::EssenceRefinery,
         Planned::FluxReactor,
@@ -89,7 +88,6 @@ impl Planned {
         Planned::NullChamber,
         Planned::AerospaceAssembly,
         Planned::OrbitalCommand,
-        Planned::Garrison,
         Planned::Altar,
         Planned::ChopShop,
         Planned::Airstrip,
@@ -137,7 +135,6 @@ impl Planned {
             Planned::NullChamber => "Null Chamber",
             Planned::AerospaceAssembly => "Aerospace Assembly",
             Planned::OrbitalCommand => "Orbital Command",
-            Planned::Garrison => "Garrison",
             Planned::Altar => "Altar",
             Planned::ChopShop => "Chop Shop",
             Planned::Airstrip => "Airstrip",
@@ -152,10 +149,9 @@ impl Planned {
     /// "ST", as the Guard's and the Beacon's are, since "SC" is the crystal patch's (slice M3-J3: every label its own,
     /// `crate::kinds::short_label`). An expansion's is its initials, as a building's, a one-word name's its first and
     /// last letters, as the Scout's ("VT" Vault, "FE" Forge). A Cults building's alike ("CS" Chop Shop, "TE" Temple),
-    /// but for the Garrison's "GA" and the Shrine's "SR", "GN" and "SE" being the Generator's and the Storage's. An
-    /// entry's type takes its label with it into the game (the Optics Lab's "OL", the Chemical Plant's "CP", the
-    /// Grenadier's "GR", the Gunworks' "GS", `crate::kinds`), and a command its own: the Tunnel's Upgrade's "Upgr."
-    /// (slice M4-G).
+    /// but for the Shrine's "SR", "SE" being the Storage's. An entry's type takes its label with it into the game (the
+    /// Optics Lab's "OL", the Chemical Plant's "CP", the Grenadier's "GR", the Gunworks' "GS", the Garrison's "GA",
+    /// `crate::kinds`), and a command its own: the Tunnel's Upgrade's "Upgr." (slice M4-G).
     pub fn label(self) -> &'static str {
         match self {
             Planned::AlloyFurnace => "AF",
@@ -178,7 +174,6 @@ impl Planned {
             Planned::NullChamber => "NC",
             Planned::AerospaceAssembly => "AA",
             Planned::OrbitalCommand => "OC",
-            Planned::Garrison => "GA",
             Planned::Altar => "AR",
             Planned::ChopShop => "CS",
             Planned::Airstrip => "AP",
@@ -211,8 +206,7 @@ impl Planned {
     pub fn is_construct(self) -> bool {
         matches!(
             self,
-            Planned::Garrison
-                | Planned::Altar
+            Planned::Altar
                 | Planned::ChopShop
                 | Planned::Airstrip
                 | Planned::Temple
@@ -223,7 +217,7 @@ impl Planned {
 
     /// The full name of its button (`PanelCommand::name`): the command it will be, "Train Scout", "Warp In Alloy
     /// Furnace" or "Build Vault", as a unit in the game is trained, a building warped in and an expansion built
-    /// (`PanelCommand::Expand`); "Build Garrison", as the Recruits build a building (`PanelCommand::Build`).
+    /// (`PanelCommand::Expand`); "Build Altar", as the Recruits build a building (`PanelCommand::Build`).
     pub fn command_name(self) -> String {
         if self.is_unit() {
             format!("Train {}", self.name())

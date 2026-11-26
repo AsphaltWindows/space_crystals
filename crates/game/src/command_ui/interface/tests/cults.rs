@@ -1,14 +1,15 @@
 //! The Cults' panels as plain data (slice M5-C): the Recruitment Hall's, read from a game, which has no X (design change
 //! 0342); the Armory's (slice M5-F2, design change 0337): a kind of Recruit first, then its KindMenu, each command to
-//! the one Armory Tabbed to (design change 0348 point 5); and the Gunworks', the Machine Shop's and the Scrap Hangar's,
-//! empty (slice M5-G2). The Armory's panel in a game, its counts and its presses, is
-//! `crates/game/tests/commands/armory.rs`'s.
+//! the one Armory Tabbed to (design change 0348 point 5); the Gunworks', the Machine Shop's and the Scrap Hangar's,
+//! empty (slice M5-G2); and the Garrison's, its Eject All (slice M5-N2). The Armory's panel in a game, its counts and
+//! its presses, is `crates/game/tests/commands/armory.rs`'s.
 
 use sc_sim::testing::ScenarioBuilder;
 use sc_sim::{Faction, HoldCommand, PlayerId, RecruitKind, SpawnAt, TilePos};
 
 use super::*;
 use crate::command_ui::feedback::unavailable_text;
+use crate::selection::GroupType;
 
 const HALL: ObjectKind = ObjectKind::RecruitmentHall;
 const ARMORY: ObjectKind = ObjectKind::Armory;
@@ -264,4 +265,36 @@ fn the_tech_buildings_have_no_commands() {
         &Conditions::of(t.sim(), player, &all),
     );
     assert!(shown.is_empty());
+}
+
+/// `factions/cults/structures/garrison.md > Placeholder stats > Panel` (slice M5-N2): "**A: Eject All** (everyone
+/// inside leaves); **X: Cancel construction** while being built". A Garrison shows A alone, which lets everyone out at
+/// once, greyed by the gate's refusal while it is empty (`Reject::NothingInside`); it is Groupable (its placeholder
+/// stats: "Groupable true"), so two Garrisons both take it, a common command, unlike a pool building's. Its site shows
+/// X Cancel Construction alone, as every site does.
+#[test]
+fn the_garrison_shows_eject_all_and_its_site_its_cancel() {
+    use ButtonLook::{Common, Disabled};
+    use PanelCommand::{CancelConstruction, EjectAll};
+    const GARRISON: ObjectKind = ObjectKind::Garrison;
+    let one = Selection::new([(id(1), GARRISON)]);
+    let default = panel(&one, InterfaceState::DefaultState, &Conditions::default());
+    let command = PanelButton::Command;
+    assert_eq!(shown(&default), [(slot(1, 0), command(EjectAll), Common)]);
+    assert_eq!(default.get(slot(1, 0)).map(|shown| shown.label()), Some("Eject"));
+    assert_eq!(default.name(slot(1, 0)).as_deref(), Some("Eject All"));
+    assert_eq!(
+        press(&default, slot(1, 0)),
+        SlotPress::Hold(EjectAll, HoldCommand::EjectAll)
+    );
+    let empty = Conditions::default().refusing(EjectAll, Reject::NothingInside);
+    let shown_empty = panel(&one, InterfaceState::DefaultState, &empty);
+    assert_eq!(shown_empty.get(slot(1, 0)).map(|s| s.look), Some(Disabled));
+    let two = Selection::new([(id(1), GARRISON), (id(2), GARRISON)]);
+    assert!(is_common(&two, EjectAll));
+    assert_eq!(recipients(&two, EjectAll), [id(1), id(2)]);
+    let site = Selection::new([(id(3), GroupType::unfinished(GARRISON))]);
+    let on_site = panel(&site, InterfaceState::DefaultState, &Conditions::default().on_site());
+    assert_eq!(shown(&on_site), [(slot(2, 1), command(CancelConstruction), Common)]);
+    assert_eq!(InterfaceTemplate::of(GARRISON), Some(InterfaceTemplate::Garrison));
 }

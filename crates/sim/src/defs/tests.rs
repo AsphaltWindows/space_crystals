@@ -3,7 +3,8 @@ use ::serde::Deserialize;
 use ::serde::de::IntoDeserializer;
 use ::serde::de::value::{Error as ValueError, U32Deserializer};
 
-/// (M5-F3) The types that hold units: every exit opposite its entrance (design change 0347 point 1).
+/// (M5-F3) The types that hold units: every exit opposite its entrance (design change 0347 point 1), and what
+/// `defs_are_consistent` checks of their holds and their occupants' fire (M5-F1, M5-N2).
 mod holds;
 /// The defs as plain data: every def through JSON and back (plan decision T54).
 mod serde;
@@ -270,6 +271,8 @@ fn structure_is_consistent(def: &ObjectDef, structure: &StructureDef) {
             }
             // Into the Tunnel Network: through no side, from an underground expansion.
             ExitRule::Network => assert!(structure.underground, "{name}: produces into the network"),
+            // (M5-N2) Everyone out at once: the Garrison's door, which produces nothing.
+            ExitRule::AtOnce(_) => panic!("{name}: a producer releases its units one at a time"),
         }
         if let Some(recruitment) = production.recruitment {
             let (w, h) = def.tile_size().expect("a structure has tiles");
@@ -295,35 +298,7 @@ fn structure_is_consistent(def: &ObjectDef, structure: &StructureDef) {
             requires_are_consistent(def, recipe.kind, recipe.requires);
         }
     }
-    // (M5-F1) A building that holds units (plan decision T60, `crate::holding`): an entrance side and an exit side its
-    // SymmetryType letters once each, apart; a pool that holds some; units of its own faction, each listed once. One
-    // that also produces releases through the same doorway, on its exit side (`factions/cults/structures/armory.md >
-    // ExitSide - opposite short side (C)`: "Trained units and ejected Recruits exit through the exit side, one at a
-    // time through the exit doorway").
-    if let Some(holds) = &structure.holds {
-        let letters = structure.symmetry.letters();
-        let count = |letter| letters.iter().filter(|&&l| l == letter).count();
-        let ExitRule::Side(exit) = holds.exit else {
-            panic!("{name}: only an exit side is built for a building that holds units");
-        };
-        for letter in [holds.entrance, exit] {
-            assert_eq!(count(letter), 1, "{name}: side {letter:?} of its holds");
-        }
-        assert_ne!(holds.entrance, exit, "{name}: in and out at one side");
-        assert!(holds.capacity > 0, "{name}: holds none");
-        assert!(!holds.accepts.is_empty(), "{name}: takes no unit in");
-        for (i, &kind) in holds.accepts.iter().enumerate() {
-            let unit = kind.def();
-            assert!(
-                unit.unit.is_some() && unit.faction == def.faction,
-                "{name} takes {kind:?}"
-            );
-            assert!(!holds.accepts[..i].contains(&kind), "{name} lists {kind:?} twice");
-        }
-        if let Some(production) = &structure.production {
-            assert_eq!(production.exits, holds.exit, "{name}: one exit doorway");
-        }
-    }
+    holds::holds_are_consistent(def, structure);
 }
 
 /// `defs_are_consistent` for the attack of a unit type or of a structure type named `name` (`StructureDef::attack`,

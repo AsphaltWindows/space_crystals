@@ -93,7 +93,7 @@ const fn slot(menu: ConstructMenu, row: u8, column: u8, entry: ConstructEntry) -
 /// DefaultState": "**BuildMenu[Basic]**: **Q** Recruitment Hall, **W** Storage; **A** Armory, **S** Gunworks, **D**
 /// Garrison; **X** Altar", and "**BuildMenu[Advanced]**: **A** Chop Shop, **S** Machine Shop, **D** Airstrip, **F**
 /// Scrap Hangar; **X** Temple, **C** Cathedral, **V** Shrine". The buildings the Recruits don't build yet are
-/// [`ConstructEntry::Planned`]: since slice M5-G2, the seven whose slices come later. Tests check it against the
+/// [`ConstructEntry::Planned`]: since slice M5-N2, the six whose slices come later. Tests check it against the
 /// design's lines, and that it lists every type the Recruits build, once.
 pub const CONSTRUCT_MENU: &[ConstructSlot] = {
     use ConstructEntry::{Kind, Planned};
@@ -103,7 +103,7 @@ pub const CONSTRUCT_MENU: &[ConstructSlot] = {
         slot(Basic, 0, 1, Kind(ObjectKind::Storage)),         // W
         slot(Basic, 1, 0, Kind(ObjectKind::Armory)),          // A
         slot(Basic, 1, 1, Kind(ObjectKind::Gunworks)),        // S
-        slot(Basic, 1, 2, Planned("Garrison")),               // D
+        slot(Basic, 1, 2, Kind(ObjectKind::Garrison)),        // D
         slot(Basic, 2, 1, Planned("Altar")),                  // X
         slot(Advanced, 1, 0, Planned("Chop Shop")),           // A
         slot(Advanced, 1, 1, Kind(ObjectKind::MachineShop)),  // S

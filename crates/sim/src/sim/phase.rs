@@ -168,6 +168,7 @@ impl Sim {
         let turns = self.nav.turns();
         let dead = combat::step(
             &mut self.objects,
+            &mut self.held,
             &self.map,
             &mut self.vision,
             &mut self.projectiles,

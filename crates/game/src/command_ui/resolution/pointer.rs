@@ -28,7 +28,8 @@ pub enum PointerDisplay {
     /// into the network, over an own Tunnel in operation; never over a site, which takes no Enter (design change 0237).
     /// The Recruits' too, over an own building in operation that takes them in, the Armory (slice M5-J1;
     /// `factions/cults/units/recruit.md > Right-Click Resolution`: "Own Armory → Enter Armory"), and never over its
-    /// site (design change 0347 point 4).
+    /// site (design change 0347 point 4); and the Garrison's four kinds' over an own Garrison (slice M5-N2: "Own
+    /// Garrison → Enter Garrison").
     Enter,
     /// `systems/controls/hud.md > Mixed Right-Click Preview` (design change 0063): the selected units
     /// would do different things on a right-click.

@@ -25,16 +25,17 @@ pub(super) fn fire(shooter: &Shooter, t: &TargetView, hits: &mut Vec<Hit>, event
     events.push(SimEvent::Attacked {
         attacker: shooter.id,
         target: t.id,
-        from: shooter.pos,
+        from: shooter.muzzle(t.pos),
         to: t.pos,
     });
 }
 
 /// The single-target hit of `shooter`'s attack on `t` (`systems/combat.md > SingleTargetDamage`): its Damage against
-/// `t`'s PointArmor, from the side the shooter stands on (`systems/units.md > UnitBase > DirectionalArmor`).
+/// `t`'s PointArmor, from the side the shooter stands on (`systems/units.md > UnitBase > DirectionalArmor`), where its
+/// shot leaves from (`Shooter::muzzle`).
 fn hit(shooter: &Shooter, t: &TargetView, hits: &mut Vec<Hit>) {
     let directional = if t.directional_armor {
-        directional_multiplier(t.facing, shooter.pos - t.pos)
+        directional_multiplier(t.facing, shooter.muzzle(t.pos) - t.pos)
     } else {
         1.0
     };
@@ -82,7 +83,7 @@ pub(super) fn strike(
         area::strike(&blast, targets, hits);
         return;
     }
-    let (from, to) = (shooter.pos, at);
+    let (from, to) = (shooter.muzzle(at), at);
     match at_the_spot(shooter, at, target, targets) {
         Some(t) => {
             hit(shooter, t, hits);
@@ -123,8 +124,9 @@ pub(super) fn at_the_spot<'t>(
 }
 
 /// (M4-O) `systems/combat.md > DoublyDisjointed`: "The Firing phase is short and spawns a projectile which travels to
-/// the location the target was at at the end of the Aiming phase": at the end of Firing, from the shooter's centre to
-/// `at`, the location locked (plan decision T48). `target`: the object it was aimed at, if any.
+/// the location the target was at at the end of the Aiming phase": at the end of Firing, from the shooter's centre
+/// (`Shooter::muzzle`) to `at`, the location locked (plan decision T48). `target`: the object it was aimed at, if
+/// any.
 pub(super) fn launch(
     shooter: &Shooter,
     at: Vec2,
@@ -136,7 +138,7 @@ pub(super) fn launch(
         shooter.id,
         shooter.owner,
         shooter.attrs,
-        shooter.pos,
+        shooter.muzzle(at),
         at,
         target,
         volley.tick,

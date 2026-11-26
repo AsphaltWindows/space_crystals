@@ -58,6 +58,7 @@ pub(crate) static BIO_PORTAL: ObjectDef = ObjectDef {
         attack: None,
         popup: None,
         holds: None,
+        occupants_fire: None,
     }),
     default_settings: None,
 };
