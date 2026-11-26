@@ -95,6 +95,7 @@
 >   - 0314–0318 name it the Jackal and add the Sparrow glider. The Chop Shop and the Airstrip work like the Armory;
 >   - **0319 gives placeholder numbers to every designed Cults building and unit** (it answers Q0092–Q0094 and Q0108 point 1), **so the gated slices and G are in M5.** Planning spike M5-P2 drafts their slices and the waves from W5, as an addendum to this plan;
 >   - **T56 amended (the Director, 2026-11-25):** `Object::lineage` is one entry per Recruit a unit embodies (`Vec<ObjectId>`), not an `Option`. The Jackal consumes 2 Recruits, and "each point of cost [is] attributed to the originating hall of the respective Recruit" (`factions/cults/economy.md > Unit Control Tracking`). C builds it, and F2 concatenates the consumed Recruits' entries.
+> - **The addendum, `artifacts/director/m5-plan-addendum.md`** (planning spike M5-P2, adopted 2026-11-25), plans 0319's content: it replaces §3.3's G and the gated N1–N6 with 15 slices and §3.2's waves from W5, and continues §4 from T69 and §5 from D18. Its own header lists the Director's amendments.
 > - **M5 starts** after M4-M merges.
 
 ---

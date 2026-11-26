@@ -1320,7 +1320,7 @@ Approach: thin vertical slices the user can run and see, each verified by tests 
   - **M4 is complete** (M4-M, `4e3fdd4a`; the strays, M4-Z, `95b4bc6e`), apart from the hatch jam's fix. M4-W diagnosed the jam (`189d0162`), and M4-W2 built 0315's first step (`b81b2089`), which doesn't fix it. **0324** answered Q0111 with a plan: first 0323's 90° contact step, measured (M4-W3, running); then, only if Agents still lock up, a 2-square hatch; then stuck gathering Agents make way. The fix must land before the playtest.
   - **M5 wave 1 is done:** A (`ed23874e`) and R (`afd9c152`).
   - **M5 wave 2:** D (`36a06de4`) and C (`afd9b366`) merged; F1 has reported and is merging C in; O3 (pulled forward) is running.
-  - **0319** put every designed Cults building and unit in M5, with placeholder numbers. The gated slices N1–N6 and G are now in scope. M5-P2's addendum plans them: 31 slices in all, with the playtest at the end of W12, or a first playtest of the Cults' infantry core at the end of W9 (the choice is with the user, 2026-11-25). Wave 3 (B, E, F2) follows: B now that C has landed, E after F1, and F2 after C and F1.
+  - **0319** put every designed Cults building and unit in M5, with placeholder numbers. The gated slices N1–N6 and G are now in scope. M5-P2's addendum plans them: 31 slices in all, with the playtest at the end of W12, or a first playtest of the Cults' infantry core at the end of W9 (the choice is with the user, 2026-11-25). The addendum is adopted as `artifacts/director/m5-plan-addendum.md`, with T69–T83, and its 14 question drafts are filed as Q0112–Q0125. Wave 3 (B, E, F2) follows: B now that C has landed, E after F1, and F2 after C and F1.
   - **Playtest:** the user plays once all four factions are built, in hot-seat from the command line (2026-11-25). The kit is `docs/playtest/` (m2–m4 and M5's README). This replaces separate M1–M4 playtests.
 
 ## M1 plan (from the movement spike; the approved design is in `docs/movement.md`)
@@ -1674,6 +1674,20 @@ The user keeps feeding unit and other designs to the Designer, so expect increme
 | Q0109 | Agents at a hatch: who gives way? Four or more Agents whose patch lies to the side of the hatch gridlock for good (M4-W's diagnosis) | no (answered for now by 0315) | first step 0315 built by M4-W2 (`b81b2089`), and it doesn't fix the jam. The follow-up is Q0111 |
 | Q0110 | Recruits head-on in a lane: who gives way? More Recruits than a Storage face's lanes starve each other for minutes (M5-D) | no (answered) | answered by 0320, option (d): crowding is the player's job, and Recruits keep their collision. Nothing to build; S1 changes the jam tests' citation |
 | Q0111 | 0315 measured: Agents at a hatch still gridlock (mixed results). Add the backstop (a), accept (b), revert 0315 (c), or pass-through (d)? (M4-W2) | no (answered) | answered by 0324 with a plan: step 1, 0323's contact step, measured (M4-W3); steps 2 (a 2-square hatch) and 3 (stuck gathering Agents make way) only if needed, and the measurements go back as a new question |
+| Q0112 | The Disciple's panel: Shroud's key, and casting with a group (M5: N4a, N4b) | no | open |
+| Q0113 | Shroud: what is under the cloud, and the release (M5: N4b) | no | open |
+| Q0114 | Augmentation: HP when MaxHP changes, the reserved unit, and the weakest Recruit (M5: N1a, N1b) | no | open |
+| Q0115 | The Garrison: targets, range, Eject All, casting, and augmented occupants (M5: N2) | no | open |
+| Q0116 | Entering a building whose sides are all alike: Garrison, Temple, Shrine (M5: N2, N3, N5) | no | open |
+| Q0117 | Temple research: queuing the next level, and the Cathedral check (M5: N3) | no | open |
+| Q0118 | The Shrine's abilities: who is inside, recasting, and several Shrines (M5: N5) | no | open |
+| Q0119 | Vehicles among other units: yielding and reversing; 0323 settled the grazing (M5: V2, N6) | no | open |
+| Q0120 | The Sparrow's flight: separation, the map edge, takeoff, idling and strafing (M5: H1, N7) | no | open |
+| Q0121 | Pool production beyond the Armory: which Recruits, and the product's HP (M5: N4a, N6, N7) | no | open |
+| Q0122 | The Sparrow at the playtest: the GDO and the Colonists can't hit air yet (M5: N7, M) | no | open |
+| Q0123 | Stale lines in the Cults docs after 0319 (M5: J1, G2) | no | open |
+| Q0124 | Repair: when it ends, an empty bank, and which targets (M5: N8) | no | open |
+| Q0125 | The GDO's repair in M5: the Field Engineer has no numbers (M5: N8, M) | no | open |
 
 ## Design change entries
 Last triaged: 0282.
