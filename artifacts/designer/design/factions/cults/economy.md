@@ -62,7 +62,9 @@ Available while a Cults building is under construction (not yet complete). Cance
 Applies to every Cults building that can hold units inside (Armory, Altar, Temple, Cathedral, Shrine, Gunworks, Machine Shop, Garrison, and any future such building — e.g. the Chop Shop and Airstrip if their production flow holds Recruits). When the building is destroyed:
 - **Everyone inside is evacuated alive**: units in the internal pool, units reserved by queued orders, the unit currently being trained or augmented, Recruits staffing research, and Recruits powering the Shrine. This includes non-Recruit infantry held by the Altar (Militants, Gunners, Disciples).
 - **Units come out unchanged**: a Recruit mid-training comes out as a Recruit; a unit mid-augmentation does not receive the Augmentation. Existing AugmentationState is kept.
-- **Placement**: evacuated units appear around the building's footprint wherever there is open space, unharmed.
+- **Placement** (user, 2026-11-26; Q0106): the building is simply gone (its destruction is an animation; no debris affects play), and evacuated units **all appear at the same time inside its former footprint**, unharmed, spread over it. Units that overlap ignore each other until separated, and idle ones push apart (systems/units.md > Ground Collision).
+- **A unit that had finished training** and was waiting for the doorway comes out **as the trained unit**, with no refund (its training was complete).
+- **Afterwards** evacuated units **idle**.
 - **Orders are cancelled with a full refund**: every in-progress and queued training, augmentation, and research order is cancelled and its full Space Crystals cost refunded (consistent with core/tech_and_research.md > Research shared rule 7).
 
 ## Economy check
@@ -92,6 +94,14 @@ The player starts with one RecruitmentHall, but additional ones are buildable by
 
 ### RecruitmentArea
 A 10x10 grid unit area centered on the 4x4 building. **The whole area must lie on the map** (user, 2026-11-26; Q0099): a Hall whose area would leave the map can't be placed (as Tunnels, 0242).
+
+### Recruitment Area display
+(user, 2026-11-26; Q0107, option b; as the Tunnel Area display, factions/syndicate/tunnels.md)
+- **Placing a Hall** shows its 10x10 area: the tiles it would claim, the tiles already claimed by your own Halls, the non-Recruitable tiles, and its Effectiveness in %.
+- **Your own Halls under construction and placed ghosts** (not yet started) also show the tiles they **would** claim (user, 2026-11-26), marked as taken by them, even though a Hall claims nothing until it is complete (Claiming details).
+- **Enemy Halls you can see, or remember** (seen before and now in fog, shown in their last-known state; core/vision.md > Explored) count in the preview: the tiles they claim are shown as unclaimable (user, 2026-11-26). A remembered Hall is assumed to still be there, so the estimate can be wrong (it may be gone). Enemy Halls you have never seen are not counted (no information leak), so the preview may then be optimistic.
+- **A selected own Hall** shows its claimed tiles.
+- Enemy Halls' areas are never drawn as areas of their own.
 
 ### TileClaiming
 A Recruitment Hall claims Recruitable tiles within its Recruitment Area that are not already claimed by another active Recruitment Hall. Tiles are claimed on a first-built basis — the hall that was constructed first has priority. This priority also applies when tiles are freed by the destruction of a competing hall; if multiple halls contest a newly freed tile, the one that was built first claims it.
