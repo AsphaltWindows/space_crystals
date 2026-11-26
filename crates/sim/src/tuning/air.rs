@@ -22,5 +22,5 @@ pub const SEPARATION_PUSH_SU: f32 = 2.0;
 /// distance off the circle over the radius). Placeholder (not in the design: how a Glider joins its circle). At 0.5 a
 /// Glider three radii out comes in at 45°, and one on the circle at IdleSpeed corrects within its turn. A pull of 1
 /// took back much of each push that parts Gliders circling one point (`movement::air`): six Sparrows sent to one
-/// point were 31.2 su apart at closest 10 s later, against 31.8 at 0.5, for a SeparationRadius of 32.
+/// point were 30.8 su apart at closest 10 s later, against 31.8 at 0.5, for a SeparationRadius of 32.
 pub const CIRCLE_PULL: f32 = 0.5;
