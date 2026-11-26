@@ -92,7 +92,7 @@ pub fn info_text(sim: &Sim, sight: &Sight, selection: &Selection) -> Option<Info
     let first = ids.next()?;
     if ids.next().is_none() {
         if let Some(object) = sim.object(first).filter(|o| sight.sees(o)) {
-            return Some(object_info(sim, sight, Shown::live(object), None));
+            return Some(object_info(sim, sight, Shown::live(sim, object), None));
         }
         let record = sight.remembered_record(first)?;
         let shown = Shown::remembered(sim, sight, record);
@@ -119,7 +119,8 @@ struct Shown<'a> {
     owner: Option<PlayerId>,
     hp: Option<f32>,
     /// Its MaxHP: its kind's, a Tunnel's its tier's (a record's the tier last seen, `LastKnown::max_hp`), or while it
-    /// transforms the interpolated one (`Object::max_hp`).
+    /// transforms the interpolated one (`Object::max_hp`); (slice M5-N1a) an augmented unit's with its Augmentations
+    /// (`Object::max_hp_with`).
     max_hp: Option<f32>,
     /// Its Shields and MaxShields, the latter interpolated while it transforms (`Object::max_shields`).
     shields: Option<f32>,
@@ -130,12 +131,12 @@ struct Shown<'a> {
 }
 
 impl<'a> Shown<'a> {
-    fn live(object: &'a Object) -> Self {
+    fn live(sim: &Sim, object: &'a Object) -> Self {
         Self {
             kind: object.kind,
             owner: object.owner,
             hp: object.hp,
-            max_hp: object.max_hp(),
+            max_hp: object.max_hp_with(sim.research()),
             shields: object.shields,
             max_shields: object.max_shields(),
             resource: object.resource.clone(),

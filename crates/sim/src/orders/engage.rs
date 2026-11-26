@@ -290,8 +290,7 @@ pub(super) fn too_close(
         from.engage(unit);
         return None;
     }
-    let max_speed = unit.unit_def().map_or(0.0, |def| def.movement.max_speed());
-    if !unit.mover.can_move(max_speed) {
+    if !unit.mover.can_move(unit.max_speed) {
         *state.backing_off = None;
         unit.engage(None);
         unit.halt();

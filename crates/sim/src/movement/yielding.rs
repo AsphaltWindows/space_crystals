@@ -24,8 +24,8 @@ use glam::Vec2;
 
 use super::collide::{Moved, World};
 use super::space::{Body, Layer};
+use crate::augmentation::Research;
 use crate::combat::AttackPhase;
-use crate::defs::UnitDef;
 use crate::ids::{ObjectId, PlayerId};
 use crate::mover::{Locomotion, MoveGoal, Mover, Orientation, Side, Sidestep};
 use crate::object::Object;
@@ -69,18 +69,18 @@ fn in_attack_sequence(o: &Object) -> bool {
 /// - It isn't busy with a stationary task: not in an attack sequence ([`in_attack_sequence`]). Mining and
 ///   constructing will be orders.
 /// - **Unit modes don't matter**, but it must be able to move in its current mode (`Mover::can_move`, the hook for a
-///   deployed Artillery Rig).
+///   deployed Artillery Rig) at `max_speed`, its top speed (`Object::max_speed`).
 /// - It isn't already taking a sidestep: one short sidestep per request.
 /// - (M3-D2) It isn't walking out of a portal's energy doorway (`Mover::exit_heading`, design change 0145): that walk
 ///   is its only move until it is out (`doorway::emerge`).
-pub(super) fn can_yield(o: &Object, mover: &Mover, unit: &UnitDef) -> bool {
+pub(super) fn can_yield(o: &Object, mover: &Mover, max_speed: f32) -> bool {
     o.owner.is_some()
         && o.orders.as_ref().is_some_and(|orders| orders.is_idle())
         && mover.goal == MoveGoal::None
         && mover.sidestep.is_none()
         && mover.exit_heading.is_none()
         && !in_attack_sequence(o)
-        && mover.can_move(unit.movement.max_speed())
+        && mover.can_move(max_speed)
 }
 
 /// Whether `other` yields to a moving unit of `owner` that moves under the order group `group`.
@@ -296,18 +296,24 @@ pub(super) fn sidestep(
 }
 
 /// Applies the tick's requests once every unit has moved, in the order they were made: movers ask in id order, so
-/// of several requests to one unit the lowest id's wins. The unit must still be free to yield.
-pub(super) fn apply(objects: &mut BTreeMap<ObjectId, Object>, bodies: &[Body], requests: &mut Vec<Request>) {
+/// of several requests to one unit the lowest id's wins. The unit must still be free to yield. (M5-N1a) It sidesteps
+/// at its top speed as its Augmentations make it, at its owner's levels in `research`.
+pub(super) fn apply(
+    objects: &mut BTreeMap<ObjectId, Object>,
+    bodies: &[Body],
+    requests: &mut Vec<Request>,
+    research: Research,
+) {
     for request in requests.drain(..) {
         let Some(o) = objects.get_mut(&bodies[request.yielder].id) else {
             continue;
         };
-        let Some(unit) = &o.kind.def().unit else {
+        let Some(max_speed) = o.movement(research).map(|movement| movement.max_speed()) else {
             continue;
         };
-        let free = o.mover.as_ref().is_some_and(|mover| can_yield(o, mover, unit));
+        let free = o.mover.as_ref().is_some_and(|mover| can_yield(o, mover, max_speed));
         if let Some(mover) = o.mover.as_mut().filter(|_| free) {
-            let speed = unit.movement.max_speed() * mover.speed_factor;
+            let speed = max_speed * mover.speed_factor;
             mover.sidestep = Some(Sidestep::new(
                 request.dir,
                 request.dist,
@@ -338,7 +344,11 @@ mod tests {
     }
 
     fn yields(o: &Object) -> bool {
-        can_yield(o, o.mover.as_ref().unwrap(), o.kind.def().unit.as_ref().unwrap())
+        can_yield(
+            o,
+            o.mover.as_ref().unwrap(),
+            o.max_speed(crate::augmentation::Research::NONE),
+        )
     }
 
     /// 0022 and 0023, Who yields: idle units with an owner; not on Hold or under any order, not while moving, not in

@@ -5,6 +5,7 @@ use std::collections::BTreeMap;
 use glam::Vec2;
 use serde::{Deserialize, Serialize};
 
+use crate::augmentation::Research;
 use crate::combat::Projectile;
 use crate::defs::ObjectKind;
 use crate::economy;
@@ -172,6 +173,12 @@ impl Sim {
 
     pub fn players(&self) -> &[Player] {
         &self.players
+    }
+
+    /// (M5-N1a) Every player's research, which the units' augmented stats follow (`augmentation::Research`): what to
+    /// pass to `Object::max_hp_with`, `Object::movement`, `Object::max_speed` and `combat::weapon`.
+    pub fn research(&self) -> Research<'_> {
+        Research::new(&self.players)
     }
 
     pub fn player(&self, id: PlayerId) -> Option<&Player> {

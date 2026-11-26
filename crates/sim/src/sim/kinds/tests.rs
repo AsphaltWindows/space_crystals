@@ -200,14 +200,8 @@ fn a_legionnaire_whose_conversion_holds_its_form_keeps_its_weapon() {
     assert_eq!((o.attack.as_ref(), o.conversion), (Some(&firing), Some(held)));
     assert_eq!(crate::conversion::form(o), ObjectKind::SabreLegionnaire);
     assert_eq!(
-        crate::combat::weapon(o),
-        ObjectKind::SabreLegionnaire
-            .def()
-            .unit
-            .as_ref()
-            .unwrap()
-            .attack
-            .as_ref()
+        crate::combat::weapon(o, crate::augmentation::Research::NONE),
+        ObjectKind::SabreLegionnaire.def().unit.as_ref().unwrap().attack
     );
     assert_eq!(
         sim.events,
@@ -436,4 +430,27 @@ fn a_changed_object_has_the_capabilities_of_a_new_one() {
             "{kind:?}"
         );
     }
+}
+
+/// (M5-N1a) Plan decision T73 (`factions/cults/augmentation.md > Persistence`): a unit keeps its Augmentations through
+/// a change to a kind that can have them, its HP within that kind's MaxHP with them (a Recruit with Enhanced
+/// Constitution at 55 of its 60 is a Militant at 55 of 60, not held to the Militant's own 40), and loses them through a
+/// change to any other ("if augmented Recruits are consumed to produce a vehicle, their Augmentations are lost"): as
+/// a Seeker, it has none, its HP at most the Seeker's MaxHP.
+#[test]
+fn a_unit_keeps_its_augmentations_only_as_a_kind_that_can_have_them() {
+    let mut sim = sim(&[(ObjectKind::Recruit, P1, SpawnAt::Point(Vec2::new(200.0, 200.0)))]);
+    let constitution = Augmentation::of(crate::augmentation::RecruitKind::Constitution);
+    let o = sim.objects.get_mut(&ObjectId(1)).unwrap();
+    (o.augmentation, o.hp) = (constitution, Some(55.0));
+    assert!(sim.change_kind(ObjectId(1), ObjectKind::Militant, None));
+    let o = object(&sim, 1);
+    assert_eq!(
+        (o.kind, o.augmentation, o.hp, o.max_hp_with(sim.research())),
+        (ObjectKind::Militant, constitution, Some(55.0), Some(60.0))
+    );
+    assert!(sim.change_kind(ObjectId(1), ObjectKind::Seeker, None));
+    let o = object(&sim, 1);
+    let seeker = ObjectKind::Seeker.def().max_hp.unwrap();
+    assert_eq!((o.augmentation, o.hp), (Augmentation::NONE, Some(55.0f32.min(seeker))));
 }

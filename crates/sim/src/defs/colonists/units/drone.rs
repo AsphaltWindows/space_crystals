@@ -75,6 +75,7 @@ pub(crate) static DRONE: ObjectDef = ObjectDef {
             builds: &[],
             shares_builds: false,
         }),
+        augmentable: None,
     }),
     structure: None,
     default_settings: None,

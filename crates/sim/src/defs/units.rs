@@ -349,6 +349,23 @@ pub struct UnitDef {
     pub deploy: Option<Recipe>,
     /// `factions/colonists/units/drone.md > Gathering`: `None` for units that gather nothing.
     pub worker: Option<WorkerDef>,
+    /// (M5-N1a) `factions/cults/augmentation.md > Eligibility`: "All four Cults infantry types: Recruit, Militant,
+    /// Gunner, and Disciple. Only Cults infantry can be augmented". `None` for every other type: a unit whose kind
+    /// changes to one loses its Augmentations (plan decision T73, `Sim::change_kind`). What they do:
+    /// `crate::augmentation`.
+    #[serde(default)]
+    pub augmentable: Option<Augmentable>,
+}
+
+/// (M5-N1a) How an augmentable unit type takes its Augmentations' increments (`UnitDef::augmentable`,
+/// `factions/cults/augmentation.md > Increments`).
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct Augmentable {
+    /// "**Unarmed units** are infantry whose attack is an unarmed melee attack — currently only the Recruit": the
+    /// whole of each increment. The others are armed: they "receive only the MaxHP part of Constitution increments and
+    /// only the movement-speed part of Metabolism increments" (the Militant and the Gunner; the Disciple, which has no
+    /// weapon, "for Augmentation it is **armed**", `factions/cults/units/disciple.md > AttackAttributes`).
+    pub unarmed: bool,
 }
 
 impl UnitDef {

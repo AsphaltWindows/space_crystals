@@ -1,6 +1,8 @@
 //! The Gunner — `factions/cults/units/gunner.md`.
 
-use crate::defs::units::{AttackAttrs, AttackType, MovementAttrs, TargetDomain, TargetType, UnitBase, UnitDef};
+use crate::defs::units::{
+    AttackAttrs, AttackType, Augmentable, MovementAttrs, TargetDomain, TargetType, UnitBase, UnitDef,
+};
 use crate::defs::{Armor, Category, Footprint, ObjectDef, ObjectKind};
 use crate::math::PI;
 use crate::player::Faction;
@@ -76,6 +78,8 @@ pub(crate) static GUNNER: ObjectDef = ObjectDef {
         conversion: None,
         deploy: None,
         worker: None,
+        // (M5-N1a) `factions/cults/augmentation.md > Increments`: "Armed infantry (Militant, Gunner)".
+        augmentable: Some(Augmentable { unarmed: false }),
     }),
     structure: None,
     default_settings: None,

@@ -99,6 +99,7 @@ pub(crate) static AGENT: ObjectDef = ObjectDef {
             // appears at the location with the Agent inside it").
             shares_builds: false,
         }),
+        augmentable: None,
     }),
     structure: None,
     default_settings: None,

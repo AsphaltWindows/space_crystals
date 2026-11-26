@@ -105,6 +105,7 @@ const PEACEKEEPER_UNIT: UnitDef = UnitDef {
     conversion: None,
     deploy: None,
     worker: None,
+    augmentable: None,
 };
 
 #[cfg(test)]

@@ -137,9 +137,11 @@ pub struct Object {
     /// (M5-F2) A Cults infantry unit's Augmentations (`factions/cults/augmentation.md > AugmentationState (per unit
     /// instance)`, `crate::augmentation`), by which the buildings that hold it choose it (design change 0337): neither
     /// for every other unit. It stays with the unit inside a building and when it is trained into infantry, and goes
-    /// when it is trained into a vehicle or an aircraft (`Sim::train`). Optional in files and left out of them while
-    /// it has neither, and hashed only then, so that states saved before it existed load and those without one hash as
-    /// they did.
+    /// when it is trained into a vehicle or an aircraft (`Sim::train`), or (M5-N1a) changes into any kind that can't
+    /// have it (`Sim::change_kind`). (M5-N1a) Its effects are read through the accessors (`Object::max_hp_with`,
+    /// `Object::movement`, `Object::max_speed`, `combat::weapon`), at its owner's current levels, never stored. Optional
+    /// in files and left out of them while it has neither, and hashed only then, so that states saved before it
+    /// existed load and those without one hash as they did.
     #[serde(default, skip_serializing_if = "Augmentation::is_none")]
     pub augmentation: Augmentation,
 }

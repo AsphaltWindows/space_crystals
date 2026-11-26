@@ -44,6 +44,7 @@ use std::collections::BTreeMap;
 
 use glam::Vec2;
 
+use crate::augmentation::Research;
 use crate::combat;
 use crate::defs::{Domain, MovementAttrs, UnitDef};
 use crate::events::SimEvent;
@@ -180,8 +181,8 @@ fn heading_of(pos: Vec2, mover: &Mover) -> Vec2 {
     target.map_or(Vec2::ZERO, |&target| target - pos)
 }
 
-/// A unit as the others see it this tick.
-fn body_of(o: &Object, mover: &Mover, unit: &UnitDef, half: Vec2) -> Body {
+/// A unit as the others see it this tick; `max_speed`, its top speed (`Object::max_speed`).
+fn body_of(o: &Object, mover: &Mover, max_speed: f32, half: Vec2) -> Body {
     // Also while it waits for a path: a unit that just planned again is still on its way.
     let on_its_way = mover.goal != MoveGoal::None;
     Body {
@@ -194,18 +195,19 @@ fn body_of(o: &Object, mover: &Mover, unit: &UnitDef, half: Vec2) -> Body {
         stationary: mover.is_stationary(),
         progress: on_its_way.then_some(mover.last_progress),
         arrived_with: mover.group.filter(|_| mover.status == MoveStatus::Arrived),
-        yields: yielding::can_yield(o, mover, unit),
+        yields: yielding::can_yield(o, mover, max_speed),
         gathers: gather::on_gather_job(o),
         leads: stuck::leads(mover),
         moved: mover.last_progress,
     }
 }
 
-/// A unit that takes part in movement: its definition and half extents.
-fn unit_of(o: &Object) -> Option<(&'static UnitDef, Vec2)> {
+/// A unit that takes part in movement: its definition, (M5-N1a) its movement numbers as its Augmentations make them
+/// at its owner's levels in `research` (`Object::movement`), and its half extents.
+fn unit_of(o: &Object, research: Research) -> Option<(&'static UnitDef, MovementAttrs, Vec2)> {
     let def = o.kind.def();
     o.mover.as_ref()?;
-    Some((def.unit.as_ref()?, def.half_extents()?))
+    Some((def.unit.as_ref()?, o.movement(research)?, def.half_extents()?))
 }
 
 /// Phase 5d (`docs/movement.md > 4`): builds the spatial grids from **all** units, this tick's spawns included
@@ -215,6 +217,11 @@ fn unit_of(o: &Object) -> Option<(&'static UnitDef, Vec2)> {
 /// (`yielding::sidestep`); the sidesteps asked for in this tick are noted when every unit has moved
 /// (`yielding::apply`) and begin in the next. (M4-S2) A lowered pop-up turret that wants to rise asks its owner's idle
 /// units over its footprint the same way (`yielding::make_way`). The angle each unit turned goes to [`Turns`], for phase 5e.
+/// (M5-N1a) Each moves by its movement numbers as its Augmentations make them, at its owner's levels in `research`.
+#[expect(
+    clippy::too_many_arguments,
+    reason = "phase 5d's state, in the parts of the sim it reads and writes"
+)]
 pub(crate) fn step(
     objects: &mut BTreeMap<ObjectId, Object>,
     first_new: ObjectId,
@@ -222,6 +229,7 @@ pub(crate) fn step(
     nav: &Nav,
     scratch: &mut Scratch,
     tick: Tick,
+    research: Research,
     events: &mut Vec<SimEvent>,
 ) {
     scratch.counters = MoveCounters::default();
@@ -236,7 +244,7 @@ pub(crate) fn step(
         layer.reset(map.width(), map.height());
     }
     for o in objects.values() {
-        let Some((unit, half)) = unit_of(o) else {
+        let Some((unit, movement, half)) = unit_of(o, research) else {
             // (M4-S2) A pop-up turret that a unit keeps from rising (`popup`).
             if popup::is_blocked(o)
                 && let Some(placement) = &o.placement
@@ -248,7 +256,7 @@ pub(crate) fn step(
         };
         let mover = o.mover.as_ref().expect("units have movers");
         let index = scratch.bodies.len() as u32;
-        scratch.bodies.push(body_of(o, mover, unit, half));
+        scratch.bodies.push(body_of(o, mover, movement.max_speed(), half));
         scratch.chased.push(match mover.goal {
             MoveGoal::Object { id, .. } => objects.get(&id).map(|target| Chased {
                 id,
@@ -270,7 +278,7 @@ pub(crate) fn step(
     // The bodies were pushed in this same order.
     let mut index = 0;
     for o in objects.values_mut() {
-        let Some((unit, half)) = unit_of(o) else {
+        let Some((unit, movement, half)) = unit_of(o, research) else {
             continue;
         };
         let me = index;
@@ -305,7 +313,7 @@ pub(crate) fn step(
         let mut turned = 0.0;
         // (M3-G) A unit with momentum brakes it off before anything else (`drag`), and its drag is doubled on
         // Rugged terrain: the tile under its centre (`systems/units.md > Which tile counts`).
-        let rugged = matches!(unit.movement, MovementAttrs::Drag { .. })
+        let rugged = matches!(movement, MovementAttrs::Drag { .. })
             && map
                 .tile_preset(TilePos::containing(o.pos))
                 .is_some_and(|preset| preset.rugged);
@@ -314,7 +322,7 @@ pub(crate) fn step(
             // A unit in an attack sequence is busy: it doesn't yield (design change 0023).
             mover.sidestep = None;
             wait(mover, tick);
-            if let Some(model) = Drag::of(&unit.movement, mover.speed_factor, rugged) {
+            if let Some(model) = Drag::of(&movement, mover.speed_factor, rugged) {
                 model.coast(&mut o.pos, o.facing, mover, &mut world, &mut scratch.touched);
             }
             false
@@ -326,7 +334,7 @@ pub(crate) fn step(
                 &mut o.facing,
                 &mut turned,
                 mover,
-                &unit.movement,
+                &movement,
                 rugged,
                 &portal,
                 &mut world,
@@ -342,7 +350,7 @@ pub(crate) fn step(
             && separate::step(
                 &mut o.pos,
                 mover,
-                unit.movement.max_speed() * mover.speed_factor,
+                movement.max_speed() * mover.speed_factor,
                 &mut world,
                 &mut scratch.touched,
             )
@@ -350,7 +358,7 @@ pub(crate) fn step(
             // An idle unit that overlaps another moves off it (design change 0126).
             false
         } else if mover.goal == MoveGoal::None && mover.sidestep.is_some() && !coasting {
-            let speed = unit.movement.max_speed() * mover.speed_factor;
+            let speed = movement.max_speed() * mover.speed_factor;
             yielding::sidestep(
                 &mut o.pos,
                 mover,
@@ -366,7 +374,7 @@ pub(crate) fn step(
                 &mut o.facing,
                 &mut turned,
                 mover,
-                &unit.movement,
+                &movement,
                 &door,
                 &mut world,
                 &mut scratch.touched,
@@ -379,7 +387,7 @@ pub(crate) fn step(
                 &mut o.facing,
                 &mut turned,
                 mover,
-                &unit.movement,
+                &movement,
                 rugged,
                 &mut world,
                 &mut scratch.touched,
@@ -408,7 +416,7 @@ pub(crate) fn step(
         // Commit: later units see this one where it is now.
         let mover = o.mover.as_ref().expect("units have movers");
         let before = scratch.bodies[me].kinds();
-        scratch.bodies[me] = body_of(o, mover, unit, half);
+        scratch.bodies[me] = body_of(o, mover, movement.max_speed(), half);
         let kinds = scratch.bodies[me].kinds();
         if let Some(l) = layer {
             if o.pos != from {
@@ -424,7 +432,7 @@ pub(crate) fn step(
         let ground = &scratch.layers[0];
         yielding::make_way(owner, centre, half, ground, &scratch.bodies, &mut scratch.requests);
     }
-    yielding::apply(objects, &scratch.bodies, &mut scratch.requests);
+    yielding::apply(objects, &scratch.bodies, &mut scratch.requests, research);
 }
 
 /// The unit stands this tick.

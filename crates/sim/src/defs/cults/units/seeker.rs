@@ -78,6 +78,7 @@ pub(crate) static SEEKER: ObjectDef = ObjectDef {
         conversion: None,
         deploy: None,
         worker: None,
+        augmentable: None,
     }),
     structure: None,
     default_settings: None,

@@ -7,6 +7,7 @@
 //! it clears; no other spot is tried." No minimum gap is left between two units (0250 "replaces the earlier 'every 8
 //! frames minimum'"): "the exit rate is set by unit speed and size", by the unit before walking off the spot.
 
+use crate::augmentation::Research;
 use crate::command::TunnelCommand;
 use crate::events::SimEvent;
 use crate::ids::{ObjectId, PlayerId};
@@ -71,7 +72,7 @@ impl Sim {
             return;
         }
         for held in self.held.values_mut() {
-            held.regenerate();
+            held.regenerate(Research::new(&self.players));
         }
         let queued: Vec<ObjectId> = self
             .objects

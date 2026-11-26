@@ -112,12 +112,13 @@ pub fn reaches_point(attrs: &AttackAttrs, attacker: &Shape, source: Elevation, p
 /// isn't up, `riot_shield::allows_attack`; a structure is complete, `Object::is_operational`), `target` is destructible
 /// and not `attacker` itself, the attacker's owner sees it in `vision` (`systems/combat.md > ValidTarget` 2; a unit
 /// without an owner sees nothing), the attack's TargetDomain allows it, and it is within Range and beyond MinRange.
-/// The attack is the weapon in hand (`super::weapon`: a Legionnaire's form's, design change 0198).
+/// The attack is the weapon in hand (`super::weapon`: a Legionnaire's form's, design change 0198), whose domain and
+/// ranges its Augmentations leave as they are (`super::weapon_in_hand`).
 /// Facing is not required: Aiming turns the unit (`systems/combat.md > Aiming`). The behaviours ask the same of
 /// their snapshot, part by part (`orders::engage::close_in`: a unit stops its approach once this holds); this is
 /// the check on the objects themselves, for tests and tools.
 pub fn can_attack_now(map: &Map, vision: &Vision, attacker: &Object, target: &Object) -> bool {
-    let Some(attrs) = super::weapon(attacker) else {
+    let Some(attrs) = super::weapon_in_hand(attacker) else {
         return false;
     };
     riot_shield::allows_attack(attacker)

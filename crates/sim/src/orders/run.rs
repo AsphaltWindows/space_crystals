@@ -33,7 +33,9 @@ pub(crate) fn update(objects: &mut BTreeMap<ObjectId, Object>, first_new: Object
     let mut claims = gather::Claims::default();
     for o in objects.range_mut(..first_new).map(|(_, o)| o) {
         let may_attack = riot_shield::allows_attack(o);
-        let weapon = combat::weapon(o);
+        // (M5-N1a) Its weapon and its top speed as its Augmentations make them, at its owner's levels.
+        let weapon = combat::weapon(o, world.research);
+        let max_speed = o.max_speed(world.research);
         let converting = conversion::is_converting(o);
         let (Some(orders), Some(mover)) = (&mut o.orders, &mut o.mover) else {
             continue;
@@ -45,7 +47,8 @@ pub(crate) fn update(objects: &mut BTreeMap<ObjectId, Object>, first_new: Object
             pos: o.pos,
             facing: o.facing,
             mover,
-            weapon,
+            weapon: weapon.as_ref(),
+            max_speed,
             attack: o.attack.as_mut(),
             may_attack,
             converting,

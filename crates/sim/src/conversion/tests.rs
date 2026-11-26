@@ -53,8 +53,8 @@ fn press(o: &mut Object) {
     retarget(o);
 }
 
-fn weapon_of_kind(kind: ObjectKind) -> Option<&'static crate::defs::AttackAttrs> {
-    kind.def().unit.as_ref().unwrap().attack.as_ref()
+fn weapon_of_kind(kind: ObjectKind) -> Option<crate::defs::AttackAttrs> {
+    kind.def().unit.as_ref().unwrap().attack
 }
 
 /// `factions/colonists/units/weapon_conversion.md > Convert Command`: "each converts to its respective other form". The
@@ -93,11 +93,21 @@ fn a_press_flips_the_type_and_the_form_stays_until_the_conversion() {
         assert_eq!(o.kind, other);
         assert_eq!(o.conversion, Some(Conversion { form: kind, left: None }));
         assert_eq!((form(&o), waits_to_convert(&o), is_converting(&o)), (kind, true, false));
-        assert_eq!(combat::weapon(&o), weapon_of_kind(kind), "the weapon in hand");
-        assert_ne!(combat::weapon(&o), weapon_of_kind(other));
+        assert_eq!(
+            combat::weapon(&o, crate::augmentation::Research::NONE),
+            weapon_of_kind(kind),
+            "the weapon in hand"
+        );
+        assert_ne!(
+            combat::weapon(&o, crate::augmentation::Research::NONE),
+            weapon_of_kind(other)
+        );
         press(&mut o);
         assert_eq!((o.kind, o.conversion), (kind, None), "back to its form: nothing to do");
-        assert_eq!(combat::weapon(&o), weapon_of_kind(kind));
+        assert_eq!(
+            combat::weapon(&o, crate::augmentation::Research::NONE),
+            weapon_of_kind(kind)
+        );
     }
     let mut pk = unit(ObjectKind::Peacekeeper, None);
     hold_form(&mut pk);
@@ -238,7 +248,11 @@ fn a_conversion_waits_for_the_firing_and_the_cooldown() {
         let o = &objects[&ObjectId(1)];
         assert!(waits_to_convert(o) && !is_converting(o), "{phase:?}");
         assert_eq!(o.attack.as_ref().unwrap().phase, Some(phase), "{phase:?}");
-        assert_eq!(combat::weapon(o), weapon_of_kind(RifleLegionnaire), "{phase:?}");
+        assert_eq!(
+            combat::weapon(o, crate::augmentation::Research::NONE),
+            weapon_of_kind(RifleLegionnaire),
+            "{phase:?}"
+        );
     }
     objects.get_mut(&ObjectId(1)).unwrap().attack.as_mut().unwrap().phase = Some(AttackPhase::Reloading);
     step(&mut objects, ObjectId(2));

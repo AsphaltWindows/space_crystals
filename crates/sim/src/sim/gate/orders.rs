@@ -77,8 +77,10 @@ impl Sim {
                 if !self.map.contains_point(p) {
                     return Err(Reject::OffMap);
                 }
-                let can =
-                    |o: &Object| combat::weapon(o).is_some_and(|attrs| combat::can_target_ground(attrs.attack_type));
+                let research = self.research();
+                let can = |o: &Object| {
+                    combat::weapon(o, research).is_some_and(|attrs| combat::can_target_ground(attrs.attack_type))
+                };
                 ordered.retain(|id| self.objects.get(id).is_some_and(can));
                 if ordered.is_empty() {
                     return Err(Reject::CannotTargetGround);

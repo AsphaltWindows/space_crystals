@@ -199,6 +199,10 @@ pub enum Reject {
     /// unit's Unit Control cost of them, one for a Release (`Refusal::NoRecruit`; `factions/cults/structures/README.md
     /// > Choosing Recruits, Release and Eject All`: a kind's button "is greyed if there are none").
     NoRecruit(RecruitKind),
+    /// (M5-N1a) A `DebugCommand::SetAugmentation` that gives Augmentations to a unit of a kind that can't have them
+    /// (`factions/cults/augmentation.md > Eligibility`: "Only Cults infantry can be augmented";
+    /// `augmentation::is_augmentable`).
+    NotAugmentable(ObjectId),
 }
 
 impl fmt::Display for Reject {
@@ -265,6 +269,7 @@ impl fmt::Display for Reject {
             Reject::NothingInside => write!(f, "nothing is inside"),
             Reject::NotASite(id) => write!(f, "object {} is no building of the player's under construction", id.0),
             Reject::NoRecruit(kind) => write!(f, "no {} Recruit is free inside", kind.name()),
+            Reject::NotAugmentable(id) => write!(f, "object {} can't be augmented", id.0),
         }
     }
 }

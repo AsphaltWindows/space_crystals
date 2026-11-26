@@ -28,6 +28,7 @@ use crate::scenario::SpawnSettings;
 pub use colonists::units::drone::BEACON_DEPLOYMENT;
 pub use colonists::units::weapon_conversion::CONVERT_TICKS;
 pub use colonists::{BEACON_CAPACITY_CAP, BEACON_CAPACITY_PER_BUILDING};
+pub use cults::augmentation::{AUGMENTATION, AugmentationTable, IncrementEffects};
 pub use cults::{CONSTRUCT_MENU, ConstructEntry, ConstructMenu, ConstructSlot};
 pub use gdo::UNIT_CONTROL_CAP;
 pub use gdo::units::peacekeeper::RIOT_SHIELD_TOGGLE_TICKS;
@@ -40,9 +41,9 @@ pub use structures::{
 pub use syndicate::structures::tunnel::TRANSIT_DELAY_TICKS;
 pub use syndicate::{CELLS_PER_TUNNEL_SPACE, EJECT_MENU_ORDER, EXPAND_MENU, ExpandEntry, TUNNEL_SPACE_CAP};
 pub use units::{
-    AttackAttrs, AttackType, ContactStep, ConversionDef, Domain, DropOffChoice, FullyConnectedSubtype, LoadDef,
-    MELEE_CONTACT_GU, MovementAttrs, MovementModel, Resource, RiotShieldDef, TargetDomain, TargetType, TurretAttrs,
-    UnitBase, UnitBaseDef, UnitDef, WorkerDef,
+    AttackAttrs, AttackType, Augmentable, ContactStep, ConversionDef, Domain, DropOffChoice, FullyConnectedSubtype,
+    LoadDef, MELEE_CONTACT_GU, MovementAttrs, MovementModel, Resource, RiotShieldDef, TargetDomain, TargetType,
+    TurretAttrs, UnitBase, UnitBaseDef, UnitDef, WorkerDef,
 };
 
 /// The kind registry's macro: from the list of kinds below, each with its def, it makes [`ObjectKind`],

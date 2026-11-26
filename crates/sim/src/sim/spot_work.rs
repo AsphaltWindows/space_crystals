@@ -264,7 +264,7 @@ impl Sim {
         let way = wall.out(row * (wall.row_of(spot, row) + 1) as f32);
         let way_in = way.point(way.along(spot));
         // Two steps of its walk: it can't get there, and end its walk, before the next tick's turn.
-        let turn = 2.0 * o.def().unit.as_ref().map_or(0.0, |unit| unit.movement.max_speed());
+        let turn = 2.0 * o.max_speed(self.research());
         if pos.distance(way_in) <= turn || !self.map.contains_point(way_in) {
             return spot;
         }

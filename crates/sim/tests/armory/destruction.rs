@@ -9,6 +9,12 @@ use super::*;
 /// The middle of the tiles of [`base`]'s Armory, x 768..960 and y 640..768.
 const FOOTPRINT: (Vec2, Vec2) = (Vec2::new(768.0, 640.0), Vec2::new(960.0, 768.0));
 
+/// The full HP of Recruit `unit` of these tests: 40, (M5-N1a) 60 for `constitution`, the one with Enhanced Constitution
+/// (+2 Constitution increments at no research, `factions/cults/augmentation.md > Augmentation Effects`).
+fn full_hp(unit: ObjectId, constitution: ObjectId) -> f32 {
+    if unit == constitution { 60.0 } else { 40.0 }
+}
+
 /// The units evacuated out of `building` in tick `tick`, in order.
 fn evacuated_in(t: &TestSim, tick: Tick, building: ObjectId) -> Vec<ObjectId> {
     (t.events().iter())
@@ -82,7 +88,11 @@ fn an_armory_destroyed_mid_training_lets_its_recruits_out_and_refunds_every_entr
     );
     for &unit in &order {
         let o = t.sim().object(unit).expect("evacuated");
-        assert_eq!((o.kind, o.hp), (RECRUIT, Some(40.0)), "{unit:?} as a Recruit");
+        assert_eq!(
+            (o.kind, o.hp),
+            (RECRUIT, Some(full_hp(unit, constitution))),
+            "{unit:?} as a Recruit"
+        );
         idle_on_the_footprint(&t, unit);
     }
     let augmented = t.sim().object(constitution).unwrap().augmentation;
@@ -203,7 +213,11 @@ fn a_trained_militant_waiting_for_the_doorway_comes_out_a_militant_the_rest_refu
     );
     for &unit in [queued, constitution].iter().chain(&free) {
         let o = t.sim().object(unit).expect("evacuated");
-        assert_eq!((o.kind, o.hp), (RECRUIT, Some(40.0)), "{unit:?} as a Recruit");
+        assert_eq!(
+            (o.kind, o.hp),
+            (RECRUIT, Some(full_hp(unit, constitution))),
+            "{unit:?} as a Recruit"
+        );
     }
     for &unit in &out {
         idle_on_the_footprint(&t, unit);
