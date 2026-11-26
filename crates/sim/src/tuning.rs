@@ -8,6 +8,7 @@
 //! a placeholder and why it has its value. A system's module maps one to one onto the struct that a data file will
 //! load at playtest prep. A slice adds its constants at the end of its system's module.
 
+pub mod air;
 pub mod combat;
 pub mod construction;
 pub mod gathering;

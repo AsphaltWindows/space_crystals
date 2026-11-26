@@ -148,6 +148,7 @@ impl Sim {
         observe(Phase::PathServing);
         paths::serve(
             &mut self.nav,
+            &self.map,
             &mut self.objects,
             first_new,
             &self.path_knowledge,

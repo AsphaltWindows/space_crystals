@@ -29,7 +29,6 @@
 //! [`PlayerVision::object_box_state`]: super::PlayerVision::object_box_state
 
 use super::Vision;
-use crate::combat::object_box;
 use crate::ids::PlayerId;
 use crate::object::Object;
 use crate::tuning::vision::REVEAL_TICKS;
@@ -46,7 +45,8 @@ impl Vision {
         let Some(vision) = self.players.iter_mut().find(|p| p.id == player) else {
             return;
         };
-        let (lo, hi) = object_box(attacker);
+        // (M5-H1) Where the attacker counts as being: a Glider past the map's edge at its nearest edge tile.
+        let (lo, hi) = vision.map_box(attacker);
         if !vision.sources_see_box(lo, hi) {
             vision.reveals.insert(attacker.id, tick + REVEAL_TICKS);
         }

@@ -58,6 +58,56 @@ fn pressing_on_is_a_property_of_one_leg() {
     assert_eq!(hash(&mover), plain);
 }
 
+/// (M5-H1) A Glider's flight (`mover::flight`): the point it circles and its strafing run, each hashed, and written to
+/// files, only while set (plan decision T82: "New state is hashed only while set"), so that the states of every other
+/// unit are as they were before the fields existed. A new leg and a stop end both; a strafing run begins as a turn
+/// toward its goal.
+#[test]
+fn a_glider_s_orbit_and_strafing_run_are_kept_only_while_set() {
+    use crate::hash::{StateHash, StateHasher};
+    let hash = |mover: &Mover| {
+        let mut h = StateHasher::new();
+        mover.hash(&mut h);
+        h.finish()
+    };
+    let goal = MoveGoal::Point(Vec2::new(5.0, 6.0));
+    let mut mover = Mover::default();
+    mover.go_to(goal, None, 7);
+    let (plain, file) = (hash(&mover), serde_json::to_string(&mover).unwrap());
+    assert!(!file.contains("orbit") && !file.contains("strafe"), "{file}");
+    assert!(serde_json::from_str::<Mover>(&file).unwrap().orbit.is_none());
+    mover.strafe(192.0);
+    assert_eq!(
+        mover.strafe,
+        Some(Strafe {
+            range: 192.0,
+            pass: Pass::Toward
+        })
+    );
+    let strafing = hash(&mover);
+    assert_ne!(strafing, plain);
+    for pass in [Pass::Run, Pass::On] {
+        mover.strafe.as_mut().unwrap().pass = pass;
+        assert_ne!(hash(&mover), strafing, "{pass:?}");
+    }
+    mover.strafe.as_mut().unwrap().range = 100.0;
+    assert_ne!(hash(&mover), strafing);
+    let saved = serde_json::to_string(&mover).unwrap();
+    assert_eq!(serde_json::from_str::<Mover>(&saved).unwrap(), mover);
+    mover.go_to(goal, None, 7);
+    assert_eq!((mover.strafe, hash(&mover)), (None, plain));
+    mover.orbit = Some(Vec2::new(64.0, 64.0));
+    let circling = hash(&mover);
+    assert_ne!(circling, plain);
+    mover.orbit = Some(Vec2::new(64.0, 65.0));
+    assert_ne!(hash(&mover), circling);
+    let saved = serde_json::to_string(&mover).unwrap();
+    assert_eq!(serde_json::from_str::<Mover>(&saved).unwrap(), mover);
+    mover.strafe(192.0);
+    mover.stop();
+    assert_eq!((mover.orbit, mover.strafe), (None, None));
+}
+
 /// Design change 0024, `docs/movement.md > 5.6`: three repaths per leg, after waits of 8, 16 and 32 ticks.
 #[test]
 fn counted_repaths_are_capped_and_wait() {

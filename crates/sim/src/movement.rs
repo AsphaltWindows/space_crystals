@@ -16,6 +16,8 @@
 //! - [`drag`]: DragMovement, the model of the units with momentum (slice M3-G); [`follow`]: one unit's tick along
 //!   its path, shared by every model.
 //! - [`separate`]: an idle unit that overlaps another moves off it (design change 0126).
+//! - (M5-H1) [`glider`]: GliderMovement, the model of the units that never stop, in place of a unit's tick along its
+//!   path; [`air`]: the soft separation of air units from each other, after every unit has moved.
 //! - [`doorway`]: a released unit walking out of its producer's exit doorway (design change 0080), the one case in
 //!   which a unit's box overlaps a structure: `collide::World::door` is where the tiles of that building stop
 //!   blocking it. (M3-D2) Out of a portal's energy doorway (design change 0145) the unit walks straight from the
@@ -30,10 +32,12 @@
 //! Hooks for later slices: crushing is an exception in [`space::blocks`]; other movement models replace the
 //! "desired direction → facing and velocity" part of a unit's tick, as [`drag`] does in [`follow`].
 
+mod air;
 mod collide;
 mod doorway;
 mod drag;
 mod follow;
+mod glider;
 mod round;
 mod separate;
 mod space;
@@ -68,6 +72,7 @@ use drag::Drag;
 #[cfg(test)]
 use follow::step_unit;
 use follow::step_unit_on;
+use glider::Glider;
 use space::{Body, Layer};
 
 /// The work of one movement phase: output for tests and the perf overlay, never part of the state or its hash
@@ -87,7 +92,7 @@ pub struct MoveCounters {
 }
 
 /// The collision layers with hard collision (`docs/movement.md > 6.1`): ground and underground. Air units have
-/// none: they collide with nothing (their soft separation isn't M1).
+/// none: they collide with nothing, and (M5-H1) keep apart softly after the moves ([`air`]).
 const LAYERS: usize = 2;
 
 fn layer_of(domain: Domain) -> Option<usize> {
@@ -110,9 +115,13 @@ pub(crate) struct Chased {
 
 /// The most a unit turns in one tick, radians: its TurnRate (`systems/combat.md >
 /// LocomotionOrientationConstraints[TurnRateMovement]`), without limit for the movement models whose turn rate
-/// depends on speed (TODO(movement models): not built).
+/// depends on speed (TODO(movement models): not built). (M5-H1) None for a Glider: its flight alone turns it, by its
+/// speed (`glider`), so nothing is left of a tick's turn for an aim of its base in phase 5e.
 pub(crate) fn turn_rate(movement: &MovementAttrs) -> f32 {
-    movement.turn_rate().unwrap_or(f32::INFINITY)
+    match movement {
+        MovementAttrs::Glider { .. } => 0.0,
+        _ => movement.turn_rate().unwrap_or(f32::INFINITY),
+    }
 }
 
 /// (G) The one turn budget of a tick (`docs/movement.md > 6.3`): a unit turns at most its [`turn_rate`] per tick in
@@ -161,6 +170,8 @@ pub(crate) struct Scratch {
     /// The angle each unit turned in this tick's phase 5d, for 5e.
     turns: Turns,
     counters: MoveCounters,
+    /// (M5-H1) The air units' separation ([`air`]).
+    air: air::Scratch,
 }
 
 impl Scratch {
@@ -265,10 +276,11 @@ pub(crate) fn step(
         let index = scratch.bodies.len() as u32;
         scratch.bodies.push(body_of(o, mover, movement, half));
         scratch.chased.push(match mover.goal {
+            // (M5-H1) Where it counts as being: a Glider past the map's edge at the nearest edge tile.
             MoveGoal::Object { id, .. } => objects.get(&id).map(|target| Chased {
                 id,
-                pos: target.pos,
-                shape: Shape::of(target),
+                pos: target.map_pos(map),
+                shape: Shape::on_map(target, map),
             }),
             MoveGoal::None | MoveGoal::Point(_) => None,
         });
@@ -324,7 +336,19 @@ pub(crate) fn step(
                 .tile_preset(TilePos::containing(o.pos))
                 .is_some_and(|preset| preset.rugged);
         let coasting = mover.momentum != Vec2::ZERO;
-        let failed = if held {
+        let failed = if let Some(glider) = Glider::of(movement) {
+            // (M5-H1) A Glider never stands, waits nor yields: it flies, whatever its attack does (`glider`).
+            glider.fly(
+                &mut o.pos,
+                &mut o.facing,
+                &mut turned,
+                mover,
+                scratch.chased[me].as_ref(),
+                half,
+                map,
+            );
+            false
+        } else if held {
             // A unit in an attack sequence is busy: it doesn't yield (design change 0023).
             mover.sidestep = None;
             wait(mover, tick);
@@ -439,6 +463,8 @@ pub(crate) fn step(
         yielding::make_way(owner, centre, half, ground, &scratch.bodies, &mut scratch.requests);
     }
     yielding::apply(objects, &scratch.bodies, &mut scratch.requests, research);
+    // (M5-H1) The air units keep apart, from where the moves left them.
+    air::separate(objects, first_new, map, &mut scratch.air);
 }
 
 /// The unit stands this tick.

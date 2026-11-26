@@ -14,6 +14,7 @@
 use glam::Vec2;
 
 use crate::defs::ObjectKind;
+use crate::map::Map;
 use crate::object::{Object, Placement};
 use crate::units::SU_PER_GU;
 
@@ -48,6 +49,16 @@ impl Shape {
         match &o.placement {
             Some(placement) => Self::footprint(placement),
             None => Self::silhouette(o.kind, o.pos, o.facing),
+        }
+    }
+
+    /// (M5-H1) `o`'s shape where it counts as being on `map` (`Object::map_pos`): [`Shape::of`], but for a Glider past
+    /// the map's edge its Silhouette at the point of the map nearest to it, which is where vision, targeting and the
+    /// ranges take it to be ("as if it were at the nearest edge tile", `systems/units.md > Air Collision`).
+    pub fn on_map(o: &Object, map: &Map) -> Self {
+        match &o.placement {
+            Some(placement) => Self::footprint(placement),
+            None => Self::silhouette(o.kind, o.map_pos(map), o.facing),
         }
     }
 

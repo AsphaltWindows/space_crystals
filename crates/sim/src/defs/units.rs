@@ -408,6 +408,11 @@ pub struct UnitDef {
     /// that casts none. Optional in files: none.
     #[serde(default, deserialize_with = "super::leak::slice")]
     pub spells: &'static [SpellDef],
+    /// (M5-H1) `systems/units.md > Air Collision > SeparationRadius`: "per unit type, circular, the distance at which
+    /// air-to-air repulsion activates. Must be larger than the unit's Silhouette", space units (`movement::air`). Only
+    /// air units have one; `None` for every other type. Optional in files: none.
+    #[serde(default)]
+    pub separation_radius: Option<f32>,
 }
 
 /// (M5-N1a) How an augmentable unit type takes its Augmentations' increments (`UnitDef::augmentable`,
@@ -436,6 +441,12 @@ impl UnitDef {
     /// (M5-N4b) Its Shroud's numbers, if it casts Shroud ([`UnitDef::spells`]).
     pub fn shroud(&self) -> Option<&'static ShroudDef> {
         self.spells.iter().find_map(SpellDef::shroud)
+    }
+
+    /// (M5-H1) Whether it moves by GliderMovement (`systems/units.md > GliderMovement`): it never stops
+    /// (`movement::glider`). Its kind's movement model, which no Augmentation changes.
+    pub fn glides(&self) -> bool {
+        matches!(self.movement, MovementAttrs::Glider { .. })
     }
 }
 

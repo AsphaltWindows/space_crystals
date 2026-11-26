@@ -15,6 +15,7 @@ use crate::conversion::Conversion;
 use crate::defs::{Footprint, ObjectDef, ObjectKind};
 use crate::economy::{Extractor, Worker};
 use crate::ids::{ObjectId, PlayerId};
+use crate::map::Map;
 use crate::mover::Mover;
 use crate::orders::Orders;
 use crate::popup::PopUp;
@@ -167,6 +168,16 @@ pub struct Object {
 impl Object {
     pub fn def(&self) -> &'static ObjectDef {
         self.kind.def()
+    }
+
+    /// (M5-H1) Where the object counts as being for vision, targeting, the grids and selection: its position, which
+    /// only a Glider's leaves the map (`systems/units.md > Air Collision`: "Gliders may unavoidably travel a little
+    /// outside the map edge while turning or circling"), clamped onto the map, to the nearest point of the nearest edge
+    /// tile (`Map::clamp_point`): "A Glider outside the map edge **stays visible and attackable as if it were at the
+    /// nearest edge tile**" (design change 0047: "For vision and targeting, clamp an out-of-map Glider's position to
+    /// the nearest edge tile"; plan decision T81). Only the movement and the client's drawing read the true position.
+    pub fn map_pos(&self, map: &Map) -> Vec2 {
+        map.clamp_point(self.pos)
     }
 }
 

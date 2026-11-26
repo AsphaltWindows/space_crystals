@@ -82,6 +82,7 @@ pub(crate) static GUNNER: ObjectDef = ObjectDef {
         augmentable: Some(Augmentable { unarmed: false }),
         repairs: None,
         spells: &[],
+        separation_radius: None,
     }),
     structure: None,
     default_settings: None,

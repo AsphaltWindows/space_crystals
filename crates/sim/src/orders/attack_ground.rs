@@ -30,13 +30,18 @@
 //!   Attack Ground follows its ammo rules, `factions/syndicate/units/specter.md`: slice N7's.)
 //! - The point is the one clicked, with no snapping and no group destinations (plan decision T47): every unit given
 //!   the order fires at it.
+//! - (M5-H1) **A Glider strafes it** (`systems/controls/command_behaviors.md > AttackingLocation`, GliderMovement
+//!   exception: "Same strafing run pattern as AttackingObject, targeting the ground location"): its move is a strafing
+//!   run at the point (`Mover::strafe`, `movement::glider`) out to its attack's Range, and phase 5e fires while the
+//!   point is within Range and its turret's arc. It never stops, backs off nor gives up: only another order ends it,
+//!   or its weapon letting go of the location.
 
 use glam::Vec2;
 
 use super::engage::{TooNear, too_close};
 use super::state::AttackGround;
 use super::world::{Unit, World};
-use crate::combat::reaches_point;
+use crate::combat::{max_range, reaches_point};
 use crate::elevation::Elevation;
 use crate::mover::{MoveGoal, MoveStatus};
 
@@ -54,6 +59,15 @@ pub(super) fn run(unit: &mut Unit, at: Vec2, state: &mut AttackGround, world: &W
     };
     let shape = unit.shape();
     let ground = Elevation::ground(world.map, at);
+    if unit.glides() {
+        let goal = MoveGoal::Point(at);
+        if !state.moving || unit.mover.goal != goal || unit.mover.strafe.is_none() {
+            unit.mover.go_to(goal, None, world.tick);
+            unit.mover.strafe(max_range(attrs, world.elevation(unit), ground));
+            state.moving = true;
+        }
+        return false;
+    }
     let from = TooNear {
         target: None,
         pos: at,

@@ -142,9 +142,9 @@ pub fn can_attack_now(map: &Map, vision: &Vision, attacker: &Object, target: &Ob
         && domain_allows(attrs.target_domain, object_domain(target))
         && reaches(
             attrs,
-            &Shape::of(attacker),
+            &Shape::on_map(attacker, map),
             Elevation::of_object(map, attacker),
-            &Shape::of(target),
+            &Shape::on_map(target, map),
             Elevation::of_object(map, target),
         )
 }
@@ -193,9 +193,11 @@ impl Targets {
                     id: o.id,
                     owner: o.owner,
                     threat: super::threat(o),
-                    pos: o.pos,
+                    // (M5-H1) Where it counts as being: a Glider past the map's edge "stays [...] attackable as if
+                    // it were at the nearest edge tile" (`Object::map_pos`).
+                    pos: o.map_pos(map),
                     facing: o.facing,
-                    shape: Shape::of(o),
+                    shape: Shape::on_map(o, map),
                     domain: object_domain(o),
                     elevation: Elevation::of_object(map, o),
                     pre_armor: pre_armor_multiplier(map, o),

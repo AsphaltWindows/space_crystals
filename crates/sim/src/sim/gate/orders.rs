@@ -2,6 +2,8 @@
 //! `docs/movement.md > 3`). What an order may target is what the player sees or remembers (design change 0139,
 //! `gate/targets.rs`).
 
+use glam::Vec2;
+
 use super::Checked;
 use crate::command::Ability;
 use crate::construction::site::assists;
@@ -27,13 +29,10 @@ impl Sim {
         if ordered.is_empty() {
             return Err(Reject::NoUnits);
         }
+        let kind = self.onto_map(kind)?;
         match kind {
-            OrderKind::Move(Target::Point(p)) | OrderKind::AttackMove(p) | OrderKind::Patrol(p) => {
-                // `contains_point` also rejects NaN and infinite positions.
-                if !self.map.contains_point(p) {
-                    return Err(Reject::OffMap);
-                }
-            }
+            // On the map ([`Sim::onto_map`]).
+            OrderKind::Move(Target::Point(_)) | OrderKind::AttackMove(_) | OrderKind::Patrol(_) => {}
             // Design change 0139: an object the player sees or remembers (`Sim::check_target_known`).
             OrderKind::Move(Target::Object(id)) => {
                 self.check_target_known(player, id)?;
@@ -77,10 +76,7 @@ impl Sim {
             // (M4-O) `systems/controls/commands.md > AttackGround`: "Only available to units whose AttackType has
             // CanTargetGround" (plan decision T47): those units take it, the others ignore it. The point is the one
             // clicked, on the map; no one needs to see it.
-            OrderKind::AttackGround(p) => {
-                if !self.map.contains_point(p) {
-                    return Err(Reject::OffMap);
-                }
+            OrderKind::AttackGround(_) => {
                 let research = self.research();
                 let can = |o: &Object| {
                     combat::weapon(o, research).is_some_and(|attrs| combat::can_target_ground(attrs.attack_type))
@@ -110,6 +106,30 @@ impl Sim {
             units: ordered,
             kind,
             queue,
+        })
+    }
+
+    /// (M5-H1) `kind` with its point, if it has one, on the map (`systems/units.md > Air Collision`: "Orders can only
+    /// target points inside the map"; plan decision T81: "The gate clamps orders' points into the map"): a point past
+    /// the map's edge moves to the nearest point of the nearest edge tile (`Map::clamp_point`), so that a click past
+    /// the edge sends the units to the edge (design change 0045: "Clicking outside the map issues no order beyond the
+    /// edge"). Units that can't stand at the very edge go as near as they get
+    /// (`systems/controls/command_behaviors.md > MovingToLocation > Unreachable target location`). A point that isn't
+    /// finite is [`Reject::OffMap`]: a replay can't hold it (`ARCHITECTURE.md > Commands, events and replays`).
+    fn onto_map(&self, kind: OrderKind) -> Result<OrderKind, Reject> {
+        let onto = |p: Vec2| {
+            if p.is_finite() {
+                Ok(self.map.clamp_point(p))
+            } else {
+                Err(Reject::OffMap)
+            }
+        };
+        Ok(match kind {
+            OrderKind::Move(Target::Point(p)) => OrderKind::Move(Target::Point(onto(p)?)),
+            OrderKind::AttackMove(p) => OrderKind::AttackMove(onto(p)?),
+            OrderKind::Patrol(p) => OrderKind::Patrol(onto(p)?),
+            OrderKind::AttackGround(p) => OrderKind::AttackGround(onto(p)?),
+            other => other,
         })
     }
 

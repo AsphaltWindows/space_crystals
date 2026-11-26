@@ -165,18 +165,37 @@ fn an_order_names_at_most_max_order_units_ids() {
     assert_eq!(t.sim().validate(&too_many), Err(Reject::TooManyUnits));
 }
 
+/// (M5-H1) A point past the map's edge is taken to the nearest point of the nearest edge tile (plan decision T81: "The
+/// gate clamps orders' points into the map"; `systems/units.md > Air Collision`: "Orders can only target points inside
+/// the map"): the order goes there. One that isn't finite is refused.
 #[test]
 fn order_targets_must_exist_and_lie_on_the_map() {
     let mut t = two_units();
     for p in [
         v(f32::NAN, 10.0),
         v(10.0, f32::INFINITY),
-        v(-1.0, 10.0),
-        v(768.0, 10.0),
-        v(10.0, 512.0),
+        v(f32::NEG_INFINITY, f32::NAN),
     ] {
         for kind in [move_to(p), OrderKind::AttackMove(p), OrderKind::Patrol(p)] {
             apply(&mut t, order(P1, &[1], kind, false), Err(Reject::OffMap));
+        }
+    }
+    let (east, south) = (768.0_f32.next_down(), 512.0_f32.next_down());
+    for (p, onto) in [
+        (v(-1.0, 10.0), v(0.0, 10.0)),
+        (v(768.0, 10.0), v(east, 10.0)),
+        (v(10.0, 512.0), v(10.0, south)),
+        (v(-1e30, 1e30), v(0.0, south)),
+    ] {
+        for (kind, clamped) in [
+            (move_to(p), move_to(onto)),
+            (OrderKind::AttackMove(p), OrderKind::AttackMove(onto)),
+            (OrderKind::Patrol(p), OrderKind::Patrol(onto)),
+        ] {
+            apply(&mut t, order(P1, &[1], kind, false), Ok(()));
+            let orders = t.sim().object(ObjectId(1)).unwrap().orders.as_ref().unwrap();
+            let current = orders.current.as_ref().expect("started in its own tick");
+            assert_eq!(current.order.kind, clamped, "{p}");
         }
     }
     let missing = ObjectId(99);

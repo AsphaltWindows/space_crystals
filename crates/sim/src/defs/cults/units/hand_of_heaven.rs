@@ -83,6 +83,7 @@ pub(crate) static HAND_OF_HEAVEN: ObjectDef = ObjectDef {
         augmentable: None,
         repairs: None,
         spells: &[],
+        separation_radius: None,
     }),
     structure: None,
     default_settings: None,

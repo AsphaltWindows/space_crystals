@@ -110,9 +110,11 @@ impl<'a> Shooter<'a> {
         Self {
             id: o.id,
             owner: o.owner,
-            pos: o.pos,
+            // (M5-H1) Where it counts as being (`Object::map_pos`): a Glider past the map's edge fires from the
+            // nearest edge tile, as it is attacked there.
+            pos: o.map_pos(map),
             // A unit's silhouette where it stands, a structure's footprint (`Shape::of`).
-            shape: Shape::of(o),
+            shape: Shape::on_map(o, map),
             elevation: Elevation::of_object(map, o),
             map,
             attrs,

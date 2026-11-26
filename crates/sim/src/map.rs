@@ -253,6 +253,12 @@ impl Map {
         p.is_finite() && self.in_bounds(TilePos::containing(p))
     }
 
+    /// (M5-H1) The point of the map nearest to `p` (`units::clamp_to_map`): `p` itself on the map, else the nearest
+    /// point of the nearest edge tile.
+    pub fn clamp_point(&self, p: Vec2) -> Vec2 {
+        crate::units::clamp_to_map(p, self.width, self.height)
+    }
+
     fn index(&self, p: TilePos) -> Option<usize> {
         self.in_bounds(p)
             .then(|| p.y as usize * self.width as usize + p.x as usize)
