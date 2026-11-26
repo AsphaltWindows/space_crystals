@@ -62,7 +62,9 @@ Available while a Cults building is under construction (not yet complete). Cance
 Applies to every Cults building that can hold units inside (Armory, Altar, Temple, Cathedral, Shrine, Gunworks, Machine Shop, Garrison, and any future such building — e.g. the Chop Shop and Airstrip if their production flow holds Recruits). When the building is destroyed:
 - **Everyone inside is evacuated alive**: units in the internal pool, units reserved by queued orders, the unit currently being trained or augmented, Recruits staffing research, and Recruits powering the Shrine. This includes non-Recruit infantry held by the Altar (Militants, Gunners, Disciples).
 - **Units come out unchanged**: a Recruit mid-training comes out as a Recruit; a unit mid-augmentation does not receive the Augmentation. Existing AugmentationState is kept.
-- **Placement**: evacuated units appear around the building's footprint wherever there is open space, unharmed.
+- **Placement** (user, 2026-11-26; Q0106): the building is simply gone (its destruction is an animation; no debris affects play), and evacuated units **all appear at the same time inside its former footprint**, unharmed, spread over it. Units that overlap ignore each other until separated, and idle ones push apart (systems/units.md > Ground Collision).
+- **A unit that had finished training** and was waiting for the doorway comes out **as the trained unit**, with no refund (its training was complete).
+- **Afterwards** evacuated units **idle**.
 - **Orders are cancelled with a full refund**: every in-progress and queued training, augmentation, and research order is cancelled and its full Space Crystals cost refunded (consistent with core/tech_and_research.md > Research shared rule 7).
 
 ## Economy check
