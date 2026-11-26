@@ -31,6 +31,7 @@
 
 Order of work (placeholder passes done, 0366/0367): finish Cults units → Colonists units → techs → detection → numbers review.
 ## Loose Ends
+- **Attack Move for units that can't stop (gliders)**: what it should mean is open (user, 2026-11-27, Q0148): today its 6 GU leash drops a looping Sparrow's target.
 - **Computer players**: a playtest tool for now (Q0147); write a real design when they become a feature.
 - **Economy**: automated testing closed (Q0146); targets are playtest reference. Open for playtests: Cults One Hall ~0.85 of GDO/Colonists at 2:48.
 - **Cults identity check (2026-11-27), open tensions for the user**: no front-line tank (are infantry masses the tank?); thin, short-range anti-air and no Cults AA building; detection later; Mystical branch has only the Disciple as a new unit (user: fine).

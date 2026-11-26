@@ -2362,3 +2362,4 @@ Answered Q0069–Q0071 (0258–0267): losing-Tunnel edges, Syndicate economy che
 2026-11-27 — Right-click in menus doesn't reset; in targeting goes to DefaultState. Entry 0400. Q0146/Q0147 arrived.
 2026-11-27 — Q0146 (a): Economy check closed. Entry 0401.
 2026-11-27 — Q0147: computer players playtest tool, fair knowledge. Entry 0402. Q0148 arrived.
+2026-11-27 — Q0148 part 1: Sparrow sight 8; Attack Move unchanged. Entry 0403.
