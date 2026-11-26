@@ -4440,8 +4440,8 @@ unchecked.
   playback keys), `--windowed` and `--headless` work with it; a windowless playback ends at the replay's end unless
   told otherwise. To check a replay quickly: `cargo run -- --replay <file> --headless --fast`.
 - **Golden hashes** (`crates/sim/tests/golden/`: the games in `units.rs`, `gdo.rs`, `colonists.rs`, `syndicate.rs`,
-  `cults.rs`, `garrison.rs`, `altar.rs`, `temple.rs` and `main.rs`, the recording and the comparison in `harness.rs`):
-  sixteen games, a 3v3
+  `cults.rs`, `garrison.rs`, `altar.rs`, `temple.rs`, `shroud.rs` and `main.rs`, the recording and the comparison in
+  `harness.rs`): seventeen games, a 3v3
   duel, a 40-unit
   AttackMove battle, a 12-unit group move through a choke, a patrol that meets an enemy, a chase lost in the fog, three
   Peacekeepers that raise their Riot Shields (`Command::Ability`; one turns back half-way), walk up to a Guard under
@@ -4450,7 +4450,8 @@ unchecked.
   plates, while player 2 plates its field and builds Generators), the Colonists' `colonists_opening` and
   `colonists_vs_gdo` (slice M3-K1, below), the Syndicate's `syndicate_opening` and `syndicate_vs_gdo` (slice
   M4-L, below), the Cults' `cults_opening` and `cults_vs_syndicate` (slice M5-L, below), `cults_garrison` (slice
-  M5-N2, below), `cults_altar` (slice M5-N1b, below) and `cults_temple` (slice M5-N3, below), are blessed as replays
+  M5-N2, below), `cults_altar` (slice M5-N1b, below), `cults_temple` (slice M5-N3, below) and `cults_shroud` (slice
+  M5-N4b, below), are blessed as replays
   with a checkpoint every 32 ticks and at the end, in `crates/sim/tests/golden/<name>.json`. Another, `area_attacks` (slice M4-O), is a unit test
   (`combat/projectiles/golden.rs`), as it plays test throwers (`combat::testing`): grenades in flight, blasts over a
   hidden Hideout and a group, an Attack Ground. Its file is `tests/golden/test_defs/area_attacks.json`, out of the
@@ -4498,7 +4499,15 @@ unchecked.
   `cults_temple` (to 0:25, on a test map, debug commands on for the research's 100 Space Crystals) six Recruits staff
   a Temple, which queues Enhanced Constitution Level 1 at tick 80 and completes it 160 frames on, in tick 239, while
   three Enhanced Constitution Militants fight three Agents: every Militant has 80 MaxHP from that tick and 20 HP
-  more, its damage kept (`during`); one falls all the same, and the two others kill the Agents. The
+  more, its damage kept (`during`); one falls all the same, and the two others kill the Agents. In `cults_shroud` (to
+  0:21, on a test map) six Militants hold under three Disciples' circles, and three Guards and a Grenadier attack-move
+  onto them: the outer two Disciples, 8 grid units apart, channel Shroud from tick 1; the middle one channels at tick
+  67, which joins the two clouds and releases both buffers at once, each over its own circle, stops at 112, which
+  splits the cloud and releases the joint buffer over its three circles, and joins them again at 148; the outer two
+  run dry at 178, the middle one at 292. While a
+  unit is under a cloud every hit on it is a release, and at each of those ticks every buffer goes at once
+  (`during`). Two Guards fall while the clouds are up, and no unit of player 1's; in the open the three Militants in
+  front fall, and the rest kill the last Guard and the Grenadier. The
   ignored
   `tests/skirmish_soak.rs`
   (slice M3-K2) plays the Colonists' two players for 10 minutes, twice, until player 1's field runs out: the
