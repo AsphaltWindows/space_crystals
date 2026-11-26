@@ -4319,7 +4319,9 @@ Drones, through one command flow (plan decision T10, slices M2-H1, M2-H2 and M3-
     ghosts the placing Recruits alone hold (`command_ui::interface::recipients`) don't count, as in
     `Sim::group_build_check`;
   - **a selected own Hall's claims** (`selected_claims`): the tiles it claims in the game (`Sim::claimed_tiles`, what
-    its InfoPanel's Effectiveness counts), in a selected Tunnel's violet; a site claims none;
+    its InfoPanel's Effectiveness counts), in a selected Tunnel's violet; a site claims none. Its **true** claims, even
+    where an unseen enemy Hall has taken tiles (design change 0373, answering Q0133: "Unlike the placement preview, it
+    may reveal where an unseen enemy Hall took tiles");
   - its colours and z are its own constants in one place (`RECRUITMENT_AREA_Z`, just in front of the Tunnel Area
     overlay), its look the Tunnel display's.
 - The design leaves some things open (labels, colours, the flash, the cursor's shapes and the Mixed look, the
