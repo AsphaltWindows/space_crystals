@@ -23,6 +23,20 @@ Placeholder (bookmarked by the user, 2026-11-23, to be designed with the HUD): s
 - Horizontal positions are fixed — sections never shift when adjacent panels appear or disappear
 - When a section's visibility condition is not met, the slot remains reserved (empty space, no content)
 
+## Minimap
+(user, 2026-11-26; the user asked for it to be prioritised) The leftmost HUD Bar section: a small view of the **whole map**.
+
+### What it shows
+- **Terrain** in simplified colours.
+- **Objects** as marks in their **player colour**: buildings as larger squares (their footprint at minimap scale), units as small dots. **Space Crystal patches** and other neutral objects in a **neutral colour**.
+- **Fog of war, as on the main map** (core/vision.md > VisibilityState): Unexplored is black; Explored is dimmed and shows only **remembered** objects (buildings, patches) in their last-known state; only **Visible** areas show live objects, units included. Hidden objects (e.g. underground, cloaked) don't appear for players who can't see them.
+- **The camera's view** as a rectangle outline.
+
+### Using it
+- **Left-click or drag** on the minimap: the camera centres on that point (follows the drag).
+- **Right-click** on the minimap: the selection's **right-click on that ground point**, as a right-click on ground in the main view (systems/controls/interface.md > RightClickResolution; usually a Move). Designer's placeholder: the minimap targets only ground, never an object.
+- **While a target command waits** (AwaitingTarget, e.g. Attack, Move): a **left-click** on the minimap targets that ground point (e.g. Attack Move there), as a left-click on ground would (designer's placeholder). Building placement (AwaitingPlacement) is not possible from the minimap.
+
 ## SelectionPanel
 Displays a grid of portraits for the current selection. Only visible when 2 or more objects are selected. A selection of 2+ objects always consists of the player's own objects (units and/or structures, e.g. from a control group), since other players' and neutral objects are always selected alone (systems/controls/selection.md > Selection > Constraints). "Unit" below means any selected object. Each cell shows the portrait of one selected unit instance. Portraits belonging to the ActiveGroup are shown with a sheer highlight.
 
