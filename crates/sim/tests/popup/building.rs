@@ -27,7 +27,7 @@ fn building(t: &TestSim) -> ObjectId {
     }
 }
 
-/// `factions/syndicate/tunnels.md > ExpandMenu`: "The ExpandMenu also offers the **Laser Turret** (once the player
+/// `factions/syndicate/tunnel_menus.md > ExpandMenu`: "The ExpandMenu also offers the **Laser Turret** (once the player
 /// owns an Optics Lab)"; "Cost: 100 Space Crystals (no Supplies)". The gate's answers short of the placement
 /// (`Sim::can_expand`, which the menu greys its tenth slot by), and the placement's: inside the Tunnel's area, on
 /// ground a surface structure may stand on (a reading: Buildable and flat as well as Drillable), clear of every
@@ -177,9 +177,9 @@ fn cancelling_its_site_refunds_75() {
 
 /// `factions/syndicate/structures/laser_turret.md > Upright vs Pop-up`: a pop-up "Occupies 1 grid unit of that
 /// Tunnel's tunnel-region, like an expansion, so it reduces Tunnel Space (¼ Tunnel Space, subject to the rounding rule
-/// in Tunnel Space)"; `factions/syndicate/tunnels.md > Tunnel Space`: "structures smaller than 2x2 ... only lower
-/// Tunnel Space when they push the unused total below the next multiple of 4". Plan §3.3 S2's acceptance: "Four
-/// pop-ups take 1."
+/// in Tunnel Space)"; `factions/syndicate/tunnel_area_and_space.md > Tunnel Space`: "structures smaller than 2x2 ...
+/// only lower Tunnel Space when they push the unused total below the next multiple of 4". Plan §3.3 S2's acceptance:
+/// "Four pop-ups take 1."
 ///
 /// The Tunnel's 48 cells less the Optics Lab's 4 leave 44, Tunnel Space 11. A Tunnel's turret takes its cell as its
 /// site starts, like an expansion (design change 0254): 43 cells, 10. Three more pop-ups: 40 cells, still 10: four

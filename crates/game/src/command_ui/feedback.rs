@@ -1,10 +1,10 @@
 //! Short feedback messages of the command flow, placeholders until the future notification system:
-//! - a click on an invalid target (`systems/controls/selection_and_hud.md > AwaitingTarget[CommandType] > Invalid
+//! - a click on an invalid target (`systems/controls/interface.md > AwaitingTarget[CommandType] > Invalid
 //!   target clicks`, design change 0065): the click is ignored, the target is still awaited, and the player gets
 //!   "short feedback (an 'invalid target' message and/or sound; exact form TBD, ties into the future notification
 //!   system)";
 //! - a Train that some of its producers didn't queue for want of Space Crystals
-//!   (`systems/controls/selection_and_hud.md > SelectionGroup > No smart-casting > Group production with limited
+//!   (`systems/controls/selection.md > SelectionGroup > No smart-casting > Group production with limited
 //!   resources`, design change 0083): "The others don't queue, and the player gets insufficient-resources feedback".
 //!   The sim tells which (`SimEvent::ProductionRefused`); a full queue is no resource, and gives none. A Train that no
 //!   producer would queue is never sent: its button is disabled (`super::interface::Conditions`). The army cap is
@@ -27,13 +27,13 @@
 //!   slice M4-E): what the check found on arrival, as for a building, or that the worker didn't get to its site
 //!   ([`deploy_failed_text`]). Placeholders too;
 //! - an Attack whose unit can't move, or can't back off further (design change 0204 point 3), and whose target is
-//!   inside its MinRange (`SimEvent::TargetTooClose`; `systems/controls/behaviors.md > AttackingObject > Target
+//!   inside its MinRange (`SimEvent::TargetTooClose`; `systems/controls/command_behaviors.md > AttackingObject > Target
 //!   inside MinRange`, design change 0182: "the order fails with feedback ("Target too close"; same channel as other
 //!   refusals)"): [`TARGET_TOO_CLOSE_TEXT`]; and an Attack Ground whose location is (`SimEvent::LocationTooClose`,
-//!   slice M5-O3; `systems/controls/behaviors.md > AttackingLocation`, as AttackingObject), the same;
+//!   slice M5-O3; `systems/controls/command_behaviors.md > AttackingLocation`, as AttackingObject), the same;
 //! - an Enter whose unit got to a building's entrance with its pool full (`SimEvent::EnterFailed` with `full`; slice
 //!   M5-F1, Placeholder (Q0104 point 2)): [`BUILDING_FULL_TEXT`];
-//! - a greyed-out button pressed, or its hotkey (`systems/controls/selection_and_hud.md > CommandPanel > Pressing an
+//! - a greyed-out button pressed, or its hotkey (`systems/controls/interface.md > CommandPanel > Pressing an
 //!   unavailable command`, design change 0162: "nothing is issued, and the player gets the same feedback as when an
 //!   order is refused, naming the reason (e.g. "Not enough Space Crystals", "Queue is full")"), and a Warp In whose
 //!   click the sim refused (`super::CommandRefused`): the button's reason ([`unavailable_text`]), placeholder
@@ -108,18 +108,18 @@ pub const NOT_YET_TEXT: &str = "Not available yet";
 /// The message of a refusal the others don't name. Placeholder wording.
 pub const CANNOT_DO_TEXT: &str = "Cannot do that now";
 /// The message of an Eject of a unit type none of which is in the Tunnel Network free to leave
-/// (`Reject::NotInNetwork`; `factions/syndicate/tunnels.md > EjectMenu`). Placeholder wording.
+/// (`Reject::NotInNetwork`; `factions/syndicate/tunnel_menus.md > EjectMenu`). Placeholder wording.
 pub const NONE_INSIDE_TEXT: &str = "None in the Tunnel Network";
 /// The message of an Eject while every unit of the type only just walked in (`Reject::InTransit`;
-/// `factions/syndicate/tunnels.md > EjectMenu`, design change 0288 point 1: "its tile is greyed and the click is
+/// `factions/syndicate/tunnel_menus.md > EjectMenu`, design change 0288 point 1: "its tile is greyed and the click is
 /// refused; nothing is queued"). Placeholder wording.
 pub const IN_TRANSIT_TEXT: &str = "Still in transit";
 /// The message of an Eject of a unit type this Tunnel's tier doesn't let out (`Reject::NoTransit`;
-/// `factions/syndicate/tunnels.md > EjectMenu`: "Unit types whose base category exceeds this Tunnel's tier are visible
-/// but greyed out (disabled)"). Placeholder wording.
+/// `factions/syndicate/tunnel_menus.md > EjectMenu`: "Unit types whose base category exceeds this Tunnel's tier are
+/// visible but greyed out (disabled)"). Placeholder wording.
 pub const TIER_TOO_LOW_TEXT: &str = "This Tunnel's tier is too low";
 /// The message of an expansion pressed or placed while its Tunnel performs an operation (`Reject::OperationUnderWay`;
-/// `factions/syndicate/tunnels.md > ExpandMenu`: "begins construction if the Tunnel is not already performing an
+/// `factions/syndicate/tunnel_menus.md > ExpandMenu`: "begins construction if the Tunnel is not already performing an
 /// operation"). Placeholder wording.
 pub const OPERATION_UNDER_WAY_TEXT: &str = "This Tunnel is busy";
 /// The message of an Attack its unit can't carry out, the target inside its MinRange and the unit unable to move
@@ -147,13 +147,13 @@ pub const REQUIRES_GUNWORKS_TEXT: &str = "Requires a Gunworks";
 /// resources"). Placeholder wording.
 pub const NOTHING_CARRIED_TEXT: &str = "Not carrying resources";
 /// The message of a Tunnel's Upgrade pressed at its top tier (`Reject::TopTier`, slice M4-G;
-/// `factions/syndicate/tunnels.md > Tunnel ObjectInterfaceState`: "Unavailable if already Tier 3"). Placeholder
+/// `factions/syndicate/tunnel_menus.md > Tunnel ObjectInterfaceState`: "Unavailable if already Tier 3"). Placeholder
 /// wording.
 pub const TOP_TIER_TEXT: &str = "Already at the top tier";
 /// The message of a Tunnel's Upgrade that something blocks, by the truth (`Reject::UpgradeBlocked`, slice M4-G;
-/// `factions/syndicate/tunnels.md > Tunnel Area Non-Overlap Rule`: "the upgrading Tunnel's owner learns that something
-/// blocks it"): it never says what, as the owner may not see it. Placeholder wording (the brief's "something blocks
-/// it").
+/// `factions/syndicate/tunnel_area_and_space.md > Tunnel Area Non-Overlap Rule`: "the upgrading Tunnel's owner learns
+/// that something blocks it"): it never says what, as the owner may not see it. Placeholder wording (the brief's
+/// "something blocks it").
 pub const UPGRADE_BLOCKED_TEXT: &str = "Something blocks the upgrade";
 /// Placeholder look: amber text on a dark band, this far above the HUD Bar (percent of the surface height).
 const TEXT_COLOR: Color = Color::srgb(1.0, 0.80, 0.30);

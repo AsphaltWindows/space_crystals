@@ -1,4 +1,4 @@
-//! The Recruitment Halls (slice M5-C, plan decisions T56 and T57; `factions/cults/economy.md > RecruitmentHall`):
+//! The Recruitment Halls (slice M5-C, plan decisions T56 and T57; `factions/cults/structures/recruitment_hall.md`):
 //! the tiles they claim, the Recruits they make for nothing up to their capacity, the Unit Control of their lineages,
 //! and the HUD's figures. One test binary, in modules by topic:
 //! - `timing`: a Hall at 100% fills 6 → 20 in 2688 ticks and then makes none, its Recruit in production counted from
@@ -26,7 +26,7 @@ const P1: PlayerId = PlayerId(1);
 const P2: PlayerId = PlayerId(2);
 const HALL: ObjectKind = ObjectKind::RecruitmentHall;
 const RECRUIT: ObjectKind = ObjectKind::Recruit;
-/// `factions/cults/economy.md > RecruitmentHall > BaseRecruitProductionTime - 12 seconds (192 frames) per Recruit`.
+/// `factions/cults/structures/recruitment_hall.md > BaseRecruitProductionTime - 12 seconds (192 frames) per Recruit`.
 const FRAMES: Tick = 192;
 
 /// A flat `w` × `h` map on which players 1 and 2 play the Cults.

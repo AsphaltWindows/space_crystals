@@ -57,7 +57,7 @@ fn buttons(app: &mut App) -> Vec<(CommandSlot, PanelButton, ButtonLook, &'static
 /// production panel (plan decision T23: Train in Q, X Cancel, C Rally), with the units not in the game yet unavailable
 /// in their slots (design change 0124: the Robo Portal's W Scout, the Bio Portal's W Lancer and E psionic unit; slice
 /// M3-J2): Q queues the unit and pays, X takes it off the queue and refunds it, C then a click sets the rally point,
-/// and so does a right-click (`systems/controls/selection_and_hud.md > Production Building Default Right-Click`).
+/// and so does a right-click (`systems/controls/interface.md > Production Building Default Right-Click`).
 #[test]
 fn a_portal_trains_in_q_cancels_in_x_and_rallies_in_c() {
     use ButtonLook::{Common, Disabled, Unavailable};

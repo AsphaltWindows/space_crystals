@@ -1,4 +1,4 @@
-//! A Hall's commands (`factions/cults/economy.md > RecruitmentHall > ObjectInterfaceState[RecruitmentHall]`): the
+//! A Hall's commands (`factions/cults/structures/recruitment_hall.md > ObjectInterfaceState[RecruitmentHall]`): the
 //! rally point, and the X and the `Train` it has no use for; and a game with Halls replayed and saved.
 
 use sc_sim::{
@@ -19,7 +19,7 @@ fn rally(hall: ObjectId, target: Target) -> Command {
     production(&[hall], ProductionCommand::SetRally(target))
 }
 
-/// Design change 0342 point 2 (`factions/cults/economy.md > RecruitmentHall > ObjectInterfaceState[RecruitmentHall]`:
+/// Design change 0342 point 2 (`factions/cults/structures/recruitment_hall.md > ObjectInterfaceState[RecruitmentHall]`:
 /// "No cancel: Recruit production can't be cancelled"): a `CancelProduction` finds nothing to cancel at a Hall, before
 /// its first step or with its Recruit in production, and one sent anyway changes nothing: the Recruit comes out in
 /// tick 192, as without it.
@@ -40,9 +40,10 @@ fn a_hall_refuses_a_cancel() {
     assert_eq!(ticks(&t, hall), [FRAMES]);
 }
 
-/// A Hall trains nothing on command: `factions/cults/economy.md > RecruitmentHall > ObjectInterfaceState[RecruitmentHall]`
-/// has no Train, and the Hall recruits by itself (`factions/cults/economy.md > RecruitmentHall > Production
-/// Behavior`). A `Train` of a Recruit is refused and changes nothing.
+/// A Hall trains nothing on command: `factions/cults/structures/recruitment_hall.md >
+/// ObjectInterfaceState[RecruitmentHall]` has no Train, and the Hall recruits by itself
+/// (`factions/cults/structures/recruitment_hall.md > Production Behavior`). A `Train` of a Recruit is refused and
+/// changes nothing.
 #[test]
 fn a_hall_refuses_a_train() {
     let hall = ObjectId(1);
@@ -60,7 +61,7 @@ fn a_hall_refuses_a_train() {
 }
 
 /// Plan acceptance, the rally point: "Produced Recruits spawn at the hall and move to its rally point"
-/// (`factions/cults/economy.md > RecruitmentHall > Production Behavior`), C setting it as for every producer.
+/// (`factions/cults/structures/recruitment_hall.md > Production Behavior`), C setting it as for every producer.
 #[test]
 fn the_recruits_walk_to_the_rally_point() {
     let hall = ObjectId(1);
@@ -92,7 +93,7 @@ fn the_recruits_walk_to_the_rally_point() {
 }
 
 /// Plan acceptance (slice M5-D landed first): a rally point on a Space Crystals patch makes each new Recruit gather
-/// from it (`systems/controls/selection_and_hud.md > What a rally point makes a new unit do`: the default right-click
+/// from it (`systems/controls/interface.md > What a rally point makes a new unit do`: the default right-click
 /// command on the target; `factions/cults/units/recruit.md > Gathering`), delivering at the Storage.
 #[test]
 fn a_rally_on_a_patch_makes_new_recruits_gather() {

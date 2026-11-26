@@ -1,11 +1,11 @@
 //! Attack sequences (`systems/combat.md > AttackPhase`, `ARCHITECTURE.md > Combat`): each phase lasts exactly its
 //! duration in ticks, the unit faces its target before it fires, and only Aiming and Reloading can be interrupted.
 //!
-//! The target holds its position (`systems/controls/behaviors.md > HoldingPosition`), so it never moves; it may fire
-//! back, which changes nothing here as long as the attacker lives (a test that runs longer than a Guard target takes
-//! to kill the attacker keeps it beyond the Guard's Range). A unit left without an order looks for a target by itself
-//! (`systems/controls/behaviors.md > BaseAutoTargeting`), so the tests that need the attacker to stay disengaged send
-//! it away with a Move.
+//! The target holds its position (`systems/controls/command_behaviors.md > HoldingPosition`), so it never moves; it may
+//! fire back, which changes nothing here as long as the attacker lives (a test that runs longer than a Guard target
+//! takes to kill the attacker keeps it beyond the Guard's Range). A unit left without an order looks for a target by
+//! itself (`systems/controls/behaviors.md > BaseAutoTargeting`), so the tests that need the attacker to stay disengaged
+//! send it away with a Move.
 
 use sc_sim::combat::{self, AttackPhase};
 use sc_sim::testing::{ScenarioBuilder, TestSim};
@@ -114,7 +114,7 @@ fn guard_attacks_every_24_ticks() {
     assert!(t.sim().object(TARGET).is_none(), "dead");
 }
 
-/// `systems/controls/behaviors.md > AttackingObject` 2: a unit attacking from its base turns to face its target
+/// `systems/controls/command_behaviors.md > AttackingObject` 2: a unit attacking from its base turns to face its target
 /// while it aims (at its TurnRate, 180° per tick for infantry), and fires facing it.
 #[test]
 fn the_unit_turns_to_face_its_target_while_aiming() {
@@ -235,7 +235,7 @@ fn an_interrupted_reload_keeps_counting() {
 }
 
 /// `systems/combat.md > Aiming`: the target must stay valid throughout; one that leaves the range cancels the aim.
-/// The unit goes after it (`systems/controls/behaviors.md > AttackingObject` 4) and attacks again once the gap
+/// The unit goes after it (`systems/controls/command_behaviors.md > AttackingObject` 4) and attacks again once the gap
 /// between their edges is back within its Range, 4 grid units.
 #[test]
 fn a_target_leaving_range_cancels_the_aim_and_the_unit_goes_after_it() {
@@ -258,8 +258,8 @@ fn a_target_leaving_range_cancels_the_aim_and_the_unit_goes_after_it() {
     assert_eq!(attack_ticks(&t, ATTACKER), [11, 28]);
 }
 
-/// Out of range from the start (`systems/controls/behaviors.md > AttackingObject` 1): the unit approaches until the
-/// target is in range, then attacks; in range from the start, it attacks from where it stands.
+/// Out of range from the start (`systems/controls/command_behaviors.md > AttackingObject` 1): the unit approaches until
+/// the target is in range, then attacks; in range from the start, it attacks from where it stands.
 #[test]
 fn out_of_range_the_unit_closes_in_and_in_range_it_attacks() {
     let mut far = engage(

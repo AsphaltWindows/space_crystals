@@ -67,10 +67,10 @@ fn a_gunners_miss_is_drawn_to_the_spot_it_locked() {
 }
 
 /// Slice M5-O3: an Attack Ground that its Gunner can't carry out fails with the feedback an Attack's does
-/// (`SimEvent::LocationTooClose`; `systems/controls/behaviors.md > AttackingObject > Target inside MinRange`: "the same
-/// "Target too close" feedback"), through the sim. Player 1's Gunner, its back to the map's west edge, is ordered to
-/// attack the ground 8 su off its edge, inside its MinRange: it backs off as far as the edge lets it, gives the order
-/// up, and the feedback band says "Target too close".
+/// (`SimEvent::LocationTooClose`; `systems/controls/command_behaviors.md > AttackingObject > Target inside MinRange`:
+/// "the same "Target too close" feedback"), through the sim. Player 1's Gunner, its back to the map's west edge, is
+/// ordered to attack the ground 8 su off its edge, inside its MinRange: it backs off as far as the edge lets it, gives
+/// the order up, and the feedback band says "Target too close".
 #[test]
 fn a_cornered_gunners_attack_ground_shows_target_too_close() {
     let gunner = ObjectId(1);

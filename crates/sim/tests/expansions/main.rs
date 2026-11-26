@@ -1,6 +1,6 @@
-//! A Tunnel's expansions (slice M4-F; `factions/syndicate/tunnels.md > Tunnel ObjectInterfaceState > ExpandMenu`,
-//! `factions/syndicate/tunnels.md > AwaitingPlacement (Expansion)`, `factions/syndicate/tunnels.md > Expansions under
-//! construction`; design changes 0239, 0240, 0241 and 0254), through the gate, one test binary:
+//! A Tunnel's expansions (slice M4-F; `factions/syndicate/tunnel_menus.md > Tunnel ObjectInterfaceState > ExpandMenu`,
+//! `factions/syndicate/tunnel_menus.md > AwaitingPlacement (Expansion)`, `factions/syndicate/tunnel_menus.md >
+//! Expansions under construction`; design changes 0239, 0240, 0241 and 0254), through the gate, one test binary:
 //! - `placing`: where an expansion may go: inside the Tunnel's area, on Drillable ground (0239), clear of every
 //!   structure (0240) and resource (0241), ground units standing on it or not (design change 0290), its ghost judging
 //!   by what the owner knows and the command by the truth. No lingering ghost can be in its way (0290: "No ghost check

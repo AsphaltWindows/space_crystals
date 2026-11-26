@@ -7,7 +7,7 @@
 //! ```
 //!
 //! On a flat 48 × 40 map player 1 has a field of 22 patches in two rows of 11, 4 tiles apart, with four Storages
-//! between the rows, a tile from either (`factions/cults/economy.md > Storage`: "The best layout leaves a 1-tile gap
+//! between the rows, a tile from either (`factions/cults/structures/storage.md`: "The best layout leaves a 1-tile gap
 //! between patch and Storage"), so that each Storage takes loads at two faces; 60 Recruits, dealt to the patches in
 //! tick 1 from blocks north and south of the field; and three Recruitment Halls south of it, which produce what their
 //! slice (M5-C) makes them produce. The Recruits keep their collision while they gather (design change 0106): 60 on

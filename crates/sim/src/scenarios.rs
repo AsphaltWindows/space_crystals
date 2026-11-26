@@ -252,10 +252,10 @@ pub fn dev_skirmish_map() -> MapDef {
     ];
     // The first slot's Cults Starting Layout (`factions/cults/economy.md > Starting Conditions`; slice M5-B, the second
     // slot's is its image). The Storage on (5, 4) to (6, 5), a 1-tile gap from five of the field's patches, (3, 3) and
-    // the northern row (`factions/cults/economy.md > Storage`: "The best layout leaves a 1-tile gap between patch and
+    // the northern row (`factions/cults/structures/storage.md`: "The best layout leaves a 1-tile gap between patch and
     // Storage"), and 2 tiles from the western column. The Recruitment Hall on (8, 8) to (11, 11), from the slot's start,
     // off the Storage and the field: its Recruitment Area, (5, 5) to (14, 14), is all on the map, Plane (Recruitable,
-    // `factions/cults/economy.md > RecruitmentHall > Effectiveness`: "balancing starts from the assumption that the
+    // `factions/cults/structures/recruitment_hall.md > Effectiveness`: "balancing starts from the assumption that the
     // whole map is Recruitable") and far from the other slot's, so the Hall starts at 100% effectiveness. The six
     // Recruits beside the Storage, south of it, in two rows of three 1 grid unit apart around (6, 7.5) grid units,
     // clear of the Hall and of the door in the middle of its side B, the west side, which its Recruits come out of

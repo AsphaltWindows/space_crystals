@@ -20,7 +20,7 @@ use crate::replay::Playback;
 use crate::sim_driver::{LocalPlayer, PendingCommands, SimRes};
 use crate::viewer_events::ViewerEvents;
 
-/// `systems/controls/selection_and_hud.md > ControlState`: validated against the game state every tick. Removed objects
+/// `systems/controls/selection.md > ControlState`: validated against the game state every tick. Removed objects
 /// (`SimEvent::Removed`, which combat's deaths send too) leave every player's selection and control groups in the frame
 /// of their tick, each player's the removals they perceive (`crate::viewer_events`); so does anything else that no
 /// longer exists, and anything that player may no longer select (`pick::selectable_id`): an enemy that walks out of
@@ -103,12 +103,12 @@ impl WorldView<'_> {
     }
 }
 
-/// `systems/controls/selection_and_hud.md > MapClickSelection` and `systems/controls/selection_and_hud.md >
+/// `systems/controls/selection.md > MapClickSelection` and `systems/controls/selection.md >
 /// BoxSelection`: the `Select` action's clicks and boxes on the map, each with the roles of the modifiers it was sent
-/// with. While a target is awaited (`systems/controls/selection_and_hud.md > AwaitingTarget`) or a building is placed
-/// (`systems/controls/selection_and_hud.md > AwaitingPlacement`), a left-click on the map is the target or the
+/// with. While a target is awaited (`systems/controls/interface.md > AwaitingTarget`) or a building is placed
+/// (`systems/controls/hud.md > AwaitingPlacement`), a left-click on the map is the target or the
 /// placement (`crate::command_ui`, `InterfaceState::takes_map_clicks`) and selects nothing, and a drag does nothing: no
-/// box, no selection (`systems/controls/selection_and_hud.md > AwaitingTarget > Dragging while targeting`, design
+/// box, no selection (`systems/controls/interface.md > AwaitingTarget > Dragging while targeting`, design
 /// change 0067). In a build menu the map's clicks select as in DefaultState.
 pub(super) fn select_on_map(
     mut clicks: MessageReader<MapClick>,
@@ -139,7 +139,7 @@ pub(super) fn select_on_map(
     });
 }
 
-/// `systems/controls/selection_and_hud.md > ControlGroups > Operations` and `systems/controls/selection_and_hud.md >
+/// `systems/controls/selection.md > ControlGroups > Operations` and `systems/controls/selection.md >
 /// GroupCycling`: the control group keys and Tab / Shift-Tab. Recall and Center snaps the camera to the centroid of
 /// where the recalled objects are drawn (`core/camera.md > Panning > Centering`); the camera then keeps the view on the
 /// map.

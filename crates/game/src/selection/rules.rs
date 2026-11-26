@@ -1,4 +1,4 @@
-//! The selection rules (`systems/controls/selection_and_hud.md`): what a click on the map, a box, a click on a
+//! The selection rules (`systems/controls/selection.md`): what a click on the map, a box, a click on a
 //! portrait, a control group key and Tab do to a player's ControlState, under the Constraints (`> Selection >
 //! Constraints`). The objects arrive as [`Selectables`]: the ones the player may select, as they are drawn.
 //!

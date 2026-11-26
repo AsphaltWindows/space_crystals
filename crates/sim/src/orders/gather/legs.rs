@@ -8,9 +8,9 @@
 //! from the north. The point nearest to the worker keeps trips straight and spreads workers along a face.
 //!
 //! **A leg to a patch that ends short of it** (the mover arrived as near as it gets behind units that won't move,
-//! `systems/controls/behaviors.md > MovingToLocation > Occupied target location`, or gave up) counts as arriving
-//! there, out of reach: "a patch the Drone can't get within MiningReach of (path blocked by units, structures or
-//! terrain) is treated like an occupied patch" (design change 0141). A leg back to the drop-off that ends short is
+//! `systems/controls/command_behaviors.md > MovingToLocation > Occupied target location`, or gave up) counts as
+//! arriving there, out of reach: "a patch the Drone can't get within MiningReach of (path blocked by units, structures
+//! or terrain) is treated like an occupied patch" (design change 0141). A leg back to the drop-off that ends short is
 //! begun again after [`LEG_RETRY_TICKS`], a back-off: what stopped it is a unit that won't move, and that is rarely
 //! gone a tick later. A worker that set off again at once would ask for a path every dozen ticks and jitter against
 //! its blocker; standing, it is a unit at rest, which the units behind it route around at once. **Not an Agent's leg
@@ -140,9 +140,9 @@ pub(super) fn leg_to(state: &mut Gather, unit: &mut Unit, to: Vec2, world: &Worl
 /// gives up"):
 /// - the leg is exempt from the occupied-target rule (`Mover::press_on`, `movement::stuck`), so behind standing
 ///   Agents it stays a unit on its way: it steers, and looks for other routes on the mover's schedule;
-/// - when the mover gives the leg up, stuck with no attempt left (`systems/controls/behaviors.md > MovingToLocation >
-///   Failure`), the next leg begins **at once**, for the point nearest to where the Agent is by then: out of reach it
-///   doesn't stand and wait;
+/// - when the mover gives the leg up, stuck with no attempt left (`systems/controls/command_behaviors.md >
+///   MovingToLocation > Failure`), the next leg begins **at once**, for the point nearest to where the Agent is by
+///   then: out of reach it doesn't stand and wait;
 /// - [`LEG_RETRY_TICKS`] is left for the one end the rule doesn't speak of: a leg that got to the end of its path
 ///   out of reach, or found no path at all (the hatch walled off). Nothing is in its way to steer round, and a leg
 ///   begun in every tick would only be a path request in every tick.

@@ -1,6 +1,6 @@
-//! What the selection looks like: the InfoPanel and the SelectionPanel (`systems/controls/selection_and_hud.md > HUD
-//! Bar`, `systems/controls/selection_and_hud.md > SelectionPanel`), clicks on portraits
-//! (`systems/controls/selection_and_hud.md > SelectionPanel > Interactions`), and the markers under selected objects.
+//! What the selection looks like: the InfoPanel and the SelectionPanel (`systems/controls/hud.md > HUD
+//! Bar`, `systems/controls/hud.md > SelectionPanel`), clicks on portraits
+//! (`systems/controls/hud.md > SelectionPanel > Interactions`), and the markers under selected objects.
 
 use bevy::mesh::VertexAttributeValues;
 use bevy::prelude::*;
@@ -169,7 +169,7 @@ fn a_selected_beacon_stays_selected_through_its_warp_in() {
     assert_eq!(marker_size(&mut app, 12), Vec2::splat(2.0 * 64.0 - 8.0));
 }
 
-/// `systems/controls/selection_and_hud.md > HUD Bar > Sections`: the InfoPanel shows from one selected object, the
+/// `systems/controls/hud.md > HUD Bar > Sections`: the InfoPanel shows from one selected object, the
 /// SelectionPanel from two.
 #[test]
 fn the_info_panel_shows_the_selected_object() {
@@ -227,14 +227,14 @@ fn the_selection_panel_shows_two_or_more_and_highlights_the_active_group() {
         portraits(&mut app),
         [(1, false), (2, false), (5, false), (3, true), (4, true)]
     );
-    // Down to one object, the panel empties and the InfoPanel shows it (`systems/controls/selection_and_hud.md >
+    // Down to one object, the panel empties and the InfoPanel shows it (`systems/controls/hud.md >
     // SelectionPanel > Edge cases`).
     click(&mut app, at(1), &[]);
     assert!(portraits(&mut app).is_empty());
     assert!(label_shown(&mut app, HudSection::SelectionPanel));
 }
 
-/// `systems/controls/selection_and_hud.md > SelectionPanel` (design change 0055): the portraits come group by group, in
+/// `systems/controls/hud.md > SelectionPanel` (design change 0055): the portraits come group by group, in
 /// one order whatever order the objects were selected in, and Tab and Shift-Tab move the ActiveGroup's highlight along
 /// it, wrapping around.
 #[test]
@@ -268,7 +268,7 @@ fn tab_and_shift_tab_follow_the_order_of_the_portraits() {
     assert_eq!(order(&mut app), [1, 2, 5, 3, 4], "cycling keeps the order");
 }
 
-/// `systems/controls/selection_and_hud.md > SelectionPanel > Interactions`, with portraits 0–4 showing units 1, 2, 5
+/// `systems/controls/hud.md > SelectionPanel > Interactions`, with portraits 0–4 showing units 1, 2, 5
 /// (Peacekeepers), 3 and 4 (Guards).
 #[test]
 fn portrait_clicks_follow_the_panels_rules() {

@@ -346,7 +346,7 @@ fn a_portal_warping_in_shows_only_cancel_and_sets_no_rally_point() {
     assert_eq!(selected(&app), [BEACON_A]);
 }
 
-/// Design change 0162 (`systems/controls/selection_and_hud.md > CommandPanel > Pressing an unavailable command`): "a
+/// Design change 0162 (`systems/controls/interface.md > CommandPanel > Pressing an unavailable command`): "a
 /// greyed-out command (e.g. Train with too few Space Crystals [...]) can still be pressed or its hotkey used; nothing
 /// is issued, and the player gets the same feedback as when an order is refused, naming the reason": the Robo
 /// Portal's Train and the Beacon's Warp In with an empty bank, and a building not in the game; and a Warp In whose

@@ -1,8 +1,8 @@
 //! The Tunnel Network — `factions/syndicate/tunnels.md > Tunnel Network`, `factions/syndicate/tunnels.md > Tunnel >
-//! SymmetryType - ABCD` (Side A's paths), `factions/syndicate/tunnels.md > EjectMenu`; `systems/controls/commands.md >
-//! Enter`; slice M4-C. "The Tunnel Network is the collective of all Tunnels owned by a Syndicate player. Units inside
-//! the Tunnel Network can travel between Tunnels freely, but can only enter or exit the network through a Tunnel whose
-//! tier is sufficient for their unit base category."
+//! SymmetryType - ABCD` (Side A's paths), `factions/syndicate/tunnel_menus.md > EjectMenu`;
+//! `systems/controls/commands.md > Enter`; slice M4-C. "The Tunnel Network is the collective of all Tunnels owned by a
+//! Syndicate player. Units inside the Tunnel Network can travel between Tunnels freely, but can only enter or exit the
+//! network through a Tunnel whose tier is sufficient for their unit base category."
 //!
 //! - **Units off the map** (plan decision T30): a unit inside the network is not among the sim's objects. It is
 //!   [`Held`] in one store beside them (`Sim::held`), with its id, at a [`Place`]. So every system that walks the
@@ -83,8 +83,8 @@ pub struct Held {
     /// and means nothing while it is held.
     pub object: Object,
     pub place: Place,
-    /// The tick it came to its place: `factions/syndicate/tunnels.md > EjectMenu`'s "the one that has been inside the
-    /// network longest" comes out first (design change 0251); in a building, the pool's order
+    /// The tick it came to its place: `factions/syndicate/tunnel_menus.md > EjectMenu`'s "the one that has been inside
+    /// the network longest" comes out first (design change 0251); in a building, the pool's order
     /// (`Sim::held_in`).
     pub since: Tick,
     /// Whether it walked in (design change 0245: "Each unit inside stores when it entered"), so that the transit
@@ -302,7 +302,7 @@ pub fn is_exit(tunnel: &Object) -> bool {
     tunnel.tunnel.is_some() && tunnel.placement.is_some() && tunnel.owner.is_some() && tunnel.is_operational()
 }
 
-/// One entry of a Tunnel's eject queue (`TunnelState::eject`; `factions/syndicate/tunnels.md > EjectMenu`, design
+/// One entry of a Tunnel's eject queue (`TunnelState::eject`; `factions/syndicate/tunnel_menus.md > EjectMenu`, design
 /// change 0251: "each click reserves a specific unit [...]; the queue can't be cancelled").
 #[derive(Copy, Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct Eject {

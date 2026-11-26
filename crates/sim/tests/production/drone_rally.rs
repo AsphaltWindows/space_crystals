@@ -1,4 +1,4 @@
-//! Design change 0136's Verification for a rally on an enemy unit (`systems/controls/selection_and_hud.md > What a
+//! Design change 0136's Verification for a rally on an enemy unit (`systems/controls/interface.md > What a
 //! rally point makes a new unit do`): "Robo Portal rallied on a visible enemy unit: new Drones follow it; if it leaves
 //! sight, they go to its last-seen spot." Since design change 0200, a Drone following the enemy as it leaves sight
 //! stops where it is; the rally point has turned into a ground rally at the last-seen spot (design change 0088,

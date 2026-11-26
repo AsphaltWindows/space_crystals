@@ -18,8 +18,8 @@
 //! - There is no formation movement: each unit travels to its destination at its own speed.
 //!
 //! An offset destination the unit can't reach becomes the reachable point nearest to it (design change 0025,
-//! `systems/controls/behaviors.md > MovingToLocation > Unreachable target location`): the map's edge clamps it inside
-//! the map, and a destination off the unit's ground moves to the nearest point the unit can stand on
+//! `systems/controls/command_behaviors.md > MovingToLocation > Unreachable target location`): the map's edge clamps it
+//! inside the map, and a destination off the unit's ground moves to the nearest point the unit can stand on
 //! ([`reachable`]).
 
 use std::collections::BTreeMap;

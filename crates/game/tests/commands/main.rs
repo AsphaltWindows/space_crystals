@@ -1,7 +1,7 @@
-//! Headless tests of the command flow (`systems/controls/selection_and_hud.md > CommandPanel`,
-//! `systems/controls/selection_and_hud.md > DefaultState`, `systems/controls/selection_and_hud.md >
-//! RightClickResolution`, `systems/controls/selection_and_hud.md > AwaitingTarget`,
-//! `systems/controls/selection_and_hud.md > PointerDisplayType`, `systems/controls/selection_and_hud.md >
+//! Headless tests of the command flow (`systems/controls/interface.md > CommandPanel`,
+//! `systems/controls/interface.md > DefaultState`, `systems/controls/interface.md >
+//! RightClickResolution`, `systems/controls/interface.md > AwaitingTarget`,
+//! `systems/controls/hud.md > PointerDisplayType`, `systems/controls/hud.md >
 //! CommandIndicators`; `systems/controls/commands.md > Unit Command`). Every input arrives through `InjectedInput`, the
 //! virtual keyboard and mouse, and goes through the input layer's bindings like a player's would; each `App::update` is
 //! one tick and 1/16 s of real time (`ARCHITECTURE.md > Client architecture > Client tests`). The orders given are read
@@ -11,7 +11,7 @@
 //! auto-targeting is off (a debug command), so that nobody fights while the orders are given.
 //!
 //! The production UI of slice M2-H1 (`factions/gdo/structures/barracks.md > ObjectInterfaceState[Barracks]`,
-//! `systems/controls/selection_and_hud.md > Production Building Default Right-Click`) plays on the same field with
+//! `systems/controls/interface.md > Production Building Default Right-Click`) plays on the same field with
 //! player 1's Barracks added ([`production_scenario`]): `production` for Train and Cancel Production, `rally` for the
 //! rally points and their indicators.
 //!

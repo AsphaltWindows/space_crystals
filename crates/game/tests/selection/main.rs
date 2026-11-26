@@ -1,4 +1,4 @@
-//! Headless selection tests (`systems/controls/selection_and_hud.md`, `ARCHITECTURE.md > Client architecture >
+//! Headless selection tests (`systems/controls/selection.md`, `ARCHITECTURE.md > Client architecture >
 //! Selection`). Every input arrives through `InjectedInput`, the virtual keyboard and mouse, and goes through the
 //! input layer's bindings like a player's would; each `App::update` is one tick and 1/16 s of real time
 //! (`ARCHITECTURE.md > Client architecture > Client tests`). The fog of war is off (`--no-fog`), so that player 1

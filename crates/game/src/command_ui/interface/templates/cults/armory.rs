@@ -28,7 +28,7 @@ pub const TEMPLATE: PanelTemplate = PanelTemplate {
 };
 
 /// A pool building's DefaultState, slot by slot (`CommandSlot::all` order): the four kinds in Q, W, E and R, Eject
-/// All in A, X Cancel Production and C Set Rally Point (`systems/controls/selection_and_hud.md > Standard Slot
+/// All in A, X Cancel Production and C Set Rally Point (`systems/controls/interface.md > Standard Slot
 /// Assignments`).
 #[rustfmt::skip]
 pub const GRID: [Option<PanelCommand>; 12] = {

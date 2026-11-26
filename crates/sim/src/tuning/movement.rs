@@ -1,7 +1,7 @@
 //! Movement and collision: how units steer, pass and make way for each other, and when a unit that gets no closer is
-//! stuck, looks for another route or gives up (`systems/units.md > UnitCollision`, `systems/controls/behaviors.md >
-//! MovingToLocation`; the implementation's `docs/movement.md`, 5.6 to 6.6). Used by `crate::mover` and
-//! `crate::movement`.
+//! stuck, looks for another route or gives up (`systems/units.md > UnitCollision`,
+//! `systems/controls/command_behaviors.md > MovingToLocation`; the implementation's `docs/movement.md`, 5.6 to 6.6).
+//! Used by `crate::mover` and `crate::movement`.
 
 use crate::units::Tick;
 
@@ -21,11 +21,11 @@ pub const JAMMED_TICKS: u16 = 12;
 /// design): the movement implementation's (slice M1-D), a second, so that a unit doesn't swap sides at every contact.
 pub const AVOID_COMMIT_TICKS: Tick = 16;
 
-/// `systems/controls/behaviors.md > MovingToLocation > Occupied target location` (design changes 0026 and 0169; a
-/// placeholder to tune): a unit stuck within 3 grid units of its destination, blocked by units that aren't moving,
+/// `systems/controls/command_behaviors.md > MovingToLocation > Occupied target location` (design changes 0026 and 0169;
+/// a placeholder to tune): a unit stuck within 3 grid units of its destination, blocked by units that aren't moving,
 /// counts as arrived (`docs/movement.md > 6.5`, rule 1). The one radius of both behaviours:
-/// `systems/controls/behaviors.md > MovingToObject`'s "Blocked near the target" is the same rule (design changes 0033
-/// and 0169). It was 2 until design change 0169.
+/// `systems/controls/command_behaviors.md > MovingToObject`'s "Blocked near the target" is the same rule (design
+/// changes 0033 and 0169). It was 2 until design change 0169.
 pub const OCCUPIED_ARRIVAL_GU: f32 = 3.0;
 
 /// `docs/movement.md > 6.3`, rule 4: from this share of its move along the blocker's face on, a unit goes around on
@@ -105,19 +105,19 @@ pub const YIELD_CHAIN_DEPTH: u8 = 4;
 /// its own: [`YIELD_CHAIN_DEPTH`]'s).
 pub const YIELD_WAIT_TICKS: u8 = YIELD_CHAIN_DEPTH;
 
-// Stuck units and their repaths (`systems/controls/behaviors.md > MovingToLocation > Failure`, design change 0024;
-// `docs/movement.md > 5.6`, `6.5`; `mover::schedule`).
+// Stuck units and their repaths (`systems/controls/command_behaviors.md > MovingToLocation > Failure`, design change
+// 0024; `docs/movement.md > 5.6`, `6.5`; `mover::schedule`).
 
-/// `systems/controls/behaviors.md > MovingToLocation > Failure` (design change 0024; a placeholder to tune): a
+/// `systems/controls/command_behaviors.md > MovingToLocation > Failure` (design change 0024; a placeholder to tune): a
 /// stuck unit looks for another route at most 3 times per order leg (`docs/movement.md > 5.6`).
 pub const MAX_REPATHS: u8 = 3;
 
-/// `systems/controls/behaviors.md > MovingToLocation > Failure` (design change 0024; a placeholder to tune): a unit
-/// is stuck after 1.5 s (24 frames) without getting any closer to its target (`docs/movement.md > 6.5`).
+/// `systems/controls/command_behaviors.md > MovingToLocation > Failure` (design change 0024; a placeholder to tune): a
+/// unit is stuck after 1.5 s (24 frames) without getting any closer to its target (`docs/movement.md > 6.5`).
 pub const STUCK_TICKS: Tick = 24;
 
-/// `systems/controls/behaviors.md > MovingToLocation > Failure` (design change 0024; placeholders to tune): a stuck
-/// unit waits 0.5 s, 1 s and 2 s before its first, second and third attempt at another route
+/// `systems/controls/command_behaviors.md > MovingToLocation > Failure` (design change 0024; placeholders to tune): a
+/// stuck unit waits 0.5 s, 1 s and 2 s before its first, second and third attempt at another route
 /// (`docs/movement.md > 5.6`).
 pub const REPATH_WAITS: [Tick; MAX_REPATHS as usize] = [8, 16, 32];
 

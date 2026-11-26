@@ -1,10 +1,11 @@
 //! A Syndicate player's start (slice M4-B; `factions/syndicate/tunnels.md > Tunnel > Starting Conditions`): the banks,
 //! the objects of the Starting Layout on `dev_skirmish` in either slot, and Tunnel Space
-//! (`factions/syndicate/overview.md > SyndicateResources > Tunnel Space`, `factions/syndicate/tunnels.md > Tunnel >
-//! Tunnel Space`), derived from the Tunnel and the Hideout; `dev_skirmish` with every faction in either slot; and the
-//! layout's Tunnel Area rules (design change 0242) as the map's validation applies them. The Starting Conditions table
-//! is unit-tested in `scenario/starting.rs`, the derivation of Tunnel Space in `economy/army/tunnel_space.rs`, the
-//! placement rules in `placement/tests/tunnel_area.rs`, the bar and the camera in the client.
+//! (`factions/syndicate/overview.md > SyndicateResources > Tunnel Space`,
+//! `factions/syndicate/tunnel_area_and_space.md > Tunnel Space`), derived from the Tunnel and the Hideout;
+//! `dev_skirmish` with every faction in either slot; and the layout's Tunnel Area rules (design change 0242) as the
+//! map's validation applies them. The Starting Conditions table is unit-tested in `scenario/starting.rs`, the
+//! derivation of Tunnel Space in `economy/army/tunnel_space.rs`, the placement rules in
+//! `placement/tests/tunnel_area.rs`, the bar and the camera in the client.
 
 use sc_sim::nav::TileRect;
 use sc_sim::scenario::DEFAULT_SEED;
@@ -225,10 +226,11 @@ fn a_layout_tunnel_by_the_lake_or_the_edge_is_refused() {
     assert_eq!(moved((10, 2), (14, 6)).validate(), []);
 }
 
-/// `factions/syndicate/tunnels.md > Tunnel Space`: "If placing a new expansion ... drops total Tunnel Space below the
-/// Syndicate player's currently-committed Tunnel Space usage, existing units are unaffected — usage is simply displayed
-/// over capacity (e.g. 12/10)". At 11/11 (the starting Agent and 10 more), a second Hideout spawned into the Tunnel
-/// Area takes 4 cells: 11/10, and every Agent stays. Used counts the units on the map, whatever they do.
+/// `factions/syndicate/tunnel_area_and_space.md > Tunnel Space`: "If placing a new expansion ... drops total Tunnel
+/// Space below the Syndicate player's currently-committed Tunnel Space usage, existing units are unaffected — usage is
+/// simply displayed over capacity (e.g. 12/10)". At 11/11 (the starting Agent and 10 more), a second Hideout spawned
+/// into the Tunnel Area takes 4 cells: 11/10, and every Agent stays. Used counts the units on the map, whatever they
+/// do.
 #[test]
 fn an_expansion_over_full_tunnel_space_removes_nothing() {
     let mut t = TestSim::new(dev_skirmish_as([SYNDICATE, Faction::Gdo]));

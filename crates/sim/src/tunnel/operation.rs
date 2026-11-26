@@ -1,7 +1,8 @@
 //! A Tunnel's one operation (slice M4-F; `factions/syndicate/tunnels.md > Construction and Upgrade Rules`: "A Tunnel
 //! can only perform one operation at a time"): `TunnelState::operation`, which the gate reads before a Tunnel starts
-//! another (`sim/expansions.rs`, `sim/upgrades.rs`) and which the Tunnel's X cancels (`factions/syndicate/tunnels.md >
-//! Tunnel ObjectInterfaceState`: "**X** Cancel (upgrade, construction or the current operation)").
+//! another (`sim/expansions.rs`, `sim/upgrades.rs`) and which the Tunnel's X cancels
+//! (`factions/syndicate/tunnel_menus.md > Tunnel ObjectInterfaceState`: "**X** Cancel (upgrade, construction or the
+//! current operation)").
 //!
 //! - **Expansions** ([`Operation::Building`]): the site the Tunnel builds in its Tunnel Area, whose builder is the
 //!   Tunnel (`construction::site::Builder::Tunnel`). Its progress is the site's, the shared `Progress`
@@ -12,8 +13,8 @@
 //!   its own, and the operation keeps the upgrade's progress, a `Progress` of the tier's upgrade frames
 //!   (`defs::UpgradeDef::frames`). "Upgrading temporarily locks the Tunnel out of expansion construction for the
 //!   upgrade duration" (`factions/syndicate/tunnels.md > Construction and Upgrade Rules`): the slot is taken.
-//! - **Eject** is none: "Eject still works (it isn't an operation)" (`factions/syndicate/tunnels.md > Expansions under
-//!   construction`, design change 0254).
+//! - **Eject** is none: "Eject still works (it isn't an operation)" (`factions/syndicate/tunnel_menus.md > Expansions
+//!   under construction`, design change 0254).
 //!
 //! The slot ends with what it does: completed, cancelled, or its site gone from the game (`Sim::remove_objects`, the
 //! reference cleanup); an upgrade goes with its Tunnel. Hashed only while set, and left out of files while `None`.

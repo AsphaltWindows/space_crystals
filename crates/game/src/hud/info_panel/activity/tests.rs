@@ -220,7 +220,7 @@ fn a_warp_in_shows_its_building_and_its_progress() {
     assert_eq!(shown(t.sim()), Vec::<String>::new(), "a Beacon again");
 }
 
-/// Slice M4-F, `factions/syndicate/tunnels.md > Expansions under construction`: "**The Tunnel meanwhile** shows
+/// Slice M4-F, `factions/syndicate/tunnel_menus.md > Expansions under construction`: "**The Tunnel meanwhile** shows
 /// the progress". Player 1's Tunnel (1) builds a Hideout (400 frames) in its area from tick 1: its line names the
 /// expansion and its site's progress, a quarter after 100 frames, until the Tunnel's X cancels it.
 #[test]
@@ -289,7 +289,7 @@ fn a_tunnel_shows_the_tier_it_upgrades_to_and_its_progress() {
     assert_eq!(shown(t.sim()), Vec::<String>::new(), "cancelled");
 }
 
-/// Slice M5-C (placeholder wording; `factions/cults/economy.md > RecruitmentHall > RecruitmentHallInstanceState`):
+/// Slice M5-C (placeholder wording; `factions/cults/structures/recruitment_hall.md > RecruitmentHallInstanceState`):
 /// player 1's Recruitment Hall in the map's top right corner, its side B open, claims the 49 tiles of its area on the
 /// map (**Placeholder (Q0099 point 1)**), so 49% and a capacity of 9.8, 9 (design change 0341: "Capacity is rounded
 /// down everywhere"). From its first step its Recruit is in production at 49 tiles a frame, and counts (design change

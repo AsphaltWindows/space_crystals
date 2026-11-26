@@ -320,7 +320,7 @@ pub enum Behaviour {
     Deploy(SiteWalk),
     /// A unit on its way into a Tunnel (`systems/controls/commands.md > Enter`).
     Enter(Enter),
-    /// (M4-O) A unit attacking a location (`systems/controls/behaviors.md > AttackingLocation`).
+    /// (M4-O) A unit attacking a location (`systems/controls/command_behaviors.md > AttackingLocation`).
     AttackGround(AttackGround),
     /// A worker on its way to build (`core/entities.md > Placement Validation > Worker-Built Structures`, slice M4-E).
     Build(SiteWalk),

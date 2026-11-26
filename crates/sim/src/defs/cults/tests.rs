@@ -144,7 +144,7 @@ pub(super) fn assert_structure(
     structure
 }
 
-/// Plan decision T55 (`factions/cults/economy.md > RecruitmentHall > Unit Control Tracking`: "A trained unit's Unit
+/// Plan decision T55 (`factions/cults/structures/recruitment_hall.md > Unit Control Tracking`: "A trained unit's Unit
 /// Control cost equals the number of Recruits consumed to produce it"; `factions/cults/overview.md > TheCults`: "one
 /// per Recruit consumed"): every Cults unit's Unit Control cost is the Recruits it takes. A Recruit is one; the
 /// Militant and the Gunner are each trained from one (`factions/cults/structures/armory.md > Training`: an order

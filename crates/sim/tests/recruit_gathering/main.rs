@@ -1,5 +1,5 @@
 //! Recruits gather Space Crystals (slice M5-D, plan decision T58; `factions/cults/units/recruit.md > Gathering`,
-//! `factions/cults/economy.md > Storage`; design change 0106: Recruits keep normal collision while they mine): the
+//! `factions/cults/structures/storage.md`; design change 0106: Recruits keep normal collision while they mine): the
 //! one Gather job of the Drone and the Agent, with the Recruit's data. It shares patches, delivers anywhere at a
 //! Storage, any number at once, and takes the Storage nearest to its patch as each return starts (Placeholder (Q0102
 //! point 1)). `TestSim` checks the invariants after every tick.
@@ -181,7 +181,7 @@ fn longest_gap(t: &TestSim, recruits: &[u32], from: Tick, to: Tick) -> (Tick, u3
     worst
 }
 
-/// One face of a Storage and the patches in front of it (`factions/cults/economy.md > Storage`: "The best layout
+/// One face of a Storage and the patches in front of it (`factions/cults/structures/storage.md`: "The best layout
 /// leaves a 1-tile gap between patch and Storage; each 2-tile face supports roughly 4–5 Recruits at full
 /// efficiency"): Storage 1 on tiles (10, 6) to (11, 7); `patches` patches (ids from 2) in a row facing its south face,
 /// `gap` tiles from it, from tile (10 + `shift`, 8 + `gap`) eastwards (`shift` 0 and two patches: the whole face); the
@@ -213,7 +213,7 @@ fn face_at_work(recruits: u32, gap: i32, patches: u32, shift: i32) -> (TestSim, 
     (t, ids)
 }
 
-/// An 8-patch field with three Storages (`factions/cults/economy.md > Storage`: "an efficient crystal field take[s]
+/// An 8-patch field with three Storages (`factions/cults/structures/storage.md`: "an efficient crystal field take[s]
 /// more Storages (3–4 for an 8-patch field)"): patches 1 to 8 in a row on tiles (4, 3) to (11, 3); Storages 9, 10
 /// and 11 `gap` tiles south of the row, on columns 4-5, 7-8 and 10-11; the `recruits` (ids from 12) in rows farther
 /// south, dealt to the patches in turn and sent in tick 1.

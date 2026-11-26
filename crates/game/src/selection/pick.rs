@@ -1,5 +1,5 @@
 //! What the local player can select and where it is drawn (`ARCHITECTURE.md > Client architecture > Visuals`):
-//! picking by click and by box (`systems/controls/selection_and_hud.md > MapClickSelection`, `> BoxSelection`) in
+//! picking by click and by box (`systems/controls/selection.md > MapClickSelection`, `> BoxSelection`) in
 //! view space, against each object's box as it is drawn this frame, lifted by its terrain height. The live objects
 //! the player sees count, and on Explored tiles the records shown in their place (`fog::Sight::remembered`). What a
 //! click may target takes in the records the player may not select too (design change 0139: remembered structures
@@ -240,7 +240,7 @@ impl Selectables {
         pick(self.objects.iter(), view)
     }
 
-    /// The object a click at the view point `view` targets (`systems/controls/selection_and_hud.md > CursorTarget`):
+    /// The object a click at the view point `view` targets (`systems/controls/interface.md > CursorTarget`):
     /// as [`Selectables::at`] picks, among the objects the player may select and the records it may only target
     /// (design change 0139: remembered structures and objects "can be targeted by right-click and by targeted
     /// commands (Attack, Gather, Move to object, rally points), but are still not selectable").

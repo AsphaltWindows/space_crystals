@@ -1,4 +1,4 @@
-//! Command indicators (`systems/controls/selection_and_hud.md > CommandIndicators`), placeholders until the art
+//! Command indicators (`systems/controls/hud.md > CommandIndicators`), placeholders until the art
 //! (Q0001):
 //!
 //! - **Markers** at the targets of the current orders of the local player's selected units (`> Indicator

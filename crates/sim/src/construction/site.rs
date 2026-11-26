@@ -130,8 +130,8 @@ pub enum Builder {
     /// duration of construction").
     Held(ObjectId),
     /// The Tunnel building the site, an expansion in its Tunnel Area, as its one operation (slice M4-F,
-    /// `tunnel::Operation::Building`; `factions/syndicate/tunnels.md > Expansions under construction`). It stays on the
-    /// map, and its Eject still works ("it isn't an operation").
+    /// `tunnel::Operation::Building`; `factions/syndicate/tunnel_menus.md > Expansions under construction`). It stays
+    /// on the map, and its Eject still works ("it isn't an operation").
     Tunnel(ObjectId),
     /// The workers that build it from outside, a group sharing its build (plan decision T59, slice M5-E;
     /// `factions/cults/economy.md > Cults Building Mechanics`: "Cults buildings are constructed on-site by Recruits

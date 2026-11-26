@@ -1,4 +1,4 @@
-//! The Recruitment Hall — `factions/cults/economy.md > RecruitmentHall`.
+//! The Recruitment Hall — `factions/cults/structures/recruitment_hall.md`.
 
 use crate::defs::structures::{
     BuilderGoes, ExitRule, ProductionDef, Recipe, RecruitmentDef, SiteDef, SitePrice, StructureDef, SymmetryType,
@@ -7,8 +7,8 @@ use crate::defs::{Armor, Category, Footprint, ObjectDef, ObjectKind};
 use crate::player::Faction;
 use crate::sides::SideLetter;
 
-/// `factions/cults/economy.md > RecruitmentHall`: "The Cults' starting structure. Automatically produces Recruits from
-/// the surrounding population of Recruitable terrain." Its production, its Recruitment Area and its Unit Control
+/// `factions/cults/structures/recruitment_hall.md`: "The Cults' starting structure. Automatically produces Recruits
+/// from the surrounding population of Recruitable terrain." Its production, its Recruitment Area and its Unit Control
 /// (`> RecruitmentHall > RecruitmentArea`, `> RecruitmentHall > Production Behavior`, `> RecruitmentHall > Unit
 /// Control Tracking`) are slice M5-C's (`crate::recruitment`), its construction by Recruits slice M5-E's
 /// ([`RECRUITMENT_HALL_SITE`]), and the starting one slice M5-B's.

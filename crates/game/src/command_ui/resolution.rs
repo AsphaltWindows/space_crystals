@@ -1,6 +1,6 @@
-//! What a click on the map resolves to, and how the pointer previews it (`systems/controls/selection_and_hud.md >
-//! CursorTarget`, `systems/controls/selection_and_hud.md > RightClickResolution`,
-//! `systems/controls/selection_and_hud.md > AwaitingTarget`, `systems/controls/selection_and_hud.md >
+//! What a click on the map resolves to, and how the pointer previews it (`systems/controls/interface.md >
+//! CursorTarget`, `systems/controls/interface.md > RightClickResolution`,
+//! `systems/controls/interface.md > AwaitingTarget`, `systems/controls/hud.md >
 //! PointerDisplayType`), as plain data. Unit tested here; the systems apply it to clicks (`systems.rs`) and to the
 //! pointer ([`super::cursor`]).
 //!
@@ -15,10 +15,10 @@
 //!   and moves to anything else, following a unit (`factions/colonists/units/drone.md > Right-Click Resolution`;
 //!   an empty Drone moves to the node, design change 0140). The orders go out grouped, one per distinct order
 //!   ([`group_orders`]). A producing
-//!   structure sets its rally point on what was clicked ([`rally_target`], `systems/controls/selection_and_hud.md >
+//!   structure sets its rally point on what was clicked ([`rally_target`], `systems/controls/interface.md >
 //!   Production Building Default Right-Click`): the ground, any object, or itself, which clears it (design change
 //!   0086).
-//! - **What a click is on** ([`MapTarget`], `systems/controls/selection_and_hud.md > CursorTarget`): an object the
+//! - **What a click is on** ([`MapTarget`], `systems/controls/interface.md > CursorTarget`): an object the
 //!   player may select, or a record of one it remembers, which it may target but not select (design change 0139); else
 //!   the ground.
 //! - **Left-click while a target is awaited** ([`target_resolution`]): the PendingCommand's order for the target
@@ -32,7 +32,7 @@
 //!   (slice M4-J1).
 //! - **The pointer** ([`pointer_display`]): in DefaultState the one thing the selected objects would all do on a
 //!   right-click, or Mixed when they would do different things (a rally point shows Move:
-//!   `systems/controls/selection_and_hud.md > Resolution Rules > DefaultState`, "Selection is a production building:
+//!   `systems/controls/hud.md > Resolution Rules > DefaultState`, "Selection is a production building:
 //!   Move (rally point)"; a Gather GatherResources, a Drop Off ReturnResources, an Enter Enter); while a target is
 //!   awaited, the pending command's look over a valid target, else Inactive.
 
@@ -46,7 +46,7 @@ use sc_sim::{Ability, ObjectId, ObjectKind, OrderKind, PlayerId, Sim, Target};
 use super::interface::{InterfaceState, InterfaceTemplate, Modes, PanelCommand};
 use crate::selection::{Relation, Selectables, Selection};
 
-/// `systems/controls/selection_and_hud.md > CursorTarget`: what is under the cursor when it clicks.
+/// `systems/controls/interface.md > CursorTarget`: what is under the cursor when it clicks.
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub enum CursorTarget {
     /// The ground, at this point.
@@ -130,14 +130,14 @@ impl MapTarget {
     }
 }
 
-/// A selected object as a right-click resolves it for itself (`systems/controls/selection_and_hud.md >
+/// A selected object as a right-click resolves it for itself (`systems/controls/interface.md >
 /// RightClickResolution`: "Each selected unit resolves the right-click for itself, against its own capabilities, not
 /// the ActiveGroup's"): a unit, or a producing structure, whose right-click sets its rally point.
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub struct UnitCapabilities {
     /// Its type's ObjectInterfaceState template; none for a type without commands and for an object that transforms
     /// (slice M3-J1). A producing structure's right-click sets its rally point
-    /// (`systems/controls/selection_and_hud.md > Production Building Default Right-Click`): **placeholder reading**,
+    /// (`systems/controls/interface.md > Production Building Default Right-Click`): **placeholder reading**,
     /// design change 0062 ("Buildings in the selection aren't affected") is read as the buildings without a right-click
     /// of their own, so a Barracks selected with units sets its rally point as the units take their orders. A
     /// constructor's does nothing.
@@ -197,9 +197,9 @@ pub enum Resolved {
     Ability(Ability),
 }
 
-/// `systems/controls/selection_and_hud.md > RightClickResolution` for one selected object: a unit's order
+/// `systems/controls/interface.md > RightClickResolution` for one selected object: a unit's order
 /// ([`unit_right_click`]), or, for a producing structure, its rally point on what is under the cursor
-/// (`systems/controls/selection_and_hud.md > Production Building Default Right-Click`: "Right-click Ground: sets rally
+/// (`systems/controls/interface.md > Production Building Default Right-Click`: "Right-click Ground: sets rally
 /// point to that location; Right-click Object: sets rally point to that object; Right-click the building itself: clears
 /// the rally point"). Nothing for a constructor (it produces no units), nor for any other object that isn't a unit.
 pub fn object_right_click(object: UnitCapabilities, target: &MapTarget) -> Option<Resolved> {
@@ -227,8 +227,8 @@ pub fn object_right_click(object: UnitCapabilities, target: &MapTarget) -> Optio
     }
 }
 
-/// The rally point a click on `target` sets (`systems/controls/selection_and_hud.md > Production Building Default
-/// Right-Click`, `systems/controls/selection_and_hud.md > Standard Slot Assignments > C`): the ground point, or the
+/// The rally point a click on `target` sets (`systems/controls/interface.md > Production Building Default
+/// Right-Click`, `systems/controls/interface.md > Standard Slot Assignments > C`): the ground point, or the
 /// object, whoever owns it. Which objects the player may rally on, the sim decides (`Sim::validate`): one it sees, the
 /// producer itself (which clears the rally point, design change 0086), and one it remembers, on which the rally point
 /// stays while it is out of sight (design change 0139).
@@ -239,7 +239,7 @@ pub fn rally_target(target: &MapTarget) -> Target {
     }
 }
 
-/// `systems/controls/selection_and_hud.md > RightClickResolution` for one selected unit (design changes 0062, 0063 and
+/// `systems/controls/interface.md > RightClickResolution` for one selected unit (design changes 0062, 0063 and
 /// 0136): the order `unit` gets for a right-click on `target`, its default command there: the sim's rule
 /// (`sc_sim::orders::resolution::resolve`, which a rally point's new unit goes by too), on what the unit can do and the
 /// target as the player knows it ([`MapTarget::aimed`]). A unit that can't carry out the command it would get moves to
@@ -260,7 +260,7 @@ pub fn unit_right_click(unit: UnitCapabilities, target: &MapTarget) -> Option<Or
 }
 
 /// Design change 0062: what a unit does on a target it can't act on: it moves to the location, or to the object,
-/// which follows a unit (`systems/controls/behaviors.md > MovingToObject`), so that the group stays together.
+/// which follows a unit (`systems/controls/command_behaviors.md > MovingToObject`), so that the group stays together.
 pub fn move_to(target: &MapTarget) -> OrderKind {
     OrderKind::Move(match target.target.object() {
         Some(id) => Target::Object(id),
@@ -296,11 +296,11 @@ pub fn group_orders(orders: impl IntoIterator<Item = (ObjectId, OrderKind)>) -> 
     groups
 }
 
-/// `systems/controls/selection_and_hud.md > BasicCombatUnitInterfaceState > AwaitingTarget[..] resolution`: the order a
+/// `systems/controls/interface.md > BasicCombatUnitInterfaceState > AwaitingTarget[..] resolution`: the order a
 /// left-click on `target` gives while `pending` awaits it, if the target is valid. Attack takes any destructible
 /// object, an own or a neutral one too (force-attack, `systems/controls/commands.md > Attack`, design changes 0059 and
 /// 0064), one the player remembers too (design change 0139), and the ground, for an AttackMove. AttackGround takes the
-/// ground only (`systems/controls/selection_and_hud.md > AwaitingTarget[AttackGround] resolution`: "Left-click Ground:
+/// ground only (`systems/controls/interface.md > AwaitingTarget[AttackGround] resolution`: "Left-click Ground:
 /// issues AttackGround command to that location"; slice M4-O), wherever the click falls on it, over an object the
 /// player doesn't see too. The Agent's Drop Off takes an own drop-off in operation ([`drop_off_target`], slice M4-J1;
 /// `factions/syndicate/units/agent.md > Agent ObjectInterfaceState`: "Requires clicking an own Tunnel"). Reverse has
@@ -323,10 +323,10 @@ pub fn target_order(pending: PanelCommand, target: &MapTarget) -> Option<OrderKi
     }
 }
 
-/// `systems/controls/selection_and_hud.md > AwaitingTarget[..] resolution` for any PendingCommand: what a left-click on
+/// `systems/controls/interface.md > AwaitingTarget[..] resolution` for any PendingCommand: what a left-click on
 /// `target` gives, if the target is valid. A unit command's order ([`target_order`]); the rally point of Set Rally
 /// Point, which takes the ground and any object (`factions/gdo/structures/barracks.md`: "Left-click ground or object
-/// sets the rally point"; `systems/controls/selection_and_hud.md > Standard Slot Assignments > C`: the building itself
+/// sets the rally point"; `systems/controls/interface.md > Standard Slot Assignments > C`: the building itself
 /// clears it); the Drones' new drop-off for Set Drop-off ([`drop_off_target`]).
 pub fn target_resolution(pending: PanelCommand, target: &MapTarget) -> Option<Resolved> {
     match pending {
@@ -346,7 +346,7 @@ pub fn drop_off_target(target: &MapTarget) -> Option<ObjectId> {
     target.aimed.filter(|aimed| aimed.drop_off).map(|aimed| aimed.id)
 }
 
-/// `systems/controls/selection_and_hud.md > PointerDisplayType > Types` that the game can show so far.
+/// `systems/controls/hud.md > PointerDisplayType > Types` that the game can show so far.
 #[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum PointerDisplay {
     /// Nothing will happen on a click.
@@ -363,14 +363,14 @@ pub enum PointerDisplay {
     /// sim's Enter (`sc_sim::OrderKind::Enter`): an Agent that carries nothing, or any unit the Tunnel's tier lets
     /// into the network, over an own Tunnel in operation; never over a site, which takes no Enter (design change 0237).
     Enter,
-    /// `systems/controls/selection_and_hud.md > Mixed Right-Click Preview` (design change 0063): the selected units
+    /// `systems/controls/hud.md > Mixed Right-Click Preview` (design change 0063): the selected units
     /// would do different things on a right-click.
     Mixed,
 }
 
 impl PointerDisplay {
     /// The PointerDisplayType of an order a click gives: Attack for an AttackMove too
-    /// (`systems/controls/selection_and_hud.md > Resolution Rules > AwaitingTarget[CommandType]`: Attack over ground
+    /// (`systems/controls/hud.md > Resolution Rules > AwaitingTarget[CommandType]`: Attack over ground
     /// "will issue AttackMove"); GatherResources for a Gather ("Cursor over resource (resource gatherer selected)"),
     /// ReturnResources for a Drop Off ("Cursor over drop-off point (resource gatherer carrying resources)"), Enter for
     /// an Enter ("Cursor over own Tunnel (Syndicate unit, tier sufficient)"). No click gives Hold or Stop.
@@ -391,8 +391,8 @@ impl PointerDisplay {
     }
 
     /// The PointerDisplayType of what a click gives an object: its order's, or Move for a rally point
-    /// (`systems/controls/selection_and_hud.md > Resolution Rules > DefaultState`: "Selection is a production building:
-    /// Move (rally point)"; `systems/controls/selection_and_hud.md > AwaitingTarget[CommandType]`:
+    /// (`systems/controls/hud.md > Resolution Rules > DefaultState`: "Selection is a production building:
+    /// Move (rally point)"; `systems/controls/interface.md > AwaitingTarget[CommandType]`:
     /// "AwaitingTarget\[SetRallyPoint\] over ground or object: Move"). Set Drop-off over a drop-off shows
     /// ReturnResources: **placeholder**, the rules have no AwaitingTarget\[SetDropOffLocation\] row, and its target is
     /// the drop-off point the loads will return to.
@@ -406,8 +406,8 @@ impl PointerDisplay {
     }
 }
 
-/// `systems/controls/selection_and_hud.md > PointerDisplayType > Resolution Rules` over `target`, for the selected
-/// `units` (none: nothing commandable is selected, `systems/controls/selection_and_hud.md > CommandPanel`). In a build
+/// `systems/controls/hud.md > PointerDisplayType > Resolution Rules` over `target`, for the selected
+/// `units` (none: nothing commandable is selected, `systems/controls/interface.md > CommandPanel`). In a build
 /// menu, a Tunnel's EjectMenu or ExpandMenu, or a pool building's KindMenu, a right-click only goes back: Inactive
 /// (placeholder: the rules list no menu). AwaitingPlacement has "No
 /// pointer display type — the building ghost preview serves as the cursor" (`super::cursor` shows none): Inactive here.
@@ -426,8 +426,8 @@ pub fn pointer_display(interface: InterfaceState, units: &[UnitCapabilities], ta
     }
 }
 
-/// `systems/controls/selection_and_hud.md > Resolution Rules > DefaultState` and
-/// `systems/controls/selection_and_hud.md > Mixed Right-Click Preview` (design change 0063): the right-click preview,
+/// `systems/controls/hud.md > Resolution Rules > DefaultState` and
+/// `systems/controls/hud.md > Mixed Right-Click Preview` (design change 0063): the right-click preview,
 /// from the action each of `units` would take ([`object_right_click`]). One action shows its pointer, more than one
 /// Mixed, none Inactive. An action is a PointerDisplayType, so a Move to the location, a Follow and a rally point are
 /// all Move.
@@ -445,7 +445,7 @@ pub fn right_click_display(units: &[UnitCapabilities], target: &MapTarget) -> Po
     }
 }
 
-/// `systems/controls/selection_and_hud.md > Resolution Rules > AwaitingTarget[CommandType]`: the pending command's look
+/// `systems/controls/hud.md > Resolution Rules > AwaitingTarget[CommandType]`: the pending command's look
 /// over a target it can use, else Inactive. Reverse, which has no order yet, by the design's row for the ground.
 fn awaiting_display(pending: PanelCommand, target: &MapTarget) -> PointerDisplay {
     match (pending, target.target) {

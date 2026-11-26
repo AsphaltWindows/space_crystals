@@ -1,11 +1,11 @@
 //! The Recruit's rules on the one Gather job (`factions/cults/units/recruit.md > Gathering` and
-//! `factions/cults/units/recruit.md > Right-Click Resolution:`; `factions/cults/economy.md > Storage`; design change
+//! `factions/cults/units/recruit.md > Right-Click Resolution:`; `factions/cults/structures/storage.md`; design change
 //! 0106).
 
 use super::*;
 
 /// `factions/cults/units/recruit.md > Gathering`, Patch sharing: "any number of Recruits may mine the same Space Crystals patch at the same time
-/// (unlike Drones)"; `factions/cults/economy.md > Storage`: "Multiple Recruits can drop off Space Crystals
+/// (unlike Drones)"; `factions/cults/structures/storage.md`: "Multiple Recruits can drop off Space Crystals
 /// simultaneously." Two Recruits side by side in the gap between a Storage and two patches: on one patch they mine
 /// it together, and on a patch each they unload at the Storage in the same ticks. The patch has no occupancy, and
 /// the Storage no line. (On a patch each they start on a tile's centre, and their stops fall exactly on the two

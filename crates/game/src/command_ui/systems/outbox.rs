@@ -24,7 +24,7 @@ pub(in crate::command_ui) struct OrderOutbox<'w> {
 }
 
 impl OrderOutbox<'_> {
-    /// Gives `kind` to `player`'s units among `units` (`systems/controls/selection_and_hud.md > CommandPanel`:
+    /// Gives `kind` to `player`'s units among `units` (`systems/controls/interface.md > CommandPanel`:
     /// "Commands can only be issued to objects owned by the player"; only units take orders). Nothing when none of them
     /// is left, or when the sim would reject the order (`Sim::validate`: e.g. a point off the map, or an indestructible
     /// target to attack). An Attack that the gate refuses only because none of the units takes one yet goes all the

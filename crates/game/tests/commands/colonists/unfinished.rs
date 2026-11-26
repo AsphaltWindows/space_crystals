@@ -1,4 +1,4 @@
-//! Unfinished buildings form their own SelectionGroup (`systems/controls/selection_and_hud.md > SelectionGroup >
+//! Unfinished buildings form their own SelectionGroup (`systems/controls/selection.md > SelectionGroup >
 //! Unfinished buildings form their own group`, design change 0185): a Bio Portal being warped in is a group apart
 //! from the finished Bio Portals selected with it, "as if it were another type", with its own panel, X Cancel alone
 //! (`factions/colonists/economy.md > Beacon Deployment > While transforming: only Cancel`); the finished group trains
@@ -175,7 +175,7 @@ fn two_finished_bio_portals_and_one_warping_in_are_two_groups() {
 
 /// Design change 0185: "When it completes, it joins the finished group." The finished group is the ActiveGroup,
 /// awaiting the target of its rally point (C), when the Warp In completes: it stays active, now with the new portal,
-/// and so does its ObjectInterfaceState (`systems/controls/selection_and_hud.md > ObjectInterfaceState`: a change the
+/// and so does its ObjectInterfaceState (`systems/controls/interface.md > ObjectInterfaceState`: a change the
 /// player didn't make keeps it "unless the ActiveGroup becomes empty"), so the rally point the click sets goes to all
 /// three.
 #[test]
@@ -295,7 +295,7 @@ fn control_groups_and_type_selection_keep_the_unfinished_group_apart() {
     assert_eq!(selected(&app), DRONES, "a Ctrl-click");
 }
 
-/// Design change 0199's Verification (`systems/controls/selection_and_hud.md > Selection > ActiveGroup > When the
+/// Design change 0199's Verification (`systems/controls/selection.md > Selection > ActiveGroup > When the
 /// ActiveGroup disappears`): "Select a Barracks under construction (active) and a finished one. When the first
 /// completes, the merged Barracks group is active." A GDO building is placed finished, so a Bio Portal warping in
 /// stands in for the Barracks under construction, the one way a building is unfinished in the game. Tabbed to, its

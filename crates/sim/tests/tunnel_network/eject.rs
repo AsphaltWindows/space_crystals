@@ -1,4 +1,4 @@
-//! The Eject command and the exit path (`factions/syndicate/tunnels.md > EjectMenu`, `> Tunnel > SymmetryType -
+//! The Eject command and the exit path (`factions/syndicate/tunnel_menus.md > EjectMenu`, `> Tunnel > SymmetryType -
 //! ABCD`; design changes 0248, 0250 and 0251).
 
 use sc_sim::defs::TRANSIT_DELAY_TICKS;

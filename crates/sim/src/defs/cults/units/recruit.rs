@@ -56,7 +56,7 @@ pub(crate) static RECRUIT: ObjectDef = ObjectDef {
             reload_ticks: 1,        // ReloadDuration: 1 frame
         }),
         // Its Unit Control: the one Recruit it is (plan decision T55; `factions/cults/overview.md > CultsResources >
-        // Unit Control`: "Each Cult unit has a Unit Control cost"; `factions/cults/economy.md > RecruitmentHall >
+        // Unit Control`: "Each Cult unit has a Unit Control cost"; `factions/cults/structures/recruitment_hall.md >
         // BaseRecruitProductionTime`: "every Cults unit (miners, builders, staff and army) counts against its
         // originating hall's capacity", and "a starting hall (6 Recruits → 20) fills in 14 × 12 s").
         unit_control_cost: Some(1),

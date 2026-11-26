@@ -89,11 +89,11 @@ pub fn opening_field(distance: i32) -> Scenario {
 }
 
 /// The stacked check's layout (0259: "the two Tunnels stand on opposite sides of the field, each hatch facing it, so
-/// every Agent's nearest Tunnel is its own"; `factions/syndicate/tunnels.md > Tunnel Area Non-Overlap Rule > Crystal
-/// intake and stacked Tunnels`): [`reference_field`]'s Tunnel and patch, `distance` grid units apart; a second patch
-/// ([`STACKED_PATCH`]) on tile (12 + `distance`, 8), east of the first across a free column; and a second Tunnel
-/// ([`STACKED_TUNNEL`]) flipped left and right on tiles (13 + 2 × `distance`, 6) on, its crystal hatch on its west
-/// side, `distance` grid units from the second patch. Each patch lies wholly on its own Tunnel's side of the line
+/// every Agent's nearest Tunnel is its own"; `factions/syndicate/tunnel_area_and_space.md > Tunnel Area Non-Overlap
+/// Rule > Crystal intake and stacked Tunnels`): [`reference_field`]'s Tunnel and patch, `distance` grid units apart; a
+/// second patch ([`STACKED_PATCH`]) on tile (12 + `distance`, 8), east of the first across a free column; and a second
+/// Tunnel ([`STACKED_TUNNEL`]) flipped left and right on tiles (13 + 2 × `distance`, 6) on, its crystal hatch on its
+/// west side, `distance` grid units from the second patch. Each patch lies wholly on its own Tunnel's side of the line
 /// halfway between the hatches, so an Agent at any of its faces has its own Tunnel nearest; with patches side by side,
 /// the ends of their north and south faces would lie as near to either hatch. With `distance` 1 or more the Tier 1
 /// areas don't overlap. `agents` Agents for each Tunnel (ids 5 on, the western Tunnel's first) start in a row south

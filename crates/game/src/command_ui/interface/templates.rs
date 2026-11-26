@@ -1,5 +1,5 @@
-//! The ObjectInterfaceState templates (`systems/controls/selection_and_hud.md > ObjectInterfaceState[ObjectEnum]`):
-//! which commands a type offers, in which slots of the 4 × 3 grid (`systems/controls/selection_and_hud.md >
+//! The ObjectInterfaceState templates (`systems/controls/interface.md > ObjectInterfaceState[ObjectEnum]`):
+//! which commands a type offers, in which slots of the 4 × 3 grid (`systems/controls/interface.md >
 //! CommandPanel > Grid Layout`), and how its clicks resolve (`super::super::resolution`). Each type's template is in
 //! its module (`crate::kinds`, [`PanelTemplate`]); a panel of its own, by faction and object: [`gdo`], [`colonists`],
 //! [`syndicate`]. A constructor's panel also follows its state and the menu that is open ([`state_grid`]): the
@@ -40,7 +40,7 @@ use crate::kinds;
 /// An ObjectInterfaceState template: which commands a type offers, in which slots, and how its clicks resolve.
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub enum InterfaceTemplate {
-    /// `systems/controls/selection_and_hud.md > BasicCombatUnitInterfaceState`: the Peacekeeper's
+    /// `systems/controls/interface.md > BasicCombatUnitInterfaceState`: the Peacekeeper's
     /// (`factions/gdo/units/peacekeeper.md`), and its shielded type's less Attack (design change 0173), and the Guard's
     /// (`factions/syndicate/units/guard.md`).
     BasicCombatUnit,
@@ -49,9 +49,9 @@ pub enum InterfaceTemplate {
     /// (`factions/colonists/structures/robo_portal.md > Robo Portal ObjectInterfaceState`,
     /// `factions/colonists/structures/bio_portal.md > Bio Portal ObjectInterfaceState`, design change 0124: "Standard
     /// production panel, same conventions as GDO's Barracks"), the Hideout's and the Recruitment Hall's, whose C is its
-    /// whole panel (`factions/cults/economy.md > RecruitmentHall > ObjectInterfaceState[RecruitmentHall]`, slice M5-C;
-    /// design change 0342 removed its X). Its right-click sets the rally point
-    /// (`systems/controls/selection_and_hud.md > CommandPanel > Production Building Default Right-Click`; the Hall's
+    /// whole panel (`factions/cults/structures/recruitment_hall.md > ObjectInterfaceState[RecruitmentHall]`, slice
+    /// M5-C; design change 0342 removed its X). Its right-click sets the rally point
+    /// (`systems/controls/interface.md > CommandPanel > Production Building Default Right-Click`; the Hall's
     /// own: "Right-click Ground: issues SetRallyPoint command to that location").
     Production,
     /// `factions/gdo/structures/deployment_center.md > ObjectInterfaceState[DeploymentCenter]`: its DefaultState
@@ -71,8 +71,8 @@ pub enum InterfaceTemplate {
     /// `factions/colonists/economy.md > Egress Node > Egress Node ObjectInterfaceState`: "F: Select Returning Drones"
     /// (slice M3-J2). No right-click.
     EgressNode,
-    /// `factions/syndicate/tunnels.md > Tunnel ObjectInterfaceState` (design change 0257, slice M4-J2): Q Upgrade, W
-    /// Expand, E Eject, which opens the EjectMenu, and X Cancel ([`syndicate::tunnel`]). No right-click: the Tunnel
+    /// `factions/syndicate/tunnel_menus.md > Tunnel ObjectInterfaceState` (design change 0257, slice M4-J2): Q Upgrade,
+    /// W Expand, E Eject, which opens the EjectMenu, and X Cancel ([`syndicate::tunnel`]). No right-click: the Tunnel
     /// produces no units.
     Tunnel,
     /// `factions/syndicate/units/agent.md > Agent ObjectInterfaceState` (design change 0257, slice M4-J1): Q Move, A
@@ -142,7 +142,7 @@ impl PanelTemplate {
     }
 }
 
-/// `systems/controls/selection_and_hud.md > BasicCombatUnitInterfaceState > DefaultState commands`, row by row from the
+/// `systems/controls/interface.md > BasicCombatUnitInterfaceState > DefaultState commands`, row by row from the
 /// top left (`CommandSlot::all`).
 #[rustfmt::skip]
 const BASIC_COMBAT_UNIT_GRID: [Option<PanelCommand>; 12] = {
@@ -159,7 +159,7 @@ const BASIC_COMBAT_UNIT_GRID: [Option<PanelCommand>; 12] = {
 /// grid leaves free, where the Colonists' Legionnaires have their own command ([`CONVERT_SLOT`]).
 const RIOT_SHIELD_SLOT: usize = 3;
 
-/// `systems/controls/selection_and_hud.md > BasicCombatUnitInterfaceState > DefaultState commands`: Attack's slot, A,
+/// `systems/controls/interface.md > BasicCombatUnitInterfaceState > DefaultState commands`: Attack's slot, A,
 /// which the Peacekeeper (Shielded)'s panel leaves empty ([`hides_attack`]).
 const ATTACK_SLOT: usize = 4;
 

@@ -200,8 +200,8 @@ impl Sim {
     /// design: a builder's walk to its spot)**, as design change 0315's walk to a hatch (`factions/syndicate/units/
     /// agent.md > Gathering > Gathering rules`, "Waiting at the hatch"), since a unit short of its spot builds nothing:
     /// blocked near it by units that won't move, the builders already at theirs, it doesn't count as arrived
-    /// (`systems/controls/behaviors.md > MovingToLocation > Occupied target location`) but steers round them, looks for
-    /// other routes, and ends its walk when none is left, as any stuck unit does.
+    /// (`systems/controls/command_behaviors.md > MovingToLocation > Occupied target location`) but steers round them,
+    /// looks for other routes, and ends its walk when none is left, as any stuck unit does.
     fn send_to(&mut self, id: ObjectId, at: &Placement, spot: Vec2, claims: &[Claim]) {
         let (tick, leg) = (self.tick, self.leg(id, at, spot, claims));
         let Some(o) = self.objects.get_mut(&id) else {

@@ -125,7 +125,7 @@ fn a_drone_deploys_where_its_ghost_snaps_under_the_cursor() {
     assert!(!placement_keys(&app));
 }
 
-/// `systems/controls/selection_and_hud.md > AwaitingTarget`: "Escape or right-click cancels"; and Back (Z): the Drones'
+/// `systems/controls/interface.md > AwaitingTarget`: "Escape or right-click cancels"; and Back (Z): the Drones'
 /// placement goes back to their DefaultState (A is pressed there), and nothing is ordered.
 #[test]
 fn esc_a_right_click_and_back_end_the_placement() {
@@ -202,7 +202,7 @@ fn the_deploy_ghost_is_red_where_the_player_knows_of_a_blocker() {
     assert_eq!(placing(&app), Some(Placing::deploy()), "placement goes on");
 }
 
-/// Design change 0125 (`systems/controls/selection_and_hud.md > AwaitingTarget > Shift while placing > Exception,
+/// Design change 0125 (`systems/controls/interface.md > AwaitingTarget > Shift while placing > Exception,
 /// Drones`): "4 Drones selected, hold Shift, click 4 sites → 4 lingering ghosts, one Drone each. Once every Drone in
 /// the group has a Deploy, placement ends": each Shift-click queues a Deploy to the next Drone in portrait order (id
 /// order) that has none yet.
@@ -230,7 +230,7 @@ fn shift_placement_chains_through_the_group_until_every_drone_has_a_deploy() {
     assert_eq!(selected(&app), [3, 4, 5, 6]);
 }
 
-/// `systems/controls/selection_and_hud.md > Shift while placing`: "releasing Shift ends placement", after a Shift-click
+/// `systems/controls/interface.md > Shift while placing`: "releasing Shift ends placement", after a Shift-click
 /// has sent a Deploy; and "With a single Drone, a Shift-click sends it and ends placement as before".
 #[test]
 fn letting_go_of_shift_or_a_single_drone_ends_the_placement() {
@@ -432,7 +432,7 @@ fn a_drone_that_deploys_stays_selected_as_its_beacon() {
     assert_eq!(orders(&app).len(), 1, "nothing else was ordered");
 }
 
-/// `systems/controls/selection_and_hud.md > ObjectInterfaceState`: a placement goes back to DefaultState once it no
+/// `systems/controls/interface.md > ObjectInterfaceState`: a placement goes back to DefaultState once it no
 /// longer holds: the one Drone placing becomes a Beacon, which is then the ActiveGroup (`ControlState::set_type`), and
 /// its panel is X Cancel.
 #[test]

@@ -199,7 +199,7 @@ fn w_opens_the_expand_menu_nine_expansions_then_the_turret() {
     assert_eq!(tunnel_commands(&app), []);
 }
 
-/// `factions/syndicate/tunnels.md > AwaitingPlacement (Expansion)`: "A ghost preview of the expansion follows the
+/// `factions/syndicate/tunnel_menus.md > AwaitingPlacement (Expansion)`: "A ghost preview of the expansion follows the
 /// cursor within the Tunnel Area, snapped to the grid", while the area shows (`factions/syndicate/tunnels.md > Tunnel
 /// Area display`: "**Placing an expansion** (from a selected Tunnel) shows that Tunnel's area too"; design change 0300,
 /// answering Q0086 point 4: "as built"). Design change 0290's verification, "Place a Hideout under a standing Guard: it
@@ -276,7 +276,7 @@ fn an_expansion_the_bank_cant_pay_says_so() {
     assert_eq!(interface(&app), InterfaceState::ExpandMenu);
 }
 
-/// `factions/syndicate/tunnels.md > Expansions under construction` (design change 0254): while the Tunnel builds a
+/// `factions/syndicate/tunnel_menus.md > Expansions under construction` (design change 0254): while the Tunnel builds a
 /// Hideout, "**The Tunnel meanwhile** shows the progress" (its InfoPanel's activity), its ExpandMenu's entries are
 /// greyed ("A Tunnel can only perform one operation at a time") and its X is no longer greyed. The site "offers only
 /// **X Cancel Construction**" and shows its progress bar. "The Tunnel's X cancels whatever operation it is running":

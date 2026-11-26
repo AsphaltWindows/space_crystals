@@ -1,4 +1,4 @@
-//! Selection (`systems/controls/selection_and_hud.md`): client-side UI state, never part of the sim.
+//! Selection (`systems/controls/selection.md`): client-side UI state, never part of the sim.
 //!
 //! Each player has a ControlState ([`ControlStates`]): a selection grouped by type with an ActiveGroup, 10 control
 //! groups and the ObjectInterfaceState of the command flow (`> ControlState`, `> Selection`, `> ControlGroups`;

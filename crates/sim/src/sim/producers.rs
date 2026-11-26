@@ -159,7 +159,7 @@ impl Sim {
         Ok(Checked::Production { player, plan })
     }
 
-    /// Design change 0083 (`systems/controls/selection_and_hud.md > SelectionGroup > No smart-casting > Group
+    /// Design change 0083 (`systems/controls/selection.md > SelectionGroup > No smart-casting > Group
     /// production with limited resources`): which of `producers` queue a unit of `kind` for `player`: made of their
     /// free units of kind `from` at pool producers (`ProductionCommand::TrainFrom`, slice M5-F2, `producers/pool.rs`),
     /// or at the others with no `from` (`ProductionCommand::Train`), each taking only its own.
@@ -386,7 +386,7 @@ impl Sim {
     /// several exit sides releases it through the first door in its order whose doorway is free and has a spot for it
     /// (`production::Doorway::order`), and holds it while none has. A Recruitment
     /// Hall's Recruit is of its lineage (`Object::lineage`, plan decision T56: "Each Recruit tracks which Recruitment
-    /// Hall produced it", `factions/cults/economy.md > RecruitmentHall > Unit Control Tracking`).
+    /// Hall produced it", `factions/cults/structures/recruitment_hall.md > Unit Control Tracking`).
     fn release_unit(&mut self, producer: ObjectId) {
         let Some(building) = self.objects.get(&producer) else {
             return;

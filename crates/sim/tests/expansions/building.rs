@@ -1,4 +1,4 @@
-//! An expansion under construction (`factions/syndicate/tunnels.md > Expansions under construction`, design change
+//! An expansion under construction (`factions/syndicate/tunnel_menus.md > Expansions under construction`, design change
 //! 0254): the click pays and takes Tunnel Space, the frames and the HP, the expansion at work once complete, and the
 //! Tunnel's Eject meanwhile.
 

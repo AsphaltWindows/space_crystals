@@ -1,13 +1,13 @@
 //! Halls that share tiles, a Hall destroyed, a unit of a lineage lost, and the HUD's figures
-//! (`factions/cults/economy.md > RecruitmentHall > TileClaiming`, `factions/cults/economy.md > RecruitmentHall > On
-//! Destruction`, `factions/cults/economy.md > RecruitmentHall > Cults Unit Control HUD Display`).
+//! (`factions/cults/structures/recruitment_hall.md > TileClaiming`, `factions/cults/structures/recruitment_hall.md > On
+//! Destruction`, `factions/cults/structures/recruitment_hall.md > Cults Unit Control HUD Display`).
 
 use sc_sim::{DebugCommand, ObjectId};
 
 use super::*;
 
 /// Plan acceptance, overlapping Halls: "the second takes the freed tiles in the same tick, and its capacity rises"
-/// (`factions/cults/economy.md > RecruitmentHall > TileClaiming`: "if multiple halls contest a newly freed tile, the
+/// (`factions/cults/structures/recruitment_hall.md > TileClaiming`: "if multiple halls contest a newly freed tile, the
 /// one that was built first claims it"). Hall 1's area is tiles (5, 5) to (14, 14), Hall 2's (11, 5) to (20, 14):
 /// Hall 1, completed first (Hall 2 is a debug spawn's of tick 1, which recruits from tick 2), has the 40 they share.
 /// Hall 1 gone in tick 50, Hall 2's Recruit gains 100 tiles in tick 50 already. Each Hall's Recruit in production
@@ -46,7 +46,7 @@ fn the_second_hall_takes_the_freed_tiles_in_the_same_tick() {
 }
 
 /// Design change 0341's tie rule on a map: two Halls completed in the same tick, a map's, split the 40 tiles they
-/// share by the nearer centre, 2 columns each (`factions/cults/economy.md > RecruitmentHall > TileClaiming`: "each
+/// share by the nearer centre, 2 columns each (`factions/cults/structures/recruitment_hall.md > TileClaiming`: "each
 /// contested tile goes to the Hall whose centre is nearer"), whoever owns them; and each recruits at its 80 tiles,
 /// 240 ticks a Recruit.
 #[test]
@@ -66,7 +66,7 @@ fn halls_completed_together_split_the_shared_tiles() {
 }
 
 /// Plan acceptance, a destroyed Hall: "its units still in used, its capacity out of available"
-/// (`factions/cults/economy.md > RecruitmentHall > On Destruction`: "Surviving units produced by this hall remain on
+/// (`factions/cults/structures/recruitment_hall.md > On Destruction`: "Surviving units produced by this hall remain on
 /// the field and continue to count toward the global usage sum. Its LocalUnitControlCapacity is removed from the global
 /// sum"). The other Hall recruits by its own usage alone, so the HUD ends over capacity, 23/20. Each Hall's Recruit in
 /// production counts (design change 0342); the lost Hall's goes with it.
@@ -92,7 +92,7 @@ fn a_destroyed_halls_recruits_still_count_and_its_capacity_goes() {
     assert_eq!(unit_control(&t, P1), (23, 20));
 }
 
-/// Design change 0342 point 4 (`factions/cults/economy.md > RecruitmentHall > Production Behavior`: "When the Hall is
+/// Design change 0342 point 4 (`factions/cults/structures/recruitment_hall.md > Production Behavior`: "When the Hall is
 /// at capacity nothing is in production; when capacity frees up (a unit dies), the next Recruit starts from 0"): a
 /// Hall at capacity makes nothing until a unit of its lineage dies; then its production starts from 0% in that tick,
 /// and its usage is 20 again at once. There is no X, before or after (design change 0342: "Recruits can't be
@@ -127,12 +127,13 @@ fn a_lost_recruit_restarts_a_full_hall() {
     assert_eq!(unit_control(&t, P1), (20, 20));
 }
 
-/// Design change 0344 (`factions/cults/economy.md > RecruitmentHall > Unit Control Tracking`: "Recruits no Hall
+/// Design change 0344 (`factions/cults/structures/recruitment_hall.md > Unit Control Tracking`: "Recruits no Hall
 /// produced (placed by a custom map or spawned by a debug command [...]) are orphans from the start: they count in the
 /// global display only, against no Hall"): a Cults unit no Hall made counts its whole cost as orphaned Unit Control;
-/// the Hall recruits up to its capacity all the same, and the HUD shows the sum (`factions/cults/economy.md >
-/// RecruitmentHall > Cults Unit Control HUD Display`: "sum of all LocalUnitControlUsage across all active Recruitment
-/// Halls and orphaned units"), the Hall's Recruit in production included (design change 0342).
+/// the Hall recruits up to its capacity all the same, and the HUD shows the sum
+/// (`factions/cults/structures/recruitment_hall.md > Cults Unit Control HUD Display`: "sum of all LocalUnitControlUsage
+/// across all active Recruitment Halls and orphaned units"), the Hall's Recruit in production included (design change
+/// 0342).
 #[test]
 fn units_no_hall_made_are_orphaned_points() {
     let hall = ObjectId(1);

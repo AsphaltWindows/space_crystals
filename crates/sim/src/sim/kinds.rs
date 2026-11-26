@@ -201,7 +201,7 @@ impl Sim {
             // No type of the design becomes a turret or stops being one.
             popup: _,
             // Kept, every entry (plan decision T56): "This lineage persists when a Recruit is trained into another
-            // unit" (`factions/cults/economy.md > RecruitmentHall > Unit Control Tracking`).
+            // unit" (`factions/cults/structures/recruitment_hall.md > Unit Control Tracking`).
             lineage: _,
             // Kept: the caller that trains a unit settles it (`Sim::train`: an infantry unit keeps its Augmentations,
             // a vehicle loses them).

@@ -1,7 +1,7 @@
 //! A panel that follows its constructor's state and the build menu that is open ([`state_grid`]): the Deployment
 //! Center's build menus, a Beacon's Warp In menus, and a constructor's building ready to place and its Cancels
 //! (`factions/gdo/structures/deployment_center.md > ObjectInterfaceState[DeploymentCenter]`; a constructor is alone in
-//! its SelectionGroup: `systems/controls/selection_and_hud.md > SelectionGroup`).
+//! its SelectionGroup: `systems/controls/selection.md > SelectionGroup`).
 
 use sc_sim::ObjectKind;
 use sc_sim::construction::{self, Constructor};
@@ -43,7 +43,7 @@ pub fn menu_of(kind: ObjectKind, building: ObjectKind) -> Option<BuildMenu> {
 
 /// The commands a `kind` ActiveGroup shows in `interface`, slot by slot (`CommandSlot::all` order), while its
 /// constructor, if it is one, is `constructor` (the ActiveGroup is then a single instance: constructors are
-/// Ungroupable, `systems/controls/selection_and_hud.md > SelectionGroup`, so the panel "can reliably read that
+/// Ungroupable, `systems/controls/selection.md > SelectionGroup`, so the panel "can reliably read that
 /// instance's specific game state"):
 /// - DefaultState and AwaitingTarget: its DefaultState grid ([`grid`]), but the Peacekeeper (Shielded)'s Attack
 ///   ([`hides_attack`]);

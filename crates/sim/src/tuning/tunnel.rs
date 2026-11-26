@@ -16,8 +16,8 @@ pub const PATH_OFFSET_SU: f32 = 30.0;
 /// within 8 su of the entry spot (DropOffReach's value, as a placeholder)".
 pub const ENTRY_REACH_SU: f32 = 8.0;
 
-/// `factions/syndicate/tunnels.md > EjectMenu` (design change 0250): "With no rally point, a unit walks about 1 grid
-/// unit straight out of Side A and idles".
+/// `factions/syndicate/tunnel_menus.md > EjectMenu` (design change 0250): "With no rally point, a unit walks about 1
+/// grid unit straight out of Side A and idles".
 pub const WALK_OUT_SU: f32 = SU_PER_GU;
 
 /// Whether air units pass through a Tunnel: **not in M4** (the Director's decision for slice M4-C). No Syndicate air

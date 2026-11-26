@@ -31,8 +31,8 @@ pub(in crate::command_ui) fn turn_ghost(actions: Res<ActionState>, mut control: 
     }
 }
 
-/// `systems/controls/selection_and_hud.md > AwaitingTarget > Shift while placing`
-/// (`systems/controls/selection_and_hud.md > Exception, Drones`, design change 0125): once a Shift-click has sent a
+/// `systems/controls/interface.md > AwaitingTarget > Shift while placing`
+/// (`systems/controls/interface.md > Exception, Drones`, design change 0125): once a Shift-click has sent a
 /// Drone of the group to deploy and placement stayed for the next one (`Builder::Drones::queued`), letting go of Shift,
 /// the Queue modifier, ends placement: back to DefaultState ("releasing Shift ends placement"). Before the first
 /// Shift-click, letting go of it changes nothing, as for a target (`super::end_queued_targeting`, the design's proposed
@@ -49,7 +49,7 @@ pub(in crate::command_ui) fn end_queued_placement(actions: Res<ActionState>, mut
     }
 }
 
-/// `systems/controls/selection_and_hud.md > AwaitingPlacement`: a left-click on the map (the Select action's click, at
+/// `systems/controls/hud.md > AwaitingPlacement`: a left-click on the map (the Select action's click, at
 /// the point where it went down) confirms the ghost, where its builder puts it ([`Builder`]), if the check the ghost
 /// shows allows it now; the sim checks it again as it applies.
 ///
@@ -58,7 +58,7 @@ pub(in crate::command_ui) fn end_queued_placement(actions: Res<ActionState>, mut
 ///   places building at the ghost's position and rotation, clears ReadyToPlace (CommandIssuingTransition, returns to
 ///   DefaultState)"): the ghost under the click ([`Placing::origin_under`]), if `Sim::placement_check` allows it: one
 ///   `ConstructionCommand::Place` to the one constructor, and back to DefaultState (`SimEvent::PlacementRefused`
-///   when the sim refuses it as it applies, `super::feedback`). Shift (`systems/controls/selection_and_hud.md >
+///   when the sim refuses it as it applies, `super::feedback`). Shift (`systems/controls/interface.md >
 ///   AwaitingTarget > Shift while placing`): a GDO constructor "only ever has one building ready to place", so a
 ///   Shift-click places it and ends placement like a plain click.
 /// - **A Beacon's Warp In** (`factions/colonists/economy.md > Warp In > Warp In Command`: "Left-click confirms the
@@ -67,35 +67,35 @@ pub(in crate::command_ui) fn end_queued_placement(actions: Res<ActionState>, mut
 ///   DefaultState. The bank pays as it is given: a Warp In the gate refuses (too few Space Crystals since its entry
 ///   was pressed) sends nothing, says why ([`CommandRefused`], design change 0162) and placement goes on.
 /// - **The Drones' Beacon** (`factions/colonists/units/drone.md > Drone ObjectInterfaceState > A: Deploy`; design
-///   change 0125, `systems/controls/selection_and_hud.md > SelectionGroup > Groupable workers used up by a build`): the
+///   change 0125, `systems/controls/selection.md > SelectionGroup > Groupable workers used up by a build`): the
 ///   ghost under the click, if `Sim::deploy_check` allows it for the Drone the click goes to ([`deploy_recipient`]): a
 ///   plain click to the first Drone of the group, replacing its orders, and back to DefaultState; a Shift-click to the
 ///   first one with no Deploy yet, queued, and placement stays while another Drone of the group has none
-///   (`systems/controls/selection_and_hud.md > AwaitingTarget > Shift while placing > Exception, Drones`), until Shift
+///   (`systems/controls/interface.md > AwaitingTarget > Shift while placing > Exception, Drones`), until Shift
 ///   is let go ([`end_queued_placement`]). **Reading**: a Shift-click while every Drone of the group has a Deploy
 ///   already sends nothing and ends placement ("Once every Drone in the group has a Deploy, placement ends").
 /// - **An Agent's building** (`factions/syndicate/units/agent.md > Agent ObjectInterfaceState > A: Build Tunnel`:
 ///   "Left-click valid location confirms placement and dispatches the Agent (CommandIssuingTransition, returns to
 ///   DefaultState)"; slice M4-J1): the ghost under the click, if `Sim::build_check` allows it: one `OrderKind::Build`
-///   to the Agent placing, queued with Shift (`systems/controls/selection_and_hud.md > AwaitingTarget > Shift while
+///   to the Agent placing, queued with Shift (`systems/controls/interface.md > AwaitingTarget > Shift while
 ///   placing`: "each Agent takes exactly one placement", and placement ends like a plain click's; Tab and A again
 ///   place with the next Agent), and back to DefaultState. It is paid as it is given (design change 0233): a Build
 ///   the gate refuses (too few Supplies since A was pressed, the Agent building already) sends nothing, says why
 ///   ([`CommandRefused`], design change 0162) and placement goes on, as a Warp In's.
-/// - **A Tunnel's expansion** (`factions/syndicate/tunnels.md > AwaitingPlacement (Expansion)`: "Left-click valid
+/// - **A Tunnel's expansion** (`factions/syndicate/tunnel_menus.md > AwaitingPlacement (Expansion)`: "Left-click valid
 ///   location: places expansion, begins construction (CommandIssuingTransition, returns to DefaultState)"; slice M4-F):
 ///   the ghost held within the Tunnel Area ([`Placing::origin`]), if `Sim::expansion_check` allows it, as far as the
 ///   player knows: one `TunnelCommand::Expand` to the Tunnel, and back to DefaultState. Shift changes nothing: a Tunnel
-///   performs one operation at a time, with no queue (`factions/syndicate/tunnels.md > Expansions under construction`:
-///   "the Tunnel does one operation at a time, so there's no queue"), so, as a GDO constructor's, a Shift-click places
-///   it and ends placement (`systems/controls/selection_and_hud.md > AwaitingTarget > Shift while placing`: "This only
-///   applies when the builder **can carry out more queued buildings**"). It is paid as it is given: an Expand the gate
-///   refuses (too few Space Crystals since its entry was pressed) sends nothing, says why ([`CommandRefused`]) and
-///   placement goes on; one the truth refuses (design change 0240) as an invalid click.
+///   performs one operation at a time, with no queue (`factions/syndicate/tunnel_menus.md > Expansions under
+///   construction`: "the Tunnel does one operation at a time, so there's no queue"), so, as a GDO constructor's, a
+///   Shift-click places it and ends placement (`systems/controls/interface.md > AwaitingTarget > Shift while placing`:
+///   "This only applies when the builder **can carry out more queued buildings**"). It is paid as it is given: an
+///   Expand the gate refuses (too few Space Crystals since its entry was pressed) sends nothing, says why
+///   ([`CommandRefused`]) and placement goes on; one the truth refuses (design change 0240) as an invalid click.
 ///
 /// An invalid click sends nothing and placement goes on (M2 plan, H2: "cannot be confirmed"), with a short message
 /// ([`InvalidPlacement`]; placeholder: the design gives feedback for invalid target clicks,
-/// `systems/controls/selection_and_hud.md > AwaitingTarget > Invalid target clicks`, and is silent for placement).
+/// `systems/controls/interface.md > AwaitingTarget > Invalid target clicks`, and is silent for placement).
 /// Nothing while the selection isn't commandable (a defeated player's, or anyone's once the game is over), and
 /// placement then ends ([`super::validate_interface`]).
 pub(in crate::command_ui) fn place_on_click(

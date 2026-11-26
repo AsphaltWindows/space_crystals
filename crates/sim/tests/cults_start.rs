@@ -2,8 +2,8 @@
 //! Starting Layout on `dev_skirmish` in either slot, the six Recruits belonging to the starting Recruitment Hall, so
 //! that Unit Control starts at 6/20 and the Hall at once starts its seventh, and the camera's start on the Hall
 //! (`core/camera.md > Starting Position`). `dev_skirmish`'s layout follows the design: the Hall's Recruitment Area on
-//! the map, Recruitable and its own (`factions/cults/economy.md > RecruitmentHall > Effectiveness`), the Storage a
-//! 1-tile gap from the field (`factions/cults/economy.md > Storage`). The map validates in each of the 16 pairings,
+//! the map, Recruitable and its own (`factions/cults/structures/recruitment_hall.md > Effectiveness`), the Storage a
+//! 1-tile gap from the field (`factions/cults/structures/storage.md`). The map validates in each of the 16 pairings,
 //! and an incomplete Cults layout lists what it lacks (`core/map_editor.md > Starting Layouts > Skirmish Default
 //! restriction`; design change 0012: "Leave the Cults layout incomplete: the editor lists the missing Recruits, and
 //! the map can't be started"). The lineage of a layout's units wherever its Hall stands, on a Custom map, and without
@@ -26,7 +26,7 @@ const RECRUIT: ObjectKind = ObjectKind::Recruit;
 const PATCH: ObjectKind = ObjectKind::CrystalPatch;
 const CULTS: Faction = Faction::Cults;
 const GDO: Faction = Faction::Gdo;
-/// `factions/cults/economy.md > RecruitmentHall > BaseRecruitProductionTime - 12 seconds (192 frames) per Recruit`.
+/// `factions/cults/structures/recruitment_hall.md > BaseRecruitProductionTime - 12 seconds (192 frames) per Recruit`.
 const FRAMES: u32 = 192;
 
 /// A point in grid units.
@@ -86,9 +86,9 @@ fn layout_object(kind: ObjectKind, at: SpawnAt) -> LayoutObject {
 /// Crystals**"), with the Recruitment Hall, the Storage and the six Recruits where `dev_skirmish`'s layout puts them,
 /// in either slot (the second slot's layout is the first's 180° image), each Recruit of the Hall's lineage ("all
 /// belonging to the starting Recruitment Hall"). At tick 0 the Hall claims its whole area: 100% effectiveness, its
-/// usage 6 of its 20, and the HUD's Unit Control 6/20 (`factions/cults/economy.md > RecruitmentHall > Cults Unit Control
-/// HUD Display`). The camera starts on the Hall (`core/camera.md > Starting Position`: "Cults: starting Recruitment
-/// Hall"). The GDO beside them starts as ever.
+/// usage 6 of its 20, and the HUD's Unit Control 6/20 (`factions/cults/structures/recruitment_hall.md > Cults Unit
+/// Control HUD Display`). The camera starts on the Hall (`core/camera.md > Starting Position`: "Cults: starting
+/// Recruitment Hall"). The GDO beside them starts as ever.
 #[test]
 fn a_cults_player_starts_with_their_starting_conditions() {
     let scenario = dev_skirmish_as([CULTS, GDO]);
@@ -135,14 +135,14 @@ fn a_cults_player_starts_with_their_starting_conditions() {
     assert_eq!(scenario.primary_structure(P2), Some(point(54.0, 38.0)));
 }
 
-/// The Hall starts its seventh Recruit at once (`factions/cults/economy.md > RecruitmentHall > Production Behavior`:
+/// The Hall starts its seventh Recruit at once (`factions/cults/structures/recruitment_hall.md > Production Behavior`:
 /// "automatically and continuously produces Recruits at no resource cost until LocalUnitControlUsage reaches
 /// LocalUnitControlCapacity"): in production from the first tick, it counts from then on (design change 0342: "the
 /// Recruit in production counts toward LocalUnitControlUsage from the start of its production"), so the HUD shows 7/20,
-/// and comes out 192 ticks later (`factions/cults/economy.md > RecruitmentHall > BaseRecruitProductionTime - 12 seconds
-/// (192 frames) per Recruit`), out of side B, the Hall's one exit (0342: "the exit on B"), the west side in the first
-/// slot and the east in its image, the starting Recruits in its way in neither. The eighth is in production at once:
-/// 8/20. Nothing in the bank moves: Recruits cost nothing.
+/// and comes out 192 ticks later (`factions/cults/structures/recruitment_hall.md > BaseRecruitProductionTime - 12
+/// seconds (192 frames) per Recruit`), out of side B, the Hall's one exit (0342: "the exit on B"), the west side in the
+/// first slot and the east in its image, the starting Recruits in its way in neither. The eighth is in production at
+/// once: 8/20. Nothing in the bank moves: Recruits cost nothing.
 #[test]
 fn the_starting_hall_starts_its_seventh_recruit_at_once() {
     let mut t = TestSim::new(dev_skirmish_as([CULTS, CULTS]));
@@ -192,12 +192,12 @@ fn gap(a: (i32, i32, i32, i32), b: (i32, i32, i32, i32)) -> i32 {
 }
 
 /// `dev_skirmish`'s Cults layout follows the design, in either slot:
-/// - the Hall's Recruitment Area is all on the map and Recruitable, and no other Hall's (`factions/cults/economy.md >
-///   RecruitmentHall > Effectiveness`, map design guideline: "balancing starts from the assumption that the whole map
-///   is Recruitable"; "A hall on fully Recruitable terrain with no competing halls therefore reaches 100%
-///   effectiveness"), with the Cults in both slots;
-/// - the Storage stands a 1-tile gap from the nearest patches of its field (`factions/cults/economy.md > Storage`: "The
-///   best layout leaves a 1-tile gap between patch and Storage"), five of the eight, and touches none;
+/// - the Hall's Recruitment Area is all on the map and Recruitable, and no other Hall's
+///   (`factions/cults/structures/recruitment_hall.md > Effectiveness`, map design guideline: "balancing starts from the
+///   assumption that the whole map is Recruitable"; "A hall on fully Recruitable terrain with no competing halls
+///   therefore reaches 100% effectiveness"), with the Cults in both slots;
+/// - the Storage stands a 1-tile gap from the nearest patches of its field (`factions/cults/structures/storage.md`:
+///   "The best layout leaves a 1-tile gap between patch and Storage"), five of the eight, and touches none;
 /// - the Recruits stand beside the Storage, within 2 grid units of its footprint, and at least 2 grid units from the
 ///   middle of the Hall's side B, the one door its Recruits come out of (design change 0342: "the exit on B").
 #[test]

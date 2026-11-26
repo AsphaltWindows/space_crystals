@@ -2,7 +2,8 @@
 //! change 0304; `systems/combat.md > TailDisjointed`), with its own numbers, through the gate: "the target's position is
 //! locked at the end of Aiming and the shot lands there at the end of Firing, so a target that moves during the Firing
 //! phase is missed, and whatever unit stands at the spot then is hit instead (any owner)"; and its Attack Ground,
-//! which "keeps firing at the location" until another order (`systems/controls/behaviors.md > AttackingLocation`).
+//! which "keeps firing at the location" until another order (`systems/controls/command_behaviors.md >
+//! AttackingLocation`).
 //!
 //! Its Firing lasts 4 frames (design change 0333, answering Q0126: "at 4 a walking infantry unit can step off it"): a
 //! Peacekeeper walking across the line of fire, 16 su in those frames against its Silhouette's 12 su half-width, is

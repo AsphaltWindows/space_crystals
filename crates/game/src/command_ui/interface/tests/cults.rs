@@ -21,8 +21,8 @@ fn counted(panel: &Panel) -> Vec<(CommandSlot, PanelButton, ButtonLook, Option<u
         .collect()
 }
 
-/// `factions/cults/economy.md > RecruitmentHall > ObjectInterfaceState[RecruitmentHall]`: C Set Rally Point alone,
-/// with no Train, as the Hall recruits by itself (`factions/cults/economy.md > RecruitmentHall > Production
+/// `factions/cults/structures/recruitment_hall.md > ObjectInterfaceState[RecruitmentHall]`: C Set Rally Point alone,
+/// with no Train, as the Hall recruits by itself (`factions/cults/structures/recruitment_hall.md > Production
 /// Behavior`), and no X (design change 0342: "Recruits can't be cancelled. The X button is removed"), before its first
 /// step or with a Recruit in production: X's slot is empty and its key does nothing. C awaits its target, and the
 /// Hall's right-click sets the rally point (its Production template).

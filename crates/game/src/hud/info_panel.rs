@@ -1,4 +1,4 @@
-//! The InfoPanel (`systems/controls/selection_and_hud.md > HUD Bar`, `core/entities.md > Object Type > InfoPanel`):
+//! The InfoPanel (`systems/controls/hud.md > HUD Bar`, `core/entities.md > Object Type > InfoPanel`):
 //! shown while at least one object is selected. Placeholder text until the panel's art and layout exist: the
 //! selected object's name as the title, and under it what the panel shows of it ([`InfoContent`]):
 //! - **a unit**: its owner and HP; one of the local player's own workers also what it carries and where it delivers

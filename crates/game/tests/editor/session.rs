@@ -174,7 +174,7 @@ fn play_testing_runs_the_map_with_its_setup_and_returns_to_the_editor() {
     assert_eq!(status(&app).level, StatusLevel::Error);
 }
 
-/// In the game Esc is Cancel (`systems/controls/selection_and_hud.md`): only F5 ends a play-test. A play-test takes
+/// In the game Esc is Cancel (`systems/controls/interface.md`): only F5 ends a play-test. A play-test takes
 /// the game's bindings, so the editor's keys do nothing there.
 #[test]
 fn only_f5_ends_a_play_test() {

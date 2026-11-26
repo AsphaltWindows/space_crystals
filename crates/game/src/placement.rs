@@ -17,9 +17,10 @@
 //! - [`lingering`]: the lingering build ghosts, the sites of the player's pending Deploys and Builds, a Tunnel's with
 //!   its Tier 1 area (`core/entities.md > Placement Validation > Lingering build ghosts`, design change 0125),
 //!   whatever the player does;
-//! - [`tunnel_areas`]: the Tunnel Area display (slices M4-J2 and M4-J3; `factions/syndicate/tunnels.md > Tunnel Area
-//!   display`, design changes 0299 and 0300): the areas of the player's own Tunnels they select, and while they place
-//!   a Tunnel the Tier 2 and Tier 3 rings of its ghost, red where they would block an upgrade; never an enemy's area.
+//! - [`tunnel_areas`]: the Tunnel Area display (slices M4-J2 and M4-J3; `factions/syndicate/tunnel_area_and_space.md >
+//!   Tunnel Area display`, design changes 0299 and 0300): the areas of the player's own Tunnels they select, and while
+//!   they place a Tunnel the Tier 2 and Tier 3 rings of its ghost, red where they would block an upgrade; never an
+//!   enemy's area.
 //!
 //! The ghost and the overlay show only while the local player places a building ([`placing_now`]): in a game mode,
 //! in AwaitingPlacement, with a selection they may command (never once the game is over or they are defeated:

@@ -246,7 +246,7 @@ Units, structures and resources are all `Object`s (`object.rs`, `core/entities.m
   Recruit's `worker`, the Storage's `drop_off`, every structure's `site`, the Hall's and the Armory's `production`,
   the Armory's holding; plan §3.2, "one field per slice"), and `attack` and `popup` stay `None` on every Cults
   structure. The Armory's `requires: [Storage]` is data until Recruits build (slice M5-E). **A Cults unit's Unit
-  Control cost** is the Recruits it takes (`factions/cults/economy.md > RecruitmentHall > Unit Control Tracking`),
+  Control cost** is the Recruits it takes (`factions/cults/structures/recruitment_hall.md > Unit Control Tracking`),
   kept in the GDO's `UnitDef::unit_control_cost`, 1 for each infantry unit (`defs/cults/tests.rs` checks every Cults
   unit's), and counted in the Cults' own Unit Control alone (`ArmyResource::CultsUnitControl`, slice M5-C; *Economy*).
   **The lineage**, `Object::lineage: Vec<ObjectId>` (plan decision T56 as the Director amended it for design change
@@ -376,11 +376,11 @@ Units, structures and resources are all `Object`s (`object.rs`, `core/entities.m
     one, which `Sim::release_held` already serves; the defs test allows holders `ExitRule::Side` only, for now) or a
     rule of its own served by `Sim::spot_around`.
 - **Expansions and a Tunnel's operation** (`sim/expansions.rs`, `tunnel/operation.rs`; slice M4-F;
-  `factions/syndicate/tunnels.md > ExpandMenu`, `factions/syndicate/tunnels.md > AwaitingPlacement (Expansion)`,
-  `factions/syndicate/tunnels.md > Expansions under construction`; design changes 0240, 0254, 0290, 0291): a Tunnel
-  builds an underground expansion in its area as **its one operation**, `TunnelState::operation: Option<Operation>`
-  (`Operation::Building(site)`, or `Operation::Upgrading { progress, to }`, *Tunnel upgrades* below), hashed (a tag)
-  and saved only while set. The
+  `factions/syndicate/tunnel_menus.md > ExpandMenu`, `factions/syndicate/tunnel_menus.md > AwaitingPlacement
+  (Expansion)`, `factions/syndicate/tunnel_menus.md > Expansions under construction`; design changes 0240, 0254, 0290,
+  0291): a Tunnel builds an underground expansion in its area as **its one operation**, `TunnelState::operation:
+  Option<Operation>` (`Operation::Building(site)`, or `Operation::Upgrading { progress, to }`, *Tunnel upgrades* below),
+  hashed (a tag) and saved only while set. The
   expansion is a site as above, `Builder::Tunnel(tunnel)`, no worker held.
   `TunnelCommand::Expand { kind, origin, orientation }`'s gate (`Sim::check_expand`) is first **`Sim::can_expand`** (the
   player's Tunnel in operation, no operation under way `Reject::OperationUnderWay`, the kind's Tier Requirement
@@ -471,8 +471,8 @@ Units, structures and resources are all `Object`s (`object.rs`, `core/entities.m
   wholly inside the finished Tunnel's area, at or below its tier (the Tier Requirement, `ExpansionDef::tier`: 1 for
   the Hideout), becomes the Tunnel owner's, stops decaying and is hidden again, with no event.
 - **Tunnel upgrades** (`sim/upgrades.rs`; slice M4-G; `factions/syndicate/tunnels.md > Cost Scaling > Upgrade
-  Costs`, `factions/syndicate/tunnels.md > Tunnel Area Non-Overlap Rule`; design changes 0229, 0231, 0232, 0237,
-  0242, 0249, 0283, 0284): `TunnelCommand::Upgrade` takes a Tunnel to the tier above as its one operation,
+  Costs`, `factions/syndicate/tunnel_area_and_space.md > Tunnel Area Non-Overlap Rule`; design changes 0229, 0231, 0232,
+  0237, 0242, 0249, 0283, 0284): `TunnelCommand::Upgrade` takes a Tunnel to the tier above as its one operation,
   `Operation::Upgrading { progress, to }`. **The data** is the tier table's: `TierDef::upgrade: Option<UpgradeDef {
   frames, base, per_tunnel }>` on the tier it reaches (480 frames, placeholder; 2 + 2 per Tunnel, 3 + 3 per Tunnel).
   **One price function**, `Sim::price_to`, counts the owner's other Tunnels whose `TunnelState::reserved_tier` (the
@@ -614,13 +614,13 @@ Layout validation can't disagree. **Never test a placement rule anywhere else: a
   layout rule for expansions: an underground structure is checked by the expansion method in the Tier 1 area of a
   Tunnel of its own layout (`OutsideTunnelArea` outside every one), as a layout's plates lie in its own Deployment
   Center's area. Map and debug spawns don't take the check: a spawned Tunnel by Water or the edge stays valid.
-- **The overlap rule** (slice M4-E, `placement/tunnel_overlap.rs`; design change 0237, `factions/syndicate/tunnels.md >
-  Tunnel Area Non-Overlap Rule`): a kind with a tier table has its Tier 1 area overlap no area of a Tunnel among the
-  occupants, any player's, sites included (design change 0289 point 3), each at its tier as the check knows it
-  (`Occupant::tier`: an object's tier now, a record's as last seen); touching is allowed. It is
-  `WholeProblem::TunnelAreaOverlap`, in every mode: `Mode::Known` judges by what the player knows ("their remembered
-  position and their tier as last seen"), `Mode::Arrival` by the truth, so a Tunnel upgraded unseen fails a build on
-  arrival.
+- **The overlap rule** (slice M4-E, `placement/tunnel_overlap.rs`; design change 0237,
+  `factions/syndicate/tunnel_area_and_space.md > Tunnel Area Non-Overlap Rule`): a kind with a tier table has its Tier 1
+  area overlap no area of a Tunnel among the occupants, any player's, sites included (design change 0289 point 3), each
+  at its tier as the check knows it (`Occupant::tier`: an object's tier now, a record's as last seen); touching is
+  allowed. It is `WholeProblem::TunnelAreaOverlap`, in every mode: `Mode::Known` judges by what the player knows ("their
+  remembered position and their tier as last seen"), `Mode::Arrival` by the truth, so a Tunnel upgraded unseen fails a
+  build on arrival.
 - **The files** (`placement/`): `site.rs` (`Site`, `Mode`, `Method`, `Occupant`), `problems.rs` (the problems,
   `PlacementCheck`, their texts), `check.rs` (the check), `footprint.rs` (its tiles), `tunnel_area.rs`,
   `tunnel_overlap.rs`, `build_area.rs` and `onto.rs`. The geometry of Tunnel Areas, their regions and an expansion's
@@ -642,7 +642,7 @@ Layout validation can't disagree. **Never test a placement rule anywhere else: a
   a tile never explored passes, but for the reservations), its arrival in `Mode::Arrival` (the truth, no sight rule).
   `Sim::deploy_check(drone, origin, queued)` and `Sim::build_check(worker, kind, origin, orientation, queued)` are the
   orders' checks, for the gate and the ghosts; `Sim::arrival_check` is the arrival's. `Method::Expansion { area }`
-  (slice M4-F, plan decisions T32 and T53; `factions/syndicate/tunnels.md > AwaitingPlacement (Expansion)`) is a
+  (slice M4-F, plan decisions T32 and T53; `factions/syndicate/tunnel_menus.md > AwaitingPlacement (Expansion)`) is a
   Tunnel's underground expansion: wholly inside `area`, the Tunnel's current area (`OutsideTunnelArea`), on Drillable
   tiles in place of Buildable ones (`TileProblem::NotDrillable`, design change 0239), with no flatness and no sight
   in any mode. Every structure blocks it, whichever its layer and whoever owns it, the Tunnel's own footprint
@@ -1064,11 +1064,12 @@ ticks spent in it. Hashed and serialized like all state.
   fraction (`Hit::minimum`), the Shields first at full value (`damage::resolve`). Nothing in it asks `hidden_from`.
   The reveal after the hits (see Vision) shows the attacker, if it still exists, to each damaged object's owner, when
   the damage lands: a dodged grenade reveals nothing (design change 0293, point 2).
-- **Attack Ground** (`orders/attack_ground.rs`, plan decision T47; `systems/controls/behaviors.md > AttackingLocation`):
-  `OrderKind::AttackGround(point)` sets `AttackState::location`; 5e aims at a point in reach (`reaches_point`, from
-  the unit's shape) and fires. The behaviour walks the unit into range, and backs it off a point inside its MinRange
-  by an Attack's own rule and code (`engage::too_close`, slice M5-O3; *Behaviours*), letting go of the location while
-  it does; a unit that can't back off gives the order up with `SimEvent::LocationTooClose` ("Target too close").
+- **Attack Ground** (`orders/attack_ground.rs`, plan decision T47; `systems/controls/command_behaviors.md >
+  AttackingLocation`): `OrderKind::AttackGround(point)` sets `AttackState::location`; 5e aims at a point in reach
+  (`reaches_point`, from the unit's shape) and fires. The behaviour walks the unit into range, and backs it off a point
+  inside its MinRange by an Attack's own rule and code (`engage::too_close`, slice M5-O3; *Behaviours*), letting go of
+  the location while it does; a unit that can't back off gives the order up with `SimEvent::LocationTooClose` ("Target
+  too close").
   **It keeps firing** (design change 0293, answering Q0083 point 3): the location stays engaged after each shot (a
   launch, or a TailDisjointed strike: the Gunner's, slice M5-O3), so
   the attack cycles at it until another order or a Stop, and the orders queued behind it never start on their own;
@@ -1302,14 +1303,15 @@ writes the mover's goal and the target the attack engages, and reads `Mover::sta
     `Sim::sets_drop_off`). "Nearest" is by the centre of the crystal point, whatever the load
     (`economy::drop_off::nearest`, the one rule of the return leg and of the removal path): a Tunnel's crystal hatch
     (design change 0292 point 2: "the same measure as for crystals"), an Egress Node's own centre.
-  - **Recruits** (M5-D, plan decision T58; `factions/cults/units/recruit.md > Gathering`, `factions/cults/economy.md >
-    Storage`): data again. `shares_patches`, no `pass_through` (design change 0106: Recruits collide while they
-    gather), the Storage's `DropOff::Anywhere`, and `DropOffChoice::EachReturn`: **Placeholder (Q0102 point 1)**, as
-    each return starts (`state::Gather::node` is `None`) the Recruit takes the own completed Storage nearest to its
-    patch, **edge to edge** (`deliver::nearest_to_patch`), and with none it idles holding its load (point 2). One
-    lost on the way is replaced by the removal path as any worker's is. Within what the design says a face holds
-    (4 to 5 Recruits a 2-tile face) nothing jams; with more Recruits than lanes they stand head-on and starve one
-    another, which no existing rule resolves (question Q0109: `tests/recruit_gathering/jam.rs`, ignored).
+  - **Recruits** (M5-D, plan decision T58; `factions/cults/units/recruit.md > Gathering`,
+    `factions/cults/structures/storage.md`): data again. `shares_patches`, no `pass_through` (design change 0106:
+    Recruits collide while they gather), the Storage's `DropOff::Anywhere`, and
+    `DropOffChoice::EachReturn`: **Placeholder (Q0102 point 1)**, as each return starts (`state::Gather::node` is
+    `None`) the Recruit takes the own completed Storage nearest to its patch, **edge to edge**
+    (`deliver::nearest_to_patch`), and with none it idles holding its load (point 2). One lost on the way is replaced by
+    the removal path as any worker's is. Within what the design says a face holds (4 to 5 Recruits a 2-tile face)
+    nothing jams; with more Recruits than lanes they stand head-on and starve one another, which no existing rule
+    resolves (question Q0109: `tests/recruit_gathering/jam.rs`, ignored).
     **Measured** (`tests/recruit_gathering/`): one Recruit at gaps of 1, 2 and 3 tiles makes a trip in 24, 56 and 88
     ticks (1.33, 0.57 and 0.36 Space Crystals per second; the design's formula gives 1.45, 0.59 and 0.37); 10 on an
     8-patch field with three Storages, 12.9. `tests/recruits_perf.rs` (ignored, release): 60 Recruits on 22 patches
@@ -1780,14 +1782,14 @@ section of its own.
   Unit Control, out of `UNIT_CONTROL_CAP`; the Colonists' Beacon Capacity, out of
   min(`BEACON_CAPACITY_CAP`, `BEACON_CAPACITY_PER_BUILDING` × their Colonists structures, a Beacon under deployment
   left out until it completes: design change 0112, *Beacon Deployment*); and the Syndicate's **Tunnel Space** (slice
-  M4-B, `economy/army/tunnel_space.rs`; `factions/syndicate/tunnels.md > Tunnel Space`, design changes 0242, 0258
-  and 0265), out of min(`TUNNEL_SPACE_CAP` 200, ⌊the unused tunnel-region cells of the player's Tunnels /
+  M4-B, `economy/army/tunnel_space.rs`; `factions/syndicate/tunnel_area_and_space.md > Tunnel Space`, design changes
+  0242, 0258 and 0265), out of min(`TUNNEL_SPACE_CAP` 200, ⌊the unused tunnel-region cells of the player's Tunnels /
   `CELLS_PER_TUNNEL_SPACE` 4⌋): each Tunnel's region is its Tunnel Area at its current tier less its own footprint
   (`tunnel::area::region`: 48, 84 and 128 cells), every cell counted, on the map or off it, Drillable or not (0242);
   a cell is used when an underground structure of the player's or a neutral one stands on it, cell by cell (0258
   point 4), never another player's. The regions are summed Tunnel by Tunnel, as the formula reads. And the Cults'
   **Unit Control** (slice M5-C, plan decisions T56 and T57; `economy/army/cults.rs`, `recruitment.rs`;
-  `factions/cults/economy.md > RecruitmentHall > Cults Unit Control HUD Display`): available is the sum of their
+  `factions/cults/structures/recruitment_hall.md > Cults Unit Control HUD Display`): available is the sum of their
   completed Recruitment Halls' capacities, each rounded down (design change 0341 point 2: "Capacity is rounded down
   everywhere", so two Halls of 6.6 give 12); used is their Halls' usage, the entries of every unit's lineage that
   name them and each Hall's Recruit in production (design change 0342 point 3), plus their orphaned points, the
@@ -2084,7 +2086,7 @@ their energy doorway, slice M3-D2: design change 0145, `factions/colonists/struc
   (160 frames, the Colonists have no Power) in tick `t + 159`. The next one starts from 0 in the tick after a
   release.
 - **The Recruitment Halls** (slice M5-C, plan decision T57; `recruitment.rs`, `sim/recruitment.rs`;
-  `factions/cults/economy.md > RecruitmentHall`): a Hall's production is the producers', in an automatic mode that its
+  `factions/cults/structures/recruitment_hall.md`): a Hall's production is the producers', in an automatic mode that its
   `ProductionDef::recruitment` (`RecruitmentDef { area: 10, capacity: 20 }`) switches on. **The claims**
   (`recruitment::Claims`, derived each time, never stored): each Recruitable tile (`TilePreset::recruitable`: every
   default preset but Water) of a Hall's 10 × 10 area centred on its footprint goes to the first completed Hall whose
@@ -2193,7 +2195,7 @@ their energy doorway, slice M3-D2: design change 0145, `factions/colonists/struc
   portal without a rally point, in the tick it releases. A Barracks never draws, nor does a portal with a rally
   point, so the GDO goldens don't move. The Rng is hashed and saved, so replays and saves draw the same headings.
 - **Rally points** (`production/rally.rs`): `Rally::Point` or `Rally::Object { id, at }`. A released unit gets its
-  **own default right-click command** on the rally target (design change 0136, `systems/controls/selection_and_hud.md
+  **own default right-click command** on the rally target (design change 0136, `systems/controls/interface.md
   > What a rally point makes a new unit do`: "No per-building lists override this"), at its release, from where it
   appears (out of a portal, the centre: its path starts there), through `Sim::give_order` like a player's:
   `Sim::rally_order` is `Sim::default_order` (`orders/resolution.rs`, the one rule of *Commands > Default orders*) on
@@ -2340,7 +2342,7 @@ their energy doorway, slice M3-D2: design change 0145, `factions/colonists/struc
   *Behaviours*.
 - **`Command::Tunnel { tunnel, command }`** (slice M4-C, plan decision T36; `TunnelCommand`, to which Expand,
   Upgrade and the cancels come with slices M4-E to M4-G): the player's own Tunnel in operation (`NotOwned`,
-  `NotATunnel`). **`Eject { kind }`** (`factions/syndicate/tunnels.md > EjectMenu`): the tier lets the kind out
+  `NotATunnel`). **`Eject { kind }`** (`factions/syndicate/tunnel_menus.md > EjectMenu`): the tier lets the kind out
   (`NoTransit`), and a unit of the kind in the player's network is free to leave: not reserved on a queue already
   (`NotInNetwork`) and past its transit delay (`InTransit`: **a reading**, design change 0245's "For 2 s it can't be
   ejected anywhere" refuses the click rather than queueing the unit). The gate picks the one inside longest
@@ -2352,7 +2354,7 @@ their energy doorway, slice M3-D2: design change 0145, `factions/colonists/struc
   units*): the player's buildings among `objects` that hold units take it, the player's other objects are ignored
   (`NotOwned` for another's, `NoHolders` if none is left). **`EjectAll`** (`factions/cults/structures/armory.md >
   Eject All`): those whose pool has a unit (`NothingInside` if none has) mark their pool for Eject All.
-- **Default orders** (`orders/resolution.rs`; `systems/controls/selection_and_hud.md > RightClickResolution`, design
+- **Default orders** (`orders/resolution.rs`; `systems/controls/interface.md > RightClickResolution`, design
   changes 0062, 0063, 0074 and 0136): `resolve(Abilities, Aim)` is the one rule for what a unit does against a target
   by default: the ground gives Move; a worker on a patch it can gather Gather, on its owner's drop-off Drop Off while
   it carries a load (else a Move there, 0140); an own Tunnel whose tier lets the unit through Enter (slice M4-C:
@@ -3109,7 +3111,7 @@ put it.
 **HUD**: built with bevy_ui (`core/camera.md > HUD Layout`). It has a top resource bar and, at the bottom, the HUD
 Bar with five fixed sections. From left to right they are Minimap, Portrait, InfoPanel, SelectionPanel and
 CommandPanel. All five have the same height and keep fixed horizontal slots, and a hidden panel's slot stays reserved
-(`systems/controls/selection_and_hud.md > HUD Bar`). bevy_ui lays out each root node inside its camera's viewport,
+(`systems/controls/hud.md > HUD Bar`). bevy_ui lays out each root node inside its camera's viewport,
 so the HUD needs its own full-window UI camera (`IsDefaultUiCamera` / `UiTargetCamera`). The sections sit at the
 rectangles `hud::layout` computes from the surface size alone (`section_rect`, `PortraitGrid`); the same geometry
 finds the portrait under a click, because headless tests have no UI picking (and `CommandGrid` the command button).
@@ -3151,13 +3153,13 @@ that the units in production (design change 0143) count as the sim counts them; 
 `factions/colonists/overview.md > DisplayHud`) Space Crystals, Alloys, Essence and Flux, and Beacon Capacity as used
 / available (`Sim::army_cap`; red over capacity, 0112), with no Power; for the Syndicate (slice M4-B,
 `factions/syndicate/overview.md > DisplayHud`) Space Crystals, Supplies and Tunnel Space as used / available
-(`Sim::army_cap`; red over capacity, as `factions/syndicate/tunnels.md > Tunnel Space` has it, "12/10"); for the
-Cults (slice M5-C, `factions/cults/overview.md > DisplayHud`) Space Crystals and Unit Control as used / available
-(`Sim::army_cap`: their Halls' usage and orphaned points over their Halls' capacities rounded down; over capacity
-after a Hall is lost, not in red: the design gives the figure no warning). Under the top bar, a placeholder notice
-(`hud/notices.rs`, `STATION_EMPTY_TEXT` for `NOTICE_TICKS` sim ticks) tells the local player that a Supply Delivery
-Station where their Agents gather is empty (`SimEvent::SupplyStationEmpty`, design change 0256 point 3: "the owner gets
-a notification", notifications not designed yet). At the end of the game a banner across the world view
+(`Sim::army_cap`; red over capacity, as `factions/syndicate/tunnel_area_and_space.md > Tunnel Space` has it, "12/10");
+for the Cults (slice M5-C, `factions/cults/overview.md > DisplayHud`) Space Crystals and Unit Control as used /
+available (`Sim::army_cap`: their Halls' usage and orphaned points over their Halls' capacities rounded down; over
+capacity after a Hall is lost, not in red: the design gives the figure no warning). Under the top bar, a placeholder
+notice (`hud/notices.rs`, `STATION_EMPTY_TEXT` for `NOTICE_TICKS` sim ticks) tells the local player that a Supply
+Delivery Station where their Agents gather is empty (`SimEvent::SupplyStationEmpty`, design change 0256 point 3: "the
+owner gets a notification", notifications not designed yet). At the end of the game a banner across the world view
 (`hud/outcome.rs`, placeholder look and wording) shows the local player's `Banner`: VICTORY for the winners, DEFEAT for
 everyone else, DRAW for everyone when nobody won (design change 0163), and DEFEATED with a spectating line while a
 defeated player watches the game go on beside an ally (0102; never yet: the sim has no teams). A player defeated while
@@ -3240,7 +3242,7 @@ elsewhere.
   actions directly, past the bindings. Never write to Bevy's own `ButtonInput` resources: its input systems clear
   their presses before ours run. `RawInput` turns the real devices off in QA runs.
 
-**Selection** (`selection.rs`, `selection/`; `systems/controls/selection_and_hud.md`): client UI state, never sim
+**Selection** (`selection.rs`, `selection/`; `systems/controls/selection.md`): client UI state, never sim
 state. `ControlStates` holds every player's `ControlState`, a `Selection`, 10 control groups and the
 ObjectInterfaceState (see Commands UI); the input changes and the HUD shows the local player's (`LocalPlayer`).
 - **Model** (`selection/model.rs`): a selection is a set of object ids with the types they group as, a `GroupType`:
@@ -3288,7 +3290,7 @@ ObjectInterfaceState (see Commands UI); the input changes and the HUD shows the 
   still selects by its record stays), and those their player may no longer select (an enemy that walked into the fog;
   a placeholder, the design is silent). A selected object the player sees whose `GroupType` changed in place, a new
   kind (`SimEvent::KindChanged`) or a building that completes or starts transforming, stays selected as its new type
-  (`ControlState::set_type`). The ActiveGroup stays while it exists (`systems/controls/selection_and_hud.md >
+  (`ControlState::set_type`). The ActiveGroup stays while it exists (`systems/controls/interface.md >
   ObjectInterfaceState`: a change the player didn't make keeps the state unless the ActiveGroup becomes empty; design
   change 0199: changes in a group that isn't active never change it); one whose members changed type gives way to the
   group they joined (0199), and the ObjectInterfaceState resets with the ActiveGroup. A unit's type there is the sim's
@@ -3310,8 +3312,8 @@ ObjectInterfaceState (see Commands UI); the input changes and the HUD shows the 
   marker whose object changed its shape (a kind changed in place) takes its new shape's mesh. The drag box is four
   edges of one shared mesh in the overlay layer, shown while `Pointer::drag_box` is set.
 
-**Commands UI** (`command_ui.rs`, `command_ui/`; `systems/controls/selection_and_hud.md > ObjectInterfaceState`
-to `systems/controls/selection_and_hud.md > CommandIndicators`, `systems/controls/commands.md > Unit Command`): how the
+**Commands UI** (`command_ui.rs`, `command_ui/`; `systems/controls/interface.md > ObjectInterfaceState`
+to `systems/controls/hud.md > CommandIndicators`, `systems/controls/commands.md > Unit Command`): how the
 local player orders their units, their producing structures and their constructors, and the Colonists' Beacons and
 Drones, through one command flow (plan decision T10, slices M2-H1, M2-H2 and M3-J1).
 - **Rules** (pure and unit tested): `command_ui/interface.rs` and its children (`commands.rs`, `templates.rs` with
@@ -3382,7 +3384,7 @@ Drones, through one command flow (plan decision T10, slices M2-H1, M2-H2 and M3-
   (`OrderOutbox::produce`: the player's own producers, validated the same way), never queued, no `OrderIssued`: no
   smart-casting, the sim decides which producers a Train reaches and pays for (0083); a Shift-click while Set Rally
   Point awaits its target sets the rally point and ends targeting like a plain click (a placeholder reading: a rally
-  point isn't queued). While a target is awaited (`systems/controls/selection_and_hud.md > AwaitingTarget`, design
+  point isn't queued). While a target is awaited (`systems/controls/interface.md > AwaitingTarget`, design
   changes 0065 to 0070 and 0073): the other commands do nothing (`press`; the panel shows them disabled); a click counts
   at the press point, as the frame of the press drew the objects (`TargetPress`, recorded when the Select button goes
   down on the map, used when it comes up, `Pointer::released`); the press is a click while the pointer stayed within
@@ -3463,10 +3465,10 @@ Drones, through one command flow (plan decision T10, slices M2-H1, M2-H2 and M3-
   (`SlotPress::SelectReturningDrones`, then `ControlState::replace_selection`) that replaces the selection with the
   node's `Sim::returning_drones` (`Conditions::returning`, asked for the ActiveGroup's node: `instance_only`); the
   button shows only while there are some (`Conditions::shows`). Its label, "Drones", keeps the full label size at 720p.
-- **The Syndicate's panels** (slice M4-J2; `factions/syndicate/tunnels.md > Tunnel ObjectInterfaceState`,
-  `factions/syndicate/tunnels.md > EjectMenu`, `factions/syndicate/structures/hideout.md > ObjectInterfaceState[Hideout]`;
-  design changes 0252, 0257, 0260): `command_ui/interface/templates/syndicate/` has `tunnel.rs`
-  (`InterfaceTemplate::Tunnel`, no right-click: W `PanelCommand::ExpandMenu`, E `PanelCommand::EjectMenu`, X
+- **The Syndicate's panels** (slice M4-J2; `factions/syndicate/tunnel_menus.md > Tunnel ObjectInterfaceState`,
+  `factions/syndicate/tunnel_menus.md > EjectMenu`, `factions/syndicate/structures/hideout.md >
+  ObjectInterfaceState[Hideout]`; design changes 0252, 0257, 0260): `command_ui/interface/templates/syndicate/` has
+  `tunnel.rs` (`InterfaceTemplate::Tunnel`, no right-click: W `PanelCommand::ExpandMenu`, E `PanelCommand::EjectMenu`, X
   `PanelCommand::CancelOperation`; Q `PanelCommand::UpgradeTunnel`, slice M4-G: greyed by `Sim::can_upgrade` with the
   gate's reason, "Something blocks the upgrade" never saying what, its price in the hint, "Q: Upgrade Tunnel (2
   Supplies)", `Conditions::price`), `hideout.rs` (the Production grid: W
@@ -3565,8 +3567,8 @@ Drones, through one command flow (plan decision T10, slices M2-H1, M2-H2 and M3-
   one mesh in the overlays layer, rebuilt every frame while anything shows: markers at the targets of the selected
   own units' current orders (and queued ones while Shift is held), a flash where an order was just given
   (`FLASH_TICKS`), and while Shift is held each unit's route through its waypoints as dashed lines; colours follow
-  `systems/controls/selection_and_hud.md > Color language` (an Attack Ground's marker, slice M4-O, is a Location in
-  red, `systems/controls/selection_and_hud.md > Indicator assignments`, and its route leg ends at its point; the D
+  `systems/controls/hud.md > Color language` (an Attack Ground's marker, slice M4-O, is a Location in
+  red, `systems/controls/hud.md > Indicator assignments`, and its route leg ends at its point; the D
   slot's AwaitingTarget gives the order on the ground only, `command_ui/resolution.rs`). **A marker or a route leg that names an object goes by what
   the local player knows of it, never by the live object** (`indicators/targets.rs`, `Sight::target_view`: the sim's
   `TargetView` through the client's `Sight`; design change 0139, slice M3-K2a): where the object is drawn while the

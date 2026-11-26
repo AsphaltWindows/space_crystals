@@ -104,8 +104,8 @@ pub(super) fn step_unit_on(
 ///   with `status = Arrived`. The arrival radius is one tick of travel, so it never overshoots. A DragMovement
 ///   unit's step is its approach speed ([`Drag::approach`]), which brings it onto the goal at a speed it stops
 ///   from within the tick.
-/// - **An object goal** (`chased`; `systems/controls/behaviors.md > MovingToObject`): the unit has `Arrived` as soon
-///   as the gap between its shape and the object's is within the goal's `reach`. Its path leads to where the
+/// - **An object goal** (`chased`; `systems/controls/command_behaviors.md > MovingToObject`): the unit has `Arrived` as
+///   soon as the gap between its shape and the object's is within the goal's `reach`. Its path leads to where the
 ///   object was when it was planned (phase 5c keeps it up to date, `paths::chase_check`): at its end the unit has
 ///   `Arrived` too if the object is still there (it stands on the reachable point nearest to it, design change
 ///   0025), and plans again if the object has moved on. An object that is gone ends the move `TargetLost`.

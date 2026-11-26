@@ -378,7 +378,7 @@ fn q_trains_a_militant_x_cancels_and_a_ejects_the_free_recruits() {
 }
 
 /// Design change 0348's verification: "Box-selecting two Armories gives one panel at a time (Tab between them)". A box
-/// selects one building (`systems/controls/selection_and_hud.md > BoxSelection > Priority tiers`), so the second
+/// selects one building (`systems/controls/selection.md > BoxSelection > Priority tiers`), so the second
 /// Armory is added with Shift + box. Each Armory is a SelectionGroup of its own (point 5: "Cults production buildings
 /// aren't groupable"): the panel shows the counts of the one Tabbed to, and its commands, Q, W and on, X and C, go to
 /// that one alone; Tab shows the other's, and goes back to DefaultState.

@@ -21,19 +21,19 @@
 //!    Construction Cost`) and the build check takes the site.
 //! 4. **Ejecting** ([`Syndicate::eject_builders`]): an Agent that finishes a Tunnel goes into the Tunnel Network
 //!    (`factions/syndicate/units/agent.md > Building > Tunnel Construction Flow`). The line ejects it by that Tunnel
-//!    (`TunnelCommand::Eject`, `factions/syndicate/tunnels.md > EjectMenu`) and gives it a job once it is out. Only a
-//!    Tunnel's: an Agent that finishes a Laser Turret comes out beside it by itself
+//!    (`TunnelCommand::Eject`, `factions/syndicate/tunnel_menus.md > EjectMenu`) and gives it a job once it is out.
+//!    Only a Tunnel's: an Agent that finishes a Laser Turret comes out beside it by itself
 //!    (`factions/syndicate/structures/laser_turret.md > Construction`, design change 0298 point 7), and the line
 //!    leaves it be.
 //! 5. **Expanding** ([`Syndicate::expand`]): the line's expansions, in order, each built by the player's `n`th Tunnel
 //!    (by id, the starting one first) once the Tunnel may build it now (`Sim::can_expand`: in operation, with no
 //!    operation under way, its prerequisites met), the bank covers it after the build order's orders of the tick, and
-//!    the expansion check takes its site (`TunnelCommand::Expand`, `factions/syndicate/tunnels.md > AwaitingPlacement
-//!    (Expansion)`). **Upgrading** ([`Syndicate::upgrade`]) likewise: the line's upgrades, in order, each of the
-//!    player's `n`th Tunnel once the gate would take it (`Sim::can_upgrade`: in operation, below its top tier, with no
-//!    operation under way, its larger area clear by the truth) and the Supplies left after the tick's Builds cover its
-//!    price (`Sim::upgrade_price`, `factions/syndicate/tunnels.md > Cost Scaling > Upgrade Costs`), as the Tunnel's
-//!    one operation of the tick (`TunnelCommand::Upgrade`, slice M4-G).
+//!    the expansion check takes its site (`TunnelCommand::Expand`, `factions/syndicate/tunnel_menus.md >
+//!    AwaitingPlacement (Expansion)`). **Upgrading** ([`Syndicate::upgrade`]) likewise: the line's upgrades, in order,
+//!    each of the player's `n`th Tunnel once the gate would take it (`Sim::can_upgrade`: in operation, below its top
+//!    tier, with no operation under way, its larger area clear by the truth) and the Supplies left after the tick's
+//!    Builds cover its price (`Sim::upgrade_price`, `factions/syndicate/tunnels.md > Cost Scaling > Upgrade Costs`), as
+//!    the Tunnel's one operation of the tick (`TunnelCommand::Upgrade`, slice M4-G).
 //! 6. **What the player trains** goes through a [`BuildOrder`]: Agents at the first Hideout. Units behind a
 //!    prerequisite ([`Syndicate::after`]) are trained by the line itself, in order, each while the player owns a
 //!    complete structure of that kind, as the Hideout's panel offers the unit only then, and once the bank covers it

@@ -1,4 +1,4 @@
-//! The Colonists' gathering clicks and pointers (slice M3-J2): `systems/controls/selection_and_hud.md >
+//! The Colonists' gathering clicks and pointers (slice M3-J2): `systems/controls/hud.md >
 //! PointerDisplayType > Resolution Rules > DefaultState`'s GatherResources and ReturnResources, resolved per unit
 //! (design change 0063), and the Drones' Set Drop-off (`factions/colonists/units/drone.md > Drone
 //! ObjectInterfaceState > S: Set Drop-off Location`).
@@ -10,7 +10,7 @@ use super::*;
 /// "Cursor over resource (resource gatherer selected): GatherResources"; "Cursor over drop-off point (resource
 /// gatherer carrying resources): ReturnResources". An empty Drone moves to its node (design change 0140): Move. Each
 /// unit resolves its own right-click, so Drones with a combat unit, or loaded with empty ones over the node, would do
-/// different things: Mixed (`systems/controls/selection_and_hud.md > PointerDisplayType > Mixed Right-Click Preview`).
+/// different things: Mixed (`systems/controls/hud.md > PointerDisplayType > Mixed Right-Click Preview`).
 #[test]
 fn a_gatherer_previews_gathering_and_returning() {
     use PointerDisplay as D;

@@ -1,6 +1,6 @@
 //! What the selection looks like on the map (`ARCHITECTURE.md > Client architecture > Visuals`): a marker under
 //! each object the local player has selected, and the box while a selection box is dragged
-//! (`systems/controls/selection_and_hud.md > BoxSelection`).
+//! (`systems/controls/selection.md > BoxSelection`).
 //!
 //! Placeholders until the art (Q0001), the design gives none: a ring around a unit's silhouette and a frame inside a
 //! tile-based object's footprint, coloured by the object's relation to the local player (own green, ally blue, enemy

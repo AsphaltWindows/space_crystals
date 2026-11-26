@@ -1,12 +1,12 @@
-//! How fast a Hall recruits, and up to what (`factions/cults/economy.md > RecruitmentHall > Effectiveness`,
-//! `factions/cults/economy.md > RecruitmentHall > BaseUnitControlCapacity - 20`, `factions/cults/economy.md >
-//! RecruitmentHall > BaseRecruitProductionTime - 12 seconds (192 frames) per Recruit`).
+//! How fast a Hall recruits, and up to what (`factions/cults/structures/recruitment_hall.md > Effectiveness`,
+//! `factions/cults/structures/recruitment_hall.md > BaseUnitControlCapacity - 20`,
+//! `factions/cults/structures/recruitment_hall.md > BaseRecruitProductionTime - 12 seconds (192 frames) per Recruit`).
 
 use sc_sim::{DebugCommand, ObjectId, Target, Vec2};
 
 use super::*;
 
-/// Plan acceptance, 100%: "6 → 20 Recruits in 2688 ticks, then none" (`factions/cults/economy.md > RecruitmentHall >
+/// Plan acceptance, 100%: "6 → 20 Recruits in 2688 ticks, then none" (`factions/cults/structures/recruitment_hall.md >
 /// BaseRecruitProductionTime - 12 seconds (192 frames) per Recruit`: "a starting hall (6 Recruits → 20) fills in 14 ×
 /// 12 s"). A Hall on open Plane claims its 100 tiles and makes a Recruit every 192 ticks from tick 1, the k-th in tick
 /// 192 k, each of its lineage; at 20 it stops, nothing in production, and the HUD shows 20/20. A Recruit counts from
@@ -88,9 +88,9 @@ fn half_water(x: i32, y: i32) -> bool {
     rows || west || east
 }
 
-/// Plan acceptance, 50 tiles: "capacity 10, 384 ticks a Recruit" (`factions/cults/economy.md > RecruitmentHall >
+/// Plan acceptance, 50 tiles: "capacity 10, 384 ticks a Recruit" (`factions/cults/structures/recruitment_hall.md >
 /// BaseUnitControlCapacity - 20`: "at 50% effectiveness, capacity = 10";
-/// `factions/cults/economy.md > RecruitmentHall > RecruitmentHallInstanceState`: "CurrentProductionTime: number
+/// `factions/cults/structures/recruitment_hall.md > RecruitmentHallInstanceState`: "CurrentProductionTime: number
 /// (BaseRecruitProductionTime / Effectiveness)"). Water isn't Recruitable, so it lowers the effectiveness.
 #[test]
 fn a_hall_at_fifty_tiles_makes_ten_at_384_ticks_each() {
@@ -112,7 +112,7 @@ fn a_hall_at_fifty_tiles_makes_ten_at_384_ticks_each() {
     assert_eq!(progress(&t, hall), None);
 }
 
-/// `factions/cults/economy.md > RecruitmentHall > TileClaiming`: "Buildings do not affect recruitability". Storages
+/// `factions/cults/structures/recruitment_hall.md > TileClaiming`: "Buildings do not affect recruitability". Storages
 /// of its own and another player's Hall's footprint in its area leave it 100 tiles, and it recruits at 192 ticks;
 /// the other Hall, completed later (a debug spawn's, in tick 1), claims what is left of its own area (design change
 /// 0341: "The Hall completed first wins"; "Different players' Halls compete for tiles").
@@ -151,9 +151,9 @@ fn a_third_water(x: i32, y: i32) -> bool {
 }
 
 /// Design change 0341's Verification: "A Hall with 33 claimed tiles stops at 6 Recruits, and the HUD shows 6"
-/// (`factions/cults/economy.md > RecruitmentHall > TileClaiming`: "LocalUnitControlCapacity is rounded down everywhere
-/// (production and HUD): 33 claimed tiles of 100 gives 6.6, so 6"). Its Recruits take 582 ticks each, ⌈19200 / 33⌉,
-/// and walk off west to the rally point.
+/// (`factions/cults/structures/recruitment_hall.md > TileClaiming`: "LocalUnitControlCapacity is rounded down
+/// everywhere (production and HUD): 33 claimed tiles of 100 gives 6.6, so 6"). Its Recruits take 582 ticks each, ⌈19200
+/// / 33⌉, and walk off west to the rally point.
 #[test]
 fn a_hall_with_33_tiles_stops_at_6_and_the_hud_shows_6() {
     let hall = ObjectId(1);

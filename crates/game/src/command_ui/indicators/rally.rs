@@ -1,4 +1,4 @@
-//! The rally points of the selected producers (`systems/controls/selection_and_hud.md > CommandIndicators >
+//! The rally points of the selected producers (`systems/controls/hud.md > CommandIndicators >
 //! Indicator assignments`, design change 0087): "shown while the producing building is selected, with a line from the
 //! building to the rally point so distant or off-screen rally points are easy to follow. A cleared rally point (None)
 //! shows nothing."

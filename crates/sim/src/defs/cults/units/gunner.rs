@@ -8,8 +8,8 @@ use crate::player::Faction;
 /// `factions/cults/units/gunner.md`: "the Cults' heavier-hitting combat infantry, trained from a Recruit at the
 /// Armory", which "Shares the Militant's physical profile but trades air targeting and attack speed for a longer-range,
 /// harder-hitting ground attack that **can miss**" (design change 0304). The first kind with a MinRange: a target
-/// nearer than 2 grid units is too close to fire at (`systems/controls/behaviors.md > AttackingObject > Target inside
-/// MinRange`, slice M3-L2's code, `crate::orders`). Its training comes with slice M5-F2, behind a Gunworks.
+/// nearer than 2 grid units is too close to fire at (`systems/controls/command_behaviors.md > AttackingObject > Target
+/// inside MinRange`, slice M3-L2's code, `crate::orders`). Its training comes with slice M5-F2, behind a Gunworks.
 ///
 /// Its attack is TailDisjointed (slice M5-O3, `crate::combat::phases`): "the target's position is locked at the end of
 /// Aiming and the shot lands there at the end of Firing, so a target that moves during the Firing phase is missed,
@@ -65,7 +65,7 @@ pub(crate) static GUNNER: ObjectDef = ObjectDef {
             cooldown_ticks: 6,
             reload_ticks: 8, // ReloadDuration: 8 frames
         }),
-        // `factions/cults/economy.md > RecruitmentHall > Unit Control Tracking`: "A trained unit's Unit Control cost
+        // `factions/cults/structures/recruitment_hall.md > Unit Control Tracking`: "A trained unit's Unit Control cost
         // equals the number of Recruits consumed to produce it": one, the Recruit an Armory trains it from
         // (`factions/cults/structures/armory.md > Training`; plan decision T55).
         unit_control_cost: Some(1),

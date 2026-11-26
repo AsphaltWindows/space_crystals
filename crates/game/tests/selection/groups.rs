@@ -1,5 +1,5 @@
-//! `systems/controls/selection_and_hud.md > ControlGroups` (with their default keys) and
-//! `systems/controls/selection_and_hud.md > GroupCycling`.
+//! `systems/controls/selection.md > ControlGroups` (with their default keys) and
+//! `systems/controls/selection.md > GroupCycling`.
 
 use bevy::prelude::*;
 
@@ -72,7 +72,7 @@ fn a_double_tap_recalls_the_group_and_centers_the_camera_on_it() {
     assert_eq!(selected(&app), [2]);
 }
 
-/// `systems/controls/selection_and_hud.md > ControlGroups > Groups` (design change 0056): only own objects go into
+/// `systems/controls/selection.md > ControlGroups > Groups` (design change 0056): only own objects go into
 /// control groups. With an enemy or a neutral object selected, Assign and Add change nothing: a group keeps what it
 /// holds, an empty one stays empty.
 #[test]

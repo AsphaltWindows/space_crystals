@@ -1,4 +1,4 @@
-//! The CommandPanel (`systems/controls/selection_and_hud.md > CommandPanel`): the ActiveGroup's commands in the
+//! The CommandPanel (`systems/controls/interface.md > CommandPanel`): the ActiveGroup's commands in the
 //! 4 × 3 grid (`crate::command_ui::interface::panel`), shown while everything selected is the local player's.
 //!
 //! Placeholder buttons until the art exists (Q0001): a short label in the middle and the slot's hotkey, from the

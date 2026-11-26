@@ -10,7 +10,7 @@ use crate::testing::ScenarioBuilder;
 const P1: PlayerId = PlayerId(1);
 const P2: PlayerId = PlayerId(2);
 
-/// The Recruitment Hall's own: a 10x10 area and a capacity of 20 (`factions/cults/economy.md > RecruitmentHall`).
+/// The Recruitment Hall's own: a 10x10 area and a capacity of 20 (`factions/cults/structures/recruitment_hall.md`).
 fn hall_def() -> &'static RecruitmentDef {
     def_of(ObjectKind::RecruitmentHall).expect("the Hall recruits")
 }
@@ -38,7 +38,7 @@ fn object(sim: &Sim, id: u32) -> Object {
     sim.object(ObjectId(id)).expect("in the game").clone()
 }
 
-/// `factions/cults/economy.md > RecruitmentHall > RecruitmentArea`: "A 10x10 grid unit area centered on the 4x4
+/// `factions/cults/structures/recruitment_hall.md > RecruitmentArea`: "A 10x10 grid unit area centered on the 4x4
 /// building": 3 tiles on every side of the footprint, row by row.
 #[test]
 fn the_area_is_ten_tiles_square_around_the_footprint() {
@@ -54,9 +54,10 @@ fn the_area_is_ten_tiles_square_around_the_footprint() {
     assert!(placement.tiles().all(|t| set.contains(&t)), "the footprint is in it");
 }
 
-/// Design change 0341 point 2 (`factions/cults/economy.md > RecruitmentHall > TileClaiming`, Claiming details:
+/// Design change 0341 point 2 (`factions/cults/structures/recruitment_hall.md > TileClaiming`, Claiming details:
 /// "LocalUnitControlCapacity is rounded down everywhere (production and HUD): 33 claimed tiles of 100 gives 6.6, so
-/// 6"): a Hall of 33 tiles makes 6 Recruits and no 7th; 50 tiles give 10 (`factions/cults/economy.md > RecruitmentHall
+/// 6"): a Hall of 33 tiles makes 6 Recruits and no 7th; 50 tiles give 10
+/// (`factions/cults/structures/recruitment_hall.md
 /// > BaseUnitControlCapacity - 20`: "at 50% effectiveness, capacity = 10"); under 5 tiles, under 1, none.
 #[test]
 fn a_capacity_is_rounded_down_everywhere() {
@@ -71,7 +72,7 @@ fn a_capacity_is_rounded_down_everywhere() {
     assert!(Capacity::of(def, 5).has_room(0) && !Capacity::of(def, 5).has_room(1));
 }
 
-/// `factions/cults/economy.md > RecruitmentHall > TileClaiming` and `factions/cults/economy.md > RecruitmentHall >
+/// `factions/cults/structures/recruitment_hall.md > TileClaiming` and `factions/cults/structures/recruitment_hall.md >
 /// Effectiveness`: a lone Hall on Plane claims its whole area; Water isn't Recruitable, the map's edge cuts the area
 /// short (**Placeholder (Q0099 point 1)**: the tiles off the map count among the 100 and can't be claimed), and
 /// buildings, its own footprint and another player's, take nothing from it ("Buildings do not affect recruitability").
@@ -106,7 +107,7 @@ fn a_hall_claims_the_recruitable_tiles_of_its_area() {
     assert_eq!(built.claims().tiles(ObjectId(1)), 100);
 }
 
-/// `factions/cults/economy.md > RecruitmentHall > TileClaiming` (design change 0341): of two Halls whose areas
+/// `factions/cults/structures/recruitment_hall.md > TileClaiming` (design change 0341): of two Halls whose areas
 /// overlap, the one completed first keeps the shared tiles ("Priority goes to the Hall completed first"), whoever owns
 /// it (0341 point 5: "Different players' Halls compete for tiles"). Of two completed in the same tick, as a map's are,
 /// each shared tile goes to the Hall whose centre is nearer: the shared columns split down the middle, 3 each. The
@@ -145,7 +146,7 @@ fn the_first_hall_completed_claims_the_shared_tiles() {
     assert_eq!(claims.tiles(ObjectId(9)), 0, "not a Hall");
 }
 
-/// Design change 0341 point 3's tie rule (`factions/cults/economy.md > RecruitmentHall > TileClaiming`: "each
+/// Design change 0341 point 3's tie rule (`factions/cults/structures/recruitment_hall.md > TileClaiming`: "each
 /// contested tile goes to the Hall whose centre is nearer; at exactly equal distance, to the Hall with the lower object
 /// id"): Halls completed in the same tick at tiles (13, 8) and (8, 8), the lower id the eastern one. Their areas, x
 /// 10..=19 and 5..=14, share the 5 columns 10..=14; column 12 is as far from both centres (x 15 and 10), and goes to
@@ -181,10 +182,10 @@ fn a_tile_as_near_two_halls_completed_together_goes_to_the_lower_id() {
     );
 }
 
-/// `factions/cults/economy.md > RecruitmentHall > Unit Control Tracking` (the Director's amendment to T56): each entry
-/// of a lineage is a point at its Hall, a Seeker's two perhaps at the same Hall; an entry whose Hall is gone is its
-/// owner's orphaned point, and a Cults unit without a lineage is orphaned whole (design change 0344: "Recruits no Hall
-/// produced (custom maps, debug) are orphans from the start"). Another faction's unit costs nothing.
+/// `factions/cults/structures/recruitment_hall.md > Unit Control Tracking` (the Director's amendment to T56): each
+/// entry of a lineage is a point at its Hall, a Seeker's two perhaps at the same Hall; an entry whose Hall is gone is
+/// its owner's orphaned point, and a Cults unit without a lineage is orphaned whole (design change 0344: "Recruits no
+/// Hall produced (custom maps, debug) are orphans from the start"). Another faction's unit costs nothing.
 #[test]
 fn each_entry_of_a_lineage_is_a_point_at_its_hall() {
     let sim = sim(
@@ -222,7 +223,7 @@ fn each_entry_of_a_lineage_is_a_point_at_its_hall() {
     assert_eq!((gone.usage(ObjectId(1)), gone.orphaned(P1)), (0, 4));
 }
 
-/// Design change 0342 point 3 (`factions/cults/economy.md > RecruitmentHall > Production Behavior`: "the Recruit in
+/// Design change 0342 point 3 (`factions/cults/structures/recruitment_hall.md > Production Behavior`: "the Recruit in
 /// production counts toward LocalUnitControlUsage from the start of its production"): a Hall's queued Recruit is a
 /// point of its usage before any unit has its lineage, and isn't anyone's orphan.
 #[test]

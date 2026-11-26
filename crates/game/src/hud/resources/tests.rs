@@ -166,8 +166,8 @@ fn the_colonists_bar_reads_their_banks_and_beacon_capacity() {
 /// `factions/syndicate/overview.md > DisplayHud` on the Syndicate's starting objects (slice M4-B,
 /// `factions/syndicate/tunnels.md > Tunnel > Starting Conditions`): Space Crystals 100, Supplies 1, and Tunnel
 /// Space 1/11, the Tunnel's 48 tunnel-region cells less the Hideout's 4 over 4, of which the Agent uses 1. Over
-/// capacity (`factions/syndicate/tunnels.md > Tunnel Space`: "usage is simply displayed over capacity (e.g.
-/// 12/10)"): with a second Hideout and 11 more Agents, 12/10, in red.
+/// capacity (`factions/syndicate/tunnel_area_and_space.md > Tunnel Space`: "usage is simply displayed over capacity
+/// (e.g. 12/10)"): with a second Hideout and 11 more Agents, 12/10, in red.
 #[test]
 fn the_syndicate_bar_reads_their_banks_and_tunnel_space() {
     use ResourceFigure::{SpaceCrystals, Supplies, TunnelSpace};
@@ -195,7 +195,7 @@ fn the_syndicate_bar_reads_their_banks_and_tunnel_space() {
 }
 
 /// `factions/cults/overview.md > DisplayHud` (slice M5-C): Space Crystals, and Unit Control as used / available
-/// (`factions/cults/economy.md > RecruitmentHall > Cults Unit Control HUD Display`). A Recruitment Hall on open Plane
+/// (`factions/cults/structures/recruitment_hall.md > Cults Unit Control HUD Display`). A Recruitment Hall on open Plane
 /// provides 20; two map Recruits, no Hall's, are orphaned points (design change 0344: "Recruits no Hall produced
 /// (custom maps, debug) are orphans from the start"), and the Hall's Recruits count from the start of their production
 /// (design change 0342). The Hall lost (a Storage keeps the player in the game), its capacity goes, and so does its

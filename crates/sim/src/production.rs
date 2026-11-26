@@ -56,7 +56,7 @@ pub use rally::Rally;
 
 /// What the player tells producing structures (`factions/gdo/structures/barracks.md >
 /// ObjectInterfaceState[Barracks]`), sent as `Command::Production` to every producer of the selection
-/// (`systems/controls/selection_and_hud.md > SelectionGroup > No smart-casting`).
+/// (`systems/controls/selection.md > SelectionGroup > No smart-casting`).
 #[derive(Copy, Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub enum ProductionCommand {
     /// "Q: Build Peacekeeper": pay for a unit of this kind and add it to the BuildQueue. With several producers,
@@ -82,7 +82,7 @@ pub enum ProductionCommand {
 /// Why a producer that received a `Train` didn't queue the unit, while others of the same command did
 /// (`SimEvent::ProductionRefused`; design change 0083: "the others don't queue, and the player gets
 /// insufficient-resources feedback"). The army cap is no reason: queuing doesn't check it (design change 0143,
-/// `systems/controls/selection_and_hud.md > Group production with limited resources`: "unit capacity is not checked
+/// `systems/controls/selection.md > Group production with limited resources`: "unit capacity is not checked
 /// when queuing"); a unit without room waits at the front of its queue instead ([`Production::blocked`]).
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum Refusal {
@@ -120,7 +120,7 @@ pub struct Production {
     #[serde(default, skip_serializing_if = "is_false")]
     pub blocked: bool,
     /// The tick its building was completed, by which a Recruitment Hall claims the tiles it contests with another
-    /// before it or after it (`factions/cults/economy.md > RecruitmentHall > TileClaiming`: "the hall that was
+    /// before it or after it (`factions/cults/structures/recruitment_hall.md > TileClaiming`: "the hall that was
     /// constructed first has priority"; plan decision T57, `crate::recruitment`): 0 for a Hall in the game from the
     /// start, and for every producer that recruits nothing, which has no use for it. A Hall that comes into the game
     /// later has the tick it comes in, complete (a debug spawn's), or the tick its functions start, held back until
@@ -169,7 +169,7 @@ pub struct ProductionStatus {
 /// The progress at which a unit of `frames` frames of a `def` producer is finished: a frame at full power adds one
 /// [`RATIO_ONE`], so `frames × RATIO_ONE`. A Recruitment Hall's frame adds the tiles it claims, so `frames ×` its
 /// area's tiles (plan decision T57): its Recruit takes BaseRecruitProductionTime / Effectiveness frames, rounded up,
-/// exactly at every effectiveness (`factions/cults/economy.md > RecruitmentHall > RecruitmentHallInstanceState`:
+/// exactly at every effectiveness (`factions/cults/structures/recruitment_hall.md > RecruitmentHallInstanceState`:
 /// "CurrentProductionTime: number (BaseRecruitProductionTime / Effectiveness)"; 384 frames at 50 tiles).
 pub(crate) fn total_of(def: &ProductionDef, frames: u32) -> u32 {
     let per_frame = def.recruitment.map_or(RATIO_ONE, |recruitment| recruitment.tiles());

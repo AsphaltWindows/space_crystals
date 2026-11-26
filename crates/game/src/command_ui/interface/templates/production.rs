@@ -1,5 +1,5 @@
 //! The Production template's grid (plan decision T23): a producing structure's panel, built from its `ProductionDef`,
-//! with the bottom row of `systems/controls/selection_and_hud.md > CommandPanel > Standard Slot Assignments`.
+//! with the bottom row of `systems/controls/interface.md > CommandPanel > Standard Slot Assignments`.
 
 use sc_sim::ObjectKind;
 
@@ -25,7 +25,7 @@ const TRAIN_SLOTS: usize = 8;
 ///   the Lancer and the psionic unit aren't in the game (their stats, cost and time are TBD), so they aren't among the
 ///   recipes: 0124 has them show in their slot, unavailable ([`PanelCommand::Planned`], [`PanelTemplate::planned`];
 ///   slice M3-J2).
-/// - The Recruitment Hall: C alone (`factions/cults/economy.md > RecruitmentHall >
+/// - The Recruitment Hall: C alone (`factions/cults/structures/recruitment_hall.md >
 ///   ObjectInterfaceState[RecruitmentHall]`, slice M5-C). It recruits by itself (`ProductionDef::recruitment`), so its
 ///   recipe, the Recruit, has no Train, and it has no X (design change 0342: "Recruits can't be cancelled. The X button
 ///   is removed").

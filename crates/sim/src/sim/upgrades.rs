@@ -1,7 +1,7 @@
-//! A Tunnel's upgrades in a game (slice M4-G; `factions/syndicate/tunnels.md > Tunnel ObjectInterfaceState`,
-//! `factions/syndicate/tunnels.md > Cost Scaling > Upgrade Costs`, `factions/syndicate/tunnels.md > Tunnel Area
-//! Non-Overlap Rule`; design changes 0229, 0231, 0232, 0237, 0242, 0249, 0283 and 0284): "**Q** Upgrade Tunnel —
-//! upgrades to next tier", as the Tunnel's one operation (`tunnel::Operation::Upgrading`).
+//! A Tunnel's upgrades in a game (slice M4-G; `factions/syndicate/tunnel_menus.md > Tunnel ObjectInterfaceState`,
+//! `factions/syndicate/tunnels.md > Cost Scaling > Upgrade Costs`, `factions/syndicate/tunnel_area_and_space.md >
+//! Tunnel Area Non-Overlap Rule`; design changes 0229, 0231, 0232, 0237, 0242, 0249, 0283 and 0284): "**Q** Upgrade
+//! Tunnel — upgrades to next tier", as the Tunnel's one operation (`tunnel::Operation::Upgrading`).
 //!
 //! - **The price** ([`Sim::upgrade_price`]; one function, [`Sim::price_to`], for the order and every refund):
 //!   "**Upgrade to Tier 2**: 2 + 2 x (number of T2+ Tunnels owned)", "**Upgrade to Tier 3**: 3 + 3 x (number of T3
@@ -24,8 +24,9 @@
 //!   area at the target tier against every other placement and upgrade ("**The future area is reserved**":
 //!   `tunnel::TunnelState::reserved_tier`, `placement::Occupant::of`), while its tier stays the one it had: transit,
 //!   the exits, Tunnel Space and reclaiming read it (design change 0249: "until the upgrade has fully finished, a Tunnel
-//!   only accepts, and only lets out, units supported by the tier it had **before** the upgrade began"; `>
-//!   Losing Tunnels`: "a Tunnel that is mid-upgrade counts at its current (pre-upgrade) tier").
+//!   only accepts, and only lets out, units supported by the tier it had **before** the upgrade began";
+//!   `factions/syndicate/tunnels.md > Losing Tunnels`: "a Tunnel that is mid-upgrade counts at its current
+//!   (pre-upgrade) tier").
 //! - **The frames** ([`Sim::step_upgrades`], in the economy phase right after the sites): one a tick, from the tick
 //!   the command applies, as a recipe's (`ARCHITECTURE.md > Economy > Recipe timing`): the Tunnel exists already, so
 //!   an upgrade of 480 frames ordered in tick `t` completes at the end of `t + 479` ("A Tunnel upgrade takes 30 s",
@@ -68,9 +69,10 @@ fn price_at(def: UpgradeDef, others: usize) -> u32 {
 }
 
 impl Sim {
-    /// `factions/syndicate/tunnels.md > Tunnel ObjectInterfaceState`: whether `player`'s Tunnel `tunnel` may upgrade
-    /// now, the gate's answer to an Upgrade (module docs), by which the panel greys its Q and says why. The Tunnel is the
-    /// player's ([`Reject::NotOwned`]) and in operation ([`Reject::NotATunnel`]), as for every Tunnel command.
+    /// `factions/syndicate/tunnel_menus.md > Tunnel ObjectInterfaceState`: whether `player`'s Tunnel `tunnel` may
+    /// upgrade now, the gate's answer to an Upgrade (module docs), by which the panel greys its Q and says why. The
+    /// Tunnel is the player's ([`Reject::NotOwned`]) and in operation ([`Reject::NotATunnel`]), as for every Tunnel
+    /// command.
     pub fn can_upgrade(&self, player: PlayerId, tunnel: ObjectId) -> Result<(), Reject> {
         let target = self.referenced(tunnel, Some(player))?;
         if !network::is_exit(target) {

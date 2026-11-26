@@ -36,7 +36,7 @@ pub enum Command {
     Ability { units: Vec<ObjectId>, ability: Ability },
     /// The player's producing structures among `objects` take `command` (`factions/gdo/structures/barracks.md >
     /// ObjectInterfaceState[Barracks]`; `production`): train a unit, cancel the last one queued, or set the rally
-    /// point. Every producer of the selection receives it (`systems/controls/selection_and_hud.md > SelectionGroup >
+    /// point. Every producer of the selection receives it (`systems/controls/selection.md > SelectionGroup >
     /// No smart-casting`). Ids that no longer exist, repeated ids and the player's objects that produce nothing are
     /// dropped; the command is rejected if no producer remains or one belongs to someone else.
     Production {
@@ -58,7 +58,7 @@ pub enum Command {
     Tunnel { tunnel: ObjectId, command: TunnelCommand },
     /// (M5-F1) The player's buildings that hold units among `objects` take `command` (`crate::holding`;
     /// `factions/cults/structures/armory.md > ObjectInterfaceState[Armory]`: "A: Eject All"). Every one of the
-    /// selection receives it (`systems/controls/selection_and_hud.md > SelectionGroup > No smart-casting`). Ids that no
+    /// selection receives it (`systems/controls/selection.md > SelectionGroup > No smart-casting`). Ids that no
     /// longer exist, repeated ids and the player's objects that hold no units are dropped; the command is rejected if
     /// none of the rest can carry it out, or one of the objects belongs to someone else.
     Holding {
@@ -72,12 +72,12 @@ pub enum Command {
 /// A command to a Tunnel ([`Command::Tunnel`], plan decision T36).
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum TunnelCommand {
-    /// `factions/syndicate/tunnels.md > EjectMenu`: "ejects one unit of that type from this Tunnel's Side A", the one
-    /// of `kind` "that has been inside the network longest" among those free to leave (design changes 0245 and
+    /// `factions/syndicate/tunnel_menus.md > EjectMenu`: "ejects one unit of that type from this Tunnel's Side A", the
+    /// one of `kind` "that has been inside the network longest" among those free to leave (design changes 0245 and
     /// 0251). The click reserves that unit on the Tunnel's eject queue, and it comes out of the exit path once the
     /// units queued before it are out and the exit spot is clear (0250).
     Eject { kind: ObjectKind },
-    /// `factions/syndicate/tunnels.md > AwaitingPlacement (Expansion)` (slice M4-F): "Left-click valid location:
+    /// `factions/syndicate/tunnel_menus.md > AwaitingPlacement (Expansion)` (slice M4-F): "Left-click valid location:
     /// places expansion, begins construction": the Tunnel builds an expansion of `kind` with the top-left tile of its
     /// footprint at `origin`, turned by `orientation`, in its Tunnel Area, as its one operation, paid at once (design
     /// change 0254: "Paid when the ghost is placed"; `sim/expansions.rs`).
@@ -86,13 +86,13 @@ pub enum TunnelCommand {
         origin: TilePos,
         orientation: BuildingOrientation,
     },
-    /// `factions/syndicate/tunnels.md > Tunnel ObjectInterfaceState`: "**Q** Upgrade Tunnel" (slice M4-G), "upgrades to
-    /// next tier (CommandIssuingTransition). Costs Supplies per upgrade cost formula. Unavailable if already Tier 3 or
-    /// if currently performing an operation": the Tunnel upgrades to the tier above its own as its one operation, paid
-    /// at once (`factions/syndicate/tunnels.md > Cost Scaling > Upgrade Costs`: "**Paid when the upgrade is
-    /// ordered**"), if its larger area is clear by the truth (`sim/upgrades.rs`).
+    /// `factions/syndicate/tunnel_menus.md > Tunnel ObjectInterfaceState`: "**Q** Upgrade Tunnel" (slice M4-G),
+    /// "upgrades to next tier (CommandIssuingTransition). Costs Supplies per upgrade cost formula. Unavailable if
+    /// already Tier 3 or if currently performing an operation": the Tunnel upgrades to the tier above its own as its
+    /// one operation, paid at once (`factions/syndicate/tunnels.md > Cost Scaling > Upgrade Costs`: "**Paid when the
+    /// upgrade is ordered**"), if its larger area is clear by the truth (`sim/upgrades.rs`).
     Upgrade,
-    /// `factions/syndicate/tunnels.md > Tunnel ObjectInterfaceState`: "**X** Cancel (upgrade, construction or the
+    /// `factions/syndicate/tunnel_menus.md > Tunnel ObjectInterfaceState`: "**X** Cancel (upgrade, construction or the
     /// current operation)" (design change 0254: "The Tunnel's X cancels whatever operation it is running"): an
     /// expansion under construction is cancelled as by its own Cancel Construction (slice M4-F), an upgrade refunded at
     /// the current top price (slice M4-G, design changes 0232 and 0284: "Cancel Upgrade refunds the current top

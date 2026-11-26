@@ -1,5 +1,5 @@
 //! The shapes distances are measured between — `systems/combat.md > AttackAttributes > Range Measurement` (design
-//! change 0031), `systems/controls/behaviors.md > MovingToObject > Proximity` (design change 0032).
+//! change 0031), `systems/controls/command_behaviors.md > MovingToObject > Proximity` (design change 0032).
 //!
 //! Range, MinRange and proximity are measured **edge to edge**: the shortest distance between two objects' shapes,
 //! the gap between them. A unit's shape is its Silhouette (`systems/units.md > Unit > Silhouette`), a structure's

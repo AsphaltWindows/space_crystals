@@ -245,7 +245,7 @@ pub(crate) fn serve(
                 mover.repath(tick);
             }
             // No path at all: the unit stands on a blocked tile, or has no grid.
-            // `systems/controls/behaviors.md > MovingToLocation > Failure`.
+            // `systems/controls/command_behaviors.md > MovingToLocation > Failure`.
             Err(_) => {
                 mover.finish(MoveStatus::Failed);
                 events.push(SimEvent::MoveFailed { unit: served.id });

@@ -1,8 +1,8 @@
-//! The Recruitment Halls in a game (`crate::recruitment`, plan decision T57, slice M5-C; `factions/cults/economy.md >
-//! RecruitmentHall > Production Behavior`): "The Recruitment Hall automatically and continuously produces Recruits at
-//! no resource cost until LocalUnitControlUsage reaches LocalUnitControlCapacity. Produced Recruits come out of the
-//! exit side (B) and move to its rally point. Production can't be cancelled [...]. Production logic is entirely
-//! local — global Unit Control state does not affect production decisions."
+//! The Recruitment Halls in a game (`crate::recruitment`, plan decision T57, slice M5-C;
+//! `factions/cults/structures/recruitment_hall.md > Production Behavior`): "The Recruitment Hall automatically and
+//! continuously produces Recruits at no resource cost until LocalUnitControlUsage reaches LocalUnitControlCapacity.
+//! Produced Recruits come out of the exit side (B) and move to its rally point. Production can't be cancelled [...].
+//! Production logic is entirely local — global Unit Control state does not affect production decisions."
 //!
 //! A Hall's production is `crate::production`'s, in an automatic mode: what the producers' step does for it
 //! (`sim/producers/step.rs`) differs only where its `ProductionDef::recruitment` says so.
@@ -12,12 +12,13 @@
 //!   display only"). The Recruit costs no Space Crystals, and counts toward the Hall's usage from the start of its
 //!   production (design change 0342: "the Recruit in production counts toward LocalUnitControlUsage from the start of
 //!   its production"), so the Hall at 19 with its 20th in production shows 20/20. At capacity no Recruit is in
-//!   production, and production starts again from 0% when a unit of its lineage dies (`factions/cults/economy.md >
-//!   RecruitmentHall > Production Behavior`: "when capacity frees up (a unit dies), the next Recruit starts from 0";
-//!   0342 point 4). A Hall that came into the game in the tick waits for the next, as every producer does. A Hall that
-//!   releases its Recruit queues the next one at once, the released one counted ([`Sim::recruit_next`]): it shows 0%
-//!   until the next tick's step gets it on, as the next unit in any queue does, rather than nothing; "automatically and
-//!   continuously produces Recruits". So the k-th Recruit of a Hall at 100% comes out in tick 192 k.
+//!   production, and production starts again from 0% when a unit of its lineage dies
+//!   (`factions/cults/structures/recruitment_hall.md > Production Behavior`: "when capacity frees up (a unit dies), the
+//!   next Recruit starts from 0"; 0342 point 4). A Hall that came into the game in the tick waits for the next, as
+//!   every producer does. A Hall that releases its Recruit queues the next one at once, the released one counted
+//!   ([`Sim::recruit_next`]): it shows 0% until the next tick's step gets it on, as the next unit in any queue does,
+//!   rather than nothing; "automatically and continuously produces Recruits". So the k-th Recruit of a Hall at 100%
+//!   comes out in tick 192 k.
 //! - **The progress** gains the tiles the Hall claims each frame, whatever its owner's power; the Recruit is done at
 //!   BaseRecruitProductionTime × the area's tiles (`production::total_of`): 192 frames at 100 tiles, 384 at 50.
 //! - **The release** is every producer's (`Sim::release_unit`): out of the one exit side, B (`ExitRule::Side`; design
@@ -48,7 +49,7 @@ impl Sim {
         Claims::of(self.objects.values(), &self.map)
     }
 
-    /// What Hall `id`'s state shows at the end of the latest tick (`factions/cults/economy.md > RecruitmentHall >
+    /// What Hall `id`'s state shows at the end of the latest tick (`factions/cults/structures/recruitment_hall.md >
     /// RecruitmentHallInstanceState`): the tiles it claims of its area's, its LocalUnitControlUsage and its
     /// LocalUnitControlCapacity. `None` for an object that isn't a Recruitment Hall. A Hall under construction claims
     /// nothing (design change 0341: "A Hall under construction does nothing until it is complete").

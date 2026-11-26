@@ -79,7 +79,7 @@ pub fn construction(structure: &Object) -> Vec<String> {
     }
 }
 
-/// A Recruitment Hall's lines (`factions/cults/economy.md > RecruitmentHall > RecruitmentHallInstanceState`, slice
+/// A Recruitment Hall's lines (`factions/cults/structures/recruitment_hall.md > RecruitmentHallInstanceState`, slice
 /// M5-C; `Sim::hall_state`): its Effectiveness in whole percent rounded down, with the Recruitable tiles it claims of
 /// its area's, and its Unit Control, LocalUnitControlUsage, its Recruit in production included (design change 0342),
 /// over LocalUnitControlCapacity rounded down (design change 0341: "Capacity is rounded down everywhere"). A Hall under
@@ -179,10 +179,10 @@ pub fn production(sim: &Sim, sight: &Sight, structure: &Object) -> Vec<String> {
     lines
 }
 
-/// A Tunnel's line while it performs an operation (`factions/syndicate/tunnels.md > Expansions under construction`:
-/// "**The Tunnel meanwhile** shows the progress"; `Sim::operation_progress`): the expansion it builds, or the tier it
-/// upgrades to (slice M4-G: "Upgrading to Tier 2", placeholder wording), and the progress in whole percent rounded
-/// down, 100% only once complete. Nothing for a Tunnel that performs none, nor for another structure.
+/// A Tunnel's line while it performs an operation (`factions/syndicate/tunnel_menus.md > Expansions under
+/// construction`: "**The Tunnel meanwhile** shows the progress"; `Sim::operation_progress`): the expansion it builds,
+/// or the tier it upgrades to (slice M4-G: "Upgrading to Tier 2", placeholder wording), and the progress in whole
+/// percent rounded down, 100% only once complete. Nothing for a Tunnel that performs none, nor for another structure.
 pub fn operation(sim: &Sim, structure: &Object) -> Vec<String> {
     let Some((operation, progress)) = sim.operation_progress(structure.id) else {
         return Vec::new();

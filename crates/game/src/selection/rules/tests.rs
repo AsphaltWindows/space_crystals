@@ -97,7 +97,7 @@ fn clicks_follow_the_map_click_rules_and_the_constraints() {
     assert_eq!(ids(&state), [1], "a resource is selected alone");
 }
 
-/// `systems/controls/selection_and_hud.md > MapClickSelection > Ctrl+Shift-click own unit` (design change 0052): adds
+/// `systems/controls/selection.md > MapClickSelection > Ctrl+Shift-click own unit` (design change 0052): adds
 /// all own units of that type on screen, and removes nothing.
 #[test]
 fn ctrl_shift_clicks_add_the_own_units_of_that_type_on_screen() {
@@ -141,7 +141,7 @@ fn ctrl_shift_clicks_add_the_own_units_of_that_type_on_screen() {
     assert_eq!(ids(&state), [4]);
 }
 
-/// `systems/controls/selection_and_hud.md > BoxSelection` (design changes 0049, 0051 and 0053): a plain box replaces
+/// `systems/controls/selection.md > BoxSelection` (design changes 0049, 0051 and 0053): a plain box replaces
 /// the selection, a Shift + box adds to it.
 #[test]
 fn shift_boxes_add_to_the_selection_and_plain_boxes_replace_it() {
@@ -226,7 +226,7 @@ fn portrait_clicks_follow_the_panels_rules() {
     assert_eq!(state.click_portrait(&objects, ObjectId(1), alt), None, "not selected");
 }
 
-/// `systems/controls/selection_and_hud.md > ObjectInterfaceState` (design change 0078): a control group's recall resets
+/// `systems/controls/interface.md > ObjectInterfaceState` (design change 0078): a control group's recall resets
 /// the ObjectInterfaceState, also one that recalls exactly the current selection; the key of an empty group changes
 /// nothing (placeholder rule).
 #[test]
@@ -249,7 +249,7 @@ fn a_recall_resets_the_interface_state() {
     assert_eq!(state.interface, awaiting);
 }
 
-/// `systems/controls/selection_and_hud.md > ControlGroups > Groups` (design change 0056): only own objects go into
+/// `systems/controls/selection.md > ControlGroups > Groups` (design change 0056): only own objects go into
 /// control groups. Assign and Add with another player's or a neutral object selected change nothing, not even an empty
 /// group.
 #[test]

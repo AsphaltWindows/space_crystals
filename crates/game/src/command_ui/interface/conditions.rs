@@ -1,4 +1,4 @@
-//! What the game allows a selection's commands now, as the sim has it (`systems/controls/selection_and_hud.md >
+//! What the game allows a selection's commands now, as the sim has it (`systems/controls/interface.md >
 //! CommandPanel`: "derived from ControlState and game state each tick"): the selected units' modes ([`Modes`]), the
 //! ActiveGroup's constructor state, and the command gate's answer to each production and construction command the
 //! ActiveGroup offers, and to its toggles ([`Conditions`]).
@@ -21,16 +21,16 @@
 //! shows (design change 0162). The Egress Node's F shows only while the node has Drones to select
 //! (`factions/colonists/economy.md > Egress Node > Egress Node ObjectInterfaceState`, [`Conditions::shows`]).
 //!
-//! A Tunnel's EjectMenu tiles are its Ejects, which the gate answers too (`factions/syndicate/tunnels.md > EjectMenu`,
-//! slice M4-J2): a tile is greyed while no unit of its type is in the network free to leave, while every one of them
-//! only just walked in (design change 0288 point 1), or while this Tunnel's tier doesn't let the type out; and its
-//! count is the network's ([`Conditions::network_count`]). Its ExpandMenu's entries are greyed by the gate's answer to
-//! an Expand short of its placement (`Sim::can_expand`, slice M4-F: an operation under way, a Tier Requirement above
-//! this Tunnel's tier, a prerequisite missing, too few Space Crystals), where the expansion goes being the ghost's to
-//! show; its X while it performs no operation. Its Q, Upgrade Tunnel (slice M4-G), asks the gate for its Upgrade, by
-//! the truth (`Sim::can_upgrade`: already at its top tier, an operation under way, too few Supplies, or something that
-//! blocks the larger area, never said what), and its hint names the price ([`Conditions::price`],
-//! `Sim::upgrade_price`).
+//! A Tunnel's EjectMenu tiles are its Ejects, which the gate answers too (`factions/syndicate/tunnel_menus.md >
+//! EjectMenu`, slice M4-J2): a tile is greyed while no unit of its type is in the network free to leave, while every
+//! one of them only just walked in (design change 0288 point 1), or while this Tunnel's tier doesn't let the type out;
+//! and its count is the network's ([`Conditions::network_count`]). Its ExpandMenu's entries are greyed by the gate's
+//! answer to an Expand short of its placement (`Sim::can_expand`, slice M4-F: an operation under way, a Tier
+//! Requirement above this Tunnel's tier, a prerequisite missing, too few Space Crystals), where the expansion goes
+//! being the ghost's to show; its X while it performs no operation. Its Q, Upgrade Tunnel (slice M4-G), asks the gate
+//! for its Upgrade, by the truth (`Sim::can_upgrade`: already at its top tier, an operation under way, too few
+//! Supplies, or something that blocks the larger area, never said what), and its hint names the price
+//! ([`Conditions::price`], `Sim::upgrade_price`).
 //!
 //! **Prerequisites** (slice M4-K, `core/tech_and_research.md > Tech Prerequisites`: "Options whose TechPrerequisite is
 //! not met are unavailable in the build menu"): every entry the gate refuses for a type the player doesn't own
@@ -75,7 +75,7 @@ use super::{PanelCommand, Planned, commands, recipients};
 use crate::command_ui::feedback::REQUIRES_GUNWORKS_TEXT;
 use crate::selection::Selection;
 
-/// Why a button is greyed out (design change 0162, `systems/controls/selection_and_hud.md > CommandPanel > Pressing
+/// Why a button is greyed out (design change 0162, `systems/controls/interface.md > CommandPanel > Pressing
 /// an unavailable command`: "nothing is issued, and the player gets the same feedback as when an order is refused,
 /// naming the reason"), from the check that greys it: what pressing it says (`crate::command_ui::feedback`).
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
@@ -86,10 +86,10 @@ pub enum WhyUnavailable {
     /// Every recipient is a Peacekeeper (Shielded), which takes no Attack (`factions/gdo/units/peacekeeper.md > Riot
     /// Shield`: "the player must lower the shield before ordering an attack"; design change 0202).
     ShieldsUp,
-    /// Another command awaits its target, or a building is placed (`systems/controls/selection_and_hud.md >
+    /// Another command awaits its target, or a building is placed (`systems/controls/interface.md >
     /// AwaitingTarget > Other commands while targeting`, design change 0066: "unavailable until the player cancels").
     Waiting,
-    /// The type can't carry it out (`systems/controls/selection_and_hud.md > BasicCombatUnitInterfaceState`: Reverse
+    /// The type can't carry it out (`systems/controls/interface.md > BasicCombatUnitInterfaceState`: Reverse
     /// without CanReverse, AttackGround without CanTargetGround).
     NotForThisType,
     /// It isn't in the game yet: a building or a unit whose costs are TBD (design change 0124), a build menu none of
@@ -120,8 +120,8 @@ pub struct Conditions {
     /// ActiveGroup isn't a node that offers F.
     returning: Vec<ObjectId>,
     /// The EjectMenu's counts: the units of each type in the player's Tunnel Network that aren't reserved on an eject
-    /// queue (`sc_sim::Sim::network_counts`; `factions/syndicate/tunnels.md > EjectMenu`: "the tile's count drops at
-    /// the click"); none while the ActiveGroup isn't a Tunnel.
+    /// queue (`sc_sim::Sim::network_counts`; `factions/syndicate/tunnel_menus.md > EjectMenu`: "the tile's count drops
+    /// at the click"); none while the ActiveGroup isn't a Tunnel.
     network: BTreeMap<ObjectKind, u32>,
     /// The price of each Build the ActiveGroup offers (`PanelCommand::Build`), in its resource, as the sim would charge
     /// it now (`Sim::build_price`, design change 0233): a Tunnel's in Supplies, a Laser Turret's in Space Crystals

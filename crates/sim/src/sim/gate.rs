@@ -144,7 +144,7 @@ pub enum Reject {
     /// passes yet (`tuning::tunnel::AIR_DOORS`).
     NoTransit { tunnel: ObjectId, kind: Option<ObjectKind> },
     /// An Eject for a kind of which the player has no unit in the Tunnel Network that isn't queued to come out
-    /// already (`factions/syndicate/tunnels.md > EjectMenu`: "each click reserves a specific unit").
+    /// already (`factions/syndicate/tunnel_menus.md > EjectMenu`: "each click reserves a specific unit").
     NotInNetwork(ObjectKind),
     /// An Eject for a kind whose units in the network all walked in less than the transit delay ago
     /// (`factions/syndicate/tunnels.md > Tunnel Network > Transit delay`, design change 0245: "For 2 s it can't be
@@ -158,11 +158,11 @@ pub enum Reject {
     /// Rules`: "A Tunnel can only perform one operation at a time"; `tunnel::Operation`).
     OperationUnderWay(ObjectId),
     /// (M4-F) The building Tunnel's tier is below the expansion's Tier Requirement, `tier`
-    /// (`factions/syndicate/tunnels.md > ExpandMenu`: "available only if (1) its Tier Requirement is at or below
+    /// (`factions/syndicate/tunnel_menus.md > ExpandMenu`: "available only if (1) its Tier Requirement is at or below
     /// **this** Tunnel's tier").
     TierRequirement { kind: ObjectKind, tier: u8 },
     /// (M4-F) A Tunnel's Cancel while it performs no operation ("**X** Cancel (upgrade, construction or the current
-    /// operation)", `factions/syndicate/tunnels.md > Tunnel ObjectInterfaceState`).
+    /// operation)", `factions/syndicate/tunnel_menus.md > Tunnel ObjectInterfaceState`).
     NoOperation(ObjectId),
     /// (M4-K) The player owns no complete structure of this type, which what the command starts requires: a unit's
     /// Unit Prerequisite as it is queued, a building's TechPrerequisite as its construction starts
@@ -173,8 +173,8 @@ pub enum Reject {
     TopTier(ObjectId),
     /// (M4-G) Something blocks the Tunnel's upgrade, by the truth: its area at the target tier would overlap another
     /// Tunnel's (any player's, as it reserves it), or reach a cell off the map or not Drillable
-    /// (`factions/syndicate/tunnels.md > Tunnel Area Non-Overlap Rule`). It never says what: "the upgrade check uses
-    /// the truth; the upgrading Tunnel's owner learns that something blocks it".
+    /// (`factions/syndicate/tunnel_area_and_space.md > Tunnel Area Non-Overlap Rule`). It never says what: "the upgrade
+    /// check uses the truth; the upgrading Tunnel's owner learns that something blocks it".
     UpgradeBlocked(ObjectId),
     /// (M5-F1) The target of an Enter is a building that holds units, under construction (Placeholder (Q0104 point 4):
     /// an Armory under construction can't be entered; "A right-click on one Assists").

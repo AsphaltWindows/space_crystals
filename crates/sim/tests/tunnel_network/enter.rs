@@ -344,10 +344,10 @@ fn a_unit_inside_the_network_still_takes_its_army_cost() {
 }
 
 /// Slice M4-B: the Syndicate's own army cap, Tunnel Space, counts a unit inside the network as one on the map
-/// (`factions/syndicate/tunnels.md > Tunnel Space`: the units "currently-committed", design change 0265; plan decision
-/// T30: "for as long as the unit lives"), through `Sim::army_cap`'s held units. Player 1's Tier 1 Tunnel gives 12
-/// (48 tunnel-region cells over 4); each Guard takes its TunnelSpaceCost of 1. The Guard that goes in keeps its 1
-/// inside and out again, and gives it back when it dies.
+/// (`factions/syndicate/tunnel_area_and_space.md > Tunnel Space`: the units "currently-committed", design change 0265;
+/// plan decision T30: "for as long as the unit lives"), through `Sim::army_cap`'s held units. Player 1's Tier 1 Tunnel
+/// gives 12 (48 tunnel-region cells over 4); each Guard takes its TunnelSpaceCost of 1. The Guard that goes in keeps
+/// its 1 inside and out again, and gives it back when it dies.
 #[test]
 fn a_guard_inside_the_network_keeps_its_tunnel_space_until_it_dies() {
     let mut t = base().start();

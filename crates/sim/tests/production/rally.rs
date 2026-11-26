@@ -1,5 +1,5 @@
 //! Rally points: `factions/gdo/structures/barracks.md > RallyPoint behavior`,
-//! `systems/controls/selection_and_hud.md > Rally points on enemy objects`, `systems/controls/selection_and_hud.md >
+//! `systems/controls/interface.md > Rally points on enemy objects`, `systems/controls/interface.md >
 //! What a rally point makes a new unit do` (design changes 0086, 0088 and 0136), and on remembered structures
 //! (`core/vision.md > Explored > Targeting remembered objects`, design change 0139).
 

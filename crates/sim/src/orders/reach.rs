@@ -1,6 +1,6 @@
-//! AttackMove's reach rule — `systems/controls/behaviors.md > AttackMovingToLocation > Algorithm` 2, design change
-//! 0230 (answering question Q0058; it replaces design change 0204's memory of dropped targets): "an attack-moving
-//! unit fights what it can reach without leaving its route or losing sight of it."
+//! AttackMove's reach rule — `systems/controls/command_behaviors.md > AttackMovingToLocation > Algorithm` 2, design
+//! change 0230 (answering question Q0058; it replaces design change 0204's memory of dropped targets): "an
+//! attack-moving unit fights what it can reach without leaving its route or losing sight of it."
 //!
 //! - **The judgement** ([`judge`]). "An enemy out of weapon range is taken only if the path to a firing position
 //!   (the path the unit plans when it takes a target anyway) stays within AttackMoveLeashDistance of PathReference

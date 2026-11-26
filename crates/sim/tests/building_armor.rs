@@ -10,7 +10,7 @@ use sc_sim::{Category, Footprint, ObjectKind};
 
 /// The buildings that break the rule on purpose, each with the design's reason ("There may be exceptions"); a building
 /// listed here that follows the rule fails the test, so that the list never goes stale. The Cults' Storage (slice M5-A),
-/// a 2x2 at 1 / 6 as `factions/cults/economy.md > Storage` gives it, where the rule gives 1 / 4: **Placeholder
+/// a 2x2 at 1 / 6 as `factions/cults/structures/storage.md` gives it, where the rule gives 1 / 4: **Placeholder
 /// (Q0094)**, until the answer says whether 1 / 6 is meant or a leftover of its earlier 3x2 size.
 const EXCEPTIONS: &[(ObjectKind, &str)] = &[(
     ObjectKind::Storage,

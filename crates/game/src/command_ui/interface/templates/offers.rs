@@ -1,4 +1,4 @@
-//! What a type offers (`systems/controls/selection_and_hud.md > ObjectInterfaceState[ObjectEnum]`): every command its
+//! What a type offers (`systems/controls/interface.md > ObjectInterfaceState[ObjectEnum]`): every command its
 //! panel may show ([`commands`]), and whether it offers a command ([`offers`]).
 
 use sc_sim::{RecruitKind, construction, transform};

@@ -121,7 +121,7 @@ fn the_expand_menu_is_the_sims_list() {
     assert_eq!(grid[slot_index(slot(2, 3))], None, "V is free");
 }
 
-/// `factions/syndicate/tunnels.md > ExpandMenu`: an expansion is greyed while this Tunnel can't build it, with the
+/// `factions/syndicate/tunnel_menus.md > ExpandMenu`: an expansion is greyed while this Tunnel can't build it, with the
 /// gate's reason (`Sim::can_expand`; design change 0162): an operation under way ("begins construction if the Tunnel
 /// is not already performing an operation"), a Tier Requirement above this Tunnel's tier ("Expansion types whose Tier
 /// Requirement exceeds this Tunnel's tier are visible but greyed out"), a TechPrerequisite not met ("its
@@ -176,10 +176,10 @@ fn the_expand_menu_belongs_to_the_active_tunnel() {
     assert_eq!(PanelCommand::Expand(HIDEOUT).tunnel(), None, "it waits for its click");
 }
 
-/// `factions/syndicate/tunnels.md > ExpandMenu`: "Click an expansion type: [...] enters AwaitingPlacement for that
-/// expansion"; `factions/syndicate/tunnels.md > Expansions under construction`: "**Z**: returns to ExpandMenu". While
-/// it is placed, the menu stays on the panel with the expansion marked and the others waiting, and the placement holds
-/// while its Tunnel is the ActiveGroup.
+/// `factions/syndicate/tunnel_menus.md > ExpandMenu`: "Click an expansion type: [...] enters AwaitingPlacement for that
+/// expansion"; `factions/syndicate/tunnel_menus.md > Expansions under construction`: "**Z**: returns to ExpandMenu".
+/// While it is placed, the menu stays on the panel with the expansion marked and the others waiting, and the placement
+/// holds while its Tunnel is the ActiveGroup.
 #[test]
 fn an_expansion_is_placed_from_the_menu_and_z_goes_back_to_it() {
     let tunnel = Selection::new([(id(1), TUNNEL)]);
@@ -204,7 +204,7 @@ fn an_expansion_is_placed_from_the_menu_and_z_goes_back_to_it() {
     assert_eq!(look(CommandSlot::BACK), Some(ButtonLook::Back));
 }
 
-/// `factions/syndicate/tunnels.md > AwaitingPlacement (Expansion)`: "A ghost preview of the expansion follows the
+/// `factions/syndicate/tunnel_menus.md > AwaitingPlacement (Expansion)`: "A ghost preview of the expansion follows the
 /// cursor within the Tunnel Area": the footprint nearest the cursor's that lies wholly within the area, the cursor's
 /// own while it does.
 #[test]

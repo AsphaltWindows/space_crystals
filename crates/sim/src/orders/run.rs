@@ -97,25 +97,26 @@ fn path_group(order: &Order, click: Vec2) -> PathGroup {
 /// A behaviour begins (`systems/controls/behaviors.md`): its state as it starts. [`run`] follows in the same tick.
 pub(super) fn start(order: &Order, unit: &mut Unit, world: &World) -> Behaviour {
     let tick: Tick = world.tick;
-    // `systems/controls/behaviors.md > AttackingObject`: the attack engages the order's target; every other order
-    // disengages it (interrupting an attack being aimed, `systems/combat.md > Aiming`) and whatever the unit had
+    // `systems/controls/command_behaviors.md > AttackingObject`: the attack engages the order's target; every other
+    // order disengages it (interrupting an attack being aimed, `systems/combat.md > Aiming`) and whatever the unit had
     // acquired by itself.
-    // (M4-O) An Attack Ground engages its location instead (`systems/controls/behaviors.md > AttackingLocation`).
+    // (M4-O) An Attack Ground engages its location instead (`systems/controls/command_behaviors.md >
+    // AttackingLocation`).
     match order.kind {
         OrderKind::AttackGround(at) => unit.engage_ground(at),
         OrderKind::Attack(id) => unit.engage(Some(id)),
         _ => unit.engage(None),
     }
     match order.kind {
-        // `systems/controls/behaviors.md > MovingToLocation`: the unit goes to its own destination (the magic box); the
-        // group's path field is anchored on the clicked point.
+        // `systems/controls/command_behaviors.md > MovingToLocation`: the unit goes to its own destination (the magic
+        // box); the group's path field is anchored on the clicked point.
         OrderKind::Move(Target::Point(click)) => {
             let goal = MoveGoal::Point(order.slot.unwrap_or(click));
             unit.mover.go_to(goal, Some(path_group(order, click)), tick);
             return Behaviour::Plain;
         }
-        // `systems/controls/behaviors.md > StoppingBehavior`, `systems/controls/behaviors.md > HoldingPosition`: no
-        // goal. Infinite deceleration stops the unit at once.
+        // `systems/controls/command_behaviors.md > StoppingBehavior`, `systems/controls/command_behaviors.md >
+        // HoldingPosition`: no goal. Infinite deceleration stops the unit at once.
         OrderKind::Stop | OrderKind::Hold => {}
         // The others set off in their first tick ([`run`]), from a standstill.
         OrderKind::Attack(_) | OrderKind::Move(Target::Object(_)) | OrderKind::AttackMove(_) | OrderKind::Patrol(_) => {
@@ -130,10 +131,10 @@ pub(super) fn start(order: &Order, unit: &mut Unit, world: &World) -> Behaviour 
         OrderKind::Hold => Behaviour::Hold { target: None },
         OrderKind::Attack(_) => Behaviour::Attack(AttackOrder::default()),
         OrderKind::Move(Target::Object(_)) => Behaviour::Approach(Approach::default()),
-        // `systems/controls/behaviors.md > AttackMovingToLocation`: to this unit's own destination.
+        // `systems/controls/command_behaviors.md > AttackMovingToLocation`: to this unit's own destination.
         OrderKind::AttackMove(click) => Behaviour::AttackMove(Leg::new(unit.pos, order.slot.unwrap_or(click))),
-        // `systems/controls/behaviors.md > Patrolling` 1 (design change 0036): the origin is where the unit is now, as
-        // the Patrol starts executing; for a queued Patrol, where the order before it ended.
+        // `systems/controls/command_behaviors.md > Patrolling` 1 (design change 0036): the origin is where the unit is
+        // now, as the Patrol starts executing; for a queued Patrol, where the order before it ended.
         OrderKind::Patrol(click) => {
             let destination = order.slot.unwrap_or(click);
             Behaviour::Patrol(Patrol {
@@ -156,7 +157,7 @@ pub(super) fn start(order: &Order, unit: &mut Unit, world: &World) -> Behaviour 
         },
         // `systems/controls/commands.md > Enter`: to the Tunnel's entry path.
         OrderKind::Enter(tunnel) => Behaviour::Enter(enter::begin(tunnel, unit, world)),
-        // `systems/controls/behaviors.md > AttackingLocation`: from a standstill, as an Attack.
+        // `systems/controls/command_behaviors.md > AttackingLocation`: from a standstill, as an Attack.
         OrderKind::AttackGround(_) => Behaviour::AttackGround(AttackGround::default()),
         // (M5-E) `factions/cults/economy.md > Assist Construction Command`: to its own spot beside the site, which the
         // spots' step gives it (`crate::spot_work`).
@@ -177,13 +178,13 @@ fn run(
 ) -> bool {
     let order = &mut active.order;
     match (order.kind, &mut active.state) {
-        // `systems/controls/behaviors.md > MovingToLocation`: complete when stopped at the target, or after failing to
-        // make progress (`systems/controls/behaviors.md > Failure`).
+        // `systems/controls/command_behaviors.md > MovingToLocation`: complete when stopped at the target, or after
+        // failing to make progress (`systems/controls/command_behaviors.md > Failure`).
         (OrderKind::Move(Target::Point(_)), _) => unit.mover.status != MoveStatus::Moving,
-        // `systems/controls/behaviors.md > StoppingBehavior`: complete when stopped, at once with infinite
+        // `systems/controls/command_behaviors.md > StoppingBehavior`: complete when stopped, at once with infinite
         // deceleration.
         (OrderKind::Stop, _) => true,
-        // `systems/controls/behaviors.md > HoldingPosition`: never completes; only a new command ends it.
+        // `systems/controls/command_behaviors.md > HoldingPosition`: never completes; only a new command ends it.
         (OrderKind::Hold, Behaviour::Hold { target }) => {
             engage::hold(unit, target, world);
             false

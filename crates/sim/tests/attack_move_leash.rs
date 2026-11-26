@@ -1,8 +1,8 @@
-//! AttackMove's leash and its PathReference (`systems/controls/behaviors.md > AttackMovingToLocation`, design change
-//! 0180), with today's units: the PathReference is the route planned at the start and stays that after fights, and a
-//! detour around a blocked route takes its place. The unit tests in `orders::tests::leash` give units other Ranges
-//! for the rest of 0180's Verification; which enemies a unit takes at all is `attack_move_reach.rs`'s (design change
-//! 0230).
+//! AttackMove's leash and its PathReference (`systems/controls/command_behaviors.md > AttackMovingToLocation`, design
+//! change 0180), with today's units: the PathReference is the route planned at the start and stays that after fights,
+//! and a detour around a blocked route takes its place. The unit tests in `orders::tests::leash` give units other
+//! Ranges for the rest of 0180's Verification; which enemies a unit takes at all is `attack_move_reach.rs`'s (design
+//! change 0230).
 
 use sc_sim::orders::Behaviour;
 use sc_sim::testing::{ScenarioBuilder, TestSim};

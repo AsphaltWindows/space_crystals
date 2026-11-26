@@ -1,4 +1,4 @@
-//! The gathering markers (design change 0201 point 4, answering Q0052; `systems/controls/selection_and_hud.md >
+//! The gathering markers (design change 0201 point 4, answering Q0052; `systems/controls/hud.md >
 //! CommandIndicators > Gathering markers`): "Gather, Drop Off and Set Drop-off each have their own distinct marker on
 //! the target object, not the Move marker", shown while the unit is selected. Placeholder looks, each with a colour of
 //! its own (`command_ui::indicators::gathering`), found here in the indicators' mesh by their colours.

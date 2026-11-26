@@ -29,7 +29,7 @@ use crate::input::{ActionState, EditorInput, InputAction, MapClick, Placing, Poi
 use crate::tuning::camera::ZOOM_PER_LINE;
 
 /// The keys' actions: all of them in the editor; in its play-tests only the play-test switch (F5), because Esc is
-/// the game's Cancel there (`systems/controls/selection_and_hud.md > AwaitingTarget`).
+/// the game's Cancel there (`systems/controls/interface.md > AwaitingTarget`).
 pub fn editor_keys(
     actions: Res<ActionState>,
     mode: Res<ClientMode>,

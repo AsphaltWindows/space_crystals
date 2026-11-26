@@ -145,7 +145,7 @@ fn the_wait_is_hashed_and_saved_only_while_it_lasts() {
 
 /// (M5-C) A Recruitment Hall's completion tick is hashed only while it isn't 0 (the goldens stand), and left out
 /// of files while it is, so that a state saved before it existed loads. Its Recruit's total is 192 frames of
-/// its area's 100 tiles: 192 ticks at 100 tiles a frame, 384 at 50 (`factions/cults/economy.md > RecruitmentHall >
+/// its area's 100 tiles: 192 ticks at 100 tiles a frame, 384 at 50 (`factions/cults/structures/recruitment_hall.md >
 /// BaseUnitControlCapacity - 20`: "production time = 24 seconds per Recruit").
 #[test]
 fn a_completion_tick_is_hashed_and_saved_only_while_it_is_set() {

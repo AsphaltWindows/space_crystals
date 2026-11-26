@@ -77,7 +77,7 @@ impl Sim {
     }
 
     /// The gate for `Command::Holding`: the player's buildings among `objects` that hold units take `command`
-    /// (`systems/controls/selection_and_hud.md > SelectionGroup > No smart-casting`: every one of the selection), the
+    /// (`systems/controls/selection.md > SelectionGroup > No smart-casting`: every one of the selection), the
     /// player's other objects ignore it ([`Reject::NoHolders`] if none is left). **Eject All**: "Only available if
     /// StoredRecruits is not empty" (`factions/cults/structures/armory.md > ObjectInterfaceState[Armory]`): the
     /// buildings whose pool has a unit take it, [`Reject::NothingInside`] if none has: units reserved by an order, or

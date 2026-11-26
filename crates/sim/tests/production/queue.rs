@@ -336,7 +336,7 @@ fn group_production_queues_everywhere_when_the_player_can_pay() {
     assert_eq!((queue(tie.sim(), BARRACKS), queue(tie.sim(), ObjectId(3))), (1, 0));
 }
 
-/// Design change 0083 under 0143 ("0083 no longer considers Unit Control"; `systems/controls/selection_and_hud.md >
+/// Design change 0083 under 0143 ("0083 no longer considers Unit Control"; `systems/controls/selection.md >
 /// Group production with limited resources`: "unit capacity is not checked when queuing"): at the cap, a Train to
 /// two Barracks queues at both, paid, the idler first; the room decides only who starts. A full queue is passed over.
 #[test]

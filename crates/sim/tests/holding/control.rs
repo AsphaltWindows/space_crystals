@@ -1,9 +1,9 @@
-//! A Recruit inside an Armory and its Recruitment Hall's Unit Control (`factions/cults/economy.md > RecruitmentHall >
+//! A Recruit inside an Armory and its Recruitment Hall's Unit Control (`factions/cults/structures/recruitment_hall.md >
 //! Unit Control Tracking`: "Each Recruit tracks which Recruitment Hall produced it"; slice M5-C's lineages): inside, it
 //! is held off the map, and the units held count as those on it (`economy::army::cults`), so it still uses its Hall's
 //! Unit Control, and after its evacuation too (`factions/cults/economy.md > Cults Building Mechanics > Evacuation on
 //! Destruction`: "Units come out unchanged"). Its Hall gone while it is inside, it is an orphaned point
-//! (`factions/cults/economy.md > RecruitmentHall > On Destruction`: "Surviving units produced by this hall remain on
+//! (`factions/cults/structures/recruitment_hall.md > On Destruction`: "Surviving units produced by this hall remain on
 //! the field and continue to count toward the global usage sum").
 
 use super::*;

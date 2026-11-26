@@ -1,4 +1,4 @@
-//! The command panel a selection gets (`systems/controls/selection_and_hud.md > CommandPanel`): what each slot shows
+//! The command panel a selection gets (`systems/controls/interface.md > CommandPanel`): what each slot shows
 //! ([`panel`](fn@panel)), what pressing it does ([`press`]) and who receives its command ([`recipients`]).
 
 use sc_sim::construction::site::BuildPrice;
@@ -62,8 +62,8 @@ pub struct PanelSlot {
     /// Why a disabled or unavailable button is greyed out, which pressing it says (design change 0162); none for
     /// the others.
     pub why: Option<WhyUnavailable>,
-    /// An EjectMenu tile's count (`factions/syndicate/tunnels.md > EjectMenu`: "Each tile shows the unit type icon and
-    /// a count of how many of that type are in the network"): those not reserved on an eject queue
+    /// An EjectMenu tile's count (`factions/syndicate/tunnel_menus.md > EjectMenu`: "Each tile shows the unit type icon
+    /// and a count of how many of that type are in the network"): those not reserved on an eject queue
     /// ([`Conditions::network_count`]); a pool building's kind button's (design change 0337: "the count inside
     /// (unreserved)", [`Conditions::pool_count`]); none on the other buttons.
     pub count: Option<u32>,

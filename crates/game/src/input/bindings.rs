@@ -1,5 +1,5 @@
 //! The bindings table (`ARCHITECTURE.md > Client architecture > Input`): every binding of the game and of the map
-//! editor in one resource, so that rebinding (`systems/controls/selection_and_hud.md > Key Rebinding`) changes
+//! editor in one resource, so that rebinding (`systems/controls/interface.md > Key Rebinding`) changes
 //! data, not gameplay code.
 //!
 //! Each entry binds an [`InputAction`] to a key or mouse button with the modifiers held with it (a [`Chord`]), to a
@@ -244,7 +244,7 @@ impl Bindings {
     }
 }
 
-/// The defaults: `core/camera.md > Panning`, `systems/controls/selection_and_hud.md` (`> MapClickSelection`,
+/// The defaults: `core/camera.md > Panning`, `systems/controls/selection.md` (`> MapClickSelection`,
 /// `> SelectionPanel > Interactions`, `> AwaitingTarget`, `> GroupCycling`, `> ControlGroups > Default keys`,
 /// `> CommandPanel > Grid Layout`) and `systems/controls/commands.md > Unit Command` (design changes 0002, 0010 and
 /// 0011), and placeholder debug and replay playback keys; then the map editor's, which its F1 help lists (the design

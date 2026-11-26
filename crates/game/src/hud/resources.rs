@@ -23,13 +23,13 @@
 //!     `factions/syndicate/tunnels.md > Tunnel > Starting Conditions`);
 //!   - Tunnel Space as used / available (`Sim::army_cap`): the units and the units in production (design change
 //!     0143) over min(200, ⌊the unused tunnel-region cells of the player's Tunnels / 4⌋); in red while more is used
-//!     than available (`factions/syndicate/tunnels.md > Tunnel Space`: "usage is simply displayed over capacity (e.g.
-//!     12/10)"), as Beacon Capacity is.
+//!     than available (`factions/syndicate/tunnel_area_and_space.md > Tunnel Space`: "usage is simply displayed over
+//!     capacity (e.g. 12/10)"), as Beacon Capacity is.
 //! - **The Cults** (`factions/cults/overview.md > DisplayHud`; slice M5-C), left to right:
 //!   - Space Crystals, the bank;
 //!   - Unit Control as used / available (`Sim::army_cap`, plan decision T56): the usage of their Recruitment Halls
 //!     and their orphaned units over the sum of their Halls' capacities, each rounded down
-//!     (`factions/cults/economy.md > RecruitmentHall > Cults Unit Control HUD Display`; design change 0341: "Capacity
+//!     (`factions/cults/structures/recruitment_hall.md > Cults Unit Control HUD Display`; design change 0341: "Capacity
 //!     is rounded down everywhere"). A Hall's Recruit counts from the start of its production (design change 0342:
 //!     "At 19/20 with a Recruit in production, the HUD shows 20/20"). Over capacity, after a Hall is lost, it reads
 //!     so, as Beacon Capacity does, but not in red: the design gives the Cults' figure no warning ("for display
@@ -50,7 +50,7 @@ const FIGURE_VH: f32 = 2.0;
 /// The space between two figures (placeholder).
 const FIGURE_GAP_VH: f32 = 3.0;
 /// A figure that warns: power in the red (design change 0090), Beacon Capacity or Tunnel Space over capacity (0112,
-/// `factions/syndicate/tunnels.md > Tunnel Space`); the shade is a placeholder.
+/// `factions/syndicate/tunnel_area_and_space.md > Tunnel Space`); the shade is a placeholder.
 pub const ALERT_COLOR: Color = Color::srgb(1.0, 0.35, 0.3);
 
 /// One figure of a DisplayHud: a resource and how it reads. Declared in the order the bar shows them, every faction's
@@ -138,7 +138,7 @@ impl ResourceFigure {
 pub struct Reading {
     pub text: String,
     /// Shown as a warning, in [`ALERT_COLOR`]: power in the red (design change 0090), Beacon Capacity or Tunnel Space
-    /// over capacity (0112, `factions/syndicate/tunnels.md > Tunnel Space`).
+    /// over capacity (0112, `factions/syndicate/tunnel_area_and_space.md > Tunnel Space`).
     pub alert: bool,
 }
 

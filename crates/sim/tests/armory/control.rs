@@ -1,7 +1,7 @@
-//! A trained unit and its Recruitment Hall's Unit Control (`factions/cults/economy.md > RecruitmentHall > Unit Control
-//! Tracking`: "Each Recruit tracks which Recruitment Hall produced it"; slice M5-C's lineages): the Militant is the
-//! Recruit it was trained of, its lineage with it, so the Unit Control it uses is the Recruit's, its Hall's while the
-//! Hall stands and an orphaned point once it is gone. An Armory's queue takes no Unit Control of its own: its units
+//! A trained unit and its Recruitment Hall's Unit Control (`factions/cults/structures/recruitment_hall.md > Unit
+//! Control Tracking`: "Each Recruit tracks which Recruitment Hall produced it"; slice M5-C's lineages): the Militant is
+//! the Recruit it was trained of, its lineage with it, so the Unit Control it uses is the Recruit's, its Hall's while
+//! the Hall stands and an orphaned point once it is gone. An Armory's queue takes no Unit Control of its own: its units
 //! are counted already (`ArmyResource::taken_by`).
 
 use sc_sim::HallState;
