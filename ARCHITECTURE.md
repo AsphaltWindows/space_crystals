@@ -1527,8 +1527,9 @@ writes the mover's goal and the target the attack engages, and reads `Mover::sta
     `None`) the Recruit takes the own completed Storage nearest to its patch, **edge to edge**
     (`deliver::nearest_to_patch`), and with none it idles holding its load. One lost on the way is replaced by
     the removal path as any worker's is. Within what the design says a face holds (4 to 5 Recruits a 2-tile face)
-    nothing jams; with more Recruits than lanes they stand head-on and starve one another, which no existing rule
-    resolves (question Q0109: `tests/recruit_gathering/jam.rs`, ignored).
+    nothing jams; with more Recruits than lanes they stand head-on and starve one another, which the design accepts
+    (design change 0320, answering Q0110: no give-way rule, more Storages are the player's answer;
+    `tests/recruit_gathering/jam.rs`, ignored).
     **Measured** (`tests/recruit_gathering/`): one Recruit at gaps of 1, 2 and 3 tiles makes a trip in 24, 56 and 88
     ticks (1.33, 0.57 and 0.36 Space Crystals per second; the design's formula gives 1.45, 0.59 and 0.37); 10 on an
     8-patch field with three Storages, 12.9. `tests/recruits_perf.rs` (ignored, release): 60 Recruits on 22 patches

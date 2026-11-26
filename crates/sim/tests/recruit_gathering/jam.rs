@@ -1,7 +1,8 @@
 //! More Recruits than a face holds (slice M5-D): they starve one another, and at the worst the face nearly stops.
-//! Both tests are ignored: they fail as built, for the reason question Q0109 asks about (who gives way among workers
-//! that all hold an order), and the answer to it is design. Within what the design says a face holds, nothing jams
-//! (`crowds`).
+//! Both tests are ignored: they fail as built, and that is the design's behaviour (design change 0320, answering
+//! Q0110 (d); `factions/cults/units/recruit.md > Gathering`: "If more Recruits work one face than it has lanes, they
+//! can block each other head-on for a long time. **The player's answer is more Storages**"). They stay as the record
+//! of what overloading a face does. Within what the design says a face holds, nothing jams (`crowds`).
 //!
 //! **What happens** (traced with four Recruits on one patch a tile from the Storage, [`face`] with one patch):
 //! 1. A patch's 64 su face holds two lanes of 24 su Recruits, and the gap of one tile is one Recruit's walk long
@@ -20,8 +21,8 @@
 //!
 //! It is the Agents' jam at a hatch (`tests/agent_gathering/jam.rs`, slice M4-W) without the hatch: there every
 //! return heads for one point; here the Storage takes loads anywhere, so it needs more Recruits than lanes. **No
-//! existing rule resolves it**, and a new one (who makes way for whom) is design: Q0109. Slice M5-D measured and
-//! stopped here.
+//! existing rule resolves it**, and the design adds none: "Recruits keep collision, and there is no give-way rule"
+//! (design change 0320). Slice M5-D measured and stopped here.
 //!
 //! **Measured as built** (5 minutes, from the 10th second: Space Crystals per second / the longest any Recruit went
 //! without a delivery, ticks; a gap of 1 tile):
@@ -50,7 +51,7 @@ use super::*;
 /// and Recruit 6 delivers nothing for 2,000 ticks (over 2 minutes); the face gives 2.4 Space Crystals per second
 /// where three Recruits give 3.8.
 #[test]
-#[ignore = "M5-D: fails as built (more Recruits than a face has lanes); the fix needs Q0109's answer"]
+#[ignore = "M5-D: fails as built (more Recruits than a face has lanes), the design's behaviour (0320)"]
 fn four_recruits_on_one_patch_keep_delivering() {
     let (mut t, recruits) = face_at_work(4, 1, 1, 0);
     t.run_until(FIVE_MINUTES);
@@ -67,7 +68,7 @@ fn four_recruits_on_one_patch_keep_delivering() {
 /// Storages: Space Crystals per second, and the longest any Recruit went without a delivery. It fails on every case
 /// in which a Recruit goes 10 seconds without one (the jam check, plan §3.3 D).
 #[test]
-#[ignore = "M5-D: fails as built (more Recruits than a face has lanes); the fix needs Q0109's answer"]
+#[ignore = "M5-D: fails as built (more Recruits than a face has lanes), the design's behaviour (0320)"]
 fn no_recruit_goes_ten_seconds_without_a_delivery_however_many_work_a_face() {
     let mut jams = Vec::new();
     let mut note = |what: String, t: &TestSim, recruits: &[u32]| {

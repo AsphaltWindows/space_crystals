@@ -11,7 +11,7 @@
 //! - `rules`: patch sharing, unloading together, collision kept, the Drop Off order, the gate, a patch that runs out;
 //! - `crowds`: 4 and 5 Recruits on one 2-tile face, 10 on an 8-patch field with three Storages, for 5 minutes, and
 //!   the jam check (no Recruit goes 10 seconds without a delivery);
-//! - `jam`: more Recruits than a face holds (ignored: they fail as built, for the reason question Q0109 asks about),
+//! - `jam`: more Recruits than a face holds (ignored: they fail as built, the design's behaviour, design change 0320),
 //!   and the measurements by layout and count.
 
 mod crowds;
