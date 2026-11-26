@@ -443,8 +443,10 @@ target, it scans for one, during a Move too.
     and turret arc". The priority is threatening first, then the least rotation "in **45° steps**", then the closest;
   - `> BaseAutoTargeting > Not active during`: "Move — pure movement, no base engagement. Turret units'
     TurretAutonomousScanning still operates independently";
-  - `> AttackingObject`: "set TurretCommandState.LockedTarget = TargetObject (turret units)";
-  - `> TurretTurning`: "applies the turret's turn rate each tick, constrained by TurnAngle".
+- **`systems/controls/command_behaviors.md > AttackingObject`** (moved by 0370): "set
+  TurretCommandState.LockedTarget = TargetObject (turret units)".
+- **`systems/controls/action_channels.md > TurretTurning`** (moved by 0370): "applies the turret's turn rate each
+  tick, constrained by TurnAngle".
 - **0319:** the Jackal's "turret 360° at 12°/f"; the Sparrow's "turret 45° at 8°/f".
 
 **Placeholders**
