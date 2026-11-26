@@ -22,7 +22,7 @@
 **Placeholder stats** (designer, 2026-11-26, at the user's request: provisional numbers so the Director can implement; tune in the numbers pass):
 - Silhouette 40x40 space units; MaxHP 50; PointArmor 0, FullArmor 0; SightRange **8 grid units** (user, 2026-11-27; Q0148: was 6; its full-speed loop carries it up to ~500 su from its target, so 8 GU = 512 su keeps the target in sight through every pass and a lone Sparrow keeps strafing on an Attack. Its speed may also be tuned in the numbers pass. **Attack Move is unchanged** (user, 2026-11-27): its 6 GU leash may still drop a looping Sparrow's target; use a direct Attack for repeated passes. With several Sparrows, their shared vision covers the loop anyway. What Attack Move should mean for units that can't stop is an open question); Groupable true.
 - GliderMovement: IdleSpeed 4 su/frame; MaxSpeed 10 su/frame; Acceleration 0.5 su/frame²; Deceleration 0.5 su/frame²; MaxCentripetalAcceleration **0.5 su/frame²** (was 1, "too much grip", user 2026-11-26; tightest turn radius = speed² / 0.5: **200 su (about 3 GU) at full speed**, a full loop in about 8 s; 32 su at IdleSpeed).
-- SeparationRadius 32 space units (Q0120).
+- SeparationRadius **48** space units (Q0120; raised from 32, 2026-11-27, Q0148: it must exceed the 40 su Silhouette). Gliders push apart slowly (systems/units.md > Air Collision).
 - **Idle circle**: radius **1 grid unit (64 su)** at IdleSpeed (placeholder; Q0120: at its centripetal limit an idle circle would be only 32 su, nearly a spin, so idle circling uses a gentler turn).
 - **Flight rules** (user, 2026-11-26; Q0120):
   - **Map edge**: it may overshoot the edge as far as its turn needs (no extra cap).
