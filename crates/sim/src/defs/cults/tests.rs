@@ -375,7 +375,6 @@ fn the_construct_menus_list_every_recruit_build_once() {
         ObjectKind::ChopShop,
         ObjectKind::Airstrip,
         ObjectKind::Temple,
-        ObjectKind::Cathedral,
         ObjectKind::Shrine,
     ];
     assert_eq!(planned, later, "the buildings whose slices come later");
@@ -384,9 +383,10 @@ fn the_construct_menus_list_every_recruit_build_once() {
         ObjectKind::MachineShop,
         ObjectKind::ScrapHangar,
         ObjectKind::Garrison,
+        ObjectKind::Cathedral,
     ];
     assert!(
         live.iter().all(|kind| builds.contains(kind)),
-        "slice M5-G2's three and M5-N2's"
+        "slice M5-G2's three, M5-N2's and M5-N4a's"
     );
 }
