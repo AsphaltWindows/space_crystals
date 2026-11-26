@@ -2,7 +2,10 @@
 //! only when it changes; other players' objects that the local player doesn't see are neither drawn nor
 //! selectable, nor their raised Riot Shields, leave its selection, can't be targeted and aren't marked by command
 //! indicators; combat effects in the fog don't show; the debug toggle and `--no-fog` show everything; the map editor
-//! never shows fog. Headless, one tick per update, as in `client.rs`.
+//! never shows fog. Headless, one tick per update, as in `client.rs`. A new map size gets a new texture that the
+//! layer shows: `texture` (slice M5-Z3).
+
+mod texture;
 
 use bevy::prelude::*;
 use bevy::time::TimeUpdateStrategy;

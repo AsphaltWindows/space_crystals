@@ -19,8 +19,9 @@
 //!   Explored one and none for a Visible one, sampled linearly so the edges soften across a tile
 //!   ([`FOG_SOFT_EDGES`]).
 //!   The texture is written only when what it shows changes: the tiles of the visions the local player watches
-//!   (`Sight::revision`), the local player, or the sim (`SimRes::generation`); the mesh and the texture's size only
-//!   with the map.
+//!   (`Sight::revision`), the local player, or the sim (`SimRes::generation`); the mesh only with the map, and a new
+//!   texture, which the material is pointed at, only when the map's size changes (slice M5-Z3: a 2D material keeps
+//!   the GPU texture it was prepared with, [`FogAssets`]).
 //! - **Off** ([`FogOfWar`]): `--no-fog` and the debug toggle (F3, a placeholder key, only while debug commands are
 //!   on, or in a replay's playback) turn it off for QA: then the client shows and lets the player select
 //!   everything, as if every tile were Visible. The map editor never shows fog; its play-tests do.
