@@ -65,7 +65,15 @@ Applies to every Cults building that can hold units inside (Armory, Altar, Templ
 - **Placement**: evacuated units appear around the building's footprint wherever there is open space, unharmed.
 - **Orders are cancelled with a full refund**: every in-progress and queued training, augmentation, and research order is cancelled and its full Space Crystals cost refunded (consistent with core/tech_and_research.md > Research shared rule 7).
 
-## RecruitmentHall
+## Economy check
+(user, 2026-11-26; Q0103) The figures the build is measured against (the Director's economy oracle):
+- **Distance** is measured **edge to edge**, patch to Storage, in whole tiles (as for Agents).
+- **Tolerance ±15%**: a measured figure passes if it is within 15% of its target either way (e.g. 1.45 SC/s per Recruit passes anywhere from about 1.23 to 1.67).
+- **Targets**: ≈ 1.45 SC/s per Recruit at a 1-tile gap (≈ 0.59 at 2, ≈ 0.37 at 3); 4–5 Recruits per 2-tile face at full efficiency; a starting Hall fills from 6 to 20 in 168 s (2:48); the earliest second Hall at ~0:55–1:15; roughly level with the GDO and the Colonists until ~1:30 and slightly ahead by 2:48.
+- **Two scenarios, on an 8-patch field:**
+  1. **Ideal mining**: one Storage per face, all Recruits mining (the "level until 1:30, ahead by 2:48" comparison was made this way: pure mining, best case).
+  2. **Realistic opening** (user's build line): start with the one starting Storage; **save for a second Recruitment Hall without building any extra Storages**, spreading new Recruits to patches farther from the starting Storage; **build the second Hall with all the non-optimal Recruits** (those on the far patches); then **build Storages around the patches**, one per face. Measured against the GDO and the Colonists at 1:30 and 2:48 and reported (the docs have no target for it yet; it tells whether the Cults stay level when they expand early).
+
 
 The Cults' starting structure. Automatically produces Recruits from the surrounding population of Recruitable terrain. Each Recruitment Hall operates independently with its own local capacity and production rate.
 
