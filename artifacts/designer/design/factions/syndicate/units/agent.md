@@ -45,6 +45,7 @@ Agents gather resources and deliver them to Tunnels. Crystal and Supply drop-off
 - **The Drone's job rules apply to Agents** (factions/colonists/units/drone.md > Gathering: Last load of a patch, Interrupted mining, Other orders keep the load, Gather while carrying a load, Drop Off order, When a Gather ends), with two exceptions: Agents **share patches** (no occupancy rule), and there is **no Set Drop-off** command.
 - **Which Tunnel**: the **nearest** own operational Tunnel (straight line to its crystal hatch), **regardless of how many other Agents already use it**; no load balancing. It is chosen when the Gather's first return starts and kept for that Gather (a new Gather picks again; a lost Tunnel means picking the nearest again). A Drop Off order delivers to the Tunnel clicked, once.
 - **The hatch** is **1 grid square** long, near the middle of its side (Tunnel > SymmetryType - ABCD). An Agent must be within DropOffReach of the hatch to deliver.
+- **Hatch jams: the plan** (user, 2026-11-26; Q0111): the 1-square hatch stays for now. The fix tried first is the new **90° body-width sidestep** (systems/units.md > Ground Collision; 0323). If Agents still lock up, the next try is a **2-square hatch** (both middle squares of Side B), still with **one Agent delivering at a time**. After that comes the backstop, **stuck gathering Agents make way like idle units**.
 - **Waiting at the hatch** (user, 2026-11-26; Q0109; replaces "within reach or as close as it can get"): an Agent **waits only once it is within reach** of the hatch, while another drops off; the first to arrive within reach delivers next. **Until it is within reach it is never "arrived"**: it keeps actively moving toward the hatch, steering around whatever is in its way (systems/units.md > Ground Collision, moving units steer around blockers), and is exempt from MovingToLocation's "blocked near the target by standing units counts as arrived" rule (systems/controls/behaviors.md). **It waits as long as it takes; it never gives up** (unlike the Failure rule for other orders), so a worker never silently stops with a load.
 - **Search radius** (user, 2026-11-26; Q0076): when its patch runs out (or can't be reached), an Agent looks for another known patch within **6 grid units** of itself, the Drone's value (placeholder).
 - **Patches under a GDO Extraction Plate** can't be mined (as for Drones). **Agents of different players** may mine the same patch.
@@ -98,16 +99,19 @@ Rationale (user, 2026-11-26; replaces the 5 s mining rationale): the drop-off ti
 - **Switching resources**: an Agent carrying Space Crystals that is ordered to gather Supplies goes **straight to the station**; its crystals are **lost when it picks up the Supply**: at the **end** of the pick-up, when the new load arrives. An Agent interrupted mid-pick-up keeps its crystals. The same holds the other way: a carried Supply is lost when the Agent **finishes** mining a crystal load (user, 2026-11-26; Q0082).
 
 ## Repair
-(user, 2026-11-26) Agents can **repair** own **Tunnels** and **Laser Turrets**. **Laser Turrets cost Space Crystals to repair; Tunnels are repaired for free** (user, 2026-11-26). **Repair rules shared by every repairer** (user, 2026-11-26): several repairers on one target repair **faster, scaling linearly** (2 repairers = twice the rate), as construction does. **Placeholder rate and cost** (designer, 2026-11-26): repairing from 0 to full HP takes **half the target's build time** with one repairer, and costs **half its price** in the resource it was bought with, paid gradually as HP is restored (except Tunnels, which are free). How an Agent reaches a pop-up turret or a Tunnel (side, reach) follows the Recruit/Field Engineer repair flow; details: Director's discretion.
+(user, 2026-11-26) Agents can **repair** own **Tunnels** and **Laser Turrets** (right-click a damaged Laser Turret; a Tunnel's right-click stays **Enter**, so repair it with **D: Repair**, user, 2026-11-26). **Laser Turrets cost Space Crystals to repair; Tunnels are repaired for free** (user, 2026-11-26). **Repair rules shared by every repairer** (user, 2026-11-26): several repairers on one target repair **faster, scaling linearly** (2 repairers = twice the rate), as construction does. **Placeholder rate and cost** (designer, 2026-11-26): repairing from 0 to full HP takes **half the target's build time** with one repairer, and costs **half its price** in the resource it was bought with, paid gradually as HP is restored (except Tunnels, which are free). How an Agent reaches a pop-up turret or a Tunnel (side, reach) follows the Recruit/Field Engineer repair flow; details: Director's discretion.
 
 ## Agent ObjectInterfaceState
 
-**Panel letters (4x3 grid)** (user, 2026-11-25; Q0068, "fine for now"): **Q** Move, **A** Build Tunnel, **S** Drop Off Resources, **D** Build Laser Turret (greyed until available), **X** Stop. No Attack, Hold Position, Patrol or AttackMove buttons; the Agent attacks by right-click. These letters replace the older ones listed below where they differ.
+**Panel letters (4x3 grid)** (user, 2026-11-25; Q0068, "fine for now"): **Q** Move, **A** Construct (a menu: Tunnel or Laser Turret; user, 2026-11-26), **S** Drop Off Resources, **D** Repair (2026-11-26, matching the Recruit's panel), **X** Stop. No Attack, Hold Position, Patrol or AttackMove buttons; the Agent attacks by right-click. These letters replace the older ones listed below where they differ.
 
 ### DefaultState commands:
-- **A: Build Tunnel** — enters AwaitingPlacement for a Tunnel (StateOnlyTransition). Ghost preview follows cursor, snapped to grid. Tinted green when valid, red when invalid. R rotates 90° clockwise, Shift+R counter-clockwise. F flips horizontally, Shift+F flips vertically. Left-click valid location confirms placement and dispatches the Agent (CommandIssuingTransition, returns to DefaultState). Escape/right-click cancels back to DefaultState.
+- **A: Construct** — enters ConstructMenu (StateOnlyTransition; user, 2026-11-26, a separate construct menu as for Recruits):
+  - **Q: Tunnel** — enters AwaitingPlacement for a Tunnel (StateOnlyTransition). Ghost preview follows cursor, snapped to grid. Tinted green when valid, red when invalid. R rotates 90° clockwise, Shift+R counter-clockwise. F flips horizontally, Shift+F flips vertically. Left-click valid location confirms placement and dispatches the Agent (CommandIssuingTransition, returns to DefaultState). Escape/right-click cancels back to DefaultState.
+  - **W: Laser Turret** — enters AwaitingPlacement for a Laser Turret (StateOnlyTransition), same placement flow as Tunnel. Left-click a valid location confirms placement and dispatches the Agent (CommandIssuingTransition, returns to DefaultState). Visible but greyed out until the player owns an Optics Lab. Greyed until available.
+  - **Z**: back to DefaultState.
 - **S: Drop Off Resources** (letters per Panel letters above) — targeted command (CommandIssuingTransition). Requires clicking an own Tunnel. Agent walks to the appropriate side automatically (Side B for crystals, Side D for supplies). Always visible, greyed out when Agent is not carrying resources.
-- **D: Build Laser Turret** — enters AwaitingPlacement for a Laser Turret (StateOnlyTransition), same placement flow as Build Tunnel. Left-click a valid location confirms placement and dispatches the Agent (CommandIssuingTransition, returns to DefaultState). Visible but greyed out until the player owns an Optics Lab.
+- **D: Repair** — targeted command (StateOnlyTransition). Left-click a damaged own Tunnel or Laser Turret to repair it (see Repair).
 
 ### Unit Commands:
 - **Move** — right-click ground
@@ -116,13 +120,14 @@ Rationale (user, 2026-11-26; replaces the 5 s mining rationale): the drop-off ti
 - **Enter** — right-click own Tunnel (when not carrying resources)
 - **Gather** — right-click Space Crystals patch or Supply Delivery Station
 - **Drop Off Resources** — right-click own Tunnel (when carrying resources), or via panel button S
-- **Build Tunnel** — via panel button A
+- **Build Tunnel / Build Laser Turret** — via panel button A (Construct), then Q / W
 
 ### Right-Click Resolution:
 - Space Crystals patch → Gather crystals
 - Supply Delivery Station → Gather supplies
 - Own Tunnel (carrying resources) → Drop off resources (auto-routes to correct side)
-- Own Tunnel (not carrying resources) → Enter
+- Own Tunnel (not carrying resources) → Enter (also when damaged: Enter wins over Repair)
+- Damaged own Laser Turret → Repair
 - Enemy unit/building → Attack (pistol)
 - Ground → Move
 
