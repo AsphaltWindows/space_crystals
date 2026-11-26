@@ -1,6 +1,6 @@
 # Implementation Plan
 
-_Updated 2026-11-23. Spec: `artifacts/designer/design/`. Code rules: `ARCHITECTURE.md`._
+_Updated 2026-11-26. Spec: `artifacts/designer/design/`. Code rules: `ARCHITECTURE.md`._
 
 Approach: thin vertical slices the user can run and see, each verified by tests and agent-taken screenshots.
 
@@ -1865,6 +1865,19 @@ Approach: thin vertical slices the user can run and see, each verified by tests 
     - the cast lands on the ground under the cursor;
     - the Shrine has no rally point or right-click;
     - the looks (Q0001).
+- **M5-S4 A Recruitment Hall at the map edge** (Opus; merged in `cce50b54`; design change 0387):
+  - **The sim:** `placement/recruitment_area.rs` and `WholeProblem::RecruitmentAreaOffMap` are gone, so a Hall takes only its footprint rules, in every placement mode. Off-map tiles count as non-Recruitable, out of 100: 70% flush against an edge, 49% in a corner. The Tunnel's on-map rule (0242) stays.
+  - **The client:** the preview and the selected-Hall display already drew only on-map tiles. The Effectiveness label goes south of a Hall at the north edge (`label_ground`, a placeholder).
+  - **Tests:** every edge and corner in all 4 placement modes; built Halls at an edge (capacity 14) and in a corner (capacity 9); the client's preview with the fog on.
+  - **A Hall whose exit faces the map edge** keeps its finished Recruit. That follows `core/entities.md > Exit Doorway` point 5 (placement "does not keep exits clear"), with the edge blocking like terrain, so no question was filed.
+- **M5-S3 The economy rerun and Shroud's reveal** (Opus; merged in `318234db`; design changes 0385 and 0386):
+  - **0385:**
+    - `testing::cults::line_field` is the two-sided 8-patch field, with three Storage sites a side.
+    - The One Hall and Two Halls lines add Storages as needed.
+    - The pins are `COMPARED` (the four lines to 6:00), `OVERTAKEN` (true, true) and `OUT_OF_TOLERANCE`. `economy_oracle/compared.rs` is new, and `docs/economy_oracle.md > The Cults` is rewritten.
+    - The table went to the Designer in Q0146.
+  - **0386:** its citation replaces N4b's placeholder. `tests/shroud/reveals.rs` tests the reveal by a direct shot and by an area hit, and that the release reveals nobody.
+  - **The economy oracle is wrapped up** (user, 2026-11-26): "So much of it has to do with build orders and optimizations and that would be more effectively tested by me." There will be no more comparisons. Its tests become on-demand measurements, a task folded into M5-P3, and the pairings tests still check that every faction's workers gather.
 
     Whether enemies see buff marks went out as **Q0145**.
   - **Perf** (`movement_perf`, 6 pairs, load 8.7–10.3): 0.610 against 0.623 ms a tick, within the noise.
@@ -1877,15 +1890,37 @@ Approach: thin vertical slices the user can run and see, each verified by tests 
     - The Sparrow's turn radius at full speed is 200 su (MaxCentripetalAcceleration 0.5).
     - The Shroud air test that N4b left is part of it.
     - **The trial:** the first movement slice on Opus. A movement problem that resists two serious attempts is left as an `#[ignore]`d test and reported, and only that goes to Fable. Judge it on the tokens and time (from the task notification), what review finds, and anything escalated, against the earlier Fable movement slices.
-  - **M5-S3 The economy rerun and Shroud's reveal** (Opus; brief `scratchpad/briefs/m5s3-economy-rerun.md`; the user asked for it to run now):
-    - **0385:** a new two-sided 8-patch reference field (about 32 seats), and two scripted lines, One Hall and Two Halls. Both start with one Storage and add Storages as needed. The same four-line table to 6:00, pinned; the table goes back to the Designer as a question.
-    - **0386:** N4b's placeholder mark on the reveal is replaced with 0386's citation, and its Verification is a test (`tests/shroud/reveals.rs`).
-  - **M5-S4 A Recruitment Hall at the map edge** (Opus; brief `scratchpad/briefs/m5s4-hall-at-edge.md`): design change 0387. The refusal of a Hall whose area leaves the map goes (it replaces 0341 point 1), and the off-map tiles count as non-Recruitable, out of 100. The preview and the selected-Hall display show only the on-map part.
-- **Queued for the playtest** (the user is playtesting what is built, 2026-11-26):
-  - **M5-P3 A playtest map** (Opus; the user said yes): `dev_skirmish` lays each base's 8 crystals in an L two tiles from the map's corner, so Storages fit on the inner side only. The new map gives each base the reference field of `factions/cults/economy.md > Economy check`: 8 patches in a line, open on both long sides, away from the edges. Slot 2 mirrors slot 1, and every faction's starting layout is redone. `dev_skirmish` and its goldens stay.
-  - **M5-S5 Playtest interface fixes** (Opus): 0388 (the DC's E: Place) and 0389 (the Recruits' E: Attack).
-    - A "Fog off (F3)" note in the top bar: F3, next to F2, turns the fog off for both sides with nothing on screen to say so. The user hit it while switching sides.
+  - **M5-P3 A playtest map** (Opus; the user said yes; brief `scratchpad/briefs/m5p3-playtest-map.md`):
+    - `maps/playtest.json` is a copy of `dev_skirmish` in which each base gets `testing::cults::line_field`'s two-sided line of 8 patches, away from the edges. Every faction's start layout is redone for it, and `dev_skirmish` and its goldens stay.
+    - It also wraps up the oracle: its tests become ignored, on-demand measurements.
+  - **M5-S5 Panels and Attack** (Opus; brief `scratchpad/briefs/m5s5-panels-attack.md`):
+    - 0397–0399: A is Attack on every unit panel and goes to the whole selection. Units that can't attack Move instead, and A shows whenever any selected group can attack.
+    - 0398's worker panels, with 0389's Recruit Attack now on A.
+    - 0388: the DC's E: Place, with progress.
+    - 0392's Extraction Facility half: Q: Place Plate, with progress.
+    - 0395: Halls are groupable.
+    - 0391: augmentations take 48 frames each, 96 for Both.
+    - 0400, folded in: right-click in menus does the normal right-click and keeps the menu open, and in targeting or placement it goes straight to DefaultState.
+- **Queued for the playtest:**
+  - **M5-S6 Overlays and rally points** (Opus):
+    - 0390 and 0394: door arrows on ghosts and on selected buildings.
+    - 0396: rally points on unfinished buildings, for every faction.
+    - A "Fog off (F3)" note in the top bar. The user hit F3 while switching sides.
     - The editor play-test's banner drawn over the top bar's figures (found by Z3).
+  - **Computer opponents.** The user asked for them for the next playtest (2026-11-26), and Q0147 asks the Designer, non-blocking. **The plan waits for the user's go-ahead.**
+    - **Architecture** (the Director's):
+      - A new crate, `crates/ai` (`sc_ai`), depends only on `sc_sim`. It has no Bevy and is deterministic like the sim, so an AI-vs-AI game replays from its seed.
+      - Each computer player is an `Ai` whose `think(&Sim) -> Vec<PlayerCommand>` runs once a tick, like the pairings tests' `Opening::play`.
+      - It reads the game only through a `View`: its own objects; the enemies its player sees or remembers (`Vision::sees`, `remember`); the map; and the start locations. Module privacy enforces this.
+      - Its commands go through the gate into the same `TickInputs` as a player's (`sim_driver.rs`'s `PendingCommands`), so replays record them. `--replay` never runs it.
+      - The client takes `--ai <player>[:<profile>]`, for example `--factions cults,gdo --ai 2`, or `--ai 1,2` to watch two play. F2 still switches the view, but an AI player's units take no keyboard commands.
+      - QA:
+        - `--headless --fast --ai 1,2`;
+        - `crates/ai/tests/`, which plays every pairing AI against AI on every map, to a defeat or a time limit. It checks the invariants and the gate every tick and reports who won and when.
+    - **Slices:**
+      - **A1 The framework and the GDO** (Opus): all of the above, and the GDO's standard and passive profiles: the `gdo_opening` line, Barracks, and Peacekeepers in waves.
+      - **A2a–c The Cults, the Syndicate, the Colonists** (Opus, in parallel once A1 lands): each faction's opening, made robust from the pairings openings, its production, and the shared army layer. Each adds a rush profile, the GDO's included.
+      - **A3, later, from playtests:** defense, expansions, tech, spells and difficulty.
 - **Next**:
   - **M4 is complete** (M4-M, `4e3fdd4a`; the strays, M4-Z, `95b4bc6e`; the hatch jam fixed by M4-W3's contact step, `5305c2f3`). The jam's history: M4-W diagnosed it (`189d0162`), M4-W2 built 0315's first step (`b81b2089`), which didn't fix it, and 0324 planned the 90° contact step, which did. 0336 accepted the oversaturated hatch and dropped 0324's steps 2 and 3.
   - **M5 wave 1 is done:** A (`ed23874e`) and R (`afd9c152`).
@@ -2122,7 +2157,7 @@ The user keeps feeding unit and other designs to the Designer, so expect increme
   - Gliders may overshoot the map edge, staying visible and attackable at the nearest edge tile.
 - **Playtest prep** (after all four factions; the user's decision "Modules now, data files at playtest"): the defs and the `tuning/` modules load from data files, reloaded while the game runs. M4-R makes the defs serde-ready, so this is a loading layer, not a refactor.
 - **Key rebinding UI** (0011): the bindings table is built rebindable in M1-A.
-- **AI or online opponents**: decide with the user.
+- **Online opponents**: decide with the user. Computer opponents are planned under In progress > Queued for the playtest.
 - **Art pipeline** (0003):
   - 3D models pre-rendered to pixel-art sprites at the fixed camera angle; 32 native px per tile
   - one render per distinct building orientation (by SymmetryType); 16 facings for infantry, 32 for vehicles, turrets and air
@@ -2277,7 +2312,9 @@ The user keeps feeding unit and other designs to the Designer, so expect increme
 | Q0142 | Neutral units and research: does a defeated player's research still apply to their units once they are neutral? (`core/game_rules.md > On Defeat`, `core/tech_and_research.md > Research`) (M5) | no | answered by 0379 (b): neutral units keep their research; built by N3 (`63003d0c`) |
 | Q0143 | Shroud: does an attack absorbed by a cloud reveal its attacker? (`core/vision.md > Attacks from outside vision`, `disciple.md > Spells > Shroud`) (M5) | no | answered by 0386 (a): as built in N4b |
 | Q0144 | The economies compared to 6:00: the realistic opening never overtakes ideal mining on one 8-patch field, and ideal mining is still about 0.9 by 2:48. What targets now? (`factions/cults/economy.md > Economy check`) (M5) | no | answered in part by 0385: the economy is rerun on a two-sided 8-patch line, One Hall against Two Halls (M5-S3, queued); the 2:48 target waits for the new figures |
-| Q0145 | Does a player see the Shrine's buffs on enemy units? (`factions/cults/structures/shrine.md`) (M5) | no | open; built as (a): everyone who sees the unit sees its buff mark, as with the HP bars (M5-N5) |
+| Q0145 | Does a player see the Shrine's buffs on enemy units? (`factions/cults/structures/shrine.md`) (M5) | no | answered by 0393 (a): as built |
+| Q0146 | The economy oracle is wrapped up (user, 2026-11-26): its last figures, and closing the Economy check (`factions/cults/economy.md > Economy check`) (M5) | no | open |
+| Q0147 | Basic computer opponents for playtesting: what they know and how they play. The design has no computer players yet | no | open. Planned on (a): a playtest tool with placeholder behaviors |
 
 ## Design change entries
 Last triaged: 0282.
@@ -2637,9 +2674,20 @@ Last triaged: 0282.
 | 0382 **Economy comparison metrics:** income/s over the preceding 10 s, total mined, bank, and spent on economy, per line and checkpoint | done (S2a, `1801cf59`): the four metrics, pinned | — |
 | 0383 **Everything spent counts as economy, Generators included;** spent is everything spent, net of refunds. Replaces 0382's item list | done (S2a, `1801cf59`): "spent" is everything spent | — |
 | 0384 **Agents choose their Tunnel at every return,** nearest crystal hatch to the Agent when it finishes mining; ties to the earlier id. Replaces the choice kept for the Gather | done (S2a, `1801cf59`): Agents re-pick at every return, Supplies included | — |
-| 0385 **The Cults economy rerun** (answers Q0144 in part): an 8-patch line mined from both long sides, seating about 32 Recruits; One Hall against Two Halls, both starting with one Storage and adding Storages as needed; the same table to 6:00, with the GDO and the Colonists | in progress (**M5-S3**). The Q0144 pins are superseded; the new table goes back as a question | Verification: One Hall levels off at 20 mining; Two Halls reaches about 32 and builds about 5–6 Storages |
-| 0386 **A hit absorbed by Shroud reveals its attacker** to the targeted object's owner for 1.5 s; the release reveals nobody (answers Q0143) | done as built (N4b, `c0ca0956`); M5-S3 (running) cites it and turns its Verification into a test | — |
-| 0387 **A Recruitment Hall can be placed at the map edge**; the area beyond the edge counts as non-Recruitable, out of 100 (at most 70% against an edge). Replaces 0341 point 1 | in progress (**M5-S4**) | Verification: a Hall flush against the edge is accepted, and the preview shows ≤ 70% |
-| 0388 **The Deployment Center gets E: Place** in DefaultState: greyed with a filling progress bar while it constructs, lit once ready (enters AwaitingPlacement), hidden while idle. Whether the Defense System gets it too is still being asked | queued: **M5-S5** (playtest interface fixes, Opus) | Verification: order a Generator, E shows it greyed and filling; when done, E then a click places it |
-| 0389 **Recruits get E: Attack** (BasicCombatUnitInterfaceState's Attack: an enemy, force-attack on own or neutral, Attack Move on ground). Recruits already have their melee attack (Damage 3) and right-click Attack | queued: **M5-S5** | Verification: E on an enemy, they hit it for 3 a swing; E on ground, they Attack Move |
+| 0385 **The Cults economy rerun** (answers Q0144 in part): an 8-patch line mined from both long sides, seating about 32 Recruits; One Hall against Two Halls, both starting with one Storage and adding Storages as needed; the same table to 6:00, with the GDO and the Colonists | done (**M5-S3**, `318234db`). Its table went to the Designer as Q0146, and the oracle is wrapped up (user, 2026-11-26) | Verification: One Hall levels off at 20 mining; Two Halls reaches about 32 and builds about 5–6 Storages |
+| 0386 **A hit absorbed by Shroud reveals its attacker** to the targeted object's owner for 1.5 s; the release reveals nobody (answers Q0143) | done as built (N4b, `c0ca0956`). M5-S3 (`318234db`) cites it and tests its Verification (`tests/shroud/reveals.rs`) | — |
+| 0387 **A Recruitment Hall can be placed at the map edge**; the area beyond the edge counts as non-Recruitable, out of 100 (at most 70% against an edge). Replaces 0341 point 1 | done (**M5-S4**, `cce50b54`) | Verification: a Hall flush against the edge is accepted, and the preview shows ≤ 70% |
+| 0388 **The Deployment Center gets E: Place** in DefaultState: greyed with a filling progress bar while it constructs, lit once ready (enters AwaitingPlacement), hidden while idle. Whether the Defense System gets it too is still being asked | in progress (**M5-S5**) | Verification: order a Generator, E shows it greyed and filling; when done, E then a click places it |
+| 0389 **Recruits get E: Attack** (BasicCombatUnitInterfaceState's Attack: an enemy, force-attack on own or neutral, Attack Move on ground). Recruits already have their melee attack (Damage 3) and right-click Attack | in progress (**M5-S5**). 0398 moves the Attack from E to A | Verification: E on an enemy, they hit it for 3 a swing; E on ground, they Attack Move |
+| 0390 **Door arrows on building ghosts**: in at an entrance, out at an exit, and two-way at a shared door (Garrison, Bunker). They turn and flip with the ghost, for every faction | queued: **M5-S6** | Verification: an Armory ghost shows in on B and out on C, and rotating turns them; a Garrison ghost shows one two-way arrow |
+| 0391 **Faster Cults augmentations**: Enhanced Constitution and Improved Metabolism take 48 frames each, 96 for Both. Costs are unchanged | queued: **M5-S5** | Verification: Enhanced Constitution queued in the Altar, the Recruit exits augmented about 3 s later |
+| 0392 **Place buttons with progress**: the Extraction Facility's Q: Place Plate is greyed with a filling bar while the plate is built. The Defense System gets the one-slot flow (Q Build or Place Missile Turret, X Cancel), replacing 0366's "constructs like the Deployment Center" | EF half queued: **M5-S5**. The Defense System half goes with 0366, since it isn't built | Verification: order a plate, Q fills then lights; the same for a Missile Turret |
+| 0393 **Shrine buff marks show to everyone** who sees the unit, enemies included (answers Q0145, a) | done as built (M5-N5, `3197d711`) | — |
+| 0394 **Door arrows on a selected building**, as on ghosts | queued: **M5-S6** | Verification: a selected Armory shows in on its entrance and out on its exit |
+| 0395 **Recruitment Halls are groupable**: selected Halls form one SelectionGroup, and their commands, Set Rally Point among them, go to all of them. The other Cults production buildings stay ungroupable (Q0105) | queued: **M5-S5** | Verification: box-select 2 Halls and set a rally point, and both send new Recruits there |
+| 0396 **Rally points on unfinished buildings**, for every faction: C: Set Rally Point next to Cancel, and a right-click sets it. RallyPoint exists from the start of construction and is kept on completion | queued: **M5-S6** | Verification: start an Armory, select it under construction and right-click ground: a marker shows, and trained units go there after completion |
+| 0397 **Attack is always A, and goes to every selected unit**: attackers Attack or Attack Move, others Move (0398). "Common command" means the same command wherever its button sits | queued: **M5-S5** | Verification: Militants and a Prayer-mobile, A on ground: the Militants Attack Move and the Prayer-mobile moves with them |
+| 0398 **Worker panels**: Recruit Q Move, W Basic Construct, E Advanced Construct, A Attack, S Assist, D Repair, X Stop; Agent W Build Tunnel, A Attack; Field Engineer W Construct; Drone W Deploy. Units that can't attack treat Attack and Attack Move as Move | queued: **M5-S5** | Verification: Recruits W, E and A; Drones with Militants, A on ground: the Militants Attack Move and the Drones move |
+| 0399 **A shows whenever any selected group can attack**, whichever group is in focus, and is hidden only when no selected unit can attack (replaces 0398's hidden A) | queued: **M5-S5** | Verification: Drones and Militants with the Drones in focus show A; Drones alone don't |
+| 0400 **Right-click in multi-stage menus** does the selection's normal right-click and leaves the menu open (BuildMenu, ExpandMenu, EjectMenu, KindMenu, AugmentMenu). In AwaitingTarget and AwaitingPlacement it cancels straight to DefaultState, and a ready building stays ready. Escape and Z still go back one step | in progress (**M5-S5**, folded in as item 5) | Verification: Recruits in Basic Construct, right-click ground, they move and the menu stays; right-click in placement goes to DefaultState; Escape in placement goes back to the build menu |
 | 0014 GDO Airfield and aircraft | queued (Later: air) | |

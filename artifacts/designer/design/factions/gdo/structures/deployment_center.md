@@ -77,7 +77,7 @@ BuildMenu[Basic] / BuildMenu[Advanced] (instance idle — no CurrentConstruction
 - Extraction Facility: deducts 200 Space Crystals, sets CurrentConstruction = ExtractionFacility (CommandIssuingTransition, returns to DefaultState). Only available if player has sufficient Space Crystals.
 - Supply Tower: deducts 150 Space Crystals (placeholder), sets CurrentConstruction = SupplyTower (CommandIssuingTransition, returns to DefaultState). Only available if player has sufficient Space Crystals and owns at least one Radar Station.
 - Arsenal, Career Campus, Factory, Radar Station, Advanced Mechanics, Airfield, Propulsion Labs, Industrial Powerplant, Defense System: deduct their cost and set CurrentConstruction the same way; costs as in Constructs (placeholders), availability per their Requires clause.
-- Escape/right-click: returns to DefaultState (StateOnlyTransition)
+- Escape: returns to DefaultState (StateOnlyTransition). Right-click does its normal right-click and the menu stays open (systems/controls/interface.md > CommandPanel > Standard Slot Assignments > Right-click in multi-stage menus).
 
 BuildMenu (instance constructing — CurrentConstruction is set):
 - **X: Cancel Construction**: refunds full cost, clears CurrentConstruction (CommandIssuingTransition, returns to DefaultState)
@@ -95,4 +95,4 @@ AwaitingPlacement:
 - The player's current GDO build area is highlighted as a semi-transparent overlay on the ground. The overlay shows the **build area only**; whether a given tile is valid right now (flat, Visible, unoccupied, not a resource) is shown per tile on the ghost (user, 2026-11-24).
 - R rotates the ghost 90 degrees clockwise, Shift+R rotates 90 degrees counter-clockwise. Non-square buildings swap footprint dimensions when rotated to 90 or 270. F flips the ghost horizontally, Shift+F flips vertically. Side labels (A/B/C/D per SymmetryType) are displayed on the ghost and update with rotation/flipping.
 - Left-click valid location within build radius: places building at the ghost's position and rotation, clears ReadyToPlace (CommandIssuingTransition, returns to DefaultState)
-- Escape/right-click: returns to BuildMenu (StateOnlyTransition), building remains ready to place
+- Escape: returns to BuildMenu (StateOnlyTransition); right-click: returns to DefaultState (user, 2026-11-27). The building remains ready to place either way.
