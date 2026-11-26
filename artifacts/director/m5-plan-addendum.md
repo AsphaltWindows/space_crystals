@@ -31,6 +31,46 @@
 >   - **N1a (0330, refined by 0331):** when MaxHP goes up, HP goes up by the same amount, so the damage is kept; when it
 >     goes down, HP is capped at the new maximum, with no floor. This replaces T73's floor at 1 HP.
 >   - **N6 and N7:** products come out at full HP, as T71 planned.
+> - **0332–0334:**
+>   - **0332:** every pool building reserves in order of entry, and trained infantry keep the Recruit's damage (T71's
+>     placeholders confirmed, for F2, N1b, N4a, N6 and N7).
+>   - **0333:** the Gunner's FiringDuration is 4 and its CooldownDuration 6. F2 makes the change.
+>   - **0334, T77 amended for N4b:**
+>     - each connected cloud has its own timer, releasing 8 frames after the first hit it absorbs, replacing the
+>       global clock;
+>     - clouds that join release their buffers at once and start a fresh joint buffer, replacing the summed buffers;
+>     - releases ignore directional armour;
+>     - underground objects are affected;
+>     - the Disciple's regeneration continues while channelling;
+>     - every player sees the cloud over their Visible tiles;
+>     - an object is under a cloud when its centre is.
+>
+>     **N4a:** the Disciple is Ungroupable.
+> - **0335** (answers Q0115–Q0118):
+>   - **N2, T72 amended.** The Garrison has one door, on side B (AAAB). Eject All lets everyone out at once through
+>     that door, passing through each other until clear, which replaces `ExitRule::AnySide` with T62's spots.
+>     Evacuation is unchanged. Each occupant picks its own target, Range is measured from the Garrison's edge, there
+>     are no spells from inside, and augmentation doesn't change the borrowed Militant attack.
+>   - **G2:** the Gunworks and Machine Shop become ABAC (in at B, out at C). They still can't be entered until their
+>     research exists (0328). The tech gate follows 0335's general rule: losing the Gunworks never cancels Gunners
+>     already queued or in training, and W greys again for new orders. Test it.
+>   - **N3:** the Temple is ABAC (in at B, out at C), and staff leave one at a time. T72's nearest-side entrance stays
+>     only for the Shrine, until its entrance is decided. Level 2 waits for Level 1 to complete, and the Cathedral is
+>     checked at queue only (T74, confirmed).
+>   - **N5:** a unit is in the circle by its centre; a recast restarts the duration, with no stacking; Shrines are
+>     Ungroupable.
+>   - **S1:** sweep the factions already built for 0335's general rule. Nothing already started or finished may be
+>     cancelled or disabled when a prerequisite is lost. Report what happens to an order given but not yet started,
+>     such as a builder still walking to its site.
+> - **0336** (answers Q0127):
+>   - **Augment research is retroactive, and Level Locking is removed.** AugmentationState becomes two booleans
+>     (T73: `Augmentation { constitution: bool, metabolism: bool }`), and the amounts are read from the owner's current
+>     Temple levels (T74's techs).
+>   - When a level completes, every unit with that augmentation changes at once, with HP by 0331: an increase keeps
+>     the damage, and a decrease caps HP.
+>   - N1a builds the accessors on the owner's levels (none until N3, so L0 amounts), and N3 applies the HP rule as a
+>     level completes.
+>   - **N5:** the Shrine is ABAC, in at B and out at C, one at a time. T72's nearest-side entrance is no longer used.
 > - **The waves (§C) stand,** but the playtest's timing is the user's call: the full Cults at the end of W12, or a
 >   first playtest of the infantry core at the end of W9 (§F), put to the user on 2026-11-25.
 
