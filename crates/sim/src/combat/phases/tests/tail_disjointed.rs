@@ -5,6 +5,7 @@
 
 use super::*;
 use crate::combat::overlap;
+use crate::combat::phases::effects::at_the_spot;
 use crate::defs::UnitBase;
 use crate::defs::test_defs::TestDef;
 use crate::events::SimEvent;
