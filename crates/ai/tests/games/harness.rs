@@ -10,11 +10,13 @@
 //!   player knew of by then (seen or remembered: what its View showed in some tick up to this one) or its own, and
 //!   every Attack Move's point is where it knew one to stand, a start location, a Space Crystals patch the map placed
 //!   (`core/game_rules.md > Computer players (playtest tool)`: "It also knows the map"), where a wave searches for the
-//!   last buildings, or a point of its own: its staging point or where one of its buildings stands or stood.
+//!   last buildings, a point of the ground a wave searches around a start (`sc_ai::army::search_points`, slice A2a), or
+//!   a point of its own: its staging point or where one of its buildings stands or stood.
 
 use std::collections::BTreeMap;
 use std::time::{Duration, Instant};
 
+use sc_ai::army::search_points;
 use sc_ai::{Ai, Profile, Start, View};
 use sc_sim::testing::{self, invariants::Invariants};
 use sc_sim::{
@@ -207,6 +209,8 @@ pub enum Aim {
     Start,
     /// A Space Crystals patch of the map.
     Patch,
+    /// A point of the ground a wave searches around a start location (`sc_ai::army::search_points`).
+    Around,
     /// Something of the player's own: one of its objects, its staging point, or where one of its buildings stood.
     Own,
 }
@@ -252,6 +256,13 @@ impl Knowledge {
             OrderKind::AttackMove(point) if knew_at(point) => Aim::Building,
             OrderKind::AttackMove(point) if starts.iter().any(|s| s.point() == point) => Aim::Start,
             OrderKind::AttackMove(point) if self.patches.contains(&point) => Aim::Patch,
+            OrderKind::AttackMove(point)
+                if starts
+                    .iter()
+                    .any(|s| search_points(sim.map(), s.point()).contains(&point)) =>
+            {
+                Aim::Around
+            }
             OrderKind::AttackMove(point) if staging == Some(point) || self.own.contains(&point) => Aim::Own,
             OrderKind::Attack(_) | OrderKind::AttackMove(_) => {
                 return Err(format!("player {} aims {kind:?} at nothing it knew of", c.player.0));
