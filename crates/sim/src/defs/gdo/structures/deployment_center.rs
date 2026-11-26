@@ -77,6 +77,7 @@ pub(crate) static DEPLOYMENT_CENTER: ObjectDef = ObjectDef {
         research: None,
     }),
     default_settings: None,
+    energy: None,
 };
 
 #[cfg(test)]

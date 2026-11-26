@@ -52,6 +52,7 @@ fn object(kind: ObjectKind, transform: Option<Transform>) -> Object {
         popup: None,
         lineage: Vec::new(),
         augmentation: Default::default(),
+        energy: None,
     }
 }
 

@@ -47,6 +47,7 @@ pub(crate) static GENERATOR: ObjectDef = ObjectDef {
         research: None,
     }),
     default_settings: None,
+    energy: None,
 };
 
 #[cfg(test)]

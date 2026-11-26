@@ -58,6 +58,7 @@ pub(crate) static OPTICS_LAB: ObjectDef = ObjectDef {
         research: None,
     }),
     default_settings: None,
+    energy: None,
 };
 
 /// The Optics Lab's construction by a Tunnel (`StructureDef::expansion`, slice M4-F's).

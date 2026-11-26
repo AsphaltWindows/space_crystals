@@ -55,7 +55,7 @@
 
 use glam::Vec2;
 
-use crate::combat::domain_allows;
+use crate::combat::{self, domain_allows};
 use crate::construction::site::assists;
 use crate::defs::{Domain, ObjectKind, TargetDomain, Transit};
 use crate::economy::gathering::worker_def;
@@ -64,7 +64,6 @@ use crate::network;
 use crate::object::Object;
 use crate::orders::{OrderKind, Target};
 use crate::repair::repairs;
-use crate::riot_shield;
 
 /// What a unit can do, as its default command reads it.
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
@@ -73,9 +72,10 @@ pub struct Abilities {
     pub kind: ObjectKind,
     /// The TargetDomain of its attack (`systems/combat.md > AttackAttributes`); `None` for a unit without one.
     pub attack: Option<TargetDomain>,
-    /// Its type takes Attack orders: not a Peacekeeper (Shielded), whose shield is up or on its way up
-    /// (`riot_shield::takes_attack_orders`; design change 0202: "which orders the unit accepts follows its new type
-    /// from the press"). A Peacekeeper whose shield is on its way down takes them, and attacks once it is down.
+    /// Its type takes Attack orders (`combat::takes_attack_orders`): not a Peacekeeper (Shielded), whose shield is up or
+    /// on its way up (`riot_shield::takes_attack_orders`; design change 0202: "which orders the unit accepts follows
+    /// its new type from the press"), nor (M5-N4a) a unit without a weapon. A Peacekeeper whose shield is on its way
+    /// down takes them, and attacks once it is down.
     pub may_attack: bool,
     /// It gathers (`UnitDef::worker`): the Drone.
     pub worker: bool,
@@ -101,7 +101,7 @@ impl Abilities {
                 .as_ref()
                 .and_then(|unit| unit.attack.as_ref())
                 .map(|attack| attack.target_domain),
-            may_attack: riot_shield::takes_attack_orders(o.kind),
+            may_attack: combat::takes_attack_orders(o.kind),
             worker: o.worker.is_some(),
             carrying: o.worker.is_some_and(|worker| worker.load > 0),
             gathers_supplies: o.worker.is_some() && worker_def(o.kind).is_some_and(|def| def.supplies.is_some()),

@@ -52,6 +52,7 @@ pub(crate) static SCRAP_HANGAR: ObjectDef = ObjectDef {
         research: None,
     }),
     default_settings: None,
+    energy: None,
 };
 
 /// The Scrap Hangar's construction by Recruits (`StructureDef::site`, slice M5-E's; "Space Crystals cost and

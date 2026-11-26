@@ -1,14 +1,15 @@
 //! The Disciple — `factions/cults/units/disciple.md`.
 
 use crate::defs::units::{Augmentable, MovementAttrs, UnitBase, UnitDef};
-use crate::defs::{Armor, Category, Footprint, ObjectDef, ObjectKind};
+use crate::defs::{Armor, Category, EnergyDef, EnergyRegen, Footprint, ObjectDef, ObjectKind};
 use crate::math::PI;
 use crate::player::Faction;
 
 /// `factions/cults/units/disciple.md`: "The Cults' spell caster, trained from a single Recruit at the Cathedral". Its
-/// numbers only (slice M5-G2, plan decision T69): its energy (`> Energy`), its spell (`> Spells > Shroud`) and its
-/// training at the Cathedral come with its slice, so no building trains it yet. Its numbers are the design's
-/// "Placeholder stats".
+/// numbers (slice M5-G2, plan decision T69), and since slice M5-N4a its energy pool (`> Energy`: "The Disciple has its
+/// own energy pool, which it spends on its spells. It regenerates naturally over time", `crate::energy`), which the
+/// Cathedral trains it with (`factions/cults/structures/cathedral.md > Training`); its spell (`> Spells > Shroud`)
+/// comes with slice M5-N4b. Its numbers are the design's "Placeholder stats".
 pub(crate) static DISCIPLE: ObjectDef = ObjectDef {
     kind: ObjectKind::Disciple,
     name: "Disciple",
@@ -59,6 +60,12 @@ pub(crate) static DISCIPLE: ObjectDef = ObjectDef {
     }),
     structure: None,
     default_settings: None,
+    // Energy - MaxEnergy 200; starts at 50; regenerates 0.5 per second
+    energy: Some(EnergyDef {
+        max: 200.0,
+        start: 50.0,
+        regen: EnergyRegen::PerSecond(0.5),
+    }),
 };
 
 #[cfg(test)]
@@ -69,7 +76,7 @@ mod tests {
 
     /// The Cults' infantry body (LightInfantry, 24×24, MaxHP 40, no armour, MaxSpeed 4, RuggedTerrainDefenseBonus 50%),
     /// with SightRange 6, not Groupable (Q0112), and no weapon nor turret; Unit Control 1, the one Recruit it is
-    /// trained from.
+    /// trained from; (M5-N4a) its energy pool: "MaxEnergy 200; starts at 50; regenerates 0.5 per second".
     #[test]
     fn the_disciple_follows_the_design() {
         let def = ObjectKind::Disciple.def();
@@ -99,6 +106,14 @@ mod tests {
                 unit.beacon_capacity_cost
             ),
             (Some(1), None, None)
+        );
+        assert_eq!(
+            def.energy,
+            Some(EnergyDef {
+                max: 200.0,
+                start: 50.0,
+                regen: EnergyRegen::PerSecond(0.5)
+            })
         );
     }
 }

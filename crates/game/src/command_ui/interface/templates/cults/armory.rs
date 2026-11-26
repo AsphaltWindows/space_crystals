@@ -7,8 +7,10 @@
 //! - KindMenu\[kind\] ([`kind_menu`]): "the building's production options, using Recruits of that kind (e.g. Armory:
 //!   **Q** Train Militant, **W** Train Gunner [...]), plus **A: Release**; **Z** back. Clicks stay in the menu so they
 //!   can be repeated." The Armory's are its two recipes', Q Train Militant and W Train Gunner (slice M5-G2), the
-//!   Gunner's greyed while its owner has no Gunworks, as the gate refuses it (`sc_sim::Reject::Requires`). A unit not in
-//!   the game would hold its slot ([`PanelTemplate::planned`]), as the Gunner's did until slice M5-G2.
+//!   Gunner's greyed while its owner has no Gunworks, as the gate refuses it (`sc_sim::Reject::Requires`); the
+//!   Cathedral's its one, Q Train Disciple (slice M5-N4a, `factions/cults/structures/cathedral.md > Placeholder stats`:
+//!   "**Q: Train Disciple**, **A: Release** in the kind menu"). A unit not in the game would hold its slot
+//!   ([`PanelTemplate::planned`]), as the Gunner's did until slice M5-G2.
 //!
 //! Its right-click sets the rally point (`factions/cults/structures/armory.md > ObjectInterfaceState[Armory] >
 //! Right-click resolution`: "Right-click Ground: issues SetRallyPoint command to that location; Right-click Object:
@@ -22,7 +24,8 @@ use super::super::{InterfaceTemplate, PanelCommand, PanelTemplate, slot_index};
 use crate::input::CommandSlot;
 use crate::kinds;
 
-/// The Armory's panel template: the pool buildings', its KindMenus its recipes'.
+/// The Armory's panel template: the pool buildings', its KindMenus its recipes'; the Cathedral's too (slice M5-N4a),
+/// the next pool building, whose panel is its data.
 pub const TEMPLATE: PanelTemplate = PanelTemplate::of(InterfaceTemplate::PoolProducer);
 
 /// A pool building's DefaultState, slot by slot (`CommandSlot::all` order): the four kinds in Q, W, E and R, Eject

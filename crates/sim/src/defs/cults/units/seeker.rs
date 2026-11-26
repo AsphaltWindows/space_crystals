@@ -83,6 +83,7 @@ pub(crate) static SEEKER: ObjectDef = ObjectDef {
     }),
     structure: None,
     default_settings: None,
+    energy: None,
 };
 
 #[cfg(test)]

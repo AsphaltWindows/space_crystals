@@ -163,8 +163,10 @@ Units, structures and resources are all `Object`s (`object.rs`, `core/entities.m
 "ECS-lite": a plain struct with core fields plus one `Option` per capability.
 
 - **Core fields**: `id`, `kind`, `owner` (`None` means neutral), `pos`, `prev_pos`, `facing`, `prev_facing`, `hp`
-  (`None` means indestructible) and `shields` (the current Shields of an object whose kind has MaxShields, the
-  Colonists' kinds; `None` for the rest; see *Combat > Shields*).
+  (`None` means indestructible), `shields` (the current Shields of an object whose kind has MaxShields, the
+  Colonists' kinds; `None` for the rest; see *Combat > Shields*) and (slice M5-N4a) `energy` (the energy of an object
+  whose kind has an energy pool, the Disciple's: a whole number of `energy::ONE`s a point; `None` for the rest; see
+  *Combat > Energy*).
 - **Capabilities**: today these are `placement` (the tile footprint), `resource` (`ResourceState`), and for units
   `orders` (`Orders`, `orders.rs`: the current order with its behaviour's state, a queue of at most
   `MAX_QUEUED_ORDERS`, and what the unit does on its own while it has none; see *Behaviours*), `mover`
@@ -596,8 +598,10 @@ Units, structures and resources are all `Object`s (`object.rs`, `core/entities.m
   Shield) stays the same object, its id included.
   `Sim::change_kind(id, kind, placement)` is the one place a kind changes, and it emits `SimEvent::KindChanged`. It
   keeps the id, owner and facing; the position too, unless the object gets a placement, whose centre it then jumps
-  to (`prev_pos` too); the HP, clamped to the new MaxHP (callers interpolate HP themselves); and the Shields, clamped
-  to the new MaxShields (a kind without any has none, one that gains them starts full). It rebuilds the
+  to (`prev_pos` too); the HP, clamped to the new MaxHP (callers interpolate HP themselves); the Shields, clamped
+  to the new MaxShields (a kind without any has none, one that gains them starts full); and (slice M5-N4a) the energy,
+  kept at most the new maximum (`energy::after_change`: a kind without a pool has none, one that gains a pool starts
+  at its type's start, so the Recruit a Cathedral trains comes out a Disciple with 50). It rebuilds the
   capabilities from the new def with `kinds::Capabilities::fresh`, which `Sim::insert_object` uses as well: a
   capability whose def part is unchanged keeps its state, a new one starts fresh, one the new kind lacks goes. A
   unit that stays a unit keeps its orders and its move (design change 0150), replanning if its grid changes; a
@@ -924,6 +928,12 @@ Layout validation can't disagree. **Never test a placement rule anywhere else: a
      dead regenerate nothing and a hit's tick ends with the regeneration on top of it; before the economy, so that a
      transforming object regenerates up to the maximum its tick began with, which `Sim::step_transforms` then raises,
      its Shields with it.
+   - Energy, `energy::step` (slice M5-N4a, plan decision T75, see *Combat > Energy*): right after the Shields, as T75
+     has it. Every object's energy, on the map and then held, in id order, regenerates its type's rate a tick, up to
+     its MaxEnergy: after 5e's removals, so that the dead regenerate nothing; before the economy, so that a unit it
+     trains has its type's start at the end of its first tick. An object created in the tick (`first_new` on)
+     regenerates from the next; a unit trained as its building is destroyed (the evacuation, in 5e) gets its pool
+     before this step, and ends its tick a tick's regeneration above its start.
    - Economy, `economy::step` (plan decision T5, see *Economy*): after 5e's removals and their `paths::sync`, so
      that a building destroyed in the tick counts for nothing in it; before 5f, so that what it brings into the game
      is seen in its own tick. In order: every player's power (the structures this tick's commands placed included),
@@ -1106,6 +1116,18 @@ ticks spent in it. Hashed and serialized like all state.
   too (design change 0146), in their own step (see *Tick pipeline*). A transforming object's follow its interpolated
   maximum as its HP do and regenerate up to it (design changes 0110 and 0146, `transform::follow_max`), and a cancel
   keeps their fraction, with no minimum (0111, `transform::keep_fraction`). The vision's records keep no Shields.
+- **Energy** (`energy.rs`; slice M5-N4a, plan decision T75; `factions/cults/units/disciple.md > Energy`): an object
+  whose kind has an energy pool (`ObjectDef::energy`, an `EnergyDef` in points as the design gives them: its maximum,
+  its start and its regeneration, `EnergyRegen::PerSecond` or, for the Shrine to come, `PerUnitInside`) has
+  `Object::energy`, a whole number of `energy::ONE`s (`RATIO_ONE`) a point, so that the design's rates add up exactly
+  (0.5 a second is 2048 a tick, `energy::per_tick`: 50 to 200 in 4800 ticks, 300 s to the tick) and a spell's
+  threshold compares exactly. It has its type's start as it comes into the game (`energy::start`, `Sim::new_object`)
+  or gains a pool (`energy::after_change`), and regenerates in `Phase::Energy` (`energy::step`) up to its maximum,
+  whoever owns it, a unit held inside a building too (Placeholder: "It regenerates naturally over time" names no
+  exception). Hashed (tag 7) and saved only while set, so that a save from before loads with none and a game without
+  a pool hashes as it did. Spending is the spells' (Shroud's drain, slice M5-N4b; the Shrine's casts, M5-N5). The
+  client reads it in points (`energy::of`): the energy bar and the InfoPanel's line. E1 (*Movement and collision >
+  Invariants*) holds it within the pool.
 - **Weapon Conversion** (`conversion.rs`, `sim/modes.rs`; `factions/colonists/units/weapon_conversion.md`, plan
   decision T26, design change 0198): `Ability::Convert` flips the target form of each Legionnaire it goes to, a
   Sabre's to the Rifle Legionnaire and a Rifle's to the Sabre (`conversion::converts_to`): its type switches at the
@@ -1165,9 +1187,12 @@ ticks spent in it. Hashed and serialized like all state.
   moves at half speed (`Mover::speed_factor`, from how far up the shield is: `riot_shield::speed_factor`) and can't
   attack (`riot_shield::allows_attack(object)`, the one "may it attack now" check: the behaviours, 5e and
   auto-targeting ask it; the client draws the shield from `riot_shield::mode`). Which orders it takes follows its
-  type (design change 0202, `riot_shield::takes_attack_orders(kind)`: the gate, the default command and the client's
-  panel and right-click ask it): a Peacekeeper (Shielded) takes no Attack (the gate drops it from new Attack orders,
-  `Reject::CannotAttack` when none is left; design change 0075), and a right-click on an enemy makes it follow (0074);
+  type (design change 0202, `riot_shield::takes_attack_orders(kind)`, which `combat::takes_attack_orders(kind)` joins
+  to the weapon: the gate, the default command and the client's panel and right-click ask the latter): a Peacekeeper
+  (Shielded) takes no Attack (the gate drops it from new Attack orders, `Reject::CannotAttack` when none is left;
+  design change 0075), and a right-click on an enemy makes it follow (0074); so (slice M5-N4a) does a type without a
+  weapon (`UnitDef::attack` none, the Disciple: "AttackAttributes - None"), which has no `attack` capability and so
+  never auto-targets;
   a Peacekeeper whose shield is on its way down takes one, "accepted and held", and attacks once the shield is down.
   Meanwhile its behaviours see no attack (`Unit::attrs`: no auto-targeting, Hold disengages), and 5e cancels an
   aim (`can_attack_now` is false); a shot already being fired lands. **Orders are kept** (design change 0150): an
@@ -2005,12 +2030,14 @@ and the code is `crates/sim/src/movement.rs` and `movement/`, with the unit's st
   (M5-M1) H1 (`hit_points`): every object, on the map or held, has HP exactly when it has a MaxHP, above 0 and at most
   its MaxHP with its Augmentations (`Object::max_hp_with`), and Shields within 0 and its MaxShields; B1 (`banks`): no
   bank wraps below 0 or past its top in a tick (it changes by less than half its range, but by a `SetResources` of the
-  tick); A1 (`augmentations`): only an augmentable kind has an Augmentation. A `TestSim` checks them after every tick
+  tick); A1 (`augmentations`): only an augmentable kind has an Augmentation; (M5-N4a) E1 (`energy`): every object,
+  on the map or held, has energy exactly when its kind has a pool, at most its maximum. A `TestSim` checks them after
+  every tick
   and panics with a picture of
   the map (`TestSim::ascii`: units as letters, with a legend). The check is on by default; `check_invariants(false)`
   turns it off for timing runs. A test that steps a bare `Sim` keeps its own `Invariants` and calls `check` after each
   step, as the golden games do (`tests/golden/harness.rs`). The fuzz's games (`tests/robustness.rs`, the seed sweep's)
-  check the rules' invariants alone, `Invariants::check_rules` (P1, O1, R1, H1, B1, A1): V1 and K1, which rebuild the
+  check the rules' invariants alone, `Invariants::check_rules` (P1, O1, R1, H1, B1, A1, E1): V1 and K1, which rebuild the
   vision and the planning grids, would take the sweep from 5 s to 26 s.
 
 ## Economy
@@ -2478,6 +2505,19 @@ their energy doorway, slice M3-D2: design change 0145, `factions/colonists/struc
   first augmented; `refusals.rs`; `release.rs`: 0337's Release and a fully augmented unit; `cancel.rs`;
   `destruction.rs`; `entering.rs`: the four types and the right-click; `training.rs`: an augmented Recruit trained;
   `saves.rs`), each tick under the invariants.
+- **The Cathedral** (slice M5-N4a; `factions/cults/structures/cathedral.md > Training`: "Works like the Armory's
+  Training"; design changes 0328, 0332, 0334, 0337 and 0348): the pool path as data, with no code of its own
+  (`defs/cults/structures/cathedral.rs`: Recruits in at B, 10 of them counting the reserved, out at C; its one recipe,
+  the Disciple, of 1 Recruit, 75 Space Crystals and 320 frames): its training, Release, Eject All, X's refund and
+  destruction are the pool building's above. Recruits build it while their player owns a Temple
+  (`StructureDef::requires`, `Reject::Requires(Temple)` as the Build is given); losing the Temple later cancels
+  nothing. Its Disciple keeps the Recruit's damage and its Augmentations (infantry) and comes out with its type's
+  starting energy (*Combat > Energy*). Tests: `crates/sim/tests/cathedral/` (`training.rs`: Q's price and frames, the
+  energy to 200 in 300 s, first in first trained, X's refund, the gate's refusals, Q to three Cathedrals; `pool.rs`: a
+  Release, Eject All, the capacity, a destroyed Cathedral, the right-click's Enter; `disciple.rs`: the Recruit's damage
+  and Augmentations, no weapon, an Attack refused beside a Militant's; `temple.rs`; `saves.rs`) and
+  `crates/sim/tests/energy/` (the regeneration exact to the tick, held units', the hash and the saves), each tick under
+  the invariants.
 - **The exit doorways** (`production::ExitDoor`, the one geometry for the release, the movement step and the
   invariants; `ExitDoor::of` reads the building's `ProductionDef::exits`, an `ExitRule`, against its sides as
   placed, `sides`). Two kinds:
@@ -3200,7 +3240,10 @@ their energy doorway, slice M3-D2: design change 0145, `factions/colonists/struc
   `command_ui/interface/tests/cults.rs` (the panel as data) and `hud/info_panel/activity/tests/armory.rs`. The
   Altar's (slice M5-N1b): `tests/commands/altar.rs` (units right-clicked in, W,Q,Q's order with the InfoPanel's
   queue, R,R's Release alone, X's refund, Eject All) and `command_ui/interface/tests/altar.rs` (the three stages as
-  data, their counts from a game, one Altar Tabbed to).
+  data, their counts from a game, one Altar Tabbed to). The Cathedral's (slice M5-N4a): `tests/commands/cathedral.rs`
+  (Recruits right-clicked in, Q,Q's Disciple out with its energy, its panel and InfoPanel, its right-click on an enemy
+  a move), `command_ui/interface/tests/cathedral.rs` (the Cathedral's and the Disciple's panels as data, an Attack
+  leaving the Disciple out), `tests/combat/` (the energy bar) and `hud/info_panel/tests.rs` (the energy line).
 - **Cults construction tests** (slice M5-E) are `crates/sim/tests/cults_construction/` (`flow.rs`: four Recruits in
   80 frames paid once, five from one side spread along the wall (0339), two at twice the rate, one alone, a Shift
   chain, builders pulled off and back by Assist, the right-click; `refunds.rs`: two of three re-ordered and then the
@@ -3450,7 +3493,10 @@ these.
   0207: the Syndicate's lasers, the Guard's and the Laser Turret's, red), HP bars over damaged and selected objects (a
   unit's clear of its silhouette's corners, a structure's along the top edge of its footprint and as wide as it), with a
   shield bar right above for an object that has Shields (`systems/combat.md > Shields > Display`, design change 0148;
-  `SHIELD_FILL`, a placeholder colour), shown too while only its Shields are down, and a fading marker for each
+  `SHIELD_FILL`, a placeholder colour), shown too while only its Shields are down, and (slice M5-N4a) an energy bar
+  right under it for an object that has an energy pool (`HpBar::energy`, from `sc_sim::energy::of`; `ENERGY_FILL`, a
+  placeholder violet), shown with the HP bar alone, energy short of its maximum being no damage (Placeholder), and a
+  fading marker for each
   `SimEvent::Died` (`DEATH_MARKER_TICKS`), never for an object that was hidden from the local player
   (`shows_death`, the `Hiding` its death carries; plan decision T52: "nothing is drawn for a hidden victim", as a
   Hideout under a blast; no hit is drawn for any victim). Each effect keeps its event's `Sighting` (*Viewer events*):
@@ -3541,7 +3587,9 @@ Selection), the CommandPanel (`hud/command_panel.rs`) its commands (see Commands
 shows its name (`SectionLabel`). A selected object the player doesn't see shows its record's last-known state and a
 "Last seen … ago" line (a placeholder wording), except that a GDO player's remembered Supply Delivery Station shows
 the live station's NextDeliveryTime (`core/map.md > SupplyDeliveryStation > InfoPanel`, design change 0057), "No
-delivery scheduled" while it isn't empty, and never CurrentSupplies. A structure's panel follows design change 0105:
+delivery scheduled" while it isn't empty, and never CurrentSupplies. An object with Shields shows "Shields a / b" after its HP, and (slice M5-N4a)
+one with an energy pool "Energy a / b" after those, rounded down (to every player who sees it, placeholders). A
+structure's panel follows design change 0105:
 the local player's own shows its HP and, in the activity area under it (`InfoText::Activity`, hidden while empty),
 what it is doing; another player's (or a neutral one) its owner and HP only. The activity's lines come from
 `hud/info_panel/activity.rs::lines`, the one extension point for them: each structure capability adds its lines there
@@ -3772,7 +3820,10 @@ Drones, through one command flow (plan decision T10, slices M2-H1, M2-H2 and M3-
   DefaultState (design change 0199), so the next press goes to every unit the last one reached. `Modes` holds the
   selected units' modes: Attack is disabled while none of its recipients takes one, by its type from the press
   (design change 0202, `riot_shield::takes_attack_orders`: a Peacekeeper whose shield is on its way down takes it and
-  attacks once the shield is down). An Attack sent in the frame of a Lower Shield, before the sim's tick, goes too:
+  attacks once the shield is down), and (slice M5-N4a) the selected units whose type takes none at all
+  (`Modes::held`, `combat::takes_attack_orders`: without a weapon, the Disciple, or Shielded), so that an explicit
+  Attack leaves them out (`unit_target_order`) and Attack is greyed "Lower the Riot Shield first" while a recipient is
+  shielded, else "Not available for this unit" (`WhyUnavailable::NotForThisType`). An Attack sent in the frame of a Lower Shield, before the sim's tick, goes too:
   the gate refuses it only because the unit is still a Peacekeeper (Shielded), and the tick applies the Lower first
   (`OrderOutbox::give`, `attack_once_toggled`). `Conditions` holds the `Modes` and what
   the command gate refuses: a production command is disabled exactly when `Sim::validate` refuses the
@@ -3985,6 +4036,14 @@ Drones, through one command flow (plan decision T10, slices M2-H1, M2-H2 and M3-
   0348 point 5: the Armory is Ungroupable): every command of a pool building's panel goes to the one Tabbed to, X and C
   too (`is_common`, `holding::trains`), where a Barracks shares them with the others selected (0083); a right-click
   still rallies every selected producer, as each selected object resolves it for itself.
+- **The Cathedral's and the Disciple's panels** (slice M5-N4a; `factions/cults/structures/cathedral.md > Placeholder
+  stats`: "Panel like the Armory's [...]: **Q: Train Disciple**, **A: Release** in the kind menu";
+  `factions/cults/units/disciple.md > Placeholder stats`: "BasicCombatUnitInterfaceState, plus **R: Shroud**"): the
+  Cathedral's is the Armory's `TEMPLATE` (`kinds/cults/cathedral.rs`), its KindMenus' Q its one recipe. The Disciple's
+  (`templates/cults/disciple.rs`) is the BasicCombatUnit's with R holding Shroud's slot, `Planned::Shroud`, until slice
+  M5-N4b: the BasicCombatUnit grid places a type's `PanelTemplate::planned` in its free slots
+  (`templates::basic_combat_unit_grid`); A is greyed for want of a weapon (`Modes`, above). The Recruit's Advanced
+  Construct C is the Cathedral's Build, greyed "Requires a Temple" until one stands.
 - **The Altar's panel** (slice M5-N1b; `factions/cults/augmentation.md > Altar > ObjectInterfaceState[Altar]`: "a
   three-stage selection: **unit type → current AugmentationState → Augmentation to apply**"): `templates/cults/altar.rs`
   (`InterfaceTemplate::Altar`) is Q, W, E and R `PanelCommand::AugmentMenu(unit)` (Recruit, Militant, Gunner,
@@ -4003,8 +4062,9 @@ Drones, through one command flow (plan decision T10, slices M2-H1, M2-H2 and M3-
   greyed by the gate while empty (`Reject::NothingInside`); its site's panel is every site's X (`SITE_GRID`). It is
   Groupable and trains nothing, so Eject All is a common command, to every selected Garrison (`is_common`). It
   resolves no right-click (`object_right_click`: `None`, with the Beacon's and the Tunnel's); the right-click of the
-  four kinds it takes in on it is the sim's Enter, under `PointerDisplay::Enter` (the Recruit's, the Militant's and
-  the Gunner's BasicCombatUnit template and the Disciple's none all resolve by the sim's one rule). Its occupants'
+  four kinds it takes in on it is the sim's Enter, under `PointerDisplay::Enter` (the Recruit's template, and the
+  BasicCombatUnit one of the Militant, the Gunner and, since slice M5-N4a, the Disciple, all resolve by the sim's one
+  rule). Its occupants'
   shots are drawn from where the sim says they leave, the footprint's edge (`SimEvent::Attacked::from`), in the
   style of the weapon they fire there and their owner's colour (`combat_effects::occupant_form`, from
   `Sim::held_unit`: a held attacker is neither on the map nor dead).
@@ -4666,7 +4726,9 @@ The faction's own mechanics come next, each only if it has them (M3's and M4's i
     label of six characters at most with its full name in the hover hint, and the press shown at once
     (`ControlState::toggle`, `PendingCommands::kind_of`).
 11. **Shields** (M3-B): `max_shields` in the def; `Object::shields` absorbs in `combat/damage.rs::resolve` and
-    regenerates in `Phase::Shields`; the client draws the bar and the InfoPanel line.
+    regenerates in `Phase::Shields`; the client draws the bar and the InfoPanel line. **Energy** (M5-N4a) likewise:
+    `energy` in the def (an `EnergyDef`); `Object::energy` regenerates in `Phase::Energy`, and E1 bounds it; the
+    client draws its bar and line from `energy::of`.
 12. **Workers** (M3-H, M3-H2, M3-H3, M3-K2a): a `WorkerDef` (its carry capacity, mining and drop-off times and
     reaches, search radius and `pass_through`), the Gather and Drop Off orders (`orders/gather.rs`, the gate in
     `sim/workers.rs`), the timed work and the bank credit (`economy/gathering.rs`, `SimEvent::ResourcesDelivered`),

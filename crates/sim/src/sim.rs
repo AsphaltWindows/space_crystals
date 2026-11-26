@@ -387,6 +387,8 @@ impl Sim {
             popup: crate::popup::def_of(kind).map(|_| crate::popup::PopUp::LOWERED),
             lineage: Vec::new(),
             augmentation: Default::default(),
+            // (M5-N4a) Its type's start (`crate::energy`).
+            energy: crate::energy::start(kind),
         }
     }
 

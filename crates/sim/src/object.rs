@@ -144,6 +144,14 @@ pub struct Object {
     /// it existed load and those without one hash as they did.
     #[serde(default, skip_serializing_if = "Augmentation::is_none")]
     pub augmentation: Augmentation,
+    /// (M5-N4a) The energy of an object whose type has an energy pool (`ObjectDef::energy`, plan decision T75;
+    /// `crate::energy`), the Disciple's: a whole number of [`crate::energy::ONE`]s, a point each, from 0 to its type's
+    /// maximum. It comes with the type's start, as the object comes into the game or becomes of the type
+    /// (`Sim::change_kind`), and regenerates every tick (`crate::energy::step`). `None` for every other object. Optional
+    /// in files and left out of them while `None`, and hashed only while set, so that states saved before it existed
+    /// load (`sim/load.rs`: an object of such a type at its start) and those without one hash as they did.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub energy: Option<u32>,
 }
 
 impl Object {

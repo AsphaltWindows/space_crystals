@@ -173,7 +173,8 @@ impl UnitCapabilities {
         }
     }
 
-    /// Its type takes an Attack: not a Peacekeeper (Shielded) ([`Modes::can_attack`], design change 0202).
+    /// Its type takes an Attack: not a Peacekeeper (Shielded) ([`Modes::can_attack`], design change 0202), nor (M5-N4a)
+    /// a unit without a weapon.
     pub fn may_attack(&self) -> bool {
         self.abilities.is_none_or(|abilities| abilities.may_attack)
     }
@@ -286,7 +287,8 @@ pub fn move_to(target: &MapTarget) -> OrderKind {
 
 /// The order one of a targeting click's recipients takes, when the click gives `kind` ([`target_order`]): design
 /// change 0075 (`factions/gdo/units/peacekeeper.md > Riot Shield > Explicit Attack`): a unit whose type takes no
-/// Attack (a Peacekeeper (Shielded), design change 0202) is left out of an explicit Attack, on any object, and keeps
+/// Attack (a Peacekeeper (Shielded), design change 0202; (M5-N4a) a unit without a weapon, a Disciple, as the gate
+/// leaves it out: `sc_sim::combat::takes_attack_orders`) is left out of an explicit Attack, on any object, and keeps
 /// its orders; the units that take it carry it out, a Peacekeeper whose shield is on its way down once it is down.
 /// Every other order goes to every recipient, an AttackMove too
 /// (design change 0076, `systems/controls/commands.md > AttackMove > Units that can't attack`: it plays out as a

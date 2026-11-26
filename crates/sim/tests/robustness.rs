@@ -216,7 +216,8 @@ fn random_command(rng: &mut Rng, sim: &Sim) -> PlayerCommand {
 /// Every object stays where the sim's rules allow it. Units (`docs/movement.md > 8`): I2, a ground unit's box
 /// overlaps no blocked tile and stays inside the map; I3, no unit moves more than its top speed in a tick. (M5-M1) And
 /// the invariants of the game's rules hold, whatever the input (`Invariants::check_rules`: P1, O1, R1, and H1, B1 and
-/// A1, the HP, the banks and the Augmentations), `rules` having seen the tick before the step that applied `inputs`.
+/// A1, the HP, the banks and the Augmentations, and (M5-N4a) E1, the energy), `rules` having seen the tick before the
+/// step that applied `inputs`.
 /// Each message begins with what broke and the tick, so that [`seed_sweep`]'s list reads at a glance.
 fn check_invariants(sim: &Sim, inputs: &TickInputs, rules: &mut Invariants) {
     let (map, tick) = (sim.map(), sim.tick());

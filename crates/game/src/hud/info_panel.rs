@@ -7,7 +7,10 @@
 //!   player's own shows its HP and, in the activity area under it, what it is doing ([`activity`]); another player's,
 //!   or a neutral one, shows its owner ("Neutral") and HP only, never what it is doing. An object that has Shields (the
 //!   Colonists', `systems/combat.md > Shields > Display`, slice M3-B, design change 0148: "Shields current/max" next to
-//!   the HP line) shows them on the line after its HP, "Shields a / b". A type's own section adds to that: the
+//!   the HP line) shows them on the line after its HP, "Shields a / b"; (slice M5-N4a) one that has an energy pool (a
+//!   Disciple, `factions/cults/units/disciple.md > Energy`) its energy on the line after those, "Energy a / b", rounded
+//!   down, so that a spell's threshold is met when the line says it is. Placeholder (not in the design: shown as the
+//!   Shields are, to every player who sees the object). A type's own section adds to that: the
 //!   Extraction Plate shows its owner the remaining Space Crystals of the patch under it (`factions/gdo/economy.md >
 //!   ExtractionPlate > InfoPanel`, design change 0099), with the line the patch's own panel has, since a covered patch
 //!   can't be selected on its own (`factions/gdo/economy.md > Selecting a covered patch`). Only its owner (design
@@ -125,6 +128,8 @@ struct Shown<'a> {
     /// Its Shields and MaxShields, the latter interpolated while it transforms (`Object::max_shields`).
     shields: Option<f32>,
     max_shields: Option<f32>,
+    /// (M5-N4a) Its energy and its pool's maximum, in points (`sc_sim::energy::of`), if it has a pool.
+    energy: Option<(f32, f32)>,
     resource: Option<ResourceState>,
     /// The live object, when the panel shows it as it is now.
     live: Option<&'a Object>,
@@ -139,6 +144,7 @@ impl<'a> Shown<'a> {
             max_hp: object.max_hp_with(sim.research()),
             shields: object.shields,
             max_shields: object.max_shields(),
+            energy: sc_sim::energy::of(object),
             resource: object.resource.clone(),
             live: Some(object),
         }
@@ -168,6 +174,7 @@ impl<'a> Shown<'a> {
             max_hp: record.max_hp(),
             shields: None,
             max_shields: None,
+            energy: None,
             resource,
             live: None,
         }
@@ -200,6 +207,10 @@ fn object_info(sim: &Sim, sight: &Sight, shown: Shown, record: Option<&LastKnown
     if let (Some(shields), Some(max)) = (shown.shields, shown.max_shields) {
         // Rounded up as the HP are, so that Shields as full as their maximum show as full.
         body.push(format!("Shields {} / {}", shields.ceil(), max.ceil()));
+    }
+    if let Some((energy, max)) = shown.energy {
+        // Rounded down, unlike the HP: a spell that needs 10 energy can start once the line says 10.
+        body.push(format!("Energy {} / {}", energy.floor(), max.floor()));
     }
     match shown.resource {
         Some(ResourceState::CrystalPatch { remaining }) => body.push(format!("Space Crystals: {remaining}")),

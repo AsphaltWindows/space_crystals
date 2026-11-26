@@ -153,13 +153,15 @@ mod tests {
 
     /// Slice M3-K2a: the hint names every button of every panel in full, after its hotkey: every command each type
     /// may show, in every state, greyed out or not, and Back. A label that is its command's name in full ("Move",
-    /// "Back") is the only one the hint repeats; a button that makes something names it in full ("PK": "Train
-    /// Peacekeeper").
+    /// "Back", the Disciple's "Shroud" since slice M5-N4a) is the only one the hint repeats; a button that makes
+    /// something names it in full ("PK": "Train Peacekeeper").
     #[test]
     fn the_hint_names_every_button_in_full() {
         let bindings = Bindings::default();
         let hotkeys: Vec<String> = CommandSlot::all().map(|slot| hotkey_label(&bindings, slot)).collect();
-        let whole = ["Move", "Attack", "Patrol", "Stop", "Deploy", "Eject", "Repair", "Back"];
+        let whole = [
+            "Move", "Attack", "Patrol", "Stop", "Deploy", "Eject", "Repair", "Shroud", "Back",
+        ];
         let mut types: Vec<GroupType> = ObjectKind::ALL.iter().map(|&kind| GroupType::finished(kind)).collect();
         let warped_in = transform::warp_in_recipes(ObjectKind::Beacon).iter().map(|r| r.kind);
         let sites = [ObjectKind::Tunnel];

@@ -10,9 +10,10 @@
 //! `reservations`, slice M5-F2), (M5-M1) the hit-point invariant H1 (every object's HP is above 0 and at most its MaxHP
 //! with its Augmentations, its Shields within 0 and its MaxShields: `hit_points`), the bank invariant B1 (no bank goes
 //! below 0 or past its top: `banks`) and the augmentation invariant A1 (only a kind that can be augmented has an
-//! Augmentation: `augmentations`), H1 and A1 over the held units too, (M5-N3) the research invariant T1 (techs come only
-//! from completed research, each queued at one structure that offers it: `research`), and an ASCII picture of the map
-//! with its units for readable failures.
+//! Augmentation: `augmentations`), H1 and A1 over the held units too, the energy invariant E1 (an object has energy
+//! exactly when its type has a pool, and at most its maximum, held units too: `energy`, slice M5-N4a), (M5-N3) the
+//! research invariant T1 (techs come only from completed research, each queued at one structure that offers it:
+//! `research`), and an ASCII picture of the map with its units for readable failures.
 //!
 //! [`super::TestSim`] checks them after every tick (on by default). A test that steps a bare [`Sim`] keeps its own
 //! [`Invariants`] and calls [`Invariants::check`] after each step, as the golden games do (slice M5-M1); the fuzz's
@@ -20,6 +21,7 @@
 
 mod augmentations;
 mod banks;
+mod energy;
 mod hit_points;
 mod operations;
 mod overlaps;
@@ -58,7 +60,7 @@ pub use picture::ascii;
 /// A broken invariant.
 #[derive(Clone, Debug, PartialEq)]
 pub struct Violation {
-    /// "I1" … "I7", "V1", "K1", "P1", "O1", "R1", "H1", "B1", "A1", "T1".
+    /// "I1" … "I7", "V1", "K1", "P1", "O1", "R1", "H1", "B1", "A1", "E1", "T1".
     pub invariant: &'static str,
     pub message: String,
     /// Where on the map to look.
@@ -148,11 +150,11 @@ impl Invariants {
         result
     }
 
-    /// (M5-M1) Of [`Invariants::check`]'s invariants, those of the game's rules alone: P1, O1, R1, H1, B1, A1 and T1, which
-    /// hold whatever the input and cost little. Not the movement invariants, whose I6 bounds how far a scenario may fall
-    /// behind, nor V1 and K1, which rebuild every player's vision and planning grids and make most of a check's cost.
-    /// For a harness of many games of random input: `tests/robustness.rs`, whose seed sweep V1 and K1 would take from
-    /// 5 s to 26 s.
+    /// (M5-M1) Of [`Invariants::check`]'s invariants, those of the game's rules alone: P1, O1, R1, H1, B1, A1, E1
+    /// (slice M5-N4a) and T1 (slice M5-N3), which hold whatever the input and cost little. Not the movement invariants,
+    /// whose I6 bounds how far a scenario may fall behind, nor V1 and K1, which rebuild every player's vision and
+    /// planning grids and make most of a check's cost. For a harness of many games of random input:
+    /// `tests/robustness.rs`, whose seed sweep V1 and K1 would take from 5 s to 26 s.
     pub fn check_rules(&mut self, sim: &Sim, inputs: &TickInputs) -> Result<(), Violation> {
         let result = self.rules(sim, inputs);
         *self = Self::new(sim);
@@ -166,6 +168,7 @@ impl Invariants {
             .and_then(|()| hit_points::hit_points(sim))
             .and_then(|()| self.books.check(sim, inputs))
             .and_then(|()| augmentations::augmentations(sim))
+            .and_then(|()| energy::energy(sim))
             .and_then(|()| research::research(sim))
     }
 

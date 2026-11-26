@@ -226,6 +226,30 @@ fn an_object_with_shields_shows_a_shield_bar_above_its_hp_bar() {
     assert_eq!(shown, [(1.0, None)]);
 }
 
+/// Slice M5-N4a (`factions/cults/units/disciple.md > Placeholder stats`: "Energy - MaxEnergy 200; starts at 50;
+/// regenerates 0.5 per second"): a unit with an energy pool gets an energy bar with its HP bar, under it, filled with
+/// the share of its MaxEnergy it has: a Disciple's 50 of 200 as it comes into the game, 50.5 a second later. Its bars
+/// show as the HP bar does, while it is selected or damaged: energy short of its maximum isn't damage (Placeholder, not
+/// in the design). A unit without an energy pool, a Peacekeeper beside it, selected too, has no energy bar.
+#[test]
+fn a_disciple_shows_an_energy_bar_under_its_hp_bar() {
+    const DISCIPLE: ObjectId = ObjectId(1);
+    let mut app = headless_app();
+    app.update();
+    spawn(&mut app, ObjectKind::Disciple, P1, Vec2::new(300.0, 300.0));
+    spawn(&mut app, ObjectKind::Peacekeeper, P1, Vec2::new(400.0, 300.0));
+    app.update();
+    let spawned = tick(&app);
+    assert!(bars(&app).is_empty(), "full HP, and none selected");
+    let both = Selection::new([(DISCIPLE, ObjectKind::Disciple), (ObjectId(2), ObjectKind::Peacekeeper)]);
+    app.world_mut().resource_mut::<ControlStates>().of_mut(P1).selection = both;
+    let shown =
+        |app: &App| -> Vec<(f32, Option<f32>)> { bars(app).iter().map(|bar| (bar.fraction, bar.energy)).collect() };
+    assert_eq!(shown(&app), [(1.0, Some(50.0 / 200.0)), (1.0, None)]);
+    run_until(&mut app, spawned + 16);
+    assert_eq!(shown(&app), [(1.0, Some(50.5 / 200.0)), (1.0, None)]);
+}
+
 /// A structure's bars lie along the top edge of its footprint, as wide as it (placeholder look; slice M3-K2's
 /// walkthrough found them unit-sized, inside the building). Player 1's Barracks, 3 × 2 tiles, selected, shows its HP
 /// bar 192 su wide, centred over it, just above its top edge, clear of its selection frame, which lies inside it.

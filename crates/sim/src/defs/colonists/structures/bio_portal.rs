@@ -63,6 +63,7 @@ pub(crate) static BIO_PORTAL: ObjectDef = ObjectDef {
         research: None,
     }),
     default_settings: None,
+    energy: None,
 };
 
 #[cfg(test)]

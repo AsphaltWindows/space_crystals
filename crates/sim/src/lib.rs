@@ -20,6 +20,7 @@ pub mod defs;
 pub mod deploy;
 pub mod economy;
 pub mod elevation;
+pub mod energy;
 pub mod events;
 pub(crate) mod hash;
 pub mod holding;

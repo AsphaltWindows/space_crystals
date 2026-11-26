@@ -38,7 +38,9 @@
 //! The Cults' Armory (slice M5-F2: its kinds of Recruit with their counts, its KindMenus' training and Release, Eject
 //! All, the rally point, and one panel at a time for two Armories): `armory`, on a Cults field. The Altar (slice
 //! M5-N1b: units right-clicked in, its three stages of menus with their counts, an order by keys and the InfoPanel's
-//! queue, a fully augmented unit's Release, X's refund and Eject All): `altar`, on another.
+//! queue, a fully augmented unit's Release, X's refund and Eject All): `altar`, on another. The Cathedral (slice M5-N4a:
+//! Recruits right-clicked in, its kinds and its KindMenu's Train Disciple, then the Disciple's panel, its InfoPanel's
+//! energy and its right-click on an enemy, a move): `cathedral`, on another.
 //!
 //! The Recruit's UI (slice M5-J1: its panel and its two Construct menus, the Assist, Enter and gathering pointers, Tab
 //! over Recruits and Militants, the group's placement with its Shift chain, and a Hall refused at the map's edge; slice
@@ -52,6 +54,7 @@
 mod agent_ui;
 mod altar;
 mod armory;
+mod cathedral;
 mod click_allowance;
 mod colonists;
 mod construction;

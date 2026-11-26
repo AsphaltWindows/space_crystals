@@ -90,14 +90,15 @@ pub enum WhyUnavailable {
     /// The command gate would refuse the command it sends (`Sim::validate`): too few Space Crystals, a full queue,
     /// nothing to cancel, a constructor or a Beacon already busy.
     Refused(Reject),
-    /// Every recipient is a Peacekeeper (Shielded), which takes no Attack (`factions/gdo/units/peacekeeper.md > Riot
-    /// Shield`: "the player must lower the shield before ordering an attack"; design change 0202).
+    /// No recipient takes an Attack, and one of them is a Peacekeeper (Shielded) (`factions/gdo/units/peacekeeper.md >
+    /// Riot Shield`: "the player must lower the shield before ordering an attack"; design change 0202).
     ShieldsUp,
     /// Another command awaits its target, or a building is placed (`systems/controls/interface.md >
     /// AwaitingTarget > Other commands while targeting`, design change 0066: "unavailable until the player cancels").
     Waiting,
     /// The type can't carry it out (`systems/controls/interface.md > BasicCombatUnitInterfaceState`: Reverse
-    /// without CanReverse, AttackGround without CanTargetGround).
+    /// without CanReverse, AttackGround without CanTargetGround; (M5-N4a) Attack without a weapon, the Disciple's
+    /// "AttackAttributes - None").
     NotForThisType,
     /// It isn't in the game yet: a building or a unit whose costs are TBD (design change 0124), a build menu none of
     /// whose buildings is, an order the sim has none of (Reverse).
@@ -382,7 +383,8 @@ impl Conditions {
 
     /// Whether the game lets `command` go to its recipients in `selection` now: Attack while one of them takes it
     /// (`factions/gdo/units/peacekeeper.md > Riot Shield`: "the player must lower the shield before ordering an
-    /// attack"; design change 0202: a Peacekeeper whose shield is on its way down takes it), a production or
+    /// attack"; design change 0202: a Peacekeeper whose shield is on its way down takes it; (M5-N4a) a unit without a
+    /// weapon, a Disciple, takes none: `sc_sim::combat::takes_attack_orders`, the gate's rule), a production or
     /// construction command, a Warp In or a toggle while the gate would take it, anything else always.
     pub fn allows(&self, selection: &Selection, command: PanelCommand) -> bool {
         self.unavailable(selection, command).is_none()
@@ -396,10 +398,15 @@ impl Conditions {
     pub fn unavailable(&self, selection: &Selection, command: PanelCommand) -> Option<WhyUnavailable> {
         match command {
             PanelCommand::Attack => {
-                let may = recipients(selection, command)
-                    .into_iter()
-                    .any(|id| self.modes.can_attack(id));
-                (!may).then_some(WhyUnavailable::ShieldsUp)
+                let recipients = recipients(selection, command);
+                if recipients.iter().any(|&id| self.modes.can_attack(id)) {
+                    None
+                } else if recipients.iter().any(|&id| self.modes.shielded(id)) {
+                    Some(WhyUnavailable::ShieldsUp)
+                } else {
+                    // (M5-N4a) Units without a weapon: a Disciple's Attack, greyed (its panel's "attack commands").
+                    Some(WhyUnavailable::NotForThisType)
+                }
             }
             PanelCommand::DropOff => {
                 let loaded = recipients(selection, command)

@@ -53,6 +53,7 @@ pub(crate) static EXTRACTION_FACILITY: ObjectDef = ObjectDef {
         research: None,
     }),
     default_settings: None,
+    energy: None,
 };
 
 #[cfg(test)]

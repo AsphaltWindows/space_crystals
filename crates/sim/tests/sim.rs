@@ -36,6 +36,8 @@ mod behaviours_travel;
 mod building_armor;
 #[path = "builds/main.rs"]
 mod builds;
+#[path = "cathedral/main.rs"]
+mod cathedral;
 mod colonists;
 mod colonists_start;
 mod combat_damage;
@@ -64,6 +66,8 @@ mod economy_mining;
 #[path = "economy_oracle/main.rs"]
 mod economy_oracle;
 mod economy_resources;
+#[path = "energy/main.rs"]
+mod energy;
 #[path = "expansions/main.rs"]
 mod expansions;
 #[path = "field_engineer/main.rs"]

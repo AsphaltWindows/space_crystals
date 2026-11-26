@@ -23,6 +23,9 @@ use crate::sim_driver::{RenderAlpha, SimRes};
 pub(super) const MUZZLE_LIFT: f32 = 8.0;
 /// A shield bar's fill (placeholder colour, until the art direction: Q0001).
 const SHIELD_FILL: Color = Color::srgb(0.35, 0.72, 1.0);
+/// (M5-N4a) An energy bar's fill: Placeholder (not in the design: Q0001's art direction), a violet, apart from the
+/// HP bar's green, yellow and red and the shield bar's blue.
+const ENERGY_FILL: Color = Color::srgb(0.72, 0.45, 1.0);
 /// Above the path overlay, in the overlays layer.
 const EFFECTS_Z: f32 = 1.0;
 
@@ -143,7 +146,8 @@ fn death_marker(mesh: &mut ColorMesh, map: &Map, death: &DeathMarker, fade: f32,
 }
 
 /// A dark frame around the bar's fill: green above 60%, yellow above 30%, red below. The shield bar, if any, right
-/// above it, its fill in [`SHIELD_FILL`].
+/// above it, its fill in [`SHIELD_FILL`]; (M5-N4a) the energy bar, if any, right under it, its fill in
+/// [`ENERGY_FILL`].
 fn hp_bar_shape(mesh: &mut ColorMesh, bar: HpBar, z: f32) {
     let center = view_to_world(bar.center);
     let fill = match bar.fraction {
@@ -155,6 +159,10 @@ fn hp_bar_shape(mesh: &mut ColorMesh, bar: HpBar, z: f32) {
     if let Some(shields) = bar.shields {
         let above = center + Vec2::new(0.0, BAR_HEIGHT + 1.0);
         bar_shape(mesh, above, bar.width, shields, SHIELD_FILL, z);
+    }
+    if let Some(energy) = bar.energy {
+        let under = center - Vec2::new(0.0, BAR_HEIGHT + 1.0);
+        bar_shape(mesh, under, bar.width, energy, ENERGY_FILL, z);
     }
 }
 

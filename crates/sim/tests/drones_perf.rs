@@ -268,7 +268,7 @@ fn two_fields_of_40_drones_and_20_legionnaires() {
     );
 
     println!("every tick, by phase:");
-    let lines: [(&str, &[Phase]); 14] = [
+    let lines: [(&str, &[Phase]); 15] = [
         ("whole tick", &Phase::ALL[..PHASES]),
         ("defeat check, walk 1 (owners)", &[Phase::DefeatOwners]),
         ("commands", &[Phase::Commands]),
@@ -279,6 +279,7 @@ fn two_fields_of_40_drones_and_20_legionnaires() {
         ("combat (5e)", &[Phase::Combat]),
         ("deaths and true grids (5e)", &[Phase::Deaths]),
         ("shield regen", &[Phase::Shields]),
+        ("energy regen", &[Phase::Energy]),
         ("economy", &[Phase::Economy]),
         ("defeat check, walk 2", &[Phase::Defeat]),
         ("vision (5f) and records", &[Phase::Vision]),

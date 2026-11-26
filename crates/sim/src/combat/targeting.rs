@@ -7,7 +7,7 @@ use std::collections::BTreeMap;
 use glam::Vec2;
 
 use super::damage::pre_armor_multiplier;
-use crate::defs::{AttackAttrs, AttackType, Domain, FullyConnectedSubtype, TargetDomain};
+use crate::defs::{AttackAttrs, AttackType, Domain, FullyConnectedSubtype, ObjectKind, TargetDomain};
 use crate::elevation::{self, Elevation};
 use crate::ids::{ObjectId, PlayerId};
 use crate::map::Map;
@@ -56,6 +56,18 @@ pub fn can_target_ground(attack_type: AttackType) -> bool {
         AttackType::TailDisjointed | AttackType::DoublyDisjointed => true,
         AttackType::FullyConnected(_) | AttackType::HeadDisjointed => false,
     }
+}
+
+/// Whether a unit of type `kind` takes Attack orders (`systems/controls/commands.md > Attack`): a unit with a weapon to
+/// attack with (`UnitDef::attack`, which no Augmentation adds), unless its Riot Shield is up
+/// (`riot_shield::takes_attack_orders`, design change 0202: the Peacekeeper (Shielded)). (M5-N4a) A unit without a
+/// weapon, the Disciple ("AttackAttributes - None (placeholder: no weapon [...])", `factions/cults/units/disciple.md >
+/// Placeholder stats`), ignores an Attack as a unit whose attack can't target the ground ignores an Attack Ground
+/// ([`can_target_ground`]). The gate (`Sim::validate`), the default command (`orders::resolution::Abilities`) and the
+/// client's panel and right-click ask it.
+pub fn takes_attack_orders(kind: ObjectKind) -> bool {
+    let armed = kind.def().unit.as_ref().is_some_and(|unit| unit.attack.is_some());
+    armed && riot_shield::takes_attack_orders(kind)
 }
 
 /// The farthest an attack reaches, space units: its Range with the ElevationModifier from `source` against

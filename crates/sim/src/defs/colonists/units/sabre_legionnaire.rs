@@ -68,6 +68,7 @@ pub(crate) static SABRE_LEGIONNAIRE: ObjectDef = ObjectDef {
     }),
     structure: None,
     default_settings: None,
+    energy: None,
 };
 
 #[cfg(test)]

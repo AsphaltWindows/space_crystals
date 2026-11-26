@@ -57,6 +57,7 @@ pub(crate) static MACHINE_SHOP: ObjectDef = ObjectDef {
         research: None,
     }),
     default_settings: None,
+    energy: None,
 };
 
 /// The Machine Shop's construction by Recruits (`StructureDef::site`, slice M5-E's; "Space Crystals cost and

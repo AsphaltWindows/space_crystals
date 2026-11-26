@@ -12,10 +12,11 @@
 //! M5-J1, design change 0327: "every building greyed until available, including ones not in the build yet"), each
 //! until its slice; slice M5-G2 made the Gunworks, the Machine Shop and the Scrap Hangar live, and the Armory's Gunner,
 //! which had held its slot of the Armory's kind menus (slice M5-F2) until its Gunworks; slice M5-N2 the Garrison;
-//! slice M5-N1b the Altar. The
+//! slice M5-N1b the Altar; slice M5-N4a the Cathedral. The
 //! Recruit's Repair and the Agent's held theirs until slice M5-N8 (`super::super::PanelCommand::Repair`). The Field
 //! Engineer's Construct menu holds its two buildings' slots (slice M5-N9, `factions/gdo/units/field_engineer.md >
-//! Placeholder stats`: "both greyed until designed").
+//! Placeholder stats`: "both greyed until designed"). The Disciple's R holds its spell's, Shroud, until slice M5-N4b
+//! (slice M5-N4a, [`Planned::Shroud`]).
 
 /// A panel entry that isn't in the game yet (module docs). The Colonists' are a building of the Beacon's Warp In menus
 /// or a unit of a portal's panel: a building's cost and WarpInTime are TBD (`factions/colonists/economy.md > Warp In >
@@ -23,7 +24,7 @@
 /// (`factions/colonists/units/scout.md`, `factions/colonists/units/lancer.md`; the psionic unit has no section yet).
 /// The Syndicate's are the ExpandMenu's entries that aren't in the game yet (slice M4-F:
 /// `sc_sim::defs::ExpandEntry::Planned`, by name): its expansions. The Cults' are the Construct menus' buildings the
-/// Recruits don't build yet (slice M5-J1: `sc_sim::defs::ConstructEntry::Planned`, by name).
+/// Recruits don't build yet (slice M5-J1: `sc_sim::defs::ConstructEntry::Planned`, by name), and the Disciple's spell.
 #[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum Planned {
     AlloyFurnace,
@@ -59,17 +60,20 @@ pub enum Planned {
     /// Tree Overview`; design change 0327), in the menus' order: the sim's `sc_sim::defs::CONSTRUCT_MENU` names them
     /// ([`Planned::construct`]). Their types are in the game's model since slice M5-G2, each with its label
     /// (`crate::kinds::cults`), and their slices make them live, as slice M5-G2 did the Gunworks, the Machine Shop and
-    /// the Scrap Hangar, slice M5-N2 the Garrison and slice M5-N1b the Altar.
+    /// the Scrap Hangar, slice M5-N2 the Garrison, slice M5-N1b the Altar and slice M5-N4a the Cathedral.
     ChopShop,
     Airstrip,
     Temple,
-    Cathedral,
     Shrine,
     /// (M5-N9) The Field Engineer's Construct menu's buildings (`factions/gdo/units/field_engineer.md > Placeholder
     /// stats`: "**A** Construct (a menu: **Q** Bunker, **W** First Aid Tent, both greyed until designed; **Z** back)"),
     /// in its order (`super::gdo::field_engineer::CONSTRUCT_MENU`).
     Bunker,
     FirstAidTent,
+    /// (M5-N4a) The Disciple's R, its spell (`factions/cults/units/disciple.md > Placeholder stats`:
+    /// "ObjectInterfaceState: BasicCombatUnitInterfaceState, plus **R: Shroud**"; "hotkey **R** (R starts the
+    /// channel; Stop or another order cancels it [...])"), slice M5-N4b's (`super::cults::disciple`).
+    Shroud,
 }
 
 impl Planned {
@@ -98,10 +102,10 @@ impl Planned {
         Planned::ChopShop,
         Planned::Airstrip,
         Planned::Temple,
-        Planned::Cathedral,
         Planned::Shrine,
         Planned::Bunker,
         Planned::FirstAidTent,
+        Planned::Shroud,
     ];
 
     /// The ExpandMenu's entry not in the game yet that the sim names `name` (`sc_sim::defs::ExpandEntry::Planned`): an
@@ -146,10 +150,10 @@ impl Planned {
             Planned::ChopShop => "Chop Shop",
             Planned::Airstrip => "Airstrip",
             Planned::Temple => "Temple",
-            Planned::Cathedral => "Cathedral",
             Planned::Shrine => "Shrine",
             Planned::Bunker => "Bunker",
             Planned::FirstAidTent => "First Aid Tent",
+            Planned::Shroud => "Shroud",
         }
     }
 
@@ -162,7 +166,7 @@ impl Planned {
     /// the Bunker, as the Seeker's "SKR", its first and last letters, "BR", being the Barracks'. An entry's type takes
     /// its label with it into the game (the Optics Lab's "OL", the Chemical Plant's "CP", the Grenadier's "GR", the
     /// Gunworks' "GS", the Garrison's "GA", `crate::kinds`), and a command its own: the Tunnel's Upgrade's "Upgr."
-    /// (slice M4-G).
+    /// (slice M4-G). A spell is a command, labelled as one, by a word: "Shroud", whole (6 letters, as "AtkGnd").
     pub fn label(self) -> &'static str {
         match self {
             Planned::AlloyFurnace => "AF",
@@ -188,15 +192,15 @@ impl Planned {
             Planned::ChopShop => "CS",
             Planned::Airstrip => "AP",
             Planned::Temple => "TE",
-            Planned::Cathedral => "CL",
             Planned::Shrine => "SR",
             Planned::Bunker => "BKR",
             Planned::FirstAidTent => "FAT",
+            Planned::Shroud => "Shroud",
         }
     }
 
     /// Whether it is a unit, of a production panel; else a building, of the Beacon's Warp In menus, the Tunnel's
-    /// ExpandMenu, the Recruits' Construct menus or the Field Engineer's.
+    /// ExpandMenu, the Recruits' Construct menus or the Field Engineer's, or the Disciple's spell.
     pub fn is_unit(self) -> bool {
         matches!(self, Planned::Scout | Planned::Lancer | Planned::PsionicUnit)
     }
@@ -218,7 +222,7 @@ impl Planned {
     pub fn is_construct(self) -> bool {
         matches!(
             self,
-            Planned::ChopShop | Planned::Airstrip | Planned::Temple | Planned::Cathedral | Planned::Shrine
+            Planned::ChopShop | Planned::Airstrip | Planned::Temple | Planned::Shrine
         )
     }
 
@@ -226,9 +230,12 @@ impl Planned {
     /// Furnace" or "Build Vault", as a unit in the game is trained, a building warped in and an expansion built
     /// (`PanelCommand::Expand`); "Build Temple", as the Recruits build a building (`PanelCommand::Build`). The Field
     /// Engineer's as the design names its abilities (`factions/gdo/units/field_engineer.md > Abilities`): "**Build
-    /// Bunker**", "**Set up First Aid Tent**".
+    /// Bunker**", "**Set up First Aid Tent**"; the Disciple's spell by its name, as the design names it ("**R:
+    /// Shroud**").
     pub fn command_name(self) -> String {
-        if self == Planned::FirstAidTent {
+        if self == Planned::Shroud {
+            self.name().to_string()
+        } else if self == Planned::FirstAidTent {
             format!("Set up {}", self.name())
         } else if self == Planned::Bunker {
             format!("Build {}", self.name())

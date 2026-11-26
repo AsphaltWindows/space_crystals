@@ -9,7 +9,7 @@ use crate::ids::{ObjectId, PlayerId};
 use crate::object::Object;
 use crate::orders::{OrderKind, Target};
 use crate::sim::{Reject, Sim};
-use crate::{combat, conversion, riot_shield};
+use crate::{combat, conversion};
 
 impl Sim {
     /// `docs/movement.md > 3`, with the approved gate change: ids that no longer exist are dropped.
@@ -47,8 +47,10 @@ impl Sim {
                 // shield is up ("the player must lower the shield before ordering an attack"): those units ignore it.
                 // Which orders a unit takes follows its type from the press (design change 0202): a Peacekeeper
                 // (Shielded), its shield up or on its way up, takes none; a Peacekeeper whose shield is on its way
-                // down takes it, and attacks once its shield is down.
-                ordered.retain(|id| (self.objects.get(id)).is_some_and(|o| riot_shield::takes_attack_orders(o.kind)));
+                // down takes it, and attacks once its shield is down. (M5-N4a) A unit without a weapon (the
+                // Disciple's "AttackAttributes - None") ignores it too, as Attack Ground below
+                // (`combat::takes_attack_orders`).
+                ordered.retain(|id| (self.objects.get(id)).is_some_and(|o| combat::takes_attack_orders(o.kind)));
                 if ordered.is_empty() {
                     return Err(Reject::CannotAttack);
                 }

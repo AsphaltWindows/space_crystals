@@ -47,6 +47,7 @@ pub(crate) static EGRESS_NODE: ObjectDef = ObjectDef {
         research: None,
     }),
     default_settings: None,
+    energy: None,
 };
 
 #[cfg(test)]

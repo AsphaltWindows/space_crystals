@@ -59,6 +59,7 @@ pub(crate) static CHEMICAL_PLANT: ObjectDef = ObjectDef {
         research: None,
     }),
     default_settings: None,
+    energy: None,
 };
 
 /// The Chemical Plant's construction by a Tunnel (`StructureDef::expansion`, slice M4-F's).

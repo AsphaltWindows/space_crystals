@@ -1,5 +1,6 @@
 mod agent;
 mod altar;
+mod cathedral;
 mod colonists;
 mod construction;
 mod cults;

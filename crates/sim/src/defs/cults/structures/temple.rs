@@ -78,6 +78,7 @@ pub(crate) static TEMPLE: ObjectDef = ObjectDef {
         }),
     }),
     default_settings: None,
+    energy: None,
 };
 
 /// The Temple's construction by Recruits (`StructureDef::site`, slice M5-E's; "Space Crystals cost and construction

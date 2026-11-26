@@ -27,8 +27,15 @@
 - Game will be rebuilt from scratch → docs must stand alone as the complete spec. Old prototype stays at `artifacts/developer/` as reference; Director decides with user where new code lives.
 
 ## Open Director Questions
+- Q0134 Buildable-not-Traversible ground under exits (nb)
+- Q0135 Cults economy check: 5 misses; realistic opening ~0.5-0.6 of others (nb, big)
+- Q0136 tie between equidistant Storages (nb)
+- Q0137 when a turret drops its lock; does Move clear it (nb)
+- Q0139 Garrison with occupants counts as a threat? (nb)
+- Q0140 right-click on full damaged enterable building: Enter or Repair (nb)
+- Q0142 neutral (defeated) units keep research amounts? (nb)
 
-**None open** (all answered through Q0129, entries 0319–0358, 2026-11-27). Standing TODO: general GDO/Syndicate placeholder pass (Missile Turret, Defense System, Radar Station, etc.). Order of work: finish Cults units → Colonists units → techs → detection → numbers review.
+Order of work (placeholder passes done, 0366/0367): finish Cults units → Colonists units → techs → detection → numbers review.
 ## Loose Ends
 - **Cults identity check (2026-11-27), open tensions for the user**: no front-line tank (are infantry masses the tank?); thin, short-range anti-air and no Cults AA building; detection later; Mystical branch has only the Disciple as a new unit (user: fine).
 - **Next Cults work**: Scrap Hangar aircraft (paratrooper plane, airship), maybe more vehicles, more Disciple spells. Then Colonists units (incl. salvo concept for Lancer/Skylance).

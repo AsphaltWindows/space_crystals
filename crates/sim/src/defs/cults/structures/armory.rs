@@ -91,6 +91,7 @@ pub(crate) static ARMORY: ObjectDef = ObjectDef {
         research: None,
     }),
     default_settings: None,
+    energy: None,
 };
 
 /// The Armory's construction by Recruits (`StructureDef::site`, slice M5-E; `factions/cults/economy.md > Cults Building

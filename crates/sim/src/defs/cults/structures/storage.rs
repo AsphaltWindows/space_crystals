@@ -50,6 +50,7 @@ pub(crate) static STORAGE: ObjectDef = ObjectDef {
         research: None,
     }),
     default_settings: None,
+    energy: None,
 };
 
 /// The Storage's construction by Recruits (`StructureDef::site`, slice M5-E; `factions/cults/economy.md > Cults

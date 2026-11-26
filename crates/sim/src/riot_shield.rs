@@ -179,7 +179,8 @@ pub fn allows_attack(o: &Object) -> bool {
 /// accepts follows its new type from the press"): every type but a Riot Shield's raised one, the Peacekeeper
 /// (Shielded) ("Attack orders are not possible"). A Peacekeeper takes them while its shield is on its way down too,
 /// and attacks once it is all the way down ([`allows_attack`]). The gate (`Sim::validate`), the default command
-/// (`orders::resolution::Abilities`) and the client's panel and right-click ask it.
+/// (`orders::resolution::Abilities`) and the client's panel and right-click ask it, through
+/// `combat::takes_attack_orders`, which also wants a weapon (slice M5-N4a).
 pub fn takes_attack_orders(kind: ObjectKind) -> bool {
     def_of_kind(kind).is_none_or(|def| kind != def.raised)
 }
