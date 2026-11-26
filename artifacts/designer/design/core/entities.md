@@ -47,7 +47,7 @@ Selectable visible entity, instances of which exist in the game at some coordina
 - **Another player's structure**: name, owner and HP only (no production or queue information).
 ### Destructible - boolean
 ### SightRange - number (vision is provided to the owning player when the instance has an Owner)
-### Groupable - boolean (if false, each instance is always in its own SelectionGroup even when selected with other instances of the same type). Caster-type units and workers that are used up by a build (Agent, Drone) are Ungroupable; Recruits, which share a build, are Groupable; see systems/controls/selection_and_hud.md > SelectionGroup > No smart-casting
+### Groupable - boolean (if false, each instance is always in its own SelectionGroup even when selected with other instances of the same type). Caster-type units and workers that are used up by a build (Agent, Drone) are Ungroupable; Recruits, which share a build, are Groupable; see systems/controls/selection.md > SelectionGroup > No smart-casting
 
 ## Structure Type
 An Object Type of a building, an instance of which may appear on the game's map. During placement, the player can rotate the building in 90-degree increments and flip it across the horizontal or vertical axis. This gives up to 8 possible orientations for fully asymmetric buildings (ABCD), fewer for more symmetric types.
@@ -105,7 +105,7 @@ Structure placement is validated differently depending on the placement method:
 ### Lingering build ghosts
 (user, 2026-11-24) Every **ordered worker build** (Drone Deploy, Agent build, Cults Recruits' Construct), including **every Shift-queued one**, leaves a **ghost of the building on its site** until construction actually starts.
 - **Visible to its owner.** Enemies never see it. Whether allies see it: TBD.
-- **Reserves the site against the owner's further placements**: a new ghost overlapping it is invalid (red). This is how a Drone group's Deploy reaches only one Drone (systems/controls/selection_and_hud.md > SelectionGroup > Groupable workers used up by a build).
+- **Reserves the site against the owner's further placements**: a new ghost overlapping it is invalid (red). This is how a Drone group's Deploy reaches only one Drone (systems/controls/selection.md > SelectionGroup > Groupable workers used up by a build).
 - **Doesn't block units**: anyone can walk over it; units standing on the site still make the build fail on arrival (Worker-Built Structures above).
 - **Disappears** when construction starts (the real structure replaces it) or when the order is cancelled, replaced by a new order, or fails.
 - Reservation against allies' placements: TBD (with ally visibility).

@@ -28,7 +28,7 @@ Brings it back to its above-ground mode. **It can't surface on top of a building
 (user, 2026-11-25) Burrow and Surface follow the **vehicle deploy model** (factions/gdo/units/artillery_rig.md > Modes): each takes time, is a **queueable order**, **can't be cancelled** once started, and the unit changes mode only when the process completes. The **last order given meanwhile is held** and tried first once it's done; orders the unit can't carry out in its new mode are dropped.
 
 ## Entering the Tunnel Network loaded
-(user, 2026-11-25) It **can drive into a Tunnel with infantry inside**; they travel along inside it and stay aboard. Inside the network the passengers are **still locked inside the transport**: they only come out when the transport unloads (on the surface), and can't be ejected from a Tunnel on their own. **They always keep counting against the Tunnel Space cap** (user, 2026-11-25; Q0071: Tunnel Space is an army limit, factions/syndicate/tunnels.md > Production and Tunnel Space), aboard or not, inside the network or on the surface.
+(user, 2026-11-25) It **can drive into a Tunnel with infantry inside**; they travel along inside it and stay aboard. Inside the network the passengers are **still locked inside the transport**: they only come out when the transport unloads (on the surface), and can't be ejected from a Tunnel on their own. **They always keep counting against the Tunnel Space cap** (user, 2026-11-25; Q0071: Tunnel Space is an army limit, factions/syndicate/tunnel_area_and_space.md > Tunnel Space > Production and Tunnel Space), aboard or not, inside the network or on the surface.
 
 ## Destroyed with passengers
 (user, 2026-11-25) If it is destroyed, **all infantry inside die** with it (above ground or underground).

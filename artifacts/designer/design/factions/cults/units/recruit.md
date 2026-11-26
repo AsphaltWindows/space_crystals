@@ -12,7 +12,7 @@ The Recruit is the Cults' basic worker unit, automatically produced by Recruitme
 ## FullArmor - 0
 ## SightRange - 5 grid units
 ## Destructible - true
-## Groupable - true (user, 2026-11-24: Recruits share a build, so Construct and Assist from the panel go to every selected Recruit; see systems/controls/selection_and_hud.md > SelectionGroup > No smart-casting)
+## Groupable - true (user, 2026-11-24: Recruits share a build, so Construct and Assist from the panel go to every selected Recruit; see systems/controls/selection.md > SelectionGroup > No smart-casting)
 
 ## UnitBaseAttributes[LightInfantry]:
 - TurnRate: 180 degrees/frame

@@ -18,7 +18,7 @@
 - **Can't be shot down** in flight (user, 2026-11-27; unless something to shoot down projectiles is introduced later).
 - Phase profile (user): **long AimDuration**, **slow missile (long flight)**, **short CooldownDuration**, **long ReloadDuration**.
 - TargetDomain: **Ground** only (user, 2026-11-27).
-- MinRange: **yes** (user, 2026-11-27): enemies closer than MinRange can't be targeted (systems/controls/behaviors.md > AttackingObject > Target inside MinRange); value: placeholder to follow.
+- MinRange: **yes** (user, 2026-11-27): enemies closer than MinRange can't be targeted (systems/controls/command_behaviors.md > AttackingObject > Target inside MinRange); value: placeholder to follow.
 
 Reveal: the shared rule applies (core/vision.md > Attacks from outside vision): it is revealed to those it damages when the missile lands.
 

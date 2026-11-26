@@ -1,5 +1,7 @@
 # Syndicate: Tunnels
 
+See also: `factions/syndicate/tunnels.md`, `factions/syndicate/tunnel_menus.md`, `factions/syndicate/tunnel_area_and_space.md` (split from `tunnels.md`, 2026-11-27).
+
 ## Tunnel Network
 
 The Tunnel Network is the collective of all Tunnels owned by a Syndicate player. Units inside the Tunnel Network can travel between Tunnels freely, but can only enter or exit the network through a Tunnel whose tier is sufficient for their unit base category.
@@ -12,7 +14,7 @@ The Tunnel Network is the collective of all Tunnels owned by a Syndicate player.
 - **On entering** (user, 2026-11-25; Q0063): the unit's orders are **cleared**, queued ones included; it is idle inside. It **stays in its control groups** (a recall selects only the members on the map; recalling a group whose members are **all** inside does **nothing**: selection, panel and camera unchanged, like recalling an empty group; user, 2026-11-26; Q0086). An Agent **keeps its load**.
 - **Upgrading Tunnels** (user, 2026-11-25; Q0063): until the upgrade has fully finished, a Tunnel only accepts, and only lets out, units supported by the tier it had **before** the upgrade began.
 - **Target Tunnel gone or unsuitable**: if the Tunnel a unit is heading for is destroyed, or its tier doesn't suit the unit, the Enter order ends and the unit idles (Q0063, as proposed).
-- **No special waiting rule** (user, 2026-11-25; Q0063): a unit heading for the entry path moves like any unit. In a moving line it keeps making progress; if the way is genuinely blocked, the normal Failure rule applies (systems/controls/behaviors.md > MovingToLocation > Failure): it gives up after about 7 s and idles. An occasional idle unit is acceptable.
+- **No special waiting rule** (user, 2026-11-25; Q0063): a unit heading for the entry path moves like any unit. In a moving line it keeps making progress; if the way is genuinely blocked, the normal Failure rule applies (systems/controls/command_behaviors.md > MovingToLocation > Failure): it gives up after about 7 s and idles. An occasional idle unit is acceptable.
 
 ### Transit Tier Requirements
 - Tier 1+: Infantry (Light Infantry, Heavy Infantry)
@@ -82,7 +84,7 @@ Only one Agent may drop off resources at a side at a time. Because crystal and s
 
 ### Tiers
 
-Tunnels have 3 upgrade tiers. Each tier increases HP, Tunnel Area radius, and unlocks higher-tier buildings and unit transit. Tunnel Space is no longer a flat value per tier — see Tunnel Space below; it is derived from unused Tunnel Area instead.
+Tunnels have 3 upgrade tiers. Each tier increases HP, Tunnel Area radius, and unlocks higher-tier buildings and unit transit. Tunnel Space is no longer a flat value per tier — see factions/syndicate/tunnel_area_and_space.md > Tunnel Space; it is derived from unused Tunnel Area instead.
 
 | | Tier 1 (base) | Tier 2 | Tier 3 |
 |---|---|---|---|
@@ -92,109 +94,6 @@ Tunnels have 3 upgrade tiers. Each tier increases HP, Tunnel Area radius, and un
 | Tunnel Area Radius | 2 (8x8) | 3 (10x10) | 4 (12x12) |
 | Transit | Infantry | Infantry + Vehicles | Infantry + Vehicles + Air |
 | Buildings | T1 expansions | T1 + T2 expansions | T1 + T2 + T3 expansions |
-
-### Tunnel ObjectInterfaceState
-
-**Panel letters (4x3 grid)** (user, 2026-11-25; Q0068, "fine for now"): **Q** Upgrade Tunnel, **W** Expand Tunnel, **E** Eject, **X** Cancel (upgrade, construction or the current operation). In the **ExpandMenu** and **EjectMenu**, entries take the grid slots in order (Q, W, E, R, A, S, …): expansions in the Tech Tree table's order (Hideout, Optics Lab, Chemical Plant, Vault, …), unit types in the order of `units/README.md` (Agent, Guard, Grenadier, …); **Z** goes back; unavailable entries are greyed. These letters replace the older ones listed below where they differ.
-
-#### DefaultState commands:
-- **A: Upgrade Tunnel** — upgrades to next tier (CommandIssuingTransition). Costs Supplies per upgrade cost formula. Unavailable if already Tier 3 or if currently performing an operation.
-- **B: Expand Tunnel** — enters ExpandMenu (StateOnlyTransition). Multi-stage: select an underground expansion to build, then place it within the Tunnel Area.
-- **C: Eject** — enters EjectMenu (StateOnlyTransition). Multi-stage: select units from the Tunnel Network to eject from this Tunnel.
-- **X: Cancel Upgrade** — cancels the in-progress Tunnel upgrade (CommandIssuingTransition). Supplies refunded at the current top price (Upgrade Costs; Q0085). Only available while an upgrade is in progress.
-
-#### EjectMenu:
-Displays a grid of unit type tiles representing all units currently in the Tunnel Network. Each tile shows the unit type icon and a count of how many of that type are in the network. Unit types whose base category exceeds this Tunnel's tier are visible but greyed out (disabled).
-
-- Click an enabled unit type tile: ejects one unit of that type from this Tunnel's Side A (CommandIssuingTransition). Ejected units are queued. **Ground units walk out of the exit path single file, at their normal speed and spacing** (user, 2026-11-25; Q0064, mirroring Walking in; replaces the earlier "every 8 frames minimum"): the exit rate is set by unit speed and size. Each unit appears at the exit path's spot just outside Side A. **If that spot is blocked** (by any unit or structure), the next unit waits until it clears; no other spot is tried. With no rally point, a unit walks about 1 grid unit straight out of Side A and idles (a blocked walk follows the normal Failure rule). **Which unit comes out** (user, 2026-11-25; Q0064): of the chosen type, the one that has been **inside the network longest**. (Not "the healthiest": other per-unit factors such as re-arming at a Vault or the Null Chamber's re-buff may matter too.) **The eject queue**: each click reserves a specific unit (the tile's count drops at the click); the queue can't be cancelled; if the Tunnel is destroyed with a queue, the queued units stay in the network (stranded-unit rule applies). **Air units** leave through the Tier 3 **air exit door**, in parallel with ground units; since aircraft don't collide, the door has its own **exit rate: one aircraft per 8 frames (0.5 s), placeholder** (the same rate for the air entry door). The **air doors are on the Tunnel's roof**: the entry door over the entry path's half of the Tunnel, the exit door over the exit path's half (Q0064).
-- **The panel stays in the EjectMenu after a click** (user, 2026-11-26; Q0086), so repeated clicks eject more; each tile's count drops per click.
-- **Every Syndicate unit type keeps its tile** (user, 2026-11-26; Q0086), in panel order (factions/syndicate/units/README.md > Files): a type with no units in the network shows a count of 0, greyed. Letters never move.
-- **Units still in the transit delay** (user, 2026-11-26; Q0077): if every unit of a type is still within its 2-second transit delay, that type's tile is **greyed** and a click is **refused**; nothing is queued. It enables once one of them clears the delay.
-- **Ejected units with no rally point** (user, 2026-11-26; Q0077): walk **1 grid unit straight out** of the exit path and go idle there. Following units nudge them aside under the idle-unit rules; to keep the exit clear, set a rally point.
-- **Z**: returns to DefaultState (StateOnlyTransition)
-
-#### ExpandMenu:
-Displays available underground expansion types for this Tunnel's current tier. An expansion is available only if (1) its Tier Requirement is at or below **this** Tunnel's tier, and (2) its TechPrerequisite (if any) is satisfied anywhere in the Tunnel Network (see Tunnel Expansions > Expansion Requirements).
-
-- Click an expansion type: begins construction if the Tunnel is not already performing an operation (enters AwaitingPlacement for that expansion)
-- **Fixed slots** (user, 2026-11-26; Q0081): **all nine expansions** are always listed, in the Tech Tree table's order, each holding its slot; ones not available (tier, prerequisite, or not yet in the build) are greyed. The **Laser Turret is always the tenth slot**, so no hotkey ever moves.
-- The ExpandMenu also offers the **Laser Turret** (once the player owns an Optics Lab), placed within this Tunnel's Tunnel Area like an expansion; it becomes a pop-up turret (see Laser Turret).
-- **Z**: returns to DefaultState (StateOnlyTransition)
-
-#### AwaitingPlacement (Expansion):
-- A ghost preview of the expansion follows the cursor within the Tunnel Area, snapped to the grid. Tinted green when valid, red when invalid. The expansion must fit entirely within the Tunnel Area. **Every tile under it must be Drillable** (user, 2026-11-25; Q0062: Plane, Rugged and Cliff yes; Mountain and Water no; core/map.md > DefaultTilePresets). Own and neutral underground structures block it; so does the Tunnel's own footprint. **Surface structures block it too** (user, 2026-11-25; Q0062): no expansion can be placed under any surface building, any player's (judged by the truth; the placement is refused).
-- **Ground units don't block it** (user, 2026-11-26; Q0080): units standing on the tiles don't matter, since the expansion is underground (core/entities.md > Direct Placement).
-- **Lingering Tunnel ghosts can't be in the way** (user, 2026-11-26; Q0080): a Tunnel ghost can never be placed inside another Tunnel's area (Tunnel Area Non-Overlap Rule; pending ghosts reserve their area), and expansions are placed only inside their own Tunnel's area, so the two never meet.
-- R rotates the ghost 90 degrees clockwise, Shift+R counter-clockwise. F flips horizontally, Shift+F flips vertically.
-- Left-click valid location: places expansion, begins construction (CommandIssuingTransition, returns to DefaultState)
-
-#### Expansions under construction
-(user, 2026-11-25; Q0065)
-- **Paid when the ghost is placed** (the left-click above). **Tunnel Space is used once construction has started.** Today placing the ghost starts construction at once (the Tunnel does one operation at a time, so there's no queue); if expansion queuing is ever added, payment stays at ghost placement and the Tunnel Space only goes when the building starts.
-- **HP**: the ConstructionHP Rule applies to every expansion (starts at 10%, grows with progress); damage taken stays (current HP rises by the same amount).
-- **Cancelling**: while building, the expansion offers only **X Cancel Construction**, refunding **75%** of its cost (rounded down). The Tunnel's X cancels whatever operation it is running (an upgrade or an expansion).
-- **Sight**: none (underground). **Groupable**: true.
-- **Its Tunnel destroyed mid-build**: the unfinished expansion is destroyed, no refund.
-- **The Tunnel meanwhile** shows the progress; Eject still works (it isn't an operation).
-- **Z**: returns to ExpandMenu (StateOnlyTransition)
-
-### Tunnel Area
-
-The Tunnel Area is a square underground build zone centered on the Tunnel. The radius extends outward from the Tunnel's 4x4 footprint in each direction, forming a square of (radius + 4 + radius) per side.
-
-Underground expansions are placed spatially within the Tunnel Area on the grid, occupying cells just like surface buildings. This provides:
-- A physical limit on the number of expansions per Tunnel
-- Meaningful scouting with detection (enemies can see what was built and where)
-- Consistent placement mechanics with GDO's surface building system
-
-### Tunnel Area display
-(user, 2026-11-26; Q0086)
-- **Selecting one of your Tunnels** shows its Tunnel Area on the map.
-- **Placing a Tunnel** shows the ghost's Tier 1 area **and the would-be Tier 2 and Tier 3 areas**. Cells that would stop a later upgrade are highlighted **red**: non-Drillable cells, off-map cells, and cells overlapping the areas of **your own** other Tunnels (user, 2026-11-26; Q0086), since all of these block upgrades (Non-Overlap Rule). Enemy areas stay hidden, so an unseen enemy Tunnel can still block an upgrade. Players can see before placing whether the Tunnel can be fully upgraded there.
-- **Placing an expansion** (from a selected Tunnel) shows that Tunnel's area too (user, 2026-11-26; Q0086).
-- **Enemy Tunnel Areas are never shown.**
-- View modes with toggles (e.g. show all own areas): maybe later.
-
-### Tunnel Area Non-Overlap Rule
-
-Tunnel Areas cannot overlap with each other. The non-overlap check uses the **current tier's area**, not the maximum potential area. However, upgrading a Tunnel is blocked if the radius increase would cause its Tunnel Area to overlap with another Tunnel's current area.
-
-This means players can place Tier 1 Tunnels closer together for early aggression, but sacrifice the ability to upgrade them later. Spacing Tunnels further apart preserves upgrade potential for the late game.
-
-**Drillable area** (user, 2026-11-25): a Tunnel can only be **placed** if every cell of its Tunnel Area is **on the map and Drillable** (no Water or Mountain; core/map.md > DefaultTilePresets). So **no Tunnel near the map edge** (closer than its area reaches). An **upgrade** is likewise blocked if the larger area would include a non-Drillable or off-map cell, so a Tier 1 Tunnel by a lake or a mountain may never be upgradable. The ghost shows this like any other invalid placement (terrain is always known to the player as far as explored; never-explored tiles pass on the ghost, and the real check happens on arrival).
-
-**Enemies see a Tunnel's tier** (user, 2026-11-25; Q0069): it is a surface structure and each tier looks different (Look by tier).
-
-**Pending ghosts and sites count** (user, 2026-11-26; Q0079):
-- An Agent's **pending Tunnel ghost** (ordered, not yet started) reserves its **whole Tier 1 Tunnel Area** against its **owner's** further Tunnel placements: a new ghost overlapping it shows red. Other players don't know about it, so it doesn't block them; they are stopped once construction starts.
-- A Tunnel **under construction** (a site) counts with its whole area for **every player**, from the moment the site appears.
-
-**Every player's Tunnels count** (user, 2026-11-25; Q0062): the rule applies between **all** Tunnels, not just a player's own. In Syndicate-vs-Syndicate games a player can **crowd or block** an enemy's Tunnels: a Tunnel placed near an enemy one stops the enemy from building where the areas would overlap, and can stop the enemy Tunnel's upgrade.
-- **The ghost** judges enemy Tunnels by what the player knows: their remembered position and their tier as last seen (core/entities.md > Worker-Built Structures > The ghost judges by what the player knows). The real check on arrival uses the truth, so a build can fail on arrival because an enemy Tunnel was upgraded unseen.
-- **Upgrades** are blocked by any Tunnel's area, own or enemy (the upgrade check uses the truth; the upgrading Tunnel's owner learns that something blocks it).
-
-**Crystal intake and stacked Tunnels.** A Tunnel's crystal side accepts one drop-off at a time (4 seconds per 50 Space Crystals), so one Tunnel takes in at most 12.5 Space Crystals per second however many patches surround it — reached with only 2–3 Agents (see Agent > Gathering). This is intended: the Syndicate has the lowest one-base saturation income of any faction, reaches it fastest, and grows by adding Tunnels (paid in Supplies) rather than by saturating one field. Two Tier 1 Tunnels may share a rich crystal field (doubling its intake), and this is allowed: such Tunnels can never be upgraded, and clustering puts a lot of Supplies' worth of Tunnels in one place where a single attack can take them all. The Syndicate is meant to benefit from spreading its Tunnels across the map.
-
-### Tunnel Space
-
-Tunnel Space is derived from unused underground space rather than provided as a flat value per Tunnel.
-
-- **Tunnel-region**: a Tunnel's Tunnel Area, excluding the 4x4 grid units occupied by the Tunnel's own footprint. (E.g. a Tier 1 Tunnel has an 8x8 = 64 grid unit Tunnel Area, minus its own 16 grid unit footprint = 48 grid units of tunnel-region.)
-- **Unused tunnel-region**: the portion of a Tunnel's tunnel-region not currently occupied by a placed expansion.
-- **The whole area is always drillable** (user, 2026-11-25; replaces the earlier "off-map cells count" and "non-Drillable cells don't count"): a Tunnel can only be placed, and only be upgraded, if its whole Tunnel Area (at the new tier, for an upgrade) is on the map and Drillable (see Tunnel Area Non-Overlap Rule > Drillable area). So every tunnel-region cell is usable.
-- **Tunnel Space = floor((sum of unused tunnel-region grid units across all owned Tunnels) / 4)** — rounded down to a whole number — capped at a hard maximum of 200 (see factions/syndicate/overview.md > SyndicateResources). Because of the rounding, structures smaller than 2x2 (e.g. a 1x1 pop-up Laser Turret, ¼ of a Tunnel Space) only lower Tunnel Space when they push the unused total below the next multiple of 4.
-
-Building an expansion permanently converts part of a Tunnel's unused tunnel-region into occupied space, directly reducing total Tunnel Space. The only way to grow both production capacity and army capacity simultaneously is building more Tunnels or upgrading existing ones to increase their Tunnel Area (and therefore tunnel-region).
-
-If placing a new expansion (or losing tunnel-region some other way) drops total Tunnel Space below the Syndicate player's currently-committed Tunnel Space usage, existing units are unaffected — usage is simply displayed over capacity (e.g. 12/10) and no further units can be produced until usage drops back within capacity.
-
-#### Production and Tunnel Space
-Applies to every Syndicate production building (Hideout, Vehicle Assembly, Aerospace Assembly, and any later ones):
-
-- **Queuing** a unit requires only its Space Crystals cost (paid when queued) and a free queue slot. Queuing does **not** check or reserve Tunnel Space.
-- **Starting production**: when a queued unit reaches the front of the queue and is about to start, it requires free Tunnel Space (available minus used) at least equal to its TunnelSpaceCost. If there is enough, the unit's Tunnel Space counts as used from that moment — through production and for as long as the unit lives.
-- **Blocked**: if there is not enough free Tunnel Space, the building **waits** — the unit stays at the front of the queue, production is paused, and it starts automatically as soon as enough Tunnel Space frees up (a unit dies, a Tunnel is built or upgraded). The player can still cancel it for a full refund. A blocked queue raises a **notification** for the player (notification system not yet designed).
-- Shared with the other factions' capacities (factions/gdo/overview.md > Unit Control, 2026-11-24): several waiting buildings are served in a fixed internal order; a unit with TunnelSpaceCost 0 always passes.
 
 ### Construction and Upgrade Rules
 
@@ -245,7 +144,7 @@ Higher-tier Tunnels count toward lower-tier cost calculations (a T3 Tunnel count
 
 **Destroyed mid-upgrade** (user, 2026-11-25; Q0060): the Supplies paid for the upgrade are lost.
 
-**The future area is reserved** (user, 2026-11-25; Q0060): from the start of the upgrade, the larger Tunnel Area of the target tier counts against other placements (Tunnel Area Non-Overlap Rule), so nothing placed during the upgrade can make the finished area overlap.
+**The future area is reserved** (user, 2026-11-25; Q0060): from the start of the upgrade, the larger Tunnel Area of the target tier counts against other placements (factions/syndicate/tunnel_area_and_space.md > Tunnel Area Non-Overlap Rule), so nothing placed during the upgrade can make the finished area overlap.
 
 #### Construction Time
 480 frames (30 seconds). Agent must be present for the duration.
