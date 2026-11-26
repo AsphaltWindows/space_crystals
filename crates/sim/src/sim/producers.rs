@@ -41,6 +41,25 @@ fn producer(o: &Object) -> Option<(&Production, &'static ProductionDef)> {
     Some((o.production.as_ref()?, def))
 }
 
+/// (M5-S6) Sets the RallyPoint of `o`, a building of a type that has one (`crate::production::takes_rally`), to
+/// `rally`. An unfinished one's production waits for its completion (`super::transform::hold_back`), but not its rally
+/// point (design change 0396: "RallyPoint state must exist from the start of construction"): until then a production
+/// of its own holds the rally point alone, nothing queued, which its completion keeps (`Sim::start_functions`), and it
+/// has none while it has no rally point, so that the states of games that set no such rally point are as they were
+/// before (the goldens).
+fn set_rally(o: &mut Object, rally: Option<Rally>) {
+    if o.is_operational() {
+        if let Some(production) = &mut o.production {
+            production.rally = rally;
+        }
+    } else {
+        o.production = rally.map(|rally| Production {
+            rally: Some(rally),
+            ..Production::default()
+        });
+    }
+}
+
 /// The event of `producer`'s entry `entry` leaving its queue unmade, with `refund` Space Crystals back (X, or the
 /// producer leaving the game): a unit's `SimEvent::ProductionCancelled`, a Release's `SimEvent::ReleaseCancelled`
 /// (slice M5-F2) and an augmentation order's `SimEvent::AugmentCancelled` (slice M5-N1b), which name the unit they had
@@ -154,8 +173,8 @@ impl Sim {
                         Target::Object(target) if target == id => None,
                         Target::Object(target) => self.rally_on(player, target),
                     };
-                    if let Some(production) = self.objects.get_mut(&id).and_then(|o| o.production.as_mut()) {
-                        production.rally = rally;
+                    if let Some(o) = self.objects.get_mut(&id) {
+                        set_rally(o, rally);
                     }
                 }
             }

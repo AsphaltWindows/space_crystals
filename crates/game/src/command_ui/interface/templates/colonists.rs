@@ -17,7 +17,8 @@ use super::Planned;
 /// `factions/colonists/economy.md > Beacon Deployment > While transforming: only Cancel` (design change 0116): "A
 /// Beacon under deployment and a building under Warp In show only the Cancel command in their CommandPanel (no rally
 /// point, no other commands)", in X ("Cancel's hotkey: X"): the panel of their group, the unfinished buildings of a
-/// type (design change 0185: "with its own panel (e.g. Cancel only)").
+/// type (design change 0185: "with its own panel (e.g. Cancel only)"). (M5-S6) A portal under Warp In adds its C, Set
+/// Rally Point (design change 0396, over 0116's "no rally point": `super::unfinished_grid`).
 #[rustfmt::skip]
 pub const TRANSFORMING_GRID: [Option<PanelCommand>; 12] = [
     None, None,                                None, None,

@@ -7,10 +7,8 @@ use sc_sim::{
     RecruitKind, Sim, TunnelCommand, holding,
 };
 
-use super::{
-    BuildMenu, Conditions, InterfaceState, PanelCommand, SITE_GRID, TRANSFORMING_GRID, WhyUnavailable, offers,
-    slot_index, state_grid,
-};
+use super::templates::unfinished_grid;
+use super::{BuildMenu, Conditions, InterfaceState, PanelCommand, WhyUnavailable, offers, slot_index, state_grid};
 use crate::input::CommandSlot;
 use crate::selection::{GroupType, Selection};
 
@@ -146,9 +144,11 @@ pub fn commandable(sim: &Sim, player: PlayerId, selection: &Selection) -> bool {
 
 /// `> CommandPanel`: the commands of the ActiveGroup's ObjectInterfaceState in their slots, for a commandable
 /// selection ([`commandable`]): those of its state ([`state_grid`]: a constructor's follow what it constructs and
-/// the menu that is open), or only X Cancel for the group of a type's unfinished buildings ([`TRANSFORMING_GRID`],
-/// design changes 0116 and 0185: under construction or transformation, they form a group of their own, "with its own
-/// panel"). A common command ([`is_common`]) and a group command look different; in AwaitingTarget the
+/// the menu that is open), or only X Cancel for the group of a type's unfinished buildings
+/// (`super::TRANSFORMING_GRID`, design changes 0116 and 0185: under construction or transformation, they form a group
+/// of their own, "with its own panel"), and C Set Rally Point beside it on those that will produce or release units
+/// (slice M5-S6, design change 0396: [`unfinished_grid`]). A common command ([`is_common`]) and a group command look
+/// different; in AwaitingTarget the
 /// PendingCommand is marked and the others wait, in AwaitingPlacement the building being placed is marked
 /// (`super::Placing::command`) and the others wait, and in every state but DefaultState Z is Back (`> Standard Slot
 /// Assignments`). What the game allows now ([`Conditions`]) disables a command it doesn't let go to its recipients
@@ -157,9 +157,10 @@ pub fn commandable(sim: &Sim, player: PlayerId, selection: &Selection) -> bool {
 /// Egress Node's F shows only while it has Drones to select ([`Conditions::shows`]). The Tunnel's EjectMenu works as a
 /// build menu does, its tiles greyed while the gate would refuse their Eject, each with its count, and so does its
 /// ExpandMenu, its entries greyed while the gate would refuse their Expand (`sc_sim::Sim::can_expand`). A site under
-/// construction shows X Cancel Construction alone ([`SITE_GRID`], design change 0237), whatever its type (an
-/// expansion's too), and an Agent's Build its price ([`PanelSlot::price`]). A pool building's kind buttons show their
-/// counts, greyed at 0, and its KindMenu works as a build menu does (slice M5-F2); an Altar's type and state tiles
+/// construction shows X Cancel Construction (`super::SITE_GRID`, design change 0237), whatever its type (an
+/// expansion's too), with its C if it has one, and an Agent's Build its price ([`PanelSlot::price`]). A pool
+/// building's kind buttons show their counts, greyed at 0, and its KindMenu works as a build menu does (slice M5-F2);
+/// an Altar's type and state tiles
 /// alike, and its AugmentMenus (slice M5-N1b). A Temple's keys show their line's next level, or that it is in progress
 /// ([`Conditions::key`]), and its releases their counts, greyed at 0 (slice M5-N3).
 pub fn panel(selection: &Selection, interface: InterfaceState, conditions: &Conditions) -> Panel {
@@ -168,10 +169,8 @@ pub fn panel(selection: &Selection, interface: InterfaceState, conditions: &Cond
         return panel;
     };
     panel.active = Some(active.group_type());
-    let grid = if active.unfinished && conditions.site {
-        SITE_GRID
-    } else if active.unfinished {
-        TRANSFORMING_GRID
+    let grid = if active.unfinished {
+        unfinished_grid(active.kind, conditions.site)
     } else {
         state_grid(active.kind, interface, conditions.constructor)
     };
@@ -375,11 +374,12 @@ pub fn press(panel: &Panel, slot: CommandSlot) -> SlotPress {
 
 /// `> CommandPanel`: whether `command` is a common command of `selection`, "available to every object in Selection"
 /// and issued to all of them: every selected object offers it (an unfinished building only its Cancel, design change
-/// 0185), and it isn't one instance's own (`PanelCommand::instance_only`), unless the ActiveGroup is all there is to
-/// it. Otherwise it is a group command. A pool building takes no common command but as the ActiveGroup (design change
-/// 0348 point 5, `factions/cults/structures/README.md > Choosing Recruits, Release and Eject All`: "Cults production
-/// buildings (Armory, Altar, Cathedral, Chop Shop, Airstrip) are Ungroupable: a command goes to one building"), its X
-/// and C, which a Barracks shares with the others of its selection (design change 0083), too.
+/// 0185, and its C, design change 0396), and it isn't one instance's own (`PanelCommand::instance_only`), unless the
+/// ActiveGroup is all there is to it. Otherwise it is a group command. A pool building takes no common command but as
+/// the ActiveGroup (design change 0348 point 5, `factions/cults/structures/README.md > Choosing Recruits, Release and
+/// Eject All`: "Cults production buildings (Armory, Altar, Cathedral, Chop Shop, Airstrip) are Ungroupable: a command
+/// goes to one building"), its X and C, which a Barracks shares with the others of its selection (design change 0083),
+/// too.
 pub fn is_common(selection: &Selection, command: PanelCommand) -> bool {
     selection.member_types().all(|(id, ty)| {
         let one = command.instance_only() || one_building(ty);
@@ -388,9 +388,10 @@ pub fn is_common(selection: &Selection, command: PanelCommand) -> bool {
 }
 
 /// Whether objects of type `ty` take a command one at a time (design change 0348 point 5): the pool buildings
-/// (`sc_sim::holding::trains`).
+/// (`sc_sim::holding::trains`), and (M5-S6) an unfinished one too, its C as the finished one's (design change 0396: "as
+/// on the finished building"); its Cancel is the ActiveGroup's anyway (`PanelCommand::instance_only`).
 fn one_building(ty: GroupType) -> bool {
-    !ty.unfinished && holding::trains(ty.kind)
+    holding::trains(ty.kind)
 }
 
 /// `> CommandPanel`: who a panel command goes to: "Clicking a common command issues it to all selected objects.
@@ -405,7 +406,8 @@ fn one_building(ty: GroupType) -> bool {
 /// command, by hotkey
 /// or button, goes to these objects: a Train to every Barracks of the ActiveGroup, which the sim serves least work
 /// first as far as the player can pay (design change 0083), but never to an unfinished one, which is in a group of
-/// its own and offers its Cancel alone (design change 0185). A constructor's command goes to the ActiveGroup, the one
+/// its own and offers its Cancel (design change 0185), and its C alone besides (design change 0396). A constructor's
+/// command goes to the ActiveGroup, the one
 /// Deployment Center or Extraction Facility whose state the panel shows ([`is_common`]).
 pub fn recipients(selection: &Selection, command: PanelCommand) -> Vec<ObjectId> {
     let common = is_common(selection, command);

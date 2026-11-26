@@ -1,8 +1,8 @@
 //! An expansion under construction (`factions/syndicate/tunnel_menus.md > Expansions under construction`, design change
-//! 0254): the click pays and takes Tunnel Space, the frames and the HP, the expansion at work once complete, and the
-//! Tunnel's Eject meanwhile.
+//! 0254): the click pays and takes Tunnel Space, the frames and the HP, the expansion at work once complete, its rally
+//! point set meanwhile (slice M5-S6, design change 0396), and the Tunnel's Eject meanwhile.
 
-use sc_sim::ProductionCommand;
+use sc_sim::{ProductionCommand, Rally, Target, Vec2};
 
 use super::*;
 
@@ -56,7 +56,7 @@ fn a_hideout_is_built_in_400_ticks_keeping_its_damage_then_trains() {
     assert_eq!(
         gate(&t, P1, train.clone()),
         Err(Reject::NoProducers),
-        "nothing but Cancel"
+        "it trains nothing until complete"
     );
     let attack = Command::Order {
         units: vec![ObjectId(4)],
@@ -112,6 +112,44 @@ fn a_hideout_is_built_in_400_ticks_keeping_its_damage_then_trains() {
     t.run(245);
     assert_eq!(inside(&t, P1).len(), 1, "the Agent is in the Tunnel Network");
     assert_eq!(gate(&t, P1, expand(6, 12)), Ok(()), "the Tunnel is free");
+}
+
+/// (M5-S6) Design change 0396 for a Syndicate expansion ("A building that will produce or release units can have its
+/// RallyPoint set while it is still under construction"): a Hideout under construction takes a rally point on the
+/// surface, keeps it when it is complete ("The rally point is kept when the building completes"), and the Agent it
+/// then trains comes out and walks there (`factions/syndicate/structures/README.md > Tunnel Expansions > Rally Point
+/// Behavior`: "Rally point set on the surface: Unit auto-ejects from the parent Tunnel (Side A) and moves to the rally
+/// point").
+#[test]
+fn a_hideout_under_construction_takes_a_rally_point_its_agents_go_to() {
+    let mut t = started(base(), 1000);
+    next(&mut t, P1, expand(2, 6));
+    let site = building(&t);
+    let to: Vec2 = at(20, 10).center();
+    let rally = Command::Production {
+        objects: vec![site],
+        command: ProductionCommand::SetRally(Target::Point(to)),
+    };
+    assert_eq!(gate(&t, P1, rally.clone()), Ok(()));
+    next(&mut t, P1, rally);
+    let rally_of = |t: &TestSim| object(t, site).production.as_ref().map(|p| p.rally);
+    assert_eq!(rally_of(&t), Some(Some(Rally::Point(to))));
+    while object(&t, site).is_site() {
+        assert!(t.sim().tick() < 410, "complete at the end of tick 402");
+        t.step();
+    }
+    assert_eq!(rally_of(&t), Some(Some(Rally::Point(to))), "kept");
+    let train = Command::Production {
+        objects: vec![site],
+        command: ProductionCommand::Train(AGENT),
+    };
+    next(&mut t, P1, train);
+    let at_rally =
+        |t: &TestSim| (t.sim().objects()).any(|o| o.kind == AGENT && o.id != AGENT_1 && o.pos.distance(to) < 40.0);
+    while !at_rally(&t) {
+        assert!(t.sim().tick() < 1300, "the Agent walks to the rally point");
+        t.step();
+    }
 }
 
 /// 0254: "**The Tunnel meanwhile** shows the progress; Eject still works (it isn't an operation)": an Agent in the

@@ -1,7 +1,8 @@
 //! Unfinished buildings form their own SelectionGroup (`systems/controls/selection.md > SelectionGroup >
 //! Unfinished buildings form their own group`, design change 0185): a Bio Portal being warped in is a group apart
-//! from the finished Bio Portals selected with it, "as if it were another type", with its own panel, X Cancel alone
-//! (`factions/colonists/economy.md > Beacon Deployment > While transforming: only Cancel`); the finished group trains
+//! from the finished Bio Portals selected with it, "as if it were another type", with its own panel, X Cancel
+//! (`factions/colonists/economy.md > Beacon Deployment > While transforming: only Cancel`) and (M5-S6) C Set Rally
+//! Point (design change 0396); the finished group trains
 //! as ever. When the Warp In completes, the portal joins the finished group. Control groups, portrait clicks and
 //! double-clicks keep working with the group key, (type, finished?).
 
@@ -107,8 +108,10 @@ fn click_portrait(app: &mut App, index: usize, modifiers: &[KeyCode]) {
 /// The 0185 Verification: "Select 2 finished Bio Portals and 1 warping in: two groups; the finished group trains
 /// normally; Tab to the other shows only Cancel." The finished group, active first (its group comes first), shows the
 /// portal's panel, whose Train goes to both finished portals, a group command (the one warping in doesn't offer it);
-/// the other group, its portrait marked, shows X Cancel alone: Q and C do nothing, and X cancels its Warp In. A Beacon
-/// again, it is a group of its own (Ungroupable), which stays active.
+/// the other group, its portrait marked, shows X Cancel and (M5-S6) C, Set Rally Point, which every portal offers now
+/// (design change 0396: "Its unfinished panel adds **C: Set Rally Point**, next to Cancel"), a common command: Q does
+/// nothing, C awaits its target, and X cancels its Warp In. A Beacon again, it is a group of its own (Ungroupable),
+/// which stays active.
 #[test]
 fn two_finished_bio_portals_and_one_warping_in_are_two_groups() {
     let mut app = portals_game();
@@ -153,12 +156,15 @@ fn two_finished_bio_portals_and_one_warping_in_are_two_groups() {
         ]
     );
     let cancel = (X, c(CancelTransform), ButtonLook::Group, "Cancel");
-    assert_eq!(buttons(&mut app), [cancel]);
-    for key in [KeyQ, KeyC] {
-        tap(&mut app, &[], key);
-        assert_eq!(interface(&app), InterfaceState::DefaultState, "{key:?} does nothing");
-    }
-    assert_eq!(productions(&app).len(), 1, "no Train, no rally point");
+    let rally = (CommandSlot::RALLY_POINT, c(SetRallyPoint), ButtonLook::Common, "Rally");
+    assert_eq!(buttons(&mut app), [cancel, rally]);
+    tap(&mut app, &[], KeyQ);
+    assert_eq!(interface(&app), InterfaceState::DefaultState, "Q does nothing");
+    tap(&mut app, &[], KeyC);
+    assert_eq!(interface(&app), InterfaceState::awaiting(SetRallyPoint));
+    tap(&mut app, &[], KeyCode::Escape);
+    assert_eq!(interface(&app), InterfaceState::DefaultState);
+    assert_eq!(productions(&app).len(), 1, "no Train");
     tap(&mut app, &[], KeyX);
     let cancelled = (P1, vec![BEACON_1], ConstructionCommand::CancelTransform);
     assert_eq!(constructions(&app).last(), Some(&cancelled));
@@ -200,8 +206,9 @@ fn a_portal_whose_warp_in_completes_joins_the_finished_group() {
 
 /// Design change 0185, with the unfinished group active: two portals warp in, Tabbed to. The first to complete joins
 /// the finished group, and the unfinished group, which still has the other, stays active (keeping the ActiveGroup
-/// while it exists, `crate::selection::Selection::set_type`), with only Cancel. When the last completes, its group is
-/// gone, and the group it joined, now all four portals, is the ActiveGroup, with the portal's panel.
+/// while it exists, `crate::selection::Selection::set_type`), with its Cancel and (M5-S6) its C (design change 0396).
+/// When the last completes, its group is gone, and the group it joined, now all four portals, is the ActiveGroup, with
+/// the portal's panel.
 #[test]
 fn the_unfinished_group_stays_active_until_its_last_portal_completes() {
     let mut app = portals_game();
@@ -218,6 +225,7 @@ fn the_unfinished_group_stays_active_until_its_last_portal_completes() {
     );
     let c = PanelButton::Command;
     let cancel = (X, c(CancelTransform), ButtonLook::Group, "Cancel");
+    let rally = (CommandSlot::RALLY_POINT, c(SetRallyPoint), ButtonLook::Common, "Rally");
     run_until(&mut app, 600, "the first Warp In completes", |app| {
         !object(app, BEACON_1).is_transforming()
     });
@@ -230,7 +238,7 @@ fn the_unfinished_group_stays_active_until_its_last_portal_completes() {
             (BioPortal, true, vec![BEACON_2], true),
         ]
     );
-    assert_eq!(buttons(&mut app), [cancel]);
+    assert_eq!(buttons(&mut app), [cancel, rally]);
     run_until(&mut app, 600, "the second Warp In completes", |app| {
         !object(app, BEACON_2).is_transforming()
     });

@@ -3,10 +3,14 @@
 //! Assist pointer over a site, which no one enters, and S Assist Construction; the Enter pointer over an Armory, the
 //! gathering pointers and a load carried; and Tab, which stops once on the Recruits. A Construct menu's placement for
 //! the whole group, the Shift chain and a Hall placed flush against the map's edge (slice M5-S4) are [`placing`]'s;
-//! the Repair pointer, D Repair and the right-click on a damaged building [`repairing`]'s (slice M5-N8).
+//! the Repair pointer, D Repair and the right-click on a damaged building [`repairing`]'s (slice M5-N8); the door
+//! arrows on the Armory's ghost and on the selected Armory [`doors`]' (design changes 0390 and 0394); the rally point of
+//! an Armory being built [`unfinished_rally`]'s (design change 0396).
 
+mod doors;
 mod placing;
 mod repairing;
+mod unfinished_rally;
 
 use sc_sim::defs::Resource;
 use sc_sim::testing::ScenarioBuilder;

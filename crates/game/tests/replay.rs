@@ -28,6 +28,8 @@ use space_crystals::sim_driver::{
 };
 use space_crystals::{AppConfig, build_app};
 
+use crate::hud::notes;
+
 const P1: PlayerId = PlayerId(1);
 const P2: PlayerId = PlayerId(2);
 
@@ -401,7 +403,8 @@ fn leaving_the_fastest_pace_runs_no_burst_of_ticks() {
 
 /// F2 switches the player and F3 the fog in a playback as in a game with debug commands, even when the recorded game
 /// had none: they only change what the replay shows. F2 is the selection's own switch (`selection::systems`), so it
-/// switches once, not twice, and each player keeps their ControlState as in a game.
+/// switches once, not twice, and each player keeps their ControlState as in a game. (M5-S6) The top bar says while the
+/// fog is off, as in a game.
 #[test]
 fn playback_switches_the_player_and_the_fog_even_without_debug_commands() {
     for debug in [false, true] {
@@ -423,8 +426,10 @@ fn playback_switches_the_player_and_the_fog_even_without_debug_commands() {
         assert_eq!(selection_in_use(&app), [ObjectId(1)], "debug {debug}");
         tap(&mut app, KeyCode::F3);
         assert!(!app.world().resource::<FogOfWar>().enabled, "debug {debug}");
+        assert_eq!(notes(&mut app), ["Fog off (F3)"], "debug {debug}");
         tap(&mut app, KeyCode::F3);
         assert!(app.world().resource::<FogOfWar>().enabled, "debug {debug}");
+        assert_eq!(notes(&mut app), [""; 0], "debug {debug}");
     }
 }
 

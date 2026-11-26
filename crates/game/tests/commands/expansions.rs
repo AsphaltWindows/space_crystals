@@ -279,8 +279,10 @@ fn an_expansion_the_bank_cant_pay_says_so() {
 /// `factions/syndicate/tunnel_menus.md > Expansions under construction` (design change 0254): while the Tunnel builds a
 /// Hideout, "**The Tunnel meanwhile** shows the progress" (its InfoPanel's activity), its ExpandMenu's entries are
 /// greyed ("A Tunnel can only perform one operation at a time") and its X is no longer greyed. The site "offers only
-/// **X Cancel Construction**" and shows its progress bar. "The Tunnel's X cancels whatever operation it is running":
-/// the site goes, "refunding **75%** of its cost".
+/// **X Cancel Construction**", and (M5-S6) C Set Rally Point next to it, a Hideout being a building that will produce
+/// units (design change 0396: "Its unfinished panel adds **C: Set Rally Point**, next to Cancel"); it shows its
+/// progress bar. "The Tunnel's X cancels whatever operation it is running": the site goes, "refunding **75%** of its
+/// cost".
 #[test]
 fn the_tunnel_shows_its_operation_and_x_cancels_it() {
     use ButtonLook::{Common, Disabled};
@@ -316,9 +318,13 @@ fn the_tunnel_shows_its_operation_and_x_cancels_it() {
     click(&mut app, centre(FREE), &[]);
     assert_eq!(selected(&app), [site]);
     let cancel = PanelCommand::CancelConstruction;
+    let rally = PanelCommand::SetRallyPoint;
     assert_eq!(
         buttons(&mut app),
-        [(CommandSlot::CANCEL_PRODUCTION, PanelButton::Command(cancel), Common)]
+        [
+            (CommandSlot::CANCEL_PRODUCTION, PanelButton::Command(cancel), Common),
+            (CommandSlot::RALLY_POINT, PanelButton::Command(rally), Common)
+        ]
     );
     let progress = site_progress(&mut app, site);
     assert!(progress > 0.0 && progress < 1.0, "{progress}");

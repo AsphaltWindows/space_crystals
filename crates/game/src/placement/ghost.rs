@@ -23,6 +23,9 @@
 //!   plate not on a patch), as the whole ghost is then invalid ([`Ghost::tile_is_green`]);
 //! - an outline around the footprint, green when the placement is valid and red when it isn't: the verdict on the
 //!   whole ghost;
+//! - an arrow at each doorway, just outside its side, in at an entrance, out at an exit, two-way at a door used both
+//!   ways, turning and flipping with the ghost (`core/entities.md > Entrance and exit (production and research
+//!   buildings)`, design change 0390: `crate::door_arrows`);
 //! - the letter of each side at its edge, inside the footprint (`sc_sim::sides`), except on a single tile, whose
 //!   sides are all alike (the Extraction Plate's AAAA); and the building's tag in the middle, as its placeholder on
 //!   the map shows it (`crate::kinds::short_label`), a Warp In's a little below it, clear of the tag
@@ -33,8 +36,8 @@ use bevy::camera::visibility::NoFrustumCulling;
 use bevy::prelude::*;
 use bevy::sprite_render::AlphaMode2d;
 use sc_sim::{
-    BuildingOrientation, CornerPos, Map, ObjectId, ObjectKind, PlacementCheck, PlayerCommand, PlayerId, SU_PER_GU,
-    SideLetter, Sim, TilePos, sides,
+    BuildingOrientation, CornerPos, Map, ObjectId, ObjectKind, Placement, PlacementCheck, PlayerCommand, PlayerId,
+    SU_PER_GU, SideLetter, Sim, TilePos, sides,
 };
 
 use super::placing_now;
@@ -42,6 +45,7 @@ use crate::ClientMode;
 use crate::command_ui::interface::{deploy_recipient, deploying, recipients};
 use crate::command_ui::{Builder, Placing};
 use crate::coords::{DrawLayer, drawn_at_height, view_to_world};
+use crate::door_arrows::{DoorArrow, door_arrows, draw_arrows};
 use crate::input::{ActionState, InputAction};
 use crate::kinds::short_label;
 use crate::map_render::tile_surface;
@@ -73,6 +77,8 @@ const TAG_BELOW_SU: f32 = 26.0;
 const GHOST_Z: f32 = -2.0;
 const LABEL_Z: f32 = -1.0;
 const EDGE_Z: f32 = 0.01;
+/// The door arrows' z over the ghost's tiles, just outside which they lie.
+const ARROW_Z: f32 = 0.02;
 
 /// The ghost of the building being placed, as it shows now.
 #[derive(Clone, Debug, PartialEq)]
@@ -136,6 +142,29 @@ impl Ghost {
     /// The outline's colour: the verdict on the whole placement.
     pub fn edge_color(&self) -> Color {
         if self.is_valid() { VALID_EDGE } else { INVALID_EDGE }
+    }
+
+    /// Its footprint, as the building would be placed.
+    pub fn placement(&self) -> Placement {
+        let BuildingOrientation {
+            rotation,
+            flip_h,
+            flip_v,
+        } = self.orientation;
+        let (w, h) = self.size;
+        Placement {
+            origin: self.origin,
+            w,
+            h,
+            rotation,
+            flip_h,
+            flip_v,
+        }
+    }
+
+    /// The arrows at its doorways, as it is turned (`crate::door_arrows`, design change 0390).
+    pub fn door_arrows(&self) -> Vec<DoorArrow> {
+        door_arrows(self.kind, &self.placement())
     }
 
     /// The ground point at the middle of its footprint.
@@ -393,8 +422,8 @@ fn drawn_corner(map: &Map, c: CornerPos) -> Vec2 {
 }
 
 /// The ghost's mesh: each footprint tile lying on the terrain in its colour (a quad if it is flat, else four
-/// triangles around its centre, as the terrain mesh draws it), and the outline around the footprint. Bevy world
-/// coordinates, z relative to the ghost's entity.
+/// triangles around its centre, as the terrain mesh draws it), the outline around the footprint, and the arrows at its
+/// doorways ([`Ghost::door_arrows`]). Bevy world coordinates, z relative to the ghost's entity.
 pub fn ghost_mesh(map: &Map, ghost: &Ghost) -> ColorMesh {
     let mut mesh = ColorMesh::triangles();
     for t in ghost.tiles() {
@@ -422,6 +451,7 @@ pub fn ghost_mesh(map: &Map, ghost: &Ghost) -> ColorMesh {
         mesh.segment(corner(0, dy), corner(0, dy + 1), EDGE_SU, EDGE_Z, color);
         mesh.segment(corner(w, dy), corner(w, dy + 1), EDGE_SU, EDGE_Z, color);
     }
+    draw_arrows(&mut mesh, map, &ghost.door_arrows(), ARROW_Z);
     mesh
 }
 

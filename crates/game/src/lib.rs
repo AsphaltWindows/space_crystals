@@ -20,6 +20,7 @@
 //! - [`selection`]: the players' selections and control groups (client-side UI state), and their markers;
 //! - [`command_ui`]: orders from the command panel, right-clicks and targeting; command indicators and cursors;
 //! - [`placement`]: the placement ghost of the building being placed, and the build area overlay;
+//! - [`door_arrows`]: the arrows at a building's doorways, on the placement ghost and on the selected buildings;
 //! - [`hud`]: the game mode's HUD frame, with the InfoPanel, the SelectionPanel and the CommandPanel;
 //! - [`editor`]: the map editor (`--editor`), with its own UI, tools and play-test;
 //! - [`qa`]: screenshots, exit at a tick, state dump, commands and input at given ticks;
@@ -38,6 +39,7 @@ pub mod cli;
 pub mod combat_effects;
 pub mod command_ui;
 pub mod coords;
+pub mod door_arrows;
 pub mod editor;
 pub mod fog;
 pub mod hud;

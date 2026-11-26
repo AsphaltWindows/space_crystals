@@ -3,10 +3,10 @@
 //! (Advanced), whose buildings not in the game yet show unavailable; a building enters AwaitingPlacement with its
 //! ghost on the Beacon, centred, an odd size's extras to the bottom-right, turned about the Beacon's centre by R and
 //! F and never moved by the mouse, red where blocked; a click anywhere warps it in, Z goes back, and Tab picks the
-//! Beacon. Whatever transforms shows only X Cancel and sets no rally point (design change 0116), and a greyed-out
-//! button pressed says why (design change 0162).
+//! Beacon. Whatever transforms shows only X Cancel (design change 0116), a portal C Set Rally Point besides, which it
+//! takes meanwhile (slice M5-S6, design change 0396), and a greyed-out button pressed says why (design change 0162).
 
-use sc_sim::{BuildingOrientation, Rotation, TileProblem, transform};
+use sc_sim::{BuildingOrientation, Rally, Rotation, TileProblem, transform};
 use space_crystals::command_ui::{BuildMenu, PanelCommand, Planned, PointerDisplay};
 
 use super::*;
@@ -287,12 +287,14 @@ fn the_warp_in_goes_to_the_beacon_tabbed_to() {
 }
 
 /// Design change 0116: "A Beacon under deployment and a building under Warp In show only the Cancel command in their
-/// CommandPanel (no rally point, no other commands)": the Robo Portal warping in shows X alone; C does nothing, nor
-/// does a right-click, whose pointer previews nothing; X cancels the Warp In, and it is a Beacon again. Selected with
-/// a working Robo Portal, it is a group of its own (design change 0185), which stays active, still with X alone, and
-/// Tab shows the working portal's panel.
+/// CommandPanel", and (M5-S6) a portal C Set Rally Point besides (design change 0396: "Its unfinished panel adds **C:
+/// Set Rally Point**, next to Cancel. Right-clicking ground or an object sets it, as on the finished building"): the
+/// Robo Portal warping in shows X and C; C then a click sets its rally point, and so does a right-click, whose pointer
+/// previews Move; X cancels the Warp In, and it is a Beacon again, which has no rally point. Selected with a working
+/// Robo Portal, it is a group of its own (design change 0185), which stays active, with X and C, which both portals
+/// take, a common command, and Tab shows the working portal's panel.
 #[test]
-fn a_portal_warping_in_shows_only_cancel_and_sets_no_rally_point() {
+fn a_portal_warping_in_shows_cancel_and_takes_a_rally_point() {
     let mut app = warp_in_game(1000);
     click(&mut app, BEACON_A_AT, &[]);
     tap(&mut app, &[], KeyQ);
@@ -301,22 +303,43 @@ fn a_portal_warping_in_shows_only_cancel_and_sets_no_rally_point() {
     assert_eq!(object(&app, BEACON_A).kind, RoboPortal);
     assert!(object(&app, BEACON_A).is_transforming());
     let c = PanelButton::Command;
+    let set_rally = PanelCommand::SetRallyPoint;
+    let rally_button = |look| (CommandSlot::RALLY_POINT, c(set_rally), look, "Rally");
     assert_eq!(
         buttons(&mut app),
-        [(X, c(CancelTransform), ButtonLook::Common, "Cancel")]
+        [
+            (X, c(CancelTransform), ButtonLook::Common, "Cancel"),
+            rally_button(ButtonLook::Common)
+        ]
     );
+    let rally = |app: &App| object(app, BEACON_A).production.as_ref().and_then(|p| p.rally);
     tap(&mut app, &[], KeyC);
-    assert_eq!(interface(&app), InterfaceState::DefaultState, "no rally to await");
-    right_click(&mut app, GROUND, &[]);
-    assert_eq!(pointer_over(&mut app, GROUND), Some(PointerDisplay::Inactive));
-    assert_eq!(productions(&app), [], "no rally point");
+    assert_eq!(interface(&app), InterfaceState::awaiting(set_rally));
+    click(&mut app, GROUND, &[]);
+    assert!(
+        matches!(rally(&app), Some(Rally::Point(at)) if near(at, GROUND)),
+        "{:?}",
+        rally(&app)
+    );
+    let elsewhere = GROUND - Vec2::new(250.0, 0.0);
+    assert_eq!(pointer_over(&mut app, elsewhere), Some(PointerDisplay::Move));
+    right_click(&mut app, elsewhere, &[]);
+    assert!(
+        matches!(rally(&app), Some(Rally::Point(at)) if near(at, elsewhere)),
+        "{:?}",
+        rally(&app)
+    );
+    assert_eq!(productions(&app).len(), 2, "two rally points");
     assert_eq!(orders(&app), []);
 
     add_box(&mut app, ROBO_PORTAL_AT);
     assert_eq!(selected(&app), [BEACON_A, ROBO_PORTAL]);
     assert_eq!(
         buttons(&mut app),
-        [(X, c(CancelTransform), ButtonLook::Group, "Cancel")]
+        [
+            (X, c(CancelTransform), ButtonLook::Group, "Cancel"),
+            rally_button(ButtonLook::Common)
+        ]
     );
     tap(&mut app, &[], Tab);
     let shown = buttons(&mut app);
@@ -342,6 +365,7 @@ fn a_portal_warping_in_shows_only_cancel_and_sets_no_rally_point() {
     );
     updates(&mut app, 2);
     assert_eq!(object(&app, BEACON_A).kind, ObjectKind::Beacon);
+    assert!(object(&app, BEACON_A).production.is_none(), "no rally point");
     assert!(bank(&app) > bank_before, "refunded");
     assert_eq!(selected(&app), [BEACON_A]);
 }
