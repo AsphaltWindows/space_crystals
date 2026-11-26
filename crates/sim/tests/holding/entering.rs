@@ -135,7 +135,7 @@ fn ejected_recruits_go_round_to_side_b_and_back_in() {
 /// The plan's acceptance: "The 11th Recruit's Enter fails, with feedback." Placeholder (Q0104 point 2): "The Enter ends
 /// and it idles beside the Armory (the normal Failure rule)": the one that gets to the entry path with ten inside
 /// stays out, idle, by the entrance, and its owner is told (`SimEvent::EnterFailed` with `full`, the client's feedback
-/// line). Placeholder (Q0104 point 5): the capacity counts the pool.
+/// line). Design change 0347 point 5: the capacity counts every unit inside (`tests/armory/`: the reserved ones too).
 #[test]
 fn the_eleventh_recruits_enter_fails_with_feedback() {
     let mut t = base().start();

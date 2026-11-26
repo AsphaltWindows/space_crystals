@@ -4,8 +4,9 @@
 //! the vision invariant V1 (the vision kept up tick by tick is the one a fresh build gives, and every Visible tile
 //! is Explored: `vision`), the path knowledge invariant K1 (each player's planning grids are those a fresh build
 //! from the state gives: `paths`), the projectile invariant P1 (every projectile lands by its arrival tick:
-//! `projectiles`), the operation invariant O1 (a Tunnel's operation and its site name each other: `operations`), and
-//! an ASCII picture of the map with its units for readable failures.
+//! `projectiles`), the operation invariant O1 (a Tunnel's operation and its site name each other: `operations`), the
+//! reservation invariant R1 (a building that trains the units inside it reserves them as its queue has them:
+//! `reservations`, slice M5-F2), and an ASCII picture of the map with its units for readable failures.
 //!
 //! [`super::TestSim`] checks them after every tick (on by default). A test that steps a bare [`Sim`] keeps its own
 //! [`Invariants`] and calls [`Invariants::check`] after each step.
@@ -13,6 +14,7 @@
 mod operations;
 mod picture;
 mod projectiles;
+mod reservations;
 
 use std::collections::BTreeMap;
 
@@ -44,7 +46,7 @@ pub use picture::ascii;
 /// A broken invariant.
 #[derive(Clone, Debug, PartialEq)]
 pub struct Violation {
-    /// "I1" … "I7", "V1", "K1", "P1", "O1".
+    /// "I1" … "I7", "V1", "K1", "P1", "O1", "R1".
     pub invariant: &'static str,
     pub message: String,
     /// Where on the map to look.
@@ -116,7 +118,8 @@ impl Invariants {
             .and_then(|()| vision(sim))
             .and_then(|()| path_knowledge(sim))
             .and_then(|()| projectiles::projectiles(sim))
-            .and_then(|()| operations::operations(sim));
+            .and_then(|()| operations::operations(sim))
+            .and_then(|()| reservations::reservations(sim));
         self.seen = Self::new(sim).seen;
         result
     }

@@ -109,7 +109,9 @@ pub enum SimEvent {
         reason: ArmyResource,
     },
     /// `producer` released `unit` into its exit doorway (`core/entities.md > Structure Type > Exit Doorway`), after
-    /// the unit's `Spawned` event.
+    /// the unit's `Spawned` event; or, at a producer that trains the units inside it (slice M5-F2,
+    /// `sim/producers/pool.rs`), let out `unit`, one of them, trained into its new type, after its `KindChanged`: the
+    /// same object, with no `Spawned`.
     UnitProduced {
         producer: ObjectId,
         unit: ObjectId,
@@ -244,9 +246,9 @@ pub enum SimEvent {
         unit: ObjectId,
         building: ObjectId,
     },
-    /// (M5-F1) `unit`, ejected (`HoldCommand::EjectAll`), came out of `building` into its exit doorway, and is among
-    /// the sim's objects again, with the id it had (`factions/cults/structures/armory.md > Eject All`;
-    /// `Sim::step_holding`). No `Spawned` comes with it.
+    /// (M5-F1) `unit`, ejected (`HoldCommand::EjectAll`) or released (`ProductionCommand::Release`, slice M5-F2), came
+    /// out of `building` into its exit doorway, and is among the sim's objects again, with the id it had
+    /// (`factions/cults/structures/armory.md > Eject All`; `Sim::step_holding`). No `Spawned` comes with it.
     LeftBuilding {
         unit: ObjectId,
         building: ObjectId,
@@ -421,5 +423,20 @@ pub enum SimEvent {
     LocationTooClose {
         unit: ObjectId,
         at: Vec2,
+    },
+    /// (M5-F2) `producer`, a building that trains the units inside it (`sim/producers/pool.rs`), queued a Release of
+    /// `unit`, one of them, which it reserves from then on (`ProductionCommand::Release`; design change 0337,
+    /// `factions/cults/structures/README.md > Choosing Recruits, Release and Eject All`): free, it lets the unit out
+    /// as it is once it completes, with a [`SimEvent::LeftBuilding`].
+    ReleaseQueued {
+        producer: ObjectId,
+        unit: ObjectId,
+    },
+    /// (M5-F2) `producer`'s Release of `unit` left its queue before the unit came out: X took it off
+    /// (`ProductionCommand::CancelProduction`), or the building left the game. The unit is back in the pool, or comes
+    /// out as the building's units do then (`Sim::evacuate`). A Release is free, so nothing is refunded.
+    ReleaseCancelled {
+        producer: ObjectId,
+        unit: ObjectId,
     },
 }

@@ -93,17 +93,16 @@ pub struct Held {
     /// completes a Tunnel can be ejected at once [...] produced units rallied into the network have no delay
     /// either").
     pub entered: bool,
-    /// (M5-F1) Ejected from the building it is in (`factions/cults/structures/armory.md > Eject All`: "ejects all
-    /// stored Recruits from the exit side in a rapid stream, one after another"): it comes out through the building's
-    /// exit doorway once the doorway is free, after the units ejected before it (`Sim::step_holding`). Inside until
-    /// then. Saved and hashed only while set, so the states of games that never eject hash as they did before the
-    /// field existed.
-    #[serde(default, skip_serializing_if = "is_false")]
-    pub ejected: bool,
-}
-
-fn is_false(b: &bool) -> bool {
-    !*b
+    /// (M5-F1, M5-F2) The tick from which it is ready to leave the building it is in through the building's exit
+    /// doorway: ejected (`factions/cults/structures/armory.md > Eject All`: "ejects all stored Recruits from the exit
+    /// side in a rapid stream, one after another"), or reserved by the entry at the front of the building's queue,
+    /// which finished in that tick (a Release lets it out unchanged, a training trains it as it comes out:
+    /// `sim/producers/pool.rs`). The building lets its ready units out one at a time, "in the order they are ready"
+    /// (design change 0348, `factions/cults/structures/README.md > Choosing Recruits, Release and Eject All`), each
+    /// once its doorway is free (`Sim::step_holding`). Inside until then. Saved and hashed only while set, so the
+    /// states of games in which no unit leaves a building hash as they did before the field existed.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub leaving: Option<Tick>,
 }
 
 impl Held {
@@ -340,15 +339,16 @@ impl StateHash for Held {
             place,
             since,
             entered,
-            ejected,
+            leaving,
         } = self;
         object.hash(h);
         place.hash(h);
         since.hash(h);
         entered.hash(h);
         // (M5-F1) Only while set, under a tag of its own: the goldens stand.
-        if *ejected {
+        if let Some(tick) = leaving {
             h.tag(1);
+            tick.hash(h);
         }
     }
 }
@@ -453,7 +453,7 @@ mod tests {
             place: Place::Network,
             since: 10,
             entered,
-            ejected: false,
+            leaving: None,
         };
         assert!(!held(true).may_exit(10) && !held(true).may_exit(41) && held(true).may_exit(42));
         assert!(held(false).may_exit(10));
@@ -467,7 +467,7 @@ mod tests {
             place: Place::Network,
             since: 0,
             entered: true,
-            ejected: false,
+            leaving: None,
         };
         held.object.hp = Some(40.0);
         for _ in 0..160 {

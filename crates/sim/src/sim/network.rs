@@ -141,7 +141,7 @@ impl Sim {
                 place,
                 since,
                 entered,
-                ejected: false,
+                leaving: None,
             },
         );
         self.forget_references(&[id]);

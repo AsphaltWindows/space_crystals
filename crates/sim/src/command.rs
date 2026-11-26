@@ -8,6 +8,7 @@
 use glam::Vec2;
 use serde::{Deserialize, Serialize};
 
+use crate::augmentation::Augmentation;
 use crate::construction::ConstructionCommand;
 use crate::defs::ObjectKind;
 use crate::ids::{ObjectId, PlayerId};
@@ -179,6 +180,11 @@ pub enum DebugCommand {
     /// unrefunded, as the Tunnel is then at the tier asked for. Rejected for an object that isn't a Tunnel, or a tier
     /// its table hasn't.
     SetTier { id: ObjectId, tier: u8 },
+    /// (M5-F2) Set the augmentations of `id`, a unit on the map (`Object::augmentation`, `factions/cults/augmentation.md
+    /// > AugmentationState`), whoever owns it, and with them the kind a building that trains it counts it as (design
+    /// change 0337). For tests and QA runs of the Armory's kinds until the Altar augments (slice M5-N1b); the
+    /// augmentations have no effect yet (slice M5-N1a). Rejected for an object that isn't a unit.
+    SetAugmentation { id: ObjectId, augmentation: Augmentation },
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]

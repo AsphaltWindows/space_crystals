@@ -34,6 +34,7 @@
 use super::Sim;
 use crate::ids::ObjectId;
 use crate::object::Object;
+use crate::production::QueueEntry;
 use crate::recruitment::{self, Capacity, Claims, HallState, Lineages};
 
 impl Sim {
@@ -109,7 +110,7 @@ impl Sim {
             return;
         };
         if Capacity::of(&recruitment, claims.tiles(id)).has_room(lineages.usage(id)) {
-            production.queue.push(recipe.kind);
+            production.push(QueueEntry::Unit(recipe.kind), Vec::new());
         }
     }
 }

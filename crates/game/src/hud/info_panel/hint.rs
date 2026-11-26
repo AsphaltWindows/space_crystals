@@ -122,6 +122,7 @@ mod tests {
         states.extend(BuildMenu::ALL.map(InterfaceState::BuildMenu));
         states.push(InterfaceState::EjectMenu);
         states.push(InterfaceState::ExpandMenu);
+        states.extend(sc_sim::RecruitKind::ALL.map(InterfaceState::KindMenu));
         states.extend(commands.filter(|c| c.needs_target()).map(InterfaceState::awaiting));
         let panels = conditions
             .iter()

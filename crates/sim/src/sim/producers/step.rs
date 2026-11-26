@@ -85,6 +85,7 @@ impl Sim {
             let Some(o) = self.objects.get_mut(&id) else {
                 continue;
             };
+            let pool = crate::holding::trains(o.kind);
             let def = o.def().structure.as_ref().and_then(|s| s.production.as_ref());
             let (Some(owner), Some(def), Some(production)) = (o.owner, def, &mut o.production) else {
                 continue;
@@ -100,7 +101,10 @@ impl Sim {
             if starting && let Some(kind) = production.in_production() {
                 room.take(owner, kind);
             }
-            if finished {
+            // A pool producer's finished entry waits for its unit's turn at the doorway (`producers/pool.rs`).
+            if finished && pool {
+                self.ready_to_leave(id);
+            } else if finished {
                 self.release_unit(id);
                 if recruits {
                     self.recruit_next(id, &claims);
@@ -122,7 +126,7 @@ impl Sim {
         let (Some(owner), Some(production)) = (o.owner, o.production.as_ref()) else {
             return false;
         };
-        let Some(kind) = production.current() else {
+        let Some(entry) = production.current() else {
             return false;
         };
         if production.in_production().is_some() {
@@ -135,7 +139,8 @@ impl Sim {
         let Some(cap) = cap else {
             return true;
         };
-        let fits = cap.fits(cap.resource.cost_of(kind));
+        // A Release costs nothing (slice M5-F2).
+        let fits = cap.fits(entry.unit().map_or(0, |kind| cap.resource.cost_of(kind)));
         let Some(production) = self.objects.get_mut(&id).and_then(|o| o.production.as_mut()) else {
             return false;
         };

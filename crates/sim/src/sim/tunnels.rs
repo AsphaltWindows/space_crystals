@@ -217,19 +217,16 @@ impl Sim {
         };
         let begun = production.in_production().is_some();
         production.rally = None;
-        for (i, kind) in production.take_queue().into_iter().enumerate() {
+        for (i, (entry, reserved)) in production.take_queue().into_iter().enumerate() {
             let refund = match i == 0 && begun {
                 true => 0,
-                false => Refund::Full.of(def.recipe(kind).map_or(0, |recipe| recipe.cost)),
+                false => Refund::Full.of(entry.cost(def)),
             };
             if let Some(player) = self.players.iter_mut().find(|p| Some(p.id) == owner) {
                 player.credit_crystals(refund);
             }
-            self.events.push(SimEvent::ProductionCancelled {
-                producer: id,
-                kind,
-                refund,
-            });
+            self.events
+                .extend(super::producers::cancelled(id, entry, &reserved, refund));
         }
     }
 

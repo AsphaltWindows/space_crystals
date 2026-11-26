@@ -6,8 +6,8 @@ use std::collections::BTreeSet;
 use bevy::ecs::system::SystemParam;
 use bevy::prelude::*;
 use sc_sim::{
-    Ability, Command, ConstructionCommand, ObjectId, OrderKind, PlayerCommand, PlayerId, ProductionCommand, Reject,
-    Target, TunnelCommand,
+    Ability, Command, ConstructionCommand, HoldCommand, ObjectId, OrderKind, PlayerCommand, PlayerId,
+    ProductionCommand, Reject, Target, TunnelCommand,
 };
 
 use crate::command_ui::OrderIssued;
@@ -201,6 +201,28 @@ impl OrderOutbox<'_> {
         }
         self.pending.0.push(sent);
         Ok(())
+    }
+
+    /// `player`'s buildings among `objects` carry out `command` (`Command::Holding`), at once: a pool building's Eject
+    /// All (slice M5-F2), to the one Tabbed to. Nothing when none of them is the player's, or when the sim would reject
+    /// it (`Sim::validate`, the predicate the panel greys the button out by: nothing in the pool).
+    pub(super) fn hold(&mut self, player: PlayerId, objects: Vec<ObjectId>, command: HoldCommand) -> bool {
+        let objects: Vec<ObjectId> = (objects.into_iter())
+            .filter(|&id| self.sim.object(id).is_some_and(|o| o.owner == Some(player)))
+            .collect();
+        if objects.is_empty() {
+            return false;
+        }
+        let sent = PlayerCommand {
+            player,
+            command: Command::Holding { objects, command },
+        };
+        if let Err(reject) = self.sim.validate(&sent) {
+            debug!("holding command {command:?} not given: {reject}");
+            return false;
+        }
+        self.pending.0.push(sent);
+        true
     }
 
     /// `player`'s Drones that have a Deploy, in the sim or sent for its next tick ([`deploying`]).

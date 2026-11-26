@@ -138,13 +138,14 @@ impl ArmyResource {
     }
 
     /// What `o` takes up of it for its owner: a unit its cost, and a producer its unit in production's if the resource
-    /// [`reserves`](ArmyResource::reserves) (module docs).
+    /// [`reserves`](ArmyResource::reserves) (module docs). Never a producer that holds units (slice M5-F2,
+    /// `sim/producers/pool.rs`): it trains its units of the units inside, which count already.
     fn taken_by(self, o: &Object) -> u32 {
         let in_production = o
             .production
             .as_ref()
             .and_then(Production::in_production)
-            .filter(|_| self.reserves())
+            .filter(|_| self.reserves() && crate::holding::holds(o).is_none())
             .map_or(0, |kind| self.cost_of(kind));
         self.cost_of(o.kind).saturating_add(in_production)
     }

@@ -200,8 +200,8 @@ pub struct Lineages {
     /// LocalUnitControlUsage, by the Hall's id: the entries that name it, over every unit, and its Recruit in
     /// production.
     usage: BTreeMap<ObjectId, u32>,
-    /// By the owner of the units: their entries whose Hall is gone, and the costs of their Cults units without a
-    /// lineage.
+    /// By the owner of the units: their entries whose Hall is gone, and the points of their Cults units' costs that no
+    /// entry names: the whole cost of a unit without a lineage.
     orphaned: BTreeMap<PlayerId, u32>,
 }
 
@@ -220,18 +220,20 @@ impl Lineages {
                 // Design change 0342: "the Recruit in production counts toward LocalUnitControlUsage from the start of
                 // its production": a Hall's queue is its one Recruit, which starts as it is queued.
                 let producing = (o.production.iter().flat_map(|p| &p.queue))
-                    .map(|&kind| ArmyResource::CultsUnitControl.cost_of(kind))
+                    .filter_map(|entry| entry.unit())
+                    .map(|kind| ArmyResource::CultsUnitControl.cost_of(kind))
                     .fold(0u32, u32::saturating_add);
                 if producing > 0 {
                     *usage.entry(o.id).or_default() += producing;
                 }
             }
-            if o.lineage.is_empty() {
-                // Design change 0344: "Recruits no Hall produced [...] are orphans from the start": its whole cost.
-                let cost = ArmyResource::CultsUnitControl.cost_of(o.kind);
-                if let Some(owner) = o.owner.filter(|_| cost > 0) {
-                    *orphaned.entry(owner).or_default() += cost;
-                }
+            // Design change 0344: "Recruits no Hall produced [...] are orphans from the start": the whole cost of a unit
+            // without a lineage, and of a unit trained of several Recruits (slice M5-F2, `Sim::train`: one entry for
+            // each Hall's Recruit) the point of each that no Hall produced.
+            let cost = ArmyResource::CultsUnitControl.cost_of(o.kind);
+            let unnamed = cost.saturating_sub(u32::try_from(o.lineage.len()).unwrap_or(u32::MAX));
+            if let Some(owner) = o.owner.filter(|_| unnamed > 0) {
+                *orphaned.entry(owner).or_default() += unnamed;
             }
             entries.extend(o.lineage.iter().map(|&hall| (o.owner, hall)));
         }
@@ -250,8 +252,8 @@ impl Lineages {
         self.usage.get(&hall).copied().unwrap_or(0)
     }
 
-    /// `player`'s orphaned points: the entries of their units whose Hall is gone, and the costs of their Cults units
-    /// without a lineage.
+    /// `player`'s orphaned points: the entries of their units whose Hall is gone, and the points of their Cults units'
+    /// costs that no entry names.
     pub fn orphaned(&self, player: PlayerId) -> u32 {
         self.orphaned.get(&player).copied().unwrap_or(0)
     }

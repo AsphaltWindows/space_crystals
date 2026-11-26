@@ -204,7 +204,11 @@ pub enum Resolved {
 /// the rally point"). Nothing for a constructor (it produces no units), nor for any other object that isn't a unit.
 pub fn object_right_click(object: UnitCapabilities, target: &MapTarget) -> Option<Resolved> {
     match object.template {
-        Some(InterfaceTemplate::Production) => Some(Resolved::Rally(rally_target(target))),
+        // A pool building's too (`factions/cults/structures/armory.md > ObjectInterfaceState[Armory] > Right-click
+        // resolution`: "Right-click Ground: issues SetRallyPoint command to that location", slice M5-F2).
+        Some(InterfaceTemplate::Production | InterfaceTemplate::PoolProducer) => {
+            Some(Resolved::Rally(rally_target(target)))
+        }
         // A constructor produces no units, and the Beacon, the Egress Node and the Tunnel have no right-click.
         Some(
             InterfaceTemplate::DeploymentCenter
@@ -404,8 +408,8 @@ impl PointerDisplay {
 
 /// `systems/controls/selection_and_hud.md > PointerDisplayType > Resolution Rules` over `target`, for the selected
 /// `units` (none: nothing commandable is selected, `systems/controls/selection_and_hud.md > CommandPanel`). In a build
-/// menu, or a Tunnel's EjectMenu or ExpandMenu, a right-click only goes back: Inactive (placeholder: the rules list no
-/// menu). AwaitingPlacement has "No
+/// menu, a Tunnel's EjectMenu or ExpandMenu, or a pool building's KindMenu, a right-click only goes back: Inactive
+/// (placeholder: the rules list no menu). AwaitingPlacement has "No
 /// pointer display type — the building ghost preview serves as the cursor" (`super::cursor` shows none): Inactive here.
 pub fn pointer_display(interface: InterfaceState, units: &[UnitCapabilities], target: &MapTarget) -> PointerDisplay {
     if units.is_empty() {
@@ -417,6 +421,7 @@ pub fn pointer_display(interface: InterfaceState, units: &[UnitCapabilities], ta
         InterfaceState::BuildMenu(_)
         | InterfaceState::EjectMenu
         | InterfaceState::ExpandMenu
+        | InterfaceState::KindMenu(_)
         | InterfaceState::AwaitingPlacement(_) => PointerDisplay::Inactive,
     }
 }

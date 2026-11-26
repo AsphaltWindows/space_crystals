@@ -7,7 +7,7 @@ use sc_sim::ObjectKind;
 use sc_sim::construction::{self, Constructor};
 
 use super::{
-    ATTACK_SLOT, BuildMenu, InterfaceState, PanelCommand, colonists, grid, hides_attack, slot_index, syndicate,
+    ATTACK_SLOT, BuildMenu, InterfaceState, PanelCommand, colonists, cults, grid, hides_attack, slot_index, syndicate,
 };
 use crate::command_ui::interface::Builder;
 use crate::input::CommandSlot;
@@ -52,7 +52,7 @@ pub fn menu_of(kind: ObjectKind, building: ObjectKind) -> Option<BuildMenu> {
 ///   Extraction Facility's and the Drone's DefaultState;
 /// - the EjectMenu: its tiles (`syndicate::eject_menu`), on a type whose DefaultState opens it, the Tunnel; the
 ///   ExpandMenu alike, its entries (`syndicate::expand_menu`), and in an expansion's AwaitingPlacement, which goes
-///   back to it;
+///   back to it; a KindMenu its entries (`cults::armory::kind_menu`), on a pool building;
 /// - a constructor's building ready to place takes its entry's slot, as "Select completed building" (design change
 ///   0104; the Extraction Facility's "Q: Place Plate"), and its X is Cancel Construction while it constructs and Cancel
 ///   Ready Building while it holds a building ready, and empty while it is idle
@@ -79,6 +79,11 @@ pub fn state_grid(
     if (interface == InterfaceState::ExpandMenu || expanding) && grid(kind).contains(&Some(PanelCommand::ExpandMenu)) {
         return syndicate::expand_menu::grid();
     }
+    if let InterfaceState::KindMenu(from) = interface
+        && grid(kind).contains(&Some(PanelCommand::KindMenu(from)))
+    {
+        return cults::armory::kind_menu(kind, from);
+    }
     let menu = match interface {
         InterfaceState::BuildMenu(menu) => {
             Some(menu).filter(|&menu| grid(kind).contains(&Some(PanelCommand::BuildMenu(menu))))
@@ -87,7 +92,8 @@ pub fn state_grid(
         InterfaceState::DefaultState
         | InterfaceState::AwaitingTarget { .. }
         | InterfaceState::EjectMenu
-        | InterfaceState::ExpandMenu => None,
+        | InterfaceState::ExpandMenu
+        | InterfaceState::KindMenu(_) => None,
     };
     let mut commands = match menu {
         Some(menu) => menu_grid(kind, menu),

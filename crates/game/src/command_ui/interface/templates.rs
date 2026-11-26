@@ -7,10 +7,12 @@
 //! (`factions/gdo/economy.md > ExtractionFacility > ObjectInterfaceState[ExtractionFacility]`). The Colonists' Beacon
 //! has two Warp In menus built the same way, the Drone its Deploy and its Set Drop-off, the Egress Node its F, and an
 //! object that transforms shows only its Cancel ([`colonists`], slices M3-J1 and M3-J2). The Syndicate's Tunnel opens
-//! its EjectMenu ([`syndicate`], slice M4-J2), and its Agent builds Tunnels (slice M4-J1). An entry not in the game yet
-//! holds its slot, unavailable ([`Planned`]).
+//! its EjectMenu ([`syndicate`], slice M4-J2), and its Agent builds Tunnels (slice M4-J1). The Cults' pool buildings,
+//! the Armory first, open a menu per kind of Recruit ([`cults`], slice M5-F2). An entry not in the game yet holds its
+//! slot, unavailable ([`Planned`]).
 
 pub mod colonists;
+pub mod cults;
 pub mod gdo;
 mod offers;
 mod planned;
@@ -78,6 +80,11 @@ pub enum InterfaceTemplate {
     /// (`factions/syndicate/units/agent.md > Right-Click Resolution`: Gather, Drop Off, Enter, Attack, Move) is the
     /// sim's one rule, as every unit's.
     Agent,
+    /// A pool building's panel (design change 0337, `factions/cults/structures/README.md > Choosing Recruits, Release
+    /// and Eject All`; slice M5-F2), built from its `ProductionDef`: the Armory's ([`cults::armory`]). Its DefaultState
+    /// picks a kind of Recruit, each opening its KindMenu, whose entries train or release one of that kind. Its
+    /// right-click sets the rally point (`factions/cults/structures/armory.md > ObjectInterfaceState[Armory]`).
+    PoolProducer,
 }
 
 /// The Deployment Center's build menus (`factions/gdo/structures/deployment_center.md >
@@ -185,6 +192,7 @@ impl InterfaceTemplate {
             InterfaceTemplate::EgressNode => colonists::egress_node::GRID,
             InterfaceTemplate::Tunnel => syndicate::tunnel::GRID,
             InterfaceTemplate::Agent => syndicate::agent::GRID,
+            InterfaceTemplate::PoolProducer => cults::armory::GRID,
         }
     }
 }

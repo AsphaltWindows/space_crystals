@@ -137,7 +137,8 @@ fn two_finished_bio_portals_and_one_warping_in_are_two_groups() {
     assert_eq!(productions(&app), [(P1, vec![PORTAL_A, PORTAL_B], trained)]);
     app.update();
     for portal in [PORTAL_A, PORTAL_B] {
-        assert_eq!(production_of(&app, portal).queue, [SabreLegionnaire], "{portal}");
+        let queue = &production_of(&app, portal).queue;
+        assert_eq!(queue, &[sc_sim::QueueEntry::Unit(SabreLegionnaire)], "{portal}");
     }
     let warping = object(&app, BEACON_1).production.as_ref();
     assert!(warping.is_none_or(|p| p.queue.is_empty()), "{warping:?}");

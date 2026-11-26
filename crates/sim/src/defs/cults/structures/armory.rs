@@ -1,14 +1,17 @@
 //! The Armory — `factions/cults/structures/armory.md`.
 
-use crate::defs::structures::{BuilderGoes, ExitRule, HoldsDef, SiteDef, SitePrice, StructureDef, SymmetryType};
+use crate::defs::structures::{
+    BuilderGoes, ExitRule, HoldsDef, ProductionDef, Recipe, SiteDef, SitePrice, StructureDef, SymmetryType,
+};
 use crate::defs::{Armor, Category, Footprint, ObjectDef, ObjectKind};
 use crate::player::Faction;
 use crate::sides::SideLetter;
 
 /// `factions/cults/structures/armory.md`: the "Training building where Recruits are converted into combat units".
 /// Its pool of Recruits (`> InternalRecruitCapacity - 10`, `> Eject All`) is its `holds` (slice M5-F1,
-/// `crate::holding`), its training (`> Training`) comes with slice M5-F2, and Recruits build it from outside
-/// ([`ARMORY_SITE`], slice M5-E), its TechPrerequisite checked as the Build is given (`Sim::check_build`).
+/// `crate::holding`), its training (`> Training`) its `production`, of the Recruits inside (slice M5-F2,
+/// `sim/producers/pool.rs`), and Recruits build it from outside ([`ARMORY_SITE`], slice M5-E), its TechPrerequisite
+/// checked as the Build is given (`Sim::check_build`).
 pub(crate) static ARMORY: ObjectDef = ObjectDef {
     kind: ObjectKind::Armory,
     name: "Armory",
@@ -18,8 +21,8 @@ pub(crate) static ARMORY: ObjectDef = ObjectDef {
     footprint: Footprint::Tiles { w: 3, h: 2 },
     selectable: true,    // `core/entities.md > Object Type > Selectable - true`
     destructible: true,  // Destructible - true
-    groupable: true,     // Groupable - true
-    sight_range: 4.0,    // SightRange - 4 grid units
+    groupable: false, // Groupable - false (design change 0348 point 5: "Cults production buildings aren't groupable")
+    sight_range: 4.0, // SightRange - 4 grid units
     max_hp: Some(300.0), // MaxHP - 300
     max_shields: None,
     armor: Armor {
@@ -36,7 +39,22 @@ pub(crate) static ARMORY: ObjectDef = ObjectDef {
         build_radius_extension: 0,
         power: 0,
         seeds_build_area: false,
-        production: None, // `> Training`: slice M5-F2
+        // `> Training`: "Training is queueable and serial — orders are processed one at a time, in the order queued";
+        // "the trained unit exits from the exit side" (`> ExitSide - opposite short side (C)`), as the units it holds do
+        // (`holds`). Of the Recruits inside (slice M5-F2, `sim/producers/pool.rs`), so it recruits nothing.
+        production: Some(ProductionDef {
+            exits: ExitRule::Side(SideLetter::C),
+            // "**Militant** (SpaceCrystalsCost: 20, TrainingTime: 32 frames)"
+            recipes: &[Recipe {
+                kind: ObjectKind::Militant,
+                cost: 20,
+                frames: 32,
+                requires: &[],
+            }],
+            // The Gunner's ("SpaceCrystalsCost: 40, TrainingTime: 32 frames. TechPrerequisite: player owns at least one
+            // Gunworks") comes with its Gunworks (slice M5-G2).
+            recruitment: None,
+        }),
         mining: None,
         onto: None,
         constructs: &[],
@@ -81,9 +99,10 @@ mod tests {
     use crate::defs::cults::tests::assert_structure;
 
     /// 2 tall and 3 wide, ABAC, MaxHP 300, PointArmor 1, FullArmor 6 (the building armour rule's n = 1), SightRange 4,
-    /// Groupable, behind a Storage. Recruits walk in at its short side B and come out of the opposite one, C, and its
-    /// pool holds 10 of them. Recruits build it from outside for 200 Space Crystals in 480 frames with one of them,
-    /// from 10% HP (slice M5-E). Its training comes with slice M5-F2.
+    /// not Groupable (design change 0348), behind a Storage. Recruits walk in at its short side B and come out of the
+    /// opposite one, C, and it holds 10 of them. It trains Militants of them, 20 Space Crystals and 32 frames each, out
+    /// of C too (slice M5-F2), the Gunner waiting for its Gunworks. Recruits build it from outside for 200 Space
+    /// Crystals in 480 frames with one of them, from 10% HP (slice M5-E).
     #[test]
     fn the_armory_follows_the_design() {
         let structure = assert_structure(
@@ -93,11 +112,16 @@ mod tests {
             300.0,
             (1.0, 6.0),
             4.0,
-            true,
+            false,
         );
         assert_eq!(ObjectKind::Armory.def().name, "Armory");
         assert_eq!(structure.requires, [ObjectKind::Storage], "TechPrerequisite: a Storage");
-        assert_eq!((structure.production, structure.drop_off), (None, None), "slice M5-F2");
+        assert_eq!(structure.drop_off, None);
+        let production = structure.production.expect("it trains");
+        assert_eq!(production.exits, ExitRule::Side(SideLetter::C));
+        let recipe = |kind| production.recipe(kind).map(|r| (r.cost, r.frames, r.requires));
+        assert_eq!(recipe(ObjectKind::Militant), Some((20, 32, &[][..])));
+        assert_eq!((production.recipes.len(), production.recruitment), (1, None));
         let site = structure.site.expect("Recruits build it");
         assert_eq!(
             (site.price, site.frames, site.start_hp),

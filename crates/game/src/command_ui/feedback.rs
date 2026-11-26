@@ -130,6 +130,18 @@ pub const TARGET_TOO_CLOSE_TEXT: &str = "Target too close";
 /// `full`; slice M5-F1, Placeholder (Q0104 point 2): "The Enter ends and it idles beside the Armory"). Placeholder
 /// wording.
 pub const BUILDING_FULL_TEXT: &str = "No room inside";
+/// The message of a pool building's training or Release, or a kind button, pressed while no Recruit of its kind is
+/// free inside (`Reject::NoRecruit`, `sc_sim::Refusal::NoRecruit`; design change 0337: "it is greyed if there are
+/// none", "the second press is greyed"; slice M5-F2). Placeholder wording.
+pub const NO_RECRUIT_TEXT: &str = "No free Recruit of that kind";
+/// The message of an Eject All pressed with nothing in the pool (`Reject::NothingInside`;
+/// `factions/cults/structures/armory.md > ObjectInterfaceState[Armory]`: "Only available if StoredRecruits is not
+/// empty"). Placeholder wording.
+pub const NOTHING_INSIDE_TEXT: &str = "No free Recruit inside";
+/// The message of the Armory's Gunner pressed (`factions/cults/structures/armory.md > Training`: "TechPrerequisite:
+/// player owns at least one Gunworks"), the Gunworks not in the game yet (slice M5-F2). The wording of
+/// [`requires_text`], which will say it once the Gunworks is in the game.
+pub const REQUIRES_GUNWORKS_TEXT: &str = "Requires a Gunworks";
 /// The message of a Drop Off pressed while none of its workers carries a load (`Reject::NothingToDeliver`;
 /// `factions/syndicate/units/agent.md > Agent ObjectInterfaceState`: "greyed out when Agent is not carrying
 /// resources"). Placeholder wording.
@@ -221,11 +233,12 @@ fn spawn_feedback(mut commands: Commands) {
 }
 
 /// The message of a producer that didn't queue a unit others of its command took (design change 0083): for want of
-/// Space Crystals; none for a full queue.
+/// Space Crystals, or of a free Recruit of the kind at a pool building (slice M5-F2); none for a full queue.
 fn refusal_text(reason: Refusal) -> Option<&'static str> {
     match reason {
         Refusal::Crystals => Some(NO_CRYSTALS_TEXT),
         Refusal::QueueFull => None,
+        Refusal::NoRecruit => Some(NO_RECRUIT_TEXT),
     }
 }
 
@@ -271,7 +284,8 @@ pub fn placement_text(problem: Option<PlacementProblem>) -> &'static str {
 }
 
 /// The message of a greyed-out button pressed (design change 0162), by why it is greyed out: the gate's refusal
-/// ([`reject_text`]), the Riot Shields, a command awaiting its target, the type, or that it isn't in the game yet.
+/// ([`reject_text`]), the Riot Shields, a command awaiting its target, the type, that it isn't in the game yet, or a
+/// placeholder entry's own reason.
 pub fn unavailable_text(why: WhyUnavailable) -> &'static str {
     match why {
         WhyUnavailable::Refused(reject) => reject_text(reject),
@@ -279,6 +293,7 @@ pub fn unavailable_text(why: WhyUnavailable) -> &'static str {
         WhyUnavailable::Waiting => CANCEL_FIRST_TEXT,
         WhyUnavailable::NotForThisType => NOT_FOR_TYPE_TEXT,
         WhyUnavailable::NotYet => NOT_YET_TEXT,
+        WhyUnavailable::Placeholder(text) => text,
     }
 }
 
@@ -286,8 +301,8 @@ pub fn unavailable_text(why: WhyUnavailable) -> &'static str {
 /// "Not enough Space Crystals", "Queue is full" (design change 0162), the placement's first problem
 /// ([`placement_text`]), an EjectMenu tile's (slice M4-J2), an ExpandMenu entry's and the Tunnel's Cancel's (slice
 /// M4-F: its operation, an expansion's Tier Requirement above its tier, nothing to cancel), a prerequisite missing
-/// ([`requires_text`], slice M4-K), the Tunnel's Upgrade's (slice M4-G: its top tier, something blocking it), and
-/// placeholders for the others.
+/// ([`requires_text`], slice M4-K), the Tunnel's Upgrade's (slice M4-G: its top tier, something blocking it), a pool
+/// building's (slice M5-F2: no free Recruit of the kind, nothing to eject), and placeholders for the others.
 pub fn reject_text(reject: Reject) -> &'static str {
     match reject {
         Reject::InsufficientCrystals => NO_CRYSTALS_TEXT,
@@ -309,6 +324,8 @@ pub fn reject_text(reject: Reject) -> &'static str {
         Reject::Requires(kind) => requires_text(kind),
         Reject::TopTier(_) => TOP_TIER_TEXT,
         Reject::UpgradeBlocked(_) => UPGRADE_BLOCKED_TEXT,
+        Reject::NoRecruit(_) => NO_RECRUIT_TEXT,
+        Reject::NothingInside => NOTHING_INSIDE_TEXT,
         _ => CANNOT_DO_TEXT,
     }
 }

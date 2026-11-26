@@ -63,6 +63,7 @@ fn insert_unit(sim: &mut Sim, pos: Vec2) -> ObjectId {
         decay: None,
         popup: None,
         lineage: Vec::new(),
+        augmentation: Default::default(),
     };
     sim.objects.insert(id, unit);
     id

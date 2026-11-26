@@ -21,6 +21,13 @@
 //!   trains nothing on command. It queues its Recruit by itself, for free, while its lineage uses less Unit Control
 //!   than its capacity, and its progress gains the tiles it claims each frame instead of the power ratio
 //!   ([`total_of`]).
+//! - **Pool producers** (slice M5-F2, plan decisions T70 and T71; `sim/producers/pool.rs`): a producer that also holds
+//!   units (`StructureDef::holds`), the Armory first, makes its units of the units inside. Each entry of its
+//!   TrainingQueue reserves units of the pool as it is queued ([`Production::reserved`]): as many as the product's
+//!   Unit Control cost ("a trained unit's Unit Control cost equals the number of Recruits consumed",
+//!   `factions/cults/structures/README.md > Cults Vehicles`), or one for a Release ([`QueueEntry::Release`], design
+//!   change 0337). Its queue is bounded by its capacity alone, the reserved units being inside (design change 0347
+//!   point 5: "Queues are limited by capacity, not by a separate 20"), so [`QUEUE_LIMIT`] isn't its.
 //! - **The step** (`Sim::step_production`, in the economy phase): a unit at 0% starts if there is room for it, or
 //!   waits (0143); then the unit in production advances by its owner's power ratio (design change 0089). When it is
 //!   complete it is released into the building's doorway (`exit.rs`): half inside the middle of an exit side
@@ -29,10 +36,12 @@
 //!   released is still in its doorway.
 
 pub mod exit;
+pub mod queue;
 pub mod rally;
 
 use serde::{Deserialize, Serialize};
 
+use crate::augmentation::RecruitKind;
 use crate::defs::{ObjectKind, ProductionDef};
 use crate::economy::{ArmyResource, RATIO_ONE};
 use crate::hash::{StateHash, StateHasher};
@@ -42,6 +51,7 @@ use crate::tuning::production::QUEUE_LIMIT;
 use crate::units::Tick;
 
 pub use exit::{Door, Doorway, EnergyDoorway, ExitDoor};
+pub use queue::QueueEntry;
 pub use rally::Rally;
 
 /// What the player tells producing structures (`factions/gdo/structures/barracks.md >
@@ -57,6 +67,16 @@ pub enum ProductionCommand {
     /// "C: Set Rally Point", and the right-click of a producing structure: the rally point becomes this ground
     /// point or object. The producer itself as the target clears it (design change 0086).
     SetRally(Target),
+    /// (M5-F2) A pool producer's Train, from KindMenu\[`from`\] (design change 0337,
+    /// `factions/cults/structures/README.md > Choosing Recruits, Release and Eject All`: "the building's production
+    /// options, using Recruits of that kind (e.g. Armory: **Q** Train Militant [...])"): pay for a unit of `kind` and
+    /// add it to the TrainingQueue, reserving the units of kind `from` inside that it is made of, those that entered
+    /// first ("Within a kind, the unit that entered first is used first (0332)"). A producer without a pool takes
+    /// `Train` instead.
+    TrainFrom { kind: ObjectKind, from: RecruitKind },
+    /// (M5-F2) "**A: Release**" in KindMenu\[kind\] (design change 0337): queue a Release, free, which reserves the
+    /// unit of this kind inside that entered first, and lets it out unchanged once it completes.
+    Release(RecruitKind),
 }
 
 /// Why a producer that received a `Train` didn't queue the unit, while others of the same command did
@@ -70,13 +90,17 @@ pub enum Refusal {
     QueueFull,
     /// The player's Space Crystals don't cover the unit, after what the producers before it took.
     Crystals,
+    /// (M5-F2) A pool producer has fewer free units of the kind inside than the order needs (plan decision T70: "fewer
+    /// free Recruits than the order needs"): the Unit Control cost of the unit to train, one for a Release.
+    NoRecruit,
 }
 
 /// `factions/gdo/structures/barracks.md > BarracksInstanceState`: a producing structure's state.
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
 pub struct Production {
-    /// BuildQueue, at most [`QUEUE_LIMIT`] long. Its first entry is CurrentBuild, the unit in production.
-    pub queue: Vec<ObjectKind>,
+    /// BuildQueue, at most [`QUEUE_LIMIT`] long (a pool producer's TrainingQueue, by its capacity: module docs). Its
+    /// first entry is CurrentBuild, the unit in production.
+    pub queue: Vec<QueueEntry>,
     /// CurrentBuildProgress of the first entry, in [`RATIO_ONE`]s: a frame at full power adds one `RATIO_ONE`, a
     /// frame at negative power the power ratio. A Recruitment Hall's in tiles: a frame adds the tiles it claims (plan
     /// decision T57). 0 without a queue. At the recipe's frames in those units ([`total_of`]) the unit is finished; it
@@ -105,6 +129,14 @@ pub struct Production {
     /// goldens).
     #[serde(default, skip_serializing_if = "is_zero")]
     pub completed_at: Tick,
+    /// (M5-F2) A pool producer's reservations, one list per entry of its queue, in the same order: the units inside
+    /// each entry is made of, or lets out (`factions/cults/structures/armory.md > Training`: queuing an order "reserves
+    /// one Recruit from StoredRecruits (removing it from the internal pool for the duration it sits in the queue)"),
+    /// longest inside first. Empty for a producer without a pool. Optional in files and left out of them
+    /// while empty, and hashed only while it has an entry, so that the states of games without a pool producer at work
+    /// hash as they did before it existed (the goldens).
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub reserved: Vec<Vec<ObjectId>>,
 }
 
 fn is_false(b: &bool) -> bool {
@@ -118,15 +150,16 @@ fn is_zero(tick: &Tick) -> bool {
 /// What a producer is working on, for the interface ([`Production::status`]).
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub struct ProductionStatus {
-    /// CurrentBuild.
-    pub kind: ObjectKind,
+    /// CurrentBuild: the unit in production, or a pool producer's Release.
+    pub entry: QueueEntry,
     /// CurrentBuildProgress, in [`RATIO_ONE`]s (a Recruitment Hall's in tiles: `total_of`).
     pub progress: u32,
     /// The progress at which the unit is finished: its recipe's frames, in [`RATIO_ONE`]s (a Recruitment Hall's in
     /// tiles, `total_of`).
     pub total: u32,
     /// The unit is finished and waits inside, because the exit doorway is occupied
-    /// (`core/entities.md > Structure Type > Exit Doorway`, point 3).
+    /// (`core/entities.md > Structure Type > Exit Doorway`, point 3), or, at a pool producer, behind the units ready
+    /// before it (design change 0348: "units sharing the exit doorway come out **in the order they are ready**").
     pub waiting: bool,
     /// The army cap whose room the unit waits for at 0% ([`Production::blocked`], design change 0143): its owner's
     /// Unit Control or Beacon Capacity. `None` while it is in production or about to start.
@@ -144,9 +177,20 @@ pub(crate) fn total_of(def: &ProductionDef, frames: u32) -> u32 {
 }
 
 impl Production {
-    /// CurrentBuild: the unit in production.
-    pub fn current(&self) -> Option<ObjectKind> {
+    /// CurrentBuild: the entry at the front.
+    pub fn current(&self) -> Option<QueueEntry> {
         self.queue.first().copied()
+    }
+
+    /// The units the entry at the front reserved, the first of which it trains or lets out (slice M5-F2): none at a
+    /// producer without a pool.
+    pub fn reserved_by_current(&self) -> &[ObjectId] {
+        self.reserved.first().map_or(&[], Vec::as_slice)
+    }
+
+    /// Whether unit `id` is reserved by one of the entries (slice M5-F2).
+    pub fn reserves(&self, id: ObjectId) -> bool {
+        self.reserved.iter().any(|units| units.contains(&id))
     }
 
     /// Whether the BuildQueue is full (design change 0081: 20 with the unit in production).
@@ -158,18 +202,19 @@ impl Production {
     /// a finished one waiting inside for the doorway included. It counts against its owner's army cap
     /// (`economy::army`) from then on, through production and for as long as it lives. `None` while the queue is
     /// empty or the unit at the front is at 0%: about to start in the producers' step, waiting for room
-    /// ([`Production::blocked`]), or not getting on (a consumer at a power ratio of 0 begins no progress).
+    /// ([`Production::blocked`]), or not getting on (a consumer at a power ratio of 0 begins no progress). A Release
+    /// produces nothing.
     pub fn in_production(&self) -> Option<ObjectKind> {
-        self.current().filter(|_| self.progress > 0)
+        self.current().and_then(QueueEntry::unit).filter(|_| self.progress > 0)
     }
 
     /// What the producer, of a type with these recipes, is working on; `None` with an empty queue. `cap` is its
     /// owner's army cap, which a unit at the front that is [`Production::blocked`] waits for.
     pub fn status(&self, def: &ProductionDef, cap: Option<ArmyResource>) -> Option<ProductionStatus> {
-        let kind = self.current()?;
-        let total = def.recipe(kind).map_or(0, |recipe| total_of(def, recipe.frames));
+        let entry = self.current()?;
+        let total = total_of(def, entry.frames(def));
         Some(ProductionStatus {
-            kind,
+            entry,
             progress: self.progress.min(total),
             total,
             waiting: self.progress >= total,
@@ -184,10 +229,7 @@ impl Production {
         let queued: u64 = self
             .queue
             .iter()
-            .map(|&kind| {
-                def.recipe(kind)
-                    .map_or(0, |recipe| u64::from(total_of(def, recipe.frames)))
-            })
+            .map(|entry| u64::from(total_of(def, entry.frames(def))))
             .sum();
         queued.saturating_sub(u64::from(self.progress))
     }
@@ -195,44 +237,77 @@ impl Production {
     /// Advances the unit in production by `speed` (`PowerSummary::speed`), up to finished. Returns whether it is
     /// finished: ready to leave, or waiting for the doorway.
     pub(crate) fn advance(&mut self, def: &ProductionDef, speed: u32) -> bool {
-        let Some(kind) = self.current() else {
+        let Some(entry) = self.current() else {
             self.progress = 0;
             return false;
         };
-        let total = def.recipe(kind).map_or(0, |recipe| total_of(def, recipe.frames));
+        let total = total_of(def, entry.frames(def));
         self.progress = self.progress.saturating_add(speed).min(total);
         self.progress >= total
     }
 
+    /// Adds `entry` at the end of the queue, with the units it reserves at a pool producer (none elsewhere).
+    pub(crate) fn push(&mut self, entry: QueueEntry, reserved: Vec<ObjectId>) {
+        debug_assert_eq!(
+            self.reserved.len(),
+            self.queue.len() * usize::from(!self.reserved.is_empty())
+        );
+        if !reserved.is_empty() {
+            debug_assert_eq!(
+                self.reserved.len(),
+                self.queue.len(),
+                "a pool producer reserves for every entry"
+            );
+            self.reserved.push(reserved);
+        }
+        self.queue.push(entry);
+    }
+
     /// The finished unit left: the next entry starts from nothing, its start check (design change 0143) coming in
-    /// the producers' step of the next tick.
-    pub(crate) fn release(&mut self) -> Option<ObjectKind> {
+    /// the producers' step of the next tick. Returns the entry, and the units it had reserved.
+    pub(crate) fn release(&mut self) -> Option<(QueueEntry, Vec<ObjectId>)> {
         if self.queue.is_empty() {
             return None;
         }
         self.progress = 0;
         self.blocked = false;
-        Some(self.queue.remove(0))
+        let reserved = if self.reserved.is_empty() {
+            Vec::new()
+        } else {
+            self.reserved.remove(0)
+        };
+        Some((self.queue.remove(0), reserved))
     }
 
-    /// "X: Cancel Production": takes the last entry off the queue. If that was the unit at the front (in production,
-    /// finished and waiting inside, or waiting for room: design change 0143, "the player can still cancel it for a
-    /// full refund"), its progress and its wait go with it.
-    pub(crate) fn cancel_last(&mut self) -> Option<ObjectKind> {
-        let kind = self.queue.pop()?;
+    /// "X: Cancel Production": takes the last entry off the queue, with the units it reserved, which go back to the
+    /// pool (`factions/cults/structures/armory.md > ObjectInterfaceState[Armory]`: X "returns its reserved Recruit to
+    /// StoredRecruits"). If that was the unit at the front (in production, finished and waiting inside, or waiting
+    /// for room: design change 0143, "the player can still cancel it for a full refund"), its progress and its wait
+    /// go with it.
+    pub(crate) fn cancel_last(&mut self) -> Option<(QueueEntry, Vec<ObjectId>)> {
+        let entry = self.queue.pop()?;
+        let reserved = if self.reserved.len() > self.queue.len() {
+            self.reserved.pop().unwrap_or_default()
+        } else {
+            Vec::new()
+        };
         if self.queue.is_empty() {
             self.progress = 0;
             self.blocked = false;
         }
-        Some(kind)
+        Some((entry, reserved))
     }
 
     /// The producer leaves the game, or changes into a kind without its queue: the whole BuildQueue goes, to be
-    /// refunded (design changes 0084 and 0085), with its progress and its wait.
-    pub(crate) fn take_queue(&mut self) -> Vec<ObjectKind> {
+    /// refunded (design changes 0084 and 0085), with its progress and its wait, each entry with the units it
+    /// reserved.
+    pub(crate) fn take_queue(&mut self) -> Vec<(QueueEntry, Vec<ObjectId>)> {
         self.progress = 0;
         self.blocked = false;
-        std::mem::take(&mut self.queue)
+        let mut reserved = std::mem::take(&mut self.reserved).into_iter();
+        (std::mem::take(&mut self.queue).into_iter())
+            .map(|entry| (entry, reserved.next().unwrap_or_default()))
+            .collect()
     }
 
     /// Drops a rally point on an object that is gone (`factions/gdo/structures/barracks.md > RallyPoint behavior`: "If
@@ -254,6 +329,7 @@ impl StateHash for Production {
             rally,
             blocked,
             completed_at,
+            reserved,
         } = self;
         queue.hash(h);
         progress.hash(h);
@@ -268,220 +344,13 @@ impl StateHash for Production {
             h.tag(2);
             completed_at.hash(h);
         }
+        // (M5-F2) The same for a pool producer's reservations, only while it has an entry.
+        if !reserved.is_empty() {
+            h.tag(3);
+            reserved.hash(h);
+        }
     }
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::defs::ExitRule;
-    use crate::defs::Recipe;
-    use crate::sides::SideLetter;
-
-    const BARRACKS: ProductionDef = ProductionDef {
-        exits: ExitRule::Side(SideLetter::B),
-        recipes: &[Recipe {
-            kind: ObjectKind::Peacekeeper,
-            cost: 50,
-            frames: 80,
-            requires: &[],
-        }],
-        recruitment: None,
-    };
-
-    fn queued(n: usize) -> Production {
-        Production {
-            queue: vec![ObjectKind::Peacekeeper; n],
-            ..Production::default()
-        }
-    }
-
-    /// `factions/gdo/structures/barracks.md > Produces`: 80 frames at full power; at the ratio of 30/51 exactly 136
-    /// ticks (plan decision T6).
-    #[test]
-    fn a_unit_takes_its_frames_at_full_power_and_longer_at_a_ratio() {
-        let ticks = |speed: u32| {
-            let mut p = queued(1);
-            (1..).find(|_| p.advance(&BARRACKS, speed)).unwrap()
-        };
-        assert_eq!(ticks(RATIO_ONE), 80);
-        assert_eq!(ticks(38_551), 136, "30/51, rounded up");
-        assert_eq!(ticks(RATIO_ONE / 2), 160);
-    }
-
-    /// Design change 0085: a finished unit stays at 100% until it is released; the next starts from nothing.
-    #[test]
-    fn a_finished_unit_waits_at_full_progress() {
-        let mut p = queued(2);
-        for _ in 0..200 {
-            p.advance(&BARRACKS, RATIO_ONE);
-        }
-        let status = p.status(&BARRACKS, None).unwrap();
-        assert_eq!(
-            (status.progress, status.total, status.waiting),
-            (80 << 16, 80 << 16, true)
-        );
-        assert_eq!(p.in_production(), Some(ObjectKind::Peacekeeper), "it still counts");
-        assert_eq!(p.release(), Some(ObjectKind::Peacekeeper));
-        assert_eq!((p.queue.len(), p.progress), (1, 0));
-        assert!(!p.status(&BARRACKS, None).unwrap().waiting);
-        assert_eq!(queued(0).status(&BARRACKS, None), None);
-    }
-
-    /// "X: Cancel Production" takes the last entry; the unit in production last of all, with its progress.
-    #[test]
-    fn cancelling_takes_the_last_entry() {
-        let mut p = queued(2);
-        p.advance(&BARRACKS, RATIO_ONE);
-        assert_eq!(p.cancel_last(), Some(ObjectKind::Peacekeeper));
-        assert_eq!(
-            (p.queue.len(), p.progress),
-            (1, RATIO_ONE),
-            "the unit in production goes on"
-        );
-        assert_eq!(p.cancel_last(), Some(ObjectKind::Peacekeeper));
-        assert_eq!((p.queue.len(), p.progress), (0, 0));
-        assert_eq!(p.cancel_last(), None);
-    }
-
-    /// Design change 0143: the unit at the front is in production, and takes its army cost, once the building has
-    /// begun progress on it: not while it is queued, nor at 0%, whether it is about to start or waits for room.
-    #[test]
-    fn a_unit_is_in_production_once_progress_has_begun() {
-        let mut p = queued(3);
-        assert_eq!(p.in_production(), None, "queued, not started");
-        p.blocked = true;
-        assert_eq!(p.in_production(), None, "waiting at 0%");
-        p.blocked = false;
-        p.advance(&BARRACKS, 0);
-        assert_eq!(p.in_production(), None, "no progress at a power ratio of 0");
-        p.advance(&BARRACKS, 1);
-        assert_eq!(p.in_production(), Some(ObjectKind::Peacekeeper));
-        assert_eq!(queued(0).in_production(), None);
-    }
-
-    /// Design change 0143: a waiting unit at the front shows the cap it waits for; the wait ends with the unit's
-    /// place at the front: cancelled ("the player can still cancel it for a full refund"), refunded with the whole
-    /// queue, or, once it started, released. A cancel of an entry behind it leaves it waiting.
-    #[test]
-    fn the_wait_goes_with_the_unit_at_the_front() {
-        let cap = Some(ArmyResource::UnitControl);
-        let waiting = |n| Production {
-            blocked: true,
-            ..queued(n)
-        };
-        let status = waiting(2).status(&BARRACKS, cap).unwrap();
-        assert_eq!((status.progress, status.blocked), (0, cap));
-        assert_eq!(queued(2).status(&BARRACKS, cap).unwrap().blocked, None, "not waiting");
-        let mut p = waiting(2);
-        p.cancel_last();
-        assert!(p.blocked, "the unit behind it went");
-        p.cancel_last();
-        assert!(!p.blocked && p.queue.is_empty());
-        let mut p = waiting(3);
-        assert_eq!(p.take_queue().len(), 3);
-        assert_eq!((p.queue.len(), p.progress, p.blocked), (0, 0, false));
-        let mut p = queued(2);
-        while !p.advance(&BARRACKS, RATIO_ONE) {}
-        p.blocked = true;
-        p.release();
-        assert!(!p.blocked, "the next unit starts its own check");
-    }
-
-    /// The wait is hashed only while it lasts (the goldens of games without one stand), and left out of files while
-    /// it doesn't, so that a state saved before it existed loads.
-    #[test]
-    fn the_wait_is_hashed_and_saved_only_while_it_lasts() {
-        let hash = |p: &Production| {
-            let mut h = StateHasher::new();
-            p.hash(&mut h);
-            h.finish()
-        };
-        let (idle, waiting) = (
-            queued(1),
-            Production {
-                blocked: true,
-                ..queued(1)
-            },
-        );
-        assert_ne!(hash(&idle), hash(&waiting));
-        let json = serde_json::to_string(&idle).unwrap();
-        assert!(!json.contains("blocked"), "{json}");
-        let old: Production =
-            serde_json::from_str(r#"{"queue": ["Peacekeeper"], "progress": 0, "rally": null}"#).unwrap();
-        assert_eq!(old, idle);
-        let saved: Production = serde_json::from_str(&serde_json::to_string(&waiting).unwrap()).unwrap();
-        assert_eq!(saved, waiting);
-    }
-
-    /// (M5-C) A Recruitment Hall's completion tick is hashed only while it isn't 0 (the goldens stand), and left out
-    /// of files while it is, so that a state saved before it existed loads. Its Recruit's total is 192 frames of
-    /// its area's 100 tiles: 192 ticks at 100 tiles a frame, 384 at 50 (`factions/cults/economy.md > RecruitmentHall >
-    /// BaseUnitControlCapacity - 20`: "production time = 24 seconds per Recruit").
-    #[test]
-    fn a_completion_tick_is_hashed_and_saved_only_while_it_is_set() {
-        let hash = |p: &Production| {
-            let mut h = StateHasher::new();
-            p.hash(&mut h);
-            h.finish()
-        };
-        let (pre_built, built) = (
-            queued(1),
-            Production {
-                completed_at: 300,
-                ..queued(1)
-            },
-        );
-        assert_ne!(hash(&pre_built), hash(&built));
-        assert!(!serde_json::to_string(&pre_built).unwrap().contains("completed_at"));
-        let saved: Production = serde_json::from_str(&serde_json::to_string(&built).unwrap()).unwrap();
-        assert_eq!(saved, built);
-        let hall = ObjectKind::RecruitmentHall
-            .def()
-            .structure
-            .as_ref()
-            .and_then(|s| s.production.as_ref())
-            .unwrap();
-        assert_eq!(total_of(hall, 192), 19_200);
-        let (mut full, mut half) = (Production::default(), Production::default());
-        full.queue.push(ObjectKind::Recruit);
-        half.queue.push(ObjectKind::Recruit);
-        assert_eq!((1..=192).filter(|_| full.advance(hall, 100)).count(), 1);
-        assert_eq!((1..=384).position(|_| half.advance(hall, 50)), Some(383));
-    }
-
-    /// Design change 0083: the work queued is the time still ahead, the unit in production counted by what is left
-    /// of it.
-    #[test]
-    fn the_work_queued_is_the_production_time_still_ahead() {
-        assert_eq!(queued(0).remaining_work(&BARRACKS), 0);
-        assert_eq!(queued(3).remaining_work(&BARRACKS), 3 * (80 << 16));
-        let mut nearly = queued(1);
-        for _ in 0..79 {
-            nearly.advance(&BARRACKS, RATIO_ONE);
-        }
-        assert_eq!(nearly.remaining_work(&BARRACKS), 1 << 16);
-        assert!(queued(QUEUE_LIMIT).is_full() && !queued(QUEUE_LIMIT - 1).is_full());
-    }
-
-    #[test]
-    fn a_rally_on_an_object_that_is_gone_is_cleared() {
-        let mut p = Production {
-            rally: Some(Rally::Object {
-                id: ObjectId(7),
-                at: glam::Vec2::ONE,
-            }),
-            ..Production::default()
-        };
-        p.forget(|id| id == ObjectId(8));
-        assert!(p.rally.is_some());
-        p.forget(|id| id == ObjectId(7));
-        assert_eq!(p.rally, None);
-        let mut ground = Production {
-            rally: Some(Rally::Point(glam::Vec2::ONE)),
-            ..Production::default()
-        };
-        ground.forget(|_| true);
-        assert!(ground.rally.is_some());
-    }
-}
+mod tests;

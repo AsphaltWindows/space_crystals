@@ -56,6 +56,11 @@ impl Sim {
             Checked::Production { player, plan } => self.apply_production(player, plan),
             Checked::Construction { player, resolved } => self.apply_construction(player, resolved),
             Checked::Holding { buildings, command } => self.apply_holding(&buildings, command),
+            Checked::SetAugmentation { id, augmentation } => {
+                if let Some(o) = self.objects.get_mut(&id) {
+                    o.augmentation = augmentation;
+                }
+            }
         }
     }
 

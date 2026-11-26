@@ -118,8 +118,9 @@ pub struct HoldsDef {
     /// (`factions/cults/structures/garrison.md`) will be a rule of its own, by the same search as an evacuation
     /// (`Sim::spot_around`).
     pub exit: ExitRule,
-    /// How many units its pool holds (`factions/cults/structures/armory.md > InternalRecruitCapacity - 10`), the ones a
-    /// queued order reserved not counted (Placeholder (Q0104 point 5)).
+    /// How many units it holds (`factions/cults/structures/armory.md > InternalRecruitCapacity - 10`), those a queued
+    /// order reserved and the one in training counted (design change 0347 point 5: "Capacity counts reserved units:
+    /// the queue can never exceed the capacity"), so that it bounds the queue of a producer that holds units too.
     pub capacity: u32,
     /// The kinds of unit it takes in (`systems/controls/commands.md > Enter`: "Cults — Armory, Cathedral: Recruits
     /// only").

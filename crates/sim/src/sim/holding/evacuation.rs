@@ -36,12 +36,12 @@ pub(in crate::sim) struct Evacuation {
 impl Sim {
     /// The units inside the buildings among `gone` that hold units, as the buildings are before they go, in id order
     /// of the buildings. Each building's come out in a fixed order (Placeholder (Q0106 point 2): "The unit in training,
-    /// then the reserved ones in queue order, then the pool, longest inside first"): its pool's, as nothing trains yet.
-    ///
-    /// **For slice M5-F2** (`factions/cults/economy.md > Cults Building Mechanics > Evacuation on Destruction`: "units
-    /// reserved by queued orders, the unit currently being trained"): the unit in training and the reserved ones go
-    /// first here, in queue order, read before `Sim::remove_objects` refunds the queue (`Sim::refund_production`, which
-    /// runs after this): "Orders are cancelled with a full refund", and "a Recruit mid-training comes out as a
+    /// then the reserved ones in queue order, then the pool, longest inside first"): the units its queue's entries
+    /// reserved, entry by entry from the front (slice M5-F2, `Production::reserved`; the front's first is the unit in
+    /// training), then the others, longest inside first, the ejected ones not out yet among them (`factions/cults/
+    /// economy.md > Cults Building Mechanics > Evacuation on Destruction`: "units reserved by queued orders, the unit
+    /// currently being trained"). Read before `Sim::remove_objects` refunds the queue (`Sim::refund_production`,
+    /// which runs after this): "Orders are cancelled with a full refund", and "a Recruit mid-training comes out as a
     /// Recruit".
     pub(in crate::sim) fn evacuations(&self, gone: &[ObjectId]) -> Vec<Evacuation> {
         if self.held.is_empty() {
@@ -51,7 +51,15 @@ impl Sim {
             .filter_map(|&id| {
                 let building = self.objects.get(&id)?;
                 holding::holds(building)?;
-                let units: Vec<ObjectId> = self.held_in(id).iter().map(|held| held.object.id).collect();
+                let reserved = building
+                    .production
+                    .iter()
+                    .flat_map(|p| p.reserved.iter().flatten().copied());
+                let reserved: Vec<ObjectId> = reserved.filter(|unit| self.held.contains_key(unit)).collect();
+                let others = (self.held_in(id).into_iter())
+                    .map(|held| held.object.id)
+                    .filter(|unit| !reserved.contains(unit));
+                let units: Vec<ObjectId> = reserved.iter().copied().chain(others).collect();
                 if units.is_empty() {
                     return None;
                 }

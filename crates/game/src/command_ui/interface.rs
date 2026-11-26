@@ -78,6 +78,13 @@
 //! upgrades it (slice M4-G). The Hideout's Q, W and E train the Agent, the Guard and the Grenadier, each greyed with
 //! why while the gate refuses it (slices M4-K and M4-U).
 //!
+//! The Cults' Armory (`factions/cults/structures/armory.md > ObjectInterfaceState[Armory]`, design change 0337; slice
+//! M5-F2) picks a kind of Recruit first: Q Plain, W Constitution, E Metabolism and R Both, each with the count of its
+//! free Recruits inside and greyed while there are none, open KindMenu\[kind\], whose Q trains a Militant of a Recruit
+//! of the kind and A releases one, the menu staying open, Z going back; the Gunner holds W, "Requires a Gunworks". Its
+//! A ejects every free Recruit, X cancels the last entry and C awaits its rally point. Every command goes to the
+//! Armory Tabbed to (design change 0348 point 5: "a command goes to one building").
+//!
 //! The Syndicate's Agent (`factions/syndicate/units/agent.md > Agent ObjectInterfaceState`, design change 0257; slice
 //! M4-J1) has Q Move, A Build Tunnel, S Drop Off, D Build Laser Turret (slice M4-S1) and X Stop. A and D enter
 //! AwaitingPlacement of a Tunnel or a Laser Turret built by the Agent Tabbed to ([`Builder::Agent`]), each greyed while
@@ -114,7 +121,7 @@ pub use templates::{
     menu_of, offers, slot_index, state_grid,
 };
 
-use sc_sim::deploy;
+use sc_sim::{RecruitKind, deploy};
 
 use crate::input::CommandSlot;
 use crate::selection::Selection;
@@ -161,6 +168,11 @@ pub enum InterfaceState {
     /// returns to DefaultState (StateOnlyTransition)". Like a build menu, it leaves the map's clicks to the selection
     /// (slice M4-F).
     ExpandMenu,
+    /// `factions/cults/structures/README.md > Choosing Recruits, Release and Eject All`: a pool building's
+    /// KindMenu\[kind\] is open (design change 0337: "Q/W/E/R pick a kind"): "the building's production options, using
+    /// Recruits of that kind [...], plus **A: Release**; **Z** back. Clicks stay in the menu so they can be repeated."
+    /// Like a build menu, it leaves the map's clicks to the selection (slice M5-F2).
+    KindMenu(RecruitKind),
 }
 
 impl InterfaceState {
@@ -177,7 +189,8 @@ impl InterfaceState {
             | InterfaceState::BuildMenu(_)
             | InterfaceState::AwaitingPlacement(_)
             | InterfaceState::EjectMenu
-            | InterfaceState::ExpandMenu => None,
+            | InterfaceState::ExpandMenu
+            | InterfaceState::KindMenu(_) => None,
         }
     }
 
@@ -212,7 +225,8 @@ impl InterfaceState {
     /// else DefaultState: the Extraction Facility's AwaitingPlacement ("Escape/right-click: returns to DefaultState"),
     /// the Drones' (A is pressed in their DefaultState), a build menu ("Escape/right-click: returns to DefaultState"),
     /// AwaitingTarget, and the Tunnel's EjectMenu and ExpandMenu (`factions/syndicate/tunnels.md > EjectMenu`,
-    /// `factions/syndicate/tunnels.md > ExpandMenu`: "**Z**: returns to DefaultState").
+    /// `factions/syndicate/tunnels.md > ExpandMenu`: "**Z**: returns to DefaultState"), and a pool building's KindMenu
+    /// ("**Z** back").
     pub fn back(self, selection: &Selection) -> InterfaceState {
         match self {
             InterfaceState::AwaitingPlacement(Placing {
@@ -241,7 +255,9 @@ impl InterfaceState {
 ///   bank the click's to check as well (slice M4-J1); while it is the Tunnel, whose type builds the expansion (its
 ///   operation, its tier and the bank are the click's to check, as a Warp In's bank; slice M4-F);
 /// - the EjectMenu and the ExpandMenu while the ActiveGroup is a Tunnel: the menu stays open while the network's
-///   contents or the Tunnel's operation change, its entries greyed while they can't be used.
+///   contents or the Tunnel's operation change, its entries greyed while they can't be used;
+/// - a KindMenu while the ActiveGroup is a pool building: the menu stays open while its pool changes, its kind's
+///   last Recruit used or gone out included (its entries greyed then), so that clicks can be repeated.
 ///
 /// A selected object that transforms has the panel of its new type's unfinished group, only its Cancel (design
 /// changes 0116 and 0185): what its old type was doing ends (`crate::selection::ControlState::set_type`), and so does
@@ -295,9 +311,10 @@ pub fn still_valid(
                     }
                 }
         }
-        InterfaceState::EjectMenu | InterfaceState::ExpandMenu => {
+        InterfaceState::EjectMenu | InterfaceState::ExpandMenu | InterfaceState::KindMenu(_) => {
             let menu = match interface {
                 InterfaceState::EjectMenu => PanelCommand::EjectMenu,
+                InterfaceState::KindMenu(kind) => PanelCommand::KindMenu(kind),
                 _ => PanelCommand::ExpandMenu,
             };
             commandable

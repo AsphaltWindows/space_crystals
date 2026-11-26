@@ -1,6 +1,7 @@
 //! The state hash (`Sim::state_hash`): every field of the state changes it, and nothing else does.
 
 use super::*;
+use crate::augmentation::{Augmentation, RecruitKind};
 
 /// A named change to one field.
 type Mutation = (&'static str, fn(&mut Sim));
@@ -272,6 +273,13 @@ fn state_hash_covers_every_field() {
         ("lineage entries", |s| {
             obj(s, 3).lineage = vec![ObjectId(4), ObjectId(4)]
         }),
+        // (M5-F2) A Cults infantry unit's Augmentations (any unit may hold them here), each of the two.
+        ("augmentation constitution", |s| {
+            obj(s, 3).augmentation = Augmentation::of(RecruitKind::Constitution)
+        }),
+        ("augmentation metabolism", |s| {
+            obj(s, 3).augmentation = Augmentation::of(RecruitKind::Metabolism)
+        }),
     ];
     for (name, mutate) in mutations {
         let mut sim = base.clone();
@@ -298,7 +306,7 @@ fn a_lineage_is_hashed_and_saved_only_while_it_is_set() {
     assert_eq!(with(&[]).state_hash(), base.state_hash());
     assert_ne!(with(&[1]).state_hash(), base.state_hash());
     assert_ne!(with(&[1]).state_hash(), with(&[2]).state_hash(), "by its Hall");
-    // A Jackal's two Recruits, from one Hall or two (design change 0319).
+    // A Seeker's two Recruits, from one Hall or two (design change 0319).
     assert_ne!(with(&[1]).state_hash(), with(&[1, 1]).state_hash(), "by its entries");
     assert_ne!(with(&[1, 2]).state_hash(), with(&[2, 1]).state_hash(), "in their order");
     for halls in [&[][..], &[1], &[1, 2]] {
@@ -309,6 +317,37 @@ fn a_lineage_is_hashed_and_saved_only_while_it_is_set() {
         assert_eq!(json.get("lineage"), key.as_ref(), "{halls:?}");
         let loaded: crate::object::Object = serde_json::from_value(json).unwrap();
         assert_eq!(&loaded, object, "{halls:?}");
+    }
+}
+
+/// (M5-F2) A unit's Augmentations (`Object::augmentation`, `crate::augmentation`) are part of the state while it has
+/// one: hashed, which of the two, and saved. While it has neither, nothing of them is hashed, and an object's file has
+/// no `augmentation` key and loads with neither, so that the states and the files without one are as they were before
+/// they existed (the goldens stand).
+#[test]
+fn an_augmentation_is_hashed_and_saved_only_while_it_is_set() {
+    let mut base = small_sim();
+    insert_unit(&mut base, Vec2::new(100.0, 100.0)); // id 3
+    let with = |kind: RecruitKind| {
+        let mut sim = base.clone();
+        obj(&mut sim, 3).augmentation = Augmentation::of(kind);
+        sim
+    };
+    assert_eq!(with(RecruitKind::Plain).state_hash(), base.state_hash());
+    let hashes: std::collections::BTreeSet<u64> =
+        RecruitKind::ALL.iter().map(|&kind| with(kind).state_hash()).collect();
+    assert_eq!(hashes.len(), 4, "each kind its own");
+    for kind in RecruitKind::ALL {
+        let sim = with(kind);
+        let object = &sim.objects[&ObjectId(3)];
+        let json = serde_json::to_value(object).unwrap();
+        assert_eq!(
+            json.get("augmentation").is_some(),
+            kind != RecruitKind::Plain,
+            "{kind:?}"
+        );
+        let loaded: crate::object::Object = serde_json::from_value(json).unwrap();
+        assert_eq!(&loaded, object, "{kind:?}");
     }
 }
 

@@ -43,6 +43,7 @@ fn unit(kind: ObjectKind, up: u32) -> Object {
         decay: None,
         popup: None,
         lineage: Vec::new(),
+        augmentation: Default::default(),
     }
 }
 

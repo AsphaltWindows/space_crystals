@@ -68,7 +68,10 @@ fn a_peacekeeper_takes_80_ticks_at_full_power() {
         "50 each, paid when queued"
     );
     let status = t.sim().production_status(BARRACKS).unwrap();
-    assert_eq!((status.kind, status.progress, status.total), (PK, 1 << 16, 80 << 16));
+    assert_eq!(
+        (status.entry, status.progress, status.total),
+        (sc_sim::QueueEntry::Unit(PK), 1 << 16, 80 << 16)
+    );
     t.run_until(79);
     assert_eq!(produced(&t), []);
     t.run_until(200);

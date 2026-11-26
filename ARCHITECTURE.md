@@ -245,7 +245,7 @@ Units, structures and resources are all `Object`s (`object.rs`, `core/entities.m
   kept in the GDO's `UnitDef::unit_control_cost`, 1 for each infantry unit (`defs/cults/tests.rs` checks every Cults
   unit's), and counted in the Cults' own Unit Control alone (`ArmyResource::CultsUnitControl`, slice M5-C; *Economy*).
   **The lineage**, `Object::lineage: Vec<ObjectId>` (plan decision T56 as the Director amended it for design change
-  0319): one entry per Recruit the unit embodies, the Hall that made it, so a Recruit has one and a Jackal will have
+  0319): one entry per Recruit the unit embodies, the Hall that made it, so a Recruit has one and a Seeker will have
   two, perhaps the same Hall twice; hashed (a tag) and saved only while it has an entry, kept whole by
   `Sim::change_kind` (slice M5-F2 will concatenate the consumed Recruits'), and set by the Hall that releases the
   Recruit (slice M5-C, *Production > The Recruitment Halls*; by the layout at a game's start, M5-B). An entry whose

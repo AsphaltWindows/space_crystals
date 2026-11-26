@@ -277,7 +277,7 @@ mod tests {
         );
         assert_eq!(tunnel_space(&objects, P1).used, 2);
         let production = objects[1].production.as_mut().expect("a producer");
-        production.queue = vec![AGENT, AGENT];
+        production.queue = vec![crate::production::QueueEntry::Unit(AGENT); 2];
         assert_eq!(tunnel_space(&objects, P1).used, 2, "only queued");
         objects[1].production.as_mut().unwrap().progress = 1;
         assert_eq!(tunnel_space(&objects, P1).used, 3, "the first in production");

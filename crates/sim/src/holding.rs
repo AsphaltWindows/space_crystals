@@ -6,10 +6,10 @@
 //!
 //! - **Inside** (plan decision T30, `crate::network`): a unit in a building is held off the map, at
 //!   `Place::Building`, as a unit in the Tunnel Network is: it is no object of the map, it keeps its id, its HP and its
-//!   load (Placeholder (Q0104 point 3): "It keeps it inside and comes out with it"), and its orders are cleared. Its
-//!   building's **pool** is the units held in it, longest inside first (`Sim::held_in`): the Armory's
-//!   "StoredRecruits" (`factions/cults/structures/armory.md > ArmoryInstanceState`). The Recruits a training order
-//!   reserves will leave it (slice M5-F2).
+//!   load (design change 0347 point 3: "Loads: kept inside and carried out; lost if the Recruit is trained",
+//!   `Sim::train`), and its orders are cleared. Its building's **pool** is the units held in it that no order reserves
+//!   and that aren't on their way out, longest inside first (`Sim::pool`, slice M5-F2): the Armory's "StoredRecruits"
+//!   (`factions/cults/structures/armory.md > ArmoryInstanceState`).
 //! - **Entering** (`systems/controls/commands.md > Enter`: "The unit walks to the structure's entrance side and goes
 //!   inside"; "Cults — Armory, Cathedral: Recruits only (to be trained), up to the building's internal capacity"; its
 //!   TargetObject "the structure being entered", design change 0319, answering Q0108 point 1): M4-C's Enter order and
@@ -17,14 +17,15 @@
 //!   of the entrance side ([`entry_path`]; Placeholder (Q0104 point 1): "The middle of side B, as the Tunnel's Side
 //!   A"). The building takes a unit of a kind it accepts ([`admits`]) once it is in operation (Placeholder (Q0104
 //!   point 4): an Armory under construction can't be entered; "A right-click on one Assists", slice M5-E). A unit
-//!   that reaches the entry path goes in if the pool has room (`Sim::room`; Placeholder (Q0104 point 5): "The pool
-//!   only"); with none, "the Enter ends and it idles beside the Armory (the normal Failure rule)" (Placeholder (Q0104
-//!   point 2)).
+//!   that reaches the entry path goes in if the building has room (`Sim::room`: every unit inside counts, those its
+//!   orders reserved included; design change 0347 point 5: "Capacity counts reserved units: the queue can never
+//!   exceed the capacity"); with none, "the Enter ends and it idles beside the Armory (the normal Failure rule)"
+//!   (Placeholder (Q0104 point 2)).
 //! - **Eject All** (`factions/cults/structures/armory.md > Eject All`: "ejects all stored Recruits from the exit side
 //!   in a rapid stream, one after another"): the pool comes out through the building's exit doorway, one at a time
 //!   (`core/entities.md > Structure Type > Exit Doorway`, M2's `production::Doorway`), each once the one before it is
-//!   out of the doorway, and walks straight out of it until slice M5-F2 gives the building its rally point
-//!   (`sim/holding.rs`).
+//!   out of the doorway, and walks to the building's rally point, straight out of it without one (design change 0348:
+//!   "ejected and released units walk **to the RallyPoint**"; `sim/holding.rs`).
 //! - **Evacuation** (`factions/cults/economy.md > Cults Building Mechanics > Evacuation on Destruction`: "Everyone
 //!   inside is evacuated alive"; "evacuated units appear around the building's footprint wherever there is open
 //!   space, unharmed"): as the building leaves the game, every unit inside it comes out at the spots around its
@@ -42,6 +43,14 @@ use crate::units::SU_PER_GU;
 /// The holding of `o`'s type ([`HoldsDef`]): `None` for anything but a building that holds units.
 pub fn holds(o: &Object) -> Option<&'static HoldsDef> {
     o.def().structure.as_ref()?.holds.as_ref()
+}
+
+/// Whether objects of `kind` train the units they hold (slice M5-F2, `sim/producers/pool.rs`): the type holds units
+/// and produces, the Armory first (plan decisions T70 and T71: the Cathedral, the Chop Shop and the Airstrip as data).
+/// Design change 0337 calls them "pool buildings" (`factions/cults/structures/README.md > Choosing Recruits, Release
+/// and Eject All`).
+pub fn trains(kind: ObjectKind) -> bool {
+    (kind.def().structure.as_ref()).is_some_and(|s| s.holds.is_some() && s.production.is_some())
 }
 
 /// Whether `building` takes a unit of `kind` in (`systems/controls/commands.md > Enter`: "an own structure that can

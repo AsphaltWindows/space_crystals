@@ -18,6 +18,7 @@ use glam::Vec2;
 use super::Sim;
 use super::construction::Resolved;
 use super::producers::ProductionPlan;
+use crate::augmentation::{Augmentation, RecruitKind};
 use crate::command::{Ability, Command, HoldCommand, PlayerCommand};
 use crate::defs::ObjectKind;
 use crate::ids::{ObjectId, PlayerId};
@@ -181,7 +182,8 @@ pub enum Reject {
     /// (M5-F1) The building takes none of the units an Enter names (`systems/controls/commands.md > Enter`: "Cults —
     /// Armory, Cathedral: Recruits only"; `HoldsDef::accepts`).
     NotAccepted(ObjectId),
-    /// (M5-F1) None of the objects a holding command names holds units (or exists any more): `crate::holding`.
+    /// (M5-F1) None of the objects a holding command, or a Release (slice M5-F2), names holds units (or exists any
+    /// more): `crate::holding`.
     NoHolders,
     /// (M5-F1) An Eject All to buildings none of which has a unit in its pool
     /// (`factions/cults/structures/armory.md > ObjectInterfaceState[Armory]`: "Only available if StoredRecruits is not
@@ -192,6 +194,10 @@ pub enum Reject {
     /// change 0339, `factions/cults/economy.md > Cults Building Mechanics > Group construction rules`: "**Assist**
     /// targets only a building **already under construction**, not a ghost whose order hasn't started").
     NotASite(ObjectId),
+    /// (M5-F2) None of the buildings a TrainFrom or a Release names has enough free units of this kind inside: the
+    /// unit's Unit Control cost of them, one for a Release (`Refusal::NoRecruit`; `factions/cults/structures/README.md
+    /// > Choosing Recruits, Release and Eject All`: a kind's button "is greyed if there are none").
+    NoRecruit(RecruitKind),
 }
 
 impl fmt::Display for Reject {
@@ -257,6 +263,7 @@ impl fmt::Display for Reject {
             Reject::NoHolders => write!(f, "none of the objects holds units"),
             Reject::NothingInside => write!(f, "nothing is inside"),
             Reject::NotASite(id) => write!(f, "object {} is no building of the player's under construction", id.0),
+            Reject::NoRecruit(kind) => write!(f, "no {} Recruit is free inside", kind.name()),
         }
     }
 }
@@ -334,6 +341,11 @@ pub(super) enum Checked {
     Holding {
         buildings: Vec<ObjectId>,
         command: HoldCommand,
+    },
+    /// `id`: a unit on the map (slice M5-F2).
+    SetAugmentation {
+        id: ObjectId,
+        augmentation: Augmentation,
     },
 }
 

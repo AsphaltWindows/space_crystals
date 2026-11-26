@@ -392,7 +392,9 @@ impl<'a> Arrival<'a> {
             SimEvent::ProductionQueued { producer, .. }
             | SimEvent::ProductionRefused { producer, .. }
             | SimEvent::ProductionCancelled { producer, .. }
-            | SimEvent::ProductionWaiting { producer, .. } => self.owner(producer),
+            | SimEvent::ProductionWaiting { producer, .. }
+            | SimEvent::ReleaseQueued { producer, .. }
+            | SimEvent::ReleaseCancelled { producer, .. } => self.owner(producer),
             SimEvent::UnitProduced { unit, .. } => self.object(unit),
             SimEvent::ConstructionCompleted { constructor, .. }
             | SimEvent::ConstructionCancelled { constructor, .. }

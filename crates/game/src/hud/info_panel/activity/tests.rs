@@ -1,3 +1,5 @@
+mod armory;
+
 use sc_sim::testing::ScenarioBuilder;
 use sc_sim::{
     BuildingOrientation, Command, ConstructionCommand, DebugCommand, Faction, ObjectId, ObjectKind, PlayerId,

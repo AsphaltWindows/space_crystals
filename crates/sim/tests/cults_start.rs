@@ -175,7 +175,11 @@ fn the_starting_hall_starts_its_seventh_recruit_at_once() {
         assert_eq!(doorway.doors().count(), 1, "side B alone");
         let door = doorway.door_at(o.pos);
         assert_eq!(door.outward(), outward, "{player:?}: out of side B");
-        assert_eq!(t.sim().army_cap(player), unit_control(8, 20), "{player:?}: the eighth in production");
+        assert_eq!(
+            t.sim().army_cap(player),
+            unit_control(8, 20),
+            "{player:?}: the eighth in production"
+        );
     }
     assert_eq!(t.sim().player(P1).unwrap().banks(), Banks::default());
 }
@@ -337,7 +341,8 @@ fn an_incomplete_cults_layout_lists_what_it_lacks() {
 /// of the first Recruitment Hall of its layout, wherever the layout lists it, before its units or after them; a
 /// second Hall gets none. A unit of another faction has no lineage. A Custom map's layout without a Hall (which a
 /// Custom map allows, `core/map_editor.md > Map Types > Custom`) gives its Recruits none: no Hall made them, and their
-/// cost is orphaned (**Placeholder (Q0101 point 2)**), used Unit Control with none available.
+/// cost is orphaned (design change 0344: "Recruits no Hall produced (custom maps, debug) are orphans from the start"),
+/// used Unit Control with none available.
 #[test]
 fn a_layouts_units_belong_to_its_first_hall() {
     let flat = vec![".".repeat(40); 24].join("\n");

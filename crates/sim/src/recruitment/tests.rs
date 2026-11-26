@@ -182,7 +182,7 @@ fn a_tile_as_near_two_halls_completed_together_goes_to_the_lower_id() {
 }
 
 /// `factions/cults/economy.md > RecruitmentHall > Unit Control Tracking` (the Director's amendment to T56): each entry
-/// of a lineage is a point at its Hall, a Jackal's two perhaps at the same Hall; an entry whose Hall is gone is its
+/// of a lineage is a point at its Hall, a Seeker's two perhaps at the same Hall; an entry whose Hall is gone is its
 /// owner's orphaned point, and a Cults unit without a lineage is orphaned whole (design change 0344: "Recruits no Hall
 /// produced (custom maps, debug) are orphans from the start"). Another faction's unit costs nothing.
 #[test]
@@ -230,7 +230,8 @@ fn a_halls_recruit_in_production_counts_toward_its_usage() {
     let sim = sim(&plane(24, 20), &[(ObjectKind::RecruitmentHall, Some(P1), 8, 8)]);
     let mut hall = object(&sim, 1);
     assert_eq!(Lineages::of([&hall]).usage(ObjectId(1)), 0);
-    hall.production.as_mut().expect("a producer").queue = vec![ObjectKind::Recruit];
+    hall.production.as_mut().expect("a producer").queue =
+        vec![crate::production::QueueEntry::Unit(ObjectKind::Recruit)];
     let lineages = Lineages::of([&hall]);
     assert_eq!((lineages.usage(ObjectId(1)), lineages.orphaned(P1)), (1, 0));
 }
