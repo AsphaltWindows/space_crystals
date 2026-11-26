@@ -10,11 +10,13 @@
 //! - [`pick`]: what the local player can select and where it is drawn: click picking, the box's priority tiers;
 //! - [`rules`]: what clicks, boxes, portrait clicks, control group keys and Tab do, under the Constraints;
 //! - [`markers`]: the selection markers under selected objects and the box being dragged;
+//! - [`doors`]: the door arrows of the selected buildings (design change 0394);
 //! - the systems (`systems.rs`): the input layer's clicks, boxes and actions become those rules, and removed
 //!   objects leave every selection and control group at once.
 //!
 //! The selection-related HUD (InfoPanel, SelectionPanel) lives in [`crate::hud`].
 
+pub mod doors;
 pub mod markers;
 pub mod model;
 pub mod pick;
@@ -154,6 +156,6 @@ impl Plugin for SelectionPlugin {
                     .chain()
                     .in_set(SelectionSystems::Input),
             )
-            .add_plugins(markers::SelectionMarkersPlugin);
+            .add_plugins((markers::SelectionMarkersPlugin, doors::SelectedDoorsPlugin));
     }
 }

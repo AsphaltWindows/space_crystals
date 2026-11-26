@@ -74,6 +74,40 @@ fn side_letters_follow_the_turns() {
     assert!(north.y < plain.center().y && east.x > plain.center().x);
 }
 
+/// Design change 0390's Verification: "Place a Cults Armory: an inward arrow shows on side B and an outward arrow on
+/// side C. Rotating the ghost turns the arrows with it." The Recruits' ghost of an Armory (3 × 2, ABAC) has B to the
+/// east and C to the west; turned clockwise as the player turns it, B to the south and C to the north; flipped, B to
+/// the west. "A Garrison ghost shows one two-way arrow", on its side B, the west. The mesh draws them: a head and a
+/// shaft each (`crate::door_arrows`), after the Armory's 6 tiles and 10 tile edges.
+#[test]
+fn the_ghost_shows_its_door_arrows_as_it_turns() {
+    use crate::door_arrows::Way;
+    let armory = Placing::new(ObjectId(1), ObjectKind::Armory);
+    let arrows = |placing: Placing| -> Vec<(Way, Vec2)> {
+        let shown = ghost(placing, PlacementCheck::default());
+        shown
+            .door_arrows()
+            .iter()
+            .map(|arrow| (arrow.way, arrow.outward))
+            .collect()
+    };
+    let (north, east, south, west) = (Vec2::NEG_Y, Vec2::X, Vec2::Y, Vec2::NEG_X);
+    assert_eq!(arrows(armory), [(Way::In, east), (Way::Out, west)]);
+    assert_eq!(
+        arrows(armory.turned(Turn::Clockwise)),
+        [(Way::Out, north), (Way::In, south)]
+    );
+    assert_eq!(
+        arrows(armory.turned(Turn::FlipHorizontal)),
+        [(Way::Out, east), (Way::In, west)]
+    );
+    let garrison = Placing::new(ObjectId(1), ObjectKind::Garrison);
+    assert_eq!(arrows(garrison), [(Way::Both, west)]);
+    let map = Map::from_ascii(&vec![".".repeat(12); 10].join("\n")).unwrap();
+    let shown = ghost(armory, PlacementCheck::default());
+    assert_eq!(ghost_mesh(&map, &shown).vertex_count(), 6 * 4 + 10 * 4 + 2 * (3 + 4));
+}
+
 /// A flat tile is a quad, a sloped one four triangles; the outline is a quad per tile edge around the footprint.
 #[test]
 fn the_mesh_lies_on_the_terrain() {

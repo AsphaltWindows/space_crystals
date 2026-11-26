@@ -4054,7 +4054,9 @@ ObjectInterfaceState (see Commands UI); the input changes and the HUD shows the 
   it is drawn just in front of the object (`FRAME_Z`: half a su of ground y, under the objects south of it); coloured
   by relation, the ActiveGroup's solid and the others' dashed; meshes cached per shape, relation and activity, and a
   marker whose object changed its shape (a kind changed in place) takes its new shape's mesh. The drag box is four
-  edges of one shared mesh in the overlay layer, shown while `Pointer::drag_box` is set.
+  edges of one shared mesh in the overlay layer, shown while `Pointer::drag_box` is set. The selected buildings' door
+  arrows (design change 0394, `selection/doors.rs`: `SelectedDoors`, from `door_arrows`, as the placement ghost has
+  them) are one mesh in the overlay layer under the ghost, rebuilt only when the buildings shown or the sim change.
 
 **Commands UI** (`command_ui.rs`, `command_ui/`; `systems/controls/interface.md > ObjectInterfaceState`
 to `systems/controls/hud.md > CommandIndicators`, `systems/controls/commands.md > Unit Command`): how the
@@ -4474,8 +4476,12 @@ Drones, through one command flow (plan decision T10, slices M2-H1, M2-H2 and M3-
   game mode, AwaitingPlacement, a commandable selection). `PlacementGhost` holds the `Ghost` under the cursor (the
   footprint as turned, the `PlacementCheck` there now, the side letters of `sc_sim::sides`), worked out every frame;
   its one mesh is rebuilt in place, under one handle, only when that changed: each tile on the terrain's surface,
-  green or red by its own problems, red throughout when the footprint breaks a whole rule (0093), and an outline
-  green or red for the verdict; five `Text2d` labels carry the side letters (0079) and the building's tag, never
+  green or red by its own problems, red throughout when the footprint breaks a whole rule (0093), an outline
+  green or red for the verdict, and an arrow at each doorway (0390, `door_arrows.rs`: `door_arrows` from the type's
+  defs and its sides as placed, in at `HoldsDef::entrance`, out at each exit side of `exit_rule`, two-way where they
+  are one door, out of each open side of a portal, in and out at a Tunnel's two paths, `network::Paths`; the same
+  arrows show on the selected buildings, `selection/doors.rs`, 0394); five `Text2d` labels carry the side letters
+  (0079) and the building's tag, never
   hidden and never culled, only emptied (Bevy lays a `Text2d` out only while a camera saw a sprite or a text the frame
   before, and drops a change made in a frame without one: a text that changes must keep one in view). It lies
   over the map's other overlays, under the indicators: it is the cursor, so no pointer shows over the map
