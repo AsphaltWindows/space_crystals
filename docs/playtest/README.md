@@ -70,8 +70,8 @@ removes player 2's buildings and checks that player 1 wins.
 ## Playing against the computer
 
 A computer player can take any player's slot: `--ai <n>[:<profile>],...`. It is a playtest tool
-(`core/game_rules.md > Computer players (playtest tool)`). The GDO and the Syndicate have one: `--ai` refuses a player
-of another faction.
+(`core/game_rules.md > Computer players (playtest tool)`). The GDO, the Syndicate and the Cults have one: `--ai`
+refuses a player of another faction.
 
 - **standard** (the default) trains its basic army without pause, gathering it at a staging point between its base
   and the map's centre. It attacks in waves on the nearest building of yours it knows of, or else your start. When you
@@ -81,6 +81,10 @@ of another faction.
   - **The Syndicate** keeps three Agents on its crystal hatch and one on Supplies at the Supply Delivery Station. That
     one builds a Tunnel toward the staging point whenever the Supplies pay for one, up to six. Its Tunnel expands an
     Optics Lab, and its Hideout then trains Guards: waves of 20.
+  - **The Cults** mine with two Recruits on each patch for each Storage a tile across from it, and build another
+    Storage once those places are all taken. The Recruits they don't need enter the Armory, which trains Militants,
+    and Gunners once a Gunworks stands. They build Recruitment Halls on open Recruitable land near their start, where
+    each recruits at nearly full effectiveness: a first wave of 8, then waves of 32.
 - **passive** does the same but never attacks: an economy to race.
 - It knows only what its fog of war shows, as you do, and gives only the commands you could.
 - How it plays is a placeholder, every number in `crates/ai/src/tuning.rs`. Report what plays badly to the Director.
@@ -101,6 +105,13 @@ cargo run -- --factions gdo,syndicate --ai 2 --map maps/playtest.json
 cargo run -- --factions syndicate,gdo --ai 1 --player 2 --map maps/playtest.json
 ```
 
+Against the Cults, the computer on player 2, then on player 1 with you on player 2:
+
+```sh
+cargo run -- --factions gdo,cults --ai 2 --map maps/playtest.json
+cargo run -- --factions cults,gdo --ai 1 --player 2 --map maps/playtest.json
+```
+
 - `--ai 2:passive` gives you a passive opponent.
 - The computer on player 1 and you on player 2: `cargo run -- --factions gdo,cults --ai 1 --player 2 --map
   maps/playtest.json`.
@@ -113,6 +124,7 @@ Two computers against each other, to the end (add `--fast` to watch it at full s
 cargo run -- --factions gdo,gdo --ai 1,2 --map maps/playtest.json
 cargo run -- --factions gdo,gdo --ai 1,2:passive --map maps/playtest.json
 cargo run -- --factions syndicate,syndicate --ai 1,2 --map maps/playtest.json
+cargo run -- --factions cults,cults --ai 1,2 --map maps/playtest.json
 ```
 
 The replay records the computers' commands with yours.
