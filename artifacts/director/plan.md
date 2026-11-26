@@ -1531,12 +1531,30 @@ Approach: thin vertical slices the user can run and see, each verified by tests 
   - **Perf:** `recruits_perf` and `holding_perf` are within noise of master (`e548e6ca`), at load 2.7–3.8.
   - 2046 tests passed, 30 ignored. The goldens are unchanged.
 
+- **M5-L Cults oracle and goldens** (Opus; merged in `d729a418`). The Cults economy check, design changes 0345 and 0346 (Q0102, Q0103), on an 8-patch reference field (`testing::cults`, `economy_oracle/cults.rs`, `docs/economy_oracle.md`).
+  - **Scenario 1, ideal mining:** 9 of 14 figures pass at ±15%. 5 are pinned out of tolerance (`OUT_OF_TOLERANCE`) and put to the Designer in **Q0135**:
+    - 5 Recruits on a face reach 0.82 of full efficiency;
+    - the gain per face from a 2-tile gap to 1 is 3.04 SC/s, against ~4;
+    - a Storage's payback is 32.9 s, against ~25 s;
+    - by 2:48 the Cults have 0.90 of the GDO's crystals and 0.88 of the Colonists', against "slightly ahead". By 1:30 they are level (0.97 and 0.92).
+    - **Causes:**
+      - a trip at a 1-tile gap is 24 ticks, because a Recruit stops at the first 4 su step within reach and walks 28 su each way instead of 24;
+      - a face has two lanes.
+    - **The rest pass:** the Hall fills from 6 to 20 in exactly 168.0 s, and the earliest second Hall is complete at 1:07.6.
+  - **Scenario 2, the user's early-expansion line** (no target):
+    - the second Hall is complete at 1:33.9, and the Storages at 1:41.5, 1:52.3 and 2:14.6;
+    - **the Cults have 0.51 of the GDO's crystals by 1:30, and 0.62 by 2:48:** they don't stay level when they expand early (Q0135);
+    - other dealing orders did worse.
+  - **Found:**
+    - with group construction, the earliest second Hall depends on how many build it: 1:07.6 with 4 builders, 2:13.5 with 1;
+    - on 8 adjacent patches, an end patch is as near the next face's Storage as its own, and the lower id wins the tie, so faces share loads (14.4–15.9 SC/s against 20.5, from a throwaway measurement): **Q0136**. The reference field leaves a free column between patch pairs.
+  - **0345:** D's `Placeholder (Q0102` marks now cite 0345, and its Verification is a test (`recruit_gathering/storages.rs`). There were no Q0103 marks.
+  - **Goldens:** `cults_opening` (to tick 2640) and `cults_vs_syndicate` (a Cults win at tick 3529; the Syndicate's turret, ordered from the Tunnel's ExpandMenu, kills six Militants first). Both were blessed once, after the final merge, and play back in the client. The 11 existing goldens are unchanged.
+  - **Also:** the pairing test's Cults side uses this opening, and every pairing on every map passes for 3 minutes.
+  - 2053 tests passed, 31 ignored. The seed sweep passes.
+
 ## In progress
 - **Running:**
-  - **M5-L Cults oracle and goldens** (Opus; brief `scratchpad/briefs/m5l-cults-oracle.md`):
-    - **Scenario 1:** the doc's figures at ±15%, edge to edge, one Storage per face (0346).
-    - **Scenario 2:** the user's early-expansion build line, reported against the GDO and the Colonists at 1:30 and 2:48 with no target (0346).
-    - **Also:** 0345's Verification, and the goldens `cults_opening` and `cults_vs_syndicate`, blessed after its last merge of master.
   - **M5-G2 Cults kinds and the Gunner** (Opus; brief `scratchpad/briefs/m5g2-cults-kinds.md`). G2 of the addendum, with what changed since:
     - every remaining Cults kind, the last slice to add one (T69), including the Hand of Heaven and the Prayer-mobile (0361, 0363–0365), with the Jackal renamed the Seeker;
     - the Gunworks, Machine Shop and Scrap Hangar built from the Construct menus, with no commands, and not enterable (0328);
@@ -1546,11 +1564,17 @@ Approach: thin vertical slices the user can run and see, each verified by tests 
     - It is built and tested on test defs. The real turret units (the Seeker, Sparrow and Hand of Heaven, whose `TurretAttrs` G2 fills in) come with N6, N7 and N10.
     - Also: the MinRange skip (`behaviors.md > BaseAutoTargeting > Targets inside MinRange`), and `commands.md > TurretCommandState`'s retention rule.
     - The Laser Turret's sim behaviour is unchanged, and its client barrel is reused for units.
+  - **M5-N8 Repair** (Opus; brief `scratchpad/briefs/m5n8-repair.md`). N8 of the addendum, with T83 and the header's amendments: one mechanism for every repairer, on E's `spot_work.rs`.
+    - Recruits repair own buildings and vehicles for crystals, and Agents own Tunnels (free) and Laser Turrets. Repairers stack linearly.
+    - A repair ends at full HP or when the bank is empty (0329). Gliders aren't repaired. The Tunnel expansions regenerate 1% a second instead.
+    - D goes live on the Recruit's and the Agent's panels. A right-click is Enter on what the unit can enter, and Repair otherwise (0325).
+    - The Field Engineer's data waits for N9 (0328).
+    - It runs in L's slot because both playtest paths need it. V1 (vehicles, Fable) waits for the user's playtest decision.
 - **Next**:
   - **M4 is complete** (M4-M, `4e3fdd4a`; the strays, M4-Z, `95b4bc6e`; the hatch jam fixed by M4-W3's contact step, `5305c2f3`). The jam's history: M4-W diagnosed it (`189d0162`), M4-W2 built 0315's first step (`b81b2089`), which didn't fix it, and 0324 planned the 90° contact step, which did. 0336 accepted the oversaturated hatch and dropped 0324's steps 2 and 3.
   - **M5 wave 1 is done:** A (`ed23874e`) and R (`afd9c152`).
   - **M5 wave 2 is done:** D (`36a06de4`), C (`afd9b366`) and F1 (`e0444eab`), and O3, pulled forward from W4 (`e64cf8d2`).
-  - **0319** put every designed Cults building and unit in M5, with placeholder numbers. The gated slices N1–N6 and G are now in scope. M5-P2's addendum plans them: 31 slices in all, with the playtest at the end of W12, or a first playtest of the Cults' infantry core at the end of W9 (the choice is with the user, 2026-11-25). The addendum is adopted as `artifacts/director/m5-plan-addendum.md`, with T69–T83, and its 14 question drafts are filed as Q0112–Q0125. Wave 3: B (`98dfe65a`) and E (`62dd3e7f`) have landed. **M5-T, build speed**, has landed (`4ecfc18a`). **F2, Armory training,** has landed (`d9492a69`). **J1, Recruit UI,** has landed (`2286859e`). **F3, holding,** has landed (`da08f46d`). **M5-Y, Syndicate turrets,** has landed (`c65cc1b0`). **J2, the Recruitment Area display,** has landed (`e548e6ca`). **Z1, a fuzz bug,** has landed (`4d99074c`). **L** (the Cults oracle and goldens), **G2** (the remaining Cults kinds and the Gunner) and **U1** (unit turrets) are running: wave 5. **New since:** **M5-K, GDO anti-air** (0356: the Rocketman and the Arsenal), after H1. **The Field Engineer is in M5 now** (0328): slice N9, after N8 and before X1.
+  - **0319** put every designed Cults building and unit in M5, with placeholder numbers. The gated slices N1–N6 and G are now in scope. M5-P2's addendum plans them: 31 slices in all, with the playtest at the end of W12, or a first playtest of the Cults' infantry core at the end of W9 (the choice is with the user, 2026-11-25). The addendum is adopted as `artifacts/director/m5-plan-addendum.md`, with T69–T83, and its 14 question drafts are filed as Q0112–Q0125. Wave 3: B (`98dfe65a`) and E (`62dd3e7f`) have landed. **M5-T, build speed**, has landed (`4ecfc18a`). **F2, Armory training,** has landed (`d9492a69`). **J1, Recruit UI,** has landed (`2286859e`). **F3, holding,** has landed (`da08f46d`). **M5-Y, Syndicate turrets,** has landed (`c65cc1b0`). **J2, the Recruitment Area display,** has landed (`e548e6ca`). **Z1, a fuzz bug,** has landed (`4d99074c`). **L, the Cults oracle and goldens,** has landed (`d729a418`): wave 5's first. **G2** (the remaining Cults kinds and the Gunner), **U1** (unit turrets) and **N8** (Repair) are running. **New since:** **M5-K, GDO anti-air** (0356: the Rocketman and the Arsenal), after H1. **The Field Engineer is in M5 now** (0328): slice N9, after N8 and before X1.
   - **Playtest:** the user plays once all four factions are built, in hot-seat from the command line (2026-11-25). The kit is `docs/playtest/` (m2–m4 and M5's README). This replaces separate M1–M4 playtests.
 
 ## M1 plan (from the movement spike; the approved design is in `docs/movement.md`)
@@ -1927,6 +1951,8 @@ The user keeps feeding unit and other designs to the Designer, so expect increme
 | Q0132 | Two doc lines still give the Syndicate Agent-built turrets (`tunnels.md > Losing Tunnels`, `agent.md > Building`) (M5) | no | open; built as 0359 and 0360 say |
 | Q0133 | Can a selected own Hall's claims reveal an enemy Hall the player has never seen? (`recruitment_hall.md > Recruitment Area display`) (M5) | no | open; built as (a): the true claims, matching the InfoPanel's Effectiveness |
 | Q0134 | Buildings on Buildable ground that units can't walk on: how do their units come out? (`core/map.md > Tile`, `core/entities.md > Structure Type > Exit Doorway`) (M5) | no | open; built as (a): no unit is released onto such ground, so the doorway holds it (M5-Z1) |
+| Q0135 | The Cults' economy check: 5 figures miss tolerance, and the realistic opening is far from level (`factions/cults/economy.md > Economy check`) (M5) | no | open; the oracle pins the measured figures |
+| Q0136 | A patch equally near two Storages: which one does a Recruit use? (`recruit.md > Gathering`, 0345) (M5) | no | open; built as (a): the lower object id |
 
 ## Design change entries
 Last triaged: 0282.
@@ -2246,8 +2272,8 @@ Last triaged: 0282.
 | 0342 **Recruitment Hall production** (answers Q0100). The Hall becomes AAAB, its exit on B, with Recruits one at a time through the Exit Doorway. No cancel (X goes). The Recruit in production counts toward LocalUnitControlUsage from its start (19/20 plus one in production shows 20/20). When capacity frees up, production starts from 0 | done (F2 in the sim, `d9492a69`; J1 the ghost's rotation, `2286859e`) | — |
 | 0343 **The side at a standing blocker: the side the unit is on** (answers Q0129 with (a), as built). Right first decides only dead centre; moving blockers are unchanged | done (M4-W3, `5305c2f3`); the doc now matches the build | — |
 | 0344 **The Cults' global Unit Control is display only** (answers Q0101). Only the Halls' local capacity limits, and Recruits that no Hall produced are orphans from the start | done (C and B built it; F2 dropped the placeholder marks) | — |
-| 0345 **Which Storage: the nearest to the patch, chosen at every return** (answers Q0102 with (a) and its addendum). With none, the Recruit idles holding its load; a Storage lost mid-return is replaced by the one nearest the Recruit (0170) | in progress (L: drops D's marks and tests the Verification) | — |
-| 0346 **The Cults economy check** (answers Q0103): edge to edge in whole tiles, ±15%, every figure of the doc with one Storage per face for the ideal; plus a second scenario, the user's build line (one Storage; a second Hall saved for without extra Storages, the new Recruits spread to farther patches; the Hall built by every non-optimal Recruit; then a Storage per face), measured against the GDO and the Colonists at 1:30 and 2:48, its numbers reported with no target | in progress (L: both scenarios) | — |
+| 0345 **Which Storage: the nearest to the patch, chosen at every return** (answers Q0102 with (a) and its addendum). With none, the Recruit idles holding its load; a Storage lost mid-return is replaced by the one nearest the Recruit (0170) | done (M5-L, `d729a418`: the marks cite 0345, and its Verification is a test). A tie between equally near Storages: Q0136 | — |
+| 0346 **The Cults economy check** (answers Q0103): edge to edge in whole tiles, ±15%, every figure of the doc with one Storage per face for the ideal; plus a second scenario, the user's build line (one Storage; a second Hall saved for without extra Storages, the new Recruits spread to farther patches; the Hall built by every non-optimal Recruit; then a Storage per face), measured against the GDO and the Colonists at 1:30 and 2:48, its numbers reported with no target | done (M5-L, `d729a418`): 9 of 14 figures pass, 5 pinned out of tolerance, and the realistic opening is at 0.51 by 1:30 and 0.62 by 2:48. Q0135 | — |
 | 0347 **Entering pool buildings** (answers Q0104): a dedicated entrance doorway at the middle of the entrance side, and for every training, augmentation and unit-producing building the exit opposite it (the Airstrip excepted). When full, the Enter ends and the unit idles beside the building. Loads are kept inside and carried out, and lost if the Recruit is trained. Buildings under construction can't be entered (a right-click Assists). **The capacity counts reserved units, so the queue never exceeds the capacity**: 10 orders at the Armory, Cathedral and Airstrip, 5 Jackals at the Chop Shop | done (F2: points 3 and 5, `d9492a69`; J1: point 4 in the client, `2286859e`; F3: points 1, 2 and 4, `da08f46d`) | — |
 | 0348 **Cults production buildings: leaving units go to the rally in ready order; they are Ungroupable** (answers Q0105 points 3–5). The Armory, Altar, Cathedral, Chop Shop and Airstrip are Groupable false | done for the Armory (F2, `d9492a69`). Queued: N1b, N4a, N6 and N7 set Groupable false | — |
 | 0349 **Evacuation inside the footprint** (answers Q0106): everyone appears at once inside the destroyed building's former footprint. Overlaps resolve by the existing rules (overlapping units ignore each other until separated, and idle units push apart). A unit that had finished training comes out as the trained unit, with no refund. Evacuated units idle | done (F3, `da08f46d`). Queued: N2's Garrison reuses it | — |
