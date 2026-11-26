@@ -13,7 +13,7 @@ use bevy::prelude::*;
 use sc_sim::{ObjectId, Placement, SU_PER_GU, Sim, TargetView};
 
 use crate::fog::Sight;
-use crate::object_render::object_height;
+use crate::object_render::{body_height, object_height};
 
 /// Where `sight` shows object `id`, ground space: where it is while the player sees it, its last-known position while
 /// the player remembers it; none while the player knows of nothing there.
@@ -33,7 +33,7 @@ pub(super) fn object_box(sim: &Sim, sight: &Sight, id: ObjectId, alpha: f32) -> 
         TargetView::Visible => {
             let o = sim.object(id)?;
             let pos = o.prev_pos.lerp(o.pos, alpha);
-            let height = object_height(sim.map(), pos, o.placement.as_ref());
+            let height = body_height(sim.map(), o.kind, pos, o.placement.as_ref());
             let (center, half) = match &o.placement {
                 Some(footprint) => footprint_box(footprint),
                 None => (pos, o.def().half_extents().unwrap_or(Vec2::splat(SU_PER_GU / 4.0))),

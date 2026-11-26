@@ -8,7 +8,7 @@
 use bevy::prelude::*;
 use sc_sim::{ObjectId, ObjectKind};
 
-use super::{Look, ObjectVisual, UnitShape};
+use super::{Look, ObjectVisual, UnitShape, draw_layer};
 use crate::command_ui::indicators::INDICATORS_Z;
 use crate::coords::DrawLayer;
 use crate::kinds::short_label;
@@ -48,13 +48,14 @@ const TAG_COLOR: Color = Color::srgb(0.97, 0.97, 0.94);
 /// How far above the command indicators a tag is drawn (at its unit's ground y), in the overlays layer.
 const TAG_OVER_INDICATORS: f32 = 0.1;
 
-/// A tag's z over its visual's: up into the overlays layer, just above the command indicators
+/// A `kind` unit's tag's z over its visual's: up from its visual's layer (`super::draw_layer`: (M5-H1) an air
+/// unit's is the air layer) into the overlays layer, just above the command indicators
 /// (`command_ui::indicators::INDICATORS_Z`), y-sorted as its unit is (slice M3-J3: M3-K2's walkthrough found the
 /// Bio Portal's rally marker, where its Rifle Legionnaire stood, hiding the unit's tag). So a marker on a unit never
 /// hides its tag; the tags draw above every unit's body, the combat effects too further south. A structure's tag
 /// stays with its structure, under the units that cross it (`super::structures`).
-fn tag_z() -> f32 {
-    DrawLayer::Overlays.base_z() - DrawLayer::GroundUnits.base_z() + INDICATORS_Z + TAG_OVER_INDICATORS
+fn tag_z(kind: ObjectKind) -> f32 {
+    DrawLayer::Overlays.base_z() - draw_layer(kind).base_z() + INDICATORS_Z + TAG_OVER_INDICATORS
 }
 
 /// The tag of object `id`, a `kind` unit: its type's short label ([`short_label`]), above the indicators ([`tag_z`]).
@@ -65,12 +66,13 @@ pub(super) fn tag(id: ObjectId, kind: ObjectKind) -> impl Bundle {
         Text2d::new(short_label(kind)),
         TextFont::from_font_size(FontSize::Px(TAG_SU)),
         TextColor(TAG_COLOR),
-        Transform::from_xyz(0.0, 0.0, tag_z()),
+        Transform::from_xyz(0.0, 0.0, tag_z(kind)),
     )
 }
 
 /// Keeps every tag upright: its rotation undoes its visual's, which turns with a round body's facing (a Peacekeeper's,
-/// [`body_turns`]) and is none otherwise. After the visuals are placed (`super::place_object_visuals`).
+/// [`body_turns`]) and is none otherwise; it stays where [`tag`] put it, on the visual's centre. After the visuals are
+/// placed (`super::place_object_visuals`).
 pub(super) fn upright_tags(
     visuals: Query<&Transform, (With<ObjectVisual>, Without<UnitTag>)>,
     mut tags: Query<(&ChildOf, &mut Transform), With<UnitTag>>,
@@ -79,7 +81,7 @@ pub(super) fn upright_tags(
         let Ok(visual) = visuals.get(parent.parent()) else {
             continue;
         };
-        let upright = Transform::from_xyz(0.0, 0.0, tag_z()).with_rotation(visual.rotation.inverse());
+        let upright = Transform::from_translation(transform.translation).with_rotation(visual.rotation.inverse());
         transform.set_if_neq(upright);
     }
 }

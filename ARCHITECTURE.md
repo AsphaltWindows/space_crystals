@@ -3631,6 +3631,14 @@ these.
   overlays, above everything. So are the units' tags, just above the command indicators and still y-sorted by their
   units (`units::tag_z`, slice M3-J3), so that no marker on a unit hides its label; a structure's tag stays with its
   structure, under the units that cross it.
+- **Air units fly** (`object_render/flight.rs`; slice M5-H1, plan decision T81: "air units are drawn raised, with a
+  ground shadow, at their true position, even past the edge"; placeholders until Q0001): an air unit's body is in the
+  air layer, drawn `FLIGHT_LIFT_LEVELS` (3, 48 su) above the ground under it, and its `FlightShadow` child, a dark
+  ellipse, lies on that ground in the unit decals' band, its transform undoing the body's turn. Both are at the sim's
+  `pos`, past the map's edge too, where the sim counts the unit as at the edge (`Object::map_pos`). **Whatever is drawn
+  on a unit asks `object_render::body_height`**, the ground's height plus the flight's: its picking box and selection
+  ring (`Selectable::of`, so a click picks the raised body, in front of a ground unit there, and not the shadow), its
+  HP bar, an order's marker on it (`indicators::targets::object_box`) and its shots' ends (`Tracer::lift`).
 - **Terrain** (`map_render.rs`): one mesh. A flat tile is a quad, a sloped one four triangles around its center (at
   the corners' mean height), each shaded by Lambert's law towards `LIGHT_TOWARDS` (a placeholder: from the north-west,
   45° up), so flat ground keeps its colour. A non-Traversible tile at least `CLIFF_MIN_SLOPE` levels steep reads as a

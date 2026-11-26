@@ -55,7 +55,7 @@ use sc_sim::{Map, Object, ObjectId, ObjectKind, PlayerId, SU_PER_GU, Sim, SimEve
 use crate::ClientSystems;
 use crate::coords::drawn_at_height;
 use crate::fog::Sight;
-use crate::object_render::object_height;
+use crate::object_render::{body_height, flight_lift};
 use crate::sim_driver::SimRes;
 use crate::viewer_events::{FilterEvents, Perception, Sighting, ViewerEvents};
 use draw::{draw_effects, spawn_effects_mesh};
@@ -87,6 +87,9 @@ pub struct Tracer {
     pub target: Option<ObjectId>,
     pub from: Vec2,
     pub to: Vec2,
+    /// (M5-H1) How far above the ground its two ends are drawn, terrain levels: an air unit's flight, the attacker's
+    /// and the target's (`crate::object_render::flight_lift`), so that the shot leaves and reaches the bodies drawn.
+    pub lift: (f32, f32),
     /// Whom it reaches, and how: along its path, over each viewer's Visible tiles (`crate::viewer_events`,
     /// [`shot_spans`]).
     pub seen: Sighting,
@@ -283,7 +286,7 @@ fn hp_bar(map: &Map, o: &Object, alpha: f32, fraction: f32, (shields, energy): (
             (half, half.length())
         }
     };
-    let drawn = drawn_at_height(pos, object_height(map, pos, o.placement.as_ref()));
+    let drawn = drawn_at_height(pos, body_height(map, o.kind, pos, o.placement.as_ref()));
     HpBar {
         center: drawn - Vec2::new(0.0, above + BAR_GAP + BAR_HEIGHT / 2.0),
         width: (half.x * 2.0).max(BAR_MIN_WIDTH),
@@ -347,6 +350,7 @@ fn collect_effects(sim: Res<SimRes>, events: Res<ViewerEvents>, mut effects: Res
         };
         if let Some((attacker, target, from, to)) = shot {
             let shooter = shooter_of(attacker);
+            let target_kind = target.and_then(|id| sim.object(id).map(|o| o.kind).or_else(|| Some(fallen(id)?.0)));
             effects.tracers.push(Tracer {
                 tick,
                 attacker,
@@ -355,6 +359,10 @@ fn collect_effects(sim: Res<SimRes>, events: Res<ViewerEvents>, mut effects: Res
                 target,
                 from,
                 to,
+                lift: (
+                    shooter.map_or(0.0, |(form, _)| flight_lift(form)),
+                    target_kind.map_or(0.0, flight_lift),
+                ),
                 seen,
             });
         }
