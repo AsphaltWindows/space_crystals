@@ -37,6 +37,13 @@
 >   - **Q0164 point 2** (whom the First Aid Tent heals) could also change M5's Shrine casts, which skip units inside
 >     buildings.
 > - **X1 and X2 stay in M5**, and M6 is written in X1's form (T101), as recommended. M6 starts at X1's merge.
+> - **Answered since adoption** (each answer is a row of `plan.md`'s change table, and the slice's brief carries it):
+>   - Q0153 by 0417 (V3's tread law), 0418 (a spin crushes the enemies it sweeps) and 0419 (the surfaced Transport
+>     crushes): V3 and V4;
+>   - Q0154 by 0420: option (c), DragMovement numbers of each unit's own. The air HoverCraft still stop by drag alone,
+>     so the note for GK and GH1 above stands;
+>   - Q0155 by 0421: R at the Barracks, no rebuy while the drone is out, the leash edge to edge;
+>   - Q0156 by 0422: the Radar Station is Groupable false.
 
 # M6 plan: the GDO's and the Syndicate's remaining content (planning spike M6-P)
 
@@ -294,6 +301,10 @@ Read-only: `movement/wheeled.rs`, `movement/collide/` and `shape.rs`.
   - "TBD: whether a crusher turning in place (Stationary + Turning) can crush, or is blocked by, an adjacent
     crushable enemy".
 - **Rotated shapes** count (`> Silhouette Rotation`: "Collision, crushing ... use the rotated shape").
+
+**Superseded by 0418 and 0419** (2026-11-26, answering Q0153 parts 2 and 4). A spin in place crushes the crushable
+enemies the turning Silhouette sweeps, and own and allied crushables still block it. A surfaced Transport crushes like a
+TrackedVehicle, the spin rule included, and never underground. The two placeholders below are replaced.
 
 **Placeholders** (D42)
 - A spin in place doesn't crush, and an adjacent crushable enemy blocks it.

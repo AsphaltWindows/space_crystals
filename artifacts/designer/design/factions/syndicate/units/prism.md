@@ -24,7 +24,7 @@ It sees through Shadebringer smoke (Shadebringer > Cover).
 
 **Placeholder stats** (designer, 2026-11-27, user's standing permission; tune in the numbers pass):
 - Silhouette 40x40 space units; MaxHP 100; PointArmor 0, FullArmor 0; SightRange 6 grid units; TunnelSpaceCost 2.
-- Very slow drift: MaxSpeed **1 su/frame**.
+- Very slow drift: top speed **1 su/frame**. DragMovement (designer placeholder 2026-11-26, Q0154): ForwardAcceleration 0.05; OmniDirectionalAcceleration 0.05; DragRatio 0.1; TurnRate 4°/frame. The thrust charges below are separate bursts, not part of this.
 - **Launch** 32 frames (straight up) and **transform** 32 frames (vulnerable during both).
 - **Thrust charges: 3**; each moves it **3 grid units** over 1 s in a chosen direction.
 - Relay ranges: Laser Battery > Placeholder stats.

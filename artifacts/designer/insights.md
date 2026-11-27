@@ -27,8 +27,7 @@
 - Game will be rebuilt from scratch → docs must stand alone as the complete spec. Old prototype stays at `artifacts/developer/` as reference; Director decides with user where new code lives.
 
 ## Open Director Questions
-- **Q0153** (non-blocking): parts 1+3 answered (0417). Open: 2 crusher spinning beside an enemy crushable; 4 does the surfaced Transport crush.
-- **Q0154–Q0170** (all non-blocking, Director builds placeholders): 154 HoverCraft DragMovement numbers; 155 Drone Operator; 156 Scan with several Radar Stations; 157 low Power and Scan/Missile Turret/rearming; 158 Tunnel network services; 159 Shadebringer trails; 160 Twister mines; 161 Outpost HP; 162 Airfield landing; 163 Field Engineer building; 164 Bunker/Tent; 165 Phantom air doors; 166 Subterranean Transport; 167 Smoke; 168 Prism; 169 GDO Supplies/Supply Chopper; 170 Sparrow orders during takeoff.
+- **Q0158–Q0170** (all non-blocking, Director builds placeholders): 158 Tunnel network services; 159 Shadebringer trails; 160 Twister mines; 161 Outpost HP; 162 Airfield landing; 163 Field Engineer building; 164 Bunker/Tent; 165 Phantom air doors; 166 Subterranean Transport; 167 Smoke; 168 Prism; 169 GDO Supplies/Supply Chopper; 170 Sparrow orders during takeoff.
 
 Order of work (placeholder passes done, 0366/0367): finish Cults units → Colonists units → techs → detection → numbers review.
 ## Loose Ends

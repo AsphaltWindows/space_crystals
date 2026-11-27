@@ -9,7 +9,7 @@
 ## AttackAttributes - none (confirmed, Q0071)
 
 ## Above-ground mode
-- When built, it **drives out of the Tunnel in its above-ground mode**, behaving as a tracked vehicle.
+- When built, it **drives out of the Tunnel in its above-ground mode**, behaving as a tracked vehicle. Above ground it **crushes** enemy Light Infantry like any tracked vehicle (user, 2026-11-26; Q0153; systems/units.md > UnitCollision > Crushing); underground it crushes nothing.
 - In this mode, **infantry can be loaded** into it, and it can **unload** them.
 
 ## Burrow (ability)

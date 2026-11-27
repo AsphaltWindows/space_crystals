@@ -21,7 +21,7 @@
 
 **Placeholder stats** (designer, 2026-11-27, user's standing permission; tune in the numbers pass):
 - Silhouette 44x44 space units; MaxHP 70; PointArmor 1, FullArmor 1; SightRange 8 grid units; TunnelSpaceCost 2.
-- HoverCraft: MaxSpeed 9 su/frame; Acceleration 0.8; Deceleration 0.8; TurnRate 8°/frame.
+- HoverCraft (DragMovement; designer placeholder 2026-11-26, Q0154; "relatively manoeuvrable": more drag and more sideways thrust than the Hornet, so it starts, stops and strafes quicker): ForwardAcceleration 0.78; OmniDirectionalAcceleration 0.3; DragRatio 0.12 (top speed 9 su/frame); TurnRate 10°/frame.
 - Turret: TurnAngle **75°** total; TurnRate 8°/frame.
 - Laser: Damage 12; Range 5 grid units; Aim 2, Firing 1, Cooldown 3, Reload 10 frames (12 damage per second before armor).
 - Cost: Aerospace Assembly, 175 Space Crystals, 320 frames.
