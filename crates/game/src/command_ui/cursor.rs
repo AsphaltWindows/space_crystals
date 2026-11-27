@@ -36,6 +36,7 @@ use crate::input::{ActionState, RawInput};
 use crate::selection::markers::relation_color;
 use crate::selection::{ControlStates, Relation, Selectables};
 use crate::sim_driver::RenderAlpha;
+use crate::tuning::ClientTuning;
 use crate::{ClientMode, ClientSystems};
 
 /// The side of a cursor image, pixels.
@@ -138,6 +139,7 @@ fn update_pointer_look(
     actions: Res<ActionState>,
     sight: LocalSight,
     alpha: Res<RenderAlpha>,
+    tuning: Res<ClientTuning>,
     states: Res<ControlStates>,
     mut look: ResMut<PointerLook>,
 ) {
@@ -147,7 +149,7 @@ fn update_pointer_look(
             let (sim, sight) = (sight.sim(), sight.get());
             let player = sight.player();
             let state = states.of(player);
-            let objects = Selectables::new(sim, &sight, alpha.0);
+            let objects = Selectables::tuned(sim, &sight, alpha.0, &tuning);
             let units: Vec<UnitCapabilities> = if commandable(sim, player, &state.selection) {
                 let modes = Modes::of(sim, &state.selection);
                 capabilities(&state.selection, &modes)

@@ -10,7 +10,7 @@
 use bevy::prelude::*;
 use sc_sim::testing::ScenarioBuilder;
 use sc_sim::{AreaAbility, Faction, ObjectKind, PlayerId, SpawnAt};
-use space_crystals::combat_effects::{CAST_TICKS, CombatEffects, shows_cast};
+use space_crystals::combat_effects::{CombatEffects, shows_cast};
 use space_crystals::command_ui::feedback::NOT_ENOUGH_ENERGY_TEXT;
 use space_crystals::command_ui::{ButtonLook, PanelButton, PanelCommand};
 use space_crystals::fog::Sight;
@@ -70,7 +70,7 @@ fn drawn_casts(app: &App) -> Vec<(AreaAbility, Vec2, f32)> {
     let sight = Sight::new(sim, P1, false);
     let effects = app.world().resource::<CombatEffects>();
     (effects.casts.iter())
-        .filter(|cast| shows_cast(sim, &sight, cast))
+        .filter(|cast| shows_cast(sim, &sight, cast, &space_crystals::tuning::ClientTuning::BUILTIN))
         .map(|cast| (cast.ability, cast.at, cast.facing))
         .collect()
 }
@@ -157,6 +157,8 @@ fn r_inspires_the_recruits_round_it_and_f_suppresses_the_units_ahead_of_it() {
     assert_eq!(said(&app), Some(NOT_ENOUGH_ENERGY_TEXT));
     assert_eq!(casts(&app).len(), 2, "nothing more sent");
     let since = tick(&app);
-    until(&mut app, 40, |app| tick(app) > since + CAST_TICKS);
+    until(&mut app, 40, |app| {
+        tick(app) > since + space_crystals::tuning::feedback::BUILTIN.cast_ticks
+    });
     assert_eq!(drawn_casts(&app), [], "faded");
 }

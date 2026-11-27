@@ -65,10 +65,12 @@ fn rgb(owner: Option<PlayerId>) -> [f32; 3] {
 fn bars(app: &App) -> Vec<f32> {
     let sim = app.world().resource::<SimRes>();
     let sight = Sight::new(sim, P1, true);
-    hp_bars(sim, &sight, 1.0, |_| false)
-        .iter()
-        .map(|bar| bar.fraction)
-        .collect()
+    hp_bars(sim, &sight, 1.0, &space_crystals::tuning::ClientTuning::BUILTIN, |_| {
+        false
+    })
+    .iter()
+    .map(|bar| bar.fraction)
+    .collect()
 }
 
 /// Player 1's scout sees the Hideout's tiles but not the Hideout, hidden while player 2 owns it. Its Tunnel removed,

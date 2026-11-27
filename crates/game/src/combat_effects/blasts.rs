@@ -1,15 +1,15 @@
 //! (M4-O) Blasts (plan decision T52): a ring the size of an area attack's circle where its projectile landed
 //! (`SimEvent::Blast`; `systems/combat.md > AoEDamage`: "Damage is uniform across the AoE circle"), flashing and fading
-//! for [`BLAST_TICKS`]. Placeholder look until the art direction (Q0001). (M5-S8) A missile's burst (a Rocketman's,
-//! normal or locked: design change 0445 made them area damage, of 32 su) is the grenade's blast at its own radius, its
-//! ring in its shooter's colour ([`ring_color`]), and in the air over an aircraft it was fired at ([`Blast::lift`]).
-//! (M5-K) A single-target projectile's landing (radius 0; no type of the game fires one since 0445) is a small puff
-//! where it struck instead, at a body's height over its point, in the air over an aircraft.
+//! for `FeedbackTuning::blast_ticks`. Placeholder look until the art direction (Q0001). (M5-S8) A missile's burst (a
+//! Rocketman's, normal or locked: design change 0445 made them area damage, of 32 su) is the grenade's blast at its own
+//! radius, its ring in its shooter's colour ([`ring_color`]), and in the air over an aircraft it was fired at
+//! ([`Blast::lift`]). (M5-K) A single-target projectile's landing (radius 0; no type of the game fires one since 0445)
+//! is a small puff where it struck instead, at a body's height over its point, in the air over an aircraft.
 //!
 //! The fog: a blast shows only while the tile under its centre is Visible to the player ([`shows_blast`]), however far
 //! its ring reaches (a placeholder reading of "where the viewer has vision"; its sighting, `crate::viewer_events`).
-//! What it hit shows nothing of itself: a `SimEvent::Hit` is drawn for no victim, and an object the player doesn't
-//! see, a hidden Hideout under the blast among them, shows no HP bar and no death marker (`super::hp_bars`,
+//! What it hit shows nothing of itself: a `SimEvent::Hit` is drawn for no victim, and an object the player doesn't see,
+//! a hidden Hideout under the blast among them, shows no HP bar and no death marker (`super::hp_bars`,
 //! `super::shows_death`).
 
 use bevy::prelude::*;
@@ -21,9 +21,8 @@ use crate::coords::{drawn_at_height, view_to_world};
 use crate::fog::Sight;
 use crate::object_render::player_color;
 use crate::shapes::ColorMesh;
+use crate::tuning::ClientTuning;
 use crate::viewer_events::{Perception, Sighting};
-
-pub use crate::tuning::feedback::BLAST_TICKS;
 
 /// The ring's width, su, and its look: a fire's orange round a pale flash (placeholders, Q0001); (M5-S8) a missile's
 /// in its shooter's colour ([`ring_color`]).
@@ -55,18 +54,18 @@ pub struct Blast {
     pub seen: Sighting,
 }
 
-/// Whether `sight` shows `blast` now: for [`BLAST_TICKS`] from its tick, as its sighting reaches the player
-/// (`crate::viewer_events`): while the tile under its centre is Visible to the player, always while the fog doesn't
-/// apply.
-pub fn shows_blast(sim: &Sim, sight: &Sight, blast: &Blast) -> bool {
-    shows(sim, blast.tick, BLAST_TICKS) && blast.seen.perceived_by(sight) == Perception::Whole
+/// Whether `sight` shows `blast` now: for `tuning`'s `FeedbackTuning::blast_ticks` from its tick, as its sighting
+/// reaches the player (`crate::viewer_events`): while the tile under its centre is Visible to the player, always while
+/// the fog doesn't apply.
+pub fn shows_blast(sim: &Sim, sight: &Sight, blast: &Blast, tuning: &ClientTuning) -> bool {
+    shows(sim, blast.tick, tuning.feedback.blast_ticks) && blast.seen.perceived_by(sight) == Perception::Whole
 }
 
-/// The blast `age` ticks after it landed: a pale disc that fades in its first third, inside a ring ([`ring_color`])
-/// that grows from three quarters of its radius to all of it as it fades, (M5-S8) [`Blast::lift`] levels up; (M5-K) a
-/// single-target projectile's, an impact puff ([`impact_shape`]).
-pub(super) fn blast_shape(mesh: &mut ColorMesh, map: &Map, blast: &Blast, age: f32, z: f32) {
-    let t = (age / BLAST_TICKS as f32).clamp(0.0, 1.0);
+/// The blast `t` of the way through its time (`FeedbackTuning::blast_ticks`) after it landed: a pale disc that fades in
+/// its first third, inside a ring ([`ring_color`]) that grows from three quarters of its radius to all of it as it
+/// fades, (M5-S8) [`Blast::lift`] levels up; (M5-K) a single-target projectile's, an impact puff ([`impact_shape`]).
+pub(super) fn blast_shape(mesh: &mut ColorMesh, map: &Map, blast: &Blast, t: f32, z: f32) {
+    let t = t.clamp(0.0, 1.0);
     if blast.radius <= 0.0 {
         return impact_shape(mesh, map, blast, t, z);
     }
@@ -94,7 +93,7 @@ pub fn ring_color(blast: &Blast) -> Color {
     }
 }
 
-/// (M5-K) A single-target projectile's impact, `t` of the way through its [`BLAST_TICKS`]: a puff where it struck, at a
+/// (M5-K) A single-target projectile's impact, `t` of the way through its time: a puff where it struck, at a
 /// body's height over its point (`super::draw::MUZZLE_LIFT`, where a shot reaches a unit), [`Blast::lift`] levels up
 /// for an aircraft: a pale flash that fades in its first half, inside a ring that grows from [`PUFF`] to twice that
 /// as it fades.

@@ -34,7 +34,7 @@ use crate::replay::Recorder;
 use crate::sim_driver::{LoadedScenario, LocalPlayer, PendingCommands, RecordedInputs, SimControl, SimRes};
 
 /// Starts the game over as it was launched (module docs).
-pub(super) fn restart(world: &mut World) {
+pub(crate) fn restart(world: &mut World) {
     let mut launch = world.resource_mut::<Launch>();
     launch.restarts += 1;
     let launch = launch.clone();

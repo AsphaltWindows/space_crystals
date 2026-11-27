@@ -9,6 +9,7 @@ use space_crystals::command_ui::indicators::{
 };
 use space_crystals::hud::info_panel::activity;
 use space_crystals::selection::{ControlStates, Selection};
+use space_crystals::tuning::ClientTuning;
 
 use super::*;
 
@@ -70,7 +71,12 @@ fn markers(app: &App) -> Vec<(Indicator, Option<MarkerRing>)> {
         .into_iter()
         .chain(rallies);
     indicators
-        .map(|indicator| (indicator, marker_ring(sim, &sight, indicator, 1.0)))
+        .map(|indicator| {
+            (
+                indicator,
+                marker_ring(sim, &sight, indicator, 1.0, &ClientTuning::BUILTIN),
+            )
+        })
         .collect()
 }
 

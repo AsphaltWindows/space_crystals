@@ -24,6 +24,7 @@ use crate::fog::LocalSight;
 use crate::input::ActionState;
 use crate::shapes::{ColorMesh, vertex_color_material};
 use crate::sim_driver::{LocalPlayer, RenderAlpha};
+use crate::tuning::ClientTuning;
 use crate::{ClientMode, ClientSystems};
 
 /// Marker colours by relation (placeholders).
@@ -108,6 +109,7 @@ struct Shown<'w> {
     mode: Res<'w, ClientMode>,
     sight: LocalSight<'w>,
     alpha: Res<'w, RenderAlpha>,
+    tuning: Res<'w, ClientTuning>,
     player: Res<'w, LocalPlayer>,
     states: Res<'w, ControlStates>,
 }
@@ -126,7 +128,7 @@ impl Shown<'_> {
                 let (shown, placement) = match sim.object(id).filter(|o| sight.sees(o)) {
                     Some(object) => {
                         let pos = object.prev_pos.lerp(object.pos, self.alpha.0);
-                        let shown = Selectable::of(object, self.player.0, sim.map(), pos);
+                        let shown = Selectable::of(object, self.player.0, sim.map(), pos, &self.tuning.look);
                         (shown, object.placement)
                     }
                     None => {

@@ -1,22 +1,22 @@
 //! The minimap's alerts (`systems/controls/hud.md > Minimap > Alerts`, slice M5-MM2, design change 0443): when "one of
-//! the player's units or buildings **takes damage while it is off screen** (outside the camera's view)", "a red ping
-//! on the minimap at that spot: a ring that shrinks and fades over about 2 s (placeholder). No text and no sound."
+//! the player's units or buildings **takes damage while it is off screen** (outside the camera's view)", "a red ping on
+//! the minimap at that spot: a ring that shrinks and fades over about 2 s (placeholder). No text and no sound."
 //!
-//! - **What pings** ([`take_alerts`]): a `SimEvent::Hit` of the frame on an object of the player the minimap shows,
-//!   as that player perceives the frame's events (`crate::viewer_events`: the owner always perceives a hit on their
-//!   own object). Placeholder (not in the design: it says "takes damage" alone): whoever's the attack, an ally's or
-//!   the player's own included; and placeholder (likewise): a hit that only takes Shields counts too. Where: the
-//!   object's position now, or for one the hit killed, where it died (its `SimEvent::Died` of the same frame).
+//! - **What pings** ([`take_alerts`]): a `SimEvent::Hit` of the frame on an object of the player the minimap shows, as
+//!   that player perceives the frame's events (`crate::viewer_events`: the owner always perceives a hit on their own
+//!   object). Placeholder (not in the design: it says "takes damage" alone): whoever's the attack, an ally's or the
+//!   player's own included; and placeholder (likewise): a hit that only takes Shields counts too. Where: the object's
+//!   position now, or for one the hit killed, where it died (its `SimEvent::Died` of the same frame).
 //! - **Off screen**: outside the ground the world view shows ([`super::viewed_ground`]), the rectangle the camera's
 //!   outline shows on the minimap, so that the two agree: a hit inside the outline never pings.
 //! - **How often** ([`MinimapAlerts::alert`]): "at most one ping per area every 10 s (placeholder; an area: within
-//!   about 8 grid units of an earlier ping still in its 10 s)": a hit within [`PING_AREA_GU`] of a ping made in the
-//!   last [`PING_THROTTLE_TICKS`] makes none, though that ping faded long before.
+//!   about 8 grid units of an earlier ping still in its 10 s)": a hit within `FeedbackTuning::ping_area_gu` of a ping
+//!   made in the last `ping_throttle_ticks` makes none, though that ping faded long before.
 //! - **Whose**: each ping is the player's the minimap showed as it was made, and shows only to them, as the fog does:
 //!   after the debug switch, F2 (a replay's too), the other player's hits ping, and Space goes to their latest.
 //! - **Drawn** ([`place_pings`]): a UI node's round border over the minimap's image ([`PingRing`]), as the camera's
 //!   outline is, sized and faded by its age in sim ticks as drawn (`crate::combat_effects::age`, [`ring_at`]), so that
-//!   QA's held ticks show it exactly, and gone after [`PING_TICKS`].
+//!   QA's held ticks show it exactly, and gone after `FeedbackTuning::ping_ticks`.
 //! - **Space** ([`jump_to_alert`]): "Jump to the latest alert: **Space** ... centres the camera on the **latest**
 //!   alert's spot (snap, as Centering ...)" (`core/camera.md > Window Mode > Centering`). A reading: the latest ping
 //!   made, faded or not (not the latest hit, which the throttle may have kept from pinging); nothing before the first.
@@ -38,7 +38,8 @@ use crate::hud::results::has_left;
 use crate::input::{ActionState, InputAction};
 use crate::platform::SurfaceSize;
 use crate::sim_driver::{LocalPlayer, RenderAlpha, SimRes};
-use crate::tuning::feedback::{PING_AREA_GU, PING_THROTTLE_TICKS, PING_TICKS};
+use crate::tuning::ClientTuning;
+use crate::tuning::feedback::FeedbackTuning;
 use crate::viewer_events::ViewerEvents;
 
 /// A ping's ring as it is made and as it ends, its outer size (logical pixels); its border's width; its colour.
@@ -49,7 +50,6 @@ const RING_BORDER_PX: f32 = 2.0;
 const RING_COLOR: Color = Color::srgb(1.0, 0.12, 0.08);
 
 // A ping is kept for the throttle at least as long as it shows.
-const _: () = assert!(PING_TICKS <= PING_THROTTLE_TICKS);
 
 /// A ping on the minimap.
 #[derive(Copy, Clone, Debug, PartialEq)]
@@ -65,8 +65,8 @@ pub struct Ping {
 /// The minimap's alerts: the recent pings, and each player's latest.
 #[derive(Resource, Debug, Default)]
 pub struct MinimapAlerts {
-    /// The pings made in the last [`PING_THROTTLE_TICKS`], oldest first: those that show, and those that faded but
-    /// still keep their area from pinging.
+    /// The pings made in the last `FeedbackTuning::ping_throttle_ticks` (or `ping_ticks`, if a data file made them
+    /// longer), oldest first: those that show, and those that faded but still keep their area from pinging.
     pings: Vec<Ping>,
     /// Each player's latest ping's spot, where Space centres the camera.
     latest: Vec<(PlayerId, Vec2)>,
@@ -79,13 +79,12 @@ pub struct MinimapAlerts {
 impl MinimapAlerts {
     /// `systems/controls/hud.md > Minimap > Alerts`: "at most **one ping per area every 10 s** (placeholder; an
     /// area: within about 8 grid units of an earlier ping still in its 10 s)". An alert of `player`'s at `at` in tick
-    /// `tick` pings unless one of their pings made less than [`PING_THROTTLE_TICKS`] before lies within
-    /// [`PING_AREA_GU`] of it, shown or faded. Returns whether it pinged.
-    pub fn alert(&mut self, player: PlayerId, at: Vec2, tick: Tick) -> bool {
-        let area = gu(PING_AREA_GU);
-        let near = |p: &Ping| {
-            p.player == player && tick.saturating_sub(p.tick) < PING_THROTTLE_TICKS && p.at.distance(at) <= area
-        };
+    /// `tick` pings unless one of their pings made less than `tuning`'s `ping_throttle_ticks` before lies within its
+    /// `ping_area_gu` of it, shown or faded. Returns whether it pinged.
+    pub fn alert(&mut self, player: PlayerId, at: Vec2, tick: Tick, tuning: &FeedbackTuning) -> bool {
+        let area = gu(tuning.ping_area_gu);
+        let throttle = tuning.ping_throttle_ticks;
+        let near = |p: &Ping| p.player == player && tick.saturating_sub(p.tick) < throttle && p.at.distance(at) <= area;
         if self.pings.iter().any(near) {
             return false;
         }
@@ -98,7 +97,7 @@ impl MinimapAlerts {
         true
     }
 
-    /// The pings made in the last [`PING_THROTTLE_TICKS`], oldest first.
+    /// The pings made in the last `FeedbackTuning::ping_throttle_ticks` (or `ping_ticks`, if longer), oldest first.
     pub fn pings(&self) -> &[Ping] {
         &self.pings
     }
@@ -108,9 +107,11 @@ impl MinimapAlerts {
         self.latest.iter().find(|(p, _)| *p == player).map(|&(_, at)| at)
     }
 
-    /// Forgets the pings made [`PING_THROTTLE_TICKS`] or more before `tick`: they neither show nor throttle any more.
-    fn forget(&mut self, tick: Tick) {
-        self.pings.retain(|p| tick.saturating_sub(p.tick) < PING_THROTTLE_TICKS);
+    /// Forgets the pings made `tuning`'s `ping_throttle_ticks` or more before `tick` (its `ping_ticks`, if a data file
+    /// made them longer): they neither show nor throttle any more.
+    fn forget(&mut self, tick: Tick, tuning: &FeedbackTuning) {
+        let kept = tuning.ping_throttle_ticks.max(tuning.ping_ticks);
+        self.pings.retain(|p| tick.saturating_sub(p.tick) < kept);
     }
 
     /// Starts over for a sim of `generation` that isn't theirs: no pings, no latest.
@@ -125,10 +126,10 @@ impl MinimapAlerts {
 }
 
 /// A ping's ring at `age` ticks, as drawn: its outer size (logical pixels) and its alpha, from [`RING_START_PX`] and
-/// opaque as it is made, shrinking and fading evenly to [`RING_END_PX`] and clear at [`PING_TICKS`]; `None` from then
-/// on.
-pub fn ring_at(age: f32) -> Option<(f32, f32)> {
-    let t = age.max(0.0) / PING_TICKS as f32;
+/// opaque as it is made, shrinking and fading evenly to [`RING_END_PX`] and clear at `ping_ticks`
+/// (`FeedbackTuning::ping_ticks`); `None` from then on.
+pub fn ring_at(age: f32, ping_ticks: Tick) -> Option<(f32, f32)> {
+    let t = age.max(0.0) / ping_ticks.max(1) as f32;
     (t < 1.0).then_some((RING_START_PX + (RING_END_PX - RING_START_PX) * t, 1.0 - t))
 }
 
@@ -162,8 +163,10 @@ pub(super) fn take_alerts(
     camera: CameraSource,
     sight: LocalSight,
     events: Res<ViewerEvents>,
+    tuning: Res<ClientTuning>,
     mut alerts: ResMut<MinimapAlerts>,
 ) {
+    let tuning = &tuning.feedback;
     alerts.follow(camera.sim.generation());
     if !camera.mode.is_game() {
         return;
@@ -171,7 +174,7 @@ pub(super) fn take_alerts(
     let sim = sight.sim();
     let seen = sight.get();
     let player = seen.player();
-    alerts.forget(sim.tick());
+    alerts.forget(sim.tick(), tuning);
     let perceived: Vec<_> = events
         .perceived_by(sim, seen)
         .map(|(tick, event, _)| (tick, event))
@@ -205,7 +208,7 @@ pub(super) fn take_alerts(
             continue;
         };
         if owner == Some(player) && !viewed.contains(pos) {
-            alerts.alert(player, sim.map().clamp_point(pos), tick);
+            alerts.alert(player, sim.map().clamp_point(pos), tick, tuning);
         }
     }
 }
@@ -219,6 +222,7 @@ pub(super) struct RingSource<'w> {
     player: Res<'w, LocalPlayer>,
     alpha: Res<'w, RenderAlpha>,
     alerts: Res<'w, MinimapAlerts>,
+    tuning: Res<'w, ClientTuning>,
 }
 
 /// Shows the shown player's pings as rings at their spots on the minimap, each as large and as clear as its age makes
@@ -238,7 +242,7 @@ pub(super) fn place_pings(
         .filter(|_| source.mode.is_game())
         .filter(|p| p.player == source.player.0)
         .filter_map(|p| {
-            let (size, alpha) = ring_at(age(sim, source.alpha.0, p.tick))?;
+            let (size, alpha) = ring_at(age(sim, source.alpha.0, p.tick), source.tuning.feedback.ping_ticks)?;
             let ring = Rect::from_center_size(frame.screen_at(p.at), Vec2::splat(size));
             let ring = Rect::from_corners(snap(ring.min), snap(ring.max));
             Some((ring, RING_COLOR.with_alpha(alpha)))

@@ -150,6 +150,7 @@ pub struct HudPlugin;
 
 impl Plugin for HudPlugin {
     fn build(&self, app: &mut App) {
+        app.init_resource::<crate::tuning::ClientTuning>();
         app.insert_resource(HUD_INSETS)
             .init_resource::<selection_panel::SelectionPanelView>()
             .init_resource::<command_panel::CommandPanelView>()
@@ -277,6 +278,7 @@ fn spawn_hud(mut commands: Commands, size: Res<SurfaceSize>) {
                         ..default()
                     },
                 ));
+                spawn_note(right, TopBarNote::Tuned);
                 spawn_note(right, TopBarNote::PlayTest);
                 right.spawn((TickText, fixed_text("")));
             });

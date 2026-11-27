@@ -1,23 +1,23 @@
 //! The HUD's notices, across the top of the world view under the top bar: placeholders for notifications the design
-//! hasn't designed yet. Each shows for [`NOTICE_TICKS`] after its latest event. It ages by the sim's ticks, so a QA
-//! screenshot of a tick always shows it alike, and a sim replaced (a load, a replay) shows none of the old one's. A
-//! notice never takes the pointer: clicks pass through it to the map.
+//! hasn't designed yet. Each shows for `FeedbackTuning::notice_ticks` after its latest event. It ages by the sim's
+//! ticks, so a QA screenshot of a tick always shows it alike, and a sim replaced (a load, a replay) shows none of the
+//! old one's. A notice never takes the pointer: clicks pass through it to the map.
 //!
 //! - **The empty-station notice** (slice M4-I): a placeholder for design change 0256 point 3's notification
 //!   (`factions/syndicate/units/agent.md > Gathering > Supplies`: "An empty station: the owner gets a notification
-//!   (notifications not designed yet)"; 0256's Implementation impact: "M4 may show it in a placeholder form"). When
-//!   the sim reports that a Supply Delivery Station where the local player's Agents gather has run out
+//!   (notifications not designed yet)"; 0256's Implementation impact: "M4 may show it in a placeholder form"). When the
+//!   sim reports that a Supply Delivery Station where the local player's Agents gather has run out
 //!   (`SimEvent::SupplyStationEmpty`, sent to each player whose Agents gather there, and through the filter of events
 //!   to that player alone, `crate::viewer_events`), [`STATION_EMPTY_TEXT`] shows.
 //! - **The defeat notice** (slice M5-S1; `core/game_rules.md > On Defeat`: "**Everyone learns of it** (user,
 //!   2026-11-26; Q0090): when a player is defeated while the game goes on, **all players** are told", design change
 //!   0357): a defeat reaches every player (`SimEvent::PlayerDefeated`, whose audience is everyone in the filter of
-//!   events), so every player who hasn't left the game for the results screen (`super::results::has_left`) sees a
-//!   line, [`defeat_text`], for each other player defeated in the last [`NOTICE_TICKS`], in the order they fell. The
-//!   debug player switch (F2) shows it to each player in turn. The defeated player sees their own defeat on the results
-//!   screen instead, or in the outcome banner's Spectating while an ally plays on. Once the game is over, the banner
-//!   tells everyone (`core/game_rules.md > End of Game`: "Every player sees Victory or Defeat"), so the defeat that
-//!   ends the game shows no notice, and a notice still showing goes.
+//!   events), so every player who hasn't left the game for the results screen (`super::results::has_left`) sees a line,
+//!   [`defeat_text`], for each other player defeated in the last `FeedbackTuning::notice_ticks`, in the order they
+//!   fell. The debug player switch (F2) shows it to each player in turn. The defeated player sees their own defeat on
+//!   the results screen instead, or in the outcome banner's Spectating while an ally plays on. Once the game is over,
+//!   the banner tells everyone (`core/game_rules.md > End of Game`: "Every player sees Victory or Defeat"), so the
+//!   defeat that ends the game shows no notice, and a notice still showing goes.
 //!
 //! Placeholders, the design giving none of them: the wording, the look, where each shows and for how long.
 
@@ -28,6 +28,7 @@ use sc_sim::{PlayerId, SimEvent, Tick};
 use super::{TOP_BAR_HEIGHT_VH, results, set_text};
 use crate::fog::LocalSight;
 use crate::sim_driver::{LocalPlayer, SimRes};
+use crate::tuning::ClientTuning;
 use crate::viewer_events::ViewerEvents;
 use crate::{ClientMode, ClientSystems};
 
@@ -38,8 +39,6 @@ pub const STATION_EMPTY_TEXT: &str = "Supply Delivery Station empty: your Agents
 pub fn defeat_text(name: &str) -> String {
     format!("{name} has been defeated")
 }
-
-pub use crate::tuning::feedback::NOTICE_TICKS;
 
 /// Placeholder look: pale green text on a dark band, this far under the top bar (percent of the surface height).
 const TEXT_COLOR: Color = Color::srgb(0.70, 0.92, 0.70);
@@ -64,7 +63,7 @@ pub struct StationNotice {
 #[derive(Component)]
 pub struct StationNoticeView;
 
-/// The defeats of the last [`NOTICE_TICKS`] (module docs), every player's: what the defeat notice tells.
+/// The defeats of the last `FeedbackTuning::notice_ticks` (module docs), every player's: what the defeat notice tells.
 #[derive(Resource, Debug, Default)]
 pub struct DefeatNotice {
     /// Each player defeated, with the sim's tick of their defeat, in the order they fell.
@@ -148,10 +147,11 @@ fn spawn_defeat_notice(mut commands: Commands) {
 }
 
 /// Takes the frame's empty stations that the local player perceives (theirs alone), and shows the notice for
-/// [`NOTICE_TICKS`] after the latest.
+/// `FeedbackTuning::notice_ticks` after the latest.
 fn show_notice(
     mode: Res<ClientMode>,
     sim: Res<SimRes>,
+    tuning: Res<ClientTuning>,
     sight: LocalSight,
     events: Res<ViewerEvents>,
     mut notice: ResMut<StationNotice>,
@@ -163,7 +163,8 @@ fn show_notice(
         .max();
     let generation = Some(sim.generation());
     let earlier = notice.since.filter(|_| notice.generation == generation);
-    let since = (latest.or(earlier)).filter(|&tick| sim.tick().saturating_sub(tick) < NOTICE_TICKS);
+    let lasts = tuning.feedback.notice_ticks;
+    let since = (latest.or(earlier)).filter(|&tick| sim.tick().saturating_sub(tick) < lasts);
     if notice.since != since || notice.generation != generation {
         notice.since = since;
         notice.generation = generation;
@@ -178,12 +179,13 @@ fn show_notice(
     }
 }
 
-/// Keeps the defeats of the last [`NOTICE_TICKS`] (the frame's that the local player perceives: every player's), and
-/// tells the local player of the others' while the game goes on, unless they have left it (module docs).
+/// Keeps the defeats of the last `FeedbackTuning::notice_ticks` (the frame's that the local player perceives: every
+/// player's), and tells the local player of the others' while the game goes on, unless they have left it (module docs).
 #[expect(clippy::too_many_arguments, reason = "a system's parameters")]
 fn show_defeat_notice(
     mode: Res<ClientMode>,
     sim: Res<SimRes>,
+    tuning: Res<ClientTuning>,
     local: Res<LocalPlayer>,
     sight: LocalSight,
     events: Res<ViewerEvents>,
@@ -197,7 +199,8 @@ fn show_defeat_notice(
         SimEvent::PlayerDefeated { player } => Some((tick, player)),
         _ => None,
     });
-    let recent = |&(tick, _): &(Tick, PlayerId)| sim.tick().saturating_sub(tick) < NOTICE_TICKS;
+    let lasts = tuning.feedback.notice_ticks;
+    let recent = |&(tick, _): &(Tick, PlayerId)| sim.tick().saturating_sub(tick) < lasts;
     let defeats: Vec<(Tick, PlayerId)> = earlier.chain(new).filter(recent).collect();
     if notice.defeats != defeats || notice.generation != generation {
         notice.defeats = defeats;

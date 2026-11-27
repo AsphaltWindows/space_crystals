@@ -1,10 +1,10 @@
 //! The defeat notice (slice M5-S1; `core/game_rules.md > On Defeat`: "**Everyone learns of it** (user, 2026-11-26;
 //! Q0090): when a player is defeated while the game goes on, **all players** are told", design change 0357;
 //! `space_crystals::hud::notices`): every other player sees it, each in their own view (the debug player switch, F2),
-//! for `NOTICE_TICKS`, a line for each defeat; the defeated player sees their results screen; and the defeat that ends
-//! the game is told by the banner alone.
+//! for `FeedbackTuning::notice_ticks`, a line for each defeat; the defeated player sees their results screen; and the
+//! defeat that ends the game is told by the banner alone.
 
-use space_crystals::hud::notices::{DefeatNoticeText, DefeatNoticeView, NOTICE_TICKS, defeat_text};
+use space_crystals::hud::notices::{DefeatNoticeText, DefeatNoticeView, defeat_text};
 
 use super::*;
 
@@ -51,7 +51,7 @@ fn switch_player(app: &mut App) -> PlayerId {
 /// The plan's acceptance (addendum S1, design change 0357): in the three-player game, player 3 loses their Generator,
 /// their only structure, and is defeated while the game goes on. Player 1 is told from that tick; F2 shows player 2
 /// told alike, then player 3 their results screen and no notice, and player 1 again. The notice goes for both after
-/// `NOTICE_TICKS`.
+/// `FeedbackTuning::notice_ticks`.
 #[test]
 fn every_other_player_is_told_of_a_defeat() {
     let mut app = game_as(AppConfig::new(three_way()), P1);
@@ -71,11 +71,17 @@ fn every_other_player_is_told_of_a_defeat() {
     assert!(results_screen(&mut app).is_some());
     assert_eq!(switch_player(&mut app), P1);
     assert_eq!(notice(&mut app), told);
-    run_until(&mut app, defeat + NOTICE_TICKS - 1);
+    run_until(
+        &mut app,
+        defeat + space_crystals::tuning::feedback::BUILTIN.notice_ticks - 1,
+    );
     assert_eq!(notice(&mut app), told);
     app.update();
-    assert_eq!(tick(&app), defeat + NOTICE_TICKS);
-    assert_eq!(notice(&mut app), None, "gone after NOTICE_TICKS");
+    assert_eq!(
+        tick(&app),
+        defeat + space_crystals::tuning::feedback::BUILTIN.notice_ticks
+    );
+    assert_eq!(notice(&mut app), None, "gone after notice_ticks");
     assert_eq!(switch_player(&mut app), P2);
     assert_eq!(notice(&mut app), None);
 }

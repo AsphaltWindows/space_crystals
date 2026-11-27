@@ -17,7 +17,8 @@ use crate::coords::drawn_at_height;
 use crate::fog::Sight;
 use crate::object_render::{body_height, draw_layer, object_height};
 
-pub use crate::tuning::input::PICK_SLOP_SU;
+use crate::tuning::ClientTuning;
+use crate::tuning::look::LookTuning;
 
 /// How an object's owner relates to the local player.
 #[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -87,8 +88,9 @@ pub struct Selectable {
 }
 
 impl Selectable {
-    /// The selectable view of `object`, drawn at `pos` (its interpolated position).
-    pub fn of(object: &Object, player: PlayerId, map: &Map, pos: Vec2) -> Self {
+    /// The selectable view of `object`, drawn at `pos` (its interpolated position), an air unit as high as `look`
+    /// lifts it (`crate::object_render::body_height`).
+    pub fn of(object: &Object, player: PlayerId, map: &Map, pos: Vec2, look: &LookTuning) -> Self {
         let relation = Relation::of(player, object.owner);
         if let Some(p) = &object.placement {
             return Self {
@@ -101,7 +103,7 @@ impl Selectable {
             Some(_) => Shape::of(object).bound_half(),
             None => Vec2::splat(SU_PER_GU / 4.0),
         };
-        let drawn = drawn_at_height(pos, body_height(map, object, pos));
+        let drawn = drawn_at_height(pos, body_height(map, object, pos, look));
         Self {
             id: object.id,
             kind: object.kind,
@@ -178,25 +180,38 @@ impl BoxTier {
 }
 
 /// The objects the local player can select this frame, in id order, and the records it may only target.
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Debug)]
 pub struct Selectables {
     objects: Vec<Selectable>,
     /// The records shown in place of objects that the player may target but not select (design change 0139), in id
     /// order: where they show them.
     targets: Vec<Selectable>,
+    /// (M5-X2) How far around its drawn box a click still picks an object (`InputTuning::pick_slop_su`).
+    slop: f32,
+}
+
+impl Default for Selectables {
+    fn default() -> Self {
+        Self::from_objects(Vec::new())
+    }
 }
 
 impl Selectables {
+    /// [`Selectables::tuned`] with the built-in tuning (tests).
+    pub fn new(sim: &Sim, sight: &Sight, alpha: f32) -> Self {
+        Self::tuned(sim, sight, alpha, &ClientTuning::BUILTIN)
+    }
+
     /// Every object of `sim` that the player whose `sight` this is may select ([`selectable_by`]), drawn where the
     /// frame draws it: at `prev_pos.lerp(pos, alpha)` (`ARCHITECTURE.md > Client architecture > Visuals >
-    /// Interpolation`); and the records shown in place of objects that it may select
-    /// ([`remembered_selectable_by`]), where they show them.
-    pub fn new(sim: &Sim, sight: &Sight, alpha: f32) -> Self {
+    /// Interpolation`), as `tuning` lifts the air units; and the records shown in place of objects that it may select
+    /// ([`remembered_selectable_by`]), where they show them. A click picks within `tuning`'s slop of them.
+    pub fn tuned(sim: &Sim, sight: &Sight, alpha: f32, tuning: &ClientTuning) -> Self {
         let player = sight.player();
         let live = sim
             .objects()
             .filter(|o| selectable_by(o, sight))
-            .map(|o| Selectable::of(o, player, sim.map(), o.prev_pos.lerp(o.pos, alpha)));
+            .map(|o| Selectable::of(o, player, sim.map(), o.prev_pos.lerp(o.pos, alpha), &tuning.look));
         let (remembered, targets): (Vec<&LastKnown>, Vec<&LastKnown>) =
             sight.remembered().partition(|r| remembered_selectable_by(r, sight));
         let remembered = remembered
@@ -211,15 +226,20 @@ impl Selectables {
             .map(|r| Selectable::remembered(r, player, sim.map()))
             .collect();
         targets.sort_by_key(|o| o.id);
-        Self { objects, targets }
+        Self {
+            objects,
+            targets,
+            slop: tuning.input.pick_slop_su,
+        }
     }
 
-    /// A set of objects as given (tests), sorted by id, with no records to target.
+    /// A set of objects as given (tests), sorted by id, with no records to target, picked with the built-in slop.
     pub fn from_objects(mut objects: Vec<Selectable>) -> Self {
         objects.sort_by_key(|o| o.id);
         Self {
             objects,
             targets: Vec::new(),
+            slop: crate::tuning::input::BUILTIN.pick_slop_su,
         }
     }
 
@@ -233,13 +253,13 @@ impl Selectables {
     }
 
     /// The object a click at the view point `view` picks: of the objects whose drawn box (grown by
-    /// [`PICK_SLOP_SU`]) contains it, the one drawn in front (a unit before a tile-based object, whose layer it is
-    /// drawn above, `crate::object_render::draw_layer`; then the southernmost), then anything but a map resource, then
-    /// the later id. A plate and the patch it covers are drawn as one, and the click selects the plate: the
+    /// `InputTuning::pick_slop_su`) contains it, the one drawn in front (a unit before a tile-based object, whose layer
+    /// it is drawn above, `crate::object_render::draw_layer`; then the southernmost), then anything but a map resource,
+    /// then the later id. A plate and the patch it covers are drawn as one, and the click selects the plate: the
     /// covered patch can't be selected on its own (`factions/gdo/economy.md > ExtractionPlate > Selecting a covered
     /// patch`, design change 0099).
     pub fn at(&self, view: Vec2) -> Option<&Selectable> {
-        pick(self.objects.iter(), view)
+        pick(self.objects.iter(), view, self.slop)
     }
 
     /// The object a click at the view point `view` targets (`systems/controls/interface.md > CursorTarget`):
@@ -247,7 +267,7 @@ impl Selectables {
     /// (design change 0139: remembered structures and objects "can be targeted by right-click and by targeted
     /// commands (Attack, Gather, Move to object, rally points), but are still not selectable").
     pub fn target_at(&self, view: Vec2) -> Option<&Selectable> {
-        pick(self.objects.iter().chain(&self.targets), view)
+        pick(self.objects.iter().chain(&self.targets), view, self.slop)
     }
 
     /// `> BoxSelection`: the objects a box (view space) selects. Of the objects whose drawn box overlaps it, only
@@ -287,17 +307,15 @@ impl Selectables {
     }
 }
 
-/// Of `objects`, the one a click at the view point `view` picks ([`Selectables::at`]).
-fn pick<'a>(objects: impl Iterator<Item = &'a Selectable>, view: Vec2) -> Option<&'a Selectable> {
+/// Of `objects`, the one a click at the view point `view` picks, within `slop` of its box ([`Selectables::at`]).
+fn pick<'a>(objects: impl Iterator<Item = &'a Selectable>, view: Vec2, slop: f32) -> Option<&'a Selectable> {
     let over_resources = |o: &Selectable| o.category() != Category::Resource;
-    objects
-        .filter(|o| o.rect.inflate(PICK_SLOP_SU).contains(view))
-        .max_by(|a, b| {
-            (draw_layer(a.kind).cmp(&draw_layer(b.kind)))
-                .then(a.depth.total_cmp(&b.depth))
-                .then(over_resources(a).cmp(&over_resources(b)))
-                .then(a.id.cmp(&b.id))
-        })
+    objects.filter(|o| o.rect.inflate(slop).contains(view)).max_by(|a, b| {
+        (draw_layer(a.kind).cmp(&draw_layer(b.kind)))
+            .then(a.depth.total_cmp(&b.depth))
+            .then(over_resources(a).cmp(&over_resources(b)))
+            .then(a.id.cmp(&b.id))
+    })
 }
 
 /// Whether two rectangles share any area or edge.
@@ -407,7 +425,7 @@ mod tests {
         assert_eq!(objects.at(Vec2::new(100.0, 105.0)).map(|o| o.id), Some(ObjectId(2)));
         assert_eq!(objects.at(Vec2::new(100.0, 90.0)).map(|o| o.id), Some(ObjectId(1)));
         // A little outside the box still picks it; further out nothing does.
-        let east_of_1 = |dx: f32| Vec2::new(100.0 + 12.0 + PICK_SLOP_SU + dx, 92.0);
+        let east_of_1 = |dx: f32| Vec2::new(100.0 + 12.0 + crate::tuning::input::BUILTIN.pick_slop_su + dx, 92.0);
         assert_eq!(objects.at(east_of_1(-0.5)).map(|o| o.id), Some(ObjectId(1)));
         assert_eq!(objects.at(east_of_1(0.5)), None);
     }
@@ -492,7 +510,7 @@ mod tests {
         assert_eq!(objects.at(Vec2::new(200.0, 248.0)), None, "its shadow");
         let mut past = sim.objects().next().cloned().unwrap();
         past.pos = Vec2::new(-40.0, 248.0);
-        let drawn = Selectable::of(&past, me, sim.map(), past.pos);
+        let drawn = Selectable::of(&past, me, sim.map(), past.pos, &crate::tuning::look::BUILTIN);
         assert_eq!(drawn.drawn, Vec2::new(-40.0, 200.0));
     }
 }

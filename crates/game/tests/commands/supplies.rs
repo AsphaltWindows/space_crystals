@@ -2,7 +2,7 @@
 //! (`factions/syndicate/units/agent.md > Right-Click Resolution`: "Supply Delivery Station → Gather supplies"), and
 //! the placeholder notice of an empty station (design change 0256 point 3, `space_crystals::hud::notices`).
 
-use space_crystals::hud::notices::{NOTICE_TICKS, StationNotice, StationNoticeView};
+use space_crystals::hud::notices::{StationNotice, StationNoticeView};
 use space_crystals::sim_driver::SimEventMessage;
 
 use super::*;
@@ -47,7 +47,7 @@ fn station_empty(app: &mut App, owner: PlayerId) -> u32 {
 }
 
 /// Design change 0256 point 3: "the owner gets a notification", placeholder: the local player sees the notice of
-/// their own empty station, for `NOTICE_TICKS` from the tick it emptied; not another player's.
+/// their own empty station, for `FeedbackTuning::notice_ticks` from the tick it emptied; not another player's.
 #[test]
 fn the_empty_station_notice_shows_for_its_owner_for_a_while() {
     let mut app = game();
@@ -59,10 +59,11 @@ fn the_empty_station_notice_shows_for_its_owner_for_a_while() {
     app.update();
     assert!(notice_shown(&mut app));
     assert_eq!(app.world().resource::<StationNotice>().since, Some(emptied));
-    while app.world().resource::<SimRes>().tick() < emptied + NOTICE_TICKS - 1 {
+    while app.world().resource::<SimRes>().tick() < emptied + space_crystals::tuning::feedback::BUILTIN.notice_ticks - 1
+    {
         app.update();
         assert!(notice_shown(&mut app));
     }
     app.update();
-    assert!(!notice_shown(&mut app), "gone after NOTICE_TICKS");
+    assert!(!notice_shown(&mut app), "gone after notice_ticks");
 }

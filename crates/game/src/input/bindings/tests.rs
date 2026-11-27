@@ -29,6 +29,8 @@ fn the_defaults_follow_the_design() {
     assert_eq!(only(InputAction::CenterOnObject), [Binding::Modifiers(Modifiers::ALT)]);
     assert_eq!(only(InputAction::DebugSwitchPlayer), press(KeyCode::F2));
     assert_eq!(only(InputAction::DebugToggleFog), press(KeyCode::F3));
+    // (M5-X2) F8 restarts a game with its data directory read again (`crate::data`).
+    assert_eq!(only(InputAction::DebugRestartWithData), press(KeyCode::F8));
     // (M5-MM2) `systems/controls/hud.md > Minimap > Alerts`: "Jump to the latest alert: Space"; the replay's pause
     // moved to K.
     assert_eq!(only(InputAction::JumpToAlert), press(KeyCode::Space));
@@ -73,7 +75,7 @@ fn the_defaults_follow_the_design() {
     );
     assert_eq!(only(InputAction::CommandSlot(CommandSlot::RALLY_POINT)), press(KeyC));
     let game = b.entries().iter().filter(|(a, _)| !matches!(a, InputAction::Editor(_)));
-    assert_eq!(game.count(), 26 + 4 * 10 + 12);
+    assert_eq!(game.count(), 27 + 4 * 10 + 12);
 }
 
 /// Except that a placement action's binding overrides another while a structure is being placed: the placement
@@ -406,19 +408,20 @@ fn rebinding_changes_the_table_only() {
 #[test]
 fn double_taps_need_the_same_chord_quickly_and_start_over() {
     let mut taps = TapTracker::default();
+    let window = crate::tuning::input::BUILTIN.double_tap_seconds;
     let one = key(KeyCode::Digit1);
     let two = key(KeyCode::Digit2);
-    assert!(!taps.press(one, Modifiers::NONE, 10.0));
-    assert!(taps.press(one, Modifiers::NONE, 10.0 + DOUBLE_TAP_SECONDS - 0.01));
+    assert!(!taps.press(one, Modifiers::NONE, 10.0, window));
+    assert!(taps.press(one, Modifiers::NONE, 10.0 + window - 0.01, window));
     // A third quick press is a single one again, and a fourth completes another double tap.
-    assert!(!taps.press(one, Modifiers::NONE, 10.5));
-    assert!(taps.press(one, Modifiers::NONE, 10.6));
+    assert!(!taps.press(one, Modifiers::NONE, 10.5, window));
+    assert!(taps.press(one, Modifiers::NONE, 10.6, window));
     // Too slow, another key in between, or other modifiers: no double tap.
-    assert!(!taps.press(one, Modifiers::NONE, 20.0));
-    assert!(!taps.press(one, Modifiers::NONE, 20.0 + DOUBLE_TAP_SECONDS + 0.01));
-    assert!(!taps.press(two, Modifiers::NONE, 20.5));
-    assert!(!taps.press(one, Modifiers::NONE, 20.6));
-    assert!(!taps.press(one, Modifiers::SHIFT, 20.7));
+    assert!(!taps.press(one, Modifiers::NONE, 20.0, window));
+    assert!(!taps.press(one, Modifiers::NONE, 20.0 + window + 0.01, window));
+    assert!(!taps.press(two, Modifiers::NONE, 20.5, window));
+    assert!(!taps.press(one, Modifiers::NONE, 20.6, window));
+    assert!(!taps.press(one, Modifiers::SHIFT, 20.7, window));
 }
 
 /// (M5-S7) The window's full-screen toggle (`core/camera.md > Window Mode`) works in the game and in the editor, by F11

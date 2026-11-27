@@ -24,6 +24,7 @@ use crate::coords::{drawn_position, view_to_world};
 use crate::fog::Sight;
 use crate::selection::{ControlStates, Relation};
 use crate::shapes::ColorMesh;
+use crate::tuning::ClientTuning;
 
 /// The line's width, su, and its opacity (placeholders).
 const LINE_WIDTH: f32 = 1.5;
@@ -76,12 +77,19 @@ fn rally_marker(sim: &Sim, sight: &Sight, rally: Rally) -> Option<Indicator> {
     }
 }
 
-/// Draws the line of `rally` (module docs), as drawn at the render `alpha`: from where it leaves the producer's
-/// footprint to the marker's ring, where the player whose `sight` this is knows the rally target
+/// Draws the line of `rally` (module docs), as drawn at the render `alpha` with `tuning`: from where it leaves the
+/// producer's footprint to the marker's ring, where the player whose `sight` this is knows the rally target
 /// ([`marker_ring`]). Nothing when the marker's ring reaches into the footprint.
-pub(super) fn draw_line(mesh: &mut ColorMesh, sim: &Sim, sight: &Sight, rally: &RallyIndicator, alpha: f32, z: f32) {
-    let (Some(producer), Some(ring)) = (sim.object(rally.producer), marker_ring(sim, sight, rally.marker, alpha))
-    else {
+pub(super) fn draw_line(
+    mesh: &mut ColorMesh,
+    sim: &Sim,
+    sight: &Sight,
+    rally: &RallyIndicator,
+    (alpha, tuning): (f32, &ClientTuning),
+    z: f32,
+) {
+    let ring = marker_ring(sim, sight, rally.marker, alpha, tuning);
+    let (Some(producer), Some(ring)) = (sim.object(rally.producer), ring) else {
         return;
     };
     let (to, radius) = (ring.center, ring.radius);

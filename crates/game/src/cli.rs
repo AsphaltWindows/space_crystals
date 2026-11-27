@@ -2,6 +2,7 @@
 //! text.
 
 mod ai;
+mod tuning;
 mod usage;
 mod values;
 
@@ -19,6 +20,7 @@ use crate::qa::{QaConfig, ScreenshotRequest};
 use crate::replay::RecordingNames;
 use crate::{AppConfig, PlaybackSource, replay};
 
+pub use tuning::export_data;
 pub use usage::usage;
 use values::{parse_factions, parse_player, parse_screenshot, parse_size, parse_tick};
 
@@ -69,6 +71,10 @@ pub struct CliOptions {
     pub record: Option<PathBuf>,
     /// `--no-record`: games are recorded unless this is given.
     pub no_record: bool,
+    /// (M5-X2) `--export-data`: write the built-in data files into this directory, and exit (`crate::data`).
+    pub export_data: Option<PathBuf>,
+    /// (M5-X2) `--tuning`: the game's data directory, read before the first tick and while it runs.
+    pub tuning: Option<PathBuf>,
     pub help: bool,
 }
 
@@ -99,6 +105,8 @@ impl Default for CliOptions {
             replay: None,
             record: None,
             no_record: false,
+            export_data: None,
+            tuning: None,
             help: false,
         }
     }
@@ -138,6 +146,8 @@ pub fn parse(args: &[String]) -> Result<CliOptions, String> {
             "--replay" => options.replay = Some(value()?.into()),
             "--record" => options.record = Some(value()?.into()),
             "--no-record" => options.no_record = true,
+            "--export-data" => options.export_data = Some(value()?.into()),
+            "--tuning" => options.tuning = Some(value()?.into()),
             "-h" | "--help" => options.help = true,
             other => return Err(format!("unknown flag {other:?}")),
         }
@@ -153,6 +163,7 @@ pub fn into_config(options: CliOptions) -> Result<AppConfig, String> {
     if options.editor_script.is_some() && !options.editor {
         return Err("--editor-script needs --editor".into());
     }
+    let tuning = tuning::tuning_dir(&options)?;
     let playback = match &options.replay {
         Some(path) => Some(playback_source(&options, path)?),
         None => None,
@@ -297,6 +308,7 @@ pub fn into_config(options: CliOptions) -> Result<AppConfig, String> {
         recording_names,
         playback,
         ai: options.ai,
+        tuning,
     })
 }
 

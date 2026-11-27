@@ -9,7 +9,7 @@
 //! - **Gathering markers** ([`gathering`], design change 0201): a Gather's on its source, a Drop Off's on its
 //!   drop-off, and the Set Drop-off marker on each selected worker's AssignedDropOff, each with a look of its own.
 //! - **Flashes** where an order was just given ([`OrderIssued`]): a ring closing in on the target while it fades,
-//!   for [`FLASH_TICKS`]. They show for every order given, even one that completes at once.
+//!   for `FeedbackTuning::flash_ticks`. They show for every order given, even one that completes at once.
 //! - **Waypoints**: while the Queue modifier (Shift) is held, each selected unit's route from where it is drawn
 //!   through the targets of its current and queued orders, as dashed lines, each leg in its order's colour, with
 //!   the queued orders' markers.
@@ -51,8 +51,6 @@ pub use gathering::{GATHER_COLOR, GatheringMarker, RETURN_COLOR, SET_DROP_OFF_CO
 pub use rally::{RallyIndicator, rally_indicators};
 
 use draw::{OBJECT_GAP, collect_flashes, draw_indicators, ring, spawn_indicator_mesh};
-
-pub use crate::tuning::feedback::FLASH_TICKS;
 
 /// `> Color language` (placeholder shades): peaceful movement, a hostile target, aggressive movement.
 pub const MOVE_COLOR: Color = Color::srgb(0.30, 0.95, 0.40);

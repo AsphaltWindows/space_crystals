@@ -3,6 +3,10 @@
 
 use super::*;
 
+const LOOK: LookTuning = crate::tuning::look::BUILTIN;
+/// A texel under the haze, as opaque as it gets.
+const HAZE: [u8; 4] = [CLOUD[0], CLOUD[1], CLOUD[2], LOOK.cloud_alpha];
+
 /// A cloud of one Disciple's circle, 3 grid units, at the centre of tile (6, 6).
 const CENTRE: Vec2 = Vec2::new(416.0, 416.0);
 const RADIUS: f32 = 192.0;
@@ -63,7 +67,7 @@ fn a_cloud_shows_over_the_viewer_s_visible_tiles_only() {
     let map = map();
     let area = Area::of(&map, &[(CENTRE, RADIUS)]).unwrap();
     let clouds = [vec![(CENTRE, RADIUS)]];
-    let (all, every) = texels(area, &clouds, &[], |_| true);
+    let (all, every) = texels(area, (&clouds, LOOK.cloud_alpha), &[], |_| true);
     let corners = [(3, 3), (9, 3), (3, 9), (9, 9)].map(|(x, y)| TilePos::new(x, y));
     assert_eq!(every.len(), 7 * 7 - 4, "the box but its corner tiles");
     assert!(corners.iter().all(|tile| !every.contains(tile)));
@@ -73,22 +77,22 @@ fn a_cloud_shows_over_the_viewer_s_visible_tiles_only() {
         every.contains(&x),
         "a sliver of the circle's soft edge, 5.6 su out at its nearest texel's centre"
     );
-    assert!((1..CLOUD[3] / 2).contains(&texel(&all, area, y)[3]), "faint");
-    assert_eq!(texel(&all, area, CENTRE), CLOUD);
+    assert!((1..HAZE[3] / 2).contains(&texel(&all, area, y)[3]), "faint");
+    assert_eq!(texel(&all, area, CENTRE), HAZE);
     assert_eq!(
         texel(&all, area, CENTRE + Vec2::new(RADIUS - 20.0, 0.0)),
-        CLOUD,
+        HAZE,
         "in, a texel inside the edge"
     );
     assert_eq!(texel(&all, area, CENTRE + Vec2::new(RADIUS + 20.0, 0.0))[3], 0, "out");
     // An enemy whose vision reaches the cloud's east edge, the tiles from column 9 on.
-    let (edge, seen) = texels(area, &clouds, &[], |tile| tile.x >= 9);
+    let (edge, seen) = texels(area, (&clouds, LOOK.cloud_alpha), &[], |tile| tile.x >= 9);
     assert!(!seen.is_empty() && seen.iter().all(|tile| tile.x == 9), "{seen:?}");
     let rim = CENTRE + Vec2::new(RADIUS - 4.0, 0.0);
     assert!(texel(&edge, area, rim)[3] > 0, "its edge");
     assert_eq!(texel(&edge, area, rim), texel(&all, area, rim), "as its owner sees it");
     assert_eq!(texel(&edge, area, CENTRE)[3], 0, "not its middle");
-    let (none, nothing) = texels(area, &clouds, &[], |_| false);
+    let (none, nothing) = texels(area, (&clouds, LOOK.cloud_alpha), &[], |_| false);
     assert!(nothing.is_empty() && none.iter().all(|&b| b == 0));
 }
 
@@ -99,32 +103,36 @@ fn overlapping_circles_are_one_haze() {
     let map = map();
     let circles = vec![(CENTRE, RADIUS), (CENTRE + Vec2::new(256.0, 0.0), RADIUS)];
     let area = Area::of(&map, &circles).unwrap();
-    let (data, _) = texels(area, &[circles], &[], |_| true);
-    assert_eq!(texel(&data, area, CENTRE + Vec2::new(128.0, 0.0)), CLOUD, "the overlap");
-    assert_eq!(texel(&data, area, CENTRE + Vec2::new(256.0, 0.0)), CLOUD);
+    let (data, _) = texels(area, (&[circles], LOOK.cloud_alpha), &[], |_| true);
+    assert_eq!(texel(&data, area, CENTRE + Vec2::new(128.0, 0.0)), HAZE, "the overlap");
+    assert_eq!(texel(&data, area, CENTRE + Vec2::new(256.0, 0.0)), HAZE);
 }
 
 /// A release flashes over its circles, brighter than the haze as it starts, fading to nothing over
-/// [`RELEASE_TICKS`]; over the viewer's Visible tiles alike.
+/// `LookTuning::release_ticks`; over the viewer's Visible tiles alike.
 #[test]
 fn a_release_flashes_over_its_circles_and_fades() {
-    assert_eq!(flash_alpha(0), FLASH_ALPHA as u8);
-    let alphas: Vec<u8> = (0..=RELEASE_TICKS).map(flash_alpha).collect();
+    assert_eq!(flash_alpha(0, &LOOK), LOOK.cloud_flash_alpha as u8);
+    let alphas: Vec<u8> = (0..=LOOK.release_ticks).map(|age| flash_alpha(age, &LOOK)).collect();
     assert!(alphas.windows(2).all(|w| w[0] > w[1]), "{alphas:?}");
-    assert_eq!(flash_alpha(RELEASE_TICKS), 0);
+    assert_eq!(flash_alpha(LOOK.release_ticks, &LOOK), 0);
     let map = map();
     let circles = vec![(CENTRE, RADIUS)];
     let area = Area::of(&map, &circles).unwrap();
-    let flash = [(circles.clone(), flash_alpha(0))];
-    let (data, _) = texels(area, std::slice::from_ref(&circles), &flash, |_| true);
+    let flash = [(circles.clone(), flash_alpha(0, &LOOK))];
+    let (data, _) = texels(area, (std::slice::from_ref(&circles), LOOK.cloud_alpha), &flash, |_| {
+        true
+    });
     assert_eq!(
         texel(&data, area, CENTRE),
-        [FLASH[0], FLASH[1], FLASH[2], flash_alpha(0)]
+        [FLASH[0], FLASH[1], FLASH[2], flash_alpha(0, &LOOK)]
     );
     let faint = [(circles.clone(), 10)];
-    let (data, _) = texels(area, std::slice::from_ref(&circles), &faint, |_| true);
-    assert_eq!(texel(&data, area, CENTRE), CLOUD, "a fading flash under the haze");
-    let (data, shown) = texels(area, &[], &flash, |tile| tile.y >= 9);
+    let (data, _) = texels(area, (std::slice::from_ref(&circles), LOOK.cloud_alpha), &faint, |_| {
+        true
+    });
+    assert_eq!(texel(&data, area, CENTRE), HAZE, "a fading flash under the haze");
+    let (data, shown) = texels(area, (&[], LOOK.cloud_alpha), &flash, |tile| tile.y >= 9);
     assert!(shown.iter().all(|tile| tile.y == 9) && !shown.is_empty());
     assert_eq!(
         texel(&data, area, CENTRE)[3],

@@ -1,11 +1,13 @@
 //! (M5-S6) The top bar's notes on how this client shows the game ([`TopBarNote`]), each in the bar's row while it
-//! applies: "(AI)" after a computer player's name (slice A1), "Fog off (F3)", "Play-test (F5)".
+//! applies: "(AI)" after a computer player's name (slice A1), "Fog off (F3)", "Play-test (F5)", (M5-X2) "Tuned: N
+//! files".
 
 use bevy::prelude::*;
 
 use super::{show_node, text};
 use crate::ClientMode;
 use crate::ai_players::AiPlayers;
+use crate::data::TuningData;
 use crate::fog::FogOfWar;
 use crate::sim_driver::LocalPlayer;
 
@@ -31,6 +33,10 @@ pub enum TopBarNote {
     /// button says. It replaces the banner the editor laid over the top bar, which covered its figures (found by slice
     /// M5-Z3).
     PlayTest,
+    /// (M5-X2) "Tuned: N files", on the right before the tick, while the data files of `--tuning` change N of their
+    /// counterparts in the data the game plays by (`crate::data`): the game isn't on the built-in rules, and a finding
+    /// reported from it names the directory (`docs/playtest/README.md > Reporting a finding`).
+    Tuned,
 }
 
 impl TopBarNote {
@@ -40,17 +46,28 @@ impl TopBarNote {
             TopBarNote::Computer => "(AI)",
             TopBarNote::FogOff => "Fog off (F3)",
             TopBarNote::PlayTest => "Play-test (F5)",
+            TopBarNote::Tuned => "Tuned",
         }
     }
 
     /// Whether the note shows, with the fog of war `fog`, in `mode`, while a computer plays the local player or not
-    /// (`computer`).
-    pub fn applies(self, fog: FogOfWar, mode: ClientMode, computer: bool) -> bool {
+    /// (`computer`), and (M5-X2) with `tuned` files of a data directory changing their counterparts.
+    pub fn applies(self, fog: FogOfWar, mode: ClientMode, computer: bool, tuned: usize) -> bool {
         match self {
             TopBarNote::Computer => computer,
             TopBarNote::FogOff => !fog.enabled,
             TopBarNote::PlayTest => mode == ClientMode::PlayTest,
+            TopBarNote::Tuned => tuned > 0,
         }
+    }
+}
+
+/// (M5-X2) What the [`TopBarNote::Tuned`] note says with `tuned` files changing their counterparts: "Tuned: 1 file",
+/// "Tuned: 3 files".
+pub fn tuned_text(tuned: usize) -> String {
+    match tuned {
+        1 => "Tuned: 1 file".to_owned(),
+        n => format!("Tuned: {n} files"),
     }
 }
 
@@ -73,19 +90,34 @@ pub(super) fn spawn_note(side: &mut ChildSpawnerCommands, note: TopBarNote) {
 }
 
 /// Shows each of the top bar's notes while it applies ([`TopBarNote::applies`]): when the fog of war is switched,
-/// when the mode changes (a play-test starts or ends), and when the local player changes (F2), who may be a computer's.
+/// when the mode changes (a play-test starts or ends), when the local player changes (F2), who may be a computer's,
+/// and (M5-X2) when the data files are read, the tuned note saying how many change something ([`tuned_text`]).
 pub(super) fn update_top_bar_notes(
     fog: Res<FogOfWar>,
     mode: Res<ClientMode>,
     player: Res<LocalPlayer>,
     computers: Option<Res<AiPlayers>>,
-    mut notes: Query<(&TopBarNote, &mut Node)>,
+    tuning: Option<Res<TuningData>>,
+    mut notes: Query<(&TopBarNote, &mut Node, &Children)>,
+    mut texts: Query<&mut Text>,
 ) {
-    if !fog.is_changed() && !mode.is_changed() && !player.is_changed() {
+    let read = tuning.as_ref().is_some_and(|tuning| tuning.is_changed());
+    if !fog.is_changed() && !mode.is_changed() && !player.is_changed() && !read {
         return;
     }
     let computer = computers.is_some_and(|ais| ais.controls(player.0));
-    for (note, mut node) in &mut notes {
-        show_node(&mut node, note.applies(*fog, *mode, computer));
+    let tuned = tuning.map_or(0, |tuning| tuning.tuned());
+    for (note, mut node, children) in &mut notes {
+        show_node(&mut node, note.applies(*fog, *mode, computer, tuned));
+        if *note == TopBarNote::Tuned {
+            let said = tuned_text(tuned);
+            for child in children {
+                if let Ok(mut text) = texts.get_mut(*child)
+                    && text.0 != said
+                {
+                    text.0.clone_from(&said);
+                }
+            }
+        }
     }
 }

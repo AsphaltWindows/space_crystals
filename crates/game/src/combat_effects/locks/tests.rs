@@ -30,7 +30,12 @@ fn locking() -> TestSim {
 
 /// The reticles `viewer` sees now, through the fog.
 fn marks(t: &TestSim, viewer: PlayerId) -> Vec<LockMark> {
-    lock_marks(t.sim(), &Sight::new(t.sim(), viewer, true), 1.0)
+    lock_marks(
+        t.sim(),
+        &Sight::new(t.sim(), viewer, true),
+        1.0,
+        &crate::tuning::ClientTuning::BUILTIN,
+    )
 }
 
 /// From the tick its order starts, the lock shows the Rocketman's owner a reticle round the Peacekeeper's body, its

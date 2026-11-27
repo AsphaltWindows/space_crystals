@@ -1,12 +1,12 @@
-//! The targeting click allowance (`systems/controls/interface.md > AwaitingTarget > Dragging while targeting`,
-//! design change 0073): while a target is awaited, a press and release that moved at most
-//! `TARGETING_CLICK_ALLOWANCE_PX` is a targeting click, at the press point; one that moved further is a drag, which
-//! does nothing (0067). Elsewhere the normal drag threshold, `DRAG_THRESHOLD_PX`, is unchanged.
+//! The targeting click allowance (`systems/controls/interface.md > AwaitingTarget > Dragging while targeting`, design
+//! change 0073): while a target is awaited, a press and release that moved at most
+//! `InputTuning::targeting_click_allowance_px` is a targeting click, at the press point; one that moved further is a
+//! drag, which does nothing (0067). Elsewhere the normal drag threshold, `InputTuning::drag_threshold_px`, is
+//! unchanged.
 
 use bevy::prelude::*;
 use sc_sim::{ObjectId, OrderKind};
-use space_crystals::command_ui::{InterfaceState, PanelCommand, TARGETING_CLICK_ALLOWANCE_PX};
-use space_crystals::input::DRAG_THRESHOLD_PX;
+use space_crystals::command_ui::{InterfaceState, PanelCommand};
 
 use super::*;
 use KeyCode::KeyA;
@@ -38,7 +38,12 @@ fn press_moving(app: &mut App, view: Vec2, moves: &[Vec2]) -> bool {
 /// and no further.
 #[test]
 fn a_targeting_click_may_move_up_to_the_allowance() {
-    const { assert!(DRAG_THRESHOLD_PX < 10.0 && 10.0 < TARGETING_CLICK_ALLOWANCE_PX) };
+    const {
+        assert!(
+            space_crystals::tuning::input::BUILTIN.drag_threshold_px < 10.0
+                && 10.0 < space_crystals::tuning::input::BUILTIN.targeting_click_allowance_px
+        )
+    };
     let mut app = game();
     click(&mut app, at(1), &[]);
     tap(&mut app, &[], KeyA);
@@ -50,7 +55,10 @@ fn a_targeting_click_may_move_up_to_the_allowance() {
     );
 
     tap(&mut app, &[], KeyA);
-    let just_inside = Vec2::new(0.0, TARGETING_CLICK_ALLOWANCE_PX - 1.0);
+    let just_inside = Vec2::new(
+        0.0,
+        space_crystals::tuning::input::BUILTIN.targeting_click_allowance_px - 1.0,
+    );
     press_moving(&mut app, at(ENEMY_GUARD), &[just_inside]);
     assert_eq!(
         orders(&app)[1..],
@@ -58,7 +66,10 @@ fn a_targeting_click_may_move_up_to_the_allowance() {
     );
 
     tap(&mut app, &[], KeyA);
-    let just_beyond = Vec2::new(0.0, TARGETING_CLICK_ALLOWANCE_PX + 1.0);
+    let just_beyond = Vec2::new(
+        0.0,
+        space_crystals::tuning::input::BUILTIN.targeting_click_allowance_px + 1.0,
+    );
     press_moving(&mut app, at(ENEMY_GUARD), &[just_beyond]);
     assert_eq!(interface(&app), AWAIT_ATTACK, "a drag");
     assert_eq!(orders(&app).len(), 2);
@@ -96,7 +107,14 @@ fn without_targeting_the_normal_threshold_holds() {
     app.update();
     assert_eq!(app.world().resource::<PointerLook>().hovered, None, "the ground");
     assert!(
-        !press_moving(&mut app, west, &[Vec2::new(DRAG_THRESHOLD_PX - 1.0, 0.0)]),
+        !press_moving(
+            &mut app,
+            west,
+            &[Vec2::new(
+                space_crystals::tuning::input::BUILTIN.drag_threshold_px - 1.0,
+                0.0
+            )]
+        ),
         "a click"
     );
     assert!(press_moving(&mut app, west, &[Vec2::new(10.0, 0.0)]), "a box");

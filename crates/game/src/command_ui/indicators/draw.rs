@@ -8,7 +8,7 @@ use bevy::prelude::*;
 use sc_sim::{Map, Object, Sim, Tick};
 
 use super::{
-    CommandIndicators, FLASH_TICKS, Flash, INDICATORS_Z, Indicator, IndicatorMesh, MarkerRing, OrderIssued, cast,
+    CommandIndicators, Flash, INDICATORS_Z, Indicator, IndicatorMesh, MarkerRing, OrderIssued, cast,
     drop_off_indicators, gathering, indicator, order_color, own_selected, rally, rally_indicators,
     selection_indicators, targets, waypoint,
 };
@@ -19,6 +19,7 @@ use crate::input::{ActionState, InputAction};
 use crate::selection::ControlStates;
 use crate::shapes::ColorMesh;
 use crate::sim_driver::{RenderAlpha, SimRes};
+use crate::tuning::ClientTuning;
 
 /// A Location marker: its ring's radius and the dot's, su (placeholders).
 const LOCATION_RADIUS: f32 = 10.0;
@@ -58,9 +59,11 @@ pub(super) fn spawn_indicator_mesh(
     ));
 }
 
-/// Takes the orders just given and drops the flashes that have faded. A replaced sim starts from none.
+/// Takes the orders just given and drops the flashes that have faded (`FeedbackTuning::flash_ticks`). A replaced sim
+/// starts from none.
 pub(super) fn collect_flashes(
     sim: Res<SimRes>,
+    tuning: Res<ClientTuning>,
     mut issued: MessageReader<OrderIssued>,
     mut indicators: ResMut<CommandIndicators>,
 ) {
@@ -79,13 +82,13 @@ pub(super) fn collect_flashes(
     let tick = sim.tick();
     indicators
         .flashes
-        .retain(|flash| tick.saturating_sub(flash.tick) < FLASH_TICKS);
+        .retain(|flash| tick.saturating_sub(flash.tick) < tuning.feedback.flash_ticks);
 }
 
-/// How far a flash given in `tick` has run, 0 to 1, as drawn now: the sim's tick shows at alpha 1, and an order
-/// applies in the tick after the one it was given in.
-fn flash_progress(sim: &Sim, alpha: f32, tick: Tick) -> f32 {
-    ((sim.tick().saturating_sub(tick) as f32 + alpha - 1.0) / FLASH_TICKS as f32).clamp(0.0, 1.0)
+/// How far a flash given in `tick` and lasting `ticks` has run, 0 to 1, as drawn now: the sim's tick shows at alpha 1,
+/// and an order applies in the tick after the one it was given in.
+fn flash_progress(sim: &Sim, alpha: f32, tick: Tick, ticks: u32) -> f32 {
+    ((sim.tick().saturating_sub(tick) as f32 + alpha - 1.0) / ticks as f32).clamp(0.0, 1.0)
 }
 
 /// Rebuilds the indicators' mesh: a cast's circle, the routes and the rally lines at the back, then the markers (the
@@ -96,6 +99,7 @@ pub(super) fn draw_indicators(
     mode: Res<ClientMode>,
     local: LocalSight,
     alpha: Res<RenderAlpha>,
+    tuning: Res<ClientTuning>,
     actions: Res<ActionState>,
     states: Res<ControlStates>,
     indicators: Res<CommandIndicators>,
@@ -125,9 +129,9 @@ pub(super) fn draw_indicators(
         }
         let rallies = rally_indicators(sim, &sight, &states);
         for rally in &rallies {
-            rally::draw_line(&mut mesh, sim, &sight, rally, alpha.0, z);
+            rally::draw_line(&mut mesh, sim, &sight, rally, (alpha.0, &tuning), z);
         }
-        let at = |indicator| marker_ring(sim, &sight, indicator, alpha.0);
+        let at = |indicator| marker_ring(sim, &sight, indicator, alpha.0, &tuning);
         let markers = selection_indicators(sim, &sight, &states, queued);
         let drop_offs = drop_off_indicators(sim, &sight, &states);
         let rally_markers = rallies.iter().map(|rally| rally.marker);
@@ -137,7 +141,7 @@ pub(super) fn draw_indicators(
             }
         }
         for flash in &indicators.flashes {
-            let progress = flash_progress(sim, alpha.0, flash.tick);
+            let progress = flash_progress(sim, alpha.0, flash.tick, tuning.feedback.flash_ticks);
             if let Some(indicator) = indicator(sim, &sight, flash.kind)
                 && let Some(at) = at(indicator)
             {
@@ -200,8 +204,15 @@ fn marker(mesh: &mut ColorMesh, indicator: Indicator, at: MarkerRing, grow: f32,
 /// Where `indicator`'s marker is drawn at rest, at the render `alpha`, as the player whose `sight` this is knows its
 /// target: a Location at its point on the ground; an Object or a gathering marker around the object's box, where the
 /// object is drawn while the player sees it, around its record's footprint while the player remembers it, wherever
-/// the object really is ([`targets`], design change 0139); none while the player knows of nothing there.
-pub fn marker_ring(sim: &Sim, sight: &Sight, indicator: Indicator, alpha: f32) -> Option<MarkerRing> {
+/// the object really is ([`targets`], design change 0139), an aircraft as high as `tuning` lifts it; none while the
+/// player knows of nothing there.
+pub fn marker_ring(
+    sim: &Sim,
+    sight: &Sight,
+    indicator: Indicator,
+    alpha: f32,
+    tuning: &ClientTuning,
+) -> Option<MarkerRing> {
     match indicator {
         Indicator::Location { at, .. } => Some(MarkerRing {
             center: at,
@@ -210,7 +221,7 @@ pub fn marker_ring(sim: &Sim, sight: &Sight, indicator: Indicator, alpha: f32) -
             half: Vec2::ZERO,
         }),
         Indicator::Object { id, .. } | Indicator::Gathering { id, .. } => {
-            let (center, height, half) = targets::object_box(sim, sight, id, alpha)?;
+            let (center, height, half) = targets::object_box(sim, sight, id, alpha, &tuning.look)?;
             Some(MarkerRing {
                 center,
                 height,

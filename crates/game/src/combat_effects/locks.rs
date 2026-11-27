@@ -13,6 +13,8 @@ use crate::coords::{drawn_at_height, view_to_world};
 use crate::fog::Sight;
 use crate::object_render::body_height;
 use crate::shapes::ColorMesh;
+use crate::tuning::ClientTuning;
+use crate::tuning::look::LookTuning;
 
 /// The reticle's gap outside the target's silhouette, how far out its ticks start, their length, and the widths of
 /// its arc and its line, su (placeholders). The gap clears the order's marker, which rings the target 6 su out while
@@ -45,7 +47,8 @@ pub struct LockMark {
 
 /// The reticles to draw (module docs): one for each Target Lock of a unit of `sight`'s player on a target the player
 /// sees, both at their interpolated positions.
-pub fn lock_marks(sim: &Sim, sight: &Sight, alpha: f32) -> Vec<LockMark> {
+pub fn lock_marks(sim: &Sim, sight: &Sight, alpha: f32, tuning: &ClientTuning) -> Vec<LockMark> {
+    let look = &tuning.look;
     (sim.objects())
         .filter(|o| o.owner == Some(sight.player()))
         .filter_map(|o| {
@@ -57,9 +60,9 @@ pub fn lock_marks(sim: &Sim, sight: &Sight, alpha: f32) -> Vec<LockMark> {
                 false => (lock.elapsed as f32 / def.lock_on_ticks.max(1) as f32).min(1.0),
             };
             Some(LockMark {
-                center: body_center(sim, target, alpha),
+                center: body_center(sim, target, alpha, look),
                 radius: reach(target) + GAP,
-                from: body_center(sim, o, alpha),
+                from: body_center(sim, o, alpha, look),
                 progress,
                 locked: lock.locked,
             })
@@ -68,10 +71,10 @@ pub fn lock_marks(sim: &Sim, sight: &Sight, alpha: f32) -> Vec<LockMark> {
 }
 
 /// The middle of `o`'s body as drawn now: at its interpolated position, at its body's height (an aircraft's in the
-/// air), view space.
-fn body_center(sim: &Sim, o: &Object, alpha: f32) -> Vec2 {
+/// air, as `look` lifts it), view space.
+fn body_center(sim: &Sim, o: &Object, alpha: f32, look: &LookTuning) -> Vec2 {
     let pos = o.prev_pos.lerp(o.pos, alpha);
-    drawn_at_height(pos, body_height(sim.map(), o, pos))
+    drawn_at_height(pos, body_height(sim.map(), o, pos, look))
 }
 
 /// How far `o`'s body reaches from its middle, su: a unit's silhouette's corners however it turns, a structure's

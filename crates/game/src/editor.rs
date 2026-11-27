@@ -124,6 +124,7 @@ fn starting_status(map: &MapDef, path: Option<&std::path::Path>, problems: usize
 
 impl Plugin for EditorPlugin {
     fn build(&self, app: &mut App) {
+        app.init_resource::<crate::tuning::ClientTuning>();
         let map = &self.scenario.map;
         let player = app.world().resource::<LocalPlayer>().0;
         let playtest = play_test_setup(&self.scenario, SlotId(player.0));

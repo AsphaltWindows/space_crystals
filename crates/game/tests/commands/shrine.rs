@@ -103,7 +103,7 @@ pub(super) fn marks(app: &App) -> Vec<(u32, AreaAbility)> {
     let world = app.world();
     let sim = world.resource::<SimRes>();
     let sight = Sight::new(sim, P1, false);
-    let marks = buff_marks(sim, &sight, 1.0);
+    let marks = buff_marks(sim, &sight, 1.0, &space_crystals::tuning::ClientTuning::BUILTIN);
     (marks.into_iter())
         .map(|mark| {
             let nearest = (sim.objects())

@@ -5,7 +5,7 @@
 
 use bevy::prelude::*;
 use sc_sim::{ObjectId, OrderKind, SimEvent};
-use space_crystals::command_ui::feedback::{FEEDBACK_TICKS, TargetFeedback};
+use space_crystals::command_ui::feedback::TargetFeedback;
 use space_crystals::command_ui::{InterfaceState, PanelCommand};
 
 use super::*;
@@ -172,7 +172,10 @@ fn an_invalid_target_with_shift_held_keeps_targeting() {
 
     bare_click(&mut app, at(ENEMY_PK));
     assert_eq!(interface(&app), QUEUED_ATTACK);
-    updates(&mut app, FEEDBACK_TICKS as usize);
+    updates(
+        &mut app,
+        space_crystals::tuning::feedback::BUILTIN.feedback_ticks as usize,
+    );
     assert!(!feedback_shown(&app), "faded");
     bare_click(&mut app, at(PATCH));
     assert!(feedback_shown(&app));

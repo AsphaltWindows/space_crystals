@@ -14,6 +14,7 @@ use sc_sim::{ObjectId, Placement, SU_PER_GU, Sim, TargetView};
 
 use crate::fog::Sight;
 use crate::object_render::{body_height, object_height};
+use crate::tuning::look::LookTuning;
 
 /// Where `sight` shows object `id`, ground space: where it is while the player sees it, its last-known position while
 /// the player remembers it; none while the player knows of nothing there.
@@ -27,13 +28,20 @@ pub(super) fn shown_at(sim: &Sim, sight: &Sight, id: ObjectId) -> Option<Vec2> {
 
 /// The box an Object marker surrounds, as `sight` shows object `id` at the render `alpha`: its centre on the ground,
 /// the height it is drawn at, and its half extents, su. A seen object's footprint, or its type's box where it is
-/// drawn; a remembered one's record's footprint. None while the player knows of nothing there.
-pub(super) fn object_box(sim: &Sim, sight: &Sight, id: ObjectId, alpha: f32) -> Option<(Vec2, f32, Vec2)> {
+/// drawn (an aircraft as high as `look` lifts it); a remembered one's record's footprint. None while the player knows
+/// of nothing there.
+pub(super) fn object_box(
+    sim: &Sim,
+    sight: &Sight,
+    id: ObjectId,
+    alpha: f32,
+    look: &LookTuning,
+) -> Option<(Vec2, f32, Vec2)> {
     match sight.target_view(sim, id) {
         TargetView::Visible => {
             let o = sim.object(id)?;
             let pos = o.prev_pos.lerp(o.pos, alpha);
-            let height = body_height(sim.map(), o, pos);
+            let height = body_height(sim.map(), o, pos, look);
             let (center, half) = match &o.placement {
                 Some(footprint) => footprint_box(footprint),
                 None => (pos, o.def().half_extents().unwrap_or(Vec2::splat(SU_PER_GU / 4.0))),

@@ -23,7 +23,7 @@
 //! - **Its look** ([`panel`]), a placeholder: a simple centred panel with buttons, in the HUD's style.
 
 mod panel;
-mod restart;
+pub(crate) mod restart;
 
 use std::path::PathBuf;
 

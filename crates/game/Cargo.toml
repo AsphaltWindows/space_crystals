@@ -43,3 +43,8 @@ workspace = true
 [[test]]
 name = "game"
 path = "tests/game.rs"
+
+# (M5-X2) Games with a data directory, on other rules than the built-in ones: a process of their own (the file's docs).
+[[test]]
+name = "tuning"
+path = "tests/tuning.rs"

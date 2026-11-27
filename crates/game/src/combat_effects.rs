@@ -65,20 +65,14 @@ use crate::coords::drawn_at_height;
 use crate::fog::Sight;
 use crate::object_render::{body_height, flies, flight_lift};
 use crate::sim_driver::SimRes;
+use crate::tuning::ClientTuning;
+use crate::tuning::look::LookTuning;
 use crate::viewer_events::{FilterEvents, Perception, Sighting, ViewerEvents};
 use draw::{draw_effects, spawn_effects_mesh};
 
-pub use crate::tuning::feedback::{DEATH_MARKER_TICKS, TRACER_TICKS};
-pub use blasts::{BLAST_TICKS, Blast, shows_blast};
-pub use casts::{CAST_TICKS, CastFlash, shows_cast};
+pub use blasts::{Blast, shows_blast};
+pub use casts::{CastFlash, shows_cast};
 pub use projectiles::{Flight, shows_flight};
-
-/// HP bars: height, gap above the corners of the unit's silhouette (clear of a selection ring, which lies 7 su
-/// outside them: `selection::markers`) or above a tile-based object's footprint, and the narrowest bar, su. A shield
-/// bar is as high, right above the HP bar, their frames shared.
-const BAR_HEIGHT: f32 = 4.0;
-const BAR_GAP: f32 = 9.0;
-const BAR_MIN_WIDTH: f32 = 24.0;
 
 /// An attack that took effect in `tick` (`SimEvent::Attacked`), from and to the ground points of both units then; a
 /// TailDisjointed one's to the spot it locked, where it struck or missed (`SimEvent::Missed`, slice M5-O3).
@@ -187,6 +181,7 @@ pub struct CombatEffectsPlugin;
 
 impl Plugin for CombatEffectsPlugin {
     fn build(&self, app: &mut App) {
+        app.init_resource::<ClientTuning>();
         app.init_resource::<CombatEffects>()
             .add_systems(Startup, spawn_effects_mesh)
             .add_systems(
@@ -214,7 +209,15 @@ fn shows(sim: &Sim, tick: Tick, ticks: u32) -> bool {
 /// unit's with its Augmentations (`Object::max_hp_with`). (M5-N4a) An object with an energy pool has its energy bar
 /// with its HP bar: Placeholder (not in the design, which says nothing of energy's display: the plan's "an energy bar
 /// under the HP bar"), so shown when the HP bar is, energy short of its maximum not counting as damage.
-pub fn hp_bars(sim: &Sim, sight: &Sight, alpha: f32, selected: impl Fn(ObjectId) -> bool) -> Vec<HpBar> {
+///
+/// (M5-X2) Their sizes and the air units' lift are `tuning`'s (`LookTuning::bar_height` and the next).
+pub fn hp_bars(
+    sim: &Sim,
+    sight: &Sight,
+    alpha: f32,
+    tuning: &ClientTuning,
+    selected: impl Fn(ObjectId) -> bool,
+) -> Vec<HpBar> {
     let research = sim.research();
     sim.objects()
         .filter(|o| sight.sees(o))
@@ -224,7 +227,8 @@ pub fn hp_bars(sim: &Sim, sight: &Sight, alpha: f32, selected: impl Fn(ObjectId)
             let damaged = hp < max_hp || shields.is_some_and(|(shields, max)| shields < max);
             let shields = shields.map(|(shields, max)| shields / max);
             let energy = sc_sim::energy::of(o).map(|(energy, max)| energy / max);
-            (damaged || selected(o.id)).then(|| hp_bar(sim.map(), o, alpha, hp / max_hp, (shields, energy)))
+            let bars = (hp / max_hp, (shields, energy));
+            (damaged || selected(o.id)).then(|| hp_bar(sim.map(), o, alpha, bars, &tuning.look))
         })
         .collect()
 }
@@ -263,13 +267,14 @@ pub fn visible_spans(sight: &Sight, from: Vec2, to: Vec2) -> Vec<(f32, f32)> {
     spans
 }
 
-/// How `sight` shows the shot of `tracer` now: for [`TRACER_TICKS`] (design change 0177), as its sighting reaches the
-/// player (`crate::viewer_events`): the [`visible_spans`] of its path, all of it while the fog doesn't apply; none
-/// once it has faded. The same for every shot, a revealed attacker's at the player's own objects included (design
-/// change 0293, answering Q0083 point 4: "No exceptions ... every shot, tracer or projectile, whoever fires it and at
-/// whatever, is drawn only over your Visible tiles"; it replaced design change 0244's whole path for those).
-pub fn shot_spans(sim: &Sim, sight: &Sight, tracer: &Tracer) -> Vec<(f32, f32)> {
-    if !shows(sim, tracer.tick, TRACER_TICKS) {
+/// How `sight` shows the shot of `tracer` now: for `tuning`'s `FeedbackTuning::tracer_ticks` (design change 0177), as
+/// its sighting reaches the player (`crate::viewer_events`): the [`visible_spans`] of its path, all of it while the fog
+/// doesn't apply; none once it has faded. The same for every shot, a revealed attacker's at the player's own objects
+/// included (design change 0293, answering Q0083 point 4: "No exceptions ... every shot, tracer or projectile, whoever
+/// fires it and at whatever, is drawn only over your Visible tiles"; it replaced design change 0244's whole path for
+/// those).
+pub fn shot_spans(sim: &Sim, sight: &Sight, tracer: &Tracer, tuning: &ClientTuning) -> Vec<(f32, f32)> {
+    if !shows(sim, tracer.tick, tuning.feedback.tracer_ticks) {
         return Vec::new();
     }
     match tracer.seen.perceived_by(sight) {
@@ -289,8 +294,10 @@ pub fn shows_death(sight: &Sight, death: &DeathMarker) -> bool {
 /// The bars of `o`, its HP `fraction` full and its Shields and its energy as `(shields, energy)` have them: over a
 /// unit, clear of its silhouette's corners however it turns, as wide as the silhouette; over a tile-based object,
 /// along the top edge of its footprint, as wide as the footprint (slice M3-K2: before, a structure's bars were a
-/// unit's, inside it).
-fn hp_bar(map: &Map, o: &Object, alpha: f32, fraction: f32, (shields, energy): (Option<f32>, Option<f32>)) -> HpBar {
+/// unit's, inside it). As `look` sizes them: `bar_gap` over the corners or the footprint, at least `bar_min_width`
+/// wide, `bar_height` high; a shield bar as high, right above the HP bar, their frames shared.
+fn hp_bar(map: &Map, o: &Object, alpha: f32, bars: (f32, (Option<f32>, Option<f32>)), look: &LookTuning) -> HpBar {
+    let (fraction, (shields, energy)) = bars;
     let pos = o.prev_pos.lerp(o.pos, alpha);
     let (half, above) = match (o.def().half_extents(), o.placement.as_ref()) {
         (Some(half), _) => (half, half.length()),
@@ -299,14 +306,14 @@ fn hp_bar(map: &Map, o: &Object, alpha: f32, fraction: f32, (shields, energy): (
             (half, half.y)
         }
         (None, None) => {
-            let half = Vec2::splat(BAR_MIN_WIDTH / 2.0);
+            let half = Vec2::splat(look.bar_min_width / 2.0);
             (half, half.length())
         }
     };
-    let drawn = drawn_at_height(pos, body_height(map, o, pos));
+    let drawn = drawn_at_height(pos, body_height(map, o, pos, look));
     HpBar {
-        center: drawn - Vec2::new(0.0, above + BAR_GAP + BAR_HEIGHT / 2.0),
-        width: (half.x * 2.0).max(BAR_MIN_WIDTH),
+        center: drawn - Vec2::new(0.0, above + look.bar_gap + look.bar_height / 2.0),
+        width: (half.x * 2.0).max(look.bar_min_width),
         fraction: fraction.clamp(0.0, 1.0),
         shields: shields.map(|shields| shields.clamp(0.0, 1.0)),
         energy: energy.map(|energy| energy.clamp(0.0, 1.0)),
@@ -328,8 +335,15 @@ pub fn occupant_form(sim: &Sim, held: &Held) -> ObjectKind {
 
 /// Takes the new shots, deaths, projectiles, blasts and (M5-N11) casts from the frame's events, each with its sighting
 /// (`ViewerEvents::sightings`), and drops the effects that have faded and the projectiles that have landed. A replaced
-/// sim starts from none.
-fn collect_effects(sim: Res<SimRes>, events: Res<ViewerEvents>, mut effects: ResMut<CombatEffects>) {
+/// sim starts from none. (M5-X2) The air units' lift and how long each effect lasts are `tuning`'s.
+fn collect_effects(
+    sim: Res<SimRes>,
+    events: Res<ViewerEvents>,
+    tuning: Res<ClientTuning>,
+    mut effects: ResMut<CombatEffects>,
+) {
+    let (look, feedback) = (&tuning.look, &tuning.feedback);
+    let lift = |kind: ObjectKind| flight_lift(kind, look);
     if effects.generation != Some(sim.generation()) {
         effects.tracers.clear();
         effects.deaths.clear();
@@ -383,8 +397,8 @@ fn collect_effects(sim: Res<SimRes>, events: Res<ViewerEvents>, mut effects: Res
                 from,
                 to,
                 lift: (
-                    shooter.map_or(0.0, |(form, _)| flight_lift(form)),
-                    target_kind.map_or(0.0, flight_lift),
+                    shooter.map_or(0.0, |(form, _)| lift(form)),
+                    target_kind.map_or(0.0, lift),
                 ),
                 seen,
             });
@@ -411,8 +425,8 @@ fn collect_effects(sim: Res<SimRes>, events: Res<ViewerEvents>, mut effects: Res
                     to,
                     lands_at,
                     lift: (
-                        thrower.map_or(0.0, |(form, _)| flight_lift(form)),
-                        target.and_then(kind_of).map_or(0.0, flight_lift),
+                        thrower.map_or(0.0, |(form, _)| lift(form)),
+                        target.and_then(kind_of).map_or(0.0, lift),
                     ),
                     seen,
                 });
@@ -440,11 +454,11 @@ fn collect_effects(sim: Res<SimRes>, events: Res<ViewerEvents>, mut effects: Res
                                     _ => None,
                                 })
                             })
-                            .map(flight_lift)
+                            .map(lift)
                     })
                 };
                 let missile = ShotStyle::of(weapon) == ShotStyle::Missile;
-                let lift = if radius > 0.0 && !missile {
+                let height = if radius > 0.0 && !missile {
                     0.0
                 } else {
                     struck().unwrap_or(0.0)
@@ -455,7 +469,7 @@ fn collect_effects(sim: Res<SimRes>, events: Res<ViewerEvents>, mut effects: Res
                     radius,
                     weapon,
                     owner,
-                    lift,
+                    lift: height,
                     seen,
                 });
             }
@@ -481,9 +495,11 @@ fn collect_effects(sim: Res<SimRes>, events: Res<ViewerEvents>, mut effects: Res
             _ => {}
         }
     }
-    effects.tracers.retain(|t| shows(&sim, t.tick, TRACER_TICKS));
-    effects.deaths.retain(|d| shows(&sim, d.tick, DEATH_MARKER_TICKS));
+    effects.tracers.retain(|t| shows(&sim, t.tick, feedback.tracer_ticks));
+    effects
+        .deaths
+        .retain(|d| shows(&sim, d.tick, feedback.death_marker_ticks));
     effects.flights.retain(|f| sim.tick() < f.lands_at);
-    effects.blasts.retain(|b| shows(&sim, b.tick, BLAST_TICKS));
-    effects.casts.retain(|c| shows(&sim, c.tick, CAST_TICKS));
+    effects.blasts.retain(|b| shows(&sim, b.tick, feedback.blast_ticks));
+    effects.casts.retain(|c| shows(&sim, c.tick, feedback.cast_ticks));
 }

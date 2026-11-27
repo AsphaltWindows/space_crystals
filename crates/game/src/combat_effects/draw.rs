@@ -12,8 +12,8 @@ use super::casts::cast_shape;
 use super::locks::{lock_marks, lock_shape};
 use super::projectiles::{homing_missiles, missile_shape, projectile_shape};
 use super::{
-    BAR_HEIGHT, CombatEffects, CombatEffectsMesh, DEATH_MARKER_TICKS, DeathMarker, HpBar, ShotStyle, TRACER_TICKS,
-    Tracer, age, hp_bars, shot_spans, shows_blast, shows_cast, shows_death, shows_flight,
+    CombatEffects, CombatEffectsMesh, DeathMarker, HpBar, ShotStyle, Tracer, age, hp_bars, shot_spans, shows_blast,
+    shows_cast, shows_death, shows_flight,
 };
 use crate::coords::{DrawLayer, drawn_at_height, view_to_world};
 use crate::fog::LocalSight;
@@ -21,6 +21,7 @@ use crate::object_render::player_color;
 use crate::selection::ControlStates;
 use crate::shapes::{ColorMesh, darken, lighten};
 use crate::sim_driver::{RenderAlpha, SimRes};
+use crate::tuning::ClientTuning;
 
 /// A shot leaves a unit this far up the screen from its ground point, su, as from its body rather than its feet; so
 /// does a projectile (`super::projectiles`).
@@ -58,10 +59,13 @@ pub(super) fn spawn_effects_mesh(
 
 /// Rebuilds the effects mesh: death markers at the back, then casts, blasts, tracers, projectiles (the homing missiles too),
 /// HP bars, the buffs' marks and the Target Locks' reticles (alpha blending draws a mesh's triangles in order), each
-/// only where the local player sees it. Hidden while nothing shows.
+/// only where the local player sees it. Hidden while nothing shows. (M5-X2) How long each lasts, the bars' sizes
+/// and the air units' lift are the [`ClientTuning`]'s.
+#[expect(clippy::too_many_arguments, reason = "a system's parameters")]
 pub(super) fn draw_effects(
     sim: Res<SimRes>,
     alpha: Res<RenderAlpha>,
+    tuning: Res<ClientTuning>,
     effects: Res<CombatEffects>,
     states: Res<ControlStates>,
     sight: LocalSight,
@@ -72,21 +76,24 @@ pub(super) fn draw_effects(
         return;
     };
     let sight = sight.get();
+    let (tuning, feedback) = (&*tuning, &tuning.feedback);
     let z = DrawLayer::Overlays.base_z() + EFFECTS_Z;
     let mut mesh = ColorMesh::triangles();
     for death in effects.deaths.iter().filter(|d| shows_death(&sight, d)) {
-        let fade = 1.0 - age(&sim, alpha.0, death.tick) / DEATH_MARKER_TICKS as f32;
+        let fade = 1.0 - age(&sim, alpha.0, death.tick) / feedback.death_marker_ticks as f32;
         death_marker(&mut mesh, sim.map(), death, fade, z);
     }
-    for cast in effects.casts.iter().filter(|c| shows_cast(&sim, &sight, c)) {
-        cast_shape(&mut mesh, sim.map(), cast, age(&sim, alpha.0, cast.tick), z);
+    for cast in effects.casts.iter().filter(|c| shows_cast(&sim, &sight, c, tuning)) {
+        let t = age(&sim, alpha.0, cast.tick) / feedback.cast_ticks as f32;
+        cast_shape(&mut mesh, sim.map(), cast, t, z);
     }
-    for blast in effects.blasts.iter().filter(|b| shows_blast(&sim, &sight, b)) {
-        blast_shape(&mut mesh, sim.map(), blast, age(&sim, alpha.0, blast.tick), z);
+    for blast in effects.blasts.iter().filter(|b| shows_blast(&sim, &sight, b, tuning)) {
+        let t = age(&sim, alpha.0, blast.tick) / feedback.blast_ticks as f32;
+        blast_shape(&mut mesh, sim.map(), blast, t, z);
     }
     for tracer in &effects.tracers {
-        let fade = 1.0 - age(&sim, alpha.0, tracer.tick) / TRACER_TICKS as f32;
-        for span in shot_spans(&sim, &sight, tracer) {
+        let fade = 1.0 - age(&sim, alpha.0, tracer.tick) / feedback.tracer_ticks as f32;
+        for span in shot_spans(&sim, &sight, tracer, tuning) {
             tracer_line(&mut mesh, sim.map(), tracer, span, fade, z);
         }
     }
@@ -96,17 +103,17 @@ pub(super) fn draw_effects(
             projectile_shape(&mut mesh, sim.map(), flight, progress, z);
         }
     }
-    for missile in homing_missiles(&sim, &sight, alpha.0) {
+    for missile in homing_missiles(&sim, &sight, alpha.0, tuning) {
         missile_shape(&mut mesh, &missile, z);
     }
     let selection = states.selection(sight.player());
-    for bar in hp_bars(&sim, &sight, alpha.0, |id| selection.contains(id)) {
-        hp_bar_shape(&mut mesh, bar, z);
+    for bar in hp_bars(&sim, &sight, alpha.0, tuning, |id| selection.contains(id)) {
+        hp_bar_shape(&mut mesh, bar, tuning.look.bar_height, z);
     }
-    for mark in buff_marks(&sim, &sight, alpha.0) {
+    for mark in buff_marks(&sim, &sight, alpha.0, tuning) {
         mark_shape(&mut mesh, mark, z);
     }
-    for mark in lock_marks(&sim, &sight, alpha.0) {
+    for mark in lock_marks(&sim, &sight, alpha.0, tuning) {
         lock_shape(&mut mesh, &mark, z);
     }
     if mesh.vertex_count() == 0 {
@@ -167,31 +174,32 @@ fn death_marker(mesh: &mut ColorMesh, map: &Map, death: &DeathMarker, fade: f32,
     }
 }
 
-/// A dark frame around the bar's fill: green above 60%, yellow above 30%, red below. The shield bar, if any, right
-/// above it, its fill in [`SHIELD_FILL`]; (M5-N4a) the energy bar, if any, right under it, its fill in
-/// [`ENERGY_FILL`].
-fn hp_bar_shape(mesh: &mut ColorMesh, bar: HpBar, z: f32) {
+/// A dark frame around the bar's fill, each bar `height` su high (`LookTuning::bar_height`): green above 60%, yellow
+/// above 30%, red below. The shield bar, if any, right above it, its fill in [`SHIELD_FILL`]; (M5-N4a) the energy
+/// bar, if any, right under it, its fill in [`ENERGY_FILL`].
+fn hp_bar_shape(mesh: &mut ColorMesh, bar: HpBar, height: f32, z: f32) {
     let center = view_to_world(bar.center);
     let fill = match bar.fraction {
         f if f > 0.6 => Color::srgb(0.30, 0.85, 0.30),
         f if f > 0.3 => Color::srgb(0.95, 0.80, 0.20),
         _ => Color::srgb(0.95, 0.25, 0.20),
     };
-    bar_shape(mesh, center, bar.width, bar.fraction, fill, z);
+    let size = Vec2::new(bar.width, height);
+    bar_shape(mesh, center, size, bar.fraction, fill, z);
     if let Some(shields) = bar.shields {
-        let above = center + Vec2::new(0.0, BAR_HEIGHT + 1.0);
-        bar_shape(mesh, above, bar.width, shields, SHIELD_FILL, z);
+        let above = center + Vec2::new(0.0, height + 1.0);
+        bar_shape(mesh, above, size, shields, SHIELD_FILL, z);
     }
     if let Some(energy) = bar.energy {
-        let under = center - Vec2::new(0.0, BAR_HEIGHT + 1.0);
-        bar_shape(mesh, under, bar.width, energy, ENERGY_FILL, z);
+        let under = center - Vec2::new(0.0, height + 1.0);
+        bar_shape(mesh, under, size, energy, ENERGY_FILL, z);
     }
 }
 
-/// A bar centred on `center` (Bevy world space), `width` su wide: a dark frame, `fraction` of it filled in `fill`
-/// from the left.
-fn bar_shape(mesh: &mut ColorMesh, center: Vec2, width: f32, fraction: f32, fill: Color, z: f32) {
-    let half = Vec2::new(width / 2.0, BAR_HEIGHT / 2.0);
+/// A bar centred on `center` (Bevy world space), of `size` su: a dark frame, `fraction` of it filled in `fill` from
+/// the left.
+fn bar_shape(mesh: &mut ColorMesh, center: Vec2, size: Vec2, fraction: f32, fill: Color, z: f32) {
+    let half = size / 2.0;
     mesh.rect(
         center - half - 1.0,
         center + half + 1.0,
@@ -199,5 +207,5 @@ fn bar_shape(mesh: &mut ColorMesh, center: Vec2, width: f32, fraction: f32, fill
         Color::srgb(0.05, 0.05, 0.05),
     );
     let left = center - half;
-    mesh.rect(left, left + Vec2::new(width * fraction, BAR_HEIGHT), z, fill);
+    mesh.rect(left, left + Vec2::new(size.x * fraction, size.y), z, fill);
 }

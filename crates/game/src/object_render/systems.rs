@@ -12,6 +12,7 @@ use crate::coords::{facing_to_rotation, lerp_facing};
 use crate::kinds::object_label;
 use crate::shapes::vertex_color_material;
 use crate::sim_driver::{RenderAlpha, SimRes};
+use crate::tuning::ClientTuning;
 
 /// Spawns a visual for every object without one and despawns visuals whose object is gone, or is drawn otherwise
 /// now ([`MeshKey`]: its kind, owner, size or tint changed), which then get a new one, children included (tag, tick,
@@ -21,6 +22,7 @@ use crate::sim_driver::{RenderAlpha, SimRes};
 pub(super) fn sync_object_visuals(
     mut commands: Commands,
     sim: Res<SimRes>,
+    tuning: Res<ClientTuning>,
     mut visuals: ResMut<ObjectVisuals>,
     mut assets: ResMut<ObjectVisualAssets>,
     mut meshes: ResMut<Assets<Mesh>>,
@@ -29,6 +31,7 @@ pub(super) fn sync_object_visuals(
     if !sim.is_changed() {
         return;
     }
+    let look = &tuning.look;
     let ObjectVisuals {
         by_id,
         made,
@@ -71,7 +74,7 @@ pub(super) fn sync_object_visuals(
             .entry(key)
             .or_insert_with(|| meshes.add(visual_mesh(key)))
             .clone();
-        let height = body_height(sim.map(), object, object.pos);
+        let height = body_height(sim.map(), object, object.pos, look);
         let facing = if body_turns(drawn) { object.facing } else { 0.0 };
         let body = if key.underground() { &blended } else { &material };
         let entity = commands
@@ -115,7 +118,10 @@ pub(super) fn sync_object_visuals(
                 FlightShadow(object.id),
                 Mesh2d(shadow),
                 MeshMaterial2d(blended.clone()),
-                flight::shadow_transform(facing_to_rotation(facing), flight::object_lift(object, object.pos)),
+                flight::shadow_transform(
+                    facing_to_rotation(facing),
+                    flight::object_lift(object, object.pos, look),
+                ),
                 ChildOf(entity),
             ));
         }
@@ -195,6 +201,7 @@ pub(super) fn sync_object_visuals(
 pub(super) fn place_object_visuals(
     sim: Res<SimRes>,
     alpha: Res<RenderAlpha>,
+    tuning: Res<ClientTuning>,
     mut visuals: Query<(&ObjectVisual, &mut Transform), Without<FacingTick>>,
     mut ticks: Query<(&FacingTick, &mut Transform), Without<ObjectVisual>>,
 ) {
@@ -205,7 +212,7 @@ pub(super) fn place_object_visuals(
         let drawn = drawn_kind(object);
         let pos = object.prev_pos.lerp(object.pos, alpha.0);
         let facing = lerp_facing(object.prev_facing, object.facing, alpha.0);
-        let height = body_height(sim.map(), object, pos);
+        let height = body_height(sim.map(), object, pos, &tuning.look);
         let facing = if body_turns(drawn) { facing } else { 0.0 };
         transform.set_if_neq(object_transform(drawn, pos, height, facing));
     }

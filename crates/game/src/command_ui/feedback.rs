@@ -44,9 +44,10 @@
 //!
 //! The message ([`INVALID_TARGET_TEXT`], [`NO_CRYSTALS_TEXT`], an [`army_cap_text`], a [`placement_text`], an
 //! [`unavailable_text`], [`TARGET_TOO_CLOSE_TEXT`] or [`BUILDING_FULL_TEXT`]) shows over the world view, centred just
-//! above the HUD Bar, on a dark band, for [`FEEDBACK_TICKS`] after the latest cause; a new one replaces it. It ages by
-//! the sim's ticks, so a QA screenshot of a tick always shows it alike. It never takes the pointer: clicks pass
-//! through it to the map.
+//! above the HUD Bar, on a dark band, for `FeedbackTuning::feedback_ticks` after the latest cause; a new one replaces
+//! it. (M5-X2) A data directory's refusal (`DataRefused`, `crate::data`) shows there too, for
+//! `FeedbackTuning::refusal_ticks`, long enough to read its file and member. It ages by the sim's ticks, so a QA
+//! screenshot of a tick always shows it alike. It never takes the pointer: clicks pass through it to the map.
 
 use std::sync::LazyLock;
 
@@ -57,14 +58,13 @@ use sc_sim::{
     WholeProblem,
 };
 
-use super::{CommandRefused, InvalidPlacement, InvalidTarget, WhyUnavailable};
+use super::{CommandRefused, DataRefused, InvalidPlacement, InvalidTarget, WhyUnavailable};
 use crate::fog::LocalSight;
 use crate::hud::HUD_BAR_HEIGHT_VH;
 use crate::sim_driver::SimRes;
+use crate::tuning::ClientTuning;
 use crate::viewer_events::ViewerEvents;
 use crate::{ClientMode, ClientSystems};
-
-pub use crate::tuning::feedback::FEEDBACK_TICKS;
 
 /// The message of an invalid target. Placeholder wording, the design's.
 pub const INVALID_TARGET_TEXT: &str = "Invalid target";
@@ -187,6 +187,8 @@ pub struct TargetFeedback {
     pub text: &'static str,
     /// The `SimRes::generation` it belongs to: a replaced sim shows none.
     generation: Option<u32>,
+    /// (M5-X2) How many ticks it shows: a refusal of the data files' longer than the rest.
+    lasts: u32,
 }
 
 impl Default for TargetFeedback {
@@ -195,6 +197,7 @@ impl Default for TargetFeedback {
             since: None,
             text: INVALID_TARGET_TEXT,
             generation: None,
+            lasts: 0,
         }
     }
 }
@@ -401,15 +404,18 @@ pub fn deploy_failed_text(problems: &PlacementCheck) -> &'static str {
 
 /// Takes the frame's invalid clicks (on a target, or a placement), its greyed-out buttons pressed, the refusals and
 /// the waits of the producers, constructors and units that the local player perceives (their own:
-/// `crate::viewer_events`), and shows the latest one's message for [`FEEDBACK_TICKS`].
+/// `crate::viewer_events`), and (M5-X2) the data files' refusals, and shows the latest one's message for
+/// `FeedbackTuning::feedback_ticks` (a data file's for `FeedbackTuning::refusal_ticks`).
 #[expect(clippy::too_many_arguments, reason = "a system's parameters")]
 fn show_feedback(
     mode: Res<ClientMode>,
     sim: Res<SimRes>,
     sight: LocalSight,
+    tuning: Res<ClientTuning>,
     mut invalid: MessageReader<InvalidTarget>,
     mut unplaceable: MessageReader<InvalidPlacement>,
     mut unavailable: MessageReader<CommandRefused>,
+    mut data: MessageReader<DataRefused>,
     events: Res<ViewerEvents>,
     mut feedback: ResMut<TargetFeedback>,
     mut views: Query<&mut Visibility, With<TargetFeedbackView>>,
@@ -433,24 +439,29 @@ fn show_feedback(
         SimEvent::EnterFailed { full: true, .. } => Some((tick, BUILDING_FULL_TEXT)),
         _ => None,
     });
-    let latest = clicks
-        .chain(placements)
-        .chain(presses)
-        .chain(refusals)
-        .max_by_key(|&(tick, _)| tick);
+    let lasts = tuning.feedback.feedback_ticks;
+    let files = (data.read()).map(|refused| (refused.tick, refused.text, tuning.feedback.refusal_ticks));
+    let latest = (clicks.chain(placements).chain(presses).chain(refusals))
+        .map(|(tick, text)| (tick, text, lasts))
+        .chain(files)
+        .max_by_key(|&(tick, _, _)| tick);
     let generation = Some(sim.generation());
     let earlier = feedback
         .since
         .filter(|_| feedback.generation == generation)
-        .map(|since| (since, feedback.text));
+        .map(|since| (since, feedback.text, feedback.lasts));
     let shown = latest
         .or(earlier)
-        .filter(|&(tick, _)| sim.tick().saturating_sub(tick) < FEEDBACK_TICKS);
-    let (since, text) = shown.map_or((None, feedback.text), |(tick, text)| (Some(tick), text));
-    if feedback.since != since || feedback.text != text || feedback.generation != generation {
+        .filter(|&(tick, _, lasts)| sim.tick().saturating_sub(tick) < lasts);
+    let (since, text, lasts) = shown.map_or((None, feedback.text, feedback.lasts), |(tick, text, lasts)| {
+        (Some(tick), text, lasts)
+    });
+    if feedback.since != since || feedback.text != text || feedback.generation != generation || feedback.lasts != lasts
+    {
         feedback.since = since;
         feedback.text = text;
         feedback.generation = generation;
+        feedback.lasts = lasts;
     }
     for mut shown_text in &mut texts {
         if shown_text.0 != text {

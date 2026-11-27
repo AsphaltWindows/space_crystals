@@ -37,12 +37,11 @@ use super::resolution::{
 use crate::hud::minimap::MinimapPointer;
 use crate::input::{ActionState, Bindings, InputAction, MapClick, Modifiers};
 use crate::selection::LocalControl;
+use crate::tuning::ClientTuning;
 
 use outbox::OrderOutbox;
 pub(super) use panel::{cancel_on_escape, press_command_slots, validate_interface};
 pub(super) use placing::{end_queued_placement, place_on_click, report_placing, turn_ghost};
-
-pub use crate::tuning::input::TARGETING_CLICK_ALLOWANCE_PX;
 
 /// `systems/controls/interface.md > AwaitingTarget > Dragging while targeting` (design change 0068): "A
 /// targeting click counts at the press point". The target found under a press of the Select action that went down on
@@ -96,9 +95,10 @@ struct PressedTarget {
 
 impl PressedTarget {
     /// Whether `released`, the press that ended this frame, is this one, and a click: it moved no further than
-    /// [`TARGETING_CLICK_ALLOWANCE_PX`]. A drag beyond it does nothing (design changes 0067 and 0073).
-    fn clicked(&self, released: Released) -> bool {
-        released.on == self.on && released.screen == self.screen && released.moved <= TARGETING_CLICK_ALLOWANCE_PX
+    /// `allowance` (`InputTuning::targeting_click_allowance_px`). A drag beyond it does nothing (design changes 0067
+    /// and 0073).
+    fn clicked(&self, released: Released, allowance: f32) -> bool {
+        released.on == self.on && released.screen == self.screen && released.moved <= allowance
     }
 }
 
@@ -131,7 +131,7 @@ pub(super) fn end_queued_targeting(actions: Res<ActionState>, pressed: Res<Targe
 /// - **The press point** (design change 0068): the target is what was under the cursor when the button went down,
 ///   as that frame drew it ([`TargetPress`]), even if the cursor drifted or the target moved before the release.
 /// - **The click allowance** (design change 0073): the press is a click if it moved no further than
-///   [`TARGETING_CLICK_ALLOWANCE_PX`] before its release (`Pointer::released`), more than the normal drag
+///   `InputTuning::targeting_click_allowance_px` before its release (`Pointer::released`), more than the normal drag
 ///   threshold. A press that moved further is a drag and does nothing (design change 0067), and so does a press
 ///   that went down before the target was awaited.
 /// - **An invalid target** (design change 0065): a click that gives nothing, on a target the command can't use
@@ -158,6 +158,7 @@ pub(super) fn end_queued_targeting(actions: Res<ActionState>, pressed: Res<Targe
 ///   (`crate::hud::minimap::MinimapPress::targets`).
 pub(super) fn click_targets(
     actions: Res<ActionState>,
+    tuning: Res<ClientTuning>,
     mut minimap: ResMut<MinimapPointer>,
     mut pressed: ResMut<TargetPress>,
     mut control: LocalControl,
@@ -197,7 +198,7 @@ pub(super) fn click_targets(
         && let Some(click) = pressed
             .0
             .take()
-            .filter(|p| awaited == Some(p.pending) && p.clicked(released))
+            .filter(|p| awaited == Some(p.pending) && p.clicked(released, tuning.input.targeting_click_allowance_px))
     {
         let pending = click.pending;
         if !give_targeted(&control, &mut outbox, click) {

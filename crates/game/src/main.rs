@@ -20,6 +20,18 @@ fn main() -> ExitCode {
         println!("{}", cli::usage());
         return ExitCode::SUCCESS;
     }
+    if let Some(dir) = &options.export_data {
+        return match cli::export_data(dir) {
+            Ok(said) => {
+                println!("{said}");
+                ExitCode::SUCCESS
+            }
+            Err(error) => {
+                eprintln!("error: --export-data: {error}");
+                ExitCode::FAILURE
+            }
+        };
+    }
     let config = match cli::into_config(options) {
         Ok(config) => config,
         Err(error) => {

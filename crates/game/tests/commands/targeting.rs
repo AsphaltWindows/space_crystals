@@ -7,7 +7,7 @@
 
 use bevy::prelude::*;
 use sc_sim::{Command, ObjectId, OrderKind, Target};
-use space_crystals::command_ui::feedback::{FEEDBACK_TICKS, INVALID_TARGET_TEXT, TargetFeedback, TargetFeedbackView};
+use space_crystals::command_ui::feedback::{INVALID_TARGET_TEXT, TargetFeedback, TargetFeedbackView};
 use space_crystals::command_ui::{ButtonLook, InterfaceState, PanelCommand};
 use space_crystals::hud::command_panel::CommandButton;
 use space_crystals::selection::Relation;
@@ -167,7 +167,7 @@ fn attack_targeting_takes_own_and_neutral_destructible_objects() {
 
 /// Design change 0065: Patrol, then a click on an enemy unit, which Patrol can't use (the pointer shows Inactive):
 /// the click is ignored and Patrol still awaits its target, with short feedback, the "invalid target" message, for
-/// `FEEDBACK_TICKS`. A click on the ground then gives the patrol.
+/// `FeedbackTuning::feedback_ticks`. A click on the ground then gives the patrol.
 #[test]
 fn an_invalid_target_click_is_ignored_with_feedback() {
     let mut app = game();
@@ -189,7 +189,10 @@ fn an_invalid_target_click_is_ignored_with_feedback() {
     assert_eq!(given_orders.len(), 1);
     assert!(matches!(given_orders[0].kind, OrderKind::Patrol(p) if near(p, ground)));
     assert!(feedback_shown(&mut app), "still showing");
-    updates(&mut app, FEEDBACK_TICKS as usize);
+    updates(
+        &mut app,
+        space_crystals::tuning::feedback::BUILTIN.feedback_ticks as usize,
+    );
     assert!(!feedback_shown(&mut app), "faded");
 }
 
@@ -239,10 +242,10 @@ fn a_drag_while_targeting_does_nothing() {
     assert_eq!(selected(&app), [1, 2, 3, 4]);
 }
 
-/// Design change 0068: a targeting click counts at the press point. The button goes down on the enemy, at its
-/// edge, and comes up 3 pixels further, over the ground (a click, not a drag: `TARGETING_CLICK_ALLOWANCE_PX`):
-/// Attack on the enemy, not AttackMove. And the button goes down on a walking enemy and comes up once it has walked away from
-/// under the cursor: Attack on it, as the press found it.
+/// Design change 0068: a targeting click counts at the press point. The button goes down on the enemy, at its edge, and
+/// comes up 3 pixels further, over the ground (a click, not a drag: `InputTuning::targeting_click_allowance_px`):
+/// Attack on the enemy, not AttackMove. And the button goes down on a walking enemy and comes up once it has walked
+/// away from under the cursor: Attack on it, as the press found it.
 #[test]
 fn a_targeting_click_counts_at_the_press_point() {
     let mut app = game();

@@ -3412,7 +3412,9 @@ their energy doorway, slice M3-D2: design change 0145, `factions/colonists/struc
 - **Test programs** (slice M5-T): each crate's integration tests are modules of a few test programs, the `[[test]]`
   targets of its `Cargo.toml` (with `autotests = false`), so that an edit links one program rather than one for each
   file: the sim's `sim` (`tests/sim.rs`) and `perf` (`tests/perf.rs`, the `*_perf` timings, so that their release
-  build compiles nothing else), the client's `game` (`tests/game.rs`). A new test file `tests/foo.rs` is a line
+  build compiles nothing else), the client's `game` (`tests/game.rs`); and the games on other rules than the built-in
+  ones, in a process of their own, the sim's `rules` (`tests/rules.rs`, slice M5-X1b) and the client's `tuning`
+  (`tests/tuning.rs`, slice M5-X2: *Tunables*). A new test file `tests/foo.rs` is a line
   `mod foo;` in its program's root, a folder `tests/foo/` (its root `main.rs`) is `#[path = "foo/main.rs"] mod foo;`,
   in name order; `crates/sim/tests/test_programs.rs` fails for any test file of either crate that no program
   includes, naming it and that line. One file's tests run by its module: `cargo test -p sc_sim --test sim holding::`
@@ -3924,14 +3926,14 @@ these.
   structure, under the units that cross it.
 - **Air units fly** (`object_render/flight.rs`; slice M5-H1, plan decision T81: "air units are drawn raised, with a
   ground shadow, at their true position, even past the edge"; placeholders until Q0001): an air unit's body is in the
-  air layer, drawn `FLIGHT_LIFT_LEVELS` (3, 48 su) above the ground under it, and its `FlightShadow` child, a dark
+  air layer, drawn `look.flight_lift_levels` (3, 48 su) above the ground under it, and its `FlightShadow` child, a dark
   ellipse, lies on that ground in the unit decals' band, its transform undoing the body's turn. Both are at the sim's
   `pos`, past the map's edge too, where the sim counts the unit as at the edge (`Object::map_pos`). **Whatever is drawn
   on a unit asks `object_render::body_height`**, the ground's height plus the flight's: its picking box and selection
   ring (`Selectable::of`, so a click picks the raised body, in front of a ground unit there, and not the shadow), its
   HP bar, an order's marker on it (`indicators::targets::object_box`) and its shots' ends (`Tracer::lift`). (M5-N11)
   **On its takeoff run** (`Mover::takeoff`, a Sparrow out of the Airstrip; design change 0428: "it appears on the
-  runway's B end and rolls into the air toward C") its lift is `object_lift`'s: none until `LIFT_OFF_SU` (128 su, a
+  runway's B end and rolls into the air toward C") its lift is `object_lift`'s: none until `look.lift_off_su` (128 su, a
   placeholder) before the run's end, then rising evenly to the whole flight at the end, the shadow following
   (`place_shadows`); its shots' ends and a burst on it stay at the flight's height (`flight_lift`, a placeholder).
 - **Terrain** (`map_render.rs`): one mesh. A flat tile is a quad, a sloped one four triangles around its center (at
@@ -4014,13 +4016,13 @@ these.
   layer, and a frame around each unit in the colour of its move's status (`status_color`: green moving, amber held
   up, red failed, blue arrived; placeholder colours). Its one mesh is rebuilt every frame while it is shown.
 - **Combat effects** (`combat_effects.rs`, its mesh in `combat_effects/draw.rs`; placeholders until Q0001): a tracer for
-  each `SimEvent::Attacked` and each `SimEvent::Missed` (`TRACER_TICKS`; a TailDisjointed shot's, the Gunner's, to the
-  spot it locked, hit or miss, `Tracer::target` none for a miss: slice M5-O3), drawn only along the parts of its path over the local player's Visible
-  tiles (`shot_spans`, through `visible_spans`, which cuts it at every tile edge it crosses; design change 0177: a shot
-  from the fog shows from the fog edge, one all in the fog not at all; its attacker is revealed by the sim), **with no
-  exception** (design change 0293, answering Q0083 point 4: every shot, tracer or projectile, whoever fires it and at
-  whatever, a revealed attacker's at the player's own objects too; it replaced design changes 0206 and 0244, Q0056 and
-  Q0075, which drew those whole, from the attacker to the target); a
+  each `SimEvent::Attacked` and each `SimEvent::Missed` (`feedback.tracer_ticks`; a TailDisjointed shot's, the Gunner's,
+  to the spot it locked, hit or miss, `Tracer::target` none for a miss: slice M5-O3), drawn only along the parts of its
+  path over the local player's Visible tiles (`shot_spans`, through `visible_spans`, which cuts it at every tile edge it
+  crosses; design change 0177: a shot from the fog shows from the fog edge, one all in the fog not at all; its attacker
+  is revealed by the sim), **with no exception** (design change 0293, answering Q0083 point 4: every shot, tracer or
+  projectile, whoever fires it and at whatever, a revealed attacker's at the player's own objects too; it replaced
+  design changes 0206 and 0244, Q0056 and Q0075, which drew those whole, from the attacker to the target); a
   tracer's look is its weapon's (`ShotStyle::of` on the form that fired, its kind's `ClientKind::shot`; design change
   0207: the Syndicate's lasers, the Guard's and the Laser Turret's, red), HP bars over damaged and selected objects (a
   unit's clear of its silhouette's corners, a structure's along the top edge of its footprint and as wide as it), with a
@@ -4032,10 +4034,10 @@ these.
   place, whether the bar shows or not, green for Health regeneration and violet for Energy regeneration, in
   `AreaAbility::ALL`'s order (`combat_effects/buffs.rs`, `buff_marks`; who sees a buff and its look are
   Placeholders, Q0001; (M5-N11) Inspire's a gold chevron, Suppress's a red X), (slice M5-N11) where a cast round its
-  caster or ahead of it was seen, for `CAST_TICKS` (16), Inspire's gold ring of its radius over a faint disc and
-  Suppress's red wedge along `SimEvent::Cast::facing`, fading (`combat_effects/casts.rs`, `CastFlash`; a placeholder
+  caster or ahead of it was seen, for `feedback.cast_ticks` (16), Inspire's gold ring of its radius over a faint disc
+  and Suppress's red wedge along `SimEvent::Cast::facing`, fading (`combat_effects/casts.rs`, `CastFlash`; a placeholder
   look; under the blasts, as each shows only while its point's tile is Visible), and a fading marker for each
-  `SimEvent::Died` and (slice M5-V4) `SimEvent::Crushed` (`DEATH_MARKER_TICKS`; a crush has no look of its own:
+  `SimEvent::Died` and (slice M5-V4) `SimEvent::Crushed` (`feedback.death_marker_ticks`; a crush has no look of its own:
   Placeholder (not in the design: no look of its own)), never for an object that was hidden from the local player
   (`shows_death`, the `Hiding` its death carries; plan decision T52: "nothing is drawn for a hidden victim", as a
   Hideout under a blast; no hit is drawn for any victim). Each effect keeps its event's `Sighting` (*Viewer events*):
@@ -4052,10 +4054,10 @@ these.
   (`combat_effects/locks.rs`, `lock_marks`; who sees it and its look are Placeholders, Q0001): an amber arc that fills
   clockwise over LockOnDuration outside the order's marker, four ticks closing in and a faint aiming line, a red ring
   once locked; and the
-  blasts (`combat_effects/blasts.rs`, from `SimEvent::Blast`, `BLAST_TICKS`): a ring the size of the area, shown
-  while the tile under its centre is Visible (`shows_blast`), (slice M5-S8) a missile's burst the same at its radius
-  of 32 su, its ring in its shooter's colour (`blasts::ring_color`, by `Blast::weapon` and `Blast::owner`, from the
-  landed flight or `SimEvent::Blast::attacker`) and in the air over an aircraft it was fired at (`Blast::lift`), and
+  blasts (`combat_effects/blasts.rs`, from `SimEvent::Blast`, `feedback.blast_ticks`): a ring the size of the area,
+  shown while the tile under its centre is Visible (`shows_blast`), (slice M5-S8) a missile's burst the same at its
+  radius of 32 su, its ring in its shooter's colour (`blasts::ring_color`, by `Blast::weapon` and `Blast::owner`, from
+  the landed flight or `SimEvent::Blast::attacker`) and in the air over an aircraft it was fired at (`Blast::lift`), and
   (slice M5-K) a single-target one's, of radius 0, a small puff at the height it struck (none of the game's types
   fires one now). One alpha-blended mesh in the overlays layer, rebuilt every
   frame while
@@ -4063,7 +4065,7 @@ these.
 - **Shroud's clouds** (`shroud_view.rs`, slice M5-N4b; `factions/cults/units/disciple.md > Spells > Shroud`: "the
   cloud is shown to **every player**, over the tiles that are Visible to them, so its edge can be seen even when the
   Disciple can't"): a pale haze over each cloud's circles, one haze where they overlap, and a release's flash
-  (`SimEvent::ShroudReleased`) over the circles it went over for `RELEASE_TICKS`, fading; both only over the local
+  (`SimEvent::ShroudReleased`) over the circles it went over for `look.release_ticks`, fading; both only over the local
   player's Visible tiles (`shroud_view::texels`), so an enemy who sees a cloud's edge sees that edge. One mesh over the
   box of tiles the clouds and the flashes cover (`shroud_view::Area`), on the terrain's surface as the fog layer's
   is, under the air units and over the ground units (Shroud protects the ground), and one texture of
@@ -4154,7 +4156,7 @@ it (`CursorOptions::grab_mode`, `CursorGrabMode::Confined`), in a window and in 
 follows the window's `WindowFocused` messages, frees it on a focus loss and confines it again on the focus's return; a
 grab the platform refuses (bevy_winit puts the old mode back) is tried again for `CONFINE_TRIES` frames, and macOS,
 which has no confinement, leaves it free. A QA run (`RawInput` off) never confines it. The screen edge pans within
-`EDGE_PAN_MARGIN_PX` (8, the design's placeholder) of the window's edge. Tests: `tests/client/window.rs`.
+`camera.edge_pan_margin_px` (8, the design's placeholder) of the window's edge. Tests: `tests/client/window.rs`.
 
 **HUD**: built with bevy_ui (`core/camera.md > HUD Layout`). It has a top resource bar and, at the bottom, the HUD
 Bar with five fixed sections. From left to right they are Minimap, Portrait, InfoPanel, SelectionPanel and
@@ -4230,12 +4232,12 @@ no smallest size): at 16:9 and 16:10 every faction's bar fits its notes; at 4:3 
 later in a game) clips their ends. Headless tests have no UI layout to measure, so QA screenshots check it. Tests:
 `tests/hud.rs` (F3 and `--no-fog`), `tests/replay.rs` (a playback), `tests/editor/session.rs` (a play-test's note,
 in the bar's row). Under the top bar, a placeholder
-notice (`hud/notices.rs`, `STATION_EMPTY_TEXT` for `NOTICE_TICKS` sim ticks) tells the local player that a Supply
-Delivery Station where their Agents gather is empty (`SimEvent::SupplyStationEmpty`, design change 0256 point 3: "the
-owner gets a notification", notifications not designed yet). A second, under it, tells every player who hasn't left
+notice (`hud/notices.rs`, `STATION_EMPTY_TEXT` for `feedback.notice_ticks` sim ticks) tells the local player that a
+Supply Delivery Station where their Agents gather is empty (`SimEvent::SupplyStationEmpty`, design change 0256 point 3:
+"the owner gets a notification", notifications not designed yet). A second, under it, tells every player who hasn't left
 the game (below) of each other player defeated while it goes on, a line each (`DefeatNotice`, `defeat_text`, for
-`NOTICE_TICKS` from the defeat; `core/game_rules.md > On Defeat`: "**all players** are told", design change 0357); the
-defeat that ends the game the banner tells. At the end of the game a banner across the world view
+`feedback.notice_ticks` from the defeat; `core/game_rules.md > On Defeat`: "**all players** are told", design change
+0357); the defeat that ends the game the banner tells. At the end of the game a banner across the world view
 (`hud/outcome.rs`, placeholder look and wording) shows the local player's `Banner`: VICTORY for the winners, DEFEAT for
 everyone else, DRAW for everyone when nobody won (design change 0163), and DEFEATED with a spectating line while a
 defeated player watches the game go on beside an ally (0102; never yet: the sim has no teams). A player defeated while
@@ -4283,14 +4285,14 @@ change 0443): `take_alerts` runs in `Present` after `apply_camera`, as the outli
 `ViewerEvents` as the local player perceives them: a `SimEvent::Hit` with damage or shield damage on an object of
 theirs (wherever it came from: placeholders) whose position (the object's now, or its `Died`'s in the same frame)
 lies outside `viewed_ground`, the outline's rectangle, is an alert there. `MinimapAlerts` keeps the pings of the last
-`PING_THROTTLE_TICKS` (160) and each player's latest, by the sim's generation; `MinimapAlerts::alert` throttles one
-within `PING_AREA_GU` (8) of a ping of the player's still in its 10 s, faded or not (`tuning/feedback.rs`). Each
-ping is the local player's of the moment and shows to them alone, so after F2, in a game or a playback, the other
+`feedback.ping_throttle_ticks` (160) and each player's latest, by the sim's generation; `MinimapAlerts::alert` throttles
+one within `feedback.ping_area_gu` (8) of a ping of the player's still in its 10 s, faded or not (`tuning/feedback.rs`).
+Each ping is the local player's of the moment and shows to them alone, so after F2, in a game or a playback, the other
 player's hits ping, and F2 back shows the first player's again.
 `place_pings` shows each ping of the local player as a round bordered node (`PingRing`, a pool kept hidden when
 unused) in `PingLayer`, a child of the image node clipped to it, sized and faded by `ring_at` of its age as drawn
-(`combat_effects::age`, so a held tick shows it exactly) until `PING_TICKS` (32). `InputAction::JumpToAlert` (Space,
-the design's key; the Game context) centres the camera on the latest ping's `drawn_position` in `Actions`
+(`combat_effects::age`, so a held tick shows it exactly) until `feedback.ping_ticks` (32). `InputAction::JumpToAlert`
+(Space, the design's key; the Game context) centres the camera on the latest ping's `drawn_position` in `Actions`
 (`jump_to_alert`, after the frame's pans), nothing before the first or once the player has left the game. Measured
 (`hud/minimap/alerts/tests.rs`, `alerts_perf`, ignored, release; load average 16): 200 hits on the player's objects
 every tick, all over a 128 × 128 map, through the throttle and the rings, 0.017 ms a frame (worst 0.022), with up to
@@ -4333,8 +4335,8 @@ elsewhere.
   held across a context change ends its action. The editor's actions are `InputAction::Editor(EditorInput)`.
 - **Bindings table** (`input::Bindings`, a `Resource`): the one list of `(InputAction, Binding)` entries for every
   game and editor action. A `Binding` is `Press(Chord)`, a key or mouse button with the modifiers it needs (Q,
-  Ctrl + 1, Shift + Tab); `DoubleTap(Chord)`, the same chord pressed twice within `DOUBLE_TAP_SECONDS` with no other
-  bound button in between; `Modifiers(..)`, held while those modifiers are, for the modifier actions (`Queue`,
+  Ctrl + 1, Shift + Tab); `DoubleTap(Chord)`, the same chord pressed twice within `input.double_tap_seconds` with no
+  other bound button in between; `Modifiers(..)`, held while those modifiers are, for the modifier actions (`Queue`,
   `ToggleSelection`, `SelectSameType`); or `Wheel(..)`, the mouse wheel while those modifiers are held (the editor's
   zoom; `ActionState::scrolled` says how far it turned, in lines). A press fires the action of its most specific
   binding in the context: of the bindings whose modifiers are all held, the one needing the most modifiers, then a
@@ -4363,6 +4365,8 @@ elsewhere.
   Slice M5-S7 adds F11 and Alt + Enter, in both contexts, for `ToggleFullscreen` (*Window*), and F10 in the game's
   for `PlaytestMenu` (design changes 0413 and 0414; placeholder keys). Slice M5-MM2 adds Space in the game's for
   `JumpToAlert` (design change 0443, the design's key), which `ReplayPause` had until then: the pause moved to K.
+  Slice M5-X2 adds F8 in the game's for `DebugRestartWithData` (a placeholder, like the other debug keys): with
+  `--tuning`, the game restarts with its data directory read again (*Tunables*).
 - **Modal** (`input::Modal`, slice M5-S7): while a menu holds the input (the playtest menu), the frame's presses go to
   `ActionState::modal_pressed` for the menu, and the rest of the client sees only the actions that pass a menu
   (`InputAction::passes_modal`: the window's toggle, F10, and the debug player switch and fog toggle, so hot-seat
@@ -4376,8 +4380,8 @@ elsewhere.
   the world view: the one over-UI test of the game and the editor), the press in progress and the drag box. A press of
   `Select` or the editor's `UseTool` that goes down on the map is followed until its release (`Pointer::press`, a
   `MapPress`: where it went down, the farthest the pointer has been from there (`moved`), whether that is further
-  than `DRAG_THRESHOLD_PX`, and the ground point under the cursor now, which keeps following it over UI nodes on the
-  world view, as the editor's drags do). In the frame its button goes up, the press is `Pointer::released`, for a
+  than `input.drag_threshold_px`, and the ground point under the cursor now, which keeps following it over UI nodes on
+  the world view, as the editor's drags do). In the frame its button goes up, the press is `Pointer::released`, for a
   rule of its own about clicks and drags (the command flow's targeting click allowance). `MapClick`
   messages report clicks on the map: `Select` when released, unless it became a drag, and `ContextCommand` and the
   editor's `Eyedropper` when pressed, with the modifiers and a double-click flag. A `Select` drag ends as a
@@ -4389,9 +4393,9 @@ elsewhere.
   cancel. A field's own keys (Enter commits, Esc reverts) are Bevy's keyboard input, read by the field
   (`editor/ui/fields.rs`), not bindings.
 - Double taps and double-clicks are timed on `Time<Real>`. Placeholders until the design gives values, in
-  `tuning/input.rs` and `tuning/camera.rs` (*Tunables*): `DRAG_THRESHOLD_PX`, `DOUBLE_TAP_SECONDS`,
-  `DOUBLE_CLICK_SECONDS`, `DOUBLE_CLICK_DISTANCE_PX`, `EDGE_PAN_MARGIN_PX`, `PIXELS_PER_LINE` (wheels that report
-  pixels).
+  `tuning/input.rs` and `tuning/camera.rs` (*Tunables*): `input.drag_threshold_px`, `input.double_tap_seconds`,
+  `input.double_click_seconds`, `input.double_click_distance_px`, `camera.edge_pan_margin_px`, `input.pixels_per_line`
+  (wheels that report pixels).
 - **Injection**: tests and QA scripts drive the layer through `InjectedInput`, a virtual keyboard and mouse, without
   winit. Press and release its `keys` and `mouse` (`ButtonInput`s) like Bevy's; the layer clears their press marks
   after reading them. `wheel` turns the wheel by that many lines before the next frame, `cursor` stands in for the
@@ -4423,7 +4427,7 @@ ObjectInterfaceState (see Commands UI); the input changes and the HUD shows the 
   its own objects, others on Visible tiles; on Explored ones only a remembered Supply Delivery Station, at its
   record, and only for a GDO player, `remembered_selectable_by`, `core/vision.md > Explored Selectability`; with
   the fog off, everything), each object's box as it is drawn: interpolated, lifted by the height it stands at, in
-  view space. A click picks the frontmost box under it (grown by `PICK_SLOP_SU`): a unit before a tile-based
+  view space. A click picks the frontmost box under it (grown by `input.pick_slop_su`): a unit before a tile-based
   object, which it is drawn above (see Draw order), then the southernmost, and of boxes drawn at one depth anything
   before a map resource, so a click on a covered patch's tile picks its plate (design change 0099); a box
   (the input layer's `SelectionBox`) applies the priority tiers. `Relation::of` says own, enemy or neutral (no teams
@@ -4572,15 +4576,15 @@ Drones, through one command flow (plan decision T10, slices M2-H1, M2-H2 and M3-
   changes 0065 to 0070 and 0073): the other commands do nothing (`press`; the panel shows them disabled); a click counts
   at the press point, as the frame of the press drew the objects (`TargetPress`, recorded when the Select button goes
   down on the map, used when it comes up, `Pointer::released`); the press is a click while the pointer stayed within
-  `TARGETING_CLICK_ALLOWANCE_PX` of where it went down (16, a placeholder: more than the normal `DRAG_THRESHOLD_PX`,
-  which holds everywhere else), and beyond it a drag, which does nothing (the selection's input ignores it, no box is
-  drawn, the target is still awaited); a click that gives nothing (an invalid target, or an order the sim rejects)
-  keeps targeting and sends an `InvalidTarget` message, Shift held or not. A click without Shift returns to
-  DefaultState. A Shift-click (`Queue` held as the button went down, where the click counts) queues its order, one
-  more in each unit's queue, and keeps the target awaited, marked `queued`; letting go of Shift then ends targeting
-  (`end_queued_targeting`, first in `Input`, after a targeting press still held has had its click), while before
-  the first queued click it changes nothing (0070's TBD, its proposed default). Esc, a right-click and Back cancel,
-  Shift held or not. The player's changes of the selection or the ActiveGroup cancel targeting
+  `input.targeting_click_allowance_px` of where it went down (16, a placeholder: more than the normal
+  `input.drag_threshold_px`, which holds everywhere else), and beyond it a drag, which does nothing (the selection's
+  input ignores it, no box is drawn, the target is still awaited); a click that gives nothing (an invalid target, or an
+  order the sim rejects) keeps targeting and sends an `InvalidTarget` message, Shift held or not. A click without Shift
+  returns to DefaultState. A Shift-click (`Queue` held as the button went down, where the click counts) queues its
+  order, one more in each unit's queue, and keeps the target awaited, marked `queued`; letting go of Shift then ends
+  targeting (`end_queued_targeting`, first in `Input`, after a targeting press still held has had its click), while
+  before the first queued click it changes nothing (0070's TBD, its proposed default). Esc, a right-click and Back
+  cancel, Shift held or not. The player's changes of the selection or the ActiveGroup cancel targeting
   (`LocalControl::update`), and so does every control group recall, of the same selection too (0078); removals by
   the game (deaths) don't, unless the whole ActiveGroup is gone (`ControlState::retain`).
 - **Construction** (slice M2-H2; `factions/gdo/structures/deployment_center.md >
@@ -4911,8 +4915,8 @@ Drones, through one command flow (plan decision T10, slices M2-H1, M2-H2 and M3-
   (`command_ui/indicators.rs`, the mesh in `indicators/draw.rs`) are
   one mesh in the overlays layer, rebuilt every frame while anything shows: markers at the targets of the selected
   own units' current orders (and queued ones while Shift is held), a flash where an order was just given
-  (`FLASH_TICKS`), and while Shift is held each unit's route through its waypoints as dashed lines; colours follow
-  `systems/controls/hud.md > Color language` (an Attack Ground's marker, slice M4-O, is a Location in
+  (`feedback.flash_ticks`), and while Shift is held each unit's route through its waypoints as dashed lines; colours
+  follow `systems/controls/hud.md > Color language` (an Attack Ground's marker, slice M4-O, is a Location in
   red, `systems/controls/hud.md > Indicator assignments`, and its route leg ends at its point; the D
   slot's AwaitingTarget gives the order on the ground only, `command_ui/resolution.rs`). **A marker or a route leg that names an object goes by what
   the local player knows of it, never by the live object** (`indicators/targets.rs`, `Sight::target_view`: the sim's
@@ -4936,8 +4940,8 @@ Drones, through one command flow (plan decision T10, slices M2-H1, M2-H2 and M3-
   `CursorIcon`, and drawn as a UI node at the injected cursor in QA runs, which render no system cursor; Mixed is
   striped in the Attack red and the Move green (`MIXED_COLORS`, `MIXED_STRIPE_PX`), GatherResources is the crystals'
   cyan (`GATHER_COLOR`) and ReturnResources gold (`RETURN_COLOR`), the Gather and Return Resources markers' colours. The invalid-target feedback
-  (`command_ui/feedback.rs`) is the message `INVALID_TARGET_TEXT` above the HUD Bar for `FEEDBACK_TICKS` sim ticks
-  after the latest `InvalidTarget` (`TargetFeedback`), never in the pointer's way (`Pickable::IGNORE`). The same
+  (`command_ui/feedback.rs`) is the message `INVALID_TARGET_TEXT` above the HUD Bar for `feedback.feedback_ticks` sim
+  ticks after the latest `InvalidTarget` (`TargetFeedback`), never in the pointer's way (`Pickable::IGNORE`). The same
   band gives the insufficient-resources feedback (0083): `NO_CRYSTALS_TEXT` after the sim's `ProductionRefused` for
   a local player's producer that a Train didn't reach for want of crystals (a full queue gives none); the
   placeholder of design change 0143's notification, the army cap's name (`army_cap_text`: `UNIT_CONTROL_TEXT`,
@@ -5110,6 +5114,8 @@ Pass the flags with `cargo run -- <flags>`; `cargo run -- --help` lists them. Th
 | `--record <file.json>` | Records the game to that file. A game is recorded to `replays/` anyway; a QA run only with this flag. Not with `--editor` or `--replay`. |
 | `--no-record` | Doesn't record the game. |
 | `--ai <n>[:<profile>],...` | Computer players play players `n`, … (slice A1, see *Computer players*), each with a profile, `standard` (the default), `rush` (slice A2d) or `passive`: `--ai 2`, `--ai 2:rush`, `--ai 1,2:passive`. Their factions must have one (`sc_ai::factions::with_ai`). Not with `--editor` or `--replay` (a replay records their commands). The client gives a computer's player no command; F2 still switches to it. |
+| `--tuning <dir>` | Plays with the data files of `<dir>` (slice M5-X2, *Tunables*, `docs/tuning.md`): read before the first tick, its rules in the first tick's inputs (`DebugCommand::SetRules`), then polled every 0.5 s of real time. A QA run reads the directory as it starts, so the run is reproducible; a file changed during the run applies at a tick that the wall clock decides. Needs debug commands; not with `--editor` or `--replay` (a replay records the rules in its commands). |
+| `--export-data <dir>` | Writes the built-in data as files into `<dir>`, creating its folders, and exits: the starting point of a `--tuning` directory. |
 
 Taking a screenshot (no window appears; about one second plus `tick / 16` seconds, or add `--fast`):
 
@@ -5845,10 +5851,29 @@ belongs to one object goes in its def instead (*Adding a unit or structure*).
 - **The client's feel** (`crates/game/src/tuning/`, slice M4-R2): `camera.rs` (the view's width, the pan speed, the
   edge-pan margin, the editor's zoom), `input.rs` (the drag threshold, double-click and double-tap times, the
   targeting click allowance, the pick slop, the wheel's pixels per line, the editor's marker grab radius) and
-  `feedback.rs` (how long an order's flash, a refused command's message, a tracer, a death marker and a HUD notice
-  show; slice M5-MM2: the minimap's pings, how long one shows and the throttle's time and area). Each kept its name,
-  and the module it came from re-exports it (`pub use crate::tuning::...`) or imports it,
-  so the code that uses it still names it there.
+  `feedback.rs` (how long an order's flash, a refused command's message, a tracer, a death marker, a blast, a cast and
+  a HUD notice show; slice M5-MM2: the minimap's pings, how long one shows and the throttle's time and area).
+  Slice M5-X2 made each module one struct, declared by the client's own `tunables!` (`CameraTuning`, `InputTuning`,
+  `FeedbackTuning`), and added `look.rs` (`LookTuning`: the Shroud's haze and flashes, the bars over the units, the
+  air units' lift over their shadows). Together they are the `ClientTuning` resource, which the systems read
+  (`Res<ClientTuning>`, every plugin that reads it initializing it) and the data files replace while a game runs. A
+  function takes the module it reads (`&LookTuning`), or the whole `&ClientTuning` when it is public; a test or a
+  `const` context reads `ClientTuning::BUILTIN` or a module's `BUILTIN`. In a game the view's width applies as the
+  zoom, the tuned width over the built-in one (`camera::follow_view_width`); the editor runs on the built-in feel.
+- **The data files** (`crates/game/src/data/`, slice M5-X2, `docs/tuning.md`): `--export-data <dir>` writes the
+  ruleset and the client's feel as JSON files that mirror their modules (`data/layout.rs`: `defs/<faction>/{units,
+  structures}/<kind>.json`, `defs/<faction>.json`, `defs/bases/<base>.json`, `tuning/<system>.json`,
+  `client/<module>.json`), each pretty-printed in its fields' order. `--tuning <dir>` (a game's, with debug commands
+  on) reads each file as an RFC 7386 merge patch over its counterpart (`data/patch.rs`) and refuses a directory whole,
+  naming the file and the member: an unknown file or member, a value of the wrong kind, a number out of its sign,
+  structure (`Ruleset::structural_diff`), a number not finite, or one `Ruleset::check` refuses (`data/load.rs`). The
+  rules go to the game as a `SetRules` in the first tick's inputs; then the directory is polled every 0.5 s of real
+  time by its files' modification times (`data/poll.rs`), and a change is read and sent again (`data/live.rs`). F8
+  (`InputAction::DebugRestartWithData`) restarts the game as the playtest menu's Restart does, with the directory
+  read again; a Restart gives the new game the last rules that passed. The top bar says "Tuned: N files"
+  (`TopBarNote::Tuned`) and the feedback line a refusal (`command_ui::DataRefused`). The sim never reads a file, and
+  neither do the goldens; tests: `data/tests.rs` (the patch, the layout, the refusals, the poll) and the test
+  program `tests/tuning.rs` (games on tuned rules, holding a lock as `crates/sim/tests/rules.rs` does).
 - **The computer players'** (`crates/ai/src/tuning.rs`, slice A1): `army` (the staging point, the waves, the
   defense), `build` (where a building goes) and one module per faction with a computer player (`gdo`: the opening,
   the Barracks, the queues; `syndicate`: the Agents, the Tunnels and where they add income, the runners, the

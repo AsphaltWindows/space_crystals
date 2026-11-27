@@ -6,7 +6,7 @@
 use std::collections::BTreeMap;
 
 use sc_sim::VisibilityState;
-use space_crystals::shroud_view::{RELEASE_TICKS, ShroudAssets, ShroudLayer, ShroudView, TEXELS_PER_TILE};
+use space_crystals::shroud_view::{ShroudAssets, ShroudLayer, ShroudView, TEXELS_PER_TILE};
 
 use super::*;
 
@@ -68,7 +68,7 @@ fn sight_of(app: &App, player: PlayerId) -> Vec<TilePos> {
 /// stands 7 grid units east, its sight of 5 reaching the cloud's east edge. Player 1 sees the whole cloud; player 2,
 /// shown the game as the local player, sees its edge alone, over the tiles Visible to it. Another Militant of player
 /// 2's, 3.6 grid units east of the Disciple, shoots it from outside the cloud, which releases 8 ticks after its first
-/// hit (`sc_sim::shroud`) and flashes for [`RELEASE_TICKS`]; with the channel stopped, the layer hides.
+/// hit (`sc_sim::shroud`) and flashes for `LookTuning::release_ticks`; with the channel stopped, the layer hides.
 #[test]
 fn a_cloud_shows_over_each_player_s_visible_tiles_and_a_release_flashes() {
     let mut app = headless_app();
@@ -153,7 +153,7 @@ fn a_cloud_shows_over_each_player_s_visible_tiles_and_a_release_flashes() {
             queue: false,
         },
     );
-    for _ in 0..RELEASE_TICKS + 2 {
+    for _ in 0..space_crystals::tuning::look::BUILTIN.release_ticks + 2 {
         app.update();
     }
     assert!(app.world().resource::<SimRes>().clouds().is_empty());

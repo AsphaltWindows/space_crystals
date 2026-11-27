@@ -18,11 +18,18 @@ data files). Regenerate it before a playtest:
 
 <!-- generated: placeholders, begin; regenerate it, don't edit it -->
 
-225 marks.
+240 marks.
 
-## Syndicate (1)
+## Syndicate (8)
 
 - A unit of a type not in the list is never inside in a game: only a debug game puts another faction's units in the network (the sim's Enter takes any unit of the Tunnel's owner). Placeholder (not in the design): such a type has no tile. (`crates/game/src/command_ui/interface/templates/syndicate/eject_menu.rs`)
+- `firing_ticks: 1`: "surge interval 16 frames (1 s)": plan decision T97's split of it, Placeholder (not in the design: the split): Firing 1, Cooldown 1 and Reload 14, the surges' cadence once slice M6-SL aims only once while engaged (until then each surge aims again, as every attack does). (`crates/sim/src/defs/syndicate/units/laser_battery.rs`)
+- **Q0181** `separation_radius: Some(52.0)`: `systems/units.md > Air Collision`: "SeparationRadius — per unit type [...] Must be larger than the unit's Silhouette", and the Phantom's isn't given: Placeholder (Q0181), its Silhouette's side and 8 su, as each radius the design gives is (the Sparrow's and the Dragonfly's 48 for 40, the Specter's 64 for 56). (`crates/sim/src/defs/syndicate/units/phantom.rs`)
+- **Q0181** `separation_radius: Some(48.0)`: `systems/units.md > Air Collision`: "SeparationRadius — per unit type [...] Must be larger than the unit's Silhouette", and the Prism's isn't given: Placeholder (Q0181), its Silhouette's side and 8 su, as each radius the design gives is (the Sparrow's and the Dragonfly's 48 for 40, the Specter's 64 for 56). (`crates/sim/src/defs/syndicate/units/prism.rs`)
+- Its TurnRate isn't given: Placeholder (not in the design: the Specter's TurnRate), 8°/frame, as the Phantom's and the Sparrow's. (`crates/sim/src/defs/syndicate/units/specter.rs`)
+- `projectile_speed: Some(SU_PER_GU / 24.0)`: "a fixed 24-frame fall (the dodge window)", which slice M6-SA builds (`UnitDef::bomb_fall`, plan decision T100); until then its bomb flies as every projectile does, at a speed: Placeholder (not in the design: a speed for the bomb), 64 su in 24 frames, so that a drop at its full Range of 1 grid unit falls for the design's 24 frames. (`crates/sim/src/defs/syndicate/units/specter.rs`)
+- `reload_ticks: 150`: Until then: Placeholder (not in the design: a Reload for a single payload), a bomb every 160 frames, its re-arming time, Aim, Firing and Cooldown included. (`crates/sim/src/defs/syndicate/units/specter.rs`)
+- `SUBTERRANEAN_TRANSPORT_BURROWED`: Its other handling underground isn't given: Placeholder (not in the design: its Acceleration, Deceleration, TrackWidth and ReverseMaxSpeed underground), its above-ground type's. (`crates/sim/src/defs/syndicate/units/subterranean_transport.rs`)
 
 ## Cults (12)
 
@@ -139,6 +146,10 @@ data files). Regenerate it before a playtest:
 - A Repair given with no crystals: the gate takes it (Placeholder (not in the design: a Repair ordered with no crystals): it doesn't judge the bank, which may fill on the way), the two Recruits walk to the Armory, and their Repairs end as soon as one of them is at work, at the first crystal: nothing restored, nothing paid. (`crates/sim/tests/repair/bank.rs`)
 - The Laser Turret is repaired, by the Agents (design change 0360), and regenerates nothing (Placeholder (not in the design: whether a turret, built from the ExpandMenu, regenerates as the expansions do): `factions/syndicate/units/agent.md > Repair` sets it apart from them). (`crates/sim/tests/repair/regeneration.rs`)
 
+### Ruleset (1)
+
+- `WIDEST_RECRUITMENT_AREA = 255`: The widest Recruitment Area, tiles a side (`RecruitmentDef::area`; the design's is 10): a bound on the tiles a Hall's claims look over (`crate::recruitment`). Placeholder (not in the design: a technical bound, the side of the largest map). (`crates/sim/src/ruleset/check.rs`)
+
 ### Spells and energy (9)
 
 - The area (`in_area`, `AbilityDef::area`): the Shrine's a circle round the point it is cast at ("a unit is affected when its centre is inside"; on its edge too: Placeholder (not in the design)); (M5-N11) Inspire's a circle round its caster ("within 4 grid units of the vehicle"), on its edge too, as the Shrine's; Suppress's an arc ahead of its caster's facing (`crate::suppress::in_arc`). (`crates/sim/src/buffs.rs`)
@@ -159,11 +170,9 @@ data files). Regenerate it before a playtest:
 
 ## The client (`crates/game`)
 
-### Aircraft (4)
+### Aircraft (2)
 
-- **Q0001** (M5-N11) An aircraft on its takeoff run (`sc_sim::mover::Takeoff`: a Sparrow out of the Airstrip) rolls into the air along the runway (design change 0428's Verification: "A Sparrow finishes at the Airstrip: it appears on the runway's B end and rolls into the air toward C"; `factions/cults/units/sparrow.md > Placeholder stats`: "speeding up along the runway and lifting off"): drawn on the runway where it appears, it stays on it until `LIFT_OFF_SU` before the run's end and rises evenly from there to its flight's height at the end (`object_lift`), its shadow under it all the way. Placeholder (Q0001): where on the run it lifts off. (`crates/game/src/object_render/flight.rs`)
-- **Q0001** `FLIGHT_LIFT_LEVELS = 3.0`: How high an air unit's body is drawn above the ground under it, in terrain levels (`crate::coords::lift`: 16 su a level, so 48 su up the screen, more than a Sparrow's own height). Placeholder (Q0001). (`crates/game/src/object_render/flight.rs`)
-- **Q0001** `LIFT_OFF_SU = 128.0`: (M5-N11) How far before its run's end an aircraft on its takeoff run leaves the runway, su: 2 grid units, about half the Airstrip's runway (4 grid units long), so that a Sparrow rolls along its first half and rises along the rest (module docs). Placeholder (Q0001). (`crates/game/src/object_render/flight.rs`)
+- **Q0001** (M5-N11) An aircraft on its takeoff run (`sc_sim::mover::Takeoff`: a Sparrow out of the Airstrip) rolls into the air along the runway (design change 0428's Verification: "A Sparrow finishes at the Airstrip: it appears on the runway's B end and rolls into the air toward C"; `factions/cults/units/sparrow.md > Placeholder stats`: "speeding up along the runway and lifting off"): drawn on the runway where it appears, it stays on it until `LookTuning::lift_off_su` before the run's end and rises evenly from there to its flight's height at the end (`object_lift`), its shadow under it all the way. Placeholder (Q0001): where on the run it lifts off. (`crates/game/src/object_render/flight.rs`)
 - **Q0001** `SHADOW_ALPHA = 0.35`: A shadow's darkness: black at this alpha. Placeholder (Q0001). (`crates/game/src/object_render/flight.rs`)
 
 ### Combat (6)
@@ -199,30 +208,42 @@ data files). Regenerate it before a playtest:
 - the Airstrip's runway (`ExitRule::Runway`, slice M5-N7; `factions/cults/structures/airstrip.md > Placeholder stats`: "EntranceSide B (Recruits walk in); a finished aircraft is placed directly on the runway and takes off along it toward C"): in at B, its entrance, out at C, the end its aircraft take off toward, which is also the doorway its Recruits leave by, on the ground (`exit_rule`: the holder's exit). Placeholder (not in the design: an aircraft takes off along the whole runway, not through a doorway; the arrow out at C reads its way off the runway, as the portals' arrows read their open sides) (`crates/game/src/door_arrows.rs`)
 - **Q0001** Drawn alike at both ends, so that it needs only the footprint as placed: which end is B and which C, the door arrows show (`crate::door_arrows`). Placeholder (not in the design: the runway's look, until the art direction, Q0001). (`crates/game/src/object_render/runway.rs`)
 
-### Feedback (6)
+### Feedback (8)
 
-- `FLASH_TICKS = 8`: How long the flash of a given order lasts, ticks (`crate::command_ui::indicators`). Placeholder (not in the design): half a second. (`crates/game/src/tuning/feedback.rs`)
-- `FEEDBACK_TICKS = 32`: How long a refused command's message shows, ticks (2 s; `crate::command_ui::feedback`). Placeholder (not in the design): the design says "short". (`crates/game/src/tuning/feedback.rs`)
-- **Q0001** `TRACER_TICKS = 5`: How long a tracer shows, ticks (`crate::combat_effects`). Placeholder (not in the design) until the art direction (Q0001). (`crates/game/src/tuning/feedback.rs`)
-- **Q0001** `DEATH_MARKER_TICKS = 40`: How long a death marker shows, ticks (`crate::combat_effects`). Placeholder (not in the design) until the art direction (Q0001). (`crates/game/src/tuning/feedback.rs`)
-- **Q0001** `BLAST_TICKS = 12`: How long a blast's ring shows, ticks (`crate::combat_effects::blasts`, slice M4-O). Placeholder (not in the design) until the art direction (Q0001). (`crates/game/src/tuning/feedback.rs`)
-- `NOTICE_TICKS = 80`: How long a HUD notice shows, ticks (5 s; `crate::hud::notices`). Placeholder (not in the design). (`crates/game/src/tuning/feedback.rs`)
+- `flash_ticks = 8`: How long the flash of a given order lasts, ticks (`crate::command_ui::indicators`). Placeholder (not in the design): half a second. (`crates/game/src/tuning/feedback.rs`)
+- `feedback_ticks = 32`: How long a refused command's message shows, ticks (2 s; `crate::command_ui::feedback`). Placeholder (not in the design): the design says "short". (`crates/game/src/tuning/feedback.rs`)
+- **Q0001** `tracer_ticks = 5`: How long a tracer shows, ticks (`crate::combat_effects`). Placeholder (not in the design) until the art direction (Q0001). (`crates/game/src/tuning/feedback.rs`)
+- **Q0001** `death_marker_ticks = 40`: How long a death marker shows, ticks (`crate::combat_effects`). Placeholder (not in the design) until the art direction (Q0001). (`crates/game/src/tuning/feedback.rs`)
+- **Q0001** `blast_ticks = 12`: How long a blast's ring shows, ticks (`crate::combat_effects::blasts`, slice M4-O). Placeholder (not in the design) until the art direction (Q0001). (`crates/game/src/tuning/feedback.rs`)
+- `notice_ticks = 80`: How long a HUD notice shows, ticks (5 s; `crate::hud::notices`). Placeholder (not in the design). (`crates/game/src/tuning/feedback.rs`)
+- **Q0001** `cast_ticks = 16`: (M5-N11) How long a cast shows, ticks: a second (`crate::combat_effects::casts`). Placeholder (not in the design) until the art direction (Q0001). (`crates/game/src/tuning/feedback.rs`)
+- `refusal_ticks = 96`: (M5-X2) How long a data directory's refusal shows in the feedback line, ticks (6 s; `crate::data`, `crate::command_ui::feedback`). Placeholder (not in the design): long enough to read a file's path and a member's. (`crates/game/src/tuning/feedback.rs`)
 
 ### Input (7)
 
-- `DRAG_THRESHOLD_PX = 4.0`: A press that moves further than this from where it went down (logical pixels) is a drag, which makes `InputAction::Select` a box instead of a click (`crate::input`). Placeholder (not in the design): a few pixels, like desktop drags. (`crates/game/src/tuning/input.rs`)
-- `DOUBLE_CLICK_SECONDS = 0.4`: Two clicks of the same action within this many seconds (from press to press) are a double-click (`systems/controls/selection.md > MapClickSelection`). Placeholder (not in the design): the design gives no time. (`crates/game/src/tuning/input.rs`)
-- `DOUBLE_CLICK_DISTANCE_PX = 6.0`: ... and when the second is at most this far from the first (logical pixels). Placeholder (not in the design). (`crates/game/src/tuning/input.rs`)
-- `DOUBLE_TAP_SECONDS = 0.4`: Two presses of the same chord within this many seconds are a double tap (`systems/controls/selection.md > ControlGroups > Default keys`: "press the same number twice quickly"). Placeholder (not in the design): the design gives no time; a double-click's. (`crates/game/src/tuning/input.rs`)
-- `PICK_SLOP_SU = 4.0`: A click this close to an object's drawn box (space units) still picks it (`crate::selection`). Placeholder (not in the design): a few pixels, so small units stay easy to click. (`crates/game/src/tuning/input.rs`)
-- `MARKER_GRAB_RADIUS_GU = 0.5`: How close (in tiles) a click must be to a camera start marker in the map editor to grab it. Placeholder (not in the design): half a tile. (`crates/game/src/tuning/input.rs`)
-- `PIXELS_PER_LINE = 40.0`: Wheels that report pixels instead of lines: this many pixels count as one line (`crate::input`). Placeholder (not in the design). (`crates/game/src/tuning/input.rs`)
+- `drag_threshold_px = 4.0`: A press that moves further than this from where it went down (logical pixels) is a drag, which makes `InputAction::Select` a box instead of a click (`crate::input`). Placeholder (not in the design): a few pixels, like desktop drags. (`crates/game/src/tuning/input.rs`)
+- `double_click_seconds = 0.4`: Two clicks of the same action within this many seconds (from press to press) are a double-click (`systems/controls/selection.md > MapClickSelection`). Placeholder (not in the design): the design gives no time. (`crates/game/src/tuning/input.rs`)
+- `double_click_distance_px = 6.0`: ... and when the second is at most this far from the first (logical pixels). Placeholder (not in the design). (`crates/game/src/tuning/input.rs`)
+- `double_tap_seconds = 0.4`: Two presses of the same chord within this many seconds are a double tap (`systems/controls/selection.md > ControlGroups > Default keys`: "press the same number twice quickly"). Placeholder (not in the design): the design gives no time; a double-click's. (`crates/game/src/tuning/input.rs`)
+- `pick_slop_su = 4.0`: A click this close to an object's drawn box (space units) still picks it (`crate::selection`). Placeholder (not in the design): a few pixels, so small units stay easy to click. (`crates/game/src/tuning/input.rs`)
+- `marker_grab_radius_gu = 0.5`: How close (in tiles) a click must be to a camera start marker in the map editor to grab it. Placeholder (not in the design): half a tile. (`crates/game/src/tuning/input.rs`)
+- `pixels_per_line = 40.0`: Wheels that report pixels instead of lines: this many pixels count as one line (`crate::input`). Placeholder (not in the design). (`crates/game/src/tuning/input.rs`)
 
-### Spells and energy (3)
+### Look (8)
+
+- **Q0001** `cloud_alpha = 100`: The Shroud's haze, its opacity out of 255 (`crate::shroud_view`): under half opaque, so that the units under it show. Placeholder (Q0001). (`crates/game/src/tuning/look.rs`)
+- **Q0001** `cloud_flash_alpha = 170.0`: A release's flash over a cloud, its opacity out of 255 as it starts, under which the units still show (`crate::shroud_view`). Placeholder (Q0001). (`crates/game/src/tuning/look.rs`)
+- **Q0001** `release_ticks = 6`: How long a release flashes, fading, ticks (`crate::shroud_view`). Placeholder (Q0001). (`crates/game/src/tuning/look.rs`)
+- **Q0001** `bar_height = 4.0`: The height of a bar over a unit or a building (HP, Shields, energy), su (`crate::combat_effects`). Placeholder (Q0001). (`crates/game/src/tuning/look.rs`)
+- **Q0001** `bar_gap = 9.0`: How far over the corners of a unit's silhouette (clear of a selection ring, which lies 7 su outside them: `crate::selection::markers`), or over a tile-based object's footprint, its HP bar lies, su (`crate::combat_effects`). Placeholder (Q0001). (`crates/game/src/tuning/look.rs`)
+- **Q0001** `bar_min_width = 24.0`: The narrowest bar, su (`crate::combat_effects`). Placeholder (Q0001). (`crates/game/src/tuning/look.rs`)
+- **Q0001** `flight_lift_levels = 3.0`: How high an air unit's body is drawn above the ground under it, in terrain levels: its shadow's offset down the screen (`crate::coords::lift`: 16 su a level, so 48 su, more than a Sparrow's own height; `crate::object_render::flight`). Placeholder (Q0001). (`crates/game/src/tuning/look.rs`)
+- **Q0001** `lift_off_su = 128.0`: (M5-N11) How far before its run's end an aircraft on its takeoff run leaves the runway, su: 2 grid units, about half the Airstrip's runway (4 grid units long), so that a Sparrow rolls along its first half and rises along the rest (`crate::object_render::flight`). Placeholder (Q0001). (`crates/game/src/tuning/look.rs`)
+
+### Spells and energy (2)
 
 - **Q0001** Every player who sees the unit sees them, as its bars: Placeholder (not in the design: who sees a buff, and its look; Q0001). (`crates/game/src/combat_effects/buffs.rs`)
 - **Q0001** A Shrine's cast at a point shows nothing of its own, as before. Placeholder (not in the design: the casts' look; Q0001). (`crates/game/src/combat_effects/casts.rs`)
-- **Q0001** `CAST_TICKS = 16`: How long a cast shows, ticks: a second. Placeholder (not in the design) until the art direction (Q0001). (`crates/game/src/combat_effects/casts.rs`)
 
 ### The HUD (4)
 
@@ -233,11 +254,11 @@ data files). Regenerate it before a playtest:
 
 ### The camera (5)
 
-- **Q0002** `PAN_SPEED_GU_PER_SECOND = 24.0`: How fast the arrow keys and the screen edge pan the view, GridUnits per second (`crate::camera`). Placeholder (not in the design) until Q0002 settles the pan inputs and speed. (`crates/game/src/tuning/camera.rs`)
-- `MIN_ZOOM = 0.5`: The map editor's closest zoom: half the game's view (`crate::editor::view`). Placeholder (not in the design). (`crates/game/src/tuning/camera.rs`)
-- `FIT_MARGIN = 1.04`: Room around the map when the editor's view is zoomed to fit it: 4% (`crate::editor::view`). Placeholder (not in the design). (`crates/game/src/tuning/camera.rs`)
-- `MAX_ZOOM_PAST_FIT = 1.5`: How much further out than "fit" the editor's view may zoom: half as far again (`crate::editor::view`). Placeholder (not in the design). (`crates/game/src/tuning/camera.rs`)
-- `ZOOM_PER_LINE = 0.85`: The editor's zoom per wheel line: one line up shows this fraction of the map shown before (`crate::editor`). Placeholder (not in the design). (`crates/game/src/tuning/camera.rs`)
+- **Q0002** `pan_speed_gu_per_second = 24.0`: How fast the arrow keys and the screen edge pan the view, GridUnits per second (`crate::camera`). Placeholder (not in the design) until Q0002 settles the pan inputs and speed. (`crates/game/src/tuning/camera.rs`)
+- `min_zoom = 0.5`: The map editor's closest zoom: half the game's view (`crate::editor::view`). Placeholder (not in the design). (`crates/game/src/tuning/camera.rs`)
+- `fit_margin = 1.04`: Room around the map when the editor's view is zoomed to fit it: 4% (`crate::editor::view`). Placeholder (not in the design). (`crates/game/src/tuning/camera.rs`)
+- `max_zoom_past_fit = 1.5`: How much further out than "fit" the editor's view may zoom: half as far again (`crate::editor::view`). Placeholder (not in the design). (`crates/game/src/tuning/camera.rs`)
+- `zoom_per_line = 0.85`: The editor's zoom per wheel line: one line up shows this fraction of the map shown before (`crate::editor`). Placeholder (not in the design). (`crates/game/src/tuning/camera.rs`)
 
 ### The map editor (6)
 

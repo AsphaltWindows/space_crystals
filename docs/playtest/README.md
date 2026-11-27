@@ -196,6 +196,21 @@ The replay records the computers' commands with yours.
   show for the player you watch, and Space jumps to their latest, as in a game.
 - The top bar shows the tick, in a game and in a replay.
 
+## Tuning
+
+Slice M5-X2. [docs/tuning.md](../tuning.md) has the details.
+
+- `cargo run -- --export-data tuning` writes the game's data as JSON files into `tuning/`, then exits. The data are
+  every def, the systems' tunables and the client's feel.
+- Add `--tuning tuning` to a game's flags to play with them. Edit a file and save it: within half a second the game
+  plays by it, from the next tick on.
+- The top bar says "Tuned: N files" while files change something. If a file is refused, the data stay as they were
+  and the line above the HUD says why.
+- **F8** restarts the game with the directory read again.
+- Only numbers change while a game runs. A structural change, such as a footprint, a flag or a list's length, needs a
+  change to the Rust default and a rebuild.
+- A value worth keeping goes to the Designer: name its file, member and value.
+
 ## Reporting a finding
 
 One finding per item, with:

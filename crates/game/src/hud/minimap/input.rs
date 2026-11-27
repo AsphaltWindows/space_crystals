@@ -43,7 +43,7 @@ pub struct MinimapPress {
     /// the drag.
     pub drag_ground: Vec2,
     /// The farthest the pointer has been from where it went down, in logical pixels: the targeting click's allowance
-    /// counts it (`crate::command_ui::TARGETING_CLICK_ALLOWANCE_PX`).
+    /// counts it (`InputTuning::targeting_click_allowance_px`).
     pub moved: f32,
     /// The command flow took it as a targeting click (`crate::command_ui`): it moves no camera.
     pub targets: bool,

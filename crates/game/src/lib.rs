@@ -43,6 +43,7 @@ pub mod cli;
 pub mod combat_effects;
 pub mod command_ui;
 pub mod coords;
+pub mod data;
 pub mod door_arrows;
 pub mod editor;
 pub mod fog;
@@ -73,6 +74,7 @@ use crate::ai_players::{AiPlayersPlugin, AiSlot};
 use crate::camera::GameCameraPlugin;
 use crate::combat_effects::CombatEffectsPlugin;
 use crate::command_ui::CommandUiPlugin;
+use crate::data::DataPlugin;
 use crate::editor::{EditorConfig, EditorPlugin};
 use crate::fog::FogPlugin;
 use crate::hud::HudPlugin;
@@ -88,6 +90,7 @@ use crate::replay::{PlaybackPlugin, RecordPlugin, RecordingNames};
 use crate::selection::SelectionPlugin;
 use crate::shroud_view::ShroudViewPlugin;
 use crate::sim_driver::SimDriverPlugin;
+use crate::tuning::ClientTuning;
 use crate::viewer_events::ViewerEventsPlugin;
 
 /// Order of the client's `Update` systems within a frame.
@@ -164,6 +167,9 @@ pub struct AppConfig {
     /// The players computers play (`--ai`, [`ai_players`]). Never in the editor nor in a replay's playback, whose
     /// recorded commands are the computers' own.
     pub ai: Vec<AiSlot>,
+    /// (Slice M5-X2) The game's data directory (`--tuning`, [`data`]): games only, with debug commands on. `None` in
+    /// [`AppConfig::new`], so tests and goldens never read one.
+    pub tuning: Option<PathBuf>,
 }
 
 /// A replay to play back, and the file it came from.
@@ -191,6 +197,7 @@ impl AppConfig {
             recording_names: RecordingNames::Numbered,
             playback: None,
             ai: Vec::new(),
+            tuning: None,
         }
     }
 
@@ -243,6 +250,8 @@ pub fn build_app(config: AppConfig) -> App {
                 .chain(),
         )
         .insert_resource(if editing { ClientMode::Editor } else { ClientMode::Game })
+        // (M5-X2) The client's feel tunables: the built-in ones, which a data directory tunes (`DataPlugin`).
+        .init_resource::<ClientTuning>()
         // Mode-independent: everything a view of the map needs.
         .add_plugins((
             SimDriverPlugin {
@@ -286,11 +295,15 @@ pub fn build_app(config: AppConfig) -> App {
     if !config.ai.is_empty() && config.playback.is_none() && !editing {
         app.add_plugins(AiPlayersPlugin { slots: config.ai });
     }
+    let playback = config.playback.is_some();
     if let Some(PlaybackSource { file, replay }) = config.playback {
         app.add_plugins(PlaybackPlugin { file, replay });
     }
     if let Some(path) = config.record {
         app.add_plugins(RecordPlugin { path });
+    }
+    if let Some(dir) = config.tuning.filter(|_| !playback && !editing) {
+        app.add_plugins(DataPlugin { dir });
     }
     if let Some(editor) = config.editor {
         app.add_plugins(EditorPlugin {

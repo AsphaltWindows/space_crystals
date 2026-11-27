@@ -23,6 +23,7 @@ use crate::camera::{CameraView, CameraZoom, ViewportInsets};
 use crate::coords::drawn_position;
 use crate::map_render::MapView;
 use crate::platform::SurfaceSize;
+use crate::tuning::ClientTuning;
 
 /// Everything the editor can be asked to do. Positions are ground points in space units: what the cursor picks on
 /// the drawn terrain (`crate::coords::ground_under`).
@@ -207,6 +208,9 @@ pub struct Editor<'w> {
     pub size: Res<'w, SurfaceSize>,
     pub insets: Res<'w, ViewportInsets>,
     pub map_view: ResMut<'w, MapView>,
+    /// (M5-X2) The editor's zoom and its markers' grab radius (`crate::tuning`): the built-in ones, the editor running
+    /// without a data directory.
+    pub tuning: Res<'w, ClientTuning>,
     pub exit: MessageWriter<'w, AppExit>,
 }
 

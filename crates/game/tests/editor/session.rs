@@ -14,7 +14,6 @@ use space_crystals::editor::files;
 use space_crystals::editor::state::{EditorFiles, StatusLevel};
 use space_crystals::editor::tools::Tool;
 use space_crystals::editor::ui::{EDITOR_INSETS, ShownIn};
-use space_crystals::editor::view::MIN_ZOOM;
 use space_crystals::hud::{HUD_INSETS, HudRoot, TopBar, TopBarNote};
 use space_crystals::input::{ActionState, CommandSlot, InputAction, InputContext};
 use space_crystals::platform::SurfaceSize;
@@ -252,7 +251,7 @@ fn a_script_runs_on_the_first_frame() {
         },
     );
     assert_eq!(tile(&app, 3, 3).preset, TilePresetId::CLIFF);
-    assert!(app.world().resource::<CameraZoom>().0 >= MIN_ZOOM);
+    assert!(app.world().resource::<CameraZoom>().0 >= space_crystals::tuning::camera::BUILTIN.min_zoom);
 }
 
 #[test]
@@ -287,7 +286,10 @@ fn zoom_reaches_the_whole_map_and_stays_in_range() {
             at: None,
         }],
     );
-    assert_eq!(app.world().resource::<CameraZoom>().0, MIN_ZOOM);
+    assert_eq!(
+        app.world().resource::<CameraZoom>().0,
+        space_crystals::tuning::camera::BUILTIN.min_zoom
+    );
     // Centring on a ground point centres on where it is drawn; zooming at a point keeps where it is drawn in place
     // on screen. Both points lie on the central plateau, at level 3.
     let map = doc(&app).terrain.clone();

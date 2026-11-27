@@ -17,7 +17,6 @@ use space_crystals::input::InjectedInput;
 use space_crystals::platform::{DisplayMode, SurfaceSize};
 use space_crystals::playtest_menu::{MenuButton, MenuLayout, PlaytestMenu};
 use space_crystals::sim_driver::{PendingCommands, SimRes};
-use space_crystals::tuning::feedback::{PING_THROTTLE_TICKS, PING_TICKS};
 use space_crystals::{AppConfig, build_app};
 
 const P1: PlayerId = PlayerId(1);
@@ -211,7 +210,7 @@ fn a_fight_pings_once_every_ten_seconds_and_two_fights_far_apart_each_ping() {
     let mut made: Vec<Ping> = Vec::new();
     let mut hits = Vec::new();
     let mut east_hp = hp(&app, EAST_GENERATOR);
-    for _ in 0..(2 * PING_THROTTLE_TICKS + 100) {
+    for _ in 0..(2 * space_crystals::tuning::feedback::BUILTIN.ping_throttle_ticks + 100) {
         app.update();
         if hp(&app, EAST_GENERATOR) < east_hp {
             hits.push(tick(&app));
@@ -230,21 +229,22 @@ fn a_fight_pings_once_every_ten_seconds_and_two_fights_far_apart_each_ping() {
     // The first hit, then each first hit 10 s or more after the ping before.
     let mut expected = vec![hits[0]];
     for &hit in &hits {
-        if hit - expected.last().unwrap() >= PING_THROTTLE_TICKS {
+        if hit - expected.last().unwrap() >= space_crystals::tuning::feedback::BUILTIN.ping_throttle_ticks {
             expected.push(hit);
         }
     }
     assert_eq!(east_pings, expected, "the hits: {hits:?}");
     assert_eq!(east_pings.len(), 3);
     assert!(
-        west_pings.len() == 3 && west_pings[0].abs_diff(east_pings[0]) < PING_THROTTLE_TICKS,
+        west_pings.len() == 3
+            && west_pings[0].abs_diff(east_pings[0]) < space_crystals::tuning::feedback::BUILTIN.ping_throttle_ticks,
         "{west_pings:?}"
     );
 }
 
 /// "A ring that shrinks and fades over about 2 s": from the frame of its hit, the ring is smaller or as large, and
-/// clearer, every frame, then gone, [`PING_TICKS`] ticks on (a frame later as the frames are drawn here: between the
-/// tick before and the tick, `RenderAlpha` 0).
+/// clearer, every frame, then gone, `FeedbackTuning::ping_ticks` ticks on (a frame later as the frames are drawn here:
+/// between the tick before and the tick, `RenderAlpha` 0).
 #[test]
 fn the_ring_shrinks_and_fades_and_is_gone_after_two_seconds() {
     let mut app = game();
@@ -259,7 +259,10 @@ fn the_ring_shrinks_and_fades_and_is_gone_after_two_seconds() {
         };
         drawn.push((tick(&app) - ping.tick, rect.width(), alpha));
         app.update();
-        assert!(tick(&app) <= ping.tick + PING_TICKS + 1, "gone by then: {drawn:?}");
+        assert!(
+            tick(&app) <= ping.tick + space_crystals::tuning::feedback::BUILTIN.ping_ticks + 1,
+            "gone by then: {drawn:?}"
+        );
     }
     let (_, first_size, first_alpha) = drawn[0];
     assert!(first_size > 20.0 && first_alpha == 1.0, "{drawn:?}");
@@ -272,7 +275,7 @@ fn the_ring_shrinks_and_fades_and_is_gone_after_two_seconds() {
     }
     let (last_age, last_size, last_alpha) = *drawn.last().unwrap();
     assert!(
-        last_age >= PING_TICKS - 1 && last_size < 10.0 && last_alpha < 0.05,
+        last_age >= space_crystals::tuning::feedback::BUILTIN.ping_ticks - 1 && last_size < 10.0 && last_alpha < 0.05,
         "{drawn:?}"
     );
     assert!(alerts(&app).pings().contains(&ping), "kept for its 10 s");

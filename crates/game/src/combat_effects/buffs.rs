@@ -14,6 +14,7 @@ use super::hp_bar;
 use crate::coords::view_to_world;
 use crate::fog::Sight;
 use crate::shapes::ColorMesh;
+use crate::tuning::ClientTuning;
 
 /// A mark's cross: its arms' half length and half width, its dark rim, and the gap between the bar's place and the
 /// first mark, and between two marks, su (placeholders).
@@ -38,11 +39,11 @@ pub struct BuffMark {
 }
 
 /// The marks to draw: those of the buffs of each object `sight` sees, at its interpolated position (module docs), its
-/// bar's place being where [`hp_bar`] puts it.
-pub fn buff_marks(sim: &Sim, sight: &Sight, alpha: f32) -> Vec<BuffMark> {
+/// bar's place being where [`hp_bar`] puts it, as `tuning` sizes the bars.
+pub fn buff_marks(sim: &Sim, sight: &Sight, alpha: f32, tuning: &ClientTuning) -> Vec<BuffMark> {
     let mut marks = Vec::new();
     for o in sim.objects().filter(|o| !o.buffs.is_empty() && sight.sees(o)) {
-        let bar = hp_bar(sim.map(), o, alpha, 1.0, (None, None));
+        let bar = hp_bar(sim.map(), o, alpha, (1.0, (None, None)), &tuning.look);
         let first = bar.center + Vec2::new(bar.width / 2.0 + GAP + ARM, 0.0);
         let shown = AreaAbility::ALL
             .into_iter()

@@ -30,12 +30,13 @@ use bevy::prelude::*;
 use sc_sim::{PlayerId, Sim};
 
 pub use model::{ControlGroups, ControlState, GroupKey, GroupType, MAX_SELECTED, Selection, SelectionGroup};
-pub use pick::{PICK_SLOP_SU, Relation, Selectable, Selectables};
+pub use pick::{Relation, Selectable, Selectables};
 pub use rules::ClickRoles;
 
 use crate::command_ui::InterfaceState;
 use crate::fog::{FogOfWar, Sight};
 use crate::sim_driver::{LocalPlayer, RenderAlpha, SimRes};
+use crate::tuning::ClientTuning;
 use crate::viewer_events::FilterEvents;
 use crate::{ClientMode, ClientSystems};
 
@@ -75,6 +76,7 @@ impl ControlStates {
 pub struct LocalControl<'w> {
     sim: Res<'w, SimRes>,
     alpha: Res<'w, RenderAlpha>,
+    tuning: Res<'w, ClientTuning>,
     player: Res<'w, LocalPlayer>,
     states: ResMut<'w, ControlStates>,
     fog: Res<'w, FogOfWar>,
@@ -100,7 +102,7 @@ impl LocalControl<'_> {
     /// What the local player can select, as this frame draws it.
     pub fn objects(&self) -> Selectables {
         let sight = Sight::new(&self.sim, self.player.0, self.fog.applies(*self.mode));
-        Selectables::new(&self.sim, &sight, self.alpha.0)
+        Selectables::tuned(&self.sim, &sight, self.alpha.0, &self.tuning)
     }
 
     /// Applies `change` to the local player's ControlState. A change of the Selection or of its ActiveGroup resets
@@ -137,6 +139,7 @@ pub struct SelectionPlugin;
 
 impl Plugin for SelectionPlugin {
     fn build(&self, app: &mut App) {
+        app.init_resource::<ClientTuning>();
         app.init_resource::<ControlStates>()
             .configure_sets(
                 Update,

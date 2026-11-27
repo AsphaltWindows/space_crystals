@@ -26,7 +26,7 @@ use super::orientation::Turn;
 use super::tools::{EditorTools, Tool};
 use crate::ClientMode;
 use crate::input::{ActionState, EditorInput, InputAction, MapClick, Placing, Pointer};
-use crate::tuning::camera::ZOOM_PER_LINE;
+use crate::tuning::ClientTuning;
 
 /// The keys' actions: all of them in the editor; in its play-tests only the play-test switch (F5), because Esc is
 /// the game's Cancel there (`systems/controls/interface.md > AwaitingTarget`).
@@ -117,6 +117,7 @@ pub struct PointerTrack {
 pub fn editor_pointer(
     actions: Res<ActionState>,
     mode: Res<ClientMode>,
+    tuning: Res<ClientTuning>,
     mut clicks: MessageReader<MapClick>,
     mut track: Local<PointerTrack>,
     mut queue: ResMut<EditorActions>,
@@ -161,7 +162,7 @@ pub fn editor_pointer(
     let lines = actions.scrolled(InputAction::Editor(EditorInput::Zoom));
     if let Some(pos) = hovered.filter(|_| lines != 0.0) {
         queue.push(EditorAction::Zoom {
-            factor: ZOOM_PER_LINE.powf(lines),
+            factor: tuning.camera.zoom_per_line.powf(lines),
             at: Some(pos),
         });
     }

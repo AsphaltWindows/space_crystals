@@ -14,8 +14,6 @@ use bevy::prelude::Resource;
 
 use super::actions::{CommandSlot, ControlGroup, EditorInput, InputAction, InputContext};
 
-pub use crate::tuning::input::DOUBLE_TAP_SECONDS;
-
 /// A key or a mouse button.
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
 pub enum Button {
@@ -96,7 +94,8 @@ pub enum Binding {
     /// the button goes up.
     Press(Chord),
     /// Fires on the second of two presses of the same chord, with the same modifiers, within
-    /// [`DOUBLE_TAP_SECONDS`] and with no other bound button pressed in between. Held like [`Binding::Press`].
+    /// `InputTuning::double_tap_seconds` and with no other bound button pressed in between. Held like
+    /// [`Binding::Press`].
     DoubleTap(Chord),
     /// Held while at least these modifiers are held: the modifier actions, such as the queue modifier. It never
     /// fires on a press and never competes with other bindings.
@@ -277,6 +276,7 @@ impl Default for Bindings {
             // Placeholder: the design has no debug keys.
             (A::DebugSwitchPlayer, Press(key(KeyCode::F2))),
             (A::DebugToggleFog, Press(key(KeyCode::F3))),
+            (A::DebugRestartWithData, Press(key(KeyCode::F8))),
             // Placeholders: the design has no replays yet. The pause on K (YouTube's), since the alerts took Space.
             (A::ReplayPause, Press(key(KeyCode::KeyK))),
             (A::ReplayStep, Press(key(KeyCode::Period))),
@@ -351,20 +351,18 @@ impl Default for Bindings {
     }
 }
 
-/// Recognizes double taps: the same button with the same modifiers pressed twice within [`DOUBLE_TAP_SECONDS`].
-/// Every bound press goes through it, so another one in between breaks the pair.
+/// Recognizes double taps: the same button with the same modifiers pressed twice within
+/// `InputTuning::double_tap_seconds`. Every bound press goes through it, so another one in between breaks the pair.
 #[derive(Default, Debug)]
 pub(crate) struct TapTracker {
     last: Option<(Button, Modifiers, f64)>,
 }
 
 impl TapTracker {
-    /// Records a press at `now` (seconds) and says whether it completes a double tap. A completed double tap starts
-    /// over, so a third quick press is a single one again.
-    pub(crate) fn press(&mut self, button: Button, modifiers: Modifiers, now: f64) -> bool {
-        let double = self
-            .last
-            .is_some_and(|(b, m, t)| b == button && m == modifiers && now - t <= DOUBLE_TAP_SECONDS);
+    /// Records a press at `now` (seconds) and says whether it completes a double tap, the presses at most `window`
+    /// seconds apart. A completed double tap starts over, so a third quick press is a single one again.
+    pub(crate) fn press(&mut self, button: Button, modifiers: Modifiers, now: f64, window: f64) -> bool {
+        let double = (self.last).is_some_and(|(b, m, t)| b == button && m == modifiers && now - t <= window);
         self.last = if double { None } else { Some((button, modifiers, now)) };
         double
     }

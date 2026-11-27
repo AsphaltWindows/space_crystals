@@ -31,8 +31,7 @@ use space_crystals::command_ui::{
 };
 use space_crystals::hud::command_panel::hotkey_label;
 use space_crystals::input::{
-    Binding, Bindings, Button, Chord, CommandSlot, EDGE_PAN_MARGIN_PX, EditorInput, InputAction, InputContext,
-    Modifiers,
+    Binding, Bindings, Button, Chord, CommandSlot, EditorInput, InputAction, InputContext, Modifiers,
 };
 use space_crystals::kinds;
 use space_crystals::selection::{GroupType, Selection};
@@ -502,7 +501,8 @@ fn keys(bindings: &Bindings, hotkeys: &[String]) -> String {
     groups[Group::Camera as usize].push((
         "Pan the camera that way".to_owned(),
         vec![format!(
-            "The cursor at the screen's edge (within {EDGE_PAN_MARGIN_PX} pixels)"
+            "The cursor at the screen's edge (within {} pixels)",
+            space_crystals::tuning::camera::BUILTIN.edge_pan_margin_px
         )],
     ));
     let mut out = String::from("## Keys\n");
@@ -618,6 +618,10 @@ fn describe(action: InputAction) -> (Group, String) {
         A::ToggleFullscreen => (Group::Game, "Full screen or a window"),
         A::DebugSwitchPlayer => (Group::Debug, "Switch to the next player: hot-seat"),
         A::DebugToggleFog => (Group::Debug, "The fog of war off and on"),
+        A::DebugRestartWithData => (
+            Group::Debug,
+            "With `--tuning <dir>`: restart the game with the directory's data, read again",
+        ),
         A::ToggleGrid => (Group::Debug, "The tile grid"),
         A::TogglePaths => (Group::Debug, "The units' paths"),
         A::ReplayPause => (Group::Replays, "Pause and resume"),

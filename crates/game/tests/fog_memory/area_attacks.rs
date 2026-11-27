@@ -8,9 +8,7 @@
 use sc_sim::testing::ScenarioBuilder;
 use sc_sim::vision::Hiding;
 use sc_sim::{OrderKind, SimEvent, VisibilityState};
-use space_crystals::combat_effects::{
-    BLAST_TICKS, CombatEffects, Flight, hp_bars, shows_blast, shows_death, shows_flight,
-};
+use space_crystals::combat_effects::{CombatEffects, Flight, hp_bars, shows_blast, shows_death, shows_flight};
 use space_crystals::sim_driver::SimEventMessage;
 
 use super::*;
@@ -216,12 +214,21 @@ fn a_hidden_hideout_under_a_blast_shows_nothing_to_the_other_players() {
         assert!(!p1.sees(sim.object(hideout).unwrap()), "hidden from player 1");
         let (over, east) = (&effects.blasts[0], &effects.blasts[1]);
         assert_eq!(over.tick, blasted);
-        assert!(shows_blast(sim, &p1, over) && shows_blast(sim, &p2, over));
         assert!(
-            !shows_blast(sim, &p1, east) && !shows_blast(sim, &p2, east),
+            shows_blast(sim, &p1, over, &space_crystals::tuning::ClientTuning::BUILTIN)
+                && shows_blast(sim, &p2, over, &space_crystals::tuning::ClientTuning::BUILTIN)
+        );
+        assert!(
+            !shows_blast(sim, &p1, east, &space_crystals::tuning::ClientTuning::BUILTIN)
+                && !shows_blast(sim, &p2, east, &space_crystals::tuning::ClientTuning::BUILTIN),
             "in the fog"
         );
-        let bars = |sight: &Sight| hp_bars(sim, sight, 1.0, |_| false).len();
+        let bars = |sight: &Sight| {
+            hp_bars(sim, sight, 1.0, &space_crystals::tuning::ClientTuning::BUILTIN, |_| {
+                false
+            })
+            .len()
+        };
         assert_eq!(
             (bars(&p1), bars(&p2)),
             (0, 1),
@@ -233,8 +240,11 @@ fn a_hidden_hideout_under_a_blast_shows_nothing_to_the_other_players() {
         assert!(shows_death(&p2, death), "its owner's");
         assert!(shows_death(&Sight::new(sim, P1, false), death), "the fog off");
     }
-    // The blasts fade [`BLAST_TICKS`] after their ticks, the second a tick after the first.
-    run_until(&mut app, blasted + BLAST_TICKS);
+    // The blasts fade `FeedbackTuning::blast_ticks` after their ticks, the second a tick after the first.
+    run_until(
+        &mut app,
+        blasted + space_crystals::tuning::feedback::BUILTIN.blast_ticks,
+    );
     assert_eq!(app.world().resource::<CombatEffects>().blasts.len(), 1);
     app.update();
     assert!(app.world().resource::<CombatEffects>().blasts.is_empty(), "faded");

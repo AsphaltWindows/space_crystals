@@ -56,7 +56,7 @@ fn the_cursor_maps_to_the_view_point_under_it() {
     };
     let size = surface(1000, 500); // viewport at (100, 50), 900 × 450 px
     let center = Vec2::new(2000.0, 1000.0);
-    let su_per_px = gu(VIEW_WIDTH_GU) / 1000.0;
+    let su_per_px = gu(crate::tuning::camera::BUILTIN.view_width_gu) / 1000.0;
     let at = |x, y| cursor_to_view(Vec2::new(x, y), size, insets, center, 1.0);
     assert_eq!(at(550.0, 275.0), Some(center));
     assert_eq!(at(100.0, 50.0), Some(center - Vec2::new(450.0, 225.0) * su_per_px));

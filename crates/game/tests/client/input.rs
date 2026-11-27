@@ -8,8 +8,7 @@ use sc_sim::{TilePos, scenarios};
 use space_crystals::camera::{CameraView, GrabPan, ViewportInsets, view_rect};
 use space_crystals::coords::{drawn_position, ground_under};
 use space_crystals::input::{
-    Binding, Bindings, Chord, CommandSlot, ControlGroup, DRAG_THRESHOLD_PX, InputAction, MapClick, Modifiers,
-    SelectionBox,
+    Binding, Bindings, Chord, CommandSlot, ControlGroup, InputAction, MapClick, Modifiers, SelectionBox,
 };
 use space_crystals::map_render::GridOverlay;
 use space_crystals::platform::SurfaceSize;
@@ -270,7 +269,10 @@ fn dragging_the_select_button_makes_a_box() {
     set_cursor(&mut app, start);
     input(&mut app).mouse.press(MouseButton::Left);
     app.update();
-    set_cursor(&mut app, start + Vec2::new(DRAG_THRESHOLD_PX, 0.0));
+    set_cursor(
+        &mut app,
+        start + Vec2::new(space_crystals::tuning::input::BUILTIN.drag_threshold_px, 0.0),
+    );
     app.update();
     assert_eq!(
         actions(&app).pointer().drag_box,

@@ -108,6 +108,7 @@ Z is Back in every menu, as Esc is, and while a command awaits its target. On ev
 | P | The units' paths |
 | F2 | Switch to the next player: hot-seat |
 | F3 | The fog of war off and on |
+| F8 | With `--tuning <dir>`: restart the game with the directory's data, read again |
 
 ### Replays (`--replay`)
 

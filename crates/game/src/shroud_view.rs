@@ -7,7 +7,8 @@
 //!   domain), drawn only over the tiles Visible to the local player ([`texels`]): an enemy who sees one tile of a
 //!   cloud's edge sees that tile's part of it. Without the fog every tile is Visible.
 //! - **A release** (`SimEvent::ShroudReleased`, which every player perceives: `crate::viewer_events`) flashes over the
-//!   circles it went over, as they were (a join's or a split's old cloud too), for [`RELEASE_TICKS`], fading, over
+//!   circles it went over, as they were (a join's or a split's old cloud too), for `LookTuning::release_ticks`,
+//!   fading, over
 //!   the same Visible tiles.
 //!
 //! One mesh and one texture, over the box of tiles the clouds and the flashes cover ([`Area`]), never an entity per
@@ -18,6 +19,8 @@
 //! and nothing is computed.
 //!
 //! Placeholders (Q0001, the design being silent on the look): the haze's colour and opacity, the flash's, its length.
+//! (M5-X2) The opacities and the length are tunables (`crate::tuning::look`), which a data file tunes while the game
+//! runs; the colours stay here.
 
 use bevy::asset::RenderAssetUsages;
 use bevy::image::ImageSampler;
@@ -31,6 +34,8 @@ use crate::coords::{DrawLayer, drawn_at_height, view_to_world};
 use crate::fog::{LocalSight, Revision};
 use crate::map_render::{MapView, tile_surface};
 use crate::sim_driver::SimRes;
+use crate::tuning::ClientTuning;
+use crate::tuning::look::LookTuning;
 use crate::viewer_events::{FilterEvents, ViewerEvents};
 use crate::{ClientMode, ClientSystems};
 
@@ -39,14 +44,10 @@ mod tests;
 
 /// Texels to a tile's edge: 16 space units each, so that a circle of 3 grid units is 12 texels across its radius.
 pub const TEXELS_PER_TILE: i32 = 4;
-/// A release flashes for this many ticks, fading (placeholder).
-pub const RELEASE_TICKS: Tick = 6;
-/// The haze: a pale violet, under half opaque, so that the units under it show (placeholder, Q0001).
-const CLOUD: [u8; 4] = [190, 178, 226, 100];
-/// A release's flash: near white, up to this opacity as it starts, under which the units still show (placeholder,
-/// Q0001).
+/// The haze's colour: a pale violet (placeholder, Q0001), as opaque as `LookTuning::cloud_alpha`.
+const CLOUD: [u8; 3] = [190, 178, 226];
+/// A release's flash's colour: near white (placeholder, Q0001), up to `LookTuning::cloud_flash_alpha` as it starts.
 const FLASH: [u8; 3] = [255, 246, 255];
-const FLASH_ALPHA: f32 = 170.0;
 /// How far under the air units' z band the layer lies: over every ground unit's z (`DrawLayer::GroundUnits`, its
 /// depth offsets under 66 for any map), under the air units'.
 const UNDER_AIR_Z: f32 = 20.0;
@@ -55,6 +56,7 @@ pub struct ShroudViewPlugin;
 
 impl Plugin for ShroudViewPlugin {
     fn build(&self, app: &mut App) {
+        app.init_resource::<ClientTuning>();
         app.init_resource::<ShroudView>()
             .add_systems(Startup, spawn_shroud_layer)
             .add_systems(
@@ -150,14 +152,17 @@ struct Key {
     revision: Option<Revision>,
     map_build: u32,
     clouds: Vec<Vec<(Vec2, f32)>>,
+    /// (M5-X2) The haze's opacity (`LookTuning::cloud_alpha`), which a data file may change.
+    cloud_alpha: u8,
     flashes: Vec<(Vec<(Vec2, f32)>, u8)>,
 }
 
-/// The flash's opacity `age` ticks after its release: [`FLASH_ALPHA`] in its tick, fading to nothing over
-/// [`RELEASE_TICKS`].
-fn flash_alpha(age: Tick) -> u8 {
-    let left = RELEASE_TICKS.saturating_sub(age) as f32 / RELEASE_TICKS as f32;
-    (FLASH_ALPHA * left).round() as u8
+/// The flash's opacity `age` ticks after its release: `look`'s `cloud_flash_alpha` in its tick, fading to nothing over
+/// its `release_ticks`.
+fn flash_alpha(age: Tick, look: &LookTuning) -> u8 {
+    let ticks = look.release_ticks.max(1);
+    let left = ticks.saturating_sub(age) as f32 / ticks as f32;
+    (look.cloud_flash_alpha * left).round().clamp(0.0, 255.0) as u8
 }
 
 /// How much of the texel `step` space units wide at `point` the circles cover, 0 to 1: its centre's distance inside
@@ -171,11 +176,11 @@ fn coverage(circles: &[(Vec2, f32)], point: Vec2, step: f32) -> f32 {
 
 /// The texels of `area` (row by row from its north-west corner, RGBA8, [`TEXELS_PER_TILE`] to a tile's edge, each
 /// sampled at its centre), and the tiles where any shows: on a tile `visible` says is Visible, the haze where the
-/// circles of `clouds` cover a texel, a flash where those of one of `flashes` do (with its opacity), each as opaque
-/// as it covers the texel ([`coverage`]), the more opaque of the two; elsewhere nothing.
+/// circles of `clouds` cover a texel (at most `cloud_alpha` opaque), a flash where those of one of `flashes` do (with
+/// its opacity), each as opaque as it covers the texel ([`coverage`]), the more opaque of the two; elsewhere nothing.
 pub fn texels(
     area: Area,
-    clouds: &[Vec<(Vec2, f32)>],
+    (clouds, cloud_alpha): (&[Vec<(Vec2, f32)>], u8),
     flashes: &[(Vec<(Vec2, f32)>, u8)],
     visible: impl Fn(TilePos) -> bool,
 ) -> (Vec<u8>, Vec<TilePos>) {
@@ -197,7 +202,7 @@ pub fn texels(
                     |circles: &[(Vec2, f32)], alpha: u8| (alpha as f32 * coverage(circles, point, step)).round() as u8;
                 let haze = clouds
                     .iter()
-                    .map(|circles| opacity(circles, CLOUD[3]))
+                    .map(|circles| opacity(circles, cloud_alpha))
                     .max()
                     .unwrap_or(0);
                 let flash = (flashes.iter())
@@ -317,7 +322,13 @@ fn spawn_shroud_layer(
 
 /// Keeps this frame's releases (`SimEvent::ShroudReleased`, which every player perceives) while they flash, and
 /// forgets them with the sim they belong to.
-fn collect_releases(sim: Res<SimRes>, sight: LocalSight, events: Res<ViewerEvents>, mut view: ResMut<ShroudView>) {
+fn collect_releases(
+    sim: Res<SimRes>,
+    sight: LocalSight,
+    events: Res<ViewerEvents>,
+    tuning: Res<ClientTuning>,
+    mut view: ResMut<ShroudView>,
+) {
     if view.generation != Some(sim.generation()) {
         view.releases.clear();
         view.generation = Some(sim.generation());
@@ -331,7 +342,8 @@ fn collect_releases(sim: Res<SimRes>, sight: LocalSight, events: Res<ViewerEvent
         }
     }
     let now = sim.tick();
-    view.releases.retain(|r| r.tick <= now && now - r.tick < RELEASE_TICKS);
+    view.releases
+        .retain(|r| r.tick <= now && now - r.tick < tuning.look.release_ticks);
 }
 
 /// Hides the layer while there is nothing to show; else rebuilds its mesh when the box of the clouds and the flashes
@@ -340,6 +352,7 @@ fn collect_releases(sim: Res<SimRes>, sight: LocalSight, events: Res<ViewerEvent
 #[expect(clippy::too_many_arguments, reason = "a system's parameters")]
 fn update_shroud_layer(
     sim_res: Res<SimRes>,
+    tuning: Res<ClientTuning>,
     sight: LocalSight,
     mode: Res<ClientMode>,
     map_view: Res<MapView>,
@@ -357,7 +370,7 @@ fn update_shroud_layer(
     let clouds: Vec<Vec<(Vec2, f32)>> = sim.clouds().list().iter().map(|c| c.circles()).collect();
     let now = sim.tick();
     let flashes: Vec<(Vec<(Vec2, f32)>, u8)> = (view.releases.iter())
-        .map(|r| (r.circles.clone(), flash_alpha(now.saturating_sub(r.tick))))
+        .map(|r| (r.circles.clone(), flash_alpha(now.saturating_sub(r.tick), &tuning.look)))
         .filter(|&(_, alpha)| alpha > 0)
         .collect();
     let circles = clouds.iter().flatten().chain(flashes.iter().flat_map(|f| &f.0));
@@ -384,6 +397,7 @@ fn update_shroud_layer(
         revision: seen.revision(),
         map_build: map_view.builds,
         clouds,
+        cloud_alpha: tuning.look.cloud_alpha,
         flashes,
     };
     if view.shown.as_ref() == Some(&key) && view.area == Some((area, map_view.builds)) {
@@ -397,7 +411,7 @@ fn update_shroud_layer(
         view.mesh_builds += 1;
     }
     let visible = |tile: TilePos| !seen.is_fogged() || seen.tile(tile) == VisibilityState::Visible;
-    let (data, tiles) = texels(area, &key.clouds, &key.flashes, visible);
+    let (data, tiles) = texels(area, (&key.clouds, key.cloud_alpha), &key.flashes, visible);
     let size = UVec2::new(area.w as u32, area.h as u32) * TEXELS_PER_TILE as u32;
     let same_size = images.get(&assets.texture).is_some_and(|image| image.size() == size);
     if same_size {

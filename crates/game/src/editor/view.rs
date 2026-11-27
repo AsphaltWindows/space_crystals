@@ -10,21 +10,20 @@ use super::state::Selection;
 use crate::camera::{viewport_rect, visible_extent_su};
 use crate::coords::{drawn_bounds, drawn_position};
 
-pub use crate::tuning::camera::MIN_ZOOM;
-use crate::tuning::camera::{FIT_MARGIN, MAX_ZOOM_PAST_FIT};
-
 impl Editor<'_> {
-    /// The zoom that shows the whole map, as drawn, in the editor's view.
+    /// The zoom that shows the whole map, as drawn, in the editor's view, with `CameraTuning::fit_margin` round it.
     pub fn fit_zoom(&self) -> f32 {
         let (_, viewport) = viewport_rect(*self.size, *self.insets);
         let visible = visible_extent_su(viewport, self.size.physical.x, 1.0);
         let map = drawn_bounds(&self.doc.map().terrain).size();
-        (map.x / visible.x).max(map.y / visible.y) * FIT_MARGIN
+        (map.x / visible.x).max(map.y / visible.y) * self.tuning.camera.fit_margin
     }
 
-    /// The zoom range: from half the game's view out to a bit past showing the whole map.
+    /// The zoom range: from half the game's view out to a bit past showing the whole map (`CameraTuning::min_zoom`
+    /// and `max_zoom_past_fit`).
     pub fn zoom_range(&self) -> (f32, f32) {
-        (MIN_ZOOM, self.fit_zoom().max(1.0) * MAX_ZOOM_PAST_FIT)
+        let camera = &self.tuning.camera;
+        (camera.min_zoom, self.fit_zoom().max(1.0) * camera.max_zoom_past_fit)
     }
 
     pub(super) fn zoom_by(&mut self, factor: f32, at: Option<Vec2>) {
@@ -43,7 +42,7 @@ impl Editor<'_> {
     }
 
     pub(super) fn fit_map(&mut self) {
-        self.zoom.0 = self.fit_zoom().max(MIN_ZOOM);
+        self.zoom.0 = self.fit_zoom().max(self.tuning.camera.min_zoom);
         self.view.center = drawn_bounds(&self.doc.map().terrain).center();
     }
 

@@ -6,7 +6,7 @@
 use sc_sim::testing::ScenarioBuilder;
 const REVEAL_TICKS: sc_sim::Tick = sc_sim::tuning::vision::BUILTIN.reveal_ticks;
 use sc_sim::{GameSetup, OrderKind, Slot};
-use space_crystals::combat_effects::{CombatEffects, TRACER_TICKS, Tracer, shot_spans, visible_spans};
+use space_crystals::combat_effects::{CombatEffects, Tracer, shot_spans, visible_spans};
 
 use super::*;
 
@@ -73,7 +73,14 @@ fn a_shot_from_the_fog_reveals_the_shooter_and_shows_only_from_the_fog_edge() {
         let tracer = &world.resource::<CombatEffects>().tracers[0];
         assert_eq!((tracer.target, tracer.tick), (Some(target), shot));
         assert!(Sight::new(sim, P1, true).reveals(attacker), "revealed by the shot");
-        let spans = |player, fog| shot_spans(sim, &Sight::new(sim, player, fog), tracer);
+        let spans = |player, fog| {
+            shot_spans(
+                sim,
+                &Sight::new(sim, player, fog),
+                tracer,
+                &space_crystals::tuning::ClientTuning::BUILTIN,
+            )
+        };
         assert_eq!(
             spans(P1, true),
             [FOG_EDGE],
@@ -85,13 +92,16 @@ fn a_shot_from_the_fog_reveals_the_shooter_and_shows_only_from_the_fog_edge() {
     assert!(drawn(&app, 2), "revealed");
     assert_eq!(selectable(&app), [1, 2]);
 
-    run_until(&mut app, shot + TRACER_TICKS);
+    run_until(&mut app, shot + space_crystals::tuning::feedback::BUILTIN.tracer_ticks);
     {
         let world = app.world();
         let sim = world.resource::<SimRes>();
         let mut tracers = world.resource::<CombatEffects>().tracers.iter();
         let sight = Sight::new(sim, P1, true);
-        assert!(tracers.all(|t| shot_spans(sim, &sight, t).is_empty()), "faded");
+        assert!(
+            tracers.all(|t| shot_spans(sim, &sight, t, &space_crystals::tuning::ClientTuning::BUILTIN).is_empty()),
+            "faded"
+        );
     }
     run_until(&mut app, shot + REVEAL_TICKS - 1);
     assert!(drawn(&app, 2), "still revealed");
@@ -157,9 +167,18 @@ fn a_shot_from_an_attacker_not_revealed_shows_from_the_fog_edge() {
         !sight.reveals(attacker),
         "a neutral object's attacker is revealed to nobody"
     );
-    assert_eq!(shot_spans(sim, &sight, tracer), [(0.125, 1.0)], "from the fog edge");
     assert_eq!(
-        shot_spans(sim, &Sight::new(sim, P2, true), tracer),
+        shot_spans(sim, &sight, tracer, &space_crystals::tuning::ClientTuning::BUILTIN),
+        [(0.125, 1.0)],
+        "from the fog edge"
+    );
+    assert_eq!(
+        shot_spans(
+            sim,
+            &Sight::new(sim, P2, true),
+            tracer,
+            &space_crystals::tuning::ClientTuning::BUILTIN
+        ),
         [(0.0, 1.0)],
         "the shooter's own"
     );
@@ -206,7 +225,11 @@ fn a_revealed_attackers_shots_show_from_the_fog_edge_at_your_unit_and_at_a_neutr
         let sim = app.world().resource::<SimRes>();
         let sight = Sight::new(sim, P1, true);
         assert!(sight.reveals(attacker));
-        assert_eq!(shot_spans(sim, &sight, &first), [FOG_EDGE], "at player 1's own unit");
+        assert_eq!(
+            shot_spans(sim, &sight, &first, &space_crystals::tuning::ClientTuning::BUILTIN),
+            [FOG_EDGE],
+            "at player 1's own unit"
+        );
     }
     let second = shoot(&mut app, P2, attacker, neutral);
     assert!(second.tick < first.tick + REVEAL_TICKS);
@@ -215,9 +238,18 @@ fn a_revealed_attackers_shots_show_from_the_fog_edge_at_your_unit_and_at_a_neutr
     let sight = Sight::new(sim, P1, true);
     assert!(sight.reveals(attacker), "revealed still");
     assert!(drawn(&app, 2), "and drawn");
-    assert_eq!(shot_spans(sim, &sight, &second), [(0.125, 1.0)], "at the neutral");
     assert_eq!(
-        shot_spans(sim, &Sight::new(sim, P2, true), &second),
+        shot_spans(sim, &sight, &second, &space_crystals::tuning::ClientTuning::BUILTIN),
+        [(0.125, 1.0)],
+        "at the neutral"
+    );
+    assert_eq!(
+        shot_spans(
+            sim,
+            &Sight::new(sim, P2, true),
+            &second,
+            &space_crystals::tuning::ClientTuning::BUILTIN
+        ),
         [(0.0, 1.0)],
         "the shooter's own"
     );
@@ -278,7 +310,11 @@ fn a_revealed_attackers_shot_at_a_third_players_hidden_unit_shows_only_over_your
     {
         let sim = app.world().resource::<SimRes>();
         let sight = Sight::new(sim, P1, true);
-        assert_eq!(shot_spans(sim, &sight, &first), [FOG_EDGE], "at player 1's own unit");
+        assert_eq!(
+            shot_spans(sim, &sight, &first, &space_crystals::tuning::ClientTuning::BUILTIN),
+            [FOG_EDGE],
+            "at player 1's own unit"
+        );
     }
     let second = shoot(&mut app, P2, attacker, third);
     assert!(second.tick < first.tick + REVEAL_TICKS);
@@ -287,7 +323,7 @@ fn a_revealed_attackers_shot_at_a_third_players_hidden_unit_shows_only_over_your
     let sight = Sight::new(sim, P1, true);
     assert!(sight.reveals(attacker), "revealed still");
     assert!(!sim.is_visible(P1, sim.object(third).unwrap()), "the target hidden");
-    let spans = shot_spans(sim, &sight, &second);
+    let spans = shot_spans(sim, &sight, &second, &space_crystals::tuning::ClientTuning::BUILTIN);
     assert_eq!(spans, visible_spans(&sight, second.from, second.to));
     assert_eq!(spans.len(), 1, "{spans:?}");
     let (start, end) = spans[0];
@@ -296,7 +332,12 @@ fn a_revealed_attackers_shot_at_a_third_players_hidden_unit_shows_only_over_your
         "over tile (13, 4) only: {spans:?}"
     );
     assert_eq!(
-        shot_spans(sim, &Sight::new(sim, P3, true), &second),
+        shot_spans(
+            sim,
+            &Sight::new(sim, P3, true),
+            &second,
+            &space_crystals::tuning::ClientTuning::BUILTIN
+        ),
         [(0.0, 1.0)],
         "player 3 sees it all"
     );
@@ -328,7 +369,11 @@ fn a_revealed_attackers_shots_at_your_unit_all_show_from_the_fog_edge() {
         };
         shots += 1;
         assert!(sight.reveals(attacker), "shot {shots}");
-        assert_eq!(shot_spans(sim, &sight, tracer), [FOG_EDGE], "shot {shots}");
+        assert_eq!(
+            shot_spans(sim, &sight, tracer, &space_crystals::tuning::ClientTuning::BUILTIN),
+            [FOG_EDGE],
+            "shot {shots}"
+        );
         if sim.object(own).is_none() {
             break;
         }

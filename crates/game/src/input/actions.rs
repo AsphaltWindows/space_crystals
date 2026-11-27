@@ -97,6 +97,10 @@ pub enum InputAction {
     /// Debug only, like [`InputAction::DebugSwitchPlayer`]: turns the fog of war off and on (`crate::fog`), a view
     /// option for QA. Placeholder binding.
     DebugToggleFog,
+    /// (Slice M5-X2) Debug only, in a game with a data directory (`--tuning`, `crate::data`): restarts the game as the
+    /// playtest menu's Restart does, reads the directory again and gives the new game its rules in its first tick.
+    /// Placeholder binding: F8, which nothing else takes.
+    DebugRestartWithData,
     /// Replay playback (`--replay`, `crate::replay::playback`): pauses and resumes. Placeholder binding, like the
     /// other replay keys: the design has no replays yet. K since slice M5-MM2, whose alerts took Space
     /// ([`InputAction::JumpToAlert`]).

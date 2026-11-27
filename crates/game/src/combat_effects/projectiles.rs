@@ -27,6 +27,7 @@ use crate::coords::{drawn_at_height, view_to_world};
 use crate::fog::Sight;
 use crate::object_render::{flight_lift, player_color};
 use crate::shapes::{ColorMesh, lighten};
+use crate::tuning::ClientTuning;
 use crate::viewer_events::{Perception, Sighting};
 
 /// How high the arc of a projectile rises halfway, as a share of its path's length. Placeholder (not in the design): a
@@ -181,9 +182,10 @@ pub struct Missile {
 /// to the player (`core/vision.md > Attacks from outside vision`, design change 0293). It is lifted from its shooter's
 /// flight to its target's as it closes in on the target (by its distances to the two), heading the way it flies, or at
 /// its target as it leaves. A missile whose target has left the game flies on at the ground's height (placeholder).
-pub fn homing_missiles(sim: &Sim, sight: &Sight, alpha: f32) -> Vec<Missile> {
+pub fn homing_missiles(sim: &Sim, sight: &Sight, alpha: f32, tuning: &ClientTuning) -> Vec<Missile> {
     let map = sim.map();
-    let lift_of = |id: Option<ObjectId>| id.and_then(|id| sim.object(id)).map_or(0.0, |o| flight_lift(o.kind));
+    let lift = |o: &sc_sim::Object| flight_lift(o.kind, &tuning.look);
+    let lift_of = |id: Option<ObjectId>| id.and_then(|id| sim.object(id)).map_or(0.0, lift);
     let missile_at =
         |ground: Vec2, lift: f32| drawn_at_height(ground, map.height_at(ground) + lift) - Vec2::new(0.0, MUZZLE_LIFT);
     (sim.projectiles().iter())
@@ -355,12 +357,13 @@ mod tests {
         }
         let sim = t.sim();
         let homing = sim.projectiles()[0].homing.unwrap();
-        let drawn = homing_missiles(sim, &Sight::new(sim, p1, true), 0.5);
+        let drawn = homing_missiles(sim, &Sight::new(sim, p1, true), 0.5, &ClientTuning::BUILTIN);
         let body = homing.prev.lerp(homing.pos, 0.5) - Vec2::new(0.0, MUZZLE_LIFT);
         assert_eq!(drawn.len(), 1, "{drawn:?}");
         assert!(drawn[0].body.distance(body) < 1e-3, "{drawn:?}");
         assert!(drawn[0].heading.distance(Vec2::X) < 1e-3, "{drawn:?}");
         assert_eq!(drawn[0].owner, Some(p1));
-        assert_eq!(homing_missiles(sim, &Sight::new(sim, PlayerId(3), true), 0.5), []);
+        let unseen = homing_missiles(sim, &Sight::new(sim, PlayerId(3), true), 0.5, &ClientTuning::BUILTIN);
+        assert_eq!(unseen, []);
     }
 }

@@ -1,11 +1,13 @@
 //! The world camera and the UI camera (`core/camera.md`, `ARCHITECTURE.md > Client architecture > Camera`).
 //!
-//! The world camera is orthographic and shows exactly [`VIEW_WIDTH_GU`] horizontally. Its viewport is the area the
-//! active mode's UI leaves free ([`ViewportInsets`]), so the visible height follows from the aspect ratio. A second,
-//! full-surface camera renders only UI, because bevy_ui lays out each root node inside its camera's viewport.
+//! The world camera is orthographic and shows exactly `CameraTuning::view_width_gu` (28 GU, `crate::tuning::camera`)
+//! horizontally. Its viewport is the area the active mode's UI leaves free ([`ViewportInsets`]), so the visible height
+//! follows from the aspect ratio. A second, full-surface camera renders only UI, because bevy_ui lays out each root
+//! node inside its camera's viewport.
 //!
 //! The game has no zoom (`core/camera.md > Zoom`). The map editor has its own: [`CameraZoom`] scales the view
-//! relative to the game's pixel scale, 28 GU across the full surface width.
+//! relative to the game's pixel scale, 28 GU across the full surface width. (Slice M5-X2) In a game, the zoom is the
+//! data files' view width over the built-in one ([`follow_view_width`]), 1 unless they tune it.
 //!
 //! The camera looks at view space (`crate::coords`): [`CameraView::center`] is a view point, the cursor maps to a
 //! view point ([`cursor_to_view`]) and from there to the ground drawn under it ([`cursor_to_ground`]), and the view
@@ -29,7 +31,9 @@ mod players;
 
 pub use players::PlayerCameras;
 
-pub use crate::tuning::camera::{PAN_SPEED_GU_PER_SECOND, VIEW_WIDTH_GU};
+use crate::ClientMode;
+use crate::tuning::ClientTuning;
+use crate::tuning::camera::BUILTIN as BUILTIN_CAMERA;
 
 /// Shown where the map doesn't fill the view (placeholder colour).
 const BACKGROUND: Color = Color::srgb(0.02, 0.02, 0.03);
@@ -52,7 +56,9 @@ pub struct ViewportInsets {
 }
 
 /// Map editor zoom: how many times more world the view shows than the game, whose scale is 28 GU across the full
-/// surface width (`core/camera.md > Zoom`). Always 1 in the game, which has no zoom.
+/// surface width (`core/camera.md > Zoom`). Always 1 in the game, which has no zoom, unless (slice M5-X2) a data file
+/// tunes the view's width (`CameraTuning::view_width_gu`): then the tuned width over the built-in one
+/// ([`follow_view_width`]).
 #[derive(Resource, Copy, Clone, Debug, PartialEq)]
 pub struct CameraZoom(pub f32);
 
@@ -84,9 +90,15 @@ impl Plugin for GameCameraPlugin {
             .init_resource::<CameraZoom>()
             .init_resource::<GrabPan>()
             .init_resource::<PlayerCameras>()
+            .init_resource::<ClientTuning>()
             .add_systems(Startup, (init_camera_view, spawn_cameras))
             // The grab sets the view outright, so it comes last.
-            .add_systems(Update, (pan_camera, grab_pan).chain().in_set(ClientSystems::Actions))
+            .add_systems(
+                Update,
+                (follow_view_width, pan_camera, grab_pan)
+                    .chain()
+                    .in_set(ClientSystems::Actions),
+            )
             // In the frame of the debug player switch (`crate::selection`'s `switch_player`).
             .add_systems(
                 Update,
@@ -147,11 +159,11 @@ pub fn viewport_rect(size: SurfaceSize, insets: ViewportInsets) -> (UVec2, UVec2
 }
 
 /// The world area a viewport of `viewport_size` shows, in space units, on a surface `surface_width` pixels wide. At
-/// zoom 1 that is the game's scale, 28 GU across the full surface width, so a full-width viewport shows exactly
-/// 28 GU. The height follows from the aspect ratio.
+/// zoom 1 that is the game's scale, 28 GU across the full surface width (the built-in `CameraTuning::view_width_gu`),
+/// so a full-width viewport shows exactly 28 GU. The height follows from the aspect ratio.
 pub fn visible_extent_su(viewport_size: UVec2, surface_width: u32, zoom: f32) -> Vec2 {
     let size = viewport_size.max(UVec2::ONE).as_vec2();
-    let width = gu(VIEW_WIDTH_GU) * zoom * size.x / surface_width.max(1) as f32;
+    let width = gu(BUILTIN_CAMERA.view_width_gu) * zoom * size.x / surface_width.max(1) as f32;
     Vec2::new(width, width * size.y / size.x)
 }
 
@@ -235,7 +247,7 @@ fn init_camera_view(mut commands: Commands, scenario: Res<LoadedScenario>, playe
 fn spawn_cameras(mut commands: Commands, surface: Res<RenderSurface>) {
     let projection = OrthographicProjection {
         scaling_mode: ScalingMode::FixedHorizontal {
-            viewport_width: gu(VIEW_WIDTH_GU),
+            viewport_width: gu(BUILTIN_CAMERA.view_width_gu),
         },
         ..OrthographicProjection::default_2d()
     };
@@ -267,9 +279,30 @@ fn spawn_cameras(mut commands: Commands, surface: Res<RenderSurface>) {
     ));
 }
 
-/// `core/camera.md > Panning`: pans while a pan action is held. Real time, so panning works while the sim is paused
-/// or running fast. A zoomed-out editor view pans as many pixels per second as the game's view.
-fn pan_camera(actions: Res<ActionState>, time: Res<Time<Real>>, zoom: Res<CameraZoom>, mut view: ResMut<CameraView>) {
+/// (Slice M5-X2) The game's view as wide as the data files tune it (`CameraTuning::view_width_gu`, `crate::data`): its
+/// [`CameraZoom`], the tuned width over the built-in one, 1 as long as no data file changes it, a restart's included.
+/// Only in a game launched as one (`ClientMode::Game`): the editor and its play-tests keep their own zoom, and run with
+/// the built-in tuning.
+pub(crate) fn follow_view_width(mode: Res<ClientMode>, tuning: Res<ClientTuning>, mut zoom: ResMut<CameraZoom>) {
+    if *mode != ClientMode::Game {
+        return;
+    }
+    let width = tuning.camera.view_width_gu;
+    if width.is_finite() && width > 0.0 {
+        zoom.set_if_neq(CameraZoom(width / BUILTIN_CAMERA.view_width_gu));
+    }
+}
+
+/// `core/camera.md > Panning`: pans while a pan action is held, at `CameraTuning::pan_speed_gu_per_second`. Real time,
+/// so panning works while the sim is paused or running fast. A zoomed-out editor view pans as many pixels per second
+/// as the game's view.
+fn pan_camera(
+    actions: Res<ActionState>,
+    time: Res<Time<Real>>,
+    tuning: Res<ClientTuning>,
+    zoom: Res<CameraZoom>,
+    mut view: ResMut<CameraView>,
+) {
     let mut direction = Vec2::ZERO; // sim space: +y is south
     for (action, step) in [
         (InputAction::PanLeft, Vec2::NEG_X),
@@ -282,7 +315,8 @@ fn pan_camera(actions: Res<ActionState>, time: Res<Time<Real>>, zoom: Res<Camera
         }
     }
     if direction != Vec2::ZERO {
-        view.center += direction.normalize() * gu(PAN_SPEED_GU_PER_SECOND) * zoom.0 * time.delta_secs();
+        let speed = gu(tuning.camera.pan_speed_gu_per_second);
+        view.center += direction.normalize() * speed * zoom.0 * time.delta_secs();
     }
 }
 

@@ -34,16 +34,12 @@ use bevy::text::EditableText;
 use bevy::window::PrimaryWindow;
 
 pub use actions::{CommandSlot, ControlGroup, EditorInput, InputAction, InputContext};
-pub use bindings::{Binding, Bindings, Button, Chord, DOUBLE_TAP_SECONDS, Modifiers};
-pub use pointer::{
-    DOUBLE_CLICK_DISTANCE_PX, DOUBLE_CLICK_SECONDS, DRAG_THRESHOLD_PX, MapClick, MapPress, Pointer, SelectionBox,
-};
+pub use bindings::{Binding, Bindings, Button, Chord, Modifiers};
+pub use pointer::{MapClick, MapPress, Pointer, SelectionBox};
 
 use crate::ClientMode;
+use crate::tuning::ClientTuning;
 use bindings::TapTracker;
-
-pub use crate::tuning::camera::EDGE_PAN_MARGIN_PX;
-pub use crate::tuning::input::PIXELS_PER_LINE;
 
 /// This frame's input, rebuilt every frame from the devices and [`InjectedInput`] through the [`Bindings`].
 #[derive(Resource, Default, Debug)]
@@ -185,6 +181,7 @@ pub struct ActionInputPlugin {
 
 impl Plugin for ActionInputPlugin {
     fn build(&self, app: &mut App) {
+        app.init_resource::<ClientTuning>();
         app.init_resource::<ActionState>()
             .init_resource::<InjectedInput>()
             .init_resource::<Bindings>()
@@ -234,6 +231,8 @@ struct Devices<'w, 's> {
     mode: Option<Res<'w, ClientMode>>,
     placing: Option<Res<'w, Placing>>,
     modal: Option<Res<'w, Modal>>,
+    /// (M5-X2) The wheel's pixels to a line, the double tap's time and the screen edge's margin.
+    tuning: Res<'w, ClientTuning>,
 }
 
 impl Devices<'_, '_> {
@@ -244,7 +243,7 @@ impl Devices<'_, '_> {
         };
         match scroll.unit {
             MouseScrollUnit::Line => scroll.delta.y,
-            MouseScrollUnit::Pixel => scroll.delta.y / PIXELS_PER_LINE,
+            MouseScrollUnit::Pixel => scroll.delta.y / self.tuning.input.pixels_per_line,
         }
     }
 }
@@ -346,7 +345,9 @@ fn read_actions(
         let now = time.elapsed_secs_f64();
         let placing = devices.placing.as_deref().is_some_and(|p| p.0);
         for button in went_down {
-            let double = tracking.taps.press(button, modifiers, now);
+            let double = tracking
+                .taps
+                .press(button, modifiers, now, devices.tuning.input.double_tap_seconds);
             if let Some(action) = bindings.resolve_placing(context, button, modifiers, double, placing) {
                 tracking.latches.push((button, action));
                 state.just_pressed.insert(action);
@@ -368,7 +369,8 @@ fn read_actions(
         && window.focused
         && let Some(cursor) = window.cursor_position()
     {
-        state.held.extend(edge_pan_actions(cursor, window.size()));
+        let margin = devices.tuning.camera.edge_pan_margin_px;
+        state.held.extend(edge_pan_actions(cursor, window.size(), margin));
     }
     state.held.extend(injected.held.iter().copied());
     for action in injected.pressed.drain(..) {
@@ -399,9 +401,9 @@ fn read_actions(
     injected.mouse.clear();
 }
 
-/// The pan actions for a cursor at `cursor` (logical pixels, origin top-left) in a window of `size`.
-pub fn edge_pan_actions(cursor: Vec2, size: Vec2) -> impl Iterator<Item = InputAction> {
-    let m = EDGE_PAN_MARGIN_PX;
+/// The pan actions for a cursor at `cursor` (logical pixels, origin top-left) in a window of `size`, with a margin
+/// of `m` pixels (`CameraTuning::edge_pan_margin_px`).
+pub fn edge_pan_actions(cursor: Vec2, size: Vec2, m: f32) -> impl Iterator<Item = InputAction> {
     [
         (cursor.x < m, InputAction::PanLeft),
         (cursor.x >= size.x - m, InputAction::PanRight),
@@ -419,7 +421,8 @@ mod tests {
     #[test]
     fn screen_edges_pan_towards_that_edge() {
         let size = Vec2::new(800.0, 600.0);
-        let at = |x, y| edge_pan_actions(Vec2::new(x, y), size).collect::<Vec<_>>();
+        let margin = crate::tuning::camera::BUILTIN.edge_pan_margin_px;
+        let at = |x, y| edge_pan_actions(Vec2::new(x, y), size, margin).collect::<Vec<_>>();
         assert_eq!(at(400.0, 300.0), vec![]);
         assert_eq!(at(0.0, 300.0), vec![InputAction::PanLeft]);
         assert_eq!(at(799.0, 599.0), vec![InputAction::PanRight, InputAction::PanDown]);
@@ -432,12 +435,13 @@ mod tests {
     /// right and bottom.
     #[test]
     fn the_map_pans_5_px_from_an_edge_and_not_9() {
-        assert_eq!(EDGE_PAN_MARGIN_PX, 8.0);
+        let margin = crate::tuning::camera::BUILTIN.edge_pan_margin_px;
+        assert_eq!(margin, 8.0);
         let size = Vec2::new(1280.0, 720.0);
-        let at = |x, y| edge_pan_actions(Vec2::new(x, y), size).collect::<Vec<_>>();
+        let at = |x, y| edge_pan_actions(Vec2::new(x, y), size, margin).collect::<Vec<_>>();
         let (right, bottom) = (size.x - 1.0, size.y - 1.0);
         for d in [5.0, 9.0] {
-            let pans = d < EDGE_PAN_MARGIN_PX;
+            let pans = d < margin;
             let expect = |action| if pans { vec![action] } else { vec![] };
             assert_eq!(at(d, 360.0), expect(InputAction::PanLeft), "{d} px from the left");
             assert_eq!(

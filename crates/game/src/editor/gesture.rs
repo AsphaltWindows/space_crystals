@@ -18,7 +18,6 @@ use super::objects;
 use super::state::Selection;
 use super::terrain;
 use super::tools::{ElevationMode, Tool, symmetry_label};
-use crate::tuning::input::MARKER_GRAB_RADIUS_GU;
 
 /// The gesture in progress, from the press to the release.
 #[derive(Resource, Default, Debug)]
@@ -263,7 +262,7 @@ impl Editor<'_> {
     fn select_at(&mut self, pos: Vec2) {
         let map = self.doc.map();
         let tile = TilePos::containing(pos);
-        let grab = MARKER_GRAB_RADIUS_GU * SU_PER_GU;
+        let grab = self.tuning.input.marker_grab_radius_gu * SU_PER_GU;
         let mut slots: Vec<SlotId> = map.slot_ids().collect();
         slots.sort_by_key(|s| !map.is_slot_editable(*s));
         let marker = slots

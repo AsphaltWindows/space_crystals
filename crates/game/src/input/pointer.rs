@@ -1,14 +1,14 @@
-//! The pointer over the map: where the cursor points, whether it is over the UI, and the presses, clicks and boxes
-//! of the pointer actions (`ARCHITECTURE.md > Client architecture > Input`).
+//! The pointer over the map: where the cursor points, whether it is over the UI, and the presses, clicks and boxes of
+//! the pointer actions (`ARCHITECTURE.md > Client architecture > Input`).
 //!
 //! The pointer follows a press of a primary pointer action that goes down on the map until its release
 //! ([`Pointer::press`]): [`InputAction::Select`] in the game, [`EditorInput::UseTool`] in the editor. A
-//! [`InputAction::Select`] press sends a [`MapClick`] when it is released, or a [`SelectionBox`] when the pointer
-//! moved more than [`DRAG_THRESHOLD_PX`] while it was held; in the frame of its release the press, with how far it
-//! moved, is [`Pointer::released`]. [`InputAction::ContextCommand`] and the editor's
-//! [`EditorInput::Eyedropper`] send a [`MapClick`] when they are pressed. None of them starts over the UI.
-//! Positions on the map are view points (`crate::coords`), which stay on the same spot of the map while the camera
-//! pans, and the ground points drawn there (`coords::ground_under`), as the last frame showed them.
+//! [`InputAction::Select`] press sends a [`MapClick`] when it is released, or a [`SelectionBox`] when the pointer moved
+//! more than `InputTuning::drag_threshold_px` while it was held; in the frame of its release the press, with how far it
+//! moved, is [`Pointer::released`]. [`InputAction::ContextCommand`] and the editor's [`EditorInput::Eyedropper`] send a
+//! [`MapClick`] when they are pressed. None of them starts over the UI. Positions on the map are view points
+//! (`crate::coords`), which stay on the same spot of the map while the camera pans, and the ground points drawn there
+//! (`coords::ground_under`), as the last frame showed them.
 
 use bevy::ecs::system::SystemParam;
 use bevy::picking::hover::HoverMap;
@@ -21,7 +21,8 @@ use crate::coords::ground_under;
 use crate::platform::SurfaceSize;
 use crate::sim_driver::SimRes;
 
-pub use crate::tuning::input::{DOUBLE_CLICK_DISTANCE_PX, DOUBLE_CLICK_SECONDS, DRAG_THRESHOLD_PX};
+use crate::tuning::ClientTuning;
+use crate::tuning::input::InputTuning;
 
 /// The primary pointer actions, the game's and the editor's: the pointer follows a press of one on the map until
 /// its release ([`Pointer::press`]).
@@ -49,7 +50,7 @@ pub struct Pointer {
     pub press: Option<MapPress>,
     /// The press whose button went up this frame, in its input context, as it ended: how far it moved included
     /// ([`MapPress::moved`]). For a rule of its own about clicks and drags: the command flow's larger click allowance
-    /// while a target is awaited (`crate::command_ui::TARGETING_CLICK_ALLOWANCE_PX`, design change 0073).
+    /// while a target is awaited (`InputTuning::targeting_click_allowance_px`, design change 0073).
     pub released: Option<MapPress>,
     /// The box of a [`InputAction::Select`] drag in progress, in view space: from where it went down to the
     /// cursor, kept inside the world view.
@@ -72,7 +73,7 @@ pub struct MapPress {
     pub drag_ground: Option<Vec2>,
     /// The farthest the pointer has been from where it went down, in logical pixels.
     pub moved: f32,
-    /// The pointer moved further than [`DRAG_THRESHOLD_PX`] from there ([`MapPress::moved`]): a
+    /// The pointer moved further than `InputTuning::drag_threshold_px` from there ([`MapPress::moved`]): a
     /// [`InputAction::Select`] press is a box now, not a click.
     pub dragging: bool,
 }
@@ -93,8 +94,8 @@ pub struct MapClick {
     /// (`Bindings::holds(InputAction::Queue, modifiers)`), as in that frame's [`ActionState`].
     pub modifiers: Modifiers,
     /// The second click of a double-click (`systems/controls/selection.md > MapClickSelection`): the same
-    /// action, within [`DOUBLE_CLICK_SECONDS`] and [`DOUBLE_CLICK_DISTANCE_PX`] of the previous click. A third click
-    /// starts over.
+    /// action, within `InputTuning::double_click_seconds` and `double_click_distance_px` of the previous click. A
+    /// third click starts over.
     pub double: bool,
 }
 
@@ -160,10 +161,12 @@ pub(super) struct PointerTracking {
 }
 
 impl PointerTracking {
-    /// Records a click and says whether it is the second of a double-click.
-    fn click(&mut self, action: InputAction, screen: Vec2, time: f64) -> bool {
+    /// Records a click and says whether it is the second of a double-click, as `tuning` times and spaces them.
+    fn click(&mut self, action: InputAction, screen: Vec2, time: f64, tuning: &InputTuning) -> bool {
         let double = self.last_click.is_some_and(|(a, s, t)| {
-            a == action && time - t <= DOUBLE_CLICK_SECONDS && s.distance(screen) <= DOUBLE_CLICK_DISTANCE_PX
+            a == action
+                && time - t <= tuning.double_click_seconds
+                && s.distance(screen) <= tuning.double_click_distance_px
         });
         self.last_click = if double { None } else { Some((action, screen, time)) };
         double
@@ -179,10 +182,12 @@ pub(super) fn track_pointer(
     world: WorldView,
     hover: UiHover,
     time: Res<Time<Real>>,
+    tuning: Res<ClientTuning>,
     mut state: ResMut<ActionState>,
     mut tracking: Local<PointerTracking>,
     mut messages: (MessageWriter<MapClick>, MessageWriter<SelectionBox>),
 ) {
+    let tuning = &tuning.input;
     let (clicks, boxes) = &mut messages;
     let now = time.elapsed_secs_f64();
     let screen = state.cursor;
@@ -230,7 +235,7 @@ pub(super) fn track_pointer(
         if let Some(cursor) = last_screen {
             press.moved = press.moved.max(cursor.distance(press.screen));
         }
-        press.dragging = press.moved > DRAG_THRESHOLD_PX;
+        press.dragging = press.moved > tuning.drag_threshold_px;
     }
     let drag_end = last_screen.and_then(|s| world.clamped_view_at(s));
     let mut released = None;
@@ -250,7 +255,7 @@ pub(super) fn track_pointer(
                 });
             }
         } else if selected {
-            let double = tracking.click(InputAction::Select, press.screen, pressed_at);
+            let double = tracking.click(InputAction::Select, press.screen, pressed_at, tuning);
             clicks.write(MapClick {
                 action: InputAction::Select,
                 screen: press.screen,
@@ -265,7 +270,7 @@ pub(super) fn track_pointer(
         if state.just_pressed(action)
             && let (Some(screen), Some(view), Some(ground)) = (screen, view, ground)
         {
-            let double = tracking.click(action, screen, now);
+            let double = tracking.click(action, screen, now, tuning);
             clicks.write(MapClick {
                 action,
                 screen,
@@ -299,16 +304,27 @@ mod tests {
     #[test]
     fn double_clicks_need_the_same_action_close_and_quick() {
         let mut t = PointerTracking::default();
+        let tuning = crate::tuning::input::BUILTIN;
         let at = Vec2::new(100.0, 100.0);
-        let near = at + Vec2::new(DOUBLE_CLICK_DISTANCE_PX, 0.0);
-        assert!(!t.click(InputAction::Select, at, 1.0));
-        assert!(t.click(InputAction::Select, near, 1.0 + DOUBLE_CLICK_SECONDS - 0.01));
+        let near = at + Vec2::new(tuning.double_click_distance_px, 0.0);
+        assert!(!t.click(InputAction::Select, at, 1.0, &tuning));
+        assert!(t.click(
+            InputAction::Select,
+            near,
+            1.0 + tuning.double_click_seconds - 0.01,
+            &tuning
+        ));
         // The third click starts over.
-        assert!(!t.click(InputAction::Select, at, 1.5));
+        assert!(!t.click(InputAction::Select, at, 1.5, &tuning));
         // Too slow, too far, or another action.
-        assert!(!t.click(InputAction::Select, at, 1.5 + DOUBLE_CLICK_SECONDS + 0.01));
-        assert!(!t.click(InputAction::Select, at + Vec2::new(0.0, 7.0), 2.0));
-        assert!(!t.click(InputAction::ContextCommand, at + Vec2::new(0.0, 7.0), 2.1));
-        assert!(t.click(InputAction::ContextCommand, at + Vec2::new(0.0, 7.0), 2.2));
+        assert!(!t.click(
+            InputAction::Select,
+            at,
+            1.5 + tuning.double_click_seconds + 0.01,
+            &tuning
+        ));
+        assert!(!t.click(InputAction::Select, at + Vec2::new(0.0, 7.0), 2.0, &tuning));
+        assert!(!t.click(InputAction::ContextCommand, at + Vec2::new(0.0, 7.0), 2.1, &tuning));
+        assert!(t.click(InputAction::ContextCommand, at + Vec2::new(0.0, 7.0), 2.2, &tuning));
     }
 }

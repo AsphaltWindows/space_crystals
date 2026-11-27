@@ -1,10 +1,11 @@
 //! (M5-N11) The casts round a caster or ahead of it (`SimEvent::Cast` of an ability whose area is
 //! `AbilityArea::AroundCaster` or `AbilityArea::Ahead`: a Prayer-mobile's Inspire and Suppress), shown where they were
-//! cast for [`CAST_TICKS`]: Inspire's circle of 4 grid units round the vehicle ("every own infantry unit within **4
-//! grid units** of the vehicle") as a gold ring that settles to its radius and fades, over a faint disc; Suppress's arc
-//! ("an arc of **90° total** in front of the vehicle's current facing, **5 grid units** long") as a red wedge that
-//! fades, its edges brighter. The units the cast took in carry its buff's mark meanwhile (`super::buffs`). A Shrine's
-//! cast at a point shows nothing of its own, as before. **Placeholder (not in the design: the casts' look; Q0001)**.
+//! cast for `FeedbackTuning::cast_ticks`: Inspire's circle of 4 grid units round the vehicle ("every own infantry unit
+//! within **4 grid units** of the vehicle") as a gold ring that settles to its radius and fades, over a faint disc;
+//! Suppress's arc ("an arc of **90° total** in front of the vehicle's current facing, **5 grid units** long") as a red
+//! wedge that fades, its edges brighter. The units the cast took in carry its buff's mark meanwhile (`super::buffs`). A
+//! Shrine's cast at a point shows nothing of its own, as before. **Placeholder (not in the design: the casts' look;
+//! Q0001)**.
 //!
 //! The fog: a cast shows only while the tile under the point it was cast from is Visible to the player
 //! ([`shows_cast`]), as a blast does (its sighting, `crate::viewer_events`); its owner's own vehicle sees it.
@@ -16,10 +17,8 @@ use super::shows;
 use crate::coords::{drawn_at_height, view_to_world};
 use crate::fog::Sight;
 use crate::shapes::ColorMesh;
+use crate::tuning::ClientTuning;
 use crate::viewer_events::{Perception, Sighting};
-
-/// How long a cast shows, ticks: a second. Placeholder (not in the design) until the art direction (Q0001).
-pub const CAST_TICKS: u32 = 16;
 /// Inspire's gold, Suppress's red (the buffs' marks', `super::buffs`), and the width of a ring or an edge, su
 /// (placeholders).
 const INSPIRE: Srgba = Srgba::rgb(1.0, 0.80, 0.25);
@@ -50,14 +49,16 @@ impl CastFlash {
     }
 }
 
-/// Whether `sight` shows `cast` now: for [`CAST_TICKS`] from its tick, as its sighting reaches the player.
-pub fn shows_cast(sim: &Sim, sight: &Sight, cast: &CastFlash) -> bool {
-    shows(sim, cast.tick, CAST_TICKS) && cast.seen.perceived_by(sight) == Perception::Whole
+/// Whether `sight` shows `cast` now: for `tuning`'s `FeedbackTuning::cast_ticks` from its tick, as its sighting
+/// reaches the player.
+pub fn shows_cast(sim: &Sim, sight: &Sight, cast: &CastFlash, tuning: &ClientTuning) -> bool {
+    shows(sim, cast.tick, tuning.feedback.cast_ticks) && cast.seen.perceived_by(sight) == Perception::Whole
 }
 
-/// The cast `age` ticks after it (module docs), on the ground at its point's height.
-pub(super) fn cast_shape(mesh: &mut ColorMesh, map: &Map, cast: &CastFlash, age: f32, z: f32) {
-    let t = (age / CAST_TICKS as f32).clamp(0.0, 1.0);
+/// The cast `t` of the way through its time (`FeedbackTuning::cast_ticks`; module docs), on the ground at its point's
+/// height.
+pub(super) fn cast_shape(mesh: &mut ColorMesh, map: &Map, cast: &CastFlash, t: f32, z: f32) {
+    let t = t.clamp(0.0, 1.0);
     let def = cast.ability.def();
     let radius = def.radius * SU_PER_GU;
     let height = map.height_at(cast.at);

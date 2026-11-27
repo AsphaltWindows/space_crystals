@@ -81,7 +81,7 @@ pub struct FacingTick(pub ObjectId);
 #[derive(Component, Copy, Clone, Debug, PartialEq, Eq)]
 pub struct RiotShieldVisual(pub ObjectId);
 
-pub use flight::{FLIGHT_LIFT_LEVELS, FlightShadow, LIFT_OFF_SU, body_height, flies, flight_lift, object_lift};
+pub use flight::{FlightShadow, body_height, flies, flight_lift, object_lift};
 pub use load::{LoadMarker, carries};
 pub use look::{Look, UnitShape};
 pub use remembered::{RememberedVisual, RememberedVisuals};
@@ -201,6 +201,7 @@ pub struct ObjectRenderPlugin;
 
 impl Plugin for ObjectRenderPlugin {
     fn build(&self, app: &mut App) {
+        app.init_resource::<crate::tuning::ClientTuning>();
         app.init_resource::<ObjectVisualAssets>()
             .init_resource::<ObjectVisuals>()
             .init_resource::<RememberedVisuals>()

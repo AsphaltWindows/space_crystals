@@ -8,6 +8,9 @@ use sc_sim::SU_PER_GU;
 
 use super::*;
 
+/// The built-in tuning (`crate::tuning::feedback::BUILTIN`).
+const F: FeedbackTuning = crate::tuning::feedback::BUILTIN;
+
 const P1: PlayerId = PlayerId(1);
 const P2: PlayerId = PlayerId(2);
 const SPOT: Vec2 = Vec2::new(1000.0, 1000.0);
@@ -24,21 +27,24 @@ fn east(at: Vec2, gu: f32) -> Vec2 {
 #[test]
 fn an_area_pings_once_every_ten_seconds() {
     let mut alerts = MinimapAlerts::default();
-    assert!(alerts.alert(P1, SPOT, 100));
-    assert!(!alerts.alert(P1, SPOT, 100), "the same tick, the same spot");
+    assert!(alerts.alert(P1, SPOT, 100, &F));
+    assert!(!alerts.alert(P1, SPOT, 100, &F), "the same tick, the same spot");
     assert!(
-        !alerts.alert(P1, east(SPOT, PING_AREA_GU), 101),
+        !alerts.alert(P1, east(SPOT, F.ping_area_gu), 101, &F),
         "8 grid units away: the same area"
     );
-    assert!(!alerts.alert(P1, SPOT, 100 + PING_TICKS), "faded, still in its 10 s");
-    assert!(!alerts.alert(P1, SPOT, 100 + PING_THROTTLE_TICKS - 1));
-    assert!(alerts.alert(P2, SPOT, 101), "player 2's pings are their own");
-    let farther = east(SPOT, -(PING_AREA_GU + 0.1));
     assert!(
-        alerts.alert(P1, farther, 102),
+        !alerts.alert(P1, SPOT, 100 + F.ping_ticks, &F),
+        "faded, still in its 10 s"
+    );
+    assert!(!alerts.alert(P1, SPOT, 100 + F.ping_throttle_ticks - 1, &F));
+    assert!(alerts.alert(P2, SPOT, 101, &F), "player 2's pings are their own");
+    let farther = east(SPOT, -(F.ping_area_gu + 0.1));
+    assert!(
+        alerts.alert(P1, farther, 102, &F),
         "a little more than 8 grid units away: another area"
     );
-    assert!(alerts.alert(P1, SPOT, 100 + PING_THROTTLE_TICKS), "10 s on");
+    assert!(alerts.alert(P1, SPOT, 100 + F.ping_throttle_ticks, &F), "10 s on");
     assert_eq!(alerts.made, 4);
     let pings: Vec<_> = alerts.pings().iter().map(|p| (p.player, p.tick)).collect();
     assert_eq!(pings, [(P1, 100), (P2, 101), (P1, 102), (P1, 260)]);
@@ -48,11 +54,11 @@ fn an_area_pings_once_every_ten_seconds() {
 #[test]
 fn a_ping_is_forgotten_after_ten_seconds() {
     let mut alerts = MinimapAlerts::default();
-    alerts.alert(P1, SPOT, 10);
-    alerts.alert(P1, east(SPOT, 20.0), 50);
-    alerts.forget(10 + PING_THROTTLE_TICKS - 1);
+    alerts.alert(P1, SPOT, 10, &F);
+    alerts.alert(P1, east(SPOT, 20.0), 50, &F);
+    alerts.forget(10 + F.ping_throttle_ticks - 1, &F);
     assert_eq!(alerts.pings().len(), 2);
-    alerts.forget(10 + PING_THROTTLE_TICKS);
+    alerts.forget(10 + F.ping_throttle_ticks, &F);
     assert_eq!(alerts.pings().iter().map(|p| p.tick).collect::<Vec<_>>(), [50]);
     assert_eq!(alerts.latest(P1), Some(east(SPOT, 20.0)), "the latest stays");
 }
@@ -63,33 +69,35 @@ fn a_ping_is_forgotten_after_ten_seconds() {
 fn the_latest_alert_is_the_latest_ping_made() {
     let mut alerts = MinimapAlerts::default();
     assert_eq!(alerts.latest(P1), None);
-    alerts.alert(P1, SPOT, 10);
+    alerts.alert(P1, SPOT, 10, &F);
     assert_eq!(alerts.latest(P1), Some(SPOT));
     let far = east(SPOT, 30.0);
-    alerts.alert(P1, far, 20);
+    alerts.alert(P1, far, 20, &F);
     assert_eq!(alerts.latest(P1), Some(far));
-    assert!(!alerts.alert(P1, east(SPOT, 1.0), 30), "throttled");
+    assert!(!alerts.alert(P1, east(SPOT, 1.0), 30, &F), "throttled");
     assert_eq!(alerts.latest(P1), Some(far), "a throttled hit is no alert");
     assert_eq!(alerts.latest(P2), None);
 }
 
 /// "A ring that shrinks and fades over about 2 s": as large as it gets and opaque as it is made, smaller and clearer
-/// every tick, gone at [`PING_TICKS`].
+/// every tick, gone at `ping_ticks`.
 #[test]
 fn the_ring_shrinks_and_fades_for_two_seconds() {
-    assert_eq!(ring_at(0.0), Some((RING_START_PX, 1.0)));
-    let rings: Vec<_> = (0..PING_TICKS).map(|t| ring_at(t as f32).expect("shown")).collect();
+    assert_eq!(ring_at(0.0, F.ping_ticks), Some((RING_START_PX, 1.0)));
+    let rings: Vec<_> = (0..F.ping_ticks)
+        .map(|t| ring_at(t as f32, F.ping_ticks).expect("shown"))
+        .collect();
     for pair in rings.windows(2) {
         let [(size, alpha), (next_size, next_alpha)] = pair else {
             unreachable!()
         };
         assert!(next_size < size && next_alpha < alpha, "{pair:?}");
     }
-    let (size, alpha) = ring_at(PING_TICKS as f32 - 0.5).expect("not yet gone");
+    let (size, alpha) = ring_at(F.ping_ticks as f32 - 0.5, F.ping_ticks).expect("not yet gone");
     assert!(size > RING_END_PX && size < RING_END_PX + 1.0 && alpha < 0.02);
-    assert_eq!(ring_at(PING_TICKS as f32), None);
-    assert_eq!(ring_at(PING_TICKS as f32 * 3.0), None);
-    assert_eq!(PING_TICKS, 32, "2 s at 16 ticks a second");
+    assert_eq!(ring_at(F.ping_ticks as f32, F.ping_ticks), None);
+    assert_eq!(ring_at(F.ping_ticks as f32 * 3.0, F.ping_ticks), None);
+    assert_eq!(F.ping_ticks, 32, "2 s at 16 ticks a second");
 }
 
 /// A new sim (a restart, a play-test) starts with no pings and no latest alert; the same sim keeps them.
@@ -97,7 +105,7 @@ fn the_ring_shrinks_and_fades_for_two_seconds() {
 fn a_new_sim_has_no_alerts() {
     let mut alerts = MinimapAlerts::default();
     alerts.follow(3);
-    alerts.alert(P1, SPOT, 10);
+    alerts.alert(P1, SPOT, 10, &F);
     alerts.follow(3);
     assert_eq!((alerts.pings().len(), alerts.latest(P1)), (1, Some(SPOT)));
     alerts.follow(4);
@@ -134,12 +142,12 @@ fn alerts_perf() {
     for tick in 0..480 {
         let hits: Vec<Vec2> = (0..HITS).map(|_| Vec2::new(random(), random()) * MAP_SU).collect();
         let start = Instant::now();
-        alerts.forget(tick);
+        alerts.forget(tick, &F);
         for &at in &hits {
-            alerts.alert(P1, black_box(at), tick);
+            alerts.alert(P1, black_box(at), tick, &F);
         }
         let rings = (alerts.pings().iter())
-            .filter_map(|p| ring_at((tick - p.tick) as f32))
+            .filter_map(|p| ring_at((tick - p.tick) as f32, F.ping_ticks))
             .count();
         times.push(start.elapsed());
         kept = kept.max(alerts.pings().len());

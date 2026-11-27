@@ -18,10 +18,9 @@ use sc_sim::{
 };
 use space_crystals::combat_effects::blasts::ring_color;
 use space_crystals::combat_effects::{
-    CombatEffects, CombatEffectsMesh, DEATH_MARKER_TICKS, DeathMarker, HpBar, ShotStyle, TRACER_TICKS, hp_bars,
-    shows_flight,
+    CombatEffects, CombatEffectsMesh, DeathMarker, HpBar, ShotStyle, hp_bars, shows_flight,
 };
-use space_crystals::command_ui::feedback::{FEEDBACK_TICKS, TARGET_TOO_CLOSE_TEXT, TargetFeedback};
+use space_crystals::command_ui::feedback::{TARGET_TOO_CLOSE_TEXT, TargetFeedback};
 use space_crystals::coords::drawn_at_height;
 use space_crystals::fog::{FogOfWar, Sight};
 use space_crystals::object_render::{flight_lift, object_height, player_color};
@@ -98,7 +97,9 @@ fn bars(app: &App) -> Vec<HpBar> {
     let selection = world.resource::<ControlStates>().selection(player);
     let sim = world.resource::<SimRes>();
     let sight = Sight::new(sim, player, world.resource::<FogOfWar>().enabled);
-    hp_bars(sim, &sight, 1.0, |id| selection.contains(id))
+    hp_bars(sim, &sight, 1.0, &space_crystals::tuning::ClientTuning::BUILTIN, |id| {
+        selection.contains(id)
+    })
 }
 
 fn effects_visible(app: &mut App) -> bool {
@@ -108,10 +109,10 @@ fn effects_visible(app: &mut App) -> bool {
 
 /// A Peacekeeper and a Guard, 160 su apart, attack each other: the Peacekeeper's first shot lands 2 ticks after the
 /// orders (Aim 2, Firing 1), the Guard's 4 (Aim 4, its laser rifle: design change 0186), and each leaves a tracer for
-/// `TRACER_TICKS`; the hits leave HP bars; the Guard's third hit of 17 kills the Peacekeeper, which leaves a marker
-/// for `DEATH_MARKER_TICKS`. A selected unit shows its HP bar even at full HP. A second Peacekeeper of player 1
-/// stands by, so that player 1 still sees the Guard once the first is dead; with auto-targeting off (a debug
-/// command), it only watches.
+/// `FeedbackTuning::tracer_ticks`; the hits leave HP bars; the Guard's third hit of 17 kills the Peacekeeper, which
+/// leaves a marker for `FeedbackTuning::death_marker_ticks`. A selected unit shows its HP bar even at full HP. A second
+/// Peacekeeper of player 1 stands by, so that player 1 still sees the Guard once the first is dead; with auto-targeting
+/// off (a debug command), it only watches.
 #[test]
 fn shots_hits_and_deaths_show_for_their_ticks() {
     let mut app = headless_app();
@@ -160,7 +161,10 @@ fn shots_hits_and_deaths_show_for_their_ticks() {
     fractions.sort_by(f32::total_cmp);
     assert_eq!(fractions, [33.0 / 50.0, 71.0 / 80.0]);
 
-    run_until(&mut app, guard_shot + TRACER_TICKS);
+    run_until(
+        &mut app,
+        guard_shot + space_crystals::tuning::feedback::BUILTIN.tracer_ticks,
+    );
     assert!(effects(&app).tracers.is_empty(), "faded");
 
     // Three hits of 17, one every 24 ticks; meanwhile the Peacekeeper lands three of 9.
@@ -180,7 +184,10 @@ fn shots_hits_and_deaths_show_for_their_ticks() {
     assert_eq!(guard_bars.len(), 1, "the Guard's");
     assert_eq!(guard_bars[0].fraction, 53.0 / 80.0);
 
-    run_until(&mut app, death + DEATH_MARKER_TICKS);
+    run_until(
+        &mut app,
+        death + space_crystals::tuning::feedback::BUILTIN.death_marker_ticks,
+    );
     assert!(effects(&app).deaths.is_empty(), "faded");
     assert!(effects_visible(&mut app), "the Guard's HP bar stays");
 }
@@ -482,7 +489,7 @@ fn a_rocketmans_missile_bursts_in_a_ring_of_its_shooters_colour() {
     assert_eq!((blast.weapon, blast.owner), (Some(ObjectKind::Rocketman), Some(P1)));
     assert_eq!(
         blast.lift,
-        flight_lift(ObjectKind::Sparrow),
+        flight_lift(ObjectKind::Sparrow, &space_crystals::tuning::look::BUILTIN),
         "in the air, at its flight"
     );
     assert!(blast.lift > 0.0);
@@ -506,8 +513,8 @@ fn sim_event(app: &mut App, event: SimEvent) {
 /// Design change 0182 (`systems/controls/command_behaviors.md > AttackingObject > Target inside MinRange`): an Attack
 /// its unit can't carry out, the target inside the unit's MinRange and the unit unable to move (a deployed Artillery
 /// Rig), fails "with feedback ("Target too close"; same channel as other refusals)": the feedback band shows it, for
-/// `FEEDBACK_TICKS`, when it is the local player's unit, and not for another player's. No type has a MinRange yet, so
-/// the sim's event is handed to the client as the sim driver would.
+/// `FeedbackTuning::feedback_ticks`, when it is the local player's unit, and not for another player's. No type has a
+/// MinRange yet, so the sim's event is handed to the client as the sim driver would.
 #[test]
 fn an_attack_on_a_target_too_close_shows_its_feedback() {
     let mut app = headless_app();
@@ -544,8 +551,11 @@ fn an_attack_on_a_target_too_close_shows_its_feedback() {
     let shown = tick(&app);
     assert_eq!(feedback(&app), Some(TARGET_TOO_CLOSE_TEXT));
     assert_eq!(TARGET_TOO_CLOSE_TEXT, "Target too close", "the design's wording");
-    run_until(&mut app, shown + FEEDBACK_TICKS - 1);
+    run_until(
+        &mut app,
+        shown + space_crystals::tuning::feedback::BUILTIN.feedback_ticks - 1,
+    );
     assert_eq!(feedback(&app), Some(TARGET_TOO_CLOSE_TEXT));
     app.update();
-    assert_eq!(feedback(&app), None, "gone after FEEDBACK_TICKS");
+    assert_eq!(feedback(&app), None, "gone after feedback_ticks");
 }

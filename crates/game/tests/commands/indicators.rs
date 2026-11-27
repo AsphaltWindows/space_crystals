@@ -6,7 +6,7 @@ use sc_sim::{ObjectId, OrderKind};
 use space_crystals::command_ui::PointerDisplay;
 use space_crystals::command_ui::cursor::PointerLook;
 use space_crystals::command_ui::indicators::{
-    ATTACK_COLOR, CommandIndicators, FLASH_TICKS, Indicator, IndicatorMesh, MOVE_COLOR, selection_indicators,
+    ATTACK_COLOR, CommandIndicators, Indicator, IndicatorMesh, MOVE_COLOR, selection_indicators,
 };
 use space_crystals::fog::Sight;
 use space_crystals::selection::Relation;
@@ -40,9 +40,9 @@ pub(super) fn drawn_vertices(app: &mut App) -> usize {
     meshes.get(&mesh.0).unwrap().count_vertices()
 }
 
-/// A right-click order flashes at its target for `FLASH_TICKS`. The Move then keeps its green Location indicator
-/// while the unit is selected and on its way; a queued order's indicator, and the route through the waypoints, show
-/// only while Shift is held. Deselecting the unit removes them.
+/// A right-click order flashes at its target for `FeedbackTuning::flash_ticks`. The Move then keeps its green Location
+/// indicator while the unit is selected and on its way; a queued order's indicator, and the route through the
+/// waypoints, show only while Shift is held. Deselecting the unit removes them.
 #[test]
 fn orders_flash_and_mark_their_targets_while_selected() {
     let mut app = game();
@@ -56,7 +56,10 @@ fn orders_flash_and_mark_their_targets_while_selected() {
     input(&mut app).mouse.release(MouseButton::Right);
     let flashed = flashes(&app);
     assert!(matches!(flashed[..], [OrderKind::Move(_)]), "{flashed:?}");
-    updates(&mut app, FLASH_TICKS as usize + 1);
+    updates(
+        &mut app,
+        space_crystals::tuning::feedback::BUILTIN.flash_ticks as usize + 1,
+    );
     assert_eq!(flashes(&app), [], "faded");
 
     let marked = indicators(&app, false);

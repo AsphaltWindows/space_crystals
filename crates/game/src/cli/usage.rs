@@ -33,6 +33,12 @@ Game:
   --unexplored                Start with the map unexplored. By default every tile starts explored for
                               every player, who remembers the terrain and the neutral objects as at the
                               start (no player's objects; the fog of war stays on)
+  --tuning <dir>              Play with the data files of <dir> (docs/tuning.md): each .json file
+                              there changes the built-in rules or the client's feel; read before the
+                              first tick, then every 0.5 s while the game runs. A refused file keeps
+                              the data as it was and says why above the HUD. F8 restarts the game with
+                              the directory's data. Needs debug commands; not with --editor or --replay
+  --export-data <dir>         Write the built-in data as files into <dir> to start from, and exit
   In a game, F10 opens the playtest menu and pauses the game: Resume (or F10 again), Restart (the
   same game over from 0:00, as launched), Quit. At the game's end it opens with the result.
   A unit or building of yours hit off screen pings red on the minimap; Space centres the camera on

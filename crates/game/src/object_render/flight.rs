@@ -1,7 +1,7 @@
 //! (M5-H1) Air units in flight (plan decision T81's slice, H1: "air units are drawn raised, with a ground shadow, at
 //! their true position, even past the edge"; placeholders until the art direction, Q0001, settles them). An air unit's
 //! body is drawn in the air layer (`DrawLayer::Air`: over every ground unit and the Shroud's clouds),
-//! [`FLIGHT_LIFT_LEVELS`] above the ground under it, and its shadow, a dark ellipse as wide as its silhouette
+//! `LookTuning::flight_lift_levels` above the ground under it, and its shadow, a dark ellipse as wide as its silhouette
 //! ([`FlightShadow`]), on that ground, under the ground units, where their selection rings are. Both are drawn at the
 //! sim's `Object::pos`, past the map's edge too, where the sim counts the unit as being at the nearest edge tile
 //! (`Object::map_pos`, `systems/units.md > Air Collision`): the player sees where it flies. What is drawn on a unit
@@ -11,10 +11,10 @@
 //! (M5-N11) An aircraft on its takeoff run (`sc_sim::mover::Takeoff`: a Sparrow out of the Airstrip) rolls into the air
 //! along the runway (design change 0428's Verification: "A Sparrow finishes at the Airstrip: it appears on the runway's
 //! B end and rolls into the air toward C"; `factions/cults/units/sparrow.md > Placeholder stats`: "speeding up along
-//! the runway and lifting off"): drawn on the runway where it appears, it stays on it until [`LIFT_OFF_SU`] before the
-//! run's end and rises evenly from there to its flight's height at the end ([`object_lift`]), its shadow under it all
-//! the way. Placeholder (Q0001): where on the run it lifts off. The shots at it and the bursts on it are drawn at its
-//! flight's height meanwhile, as before (`crate::combat_effects`, [`flight_lift`]).
+//! the runway and lifting off"): drawn on the runway where it appears, it stays on it until `LookTuning::lift_off_su`
+//! before the run's end and rises evenly from there to its flight's height at the end ([`object_lift`]), its shadow
+//! under it all the way. Placeholder (Q0001): where on the run it lifts off. The shots at it and the bursts on it are
+//! drawn at its flight's height meanwhile, as before (`crate::combat_effects`, [`flight_lift`]).
 
 use bevy::prelude::*;
 use sc_sim::defs::Domain;
@@ -24,15 +24,8 @@ use super::{ObjectVisual, object_height};
 use crate::coords::{DrawLayer, lift};
 use crate::shapes::ColorMesh;
 use crate::sim_driver::{RenderAlpha, SimRes};
-
-/// How high an air unit's body is drawn above the ground under it, in terrain levels (`crate::coords::lift`: 16 su a
-/// level, so 48 su up the screen, more than a Sparrow's own height). Placeholder (Q0001).
-pub const FLIGHT_LIFT_LEVELS: f32 = 3.0;
-
-/// (M5-N11) How far before its run's end an aircraft on its takeoff run leaves the runway, su: 2 grid units, about half
-/// the Airstrip's runway (4 grid units long), so that a Sparrow rolls along its first half and rises along the rest
-/// (module docs). Placeholder (Q0001).
-pub const LIFT_OFF_SU: f32 = 128.0;
+use crate::tuning::ClientTuning;
+use crate::tuning::look::LookTuning;
 
 /// A shadow's darkness: black at this alpha. Placeholder (Q0001).
 const SHADOW_ALPHA: f32 = 0.35;
@@ -49,30 +42,31 @@ pub fn flies(kind: ObjectKind) -> bool {
     (kind.def().unit.as_ref()).is_some_and(|unit| unit.base_def().domain == Domain::Air)
 }
 
-/// How far above the ground an object of `kind` is drawn, in terrain levels: [`FLIGHT_LIFT_LEVELS`] for an air unit,
-/// nothing for anything else.
-pub fn flight_lift(kind: ObjectKind) -> f32 {
-    if flies(kind) { FLIGHT_LIFT_LEVELS } else { 0.0 }
+/// How far above the ground an object of `kind` is drawn, in terrain levels: `look`'s
+/// `LookTuning::flight_lift_levels` for an air unit, nothing for anything else.
+pub fn flight_lift(kind: ObjectKind, look: &LookTuning) -> f32 {
+    if flies(kind) { look.flight_lift_levels } else { 0.0 }
 }
 
 /// (M5-N11) How far above the ground under it `o`, drawn at `pos`, is drawn, in terrain levels: an air unit's flight
-/// ([`flight_lift`]); on its takeoff run, none until [`LIFT_OFF_SU`] before the run's end, then rising evenly to all of
-/// it at the end (module docs); nothing for anything else.
-pub fn object_lift(o: &Object, pos: Vec2) -> f32 {
-    let flight = flight_lift(o.kind);
+/// ([`flight_lift`]); on its takeoff run, none until `LookTuning::lift_off_su` before the run's end, then rising
+/// evenly to all of it at the end (module docs); nothing for anything else.
+pub fn object_lift(o: &Object, pos: Vec2, look: &LookTuning) -> f32 {
+    let flight = flight_lift(o.kind, look);
     match o.mover.as_ref().and_then(|mover| mover.takeoff) {
         Some(takeoff) if flight > 0.0 => {
             let left = (takeoff.end - pos).dot(takeoff.along);
-            flight * (1.0 - left / LIFT_OFF_SU).clamp(0.0, 1.0)
+            flight * (1.0 - left / look.lift_off_su).clamp(0.0, 1.0)
         }
         _ => flight,
     }
 }
 
 /// The height `o`, drawn at `pos`, is drawn at, in levels: the ground's (`super::object_height`), an air unit's lifted
-/// by its flight as it flies now ([`object_lift`]: (M5-N11) on the runway at the start of its takeoff run).
-pub fn body_height(map: &Map, o: &Object, pos: Vec2) -> f32 {
-    object_height(map, pos, o.placement.as_ref()) + object_lift(o, pos)
+/// by its flight as it flies now ([`object_lift`]: (M5-N11) on the runway at the start of its takeoff run), as `look`
+/// lifts it.
+pub fn body_height(map: &Map, o: &Object, pos: Vec2, look: &LookTuning) -> f32 {
+    object_height(map, pos, o.placement.as_ref()) + object_lift(o, pos, look)
 }
 
 /// The shadow of an air unit's visual: a child of the visual, which the fog hides with it, kept on the ground under
@@ -109,15 +103,17 @@ pub(super) fn shadow_transform(rotation: Quat, levels: f32) -> Transform {
 pub(super) fn place_shadows(
     sim: Res<SimRes>,
     alpha: Res<RenderAlpha>,
+    tuning: Res<ClientTuning>,
     visuals: Query<&Transform, (With<ObjectVisual>, Without<FlightShadow>)>,
     mut shadows: Query<(&FlightShadow, &ChildOf, &mut Transform)>,
 ) {
+    let look = &tuning.look;
     for (shadow, parent, mut transform) in &mut shadows {
         let Ok(visual) = visuals.get(parent.parent()) else {
             continue;
         };
-        let levels =
-            (sim.object(shadow.0)).map_or(FLIGHT_LIFT_LEVELS, |o| object_lift(o, o.prev_pos.lerp(o.pos, alpha.0)));
+        let lift_at = |o: &Object| object_lift(o, o.prev_pos.lerp(o.pos, alpha.0), look);
+        let levels = (sim.object(shadow.0)).map_or(look.flight_lift_levels, lift_at);
         transform.set_if_neq(shadow_transform(visual.rotation, levels));
     }
 }
@@ -127,20 +123,22 @@ mod tests {
     use super::*;
     use crate::coords::{drawn_at_height, ground_translation};
 
+    const LOOK: LookTuning = crate::tuning::look::BUILTIN;
+
     /// A Sparrow flies and nothing else of its faction does; its body is drawn 48 su above the ground, and its shadow,
     /// turned or not, lands where the ground under it is drawn, in the rings' layer.
     #[test]
     fn a_flying_unit_s_shadow_lies_on_the_ground_under_its_raised_body() {
         assert!(flies(ObjectKind::Sparrow));
         assert!(!flies(ObjectKind::Militant) && !flies(ObjectKind::HandOfHeaven) && !flies(ObjectKind::Airstrip));
-        assert_eq!(lift(flight_lift(ObjectKind::Sparrow)), 48.0);
+        assert_eq!(lift(flight_lift(ObjectKind::Sparrow, &LOOK)), 48.0);
         let (ground, height) = (Vec2::new(300.0, 200.0), 2.0);
-        let body = ground_translation(DrawLayer::Air, ground, height + FLIGHT_LIFT_LEVELS);
+        let body = ground_translation(DrawLayer::Air, ground, height + LOOK.flight_lift_levels);
         let under = ground_translation(DrawLayer::UnitDecals, ground, height) - Vec3::Z * SHADOW_UNDER_RINGS_Z;
         for facing in [0.0, 1.0, -2.5] {
             let rotation = Quat::from_rotation_z(facing);
             let visual = Transform::from_translation(body).with_rotation(rotation);
-            let shadow = visual * shadow_transform(rotation, FLIGHT_LIFT_LEVELS);
+            let shadow = visual * shadow_transform(rotation, LOOK.flight_lift_levels);
             assert!(
                 shadow.translation.distance(under) < 1e-3,
                 "{} vs {under}",
@@ -167,19 +165,23 @@ mod tests {
             .spawn(ObjectKind::Militant, Some(p1), SpawnAt::Point(Vec2::new(300.0, 500.0)))
             .start();
         let mut sparrow = t.sim().object(ObjectId(1)).expect("a Sparrow").clone();
-        assert_eq!(object_lift(&sparrow, sparrow.pos), FLIGHT_LIFT_LEVELS, "in flight");
+        assert_eq!(
+            object_lift(&sparrow, sparrow.pos, &LOOK),
+            LOOK.flight_lift_levels,
+            "in flight"
+        );
         let takeoff = Takeoff {
             end: Vec2::new(100.0, 300.0),
             along: Vec2::NEG_X,
         };
         sparrow.mover.as_mut().expect("a mover").takeoff = Some(takeoff);
-        let at = |x| object_lift(&sparrow, Vec2::new(x, 300.0));
+        let at = |x| object_lift(&sparrow, Vec2::new(x, 300.0), &LOOK);
         assert_eq!(
             [at(330.0), at(228.0), at(164.0), at(100.0), at(90.0)],
             [0.0, 0.0, 1.5, 3.0, 3.0]
         );
         let mut militant = t.sim().object(ObjectId(2)).expect("a Militant").clone();
         militant.mover.as_mut().expect("a mover").takeoff = Some(takeoff);
-        assert_eq!(object_lift(&militant, Vec2::new(100.0, 300.0)), 0.0);
+        assert_eq!(object_lift(&militant, Vec2::new(100.0, 300.0), &LOOK), 0.0);
     }
 }
