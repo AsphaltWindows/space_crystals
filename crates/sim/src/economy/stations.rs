@@ -123,6 +123,7 @@ mod tests {
             stock: None,
             tether: None,
             drone: None,
+            cooldown: None,
         }
     }
 

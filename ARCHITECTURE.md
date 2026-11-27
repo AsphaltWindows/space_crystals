@@ -191,7 +191,9 @@ Units, structures and resources are all `Object`s (`object.rs`, `core/entities.m
   *Combat > Weapon Conversion*); for a Tunnel, `tunnel` (`TunnelState`, `tunnel.rs`: its tier, plan decision T39;
   see *The Syndicate* below); (slice M6-GD) for a unit whose type has a stock, the Drone Operator, `stock` (`Stock`,
   `stock.rs`: the items it holds and the purchase under way) and `drone` (the drone it has out), and for that drone
-  `tether` (`Tether`, `tether.rs`: its operator and the tick its battery runs out; see *The Drone Operator* below).
+  `tether` (`Tether`, `tether.rs`: its operator and the tick its battery runs out; see *The Drone Operator* below);
+  (slice M6-GR) for a caster waiting out an ability's cooldown, the Radar Station, `cooldown` (a `Progress`,
+  `cooldown.rs`; see *Combat > Scan and cooldowns*).
   The rest arrives as more optional fields, each with its own module. Never add them as separate
   stores keyed by id. A system walks the objects in id order and skips those without its capability
   (`let Some(..) = &mut o.resource else { continue };`).
@@ -1042,10 +1044,12 @@ Layout validation can't disagree. **Never test a placement rule anywhere else: a
    - Economy, `economy::step` (plan decision T5, see *Economy*): after 5e's removals and their `paths::sync`, so
      that a building destroyed in the tick counts for nothing in it; before 5f, so that what it brings into the game
      is seen in its own tick. In order: every player's power (the structures this tick's commands placed included),
-     the constructors (`construction::step`; when a recipe's frames count: *Economy > Recipe timing*), the plates'
-     mining, the workers' timed work (`gathering::step`, slice M3-H: mining takes its load from the patch, a
-     drop-off pays the bank). `economy::step` returns the patches the workers emptied, and `step` takes them out
-     through `Sim::remove_objects` and syncs the grids again, as after 5e's deaths.
+     the constructors (`construction::step`; when a recipe's frames count: *Economy > Recipe timing*), (slice M6-GR)
+     the casters' cooldowns (`cooldown::step`: each by its owner's `PowerSummary::speed`, the cast's tick the first,
+     dropped once done; *Combat > Scan and cooldowns*), the plates' mining, the workers' timed work
+     (`gathering::step`, slice M3-H: mining takes its load from the patch, a drop-off pays the bank).
+     `economy::step` returns the patches the workers emptied, and `step` takes them out through
+     `Sim::remove_objects` and syncs the grids again, as after 5e's deaths.
    - Expansions' regeneration, `Sim::regenerate_expansions` (slice M5-N8, `sim/expansions.rs`; *Economy >
      Expansions' regeneration*): part of the economy phase, right after `economy::step` and its removals, before the
      transformations, the sites, the upgrades and the decay, so that an expansion completed or reclaimed in the tick
@@ -1112,8 +1116,9 @@ Layout validation can't disagree. **Never test a placement rule anywhere else: a
      that ended after 5a, by a death in 5e or a defeat's cleared orders. Their buffers wait for the next tick's 5e
      (Placeholder: the design says "released immediately").
    - 5f `Vision::update`: every player's sight from the objects as the tick leaves them, those this tick's commands
-     spawned included, then the fog delays and the reveals that end (see Vision). Combat in 5e reads the vision of
-     the tick before, and its hits reveal their attackers on top of it.
+     spawned included, then the fog delays and the reveals that end (see Vision), then (slice M6-GR) the scans: those
+     cast in the tick stamped, those that end withdrawn (`Vision::step_scans`, *Vision > Scans*). Combat in 5e reads
+     the vision of the tick before, and its hits reveal their attackers on top of it.
    - `update_supply_stations` (`core/map.md > SupplyDeliveryStation`).
    - `Vision::remember`: each player's records of the structures and resources in its sight take the tick's
      final state, the deliveries included (see Vision).
@@ -1277,6 +1282,32 @@ ticks spent in it. Hashed and serialized like all state.
   `Buff`s, hashed and saved only while set; their ends are the Buffs step's. Tests: `crates/sim/tests/prayer_mobile/`
   (`energy.rs`, `inspire.rs`, `suppress.rs`, `production.rs`, `saves.rs`), `suppress.rs`'s and `buffs/tests.rs`'s unit
   tests, and the golden `cults_prayer_mobile` (*Replays and golden hashes*).
+- **Scan and cooldowns** (`cooldown.rs`, `sim/casts.rs`, `defs/gdo/structures/radar_station.rs`; slice M6-GR, plan
+  decision T92; `factions/gdo/structures/radar_station.md > Placeholder stats`): the Radar Station's Scan is an area
+  ability (`AreaAbility::Scan`; its numbers the GDO's rules', `GdoRules::scan`: radius 6, 8 seconds, a 60-second
+  cooldown, free), cast at any point on the map (`AbilityArea::AnyPoint`: no sight needed), whose effect is sight
+  (`BuffEffect::Sight`: no buff, its owner's scan, *Vision > Scans*). An ability with a cooldown
+  (`AbilityDef::cooldown`, seconds) starts its caster's `Object::cooldown` as it is cast, a `Progress` of its frames,
+  which the economy phase advances by the owner's Power ratio, the cast's tick the first, and drops once done
+  (`cooldown::step`): a station that scans in tick `t` at full Power is refused through `t + 959`
+  (`Reject::CoolingDown`) and scans again in `t + 960`; at 30/51 its cooldown takes 1632 ticks, 102 s (design change
+  0423: "Everything a consumer does is slowed"). It replaces the plan's `cooldown_until`, a tick that the ratio
+  couldn't slow. Hashed (tag 10) and saved only while set. Each station has its own: Ungroupable (design change 0422),
+  each press goes to one. Tests: `crates/sim/tests/radar/` (`building.rs`, `scans.rs`, `cooldown.rs`, `power.rs`,
+  `saves.rs`), `vision/scans.rs`'s unit test and the golden `gdo_defense`.
+- **Powered weapons** (`combat/power.rs`; slice M6-GR, design change 0423): a structure that consumes Power and
+  attacks, the Missile Turret, runs its whole attack cycle (Aim, Firing, Cooldown, Reload) at its owner's Power ratio.
+  Each tick it banks the ratio (`AttackState::power_carry`, in `RATIO_ONE`s), and its phases take a tick only once a
+  whole one is banked (`phases::Shooter::speed`, `power::spend`): at 30/51 the turret's 24-tick cycle takes 41 and its
+  launch comes in tick 10 of a sequence, not 5. Each sequence starts with nothing banked, and a cancelled attack
+  drops what was (`AttackState::cancel`); at full Power nothing is ever banked, so that every other weapon is as
+  before. A consumer whose owner generates nothing never fires (ratio 0). `combat::step` reads the summaries only while
+  such a weapon exists (`power::summaries`). Hashed (the attack state's tag 4) and saved only while not 0. **The
+  Missile Turret** (`defs/gdo/structures/missile_turret.rs`) fires a homing missile, slice M5-K's HeadDisjointed
+  (*HeadDisjointed and Target Lock* below; Universal, 18 damage, range 6, 16 su a frame; Aim 4, Fire 2, Cooldown 4,
+  Reload 14), picking its targets as the Laser Turret does:
+  `crates/sim/tests/defense_system/turret.rs` has it hit a circling Sparrow and a running Peacekeeper, never missing,
+  from its first tick.
 - **Weapon Conversion** (`conversion.rs`, `sim/modes.rs`; `factions/colonists/units/weapon_conversion.md`, plan
   decision T26, design change 0198): `Ability::Convert` flips the target form of each Legionnaire it goes to, a
   Sabre's to the Rifle Legionnaire and a Rifle's to the Sabre (`conversion::converts_to`): its type switches at the
@@ -1612,6 +1643,16 @@ or `Visible` for each player, and each player remembers the structures and resou
   the attacker alone, not its tiles, is Visible to that player at the end of ticks `t` to `t + REVEAL_TICKS − 1`
   (24, a placeholder); each such shot renews it. `PlayerVision::reveals` maps each attacker revealed to its end,
   and 5f drops those that end. Every attacker, whatever its range; a neutral victim reveals nothing.
+- **Scans** (`vision/scans.rs`; slice M6-GR, plan decision T92; `factions/gdo/structures/radar_station.md >
+  Placeholder stats`): a Radar Station's Scan (*Combat > Scan and cooldowns*) is a source of sight of its owner's own:
+  the tiles whose centres lie within its radius of its point (6 grid units: 113 tiles round a tile's centre), with no
+  ElevationModifier (plan D39), stamped in 5f of its cast's tick and withdrawn in 5f of the tick its 128 end, so that
+  they are Visible at the end of the cast's tick and of the 127 after it, then linger the fog delay as any sight does.
+  It shows hidden objects no more than other sight does (D39: an enemy's underground expansion stays hidden). Smoke
+  over a scan is slice M6-SC's (design change 0433): the reveal is stamped in `Vision::step_scans`.
+  `PlayerVision::scans` holds those pending and those active, saved (`SavedVision::scans`, checked as a save loads:
+  on the map, a radius finite and above 0, ending after the save's tick and in order) and hashed (tag 1) only while
+  there are some; `Vision::check` (V1) holds the stamps to them.
 - **Memory** (`vision/memory.rs`, `core/vision.md > Explored`): a `LastKnown` record per tile-based object (a
   structure or a resource) the player has seen and doesn't own: kind, owner, footprint, HP, resource state, a Tunnel's
   tier, a site's progress (`LastKnown::site`, slice M4-I2: the `Progress`, not who builds it; hashed only while set)
@@ -1640,7 +1681,8 @@ or `Visible` for each player, and each player remembers the structures and resou
   state flips; after the walk a noted tile under no footprint and no record costs two bit tests, and on the others
   objects enter or leave the sight and the records seen gone are dropped; `remember` reads only the objects in each
   player's sight. Measured (`tests/vision_perf.rs`, ignored, release): 500 moving units and 168 crystal patches on
-  256 × 256, `update` and `remember` 0.17 ms per tick on average, 0.2 ms at the 99th percentile.
+  256 × 256, `update` and `remember` 0.17 ms per tick on average, 0.2 ms at the 99th percentile; (M6-GR) the same
+  with four scans active all along (`perf_vision_500_units_and_four_scans_on_256`) as fast, within noise of it.
 - **State**: the Explored bits, the records, the tiles that linger with their ends and the reveals are history, so
   they are hashed and serialized (each player's rows of `#` and `.`, its `last_known` records, and its `lingering`
   and `revealed`, both `#[serde(default)]`). Eyes, stamps, counts, the footprint index, the delay's queue and the
@@ -2591,6 +2633,10 @@ section of its own.
   owner's planning grids at the end of it, and it works from the next tick on. `construction::recipes(kind)`,
   `Constructor::{current, ready, frames_done}` and `Sim::validate` are what a client needs for its menus. A Construct
   checks the building's prerequisites as it starts (slice M4-K, *Tech prerequisites*). Not built: ConstructionHP.
+  (M6-GR) The Defense System constructs its Missile Turrets as the Extraction Facility its plate
+  (`StructureDef::constructs`; `factions/gdo/structures/defense_system.md`, design change 0392): one at a time, 100
+  Space Crystals and 240 frames each, at the ratio as a consumer, placed in the GDO build area. Tests:
+  `crates/sim/tests/defense_system/` (`building.rs`, `flow.rs`, `turret.rs`).
 - **Warp In** (`transform.rs`, `sim/transform.rs`; slice M3-E, plan decisions T15, T16 and T22;
   `factions/colonists/economy.md > Warp In`, design changes 0109 to 0122): a Beacon transforms in place into a
   building of its Constructs List (`StructureDef::warp_in`, `transform::warp_in_recipe`).
@@ -3277,7 +3323,10 @@ their energy doorway, slice M3-D2: design change 0145, `factions/colonists/struc
   has the energy. `SimEvent::Cast` says where it went. (M5-N11) A cast round its caster or ahead of it (the
   Prayer-mobile's Inspire and Suppress, *Combat > Inspire and Suppress*) has no point to check: `at` names nothing (the
   client sends the caster's position), the area is the caster's as the last tick left it, and `SimEvent::Cast` carries
-  the caster's position and its `facing`, which the client draws Suppress's arc along.
+  the caster's position and its `facing`, which the client draws Suppress's arc along. (M6-GR) A caster of an ability
+  with a cooldown casts only once it is over: the first in id order with the energy and no cooldown casts, and
+  `CoolingDown` if every one with the energy waits; a Scan's point needs only be on the map (`AbilityArea::AnyPoint`,
+  `OffMap` else, a point that isn't finite among them).
 - **Default orders** (`orders/resolution.rs`; `systems/controls/interface.md > RightClickResolution`, design
   changes 0062, 0063, 0074 and 0136): `resolve(Abilities, Aim)` is the one rule for what a unit does against a target
   by default: the ground gives Move; a worker on a patch it can gather Gather, on its owner's drop-off Drop Off while
@@ -4921,6 +4970,17 @@ Drones, through one command flow (plan decision T10, slices M2-H1, M2-H2 and M3-
   cursor while it is awaited (`indicators/cast.rs`: a faint disc and a ring of its radius on the terrain's surface,
   in the Cast colour over a point in vision, grey out of it; a placeholder look). The Recruit's Advanced Construct V
   is its Build, greyed "Requires a Temple" until one stands.
+- **The Radar Station's and the Defense System's panels** (slice M6-GR): `templates/gdo/radar_station.rs`
+  (`InterfaceTemplate::RadarStation`) is Q `PanelCommand::Cast(AreaAbility::Scan)`, "Scan", which awaits any point on
+  the map (`MapTarget::on_map`; `indicators/cast.rs::takes_point` colours the cursor's 6-grid-unit circle by it),
+  greyed while the station cools down (`Sim::can_cast`: `Reject::CoolingDown`, "Cooling down"). Ungroupable (design
+  change 0422): each press goes to the one station Tabbed to. `templates/gdo/defense_system.rs`
+  (`InterfaceTemplate::DefenseSystem`) is the Extraction Facility's flow for the Missile Turret: Q Build Missile
+  Turret, then Q Place, greyed with its progress bar while constructed, X Cancel Construction or "Cancel Ready
+  Turret". It is Groupable: a group's Build and Cancels go to every one of its Defense Systems, its panel follows the
+  first one's construction, and its Place places the first one's turret (`systems/panel.rs`, a Placeholder). The
+  Deployment Center's A and F construct them. The Missile Turret has the turret look (`Look::Turret`) and draws its
+  missiles as the Rocketman's (`ShotStyle::Missile`).
 - **The Prayer-mobile's panel** (slice M5-N11; `factions/cults/units/prayer_mobile.md > Placeholder stats`:
   "ObjectInterfaceState: BasicCombatUnitInterfaceState without attack commands, plus **R: Inspire** and **F:
   Suppress**"): the BasicCombatUnit grid with no D (`PanelTemplate::without_attacks`; its A the selection's, absent
@@ -5300,8 +5360,8 @@ unchecked.
   told otherwise. To check a replay quickly: `cargo run -- --replay <file> --headless --fast`.
 - **Golden hashes** (`crates/sim/tests/golden/`: the games in `units.rs`, `gdo.rs`, `colonists.rs`, `syndicate.rs`,
   `cults.rs`, `garrison.rs`, `altar.rs`, `temple.rs`, `shroud.rs`, `shrine.rs`, `air.rs`, `anti_air.rs`, `vehicles.rs`,
-  `hand_of_heaven.rs`, `prayer_mobile.rs`, `syndicate_vehicles.rs`, `drones.rs` and `main.rs`, the recording and the
-  comparison in `harness.rs`): twenty-five games, a 3v3 duel, a 40-unit
+  `hand_of_heaven.rs`, `prayer_mobile.rs`, `syndicate_vehicles.rs`, `drones.rs`, `defense.rs` and `main.rs`, the
+  recording and the comparison in `harness.rs`): twenty-six games, a 3v3 duel, a 40-unit
   AttackMove battle, a 12-unit group move through a choke, a patrol that meets an enemy, a chase lost in the fog, three
   Peacekeepers that raise their Riot Shields (`Command::Ability`; one turns back half-way), walk up to a Guard under
   fire and lower them to kill it, and `gdo_opening` (slice M2-J1: `dev_skirmish` from its real start, to 2:45; player 1
@@ -5312,8 +5372,8 @@ unchecked.
   M5-N2, below), `cults_altar` (slice M5-N1b, below), `cults_temple` (slice M5-N3, below), `cults_shroud` (slice
   M5-N4b, below), `cults_shrine` (slice M5-N5, below), `cults_air` (slice M5-N7, below), `gdo_anti_air` (slice
   M5-K, below), `cults_vehicles` (slice M5-N6, below), `hand_of_heaven` (slice M5-N10, below),
-  `cults_prayer_mobile` (slice M5-N11, below), `syndicate_vehicles` (slice M6-SV, below) and `gdo_drones` (slice
-  M6-GD, below), are blessed as replays
+  `cults_prayer_mobile` (slice M5-N11, below), `syndicate_vehicles` (slice M6-SV, below), `gdo_drones` (slice
+  M6-GD, below) and `gdo_defense` (slice M6-GR, below), are blessed as replays
   with a checkpoint every 32 ticks and at the end, in `crates/sim/tests/golden/<name>.json`. Another, `area_attacks` (slice M4-O), is a unit test
   (`combat/projectiles/golden.rs`), as it plays test throwers (`combat::testing`): grenades in flight, blasts over a
   hidden Hideout and a group, an Attack Ground. Its file is `tests/golden/test_defs/area_attacks.json`, out of the
@@ -5420,7 +5480,13 @@ unchecked.
   Barracks trains a Drone Operator for 100 Space Crystals and 1 Supply, and its four drones end each in its own way:
   the first explodes on a group of player 2's Peacekeepers, the second falls past its leash and explodes there, the
   third runs out of battery, and the fourth falls with its operator, which the Peacekeepers kill; between them the
-  operator buys each next drone once the last has ended. The
+  operator buys each next drone once the last has ended. In `gdo_defense` (to 1:34, debug commands on for player 1's
+  Space Crystals) a Deployment Center places a Radar Station, which scans three Sparrows holding to the east, and a
+  Defense System, which builds two Missile Turrets; the second takes player 1 to 70 generated for 80 consumed as the
+  Sparrows raid the base, so that the turrets fire slowed, banking a share of each tick, and the station's cooldown
+  runs slow, until a third Generator placed mid-fight brings both back to full speed; the turrets' homing missiles
+  bring the three down without a miss, and the station scans again in tick 1300, its cooldown over at the end of 1297,
+  16 ticks later than at full Power. The
   ignored
   `tests/skirmish_soak.rs`
   (slice M3-K2) plays the Colonists' two players for 10 minutes, twice, until player 1's field runs out: the

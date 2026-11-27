@@ -10,12 +10,14 @@ use serde::de::{self, MapAccess, Visitor};
 use serde::ser::SerializeMap;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
-/// A key of a [`Table`]: a fieldless enum, whose values in declaration order are its list.
+/// A key of a [`Table`]: a fieldless enum, whose values in declaration order are its list. (M6-GR) The list may leave
+/// out the enum's last values, which no table of it holds (`AreaAbility::Scan`, whose numbers aren't in the Cults'
+/// table): a file that names one is refused.
 pub trait Key: Copy + Ord + fmt::Debug + Serialize + for<'de> Deserialize<'de> + 'static {
     /// Every key, in order: the table's.
     const ALL: &'static [Self];
 
-    /// Its place in [`Key::ALL`].
+    /// Its place in [`Key::ALL`]; (M6-GR) for a value that isn't one of them, at least the list's length.
     fn index(self) -> usize;
 }
 
@@ -85,7 +87,11 @@ impl<'de, K: Key, V: Deserialize<'de>, const N: usize> Deserialize<'de> for Tabl
             fn visit_map<A: MapAccess<'de>>(self, mut entries: A) -> Result<Self::Value, A::Error> {
                 let mut values: [Option<V>; N] = std::array::from_fn(|_| None);
                 while let Some(key) = entries.next_key::<K>()? {
-                    if values[key.index()].replace(entries.next_value()?).is_some() {
+                    // (M6-GR) A value of the key's type that the table hasn't (`Key::index`).
+                    let Some(value) = values.get_mut(key.index()) else {
+                        return Err(de::Error::custom(format_args!("{key:?} isn't one of the table's keys")));
+                    };
+                    if value.replace(entries.next_value()?).is_some() {
                         return Err(de::Error::custom(format_args!("{key:?} appears more than once")));
                     }
                 }

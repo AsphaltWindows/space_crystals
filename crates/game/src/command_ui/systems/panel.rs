@@ -146,8 +146,10 @@ pub(in crate::command_ui) fn press_command_slots(
                 control.update(|state| state.interface = InterfaceState::BuildMenu(menu));
             }
             SlotPress::AwaitPlacement(kind) => {
-                // The one constructor of the ActiveGroup, which holds the building ready.
-                if let [constructor] = recipients(&state.selection, PanelCommand::PlaceReady(kind))[..] {
+                // The constructor of the ActiveGroup, which holds the building ready: its one Deployment Center or
+                // Extraction Facility (Ungroupable), or (M6-GR) the first of its Defense Systems (Groupable), whose
+                // construction the panel shows (`templates::gdo::defense_system`).
+                if let Some(&constructor) = recipients(&state.selection, PanelCommand::PlaceReady(kind)).first() {
                     let placing = Placing::new(constructor, kind);
                     control.update(|state| state.interface = InterfaceState::AwaitingPlacement(placing));
                 }

@@ -78,12 +78,16 @@
 //!   order locks onto one target ([`AttackState::target_lock`]). In this phase the lock aims at it for LockOnDuration,
 //!   breaks when the target leaves LockRange or its owner's vision, and once locked fires homing missiles at it,
 //!   from anywhere within LockRange.
+//! - **Power** (slice M6-GR, design change 0423; [`power`]): a structure of negative Power that attacks, the Missile
+//!   Turret, runs its sequence at its owner's Power ratio, its share of each tick banked
+//!   ([`AttackState::power_carry`]) until it makes a whole tick of its phase.
 
 mod area;
 mod damage;
 mod hash;
 mod occupants;
 mod phases;
+mod power;
 pub mod projectiles;
 mod step;
 mod structures;
@@ -247,6 +251,16 @@ pub struct AttackState {
     /// out of the hash, as the location.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub target_lock: Option<TargetLock>,
+    /// (M6-GR) A consumer structure's sequence at low Power ([`power`], design change 0423): the share of a tick it has
+    /// banked toward its phase's next tick, in `RATIO_ONE`s. 0 at full speed, and whenever no sequence runs, so for
+    /// every unit. Left out of files while 0, and out of the hash, as the location.
+    #[serde(default, skip_serializing_if = "power_carry_is_none")]
+    pub power_carry: u32,
+}
+
+/// (M6-GR) Whether a sequence has no share of a tick banked ([`AttackState::power_carry`]): left out of files.
+fn power_carry_is_none(carry: &u32) -> bool {
+    *carry == 0
 }
 
 impl AttackState {
@@ -321,6 +335,7 @@ impl AttackState {
     fn cancel(&mut self) {
         self.phase = None;
         self.elapsed = 0;
+        self.power_carry = 0;
     }
 }
 

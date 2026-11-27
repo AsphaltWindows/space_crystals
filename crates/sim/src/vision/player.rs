@@ -10,6 +10,7 @@ use super::VisibilityState;
 use super::hidden::Hiding;
 use super::linger::Linger;
 use super::memory::Memory;
+use super::scans::{Scan, Scans};
 use crate::combat::object_box;
 use crate::hash::{StateHash, StateHasher};
 use crate::ids::{ObjectId, PlayerId};
@@ -95,6 +96,9 @@ pub struct PlayerVision {
     /// `> Explored`: the last-known records of the structures and resources the player has seen (history), and which
     /// of those objects it sees now (derived).
     pub(super) memory: Memory,
+    /// (M6-GR) The player's scans under way, each a disc of tiles it sees until its end ([`super::scans`]). History:
+    /// hashed and serialized while it has one.
+    pub(super) scans: Scans,
 }
 
 impl PlayerVision {
@@ -112,6 +116,7 @@ impl PlayerVision {
             dirty: false,
             flips: Vec::new(),
             memory: Memory::new(tiles),
+            scans: Scans::default(),
         }
     }
 
@@ -317,13 +322,21 @@ impl PlayerVision {
         self.reveals.iter().map(|(&id, &end)| (id, end))
     }
 
-    /// Whether `other` has the same history: the Explored tiles, the tiles that linger, the reveals and the records.
+    /// (M6-GR) The player's scans under way ([`super::scans`]): those stamped, in the order they end, then those cast
+    /// in the tick under way (none between ticks).
+    pub fn scans(&self) -> impl Iterator<Item = &Scan> + '_ {
+        self.scans.list()
+    }
+
+    /// Whether `other` has the same history: the Explored tiles, the tiles that linger, the reveals, the records and
+    /// (M6-GR) the scans.
     pub(super) fn same_history(&self, other: &PlayerVision) -> bool {
         self.id == other.id
             && self.explored == other.explored
             && self.linger == other.linger
             && self.reveals == other.reveals
             && self.records().eq(other.records())
+            && self.scans == other.scans
     }
 
     /// A source's stamp went from `old` to `new` (both ascending), in phase 5f of `tick`: only the tiles in one of
@@ -355,8 +368,8 @@ impl PlayerVision {
 }
 
 impl StateHash for PlayerVision {
-    /// The history: the Explored tiles, the records (the memory's only state), the tiles that linger and the
-    /// reveals. The rest is derived from the objects, or output.
+    /// The history: the Explored tiles, the records (the memory's only state), the tiles that linger, the reveals and
+    /// (M6-GR) the scans. The rest is derived from the objects, or output.
     fn hash(&self, h: &mut StateHasher) {
         let PlayerVision {
             id,
@@ -370,6 +383,7 @@ impl StateHash for PlayerVision {
             dirty: _,
             flips: _,
             memory: _,
+            scans,
         } = self;
         id.hash(h);
         h.len(explored.words.len());
@@ -385,6 +399,11 @@ impl StateHash for PlayerVision {
         for (id, end) in reveals {
             id.hash(h);
             end.hash(h);
+        }
+        // (M6-GR) Only while it has a scan, under a tag of its own, so that the games without one hash as they did.
+        if !scans.is_empty() {
+            h.tag(1);
+            scans.hash(h);
         }
     }
 }

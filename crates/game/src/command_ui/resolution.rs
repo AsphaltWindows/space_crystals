@@ -45,7 +45,7 @@ use sc_sim::defs::{Domain, Transit};
 use sc_sim::orders::resolution::{Abilities, Aim, Aimed, resolve};
 use sc_sim::production::takes_rally;
 use sc_sim::repair::repairs;
-use sc_sim::{Ability, AreaAbility, ObjectId, ObjectKind, OrderKind, PlayerId, Sim, Target, TargetView};
+use sc_sim::{Ability, AbilityArea, AreaAbility, ObjectId, ObjectKind, OrderKind, PlayerId, Sim, Target, TargetView};
 
 use super::interface::{InterfaceTemplate, Modes, PanelCommand};
 use crate::selection::{Relation, Selectables, Selection};
@@ -106,6 +106,10 @@ pub struct MapTarget {
     /// the map, on a tile Visible to them as the last tick left their vision; `factions/cults/structures/shrine.md >
     /// Abilities`: "cast on an area anywhere the player currently has vision").
     pub seen: bool,
+    /// (M6-GR) Whether the ground point is on the map, seen or not, as the gate judges a Scan's point
+    /// (`sc_sim::AbilityArea::AnyPoint`; `factions/gdo/structures/radar_station.md > Placeholder stats`: "left-click
+    /// any point on the map").
+    pub on_map: bool,
     /// (M5-K) Whether the player sees the object under the cursor now (`Sim::target_view`: Visible), not only
     /// remembers it: a Target Lock's target must be seen (`factions/gdo/units/rocketman.md > Target Lock`: "Locking
     /// succeeds only if the target stays within LockRange and visible for the whole duration"). `false` over the
@@ -133,6 +137,7 @@ impl MapTarget {
             ground,
             aimed: target.object().and_then(|id| sim.aimed(player, id)),
             seen: sim.sees_point(player, ground),
+            on_map: sim.map().contains_point(ground),
             visible: (target.object()).is_some_and(|id| matches!(sim.target_view(player, id), TargetView::Visible)),
         }
     }
@@ -144,6 +149,7 @@ impl MapTarget {
             ground: point,
             aimed: None,
             seen: true,
+            on_map: true,
             visible: false,
         }
     }
@@ -249,10 +255,13 @@ pub fn object_right_click(object: UnitCapabilities, target: &MapTarget) -> Optio
         // A constructor produces no units, and the Beacon, the Egress Node and the Tunnel have no right-click, nor has
         // the Garrison (`factions/cults/structures/garrison.md > Placeholder stats > Panel`: "Right-click resolution:
         // none (it has no rally point)", slice M5-N2), nor the Temple, which researches and has no rally point either
-        // (slice M5-N3; its panel has no C), nor (M5-N5) the Shrine, which casts and has none either.
+        // (slice M5-N3; its panel has no C), nor (M5-N5) the Shrine, which casts and has none either, nor (M6-GR)
+        // the Radar Station, which scans, nor the Defense System, a constructor.
         Some(
             InterfaceTemplate::DeploymentCenter
             | InterfaceTemplate::ExtractionFacility
+            | InterfaceTemplate::RadarStation
+            | InterfaceTemplate::DefenseSystem
             | InterfaceTemplate::Beacon
             | InterfaceTemplate::EgressNode
             | InterfaceTemplate::Tunnel
@@ -405,12 +414,20 @@ pub fn target_order(pending: PanelCommand, target: &MapTarget) -> Option<OrderKi
 /// Placeholder stats`: "Targeting: AwaitingTarget, left-click a point in vision"; [`MapTarget::seen`]); a point out of
 /// vision is an invalid target (plan §N5: "a click outside vision gives "invalid target" feedback"). A click over a
 /// unit casts on the ground under it: **Placeholder (not in the design: "a point" read as the ground under the
-/// cursor, whatever stands there)**.
+/// cursor, whatever stands there)**. (M6-GR) A Radar Station's Scan takes any point on the map, seen or not
+/// (`factions/gdo/structures/radar_station.md > Placeholder stats`: "left-click any point on the map"; the gate's
+/// `sc_sim::AbilityArea::AnyPoint`): a point off it is an invalid target.
 pub fn target_resolution(pending: PanelCommand, target: &MapTarget) -> Option<Resolved> {
     match pending {
         PanelCommand::SetRallyPoint => Some(Resolved::Rally(rally_target(target))),
         PanelCommand::SetDropOff => drop_off_target(target).map(|node| Resolved::Ability(Ability::SetDropOff(node))),
-        PanelCommand::Cast(ability) => target.seen.then_some(Resolved::Cast(ability, target.ground)),
+        PanelCommand::Cast(ability) => {
+            let valid = match ability.def().area {
+                AbilityArea::AnyPoint => target.on_map,
+                _ => target.seen,
+            };
+            valid.then_some(Resolved::Cast(ability, target.ground))
+        }
         _ => target_order(pending, target).map(Resolved::Order),
     }
 }

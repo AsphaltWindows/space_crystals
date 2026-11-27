@@ -17,6 +17,7 @@ pub mod combat;
 pub mod command;
 pub mod construction;
 pub mod conversion;
+pub mod cooldown;
 pub mod defs;
 pub mod deploy;
 pub mod economy;

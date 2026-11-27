@@ -102,6 +102,7 @@ fn a_legionnaire_changes_its_weapon_and_carries_on_with_its_order() {
             location: None,
             turret: None,
             target_lock: None,
+            power_carry: 0,
         })
     );
     assert_eq!(after.placement, None);
@@ -148,6 +149,7 @@ fn the_shields_two_types_keep_the_weapon_and_the_shield_as_they_were() {
         location: None,
         turret: None,
         target_lock: None,
+        power_carry: 0,
     };
     let o = sim.objects.get_mut(&pk).unwrap();
     o.attack = Some(reloading.clone());
@@ -188,6 +190,7 @@ fn a_legionnaire_whose_conversion_holds_its_form_keeps_its_weapon() {
         location: None,
         turret: None,
         target_lock: None,
+        power_carry: 0,
     };
     let held = crate::conversion::Conversion {
         form: ObjectKind::SabreLegionnaire,

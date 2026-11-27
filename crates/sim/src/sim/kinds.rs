@@ -227,6 +227,8 @@ impl Sim {
             stock: _,
             tether: _,
             drone: _,
+            // (M6-GR) Kept: no type of the design becomes a Radar Station or stops being one.
+            cooldown: _,
         } = o;
         *object_kind = kind;
         if let Some(placement) = &placement {

@@ -7,6 +7,13 @@
 //! (M5-N11) The Prayer-mobile's two are area abilities too, cast round it or ahead of it rather than at a point
 //! ([`AbilityArea`]), by a unit that lists them among its spells (`SpellDef::Cast`). Their numbers are its def's
 //! (`defs::cults::units::prayer_mobile`); what Suppress's status does is `crate::suppress`'s.
+//!
+//! (M6-GR, plan decision T92) The GDO's Radar Station casts one too, **Scan** (its design's, `defs::gdo::structures::
+//! radar_station`): at any point of the map, seen or not ([`AbilityArea::AnyPoint`]), for no energy but on a
+//! cooldown of its caster's ([`AbilityDef::cooldown`], `Object::cooldown`), its effect sight of its circle rather than
+//! a buff ([`BuffEffect::Sight`], `crate::vision::scans`). Its numbers are the GDO's rules' (`GdoRules::scan`, from
+//! `defs::gdo::structures::radar_station`), not the Cults': the Cults' table holds the Cults' four
+//! ([`AreaAbility::CULTS`]), and [`AreaAbility::def`] reads each ability's from its faction's rules.
 
 use serde::{Deserialize, Serialize};
 
@@ -16,9 +23,9 @@ use crate::hash::{StateHash, StateHasher};
 use crate::ruleset::{Key, Table};
 use crate::units::{Tick, seconds};
 
-/// An area ability (`factions/cults/structures/shrine.md > Abilities`): the two of the Shrine's table, and (M5-N11) the
-/// Prayer-mobile's two. Its numbers are its [`AbilityDef`] ([`AreaAbility::def`]). In files by its name, hashed by its
-/// place in the list.
+/// An area ability (`factions/cults/structures/shrine.md > Abilities`): the two of the Shrine's table, (M5-N11) the
+/// Prayer-mobile's two, and (M6-GR) the Radar Station's Scan. Its numbers are its [`AbilityDef`]
+/// ([`AreaAbility::def`]). In files by its name, hashed by its place in the list.
 #[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 pub enum AreaAbility {
     /// "Health regeneration (name TBD)".
@@ -31,23 +38,44 @@ pub enum AreaAbility {
     /// (M5-N11) `factions/cults/units/prayer_mobile.md > Abilities`: "**Suppress**: a screech in an **arc in front of
     /// it**. Affected units **temporarily can't attack**" (`crate::suppress`).
     Suppress,
+    /// (M6-GR) `factions/gdo/structures/radar_station.md > Placeholder stats`: "**Scan** (hotkey **Q**, targeted:
+    /// left-click any point on the map): reveals a circle of radius **6 grid units** for **8 seconds** (128 frames);
+    /// **cooldown 60 seconds** (960 frames); free. Each Radar Station has its own cooldown" (`crate::vision::scans`).
+    Scan,
 }
 
 impl AreaAbility {
-    /// The four, the Shrine's in the order of its keys ("**Health regeneration** (hotkey Q)", "**Energy regeneration**
-    /// (hotkey W)"), then the Prayer-mobile's in the order of its ("**Inspire** (hotkey **R**", "**Suppress** (hotkey
-    /// **F**").
-    pub const ALL: [AreaAbility; 4] = [
+    /// Every one: the Cults' four ([`AreaAbility::CULTS`]), then (M6-GR) the GDO's Scan.
+    pub const ALL: [AreaAbility; 5] = [
+        AreaAbility::HealthRegeneration,
+        AreaAbility::EnergyRegeneration,
+        AreaAbility::Inspire,
+        AreaAbility::Suppress,
+        AreaAbility::Scan,
+    ];
+
+    /// The Cults' four, the keys of their table ([`Abilities`]): the Shrine's in the order of its keys ("**Health
+    /// regeneration** (hotkey Q)", "**Energy regeneration** (hotkey W)"), then the Prayer-mobile's in the order of its
+    /// ("**Inspire** (hotkey **R**", "**Suppress** (hotkey **F**").
+    pub const CULTS: [AreaAbility; 4] = [
         AreaAbility::HealthRegeneration,
         AreaAbility::EnergyRegeneration,
         AreaAbility::Inspire,
         AreaAbility::Suppress,
     ];
 
-    /// Its numbers, in the current rules (`crate::ruleset::rules`).
+    /// Its numbers, in the current rules (`crate::ruleset::rules`): the Cults' table's, (M6-GR) Scan's the GDO's rules'
+    /// (module docs).
     #[inline]
     pub fn def(self) -> &'static AbilityDef {
-        &crate::ruleset::rules().factions.cults.abilities[self]
+        let rules = crate::ruleset::rules();
+        match self {
+            AreaAbility::Scan => &rules.factions.gdo.scan,
+            AreaAbility::HealthRegeneration
+            | AreaAbility::EnergyRegeneration
+            | AreaAbility::Inspire
+            | AreaAbility::Suppress => &rules.factions.cults.abilities[self],
+        }
     }
 
     /// Whether its buff goes to an object of `kind` (the table's "Affects", [`Affects`]), whoever's it is.
@@ -55,14 +83,22 @@ impl AreaAbility {
         self.def().affects.kinds(kind)
     }
 
-    /// How long its buff lasts, in ticks.
+    /// How long its buff lasts, in ticks; (M6-GR) Scan's sight.
     pub fn duration(self) -> Tick {
         seconds(self.def().duration)
     }
+
+    /// (M6-GR) How long its caster waits after a cast before it casts again, in ticks: none but Scan's
+    /// ([`AbilityDef::cooldown`]).
+    pub fn cooldown(self) -> Tick {
+        seconds(self.def().cooldown)
+    }
 }
 
+/// The Cults' table's keys ([`AreaAbility::CULTS`]): (M6-GR) Scan isn't one, its numbers being the GDO's (module docs),
+/// so a table that names it is refused (`crate::ruleset::Table`'s files).
 impl Key for AreaAbility {
-    const ALL: &'static [AreaAbility] = &AreaAbility::ALL;
+    const ALL: &'static [AreaAbility] = &AreaAbility::CULTS;
 
     #[inline]
     fn index(self) -> usize {
@@ -70,11 +106,11 @@ impl Key for AreaAbility {
     }
 }
 
-/// Every area ability's numbers, by ability (`CultsRules::abilities`).
+/// The Cults' area abilities' numbers, by ability (`CultsRules::abilities`).
 pub type Abilities = Table<AreaAbility, AbilityDef, 4>;
 
-/// The built-in area abilities' numbers, in [`AreaAbility::ALL`]'s order: the Shrine's here, the Prayer-mobile's in
-/// its def module.
+/// The built-in numbers of the Cults' area abilities, in [`AreaAbility::CULTS`]'s order: the Shrine's here, the
+/// Prayer-mobile's in its def module.
 pub const ABILITIES: Abilities = Abilities::new([HEALTH_REGENERATION, ENERGY_REGENERATION, INSPIRE, SUPPRESS]);
 
 impl StateHash for AreaAbility {
@@ -102,6 +138,9 @@ pub enum BuffEffect {
     },
     /// (M5-N11) Suppress's: the unit starts no attack while it lasts (`crate::suppress`).
     HoldFire,
+    /// (M6-GR) Scan's: no buff, its [`AbilityDef::affects`] taking in no one; its circle is Visible to its caster's
+    /// owner for its duration (`crate::vision::scans`).
+    Sight,
 }
 
 /// (M5-N11) Where an ability's area lies as it is cast, its radius its [`AbilityDef::radius`].
@@ -116,6 +155,9 @@ pub enum AbilityArea {
     /// An arc of `arc` radians in all, centred on its caster's facing, from its caster's centre out to the radius:
     /// Suppress's ("an arc of **90° total** in front of the vehicle's current facing, **5 grid units** long").
     Ahead { arc: f32 },
+    /// (M6-GR) A circle round any point of the map the player casts it at, seen or not: Scan's ("targeted: left-click
+    /// any point on the map").
+    AnyPoint,
 }
 
 /// (M5-N11) Whose objects an ability's buff goes to (the table's "Affects").
@@ -146,7 +188,7 @@ impl Affects {
 }
 
 /// An area ability's numbers (plan decision T75): `factions/cults/structures/shrine.md > Abilities`, a row of its
-/// table, and `> Placeholder stats`. "Cooldowns: none."
+/// table, and `> Placeholder stats`. "Cooldowns: none."; (M6-GR) Scan's, its cooldown with them.
 #[derive(Copy, Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct AbilityDef {
@@ -163,10 +205,13 @@ pub struct AbilityDef {
     /// The types its buff goes to (the table's "Affects"): "Only the caster's own units are affected". (M5-N11)
     /// Suppress's, every unit ([`Affects`]).
     pub affects: Affects,
-    /// What its buff does.
+    /// What its buff does; (M6-GR) Scan's, its sight ([`BuffEffect::Sight`]).
     pub effect: BuffEffect,
-    /// How long its buff lasts, seconds: "Duration".
+    /// How long its buff lasts, seconds: "Duration"; (M6-GR) how long Scan sees its circle.
     pub duration: f32,
+    /// (M6-GR) How long its caster waits after a cast before it casts again, seconds (`Object::cooldown`), its owner's
+    /// Power slowing the wait (design change 0423); 0 for none: the Cults' four ("No cooldowns", "Cooldowns: none.").
+    pub cooldown: f32,
 }
 
 /// "Health regeneration (name TBD) | Own Cults infantry | Grants health regeneration (+2 HP/s, placeholder) for the
@@ -188,6 +233,8 @@ const HEALTH_REGENERATION: AbilityDef = AbilityDef {
     ]),
     effect: BuffEffect::Health { per_second: 2.0 },
     duration: 15.0,
+    // "Cooldowns: none."
+    cooldown: 0.0,
 };
 
 /// "Energy regeneration (name TBD) | Own Disciples | Increases Disciple energy regeneration (+1/s, placeholder) for the
@@ -201,6 +248,8 @@ const ENERGY_REGENERATION: AbilityDef = AbilityDef {
     affects: Affects::Own(&[ObjectKind::Disciple]),
     effect: BuffEffect::Energy { per_second: 1.0 },
     duration: 20.0,
+    // "Cooldowns: none."
+    cooldown: 0.0,
 };
 
 #[cfg(test)]
@@ -220,7 +269,7 @@ mod tests {
             (def.name, def.cost, def.radius, def.duration, ability.duration())
         };
         assert_eq!(
-            AreaAbility::ALL.map(row),
+            AreaAbility::CULTS.map(row),
             [
                 ("Health regeneration", 75.0, 4.0, 15.0, 240),
                 ("Energy regeneration", 50.0, 4.0, 20.0, 320),
@@ -228,6 +277,8 @@ mod tests {
                 ("Suppress", 100.0, 5.0, 4.0, 64),
             ]
         );
+        // "Cooldowns: none" (M6-GR: Scan's is `defs::gdo::structures::radar_station`'s test's).
+        assert!(AreaAbility::CULTS.iter().all(|ability| ability.cooldown() == 0));
         let health = AreaAbility::HealthRegeneration;
         const INFANTRY: [ObjectKind; 4] = [
             ObjectKind::Recruit,

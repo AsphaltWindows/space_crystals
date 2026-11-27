@@ -32,18 +32,21 @@ pub const PLACE_SLOT: usize = 2;
 /// Radar Station [S] Arsenal [D] Career Campus [F] Defense System". The Generator, the Barracks and the Extraction
 /// Facility (design change 0104), the Arsenal (slice M5-K, design change 0356) and the Career Campus (slice M5-N9,
 /// design change 0328) it constructs, the last two greyed while the player owns no Barracks (their TechPrerequisite:
-/// the gate's `Reject::Requires`, "Requires a Barracks"). (M6-GK) The Supply Tower, the Radar Station and the Defense
-/// System are in the game (plan decision T84), but no player constructs one yet: each holds its slot, greyed
-/// ([`Planned`]), until its slice makes its entry live (M6-GS the Supply Tower's, M6-GR the other two's). Z is Back and
-/// X the constructor's Cancel (`super::super::state_grid`).
+/// the gate's `Reject::Requires`, "Requires a Barracks"), and (M6-GR) the Radar Station, greyed while the player owns
+/// no Generator, and the Defense System, greyed while they own no Radar Station or no Arsenal ("Requires a Radar
+/// Station", "Requires an Arsenal"). (M6-GK) The Supply Tower is in the game (plan decision T84), but no player
+/// constructs one yet: it holds its slot, greyed ([`Planned`]), until slice M6-GS makes its entry live. Z is Back and X
+/// the constructor's Cancel (`super::super::state_grid`).
 #[rustfmt::skip]
 const BASIC_MENU: [Option<PanelCommand>; 12] = {
-    use sc_sim::ObjectKind::{Arsenal, Barracks, CareerCampus, ExtractionFacility, Generator};
-    use Planned::{DefenseSystem, RadarStation, SupplyTower};
+    use sc_sim::ObjectKind::{
+        Arsenal, Barracks, CareerCampus, DefenseSystem, ExtractionFacility, Generator, RadarStation,
+    };
+    use Planned::SupplyTower;
     use PanelCommand::{Construct as C, Planned as P};
     [
         Some(C(Generator)),    Some(C(Barracks)), Some(C(ExtractionFacility)), Some(P(SupplyTower)),
-        Some(P(RadarStation)), Some(C(Arsenal)),  Some(C(CareerCampus)),       Some(P(DefenseSystem)),
+        Some(C(RadarStation)), Some(C(Arsenal)),  Some(C(CareerCampus)),       Some(C(DefenseSystem)),
         None,                  None,              None,                         None,
     ]
 };

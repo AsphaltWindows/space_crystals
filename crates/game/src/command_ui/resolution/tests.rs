@@ -1,5 +1,6 @@
 mod garrison;
 mod gathering;
+mod radar_station;
 mod recruit;
 mod repair;
 mod rocketman;
@@ -40,6 +41,7 @@ fn on(target: CursorTarget, destructible: bool, domain: Domain) -> MapTarget {
             repair: None,
         }),
         seen: true,
+        on_map: true,
         visible: true,
     }
 }

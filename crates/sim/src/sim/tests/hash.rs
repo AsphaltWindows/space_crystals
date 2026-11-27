@@ -42,6 +42,7 @@ fn make_busy(sim: &mut Sim, id: u32) {
             elapsed: 5,
             locked: false,
         }),
+        power_carry: 0,
     });
     obj(sim, id).riot_shield = Some(RiotShield { up: 4 });
 }

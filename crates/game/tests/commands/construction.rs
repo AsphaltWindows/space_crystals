@@ -10,10 +10,12 @@
 //! By topic: the build menu, Construct and Cancel Construction (`build_menu`); the ghost, its tiles, its letters
 //! turned by R and F, and the overlay (`ghost_and_overlay`); a ready building placed, or not, and placement left
 //! (`ready_building`); the Extraction Facility's plate (`extraction_facility`); the Place buttons with their progress
-//! bars, the Deployment Center's E and the Extraction Facility's Q (`place_button`, design changes 0388 and 0392); and
-//! nothing once the game is over or the player defeated (`game_over`).
+//! bars, the Deployment Center's E and the Extraction Facility's Q (`place_button`, design changes 0388 and 0392); the
+//! Defense System's Missile Turrets (`defense_system`, slice M6-GR); and nothing once the game is over or the player
+//! defeated (`game_over`).
 
 mod build_menu;
+mod defense_system;
 mod extraction_facility;
 mod game_over;
 mod ghost_and_overlay;
@@ -40,7 +42,9 @@ use space_crystals::placement::{BuildAreaOverlay, Ghost, PlacementGhost};
 use space_crystals::sim_driver::{PendingCommands, SimRes};
 
 use super::*;
-use KeyCode::{ControlLeft, Digit1, Escape, KeyD, KeyE, KeyF, KeyQ, KeyR, KeyS, KeyW, KeyX, KeyZ, ShiftLeft, Tab};
+use KeyCode::{
+    ControlLeft, Digit1, Escape, KeyA, KeyD, KeyE, KeyF, KeyQ, KeyR, KeyS, KeyW, KeyX, KeyZ, ShiftLeft, Tab,
+};
 
 const P1: PlayerId = PlayerId(1);
 const GENERATOR: ObjectKind = ObjectKind::Generator;
@@ -349,14 +353,17 @@ fn f() -> CommandSlot {
     slot(1, 3)
 }
 
-/// (M6-GK) The Basic menu's three buildings that the Deployment Center doesn't construct yet, greyed in their slots,
-/// whatever it is doing: R the Supply Tower, A the Radar Station, F the Defense System.
-fn not_yet_basic() -> [(CommandSlot, PanelButton, ButtonLook, &'static str); 3] {
+/// Three of the Basic menu's buildings, greyed in their slots in these games whatever the Deployment Center is doing:
+/// (M6-GK) R the Supply Tower, which it doesn't construct yet, and (M6-GR) A the Radar Station and F the Defense
+/// System, which it does once their TechPrerequisites stand: these games have no Generator of player 1's
+/// ("Requires a Generator") and no Radar Station ("Requires a Radar Station").
+fn greyed_basic() -> [(CommandSlot, PanelButton, ButtonLook, &'static str); 3] {
     let planned = |planned| PanelButton::Command(PanelCommand::Planned(planned));
+    let construct = |kind| PanelButton::Command(PanelCommand::Construct(kind));
     [
         (r(), planned(Planned::SupplyTower), ButtonLook::Unavailable, "SPT"),
-        (a(), planned(Planned::RadarStation), ButtonLook::Unavailable, "RS"),
-        (f(), planned(Planned::DefenseSystem), ButtonLook::Unavailable, "DS"),
+        (a(), construct(ObjectKind::RadarStation), ButtonLook::Disabled, "RS"),
+        (f(), construct(ObjectKind::DefenseSystem), ButtonLook::Disabled, "DS"),
     ]
 }
 

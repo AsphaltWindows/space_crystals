@@ -94,6 +94,8 @@ pub(crate) const INSPIRE: AbilityDef = AbilityDef {
         faster_attacks: &[ObjectKind::Recruit],
     },
     duration: 10.0,
+    // (M6-GR) None: `> Placeholder stats` gives none.
+    cooldown: 0.0,
 };
 
 /// (M5-N11) `> Placeholder stats`: "**Suppress** (hotkey **F**, instant, no target): 100 energy; an arc of **90°
@@ -108,6 +110,8 @@ pub(crate) const SUPPRESS: AbilityDef = AbilityDef {
     affects: Affects::EveryUnit,
     effect: BuffEffect::HoldFire,
     duration: 4.0,
+    // (M6-GR) None, as Inspire.
+    cooldown: 0.0,
 };
 
 #[cfg(test)]

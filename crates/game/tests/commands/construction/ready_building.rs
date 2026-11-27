@@ -24,7 +24,7 @@ fn a_ready_generator_is_placed_where_the_ghost_is_green() {
     assert_eq!(activity(&mut app).as_deref(), Some("Generator ready to place"));
     tap(&mut app, &[], KeyQ);
     let c = PanelButton::Command;
-    let [supply_tower, radar_station, defense_system] = not_yet_basic();
+    let [supply_tower, radar_station, defense_system] = greyed_basic();
     assert_eq!(
         buttons(&mut app),
         [

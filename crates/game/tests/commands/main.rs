@@ -67,7 +67,9 @@
 //! a lock on a structure queued behind it): `rocketman_ui`. A Barracks in focus with units, whose A sends them to
 //! attack (design change 0407), is in `panel::attack`. The Drone Operator (slice M6-GD: the Barracks' R greyed for want
 //! of a Supply, then paid in both resources and refunded; the operator's R launching its drone, the selection kept, and
-//! its refusal to move, with feedback, until the drone is gone): `drone_operator_ui`.
+//! its refusal to move, with feedback, until the drone is gone): `drone_operator_ui`. The Radar Station (slice M6-GR:
+//! two stations two SelectionGroups, Q's Scan at any point under the Cast pointer and its circle, the station cooling
+//! down, greyed, and Tab to the other): `radar_station`; the Defense System's Missile Turrets are `construction`'s.
 //!
 //! A computer player's player (slice A1, `--ai`: no command from the client's input while it is the local player, the
 //! top bar's "(AI)", F2 to a human player): `computer`.
@@ -96,6 +98,7 @@ mod portals;
 mod prayer_mobile;
 mod production;
 mod production_field;
+mod radar_station;
 mod rally;
 mod recruit_ui;
 mod recruitment_areas;

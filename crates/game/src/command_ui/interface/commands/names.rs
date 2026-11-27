@@ -31,7 +31,8 @@ impl PanelCommand {
     /// `factions/cults/structures/shrine.md > Abilities`). A Rocketman's Target Lock is "Lock", its name's second word,
     /// which says what it does (slice M5-K). A Prayer-mobile's casts shorten their names, "Insp." and "Suppr." (slice
     /// M5-N11). A Drone Operator's Launch Drone is its name's first word, "Launch", and its Build Drone the drone's tag,
-    /// "DRN", what it makes, as a Train shows its unit's (slice M6-GD).
+    /// "DRN", what it makes, as a Train shows its unit's (slice M6-GD). A Radar Station's Scan is its name, whole
+    /// (slice M6-GR).
     pub fn label(self) -> &'static str {
         match self {
             PanelCommand::Move => "Move",
@@ -85,6 +86,7 @@ impl PanelCommand {
             PanelCommand::Cast(AreaAbility::EnergyRegeneration) => "Energy",
             PanelCommand::Cast(AreaAbility::Inspire) => "Insp.",
             PanelCommand::Cast(AreaAbility::Suppress) => "Suppr.",
+            PanelCommand::Cast(AreaAbility::Scan) => "Scan",
             PanelCommand::TargetLock => "Lock",
             PanelCommand::Launch => "Launch",
         }
@@ -160,7 +162,8 @@ impl PanelCommand {
     ///   transforming: only Cancel`: "Cancel Deployment / Cancel Warp In"): a Beacon's under deployment, any other
     ///   building's under Warp In (the object is the building from the first frame, `sc_sim::transform`);
     /// - the Extraction Facility's "X: Cancel Ready Plate" (`factions/gdo/economy.md > ExtractionFacility >
-    ///   ObjectInterfaceState[ExtractionFacility]`).
+    ///   ObjectInterfaceState[ExtractionFacility]`), and (M6-GR) the Defense System's "X: Cancel Ready Turret"
+    ///   (`factions/gdo/structures/defense_system.md > Placeholder stats`).
     pub fn name_on(self, kind: ObjectKind) -> String {
         let names = kinds::of(kind).template.names;
         match names.iter().find(|&&(command, _)| command == self) {

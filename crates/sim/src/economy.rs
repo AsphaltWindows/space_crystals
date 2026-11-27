@@ -52,7 +52,7 @@ use crate::player::Player;
 /// destroyed). In order:
 /// 1. every player's power, from the structures present ([`PowerSummary`]);
 /// 2. the constructors (`crate::construction::step`), then (M2-D2) the producers, each at its speed
-///    ([`PowerSummary::speed`]);
+///    ([`PowerSummary::speed`]), and (M6-GR) the casters' cooldowns (`crate::cooldown::step`, design change 0423);
 /// 3. the plates mine (`mining::step`), the plates created this tick from the next one on;
 /// 4. the workers' timed work (`gathering::step`, slice M3-H, plan decision T17): mining takes its load from the
 ///    patch, a pick-up its Supply from the station (slice M4-I), and a drop-off pays the bank. After the plates, so
@@ -69,6 +69,7 @@ pub(crate) fn step(
 ) -> Vec<ObjectId> {
     let power = power::summaries(objects.values());
     crate::construction::step(objects, &power, first_new, events);
+    crate::cooldown::step(objects, &power);
     mining::step(objects, players, &power, first_new, events);
     gathering::step(objects, players, first_new, events)
 }

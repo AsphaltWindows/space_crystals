@@ -50,6 +50,7 @@ fn unit(kind: ObjectKind, up: u32) -> Object {
         stock: None,
         tether: None,
         drone: None,
+        cooldown: None,
     }
 }
 

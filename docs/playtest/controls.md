@@ -314,10 +314,10 @@ Z is Back in every menu, as Esc is, and while a command awaits its target. On ev
 | Q → W | BR | Build Barracks |  |
 | Q → E | EF | Build Extraction Facility |  |
 | Q → R | SPT | Build Supply Tower | greyed: "Not available yet" |
-| Q → A | RS | Build Radar Station | greyed: "Not available yet" |
+| Q → A | RS | Build Radar Station | Requires a Generator |
 | Q → S | AL | Build Arsenal | Requires a Barracks |
 | Q → D | CC | Build Career Campus | Requires a Barracks |
-| Q → F | DS | Build Defense System | greyed: "Not available yet" |
+| Q → F | DS | Build Defense System | Requires a Radar Station; Requires an Arsenal |
 | W | Adv. | Advanced Construction | opens a menu |
 | W → Q | FY | Build Factory | greyed: "Not available yet" |
 | W → W | AM | Build Advanced Mechanics | greyed: "Not available yet" |
@@ -352,7 +352,23 @@ Z is Back in every menu, as Esc is, and while a command awaits its target. On ev
 
 **Once the building is ready:** Q Place the building, X Cancel Ready Plate.
 
-No commands: Generator (GN), Extraction Plate (EP), Career Campus (CC), Arsenal (AL), Factory (FY), Airfield (AD), Advanced Mechanics (AM), Propulsion Labs (PL), Industrial Powerplant (IP), Radar Station (RS), Defense System (DS), Missile Turret (MTT), Outpost (OT), Bunker (BKR), First Aid Tent (FAT), Supply Tower (SPT), Mine (ME).
+#### Radar Station (RS)
+
+| Keys | Button | Command | Notes |
+|---|---|---|---|
+| Q | Scan | Scan | click a target |
+
+#### Defense System (DS)
+
+| Keys | Button | Command | Notes |
+|---|---|---|---|
+| Q | MTT | Build Missile Turret |  |
+
+**While it builds:** Q Place the building (greyed: "Still under construction"), X Cancel Construction.
+
+**Once the building is ready:** Q Place the building, X Cancel Ready Turret.
+
+No commands: Generator (GN), Extraction Plate (EP), Career Campus (CC), Arsenal (AL), Factory (FY), Airfield (AD), Advanced Mechanics (AM), Propulsion Labs (PL), Industrial Powerplant (IP), Missile Turret (MTT), Outpost (OT), Bunker (BKR), First Aid Tent (FAT), Supply Tower (SPT), Mine (ME).
 
 ## Syndicate
 

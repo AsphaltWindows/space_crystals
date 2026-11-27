@@ -64,6 +64,8 @@ mod cults_construction;
 mod cults_start;
 mod debug_commands;
 mod default_order;
+#[path = "defense_system/main.rs"]
+mod defense_system;
 #[path = "deploy/main.rs"]
 mod deploy;
 #[path = "deploy_gate/main.rs"]
@@ -142,6 +144,8 @@ mod prerequisites;
 #[path = "production/main.rs"]
 mod production;
 mod queued_group_destinations;
+#[path = "radar/main.rs"]
+mod radar;
 #[path = "recruit_gathering/main.rs"]
 mod recruit_gathering;
 #[path = "recruitment/main.rs"]

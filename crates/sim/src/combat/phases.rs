@@ -37,15 +37,20 @@
 //! melee attack does, and at the end of its Firing blasts the circle round its attacker (`effects::strike`, by
 //! `super::area`'s rule: every object of its TargetDomain in the circle, whoever owns it), whatever became of its
 //! target. A tethered unit's attack spends it then ("using its attack destroys it"): it leaves with the tick's dead.
+//!
+//! (M6-GR) A consumer structure's tick at low Power is a share of one (`super::power`, design change 0423): its phase
+//! takes a tick only once the shares banked make one.
 
 use glam::Vec2;
 
 use super::damage::{Hit, Origins};
+use super::power;
 use super::projectiles::Projectile;
 use super::targeting::{TargetView, Targets, domain_allows, reaches, reaches_point};
 use super::turret::{self, Source, TurretState};
 use super::{AttackPhase, AttackState};
 use crate::defs::{AttackAttrs, AttackType, TargetType};
+use crate::economy::RATIO_ONE;
 use crate::elevation::Elevation;
 use crate::events::SimEvent;
 use crate::ids::{ObjectId, PlayerId};
@@ -118,6 +123,9 @@ pub(super) struct Shooter<'a> {
     /// (M6-GD) Its attack is its end, "a melee-range attack that it can use only once" (`UnitDef::tether`: the
     /// operator's drone, `crate::tether`): the end of its Firing spends it ([`Volley::spent`]).
     spent_by_attack: bool,
+    /// (M6-GR) Its share of each tick, in `RATIO_ONE`s (`super::power`): a whole one but for a consumer's weapon at low
+    /// Power.
+    pub(super) speed: u32,
 }
 
 impl<'a> Shooter<'a> {
@@ -149,6 +157,7 @@ impl<'a> Shooter<'a> {
             inside: false,
             holds_fire: suppress::holds_fire(o),
             spent_by_attack: unit.is_some_and(|unit| unit.tether.is_some()),
+            speed: RATIO_ONE,
         }
     }
 
@@ -177,6 +186,7 @@ impl<'a> Shooter<'a> {
             inside: true,
             holds_fire: false,
             spent_by_attack: false,
+            speed: RATIO_ONE,
         }
     }
 
@@ -437,7 +447,8 @@ pub(super) fn run(
             state.elapsed = 0;
             continue;
         }
-        if !tick_left {
+        // (M6-GR) At low Power, only once the shares banked make a tick (`super::power`).
+        if !tick_left || !power::spend(&mut state.power_carry, shooter.speed) {
             break;
         }
         if let Some(at) = aimed_at {
@@ -445,6 +456,10 @@ pub(super) fn run(
         }
         state.elapsed = state.elapsed.saturating_add(1);
         tick_left = false;
+    }
+    // (M6-GR) A sequence over keeps no share of a tick: the next starts with none.
+    if state.phase.is_none() {
+        state.power_carry = 0;
     }
 }
 

@@ -163,6 +163,10 @@ pub const RESEARCHED_TEXT: &str = "Already researched";
 /// `factions/cults/units/disciple.md > Placeholder stats > Shroud numbers`: "needs at least **10 energy** to start").
 /// Placeholder wording.
 pub const NOT_ENOUGH_ENERGY_TEXT: &str = "Not enough energy";
+/// (M6-GR) The message of a Scan pressed while its station cools down (`Reject::CoolingDown`;
+/// `factions/gdo/structures/radar_station.md > Placeholder stats`: "**cooldown 60 seconds** (960 frames)").
+/// Placeholder wording.
+pub const COOLING_DOWN_TEXT: &str = "Cooling down";
 /// The message of a Drop Off pressed while none of its workers carries a load (`Reject::NothingToDeliver`;
 /// `factions/syndicate/units/agent.md > Agent ObjectInterfaceState`: "greyed out when Agent is not carrying
 /// resources"). Placeholder wording.
@@ -351,8 +355,8 @@ pub fn unavailable_text(why: WhyUnavailable) -> &'static str {
 /// ([`requires_text`], slice M4-K), the Tunnel's Upgrade's (slice M4-G: its top tier, something blocking it), a pool
 /// building's (slice M5-F2: no free Recruit of the kind, nothing to eject), a Temple's key's (slice M5-N3: in progress,
 /// completed, its previous level missing), (M6-GD) a Drone Operator's (its drone out, its stock full, empty or being
-/// filled; Supplies short for the Barracks' R, "a feedback line that names Supplies", design change 0441), and
-/// placeholders for the others.
+/// filled; Supplies short for the Barracks' R, "a feedback line that names Supplies", design change 0441), (M6-GR) a
+/// Scan's (its station cooling down), and placeholders for the others.
 pub fn reject_text(reject: Reject) -> &'static str {
     match reject {
         Reject::InsufficientCrystals => NO_CRYSTALS_TEXT,
@@ -385,6 +389,7 @@ pub fn reject_text(reject: Reject) -> &'static str {
         Reject::StockFull => STOCK_FULL_TEXT,
         Reject::PurchaseUnderWay => PURCHASE_UNDER_WAY_TEXT,
         Reject::StockEmpty => STOCK_EMPTY_TEXT,
+        Reject::CoolingDown => COOLING_DOWN_TEXT,
         _ => CANNOT_DO_TEXT,
     }
 }

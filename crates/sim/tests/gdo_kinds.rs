@@ -1,9 +1,10 @@
 //! (M6-GK) The GDO's kinds of design change 0366 before the slices that make them live (plan decision T84, after T69's
 //! rule): no player makes one. The Deployment Center constructs none of the new buildings and the Barracks trains none
 //! of the new units but (M6-GD) the Drone Operator; a Field Engineer builds no Bunker and no First Aid Tent; the new
-//! buildings produce and construct nothing; and no game start spawns one. The debug spawn, the map editor's, places
-//! every one, the new units take orders and move, and a deployed Artillery Rig given a Move stays where it is (plan
-//! decision T87).
+//! buildings produce and construct nothing; and no game start spawns one. (M6-GR) The Radar Station, the Defense System
+//! and the Missile Turret are live since slice M6-GR ([`LIVE`]; their tests are `tests/radar/` and
+//! `tests/defense_system/`). The debug spawn, the map editor's, places every one, the new units take orders and move,
+//! and a deployed Artillery Rig given a Move stays where it is (plan decision T87).
 
 use sc_sim::defs::PLANNED_RECIPES;
 use sc_sim::scenario::DEFAULT_SEED;
@@ -20,6 +21,14 @@ const P1: PlayerId = PlayerId(1);
 const DC: u32 = 1;
 const BARRACKS: u32 = 2;
 const FIELD_ENGINEER: u32 = 3;
+
+/// (M6-GR) Slice M6-GK's kinds that are live: the Deployment Center constructs the Radar Station and the Defense
+/// System, the Defense System the Missile Turret.
+const LIVE: [ObjectKind; 3] = [
+    ObjectKind::RadarStation,
+    ObjectKind::DefenseSystem,
+    ObjectKind::MissileTurret,
+];
 
 /// Slice M6-GK's kinds, in the registry's order: the Factory to the mine.
 fn new_kinds() -> &'static [ObjectKind] {
@@ -116,17 +125,17 @@ fn spawn(kind: ObjectKind, at: SpawnAt) -> DebugCommand {
 }
 
 /// `factions/gdo/structures/deployment_center.md > Constructs`, held (`sc_sim::defs::PLANNED_RECIPES`): the
-/// Deployment Center constructs none of the new buildings, its eight held ones among them, with the bank to pay for
-/// each (`Reject::CannotConstruct`), and still constructs a Generator.
+/// Deployment Center constructs none of the new buildings but the live ones ([`LIVE`]), its six held ones among them,
+/// with the bank to pay for each (`Reject::CannotConstruct`), and still constructs a Generator.
 #[test]
 fn the_deployment_center_constructs_none_of_them() {
     let t = base();
     let buildings = new_of(Category::Structure);
     assert_eq!(buildings.len(), 12);
     let held = (PLANNED_RECIPES.iter()).filter(|(maker, _)| *maker == ObjectKind::DeploymentCenter);
-    assert_eq!(held.clone().count(), 8);
+    assert_eq!(held.clone().count(), 6);
     assert!(held.clone().all(|(_, recipe)| buildings.contains(&recipe.kind)));
-    for kind in buildings {
+    for kind in buildings.into_iter().filter(|kind| !LIVE.contains(kind)) {
         assert_eq!(
             gate(&t, construct(DC, kind)),
             Err(Reject::CannotConstruct(kind)),
@@ -167,9 +176,9 @@ fn the_field_engineer_builds_none_of_them() {
     }
 }
 
-/// The new buildings that will produce or construct, spawned: the Factory, the Airfield and the Supply Tower produce
-/// nothing yet (`Reject::NoProducers`), not even their own units, and the Defense System constructs nothing
-/// (`Reject::NoConstructor`), not even its Missile Turret.
+/// The new buildings that will produce, spawned: the Factory, the Airfield and the Supply Tower produce nothing yet
+/// (`Reject::NoProducers`), not even their own units. (M6-GR) The Defense System constructs its Missile Turret
+/// (`tests/defense_system/`).
 #[test]
 fn the_new_buildings_make_nothing_yet() {
     let mut t = base();
@@ -177,7 +186,6 @@ fn the_new_buildings_make_nothing_yet() {
         (ObjectKind::Factory, tile(14, 2)),
         (ObjectKind::Airfield, tile(19, 2)),
         (ObjectKind::SupplyTower, tile(24, 2)),
-        (ObjectKind::DefenseSystem, tile(29, 2)),
     ];
     let now = t.sim().tick() + 1;
     for (kind, at) in makers {
@@ -191,16 +199,13 @@ fn the_new_buildings_make_nothing_yet() {
         })
         .collect();
     assert_eq!(spawned, makers.map(|(kind, _)| kind));
-    let ids: Vec<u32> = (4..8).collect();
+    let ids: Vec<u32> = (4..7).collect();
     for &(maker, recipe) in PLANNED_RECIPES {
         let Some(n) = makers.iter().position(|&(kind, _)| kind == maker) else {
             continue;
         };
         let (id, kind) = (ids[n], recipe.kind);
-        match maker {
-            ObjectKind::DefenseSystem => assert_eq!(gate(&t, construct(id, kind)), Err(Reject::NoConstructor)),
-            _ => assert_eq!(gate(&t, train(id, kind)), Err(Reject::NoProducers), "{kind:?}"),
-        }
+        assert_eq!(gate(&t, train(id, kind)), Err(Reject::NoProducers), "{kind:?}");
     }
 }
 

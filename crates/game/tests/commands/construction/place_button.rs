@@ -9,13 +9,13 @@ use space_crystals::hud::progress_bar::ProgressFill;
 use super::*;
 
 /// The button the HUD shows in `slot`: button, look, label.
-fn button(app: &mut App, slot: CommandSlot) -> Option<(PanelButton, ButtonLook, &'static str)> {
+pub(super) fn button(app: &mut App, slot: CommandSlot) -> Option<(PanelButton, ButtonLook, &'static str)> {
     let shown = buttons(app).into_iter().find(|(at, ..)| *at == slot)?;
     Some((shown.1, shown.2, shown.3))
 }
 
 /// The progress bar of `slot`'s button, if it has one: its fill and the share done it shows.
-fn bar(app: &mut App, slot: CommandSlot) -> Option<(Entity, f32)> {
+pub(super) fn bar(app: &mut App, slot: CommandSlot) -> Option<(Entity, f32)> {
     let mut buttons = app.world_mut().query::<(Entity, &CommandButton)>();
     let mut fills = app.world_mut().query::<(Entity, &ProgressFill, &ChildOf)>();
     let mut parents = app.world_mut().query::<&ChildOf>();

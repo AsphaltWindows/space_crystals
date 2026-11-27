@@ -4,7 +4,8 @@
 //! within **4 grid units** of the vehicle") as a gold ring that settles to its radius and fades, over a faint disc;
 //! Suppress's arc ("an arc of **90° total** in front of the vehicle's current facing, **5 grid units** long") as a red
 //! wedge that fades, its edges brighter. The units the cast took in carry its buff's mark meanwhile (`super::buffs`). A
-//! Shrine's cast at a point shows nothing of its own, as before. **Placeholder (not in the design: the casts' look;
+//! Shrine's cast at a point shows nothing of its own, as before, nor (M6-GR) a Radar Station's Scan, whose circle
+//! the fog shows lifting. **Placeholder (not in the design: the casts' look;
 //! Q0001)**.
 //!
 //! The fog: a cast shows only while the tile under the point it was cast from is Visible to the player
@@ -87,7 +88,7 @@ pub(super) fn cast_shape(mesh: &mut ColorMesh, map: &Map, cast: &CastFlash, t: f
                 mesh.segment(point(angle(i), radius), point(angle(i + 1), radius), EDGE, z, edge);
             }
         }
-        AbilityArea::AroundCaster | AbilityArea::AtPoint => {
+        AbilityArea::AroundCaster | AbilityArea::AtPoint | AbilityArea::AnyPoint => {
             let angle = |i: usize| i as f32 * std::f32::consts::TAU / SEGMENTS as f32;
             let disc: Vec<Vec2> = (0..SEGMENTS).map(|i| point(angle(i), radius)).collect();
             mesh.polygon(&disc, z, INSPIRE.with_alpha(0.16 * (1.0 - t)).into());

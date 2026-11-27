@@ -55,11 +55,12 @@ fn completed(constructor: u32, kind: ObjectKind) -> SimEvent {
 }
 
 /// `factions/gdo/structures/deployment_center.md > DeploymentCenterInstanceState`: a constructor starts with nothing
-/// under construction and nothing ready; only the types with a `Constructs` list are constructors.
+/// under construction and nothing ready; only the types with a `Constructs` list are constructors, (M6-GR) the
+/// Defense System among them.
 #[test]
 fn constructors_start_idle() {
     for &kind in ObjectKind::ALL {
-        let expected = matches!(kind, DC | EF).then_some(Constructor::Idle);
+        let expected = matches!(kind, DC | EF | ObjectKind::DefenseSystem).then_some(Constructor::Idle);
         assert_eq!(constructor_for(kind), expected, "{kind:?}");
     }
     let objects = objects();

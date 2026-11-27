@@ -4,12 +4,14 @@
 //! terrain's height, with a faint fill, so that the player sees which units the cast would reach ("a unit is affected
 //! when its **centre** is inside"). In the Cast pointer's pink over a point the player sees now
 //! (`crate::command_ui::cursor::CAST_COLOR`; `sc_sim::Sim::sees_point`), else in a muted grey: a click there would be
-//! an invalid target. Placeholder look (Q0001).
+//! an invalid target. (M6-GR) A Radar Station's Scan shows the circle it reveals, "a circle of radius **6 grid
+//! units**" (`factions/gdo/structures/radar_station.md > Placeholder stats`), pink anywhere on the map, seen or not
+//! ("left-click any point on the map"), grey off it ([`takes_point`]). Placeholder look (Q0001).
 
 use std::f32::consts::TAU;
 
 use bevy::prelude::*;
-use sc_sim::{AreaAbility, Map, SU_PER_GU};
+use sc_sim::{AbilityArea, AreaAbility, Map, PlayerId, SU_PER_GU, Sim};
 
 use crate::command_ui::cursor::CAST_COLOR;
 use crate::command_ui::interface::{InterfaceState, PanelCommand};
@@ -28,7 +30,18 @@ pub fn radius(ability: AreaAbility) -> f32 {
     ability.def().radius * SU_PER_GU
 }
 
-/// The ability whose point `interface` awaits: a Shrine's Q or W (`PanelCommand::Cast`); none for anything else.
+/// Whether a click at the ground point `at` casts `ability` for `player`, as the gate judges its point
+/// (`crate::command_ui::resolution::target_resolution`): a Shrine's cast a point the player sees now
+/// (`Sim::sees_point`), (M6-GR) a Scan any point on the map (`AbilityArea::AnyPoint`).
+pub fn takes_point(sim: &Sim, player: PlayerId, ability: AreaAbility, at: Vec2) -> bool {
+    match ability.def().area {
+        AbilityArea::AnyPoint => sim.map().contains_point(at),
+        _ => sim.sees_point(player, at),
+    }
+}
+
+/// The ability whose point `interface` awaits: a Shrine's Q or W (`PanelCommand::Cast`), (M6-GR) a Radar Station's
+/// Q; none for anything else.
 pub fn awaited(interface: InterfaceState) -> Option<AreaAbility> {
     match interface.pending()? {
         PanelCommand::Cast(ability) => Some(ability),
@@ -37,10 +50,10 @@ pub fn awaited(interface: InterfaceState) -> Option<AreaAbility> {
 }
 
 /// Draws the circle of a cast of `ability` around the ground point `at` (module docs), at `z`: a faint fill and a
-/// ring, each point of it drawn at the terrain's height there; in the Cast pink while the player sees `at` (`seen`),
-/// else grey.
-pub(super) fn draw(mesh: &mut ColorMesh, map: &Map, ability: AreaAbility, at: Vec2, seen: bool, z: f32) {
-    let color = if seen { CAST_COLOR } else { OUT_OF_SIGHT_COLOR };
+/// ring, each point of it drawn at the terrain's height there; in the Cast pink while a click there casts it
+/// (`valid`, [`takes_point`]), else grey.
+pub(super) fn draw(mesh: &mut ColorMesh, map: &Map, ability: AreaAbility, at: Vec2, valid: bool, z: f32) {
+    let color = if valid { CAST_COLOR } else { OUT_OF_SIGHT_COLOR };
     let r = radius(ability);
     let edge = |i: usize| {
         let a = i as f32 * TAU / SEGMENTS as f32;

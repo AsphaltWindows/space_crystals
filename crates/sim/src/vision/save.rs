@@ -1,11 +1,12 @@
 //! The serde form of [`Vision`]: each player's history, its Explored tiles, its records, the tiles still Visible for
-//! the fog delay and the attackers revealed to it. The rest is derived from the objects when a save is loaded.
+//! the fog delay, the attackers revealed to it and (M6-GR) its scans. The rest is derived from the objects when a save
+//! is loaded.
 
 use std::collections::{BTreeMap, BTreeSet};
 
 use serde::{Deserialize, Serialize, Serializer};
 
-use super::{LastKnown, TileBits, Vision};
+use super::{LastKnown, Scan, TileBits, Vision};
 use crate::ids::{ObjectId, PlayerId};
 use crate::map::Map;
 use crate::object::Object;
@@ -33,6 +34,10 @@ pub(crate) struct SavedVision {
     /// The attackers revealed to the player ([`super::reveal`]), by ascending id. Optional like `lingering`.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub(super) revealed: Vec<SavedReveal>,
+    /// (M6-GR) Its scans under way ([`super::scans`]), in the order they end. Optional like `lingering`, so that the
+    /// saves without one are as they were.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub(super) scans: Vec<Scan>,
 }
 
 /// A tile still Visible for the fog delay, in a save: phase 5f of tick `ends` turns it Explored.
@@ -81,6 +86,7 @@ impl Vision {
                     })
                     .collect(),
                 revealed: p.revealed().map(|(id, ends)| SavedReveal { id, ends }).collect(),
+                scans: p.scans().copied().collect(),
             })
             .collect()
     }
@@ -97,10 +103,11 @@ impl Serialize for Vision {
 /// The vision of a save loaded at the end of `tick` ([`crate::Sim`]'s serde form). `saved` must hold the history of
 /// exactly `players`, in order: Explored rows of `map`'s size; records of objects the player doesn't own, each once, on
 /// the map and seen by `tick` at the latest; tiles that linger, each once, in order, on the map, their delays ending
-/// within the `Vision::fog_delay_ticks` after `tick`; and reveals, each once, in id order, ending within the
-/// `Vision::reveal_ticks` after `tick`. The rest is derived from `objects` (all of the sim's), as at the end of the
-/// tick: tiles Visible now count as Explored even if the save forgot them, a tile a source sees no longer lingers, and
-/// the records of the objects in sight take their current state.
+/// within the `Vision::fog_delay_ticks` after `tick`; reveals, each once, in id order, ending within the
+/// `Vision::reveal_ticks` after `tick`; and (M6-GR) scans on the map, of a finite radius above 0, in the order they
+/// end, after `tick`. The rest is derived from `objects` (all of the sim's), as at the end of the tick: tiles Visible
+/// now count as Explored even if the save forgot them, a tile a source sees no longer lingers, and the records of the
+/// objects in sight take their current state.
 pub(crate) fn load<'a>(
     map: &Map,
     players: &[PlayerId],
@@ -120,8 +127,10 @@ pub(crate) fn load<'a>(
         check_records(map, &s, tick)?;
         let lingering = lingering(map, &s, tick)?;
         let revealed = revealed(&s, tick)?;
+        check_scans(map, &s, tick)?;
         player.set_records(s.last_known);
         player.restore(lingering, revealed);
+        player.scans.restore(s.scans);
     }
     let objects: BTreeMap<ObjectId, &Object> = objects.into_iter().map(|o| (o.id, o)).collect();
     vision.update(map, objects.values().copied(), tick);
@@ -174,6 +183,30 @@ fn revealed(saved: &SavedVision, tick: Tick) -> Result<Vec<(ObjectId, Tick)>, St
         reveals.push((id, ends));
     }
     Ok(reveals)
+}
+
+/// (M6-GR) A player's saved scans ([`super::scans`]): each centred on the map, of a finite radius above 0, ending after
+/// `tick`, in the order they end. Their tiles are stamped by the load's look at the objects.
+fn check_scans(map: &Map, saved: &SavedVision, tick: Tick) -> Result<(), String> {
+    let player = saved.player.0;
+    let mut last = tick;
+    for (n, scan) in saved.scans.iter().enumerate() {
+        let fail = |problem: &str| Err(format!("player {player}'s scan {n} {problem}"));
+        if !map.contains_point(scan.at) {
+            return fail("is off the map");
+        }
+        if !(scan.radius.is_finite() && scan.radius > 0.0) {
+            return fail(&format!("has a radius of {}", scan.radius));
+        }
+        if scan.until <= last {
+            return fail(&format!(
+                "ends at tick {}, by tick {tick} or before the one before it",
+                scan.until
+            ));
+        }
+        last = scan.until - 1;
+    }
+    Ok(())
 }
 
 /// The Explored tiles of a player's saved rows.

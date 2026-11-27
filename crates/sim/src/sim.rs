@@ -453,6 +453,7 @@ impl Sim {
             stock: crate::stock::fresh(kind),
             tether: None,
             drone: None,
+            cooldown: None,
         };
         if let Some(rally) = crate::production::default_rally(&self.map, &object)
             && let Some(production) = &mut object.production

@@ -79,20 +79,19 @@ pub enum Planned {
     FirstAidTent,
     /// (M6-GK) The buildings of the Deployment Center's build menus that it doesn't construct yet
     /// (`factions/gdo/structures/deployment_center.md > Constructs`), in its Constructs order: each in the game (plan
-    /// decision T84), its entry held until its slice (`sc_sim::defs::PLANNED_RECIPES`).
+    /// decision T84), its entry held until its slice (`sc_sim::defs::PLANNED_RECIPES`). The Radar Station and the
+    /// Defense System are constructed (slice M6-GR).
     SupplyTower,
     Factory,
-    RadarStation,
     AdvancedMechanics,
     Airfield,
     PropulsionLabs,
     IndustrialPowerplant,
-    DefenseSystem,
 }
 
 impl Planned {
     /// Every one, in declaration order.
-    pub const ALL: [Planned; 32] = [
+    pub const ALL: [Planned; 30] = [
         Planned::AlloyFurnace,
         Planned::EssenceRefinery,
         Planned::FluxReactor,
@@ -119,12 +118,10 @@ impl Planned {
         Planned::FirstAidTent,
         Planned::SupplyTower,
         Planned::Factory,
-        Planned::RadarStation,
         Planned::AdvancedMechanics,
         Planned::Airfield,
         Planned::PropulsionLabs,
         Planned::IndustrialPowerplant,
-        Planned::DefenseSystem,
     ];
 
     /// The ExpandMenu's entry not in the game yet that the sim names `name` (`sc_sim::defs::ExpandEntry::Planned`): an
@@ -164,12 +161,10 @@ impl Planned {
             Planned::FirstAidTent => "First Aid Tent",
             Planned::SupplyTower => "Supply Tower",
             Planned::Factory => "Factory",
-            Planned::RadarStation => "Radar Station",
             Planned::AdvancedMechanics => "Advanced Mechanics",
             Planned::Airfield => "Airfield",
             Planned::PropulsionLabs => "Propulsion Labs",
             Planned::IndustrialPowerplant => "Industrial Powerplant",
-            Planned::DefenseSystem => "Defense System",
         }
     }
 
@@ -185,7 +180,7 @@ impl Planned {
     /// its label with it into the game (the Optics Lab's "OL", the Chemical Plant's "CP", the Grenadier's "GR", the
     /// Gunworks' "GS", the Garrison's "GA", the Vehicle Assembly's "VA", `crate::kinds`), and a command its own: the
     /// Tunnel's Upgrade's "Upgr." (slice M4-G). (M6-SV) The Vehicle Assembly's units not trained yet are labelled by
-    /// their types, in the game already (slice M6-SK): "SBR", "LB" and "STR". (M6-GK) The Deployment Center's eight,
+    /// their types, in the game already (slice M6-SK): "SBR", "LB" and "STR". (M6-GK) The Deployment Center's six,
     /// whose types are in the game, have their types' labels.
     pub fn label(self) -> &'static str {
         match self {
@@ -215,12 +210,10 @@ impl Planned {
             Planned::FirstAidTent => "FAT",
             Planned::SupplyTower => "SPT",
             Planned::Factory => "FY",
-            Planned::RadarStation => "RS",
             Planned::AdvancedMechanics => "AM",
             Planned::Airfield => "AD",
             Planned::PropulsionLabs => "PL",
             Planned::IndustrialPowerplant => "IP",
-            Planned::DefenseSystem => "DS",
         }
     }
 
@@ -244,12 +237,10 @@ impl Planned {
             self,
             Planned::SupplyTower
                 | Planned::Factory
-                | Planned::RadarStation
                 | Planned::AdvancedMechanics
                 | Planned::Airfield
                 | Planned::PropulsionLabs
                 | Planned::IndustrialPowerplant
-                | Planned::DefenseSystem
         )
     }
 

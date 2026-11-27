@@ -58,6 +58,7 @@ fn object(kind: ObjectKind, transform: Option<Transform>) -> Object {
         stock: None,
         tether: None,
         drone: None,
+        cooldown: None,
     }
 }
 

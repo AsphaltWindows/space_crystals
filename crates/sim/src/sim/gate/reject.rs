@@ -226,6 +226,11 @@ pub enum Reject {
     /// (`factions/cults/structures/shrine.md > Abilities`: "cast on an area anywhere the player currently has vision";
     /// plan decision T76).
     OutOfSight,
+    /// (M6-GR) Every caster of a `Command::Cast` that casts its ability, and has the energy it costs, waits out its
+    /// cooldown (`Object::cooldown`, `crate::cooldown`; `factions/gdo/structures/radar_station.md > Placeholder stats`:
+    /// "**cooldown 60 seconds** (960 frames) [...] Each Radar Station has its own cooldown"): what greys the Radar
+    /// Station's Q.
+    CoolingDown,
     /// (M5-V2) None of the units a Reverse names can back up (`systems/controls/commands.md > Reverse`: "Only available
     /// to bases with CanReverse = true"; `UnitDef::can_reverse`).
     CannotReverse,
@@ -333,6 +338,7 @@ impl fmt::Display for Reject {
             Reject::RequiresTech(tech) => write!(f, "it requires {}", tech.def().name),
             Reject::NotEnoughEnergy => write!(f, "none of the units has the energy the spell needs"),
             Reject::OutOfSight => write!(f, "the point is out of sight"),
+            Reject::CoolingDown => write!(f, "every caster waits out its cooldown"),
             Reject::CannotReverse => write!(f, "none of the units can reverse"),
             Reject::NotAnEnemy(id) => write!(f, "object {} isn't an enemy's", id.0),
             Reject::RulesStructural(change) => write!(f, "the rules change {change}, which needs a new game"),

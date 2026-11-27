@@ -4,7 +4,7 @@
 use std::collections::BTreeMap;
 
 use super::{AttackPhase, Projectile, damage};
-use super::{Threats, occupants, phases, projectiles, structures, target_lock, targeting, weapon_ref};
+use super::{Threats, occupants, phases, power, projectiles, structures, target_lock, targeting, weapon_ref};
 use crate::augmentation::Research;
 use crate::conversion;
 use crate::events::SimEvent;
@@ -79,6 +79,8 @@ pub(crate) fn step(
     // (M5-N4b) Where each attack leaves from, kept only while there is a cloud to absorb its hits.
     let shrouded = !clouds.list().is_empty();
     let mut volley = phases::Volley::new(tick, shrouded);
+    // (M6-GR) The owners' Power, which slows a consumer structure's weapon (`power`), only while one attacks.
+    let powered = power::summaries(objects, first_new);
     for o in objects.range_mut(..first_new).map(|(_, o)| o) {
         // `factions/colonists/units/weapon_conversion.md`: a unit converting its weapon attacks nothing; what it
         // engages waits for the new weapon (`conversion`).
@@ -106,7 +108,8 @@ pub(crate) fn step(
         // retracting"; lowered, it is underground).
         let may_fire = popup::may_fire(o);
         let sight = o.owner.and_then(|owner| vision.player(owner));
-        let shooter = phases::Shooter::new(map, o, attrs, sight, turns.angle(o.id));
+        let mut shooter = phases::Shooter::new(map, o, attrs, sight, turns.angle(o.id));
+        shooter.speed = power::speed(powered.as_ref(), o);
         // (M5-K) A unit whose type has a Target Lock, with its locked missiles (`target_lock`).
         let lock = (o.def().unit.as_ref()).and_then(|unit| unit.target_lock);
         let lock_attrs = lock.map(|def| target_lock::attrs(attrs, &def));

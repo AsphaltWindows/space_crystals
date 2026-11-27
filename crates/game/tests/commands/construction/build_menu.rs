@@ -9,8 +9,9 @@ use super::*;
 /// whose five buildings hold their slots greyed, none constructed yet (slice M6-GK): Q Factory, W Advanced Mechanics, E
 /// Airfield, R Propulsion Labs and A Industrial Powerplant; pressing one sends nothing and says "Not available yet".
 /// Q, or a click on its button, opens BuildMenu[Basic]: Q Generator, W Barracks, E Extraction Facility, S Arsenal
-/// (slice M5-K) and D Career Campus (slice M5-N9; both greyed: "Requires a Barracks"), R Supply Tower, A Radar Station
-/// and F Defense System greyed as not constructed yet (slice M6-GK), and Z Back. Back
+/// (slice M5-K) and D Career Campus (slice M5-N9; both greyed: "Requires a Barracks"), A Radar Station and F Defense
+/// System (slice M6-GR; greyed: "Requires a Generator", "Requires a Radar Station"), R Supply Tower greyed as not
+/// constructed yet (slice M6-GK), and Z Back. Back
 /// and Esc return to DefaultState (`factions/gdo/structures/deployment_center.md > BuildMenu (instance idle)`:
 /// "Escape: returns to DefaultState (StateOnlyTransition). Right-click does its normal right-click and the menu stays
 /// open", design change 0400): a right-click on the ground does the Deployment Center's, nothing, and the menu stays
@@ -55,7 +56,7 @@ fn the_deployment_center_opens_its_basic_build_menu() {
     let menu = InterfaceState::BuildMenu(BuildMenu::Basic);
     tap(&mut app, &[], KeyQ);
     assert_eq!(interface(&app), menu);
-    let [supply_tower, radar_station, defense_system] = not_yet_basic();
+    let [supply_tower, radar_station, defense_system] = greyed_basic();
     assert_eq!(
         buttons(&mut app),
         [
@@ -161,7 +162,7 @@ fn a_construction_is_cancelled_with_a_full_refund() {
     tap(&mut app, &[], KeyW);
     assert_eq!(bank(&app), 800, "a Barracks");
     tap(&mut app, &[], KeyQ);
-    let [supply_tower, radar_station, defense_system] = not_yet_basic();
+    let [supply_tower, radar_station, defense_system] = greyed_basic();
     assert_eq!(
         buttons(&mut app),
         [
@@ -232,4 +233,59 @@ fn constructs_once_a_barracks_stands(key: KeyCode, at: CommandSlot, kind: Object
     updates(&mut app, 1);
     assert_eq!(bank(&app), 1000 - 150);
     assert_eq!(constructor(&app, DC).current(), Some(kind));
+}
+
+/// (M6-GR) `factions/gdo/structures/deployment_center.md > Constructs`: "Radar Station: 150 Space Crystals, 320 frames
+/// (20 seconds) (placeholder). Requires: player owns at least one Generator", BuildMenu[Basic]'s A, and "Defense System:
+/// 150 Space Crystals, 320 frames (20 seconds) (placeholder). Requires: player owns at least one Radar Station and at
+/// least one Arsenal", its F. Without a Generator, A is greyed, says "Requires a Generator" when pressed and sends
+/// nothing; F says "Requires a Radar Station". With a Generator (a debug spawn), A is live; with a Radar Station
+/// besides, F says "Requires an Arsenal", and with an Arsenal too, it constructs a Defense System for 150 Space
+/// Crystals, and the menu closes.
+#[test]
+fn a_and_f_construct_a_radar_station_and_a_defense_system_once_their_requirements_stand() {
+    use ButtonLook::{Common, Disabled};
+    let mut app = construction_game(1000);
+    select(&mut app, DC);
+    tap(&mut app, &[], KeyQ);
+    let shown = |app: &mut App, at| buttons(app).into_iter().find(|b| b.0 == at).map(|b| b.2);
+    let spawn = |app: &mut App, kind, at| {
+        let spawn = DebugCommand::Spawn {
+            kind,
+            owner: Some(P1),
+            at: SpawnAt::Tile(at),
+            orientation: BuildingOrientation::default(),
+        };
+        submit(app, P1, Command::Debug(spawn));
+        updates(app, 2);
+        assert!(structure_at(app, kind, at).is_some(), "{kind:?}");
+    };
+    assert_eq!(
+        (shown(&mut app, a()), shown(&mut app, f())),
+        (Some(Disabled), Some(Disabled))
+    );
+    tap(&mut app, &[], KeyA);
+    assert_eq!(feedback(&app), Some("Requires a Generator"));
+    tap(&mut app, &[], KeyF);
+    assert_eq!(feedback(&app), Some("Requires a Radar Station"));
+    assert_eq!(constructions(&app), []);
+
+    spawn(&mut app, GENERATOR, TilePos::new(27, 17));
+    assert_eq!(shown(&mut app, a()), Some(Common));
+    spawn(&mut app, ObjectKind::RadarStation, TilePos::new(27, 20));
+    tap(&mut app, &[], KeyF);
+    assert_eq!(feedback(&app), Some("Requires an Arsenal"));
+    spawn(&mut app, ARSENAL, TilePos::new(30, 20));
+    assert_eq!(interface(&app), InterfaceState::BuildMenu(BuildMenu::Basic));
+    assert_eq!(
+        (shown(&mut app, a()), shown(&mut app, f())),
+        (Some(Common), Some(Common))
+    );
+    tap(&mut app, &[], KeyF);
+    let construct = ConstructionCommand::Construct(ObjectKind::DefenseSystem);
+    assert_eq!(constructions(&app), [(P1, vec![DC], construct)]);
+    assert_eq!(interface(&app), InterfaceState::DefaultState);
+    updates(&mut app, 1);
+    assert_eq!(bank(&app), 1000 - 150);
+    assert_eq!(constructor(&app, DC).current(), Some(ObjectKind::DefenseSystem));
 }

@@ -113,13 +113,14 @@ pub(super) fn draw_indicators(
     if mode.is_game() {
         let (sim, sight) = (local.sim(), local.get());
         let z = DrawLayer::Overlays.base_z() + INDICATORS_Z;
-        // (M5-N5) While a Shrine's cast awaits its point, its circle around the point under the pointer, over the map.
+        // (M5-N5) While a Shrine's cast awaits its point, its circle around the point under the pointer, over the map;
+        // (M6-GR) a Radar Station's Scan's too.
         let pointer = actions.pointer();
         if let Some(ability) = cast::awaited(states.of(sight.player()).interface)
             && let Some(ground) = pointer.ground.filter(|_| !pointer.over_ui)
         {
-            let seen = sim.sees_point(sight.player(), ground);
-            cast::draw(&mut mesh, sim.map(), ability, ground, seen, z);
+            let valid = cast::takes_point(sim, sight.player(), ability, ground);
+            cast::draw(&mut mesh, sim.map(), ability, ground, valid, z);
         }
         // (M6-GD) Round the operators of the selected drones and of the selected operators whose drones are out, the
         // leashes.

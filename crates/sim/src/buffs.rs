@@ -87,11 +87,12 @@ pub fn in_circle(ability: AreaAbility, at: Vec2, pos: Vec2) -> bool {
 
 /// (M5-N11) Whether a unit at `pos` is in the area of `ability` cast from `at`, its caster facing `facing` where it
 /// casts round or ahead of itself (module docs): in the circle of the Shrine's round its point, and of Inspire round its
-/// caster ([`in_circle`]); in Suppress's arc ahead of its caster ([`suppress::in_arc`]).
+/// caster ([`in_circle`]); in Suppress's arc ahead of its caster ([`suppress::in_arc`]). (M6-GR) In Scan's circle,
+/// which buffs no one (`BuffEffect::Sight`).
 pub fn in_area(ability: AreaAbility, at: Vec2, facing: f32, pos: Vec2) -> bool {
     let def = ability.def();
     match def.area {
-        AbilityArea::AtPoint | AbilityArea::AroundCaster => in_circle(ability, at, pos),
+        AbilityArea::AtPoint | AbilityArea::AroundCaster | AbilityArea::AnyPoint => in_circle(ability, at, pos),
         AbilityArea::Ahead { arc } => suppress::in_arc(at, facing, arc, gu(def.radius), pos),
     }
 }
@@ -138,7 +139,7 @@ pub(crate) fn energy_bonus(o: &Object) -> u32 {
     (o.buffs.iter())
         .map(|buff| match buff.ability.def().effect {
             BuffEffect::Energy { per_second } => energy::per_tick(per_second),
-            BuffEffect::Health { .. } | BuffEffect::Inspire { .. } | BuffEffect::HoldFire => 0,
+            BuffEffect::Health { .. } | BuffEffect::Inspire { .. } | BuffEffect::HoldFire | BuffEffect::Sight => 0,
         })
         .fold(0, u32::saturating_add)
 }
@@ -150,7 +151,7 @@ pub(crate) fn max_speed_bonus(o: &Object) -> f32 {
     (o.buffs.iter())
         .map(|buff| match buff.ability.def().effect {
             BuffEffect::Inspire { max_speed, .. } => max_speed,
-            BuffEffect::Health { .. } | BuffEffect::Energy { .. } | BuffEffect::HoldFire => 0.0,
+            BuffEffect::Health { .. } | BuffEffect::Energy { .. } | BuffEffect::HoldFire | BuffEffect::Sight => 0.0,
         })
         .fold(0.0, |sum, extra| sum + extra)
 }

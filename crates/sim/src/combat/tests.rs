@@ -12,6 +12,7 @@ fn state(target: Option<u32>, phase: Option<AttackPhase>) -> AttackState {
         location: None,
         turret: None,
         target_lock: None,
+        power_carry: 0,
     }
 }
 

@@ -34,7 +34,7 @@ impl PanelCommand {
             | PanelCommand::Assist
             | PanelCommand::Repair
             | PanelCommand::TargetLock => true,
-            PanelCommand::Cast(ability) => ability.def().area == AbilityArea::AtPoint,
+            PanelCommand::Cast(ability) => matches!(ability.def().area, AbilityArea::AtPoint | AbilityArea::AnyPoint),
             PanelCommand::HoldPosition
             | PanelCommand::Stop
             | PanelCommand::RaiseShield

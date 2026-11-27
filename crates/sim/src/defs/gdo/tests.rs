@@ -133,10 +133,14 @@ fn the_gdo_kinds_are_every_designed_one() {
 
 /// The kinds of [`NEW`] that a slice since M6-GK has made live, each with the kind whose list makes it, in the order
 /// the slices landed: (M6-GD) the Barracks' Drone Operator, and its drone, which the operator's stock launches
-/// (`UnitDef::stock`).
+/// (`UnitDef::stock`); (M6-GR) the Deployment Center's Radar Station and Defense System, and the Defense System's
+/// Missile Turret.
 const LIVE: &[(ObjectKind, ObjectKind)] = &[
     (ObjectKind::Barracks, ObjectKind::DroneOperator),
     (ObjectKind::DroneOperator, ObjectKind::OperatorDrone),
+    (ObjectKind::DeploymentCenter, ObjectKind::RadarStation),
+    (ObjectKind::DeploymentCenter, ObjectKind::DefenseSystem),
+    (ObjectKind::DefenseSystem, ObjectKind::MissileTurret),
 ];
 
 /// The kinds that some live list makes, each with the kind whose list it is: a constructor's `Constructs` list
@@ -184,7 +188,7 @@ fn made() -> Vec<(ObjectKind, ObjectKind)> {
 /// `builds` or menu entry goes live with the kinds) until its slice makes it live ([`LIVE`]), and the entries that will
 /// are held, each once, in [`PLANNED_RECIPES`]: a GDO maker's, for a kind of slice M6-GK's, every one of them but
 /// those made live, the Outpost (deployed of a Prospector, `factions/gdo/units/prospector.md`), the deployed Rig and
-/// the mine (laid by a Twister), which no recipe makes.
+/// the mine (laid by a Twister), which no recipe makes. Each live kind is made by its maker's list.
 #[test]
 fn no_new_kind_is_made_yet() {
     for (maker, kind) in made() {
@@ -192,6 +196,9 @@ fn no_new_kind_is_made_yet() {
             !NEW.contains(&kind) || LIVE.contains(&(maker, kind)),
             "{maker:?} makes {kind:?}"
         );
+    }
+    for pair in LIVE {
+        assert!(made().contains(pair), "{pair:?} is live");
     }
     let live: Vec<ObjectKind> = LIVE.iter().map(|&(_, kind)| kind).collect();
     let held: Vec<ObjectKind> = PLANNED_RECIPES.iter().map(|(_, recipe)| recipe.kind).collect();
@@ -218,9 +225,9 @@ fn no_new_kind_is_made_yet() {
 
 /// `factions/gdo/structures/deployment_center.md > Constructs`: the Deployment Center's held buildings, in the
 /// design's order, each behind the buildings of its "Requires" clause, its own TechPrerequisite
-/// (`StructureDef::requires`): the Supply Tower a Radar Station, the Factory a Barracks, the Radar Station a Generator,
-/// Advanced Mechanics a Factory, the Airfield Advanced Mechanics, Propulsion Labs an Airfield, the Industrial
-/// Powerplant Advanced Mechanics, and the Defense System a Radar Station and an Arsenal.
+/// (`StructureDef::requires`): the Supply Tower a Radar Station, the Factory a Barracks, Advanced Mechanics a Factory,
+/// the Airfield Advanced Mechanics, Propulsion Labs an Airfield, and the Industrial Powerplant Advanced Mechanics.
+/// (M6-GR) The Radar Station's and the Defense System's are live (`defs::gdo::structures::deployment_center`'s test).
 #[test]
 fn the_deployment_centers_held_buildings_need_theirs() {
     let held: Vec<(ObjectKind, &[ObjectKind])> = (PLANNED_RECIPES.iter())
@@ -232,15 +239,10 @@ fn the_deployment_centers_held_buildings_need_theirs() {
         [
             (ObjectKind::SupplyTower, &[ObjectKind::RadarStation][..]),
             (ObjectKind::Factory, &[ObjectKind::Barracks]),
-            (ObjectKind::RadarStation, &[ObjectKind::Generator]),
             (ObjectKind::AdvancedMechanics, &[ObjectKind::Factory]),
             (ObjectKind::Airfield, &[ObjectKind::AdvancedMechanics]),
             (ObjectKind::PropulsionLabs, &[ObjectKind::Airfield]),
             (ObjectKind::IndustrialPowerplant, &[ObjectKind::AdvancedMechanics]),
-            (
-                ObjectKind::DefenseSystem,
-                &[ObjectKind::RadarStation, ObjectKind::Arsenal]
-            ),
         ]
     );
 }

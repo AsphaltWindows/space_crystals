@@ -295,7 +295,8 @@ pub fn every_command() -> Vec<Command> {
                     AreaAbility::HealthRegeneration
                     | AreaAbility::EnergyRegeneration
                     | AreaAbility::Inspire
-                    | AreaAbility::Suppress,
+                    | AreaAbility::Suppress
+                    | AreaAbility::Scan,
                 ..
             } => {}
             Command::Debug(

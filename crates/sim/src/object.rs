@@ -192,6 +192,16 @@ pub struct Object {
     /// files, left out of them and hashed only while set, as [`Object::stock`].
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub drone: Option<ObjectId>,
+    /// (M6-GR) The wait after a cast of an ability with a cooldown (`AbilityDef::cooldown`, plan decision T92), under
+    /// way: the Radar Station's Scan's, "**cooldown 60 seconds** (960 frames) [...] Each Radar Station has its own
+    /// cooldown" (`factions/gdo/structures/radar_station.md > Placeholder stats`). It casts again once the wait is
+    /// over. Set by the cast, from the tick of the cast on; each tick's economy phase takes it on by its owner's Power
+    /// ratio, a consumer's slowed at negative Power (design change 0423, `crate::cooldown`), and drops it once done.
+    /// `None` for every other object, and once the wait is over. In place of the plan's `cooldown_until`, a tick, which
+    /// the Power ratio can't slow. Optional in files and left out of them while `None`, and hashed only while set, so
+    /// that states saved before it existed load and those without one hash as they did.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub cooldown: Option<Progress>,
 }
 
 impl Object {

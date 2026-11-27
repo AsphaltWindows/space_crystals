@@ -42,6 +42,7 @@ fn unit(id: u32, kind: ObjectKind, owner: Option<PlayerId>, pos: Vec2) -> Object
         stock: None,
         tether: None,
         drone: None,
+        cooldown: None,
     }
 }
 

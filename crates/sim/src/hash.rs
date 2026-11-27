@@ -340,6 +340,7 @@ impl StateHash for Object {
             stock,
             tether,
             drone,
+            cooldown,
         } = self;
         id.hash(h);
         kind.hash(h);
@@ -414,6 +415,11 @@ impl StateHash for Object {
         if !buffs.is_empty() {
             h.tag(9);
             buffs.hash(h);
+        }
+        // (M6-GR) The same for a caster's cooldown (`crate::cooldown`), under a tag of its own: only while it waits.
+        if let Some(cooldown) = cooldown {
+            h.tag(10);
+            cooldown.hash(h);
         }
         // (M6-GD) The same for a unit's stock (`crate::stock`), a drone's tether and the drone an operator has out
         // (`crate::tether`), each under a tag of its own: only while set.

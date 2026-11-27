@@ -16,7 +16,9 @@
 //! is, and their Disciple's panel the BasicCombatUnit's, its spell's slot held in R (slice M5-N4a); their Temple
 //! researches each line's next level and lets its staff out (slice M5-N3), and their Shrine casts its two area
 //! abilities and lets its participants out (slice M5-N5). The GDO's Drone Operator launches its drone and builds the
-//! next, and its drone is flown with Move, Attack and Stop (slice M6-GD). An entry not in the game yet holds its slot,
+//! next, and its drone is flown with Move, Attack and Stop (slice M6-GD); its Radar Station scans, and its Defense
+//! System builds Missile Turrets as the Extraction Facility its plate (slice M6-GR). An entry not in the game yet holds
+//! its slot,
 //! unavailable ([`Planned`]).
 
 pub mod colonists;
@@ -129,6 +131,13 @@ pub enum InterfaceTemplate {
     /// (M6-GD) The Drone Operator's drone (plan §GD: "the drone's panel: Move, Attack, Stop";
     /// [`gdo::operator_drone`]). Its right-click is the sim's one rule, as every unit's.
     OperatorDrone,
+    /// (M6-GR) `factions/gdo/structures/radar_station.md > Placeholder stats`: "**Scan** (hotkey **Q**, targeted:
+    /// left-click any point on the map)" ([`gdo::radar_station`]). No right-click: it has no rally point.
+    RadarStation,
+    /// (M6-GR) `factions/gdo/structures/defense_system.md > Placeholder stats`: "**Works like the Extraction Facility**
+    /// [...] one slot, Q, no build menu": its DefaultState builds a Missile Turret, then places it
+    /// ([`gdo::defense_system`]). No right-click.
+    DefenseSystem,
 }
 
 /// The Deployment Center's build menus (`factions/gdo/structures/deployment_center.md >
@@ -252,13 +261,13 @@ const TARGET_LOCK_SLOT: usize = 3;
 
 /// (M5-N11) The slot of a unit's cast of `ability` (`sc_sim::defs::SpellDef::Cast`):
 /// `factions/cults/units/prayer_mobile.md > Placeholder stats`: "ObjectInterfaceState: BasicCombatUnitInterfaceState
-/// without attack commands, plus **R: Inspire** and **F: Suppress**". None for the Shrine's, a structure's, in its
-/// own grid (`cults::shrine::GRID`).
+/// without attack commands, plus **R: Inspire** and **F: Suppress**". None for the Shrine's and (M6-GR) the Radar
+/// Station's, a structure's, in its own grid (`cults::shrine::GRID`, `gdo::radar_station::GRID`).
 fn cast_slot(ability: AreaAbility) -> Option<usize> {
     match ability {
         AreaAbility::Inspire => Some(3),
         AreaAbility::Suppress => Some(7),
-        AreaAbility::HealthRegeneration | AreaAbility::EnergyRegeneration => None,
+        AreaAbility::HealthRegeneration | AreaAbility::EnergyRegeneration | AreaAbility::Scan => None,
     }
 }
 
@@ -296,6 +305,8 @@ impl InterfaceTemplate {
             InterfaceTemplate::Temple => cults::temple::GRID,
             InterfaceTemplate::Shrine => cults::shrine::GRID,
             InterfaceTemplate::OperatorDrone => gdo::operator_drone::GRID,
+            InterfaceTemplate::RadarStation => gdo::radar_station::GRID,
+            InterfaceTemplate::DefenseSystem => gdo::defense_system::GRID,
         }
     }
 }

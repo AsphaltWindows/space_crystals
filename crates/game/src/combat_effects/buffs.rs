@@ -60,6 +60,8 @@ pub fn buff_marks(sim: &Sim, sight: &Sight, alpha: f32, tuning: &ClientTuning) -
 pub(super) fn mark_shape(mesh: &mut ColorMesh, mark: BuffMark, z: f32) {
     let center = view_to_world(mark.center);
     match mark.ability {
+        // (M6-GR) Scan gives no buff, so no mark: its sight is its owner's (`sc_sim::vision::scans`).
+        AreaAbility::Scan => {}
         AreaAbility::HealthRegeneration => cross(mesh, center, HEALTH_COLOR, z),
         AreaAbility::EnergyRegeneration => cross(mesh, center, ENERGY_COLOR, z),
         AreaAbility::Inspire => {
