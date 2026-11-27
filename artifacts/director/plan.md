@@ -2439,23 +2439,44 @@ Approach: thin vertical slices the user can run and see, each verified by tests 
     - **SA:** T100 gives the bomb `UnitDef::bomb_fall`; SK wrote its fall as a projectile speed for now.
     - **SL and GA:** the deployed Battery's panel is NONE until SL, though it gets A: Attack (0399). GA or SL may replace `IMMOBILE` with a rule read from `vehicle_deploy`.
   - 2778 tests passed, 62 ignored, in 9 programs. The 23 goldens are unchanged, the seed sweep passes, and the computer players' 192 games are identical.
+- **M6-GK The GDO kinds** (Opus; merged in `459cabbd`, squashed by the Director from six commits and two merges of master, one of which didn't compile alone; its first commit was merged early as `774dae2b`; 0366, with 0435, 0441 and Q0181).
+  - **23 kinds** between the Rocketman and the Syndicate's block (T84): twelve buildings, ten units (the deployed Artillery Rig; the operator's drone `OperatorDrone`, "Drone", DRN) and the mine (`Category::Mine`). Each def is tested against its doc.
+  - **Its first commit, merged early** (`774dae2b`), so that SK and every later slice wrote `..<Struct>::NONE` from the start: `defs/units.rs` split into `units/attack.rs` and `units/worker.rs`, all re-exported; `ObjectDef::NONE`, `UnitDef::NONE` and `StructureDef::NONE` in `defs/defaults.rs` (T84), with every def literal ending in `..<Struct>::NONE`.
+  - **Conventions shared with SK** (the Director's): a deployed kind is immobile by its def (MaxSpeed and ReverseMaxSpeed 0, exempted by name in `unit_is_consistent`'s `IMMOBILE` list, T87). An air unit whose doc gives no SeparationRadius takes its Silhouette's side + 8 su (Q0181).
+  - **Nothing is live yet (T69):** each held recipe is its module's `RECIPE`, listed in `defs/gdo.rs::PLANNED_RECIPES` with the kind that will make it. A test for each path: produce, construct and spawn (the editor's debug spawn can).
+  - **`Recipe::supplies`** (0435, 0441): 0 in every live recipe, and the held ones carry theirs. GD builds the gate.
+  - **Menus:** the Deployment Center's two menus hold every building in its slot, the new ones `Planned`. The controls doc is regenerated. The Supply Tower's label is SPT, since STR is the Subterranean Transport's.
+  - **The deployed Artillery Rig** is immobile by its def (`IMMOBILE`, T87).
+  - **A HoverCraft stays inside the map** (0045; `systems/units.md > Air Collision`), approved by the Director as GK's own commit.
+    - **Found by the seed sweep** (seed 81), once the new kinds reshuffled its streams. A Hornet spawned with its box over the east edge drifted further out, and the separation push's clamp then teleported it 41 su.
+    - **The fix:** `Map::clamp_box` stops a non-gliding air unit's own move at the edge, and ends its path where its box fits, so a Move to a corner arrives Idle. The gate refuses an overhanging spawn or teleport (`Reject::Blocked`). The sweep's I2 checks HoverCraft too.
+  - **Numbers the docs don't give** (GK's placeholders, Q0182): the Supply Chopper's Unit Control 2, the Outpost's Groupable true, the mine's sight and armour 0, and SingleTarget for the Raptor, the Twister, the Hornet and the Dragonfly.
+  - **Perf:** `movement_perf` +1.2% against `c76c8765` in every round (5 rounds, on a loaded machine). The fix never ran slower than the branch before it, so the 1.2% likely comes from X1b, SK or the 38 kinds. A quiet A/B is queued.
+  - **Notes for later slices:**
+    - **GF:** the Factory's default rally goes in with its production.
+    - **GR:** the Missile Turret's attack and look, Scan, and the Defense System's `constructs`.
+    - **GD:** the drone's explosion, stock, leash and battery, and Build Drone.
+    - **GB:** the Bunker's and the Tent's sites.
+    - **GH1:** the Hornet's ammo and rearm. The HoverCraft still brake by thrust.
+    - **GM:** the mine's Unit Control 0 (it has no UnitDef), its look, the minimap, and its pick tier.
+    - **GA:** the deployed Rig shows the BasicCombatUnit panel.
+    - **GS:** the Chopper's cargo, its Unit Control placeholder, and the Field Engineer's Supply.
+  - 2814 tests passed, 62 ignored, in 9 programs. No golden moved, the seed sweep passes (256 of 256), and the 192 computer-player games are identical.
 
 ## In progress
 - **Running:**
   - **M5-X2 Data files and live tuning** (Opus; brief `scratchpad/briefs/m5x2-data-files.md`), launched at X1b's merge, on 2026-11-27, beside GK and SK.
+    - **Done** (2026-11-27), with every check green and the computer players' games identical. It is merging GK and covering GK's forms that share a module, before its own merge.
     - **F8 restarts on tuned numbers only** (the Director's call, 2026-11-27, on X2's question). A game starts on the build's structure, so a structural patch is refused, live and after F8, and needs a change to the Rust default and a rebuild. A per-game `Scenario::rules` that would allow structural tuning is a possible follow-up, if playtesting asks for it.
-  - **M6-GK The GDO kinds** (Opus; brief `scratchpad/briefs/m6gk-gdo-kinds.md`), launched at X1a's merge, on 2026-11-27. SK merged first, so GK's block goes in before SK's (T84: GDO first).
-    - **Its first commit is merged early** (`774dae2b`, GK's `c76c8765` with a merge of master's bookkeeping), so that SK and every later slice write `..<Struct>::NONE` from the start:
-      - `defs/units.rs` split into `units/attack.rs` and `units/worker.rs`, all re-exported;
-      - `ObjectDef::NONE`, `UnitDef::NONE` and `StructureDef::NONE` in `defs/defaults.rs` (T84), and every def literal ends with `..<Struct>::NONE`;
-      - `Ruleset::BUILTIN`'s JSON byte-identical (GK's check). 2750 tests passed, 62 ignored; the goldens unchanged, the seed sweep passes, and the 192 computer-player games are identical.
-    - **Conventions shared with SK** (the Director's): a deployed kind is immobile by its def (MaxSpeed and ReverseMaxSpeed 0, exempted by name in `unit_is_consistent`'s `IMMOBILE` list, T87). An air unit whose doc gives no SeparationRadius takes its Silhouette's side + 8 su (Q0181).
   - **M6-SV The Vehicle Assembly and the Assault Bike** (Opus; brief `scratchpad/briefs/m6sv-vehicle-assembly.md`), launched at SK's merge into the free slot, ahead of its wave (W3), on 2026-11-27.
+    - **Done** (2026-11-27), with the golden `syndicate_vehicles` and the computer players' games identical. Before its merge, it merges GK, whose kind numbering changes its golden's hashes, and fixes a control bug as its own commit. The bug: a Bike braking for a target in range coasts straight, so the target slips out of its 40° arc, and the Bike gives it up without firing.
+    - **Q0183 filed:** of five Bikes ejected with no order, two come out. An idle vehicle doesn't yield (0440), and the Tunnels have no default rally point (0446).
+  - **M6-GD The Drone Operator** (Opus; brief `scratchpad/briefs/m6gd-drone-operator.md`), launched at GK's merge, on 2026-11-27. It builds the second cost (Supplies) that GF, GH1, GM and GS reuse.
 - **M6's plan is adopted** as `artifacts/director/m6-plan.md`, with Q0153–Q0169 filed (Queued > M6). M6-P found that no M5 slice builds tracked movement or crushing, which N10's Hand of Heaven needs, so **M5-V3** (tracked movement, after V2) and **M5-V4** (crushing, after V3) join M5. N10 now comes after N6 and V3.
 - **Next:** **Mb** (the QA; brief `scratchpad/briefs/m5mb-qa.md`) after X2.
   - **M5's content is complete:** N11 was its last slice. The Director split M into **Ma** (merged) and **Mb**.
-  - **M6 started at X1a's merge** (T101), since M6's kinds need nothing of X1b's: **GK** and **SK** (W1), then GR and GD beside Mb (W2).
-  - **The briefs:** `m6-common.md` holds X1's shape for every M6 slice. W2's `m6gr-radar-defense.md` and `m6gd-drone-operator.md` are drafted, with 0421, 0422, 0423, 0435 and 0441 in them. Mb's brief has the soak failure to bisect.
+  - **M6 started at X1a's merge** (T101), since M6's kinds need nothing of X1b's: GK and SK (W1) are merged. SV runs ahead of its wave, and GD is running. **GR** takes the next free slot, then GF and SN (W3).
+  - **The briefs:** `m6-common.md` holds X1's shape for every M6 slice. `m6gr-radar-defense.md`, `m6gf-factory.md` and `m6sn-null-chamber.md` are drafted with what GK and SK landed. Mb's brief has the soak failure to bisect, and M6 running beside it.
 - **Queued for the playtest:**
   - **Computer opponents.** The user asked for them for the next playtest (2026-11-26). 0402 answered Q0147: a playtest tool with fair knowledge (`core/game_rules.md > Computer players (playtest tool)`), built as planned. **A1 is merged** (`168dadc0`). It launched on 2026-11-26, taking the user's answer to Q0147 as the go-ahead: (a), "built as above", which 0402 records as "Build as planned". The user was told and can stop it. **A2a–c are running** (brief `scratchpad/briefs/a2-ai-factions.md`, launched 2026-11-26).
     - **Architecture** (the Director's):
@@ -2913,6 +2934,8 @@ The user keeps feeding unit and other designs to the Designer, so expect increme
 | Q0179 | The Hand of Heaven: its MinRange back-off (to 9 GU) leaves its own 7 GU sight, so alone it loses the target; a wall can stop its hull aim for good; and `AttackingObject`'s step 4, which it doesn't follow (from M5-N10) | no | open |
 | Q0180 | Inspire's faster attack: how the cycle × 0.75 rounds to whole frames (an Improved Metabolism Recruit gets 20%), which phases shorten (built: Firing), and whether the Augmentations' 2-frame Firing floor applies (built: no, so Level 2 reaches 1); with the energy pace for information (from M5-N11) | no | open |
 | Q0181 | SeparationRadius for the five air units whose docs give none (the Hornet, the Supply Chopper, the operator's drone, the Phantom and the Prism): proceeding on the Silhouette's side + 8 su, the pattern of the three given radii (from M6-SK and M6-GK) | no | open |
+| Q0182 | Four GDO numbers the docs don't give: the Supply Chopper's UnitControlCost, the Outpost's Groupable, the mine's sight and armour, and the Hornet's TargetType (its dodgeable missile, single-target or a burst like the Rocketman's, 0445): proceeding on 2, true, 0 and 0/0, and SingleTarget (from M6-GK) | no | open |
+| Q0183 | Idle vehicles stall a Tunnel's exit: of five Bikes ejected with no order, two come out, since an idle vehicle doesn't yield (0440) and the Tunnels have no default rally point (0446); with a rally point straight ahead, four (from M6-SV) | no | open |
 
 ## Design change entries
 Last triaged: 0282.
