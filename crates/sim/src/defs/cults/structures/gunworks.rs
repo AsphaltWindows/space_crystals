@@ -23,13 +23,11 @@ pub(crate) const GUNWORKS: ObjectDef = ObjectDef {
     groupable: true,     // Groupable true
     sight_range: 4.0,    // SightRange 4 grid units
     max_hp: Some(300.0), // MaxHP 300
-    max_shields: None,
     armor: Armor {
         point: 1.0, // PointArmor 1
         full: 4.0,  // FullArmor 4
     },
     needs_flat_ground: true, // `core/map.md > Elevation > Structures only on flat terrain`
-    unit: None,
     structure: Some(StructureDef {
         // "SymmetryType ABAC, **EntranceSide B, ExitSide C** (like the Armory; user rule 2026-11-26, Q0116: research
         // buildings have an entrance and an exit, and staff leave one at a time)": its sides, for the staffing that
@@ -38,28 +36,13 @@ pub(crate) const GUNWORKS: ObjectDef = ObjectDef {
         // The Cults have neither Power nor a build area (`factions/cults/economy.md > Cults Building Mechanics`).
         build_radius_extension: 0,
         power: 0,
-        seeds_build_area: false,
-        production: None,
-        mining: None,
-        onto: None,
-        constructs: &[],
-        warp_in: &[],
-        drop_off: None,
-        underground: false,
-        tunnel: None,
         site: Some(GUNWORKS_SITE),
-        expansion: None,
         requires: &[ObjectKind::Armory], // TechPrerequisite - player owns at least one Armory
-        attack: None,
-        popup: None,
         // "Recruit staffing capacity 4; research queue 5", once it is enterable: none can enter it yet.
         holds: None,
-        occupants_fire: None,
-        research: None,
-        abilities: None,
+        ..StructureDef::NONE
     }),
-    default_settings: None,
-    energy: None,
+    ..ObjectDef::NONE
 };
 
 /// The Gunworks' construction by Recruits (`StructureDef::site`, slice M5-E's; "Space Crystals cost and construction

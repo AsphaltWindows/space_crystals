@@ -29,7 +29,6 @@ pub(crate) const LASER_TURRET: ObjectDef = ObjectDef {
     groupable: true,
     sight_range: 6.0,    // SightRange: 6 grid units
     max_hp: Some(300.0), // HP: 300
-    max_shields: None,
     // "Armor (building armor rule, 1x1): raised PointArmor 1, FullArmor 1" (`factions/syndicate/structures/README.md`'s
     // n = 1 for a 1x1 structure). The underground armour is the pop-up's (`LASER_TURRET_POPUP`).
     armor: Armor { point: 1.0, full: 1.0 },
@@ -37,23 +36,15 @@ pub(crate) const LASER_TURRET: ObjectDef = ObjectDef {
     // able to rise)": a surface structure's flat ground (`core/map.md > Elevation > Structures only on flat terrain`),
     // and an expansion's Drillable (`placement::check`).
     needs_flat_ground: true,
-    unit: None,
     structure: Some(StructureDef {
         // Not given (plan decision T29): AAAA, since none of its sides has a function.
         symmetry: SymmetryType::AAAA,
         build_radius_extension: 0,
         power: 0,
-        seeds_build_area: false,
         production: None, // no commands
-        mining: None,
-        onto: None,
-        constructs: &[],
-        warp_in: &[],
-        drop_off: None,
         // Raised, a surface structure that "blocks movement like any building" on its footprint (`> Pop-up rules`).
         // No underground structure by its type: it is underground while lowered, by its state (`crate::popup`).
         underground: false,
-        tunnel: None,
         // No worker builds it (design change 0359: "Agents no longer build it").
         site: None,
         // Constructed by - "Tunnel only (within its own Tunnel Area, via the ExpandMenu ...)".
@@ -62,13 +53,9 @@ pub(crate) const LASER_TURRET: ObjectDef = ObjectDef {
         requires: &[ObjectKind::OpticsLab],
         attack: Some(LASER_TURRET_ATTACK),
         popup: Some(LASER_TURRET_POPUP),
-        holds: None,
-        occupants_fire: None,
-        research: None,
-        abilities: None,
+        ..StructureDef::NONE
     }),
-    default_settings: None,
-    energy: None,
+    ..ObjectDef::NONE
 };
 
 /// `factions/syndicate/structures/laser_turret.md`'s placeholder AttackAttributes: "FullyConnected red laser (instant,

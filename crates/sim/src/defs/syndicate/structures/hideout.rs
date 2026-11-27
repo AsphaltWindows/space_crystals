@@ -22,7 +22,6 @@ pub(crate) const HIDEOUT: ObjectDef = ObjectDef {
     groupable: true,
     sight_range: 0.0,
     max_hp: Some(400.0), // HP - 400
-    max_shields: None,
     // `factions/syndicate/structures/README.md > Tunnel Expansions > High armor underground` (design changes 0262 and
     // 0264; the stat block's since design change 0284): "Placeholder for every expansion: n = 6, i.e. PointArmor 6,
     // FullArmor 6 x size in grid squares (a 2x2 expansion: 6 / 24)".
@@ -30,13 +29,11 @@ pub(crate) const HIDEOUT: ObjectDef = ObjectDef {
     // `core/map.md > Elevation` (design change 0005): "Syndicate underground expansions (inside a Tunnel Area) may be
     // placed on sloped tiles; the flatness rule doesn't apply to them".
     needs_flat_ground: false,
-    unit: None,
     structure: Some(StructureDef {
         // Not given (plan decision T29): AAAA, since none of its sides has a function.
         symmetry: SymmetryType::AAAA,
         build_radius_extension: 0,
         power: 0,
-        seeds_build_area: false,
         // `> Produces`, into the Tunnel Network (`factions/syndicate/structures/README.md > Tunnel Expansions > Rally
         // Point Behavior`), in the order of `> ObjectInterfaceState[Hideout]`'s Q, W and E: the Agent, the Guard
         // behind its prerequisite, the Optics Lab (slice M4-K), and the Grenadier behind the Chemical Plant (slice
@@ -71,25 +68,12 @@ pub(crate) const HIDEOUT: ObjectDef = ObjectDef {
             augment: &[],
             default_rally: None,
         }),
-        mining: None,
-        onto: None,
-        constructs: &[],
-        warp_in: &[],
-        drop_off: None,
         underground: true, // Entity Type - Structure Type (Underground)
-        tunnel: None,
-        site: None,
         expansion: Some(HIDEOUT_EXPANSION),
         requires: &[], // TechPrerequisite - None
-        attack: None,
-        popup: None,
-        holds: None,
-        occupants_fire: None,
-        research: None,
-        abilities: None,
+        ..StructureDef::NONE
     }),
-    default_settings: None,
-    energy: None,
+    ..ObjectDef::NONE
 };
 
 /// The Hideout's construction by a Tunnel (`StructureDef::expansion`, slice M4-F): "Additional Hideouts can be

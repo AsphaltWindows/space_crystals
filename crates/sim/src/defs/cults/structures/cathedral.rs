@@ -28,13 +28,11 @@ pub(crate) const CATHEDRAL: ObjectDef = ObjectDef {
     groupable: false,
     sight_range: 4.0,    // SightRange 4 grid units
     max_hp: Some(400.0), // MaxHP 400
-    max_shields: None,
     armor: Armor {
         point: 1.0, // PointArmor 1
         full: 6.0,  // FullArmor 6
     },
     needs_flat_ground: true, // `core/map.md > Elevation > Structures only on flat terrain`
-    unit: None,
     structure: Some(StructureDef {
         // "SymmetryType ABAC; EntranceSide B, ExitSide C (like the Armory)": A on top and bottom, B on the right, C on
         // the left, its short sides.
@@ -42,7 +40,6 @@ pub(crate) const CATHEDRAL: ObjectDef = ObjectDef {
         // The Cults have neither Power nor a build area (`factions/cults/economy.md > Cults Building Mechanics`).
         build_radius_extension: 0,
         power: 0,
-        seeds_build_area: false,
         // `> Training`: "Works like the Armory's Training: Recruits enter the Cathedral and join an internal pool;
         // training orders are queueable and serial; queuing an order deducts its Space Crystals cost and reserves one
         // Recruit; when the order finishes, the Recruit is consumed and the trained unit exits to the RallyPoint", out of
@@ -66,18 +63,8 @@ pub(crate) const CATHEDRAL: ObjectDef = ObjectDef {
             augment: &[],
             default_rally: None,
         }),
-        mining: None,
-        onto: None,
-        constructs: &[],
-        warp_in: &[],
-        drop_off: None,
-        underground: false,
-        tunnel: None,
         site: Some(CATHEDRAL_SITE),
-        expansion: None,
         requires: &[ObjectKind::Temple], // TechPrerequisite - player owns at least one Temple
-        attack: None,
-        popup: None,
         // "EntranceSide B, ExitSide C (like the Armory)"; "InternalRecruitCapacity 10, counting reserved Recruits; so at
         // most 10 orders queued (bounded by capacity: reserved units count toward it; Q0104)", the pool buildings' rule
         // (design change 0347 point 5, slice M5-F2's); and `systems/controls/commands.md > Enter`: "Cults — Armory,
@@ -88,12 +75,9 @@ pub(crate) const CATHEDRAL: ObjectDef = ObjectDef {
             capacity: 10,
             accepts: &[ObjectKind::Recruit],
         }),
-        occupants_fire: None,
-        research: None,
-        abilities: None,
+        ..StructureDef::NONE
     }),
-    default_settings: None,
-    energy: None,
+    ..ObjectDef::NONE
 };
 
 /// The Cathedral's construction by Recruits (`StructureDef::site`, slice M5-E's; "Space Crystals cost and construction

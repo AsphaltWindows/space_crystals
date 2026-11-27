@@ -17,19 +17,15 @@ pub(crate) const EXTRACTION_PLATE: ObjectDef = ObjectDef {
     groupable: true,                            // Groupable - true
     sight_range: 0.0,                           // SightRange - 0
     max_hp: Some(85.0),                         // MaxHP - 85
-    max_shields: None,
     armor: Armor {
         point: 2.0, // PointArmor - 2
         full: 2.0,  // FullArmor - 2
     },
     needs_flat_ground: true, // `core/map.md > Elevation > Structures only on flat terrain`
-    unit: None,
     structure: Some(StructureDef {
         symmetry: SymmetryType::AAAA, // SymmetryType - AAAA
         build_radius_extension: 0,    // BuildRadiusExtension - 0
         power: -3,                    // Power - -3
-        seeds_build_area: false,
-        production: None,
         mining: Some(MiningDef {
             load: 10,        // MiningRate - 10 Space Crystals per 48 frames (3 seconds)
             residual: 1,     // ResidualMiningRate - 1 Space Crystal per 48 frames (3 seconds)
@@ -37,23 +33,10 @@ pub(crate) const EXTRACTION_PLATE: ObjectDef = ObjectDef {
         }),
         // "Placed onto a Space Crystal Patch by an Extraction Facility", exactly over it (`placement::onto`).
         onto: Some(ObjectKind::CrystalPatch),
-        constructs: &[],
-        warp_in: &[],
-        drop_off: None,
-        underground: false,
-        tunnel: None,
-        site: None,
-        expansion: None,
         requires: &[], // No TechPrerequisite: none declared
-        attack: None,
-        popup: None,
-        holds: None,
-        occupants_fire: None,
-        research: None,
-        abilities: None,
+        ..StructureDef::NONE
     }),
-    default_settings: None,
-    energy: None,
+    ..ObjectDef::NONE
 };
 
 #[cfg(test)]

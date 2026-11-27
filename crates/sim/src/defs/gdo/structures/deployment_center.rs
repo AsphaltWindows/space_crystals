@@ -16,13 +16,11 @@ pub(crate) const DEPLOYMENT_CENTER: ObjectDef = ObjectDef {
     groupable: false,                           // Groupable - false
     sight_range: 6.0,                           // SightRange - 6 grid units
     max_hp: Some(1000.0),                       // MaxHP - 1000
-    max_shields: None,
     armor: Armor {
         point: 1.0, // PointArmor - 1
         full: 16.0, // FullArmor - 16
     },
     needs_flat_ground: true, // `core/map.md > Elevation > Structures only on flat terrain`
-    unit: None,
     structure: Some(StructureDef {
         symmetry: SymmetryType::AAAA, // SymmetryType - AAAA
         build_radius_extension: 12,   // BuildRadiusExtension - 12 grid units
@@ -30,9 +28,6 @@ pub(crate) const DEPLOYMENT_CENTER: ObjectDef = ObjectDef {
         // `factions/gdo/structures/README.md > GDOBuildArea`: "Seeded by each Deployment Center's and each Outpost's
         // BuildRadiusExtension".
         seeds_build_area: true,
-        production: None,
-        mining: None,
-        onto: None,
         // Constructs: the buildings in the game, each with its cost and time, in the design's order: the three of the
         // start, the Arsenal (slice M5-K, design change 0356) and the Career Campus (slice M5-N9, design change 0328),
         // whose "Requires: player owns at least one Barracks" is each type's own TechPrerequisite
@@ -70,22 +65,10 @@ pub(crate) const DEPLOYMENT_CENTER: ObjectDef = ObjectDef {
                 requires: &[], // Requires: player owns at least one Barracks (the Career Campus's own)
             },
         ],
-        warp_in: &[],
-        drop_off: None,
-        underground: false,
-        tunnel: None,
-        site: None,
-        expansion: None,
         requires: &[], // No TechPrerequisite: none declared
-        attack: None,
-        popup: None,
-        holds: None,
-        occupants_fire: None,
-        research: None,
-        abilities: None,
+        ..StructureDef::NONE
     }),
-    default_settings: None,
-    energy: None,
+    ..ObjectDef::NONE
 };
 
 #[cfg(test)]

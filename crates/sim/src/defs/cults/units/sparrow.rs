@@ -29,7 +29,6 @@ pub(crate) const SPARROW: ObjectDef = ObjectDef {
     // an Attack. [...])" (design change 0403, answering Q0148 part 1).
     sight_range: 8.0,
     max_hp: Some(50.0), // MaxHP 50
-    max_shields: None,
     armor: Armor {
         point: 0.0, // PointArmor 0
         full: 0.0,  // FullArmor 0
@@ -71,25 +70,14 @@ pub(crate) const SPARROW: ObjectDef = ObjectDef {
         }),
         // `> Produced at - Airstrip (consumes **1 Recruit**; Unit Control cost **1**)` (plan decision T55).
         unit_control_cost: Some(1),
-        tunnel_space_cost: None,
-        beacon_capacity_cost: None,
-        riot_shield: None,
-        conversion: None,
-        deploy: None,
-        worker: None,
-        augmentable: None,
-        repairs: None,
-        spells: &[],
         // "SeparationRadius **48** space units (Q0120; raised from 32, 2026-11-27, Q0148: it must exceed the 40 su
         // Silhouette). Gliders push apart slowly (systems/units.md > Air Collision)." (design change 0405, answering
         // Q0148 part 3; was 32, design change 0328). How slowly is its Glider base's
         // (`UnitBaseDef::separation_strength`).
         separation_radius: Some(48.0),
-        target_lock: None,
+        ..UnitDef::NONE
     }),
-    structure: None,
-    default_settings: None,
-    energy: None,
+    ..ObjectDef::NONE
 };
 
 #[cfg(test)]

@@ -23,7 +23,6 @@ pub(crate) const RECRUIT: ObjectDef = ObjectDef {
     groupable: true,                                       // Groupable - true (user, 2026-11-24)
     sight_range: 5.0,                                      // SightRange - 5 grid units
     max_hp: Some(40.0),                                    // MaxHP - 40
-    max_shields: None,
     armor: Armor {
         point: 0.0, // PointArmor - 0
         full: 0.0,  // FullArmor - 0
@@ -60,11 +59,6 @@ pub(crate) const RECRUIT: ObjectDef = ObjectDef {
         // BaseRecruitProductionTime`: "every Cults unit (miners, builders, staff and army) counts against its
         // originating hall's capacity", and "a starting hall (6 Recruits → 20) fills in 14 × 12 s").
         unit_control_cost: Some(1),
-        tunnel_space_cost: None,
-        beacon_capacity_cost: None,
-        riot_shield: None,
-        conversion: None,
-        deploy: None,
         // `> Gathering` (slice M5-D, plan decision T58): "Recruits gather Space Crystals and deliver them to
         // Storage". One Gather job runs every worker; this is the Recruit's data.
         worker: Some(WorkerDef {
@@ -119,13 +113,9 @@ pub(crate) const RECRUIT: ObjectDef = ObjectDef {
         repairs: Some(RepairDef {
             targets: RepairTargets::OwnBuildingsAndVehicles,
         }),
-        spells: &[],
-        separation_radius: None,
-        target_lock: None,
+        ..UnitDef::NONE
     }),
-    structure: None,
-    default_settings: None,
-    energy: None,
+    ..ObjectDef::NONE
 };
 
 #[cfg(test)]

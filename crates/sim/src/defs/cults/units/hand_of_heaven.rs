@@ -38,7 +38,6 @@ pub(crate) const HAND_OF_HEAVEN: ObjectDef = ObjectDef {
     groupable: true,     // Groupable true
     sight_range: 7.0,    // SightRange 7 grid units (it needs spotters for its full range)
     max_hp: Some(200.0), // MaxHP 200
-    max_shields: None,
     armor: Armor {
         point: 2.0, // PointArmor 2
         full: 2.0,  // FullArmor 2
@@ -88,21 +87,10 @@ pub(crate) const HAND_OF_HEAVEN: ObjectDef = ObjectDef {
         }),
         // `> Produced at - Chop Shop (consumes **3 Recruits**; Unit Control cost **3**)` (plan decision T55).
         unit_control_cost: Some(3),
-        tunnel_space_cost: None,
-        beacon_capacity_cost: None,
-        riot_shield: None,
-        conversion: None,
         deploy: None, // "Unlike the GDO's Artillery Rig it **never deploys**"
-        worker: None,
-        augmentable: None,
-        repairs: None,
-        spells: &[],
-        separation_radius: None,
-        target_lock: None,
+        ..UnitDef::NONE
     }),
-    structure: None,
-    default_settings: None,
-    energy: None,
+    ..ObjectDef::NONE
 };
 
 #[cfg(test)]

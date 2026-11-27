@@ -26,13 +26,11 @@ pub(crate) const TEMPLE: ObjectDef = ObjectDef {
     groupable: true,     // Groupable true
     sight_range: 4.0,    // SightRange 4 grid units
     max_hp: Some(450.0), // MaxHP 450
-    max_shields: None,
     armor: Armor {
         point: 1.0, // PointArmor 1
         full: 9.0,  // FullArmor 9
     },
     needs_flat_ground: true, // `core/map.md > Elevation > Structures only on flat terrain`
-    unit: None,
     structure: Some(StructureDef {
         // "SymmetryType ABAC, **EntranceSide B, ExitSide C** (like the Armory; user rule 2026-11-26, Q0116: research
         // buildings have an entrance and an exit, and staff leave one at a time)": its sides, for its staff's slice.
@@ -40,7 +38,6 @@ pub(crate) const TEMPLE: ObjectDef = ObjectDef {
         // The Cults have neither Power nor a build area (`factions/cults/economy.md > Cults Building Mechanics`).
         build_radius_extension: 0,
         power: 0,
-        seeds_build_area: false,
         // Its research queue (plan decision T70: "one queue engine"), which produces no unit: `research` says what it
         // takes. Its staff come out of the exit side as the units of a building that holds units do (`holds`).
         production: Some(ProductionDef {
@@ -50,18 +47,8 @@ pub(crate) const TEMPLE: ObjectDef = ObjectDef {
             augment: &[],
             default_rally: None,
         }),
-        mining: None,
-        onto: None,
-        constructs: &[],
-        warp_in: &[],
-        drop_off: None,
-        underground: false,
-        tunnel: None,
         site: Some(TEMPLE_SITE),
-        expansion: None,
         requires: &[ObjectKind::Altar], // TechPrerequisite - player owns at least one Altar
-        attack: None,
-        popup: None,
         // `> Recruit Staffing`: "Recruits enter the Temple to staff its research (right-click own Temple with Recruits
         // selected → Enter Temple). Only Recruits can staff research"; "Recruit staffing capacity 6"; "EntranceSide B,
         // ExitSide C", "staff leave one at a time".
@@ -71,16 +58,14 @@ pub(crate) const TEMPLE: ObjectDef = ObjectDef {
             capacity: 6,
             accepts: &[ObjectKind::Recruit],
         }),
-        occupants_fire: None,
         // `> Research (first set)`, the four of its table in its order; "research queue 5".
         research: Some(ResearchDef {
             techs: &Tech::ALL,
             queue: 5,
         }),
-        abilities: None,
+        ..StructureDef::NONE
     }),
-    default_settings: None,
-    energy: None,
+    ..ObjectDef::NONE
 };
 
 /// The Temple's construction by Recruits (`StructureDef::site`, slice M5-E's; "Space Crystals cost and construction

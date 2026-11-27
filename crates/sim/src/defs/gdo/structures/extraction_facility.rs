@@ -16,21 +16,15 @@ pub(crate) const EXTRACTION_FACILITY: ObjectDef = ObjectDef {
     groupable: false,                           // Groupable - false
     sight_range: 3.0,                           // SightRange - 3 grid units
     max_hp: Some(500.0),                        // MaxHP - 500
-    max_shields: None,
     armor: Armor {
         point: 1.0, // PointArmor - 1
         full: 9.0,  // FullArmor - 9
     },
     needs_flat_ground: true, // `core/map.md > Elevation > Structures only on flat terrain`
-    unit: None,
     structure: Some(StructureDef {
         symmetry: SymmetryType::AAAA, // SymmetryType - AAAA
         build_radius_extension: 2,    // BuildRadiusExtension - 2 grid units
         power: -15,                   // Power - -15
-        seeds_build_area: false,
-        production: None,
-        mining: None,
-        onto: None,
         // Constructs
         constructs: &[Recipe {
             kind: ObjectKind::ExtractionPlate,
@@ -38,23 +32,11 @@ pub(crate) const EXTRACTION_FACILITY: ObjectDef = ObjectDef {
             frames: 400, // 400 frames (25 seconds)
             requires: &[],
         }],
-        warp_in: &[],
-        drop_off: None,
-        underground: false,
-        tunnel: None,
-        site: None,
-        expansion: None,
         // No TechPrerequisite (`factions/gdo/structures/deployment_center.md > Constructs`: no "Requires")
         requires: &[],
-        attack: None,
-        popup: None,
-        holds: None,
-        occupants_fire: None,
-        research: None,
-        abilities: None,
+        ..StructureDef::NONE
     }),
-    default_settings: None,
-    energy: None,
+    ..ObjectDef::NONE
 };
 
 #[cfg(test)]

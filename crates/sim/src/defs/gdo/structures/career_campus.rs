@@ -18,40 +18,21 @@ pub(crate) const CAREER_CAMPUS: ObjectDef = ObjectDef {
     groupable: true,     // Groupable true
     sight_range: 4.0,    // SightRange 4 grid units
     max_hp: Some(300.0), // MaxHP 300
-    max_shields: None,
     armor: Armor {
         point: 1.0, // PointArmor 1
         full: 4.0,  // FullArmor 4
     },
     needs_flat_ground: true, // `core/map.md > Elevation > Structures only on flat terrain`
-    unit: None,
     structure: Some(StructureDef {
         symmetry: SymmetryType::AAAA, // SymmetryType AAAA
         build_radius_extension: 2,    // BuildRadiusExtension 2 grid units
         power: -20,                   // Power −20
-        seeds_build_area: false,
-        production: None,
-        mining: None,
-        onto: None,
-        constructs: &[],
-        warp_in: &[],
-        drop_off: None,
-        underground: false,
-        tunnel: None,
-        site: None,
-        expansion: None,
         // TechPrerequisite - player owns at least one Barracks (`factions/gdo/structures/deployment_center.md >
         // Constructs`: "Requires: player owns at least one Barracks"), wherever it is constructed (`crate::tech`).
         requires: &[ObjectKind::Barracks],
-        attack: None,
-        popup: None,
-        holds: None,
-        occupants_fire: None,
-        research: None,
-        abilities: None,
+        ..StructureDef::NONE
     }),
-    default_settings: None,
-    energy: None,
+    ..ObjectDef::NONE
 };
 
 #[cfg(test)]

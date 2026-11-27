@@ -94,7 +94,6 @@ pub(crate) const TUNNEL: ObjectDef = ObjectDef {
     sight_range: 5.0,                           // SightRange - 5
     // Tiers: HP 600 at Tier 1, the tier a Tunnel starts at; `Object::max_hp` reads its tier's (`crate::tunnel`).
     max_hp: Some(600.0),
-    max_shields: None,
     armor: Armor {
         point: 1.0, // Tiers: PointArmor 1 (every tier)
         full: 16.0, // Tiers: FullArmor 16 (every tier)
@@ -102,7 +101,6 @@ pub(crate) const TUNNEL: ObjectDef = ObjectDef {
     // A surface structure (`core/map.md > Elevation > Structures only on flat terrain`): only the expansions may stand
     // on slopes (design change 0005).
     needs_flat_ground: true,
-    unit: None,
     structure: Some(StructureDef {
         // SymmetryType - ABCD, clockwise from the top: A the entrance and exit, B the crystal hatch, C the back wall
         // (opposite A, no function), D the Supplies hatch (design change 0248, correcting 0224). Of Side A's two
@@ -110,12 +108,6 @@ pub(crate) const TUNNEL: ObjectDef = ObjectDef {
         symmetry: SymmetryType::ABCD,
         build_radius_extension: 0,
         power: 0,
-        seeds_build_area: false,
-        production: None,
-        mining: None,
-        onto: None,
-        constructs: &[],
-        warp_in: &[],
         // Agents deliver to its hatches, crystals at Side B and Supplies at Side D (design change 0248), each "1 grid
         // square, near the middle of the side" (0255 point 6; `economy::drop_off`), one Agent at a time (plan
         // decision T34, with the side rule in its def). Supplies from slice M4-I on.
@@ -123,20 +115,12 @@ pub(crate) const TUNNEL: ObjectDef = ObjectDef {
             crystals: SideLetter::B,
             supplies: SideLetter::D,
         }),
-        underground: false,
         tunnel: Some(TUNNEL_DEF),
         site: Some(TUNNEL_SITE),
-        expansion: None,
         requires: &[], // TechPrerequisite - None
-        attack: None,
-        popup: None,
-        holds: None,
-        occupants_fire: None,
-        research: None,
-        abilities: None,
+        ..StructureDef::NONE
     }),
-    default_settings: None,
-    energy: None,
+    ..ObjectDef::NONE
 };
 
 #[cfg(test)]
@@ -189,28 +173,14 @@ mod tests {
         let expected = StructureDef {
             symmetry: SymmetryType::ABCD,
             build_radius_extension: 0,
-            seeds_build_area: false,
             power: 0,
-            production: None,
-            mining: None,
-            onto: None,
-            constructs: &[],
-            warp_in: &[],
             drop_off: Some(DropOff::Hatches {
                 crystals: SideLetter::B,
                 supplies: SideLetter::D,
             }),
-            underground: false,
             tunnel: structure.tunnel,
             site: structure.site,
-            expansion: None,
-            requires: &[],
-            attack: None,
-            popup: None,
-            holds: None,
-            occupants_fire: None,
-            research: None,
-            abilities: None,
+            ..StructureDef::NONE
         };
         assert_eq!(structure, &expected);
     }

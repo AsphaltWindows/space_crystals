@@ -23,7 +23,6 @@ pub(crate) const AGENT: ObjectDef = ObjectDef {
     groupable: false,   // Groupable - false
     sight_range: 5.0,   // SightRange - 5
     max_hp: Some(75.0), // MaxHP - 75
-    max_shields: None,
     armor: Armor {
         point: 1.0, // PointArmor - 1
         full: 1.0,  // FullArmor - 1
@@ -55,12 +54,7 @@ pub(crate) const AGENT: ObjectDef = ObjectDef {
             cooldown_ticks: 2,                                                      // CooldownDuration: 2 frames
             reload_ticks: 14,                                                       // ReloadDuration: 14 frames
         }),
-        unit_control_cost: None,
         tunnel_space_cost: Some(1), // TunnelSpaceCost - 1
-        beacon_capacity_cost: None,
-        riot_shield: None,
-        conversion: None,
-        deploy: None,
         // `> Gathering` (design change 0255, answering Q0066): "The Drone's job rules apply to Agents [...] with two
         // exceptions: Agents share patches (no occupancy rule), and there is no Set Drop-off command."
         worker: Some(WorkerDef {
@@ -100,7 +94,6 @@ pub(crate) const AGENT: ObjectDef = ObjectDef {
             // appears at the location with the Agent inside it").
             shares_builds: false,
         }),
-        augmentable: None,
         // `> Repair` (slice M5-N8): "Agents can **repair** own **Tunnels** and **Laser Turrets**, but **not
         // expansions** ... **Laser Turrets cost Space Crystals to repair; Tunnels are repaired for free**".
         repairs: Some(RepairDef {
@@ -109,13 +102,9 @@ pub(crate) const AGENT: ObjectDef = ObjectDef {
                 (ObjectKind::LaserTurret, RepairPayment::Paid),
             ]),
         }),
-        spells: &[],
-        separation_radius: None,
-        target_lock: None,
+        ..UnitDef::NONE
     }),
-    structure: None,
-    default_settings: None,
-    energy: None,
+    ..ObjectDef::NONE
 };
 
 #[cfg(test)]

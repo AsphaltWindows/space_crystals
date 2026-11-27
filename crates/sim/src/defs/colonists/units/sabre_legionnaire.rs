@@ -56,22 +56,11 @@ pub(crate) const SABRE_LEGIONNAIRE: ObjectDef = ObjectDef {
             cooldown_ticks: 1,      // CooldownDuration: 1 frame
             reload_ticks: 5,        // ReloadDuration: 5 frames
         }),
-        unit_control_cost: None,
-        tunnel_space_cost: None,
-        beacon_capacity_cost: Some(2), // BeaconCapacityCost - 2
-        riot_shield: None,
+        beacon_capacity_cost: Some(2),            // BeaconCapacityCost - 2
         conversion: Some(LEGIONNAIRE_CONVERSION), // `factions/colonists/units/weapon_conversion.md`
-        deploy: None,
-        worker: None,
-        augmentable: None,
-        repairs: None,
-        spells: &[],
-        separation_radius: None,
-        target_lock: None,
+        ..UnitDef::NONE
     }),
-    structure: None,
-    default_settings: None,
-    energy: None,
+    ..ObjectDef::NONE
 };
 
 #[cfg(test)]

@@ -31,13 +31,11 @@ pub(crate) const CHOP_SHOP: ObjectDef = ObjectDef {
     groupable: false,
     sight_range: 4.0,    // SightRange 4 grid units
     max_hp: Some(450.0), // MaxHP 450
-    max_shields: None,
     armor: Armor {
         point: 1.0, // PointArmor 1
         full: 9.0,  // FullArmor 9
     },
     needs_flat_ground: true, // `core/map.md > Elevation > Structures only on flat terrain`
-    unit: None,
     structure: Some(StructureDef {
         // "SymmetryType ABAC; EntranceSide B, ExitSide C (like the Armory)": A on top and bottom, B on the right, C on
         // the left in the default orientation.
@@ -45,7 +43,6 @@ pub(crate) const CHOP_SHOP: ObjectDef = ObjectDef {
         // The Cults have neither Power nor a build area (`factions/cults/economy.md > Cults Building Mechanics`).
         build_radius_extension: 0,
         power: 0,
-        seeds_build_area: false,
         // `> Production`: "**Production works like the Armory** (user, 2026-11-26; factions/cults/structures/armory.md >
         // Training): Recruits enter and join an internal pool; orders are queueable and serial; queuing an order
         // deducts its Space Crystals cost and **reserves the vehicle's number of Recruits** from the pool (an order
@@ -98,18 +95,8 @@ pub(crate) const CHOP_SHOP: ObjectDef = ObjectDef {
             // middle of its exit side** (placeholder distance)" (design changes 0446 and 0447, answering Q0175).
             default_rally: Some(3),
         }),
-        mining: None,
-        onto: None,
-        constructs: &[],
-        warp_in: &[],
-        drop_off: None,
-        underground: false,
-        tunnel: None,
         site: Some(CHOP_SHOP_SITE),
-        expansion: None,
         requires: &[ObjectKind::Armory], // TechPrerequisite - player owns at least one Armory
-        attack: None,
-        popup: None,
         // "EntranceSide B, ExitSide C (like the Armory)"; "InternalRecruitCapacity 10, counting reserved Recruits; so at
         // most 5 Seekers queued (bounded by capacity: reserved units count toward it; Q0104)", the pool buildings' rule
         // (design change 0347 point 5, slice M5-F2's); "Recruits enter and join an internal pool" (`> Production`).
@@ -119,12 +106,9 @@ pub(crate) const CHOP_SHOP: ObjectDef = ObjectDef {
             capacity: 10,
             accepts: &[ObjectKind::Recruit],
         }),
-        occupants_fire: None,
-        research: None,
-        abilities: None,
+        ..StructureDef::NONE
     }),
-    default_settings: None,
-    energy: None,
+    ..ObjectDef::NONE
 };
 
 /// The Chop Shop's construction by Recruits (`StructureDef::site`, slice M5-E's; "Space Crystals cost and construction

@@ -30,7 +30,6 @@ pub(crate) const PRAYER_MOBILE: ObjectDef = ObjectDef {
     groupable: false,
     sight_range: 7.0,    // SightRange 7 grid units
     max_hp: Some(150.0), // MaxHP 150
-    max_shields: None,
     armor: Armor {
         point: 1.0, // PointArmor 1
         full: 1.0,  // FullArmor 1
@@ -55,31 +54,21 @@ pub(crate) const PRAYER_MOBILE: ObjectDef = ObjectDef {
         attack: None,                       // AttackAttributes - None (pure caster)
         // `> Produced at - Chop Shop (consumes **2 Recruits**; Unit Control cost **2**)` (plan decision T55).
         unit_control_cost: Some(2),
-        tunnel_space_cost: None,
-        beacon_capacity_cost: None,
-        riot_shield: None,
-        conversion: None,
-        deploy: None,
-        worker: None,
-        augmentable: None,
-        repairs: None,
         // `> Placeholder stats`: "**Inspire** (hotkey **R**, instant, no target)", "**Suppress** (hotkey **F**,
         // instant, no target)": each cast at once, from where the vehicle stands (`Command::Cast`).
         spells: &[
             SpellDef::Cast(AreaAbility::Inspire),
             SpellDef::Cast(AreaAbility::Suppress),
         ],
-        separation_radius: None,
-        target_lock: None,
+        ..UnitDef::NONE
     }),
-    structure: None,
-    default_settings: None,
     // "Energy: MaxEnergy 200; starts at 50; regenerates 0.5 per second."
     energy: Some(EnergyDef {
         max: 200.0,
         start: 50.0,
         regen: EnergyRegen::PerSecond(0.5),
     }),
+    ..ObjectDef::NONE
 };
 
 /// (M5-N11) `> Placeholder stats`: "**Inspire** (hotkey **R**, instant, no target): 75 energy; every own infantry unit

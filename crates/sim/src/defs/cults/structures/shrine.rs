@@ -24,13 +24,11 @@ pub(crate) const SHRINE: ObjectDef = ObjectDef {
     groupable: false, // Groupable **false** (user, 2026-11-26; Q0118: each press casts from one Shrine)
     sight_range: 4.0, // SightRange 4 grid units
     max_hp: Some(300.0), // MaxHP 300
-    max_shields: None,
     armor: Armor {
         point: 1.0, // PointArmor 1
         full: 4.0,  // FullArmor 4
     },
     needs_flat_ground: true, // `core/map.md > Elevation > Structures only on flat terrain`
-    unit: None,
     structure: Some(StructureDef {
         // "SymmetryType ABAC, **EntranceSide B, ExitSide C** (user, 2026-11-26: like the production and research
         // buildings; participants leave one at a time)": its sides, `holds`'.
@@ -38,20 +36,8 @@ pub(crate) const SHRINE: ObjectDef = ObjectDef {
         // The Cults have neither Power nor a build area (`factions/cults/economy.md > Cults Building Mechanics`).
         build_radius_extension: 0,
         power: 0,
-        seeds_build_area: false,
-        production: None,
-        mining: None,
-        onto: None,
-        constructs: &[],
-        warp_in: &[],
-        drop_off: None,
-        underground: false,
-        tunnel: None,
         site: Some(SHRINE_SITE),
-        expansion: None,
         requires: &[ObjectKind::Temple], // TechPrerequisite - player owns at least one Temple
-        attack: None,
-        popup: None,
         // `> Ritual Participation`: "Recruits enter the Shrine to take part in the ritual [...] Only Recruits can
         // participate. Participating Recruits are not consumed"; "Recruit capacity 8", in at B, out of C one at a
         // time.
@@ -61,13 +47,11 @@ pub(crate) const SHRINE: ObjectDef = ObjectDef {
             capacity: 8,
             accepts: &[ObjectKind::Recruit],
         }),
-        occupants_fire: None,
-        research: None,
         // `> Abilities`, the two of its table in the order of its keys: "**Health regeneration** (hotkey Q)",
         // "**Energy regeneration** (hotkey W)".
         abilities: Some(&[AreaAbility::HealthRegeneration, AreaAbility::EnergyRegeneration]),
+        ..StructureDef::NONE
     }),
-    default_settings: None,
     // `> Energy`: "**MaxEnergy**: 200"; `> Placeholder stats`: "MaxEnergy 200; starts at 0; regeneration **0.25
     // energy per second per Recruit inside** (2 per second when full)"; "With no Recruits inside, the Shrine does not
     // regenerate energy".
@@ -76,6 +60,7 @@ pub(crate) const SHRINE: ObjectDef = ObjectDef {
         start: 0.0,
         regen: EnergyRegen::PerUnitInside(0.25),
     }),
+    ..ObjectDef::NONE
 };
 
 /// The Shrine's construction by Recruits (`StructureDef::site`, slice M5-E's; "Space Crystals cost and construction

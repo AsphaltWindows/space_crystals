@@ -23,16 +23,10 @@ pub(crate) const BEACON: ObjectDef = ObjectDef {
         full: 0.0,  // FullArmor - 0
     },
     needs_flat_ground: true, // `core/map.md > Elevation > Structures only on flat terrain`
-    unit: None,
     structure: Some(StructureDef {
         symmetry: SymmetryType::AAAA, // SymmetryType - AAAA
         build_radius_extension: 0,    // none (see `defs/colonists.rs`)
         power: 0,                     // none (plan decision T21)
-        seeds_build_area: false,
-        production: None,
-        mining: None,
-        onto: None,
-        constructs: &[],
         // `> Warp In > Constructs List`: the three buildings with a cost and a WarpInTime. The others (Alloy
         // Furnace, …, Structural Analyzer) are TBD, and deferred past M3 (question Q0043 point 1).
         warp_in: &[
@@ -55,22 +49,11 @@ pub(crate) const BEACON: ObjectDef = ObjectDef {
                 requires: &[],
             },
         ],
-        drop_off: None,
-        underground: false,
-        tunnel: None,
-        site: None,
-        expansion: None,
         // `factions/colonists/structures/README.md > Tech Model`: "Colonists buildings have no TechPrerequisites"
         requires: &[],
-        attack: None,
-        popup: None,
-        holds: None,
-        occupants_fire: None,
-        research: None,
-        abilities: None,
+        ..StructureDef::NONE
     }),
-    default_settings: None,
-    energy: None,
+    ..ObjectDef::NONE
 };
 
 #[cfg(test)]

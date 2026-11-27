@@ -15,6 +15,7 @@
 
 mod colonists;
 mod cults;
+mod defaults;
 mod gdo;
 mod leak;
 mod map;
