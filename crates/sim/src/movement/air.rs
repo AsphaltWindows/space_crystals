@@ -6,9 +6,10 @@
 //! SeparationRadii (`UnitDef::separation_radius`), centre to centre, is pushed apart along the line between them, each
 //! unit by half of what the pair lacks, at most [`SEPARATION_PUSH_SU`]; a unit's pushes from all its pairs together are
 //! capped at that too (plan decision T81: "by at most 2 su a tick each"). (M5-H2) A unit takes its base's share of each
-//! push and of the cap (`UnitBaseDef::separation_strength`): a HoverCraft all of it, a Glider a quarter (design change
-//! 0405: "**Gliders push apart slowly** [...] (placeholder: a quarter of the HoverCraft strength), so they drift apart
-//! gradually, mostly while circling, and their attack runs and loops are barely bent"). The pushes are summed from
+//! push and of the cap (`UnitBaseDef::separation_strength`): a HoverCraft all of it, a Glider a third (design changes
+//! 0405 and 0412: "**Gliders push apart slowly** [...] (**a third** of the HoverCraft strength [...]; was a quarter),
+//! so they drift apart gradually, mostly while circling, and their attack runs and loops are barely bent"). The pushes
+//! are summed from
 //! where the moves left the units, pair by pair in id order, and applied together, so that no unit's push depends on
 //! another's. Nothing blocks: a push moves the unit whatever is there (air units collide with nothing). Two units on
 //! the very same point part along the x axis, the lower id to the west. A Glider may be pushed past the map's edge, as

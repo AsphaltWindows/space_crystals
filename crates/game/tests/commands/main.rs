@@ -45,7 +45,9 @@
 //! releases of one Recruit, Eject All and X's refund): `temple`, on another. The Shrine (slice M5-N5: Recruits
 //! right-clicked in charging its energy, the InfoPanel's energy and participants, Q and W greyed below their costs,
 //! the cast's point in vision under the Cast pointer, an invalid target out of vision, the buffs and their marks, A's
-//! release of one participant and Eject All): `shrine`, on another.
+//! release of one participant and Eject All): `shrine`, on another. The Airstrip (slice M5-N7: Recruits right-clicked
+//! in, its door arrows along the runway, its KindMenu's Build Sparrow, and the Sparrow taking off): `airstrip`, on
+//! another.
 //!
 //! The Recruit's UI (slice M5-J1: its panel and its two Construct menus, the Assist, Enter and gathering pointers, Tab
 //! over Recruits and Militants, the group's placement with its Shift chain, and, slice M5-S4, a Hall placed flush
@@ -65,6 +67,7 @@
 //! the ground point there, no placement and no change of the selection from it) and its panel: `minimap`.
 
 mod agent_ui;
+mod airstrip;
 mod altar;
 mod armory;
 mod cathedral;

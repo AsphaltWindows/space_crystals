@@ -39,14 +39,15 @@ fn base_flags_follow_the_design() {
 }
 
 /// (M5-H2) `systems/units.md > Air Collision`: the air bases keep apart softly (`movement::air`), a HoverCraft by the
-/// whole push, as in slice M5-H1, a Glider by a quarter of it (design change 0405: "**Gliders push apart slowly** [...]
-/// (placeholder: a quarter of the HoverCraft strength)"); the others collide hard and have no strength.
+/// whole push, as in slice M5-H1, a Glider by a third of it (design change 0412: "**Gliders push apart slowly** [...]
+/// (**a third** of the HoverCraft strength [...]; was a quarter)", design change 0405's); the others collide hard and
+/// have no strength.
 #[test]
-fn gliders_push_apart_at_a_quarter_of_the_hovercraft_s_strength() {
+fn gliders_push_apart_at_a_third_of_the_hovercraft_s_strength() {
     for base in UnitBase::ALL {
         let strength = match base {
             UnitBase::HoverCraft => Some(1.0),
-            UnitBase::Glider => Some(0.25),
+            UnitBase::Glider => Some(1.0 / 3.0),
             _ => None,
         };
         assert_eq!(base.def().separation_strength, strength, "{base:?}");

@@ -57,7 +57,7 @@ use crate::orders::Target;
 use crate::tuning::production::QUEUE_LIMIT;
 use crate::units::Tick;
 
-pub use exit::{Door, Doorway, EnergyDoorway, ExitDoor};
+pub use exit::{Door, Doorway, EnergyDoorway, ExitDoor, Runway};
 pub use queue::QueueEntry;
 pub use rally::{Rally, takes_rally};
 

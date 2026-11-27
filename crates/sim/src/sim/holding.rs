@@ -26,8 +26,12 @@
 //!   **through the door**; on **Eject All** they all come out **at once**, ignoring collision with each other until
 //!   they are clear of the footprint"): a building with one door (`ExitRule::AtOnce`, the Garrison's) lets every unit
 //!   ready to leave out together, once its doorway is free ([`Sim::let_all_out`]).
+//! - (M5-N7) **Takeoff** (`holding/takeoff.rs`): an aircraft a runway's building trains (`ExitRule::Runway`, the
+//!   Airstrip's) takes off the moment it is ready, whatever waits at the doorway: aircraft "are not covered by" the exit
+//!   doorway's rule (`core/entities.md > Structure Type > Exit Doorway`).
 
 mod evacuation;
+mod takeoff;
 
 use std::collections::BTreeMap;
 
@@ -160,18 +164,28 @@ impl Sim {
     /// (`Held::leaving`: ejected, or the unit of a finished entry, `Sim::ready_to_leave`), in id order, lets the one
     /// ready first out into its exit doorway if the doorway is free ([`Sim::let_out`]): "in the order they are ready"
     /// (design change 0348), ties by the longest inside, then by id; a building with one door lets them all out at
-    /// once ([`Sim::let_all_out`]). After the producers, whose finished entries make their units ready in the same
-    /// tick, and after 5d, so that a unit never moves in the tick it appears; before 5f, so that it is seen in it.
+    /// once ([`Sim::let_all_out`]). (M5-N7) An aircraft trained at a runway takes off first, the moment it is ready,
+    /// and takes no turn at the doorway ([`Sim::take_off`]). After the producers, whose finished entries make their
+    /// units ready in the same tick, and after 5d, so that a unit never moves in the tick it appears; before 5f, so
+    /// that it is seen in it.
     pub(in crate::sim) fn step_holding(&mut self) {
         if self.held.is_empty() {
             return;
         }
         let mut first: BTreeMap<ObjectId, (Tick, Tick, ObjectId)> = BTreeMap::new();
+        let mut takeoffs: BTreeMap<ObjectId, ObjectId> = BTreeMap::new();
         for held in self.held.values() {
             if let (Place::Building(building), Some(ready)) = (held.place, held.leaving) {
+                if self.takes_off(building, held.object.id) {
+                    takeoffs.insert(building, held.object.id);
+                    continue;
+                }
                 let key = (ready, held.since, held.object.id);
                 first.entry(building).and_modify(|k| *k = (*k).min(key)).or_insert(key);
             }
+        }
+        for (building, unit) in takeoffs {
+            self.take_off(building, unit);
         }
         for (building, (.., unit)) in first {
             // A building with one door produces nothing (`defs_are_consistent`): its exit is its holding's.

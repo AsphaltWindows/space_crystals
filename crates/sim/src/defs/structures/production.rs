@@ -105,6 +105,14 @@ pub enum ExitRule {
     /// of the footprint"; `Sim::step_holding`). Only for a building that holds units and produces none
     /// (`defs_are_consistent`).
     AtOnce(SideLetter),
+    /// (M5-N7) A runway (plan decision T71; `crate::production::exit::Runway`): its aircraft use no doorway
+    /// (`core/entities.md > Exit Doorway`: "Aircraft and units released underground ... are not covered by this
+    /// rule"). Each appears over the `from` end, facing `toward`, the end opposite, and takes off along the runway
+    /// toward it, the moment it is finished: it never waits (`Sim::step_holding`). The Airstrip's, B to C
+    /// (`factions/cults/structures/airstrip.md > Placeholder stats`: "a finished aircraft is placed **directly on the
+    /// runway** and takes off along it toward C"). Only for a building that holds units, whose own exit lets its
+    /// ejected and released units out on the ground, at the `toward` end (`defs_are_consistent`).
+    Runway { from: SideLetter, toward: SideLetter },
 }
 
 /// One entry of a producer's `Produces` list: "Peacekeeper: 50 Space Crystals, 80 frames (5 seconds)"; of a

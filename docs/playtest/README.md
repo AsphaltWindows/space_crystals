@@ -6,7 +6,8 @@ What to try in each milestone is in its own notes:
 - [M2](m2.md): a GDO base, an army, a winner.
 - [M3](m3.md): the Colonists from the UI.
 - [M4](m4.md): the Syndicate from the UI.
-- M5: `m5.md`, not written yet (slice M5-M writes it).
+- [M5](m5.md): the Cults; slice M5-M writes it in full, and each slice adds what it built (so far the Airstrip and
+  the Sparrow).
 
 ## Starting a pairing
 

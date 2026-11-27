@@ -9,8 +9,9 @@ const C: CommandSlot = CommandSlot::RALLY_POINT;
 
 /// Design change 0396: "Its unfinished panel adds **C: Set Rally Point**, next to Cancel." An Armory's site, which its
 /// Recruits build, shows X Cancel Construction and C, which awaits its target as on the finished Armory; so do the
-/// sites of the other buildings that will produce or release units, a Recruitment Hall's, an Altar's, a Cathedral's
-/// and a Hideout's (an expansion). A site of one that produces nothing shows X alone: a Storage's, a Garrison's (it
+/// sites of the other buildings that will produce or release units, a Recruitment Hall's, an Altar's, a Cathedral's,
+/// an Airstrip's (slice M5-N7, its ProductionDef giving it its rally point, `sc_sim::production::takes_rally`) and a
+/// Hideout's (an expansion). A site of one that produces nothing shows X alone: a Storage's, a Garrison's (it
 /// "has no rally point", `factions/cults/structures/garrison.md > Placeholder stats > Panel`) and a Temple's, which
 /// researches.
 #[test]
@@ -28,6 +29,7 @@ fn an_unfinished_producer_shows_its_rally_point_next_to_cancel() {
         ObjectKind::RecruitmentHall,
         ObjectKind::Altar,
         ObjectKind::Cathedral,
+        ObjectKind::Airstrip,
         ObjectKind::Hideout,
     ] {
         let shown_panel = site_panel(kind);

@@ -17,6 +17,10 @@
 //!   is a side doorway too, which everyone it lets out comes out of at once (`Sim::step_holding`).
 //! - **An energy doorway** ([`EnergyDoorway`], `ExitRule::Centre`, `energy.rs`): the unit materializes at the centre
 //!   and moves straight out along a heading that leaves through an open side.
+//! - (M5-N7) **No doorway** for a runway's aircraft ([`Runway`], `ExitRule::Runway`, `runway.rs`): they appear over its
+//!   `from` end and take off along it (`core/entities.md > Structure Type > Exit Doorway`: "Aircraft [...] are not
+//!   covered by this rule"). The runway's building holds units, which it lets out on the ground through its own exit's
+//!   doorway ([`exit_rule`]: the Airstrip's ejected and released Recruits, out of side C).
 //!
 //! - **The exception** ([`ExitDoor::allows`], [`ExitDoor::box_clear`]): while a released unit (`Mover::exit` names the
 //!   building) still overlaps the footprint, the footprint's tiles don't block it, but for ground under them that the
@@ -38,6 +42,7 @@
 //! stands fully inside, against the exit side ([`Door::spot`] with a negative `out`).
 
 mod energy;
+mod runway;
 
 use glam::Vec2;
 
@@ -49,6 +54,7 @@ use crate::sides::{DIRECTIONS, sides};
 use crate::units::{SU_PER_GU, TilePos};
 
 pub use energy::{EnergyDoorway, HEADING_COUNT, HEADINGS};
+pub use runway::Runway;
 
 /// The footprint of a producing structure, as it is placed.
 #[derive(Copy, Clone, Debug, PartialEq)]
@@ -195,11 +201,14 @@ pub struct Door {
 /// none, by the exit of the units it holds (`HoldsDef::exit`, slice M5-F1: an Armory's Eject All, "Trained units and
 /// ejected Recruits exit through the exit side, one at a time through the exit doorway",
 /// `factions/cults/structures/armory.md > ExitSide - opposite short side (C)`). The two agree for a type with both
-/// (`defs_are_consistent`). `None` for a type that releases none.
+/// (`defs_are_consistent`), but for (M5-N7) a runway's (`ExitRule::Runway`, the Airstrip's): its aircraft take off
+/// and use no doorway ([`Runway`]), so its doorway is the exit of the units it holds, which come out on the ground.
+/// `None` for a type that releases none.
 pub fn exit_rule(structure: &StructureDef) -> Option<ExitRule> {
-    match &structure.production {
-        Some(production) => Some(production.exits),
-        None => structure.holds.map(|holds| holds.exit),
+    match (&structure.production, structure.holds) {
+        (Some(production), Some(holds)) if matches!(production.exits, ExitRule::Runway { .. }) => Some(holds.exit),
+        (Some(production), _) => Some(production.exits),
+        (None, holds) => holds.map(|holds| holds.exit),
     }
 }
 

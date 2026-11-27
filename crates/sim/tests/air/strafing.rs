@@ -2,7 +2,8 @@
 //! cannot stop. Instead of stopping when in range, the Glider performs strafing runs: 1. Fly toward TargetObject 2.
 //! When in range and turret arc: fire while passing through 3. Continue past the target 4. Loop around for another
 //! pass 5. Repeat until target is destroyed or a new command is issued"; `factions/cults/units/sparrow.md > Flight
-//! rules`: "Strafing: after a pass it flies on until the target is out of range, then loops back at full speed".
+//! rules`: "Strafing: after a pass it flies on until the target's **centre** is out of range [...], then loops back at
+//! full speed" (design change 0408).
 
 use sc_sim::{Shape, math};
 
@@ -109,8 +110,9 @@ const SIGHT: f32 = 8.0 * 64.0;
 /// player 2's Peacekeeper (2), 412 su east of it. The Peacekeeper stands still (auto-targeting off) at the centre of a
 /// tile, the one tile it covers, so that player 1 sees it only while that tile's centre, its own, is within the
 /// Sparrow's sight (or for the fog delay after). The Attack is the Sparrow's order until the Peacekeeper (MaxHP 50,
-/// PointArmor 1: 2 HP a hit) dies, on its fifth pass; each loop between two passes takes the Sparrow 497 to 502 su from
-/// its target, within its sight; the Attack then completes.
+/// PointArmor 1: 2 HP a hit) dies, on its fifth pass; each loop between two passes takes the Sparrow 488 to 496 su from
+/// its target (497 to 502 before design change 0408 ended a pass where the target's centre is out of range, not its
+/// far edge; `pass_end` has the other targets), within its sight; the Attack then completes.
 #[test]
 fn a_lone_sparrow_makes_pass_after_pass_until_its_target_dies() {
     let target = Vec2::new(1312.0, 1312.0);

@@ -1,6 +1,7 @@
 //! (M5-H1) Air units: a Glider's idle circle and the soft separation of air units from each other
 //! (`systems/units.md > GliderMovement`, `> Air Collision`; plan decision T81; `crate::movement::glider`,
-//! `crate::movement::air`). A type's own flight numbers (IdleSpeed, MaxSpeed, its accelerations, its
+//! `crate::movement::air`); (M5-N7) where an aircraft out of a runway circles without a rally point
+//! (`crate::production::exit::Runway`). A type's own flight numbers (IdleSpeed, MaxSpeed, its accelerations, its
 //! MaxCentripetalAcceleration) and its SeparationRadius are its def's.
 
 /// `factions/cults/units/sparrow.md > Placeholder stats`: "Idle circle: radius 1 grid unit (64 su) at IdleSpeed
@@ -15,9 +16,16 @@ pub const IDLE_CIRCLE_GU: f32 = 1.0;
 /// tick each". Read as a cap on each unit's whole push in a tick, whatever the number of pairs it is in, so that a unit
 /// never moves more than its speed and this in a tick (invariant I3, `docs/movement.md > 8`). Space units per tick.
 /// Placeholder (Q0120 point 1: the design gives the radius, not the strength of the push). (M5-H2) It is the full push,
-/// a HoverCraft's: each air base takes its share of it (`UnitBaseDef::separation_strength`), a Glider a quarter (design
-/// change 0405: "placeholder: a quarter of the HoverCraft strength"), half a space unit a tick.
+/// a HoverCraft's: each air base takes its share of it (`UnitBaseDef::separation_strength`), a Glider a third (design
+/// change 0412: "**a third** of the HoverCraft strength [...]; was a quarter", design change 0405's), two thirds of a
+/// space unit a tick.
 pub const SEPARATION_PUSH_SU: f32 = 2.0;
+
+/// (M5-N7) `factions/cults/units/sparrow.md > Placeholder stats`: "**No rally point**: it circles 2 grid units past the
+/// runway's C end" (design change 0354 point 4): how far past the middle of a runway's `toward` end, along the runway,
+/// the point lies that an aircraft out of it circles when its building has no rally point (`ExitRule::Runway`), grid
+/// units.
+pub const RUNWAY_CIRCLE_PAST_GU: f32 = 2.0;
 
 /// How strongly a Glider flying onto its circle turns in toward it, per radius of distance off it
 /// (`movement::glider`: the heading it wants blends the circle's tangent with the way to the circle, by this times its

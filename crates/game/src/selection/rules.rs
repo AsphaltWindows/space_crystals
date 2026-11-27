@@ -21,10 +21,10 @@ use crate::input::{Bindings, ControlGroup, InputAction, Modifiers};
 #[derive(Copy, Clone, Debug, Default, PartialEq, Eq)]
 pub struct ClickRoles {
     /// [`InputAction::ToggleSelection`] (Shift), the modifier of the add inputs: on the map a click toggles an own
-    /// unit, a box adds what it selects and, with `same_type`, a click adds the own units of a type; on a portrait
-    /// it removes.
+    /// object, a box adds what it selects and, with `same_type`, a click adds the own objects of a type; on a
+    /// portrait it removes.
     pub toggle: bool,
-    /// [`InputAction::SelectSameType`] (Ctrl): a click picks all own units of a type. A box ignores it.
+    /// [`InputAction::SelectSameType`] (Ctrl): a click picks all own objects of a type. A box ignores it.
     pub same_type: bool,
     /// [`InputAction::CenterOnObject`] (Alt), for portraits.
     pub center: bool,
@@ -79,16 +79,19 @@ impl ControlState {
     }
 
     /// `> MapClickSelection` (design changes 0011, 0048, 0052 and 0053): a click at the view point `at` on the map,
-    /// `double` for the second click of a double-click; `visible` is the world view (view space). On an own unit:
-    /// - a plain click selects that unit alone;
+    /// `double` for the second click of a double-click; `visible` is the world view (view space). On an own object, a
+    /// unit or (slice M5-N7, design change 0410: "**Own buildings too**") a building:
+    /// - a plain click selects that object alone;
     /// - Shift toggles it: out of the selection if it is in, else in, by [`ControlState::add_to_selection`];
-    /// - Ctrl, or a double-click (the same as a Ctrl-click), selects all own units of its type on screen;
+    /// - Ctrl, or a double-click (the same as a Ctrl-click), selects all own objects of its type on screen, "of that
+    ///   type" by the SelectionGroup rule, so an unfinished building takes only the unfinished ones
+    ///   ([`Selectables::own_on_screen`]), and each of an Ungroupable type is a SelectionGroup of its own;
     /// - Ctrl + Shift adds them, by [`ControlState::add_to_selection`]. So does a double-click with Shift held, as a
     ///   double-click counts as a Ctrl-click (placeholder reading: the design doesn't give that combination).
     ///
-    /// Any click on another object selects that object alone, so an enemy or a neutral object is always alone, also
-    /// when the click is modified (0048). So is an own structure (placeholder: the design gives the modified clicks
-    /// for own units only).
+    /// Units and buildings may mix, as own objects may (`> Selection > Constraints`). Any click on another object
+    /// selects that object alone, so an enemy or a neutral object is always alone, also when the click is modified
+    /// (0048).
     ///
     /// On empty ground (`> BoxSelection > Empty clicks and boxes`, 0051 and 0052): a plain click clears the
     /// selection; a Shift-, Ctrl- or Ctrl+Shift-click changes nothing. Says whether the selection changed.
@@ -96,11 +99,11 @@ impl ControlState {
         let Some(target) = objects.at(at) else {
             return !roles.toggle && !roles.same_type && self.select(Selection::EMPTY);
         };
-        if !target.is_own_unit() {
+        if !target.is_own() {
             return self.select(selection_of([target.id], objects));
         }
         if roles.same_type || double {
-            let mut ids = objects.own_units_on_screen(target.kind, visible);
+            let mut ids = objects.own_on_screen(target.group_type(), visible);
             ids.push(target.id); // Under the cursor, so on screen even if its box were cut off.
             return if roles.toggle {
                 self.add_to_selection(ids, objects)
