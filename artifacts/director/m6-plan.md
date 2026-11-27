@@ -54,7 +54,9 @@
 >   - Q0164 by 0430: the shield drops in a Bunker; the Tent heals only units on the map, once complete;
 >   - Q0165 by 0431: the Phantom takes 16 frames at the air doors;
 >   - Q0166 by 0432: Enter surfaces a burrowed Transport first;
->   - Q0168 by 0434: Thrust is targeted and Shift-queues.
+>   - Q0168 by 0434: Thrust is targeted and Shift-queues;
+>   - Q0169 by 0435 and 0436: the six units' Supply costs, the Chopper repaired free on its Tower, and the GDO
+>     starting with 1 Supply, which GS builds.
 
 # M6 plan: the GDO's and the Syndicate's remaining content (planning spike M6-P)
 
