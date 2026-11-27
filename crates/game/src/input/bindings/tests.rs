@@ -480,4 +480,8 @@ fn space_jumps_to_the_latest_alert_in_the_game_and_k_pauses_a_replay() {
         !InputAction::JumpToAlert.passes_modal(),
         "not while the playtest menu holds the input"
     );
+    assert!(
+        InputAction::DebugRestartWithData.passes_modal(),
+        "the menu's Restart with the data read again (M5-X2)"
+    );
 }

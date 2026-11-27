@@ -205,7 +205,8 @@ fn poll_data(world: &mut World) {
 }
 
 /// F8 (module docs): the playtest menu's Restart, then the directory read again, its rules in the new game's first
-/// tick. Only in a game, which the playtest menu's [`Launch`] says.
+/// tick. Only in a game, which the playtest menu's [`Launch`] says; with the menu open too, which F8 passes
+/// (`InputAction::passes_modal`) and the restart closes.
 fn restart_with_data(actions: Res<ActionState>, launch: Option<Res<Launch>>, mut commands: Commands) {
     if actions.just_pressed(InputAction::DebugRestartWithData) && launch.is_some() {
         info!("F8: restarting the game with the tuning directory's data");

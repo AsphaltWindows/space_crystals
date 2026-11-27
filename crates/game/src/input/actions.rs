@@ -154,13 +154,14 @@ impl InputAction {
     /// ([`super::Modal`]: the playtest menu, while game input is blocked): the window's full-screen toggle and the
     /// menu's own key, which work whatever holds the input, and the debug keys, which change only what the client
     /// shows (whose view, the fog), so that at the end of a hot-seat game each player still sees their own result under
-    /// the menu (`crate::hud::outcome`). Every other action is the modal UI's alone
-    /// ([`super::ActionState::modal_pressed`]).
+    /// the menu (`crate::hud::outcome`). (Slice M5-X2) And F8, which is the menu's Restart with the data directory
+    /// read again ([`InputAction::DebugRestartWithData`]), and closes the menu as its Restart does. Every other action
+    /// is the modal UI's alone ([`super::ActionState::modal_pressed`]).
     pub fn passes_modal(self) -> bool {
         use InputAction as A;
         matches!(
             self,
-            A::ToggleFullscreen | A::PlaytestMenu | A::DebugSwitchPlayer | A::DebugToggleFog
+            A::ToggleFullscreen | A::PlaytestMenu | A::DebugSwitchPlayer | A::DebugToggleFog | A::DebugRestartWithData
         )
     }
 

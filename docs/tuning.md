@@ -66,7 +66,8 @@ cargo run -- --factions gdo,cults --map maps/playtest.json --tuning tuning
 - **The top bar** says "Tuned: N files" while N files change something. A file that matches the built-in data isn't
   counted.
 - **F10's Restart** starts the game over on the last data that passed. **F8** restarts the same way, but reads the
-  directory again first. The new game gets its rules in its first tick.
+  directory again first; it also works while the playtest menu is open, at the game's end too, and closes it. The new
+  game gets its rules in its first tick.
 - **Replays.** The rules travel in the game's commands, so the recording of a tuned game plays back with no directory
   (`--replay`).
 

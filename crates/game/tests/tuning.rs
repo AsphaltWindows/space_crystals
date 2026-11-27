@@ -22,6 +22,7 @@ use space_crystals::data::{TuningData, export};
 use space_crystals::hud::TopBarNote;
 use space_crystals::input::InjectedInput;
 use space_crystals::platform::DisplayMode;
+use space_crystals::playtest_menu::PlaytestMenu;
 use space_crystals::replay::load_replay;
 use space_crystals::sim_driver::{RecordedInputs, SimRes};
 use space_crystals::tuning::ClientTuning;
@@ -359,5 +360,33 @@ fn f8_restarts_the_game_with_the_directory_read_again() {
     assert_eq!(set_rules_ticks(&app), [1], "the last rules that passed");
     app.update();
     assert_eq!(damage(&app), 20.0);
+    let _ = fs::remove_dir_all(&dir);
+}
+
+/// F8 works with the playtest menu open, as the menu's Restart does, and closes it: at the game's end, the result
+/// under the menu, a tuning can be tried again at once.
+#[test]
+fn f8_restarts_the_game_from_the_playtest_menu() {
+    let _one = one_at_a_time();
+    let dir = temp_dir("f8_menu");
+    write(&dir, PEACEKEEPER_FILE, DAMAGE_100);
+    let mut app = game(Some(&dir), None);
+    while tick(&app) < 20 {
+        app.update();
+    }
+    app.world_mut().resource_mut::<InjectedInput>().tap_key(KeyCode::F10);
+    app.update();
+    assert_eq!(*app.world().resource::<PlaytestMenu>(), PlaytestMenu::Paused);
+    let (paused_at, generation) = (tick(&app), app.world().resource::<SimRes>().generation());
+    app.update();
+    assert_eq!(tick(&app), paused_at, "paused");
+    write(&dir, PEACEKEEPER_FILE, r#"{"unit": {"attack": {"damage": 30}}}"#);
+    app.world_mut().resource_mut::<InjectedInput>().tap_key(KeyCode::F8);
+    app.update();
+    assert_eq!(*app.world().resource::<PlaytestMenu>(), PlaytestMenu::Closed);
+    assert_ne!(app.world().resource::<SimRes>().generation(), generation, "a new game");
+    assert_eq!((tick(&app), set_rules_ticks(&app)), (1, vec![1]));
+    app.update();
+    assert_eq!(damage(&app), 30.0, "the directory read again");
     let _ = fs::remove_dir_all(&dir);
 }

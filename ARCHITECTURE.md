@@ -4370,7 +4370,8 @@ elsewhere.
 - **Modal** (`input::Modal`, slice M5-S7): while a menu holds the input (the playtest menu), the frame's presses go to
   `ActionState::modal_pressed` for the menu, and the rest of the client sees only the actions that pass a menu
   (`InputAction::passes_modal`: the window's toggle, F10, and the debug player switch and fog toggle, so hot-seat
-  players can still look at their own banners): no held action (the camera keys, the screen edge), no wheel, the
+  players can still look at their own banners, and slice M5-X2's F8, the menu's Restart with the data directory read
+  again): no held action (the camera keys, the screen edge), no wheel, the
   pointer over the UI and no map press, so no selection, command or pan starts, and one under way ends without a click
   or a box. What is still held when it lets go comes back held, never pressed, so the click that closes it does
   nothing else.
