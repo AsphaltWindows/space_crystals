@@ -47,7 +47,7 @@ use crate::augmentation::Research;
 use crate::command::{Command, DebugCommand, TickInputs};
 use crate::events::SimEvent;
 use crate::ids::ObjectId;
-use crate::mover::{Locomotion, MoveGoal, MoveStatus, Mover, PathState};
+use crate::mover::{Locomotion, MoveGoal, MoveStatus, Mover, Orientation, PathState};
 use crate::nav;
 use crate::object::Object;
 use crate::orders::{OrderKind, Target, gather};
@@ -352,6 +352,17 @@ impl Invariants {
             // (M5-H1) A Glider flies whether or not it has a goal (G1), and an air unit near another may be pushed off
             // it (`movement::air`).
             let flying = glides || gliders::pushed(sim, o);
+            // (M5-N10) A unit that turned in place toward its aim in this tick without a goal
+            // (`movement::turn_in_place`, the hull aim: its Orientation Turning, which a unit without a goal has from
+            // nothing else, as the step stands every other one) may creep out of the contact of a spin cut short, by at
+            // most one tick's Acceleration (`momentum::spin_creep`).
+            let creeping = mover.goal == MoveGoal::None
+                && mover.exit.is_none()
+                && !glides
+                && matches!(mover.orientation, Orientation::Turning(_))
+                && o.movement(sim.research()).is_some_and(|movement| {
+                    o.pos.distance(o.prev_pos) <= momentum::spin_creep(&movement, mover.speed_factor) * 1.0001 + 1e-3
+                });
             if o.pos != o.prev_pos
                 && mover.goal == MoveGoal::None
                 && !had_goal
@@ -361,6 +372,7 @@ impl Invariants {
                 && !coasting
                 && !separating
                 && !flying
+                && !creeping
             {
                 return fail(
                     "I5/I7",

@@ -206,6 +206,8 @@ pub(crate) fn step(
         };
         let me = index;
         index += 1;
+        // (M5-N10) The turn its behaviour asked of it in phase 5a, for this tick alone (`Mover::turn_to`).
+        let turn_to = o.mover.as_mut().and_then(|mover| mover.turn_to.take());
         // (M5-V4) A unit crushed earlier in the tick is dead: it makes no move.
         if o.id >= first_new || scratch.crushed.iter().any(|crush| crush.victim == me) {
             continue;
@@ -325,6 +327,20 @@ pub(crate) fn step(
                 &mut scratch.requests,
             );
             false
+        } else if let Some(toward) = turn_to.filter(|_| mover.goal == MoveGoal::None && !coasting) {
+            // (M5-N10) At rest, stopped by its behaviour to aim with its hull (`Mover::turn_to`).
+            turn_in_place(
+                &mut o.pos,
+                &mut o.facing,
+                &mut turned,
+                toward,
+                mover,
+                movement,
+                &mut world,
+                &mut scratch.touched,
+                &mut scratch.requests,
+            );
+            false
         } else {
             step_unit_on(
                 &mut o.pos,
@@ -423,6 +439,60 @@ pub(crate) fn step(
     // (M5-H1) The air units keep apart, from where the moves left them.
     air::separate(objects, first_new, map, &mut scratch.air);
     crush::tell(objects, &scratch.bodies, &scratch.crushed, events)
+}
+
+/// (M5-N10) A unit at rest without a goal that its behaviour asked to turn toward `toward` (`Mover::turn_to`: the hull
+/// aim of `combat::turret::aims_by_hull`, "the vehicle must **stop and turn its hull** to face them",
+/// `factions/cults/units/hand_of_heaven.md > TurretAttributes`) turns toward it in place and does nothing else this
+/// tick: as its model spins at rest (`Tracked::spin`, the SpinRate of a TrackedVehicle, backing off or creeping out
+/// of a contact as its spin toward its way does), or by its TurnRate for another model ([`turn_rate`]), as far as its
+/// Silhouette stays free (`World::turn`, invariants I1 and I2). The unit that stopped the turn, if one did, is asked to
+/// make way (`yielding::ask`), as one that stops a turn on a path is (`follow::creep_on`). It stands, Turning
+/// (`systems/controls/action_channels.md > OrientationChannel`), and what it turned goes to `turned`, for [`Turns`].
+/// `touched` is scratch.
+#[expect(
+    clippy::too_many_arguments,
+    reason = "the unit's state, split into the borrows the step holds"
+)]
+fn turn_in_place(
+    pos: &mut Vec2,
+    facing: &mut f32,
+    turned: &mut f32,
+    toward: Vec2,
+    mover: &mut Mover,
+    movement: &MovementAttrs,
+    world: &mut World,
+    touched: &mut Vec<usize>,
+    requests: &mut Vec<yielding::Request>,
+) {
+    let (start, from) = (*facing, *pos);
+    let dir = toward - from;
+    if dir != Vec2::ZERO {
+        let blocker = match Model::of(movement, mover, false) {
+            Some(Model::Tracked(tracked)) => {
+                let (at, blocker) = tracked.spin(from, facing, dir, world, touched);
+                *pos = at;
+                blocker
+            }
+            _ => {
+                math::turn_toward(facing, math::wrap_angle(math::vector_angle(dir)), turn_rate(movement));
+                let turn = world.turn(from, start, *facing);
+                *facing = turn.facing;
+                turn.blocker.filter(|_| turn.cut)
+            }
+        };
+        let stopped = collide::Moved {
+            pos: from,
+            forward: false,
+            blocker,
+            aside: false,
+            slid: false,
+        };
+        yielding::ask(world, from, dir, &stopped, false, mover, requests);
+    }
+    *turned = math::wrap_angle(*facing - start).abs();
+    stand(mover);
+    mover.orientation = Orientation::Turning(toward);
 }
 
 /// The unit stands this tick.

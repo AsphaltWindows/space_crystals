@@ -1355,14 +1355,24 @@ ticks spent in it. Hashed and serialized like all state.
   starts in Firing or Cooldown (their TurretSourceActions are None). A sequence starts at a seen lock in range and
   in the arc (`turret::in_arc`, bounds included), Aiming lasts until the turret faces it too and is cancelled when
   it leaves the arc, and an Attack Ground's location takes the same arc. The base turns only in 5d: `base_is_free`
-  holds throughout. **In 5a**, right after the base's behaviour, the turret's own (`orders/turret.rs::run`): it keeps
+  holds throughout. **(M5-N10) A hull that aims too** (`turret::aims_by_hull`: a turret on a base that turns in place,
+  the Hand of Heaven's TrackedVehicle, whose launcher turns 20° in all; `factions/cults/units/hand_of_heaven.md`:
+  "stop and turn its hull"): its behaviour stops it in range wherever its target is (`Unit::takes_aim` in `close_in`
+  and the Attack Ground) rather than approach, which heads where its path does and at a building's corner kept the
+  target's centre out of the arc all the way in; while the target is outside the arc, it asks 5d to turn its hull
+  toward it (`Unit::aim_hull`: `Mover::turn_to`, taken in the same tick, so neither saved nor hashed). 5d turns a
+  unit at rest without a goal so (`movement::turn_in_place`, `Tracked::spin`): at its SpinRate, as far as its
+  Silhouette stays free (`World::turn`); a spin cut short backs off, or creeps one tick's Acceleration toward the
+  target, out of the contact (I5 and I7 allow it that), and an own idle unit that stopped it is asked to make way;
+  the spin crushes as any spin in place does (M5-V4). Only what its base engages turns its hull: a lock its turret
+  keeps on its own (on Hold, on a Move) turns none. **In 5a**, right after the base's behaviour, the turret's own (`orders/turret.rs::run`): it keeps
   a lock its base engages; any other it keeps only while it could fire at it from where it stands (`fireable`: seen,
   a valid domain, Range and MinRange, the arc; `systems/controls/commands.md > TurretCommandState > When a lock
   ends`, design change 0376), else lets it go; with nothing locked it scans (`World::turret_pick`: `World::pick` with `Scan::Weapon` and the arc as
   `admit`, a Move's tick included) and locks the best. The rotation a scan measures, the base's
   (`BaseAutoTargeting`) and the turret's alike, is from the turret's facing (`Unit::aim_facing`, design change
   0179). **Who sets the lock**: `close_in` once the target is in range and in the arc (out of the arc the approach
-  goes on, the move turning the base), the idle and the AttackMove acquisitions; a Hold's base engages nothing and
+  goes on, the move turning the base; a hull that aims too, in range wherever the target is), the idle and the AttackMove acquisitions; a Hold's base engages nothing and
   leaves it to the turret's scan; a Stop clears it (`orders::run::start`; 0376: "**Stop clears the lock**"), and
   the turret scans in the same tick; every other order leaves it ("When the base behavior does not specify a target,
   the turret retains its previous TurretCommandState"; 0376: a Move keeps a lock from an Attack, a friendly one too); the removal path
@@ -5100,8 +5110,8 @@ unchecked.
   playback keys), `--windowed` and `--headless` work with it; a windowless playback ends at the replay's end unless
   told otherwise. To check a replay quickly: `cargo run -- --replay <file> --headless --fast`.
 - **Golden hashes** (`crates/sim/tests/golden/`: the games in `units.rs`, `gdo.rs`, `colonists.rs`, `syndicate.rs`,
-  `cults.rs`, `garrison.rs`, `altar.rs`, `temple.rs`, `shroud.rs`, `shrine.rs`, `air.rs`, `anti_air.rs`, `vehicles.rs`
-  and `main.rs`, the recording and the comparison in `harness.rs`): twenty-one games, a 3v3
+  `cults.rs`, `garrison.rs`, `altar.rs`, `temple.rs`, `shroud.rs`, `shrine.rs`, `air.rs`, `anti_air.rs`, `vehicles.rs`,
+  `hand_of_heaven.rs` and `main.rs`, the recording and the comparison in `harness.rs`): twenty-two games, a 3v3
   duel, a 40-unit
   AttackMove battle, a 12-unit group move through a choke, a patrol that meets an enemy, a chase lost in the fog, three
   Peacekeepers that raise their Riot Shields (`Command::Ability`; one turns back half-way), walk up to a Guard under
@@ -5112,7 +5122,8 @@ unchecked.
   M4-L, below), the Cults' `cults_opening` and `cults_vs_syndicate` (slice M5-L, below), `cults_garrison` (slice
   M5-N2, below), `cults_altar` (slice M5-N1b, below), `cults_temple` (slice M5-N3, below), `cults_shroud` (slice
   M5-N4b, below), `cults_shrine` (slice M5-N5, below), `cults_air` (slice M5-N7, below), `gdo_anti_air` (slice
-  M5-K, below) and `cults_vehicles` (slice M5-N6, below), are blessed as replays
+  M5-K, below), `cults_vehicles` (slice M5-N6, below) and `hand_of_heaven` (slice M5-N10, below), are blessed as
+  replays
   with a checkpoint every 32 ticks and at the end, in `crates/sim/tests/golden/<name>.json`. Another, `area_attacks` (slice M4-O), is a unit test
   (`combat/projectiles/golden.rs`), as it plays test throwers (`combat::testing`): grenades in flight, blasts over a
   hidden Hideout and a group, an Attack Ground. Its file is `tests/golden/test_defs/area_attacks.json`, out of the
@@ -5195,7 +5206,15 @@ unchecked.
   the game sets its own in tick 64, so the checkpoints of ticks 0 and 32 alone moved); at tick 760 the two
   attack-move onto two Militants and two Guards behind them (player 2's, the Syndicate), firing their turrets on the
   move: they kill the Militants, a Guard kills one Seeker, and the other kills both Guards; every hit of the game is a
-  Seeker's on them or theirs on a Seeker. The
+  Seeker's on them or theirs on a Seeker. In `hand_of_heaven` (to 1:08.75, on a test map, debug commands on for its
+  150 Space Crystals) three Recruits go into a Chop Shop, which queues a Hand of Heaven (W) once they are in: it comes
+  out in its tick, the Recruit inside the longest, the other two gone (`during`), and drives to the default rally
+  point; at tick 620 it is ordered to attack player 2's Deployment Center 20 grid units west, drives into range and
+  shells it from 13.8 grid units off, beyond its own sight and the Deployment Center's, which only a Recruit on Hold
+  beside it sees: two missiles 150 ticks apart, each of 592.9 (600 less FullArmor 16 times the 0.44 of the footprint
+  the circle covers), which player 2 sees nothing of until the first lands (the reveal); in the tick after the second
+  launch it is sent back to the rally point and drives off while the missile flies, which then brings the
+  Deployment Center down; every hit of the game is the Hand of Heaven's on it. The
   ignored
   `tests/skirmish_soak.rs`
   (slice M3-K2) plays the Colonists' two players for 10 minutes, twice, until player 1's field runs out: the

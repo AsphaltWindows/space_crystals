@@ -103,7 +103,7 @@ pub(super) fn unit_mesh(kind: ObjectKind, color: Color, with_tick: bool) -> Mesh
                     Vec2::new(h.x * a.cos(), h.y * a.sin())
                 })
                 .collect(),
-            UnitShape::Square => vec![
+            UnitShape::Square | UnitShape::Tracked => vec![
                 Vec2::new(-h.x, -h.y),
                 Vec2::new(h.x, -h.y),
                 Vec2::new(h.x, h.y),
@@ -128,10 +128,40 @@ pub(super) fn unit_mesh(kind: ObjectKind, color: Color, with_tick: bool) -> Mesh
     let mut mesh = ColorMesh::triangles();
     mesh.polygon(&outline(0.0), 0.0, darken(srgba, 0.45).into());
     mesh.polygon(&outline(2.5), 0.001, color);
+    if shape(kind) == UnitShape::Tracked {
+        treads(&mut mesh, half);
+    }
     if with_tick {
         facing_tick(&mut mesh, kind, half);
     }
     mesh.into_mesh()
+}
+
+/// The dark grey of a tread, and the lighter grey of the links across it (placeholders).
+const TREAD_COLOR: Color = Color::srgb(0.15, 0.15, 0.16);
+const LINK_COLOR: Color = Color::srgb(0.38, 0.38, 0.40);
+
+/// (M5-N10) A tracked hull's two treads ([`UnitShape::Tracked`]): a dark band down each long side, inside the rim, a
+/// fifth of the width each (8 su of the Hand of Heaven's 40), with a link across it every 8 su, so that the hull reads
+/// as one on treads and its length as its heading.
+fn treads(mesh: &mut ColorMesh, half: Vec2) {
+    let (inset, width) = (2.5, 0.2 * 2.0 * half.y);
+    let (x0, x1) = (-half.x + inset, half.x - inset);
+    for side in [-1.0, 1.0] {
+        let (outer, inner) = (side * (half.y - inset), side * (half.y - inset - width));
+        let band = [
+            Vec2::new(x0, outer),
+            Vec2::new(x1, outer),
+            Vec2::new(x1, inner),
+            Vec2::new(x0, inner),
+        ];
+        mesh.polygon(&band, 0.0015, TREAD_COLOR);
+        let links = ((x1 - x0) / 8.0).floor() as i32;
+        for i in 1..links {
+            let x = x0 + 8.0 * i as f32;
+            mesh.segment(Vec2::new(x, outer), Vec2::new(x, inner), 1.5, 0.0016, LINK_COLOR);
+        }
+    }
 }
 
 /// A `kind` unit's facing tick, along local +x, to just in front of its body: from its centre, or from 60% of the

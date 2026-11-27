@@ -20,6 +20,18 @@
 //!   `tuning::combat::FACING_TOLERANCE`, as a base's aim), and is cancelled once the target leaves the arc or the range
 //!   (plan decision T80). An Attack Ground's location is aimed at the same way, its turret's arc included
 //!   (`systems/controls/command_behaviors.md > AttackingLocation`: "Range/arc check is against the target location").
+//! - **(M5-N10) A hull that aims too** ([`aims_by_hull`]): a unit whose base turns in place (a TrackedVehicle: the Hand
+//!   of Heaven, whose launcher turns 20° in all) stops where its target is in range, outside the arc as well
+//!   (`orders::engage`, `orders::attack_ground`), and asks phase 5d to turn its hull toward it (`Unit::aim_hull`,
+//!   `Mover::turn_to`), which spins it in place at the SpinRate of a TrackedVehicle at rest, as far as its Silhouette
+//!   stays free (`movement::turn_in_place`), until the target is inside the arc and the turret takes over. Only toward
+//!   what its base engages, and standing: a lock its turret keeps on its own (its scan's, or one an earlier order
+//!   left, on Hold or on the move) it keeps only within the arc, and its hull is its move's while it moves:
+//!   `factions/cults/units/hand_of_heaven.md > TurretAttributes`, "the launcher barely turns, so to aim at most
+//!   targets the vehicle must **stop and turn its hull** to face them". A move toward the target ("If target moves
+//!   out of range or arc: resume MovingToObject", `systems/controls/command_behaviors.md > AttackingObject` 4) heads
+//!   where its path goes, which at a building's corner may keep the target's centre out of a narrow arc all the way
+//!   in.
 //!
 //! **Not shared with the Laser Turret** (`super::structures`, plan decision T49), whose sim stays as it was: a
 //! structure has no arc and no turn rate ("it fires in any direction"), its barrel is its object's facing, which it
@@ -76,6 +88,14 @@ impl Source {
 /// The TurretAttributes of a `kind` unit, if it has a turret (`UnitDef::turret`).
 pub(crate) fn attrs_of(kind: ObjectKind) -> Option<TurretAttrs> {
     kind.def().unit.as_ref()?.turret
+}
+
+/// (M5-N10) Whether a unit of `unit`'s type aims with its hull as well as its turret (module docs): it has a turret,
+/// and its base turns in place (`UnitBaseDef::can_turn_in_place`; `factions/cults/units/hand_of_heaven.md`:
+/// "TrackedVehicle (turns in place)"). The Hand of Heaven's, today: the other turret units, the Seeker (a
+/// WheeledVehicle, whose turret turns all the way round anyway) and the Sparrow (a Glider), don't turn in place.
+pub(crate) fn aims_by_hull(unit: &UnitDef) -> bool {
+    unit.has_turret() && unit.base_def().can_turn_in_place
 }
 
 /// Whether the arc of `attrs` is a full turn, which the turret turns round the shorter way (the Seeker's "360° (full

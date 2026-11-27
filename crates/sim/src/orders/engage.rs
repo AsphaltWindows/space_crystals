@@ -50,7 +50,13 @@ pub(super) enum Closing {
 ///   Stopping. The unit stops its move; phase 5e aims and fires (`combat::phases`). A unit with a turret locks it on
 ///   the target (step 3: "set TurretCommandState.LockedTarget = TargetObject (turret units)"). Out of its arc, it
 ///   goes on as out of range (step 4: "If target moves out of range or arc: resume MovingToObject"), its move turning
-///   it toward the target.
+///   it toward the target. (M5-N10) Not a unit that aims with its hull as well (`combat::turret::aims_by_hull`: the
+///   Hand of Heaven, a TrackedVehicle, whose launcher turns 20° in all): in range, it stops and locks the target
+///   wherever the target is (`Unit::takes_aim`), and asks phase 5d to turn its hull toward it (`Unit::aim_hull`: "the
+///   vehicle must **stop and turn its hull** to face them", `factions/cults/units/hand_of_heaven.md >
+///   TurretAttributes`). A move would head where its path does, which at a building's corner can keep the target's
+///   centre out of so narrow an arc all the way in (design finding, reported; the literal step 4 kept for every other
+///   turret unit).
 /// - **Out of range**: MovingToObject towards the target (`MoveGoal::Object`; phase 5c re-aims the path as the
 ///   target moves). The approach starts only while the attack sequence leaves the base free (`combat::may_move`):
 ///   infantry finishes Firing and Cooldown first.
@@ -71,11 +77,12 @@ pub(super) fn close_in(unit: &mut Unit, chasing: &mut bool, target: &View, world
         world.elevation(unit),
         &target.shape,
         target.elevation,
-    ) && unit.in_arc(target.pos)
+    ) && unit.takes_aim(target.pos)
     {
         unit.halt();
         *chasing = false;
         unit.lock(Some(target.id));
+        unit.aim_hull(target.pos);
         return Closing::InRange;
     }
     if *chasing {

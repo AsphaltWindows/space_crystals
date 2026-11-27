@@ -32,6 +32,9 @@ pub enum UnitShape {
     Square,
     /// A square with its corners cut off.
     Octagon,
+    /// (M5-N10) A tracked hull: the Square's rectangle, its length along its facing, with a dark tread down each of
+    /// its long sides (`super::units::treads`): the Hand of Heaven's, a TrackedVehicle.
+    Tracked,
 }
 
 impl Look {

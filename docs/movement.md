@@ -1100,8 +1100,20 @@ yielding requests and the stuck clock are the shared ones.
   (`tests/tracked/standing.rs`). The DrillUnit has no above-ground mode yet: slice M6-ST1 gives it 0440's rule.
 - **The aim** (phase 5e, `movement::turn_rate`): a SpeedTurnRadiusMovement unit's budget is its SpinRate, and phase
   5d notes what it turned plus the part of SpinRate its speed leaves no tread for (`tracked_turn_noted`): a stopped
-  Hand of Heaven aims by spinning its hull ("the vehicle must stop and turn its hull to face them",
-  `factions/cults/units/hand_of_heaven.md`), and a moving one is left what the law leaves it, never less than nothing.
+  one whose attack is its base's aims by spinning its hull, and a moving one is left what the law leaves it, never
+  less than nothing. **(M5-N10)** The Hand of Heaven's attack is its launcher's, a turret's (`systems/combat.md >
+  TurretSource`), which turns 20° in all, so its hull aims too ("the vehicle must stop and turn its hull to face
+  them", `factions/cults/units/hand_of_heaven.md`; `combat::turret::aims_by_hull`): with its target in range but
+  outside the arc, its behaviour stops it (`orders::engage::close_in`, `orders::attack_ground`) and asks phase 5d to
+  turn its hull toward the target (`Mover::turn_to`), which spins it in place at its SpinRate
+  (`movement::turn_in_place`, `Tracked::spin`) until the target is inside, where the launcher takes over: 90° in five
+  ticks, not a space unit moved (`tests/hand_of_heaven/hull.rs`). Its Silhouette turns only as far as it stays free
+  (`World::turn`): a spin cut short backs off as a spin at rest on a path does, or else creeps one tick's
+  Acceleration toward the target where the spin stopped (design change 0035: beside a wall, 6 su in 12 ticks, and it
+  aims 10 ticks later than in the open), and an own idle unit that stopped it is asked to make way
+  (`yielding::ask`). The spin crushes as any spin in place does (6.13). A move toward the target, as
+  AttackingObject's step 4 reads ("resume MovingToObject"), heads where its path does, which at a building's corner
+  kept the target's centre out of the arc all the way in.
 - **Invariant S1** (`testing/invariants/momentum.rs`): a SpeedTurnRadiusMovement unit turns in a tick by at most the
   law's rate at the slowest speed it can have in it (8).
 - **The soak with turned shapes** (`tests/oriented/soak.rs`, seeds 1 to 8) has 24 Hands of Heaven added to its 72
@@ -1223,6 +1235,11 @@ among Peacekeepers, Recruits and Guards.
   **(M5-V3)** **S1**: a SpeedTurnRadiusMovement unit turns in a tick by at most SpinRate × (1 − `v` ÷ MaxSpeed), `v`
   the slowest speed it can have in it, `|momentum|` less the largest of its Acceleration and Deceleration, at least 0
   (`testing/invariants/momentum.rs`; 6.12). I3's bound for it is its MaxSpeed, forward or backing up.
+  **(M5-N10)** **I5 and I7, the hull aim**: a unit without a goal whose Orientation is Turning at the end of a tick
+  turned in place toward its aim in it (`movement::turn_in_place`: the step stands every other unit without a goal,
+  Maintaining, but in a doorway or in flight), and may have moved in it by at most one tick's Acceleration, the
+  back-off or creep of a spin cut short (6.12, `momentum::spin_creep`). A test breaks it on purpose
+  (`tests/hand_of_heaven/hull.rs`).
   **(D)** The switch (`TestSim::check_invariants`) is on by default, so every test that uses a `TestSim` runs them;
   `sc_sim::testing::invariants` has the checker for tests that step a bare `Sim`.
 - **Scenario tests** (`crates/sim/tests/movement_*.rs`, inline ASCII maps): straight move arrives exactly at

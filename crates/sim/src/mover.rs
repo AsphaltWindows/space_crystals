@@ -257,6 +257,17 @@ pub struct Mover {
     /// order has it (`defs::UnitDef::can_reverse`). Left out of files and of the hash while unset (`mover/hash.rs`).
     #[serde(default, skip_serializing_if = "is_false")]
     pub reverses: bool,
+    /// (M5-N10) A point its behaviour asks the unit to turn toward in place in this tick, standing: the
+    /// OrientationChannel's Turning, "rotating toward a target position" (`systems/controls/action_channels.md >
+    /// OrientationChannel`). The hull aim of a unit whose turret's arc is narrower than its targets need
+    /// (`combat::turret::aims_by_hull`, the Hand of Heaven: "the vehicle must **stop and turn its hull** to face
+    /// them"), which so turns toward its target as infantry does ("Orientation = Maintaining (or Turning toward target
+    /// for infantry)", `systems/controls/command_behaviors.md > AttackingObject` 3), set by `orders::engage::close_in`
+    /// and `orders::attack_ground` in phase 5a. Phase 5d takes it from every unit in the same tick, and turns a unit at
+    /// rest with no goal (`movement::turn_in_place`), so it is never set between ticks: neither saved nor hashed
+    /// (`mover/hash.rs`).
+    #[serde(skip)]
+    pub turn_to: Option<Vec2>,
 }
 
 fn is_zero(v: &Vec2) -> bool {
@@ -307,6 +318,7 @@ impl Default for Mover {
             strafe: None,
             takeoff: None,
             reverses: false,
+            turn_to: None,
         }
     }
 }

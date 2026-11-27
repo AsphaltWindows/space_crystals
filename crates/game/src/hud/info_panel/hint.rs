@@ -7,7 +7,8 @@
 //! "W: Build Tunnel (2 Supplies)" (slice M4-J1; design change 0233: "the price shown on the Build button is the next
 //! Tunnel's"; `crate::command_ui::PanelSlot::price`), the placeholder for its tooltip, as a Recruit's does in its
 //! resource, "W: Build Storage (100 Space Crystals)" (slice M5-J1), and so does a Tunnel's Upgrade, "Q: Upgrade Tunnel
-//! (2 Supplies)" (slice M4-G).
+//! (2 Supplies)" (slice M4-G), and (slice M5-N10) a pool building's training, "W: Build Hand of Heaven (150 Space
+//! Crystals)".
 
 use bevy::prelude::*;
 use sc_sim::construction::site::BuildPrice;

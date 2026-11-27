@@ -169,6 +169,25 @@ impl<'a> Unit<'a> {
         (self.turret()).is_none_or(|turret| combat::turret::in_arc(&turret, self.facing, self.pos, at))
     }
 
+    /// (M5-N10) Whether, the point `at` in range, it takes it on from where it stands: within its turret's arc
+    /// ([`Unit::in_arc`]), or outside it if it aims with its hull as well (`combat::turret::aims_by_hull`: the Hand of
+    /// Heaven), whose hull then turns toward it ([`Unit::aim_hull`]): "the vehicle must **stop and turn its hull** to
+    /// face them" (`factions/cults/units/hand_of_heaven.md > TurretAttributes`).
+    pub fn takes_aim(&self, at: Vec2) -> bool {
+        self.in_arc(at) || self.unit_def().is_some_and(combat::turret::aims_by_hull)
+    }
+
+    /// (M5-N10) Stopped to take on the point `at` ([`Unit::takes_aim`]), a unit that aims with its hull turns it toward
+    /// `at` while `at` is outside its turret's arc: it asks phase 5d to turn it there in place (`Mover::turn_to`,
+    /// `movement::turn_in_place`), as infantry turns toward its target ("Orientation = Maintaining (or Turning toward
+    /// target for infantry)", `systems/controls/command_behaviors.md > AttackingObject` 3). Within the arc, its turret
+    /// turns the rest of the way.
+    pub fn aim_hull(&mut self, at: Vec2) {
+        if !self.in_arc(at) && self.unit_def().is_some_and(combat::turret::aims_by_hull) {
+            self.mover.turn_to = Some(at);
+        }
+    }
+
     /// (M5-U1) Its turret, if it has one, locks `target`, or nothing (`AttackState::lock`): what the design calls
     /// setting TurretCommandState.LockedTarget (`systems/controls/commands.md > TurretCommandState`).
     pub fn lock(&mut self, target: Option<ObjectId>) {

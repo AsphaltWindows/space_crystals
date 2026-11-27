@@ -57,7 +57,9 @@
 //! KindMenu (`Reject::NoRecruit`); a KindMenu's training and Release ask the gate (a Release with no free unit of the
 //! kind left: "the second press is greyed"), and so does its Eject All (`Command::Holding`: nothing in the pool, "Only
 //! available if StoredRecruits is not empty"). Its W, Train Gunner, asks the gate too, which refuses it while the player
-//! owns no Gunworks (`Reject::Requires`, "Requires a Gunworks"; slice M5-G2).
+//! owns no Gunworks (`Reject::Requires`, "Requires a Gunworks"; slice M5-G2). (M5-N10) A KindMenu's training names its
+//! recipe's price in its hint, "W: Build Hand of Heaven (150 Space Crystals)" ([`Conditions::price`]), as a Recruit's
+//! Build and a Temple's Research do: greyed or not, the player sees what it costs.
 //!
 //! An Altar's unit type and state tiles (slice M5-N1b, `factions/cults/augmentation.md > Altar >
 //! ObjectInterfaceState[Altar]`: "each tile shows the count of that unit type in StoredUnits; disabled if there are
@@ -151,8 +153,9 @@ pub struct Conditions {
     network: BTreeMap<ObjectKind, u32>,
     /// The price of each Build the ActiveGroup offers (`PanelCommand::Build`), in its resource, as the sim would charge
     /// it now (`Sim::build_price`, design change 0233): a Tunnel's in Supplies, a Cults building's in Space Crystals
-    /// (slice M5-J1); and of a Tunnel's Upgrade, in Supplies (`PanelCommand::UpgradeTunnel`, `Sim::upgrade_price`,
-    /// slice M4-G).
+    /// (slice M5-J1); of a Tunnel's Upgrade, in Supplies (`PanelCommand::UpgradeTunnel`, `Sim::upgrade_price`,
+    /// slice M4-G); and (M5-N10) of a pool building's training (`PanelCommand::TrainFrom`), its recipe's Space
+    /// Crystals, which "queuing an order deducts" (`factions/cults/structures/chop_shop.md > Production`).
     prices: BTreeMap<PanelCommand, BuildPrice>,
     /// Whether the ActiveGroup is a site under construction (`sc_sim::Object::is_site`; design change 0237: "a Tunnel
     /// site is a structure that does nothing but Cancel"), whose panel is its X Cancel Construction, whatever its type
@@ -234,6 +237,11 @@ impl Conditions {
             .filter_map(|&command| match command {
                 PanelCommand::Build(kind) => Some((command, sim.build_price(player, kind)?)),
                 PanelCommand::Research(tech) => Some((command, BuildPrice::crystals(tech.def().cost))),
+                PanelCommand::TrainFrom(kind, _) => {
+                    let building = sim.object(*recipients(selection, command).first()?)?;
+                    let production = building.kind.def().structure.as_ref()?.production.as_ref()?;
+                    Some((command, BuildPrice::crystals(production.recipe(kind)?.cost)))
+                }
                 PanelCommand::UpgradeTunnel => {
                     let tunnel = *recipients(selection, command).first()?;
                     Some((command, BuildPrice::supplies(sim.upgrade_price(tunnel)?)))
@@ -343,10 +351,11 @@ impl Conditions {
         self
     }
 
-    /// What a Build or a Tunnel's Upgrade costs now, in its resource (`Sim::build_price`, `Sim::upgrade_price`), and a
+    /// What a Build or a Tunnel's Upgrade costs now, in its resource (`Sim::build_price`, `Sim::upgrade_price`), a
     /// Temple's Research, its technology's Space Crystals (slice M5-N3; `core/tech_and_research.md > Research > Shared
-    /// Rules` 2: "The cost is deducted when the technology is queued"): `None` for another command, and for the Upgrade
-    /// of a Tunnel at its top tier.
+    /// Rules` 2: "The cost is deducted when the technology is queued"), and (M5-N10) a pool building's training, its
+    /// recipe's Space Crystals (the Chop Shop's "**W: Build Hand of Heaven**", 150): `None` for another command, and
+    /// for the Upgrade of a Tunnel at its top tier.
     pub fn price(&self, command: PanelCommand) -> Option<BuildPrice> {
         self.prices.get(&command).copied()
     }
