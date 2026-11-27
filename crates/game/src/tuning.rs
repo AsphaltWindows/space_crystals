@@ -4,7 +4,7 @@
 //! lift and its shadow's offset). Colours and the other drawing sizes stay with the drawing code, and technical
 //! constants where they are used.
 //!
-//! (M5-X2) Each module is one struct, declared by [`tunables!`] as the sim's tuning modules are: a field per tunable,
+//! (M5-X2) Each module is one struct, declared by `tunables!` as the sim's tuning modules are: a field per tunable,
 //! named as the constant it was, with its doc comment citing the design or saying that it is a placeholder and why; and
 //! the module's `BUILTIN`, its values. The four are the [`ClientTuning`] resource, which the client's systems read and
 //! the data files tune while the game runs (`client/<module>.json`, `crate::data`). A test reads a module's `BUILTIN`.

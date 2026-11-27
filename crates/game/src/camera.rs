@@ -7,7 +7,7 @@
 //!
 //! The game has no zoom (`core/camera.md > Zoom`). The map editor has its own: [`CameraZoom`] scales the view
 //! relative to the game's pixel scale, 28 GU across the full surface width. (Slice M5-X2) In a game, the zoom is the
-//! data files' view width over the built-in one ([`follow_view_width`]), 1 unless they tune it.
+//! data files' view width over the built-in one (`follow_view_width`), 1 unless they tune it.
 //!
 //! The camera looks at view space (`crate::coords`): [`CameraView::center`] is a view point, the cursor maps to a
 //! view point ([`cursor_to_view`]) and from there to the ground drawn under it ([`cursor_to_ground`]), and the view
@@ -58,7 +58,7 @@ pub struct ViewportInsets {
 /// Map editor zoom: how many times more world the view shows than the game, whose scale is 28 GU across the full
 /// surface width (`core/camera.md > Zoom`). Always 1 in the game, which has no zoom, unless (slice M5-X2) a data file
 /// tunes the view's width (`CameraTuning::view_width_gu`): then the tuned width over the built-in one
-/// ([`follow_view_width`]).
+/// (`follow_view_width`).
 #[derive(Resource, Copy, Clone, Debug, PartialEq)]
 pub struct CameraZoom(pub f32);
 

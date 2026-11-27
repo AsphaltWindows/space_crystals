@@ -3,9 +3,9 @@
 //! experiment and make changes rapidly and accurately"): the Rust defaults stay the committed rules, with their
 //! citations and tests, and the files are a tuning layer over them (`docs/tuning.md`).
 //!
-//! - **Export** (`--export-data <dir>`, [`export`]): the built-in rules and tuning written as files that mirror their
+//! - **Export** (`--export-data <dir>`, [`export()`]): the built-in rules and tuning written as files that mirror their
 //!   modules ([`layout`]), pretty-printed in their fields' order ([`ordered`]).
-//! - **Load** ([`load`]): each `.json` file of a directory is a merge patch over its built-in counterpart
+//! - **Load** ([`load()`]): each `.json` file of a directory is a merge patch over its built-in counterpart
 //!   ([`patch`]); an unknown file or member, a value of the wrong kind, a number out of its sign, a change of
 //!   structure (`Ruleset::structural_diff`) or a number the game isn't made for (`Ruleset::check`) is refused, with
 //!   the file and the member.

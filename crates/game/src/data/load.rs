@@ -10,7 +10,7 @@
 //!    number's range), the rules of the built-in rules' structure (`Ruleset::structural_diff`: "structural, which
 //!    needs a change to the Rust default and a rebuild"), their numbers finite (`Ruleset::non_finite`) and within what
 //!    the game is made for (`Ruleset::check`). A problem of the whole is pinned to its file and member by trying
-//!    each changed file alone, then each changed member of it alone ([`locate`]).
+//!    each changed file alone, then each changed member of it alone (`locate`).
 //!
 //! Files whose names start with `.` or `#` or end with `~` (an editor's) are skipped, and so is every file that isn't
 //! `.json`.
