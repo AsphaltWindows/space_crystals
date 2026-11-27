@@ -2659,6 +2659,7 @@ The user keeps feeding unit and other designs to the Designer, so expect increme
 | Q0171 | Does a Shift-queued order end a Target Lock or a Shroud channel, or wait behind it? (as built for Shroud, and being built for Target Lock in M5-K: it waits, T76) | no | answered by 0438 (a queued order waits, as built for Shroud and in M5-K) |
 | Q0172 | Which vehicle bases stand when idle (a TrackedVehicle, a surfaced DrillUnit, a HoverVehicle), and whether a group Reverse uses the magic box (from M5-V2; for M5-V3. Assumed: the tracked bases stand, the HoverVehicle yields; the magic box) | no | answered by 0439 (the magic box) and 0440 (the tracked bases and the surfaced DrillUnit stand, the HoverVehicle yields), both as assumed |
 | Q0173 | Rocketmen against a moving Sparrow: the normal missile always misses one in flight (it aims without leading, and a Sparrow never stops), and a lone group can't lock a strafing one (SightRange 6, LockRange 7). Keep it, raise the sight or shorten the lock, or make the missile lead? (from M5-K) | no | open |
+| Q0174 | The Chop Shop's keys for the Hand of Heaven and the Prayer-mobile, and whether its Production list misses the Prayer-mobile (for M5-N10 and N11. Assumed: W: Build Hand of Heaven, E: Build Prayer-mobile, E greyed until a Temple stands) | no | open |
 
 ## Design change entries
 Last triaged: 0282.
