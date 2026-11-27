@@ -190,6 +190,12 @@ impl Opening for SyndicateOpening {
 /// [`armory_site`], built by the [`BUILDERS`] Recruits nearest it, which go back to their patches after; and
 /// [`MILITANTS`] Militants of the Recruits without a seat, which stay by the Armory (no rally point).
 pub fn cults(sim: &Sim, player: PlayerId) -> Box<dyn Opening> {
+    cults_training(sim, player, MILITANTS)
+}
+
+/// [`cults`], training `militants` Militants rather than [`MILITANTS`]: (slice M5-Mb) the soak's, whose Armory holds
+/// Recruits long enough for the soak to destroy it with Recruits inside (`super::soak`).
+pub fn cults_training(sim: &Sim, player: PlayerId, militants: usize) -> Box<dyn Opening> {
     let mut line = Cults::new(player);
     let storage = (sim.objects()).find(|o| o.owner == Some(player) && o.kind == Storage);
     if let Some(storage) = storage {
@@ -204,7 +210,7 @@ pub fn cults(sim: &Sim, player: PlayerId) -> Box<dyn Opening> {
     if let Some(origin) = armory_site(sim, player) {
         line = line.build(Build::new(Armory, origin, Crew::Nearest(BUILDERS)));
     }
-    Box::new(line.militants(MILITANTS, None))
+    Box::new(line.militants(militants, None))
 }
 
 impl Opening for Cults {

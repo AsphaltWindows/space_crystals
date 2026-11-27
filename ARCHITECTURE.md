@@ -3652,7 +3652,13 @@ their energy doorway, slice M3-D2: design change 0145, `factions/colonists/struc
   incomplete layout and one with a Recruit too many, a layout's Hall flush against the map's edge at 70% (slice M5-S4,
   0387), and a layout's units belonging to its first Hall. `pairings/`
   (slice M5-R) starts every ordered pair of the four factions, 16, on every Skirmish Default map and plays it to a win
-  (*Adding a faction*, item 19). `playtest_map.rs` (slice M5-P3) has `maps/playtest.json`: generated from its
+  (*Adding a faction*, item 19); its ignored `soak_sweep` (slice M5-Mb, `pairings/soak.rs`) plays each with four
+  seeds: the openings with the Cults' Armory destroyed with Recruits inside (the evacuation and its refunds checked),
+  then a fight of debug-spawned extras (the Hand of Heaven crushing, a Sparrow off the map's edge, Suppress, Inspire,
+  the Shrine's two abilities, Shroud, Target Lock), checking T65's invariants (each Cults player's usages and orphans
+  against their units, held units only in buildings that exist, sites within their totals) and the addendum's and
+  later ones (a Glider within its overshoot bound, a crushed unit gone with no Hit, a suppressed unit starting no
+  attack, a buff lasting its full time) after every tick: 192 games in about a minute. `playtest_map.rs` (slice M5-P3) has `maps/playtest.json`: generated from its
   editable part and started in the 16 pairings; each slot's field the reference line of `testing::cults::fields`
   moved, and each of its Storage sites holding the starting Storage or free for a Recruit's Build; the Hall at 100%;
   the Deployment Center seeing and reaching every patch, the crystal hatch 3 grid units from the line, and the Drones

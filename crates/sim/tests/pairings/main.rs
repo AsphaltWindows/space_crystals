@@ -18,9 +18,12 @@
 //!    `core/game_rules.md > End of Game`: "When only **one player or team** is left undefeated, it **wins**").
 //!
 //! The default run plays the first map for 30 s of game time; an ignored one plays every map for 3 minutes. Each
-//! pairing runs on a thread of its own, named after it, so that a panic's message names it too.
+//! pairing runs on a thread of its own, named after it, so that a panic's message names it too. (M5-Mb) The soak sweep
+//! (`soak`, ignored) plays every pairing on every map with several seeds, with an evacuation and a fight between the
+//! openings and the end.
 
 mod openings;
+mod soak;
 
 use std::any::Any;
 use std::fs;
