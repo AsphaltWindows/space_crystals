@@ -9,11 +9,14 @@
 //! editor's play-test ([`TopBarNote`]). The sections are placed at the rectangles of [`layout`], which also find the
 //! portrait or the command button under a click. Two panels show the selection: the InfoPanel ([`info_panel`]) and the
 //! SelectionPanel ([`selection_panel`]); the CommandPanel ([`command_panel`]) shows the commands for it
-//! (`crate::command_ui`), a Place button with its building's progress ([`progress_bar`]). The others show their names,
-//! and so do these three while they have nothing to show. At the end of the game a banner shows Victory, Defeat or
-//! Draw, and a defeated player gives no more commands ([`outcome`]); one defeated with no ally left while the game goes
-//! on leaves for the results screen ([`results`]), over everything below the top bar. Under the top bar, a placeholder
-//! notice tells that a Supply Delivery Station where the player's Agents gather is empty ([`notices`]).
+//! (`crate::command_ui`), a Place button with its building's progress ([`progress_bar`]). The Portrait shows its
+//! name, and so do these three while they have nothing to show. At the end of the game a banner shows Victory, Defeat
+//! or Draw, and a defeated player gives no more commands ([`outcome`]); one defeated with no ally left while the game
+//! goes on leaves for the results screen ([`results`]), over everything below the top bar. Under the top bar, a
+//! placeholder notice tells that a Supply Delivery Station where the player's Agents gather is empty ([`notices`]).
+//! The Minimap ([`minimap`]) shows the whole map under the fog of war with the camera's view on it, and takes clicks:
+//! the camera centres where it is clicked or dragged, and a right-click or a targeting click gives the ground point's
+//! orders.
 //!
 //! The HUD is specific to the game mode: it tells the camera which strip it leaves free through
 //! [`ViewportInsets`], and another mode (the map editor) brings its own UI instead and hides the HUD.
@@ -21,6 +24,7 @@
 pub mod command_panel;
 pub mod info_panel;
 pub mod layout;
+pub mod minimap;
 pub mod notices;
 pub mod outcome;
 pub mod progress_bar;
@@ -149,7 +153,12 @@ impl Plugin for HudPlugin {
         app.insert_resource(HUD_INSETS)
             .init_resource::<selection_panel::SelectionPanelView>()
             .init_resource::<command_panel::CommandPanelView>()
-            .add_plugins((outcome::OutcomePlugin, results::ResultsPlugin, notices::NoticesPlugin))
+            .add_plugins((
+                outcome::OutcomePlugin,
+                results::ResultsPlugin,
+                notices::NoticesPlugin,
+                minimap::MinimapPlugin,
+            ))
             .add_systems(Startup, spawn_hud)
             .add_systems(
                 Update,

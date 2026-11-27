@@ -111,7 +111,17 @@ impl MapTarget {
     /// What is under the view point `view`, whose ground point is `ground`: the object a click there targets among
     /// `objects` ([`CursorTarget::at`]), as `player` knows it in `sim`, else the ground.
     pub fn at(sim: &Sim, player: PlayerId, objects: &Selectables, view: Vec2, ground: Vec2) -> Self {
-        let target = CursorTarget::at(objects, view, ground);
+        Self::of(sim, player, CursorTarget::at(objects, view, ground), ground)
+    }
+
+    /// (M5-MM) The ground at `ground` alone, never an object there: what a click on the minimap is on
+    /// (`systems/controls/hud.md > Minimap > Using it`, the designer's placeholder: "the minimap targets only ground,
+    /// never an object"), as `player` sees it in `sim`.
+    pub fn on_ground(sim: &Sim, player: PlayerId, ground: Vec2) -> Self {
+        Self::of(sim, player, CursorTarget::Ground(ground), ground)
+    }
+
+    fn of(sim: &Sim, player: PlayerId, target: CursorTarget, ground: Vec2) -> Self {
         Self {
             target,
             ground,

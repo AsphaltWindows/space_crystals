@@ -146,6 +146,24 @@ impl<'a> Sight<'a> {
         }
     }
 
+    /// Every tile's state as [`Sight::tile`] has it, row by row from the north-west corner of a map `width` ×
+    /// `height` tiles: the best of the visions watched, all at once. Watching none, every tile is Unexplored; without
+    /// the fog, every tile is Visible. The fog layer's texels (`super::fog_texels`) and the minimap's fog
+    /// (`crate::hud::minimap`) both come from it.
+    pub fn tile_states(&self, width: u32, height: u32) -> Vec<VisibilityState> {
+        let tiles = width as usize * height as usize;
+        if !self.is_fogged() {
+            return vec![VisibilityState::Visible; tiles];
+        }
+        let mut states = vec![VisibilityState::Unexplored; tiles];
+        for vision in self.visions() {
+            for (best, state) in states.iter_mut().zip(vision.states()) {
+                *best = (*best).max(state);
+            }
+        }
+        states
+    }
+
     /// The best of `state` among the visions watched; Unexplored with none.
     fn best(&self, state: impl Fn(&PlayerVision) -> VisibilityState) -> VisibilityState {
         let mut best = VisibilityState::Unexplored;

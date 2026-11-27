@@ -289,7 +289,7 @@ fn pan_camera(actions: Res<ActionState>, time: Res<Time<Real>>, zoom: Res<Camera
 /// `core/camera.md > Panning > Middle-mouse grab`: the press grabs the view point under the cursor, if the cursor
 /// is over the world view; while the button is held, the view follows so that point stays exactly under the cursor,
 /// wherever the cursor goes; the release ends it on the spot, without drift.
-fn grab_pan(
+pub(crate) fn grab_pan(
     actions: Res<ActionState>,
     size: Res<SurfaceSize>,
     insets: Res<ViewportInsets>,
@@ -316,8 +316,9 @@ fn grab_pan(
     }
 }
 
-/// Clamps the view to the map and puts the world camera's viewport, scale and transform where they belong.
-fn apply_camera(
+/// Clamps the view to the map and puts the world camera's viewport, scale and transform where they belong. The
+/// minimap's camera outline follows it (`crate::hud::minimap`).
+pub(crate) fn apply_camera(
     size: Res<SurfaceSize>,
     insets: Res<ViewportInsets>,
     zoom: Res<CameraZoom>,

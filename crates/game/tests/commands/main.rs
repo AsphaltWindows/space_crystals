@@ -60,6 +60,9 @@
 //!
 //! A computer player's player (slice A1, `--ai`: no command from the client's input while it is the local player, the
 //! top bar's "(AI)", F2 to a human player): `computer`.
+//!
+//! The Minimap's clicks (slice M5-MM: a click or a drag centring the camera, a right-click and a targeting click on
+//! the ground point there, no placement and no change of the selection from it) and its panel: `minimap`.
 
 mod agent_ui;
 mod altar;
@@ -73,6 +76,7 @@ mod convert;
 mod expansions;
 mod field_engineer_ui;
 mod indicators;
+mod minimap;
 mod panel;
 mod portals;
 mod production;
