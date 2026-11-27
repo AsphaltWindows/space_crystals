@@ -11,6 +11,8 @@ mod release;
 mod research;
 mod step;
 
+pub(super) use release::exit_half;
+
 use super::Sim;
 use crate::defs::ProductionDef;
 use crate::economy::{ArmyResource, Refund};

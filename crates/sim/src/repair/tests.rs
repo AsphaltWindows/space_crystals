@@ -9,20 +9,6 @@ fn of(kind: ObjectKind) -> Option<(f32, Option<f32>)> {
     terms(kind).map(|terms| (terms.frames, terms.price))
 }
 
-/// The Chop Shop with a test recipe for the Seeker, which no building makes until slice N6: 75 Space Crystals and 320
-/// frames. `crate::sim::repairs`' tests repair a Seeker by it too.
-pub(crate) fn seeker_recipe() -> TestDef {
-    static RECIPES: [Recipe; 1] = [Recipe {
-        kind: ObjectKind::Seeker,
-        cost: 75,
-        frames: 320,
-        requires: &[],
-    }];
-    TestDef::structure(ObjectKind::ChopShop, |structure| {
-        structure.constructs = &RECIPES;
-    })
-}
-
 /// "**Placeholder rate and cost** (designer, 2026-11-26): repairing from 0 to full HP takes **half the target's build
 /// time** with one repairer, and costs **half its price**" (`factions/cults/units/recruit.md > Repair`), by what built
 /// it: a site, an expansion's build, a recipe.
@@ -37,9 +23,9 @@ fn a_repair_takes_half_the_build_time_and_costs_half_the_price() {
     assert_eq!(of(ObjectKind::Tunnel), Some((240.0, None)));
     // The Laser Turret by its Tunnel's build of it (design change 0359): 320 frames, 100 Space Crystals.
     assert_eq!(of(ObjectKind::LaserTurret), Some((160.0, Some(50.0))));
-    // A vehicle by its recipe, "its **Space Crystals only**, not the Recruits it consumed": none makes the Seeker yet.
-    assert_eq!(of(ObjectKind::Seeker), None);
-    let _recipe = seeker_recipe();
+    // A vehicle by its recipe, "its **Space Crystals only**, not the Recruits it consumed": the Seeker by the Chop
+    // Shop's (slice M5-N6; `factions/cults/structures/chop_shop.md > Placeholder stats`: "**Seeker**: 2 Recruits, 75
+    // Space Crystals, 320 frames").
     assert_eq!(of(ObjectKind::Seeker), Some((160.0, Some(37.5))));
 }
 
@@ -48,7 +34,6 @@ fn a_repair_takes_half_the_build_time_and_costs_half_the_price() {
 /// infantry base or a glider.
 #[test]
 fn each_repairer_repairs_what_its_def_says() {
-    let _recipe = seeker_recipe();
     let (recruit, agent, drone) = (ObjectKind::Recruit, ObjectKind::Agent, ObjectKind::Drone);
     for building in [
         ObjectKind::Storage,

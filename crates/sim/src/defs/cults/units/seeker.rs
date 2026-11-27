@@ -10,9 +10,11 @@ use crate::player::Faction;
 
 /// `factions/cults/units/seeker.md`: "The Cults' **light vehicle**: a wheeled ATV/buggy built at the Chop Shop, with a
 /// **machine-gun turret** that fires **low damage at a high rate**, **cannot miss**, and **rotates 360°**". Its numbers
-/// only (slice M5-G2, plan decision T69), its movement and its turret as data: nothing reads its turning radius nor its
-/// turret's arc and rate yet (slices V1 and V2 turn vehicles), and its production at the Chop Shop comes with that
-/// building's slice, so no building makes it yet. Its numbers are the design's "Placeholder stats".
+/// (slice M5-G2, plan decision T69): its Silhouette turns with its facing (slice M5-V1), it drives by its
+/// FixedTurnRadiusMovement and backs up on a Reverse (slice M5-V2, `movement::wheeled`), and it fires from its turret
+/// (slice M5-U1). (M5-N6) The Chop Shop trains it of two Recruits, and it drives out of the exit doorway on side C at
+/// full HP, the Recruits' augmentations lost (design change 0330; `factions/cults/augmentation.md > Persistence`). Its
+/// numbers are the design's "Placeholder stats".
 pub(crate) static SEEKER: ObjectDef = ObjectDef {
     kind: ObjectKind::Seeker,
     name: "Seeker",

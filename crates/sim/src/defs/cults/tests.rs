@@ -343,7 +343,8 @@ fn the_construct_menus_follow_the_design() {
 /// build; a building they don't build yet is a `Planned` entry, by the name of its type, a Cults structure with its
 /// site (every one is in the game's model since slice M5-G2, plan decision T69). Slice M5-G2 makes three of them live:
 /// the Gunworks, the Machine Shop and the Scrap Hangar; slice M5-N2 the Garrison; slice M5-N1b the Altar; slice M5-N3
-/// the Temple; slice M5-N4a the Cathedral; slice M5-N5 the Shrine; slice M5-N7 the Airstrip.
+/// the Temple; slice M5-N4a the Cathedral; slice M5-N5 the Shrine; slice M5-N7 the Airstrip; slice M5-N6 the Chop
+/// Shop, the last: no entry is planned now, every building of the menus being built.
 #[test]
 fn the_construct_menus_list_every_recruit_build_once() {
     let builds: BTreeSet<ObjectKind> = (ObjectKind::ALL.iter().copied())
@@ -371,8 +372,7 @@ fn the_construct_menus_list_every_recruit_build_once() {
             planned.push(kind);
         }
     }
-    let later = [ObjectKind::ChopShop];
-    assert_eq!(planned, later, "the buildings whose slices come later");
+    assert_eq!(planned, [], "the buildings whose slices come later: none");
     let live = [
         ObjectKind::Gunworks,
         ObjectKind::MachineShop,
@@ -383,9 +383,10 @@ fn the_construct_menus_list_every_recruit_build_once() {
         ObjectKind::Cathedral,
         ObjectKind::Shrine,
         ObjectKind::Airstrip,
+        ObjectKind::ChopShop,
     ];
     assert!(
         live.iter().all(|kind| builds.contains(kind)),
-        "slice M5-G2's three, M5-N2's, M5-N1b's, M5-N3's, M5-N4a's, M5-N5's and M5-N7's"
+        "slice M5-G2's three, M5-N2's, M5-N1b's, M5-N3's, M5-N4a's, M5-N5's, M5-N7's and M5-N6's"
     );
 }
